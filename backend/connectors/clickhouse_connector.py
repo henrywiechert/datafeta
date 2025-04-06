@@ -1,7 +1,7 @@
 """Connector for ClickHouse database."""
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from clickhouse_driver import Client
-from backend.models import Database, Table, Column
+from backend.models.data_source import Database, Table, Column
 from .base import BaseConnector
 
 class ClickHouseConnector(BaseConnector):
@@ -78,4 +78,35 @@ class ClickHouseConnector(BaseConnector):
                 columns.append(Column(name=col_name, data_type=col_type))
             return columns
         except Exception as e:
-            raise RuntimeError(f"Error describing table {database}.{table}: {e}") 
+            raise RuntimeError(f"Error describing table {database}.{table}: {e}")
+
+    def fetch_data(self, query: str) -> Tuple[List[Dict[str, str]], List[Dict[str, Any]]]:
+        """Executes a SQL query on ClickHouse and returns column definitions and rows."""
+        if not self.client:
+            raise ConnectionError("Not connected to ClickHouse.")
+
+        try:
+            # Execute the query with column information
+            # result_with_columns: Tuple[list, Tuple[Tuple[str, str], ...]]
+            result, column_info = self.client.execute(query, with_column_types=True)
+
+            # Format column definitions
+            columns = []
+            if column_info:
+                columns = [{'name': col_name, 'type': col_type} for col_name, col_type in column_info]
+
+            # Format rows into dictionaries
+            rows = []
+            if result and columns:
+                col_names = [col['name'] for col in columns]
+                for row_tuple in result:
+                    rows.append(dict(zip(col_names, row_tuple)))
+
+            return columns, rows
+
+        except Exception as e:
+            # Catch specific ClickHouse errors if possible, otherwise raise generic
+            # Log the failing query for easier debugging
+            print(f"Error executing ClickHouse query: {query}\nError: {e}") # Basic logging
+            # Re-raise as a runtime error for the API layer to handle
+            raise RuntimeError(f"Error executing query: {e}")
