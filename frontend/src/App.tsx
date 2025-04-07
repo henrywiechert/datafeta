@@ -1,7 +1,7 @@
 import React, { useState, useEffect, ChangeEvent } from 'react';
 import './/App.css'; // Assuming default CRA CSS exists
 import { apiService } from './apiService';
-import { ConnectionDetails, Database, Table, Column } from './types';
+import { ConnectionDetails, Database, Table, Column, QueryDescription, QueryResult } from './types';
 
 function App() {
   // Connection State
@@ -28,6 +28,11 @@ function App() {
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // State for MAX query test
+  const [maxQueryColumn, setMaxQueryColumn] = useState<string>('');
+  const [maxQueryResult, setMaxQueryResult] = useState<string | null>(null);
+  const [maxQueryError, setMaxQueryError] = useState<string | null>(null);
 
   // Clear dependent state on disconnect or connection type change
   useEffect(() => {
@@ -218,9 +223,16 @@ function App() {
       const dbParam = connectionType === 'clickhouse' ? selectedDatabase! : undefined;
       const response = await apiService.listColumns(targetTable, dbParam);
       setColumns(response.columns);
+      // Reset max query state when columns reload
+      setMaxQueryColumn(response.columns[0]?.name || ''); // Default to first column
+      setMaxQueryResult(null);
+      setMaxQueryError(null);
     } catch (err: any) {
       setError(err.message || 'Failed to load columns');
       setColumns([]);
+      setMaxQueryColumn('');
+      setMaxQueryResult(null);
+      setMaxQueryError(null);
     } finally {
       setIsLoading(false);
     }
@@ -241,6 +253,47 @@ function App() {
     loadColumns(tableName); // Load columns for the new table
   };
 
+  // Handler for the test MAX query
+  const handleGetMax = async () => {
+    if (!selectedTable || !maxQueryColumn) {
+        setMaxQueryError("Please select a table and a column first.");
+        return;
+    }
+
+    setMaxQueryResult(null);
+    setMaxQueryError(null);
+    setIsLoading(true);
+
+    const queryDesc: QueryDescription = {
+        target_table: selectedTable,
+        // target_database is needed for ClickHouse
+        target_database: connectionType === 'clickhouse' ? selectedDatabase || undefined : undefined,
+        dimensions: [],
+        measures: [
+            { field: maxQueryColumn, aggregation: 'max', alias: 'max_value' }
+        ],
+        limit: 1
+    };
+
+    try {
+        const result: QueryResult = await apiService.executeQuery(queryDesc);
+        // Refined check for result
+        if (result.rows && result.rows.length > 0) {
+            const firstRow = result.rows[0];
+            if (firstRow.hasOwnProperty('max_value')) { // Check if the key exists
+                 setMaxQueryResult(String(firstRow['max_value'])); // Display null as "null"
+            } else {
+                 setMaxQueryError("Query executed but expected alias 'max_value' not found in result.");
+            }
+        } else {
+            setMaxQueryResult("No rows returned."); // More specific message
+        }
+    } catch (err: any) {
+        setMaxQueryError(err.message || "Failed to execute MAX query.");
+    } finally {
+        setIsLoading(false);
+    }
+  };
 
   return (
     <div className="App">
@@ -342,6 +395,26 @@ function App() {
                  </table>
                ) : (
                    !isLoading && <p>No columns found or table not selected.</p>
+               )}
+
+               {/* --- MAX Query Test UI --- */}
+               {columns.length > 0 && (
+                 <div style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '15px' }}>
+                   <h4>Test MAX Query</h4>
+                   <label>Column:</label>
+                   <select value={maxQueryColumn} onChange={(e) => setMaxQueryColumn(e.target.value)} disabled={isLoading}>
+                     {columns.map(col => (
+                       // Simple heuristic: only offer columns that don't look explicitly like strings
+                       // This is basic, real type checking would be better
+                       !col.data_type.toLowerCase().includes('string') &&
+                       !col.data_type.toLowerCase().includes('uuid') &&
+                       <option key={col.name} value={col.name}>{col.name} ({col.data_type})</option>
+                     ))}
+                   </select>
+                   <button onClick={handleGetMax} disabled={isLoading || !maxQueryColumn} style={{ marginLeft: '10px' }}>Get MAX</button>
+                   {maxQueryError && <p style={{ color: 'red' }}>Error: {maxQueryError}</p>}
+                   {maxQueryResult !== null && <p>Result: <strong>{maxQueryResult}</strong></p>}
+                 </div>
                )}
              </div>
           )}

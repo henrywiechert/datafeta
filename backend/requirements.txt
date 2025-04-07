@@ -3,4 +3,5 @@ uvicorn[standard]
 pandas
 clickhouse-driver
 python-multipart
-pypika 
+pypika
+duckdb 
