@@ -36,4 +36,46 @@ export interface TableListResponse {
 
 export interface ColumnListResponse {
     columns: Column[];
+}
+
+// --- Query API Types --- //
+
+export interface Measure {
+    field: string;
+    aggregation: 'sum' | 'avg' | 'count' | 'count_distinct' | 'min' | 'max';
+    alias: string;
+}
+
+export interface Filter {
+    field: string;
+    operator: '=' | '!=' | '>' | '<' | '>=' | '<=' | 'in' | 'not in' | 'like' | 'ilike' | 'is null' | 'is not null';
+    value: any;
+}
+
+export interface OrderBy {
+    field: string;
+    direction?: 'asc' | 'desc';
+}
+
+export interface QueryDescription {
+    target_table: string;
+    target_database?: string;
+    dimensions?: string[];
+    measures?: Measure[];
+    filters?: Filter[];
+    orderBy?: OrderBy[];
+    limit?: number;
+    offset?: number;
+}
+
+export interface QueryResultColumn {
+    name: string;
+    type: string;
+}
+
+export interface QueryResult {
+    columns: QueryResultColumn[];
+    rows: Record<string, any>[]; // Array of row objects
+    row_count: number;
+    error?: string;
 } 

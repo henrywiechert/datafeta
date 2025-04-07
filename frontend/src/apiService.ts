@@ -1,4 +1,4 @@
-import { ConnectionDetails, DatabaseListResponse, TableListResponse, ColumnListResponse } from './types';
+import { ConnectionDetails, DatabaseListResponse, TableListResponse, ColumnListResponse, QueryDescription, QueryResult } from './types';
 
 const API_BASE_URL = 'http://localhost:8000/api/v1/data'; // Ensure your backend runs on port 8000
 
@@ -95,5 +95,33 @@ export const apiService = {
             throw new Error(errorData.detail || 'Failed to list columns');
         }
         return response.json();
+    },
+
+    async executeQuery(queryDesc: QueryDescription): Promise<QueryResult> {
+        const response = await fetch(`${API_BASE_URL}/query`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(queryDesc),
+        });
+
+        // Reuse the improved error handling from connect/other fetches if needed,
+        // but for now, let's assume QueryResult structure or standard detail.
+        if (!response.ok) {
+            let errorMessage = `Query failed with status ${response.status}`;
+            try {
+                 const errorData = await response.json();
+                 errorMessage = errorData.detail || JSON.stringify(errorData);
+            } catch (e) { /* Ignore parsing error, use default message */ }
+            throw new Error(errorMessage);
+        }
+
+        const result: QueryResult = await response.json();
+        // Check for backend errors returned within the QueryResult
+        if (result.error) {
+            throw new Error(result.error);
+        }
+        return result;
     },
 }; 

@@ -1,10 +1,15 @@
 """Service responsible for translating query descriptions into executable queries."""
 
+import logging # Import logging
 from backend.models.query import QueryDescription, Measure, Filter, OrderBy
 from typing import Any, Dict, List
 from pypika import Query, Table, Criterion, Order, Field
 from pypika.functions import Count, Sum, Avg, Min, Max
 from pypika.terms import Function, PseudoColumn
+from backend.exceptions import QueryGenerationError
+
+# Get logger for this module
+logger = logging.getLogger(__name__)
 
 # Mapping from our model to Pypika functions
 # Using Function for distinct count to generate COUNT(DISTINCT `field_name`)
@@ -13,7 +18,7 @@ AGGREGATION_MAP = {
     'sum': Sum,
     'avg': Avg,
     'count': Count,
-    'count_distinct': lambda field_term: Function('COUNT', PseudoColumn(f'DISTINCT {field_term.get_sql(quote_char="`")}')),
+    'count_distinct': lambda field_term: Count(field_term, distinct=True),
     'min': Min,
     'max': Max,
 }
@@ -43,15 +48,26 @@ class QueryService:
 
         Args:
             query_desc: The validated query description object.
-            table_name: The name of the table to query.
+            table_name: The name of the table to query (used as fallback or for non-schema sources).
             db_type: The type of database (e.g., 'clickhouse', 'duckdb') - may affect syntax slightly.
 
         Returns:
             A SQL query string.
         """
-        # Ensure table name is quoted to handle potential special characters/keywords
-        # Use backticks as default, suitable for ClickHouse and DuckDB
-        t = Table(table_name)
+        # Choose quote character based on target DB type
+        if db_type == 'clickhouse':
+            quote_char = '`' # Backticks for ClickHouse
+        else: # Default to standard double quotes (e.g., for DuckDB)
+            quote_char = '"'
+
+        # Create table reference, including schema (database) if provided
+        if db_type == 'clickhouse' and query_desc.target_database:
+            actual_table_name = query_desc.target_table
+            t = Table(actual_table_name, schema=query_desc.target_database)
+        else:
+            actual_table_name = query_desc.target_table
+            t = Table(actual_table_name)
+
         q = Query.from_(t)
 
         # SELECT Clause (Dimensions + Measures)
@@ -64,17 +80,16 @@ class QueryService:
         for measure in query_desc.measures:
             agg_func_builder = AGGREGATION_MAP.get(measure.aggregation)
             if not agg_func_builder:
-                raise ValueError(f"Unsupported aggregation function: {measure.aggregation}")
+                raise QueryGenerationError(f"Unsupported aggregation function: {measure.aggregation}")
 
-            # Ensure field names used in aggregations are quoted (done by t[...])
             field_term = t[measure.field]
             agg_term = agg_func_builder(field_term)
-            # Use Field() for alias to ensure it's treated correctly, don't quote alias
-            select_fields.append(agg_term.as_(Field(measure.alias)))
+            # Pass alias as a simple string to .as_()
+            select_fields.append(agg_term.as_(measure.alias))
             all_aliases.add(measure.alias)
 
         if not select_fields:
-             raise ValueError("Query must have at least one dimension or measure.")
+             raise QueryGenerationError("Query must have at least one dimension or measure.")
 
         q = q.select(*select_fields)
 
@@ -83,7 +98,7 @@ class QueryService:
         for f in query_desc.filters:
             operator_func = OPERATOR_MAP.get(f.operator)
             if not operator_func:
-                 raise ValueError(f"Unsupported filter operator: {f.operator}")
+                 raise QueryGenerationError(f"Unsupported filter operator: {f.operator}")
 
             # Ensure field name is quoted (done by t[...])
             field = t[f.field]
@@ -93,7 +108,7 @@ class QueryService:
                 criteria.append(operator_func(field, None))
             elif f.operator in ['in', 'not in']:
                  if not isinstance(value, list):
-                     raise ValueError(f"Value for '{f.operator}' must be a list.")
+                     raise QueryGenerationError(f"Value for '{f.operator}' operator must be a list.")
                  # Pypika expects a tuple for isin
                  criteria.append(operator_func(field, tuple(value)))
             else:
@@ -114,30 +129,32 @@ class QueryService:
 
         # ORDER BY Clause
         for order in query_desc.orderBy:
-             # Check if the field is an alias or a direct table field
              if order.field in all_aliases:
-                 field_term = Field(order.field)
+                 # Use the alias string directly
+                 field_term = order.field
              else:
                  field_term = t[order.field]
 
              pypika_order = Order.desc if order.direction == 'desc' else Order.asc
+             # Pypika needs the field term (string or Field object) for order by
+             # If it's an alias string, Pypika should handle it correctly.
+             # If it's a table field, t[order.field] provides the Field object.
              q = q.orderby(field_term, order=pypika_order)
 
         # LIMIT and OFFSET Clause
         if query_desc.limit is not None:
             if query_desc.limit < 0:
-                 raise ValueError("Limit cannot be negative.")
+                 raise QueryGenerationError("Limit cannot be negative.")
             q = q.limit(query_desc.limit)
         if query_desc.offset is not None:
             if query_desc.offset < 0:
-                raise ValueError("Offset cannot be negative.")
+                raise QueryGenerationError("Offset cannot be negative.")
             q = q.offset(query_desc.offset)
 
-        # Compile the query to string
-        # Use backticks as default quoting, compatible with ClickHouse/DuckDB
-        sql_string = q.get_sql(quote_char='`')
+        # Compile the query to string using the chosen quote char
+        sql_string = q.get_sql(quote_char=quote_char)
 
-        print(f"Generated SQL ({db_type}): {sql_string}") # Logging for debug
+        logger.debug(f"Generated SQL ({db_type} using quote '{quote_char}'): {sql_string}")
         return sql_string
 
     # Potential future methods:
