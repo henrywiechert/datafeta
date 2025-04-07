@@ -1,0 +1,30 @@
+.columnListDivider {
+  margin-top: 16px; /* Assuming theme.spacing(2) */
+  margin-bottom: 16px; /* Assuming theme.spacing(2) */
+}
+
+.columnList {
+  max-height: 400px;
+  overflow-y: auto;
+  background-color: var(--mui-palette-background-paper, #fff); /* Use MUI variable or fallback */
+  border: 1px solid #ddd;
+  border-radius: 4px; /* Assuming theme.shape.borderRadius */
+}
+
+.columnListItem {
+  padding-top: 4px; /* Assuming theme.spacing(0.5) */
+  padding-bottom: 4px; /* Assuming theme.spacing(0.5) */
+}
+
+/* Styles for list item text (if needed, often handled by MUI props) */
+.listItemPrimary {
+  /* Example: font-weight: bold; */
+}
+
+.listItemSecondary {
+  /* Example: font-style: italic; */
+}
+
+.noColumnsText {
+  /* Style for the 'No columns found' text if needed */
+}
