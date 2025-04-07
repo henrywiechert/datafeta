@@ -1,7 +1,7 @@
 """Base class for data source connectors."""
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any
-from backend.models import Database, Table, Column
+from typing import List, Dict, Any, Tuple
+from backend.models.data_source import Database, Table, Column
 
 class BaseConnector(ABC):
 
@@ -28,6 +28,21 @@ class BaseConnector(ABC):
     @abstractmethod
     def list_columns(self, database: str, table: str) -> List[Column]:
         """List columns and their types for a specific table."""
+        pass
+
+    @abstractmethod
+    def fetch_data(self, query: str) -> Tuple[List[Dict[str, str]], List[Dict[str, Any]]]:
+        """
+        Executes a query and fetches data.
+
+        Args:
+            query: The executable query string (e.g., SQL).
+
+        Returns:
+            A tuple containing:
+            - List of column definitions (e.g., [{'name': 'col1', 'type': 'String'}, ...])
+            - List of data rows (e.g., [{'col1': 'valA', 'col2': 123}, ...])
+        """
         pass
 
     # Later: Add method for fetching data

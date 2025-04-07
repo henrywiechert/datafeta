@@ -1,8 +1,8 @@
 """Connector for CSV files."""
 import pandas as pd
 import os
-from typing import List, Dict, Any
-from backend.models import Database, Table, Column
+from typing import List, Dict, Any, Tuple
+from backend.models.data_source import Database, Table, Column
 from .base import BaseConnector
 import io
 
@@ -70,6 +70,17 @@ class CsvConnector(BaseConnector):
                  raise RuntimeError(f"Failed to read columns from CSV header {self.file_path}: {e}")
         except Exception as e:
             raise RuntimeError(f"Failed to read columns from CSV {self.file_path}: {e}")
+
+    def fetch_data(self, query: str) -> Tuple[List[Dict[str, str]], List[Dict[str, Any]]]:
+        """Placeholder for fetching data from CSV. Currently not implemented."""
+        # This needs to be implemented using DuckDB or Pandas execution based on query
+        # For now, raise an error or return empty
+        print("Warning: CsvConnector.fetch_data called with query:", query)
+        # Option 1: Raise error
+        # raise NotImplementedError("Data fetching via query is not implemented for CSV connector yet.")
+        # Option 2: Return empty result (might be friendlier for initial API testing)
+        print("Returning empty result for CSV query as it is not implemented.")
+        return [], []
 
     # TODO later: Implement fetch_data that reads from self.file_path potentially with chunking
 

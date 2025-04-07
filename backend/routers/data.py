@@ -1,14 +1,16 @@
 """API router for data source operations."""
-from fastapi import APIRouter, HTTPException, Form, File, UploadFile, Depends
+from fastapi import APIRouter, HTTPException, Form, File, UploadFile, Depends, Body
 from typing import Dict, Any, List, Optional
 import shutil
 import tempfile
 import os
 from pydantic import ValidationError
 
-from backend.models import (
-    DataSource, DatabaseListResponse, TableListResponse, ColumnListResponse, ConnectionDetails
+from backend.models.data_source import (
+    ConnectionDetails, DatabaseListResponse, TableListResponse, ColumnListResponse
 )
+from backend.models.query import QueryDescription, QueryResult
+from backend.services.query_service import QueryService
 from backend.connectors.base import BaseConnector
 from backend.connectors.csv_connector import CsvConnector
 from backend.connectors.clickhouse_connector import ClickHouseConnector
@@ -42,6 +44,8 @@ async def connect_to_datasource(
     global current_connector, current_connection_details, current_csv_temp_path # Add new global
     temp_file_path = None
     connection_details: ConnectionDetails
+
+    print(connection_details_json)
 
     # --- Reset state before attempting connection --- START
     # Disconnect previous if exists
@@ -217,4 +221,100 @@ def list_columns(table: str, database: str = None):
         columns = current_connector.list_columns(database=database, table=table)
         return ColumnListResponse(columns=columns)
     except (ConnectionError, RuntimeError, ValueError) as e:
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- Query Endpoint --- #
+
+@router.post("/query", response_model=QueryResult, response_model_exclude_none=True)
+async def execute_query(query_desc: QueryDescription = Body(...)):
+    """Translates a query description, executes it via the current connector, and returns results."""
+    global current_connector, current_connection_details
+
+    if not current_connector or not current_connection_details:
+        raise HTTPException(status_code=400, detail="Not connected to any data source.")
+
+    # --- Basic Validation --- #
+    # Ensure target table/db in query description match the connection context if possible
+    # This logic might need refinement based on how you manage selected table/db state globally
+
+    # For CSV, the table name must match the one derived from the filename
+    if current_connection_details.type == 'csv':
+        # Assuming CsvConnector stores the table name in _table_name
+        expected_table = getattr(current_connector, '_table_name', None)
+        if not expected_table or query_desc.target_table != expected_table:
+             raise HTTPException(
+                status_code=400,
+                detail=f"Query target table '{query_desc.target_table}' does not match connected CSV table '{expected_table}'."
+            )
+    # For ClickHouse, ensure a database was provided in the query description
+    elif current_connection_details.type == 'clickhouse':
+        if not query_desc.target_database:
+            raise HTTPException(
+                status_code=400,
+                detail="target_database must be provided in the query description for ClickHouse."
+            )
+        # We could also potentially validate against current_connection_details.database if it was set during connection
+
+    # --- Generate SQL using QueryService --- #
+    query_service = QueryService()
+    sql_query: str
+    db_type = current_connection_details.type # Pass db_type for potential dialect handling
+
+    try:
+        # Validate QueryDescription using Pydantic (already done by FastAPI, but good practice)
+        # query_desc = QueryDescription(**query_dict) # Already done by FastAPI
+
+        # Translate to SQL
+        sql_query = query_service.translate_to_sql(
+            query_desc=query_desc,
+            table_name=query_desc.target_table, # Use table from query desc
+            db_type=db_type
+        )
+
+    except ValueError as e:
+        # Catch translation errors (e.g., unsupported function, bad format)
+        raise HTTPException(status_code=400, detail=f"Query generation error: {e}")
+    except Exception as e:
+        # Catch unexpected translation errors
+        print(f"Unexpected error during query translation: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error during query generation.")
+
+    # --- Execute Query via Connector --- #
+    try:
+        # Remove await, as fetch_data is synchronous for ClickHouse (and Base class)
+        columns, rows = current_connector.fetch_data(sql_query)
+        return QueryResult(
+            columns=columns,
+            rows=rows,
+            row_count=len(rows),
+            error=None
+        )
+    except NotImplementedError as e:
+        # Handle connectors that haven't implemented fetch_data (like CSV currently)
+        return QueryResult(
+             columns=[],
+             rows=[],
+             row_count=0,
+             error=str(e)
+         )
+    except (ConnectionError, RuntimeError) as e:
+        # Handle errors during query execution by the connector
+        return QueryResult(
+            columns=[],
+            rows=[],
+            row_count=0,
+            error=f"Query execution error: {e}"
+        )
+        # Or re-raise as HTTPException:
+        # raise HTTPException(status_code=500, detail=f"Query execution error: {e}")
+    except Exception as e:
+        # Catch unexpected execution errors
+        print(f"Unexpected error during query execution: {e}")
+        return QueryResult(
+             columns=[],
+             rows=[],
+             row_count=0,
+             error="An unexpected server error occurred during query execution."
+         )
+        # Or re-raise:
+        # raise HTTPException(status_code=500, detail="An unexpected server error occurred during query execution.") 

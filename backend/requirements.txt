@@ -2,4 +2,5 @@ fastapi
 uvicorn[standard]
 pandas
 clickhouse-driver
-python-multipart 
+python-multipart
+pypika 
