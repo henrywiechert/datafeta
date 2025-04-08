@@ -1,0 +1,48 @@
+.pageContainer {
+  /* Example: Add padding or other page-level container styles if needed */
+  /* margin-top: 24px; theme.spacing(3) */ /* Removed nested comment */
+}
+
+.mainLayoutBox {
+  display: flex;
+  gap: 16px; /* Assuming theme.spacing(2) */
+  margin-top: 16px; /* Assuming theme.spacing(2) */
+}
+
+.leftPanelBox {
+  width: 300px; /* Default width */
+  flex-shrink: 0;
+}
+
+/* Responsive width for left panel */
+@media (max-width: 900px) { /* Corresponds to MUI 'md' breakpoint */
+  .leftPanelBox {
+    width: 100%;
+  }
+  .mainLayoutBox {
+    flex-direction: column;
+  }
+}
+
+.rightPanelBox {
+  flex-grow: 1;
+}
+
+/* Styles for loading/error states if needed */
+.loadingContainer {
+  text-align: center;
+  margin-top: 40px; /* Assuming theme.spacing(5) */
+}
+
+.loadingText {
+  margin-top: 16px; /* Assuming theme.spacing(2) */
+}
+
+.notConnectedContainer {
+  text-align: center;
+  margin-top: 40px; /* Assuming theme.spacing(5) */
+}
+
+.notConnectedAlert {
+  margin-bottom: 16px; /* Assuming theme.spacing(2) */
+}

@@ -1,0 +1,8 @@
+.chartArea {
+  min-height: 400px;
+  padding: 16px; /* Assuming theme.spacing(2) */
+  border: 1px dashed grey;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

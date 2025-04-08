@@ -1,0 +1,15 @@
+.formControl {
+  margin-bottom: 16px; /* Assuming theme.spacing(2) */
+}
+
+.loadingBox {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px; /* Assuming theme.spacing(2) */
+  margin-bottom: 16px; /* Assuming theme.spacing(2) */
+}
+
+.errorAlert {
+  margin-top: 8px; /* Assuming theme.spacing(1) */
+  margin-bottom: 8px; /* Assuming theme.spacing(1) */
+}

@@ -1,0 +1,7 @@
+.panelPaper {
+  padding: 16px; /* Assuming theme.spacing(2) */
+  height: 100%;
+  /* Add other paper-specific styles if needed */
+}
+
+/* Note: The container Box styles (width, flexShrink) are now applied directly in VisualizationPage.tsx */
