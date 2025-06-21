@@ -74,8 +74,22 @@ export interface QueryResultColumn {
 }
 
 export interface QueryResult {
-    columns: QueryResultColumn[];
-    rows: Record<string, any>[]; // Array of row objects
-    row_count: number;
+    columns: string[];
+    rows: (string | number | null)[][];
+    query_sql?: string;
     error?: string;
+}
+
+// --- New Types for Draggable Fields ---
+
+export type FieldType = 'dimension' | 'measure';
+export type Aggregation = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'count_distinct';
+export type Flavour = 'discrete' | 'continuous';
+
+export interface Field {
+  id: string; // A unique ID for each chip instance
+  columnName: string;
+  type: FieldType;
+  aggregation?: Aggregation; // Optional, as dimensions don't have it
+  flavour: Flavour;
 } 

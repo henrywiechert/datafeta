@@ -6,3 +6,12 @@
   align-items: center;
   justify-content: center;
 }
+
+.container {
+    flex-grow: 1;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #fcfcfc;
+  }
