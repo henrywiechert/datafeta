@@ -8,4 +8,9 @@
     align-items: center;
     justify-content: center;
     background-color: #f9f9f9;
-  } 
+}
+
+.dropLine {
+    pointer-events: none;
+    transition: all 0.2s ease;
+} 

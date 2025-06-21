@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { useDrag } from 'react-dnd';
-import { Field, FieldType, Aggregation, Flavour } from '../../types';
+import { Field } from '../../types';
 import styles from './FieldChip.module.css';
 import ContextMenu from './ContextMenu';
 import menuStyles from './ContextMenu.module.css';
@@ -18,22 +18,24 @@ export type DragSource = 'AVAILABLE_FIELDS' | 'X_AXIS' | 'Y_AXIS';
 export interface FieldDragItem {
     field: Field;
     source: DragSource;
+    index?: number; // Index of the field in its current axis for reordering
 }
 
 interface FieldChipProps {
   field: Field;
   source: DragSource; // The chip now needs to know its own location
   onUpdate: (field: Field) => void;
+  index?: number; // Index of the field in its axis for reordering
 }
 
-const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate }) => {
+const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index }) => {
   const ref = useRef<HTMLDivElement>(null);
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
 
   const [{ isDragging }, drag] = useDrag({
     type: ItemTypes.FIELD,
-    // Include the source in the dragged item
-    item: { field: { ...field }, source: source } as FieldDragItem,
+    // Include the source and index in the dragged item
+    item: { field: { ...field }, source: source, index: index } as FieldDragItem,
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
@@ -91,7 +93,7 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate }) => {
     <>
       <div
         ref={ref}
-        className={styles.chip}
+        className={`${styles.chip} field-chip`}
         onContextMenu={handleContextMenu}
         style={{ opacity: isDragging ? 0.5 : 1 }}
       >

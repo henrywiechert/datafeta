@@ -31,11 +31,29 @@ export function useVisualizationState() {
         }
     }, []);
 
-    const handleDrop = useCallback((targetAxis: 'x' | 'y', item: FieldDragItem) => {
-        const { field, source } = item;
+    const handleDrop = useCallback((targetAxis: 'x' | 'y', item: FieldDragItem, insertIndex?: number) => {
+        const { field, source, index: sourceIndex } = item;
 
-        // Rule: If dropping on the same axis it came from, do nothing.
+        // Rule: If dropping on the same axis it came from with reordering
         if ((targetAxis === 'x' && source === 'X_AXIS') || (targetAxis === 'y' && source === 'Y_AXIS')) {
+            // Handle reordering within the same axis
+            if (insertIndex !== undefined && sourceIndex !== undefined) {
+                if (targetAxis === 'x') {
+                    setXAxisFields(prev => {
+                        const newFields = [...prev];
+                        const [movedField] = newFields.splice(sourceIndex, 1);
+                        newFields.splice(insertIndex, 0, movedField);
+                        return newFields;
+                    });
+                } else {
+                    setYAxisFields(prev => {
+                        const newFields = [...prev];
+                        const [movedField] = newFields.splice(sourceIndex, 1);
+                        newFields.splice(insertIndex, 0, movedField);
+                        return newFields;
+                    });
+                }
+            }
             return;
         }
 
@@ -44,10 +62,27 @@ export function useVisualizationState() {
         
         // Action: Add the field to the target axis
         const fieldToAdd = source === 'AVAILABLE_FIELDS' ? { ...field, id: uuidv4() } : field;
+        
         if (targetAxis === 'x') {
-            setXAxisFields(prev => [...prev, fieldToAdd]);
+            setXAxisFields(prev => {
+                if (insertIndex !== undefined) {
+                    const newFields = [...prev];
+                    newFields.splice(insertIndex, 0, fieldToAdd);
+                    return newFields;
+                } else {
+                    return [...prev, fieldToAdd];
+                }
+            });
         } else {
-            setYAxisFields(prev => [...prev, fieldToAdd]);
+            setYAxisFields(prev => {
+                if (insertIndex !== undefined) {
+                    const newFields = [...prev];
+                    newFields.splice(insertIndex, 0, fieldToAdd);
+                    return newFields;
+                } else {
+                    return [...prev, fieldToAdd];
+                }
+            });
         }
     }, [handleRemoveFromAxis]);
 

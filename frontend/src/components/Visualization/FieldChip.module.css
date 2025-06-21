@@ -9,8 +9,8 @@
     border: 1px solid #ccc;
     cursor: grab;
     display: inline-block;
-  }
-  
-  .chip:active {
+}
+
+.chip:active {
     cursor: grabbing;
-  } 
+} 

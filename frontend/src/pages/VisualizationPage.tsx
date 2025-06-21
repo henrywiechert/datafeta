@@ -80,16 +80,16 @@ const VisualizationLayout = () => {
 
             <div className={styles.mainCanvas}>
                 <DropZones>
-                    <DropZone onDrop={(item) => handleDrop('x', item)} axis="x">
+                    <DropZone onDrop={(item, insertIndex) => handleDrop('x', item, insertIndex)} axis="x">
                         <strong>X-Axis:</strong>
-                        {xAxisFields.map(field => (
-                            <FieldChip key={field.id} field={field} onUpdate={handleFieldUpdate} source="X_AXIS" />
+                        {xAxisFields.map((field, index) => (
+                            <FieldChip key={field.id} field={field} onUpdate={handleFieldUpdate} source="X_AXIS" index={index} />
                         ))}
                     </DropZone>
-                    <DropZone onDrop={(item) => handleDrop('y', item)} axis="y">
+                    <DropZone onDrop={(item, insertIndex) => handleDrop('y', item, insertIndex)} axis="y">
                         <strong>Y-Axis:</strong>
-                        {yAxisFields.map(field => (
-                            <FieldChip key={field.id} field={field} onUpdate={handleFieldUpdate} source="Y_AXIS" />
+                        {yAxisFields.map((field, index) => (
+                            <FieldChip key={field.id} field={field} onUpdate={handleFieldUpdate} source="Y_AXIS" index={index} />
                         ))}
                     </DropZone>
                 </DropZones>
