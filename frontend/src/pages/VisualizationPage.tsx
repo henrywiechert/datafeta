@@ -13,8 +13,8 @@ import { Select, MenuItem, FormControl, InputLabel, CircularProgress, Alert, Sel
 function VisualizationPage() {
     const {
         connectionDetails,
-        xAxisField,
-        yAxisField,
+        xAxisFields,
+        yAxisFields,
         availableFields,
         databases,
         tables,
@@ -71,11 +71,15 @@ function VisualizationPage() {
                     <DropZones>
                         <DropZone onDrop={(item) => handleDrop('x', item)} axis="x">
                             <strong>X-Axis:</strong>
-                            {xAxisField && <FieldChip field={xAxisField} onUpdate={handleFieldUpdate} />}
+                            {xAxisFields.map(field => (
+                                <FieldChip key={field.id} field={field} onUpdate={handleFieldUpdate} />
+                            ))}
                         </DropZone>
                         <DropZone onDrop={(item) => handleDrop('y', item)} axis="y">
                             <strong>Y-Axis:</strong>
-                            {yAxisField && <FieldChip field={yAxisField} onUpdate={handleFieldUpdate} />}
+                            {yAxisFields.map(field => (
+                                <FieldChip key={field.id} field={field} onUpdate={handleFieldUpdate} />
+                            ))}
                         </DropZone>
                     </DropZones>
                     <ChartArea />

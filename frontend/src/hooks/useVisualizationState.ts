@@ -8,8 +8,8 @@ export function useVisualizationState() {
     const { connectionDetails } = useConnection();
 
     // DND state
-    const [xAxisField, setXAxisField] = useState<Field | null>(null);
-    const [yAxisField, setYAxisField] = useState<Field | null>(null);
+    const [xAxisFields, setXAxisFields] = useState<Field[]>([]);
+    const [yAxisFields, setYAxisFields] = useState<Field[]>([]);
 
     // Metadata state
     const [availableFields, setAvailableFields] = useState<Field[]>([]);
@@ -25,17 +25,26 @@ export function useVisualizationState() {
     const handleDrop = useCallback((axis: 'x' | 'y', item: Field) => {
         const newField = { ...item, id: uuidv4() };
         if (axis === 'x') {
-            setXAxisField(newField);
+            setXAxisFields(prevFields => [...prevFields, newField]);
         } else {
-            setYAxisField(newField);
+            setYAxisFields(prevFields => [...prevFields, newField]);
         }
     }, []);
 
     const handleFieldUpdate = useCallback((updatedField: Field) => {
-        if (xAxisField?.id === updatedField.id) setXAxisField(updatedField);
-        else if (yAxisField?.id === updatedField.id) setYAxisField(updatedField);
-        else setAvailableFields(prev => prev.map(f => f.id === updatedField.id ? updatedField : f));
-    }, [xAxisField, yAxisField]);
+        // Check if the field is on the X axis
+        setXAxisFields(prevFields => 
+            prevFields.map(f => f.id === updatedField.id ? updatedField : f)
+        );
+        // Check if the field is on the Y axis
+        setYAxisFields(prevFields =>
+            prevFields.map(f => f.id === updatedField.id ? updatedField : f)
+        );
+        // Check if the field is in the available list
+        setAvailableFields(prevFields =>
+            prevFields.map(f => f.id === updatedField.id ? updatedField : f)
+        );
+    }, []);
 
     const handleDatabaseSelect = useCallback((dbName: string) => {
         setSelectedDatabase(dbName);
@@ -121,8 +130,8 @@ export function useVisualizationState() {
     // --- Return all state and handlers ---
     return {
         connectionDetails,
-        xAxisField,
-        yAxisField,
+        xAxisFields,
+        yAxisFields,
         availableFields,
         databases,
         tables,
