@@ -1,0 +1,27 @@
+.menu {
+    position: absolute;
+    z-index: 1000;
+    background-color: white;
+    border: 1px solid #ccc;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+    padding: 4px 0;
+    min-width: 150px;
+    font-family: sans-serif;
+  }
+  
+  .menuItem {
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  
+  .menuItem:hover {
+    background-color: #f0f0f0;
+  }
+  
+  .separator {
+    height: 1px;
+    background-color: #e0e0e0;
+    margin: 4px 0;
+  } 

@@ -4,4 +4,4 @@ pandas
 clickhouse-driver
 python-multipart
 pypika
-duckdb 
+duckdb

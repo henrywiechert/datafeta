@@ -1,0 +1,16 @@
+.chip {
+    padding: 8px 12px;
+    margin: 4px;
+    border-radius: 16px;
+    background-color: #e0e0e0;
+    color: #333;
+    font-family: sans-serif;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    cursor: grab;
+    display: inline-block;
+  }
+  
+  .chip:active {
+    cursor: grabbing;
+  } 

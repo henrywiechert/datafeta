@@ -1,16 +1,12 @@
 import React from 'react';
-import {
-  Paper,
-  Typography
-} from '@mui/material';
 import styles from './ChartArea.module.css';
 
-function ChartArea() {
+const ChartArea: React.FC = () => {
   return (
-    <Paper variant="outlined" className={styles.chartArea}>
-      <Typography variant="body1" color="text.secondary">Chart Area</Typography>
-    </Paper>
+    <div className={styles.container}>
+      <p>Chart will be displayed here</p>
+    </div>
   );
-}
+};
 
 export default ChartArea; 
