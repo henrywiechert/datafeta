@@ -1,16 +1,17 @@
-import React from 'react';
-import { DndProvider } from 'react-dnd';
+import React, { useRef } from 'react';
+import { DndProvider, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { useVisualizationState } from '../hooks/useVisualizationState';
-import FieldChip from '../components/Visualization/FieldChip';
+import FieldChip, { ItemTypes, FieldDragItem } from '../components/Visualization/FieldChip';
 import DropZone from '../components/Visualization/DropZone';
 import DataSourcePanel from '../components/Visualization/DataSourcePanel';
 import DropZones from '../components/Visualization/DropZones';
 import ChartArea from '../components/Visualization/ChartArea';
 import styles from './VisualizationPage.module.css';
-import { Select, MenuItem, FormControl, InputLabel, CircularProgress, Alert, SelectChangeEvent } from '@mui/material';
+import { Select, MenuItem, FormControl, InputLabel, CircularProgress, Alert } from '@mui/material';
 
-function VisualizationPage() {
+// The new layout component that contains all the DND-related logic and UI
+const VisualizationLayout = () => {
     const {
         connectionDetails,
         xAxisFields,
@@ -25,8 +26,17 @@ function VisualizationPage() {
         handleDrop,
         handleFieldUpdate,
         handleDatabaseSelect,
-        handleTableSelect
+        handleTableSelect,
+        handleRemoveFromAxis
     } = useVisualizationState();
+
+    const dropRef = useRef<HTMLDivElement>(null);
+    const [{ isOver }, drop] = useDrop(() => ({
+        accept: ItemTypes.FIELD,
+        drop: (item: FieldDragItem) => handleRemoveFromAxis(item),
+        collect: (monitor) => ({ isOver: !!monitor.isOver() }),
+    }));
+    drop(dropRef);
 
     if (!connectionDetails) {
         return (
@@ -38,8 +48,8 @@ function VisualizationPage() {
     }
 
     return (
-        <DndProvider backend={HTML5Backend}>
-            <div className={styles.pageContainer}>
+        <div className={styles.pageContainer}>
+            <div ref={dropRef} style={{ backgroundColor: isOver ? '#ffebee' : 'transparent', height: '100%' }}>
                 <DataSourcePanel>
                     {connectionDetails.type === 'clickhouse' && (
                         <FormControl fullWidth>
@@ -62,29 +72,38 @@ function VisualizationPage() {
                     <div className={styles.fieldList}>
                         <h4>Available Fields</h4>
                         {availableFields.map(field => (
-                            <FieldChip key={field.id} field={field} onUpdate={handleFieldUpdate} />
+                            <FieldChip key={field.id} field={field} onUpdate={handleFieldUpdate} source="AVAILABLE_FIELDS" />
                         ))}
                     </div>
                 </DataSourcePanel>
-
-                <div className={styles.mainCanvas}>
-                    <DropZones>
-                        <DropZone onDrop={(item) => handleDrop('x', item)} axis="x">
-                            <strong>X-Axis:</strong>
-                            {xAxisFields.map(field => (
-                                <FieldChip key={field.id} field={field} onUpdate={handleFieldUpdate} />
-                            ))}
-                        </DropZone>
-                        <DropZone onDrop={(item) => handleDrop('y', item)} axis="y">
-                            <strong>Y-Axis:</strong>
-                            {yAxisFields.map(field => (
-                                <FieldChip key={field.id} field={field} onUpdate={handleFieldUpdate} />
-                            ))}
-                        </DropZone>
-                    </DropZones>
-                    <ChartArea />
-                </div>
             </div>
+
+            <div className={styles.mainCanvas}>
+                <DropZones>
+                    <DropZone onDrop={(item) => handleDrop('x', item)} axis="x">
+                        <strong>X-Axis:</strong>
+                        {xAxisFields.map(field => (
+                            <FieldChip key={field.id} field={field} onUpdate={handleFieldUpdate} source="X_AXIS" />
+                        ))}
+                    </DropZone>
+                    <DropZone onDrop={(item) => handleDrop('y', item)} axis="y">
+                        <strong>Y-Axis:</strong>
+                        {yAxisFields.map(field => (
+                            <FieldChip key={field.id} field={field} onUpdate={handleFieldUpdate} source="Y_AXIS" />
+                        ))}
+                    </DropZone>
+                </DropZones>
+                <ChartArea />
+            </div>
+        </div>
+    );
+};
+
+// The main page component is now just a wrapper for the DND provider
+function VisualizationPage() {
+    return (
+        <DndProvider backend={HTML5Backend}>
+            <VisualizationLayout />
         </DndProvider>
     );
 }

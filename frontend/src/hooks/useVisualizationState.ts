@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Field, Database, Table, Column } from '../types';
 import { apiService } from '../apiService';
 import { useConnection } from '../contexts/ConnectionContext';
+import { FieldDragItem } from '../components/Visualization/FieldChip';
 
 export function useVisualizationState() {
     const { connectionDetails } = useConnection();
@@ -22,14 +23,33 @@ export function useVisualizationState() {
 
     // --- Event Handlers ---
 
-    const handleDrop = useCallback((axis: 'x' | 'y', item: Field) => {
-        const newField = { ...item, id: uuidv4() };
-        if (axis === 'x') {
-            setXAxisFields(prevFields => [...prevFields, newField]);
-        } else {
-            setYAxisFields(prevFields => [...prevFields, newField]);
+    const handleRemoveFromAxis = useCallback((item: FieldDragItem) => {
+        if (item.source === 'X_AXIS') {
+            setXAxisFields(prev => prev.filter(f => f.id !== item.field.id));
+        } else if (item.source === 'Y_AXIS') {
+            setYAxisFields(prev => prev.filter(f => f.id !== item.field.id));
         }
     }, []);
+
+    const handleDrop = useCallback((targetAxis: 'x' | 'y', item: FieldDragItem) => {
+        const { field, source } = item;
+
+        // Rule: If dropping on the same axis it came from, do nothing.
+        if ((targetAxis === 'x' && source === 'X_AXIS') || (targetAxis === 'y' && source === 'Y_AXIS')) {
+            return;
+        }
+
+        // Action: Remove field from its original axis if it was moved from another axis
+        handleRemoveFromAxis(item);
+        
+        // Action: Add the field to the target axis
+        const fieldToAdd = source === 'AVAILABLE_FIELDS' ? { ...field, id: uuidv4() } : field;
+        if (targetAxis === 'x') {
+            setXAxisFields(prev => [...prev, fieldToAdd]);
+        } else {
+            setYAxisFields(prev => [...prev, fieldToAdd]);
+        }
+    }, [handleRemoveFromAxis]);
 
     const handleFieldUpdate = useCallback((updatedField: Field) => {
         // Check if the field is on the X axis
@@ -142,6 +162,7 @@ export function useVisualizationState() {
         handleDrop,
         handleFieldUpdate,
         handleDatabaseSelect,
-        handleTableSelect
+        handleTableSelect,
+        handleRemoveFromAxis
     };
 } 

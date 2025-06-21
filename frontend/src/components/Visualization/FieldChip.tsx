@@ -11,18 +11,29 @@ export const ItemTypes = {
   FIELD: 'field',
 };
 
+// Define the source locations for a drag operation
+export type DragSource = 'AVAILABLE_FIELDS' | 'X_AXIS' | 'Y_AXIS';
+
+// The item that gets passed during a drag operation
+export interface FieldDragItem {
+    field: Field;
+    source: DragSource;
+}
+
 interface FieldChipProps {
   field: Field;
+  source: DragSource; // The chip now needs to know its own location
   onUpdate: (field: Field) => void;
 }
 
-const FieldChip: React.FC<FieldChipProps> = ({ field, onUpdate }) => {
+const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate }) => {
   const ref = useRef<HTMLDivElement>(null);
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
 
   const [{ isDragging }, drag] = useDrag({
     type: ItemTypes.FIELD,
-    item: { ...field },
+    // Include the source in the dragged item
+    item: { field: { ...field }, source: source } as FieldDragItem,
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),

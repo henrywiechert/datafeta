@@ -1,12 +1,11 @@
 import React, { useRef } from 'react';
 import { useDrop } from 'react-dnd';
-import { ItemTypes } from './FieldChip'; // Import the type
+import { ItemTypes, FieldDragItem } from './FieldChip'; // Import the type
 import styles from './DropZone.module.css';
-import { Field } from '../../types';
 
 interface DropZoneProps {
   children?: React.ReactNode;
-  onDrop: (item: Field) => void;
+  onDrop: (item: FieldDragItem) => void;
   axis: 'x' | 'y'; // To identify which axis this is
 }
 
@@ -14,7 +13,7 @@ const DropZone: React.FC<DropZoneProps> = ({ children, onDrop, axis }) => {
   const ref = useRef<HTMLDivElement>(null);
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: ItemTypes.FIELD,
-    drop: (item: Field) => onDrop(item),
+    drop: (item: FieldDragItem) => onDrop(item),
     collect: (monitor) => ({
       isOver: !!monitor.isOver(),
       canDrop: !!monitor.canDrop(),
