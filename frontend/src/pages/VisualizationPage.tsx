@@ -6,8 +6,7 @@ import { useVisualizationContext } from '../contexts/VisualizationContext';
 import FieldChip, { DragSource } from '../components/Visualization/FieldChip';
 import DropZone from '../components/Visualization/DropZone';
 import ChartArea from '../components/Visualization/ChartArea';
-import PropertiesPanel from '../components/Panels/PropertiesPanel';
-import DataPreviewPanel from '../components/Panels/DataPreviewPanel';
+
 import { Field } from '../types';
 
 const VisualizationPage = () => {
@@ -91,9 +90,14 @@ const VisualizationPage = () => {
     }
 
     return (
-        <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ 
+            height: '100%', 
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden' 
+        }}>
             {/* Top Bar */}
-            <Paper sx={{ p: 2, borderRadius: 0, borderBottom: 1, borderColor: 'divider' }}>
+            <Paper sx={{ p: 2, borderRadius: 0, borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
                 <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                     <Typography variant="h6">Visualization</Typography>
                     {connectionDetails.type === 'clickhouse' && (
@@ -132,22 +136,29 @@ const VisualizationPage = () => {
             </Paper>
 
             {/* Main Layout with react-resizable-panels */}
-            <Box sx={{ flex: 1 }}>
+            <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
                 <PanelGroup direction="horizontal">
                     {/* Left Panel - Fields */}
-                    <Panel defaultSize={25} minSize={20} maxSize={40}>
-                        <Paper sx={{ height: '100%', borderRadius: 0 }}>
-                            <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+                    <Panel defaultSize={25} minSize={10} maxSize={40}>
+                        <div style={{ 
+                            height: '100%', 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            overflow: 'hidden'
+                        }}>
+                            <div style={{ padding: '12px', borderBottom: '1px solid #ddd', flexShrink: 0 }}>
                                 <Typography variant="h6">Fields</Typography>
-                            </Box>
-                            <Box 
-                                sx={{ 
-                                    p: 2, 
-                                    overflow: 'auto', 
-                                    height: 'calc(100% - 60px)',
+                            </div>
+                            <div 
+                                style={{ 
+                                    padding: '8px', 
+                                    overflowY: 'auto',
+                                    overflowX: 'hidden',
+                                    flex: 1,
+                                    minHeight: 0,
                                     backgroundColor: isFieldsPanelDragOver ? 'rgba(244, 67, 54, 0.1)' : 'transparent',
                                     border: isFieldsPanelDragOver ? '2px dashed #f44336' : '2px dashed transparent',
-                                    transition: 'all 0.2s ease'
+                                    transition: 'all 0.2s ease',
                                 }}
                                 onDragOver={(e) => {
                                     e.preventDefault();
@@ -190,11 +201,11 @@ const VisualizationPage = () => {
                                 }}
                             >
                                 {/* Dimensions Section */}
-                                <Box sx={{ mb: 3 }}>
-                                    <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary', fontWeight: 'bold' }}>
+                                <Box sx={{ mb: 2 }}>
+                                    <Typography variant="subtitle2" sx={{ mb: 0.5, color: 'text.secondary', fontWeight: 'bold' }}>
                                         Dimensions
                                     </Typography>
-                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
                                         {availableFields
                                             .filter(field => field.type === 'dimension')
                                             .map(field => (
@@ -206,20 +217,22 @@ const VisualizationPage = () => {
                                                 />
                                             ))
                                         }
-                                        {availableFields.filter(field => field.type === 'dimension').length === 0 && (
+                                                                                {availableFields.filter(field => field.type === 'dimension').length === 0 && (
                                             <Typography variant="body2" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
                                                 No dimensions available
                                             </Typography>
                                         )}
+
+ 
                                     </Box>
                                 </Box>
 
                                 {/* Measures Section */}
                                 <Box>
-                                    <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary', fontWeight: 'bold' }}>
+                                    <Typography variant="subtitle2" sx={{ mb: 0.5, color: 'text.secondary', fontWeight: 'bold' }}>
                                         Measures
                                     </Typography>
-                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
                                         {availableFields
                                             .filter(field => field.type === 'measure')
                                             .map(field => (
@@ -236,76 +249,44 @@ const VisualizationPage = () => {
                                                 No measures available
                                             </Typography>
                                         )}
+
                                     </Box>
                                 </Box>
-                            </Box>
-                        </Paper>
+                            </div>
+                        </div>
                     </Panel>
 
                     <PanelResizeHandle />
 
-                    {/* Middle Panel - Main Content */}
-                    <Panel defaultSize={50} minSize={30}>
-                        <PanelGroup direction="vertical">
-                            {/* Main Visualization Area */}
-                            <Panel defaultSize={70} minSize={40}>
-                                <Box sx={{ height: '100%', p: 2 }}>
-                                    <Box sx={{ mb: 2 }}>
-                                        <DropZone 
-                                            onDrop={handleXAxisDrop}
-                                            axis="x"
-                                            fields={xAxisFields}
-                                            onFieldUpdate={handleFieldUpdate}
-                                            onRemoveField={handleRemoveFromAxis}
-                                            onReorderFields={handleReorderFields}
-                                        >
-                                            X-Axis:
-                                        </DropZone>
-                                    </Box>
-                                    <Box sx={{ mb: 2 }}>
-                                        <DropZone 
-                                            onDrop={handleYAxisDrop}
-                                            axis="y"
-                                            fields={yAxisFields}
-                                            onFieldUpdate={handleFieldUpdate}
-                                            onRemoveField={handleRemoveFromAxis}
-                                            onReorderFields={handleReorderFields}
-                                        >
-                                            Y-Axis:
-                                        </DropZone>
-                                    </Box>
-                                    <ChartArea />
-                                </Box>
-                            </Panel>
-
-                            <PanelResizeHandle />
-
-                            {/* Bottom Panel - Data Preview */}
-                            <Panel defaultSize={30} minSize={20}>
-                                <Paper sx={{ height: '100%', borderRadius: 0 }}>
-                                    <Box sx={{ p: 1, borderBottom: 1, borderColor: 'divider' }}>
-                                        <Typography variant="subtitle1">Data Preview</Typography>
-                                    </Box>
-                                    <Box sx={{ height: 'calc(100% - 40px)' }}>
-                                        <DataPreviewPanel />
-                                    </Box>
-                                </Paper>
-                            </Panel>
-                        </PanelGroup>
-                    </Panel>
-
-                    <PanelResizeHandle />
-
-                    {/* Right Panel - Properties */}
-                    <Panel defaultSize={25} minSize={20} maxSize={40}>
-                        <Paper sx={{ height: '100%', borderRadius: 0 }}>
-                            <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-                                <Typography variant="h6">Properties</Typography>
+                    {/* Main Content */}
+                    <Panel defaultSize={75} minSize={50}>
+                        <Box sx={{ height: '100%', p: 2 }}>
+                            <Box sx={{ mb: 2 }}>
+                                <DropZone 
+                                    onDrop={handleXAxisDrop}
+                                    axis="x"
+                                    fields={xAxisFields}
+                                    onFieldUpdate={handleFieldUpdate}
+                                    onRemoveField={handleRemoveFromAxis}
+                                    onReorderFields={handleReorderFields}
+                                >
+                                    X-Axis:
+                                </DropZone>
                             </Box>
-                            <Box sx={{ overflow: 'auto', height: 'calc(100% - 60px)' }}>
-                                <PropertiesPanel />
+                            <Box sx={{ mb: 2 }}>
+                                <DropZone 
+                                    onDrop={handleYAxisDrop}
+                                    axis="y"
+                                    fields={yAxisFields}
+                                    onFieldUpdate={handleFieldUpdate}
+                                    onRemoveField={handleRemoveFromAxis}
+                                    onReorderFields={handleReorderFields}
+                                >
+                                    Y-Axis:
+                                </DropZone>
                             </Box>
-                        </Paper>
+                            <ChartArea />
+                        </Box>
                     </Panel>
                 </PanelGroup>
             </Box>

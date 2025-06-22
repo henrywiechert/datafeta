@@ -24,58 +24,87 @@ const DropZone: React.FC<DropZoneProps> = ({
 }) => {
   const [isOver, setIsOver] = useState(false);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const dragLeaveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Reset drag state when any drag operation ends globally
+  React.useEffect(() => {
+    const handleGlobalDragEnd = () => {
+      setIsOver(false);
+      setDragOverIndex(null);
+      if (dragLeaveTimeoutRef.current) {
+        clearTimeout(dragLeaveTimeoutRef.current);
+        dragLeaveTimeoutRef.current = null;
+      }
+    };
+
+    document.addEventListener('dragend', handleGlobalDragEnd);
+    return () => {
+      document.removeEventListener('dragend', handleGlobalDragEnd);
+      if (dragLeaveTimeoutRef.current) {
+        clearTimeout(dragLeaveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
+    
+    // Clear any pending drag leave timeout
+    if (dragLeaveTimeoutRef.current) {
+      clearTimeout(dragLeaveTimeoutRef.current);
+      dragLeaveTimeoutRef.current = null;
+    }
+    
     setIsOver(true);
 
-    // Calculate drop position for reordering
+    // Calculate drop position for reordering based on actual field positions
     if (fields.length > 0) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const x = e.clientX - rect.left;
+      const dropZoneRect = e.currentTarget.getBoundingClientRect();
+      const mouseX = e.clientX;
       
-      // Find the closest drop position by checking distances to field boundaries
+      // Get all field chip elements
+      const fieldChips = e.currentTarget.querySelectorAll('.field-chip');
       let closestIndex = 0;
       let minDistance = Infinity;
       
-      // Check distance to the start (before first field)
-      const startDistance = Math.abs(x - 0);
-      if (startDistance < minDistance) {
-        minDistance = startDistance;
-        closestIndex = 0;
-      }
-      
-      // Check distances to positions between and after fields
-      for (let i = 0; i < fields.length; i++) {
-        const fieldStart = (i / fields.length) * rect.width;
-        const fieldEnd = ((i + 1) / fields.length) * rect.width;
-        const fieldCenter = (fieldStart + fieldEnd) / 2;
+      // Check if mouse is before the first field
+      if (fieldChips.length > 0) {
+        const firstChip = fieldChips[0] as HTMLElement;
+        const firstChipRect = firstChip.getBoundingClientRect();
         
-        // If mouse is in the right half of this field, consider dropping after it
-        if (x > fieldCenter) {
-          const afterDistance = Math.abs(x - fieldEnd);
-          if (afterDistance < minDistance) {
-            minDistance = afterDistance;
-            closestIndex = i + 1;
-          }
+        if (mouseX < firstChipRect.left) {
+          setDragOverIndex(0);
+          return;
         }
       }
       
-      setDragOverIndex(closestIndex);
+      // Check positions between and after fields
+      for (let i = 0; i < fieldChips.length; i++) {
+        const chipRect = (fieldChips[i] as HTMLElement).getBoundingClientRect();
+        const chipCenter = chipRect.left + chipRect.width / 2;
+        
+        // If mouse is in the left half of this chip, drop before it
+        if (mouseX < chipCenter) {
+          setDragOverIndex(i);
+          return;
+        }
+      }
+      
+      // If we get here, mouse is after all fields
+      setDragOverIndex(fields.length);
+    } else {
+      setDragOverIndex(0);
     }
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
-    // Only set isOver to false if we're actually leaving the drop zone
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX;
-    const y = e.clientY;
-    
-    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+    // Use a timeout to handle drag leave more reliably
+    // This prevents flickering when dragging over child elements
+    dragLeaveTimeoutRef.current = setTimeout(() => {
       setIsOver(false);
       setDragOverIndex(null);
-    }
+    }, 50);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -89,16 +118,41 @@ const DropZone: React.FC<DropZoneProps> = ({
       
       // Handle reordering within the same axis
       if (source === (axis === 'x' ? 'X_AXIS' : 'Y_AXIS') && onReorderFields && sourceIndex !== undefined) {
-        const rect = e.currentTarget.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const fieldWidth = rect.width / fields.length;
-        let targetIndex = Math.floor(x / fieldWidth);
+        // Use the same logic as dragOver for consistency
+        const mouseX = e.clientX;
+        const fieldChips = e.currentTarget.querySelectorAll('.field-chip');
+        let targetIndex = 0;
         
-        // Adjust target index if dragging to the right
+        // Check if mouse is before the first field
+        if (fieldChips.length > 0) {
+          const firstChip = fieldChips[0] as HTMLElement;
+          const firstChipRect = firstChip.getBoundingClientRect();
+          
+          if (mouseX < firstChipRect.left) {
+            targetIndex = 0;
+          } else {
+            // Check positions between and after fields
+            let found = false;
+            for (let i = 0; i < fieldChips.length; i++) {
+              const chipRect = (fieldChips[i] as HTMLElement).getBoundingClientRect();
+              const chipCenter = chipRect.left + chipRect.width / 2;
+              
+              if (mouseX < chipCenter) {
+                targetIndex = i;
+                found = true;
+                break;
+              }
+            }
+            
+            if (!found) {
+              targetIndex = fields.length;
+            }
+          }
+        }
+        
+        // Adjust for the field being moved (since it will be removed first)
         if (targetIndex > sourceIndex) {
-          targetIndex = Math.min(targetIndex, fields.length - 1);
-        } else {
-          targetIndex = Math.max(targetIndex, 0);
+          targetIndex = Math.max(targetIndex - 1, sourceIndex);
         }
         
         if (targetIndex !== sourceIndex) {
@@ -106,11 +160,8 @@ const DropZone: React.FC<DropZoneProps> = ({
         }
       } else {
         // Handle drops from available fields or cross-axis moves
-        const rect = e.currentTarget.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const fieldWidth = fields.length > 0 ? rect.width / fields.length : rect.width;
-        const insertIndex = fields.length > 0 ? Math.floor(x / fieldWidth) : 0;
-        
+        // Use the dragOverIndex that was calculated during drag over
+        const insertIndex = dragOverIndex !== null ? dragOverIndex : fields.length;
         onDrop(field, source, insertIndex);
       }
     } catch (error) {

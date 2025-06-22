@@ -85,6 +85,7 @@ export interface QueryResult {
 export type FieldType = 'dimension' | 'measure';
 export type Aggregation = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'count_distinct';
 export type Flavour = 'discrete' | 'continuous';
+export type DataType = 'string' | 'integer' | 'float' | 'datetime';
 
 export interface Field {
   id: string; // A unique ID for each chip instance
@@ -92,4 +93,5 @@ export interface Field {
   type: FieldType;
   aggregation?: Aggregation; // Optional, as dimensions don't have it
   flavour: Flavour;
+  dataType: DataType;
 } 
