@@ -49,51 +49,59 @@ const VisualizationLayout = () => {
 
     return (
         <div className={styles.pageContainer}>
-            <div ref={dropRef} style={{ backgroundColor: isOver ? '#ffebee' : 'transparent', height: '100%' }}>
-                <DataSourcePanel>
-                    {connectionDetails.type === 'clickhouse' && (
-                        <FormControl fullWidth>
-                            <InputLabel>Database</InputLabel>
-                            <Select value={selectedDatabase} label="Database" onChange={(e) => handleDatabaseSelect(e.target.value)}>
-                                {databases.map(db => <MenuItem key={db.name} value={db.name}>{db.name}</MenuItem>)}
-                            </Select>
-                        </FormControl>
-                    )}
-                    <FormControl fullWidth disabled={tables.length === 0}>
-                        <InputLabel>Table</InputLabel>
-                        <Select value={selectedTable} label="Table" onChange={(e) => handleTableSelect(e.target.value)}>
-                            {tables.map(tbl => <MenuItem key={tbl.name} value={tbl.name}>{tbl.name}</MenuItem>)}
-                        </Select>
-                    </FormControl>
-
-                    {isLoadingMetadata && <CircularProgress />}
-                    {metadataError && <Alert severity="error">{metadataError}</Alert>}
-
-                    <div className={styles.fieldList}>
-                        <h4>Available Fields</h4>
+            <div ref={dropRef} className={styles.mainLayoutBox} style={{ backgroundColor: isOver ? '#ffebee' : 'transparent' }}>
+                {/* Left Fields Panel */}
+                <div className={styles.leftPanelBox}>
+                    <DataSourcePanel>
+                        <h4>Fields</h4>
                         {availableFields.map(field => (
                             <FieldChip key={field.id} field={field} onUpdate={handleFieldUpdate} source="AVAILABLE_FIELDS" />
                         ))}
-                    </div>
-                </DataSourcePanel>
-            </div>
+                    </DataSourcePanel>
+                </div>
 
-            <div className={styles.mainCanvas}>
-                <DropZones>
-                    <DropZone onDrop={(item, insertIndex) => handleDrop('x', item, insertIndex)} axis="x">
-                        <strong>X-Axis:</strong>
-                        {xAxisFields.map((field, index) => (
-                            <FieldChip key={field.id} field={field} onUpdate={handleFieldUpdate} source="X_AXIS" index={index} />
-                        ))}
-                    </DropZone>
-                    <DropZone onDrop={(item, insertIndex) => handleDrop('y', item, insertIndex)} axis="y">
-                        <strong>Y-Axis:</strong>
-                        {yAxisFields.map((field, index) => (
-                            <FieldChip key={field.id} field={field} onUpdate={handleFieldUpdate} source="Y_AXIS" index={index} />
-                        ))}
-                    </DropZone>
-                </DropZones>
-                <ChartArea />
+                {/* Main Content Area */}
+                <div className={styles.rightPanelBox}>
+                    {/* Database and Table Selectors */}
+                    <div className={styles.controlsContainer}>
+                        {connectionDetails.type === 'clickhouse' && (
+                            <FormControl className={styles.formControl}>
+                                <InputLabel>Database</InputLabel>
+                                <Select value={selectedDatabase} label="Database" onChange={(e) => handleDatabaseSelect(e.target.value)}>
+                                    {databases.map(db => <MenuItem key={db.name} value={db.name}>{db.name}</MenuItem>)}
+                                </Select>
+                            </FormControl>
+                        )}
+                        <FormControl className={styles.formControl} disabled={tables.length === 0}>
+                            <InputLabel>Table</InputLabel>
+                            <Select value={selectedTable} label="Table" onChange={(e) => handleTableSelect(e.target.value)}>
+                                {tables.map(tbl => <MenuItem key={tbl.name} value={tbl.name}>{tbl.name}</MenuItem>)}
+                            </Select>
+                        </FormControl>
+
+                        {isLoadingMetadata && <CircularProgress />}
+                        {metadataError && <Alert severity="error">{metadataError}</Alert>}
+                    </div>
+
+                    {/* Drop Zones and Chart Area */}
+                    <div className={styles.mainCanvas}>
+                        <DropZones>
+                            <DropZone onDrop={(item, insertIndex) => handleDrop('x', item, insertIndex)} axis="x">
+                                <strong>X-Axis:</strong>
+                                {xAxisFields.map((field, index) => (
+                                    <FieldChip key={field.id} field={field} onUpdate={handleFieldUpdate} source="X_AXIS" index={index} />
+                                ))}
+                            </DropZone>
+                            <DropZone onDrop={(item, insertIndex) => handleDrop('y', item, insertIndex)} axis="y">
+                                <strong>Y-Axis:</strong>
+                                {yAxisFields.map((field, index) => (
+                                    <FieldChip key={field.id} field={field} onUpdate={handleFieldUpdate} source="Y_AXIS" index={index} />
+                                ))}
+                            </DropZone>
+                        </DropZones>
+                        <ChartArea />
+                    </div>
+                </div>
             </div>
         </div>
     );
