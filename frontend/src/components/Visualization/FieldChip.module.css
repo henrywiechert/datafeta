@@ -1,21 +1,82 @@
 .chip {
-    padding: 8px 12px;
-    margin: 4px;
-    border-radius: 16px;
-    background-color: #e0e0e0;
+    padding: 4px 8px;
+    margin: 1px;
     color: #333;
     font-family: sans-serif;
     font-size: 14px;
-    border: 1px solid #ccc;
     cursor: grab;
     display: inline-block;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
     user-select: none;
+    text-align: left;
+    box-shadow: none;
+    transform: none;
 }
 
-.chip:hover {
-    background-color: #d5d5d5;
+/* Text-only style for Fields area */
+.chip.textOnly {
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 0;
+    padding: 2px 4px;
+}
+
+/* Framed style for axis drop zones */
+.chip.framed {
+    border-radius: 16px;
+    border: 1px solid #ccc;
+}
+
+.chip.framed.discrete {
+    background-color: #e3f2fd; /* Light blue background */
+    border-color: #1976d2;
+}
+
+.chip.framed.continuous {
+    background-color: #e8f5e8; /* Light green background */
+    border-color: #388e3c;
+}
+
+/* Hover styles for text-only fields (Fields area) */
+.chip.textOnly:hover {
+    border-radius: 16px;
+    border: 1px solid #999;
+    box-shadow: none;
+    transform: none;
+}
+
+.chip.textOnly.discrete:hover {
+    background-color: #bbdefb; /* Light blue */
+}
+
+.chip.textOnly.continuous:hover {
+    background-color: #c8e6c9; /* Light green */
+}
+
+/* Hover styles for framed fields (axis drop zones) */
+.chip.framed:hover {
     border-color: #999;
+}
+
+.chip.framed.discrete:hover {
+    background-color: #bbdefb; /* Light blue */
+}
+
+.chip.framed.continuous:hover {
+    background-color: #c8e6c9; /* Light green */
+}
+
+.symbol {
+    font-weight: bold;
+    margin-right: 4px;
+}
+
+.discreteSymbol {
+    color: #1976d2; /* Blue matching the light blue hover */
+}
+
+.continuousSymbol {
+    color: #388e3c; /* Green matching the light green hover */
 }
 
 .chip:active {

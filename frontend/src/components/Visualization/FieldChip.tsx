@@ -48,6 +48,17 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
       delete newField.aggregation;
     }
 
+    // Ensure flavour has a default value if not set
+    if (!newField.flavour) {
+      newField.flavour = 'discrete';
+    }
+
+    // Enforce constraint: string fields can only be discrete
+    if (newField.dataType === 'string' && updates.flavour === 'continuous') {
+      // Don't allow the change, keep it discrete
+      return;
+    }
+
     onUpdate(newField);
     handleCloseMenu();
   };
@@ -55,6 +66,7 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
   const renderMenuItems = () => {
     const isMeasure = field.type === 'measure';
     const availableAggregations = getAvailableAggregations(field);
+    const canBeContinuous = field.dataType !== 'string'; // String fields can only be discrete
 
     return (
       <>
@@ -63,6 +75,18 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
         </div>
         <div className={menuStyles.menuItem} onClick={() => handleUpdate({ type: 'measure' })}>
           Measure {field.type === 'measure' && '✔'}
+        </div>
+        
+        <div className={menuStyles.separator} />
+
+        <div className={menuStyles.menuItem} onClick={() => handleUpdate({ flavour: 'discrete' })}>
+          Discrete {field.flavour === 'discrete' && '✔'}
+        </div>
+        <div 
+          className={`${menuStyles.menuItem} ${!canBeContinuous ? menuStyles.disabled : ''}`} 
+          onClick={canBeContinuous ? () => handleUpdate({ flavour: 'continuous' }) : undefined}
+        >
+          Continuous {field.flavour === 'continuous' && '✔'} {!canBeContinuous && '(String fields only)'}
         </div>
         
         {isMeasure && availableAggregations.length > 0 && <div className={menuStyles.separator} />}
@@ -79,7 +103,7 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
   return (
     <>
       <div
-        className={`${styles.chip} field-chip`}
+        className={`${styles.chip} ${field.flavour === 'continuous' ? styles.continuous : styles.discrete} ${source === 'AVAILABLE_FIELDS' ? styles.textOnly : styles.framed} field-chip`}
         draggable
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
@@ -89,7 +113,7 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
           cursor: 'grab'
         }}
       >
-        {field.columnName} {field.aggregation && `(${field.aggregation})`}
+        <span className={`${styles.symbol} ${field.flavour === 'continuous' ? styles.continuousSymbol : styles.discreteSymbol}`}>#</span> {field.columnName} {field.aggregation && `(${field.aggregation})`} [{field.flavour}] ({field.dataType})
       </div>
       {menuPosition && (
         <ContextMenu position={menuPosition} onClose={handleCloseMenu}>

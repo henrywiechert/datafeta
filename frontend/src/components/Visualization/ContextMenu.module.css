@@ -19,6 +19,15 @@
   .menuItem:hover {
     background-color: #f0f0f0;
   }
+
+  .menuItem.disabled {
+    color: #999;
+    cursor: not-allowed;
+  }
+
+  .menuItem.disabled:hover {
+    background-color: transparent;
+  }
   
   .separator {
     height: 1px;

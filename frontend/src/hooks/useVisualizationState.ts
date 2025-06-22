@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Field } from '../types';
+import { Field, DataType } from '../types';
 import { apiService } from '../apiService';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
@@ -126,12 +126,16 @@ export function useVisualizationState() {
         try {
             const dbParam = connectionDetails?.type === 'clickhouse' ? state.selectedDatabase : undefined;
             const response = await apiService.listColumns(state.selectedTable, dbParam);
-            const fields: Field[] = response.columns.map(col => ({
-                id: `field-${col.name}`,
-                columnName: col.name,
-                type: 'dimension',
-                flavour: 'discrete',
-            }));
+            const fields: Field[] = response.columns.map(col => {
+                const dataType = mapBackendDataType(col.data_type);
+                return {
+                    id: `field-${col.name}`,
+                    columnName: col.name,
+                    type: 'dimension',
+                    flavour: dataType === 'string' ? 'discrete' : 'discrete', // Default to discrete, can be changed via UI
+                    dataType: dataType,
+                };
+            });
             dispatch({ type: 'SET_AVAILABLE_FIELDS', payload: fields });
         } catch (err: any) { 
             dispatch({ type: 'SET_METADATA_ERROR', payload: err.message });
@@ -140,6 +144,24 @@ export function useVisualizationState() {
             dispatch({ type: 'SET_LOADING_METADATA', payload: false });
         }
     }, [state.selectedTable, state.selectedDatabase, connectionDetails?.type, dispatch]);
+
+    // Helper function to map backend data types to our DataType enum
+    const mapBackendDataType = (backendType: string): DataType => {
+        const lowerType = backendType.toLowerCase();
+        
+        if (lowerType.includes('string') || lowerType.includes('varchar') || lowerType.includes('text') || lowerType.includes('char')) {
+            return 'string';
+        } else if (lowerType.includes('int') || lowerType.includes('bigint') || lowerType.includes('smallint')) {
+            return 'integer';
+        } else if (lowerType.includes('float') || lowerType.includes('double') || lowerType.includes('decimal') || lowerType.includes('numeric')) {
+            return 'float';
+        } else if (lowerType.includes('date') || lowerType.includes('time') || lowerType.includes('timestamp')) {
+            return 'datetime';
+        } else {
+            // Default fallback
+            return 'string';
+        }
+    };
 
     // --- Effects to trigger data fetching ---
     useEffect(() => {
