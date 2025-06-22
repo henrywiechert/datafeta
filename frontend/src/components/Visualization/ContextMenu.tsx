@@ -33,7 +33,10 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ position, onClose, children }
     <div
       ref={menuRef}
       className={styles.menu}
-      style={{ top: position.y, left: position.x }}
+      style={{ 
+        top: position.y,
+        left: position.x
+      }}
     >
       {children}
     </div>

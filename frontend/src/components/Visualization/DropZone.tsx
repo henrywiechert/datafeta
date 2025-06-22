@@ -185,7 +185,7 @@ const DropZone: React.FC<DropZoneProps> = ({
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', position: 'relative' }}>
         {fields.map((field, index) => (
-          <React.Fragment key={field.id}>
+          <React.Fragment key={`${field.id}-${field.type}-${field.flavour}-${field.dataType}-${field.aggregation || 'none'}`}>
             {/* Drop indicator line */}
             {dragOverIndex === index && (
               <div style={{
