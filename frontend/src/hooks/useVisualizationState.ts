@@ -1,203 +1,211 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Field, Database, Table, Column } from '../types';
+import { Field } from '../types';
 import { apiService } from '../apiService';
 import { useConnection } from '../contexts/ConnectionContext';
-import { FieldDragItem } from '../components/Visualization/FieldChip';
+import { useVisualizationContext } from '../contexts/VisualizationContext';
+
 
 export function useVisualizationState() {
     const { connectionDetails } = useConnection();
-
-    // DND state
-    const [xAxisFields, setXAxisFields] = useState<Field[]>([]);
-    const [yAxisFields, setYAxisFields] = useState<Field[]>([]);
-
-    // Metadata state
-    const [availableFields, setAvailableFields] = useState<Field[]>([]);
-    const [databases, setDatabases] = useState<Database[]>([]);
-    const [tables, setTables] = useState<Table[]>([]);
-    const [selectedDatabase, setSelectedDatabase] = useState<string>('');
-    const [selectedTable, setSelectedTable] = useState<string>('');
-    const [isLoadingMetadata, setIsLoadingMetadata] = useState<boolean>(false);
-    const [metadataError, setMetadataError] = useState<string | null>(null);
+    const { state, dispatch } = useVisualizationContext();
 
     // --- Event Handlers ---
 
-    const handleRemoveFromAxis = useCallback((item: FieldDragItem) => {
-        if (item.source === 'X_AXIS') {
-            setXAxisFields(prev => prev.filter(f => f.id !== item.field.id));
-        } else if (item.source === 'Y_AXIS') {
-            setYAxisFields(prev => prev.filter(f => f.id !== item.field.id));
-        }
-    }, []);
+    const handleDropFromAvailableFields = useCallback((targetAxis: 'x' | 'y', fieldId: string, insertIndex?: number) => {
+        const field = state.availableFields.find(f => f.id === fieldId);
+        if (!field) return;
 
-    const handleDrop = useCallback((targetAxis: 'x' | 'y', item: FieldDragItem, insertIndex?: number) => {
-        const { field, source, index: sourceIndex } = item;
-
-        // Rule: If dropping on the same axis it came from with reordering
-        if ((targetAxis === 'x' && source === 'X_AXIS') || (targetAxis === 'y' && source === 'Y_AXIS')) {
-            // Handle reordering within the same axis
-            if (insertIndex !== undefined && sourceIndex !== undefined) {
-                if (targetAxis === 'x') {
-                    setXAxisFields(prev => {
-                        const newFields = [...prev];
-                        const [movedField] = newFields.splice(sourceIndex, 1);
-                        newFields.splice(insertIndex, 0, movedField);
-                        return newFields;
-                    });
-                } else {
-                    setYAxisFields(prev => {
-                        const newFields = [...prev];
-                        const [movedField] = newFields.splice(sourceIndex, 1);
-                        newFields.splice(insertIndex, 0, movedField);
-                        return newFields;
-                    });
-                }
-            }
-            return;
-        }
-
-        // Action: Remove field from its original axis if it was moved from another axis
-        handleRemoveFromAxis(item);
-        
-        // Action: Add the field to the target axis
-        const fieldToAdd = source === 'AVAILABLE_FIELDS' ? { ...field, id: uuidv4() } : field;
+        const fieldToAdd = { ...field, id: uuidv4() };
         
         if (targetAxis === 'x') {
-            setXAxisFields(prev => {
-                if (insertIndex !== undefined) {
-                    const newFields = [...prev];
-                    newFields.splice(insertIndex, 0, fieldToAdd);
-                    return newFields;
-                } else {
-                    return [...prev, fieldToAdd];
-                }
-            });
+            const currentFields = state.xAxisFields;
+            if (insertIndex !== undefined) {
+                const newFields = [...currentFields];
+                newFields.splice(insertIndex, 0, fieldToAdd);
+                dispatch({ type: 'SET_X_AXIS_FIELDS', payload: newFields });
+            } else {
+                dispatch({ type: 'SET_X_AXIS_FIELDS', payload: [...currentFields, fieldToAdd] });
+            }
         } else {
-            setYAxisFields(prev => {
-                if (insertIndex !== undefined) {
-                    const newFields = [...prev];
-                    newFields.splice(insertIndex, 0, fieldToAdd);
-                    return newFields;
-                } else {
-                    return [...prev, fieldToAdd];
-                }
-            });
+            const currentFields = state.yAxisFields;
+            if (insertIndex !== undefined) {
+                const newFields = [...currentFields];
+                newFields.splice(insertIndex, 0, fieldToAdd);
+                dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: newFields });
+            } else {
+                dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: [...currentFields, fieldToAdd] });
+            }
         }
-    }, [handleRemoveFromAxis]);
+    }, [state.xAxisFields, state.yAxisFields, state.availableFields, dispatch]);
+
+
+
+    const handleRemoveFromAxis = useCallback((fieldId: string) => {
+        const newXFields = state.xAxisFields.filter(f => f.id !== fieldId);
+        const newYFields = state.yAxisFields.filter(f => f.id !== fieldId);
+        dispatch({ type: 'SET_X_AXIS_FIELDS', payload: newXFields });
+        dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: newYFields });
+    }, [state.xAxisFields, state.yAxisFields, dispatch]);
 
     const handleFieldUpdate = useCallback((updatedField: Field) => {
-        // Check if the field is on the X axis
-        setXAxisFields(prevFields => 
-            prevFields.map(f => f.id === updatedField.id ? updatedField : f)
-        );
-        // Check if the field is on the Y axis
-        setYAxisFields(prevFields =>
-            prevFields.map(f => f.id === updatedField.id ? updatedField : f)
-        );
-        // Check if the field is in the available list
-        setAvailableFields(prevFields =>
-            prevFields.map(f => f.id === updatedField.id ? updatedField : f)
-        );
-    }, []);
+        dispatch({ type: 'UPDATE_FIELD', payload: updatedField });
+    }, [dispatch]);
+
+    const handleReorderFields = useCallback((axis: 'x' | 'y', fromIndex: number, toIndex: number) => {
+        const currentFields = axis === 'x' ? state.xAxisFields : state.yAxisFields;
+        const newFields = [...currentFields];
+        
+        // Remove the field from its current position
+        const [movedField] = newFields.splice(fromIndex, 1);
+        // Insert it at the new position
+        newFields.splice(toIndex, 0, movedField);
+        
+        if (axis === 'x') {
+            dispatch({ type: 'SET_X_AXIS_FIELDS', payload: newFields });
+        } else {
+            dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: newFields });
+        }
+    }, [state.xAxisFields, state.yAxisFields, dispatch]);
 
     const handleDatabaseSelect = useCallback((dbName: string) => {
-        setSelectedDatabase(dbName);
-        setSelectedTable('');
-        setTables([]);
-        setAvailableFields([]);
-    }, []);
+        dispatch({ type: 'SET_SELECTED_DATABASE', payload: dbName });
+        dispatch({ type: 'SET_SELECTED_TABLE', payload: '' });
+        dispatch({ type: 'SET_TABLES', payload: [] });
+        dispatch({ type: 'SET_AVAILABLE_FIELDS', payload: [] });
+    }, [dispatch]);
 
     const handleTableSelect = useCallback((tableName: string) => {
-        setSelectedTable(tableName);
-    }, []);
+        dispatch({ type: 'SET_SELECTED_TABLE', payload: tableName });
+        // Clear existing fields when table changes
+        dispatch({ type: 'SET_AVAILABLE_FIELDS', payload: [] });
+    }, [dispatch]);
 
     // --- Data Fetching Logic ---
 
     const fetchDatabases = useCallback(async () => {
-        setIsLoadingMetadata(true);
-        setMetadataError(null);
+        dispatch({ type: 'SET_LOADING_METADATA', payload: true });
+        dispatch({ type: 'SET_METADATA_ERROR', payload: null });
         try {
             const response = await apiService.listDatabases();
-            setDatabases(response.databases || []);
-        } catch (err: any) { setMetadataError(err.message); }
-        finally { setIsLoadingMetadata(false); }
-    }, []);
+            dispatch({ type: 'SET_DATABASES', payload: response.databases || [] });
+        } catch (err: any) { 
+            dispatch({ type: 'SET_METADATA_ERROR', payload: err.message });
+        }
+        finally { 
+            dispatch({ type: 'SET_LOADING_METADATA', payload: false });
+        }
+    }, [dispatch]);
 
     const fetchTables = useCallback(async (databaseName: string) => {
         const targetDatabase = databaseName;
         if (connectionDetails?.type === 'clickhouse' && !targetDatabase) return;
         
-        setIsLoadingMetadata(true);
-        setMetadataError(null);
+        dispatch({ type: 'SET_LOADING_METADATA', payload: true });
+        dispatch({ type: 'SET_METADATA_ERROR', payload: null });
         try {
             const response = await apiService.listTables(targetDatabase);
-            setTables(response.tables || []);
+            dispatch({ type: 'SET_TABLES', payload: response.tables || [] });
             if (connectionDetails?.type === 'csv' && response.tables?.length === 1) {
-                setSelectedTable(response.tables[0].name);
+                dispatch({ type: 'SET_SELECTED_TABLE', payload: response.tables[0].name });
             }
-        } catch (err: any) { setMetadataError(err.message); }
-        finally { setIsLoadingMetadata(false); }
-    }, [connectionDetails?.type]);
+        } catch (err: any) { 
+            dispatch({ type: 'SET_METADATA_ERROR', payload: err.message });
+        }
+        finally { 
+            dispatch({ type: 'SET_LOADING_METADATA', payload: false });
+        }
+    }, [connectionDetails?.type, dispatch]);
 
     const fetchColumns = useCallback(async () => {
-        if (!selectedTable) return;
-        if (connectionDetails?.type === 'clickhouse' && !selectedDatabase) return;
+        if (!state.selectedTable) return;
+        if (connectionDetails?.type === 'clickhouse' && !state.selectedDatabase) return;
         
-        setIsLoadingMetadata(true);
-        setMetadataError(null);
+        dispatch({ type: 'SET_LOADING_METADATA', payload: true });
+        dispatch({ type: 'SET_METADATA_ERROR', payload: null });
         try {
-            const dbParam = connectionDetails?.type === 'clickhouse' ? selectedDatabase : undefined;
-            const response = await apiService.listColumns(selectedTable, dbParam);
+            const dbParam = connectionDetails?.type === 'clickhouse' ? state.selectedDatabase : undefined;
+            const response = await apiService.listColumns(state.selectedTable, dbParam);
             const fields: Field[] = response.columns.map(col => ({
                 id: `field-${col.name}`,
                 columnName: col.name,
                 type: 'dimension',
                 flavour: 'discrete',
             }));
-            setAvailableFields(fields);
-        } catch (err: any) { setMetadataError(err.message); }
-        finally { setIsLoadingMetadata(false); }
-    }, [selectedTable, selectedDatabase, connectionDetails?.type]);
+            dispatch({ type: 'SET_AVAILABLE_FIELDS', payload: fields });
+        } catch (err: any) { 
+            dispatch({ type: 'SET_METADATA_ERROR', payload: err.message });
+        }
+        finally { 
+            dispatch({ type: 'SET_LOADING_METADATA', payload: false });
+        }
+    }, [state.selectedTable, state.selectedDatabase, connectionDetails?.type, dispatch]);
 
     // --- Effects to trigger data fetching ---
     useEffect(() => {
         if (connectionDetails) {
-            setDatabases([]);
-            setTables([]);
-            setAvailableFields([]);
-            setSelectedDatabase('');
-            setSelectedTable('');
-            setMetadataError(null);
-            if (connectionDetails.type === 'clickhouse') fetchDatabases();
-            else if (connectionDetails.type === 'csv') fetchTables('');
+            // Only reset and fetch if we don't already have data for this connection
+            // This prevents refetching when switching tabs
+            const shouldFetch = state.databases.length === 0 && 
+                               state.tables.length === 0 && 
+                               state.selectedDatabase === '' &&
+                               !state.isLoadingMetadata;
+            
+            if (shouldFetch) {
+                // Reset state when connection changes
+                dispatch({ type: 'SET_DATABASES', payload: [] });
+                dispatch({ type: 'SET_TABLES', payload: [] });
+                dispatch({ type: 'SET_AVAILABLE_FIELDS', payload: [] });
+                dispatch({ type: 'SET_SELECTED_DATABASE', payload: '' });
+                dispatch({ type: 'SET_SELECTED_TABLE', payload: '' });
+                dispatch({ type: 'SET_METADATA_ERROR', payload: null });
+                
+                if (connectionDetails.type === 'clickhouse') {
+                    fetchDatabases();
+                } else if (connectionDetails.type === 'csv') {
+                    fetchTables('');
+                }
+            }
         }
-    }, [connectionDetails, fetchDatabases, fetchTables]);
+    }, [connectionDetails, fetchDatabases, fetchTables, dispatch, state.databases.length, state.tables.length, state.selectedDatabase, state.isLoadingMetadata]);
     
     useEffect(() => {
-        if (selectedTable) fetchColumns();
-    }, [selectedTable, fetchColumns]);
+        // Fetch columns when table is selected (either from initial load or user selection)
+        if (state.selectedTable && !state.isLoadingMetadata) {
+            // Only fetch if we don't have fields or if the fields list was just cleared (user changed table)
+            if (state.availableFields.length === 0) {
+                fetchColumns();
+            }
+        }
+    }, [state.selectedTable, state.availableFields.length, state.isLoadingMetadata, fetchColumns]);
 
     useEffect(() => {
-        if(selectedDatabase) fetchTables(selectedDatabase)
-    }, [selectedDatabase, fetchTables])
+        // Fetch tables when database is selected (either from initial load or user selection)
+        if (state.selectedDatabase && !state.isLoadingMetadata) {
+            // Only fetch if we don't have tables or if the tables list was just cleared (user changed database)
+            if (state.tables.length === 0) {
+                fetchTables(state.selectedDatabase);
+            }
+        }
+    }, [state.selectedDatabase, state.tables.length, state.isLoadingMetadata, fetchTables])
 
     // --- Return all state and handlers ---
     return {
         connectionDetails,
-        xAxisFields,
-        yAxisFields,
-        availableFields,
-        databases,
-        tables,
-        selectedDatabase,
-        selectedTable,
-        isLoadingMetadata,
-        metadataError,
-        handleDrop,
+        xAxisFields: state.xAxisFields,
+        yAxisFields: state.yAxisFields,
+        availableFields: state.availableFields,
+        databases: state.databases,
+        tables: state.tables,
+        selectedDatabase: state.selectedDatabase,
+        selectedTable: state.selectedTable,
+        isLoadingMetadata: state.isLoadingMetadata,
+        metadataError: state.metadataError,
         handleFieldUpdate,
         handleDatabaseSelect,
         handleTableSelect,
-        handleRemoveFromAxis
+        handleRemoveFromAxis,
+        handleDropFromAvailableFields,
+        handleReorderFields
     };
 } 
