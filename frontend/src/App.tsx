@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import DataSourceSelectionPage from './pages/DataSourceSelectionPage';
 import VisualizationPage from './pages/VisualizationPage';
+import VisualizationPageNew from './pages/VisualizationPageNew';
 import './App.css';
 
 function App() {
@@ -15,12 +16,14 @@ function App() {
         {/* Basic Navigation (can be improved) */}
         <nav style={{ marginBottom: '20px', borderBottom: '1px solid #ccc', paddingBottom: '10px' }}>
           <Link to="/" style={{ marginRight: '15px' }}>Data Sources</Link>
-          <Link to="/visualize">Visualize</Link>
+          <Link to="/visualize" style={{ marginRight: '15px' }}>Visualize (Current)</Link>
+          <Link to="/visualize-new">Visualize (New Layout)</Link>
         </nav>
 
         <Routes>
           <Route path="/" element={<DataSourceSelectionPage />} />
           <Route path="/visualize" element={<VisualizationPage />} />
+          <Route path="/visualize-new" element={<VisualizationPageNew />} />
           {/* Add other routes as needed */}
         </Routes>
       </div>
