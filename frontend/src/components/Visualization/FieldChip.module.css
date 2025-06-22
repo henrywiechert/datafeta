@@ -9,8 +9,25 @@
     border: 1px solid #ccc;
     cursor: grab;
     display: inline-block;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.chip:hover {
+    background-color: #d5d5d5;
+    border-color: #999;
 }
 
 .chip:active {
     cursor: grabbing;
+}
+
+.chip.dragging {
+    opacity: 0.3;
+    transform: scale(0.95);
+}
+
+.chip.dragOver {
+    border-color: #2196f3;
+    background-color: #e3f2fd;
 } 
