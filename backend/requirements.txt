@@ -1,7 +1,7 @@
 fastapi
 uvicorn[standard]
 pandas
-clickhouse-driver
+clickhouse-connect>=0.6.8
 python-multipart
 pypika
 duckdb
