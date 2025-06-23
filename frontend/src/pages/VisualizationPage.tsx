@@ -210,7 +210,7 @@ const VisualizationPage = () => {
                                             .filter(field => field.type === 'dimension')
                                             .map(field => (
                                                 <FieldChip 
-                                                    key={field.id} 
+                                                    key={`${field.id}-${field.type}-${field.flavour}-${field.dataType}-${field.aggregation || 'none'}`} 
                                                     field={field} 
                                                     onUpdate={handleFieldUpdate} 
                                                     source="AVAILABLE_FIELDS" 
@@ -237,7 +237,7 @@ const VisualizationPage = () => {
                                             .filter(field => field.type === 'measure')
                                             .map(field => (
                                                 <FieldChip 
-                                                    key={field.id} 
+                                                    key={`${field.id}-${field.type}-${field.flavour}-${field.dataType}-${field.aggregation || 'none'}`} 
                                                     field={field} 
                                                     onUpdate={handleFieldUpdate} 
                                                     source="AVAILABLE_FIELDS" 

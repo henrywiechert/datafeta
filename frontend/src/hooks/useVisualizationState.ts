@@ -131,7 +131,7 @@ export function useVisualizationState() {
                 return {
                     id: `field-${col.name}`,
                     columnName: col.name,
-                    type: 'dimension',
+                    type: 'dimension', // All fields start as dimensions (datetime fields must stay as dimensions)
                     flavour: dataType === 'string' ? 'discrete' : 'discrete', // Default to discrete, can be changed via UI
                     dataType: dataType,
                 };

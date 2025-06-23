@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Field } from '../../types';
 import styles from './FieldChip.module.css';
 import ContextMenu from './ContextMenu';
+import SubMenu from './SubMenu';
 import menuStyles from './ContextMenu.module.css';
 import { getAvailableAggregations } from '../../utils/fieldUtils';
 
@@ -34,7 +35,16 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
 
   const handleContextMenu = (event: React.MouseEvent) => {
     event.preventDefault();
-    setMenuPosition({ x: event.clientX, y: event.clientY });
+    
+    // Get the element's position
+    const rect = event.currentTarget.getBoundingClientRect();
+    
+    // Position menu relative to the element, not the exact click point
+    // This provides more consistent positioning across different layouts
+    const x = rect.left;
+    const y = rect.bottom + 5; // 5px below the element
+    
+    setMenuPosition({ x, y });
   };
 
   const handleCloseMenu = () => {
@@ -42,7 +52,9 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
   };
 
   const handleUpdate = (updates: Partial<Field>) => {
-    const newField = { ...field, ...updates };
+    // Ensure we're working with the current field state, not a stale closure
+    const currentField = field;
+    const newField = { ...currentField, ...updates };
 
     if (updates.type === 'dimension') {
       delete newField.aggregation;
@@ -59,6 +71,23 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
       return;
     }
 
+    // Enforce constraint: datetime fields can only be measures
+    if (newField.dataType === 'datetime' && updates.type === 'measure') {
+      // Don't allow the change, keep it as dimension
+      return;
+    }
+
+    // If changing to string data type, force flavour to discrete
+    if (updates.dataType === 'string') {
+      newField.flavour = 'discrete';
+    }
+
+    // If changing to datetime data type, force type to dimension
+    if (updates.dataType === 'datetime') {
+      newField.type = 'dimension';
+      delete newField.aggregation; // Remove any aggregation since it's now a dimension
+    }
+
     onUpdate(newField);
     handleCloseMenu();
   };
@@ -67,14 +96,18 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
     const isMeasure = field.type === 'measure';
     const availableAggregations = getAvailableAggregations(field);
     const canBeContinuous = field.dataType !== 'string'; // String fields can only be discrete
+    const canBeMeasure = field.dataType !== 'datetime'; // DateTime fields can only be dimensions
 
     return (
       <>
         <div className={menuStyles.menuItem} onClick={() => handleUpdate({ type: 'dimension' })}>
           Dimension {field.type === 'dimension' && '✔'}
         </div>
-        <div className={menuStyles.menuItem} onClick={() => handleUpdate({ type: 'measure' })}>
-          Measure {field.type === 'measure' && '✔'}
+        <div 
+          className={`${menuStyles.menuItem} ${!canBeMeasure ? menuStyles.disabled : ''}`} 
+          onClick={canBeMeasure ? () => handleUpdate({ type: 'measure' }) : undefined}
+        >
+          Measure {field.type === 'measure' && '✔'} {!canBeMeasure && '(DateTime fields only)'}
         </div>
         
         <div className={menuStyles.separator} />
@@ -88,6 +121,23 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
         >
           Continuous {field.flavour === 'continuous' && '✔'} {!canBeContinuous && '(String fields only)'}
         </div>
+        
+        <div className={menuStyles.separator} />
+
+        <SubMenu label={`Data Type (${field.dataType})`}>
+          <div className={menuStyles.menuItem} onClick={() => handleUpdate({ dataType: 'string' })}>
+            String {field.dataType === 'string' && '✔'}
+          </div>
+          <div className={menuStyles.menuItem} onClick={() => handleUpdate({ dataType: 'integer' })}>
+            Integer {field.dataType === 'integer' && '✔'}
+          </div>
+          <div className={menuStyles.menuItem} onClick={() => handleUpdate({ dataType: 'float' })}>
+            Float {field.dataType === 'float' && '✔'}
+          </div>
+          <div className={menuStyles.menuItem} onClick={() => handleUpdate({ dataType: 'datetime' })}>
+            DateTime {field.dataType === 'datetime' && '✔'}
+          </div>
+        </SubMenu>
         
         {isMeasure && availableAggregations.length > 0 && <div className={menuStyles.separator} />}
 
@@ -105,6 +155,7 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
       <div
         className={`${styles.chip} ${field.flavour === 'continuous' ? styles.continuous : styles.discrete} ${source === 'AVAILABLE_FIELDS' ? styles.textOnly : styles.framed} field-chip`}
         draggable
+
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onContextMenu={handleContextMenu}
