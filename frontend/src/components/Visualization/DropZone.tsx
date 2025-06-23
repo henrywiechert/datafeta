@@ -263,74 +263,77 @@ const DropZone: React.FC<DropZoneProps> = ({
   const dropZoneClass = `${styles.dropZone} ${isOver ? styles.isOver : ''}`;
 
   return (
-    <div
-      className={dropZoneClass}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      <div style={{ fontWeight: 'bold', marginRight: '8px' }}>
+    <div style={{ display: 'flex' }}>
+      <div style={{ fontWeight: 'bold', marginRight: '12px', minWidth: '60px', textAlign: 'right', display: 'flex', alignItems: 'center' }}>
         {children}
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px', position: 'relative' }}>
-        {fields.map((field, index) => {
-          // Check if this is the boundary between discrete and continuous fields
-          const isDiscreteToContinuousBoundary = 
-            index > 0 && 
-            fields[index - 1].flavour === 'discrete' && 
-            field.flavour === 'continuous';
-            
-          return (
-            <React.Fragment key={`${field.id}-${field.type}-${field.flavour}-${field.dataType}-${field.aggregation || 'none'}`}>
-              {/* Drop indicator line */}
-              {dragOverIndex === index && (
-                <div style={{
-                  width: '2px',
-                  height: '24px',
-                  backgroundColor: '#1976d2',
-                  zIndex: 1000
-                }} />
-              )}
+      <div
+        className={dropZoneClass}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        style={{ flex: 1, padding: '2px 4px', minHeight: '28px', display: 'flex', alignItems: 'center' }}
+      >
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px', position: 'relative', width: '100%' }}>
+          {fields.map((field, index) => {
+            // Check if this is the boundary between discrete and continuous fields
+            const isDiscreteToContinuousBoundary = 
+              index > 0 && 
+              fields[index - 1].flavour === 'discrete' && 
+              field.flavour === 'continuous';
               
-              {/* Visual separator between discrete and continuous fields */}
-              {isDiscreteToContinuousBoundary && (
-                <div style={{
-                  width: '1px',
-                  height: '16px',
-                  backgroundColor: '#ccc',
-                  margin: '0 2px'
-                }} />
-              )}
-              
-              <FieldChip
-                field={field}
-                onUpdate={onFieldUpdate}
-                source={axis === 'x' ? 'X_AXIS' : 'Y_AXIS'}
-                index={index}
-              />
-            </React.Fragment>
-          );
-        })}
-        {/* Drop indicator at the end */}
-        {dragOverIndex === fields.length && (
-          <div style={{
-            width: '2px',
-            height: '24px',
-            backgroundColor: '#1976d2',
-            zIndex: 1000
-          }} />
+            return (
+              <React.Fragment key={`${field.id}-${field.type}-${field.flavour}-${field.dataType}-${field.aggregation || 'none'}`}>
+                {/* Drop indicator line */}
+                {dragOverIndex === index && (
+                  <div style={{
+                    width: '2px',
+                    height: '24px',
+                    backgroundColor: '#1976d2',
+                    zIndex: 1000
+                  }} />
+                )}
+                
+                {/* Visual separator between discrete and continuous fields */}
+                {isDiscreteToContinuousBoundary && (
+                  <div style={{
+                    width: '1px',
+                    height: '16px',
+                    backgroundColor: '#ccc',
+                    margin: '0 2px'
+                  }} />
+                )}
+                
+                <FieldChip
+                  field={field}
+                  onUpdate={onFieldUpdate}
+                  source={axis === 'x' ? 'X_AXIS' : 'Y_AXIS'}
+                  index={index}
+                />
+              </React.Fragment>
+            );
+          })}
+          {/* Drop indicator at the end */}
+          {dragOverIndex === fields.length && (
+            <div style={{
+              width: '2px',
+              height: '24px',
+              backgroundColor: '#1976d2',
+              zIndex: 1000
+            }} />
+          )}
+        </div>
+        {fields.length === 0 && (
+          <div style={{ 
+            color: '#666', 
+            fontStyle: 'italic', 
+            fontSize: '14px',
+            padding: '8px 0'
+          }}>
+            Drop fields here
+          </div>
         )}
       </div>
-      {fields.length === 0 && (
-        <div style={{ 
-          color: '#666', 
-          fontStyle: 'italic', 
-          fontSize: '14px',
-          padding: '8px 0'
-        }}>
-          Drop fields here
-        </div>
-      )}
     </div>
   );
 };
