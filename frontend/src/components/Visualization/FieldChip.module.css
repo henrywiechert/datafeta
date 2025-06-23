@@ -1,16 +1,22 @@
 .chip {
-    padding: 4px 8px;
+    padding: 0 6px !important;
     margin: 1px;
     color: #333;
     font-family: sans-serif;
     font-size: 14px;
     cursor: grab;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    vertical-align: middle;
     transition: background-color 0.2s ease, border-color 0.2s ease;
     user-select: none;
     text-align: left;
     box-shadow: none;
     transform: none;
+    min-height: 24px !important;
+    height: 24px !important;
+    line-height: normal !important;
 }
 
 /* Text-only style for Fields area */
@@ -18,7 +24,17 @@
     background-color: transparent;
     border: 1px solid transparent;
     border-radius: 0;
-    padding: 2px 4px;
+    padding: 0 4px !important;
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    justify-content: flex-start;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+    width: 100%;
 }
 
 /* Framed style for axis drop zones */
@@ -35,6 +51,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: flex-start;
+    vertical-align: middle;
 }
 
 .chip.framed.discrete {
@@ -108,4 +125,13 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     flex: 1 1 auto;
+}
+
+.chip.textOnly .chipText {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+    width: 100%;
+    text-align: left;
 }
