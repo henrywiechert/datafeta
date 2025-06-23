@@ -46,6 +46,39 @@ const DropZone: React.FC<DropZoneProps> = ({
     };
   }, []);
 
+  // Helper function to get valid insert index for new fields based on flavour
+  const getValidInsertIndex = (field: Field): number => {
+    if (field.flavour === 'discrete') {
+      // Discrete fields go before any continuous fields
+      // Find the first continuous field and insert before it
+      const firstContinuousIndex = fields.findIndex(f => f.flavour === 'continuous');
+      return firstContinuousIndex === -1 ? fields.length : firstContinuousIndex;
+    } else {
+      // Continuous fields go after all discrete fields
+      return fields.length;
+    }
+  };
+
+  // Helper function to get valid target index for reordering within same axis
+  const getValidTargetIndex = (field: Field, requestedIndex: number, sourceIndex: number): number => {
+    // Create a copy of fields without the field being moved
+    const fieldsWithoutSource = fields.filter((_, index) => index !== sourceIndex);
+    
+    if (field.flavour === 'discrete') {
+      // Discrete fields can only be placed before continuous fields
+      const firstContinuousIndex = fieldsWithoutSource.findIndex(f => f.flavour === 'continuous');
+      const maxIndex = firstContinuousIndex === -1 ? fieldsWithoutSource.length : firstContinuousIndex;
+      return Math.min(requestedIndex, maxIndex);
+    } else {
+      // Continuous fields can only be placed after discrete fields
+      const lastDiscreteIndex = fieldsWithoutSource.map((f, i) => ({ field: f, index: i }))
+        .filter(({ field }) => field.flavour === 'discrete')
+        .pop()?.index;
+      const minIndex = lastDiscreteIndex === undefined ? 0 : lastDiscreteIndex + 1;
+      return Math.max(requestedIndex, minIndex);
+    }
+  };
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
@@ -58,15 +91,68 @@ const DropZone: React.FC<DropZoneProps> = ({
     
     setIsOver(true);
 
-    // Calculate drop position for reordering based on actual field positions
+    // Try to get the dragged field info to determine valid drop positions
+    try {
+      const dragData = e.dataTransfer.getData('application/json');
+      if (dragData) {
+        const { field, source, index: sourceIndex } = JSON.parse(dragData);
+        
+        // Calculate drop position based on ordering rules
+        if (source === (axis === 'x' ? 'X_AXIS' : 'Y_AXIS') && sourceIndex !== undefined) {
+          // Reordering within same axis - show visual indicator at valid position
+          const mouseX = e.clientX;
+          const fieldChips = e.currentTarget.querySelectorAll('.field-chip');
+          let requestedIndex = 0;
+          
+          // Calculate requested position based on mouse
+          if (fieldChips.length > 0) {
+            const firstChip = fieldChips[0] as HTMLElement;
+            const firstChipRect = firstChip.getBoundingClientRect();
+            
+            if (mouseX < firstChipRect.left) {
+              requestedIndex = 0;
+            } else {
+              let found = false;
+              for (let i = 0; i < fieldChips.length; i++) {
+                const chipRect = (fieldChips[i] as HTMLElement).getBoundingClientRect();
+                const chipCenter = chipRect.left + chipRect.width / 2;
+                
+                if (mouseX < chipCenter) {
+                  requestedIndex = i;
+                  found = true;
+                  break;
+                }
+              }
+              
+              if (!found) {
+                requestedIndex = fields.length;
+              }
+            }
+          }
+          
+          // Adjust for the field being moved
+          if (requestedIndex > sourceIndex) {
+            requestedIndex = Math.max(requestedIndex - 1, sourceIndex);
+          }
+          
+          // Get the valid index based on ordering rules
+          const validIndex = getValidTargetIndex(field, requestedIndex, sourceIndex);
+          setDragOverIndex(validIndex);
+        } else {
+          // New field drop - show indicator at valid position based on flavour
+          const validIndex = getValidInsertIndex(field);
+          setDragOverIndex(validIndex);
+        }
+        return;
+      }
+    } catch (error) {
+      // If we can't parse drag data, fall back to basic positioning
+    }
+
+    // Fallback: Calculate drop position based on mouse position only
     if (fields.length > 0) {
-      const dropZoneRect = e.currentTarget.getBoundingClientRect();
       const mouseX = e.clientX;
-      
-      // Get all field chip elements
       const fieldChips = e.currentTarget.querySelectorAll('.field-chip');
-      let closestIndex = 0;
-      let minDistance = Infinity;
       
       // Check if mouse is before the first field
       if (fieldChips.length > 0) {
@@ -118,7 +204,7 @@ const DropZone: React.FC<DropZoneProps> = ({
       
       // Handle reordering within the same axis
       if (source === (axis === 'x' ? 'X_AXIS' : 'Y_AXIS') && onReorderFields && sourceIndex !== undefined) {
-        // Use the same logic as dragOver for consistency
+        // Calculate target index based on mouse position
         const mouseX = e.clientX;
         const fieldChips = e.currentTarget.querySelectorAll('.field-chip');
         let targetIndex = 0;
@@ -155,13 +241,16 @@ const DropZone: React.FC<DropZoneProps> = ({
           targetIndex = Math.max(targetIndex - 1, sourceIndex);
         }
         
+        // Enforce ordering rule: discrete fields before continuous fields
+        targetIndex = getValidTargetIndex(field, targetIndex, sourceIndex);
+        
         if (targetIndex !== sourceIndex) {
           onReorderFields(axis, sourceIndex, targetIndex);
         }
       } else {
         // Handle drops from available fields or cross-axis moves
-        // Use the dragOverIndex that was calculated during drag over
-        const insertIndex = dragOverIndex !== null ? dragOverIndex : fields.length;
+        // Calculate insert index based on flavour ordering rule
+        const insertIndex = getValidInsertIndex(field);
         onDrop(field, source, insertIndex);
       }
     } catch (error) {
@@ -184,25 +273,44 @@ const DropZone: React.FC<DropZoneProps> = ({
         {children}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', position: 'relative' }}>
-        {fields.map((field, index) => (
-          <React.Fragment key={`${field.id}-${field.type}-${field.flavour}-${field.dataType}-${field.aggregation || 'none'}`}>
-            {/* Drop indicator line */}
-            {dragOverIndex === index && (
-              <div style={{
-                width: '2px',
-                height: '24px',
-                backgroundColor: '#1976d2',
-                zIndex: 1000
-              }} />
-            )}
-            <FieldChip
-              field={field}
-              onUpdate={onFieldUpdate}
-              source={axis === 'x' ? 'X_AXIS' : 'Y_AXIS'}
-              index={index}
-            />
-          </React.Fragment>
-        ))}
+        {fields.map((field, index) => {
+          // Check if this is the boundary between discrete and continuous fields
+          const isDiscreteToContinuousBoundary = 
+            index > 0 && 
+            fields[index - 1].flavour === 'discrete' && 
+            field.flavour === 'continuous';
+            
+          return (
+            <React.Fragment key={`${field.id}-${field.type}-${field.flavour}-${field.dataType}-${field.aggregation || 'none'}`}>
+              {/* Drop indicator line */}
+              {dragOverIndex === index && (
+                <div style={{
+                  width: '2px',
+                  height: '24px',
+                  backgroundColor: '#1976d2',
+                  zIndex: 1000
+                }} />
+              )}
+              
+              {/* Visual separator between discrete and continuous fields */}
+              {isDiscreteToContinuousBoundary && (
+                <div style={{
+                  width: '1px',
+                  height: '16px',
+                  backgroundColor: '#ccc',
+                  margin: '0 2px'
+                }} />
+              )}
+              
+              <FieldChip
+                field={field}
+                onUpdate={onFieldUpdate}
+                source={axis === 'x' ? 'X_AXIS' : 'Y_AXIS'}
+                index={index}
+              />
+            </React.Fragment>
+          );
+        })}
         {/* Drop indicator at the end */}
         {dragOverIndex === fields.length && (
           <div style={{

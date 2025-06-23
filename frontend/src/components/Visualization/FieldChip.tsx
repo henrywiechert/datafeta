@@ -97,6 +97,7 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
     const availableAggregations = getAvailableAggregations(field);
     const canBeContinuous = field.dataType !== 'string'; // String fields can only be discrete
     const canBeMeasure = field.dataType !== 'datetime'; // DateTime fields can only be dimensions
+    const isInAxisDropZone = source === 'X_AXIS' || source === 'Y_AXIS';
 
     return (
       <>
@@ -122,22 +123,27 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
           Continuous {field.flavour === 'continuous' && '✔'} {!canBeContinuous && '(String fields only)'}
         </div>
         
-        <div className={menuStyles.separator} />
+        {/* Only show data type selection when field is in available fields panel */}
+        {!isInAxisDropZone && (
+          <>
+            <div className={menuStyles.separator} />
 
-        <SubMenu label={`Data Type (${field.dataType})`}>
-          <div className={menuStyles.menuItem} onClick={() => handleUpdate({ dataType: 'string' })}>
-            String {field.dataType === 'string' && '✔'}
-          </div>
-          <div className={menuStyles.menuItem} onClick={() => handleUpdate({ dataType: 'integer' })}>
-            Integer {field.dataType === 'integer' && '✔'}
-          </div>
-          <div className={menuStyles.menuItem} onClick={() => handleUpdate({ dataType: 'float' })}>
-            Float {field.dataType === 'float' && '✔'}
-          </div>
-          <div className={menuStyles.menuItem} onClick={() => handleUpdate({ dataType: 'datetime' })}>
-            DateTime {field.dataType === 'datetime' && '✔'}
-          </div>
-        </SubMenu>
+            <SubMenu label={`Data Type (${field.dataType})`}>
+              <div className={menuStyles.menuItem} onClick={() => handleUpdate({ dataType: 'string' })}>
+                String {field.dataType === 'string' && '✔'}
+              </div>
+              <div className={menuStyles.menuItem} onClick={() => handleUpdate({ dataType: 'integer' })}>
+                Integer {field.dataType === 'integer' && '✔'}
+              </div>
+              <div className={menuStyles.menuItem} onClick={() => handleUpdate({ dataType: 'float' })}>
+                Float {field.dataType === 'float' && '✔'}
+              </div>
+              <div className={menuStyles.menuItem} onClick={() => handleUpdate({ dataType: 'datetime' })}>
+                DateTime {field.dataType === 'datetime' && '✔'}
+              </div>
+            </SubMenu>
+          </>
+        )}
         
         {isMeasure && availableAggregations.length > 0 && <div className={menuStyles.separator} />}
 
