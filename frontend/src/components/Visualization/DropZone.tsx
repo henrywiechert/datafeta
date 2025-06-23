@@ -272,7 +272,7 @@ const DropZone: React.FC<DropZoneProps> = ({
       <div style={{ fontWeight: 'bold', marginRight: '8px' }}>
         {children}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', position: 'relative' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px', position: 'relative' }}>
         {fields.map((field, index) => {
           // Check if this is the boundary between discrete and continuous fields
           const isDiscreteToContinuousBoundary = 
@@ -335,4 +335,4 @@ const DropZone: React.FC<DropZoneProps> = ({
   );
 };
 
-export default DropZone; 
+export default DropZone;

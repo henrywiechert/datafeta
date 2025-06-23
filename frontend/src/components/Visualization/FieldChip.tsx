@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useLayoutEffect } from 'react';
 import { Field } from '../../types';
 import Chip from '@mui/material/Chip';
 import Tooltip from '@mui/material/Tooltip';
@@ -20,6 +20,15 @@ interface FieldChipProps {
 const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index }) => {
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const chipLabelRef = useRef<HTMLSpanElement>(null);
+  const [isTruncated, setIsTruncated] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = chipLabelRef.current;
+    if (el) {
+      setIsTruncated(el.scrollWidth > el.clientWidth);
+    }
+  }, [field, source, field.columnName, field.aggregation, field.flavour, field.dataType]);
 
   const handleDragStart = (e: React.DragEvent) => {
     setIsDragging(true);
@@ -161,77 +170,108 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
   // Compose the full label text for tooltip and chip
   const fullLabel = `${field.columnName}${field.aggregation ? `(${field.aggregation})` : ''} [${field.flavour}] (${field.dataType})`;
 
+  const chipLabel = (
+    <span
+      ref={chipLabelRef}
+      className={source === 'AVAILABLE_FIELDS' ? styles.chipText : undefined}
+      style={{
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        display: source === 'AVAILABLE_FIELDS' ? 'block' : 'inline-block',
+        width: '100%',
+        fontSize: source === 'AVAILABLE_FIELDS' ? undefined : '12px',
+        textAlign: source === 'AVAILABLE_FIELDS' ? 'left' : undefined,
+      }}
+    >
+      <span className={`${styles.symbol} ${field.flavour === 'continuous' ? styles.continuousSymbol : styles.discreteSymbol}`}>#</span>
+      {field.columnName} {field.aggregation && `(${field.aggregation})`} [{field.flavour}] ({field.dataType})
+    </span>
+  );
+
   return (
     <>
-      <Tooltip 
-        title={<span style={{whiteSpace: 'nowrap', display: 'block'}}>{fullLabel}</span>} 
-        enterDelay={500} 
-        arrow
-        PopperProps={{
-          modifiers: [
-            {
-              name: 'preventOverflow',
-              options: {
-                altAxis: true,
-                tether: true,
-                padding: 0,
-                boundary: 'window',
+      {isTruncated ? (
+        <Tooltip 
+          title={<span style={{whiteSpace: 'nowrap', display: 'block'}}>{fullLabel}</span>} 
+          enterDelay={500} 
+          arrow
+          PopperProps={{
+            modifiers: [
+              {
+                name: 'preventOverflow',
+                options: {
+                  altAxis: true,
+                  tether: true,
+                  padding: 0,
+                  boundary: 'window',
+                },
               },
-            },
-            {
-              name: 'maxWidth',
-              enabled: false,
-            },
-          ],
-        }}
-        componentsProps={{
-          tooltip: {
-            sx: {
-              maxWidth: 'none',
-              padding: '6px 12px',
-              fontSize: '13px',
+              {
+                name: 'maxWidth',
+                enabled: false,
+              },
+            ],
+          }}
+          componentsProps={{
+            tooltip: {
+              sx: {
+                maxWidth: 'none',
+                padding: '6px 12px',
+                fontSize: '13px',
+              }
             }
-          }
-        }}
-      >
-        <span>
-          <Chip
-            className={`${styles.chip} ${field.flavour === 'continuous' ? styles.continuous : styles.discrete} ${source === 'AVAILABLE_FIELDS' ? styles.textOnly : styles.framed} field-chip`}
-            draggable
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            onContextMenu={handleContextMenu}
-            style={{
-              opacity: isDragging ? 0.5 : 1,
-              cursor: 'grab',
-              width: source === 'AVAILABLE_FIELDS' ? undefined : 240,
-              maxWidth: source === 'AVAILABLE_FIELDS' ? undefined : 240,
-              minWidth: source === 'AVAILABLE_FIELDS' ? undefined : 160,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'flex-start',
-              fontSize: source === 'AVAILABLE_FIELDS' ? undefined : '12px',
-            }}
-            label={
-              <span className={source === 'AVAILABLE_FIELDS' ? styles.chipText : undefined} style={{
+          }}
+        >
+          <span>
+            <Chip
+              className={`${styles.chip} ${field.flavour === 'continuous' ? styles.continuous : styles.discrete} ${source === 'AVAILABLE_FIELDS' ? styles.textOnly : styles.framed} field-chip`}
+              draggable
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              onContextMenu={handleContextMenu}
+              style={{
+                opacity: isDragging ? 0.5 : 1,
+                cursor: 'grab',
+                width: source === 'AVAILABLE_FIELDS' ? undefined : 240,
+                maxWidth: source === 'AVAILABLE_FIELDS' ? undefined : 240,
+                minWidth: source === 'AVAILABLE_FIELDS' ? undefined : 160,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
-                display: source === 'AVAILABLE_FIELDS' ? 'block' : 'inline-block',
-                width: '100%',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'flex-start',
                 fontSize: source === 'AVAILABLE_FIELDS' ? undefined : '12px',
-                textAlign: source === 'AVAILABLE_FIELDS' ? 'left' : undefined,
-              }}>
-                <span className={`${styles.symbol} ${field.flavour === 'continuous' ? styles.continuousSymbol : styles.discreteSymbol}`}>#</span>
-                {field.columnName} {field.aggregation && `(${field.aggregation})`} [{field.flavour}] ({field.dataType})
-              </span>
-            }
-          />
-        </span>
-      </Tooltip>
+              }}
+              label={chipLabel}
+            />
+          </span>
+        </Tooltip>
+      ) : (
+        <Chip
+          className={`${styles.chip} ${field.flavour === 'continuous' ? styles.continuous : styles.discrete} ${source === 'AVAILABLE_FIELDS' ? styles.textOnly : styles.framed} field-chip`}
+          draggable
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onContextMenu={handleContextMenu}
+          style={{
+            opacity: isDragging ? 0.5 : 1,
+            cursor: 'grab',
+            width: source === 'AVAILABLE_FIELDS' ? undefined : 240,
+            maxWidth: source === 'AVAILABLE_FIELDS' ? undefined : 240,
+            minWidth: source === 'AVAILABLE_FIELDS' ? undefined : 160,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'flex-start',
+            fontSize: source === 'AVAILABLE_FIELDS' ? undefined : '12px',
+          }}
+          label={chipLabel}
+        />
+      )}
       {menuPosition && (
         <ContextMenu position={menuPosition} onClose={handleCloseMenu}>
           {renderMenuItems()}
