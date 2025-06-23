@@ -161,7 +161,6 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
       <div
         className={`${styles.chip} ${field.flavour === 'continuous' ? styles.continuous : styles.discrete} ${source === 'AVAILABLE_FIELDS' ? styles.textOnly : styles.framed} field-chip`}
         draggable
-
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onContextMenu={handleContextMenu}
@@ -170,7 +169,10 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
           cursor: 'grab'
         }}
       >
-        <span className={`${styles.symbol} ${field.flavour === 'continuous' ? styles.continuousSymbol : styles.discreteSymbol}`}>#</span> {field.columnName} {field.aggregation && `(${field.aggregation})`} [{field.flavour}] ({field.dataType})
+        <span className={`${styles.symbol} ${field.flavour === 'continuous' ? styles.continuousSymbol : styles.discreteSymbol}`}>#</span>
+        <span className={source === 'AVAILABLE_FIELDS' ? undefined : styles.chipText}>
+          {field.columnName} {field.aggregation && `(${field.aggregation})`} [{field.flavour}] ({field.dataType})
+        </span>
       </div>
       {menuPosition && (
         <ContextMenu position={menuPosition} onClose={handleCloseMenu}>
@@ -181,4 +183,4 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
   );
 };
 
-export default FieldChip; 
+export default FieldChip;
