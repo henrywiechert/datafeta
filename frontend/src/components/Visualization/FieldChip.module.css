@@ -25,6 +25,16 @@
 .chip.framed {
     border-radius: 16px;
     border: 1px solid #ccc;
+    /* Fixed width for axis chips */
+    width: 120px;
+    max-width: 120px;
+    min-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
 }
 
 .chip.framed.discrete {
@@ -91,4 +101,11 @@
 .chip.dragOver {
     border-color: #2196f3;
     background-color: #e3f2fd;
-} 
+}
+
+.chip.framed .chipText {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1 1 auto;
+}
