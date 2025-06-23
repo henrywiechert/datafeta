@@ -6,11 +6,13 @@ import { useVisualizationContext } from '../contexts/VisualizationContext';
 import FieldChip, { DragSource } from '../components/Visualization/FieldChip';
 import DropZone from '../components/Visualization/DropZone';
 import ChartArea from '../components/Visualization/ChartArea';
+import FieldsSearch from '../components/Visualization/FieldsSearch';
 
 import { Field } from '../types';
 
 const VisualizationPage = () => {
     const [isFieldsPanelDragOver, setIsFieldsPanelDragOver] = React.useState(false);
+    const [fieldsSearch, setFieldsSearch] = React.useState('');
     const { dispatch } = useVisualizationContext();
     
     const {
@@ -148,6 +150,7 @@ const VisualizationPage = () => {
                         }}>
                             <div style={{ padding: '12px', borderBottom: '1px solid #ddd', flexShrink: 0 }}>
                                 <Typography variant="h6">Fields</Typography>
+                                <FieldsSearch value={fieldsSearch} onChange={setFieldsSearch} />
                             </div>
                             <div 
                                 style={{ 
@@ -208,6 +211,11 @@ const VisualizationPage = () => {
                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
                                         {availableFields
                                             .filter(field => field.type === 'dimension')
+                                            .filter(field =>
+                                                field.columnName.toLowerCase().includes(fieldsSearch.toLowerCase()) ||
+                                                (field.aggregation && field.aggregation.toLowerCase().includes(fieldsSearch.toLowerCase())) ||
+                                                (field.dataType && field.dataType.toLowerCase().includes(fieldsSearch.toLowerCase()))
+                                            )
                                             .map(field => (
                                                 <FieldChip 
                                                     key={`${field.id}-${field.type}-${field.flavour}-${field.dataType}-${field.aggregation || 'none'}`} 
@@ -217,7 +225,12 @@ const VisualizationPage = () => {
                                                 />
                                             ))
                                         }
-                                                                                {availableFields.filter(field => field.type === 'dimension').length === 0 && (
+                                        {availableFields.filter(field => field.type === 'dimension')
+                                            .filter(field =>
+                                                field.columnName.toLowerCase().includes(fieldsSearch.toLowerCase()) ||
+                                                (field.aggregation && field.aggregation.toLowerCase().includes(fieldsSearch.toLowerCase())) ||
+                                                (field.dataType && field.dataType.toLowerCase().includes(fieldsSearch.toLowerCase()))
+                                            ).length === 0 && (
                                             <Typography variant="body2" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
                                                 No dimensions available
                                             </Typography>
@@ -235,6 +248,11 @@ const VisualizationPage = () => {
                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
                                         {availableFields
                                             .filter(field => field.type === 'measure')
+                                            .filter(field =>
+                                                field.columnName.toLowerCase().includes(fieldsSearch.toLowerCase()) ||
+                                                (field.aggregation && field.aggregation.toLowerCase().includes(fieldsSearch.toLowerCase())) ||
+                                                (field.dataType && field.dataType.toLowerCase().includes(fieldsSearch.toLowerCase()))
+                                            )
                                             .map(field => (
                                                 <FieldChip 
                                                     key={`${field.id}-${field.type}-${field.flavour}-${field.dataType}-${field.aggregation || 'none'}`} 
@@ -244,7 +262,12 @@ const VisualizationPage = () => {
                                                 />
                                             ))
                                         }
-                                        {availableFields.filter(field => field.type === 'measure').length === 0 && (
+                                        {availableFields.filter(field => field.type === 'measure')
+                                            .filter(field =>
+                                                field.columnName.toLowerCase().includes(fieldsSearch.toLowerCase()) ||
+                                                (field.aggregation && field.aggregation.toLowerCase().includes(fieldsSearch.toLowerCase())) ||
+                                                (field.dataType && field.dataType.toLowerCase().includes(fieldsSearch.toLowerCase()))
+                                            ).length === 0 && (
                                             <Typography variant="body2" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
                                                 No measures available
                                             </Typography>
@@ -296,4 +319,4 @@ const VisualizationPage = () => {
     );
 };
 
-export default VisualizationPage; 
+export default VisualizationPage;
