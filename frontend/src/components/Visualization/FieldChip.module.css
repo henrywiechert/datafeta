@@ -135,3 +135,21 @@
     width: 100%;
     text-align: left;
 }
+
+/* Specific styles for better truncation detection */
+.chipText {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+}
+
+.availableFieldsText {
+    width: 100%;
+    display: block;
+}
+
+.axisFieldsText {
+    width: 100%;
+    display: inline-block;
+}
