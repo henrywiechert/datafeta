@@ -1,0 +1,35 @@
+.chipText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.availableFieldsText {
+  width: 100%;
+  display: block;
+}
+
+.axisFieldsText {
+  width: 100%;
+  display: inline-block;
+}
+
+.symbol {
+  font-weight: bold;
+  margin-right: 4px;
+}
+
+.discreteSymbol {
+  color: #1976d2; /* Blue matching the light blue hover */
+}
+
+.continuousSymbol {
+  color: #388e3c; /* Green matching the light green hover */
+}
+
+/* Specific tooltip styles */
+.tooltipContent {
+  white-space: nowrap;
+  display: block;
+}
