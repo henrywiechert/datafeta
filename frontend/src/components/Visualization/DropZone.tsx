@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Field } from '../../types';
-import FieldChip, { DragSource } from './FieldChip';
+import FieldChip, { DragSource } from './FieldChip/index';
 import styles from './DropZone.module.css';
 
 interface DropZoneProps {

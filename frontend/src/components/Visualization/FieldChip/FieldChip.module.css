@@ -1,0 +1,155 @@
+.chip {
+    padding: 0 6px !important;
+    margin: 1px;
+    color: #333;
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif !important;
+    font-size: 14px;
+    cursor: grab;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    vertical-align: middle;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+    user-select: none;
+    text-align: left;
+    box-shadow: none;
+    transform: none;
+    min-height: 24px !important;
+    height: 24px !important;
+    line-height: normal !important;
+}
+
+/* Text-only style for Fields area */
+.chip.textOnly {
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 0;
+    padding: 0 4px !important;
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    justify-content: flex-start;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+    width: 100%;
+}
+
+/* Framed style for axis drop zones */
+.chip.framed {
+    border-radius: 16px;
+    border: 1px solid #ccc;
+    /* Fixed width for axis chips */
+    width: 120px;
+    max-width: 120px;
+    min-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    vertical-align: middle;
+}
+
+.chip.framed.discrete {
+    background-color: #e3f2fd; /* Light blue background */
+    border-color: #1976d2;
+}
+
+.chip.framed.continuous {
+    background-color: #e8f5e8; /* Light green background */
+    border-color: #388e3c;
+}
+
+/* Hover styles for text-only fields (Fields area) */
+.chip.textOnly:hover {
+    border-radius: 16px;
+    border: 1px solid #999;
+    box-shadow: none;
+    transform: none;
+}
+
+.chip.textOnly.discrete:hover {
+    background-color: #bbdefb; /* Light blue */
+}
+
+.chip.textOnly.continuous:hover {
+    background-color: #c8e6c9; /* Light green */
+}
+
+/* Hover styles for framed fields (axis drop zones) */
+.chip.framed:hover {
+    border-color: #999;
+}
+
+.chip.framed.discrete:hover {
+    background-color: #bbdefb; /* Light blue */
+}
+
+.chip.framed.continuous:hover {
+    background-color: #c8e6c9; /* Light green */
+}
+
+.symbol {
+    font-weight: bold;
+    margin-right: 4px;
+}
+
+.discreteSymbol {
+    color: #1976d2; /* Blue matching the light blue hover */
+}
+
+.continuousSymbol {
+    color: #388e3c; /* Green matching the light green hover */
+}
+
+.chip:active {
+    cursor: grabbing;
+}
+
+.chip.dragging {
+    opacity: 0.3;
+    transform: scale(0.95);
+}
+
+.chip.dragOver {
+    border-color: #2196f3;
+    background-color: #e3f2fd;
+}
+
+.chip.framed .chipText {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1 1 auto;
+}
+
+.chip.textOnly .chipText {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+    width: 100%;
+    text-align: left;
+}
+
+/* Specific styles for better truncation detection */
+.chipText {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+}
+
+.availableFieldsText {
+    width: 100%;
+    display: block;
+}
+
+.axisFieldsText {
+    width: 100%;
+    display: inline-block;
+}
