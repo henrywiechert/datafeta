@@ -3,7 +3,7 @@ import { Box, FormControl, InputLabel, Select, MenuItem, CircularProgress, Alert
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { useVisualizationState } from '../hooks/useVisualizationState';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
-import FieldChip, { DragSource } from '../components/Visualization/FieldChip';
+import FieldChip, { DragSource } from '../components/Visualization/FieldChip/index';
 import DropZone from '../components/Visualization/DropZone';
 import ChartArea from '../components/Visualization/ChartArea';
 import FieldsSearch from '../components/Visualization/FieldsSearch';
