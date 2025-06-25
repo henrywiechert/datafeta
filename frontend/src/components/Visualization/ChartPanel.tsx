@@ -24,8 +24,8 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
   onReorderFields
 }) => {
   return (
-    <Box sx={{ height: '100%', p: 2 }}>
-      <Box sx={{ mb: 2 }}>
+    <Box sx={{ height: '100%', p: 1, display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ mb: 1 }}>
         <DropZone 
           onDrop={onXAxisDrop}
           axis="x"
@@ -34,10 +34,10 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
           onRemoveField={onRemoveField}
           onReorderFields={onReorderFields}
         >
-          X-Axis:
+          X
         </DropZone>
       </Box>
-      <Box sx={{ mb: 2 }}>
+      <Box sx={{ mb: 1 }}>
         <DropZone 
           onDrop={onYAxisDrop}
           axis="y"
@@ -46,7 +46,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
           onRemoveField={onRemoveField}
           onReorderFields={onReorderFields}
         >
-          Y-Axis:
+          Y
         </DropZone>
       </Box>
       <ChartArea />

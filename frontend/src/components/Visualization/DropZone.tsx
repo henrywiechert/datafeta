@@ -264,7 +264,7 @@ const DropZone: React.FC<DropZoneProps> = ({
 
   return (
     <div style={{ display: 'flex' }}>
-      <div style={{ fontWeight: 'bold', marginRight: '12px', minWidth: '60px', textAlign: 'right', display: 'flex', alignItems: 'center' }}>
+      <div style={{ fontWeight: 'normal', marginRight: '5px', minWidth: '6px', textAlign: 'left', display: 'flex', alignItems: 'center' }}>
         {children}
       </div>
       <div
@@ -327,10 +327,9 @@ const DropZone: React.FC<DropZoneProps> = ({
           <div style={{ 
             color: '#666', 
             fontStyle: 'italic', 
-            fontSize: '14px',
-            padding: '8px 0'
+            fontSize: '12px',
+            padding: '1px 0'
           }}>
-            Drop fields here
           </div>
         )}
       </div>
