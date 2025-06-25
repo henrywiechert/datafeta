@@ -8,7 +8,7 @@ interface FieldsSearchProps {
 
 const FieldsSearch: React.FC<FieldsSearchProps> = ({ value, onChange }) => {
   return (
-    <Box sx={{ mb: 1, p: 0, background: 'none', boxShadow: 'none' }}>
+    <Box sx={{ mb: 0, p: 0, background: 'none', boxShadow: 'none' }}>
       <TextField
         size="small"
         fullWidth
@@ -16,11 +16,11 @@ const FieldsSearch: React.FC<FieldsSearchProps> = ({ value, onChange }) => {
         placeholder="Search fields..."
         value={value}
         onChange={e => onChange(e.target.value)}
-        inputProps={{ 'aria-label': 'Search fields', style: { fontSize: '13px', padding: '4px 8px' } }}
+        inputProps={{ 'aria-label': 'Search fields', style: { fontSize: '12px', padding: '1px 3px' } }}
         InputProps={{
-          disableUnderline: false,
+          disableUnderline: true,
           sx: {
-            fontSize: '13px',
+            fontSize: '10px',
             height: 28,
             minHeight: 28,
             padding: 0,

@@ -6,9 +6,9 @@
 }
 
 .header {
-  padding: 12px;
-  border-bottom: 1px solid #ddd;
-  flex-shrink: 0;
+    padding: 10px 10px 4px 10px;
+    border-bottom: 1px solid #ddd;
+    flex-shrink: 0;
 }
 
 .fieldsList {
@@ -43,7 +43,7 @@
 .fieldsContainer {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0px;
 }
 
 .emptyMessage {
