@@ -1,0 +1,52 @@
+.container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.header {
+  padding: 12px;
+  border-bottom: 1px solid #ddd;
+  flex-shrink: 0;
+}
+
+.fieldsList {
+  padding: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  min-height: 0;
+  transition: all 0.2s ease;
+}
+
+.dragOver {
+  background-color: rgba(244, 67, 54, 0.1);
+  border: 2px dashed #f44336;
+}
+
+.normal {
+  background-color: transparent;
+  border: 2px dashed transparent;
+}
+
+.fieldCategory {
+  margin-bottom: 16px;
+}
+
+.categoryTitle {
+  margin-bottom: 4px;
+  color: rgba(0, 0, 0, 0.6);
+  font-weight: bold;
+}
+
+.fieldsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.emptyMessage {
+  color: rgba(0, 0, 0, 0.38);
+  font-style: italic;
+}
