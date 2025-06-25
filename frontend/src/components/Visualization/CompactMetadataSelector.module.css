@@ -1,11 +1,20 @@
 .metadataSelector {
-  padding: 10px 10px 10px 10px;
-  border-bottom: 1px solid #ddd;
+  padding: 10px 12px 8px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+  border-bottom: 1px solid #e0e0e0;
+  background-color: #f8f8f8;
 }
 
+.field {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  margin-bottom: 2px;
+}
+
+/* Keep old styles for backward compatibility */
 .row {
   display: flex;
   align-items: center;
@@ -14,14 +23,9 @@
 
 .label {
   min-width: 80px;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   color: rgba(0, 0, 0, 0.6);
   font-weight: 500;
-}
-
-.selector {
-  flex: 1;
-  min-width: 0;
 }
 
 .error {
@@ -33,4 +37,26 @@
   width: 20px;
   height: 20px;
   margin-left: 8px;
+}
+
+/* Add styles to make the dropdown more compact */
+.selectRoot {
+  height: 28px;
+}
+
+.menuItem {
+  min-height: 28px;
+  font-size: 0.85rem;
+}
+
+.labelText {
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: rgba(0, 0, 0, 0.6);
+  margin-bottom: 2px;
+}
+
+.categoryTitle {
+  color: rgba(0, 0, 0, 0.6);
+  margin-bottom: 2px;
 }
