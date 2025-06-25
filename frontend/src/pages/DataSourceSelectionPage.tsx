@@ -10,8 +10,8 @@ function DataSourceSelectionPage() {
   const [connectionType, setConnectionType] = useState<'csv' | 'clickhouse'>('csv');
   const [filePath, setFilePath] = useState<string>('');
   const [connString, setConnString] = useState<string>('');
-  const [host, setHost] = useState<string>('localhost');
-  const [port, setPort] = useState<number | string>(9000);
+  const [host, setHost] = useState<string>('helinc82-ul5gl2.linsee.dyn.nesc.nokia.net');
+  const [port, setPort] = useState<number | string>(8123);
   const [user, setUser] = useState<string>('default');
   const [password, setPassword] = useState<string>('');
   const [dbName, setDbName] = useState<string>('default');
@@ -21,8 +21,8 @@ function DataSourceSelectionPage() {
     if (isConnected && connectionDetails) {
       setConnectionType(connectionDetails.type);
       setConnString(connectionDetails.connection_string || '');
-      setHost(connectionDetails.host || 'localhost');
-      setPort(connectionDetails.port || 9000);
+      setHost(connectionDetails.host || 'helinc82-ul5gl2.linsee.dyn.nesc.nokia.net');
+      setPort(connectionDetails.port || 8123);
       setUser(connectionDetails.user || 'default');
       setPassword(connectionDetails.password || '');
       setDbName(connectionDetails.database || 'default');
