@@ -2,7 +2,8 @@ import React, { useMemo } from 'react';
 import { Typography } from '@mui/material';
 import FieldsSearch from './FieldsSearch';
 import FieldCategory from './FieldCategory';
-import { Field } from '../../types';
+import CompactMetadataSelector from './CompactMetadataSelector';
+import { Field, Database, Table } from '../../types';
 import { useFieldsPanelDrag } from '../../hooks/useFieldsPanelDrag';
 import styles from './FieldsPanel.module.css';
 
@@ -12,6 +13,16 @@ interface FieldsPanelProps {
   onFieldsSearchChange: (search: string) => void;
   onFieldUpdate: (field: Field) => void;
   onRemoveFromAxis: (fieldId: string) => void;
+  // New props for metadata selection
+  connectionType: string;
+  selectedDatabase: string;
+  selectedTable: string;
+  databases: Database[];
+  tables: Table[];
+  isLoadingMetadata: boolean;
+  metadataError: string | null;
+  onDatabaseSelect: (database: string) => void;
+  onTableSelect: (table: string) => void;
 }
 
 const FieldsPanel: React.FC<FieldsPanelProps> = ({
@@ -19,7 +30,17 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   fieldsSearch,
   onFieldsSearchChange,
   onFieldUpdate,
-  onRemoveFromAxis
+  onRemoveFromAxis,
+  // New props for metadata selection
+  connectionType,
+  selectedDatabase,
+  selectedTable,
+  databases,
+  tables,
+  isLoadingMetadata,
+  metadataError,
+  onDatabaseSelect,
+  onTableSelect
 }) => {
   // Use our custom hook for drag and drop functionality
   const {
@@ -51,6 +72,20 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
 
   return (
     <div className={styles.container}>
+      {/* Metadata selector at the top */}
+      <CompactMetadataSelector
+        connectionType={connectionType}
+        selectedDatabase={selectedDatabase}
+        selectedTable={selectedTable}
+        databases={databases}
+        tables={tables}
+        isLoadingMetadata={isLoadingMetadata}
+        metadataError={metadataError}
+        onDatabaseSelect={onDatabaseSelect}
+        onTableSelect={onTableSelect}
+      />
+      
+      {/* Fields search below metadata */}
       <div className={styles.header}>
         <Typography
             variant="subtitle2"

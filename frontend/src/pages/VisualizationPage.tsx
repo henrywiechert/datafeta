@@ -4,7 +4,6 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { useVisualizationState } from '../hooks/useVisualizationState';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
 import { useDragDrop } from '../hooks/useDragDrop';
-import MetadataSelector from '../components/Visualization/MetadataSelector';
 import FieldsPanel from '../components/Visualization/FieldsPanel';
 import ChartPanel from '../components/Visualization/ChartPanel';
 
@@ -61,23 +60,10 @@ const VisualizationPage = () => {
             flexDirection: 'column',
             overflow: 'hidden' 
         }}>
-            {/* Top Bar with MetadataSelector component */}
-            <MetadataSelector
-                connectionType={connectionDetails?.type || ''}
-                selectedDatabase={selectedDatabase}
-                selectedTable={selectedTable}
-                databases={databases}
-                tables={tables}
-                isLoadingMetadata={isLoadingMetadata}
-                metadataError={metadataError}
-                onDatabaseSelect={handleDatabaseSelect}
-                onTableSelect={handleTableSelect}
-            />
-
             {/* Main Layout with react-resizable-panels */}
             <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
                 <PanelGroup direction="horizontal">
-                    {/* Left Panel - Fields */}
+                    {/* Left Panel - Fields with metadata selector */}
                     <Panel defaultSize={25} minSize={10} maxSize={40}>
                         <FieldsPanel
                             availableFields={availableFields}
@@ -85,6 +71,15 @@ const VisualizationPage = () => {
                             onFieldsSearchChange={setFieldsSearch}
                             onFieldUpdate={handleFieldUpdate}
                             onRemoveFromAxis={handleRemoveFromAxis}
+                            connectionType={connectionDetails?.type || ''}
+                            selectedDatabase={selectedDatabase}
+                            selectedTable={selectedTable}
+                            databases={databases}
+                            tables={tables}
+                            isLoadingMetadata={isLoadingMetadata}
+                            metadataError={metadataError}
+                            onDatabaseSelect={handleDatabaseSelect}
+                            onTableSelect={handleTableSelect}
                         />
                     </Panel>
 
