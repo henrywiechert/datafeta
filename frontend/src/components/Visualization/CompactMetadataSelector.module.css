@@ -1,0 +1,36 @@
+.metadataSelector {
+  padding: 10px 10px 10px 10px;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.label {
+  min-width: 80px;
+  font-size: 0.85rem;
+  color: rgba(0, 0, 0, 0.6);
+  font-weight: 500;
+}
+
+.selector {
+  flex: 1;
+  min-width: 0;
+}
+
+.error {
+  color: #d32f2f;
+  font-size: 0.75rem;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  margin-left: 8px;
+}
