@@ -49,6 +49,14 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
           Y
         </DropZone>
       </Box>
+      {/* Add separation line between drop zones and chart area */}
+      <Box sx={{ 
+        height: '1px', 
+        backgroundColor: '#e0e0e0', 
+        width: '100%', 
+        mb: 2,
+        mt: 1
+      }} />
       <ChartArea />
     </Box>
   );

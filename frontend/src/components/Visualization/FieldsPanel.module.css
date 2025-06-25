@@ -6,9 +6,10 @@
 }
 
 .header {
-    padding: 10px 10px 4px 10px;
-    border-bottom: 1px solid #ddd;
+    padding: 10px 10px 6px 10px;
+    border-bottom: 1px solid #e0e0e0;
     flex-shrink: 0;
+    background-color: #fafafa;
 }
 
 .fieldsList {
