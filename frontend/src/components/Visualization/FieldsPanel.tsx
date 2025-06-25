@@ -52,7 +52,15 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <Typography variant="h6">Fields</Typography>
+        <Typography
+            variant="subtitle2"
+            fontWeight="bold"
+            align="left"
+            fontSize="0.85rem"
+            gutterBottom
+        >
+            Fields
+        </Typography>
         <FieldsSearch value={fieldsSearch} onChange={onFieldsSearchChange} />
       </div>
       <div 
