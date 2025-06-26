@@ -71,7 +71,7 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   ), [availableFields, filterBySearch]);
 
   return (
-    <div className={styles.container}>
+    <div className={styles.container} style={{ border: '1px solid #ddd', borderRadius: 6, padding: 0 }}>
       {/* Metadata selector at the top */}
       <CompactMetadataSelector
         connectionType={connectionType}
@@ -83,6 +83,7 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
         metadataError={metadataError}
         onDatabaseSelect={onDatabaseSelect}
         onTableSelect={onTableSelect}
+        availableFields={availableFields}
       />
       
       {/* Fields search below metadata */}
