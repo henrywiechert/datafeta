@@ -7,17 +7,24 @@ import styles from './CompactMetadataSelector.module.css';
 const selectProps = {
   sx: {
     '& .MuiSelect-select': {
-      padding: '4px 14px',
-      fontSize: '0.85rem',
-      height: '20px',
+      padding: '2px 8px',
+      fontSize: '0.75rem',
+      height: '18px',
     }
   },
   MenuProps: {
     PaperProps: {
       style: {
-        maxHeight: 250,
+        maxHeight: 200,
       },
     },
+    sx: {
+      '& .MuiMenuItem-root': {
+        minHeight: '24px',
+        fontSize: '0.75rem',
+        padding: '2px 8px',
+      }
+    }
   }
 };
 
@@ -54,14 +61,14 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
         align="left"
         fontSize="0.85rem"
         gutterBottom
-        sx={{ marginBottom: 0.5 }}
+        sx={{ marginBottom: 0.2 }}
       >
         Data Source
       </Typography>
       {connectionType === 'clickhouse' && (
         <div className={styles.field}>
-          <Typography variant="subtitle2" className={styles.categoryTitle} sx={{ fontWeight: 'normal' }}>
-            Database
+          <Typography variant="subtitle2" className={styles.categoryTitle} sx={{ fontWeight: 'normal', minWidth: '40px', paddingRight: '0px' }}>
+            DB
           </Typography>
           <FormControl size="small" fullWidth>
             <Select 
@@ -73,7 +80,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
               className={styles.selectRoot}
               {...selectProps}
             >
-              <MenuItem value="" disabled>Select Database</MenuItem>
+              <MenuItem value="" disabled sx={{ fontSize: '0.75rem', minHeight: '24px' }}>Select DB</MenuItem>
               {databases.map(db => (
                 <MenuItem key={db.name} value={db.name} className={styles.menuItem}>
                   {db.name}
@@ -85,7 +92,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
       )}
       
       <div className={styles.field}>
-        <Typography variant="subtitle2" className={styles.categoryTitle} sx={{ fontWeight: 'normal' }}>
+        <Typography variant="subtitle2" className={styles.categoryTitle} sx={{ fontWeight: 'normal', minWidth: '40px', paddingRight: '0px' }}>
           Table
         </Typography>
         <FormControl size="small" fullWidth disabled={tables.length === 0}>
@@ -98,7 +105,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
             className={styles.selectRoot}
             {...selectProps}
           >
-            <MenuItem value="" disabled>Select Table</MenuItem>
+            <MenuItem value="" disabled sx={{ fontSize: '0.75rem', minHeight: '24px' }}>Select Table</MenuItem>
             {tables.map(tbl => (
               <MenuItem key={tbl.name} value={tbl.name} className={styles.menuItem}>
                 {tbl.name}
@@ -106,7 +113,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
             ))}
           </Select>
           {isLoadingMetadata && (
-            <CircularProgress size={14} sx={{ position: 'absolute', right: 24, top: 7 }} />
+            <CircularProgress size={12} sx={{ position: 'absolute', right: 24, top: 6 }} />
           )}
         </FormControl>
       </div>
