@@ -1,17 +1,19 @@
 .metadataSelector {
-  padding: 10px 12px 8px;
+  padding: 8px 10px 6px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   border-bottom: 1px solid #e0e0e0;
   background-color: #f8f8f8;
 }
 
 .field {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
   position: relative;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
+  gap: 6px;
 }
 
 /* Keep old styles for backward compatibility */
@@ -22,7 +24,8 @@
 }
 
 .label {
-  min-width: 80px;
+  min-width: 40px;
+  width: 40px;
   font-size: 0.75rem;
   color: rgba(0, 0, 0, 0.6);
   font-weight: 500;
@@ -41,12 +44,13 @@
 
 /* Add styles to make the dropdown more compact */
 .selectRoot {
-  height: 28px;
+  height: 24px;
 }
 
 .menuItem {
-  min-height: 28px;
-  font-size: 0.85rem;
+  min-height: 24px;
+  font-size: 0.75rem;
+  padding: 2px 8px;
 }
 
 .labelText {
