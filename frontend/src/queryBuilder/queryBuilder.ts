@@ -27,7 +27,10 @@ export const buildQuery = ({
     return null;
   }
 
-  const dimensions = [...xDimensions, ...yDimensions].map((d) => d.columnName);
+  const dimensions = [...xDimensions, ...yDimensions].map((d) => ({
+    field: d.columnName,
+    flavour: d.flavour,
+  }));
   const measures: Measure[] = [...xMeasures, ...yMeasures].map((m) => ({
     field: m.columnName,
     aggregation: m.aggregation!,
