@@ -73,6 +73,14 @@ const ChartArea: React.FC = () => {
   return (
     <div className={styles.container}>
       <ChartGrid
+        queryDescription={buildQuery({
+          xDimensions,
+          yDimensions,
+          xMeasures,
+          yMeasures,
+          selectedTable: state.selectedTable,
+          selectedDatabase: state.selectedDatabase,
+        })}
         xDimensions={xDimensions}
         yDimensions={yDimensions}
         xMeasures={xMeasures}

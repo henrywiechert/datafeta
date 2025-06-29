@@ -57,7 +57,9 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
         mb: 2,
         mt: 1
       }} />
-      <ChartArea />
+      <Box sx={{ flex: 1, minHeight: 0 }}>
+        <ChartArea />
+      </Box>
     </Box>
   );
 };
