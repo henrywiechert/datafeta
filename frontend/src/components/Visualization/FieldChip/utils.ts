@@ -13,7 +13,7 @@ export const canBeContinuous = (field: Field): boolean => {
 
 // Check if a field can be a measure
 export const canBeMeasure = (field: Field): boolean => {
-  return field.dataType !== 'datetime'; // DateTime fields can only be dimensions
+  return true;
 };
 
 // Format the full label for a field
@@ -27,6 +27,9 @@ export const applyFieldUpdateRules = (field: Field, updates: Partial<Field>): Fi
 
   if (updates.type === 'dimension') {
     delete newField.aggregation;
+  } else if (updates.type === 'measure' && field.type === 'dimension') {
+    // If changing from dimension to measure, set a default aggregation
+    newField.aggregation = 'sum';
   }
 
   // Ensure flavour has a default value if not set

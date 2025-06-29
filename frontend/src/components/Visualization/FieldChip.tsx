@@ -136,6 +136,13 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
 
     if (updates.type === 'dimension') {
       delete newField.aggregation;
+    } else if (updates.type === 'measure' && currentField.type === 'dimension') {
+      // If changing from dimension to measure, set a default aggregation based on flavour
+      if (currentField.flavour === 'continuous') {
+        newField.aggregation = 'sum';
+      } else { // for 'discrete' fields
+        newField.aggregation = 'count';
+      }
     }
 
     // Ensure flavour has a default value if not set
@@ -174,7 +181,7 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
     const isMeasure = field.type === 'measure';
     const availableAggregations = getAvailableAggregations(field);
     const canBeContinuous = field.dataType !== 'string'; // String fields can only be discrete
-    const canBeMeasure = field.dataType !== 'datetime'; // DateTime fields can only be dimensions
+    const canBeMeasure = true; // Allow all fields to be converted to measures
     const isInAxisDropZone = source === 'X_AXIS' || source === 'Y_AXIS';
 
     return (
@@ -186,7 +193,7 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
           className={`${menuStyles.menuItem} ${!canBeMeasure ? menuStyles.disabled : ''}`} 
           onClick={canBeMeasure ? () => handleUpdate({ type: 'measure' }) : undefined}
         >
-          Measure {field.type === 'measure' && '✔'} {!canBeMeasure && '(DateTime fields only)'}
+          Measure {field.type === 'measure' && '✔'}
         </div>
         
         <div className={menuStyles.separator} />

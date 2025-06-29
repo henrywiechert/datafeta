@@ -33,4 +33,5 @@ class QueryResult(BaseModel):
     columns: List[Dict[str, str]] # e.g., [{"name": "col1", "type": "string"}, ...]
     rows: List[Dict[str, Any]] # e.g., [{"col1": "valA", "col2": 123}, ...]
     row_count: int
+    query_sql: Optional[str] = None
     error: Optional[str] = None # Include error message if query failed 
