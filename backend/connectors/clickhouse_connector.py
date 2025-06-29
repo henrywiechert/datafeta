@@ -99,11 +99,15 @@ class ClickHouseConnector(BaseConnector):
             result = self.client.query(query)
             
             # Format column definitions
-            columns = [{'name': col.name, 'type': col.type} for col in result.columns]
+            if hasattr(result, 'columns') and result.columns:
+                columns = [{'name': col.name, 'type': col.type} for col in result.columns]
+            else:
+                columns = [{'name': name, 'type': 'unknown'} for name in result.column_names]
+
             logger.debug(f"Formatted columns: {columns}")
 
             # Format rows into dictionaries
-            rows = [dict(zip([col.name for col in result.columns], row)) for row in result.result_rows]
+            rows = [dict(zip(result.column_names, row)) for row in result.result_rows]
             logger.debug(f"Returning {len(rows)} rows.")
 
             return columns, rows

@@ -4,6 +4,7 @@ import logging # Import logging
 import shutil
 import tempfile
 import os
+import json
 from fastapi import APIRouter, Form, File, UploadFile, Depends, Body, status
 from typing import Dict, Any, List, Optional
 from pydantic import ValidationError
@@ -232,12 +233,19 @@ def list_columns(
 
 @router.post("/query", response_model=QueryResult, response_model_exclude_none=True)
 def execute_query(
-    query_desc: QueryDescription = Body(...),
+    query_desc_data: Dict[str, Any] = Body(...),
     connector: BaseConnector = Depends(get_active_connector),
     conn_details: ConnectionDetails = Depends(get_connection_details)
 ):
     """Translates a query description, executes it via the current connector, and returns results."""
-    # Removed global access
+    try:
+        query_desc = QueryDescription.parse_obj(query_desc_data)
+    except ValidationError as e:
+        # Format the validation error for better readability
+        error_details = json.dumps(e.errors(), indent=2)
+        # Re-raise with a more user-friendly message, including validation details
+        raise InvalidInputError(f"Invalid query description:\n{error_details}", status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
     # Connection check handled by dependencies
 
     # --- Basic Validation --- #
