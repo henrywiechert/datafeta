@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
-import { Field, Database, Table } from '../types';
+import { Field, Database, Table, QueryResult } from '../types';
 
 // Define the state interface
 interface VisualizationState {
@@ -12,6 +12,8 @@ interface VisualizationState {
   selectedTable: string;
   isLoadingMetadata: boolean;
   metadataError: string | null;
+  queryResult: QueryResult | null;
+  queryError: string | null;
 }
 
 // Define action types
@@ -26,6 +28,8 @@ type VisualizationAction =
   | { type: 'SET_LOADING_METADATA'; payload: boolean }
   | { type: 'SET_METADATA_ERROR'; payload: string | null }
   | { type: 'UPDATE_FIELD'; payload: Field }
+  | { type: 'SET_QUERY_RESULT'; payload: QueryResult | null }
+  | { type: 'SET_QUERY_ERROR'; payload: string | null }
   | { type: 'RESET_STATE' };
 
 // Initial state
@@ -39,6 +43,8 @@ const initialState: VisualizationState = {
   selectedTable: '',
   isLoadingMetadata: false,
   metadataError: null,
+  queryResult: null,
+  queryError: null,
 };
 
 // Reducer function
@@ -69,6 +75,10 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
         yAxisFields: state.yAxisFields.map(f => f.id === action.payload.id ? action.payload : f),
         availableFields: state.availableFields.map(f => f.id === action.payload.id ? action.payload : f),
       };
+    case 'SET_QUERY_RESULT':
+      return { ...state, queryResult: action.payload, queryError: null };
+    case 'SET_QUERY_ERROR':
+      return { ...state, queryResult: null, queryError: action.payload };
     case 'RESET_STATE':
       return initialState;
     default:

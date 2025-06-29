@@ -18,4 +18,12 @@ export function getAvailableAggregations(field: Field): Aggregation[] {
   }
 
   return CONTINUOUS_AGGREGATIONS;
+}
+
+export function isDimension(field: Field): boolean {
+  return field.type === 'dimension';
+}
+
+export function isMeasure(field: Field): boolean {
+  return field.type === 'measure';
 } 
