@@ -1,8 +1,13 @@
 import React, { useContext } from 'react';
-import { Field } from '../../types';
+import { Field, QueryDescription } from '../../types';
 import { useVisualizationContext } from '../../contexts/VisualizationContext';
+import DebugView from './DebugView';
+// We are keeping the CSS import for now, in case we add grid-specific styles later
+import styles from './ChartGrid.module.css';
 
 interface ChartGridProps {
+  queryDescription: QueryDescription | null;
+  // The other dimension/measure props are kept for when we implement the actual charts
   xDimensions: Field[];
   yDimensions: Field[];
   xMeasures: Field[];
@@ -10,6 +15,7 @@ interface ChartGridProps {
 }
 
 const ChartGrid: React.FC<ChartGridProps> = ({
+  queryDescription,
   xDimensions,
   yDimensions,
   xMeasures,
@@ -17,27 +23,15 @@ const ChartGrid: React.FC<ChartGridProps> = ({
 }) => {
   const { state } = useVisualizationContext();
   const { queryResult, queryError } = state;
-
-  if (queryError) {
-    return (
-      <div style={{ padding: '20px', color: 'red' }}>
-        <h3>Error Fetching Data</h3>
-        <pre>{queryError}</pre>
-      </div>
-    );
-  }
-
-  if (!queryResult) {
-    return <div>Drop fields on X/Y axes to build a chart.</div>;
-  }
-
-  // TODO: Implement grid logic
-
+  
+  // For now, we will always render the DebugView.
+  // Later, we can add a switch here.
   return (
-    <div>
-      <p>ChartGrid will be implemented here.</p>
-      <pre>{JSON.stringify(queryResult, null, 2)}</pre>
-    </div>
+    <DebugView 
+      queryDescription={queryDescription}
+      queryResult={queryResult}
+      queryError={queryError}
+    />
   );
 };
 

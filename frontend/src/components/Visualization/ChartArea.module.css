@@ -11,7 +11,9 @@
     flex-grow: 1;
     padding: 16px;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    align-items: stretch;
+    justify-content: flex-start;
     background-color: #fcfcfc;
+    height: 100%;
+    box-sizing: border-box;
   }

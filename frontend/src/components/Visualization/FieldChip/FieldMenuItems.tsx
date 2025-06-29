@@ -27,7 +27,7 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
         className={`${menuStyles.menuItem} ${!isFieldMeasure ? menuStyles.disabled : ''}`} 
         onClick={isFieldMeasure ? () => onUpdate({ type: 'measure' }) : undefined}
       >
-        Measure {field.type === 'measure' && '✔'} {!isFieldMeasure && '(DateTime fields only)'}
+        Measure {field.type === 'measure' && '✔'}
       </div>
       
       <div className={menuStyles.separator} />

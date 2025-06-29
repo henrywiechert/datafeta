@@ -281,12 +281,13 @@ def execute_query(
             columns=columns,
             rows=rows,
             row_count=len(rows),
+            query_sql=sql_query,
             error=None
         )
     except NotImplementedError as e:
-        return QueryResult(columns=[], rows=[], row_count=0, error=str(e))
+        return QueryResult(columns=[], rows=[], row_count=0, error=str(e), query_sql=sql_query)
     except (QueryExecutionError, DataSourceConnectionError) as e:
-        return QueryResult(columns=[], rows=[], row_count=0, error=f"Query execution error: {e}")
+        return QueryResult(columns=[], rows=[], row_count=0, error=f"Query execution error: {e}", query_sql=sql_query)
     except Exception as e:
         # Log unexpected error
         logger.exception(f"Unexpected error during query execution")
