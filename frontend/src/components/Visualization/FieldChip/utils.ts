@@ -28,8 +28,12 @@ export const applyFieldUpdateRules = (field: Field, updates: Partial<Field>): Fi
   if (updates.type === 'dimension') {
     delete newField.aggregation;
   } else if (updates.type === 'measure' && field.type === 'dimension') {
-    // If changing from dimension to measure, set a default aggregation
-    newField.aggregation = 'sum';
+    // If changing from dimension to measure, set a default aggregation based on flavour
+    if (field.flavour === 'continuous') {
+      newField.aggregation = 'sum';
+    } else { // for 'discrete' fields
+      newField.aggregation = 'count';
+    }
   }
 
   // Ensure flavour has a default value if not set
