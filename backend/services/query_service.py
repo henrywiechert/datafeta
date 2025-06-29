@@ -75,7 +75,7 @@ class QueryService:
         all_aliases = set()
 
         if query_desc.dimensions:
-            select_fields.extend([t[dim] for dim in query_desc.dimensions])
+            select_fields.extend([t[dim.field] for dim in query_desc.dimensions])
 
         for measure in query_desc.measures:
             agg_func_builder = AGGREGATION_MAP.get(measure.aggregation)
@@ -122,10 +122,12 @@ class QueryService:
         if query_desc.dimensions:
             # Only group if there are measures, otherwise it's just selecting distinct dimension combinations
             if query_desc.measures:
-                q = q.groupby(*[t[dim] for dim in query_desc.dimensions])
+                q = q.groupby(*[t[dim.field] for dim in query_desc.dimensions])
             else:
-                # If only dimensions are selected, use DISTINCT
-                 q = q.distinct()
+                # If only dimensions are selected, use DISTINCT only if all dimensions are discrete
+                is_any_continuous = any(d.flavour == 'continuous' for d in query_desc.dimensions)
+                if not is_any_continuous:
+                    q = q.distinct()
 
         # ORDER BY Clause
         for order in query_desc.orderBy:

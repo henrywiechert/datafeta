@@ -7,6 +7,10 @@ class Measure(BaseModel):
     aggregation: Literal['sum', 'avg', 'count', 'count_distinct', 'min', 'max'] # Add more as needed
     alias: str
 
+class Dimension(BaseModel):
+    field: str
+    flavour: Literal['discrete', 'continuous']
+
 class Filter(BaseModel):
     field: str
     # Define allowed operators - expand later as needed
@@ -21,7 +25,7 @@ class QueryDescription(BaseModel):
     target_table: str
     target_database: Optional[str] = None # Required for database sources like ClickHouse
 
-    dimensions: List[str] = []
+    dimensions: List[Dimension] = []
     measures: List[Measure] = []
     filters: List[Filter] = []
     orderBy: List[OrderBy] = []

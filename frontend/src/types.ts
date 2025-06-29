@@ -57,10 +57,15 @@ export interface OrderBy {
     direction?: 'asc' | 'desc';
 }
 
+export interface Dimension {
+    field: string;
+    flavour: Flavour;
+}
+
 export interface QueryDescription {
     target_table: string;
     target_database?: string;
-    dimensions?: string[];
+    dimensions?: Dimension[];
     measures?: Measure[];
     filters?: Filter[];
     orderBy?: OrderBy[];
