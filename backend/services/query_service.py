@@ -154,7 +154,7 @@ class QueryService:
         # Compile the query to string using the chosen quote char
         sql_string = q.get_sql(quote_char=quote_char)
 
-        logger.debug(f"Generated SQL ({db_type} using quote '{quote_char}'): {sql_string}")
+        logger.info(f"Generated SQL ({db_type}): {sql_string}")
         return sql_string
 
     # Potential future methods:
