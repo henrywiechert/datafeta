@@ -1,6 +1,6 @@
 import React from 'react';
 import { Typography, Box } from '@mui/material';
-import FieldChip from './FieldChip';
+import FieldChip from './FieldChip/index';
 import { Field } from '../../types';
 import styles from './FieldsPanel.module.css';
 

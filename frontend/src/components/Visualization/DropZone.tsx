@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Field } from '../../types';
-import FieldChip, { DragSource } from './FieldChip/index';
+import FieldChip, { DragSource } from './FieldChip';
 import styles from './DropZone.module.css';
 
 interface DropZoneProps {
@@ -257,8 +257,6 @@ const DropZone: React.FC<DropZoneProps> = ({
       console.error('Error parsing drag data:', error);
     }
   };
-
-
 
   const dropZoneClass = `${styles.dropZone} ${isOver ? styles.isOver : ''}`;
 
