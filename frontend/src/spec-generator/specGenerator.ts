@@ -1,53 +1,9 @@
 import { Field } from '../types';
+import { getResultColumnName } from '../utils/fieldUtils';
 
-/**
- * The recipe for the entire chart grid.
- * This is the output of the Specification Generator.
- */
-export interface GridSpec {
-  /**
-   * Defines how the grid is broken into small multiples (facets).
-   * These arrays will contain the discrete dimension fields that split the data.
-   */
-  facets: {
-    rows: Field[];
-    columns: Field[];
-  };
-
-  /**
-   * Defines the chart to be rendered inside EACH cell of the grid.
-   */
-  cell: CellSpec;
-
-  /**
-   * Any errors that occurred during spec generation that need to be
-   * displayed to the user instead of a chart.
-   */
-  errors?: { title: string; message: string }[];
-}
-
-/**
- * The recipe for a single chart cell in the grid.
- */
-export interface CellSpec {
-  /**
-   * The type of mark to draw in the cell.
-   */
-  chartType: 'bar' | 'scatter' | 'table';
-
-  /**
-   * Defines which fields are mapped to the visual properties of the chart.
-   */
-  encoding: {
-    x?: Field;
-    y?: Field;
-  };
-
-  /**
-   * Optional properties for the chart, e.g., for bar chart orientation.
-   */
-  orientation?: 'vertical' | 'horizontal';
-}
+// This is a basic Vega-Lite spec. We will be building this object.
+// We are using 'any' because we couldn't install the @types/vega-lite package.
+export type VegaLiteSpec = any;
 
 interface SpecGeneratorArgs {
   xFields: Field[];
@@ -56,127 +12,97 @@ interface SpecGeneratorArgs {
 
 /**
  * Translates the state of the X and Y drop zones into a declarative
- * specification for rendering the chart grid.
+ * Vega-Lite specification for rendering the chart grid.
  *
  * @param args - The fields placed on the X and Y axes.
- * @returns A GridSpec object that declaratively describes the visualization.
+ * @returns A VegaLiteSpec object.
  */
-export function generateGridSpec(args: SpecGeneratorArgs): GridSpec {
+export function generateVegaLiteSpec(args: SpecGeneratorArgs): VegaLiteSpec {
   const { xFields, yFields } = args;
 
-  // 1. Handle empty state
-  if (xFields.length === 0 && yFields.length === 0) {
-    return {
-      facets: { rows: [], columns: [] },
-      cell: {
-        chartType: 'scatter', // Placeholder, won't be rendered
-        encoding: {},
-      },
-    };
-  }
-
-  // 2. Categorize fields
   const xContinuous = xFields.filter((f) => f.flavour === 'continuous');
   const yContinuous = yFields.filter((f) => f.flavour === 'continuous');
   const xDiscrete = xFields.filter((f) => f.flavour === 'discrete');
   const yDiscrete = yFields.filter((f) => f.flavour === 'discrete');
+  
+  const baseSpec: VegaLiteSpec = {
+    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+    "description": "A chart created by DataFeta.",
+    "data": { "name": "table" }, // Data will be provided by react-vega
+    "encoding": {},
+  };
 
-  // 3. Scatter Plot Rule
+  // Rule: Scatter Plot
   if (xContinuous.length > 0 && yContinuous.length > 0) {
-    // The first continuous measure on each axis defines the encoding.
-    const xEnc = xContinuous[0];
-    const yEnc = yContinuous[0];
-
-    // All other fields become facets.
-    // - All discrete fields are used for faceting.
-    // - Additional continuous fields on an axis create side-by-side charts (facets).
-    const colFacets = xDiscrete.concat(xContinuous.slice(1));
-    const rowFacets = yDiscrete.concat(yContinuous.slice(1));
-
-    return {
-      facets: {
-        columns: colFacets,
-        rows: rowFacets,
-      },
-      cell: {
-        chartType: 'scatter',
-        encoding: { x: xEnc, y: yEnc },
-      },
+    baseSpec.mark = "point";
+    baseSpec.encoding.x = {
+      "field": getResultColumnName(xContinuous[0]),
+      "type": "quantitative"
     };
+    baseSpec.encoding.y = {
+      "field": getResultColumnName(yContinuous[0]),
+      "type": "quantitative"
+    };
+    
+    // Faceting
+    if(yDiscrete.length > 0) {
+      baseSpec.encoding.row = {"field": getResultColumnName(yDiscrete[0]), "type": "ordinal"};
+    }
+    if(xDiscrete.length > 0) {
+      baseSpec.encoding.column = {"field": getResultColumnName(xDiscrete[0]), "type": "ordinal"};
+    }
+
+    return baseSpec;
   }
 
-  // 4. Bar Chart Rule (and faceting)
-  if (yContinuous.length > 0) {
-    // Y-axis has measures -> Vertical Bar Chart
-    const yEnc = yContinuous[0]; // Primary measure
-    const xEnc = xDiscrete[0]; // Primary dimension for axis (can be undefined)
-
-    const colFacets = xDiscrete.slice(1); // Remaining dimensions on X
-    const rowFacets = yDiscrete.concat(yContinuous.slice(1)); // All dimensions on Y and other measures
-
-    return {
-      facets: {
-        columns: colFacets,
-        rows: rowFacets,
-      },
-      cell: {
-        chartType: 'bar',
-        encoding: { x: xEnc, y: yEnc },
-        orientation: 'vertical',
-      },
+  // Rule: Bar Chart
+  if (yContinuous.length > 0) { // Vertical Bar Chart
+    baseSpec.mark = "bar";
+    baseSpec.encoding.y = {
+      "field": getResultColumnName(yContinuous[0]),
+      "type": "quantitative",
     };
+    if (xDiscrete.length > 0) {
+      baseSpec.encoding.x = {
+        "field": getResultColumnName(xDiscrete[0]),
+        "type": "ordinal",
+      };
+    }
+    // Handle faceting for bar charts
+    if(xDiscrete.length > 1) {
+      baseSpec.encoding.column = {"field": getResultColumnName(xDiscrete[1]), "type": "ordinal"};
+    }
+    if(yDiscrete.length > 0) {
+      baseSpec.encoding.row = {"field": getResultColumnName(yDiscrete[0]), "type": "ordinal"};
+    }
+    return baseSpec;
   }
-
-  if (xContinuous.length > 0) {
-    // X-axis has measures -> Horizontal Bar Chart
-    const xEnc = xContinuous[0]; // Primary measure
-    const yEnc = yDiscrete[0]; // Primary dimension for axis (can be undefined)
-
-    const colFacets = xDiscrete.concat(xContinuous.slice(1));
-    const rowFacets = yDiscrete.slice(1);
-
-    return {
-      facets: {
-        columns: colFacets,
-        rows: rowFacets,
-      },
-      cell: {
-        chartType: 'bar',
-        encoding: { x: xEnc, y: yEnc },
-        orientation: 'horizontal',
-      },
+  
+  if (xContinuous.length > 0) { // Horizontal Bar Chart
+    baseSpec.mark = "bar";
+    baseSpec.encoding.x = {
+      "field": getResultColumnName(xContinuous[0]),
+      "type": "quantitative",
     };
+    if (yDiscrete.length > 0) {
+      baseSpec.encoding.y = {
+        "field": getResultColumnName(yDiscrete[0]),
+        "type": "ordinal",
+      };
+    }
+    // Handle faceting for bar charts
+    if(yDiscrete.length > 1) {
+      baseSpec.encoding.row = {"field": getResultColumnName(yDiscrete[1]), "type": "ordinal"};
+    }
+    if(xDiscrete.length > 0) {
+      baseSpec.encoding.column = {"field": getResultColumnName(xDiscrete[0]), "type": "ordinal"};
+    }
+    return baseSpec;
   }
-
-  // 5. Tabulation Rule (only discrete dimensions)
-  if (xDiscrete.length > 0 || yDiscrete.length > 0) {
-    return {
-      facets: {
-        columns: xDiscrete.slice(1),
-        rows: yDiscrete.slice(1),
-      },
-      cell: {
-        chartType: 'table',
-        encoding: {
-          x: xDiscrete[0],
-          y: yDiscrete[0],
-        },
-      },
-    };
-  }
-
-  // Fallback for any unhandled cases.
+  
+  // Fallback: No chart
   return {
-    facets: { rows: [], columns: [] },
-    cell: {
-      chartType: 'scatter',
-      encoding: {},
-    },
-    errors: [
-      {
-        title: 'Unsupported Chart',
-        message: "The combination of fields you've selected is not yet supported.",
-      },
-    ],
+    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+    "description": "Drag fields to the axes to create a chart.",
   };
 } 
