@@ -2,12 +2,14 @@ import React from 'react';
 import { GridSpec } from '../../spec-generator/specGenerator';
 import ChartCell from './ChartCell';
 import styles from './ChartGrid.module.css';
+import { QueryResult } from '../../types';
 
 interface ChartGridProps {
   gridSpec: GridSpec;
+  queryResult: QueryResult | null;
 }
 
-const ChartGrid: React.FC<ChartGridProps> = ({ gridSpec }) => {
+const ChartGrid: React.FC<ChartGridProps> = ({ gridSpec, queryResult }) => {
   const { cell, facets, errors } = gridSpec;
 
   if (errors) {

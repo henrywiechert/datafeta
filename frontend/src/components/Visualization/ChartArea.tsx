@@ -1,47 +1,26 @@
 import React, { useEffect, useMemo } from 'react';
 import styles from './ChartArea.module.css';
 import { useVisualizationContext } from '../../contexts/VisualizationContext';
-import { isDimension, isMeasure } from '../../utils/fieldUtils';
 import ChartGrid from './ChartGrid';
 import { apiService } from '../../apiService';
-import { buildQuery } from '../../queryBuilder/queryBuilder';
+import { buildQueryFromSpec } from '../../queryBuilder/queryBuilder';
 import { generateGridSpec } from '../../spec-generator/specGenerator';
 
 const ChartArea: React.FC = () => {
   const { state, dispatch } = useVisualizationContext();
-  const { xAxisFields, yAxisFields } = state;
+  const { xAxisFields, yAxisFields, selectedTable, selectedDatabase } = state;
 
   const gridSpec = useMemo(
     () => generateGridSpec({ xFields: xAxisFields, yFields: yAxisFields }),
     [xAxisFields, yAxisFields]
   );
 
-  const xDimensions = useMemo(
-    () => state.xAxisFields.filter(isDimension),
-    [state.xAxisFields]
-  );
-  const yDimensions = useMemo(
-    () => state.yAxisFields.filter(isDimension),
-    [state.yAxisFields]
-  );
-  const xMeasures = useMemo(
-    () => state.xAxisFields.filter(isMeasure),
-    [state.xAxisFields]
-  );
-  const yMeasures = useMemo(
-    () => state.yAxisFields.filter(isMeasure),
-    [state.yAxisFields]
-  );
-
   useEffect(() => {
     const fetchData = async () => {
-      const queryDesc = buildQuery({
-        xDimensions,
-        yDimensions,
-        xMeasures,
-        yMeasures,
-        selectedTable: state.selectedTable,
-        selectedDatabase: state.selectedDatabase,
+      const queryDesc = buildQueryFromSpec({
+        gridSpec,
+        selectedTable,
+        selectedDatabase,
       });
 
       if (queryDesc) {
@@ -61,25 +40,18 @@ const ChartArea: React.FC = () => {
           });
         }
       } else {
+        // If there's no query to run, clear previous results
         dispatch({ type: 'SET_QUERY_RESULT', payload: null });
         dispatch({ type: 'SET_QUERY_ERROR', payload: null });
       }
     };
 
     fetchData();
-  }, [
-    state.selectedTable,
-    state.selectedDatabase,
-    xDimensions,
-    yDimensions,
-    xMeasures,
-    yMeasures,
-    dispatch,
-  ]);
+  }, [gridSpec, selectedTable, selectedDatabase, dispatch]);
 
   return (
     <div className={styles.container}>
-      <ChartGrid gridSpec={gridSpec} />
+      <ChartGrid gridSpec={gridSpec} queryResult={state.queryResult} />
     </div>
   );
 };
