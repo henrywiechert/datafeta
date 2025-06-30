@@ -2,7 +2,7 @@
 
 import logging # Import logging
 from backend.models.query import QueryDescription, Measure, Filter, OrderBy
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 from pypika import Query, Table, Criterion, Order, Field
 from pypika.functions import Count, Sum, Avg, Min, Max
 from pypika.terms import Function, PseudoColumn
@@ -18,7 +18,7 @@ AGGREGATION_MAP = {
     'sum': Sum,
     'avg': Avg,
     'count': Count,
-    'count_distinct': lambda field_term: Count(field_term, distinct=True),
+    'count_distinct': lambda field_term: Count(field_term).distinct(),
     'min': Min,
     'max': Max,
 }
