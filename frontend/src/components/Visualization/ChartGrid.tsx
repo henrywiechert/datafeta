@@ -1,37 +1,31 @@
-import React, { useContext } from 'react';
-import { Field, QueryDescription } from '../../types';
-import { useVisualizationContext } from '../../contexts/VisualizationContext';
-import DebugView from './DebugView';
-// We are keeping the CSS import for now, in case we add grid-specific styles later
+import React from 'react';
+import { GridSpec } from '../../spec-generator/specGenerator';
 import styles from './ChartGrid.module.css';
 
 interface ChartGridProps {
-  queryDescription: QueryDescription | null;
-  // The other dimension/measure props are kept for when we implement the actual charts
-  xDimensions: Field[];
-  yDimensions: Field[];
-  xMeasures: Field[];
-  yMeasures: Field[];
+  gridSpec: GridSpec;
 }
 
-const ChartGrid: React.FC<ChartGridProps> = ({
-  queryDescription,
-  xDimensions,
-  yDimensions,
-  xMeasures,
-  yMeasures,
-}) => {
-  const { state } = useVisualizationContext();
-  const { queryResult, queryError } = state;
-  
-  // For now, we will always render the DebugView.
-  // Later, we can add a switch here.
+const ChartGrid: React.FC<ChartGridProps> = ({ gridSpec }) => {
+  const { cell, facets, errors } = gridSpec;
+
+  if (errors) {
+    return (
+      <div>
+        <h2>{errors[0].title}</h2>
+        <p>{errors[0].message}</p>
+      </div>
+    );
+  }
+
+  // TODO: Implement faceting logic based on facets.rows and facets.columns
+  // For now, we just render a single chart cell.
+
   return (
-    <DebugView 
-      queryDescription={queryDescription}
-      queryResult={queryResult}
-      queryError={queryError}
-    />
+    <div className={styles.container}>
+      {/* This is a placeholder to show the chart type */}
+      <h1>Chart Type: {cell.chartType}</h1>
+    </div>
   );
 };
 
