@@ -1,15 +1,16 @@
 import React from 'react';
 import { CellSpec } from '../../../spec-generator/specGenerator';
+import { QueryResult } from '../../../types';
 
 interface ChartProps {
   cellSpec: CellSpec;
-  // data: any[];
+  data: QueryResult['rows'];
 }
 
-const ScatterPlot: React.FC<ChartProps> = ({ cellSpec }) => {
+const ScatterPlot: React.FC<ChartProps> = ({ cellSpec, data }) => {
   const { encoding } = cellSpec;
   return (
-    <div style={{ padding: '8px', border: '1p solid #eee', height: '100%' }}>
+    <div style={{ padding: '8px', border: '1px solid #eee', height: '100%' }}>
       <p>Scatter Plot</p>
       <p>
         X: {encoding.x?.columnName || ' (none)'}
@@ -17,6 +18,7 @@ const ScatterPlot: React.FC<ChartProps> = ({ cellSpec }) => {
       <p>
         Y: {encoding.y?.columnName || ' (none)'}
       </p>
+      <p>{data.length} rows</p>
     </div>
   );
 };
