@@ -34,7 +34,7 @@ export const buildQuery = ({
   const measures: Measure[] = [...xMeasures, ...yMeasures].map((m) => ({
     field: m.columnName,
     aggregation: m.aggregation!,
-    alias: `${m.columnName}_${m.aggregation}`,
+    alias: `${m.aggregation!.toUpperCase()}(${m.columnName})`,
   }));
 
   const queryDesc: QueryDescription = {
