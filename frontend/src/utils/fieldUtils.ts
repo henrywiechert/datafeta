@@ -26,4 +26,17 @@ export function isDimension(field: Field): boolean {
 
 export function isMeasure(field: Field): boolean {
   return field.type === 'measure';
+}
+
+/**
+ * Gets the column name for a field as it would appear in a query result.
+ * Dimensions use their column name directly, while measures use an alias.
+ * @param field The field.
+ * @returns The name to look for in the query result columns.
+ */
+export function getResultColumnName(field: Field): string {
+  if (field.type === 'measure' && field.aggregation) {
+    return `${field.aggregation.toUpperCase()}(${field.columnName})`;
+  }
+  return field.columnName;
 } 
