@@ -5,9 +5,16 @@ import { isDimension, isMeasure } from '../../utils/fieldUtils';
 import ChartGrid from './ChartGrid';
 import { apiService } from '../../apiService';
 import { buildQuery } from '../../queryBuilder/queryBuilder';
+import { generateGridSpec } from '../../spec-generator/specGenerator';
 
 const ChartArea: React.FC = () => {
   const { state, dispatch } = useVisualizationContext();
+  const { xAxisFields, yAxisFields } = state;
+
+  const gridSpec = useMemo(
+    () => generateGridSpec({ xFields: xAxisFields, yFields: yAxisFields }),
+    [xAxisFields, yAxisFields]
+  );
 
   const xDimensions = useMemo(
     () => state.xAxisFields.filter(isDimension),
@@ -72,20 +79,7 @@ const ChartArea: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      <ChartGrid
-        queryDescription={buildQuery({
-          xDimensions,
-          yDimensions,
-          xMeasures,
-          yMeasures,
-          selectedTable: state.selectedTable,
-          selectedDatabase: state.selectedDatabase,
-        })}
-        xDimensions={xDimensions}
-        yDimensions={yDimensions}
-        xMeasures={xMeasures}
-        yMeasures={yMeasures}
-      />
+      <ChartGrid gridSpec={gridSpec} />
     </div>
   );
 };
