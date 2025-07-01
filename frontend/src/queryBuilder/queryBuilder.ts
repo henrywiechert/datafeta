@@ -1,43 +1,41 @@
 import { Field, QueryDescription, Measure } from '../types';
-import { GridSpec } from '../spec-generator/specGenerator';
+import { VegaLiteSpec } from '../spec-generator/specGenerator';
+import { getResultColumnName } from '../utils/fieldUtils';
 
-interface BuildQueryParams {
-  xDimensions: Field[];
-  yDimensions: Field[];
-  xMeasures: Field[];
-  yMeasures: Field[];
-  selectedTable: string;
-  selectedDatabase?: string;
-}
-
-export const buildQuery = ({
-  xDimensions,
-  yDimensions,
-  xMeasures,
-  yMeasures,
+/**
+ * Builds a query that performs aggregations on the server.
+ * This is used when the visualization requires summarization (e.g., bar charts).
+ */
+export const buildAggregatedQuery = ({
+  fields,
   selectedTable,
   selectedDatabase,
-}: BuildQueryParams): QueryDescription | null => {
-  if (
-    !selectedTable ||
-    (xDimensions.length === 0 &&
-      yDimensions.length === 0 &&
-      xMeasures.length === 0 &&
-      yMeasures.length === 0)
-  ) {
+}: {
+  fields: Field[];
+  selectedTable: string;
+  selectedDatabase?: string;
+}): QueryDescription | null => {
+
+  const dimensions = fields
+    .filter((f) => f.type === 'dimension')
+    .map((d) => ({
+      field: d.columnName,
+      flavour: d.flavour,
+    }));
+  
+  const measures: Measure[] = fields
+    .filter((f) => f.type === 'measure')
+    .map((m) => ({
+      field: m.columnName,
+      aggregation: m.aggregation!,
+      alias: getResultColumnName(m),
+    }));
+
+  // Only run a query if there is at least one measure or dimension.
+  if (!selectedTable || (dimensions.length === 0 && measures.length === 0)) {
     return null;
   }
-
-  const dimensions = [...xDimensions, ...yDimensions].map((d) => ({
-    field: d.columnName,
-    flavour: d.flavour,
-  }));
-  const measures: Measure[] = [...xMeasures, ...yMeasures].map((m) => ({
-    field: m.columnName,
-    aggregation: m.aggregation!,
-    alias: `${m.aggregation!.toUpperCase()}(${m.columnName})`,
-  }));
-
+  
   const queryDesc: QueryDescription = {
     target_table: selectedTable,
     target_database: selectedDatabase,
@@ -48,49 +46,43 @@ export const buildQuery = ({
   return queryDesc;
 };
 
-interface BuildQueryFromSpecParams {
-  gridSpec: GridSpec;
-  selectedTable: string;
-  selectedDatabase?: string;
-}
-
-export const buildQueryFromSpec = ({
-  gridSpec,
+/**
+ * Builds a query for use with Vega-Lite when no aggregation is needed (e.g., scatter plots).
+ * This function treats all fields as raw columns to be selected.
+ */
+export const buildRawQuery = ({
+  fields,
   selectedTable,
   selectedDatabase,
-}: BuildQueryFromSpecParams): QueryDescription | null => {
-  const allFields = [
-    gridSpec.cell.encoding.x,
-    gridSpec.cell.encoding.y,
-    ...gridSpec.facets.columns,
-    ...gridSpec.facets.rows,
-  ].filter((f): f is Field => f !== undefined);
-
-  if (!selectedTable || allFields.length === 0) {
+}: {
+  fields: Field[];
+  selectedTable: string;
+  selectedDatabase?: string;
+}): QueryDescription | null => {
+  if (!selectedTable || fields.length === 0) {
     return null;
   }
 
-  const dimensions = allFields
-    .filter((f) => f.type === 'dimension')
-    .map((d) => ({
-      field: d.columnName,
-      flavour: d.flavour,
-    }));
-  
-  const measures: Measure[] = allFields
-    .filter((f) => f.type === 'measure')
-    .map((m) => ({
-      field: m.columnName,
-      aggregation: m.aggregation!,
-      alias: `${m.aggregation!.toUpperCase()}(${m.columnName})`,
-    }));
+  // Treat all fields as simple columns to select.
+  // Use a Set to handle cases where the same field is on multiple axes.
+  const uniqueColumnNames = new Set(fields.map((f) => f.columnName));
+
+  const dimensions = Array.from(uniqueColumnNames).map(colName => {
+    // We need to find the original field to get the flavour, but it's not critical
+    // if we just default to discrete. The column name is the important part.
+    const field = fields.find(f => f.columnName === colName)!;
+    return {
+      field: colName,
+      flavour: field.flavour,
+    }
+  });
 
   const queryDesc: QueryDescription = {
     target_table: selectedTable,
     target_database: selectedDatabase,
     dimensions,
-    measures,
+    measures: [], // No server-side measures
   };
 
   return queryDesc;
-}
+};

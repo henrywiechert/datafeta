@@ -3,25 +3,39 @@ import styles from './ChartArea.module.css';
 import { useVisualizationContext } from '../../contexts/VisualizationContext';
 import ChartGrid from './ChartGrid';
 import { apiService } from '../../apiService';
-import { buildQueryFromSpec } from '../../queryBuilder/queryBuilder';
-import { generateGridSpec } from '../../spec-generator/specGenerator';
+import { buildAggregatedQuery, buildRawQuery } from '../../queryBuilder/queryBuilder';
+import { generateVegaLiteSpec } from '../../spec-generator/specGenerator';
+import { QueryDescription } from '../../types';
 
 const ChartArea: React.FC = () => {
   const { state, dispatch } = useVisualizationContext();
-  const { xAxisFields, yAxisFields, selectedTable, selectedDatabase } = state;
+  const { xAxisFields, yAxisFields, selectedTable, selectedDatabase, queryResult } = state;
 
-  const gridSpec = useMemo(
-    () => generateGridSpec({ xFields: xAxisFields, yFields: yAxisFields }),
+  const spec = useMemo(
+    () => generateVegaLiteSpec({ xFields: xAxisFields, yFields: yAxisFields }),
     [xAxisFields, yAxisFields]
   );
 
   useEffect(() => {
     const fetchData = async () => {
-      const queryDesc = buildQueryFromSpec({
-        gridSpec,
-        selectedTable,
-        selectedDatabase,
-      });
+      const allFields = [...xAxisFields, ...yAxisFields];
+      let queryDesc: QueryDescription | null = null;
+      
+      // Choose the right query builder based on the chart type.
+      // Scatter plots need raw data, bar charts need aggregated data.
+      if (spec.mark === 'point') {
+        queryDesc = buildRawQuery({
+          fields: allFields,
+          selectedTable,
+          selectedDatabase,
+        });
+      } else if (spec.mark === 'bar') {
+        queryDesc = buildAggregatedQuery({
+          fields: allFields,
+          selectedTable,
+          selectedDatabase,
+        });
+      }
 
       if (queryDesc) {
         try {
@@ -47,11 +61,12 @@ const ChartArea: React.FC = () => {
     };
 
     fetchData();
-  }, [gridSpec, selectedTable, selectedDatabase, dispatch]);
+  }, [spec, selectedTable, selectedDatabase, dispatch]);
+
 
   return (
     <div className={styles.container}>
-      <ChartGrid gridSpec={gridSpec} queryResult={state.queryResult} />
+      <ChartGrid spec={spec} data={queryResult} />
     </div>
   );
 };
