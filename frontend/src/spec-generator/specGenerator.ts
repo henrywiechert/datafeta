@@ -62,12 +62,23 @@ export function generateVegaLiteSpec(args: SpecGeneratorArgs): VegaLiteSpec {
       "field": getResultColumnName(yContinuous[0]),
       "type": "quantitative",
     };
+    
+    // Set up categorical X axis
     if (xDiscrete.length > 0) {
       baseSpec.encoding.x = {
         "field": getResultColumnName(xDiscrete[0]),
         "type": "ordinal",
       };
+    } else {
+      // No discrete fields - create a single-category bar chart
+      // Use a constant value for the X axis to create a single bar
+      baseSpec.encoding.x = {
+        "datum": "Total",
+        "type": "ordinal",
+        "axis": {"title": null} // Hide the axis title since it's not meaningful
+      };
     }
+    
     // Handle faceting for bar charts
     if(xDiscrete.length > 1) {
       baseSpec.encoding.column = {"field": getResultColumnName(xDiscrete[1]), "type": "ordinal"};
@@ -84,12 +95,23 @@ export function generateVegaLiteSpec(args: SpecGeneratorArgs): VegaLiteSpec {
       "field": getResultColumnName(xContinuous[0]),
       "type": "quantitative",
     };
+    
+    // Set up categorical Y axis
     if (yDiscrete.length > 0) {
       baseSpec.encoding.y = {
         "field": getResultColumnName(yDiscrete[0]),
         "type": "ordinal",
       };
+    } else {
+      // No discrete fields - create a single-category bar chart
+      // Use a constant value for the Y axis to create a single bar
+      baseSpec.encoding.y = {
+        "datum": "Total",
+        "type": "ordinal",
+        "axis": {"title": null} // Hide the axis title since it's not meaningful
+      };
     }
+    
     // Handle faceting for bar charts
     if(yDiscrete.length > 1) {
       baseSpec.encoding.row = {"field": getResultColumnName(yDiscrete[1]), "type": "ordinal"};

@@ -79,8 +79,9 @@ export interface QueryResultColumn {
 }
 
 export interface QueryResult {
-    columns: string[];
-    rows: (string | number | null)[][];
+    columns: QueryResultColumn[];
+    rows: { [key: string]: any }[];
+    row_count: number;
     query_sql?: string;
     error?: string;
 }

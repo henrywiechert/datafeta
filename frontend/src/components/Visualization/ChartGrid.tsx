@@ -18,15 +18,9 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     );
   }
   
-  // Vega-Lite expects an array of objects, not an array of arrays.
-  // We need to transform our data.
-  const chartData = data.rows.map(row => {
-    const newRow: { [key: string]: any } = {};
-    data.columns.forEach((col, i) => {
-      newRow[col] = row[i];
-    });
-    return newRow;
-  });
+  // The backend already returns rows as an array of objects, which is exactly what Vega-Lite expects!
+  // No transformation needed - just use the data directly
+  const chartData = data.rows;
 
   return (
     <div className={styles.container}>
