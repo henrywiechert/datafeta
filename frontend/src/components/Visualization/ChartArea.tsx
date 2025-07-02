@@ -9,7 +9,7 @@ import ChartGrid from './ChartGrid';
 import DebugView from './DebugView';
 import { apiService } from '../../apiService';
 import { buildAggregatedQuery, buildRawQuery } from '../../queryBuilder/queryBuilder';
-import { generateVegaLiteSpec } from '../../spec-generator/specGenerator';
+import { generateVegaLiteSpec, getRequiredQueryType } from '../../spec-generator/specGenerator';
 import { QueryDescription } from '../../types';
 
 const ChartArea: React.FC = () => {
@@ -28,15 +28,16 @@ const ChartArea: React.FC = () => {
       const allFields = [...xAxisFields, ...yAxisFields];
       let queryDesc: QueryDescription | null = null;
       
-      // Choose the right query builder based on the chart type.
-      // Scatter plots and line charts need raw data, bar charts need aggregated data.
-      if (spec.mark === 'point' || spec.mark?.type === 'point' || spec.mark?.type === 'line') {
+      // Use the new modular query type detection
+      const requiredQueryType = getRequiredQueryType({ xFields: xAxisFields, yFields: yAxisFields });
+      
+      if (requiredQueryType === 'raw') {
         queryDesc = buildRawQuery({
           fields: allFields,
           selectedTable,
           selectedDatabase,
         });
-      } else if (spec.mark === 'bar' || spec.mark?.type === 'bar') {
+      } else if (requiredQueryType === 'aggregated') {
         queryDesc = buildAggregatedQuery({
           fields: allFields,
           selectedTable,
