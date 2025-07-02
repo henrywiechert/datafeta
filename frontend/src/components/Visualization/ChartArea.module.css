@@ -1,19 +1,17 @@
 .chartArea {
   min-height: 400px;
-  padding: 16px; /* Assuming theme.spacing(2) */
-  border: 1px dashed grey;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start; /* Top-left alignment */
+  justify-content: flex-start; /* Top-left alignment */
 }
 
 .container {
     flex-grow: 1;
-    padding: 16px;
+    padding: 8px; /* Reduced padding for more chart space */
     display: flex;
     align-items: stretch;
     justify-content: flex-start;
     background-color: #fcfcfc;
     height: 100%;
     box-sizing: border-box;
-  }
+}

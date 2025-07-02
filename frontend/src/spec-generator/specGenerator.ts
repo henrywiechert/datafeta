@@ -25,16 +25,89 @@ export function generateVegaLiteSpec(args: SpecGeneratorArgs): VegaLiteSpec {
   const xDiscrete = xFields.filter((f) => f.flavour === 'discrete');
   const yDiscrete = yFields.filter((f) => f.flavour === 'discrete');
   
+  // Separate measures from dimensions
+  const xMeasures = xFields.filter((f) => f.type === 'measure');
+  const yMeasures = yFields.filter((f) => f.type === 'measure');
+  const xDimensions = xFields.filter((f) => f.type === 'dimension');
+  const yDimensions = yFields.filter((f) => f.type === 'dimension');
+  
+  // Determine if we have faceting (multiple charts)
+  // Faceting occurs when we have multiple dimensions that would create a grid of sub-charts
+  const hasFaceting = (xDimensions.length > 1) || 
+                     (yDimensions.length > 1) ||
+                     (xDimensions.length > 0 && yDimensions.length > 0 && (xContinuous.length > 0 || yContinuous.length > 0));
+  
   const baseSpec: VegaLiteSpec = {
     "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
     "description": "A chart created by DataFeta.",
     "data": { "name": "table" }, // Data will be provided by react-vega
     "encoding": {},
+    // Configure sizing and layout
+    "config": {
+      "view": {
+        "stroke": "transparent"
+      },
+      "facet": {
+        "spacing": 10
+      }
+    }
   };
 
-  // Rule: Scatter Plot
+  // Add responsive sizing - charts should fill available space
+  if (hasFaceting) {
+    // For faceted charts, use smaller individual chart sizes to allow scrolling
+    baseSpec.width = 200;
+    baseSpec.height = 150;
+    baseSpec.resolve = {
+      "scale": {
+        "x": "independent",
+        "y": "independent"
+      }
+    };
+  } else {
+    // Single charts should fill the complete available area
+    // NOTE: This will be overridden for bar charts which need natural sizing
+    baseSpec.width = "container";
+    baseSpec.height = "container";
+  }
+
+  // Rule: Line Chart (continuous X and Y with discrete dimension for grouping)
+  if (xContinuous.length > 0 && yContinuous.length > 0 && xDiscrete.length > 0) {
+    baseSpec.mark = {
+      "type": "line",
+      "point": true,
+      "strokeWidth": 2
+    };
+    baseSpec.encoding.x = {
+      "field": getResultColumnName(xContinuous[0]),
+      "type": "quantitative"
+    };
+    baseSpec.encoding.y = {
+      "field": getResultColumnName(yContinuous[0]),
+      "type": "quantitative"
+    };
+    baseSpec.encoding.color = {
+      "field": getResultColumnName(xDiscrete[0]),
+      "type": "ordinal"
+    };
+    
+    // Faceting for line charts
+    if(yDiscrete.length > 0) {
+      baseSpec.encoding.row = {"field": getResultColumnName(yDiscrete[0]), "type": "ordinal"};
+    }
+    if(xDiscrete.length > 1) {
+      baseSpec.encoding.column = {"field": getResultColumnName(xDiscrete[1]), "type": "ordinal"};
+    }
+
+    return baseSpec;
+  }
+
+  // Rule: Scatter Plot (two continuous dimensions)
   if (xContinuous.length > 0 && yContinuous.length > 0) {
-    baseSpec.mark = "point";
+    baseSpec.mark = {
+      "type": "point",
+      "size": 60
+    };
     baseSpec.encoding.x = {
       "field": getResultColumnName(xContinuous[0]),
       "type": "quantitative"
@@ -55,22 +128,29 @@ export function generateVegaLiteSpec(args: SpecGeneratorArgs): VegaLiteSpec {
     return baseSpec;
   }
 
-  // Rule: Bar Chart
-  if (yContinuous.length > 0) { // Vertical Bar Chart
-    baseSpec.mark = "bar";
+  // Rule: Vertical Bar Chart (Y-axis measures, X-axis dimensions)
+  if (yMeasures.length > 0) {
+    baseSpec.mark = {
+      "type": "bar",
+      "width": 20 // Absolute width in pixels for consistent bar size
+    };
     baseSpec.encoding.y = {
-      "field": getResultColumnName(yContinuous[0]),
+      "field": getResultColumnName(yMeasures[0]),
       "type": "quantitative",
     };
     
     // Set up categorical X axis
-    if (xDiscrete.length > 0) {
+    if (xDimensions.length > 0) {
       baseSpec.encoding.x = {
-        "field": getResultColumnName(xDiscrete[0]),
+        "field": getResultColumnName(xDimensions[0]),
         "type": "ordinal",
+        "scale": {
+          "paddingInner": 0.3, // Spacing between bars (absolute spacing)
+          "paddingOuter": 0.2  // Spacing at the ends
+        }
       };
     } else {
-      // No discrete fields - create a single-category bar chart
+      // No dimensions - create a single-category bar chart
       // Use a constant value for the X axis to create a single bar
       baseSpec.encoding.x = {
         "datum": "Total",
@@ -80,30 +160,39 @@ export function generateVegaLiteSpec(args: SpecGeneratorArgs): VegaLiteSpec {
     }
     
     // Handle faceting for bar charts
-    if(xDiscrete.length > 1) {
-      baseSpec.encoding.column = {"field": getResultColumnName(xDiscrete[1]), "type": "ordinal"};
+    if(xDimensions.length > 1) {
+      baseSpec.encoding.column = {"field": getResultColumnName(xDimensions[1]), "type": "ordinal"};
     }
-    if(yDiscrete.length > 0) {
-      baseSpec.encoding.row = {"field": getResultColumnName(yDiscrete[0]), "type": "ordinal"};
+    if(yDimensions.length > 0) {
+      baseSpec.encoding.row = {"field": getResultColumnName(yDimensions[0]), "type": "ordinal"};
     }
+    
     return baseSpec;
   }
   
-  if (xContinuous.length > 0) { // Horizontal Bar Chart
-    baseSpec.mark = "bar";
+  // Rule: Horizontal Bar Chart (X-axis measures, Y-axis dimensions)
+  if (xMeasures.length > 0) {
+    baseSpec.mark = {
+      "type": "bar",
+      "height": 20 // Absolute height in pixels for consistent bar size
+    };
     baseSpec.encoding.x = {
-      "field": getResultColumnName(xContinuous[0]),
+      "field": getResultColumnName(xMeasures[0]),
       "type": "quantitative",
     };
     
     // Set up categorical Y axis
-    if (yDiscrete.length > 0) {
+    if (yDimensions.length > 0) {
       baseSpec.encoding.y = {
-        "field": getResultColumnName(yDiscrete[0]),
+        "field": getResultColumnName(yDimensions[0]),
         "type": "ordinal",
+        "scale": {
+          "paddingInner": 0.3, // Spacing between bars (absolute spacing)
+          "paddingOuter": 0.2  // Spacing at the ends
+        }
       };
     } else {
-      // No discrete fields - create a single-category bar chart
+      // No dimensions - create a single-category bar chart
       // Use a constant value for the Y axis to create a single bar
       baseSpec.encoding.y = {
         "datum": "Total",
@@ -113,12 +202,13 @@ export function generateVegaLiteSpec(args: SpecGeneratorArgs): VegaLiteSpec {
     }
     
     // Handle faceting for bar charts
-    if(yDiscrete.length > 1) {
-      baseSpec.encoding.row = {"field": getResultColumnName(yDiscrete[1]), "type": "ordinal"};
+    if(yDimensions.length > 1) {
+      baseSpec.encoding.row = {"field": getResultColumnName(yDimensions[1]), "type": "ordinal"};
     }
-    if(xDiscrete.length > 0) {
-      baseSpec.encoding.column = {"field": getResultColumnName(xDiscrete[0]), "type": "ordinal"};
+    if(xDimensions.length > 0) {
+      baseSpec.encoding.column = {"field": getResultColumnName(xDimensions[0]), "type": "ordinal"};
     }
+    
     return baseSpec;
   }
   
@@ -126,5 +216,7 @@ export function generateVegaLiteSpec(args: SpecGeneratorArgs): VegaLiteSpec {
   return {
     "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
     "description": "Drag fields to the axes to create a chart.",
+    "width": "container",
+    "height": "container"
   };
 } 
