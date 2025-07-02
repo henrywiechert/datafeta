@@ -24,7 +24,12 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
   return (
     <div className={styles.container}>
-      <Vega spec={spec} data={{ table: chartData }} />
+      <Vega 
+        spec={spec} 
+        data={{ table: chartData }} 
+        actions={false}
+        renderer="svg"
+      />
     </div>
   );
 };

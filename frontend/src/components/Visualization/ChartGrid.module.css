@@ -1,3 +1,40 @@
+.container {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  overflow: auto; /* Enable scrolling for faceted charts */
+  background-color: white;
+  position: relative;
+}
+
+/* Ensure the Vega chart fills the container */
+.container :global(.vega-embed) {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.container :global(.vega-embed summary) {
+  display: none; /* Hide Vega menu */
+}
+
+.container :global(.vega-embed details) {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.container :global(.vega-embed .chart-wrapper) {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Faceted charts container - enable scrolling */
+.container :global(.vega-embed svg) {
+  max-width: none !important;
+  max-height: none !important;
+}
+
 .debugContainer {
   display: flex;
   height: 100%;

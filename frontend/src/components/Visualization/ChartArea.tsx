@@ -29,14 +29,14 @@ const ChartArea: React.FC = () => {
       let queryDesc: QueryDescription | null = null;
       
       // Choose the right query builder based on the chart type.
-      // Scatter plots need raw data, bar charts need aggregated data.
-      if (spec.mark === 'point') {
+      // Scatter plots and line charts need raw data, bar charts need aggregated data.
+      if (spec.mark === 'point' || spec.mark?.type === 'point' || spec.mark?.type === 'line') {
         queryDesc = buildRawQuery({
           fields: allFields,
           selectedTable,
           selectedDatabase,
         });
-      } else if (spec.mark === 'bar') {
+      } else if (spec.mark === 'bar' || spec.mark?.type === 'bar') {
         queryDesc = buildAggregatedQuery({
           fields: allFields,
           selectedTable,
