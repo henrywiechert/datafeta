@@ -12,12 +12,6 @@ export class LineChart extends BaseChart {
     const { classification } = context;
     const { continuousDimensions, continuousMeasures, discreteMeasures } = classification;
     
-    // Defensive checks for undefined fields
-    if (!continuousDimensions || !continuousMeasures || !discreteMeasures) {
-      console.warn('LineChart: Missing classification fields', { continuousDimensions, continuousMeasures, discreteMeasures });
-      return false;
-    }
-    
     // Line chart: continuous dimension + measure (continuous or discrete)
     return continuousDimensions.length >= 1 && (continuousMeasures.length >= 1 || discreteMeasures.length >= 1);
   }

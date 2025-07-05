@@ -40,14 +40,6 @@ export class SpecGenerator {
 
     // Step 1: Classify fields
     const classification = FieldClassifier.classifyFields(xFields, yFields);
-    
-    // Debug: Check what classification contains
-    console.log('Classification result:', {
-      discreteDimensions: classification.discreteDimensions,
-      continuousDimensions: classification.continuousDimensions,
-      continuousMeasures: classification.continuousMeasures,
-      discreteMeasures: classification.discreteMeasures
-    });
 
     // Step 2: Determine faceting
     const hasFaceting = FacetingManager.shouldFacet(classification);
