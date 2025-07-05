@@ -83,4 +83,29 @@ export class BarChart extends BaseChart {
       }
     }
   }
+
+  // Override generateSpec to dynamically set chart width/height based on discrete categories
+  generateSpec(context: ChartContext): VegaLiteSpec {
+    const spec = super.generateSpec(context);
+
+    const { classification } = context;
+    const { xDimensions, yDimensions } = classification;
+
+    // If there's a discrete dimension on the X-axis (vertical bar chart), set width to step and height to container
+    if (xDimensions.length > 0 && context.queryType === 'aggregated') {
+      spec.width = { "step": 25 }; // 25 pixels per bar/category
+      spec.height = "container"; // Fill available height
+    }
+    
+    // If there's a discrete dimension on the Y-axis (horizontal bar chart), set height to step and width to container
+    if (yDimensions.length > 0 && context.queryType === 'aggregated') {
+      spec.height = { "step": 25 }; // 25 pixels per bar/category
+      spec.width = "container"; // Fill available width
+    }
+
+    // Ensure autosize is set to 'pad' to prevent stretching
+    spec.autosize = { type: 'pad', contains: 'padding' };
+
+    return spec;
+  }
 } 

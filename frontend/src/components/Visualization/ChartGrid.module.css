@@ -18,18 +18,8 @@
 
 /* Ensure the Vega chart fills the container and respects bounds */
 .container :global(.vega-embed) {
-  width: 100% !important;
-  height: 100% !important;
-  max-width: 100% !important;
-  max-height: 100% !important;
-}
-
-/* Override sizing for vega-embed within faceted containers */
-.container.faceted :global(.vega-embed) {
-  height: auto !important; /* Allow height to expand */
-  max-height: none !important; /* Remove max-height constraint */
-  width: auto !important; /* Allow width to expand */
-  max-width: none !important; /* Remove max-width constraint */
+  /* Removed explicit width/height 100% and max-width/height from general rules */
+  /* Sizing is now handled by specific expandable/faceted classes or Vega-Lite spec */
 }
 
 .container :global(.vega-embed summary) {
@@ -37,28 +27,26 @@
 }
 
 .container :global(.vega-embed details) {
-  width: 100% !important;
-  height: 100% !important;
-  max-width: 100% !important;
-  max-height: 100% !important;
+  /* Removed explicit width/height 100% and max-width/height from general rules */
 }
 
 .container :global(.vega-embed .chart-wrapper) {
-  width: 100% !important;
-  height: 100% !important;
-  max-width: 100% !important;
-  max-height: 100% !important;
+  /* Removed explicit width/height 100% and max-width/height from general rules */
 }
 
 /* Ensure SVG respects container bounds */
 .container :global(.vega-embed svg) {
-  max-width: 100% !important;
-  max-height: 100% !important;
-  width: 100% !important;
-  height: 100% !important;
+  /* Removed explicit width/height 100% and max-width/height from general rules */
 }
 
 /* Override sizing and add minimum dimensions for SVG within faceted containers */
+.container.faceted :global(.vega-embed) {
+  height: auto !important; /* Allow height to expand */
+  max-height: none !important; /* Remove max-height constraint */
+  width: auto !important; /* Allow width to expand */
+  max-width: none !important; /* Remove max-width constraint */
+}
+
 .container.faceted :global(.vega-embed svg) {
   height: auto !important; /* Allow height to expand */
   max-height: none !important; /* Remove max-height constraint */
@@ -91,4 +79,50 @@
   white-space: pre-wrap;
   word-wrap: break-word;
   margin: 0;
+}
+
+/* New: Styles for horizontally expandable charts (e.g., vertical bar charts) */
+.container.horizontalExpandable {
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-shrink: 0; /* Prevent horizontal expandable charts from shrinking */
+}
+
+.container.horizontalExpandable :global(.vega-embed) {
+  height: 100% !important; /* Fill available vertical space */
+  max-height: 100% !important;
+  width: auto !important; /* Allow horizontal expansion */
+  max-width: none !important;
+}
+
+.container.horizontalExpandable :global(.vega-embed svg) {
+  height: 100% !important;
+  max-height: 100% !important;
+  width: auto !important; /* Re-added to let Vega-Lite control width with step */
+  max-width: none !important; /* Re-added to let Vega-Lite control width with step */
+  min-width: 300px; /* Minimum width for the chart */
+  min-height: 250px; /* Consistent minimum height with faceted charts */
+}
+
+/* New: Styles for vertically expandable charts (e.g., horizontal bar charts) */
+.container.verticalExpandable {
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex-shrink: 0; /* Prevent vertical expandable charts from shrinking */
+}
+
+.container.verticalExpandable :global(.vega-embed) {
+  width: 100% !important; /* Fill available horizontal space */
+  max-width: 100% !important;
+  height: auto !important; /* Allow vertical expansion */
+  max-height: none !important;
+}
+
+.container.verticalExpandable :global(.vega-embed svg) {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important; /* Re-added to let Vega-Lite control height with step */
+  max-height: none !important; /* Re-added to let Vega-Lite control height with step */
+  min-width: 300px; /* Consistent minimum width with faceted charts */
+  min-height: 250px; /* Minimum height for the chart */
 }
