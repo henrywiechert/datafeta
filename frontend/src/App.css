@@ -100,3 +100,19 @@ td {
 th {
   background-color: #f2f2f2;
 }
+
+/* Compact tabs styling */
+.compact-tabs {
+  min-height: 20px !important;
+}
+
+.compact-tabs .MuiTabs-flexContainer {
+  min-height: 20px !important;
+}
+
+.compact-tabs .MuiTab-root {
+  font-size: 0.75rem !important;
+  min-height: 20px !important;
+  padding: 2px 12px !important;
+  height: 20px !important;
+}

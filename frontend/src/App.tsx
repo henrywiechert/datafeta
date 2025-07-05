@@ -54,13 +54,14 @@ function AppContent() {
       </Box>
 
       {/* Bottom tabs */}
-      <Box sx={{ borderTop: 1, borderColor: 'divider', flexShrink: 0 }}>
+      <Box sx={{ borderTop: 1, borderColor: 'divider', flexShrink: 0}}>
         <Tabs
           value={tabValue}
           onChange={handleTabChange}
-          variant="fullWidth"
-          indicatorColor="primary"
-          textColor="primary"
+          variant="standard"
+          indicatorColor="secondary"
+          textColor="secondary"
+          className="compact-tabs"
         >
           <Tab label="Data Sources" />
           <Tab label="Visualization" />
