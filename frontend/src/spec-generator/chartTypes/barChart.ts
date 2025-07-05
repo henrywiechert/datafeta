@@ -21,7 +21,7 @@ export class BarChart extends BaseChart {
   protected applyMark(spec: VegaLiteSpec, context: ChartContext): void {
     spec.mark = {
       "type": "bar",
-      "width": 20 // Absolute width in pixels for consistent bar size
+      // "width": 20 // Removed: Absolute width caused bars to overlap or squeeze
     };
   }
 
@@ -48,7 +48,7 @@ export class BarChart extends BaseChart {
         spec.encoding.x = {
           "field": this.getFieldName(xDimensions[0], context),
           "type": "ordinal",
-          "scale": this.createOrdinalScale()
+          "scale": {"rangeStep": 25} // Ensure minimum bar width for discrete x-axis
         };
       } else {
         // Single bar case
@@ -71,7 +71,7 @@ export class BarChart extends BaseChart {
         spec.encoding.y = {
           "field": this.getFieldName(yDimensions[0], context),
           "type": "ordinal",
-          "scale": this.createOrdinalScale()
+          "scale": {"rangeStep": 25} // Ensure minimum bar height for discrete y-axis
         };
       } else {
         // Single bar case
