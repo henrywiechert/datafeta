@@ -12,12 +12,6 @@ export class ScatterChart extends BaseChart {
     const { classification } = context;
     const { continuousDimensions } = classification;
     
-    // Defensive checks for undefined fields
-    if (!continuousDimensions) {
-      console.warn('ScatterChart: Missing classification fields', { continuousDimensions });
-      return false;
-    }
-    
     // Scatter plot requires continuous dimensions on both axes
     return continuousDimensions.length >= 2;
   }

@@ -4,15 +4,22 @@
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
-  overflow: auto; /* Enable scrolling for faceted charts */
+  overflow: hidden; /* Prevent overflow, force charts to resize */
   background-color: white;
   position: relative;
 }
 
-/* Ensure the Vega chart fills the container */
+/* Special case for faceted charts - allow scrolling */
+.container.faceted {
+  overflow: auto;
+}
+
+/* Ensure the Vega chart fills the container and respects bounds */
 .container :global(.vega-embed) {
   width: 100% !important;
   height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
 }
 
 .container :global(.vega-embed summary) {
@@ -22,17 +29,23 @@
 .container :global(.vega-embed details) {
   width: 100% !important;
   height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
 }
 
 .container :global(.vega-embed .chart-wrapper) {
   width: 100% !important;
   height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
 }
 
-/* Faceted charts container - enable scrolling */
+/* Ensure SVG respects container bounds */
 .container :global(.vega-embed svg) {
-  max-width: none !important;
-  max-height: none !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .debugContainer {
