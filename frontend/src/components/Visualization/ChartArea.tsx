@@ -8,8 +8,8 @@ import { useVisualizationContext } from '../../contexts/VisualizationContext';
 import ChartGrid from './ChartGrid';
 import DebugView from './DebugView';
 import { apiService } from '../../apiService';
-import { buildAggregatedQuery, buildRawQuery } from '../../queryBuilder/queryBuilder';
-import { generateVegaLiteSpec, getRequiredQueryType } from '../../spec-generator/specGenerator';
+import { buildQuery, getQueryTypeFromFields } from '../../queryBuilder/queryBuilder';
+import { generateVegaLiteSpec } from '../../spec-generator/specGenerator';
 import { QueryDescription } from '../../types';
 
 const ChartArea: React.FC = () => {
@@ -28,22 +28,13 @@ const ChartArea: React.FC = () => {
       const allFields = [...xAxisFields, ...yAxisFields];
       let queryDesc: QueryDescription | null = null;
       
-      // Use the new modular query type detection
-      const requiredQueryType = getRequiredQueryType({ xFields: xAxisFields, yFields: yAxisFields });
-      
-      if (requiredQueryType === 'raw') {
-        queryDesc = buildRawQuery({
-          fields: allFields,
-          selectedTable,
-          selectedDatabase,
-        });
-      } else if (requiredQueryType === 'aggregated') {
-        queryDesc = buildAggregatedQuery({
-          fields: allFields,
-          selectedTable,
-          selectedDatabase,
-        });
-      }
+      // NEW APPROACH: Use field-driven query type determination
+      // The user's field configuration is now the source of truth
+      queryDesc = buildQuery({
+        fields: allFields,
+        selectedTable,
+        selectedDatabase,
+      });
 
       // Store query description for debug view
       setQueryDescription(queryDesc);
