@@ -70,9 +70,19 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   // No transformation needed - just use the data directly
   const chartData = data.rows;
 
-  // Detect if this is a faceted chart
+  // Detect if this is a faceted chart or an expandable chart (e.g., bar chart with many categories)
   const isFaceted = spec.encoding && (spec.encoding.column || spec.encoding.row);
-  const containerClass = isFaceted ? `${styles.container} ${styles.faceted}` : styles.container;
+  const isHorizontallyExpandable = spec.width && typeof spec.width === 'object' && 'step' in spec.width;
+  const isVerticallyExpandable = spec.height && typeof spec.height === 'object' && 'step' in spec.height;
+
+  let containerClass = styles.container;
+  if (isFaceted) {
+    containerClass = `${styles.container} ${styles.faceted}`;
+  } else if (isHorizontallyExpandable) {
+    containerClass = `${styles.container} ${styles.horizontalExpandable}`;
+  } else if (isVerticallyExpandable) {
+    containerClass = `${styles.container} ${styles.verticalExpandable}`;
+  }
 
   return (
     <div ref={containerRef} className={containerClass}>
