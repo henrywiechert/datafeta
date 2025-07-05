@@ -7,9 +7,6 @@ import { FieldClassification } from './types';
  */
 export class FieldClassifier {
   static classifyFields(xFields: Field[], yFields: Field[]): FieldClassification {
-    // Debug: Log input fields
-    console.log('FieldClassifier input:', { xFields, yFields });
-    
     const allFields = [...xFields, ...yFields];
     
     // Unified semantic + data type classification
@@ -17,15 +14,6 @@ export class FieldClassifier {
     const discreteMeasures = allFields.filter((f) => f.type === 'measure' && f.flavour === 'discrete');
     const continuousDimensions = allFields.filter((f) => f.type === 'dimension' && f.flavour === 'continuous');
     const discreteDimensions = allFields.filter((f) => f.type === 'dimension' && f.flavour === 'discrete');
-    
-    // Debug: Log what we're classifying
-    console.log('FieldClassifier debug:', {
-      allFields,
-      continuousMeasures,
-      discreteMeasures,
-      continuousDimensions,
-      discreteDimensions
-    });
     
     return {
       // Legacy axis-specific fields (for backwards compatibility)

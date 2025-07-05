@@ -10,13 +10,7 @@ export class BarChart extends BaseChart {
 
   canHandle(context: ChartContext): boolean {
     const { classification } = context;
-    const { discreteDimensions, continuousMeasures, discreteMeasures } = classification;
-    
-    // Defensive checks for undefined fields
-    if (!discreteDimensions || !continuousMeasures || !discreteMeasures) {
-      console.warn('BarChart: Missing classification fields', { discreteDimensions, continuousMeasures, discreteMeasures });
-      return false;
-    }
+    const { continuousMeasures, discreteMeasures } = classification;
     
     // Bar chart: needs at least one measure, dimensions are optional
     // Case 1: discrete dimension + measure (normal bar chart)
