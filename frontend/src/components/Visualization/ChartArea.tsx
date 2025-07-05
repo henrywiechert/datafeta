@@ -73,7 +73,7 @@ const ChartArea: React.FC = () => {
   return (
     <div className={styles.container}>
       {/* Main chart area */}
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'auto' }}>
         <Box sx={{ flex: 1, minHeight: 0 }}>
           <ChartGrid spec={spec} data={queryResult} />
         </Box>
