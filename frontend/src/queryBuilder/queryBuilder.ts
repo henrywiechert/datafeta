@@ -86,3 +86,39 @@ export const buildRawQuery = ({
 
   return queryDesc;
 };
+
+/**
+ * Determines the query type based on user's field configuration.
+ * This is the new source of truth - user's field settings drive the query type,
+ * not the chart strategy.
+ */
+export const getQueryTypeFromFields = (fields: Field[]): 'raw' | 'aggregated' => {
+  // If any field is configured as a measure with aggregation, use aggregated query
+  const hasMeasuresWithAggregation = fields.some(field => 
+    field.type === 'measure' && field.aggregation
+  );
+  
+  return hasMeasuresWithAggregation ? 'aggregated' : 'raw';
+};
+
+/**
+ * Builds the appropriate query based on user's field configuration.
+ * This replaces the chart-strategy-driven query building.
+ */
+export const buildQuery = ({
+  fields,
+  selectedTable,
+  selectedDatabase,
+}: {
+  fields: Field[];
+  selectedTable: string;
+  selectedDatabase?: string;
+}): QueryDescription | null => {
+  const queryType = getQueryTypeFromFields(fields);
+  
+  if (queryType === 'aggregated') {
+    return buildAggregatedQuery({ fields, selectedTable, selectedDatabase });
+  } else {
+    return buildRawQuery({ fields, selectedTable, selectedDatabase });
+  }
+};
