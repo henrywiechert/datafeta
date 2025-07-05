@@ -12,6 +12,8 @@
 /* Special case for faceted charts - allow scrolling */
 .container.faceted {
   overflow: auto;
+  /* For faceted charts, allow content to grow beyond 100% height/width */
+  /* Remove fixed height/width for vega-embed and svg within faceted containers */
 }
 
 /* Ensure the Vega chart fills the container and respects bounds */
@@ -20,6 +22,14 @@
   height: 100% !important;
   max-width: 100% !important;
   max-height: 100% !important;
+}
+
+/* Override sizing for vega-embed within faceted containers */
+.container.faceted :global(.vega-embed) {
+  height: auto !important; /* Allow height to expand */
+  max-height: none !important; /* Remove max-height constraint */
+  width: auto !important; /* Allow width to expand */
+  max-width: none !important; /* Remove max-width constraint */
 }
 
 .container :global(.vega-embed summary) {
@@ -46,6 +56,16 @@
   max-height: 100% !important;
   width: 100% !important;
   height: 100% !important;
+}
+
+/* Override sizing and add minimum dimensions for SVG within faceted containers */
+.container.faceted :global(.vega-embed svg) {
+  height: auto !important; /* Allow height to expand */
+  max-height: none !important; /* Remove max-height constraint */
+  width: auto !important; /* Allow width to expand */
+  max-width: none !important; /* Remove max-width constraint */
+  min-width: 300px; /* Minimum width for each chart in a facet */
+  min-height: 250px; /* Minimum height for each chart in a facet */
 }
 
 .debugContainer {
