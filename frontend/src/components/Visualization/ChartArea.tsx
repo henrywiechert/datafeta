@@ -7,6 +7,7 @@ import styles from './ChartArea.module.css';
 import { useVisualizationContext } from '../../contexts/VisualizationContext';
 import ChartGrid from './ChartGrid';
 import DebugView from './DebugView';
+import ResizeHandle from '../Layout/ResizeHandle';
 import { apiService } from '../../apiService';
 import { buildQuery, getQueryTypeFromFields } from '../../queryBuilder/queryBuilder';
 import { generateVegaLiteSpec } from '../../spec-generator/specGenerator';
@@ -16,12 +17,32 @@ const ChartArea: React.FC = () => {
   const { state, dispatch } = useVisualizationContext();
   const { xAxisFields, yAxisFields, selectedTable, selectedDatabase, queryResult, queryError } = state;
   const [isDebugOpen, setIsDebugOpen] = useState(false);
+  const [debugHeight, setDebugHeight] = useState(300);
+  const [maxDebugHeight, setMaxDebugHeight] = useState(800);
   const [queryDescription, setQueryDescription] = useState<QueryDescription | null>(null);
 
   const spec = useMemo(
     () => generateVegaLiteSpec({ xFields: xAxisFields, yFields: yAxisFields }),
     [xAxisFields, yAxisFields]
   );
+
+  // Calculate dynamic max height based on window height
+  useEffect(() => {
+    const updateMaxHeight = () => {
+      const windowHeight = window.innerHeight;
+      // Allow debug view to take up to 70% of the window height
+      const newMaxHeight = Math.floor(windowHeight * 0.7);
+      const calculatedMaxHeight = Math.max(400, newMaxHeight); // Ensure minimum of 400px
+      setMaxDebugHeight(calculatedMaxHeight);
+      
+      // Ensure current debug height doesn't exceed new max height
+      setDebugHeight(prev => Math.min(prev, calculatedMaxHeight));
+    };
+
+    updateMaxHeight();
+    window.addEventListener('resize', updateMaxHeight);
+    return () => window.removeEventListener('resize', updateMaxHeight);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -70,6 +91,10 @@ const ChartArea: React.FC = () => {
     setIsDebugOpen(!isDebugOpen);
   };
 
+  const handleDebugResize = (newHeight: number) => {
+    setDebugHeight(newHeight);
+  };
+
   return (
     <div className={styles.container}>
       {/* Main chart area */}
@@ -111,14 +136,28 @@ const ChartArea: React.FC = () => {
             mt: 1, 
             border: '1px solid #e0e0e0', 
             borderRadius: 1, 
-            maxHeight: '300px',
-            overflow: 'hidden'
+            height: `${debugHeight}px`,
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column'
           }}>
-            <DebugView 
-              queryDescription={queryDescription}
-              queryResult={queryResult}
-              queryError={queryError}
+            {/* Resize handle at the top */}
+            <ResizeHandle 
+              direction="vertical"
+              edge="top"
+              onResize={handleDebugResize}
+              currentSize={debugHeight}
+              minSize={150}
+              maxSize={maxDebugHeight}
             />
+            <Box sx={{ flex: 1, overflow: 'hidden' }}>
+              <DebugView 
+                queryDescription={queryDescription}
+                queryResult={queryResult}
+                queryError={queryError}
+                vegaSpec={spec}
+              />
+            </Box>
           </Box>
         </Collapse>
       </Box>
