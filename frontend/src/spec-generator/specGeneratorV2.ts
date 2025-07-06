@@ -8,6 +8,7 @@ import { getQueryTypeFromFields } from '../queryBuilder/queryBuilder';
 import { BarChart } from './chartTypes/barChart';
 import { ScatterChart } from './chartTypes/scatterChart';
 import { LineChart } from './chartTypes/lineChart';
+import { TickStripChart } from './chartTypes/tickStripChart';
 
 interface SpecGeneratorArgs {
   xFields: Field[];
@@ -23,11 +24,12 @@ export class SpecGenerator {
 
   constructor() {
     // Register all available chart strategies
-    // Order matters - priority: Bar → Line → Scatter → Pie
+    // Order matters - priority: TickStrip → Bar → Line → Scatter → Pie
     this.strategies = [
-      new BarChart(),           // Priority 1: discrete dimension + measure
-      new LineChart(),          // Priority 2: continuous dimension + measure
-      new ScatterChart(),       // Priority 3: continuous dimension + continuous dimension
+      new TickStripChart(),     // Priority 1: continuous dimension only (no measures)
+      new BarChart(),           // Priority 2: discrete dimension + measure
+      new LineChart(),          // Priority 3: continuous dimension + measure
+      new ScatterChart(),       // Priority 4: continuous dimension + continuous dimension
     ];
   }
 
@@ -83,8 +85,6 @@ export class SpecGenerator {
     return {
       "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
       "description": "Drag fields to the axes to create a chart.",
-      "width": "container",
-      "height": "container"
     };
   }
 

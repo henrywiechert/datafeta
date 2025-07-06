@@ -23,8 +23,9 @@ This document provides an overview of the frontend application's structure, API 
 *   It uses a strategy pattern to:
     *   Classify fields (`FieldClassifier`).
     *   Determine faceting (`FacetingManager`).
-    *   Select the appropriate chart type (Bar, Line, Scatter) based on the provided fields. 
+    *   Select the appropriate chart type (TickStrip, Bar, Line, Scatter) based on the provided fields. 
         * rules for charts:
+            * A continuous dimension only (no measures) creates a tick-strip chart showing distribution of values
             * single measure on one dimension creates a bar chart with a single bar in the right horizontal/vertical direction
             * A measure on X and a measure on Y axis creates a scatter plot with a single point (aggregated values)
             * A continous dimension on one axis and a measure on the other creates a line chart
