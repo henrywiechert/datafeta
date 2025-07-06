@@ -24,3 +24,15 @@ This document provides an overview of the frontend application's structure, API 
     *   Classify fields (`FieldClassifier`).
     *   Determine faceting (`FacetingManager`).
     *   Select the appropriate chart type (Bar, Line, Scatter) based on the provided fields. 
+    *   Fields have the following attributes:
+        *   type: discrete (e.g. a category) and continous (numerical)
+        *   flavour: dimension (cannot aggregate) and measures (must be aggregated)
+        *   Dimensions can be discrete (category or also numerical, but then every unique number is a "category") and continous (raw numerical data series)
+        *   Measures can be discrete and continous
+        *   Discrete measures have less aggregations (count, countd, min, max), where min/max are alphapetical
+        *   Continous measures have more aggregations (additionally avg, median, sum)
+    *   Chart types need a certain set of type of fields on their axes (FieldClassifier)
+    *   Faceting is on top of basic charts
+        *   Faceting is triggered by discrete dimensions on one of the axis. The first discrete dimention determines the category for some basic charts (e.g. bar). Further dimensions define the hierarchical faceting.
+        *   Discrete dimensions on X axis causes horizontal faceting, Y axis vertical. On both axes a 2-dimensional facet matrix is generated.
+        *   Multiple measures on the same axis create multiple charts of the same type (X->horizontal, Y-> vertical). Faceting is on top.
