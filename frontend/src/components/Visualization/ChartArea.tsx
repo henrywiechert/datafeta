@@ -6,11 +6,13 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import styles from './ChartArea.module.css';
 import { useVisualizationContext } from '../../contexts/VisualizationContext';
 import ChartGrid from './ChartGrid';
+import TableView from './TableView';
 import DebugView from './DebugView';
 import ResizeHandle from '../Layout/ResizeHandle';
 import { apiService } from '../../apiService';
 import { buildQuery, getQueryTypeFromFields } from '../../queryBuilder/queryBuilder';
 import { generateVegaLiteSpec } from '../../spec-generator/specGenerator';
+import { shouldUseTableView, prepareTableData } from '../../utils/tableViewUtils';
 import { QueryDescription } from '../../types';
 
 const ChartArea: React.FC = () => {
@@ -25,6 +27,20 @@ const ChartArea: React.FC = () => {
     () => generateVegaLiteSpec({ xFields: xAxisFields, yFields: yAxisFields }),
     [xAxisFields, yAxisFields]
   );
+
+  // Determine if we should show table view instead of chart
+  const useTableView = useMemo(
+    () => shouldUseTableView(xAxisFields, yAxisFields),
+    [xAxisFields, yAxisFields]
+  );
+
+  // Prepare table data if using table view
+  const tableData = useMemo(() => {
+    if (useTableView && queryResult) {
+      return prepareTableData(queryResult, xAxisFields, yAxisFields);
+    }
+    return { columns: [], rows: [] };
+  }, [useTableView, queryResult, xAxisFields, yAxisFields]);
 
   // Calculate dynamic max height based on window height
   useEffect(() => {
@@ -100,7 +116,11 @@ const ChartArea: React.FC = () => {
       {/* Main chart area */}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'auto' }}>
         <Box sx={{ flex: 1, minHeight: 0 }}>
-          <ChartGrid spec={spec} data={queryResult} />
+          {useTableView ? (
+            <TableView columns={tableData.columns} rows={tableData.rows} />
+          ) : (
+            <ChartGrid spec={spec} data={queryResult} />
+          )}
         </Box>
         
         {/* Debug toggle button */}
