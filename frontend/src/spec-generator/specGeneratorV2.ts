@@ -24,7 +24,7 @@ export class SpecGenerator {
 
   constructor() {
     // Register all available chart strategies
-    // Order matters - priority: TickStrip → Bar → Line → Scatter → Pie
+    // Order matters - priority: TickStrip → Bar → Line → Scatter
     this.strategies = [
       new TickStripChart(),     // Priority 1: continuous dimension only (no measures)
       new BarChart(),           // Priority 2: discrete dimension + measure

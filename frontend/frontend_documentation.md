@@ -31,6 +31,7 @@ This document provides an overview of the frontend application's structure, API 
             * A continous dimension on one axis and a measure on the other creates a line chart
             * A continous dimension on both axes creates a scatter plot (we still need to find a solution for large datasets)
             * more rules will follow soon
+    *   When only discrete dimensions are present (no measures or continuous dimensions), a Material-UI DataGrid table view is rendered instead of a chart.
     *   Fields have the following attributes:
         *   type: discrete (e.g. a category) and continous (numerical)
         *   flavour: dimension (cannot aggregate) and measures (must be aggregated)
