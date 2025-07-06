@@ -51,7 +51,7 @@ export interface FacetConfig {
 }
 
 // Chart type identification
-export type ChartType = 'line' | 'scatter' | 'bar' | 'bar-vertical' | 'bar-horizontal' | 'unknown';
+export type ChartType = 'line' | 'scatter' | 'bar' | 'bar-vertical' | 'bar-horizontal' | 'tick' | 'unknown';
 
 // Base chart interface
 export interface ChartStrategy {
