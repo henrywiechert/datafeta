@@ -1,17 +1,20 @@
 import React from 'react';
 import { QueryDescription, QueryResult } from '../../types';
+import { VegaLiteSpec } from '../../spec-generator/types';
 import styles from './DebugView.module.css';
 
 interface DebugViewProps {
   queryDescription: QueryDescription | null;
   queryResult: QueryResult | null;
   queryError: string | null;
+  vegaSpec: VegaLiteSpec | null;
 }
 
 const DebugView: React.FC<DebugViewProps> = ({
   queryDescription,
   queryResult,
   queryError,
+  vegaSpec,
 }) => {
   if (queryError) {
     return (
@@ -24,6 +27,13 @@ const DebugView: React.FC<DebugViewProps> = ({
               <hr />
               <h3>Generated SQL</h3>
               <pre>{queryResult.query_sql}</pre>
+            </>
+          )}
+          {vegaSpec && (
+            <>
+              <hr />
+              <h3>Vega-Lite Specification</h3>
+              <pre>{JSON.stringify(vegaSpec, null, 2)}</pre>
             </>
           )}
         </div>
@@ -47,6 +57,13 @@ const DebugView: React.FC<DebugViewProps> = ({
         <hr />
         <h3>Generated SQL</h3>
         <pre>{queryResult.query_sql}</pre>
+        {vegaSpec && (
+          <>
+            <hr />
+            <h3>Vega-Lite Specification</h3>
+            <pre>{JSON.stringify(vegaSpec, null, 2)}</pre>
+          </>
+        )}
       </div>
       <div className={styles.panel}>
         <h3>Result</h3>
