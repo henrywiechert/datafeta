@@ -24,6 +24,12 @@ This document provides an overview of the frontend application's structure, API 
     *   Classify fields (`FieldClassifier`).
     *   Determine faceting (`FacetingManager`).
     *   Select the appropriate chart type (Bar, Line, Scatter) based on the provided fields. 
+        * rules for charts:
+            * single measure on one dimension creates a bar chart with a single bar in the right horizontal/vertical direction
+            * A measure on X and a measure on Y axis creates a scatter plot with a single point (aggregated values)
+            * A continous dimension on one axis and a measure on the other creates a line chart
+            * A continous dimension on both axes creates a scatter plot (we still need to find a solution for large datasets)
+            * more rules will follow soon
     *   Fields have the following attributes:
         *   type: discrete (e.g. a category) and continous (numerical)
         *   flavour: dimension (cannot aggregate) and measures (must be aggregated)
