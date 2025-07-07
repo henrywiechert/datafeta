@@ -101,7 +101,7 @@ const ChartArea: React.FC = () => {
     };
 
     fetchData();
-  }, [spec, selectedTable, selectedDatabase, dispatch]);
+  }, [spec, selectedTable, selectedDatabase, xAxisFields, yAxisFields, dispatch]);
 
   const toggleDebugView = () => {
     setIsDebugOpen(!isDebugOpen);
@@ -117,7 +117,12 @@ const ChartArea: React.FC = () => {
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'auto' }}>
         <Box sx={{ flex: 1, minHeight: 0 }}>
           {useTableView ? (
-            <TableView columns={tableData.columns} rows={tableData.rows} />
+            <TableView 
+              columns={tableData.columns} 
+              rows={tableData.rows} 
+              xFields={xAxisFields}
+              yFields={yAxisFields}
+            />
           ) : (
             <ChartGrid spec={spec} data={queryResult} />
           )}
