@@ -1,31 +1,53 @@
-import React, { useState } from 'react';
-import { 
-  Box, 
-  Typography, 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
-  TableRow, 
-  Paper,
-  TablePagination
-} from '@mui/material';
+import React, { useMemo } from 'react';
+import { AgGridReact } from 'ag-grid-react';
+import { ColDef, ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
+import { Box, Typography } from '@mui/material';
+
+// Import AG Grid CSS
+import 'ag-grid-community/styles/ag-grid.css';
+import 'ag-grid-community/styles/ag-theme-material.css';
+
+// Register AG Grid modules
+ModuleRegistry.registerModules([AllCommunityModule]);
 
 interface Column {
   field: string;
   headerName: string;
   width?: number;
+  pinned?: 'left' | 'right';
 }
 
 interface TableViewProps {
   columns: Column[];
   rows: any[];
+  xFields: any[];
+  yFields: any[];
 }
 
-const TableView: React.FC<TableViewProps> = ({ columns, rows }) => {
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
+const TableView: React.FC<TableViewProps> = ({ columns, rows, xFields, yFields }) => {
+  // Convert columns to AG Grid format
+  const columnDefs: ColDef[] = useMemo(() => {
+    return columns.map((col) => ({
+      field: col.field,
+      headerName: col.headerName,
+      width: col.width || 150,
+      sortable: true,
+      filter: true,
+      resizable: true,
+      pinned: col.pinned || undefined,
+    }));
+  }, [columns]);
+
+  // Determine layout type for potential future customization
+  const layoutType = useMemo(() => {
+    const hasXFields = xFields.length > 0;
+    const hasYFields = yFields.length > 0;
+    
+    if (hasXFields && hasYFields) return 'grid';
+    if (hasYFields) return 'vertical';
+    if (hasXFields) return 'horizontal';
+    return 'empty';
+  }, [xFields.length, yFields.length]);
 
   if (columns.length === 0) {
     return (
@@ -44,52 +66,36 @@ const TableView: React.FC<TableViewProps> = ({ columns, rows }) => {
     );
   }
 
-  const handleChangePage = (event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  const paginatedRows = rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  // Determine if pagination should be enabled
+  const shouldPaginate = rows.length > 1000;
 
   return (
-    <Box sx={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
-      <TableContainer component={Paper} sx={{ flex: 1, overflow: 'auto' }}>
-        <Table stickyHeader>
-          <TableHead>
-            <TableRow>
-              {columns.map((column) => (
-                <TableCell key={column.field} sx={{ backgroundColor: '#fafafa', fontWeight: 'bold' }}>
-                  {column.headerName}
-                </TableCell>
-              ))}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {paginatedRows.map((row) => (
-              <TableRow key={row.id} hover>
-                {columns.map((column) => (
-                  <TableCell key={column.field}>
-                    {row[column.field] || ''}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      <TablePagination
-        rowsPerPageOptions={[25, 50, 100]}
-        component="div"
-        count={rows.length}
-        rowsPerPage={rowsPerPage}
-        page={page}
-        onPageChange={handleChangePage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
-      />
+    <Box sx={{ height: '100%', width: '100%' }}>
+      <div className="ag-theme-material" style={{ height: '100%', width: '100%' }}>
+        <AgGridReact
+          rowData={rows}
+          columnDefs={columnDefs}
+          defaultColDef={{
+            sortable: true,
+            filter: true,
+            resizable: true,
+            minWidth: layoutType === 'grid' ? 80 : 100,
+          }}
+          pagination={shouldPaginate}
+          paginationPageSize={shouldPaginate ? 25 : undefined}
+          paginationPageSizeSelector={shouldPaginate ? [25, 50, 100] : undefined}
+          animateRows={true}
+          rowSelection="multiple"
+          suppressRowClickSelection={true}
+          domLayout="normal"
+          onGridReady={(params) => {
+            params.api.sizeColumnsToFit();
+          }}
+          // Grid-specific configurations
+          suppressHorizontalScroll={false}
+          suppressColumnVirtualisation={layoutType === 'grid'}
+        />
+      </div>
     </Box>
   );
 };
