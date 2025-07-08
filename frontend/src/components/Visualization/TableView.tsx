@@ -15,6 +15,7 @@ interface Column {
   headerName: string;
   width?: number;
   pinned?: 'left' | 'right';
+  cellStyle?: { textAlign: 'left' | 'center' | 'right' };
 }
 
 interface TableViewProps {
@@ -30,11 +31,12 @@ const TableView: React.FC<TableViewProps> = ({ columns, rows, xFields, yFields }
     return columns.map((col) => ({
       field: col.field,
       headerName: col.headerName,
-      width: col.width || 150,
+      width: col.width || 120,
       sortable: true,
       filter: true,
       resizable: true,
       pinned: col.pinned || undefined,
+      cellStyle: col.cellStyle || { textAlign: 'left' as const },
     }));
   }, [columns]);
 
@@ -79,7 +81,8 @@ const TableView: React.FC<TableViewProps> = ({ columns, rows, xFields, yFields }
             sortable: true,
             filter: true,
             resizable: true,
-            minWidth: layoutType === 'grid' ? 80 : 100,
+            minWidth: layoutType === 'grid' ? 60 : 80,
+            cellStyle: { textAlign: 'left' as const },
           }}
           pagination={shouldPaginate}
           paginationPageSize={shouldPaginate ? 25 : undefined}
