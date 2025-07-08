@@ -52,7 +52,8 @@ function prepareVerticalLayout(queryResult: any, yFields: Field[]) {
   const columns = yFields.map((field) => ({
     field: field.columnName,
     headerName: field.columnName,
-    width: 150,
+    width: 120,
+    cellStyle: { textAlign: 'left' as const },
   }));
 
   return { columns, rows: uniqueRows };
@@ -69,7 +70,8 @@ function prepareHorizontalLayout(queryResult: any, xFields: Field[]) {
   const columns = xFields.map((field) => ({
     field: field.columnName,
     headerName: field.columnName,
-    width: 150,
+    width: 120,
+    cellStyle: { textAlign: 'left' as const },
   }));
 
   return { columns, rows: uniqueRows };
@@ -91,14 +93,16 @@ function prepareGridLayout(queryResult: any, xFields: Field[], yFields: Field[])
     ...yFields.map((field) => ({
       field: field.columnName,
       headerName: field.columnName,
-      width: 150,
+      width: 120,
       pinned: 'left' as const,
+      cellStyle: { textAlign: 'left' as const },
     })),
     // X combination columns
     ...uniqueXCombinations.map((xCombo, index) => ({
       field: `x_combo_${index}`,
       headerName: createCombinationLabel(xCombo, xFields),
-      width: 100,
+      width: 80,
+      cellStyle: { textAlign: 'left' as const },
     }))
   ];
 
