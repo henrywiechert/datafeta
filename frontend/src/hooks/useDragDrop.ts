@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { Field, DragSource } from '../types';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
 
@@ -24,13 +25,17 @@ export function useDragDrop() {
       const sourceField = state.availableFields.find(f => f.id === field.id);
       if (!sourceField) return;
       
+      // Create an independent copy of the field with a new ID
+      // This ensures that field properties can be changed independently on axes
+      const fieldCopy = { ...sourceField, id: uuidv4() };
+      
       // Add to target axis at the specified index or at the end
       const targetFields = targetAxis === 'x' ? [...xAxisFields] : [...yAxisFields];
       
       if (index !== undefined) {
-        targetFields.splice(index, 0, field);
+        targetFields.splice(index, 0, fieldCopy);
       } else {
-        targetFields.push(field);
+        targetFields.push(fieldCopy);
       }
       
       // Update the target axis
