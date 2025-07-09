@@ -41,8 +41,8 @@ export class FacetingManager {
       height: 150,
       resolve: {
         scale: {
-          x: "independent",
-          y: "independent"
+          x: "shared",  // Shared scales for consistent comparison across facets
+          y: "shared"   // Shared scales for consistent comparison across facets
         }
       }
     };
@@ -55,12 +55,16 @@ export class FacetingManager {
     const { classification } = context;
     const { xDimensions, yDimensions } = classification;
 
+    let hasRowFaceting = false;
+    let hasColumnFaceting = false;
+
     // Apply column faceting (multiple X dimensions)
     if (xDimensions.length > 1) {
       spec.encoding.column = {
         field: this.getFieldName(xDimensions[1], queryType),
         type: "ordinal"
       };
+      hasColumnFaceting = true;
     }
 
     // Apply row faceting (multiple Y dimensions)
@@ -69,6 +73,7 @@ export class FacetingManager {
         field: this.getFieldName(yDimensions[1], queryType),
         type: "ordinal"
       };
+      hasRowFaceting = true;
     }
 
     // Special case: dimensions on both axes (for scatter/line charts)
@@ -82,6 +87,7 @@ export class FacetingManager {
             field: this.getFieldName(yDimensions[0], queryType),
             type: "ordinal"
           };
+          hasRowFaceting = true;
         }
         
         if (xDimensions.length > 0 && !spec.encoding.column) {
@@ -89,9 +95,25 @@ export class FacetingManager {
             field: this.getFieldName(xDimensions[0], queryType),
             type: "ordinal"
           };
+          hasColumnFaceting = true;
         }
       }
     }
+
+    // Configure axes for cleaner faceted charts
+    this.configureFacetedAxes(spec, hasRowFaceting, hasColumnFaceting);
+  }
+
+  /**
+   * Configures axes for faceted charts to reduce visual clutter.
+   * With shared scales, we only need axes on the outer edges.
+   */
+  private static configureFacetedAxes(spec: any, hasRowFaceting: boolean, hasColumnFaceting: boolean): void {
+    // For now, let's just rely on Vega-Lite's default behavior with shared scales
+    // The shared scales should already provide the cleaner look we want
+    
+    // TODO: Research the correct Vega-Lite approach for conditional axis labels
+    // The facetIndex/facetCount functions don't exist in Vega-Lite
   }
 
   /**
