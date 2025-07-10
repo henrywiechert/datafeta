@@ -18,8 +18,8 @@ export class FacetingManager {
       xDimensions.length > 1 ||
       // Multiple dimensions on Y-axis → Creates row facets
       yDimensions.length > 1 ||
-      // Dimensions on both axes with continuous measures → Creates grid for scatter/line charts
-      (xDimensions.length > 0 && yDimensions.length > 0 && (xContinuous.length > 0 || yContinuous.length > 0))
+      // For scatter/line charts: a discrete dimension on either axis with continuous data should trigger faceting
+      ((xDimensions.length > 0 || yDimensions.length > 0) && (xContinuous.length > 0 || yContinuous.length > 0))
     );
   }
 
@@ -53,12 +53,12 @@ export class FacetingManager {
    */
   static applyFacetEncodings(spec: any, context: ChartContext, queryType: 'raw' | 'aggregated'): void {
     const { classification } = context;
-    const { xDimensions, yDimensions } = classification;
+    const { xDimensions, yDimensions, xContinuous, yContinuous } = classification;
 
     let hasRowFaceting = false;
     let hasColumnFaceting = false;
 
-    // Apply column faceting (multiple X dimensions)
+    // Apply column faceting for hierarchical dimensions (e.g., if there are more than one X dimension)
     if (xDimensions.length > 1) {
       spec.encoding.column = {
         field: this.getFieldName(xDimensions[1], queryType),
@@ -67,7 +67,7 @@ export class FacetingManager {
       hasColumnFaceting = true;
     }
 
-    // Apply row faceting (multiple Y dimensions)
+    // Apply row faceting for hierarchical dimensions (e.g., if there are more than one Y dimension)
     if (yDimensions.length > 1) {
       spec.encoding.row = {
         field: this.getFieldName(yDimensions[1], queryType),
@@ -76,27 +76,27 @@ export class FacetingManager {
       hasRowFaceting = true;
     }
 
-    // Special case: dimensions on both axes (for scatter/line charts)
-    if (xDimensions.length > 0 && yDimensions.length > 0) {
-      const { xContinuous, yContinuous } = classification;
-      
-      if (xContinuous.length > 0 || yContinuous.length > 0) {
-        // For scatter/line charts with both dimensions and continuous data
-        if (yDimensions.length > 0 && !spec.encoding.row) {
-          spec.encoding.row = {
-            field: this.getFieldName(yDimensions[0], queryType),
-            type: "ordinal"
-          };
-          hasRowFaceting = true;
-        }
-        
-        if (xDimensions.length > 0 && !spec.encoding.column) {
-          spec.encoding.column = {
-            field: this.getFieldName(xDimensions[0], queryType),
-            type: "ordinal"
-          };
-          hasColumnFaceting = true;
-        }
+    // Handle single discrete dimension faceting for scatter/line charts
+    // This applies if a continuous measure/dimension is present, and there's exactly one discrete dimension on an axis
+    const isScatterOrLineContext = xContinuous.length > 0 || yContinuous.length > 0;
+
+    if (isScatterOrLineContext) {
+      // If there's one discrete X dimension and no hierarchical column faceting yet
+      if (xDimensions.length === 1 && !hasColumnFaceting) {
+        spec.encoding.column = {
+          field: this.getFieldName(xDimensions[0], queryType),
+          type: "ordinal"
+        };
+        hasColumnFaceting = true;
+      }
+
+      // If there's one discrete Y dimension and no hierarchical row faceting yet
+      if (yDimensions.length === 1 && !hasRowFaceting) {
+        spec.encoding.row = {
+          field: this.getFieldName(yDimensions[0], queryType),
+          type: "ordinal"
+        };
+        hasRowFaceting = true;
       }
     }
 
