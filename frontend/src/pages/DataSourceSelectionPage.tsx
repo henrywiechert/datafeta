@@ -7,10 +7,10 @@ import '../App.css';
 function DataSourceSelectionPage() {
   const { isConnected, isLoading, error, message, connect, disconnect, connectionDetails } = useConnection();
 
-  const [connectionType, setConnectionType] = useState<'csv' | 'clickhouse'>('csv');
+  const [connectionType, setConnectionType] = useState<'csv' | 'clickhouse'>('clickhouse');
   const [filePath, setFilePath] = useState<string>('');
   const [connString, setConnString] = useState<string>('');
-  const [host, setHost] = useState<string>('example.com');
+  const [host, setHost] = useState<string>('localhost');
   const [port, setPort] = useState<number | string>(8123);
   const [user, setUser] = useState<string>('default');
   const [password, setPassword] = useState<string>('');
@@ -21,7 +21,7 @@ function DataSourceSelectionPage() {
     if (isConnected && connectionDetails) {
       setConnectionType(connectionDetails.type);
       setConnString(connectionDetails.connection_string || '');
-      setHost(connectionDetails.host || 'example.com');
+      setHost(connectionDetails.host || 'localhost');
       setPort(connectionDetails.port || 8123);
       setUser(connectionDetails.user || 'default');
       setPassword(connectionDetails.password || '');
