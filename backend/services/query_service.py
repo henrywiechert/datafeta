@@ -41,7 +41,7 @@ OPERATOR_MAP = {
 
 class QueryService:
 
-    def translate_to_sql(self, query_desc: QueryDescription, table_name: str, db_type: str = 'clickhouse') -> str:
+    def translate_to_sql(self, query_desc: QueryDescription, table_name: str, db_type: str = 'clickhouse', with_sampling: bool = False) -> str:
         """
         Translates a QueryDescription object into a SQL string.
         Uses Pypika for safe query construction.
@@ -50,6 +50,7 @@ class QueryService:
             query_desc: The validated query description object.
             table_name: The name of the table to query (used as fallback or for non-schema sources).
             db_type: The type of database (e.g., 'clickhouse', 'duckdb') - may affect syntax slightly.
+            with_sampling: If true, applies sampling for large raw queries.
 
         Returns:
             A SQL query string.
@@ -142,6 +143,25 @@ class QueryService:
              # If it's an alias string, Pypika should handle it correctly.
              # If it's a table field, t[order.field] provides the Field object.
              q = q.orderby(field_term, order=pypika_order)
+
+        # --- NEW: Add sampling for large raw queries on supported databases ---
+        is_raw_query = not query_desc.measures
+        is_single_dimension = len(query_desc.dimensions) == 1
+
+        # Apply sampling only if enabled, it's a raw query for a single dimension,
+        # and no user-defined limit, order, or filters exist.
+        # This targets the simple "drag a field to see its distribution" use case.
+        if with_sampling and is_raw_query and is_single_dimension and query_desc.limit is None and not query_desc.orderBy and not query_desc.filters:
+            # First, add a WHERE ... IS NOT NULL clause to sample from non-null values.
+            dimension_field_name = query_desc.dimensions[0].field
+            q = q.where(t[dimension_field_name].notnull())
+
+            if db_type == 'clickhouse':
+                # Using ORDER BY rand() is a compatible way to sample on any table engine.
+                q = q.orderby(Function('rand')).limit(5000)
+            # In the future, other DB-specific sampling can be added here
+            # elif db_type == 'postgresql':
+            #     q = q.orderby(Function('random')).limit(5000)
 
         # LIMIT and OFFSET Clause
         if query_desc.limit is not None:
