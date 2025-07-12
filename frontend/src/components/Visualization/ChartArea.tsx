@@ -7,4 +7,6 @@
  * The original file has been backed up as ChartArea.tsx.backup
  */
 
-export { default } from './ChartArea/ChartArea'; 
+import ChartAreaComponent from './ChartArea/ChartArea';
+
+export default ChartAreaComponent; 
