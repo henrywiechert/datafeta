@@ -18,7 +18,27 @@ This document provides an overview of the frontend application's structure, API 
 *   `ConnectionContext.tsx` manages the application's data source connection state and provides functions for connecting and disconnecting.
 *   `VisualizationContext.tsx` manages the visualization-related state, including selected fields, available metadata, query results, and associated loading/error states, using a reducer for state updates.
 
-## 4. Chart Specification Generation
+## 4. Loading States and Timeout Management
+*   **Loading State Management**: The application includes comprehensive loading states for query execution, chart rendering, and metadata operations with timeout detection and cancellation support.
+*   **VisualizationContext Enhancement**: Extended with additional state properties:
+    *   `isLoadingQuery`, `isLoadingRendering` - Track loading states for different operations
+    *   `showLoadingModal`, `loadingOperationType` - Control modal display and operation type
+    *   `loadingStartTime`, `canCancelOperation` - Support timeout detection and cancellation
+*   **Timeout Configuration**: `loadingConfig.ts` provides environment-specific timeout settings:
+    *   Development: query (2s), rendering (50ms), metadata (3s) - shorter timeouts for testing
+    *   Production: query (3s), rendering (2s), metadata (5s) - longer timeouts for stability
+*   **LoadingModal Component**: Modal dialog with progress indicators, elapsed time counter, and cancel button for long-running operations.
+*   **API Service Enhancement**: All API methods (`apiService.ts`) support AbortController for cancellable requests with centralized abort controller management.
+*   **Web Worker Integration**: 
+    *   `chartWorker.ts` handles heavy chart specification generation off the main thread
+    *   `chartWorkerService.ts` manages worker communication with timeout and error handling
+    *   Graceful fallback to synchronous generation when worker unavailable (with 100ms delay to ensure modal appears)
+*   **Data Size Management**: 
+    *   Removed automatic 10K row limit for queries with 2 continuous dimensions
+    *   Data size issues are handled separately through smart data management strategies
+    *   Performance warnings and validation for large datasets (>50K rows)
+
+## 5. Chart Specification Generation
 *   The `spec-generator` directory, specifically `specGeneratorV2.ts`, is responsible for generating Vega-Lite specifications for charts.
 *   It uses a strategy pattern to:
     *   Classify fields (`FieldClassifier`).
