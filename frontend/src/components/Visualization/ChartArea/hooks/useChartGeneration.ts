@@ -10,7 +10,7 @@ interface UseChartGenerationProps {
   xAxisFields: any[];
   yAxisFields: any[];
   useTableView: boolean;
-  startOperation: (operation: string, canCancel: boolean) => void;
+  startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: () => void;
 }
 
