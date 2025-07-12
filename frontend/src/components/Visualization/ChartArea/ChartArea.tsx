@@ -23,17 +23,6 @@ const ChartArea: React.FC = () => {
     queryResult,
   });
 
-  // Memoize the dispatch wrapper to prevent infinite loops
-  const memoizedDispatch = useCallback((action: any) => {
-    // Handle data cleaning before dispatching query results
-    if (action.type === 'SET_QUERY_RESULT' && action.payload) {
-      const cleanedResult = validateAndCleanData(action.payload);
-      dispatch({ ...action, payload: cleanedResult });
-    } else {
-      dispatch(action);
-    }
-  }, [dispatch]);
-
   // Use the extracted query execution hook
   const { queryDescription } = useQueryExecution({
     selectedTable,
@@ -42,7 +31,7 @@ const ChartArea: React.FC = () => {
     yAxisFields,
     startOperation,
     completeOperation,
-    dispatch: memoizedDispatch,
+    dispatch,
   });
 
   // Use the extracted chart generation hook
@@ -56,6 +45,15 @@ const ChartArea: React.FC = () => {
 
   // Use the extracted debug view hook
   const { isDebugOpen, debugHeight, maxDebugHeight, toggleDebugView, handleDebugResize } = useDebugView();
+
+  const debugData = {
+    queryDescription,
+    queryResult,
+    queryError,
+    vegaSpec: spec,
+    chartInfo,
+    renderingError,
+  };
 
   return (
     <div className={styles.container}>
@@ -79,12 +77,7 @@ const ChartArea: React.FC = () => {
           debugHeight={debugHeight}
           maxDebugHeight={maxDebugHeight}
           onDebugResize={handleDebugResize}
-          queryDescription={queryDescription}
-          queryResult={queryResult}
-          queryError={queryError}
-          vegaSpec={spec}
-          chartInfo={chartInfo}
-          renderingError={renderingError}
+          debugData={debugData}
         />
       </Box>
     </div>

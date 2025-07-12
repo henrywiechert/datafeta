@@ -3,7 +3,7 @@ import { QueryDescription, QueryResult } from '../../types';
 import { VegaLiteSpec } from '../../spec-generator/types';
 import styles from './DebugView.module.css';
 
-interface DebugViewProps {
+export interface DebugData {
   queryDescription: QueryDescription | null;
   queryResult: QueryResult | null;
   queryError: string | null;
@@ -12,14 +12,21 @@ interface DebugViewProps {
   renderingError?: string | null;
 }
 
+interface DebugViewProps {
+  debugData: DebugData;
+}
+
 const DebugView: React.FC<DebugViewProps> = ({
-  queryDescription,
-  queryResult,
-  queryError,
-  vegaSpec,
-  chartInfo,
-  renderingError,
+  debugData
 }) => {
+  const {
+    queryDescription,
+    queryResult,
+    queryError,
+    vegaSpec,
+    chartInfo,
+    renderingError,
+  } = debugData;
   const hasError = queryError || renderingError;
 
   if (hasError) {
