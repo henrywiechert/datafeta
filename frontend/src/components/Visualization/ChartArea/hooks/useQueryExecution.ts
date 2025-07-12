@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect } from 'react';
+import { useCallback, useRef, useEffect, useMemo } from 'react';
 import { apiService } from '../../../../apiService';
 import { buildQuery } from '../../../../queryBuilder/queryBuilder';
 import { QueryDescription } from '../../../../types';
@@ -9,7 +9,7 @@ interface UseQueryExecutionProps {
   selectedDatabase: string | null;
   xAxisFields: any[];
   yAxisFields: any[];
-  startOperation: (operation: string, canCancel: boolean) => void;
+  startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: () => void;
   dispatch: (action: any) => void;
 }
@@ -93,26 +93,18 @@ export const useQueryExecution = ({
     }
   }, []);
 
-  // Build query from current fields
-  const buildCurrentQuery = useCallback((): QueryDescription | null => {
+  // Memoize current query description to avoid unnecessary recalculations
+  const currentQueryDescription = useMemo((): QueryDescription | null => {
     const allFields = [...xAxisFields, ...yAxisFields];
     
     if (allFields.length === 0 || !selectedTable || !selectedDatabase) {
       return null;
     }
     
-    console.log(`🔍 Building query for ${allFields.length} fields`);
-    
     const queryDesc = buildQuery({
       fields: allFields,
       selectedTable,
       selectedDatabase,
-    });
-
-    console.log(`📋 Generated query:`, { 
-      type: queryDesc ? (queryDesc.measures?.length ? 'aggregated' : 'raw') : 'none',
-      dimensions: queryDesc?.dimensions?.length || 0,
-      measures: queryDesc?.measures?.length || 0
     });
 
     return queryDesc;
@@ -121,19 +113,36 @@ export const useQueryExecution = ({
   // Effect to handle query execution when fields change
   useEffect(() => {
     const fetchData = async () => {
-      const queryDesc = buildCurrentQuery();
-
-      if (queryDesc) {
-        await executeQuery(queryDesc);
-      } else {
+      const allFields = [...xAxisFields, ...yAxisFields];
+      
+      if (allFields.length === 0 || !selectedTable || !selectedDatabase) {
         // If there's no query to run, clear previous results
         dispatch({ type: 'SET_QUERY_RESULT', payload: null });
         dispatch({ type: 'SET_QUERY_ERROR', payload: null });
+        return;
+      }
+      
+      console.log(`🔍 Building query for ${allFields.length} fields`);
+      
+      const queryDesc = buildQuery({
+        fields: allFields,
+        selectedTable,
+        selectedDatabase,
+      });
+
+      console.log(`📋 Generated query:`, { 
+        type: queryDesc ? (queryDesc.measures?.length ? 'aggregated' : 'raw') : 'none',
+        dimensions: queryDesc?.dimensions?.length || 0,
+        measures: queryDesc?.measures?.length || 0
+      });
+
+      if (queryDesc) {
+        await executeQuery(queryDesc);
       }
     };
 
     fetchData();
-  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields, executeQuery, dispatch, buildCurrentQuery]);
+  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -147,6 +156,6 @@ export const useQueryExecution = ({
   return {
     executeQuery,
     cancelQuery,
-    queryDescription: buildCurrentQuery(),
+    queryDescription: currentQueryDescription,
   };
 }; 

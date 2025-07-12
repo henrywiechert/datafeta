@@ -42,7 +42,7 @@ export interface UseChartGenerationProps {
   xAxisFields: any[];
   yAxisFields: any[];
   useTableView: boolean;
-  startOperation: (operation: string, canCancel: boolean) => void;
+  startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: () => void;
 }
 
@@ -51,7 +51,7 @@ export interface UseQueryExecutionProps {
   selectedDatabase: string | null;
   xAxisFields: any[];
   yAxisFields: any[];
-  startOperation: (operation: string, canCancel: boolean) => void;
+  startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: () => void;
   dispatch: (action: any) => void;
 }
