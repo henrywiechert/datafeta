@@ -48,7 +48,8 @@ type VisualizationAction =
   | { type: 'SET_LOADING_MODAL'; payload: { show: boolean; operationType?: LoadingOperationType; canCancel?: boolean } }
   | { type: 'SET_LOADING_START_TIME'; payload: number | null }
   | { type: 'CANCEL_OPERATION' }
-      | { type: 'RESET_LOADING_STATES' };
+  | { type: 'COMPLETE_SPECIFIC_OPERATION'; payload: LoadingOperationType; }
+  | { type: 'RESET_LOADING_STATES' };
 
 // Initial state
 const initialState: VisualizationState = {
@@ -128,6 +129,29 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
         loadingStartTime: null,
         canCancelOperation: false,
       };
+    case 'COMPLETE_SPECIFIC_OPERATION':
+      {
+        let updatedState = { ...state };
+        switch (action.payload) {
+          case 'query':
+            updatedState.isLoadingQuery = false;
+            break;
+          case 'rendering':
+            updatedState.isLoadingRendering = false;
+            break;
+          case 'metadata':
+            updatedState.isLoadingMetadata = false;
+            break;
+        }
+        // Only hide modal if all operations are complete
+        if (!updatedState.isLoadingQuery && !updatedState.isLoadingRendering && !updatedState.isLoadingMetadata) {
+          updatedState.showLoadingModal = false;
+          updatedState.loadingOperationType = null;
+          updatedState.loadingStartTime = null;
+          updatedState.canCancelOperation = false;
+        }
+        return updatedState;
+      }
     case 'RESET_LOADING_STATES':
       return {
         ...state,
@@ -151,7 +175,7 @@ interface VisualizationContextType {
   dispatch: React.Dispatch<VisualizationAction>;
   // New methods for loading management
   startOperation: (operationType: LoadingOperationType, canCancel?: boolean) => void;
-  completeOperation: () => void;
+  completeOperation: (operationType: LoadingOperationType) => void; // Updated signature
   cancelOperation: () => void;
   // Timeout management
   timeoutRefs: React.MutableRefObject<{ [key: string]: NodeJS.Timeout | null }>;
@@ -195,6 +219,7 @@ export function VisualizationProvider({ children }: VisualizationProviderProps) 
 
     // Set timeout to show modal
     const timeoutMs = getTimeoutForOperation(operationType);
+    console.log(`⏰ Setting modal timeout for ${operationType} to ${timeoutMs}ms. Current time: ${Date.now()}`);
     
     timeoutRefs.current[operationType] = setTimeout(() => {
       console.log(`🔔 Showing modal for ${operationType} operation`);
@@ -206,17 +231,17 @@ export function VisualizationProvider({ children }: VisualizationProviderProps) 
   }, []);
 
   // Complete an operation
-  const completeOperation = useCallback(() => {
-    console.log('✅ Operation completed');
+  const completeOperation = useCallback((operationType: LoadingOperationType) => {
+    console.log(`✅ ${operationType} operation completed`);
     
-    // Clear all timeouts
-    Object.values(timeoutRefs.current).forEach(timeout => {
-      if (timeout) clearTimeout(timeout);
-    });
-    timeoutRefs.current = {};
+    // Clear only the specific timeout
+    if (timeoutRefs.current[operationType]) {
+      clearTimeout(timeoutRefs.current[operationType]!);
+      timeoutRefs.current[operationType] = null; // Mark as cleared
+    }
 
-    // Reset loading states
-    dispatch({ type: 'RESET_LOADING_STATES' });
+    // Dispatch action to update specific loading state and potentially hide modal
+    dispatch({ type: 'COMPLETE_SPECIFIC_OPERATION', payload: operationType });
   }, []);
 
   // Cancel an operation

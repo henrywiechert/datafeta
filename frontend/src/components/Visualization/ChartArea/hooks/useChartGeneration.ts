@@ -11,7 +11,7 @@ interface UseChartGenerationProps {
   yAxisFields: any[];
   useTableView: boolean;
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
-  completeOperation: () => void;
+  completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
 }
 
 interface UseChartGenerationReturn {
@@ -63,25 +63,28 @@ export const useChartGeneration = ({
       // Create new abort controller
       renderingAbortControllerRef.current = new AbortController();
 
-      // Start rendering operation
-      startOperation('rendering', true);
-      setRenderingError(null);
-
       // Check if worker is available, fallback to sync generation
       if (!chartWorkerService.isWorkerAvailable()) {
         console.warn('🔄 Chart worker not available, falling back to synchronous generation');
         
+        startOperation('rendering', true); // Start operation for synchronous generation
+        setRenderingError(null); // Clear previous errors after starting operation
+
         // Add a small delay to ensure the modal appears even for sync generation
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Ensure this delay is longer than the rendering timeout (50ms in dev)
+        await new Promise(resolve => setTimeout(resolve, getTimeoutForOperation('rendering') + 50)); 
         
         const syncSpec = generateVegaLiteSpec({ xFields: xAxisFields, yFields: yAxisFields });
         setSpec(syncSpec);
         setChartInfo(null);
         
         logOperationTiming('Chart generation', startTime, { mode: 'sync' });
-        completeOperation();
+        completeOperation('rendering');
         return;
       }
+      
+      startOperation('rendering', true); // Start operation for worker generation
+      setRenderingError(null); // Clear previous errors after starting operation
 
       // Generate spec using Web Worker
       const result = await chartWorkerService.generateChartSpec(
@@ -98,7 +101,7 @@ export const useChartGeneration = ({
       setChartInfo(result.chartInfo);
       
       logOperationTiming('Chart generation', startTime, { mode: 'worker' });
-      completeOperation();
+      completeOperation('rendering');
 
     } catch (error: any) {
       console.error('Chart generation error:', error);
@@ -121,7 +124,7 @@ export const useChartGeneration = ({
         }
       }
       
-      completeOperation();
+      completeOperation('rendering');
     }
   }, [xAxisFields, yAxisFields, useTableView, startOperation, completeOperation]);
 

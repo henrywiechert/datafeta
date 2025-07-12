@@ -70,7 +70,12 @@ class ChartWorkerService {
   }
 
   private handleWorkerMessage(response: ChartWorkerResponse) {
-    const { type, id, payload } = response;
+    const { type, id } = response;
+    // Conditionally destructure payload based on type
+    const payload = (
+      type === 'SPEC_GENERATED' || type === 'ERROR'
+    ) ? (response as any).payload : undefined;
+
     const pendingTask = this.pendingTasks.get(id);
 
     if (!pendingTask) {
@@ -200,42 +205,39 @@ class ChartWorkerService {
         }, timeout);
       }
 
-      // Set up abort signal handler
-      if (options.signal) {
-        options.signal.addEventListener('abort', () => {
-          this.pendingTasks.delete(taskId);
-          this.cancelTask(taskId);
-          reject({
-            message: 'Task was aborted',
-            code: 'CANCELLED'
-          });
-        });
-      }
-
-      // Store pending task
-      this.pendingTasks.set(taskId, pendingTask);
-
-      // Send message to worker
-      const message: ChartWorkerMessage = {
+      // Post message to worker
+      this.worker.postMessage({
         type: 'GENERATE_SPEC',
         id: taskId,
         payload: {
           xFields,
-          yFields
+          yFields,
+          timeout // Pass the timeout to the worker
         }
-      };
+      });
 
-      this.worker.postMessage(message);
+      // Set up abortion handling
+      options.signal?.addEventListener('abort', () => {
+        console.log(`Aborting task ${taskId} from main thread.`);
+        this.cancelTask(taskId); // Notify worker to cancel
+        reject({
+          message: 'Task was cancelled',
+          code: 'CANCELLED'
+        });
+      }, { once: true });
+
+      this.pendingTasks.set(taskId, pendingTask);
     });
   }
 
   /**
-   * Cancel a specific task
+   * Cancels a specific task by its ID.
+   * This sends a cancellation message to the worker.
    */
   private cancelTask(taskId: string) {
     if (this.worker) {
       const message: ChartWorkerMessage = {
-        type: 'CANCEL',
+        type: 'CANCEL_TASK', // Changed from 'CANCEL'
         id: taskId
       };
       this.worker.postMessage(message);
@@ -243,20 +245,13 @@ class ChartWorkerService {
   }
 
   /**
-   * Cancel all pending tasks
+   * Cancels all currently pending tasks.
    */
   cancelAllTasks() {
-    this.pendingTasks.forEach((task, taskId) => {
-      if (task.timeout) {
-        clearTimeout(task.timeout);
-      }
+    this.pendingTasks.forEach((_task, taskId) => {
       this.cancelTask(taskId);
     });
-    
-    this.rejectAllPendingTasks({
-      message: 'All tasks were cancelled',
-      code: 'CANCELLED'
-    });
+    this.pendingTasks.clear();
   }
 
   /**
