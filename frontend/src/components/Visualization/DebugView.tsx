@@ -8,6 +8,8 @@ interface DebugViewProps {
   queryResult: QueryResult | null;
   queryError: string | null;
   vegaSpec: VegaLiteSpec | null;
+  chartInfo?: any;
+  renderingError?: string | null;
 }
 
 const DebugView: React.FC<DebugViewProps> = ({
@@ -15,8 +17,12 @@ const DebugView: React.FC<DebugViewProps> = ({
   queryResult,
   queryError,
   vegaSpec,
+  chartInfo,
+  renderingError,
 }) => {
-  if (queryError) {
+  const hasError = queryError || renderingError;
+
+  if (hasError) {
     return (
       <div className={styles.container}>
         <div className={styles.panel}>
@@ -36,10 +42,28 @@ const DebugView: React.FC<DebugViewProps> = ({
               <pre>{JSON.stringify(vegaSpec, null, 2)}</pre>
             </>
           )}
+          {chartInfo && (
+            <>
+              <hr />
+              <h3>Chart Information</h3>
+              <pre>{JSON.stringify(chartInfo, null, 2)}</pre>
+            </>
+          )}
         </div>
         <div className={styles.panel}>
-          <h3>Error Fetching Data</h3>
-          <pre>{queryError}</pre>
+          {queryError && (
+            <>
+              <h3>Query Error</h3>
+              <pre>{queryError}</pre>
+            </>
+          )}
+          {renderingError && (
+            <>
+              {queryError && <hr />}
+              <h3>Rendering Error</h3>
+              <pre>{renderingError}</pre>
+            </>
+          )}
         </div>
       </div>
     );
@@ -62,6 +86,13 @@ const DebugView: React.FC<DebugViewProps> = ({
             <hr />
             <h3>Vega-Lite Specification</h3>
             <pre>{JSON.stringify(vegaSpec, null, 2)}</pre>
+          </>
+        )}
+        {chartInfo && (
+          <>
+            <hr />
+            <h3>Chart Information</h3>
+            <pre>{JSON.stringify(chartInfo, null, 2)}</pre>
           </>
         )}
       </div>
