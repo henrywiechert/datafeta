@@ -9,19 +9,24 @@ import './App.css';
 function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [tabValue, setTabValue] = useState(0);
+  // Set initial tab value based on the current path
+  const [tabValue, setTabValue] = useState(location.pathname === '/visualize' ? 1 : 0);
 
-  // Update tab value based on current route
+  // Update tab value and navigate when URL changes from outside (e.g., browser back/forward)
   useEffect(() => {
-    if (location.pathname === '/') {
-      setTabValue(0);
-    } else if (location.pathname === '/visualize') {
+    if (location.pathname === '/visualize') {
       setTabValue(1);
+    } else {
+      // Default to the data source page for any other path, including "/"
+      setTabValue(0);
+      if (location.pathname !== '/') {
+        navigate('/');
+      }
     }
-  }, [location.pathname]);
+  }, [location.pathname, navigate]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
+    // The tab value is now primarily driven by the URL, but we still navigate on change.
     if (newValue === 0) {
       navigate('/');
     } else if (newValue === 1) {
