@@ -266,7 +266,8 @@ def execute_query(
         sql_query = query_service.translate_to_sql(
             query_desc=query_desc,
             table_name=query_desc.target_table,
-            db_type=db_type
+            db_type=db_type,
+            with_sampling=True  # Enable sampling for large raw queries
         )
     except ValueError as e:
         raise QueryGenerationError(f"Query generation error: {e}")
