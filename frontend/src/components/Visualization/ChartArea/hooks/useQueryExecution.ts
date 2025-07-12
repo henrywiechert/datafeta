@@ -11,7 +11,7 @@ interface UseQueryExecutionProps {
   xAxisFields: any[];
   yAxisFields: any[];
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
-  completeOperation: () => void;
+  completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
   dispatch: (action: any) => void;
 }
 
@@ -68,7 +68,7 @@ export const useQueryExecution = ({
         }
       }
       
-      completeOperation();
+      completeOperation('query');
     } catch (error: any) {
       const duration = Date.now() - startTime;
       console.error(`❌ Query failed after ${duration}ms:`, error);
@@ -83,7 +83,7 @@ export const useQueryExecution = ({
         });
       }
       
-      completeOperation();
+      completeOperation('query');
     }
   }, [startOperation, completeOperation, dispatch]);
 
