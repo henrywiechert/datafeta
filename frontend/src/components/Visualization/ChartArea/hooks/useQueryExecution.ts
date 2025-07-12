@@ -32,11 +32,11 @@ export const useQueryExecution = ({
 
   const executeQuery = useCallback(async (queryDesc: QueryDescription) => {
     const startTime = Date.now();
-    logOperationStart('executeQuery', { 
-      table: queryDesc.target_table, 
-      dims: queryDesc.dimensions?.length, 
-      measures: queryDesc.measures?.length 
-    });
+    // logOperationStart('executeQuery', { 
+    //   table: queryDesc.target_table, 
+    //   dims: queryDesc.dimensions?.length, 
+    //   measures: queryDesc.measures?.length 
+    // }); // Removed debugging log
     
     try {
       // Cancel any existing query operation
@@ -71,7 +71,7 @@ export const useQueryExecution = ({
       completeOperation('query');
     } catch (error: any) {
       const duration = Date.now() - startTime;
-      console.error(`❌ Query failed after ${duration}ms:`, error);
+      // console.error(`❌ Query failed after ${duration}ms:`, error); // Removed debugging log
       
       if (error.message === 'Request was cancelled') {
         // Operation was cancelled, don't set error
@@ -122,7 +122,7 @@ export const useQueryExecution = ({
         return;
       }
       
-      console.log(`🔍 Building query for ${allFields.length} fields`);
+      // console.log(`🔍 Building query for ${allFields.length} fields`); // Removed debugging log
       
       const queryDesc = buildQuery({
         fields: allFields,
@@ -130,11 +130,11 @@ export const useQueryExecution = ({
         selectedDatabase,
       });
 
-      console.log(`📋 Generated query:`, { 
-        type: queryDesc ? (queryDesc.measures?.length ? 'aggregated' : 'raw') : 'none',
-        dimensions: queryDesc?.dimensions?.length || 0,
-        measures: queryDesc?.measures?.length || 0
-      });
+      // console.log(`📋 Generated query:`, { 
+      //   type: queryDesc ? (queryDesc.measures?.length ? 'aggregated' : 'raw') : 'none',
+      //   dimensions: queryDesc?.dimensions?.length || 0,
+      //   measures: queryDesc?.measures?.length || 0
+      // }); // Removed debugging log
 
       if (queryDesc) {
         await executeQuery(queryDesc);

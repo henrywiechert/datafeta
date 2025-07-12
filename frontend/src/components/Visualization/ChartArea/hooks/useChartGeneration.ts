@@ -37,17 +37,17 @@ export const useChartGeneration = ({
 
   const generateChartSpec = useCallback(async () => {
     const startTime = Date.now();
-    logOperationStart('generateChartSpec', { 
-      xFields: xAxisFields.length, 
-      yFields: yAxisFields.length 
-    });
+    // logOperationStart('generateChartSpec', { 
+    //   xFields: xAxisFields.length, 
+    //   yFields: yAxisFields.length 
+    // }); // Removed debugging log
     
     // Skip if no fields or if we're using table view
     if ((xAxisFields.length === 0 && yAxisFields.length === 0) || useTableView) {
-      console.log('⏭️ Skipping chart generation', { 
-        noFields: xAxisFields.length === 0 && yAxisFields.length === 0,
-        useTableView 
-      });
+      // console.log('⏭️ Skipping chart generation', { 
+      //   noFields: xAxisFields.length === 0 && yAxisFields.length === 0,
+      //   useTableView 
+      // }); // Removed debugging log
       setSpec(null);
       setChartInfo(null);
       setRenderingError(null);
@@ -65,7 +65,7 @@ export const useChartGeneration = ({
 
       // Check if worker is available, fallback to sync generation
       if (!chartWorkerService.isWorkerAvailable()) {
-        console.warn('🔄 Chart worker not available, falling back to synchronous generation');
+        // console.warn('🔄 Chart worker not available, falling back to synchronous generation'); // Removed debugging log
         
         startOperation('rendering', true); // Start operation for synchronous generation
         setRenderingError(null); // Clear previous errors after starting operation
@@ -104,7 +104,7 @@ export const useChartGeneration = ({
       completeOperation('rendering');
 
     } catch (error: any) {
-      console.error('Chart generation error:', error);
+      // console.error('Chart generation error:', error); // Removed debugging log
       
       if (error.code === 'CANCELLED') {
         // Operation was cancelled, don't set error
@@ -118,7 +118,7 @@ export const useChartGeneration = ({
           setSpec(fallbackSpec);
           setChartInfo(null);
         } catch (fallbackError) {
-          console.error('Fallback chart generation failed:', fallbackError);
+          // console.error('Fallback chart generation failed:', fallbackError); // Removed debugging log
           setSpec(null);
           setChartInfo(null);
         }

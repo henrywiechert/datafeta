@@ -33,7 +33,6 @@ self.onmessage = async (event: MessageEvent<ChartWorkerMessage>) => {
       const timeoutId = setTimeout(() => {
         if (taskAbortControllers.has(id)) {
           abortController.abort();
-          console.warn(`Worker task ${id} timed out.`);
           self.postMessage({ type: 'ERROR', id, payload: { error: 'Operation timed out' } });
           taskAbortControllers.delete(id);
         }
@@ -42,7 +41,6 @@ self.onmessage = async (event: MessageEvent<ChartWorkerMessage>) => {
       try {
         // Check if aborted before starting work
         if (abortController.signal.aborted) {
-          console.log(`Worker task ${id} aborted before processing.`);
           clearTimeout(timeoutId);
           self.postMessage({ type: 'CANCELLED', id });
           return;
@@ -61,10 +59,8 @@ self.onmessage = async (event: MessageEvent<ChartWorkerMessage>) => {
       } catch (error: any) {
         clearTimeout(timeoutId);
         if (error.name === 'AbortError') {
-          console.log(`Worker task ${id} was cancelled.`);
           self.postMessage({ type: 'CANCELLED', id });
         } else {
-          console.error(`Error in worker task ${id}:`, error);
           self.postMessage({ type: 'ERROR', id, payload: { error: error.message || 'Unknown error' } });
         }
       } finally {
@@ -75,7 +71,6 @@ self.onmessage = async (event: MessageEvent<ChartWorkerMessage>) => {
     case 'CANCEL_TASK':
       const controllerToCancel = taskAbortControllers.get(id);
       if (controllerToCancel) {
-        console.log(`Worker task ${id} explicit cancel received.`);
         controllerToCancel.abort();
         // The catch block in GENERATE_SPEC will handle the postMessage({ type: 'CANCELLED' })
       }
@@ -83,13 +78,11 @@ self.onmessage = async (event: MessageEvent<ChartWorkerMessage>) => {
 
     default:
       // @ts-ignore
-      console.warn(`Unknown message type: ${type}`);
   }
 };
 
 // Handle worker errors
 self.onerror = (error) => {
-  console.error('Worker error:', error);
   // The currentTaskId logic is removed, so we can't track the task ID here directly.
   // If a task was in progress, we might want to send a cancellation message.
   // For now, we'll just log the error.
