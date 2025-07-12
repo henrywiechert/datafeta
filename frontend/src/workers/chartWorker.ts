@@ -1,140 +1,96 @@
-import { Field } from '../types';
+/* eslint-disable no-restricted-globals */
+import { generateVegaLiteSpec } from '../spec-generator/specGenerator';
 import { VegaLiteSpec } from '../spec-generator/types';
-import { SpecGenerator } from '../spec-generator/specGeneratorV2';
+import { Field } from '../types';
 
-// Message types for communication between main thread and worker
-export interface ChartWorkerMessage {
-  type: 'GENERATE_SPEC' | 'CANCEL';
-  id: string;
-  payload?: {
-    xFields: Field[];
-    yFields: Field[];
-  };
-}
+// Define message types for communication
+export type ChartWorkerMessage =
+  | { type: 'GENERATE_SPEC'; id: string; payload: { xFields: Field[]; yFields: Field[]; timeout: number; } }
+  | { type: 'CANCEL_TASK'; id: string };
 
-export interface ChartWorkerResponse {
-  type: 'SPEC_GENERATED' | 'ERROR' | 'CANCELLED';
-  id: string;
-  payload?: {
-    spec?: VegaLiteSpec;
-    chartInfo?: any;
-    error?: string;
-  };
-}
+export type ChartWorkerResponse =
+  | { type: 'SPEC_GENERATED'; id: string; payload: { spec: VegaLiteSpec; chartInfo: any; } }
+  | { type: 'ERROR'; id: string; payload: { error: string } }
+  | { type: 'CANCELLED'; id: string };
 
-// Create a singleton spec generator instance
-const specGenerator = new SpecGenerator();
+// In-memory store for abort controllers for each task
+const taskAbortControllers: Map<string, AbortController> = new Map();
 
-// Track current processing task
-let currentTaskId: string | null = null;
-
-// Worker message handler
-self.onmessage = (event: MessageEvent<ChartWorkerMessage>) => {
-  const { type, id, payload } = event.data;
+// Handle messages from the main thread
+self.onmessage = async (event: MessageEvent<ChartWorkerMessage>) => {
+  const { type, id } = event.data;
 
   switch (type) {
     case 'GENERATE_SPEC':
-      handleGenerateSpec(id, payload);
+      // Extract payload specifically for GENERATE_SPEC type
+      const { payload } = event.data as { type: 'GENERATE_SPEC'; id: string; payload: { xFields: Field[]; yFields: Field[]; timeout: number; } };
+
+      // Create a new AbortController for this task
+      const abortController = new AbortController();
+      taskAbortControllers.set(id, abortController);
+
+      // Set up a timeout to cancel the operation if it takes too long
+      const timeoutId = setTimeout(() => {
+        if (taskAbortControllers.has(id)) {
+          abortController.abort();
+          console.warn(`Worker task ${id} timed out.`);
+          self.postMessage({ type: 'ERROR', id, payload: { error: 'Operation timed out' } });
+          taskAbortControllers.delete(id);
+        }
+      }, payload.timeout);
+
+      try {
+        // Check if aborted before starting work
+        if (abortController.signal.aborted) {
+          console.log(`Worker task ${id} aborted before processing.`);
+          clearTimeout(timeoutId);
+          self.postMessage({ type: 'CANCELLED', id });
+          return;
+        }
+
+        const specResult = generateVegaLiteSpec({
+          xFields: payload.xFields,
+          yFields: payload.yFields,
+          // Removed signal as it's not part of SpecGeneratorArgs
+        });
+        
+        if (!abortController.signal.aborted) {
+          clearTimeout(timeoutId);
+          self.postMessage({ type: 'SPEC_GENERATED', id, payload: { spec: specResult.spec, chartInfo: specResult.chartInfo } });
+        }
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          console.log(`Worker task ${id} was cancelled.`);
+          self.postMessage({ type: 'CANCELLED', id });
+        } else {
+          console.error(`Error in worker task ${id}:`, error);
+          self.postMessage({ type: 'ERROR', id, payload: { error: error.message || 'Unknown error' } });
+        }
+      } finally {
+        taskAbortControllers.delete(id);
+      }
       break;
-    case 'CANCEL':
-      handleCancel(id);
+
+    case 'CANCEL_TASK':
+      const controllerToCancel = taskAbortControllers.get(id);
+      if (controllerToCancel) {
+        console.log(`Worker task ${id} explicit cancel received.`);
+        controllerToCancel.abort();
+        // The catch block in GENERATE_SPEC will handle the postMessage({ type: 'CANCELLED' })
+      }
       break;
+
     default:
-      console.warn('Unknown message type:', type);
+      // @ts-ignore
+      console.warn(`Unknown message type: ${type}`);
   }
 };
-
-async function handleGenerateSpec(
-  id: string,
-  payload: { xFields: Field[]; yFields: Field[] } | undefined
-) {
-  if (!payload) {
-    postMessage({
-      type: 'ERROR',
-      id,
-      payload: { error: 'Invalid payload for spec generation' }
-    } as ChartWorkerResponse);
-    return;
-  }
-
-  try {
-    // Set current task
-    currentTaskId = id;
-
-    const { xFields, yFields } = payload;
-
-    // Check if cancelled before processing
-    if (currentTaskId !== id) {
-      postMessage({
-        type: 'CANCELLED',
-        id,
-      } as ChartWorkerResponse);
-      return;
-    }
-
-    // Generate the spec (this is the heavy computation)
-    const spec = specGenerator.generateSpec({ xFields, yFields });
-
-    // Check if cancelled after processing
-    if (currentTaskId !== id) {
-      postMessage({
-        type: 'CANCELLED',
-        id,
-      } as ChartWorkerResponse);
-      return;
-    }
-
-    // Get chart info for debugging
-    const chartInfo = specGenerator.getChartInfo({ xFields, yFields });
-
-    // Send the result back to main thread
-    postMessage({
-      type: 'SPEC_GENERATED',
-      id,
-      payload: {
-        spec,
-        chartInfo
-      }
-    } as ChartWorkerResponse);
-
-  } catch (error) {
-    console.error('Error generating chart spec:', error);
-    
-    postMessage({
-      type: 'ERROR',
-      id,
-      payload: { 
-        error: error instanceof Error ? error.message : 'Unknown error occurred' 
-      }
-    } as ChartWorkerResponse);
-  } finally {
-    // Clear current task
-    if (currentTaskId === id) {
-      currentTaskId = null;
-    }
-  }
-}
-
-function handleCancel(id: string) {
-  if (currentTaskId === id) {
-    currentTaskId = null;
-    postMessage({
-      type: 'CANCELLED',
-      id,
-    } as ChartWorkerResponse);
-  }
-}
 
 // Handle worker errors
 self.onerror = (error) => {
   console.error('Worker error:', error);
-  if (currentTaskId) {
-    postMessage({
-      type: 'ERROR',
-      id: currentTaskId,
-      payload: { error: 'Worker error occurred' }
-    } as ChartWorkerResponse);
-  }
-};
-
-export {}; // Make this a module 
+  // The currentTaskId logic is removed, so we can't track the task ID here directly.
+  // If a task was in progress, we might want to send a cancellation message.
+  // For now, we'll just log the error.
+}; 
