@@ -195,7 +195,6 @@ export function VisualizationProvider({ children }: VisualizationProviderProps) 
 
   // Start an operation with timeout handling
   const startOperation = useCallback((operationType: LoadingOperationType, canCancel: boolean = true) => {
-    console.log(`🚀 Starting ${operationType} operation`);
     
     // Clear any existing timeout for this operation
     if (timeoutRefs.current[operationType]) {
@@ -219,10 +218,8 @@ export function VisualizationProvider({ children }: VisualizationProviderProps) 
 
     // Set timeout to show modal
     const timeoutMs = getTimeoutForOperation(operationType);
-    console.log(`⏰ Setting modal timeout for ${operationType} to ${timeoutMs}ms. Current time: ${Date.now()}`);
     
     timeoutRefs.current[operationType] = setTimeout(() => {
-      console.log(`🔔 Showing modal for ${operationType} operation`);
       dispatch({ 
         type: 'SET_LOADING_MODAL', 
         payload: { show: true, operationType, canCancel } 
@@ -232,7 +229,6 @@ export function VisualizationProvider({ children }: VisualizationProviderProps) 
 
   // Complete an operation
   const completeOperation = useCallback((operationType: LoadingOperationType) => {
-    console.log(`✅ ${operationType} operation completed`);
     
     // Clear only the specific timeout
     if (timeoutRefs.current[operationType]) {

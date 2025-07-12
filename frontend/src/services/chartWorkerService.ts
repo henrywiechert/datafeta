@@ -33,12 +33,8 @@ class ChartWorkerService {
 
   private initializeWorker() {
     try {
-      console.log('🔧 Initializing chart worker...');
-      
       // Create worker from the chartWorker.ts file
       this.worker = new Worker(new URL('../workers/chartWorker.ts', import.meta.url));
-      
-      console.log('✅ Chart worker ready');
       
       // Handle messages from worker
       this.worker.onmessage = (event: MessageEvent<ChartWorkerResponse>) => {
@@ -47,7 +43,6 @@ class ChartWorkerService {
 
       // Handle worker errors
       this.worker.onerror = (error) => {
-        console.error('❌ Chart worker error:', error);
         this.rejectAllPendingTasks({
           message: 'Worker error occurred',
           code: 'WORKER_ERROR'
@@ -56,7 +51,6 @@ class ChartWorkerService {
 
       // Handle worker termination
       this.worker.onmessageerror = (error) => {
-        console.error('❌ Chart worker message error:', error);
         this.rejectAllPendingTasks({
           message: 'Worker communication error',
           code: 'WORKER_ERROR'
@@ -64,7 +58,6 @@ class ChartWorkerService {
       };
 
     } catch (error) {
-      console.error('❌ Failed to initialize chart worker:', error);
       this.worker = null;
     }
   }
@@ -79,7 +72,6 @@ class ChartWorkerService {
     const pendingTask = this.pendingTasks.get(id);
 
     if (!pendingTask) {
-      console.warn('Received response for unknown task:', id);
       return;
     }
 
@@ -154,12 +146,10 @@ class ChartWorkerService {
     } = {}
   ): Promise<ChartGenerationResult> {
     const startTime = Date.now();
-    console.log(`🎯 Starting chart generation via worker (fields: ${xFields.length + yFields.length})`);
     
     return new Promise((resolve, reject) => {
       // Check if worker is available
       if (!this.worker) {
-        console.log('❌ Worker not available for chart generation');
         reject({
           message: 'Chart worker is not available',
           code: 'WORKER_ERROR'
@@ -182,13 +172,9 @@ class ChartWorkerService {
       // Create pending task
       const pendingTask: PendingTask = {
         resolve: (result) => {
-          const duration = Date.now() - startTime;
-          console.log(`✅ Chart generation completed in ${duration}ms`);
           resolve(result);
         },
         reject: (error) => {
-          const duration = Date.now() - startTime;
-          console.log(`❌ Chart generation failed after ${duration}ms: ${error.message}`);
           reject(error);
         },
       };
