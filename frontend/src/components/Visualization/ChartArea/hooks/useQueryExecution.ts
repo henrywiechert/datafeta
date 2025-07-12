@@ -3,6 +3,7 @@ import { apiService } from '../../../../apiService';
 import { buildQuery } from '../../../../queryBuilder/queryBuilder';
 import { QueryDescription } from '../../../../types';
 import { logOperationTiming, logOperationStart } from '../utils';
+import { validateAndCleanData } from '../utils/dataValidation';
 
 interface UseQueryExecutionProps {
   selectedTable: string | null;
@@ -15,8 +16,6 @@ interface UseQueryExecutionProps {
 }
 
 interface UseQueryExecutionReturn {
-  executeQuery: (queryDesc: QueryDescription) => Promise<void>;
-  cancelQuery: () => void;
   queryDescription: QueryDescription | null;
 }
 
@@ -60,7 +59,8 @@ export const useQueryExecution = ({
       if (result.error) {
         dispatch({ type: 'SET_QUERY_ERROR', payload: result.error });
       } else {
-        dispatch({ type: 'SET_QUERY_RESULT', payload: result });
+        const cleanedResult = validateAndCleanData(result);
+        dispatch({ type: 'SET_QUERY_RESULT', payload: cleanedResult });
         
         // Warn if data was too large
         if (result.row_count > 50000) {
@@ -154,8 +154,6 @@ export const useQueryExecution = ({
   }, []);
 
   return {
-    executeQuery,
-    cancelQuery,
     queryDescription: currentQueryDescription,
   };
 }; 
