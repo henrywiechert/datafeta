@@ -6,6 +6,9 @@ import { useVisualizationContext } from '../contexts/VisualizationContext';
 import { useDragDrop } from '../hooks/useDragDrop';
 import FieldsPanel from '../components/Visualization/FieldsPanel';
 import ChartPanel from '../components/Visualization/ChartPanel';
+import LoadingModal from '../components/LoadingModal';
+import { apiService } from '../apiService';
+import { chartWorkerService } from '../services/chartWorkerService';
 
 import { Field, DragSource } from '../types';
 
@@ -28,6 +31,15 @@ const VisualizationPage = () => {
         handleTableSelect
     } = useVisualizationState();
 
+    // Access the enhanced context with loading states and cancellation
+    const { state, cancelOperation } = useVisualizationContext();
+    const { 
+        showLoadingModal, 
+        loadingOperationType, 
+        loadingStartTime, 
+        canCancelOperation 
+    } = state;
+
     // Use our custom drag-and-drop hook
     const {
         handleAxisDrop,
@@ -43,6 +55,18 @@ const VisualizationPage = () => {
     const handleYAxisDrop = (field: Field, source: DragSource, index?: number) => {
         handleAxisDrop('y', field, source, index);
     };
+
+    // Handle cancellation of long-running operations
+    const handleCancelOperation = React.useCallback(() => {
+        // Cancel API requests
+        apiService.cancelAllRequests();
+        
+        // Cancel chart worker tasks
+        chartWorkerService.cancelAllTasks();
+        
+        // Update context state
+        cancelOperation();
+    }, [cancelOperation]);
 
     if (!connectionDetails) {
         return (
@@ -99,6 +123,15 @@ const VisualizationPage = () => {
                     </Panel>
                 </PanelGroup>
             </Box>
+
+            {/* Loading Modal for long-running operations */}
+            <LoadingModal
+                open={showLoadingModal}
+                operationType={loadingOperationType}
+                canCancel={canCancelOperation}
+                startTime={loadingStartTime}
+                onCancel={handleCancelOperation}
+            />
         </Box>
     );
 };
