@@ -15,6 +15,10 @@ export class FieldClassifier {
     const continuousDimensions = allFields.filter((f) => f.type === 'dimension' && f.flavour === 'continuous');
     const discreteDimensions = allFields.filter((f) => f.type === 'dimension' && f.flavour === 'discrete');
     
+    // New unified flavour-based classification
+    const continuousFields = allFields.filter((f) => f.flavour === 'continuous');
+    const discreteFields = allFields.filter((f) => f.flavour === 'discrete');
+
     return {
       // Legacy axis-specific fields (for backwards compatibility)
       xContinuous: xFields.filter((f) => f.flavour === 'continuous'),
@@ -33,11 +37,16 @@ export class FieldClassifier {
       continuousDimensions,
       discreteDimensions,
       
+      // New unified flavour-based classification
+      continuousFields,
+      discreteFields,
+
       // Helper methods
       hasMeasures: () => continuousMeasures.length > 0 || discreteMeasures.length > 0,
       hasDimensions: () => continuousDimensions.length > 0 || discreteDimensions.length > 0,
       hasDiscreteDimensions: () => discreteDimensions.length > 0,
       hasContinuousDimensions: () => continuousDimensions.length > 0,
+      hasContinuousData: () => continuousFields.length > 0,
     };
   }
 
@@ -47,7 +56,8 @@ export class FieldClassifier {
   static analyzeFields(classification: FieldClassification) {
     const {
       xContinuous, yContinuous, xDiscrete, yDiscrete,
-      xMeasures, yMeasures, xDimensions, yDimensions
+      xMeasures, yMeasures, xDimensions, yDimensions,
+      continuousFields, discreteFields
     } = classification;
 
     return {
@@ -56,10 +66,12 @@ export class FieldClassifier {
       totalYFields: yContinuous.length + yDiscrete.length,
       totalMeasures: xMeasures.length + yMeasures.length,
       totalDimensions: xDimensions.length + yDimensions.length,
+      totalContinuous: continuousFields.length,
+      totalDiscrete: discreteFields.length,
       
       // Field patterns
-      hasContinuousData: xContinuous.length > 0 || yContinuous.length > 0,
-      hasDiscreteData: xDiscrete.length > 0 || yDiscrete.length > 0,
+      hasContinuousData: continuousFields.length > 0,
+      hasDiscreteData: discreteFields.length > 0,
       hasMeasures: xMeasures.length > 0 || yMeasures.length > 0,
       hasDimensions: xDimensions.length > 0 || yDimensions.length > 0,
       

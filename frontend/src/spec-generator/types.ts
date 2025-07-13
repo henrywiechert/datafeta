@@ -21,11 +21,16 @@ export interface FieldClassification {
   continuousDimensions: Field[];   // Continuous + Grouping
   discreteDimensions: Field[];     // Discrete + Grouping
   
+  // New unified flavour-based classification
+  continuousFields: Field[];
+  discreteFields: Field[];
+
   // Helper methods
   hasMeasures(): boolean;
   hasDimensions(): boolean;
   hasDiscreteDimensions(): boolean;
   hasContinuousDimensions(): boolean;
+  hasContinuousData(): boolean;
 }
 
 // Chart generation context
