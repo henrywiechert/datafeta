@@ -36,10 +36,10 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
         Discrete {field.flavour === 'discrete' && '✔'}
       </div>
       <div 
-        className={`${menuStyles.menuItem} ${!isFieldContinuous ? menuStyles.disabled : ''}`} 
-        onClick={isFieldContinuous ? () => onUpdate({ flavour: 'continuous' }) : undefined}
+        className={menuStyles.menuItem}
+        onClick={() => onUpdate({ flavour: 'continuous' })}
       >
-        Continuous {field.flavour === 'continuous' && '✔'} {!isFieldContinuous && '(String fields only)'}
+        Continuous {field.flavour === 'continuous' && '✔'}
       </div>
       
       {/* Only show data type selection when field is in available fields panel */}
