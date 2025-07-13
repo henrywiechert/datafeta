@@ -1,19 +1,19 @@
 import { Field } from '../types';
 import { FieldClassifier } from '../spec-generator/fieldClassifier';
+import { getResultColumnName } from './fieldUtils';
 
 /**
  * Determines if a table view should be used instead of a chart
  * based on the field configuration.
  */
 export function shouldUseTableView(xFields: Field[], yFields: Field[]): boolean {
-  const classification = FieldClassifier.classifyFields(xFields, yFields);
-  const { continuousDimensions, continuousMeasures, discreteMeasures, xDimensions, yDimensions } = classification;
+  if (xFields.length === 0 && yFields.length === 0) {
+    return false; // No fields, no table
+  }
   
-  // Table view: only discrete dimensions present, no continuous dimensions or measures
-  return (xDimensions.length > 0 || yDimensions.length > 0) && 
-         continuousDimensions.length === 0 && 
-         continuousMeasures.length === 0 && 
-         discreteMeasures.length === 0;
+  // Use table view if no continuous fields are present
+  const classification = FieldClassifier.classifyFields(xFields, yFields);
+  return !classification.hasContinuousData();
 }
 
 /**
@@ -49,12 +49,15 @@ function prepareVerticalLayout(queryResult: any, yFields: Field[]) {
   const uniqueRows = getUniqueValueCombinations(queryResult.rows, yFields);
   
   // Create columns for each Y dimension
-  const columns = yFields.map((field) => ({
-    field: field.columnName,
-    headerName: field.columnName,
-    width: 120,
-    cellStyle: { textAlign: 'left' as const },
-  }));
+  const columns = yFields.map((field) => {
+    const resultColumnName = getResultColumnName(field);
+    return {
+      field: resultColumnName,
+      headerName: resultColumnName,
+      width: 120,
+      cellStyle: { textAlign: 'left' as const },
+    };
+  });
 
   return { columns, rows: uniqueRows };
 }
@@ -67,12 +70,15 @@ function prepareHorizontalLayout(queryResult: any, xFields: Field[]) {
   const uniqueRows = getUniqueValueCombinations(queryResult.rows, xFields);
   
   // Create columns for each X dimension
-  const columns = xFields.map((field) => ({
-    field: field.columnName,
-    headerName: field.columnName,
-    width: 120,
-    cellStyle: { textAlign: 'left' as const },
-  }));
+  const columns = xFields.map((field) => {
+    const resultColumnName = getResultColumnName(field);
+    return {
+      field: resultColumnName,
+      headerName: resultColumnName,
+      width: 120,
+      cellStyle: { textAlign: 'left' as const },
+    };
+  });
 
   return { columns, rows: uniqueRows };
 }
@@ -90,13 +96,16 @@ function prepareGridLayout(queryResult: any, xFields: Field[], yFields: Field[])
   // Create column definitions: Y fields + X combinations
   const columns = [
     // Y dimension columns
-    ...yFields.map((field) => ({
-      field: field.columnName,
-      headerName: field.columnName,
-      width: 120,
-      pinned: 'left' as const,
-      cellStyle: { textAlign: 'left' as const },
-    })),
+    ...yFields.map((field) => {
+      const resultColumnName = getResultColumnName(field);
+      return {
+        field: resultColumnName,
+        headerName: resultColumnName,
+        width: 120,
+        pinned: 'left' as const,
+        cellStyle: { textAlign: 'left' as const },
+      };
+    }),
     // X combination columns
     ...uniqueXCombinations.map((xCombo, index) => ({
       field: `x_combo_${index}`,
@@ -136,7 +145,8 @@ function getUniqueValueCombinations(rows: any[], fields: Field[]) {
   rows.forEach((row) => {
     const combo: any = {};
     fields.forEach((field) => {
-      combo[field.columnName] = row[field.columnName];
+      const resultColumnName = getResultColumnName(field);
+      combo[resultColumnName] = row[resultColumnName];
     });
 
     const key = JSON.stringify(combo);
@@ -153,7 +163,7 @@ function getUniqueValueCombinations(rows: any[], fields: Field[]) {
  * Creates a label for a combination of values
  */
 function createCombinationLabel(combination: any, fields: Field[]): string {
-  return fields.map((field) => combination[field.columnName]).join(' - ');
+  return fields.map((field) => combination[getResultColumnName(field)]).join(' - ');
 }
 
 /**
@@ -162,9 +172,15 @@ function createCombinationLabel(combination: any, fields: Field[]): string {
 function checkCombinationExists(rows: any[], yCombo: any, xCombo: any, yFields: Field[], xFields: Field[]): boolean {
   return rows.some((row) => {
     // Check if all Y field values match
-    const yMatch = yFields.every((field) => row[field.columnName] === yCombo[field.columnName]);
+    const yMatch = yFields.every((field) => {
+      const resultColumnName = getResultColumnName(field);
+      return row[resultColumnName] === yCombo[resultColumnName];
+    });
     // Check if all X field values match
-    const xMatch = xFields.every((field) => row[field.columnName] === xCombo[field.columnName]);
+    const xMatch = xFields.every((field) => {
+      const resultColumnName = getResultColumnName(field);
+      return row[resultColumnName] === xCombo[resultColumnName];
+    });
     return yMatch && xMatch;
   });
 } 
