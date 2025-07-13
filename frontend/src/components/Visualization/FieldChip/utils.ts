@@ -8,7 +8,7 @@ export const getFieldAggregations = (field: Field) => {
 
 // Check if a field can be continuous
 export const canBeContinuous = (field: Field): boolean => {
-  return field.dataType !== 'string'; // String fields can only be discrete
+  return true; // Any field can be continuous
 };
 
 // Check if a field can be a measure
@@ -39,12 +39,6 @@ export const applyFieldUpdateRules = (field: Field, updates: Partial<Field>): Fi
   // Ensure flavour has a default value if not set
   if (!newField.flavour) {
     newField.flavour = 'discrete';
-  }
-
-  // Enforce constraint: string fields can only be discrete
-  if (newField.dataType === 'string' && updates.flavour === 'continuous') {
-    // Don't allow the change, keep it discrete
-    return null;
   }
 
   // Enforce constraint: datetime fields can only be measures

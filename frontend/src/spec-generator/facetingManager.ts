@@ -11,16 +11,16 @@ export class FacetingManager {
    * Faceting occurs when we have multiple dimensions that would create a grid of sub-charts.
    */
   static shouldFacet(classification: FieldClassification): boolean {
-    const { xDimensions, yDimensions, xContinuous, yContinuous } = classification;
+    const { xDimensions, yDimensions } = classification;
     
-    return (
-      // Multiple dimensions on X-axis → Creates column facets
-      xDimensions.length > 1 ||
-      // Multiple dimensions on Y-axis → Creates row facets
-      yDimensions.length > 1 ||
-      // For scatter/line charts: a discrete dimension on either axis with continuous data should trigger faceting
-      ((xDimensions.length > 0 || yDimensions.length > 0) && (xContinuous.length > 0 || yContinuous.length > 0))
-    );
+    // Faceting is enabled in two main scenarios:
+    // 1. Multiple discrete dimensions on a single axis (hierarchical faceting)
+    const hasHierarchicalFaceting = xDimensions.length > 1 || yDimensions.length > 1;
+
+    // 2. Discrete dimensions on both X and Y axes (grid faceting)
+    const hasGridFaceting = xDimensions.length > 0 && yDimensions.length > 0;
+
+    return hasHierarchicalFaceting || hasGridFaceting;
   }
 
   /**
@@ -74,30 +74,6 @@ export class FacetingManager {
         type: "ordinal"
       };
       hasRowFaceting = true;
-    }
-
-    // Handle single discrete dimension faceting for scatter/line charts
-    // This applies if a continuous measure/dimension is present, and there's exactly one discrete dimension on an axis
-    const isScatterOrLineContext = xContinuous.length > 0 || yContinuous.length > 0;
-
-    if (isScatterOrLineContext) {
-      // If there's one discrete X dimension and no hierarchical column faceting yet
-      if (xDimensions.length === 1 && !hasColumnFaceting) {
-        spec.encoding.column = {
-          field: this.getFieldName(xDimensions[0], queryType),
-          type: "ordinal"
-        };
-        hasColumnFaceting = true;
-      }
-
-      // If there's one discrete Y dimension and no hierarchical row faceting yet
-      if (yDimensions.length === 1 && !hasRowFaceting) {
-        spec.encoding.row = {
-          field: this.getFieldName(yDimensions[0], queryType),
-          type: "ordinal"
-        };
-        hasRowFaceting = true;
-      }
     }
 
     // Configure axes for cleaner faceted charts
