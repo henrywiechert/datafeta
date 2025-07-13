@@ -13,7 +13,13 @@ export function getAvailableAggregations(field: Field): Aggregation[] {
     return []; // Dimensions have no aggregations
   }
 
+  // For measures, available aggregations depend on flavour and data type
   if (field.flavour === 'discrete') {
+    // Numerical discrete measures can have continuous aggregations
+    if (field.dataType === 'integer' || field.dataType === 'float') {
+      return CONTINUOUS_AGGREGATIONS;
+    }
+    // Non-numerical discrete measures have limited aggregations
     return DISCRETE_AGGREGATIONS;
   }
 
