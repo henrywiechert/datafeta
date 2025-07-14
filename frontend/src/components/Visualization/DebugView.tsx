@@ -68,7 +68,15 @@ const DebugView: React.FC<DebugViewProps> = ({
             <>
               {queryError && <hr />}
               <h3>Rendering Error</h3>
-              <pre>{renderingError}</pre>
+              <pre className={styles.errorMessage}>{renderingError}</pre>
+              <div className={styles.errorHelp}>
+                <p><strong>Debugging Tips:</strong></p>
+                <ul>
+                  <li>Check chart type compatibility with field types</li>
+                  <li>Verify that continuous fields have valid numerical data</li>
+                  <li>Try using a different combination of fields</li>
+                </ul>
+              </div>
             </>
           )}
         </div>
