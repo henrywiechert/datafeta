@@ -1,5 +1,6 @@
-import { BaseChart } from './baseChart';
+import { FieldClassifier } from '../fieldClassifier';
 import { ChartContext, VegaLiteSpec, ChartType } from '../types';
+import { BaseChart } from './baseChart';
 
 /**
  * Strategy for generating tick-strip charts.
@@ -10,12 +11,34 @@ export class TickStripChart extends BaseChart {
   readonly type: ChartType = 'tick';
 
   canHandle(context: ChartContext): boolean {
-    const { classification } = context;
-    const { continuousDimensions } = classification;
-    
-    // Tick-strip chart: needs at least one continuous dimension
-    // This is specifically for showing distributions of continuous data
-    return continuousDimensions.length >= 1;
+    const { xFields, yFields } = context;
+
+    // We need to classify fields on each axis to make a decision
+    const xClass = FieldClassifier.classifyFields(xFields, []);
+    const yClass = FieldClassifier.classifyFields(yFields, []);
+
+    const xHasContinuousDim = xClass.continuousDimensions.length > 0;
+    const yHasContinuousDim = yClass.continuousDimensions.length > 0;
+
+    // Condition 1: Must have continuous dimensions on exactly one axis.
+    const hasSingleAxisContinuousDimension = (xHasContinuousDim && !yHasContinuousDim) || (yHasContinuousDim && !xHasContinuousDim);
+
+    if (!hasSingleAxisContinuousDimension) {
+      return false;
+    }
+
+    // Condition 2: The other axis must not contain a continuous measure.
+    if (xHasContinuousDim && yClass.continuousMeasures.length > 0) {
+      return false; // X has ContDim, Y has ContMeasure -> not a tick chart
+    }
+
+    if (yHasContinuousDim && xClass.continuousMeasures.length > 0) {
+      return false; // Y has ContDim, X has ContMeasure -> not a tick chart
+    }
+
+    // This is a tick-strip chart if we have a continuous dimension on one axis
+    // and the other axis does not have a continuous measure.
+    return true;
   }
 
   protected applyMark(spec: VegaLiteSpec, context: ChartContext): void {
