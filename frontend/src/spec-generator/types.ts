@@ -1,7 +1,17 @@
 import { Field } from '../types';
 
-// Re-export for backward compatibility
-export type VegaLiteSpec = any;
+// Define VegaLiteSpec with minimal required properties
+export interface VegaLiteSpec {
+  $schema?: string;
+  description?: string;
+  [key: string]: any;
+}
+
+// Define return type for generateVegaLiteSpec
+export interface ChartGenerationResult {
+  spec: VegaLiteSpec;
+  chartInfo: any;
+}
 
 // Core field analysis types
 export interface FieldClassification {

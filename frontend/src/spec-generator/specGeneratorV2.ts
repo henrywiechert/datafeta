@@ -1,5 +1,5 @@
 import { Field } from '../types';
-import { VegaLiteSpec, ChartContext, ChartStrategy } from './types';
+import { VegaLiteSpec, ChartContext, ChartStrategy, ChartGenerationResult } from './types';
 import { FieldClassifier } from './fieldClassifier';
 import { FacetingManager } from './facetingManager';
 import { getQueryTypeFromFields } from '../queryBuilder/queryBuilder';
@@ -138,14 +138,47 @@ const specGenerator = new SpecGenerator();
 /**
  * Main function that maintains compatibility with existing code.
  * This is a drop-in replacement for the old generateVegaLiteSpec function.
+ * Enhanced to return both spec and chartInfo for better worker support.
  */
-export function generateVegaLiteSpec(args: SpecGeneratorArgs): VegaLiteSpec {
-  return specGenerator.generateSpec(args);
+export function generateVegaLiteSpec(args: SpecGeneratorArgs): ChartGenerationResult {
+  try {
+    const spec = specGenerator.generateSpec(args);
+    const chartInfo = specGenerator.getChartInfo(args);
+    
+    // Ensure we have a valid spec object
+    if (!spec) {
+      console.warn('SpecGenerator returned null spec, using fallback');
+      return {
+        spec: {
+          "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+          "description": "Fallback chart when no strategy could generate a specification."
+        },
+        chartInfo: chartInfo || { chartType: 'fallback' }
+      };
+    }
+    
+    return { spec, chartInfo };
+  } catch (error: any) {
+    console.error('Error in generateVegaLiteSpec:', error);
+    // Return fallback spec and info on error
+    return {
+      spec: {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "description": "Error occurred generating chart specification."
+      },
+      chartInfo: { chartType: 'error', error: error?.message || 'Unknown error' }
+    };
+  }
 }
 
 /**
  * Helper function for debugging chart selection.
  */
 export function getChartInfo(args: SpecGeneratorArgs) {
-  return specGenerator.getChartInfo(args);
+  try {
+    return specGenerator.getChartInfo(args);
+  } catch (error: any) {
+    console.error('Error in getChartInfo:', error);
+    return { chartType: 'error', error: error?.message || 'Unknown error' };
+  }
 } 

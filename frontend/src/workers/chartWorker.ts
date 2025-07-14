@@ -1,5 +1,5 @@
 /* eslint-disable no-restricted-globals */
-import { generateVegaLiteSpec } from '../spec-generator/specGenerator';
+import { generateVegaLiteSpec, getChartInfo } from '../spec-generator/specGenerator';
 import { VegaLiteSpec } from '../spec-generator/types';
 import { Field } from '../types';
 
@@ -46,22 +46,62 @@ self.onmessage = async (event: MessageEvent<ChartWorkerMessage>) => {
           return;
         }
 
+        // Generate chart specification
         const specResult = generateVegaLiteSpec({
           xFields: payload.xFields,
           yFields: payload.yFields,
-          // Removed signal as it's not part of SpecGeneratorArgs
         });
+        
+        // Debug: Log what we got from the spec generator
+        console.log('Chart worker received from specGenerator:', 
+          { hasResult: !!specResult, hasSpec: !!(specResult?.spec), hasChartInfo: !!(specResult?.chartInfo) }
+        );
+        
+        if (!specResult || !specResult.spec) {
+          throw new Error('Spec generator returned null or invalid specification');
+        }
+        
+        // Ensure chartInfo is always generated, even if spec generation doesn't include it
+        const chartInfo = specResult.chartInfo || getChartInfo({
+          xFields: payload.xFields,
+          yFields: payload.yFields,
+        });
+        
+        // Prepare the response with guaranteed spec object
+        const workerResponse = { 
+          type: 'SPEC_GENERATED' as const, 
+          id, 
+          payload: { 
+            spec: specResult.spec || { 
+              "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+              "description": "Fallback specification." 
+            }, 
+            chartInfo: chartInfo || {} 
+          } 
+        };
+        
+        // Debug: Log what we're sending back
+        console.log('Chart worker sending response:', 
+          { hasSpec: !!(workerResponse.payload?.spec), hasChartInfo: !!(workerResponse.payload?.chartInfo) }
+        );
         
         if (!abortController.signal.aborted) {
           clearTimeout(timeoutId);
-          self.postMessage({ type: 'SPEC_GENERATED', id, payload: { spec: specResult.spec, chartInfo: specResult.chartInfo } });
+          self.postMessage(workerResponse);
         }
       } catch (error: any) {
         clearTimeout(timeoutId);
         if (error.name === 'AbortError') {
           self.postMessage({ type: 'CANCELLED', id });
         } else {
-          self.postMessage({ type: 'ERROR', id, payload: { error: error.message || 'Unknown error' } });
+          console.error('Chart generation error:', error);
+          self.postMessage({ 
+            type: 'ERROR', 
+            id, 
+            payload: { 
+              error: `Error generating chart: ${error.message || 'Unknown error'}` 
+            } 
+          });
         }
       } finally {
         taskAbortControllers.delete(id);
@@ -83,7 +123,5 @@ self.onmessage = async (event: MessageEvent<ChartWorkerMessage>) => {
 
 // Handle worker errors
 self.onerror = (error) => {
-  // The currentTaskId logic is removed, so we can't track the task ID here directly.
-  // If a task was in progress, we might want to send a cancellation message.
-  // For now, we'll just log the error.
-}; 
+  console.error('Worker global error:', error);
+};
