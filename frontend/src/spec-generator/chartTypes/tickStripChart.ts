@@ -74,6 +74,15 @@ export class TickStripChart extends BaseChart {
         "field": this.getFieldName(xDimension, context),
         "type": "quantitative",
       };
+      
+      // If we only have X continuous dimension, add Y datum for proper sizing (like bar charts)
+      if (!hasYContinuousDimension && !hasYDiscreteDimension) {
+        spec.encoding.y = {
+          "datum": "All",
+          "type": "ordinal",
+          "axis": {"title": null}
+        };
+      }
     }
 
     if (hasYContinuousDimension) {
@@ -82,6 +91,15 @@ export class TickStripChart extends BaseChart {
         "field": this.getFieldName(yDimension, context),
         "type": "quantitative",
       };
+      
+      // If we only have Y continuous dimension, add X datum for proper sizing (like bar charts)
+      if (!hasXContinuousDimension && !hasXDiscreteDimension) {
+        spec.encoding.x = {
+          "datum": "All",
+          "type": "ordinal",
+          "axis": {"title": null}
+        };
+      }
     }
 
     // Handle discrete dimensions (like bar charts do)
@@ -102,54 +120,45 @@ export class TickStripChart extends BaseChart {
     }
   }
 
-  // Override generateSpec to provide explicit dimensions and prevent unwanted faceting
+  // Override generateSpec to handle tick marks with container sizing
   generateSpec(context: ChartContext): VegaLiteSpec {
-    // Create base spec WITHOUT calling super.generateSpec() to avoid faceting logic
-    const baseSpec: VegaLiteSpec = {
-      "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-      "description": "A chart created by DataFeta.",
-      "data": { "name": "table" },
-      "encoding": {}
-    };
-    
-    // Apply mark and encodings directly
-    this.applyMark(baseSpec, context);
-    this.applyEncodings(baseSpec, context);
+    // Get the base spec with proper container sizing
+    const spec = super.generateSpec(context);
     
     const { classification } = context;
     const { continuousDimensions, discreteDimensions, xDimensions, yDimensions } = classification;
-
-    // Handle sizing similar to bar charts
-    const hasXDiscreteDimension = xDimensions.some(d => discreteDimensions.includes(d));
-    const hasYDiscreteDimension = yDimensions.some(d => discreteDimensions.includes(d));
+    
+    // Determine chart orientation
     const hasXContinuousDimension = xDimensions.some(d => continuousDimensions.includes(d));
     const hasYContinuousDimension = yDimensions.some(d => continuousDimensions.includes(d));
-
-    // If there's a discrete dimension on X-axis (vertical tick strips), use step sizing
+    const hasXDiscreteDimension = xDimensions.some(d => discreteDimensions.includes(d));
+    const hasYDiscreteDimension = yDimensions.some(d => discreteDimensions.includes(d));
+    
+    // Override sizing based on orientation with explicit container sizing
     if (hasXDiscreteDimension && hasYContinuousDimension) {
-      baseSpec.width = { "step": 40 }; // 40 pixels per category
-      baseSpec.height = 300; // Fixed height for vertical tick strips
-    }
-    // If there's a discrete dimension on Y-axis (horizontal tick strips), use step sizing
-    else if (hasYDiscreteDimension && hasXContinuousDimension) {
-      baseSpec.height = { "step": 40 }; // 40 pixels per category
-      baseSpec.width = 400; // Fixed width for horizontal tick strips
-    }
-    // Single continuous dimension cases
-    else if (hasXContinuousDimension) {
-      // Horizontal tick strip (continuous dimension on X-axis)
-      baseSpec.width = 400;
-      baseSpec.height = 60;
+      // Vertical tick strips: step width, container height
+      spec.width = { "step": 40 };
+      spec.height = "container";
+    } else if (hasYDiscreteDimension && hasXContinuousDimension) {
+      // Horizontal tick strips: container width, step height
+      spec.width = "container";
+      spec.height = { "step": 40 };
+    } else if (hasXContinuousDimension) {
+      // Horizontal tick strip: container width, step height for Y datum
+      spec.width = "container";
+      spec.height = { "step": 25 };
     } else if (hasYContinuousDimension) {
-      // Vertical tick strip (continuous dimension on Y-axis)
-      baseSpec.width = 60;
-      baseSpec.height = 400;
-    } else {
-      // Default sizing for horizontal strip
-      baseSpec.width = 400;
-      baseSpec.height = 60;
+      // Vertical tick strip: step width for X datum, container height  
+      spec.width = { "step": 25 };
+      spec.height = "container";
     }
-
-    return baseSpec;
+    
+    // Override autosize to enable container sizing for tick marks (must be last)
+    spec.autosize = { 
+      type: 'pad', 
+      contains: 'padding'
+    };
+    
+    return spec;
   }
 } 

@@ -40,4 +40,14 @@ export class ScatterChart extends BaseChart {
       "type": "quantitative"
     };
   }
+
+  // Override generateSpec to ensure proper container sizing
+  generateSpec(context: ChartContext): VegaLiteSpec {
+    const spec = super.generateSpec(context);
+
+    // Ensure autosize is set to 'pad' to prevent stretching and enable container sizing
+    spec.autosize = { type: 'pad', contains: 'padding' };
+
+    return spec;
+  }
 } 
