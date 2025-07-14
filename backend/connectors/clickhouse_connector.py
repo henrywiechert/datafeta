@@ -57,8 +57,11 @@ class ClickHouseConnector(BaseConnector):
         if not database:
              raise ValueError("Database name must be provided for ClickHouse.")
         try:
-            if not database.isidentifier():
-                raise ValueError(f"Invalid database name: {database}")
+            # Allow any database name that can be properly escaped with backticks
+            # This is more permissive than isidentifier() and allows names like "20240617_ABIO_ABIP_COMPARISON"
+            # Only disallow truly problematic characters like backticks in the name itself
+            if '`' in database:
+                raise ValueError(f"Invalid database name (contains backtick): {database}")
             query = f'SHOW TABLES FROM `{database}`'
             result = self.client.query(query)
             return [Table(name=row[0]) for row in result.result_rows]
@@ -74,8 +77,10 @@ class ClickHouseConnector(BaseConnector):
             raise ValueError("Database and table names must be provided.")
 
         try:
-            if not database.isidentifier() or not table.isidentifier():
-                raise ValueError(f"Invalid database or table name: {database}.{table}")
+            # More permissive validation for database and table names
+            # Only disallow truly problematic characters like backticks in the name itself
+            if '`' in database or '`' in table:
+                raise ValueError(f"Invalid database or table name (contains backtick): {database}.{table}")
 
             query = f'DESCRIBE TABLE `{database}`.`{table}`'
             result = self.client.query(query)
