@@ -43,14 +43,16 @@ class ChartWorkerService {
 
       // Handle worker errors
       this.worker.onerror = (error) => {
+        console.error('Worker error event:', error);
         this.rejectAllPendingTasks({
-          message: 'Worker error occurred',
+          message: 'Worker error occurred: ' + (error.message || 'Unknown error'),
           code: 'WORKER_ERROR'
         });
       };
 
       // Handle worker termination
       this.worker.onmessageerror = (error) => {
+        console.error('Worker message error:', error);
         this.rejectAllPendingTasks({
           message: 'Worker communication error',
           code: 'WORKER_ERROR'
@@ -58,6 +60,7 @@ class ChartWorkerService {
       };
 
     } catch (error) {
+      console.error('Error initializing worker:', error);
       this.worker = null;
     }
   }
@@ -72,6 +75,7 @@ class ChartWorkerService {
     const pendingTask = this.pendingTasks.get(id);
 
     if (!pendingTask) {
+      console.warn(`Received worker response for unknown task ID: ${id}`);
       return;
     }
 
@@ -85,17 +89,28 @@ class ChartWorkerService {
 
     switch (type) {
       case 'SPEC_GENERATED':
-        if (payload?.spec && payload?.chartInfo) {
-          pendingTask.resolve({
-            spec: payload.spec,
-            chartInfo: payload.chartInfo
-          });
-        } else {
+        // Better validation of the response payload
+        if (!payload) {
           pendingTask.reject({
-            message: 'Invalid response from worker',
+            message: 'Missing payload in worker response',
             code: 'WORKER_ERROR'
           });
+          return;
         }
+
+        if (!payload.spec) {
+          pendingTask.reject({
+            message: 'Missing chart specification in worker response',
+            code: 'WORKER_ERROR'
+          });
+          return;
+        }
+
+        // Allow chartInfo to be empty or null - we'll handle it in the UI
+        pendingTask.resolve({
+          spec: payload.spec,
+          chartInfo: payload.chartInfo || {} // Provide empty object as fallback
+        });
         break;
 
       case 'ERROR':
@@ -114,7 +129,7 @@ class ChartWorkerService {
 
       default:
         pendingTask.reject({
-          message: 'Unknown response type',
+          message: `Unknown response type: ${type}`,
           code: 'WORKER_ERROR'
         });
     }
@@ -270,4 +285,4 @@ class ChartWorkerService {
 export const chartWorkerService = new ChartWorkerService();
 
 // Export for testing purposes
-export { ChartWorkerService }; 
+export { ChartWorkerService };
