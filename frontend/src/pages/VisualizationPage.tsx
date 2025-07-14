@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box } from '@mui/material';
+import { Link } from 'react-router-dom';
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { useVisualizationState } from '../hooks/useVisualizationState';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
@@ -72,7 +73,13 @@ const VisualizationPage = () => {
         return (
             <Box sx={{ p: 4, textAlign: 'center' }}>
                 <h2>Visualization</h2>
-                <p>Please connect to a data source first on the 'Data Sources' page.</p>
+                <p>
+                    Please connect to a data source first on the{' '}
+                    <Link to="/datasources" style={{ textDecoration: 'underline', color: 'primary.main' }}>
+                        Data Sources
+                    </Link>
+                    {' '}page.
+                </p>
             </Box>
         );
     }

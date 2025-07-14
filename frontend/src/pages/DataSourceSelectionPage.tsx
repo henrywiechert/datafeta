@@ -3,6 +3,7 @@ import { apiService } from '../apiService';
 import { ConnectionDetails } from '../types';
 import { useConnection } from '../contexts/ConnectionContext';
 import '../App.css';
+import { Link } from 'react-router-dom';
 
 function DataSourceSelectionPage() {
   const { isConnected, isLoading, error, message, connect, disconnect, connectionDetails } = useConnection();
@@ -138,10 +139,12 @@ function DataSourceSelectionPage() {
 
         {isLoading && <p>Loading...</p>}
         {error && <p style={{ color: 'red' }}>Error: {error}</p>}
-        {message && <p style={{ color: 'green' }}>{message}</p>}
+        {message && <p style={{ color: 'green' }}>
+            {message} {isConnected ? <Link to="/visualize">Go to Visualization</Link> : null}
+        </p>}
       </div>
     </div>
   );
 }
 
-export default DataSourceSelectionPage; 
+export default DataSourceSelectionPage;
