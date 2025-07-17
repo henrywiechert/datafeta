@@ -67,20 +67,23 @@ function prepareVerticalLayout(queryResult: any, yFields: Field[]) {
  */
 function prepareHorizontalLayout(queryResult: any, xFields: Field[]) {
   // Get unique combinations of X field values
-  const uniqueRows = getUniqueValueCombinations(queryResult.rows, xFields);
+  const uniqueXCombinations = getUniqueValueCombinations(queryResult.rows, xFields);
   
-  // Create columns for each X dimension
-  const columns = xFields.map((field) => {
-    const resultColumnName = getResultColumnName(field);
-    return {
-      field: resultColumnName,
-      headerName: resultColumnName,
-      width: 120,
-      cellStyle: { textAlign: 'left' as const },
-    };
+  // Create a column for each unique value combination
+  const columns = uniqueXCombinations.map((xCombo, index) => ({
+    field: `value_${index}`,
+    headerName: createCombinationLabel(xCombo, xFields),
+    width: 80,
+    cellStyle: { textAlign: 'center' as const },
+  }));
+
+  // Create a single row with values for each column
+  const row: any = {};
+  uniqueXCombinations.forEach((_, index) => {
+    row[`value_${index}`] = 'Abc';
   });
 
-  return { columns, rows: uniqueRows };
+  return { columns, rows: [row] };
 }
 
 /**
