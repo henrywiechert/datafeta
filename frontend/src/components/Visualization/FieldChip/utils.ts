@@ -8,11 +8,12 @@ export const getFieldAggregations = (field: Field) => {
 
 // Check if a field can be continuous
 export const canBeContinuous = (field: Field): boolean => {
-  // Continuous dimensions cannot be of type string
-  if (field.dataType === 'string') {
+  // Only dimensions of type string cannot be continuous
+  // Measures of type string can be continuous
+  if (field.dataType === 'string' && field.type === 'dimension') {
     return false;
   }
-  return true; // Other types can be continuous
+  return true; // All other combinations can be continuous
 };
 
 // Check if a field can be a measure
@@ -56,8 +57,8 @@ export const applyFieldUpdateRules = (field: Field, updates: Partial<Field>): Fi
     newField.flavour = 'discrete';
   }
 
-  // If field is of type string, prevent setting it as continuous
-  if (newField.dataType === 'string' && updates.flavour === 'continuous') {
+  // Only string dimensions cannot be continuous, string measures can be
+  if (newField.dataType === 'string' && newField.type === 'dimension' && updates.flavour === 'continuous') {
     newField.flavour = 'discrete'; // Force it to remain discrete
   }
 
