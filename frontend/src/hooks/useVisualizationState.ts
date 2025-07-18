@@ -132,7 +132,7 @@ export function useVisualizationState() {
                     id: `field-${col.name}`,
                     columnName: col.name,
                     type: 'dimension', // All fields start as dimensions (datetime fields must stay as dimensions)
-                    flavour: 'discrete', // All fields default to discrete, can be changed via UI for non-string types
+                    flavour: 'discrete', // All fields default to discrete, can be changed via UI (except string dimensions)
                     dataType: dataType,
                 };
             });
