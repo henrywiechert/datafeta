@@ -39,6 +39,7 @@ const ChartArea: React.FC = () => {
     xAxisFields,
     yAxisFields,
     useTableView,
+    queryResult, // Pass queryResult here
     startOperation,
     completeOperation,
   });

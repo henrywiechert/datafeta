@@ -1,15 +1,18 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
 import { generateVegaLiteSpec, getChartInfo } from '../../../../spec-generator/specGenerator';
+import { vegaSpecGenerator } from '../../../../vega-spec-generator';
 import { chartWorkerService } from '../../../../services/chartWorkerService';
 import { getTimeoutForOperation } from '../../../../config/loadingConfig';
 import { VegaLiteSpec } from '../../../../spec-generator/types';
 import { ChartGenerationOptions } from '../types';
 import { logOperationTiming, logOperationStart } from '../utils';
+import { useVisualizationContext } from '../../../../contexts/VisualizationContext';
 
 interface UseChartGenerationProps {
   xAxisFields: any[];
   yAxisFields: any[];
   useTableView: boolean;
+  queryResult: any; // Add queryResult here
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
 }
@@ -26,9 +29,11 @@ export const useChartGeneration = ({
   xAxisFields,
   yAxisFields,
   useTableView,
+  queryResult, // Destructure here
   startOperation,
   completeOperation,
 }: UseChartGenerationProps): UseChartGenerationReturn => {
+  const { state: { chartingLibrary } } = useVisualizationContext();
   const [spec, setSpec] = useState<VegaLiteSpec | null>(null);
   const [chartInfo, setChartInfo] = useState<any | null>(null);
   const [renderingError, setRenderingError] = useState<string | null>(null);
@@ -37,23 +42,23 @@ export const useChartGeneration = ({
 
   const generateChartSpec = useCallback(async () => {
     const startTime = Date.now();
-    // logOperationStart('generateChartSpec', { 
-    //   xFields: xAxisFields.length, 
-    //   yFields: yAxisFields.length 
-    // }); // Removed debugging log
     
-    // Skip if no fields or if we're using table view
     if ((xAxisFields.length === 0 && yAxisFields.length === 0) || useTableView) {
-      // console.log('⏭️ Skipping chart generation', { 
-      //   noFields: xAxisFields.length === 0 && yAxisFields.length === 0,
-      //   useTableView 
-      // }); // Removed debugging log
       setSpec(null);
       setChartInfo(null);
       setRenderingError(null);
       return;
     }
 
+    if (chartingLibrary === 'vega') {
+      const vegaSpec = vegaSpecGenerator.generateSpec({ xFields: xAxisFields, yFields: yAxisFields, queryResult });
+      setSpec(vegaSpec as any); // Cast for now
+      setChartInfo({ chartType: 'vega-barchart' }); // a more descriptive name
+      setRenderingError(null);
+      return;
+    }
+
+    // Existing Vega-Lite logic below
     try {
       // Cancel any existing rendering operation
       if (renderingAbortControllerRef.current) {
@@ -140,7 +145,7 @@ export const useChartGeneration = ({
       
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, useTableView, startOperation, completeOperation]);
+  }, [xAxisFields, yAxisFields, useTableView, startOperation, completeOperation, chartingLibrary, queryResult]);
 
   const cancelGeneration = useCallback(() => {
     if (renderingAbortControllerRef.current) {
