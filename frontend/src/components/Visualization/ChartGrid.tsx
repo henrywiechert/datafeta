@@ -1,13 +1,12 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Vega } from 'react-vega';
-import { VegaLiteSpec } from '../../spec-generator/specGenerator';
 import { QueryResult } from '../../types';
 import { Alert, Box, Typography, Button } from '@mui/material';
 import { Warning as WarningIcon } from '@mui/icons-material';
 import styles from './ChartGrid.module.css';
 
 interface ChartGridProps {
-  spec: VegaLiteSpec | null;
+  spec: any; // Allow both Vega and Vega-Lite specs
   data: QueryResult | null;
 }
 
@@ -142,15 +141,22 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   }
 
   // Show warning but still render if dataset is moderately large
-  const renderChart = () => (
-    <Vega 
-      key={`${containerSize.width}x${containerSize.height}`} // Force re-render when container size changes
-      spec={spec} 
-      data={{ table: chartData }} 
-      actions={false}
-      renderer="svg"
-    />
-  );
+  const renderChart = () => {
+    // For Vega specs, data is already embedded. For Vega-Lite, it's passed separately.
+    // We check the schema to decide. Vega-Lite schemas contain "vega-lite".
+    const isVegaLite = spec?.$schema?.includes('vega-lite');
+    const chartDataProp = isVegaLite ? { table: chartData } : undefined;
+
+    return (
+      <Vega 
+        key={`${containerSize.width}x${containerSize.height}`} // Force re-render when container size changes
+        spec={spec} 
+        data={chartDataProp} 
+        actions={false}
+        renderer="svg"
+      />
+    );
+  }
 
   // Detect if this is a faceted chart or an expandable chart (e.g., bar chart with many categories)
   // Now safely access spec properties after null check
