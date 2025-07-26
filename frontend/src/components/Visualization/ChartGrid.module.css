@@ -1,128 +1,99 @@
 .container {
-  height: 100%;
-  width: 100%;
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
-  overflow: hidden; /* Prevent overflow, force charts to resize */
-  background-color: white;
-  position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start; /* Allow natural width expansion */
+    justify-content: flex-start;
+    padding: 8px;
+    background-color: #fcfcfc;
+    overflow: auto; /* Enable scrolling in both directions */
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
 }
 
-/* Special case for faceted charts - allow scrolling */
-.container.faceted {
-  overflow: auto;
-  /* For faceted charts, allow content to grow beyond 100% height/width */
-  /* Remove fixed height/width for vega-embed and svg within faceted containers */
+.container > :last-child {
+    flex: none; /* Don't constrain the chart size */
+    min-height: 0;
+    min-width: 0;
 }
 
-/* Ensure the Vega chart fills the container and respects bounds */
-.container :global(.vega-embed) {
-  /* Removed explicit width/height 100% and max-width/height from general rules */
-  /* Sizing is now handled by specific expandable/faceted classes or Vega-Lite spec */
+/* Vega charts: Natural sizing with scrolling */
+.vegaContainer {
+    align-items: flex-start; /* Allow natural expansion */
 }
 
+.vegaContainer > :last-child {
+    flex: none; /* Don't constrain chart size */
+}
+
+.vegaContainer :global(.vega-embed) {
+    display: block; /* Use block for natural sizing */
+    min-height: 0;
+    min-width: 0;
+}
+
+.vegaContainer :global(.vega-embed details) {
+    display: block;
+    min-height: 0;
+    min-width: 0;
+}
+
+.vegaContainer :global(.vega-embed svg) {
+    display: block;
+}
+
+/* Vega-Lite charts: Responsive sizing to fill container */
+.vegaLiteContainer {
+    align-items: stretch; /* Fill container width */
+}
+
+.vegaLiteContainer > :last-child {
+    flex-grow: 1; /* Fill available space */
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+}
+
+.vegaLiteContainer :global(.vega-embed) {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+}
+
+.vegaLiteContainer :global(.vega-embed details) {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+}
+
+.vegaLiteContainer :global(.vega-embed svg) {
+    /* Allow natural sizing within container bounds */
+    flex-shrink: 0;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+/* Legacy styles - keeping for backward compatibility but may be unused */
 .container :global(.vega-embed summary) {
-  display: none; /* Hide Vega menu */
+    display: none; /* Hide the embed details summary */
 }
 
-.container :global(.vega-embed details) {
-  /* Removed explicit width/height 100% and max-width/height from general rules */
+.faceted {
+    /* For faceted charts, we want to allow scrolling if needed */
+    overflow: auto;
 }
 
-.container :global(.vega-embed .chart-wrapper) {
-  /* Removed explicit width/height 100% and max-width/height from general rules */
+.horizontalExpandable {
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 
-/* Ensure SVG respects container bounds */
-.container :global(.vega-embed svg) {
-  /* Removed explicit width/height 100% and max-width/height from general rules */
-}
-
-/* Override sizing and add minimum dimensions for SVG within faceted containers */
-.container.faceted :global(.vega-embed) {
-  height: auto !important; /* Allow height to expand */
-  max-height: none !important; /* Remove max-height constraint */
-  width: auto !important; /* Allow width to expand */
-  max-width: none !important; /* Remove max-width constraint */
-}
-
-.container.faceted :global(.vega-embed svg) {
-  height: auto !important; /* Allow height to expand */
-  max-height: none !important; /* Remove max-height constraint */
-  width: auto !important; /* Allow width to expand */
-  max-width: none !important; /* Remove max-width constraint */
-  min-width: 300px; /* Minimum width for each chart in a facet */
-  min-height: 250px; /* Minimum height for each chart in a facet */
-}
-
-.debugContainer {
-  display: flex;
-  height: 100%;
-  width: 100%;
-  gap: 10px;
-  flex-grow: 1;
-}
-
-.debugPanel {
-  flex: 1;
-  background-color: #f5f5f5;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 10px;
-  overflow: auto;
-  height: 100%;
-  box-sizing: border-box;
-}
-
-.debugPanel pre {
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  margin: 0;
-}
-
-/* New: Styles for horizontally expandable charts (e.g., vertical bar charts) */
-.container.horizontalExpandable {
-  overflow-x: auto;
-  overflow-y: hidden;
-  flex-shrink: 0; /* Prevent horizontal expandable charts from shrinking */
-}
-
-.container.horizontalExpandable :global(.vega-embed) {
-  height: 100% !important; /* Fill available vertical space */
-  max-height: 100% !important;
-  width: auto !important; /* Allow horizontal expansion */
-  max-width: none !important;
-}
-
-.container.horizontalExpandable :global(.vega-embed svg) {
-  height: 100% !important;
-  max-height: 100% !important;
-  width: auto !important; /* Re-added to let Vega-Lite control width with step */
-  max-width: none !important; /* Re-added to let Vega-Lite control width with step */
-  min-width: 300px; /* Minimum width for the chart */
-  min-height: 250px; /* Consistent minimum height with faceted charts */
-}
-
-/* New: Styles for vertically expandable charts (e.g., horizontal bar charts) */
-.container.verticalExpandable {
-  overflow-y: auto;
-  overflow-x: hidden;
-  flex-shrink: 0; /* Prevent vertical expandable charts from shrinking */
-}
-
-.container.verticalExpandable :global(.vega-embed) {
-  width: 100% !important; /* Fill available horizontal space */
-  max-width: 100% !important;
-  height: auto !important; /* Allow vertical expansion */
-  max-height: none !important;
-}
-
-.container.verticalExpandable :global(.vega-embed svg) {
-  width: 100% !important;
-  max-width: 100% !important;
-  height: auto !important; /* Re-added to let Vega-Lite control height with step */
-  max-height: none !important; /* Re-added to let Vega-Lite control height with step */
-  min-width: 300px; /* Consistent minimum width with faceted charts */
-  min-height: 250px; /* Minimum height for the chart */
+.verticalExpandable {
+    overflow-x: hidden;
+    overflow-y: auto;
 }
