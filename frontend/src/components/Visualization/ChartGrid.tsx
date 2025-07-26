@@ -20,7 +20,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   const [dimensions, setDimensions] = useState({ width: 400, height: 300 });
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Measure container size for responsive Vega charts
+  // Measure container size for hybrid responsive Vega charts
   useEffect(() => {
     const updateDimensions = () => {
       if (containerRef.current) {
@@ -125,7 +125,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     const isVegaLite = spec?.$schema?.includes('vega-lite');
     const chartDataProp = isVegaLite ? { table: chartData } : undefined;
 
-    // For Vega charts (not Vega-Lite), pass width and height props for responsive sizing
+    // For Vega charts (not Vega-Lite), pass width and height props for hybrid responsive sizing
     const vegaProps = !isVegaLite ? {
       width: dimensions.width,
       height: dimensions.height
