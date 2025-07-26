@@ -32,7 +32,7 @@ export class BarChart implements VegaChartStrategy {
     
     // Single measure case
     if (allMeasures.length === 1 && allDimensions.length === 0) {
-        return this.generateSingleMeasureSpec(allMeasures[0], queryResult.rows);
+        return this.generateSingleMeasureSpec(context);
     }
 
     // Standard bar chart with one dimension and one measure
@@ -58,7 +58,7 @@ export class BarChart implements VegaChartStrategy {
       "marks": []
     };
 
-    const valueField = measure.aggregation ? `${measure.aggregation}_${measure.columnName}` : measure.columnName;
+    const valueField = measure.aggregation ? `${measure.aggregation.toUpperCase()}(${measure.columnName})` : measure.columnName;
     const categoryField = dimension.columnName;
 
     if (isVertical) {
@@ -110,25 +110,78 @@ export class BarChart implements VegaChartStrategy {
     return spec;
   }
 
-  private generateSingleMeasureSpec(measure: Field, data: any[]): VegaSpec {
-    const valueField = measure.aggregation ? `${measure.aggregation}_${measure.columnName}` : measure.columnName;
-    const value = data[0] ? data[0][valueField] : 0;
+  private generateSingleMeasureSpec(context: ChartContext): VegaSpec {
+    const { classification, queryResult } = context;
+    if (!queryResult || queryResult.rows.length === 0) {
+      return this.createEmptySpec();
+    }
+    const { xMeasures, yMeasures } = classification;
+    const data = queryResult.rows;
 
-    return {
+    const measure = xMeasures.length > 0 ? xMeasures[0] : yMeasures[0];
+    const isVertical = yMeasures.length > 0;
+
+    const valueField = measure.aggregation ? `${measure.aggregation.toUpperCase()}(${measure.columnName})` : measure.columnName;
+
+    const spec: any = {
         "$schema": "https://vega.github.io/schema/vega/v5.json",
-        "width": 400,
-        "height": 50,
         "padding": 5,
         "data": [
-          { "name": "table", "values": [{ "amount": value }] }
+          { "name": "table", "values": data }
         ],
-        "scales": [
-          { "name": "xscale", "type": "linear", "domain": [0, value * 1.2], "range": "width" }
-        ],
-        "axes": [
+        "scales": [],
+        "axes": [],
+        "marks": []
+    };
+    
+    if (isVertical) {
+        spec.width = 50;
+        spec.height = 400;
+        spec.scales = [
+          { 
+            "name": "yscale", 
+            "type": "linear", 
+            "domain": { "data": "table", "field": valueField }, 
+            "range": "height",
+            "nice": true,
+            "zero": true
+          }
+        ];
+        spec.axes = [
+          { "orient": "left", "scale": "yscale" }
+        ];
+        spec.marks = [
+          {
+            "type": "rect",
+            "from": {"data": "table"},
+            "encode": {
+              "enter": {
+                "x": {"value": 10},
+                "width": {"value": 30},
+                "y": {"scale": "yscale", "field": valueField},
+                "y2": {"scale": "yscale", "value": 0},
+                "fill": {"value": "steelblue"}
+              }
+            }
+          }
+        ];
+    } else { // Horizontal
+        spec.width = 400;
+        spec.height = 50;
+        spec.scales = [
+          { 
+            "name": "xscale", 
+            "type": "linear", 
+            "domain": { "data": "table", "field": valueField }, 
+            "range": "width",
+            "nice": true,
+            "zero": true
+          }
+        ];
+        spec.axes = [
           { "orient": "bottom", "scale": "xscale" }
-        ],
-        "marks": [
+        ];
+        spec.marks = [
           {
             "type": "rect",
             "from": {"data": "table"},
@@ -137,13 +190,15 @@ export class BarChart implements VegaChartStrategy {
                 "y": {"value": 10},
                 "height": {"value": 30},
                 "x": {"scale": "xscale", "value": 0},
-                "x2": {"scale": "xscale", "field": "amount"},
+                "x2": {"scale": "xscale", "field": valueField},
                 "fill": {"value": "steelblue"}
               }
             }
           }
-        ]
-    };
+        ];
+    }
+
+    return spec;
   }
 
   private createEmptySpec(): VegaSpec {
