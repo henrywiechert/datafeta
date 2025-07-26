@@ -37,7 +37,16 @@ export class BarChart implements VegaChartStrategy {
 
     // Standard bar chart with one dimension and one measure
     const measure = allMeasures[0];
-    const dimension = allDimensions.find(d => d.flavour === 'discrete');
+    const isMeasureOnX = xMeasures.length > 0;
+
+    // Dimensions for the bar chart categories should be on the opposite axis of the measure.
+    const categoricalDimensions = (isMeasureOnX ? yDimensions : xDimensions).filter(d => d.flavour === 'discrete');
+    
+    // If for some reason there are no discrete dimensions on the opposite axis, fall back to any discrete dimension.
+    // This maintains robustness, although faceting might handle this scenario differently.
+    const dimension = categoricalDimensions.length > 0 
+        ? categoricalDimensions[categoricalDimensions.length - 1] // Get the last one from the opposite axis
+        : allDimensions.filter(d => d.flavour === 'discrete').pop(); // Fallback to the last discrete dimension available
     
     if (!measure || !dimension) {
         return this.createEmptySpec();
