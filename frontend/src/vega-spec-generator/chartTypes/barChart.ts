@@ -52,12 +52,16 @@ export class BarChart implements VegaChartStrategy {
         return this.createEmptySpec();
     }
 
-    const isVertical = yDimensions.includes(dimension);
+    const isVertical = xDimensions.includes(dimension);
 
-    // Calculate fixed dimension for categorical axis
-    const uniqueCategories = new Set(queryResult.rows.map(row => row[dimension.columnName])).size;
-    const barThickness = 40; // Fixed bar thickness
-    const minCategoricalSize = 100;
+    // Fixed bar thickness and spacing
+    const BAR_THICKNESS = 40; // Fixed pixel thickness for bars
+    const BAR_SPACING = 10;   // Fixed pixel spacing between bars
+    const CHART_PADDING = 20; // Padding around the chart
+
+    // Get unique categories and calculate chart dimensions
+    const uniqueCategories = Array.from(new Set(queryResult.rows.map(row => row[dimension.columnName]))).sort();
+    const categoricalSize = uniqueCategories.length * (BAR_THICKNESS + BAR_SPACING) - BAR_SPACING + (2 * CHART_PADDING);
     
     const spec: any = {
       "$schema": "https://vega.github.io/schema/vega/v5.json",
@@ -74,42 +78,21 @@ export class BarChart implements VegaChartStrategy {
     // Set hybrid dimensions: responsive primary axis, fixed categorical axis
     if (isVertical) {
       // Vertical bars: fixed width (categorical), responsive height (measure)
-      spec.width = Math.max(minCategoricalSize, uniqueCategories * barThickness);
+      spec.width = categoricalSize;
       spec.height = {"signal": "height"}; // Will be provided by container
     } else {
       // Horizontal bars: responsive width (measure), fixed height (categorical)
       spec.width = {"signal": "width"}; // Will be provided by container
-      spec.height = Math.max(minCategoricalSize, uniqueCategories * barThickness);
+      spec.height = categoricalSize;
     }
 
     const valueField = measure.aggregation ? `${measure.aggregation.toUpperCase()}(${measure.columnName})` : measure.columnName;
     const categoryField = dimension.columnName;
 
     if (isVertical) {
+      // Vertical bars: categories on X-axis, measures on Y-axis
       spec.scales.push(
-        { "name": "xscale", "type": "linear", "domain": {"data": "table", "field": valueField}, "range": "width", "nice": true },
-        { "name": "yscale", "type": "band", "domain": {"data": "table", "field": categoryField}, "range": "height", "padding": 0.1 }
-      );
-      spec.axes.push(
-        { "orient": "bottom", "scale": "xscale" },
-        { "orient": "left", "scale": "yscale" }
-      );
-      spec.marks.push({
-        "type": "rect",
-        "from": {"data": "table"},
-        "encode": {
-          "enter": {
-            "y": {"scale": "yscale", "field": categoryField},
-            "height": {"scale": "yscale", "band": 1},
-            "x": {"scale": "xscale", "field": valueField},
-            "x2": {"scale": "xscale", "value": 0},
-            "fill": {"value": "steelblue"}
-          }
-        }
-      });
-    } else { // Horizontal
-      spec.scales.push(
-        { "name": "xscale", "type": "band", "domain": {"data": "table", "field": categoryField}, "range": "width", "padding": 0.1 },
+        { "name": "xscale", "type": "ordinal", "domain": uniqueCategories, "range": uniqueCategories.map((_, i) => CHART_PADDING + i * (BAR_THICKNESS + BAR_SPACING)) },
         { "name": "yscale", "type": "linear", "domain": {"data": "table", "field": valueField}, "range": "height", "nice": true }
       );
       spec.axes.push(
@@ -122,9 +105,32 @@ export class BarChart implements VegaChartStrategy {
         "encode": {
           "enter": {
             "x": {"scale": "xscale", "field": categoryField},
-            "width": {"scale": "xscale", "band": 1},
+            "width": {"value": BAR_THICKNESS},
             "y": {"scale": "yscale", "field": valueField},
             "y2": {"scale": "yscale", "value": 0},
+            "fill": {"value": "steelblue"}
+          }
+        }
+      });
+    } else { // Horizontal
+      // Horizontal bars: categories on Y-axis, measures on X-axis  
+      spec.scales.push(
+        { "name": "xscale", "type": "linear", "domain": {"data": "table", "field": valueField}, "range": "width", "nice": true },
+        { "name": "yscale", "type": "ordinal", "domain": uniqueCategories, "range": uniqueCategories.map((_, i) => CHART_PADDING + i * (BAR_THICKNESS + BAR_SPACING)) }
+      );
+      spec.axes.push(
+        { "orient": "bottom", "scale": "xscale" },
+        { "orient": "left", "scale": "yscale" }
+      );
+      spec.marks.push({
+        "type": "rect",
+        "from": {"data": "table"},
+        "encode": {
+          "enter": {
+            "y": {"scale": "yscale", "field": categoryField},
+            "height": {"value": BAR_THICKNESS},
+            "x": {"scale": "xscale", "value": 0},
+            "x2": {"scale": "xscale", "field": valueField},
             "fill": {"value": "steelblue"}
           }
         }
@@ -147,6 +153,10 @@ export class BarChart implements VegaChartStrategy {
 
     const valueField = measure.aggregation ? `${measure.aggregation.toUpperCase()}(${measure.columnName})` : measure.columnName;
 
+    // Fixed dimensions for single bar
+    const BAR_THICKNESS = 40;
+    const CHART_PADDING = 30;
+
     const spec: any = {
         "$schema": "https://vega.github.io/schema/vega/v5.json",
         "autosize": { "type": "pad", "contains": "content" },
@@ -161,7 +171,7 @@ export class BarChart implements VegaChartStrategy {
     
     if (isVertical) {
         // Single vertical bar: fixed width, responsive height
-        spec.width = 100;
+        spec.width = BAR_THICKNESS + (2 * CHART_PADDING);
         spec.height = {"signal": "height"};
         spec.scales = [
           { 
@@ -182,8 +192,8 @@ export class BarChart implements VegaChartStrategy {
             "from": {"data": "table"},
             "encode": {
               "enter": {
-                "x": {"value": 30},
-                "width": {"value": 40},
+                "x": {"value": CHART_PADDING},
+                "width": {"value": BAR_THICKNESS},
                 "y": {"scale": "yscale", "field": valueField},
                 "y2": {"scale": "yscale", "value": 0},
                 "fill": {"value": "steelblue"}
@@ -194,7 +204,7 @@ export class BarChart implements VegaChartStrategy {
     } else { // Horizontal
         // Single horizontal bar: responsive width, fixed height
         spec.width = {"signal": "width"};
-        spec.height = 100;
+        spec.height = BAR_THICKNESS + (2 * CHART_PADDING);
         spec.scales = [
           { 
             "name": "xscale", 
@@ -214,8 +224,8 @@ export class BarChart implements VegaChartStrategy {
             "from": {"data": "table"},
             "encode": {
               "enter": {
-                "y": {"value": 30},
-                "height": {"value": 40},
+                "y": {"value": CHART_PADDING},
+                "height": {"value": BAR_THICKNESS},
                 "x": {"scale": "xscale", "value": 0},
                 "x2": {"scale": "xscale", "field": valueField},
                 "fill": {"value": "steelblue"}
