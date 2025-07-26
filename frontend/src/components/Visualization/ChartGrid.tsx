@@ -25,8 +25,10 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     const updateDimensions = () => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        const width = Math.max(200, rect.width - 16); // Account for padding
-        const height = Math.max(150, rect.height - 16);
+        // Be more conservative with sizing to avoid scrollbars
+        // Account for: container padding (8px * 2) + chart padding + axes/margins
+        const width = Math.max(200, rect.width - 40); // Extra buffer for axes and margins
+        const height = Math.max(150, rect.height - 40); // Extra buffer for axes and margins
         setDimensions({ width, height });
       }
     };
