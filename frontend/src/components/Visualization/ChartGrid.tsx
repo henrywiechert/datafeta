@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Vega } from 'react-vega';
 import { QueryResult } from '../../types';
 import { Alert, Box, Typography, Button } from '@mui/material';
@@ -16,59 +16,12 @@ const WARN_ROWS = 10000;          // Show warning above this
 const SAMPLE_SIZE = 5000;         // Sample size for large datasets
 
 const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [showFullData, setShowFullData] = useState(false);
-  const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Handle container resize events - only update when resize is complete
-  const handleResize = useCallback(() => {
-    // Clear any existing timeout
-    if (resizeTimeoutRef.current) {
-      clearTimeout(resizeTimeoutRef.current);
-    }
-
-    // Wait for resize operation to complete (no changes for 300ms)
-    resizeTimeoutRef.current = setTimeout(() => {
-      const container = containerRef.current;
-      if (container) {
-        const rect = container.getBoundingClientRect();
-        setContainerSize({
-          width: rect.width,
-          height: rect.height
-        });
-      }
-    }, 300); // Longer delay to ensure resize operation is complete
-  }, []);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    // Set initial size
-    const rect = container.getBoundingClientRect();
-    setContainerSize({
-      width: rect.width,
-      height: rect.height
-    });
-
-    // Create ResizeObserver to detect container size changes
-    const resizeObserver = new ResizeObserver(handleResize);
-    resizeObserver.observe(container);
-
-    return () => {
-      resizeObserver.disconnect();
-      // Clean up timeout on unmount
-      if (resizeTimeoutRef.current) {
-        clearTimeout(resizeTimeoutRef.current);
-      }
-    };
-  }, [handleResize]);
 
   // Handle null or missing spec
   if (!spec) {
     return (
-      <div ref={containerRef} className={styles.container}>
+      <div className={styles.container}>
         <p>Generating chart specification...</p>
       </div>
     );
@@ -76,7 +29,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
   if (!data || !data.rows || data.rows.length === 0) {
     return (
-      <div ref={containerRef} className={styles.container}>
+      <div className={styles.container}>
         <p>No data to display. Drag fields to the axes to create a chart.</p>
       </div>
     );
@@ -102,7 +55,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   // Show warning for large datasets
   if (isTooLarge && !showFullData) {
     return (
-      <div ref={containerRef} className={styles.container}>
+      <div className={styles.container}>
         <Box sx={{ p: 2 }}>
           <Alert 
             severity="warning" 
@@ -149,7 +102,6 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
     return (
       <Vega 
-        key={`${containerSize.width}x${containerSize.height}`} // Force re-render when container size changes
         spec={spec} 
         data={chartDataProp} 
         actions={false}
@@ -174,7 +126,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   }
 
   return (
-    <div ref={containerRef} className={containerClass}>
+    <div className={containerClass}>
       {shouldWarn && isUsingFullData && (
         <Alert severity="info" sx={{ mb: 1 }}>
           <Typography variant="body2">
