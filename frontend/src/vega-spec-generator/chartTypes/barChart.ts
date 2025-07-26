@@ -57,7 +57,7 @@ export class BarChart implements VegaChartStrategy {
     // Fixed bar thickness and spacing
     const BAR_THICKNESS = 40; // Fixed pixel thickness for bars
     const BAR_SPACING = 10;   // Fixed pixel spacing between bars
-    const CHART_PADDING = 20; // Padding around the chart
+    const CHART_PADDING = 10; // Reduced padding to prevent scrollbars
 
     // Get unique categories and calculate chart dimensions
     const uniqueCategories = Array.from(new Set(queryResult.rows.map(row => row[dimension.columnName]))).sort();
@@ -65,7 +65,7 @@ export class BarChart implements VegaChartStrategy {
     
     const spec: any = {
       "$schema": "https://vega.github.io/schema/vega/v5.json",
-      "autosize": { "type": "pad", "contains": "content" },
+      "autosize": { "type": "none", "contains": "content" }, // Changed from "pad" to "none" for tighter sizing
       "padding": 5,
       "data": [
         { "name": "table", "values": queryResult.rows }
@@ -155,11 +155,11 @@ export class BarChart implements VegaChartStrategy {
 
     // Fixed dimensions for single bar
     const BAR_THICKNESS = 40;
-    const CHART_PADDING = 30;
+    const CHART_PADDING = 10; // Reduced to match multi-category charts
 
     const spec: any = {
         "$schema": "https://vega.github.io/schema/vega/v5.json",
-        "autosize": { "type": "pad", "contains": "content" },
+        "autosize": { "type": "none", "contains": "content" }, // Changed for tighter sizing
         "padding": 5,
         "data": [
           { "name": "table", "values": data }
