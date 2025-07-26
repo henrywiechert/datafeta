@@ -63,6 +63,7 @@ This document provides an overview of the frontend application's structure, API 
         *   Measures can be discrete and continous
         *   Discrete measures have less aggregations (count, countd, min, max), where min/max are alphapetical
         *   Continous measures have more aggregations (additionally avg, median, sum)
+        *   Continous dimensions cannot be of type string
     *   Chart types need a certain set of type of fields on their axes (FieldClassifier)
     *   Faceting is on top of basic charts
         *   Faceting is triggered by discrete dimensions on one of the axis. The first discrete dimention determines the category for some basic charts (e.g. bar). Further dimensions define the hierarchical faceting.

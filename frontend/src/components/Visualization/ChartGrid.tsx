@@ -1,13 +1,12 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Vega } from 'react-vega';
-import { VegaLiteSpec } from '../../spec-generator/specGenerator';
 import { QueryResult } from '../../types';
 import { Alert, Box, Typography, Button } from '@mui/material';
 import { Warning as WarningIcon } from '@mui/icons-material';
 import styles from './ChartGrid.module.css';
 
 interface ChartGridProps {
-  spec: VegaLiteSpec | null;
+  spec: any; // Allow both Vega and Vega-Lite specs
   data: QueryResult | null;
 }
 
@@ -17,59 +16,37 @@ const WARN_ROWS = 10000;          // Show warning above this
 const SAMPLE_SIZE = 5000;         // Sample size for large datasets
 
 const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [showFullData, setShowFullData] = useState(false);
-  const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [dimensions, setDimensions] = useState({ width: 400, height: 300 });
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Handle container resize events - only update when resize is complete
-  const handleResize = useCallback(() => {
-    // Clear any existing timeout
-    if (resizeTimeoutRef.current) {
-      clearTimeout(resizeTimeoutRef.current);
-    }
-
-    // Wait for resize operation to complete (no changes for 300ms)
-    resizeTimeoutRef.current = setTimeout(() => {
-      const container = containerRef.current;
-      if (container) {
-        const rect = container.getBoundingClientRect();
-        setContainerSize({
-          width: rect.width,
-          height: rect.height
-        });
-      }
-    }, 300); // Longer delay to ensure resize operation is complete
-  }, []);
-
+  // Measure container size for hybrid responsive Vega charts
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const width = Math.max(200, rect.width - 16); // Account for padding
+        const height = Math.max(150, rect.height - 16);
+        setDimensions({ width, height });
+      }
+    };
 
-    // Set initial size
-    const rect = container.getBoundingClientRect();
-    setContainerSize({
-      width: rect.width,
-      height: rect.height
-    });
-
-    // Create ResizeObserver to detect container size changes
-    const resizeObserver = new ResizeObserver(handleResize);
-    resizeObserver.observe(container);
+    updateDimensions();
+    
+    const resizeObserver = new ResizeObserver(updateDimensions);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
 
     return () => {
       resizeObserver.disconnect();
-      // Clean up timeout on unmount
-      if (resizeTimeoutRef.current) {
-        clearTimeout(resizeTimeoutRef.current);
-      }
     };
-  }, [handleResize]);
+  }, []);
 
   // Handle null or missing spec
   if (!spec) {
     return (
-      <div ref={containerRef} className={styles.container}>
+      <div className={styles.container} ref={containerRef}>
         <p>Generating chart specification...</p>
       </div>
     );
@@ -77,7 +54,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
   if (!data || !data.rows || data.rows.length === 0) {
     return (
-      <div ref={containerRef} className={styles.container}>
+      <div className={styles.container} ref={containerRef}>
         <p>No data to display. Drag fields to the axes to create a chart.</p>
       </div>
     );
@@ -103,7 +80,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   // Show warning for large datasets
   if (isTooLarge && !showFullData) {
     return (
-      <div ref={containerRef} className={styles.container}>
+      <div className={styles.container} ref={containerRef}>
         <Box sx={{ p: 2 }}>
           <Alert 
             severity="warning" 
@@ -141,34 +118,55 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     );
   }
 
-  // Show warning but still render if dataset is moderately large
-  const renderChart = () => (
-    <Vega 
-      key={`${containerSize.width}x${containerSize.height}`} // Force re-render when container size changes
-      spec={spec} 
-      data={{ table: chartData }} 
-      actions={false}
-      renderer="svg"
-    />
-  );
+  // Detect chart type and special layout requirements
+  const isVegaLite = spec?.$schema?.includes('vega-lite');
 
-  // Detect if this is a faceted chart or an expandable chart (e.g., bar chart with many categories)
-  // Now safely access spec properties after null check
+  // Show warning but still render if dataset is moderately large
+  const renderChart = () => {
+    // For Vega specs, data is already embedded. For Vega-Lite, it's passed separately.
+    const chartDataProp = isVegaLite ? { table: chartData } : undefined;
+
+    // For Vega charts (not Vega-Lite), pass width and height props for hybrid responsive sizing
+    const vegaProps = !isVegaLite ? {
+      width: dimensions.width,
+      height: dimensions.height
+    } : {};
+
+    return (
+      <Vega 
+        spec={spec} 
+        data={chartDataProp} 
+        actions={false}
+        renderer="svg"
+        {...vegaProps}
+      />
+    );
+  }
   const isFaceted = spec.encoding && (spec.encoding.column || spec.encoding.row);
   const isHorizontallyExpandable = spec.width && typeof spec.width === 'object' && 'step' in spec.width;
   const isVerticallyExpandable = spec.height && typeof spec.height === 'object' && 'step' in spec.height;
 
+  // Build container class based on chart type and characteristics
   let containerClass = styles.container;
+  
+  // Apply chart-type-specific styling
+  if (isVegaLite) {
+    containerClass = `${containerClass} ${styles.vegaLiteContainer}`;
+  } else {
+    containerClass = `${containerClass} ${styles.vegaContainer}`;
+  }
+  
+  // Apply layout-specific styling for special cases
   if (isFaceted) {
-    containerClass = `${styles.container} ${styles.faceted}`;
+    containerClass = `${containerClass} ${styles.faceted}`;
   } else if (isHorizontallyExpandable) {
-    containerClass = `${styles.container} ${styles.horizontalExpandable}`;
+    containerClass = `${containerClass} ${styles.horizontalExpandable}`;
   } else if (isVerticallyExpandable) {
-    containerClass = `${styles.container} ${styles.verticalExpandable}`;
+    containerClass = `${containerClass} ${styles.verticalExpandable}`;
   }
 
   return (
-    <div ref={containerRef} className={containerClass}>
+    <div className={containerClass} ref={containerRef}>
       {shouldWarn && isUsingFullData && (
         <Alert severity="info" sx={{ mb: 1 }}>
           <Typography variant="body2">

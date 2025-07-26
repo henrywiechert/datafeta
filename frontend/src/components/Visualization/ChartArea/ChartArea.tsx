@@ -39,6 +39,7 @@ const ChartArea: React.FC = () => {
     xAxisFields,
     yAxisFields,
     useTableView,
+    queryResult, // Pass queryResult here
     startOperation,
     completeOperation,
   });
@@ -57,7 +58,7 @@ const ChartArea: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'auto' }}>
+      <div className={styles.chartWrapper}>
         <ChartRenderer
           useTableView={useTableView}
           tableData={tableData}
@@ -79,7 +80,7 @@ const ChartArea: React.FC = () => {
           onDebugResize={handleDebugResize}
           debugData={debugData}
         />
-      </Box>
+      </div>
     </div>
   );
 };

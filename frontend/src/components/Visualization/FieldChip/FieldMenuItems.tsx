@@ -15,7 +15,7 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
   const isMeasure = field.type === 'measure';
   const availableAggregations = getFieldAggregations(field);
   const isFieldContinuous = canBeContinuous(field);
-  const isFieldMeasure = true;
+  const isFieldMeasure = canBeMeasure(field);
   const isInAxisDropZone = source === 'X_AXIS' || source === 'Y_AXIS';
 
   return (
@@ -36,8 +36,8 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
         Discrete {field.flavour === 'discrete' && '✔'}
       </div>
       <div 
-        className={menuStyles.menuItem}
-        onClick={() => onUpdate({ flavour: 'continuous' })}
+        className={`${menuStyles.menuItem} ${!isFieldContinuous ? menuStyles.disabled : ''}`}
+        onClick={isFieldContinuous ? () => onUpdate({ flavour: 'continuous' }) : undefined}
       >
         Continuous {field.flavour === 'continuous' && '✔'}
       </div>
