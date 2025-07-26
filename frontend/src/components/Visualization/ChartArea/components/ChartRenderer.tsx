@@ -22,20 +22,18 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
   xAxisFields,
   yAxisFields,
 }) => {
-  return (
-    <Box sx={{ flex: 1, minHeight: 0 }}>
-      {useTableView ? (
-        <TableView 
-          columns={tableData.columns} 
-          rows={tableData.rows} 
-          xFields={xAxisFields}
-          yFields={yAxisFields}
-        />
-      ) : (
-        <ChartGrid spec={spec} data={queryResult} />
-      )}
-    </Box>
-  );
+  if (useTableView) {
+    return (
+      <TableView 
+        columns={tableData.columns} 
+        rows={tableData.rows} 
+        xFields={xAxisFields}
+        yFields={yAxisFields}
+      />
+    );
+  }
+  
+  return <ChartGrid spec={spec} data={queryResult} />;
 };
 
 export default ChartRenderer; 
