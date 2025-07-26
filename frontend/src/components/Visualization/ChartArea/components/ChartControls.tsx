@@ -30,8 +30,10 @@ const ChartControls: React.FC<ChartControlsProps> = ({
       display: 'flex', 
       alignItems: 'center', 
       justifyContent: 'space-between', // Changed to space-between
-      pt: 1,
-      borderTop: isDebugOpen ? '1px solid #e0e0e0' : 'none'
+      pt: 0.5, // Reduced from 1 to 0.5
+      pb: 0.5, // Added small bottom padding for balance
+      borderTop: isDebugOpen ? '1px solid #e0e0e0' : 'none',
+      flexShrink: 0 // Don't let controls shrink
     }}>
       <ToggleButtonGroup
         value={chartingLibrary}

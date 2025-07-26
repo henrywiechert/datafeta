@@ -19,6 +19,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   const [showFullData, setShowFullData] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 400, height: 300 });
   const containerRef = useRef<HTMLDivElement>(null);
+  const vegaViewRef = useRef<any>(null); // Store Vega view reference
 
   // Measure container size for hybrid responsive Vega charts
   useEffect(() => {
@@ -29,21 +30,53 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
         // Account for: container padding (8px * 2) + chart padding + axes/margins
         const width = Math.max(200, rect.width - 40); // Extra buffer for axes and margins
         const height = Math.max(150, rect.height - 40); // Extra buffer for axes and margins
-        setDimensions({ width, height });
+        
+        setDimensions(prevDimensions => {
+          // Only update if dimensions actually changed
+          if (prevDimensions.width !== width || prevDimensions.height !== height) {
+            // If we have a Vega view, resize it
+            if (vegaViewRef.current && !spec?.$schema?.includes('vega-lite')) {
+              setTimeout(() => {
+                vegaViewRef.current.signal('width', width).signal('height', height).run();
+              }, 10);
+            }
+            return { width, height };
+          }
+          return prevDimensions;
+        });
       }
     };
 
+    // Initial measurement
     updateDimensions();
     
-    const resizeObserver = new ResizeObserver(updateDimensions);
+    // Set up ResizeObserver for container size changes
+    const resizeObserver = new ResizeObserver(() => {
+      // Small delay to ensure layout is stable
+      setTimeout(updateDimensions, 10);
+    });
+    
     if (containerRef.current) {
       resizeObserver.observe(containerRef.current);
     }
 
+    // Also listen for window resize events (triggered by debug panel changes)
+    const handleWindowResize = () => {
+      setTimeout(updateDimensions, 50);
+    };
+    
+    window.addEventListener('resize', handleWindowResize);
+
     return () => {
       resizeObserver.disconnect();
+      window.removeEventListener('resize', handleWindowResize);
     };
-  }, []);
+  }, [spec]);
+
+  // Handle new Vega view creation
+  const handleNewView = (view: any) => {
+    vegaViewRef.current = view;
+  };
 
   // Handle null or missing spec
   if (!spec) {
@@ -140,6 +173,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
         data={chartDataProp} 
         actions={false}
         renderer="svg"
+        onNewView={!isVegaLite ? handleNewView : undefined}
         {...vegaProps}
       />
     );
