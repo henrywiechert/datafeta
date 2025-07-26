@@ -118,11 +118,12 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     );
   }
 
+  // Detect chart type and special layout requirements
+  const isVegaLite = spec?.$schema?.includes('vega-lite');
+
   // Show warning but still render if dataset is moderately large
   const renderChart = () => {
     // For Vega specs, data is already embedded. For Vega-Lite, it's passed separately.
-    // We check the schema to decide. Vega-Lite schemas contain "vega-lite".
-    const isVegaLite = spec?.$schema?.includes('vega-lite');
     const chartDataProp = isVegaLite ? { table: chartData } : undefined;
 
     // For Vega charts (not Vega-Lite), pass width and height props for hybrid responsive sizing
@@ -141,20 +142,27 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
       />
     );
   }
-
-  // Detect if this is a faceted chart or an expandable chart (e.g., bar chart with many categories)
-  // Now safely access spec properties after null check
   const isFaceted = spec.encoding && (spec.encoding.column || spec.encoding.row);
   const isHorizontallyExpandable = spec.width && typeof spec.width === 'object' && 'step' in spec.width;
   const isVerticallyExpandable = spec.height && typeof spec.height === 'object' && 'step' in spec.height;
 
+  // Build container class based on chart type and characteristics
   let containerClass = styles.container;
+  
+  // Apply chart-type-specific styling
+  if (isVegaLite) {
+    containerClass = `${containerClass} ${styles.vegaLiteContainer}`;
+  } else {
+    containerClass = `${containerClass} ${styles.vegaContainer}`;
+  }
+  
+  // Apply layout-specific styling for special cases
   if (isFaceted) {
-    containerClass = `${styles.container} ${styles.faceted}`;
+    containerClass = `${containerClass} ${styles.faceted}`;
   } else if (isHorizontallyExpandable) {
-    containerClass = `${styles.container} ${styles.horizontalExpandable}`;
+    containerClass = `${containerClass} ${styles.horizontalExpandable}`;
   } else if (isVerticallyExpandable) {
-    containerClass = `${styles.container} ${styles.verticalExpandable}`;
+    containerClass = `${containerClass} ${styles.verticalExpandable}`;
   }
 
   return (
