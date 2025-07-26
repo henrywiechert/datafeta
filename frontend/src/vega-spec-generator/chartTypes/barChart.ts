@@ -54,12 +54,15 @@ export class BarChart implements VegaChartStrategy {
 
     const isVertical = yDimensions.includes(dimension);
 
+    // Calculate fixed dimension for categorical axis
+    const uniqueCategories = new Set(queryResult.rows.map(row => row[dimension.columnName])).size;
+    const barThickness = 40; // Fixed bar thickness
+    const minCategoricalSize = 100;
+    
     const spec: any = {
       "$schema": "https://vega.github.io/schema/vega/v5.json",
-      "autosize": { "type": "fit", "contains": "padding", "resize": true },
+      "autosize": { "type": "pad", "contains": "content" },
       "padding": 5,
-      "width": {"signal": "width"},
-      "height": {"signal": "height"},
       "data": [
         { "name": "table", "values": queryResult.rows }
       ],
@@ -67,6 +70,17 @@ export class BarChart implements VegaChartStrategy {
       "axes": [],
       "marks": []
     };
+
+    // Set hybrid dimensions: responsive primary axis, fixed categorical axis
+    if (isVertical) {
+      // Vertical bars: fixed width (categorical), responsive height (measure)
+      spec.width = Math.max(minCategoricalSize, uniqueCategories * barThickness);
+      spec.height = {"signal": "height"}; // Will be provided by container
+    } else {
+      // Horizontal bars: responsive width (measure), fixed height (categorical)
+      spec.width = {"signal": "width"}; // Will be provided by container
+      spec.height = Math.max(minCategoricalSize, uniqueCategories * barThickness);
+    }
 
     const valueField = measure.aggregation ? `${measure.aggregation.toUpperCase()}(${measure.columnName})` : measure.columnName;
     const categoryField = dimension.columnName;
@@ -135,10 +149,8 @@ export class BarChart implements VegaChartStrategy {
 
     const spec: any = {
         "$schema": "https://vega.github.io/schema/vega/v5.json",
-        "autosize": { "type": "fit", "contains": "padding", "resize": true },
+        "autosize": { "type": "pad", "contains": "content" },
         "padding": 5,
-        "width": {"signal": "width"},
-        "height": {"signal": "height"},
         "data": [
           { "name": "table", "values": data }
         ],
@@ -148,6 +160,9 @@ export class BarChart implements VegaChartStrategy {
     };
     
     if (isVertical) {
+        // Single vertical bar: fixed width, responsive height
+        spec.width = 100;
+        spec.height = {"signal": "height"};
         spec.scales = [
           { 
             "name": "yscale", 
@@ -167,8 +182,8 @@ export class BarChart implements VegaChartStrategy {
             "from": {"data": "table"},
             "encode": {
               "enter": {
-                "x": {"signal": "width * 0.4"},
-                "width": {"signal": "width * 0.2"},
+                "x": {"value": 30},
+                "width": {"value": 40},
                 "y": {"scale": "yscale", "field": valueField},
                 "y2": {"scale": "yscale", "value": 0},
                 "fill": {"value": "steelblue"}
@@ -177,6 +192,9 @@ export class BarChart implements VegaChartStrategy {
           }
         ];
     } else { // Horizontal
+        // Single horizontal bar: responsive width, fixed height
+        spec.width = {"signal": "width"};
+        spec.height = 100;
         spec.scales = [
           { 
             "name": "xscale", 
@@ -196,8 +214,8 @@ export class BarChart implements VegaChartStrategy {
             "from": {"data": "table"},
             "encode": {
               "enter": {
-                "y": {"signal": "height * 0.4"},
-                "height": {"signal": "height * 0.2"},
+                "y": {"value": 30},
+                "height": {"value": 40},
                 "x": {"scale": "xscale", "value": 0},
                 "x2": {"scale": "xscale", "field": valueField},
                 "fill": {"value": "steelblue"}

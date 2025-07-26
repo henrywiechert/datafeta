@@ -13,12 +13,16 @@
 
 .container > :last-child {
     flex-grow: 1;
+    min-height: 0; /* Allow flex child to shrink below content size */
+    min-width: 0; /* Allow flex child to shrink below content size */
 }
 
-/* Ensure Vega charts fill their container */
+/* Ensure Vega charts support hybrid sizing: responsive primary axis, fixed categorical axis */
 .container :global(.vega-embed) {
-    width: 100% !important;
-    height: 100% !important;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
 }
 
 .container :global(.vega-embed summary) {
@@ -26,13 +30,15 @@
 }
 
 .container :global(.vega-embed details) {
-    width: 100% !important;
-    height: 100% !important;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    min-height: 0;
+    min-width: 0;
 }
 
 .container :global(.vega-embed svg) {
-    width: 100% !important;
-    height: 100% !important;
+    flex-grow: 1;
 }
 
 .faceted {
