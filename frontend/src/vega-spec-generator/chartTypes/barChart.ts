@@ -56,8 +56,10 @@ export class BarChart implements VegaChartStrategy {
 
     const spec: any = {
       "$schema": "https://vega.github.io/schema/vega/v5.json",
-      "autosize": { "type": "fit", "contains": "padding" },
+      "autosize": { "type": "fit", "contains": "padding", "resize": true },
       "padding": 5,
+      "width": {"signal": "width"},
+      "height": {"signal": "height"},
       "data": [
         { "name": "table", "values": queryResult.rows }
       ],
@@ -133,8 +135,10 @@ export class BarChart implements VegaChartStrategy {
 
     const spec: any = {
         "$schema": "https://vega.github.io/schema/vega/v5.json",
-        "autosize": { "type": "fit", "contains": "padding" },
+        "autosize": { "type": "fit", "contains": "padding", "resize": true },
         "padding": 5,
+        "width": {"signal": "width"},
+        "height": {"signal": "height"},
         "data": [
           { "name": "table", "values": data }
         ],
@@ -144,8 +148,6 @@ export class BarChart implements VegaChartStrategy {
     };
     
     if (isVertical) {
-        spec.autosize = { "type": "fit-y", "contains": "padding" };
-        spec.width = 50;
         spec.scales = [
           { 
             "name": "yscale", 
@@ -165,8 +167,8 @@ export class BarChart implements VegaChartStrategy {
             "from": {"data": "table"},
             "encode": {
               "enter": {
-                "x": {"value": 10},
-                "width": {"value": 30},
+                "x": {"signal": "width * 0.4"},
+                "width": {"signal": "width * 0.2"},
                 "y": {"scale": "yscale", "field": valueField},
                 "y2": {"scale": "yscale", "value": 0},
                 "fill": {"value": "steelblue"}
@@ -175,8 +177,6 @@ export class BarChart implements VegaChartStrategy {
           }
         ];
     } else { // Horizontal
-        spec.autosize = { "type": "fit-x", "contains": "padding" };
-        spec.height = 50;
         spec.scales = [
           { 
             "name": "xscale", 
@@ -196,8 +196,8 @@ export class BarChart implements VegaChartStrategy {
             "from": {"data": "table"},
             "encode": {
               "enter": {
-                "y": {"value": 10},
-                "height": {"value": 30},
+                "y": {"signal": "height * 0.4"},
+                "height": {"signal": "height * 0.2"},
                 "x": {"scale": "xscale", "value": 0},
                 "x2": {"scale": "xscale", "field": valueField},
                 "fill": {"value": "steelblue"}

@@ -15,6 +15,26 @@
     flex-grow: 1;
 }
 
+/* Ensure Vega charts fill their container */
+.container :global(.vega-embed) {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.container :global(.vega-embed summary) {
+    display: none; /* Hide the embed details summary */
+}
+
+.container :global(.vega-embed details) {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.container :global(.vega-embed svg) {
+    width: 100% !important;
+    height: 100% !important;
+}
+
 .faceted {
     /* For faceted charts, we want to allow scrolling if needed */
     overflow: auto;
