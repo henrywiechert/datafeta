@@ -56,8 +56,7 @@ export class BarChart implements VegaChartStrategy {
 
     const spec: any = {
       "$schema": "https://vega.github.io/schema/vega/v5.json",
-      "width": 400,
-      "height": 200,
+      "autosize": { "type": "fit", "contains": "padding" },
       "padding": 5,
       "data": [
         { "name": "table", "values": queryResult.rows }
@@ -134,6 +133,7 @@ export class BarChart implements VegaChartStrategy {
 
     const spec: any = {
         "$schema": "https://vega.github.io/schema/vega/v5.json",
+        "autosize": { "type": "fit", "contains": "padding" },
         "padding": 5,
         "data": [
           { "name": "table", "values": data }
@@ -144,8 +144,8 @@ export class BarChart implements VegaChartStrategy {
     };
     
     if (isVertical) {
+        spec.autosize = { "type": "fit-y", "contains": "padding" };
         spec.width = 50;
-        spec.height = 400;
         spec.scales = [
           { 
             "name": "yscale", 
@@ -175,7 +175,7 @@ export class BarChart implements VegaChartStrategy {
           }
         ];
     } else { // Horizontal
-        spec.width = 400;
+        spec.autosize = { "type": "fit-x", "contains": "padding" };
         spec.height = 50;
         spec.scales = [
           { 
