@@ -66,6 +66,8 @@ const ChartArea: React.FC = () => {
           queryResult={queryResult}
           xAxisFields={xAxisFields}
           yAxisFields={yAxisFields}
+          isDebugOpen={isDebugOpen}
+          debugHeight={debugHeight}
         />
         
         <ChartControls

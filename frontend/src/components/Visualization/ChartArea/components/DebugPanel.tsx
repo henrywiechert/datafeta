@@ -25,9 +25,12 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
         border: '1px solid #e0e0e0', 
         borderRadius: 1, 
         height: `${debugHeight}px`,
+        minHeight: `${debugHeight}px`, // Ensure it maintains its height
+        maxHeight: `${debugHeight}px`, // Prevent growing beyond set height
         overflow: 'hidden',
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        flexShrink: 0 // Don't let it shrink below its set size
       }}>
         {/* Resize handle at the top */}
         <ResizeHandle 
@@ -38,7 +41,7 @@ const DebugPanel: React.FC<DebugPanelProps> = ({
           minSize={150}
           maxSize={maxDebugHeight}
         />
-        <Box sx={{ flex: 1, overflow: 'hidden' }}>
+        <Box sx={{ flex: 1, overflow: 'auto' }}>
           <DebugView 
             debugData={debugData}
           />
