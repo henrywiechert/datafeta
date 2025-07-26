@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Vega } from 'react-vega';
 import { QueryResult } from '../../types';
 import { Alert, Box, Typography, Button } from '@mui/material';
@@ -17,11 +17,36 @@ const SAMPLE_SIZE = 5000;         // Sample size for large datasets
 
 const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   const [showFullData, setShowFullData] = useState(false);
+  const [dimensions, setDimensions] = useState({ width: 400, height: 300 });
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Measure container size for responsive Vega charts
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const width = Math.max(200, rect.width - 16); // Account for padding
+        const height = Math.max(150, rect.height - 16);
+        setDimensions({ width, height });
+      }
+    };
+
+    updateDimensions();
+    
+    const resizeObserver = new ResizeObserver(updateDimensions);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
 
   // Handle null or missing spec
   if (!spec) {
     return (
-      <div className={styles.container}>
+      <div className={styles.container} ref={containerRef}>
         <p>Generating chart specification...</p>
       </div>
     );
@@ -29,7 +54,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
   if (!data || !data.rows || data.rows.length === 0) {
     return (
-      <div className={styles.container}>
+      <div className={styles.container} ref={containerRef}>
         <p>No data to display. Drag fields to the axes to create a chart.</p>
       </div>
     );
@@ -55,7 +80,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   // Show warning for large datasets
   if (isTooLarge && !showFullData) {
     return (
-      <div className={styles.container}>
+      <div className={styles.container} ref={containerRef}>
         <Box sx={{ p: 2 }}>
           <Alert 
             severity="warning" 
@@ -100,12 +125,19 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     const isVegaLite = spec?.$schema?.includes('vega-lite');
     const chartDataProp = isVegaLite ? { table: chartData } : undefined;
 
+    // For Vega charts (not Vega-Lite), pass width and height props for responsive sizing
+    const vegaProps = !isVegaLite ? {
+      width: dimensions.width,
+      height: dimensions.height
+    } : {};
+
     return (
       <Vega 
         spec={spec} 
         data={chartDataProp} 
         actions={false}
         renderer="svg"
+        {...vegaProps}
       />
     );
   }
@@ -126,7 +158,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   }
 
   return (
-    <div className={containerClass}>
+    <div className={containerClass} ref={containerRef}>
       {shouldWarn && isUsingFullData && (
         <Alert severity="info" sx={{ mb: 1 }}>
           <Typography variant="body2">
