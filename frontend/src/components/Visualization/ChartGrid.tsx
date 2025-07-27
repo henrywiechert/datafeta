@@ -15,13 +15,29 @@ const MAX_SAFE_ROWS = 50000;      // Hard limit for rendering
 const WARN_ROWS = 10000;          // Show warning above this
 const SAMPLE_SIZE = 5000;         // Sample size for large datasets
 
+/**
+ * ChartGrid - Universal chart renderer for both Vega and Vega-Lite
+ * 
+ * ARCHITECTURE NOTE: This component handles BOTH chart types but keeps their logic separate:
+ * - Vega-Lite: Uses built-in responsive sizing ("width": "container")
+ * - Vega: Uses custom dimension management and signal updates
+ * 
+ * Detection: spec.$schema.includes('vega-lite') determines chart type
+ */
 const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   const [showFullData, setShowFullData] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 400, height: 300 });
   const containerRef = useRef<HTMLDivElement>(null);
-  const vegaViewRef = useRef<any>(null); // Store Vega view reference
+  
+  // VEGA-ONLY: Store reference to Vega view for direct signal updates
+  const vegaViewRef = useRef<any>(null);
 
-  // Measure container size for hybrid responsive Vega charts
+  // Detect chart type early to enable type-specific logic
+  const isVegaLite = spec?.$schema?.includes('vega-lite');
+
+  // ============================================================================
+  // VEGA-ONLY: Container dimension tracking for hybrid responsive sizing
+  // ============================================================================
   useEffect(() => {
     const updateDimensions = () => {
       if (containerRef.current) {
@@ -34,8 +50,8 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
         setDimensions(prevDimensions => {
           // Only update if dimensions actually changed
           if (prevDimensions.width !== width || prevDimensions.height !== height) {
-            // If we have a Vega view, resize it
-            if (vegaViewRef.current && !spec?.$schema?.includes('vega-lite')) {
+            // VEGA-ONLY: If we have a Vega view, update its signals directly
+            if (vegaViewRef.current && !isVegaLite) {
               setTimeout(() => {
                 vegaViewRef.current.signal('width', width).signal('height', height).run();
               }, 10);
@@ -71,11 +87,15 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
       resizeObserver.disconnect();
       window.removeEventListener('resize', handleWindowResize);
     };
-  }, [spec]);
+  }, [spec, isVegaLite]);
 
-  // Handle new Vega view creation
+  // ============================================================================
+  // VEGA-ONLY: Handle new Vega view creation for signal updates
+  // ============================================================================
   const handleNewView = (view: any) => {
-    vegaViewRef.current = view;
+    if (!isVegaLite) {
+      vegaViewRef.current = view;
+    }
   };
 
   // Handle null or missing spec
@@ -154,30 +174,6 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   }
 
   // Detect chart type and special layout requirements
-  const isVegaLite = spec?.$schema?.includes('vega-lite');
-
-  // Show warning but still render if dataset is moderately large
-  const renderChart = () => {
-    // For Vega specs, data is already embedded. For Vega-Lite, it's passed separately.
-    const chartDataProp = isVegaLite ? { table: chartData } : undefined;
-
-    // For Vega charts (not Vega-Lite), pass width and height props for hybrid responsive sizing
-    const vegaProps = !isVegaLite ? {
-      width: dimensions.width,
-      height: dimensions.height
-    } : {};
-
-    return (
-      <Vega 
-        spec={spec} 
-        data={chartDataProp} 
-        actions={false}
-        renderer="svg"
-        onNewView={!isVegaLite ? handleNewView : undefined}
-        {...vegaProps}
-      />
-    );
-  }
   const isFaceted = spec.encoding && (spec.encoding.column || spec.encoding.row);
   const isHorizontallyExpandable = spec.width && typeof spec.width === 'object' && 'step' in spec.width;
   const isVerticallyExpandable = spec.height && typeof spec.height === 'object' && 'step' in spec.height;
@@ -219,7 +215,21 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
         </Alert>
       )}
       
-      {renderChart()}
+             {/* ============================================================================ */}
+       {/* CHART RENDERING: Type-specific props based on Vega vs Vega-Lite */}
+       {/* ============================================================================ */}
+       <Vega 
+         spec={spec} 
+         data={isVegaLite ? { table: chartData } : undefined} 
+         actions={false}
+         renderer="svg"
+         onNewView={!isVegaLite ? handleNewView : undefined}
+         // VEGA-ONLY: Pass dimensions for hybrid responsive sizing
+         {...(!isVegaLite ? {
+           width: dimensions.width,
+           height: dimensions.height
+         } : {})}
+       />
     </div>
   );
 };
