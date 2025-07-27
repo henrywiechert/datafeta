@@ -50,15 +50,30 @@ export const useChartGeneration = ({
       return;
     }
 
+    // ============================================================================
+    // VEGA PATH: Custom low-level chart generation (PAUSED)
+    // ============================================================================
     if (chartingLibrary === 'vega') {
-      const vegaSpec = vegaSpecGenerator.generateSpec({ xFields: xAxisFields, yFields: yAxisFields, queryResult });
-      setSpec(vegaSpec as any); // Cast for now
-      setChartInfo({ chartType: 'vega-barchart' }); // a more descriptive name
-      setRenderingError(null);
-      return;
+      try {
+        const vegaSpec = vegaSpecGenerator.generateSpec({ 
+          xFields: xAxisFields, 
+          yFields: yAxisFields, 
+          queryResult 
+        });
+        setSpec(vegaSpec as any); // Cast to VegaLiteSpec for type compatibility
+        setChartInfo({ chartType: 'vega-barchart' });
+        setRenderingError(null);
+        return;
+      } catch (error) {
+        console.error('Vega chart generation failed:', error);
+        setRenderingError(`Vega generation failed: ${error}`);
+        return;
+      }
     }
 
-    // Existing Vega-Lite logic below
+    // ============================================================================
+    // VEGA-LITE PATH: High-level chart generation with faceting (ACTIVE)
+    // ============================================================================
     try {
       // Cancel any existing rendering operation
       if (renderingAbortControllerRef.current) {
