@@ -78,6 +78,16 @@
     max-height: 100%;
 }
 
+/* Observable Plot charts: Responsive sizing */
+.observablePlotContainer {
+    align-items: stretch;
+}
+
+.observablePlotContainer > div {
+    width: 100%;
+    height: 100%;
+}
+
 /* Legacy styles - keeping for backward compatibility but may be unused */
 .container :global(.vega-embed summary) {
     display: none; /* Hide the embed details summary */
