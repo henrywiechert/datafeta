@@ -18,7 +18,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
 
   const handleChartingLibraryChange = (
     event: React.MouseEvent<HTMLElement>,
-    newLibrary: 'vega-lite' | 'vega' | null,
+    newLibrary: 'vega-lite' | 'vega' | 'observable-plot' | null,
   ) => {
     if (newLibrary !== null) {
       setChartingLibrary(newLibrary);
@@ -47,6 +47,9 @@ const ChartControls: React.FC<ChartControlsProps> = ({
         </ToggleButton>
         <ToggleButton value="vega" aria-label="vega">
           Vega
+        </ToggleButton>
+        <ToggleButton value="observable-plot" aria-label="observable-plot">
+          Observable Plot
         </ToggleButton>
       </ToggleButtonGroup>
 
