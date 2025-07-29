@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Vega } from 'react-vega';
 import { QueryResult } from '../../types';
+import { PlotResult } from '../../observable-plot-generator/types';
+import ObservablePlot from './ObservablePlot';
 import { Alert, Box, Typography, Button } from '@mui/material';
 import { Warning as WarningIcon } from '@mui/icons-material';
 import styles from './ChartGrid.module.css';
@@ -34,6 +36,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
   // Detect chart type early to enable type-specific logic
   const isVegaLite = spec?.$schema?.includes('vega-lite');
+  const isObservablePlot = spec?.library === 'observable-plot';
 
   // ============================================================================
   // VEGA-ONLY: Container dimension tracking for hybrid responsive sizing
@@ -103,6 +106,15 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     return (
       <div className={styles.container} ref={containerRef}>
         <p>Generating chart specification...</p>
+      </div>
+    );
+  }
+
+  // Handle Observable Plot rendering
+  if (isObservablePlot) {
+    return (
+      <div className={`${styles.container} ${styles.observablePlotContainer}`} ref={containerRef}>
+        <ObservablePlot plot={(spec as PlotResult).plot} />
       </div>
     );
   }

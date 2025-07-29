@@ -1,9 +1,11 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
-import { generateVegaLiteSpec, getChartInfo } from '../../../../spec-generator/specGenerator';
+import { generateVegaLiteSpec } from '../../../../spec-generator/specGeneratorV2';
 import { vegaSpecGenerator } from '../../../../vega-spec-generator';
+import { generatePlot } from '../../../../observable-plot-generator/observablePlotGenerator';
 import { chartWorkerService } from '../../../../services/chartWorkerService';
 import { getTimeoutForOperation } from '../../../../config/loadingConfig';
 import { VegaLiteSpec } from '../../../../spec-generator/types';
+import { PlotResult } from '../../../../observable-plot-generator/types';
 import { ChartGenerationOptions } from '../types';
 import { logOperationTiming, logOperationStart } from '../utils';
 import { useVisualizationContext } from '../../../../contexts/VisualizationContext';
@@ -18,7 +20,7 @@ interface UseChartGenerationProps {
 }
 
 interface UseChartGenerationReturn {
-  spec: VegaLiteSpec | null;
+  spec: VegaLiteSpec | PlotResult | null;
   chartInfo: any | null;
   renderingError: string | null;
   generateChartSpec: () => Promise<void>;
@@ -34,7 +36,7 @@ export const useChartGeneration = ({
   completeOperation,
 }: UseChartGenerationProps): UseChartGenerationReturn => {
   const { state: { chartingLibrary } } = useVisualizationContext();
-  const [spec, setSpec] = useState<VegaLiteSpec | null>(null);
+  const [spec, setSpec] = useState<VegaLiteSpec | PlotResult | null>(null);
   const [chartInfo, setChartInfo] = useState<any | null>(null);
   const [renderingError, setRenderingError] = useState<string | null>(null);
   
@@ -48,6 +50,27 @@ export const useChartGeneration = ({
       setChartInfo(null);
       setRenderingError(null);
       return;
+    }
+
+    // ============================================================================
+    // OBSERVABLE PLOT PATH
+    // ============================================================================
+    if (chartingLibrary === 'observable-plot') {
+      try {
+        const plotResult = generatePlot({
+          xFields: xAxisFields,
+          yFields: yAxisFields,
+          queryResult,
+        });
+        setSpec(plotResult);
+        setChartInfo({ chartType: 'observable-plot' });
+        setRenderingError(null);
+        return;
+      } catch (error) {
+        console.error('Observable Plot generation failed:', error);
+        setRenderingError(`Observable Plot generation failed: ${error}`);
+        return;
+      }
     }
 
     // ============================================================================
