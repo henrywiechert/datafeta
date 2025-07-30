@@ -1,7 +1,7 @@
 .container {
     display: flex;
     flex-direction: column;
-    align-items: flex-start; /* Allow natural width expansion */
+    align-items: stretch; /* CHANGED: Allow children to fill height */
     justify-content: flex-start;
     padding: 8px;
     background-color: #fcfcfc;
@@ -45,6 +45,9 @@
 /* Vega-Lite charts: Responsive sizing to fill container */
 .vegaLiteContainer {
     align-items: stretch; /* Fill container width */
+    flex-grow: 1; /* ADDED: Ensure it takes available space */
+    display: flex; /* ADDED: Ensure flex context for child */
+    min-height: 0; /* ADDED: Prevent flexbox blowout */
 }
 
 .vegaLiteContainer > :last-child {
@@ -61,6 +64,8 @@
     flex-direction: column;
     min-height: 0;
     min-width: 0;
+    width: 100%; /* ADDED: Ensure full width */
+    height: 100%; /* ADDED: Ensure full height */
 }
 
 .vegaLiteContainer :global(.vega-embed details) {
@@ -78,14 +83,9 @@
     max-height: 100%;
 }
 
-/* Observable Plot charts: Responsive sizing */
+/* Observable Plot charts: Respect intrinsic size with scrolling */
 .observablePlotContainer {
-    align-items: stretch;
-}
-
-.observablePlotContainer > div {
-    width: 100%;
-    height: 100%;
+    align-items: flex-start;
 }
 
 /* Legacy styles - keeping for backward compatibility but may be unused */

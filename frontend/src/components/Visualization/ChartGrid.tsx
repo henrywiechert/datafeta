@@ -28,78 +28,11 @@ const SAMPLE_SIZE = 5000;         // Sample size for large datasets
  */
 const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   const [showFullData, setShowFullData] = useState(false);
-  const [dimensions, setDimensions] = useState({ width: 400, height: 300 });
   const containerRef = useRef<HTMLDivElement>(null);
   
-  // VEGA-ONLY: Store reference to Vega view for direct signal updates
-  const vegaViewRef = useRef<any>(null);
-
   // Detect chart type early to enable type-specific logic
   const isVegaLite = spec?.$schema?.includes('vega-lite');
   const isObservablePlot = spec?.library === 'observable-plot';
-
-  // ============================================================================
-  // VEGA-ONLY: Container dimension tracking for hybrid responsive sizing
-  // ============================================================================
-  useEffect(() => {
-    const updateDimensions = () => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        // Be more conservative with sizing to avoid scrollbars
-        // Account for: container padding (8px * 2) + chart padding + axes/margins
-        const width = Math.max(200, rect.width - 40); // Extra buffer for axes and margins
-        const height = Math.max(150, rect.height - 40); // Extra buffer for axes and margins
-        
-        setDimensions(prevDimensions => {
-          // Only update if dimensions actually changed
-          if (prevDimensions.width !== width || prevDimensions.height !== height) {
-            // VEGA-ONLY: If we have a Vega view, update its signals directly
-            if (vegaViewRef.current && !isVegaLite) {
-              setTimeout(() => {
-                vegaViewRef.current.signal('width', width).signal('height', height).run();
-              }, 10);
-            }
-            return { width, height };
-          }
-          return prevDimensions;
-        });
-      }
-    };
-
-    // Initial measurement
-    updateDimensions();
-    
-    // Set up ResizeObserver for container size changes
-    const resizeObserver = new ResizeObserver(() => {
-      // Small delay to ensure layout is stable
-      setTimeout(updateDimensions, 10);
-    });
-    
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
-    }
-
-    // Also listen for window resize events (triggered by debug panel changes)
-    const handleWindowResize = () => {
-      setTimeout(updateDimensions, 50);
-    };
-    
-    window.addEventListener('resize', handleWindowResize);
-
-    return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener('resize', handleWindowResize);
-    };
-  }, [spec, isVegaLite]);
-
-  // ============================================================================
-  // VEGA-ONLY: Handle new Vega view creation for signal updates
-  // ============================================================================
-  const handleNewView = (view: any) => {
-    if (!isVegaLite) {
-      vegaViewRef.current = view;
-    }
-  };
 
   // Handle null or missing spec
   if (!spec) {
@@ -114,7 +47,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   if (isObservablePlot) {
     return (
       <div className={`${styles.container} ${styles.observablePlotContainer}`} ref={containerRef}>
-        <ObservablePlot plot={(spec as PlotResult).plot} />
+        <ObservablePlot options={(spec as PlotResult).options} />
       </div>
     );
   }
@@ -232,15 +165,9 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
        {/* ============================================================================ */}
        <Vega 
          spec={spec} 
-         data={isVegaLite ? { table: chartData } : undefined} 
+         data={{ table: chartData }}
          actions={false}
          renderer="svg"
-         onNewView={!isVegaLite ? handleNewView : undefined}
-         // VEGA-ONLY: Pass dimensions for hybrid responsive sizing
-         {...(!isVegaLite ? {
-           width: dimensions.width,
-           height: dimensions.height
-         } : {})}
        />
     </div>
   );
