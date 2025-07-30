@@ -34,10 +34,14 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options }) => {
         height: options.height || dimensions.height,
       };
 
-      const plot = Plot.plot(newOptions);
-      
-      containerRef.current.innerHTML = '';
-      containerRef.current.appendChild(plot);
+      try {
+        const plot = Plot.plot(newOptions);
+        
+        containerRef.current.innerHTML = '';
+        containerRef.current.appendChild(plot);
+      } catch (error) {
+        console.error('ObservablePlot - Error creating plot:', error);
+      }
     }
   }, [options, dimensions]);
 
