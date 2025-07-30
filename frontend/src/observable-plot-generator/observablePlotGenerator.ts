@@ -21,10 +21,8 @@ export function generatePlot(context: ChartGenerationContext): PlotResult {
     };
   }
 
-  const plot = Plot.plot(plotOptions);
-
   return {
     library: 'observable-plot',
-    plot,
+    options: plotOptions,
   };
 } 
