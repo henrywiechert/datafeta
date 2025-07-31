@@ -1,4 +1,5 @@
 import { Field, QueryResult } from '../types';
+import * as Plot from '@observablehq/plot';
 
 export interface ChartGenerationContext {
   xFields: Field[];
@@ -10,5 +11,5 @@ export interface ChartGenerationContext {
 
 export interface PlotResult {
   library: 'observable-plot';
-  plot: Element;
+  options: Plot.PlotOptions;
 } 
