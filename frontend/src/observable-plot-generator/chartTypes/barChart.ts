@@ -12,64 +12,104 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
   const xDimension = xFields.find(f => f.type === 'dimension');
   const yDimension = yFields.find(f => f.type === 'dimension');
 
-  const barStep = 40; // Includes bar and padding
+  const barStep = 40; // Base step for bars
 
   if (yMeasure) {
-    // Create a temporary field with a default aggregation to avoid state mutation
+    // Vertical bar chart (barY)
     const fieldForName = { ...yMeasure, aggregation: yMeasure.aggregation || 'sum' };
     const measureName = getResultColumnName(fieldForName);
 
-    const categorySet = xDimension ? new Set(data.map(row => row[xDimension.columnName])) : new Set(["Total"]);
-    const calculatedWidth = (categorySet.size || 1) * barStep;
-
-    // Vertical bar chart
-    return {
-      width: calculatedWidth,
-      marks: [
-        Plot.barY(data, {
-          x: xDimension ? xDimension.columnName : () => "Total",
-          y: measureName,
-          fill: "steelblue",
-        }),
-        Plot.ruleY([0])
-      ],
-      x: {
-        label: xDimension ? xDimension.columnName : " ",
-      },
-      y: {
-        grid: true,
-        label: measureName,
-      },
+    const barConfig: any = {
+      y: measureName,
+      fill: "steelblue",
     };
+    
+    // Only add x field if we have a dimension
+    if (xDimension) {
+      barConfig.x = xDimension.columnName;
+      const categorySet = new Set(data.map(row => row[xDimension.columnName]));
+      const calculatedWidth = categorySet.size * barStep;
+      
+      return {
+        width: calculatedWidth,
+        marks: [
+          Plot.barY(data, barConfig),
+          Plot.ruleY([0])
+        ],
+        x: {
+          label: xDimension.columnName,
+        },
+        y: {
+          grid: true,
+          label: measureName,
+        },
+      };
+    } else {
+      // Single vertical bar - let it span full horizontal extent
+      return {
+        width: barStep * 2, // Give it a reasonable minimum width
+        marks: [
+          Plot.barY(data, barConfig),
+          Plot.ruleY([0])
+        ],
+        x: {
+          label: " ",
+        },
+        y: {
+          grid: true,
+          label: measureName,
+        },
+      };
+    }
   }
 
   if (xMeasure) {
-    // Create a temporary field with a default aggregation to avoid state mutation
+    // Horizontal bar chart (barX)
     const fieldForName = { ...xMeasure, aggregation: xMeasure.aggregation || 'sum' };
     const measureName = getResultColumnName(fieldForName);
 
-    const categorySet = yDimension ? new Set(data.map(row => row[yDimension.columnName])) : new Set(["Total"]);
-    const calculatedHeight = (categorySet.size || 1) * barStep;
-
-    // Horizontal bar chart
-    return {
-      height: calculatedHeight,
-      marks: [
-        Plot.barX(data, {
-          y: yDimension ? yDimension.columnName : () => "Total",
-          x: measureName,
-          fill: "steelblue",
-        }),
-        Plot.ruleX([0])
-      ],
-      y: {
-        label: yDimension ? yDimension.columnName : " ",
-      },
-      x: {
-        grid: true,
-        label: measureName,
-      },
+    const barConfig: any = {
+      x: measureName,
+      fill: "steelblue",
     };
+    
+    // Only add y field if we have a dimension
+    if (yDimension) {
+      barConfig.y = yDimension.columnName;
+      const categorySet = new Set(data.map(row => row[yDimension.columnName]));
+      const calculatedHeight = categorySet.size * barStep;
+      
+      return {
+        height: calculatedHeight,
+        marks: [
+          Plot.barX(data, barConfig),
+          Plot.ruleX([0])
+        ],
+        y: {
+          label: yDimension.columnName,
+        },
+        x: {
+          grid: true,
+          label: measureName,
+        },
+      };
+    } else {
+      // Single horizontal bar - let it span full vertical extent
+      return {
+        height: barStep * 2, // Give it a reasonable minimum height
+        marks: [
+          Plot.barX(data, barConfig),
+          Plot.ruleX([0])
+        ],
+        y: {
+          label: " ",
+        },
+        x: {
+          grid: true,
+          label: measureName,
+        },
+      };
+    }
   }
 
   throw new Error('Bar chart requires at least one measure.');
