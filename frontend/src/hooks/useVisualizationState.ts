@@ -90,7 +90,12 @@ export function useVisualizationState() {
             const response = await apiService.listDatabases();
             dispatch({ type: 'SET_DATABASES', payload: response.databases || [] });
         } catch (err: any) { 
-            dispatch({ type: 'SET_METADATA_ERROR', payload: err.message });
+            if (err.message === 'Request was cancelled') {
+                // Request was cancelled, don't set error
+                dispatch({ type: 'SET_METADATA_ERROR', payload: null });
+            } else {
+                dispatch({ type: 'SET_METADATA_ERROR', payload: err.message });
+            }
         }
         finally { 
             dispatch({ type: 'SET_LOADING_METADATA', payload: false });
@@ -110,7 +115,12 @@ export function useVisualizationState() {
                 dispatch({ type: 'SET_SELECTED_TABLE', payload: response.tables[0].name });
             }
         } catch (err: any) { 
-            dispatch({ type: 'SET_METADATA_ERROR', payload: err.message });
+            if (err.message === 'Request was cancelled') {
+                // Request was cancelled, don't set error
+                dispatch({ type: 'SET_METADATA_ERROR', payload: null });
+            } else {
+                dispatch({ type: 'SET_METADATA_ERROR', payload: err.message });
+            }
         }
         finally { 
             dispatch({ type: 'SET_LOADING_METADATA', payload: false });
@@ -138,7 +148,12 @@ export function useVisualizationState() {
             });
             dispatch({ type: 'SET_AVAILABLE_FIELDS', payload: fields });
         } catch (err: any) { 
-            dispatch({ type: 'SET_METADATA_ERROR', payload: err.message });
+            if (err.message === 'Request was cancelled') {
+                // Request was cancelled, don't set error
+                dispatch({ type: 'SET_METADATA_ERROR', payload: null });
+            } else {
+                dispatch({ type: 'SET_METADATA_ERROR', payload: err.message });
+            }
         }
         finally { 
             dispatch({ type: 'SET_LOADING_METADATA', payload: false });

@@ -26,7 +26,7 @@ frontend/src/
 │
 ├── vega-spec-generator/     # 🟡 VEGA (Paused)
 │   ├── vegaSpecGenerator.ts # Main Vega spec generator
-│   ├── chartTypes/          # BarChart (40px fixed thickness)
+│   ├── chartTypes/          # BarChart
 │   ├── types.ts             # VegaSpec, ChartContext, etc.
 │   └── README.md            # Vega specific docs
 │
