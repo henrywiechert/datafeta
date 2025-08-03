@@ -2,6 +2,7 @@ import * as Plot from '@observablehq/plot';
 import { FacetingLayer, FacetingContext, FacetedResult, ChartSpec, FacetingPipeline } from '../facetingPipeline';
 import { Field } from '../../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
+import { ChartSizingCoordinator, ChartSizingContext, detectChartType } from '../utils/chartSizingStrategies';
 
 /**
  * Layer 2: Multi-Measure Faceting
@@ -98,6 +99,9 @@ export class MultiMeasureLayer implements FacetingLayer {
       categoryDimension = availableYDimensions[availableYDimensions.length - 1];
     }
 
+    let marks: Plot.Markish[];
+    let plotOptions: Plot.PlotOptions;
+
     if (measureAxis === 'y') {
       // Vertical bar chart
       const barConfig: any = {
@@ -109,35 +113,21 @@ export class MultiMeasureLayer implements FacetingLayer {
         barConfig.x = categoryDimension.columnName;
       }
 
-      // For multi-measure layout, use calculated dimensions based on content
-      let width: number | undefined = undefined;
-      if (categoryDimension) {
-        const columnName = categoryDimension.columnName;
-        const categorySet = new Set(data.map((row: any) => row[columnName]));
-        const calculatedWidth = Math.max(categorySet.size * 40, 200); // Adequate bar width, minimum width
-        width = calculatedWidth;
-      }
+      marks = [
+        Plot.barY(data, barConfig),
+        Plot.ruleY([0])
+      ];
 
-      return {
-        plotOptions: {
-          width, // Let container handle width if no categories
-          title: `${measureName}`, // Title to distinguish charts
-          marks: [
-            Plot.barY(data, barConfig),
-            Plot.ruleY([0])
-          ],
-          x: {
-            label: categoryDimension ? categoryDimension.columnName : " ",
-          },
-          y: {
-            grid: true,
-            label: measureName,
-          },
+      plotOptions = {
+        title: `${measureName}`, // Title to distinguish charts
+        marks,
+        x: {
+          label: categoryDimension ? categoryDimension.columnName : " ",
         },
-        usedFields: {
-          xFields: categoryDimension ? [categoryDimension] : [],
-          yFields: [measure]
-        }
+        y: {
+          grid: true,
+          label: measureName,
+        },
       };
     } else {
       // Horizontal bar chart
@@ -150,37 +140,44 @@ export class MultiMeasureLayer implements FacetingLayer {
         barConfig.y = categoryDimension.columnName;
       }
 
-      // For multi-measure layout, use calculated dimensions based on content
-      let height: number | undefined = undefined;
-      if (categoryDimension) {
-        const columnName = categoryDimension.columnName;
-        const categorySet = new Set(data.map((row: any) => row[columnName]));
-        const calculatedHeight = Math.max(categorySet.size * 40, 200); // Adequate bar height, minimum height
-        height = calculatedHeight;
-      }
+      marks = [
+        Plot.barX(data, barConfig),
+        Plot.ruleX([0])
+      ];
 
-      return {
-        plotOptions: {
-          height, // Let container handle height if no categories
-          title: `${measureName}`, // Title to distinguish charts
-          marks: [
-            Plot.barX(data, barConfig),
-            Plot.ruleX([0])
-          ],
-          y: {
-            label: categoryDimension ? categoryDimension.columnName : " ",
-          },
-          x: {
-            grid: true,
-            label: measureName,
-          },
+      plotOptions = {
+        title: `${measureName}`, // Title to distinguish charts
+        marks,
+        y: {
+          label: categoryDimension ? categoryDimension.columnName : " ",
         },
-        usedFields: {
-          xFields: [measure],
-          yFields: categoryDimension ? [categoryDimension] : []
-        }
+        x: {
+          grid: true,
+          label: measureName,
+        },
       };
     }
+
+    // Apply chart-type-aware sizing
+    const chartType = detectChartType(marks);
+    const sizingContext: ChartSizingContext = {
+      data,
+      measureField: measure,
+      dimensionField: categoryDimension || undefined,
+      chartType,
+      orientation: measureAxis === 'y' ? 'vertical' : 'horizontal'
+    };
+
+    const sizingRequirements = ChartSizingCoordinator.calculateSizing(sizingContext);
+    plotOptions = ChartSizingCoordinator.applySizing(plotOptions, sizingRequirements);
+
+    return {
+      plotOptions,
+      usedFields: {
+        xFields: measureAxis === 'y' ? (categoryDimension ? [categoryDimension] : []) : [measure],
+        yFields: measureAxis === 'y' ? [measure] : (categoryDimension ? [categoryDimension] : [])
+      }
+    };
   }
 
   private applyMultiChartLayout(charts: ChartSpec[]): void {
