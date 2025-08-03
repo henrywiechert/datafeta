@@ -2,6 +2,7 @@ import * as Plot from '@observablehq/plot';
 import { FacetingLayer, FacetingContext, FacetedResult, ChartSpec, FacetingPipeline } from '../facetingPipeline';
 import { Field } from '../../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
+import { ChartSizingCoordinator, ChartSizingContext, detectChartType } from '../utils/chartSizingStrategies';
 
 /**
  * Layer 1: Single Chart Generation
@@ -95,7 +96,9 @@ export class SingleChartLayer implements FacetingLayer {
   ): ChartSpec {
     const data = queryResult.rows;
     const measureName = getResultColumnName(measure);
-    const barStep = 40;
+
+    let marks: Plot.Markish[];
+    let plotOptions: Plot.PlotOptions;
 
     if (measureAxis === 'y') {
       // Vertical bar chart
@@ -108,32 +111,20 @@ export class SingleChartLayer implements FacetingLayer {
         barConfig.x = dimension.columnName;
       }
 
-      // Calculate width
-      let width = barStep * 2;
-      if (dimension) {
-        const categorySet = new Set(data.map((row: any) => row[dimension.columnName]));
-        width = categorySet.size * barStep;
-      }
+      marks = [
+        Plot.barY(data, barConfig),
+        Plot.ruleY([0])
+      ];
 
-      return {
-        plotOptions: {
-          width,
-          marks: [
-            Plot.barY(data, barConfig),
-            Plot.ruleY([0])
-          ],
-          x: {
-            label: dimension ? dimension.columnName : " ",
-          },
-          y: {
-            grid: true,
-            label: measureName,
-          },
+      plotOptions = {
+        marks,
+        x: {
+          label: dimension ? dimension.columnName : " ",
         },
-        usedFields: {
-          xFields: dimension ? [dimension] : [],
-          yFields: [measure]
-        }
+        y: {
+          grid: true,
+          label: measureName,
+        },
       };
     } else {
       // Horizontal bar chart
@@ -146,33 +137,42 @@ export class SingleChartLayer implements FacetingLayer {
         barConfig.y = dimension.columnName;
       }
 
-      // Calculate height
-      let height = barStep * 2;
-      if (dimension) {
-        const categorySet = new Set(data.map((row: any) => row[dimension.columnName]));
-        height = categorySet.size * barStep;
-      }
+      marks = [
+        Plot.barX(data, barConfig),
+        Plot.ruleX([0])
+      ];
 
-      return {
-        plotOptions: {
-          height,
-          marks: [
-            Plot.barX(data, barConfig),
-            Plot.ruleX([0])
-          ],
-          y: {
-            label: dimension ? dimension.columnName : " ",
-          },
-          x: {
-            grid: true,
-            label: measureName,
-          },
+      plotOptions = {
+        marks,
+        y: {
+          label: dimension ? dimension.columnName : " ",
         },
-        usedFields: {
-          xFields: [measure],
-          yFields: dimension ? [dimension] : []
-        }
+        x: {
+          grid: true,
+          label: measureName,
+        },
       };
     }
+
+    // Apply chart-type-aware sizing  
+    const chartType = detectChartType(marks);
+    const sizingContext: ChartSizingContext = {
+      data,
+      measureField: measure,
+      dimensionField: dimension || undefined,
+      chartType,
+      orientation: measureAxis === 'y' ? 'vertical' : 'horizontal'
+    };
+
+    const sizingRequirements = ChartSizingCoordinator.calculateSizing(sizingContext);
+    plotOptions = ChartSizingCoordinator.applySizing(plotOptions, sizingRequirements);
+
+    return {
+      plotOptions,
+      usedFields: {
+        xFields: measureAxis === 'y' ? (dimension ? [dimension] : []) : [measure],
+        yFields: measureAxis === 'y' ? [measure] : (dimension ? [dimension] : [])
+      }
+    };
   }
 }
