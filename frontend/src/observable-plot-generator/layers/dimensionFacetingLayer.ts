@@ -2,6 +2,7 @@ import * as Plot from '@observablehq/plot';
 import { FacetingLayer, FacetingContext, FacetedResult, ChartSpec, FacetingPipeline } from '../facetingPipeline';
 import { Field } from '../../types';
 import { ChartSizingCoordinator, ChartSizingContext, detectChartType } from '../utils/chartSizingStrategies';
+import { createFacetConfiguration, applyFacetConfiguration, addFacetingToMark } from '../utils/facetingUtils';
 
 /**
  * Layer 3: Discrete Dimension Faceting
@@ -64,25 +65,23 @@ export class DimensionFacetingLayer implements FacetingLayer {
   }
 
   private getFacetConfig(xDimensions: Field[], yDimensions: Field[]) {
-    const config: any = {};
-
-    // Horizontal faceting (fx) from X-axis dimensions
-    if (xDimensions.length > 0) {
-      // For hierarchical faceting, use the first dimension
-      // TODO: Future enhancement could handle multiple levels
-      config.fx = xDimensions[0].columnName;
-      config.fxDimension = xDimensions[0];
+    // Use the unified faceting approach: X-axis → fx, Y-axis → fy
+    const facetConfig = createFacetConfiguration(xDimensions, yDimensions, 'dimensions');
+    
+    // Convert to the legacy format for backward compatibility with existing code
+    const legacyConfig: any = {};
+    
+    if (facetConfig.fx) {
+      legacyConfig.fx = facetConfig.fx;
+      legacyConfig.fxDimension = facetConfig.fxField;
     }
-
-    // Vertical faceting (fy) from Y-axis dimensions
-    if (yDimensions.length > 0) {
-      // For hierarchical faceting, use the first dimension
-      // TODO: Future enhancement could handle multiple levels  
-      config.fy = yDimensions[0].columnName;
-      config.fyDimension = yDimensions[0];
+    
+    if (facetConfig.fy) {
+      legacyConfig.fy = facetConfig.fy;
+      legacyConfig.fyDimension = facetConfig.fyField;
     }
-
-    return config;
+    
+    return legacyConfig;
   }
 
   private createMinimalFacetedChart(facetConfig: any, context: FacetingContext): ChartSpec {
@@ -91,34 +90,24 @@ export class DimensionFacetingLayer implements FacetingLayer {
     
     const marks: Plot.Markish[] = [];
     
+    // Create base mark configurations
+    let baseMarkConfig: any = { fill: "steelblue" };
+    
     if (facetConfig.fx && facetConfig.fy) {
       // Matrix faceting - create a simple dot plot or count
-      marks.push(
-        Plot.dot(data, {
-          fx: facetConfig.fx,
-          fy: facetConfig.fy,
-          fill: "steelblue",
-          r: 3
-        })
-      );
+      baseMarkConfig.r = 3;
+      const facetedMarkConfig = addFacetingToMark(baseMarkConfig, facetConfig);
+      marks.push(Plot.dot(data, facetedMarkConfig));
     } else if (facetConfig.fx) {
-      // Horizontal faceting only
-      marks.push(
-        Plot.barY(data, {
-          fx: facetConfig.fx,
-          y: () => 1, // Count
-          fill: "steelblue"
-        })
-      );
+      // Horizontal faceting only - vertical bars
+      baseMarkConfig.y = () => 1; // Count
+      const facetedMarkConfig = addFacetingToMark(baseMarkConfig, facetConfig);
+      marks.push(Plot.barY(data, facetedMarkConfig));
     } else if (facetConfig.fy) {
-      // Vertical faceting only
-      marks.push(
-        Plot.barX(data, {
-          fy: facetConfig.fy,
-          x: () => 1, // Count
-          fill: "steelblue"
-        })
-      );
+      // Vertical faceting only - horizontal bars
+      baseMarkConfig.x = () => 1; // Count
+      const facetedMarkConfig = addFacetingToMark(baseMarkConfig, facetConfig);
+      marks.push(Plot.barX(data, facetedMarkConfig));
     }
 
     // Apply chart-type-aware sizing
@@ -134,19 +123,17 @@ export class DimensionFacetingLayer implements FacetingLayer {
     };
 
     const sizingRequirements = ChartSizingCoordinator.calculateSizing(sizingContext);
-    let plotOptions: Plot.PlotOptions = {
-      marks,
-    };
+    let plotOptions: Plot.PlotOptions = { marks };
 
     plotOptions = ChartSizingCoordinator.applySizing(plotOptions, sizingRequirements);
 
-    // Add facet axis labels
-    if (facetConfig.fx) {
-      plotOptions.fx = { label: facetConfig.fxDimension.columnName };
-    }
-    if (facetConfig.fy) {
-      plotOptions.fy = { label: facetConfig.fyDimension.columnName };
-    }
+    // Use unified facet configuration application
+    plotOptions = applyFacetConfiguration(plotOptions, {
+      fx: facetConfig.fx,
+      fy: facetConfig.fy,
+      fxField: facetConfig.fxDimension,
+      fyField: facetConfig.fyDimension
+    });
 
     return {
       plotOptions,
@@ -185,23 +172,23 @@ export class DimensionFacetingLayer implements FacetingLayer {
     // Determine chart orientation based on measure placement
     const isMeasureOnY = context.consumedFields.yFields.includes(measure);
 
-    const barConfig: any = {
-      fill: "steelblue",
-      ...facetConfig // Add fx/fy faceting
-    };
-
+    // Create base mark configuration
+    let baseBarConfig: any = { fill: "steelblue" };
     let marks: Plot.Markish[];
     let plotOptions: Plot.PlotOptions;
 
     if (isMeasureOnY) {
       // Vertical bars with faceting
-      barConfig.y = measureName;
+      baseBarConfig.y = measureName;
       if (categoryDimension) {
-        barConfig.x = categoryDimension.columnName;
+        baseBarConfig.x = categoryDimension.columnName;
       }
 
+      // Add faceting using unified utilities
+      const facetedBarConfig = addFacetingToMark(baseBarConfig, facetConfig);
+
       marks = [
-        Plot.barY(data, barConfig),
+        Plot.barY(data, facetedBarConfig),
         Plot.ruleY([0])
       ];
 
@@ -217,13 +204,16 @@ export class DimensionFacetingLayer implements FacetingLayer {
       };
     } else {
       // Horizontal bars with faceting
-      barConfig.x = measureName;
+      baseBarConfig.x = measureName;
       if (categoryDimension) {
-        barConfig.y = categoryDimension.columnName;
+        baseBarConfig.y = categoryDimension.columnName;
       }
 
+      // Add faceting using unified utilities
+      const facetedBarConfig = addFacetingToMark(baseBarConfig, facetConfig);
+
       marks = [
-        Plot.barX(data, barConfig),
+        Plot.barX(data, facetedBarConfig),
         Plot.ruleX([0])
       ];
 
@@ -256,13 +246,13 @@ export class DimensionFacetingLayer implements FacetingLayer {
     const sizingRequirements = ChartSizingCoordinator.calculateSizing(sizingContext);
     plotOptions = ChartSizingCoordinator.applySizing(plotOptions, sizingRequirements);
 
-    // Add facet axis labels
-    if (facetConfig.fx) {
-      plotOptions.fx = { label: facetConfig.fxDimension.columnName };
-    }
-    if (facetConfig.fy) {
-      plotOptions.fy = { label: facetConfig.fyDimension.columnName };
-    }
+    // Use unified facet configuration application
+    plotOptions = applyFacetConfiguration(plotOptions, {
+      fx: facetConfig.fx,
+      fy: facetConfig.fy,
+      fxField: facetConfig.fxDimension,
+      fyField: facetConfig.fyDimension
+    });
 
     return {
       plotOptions,

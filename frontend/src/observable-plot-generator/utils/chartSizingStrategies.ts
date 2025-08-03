@@ -22,6 +22,10 @@ export interface ChartSizingContext {
   facetFields?: Field[];
   chartType: ChartType;
   orientation: 'vertical' | 'horizontal';
+  // New properties for measure faceting context
+  isMeasureFaceting?: boolean;
+  originalData?: any[]; // Original data before measure transformation
+  measureCount?: number; // Number of measures being faceted
 }
 
 /**
@@ -49,12 +53,21 @@ export class BarChartSizingStrategy {
   private static readonly MIN_BAR_COUNT = 1; // Minimum bars for reasonable sizing
 
   static calculateSize(context: ChartSizingContext): SizingRequirements {
-    const { data, dimensionField, orientation, facetFields } = context;
+    const { data, dimensionField, orientation, facetFields, isMeasureFaceting, originalData } = context;
     const isFaceted = facetFields && facetFields.length > 0;
 
+    // Special handling for measure faceting
+    if (isMeasureFaceting && originalData) {
+      console.log(`📏 Bar sizing for measure faceting scenario`);
+      return this.calculateMeasureFacetingSize(context);
+    }
+
+    // When there is no dimension, we are often using a dummy dimension to control thickness.
+    // In this case, we want a fixed, small size for the single bar.
     if (!dimensionField) {
-      // For a single bar, provide a reasonable default size.
-      const size = this.BAR_WIDTH * 2;
+      const size = this.BAR_WIDTH * 2; // e.g., 80px
+      console.log(`📏 Sizing for a single bar (no dimension): ${size}px`);
+      // Use min-dimension for faceted single bars, and absolute for non-faceted.
       if (isFaceted) {
         return orientation === 'vertical' ? { minWidth: size } : { minHeight: size };
       }
@@ -72,6 +85,42 @@ export class BarChartSizingStrategy {
       return isFaceted ? { minWidth: calculatedSize } : { width: calculatedSize };
     } else {
       return isFaceted ? { minHeight: calculatedSize } : { height: calculatedSize };
+    }
+  }
+
+  /**
+   * Special sizing calculation for measure faceting scenarios.
+   * In measure faceting, each facet represents one measure, and we want consistent bar thickness.
+   */
+  private static calculateMeasureFacetingSize(context: ChartSizingContext): SizingRequirements {
+    const { originalData, dimensionField, orientation, measureCount } = context;
+    
+    if (!originalData) {
+      console.warn(`⚠️ No original data provided for measure faceting size calculation`);
+      return { minWidth: this.BAR_WIDTH * 2, minHeight: this.BAR_WIDTH * 2 };
+    }
+
+    let categoryCount = this.MIN_BAR_COUNT;
+    
+    if (dimensionField) {
+      // Calculate categories from original data (before measure transformation)
+      const categorySet = new Set(originalData.map(row => row[dimensionField.columnName]));
+      categoryCount = Math.max(categorySet.size, this.MIN_BAR_COUNT);
+      console.log(`📊 Measure faceting: ${categoryCount} categories from dimension '${dimensionField.columnName}'`);
+    } else {
+      // No dimension field - each measure facet will have one bar
+      categoryCount = 1;
+      console.log(`📊 Measure faceting: Single bar per facet (no dimension)`);
+    }
+
+    const calculatedSize = categoryCount * this.BAR_WIDTH;
+    console.log(`📏 Calculated size for measure faceting: ${calculatedSize}px (${categoryCount} categories × ${this.BAR_WIDTH}px)`);
+
+    // For measure faceting, always use min dimensions to allow proper facet sizing
+    if (orientation === 'vertical') {
+      return { minWidth: calculatedSize };
+    } else {
+      return { minHeight: calculatedSize };
     }
   }
 }
