@@ -1,6 +1,7 @@
 import * as Plot from '@observablehq/plot';
 import { FacetingLayer, FacetingContext, FacetedResult, ChartSpec, FacetingPipeline } from '../facetingPipeline';
 import { Field } from '../../types';
+import { ChartSizingCoordinator, ChartSizingContext, detectChartType } from '../utils/chartSizingStrategies';
 
 /**
  * Layer 3: Discrete Dimension Faceting
@@ -88,7 +89,7 @@ export class DimensionFacetingLayer implements FacetingLayer {
     // Create a simple visualization when only dimensions are present
     const data = context.queryResult.rows;
     
-    const marks: any[] = [];
+    const marks: Plot.Markish[] = [];
     
     if (facetConfig.fx && facetConfig.fy) {
       // Matrix faceting - create a simple dot plot or count
@@ -120,9 +121,24 @@ export class DimensionFacetingLayer implements FacetingLayer {
       );
     }
 
-    const plotOptions: Plot.PlotOptions = {
+    // Apply chart-type-aware sizing
+    const chartType = detectChartType(marks);
+    const sizingContext: ChartSizingContext = {
+      data,
+      facetFields: [
+        ...(facetConfig.fxDimension ? [facetConfig.fxDimension] : []),
+        ...(facetConfig.fyDimension ? [facetConfig.fyDimension] : [])
+      ],
+      chartType,
+      orientation: facetConfig.fx ? 'vertical' : 'horizontal'
+    };
+
+    const sizingRequirements = ChartSizingCoordinator.calculateSizing(sizingContext);
+    let plotOptions: Plot.PlotOptions = {
       marks,
     };
+
+    plotOptions = ChartSizingCoordinator.applySizing(plotOptions, sizingRequirements);
 
     // Add facet axis labels
     if (facetConfig.fx) {
@@ -174,6 +190,7 @@ export class DimensionFacetingLayer implements FacetingLayer {
       ...facetConfig // Add fx/fy faceting
     };
 
+    let marks: Plot.Markish[];
     let plotOptions: Plot.PlotOptions;
 
     if (isMeasureOnY) {
@@ -183,11 +200,13 @@ export class DimensionFacetingLayer implements FacetingLayer {
         barConfig.x = categoryDimension.columnName;
       }
 
+      marks = [
+        Plot.barY(data, barConfig),
+        Plot.ruleY([0])
+      ];
+
       plotOptions = {
-        marks: [
-          Plot.barY(data, barConfig),
-          Plot.ruleY([0])
-        ],
+        marks,
         x: {
           label: categoryDimension ? categoryDimension.columnName : " ",
         },
@@ -203,11 +222,13 @@ export class DimensionFacetingLayer implements FacetingLayer {
         barConfig.y = categoryDimension.columnName;
       }
 
+      marks = [
+        Plot.barX(data, barConfig),
+        Plot.ruleX([0])
+      ];
+
       plotOptions = {
-        marks: [
-          Plot.barX(data, barConfig),
-          Plot.ruleX([0])
-        ],
+        marks,
         y: {
           label: categoryDimension ? categoryDimension.columnName : " ",
         },
@@ -217,6 +238,23 @@ export class DimensionFacetingLayer implements FacetingLayer {
         },
       };
     }
+
+    // Apply chart-type-aware sizing
+    const chartType = detectChartType(marks);
+    const sizingContext: ChartSizingContext = {
+      data,
+      measureField: measure,
+      dimensionField: categoryDimension || undefined,
+      facetFields: [
+        ...(facetConfig.fxDimension ? [facetConfig.fxDimension] : []),
+        ...(facetConfig.fyDimension ? [facetConfig.fyDimension] : [])
+      ],
+      chartType,
+      orientation: isMeasureOnY ? 'vertical' : 'horizontal'
+    };
+
+    const sizingRequirements = ChartSizingCoordinator.calculateSizing(sizingContext);
+    plotOptions = ChartSizingCoordinator.applySizing(plotOptions, sizingRequirements);
 
     // Add facet axis labels
     if (facetConfig.fx) {

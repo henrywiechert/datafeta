@@ -28,10 +28,12 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options }) => {
 
   useEffect(() => {
     if (dimensions.width > 0 && dimensions.height > 0 && containerRef.current) {
+      // For faceted charts, only use container dimensions as fallback if chart doesn't specify size
       const newOptions = {
         ...options,
-        width: options.width || dimensions.width,
-        height: options.height || dimensions.height,
+        // Only use container dimensions if chart hasn't specified exact dimensions
+        width: options.width !== undefined ? options.width : dimensions.width,
+        height: options.height !== undefined ? options.height : dimensions.height,
       };
 
       try {

@@ -83,12 +83,22 @@
     max-height: 100%;
 }
 
-/* Observable Plot charts: Fill container for faceted charts, respect intrinsic size for others */
+/* Observable Plot charts: Responsive sizing with overflow handling */
 .observablePlotContainer {
     align-items: stretch; /* Fill container width for responsive sizing */
     flex-grow: 1; /* Take available space */
     display: flex; /* Maintain flex context */
     min-height: 0; /* Prevent flexbox blowout */
+    overflow: auto; /* Enable scrolling when content exceeds container */
+    position: relative; /* For proper overflow handling */
+}
+
+/* Observable Plot chart content wrapper */
+.observablePlotContainer > div {
+    min-width: fit-content; /* Allow chart to determine its minimum size */
+    min-height: fit-content; /* Allow chart to determine its minimum size */
+    width: 100%; /* Fill container width when possible */
+    height: 100%; /* Fill container height when possible */
 }
 
 /* Legacy styles - keeping for backward compatibility but may be unused */
