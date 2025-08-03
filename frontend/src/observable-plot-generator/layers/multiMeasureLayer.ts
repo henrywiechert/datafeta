@@ -87,7 +87,6 @@ export class MultiMeasureLayer implements FacetingLayer {
   ): ChartSpec {
     const data = queryResult.rows;
     const measureName = getResultColumnName(measure);
-    const barStep = 40;
 
     // For multi-measure charts, use the best available dimension for categories
     // Take the last dimension (most specific) from the opposite axis
@@ -110,18 +109,18 @@ export class MultiMeasureLayer implements FacetingLayer {
         barConfig.x = categoryDimension.columnName;
       }
 
-      // For multi-measure layout, use consistent smaller widths
-      let width = 250; // Standard width for multi-measure charts
+      // For multi-measure layout, use calculated dimensions based on content
+      let width: number | undefined = undefined;
       if (categoryDimension) {
-        const categorySet = new Set(data.map((row: any) => row[categoryDimension.columnName]));
-        const calculatedWidth = Math.min(categorySet.size * 25, 300); // Smaller bars, max width
-        width = Math.max(calculatedWidth, 150); // Minimum width
+        const columnName = categoryDimension.columnName;
+        const categorySet = new Set(data.map((row: any) => row[columnName]));
+        const calculatedWidth = Math.max(categorySet.size * 40, 200); // Adequate bar width, minimum width
+        width = calculatedWidth;
       }
 
       return {
         plotOptions: {
-          width,
-          height: 200, // Standard height for multi-measure
+          width, // Let container handle width if no categories
           title: `${measureName}`, // Title to distinguish charts
           marks: [
             Plot.barY(data, barConfig),
@@ -151,18 +150,18 @@ export class MultiMeasureLayer implements FacetingLayer {
         barConfig.y = categoryDimension.columnName;
       }
 
-      // For multi-measure layout, use consistent smaller heights
-      let height = 200; // Standard height for multi-measure charts
+      // For multi-measure layout, use calculated dimensions based on content
+      let height: number | undefined = undefined;
       if (categoryDimension) {
-        const categorySet = new Set(data.map((row: any) => row[categoryDimension.columnName]));
-        const calculatedHeight = Math.min(categorySet.size * 25, 250); // Smaller bars, max height
-        height = Math.max(calculatedHeight, 120); // Minimum height
+        const columnName = categoryDimension.columnName;
+        const categorySet = new Set(data.map((row: any) => row[columnName]));
+        const calculatedHeight = Math.max(categorySet.size * 40, 200); // Adequate bar height, minimum height
+        height = calculatedHeight;
       }
 
       return {
         plotOptions: {
-          width: 300, // Standard width for horizontal multi-measure
-          height,
+          height, // Let container handle height if no categories
           title: `${measureName}`, // Title to distinguish charts
           marks: [
             Plot.barX(data, barConfig),
@@ -190,10 +189,15 @@ export class MultiMeasureLayer implements FacetingLayer {
     
     charts.forEach((chart, index) => {
       // Add subtle styling differences for multiple charts
-      chart.plotOptions.style = {
+      const newStyle: any = {
         backgroundColor: index % 2 === 0 ? "white" : "#fafafa",
-        ...chart.plotOptions.style
       };
+
+      if (chart.plotOptions.style) {
+        Object.assign(newStyle, chart.plotOptions.style);
+      }
+      
+      chart.plotOptions.style = newStyle;
       
       // Ensure consistent margins for multi-chart layout
       chart.plotOptions.marginTop = 40; // Space for titles
