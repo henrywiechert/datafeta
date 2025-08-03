@@ -121,8 +121,6 @@ export class DimensionFacetingLayer implements FacetingLayer {
     }
 
     const plotOptions: Plot.PlotOptions = {
-      width: 400,
-      height: 300,
       marks,
     };
 
@@ -186,8 +184,6 @@ export class DimensionFacetingLayer implements FacetingLayer {
       }
 
       plotOptions = {
-        width: 200, // Smaller for faceted charts
-        height: 150,
         marks: [
           Plot.barY(data, barConfig),
           Plot.ruleY([0])
@@ -208,8 +204,6 @@ export class DimensionFacetingLayer implements FacetingLayer {
       }
 
       plotOptions = {
-        width: 200, // Smaller for faceted charts
-        height: 150,
         marks: [
           Plot.barX(data, barConfig),
           Plot.ruleX([0])
