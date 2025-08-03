@@ -12,4 +12,15 @@ export interface ChartGenerationContext {
 export interface PlotResult {
   library: 'observable-plot';
   options: Plot.PlotOptions;
+  additionalCharts?: {
+    plotOptions: Plot.PlotOptions;
+    usedFields: {
+      xFields: Field[];
+      yFields: Field[];
+    };
+  }[];
+  pipelineInfo?: {
+    totalCharts: number;
+    remainingFields: number;
+  };
 } 
