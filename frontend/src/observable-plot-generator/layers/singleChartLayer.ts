@@ -20,7 +20,23 @@ export class SingleChartLayer implements FacetingLayer {
     
     // Can apply if we have at least one measure
     const hasMeasure = [...remainingXFields, ...remainingYFields].some(f => f.type === 'measure');
-    return hasMeasure;
+    if (!hasMeasure) {
+      return false;
+    }
+    
+    // Skip if there are multiple measures on the same axis - let MultiMeasureLayer handle them together
+    const xMeasures = remainingXFields.filter(f => f.type === 'measure');
+    const yMeasures = remainingYFields.filter(f => f.type === 'measure');
+    
+    const hasMultipleXMeasures = xMeasures.length > 1;
+    const hasMultipleYMeasures = yMeasures.length > 1;
+    
+    if (hasMultipleXMeasures || hasMultipleYMeasures) {
+      console.log(`⏭️ SingleChartLayer skipping: Multiple measures on same axis (X: ${xMeasures.length}, Y: ${yMeasures.length})`);
+      return false;
+    }
+    
+    return true;
   }
 
   apply(context: FacetingContext): FacetedResult {
