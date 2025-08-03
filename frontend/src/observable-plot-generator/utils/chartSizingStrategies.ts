@@ -46,28 +46,32 @@ export function detectChartType(marks: Plot.Markish[]): ChartType {
  */
 export class BarChartSizingStrategy {
   private static readonly BAR_WIDTH = 40; // Base bar width/height
-  private static readonly MIN_BAR_COUNT = 2; // Minimum bars for reasonable sizing
-  private static readonly MAX_DIMENSION_SIZE = 800; // Maximum size for one dimension
+  private static readonly MIN_BAR_COUNT = 1; // Minimum bars for reasonable sizing
 
   static calculateSize(context: ChartSizingContext): SizingRequirements {
-    const { data, dimensionField, orientation } = context;
-    
+    const { data, dimensionField, orientation, facetFields } = context;
+    const isFaceted = facetFields && facetFields.length > 0;
+
     if (!dimensionField) {
-      // Single bar chart
-      return orientation === 'vertical' 
-        ? { width: this.BAR_WIDTH * this.MIN_BAR_COUNT }
-        : { height: this.BAR_WIDTH * this.MIN_BAR_COUNT };
+      // For a single bar, provide a reasonable default size.
+      const size = this.BAR_WIDTH * 2;
+      if (isFaceted) {
+        return orientation === 'vertical' ? { minWidth: size } : { minHeight: size };
+      }
+      return orientation === 'vertical' ? { width: size } : { height: size };
     }
 
-    // Calculate category count
+    // Calculate size based on the number of categories.
     const categorySet = new Set(data.map(row => row[dimensionField.columnName]));
     const categoryCount = Math.max(categorySet.size, this.MIN_BAR_COUNT);
-    const calculatedSize = Math.min(categoryCount * this.BAR_WIDTH, this.MAX_DIMENSION_SIZE);
+    const calculatedSize = categoryCount * this.BAR_WIDTH;
 
+    // For faceted charts, use min-dimensions to let CSS handle overflow.
+    // For single charts, set the absolute dimension to enforce scrolling.
     if (orientation === 'vertical') {
-      return { width: calculatedSize };
+      return isFaceted ? { minWidth: calculatedSize } : { width: calculatedSize };
     } else {
-      return { height: calculatedSize };
+      return isFaceted ? { minHeight: calculatedSize } : { height: calculatedSize };
     }
   }
 }

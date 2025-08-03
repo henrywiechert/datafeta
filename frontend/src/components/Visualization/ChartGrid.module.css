@@ -93,12 +93,19 @@
     position: relative; /* For proper overflow handling */
 }
 
-/* Observable Plot chart content wrapper */
 .observablePlotContainer > div {
-    min-width: fit-content; /* Allow chart to determine its minimum size */
-    min-height: fit-content; /* Allow chart to determine its minimum size */
-    width: 100%; /* Fill container width when possible */
-    height: 100%; /* Fill container height when possible */
+    /* Let the container shrink but not the content */
+    flex-shrink: 0;
+    /* When a width is set on the plot, we want it to be respected */
+    width: auto;
+    height: auto;
+    /* Center the plot if it's smaller than the container */
+    margin: auto;
+}
+
+.observablePlotContainer :global(svg) {
+    /* Override the default max-width to allow horizontal scrolling for wide charts */
+    max-width: none;
 }
 
 /* Legacy styles - keeping for backward compatibility but may be unused */

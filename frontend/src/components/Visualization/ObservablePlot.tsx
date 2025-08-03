@@ -27,22 +27,27 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options }) => {
   }, []);
 
   useEffect(() => {
-    if (dimensions.width > 0 && dimensions.height > 0 && containerRef.current) {
-      // For faceted charts, only use container dimensions as fallback if chart doesn't specify size
-      const newOptions = {
-        ...options,
-        // Only use container dimensions if chart hasn't specified exact dimensions
-        width: options.width !== undefined ? options.width : dimensions.width,
-        height: options.height !== undefined ? options.height : dimensions.height,
-      };
+    if (containerRef.current) {
+      // Determine final plot dimensions, prioritizing explicit options over observed dimensions.
+      const finalWidth = options.width !== undefined ? options.width : dimensions.width;
+      const finalHeight = options.height !== undefined ? options.height : dimensions.height;
 
-      try {
-        const plot = Plot.plot(newOptions);
-        
-        containerRef.current.innerHTML = '';
-        containerRef.current.appendChild(plot);
-      } catch (error) {
-        console.error('ObservablePlot - Error creating plot:', error);
+      // Only render if we have valid dimensions to prevent errors.
+      if (finalWidth > 0 && finalHeight > 0) {
+        const newOptions = {
+          ...options,
+          width: finalWidth,
+          height: finalHeight,
+        };
+
+        try {
+          const plot = Plot.plot(newOptions);
+          
+          containerRef.current.innerHTML = '';
+          containerRef.current.appendChild(plot);
+        } catch (error) {
+          console.error('ObservablePlot - Error creating plot:', error);
+        }
       }
     }
   }, [options, dimensions]);
