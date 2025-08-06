@@ -85,6 +85,12 @@ class QueryService:
 
             field_term = t[measure.field]
             agg_term = agg_func_builder(field_term)
+            
+            # For DuckDB, wrap AVG and SUM with COALESCE to handle NULL results
+            if db_type != 'clickhouse' and measure.aggregation in ['avg', 'sum']:
+                from pypika.functions import Coalesce
+                agg_term = Coalesce(agg_term, 0)
+            
             # Pass alias as a simple string to .as_()
             select_fields.append(agg_term.as_(measure.alias))
             all_aliases.add(measure.alias)
