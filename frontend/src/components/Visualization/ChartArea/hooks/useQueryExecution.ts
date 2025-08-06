@@ -2,6 +2,7 @@ import { useCallback, useRef, useEffect, useMemo } from 'react';
 import { apiService } from '../../../../apiService';
 import { buildQuery } from '../../../../queryBuilder/queryBuilder';
 import { QueryDescription } from '../../../../types';
+import { useConnection } from '../../../../contexts/ConnectionContext';
 import { logOperationTiming, logOperationStart } from '../utils';
 import { validateAndCleanData } from '../utils/dataValidation';
 
@@ -28,6 +29,7 @@ export const useQueryExecution = ({
   completeOperation,
   dispatch,
 }: UseQueryExecutionProps): UseQueryExecutionReturn => {
+  const { connectionDetails } = useConnection();
   const queryAbortControllerRef = useRef<AbortController | null>(null);
 
   const executeQuery = useCallback(async (queryDesc: QueryDescription) => {
@@ -115,7 +117,13 @@ export const useQueryExecution = ({
     const fetchData = async () => {
       const allFields = [...xAxisFields, ...yAxisFields];
       
-      if (allFields.length === 0 || !selectedTable || !selectedDatabase) {
+      // For CSV connections using DuckDB, use 'main' as the default database if none is set
+      let effectiveDatabase = selectedDatabase;
+      if (connectionDetails?.type === 'csv' && !selectedDatabase) {
+        effectiveDatabase = 'main'; // DuckDB's default database name
+      }
+      
+      if (allFields.length === 0 || !selectedTable || !effectiveDatabase) {
         // If there's no query to run, clear previous results
         dispatch({ type: 'SET_QUERY_RESULT', payload: null });
         dispatch({ type: 'SET_QUERY_ERROR', payload: null });
@@ -127,7 +135,7 @@ export const useQueryExecution = ({
       const queryDesc = buildQuery({
         fields: allFields,
         selectedTable,
-        selectedDatabase,
+        selectedDatabase: effectiveDatabase,
       });
 
       // console.log(`📋 Generated query:`, { 
@@ -142,7 +150,7 @@ export const useQueryExecution = ({
     };
 
     fetchData();
-  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields]);
+  }, [selectedTable, selectedDatabase, connectionDetails, xAxisFields, yAxisFields]);
 
   // Cleanup on unmount
   useEffect(() => {
