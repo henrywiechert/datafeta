@@ -43,7 +43,7 @@ class FileConnector(BaseConnector):
             con = duckdb.connect(database=':memory:', read_only=False)
 
             if self._file_type == 'csv':
-                file_reader = f"read_csv_auto('{self.file_path}', SAMPLE_SIZE=-1)"
+                file_reader = f"read_csv_auto('{self.file_path}', SAMPLE_SIZE=-1, nullstr='NaN')"
             # Add elif for other types later
             else:
                  con.close() # Close connection if file type is wrong
@@ -132,6 +132,8 @@ class FileConnector(BaseConnector):
             rows = arrow_table.to_pylist()
             # No need to close con here
             logger.debug(f"Fetch data returning {len(columns)} columns and {len(rows)} rows.")
+            logger.debug(f"Columns: {columns}")
+            logger.debug(f"Rows: {rows}")
             return columns, rows
 
         except Exception as e:
