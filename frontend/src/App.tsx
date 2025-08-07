@@ -1,71 +1,43 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, useLocation, useNavigate } from 'react-router-dom';
+import React, { lazy, Suspense } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Tabs, Tab, Box } from '@mui/material';
-import DataSourceSelectionPage from './pages/DataSourceSelectionPage';
-import VisualizationPage from './pages/VisualizationPage';
 import { VisualizationProvider } from './contexts/VisualizationContext';
 import './App.css';
+
+const DataSourceSelectionPage = lazy(() => import('./pages/DataSourceSelectionPage'));
+const VisualizationPage = lazy(() => import('./pages/VisualizationPage'));
 
 function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
-  // Set initial tab value based on the current path
-  const [tabValue, setTabValue] = useState(location.pathname === '/visualize' ? 1 : 0);
-
-  // Update tab value and navigate when URL changes from outside (e.g., browser back/forward)
-  useEffect(() => {
-    if (location.pathname === '/visualize') {
-      setTabValue(1);
-    } else {
-      // Default to the data source page for any other path, including "/"
-      setTabValue(0);
-      if (location.pathname !== '/') {
-        navigate('/');
-      }
-    }
-  }, [location.pathname, navigate]);
+  const currentTab = location.pathname.startsWith('/visualize') ? 1 : 0;
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    // The tab value is now primarily driven by the URL, but we still navigate on change.
-    if (newValue === 0) {
-      navigate('/');
-    } else if (newValue === 1) {
-      navigate('/visualize');
-    }
-  };
-
-  const renderCurrentPage = () => {
-    if (location.pathname === '/visualize') {
-      return <VisualizationPage />;
-    }
-    return <DataSourceSelectionPage />;
+    navigate(newValue === 1 ? '/visualize' : '/');
   };
 
   return (
-    <div 
-      className="App" 
-      style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        height: '100vh',
-        padding: 0,
-        margin: 0,
-        overflow: 'hidden'
-      }}
-    >
+    <div className="App">
       {/* Main content area */}
       <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
-        {renderCurrentPage()}
+        <Suspense fallback={null}>
+          <Routes>
+            <Route path="/" element={<DataSourceSelectionPage />} />
+            <Route path="/visualize" element={<VisualizationPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </Box>
 
       {/* Bottom tabs */}
       <Box sx={{ borderTop: 1, borderColor: 'divider', flexShrink: 0}}>
         <Tabs
-          value={tabValue}
+          value={currentTab}
           onChange={handleTabChange}
           variant="standard"
           indicatorColor="secondary"
           textColor="secondary"
+          aria-label="Data Slicer navigation"
           className="compact-tabs"
         >
           <Tab label="Data Sources" />

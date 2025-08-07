@@ -1,6 +1,15 @@
 .App {
+  display: flex;
+  flex-direction: column;
+  /* Fallback for browsers without dvh support */
+  height: 100vh;
+  height: 100dvh;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+
+  /* Preserve existing base styles */
   text-align: center;
-  padding: 20px;
   font-family: sans-serif;
 }
 
