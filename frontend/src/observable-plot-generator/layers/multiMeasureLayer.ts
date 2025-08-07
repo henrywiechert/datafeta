@@ -77,11 +77,26 @@ export class MultiMeasureLayer implements FacetingLayer {
       queryResult
     );
 
-    // Consume all remaining measures
+    // Consume all remaining measures and record synthetic facet fields so downstream layers
+    // can detect which facet axes are already occupied by measure faceting
+    const measureFacetConfig = createFacetConfiguration(
+      facetingFields.xFields,
+      facetingFields.yFields,
+      'measures'
+    );
+    const xToConsume = [
+      ...remainingXMeasures,
+      ...(measureFacetConfig.fxField ? [measureFacetConfig.fxField] : [])
+    ];
+    const yToConsume = [
+      ...remainingYMeasures,
+      ...(measureFacetConfig.fyField ? [measureFacetConfig.fyField] : [])
+    ];
+
     const newContext = FacetingPipeline.consumeFields(
-      context, 
-      remainingXMeasures, 
-      remainingYMeasures
+      context,
+      xToConsume,
+      yToConsume
     );
 
     return {
@@ -102,26 +117,30 @@ export class MultiMeasureLayer implements FacetingLayer {
 
     // Determine the primary chart type based on available measures
     const primaryMeasure = xMeasures[0] || yMeasures[0];
-    const isVerticalChart = yMeasures.length > 0;
     const totalMeasures = xMeasures.length + yMeasures.length;
     const isCurrentlyMeasureFaceting = totalMeasures > 1;
     
-    // Get the best available dimension for categories. If none, create a dummy one.
+    // If both axes have measures, we'll render a scatter matrix and won't use a category dimension
+    const hasMeasuresOnBothAxes = xMeasures.length > 0 && yMeasures.length > 0;
+    // For bar scenarios (single-axis measure), we may need a category dimension
     let categoryDimension: Field | null = null;
     let isDummyDimension = false;
-    if (isVerticalChart) {
-      categoryDimension = availableXDimensions[0] || null;
-    } else {
-      categoryDimension = availableYDimensions[0] || null;
-    }
+    if (!hasMeasuresOnBothAxes) {
+      const isVerticalChart = yMeasures.length > 0;
+      if (isVerticalChart) {
+        categoryDimension = availableXDimensions[0] || null;
+      } else {
+        categoryDimension = availableYDimensions[0] || null;
+      }
 
-    if (!categoryDimension) {
-      isDummyDimension = true;
-      const dummyDimensionName = isVerticalChart ? '_dummyX' : '_dummyY';
-      categoryDimension = { id: 'dummy', columnName: dummyDimensionName, type: 'dimension', dataType: 'string', flavour: 'discrete' };
-      // Inject dummy dimension into every data row
-      queryResult.rows.forEach((row: any) => row[dummyDimensionName] = ' ');
-      console.log(`- Created dummy dimension '${dummyDimensionName}' to control bar thickness.`);
+      if (!categoryDimension) {
+        isDummyDimension = true;
+        const dummyDimensionName = yMeasures.length > 0 ? '_dummyX' : '_dummyY';
+        categoryDimension = { id: 'dummy', columnName: dummyDimensionName, type: 'dimension', dataType: 'string', flavour: 'discrete' };
+        // Inject dummy dimension into every data row
+        queryResult.rows.forEach((row: any) => row[dummyDimensionName] = ' ');
+        console.log(`- Created dummy dimension '${dummyDimensionName}' to control bar thickness.`);
+      }
     }
 
     // Create facet configuration using the unified approach
@@ -131,11 +150,11 @@ export class MultiMeasureLayer implements FacetingLayer {
       'measures'
     );
 
-    // Transform data for measure faceting if needed
+    // Transform data for measure faceting if needed (supports both-axes measures)
     const transformedData = this.transformDataForMeasureFaceting(
-      data, 
-      xMeasures, 
-      yMeasures, 
+      data,
+      xMeasures,
+      yMeasures,
       facetConfig
     );
 
@@ -143,7 +162,33 @@ export class MultiMeasureLayer implements FacetingLayer {
     let marks: Plot.Markish[];
     let plotOptions: Plot.PlotOptions;
 
-    if (isVerticalChart) {
+    if (hasMeasuresOnBothAxes) {
+      // Scatter matrix case: default to dots when measures on both axes
+      const dotConfig: any = {
+        x: xMeasures.length > 1 ? '_x_value' : this.getMeasureValueForFaceting(xMeasures, facetConfig),
+        y: yMeasures.length > 1 ? '_y_value' : this.getMeasureValueForFaceting(yMeasures, facetConfig),
+        r: 3,
+        fill: 'steelblue'
+      };
+
+      const facetedDotConfig = addFacetingToMark(dotConfig, facetConfig);
+
+      marks = [
+        Plot.dot(transformedData, facetedDotConfig)
+      ];
+
+      plotOptions = {
+        marks,
+        x: {
+          grid: true,
+          label: xMeasures.length === 1 ? getResultColumnName(xMeasures[0]) : 'Value'
+        },
+        y: {
+          grid: true,
+          label: yMeasures.length === 1 ? getResultColumnName(yMeasures[0]) : 'Value'
+        }
+      };
+    } else if (yMeasures.length > 0) {
       // Vertical bar chart(s)
       const barConfig: any = {
         y: this.getMeasureValueForFaceting(yMeasures, facetConfig),
@@ -222,11 +267,11 @@ export class MultiMeasureLayer implements FacetingLayer {
     // Apply facet configuration to plot options
     plotOptions = applyFacetConfiguration(plotOptions, facetConfig);
     
-    console.log(`🎨 Final bar configuration for measure faceting:`);
+    console.log(`🎨 Final configuration for measure faceting:`);
     console.log(`  - Bar inset: ${isCurrentlyMeasureFaceting ? '0.6' : 'none'}`);
     console.log(`  - Scale padding: ${isCurrentlyMeasureFaceting ? '0.3' : '0.1'}`);
     console.log(`  - Faceting: fx=${facetConfig.fx || 'none'}, fy=${facetConfig.fy || 'none'}`);
-    console.log(`  - Chart orientation: ${isVerticalChart ? 'vertical' : 'horizontal'}`);
+    console.log(`  - Chart orientation: ${hasMeasuresOnBothAxes ? 'scatter-matrix' : (yMeasures.length > 0 ? 'vertical' : 'horizontal')}`);
 
     // Apply chart-type-aware sizing
     const chartType = detectChartType(marks);
@@ -240,7 +285,7 @@ export class MultiMeasureLayer implements FacetingLayer {
         ...(facetConfig.fyField ? [facetConfig.fyField] : [])
       ],
       chartType,
-      orientation: isVerticalChart ? 'vertical' : 'horizontal',
+      orientation: hasMeasuresOnBothAxes ? 'vertical' : (yMeasures.length > 0 ? 'vertical' : 'horizontal'),
       // Enhanced context for measure faceting
       isMeasureFaceting: isCurrentlyMeasureFaceting,
       originalData: isCurrentlyMeasureFaceting ? data : undefined,
@@ -249,7 +294,7 @@ export class MultiMeasureLayer implements FacetingLayer {
     
     console.log(`📏 Sizing context: isMeasureFaceting=${isCurrentlyMeasureFaceting}, totalMeasures=${totalMeasures}, hasOriginalData=${!!data}`);
     console.log(`📊 Category dimension: ${categoryDimension ? categoryDimension.columnName : 'none'}`);
-    console.log(`🎯 Chart orientation: ${isVerticalChart ? 'vertical' : 'horizontal'}`);
+    console.log(`🎯 Chart orientation: ${hasMeasuresOnBothAxes ? 'scatter-matrix' : (yMeasures.length > 0 ? 'vertical' : 'horizontal')}`);
     console.log(`📋 Original data rows: ${data.length}, transformed data rows: ${transformedData.length}`);
 
     const sizingRequirements = ChartSizingCoordinator.calculateSizing(sizingContext);
@@ -260,12 +305,12 @@ export class MultiMeasureLayer implements FacetingLayer {
       usedFields: {
         xFields: [
           ...xMeasures,
-          ...(categoryDimension && isVerticalChart ? [categoryDimension] : []),
+          ...(categoryDimension && !hasMeasuresOnBothAxes && yMeasures.length > 0 ? [categoryDimension] : []),
           ...(facetConfig.fxField ? [facetConfig.fxField] : [])
         ],
         yFields: [
           ...yMeasures,
-          ...(categoryDimension && !isVerticalChart ? [categoryDimension] : []),
+          ...(categoryDimension && !hasMeasuresOnBothAxes && xMeasures.length > 0 ? [categoryDimension] : []),
           ...(facetConfig.fyField ? [facetConfig.fyField] : [])
         ]
       }
@@ -278,51 +323,67 @@ export class MultiMeasureLayer implements FacetingLayer {
    * becomes a separate row with a measure name column for faceting.
    */
   private transformDataForMeasureFaceting(
-    data: any[], 
-    xMeasures: Field[], 
-    yMeasures: Field[], 
+    data: any[],
+    xMeasures: Field[],
+    yMeasures: Field[],
     facetConfig: any
   ): any[] {
-    // If no faceting needed (single measure), return original data
+    // If no faceting needed (single measure on both axes), return original data
     if (xMeasures.length <= 1 && yMeasures.length <= 1) {
       console.log(`📋 No data transformation needed - single measure scenario`);
       return data;
     }
 
     const transformedData: any[] = [];
-    
-    // Transform data for multiple measures into long format
+
     data.forEach(row => {
+      // Both-axes measures → cartesian product for scatter matrix
+      if (xMeasures.length > 0 && yMeasures.length > 0) {
+        xMeasures.forEach(xm => {
+          const xName = getResultColumnName(xm);
+          const xVal = row[xName];
+          yMeasures.forEach(ym => {
+            const yName = getResultColumnName(ym);
+            const yVal = row[yName];
+            const newRow = {
+              ...row,
+              ...(facetConfig.fx ? { [facetConfig.fx]: xName } : {}),
+              ...(facetConfig.fy ? { [facetConfig.fy]: yName } : {}),
+              _x_value: xVal,
+              _y_value: yVal
+            };
+            transformedData.push(newRow);
+          });
+        });
+        return; // Done for this row
+      }
+
+      // Single-axis multiple measures
       if (xMeasures.length > 1 && facetConfig.fx) {
-        // Multiple X measures → create rows for horizontal faceting
         console.log(`🔄 Transforming data for ${xMeasures.length} X measures with facet field: ${facetConfig.fx}`);
         xMeasures.forEach(measure => {
           const measureName = getResultColumnName(measure);
           const measureValue = row[measureName];
-          
-          const newRow = { 
-            ...row, 
-            [facetConfig.fx]: measureName, // Use measure name as facet value
+          const newRow = {
+            ...row,
+            [facetConfig.fx]: measureName,
             _measure_value: measureValue
           };
           transformedData.push(newRow);
         });
       } else if (yMeasures.length > 1 && facetConfig.fy) {
-        // Multiple Y measures → create rows for vertical faceting
         console.log(`🔄 Transforming data for ${yMeasures.length} Y measures with facet field: ${facetConfig.fy}`);
         yMeasures.forEach(measure => {
           const measureName = getResultColumnName(measure);
           const measureValue = row[measureName];
-          
-          const newRow = { 
-            ...row, 
-            [facetConfig.fy]: measureName, // Use measure name as facet value
+          const newRow = {
+            ...row,
+            [facetConfig.fy]: measureName,
             _measure_value: measureValue
           };
           transformedData.push(newRow);
         });
       } else {
-        // Single measure, keep original row
         transformedData.push(row);
       }
     });
