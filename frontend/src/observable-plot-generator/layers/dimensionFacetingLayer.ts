@@ -34,8 +34,20 @@ export class DimensionFacetingLayer implements FacetingLayer {
     const remainingXDimensions = remainingXFields.filter(f => f.type === 'dimension');
     const remainingYDimensions = remainingYFields.filter(f => f.type === 'dimension');
     
-    // Determine faceting configuration
-    const facetConfig = this.getFacetConfig(remainingXDimensions, remainingYDimensions);
+    // Determine if measure faceting already claimed fx/fy to avoid conflicts
+    const consumedFacetFields = [
+      ...context.consumedFields.xFields,
+      ...context.consumedFields.yFields
+    ].filter((f: any) => f && (f._facetAxis === 'x' || f._facetAxis === 'y')) as Array<Field & { _facetAxis: 'x' | 'y' }>;
+
+    const fxTaken = consumedFacetFields.some(f => f._facetAxis === 'x');
+    const fyTaken = consumedFacetFields.some(f => f._facetAxis === 'y');
+
+    // Determine faceting configuration while respecting taken axes
+    const facetConfig = this.getFacetConfig(
+      fxTaken ? [] : remainingXDimensions,
+      fyTaken ? [] : remainingYDimensions
+    );
     
     // Apply faceting to all existing charts
     // Note: We assume charts come from previous layers, but if no charts exist,
@@ -53,9 +65,9 @@ export class DimensionFacetingLayer implements FacetingLayer {
 
     // Consume all remaining dimensions
     const newContext = FacetingPipeline.consumeFields(
-      context, 
-      remainingXDimensions, 
-      remainingYDimensions
+      context,
+      fxTaken ? [] : remainingXDimensions,
+      fyTaken ? [] : remainingYDimensions
     );
 
     return {
