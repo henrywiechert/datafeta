@@ -60,3 +60,42 @@
     overflow-x: hidden;
     overflow-y: auto;
 }
+
+/* Multi-plot layout styles */
+.multiPlotGrid {
+    width: 100%;
+    height: 100%;
+    overflow: auto; /* Only the main grid scrolls, not individual plots */
+}
+
+.plotWrapper {
+    display: flex;
+    flex-direction: column;
+    background: white;
+    overflow: visible; /* Remove individual scrollbars */
+    border-right: 1px solid #f0f0f0; /* Subtle vertical separator */
+    border-bottom: 1px solid #f0f0f0; /* Subtle horizontal separator */
+}
+
+.plotWrapper:last-child {
+    border-right: none; /* Remove border from last column */
+}
+
+.plotTitle {
+    margin: 0;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: #f8f8f8;
+    color: #555;
+    text-align: center;
+    border-bottom: 1px solid #e8e8e8;
+}
+
+.plotWrapper .observablePlotContainer {
+    flex: 1;
+    padding: 0;
+    overflow: visible; /* Remove scrollbars from individual plots */
+    align-items: center; /* Center the plot content */
+    justify-content: center;
+}
