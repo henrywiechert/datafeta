@@ -1,5 +1,4 @@
 import React, { useState, useEffect, ChangeEvent } from 'react';
-import { apiService } from '../apiService';
 import { ConnectionDetails } from '../types';
 import { useConnection } from '../contexts/ConnectionContext';
 import '../App.css';
@@ -30,7 +29,7 @@ function DataSourceSelectionPage() {
       setFilePath('');
       setSelectedFile(null);
     }
-  }, []);
+  }, [isConnected, connectionDetails]);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {

@@ -104,7 +104,7 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
   // Full label for tooltip
   const fullLabel = useMemo(() => 
     formatFullLabel(field),
-    [field.columnName, field.aggregation, field.flavour, field.dataType]
+    [field]
   );
 
   // ChipLabel component with forwarded ref

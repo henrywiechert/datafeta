@@ -49,7 +49,6 @@ export function useDragDrop() {
     
     // Handle drops between axes
     const sourceAxis = source === 'X_AXIS' ? 'x' : 'y';
-    const oppositeAxis = sourceAxis === 'x' ? 'y' : 'x';
     
     // Only proceed if we're moving between different axes
     if (sourceAxis !== targetAxis) {

@@ -1,10 +1,8 @@
-import React, { useCallback } from 'react';
-import { Box } from '@mui/material';
+import React from 'react';
 import styles from '../ChartArea.module.css';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { useChartGeneration, useQueryExecution, useDataProcessing, useDebugView } from './hooks';
 import { ChartRenderer, ChartControls, DebugPanel } from './components';
-import { validateAndCleanData } from './utils';
 
 /**
  * Simplified ChartArea component that orchestrates the extracted hooks and components

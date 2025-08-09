@@ -1,21 +1,14 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
 
 import { QueryResult } from '../../types';
 import { PlotResult } from '../../observable-plot-generator/types';
 import ObservablePlot from './ObservablePlot';
-import { Alert, Box, Typography, Button } from '@mui/material';
-import { Warning as WarningIcon } from '@mui/icons-material';
 import styles from './ChartGrid.module.css';
 
 interface ChartGridProps {
   spec: any; // Allow both Vega and Vega-Lite specs
   data: QueryResult | null;
 }
-
-// Constants for data size limits
-const MAX_SAFE_ROWS = 50000;      // Hard limit for rendering
-const WARN_ROWS = 10000;          // Show warning above this
-const SAMPLE_SIZE = 5000;         // Sample size for large datasets
 
 /**
  * ChartGrid - Universal chart renderer for both Vega and Vega-Lite

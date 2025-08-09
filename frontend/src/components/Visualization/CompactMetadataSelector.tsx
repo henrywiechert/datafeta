@@ -1,5 +1,5 @@
 import React from 'react';
-import { FormControl, Select, MenuItem, CircularProgress, Typography, Box } from '@mui/material';
+import { FormControl, Select, MenuItem, CircularProgress, Typography } from '@mui/material';
 import { Database, Table, Field } from '../../types';
 import styles from './CompactMetadataSelector.module.css';
 

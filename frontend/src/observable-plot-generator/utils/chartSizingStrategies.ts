@@ -93,7 +93,7 @@ export class BarChartSizingStrategy {
    * In measure faceting, each facet represents one measure, and we want consistent bar thickness.
    */
   private static calculateMeasureFacetingSize(context: ChartSizingContext): SizingRequirements {
-    const { originalData, dimensionField, orientation, measureCount } = context;
+    const { originalData, dimensionField, orientation } = context;
     
     if (!originalData) {
       console.warn(`⚠️ No original data provided for measure faceting size calculation`);
