@@ -1,4 +1,5 @@
 import { Field, QueryDescription, Measure } from '../types';
+import { VegaLiteSpec } from '../spec-generator/specGenerator';
 import { getResultColumnName } from '../utils/fieldUtils';
 
 /**
