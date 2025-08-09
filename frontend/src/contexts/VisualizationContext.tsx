@@ -25,8 +25,6 @@ interface VisualizationState {
   loadingOperationType: LoadingOperationType | null;
   loadingStartTime: number | null;
   canCancelOperation: boolean;
-  // Charting library
-  chartingLibrary: 'observable-plot';
 }
 
 // Define action types
@@ -51,8 +49,7 @@ type VisualizationAction =
   | { type: 'SET_LOADING_START_TIME'; payload: number | null }
   | { type: 'CANCEL_OPERATION' }
   | { type: 'COMPLETE_SPECIFIC_OPERATION'; payload: LoadingOperationType; }
-  | { type: 'RESET_LOADING_STATES' }
-  | { type: 'SET_CHARTING_LIBRARY'; payload: 'observable-plot' };
+  | { type: 'RESET_LOADING_STATES' };
 
 // Initial state
 const initialState: VisualizationState = {
@@ -74,7 +71,6 @@ const initialState: VisualizationState = {
   loadingOperationType: null,
   loadingStartTime: null,
   canCancelOperation: false,
-  chartingLibrary: 'observable-plot', 
 };
 
 // Reducer function
@@ -168,8 +164,6 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
       };
     case 'RESET_STATE':
       return initialState;
-    case 'SET_CHARTING_LIBRARY':
-      return { ...state, chartingLibrary: action.payload };
     default:
       return state;
   }
@@ -185,8 +179,6 @@ interface VisualizationContextType {
   cancelOperation: () => void;
   // Timeout management
   timeoutRefs: React.MutableRefObject<{ [key: string]: NodeJS.Timeout | null }>;
-  // Charting library switcher
-  setChartingLibrary: (library: 'observable-plot') => void;
 }
 
 // Create context
@@ -200,10 +192,6 @@ interface VisualizationProviderProps {
 export function VisualizationProvider({ children }: VisualizationProviderProps) {
   const [state, dispatch] = useReducer(visualizationReducer, initialState);
   const timeoutRefs = useRef<{ [key: string]: NodeJS.Timeout | null }>({});
-
-  const setChartingLibrary = useCallback((library: 'observable-plot') => {
-    dispatch({ type: 'SET_CHARTING_LIBRARY', payload: library });
-  }, []);
 
   // Start an operation with timeout handling
   const startOperation = useCallback((operationType: LoadingOperationType, canCancel: boolean = true) => {
@@ -282,8 +270,7 @@ export function VisualizationProvider({ children }: VisualizationProviderProps) 
       startOperation, 
       completeOperation, 
       cancelOperation, 
-      timeoutRefs,
-      setChartingLibrary
+      timeoutRefs
     }}>
       {children}
     </VisualizationContext.Provider>

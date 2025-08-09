@@ -1,5 +1,5 @@
 import { Field } from '../types';
-import { FieldClassifier } from '../spec-generator/fieldClassifier';
+import { FieldClassifier } from './fieldClassification';
 import { getResultColumnName } from './fieldUtils';
 
 /**
