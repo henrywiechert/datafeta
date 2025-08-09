@@ -2,12 +2,13 @@ import React, { useEffect, useRef } from 'react';
 import { Box } from '@mui/material';
 import ChartGrid from '../../ChartGrid';
 import TableView from '../../TableView';
+import { VegaLiteSpec } from '../../../../spec-generator/types';
 import { TableData } from '../types';
 
 interface ChartRendererProps {
   useTableView: boolean;
   tableData: TableData;
-  spec: any | null;
+  spec: VegaLiteSpec | null;
   queryResult: any;
   xAxisFields: any[];
   yAxisFields: any[];

@@ -9,6 +9,7 @@ import FieldsPanel from '../components/Visualization/FieldsPanel';
 import ChartPanel from '../components/Visualization/ChartPanel';
 import LoadingModal from '../components/LoadingModal';
 import { apiService } from '../apiService';
+import { chartWorkerService } from '../services/chartWorkerService';
 
 import { Field, DragSource } from '../types';
 
@@ -60,6 +61,9 @@ const VisualizationPage = () => {
     const handleCancelOperation = React.useCallback(() => {
         // Cancel API requests
         apiService.cancelAllRequests();
+        
+        // Cancel chart worker tasks
+        chartWorkerService.cancelAllTasks();
         
         // Update context state
         cancelOperation();

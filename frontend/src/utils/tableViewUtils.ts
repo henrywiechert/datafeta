@@ -1,5 +1,20 @@
 import { Field } from '../types';
+import { FieldClassifier } from '../spec-generator/fieldClassifier';
 import { getResultColumnName } from './fieldUtils';
+
+/**
+ * Determines if a table view should be used instead of a chart
+ * based on the field configuration.
+ */
+export function shouldUseTableView(xFields: Field[], yFields: Field[]): boolean {
+  if (xFields.length === 0 && yFields.length === 0) {
+    return false; // No fields, no table
+  }
+  
+  // Use table view if no continuous fields are present
+  const classification = FieldClassifier.classifyFields(xFields, yFields);
+  return !classification.hasContinuousData();
+}
 
 /**
  * Prepares table data for AG Grid from query results based on axis configuration
