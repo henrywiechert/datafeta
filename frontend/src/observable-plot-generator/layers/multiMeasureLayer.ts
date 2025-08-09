@@ -3,7 +3,7 @@ import { FacetingLayer, FacetingContext, FacetedResult, ChartSpec, FacetingPipel
 import { Field } from '../../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { ChartSizingCoordinator, ChartSizingContext, detectChartType } from '../utils/chartSizingStrategies';
-import { createFacetConfiguration, createMeasureFacetField, applyFacetConfiguration, addFacetingToMark } from '../utils/facetingUtils';
+import { createFacetConfiguration, applyFacetConfiguration, addFacetingToMark } from '../utils/facetingUtils';
 
 /**
  * Layer 2: Multi-Measure Faceting

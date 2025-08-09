@@ -160,8 +160,6 @@ class ChartWorkerService {
       signal?: AbortSignal;
     } = {}
   ): Promise<ChartGenerationResult> {
-    const startTime = Date.now();
-    
     return new Promise((resolve, reject) => {
       // Check if worker is available
       if (!this.worker) {

@@ -6,8 +6,7 @@ import { chartWorkerService } from '../../../../services/chartWorkerService';
 import { getTimeoutForOperation } from '../../../../config/loadingConfig';
 import { VegaLiteSpec } from '../../../../spec-generator/types';
 import { PlotResult } from '../../../../observable-plot-generator/types';
-import { ChartGenerationOptions } from '../types';
-import { logOperationTiming, logOperationStart } from '../utils';
+import { logOperationTiming } from '../utils';
 import { useVisualizationContext } from '../../../../contexts/VisualizationContext';
 
 interface UseChartGenerationProps {
