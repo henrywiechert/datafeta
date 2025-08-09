@@ -89,7 +89,7 @@ export interface DebugPanelProps {
   queryDescription: any | null;
   queryResult: any;
   queryError: string | null;
-  vegaSpec: any | null;
+  spec: any | null;
   chartInfo: any | null;
   renderingError: string | null;
 } 

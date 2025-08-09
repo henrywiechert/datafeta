@@ -7,7 +7,7 @@ export interface DebugData {
   queryDescription: QueryDescription | null;
   queryResult: QueryResult | null;
   queryError: string | null;
-  vegaSpec: VegaLiteSpec | null;
+  spec: VegaLiteSpec | null;
   chartInfo?: any;
   renderingError?: string | null;
 }
@@ -23,7 +23,7 @@ const DebugView: React.FC<DebugViewProps> = ({
     queryDescription,
     queryResult,
     queryError,
-    vegaSpec,
+    spec,
     chartInfo,
     renderingError,
   } = debugData;
@@ -42,11 +42,11 @@ const DebugView: React.FC<DebugViewProps> = ({
               <pre>{queryResult.query_sql}</pre>
             </>
           )}
-          {vegaSpec && (
+          {spec && (
             <>
               <hr />
-              <h3>Vega-Lite Specification</h3>
-              <pre>{JSON.stringify(vegaSpec, null, 2)}</pre>
+              <h3>Specification</h3>
+              <pre>{JSON.stringify(spec, null, 2)}</pre>
             </>
           )}
           {chartInfo && (
@@ -96,11 +96,11 @@ const DebugView: React.FC<DebugViewProps> = ({
         <hr />
         <h3>Generated SQL</h3>
         <pre>{queryResult.query_sql}</pre>
-        {vegaSpec && (
+        {spec && (
           <>
             <hr />
-            <h3>Vega-Lite Specification</h3>
-            <pre>{JSON.stringify(vegaSpec, null, 2)}</pre>
+            <h3>Specification</h3>
+            <pre>{JSON.stringify(spec, null, 2)}</pre>
           </>
         )}
         {chartInfo && (

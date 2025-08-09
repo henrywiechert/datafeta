@@ -83,7 +83,6 @@ export class SpecGenerator {
    */
   private createFallbackSpec(): VegaLiteSpec {
     return {
-      "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
       "description": "Drag fields to the axes to create a chart.",
     };
   }
@@ -150,7 +149,6 @@ export function generateVegaLiteSpec(args: SpecGeneratorArgs): ChartGenerationRe
       console.warn('SpecGenerator returned null spec, using fallback');
       return {
         spec: {
-          "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
           "description": "Fallback chart when no strategy could generate a specification."
         },
         chartInfo: chartInfo || { chartType: 'fallback' }
@@ -163,7 +161,6 @@ export function generateVegaLiteSpec(args: SpecGeneratorArgs): ChartGenerationRe
     // Return fallback spec and info on error
     return {
       spec: {
-        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
         "description": "Error occurred generating chart specification."
       },
       chartInfo: { chartType: 'error', error: error?.message || 'Unknown error' }

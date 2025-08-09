@@ -73,7 +73,6 @@ self.onmessage = async (event: MessageEvent<ChartWorkerMessage>) => {
           id, 
           payload: { 
             spec: specResult.spec || { 
-              "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
               "description": "Fallback specification." 
             }, 
             chartInfo: chartInfo || {} 
