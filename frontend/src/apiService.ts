@@ -25,7 +25,8 @@ async function fetchWithErrorHandling(
 ): Promise<Response> {
   const fetchOptions: RequestInit = {
     ...options,
-    signal: signal || (options.signal)
+    signal: signal || (options.signal),
+    credentials: 'include', // Include cookies in all requests
   };
 
   try {
