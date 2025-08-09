@@ -53,7 +53,7 @@ export class FacetingManager {
    */
   static applyFacetEncodings(spec: any, context: ChartContext, queryType: 'raw' | 'aggregated'): void {
     const { classification } = context;
-    const { xDimensions, yDimensions, xContinuous, yContinuous } = classification;
+    const { xDimensions, yDimensions } = classification;
 
     let hasRowFaceting = false;
     let hasColumnFaceting = false;

@@ -21,7 +21,6 @@ const ResizeHandle: React.FC<ResizeHandleProps> = ({
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const [startPos, setStartPos] = useState(0);
   const [tempSize, setTempSize] = useState(currentSize);
   const handleRef = useRef<HTMLDivElement>(null);
 

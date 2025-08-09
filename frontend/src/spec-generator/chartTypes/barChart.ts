@@ -27,7 +27,7 @@ export class BarChart extends BaseChart {
 
   protected applyEncodings(spec: VegaLiteSpec, context: ChartContext): void {
     const { classification } = context;
-    const { discreteDimensions, continuousMeasures, discreteMeasures, xMeasures, yMeasures, xDimensions, yDimensions } = classification;
+    const { xMeasures, yMeasures, xDimensions, yDimensions } = classification;
 
     // Determine orientation based on where measures and dimensions are
     const hasYMeasure = yMeasures.length > 0;

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 import { Field } from '../../../types';
 import { applyFieldUpdateRules } from './utils';
 import { DragSource } from './types';

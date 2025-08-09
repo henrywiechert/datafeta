@@ -3,7 +3,7 @@ import { apiService } from '../../../../apiService';
 import { buildQuery } from '../../../../queryBuilder/queryBuilder';
 import { QueryDescription } from '../../../../types';
 import { useConnection } from '../../../../contexts/ConnectionContext';
-import { logOperationTiming, logOperationStart } from '../utils';
+import { logOperationTiming } from '../utils';
 import { validateAndCleanData } from '../utils/dataValidation';
 
 interface UseQueryExecutionProps {
@@ -72,8 +72,7 @@ export const useQueryExecution = ({
       
       completeOperation('query');
     } catch (error: any) {
-      const duration = Date.now() - startTime;
-      // console.error(`❌ Query failed after ${duration}ms:`, error); // Removed debugging log
+      // console.error(`❌ Query failed after ${Date.now() - startTime}ms:`, error); // Removed debugging log
       
       if (error.message === 'Request was cancelled') {
         // Operation was cancelled, don't set error
@@ -88,12 +87,6 @@ export const useQueryExecution = ({
       completeOperation('query');
     }
   }, [startOperation, completeOperation, dispatch]);
-
-  const cancelQuery = useCallback(() => {
-    if (queryAbortControllerRef.current) {
-      queryAbortControllerRef.current.abort();
-    }
-  }, []);
 
   // Memoize current query description to avoid unnecessary recalculations
   const currentQueryDescription = useMemo((): QueryDescription | null => {
@@ -150,7 +143,7 @@ export const useQueryExecution = ({
     };
 
     fetchData();
-  }, [selectedTable, selectedDatabase, connectionDetails, xAxisFields, yAxisFields]);
+  }, [selectedTable, selectedDatabase, connectionDetails, xAxisFields, yAxisFields, dispatch, executeQuery]);
 
   // Cleanup on unmount
   useEffect(() => {
