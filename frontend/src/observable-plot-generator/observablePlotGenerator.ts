@@ -1,96 +1,110 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext, PlotResult } from './types';
-import { FacetingPipeline } from './facetingPipeline';
-import { SingleChartLayer } from './layers/singleChartLayer';
-import { MultiMeasureLayer } from './layers/multiMeasureLayer';
-import { DimensionFacetingLayer } from './layers/dimensionFacetingLayer';
+import { barChart } from './chartTypes/barChart';
 
 /**
- * Generate Observable Plot using the multi-layered faceting pipeline
+ * Simple, direct Observable Plot generation
+ * No complex pipeline - just analyze fields and generate chart directly
  */
 export function generatePlot(context: ChartGenerationContext): PlotResult {
   const { xFields, yFields, queryResult } = context;
 
-  // Check if we have any fields to work with
+  // Handle empty fields
   if (xFields.length === 0 && yFields.length === 0) {
-    return {
-      library: 'observable-plot',
-      options: {
-        marks: [
-          Plot.text(['Drag fields to the axes to create a chart.'])
-        ]
-      },
-    };
+    return createMessageChart('Drag fields to the axes to create a chart.');
   }
 
-  // Check if we have any measures
-  const hasMeasure = [...xFields, ...yFields].some(f => f.type === 'measure');
+  // Check if we have any data
+  if (!queryResult?.rows || queryResult.rows.length === 0) {
+    return createMessageChart('No data available.');
+  }
+
+  // Analyze fields to determine chart type
+  const analysis = analyzeFields(xFields, yFields);
   
-  if (!hasMeasure) {
-    return {
-      library: 'observable-plot',
-      options: {
-        marks: [
-          Plot.text(['Drag a measure to an axis to create a bar chart.'])
-        ]
-      },
-    };
+  // Check if we have measures (required for charts)
+  if (!analysis.hasMeasure) {
+    return createMessageChart('Drag a measure to an axis to create a chart.');
   }
 
   try {
-    // Create the faceting pipeline with all layers
-    const pipeline = new FacetingPipeline([
-      new SingleChartLayer(),
-      new MultiMeasureLayer(),
-      new DimensionFacetingLayer()
-    ]);
-
-    // Process fields through the pipeline
-    const result = pipeline.process(xFields, yFields, queryResult);
-
-    // For now, return the first chart (Observable Plot renders one chart at a time)
-    // TODO: Future enhancement could handle multiple charts via layout or other means
-    if (result.charts.length > 0) {
-      const primaryChart = result.charts[0];
-      
-      // Log pipeline results for debugging
-      console.log('🎯 Pipeline Results:', {
-        totalCharts: result.charts.length,
-        remainingFields: {
-          x: result.finalContext.remainingXFields.map(f => f.columnName),
-          y: result.finalContext.remainingYFields.map(f => f.columnName)
-        },
-        consumedFields: {
-          x: result.finalContext.consumedFields.xFields.map(f => f.columnName),
-          y: result.finalContext.consumedFields.yFields.map(f => f.columnName)
-        }
-      });
-
-      return {
-        library: 'observable-plot',
-        options: primaryChart.plotOptions,
-        // Store additional charts for potential future use
-        additionalCharts: result.charts.slice(1),
-        pipelineInfo: {
-          totalCharts: result.charts.length,
-          remainingFields: result.finalContext.remainingXFields.length + result.finalContext.remainingYFields.length
-        }
-      };
-    } else {
-      throw new Error('Pipeline did not generate any charts');
-    }
-
-  } catch (error) {
-    console.error('Pipeline processing failed:', error);
+    // Generate chart based on field analysis
+    const plotOptions = generateChartOptions(analysis, context);
     
-    // Fallback to simple chart generation
     return {
       library: 'observable-plot',
-      options: {
-        marks: [
-          Plot.text([`Error: ${error instanceof Error ? error.message : 'Unknown error'}`])
-        ]
-      },
+      options: plotOptions,
     };
+
+  } catch (error) {
+    console.error('Chart generation failed:', error);
+    return createMessageChart(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
-} 
+}
+
+/**
+ * Simple field analysis - no complex classification
+ */
+interface FieldAnalysis {
+  hasMeasure: boolean;
+  hasXMeasure: boolean;
+  hasYMeasure: boolean;
+  hasXDimension: boolean;
+  hasYDimension: boolean;
+  xMeasures: any[];
+  yMeasures: any[];
+  xDimensions: any[];
+  yDimensions: any[];
+}
+
+function analyzeFields(xFields: any[], yFields: any[]): FieldAnalysis {
+  const xMeasures = xFields.filter(f => f.type === 'measure');
+  const yMeasures = yFields.filter(f => f.type === 'measure');
+  const xDimensions = xFields.filter(f => f.type === 'dimension');
+  const yDimensions = yFields.filter(f => f.type === 'dimension');
+
+  return {
+    hasMeasure: xMeasures.length > 0 || yMeasures.length > 0,
+    hasXMeasure: xMeasures.length > 0,
+    hasYMeasure: yMeasures.length > 0,
+    hasXDimension: xDimensions.length > 0,
+    hasYDimension: yDimensions.length > 0,
+    xMeasures,
+    yMeasures,
+    xDimensions,
+    yDimensions,
+  };
+}
+
+/**
+ * Generate chart options based on simple field analysis
+ */
+function generateChartOptions(analysis: FieldAnalysis, context: ChartGenerationContext): Plot.PlotOptions {
+  // For now, we only support bar charts
+  // TODO: Add line charts, scatter plots, etc. as needed
+  
+  if (analysis.hasXMeasure || analysis.hasYMeasure) {
+    return barChart(context);
+  }
+
+  // Fallback - this shouldn't happen since we check hasMeasure above
+  throw new Error('Unsupported field combination');
+}
+
+/**
+ * Create a simple message chart
+ */
+function createMessageChart(message: string): PlotResult {
+  return {
+    library: 'observable-plot',
+    options: {
+      marks: [
+        Plot.text([message], {
+          frameAnchor: "middle",
+          fontSize: 14,
+          fill: "gray"
+        })
+      ]
+    },
+  };
+}
