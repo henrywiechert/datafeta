@@ -1,13 +1,13 @@
 import React from 'react';
 import { QueryDescription, QueryResult } from '../../types';
-import { VegaLiteSpec } from '../../spec-generator/types';
+import { PlotResult } from '../../observable-plot-generator/types';
 import styles from './DebugView.module.css';
 
 export interface DebugData {
   queryDescription: QueryDescription | null;
   queryResult: QueryResult | null;
   queryError: string | null;
-  spec: VegaLiteSpec | null;
+  spec: PlotResult | null;
   chartInfo?: any;
   renderingError?: string | null;
 }
