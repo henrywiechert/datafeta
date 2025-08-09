@@ -17,71 +17,7 @@
     min-width: 0;
 }
 
-/* Vega charts: Natural sizing with scrolling */
-.vegaContainer {
-    align-items: flex-start; /* Allow natural expansion */
-}
 
-.vegaContainer > :last-child {
-    flex: none; /* Don't constrain chart size */
-}
-
-.vegaContainer :global(.vega-embed) {
-    display: block; /* Use block for natural sizing */
-    min-height: 0;
-    min-width: 0;
-}
-
-.vegaContainer :global(.vega-embed details) {
-    display: block;
-    min-height: 0;
-    min-width: 0;
-}
-
-.vegaContainer :global(.vega-embed svg) {
-    display: block;
-}
-
-/* Vega-Lite charts: Responsive sizing to fill container */
-.vegaLiteContainer {
-    align-items: stretch; /* Fill container width */
-    flex-grow: 1; /* ADDED: Ensure it takes available space */
-    display: flex; /* ADDED: Ensure flex context for child */
-    min-height: 0; /* ADDED: Prevent flexbox blowout */
-}
-
-.vegaLiteContainer > :last-child {
-    flex-grow: 1; /* Fill available space */
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    min-width: 0;
-}
-
-.vegaLiteContainer :global(.vega-embed) {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    min-width: 0;
-    width: 100%; /* ADDED: Ensure full width */
-    height: 100%; /* ADDED: Ensure full height */
-}
-
-.vegaLiteContainer :global(.vega-embed details) {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    min-width: 0;
-}
-
-.vegaLiteContainer :global(.vega-embed svg) {
-    /* Allow natural sizing within container bounds */
-    flex-shrink: 0;
-    max-width: 100%;
-    max-height: 100%;
-}
 
 /* Observable Plot charts: Responsive sizing with overflow handling */
 .observablePlotContainer {
@@ -108,10 +44,7 @@
     max-width: none;
 }
 
-/* Legacy styles - keeping for backward compatibility but may be unused */
-.container :global(.vega-embed summary) {
-    display: none; /* Hide the embed details summary */
-}
+
 
 .faceted {
     /* For faceted charts, we want to allow scrolling if needed */

@@ -51,7 +51,7 @@ const ChartArea: React.FC = () => {
     queryDescription,
     queryResult,
     queryError,
-    vegaSpec: spec,
+    spec: spec,
     chartInfo,
     renderingError,
   };

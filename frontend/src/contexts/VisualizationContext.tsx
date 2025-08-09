@@ -26,7 +26,7 @@ interface VisualizationState {
   loadingStartTime: number | null;
   canCancelOperation: boolean;
   // Charting library
-  chartingLibrary: 'vega-lite' | 'vega' | 'observable-plot';
+  chartingLibrary: 'observable-plot';
 }
 
 // Define action types
@@ -52,7 +52,7 @@ type VisualizationAction =
   | { type: 'CANCEL_OPERATION' }
   | { type: 'COMPLETE_SPECIFIC_OPERATION'; payload: LoadingOperationType; }
   | { type: 'RESET_LOADING_STATES' }
-  | { type: 'SET_CHARTING_LIBRARY'; payload: 'vega-lite' | 'vega' | 'observable-plot' };
+  | { type: 'SET_CHARTING_LIBRARY'; payload: 'observable-plot' };
 
 // Initial state
 const initialState: VisualizationState = {
@@ -74,7 +74,7 @@ const initialState: VisualizationState = {
   loadingOperationType: null,
   loadingStartTime: null,
   canCancelOperation: false,
-  chartingLibrary: 'vega-lite', // Default to vega-lite
+  chartingLibrary: 'observable-plot', 
 };
 
 // Reducer function
@@ -186,7 +186,7 @@ interface VisualizationContextType {
   // Timeout management
   timeoutRefs: React.MutableRefObject<{ [key: string]: NodeJS.Timeout | null }>;
   // Charting library switcher
-  setChartingLibrary: (library: 'vega-lite' | 'vega' | 'observable-plot') => void;
+  setChartingLibrary: (library: 'observable-plot') => void;
 }
 
 // Create context
@@ -201,7 +201,7 @@ export function VisualizationProvider({ children }: VisualizationProviderProps) 
   const [state, dispatch] = useReducer(visualizationReducer, initialState);
   const timeoutRefs = useRef<{ [key: string]: NodeJS.Timeout | null }>({});
 
-  const setChartingLibrary = useCallback((library: 'vega-lite' | 'vega' | 'observable-plot') => {
+  const setChartingLibrary = useCallback((library: 'observable-plot') => {
     dispatch({ type: 'SET_CHARTING_LIBRARY', payload: library });
   }, []);
 

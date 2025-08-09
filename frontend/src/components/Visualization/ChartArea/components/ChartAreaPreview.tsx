@@ -70,7 +70,7 @@ export {};
 //           queryDescription={queryDescription}
 //           queryResult={processedQueryResult}
 //           queryError={queryError}
-//           vegaSpec={spec}
+
 //           chartInfo={chartInfo}
 //           renderingError={renderingError}
 //         />
