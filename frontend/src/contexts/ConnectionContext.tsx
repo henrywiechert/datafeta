@@ -40,10 +40,30 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
       setError(null);
       // Don't navigate here
     } catch (err: any) {
-      setError(err.message || 'Connection failed');
-      setIsConnected(false);
-      setConnectionDetails(null);
-      throw err; // Re-throw error so calling component knows it failed
+        let errorMessage = 'Connection failed';
+        try {
+            const errorObj = JSON.parse(err.message);
+            if (errorObj && errorObj.detail) {
+                if (Array.isArray(errorObj.detail)) {
+                    // Handle Pydantic's validation error format
+                    errorMessage = errorObj.detail
+                        .map((e: any) => `${e.loc.join(' -> ')}: ${e.msg}`)
+                        .join('; ');
+                } else if (typeof errorObj.detail === 'object') {
+                    errorMessage = JSON.stringify(errorObj.detail);
+                } else {
+                    errorMessage = errorObj.detail;
+                }
+            } else {
+                errorMessage = err.message;
+            }
+        } catch (parseError) {
+            errorMessage = err.message || errorMessage;
+        }
+        setError(errorMessage);
+        setIsConnected(false);
+        setConnectionDetails(null);
+        throw err; // Re-throw error so calling component knows it failed
     } finally {
       setIsLoading(false);
     }

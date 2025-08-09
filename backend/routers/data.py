@@ -5,7 +5,7 @@ import shutil
 import tempfile
 import os
 import json
-from fastapi import APIRouter, Form, File, UploadFile, Depends, Body, status
+from fastapi import APIRouter, Form, File, UploadFile, Depends, Body, status, Request
 from typing import Dict, Any, List, Optional
 from pydantic import ValidationError
 
@@ -23,7 +23,8 @@ from backend.dependencies import (
     get_state_manager,
     get_active_connector,
     get_connection_details,
-    ConnectionStateManager
+    ConnectionStateManager,
+    get_session_id
 )
 
 # Import custom exceptions
@@ -47,10 +48,20 @@ router = APIRouter()
 UPLOAD_DIR = tempfile.mkdtemp(prefix="datafeta_csv_")
 
 # --- Helper Functions --- #
-def get_connector(connection_details: ConnectionDetails) -> BaseConnector:
+
+def get_session_upload_dir(session_id: str) -> str:
+    """Creates and returns a session-specific upload directory."""
+    session_dir = os.path.join(UPLOAD_DIR, session_id)
+    os.makedirs(session_dir, exist_ok=True)
+    return session_dir
+
+def get_connector(
+    connection_details: ConnectionDetails,
+    state_manager: ConnectionStateManager
+) -> BaseConnector:
     """Factory function to get the appropriate connector."""
     if connection_details.type == "csv":
-        return FileConnector()
+        return FileConnector(state_manager=state_manager)
     elif connection_details.type == "clickhouse":
         return ClickHouseConnector()
     else:
@@ -62,7 +73,8 @@ def get_connector(connection_details: ConnectionDetails) -> BaseConnector:
 async def connect_to_datasource(
     connection_details_json: str = Form(...),
     uploaded_file: Optional[UploadFile] = File(None),
-    state_manager: ConnectionStateManager = Depends(get_state_manager)
+    state_manager: ConnectionStateManager = Depends(get_state_manager),
+    session_id: str = Depends(get_session_id)
 ):
     """Connect to a specified data source. For CSV, upload the file."""
     # Removed global access
@@ -104,7 +116,8 @@ async def connect_to_datasource(
             if not uploaded_file.filename or not uploaded_file.filename.lower().endswith('.csv'):
                  raise InvalidInputError("Invalid file type or missing filename. Only CSV files are allowed.")
             try:
-                fd, temp_file_path = tempfile.mkstemp(suffix=".csv", dir=UPLOAD_DIR)
+                session_upload_dir = get_session_upload_dir(session_id)
+                fd, temp_file_path = tempfile.mkstemp(suffix=".csv", dir=session_upload_dir)
                 os.close(fd)
                 with open(temp_file_path, "wb") as buffer:
                     shutil.copyfileobj(uploaded_file.file, buffer)
@@ -136,7 +149,7 @@ async def connect_to_datasource(
              # Unsupported type is an invalid input
              raise InvalidInputError(f"Unsupported data source type: {connection_details.type}")
 
-        connector = get_connector(effective_connection_details)
+        connector = get_connector(effective_connection_details, state_manager)
         connector.connect(connect_args)
 
         state_manager.set_state(
@@ -163,10 +176,14 @@ async def connect_to_datasource(
         raise AppException("An unexpected server error occurred during connection.")
 
 @router.post("/disconnect", status_code=status.HTTP_200_OK)
-def disconnect_datasource(state_manager: ConnectionStateManager = Depends(get_state_manager)):
+def disconnect_datasource(
+    state_manager: ConnectionStateManager = Depends(get_state_manager),
+    session_id: str = Depends(get_session_id)
+):
     """Disconnect from the current data source and clean up temporary files."""
     # Removed global access
     file_to_delete = state_manager.current_csv_temp_path
+    session_upload_dir = os.path.join(UPLOAD_DIR, session_id) if session_id else None
 
     if state_manager.current_connector:
         state_manager.current_connector.disconnect()
@@ -177,13 +194,13 @@ def disconnect_datasource(state_manager: ConnectionStateManager = Depends(get_st
     # Clean up temp file if path was stored
     if file_to_delete and os.path.exists(file_to_delete):
          try:
-            if os.path.commonpath([UPLOAD_DIR]) == os.path.commonpath([UPLOAD_DIR, file_to_delete]):
+            if session_upload_dir and os.path.commonpath([session_upload_dir]) == os.path.commonpath([session_upload_dir, file_to_delete]):
                 os.remove(file_to_delete)
                 # Log info
                 logger.info(f"Deleted temp file: {file_to_delete}")
             else:
                  # Log warning
-                 logger.warning(f"Refusing to delete file outside temp dir: {file_to_delete}")
+                 logger.warning(f"Refusing to delete file outside session temp dir: {file_to_delete}")
          except OSError as e:
              # Log error
              logger.error(f"Error deleting temp file {file_to_delete}", exc_info=True)
