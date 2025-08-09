@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { shouldUseTableView, prepareTableData } from '../../../../utils/tableViewUtils';
+import { prepareTableData } from '../../../../utils/tableViewUtils';
 import { validateAndCleanData, logPerformanceWarning } from '../utils';
 import { TableData } from '../types';
 
@@ -22,10 +22,7 @@ export const useDataProcessing = ({
   queryResult,
 }: UseDataProcessingProps): UseDataProcessingReturn => {
   // Determine if we should show table view instead of chart
-  const useTableView = useMemo(
-    () => shouldUseTableView(xAxisFields, yAxisFields),
-    [xAxisFields, yAxisFields]
-  );
+  const useTableView = false;
 
   // Prepare table data if using table view
   const tableData = useMemo(() => {

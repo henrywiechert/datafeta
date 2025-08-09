@@ -1,10 +1,6 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
-import { generateVegaLiteSpec } from '../../../../spec-generator/specGeneratorV2';
-
 import { generatePlot } from '../../../../observable-plot-generator/observablePlotGenerator';
-import { chartWorkerService } from '../../../../services/chartWorkerService';
 import { getTimeoutForOperation } from '../../../../config/loadingConfig';
-import { VegaLiteSpec } from '../../../../spec-generator/types';
 import { PlotResult } from '../../../../observable-plot-generator/types';
 import { ChartGenerationOptions } from '../types';
 import { logOperationTiming, logOperationStart } from '../utils';
@@ -20,7 +16,7 @@ interface UseChartGenerationProps {
 }
 
 interface UseChartGenerationReturn {
-  spec: VegaLiteSpec | PlotResult | null;
+  spec: PlotResult | null;
   chartInfo: any | null;
   renderingError: string | null;
   generateChartSpec: () => Promise<void>;
@@ -36,7 +32,7 @@ export const useChartGeneration = ({
   completeOperation,
 }: UseChartGenerationProps): UseChartGenerationReturn => {
   const { state: { chartingLibrary } } = useVisualizationContext();
-  const [spec, setSpec] = useState<VegaLiteSpec | PlotResult | null>(null);
+  const [spec, setSpec] = useState<PlotResult | null>(null);
   const [chartInfo, setChartInfo] = useState<any | null>(null);
   const [renderingError, setRenderingError] = useState<string | null>(null);
   
@@ -71,93 +67,6 @@ export const useChartGeneration = ({
         setRenderingError(`Observable Plot generation failed: ${error}`);
         return;
       }
-    }
-
-    try {
-      // Cancel any existing rendering operation
-      if (renderingAbortControllerRef.current) {
-        renderingAbortControllerRef.current.abort();
-      }
-
-      // Create new abort controller
-      renderingAbortControllerRef.current = new AbortController();
-
-      // Check if worker is available, fallback to sync generation
-      if (!chartWorkerService.isWorkerAvailable()) {
-        console.warn('Worker not available, using synchronous chart generation');
-        
-        startOperation('rendering', true); // Start operation for synchronous generation
-        setRenderingError(null); // Clear previous errors after starting operation
-
-        // Add a small delay to ensure the modal appears even for sync generation
-        await new Promise(resolve => setTimeout(resolve, getTimeoutForOperation('rendering') + 50)); 
-        
-        try {
-          const result = generateVegaLiteSpec({ xFields: xAxisFields, yFields: yAxisFields });
-          // The function now returns both spec and chartInfo
-          setSpec(result.spec);
-          setChartInfo(result.chartInfo);
-          setRenderingError(null);
-          
-          logOperationTiming('Chart generation', startTime, { mode: 'sync' });
-        } catch (syncError: any) {
-          console.error('Synchronous chart generation error:', syncError);
-          setRenderingError(`Error generating chart: ${syncError.message || 'Unknown error'}`);
-          setSpec(null);
-          setChartInfo(null);
-        }
-        
-        completeOperation('rendering');
-        return;
-      }
-      
-      startOperation('rendering', true); // Start operation for worker generation
-      setRenderingError(null); // Clear previous errors after starting operation
-
-      // Generate spec using Web Worker
-      const result = await chartWorkerService.generateChartSpec(
-        xAxisFields, 
-        yAxisFields, 
-        { 
-          timeout: getTimeoutForOperation('worker'),
-          signal: renderingAbortControllerRef.current?.signal 
-        }
-      );
-
-      // Update state with result
-      setSpec(result.spec);
-      setChartInfo(result.chartInfo);
-      setRenderingError(null);
-      
-      logOperationTiming('Chart generation', startTime, { mode: 'worker' });
-      completeOperation('rendering');
-
-    } catch (error: any) {
-      console.error('Chart generation error:', error);
-      
-      if (error.code === 'CANCELLED') {
-        // Operation was cancelled, don't set error
-        setRenderingError(null);
-      } else {
-        // Set error and fallback to synchronous generation
-        setRenderingError(error.message || 'Chart generation failed');
-        
-        try {
-          console.log('Attempting fallback synchronous chart generation');
-          const fallbackResult = generateVegaLiteSpec({ xFields: xAxisFields, yFields: yAxisFields });
-          
-          setSpec(fallbackResult.spec);
-          setChartInfo(fallbackResult.chartInfo);
-        } catch (fallbackError: any) {
-          console.error('Fallback chart generation failed:', fallbackError);
-          setSpec(null);
-          setChartInfo(null);
-          // Update error with fallback error details if available
-          setRenderingError(`Chart generation failed: ${error.message}. Fallback also failed: ${fallbackError.message || 'Unknown error'}`);
-        }
-      }
-      
-      completeOperation('rendering');
     }
   }, [xAxisFields, yAxisFields, useTableView, startOperation, completeOperation, chartingLibrary, queryResult]);
 
