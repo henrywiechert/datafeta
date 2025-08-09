@@ -11,16 +11,20 @@ export interface ChartGenerationContext {
 
 export interface PlotResult {
   library: 'observable-plot';
-  options: Plot.PlotOptions;
-  additionalCharts?: {
-    plotOptions: Plot.PlotOptions;
-    usedFields: {
-      xFields: Field[];
-      yFields: Field[];
-    };
-  }[];
-  pipelineInfo?: {
-    totalCharts: number;
-    remainingFields: number;
+  options?: Plot.PlotOptions; // Single plot (legacy)
+  plots?: Array<{
+    id: string;
+    title: string;
+    options: Plot.PlotOptions;
+    position?: { row: number; col: number; };
+  }>; // Multiple plots with shared axes
+  sharedDomains?: {
+    x?: any;
+    y?: any;
+  };
+  layout?: {
+    type: 'single' | 'grid' | 'vertical' | 'horizontal';
+    columns?: number;
+    rows?: number;
   };
 } 

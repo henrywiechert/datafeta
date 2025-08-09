@@ -1,6 +1,8 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext, PlotResult } from './types';
 import { barChart } from './chartTypes/barChart';
+import { multiMeasureBarChart } from './chartTypes/multiMeasureBarChart';
+import { getResultColumnName } from '../utils/fieldUtils';
 
 /**
  * Simple, direct Observable Plot generation
@@ -28,12 +30,28 @@ export function generatePlot(context: ChartGenerationContext): PlotResult {
   }
 
   try {
-    // Generate chart based on field analysis
+    // Check if we have measures on both X and Y axes -> scatter plot
+    if (analysis.hasMixedAxes) {
+      const plotOptions = generateScatterPlot(analysis, context);
+      return {
+        library: 'observable-plot',
+        options: plotOptions,
+        layout: { type: 'single' }
+      };
+    }
+    
+    // Check if we need multi-measure charts (same axis)
+    if (analysis.isMultiMeasure) {
+      return multiMeasureBarChart(context);
+    }
+    
+    // Generate single chart
     const plotOptions = generateChartOptions(analysis, context);
     
     return {
       library: 'observable-plot',
       options: plotOptions,
+      layout: { type: 'single' }
     };
 
   } catch (error) {
@@ -55,6 +73,9 @@ interface FieldAnalysis {
   yMeasures: any[];
   xDimensions: any[];
   yDimensions: any[];
+  totalMeasures: number;
+  isMultiMeasure: boolean;
+  hasMixedAxes: boolean; // Measures on both X and Y axes
 }
 
 function analyzeFields(xFields: any[], yFields: any[]): FieldAnalysis {
@@ -62,9 +83,11 @@ function analyzeFields(xFields: any[], yFields: any[]): FieldAnalysis {
   const yMeasures = yFields.filter(f => f.type === 'measure');
   const xDimensions = xFields.filter(f => f.type === 'dimension');
   const yDimensions = yFields.filter(f => f.type === 'dimension');
+  
+  const totalMeasures = xMeasures.length + yMeasures.length;
 
   return {
-    hasMeasure: xMeasures.length > 0 || yMeasures.length > 0,
+    hasMeasure: totalMeasures > 0,
     hasXMeasure: xMeasures.length > 0,
     hasYMeasure: yMeasures.length > 0,
     hasXDimension: xDimensions.length > 0,
@@ -73,14 +96,58 @@ function analyzeFields(xFields: any[], yFields: any[]): FieldAnalysis {
     yMeasures,
     xDimensions,
     yDimensions,
+    totalMeasures,
+    isMultiMeasure: totalMeasures > 1,
+    hasMixedAxes: xMeasures.length > 0 && yMeasures.length > 0, // Measures on both axes
   };
 }
 
 /**
- * Generate chart options based on simple field analysis
+ * Generate scatter plot for measures on both X and Y axes
+ */
+function generateScatterPlot(analysis: FieldAnalysis, context: ChartGenerationContext): Plot.PlotOptions {
+  const { queryResult } = context;
+  const data = queryResult?.rows || [];
+  
+  // Get the first measure from each axis (for simplicity)
+  const xMeasure = analysis.xMeasures[0];
+  const yMeasure = analysis.yMeasures[0];
+  
+  // Generate column names for measures
+  const xFieldForName = { ...xMeasure, aggregation: xMeasure.aggregation || 'sum' };
+  const yFieldForName = { ...yMeasure, aggregation: yMeasure.aggregation || 'sum' };
+  const xColumnName = getResultColumnName(xFieldForName);
+  const yColumnName = getResultColumnName(yFieldForName);
+  
+  return {
+    width: 400,
+    height: 300,
+    x: {
+      label: xColumnName,
+      grid: true,
+    },
+    y: {
+      label: yColumnName,
+      grid: true,
+    },
+    marks: [
+      Plot.dot(data, {
+        x: xColumnName,
+        y: yColumnName,
+        fill: "steelblue",
+        r: 4, // Fixed radius for dots
+      }),
+      Plot.ruleX([0]),
+      Plot.ruleY([0])
+    ]
+  };
+}
+
+/**
+ * Generate single chart options based on simple field analysis
  */
 function generateChartOptions(analysis: FieldAnalysis, context: ChartGenerationContext): Plot.PlotOptions {
-  // For now, we only support bar charts
+  // For now, we only support bar charts for single measure scenarios
   // TODO: Add line charts, scatter plots, etc. as needed
   
   if (analysis.hasXMeasure || analysis.hasYMeasure) {
@@ -106,5 +173,6 @@ function createMessageChart(message: string): PlotResult {
         })
       ]
     },
+    layout: { type: 'single' }
   };
 }
