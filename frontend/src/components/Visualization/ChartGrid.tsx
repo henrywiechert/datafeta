@@ -6,18 +6,12 @@ import ObservablePlot from './ObservablePlot';
 import styles from './ChartGrid.module.css';
 
 interface ChartGridProps {
-  spec: any; // Allow both Vega and Vega-Lite specs
+  spec: PlotResult | null;
   data: QueryResult | null;
 }
 
 /**
- * ChartGrid - Universal chart renderer for both Vega and Vega-Lite
- * 
- * ARCHITECTURE NOTE: This component handles BOTH chart types but keeps their logic separate:
- * - Vega-Lite: Uses built-in responsive sizing ("width": "container")
- * - Vega: Uses custom dimension management and signal updates
- * 
- * Detection: spec.$schema.includes('vega-lite') determines chart type
+ * ChartGrid - Renders Observable Plot charts (single or multiple)
  */
 const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -31,10 +25,45 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     );
   }
 
-  // Handle Observable Plot rendering
+  // Handle multi-plot scenarios
+  if (spec.plots && spec.plots.length > 0) {
+    const isVerticalLayout = spec.layout?.type === 'vertical';
+    
+    return (
+      <div className={styles.container} ref={containerRef}>
+        <div className={styles.multiPlotGrid} style={{
+          display: 'grid',
+          gridTemplateColumns: isVerticalLayout ? '1fr' : `repeat(${spec.layout?.columns || 2}, 1fr)`,
+          gridTemplateRows: isVerticalLayout ? `repeat(${spec.layout?.rows || 2}, 1fr)` : '1fr',
+          gap: '0', /* Remove spacing between plots */
+          padding: '0'
+        }}>
+          {spec.plots.map((plot, index) => (
+            <div key={plot.id || index} className={styles.plotWrapper}>
+              <h4 className={styles.plotTitle}>{plot.title}</h4>
+              <div className={styles.observablePlotContainer}>
+                <ObservablePlot options={plot.options} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Handle single plot (legacy format)
+  if (spec.options) {
+    return (
+      <div className={`${styles.container} ${styles.observablePlotContainer}`} ref={containerRef}>
+        <ObservablePlot options={spec.options} />
+      </div>
+    );
+  }
+
+  // Fallback
   return (
-    <div className={`${styles.container} ${styles.observablePlotContainer}`} ref={containerRef}>
-      <ObservablePlot options={(spec as PlotResult).options} />
+    <div className={styles.container} ref={containerRef}>
+      <p>No chart data available</p>
     </div>
   );
 };
