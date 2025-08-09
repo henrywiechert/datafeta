@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
 import { generateVegaLiteSpec } from '../../../../spec-generator/specGeneratorV2';
-import { vegaSpecGenerator } from '../../../../vega-spec-generator';
+
 import { generatePlot } from '../../../../observable-plot-generator/observablePlotGenerator';
 import { chartWorkerService } from '../../../../services/chartWorkerService';
 import { getTimeoutForOperation } from '../../../../config/loadingConfig';
@@ -53,7 +53,7 @@ export const useChartGeneration = ({
     }
 
     // ============================================================================
-    // OBSERVABLE PLOT PATH
+    // CHART GENERATION
     // ============================================================================
     if (chartingLibrary === 'observable-plot') {
       try {
@@ -73,30 +73,6 @@ export const useChartGeneration = ({
       }
     }
 
-    // ============================================================================
-    // VEGA PATH: Custom low-level chart generation (PAUSED)
-    // ============================================================================
-    if (chartingLibrary === 'vega') {
-      try {
-        const vegaSpec = vegaSpecGenerator.generateSpec({ 
-          xFields: xAxisFields, 
-          yFields: yAxisFields, 
-          queryResult 
-        });
-        setSpec(vegaSpec as any); // Cast to VegaLiteSpec for type compatibility
-        setChartInfo({ chartType: 'vega-barchart' });
-        setRenderingError(null);
-        return;
-      } catch (error) {
-        console.error('Vega chart generation failed:', error);
-        setRenderingError(`Vega generation failed: ${error}`);
-        return;
-      }
-    }
-
-    // ============================================================================
-    // VEGA-LITE PATH: High-level chart generation with faceting (ACTIVE)
-    // ============================================================================
     try {
       // Cancel any existing rendering operation
       if (renderingAbortControllerRef.current) {

@@ -39,7 +39,6 @@ export abstract class BaseChart implements ChartStrategy {
    */
   protected createBaseSpec(): VegaLiteSpec {
     return {
-      "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
       "description": "A chart created by DataFeta.",
       "data": { "name": "table" },
       "encoding": {},
