@@ -73,24 +73,9 @@
     flex-direction: column;
     background: white;
     overflow: visible; /* Remove individual scrollbars */
-    border-right: 1px solid #f0f0f0; /* Subtle vertical separator */
-    border-bottom: 1px solid #f0f0f0; /* Subtle horizontal separator */
 }
 
-.plotWrapper:last-child {
-    border-right: none; /* Remove border from last column */
-}
-
-.plotTitle {
-    margin: 0;
-    padding: 0.25rem 0.5rem;
-    font-size: 0.85rem;
-    font-weight: 600;
-    background: #f8f8f8;
-    color: #555;
-    text-align: center;
-    border-bottom: 1px solid #e8e8e8;
-}
+/* Remove per-plot title for gapless layout */
 
 .plotWrapper .observablePlotContainer {
     flex: 1;
