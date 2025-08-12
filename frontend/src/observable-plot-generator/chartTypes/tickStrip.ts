@@ -1,5 +1,6 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext } from '../types';
+import { BAR_STEP_PX } from '../../config/chartLayoutConfig';
 
 /**
  * Tick-strip chart for a single continuous dimension.
@@ -33,6 +34,8 @@ export function tickStrip(
     return {
       x: { label: dimensionColumn, grid: true },
       y: { label: ' ' },
+      // Thickness behaves like a single bar: fixed pixel height (1x)
+      height: BAR_STEP_PX * 1.8,
       marks: [
         Plot.tickX(data, {
           x: dimensionColumn,
@@ -45,6 +48,8 @@ export function tickStrip(
   return {
     y: { label: dimensionColumn, grid: true },
     x: { label: ' ' },
+    // Thickness behaves like a single bar: fixed pixel width (1x)
+    width: BAR_STEP_PX * 1.8,
     marks: [
       Plot.tickY(data, {
         y: dimensionColumn,
