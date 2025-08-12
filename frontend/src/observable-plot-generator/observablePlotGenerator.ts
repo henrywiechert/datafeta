@@ -27,28 +27,23 @@ export function generatePlot(context: ChartGenerationContext): PlotResult {
   // Analyze fields to determine chart type
   const analysis = analyzeFields(xFields, yFields);
   
-  // Check if we have measures (required for charts)
-  if (!analysis.hasMeasure) {
-    return createMessageChart('Drag a measure to an axis to create a chart.');
-  }
+  // We allow dimension-only continuous charts (tick-strip/scatter), so do not require measures here.
 
   try {
-    // Check if we have measures on both X and Y axes -> scatter plot (single point)
-    if (analysis.hasMixedAxes) {
-      const plotOptions = generateScatterPlot(analysis, context);
-      return {
-        library: 'observable-plot',
-        options: plotOptions,
-        layout: { type: 'single' },
-      };
-    }
-    
-    // Check if we need multi-measure charts (same axis)
-    if (analysis.isMultiMeasure) {
+    // Multi-measure on the same axis -> grid of bar charts (preferred over cartesian pairing)
+    if (analysis.isMultiMeasure && !analysis.hasMixedAxes) {
       return multiMeasureBarChart(context);
     }
     
-    // Generate single chart or grid based on dimensions/measures
+    // If both axes have at least one candidate (measure or dimension), build a cartesian pairing grid
+    const xCandidates = [...analysis.xMeasures, ...analysis.xDimensions];
+    const yCandidates = [...analysis.yMeasures, ...analysis.yDimensions];
+
+    if (xCandidates.length > 0 && yCandidates.length > 0) {
+      return generateCartesianGrid(context, analysis, xCandidates, yCandidates);
+    }
+
+    // Otherwise, generate single chart or simple multi on one axis
     const result = generateChartOptions(analysis, context);
     return result;
 
@@ -249,6 +244,77 @@ function generateChartOptions(analysis: FieldAnalysis, context: ChartGenerationC
       ],
     },
     layout: { type: 'single' },
+  };
+}
+
+/**
+ * Build a cartesian pairing grid between xCandidates and yCandidates.
+ * - If both are measures → scatter by their measure columns
+ * - If one is measure and other is dimension → line chart
+ * - If both are dimensions → scatter
+ * Uses CSS grid with positions. For now, non-bar charts use 'fr' sizing.
+ */
+function generateCartesianGrid(
+  context: ChartGenerationContext,
+  analysis: FieldAnalysis,
+  xCandidates: any[],
+  yCandidates: any[]
+): PlotResult {
+  const { queryResult } = context;
+  const data = queryResult.rows;
+
+  const plots: Array<{
+    id: string;
+    title: string;
+    options: Plot.PlotOptions;
+    position: { row: number; col: number };
+  }> = [];
+
+  for (let r = 0; r < yCandidates.length; r++) {
+    for (let c = 0; c < xCandidates.length; c++) {
+      const xField = xCandidates[c];
+      const yField = yCandidates[r];
+
+      const xIsMeasure = xField.type === 'measure';
+      const yIsMeasure = yField.type === 'measure';
+      const xLabel = xIsMeasure
+        ? getResultColumnName({ ...xField, aggregation: xField.aggregation || 'sum' })
+        : xField.columnName;
+      const yLabel = yIsMeasure
+        ? getResultColumnName({ ...yField, aggregation: yField.aggregation || 'sum' })
+        : yField.columnName;
+
+      let options: Plot.PlotOptions;
+      let title = `${yLabel} vs ${xLabel}`;
+
+      if (xIsMeasure && yIsMeasure) {
+        // measure vs measure → scatter
+        options = scatterChart(data, xLabel, yLabel, { x: xLabel, y: yLabel });
+      } else if (xIsMeasure && !yIsMeasure) {
+        // measure on x, dimension on y → line along dimension
+        options = lineChart(data, yLabel, xLabel, { x: yLabel, y: xLabel });
+      } else if (!xIsMeasure && yIsMeasure) {
+        // dimension on x, measure on y → line
+        options = lineChart(data, xLabel, yLabel, { x: xLabel, y: yLabel });
+      } else {
+        // both dimensions → scatter
+        options = scatterChart(data, xLabel, yLabel, { x: xLabel, y: yLabel });
+      }
+
+      plots.push({ id: `cell-${r}-${c}`, title, options, position: { row: r, col: c } });
+    }
+  }
+
+  return {
+    library: 'observable-plot',
+    plots,
+    layout: {
+      type: 'grid',
+      columns: xCandidates.length,
+      rows: yCandidates.length,
+      columnSizes: Array.from({ length: xCandidates.length }, () => 'fr'),
+      rowSizes: Array.from({ length: yCandidates.length }, () => 'fr'),
+    },
   };
 }
 
