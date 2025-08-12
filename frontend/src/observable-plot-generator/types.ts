@@ -21,6 +21,7 @@ export interface PlotResult {
   sharedDomains?: {
     x?: any;
     y?: any;
+    byMeasure?: Record<string, [number, number]>;
   };
   layout?: {
     type: 'single' | 'grid' | 'vertical' | 'horizontal';
