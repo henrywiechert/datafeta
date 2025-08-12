@@ -26,5 +26,9 @@ export interface PlotResult {
     type: 'single' | 'grid' | 'vertical' | 'horizontal';
     columns?: number;
     rows?: number;
+    // Optional explicit track sizes for CSS grid rendering
+    // number => pixels, 'fr' => fractional unit (defaults to 1fr)
+    columnSizes?: Array<number | 'fr'>;
+    rowSizes?: Array<number | 'fr'>;
   };
 } 
