@@ -371,7 +371,7 @@ function computeSharedMeasureDomains(
     const min = Math.min(...values);
     const max = Math.max(...values);
     const lower = Math.min(0, min);
-    const upper = max * 1.1;
+    const upper = max <= 0 ? 0 : max * 1.1; // clamp to 0 if non-positive
     domains[measureName] = [lower, upper];
   });
 
