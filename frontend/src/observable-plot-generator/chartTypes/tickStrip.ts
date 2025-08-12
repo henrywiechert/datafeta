@@ -15,6 +15,20 @@ export function tickStrip(
   const { queryResult } = context;
   const data = queryResult.rows;
 
+  // Guard against non-numeric values leading to rendering issues
+  const hasValid = Array.isArray(data) && data.some((row) => Number.isFinite(row[dimensionColumn]));
+  if (!hasValid) {
+    return {
+      marks: [
+        Plot.text(['No numeric data for tick-strip'], {
+          frameAnchor: 'middle',
+          fontSize: 12,
+          fill: 'gray',
+        }),
+      ],
+    };
+  }
+
   if (orientation === 'x') {
     return {
       x: { label: dimensionColumn, grid: true },
