@@ -72,12 +72,11 @@ function calculateSharedDomains(measures: any[], data: any[]) {
     if (values.length > 0) {
       const max = Math.max(...values);
       const min = Math.min(...values);
-      
-      // For measures, typically start at 0 for better comparison
-      domains[measureName] = [
-        Math.min(0, min), // Include 0 or go below if needed
-        max * 1.1 // Add 10% padding at top
-      ];
+
+      // For measures, include 0 baseline; clamp upper to 0 if all values are ≤ 0
+      const lower = Math.min(0, min);
+      const upper = max <= 0 ? 0 : max * 1.1; // 10% headroom when positive
+      domains[measureName] = [lower, upper];
     }
   });
 
@@ -107,7 +106,7 @@ function generateMeasurePlots(
     position: { row: number; col: number };
   }> = [];
 
-  const BAR_STEP = 40;
+  const BAR_STEP = 40; // consider importing from config if needed
 
   if (layoutType === 'horizontal') {
     // All plots share the same row; set row height from the categorical dimension
