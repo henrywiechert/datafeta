@@ -4,6 +4,7 @@ import { QueryResult } from '../../types';
 import { PlotResult } from '../../observable-plot-generator/types';
 import ObservablePlot from './ObservablePlot';
 import styles from './ChartGrid.module.css';
+import { MIN_GRID_COLUMN_PX, MIN_GRID_ROW_PX } from '../../config/chartLayoutConfig';
 
 interface ChartGridProps {
   spec: PlotResult | null;
@@ -35,16 +36,13 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     const columnSizes = spec.layout?.columnSizes;
     const rowSizes = spec.layout?.rowSizes;
 
-    const MIN_COLUMN_PX = 240;
-    const MIN_ROW_PX = 160;
-
     const gridTemplateColumns =
       layoutType === 'vertical'
         ? '1fr'
         : columnSizes && columnSizes.length > 0
           ? columnSizes
               .slice(0, columns)
-              .map((c) => (typeof c === 'number' ? `${c}px` : `minmax(${MIN_COLUMN_PX}px, 1fr)`))
+              .map((c) => (typeof c === 'number' ? `${c}px` : `minmax(${MIN_GRID_COLUMN_PX}px, 1fr)`))
               .join(' ')
           : `repeat(${columns}, 1fr)`;
 
@@ -54,7 +52,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
         : rowSizes && rowSizes.length > 0
           ? rowSizes
               .slice(0, rows)
-              .map((r) => (typeof r === 'number' ? `${r}px` : `minmax(${MIN_ROW_PX}px, 1fr)`))
+              .map((r) => (typeof r === 'number' ? `${r}px` : `minmax(${MIN_GRID_ROW_PX}px, 1fr)`))
               .join(' ')
           : `repeat(${rows}, 1fr)`;
 
