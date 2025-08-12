@@ -25,27 +25,62 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     );
   }
 
-  // Handle multi-plot scenarios
+  // Handle multi-plot scenarios (grid / horizontal / vertical)
   if (spec.plots && spec.plots.length > 0) {
-    const isVerticalLayout = spec.layout?.type === 'vertical';
-    
+    const layoutType = spec.layout?.type || 'grid';
+    const columns = spec.layout?.columns || 1;
+    const rows = spec.layout?.rows || 1;
+
+    // Build template tracks
+    const columnSizes = spec.layout?.columnSizes;
+    const rowSizes = spec.layout?.rowSizes;
+
+    const gridTemplateColumns =
+      layoutType === 'vertical'
+        ? '1fr'
+        : columnSizes && columnSizes.length > 0
+          ? columnSizes
+              .slice(0, columns)
+              .map((c) => (typeof c === 'number' ? `${c}px` : '1fr'))
+              .join(' ')
+          : `repeat(${columns}, 1fr)`;
+
+    const gridTemplateRows =
+      layoutType === 'horizontal'
+        ? '1fr'
+        : rowSizes && rowSizes.length > 0
+          ? rowSizes
+              .slice(0, rows)
+              .map((r) => (typeof r === 'number' ? `${r}px` : '1fr'))
+              .join(' ')
+          : `repeat(${rows}, 1fr)`;
+
     return (
       <div className={styles.container} ref={containerRef}>
-        <div className={styles.multiPlotGrid} style={{
-          display: 'grid',
-          gridTemplateColumns: isVerticalLayout ? '1fr' : `repeat(${spec.layout?.columns || 2}, 1fr)`,
-          gridTemplateRows: isVerticalLayout ? `repeat(${spec.layout?.rows || 2}, 1fr)` : '1fr',
-          gap: '0', /* Remove spacing between plots */
-          padding: '0'
-        }}>
-          {spec.plots.map((plot, index) => (
-            <div key={plot.id || index} className={styles.plotWrapper}>
-              <h4 className={styles.plotTitle}>{plot.title}</h4>
-              <div className={styles.observablePlotContainer}>
-                <ObservablePlot options={plot.options} />
+        <div
+          className={styles.multiPlotGrid}
+          style={{
+            display: 'grid',
+            gridTemplateColumns,
+            gridTemplateRows,
+            gap: '0',
+            padding: '0',
+          }}
+        >
+          {spec.plots.map((plot, index) => {
+            const key = plot.id || String(index);
+            const pos = plot.position;
+            const gridItemStyle: React.CSSProperties | undefined = pos
+              ? { gridColumn: pos.col + 1, gridRow: pos.row + 1 }
+              : undefined;
+            return (
+              <div key={key} className={styles.plotWrapper} style={gridItemStyle}>
+                <div className={styles.observablePlotContainer}>
+                  <ObservablePlot options={plot.options} />
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
