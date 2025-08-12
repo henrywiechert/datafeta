@@ -31,19 +31,29 @@ export function multiMeasureBarChart(context: ChartGenerationContext): PlotResul
   
   // Determine layout based on where measures are placed
   const layoutType = xMeasures.length > 0 ? 'horizontal' : 'vertical';
-  
-  // Generate individual plots for each measure
-  const plots = generateMeasurePlots(xMeasures, yMeasures, xDimensions, yDimensions, data, sharedDomains);
+
+  // Generate individual plots for each measure and position them
+  const { plots, columnSizes, rowSizes } = generateMeasurePlots(
+    xMeasures,
+    yMeasures,
+    xDimensions,
+    yDimensions,
+    data,
+    sharedDomains,
+    layoutType
+  );
 
   return {
     library: 'observable-plot',
     plots,
     sharedDomains,
     layout: {
-      type: layoutType === 'horizontal' ? 'horizontal' : 'vertical',
-      columns: layoutType === 'horizontal' ? plots.length : 1, // Horizontal: side by side, Vertical: stacked
-      rows: layoutType === 'horizontal' ? 1 : plots.length
-    }
+      type: 'grid',
+      columns: layoutType === 'horizontal' ? plots.length : 1,
+      rows: layoutType === 'horizontal' ? 1 : plots.length,
+      columnSizes,
+      rowSizes,
+    },
   };
 }
 
@@ -78,80 +88,121 @@ function calculateSharedDomains(measures: any[], data: any[]) {
  * Generate individual plot for each measure based on axis placement
  */
 function generateMeasurePlots(
-  xMeasures: any[], 
+  xMeasures: any[],
   yMeasures: any[],
-  xDimensions: any[], 
-  yDimensions: any[], 
-  data: any[], 
-  sharedDomains: any
-): Array<{id: string; title: string; options: Plot.PlotOptions}> {
-  const plots: Array<{id: string; title: string; options: Plot.PlotOptions}> = [];
+  xDimensions: any[],
+  yDimensions: any[],
+  data: any[],
+  sharedDomains: any,
+  layoutType: 'horizontal' | 'vertical'
+): {
+  plots: Array<{ id: string; title: string; options: Plot.PlotOptions; position: { row: number; col: number } }>;
+  columnSizes: Array<number | 'fr'>;
+  rowSizes: Array<number | 'fr'>;
+} {
+  const plots: Array<{
+    id: string;
+    title: string;
+    options: Plot.PlotOptions;
+    position: { row: number; col: number };
+  }> = [];
 
-  // Process X-axis measures (horizontal bar charts)
-  xMeasures.forEach((measure, index) => {
-    const fieldForName = { ...measure, aggregation: measure.aggregation || 'sum' };
-    const measureName = getResultColumnName(fieldForName);
-    const dimension = yDimensions[0]; // Y dimension for horizontal bars
-    
-    const plotOptions = createHorizontalBarChart(measureName, dimension, data, sharedDomains);
-    plots.push({
-      id: `x-measure-${index}`,
-      title: measureName,
-      options: plotOptions
+  const BAR_STEP = 40;
+
+  if (layoutType === 'horizontal') {
+    // All plots share the same row; set row height from the categorical dimension
+    const dimension = yDimensions[0];
+    const categoryCount = dimension
+      ? new Set(data.map((row) => row[dimension.columnName])).size
+      : 1;
+    const rowHeightPx = Math.max(BAR_STEP * 2, categoryCount * BAR_STEP);
+
+    xMeasures.forEach((measure, index) => {
+      const fieldForName = { ...measure, aggregation: measure.aggregation || 'sum' };
+      const measureName = getResultColumnName(fieldForName);
+      const plotOptions = createHorizontalBarChart(measureName, dimension, data, sharedDomains, BAR_STEP);
+
+      plots.push({
+        id: `x-measure-${index}`,
+        title: measureName,
+        options: plotOptions,
+        position: { row: 0, col: index },
+      });
     });
-  });
 
-  // Process Y-axis measures (vertical bar charts)
+    return {
+      plots,
+      columnSizes: Array.from({ length: plots.length }, () => 'fr'),
+      rowSizes: [rowHeightPx],
+    };
+  }
+
+  // Vertical layout (Y measures): one column, multiple rows
+  const dimension = xDimensions[0];
+  const categoryCount = dimension
+    ? new Set(data.map((row) => row[dimension.columnName])).size
+    : 1;
+  const columnWidthPx = Math.max(BAR_STEP * 2, categoryCount * BAR_STEP);
+
   yMeasures.forEach((measure, index) => {
     const fieldForName = { ...measure, aggregation: measure.aggregation || 'sum' };
     const measureName = getResultColumnName(fieldForName);
-    const dimension = xDimensions[0]; // X dimension for vertical bars
-    
-    const plotOptions = createVerticalBarChart(measureName, dimension, data, sharedDomains);
+    const plotOptions = createVerticalBarChart(measureName, dimension, data, sharedDomains, BAR_STEP);
+
     plots.push({
       id: `y-measure-${index}`,
       title: measureName,
-      options: plotOptions
+      options: plotOptions,
+      position: { row: index, col: 0 },
     });
   });
 
-  return plots;
+  return {
+    plots,
+    columnSizes: [columnWidthPx],
+    rowSizes: Array.from({ length: plots.length }, () => 'fr'),
+  };
 }
 
 /**
  * Create horizontal bar chart (measure on X-axis)
  */
-function createHorizontalBarChart(measureName: string, dimension: any, data: any[], sharedDomains: any): Plot.PlotOptions {
+function createHorizontalBarChart(
+  measureName: string,
+  dimension: any,
+  data: any[],
+  sharedDomains: any,
+  BAR_STEP: number
+): Plot.PlotOptions {
   const plotOptions: Plot.PlotOptions = {
-    width: 320,
-    height: 240,
     x: {
       domain: sharedDomains[measureName], // Shared X domain
       grid: true,
       label: measureName,
     },
-    marks: [
-      Plot.ruleX([0])
-    ]
+    marks: [Plot.ruleX([0])],
   };
 
   if (dimension) {
     // Horizontal bars with dimension on Y-axis
+    const categoryCount = new Set(data.map((row) => row[dimension.columnName])).size;
+    plotOptions.height = Math.max(BAR_STEP * 2, categoryCount * BAR_STEP);
     plotOptions.y = { label: dimension.columnName };
     plotOptions.marks!.push(
       Plot.barX(data, {
         x: measureName,
         y: dimension.columnName,
-        fill: "steelblue"
+        fill: 'steelblue',
       })
     );
   } else {
     // Single horizontal bar
-    plotOptions.y = { label: " " };
+    plotOptions.height = BAR_STEP * 2;
+    plotOptions.y = { label: ' ' };
     plotOptions.marks!.push(
       Plot.barX(data, {
         x: measureName,
-        fill: "steelblue"
+        fill: 'steelblue',
       })
     );
   }
@@ -162,37 +213,42 @@ function createHorizontalBarChart(measureName: string, dimension: any, data: any
 /**
  * Create vertical bar chart (measure on Y-axis)
  */
-function createVerticalBarChart(measureName: string, dimension: any, data: any[], sharedDomains: any): Plot.PlotOptions {
+function createVerticalBarChart(
+  measureName: string,
+  dimension: any,
+  data: any[],
+  sharedDomains: any,
+  BAR_STEP: number
+): Plot.PlotOptions {
   const plotOptions: Plot.PlotOptions = {
-    width: 320,
-    height: 240,
     y: {
       domain: sharedDomains[measureName], // Shared Y domain
       grid: true,
       label: measureName,
     },
-    marks: [
-      Plot.ruleY([0])
-    ]
+    marks: [Plot.ruleY([0])],
   };
 
   if (dimension) {
     // Vertical bars with dimension on X-axis
+    const categoryCount = new Set(data.map((row) => row[dimension.columnName])).size;
+    plotOptions.width = Math.max(BAR_STEP * 2, categoryCount * BAR_STEP);
     plotOptions.x = { label: dimension.columnName };
     plotOptions.marks!.push(
       Plot.barY(data, {
         x: dimension.columnName,
         y: measureName,
-        fill: "steelblue"
+        fill: 'steelblue',
       })
     );
   } else {
     // Single vertical bar
-    plotOptions.x = { label: " " };
+    plotOptions.width = BAR_STEP * 2;
+    plotOptions.x = { label: ' ' };
     plotOptions.marks!.push(
       Plot.barY(data, {
         y: measureName,
-        fill: "steelblue"
+        fill: 'steelblue',
       })
     );
   }
