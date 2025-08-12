@@ -263,6 +263,9 @@ function generateCartesianGrid(
   const { queryResult } = context;
   const data = queryResult.rows;
 
+  // Compute shared domains for any measures used in the grid
+  const sharedMeasureDomains = computeSharedMeasureDomains(data, xCandidates, yCandidates);
+
   const plots: Array<{
     id: string;
     title: string;
@@ -290,12 +293,31 @@ function generateCartesianGrid(
       if (xIsMeasure && yIsMeasure) {
         // measure vs measure → scatter
         options = scatterChart(data, xLabel, yLabel, { x: xLabel, y: yLabel });
+        // Apply shared domains for both measures
+        const xDomain = sharedMeasureDomains[xLabel];
+        const yDomain = sharedMeasureDomains[yLabel];
+        if (xDomain) {
+          options.x = { ...(options.x || {}), domain: xDomain } as any;
+        }
+        if (yDomain) {
+          options.y = { ...(options.y || {}), domain: yDomain } as any;
+        }
       } else if (xIsMeasure && !yIsMeasure) {
         // measure on x, dimension on y → line along dimension
         options = lineChart(data, yLabel, xLabel, { x: yLabel, y: xLabel });
+        // Apply shared domain for the x measure
+        const xDomain = sharedMeasureDomains[xLabel];
+        if (xDomain) {
+          options.x = { ...(options.x || {}), domain: xDomain } as any;
+        }
       } else if (!xIsMeasure && yIsMeasure) {
         // dimension on x, measure on y → line
         options = lineChart(data, xLabel, yLabel, { x: xLabel, y: yLabel });
+        // Apply shared domain for the y measure
+        const yDomain = sharedMeasureDomains[yLabel];
+        if (yDomain) {
+          options.y = { ...(options.y || {}), domain: yDomain } as any;
+        }
       } else {
         // both dimensions → scatter
         options = scatterChart(data, xLabel, yLabel, { x: xLabel, y: yLabel });
@@ -308,6 +330,7 @@ function generateCartesianGrid(
   return {
     library: 'observable-plot',
     plots,
+    sharedDomains: { byMeasure: sharedMeasureDomains as any },
     layout: {
       type: 'grid',
       columns: xCandidates.length,
@@ -316,6 +339,43 @@ function generateCartesianGrid(
       rowSizes: Array.from({ length: yCandidates.length }, () => 'fr'),
     },
   };
+}
+
+/**
+ * Compute shared numeric domains for all measures used across a grid.
+ * Includes 0 and adds 10% headroom at the top, similar to bar charts.
+ */
+function computeSharedMeasureDomains(
+  data: any[],
+  xCandidates: any[],
+  yCandidates: any[]
+): Record<string, [number, number]> {
+  const measures: string[] = [];
+
+  const addMeasure = (field: any) => {
+    if (field?.type === 'measure') {
+      const name = getResultColumnName({ ...field, aggregation: field.aggregation || 'sum' } as any);
+      if (!measures.includes(name)) measures.push(name);
+    }
+  };
+
+  xCandidates.forEach(addMeasure);
+  yCandidates.forEach(addMeasure);
+
+  const domains: Record<string, [number, number]> = {};
+  measures.forEach((measureName) => {
+    const values = data
+      .map((row) => row[measureName])
+      .filter((v) => typeof v === 'number' && !Number.isNaN(v));
+    if (values.length === 0) return;
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const lower = Math.min(0, min);
+    const upper = max * 1.1;
+    domains[measureName] = [lower, upper];
+  });
+
+  return domains;
 }
 
 /**
