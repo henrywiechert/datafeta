@@ -1,4 +1,5 @@
 import * as Plot from '@observablehq/plot';
+import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 
 /**
  * Scatter chart for continuous measure vs continuous measure or dimension.
@@ -25,7 +26,7 @@ export function scatterChart(
     x: { label: labels?.x || xColumn, grid: true },
     y: { label: labels?.y || yColumn, grid: true },
     marks: [
-      Plot.dot(clean, { x: xColumn, y: yColumn, fill: 'steelblue', r: 4 }),
+      Plot.dot(clean, { x: xColumn, y: yColumn, fill: DEFAULT_CHART_COLOR, r: 4 }),
       Plot.ruleX([0]),
       Plot.ruleY([0]),
     ],

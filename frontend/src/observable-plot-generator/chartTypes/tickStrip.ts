@@ -1,6 +1,6 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext } from '../types';
-import { BAR_STEP_PX } from '../../config/chartLayoutConfig';
+import { BAR_STEP_PX, DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 
 /**
  * Tick-strip chart for a single continuous dimension.
@@ -39,6 +39,7 @@ export function tickStrip(
       marks: [
         Plot.tickX(data, {
           x: dimensionColumn,
+          stroke: DEFAULT_CHART_COLOR,
         }),
       ],
     };
@@ -53,6 +54,7 @@ export function tickStrip(
     marks: [
       Plot.tickY(data, {
         y: dimensionColumn,
+        stroke: DEFAULT_CHART_COLOR,
       }),
     ],
   };
