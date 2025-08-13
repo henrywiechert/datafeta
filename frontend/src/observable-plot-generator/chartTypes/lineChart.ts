@@ -1,4 +1,5 @@
 import * as Plot from '@observablehq/plot';
+import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 
 /**
  * Line chart for continuous dimension on one axis and continuous measure on the other.
@@ -27,8 +28,8 @@ export function lineChart(
     x: { label: labels?.x || xColumn, grid: true },
     y: { label: labels?.y || yColumn, grid: true },
     marks: [
-      Plot.line(clean, { x: xColumn, y: yColumn, stroke: 'steelblue' }),
-      Plot.dot(clean, { x: xColumn, y: yColumn, fill: 'steelblue', r: 2 }),
+      Plot.line(clean, { x: xColumn, y: yColumn, stroke: DEFAULT_CHART_COLOR }),
+      Plot.dot(clean, { x: xColumn, y: yColumn, fill: DEFAULT_CHART_COLOR, r: 2 }),
     ],
   };
 }

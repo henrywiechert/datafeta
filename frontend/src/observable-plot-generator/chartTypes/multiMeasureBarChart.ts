@@ -1,6 +1,7 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext, PlotResult } from '../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
+import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 
 /**
  * Generate multiple bar charts with shared axes for multiple measures
@@ -191,7 +192,7 @@ function createHorizontalBarChart(
       Plot.barX(data, {
         x: measureName,
         y: dimension.columnName,
-        fill: 'steelblue',
+        fill: DEFAULT_CHART_COLOR,
       })
     );
   } else {
@@ -201,7 +202,7 @@ function createHorizontalBarChart(
     plotOptions.marks!.push(
       Plot.barX(data, {
         x: measureName,
-        fill: 'steelblue',
+        fill: DEFAULT_CHART_COLOR,
       })
     );
   }
@@ -237,7 +238,7 @@ function createVerticalBarChart(
       Plot.barY(data, {
         x: dimension.columnName,
         y: measureName,
-        fill: 'steelblue',
+        fill: DEFAULT_CHART_COLOR,
       })
     );
   } else {
@@ -247,7 +248,7 @@ function createVerticalBarChart(
     plotOptions.marks!.push(
       Plot.barY(data, {
         y: measureName,
-        fill: 'steelblue',
+        fill: DEFAULT_CHART_COLOR,
       })
     );
   }

@@ -1,5 +1,6 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext } from '../types';
+import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 import { getResultColumnName } from '../../utils/fieldUtils';
 
 export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
@@ -21,7 +22,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
 
     const barConfig: any = {
       y: measureName,
-      fill: "steelblue",
+      fill: DEFAULT_CHART_COLOR,
     };
     
     // Only add x field if we have a dimension
@@ -70,7 +71,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
 
     const barConfig: any = {
       x: measureName,
-      fill: "steelblue",
+      fill: DEFAULT_CHART_COLOR,
     };
     
     // Only add y field if we have a dimension
