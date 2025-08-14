@@ -6,7 +6,11 @@ import { getResultColumnName } from '../utils/fieldUtils';
 import { tickStrip } from './chartTypes/tickStrip';
 import { lineChart } from './chartTypes/lineChart';
 import { scatterChart } from './chartTypes/scatterChart';
+import { generateChartOptions as genChartOptionsRule, generateScatterPlot } from './rules/chartRules';
 import { Field } from '../types';
+import { getFieldColumnName } from './helpers/fields';
+import { computeSharedMeasureDomains } from './domains/measureDomains';
+import { FieldAnalysis, analyzeFields } from './analysis/fieldAnalysis';
 import { DEFAULT_CHART_COLOR, BAR_STEP_PX } from '../config/chartLayoutConfig';
 
 /**
@@ -50,7 +54,7 @@ export function generatePlot(context: ChartGenerationContext): PlotResult {
     }
 
     // Otherwise, generate single chart or simple multi on one axis
-    const result = generateChartOptions(analysis, context);
+    const result = genChartOptionsRule(analysis, context);
     return result;
 
   } catch (error) {
@@ -62,85 +66,12 @@ export function generatePlot(context: ChartGenerationContext): PlotResult {
 /**
  * Simple field analysis - no complex classification
  */
-interface FieldAnalysis {
-  hasMeasure: boolean;
-  hasXMeasure: boolean;
-  hasYMeasure: boolean;
-  hasXDimension: boolean;
-  hasYDimension: boolean;
-  xMeasures: any[];
-  yMeasures: any[];
-  xDimensions: any[];
-  yDimensions: any[];
-  totalMeasures: number;
-  isMultiMeasure: boolean;
-  hasMixedAxes: boolean; // Measures on both X and Y axes
-}
-
-function analyzeFields(xFields: any[], yFields: any[]): FieldAnalysis {
-  const xMeasures = xFields.filter(f => f.type === 'measure');
-  const yMeasures = yFields.filter(f => f.type === 'measure');
-  const xDimensions = xFields.filter(f => f.type === 'dimension');
-  const yDimensions = yFields.filter(f => f.type === 'dimension');
-  
-  const totalMeasures = xMeasures.length + yMeasures.length;
-
-  return {
-    hasMeasure: totalMeasures > 0,
-    hasXMeasure: xMeasures.length > 0,
-    hasYMeasure: yMeasures.length > 0,
-    hasXDimension: xDimensions.length > 0,
-    hasYDimension: yDimensions.length > 0,
-    xMeasures,
-    yMeasures,
-    xDimensions,
-    yDimensions,
-    totalMeasures,
-    isMultiMeasure: totalMeasures > 1,
-    hasMixedAxes: xMeasures.length > 0 && yMeasures.length > 0, // Measures on both axes
-  };
-}
+// moved to analysis/fieldAnalysis.ts
 
 /**
  * Generate scatter plot for measures on both X and Y axes
  */
-function generateScatterPlot(analysis: FieldAnalysis, context: ChartGenerationContext): Plot.PlotOptions {
-  const { queryResult } = context;
-  const data = queryResult?.rows || [];
-  
-  // Get the first measure from each axis (for simplicity)
-  const xMeasure = analysis.xMeasures[0];
-  const yMeasure = analysis.yMeasures[0];
-  
-  // Generate column names for measures
-  const xFieldForName = { ...xMeasure, aggregation: xMeasure.aggregation || 'sum' };
-  const yFieldForName = { ...yMeasure, aggregation: yMeasure.aggregation || 'sum' };
-  const xColumnName = getResultColumnName(xFieldForName);
-  const yColumnName = getResultColumnName(yFieldForName);
-  
-  return {
-    width: 400,
-    height: 300,
-    x: {
-      label: xColumnName,
-      grid: true,
-    },
-    y: {
-      label: yColumnName,
-      grid: true,
-    },
-    marks: [
-      Plot.dot(data, {
-        x: xColumnName,
-        y: yColumnName,
-        fill: "steelblue",
-        r: 4, // Fixed radius for dots
-      }),
-      Plot.ruleX([0]),
-      Plot.ruleY([0])
-    ]
-  };
-}
+// moved to rules/chartRules.ts
 
 /**
  * Generate single chart options based on simple field analysis
@@ -401,7 +332,7 @@ function generateCartesianGrid(
       plots.push({ id: `cell-${r}-${c}`, title, options, position: { row: r, col: c } });
     }
   }
-
+  
   return {
     library: 'observable-plot',
     plots,
@@ -504,14 +435,6 @@ function generateFacetedGridIfNeeded(context: ChartGenerationContext): PlotResul
       rowSizes: Array.from({ length: baseRows * rowValues.length }, () => 'fr'),
     },
   };
-}
-
-function getFieldColumnName(field: Field): string {
-  if (field.type === 'measure') {
-    const agg = field.aggregation || 'sum';
-    return getResultColumnName({ ...field, aggregation: agg } as any);
-  }
-  return field.columnName;
 }
 
 function uniqueValuesForField(rows: any[], field: Field): any[] {
@@ -655,45 +578,14 @@ function baseGeneratePlot(context: ChartGenerationContext): PlotResult {
   }
 
   // Fallback to single-chart rules
-  const single = generateChartOptions(analysis, context);
+  const single = genChartOptionsRule(analysis, context);
   return single;
 }
 /**
  * Compute shared numeric domains for all measures used across a grid.
  * Includes 0 and adds 10% headroom at the top, similar to bar charts.
  */
-function computeSharedMeasureDomains(
-  data: any[],
-  xCandidates: any[],
-  yCandidates: any[]
-): Record<string, [number, number]> {
-  const measures: string[] = [];
-
-  const addMeasure = (field: any) => {
-    if (field?.type === 'measure') {
-      const name = getResultColumnName({ ...field, aggregation: field.aggregation || 'sum' } as any);
-      if (!measures.includes(name)) measures.push(name);
-    }
-  };
-
-  xCandidates.forEach(addMeasure);
-  yCandidates.forEach(addMeasure);
-
-  const domains: Record<string, [number, number]> = {};
-  measures.forEach((measureName) => {
-    const values = data
-      .map((row) => row[measureName])
-      .filter((v) => typeof v === 'number' && !Number.isNaN(v));
-    if (values.length === 0) return;
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const lower = Math.min(0, min);
-    const upper = max <= 0 ? 0 : max * 1.1; // clamp to 0 if non-positive
-    domains[measureName] = [lower, upper];
-  });
-
-  return domains;
-}
+// moved to domains/measureDomains.ts
 
 /**
  * Create a simple message chart
