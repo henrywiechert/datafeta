@@ -46,20 +46,17 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
         },
       };
     } else {
-      // Single vertical bar - let it span full horizontal extent
+      // Single vertical bar - assign a constant category to position the bar
+      const singleCategory = ' ';
+      const configWithCategory: any = { ...barConfig, x: () => singleCategory };
       return {
-        width: barStep * 2, // Give it a reasonable minimum width
+        width: barStep * 2,
         marks: [
-          Plot.barY(data, barConfig),
+          Plot.barY(data, configWithCategory),
           Plot.ruleY([0])
         ],
-        x: {
-          label: " ",
-        },
-        y: {
-          grid: true,
-          label: measureName,
-        },
+        x: { label: singleCategory },
+        y: { grid: true, label: measureName },
       };
     }
   }
@@ -95,20 +92,17 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
         },
       };
     } else {
-      // Single horizontal bar - let it span full vertical extent
+      // Single horizontal bar - assign a constant category to position the bar
+      const singleCategory = ' ';
+      const configWithCategory: any = { ...barConfig, y: () => singleCategory };
       return {
-        height: barStep * 2, // Give it a reasonable minimum height
+        height: barStep * 2,
         marks: [
-          Plot.barX(data, barConfig),
+          Plot.barX(data, configWithCategory),
           Plot.ruleX([0])
         ],
-        y: {
-          label: " ",
-        },
-        x: {
-          grid: true,
-          label: measureName,
-        },
+        y: { label: singleCategory },
+        x: { grid: true, label: measureName },
       };
     }
   }
