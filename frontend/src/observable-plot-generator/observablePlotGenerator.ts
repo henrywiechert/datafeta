@@ -12,6 +12,7 @@ import { getFieldColumnName } from './helpers/fields';
 import { computeSharedMeasureDomains } from './domains/measureDomains';
 import { FieldAnalysis, analyzeFields } from './analysis/fieldAnalysis';
 import { DEFAULT_CHART_COLOR, BAR_STEP_PX } from '../config/chartLayoutConfig';
+import { generateCartesianPlots } from './grid/cartesianGrid';
 
 /**
  * Simple, direct Observable Plot generation
@@ -245,97 +246,10 @@ function generateCartesianGrid(
 
   // Compute shared domains for any measures used in the grid
   const sharedMeasureDomains = computeSharedMeasureDomains(data, xCandidates, yCandidates);
-
-  const plots: Array<{
-    id: string;
-    title: string;
-    options: Plot.PlotOptions;
-    position: { row: number; col: number };
-  }> = [];
-
-  for (let r = 0; r < yCandidates.length; r++) {
-    for (let c = 0; c < xCandidates.length; c++) {
-      const xField = xCandidates[c];
-      const yField = yCandidates[r];
-
-      const xIsMeasure = xField.type === 'measure';
-      const yIsMeasure = yField.type === 'measure';
-      const xLabel = xIsMeasure
-        ? getResultColumnName({ ...xField, aggregation: xField.aggregation || 'sum' })
-        : xField.columnName;
-      const yLabel = yIsMeasure
-        ? getResultColumnName({ ...yField, aggregation: yField.aggregation || 'sum' })
-        : yField.columnName;
-
-      let options: Plot.PlotOptions;
-      let title = `${yLabel} vs ${xLabel}`;
-
-      if (xIsMeasure && yIsMeasure) {
-        // measure vs measure → scatter
-        options = scatterChart(data, xLabel, yLabel, { x: xLabel, y: yLabel });
-        // Apply shared domains for both measures
-        const xDomain = sharedMeasureDomains[xLabel];
-        const yDomain = sharedMeasureDomains[yLabel];
-        if (xDomain) {
-          options.x = { ...(options.x || {}), domain: xDomain } as any;
-        }
-        if (yDomain) {
-          options.y = { ...(options.y || {}), domain: yDomain } as any;
-        }
-      } else if (xIsMeasure && !yIsMeasure) {
-        // measure on x, dimension on y → if dim continuous: line; if dim discrete: horizontal bars
-        const yDimIsContinuous = yField.flavour === 'continuous';
-        if (yDimIsContinuous) {
-          options = lineChart(data, yLabel, xLabel, { x: yLabel, y: xLabel });
-          const xDomain = sharedMeasureDomains[xLabel];
-          if (xDomain) options.x = { ...(options.x || {}), domain: xDomain } as any;
-        } else {
-          // Horizontal bars
-          const categoryCount = new Set(data.map((row: any) => row[yLabel])).size;
-          const heightPx = Math.max(BAR_STEP_PX * 2, categoryCount * BAR_STEP_PX);
-          options = {
-            x: { label: xLabel, grid: true, domain: sharedMeasureDomains[xLabel] },
-            y: { label: yLabel },
-            height: heightPx,
-            marks: [
-              Plot.ruleX([0]),
-              Plot.barX(data, { x: xLabel, y: yLabel, fill: DEFAULT_CHART_COLOR }),
-            ],
-          } as Plot.PlotOptions;
-        }
-      } else if (!xIsMeasure && yIsMeasure) {
-        // dimension on x, measure on y → if dim continuous: line; if dim discrete: vertical bars
-        const xDimIsContinuous = xField.flavour === 'continuous';
-        if (xDimIsContinuous) {
-          options = lineChart(data, xLabel, yLabel, { x: xLabel, y: yLabel });
-          const yDomain = sharedMeasureDomains[yLabel];
-          if (yDomain) options.y = { ...(options.y || {}), domain: yDomain } as any;
-        } else {
-          // Vertical bars
-          const categoryCount = new Set(data.map((row: any) => row[xLabel])).size;
-          const widthPx = Math.max(BAR_STEP_PX * 2, categoryCount * BAR_STEP_PX);
-          options = {
-            y: { label: yLabel, grid: true, domain: sharedMeasureDomains[yLabel] },
-            x: { label: xLabel },
-            width: widthPx,
-            marks: [
-              Plot.ruleY([0]),
-              Plot.barY(data, { x: xLabel, y: yLabel, fill: DEFAULT_CHART_COLOR }),
-            ],
-          } as Plot.PlotOptions;
-        }
-      } else {
-        // both dimensions → scatter
-        options = scatterChart(data, xLabel, yLabel, { x: xLabel, y: yLabel });
-      }
-
-      plots.push({ id: `cell-${r}-${c}`, title, options, position: { row: r, col: c } });
-    }
-  }
   
   return {
     library: 'observable-plot',
-    plots,
+    plots: generateCartesianPlots(data, xCandidates, yCandidates, sharedMeasureDomains),
     sharedDomains: { byMeasure: sharedMeasureDomains as any },
     layout: {
       type: 'grid',
