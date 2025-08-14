@@ -35,6 +35,7 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
 
   const xDims = analysis.xDimensions || [];
   const yDims = analysis.yDimensions || [];
+  // Early: single continuous measure on one axis with no dimensions on the other → single-bar chart
   if (analysis.hasXMeasure && !analysis.hasYMeasure && yDims.length === 0) {
     return { library: 'observable-plot', options: barChart(context), layout: { type: 'single' } };
   }

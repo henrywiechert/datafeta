@@ -29,8 +29,10 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options }) => {
   useEffect(() => {
     if (containerRef.current) {
       // Determine final plot dimensions, prioritizing explicit options over observed dimensions.
-      const finalWidth = options.width !== undefined ? options.width : dimensions.width;
-      const finalHeight = options.height !== undefined ? options.height : dimensions.height;
+      const observedWidth = dimensions.width;
+      const observedHeight = dimensions.height;
+      const finalWidth = options.width !== undefined ? options.width : (observedWidth > 0 ? observedWidth : 400);
+      const finalHeight = options.height !== undefined ? options.height : (observedHeight > 0 ? observedHeight : 300);
 
       // Only render if we have valid dimensions to prevent errors.
       if (finalWidth > 0 && finalHeight > 0) {

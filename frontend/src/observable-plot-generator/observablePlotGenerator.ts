@@ -400,9 +400,11 @@ function buildBaseSpecForDataSubset(
 ): BaseSpec {
   const { queryResult, xFields, yFields } = context;
 
+  // Filter out discrete fields that are used for faceting (not category axis)
+  let localXFields = xFields.filter(f => f.id !== excludedCategoryFieldId);
+  let localYFields = yFields.filter(f => f.id !== excludedCategoryFieldId);
+  
   // Inject category axis pseudo-dimension when required for bars
-  let localXFields = xFields.slice();
-  let localYFields = yFields.slice();
   if (categoryAxis) {
     const axisFields = categoryAxis === 'x' ? localXFields : localYFields;
     const lastDiscrete = [...axisFields].filter((f) => f.flavour === 'discrete').slice(-1)[0];
@@ -491,7 +493,7 @@ function baseGeneratePlot(context: ChartGenerationContext): PlotResult {
     try { return multiMeasureBarChart(context); } catch { /* fall through */ }
   }
 
-  // Fallback to single-chart rules
+  // Fallback to single-chart rules (this handles continuous dimensions on both axes)
   const single = genChartOptionsRule(analysis, context);
   return single;
 }
