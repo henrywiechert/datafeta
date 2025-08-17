@@ -11,13 +11,18 @@ import { BAR_STEP_PX, DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig
 export function tickStrip(
   context: ChartGenerationContext,
   orientation: 'x' | 'y',
-  dimensionColumn: string
+  dimensionColumn: string,
+  categoryDimensionColumn?: string
 ): Plot.PlotOptions {
   const { queryResult } = context;
   const data = queryResult.rows;
 
-  // Guard against non-numeric values leading to rendering issues
-  const hasValid = Array.isArray(data) && data.some((row) => Number.isFinite(row[dimensionColumn]));
+  // Guard against invalid values; accept numbers or dates (Date objects or parseable strings)
+  const isNumericOrDate = (v: any) =>
+    (typeof v === 'number' && Number.isFinite(v)) ||
+    v instanceof Date ||
+    (typeof v === 'string' && !Number.isNaN(Date.parse(v)));
+  const hasValid = Array.isArray(data) && data.some((row) => isNumericOrDate(row[dimensionColumn]));
   if (!hasValid) {
     return {
       marks: [
@@ -31,6 +36,21 @@ export function tickStrip(
   }
 
   if (orientation === 'x') {
+    if (categoryDimensionColumn) {
+      const categoryCount = new Set(data.map((row: any) => row[categoryDimensionColumn])).size;
+      return {
+        x: { label: dimensionColumn, grid: true },
+        y: { label: categoryDimensionColumn },
+        height: Math.max(BAR_STEP_PX * 2, categoryCount * BAR_STEP_PX),
+        marks: [
+          Plot.tickX(data, {
+            x: dimensionColumn,
+            y: categoryDimensionColumn,
+            stroke: DEFAULT_CHART_COLOR,
+          }),
+        ],
+      };
+    }
     return {
       x: { label: dimensionColumn, grid: true },
       y: { label: ' ' },
@@ -46,6 +66,21 @@ export function tickStrip(
   }
 
   // orientation === 'y'
+  if (categoryDimensionColumn) {
+    const categoryCount = new Set(data.map((row: any) => row[categoryDimensionColumn])).size;
+    return {
+      y: { label: dimensionColumn, grid: true },
+      x: { label: categoryDimensionColumn },
+      width: Math.max(BAR_STEP_PX * 2, categoryCount * BAR_STEP_PX),
+      marks: [
+        Plot.tickY(data, {
+          y: dimensionColumn,
+          x: categoryDimensionColumn,
+          stroke: DEFAULT_CHART_COLOR,
+        }),
+      ],
+    };
+  }
   return {
     y: { label: dimensionColumn, grid: true },
     x: { label: ' ' },

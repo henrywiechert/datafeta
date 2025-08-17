@@ -13,12 +13,13 @@ import { computeSharedMeasureDomains } from './domains/measureDomains';
 import { FieldAnalysis, analyzeFields } from './analysis/fieldAnalysis';
 import { DEFAULT_CHART_COLOR, BAR_STEP_PX } from '../config/chartLayoutConfig';
 import { generateCartesianPlots } from './grid/cartesianGrid';
+import { ChartTypeOverrides } from './helpers/chartTypeResolver';
 
 /**
  * Simple, direct Observable Plot generation
  * No complex pipeline - just analyze fields and generate chart directly
  */
-export function generatePlot(context: ChartGenerationContext): PlotResult {
+export function generatePlot(context: ChartGenerationContext, overrides?: ChartTypeOverrides): PlotResult {
   const { xFields, yFields, queryResult } = context;
 
   // Handle empty fields
@@ -51,7 +52,7 @@ export function generatePlot(context: ChartGenerationContext): PlotResult {
     const yCandidates = [...analysis.yMeasures, ...analysis.yDimensions];
 
     if (xCandidates.length > 0 && yCandidates.length > 0) {
-      return generateCartesianGrid(context, analysis, xCandidates, yCandidates);
+      return generateCartesianGrid(context, analysis, xCandidates, yCandidates, overrides);
     }
 
     // Otherwise, generate single chart or simple multi on one axis
@@ -140,11 +141,11 @@ function generateChartOptions(analysis: FieldAnalysis, context: ChartGenerationC
     analysis.hasYDimension && yContinuousDims.length === 1 && xDims.length === 0;
   if (singleXDim) {
     const dimCol = analysis.xDimensions[0].columnName;
-    return { library: 'observable-plot', options: tickStrip(context, 'x', dimCol), layout: { type: 'single' } };
+    return { library: 'observable-plot', options: tickStrip(context, 'x', dimCol, undefined), layout: { type: 'single' } };
   }
   if (singleYDim) {
     const dimCol = analysis.yDimensions[0].columnName;
-    return { library: 'observable-plot', options: tickStrip(context, 'y', dimCol), layout: { type: 'single' } };
+    return { library: 'observable-plot', options: tickStrip(context, 'y', dimCol, undefined), layout: { type: 'single' } };
   }
 
   // 4) Continuous dimension on both axes -> scatter
@@ -238,8 +239,9 @@ function generateChartOptions(analysis: FieldAnalysis, context: ChartGenerationC
 function generateCartesianGrid(
   context: ChartGenerationContext,
   analysis: FieldAnalysis,
-  xCandidates: any[],
-  yCandidates: any[]
+  xCandidates: Field[],
+  yCandidates: Field[],
+  overrides?: ChartTypeOverrides
 ): PlotResult {
   const { queryResult } = context;
   const data = queryResult.rows;
@@ -249,7 +251,7 @@ function generateCartesianGrid(
   
   return {
     library: 'observable-plot',
-    plots: generateCartesianPlots(data, xCandidates, yCandidates, sharedMeasureDomains),
+    plots: generateCartesianPlots(data, xCandidates, yCandidates, sharedMeasureDomains, overrides),
     sharedDomains: { byMeasure: sharedMeasureDomains as any },
     layout: {
       type: 'grid',
@@ -271,6 +273,24 @@ function generateFacetedGridIfNeeded(context: ChartGenerationContext): PlotResul
   const { xFields, yFields, queryResult } = context;
   const anyDiscrete = xFields.some((f) => f.flavour === 'discrete') || yFields.some((f) => f.flavour === 'discrete');
   if (!anyDiscrete) return null;
+
+  // Avoid faceting for tick-strip scenarios:
+  // If there are no measures and exactly one axis has a continuous dimension
+  // while the opposite axis has only discrete dimensions, we want a single
+  // tick-strip with categories (not a faceted grid).
+  const hasAnyMeasure = xFields.some((f) => f.type === 'measure') || yFields.some((f) => f.type === 'measure');
+  if (!hasAnyMeasure) {
+    const xContDims = xFields.filter((f) => f.type === 'dimension' && f.flavour === 'continuous');
+    const yContDims = yFields.filter((f) => f.type === 'dimension' && f.flavour === 'continuous');
+    const xDiscDims = xFields.filter((f) => f.type === 'dimension' && f.flavour === 'discrete');
+    const yDiscDims = yFields.filter((f) => f.type === 'dimension' && f.flavour === 'discrete');
+
+    const xTickScenario = xContDims.length === 1 && yContDims.length === 0 && yDiscDims.length > 0;
+    const yTickScenario = yContDims.length === 1 && xContDims.length === 0 && xDiscDims.length > 0;
+    if (xTickScenario || yTickScenario) {
+      return null; // let single-chart rules build tick-strip with category
+    }
+  }
 
   // Determine if a category axis injection is needed for bar charts
   // Case A: measures on Y, and X contains only discrete fields → category on X (last discrete)
@@ -316,14 +336,30 @@ function generateFacetedGridIfNeeded(context: ChartGenerationContext): PlotResul
 
   // Determine base layout by generating one sample facet (first values)
   const sampleRows = filterRowsByFacet(queryResult.rows, rowFacetField, rowValues[0], colFacetField, colValues[0]);
-  const baseSpec = buildBaseSpecForDataSubset(context, categoryAxis, excludedCategoryFieldId, sampleRows, sharedMeasureDomains);
+  const baseSpec = buildBaseSpecForDataSubset(
+    context,
+    categoryAxis,
+    excludedCategoryFieldId,
+    sampleRows,
+    sharedMeasureDomains,
+    rowFacetField,
+    colFacetField
+  );
   const baseCols = baseSpec.columns;
   const baseRows = baseSpec.rows;
 
   for (let r = 0; r < rowValues.length; r++) {
     for (let c = 0; c < colValues.length; c++) {
       const subset = filterRowsByFacet(queryResult.rows, rowFacetField, rowValues[r], colFacetField, colValues[c]);
-      const facetSpec = buildBaseSpecForDataSubset(context, categoryAxis, excludedCategoryFieldId, subset, sharedMeasureDomains);
+      const facetSpec = buildBaseSpecForDataSubset(
+        context,
+        categoryAxis,
+        excludedCategoryFieldId,
+        subset,
+        sharedMeasureDomains,
+        rowFacetField,
+        colFacetField
+      );
 
       // Offset plots into the correct grid position
       facetSpec.plots.forEach((p) => {
@@ -396,31 +432,34 @@ function buildBaseSpecForDataSubset(
   categoryAxis: 'x' | 'y' | null,
   excludedCategoryFieldId: string | null,
   subsetRows: any[],
-  sharedMeasureDomains?: Record<string, [number, number]>
+  sharedMeasureDomains?: Record<string, [number, number]>,
+  rowFacetField?: Field | null,
+  colFacetField?: Field | null
 ): BaseSpec {
   const { queryResult, xFields, yFields } = context;
 
   // Filter out discrete fields that are used for faceting (not category axis)
-  let localXFields = xFields.filter(f => f.id !== excludedCategoryFieldId);
-  let localYFields = yFields.filter(f => f.id !== excludedCategoryFieldId);
+  let localXFields = xFields.filter(f => f.id !== excludedCategoryFieldId && (!colFacetField || f.id !== colFacetField.id));
+  let localYFields = yFields.filter(f => f.id !== excludedCategoryFieldId && (!rowFacetField || f.id !== rowFacetField.id));
   
   // Inject category axis pseudo-dimension when required for bars
-  if (categoryAxis) {
-    const axisFields = categoryAxis === 'x' ? localXFields : localYFields;
-    const lastDiscrete = [...axisFields].filter((f) => f.flavour === 'discrete').slice(-1)[0];
-    if (lastDiscrete) {
-      const colName = getFieldColumnName(lastDiscrete);
+  if (categoryAxis && excludedCategoryFieldId) {
+    // Use the original context fields to locate the category field by id
+    const axisOriginal = categoryAxis === 'x' ? xFields : yFields;
+    const catField = axisOriginal.find((f) => f.id === excludedCategoryFieldId);
+    if (catField) {
+      const colName = getFieldColumnName(catField);
       const pseudoDim: any = {
-        ...lastDiscrete,
-        id: `${lastDiscrete.id}__as_dim`,
+        ...catField,
+        id: `${catField.id}__as_dim`,
         type: 'dimension',
         aggregation: undefined,
         columnName: colName,
       };
       if (categoryAxis === 'x') {
-        localXFields = [...localXFields, pseudoDim];
+        localXFields = [pseudoDim, ...localXFields];
       } else {
-        localYFields = [...localYFields, pseudoDim];
+        localYFields = [pseudoDim, ...localYFields];
       }
     }
   }
