@@ -75,18 +75,55 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
   const singleYDim = analysis.hasYDimension && yContinuousDims.length === 1 && xDims.length === 0;
   if (singleXDim) {
     const dimCol = analysis.xDimensions[0].columnName;
-    return { library: 'observable-plot', options: tickStrip(context, 'x', dimCol), layout: { type: 'single' } };
+    // If opposite axis has discrete dimension(s), treat them as categories (mirroring bar chart behavior)
+    const category = yDims.filter((d: any) => d.flavour === 'discrete').slice(-1)[0]?.columnName;
+    return { library: 'observable-plot', options: tickStrip(context, 'x', dimCol, category), layout: { type: 'single' } };
   }
   if (singleYDim) {
     const dimCol = analysis.yDimensions[0].columnName;
-    return { library: 'observable-plot', options: tickStrip(context, 'y', dimCol), layout: { type: 'single' } };
+    const category = xDims.filter((d: any) => d.flavour === 'discrete').slice(-1)[0]?.columnName;
+    return { library: 'observable-plot', options: tickStrip(context, 'y', dimCol, category), layout: { type: 'single' } };
   }
 
   const bothDims = analysis.hasXDimension && analysis.hasYDimension && analysis.xDimensions.length > 0 && analysis.yDimensions.length > 0;
   if (bothDims && !analysis.hasMeasure) {
-    const xDimCol = analysis.xDimensions[0].columnName;
-    const yDimCol = analysis.yDimensions[0].columnName;
-    return { library: 'observable-plot', options: scatterChart(data, xDimCol, yDimCol, { x: xDimCol, y: yDimCol }), layout: { type: 'single' } };
+    const xContinuousDims = xDims.filter((d: any) => d.flavour === 'continuous');
+    const yContinuousDims = yDims.filter((d: any) => d.flavour === 'continuous');
+    const xDiscreteDims = xDims.filter((d: any) => d.flavour === 'discrete');
+    const yDiscreteDims = yDims.filter((d: any) => d.flavour === 'discrete');
+
+    // Continuous on X, discrete on Y → tick-strip along X, categorized by Y
+    if (xContinuousDims.length > 0 && yContinuousDims.length === 0 && yDiscreteDims.length > 0) {
+      const xDimCol = xContinuousDims[0].columnName;
+      const categoryCol = yDiscreteDims.slice(-1)[0].columnName;
+      return { library: 'observable-plot', options: tickStrip(context, 'x', xDimCol, categoryCol), layout: { type: 'single' } };
+    }
+    // Continuous on Y, discrete on X → tick-strip along Y, categorized by X
+    if (yContinuousDims.length > 0 && xContinuousDims.length === 0 && xDiscreteDims.length > 0) {
+      const yDimCol = yContinuousDims[0].columnName;
+      const categoryCol = xDiscreteDims.slice(-1)[0].columnName;
+      return { library: 'observable-plot', options: tickStrip(context, 'y', yDimCol, categoryCol), layout: { type: 'single' } };
+    }
+    // Both continuous → scatter
+    if (xContinuousDims.length > 0 && yContinuousDims.length > 0) {
+      const xDimCol = xContinuousDims[0].columnName;
+      const yDimCol = yContinuousDims[0].columnName;
+      return { library: 'observable-plot', options: scatterChart(data, xDimCol, yDimCol, { x: xDimCol, y: yDimCol }), layout: { type: 'single' } };
+    }
+    // Both discrete → simple dot plot (categorical scatter)
+    if (xDiscreteDims.length > 0 && yDiscreteDims.length > 0) {
+      const xCat = xDiscreteDims[0].columnName;
+      const yCat = yDiscreteDims[0].columnName;
+      return {
+        library: 'observable-plot',
+        options: {
+          x: { label: xCat },
+          y: { label: yCat },
+          marks: [Plot.dot(data, { x: xCat, y: yCat, fill: 'steelblue', r: 2 })],
+        },
+        layout: { type: 'single' },
+      };
+    }
   }
 
   const hasMeasureOnlyX = analysis.hasXMeasure && !analysis.hasYMeasure && analysis.hasYDimension;
