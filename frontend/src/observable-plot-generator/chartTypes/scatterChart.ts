@@ -23,6 +23,7 @@ export function scatterChart(
   }
 
   return {
+    // Provide labels and retain as keys for domain application
     x: { label: labels?.x || xColumn, grid: true },
     y: { label: labels?.y || yColumn, grid: true },
     marks: [
