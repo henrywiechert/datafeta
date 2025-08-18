@@ -2,6 +2,7 @@ import * as Plot from '@observablehq/plot';
 import { generatePairChartOptions } from '../chartTypes/cellCharts';
 import { Field } from '../../types';
 import { ChartTypeOverrides } from '../helpers/chartTypeResolver';
+import { computeSharedNumericDomains } from '../domains/numericDomains';
 
 export type CartesianPlot = {
   id: string;
@@ -22,6 +23,10 @@ export function generateCartesianPlots(
 ): CartesianPlot[] {
   const plots: CartesianPlot[] = [];
 
+  // Compute shared numeric domains for both measures and continuous dimensions
+  // (this unifies scales across the whole matrix when the same field appears).
+  const sharedNumeric = computeSharedNumericDomains(data, xCandidates as any[], yCandidates as any[]);
+
   for (let r = 0; r < yCandidates.length; r++) {
     for (let c = 0; c < xCandidates.length; c++) {
       const xField = xCandidates[c];
@@ -31,7 +36,7 @@ export function generateCartesianPlots(
         data,
         xField,
         yField,
-        sharedMeasureDomains,
+        { ...sharedMeasureDomains, ...sharedNumeric },
         overrides
       );
 
