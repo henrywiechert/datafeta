@@ -12,6 +12,30 @@ interface ChartGridProps {
 }
 
 /**
+ * Remove axis labels (preserve light ticks/grid).
+ */
+function suppressAxes(options: any, hideX: boolean, hideY: boolean) {
+  const next = { ...options };
+  if (hideX) {
+    next.x = {
+      ...(next.x || {}),
+      label: '',
+      tickFormat: () => '',
+      tickSize: typeof (next.x || {}).tickSize === 'number' ? (next.x || {}).tickSize : 3,
+    };
+  }
+  if (hideY) {
+    next.y = {
+      ...(next.y || {}),
+      label: '',
+      tickFormat: () => '',
+      tickSize: typeof (next.y || {}).tickSize === 'number' ? (next.y || {}).tickSize : 3,
+    };
+  }
+  return next;
+}
+
+/**
  * ChartGrid - Renders Observable Plot charts (single or multiple)
  */
 const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
@@ -182,7 +206,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      borderRight: `1px solid ${dividerColor}`,
+                      borderRight: '1px solid #99a795',
                     }}
                   >
                     {rowLevels.map(l => l.fieldLabel).join(' / ')}
@@ -209,9 +233,9 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            borderRight: levelIdx === rowLevels.length - 1 ? `1px solid ${dividerColor}` : undefined,
-                            borderLeft: levelIdx > 0 ? `1px solid ${dividerColor}` : undefined,
-                            borderBottom: `1px solid ${dividerColor}`,
+                            borderRight: levelIdx === rowLevels.length - 1 ? '1px solid #99a795' : undefined,
+                            borderLeft: levelIdx > 0 ? '1px solid #99a795' : undefined,
+                            borderBottom: '1px solid #99a795',
                             background: '#e9f2e1',
                             padding: 0,
                             overflow: 'hidden',
@@ -233,10 +257,16 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                 const gridItemStyle: React.CSSProperties | undefined = pos
                   ? { gridColumn: (pos.col + 2), gridRow: pos.row + 1 }
                   : undefined;
+
+                // Axis suppression for matrix: hide x except bottom row, hide y except left col
+                const hideX = rows > 1 && !!pos && pos.row < rows - 1;
+                const hideY = columns > 1 && !!pos && pos.col > 0;
+                const opts = suppressAxes(plot.options, hideX, hideY);
+
                 return (
                   <div key={key} className={styles.plotWrapper} style={gridItemStyle}>
                     <div className={styles.observablePlotContainer}>
-                      <ObservablePlot options={plot.options} />
+                      <ObservablePlot options={opts} />
                     </div>
                   </div>
                 );
@@ -261,10 +291,16 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
               const gridItemStyle: React.CSSProperties | undefined = pos
                 ? { gridColumn: pos.col + 1, gridRow: pos.row + 1 }
                 : undefined;
+            
+              // Axis suppression for matrix case
+              const hideX = rows > 1 && !!pos && pos.row < rows - 1;
+              const hideY = columns > 1 && !!pos && pos.col > 0;
+              const opts = suppressAxes(plot.options, hideX, hideY);
+
               return (
                 <div key={key} className={styles.plotWrapper} style={gridItemStyle}>
                   <div className={styles.observablePlotContainer}>
-                    <ObservablePlot options={plot.options} />
+                    <ObservablePlot options={opts} />
                   </div>
                 </div>
               );
