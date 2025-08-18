@@ -10,6 +10,7 @@ import { generateChartOptions as genChartOptionsRule, generateScatterPlot } from
 import { Field } from '../types';
 import { getFieldColumnName } from './helpers/fields';
 import { computeSharedMeasureDomains } from './domains/measureDomains';
+import { computeSharedNumericDomains } from './domains/numericDomains';
 import { FieldAnalysis, analyzeFields } from './analysis/fieldAnalysis';
 import { DEFAULT_CHART_COLOR, BAR_STEP_PX } from '../config/chartLayoutConfig';
 import { generateCartesianPlots } from './grid/cartesianGrid';
@@ -334,6 +335,8 @@ function generateFacetedGridIfNeeded(context: ChartGenerationContext): PlotResul
   const xCandidates = allMeasures; // reusing computeSharedMeasureDomains signature convenience
   const yCandidates = allMeasures;
   const sharedMeasureDomains = computeSharedMeasureDomains(queryResult.rows, xCandidates as any[], yCandidates as any[]);
+  // Compute shared numeric domains for continuous dimensions and measures (by column/alias)
+  const sharedNumericDomains = computeSharedNumericDomains(queryResult.rows, xFields as any[], yFields as any[]);
 
   const combinedPlots: Array<{ id: string; title: string; options: Plot.PlotOptions; position: { row: number; col: number } }> = [];
 
@@ -345,6 +348,7 @@ function generateFacetedGridIfNeeded(context: ChartGenerationContext): PlotResul
     excludedCategoryFieldId,
     sampleRows,
     sharedMeasureDomains,
+    sharedNumericDomains,
     // pass top-level facet fields (we remove all of them below when building local context)
     rowFacetFields[0] || null,
     colFacetFields[0] || null
@@ -361,6 +365,7 @@ function generateFacetedGridIfNeeded(context: ChartGenerationContext): PlotResul
         excludedCategoryFieldId,
         subset,
         sharedMeasureDomains,
+        sharedNumericDomains,
         rowFacetFields[0] || null,
         colFacetFields[0] || null
       );
@@ -502,6 +507,7 @@ function buildBaseSpecForDataSubset(
   excludedCategoryFieldId: string | null,
   subsetRows: any[],
   sharedMeasureDomains?: Record<string, [number, number]>,
+  sharedNumericDomains?: Record<string, [number, number]>,
   rowFacetField?: Field | null,
   colFacetField?: Field | null
 ): BaseSpec {
@@ -543,11 +549,16 @@ function buildBaseSpecForDataSubset(
   const baseResult = baseGeneratePlot(localContext);
 
   // Apply shared domains by measure if provided
-  if (sharedMeasureDomains) {
+  if (sharedMeasureDomains || sharedNumericDomains) {
     const applyDomains = (opts: Plot.PlotOptions) => {
-      // We don't know which axis hosts which measure here; domains will be applied later where relevant
-      // in generateCartesianGrid. For bars/lines/scatters we already set in their creators when needed.
-      return opts;
+      const xDomainKey = (opts as any)?.x?.label || (opts as any)?.x?.domainLabel;
+      const yDomainKey = (opts as any)?.y?.label || (opts as any)?.y?.domainLabel;
+      const xDomain = (sharedNumericDomains && xDomainKey && sharedNumericDomains[xDomainKey]) || (sharedMeasureDomains && xDomainKey && sharedMeasureDomains[xDomainKey]);
+      const yDomain = (sharedNumericDomains && yDomainKey && sharedNumericDomains[yDomainKey]) || (sharedMeasureDomains && yDomainKey && sharedMeasureDomains[yDomainKey]);
+      const next: Plot.PlotOptions = { ...opts };
+      if (xDomain) next.x = { ...(opts.x as any), domain: xDomain } as any;
+      if (yDomain) next.y = { ...(opts.y as any), domain: yDomain } as any;
+      return next;
     };
     if (baseResult.options) {
       baseResult.options = applyDomains(baseResult.options);
