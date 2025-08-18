@@ -79,12 +79,17 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     };
 
     // Sizing constants for label bands
-    const NAMES_BAND_LEFT_PX = 56; // width of blue names band on the left
-    const VALUES_BAND_LEFT_PX = 48; // width of green values column on the left
-    const VALUES_BAND_TOP_PX = 32; // height of green values row on the top
+    const NAMES_BAND_LEFT_PX = 20; // width of blue names band on the left
+    const VALUES_BAND_LEFT_PX = 20; // width per green values column (per level) on the left
+    const VALUES_BAND_TOP_PX = 20; // height of green values row on the top
 
-    // Wrapper grid: hide the legacy left cell (0px) and keep plots on the right
+    const yLevelsCount = rowLevels.length;
+    const leftSpacerPx = NAMES_BAND_LEFT_PX + VALUES_BAND_LEFT_PX * yLevelsCount;
+
+    // Wrapper grid: main 2 columns: a zero-width spacer + the content column
     const wrapperTemplateColumns = `0px 1fr`;
+
+    const dividerColor = '#99a795';
 
     return (
       <div className={styles.container} ref={containerRef}>
@@ -94,20 +99,25 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
             {/* Top-left corner empty cell */}
             <div />
             {/* Column facet labels (top) */}
-            <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns, gridAutoRows: 'auto', gridColumn: 2 }}>
-              {/* Names band (blue) */}
+            <div style={{ display: 'grid', gridTemplateColumns: `${leftSpacerPx}px ${plotTemplateColumns}`, gridAutoRows: 'auto', gridColumn: 2 }}>
+              {/* Names band (blue) across plot area only */}
               {colLevels.length > 0 ? (
-                <div style={{ gridColumn: '1 / -1', textAlign: 'center', background: '#dbe9ff', padding: '4px 0', fontWeight: 600 }}>
+                <div style={{ gridColumn: '2 / -1', textAlign: 'center', background: '#dbe9ff', padding: '2px 0', fontSize: '14px' }}>
                   {colLevels.map(l => l.fieldLabel).join(' / ')}
                 </div>
               ) : null}
-              {/* Value bands (green), outermost level first */}
+              {/* Value bands (green), outermost level first; explicit start and span */}
               {colLevels.map((level, levelIdx) => {
-                const span = computeSpan(levelIdx, colLevels, baseCols);
-                const reps = computeRepeat(levelIdx, colLevels);
+                const counts = colLevels.map(l => l.values.length);
+                const innerProduct = counts.slice(levelIdx + 1).reduce((a, b) => a * b, 1) || 1;
+                const outerProduct = counts.slice(0, levelIdx).reduce((a, b) => a * b, 1) || 1;
+                const span = baseCols * innerProduct;
+                const groupSpan = span * level.values.length;
                 const cells: React.ReactNode[] = [];
-                for (let r = 0; r < reps; r++) {
+                for (let r = 0; r < outerProduct; r++) {
+                  const groupStart = r * groupSpan; // 0-based over the plot columns
                   level.values.forEach((val: any, i: number) => {
+                    const startCol = 2 + groupStart + i * span; // +2 accounts for left spacer column
                     cells.push(
                       <div
                         key={`col-level-${levelIdx}-seg-${r}-val-${i}`}
@@ -116,9 +126,10 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                           alignItems: 'center',
                           justifyContent: 'center',
                           height: `${VALUES_BAND_TOP_PX}px`,
-                          gridColumn: `span ${span}`,
+                          gridColumn: `${startCol} / span ${span}`,
                           background: '#e9f2e1',
-                          borderBottom: levelIdx === colLevels.length - 1 ? '1px solid #c9d7c5' : 'none',
+                          borderBottom: `1px solid ${dividerColor}`,
+                          borderRight: `1px solid ${dividerColor}`,
                           padding: 0,
                           overflow: 'hidden',
                         }}
@@ -136,68 +147,84 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
               className={styles.multiPlotGrid}
               style={{
                 display: 'grid',
-                gridTemplateColumns: `${NAMES_BAND_LEFT_PX + VALUES_BAND_LEFT_PX}px ${plotTemplateColumns}`,
+                gridTemplateColumns: `${leftSpacerPx}px ${plotTemplateColumns}`,
                 gridTemplateRows,
                 gap: '0',
                 padding: '0',
                 alignItems: 'stretch',
                 gridColumn: 2,
                 gridRow: 2,
+                overflow: 'visible',
               }}
             >
-              {/* Left blue names band spanning all rows */}
-              {rowLevels.length > 0 && (
-                <div
-                  style={{
-                    gridColumn: 1,
-                    gridRow: '1 / -1',
-                    writingMode: 'vertical-rl',
-                    transform: 'rotate(180deg)',
-                    background: '#dbe9ff',
-                    padding: '4px',
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {rowLevels.map(l => l.fieldLabel).join(' / ')}
-                </div>
-              )}
-              {/* Left green values bands, aligned with rows using explicit gridRow start/span */}
-              {rowLevels.map((level, levelIdx) => {
-                const counts = rowLevels.map(l => l.values.length);
-                const innerProduct = counts.slice(levelIdx + 1).reduce((a, b) => a * b, 1) || 1;
-                const outerProduct = counts.slice(0, levelIdx).reduce((a, b) => a * b, 1) || 1;
-                const span = baseRows * innerProduct;
-                const groupSpan = span * level.values.length;
-                const cells: React.ReactNode[] = [];
-                for (let r = 0; r < outerProduct; r++) {
-                  const groupStart = r * groupSpan; // 0-based
-                  level.values.forEach((val: any, i: number) => {
-                    const startRow = groupStart + i * span + 1; // 1-based grid row start
-                    cells.push(
-                      <div
-                        key={`yval-level-${levelIdx}-rep-${r}-val-${i}`}
-                        style={{
-                          gridColumn: 1,
-                          gridRow: `${startRow} / span ${span}`,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          borderRight: levelIdx === rowLevels.length - 1 ? '1px solid #c9d7c5' : 'none',
-                          background: '#e9f2e1',
-                          width: `${VALUES_BAND_LEFT_PX}px`,
-                          marginLeft: `${NAMES_BAND_LEFT_PX}px`,
-                        }}
-                      >
-                        <div style={{ transform: 'rotate(-90deg)', transformOrigin: 'center', whiteSpace: 'nowrap' }}>{String(val)}</div>
-                      </div>
-                    );
-                  });
-                }
-                return <React.Fragment key={`yval-level-${levelIdx}`}>{cells}</React.Fragment>;
-              })}
+              {/* Left labels area as nested grid: blue names + one green column per Y-level */}
+              <div
+                style={{
+                  gridColumn: 1,
+                  gridRow: '1 / -1',
+                  display: 'grid',
+                  gridTemplateColumns: `${NAMES_BAND_LEFT_PX}px ${new Array(yLevelsCount).fill(`${VALUES_BAND_LEFT_PX}px`).join(' ')}`,
+                  gridTemplateRows,
+                  alignItems: 'stretch',
+                }}
+              >
+                {/* Blue names band spanning all rows */}
+                {rowLevels.length > 0 && (
+                  <div
+                    style={{
+                      gridColumn: 1,
+                      gridRow: '1 / -1',
+                      writingMode: 'vertical-rl',
+                      transform: 'rotate(180deg)',
+                      background: '#dbe9ff',
+                      padding: '2px 0',
+                      fontSize: '14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRight: `1px solid ${dividerColor}`,
+                    }}
+                  >
+                    {rowLevels.map(l => l.fieldLabel).join(' / ')}
+                  </div>
+                )}
+                {/* One green column per Y-level, with properly spanned cells */}
+                {rowLevels.map((level, levelIdx) => {
+                  const counts = rowLevels.map(l => l.values.length);
+                  const innerProduct = counts.slice(levelIdx + 1).reduce((a, b) => a * b, 1) || 1;
+                  const outerProduct = counts.slice(0, levelIdx).reduce((a, b) => a * b, 1) || 1;
+                  const span = baseRows * innerProduct;
+                  const groupSpan = span * level.values.length;
+                  const cells: React.ReactNode[] = [];
+                  for (let r = 0; r < outerProduct; r++) {
+                    const groupStart = r * groupSpan; // 0-based
+                    level.values.forEach((val: any, i: number) => {
+                      const startRow = groupStart + i * span + 1; // 1-based grid row start
+                      cells.push(
+                        <div
+                          key={`yval-level-${levelIdx}-rep-${r}-val-${i}`}
+                          style={{
+                            gridColumn: levelIdx + 2,
+                            gridRow: `${startRow} / span ${span}`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRight: levelIdx === rowLevels.length - 1 ? `1px solid ${dividerColor}` : undefined,
+                            borderLeft: levelIdx > 0 ? `1px solid ${dividerColor}` : undefined,
+                            borderBottom: `1px solid ${dividerColor}`,
+                            background: '#e9f2e1',
+                            padding: 0,
+                            overflow: 'hidden',
+                          }}
+                        >
+                          <div style={{ transform: 'rotate(-90deg)', transformOrigin: 'center', whiteSpace: 'nowrap', padding: '2px 0', fontSize: '14px' }}>{String(val)}</div>
+                        </div>
+                      );
+                    });
+                  }
+                  return <React.Fragment key={`yval-level-${levelIdx}`}>{cells}</React.Fragment>;
+                })}
+              </div>
 
               {/* Plot cells shifted by +1 column (since column 1 holds labels) */}
               {spec.plots.map((plot, index) => {
@@ -225,6 +252,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
               gridTemplateRows,
               gap: '0',
               padding: '0',
+              overflow: 'visible',
             }}
           >
             {spec.plots.map((plot, index) => {

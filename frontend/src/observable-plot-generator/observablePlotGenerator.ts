@@ -596,6 +596,29 @@ function baseGeneratePlot(context: ChartGenerationContext): PlotResult {
     return { library: 'observable-plot', options: plotOptions, layout: { type: 'single' } };
   }
 
+  // If we have multiple candidates across axes (dimensions and/or measures),
+  // build a cartesian grid so that combinations are preserved within faceting.
+  const xCandidates: Field[] = [...(analysis as any).xMeasures, ...(analysis as any).xDimensions];
+  const yCandidates: Field[] = [...(analysis as any).yMeasures, ...(analysis as any).yDimensions];
+  const multiAcrossAxes =
+    xCandidates.length > 0 && yCandidates.length > 0 && (xCandidates.length > 1 || yCandidates.length > 1);
+  if (multiAcrossAxes) {
+    // In faceting base-spec we don't need shared measure domains when only dimensions are used.
+    const sharedMeasureDomains = computeSharedMeasureDomains(queryResult.rows, xCandidates as any[], yCandidates as any[]);
+    return {
+      library: 'observable-plot',
+      plots: generateCartesianPlots(queryResult.rows, xCandidates, yCandidates, sharedMeasureDomains),
+      sharedDomains: { byMeasure: sharedMeasureDomains as any },
+      layout: {
+        type: 'grid',
+        columns: xCandidates.length,
+        rows: yCandidates.length,
+        columnSizes: Array.from({ length: xCandidates.length }, () => 'fr'),
+        rowSizes: Array.from({ length: yCandidates.length }, () => 'fr'),
+      },
+    };
+  }
+
   // Multi-measure per axis → our existing bar grid
   if (analysis.isMultiMeasure && !analysis.hasMixedAxes) {
     try { return multiMeasureBarChart(context); } catch { /* fall through */ }
