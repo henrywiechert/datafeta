@@ -36,7 +36,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     const columnSizes = spec.layout?.columnSizes;
     const rowSizes = spec.layout?.rowSizes;
 
-    const gridTemplateColumns =
+    const plotTemplateColumns =
       layoutType === 'vertical'
         ? '1fr'
         : columnSizes && columnSizes.length > 0
@@ -56,102 +56,155 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
               .join(' ')
           : `repeat(${rows}, 1fr)`;
 
+    // Helpers for hierarchical label rendering
+    const colLevels = spec.facetLabels?.colsLevels || (spec.facetLabels?.cols ? [{ fieldLabel: spec.facetLabels.cols.fieldLabel, values: spec.facetLabels.cols.values }] : []);
+    const rowLevels = spec.facetLabels?.rowsLevels || (spec.facetLabels?.rows ? [{ fieldLabel: spec.facetLabels.rows.fieldLabel, values: spec.facetLabels.rows.values }] : []);
+
+    const baseCols = spec.facetLabels?.spans?.baseCols || spec.facetLabels?.groupSpan?.columnsPerFacet || 1;
+    const baseRows = spec.facetLabels?.spans?.baseRows || spec.facetLabels?.groupSpan?.rowsPerFacet || 1;
+
+    const computeSpan = (levelIdx: number, levels: Array<{ values: any[] }>, base: number) => {
+      let span = base;
+      for (let j = levelIdx + 1; j < levels.length; j++) {
+        span *= (levels[j].values?.length || 1);
+      }
+      return span;
+    };
+    const computeRepeat = (levelIdx: number, levels: Array<{ values: any[] }>) => {
+      let repeat = 1;
+      for (let j = 0; j < levelIdx; j++) {
+        repeat *= (levels[j].values?.length || 1);
+      }
+      return repeat;
+    };
+
+    // Sizing constants for label bands
+    const NAMES_BAND_LEFT_PX = 56; // width of blue names band on the left
+    const VALUES_BAND_LEFT_PX = 48; // width of green values column on the left
+    const VALUES_BAND_TOP_PX = 32; // height of green values row on the top
+
+    // Wrapper grid: hide the legacy left cell (0px) and keep plots on the right
+    const wrapperTemplateColumns = `0px 1fr`;
+
     return (
       <div className={styles.container} ref={containerRef}>
         {/* Facet labels (optional) */}
         {spec.facetLabels ? (
-          <div style={{ display: 'grid', gridTemplateColumns: `auto 1fr`, gridTemplateRows: `auto 1fr`, gap: 0 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: wrapperTemplateColumns, gridTemplateRows: `auto 1fr`, gap: 0 }}>
             {/* Top-left corner empty cell */}
             <div />
             {/* Column facet labels (top) */}
-            {spec.facetLabels.colsLevels ? (
-              <div style={{ display: 'grid', gridAutoRows: 'auto', gridTemplateColumns }}>
-                {spec.facetLabels.colsLevels.map((level, levelIdx) => (
-                  <React.Fragment key={`col-level-${levelIdx}`}>
-                    {level.values.map((val: any, i: number) => {
-                      const span = spec.facetLabels?.spans?.columns?.[levelIdx] || spec.facetLabels?.groupSpan?.columnsPerFacet || 1;
-                      return (
-                        <div
-                          key={`col-level-${levelIdx}-val-${i}`}
-                          style={{
-                            textAlign: 'center',
-                            writingMode: 'vertical-rl',
-                            transform: 'rotate(180deg)',
-                            gridColumn: `span ${span}`,
-                          }}
-                        >
-                          <strong>{level.fieldLabel}</strong>
-                          <div>{String(val)}</div>
-                        </div>
-                      );
-                    })}
-                  </React.Fragment>
-                ))}
-              </div>
-            ) : spec.facetLabels.cols ? (
-              <div style={{ display: 'grid', gridTemplateColumns, gridAutoRows: 'auto' }}>
-                {spec.facetLabels.cols.values.map((val: any, i: number) => (
-                  <div key={`col-label-${i}`} style={{ textAlign: 'center', writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
-                    <strong>{spec.facetLabels!.cols!.fieldLabel}</strong>
-                    <div>{String(val)}</div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div />
-            )}
-            {/* Row facet labels (left) */}
-            {spec.facetLabels.rowsLevels ? (
-              <div style={{ display: 'grid', gridAutoFlow: 'row', gridTemplateRows }}>
-                {spec.facetLabels.rowsLevels.map((level, levelIdx) => (
-                  <React.Fragment key={`row-level-${levelIdx}`}>
-                    {level.values.map((val: any, i: number) => {
-                      const span = spec.facetLabels?.spans?.rows?.[levelIdx] || spec.facetLabels?.groupSpan?.rowsPerFacet || 1;
-                      return (
-                        <div
-                          key={`row-level-${levelIdx}-val-${i}`}
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gridRow: `span ${span}` }}
-                        >
-                          <div>
-                            <strong>{level.fieldLabel}</strong>
-                            <div>{String(val)}</div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </React.Fragment>
-                ))}
-              </div>
-            ) : spec.facetLabels.rows ? (
-              <div style={{ display: 'grid', gridTemplateRows, gridAutoFlow: 'row' }}>
-                {spec.facetLabels.rows.values.map((val: any, i: number) => (
-                  <div key={`row-label-${i}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
-                    <div>
-                      <strong>{spec.facetLabels!.rows!.fieldLabel}</strong>
-                      <div>{String(val)}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div />
-            )}
-            {/* Plot grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns, gridAutoRows: 'auto', gridColumn: 2 }}>
+              {/* Names band (blue) */}
+              {colLevels.length > 0 ? (
+                <div style={{ gridColumn: '1 / -1', textAlign: 'center', background: '#dbe9ff', padding: '4px 0', fontWeight: 600 }}>
+                  {colLevels.map(l => l.fieldLabel).join(' / ')}
+                </div>
+              ) : null}
+              {/* Value bands (green), outermost level first */}
+              {colLevels.map((level, levelIdx) => {
+                const span = computeSpan(levelIdx, colLevels, baseCols);
+                const reps = computeRepeat(levelIdx, colLevels);
+                const cells: React.ReactNode[] = [];
+                for (let r = 0; r < reps; r++) {
+                  level.values.forEach((val: any, i: number) => {
+                    cells.push(
+                      <div
+                        key={`col-level-${levelIdx}-seg-${r}-val-${i}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          height: `${VALUES_BAND_TOP_PX}px`,
+                          gridColumn: `span ${span}`,
+                          background: '#e9f2e1',
+                          borderBottom: levelIdx === colLevels.length - 1 ? '1px solid #c9d7c5' : 'none',
+                          padding: 0,
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {String(val)}
+                      </div>
+                    );
+                  });
+                }
+                return <React.Fragment key={`col-level-row-${levelIdx}`}>{cells}</React.Fragment>;
+              })}
+            </div>
+            {/* Plot grid with integrated Y-axis labels in the same grid */}
             <div
               className={styles.multiPlotGrid}
               style={{
                 display: 'grid',
-                gridTemplateColumns,
+                gridTemplateColumns: `${NAMES_BAND_LEFT_PX + VALUES_BAND_LEFT_PX}px ${plotTemplateColumns}`,
                 gridTemplateRows,
                 gap: '0',
                 padding: '0',
+                alignItems: 'stretch',
+                gridColumn: 2,
+                gridRow: 2,
               }}
             >
+              {/* Left blue names band spanning all rows */}
+              {rowLevels.length > 0 && (
+                <div
+                  style={{
+                    gridColumn: 1,
+                    gridRow: '1 / -1',
+                    writingMode: 'vertical-rl',
+                    transform: 'rotate(180deg)',
+                    background: '#dbe9ff',
+                    padding: '4px',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {rowLevels.map(l => l.fieldLabel).join(' / ')}
+                </div>
+              )}
+              {/* Left green values bands, aligned with rows using explicit gridRow start/span */}
+              {rowLevels.map((level, levelIdx) => {
+                const counts = rowLevels.map(l => l.values.length);
+                const innerProduct = counts.slice(levelIdx + 1).reduce((a, b) => a * b, 1) || 1;
+                const outerProduct = counts.slice(0, levelIdx).reduce((a, b) => a * b, 1) || 1;
+                const span = baseRows * innerProduct;
+                const groupSpan = span * level.values.length;
+                const cells: React.ReactNode[] = [];
+                for (let r = 0; r < outerProduct; r++) {
+                  const groupStart = r * groupSpan; // 0-based
+                  level.values.forEach((val: any, i: number) => {
+                    const startRow = groupStart + i * span + 1; // 1-based grid row start
+                    cells.push(
+                      <div
+                        key={`yval-level-${levelIdx}-rep-${r}-val-${i}`}
+                        style={{
+                          gridColumn: 1,
+                          gridRow: `${startRow} / span ${span}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRight: levelIdx === rowLevels.length - 1 ? '1px solid #c9d7c5' : 'none',
+                          background: '#e9f2e1',
+                          width: `${VALUES_BAND_LEFT_PX}px`,
+                          marginLeft: `${NAMES_BAND_LEFT_PX}px`,
+                        }}
+                      >
+                        <div style={{ transform: 'rotate(-90deg)', transformOrigin: 'center', whiteSpace: 'nowrap' }}>{String(val)}</div>
+                      </div>
+                    );
+                  });
+                }
+                return <React.Fragment key={`yval-level-${levelIdx}`}>{cells}</React.Fragment>;
+              })}
+
+              {/* Plot cells shifted by +1 column (since column 1 holds labels) */}
               {spec.plots.map((plot, index) => {
                 const key = plot.id || String(index);
                 const pos = plot.position;
                 const gridItemStyle: React.CSSProperties | undefined = pos
-                  ? { gridColumn: pos.col + 1, gridRow: pos.row + 1 }
+                  ? { gridColumn: (pos.col + 2), gridRow: pos.row + 1 }
                   : undefined;
                 return (
                   <div key={key} className={styles.plotWrapper} style={gridItemStyle}>
@@ -168,7 +221,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
             className={styles.multiPlotGrid}
             style={{
               display: 'grid',
-              gridTemplateColumns,
+              gridTemplateColumns: plotTemplateColumns,
               gridTemplateRows,
               gap: '0',
               padding: '0',
