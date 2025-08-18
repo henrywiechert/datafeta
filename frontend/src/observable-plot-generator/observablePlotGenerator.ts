@@ -313,18 +313,21 @@ function generateFacetedGridIfNeeded(context: ChartGenerationContext): PlotResul
   }
 
   // Axis-aware facet orientation:
-  // - Discrete on Y → vertical faceting (rows)
-  // - Discrete on X → horizontal faceting (columns)
-  const xDiscrete = xFields.filter((f) => f.flavour === 'discrete' && f.id !== excludedCategoryFieldId);
-  const yDiscrete = yFields.filter((f) => f.flavour === 'discrete' && f.id !== excludedCategoryFieldId);
+  // - Discrete on Y → vertical faceting (rows), allow multiple levels
+  // - Discrete on X → horizontal faceting (columns), allow multiple levels
+  const rowFacetFields = yFields.filter((f) => f.flavour === 'discrete' && f.id !== excludedCategoryFieldId);
+  const colFacetFields = xFields.filter((f) => f.flavour === 'discrete' && f.id !== excludedCategoryFieldId);
+  if (rowFacetFields.length === 0 && colFacetFields.length === 0) return null; // no faceting needed after excluding category
 
-  const rowFacetField = yDiscrete[0] || null;
-  const colFacetField = xDiscrete[0] || null;
-  if (!rowFacetField && !colFacetField) return null; // no faceting needed after excluding category
+  // Values per level
+  const rowValuesLevels = rowFacetFields.map((f) => uniqueValuesForField(queryResult.rows, f));
+  const colValuesLevels = colFacetFields.map((f) => uniqueValuesForField(queryResult.rows, f));
 
-  // Build unique values for facet fields
-  const rowValues = rowFacetField ? uniqueValuesForField(queryResult.rows, rowFacetField) : [null];
-  const colValues = colFacetField ? uniqueValuesForField(queryResult.rows, colFacetField) : [null];
+  // Build all combinations per side
+  const rowCombos = buildFacetCombos(rowFacetFields, rowValuesLevels);
+  const colCombos = buildFacetCombos(colFacetFields, colValuesLevels);
+  const safeRowCombos = rowCombos.length > 0 ? rowCombos : [[]];
+  const safeColCombos = colCombos.length > 0 ? colCombos : [[]];
 
   // Compute shared measure domains across whole data for comparability
   const allMeasures = [...xFields, ...yFields].filter((f: any) => f.type === 'measure' && f.flavour === 'continuous');
@@ -335,30 +338,31 @@ function generateFacetedGridIfNeeded(context: ChartGenerationContext): PlotResul
   const combinedPlots: Array<{ id: string; title: string; options: Plot.PlotOptions; position: { row: number; col: number } }> = [];
 
   // Determine base layout by generating one sample facet (first values)
-  const sampleRows = filterRowsByFacet(queryResult.rows, rowFacetField, rowValues[0], colFacetField, colValues[0]);
+  const sampleRows = filterRowsByFacets(queryResult.rows, rowFacetFields, safeRowCombos[0], colFacetFields, safeColCombos[0]);
   const baseSpec = buildBaseSpecForDataSubset(
     context,
     categoryAxis,
     excludedCategoryFieldId,
     sampleRows,
     sharedMeasureDomains,
-    rowFacetField,
-    colFacetField
+    // pass top-level facet fields (we remove all of them below when building local context)
+    rowFacetFields[0] || null,
+    colFacetFields[0] || null
   );
   const baseCols = baseSpec.columns;
   const baseRows = baseSpec.rows;
 
-  for (let r = 0; r < rowValues.length; r++) {
-    for (let c = 0; c < colValues.length; c++) {
-      const subset = filterRowsByFacet(queryResult.rows, rowFacetField, rowValues[r], colFacetField, colValues[c]);
+  for (let r = 0; r < safeRowCombos.length; r++) {
+    for (let c = 0; c < safeColCombos.length; c++) {
+      const subset = filterRowsByFacets(queryResult.rows, rowFacetFields, safeRowCombos[r], colFacetFields, safeColCombos[c]);
       const facetSpec = buildBaseSpecForDataSubset(
         context,
         categoryAxis,
         excludedCategoryFieldId,
         subset,
         sharedMeasureDomains,
-        rowFacetField,
-        colFacetField
+        rowFacetFields[0] || null,
+        colFacetFields[0] || null
       );
 
       // Offset plots into the correct grid position
@@ -379,11 +383,22 @@ function generateFacetedGridIfNeeded(context: ChartGenerationContext): PlotResul
     sharedDomains: { byMeasure: sharedMeasureDomains as any },
     layout: {
       type: 'grid',
-      columns: baseCols * colValues.length,
-      rows: baseRows * rowValues.length,
-      columnSizes: Array.from({ length: baseCols * colValues.length }, () => 'fr'),
-      rowSizes: Array.from({ length: baseRows * rowValues.length }, () => 'fr'),
+      columns: baseCols * safeColCombos.length,
+      rows: baseRows * safeRowCombos.length,
+      columnSizes: Array.from({ length: baseCols * safeColCombos.length }, () => 'fr'),
+      rowSizes: Array.from({ length: baseRows * safeRowCombos.length }, () => 'fr'),
     },
+    facetLabels: {
+      rowsLevels: rowFacetFields.length > 0 ? rowFacetFields.map((f, i) => ({ fieldLabel: getFieldColumnName(f), values: rowValuesLevels[i] })) : undefined,
+      colsLevels: colFacetFields.length > 0 ? colFacetFields.map((f, i) => ({ fieldLabel: getFieldColumnName(f), values: colValuesLevels[i] })) : undefined,
+      groupSpan: { columnsPerFacet: baseCols, rowsPerFacet: baseRows },
+      spans: {
+        baseCols,
+        baseRows,
+        columns: computeLevelSpans(colFacetFields, baseCols),
+        rows: computeLevelSpans(rowFacetFields, baseRows),
+      },
+    }
   };
 }
 
@@ -419,6 +434,60 @@ function filterRowsByFacet(
     }
     return true;
   });
+}
+
+function filterRowsByFacets(
+  rows: any[],
+  rowFields: Field[],
+  rowValues: any[],
+  colFields: Field[],
+  colValues: any[]
+): any[] {
+  return rows.filter((row) => {
+    for (let i = 0; i < rowFields.length; i++) {
+      const f = rowFields[i];
+      const v = rowValues[i];
+      const col = getFieldColumnName(f);
+      if (v !== undefined && row[col] !== v) return false;
+    }
+    for (let j = 0; j < colFields.length; j++) {
+      const f = colFields[j];
+      const v = colValues[j];
+      const col = getFieldColumnName(f);
+      if (v !== undefined && row[col] !== v) return false;
+    }
+    return true;
+  });
+}
+
+function buildFacetCombos(fields: Field[], valuesLevels: any[][]): any[][] {
+  if (fields.length === 0) return [];
+  const result: any[][] = [];
+  const helper = (level: number, acc: any[]) => {
+    if (level === fields.length) {
+      result.push(acc.slice());
+      return;
+    }
+    const vals = valuesLevels[level] || [];
+    for (let i = 0; i < vals.length; i++) {
+      acc.push(vals[i]);
+      helper(level + 1, acc);
+      acc.pop();
+    }
+  };
+  helper(0, []);
+  return result;
+}
+
+function computeLevelSpans(fields: Field[], base: number): number[] {
+  // Each level label should span all inner levels and base plots
+  if (fields.length === 0) return [];
+  const spans: number[] = [];
+  for (let i = 0; i < fields.length; i++) {
+    // For now, each level spans the full base; consumer may refine when nested grids are used
+    spans.push(base);
+  }
+  return spans;
 }
 
 type BaseSpec = {

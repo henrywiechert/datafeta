@@ -58,31 +58,138 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
     return (
       <div className={styles.container} ref={containerRef}>
-        <div
-          className={styles.multiPlotGrid}
-          style={{
-            display: 'grid',
-            gridTemplateColumns,
-            gridTemplateRows,
-            gap: '0',
-            padding: '0',
-          }}
-        >
-          {spec.plots.map((plot, index) => {
-            const key = plot.id || String(index);
-            const pos = plot.position;
-            const gridItemStyle: React.CSSProperties | undefined = pos
-              ? { gridColumn: pos.col + 1, gridRow: pos.row + 1 }
-              : undefined;
-            return (
-              <div key={key} className={styles.plotWrapper} style={gridItemStyle}>
-                <div className={styles.observablePlotContainer}>
-                  <ObservablePlot options={plot.options} />
-                </div>
+        {/* Facet labels (optional) */}
+        {spec.facetLabels ? (
+          <div style={{ display: 'grid', gridTemplateColumns: `auto 1fr`, gridTemplateRows: `auto 1fr`, gap: 0 }}>
+            {/* Top-left corner empty cell */}
+            <div />
+            {/* Column facet labels (top) */}
+            {spec.facetLabels.colsLevels ? (
+              <div style={{ display: 'grid', gridAutoRows: 'auto', gridTemplateColumns }}>
+                {spec.facetLabels.colsLevels.map((level, levelIdx) => (
+                  <React.Fragment key={`col-level-${levelIdx}`}>
+                    {level.values.map((val: any, i: number) => {
+                      const span = spec.facetLabels?.spans?.columns?.[levelIdx] || spec.facetLabels?.groupSpan?.columnsPerFacet || 1;
+                      return (
+                        <div
+                          key={`col-level-${levelIdx}-val-${i}`}
+                          style={{
+                            textAlign: 'center',
+                            writingMode: 'vertical-rl',
+                            transform: 'rotate(180deg)',
+                            gridColumn: `span ${span}`,
+                          }}
+                        >
+                          <strong>{level.fieldLabel}</strong>
+                          <div>{String(val)}</div>
+                        </div>
+                      );
+                    })}
+                  </React.Fragment>
+                ))}
               </div>
-            );
-          })}
-        </div>
+            ) : spec.facetLabels.cols ? (
+              <div style={{ display: 'grid', gridTemplateColumns, gridAutoRows: 'auto' }}>
+                {spec.facetLabels.cols.values.map((val: any, i: number) => (
+                  <div key={`col-label-${i}`} style={{ textAlign: 'center', writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
+                    <strong>{spec.facetLabels!.cols!.fieldLabel}</strong>
+                    <div>{String(val)}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div />
+            )}
+            {/* Row facet labels (left) */}
+            {spec.facetLabels.rowsLevels ? (
+              <div style={{ display: 'grid', gridAutoFlow: 'row', gridTemplateRows }}>
+                {spec.facetLabels.rowsLevels.map((level, levelIdx) => (
+                  <React.Fragment key={`row-level-${levelIdx}`}>
+                    {level.values.map((val: any, i: number) => {
+                      const span = spec.facetLabels?.spans?.rows?.[levelIdx] || spec.facetLabels?.groupSpan?.rowsPerFacet || 1;
+                      return (
+                        <div
+                          key={`row-level-${levelIdx}-val-${i}`}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gridRow: `span ${span}` }}
+                        >
+                          <div>
+                            <strong>{level.fieldLabel}</strong>
+                            <div>{String(val)}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </React.Fragment>
+                ))}
+              </div>
+            ) : spec.facetLabels.rows ? (
+              <div style={{ display: 'grid', gridTemplateRows, gridAutoFlow: 'row' }}>
+                {spec.facetLabels.rows.values.map((val: any, i: number) => (
+                  <div key={`row-label-${i}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
+                    <div>
+                      <strong>{spec.facetLabels!.rows!.fieldLabel}</strong>
+                      <div>{String(val)}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div />
+            )}
+            {/* Plot grid */}
+            <div
+              className={styles.multiPlotGrid}
+              style={{
+                display: 'grid',
+                gridTemplateColumns,
+                gridTemplateRows,
+                gap: '0',
+                padding: '0',
+              }}
+            >
+              {spec.plots.map((plot, index) => {
+                const key = plot.id || String(index);
+                const pos = plot.position;
+                const gridItemStyle: React.CSSProperties | undefined = pos
+                  ? { gridColumn: pos.col + 1, gridRow: pos.row + 1 }
+                  : undefined;
+                return (
+                  <div key={key} className={styles.plotWrapper} style={gridItemStyle}>
+                    <div className={styles.observablePlotContainer}>
+                      <ObservablePlot options={plot.options} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div
+            className={styles.multiPlotGrid}
+            style={{
+              display: 'grid',
+              gridTemplateColumns,
+              gridTemplateRows,
+              gap: '0',
+              padding: '0',
+            }}
+          >
+            {spec.plots.map((plot, index) => {
+              const key = plot.id || String(index);
+              const pos = plot.position;
+              const gridItemStyle: React.CSSProperties | undefined = pos
+                ? { gridColumn: pos.col + 1, gridRow: pos.row + 1 }
+                : undefined;
+              return (
+                <div key={key} className={styles.plotWrapper} style={gridItemStyle}>
+                  <div className={styles.observablePlotContainer}>
+                    <ObservablePlot options={plot.options} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     );
   }

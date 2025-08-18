@@ -32,4 +32,15 @@ export interface PlotResult {
     columnSizes?: Array<number | 'fr'>;
     rowSizes?: Array<number | 'fr'>;
   };
+  // Optional global facet label metadata for rendering outer labels once (not per-plot)
+  facetLabels?: {
+    // Single-level (back-compat)
+    rows?: { fieldLabel: string; values: any[] };
+    cols?: { fieldLabel: string; values: any[] };
+    groupSpan?: { columnsPerFacet: number; rowsPerFacet: number };
+    // Multi-level (new)
+    rowsLevels?: Array<{ fieldLabel: string; values: any[] }>;
+    colsLevels?: Array<{ fieldLabel: string; values: any[] }>;
+    spans?: { columns: number[]; rows: number[]; baseCols: number; baseRows: number };
+  };
 } 
