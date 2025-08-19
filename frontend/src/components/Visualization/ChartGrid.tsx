@@ -367,7 +367,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                 const key = plot.id || String(index);
                 const pos = plot.position;
                 const gridItemStyle: React.CSSProperties | undefined = pos
-                  ? { gridColumn: (pos.col + 4), gridRow: pos.row + 1 }
+                  ? { gridColumn: (pos.col + 4), gridRow: pos.row + 1, borderRight: '1px solid #99a795', borderBottom: '1px solid #99a795' }
                   : undefined;
                 const opts = suppressAxes(plot.options, true, true);
                 return (
@@ -441,7 +441,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
               const key = plot.id || String(index);
               const pos = plot.position;
               const gridItemStyle: React.CSSProperties | undefined = pos
-                ? { gridColumn: pos.col + 3, gridRow: pos.row + 1 }
+                ? { gridColumn: pos.col + 3, gridRow: pos.row + 1, borderRight: '1px solid #99a795', borderBottom: '1px solid #99a795' }
                 : undefined;
               const opts = suppressAxes(plot.options, true, true);
               return (
