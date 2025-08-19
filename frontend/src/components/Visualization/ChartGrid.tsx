@@ -207,7 +207,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
             <div style={{ display: 'grid', gridTemplateColumns: `${leftLabelsPx}px ${Y_LABEL_COL_PX}px ${dynamicYAxisPx}px ${plotTemplateColumns}`, gridAutoRows: 'auto', gridColumn: 2 }}>
               {/* Names band (blue) across plot area only */}
               {colLevels.length > 0 ? (
-                <div style={{ gridColumn: '4 / -1', textAlign: 'center', background: '#dbe9ff', padding: '2px 0', fontSize: '14px' }}>
+                <div style={{ gridColumn: '4 / -1', textAlign: 'center', background: '#dbe9ff', padding: '2px 0', fontSize: '12px' }}>
                   {colLevels.map(l => l.fieldLabel).join(' / ')}
                 </div>
               ) : null}
@@ -235,6 +235,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                           background: '#e9f2e1',
                           borderBottom: `1px solid ${dividerColor}`,
                           borderRight: `1px solid ${dividerColor}`,
+                          fontSize: '12px',
                           padding: 0,
                           overflow: 'hidden',
                         }}
@@ -283,7 +284,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                       transform: 'rotate(180deg)',
                       background: '#dbe9ff',
                       padding: '2px 0',
-                      fontSize: '14px',
+                      fontSize: '12px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -322,7 +323,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                             overflow: 'hidden',
                           }}
                         >
-                          <div style={{ transform: 'rotate(-90deg)', transformOrigin: 'center', whiteSpace: 'nowrap', padding: '2px 0', fontSize: '14px' }}>{String(val)}</div>
+                          <div style={{ transform: 'rotate(-90deg)', transformOrigin: 'center', whiteSpace: 'nowrap', padding: '2px 0', fontSize: '12px' }}>{String(val)}</div>
                         </div>
                       );
                     });
@@ -356,7 +357,11 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                 const sample = (spec.plots || []).find((p) => p.position?.row === r);
                 const yDomain = (sample as any)?.options?.y?.domain;
                 return (
-                  <div key={`y-axis-${r}`} style={{ gridColumn: 3, gridRow: r + 1 }}>
+                  <div key={`y-axis-${r}`} style={{ 
+                    gridColumn: 3, 
+                    gridRow: r + 1,
+                    borderBottom: r < rows - 1 ? '1px solid #99a795' : undefined 
+                  }}>
                     <ObservablePlot options={buildYAxisOptions(yDomain, dynamicYAxisPx)} />
                   </div>
                 );
@@ -385,7 +390,11 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                 const xLabel = (sample as any)?.options?.x?.label;
                 const xDomain = (sample as any)?.options?.x?.domain;
                 return (
-                  <div key={`x-axis-${c}`} style={{ gridColumn: c + 4, gridRow: rows + 1 }}>
+                  <div key={`x-axis-${c}`} style={{ 
+                    gridColumn: c + 4, 
+                    gridRow: rows + 1,
+                    borderRight: c < columns - 1 ? '1px solid #99a795' : undefined 
+                  }}>
                     <ObservablePlot options={buildXAxisOptions(xLabel, xDomain, dynamicXAxisPx)} />
                   </div>
                 );
@@ -431,7 +440,11 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
               const sample = (spec.plots || []).find((p) => p.position?.row === r);
               const yDomain = (sample as any)?.options?.y?.domain;
               return (
-                <div key={`y-axis-single-${r}`} style={{ gridColumn: 2, gridRow: r + 1 }}>
+                <div key={`y-axis-single-${r}`} style={{ 
+                  gridColumn: 2, 
+                  gridRow: r + 1,
+                  borderBottom: r < rows - 1 ? '1px solid #e0e0e0' : undefined 
+                }}>
                   <ObservablePlot options={buildYAxisOptions(yDomain, computeDynamicYAxisGutterPx(spec, rows))} />
                 </div>
               );
@@ -458,7 +471,11 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
               const xLabel = (sample as any)?.options?.x?.label;
               const xDomain = (sample as any)?.options?.x?.domain;
               return (
-                <div key={`x-axis-single-${c}`} style={{ gridColumn: c + 3, gridRow: rows + 1 }}>
+                <div key={`x-axis-single-${c}`} style={{ 
+                  gridColumn: c + 3, 
+                  gridRow: rows + 1,
+                  borderRight: c < columns - 1 ? '1px solid #e0e0e0' : undefined 
+                }}>
                   <ObservablePlot options={buildXAxisOptions(xLabel, xDomain, computeDynamicXAxisGutterPx(spec, columns))} />
                 </div>
               );
