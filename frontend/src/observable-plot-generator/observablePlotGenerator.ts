@@ -597,9 +597,8 @@ function buildBaseSpecForDataSubset(
 function baseGeneratePlot(context: ChartGenerationContext): PlotResult {
   const { xFields, yFields, queryResult } = context;
   const analysis = analyzeFields(xFields, yFields);
-  if (!queryResult?.rows || queryResult.rows.length === 0) {
-    return createMessageChart('No data available.');
-  }
+  // Do not short-circuit on empty data here; downstream chart creators
+  // render empty frames so faceted cells remain consistent.
 
   // Mixed-axis measures → scatter
   if (analysis.hasMixedAxes) {

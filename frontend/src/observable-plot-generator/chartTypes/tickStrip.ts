@@ -24,15 +24,22 @@ export function tickStrip(
     (typeof v === 'string' && !Number.isNaN(Date.parse(v)));
   const hasValid = Array.isArray(data) && data.some((row) => isNumericOrDate(row[dimensionColumn]));
   if (!hasValid) {
-    return {
-      marks: [
-        Plot.text(['No numeric data for tick-strip'], {
-          frameAnchor: 'middle',
-          fontSize: 12,
-          fill: 'gray',
-        }),
-      ],
-    };
+    // Render empty axes so cell frame is consistent
+    if (orientation === 'x') {
+      return {
+        x: { label: dimensionColumn, grid: true },
+        y: { label: ' ' },
+        height: BAR_STEP_PX * 1.8,
+        marks: [],
+      };
+    } else {
+      return {
+        y: { label: dimensionColumn, grid: true },
+        x: { label: ' ' },
+        width: BAR_STEP_PX * 1.8,
+        marks: [],
+      };
+    }
   }
 
   if (orientation === 'x') {
