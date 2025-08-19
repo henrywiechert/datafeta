@@ -38,11 +38,11 @@ function suppressAxes(options: any, hideX: boolean, hideY: boolean) {
 /**
  * Build axis-only plot options for external gutters.
  */
-function buildYAxisOptions(label: string | undefined, domain: any) {
+function buildYAxisOptions(domain: any) {
   return {
     frame: null,
     x: { axis: null },
-    y: { label: label || '', domain },
+    y: { label: '', domain },
     marks: [],
   } as any;
 }
@@ -51,9 +51,47 @@ function buildXAxisOptions(label: string | undefined, domain: any) {
   return {
     frame: null,
     y: { axis: null },
-    x: { label: label || '', domain },
+    x: { label: '', domain }, // label rendered in separate row below
     marks: [],
   } as any;
+}
+
+const TEXT_PX_PER_CHAR = 6; // conservative estimate for 12-14px font
+const MIN_Y_AXIS_GUTTER_PX = 28;
+const MAX_Y_AXIS_GUTTER_PX = 56;
+
+function estimateTextPx(text?: string): number {
+  if (!text) return 0;
+  return Math.ceil(text.length * TEXT_PX_PER_CHAR);
+}
+
+function computeDynamicYAxisGutterPx(spec: PlotResult, rows: number): number {
+  let maxWidth = MIN_Y_AXIS_GUTTER_PX;
+  const plots = spec.plots || [];
+  for (let r = 0; r < rows; r++) {
+    const sample = plots.find((p) => p.position?.row === r);
+    const yDomain = (sample as any)?.options?.y?.domain as [number, number] | undefined;
+    let tickWidth = 0;
+    if (Array.isArray(yDomain) && yDomain.length === 2) {
+      const [a, b] = yDomain;
+      tickWidth = Math.max(estimateTextPx(String(a)), estimateTextPx(String(b))) + 6; // small padding
+    }
+    const rowWidth = Math.max(MIN_Y_AXIS_GUTTER_PX, Math.min(MAX_Y_AXIS_GUTTER_PX, tickWidth));
+    if (rowWidth > maxWidth) maxWidth = rowWidth;
+  }
+  return maxWidth;
+}
+
+function computeDynamicXAxisGutterPx(spec: PlotResult, columns: number): number {
+  let maxHeight = 24; // minimum baseline
+  const plots = spec.plots || [];
+  for (let c = 0; c < columns; c++) {
+    // Only ticks height; axis label is rendered in a separate row
+    const tickHeight = 14 + 6; // font + padding
+    const total = Math.max(24, tickHeight + 4);
+    if (total > maxHeight) maxHeight = total;
+  }
+  return maxHeight;
 }
 
 /**
@@ -127,10 +165,15 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     const NAMES_BAND_LEFT_PX = 20;
     const VALUES_BAND_LEFT_PX = 20;
     const VALUES_BAND_TOP_PX = 20;
-    const AXIS_GUTTER_PX = 40; // configurable later
+    const Y_LABEL_COL_PX = 16;
+    const X_LABEL_ROW_PX = 16;
 
     const yLevelsCount = rowLevels.length;
     const leftLabelsPx = NAMES_BAND_LEFT_PX + VALUES_BAND_LEFT_PX * yLevelsCount;
+
+    // Dynamic gutters
+    const dynamicYAxisPx = computeDynamicYAxisGutterPx(spec, rows);
+    const dynamicXAxisPx = computeDynamicXAxisGutterPx(spec, columns);
 
     // Wrapper grid: main 2 columns: a zero-width spacer + the content column
     const wrapperTemplateColumns = `0px 1fr`;
@@ -145,10 +188,10 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
             {/* Top-left corner empty cell */}
             <div />
             {/* Column facet labels (top) */}
-            <div style={{ display: 'grid', gridTemplateColumns: `${leftLabelsPx + AXIS_GUTTER_PX}px ${plotTemplateColumns}`, gridAutoRows: 'auto', gridColumn: 2 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: `${leftLabelsPx}px ${Y_LABEL_COL_PX}px ${dynamicYAxisPx}px ${plotTemplateColumns}`, gridAutoRows: 'auto', gridColumn: 2 }}>
               {/* Names band (blue) across plot area only */}
               {colLevels.length > 0 ? (
-                <div style={{ gridColumn: '2 / -1', textAlign: 'center', background: '#dbe9ff', padding: '2px 0', fontSize: '14px' }}>
+                <div style={{ gridColumn: '4 / -1', textAlign: 'center', background: '#dbe9ff', padding: '2px 0', fontSize: '14px' }}>
                   {colLevels.map(l => l.fieldLabel).join(' / ')}
                 </div>
               ) : null}
@@ -163,7 +206,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                 for (let r = 0; r < outerProduct; r++) {
                   const groupStart = r * groupSpan; // 0-based over the plot columns
                   level.values.forEach((val: any, i: number) => {
-                    const startCol = 2 + groupStart + i * span; // +2 accounts for left labels + axis gutter
+                    const startCol = 4 + groupStart + i * span; // charts start at col 4 in header
                     cells.push(
                       <div
                         key={`col-level-${levelIdx}-seg-${r}-val-${i}`}
@@ -193,8 +236,8 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
               className={styles.multiPlotGrid}
               style={{
                 display: 'grid',
-                gridTemplateColumns: `${leftLabelsPx}px ${AXIS_GUTTER_PX}px ${plotTemplateColumns}`,
-                gridTemplateRows: `${plotTemplateRows} ${AXIS_GUTTER_PX}px`,
+                gridTemplateColumns: `${leftLabelsPx}px ${Y_LABEL_COL_PX}px ${dynamicYAxisPx}px ${plotTemplateColumns}`,
+                gridTemplateRows: `${plotTemplateRows} ${dynamicXAxisPx}px ${X_LABEL_ROW_PX}px`,
                 gap: '0',
                 padding: '0',
                 alignItems: 'stretch',
@@ -272,30 +315,45 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                 })}
               </div>
 
-              {/* Left external y-axes gutter */}
+              {/* Y-axis vertical labels column (col 2) */}
               {Array.from({ length: rows }).map((_, r) => {
-                // sample any plot in row r
                 const sample = (spec.plots || []).find((p) => p.position?.row === r);
-                const yLabel = (sample as any)?.options?.y?.label;
-                const yDomain = (sample as any)?.options?.y?.domain;
+                const yLabel = (sample as any)?.options?.y?.label as string | undefined;
                 return (
-                  <div key={`y-axis-${r}`} style={{ gridColumn: 2, gridRow: r + 1 }}>
-                    <ObservablePlot options={buildYAxisOptions(yLabel, yDomain)} />
+                  <div
+                    key={`y-label-${r}`}
+                    style={{
+                      gridColumn: 2,
+                      gridRow: r + 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', textAlign: 'center', fontSize: '12px' }}>{yLabel || ''}</div>
                   </div>
                 );
               })}
 
-              {/* Chart cells: start at col 3 */}
+              {/* Left external y-axes gutter (col 3) */}
+              {Array.from({ length: rows }).map((_, r) => {
+                const sample = (spec.plots || []).find((p) => p.position?.row === r);
+                const yDomain = (sample as any)?.options?.y?.domain;
+                return (
+                  <div key={`y-axis-${r}`} style={{ gridColumn: 3, gridRow: r + 1 }}>
+                    <ObservablePlot options={buildYAxisOptions(yDomain)} />
+                  </div>
+                );
+              })}
+
+              {/* Chart cells: start at col 4 */}
               {(spec.plots || []).map((plot, index) => {
                 const key = plot.id || String(index);
                 const pos = plot.position;
                 const gridItemStyle: React.CSSProperties | undefined = pos
-                  ? { gridColumn: (pos.col + 3), gridRow: pos.row + 1 }
+                  ? { gridColumn: (pos.col + 4), gridRow: pos.row + 1 }
                   : undefined;
-
-                // Remove internal axes completely (external axes are used)
                 const opts = suppressAxes(plot.options, true, true);
-
                 return (
                   <div key={key} className={styles.plotWrapper} style={gridItemStyle}>
                     <div className={styles.observablePlotContainer}>
@@ -311,8 +369,19 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                 const xLabel = (sample as any)?.options?.x?.label;
                 const xDomain = (sample as any)?.options?.x?.domain;
                 return (
-                  <div key={`x-axis-${c}`} style={{ gridColumn: c + 3, gridRow: rows + 1 }}>
+                  <div key={`x-axis-${c}`} style={{ gridColumn: c + 4, gridRow: rows + 1 }}>
                     <ObservablePlot options={buildXAxisOptions(xLabel, xDomain)} />
+                  </div>
+                );
+              })}
+
+              {/* Bottom x labels row */}
+              {Array.from({ length: columns }).map((_, c) => {
+                const sample = (spec.plots || []).find((p) => p.position?.col === c);
+                const xLabel = (sample as any)?.options?.x?.label as string | undefined;
+                return (
+                  <div key={`x-label-${c}`} style={{ gridColumn: c + 4, gridRow: rows + 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ fontSize: '12px' }}>{xLabel || ''}</div>
                   </div>
                 );
               })}
@@ -324,19 +393,39 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
             className={styles.multiPlotGrid}
             style={{
               display: 'grid',
-              gridTemplateColumns: `${AXIS_GUTTER_PX}px ${plotTemplateColumns}`,
-              gridTemplateRows: `${plotTemplateRows} ${AXIS_GUTTER_PX}px`,
+              gridTemplateColumns: `${Y_LABEL_COL_PX}px ${computeDynamicYAxisGutterPx(spec, rows)}px ${plotTemplateColumns}`,
+              gridTemplateRows: `${plotTemplateRows} ${computeDynamicXAxisGutterPx(spec, columns)}px ${X_LABEL_ROW_PX}px`,
               gap: '0',
               padding: '0',
               overflow: 'visible',
             }}
           >
-            {/* Charts at col 2 */}
+            {/* Y label column */}
+            {Array.from({ length: rows }).map((_, r) => {
+              const sample = (spec.plots || []).find((p) => p.position?.row === r);
+              const yLabel = (sample as any)?.options?.y?.label as string | undefined;
+              return (
+                <div key={`y-label-single-${r}`} style={{ gridColumn: 1, gridRow: r + 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', textAlign: 'center', fontSize: '12px' }}>{yLabel || ''}</div>
+                </div>
+              );
+            })}
+            {/* External y-axes (single) */}
+            {Array.from({ length: rows }).map((_, r) => {
+              const sample = (spec.plots || []).find((p) => p.position?.row === r);
+              const yDomain = (sample as any)?.options?.y?.domain;
+              return (
+                <div key={`y-axis-single-${r}`} style={{ gridColumn: 2, gridRow: r + 1 }}>
+                  <ObservablePlot options={buildYAxisOptions(yDomain)} />
+                </div>
+              );
+            })}
+            {/* Charts */}
             {(spec.plots || []).map((plot, index) => {
               const key = plot.id || String(index);
               const pos = plot.position;
               const gridItemStyle: React.CSSProperties | undefined = pos
-                ? { gridColumn: pos.col + 2, gridRow: pos.row + 1 }
+                ? { gridColumn: pos.col + 3, gridRow: pos.row + 1 }
                 : undefined;
               const opts = suppressAxes(plot.options, true, true);
               return (
@@ -347,25 +436,24 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                 </div>
               );
             })}
-            {/* External y-axes (single) */}
-            {Array.from({ length: rows }).map((_, r) => {
-              const sample = (spec.plots || []).find((p) => p.position?.row === r);
-              const yLabel = (sample as any)?.options?.y?.label;
-              const yDomain = (sample as any)?.options?.y?.domain;
-              return (
-                <div key={`y-axis-single-${r}`} style={{ gridColumn: 1, gridRow: r + 1 }}>
-                  <ObservablePlot options={buildYAxisOptions(yLabel, yDomain)} />
-                </div>
-              );
-            })}
             {/* External x-axes (single) */}
             {Array.from({ length: columns }).map((_, c) => {
               const sample = (spec.plots || []).find((p) => p.position?.col === c);
               const xLabel = (sample as any)?.options?.x?.label;
               const xDomain = (sample as any)?.options?.x?.domain;
               return (
-                <div key={`x-axis-single-${c}`} style={{ gridColumn: c + 2, gridRow: rows + 1 }}>
+                <div key={`x-axis-single-${c}`} style={{ gridColumn: c + 3, gridRow: rows + 1 }}>
                   <ObservablePlot options={buildXAxisOptions(xLabel, xDomain)} />
+                </div>
+              );
+            })}
+            {/* Bottom x labels row */}
+            {Array.from({ length: columns }).map((_, c) => {
+              const sample = (spec.plots || []).find((p) => p.position?.col === c);
+              const xLabel = (sample as any)?.options?.x?.label as string | undefined;
+              return (
+                <div key={`x-label-single-${c}`} style={{ gridColumn: c + 3, gridRow: rows + 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ fontSize: '12px' }}>{xLabel || ''}</div>
                 </div>
               );
             })}
