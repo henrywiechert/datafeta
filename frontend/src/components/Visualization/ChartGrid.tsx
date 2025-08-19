@@ -92,7 +92,7 @@ function computeDynamicYAxisGutterPx(spec: PlotResult, rows: number): number {
       const [a, b] = yDomain;
       tickWidth = Math.max(estimateTextPx(String(a)), estimateTextPx(String(b))) + 6; // small padding
     }
-    const rowWidth = Math.max(MIN_Y_AXIS_GUTTER_PX, Math.min(MAX_Y_AXIS_GUTTER_PX, tickWidth));
+    const rowWidth = Math.max(MIN_Y_AXIS_GUTTER_PX, tickWidth);
     if (rowWidth > maxWidth) maxWidth = rowWidth;
   }
   return maxWidth;
