@@ -30,7 +30,8 @@ export function computeSharedMeasureDomains(
     const min = Math.min(...values);
     const max = Math.max(...values);
     const lower = Math.min(0, min);
-    const upper = max <= 0 ? 0 : max * 1.1; // clamp to 0 if non-positive
+    // Add modest headroom while keeping baseline at 0 when applicable; use 5% to match 2D charts
+    const upper = max <= 0 ? 0 : max * 1.05;
     domains[measureName] = [lower, upper];
   });
 
