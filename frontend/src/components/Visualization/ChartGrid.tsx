@@ -126,7 +126,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
             <div style={{ display: 'grid', gridTemplateColumns: `${leftSpacerPx}px ${plotTemplateColumns}`, gridAutoRows: 'auto', gridColumn: 2 }}>
               {/* Names band (blue) across plot area only */}
               {colLevels.length > 0 ? (
-                <div style={{ gridColumn: '2 / -1', textAlign: 'center', background: '#dbe9ff', padding: '2px 0', fontSize: '14px' }}>
+                <div style={{ gridColumn: '2 / -1', textAlign: 'center', background: '#dbe9ff', padding: '2px 0', fontSize: '12px' }}>
                   {colLevels.map(l => l.fieldLabel).join(' / ')}
                 </div>
               ) : null}
@@ -156,6 +156,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                           borderRight: `1px solid ${dividerColor}`,
                           padding: 0,
                           overflow: 'hidden',
+                          fontSize: '12px'
                         }}
                       >
                         {String(val)}
@@ -202,7 +203,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                       transform: 'rotate(180deg)',
                       background: '#dbe9ff',
                       padding: '2px 0',
-                      fontSize: '14px',
+                      fontSize: '12px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -241,7 +242,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                             overflow: 'hidden',
                           }}
                         >
-                          <div style={{ transform: 'rotate(-90deg)', transformOrigin: 'center', whiteSpace: 'nowrap', padding: '2px 0', fontSize: '14px' }}>{String(val)}</div>
+                          <div style={{ transform: 'rotate(-90deg)', transformOrigin: 'center', whiteSpace: 'nowrap', padding: '2px 0', fontSize: '12px' }}>{String(val)}</div>
                         </div>
                       );
                     });
@@ -255,7 +256,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                 const key = plot.id || String(index);
                 const pos = plot.position;
                 const gridItemStyle: React.CSSProperties | undefined = pos
-                  ? { gridColumn: (pos.col + 2), gridRow: pos.row + 1 }
+                  ? { gridColumn: (pos.col + 2), gridRow: pos.row + 1, borderRight: '1px solid #99a795', borderBottom: '1px solid #99a795' }
                   : undefined;
 
                 // Axis suppression for matrix: hide x except bottom row, hide y except left col

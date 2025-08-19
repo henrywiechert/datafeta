@@ -42,39 +42,8 @@ export function generatePairChartOptions(
   switch (selected) {
     case 'scatter': {
       const { xCol, yCol } = resolveXYColumns(xf, yf);
-      const xIsNumeric = isNumericColumn(data, xCol);
-      const yIsNumeric = isNumericColumn(data, yCol);
-      if (xIsNumeric && yIsNumeric) {
-        return scatterChart(data, xCol, yCol, { x: xCol, y: yCol });
-      }
-      // Fallback: if only one axis is numeric, use tick-strip on that axis and categorize by the other
-      if (xIsNumeric && !yIsNumeric) {
-        const categoryCol = yf.type === 'dimension' ? yf.columnName : undefined;
-        return tickStrip(
-          { xFields: [], yFields: [], queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any },
-          'x',
-          xCol,
-          categoryCol
-        );
-      }
-      if (!xIsNumeric && yIsNumeric) {
-        const categoryCol = xf.type === 'dimension' ? xf.columnName : undefined;
-        return tickStrip(
-          { xFields: [], yFields: [], queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any },
-          'y',
-          yCol,
-          categoryCol
-        );
-      }
-      // Neither axis numeric → categorical dot plot if both dimensions, otherwise message
-      if (xf.type === 'dimension' && yf.type === 'dimension') {
-        return {
-          x: { label: xCol },
-          y: { label: yCol },
-          marks: [Plot.dot(data, { x: xCol, y: yCol, fill: DEFAULT_CHART_COLOR, r: 2 })],
-        };
-      }
-      return messageOptions('Unsupported combination');
+      // Always render scatter (empty when no numeric pairs), to keep base type consistent
+      return scatterChart(data, xCol, yCol, { x: xCol, y: yCol });
     }
     case 'line': {
       // measure vs continuous dimension – ensure dimension on X axis
@@ -88,7 +57,7 @@ export function generatePairChartOptions(
         const yCol = getResultColumnName({ ...yf, aggregation: yf.aggregation || 'sum' } as any);
         return lineChart(data, xCol, yCol, { x: xCol, y: yCol });
       }
-      // If both are measures or both are dimensions, fallback to scatter
+      // If both are measures or both are dimensions, fallback to scatter (empty if no data)
       const { xCol, yCol } = resolveXYColumns(xf, yf);
       return scatterChart(data, xCol, yCol, { x: xCol, y: yCol });
     }

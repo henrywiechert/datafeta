@@ -15,10 +15,11 @@ export function scatterChart(
     : [];
 
   if (clean.length === 0) {
+    // Render empty axes (no points) so the cell shape matches others
     return {
-      marks: [
-        Plot.text(['No numeric data for scatter chart'], { frameAnchor: 'middle', fontSize: 12, fill: 'gray' }),
-      ],
+      x: { label: labels?.x || xColumn, grid: true },
+      y: { label: labels?.y || yColumn, grid: true },
+      marks: [Plot.ruleX([0]), Plot.ruleY([0])],
     };
   }
 
