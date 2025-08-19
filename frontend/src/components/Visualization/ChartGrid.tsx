@@ -53,7 +53,7 @@ function buildYAxisOptions(domain: any, gutterPx: number) {
     marginBottom: 0,
     inset: 0,
     x: { axis: null },
-    y: { label: '', domain },
+    y: { label: '', domain, labelArrow: null },
     marks: [],
   } as any;
 }
@@ -67,7 +67,7 @@ function buildXAxisOptions(label: string | undefined, domain: any, gutterPx: num
     marginBottom: Math.max(12, gutterPx - 2),
     inset: 0,
     y: { axis: null },
-    x: { label: '', domain }, // label rendered in separate row below
+    x: { label: '', domain, labelArrow: null }, // label rendered in separate row below
     marks: [],
   } as any;
 }
