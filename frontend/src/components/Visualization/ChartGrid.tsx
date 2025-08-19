@@ -16,6 +16,12 @@ interface ChartGridProps {
  */
 function suppressAxes(options: any, hideX: boolean, hideY: boolean) {
   const next = { ...options };
+  // Remove all margins so plot fills the cell exactly
+  next.marginLeft = 0;
+  next.marginRight = 0;
+  next.marginTop = 0;
+  next.marginBottom = 0;
+  next.inset = 0;
   if (hideX) {
     next.x = {
       ...(next.x || {}),
@@ -38,18 +44,28 @@ function suppressAxes(options: any, hideX: boolean, hideY: boolean) {
 /**
  * Build axis-only plot options for external gutters.
  */
-function buildYAxisOptions(domain: any) {
+function buildYAxisOptions(domain: any, gutterPx: number) {
   return {
     frame: null,
+    marginLeft: Math.max(12, gutterPx - 2),
+    marginRight: 0,
+    marginTop: 0,
+    marginBottom: 0,
+    inset: 0,
     x: { axis: null },
     y: { label: '', domain },
     marks: [],
   } as any;
 }
 
-function buildXAxisOptions(label: string | undefined, domain: any) {
+function buildXAxisOptions(label: string | undefined, domain: any, gutterPx: number) {
   return {
     frame: null,
+    marginLeft: 0,
+    marginRight: 0,
+    marginTop: 0,
+    marginBottom: Math.max(12, gutterPx - 2),
+    inset: 0,
     y: { axis: null },
     x: { label: '', domain }, // label rendered in separate row below
     marks: [],
@@ -341,7 +357,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                 const yDomain = (sample as any)?.options?.y?.domain;
                 return (
                   <div key={`y-axis-${r}`} style={{ gridColumn: 3, gridRow: r + 1 }}>
-                    <ObservablePlot options={buildYAxisOptions(yDomain)} />
+                    <ObservablePlot options={buildYAxisOptions(yDomain, dynamicYAxisPx)} />
                   </div>
                 );
               })}
@@ -370,7 +386,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                 const xDomain = (sample as any)?.options?.x?.domain;
                 return (
                   <div key={`x-axis-${c}`} style={{ gridColumn: c + 4, gridRow: rows + 1 }}>
-                    <ObservablePlot options={buildXAxisOptions(xLabel, xDomain)} />
+                    <ObservablePlot options={buildXAxisOptions(xLabel, xDomain, dynamicXAxisPx)} />
                   </div>
                 );
               })}
@@ -416,7 +432,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
               const yDomain = (sample as any)?.options?.y?.domain;
               return (
                 <div key={`y-axis-single-${r}`} style={{ gridColumn: 2, gridRow: r + 1 }}>
-                  <ObservablePlot options={buildYAxisOptions(yDomain)} />
+                  <ObservablePlot options={buildYAxisOptions(yDomain, computeDynamicYAxisGutterPx(spec, rows))} />
                 </div>
               );
             })}
@@ -443,7 +459,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
               const xDomain = (sample as any)?.options?.x?.domain;
               return (
                 <div key={`x-axis-single-${c}`} style={{ gridColumn: c + 3, gridRow: rows + 1 }}>
-                  <ObservablePlot options={buildXAxisOptions(xLabel, xDomain)} />
+                  <ObservablePlot options={buildXAxisOptions(xLabel, xDomain, computeDynamicXAxisGutterPx(spec, columns))} />
                 </div>
               );
             })}
