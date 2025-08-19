@@ -18,9 +18,9 @@ export function lineChart(
 
   if (clean.length === 0) {
     return {
-      marks: [
-        Plot.text(['No numeric data for line chart'], { frameAnchor: 'middle', fontSize: 12, fill: 'gray' }),
-      ],
+      x: { label: labels?.x || xColumn, grid: true },
+      y: { label: labels?.y || yColumn, grid: true },
+      marks: [],
     };
   }
 
