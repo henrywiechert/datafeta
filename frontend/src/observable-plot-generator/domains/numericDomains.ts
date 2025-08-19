@@ -36,7 +36,7 @@ export function computeSharedNumericDomains(
     if (values.length === 0) continue;
     const min = Math.min(...values);
     const max = Math.max(...values);
-    const lower = Math.min(0, min);
+    const lower = min - Math.abs(min) * 0.05;
     // Add 5% headroom for 2D charts (scatter/line) so points don't touch the boundary.
     const upper = max <= 0 ? 0 : max * 1.05;
     domains[label] = [lower, upper];
