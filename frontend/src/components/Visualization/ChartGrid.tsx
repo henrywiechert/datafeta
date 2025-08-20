@@ -279,8 +279,8 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
               <div style={{ gridColumn: 1, gridRow: 1 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns }}>
                   {colLevels.length > 0 ? (
-                    <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'center' }}>
-                      <div style={{ position: 'sticky', left: '50%', transform: 'translateX(-50%)', fontSize: '10px', fontWeight: 600, border: `1px solid ${dividerColor}`, borderRadius: 4, background: 'white', padding: '2px 6px', zIndex: 2 }}>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <div style={{ position: 'sticky', left: 0, right: 0, margin: '0 auto', width: 'max-content', fontSize: '10px', fontWeight: 600, background: 'white', padding: '2px 6px', zIndex: 2 }}>
                         {colLevels.map(l => l.fieldLabel).join(' / ')}
                       </div>
                     </div>
@@ -419,8 +419,8 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                     }}
                   >
                     {/* Keep in grid, but center using sticky at 50% with translate */}
-                    <div style={{ gridColumn: 1, gridRow: '1 / -1', position: 'sticky', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
-                      <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: '10px', fontWeight: 600, border: '1px solid #99a795', borderRadius: 4, background: 'white', padding: '4px 2px' }}>
+                    <div style={{ gridColumn: 1, gridRow: '1 / -1', position: 'sticky', top: 0, bottom: 0, margin: 'auto 0', height: 'fit-content', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+                      <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: '10px', fontWeight: 600, background: 'white', padding: '4px 2px', margin: 'auto' }}>
                         {rowLevels.map(l => l.fieldLabel).join(' / ')}
                       </div>
                     </div>
