@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as Plot from '@observablehq/plot';
 
 import { QueryResult } from '../../types';
@@ -119,6 +119,8 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   const hScrollRef = useRef<HTMLDivElement>(null);
   const vScrollRef = useRef<HTMLDivElement>(null);
   const plotsTranslateRef = useRef<HTMLDivElement>(null);
+  const [rowHeightPx, setRowHeightPx] = useState<number>(MIN_GRID_ROW_PX);
+  const rowsForSizing = (typeof (spec as any)?.layout?.rows === 'number' ? (spec as any).layout.rows : 1) as number;
 
   // Route vertical wheel deltas to the vertical scroller so vertical scroll
   // works even when the pointer is over the horizontal layer (charts/headers).
@@ -140,6 +142,24 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     scroller.addEventListener('scroll', onScroll, { passive: true } as any);
     return () => scroller.removeEventListener('scroll', onScroll as any);
   }, [spec]);
+
+  // Dynamically size row height globally (not conditionally in the grid branch)
+  useEffect(() => {
+    const updateRowHeight = () => {
+      const scroller = vScrollRef.current;
+      if (!scroller) return;
+      const available = scroller.clientHeight;
+      const r = Math.max(1, rowsForSizing);
+      if (available > 0) {
+        const h = Math.max(MIN_GRID_ROW_PX, Math.floor(available / r));
+        setRowHeightPx(h);
+      }
+    };
+    updateRowHeight();
+    const ro = new ResizeObserver(() => updateRowHeight());
+    if (vScrollRef.current) ro.observe(vScrollRef.current);
+    return () => ro.disconnect();
+  }, [rowsForSizing]);
   
   // Handle null or missing spec
   if (!spec) {
@@ -160,15 +180,16 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     const columnSizes = spec.layout?.columnSizes;
     const rowSizes = spec.layout?.rowSizes;
 
+    const minColumnPx = MIN_GRID_COLUMN_PX; // fixed minimum width
     const plotTemplateColumns =
       layoutType === 'vertical'
-        ? `minmax(${MIN_GRID_COLUMN_PX}px, 1fr)`
+        ? `${minColumnPx}px`
         : columnSizes && columnSizes.length > 0
           ? columnSizes
               .slice(0, columns)
-              .map((c) => (typeof c === 'number' ? `${c}px` : `minmax(${MIN_GRID_COLUMN_PX}px, 1fr)`))
+              .map((c) => (typeof c === 'number' ? `${c}px` : `${minColumnPx}px`))
               .join(' ')
-          : `repeat(${columns}, minmax(${MIN_GRID_COLUMN_PX}px, 1fr))`;
+          : `repeat(${columns}, ${minColumnPx}px)`;
 
     const plotTemplateRows =
       layoutType === 'horizontal'
@@ -248,7 +269,8 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
             display: 'grid',
             gridTemplateColumns: `max-content`,
             gridTemplateRows: spec.facetLabels ? `${topHeaderHeight}px 1fr ${dynamicXAxisPx}px ${X_LABEL_ROW_PX}px` : `1fr ${dynamicXAxisPx}px ${X_LABEL_ROW_PX}px`,
-            minWidth: `${columns * MIN_GRID_COLUMN_PX}px`,
+            minWidth: `${columns * minColumnPx}px`,
+            width: '100%',
             height: '100%'
           }}>
             {/* Top facet headers (if present) */}
@@ -256,7 +278,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
               <div style={{ gridColumn: 1, gridRow: 1 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns }}>
                   {colLevels.length > 0 ? (
-                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', background: '#dbe9ff', padding: '2px 0', fontSize: '12px', borderBottom: `1px solid ${dividerColor}` }}>
+                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', background: '#dbe9ff', padding: '2px 0', fontSize: '10px', borderBottom: `1px solid ${dividerColor}` }}>
                       {colLevels.map(l => l.fieldLabel).join(' / ')}
                     </div>
                   ) : null}
@@ -283,7 +305,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                               background: '#e9f2e1',
                               borderBottom: `1px solid ${dividerColor}`,
                               borderRight: `1px solid ${dividerColor}`,
-                              fontSize: '12px',
+                              fontSize: '10px',
                               padding: 0,
                               overflow: 'hidden',
                             }}
@@ -301,7 +323,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
             {/* Main plots area (clipped so translated plots don't overlap headers/footers) */}
             <div style={{ gridColumn: 1, gridRow: spec.facetLabels ? 2 : 1, overflow: 'hidden', position: 'relative' }}>
-              <div ref={plotsTranslateRef} style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns, gridTemplateRows: fixedPlotTemplateRows, willChange: 'transform' }}>
+              <div ref={plotsTranslateRef} style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns, gridTemplateRows: `repeat(${rows}, ${rowHeightPx}px)`, willChange: 'transform' }}>
                 {(spec.plots || []).map((plot, index) => {
                   const key = plot.id || String(index);
                   const pos = plot.position;
@@ -343,7 +365,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                   const sample = (spec.plots || []).find((p) => p.position?.col === c);
                   const xLabel = (sample as any)?.options?.x?.label as string | undefined;
                   return (
-                    <div key={`x-label-${c}`} style={{ gridColumn: c + 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>
+                    <div key={`x-label-${c}`} style={{ gridColumn: c + 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}>
                       {xLabel || ''}
                     </div>
                   );
@@ -374,13 +396,13 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
           <div className="vertical-scroll-content" style={{
             display: 'grid',
             gridTemplateColumns: `${leftFixedWidthPx}px 1fr`,
-            gridTemplateRows: `${fixedPlotTemplateRows}`,
+            gridTemplateRows: `repeat(${rows}, ${rowHeightPx}px)`,
             pointerEvents: 'none'
           }}>
             
             {/* Left Y labels/scales area */}
             <div style={{ gridColumn: 1, gridRow: 1, pointerEvents: 'auto' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: `${leftLabelsPx}px ${Y_LABEL_COL_PX}px ${dynamicYAxisPx}px`, gridTemplateRows: fixedPlotTemplateRows }}>
+              <div style={{ display: 'grid', gridTemplateColumns: `${leftLabelsPx}px ${Y_LABEL_COL_PX}px ${dynamicYAxisPx}px`, gridTemplateRows: `repeat(${rows}, ${rowHeightPx}px)` }}>
                 {/* Left facet labels area */}
                 {spec.facetLabels && (
                   <div
@@ -389,7 +411,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                       gridRow: '1 / span ' + rows,
                       display: 'grid',
                       gridTemplateColumns: `${NAMES_BAND_LEFT_PX}px ${new Array(yLevelsCount).fill(`${VALUES_BAND_LEFT_PX}px`).join(' ')}`,
-                      gridTemplateRows: fixedPlotTemplateRows,
+                      gridTemplateRows: `repeat(${rows}, ${rowHeightPx}px)`,
                       alignItems: 'stretch',
                     }}
                   >
@@ -403,7 +425,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                           transform: 'rotate(180deg)',
                           background: '#dbe9ff',
                           padding: '2px 0',
-                          fontSize: '12px',
+                          fontSize: '10px',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -442,7 +464,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                                 overflow: 'hidden',
                               }}
                             >
-                              <div style={{ transform: 'rotate(-90deg)', transformOrigin: 'center', whiteSpace: 'nowrap', padding: '2px 0', fontSize: '12px' }}>{String(val)}</div>
+                              <div style={{ transform: 'rotate(-90deg)', transformOrigin: 'center', whiteSpace: 'nowrap', padding: '2px 0', fontSize: '10px' }}>{String(val)}</div>
                             </div>
                           );
                         });
@@ -467,7 +489,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                         justifyContent: 'center',
                       }}
                     >
-                      <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', textAlign: 'center', fontSize: '12px' }}>{yLabel || ''}</div>
+                      <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', textAlign: 'center', fontSize: '10px' }}>{yLabel || ''}</div>
                     </div>
                   );
                 })}
@@ -491,7 +513,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
             {/* Plots area (transparent, just for scrolling) */}
             <div style={{ gridColumn: 2, gridRow: 1, pointerEvents: 'auto' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns, gridTemplateRows: fixedPlotTemplateRows, opacity: 0 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns, gridTemplateRows: `repeat(${rows}, ${rowHeightPx}px)`, opacity: 0 }}>
                 {(spec.plots || []).map((plot, index) => {
                   const key = plot.id || String(index);
                   const pos = plot.position;
