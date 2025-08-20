@@ -49,6 +49,7 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
     }
     
     // If both axes have at least one candidate (measure or dimension), build a cartesian pairing grid
+    // This includes single charts as 1x1 grids for unified domain handling
     const xCandidates = [...analysis.xMeasures, ...analysis.xDimensions];
     const yCandidates = [...analysis.yMeasures, ...analysis.yDimensions];
 
@@ -56,7 +57,7 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
       return generateCartesianGrid(context, analysis, xCandidates, yCandidates, overrides);
     }
 
-    // Otherwise, generate single chart or simple multi on one axis
+    // Otherwise, generate single chart or simple multi on one axis (rare edge cases)
     const result = genChartOptionsRule(analysis, context);
     return result;
 
@@ -154,11 +155,12 @@ function generateChartOptions(analysis: FieldAnalysis, context: ChartGenerationC
   if (bothDims && !analysis.hasMeasure) {
     const xDimCol = analysis.xDimensions[0].columnName;
     const yDimCol = analysis.yDimensions[0].columnName;
-    return {
+    const result: PlotResult = {
       library: 'observable-plot',
       options: scatterChart(data, xDimCol, yDimCol, { x: xDimCol, y: yDimCol }),
       layout: { type: 'single' },
     };
+    return result;
   }
 
   // 5) Continuous measure on one axis + continuous dimension on the other -> line chart

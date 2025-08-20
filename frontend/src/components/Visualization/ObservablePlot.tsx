@@ -34,6 +34,8 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options }) => {
       const finalWidth = options.width !== undefined ? options.width : (observedWidth > 0 ? observedWidth : 400);
       const finalHeight = options.height !== undefined ? options.height : (observedHeight > 0 ? observedHeight : 300);
 
+
+
       // Only render if we have valid dimensions to prevent errors.
       if (finalWidth > 0 && finalHeight > 0) {
         const newOptions = {
