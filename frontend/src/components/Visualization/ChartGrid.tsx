@@ -278,7 +278,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
               <div style={{ gridColumn: 1, gridRow: 1 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns }}>
                   {colLevels.length > 0 ? (
-                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', background: '#dbe9ff', padding: '2px 0', fontSize: '10px', borderBottom: `1px solid ${dividerColor}` }}>
+                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2px 0', fontSize: '10px', fontWeight: 600, border: `1px solid ${dividerColor}`, borderRadius: 4 }}>
                       {colLevels.map(l => l.fieldLabel).join(' / ')}
                     </div>
                   ) : null}
@@ -302,7 +302,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                               justifyContent: 'center',
                               height: `${VALUES_BAND_TOP_PX}px`,
                               gridColumn: `${startCol} / span ${span}`,
-                              background: '#e9f2e1',
+                              background: 'transparent',
                               borderBottom: `1px solid ${dividerColor}`,
                               borderRight: `1px solid ${dividerColor}`,
                               fontSize: '10px',
@@ -423,13 +423,14 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                           gridRow: '1 / -1',
                           writingMode: 'vertical-rl',
                           transform: 'rotate(180deg)',
-                          background: '#dbe9ff',
                           padding: '2px 0',
                           fontSize: '10px',
+                          fontWeight: 600,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          borderRight: '1px solid #99a795',
+                          border: '1px solid #99a795',
+                          borderRadius: 4,
                         }}
                       >
                         {rowLevels.map(l => l.fieldLabel).join(' / ')}
@@ -459,7 +460,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                                 borderRight: levelIdx === rowLevels.length - 1 ? '1px solid #99a795' : undefined,
                                 borderLeft: levelIdx > 0 ? '1px solid #99a795' : undefined,
                                 borderBottom: '1px solid #99a795',
-                                background: '#e9f2e1',
+                                background: 'transparent',
                                 padding: 0,
                                 overflow: 'hidden',
                               }}
