@@ -144,7 +144,11 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   }, [spec]);
 
   // Dynamically size row height globally (not conditionally in the grid branch)
+  // Ensure the scroller is mounted and measured before computing, and keep it updated
   useEffect(() => {
+    let rafId = 0;
+    let ro: ResizeObserver | null = null;
+
     const updateRowHeight = () => {
       const scroller = vScrollRef.current;
       if (!scroller) return;
@@ -155,11 +159,29 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
         setRowHeightPx(h);
       }
     };
-    updateRowHeight();
-    const ro = new ResizeObserver(() => updateRowHeight());
-    if (vScrollRef.current) ro.observe(vScrollRef.current);
-    return () => ro.disconnect();
-  }, [rowsForSizing]);
+
+    const attachWhenReady = () => {
+      if (!vScrollRef.current) {
+        rafId = window.requestAnimationFrame(attachWhenReady);
+        return;
+      }
+      // Initial compute once the element exists
+      updateRowHeight();
+      // Observe size changes of the scroller
+      ro = new ResizeObserver(() => updateRowHeight());
+      ro.observe(vScrollRef.current as Element);
+      // Also respond to window resizes
+      window.addEventListener('resize', updateRowHeight);
+    };
+
+    attachWhenReady();
+
+    return () => {
+      if (rafId) window.cancelAnimationFrame(rafId);
+      if (ro) ro.disconnect();
+      window.removeEventListener('resize', updateRowHeight);
+    };
+  }, [rowsForSizing, spec]);
   
   // Handle null or missing spec
   if (!spec) {
