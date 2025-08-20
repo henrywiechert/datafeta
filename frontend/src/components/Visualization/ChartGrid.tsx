@@ -265,6 +265,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
           zIndex: 1,
           pointerEvents: 'auto'
         }}>
+          
           <div style={{
             display: 'grid',
             gridTemplateColumns: `max-content`,
@@ -278,8 +279,10 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
               <div style={{ gridColumn: 1, gridRow: 1 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns }}>
                   {colLevels.length > 0 ? (
-                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2px 0', fontSize: '10px', fontWeight: 600, border: `1px solid ${dividerColor}`, borderRadius: 4 }}>
-                      {colLevels.map(l => l.fieldLabel).join(' / ')}
+                    <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'center' }}>
+                      <div style={{ position: 'sticky', left: '50%', transform: 'translateX(-50%)', fontSize: '10px', fontWeight: 600, border: `1px solid ${dividerColor}`, borderRadius: 4, background: 'white', padding: '2px 6px', zIndex: 2 }}>
+                        {colLevels.map(l => l.fieldLabel).join(' / ')}
+                      </div>
                     </div>
                   ) : null}
                   {colLevels.map((level, levelIdx) => {
@@ -415,7 +418,12 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                       alignItems: 'stretch',
                     }}
                   >
-                    {/* Blue names band spanning all rows */}
+                    {/* Keep in grid, but center using sticky at 50% with translate */}
+                    <div style={{ gridColumn: 1, gridRow: '1 / -1', position: 'sticky', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+                      <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: '10px', fontWeight: 600, border: '1px solid #99a795', borderRadius: 4, background: 'white', padding: '4px 2px' }}>
+                        {rowLevels.map(l => l.fieldLabel).join(' / ')}
+                      </div>
+                    </div>
                     {rowLevels.length > 0 && (
                       <div
                         style={{
@@ -431,6 +439,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                           justifyContent: 'center',
                           border: '1px solid #99a795',
                           borderRadius: 4,
+                          opacity: 0,
                         }}
                       >
                         {rowLevels.map(l => l.fieldLabel).join(' / ')}
