@@ -270,6 +270,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
             display: 'grid',
             gridTemplateColumns: `minmax(0, 1fr)`,
             gridTemplateRows: spec.facetLabels ? `${topHeaderHeight}px 1fr ${dynamicXAxisPx}px ${X_LABEL_ROW_PX}px` : `1fr ${dynamicXAxisPx}px ${X_LABEL_ROW_PX}px`,
+            minWidth: `${columns * minColumnPx}px`,
             width: '100%',
             height: '100%'
           }}>
@@ -346,7 +347,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
             {/* Bottom X scales */}
             <div style={{ gridColumn: 1, gridRow: spec.facetLabels ? 3 : 2 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(${minColumnPx}px, 1fr))` }}>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(${minColumnPx}px, 1fr))`, minWidth: `${columns * minColumnPx}px` }}>
                 {Array.from({ length: columns }).map((_, c) => {
                   const sample = (spec.plots || []).find((p) => p.position?.col === c);
                   const xLabel = (sample as any)?.options?.x?.label;
@@ -362,7 +363,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
             {/* Bottom X labels */}
             <div style={{ gridColumn: 1, gridRow: spec.facetLabels ? 4 : 3 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(${minColumnPx}px, 1fr))` }}>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(${minColumnPx}px, 1fr))`, minWidth: `${columns * minColumnPx}px` }}>
                 {Array.from({ length: columns }).map((_, c) => {
                   const sample = (spec.plots || []).find((p) => p.position?.col === c);
                   const xLabel = (sample as any)?.options?.x?.label as string | undefined;
