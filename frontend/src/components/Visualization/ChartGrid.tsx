@@ -232,11 +232,11 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
     return (
       <div className={styles.container} ref={containerRef} style={{ position: 'relative', height: '100%', overflow: 'hidden' }} onWheelCapture={onWheelCapture}>
-        {/* Horizontal scroll layer (plots + top/bottom elements) */}
+        {/* Horizontal scroll layer (plots + top/bottom elements). Starts at leftFixedWidthPx to avoid overlapping the fixed Y band */}
         <div ref={hScrollRef} style={{
           position: 'absolute',
           top: 0,
-          left: 0,
+          left: leftFixedWidthPx,
           right: 0,
           bottom: 0,
           overflowX: 'auto',
@@ -244,19 +244,16 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
           zIndex: 1,
           pointerEvents: 'auto'
         }}>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: `${leftFixedWidthPx}px max-content`,
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: `max-content`,
             gridTemplateRows: spec.facetLabels ? `${topHeaderHeight}px 1fr ${dynamicXAxisPx}px ${X_LABEL_ROW_PX}px` : `1fr ${dynamicXAxisPx}px ${X_LABEL_ROW_PX}px`,
-            minWidth: `${leftFixedWidthPx + columns * MIN_GRID_COLUMN_PX}px`,
+            minWidth: `${columns * MIN_GRID_COLUMN_PX}px`,
             height: '100%'
           }}>
-            {/* Spacers for left column */}
-            <div style={{ gridColumn: 1, gridRow: '1 / -1', background: 'transparent' }} />
-            
             {/* Top facet headers (if present) */}
             {spec.facetLabels && (
-              <div style={{ gridColumn: 2, gridRow: 1 }}>
+              <div style={{ gridColumn: 1, gridRow: 1 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns }}>
                   {colLevels.length > 0 ? (
                     <div style={{ gridColumn: '1 / -1', textAlign: 'center', background: '#dbe9ff', padding: '2px 0', fontSize: '12px', borderBottom: `1px solid ${dividerColor}` }}>
@@ -303,7 +300,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
             )}
 
             {/* Main plots area (clipped so translated plots don't overlap headers/footers) */}
-            <div style={{ gridColumn: 2, gridRow: spec.facetLabels ? 2 : 1, overflow: 'hidden', position: 'relative' }}>
+            <div style={{ gridColumn: 1, gridRow: spec.facetLabels ? 2 : 1, overflow: 'hidden', position: 'relative' }}>
               <div ref={plotsTranslateRef} style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns, gridTemplateRows: fixedPlotTemplateRows, willChange: 'transform' }}>
                 {(spec.plots || []).map((plot, index) => {
                   const key = plot.id || String(index);
@@ -324,7 +321,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
             </div>
 
             {/* Bottom X scales */}
-            <div style={{ gridColumn: 2, gridRow: spec.facetLabels ? 3 : 2 }}>
+            <div style={{ gridColumn: 1, gridRow: spec.facetLabels ? 3 : 2 }}>
               <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns }}>
                 {Array.from({ length: columns }).map((_, c) => {
                   const sample = (spec.plots || []).find((p) => p.position?.col === c);
@@ -340,7 +337,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
             </div>
 
             {/* Bottom X labels */}
-            <div style={{ gridColumn: 2, gridRow: spec.facetLabels ? 4 : 3 }}>
+            <div style={{ gridColumn: 1, gridRow: spec.facetLabels ? 4 : 3 }}>
               <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns }}>
                 {Array.from({ length: columns }).map((_, c) => {
                   const sample = (spec.plots || []).find((p) => p.position?.col === c);
@@ -366,7 +363,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
           overflowY: 'auto',
           overflowX: 'hidden',
           zIndex: 2,
-          pointerEvents: 'none'
+          pointerEvents: 'auto'
         }}>
           {/* Make scrollbar interactive */}
           <style>{`
