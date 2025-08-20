@@ -39,7 +39,7 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
   // We allow dimension-only continuous charts (tick-strip/scatter), so do not require measures here.
 
   try {
-    // Attempt faceting by discrete fields (dimensions or measures) on top of a base plot
+    // Always attempt faceting to ensure consistent behavior (even for single charts)
     const faceted = generateFacetedGridIfNeeded(context);
     if (faceted) return faceted;
 
@@ -275,7 +275,9 @@ function generateCartesianGrid(
 function generateFacetedGridIfNeeded(context: ChartGenerationContext): PlotResult | null {
   const { xFields, yFields, queryResult } = context;
   const anyDiscrete = xFields.some((f) => f.flavour === 'discrete') || yFields.some((f) => f.flavour === 'discrete');
-  if (!anyDiscrete) return null;
+  
+  // Always create a faceted structure for consistent behavior, even without discrete fields
+  // This ensures single charts get the same Y-axis styling as multi-charts
 
   // Avoid faceting for tick-strip scenarios:
   // If there are no measures and exactly one axis has a continuous dimension
@@ -320,7 +322,53 @@ function generateFacetedGridIfNeeded(context: ChartGenerationContext): PlotResul
   // - Discrete on X → horizontal faceting (columns), allow multiple levels
   const rowFacetFields = yFields.filter((f) => f.flavour === 'discrete' && f.id !== excludedCategoryFieldId);
   const colFacetFields = xFields.filter((f) => f.flavour === 'discrete' && f.id !== excludedCategoryFieldId);
-  if (rowFacetFields.length === 0 && colFacetFields.length === 0) return null; // no faceting needed after excluding category
+  
+  // If no discrete fields for faceting, create a virtual single facet for consistent behavior
+  if (rowFacetFields.length === 0 && colFacetFields.length === 0) {
+    // Compute shared domains for the base chart to ensure proper scale propagation
+    const allMeasures = [...xFields, ...yFields].filter((f: any) => f.type === 'measure' && f.flavour === 'continuous');
+    const xCandidates = allMeasures;
+    const yCandidates = allMeasures;
+    const sharedMeasureDomains = computeSharedMeasureDomains(queryResult.rows, xCandidates as any[], yCandidates as any[]);
+    const sharedNumericDomains = computeSharedNumericDomains(queryResult.rows, xFields as any[], yFields as any[]);
+    
+    // Create a single "facet" with no discrete fields to ensure consistent Y-axis styling
+    const baseSpec = buildBaseSpecForDataSubset(
+      context,
+      categoryAxis,
+      excludedCategoryFieldId,
+      queryResult.rows,
+      sharedMeasureDomains,
+      sharedNumericDomains,
+      null, // no row facet field
+      null  // no col facet field
+    );
+    
+    return {
+      library: 'observable-plot',
+      plots: baseSpec.plots,
+      sharedDomains: { byMeasure: sharedMeasureDomains as any },
+      layout: {
+        type: 'grid',
+        columns: baseSpec.columns,
+        rows: baseSpec.rows,
+        columnSizes: Array.from({ length: baseSpec.columns }, () => 'fr'),
+        rowSizes: Array.from({ length: baseSpec.rows }, () => 'fr'),
+      },
+      // Create empty facet labels structure to ensure consistent ChartGrid rendering
+      facetLabels: {
+        rowsLevels: undefined,
+        colsLevels: undefined,
+        groupSpan: { columnsPerFacet: baseSpec.columns, rowsPerFacet: baseSpec.rows },
+        spans: {
+          baseCols: baseSpec.columns,
+          baseRows: baseSpec.rows,
+          columns: [],
+          rows: [],
+        },
+      }
+    };
+  }
 
   // Values per level
   const rowValuesLevels = rowFacetFields.map((f) => uniqueValuesForField(queryResult.rows, f));
