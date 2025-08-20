@@ -180,16 +180,16 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     const columnSizes = spec.layout?.columnSizes;
     const rowSizes = spec.layout?.rowSizes;
 
-    const minColumnPx = MIN_GRID_COLUMN_PX; // fixed minimum width
+    const minColumnPx = MIN_GRID_COLUMN_PX; // minimum width; columns expand when there is space
     const plotTemplateColumns =
       layoutType === 'vertical'
-        ? `${minColumnPx}px`
+        ? `minmax(${minColumnPx}px, 1fr)`
         : columnSizes && columnSizes.length > 0
           ? columnSizes
               .slice(0, columns)
-              .map((c) => (typeof c === 'number' ? `${c}px` : `${minColumnPx}px`))
+              .map((c) => (typeof c === 'number' ? `${c}px` : `minmax(${minColumnPx}px, 1fr)`))
               .join(' ')
-          : `repeat(${columns}, ${minColumnPx}px)`;
+          : `repeat(${columns}, minmax(${minColumnPx}px, 1fr))`;
 
     const plotTemplateRows =
       layoutType === 'horizontal'
@@ -268,9 +268,8 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
           
           <div style={{
             display: 'grid',
-            gridTemplateColumns: `max-content`,
+            gridTemplateColumns: `minmax(0, 1fr)`,
             gridTemplateRows: spec.facetLabels ? `${topHeaderHeight}px 1fr ${dynamicXAxisPx}px ${X_LABEL_ROW_PX}px` : `1fr ${dynamicXAxisPx}px ${X_LABEL_ROW_PX}px`,
-            minWidth: `${columns * minColumnPx}px`,
             width: '100%',
             height: '100%'
           }}>
@@ -326,7 +325,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
             {/* Main plots area (clipped so translated plots don't overlap headers/footers) */}
             <div style={{ gridColumn: 1, gridRow: spec.facetLabels ? 2 : 1, overflow: 'hidden', position: 'relative' }}>
-              <div ref={plotsTranslateRef} style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns, gridTemplateRows: `repeat(${rows}, ${rowHeightPx}px)`, willChange: 'transform' }}>
+              <div ref={plotsTranslateRef} style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(${minColumnPx}px, 1fr))`, gridTemplateRows: `repeat(${rows}, ${rowHeightPx}px)`, willChange: 'transform' }}>
                 {(spec.plots || []).map((plot, index) => {
                   const key = plot.id || String(index);
                   const pos = plot.position;
@@ -347,7 +346,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
             {/* Bottom X scales */}
             <div style={{ gridColumn: 1, gridRow: spec.facetLabels ? 3 : 2 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns }}>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(${minColumnPx}px, 1fr))` }}>
                 {Array.from({ length: columns }).map((_, c) => {
                   const sample = (spec.plots || []).find((p) => p.position?.col === c);
                   const xLabel = (sample as any)?.options?.x?.label;
@@ -363,7 +362,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
             {/* Bottom X labels */}
             <div style={{ gridColumn: 1, gridRow: spec.facetLabels ? 4 : 3 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns }}>
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(${minColumnPx}px, 1fr))` }}>
                 {Array.from({ length: columns }).map((_, c) => {
                   const sample = (spec.plots || []).find((p) => p.position?.col === c);
                   const xLabel = (sample as any)?.options?.x?.label as string | undefined;
