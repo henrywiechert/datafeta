@@ -42,8 +42,16 @@ export function generatePairChartOptions(
   switch (selected) {
     case 'scatter': {
       const { xCol, yCol } = resolveXYColumns(xf, yf);
+      // Apply shared domains if available
+      const xDomain = sharedMeasureDomains?.[xCol];
+      const yDomain = sharedMeasureDomains?.[yCol];
+      const domainOptions = {
+        x: xCol, 
+        y: yCol,
+        ...(xDomain || yDomain ? { domain: { x: xDomain, y: yDomain } } : {})
+      };
       // Always render scatter (empty when no numeric pairs), to keep base type consistent
-      return scatterChart(data, xCol, yCol, { x: xCol, y: yCol });
+      return scatterChart(data, xCol, yCol, domainOptions);
     }
     case 'line': {
       // measure vs continuous dimension – ensure dimension on X axis
@@ -142,14 +150,13 @@ function createBarX(
   };
 
   if (yDimension) {
-    const categoryCount = new Set(data.map((row: any) => row[yDimension.columnName])).size;
-    opts.height = Math.max(BAR_STEP_PX * 2, categoryCount * BAR_STEP_PX);
+    // Remove hardcoded height for responsive sizing
     opts.y = { label: yDimension.columnName };
     opts.marks!.push(
       Plot.barX(data, { x: measureName, y: yDimension.columnName, fill: DEFAULT_CHART_COLOR })
     );
   } else {
-    opts.height = BAR_STEP_PX * 2;
+    // Remove hardcoded height for responsive sizing
     opts.y = { label: ' ' };
     opts.marks!.push(
       Plot.barX(data, { x: measureName, fill: DEFAULT_CHART_COLOR })
@@ -174,14 +181,13 @@ function createBarY(
   };
 
   if (xDimension) {
-    const categoryCount = new Set(data.map((row: any) => row[xDimension.columnName])).size;
-    opts.width = Math.max(BAR_STEP_PX * 2, categoryCount * BAR_STEP_PX);
+    // Remove hardcoded width for responsive sizing
     opts.x = { label: xDimension.columnName };
     opts.marks!.push(
       Plot.barY(data, { x: xDimension.columnName, y: measureName, fill: DEFAULT_CHART_COLOR })
     );
   } else {
-    opts.width = BAR_STEP_PX * 2;
+    // Remove hardcoded width for responsive sizing
     opts.x = { label: ' ' };
     opts.marks!.push(
       Plot.barY(data, { y: measureName, fill: DEFAULT_CHART_COLOR })
