@@ -390,8 +390,24 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                   const sample = (spec.plots || []).find((p) => p.position?.col === c);
                   const xLabel = (sample as any)?.options?.x?.label as string | undefined;
                   return (
-                    <div key={`x-label-${c}`} style={{ gridColumn: c + 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold' }}>
-                      {xLabel || ''}
+                    <div key={`x-label-${c}`} style={{ 
+                      gridColumn: c + 1, 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      fontSize: '10px', 
+                      fontWeight: 'bold',
+                      padding: '2px',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{
+                        wordBreak: 'break-word',
+                        overflowWrap: 'break-word',
+                        maxWidth: '100%',
+                        lineHeight: '1.2'
+                      }}>
+                        {xLabel || ''}
+                      </div>
                     </div>
                   );
                 })}
@@ -519,9 +535,22 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
+                        padding: '2px',
                       }}
                     >
-                      <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', textAlign: 'center', fontSize: '10px', fontWeight: 'bold' }}>{yLabel || ''}</div>
+                      <div style={{ 
+                        writingMode: 'vertical-rl', 
+                        transform: 'rotate(180deg)', 
+                        textAlign: 'center', 
+                        fontSize: '10px', 
+                        fontWeight: 'bold',
+                        wordBreak: 'break-word',
+                        overflowWrap: 'break-word',
+                        maxWidth: '100%',
+                        lineHeight: '1.2'
+                      }}>
+                        {yLabel || ''}
+                      </div>
                     </div>
                   );
                 })}
