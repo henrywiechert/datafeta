@@ -648,6 +648,18 @@ function buildBaseSpecForDataSubset(
       if (sharedCategoryDomain && (next as any)?.y?.type === 'band') {
         next.y = { ...(next.y as any), domain: sharedCategoryDomain as any } as any;
       }
+      // Adjust intrinsic size based on shared categorical domain to keep bar thickness stable
+      if (sharedCategoryDomain && Array.isArray(sharedCategoryDomain) && sharedCategoryDomain.length > 0) {
+        const count = sharedCategoryDomain.length;
+        if (categoryAxis === 'y' && (next as any)?.y?.type === 'band') {
+          const minH = Math.max(BAR_STEP_PX * 2, count * BAR_STEP_PX);
+          (next as any).height = minH;
+        }
+        if (categoryAxis === 'x' && (next as any)?.x?.type === 'band') {
+          const minW = Math.max(BAR_STEP_PX * 2, count * BAR_STEP_PX);
+          (next as any).width = minW;
+        }
+      }
       // Force zero baseline for bar charts: when categoryAxis is on one side,
       // ensure the opposite numeric axis domain includes 0.
       const coerceZeroBaseline = (domain: any, values: number[]) => {
