@@ -255,13 +255,18 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
           : `repeat(${rows}, minmax(${MIN_GRID_ROW_PX}px, 1fr))`;
 
     // Rows spec to apply consistently across all stacked layers (plots, left labels, transparent sizing)
-    const plotRowsSpec =
-      rowSizes && rowSizes.length > 0 && rowSizes.some((r) => typeof r === 'number')
-        ? rowSizes
-            .slice(0, rows)
-            .map((r) => (typeof r === 'number' ? `${r}px` : `${MIN_GRID_ROW_PX}px`))
-            .join(' ')
-        : `repeat(${rows}, ${rowHeightPx}px)`;
+    // Use explicit rowSizes when provided; otherwise infer from first column samples' heights, fallback to rowHeightPx
+    const inferredRowSizes: Array<number | 'fr'> = (() => {
+      const sizes: Array<number | 'fr'> = [];
+      for (let r = 0; r < rows; r++) {
+        const sample = (spec.plots || []).find((p) => p.position?.row === r);
+        const h = (sample as any)?.options?.height;
+        sizes.push(typeof h === 'number' ? h : rowSizes && typeof rowSizes[r] === 'number' ? (rowSizes[r] as number) : rowHeightPx);
+      }
+      return sizes;
+    })();
+
+    const plotRowsSpec = inferredRowSizes.map((h) => (typeof h === 'number' ? `${h}px` : `${rowHeightPx}px`)).join(' ');
 
     // Fixed pixel-size rows to keep labels/axes aligned with the charts
     const fixedPlotTemplateRows = `repeat(${rows}, ${MIN_GRID_ROW_PX}px)`;
@@ -398,9 +403,13 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                   const opts = suppressAxes(plot.options, true, true);
                   return (
                     <div key={key} className={styles.plotWrapper} style={gridItemStyle}>
-                      <div className={styles.observablePlotContainer}>
-                        <ObservablePlot options={opts} />
-                      </div>
+                      {false ? (
+                        <div />
+                      ) : (
+                        <div className={styles.observablePlotContainer}>
+                          <ObservablePlot options={opts} />
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -494,7 +503,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                       gridRow: '1 / span ' + rows,
                       display: 'grid',
                       gridTemplateColumns: `${NAMES_BAND_LEFT_PX}px ${new Array(yLevelsCount).fill(`${VALUES_BAND_LEFT_PX}px`).join(' ')}`,
-                      gridTemplateRows: `repeat(${rows}, ${rowHeightPx}px)`,
+                      gridTemplateRows: plotRowsSpec,
                       alignItems: 'stretch',
                     }}
                   >
@@ -570,17 +579,16 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                   const yOpts: any = (sample as any)?.options?.y || {};
                   const yLabel = yOpts?.label as string | undefined;
                   const yType = yOpts?.type;
-                  const useVertical = yType !== 'band';
+                  const useVertical = true;
                   return (
                     <div
                       key={`y-label-${r}`}
                       style={{
                         gridColumn: spec.facetLabels ? 2 : 1,
                         gridRow: r + 1,
-                        display: 'grid',
-                        gridTemplateRows: `${rowHeightPx}px`,
+                        display: 'flex',
                         alignItems: 'center',
-                        justifyItems: 'center',
+                        justifyContent: 'center',
                         padding: 0,
                         margin: 0,
                       }}
@@ -593,11 +601,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                         fontWeight: 'bold',
                         wordBreak: 'break-word',
                         overflowWrap: 'break-word',
-                        lineHeight: '1.2',
-                        height: `${rowHeightPx}px`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
+                        lineHeight: '1.2'
                       }}>
                         {yLabel || ''}
                       </div>
