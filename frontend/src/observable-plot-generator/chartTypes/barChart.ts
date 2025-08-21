@@ -1,6 +1,6 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext } from '../types';
-import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
+import { DEFAULT_CHART_COLOR, BAR_STEP_PX } from '../../config/chartLayoutConfig';
 import { getResultColumnName } from '../../utils/fieldUtils';
 
 export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
@@ -13,7 +13,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
   const xDimension = xFields.find(f => f.type === 'dimension');
   const yDimension = yFields.find(f => f.type === 'dimension');
 
-  const barStep = 40; // Base step for bars
+  const barStep = BAR_STEP_PX; // Base step for bars
 
   if (yMeasure) {
     // Vertical bar chart (barY)
@@ -28,8 +28,8 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
     // Only add x field if we have a dimension
     if (xDimension) {
       barConfig.x = xDimension.columnName;
-      const categorySet = new Set(data.map(row => row[xDimension.columnName]));
-      const calculatedWidth = categorySet.size * barStep;
+      const categories = Array.from(new Set(data.map(row => row[xDimension.columnName])));
+      const calculatedWidth = categories.length * barStep;
       
       return {
         width: calculatedWidth,
@@ -39,6 +39,8 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
         ],
         x: {
           label: xDimension.columnName,
+          domain: categories as any,
+          type: 'band' as any,
         },
         y: {
           grid: true,
@@ -55,7 +57,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
           Plot.barY(data, configWithCategory),
           Plot.ruleY([0])
         ],
-        x: { label: singleCategory },
+        x: { label: singleCategory, domain: [singleCategory] as any, type: 'band' as any },
         y: { grid: true, label: measureName },
       };
     }
@@ -74,8 +76,8 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
     // Only add y field if we have a dimension
     if (yDimension) {
       barConfig.y = yDimension.columnName;
-      const categorySet = new Set(data.map(row => row[yDimension.columnName]));
-      const calculatedHeight = categorySet.size * barStep;
+      const categories = Array.from(new Set(data.map(row => row[yDimension.columnName])));
+      const calculatedHeight = categories.length * barStep;
       
       return {
         height: calculatedHeight,
@@ -85,6 +87,8 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
         ],
         y: {
           label: yDimension.columnName,
+          domain: categories as any,
+          type: 'band' as any,
         },
         x: {
           grid: true,
@@ -101,7 +105,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
           Plot.barX(data, configWithCategory),
           Plot.ruleX([0])
         ],
-        y: { label: singleCategory },
+        y: { label: singleCategory, domain: [singleCategory] as any, type: 'band' as any },
         x: { grid: true, label: measureName },
       };
     }

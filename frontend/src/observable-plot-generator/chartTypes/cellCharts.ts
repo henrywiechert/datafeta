@@ -142,7 +142,20 @@ function createBarX(
   sharedDomains?: Domains
 ): Plot.PlotOptions {
   const measureName = getResultColumnName({ ...measure, aggregation: measure.aggregation || 'sum' } as any);
-  const domain = (sharedDomains && sharedDomains[measureName]) || undefined;
+  let domain = (sharedDomains && sharedDomains[measureName]) || undefined;
+  // For bars, force baseline at 0
+  if (Array.isArray(domain)) {
+    const [lo, hi] = domain;
+    domain = [Math.min(0, lo), hi <= 0 ? 0 : hi] as any;
+  } else {
+    // If no domain provided, compute from data
+    const vals = data.map((d) => d?.[measureName]).filter((v) => typeof v === 'number' && !Number.isNaN(v));
+    if (vals.length > 0) {
+      const min = Math.min(...vals);
+      const max = Math.max(...vals);
+      domain = [Math.min(0, min), max <= 0 ? 0 : max] as any;
+    }
+  }
 
   const opts: Plot.PlotOptions = {
     x: { label: measureName, grid: true, domain },
@@ -151,13 +164,16 @@ function createBarX(
 
   if (yDimension) {
     // Remove hardcoded height for responsive sizing
-    opts.y = { label: yDimension.columnName };
+    const categories = Array.from(new Set(data.map((row) => row[yDimension.columnName])));
+    opts.y = { label: yDimension.columnName, domain: categories as any, type: 'band' as any };
+    opts.height = Math.max(BAR_STEP_PX * 2, categories.length * BAR_STEP_PX);
     opts.marks!.push(
       Plot.barX(data, { x: measureName, y: yDimension.columnName, fill: DEFAULT_CHART_COLOR })
     );
   } else {
     // Remove hardcoded height for responsive sizing
     opts.y = { label: ' ' };
+    opts.height = BAR_STEP_PX * 2;
     opts.marks!.push(
       Plot.barX(data, { x: measureName, fill: DEFAULT_CHART_COLOR })
     );
@@ -173,7 +189,19 @@ function createBarY(
   sharedDomains?: Domains
 ): Plot.PlotOptions {
   const measureName = getResultColumnName({ ...measure, aggregation: measure.aggregation || 'sum' } as any);
-  const domain = (sharedDomains && sharedDomains[measureName]) || undefined;
+  let domain = (sharedDomains && sharedDomains[measureName]) || undefined;
+  // For bars, force baseline at 0
+  if (Array.isArray(domain)) {
+    const [lo, hi] = domain;
+    domain = [Math.min(0, lo), hi <= 0 ? 0 : hi] as any;
+  } else {
+    const vals = data.map((d) => d?.[measureName]).filter((v) => typeof v === 'number' && !Number.isNaN(v));
+    if (vals.length > 0) {
+      const min = Math.min(...vals);
+      const max = Math.max(...vals);
+      domain = [Math.min(0, min), max <= 0 ? 0 : max] as any;
+    }
+  }
 
   const opts: Plot.PlotOptions = {
     y: { label: measureName, grid: true, domain },
@@ -182,13 +210,16 @@ function createBarY(
 
   if (xDimension) {
     // Remove hardcoded width for responsive sizing
-    opts.x = { label: xDimension.columnName };
+    const categories = Array.from(new Set(data.map((row) => row[xDimension.columnName])));
+    opts.x = { label: xDimension.columnName, domain: categories as any, type: 'band' as any };
+    opts.width = Math.max(BAR_STEP_PX * 2, categories.length * BAR_STEP_PX);
     opts.marks!.push(
       Plot.barY(data, { x: xDimension.columnName, y: measureName, fill: DEFAULT_CHART_COLOR })
     );
   } else {
     // Remove hardcoded width for responsive sizing
     opts.x = { label: ' ' };
+    opts.width = BAR_STEP_PX * 2;
     opts.marks!.push(
       Plot.barY(data, { y: measureName, fill: DEFAULT_CHART_COLOR })
     );

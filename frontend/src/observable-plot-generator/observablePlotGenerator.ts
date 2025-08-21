@@ -252,16 +252,30 @@ function generateCartesianGrid(
   // Compute shared domains for any measures used in the grid
   const sharedMeasureDomains = computeSharedMeasureDomains(data, xCandidates, yCandidates);
   
+  const plots = generateCartesianPlots(data, xCandidates, yCandidates, sharedMeasureDomains, overrides);
+
+  // Derive per-column width and per-row height from plots' options when available
+  const columnSizes: Array<number | 'fr'> = Array.from({ length: xCandidates.length }, (_, c) => {
+    const sample = plots.find((p) => p.position.col === c);
+    const w = (sample as any)?.options?.width;
+    return typeof w === 'number' ? w : 'fr';
+  });
+  const rowSizes: Array<number | 'fr'> = Array.from({ length: yCandidates.length }, (_, r) => {
+    const sample = plots.find((p) => p.position.row === r);
+    const h = (sample as any)?.options?.height;
+    return typeof h === 'number' ? h : 'fr';
+  });
+
   return {
     library: 'observable-plot',
-    plots: generateCartesianPlots(data, xCandidates, yCandidates, sharedMeasureDomains, overrides),
+    plots,
     sharedDomains: { byMeasure: sharedMeasureDomains as any },
     layout: {
       type: 'grid',
       columns: xCandidates.length,
       rows: yCandidates.length,
-      columnSizes: Array.from({ length: xCandidates.length }, () => 'fr'),
-      rowSizes: Array.from({ length: yCandidates.length }, () => 'fr'),
+      columnSizes,
+      rowSizes,
     },
   };
 }
@@ -311,10 +325,15 @@ function generateFacetedGridIfNeeded(context: ChartGenerationContext): PlotResul
 
   // Choose up to two discrete fields for faceting, excluding the category field if chosen
   let excludedCategoryFieldId: string | null = null;
+  let sharedCategoryDomain: any[] | null = null;
   if (categoryAxis) {
     const axisFields = categoryAxis === 'x' ? xFields : yFields;
     const lastDiscrete = [...axisFields].filter((f) => f.flavour === 'discrete').slice(-1)[0];
-    if (lastDiscrete) excludedCategoryFieldId = lastDiscrete.id;
+    if (lastDiscrete) {
+      excludedCategoryFieldId = lastDiscrete.id;
+      // Build a global categorical domain so all facets align on the same categories
+      sharedCategoryDomain = uniqueValuesForField(queryResult.rows, lastDiscrete);
+    }
   }
 
   // Axis-aware facet orientation:
@@ -341,7 +360,8 @@ function generateFacetedGridIfNeeded(context: ChartGenerationContext): PlotResul
       sharedMeasureDomains,
       sharedNumericDomains,
       null, // no row facet field
-      null  // no col facet field
+      null,  // no col facet field
+      sharedCategoryDomain || undefined
     );
     
     return {
@@ -352,8 +372,12 @@ function generateFacetedGridIfNeeded(context: ChartGenerationContext): PlotResul
         type: 'grid',
         columns: baseSpec.columns,
         rows: baseSpec.rows,
-        columnSizes: Array.from({ length: baseSpec.columns }, () => 'fr'),
-        rowSizes: Array.from({ length: baseSpec.rows }, () => 'fr'),
+        columnSizes: baseSpec.columnSizes && baseSpec.columnSizes.length > 0
+          ? baseSpec.columnSizes
+          : Array.from({ length: baseSpec.columns }, () => 'fr'),
+        rowSizes: baseSpec.rowSizes && baseSpec.rowSizes.length > 0
+          ? baseSpec.rowSizes
+          : Array.from({ length: baseSpec.rows }, () => 'fr'),
       },
       // Create empty facet labels structure to ensure consistent ChartGrid rendering
       facetLabels: {
@@ -401,7 +425,8 @@ function generateFacetedGridIfNeeded(context: ChartGenerationContext): PlotResul
     sharedNumericDomains,
     // pass top-level facet fields (we remove all of them below when building local context)
     rowFacetFields[0] || null,
-    colFacetFields[0] || null
+    colFacetFields[0] || null,
+    sharedCategoryDomain || undefined
   );
   const baseCols = baseSpec.columns;
   const baseRows = baseSpec.rows;
@@ -417,7 +442,8 @@ function generateFacetedGridIfNeeded(context: ChartGenerationContext): PlotResul
         sharedMeasureDomains,
         sharedNumericDomains,
         rowFacetFields[0] || null,
-        colFacetFields[0] || null
+        colFacetFields[0] || null,
+        sharedCategoryDomain || undefined
       );
 
       // Offset plots into the correct grid position
@@ -440,8 +466,12 @@ function generateFacetedGridIfNeeded(context: ChartGenerationContext): PlotResul
       type: 'grid',
       columns: baseCols * safeColCombos.length,
       rows: baseRows * safeRowCombos.length,
-      columnSizes: Array.from({ length: baseCols * safeColCombos.length }, () => 'fr'),
-      rowSizes: Array.from({ length: baseRows * safeRowCombos.length }, () => 'fr'),
+      columnSizes: baseSpec.columnSizes && baseSpec.columnSizes.length > 0
+        ? Array.from({ length: baseCols * safeColCombos.length }, (_, idx) => baseSpec.columnSizes![idx % baseSpec.columnSizes!.length])
+        : Array.from({ length: baseCols * safeColCombos.length }, () => 'fr'),
+      rowSizes: baseSpec.rowSizes && baseSpec.rowSizes.length > 0
+        ? Array.from({ length: baseRows * safeRowCombos.length }, (_, idx) => baseSpec.rowSizes![idx % baseSpec.rowSizes!.length])
+        : Array.from({ length: baseRows * safeRowCombos.length }, () => 'fr'),
     },
     facetLabels: {
       rowsLevels: rowFacetFields.length > 0 ? rowFacetFields.map((f, i) => ({ fieldLabel: getFieldColumnName(f), values: rowValuesLevels[i] })) : undefined,
@@ -549,6 +579,8 @@ type BaseSpec = {
   plots: Array<{ id: string; title: string; options: Plot.PlotOptions; position: { row: number; col: number } }>;
   columns: number;
   rows: number;
+  columnSizes?: Array<number | 'fr'>;
+  rowSizes?: Array<number | 'fr'>;
 };
 
 function buildBaseSpecForDataSubset(
@@ -559,7 +591,8 @@ function buildBaseSpecForDataSubset(
   sharedMeasureDomains?: Record<string, [number, number]>,
   sharedNumericDomains?: Record<string, [number, number]>,
   rowFacetField?: Field | null,
-  colFacetField?: Field | null
+  colFacetField?: Field | null,
+  sharedCategoryDomain?: any[]
 ): BaseSpec {
   const { queryResult, xFields, yFields } = context;
 
@@ -608,6 +641,42 @@ function buildBaseSpecForDataSubset(
       const next: Plot.PlotOptions = { ...opts };
       if (xDomain) next.x = { ...(opts.x as any), domain: xDomain } as any;
       if (yDomain) next.y = { ...(opts.y as any), domain: yDomain } as any;
+      // Apply shared categorical domain so band categories align across facets
+      if (sharedCategoryDomain && (next as any)?.x?.type === 'band') {
+        next.x = { ...(next.x as any), domain: sharedCategoryDomain as any } as any;
+      }
+      if (sharedCategoryDomain && (next as any)?.y?.type === 'band') {
+        next.y = { ...(next.y as any), domain: sharedCategoryDomain as any } as any;
+      }
+      // Force zero baseline for bar charts: when categoryAxis is on one side,
+      // ensure the opposite numeric axis domain includes 0.
+      const coerceZeroBaseline = (domain: any, values: number[]) => {
+        if (!Array.isArray(values) || values.length === 0) return domain;
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        const lower = Math.min(0, min);
+        const upper = max <= 0 ? 0 : max;
+        return [lower, upper] as [number, number];
+      };
+      if (categoryAxis === 'x') {
+        const key = yDomainKey as string | undefined;
+        if (key) {
+          const vals = subsetRows
+            .map((row) => row?.[key as string])
+            .filter((v) => typeof v === 'number' && !Number.isNaN(v));
+          const coerced = coerceZeroBaseline((next as any)?.y?.domain, vals as number[]);
+          next.y = { ...(next.y as any), domain: coerced } as any;
+        }
+      } else if (categoryAxis === 'y') {
+        const key = xDomainKey as string | undefined;
+        if (key) {
+          const vals = subsetRows
+            .map((row) => row?.[key as string])
+            .filter((v) => typeof v === 'number' && !Number.isNaN(v));
+          const coerced = coerceZeroBaseline((next as any)?.x?.domain, vals as number[]);
+          next.x = { ...(next.x as any), domain: coerced } as any;
+        }
+      }
       return next;
     };
     if (baseResult.options) {
@@ -628,7 +697,25 @@ function buildBaseSpecForDataSubset(
       options: p.options,
       position: p.position || { row: 0, col: i },
     }));
-    return { plots, columns: cols, rows };
+    // Prefer explicit layout sizes from the child result when present
+    let baseColumnSizes = baseResult.layout?.columnSizes as Array<number | 'fr'> | undefined;
+    let baseRowSizes = baseResult.layout?.rowSizes as Array<number | 'fr'> | undefined;
+    // Derive sizes from plot options if not provided
+    if (!baseColumnSizes) {
+      baseColumnSizes = Array.from({ length: cols }, (_, c) => {
+        const sample = plots.find((p) => p.position.col === c);
+        const w = (sample?.options as any)?.width;
+        return typeof w === 'number' ? w : 'fr';
+      });
+    }
+    if (!baseRowSizes) {
+      baseRowSizes = Array.from({ length: rows }, (_, r) => {
+        const sample = plots.find((p) => p.position.row === r);
+        const h = (sample?.options as any)?.height;
+        return typeof h === 'number' ? h : 'fr';
+      });
+    }
+    return { plots, columns: cols, rows, columnSizes: baseColumnSizes, rowSizes: baseRowSizes };
   }
 
   // Single options → single plot
@@ -637,6 +724,8 @@ function buildBaseSpecForDataSubset(
       plots: [{ id: 'p-0', title: '', options: baseResult.options, position: { row: 0, col: 0 } }],
       columns: 1,
       rows: 1,
+      columnSizes: (baseResult.options as any)?.width ? [((baseResult.options as any).width as number)] : ['fr'],
+      rowSizes: (baseResult.options as any)?.height ? [((baseResult.options as any).height as number)] : ['fr'],
     };
   }
 

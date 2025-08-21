@@ -45,7 +45,8 @@ function suppressAxes(options: any, hideX: boolean, hideY: boolean) {
 /**
  * Build axis-only plot options for external gutters.
  */
-function buildYAxisOptions(domain: any, gutterPx: number) {
+function buildYAxisOptions(domain: any, gutterPx: number, type?: string) {
+  const isCategorical = type === 'band' || (Array.isArray(domain) && domain.length > 0 && typeof domain[0] !== 'number');
   return {
     frame: null,
     marginLeft: Math.max(12, gutterPx - 2),
@@ -54,12 +55,13 @@ function buildYAxisOptions(domain: any, gutterPx: number) {
     marginBottom: 0,
     inset: 0,
     x: { axis: null },
-    y: { label: '', domain: domain ?? [0, 1], labelArrow: null },
+    y: { label: '', domain: domain ?? [0, 1], ...(isCategorical ? { type: 'band' as any } : {}), labelArrow: null },
     marks: [Plot.axisY()],
   } as any;
 }
 
-function buildXAxisOptions(label: string | undefined, domain: any, gutterPx: number) {
+function buildXAxisOptions(label: string | undefined, domain: any, gutterPx: number, type?: string) {
+  const isCategorical = type === 'band' || (Array.isArray(domain) && domain.length > 0 && typeof domain[0] !== 'number');
   return {
     frame: null,
     height: Math.max(16, gutterPx),
@@ -69,7 +71,7 @@ function buildXAxisOptions(label: string | undefined, domain: any, gutterPx: num
     marginBottom: Math.max(12, gutterPx - 2),
     inset: 0,
     y: { axis: null },
-    x: { label: '', domain: domain ?? [0, 1], labelArrow: null }, // label rendered in separate row below
+    x: { label: '', domain: domain ?? [0, 1], ...(isCategorical ? { type: 'band' as any } : {}), labelArrow: null }, // label rendered in separate row below
     marks: [Plot.axisX()],
   } as any;
 }
@@ -223,6 +225,15 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
               .join(' ')
           : `repeat(${rows}, minmax(${MIN_GRID_ROW_PX}px, 1fr))`;
 
+    // Rows spec to apply consistently across all stacked layers (plots, left labels, transparent sizing)
+    const plotRowsSpec =
+      rowSizes && rowSizes.length > 0 && rowSizes.some((r) => typeof r === 'number')
+        ? rowSizes
+            .slice(0, rows)
+            .map((r) => (typeof r === 'number' ? `${r}px` : `${MIN_GRID_ROW_PX}px`))
+            .join(' ')
+        : `repeat(${rows}, ${rowHeightPx}px)`;
+
     // Fixed pixel-size rows to keep labels/axes aligned with the charts
     const fixedPlotTemplateRows = `repeat(${rows}, ${MIN_GRID_ROW_PX}px)`;
 
@@ -348,7 +359,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
             {/* Main plots area (clipped so translated plots don't overlap headers/footers) */}
             <div style={{ gridColumn: 1, gridRow: spec.facetLabels ? 2 : 1, overflow: 'hidden', position: 'relative' }}>
-              <div ref={plotsTranslateRef} style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(${minColumnPx}px, 1fr))`, gridTemplateRows: `repeat(${rows}, ${rowHeightPx}px)`, willChange: 'transform' }}>
+              <div ref={plotsTranslateRef} style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns, gridTemplateRows: plotRowsSpec, willChange: 'transform' }}>
                 {(spec.plots || []).map((plot, index) => {
                   const key = plot.id || String(index);
                   const pos = plot.position;
@@ -369,14 +380,15 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
             {/* Bottom X scales */}
             <div style={{ gridColumn: 1, gridRow: spec.facetLabels ? 3 : 2 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(${minColumnPx}px, 1fr))`, minWidth: `${columns * minColumnPx}px` }}>
+              <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns, minWidth: `${columns * minColumnPx}px` }}>
                 {Array.from({ length: columns }).map((_, c) => {
                   const sample = (spec.plots || []).find((p) => p.position?.col === c);
                   const xLabel = (sample as any)?.options?.x?.label;
                   const xDomain = (sample as any)?.options?.x?.domain;
+                  const xType = (sample as any)?.options?.x?.type;
                   return (
                     <div key={`x-axis-${c}`} style={{ gridColumn: c + 1, borderRight: c < columns - 1 ? '1px solid #99a795' : undefined, borderTop: `1px solid ${dividerColor}` }}>
-                      <ObservablePlot options={buildXAxisOptions(xLabel, xDomain, dynamicXAxisPx)} />
+                      <ObservablePlot options={buildXAxisOptions(xLabel, xDomain, dynamicXAxisPx, xType)} />
                     </div>
                   );
                 })}
@@ -385,7 +397,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
             {/* Bottom X labels */}
             <div style={{ gridColumn: 1, gridRow: spec.facetLabels ? 4 : 3 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${columns}, minmax(${minColumnPx}px, 1fr))`, minWidth: `${columns * minColumnPx}px` }}>
+              <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns, minWidth: `${columns * minColumnPx}px` }}>
                 {Array.from({ length: columns }).map((_, c) => {
                   const sample = (spec.plots || []).find((p) => p.position?.col === c);
                   const xLabel = (sample as any)?.options?.x?.label as string | undefined;
@@ -437,13 +449,13 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
           <div className="vertical-scroll-content" style={{
             display: 'grid',
             gridTemplateColumns: `${leftFixedWidthPx}px 1fr`,
-            gridTemplateRows: `repeat(${rows}, ${rowHeightPx}px)`,
+            gridTemplateRows: plotRowsSpec,
             pointerEvents: 'none'
           }}>
             
             {/* Left Y labels/scales area */}
             <div style={{ gridColumn: 1, gridRow: '1 / -1', pointerEvents: 'auto', borderRight: `1px solid ${dividerColor}` }}>
-              <div style={{ display: 'grid', gridTemplateColumns: `${leftLabelsPx}px ${Y_LABEL_COL_PX}px ${dynamicYAxisPx}px`, gridTemplateRows: `repeat(${rows}, ${rowHeightPx}px)` }}>
+              <div style={{ display: 'grid', gridTemplateColumns: `${leftLabelsPx}px ${Y_LABEL_COL_PX}px ${dynamicYAxisPx}px`, gridTemplateRows: plotRowsSpec }}>
                 {/* Left facet labels area */}
                 {spec.facetLabels && (
                   <div
@@ -559,13 +571,14 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                 {Array.from({ length: rows }).map((_, r) => {
                   const sample = (spec.plots || []).find((p) => p.position?.row === r);
                   const yDomain = (sample as any)?.options?.y?.domain;
+                  const yType = (sample as any)?.options?.y?.type;
                   return (
                     <div key={`y-axis-${r}`} style={{ 
                       gridColumn: spec.facetLabels ? 3 : 2, 
                       gridRow: r + 1,
                       borderBottom: r < rows - 1 ? '1px solid #99a795' : undefined
                     }}>
-                      <ObservablePlot options={buildYAxisOptions(yDomain, dynamicYAxisPx)} />
+                      <ObservablePlot options={buildYAxisOptions(yDomain, dynamicYAxisPx, yType)} />
                     </div>
                   );
                 })}
@@ -574,7 +587,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
             {/* Plots area (transparent, just for scrolling) */}
             <div style={{ gridColumn: 2, gridRow: 1, pointerEvents: 'auto' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns, gridTemplateRows: `repeat(${rows}, ${rowHeightPx}px)`, opacity: 0 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns, gridTemplateRows: plotRowsSpec, opacity: 0 }}>
                 {(spec.plots || []).map((plot, index) => {
                   const key = plot.id || String(index);
                   const pos = plot.position;
