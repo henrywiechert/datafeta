@@ -1,7 +1,7 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext, PlotResult } from '../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
-import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
+import { DEFAULT_CHART_COLOR, BAR_STEP_PX } from '../../config/chartLayoutConfig';
 
 /**
  * Generate multiple bar charts with shared axes for multiple measures
@@ -107,7 +107,7 @@ function generateMeasurePlots(
     position: { row: number; col: number };
   }> = [];
 
-  const BAR_STEP = 40; // consider importing from config if needed
+  const BAR_STEP = BAR_STEP_PX;
 
   if (layoutType === 'horizontal') {
     // All plots share the same row; set row height from the categorical dimension
@@ -185,9 +185,10 @@ function createHorizontalBarChart(
 
   if (dimension) {
     // Horizontal bars with dimension on Y-axis
-    const categoryCount = new Set(data.map((row) => row[dimension.columnName])).size;
+    const categories = Array.from(new Set(data.map((row) => row[dimension.columnName])));
+    const categoryCount = categories.length;
     plotOptions.height = Math.max(BAR_STEP * 2, categoryCount * BAR_STEP);
-    plotOptions.y = { label: dimension.columnName };
+    plotOptions.y = { label: dimension.columnName, domain: categories as any, type: 'band' as any };
     plotOptions.marks!.push(
       Plot.barX(data, {
         x: measureName,
@@ -198,7 +199,7 @@ function createHorizontalBarChart(
   } else {
     // Single horizontal bar
     plotOptions.height = BAR_STEP * 2;
-    plotOptions.y = { label: ' ' };
+    plotOptions.y = { label: ' ', domain: [' '] as any, type: 'band' as any };
     plotOptions.marks!.push(
       Plot.barX(data, {
         x: measureName,
@@ -231,9 +232,10 @@ function createVerticalBarChart(
 
   if (dimension) {
     // Vertical bars with dimension on X-axis
-    const categoryCount = new Set(data.map((row) => row[dimension.columnName])).size;
+    const categories = Array.from(new Set(data.map((row) => row[dimension.columnName])));
+    const categoryCount = categories.length;
     plotOptions.width = Math.max(BAR_STEP * 2, categoryCount * BAR_STEP);
-    plotOptions.x = { label: dimension.columnName };
+    plotOptions.x = { label: dimension.columnName, domain: categories as any, type: 'band' as any };
     plotOptions.marks!.push(
       Plot.barY(data, {
         x: dimension.columnName,
@@ -244,7 +246,7 @@ function createVerticalBarChart(
   } else {
     // Single vertical bar
     plotOptions.width = BAR_STEP * 2;
-    plotOptions.x = { label: ' ' };
+    plotOptions.x = { label: ' ', domain: [' '] as any, type: 'band' as any };
     plotOptions.marks!.push(
       Plot.barY(data, {
         y: measureName,
