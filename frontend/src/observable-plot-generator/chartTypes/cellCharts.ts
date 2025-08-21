@@ -166,6 +166,10 @@ function createBarX(
     // Remove hardcoded height for responsive sizing
     const categories = Array.from(new Set(data.map((row) => row[yDimension.columnName])));
     opts.y = { label: yDimension.columnName, domain: categories as any, type: 'band' as any };
+    // Ensure consistent bar thickness regardless of viewport: set fixed padding
+    opts.marginTop = 0;
+    opts.marginBottom = 0;
+    opts.inset = 0;
     opts.height = Math.max(BAR_STEP_PX * 2, categories.length * BAR_STEP_PX);
     opts.marks!.push(
       Plot.barX(data, { x: measureName, y: yDimension.columnName, fill: DEFAULT_CHART_COLOR })
@@ -212,6 +216,9 @@ function createBarY(
     // Remove hardcoded width for responsive sizing
     const categories = Array.from(new Set(data.map((row) => row[xDimension.columnName])));
     opts.x = { label: xDimension.columnName, domain: categories as any, type: 'band' as any };
+    opts.marginLeft = 0;
+    opts.marginRight = 0;
+    opts.inset = 0;
     opts.width = Math.max(BAR_STEP_PX * 2, categories.length * BAR_STEP_PX);
     opts.marks!.push(
       Plot.barY(data, { x: xDimension.columnName, y: measureName, fill: DEFAULT_CHART_COLOR })
