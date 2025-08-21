@@ -3,6 +3,7 @@ import { generatePairChartOptions } from '../chartTypes/cellCharts';
 import { Field } from '../../types';
 import { ChartTypeOverrides } from '../helpers/chartTypeResolver';
 import { computeSharedNumericDomains } from '../domains/numericDomains';
+ 
 
 export type CartesianPlot = {
   id: string;
@@ -39,7 +40,6 @@ export function generateCartesianPlots(
         { ...sharedMeasureDomains, ...sharedNumeric },
         overrides
       );
-
       const title = buildCellTitle(xField, yField);
       plots.push({ id: `cell-${r}-${c}`, title, options, position: { row: r, col: c } });
     }
