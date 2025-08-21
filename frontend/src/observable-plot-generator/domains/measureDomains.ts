@@ -29,7 +29,7 @@ export function computeSharedMeasureDomains(
     if (values.length === 0) return;
     const min = Math.min(...values);
     const max = Math.max(...values);
-    // For 2D charts (scatter/line-like), start slightly below min, not forced to 0
+    // Generic numeric domains (scatter/line-friendly): small pad below min, not forced to 0
     const lower = min - Math.abs(min) * 0.05;
     const upper = max <= 0 ? 0 : max * 1.05;
     domains[measureName] = [lower, upper];
