@@ -311,28 +311,26 @@ function generateFacetedGridIfNeeded(context: ChartGenerationContext): PlotResul
     }
   }
 
-  // Determine if a category axis injection is needed for bar charts
-  // Case A: measures on Y, and X contains only discrete fields → category on X (last discrete)
-  // Case B: measures on X, and Y contains only discrete fields → category on Y (last discrete)
-  const xHasContinuous = xFields.some((f) => f.flavour === 'continuous');
-  const yHasContinuous = yFields.some((f) => f.flavour === 'continuous');
-  const hasYMeasure = yFields.some((f) => f.type === 'measure' && f.flavour === 'continuous');
-  const hasXMeasure = xFields.some((f) => f.type === 'measure' && f.flavour === 'continuous');
-
-  let categoryAxis: 'x' | 'y' | null = null;
-  if (!xHasContinuous && hasYMeasure) categoryAxis = 'x';
-  else if (!yHasContinuous && hasXMeasure) categoryAxis = 'y';
+  // BAR CHART short-circuit: if exactly one side has a measure, render CSS bars per facet
+  const xMeasure = xFields.find((f) => f.type === 'measure');
+  const yMeasure = yFields.find((f) => f.type === 'measure');
+  const barOrientation: 'barX' | 'barY' | null = xMeasure && !yMeasure ? 'barX' : (!xMeasure && yMeasure ? 'barY' : null);
+  let categoryAxis: 'x' | 'y' | null = barOrientation === 'barX' ? 'y' : (barOrientation === 'barY' ? 'x' : null);
 
   // Choose up to two discrete fields for faceting, excluding the category field if chosen
   let excludedCategoryFieldId: string | null = null;
   let sharedCategoryDomain: any[] | null = null;
+  let categoryFieldCol: string | undefined;
   if (categoryAxis) {
     const axisFields = categoryAxis === 'x' ? xFields : yFields;
     const lastDiscrete = [...axisFields].filter((f) => f.flavour === 'discrete').slice(-1)[0];
     if (lastDiscrete) {
       excludedCategoryFieldId = lastDiscrete.id;
-      // Build a global categorical domain so all facets align on the same categories
+      categoryFieldCol = getFieldColumnName(lastDiscrete);
       sharedCategoryDomain = uniqueValuesForField(queryResult.rows, lastDiscrete);
+    } else {
+      // Fallback single category when none present
+      sharedCategoryDomain = [' '];
     }
   }
 
@@ -342,55 +340,77 @@ function generateFacetedGridIfNeeded(context: ChartGenerationContext): PlotResul
   const rowFacetFields = yFields.filter((f) => f.flavour === 'discrete' && f.id !== excludedCategoryFieldId);
   const colFacetFields = xFields.filter((f) => f.flavour === 'discrete' && f.id !== excludedCategoryFieldId);
   
-  // If no discrete fields for faceting, create a virtual single facet for consistent behavior
-  if (rowFacetFields.length === 0 && colFacetFields.length === 0) {
-    // Compute shared domains for the base chart to ensure proper scale propagation
-    const allMeasures = [...xFields, ...yFields].filter((f: any) => f.type === 'measure' && f.flavour === 'continuous');
-    const xCandidates = allMeasures;
-    const yCandidates = allMeasures;
-    const sharedMeasureDomains = computeSharedMeasureDomains(queryResult.rows, xCandidates as any[], yCandidates as any[]);
-    const sharedNumericDomains = computeSharedNumericDomains(queryResult.rows, xFields as any[], yFields as any[]);
-    
-    // Create a single "facet" with no discrete fields to ensure consistent Y-axis styling
-    const baseSpec = buildBaseSpecForDataSubset(
-      context,
-      categoryAxis,
-      excludedCategoryFieldId,
-      queryResult.rows,
-      sharedMeasureDomains,
-      sharedNumericDomains,
-      null, // no row facet field
-      null,  // no col facet field
-      sharedCategoryDomain || undefined
-    );
-    
+  // BAR path: switch back to OP marks per cell (for exact alignment with axes)
+  if (barOrientation && categoryAxis) {
+    const measureField = barOrientation === 'barX' ? xMeasure! : yMeasure!;
+    const measureName = getResultColumnName({ ...measureField, aggregation: (measureField as any).aggregation || 'sum' } as any);
+    const allMeasures = [measureField];
+    const sharedMeasureDomains = computeSharedMeasureDomains(queryResult.rows, allMeasures as any[], allMeasures as any[]);
+    const valueDomain = sharedMeasureDomains[measureName] || [0, 1];
+
+    // Choose facet fields excluding category
+    const rowFacetFields = yFields.filter((f) => f.flavour === 'discrete' && (categoryAxis !== 'y' || f.id !== excludedCategoryFieldId));
+    const colFacetFields = xFields.filter((f) => f.flavour === 'discrete' && (categoryAxis !== 'x' || f.id !== excludedCategoryFieldId));
+
+    const rowValuesLevels = rowFacetFields.map((f) => uniqueValuesForField(queryResult.rows, f));
+    const colValuesLevels = colFacetFields.map((f) => uniqueValuesForField(queryResult.rows, f));
+    const rowCombos = buildFacetCombos(rowFacetFields, rowValuesLevels);
+    const colCombos = buildFacetCombos(colFacetFields, colValuesLevels);
+    const safeRowCombos = rowCombos.length > 0 ? rowCombos : [[]];
+    const safeColCombos = colCombos.length > 0 ? colCombos : [[]];
+
+    const combinedPlots: any[] = [];
+    const categories = sharedCategoryDomain || [' '];
+    const baseRowHeight = categoryAxis === 'y' ? Math.max(BAR_STEP_PX * 2, categories.length * BAR_STEP_PX) : 'fr';
+    const baseColWidth = categoryAxis === 'x' ? Math.max(BAR_STEP_PX * 2, categories.length * BAR_STEP_PX) : 'fr';
+
+    for (let r = 0; r < safeRowCombos.length; r++) {
+      for (let c = 0; c < safeColCombos.length; c++) {
+        const subset = filterRowsByFacets(queryResult.rows, rowFacetFields, safeRowCombos[r], colFacetFields, safeColCombos[c]);
+        // Use Observable Plot bar marks to ensure pixel-perfect alignment with axis ticks
+        const options: Plot.PlotOptions = barOrientation === 'barX'
+          ? {
+              x: { label: measureName, grid: true, domain: valueDomain },
+              y: { label: categoryFieldCol || ' ', type: 'band' as any, domain: categories as any },
+              marks: [
+                Plot.barX(subset, { x: measureName, y: categoryFieldCol || (() => categories[0]), fill: DEFAULT_CHART_COLOR }),
+                Plot.ruleX([0])
+              ]
+            }
+          : {
+              y: { label: measureName, grid: true, domain: valueDomain },
+              x: { label: categoryFieldCol || ' ', type: 'band' as any, domain: categories as any },
+              marks: [
+                Plot.barY(subset, { y: measureName, x: categoryFieldCol || (() => categories[0]), fill: DEFAULT_CHART_COLOR }),
+                Plot.ruleY([0])
+              ]
+            } as any;
+
+        combinedPlots.push({ id: `facet-${r}-${c}`, title: '', options, position: { row: r, col: c } });
+      }
+    }
+
+    const columns = safeColCombos.length;
+    const rows = safeRowCombos.length;
+    const columnSizes = Array.from({ length: columns }, () => baseColWidth as any);
+    const rowSizes = Array.from({ length: rows }, () => baseRowHeight as any);
+
     return {
       library: 'observable-plot',
-      plots: baseSpec.plots,
-      sharedDomains: { byMeasure: sharedMeasureDomains as any },
+      plots: combinedPlots,
       layout: {
         type: 'grid',
-        columns: baseSpec.columns,
-        rows: baseSpec.rows,
-        columnSizes: baseSpec.columnSizes && baseSpec.columnSizes.length > 0
-          ? baseSpec.columnSizes
-          : Array.from({ length: baseSpec.columns }, () => 'fr'),
-        rowSizes: baseSpec.rowSizes && baseSpec.rowSizes.length > 0
-          ? baseSpec.rowSizes
-          : Array.from({ length: baseSpec.rows }, () => 'fr'),
+        columns,
+        rows,
+        columnSizes,
+        rowSizes,
       },
-      // Create empty facet labels structure to ensure consistent ChartGrid rendering
       facetLabels: {
-        rowsLevels: undefined,
-        colsLevels: undefined,
-        groupSpan: { columnsPerFacet: baseSpec.columns, rowsPerFacet: baseSpec.rows },
-        spans: {
-          baseCols: baseSpec.columns,
-          baseRows: baseSpec.rows,
-          columns: [],
-          rows: [],
-        },
-      }
+        rowsLevels: rowFacetFields.length > 0 ? rowFacetFields.map((f, i) => ({ fieldLabel: getFieldColumnName(f), values: rowValuesLevels[i] })) : undefined,
+        colsLevels: colFacetFields.length > 0 ? colFacetFields.map((f, i) => ({ fieldLabel: getFieldColumnName(f), values: colValuesLevels[i] })) : undefined,
+        groupSpan: { columnsPerFacet: 1, rowsPerFacet: 1 },
+        spans: { baseCols: 1, baseRows: 1, columns: [], rows: [] },
+      },
     };
   }
 
