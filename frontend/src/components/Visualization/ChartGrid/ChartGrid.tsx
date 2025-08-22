@@ -102,6 +102,30 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     return () => scroller.removeEventListener('scroll', onScroll as any);
   }, [spec]);
 
+  // Force chart re-renders on horizontal scroll to fix blank areas in wide charts
+  useEffect(() => {
+    const hScroller = hScrollRef.current;
+    if (!hScroller) return;
+    
+    let scrollTimeout: NodeJS.Timeout;
+    const onHorizontalScroll = () => {
+      // Clear any existing timeout
+      clearTimeout(scrollTimeout);
+      
+      // Debounce the scroll event to avoid excessive re-renders
+      scrollTimeout = setTimeout(() => {
+        // Trigger a resize event to force chart re-renders
+        window.dispatchEvent(new Event('resize'));
+      }, 100);
+    };
+    
+    hScroller.addEventListener('scroll', onHorizontalScroll, { passive: true } as any);
+    return () => {
+      hScroller.removeEventListener('scroll', onHorizontalScroll as any);
+      clearTimeout(scrollTimeout);
+    };
+  }, [spec]);
+
   // Dynamically size row height globally (not conditionally in the grid branch)
   // Ensure the scroller is mounted and measured before computing, and keep it updated
   useEffect(() => {

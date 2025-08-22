@@ -8,7 +8,10 @@ interface ObservablePlotProps {
 const ObservablePlot: React.FC<ObservablePlotProps> = ({ options }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [isVisible, setIsVisible] = useState(true);
+  const [forceRender, setForceRender] = useState(0);
 
+  // ResizeObserver for dimension changes
   useEffect(() => {
     const resizeObserver = new ResizeObserver(entries => {
       for (let entry of entries) {
@@ -26,6 +29,39 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options }) => {
     };
   }, []);
 
+  // IntersectionObserver to detect when chart comes into view during scrolling
+  useEffect(() => {
+    const intersectionObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const wasVisible = isVisible;
+          const nowVisible = entry.isIntersecting;
+          setIsVisible(nowVisible);
+          
+          // Force re-render when element becomes visible after being invisible
+          if (!wasVisible && nowVisible) {
+            setForceRender(prev => prev + 1);
+          }
+        });
+      },
+      {
+        // Use a small threshold to trigger when even a small part becomes visible
+        threshold: 0.01,
+        // Add some margin to trigger slightly before the element is fully visible
+        rootMargin: '50px'
+      }
+    );
+
+    if (containerRef.current) {
+      intersectionObserver.observe(containerRef.current);
+    }
+
+    return () => {
+      intersectionObserver.disconnect();
+    };
+  }, [isVisible]);
+
+  // Chart rendering effect
   useEffect(() => {
     if (containerRef.current) {
       // Determine final plot dimensions, prioritizing explicit options over observed dimensions.
@@ -34,10 +70,8 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options }) => {
       const finalWidth = options.width !== undefined ? options.width : (observedWidth > 0 ? observedWidth : 400);
       const finalHeight = options.height !== undefined ? options.height : (observedHeight > 0 ? observedHeight : 300);
 
-
-
-      // Only render if we have valid dimensions to prevent errors.
-      if (finalWidth > 0 && finalHeight > 0) {
+      // Only render if we have valid dimensions and the element is visible
+      if (finalWidth > 0 && finalHeight > 0 && isVisible) {
         const newOptions = {
           ...options,
           width: finalWidth,
@@ -54,7 +88,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options }) => {
         }
       }
     }
-  }, [options, dimensions]);
+  }, [options, dimensions, isVisible, forceRender]);
 
   return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
 };
