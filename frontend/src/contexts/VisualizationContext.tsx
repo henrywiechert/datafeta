@@ -94,13 +94,46 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
       return { ...state, isLoadingMetadata: action.payload };
     case 'SET_METADATA_ERROR':
       return { ...state, metadataError: action.payload };
-    case 'UPDATE_FIELD':
+    case 'UPDATE_FIELD': {
+      // Only update arrays that actually contain the field id.
+      // This preserves reference equality for x/y axis field arrays when
+      // editing fields in the available list (left panel), avoiding chart re-renders.
+      const updated = action.payload;
+
+      let xChanged = false;
+      const newX = state.xAxisFields.map((f) => {
+        if (f.id === updated.id) {
+          xChanged = true;
+          return updated;
+        }
+        return f;
+      });
+
+      let yChanged = false;
+      const newY = state.yAxisFields.map((f) => {
+        if (f.id === updated.id) {
+          yChanged = true;
+          return updated;
+        }
+        return f;
+      });
+
+      let availChanged = false;
+      const newAvail = state.availableFields.map((f) => {
+        if (f.id === updated.id) {
+          availChanged = true;
+          return updated;
+        }
+        return f;
+      });
+
       return {
         ...state,
-        xAxisFields: state.xAxisFields.map(f => f.id === action.payload.id ? action.payload : f),
-        yAxisFields: state.yAxisFields.map(f => f.id === action.payload.id ? action.payload : f),
-        availableFields: state.availableFields.map(f => f.id === action.payload.id ? action.payload : f),
+        xAxisFields: xChanged ? newX : state.xAxisFields,
+        yAxisFields: yChanged ? newY : state.yAxisFields,
+        availableFields: availChanged ? newAvail : state.availableFields,
       };
+    }
     case 'SET_QUERY_RESULT':
       return { ...state, queryResult: action.payload, queryError: null };
     case 'SET_QUERY_ERROR':
@@ -284,4 +317,4 @@ export function useVisualizationContext() {
     throw new Error('useVisualizationContext must be used within a VisualizationProvider');
   }
   return context;
-} 
+}
