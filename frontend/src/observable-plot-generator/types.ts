@@ -16,18 +16,6 @@ export interface PlotResult {
     id: string;
     title: string;
     options: Plot.PlotOptions;
-    data?: any[];
-    // Optional custom renderer hint
-    renderer?: 'plot' | 'css-bar';
-    // Optional CSS bar spec when renderer === 'css-bar'
-    cssBarSpec?: {
-      orientation: 'barX' | 'barY';
-      categories: any[];
-      categoryField?: string; // data field name for category
-      valueField?: string; // data field name for measure
-      valueDomain?: [number, number];
-      stepPx?: number;
-    };
     position?: { row: number; col: number; };
   }>; // Multiple plots with shared axes
   sharedDomains?: {
