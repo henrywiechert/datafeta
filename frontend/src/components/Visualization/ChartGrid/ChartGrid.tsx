@@ -337,6 +337,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                         justifyContent: 'center',
                         padding: 0,
                         margin: 0,
+                        borderBottom: `1px solid ${dividerColor}`,
                       }}
                     >
                       <div style={{ 
@@ -347,7 +348,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                         fontWeight: 'bold',
                         wordBreak: 'break-word',
                         overflowWrap: 'break-word',
-                        lineHeight: '1.2'
+                        lineHeight: '1.2',
                       }}>
                         {yLabel || ''}
                       </div>
