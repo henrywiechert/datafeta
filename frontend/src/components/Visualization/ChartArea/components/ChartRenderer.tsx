@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Box } from '@mui/material';
-import ChartGrid from '../../ChartGrid';
+import ChartGrid from '../../ChartGrid/ChartGrid';
 import TableView from '../../TableView';
 import { PlotResult } from '../../../../observable-plot-generator/types';
 import { TableData } from '../types';

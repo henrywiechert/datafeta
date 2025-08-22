@@ -1,79 +1,18 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import * as Plot from '@observablehq/plot';
+import React, { useEffect, useRef, useState } from 'react';
 
-import { QueryResult } from '../../types';
-import { PlotResult } from '../../observable-plot-generator/types';
-import ObservablePlot from './ObservablePlot';
+import { QueryResult } from '../../../types';
+import { PlotResult } from '../../../observable-plot-generator/types';
+import ObservablePlot from '../ObservablePlot';
 import styles from './ChartGrid.module.css';
-import { MIN_GRID_COLUMN_PX, MIN_GRID_ROW_PX } from '../../config/chartLayoutConfig';
+import { MIN_GRID_COLUMN_PX, MIN_GRID_ROW_PX } from '../../../config/chartLayoutConfig';
+import PlotArea from './PlotArea';
+import XAxes from './XAxes';
+import YAxes from './YAxes';
+import { TopFacetLabels, LeftFacetLabels } from './FacetLabels';
 
 interface ChartGridProps {
   spec: PlotResult | null;
   data: QueryResult | null;
-}
-
-/**
- * Remove axis labels (preserve grid). For external axes we also disable the axis lines.
- */
-function suppressAxes(options: any, hideX: boolean, hideY: boolean) {
-  const next = { ...options };
-  // Remove all margins so plot fills the cell exactly
-  next.marginLeft = 0;
-  next.marginRight = 0;
-  next.marginTop = 0;
-  next.marginBottom = 0;
-  next.inset = 0;
-  if (hideX) {
-    next.x = {
-      ...(next.x || {}),
-      label: '',
-      axis: null,
-      grid: true,
-    };
-  }
-  if (hideY) {
-    next.y = {
-      ...(next.y || {}),
-      label: '',
-      axis: null,
-      grid: true,
-    };
-  }
-  return next;
-}
-
-/**
- * Build axis-only plot options for external gutters.
- */
-function buildYAxisOptions(domain: any, gutterPx: number, type?: string) {
-  const isCategorical = type === 'band' || (Array.isArray(domain) && domain.length > 0 && typeof domain[0] !== 'number');
-  return {
-    frame: null,
-    marginLeft: Math.max(12, gutterPx - 2),
-    marginRight: 0,
-    marginTop: 0,
-    marginBottom: 0,
-    inset: 0,
-    x: { axis: null },
-    y: { label: '', domain: domain ?? [0, 1], ...(isCategorical ? { type: 'band' as any } : {}), labelArrow: null },
-    marks: [Plot.axisY()],
-  } as any;
-}
-
-function buildXAxisOptions(label: string | undefined, domain: any, gutterPx: number, type?: string) {
-  const isCategorical = type === 'band' || (Array.isArray(domain) && domain.length > 0 && typeof domain[0] !== 'number');
-  return {
-    frame: null,
-    height: Math.max(16, gutterPx),
-    marginLeft: 0,
-    marginRight: 0,
-    marginTop: 0,
-    marginBottom: Math.max(12, gutterPx - 2),
-    inset: 0,
-    y: { axis: null },
-    x: { label: '', domain: domain ?? [0, 1], ...(isCategorical ? { type: 'band' as any } : {}), labelArrow: null }, // label rendered in separate row below
-    marks: [Plot.axisX()],
-  } as any;
 }
 
 const TEXT_PX_PER_CHAR = 6; // conservative estimate for 12-14px font
@@ -244,16 +183,6 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
       return sum;
     })();
 
-    const plotTemplateRows =
-      layoutType === 'horizontal'
-        ? `minmax(${MIN_GRID_ROW_PX}px, 1fr)`
-        : rowSizes && rowSizes.length > 0
-          ? rowSizes
-              .slice(0, rows)
-              .map((r) => (typeof r === 'number' ? `${r}px` : `minmax(${MIN_GRID_ROW_PX}px, 1fr)`))
-              .join(' ')
-          : `repeat(${rows}, minmax(${MIN_GRID_ROW_PX}px, 1fr))`;
-
     // Rows spec to apply consistently across all stacked layers (plots, left labels, transparent sizing)
     // Use explicit rowSizes when provided; otherwise infer from first column samples' heights, fallback to rowHeightPx
     const inferredRowSizes: Array<number | 'fr'> = (() => {
@@ -267,9 +196,6 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     })();
 
     const plotRowsSpec = inferredRowSizes.map((h) => (typeof h === 'number' ? `${h}px` : `${rowHeightPx}px`)).join(' ');
-
-    // Fixed pixel-size rows to keep labels/axes aligned with the charts
-    const fixedPlotTemplateRows = `repeat(${rows}, ${MIN_GRID_ROW_PX}px)`;
 
     // Helpers for hierarchical label rendering
     const colLevels = spec.facetLabels?.colsLevels || [];
@@ -342,128 +268,24 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
             height: '100%'
           }}>
             {/* Top facet headers (if present) */}
-            {spec.facetLabels && (
-              <div style={{ gridColumn: 1, gridRow: 1 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns }}>
-                  {colLevels.length > 0 ? (
-                    <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'center' }}>
-                      <div style={{ position: 'sticky', left: 0, right: 0, margin: '0 auto', width: 'max-content', fontSize: '12px', fontWeight: 600, background: 'white', padding: '2px 6px', zIndex: 2 }}>
-                        {colLevels.map(l => l.fieldLabel).join(' / ')}
-                      </div>
-                    </div>
-                  ) : null}
-                  {colLevels.map((level, levelIdx) => {
-                    const counts = colLevels.map(l => l.values.length);
-                    const innerProduct = counts.slice(levelIdx + 1).reduce((a, b) => a * b, 1) || 1;
-                    const outerProduct = counts.slice(0, levelIdx).reduce((a, b) => a * b, 1) || 1;
-                    const span = baseCols * innerProduct;
-                    const groupSpan = span * level.values.length;
-                    const cells: React.ReactNode[] = [];
-                    for (let r = 0; r < outerProduct; r++) {
-                      const groupStart = r * groupSpan;
-                      level.values.forEach((val: any, i: number) => {
-                        const startCol = 1 + groupStart + i * span;
-                        cells.push(
-                          <div
-                            key={`col-level-${levelIdx}-seg-${r}-val-${i}`}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              height: `${VALUES_BAND_TOP_PX}px`,
-                              gridColumn: `${startCol} / span ${span}`,
-                              background: 'transparent',
-                              borderBottom: `1px solid ${dividerColor}`,
-                              borderRight: `1px solid ${dividerColor}`,
-                              fontSize: '10px',
-                              padding: 0,
-                              overflow: 'hidden',
-                            }}
-                          >
-                            {String(val)}
-                          </div>
-                        );
-                      });
-                    }
-                    return <React.Fragment key={`col-level-row-${levelIdx}`}>{cells}</React.Fragment>;
-                  })}
-                </div>
-              </div>
-            )}
+            <TopFacetLabels spec={spec} plotTemplateColumns={plotTemplateColumns} baseCols={baseCols} />
 
             {/* Main plots area (clipped so translated plots don't overlap headers/footers) */}
-            <div style={{ gridColumn: 1, gridRow: spec.facetLabels ? 2 : 1, overflow: 'hidden', position: 'relative' }}>
-              <div ref={plotsTranslateRef} style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns, gridTemplateRows: plotRowsSpec, minWidth: `${totalContentWidthPx}px`, willChange: 'transform' }}>
-                {(spec.plots || []).map((plot, index) => {
-                  const key = plot.id || String(index);
-                  const pos = plot.position;
-                  const gridItemStyle: React.CSSProperties | undefined = pos
-                    ? { gridColumn: (pos.col + 1), gridRow: pos.row + 1, borderRight: '1px solid #99a795', borderBottom: '1px solid #99a795' }
-                    : undefined;
-                  const opts = suppressAxes(plot.options, true, true);
-                  return (
-                    <div key={key} className={styles.plotWrapper} style={gridItemStyle}>
-                      {false ? (
-                        <div />
-                      ) : (
-                        <div className={styles.observablePlotContainer}>
-                          <ObservablePlot options={opts} />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <PlotArea
+              spec={spec}
+              plotsTranslateRef={plotsTranslateRef}
+              plotTemplateColumns={plotTemplateColumns}
+              plotRowsSpec={plotRowsSpec}
+              totalContentWidthPx={totalContentWidthPx}
+            />
 
-            {/* Bottom X scales */}
-            <div style={{ gridColumn: 1, gridRow: spec.facetLabels ? 3 : 2 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns, minWidth: `${totalContentWidthPx}px` }}>
-                {Array.from({ length: columns }).map((_, c) => {
-                  const sample = (spec.plots || []).find((p) => p.position?.col === c);
-                  const xLabel = (sample as any)?.options?.x?.label;
-                  const xDomain = (sample as any)?.options?.x?.domain;
-                  const xType = (sample as any)?.options?.x?.type;
-                  const xRotate = xType === 'band' ? -45 : 0;
-                  return (
-                    <div key={`x-axis-${c}`} style={{ gridColumn: c + 1, borderRight: c < columns - 1 ? '1px solid #99a795' : undefined, borderTop: `1px solid ${dividerColor}` }}>
-                      <ObservablePlot options={{ ...buildXAxisOptions(xLabel, xDomain, dynamicXAxisPx, xType), marks: [Plot.axisX({ tickRotate: xRotate as any })] as any }} />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Bottom X labels */}
-            <div style={{ gridColumn: 1, gridRow: spec.facetLabels ? 4 : 3 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns, minWidth: `${totalContentWidthPx}px` }}>
-                {Array.from({ length: columns }).map((_, c) => {
-                  const sample = (spec.plots || []).find((p) => p.position?.col === c);
-                  const xLabel = (sample as any)?.options?.x?.label as string | undefined;
-                  return (
-                    <div key={`x-label-${c}`} style={{ 
-                      gridColumn: c + 1, 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
-                      fontSize: '10px', 
-                      fontWeight: 'bold',
-                      padding: '2px',
-                      textAlign: 'center'
-                    }}>
-                      <div style={{
-                        wordBreak: 'break-word',
-                        overflowWrap: 'break-word',
-                        maxWidth: '100%',
-                        lineHeight: '1.2'
-                      }}>
-                        {xLabel || ''}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <XAxes
+              spec={spec}
+              columns={columns}
+              plotTemplateColumns={plotTemplateColumns}
+              totalContentWidthPx={totalContentWidthPx}
+              dynamicXAxisPx={dynamicXAxisPx}
+            />
           </div>
         </div>
 
@@ -496,89 +318,13 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
             <div style={{ gridColumn: 1, gridRow: '1 / -1', pointerEvents: 'auto', borderRight: `1px solid ${dividerColor}` }}>
               <div style={{ display: 'grid', gridTemplateColumns: `${leftLabelsPx}px ${Y_LABEL_COL_PX}px ${dynamicYAxisPx}px`, gridTemplateRows: plotRowsSpec }}>
                 {/* Left facet labels area */}
-                {spec.facetLabels && (
-                  <div
-                    style={{
-                      gridColumn: 1,
-                      gridRow: '1 / span ' + rows,
-                      display: 'grid',
-                      gridTemplateColumns: `${NAMES_BAND_LEFT_PX}px ${new Array(yLevelsCount).fill(`${VALUES_BAND_LEFT_PX}px`).join(' ')}`,
-                      gridTemplateRows: plotRowsSpec,
-                      alignItems: 'stretch',
-                    }}
-                  >
-                    {/* Keep in grid, but center using sticky at 50% with translate */}
-                    <div style={{ gridColumn: 1, gridRow: '1 / -1', position: 'sticky', top: 0, bottom: 0, margin: 'auto 0', height: 'fit-content', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
-                      <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', fontSize: '12px', fontWeight: 600, background: 'white', padding: '4px 2px', margin: 'auto' }}>
-                        {rowLevels.map(l => l.fieldLabel).join(' / ')}
-                      </div>
-                    </div>
-                    {rowLevels.length > 0 && (
-                      <div
-                        style={{
-                          gridColumn: 1,
-                          gridRow: '1 / -1',
-                          writingMode: 'vertical-rl',
-                          transform: 'rotate(180deg)',
-                          padding: '2px 0',
-                          fontSize: '10px',
-                          fontWeight: 600,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          border: '1px solid #99a795',
-                          borderRadius: 4,
-                          opacity: 0,
-                        }}
-                      >
-                        {rowLevels.map(l => l.fieldLabel).join(' / ')}
-                      </div>
-                    )}
-                    {/* One green column per Y-level, with properly spanned cells */}
-                    {rowLevels.map((level, levelIdx) => {
-                      const counts = rowLevels.map(l => l.values.length);
-                      const innerProduct = counts.slice(levelIdx + 1).reduce((a, b) => a * b, 1) || 1;
-                      const outerProduct = counts.slice(0, levelIdx).reduce((a, b) => a * b, 1) || 1;
-                      const span = baseRows * innerProduct;
-                      const groupSpan = span * level.values.length;
-                      const cells: React.ReactNode[] = [];
-                      for (let r = 0; r < outerProduct; r++) {
-                        const groupStart = r * groupSpan; // 0-based
-                        level.values.forEach((val: any, i: number) => {
-                          const startRow = groupStart + i * span + 1; // 1-based grid row start
-                          cells.push(
-                            <div
-                              key={`yval-level-${levelIdx}-rep-${r}-val-${i}`}
-                              style={{
-                                gridColumn: levelIdx + 2,
-                                gridRow: `${startRow} / span ${span}`,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                borderRight: levelIdx === rowLevels.length - 1 ? '1px solid #99a795' : undefined,
-                                borderLeft: levelIdx > 0 ? '1px solid #99a795' : undefined,
-                                borderBottom: '1px solid #99a795',
-                                background: 'transparent',
-                                padding: 0,
-                                overflow: 'hidden',
-                              }}
-                            >
-                              <div style={{ transform: 'rotate(-90deg)', transformOrigin: 'center', whiteSpace: 'nowrap', padding: '2px 0', fontSize: '10px' }}>{String(val)}</div>
-                            </div>
-                          );
-                        });
-                      }
-                      return <React.Fragment key={`yval-level-${levelIdx}`}>{cells}</React.Fragment>;
-                    })}
-                  </div>
-                )}
+                <LeftFacetLabels spec={spec} plotRowsSpec={plotRowsSpec} baseRows={baseRows} />
 
                 {/* Y-axis vertical labels column */}
                 {Array.from({ length: rows }).map((_, r) => {
                   const sample = (spec.plots || []).find((p) => p.position?.row === r);
                   const yOpts: any = (sample as any)?.options?.y || {};
                   const yLabel = yOpts?.label as string | undefined;
-                  const yType = yOpts?.type;
                   const useVertical = true;
                   return (
                     <div
@@ -609,21 +355,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                   );
                 })}
 
-                {/* Left external y-axes gutter */}
-                {Array.from({ length: rows }).map((_, r) => {
-                  const sample = (spec.plots || []).find((p) => p.position?.row === r);
-                  const yDomain = (sample as any)?.options?.y?.domain;
-                  const yType = (sample as any)?.options?.y?.type;
-                  return (
-                    <div key={`y-axis-${r}`} style={{ 
-                      gridColumn: spec.facetLabels ? 3 : 2, 
-                      gridRow: r + 1,
-                      borderBottom: r < rows - 1 ? '1px solid #99a795' : undefined
-                    }}>
-                      <ObservablePlot options={buildYAxisOptions(yDomain, dynamicYAxisPx, yType)} />
-                    </div>
-                  );
-                })}
+                <YAxes spec={spec} rows={rows} dynamicYAxisPx={dynamicYAxisPx} />
               </div>
             </div>
 
