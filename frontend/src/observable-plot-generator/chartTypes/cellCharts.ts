@@ -143,22 +143,19 @@ function createBarX(
 ): Plot.PlotOptions {
   const measureName = getResultColumnName({ ...measure, aggregation: measure.aggregation || 'sum' } as any);
   let domain = (sharedDomains && sharedDomains[measureName]) || undefined;
-  // For bars, force baseline at 0
+  // For bars, force baseline at 0 and +5% headroom
   if (Array.isArray(domain)) {
-    const [lo, hi] = domain;
-    domain = [Math.min(0, lo), hi <= 0 ? 0 : hi] as any;
+    const upperRaw = Math.max(0, domain[1] as number);
+    domain = [0, (upperRaw === 0 ? 1 : upperRaw * 1.05)] as any;
   } else {
     // If no domain provided, compute from data
     const vals = data.map((d) => d?.[measureName]).filter((v) => typeof v === 'number' && !Number.isNaN(v));
-    if (vals.length > 0) {
-      const min = Math.min(...vals);
-      const max = Math.max(...vals);
-      domain = [Math.min(0, min), max <= 0 ? 0 : max] as any;
-    }
+    const max = vals.length ? Math.max(0, ...vals) : 0;
+    domain = [0, max === 0 ? 1 : max * 1.05] as any;
   }
 
   const opts: Plot.PlotOptions = {
-    x: { label: measureName, grid: true, domain },
+    x: { label: measureName, grid: true, domain, nice: false },
     marks: [Plot.ruleX([0])],
   };
 
@@ -194,10 +191,10 @@ function createBarY(
 ): Plot.PlotOptions {
   const measureName = getResultColumnName({ ...measure, aggregation: measure.aggregation || 'sum' } as any);
   let domain = (sharedDomains && sharedDomains[measureName]) || undefined;
-  // For bars, force baseline at 0
+  // For bars, force baseline at 0 and +5% headroom
   if (Array.isArray(domain)) {
-    const [lo, hi] = domain;
-    domain = [Math.min(0, lo), hi <= 0 ? 0 : hi] as any;
+    const upperRaw = Math.max(0, domain[1] as number);
+    domain = [0, (upperRaw === 0 ? 1 : upperRaw * 1.05)] as any;
   } else {
     const vals = data.map((d) => d?.[measureName]).filter((v) => typeof v === 'number' && !Number.isNaN(v));
     if (vals.length > 0) {
@@ -208,7 +205,7 @@ function createBarY(
   }
 
   const opts: Plot.PlotOptions = {
-    y: { label: measureName, grid: true, domain },
+    y: { label: measureName, grid: true, domain, nice: false },
     marks: [Plot.ruleY([0])],
   };
 

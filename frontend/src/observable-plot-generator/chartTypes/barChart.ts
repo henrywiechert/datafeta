@@ -3,6 +3,29 @@ import { ChartGenerationContext } from '../types';
 import { DEFAULT_CHART_COLOR, BAR_STEP_PX } from '../../config/chartLayoutConfig';
 import { getResultColumnName } from '../../utils/fieldUtils';
 
+// Compute numeric extent for a column, ignoring non-finite values
+function numericExtent(rows: any[], column: string): [number, number] {
+  let min = Infinity;
+  let max = -Infinity;
+  for (const row of rows) {
+    const v = row[column];
+    if (typeof v === 'number' && isFinite(v)) {
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+  }
+  if (min === Infinity || max === -Infinity) return [0, 0];
+  return [min, max];
+}
+
+// Build a domain that always starts at 0 and pads the max by 5%
+function paddedDomainIncludingZero(minVal: number, maxVal: number): [number, number] {
+  // Upper bound is the positive max (or 0), padded by 5%
+  const upperRaw = Math.max(0, maxVal);
+  const upper = upperRaw === 0 ? 1 : upperRaw * 1.05;
+  return [0, upper];
+}
+
 export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
   const { queryResult, xFields, yFields } = context;
   const data = queryResult.rows;
@@ -30,6 +53,10 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       barConfig.x = xDimension.columnName;
       const categories = Array.from(new Set(data.map(row => row[xDimension.columnName])));
       const calculatedWidth = categories.length * barStep;
+
+      // Ensure measure axis includes 0 and ends at max +5%
+      const [minVal, maxVal] = numericExtent(data, measureName);
+      const [d0, d1] = paddedDomainIncludingZero(minVal, maxVal);
       
       return {
         width: calculatedWidth,
@@ -45,12 +72,19 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
         y: {
           grid: true,
           label: measureName,
+          domain: [d0, d1] as any,
+          nice: false,
         },
       };
     } else {
       // Single vertical bar - assign a constant category to position the bar
       const singleCategory = ' ';
       const configWithCategory: any = { ...barConfig, x: () => singleCategory };
+
+      // Ensure measure axis includes 0 and ends at max +5%
+      const [minVal, maxVal] = numericExtent(data, measureName);
+      const [d0, d1] = paddedDomainIncludingZero(minVal, maxVal);
+
       return {
         width: barStep * 2,
         marks: [
@@ -58,7 +92,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
           Plot.ruleY([0])
         ],
         x: { label: singleCategory, domain: [singleCategory] as any, type: 'band' as any },
-        y: { grid: true, label: measureName },
+        y: { grid: true, label: measureName, domain: [d0, d1] as any, nice: false },
       };
     }
   }
@@ -78,6 +112,10 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       barConfig.y = yDimension.columnName;
       const categories = Array.from(new Set(data.map(row => row[yDimension.columnName])));
       const calculatedHeight = categories.length * barStep;
+
+      // Ensure measure axis includes 0 and ends at max +5%
+      const [minVal, maxVal] = numericExtent(data, measureName);
+      const [d0, d1] = paddedDomainIncludingZero(minVal, maxVal);
       
       return {
         height: calculatedHeight,
@@ -93,12 +131,19 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
         x: {
           grid: true,
           label: measureName,
+          domain: [d0, d1] as any,
+          nice: false,
         },
       };
     } else {
       // Single horizontal bar - assign a constant category to position the bar
       const singleCategory = ' ';
       const configWithCategory: any = { ...barConfig, y: () => singleCategory };
+
+      // Ensure measure axis includes 0 and ends at max +5%
+      const [minVal, maxVal] = numericExtent(data, measureName);
+      const [d0, d1] = paddedDomainIncludingZero(minVal, maxVal);
+
       return {
         height: barStep * 2,
         marks: [
@@ -106,10 +151,10 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
           Plot.ruleX([0])
         ],
         y: { label: singleCategory, domain: [singleCategory] as any, type: 'band' as any },
-        x: { grid: true, label: measureName },
+        x: { grid: true, label: measureName, domain: [d0, d1] as any, nice: false },
       };
     }
   }
 
   throw new Error('Bar chart requires at least one measure.');
-} 
+}
