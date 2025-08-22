@@ -69,15 +69,11 @@ function calculateSharedDomains(measures: any[], data: any[]) {
     const fieldForName = { ...measure, aggregation: measure.aggregation || 'sum' };
     const measureName = getResultColumnName(fieldForName);
     
-    const values = data.map(row => row[measureName]).filter(v => v != null);
+    const values = data.map(row => row[measureName]).filter(v => typeof v === 'number' && isFinite(v));
     if (values.length > 0) {
-      const max = Math.max(...values);
-      const min = Math.min(...values);
-
-      // For measures, include 0 baseline; clamp upper to 0 if all values are ≤ 0
-      const lower = Math.min(0, min);
-      const upper = max <= 0 ? 0 : max * 1.1; // 10% headroom when positive
-      domains[measureName] = [lower, upper];
+      const max = Math.max(0, ...values);
+      const upper = max === 0 ? 1 : max * 1.05; // +5% headroom
+      domains[measureName] = [0, upper];
     }
   });
 
@@ -176,9 +172,10 @@ function createHorizontalBarChart(
 ): Plot.PlotOptions {
   const plotOptions: Plot.PlotOptions = {
     x: {
-      domain: sharedDomains[measureName], // Shared X domain
+      domain: sharedDomains[measureName], // Shared X domain starting at 0
       grid: true,
       label: measureName,
+      nice: false,
     },
     marks: [Plot.ruleX([0])],
   };
@@ -223,9 +220,10 @@ function createVerticalBarChart(
 ): Plot.PlotOptions {
   const plotOptions: Plot.PlotOptions = {
     y: {
-      domain: sharedDomains[measureName], // Shared Y domain
+      domain: sharedDomains[measureName], // Shared Y domain starting at 0
       grid: true,
       label: measureName,
+      nice: false,
     },
     marks: [Plot.ruleY([0])],
   };

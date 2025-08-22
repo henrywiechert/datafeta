@@ -2,7 +2,7 @@ import { getResultColumnName } from '../../utils/fieldUtils';
 
 /**
  * Compute shared numeric domains for all measures used across a grid.
- * Includes 0 and adds 10% headroom at the top, similar to bar charts.
+ * Always start at 0 and pad the max by +5%.
  */
 export function computeSharedMeasureDomains(
   data: any[],
@@ -27,12 +27,9 @@ export function computeSharedMeasureDomains(
       .map((row) => row[measureName])
       .filter((v) => typeof v === 'number' && !Number.isNaN(v));
     if (values.length === 0) return;
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    // Generic numeric domains (scatter/line-friendly): small pad below min, not forced to 0
-    const lower = min - Math.abs(min) * 0.05;
-    const upper = max <= 0 ? 0 : max * 1.05;
-    domains[measureName] = [lower, upper];
+    const max = Math.max(0, ...values);
+    const upper = max === 0 ? 1 : max * 1.05;
+    domains[measureName] = [0, upper];
   });
 
   return domains;
