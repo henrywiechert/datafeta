@@ -58,7 +58,7 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
           // Use Observable Plot bar marks to ensure pixel-perfect alignment with axis ticks
           const options: Plot.PlotOptions = barOrientation === 'barX'
             ? {
-                x: { label: measureName, grid: true, domain: valueDomain },
+                x: { label: measureName, grid: true, domain: [0, (valueDomain[1] <= 0 ? 1 : valueDomain[1] * 1.05)] as any, nice: false },
                 y: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any },
                 marks: [
                   Plot.barX(subset, { x: measureName, y: categoryField?.columnName || (() => categories[0]), fill: DEFAULT_CHART_COLOR }),
@@ -66,7 +66,7 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
                 ]
               }
             : {
-                y: { label: measureName, grid: true, domain: valueDomain },
+                y: { label: measureName, grid: true, domain: [0, (valueDomain[1] <= 0 ? 1 : valueDomain[1] * 1.05)] as any, nice: false },
                 x: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any },
                 marks: [
                   Plot.barY(subset, { y: measureName, x: categoryField?.columnName || (() => categories[0]), fill: DEFAULT_CHART_COLOR }),
