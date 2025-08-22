@@ -263,7 +263,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
             display: 'grid',
             gridTemplateColumns: `minmax(0, 1fr)`,
             gridTemplateRows: spec.facetLabels ? `${topHeaderHeight}px 1fr ${dynamicXAxisPx}px ${X_LABEL_ROW_PX}px` : `1fr ${dynamicXAxisPx}px ${X_LABEL_ROW_PX}px`,
-            minWidth: `${columns * minColumnPx}px`,
+            minWidth: `${totalContentWidthPx}px`,
             width: '100%',
             height: '100%'
           }}>
