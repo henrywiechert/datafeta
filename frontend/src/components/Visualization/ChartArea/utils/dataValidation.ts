@@ -3,7 +3,7 @@
  */
 
 /**
- * Validates and cleans data for Vega-Lite consumption
+ * Validates and cleans data for chart consumption
  * Removes invalid numeric values and filters out empty rows
  */
 export const validateAndCleanData = (result: any) => {

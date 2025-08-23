@@ -46,7 +46,7 @@ export const buildAggregatedQuery = ({
 };
 
 /**
- * Builds a query for use with Vega-Lite when no aggregation is needed (e.g., scatter plots).
+ * Builds a query when no aggregation is needed (e.g., scatter plots).
  * This function treats all fields as raw columns to be selected.
  */
 export const buildRawQuery = ({

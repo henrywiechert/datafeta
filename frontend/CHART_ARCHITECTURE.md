@@ -64,7 +64,7 @@ if (isObservablePlot) {
 - **Type safety**: Use type guards and casting to handle the different return types from generators.
 
 ### DON'T ❌
-- **Mix implementations**: Don't import Vega logic in Vega-Lite files, or vice-versa.
+- **Mix implementations**: Keep chart generation logic focused and consistent.
 - **Share chart strategies**: Each has its own `chartTypes/` directory.
 - **Cross-reference types**: Keep `types.ts` files separate for each generator.
 - **Override the others**: Changes in one implementation shouldn't break the others.
