@@ -137,18 +137,19 @@ class QueryService:
                     q = q.distinct()
 
         # ORDER BY Clause
-        for order in query_desc.orderBy:
-             if order.field in all_aliases:
-                 # Use the alias string directly
-                 field_term = order.field
-             else:
-                 field_term = t[order.field]
+        if query_desc.orderBy:
+            for order in query_desc.orderBy:
+                if order.field in all_aliases:
+                    # Use the alias string directly
+                    field_term = order.field
+                else:
+                    field_term = t[order.field]
 
-             pypika_order = Order.desc if order.direction == 'desc' else Order.asc
-             # Pypika needs the field term (string or Field object) for order by
-             # If it's an alias string, Pypika should handle it correctly.
-             # If it's a table field, t[order.field] provides the Field object.
-             q = q.orderby(field_term, order=pypika_order)
+                pypika_order = Order.desc if order.direction == 'desc' else Order.asc
+                # Pypika needs the field term (string or Field object) for order by
+                # If it's an alias string, Pypika should handle it correctly.
+                # If it's a table field, t[order.field] provides the Field object.
+                q = q.orderby(field_term, order=pypika_order)
 
         # --- NEW: Add sampling for large raw queries on supported databases ---
         is_raw_query = not query_desc.measures
