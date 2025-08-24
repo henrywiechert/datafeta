@@ -6,6 +6,7 @@ from clickhouse_connect.driver.client import Client
 from backend.models.data_source import Database, Table, Column
 from .base import BaseConnector
 from backend.exceptions import DataSourceConnectionError, QueryExecutionError, InvalidInputError
+from backend.utils.type_conversion import process_query_result_data
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
@@ -113,6 +114,10 @@ class ClickHouseConnector(BaseConnector):
 
             # Format rows into dictionaries
             rows = [dict(zip(result.column_names, row)) for row in result.result_rows]
+            
+            # Convert any Decimal types to floats for JSON serialization compatibility
+            rows = process_query_result_data(rows)
+            
             logger.debug(f"Returning {len(rows)} rows.")
 
             return columns, rows
