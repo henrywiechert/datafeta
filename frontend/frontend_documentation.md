@@ -39,7 +39,7 @@ This document provides an overview of the frontend application's structure, API 
     *   Performance warnings and validation for large datasets (>50K rows)
 
 ## 5. Chart Specification Generation
-*   The `spec-generator` directory, specifically `specGeneratorV2.ts`, is responsible for generating Vega-Lite specifications for charts.
+*   The `observable-plot-generator` directory is responsible for generating Observable Plot specifications for charts.
 *   It uses a strategy pattern to:
     *   Classify fields (`FieldClassifier`).
     *   Determine faceting (`FacetingManager`).
