@@ -2,7 +2,6 @@ import { useCallback, useState, useEffect } from 'react';
 import { generatePlot } from '../../../../observable-plot-generator/observablePlotGenerator';
 import { PlotResult } from '../../../../observable-plot-generator/types';
 import { logOperationTiming } from '../utils';
-import { useVisualizationContext } from '../../../../contexts/VisualizationContext';
 
 interface UseChartGenerationProps {
   xAxisFields: any[];
