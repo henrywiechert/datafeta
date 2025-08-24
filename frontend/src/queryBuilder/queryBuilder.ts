@@ -1,4 +1,4 @@
-import { Field, QueryDescription, Measure } from '../types';
+import { Field, QueryDescription, Measure, OrderBy } from '../types';
 import { getResultColumnName } from '../utils/fieldUtils';
 
 /**
@@ -34,12 +34,17 @@ export const buildAggregatedQuery = ({
   if (!selectedTable || (dimensions.length === 0 && measures.length === 0)) {
     return null;
   }
+
+  const orderBy: OrderBy[] = fields
+    .filter(f => f.type === 'dimension' && f.flavour === 'discrete')
+    .map(f => ({ field: f.columnName }));
   
   const queryDesc: QueryDescription = {
     target_table: selectedTable,
     target_database: selectedDatabase,
     dimensions,
     measures,
+    orderBy: orderBy.length > 0 ? orderBy : undefined,
   };
 
   return queryDesc;
@@ -76,11 +81,16 @@ export const buildRawQuery = ({
     }
   });
 
+  const orderBy: OrderBy[] = fields
+    .filter(f => f.type === 'dimension' && f.flavour === 'discrete')
+    .map(f => ({ field: f.columnName }));
+
   const queryDesc: QueryDescription = {
     target_table: selectedTable,
     target_database: selectedDatabase,
     dimensions,
     measures: [], // No server-side measures
+    orderBy: orderBy.length > 0 ? orderBy : undefined,
   };
 
   return queryDesc;
