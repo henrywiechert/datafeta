@@ -2,6 +2,11 @@
 
 This directory contains the Observable Plot chart generation path for the app.
 
+> **Note**: For comprehensive documentation about Observable Plot charts, faceting, and field classification, see the main frontend documentation:
+> - [Observable Plot Charts](../../observable-plot.md)
+> - [Faceting System](../../faceting.md) 
+> - [Field Classification](../../fields.md)
+
 ## Architecture
 
 Simple direct generation using small chart helpers. The generator returns a `PlotResult` for a single chart or a CSS Grid of charts.
