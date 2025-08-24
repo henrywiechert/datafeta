@@ -1,46 +1,65 @@
-# Getting Started with Create React App
+# Frontend Documentation
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+The frontend is a React-based data analysis application that provides an intuitive interface for connecting to data sources, exploring data, and creating interactive visualizations.
 
-## Available Scripts
+## Application Overview
 
-In the project directory, you can run:
+### Core Components
+- **UI Framework**: React with TypeScript and Material-UI
+- **Chart Library**: Observable Plot for dynamic visualization generation
+- **State Management**: Context-based architecture with global state providers
+- **API Integration**: Comprehensive service layer for backend communication
 
-### `npm start`
+### Main Features
+- **Data Source Connection**: Support for database connections and file uploads
+- **Interactive Visualization**: Dynamic chart generation with intelligent field classification
+- **Multi-Chart Faceting**: Advanced faceting capabilities for complex data exploration
+- **Responsive Design**: Adaptive layouts for various screen sizes
+- **Loading Management**: Comprehensive loading states with timeout handling
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+## Application Structure
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+The application is built with React and consists of two main pages:
 
-### `npm test`
+1. **Data Source Selection Page**: Interface for connecting to databases or uploading files
+2. **Visualization Page**: Interactive data exploration and chart generation interface
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Key Directories
+- `src/components/` - React components including visualization components
+- `src/contexts/` - Global state management (Connection and Visualization contexts)
+- `src/services/` - API communication layer
+- `src/observable-plot-generator/` - Chart generation engine
+- `src/utils/` - Utility functions including field classification
 
-### `npm run build`
+## Architecture Details
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### State Management
+- **ConnectionContext**: Manages data source connections and metadata
+- **VisualizationContext**: Handles field selection, query results, and chart state
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Chart Generation Pipeline
+1. Field classification and analysis
+2. Chart type selection based on field characteristics
+3. Faceting determination for multi-dimensional data
+4. Observable Plot specification generation
+5. Responsive rendering with CSS Grid layouts
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Detailed Documentation
 
-### `npm run eject`
+- [Observable Plot Charts](./observable-plot.md) - Chart generation and Observable Plot implementation
+- [Faceting System](./faceting.md) - Multi-chart faceting and layout details
+- [Field Classification](./fields.md) - Field types, flavours, and classification logic
+- [API Communication](./api.md) - Frontend-backend API interaction and query handling
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+## Development
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### Available Scripts
+- `npm start` - Run development server
+- `npm test` - Run test suite
+- `npm run build` - Build for production
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
-
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
+### Key Technologies
+- React 18 with TypeScript
+- Material-UI for component library
+- Observable Plot for chart generation
+- AG Grid Community for table views
