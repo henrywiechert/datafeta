@@ -30,7 +30,7 @@ export function generateScatterPlot(analysis: FieldAnalysis, context: ChartGener
 }
 
 export function generateChartOptions(analysis: FieldAnalysis, context: ChartGenerationContext): PlotResult {
-  const { xFields, yFields, queryResult } = context;
+  const { queryResult } = context;
   const data = queryResult.rows;
 
   const xDims = analysis.xDimensions || [];
