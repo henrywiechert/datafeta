@@ -130,10 +130,10 @@ function resolveXYColumns(xf: Field, yf: Field): { xCol: string; yCol: string } 
   return { xCol, yCol };
 }
 
-function isNumericColumn(data: any[], col: string): boolean {
-  if (!Array.isArray(data) || data.length === 0) return false;
-  return data.some((d) => Number.isFinite(d?.[col]));
-}
+// function isNumericColumn(data: any[], col: string): boolean {
+//   if (!Array.isArray(data) || data.length === 0) return false;
+//   return data.some((d) => Number.isFinite(d?.[col]));
+// }
 
 function createBarX(
   data: any[],
