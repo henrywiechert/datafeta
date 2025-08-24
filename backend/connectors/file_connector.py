@@ -7,6 +7,7 @@ from backend.models.data_source import Database, Table, Column
 from .base import BaseConnector
 from backend.exceptions import DataSourceConnectionError, InvalidInputError, QueryExecutionError
 from backend.dependencies import ConnectionStateManager
+from backend.utils.type_conversion import process_query_result_data
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +101,9 @@ class FileConnector(BaseConnector):
                     field = arrow_table.schema.field(i)
                     columns.append({'name': field.name, 'type': str(field.type)})
             rows = arrow_table.to_pylist()
+            
+            # Convert any Decimal types to floats for JSON serialization compatibility
+            rows = process_query_result_data(rows)
             
             logger.debug(f"Fetch data returning {len(columns)} columns and {len(rows)} rows.")
             return columns, rows

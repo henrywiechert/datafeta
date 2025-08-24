@@ -32,10 +32,16 @@ export const validateAndCleanData = (result: any) => {
         // Handle string representations of invalid numbers
         if (typeof value === 'string') {
           const numValue = parseFloat(value);
-          if (!isNaN(numValue) && !isFinite(numValue)) {
-            console.warn(`🚨 Invalid numeric string found in field ${key}: ${value}, replacing with null`);
-            cleanedRow[key] = null;
+          if (!isNaN(numValue)) {
+            if (!isFinite(numValue)) {
+              console.warn(`🚨 Invalid numeric string found in field ${key}: ${value}, replacing with null`);
+              cleanedRow[key] = null;
+            } else {
+              // Convert valid numeric strings to numbers
+              cleanedRow[key] = numValue;
+            }
           }
+          // Non-numeric strings are left as-is
         }
       });
       
