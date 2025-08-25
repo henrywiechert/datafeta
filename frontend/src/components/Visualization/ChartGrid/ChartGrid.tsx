@@ -31,6 +31,8 @@ function computeDynamicYAxisGutterPx(spec: PlotResult, rows: number): number {
     const yOpts: any = (sample as any)?.options?.y || {};
     const yType = yOpts?.type;
     const yDomain = yOpts?.domain as any;
+    const yLabel = yOpts?.label;
+    
     let tickWidth = 0;
     if (yType === 'band' && Array.isArray(yDomain)) {
       // Categorical axis: estimate by longest label
@@ -41,7 +43,25 @@ function computeDynamicYAxisGutterPx(spec: PlotResult, rows: number): number {
       const [a, b] = yDomain;
       tickWidth = Math.max(estimateTextPx(String(a)), estimateTextPx(String(b))) + 6; // small padding
     }
-    const rowWidth = Math.max(MIN_Y_AXIS_GUTTER_PX, tickWidth);
+    
+    // Also consider Y-axis label (measure name) which can wrap
+    let yLabelWidth = 0;
+    if (yLabel && typeof yLabel === 'string') {
+      const labelTextWidth = estimateTextPx(yLabel);
+      // In faceted views with small facets, assume Y-axis label might wrap at around 80px
+      // This is a reasonable threshold for when labels start wrapping in constrained spaces
+      const assumedWrappingThreshold = 80;
+      if (labelTextWidth > assumedWrappingThreshold) {
+        // For wrapped text, we need extra horizontal space
+        // Estimate wrapped text needs about 1.5x the wrapping threshold width
+        yLabelWidth = Math.ceil(assumedWrappingThreshold * 1.5) + 15; // padding for wrapped text
+      } else {
+        // For non-wrapped text, use estimated width + padding
+        yLabelWidth = labelTextWidth + 10;
+      }
+    }
+    
+    const rowWidth = Math.max(MIN_Y_AXIS_GUTTER_PX, tickWidth, yLabelWidth);
     if (rowWidth > maxWidth) maxWidth = rowWidth;
   }
   return maxWidth;
