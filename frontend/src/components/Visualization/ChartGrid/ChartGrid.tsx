@@ -70,6 +70,32 @@ function computeDynamicXAxisGutterPx(spec: PlotResult, columns: number): number 
   return maxHeight;
 }
 
+function computeDynamicYLabelColPx(spec: PlotResult, rowHeightPx: number): number {
+  const rows = spec.layout?.rows || 1;
+  const plots = spec.plots || [];
+  let maxLabelWidth = 16; // Default width
+
+  const FONT_SIZE_PX = 10;
+  const LINE_HEIGHT = 1.2;
+  const CHAR_HEIGHT_PX = FONT_SIZE_PX; // Approximate height of a character
+
+  for (let r = 0; r < rows; r++) {
+    const sample = plots.find((p) => p.position?.row === r);
+    const yOpts: any = (sample as any)?.options?.y || {};
+    const yLabel = yOpts?.label as string | undefined;
+
+    if (yLabel && rowHeightPx > 0) {
+      const charsPerColumn = Math.max(1, Math.floor(rowHeightPx / CHAR_HEIGHT_PX));
+      const requiredColumns = Math.ceil(yLabel.length / charsPerColumn);
+      const requiredWidth = requiredColumns * FONT_SIZE_PX * LINE_HEIGHT;
+      if (requiredWidth > maxLabelWidth) {
+        maxLabelWidth = requiredWidth;
+      }
+    }
+  }
+  return Math.ceil(maxLabelWidth);
+}
+
 /**
  * ChartGrid - Renders Observable Plot charts (single or multiple)
  */
@@ -208,7 +234,6 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     const NAMES_BAND_LEFT_PX = 20;
     const VALUES_BAND_LEFT_PX = 20;
     const VALUES_BAND_TOP_PX = 20;
-    const Y_LABEL_COL_PX = 16;
     const X_LABEL_ROW_PX = 16;
 
     const yLevelsCount = rowLevels.length;
@@ -217,7 +242,8 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     // Dynamic gutters
     const dynamicYAxisPx = computeDynamicYAxisGutterPx(spec, rows);
     const dynamicXAxisPx = computeDynamicXAxisGutterPx(spec, columns);
-    const leftFixedWidthPx = leftLabelsPx + Y_LABEL_COL_PX + dynamicYAxisPx;
+    const yLabelColPx = computeDynamicYLabelColPx(spec, rowHeightPx);
+    const leftFixedWidthPx = leftLabelsPx + yLabelColPx + dynamicYAxisPx;
 
     // Calculate header height for proper alignment
     const topHeaderHeight = colLevels.length > 0 ? 
@@ -316,7 +342,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
             
             {/* Left Y labels/scales area */}
             <div style={{ gridColumn: 1, gridRow: '1 / -1', pointerEvents: 'auto', borderRight: `1px solid ${dividerColor}` }}>
-              <div style={{ display: 'grid', gridTemplateColumns: `${leftLabelsPx}px ${Y_LABEL_COL_PX}px ${dynamicYAxisPx}px`, gridTemplateRows: plotRowsSpec }}>
+              <div style={{ display: 'grid', gridTemplateColumns: `${leftLabelsPx}px ${yLabelColPx}px ${dynamicYAxisPx}px`, gridTemplateRows: plotRowsSpec }}>
                 {/* Left facet labels area */}
                 <LeftFacetLabels spec={spec} plotRowsSpec={plotRowsSpec} baseRows={baseRows} />
 
