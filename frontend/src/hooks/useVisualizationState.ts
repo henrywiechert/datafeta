@@ -138,11 +138,28 @@ export function useVisualizationState() {
             const response = await apiService.listColumns(state.selectedTable, dbParam);
             const fields: Field[] = response.columns.map(col => {
                 const dataType = mapBackendDataType(col.data_type);
+                
+                // Set default type and flavour based on data type
+                let type: 'dimension' | 'measure';
+                let flavour: 'discrete' | 'continuous';
+                
+                if (dataType === 'string' || dataType === 'datetime') {
+                    type = 'dimension';
+                    flavour = 'discrete';
+                } else if (dataType === 'integer' || dataType === 'float') {
+                    type = 'measure';
+                    flavour = 'continuous';
+                } else {
+                    // Fallback
+                    type = 'dimension';
+                    flavour = 'discrete';
+                }
+                
                 return {
                     id: `field-${col.name}`,
                     columnName: col.name,
-                    type: 'dimension', // All fields start as dimensions (datetime fields must stay as dimensions)
-                    flavour: 'discrete', // All fields default to discrete, can be changed via UI (except string dimensions)
+                    type: type,
+                    flavour: flavour,
                     dataType: dataType,
                 };
             });
