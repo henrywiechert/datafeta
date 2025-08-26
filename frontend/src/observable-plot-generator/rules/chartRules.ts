@@ -37,10 +37,10 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
   const yDims = analysis.yDimensions || [];
   // Early: single continuous measure on one axis with no dimensions on the other → single-bar chart
   if (analysis.hasXMeasure && !analysis.hasYMeasure && yDims.length === 0) {
-    return { library: 'observable-plot', options: barChart(context), layout: { type: 'single' } };
+    return barChart(context);
   }
   if (analysis.hasYMeasure && !analysis.hasXMeasure && xDims.length === 0) {
-    return { library: 'observable-plot', options: barChart(context), layout: { type: 'single' } };
+    return barChart(context);
   }
   const xDiscreteDims = xDims.filter((d: any) => d.flavour === 'discrete');
   const yDiscreteDims = yDims.filter((d: any) => d.flavour === 'discrete');
@@ -55,7 +55,7 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
       return { library: 'observable-plot', options: lineChart(data, yDimCol, xMeasureCol, { x: yDimCol, y: xMeasureCol }), layout: { type: 'single' } };
     }
     if (yDiscreteDims.length > 0 || yDims.length > 0) {
-      return { library: 'observable-plot', options: barChart(context), layout: { type: 'single' } };
+      return barChart(context);
     }
   }
 
@@ -67,7 +67,7 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
       return { library: 'observable-plot', options: lineChart(data, xDimCol, yMeasureCol, { x: xDimCol, y: yMeasureCol }), layout: { type: 'single' } };
     }
     if (xDiscreteDims.length > 0 || xDims.length > 0) {
-      return { library: 'observable-plot', options: barChart(context), layout: { type: 'single' } };
+      return barChart(context);
     }
   }
 

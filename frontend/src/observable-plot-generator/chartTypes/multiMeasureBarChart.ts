@@ -1,7 +1,12 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext, PlotResult } from '../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
-import { DEFAULT_CHART_COLOR, BAR_STEP_PX } from '../../config/chartLayoutConfig';
+import { BAR_STEP_PX } from '../../config/chartLayoutConfig';
+import { 
+  calculateSharedDomains, 
+  createHorizontalBarChart, 
+  createVerticalBarChart 
+} from './shared/barChartHelpers';
 
 /**
  * Generate multiple bar charts with shared axes for multiple measures
@@ -61,24 +66,7 @@ export function multiMeasureBarChart(context: ChartGenerationContext): PlotResul
 /**
  * Calculate shared domains across all measures
  */
-function calculateSharedDomains(measures: any[], data: any[]) {
-  const domains: any = {};
-
-  // For each measure, calculate its domain
-  measures.forEach(measure => {
-    const fieldForName = { ...measure, aggregation: measure.aggregation || 'sum' };
-    const measureName = getResultColumnName(fieldForName);
-    
-    const values = data.map(row => row[measureName]).filter(v => typeof v === 'number' && isFinite(v));
-    if (values.length > 0) {
-      const max = Math.max(0, ...values);
-      const upper = max === 0 ? 1 : max * 1.05; // +5% headroom
-      domains[measureName] = [0, upper];
-    }
-  });
-
-  return domains;
-}
+// Moved to shared/barChartHelpers.ts
 
 /**
  * Generate individual plot for each measure based on axis placement
@@ -163,95 +151,9 @@ function generateMeasurePlots(
 /**
  * Create horizontal bar chart (measure on X-axis)
  */
-function createHorizontalBarChart(
-  measureName: string,
-  dimension: any,
-  data: any[],
-  sharedDomains: any,
-  BAR_STEP: number
-): Plot.PlotOptions {
-  const plotOptions: Plot.PlotOptions = {
-    x: {
-      domain: sharedDomains[measureName], // Shared X domain starting at 0
-      grid: true,
-      label: measureName,
-      nice: false,
-    },
-    marks: [Plot.ruleX([0])],
-  };
-
-  if (dimension) {
-    // Horizontal bars with dimension on Y-axis
-    const categories = Array.from(new Set(data.map((row) => row[dimension.columnName])));
-    const categoryCount = categories.length;
-    plotOptions.height = Math.max(BAR_STEP * 2, categoryCount * BAR_STEP);
-    plotOptions.y = { label: dimension.columnName, domain: categories as any, type: 'band' as any };
-    plotOptions.marks!.push(
-      Plot.barX(data, {
-        x: measureName,
-        y: dimension.columnName,
-        fill: DEFAULT_CHART_COLOR,
-      })
-    );
-  } else {
-    // Single horizontal bar
-    plotOptions.height = BAR_STEP * 2;
-    plotOptions.y = { label: ' ', domain: [' '] as any, type: 'band' as any };
-    plotOptions.marks!.push(
-      Plot.barX(data, {
-        x: measureName,
-        fill: DEFAULT_CHART_COLOR,
-      })
-    );
-  }
-
-  return plotOptions;
-}
+// Moved to shared/barChartHelpers.ts
 
 /**
  * Create vertical bar chart (measure on Y-axis)
  */
-function createVerticalBarChart(
-  measureName: string,
-  dimension: any,
-  data: any[],
-  sharedDomains: any,
-  BAR_STEP: number
-): Plot.PlotOptions {
-  const plotOptions: Plot.PlotOptions = {
-    y: {
-      domain: sharedDomains[measureName], // Shared Y domain starting at 0
-      grid: true,
-      label: measureName,
-      nice: false,
-    },
-    marks: [Plot.ruleY([0])],
-  };
-
-  if (dimension) {
-    // Vertical bars with dimension on X-axis
-    const categories = Array.from(new Set(data.map((row) => row[dimension.columnName])));
-    const categoryCount = categories.length;
-    plotOptions.width = Math.max(BAR_STEP * 2, categoryCount * BAR_STEP);
-    plotOptions.x = { label: dimension.columnName, domain: categories as any, type: 'band' as any };
-    plotOptions.marks!.push(
-      Plot.barY(data, {
-        x: dimension.columnName,
-        y: measureName,
-        fill: DEFAULT_CHART_COLOR,
-      })
-    );
-  } else {
-    // Single vertical bar
-    plotOptions.width = BAR_STEP * 2;
-    plotOptions.x = { label: ' ', domain: [' '] as any, type: 'band' as any };
-    plotOptions.marks!.push(
-      Plot.barY(data, {
-        y: measureName,
-        fill: DEFAULT_CHART_COLOR,
-      })
-    );
-  }
-
-  return plotOptions;
-}
+// Moved to shared/barChartHelpers.ts
