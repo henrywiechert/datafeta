@@ -174,7 +174,7 @@ function createBarX(
   } else {
     // Remove hardcoded height for responsive sizing
     opts.y = { label: ' ' };
-    opts.height = BAR_STEP_PX * 2;
+    opts.height = BAR_STEP_PX;
     opts.marks!.push(
       Plot.barX(data, { x: measureName, fill: DEFAULT_CHART_COLOR })
     );
@@ -223,7 +223,7 @@ function createBarY(
   } else {
     // Remove hardcoded width for responsive sizing
     opts.x = { label: ' ' };
-    opts.width = BAR_STEP_PX * 2;
+    opts.width = BAR_STEP_PX;
     opts.marks!.push(
       Plot.barY(data, { y: measureName, fill: DEFAULT_CHART_COLOR })
     );
