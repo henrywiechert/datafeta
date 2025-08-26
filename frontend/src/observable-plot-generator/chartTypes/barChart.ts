@@ -86,7 +86,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       const [d0, d1] = paddedDomainIncludingZero(minVal, maxVal);
 
       return {
-        width: barStep * 2,
+        width: barStep,
         marks: [
           Plot.barY(data, configWithCategory),
           Plot.ruleY([0])
@@ -145,7 +145,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       const [d0, d1] = paddedDomainIncludingZero(minVal, maxVal);
 
       return {
-        height: barStep * 2,
+        height: barStep,
         marks: [
           Plot.barX(data, configWithCategory),
           Plot.ruleX([0])

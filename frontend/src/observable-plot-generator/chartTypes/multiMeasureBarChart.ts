@@ -195,7 +195,7 @@ function createHorizontalBarChart(
     );
   } else {
     // Single horizontal bar
-    plotOptions.height = BAR_STEP * 2;
+    plotOptions.height = BAR_STEP;
     plotOptions.y = { label: ' ', domain: [' '] as any, type: 'band' as any };
     plotOptions.marks!.push(
       Plot.barX(data, {
@@ -243,7 +243,7 @@ function createVerticalBarChart(
     );
   } else {
     // Single vertical bar
-    plotOptions.width = BAR_STEP * 2;
+    plotOptions.width = BAR_STEP;
     plotOptions.x = { label: ' ', domain: [' '] as any, type: 'band' as any };
     plotOptions.marks!.push(
       Plot.barY(data, {
