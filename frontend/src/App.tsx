@@ -1,11 +1,59 @@
 import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Tabs, Tab, Box } from '@mui/material';
+import { Tabs, Tab, Box, CssBaseline } from '@mui/material';
+import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { VisualizationProvider } from './contexts/VisualizationContext';
 import './App.css';
 
 const DataSourceSelectionPage = lazy(() => import('./pages/DataSourceSelectionPage'));
 const VisualizationPage = lazy(() => import('./pages/VisualizationPage'));
+
+// Create a MUI theme to standardize fonts and input appearance
+const theme = createTheme({
+  shape: { borderRadius: 8 },
+  typography: {
+    fontFamily: `Montserrat, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial, sans-serif`,
+    button: {
+      textTransform: 'none',
+      fontWeight: 600,
+    }
+  },
+  palette: {
+    primary: {
+      main: '#007bff',
+    },
+  },
+  components: {
+    MuiTextField: {
+      defaultProps: { size: 'small', variant: 'outlined' },
+    },
+    MuiFormControl: {
+      defaultProps: { size: 'small', variant: 'outlined' },
+    },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+          '& .MuiOutlinedInput-notchedOutline': { 
+            borderWidth: 1,
+            borderColor: 'rgba(0, 0, 0, 0.23)',
+          },
+          '&:hover .MuiOutlinedInput-notchedOutline': { 
+            borderWidth: 1,
+            borderColor: 'rgba(0, 0, 0, 0.5)',
+          },
+          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+            borderWidth: 1.5,
+            borderColor: '#007bff',
+          },
+        },
+        input: {
+          fontFamily: `Montserrat, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial, sans-serif`,
+        },
+      },
+    },
+  },
+});
 
 function AppContent() {
   const location = useLocation();
@@ -50,11 +98,14 @@ function AppContent() {
 
 function App() {
   return (
-    <VisualizationProvider>
-      <Router>
-        <AppContent />
-      </Router>
-    </VisualizationProvider>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <VisualizationProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </VisualizationProvider>
+    </ThemeProvider>
   );
 }
 
