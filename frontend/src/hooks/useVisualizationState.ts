@@ -142,17 +142,21 @@ export function useVisualizationState() {
                 // Set default type and flavour based on data type
                 let type: 'dimension' | 'measure';
                 let flavour: 'discrete' | 'continuous';
+                let aggregation: 'sum' | 'avg' | 'min' | 'max' | 'count' | 'count_distinct' | undefined;
                 
                 if (dataType === 'string' || dataType === 'datetime') {
                     type = 'dimension';
                     flavour = 'discrete';
+                    aggregation = undefined; // Dimensions don't have aggregation
                 } else if (dataType === 'integer' || dataType === 'float') {
                     type = 'measure';
                     flavour = 'continuous';
+                    aggregation = 'sum'; // Default aggregation for measures
                 } else {
                     // Fallback
                     type = 'dimension';
                     flavour = 'discrete';
+                    aggregation = undefined;
                 }
                 
                 return {
@@ -161,6 +165,7 @@ export function useVisualizationState() {
                     type: type,
                     flavour: flavour,
                     dataType: dataType,
+                    aggregation: aggregation,
                 };
             });
             dispatch({ type: 'SET_AVAILABLE_FIELDS', payload: fields });
