@@ -172,7 +172,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   if (!spec) {
     return (
       <div className={styles.container} ref={containerRef}>
-        <p>Generating chart specification...</p>
+        <p>No chart data available.</p>
       </div>
     );
   }
