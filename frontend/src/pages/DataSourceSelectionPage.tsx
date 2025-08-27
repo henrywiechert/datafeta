@@ -1,8 +1,8 @@
 import React, { useState, useEffect, ChangeEvent } from 'react';
 import { ConnectionDetails } from '../types';
 import { useConnection } from '../contexts/ConnectionContext';
-import '../App.css';
 import { Link } from 'react-router-dom';
+import styles from './DataSourceSelectionPage.module.css';
 
 function DataSourceSelectionPage() {
   const { isConnected, isLoading, error, message, connect, disconnect, connectionDetails } = useConnection();
@@ -83,64 +83,149 @@ function DataSourceSelectionPage() {
   };
 
   return (
-    <div>
-      <h2>Data Source Selection</h2>
+    <div className={styles.container}>
+      <h2 className={styles.pageTitle}>Data Source Selection</h2>
 
-      <div className="connection-area">
-        <h3>Connect to a Data Source</h3>
-        <select value={connectionType} onChange={(e) => setConnectionType(e.target.value as 'csv' | 'clickhouse')} disabled={isConnected || isLoading}>
-          <option value="csv">CSV File</option>
-          <option value="clickhouse">ClickHouse</option>
-        </select>
+      <div className={styles.card}>
+        <h3 className={styles.sectionTitle}>Connect to a Data Source</h3>
+        
+        <div className={styles.formGroup}>
+          <label className={styles.label}>Data Source Type</label>
+          <select 
+            className={styles.select} 
+            value={connectionType} 
+            onChange={(e) => setConnectionType(e.target.value as 'csv' | 'clickhouse')} 
+            disabled={isConnected || isLoading}
+          >
+            <option value="csv">CSV File</option>
+            <option value="clickhouse">ClickHouse</option>
+          </select>
+        </div>
 
         {connectionType === 'csv' && (
-          <div style={{marginTop: '10px'}}>
-            <label>CSV File:</label>
-            <input type="file" accept=".csv" onChange={handleFileChange} disabled={isConnected || isLoading} />
-            {filePath && <span style={{ marginLeft: '10px' }}>Selected: {filePath}</span>}
+          <div className={styles.formGroup}>
+            <div className={styles.fileUpload}>
+              <label className={styles.label}>CSV File</label>
+              <input 
+                type="file" 
+                accept=".csv" 
+                onChange={handleFileChange} 
+                disabled={isConnected || isLoading}
+                className={styles.input}
+              />
+              {filePath && <div className={styles.selectedFile}>Selected: {filePath}</div>}
+            </div>
           </div>
         )}
 
         {connectionType === 'clickhouse' && (
-          <div style={{marginTop: '10px'}}>
-            <div>
-                <label>Conn String:</label>
-                <input style={{width: '300px'}} type="text" value={connString} onChange={(e) => setConnString(e.target.value)} placeholder="clickhouse://user:pass@host:port/db" disabled={isConnected || isLoading} />
-                <em style={{marginLeft: '10px'}}> OR provide details below:</em>
+          <>
+            <div className={styles.connectionStringSection}>
+              <div className={styles.formField}>
+                <label className={styles.label}>Connection String</label>
+                <input 
+                  className={`${styles.input} ${styles.inputWide}`}
+                  type="text" 
+                  value={connString} 
+                  onChange={(e) => setConnString(e.target.value)} 
+                  placeholder="clickhouse://user:pass@host:port/db" 
+                  disabled={isConnected || isLoading} 
+                />
+              </div>
             </div>
-            <hr style={{margin: '10px 0'}}/>
-            <div>
-                <label>Host:</label>
-                <input type="text" value={host} onChange={(e) => setHost(e.target.value)} disabled={isConnected || isLoading || !!connString} />
-                <label style={{marginLeft: '10px'}}>Port:</label>
-                <input type="number" style={{width: '80px'}} value={port} onChange={(e) => setPort(e.target.value)} disabled={isConnected || isLoading || !!connString} />
+
+            <div className={styles.orDivider}>OR provide details below</div>
+
+            <div className={styles.fieldsSection}>
+              <div className={styles.formRow}>
+                <div className={styles.formField}>
+                  <label className={styles.label}>Host</label>
+                  <input 
+                    className={styles.input}
+                    type="text" 
+                    value={host} 
+                    onChange={(e) => setHost(e.target.value)} 
+                    disabled={isConnected || isLoading || !!connString} 
+                  />
+                </div>
+                <div className={styles.formField}>
+                  <label className={styles.label}>Port</label>
+                  <input 
+                    className={`${styles.input} ${styles.inputSmall}`}
+                    type="number" 
+                    value={port} 
+                    onChange={(e) => setPort(e.target.value)} 
+                    disabled={isConnected || isLoading || !!connString} 
+                  />
+                </div>
+              </div>
+              
+              <div className={styles.formRow}>
+                <div className={styles.formField}>
+                  <label className={styles.label}>User</label>
+                  <input 
+                    className={styles.input}
+                    type="text" 
+                    value={user} 
+                    onChange={(e) => setUser(e.target.value)} 
+                    disabled={isConnected || isLoading || !!connString} 
+                  />
+                </div>
+                <div className={styles.formField}>
+                  <label className={styles.label}>Password</label>
+                  <input 
+                    className={styles.input}
+                    type="password" 
+                    value={password} 
+                    onChange={(e) => setPassword(e.target.value)} 
+                    disabled={isConnected || isLoading || !!connString} 
+                  />
+                </div>
+              </div>
+              
+              <div className={styles.formField}>
+                <label className={styles.label}>Database</label>
+                <input 
+                  className={styles.input}
+                  type="text" 
+                  value={dbName} 
+                  onChange={(e) => setDbName(e.target.value)} 
+                  disabled={isConnected || isLoading || !!connString} 
+                />
+              </div>
             </div>
-            <div>
-                <label>User:</label>
-                <input type="text" value={user} onChange={(e) => setUser(e.target.value)} disabled={isConnected || isLoading || !!connString} />
-                <label style={{marginLeft: '10px'}}>Password:</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} disabled={isConnected || isLoading || !!connString} />
-            </div>
-             <div>
-                <label>Database:</label>
-                <input type="text" value={dbName} onChange={(e) => setDbName(e.target.value)} disabled={isConnected || isLoading || !!connString} />
-             </div>
-          </div>
+          </>
         )}
 
-        <div style={{marginTop: '15px'}}>
-            {!isConnected ? (
-            <button onClick={handleConnect} disabled={isLoading}>Connect</button>
-            ) : (
-            <button onClick={handleDisconnect} disabled={isLoading}>Disconnect</button>
-            )}
+        <div className={styles.buttonContainer}>
+          {!isConnected ? (
+            <button 
+              className={styles.button} 
+              onClick={handleConnect} 
+              disabled={isLoading}
+            >
+              Connect
+            </button>
+          ) : (
+            <button 
+              className={`${styles.button} ${styles.disconnectButton}`} 
+              onClick={handleDisconnect} 
+              disabled={isLoading}
+            >
+              Disconnect
+            </button>
+          )}
         </div>
 
-        {isLoading && <p>Loading...</p>}
-        {error && <p style={{ color: 'red' }}>Error: {error}</p>}
-        {message && <p style={{ color: 'green' }}>
-            {message} {isConnected ? <Link to="/visualize">Go to Visualization</Link> : null}
-        </p>}
+        <div className={styles.messageContainer}>
+          {isLoading && <div className={styles.loadingText}>Connecting...</div>}
+          {error && <div className={styles.errorMessage}>Error: {error}</div>}
+          {message && (
+            <div className={styles.successMessage}>
+              {message} {isConnected ? <Link to="/visualize">Go to Visualization</Link> : null}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
