@@ -68,26 +68,27 @@ export const apiService = {
         const abortController = signal ? null : createAbortController();
         const requestSignal = signal || abortController?.signal;
 
-        const formData = new FormData();
-
-        // Append the connection details as a PLAIN JSON STRING
-        // (Instead of a Blob)
-        formData.append('connection_details_json', JSON.stringify(details));
-
-        // Append the file if provided (FastAPI expects it under the 'uploaded_file' key)
-        if (details.type === 'csv' && file) {
-            formData.append('uploaded_file', file, file.name);
-        } else if (details.type === 'csv' && !file) {
-             throw new Error('CSV file must be provided for connection type csv.');
+        if (details.type === 'csv') {
+            const formData = new FormData();
+            formData.append('connection_details_json', JSON.stringify(details));
+            if (file) {
+                formData.append('uploaded_file', file, file.name);
+            } else {
+                throw new Error('CSV file must be provided for connection type csv.');
+            }
+            const response = await fetchWithErrorHandling(`${API_BASE_URL}/connect`, {
+                method: 'POST',
+                body: formData,
+            }, requestSignal);
+            return response.json();
+        } else {
+            const response = await fetchWithErrorHandling(`${API_BASE_URL}/connect/json`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(details),
+            }, requestSignal);
+            return response.json();
         }
-
-        const response = await fetchWithErrorHandling(`${API_BASE_URL}/connect`, {
-            method: 'POST',
-            // 'Content-Type' header is set automatically by the browser when using FormData
-            body: formData,
-        }, requestSignal);
-
-        return response.json();
     },
 
     async disconnect(signal?: AbortSignal): Promise<{ message: string }> {
