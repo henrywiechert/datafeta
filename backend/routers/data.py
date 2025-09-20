@@ -314,7 +314,7 @@ def execute_query(
     except ValueError as e:
         raise QueryGenerationError(f"Query generation error: {e}")
     except Exception as e:
-        print(f"Unexpected error during query translation: {e}")
+        logger.exception(f"Unexpected error during query translation")
         raise QueryGenerationError("Internal server error during query generation.")
 
     # --- Execute Query via Connector --- #
