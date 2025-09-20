@@ -2,6 +2,8 @@
 
 from typing import Optional, Dict
 from fastapi import status, Depends, Request, Response
+import asyncio
+import threading
 import duckdb
 import logging
 import uuid
@@ -18,6 +20,8 @@ class ConnectionStateManager:
         self.current_connector: Optional[BaseConnector] = None
         self.current_connection_details: Optional[ConnectionDetails] = None
         self.current_csv_temp_path: Optional[str] = None
+        # Per-session async lock to serialize connect/disconnect
+        self.lock: asyncio.Lock = asyncio.Lock()
 
     def set_state(
         self,
@@ -42,6 +46,8 @@ logger = logging.getLogger(__name__)
 # In a production environment, you might replace this with a more robust
 # storage solution like Redis, especially if you have multiple server instances.
 session_storage: Dict[str, ConnectionStateManager] = {}
+# Global lock to guard session_storage mutations in multi-threaded servers
+_session_storage_lock = threading.Lock()
 
 # --- Dependency Functions --- #
 
@@ -62,7 +68,8 @@ async def get_state_manager(
     if not session_id or session_id not in session_storage:
         # Create a new session if one doesn't exist
         session_id = str(uuid.uuid4())
-        session_storage[session_id] = ConnectionStateManager()
+        with _session_storage_lock:
+            session_storage[session_id] = ConnectionStateManager()
         # Set the new session ID in the client's cookies
         response.set_cookie(key="session_id", value=session_id, httponly=True)
         logger.info(f"New session created with ID: {session_id}")

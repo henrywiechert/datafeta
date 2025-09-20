@@ -159,7 +159,8 @@ class ConnectionService:
         uploaded_file: Optional[UploadFile],
         session_id: str,
     ) -> Dict[str, Any]:
-        await self._clear_previous_state(session_id)
+        async with self.state_manager.lock:
+            await self._clear_previous_state(session_id)
 
         temp_file_path: Optional[str] = None
         connector: Optional[BaseConnector] = None
@@ -245,7 +246,8 @@ class ConnectionService:
         connection_details: ConnectionDetails,
         session_id: str,
     ) -> Dict[str, Any]:
-        await self._clear_previous_state(session_id)
+        async with self.state_manager.lock:
+            await self._clear_previous_state(session_id)
 
         connector: Optional[BaseConnector] = None
         try:
@@ -300,20 +302,21 @@ class ConnectionService:
         except Exception:
             session_upload_dir = None
 
-        if self.state_manager.current_connector:
-            await run_in_threadpool(self.state_manager.current_connector.disconnect)
+        async with self.state_manager.lock:
+            if self.state_manager.current_connector:
+                await run_in_threadpool(self.state_manager.current_connector.disconnect)
 
-        self.state_manager.clear_state()
+            self.state_manager.clear_state()
 
-        if file_to_delete and os.path.exists(file_to_delete):
-            try:
-                if session_upload_dir and self._is_path_within_directory(file_to_delete, session_upload_dir):
-                    os.remove(file_to_delete)
-                    logger.info(f"Deleted temp file: {file_to_delete}")
-                else:
-                    logger.warning(f"Refusing to delete file outside session temp dir: {file_to_delete}")
-            except OSError:
-                logger.error(f"Error deleting temp file {file_to_delete}", exc_info=True)
+            if file_to_delete and os.path.exists(file_to_delete):
+                try:
+                    if session_upload_dir and self._is_path_within_directory(file_to_delete, session_upload_dir):
+                        os.remove(file_to_delete)
+                        logger.info(f"Deleted temp file: {file_to_delete}")
+                    else:
+                        logger.warning(f"Refusing to delete file outside session temp dir: {file_to_delete}")
+                except OSError:
+                    logger.error(f"Error deleting temp file {file_to_delete}", exc_info=True)
 
         return {"message": "Successfully disconnected."}
 
