@@ -25,8 +25,8 @@ from backend.dependencies import (
 
 # Import custom exceptions
 from backend.exceptions import (
-    AppException, InvalidInputError, DataSourceConnectionError,
-    QueryGenerationError, QueryExecutionError, FileProcessingError
+    InvalidInputError, DataSourceConnectionError,
+    QueryGenerationError, QueryExecutionError
 )
 
 # Get a logger for this module
@@ -46,7 +46,7 @@ router = APIRouter()
 
 # --- Endpoints --- #
 
-@router.post("/connect", status_code=status.HTTP_200_OK)
+@router.post("/connect")
 async def connect_to_datasource(
     connection_details_json: str = Form(...),
     uploaded_file: Optional[UploadFile] = File(None),
@@ -58,7 +58,7 @@ async def connect_to_datasource(
     service = ConnectionService(state_manager=state_manager, request=request)
     return await service.connect_multipart(connection_details_json, uploaded_file, session_id)
 
-@router.post("/connect/json", status_code=status.HTTP_200_OK)
+@router.post("/connect/json")
 async def connect_to_datasource_json(
     connection_details: ConnectionDetails = Body(...),
     state_manager: ConnectionStateManager = Depends(get_state_manager),
@@ -69,7 +69,7 @@ async def connect_to_datasource_json(
     service = ConnectionService(state_manager=state_manager, request=request)
     return await service.connect_json(connection_details, session_id)
 
-@router.post("/disconnect", status_code=status.HTTP_200_OK)
+@router.post("/disconnect")
 async def disconnect_datasource(
     state_manager: ConnectionStateManager = Depends(get_state_manager),
     session_id: str = Depends(get_session_id),
