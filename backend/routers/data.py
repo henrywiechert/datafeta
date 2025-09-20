@@ -259,6 +259,76 @@ async def connect_to_datasource(
         logger.exception(f"Unexpected error during connect")
         raise AppException("An unexpected server error occurred during connection.")
 
+@router.post("/connect/json", status_code=status.HTTP_200_OK)
+async def connect_to_datasource_json(
+    connection_details: ConnectionDetails = Body(...),
+    state_manager: ConnectionStateManager = Depends(get_state_manager),
+    session_id: str = Depends(get_session_id),
+    request: Request = None
+):
+    """Connect to a data source using a JSON body (no file upload). Use for non-file sources."""
+    # Reset previous state and clean up any prior CSV temp file if present
+    if state_manager.current_connector:
+        await run_in_threadpool(state_manager.current_connector.disconnect)
+    if state_manager.current_csv_temp_path and os.path.exists(state_manager.current_csv_temp_path):
+        try:
+            upload_root_dir = getattr(request.app.state, "upload_root_dir", None) if request else None
+            if upload_root_dir and _is_path_within_directory(state_manager.current_csv_temp_path, upload_root_dir):
+                os.remove(state_manager.current_csv_temp_path)
+            else:
+                logger.warning(f"Refusing to delete file outside upload root on connect-json: {state_manager.current_csv_temp_path}")
+        except OSError:
+            logger.error(f"Error cleaning up previous temp file {state_manager.current_csv_temp_path}", exc_info=True)
+    state_manager.clear_state()
+
+    # Only allow non-file sources here
+    if connection_details.type == "csv":
+        raise InvalidInputError(
+            "CSV connections require multipart upload. Use /api/v1/data/connect with form-data.",
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+        )
+
+    connector: Optional[BaseConnector] = None
+    try:
+        connect_args = {}
+        effective_connection_details = connection_details.copy(deep=True)
+
+        if connection_details.type == "clickhouse":
+            if connection_details.connection_string:
+                connect_args['connection_string'] = connection_details.connection_string
+            elif connection_details.host:
+                ch_args = {
+                    "host": connection_details.host,
+                    "port": connection_details.port,
+                    "user": connection_details.user,
+                    "password": connection_details.password,
+                    "database": connection_details.database,
+                }
+                connect_args = {k: v for k, v in ch_args.items() if v is not None}
+            else:
+                raise InvalidInputError("Either connection_string or host must be provided for ClickHouse")
+        else:
+            # Fallback for future non-file connectors can be added here
+            pass
+
+        connector = get_connector(effective_connection_details, state_manager)
+        await run_in_threadpool(connector.connect, connect_args)
+
+        state_manager.set_state(
+            connector=connector,
+            details=effective_connection_details,
+            csv_temp_path=None
+        )
+
+        return {"message": f"Successfully connected to {connection_details.type} source."}
+    except (InvalidInputError, DataSourceConnectionError) as e:
+        state_manager.clear_state()
+        raise e
+    except Exception:
+        state_manager.clear_state()
+        logger.exception(f"Unexpected error during JSON connect")
+        raise AppException("An unexpected server error occurred during connection.")
+
 @router.post("/disconnect", status_code=status.HTTP_200_OK)
 def disconnect_datasource(
     state_manager: ConnectionStateManager = Depends(get_state_manager),
