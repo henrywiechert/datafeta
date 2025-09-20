@@ -1,7 +1,6 @@
 import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Tabs, Tab, Box } from '@mui/material';
-import { VisualizationProvider } from './contexts/VisualizationContext';
 import './App.css';
 
 const DataSourceSelectionPage = lazy(() => import('./pages/DataSourceSelectionPage'));
@@ -50,11 +49,9 @@ function AppContent() {
 
 function App() {
   return (
-    <VisualizationProvider>
-      <Router>
-        <AppContent />
-      </Router>
-    </VisualizationProvider>
+    <Router>
+      <AppContent />
+    </Router>
   );
 }
 

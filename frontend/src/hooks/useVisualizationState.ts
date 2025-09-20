@@ -202,31 +202,16 @@ export function useVisualizationState() {
 
     // --- Effects to trigger data fetching ---
     useEffect(() => {
-        if (connectionDetails) {
-            // Only reset and fetch if we don't already have data for this connection
-            // This prevents refetching when switching tabs
-            const shouldFetch = state.databases.length === 0 && 
-                               state.tables.length === 0 && 
-                               state.selectedDatabase === '' &&
-                               !state.isLoadingMetadata;
-            
-            if (shouldFetch) {
-                // Reset state when connection changes
-                dispatch({ type: 'SET_DATABASES', payload: [] });
-                dispatch({ type: 'SET_TABLES', payload: [] });
-                dispatch({ type: 'SET_AVAILABLE_FIELDS', payload: [] });
-                dispatch({ type: 'SET_SELECTED_DATABASE', payload: '' });
-                dispatch({ type: 'SET_SELECTED_TABLE', payload: '' });
-                dispatch({ type: 'SET_METADATA_ERROR', payload: null });
-                
-                if (connectionDetails.type === 'clickhouse') {
-                    fetchDatabases();
-                } else if (connectionDetails.type === 'csv') {
-                    fetchTables('');
-                }
-            }
+        if (!connectionDetails) return;
+        // Always refetch metadata when connection changes, but do not touch axis fields here
+        dispatch({ type: 'SET_METADATA_ERROR', payload: null });
+        if (connectionDetails.type === 'clickhouse') {
+            fetchDatabases();
+        } else if (connectionDetails.type === 'csv') {
+            fetchTables('');
         }
-    }, [connectionDetails, fetchDatabases, fetchTables, dispatch, state.databases.length, state.tables.length, state.selectedDatabase, state.isLoadingMetadata]);
+        // Columns fetch will trigger once selectedTable is set (CSV auto-selection handled in fetchTables)
+    }, [connectionDetails?.type]);
     
     useEffect(() => {
         // Fetch columns when table is selected (either from initial load or user selection)
