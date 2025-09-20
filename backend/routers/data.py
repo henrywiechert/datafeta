@@ -57,6 +57,15 @@ def get_session_upload_dir(request: Request, session_id: str) -> str:
     os.makedirs(session_dir, exist_ok=True)
     return session_dir
 
+def _is_path_within_directory(path: str, directory: str) -> bool:
+    """Symlink-safe check that the path resolves within the given directory."""
+    try:
+        directory_real = os.path.realpath(directory)
+        path_real = os.path.realpath(path)
+        return os.path.commonpath([directory_real]) == os.path.commonpath([directory_real, path_real])
+    except Exception:
+        return False
+
 def get_connector(
     connection_details: ConnectionDetails,
     state_manager: ConnectionStateManager
@@ -89,9 +98,9 @@ async def connect_to_datasource(
         state_manager.current_connector.disconnect()
     if state_manager.current_csv_temp_path and os.path.exists(state_manager.current_csv_temp_path):
         try:
-            # Basic check to prevent deleting outside upload root
+            # Symlink-safe check to prevent deleting outside upload root
             upload_root_dir = getattr(request.app.state, "upload_root_dir", None) if request else None
-            if upload_root_dir and os.path.commonpath([upload_root_dir]) == os.path.commonpath([upload_root_dir, state_manager.current_csv_temp_path]):
+            if upload_root_dir and _is_path_within_directory(state_manager.current_csv_temp_path, upload_root_dir):
                 os.remove(state_manager.current_csv_temp_path)
             else:
                 # Log warning
@@ -200,7 +209,7 @@ def disconnect_datasource(
     # Clean up temp file if path was stored
     if file_to_delete and os.path.exists(file_to_delete):
          try:
-            if session_upload_dir and os.path.commonpath([session_upload_dir]) == os.path.commonpath([session_upload_dir, file_to_delete]):
+            if session_upload_dir and _is_path_within_directory(file_to_delete, session_upload_dir):
                 os.remove(file_to_delete)
                 # Log info
                 logger.info(f"Deleted temp file: {file_to_delete}")
