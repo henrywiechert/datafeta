@@ -1,14 +1,13 @@
 """Main FastAPI application."""
 import os
 import shutil
+import tempfile
 import logging # Import logging
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from .routers import data
-# Import UPLOAD_DIR constant (adjust path if needed)
-from .routers.data import UPLOAD_DIR
 # Import custom exceptions
 from .exceptions import (
     AppException, InvalidInputError, DataSourceConnectionError,
@@ -51,6 +50,17 @@ app.add_middleware(
 
 app.include_router(data.router, prefix="/api/v1/data", tags=["data"])
 
+@app.on_event("startup")
+def startup_event():
+    """Initialize application-scoped upload root directory."""
+    try:
+        upload_root_dir = tempfile.mkdtemp(prefix="datafeta_csv_")
+        app.state.upload_root_dir = upload_root_dir
+        logger.info(f"Created upload root directory: {upload_root_dir}")
+    except Exception:
+        logger.exception("Failed to create upload root directory")
+        raise
+
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the Data Analytics Platform API"}
@@ -59,13 +69,14 @@ def read_root():
 def shutdown_event():
     """Clean up the temporary upload directory on application shutdown."""
     try:
-        if UPLOAD_DIR and os.path.exists(UPLOAD_DIR):
-             shutil.rmtree(UPLOAD_DIR)
+        upload_root_dir = getattr(app.state, "upload_root_dir", None)
+        if upload_root_dir and os.path.exists(upload_root_dir):
+             shutil.rmtree(upload_root_dir)
              # Use logger
-             logger.info(f"Cleaned up temporary directory: {UPLOAD_DIR}")
-    except Exception as e:
+             logger.info(f"Cleaned up temporary directory: {upload_root_dir}")
+    except Exception:
         # Use logger, log exception info
-        logger.exception(f"Error cleaning up temp directory {UPLOAD_DIR}")
+        logger.exception("Error cleaning up upload root directory")
 
 # --- Custom Exception Handlers --- #
 
