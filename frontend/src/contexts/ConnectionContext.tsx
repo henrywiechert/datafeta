@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
 import { ConnectionDetails } from '../types'; // Assuming types are defined in ../types
 import { apiService } from '../apiService';
+import { useVisualizationContext } from './VisualizationContext';
 
 interface ConnectionState {
   isConnected: boolean;
@@ -24,6 +25,7 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [connectionDetails, setConnectionDetails] = useState<ConnectionDetails | null>(null);
+  const { dispatch } = useVisualizationContext();
 
   const connect = useCallback(async (details: ConnectionDetails, file?: File) => {
     setIsLoading(true);
@@ -38,6 +40,12 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
       setConnectionDetails(details); // Store successful connection details
       setIsConnected(true);
       setError(null);
+      // Reset metadata to trigger refresh without touching axis fields
+      dispatch({ type: 'SET_DATABASES', payload: [] });
+      dispatch({ type: 'SET_TABLES', payload: [] });
+      dispatch({ type: 'SET_AVAILABLE_FIELDS', payload: [] });
+      dispatch({ type: 'SET_SELECTED_DATABASE', payload: '' });
+      dispatch({ type: 'SET_SELECTED_TABLE', payload: '' });
       // Don't navigate here
     } catch (err: any) {
         let errorMessage = 'Connection failed';
