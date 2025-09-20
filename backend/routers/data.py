@@ -84,7 +84,10 @@ def get_connector(
     elif connection_details.type == "clickhouse":
         return ClickHouseConnector()
     else:
-        raise ValueError(f"Unsupported data source type for connector factory: {connection_details.type}")
+        raise InvalidInputError(
+            f"Unsupported data source type for connector factory: {connection_details.type}",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY
+        )
 
 # --- Endpoints --- #
 
