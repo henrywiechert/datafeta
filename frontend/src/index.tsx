@@ -4,15 +4,18 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { ConnectionProvider } from './contexts/ConnectionContext';
+import { VisualizationProvider } from './contexts/VisualizationContext';
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
 root.render(
   <React.StrictMode>
-    <ConnectionProvider>
-    <App />
-    </ConnectionProvider>
+    <VisualizationProvider>
+      <ConnectionProvider>
+        <App />
+      </ConnectionProvider>
+    </VisualizationProvider>
   </React.StrictMode>
 );
 
