@@ -5,6 +5,7 @@ import shutil
 import tempfile
 import os
 import json
+import csv
 from fastapi import APIRouter, Form, File, UploadFile, Depends, Body, status, Request
 from typing import Dict, Any, List, Optional
 from pydantic import ValidationError
@@ -49,6 +50,16 @@ router = APIRouter()
 
 # --- Helper Functions --- #
 
+# Upload hardening settings
+MAX_CSV_UPLOAD_BYTES = 64 * 1024 * 1024  # 64 MiB
+CSV_SNIFF_BYTES = 16384  # bytes to sample for sniffing
+ALLOWED_CSV_MIME_TYPES = {
+    "text/csv",
+    "application/csv",
+    "application/vnd.ms-excel",
+    "text/plain",
+}
+
 def get_session_upload_dir(request: Request, session_id: str) -> str:
     """Creates and returns a session-specific upload directory under app-managed root."""
     upload_root_dir = getattr(request.app.state, "upload_root_dir", None)
@@ -57,6 +68,44 @@ def get_session_upload_dir(request: Request, session_id: str) -> str:
     session_dir = os.path.join(upload_root_dir, session_id)
     os.makedirs(session_dir, exist_ok=True)
     return session_dir
+
+async def _save_uploaded_file_with_limit(uploaded_file: UploadFile, dest_path: str, max_bytes: int) -> None:
+    """Copy an UploadFile to a destination path in a threadpool with a byte limit."""
+    def _copy_limited():
+        bytes_copied = 0
+        with open(dest_path, "wb") as buffer:
+            while True:
+                chunk = uploaded_file.file.read(1024 * 1024)
+                if not chunk:
+                    break
+                bytes_copied += len(chunk)
+                if bytes_copied > max_bytes:
+                    raise InvalidInputError(
+                        detail=f"Uploaded file exceeds max size of {max_bytes} bytes.",
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    )
+                buffer.write(chunk)
+    await run_in_threadpool(_copy_limited)
+
+async def _validate_csv_file(path: str) -> None:
+    """Basic CSV validation using csv.Sniffer on a small sample."""
+    def _validate():
+        if not os.path.exists(path):
+            raise FileProcessingError("Temporary file missing during validation.")
+        with open(path, "rb") as f:
+            sample_bytes = f.read(CSV_SNIFF_BYTES)
+        sample = sample_bytes.decode("utf-8", errors="ignore")
+        if not sample or not sample.strip():
+            raise InvalidInputError("Uploaded CSV file is empty or unreadable.")
+        try:
+            csv.Sniffer().sniff(sample)
+        except csv.Error:
+            # Fallback: attempt simple parsing of first line
+            try:
+                next(csv.reader(sample.splitlines()))
+            except Exception:
+                raise InvalidInputError("Uploaded file does not appear to be valid CSV.")
+    await run_in_threadpool(_validate)
 
 async def _save_uploaded_file(uploaded_file: UploadFile, dest_path: str) -> None:
     """Copy an UploadFile to a destination path using a threadpool to avoid blocking the event loop."""
@@ -139,11 +188,23 @@ async def connect_to_datasource(
                 raise InvalidInputError("A CSV file upload is required for type 'csv'")
             if not uploaded_file.filename or not uploaded_file.filename.lower().endswith('.csv'):
                  raise InvalidInputError("Invalid file type or missing filename. Only CSV files are allowed.")
+            if uploaded_file.content_type not in ALLOWED_CSV_MIME_TYPES:
+                 raise InvalidInputError(
+                     detail=f"Unsupported content type: {uploaded_file.content_type}",
+                     status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                 )
             try:
                 session_upload_dir = get_session_upload_dir(request, session_id)
                 fd, temp_file_path = tempfile.mkstemp(suffix=".csv", dir=session_upload_dir)
                 os.close(fd)
-                await _save_uploaded_file(uploaded_file, temp_file_path)
+                try:
+                    await _save_uploaded_file_with_limit(uploaded_file, temp_file_path, MAX_CSV_UPLOAD_BYTES)
+                except InvalidInputError:
+                    # Propagate size errors with proper status after cleanup
+                    if temp_file_path and os.path.exists(temp_file_path):
+                        os.remove(temp_file_path)
+                    raise
+                await _validate_csv_file(temp_file_path)
                 connect_args['file_path'] = temp_file_path
             except Exception as e:
                 # Wrap file saving errors
