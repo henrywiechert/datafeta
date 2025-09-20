@@ -325,9 +325,11 @@ def execute_query(
             error=None
         )
     except NotImplementedError as e:
-        return QueryResult(columns=[], rows=[], row_count=0, error=str(e), query_sql=sql_query)
-    except (QueryExecutionError, DataSourceConnectionError) as e:
-        return QueryResult(columns=[], rows=[], row_count=0, error=f"Query execution error: {e}", query_sql=sql_query)
+        # Treat as a 501-like scenario via QueryExecutionError
+        raise QueryExecutionError(str(e))
+    except (QueryExecutionError, DataSourceConnectionError):
+        # Re-raise known typed exceptions for global handlers
+        raise
     except Exception as e:
         # Log unexpected error
         logger.exception(f"Unexpected error during query execution")
