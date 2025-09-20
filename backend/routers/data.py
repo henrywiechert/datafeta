@@ -44,14 +44,16 @@ router = APIRouter()
 # current_csv_temp_path: Optional[str] = None
 
 # --- Constants --- #
-# Keep UPLOAD_DIR here for now, or move to config/dependencies
-UPLOAD_DIR = tempfile.mkdtemp(prefix="datafeta_csv_")
+# Upload root is now managed in app state (see backend/main.py startup)
 
 # --- Helper Functions --- #
 
-def get_session_upload_dir(session_id: str) -> str:
-    """Creates and returns a session-specific upload directory."""
-    session_dir = os.path.join(UPLOAD_DIR, session_id)
+def get_session_upload_dir(request: Request, session_id: str) -> str:
+    """Creates and returns a session-specific upload directory under app-managed root."""
+    upload_root_dir = getattr(request.app.state, "upload_root_dir", None)
+    if not upload_root_dir:
+        raise RuntimeError("Upload root directory is not initialized")
+    session_dir = os.path.join(upload_root_dir, session_id)
     os.makedirs(session_dir, exist_ok=True)
     return session_dir
 
@@ -74,7 +76,8 @@ async def connect_to_datasource(
     connection_details_json: str = Form(...),
     uploaded_file: Optional[UploadFile] = File(None),
     state_manager: ConnectionStateManager = Depends(get_state_manager),
-    session_id: str = Depends(get_session_id)
+    session_id: str = Depends(get_session_id),
+    request: Request = None
 ):
     """Connect to a specified data source. For CSV, upload the file."""
     # Removed global access
@@ -86,12 +89,13 @@ async def connect_to_datasource(
         state_manager.current_connector.disconnect()
     if state_manager.current_csv_temp_path and os.path.exists(state_manager.current_csv_temp_path):
         try:
-            # Basic check to prevent deleting outside UPLOAD_DIR
-            if os.path.commonpath([UPLOAD_DIR]) == os.path.commonpath([UPLOAD_DIR, state_manager.current_csv_temp_path]):
+            # Basic check to prevent deleting outside upload root
+            upload_root_dir = getattr(request.app.state, "upload_root_dir", None) if request else None
+            if upload_root_dir and os.path.commonpath([upload_root_dir]) == os.path.commonpath([upload_root_dir, state_manager.current_csv_temp_path]):
                 os.remove(state_manager.current_csv_temp_path)
             else:
                 # Log warning
-                logger.warning(f"Refusing to delete file outside temp dir on connect: {state_manager.current_csv_temp_path}")
+                logger.warning(f"Refusing to delete file outside upload root on connect: {state_manager.current_csv_temp_path}")
         except OSError as e:
              # Log error
              logger.error(f"Error cleaning up previous temp file {state_manager.current_csv_temp_path}", exc_info=True)
@@ -116,7 +120,7 @@ async def connect_to_datasource(
             if not uploaded_file.filename or not uploaded_file.filename.lower().endswith('.csv'):
                  raise InvalidInputError("Invalid file type or missing filename. Only CSV files are allowed.")
             try:
-                session_upload_dir = get_session_upload_dir(session_id)
+                session_upload_dir = get_session_upload_dir(request, session_id)
                 fd, temp_file_path = tempfile.mkstemp(suffix=".csv", dir=session_upload_dir)
                 os.close(fd)
                 with open(temp_file_path, "wb") as buffer:
@@ -178,12 +182,14 @@ async def connect_to_datasource(
 @router.post("/disconnect", status_code=status.HTTP_200_OK)
 def disconnect_datasource(
     state_manager: ConnectionStateManager = Depends(get_state_manager),
-    session_id: str = Depends(get_session_id)
+    session_id: str = Depends(get_session_id),
+    request: Request = None
 ):
     """Disconnect from the current data source and clean up temporary files."""
     # Removed global access
     file_to_delete = state_manager.current_csv_temp_path
-    session_upload_dir = os.path.join(UPLOAD_DIR, session_id) if session_id else None
+    upload_root_dir = getattr(request.app.state, "upload_root_dir", None) if request else None
+    session_upload_dir = os.path.join(upload_root_dir, session_id) if (upload_root_dir and session_id) else None
 
     if state_manager.current_connector:
         state_manager.current_connector.disconnect()
@@ -311,13 +317,4 @@ def execute_query(
         logger.exception(f"Unexpected error during query execution")
         raise QueryExecutionError("An unexpected server error occurred during query execution.")
 
-# Consider adding a shutdown event handler to clean UPLOAD_DIR
-# Needs access to app instance, usually done in main.py
-# @app.on_event("shutdown")
-# def shutdown_event():
-#     try:
-#         if os.path.exists(UPLOAD_DIR):
-#              shutil.rmtree(UPLOAD_DIR)
-#              print(f"Cleaned up temporary directory: {UPLOAD_DIR}")
-#     except Exception as e:
-#         print(f"Error cleaning up temp directory {UPLOAD_DIR}: {e}") 
+# Upload root cleanup is handled in app shutdown in backend/main.py
