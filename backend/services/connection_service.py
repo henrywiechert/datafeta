@@ -37,6 +37,23 @@ ALLOWED_CSV_MIME_TYPES = {
 }
 
 
+class ConnectorRegistry:
+    """Registry for connector constructors by type key."""
+    def __init__(self):
+        self._builders: Dict[str, Any] = {}
+
+    def register(self, key: str, builder: Any) -> None:
+        self._builders[key] = builder
+
+    def create(self, key: str, state_manager: ConnectionStateManager) -> BaseConnector:
+        if key not in self._builders:
+            raise InvalidInputError(
+                f"Unsupported data source type for connector factory: {key}",
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+        return self._builders[key](state_manager)
+
+
 class ConnectionService:
     def __init__(self, state_manager: ConnectionStateManager, request: Request):
         self.state_manager = state_manager
@@ -103,15 +120,18 @@ class ConnectionService:
 
     @staticmethod
     def _get_connector(connection_details: ConnectionDetails, state_manager: ConnectionStateManager) -> BaseConnector:
-        if connection_details.type == "csv":
-            return FileConnector(state_manager=state_manager)
-        elif connection_details.type == "clickhouse":
-            return ClickHouseConnector()
-        else:
-            raise InvalidInputError(
-                f"Unsupported data source type for connector factory: {connection_details.type}",
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            )
+        # Lazy init a module-level registry
+        global _CONNECTOR_REGISTRY
+        try:
+            registry = _CONNECTOR_REGISTRY
+        except NameError:
+            registry = ConnectorRegistry()
+            # For csv we need FileConnector which requires state_manager
+            registry.register("csv", lambda sm: FileConnector(state_manager=sm))
+            # ClickHouse connector ignores state_manager
+            registry.register("clickhouse", lambda sm: ClickHouseConnector())
+            _CONNECTOR_REGISTRY = registry
+        return registry.create(connection_details.type, state_manager)
 
     async def _clear_previous_state(self, session_id: str) -> None:
         if self.state_manager.current_connector:
