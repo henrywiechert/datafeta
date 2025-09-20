@@ -8,6 +8,7 @@ import json
 from fastapi import APIRouter, Form, File, UploadFile, Depends, Body, status, Request
 from typing import Dict, Any, List, Optional
 from pydantic import ValidationError
+from starlette.concurrency import run_in_threadpool
 
 from backend.models.data_source import (
     ConnectionDetails, DatabaseListResponse, TableListResponse, ColumnListResponse
@@ -57,6 +58,13 @@ def get_session_upload_dir(request: Request, session_id: str) -> str:
     os.makedirs(session_dir, exist_ok=True)
     return session_dir
 
+async def _save_uploaded_file(uploaded_file: UploadFile, dest_path: str) -> None:
+    """Copy an UploadFile to a destination path using a threadpool to avoid blocking the event loop."""
+    def _copy():
+        with open(dest_path, "wb") as buffer:
+            shutil.copyfileobj(uploaded_file.file, buffer)
+    await run_in_threadpool(_copy)
+
 def _is_path_within_directory(path: str, directory: str) -> bool:
     """Symlink-safe check that the path resolves within the given directory."""
     try:
@@ -95,7 +103,7 @@ async def connect_to_datasource(
 
     # --- Reset previous state via StateManager --- START
     if state_manager.current_connector:
-        state_manager.current_connector.disconnect()
+        await run_in_threadpool(state_manager.current_connector.disconnect)
     if state_manager.current_csv_temp_path and os.path.exists(state_manager.current_csv_temp_path):
         try:
             # Symlink-safe check to prevent deleting outside upload root
@@ -132,8 +140,7 @@ async def connect_to_datasource(
                 session_upload_dir = get_session_upload_dir(request, session_id)
                 fd, temp_file_path = tempfile.mkstemp(suffix=".csv", dir=session_upload_dir)
                 os.close(fd)
-                with open(temp_file_path, "wb") as buffer:
-                    shutil.copyfileobj(uploaded_file.file, buffer)
+                await _save_uploaded_file(uploaded_file, temp_file_path)
                 connect_args['file_path'] = temp_file_path
             except Exception as e:
                 # Wrap file saving errors
@@ -163,7 +170,7 @@ async def connect_to_datasource(
              raise InvalidInputError(f"Unsupported data source type: {connection_details.type}")
 
         connector = get_connector(effective_connection_details, state_manager)
-        connector.connect(connect_args)
+        await run_in_threadpool(connector.connect, connect_args)
 
         state_manager.set_state(
             connector=connector,
