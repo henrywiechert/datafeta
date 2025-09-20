@@ -1,24 +1,18 @@
 """API router for data source operations."""
 
 import logging # Import logging
-import shutil
-import tempfile
-import os
 import json
-import csv
 from fastapi import APIRouter, Form, File, UploadFile, Depends, Body, status, Request
 from typing import Dict, Any, List, Optional
 from pydantic import ValidationError
-from starlette.concurrency import run_in_threadpool
 
 from backend.models.data_source import (
     ConnectionDetails, DatabaseListResponse, TableListResponse, ColumnListResponse
 )
 from backend.models.query import QueryDescription, QueryResult
 from backend.services.query_service import QueryService
+from backend.services.connection_service import ConnectionService
 from backend.connectors.base import BaseConnector
-from backend.connectors.file_connector import FileConnector
-from backend.connectors.clickhouse_connector import ClickHouseConnector
 
 # Import dependencies
 from backend.dependencies import (
@@ -48,95 +42,7 @@ router = APIRouter()
 # --- Constants --- #
 # Upload root is now managed in app state (see backend/main.py startup)
 
-# --- Helper Functions --- #
-
-# Upload hardening settings
-MAX_CSV_UPLOAD_BYTES = 64 * 1024 * 1024  # 64 MiB
-CSV_SNIFF_BYTES = 16384  # bytes to sample for sniffing
-ALLOWED_CSV_MIME_TYPES = {
-    "text/csv",
-    "application/csv",
-    "application/vnd.ms-excel",
-    "text/plain",
-}
-
-def get_session_upload_dir(request: Request, session_id: str) -> str:
-    """Creates and returns a session-specific upload directory under app-managed root."""
-    upload_root_dir = getattr(request.app.state, "upload_root_dir", None)
-    if not upload_root_dir:
-        raise RuntimeError("Upload root directory is not initialized")
-    session_dir = os.path.join(upload_root_dir, session_id)
-    os.makedirs(session_dir, exist_ok=True)
-    return session_dir
-
-async def _save_uploaded_file_with_limit(uploaded_file: UploadFile, dest_path: str, max_bytes: int) -> None:
-    """Copy an UploadFile to a destination path in a threadpool with a byte limit."""
-    def _copy_limited():
-        bytes_copied = 0
-        with open(dest_path, "wb") as buffer:
-            while True:
-                chunk = uploaded_file.file.read(1024 * 1024)
-                if not chunk:
-                    break
-                bytes_copied += len(chunk)
-                if bytes_copied > max_bytes:
-                    raise InvalidInputError(
-                        detail=f"Uploaded file exceeds max size of {max_bytes} bytes.",
-                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                    )
-                buffer.write(chunk)
-    await run_in_threadpool(_copy_limited)
-
-async def _validate_csv_file(path: str) -> None:
-    """Basic CSV validation using csv.Sniffer on a small sample."""
-    def _validate():
-        if not os.path.exists(path):
-            raise FileProcessingError("Temporary file missing during validation.")
-        with open(path, "rb") as f:
-            sample_bytes = f.read(CSV_SNIFF_BYTES)
-        sample = sample_bytes.decode("utf-8", errors="ignore")
-        if not sample or not sample.strip():
-            raise InvalidInputError("Uploaded CSV file is empty or unreadable.")
-        try:
-            csv.Sniffer().sniff(sample)
-        except csv.Error:
-            # Fallback: attempt simple parsing of first line
-            try:
-                next(csv.reader(sample.splitlines()))
-            except Exception:
-                raise InvalidInputError("Uploaded file does not appear to be valid CSV.")
-    await run_in_threadpool(_validate)
-
-async def _save_uploaded_file(uploaded_file: UploadFile, dest_path: str) -> None:
-    """Copy an UploadFile to a destination path using a threadpool to avoid blocking the event loop."""
-    def _copy():
-        with open(dest_path, "wb") as buffer:
-            shutil.copyfileobj(uploaded_file.file, buffer)
-    await run_in_threadpool(_copy)
-
-def _is_path_within_directory(path: str, directory: str) -> bool:
-    """Symlink-safe check that the path resolves within the given directory."""
-    try:
-        directory_real = os.path.realpath(directory)
-        path_real = os.path.realpath(path)
-        return os.path.commonpath([directory_real]) == os.path.commonpath([directory_real, path_real])
-    except Exception:
-        return False
-
-def get_connector(
-    connection_details: ConnectionDetails,
-    state_manager: ConnectionStateManager
-) -> BaseConnector:
-    """Factory function to get the appropriate connector."""
-    if connection_details.type == "csv":
-        return FileConnector(state_manager=state_manager)
-    elif connection_details.type == "clickhouse":
-        return ClickHouseConnector()
-    else:
-        raise InvalidInputError(
-            f"Unsupported data source type for connector factory: {connection_details.type}",
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY
-        )
+"""Router helpers are now provided by ConnectionService; keep router thin."""
 
 # --- Endpoints --- #
 
@@ -149,115 +55,8 @@ async def connect_to_datasource(
     request: Request = None
 ):
     """Connect to a specified data source. For CSV, upload the file."""
-    # Removed global access
-    temp_file_path = None
-    connection_details: ConnectionDetails
-
-    # --- Reset previous state via StateManager --- START
-    if state_manager.current_connector:
-        await run_in_threadpool(state_manager.current_connector.disconnect)
-    if state_manager.current_csv_temp_path and os.path.exists(state_manager.current_csv_temp_path):
-        try:
-            # Symlink-safe check to prevent deleting outside upload root
-            upload_root_dir = getattr(request.app.state, "upload_root_dir", None) if request else None
-            if upload_root_dir and _is_path_within_directory(state_manager.current_csv_temp_path, upload_root_dir):
-                os.remove(state_manager.current_csv_temp_path)
-            else:
-                # Log warning
-                logger.warning(f"Refusing to delete file outside upload root on connect: {state_manager.current_csv_temp_path}")
-        except OSError as e:
-             # Log error
-             logger.error(f"Error cleaning up previous temp file {state_manager.current_csv_temp_path}", exc_info=True)
-    # Clear state before attempting new connection
-    state_manager.clear_state()
-    # --- Reset previous state via StateManager --- END
-
-    connector: Optional[BaseConnector] = None
-    try:
-        try:
-            connection_details = ConnectionDetails.parse_raw(connection_details_json)
-        except ValidationError as e:
-            # Use InvalidInputError for Pydantic validation errors
-            raise InvalidInputError(f"Invalid connection details format: {e}", status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
-
-        connect_args = {}
-        effective_connection_details = connection_details.copy(deep=True)
-
-        if connection_details.type == "csv":
-            if not uploaded_file:
-                raise InvalidInputError("A CSV file upload is required for type 'csv'")
-            if not uploaded_file.filename or not uploaded_file.filename.lower().endswith('.csv'):
-                 raise InvalidInputError("Invalid file type or missing filename. Only CSV files are allowed.")
-            if uploaded_file.content_type not in ALLOWED_CSV_MIME_TYPES:
-                 raise InvalidInputError(
-                     detail=f"Unsupported content type: {uploaded_file.content_type}",
-                     status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-                 )
-            try:
-                session_upload_dir = get_session_upload_dir(request, session_id)
-                fd, temp_file_path = tempfile.mkstemp(suffix=".csv", dir=session_upload_dir)
-                os.close(fd)
-                try:
-                    await _save_uploaded_file_with_limit(uploaded_file, temp_file_path, MAX_CSV_UPLOAD_BYTES)
-                except InvalidInputError:
-                    # Propagate size errors with proper status after cleanup
-                    if temp_file_path and os.path.exists(temp_file_path):
-                        os.remove(temp_file_path)
-                    raise
-                await _validate_csv_file(temp_file_path)
-                connect_args['file_path'] = temp_file_path
-            except Exception as e:
-                # Wrap file saving errors
-                if temp_file_path and os.path.exists(temp_file_path):
-                    os.remove(temp_file_path)
-                raise FileProcessingError(f"Failed to save uploaded CSV file: {e}")
-            finally:
-                 if uploaded_file:
-                     await uploaded_file.close()
-
-        elif connection_details.type == "clickhouse":
-            if connection_details.connection_string:
-                 connect_args['connection_string'] = connection_details.connection_string
-            elif connection_details.host:
-                 ch_args = {
-                     "host": connection_details.host,
-                     "port": connection_details.port,
-                     "user": connection_details.user,
-                     "password": connection_details.password,
-                     "database": connection_details.database,
-                 }
-                 connect_args = {k: v for k, v in ch_args.items() if v is not None}
-            else:
-                 raise InvalidInputError("Either connection_string or host must be provided for ClickHouse")
-        else:
-             # Unsupported type is an invalid input
-             raise InvalidInputError(f"Unsupported data source type: {connection_details.type}")
-
-        connector = get_connector(effective_connection_details, state_manager)
-        await run_in_threadpool(connector.connect, connect_args)
-
-        state_manager.set_state(
-            connector=connector,
-            details=effective_connection_details,
-            csv_temp_path=temp_file_path
-        )
-
-        return {"message": f"Successfully connected to {connection_details.type} source.", "file_path": temp_file_path if temp_file_path else None}
-
-    except (InvalidInputError, FileProcessingError, DataSourceConnectionError) as e:
-        # Expected errors: cleanup temp file, clear state, re-raise
-        if temp_file_path and os.path.exists(temp_file_path):
-             os.remove(temp_file_path)
-        state_manager.clear_state() # This now also closes DuckDB conn
-        # No need to call connector.disconnect() as state is cleared
-        raise e
-    except Exception as e:
-        # Unexpected errors: cleanup temp file, clear state, log, raise generic 500
-        if temp_file_path and os.path.exists(temp_file_path):
-             os.remove(temp_file_path)
-        state_manager.clear_state() # This now also closes DuckDB conn
-        logger.exception(f"Unexpected error during connect")
-        raise AppException("An unexpected server error occurred during connection.")
+    service = ConnectionService(state_manager=state_manager, request=request)
+    return await service.connect_multipart(connection_details_json, uploaded_file, session_id)
 
 @router.post("/connect/json", status_code=status.HTTP_200_OK)
 async def connect_to_datasource_json(
@@ -267,101 +66,18 @@ async def connect_to_datasource_json(
     request: Request = None
 ):
     """Connect to a data source using a JSON body (no file upload). Use for non-file sources."""
-    # Reset previous state and clean up any prior CSV temp file if present
-    if state_manager.current_connector:
-        await run_in_threadpool(state_manager.current_connector.disconnect)
-    if state_manager.current_csv_temp_path and os.path.exists(state_manager.current_csv_temp_path):
-        try:
-            upload_root_dir = getattr(request.app.state, "upload_root_dir", None) if request else None
-            if upload_root_dir and _is_path_within_directory(state_manager.current_csv_temp_path, upload_root_dir):
-                os.remove(state_manager.current_csv_temp_path)
-            else:
-                logger.warning(f"Refusing to delete file outside upload root on connect-json: {state_manager.current_csv_temp_path}")
-        except OSError:
-            logger.error(f"Error cleaning up previous temp file {state_manager.current_csv_temp_path}", exc_info=True)
-    state_manager.clear_state()
-
-    # Only allow non-file sources here
-    if connection_details.type == "csv":
-        raise InvalidInputError(
-            "CSV connections require multipart upload. Use /api/v1/data/connect with form-data.",
-            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-        )
-
-    connector: Optional[BaseConnector] = None
-    try:
-        connect_args = {}
-        effective_connection_details = connection_details.copy(deep=True)
-
-        if connection_details.type == "clickhouse":
-            if connection_details.connection_string:
-                connect_args['connection_string'] = connection_details.connection_string
-            elif connection_details.host:
-                ch_args = {
-                    "host": connection_details.host,
-                    "port": connection_details.port,
-                    "user": connection_details.user,
-                    "password": connection_details.password,
-                    "database": connection_details.database,
-                }
-                connect_args = {k: v for k, v in ch_args.items() if v is not None}
-            else:
-                raise InvalidInputError("Either connection_string or host must be provided for ClickHouse")
-        else:
-            # Fallback for future non-file connectors can be added here
-            pass
-
-        connector = get_connector(effective_connection_details, state_manager)
-        await run_in_threadpool(connector.connect, connect_args)
-
-        state_manager.set_state(
-            connector=connector,
-            details=effective_connection_details,
-            csv_temp_path=None
-        )
-
-        return {"message": f"Successfully connected to {connection_details.type} source."}
-    except (InvalidInputError, DataSourceConnectionError) as e:
-        state_manager.clear_state()
-        raise e
-    except Exception:
-        state_manager.clear_state()
-        logger.exception(f"Unexpected error during JSON connect")
-        raise AppException("An unexpected server error occurred during connection.")
+    service = ConnectionService(state_manager=state_manager, request=request)
+    return await service.connect_json(connection_details, session_id)
 
 @router.post("/disconnect", status_code=status.HTTP_200_OK)
-def disconnect_datasource(
+async def disconnect_datasource(
     state_manager: ConnectionStateManager = Depends(get_state_manager),
     session_id: str = Depends(get_session_id),
     request: Request = None
 ):
     """Disconnect from the current data source and clean up temporary files."""
-    # Removed global access
-    file_to_delete = state_manager.current_csv_temp_path
-    upload_root_dir = getattr(request.app.state, "upload_root_dir", None) if request else None
-    session_upload_dir = os.path.join(upload_root_dir, session_id) if (upload_root_dir and session_id) else None
-
-    if state_manager.current_connector:
-        state_manager.current_connector.disconnect()
-
-    # Clear state via manager
-    state_manager.clear_state()
-
-    # Clean up temp file if path was stored
-    if file_to_delete and os.path.exists(file_to_delete):
-         try:
-            if session_upload_dir and _is_path_within_directory(file_to_delete, session_upload_dir):
-                os.remove(file_to_delete)
-                # Log info
-                logger.info(f"Deleted temp file: {file_to_delete}")
-            else:
-                 # Log warning
-                 logger.warning(f"Refusing to delete file outside session temp dir: {file_to_delete}")
-         except OSError as e:
-             # Log error
-             logger.error(f"Error deleting temp file {file_to_delete}", exc_info=True)
-
-    return {"message": "Successfully disconnected."}
+    service = ConnectionService(state_manager=state_manager, request=request)
+    return await service.disconnect(session_id)
 
 @router.get("/databases", response_model=DatabaseListResponse)
 def list_databases(
