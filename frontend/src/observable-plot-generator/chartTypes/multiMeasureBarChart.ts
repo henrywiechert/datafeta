@@ -107,7 +107,8 @@ function generateMeasurePlots(
 
   if (layoutType === 'horizontal') {
     // All plots share the same row; set row height from the categorical dimension
-    const dimension = yDimensions[0];
+    // Prefer opposite-axis dimension; fallback to same-axis discrete dimension
+    const dimension = yDimensions[0] || xDimensions[0];
     const categoryCount = dimension
       ? new Set(data.map((row) => row[dimension.columnName])).size
       : 1;
@@ -134,7 +135,8 @@ function generateMeasurePlots(
   }
 
   // Vertical layout (Y measures): one column, multiple rows
-  const dimension = xDimensions[0];
+    // Prefer opposite-axis dimension; fallback to same-axis discrete dimension
+    const dimension = xDimensions[0] || yDimensions[0];
   const categoryCount = dimension
     ? new Set(data.map((row) => row[dimension.columnName])).size
     : 1;
