@@ -42,12 +42,28 @@ export function uniqueValuesForField(rows: any[], field: Field): any[] {
 export function planFacets(context: ChartGenerationContext): FacetPlan | null {
   const { xFields, yFields, queryResult } = context;
 
-  // Bypass faceting for multi-measure on a single axis → let multiMeasureBarChart handle layout
+  // Multi-measure on a single axis:
+  // - If a discrete dimension exists on the SAME axis, facet by that dimension (duplicate the whole small charts)
+  // - Otherwise, bypass faceting so the multi-measure bar grid can render
   const xMeasuresCount = xFields.filter((f) => f.type === 'measure').length;
   const yMeasuresCount = yFields.filter((f) => f.type === 'measure').length;
   const totalMeasures = xMeasuresCount + yMeasuresCount;
   const hasMixedAxes = xMeasuresCount > 0 && yMeasuresCount > 0;
   if (totalMeasures > 1 && !hasMixedAxes) {
+    const measuresOnX = xMeasuresCount > 0;
+    const sameAxisDiscreteDims = (measuresOnX ? xFields : yFields).filter((f) => f.type === 'dimension' && f.flavour === 'discrete');
+    if (sameAxisDiscreteDims.length > 0) {
+      // Facet by the same-axis discrete dimensions; do not set a category axis for the base charts
+      return {
+        rowFacetFields: measuresOnX ? [] : sameAxisDiscreteDims,
+        colFacetFields: measuresOnX ? sameAxisDiscreteDims : [],
+        categoryAxis: null,
+        categoryField: null,
+        barOrientation: measuresOnX ? 'barX' : 'barY',
+        sharedCategoryDomain: null,
+      };
+    }
+    // No discrete dimension on the same axis → no faceting; let multiMeasureBarChart handle it
     return null;
   }
 
