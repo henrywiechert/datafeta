@@ -15,6 +15,7 @@ interface ChipWithTooltipProps {
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   isDragging: boolean;
+  isInvalidOnAxis?: boolean;
 }
 
 const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
@@ -23,7 +24,8 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
   onContextMenu,
   onDragStart,
   onDragEnd,
-  isDragging
+  isDragging,
+  isInvalidOnAxis
 }) => {
   const chipLabelRef = useRef<HTMLSpanElement>(null);
   const chipRef = useRef<HTMLDivElement>(null);
@@ -118,7 +120,7 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
 
   // Chip props
   const chipProps = useMemo(() => ({
-    className: `${styles.chip} ${field.flavour === 'continuous' ? styles.continuous : styles.discrete} ${source === 'AVAILABLE_FIELDS' ? styles.textOnly : styles.framed} field-chip`,
+    className: `${styles.chip} ${field.flavour === 'continuous' ? styles.continuous : styles.discrete} ${source === 'AVAILABLE_FIELDS' ? styles.textOnly : styles.framed} ${isInvalidOnAxis ? styles.invalidAxisField : ''} field-chip`,
     draggable: true,
     onDragStart,
     onDragEnd,
@@ -144,7 +146,8 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
     onContextMenu,
     isDragging,
     widthProps,
-    chipLabel
+    chipLabel,
+    isInvalidOnAxis
   ]);
 
   return (

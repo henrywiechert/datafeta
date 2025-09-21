@@ -7,4 +7,5 @@ export interface FieldChipProps {
   source: DragSource;
   onUpdate: (field: Field) => void;
   index?: number;
+  isInvalidOnAxis?: boolean;
 }

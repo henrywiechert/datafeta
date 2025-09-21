@@ -274,6 +274,9 @@ const DropZone: React.FC<DropZoneProps> = ({
       >
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px', position: 'relative', width: '100%' }}>
           {fields.map((field, index) => {
+            // Determine if this field exists in current availableFields (by columnName)
+            // We don't have availableFields here; rely on a marker set upstream on field.isInvalid
+            const isInvalid = (field as any).isInvalid === true;
             // Check if this is the boundary between discrete and continuous fields
             const isDiscreteToContinuousBoundary = 
               index > 0 && 
@@ -307,6 +310,7 @@ const DropZone: React.FC<DropZoneProps> = ({
                   onUpdate={onFieldUpdate}
                   source={axis === 'x' ? 'X_AXIS' : 'Y_AXIS'}
                   index={index}
+                  isInvalidOnAxis={isInvalid}
                 />
               </React.Fragment>
             );

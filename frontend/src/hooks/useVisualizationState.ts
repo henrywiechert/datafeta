@@ -169,6 +169,13 @@ export function useVisualizationState() {
                 };
             });
             dispatch({ type: 'SET_AVAILABLE_FIELDS', payload: fields });
+
+            // Mark axis fields that are not present in new schema as invalid
+            const availableNames = new Set(fields.map(f => f.columnName));
+            const patchedX = state.xAxisFields.map(f => ({ ...f, isInvalid: !availableNames.has(f.columnName) } as any));
+            const patchedY = state.yAxisFields.map(f => ({ ...f, isInvalid: !availableNames.has(f.columnName) } as any));
+            dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
+            dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
         } catch (err: any) { 
             if (err.message === 'Request was cancelled') {
                 // Request was cancelled, don't set error
