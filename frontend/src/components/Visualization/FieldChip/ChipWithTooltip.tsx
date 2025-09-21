@@ -1,4 +1,4 @@
-import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Field } from '../../../types';
 import Chip from '@mui/material/Chip';
 import Tooltip from '@mui/material/Tooltip';
@@ -30,6 +30,7 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
   const chipLabelRef = useRef<HTMLSpanElement>(null);
   const chipRef = useRef<HTMLDivElement>(null);
   const [isTruncated, setIsTruncated] = useState(false);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
 
   // Function to check if text is truncated
   const checkTruncation = useCallback(() => {
@@ -50,6 +51,14 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
       }
     }
   }, [source]);
+
+  const handleTooltipOpen = useCallback(() => {
+    setTooltipOpen(true);
+  }, []);
+
+  const handleTooltipClose = useCallback(() => {
+    setTooltipOpen(false);
+  }, []);
 
   // Create a stable reference for field properties we need to track
   const fieldProperties = useMemo(() => ({
@@ -87,6 +96,13 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
     }
   }, [checkTruncation]);
 
+  // Hide tooltip whenever dragging starts
+  useEffect(() => {
+    if (isDragging) {
+      setTooltipOpen(false);
+    }
+  }, [isDragging]);
+
   // Width properties based on source
   const widthProps = useMemo(() => {
     if (source !== 'AVAILABLE_FIELDS') {
@@ -119,26 +135,43 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
   ), [field, source]);
 
   // Chip props
-  const chipProps = useMemo(() => ({
-    className: `${styles.chip} ${field.flavour === 'continuous' ? styles.continuous : styles.discrete} ${source === 'AVAILABLE_FIELDS' ? styles.textOnly : styles.framed} ${isInvalidOnAxis ? styles.invalidAxisField : ''} field-chip`,
-    draggable: true,
-    onDragStart,
-    onDragEnd,
-    onContextMenu,
-    style: {
-      opacity: isDragging ? 0.5 : 1,
-      cursor: 'grab',
-      ...widthProps,
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap',
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'flex-start',
-      fontSize: source === 'AVAILABLE_FIELDS' ? undefined : '12px',
-    },
-    label: chipLabel
-  }), [
+  const chipProps = useMemo(() => {
+    const handleDragStartInternal = (e: React.DragEvent) => {
+      setTooltipOpen(false);
+      onDragStart(e);
+    };
+
+    const handleDragEndInternal = () => {
+      setTooltipOpen(false);
+      onDragEnd();
+    };
+
+    const handleMouseDown = () => {
+      setTooltipOpen(false);
+    };
+
+    return {
+      className: `${styles.chip} ${field.flavour === 'continuous' ? styles.continuous : styles.discrete} ${source === 'AVAILABLE_FIELDS' ? styles.textOnly : styles.framed} ${isInvalidOnAxis ? styles.invalidAxisField : ''} field-chip`,
+      draggable: true,
+      onDragStart: handleDragStartInternal,
+      onDragEnd: handleDragEndInternal,
+      onContextMenu,
+      onMouseDown: handleMouseDown,
+      style: {
+        opacity: isDragging ? 0.5 : 1,
+        cursor: 'grab',
+        ...widthProps,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        fontSize: source === 'AVAILABLE_FIELDS' ? undefined : '12px',
+      },
+      label: chipLabel
+    };
+  }, [
     field.flavour,
     source,
     onDragStart,
@@ -155,7 +188,13 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
       {isTruncated ? (
         <Tooltip 
           title={<span className={labelStyles.tooltipContent}>{fullLabel}</span>} 
-          enterDelay={500} 
+          enterDelay={500}
+          open={tooltipOpen}
+          onOpen={handleTooltipOpen}
+          onClose={handleTooltipClose}
+          disableInteractive
+          disableFocusListener
+          disableHoverListener={isDragging}
           arrow
           PopperProps={{
             modifiers: [
@@ -180,6 +219,16 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
                 maxWidth: 'none',
                 padding: '6px 12px',
                 fontSize: '13px',
+                pointerEvents: 'none',
+                backgroundColor: '#ffffff',
+                color: '#111111',
+                border: '1px solid #e5e7eb',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+              }
+            },
+            arrow: {
+              sx: {
+                color: '#ffffff'
               }
             }
           }}
