@@ -42,6 +42,15 @@ export function uniqueValuesForField(rows: any[], field: Field): any[] {
 export function planFacets(context: ChartGenerationContext): FacetPlan | null {
   const { xFields, yFields, queryResult } = context;
 
+  // Bypass faceting for multi-measure on a single axis → let multiMeasureBarChart handle layout
+  const xMeasuresCount = xFields.filter((f) => f.type === 'measure').length;
+  const yMeasuresCount = yFields.filter((f) => f.type === 'measure').length;
+  const totalMeasures = xMeasuresCount + yMeasuresCount;
+  const hasMixedAxes = xMeasuresCount > 0 && yMeasuresCount > 0;
+  if (totalMeasures > 1 && !hasMixedAxes) {
+    return null;
+  }
+
   // Avoid faceting for tick-strip scenarios:
   // If there are no measures and exactly one axis has a continuous dimension
   // while the opposite axis has only discrete dimensions, we want a single
