@@ -33,10 +33,11 @@ const TableView: React.FC<TableViewProps> = ({ columns, rows, xFields, yFields }
       headerName: col.headerName,
       width: col.width || 120,
       sortable: true,
-      filter: true,
+      filter: 'agTextColumnFilter' as any,
       resizable: true,
       pinned: col.pinned || undefined,
       cellStyle: col.cellStyle || { textAlign: 'left' as const },
+      valueFormatter: (params: any) => (params.value === null || params.value === undefined) ? '' : String(params.value),
     }));
   }, [columns]);
 
@@ -79,10 +80,11 @@ const TableView: React.FC<TableViewProps> = ({ columns, rows, xFields, yFields }
           columnDefs={columnDefs}
           defaultColDef={{
             sortable: true,
-            filter: true,
+            filter: 'agTextColumnFilter' as any,
             resizable: true,
             minWidth: layoutType === 'grid' ? 60 : 80,
             cellStyle: { textAlign: 'left' as const },
+            valueFormatter: (params: any) => (params.value === null || params.value === undefined) ? '' : String(params.value),
           }}
           pagination={shouldPaginate}
           paginationPageSize={shouldPaginate ? 25 : undefined}
