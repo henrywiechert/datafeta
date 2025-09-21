@@ -61,6 +61,8 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
         onContextMenu={handleContextMenu}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        // Mark invalid only when on axes and the field has been flagged upstream via field.meta
+        isInvalidOnAxis={(source === 'X_AXIS' || source === 'Y_AXIS') && (field as any).isInvalid === true}
       />
       
       <FieldContextMenu

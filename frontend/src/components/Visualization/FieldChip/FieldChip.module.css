@@ -161,3 +161,9 @@
     width: 100%;
     display: inline-block;
 }
+
+/* Highlight for invalid fields placed on axes (not present in current schema) */
+.invalidAxisField {
+    background-color: #fde7e9 !important; /* light red */
+    border-color: #e57373 !important;
+}
