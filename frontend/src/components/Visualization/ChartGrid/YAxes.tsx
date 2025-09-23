@@ -2,6 +2,7 @@ import React from 'react';
 import * as Plot from '@observablehq/plot';
 import ObservablePlot from '../ObservablePlot';
 import { PlotResult } from '../../../observable-plot-generator/types';
+import { MIN_GRID_ROW_PX } from '../../../config/chartLayoutConfig';
 
 interface YAxesProps {
   spec: PlotResult;
@@ -35,6 +36,14 @@ const YAxes: React.FC<YAxesProps> = ({ spec, rows, dynamicYAxisPx }) => {
         const sample = (spec.plots || []).find((p: any) => p.position?.row === r);
         const yDomain = (sample as any)?.options?.y?.domain;
         const yType = (sample as any)?.options?.y?.type;
+        const trackHeightPx = (() => {
+          const sizes = spec.layout?.rowSizes as Array<number | 'fr'> | undefined;
+          if (sizes && sizes[r] !== undefined) {
+            const v = sizes[r];
+            return typeof v === 'number' ? v : MIN_GRID_ROW_PX;
+          }
+          return MIN_GRID_ROW_PX;
+        })();
         return (
           <div
             key={`y-axis-${r}`}
@@ -44,7 +53,7 @@ const YAxes: React.FC<YAxesProps> = ({ spec, rows, dynamicYAxisPx }) => {
               borderBottom: r < rows - 1 ? '1px solid #99a795' : undefined,
             }}
           >
-            <ObservablePlot options={buildYAxisOptions(yDomain, dynamicYAxisPx, yType)} />
+            <ObservablePlot options={{ ...buildYAxisOptions(yDomain, dynamicYAxisPx, yType), height: trackHeightPx }} />
           </div>
         );
       })}
