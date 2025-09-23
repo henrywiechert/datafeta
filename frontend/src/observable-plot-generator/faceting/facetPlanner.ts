@@ -63,7 +63,24 @@ export function planFacets(context: ChartGenerationContext): FacetPlan | null {
         sharedCategoryDomain: null,
       };
     }
-    // No discrete dimension on the same axis → no faceting; let multiMeasureBarChart handle it
+    // If there are discrete dimensions on the OPPOSITE axis, use one as category and facet by the rest.
+    const oppositeAxisDiscreteDims = (measuresOnX ? yFields : xFields).filter((f) => f.type === 'dimension' && f.flavour === 'discrete');
+    if (oppositeAxisDiscreteDims.length > 0) {
+      const categoryField = oppositeAxisDiscreteDims[oppositeAxisDiscreteDims.length - 1];
+      const categoryAxis: 'x' | 'y' = measuresOnX ? 'y' : 'x';
+      const barOrientation: 'barX' | 'barY' = measuresOnX ? 'barX' : 'barY';
+      const sharedCategoryDomain = uniqueValuesForField(queryResult.rows, categoryField);
+      return {
+        // Row/col facet fields are recomputed in generator excluding the category; placeholders here
+        rowFacetFields: measuresOnX ? oppositeAxisDiscreteDims.slice(0, -1) : [],
+        colFacetFields: measuresOnX ? [] : oppositeAxisDiscreteDims.slice(0, -1),
+        categoryAxis,
+        categoryField,
+        barOrientation,
+        sharedCategoryDomain,
+      };
+    }
+    // No discrete dimensions at all → fall back to non-faceted multi-measure chart
     return null;
   }
 
