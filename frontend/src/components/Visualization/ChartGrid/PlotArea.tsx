@@ -58,7 +58,11 @@ const PlotArea: React.FC<PlotAreaProps> = ({
           gridTemplateColumns: plotTemplateColumns,
           gridTemplateRows: plotRowsSpec,
           minWidth: `${totalContentWidthPx}px`,
-          width: '100%',
+          width: (() => {
+            const sizes = (spec.layout as any)?.columnSizes as Array<number | 'fr'> | undefined;
+            const hasFlexible = !sizes || sizes.some((c) => typeof c !== 'number');
+            return hasFlexible ? '100%' : `${totalContentWidthPx}px`;
+          })(),
           willChange: 'transform',
         }}
       >
