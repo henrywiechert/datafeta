@@ -106,8 +106,17 @@ export function planFacets(context: ChartGenerationContext): FacetPlan | null {
   // Determine if this is a bar chart scenario to identify a potential category axis
   const xMeasure = xFields.find((f) => f.type === 'measure');
   const yMeasure = yFields.find((f) => f.type === 'measure');
-  const barOrientation: 'barX' | 'barY' | null = xMeasure && !yMeasure ? 'barX' : (!xMeasure && yMeasure ? 'barY' : null);
-  const categoryAxis: 'x' | 'y' | null = barOrientation === 'barX' ? 'y' : (barOrientation === 'barY' ? 'x' : null);
+  let barOrientation: 'barX' | 'barY' | null = xMeasure && !yMeasure ? 'barX' : (!xMeasure && yMeasure ? 'barY' : null);
+  let categoryAxis: 'x' | 'y' | null = barOrientation === 'barX' ? 'y' : (barOrientation === 'barY' ? 'x' : null);
+
+  // If the opposite axis contains a continuous dimension, do NOT force bar orientation/category axis.
+  // Example: X has a continuous dimension, Y has a measure + discrete dims → prefer line/scatter per facet, not bars.
+  const hasXContinuousDim = xFields.some((f) => f.type === 'dimension' && f.flavour === 'continuous');
+  const hasYContinuousDim = yFields.some((f) => f.type === 'dimension' && f.flavour === 'continuous');
+  if ((barOrientation === 'barY' && hasXContinuousDim) || (barOrientation === 'barX' && hasYContinuousDim)) {
+    barOrientation = null;
+    categoryAxis = null;
+  }
 
   let categoryField: Field | null = null;
   let sharedCategoryDomain: any[] | null = null;
