@@ -8,6 +8,7 @@ interface YAxesProps {
   spec: PlotResult;
   rows: number;
   dynamicYAxisPx: number;
+  rowHeights: number[]; // actual track heights in px per row
 }
 
 /**
@@ -28,7 +29,7 @@ function buildYAxisOptions(domain: any, gutterPx: number, type?: string) {
   } as any;
 }
 
-const YAxes: React.FC<YAxesProps> = ({ spec, rows, dynamicYAxisPx }) => {
+const YAxes: React.FC<YAxesProps> = ({ spec, rows, dynamicYAxisPx, rowHeights }) => {
   return (
     <>
       {/* Left external y-axes gutter */}
@@ -36,14 +37,7 @@ const YAxes: React.FC<YAxesProps> = ({ spec, rows, dynamicYAxisPx }) => {
         const sample = (spec.plots || []).find((p: any) => p.position?.row === r);
         const yDomain = (sample as any)?.options?.y?.domain;
         const yType = (sample as any)?.options?.y?.type;
-        const trackHeightPx = (() => {
-          const sizes = spec.layout?.rowSizes as Array<number | 'fr'> | undefined;
-          if (sizes && sizes[r] !== undefined) {
-            const v = sizes[r];
-            return typeof v === 'number' ? v : MIN_GRID_ROW_PX;
-          }
-          return MIN_GRID_ROW_PX;
-        })();
+        const trackHeightPx = Math.max(1, rowHeights[r] ?? MIN_GRID_ROW_PX);
         return (
           <div
             key={`y-axis-${r}`}
