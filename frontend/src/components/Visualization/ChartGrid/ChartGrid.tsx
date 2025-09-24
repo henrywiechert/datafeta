@@ -222,6 +222,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     })();
 
     const plotRowsSpec = inferredRowSizes.map((h) => (typeof h === 'number' ? `${h}px` : `${rowHeightPx}px`)).join(' ');
+    const actualRowHeights: number[] = inferredRowSizes.map((h) => (typeof h === 'number' ? h : rowHeightPx));
 
     // Helpers for hierarchical label rendering
     const colLevels = spec.facetLabels?.colsLevels || [];
@@ -382,7 +383,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                   );
                 })}
 
-                <YAxes spec={spec} rows={rows} dynamicYAxisPx={dynamicYAxisPx} />
+                <YAxes spec={spec} rows={rows} dynamicYAxisPx={dynamicYAxisPx} rowHeights={actualRowHeights} />
               </div>
             </div>
 
