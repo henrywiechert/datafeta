@@ -68,6 +68,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
           label: xDimension.columnName,
           domain: categories as any,
           type: 'band' as any,
+          padding: 0.1 as any,
         },
         y: {
           grid: true,
@@ -127,6 +128,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
           label: yDimension.columnName,
           domain: categories as any,
           type: 'band' as any,
+          padding: 0.1 as any,
         },
         x: {
           grid: true,

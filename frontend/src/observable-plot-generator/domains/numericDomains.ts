@@ -45,4 +45,31 @@ export function computeSharedNumericDomains(
   return domains;
 }
 
+/**
+ * Build shared categorical domains for discrete dimensions by their column names.
+ * Ensures consistent band domains across plots/facets even when some categories are missing locally.
+ */
+export function computeSharedCategoricalDomains(data: any[], fields: any[]): Record<string, any[]> {
+  const domains: Record<string, any[]> = {};
+  const dims = fields.filter((f) => f && f.type === 'dimension' && f.flavour === 'discrete');
+  for (const f of dims) {
+    const col = f.columnName;
+    if (domains[col]) continue;
+    const seen = new Set<any>();
+    const values: any[] = [];
+    for (const row of data) {
+      const v = row[col];
+      if (!seen.has(v)) {
+        seen.add(v);
+        values.push(v);
+      }
+    }
+    try {
+      values.sort((a, b) => (String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0));
+    } catch {}
+    domains[col] = values;
+  }
+  return domains;
+}
+
 

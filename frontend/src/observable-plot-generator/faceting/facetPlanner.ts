@@ -52,18 +52,8 @@ export function planFacets(context: ChartGenerationContext): FacetPlan | null {
   if (totalMeasures > 1 && !hasMixedAxes) {
     const measuresOnX = xMeasuresCount > 0;
     const sameAxisDiscreteDims = (measuresOnX ? xFields : yFields).filter((f) => f.type === 'dimension' && f.flavour === 'discrete');
-    if (sameAxisDiscreteDims.length > 0) {
-      // Facet by the same-axis discrete dimensions; do not set a category axis for the base charts
-      return {
-        rowFacetFields: measuresOnX ? [] : sameAxisDiscreteDims,
-        colFacetFields: measuresOnX ? sameAxisDiscreteDims : [],
-        categoryAxis: null,
-        categoryField: null,
-        barOrientation: measuresOnX ? 'barX' : 'barY',
-        sharedCategoryDomain: null,
-      };
-    }
-    // If there are discrete dimensions on the OPPOSITE axis, use one as category and facet by the rest.
+    // Prefer using the opposite-axis discrete dimension as a category axis when available,
+    // even if same-axis discrete fields exist. This keeps bar spacing consistent across facets.
     const oppositeAxisDiscreteDims = (measuresOnX ? yFields : xFields).filter((f) => f.type === 'dimension' && f.flavour === 'discrete');
     if (oppositeAxisDiscreteDims.length > 0) {
       const categoryField = oppositeAxisDiscreteDims[oppositeAxisDiscreteDims.length - 1];
@@ -71,13 +61,24 @@ export function planFacets(context: ChartGenerationContext): FacetPlan | null {
       const barOrientation: 'barX' | 'barY' = measuresOnX ? 'barX' : 'barY';
       const sharedCategoryDomain = uniqueValuesForField(queryResult.rows, categoryField);
       return {
-        // Row/col facet fields are recomputed in generator excluding the category; placeholders here
-        rowFacetFields: measuresOnX ? oppositeAxisDiscreteDims.slice(0, -1) : [],
-        colFacetFields: measuresOnX ? [] : oppositeAxisDiscreteDims.slice(0, -1),
+        // Facet by remaining discrete fields from both axes except the chosen category
+        rowFacetFields: yFields.filter((f) => f.flavour === 'discrete' && f.id !== categoryField.id),
+        colFacetFields: xFields.filter((f) => f.flavour === 'discrete' && f.id !== categoryField.id),
         categoryAxis,
         categoryField,
         barOrientation,
         sharedCategoryDomain,
+      };
+    }
+    if (sameAxisDiscreteDims.length > 0) {
+      // Fallback: facet by the same-axis discrete dimensions; do not set a category axis
+      return {
+        rowFacetFields: measuresOnX ? [] : sameAxisDiscreteDims,
+        colFacetFields: measuresOnX ? sameAxisDiscreteDims : [],
+        categoryAxis: null,
+        categoryField: null,
+        barOrientation: measuresOnX ? 'barX' : 'barY',
+        sharedCategoryDomain: null,
       };
     }
     // No discrete dimensions at all → fall back to non-faceted multi-measure chart
