@@ -7,7 +7,7 @@ import { buildFacetCombos, filterRowsByFacets } from './facetUtils';
 import { FacetPlan, uniqueValuesForField } from './facetPlanner';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { computeSharedMeasureDomains } from '../domains/measureDomains';
-import { computeSharedNumericDomains } from '../domains/numericDomains';
+import { computeSharedNumericDomains, computeSharedCategoricalDomains } from '../domains/numericDomains';
 import { baseGeneratePlot } from '../observablePlotGenerator';
 
 
@@ -46,7 +46,11 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       const safeColCombos = colCombos.length > 0 ? colCombos : [[]];
 
       const combinedPlots: any[] = [];
-      const categories = sharedCategoryDomain || [' '];
+      // Ensure categorical domain includes all intended categories, even if missing in subset
+      // Build consistent categorical domain from global data if none provided
+      const categories = (sharedCategoryDomain && sharedCategoryDomain.length > 0)
+        ? sharedCategoryDomain
+        : (categoryField ? computeSharedCategoricalDomains(queryResult.rows, [categoryField])[categoryField.columnName] : [' ']);
       const baseRowHeight = categoryAxis === 'y' ? Math.max(BAR_STEP_PX * 2, categories.length * BAR_STEP_PX) : 'fr';
       const baseColWidth = categoryAxis === 'x' ? Math.max(BAR_STEP_PX * 2, categories.length * BAR_STEP_PX) : 'fr';
 
@@ -66,7 +70,7 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
             const options: Plot.PlotOptions = barOrientation === 'barX'
               ? {
                   x: { label: measureName, grid: true, domain: [0, (valueDomain[1] <= 0 ? 1 : valueDomain[1] * 1.05)] as any, nice: false },
-                  y: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any },
+                  y: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any, padding: 0.1 as any },
                   marks: [
                     Plot.barX(subset, { x: measureName, y: categoryField?.columnName || (() => categories[0]), fill: DEFAULT_CHART_COLOR }),
                     Plot.ruleX([0])
@@ -74,7 +78,7 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
                 }
               : {
                   y: { label: measureName, grid: true, domain: [0, (valueDomain[1] <= 0 ? 1 : valueDomain[1] * 1.05)] as any, nice: false },
-                  x: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any },
+                  x: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any, padding: 0.1 as any },
                   marks: [
                     Plot.barY(subset, { y: measureName, x: categoryField?.columnName || (() => categories[0]), fill: DEFAULT_CHART_COLOR }),
                     Plot.ruleY([0])

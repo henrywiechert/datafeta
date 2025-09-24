@@ -207,7 +207,7 @@ function createHorizontalBarChart(
     // Horizontal bars with composite category on Y-axis
     const categoryCount = categories.length;
     plotOptions.height = Math.max(BAR_STEP * 2, categoryCount * BAR_STEP);
-    plotOptions.y = { label: categoryLabel || ' ', domain: categories as any, type: 'band' as any };
+    plotOptions.y = { label: categoryLabel || ' ', domain: categories as any, type: 'band' as any, padding: 0.1 as any };
     plotOptions.marks!.push(
       Plot.barX(data, {
         x: measureName,
@@ -256,7 +256,7 @@ function createVerticalBarChart(
     // Vertical bars with composite category on X-axis
     const categoryCount = categories.length;
     plotOptions.width = Math.max(BAR_STEP * 2, categoryCount * BAR_STEP);
-    plotOptions.x = { label: categoryLabel || ' ', domain: categories as any, type: 'band' as any };
+    plotOptions.x = { label: categoryLabel || ' ', domain: categories as any, type: 'band' as any, padding: 0.1 as any };
     plotOptions.marks!.push(
       Plot.barY(data, {
         x: categoryAccessor as any,

@@ -162,7 +162,10 @@ function createBarX(
   if (yDimension) {
     // Remove hardcoded height for responsive sizing
     const categories = Array.from(new Set(data.map((row) => row[yDimension.columnName])));
-    opts.y = { label: yDimension.columnName, domain: categories as any, type: 'band' as any };
+    // Preserve ordering by domain even when data missing; force all known categories if available in sharedDomains via label key
+    const domainKey = yDimension.columnName;
+    const sharedDomain = (sharedDomains && (sharedDomains as any)[domainKey]) as any[] | undefined;
+    opts.y = { label: yDimension.columnName, domain: (sharedDomain && Array.isArray(sharedDomain) ? sharedDomain : categories) as any, type: 'band' as any, padding: 0.1 as any };
     // Ensure consistent bar thickness regardless of viewport: set fixed padding
     opts.marginTop = 0;
     opts.marginBottom = 0;
@@ -212,7 +215,9 @@ function createBarY(
   if (xDimension) {
     // Remove hardcoded width for responsive sizing
     const categories = Array.from(new Set(data.map((row) => row[xDimension.columnName])));
-    opts.x = { label: xDimension.columnName, domain: categories as any, type: 'band' as any };
+    const domainKey = xDimension.columnName;
+    const sharedDomain = (sharedDomains && (sharedDomains as any)[domainKey]) as any[] | undefined;
+    opts.x = { label: xDimension.columnName, domain: (sharedDomain && Array.isArray(sharedDomain) ? sharedDomain : categories) as any, type: 'band' as any, padding: 0.1 as any };
     opts.marginLeft = 0;
     opts.marginRight = 0;
     opts.inset = 0;
