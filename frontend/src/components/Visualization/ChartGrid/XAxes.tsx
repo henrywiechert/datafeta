@@ -2,7 +2,6 @@ import React from 'react';
 import * as Plot from '@observablehq/plot';
 import ObservablePlot from '../ObservablePlot';
 import { PlotResult } from '../../../observable-plot-generator/types';
-import { MIN_GRID_COLUMN_PX } from '../../../config/chartLayoutConfig';
 
 interface XAxesProps {
   spec: PlotResult;
@@ -51,14 +50,6 @@ const XAxes: React.FC<XAxesProps> = ({
                 const xDomain = (sample as any)?.options?.x?.domain;
                 const xType = (sample as any)?.options?.x?.type;
                 const xRotate = xType === 'band' ? -45 : 0;
-                const trackWidthPx = (() => {
-                  const sizes = spec.layout?.columnSizes as Array<number | 'fr'> | undefined;
-                  if (sizes && sizes[c] !== undefined) {
-                    const v = sizes[c];
-                    return typeof v === 'number' ? v : MIN_GRID_COLUMN_PX;
-                  }
-                  return MIN_GRID_COLUMN_PX;
-                })();
                 return (
                   <div
                     key={`x-axis-${c}`}
@@ -68,7 +59,7 @@ const XAxes: React.FC<XAxesProps> = ({
                       borderTop: `1px solid #99a795`,
                     }}
                   >
-                    <ObservablePlot options={{ ...buildXAxisOptions(xLabel, xDomain, dynamicXAxisPx, xType), width: trackWidthPx, marks: [Plot.axisX({ tickRotate: xRotate as any })] as any }} />
+                    <ObservablePlot options={{ ...buildXAxisOptions(xLabel, xDomain, dynamicXAxisPx, xType), marks: [Plot.axisX({ tickRotate: xRotate as any })] as any }} />
                   </div>
                 );
               })}
