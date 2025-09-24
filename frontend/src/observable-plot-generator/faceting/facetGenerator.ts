@@ -147,9 +147,9 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       sampleRows,
       sharedMeasureDomains,
       sharedNumericDomains,
-      // pass top-level facet fields (we remove all of them below when building local context)
-      rowFacetFields[0] || null,
-      colFacetFields[0] || null,
+      // pass all facet fields to be excluded in local context
+      rowFacetFields,
+      colFacetFields,
       sharedCategoryDomain || undefined
     );
     const baseCols = baseSpec.columns;
@@ -165,8 +165,8 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
           subset,
           sharedMeasureDomains,
           sharedNumericDomains,
-          rowFacetFields[0] || null,
-          colFacetFields[0] || null,
+          rowFacetFields,
+          colFacetFields,
           sharedCategoryDomain || undefined
         );
   
@@ -226,15 +226,17 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
     subsetRows: any[],
     sharedMeasureDomains?: Record<string, [number, number]>,
     sharedNumericDomains?: Record<string, [number, number]>,
-    rowFacetField?: Field | null,
-    colFacetField?: Field | null,
+    rowFacetFields?: Field[] | Field | null,
+    colFacetFields?: Field[] | Field | null,
     sharedCategoryDomain?: any[]
   ): BaseSpec {
     const { queryResult, xFields, yFields } = context;
   
     // Filter out discrete fields that are used for faceting (not category axis)
-    let localXFields = xFields.filter(f => f.id !== excludedCategoryFieldId && (!colFacetField || f.id !== colFacetField.id));
-    let localYFields = yFields.filter(f => f.id !== excludedCategoryFieldId && (!rowFacetField || f.id !== rowFacetField.id));
+    const colFacetIds = Array.isArray(colFacetFields) ? colFacetFields.map((f) => f.id) : (colFacetFields ? [colFacetFields.id] : []);
+    const rowFacetIds = Array.isArray(rowFacetFields) ? rowFacetFields.map((f) => f.id) : (rowFacetFields ? [rowFacetFields.id] : []);
+    let localXFields = xFields.filter(f => f.id !== excludedCategoryFieldId && !colFacetIds.includes(f.id));
+    let localYFields = yFields.filter(f => f.id !== excludedCategoryFieldId && !rowFacetIds.includes(f.id));
     
     // Inject category axis pseudo-dimension when required for bars
     if (categoryAxis && excludedCategoryFieldId) {
