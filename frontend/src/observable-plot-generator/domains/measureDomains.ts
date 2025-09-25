@@ -1,4 +1,5 @@
 import { getResultColumnName } from '../../utils/fieldUtils';
+import { DOMAIN_PAD_RATIO } from '../../config/chartLayoutConfig';
 
 /**
  * Compute shared numeric domains for all measures used across a grid.
@@ -28,7 +29,7 @@ export function computeSharedMeasureDomains(
       .filter((v) => typeof v === 'number' && !Number.isNaN(v));
     if (values.length === 0) return;
     const max = Math.max(0, ...values);
-    const upper = max === 0 ? 1 : max * 1.05;
+    const upper = max === 0 ? 1 : max * (1 + DOMAIN_PAD_RATIO);
     domains[measureName] = [0, upper];
   });
 

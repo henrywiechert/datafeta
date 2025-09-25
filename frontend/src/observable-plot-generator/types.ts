@@ -1,11 +1,18 @@
 import { Field, QueryResult } from '../types';
 import * as Plot from '@observablehq/plot';
 
+export interface CategoryAxisDescriptor {
+  axis: 'x' | 'y';
+  columnName: string;
+  domain?: any[];
+}
+
 export interface ChartGenerationContext {
   xFields: Field[];
   yFields: Field[];
   colorField?: Field;
   facetField?: Field;
+  categoryAxisDescriptor?: CategoryAxisDescriptor;
   queryResult: QueryResult;
 }
 
