@@ -30,8 +30,11 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
     
   // BAR path: switch back to OP marks per cell (for exact alignment with axes)
   if (barOrientation && categoryAxis) {
-      // Collect all measures on the oriented axis
-      const measureFields = (barOrientation === 'barX' ? xFields : yFields).filter((f) => f.type === 'measure');
+      // Collect all measures and continuous dims on the oriented axis, preserving original order
+      const orientedFields = barOrientation === 'barX' ? xFields : yFields;
+      const measureFields = orientedFields.filter((f) => f.type === 'measure');
+      const orientedContDims = orientedFields.filter((f) => f.type === 'dimension' && f.flavour === 'continuous');
+      const seriesFields = orientedFields.filter((f) => f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous'));
       const sharedMeasureDomains = computeSharedMeasureDomains(queryResult.rows, measureFields as any[], measureFields as any[]);
 
       // Choose facet fields excluding category
@@ -54,42 +57,52 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       const baseRowHeight = categoryAxis === 'y' ? Math.max(BAR_STEP_PX * 2, categories.length * BAR_STEP_PX) : 'fr';
       const baseColWidth = categoryAxis === 'x' ? Math.max(BAR_STEP_PX * 2, categories.length * BAR_STEP_PX) : 'fr';
 
-      const baseColsPerFacet = barOrientation === 'barX' ? Math.max(1, measureFields.length) : 1;
-      const baseRowsPerFacet = barOrientation === 'barY' ? Math.max(1, measureFields.length) : 1;
+      const baseColsPerFacet = barOrientation === 'barX' ? Math.max(1, seriesFields.length) : 1;
+      const baseRowsPerFacet = barOrientation === 'barY' ? Math.max(1, seriesFields.length) : 1;
 
       for (let r = 0; r < safeRowCombos.length; r++) {
         for (let c = 0; c < safeColCombos.length; c++) {
           const subset = filterRowsByFacets(queryResult.rows, rowFacetFields, safeRowCombos[r], colFacetFields, safeColCombos[c]);
 
-          // For each measure, create a separate small chart in the facet cell
-          for (let m = 0; m < Math.max(1, measureFields.length); m++) {
-            const mf = measureFields[m] || (barOrientation === 'barX' ? xFields.find((f) => f.type === 'measure')! : yFields.find((f) => f.type === 'measure')!);
-            const measureName = getResultColumnName({ ...mf, aggregation: (mf as any).aggregation || 'sum' } as any);
-            const valueDomain = (sharedMeasureDomains as any)[measureName] || [0, 1];
-
-            const options: Plot.PlotOptions = barOrientation === 'barX'
-              ? {
-                  x: { label: measureName, grid: true, domain: [0, (valueDomain[1] <= 0 ? 1 : valueDomain[1] * 1.05)] as any, nice: false },
-                  y: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any, padding: 0.1 as any },
-                  marks: [
-                    Plot.barX(subset, { x: measureName, y: categoryField?.columnName || (() => categories[0]), fill: DEFAULT_CHART_COLOR }),
-                    Plot.ruleX([0])
-                  ]
-                }
-              : {
-                  y: { label: measureName, grid: true, domain: [0, (valueDomain[1] <= 0 ? 1 : valueDomain[1] * 1.05)] as any, nice: false },
-                  x: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any, padding: 0.1 as any },
-                  marks: [
-                    Plot.barY(subset, { y: measureName, x: categoryField?.columnName || (() => categories[0]), fill: DEFAULT_CHART_COLOR }),
-                    Plot.ruleY([0])
-                  ]
-                } as any;
-
+          // Create a subplot per series (in oriented axis order): measures as bars, continuous dims as tick-strips
+          for (let s = 0; s < Math.max(1, seriesFields.length); s++) {
+            const f = seriesFields[s] || (barOrientation === 'barX' ? xFields.find((ff) => ff.type === 'measure')! : yFields.find((ff) => ff.type === 'measure')!);
+            const isMeasure = f.type === 'measure';
+            let options: Plot.PlotOptions;
+            let title: string;
+            if (isMeasure) {
+              const measureName = getResultColumnName({ ...f, aggregation: (f as any).aggregation || 'sum' } as any);
+              const valueDomain = (sharedMeasureDomains as any)[measureName] || [0, 1];
+              options = barOrientation === 'barX'
+                ? {
+                    x: { label: measureName, grid: true, domain: [0, (valueDomain[1] <= 0 ? 1 : valueDomain[1] * 1.05)] as any, nice: false },
+                    y: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any, padding: 0.1 as any },
+                    marks: [
+                      Plot.barX(subset, { x: measureName, y: categoryField?.columnName || (() => categories[0]), fill: DEFAULT_CHART_COLOR }),
+                      Plot.ruleX([0])
+                    ]
+                  }
+                : {
+                    y: { label: measureName, grid: true, domain: [0, (valueDomain[1] <= 0 ? 1 : valueDomain[1] * 1.05)] as any, nice: false },
+                    x: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any, padding: 0.1 as any },
+                    marks: [
+                      Plot.barY(subset, { y: measureName, x: categoryField?.columnName || (() => categories[0]), fill: DEFAULT_CHART_COLOR }),
+                      Plot.ruleY([0])
+                    ]
+                  } as any;
+              title = measureName;
+            } else {
+              const dimCol = (f as any).columnName;
+              options = barOrientation === 'barX'
+                ? { x: { label: dimCol, grid: true }, y: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any }, marks: [Plot.tickX(subset, { x: dimCol, y: categoryField?.columnName || (() => categories[0]), stroke: DEFAULT_CHART_COLOR })] } as Plot.PlotOptions
+                : { y: { label: dimCol, grid: true }, x: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any }, marks: [Plot.tickY(subset, { y: dimCol, x: categoryField?.columnName || (() => categories[0]), stroke: DEFAULT_CHART_COLOR })] } as Plot.PlotOptions;
+              title = dimCol;
+            }
             const pos = {
-              row: r * baseRowsPerFacet + (barOrientation === 'barY' ? m : 0),
-              col: c * baseColsPerFacet + (barOrientation === 'barX' ? m : 0),
+              row: r * baseRowsPerFacet + (barOrientation === 'barY' ? s : 0),
+              col: c * baseColsPerFacet + (barOrientation === 'barX' ? s : 0),
             };
-            combinedPlots.push({ id: `facet-${r}-${c}-m${m}`, title: measureName, options, position: pos });
+            combinedPlots.push({ id: `facet-${r}-${c}-s${s}`, title, options, position: pos });
           }
         }
       }
