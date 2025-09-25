@@ -1,8 +1,8 @@
 import * as Plot from '@observablehq/plot';
-import { BAR_STEP_PX, DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
+import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING, MIN_BAND_TRACKS, MIN_SERIES_PANES } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getFieldColumnName } from '../helpers/fields';
-import { ChartGenerationContext, PlotResult } from '../types';
+import { ChartGenerationContext, PlotResult, CategoryAxisDescriptor } from '../types';
 import { buildFacetCombos, filterRowsByFacets } from './facetUtils';
 import { FacetPlan, uniqueValuesForField } from './facetPlanner';
 import { getResultColumnName } from '../../utils/fieldUtils';
@@ -38,31 +38,30 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       const sharedMeasureDomains = computeSharedMeasureDomains(queryResult.rows, measureFields as any[], measureFields as any[]);
 
       // Choose facet fields excluding category
-      const rowFacetFields = yFields.filter((f) => f.flavour === 'discrete' && (categoryAxis !== 'y' || f.id !== categoryField?.id));
-      const colFacetFields = xFields.filter((f) => f.flavour === 'discrete' && (categoryAxis !== 'x' || f.id !== categoryField?.id));
+      const effectiveRowFacetFields = yFields.filter((f) => f.flavour === 'discrete' && (categoryAxis !== 'y' || f.id !== categoryField?.id));
+      const effectiveColFacetFields = xFields.filter((f) => f.flavour === 'discrete' && (categoryAxis !== 'x' || f.id !== categoryField?.id));
 
-      const rowValuesLevels = rowFacetFields.map((f) => uniqueValuesForField(queryResult.rows, f));
-      const colValuesLevels = colFacetFields.map((f) => uniqueValuesForField(queryResult.rows, f));
-      const rowCombos = buildFacetCombos(rowFacetFields, rowValuesLevels);
-      const colCombos = buildFacetCombos(colFacetFields, colValuesLevels);
-      const safeRowCombos = rowCombos.length > 0 ? rowCombos : [[]];
-      const safeColCombos = colCombos.length > 0 ? colCombos : [[]];
+      const { rowValuesLevels, colValuesLevels, safeRowCombos, safeColCombos } = computeFacetLevelsAndCombos(
+        queryResult.rows,
+        effectiveRowFacetFields,
+        effectiveColFacetFields
+      );
 
-      const combinedPlots: any[] = [];
+  const combinedPlots: Array<{ id: string; title: string; options: Plot.PlotOptions; position: { row: number; col: number } }> = [];
       // Ensure categorical domain includes all intended categories, even if missing in subset
       // Build consistent categorical domain from global data if none provided
       const categories = (sharedCategoryDomain && sharedCategoryDomain.length > 0)
         ? sharedCategoryDomain
         : (categoryField ? computeSharedCategoricalDomains(queryResult.rows, [categoryField])[categoryField.columnName] : [' ']);
-      const baseRowHeight = categoryAxis === 'y' ? Math.max(BAR_STEP_PX * 2, categories.length * BAR_STEP_PX) : 'fr';
-      const baseColWidth = categoryAxis === 'x' ? Math.max(BAR_STEP_PX * 2, categories.length * BAR_STEP_PX) : 'fr';
+      const baseRowHeight = categoryAxis === 'y' ? Math.max(BAR_STEP_PX * MIN_BAND_TRACKS, categories.length * BAR_STEP_PX) : 'fr';
+      const baseColWidth = categoryAxis === 'x' ? Math.max(BAR_STEP_PX * MIN_BAND_TRACKS, categories.length * BAR_STEP_PX) : 'fr';
 
-      const baseColsPerFacet = barOrientation === 'barX' ? Math.max(1, seriesFields.length) : 1;
-      const baseRowsPerFacet = barOrientation === 'barY' ? Math.max(1, seriesFields.length) : 1;
+      const baseColsPerFacet = barOrientation === 'barX' ? Math.max(MIN_SERIES_PANES, seriesFields.length) : 1;
+      const baseRowsPerFacet = barOrientation === 'barY' ? Math.max(MIN_SERIES_PANES, seriesFields.length) : 1;
 
       for (let r = 0; r < safeRowCombos.length; r++) {
         for (let c = 0; c < safeColCombos.length; c++) {
-          const subset = filterRowsByFacets(queryResult.rows, rowFacetFields, safeRowCombos[r], colFacetFields, safeColCombos[c]);
+          const subset = filterRowsByFacets(queryResult.rows, effectiveRowFacetFields, safeRowCombos[r], effectiveColFacetFields, safeColCombos[c]);
 
           // Create a subplot per series (in oriented axis order): measures as bars, continuous dims as tick-strips
           for (let s = 0; s < Math.max(1, seriesFields.length); s++) {
@@ -75,16 +74,16 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
               const valueDomain = (sharedMeasureDomains as any)[measureName] || [0, 1];
               options = barOrientation === 'barX'
                 ? {
-                    x: { label: measureName, grid: true, domain: [0, (valueDomain[1] <= 0 ? 1 : valueDomain[1] * 1.05)] as any, nice: false },
-                    y: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any, padding: 0.1 as any },
+                    x: { label: measureName, grid: true, domain: valueDomain as any, nice: false, domainKey: measureName } as any,
+                    y: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any, padding: BAND_PADDING as any, domainKey: categoryField?.columnName } as any,
                     marks: [
                       Plot.barX(subset, { x: measureName, y: categoryField?.columnName || (() => categories[0]), fill: DEFAULT_CHART_COLOR }),
                       Plot.ruleX([0])
                     ]
                   }
                 : {
-                    y: { label: measureName, grid: true, domain: [0, (valueDomain[1] <= 0 ? 1 : valueDomain[1] * 1.05)] as any, nice: false },
-                    x: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any, padding: 0.1 as any },
+                    y: { label: measureName, grid: true, domain: valueDomain as any, nice: false, domainKey: measureName } as any,
+                    x: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any, padding: BAND_PADDING as any, domainKey: categoryField?.columnName } as any,
                     marks: [
                       Plot.barY(subset, { y: measureName, x: categoryField?.columnName || (() => categories[0]), fill: DEFAULT_CHART_COLOR }),
                       Plot.ruleY([0])
@@ -94,8 +93,8 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
             } else {
               const dimCol = (f as any).columnName;
               options = barOrientation === 'barX'
-                ? { x: { label: dimCol, grid: true }, y: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any }, marks: [Plot.tickX(subset, { x: dimCol, y: categoryField?.columnName || (() => categories[0]), stroke: DEFAULT_CHART_COLOR })] } as Plot.PlotOptions
-                : { y: { label: dimCol, grid: true }, x: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any }, marks: [Plot.tickY(subset, { y: dimCol, x: categoryField?.columnName || (() => categories[0]), stroke: DEFAULT_CHART_COLOR })] } as Plot.PlotOptions;
+                ? { x: { label: dimCol, grid: true }, y: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any, padding: BAND_PADDING as any }, marks: [Plot.tickX(subset, { x: dimCol, y: categoryField?.columnName || (() => categories[0]), stroke: DEFAULT_CHART_COLOR })] } as Plot.PlotOptions
+                : { y: { label: dimCol, grid: true }, x: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any, padding: BAND_PADDING as any }, marks: [Plot.tickY(subset, { y: dimCol, x: categoryField?.columnName || (() => categories[0]), stroke: DEFAULT_CHART_COLOR })] } as Plot.PlotOptions;
               title = dimCol;
             }
             const pos = {
@@ -115,6 +114,7 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       return {
         library: 'observable-plot',
         plots: combinedPlots,
+        sharedDomains: { byMeasure: sharedMeasureDomains as any },
         layout: {
           type: 'grid',
           columns,
@@ -123,23 +123,25 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
           rowSizes,
         },
         facetLabels: {
-          rowsLevels: rowFacetFields.length > 0 ? rowFacetFields.map((f, i) => ({ fieldLabel: getFieldColumnName(f), values: rowValuesLevels[i] })) : undefined,
-          colsLevels: colFacetFields.length > 0 ? colFacetFields.map((f, i) => ({ fieldLabel: getFieldColumnName(f), values: colValuesLevels[i] })) : undefined,
+          rowsLevels: effectiveRowFacetFields.length > 0 ? effectiveRowFacetFields.map((f, i) => ({ fieldLabel: getFieldColumnName(f), values: rowValuesLevels[i] })) : undefined,
+          colsLevels: effectiveColFacetFields.length > 0 ? effectiveColFacetFields.map((f, i) => ({ fieldLabel: getFieldColumnName(f), values: colValuesLevels[i] })) : undefined,
           groupSpan: { columnsPerFacet: baseColsPerFacet, rowsPerFacet: baseRowsPerFacet },
-          spans: { baseCols: baseColsPerFacet, baseRows: baseRowsPerFacet, columns: [], rows: [] },
+          spans: {
+            baseCols: baseColsPerFacet,
+            baseRows: baseRowsPerFacet,
+            columns: computeLevelSpans(effectiveColFacetFields, baseColsPerFacet, colValuesLevels),
+            rows: computeLevelSpans(effectiveRowFacetFields, baseRowsPerFacet, rowValuesLevels),
+          },
         },
       };
     }
   
-    // Values per level
-    const rowValuesLevels = rowFacetFields.map((f) => uniqueValuesForField(queryResult.rows, f));
-    const colValuesLevels = colFacetFields.map((f) => uniqueValuesForField(queryResult.rows, f));
-  
-    // Build all combinations per side
-    const rowCombos = buildFacetCombos(rowFacetFields, rowValuesLevels);
-    const colCombos = buildFacetCombos(colFacetFields, colValuesLevels);
-    const safeRowCombos = rowCombos.length > 0 ? rowCombos : [[]];
-    const safeColCombos = colCombos.length > 0 ? colCombos : [[]];
+  // Compute facet levels and safe combos
+  const { rowValuesLevels, colValuesLevels, safeRowCombos, safeColCombos } = computeFacetLevelsAndCombos(
+    queryResult.rows,
+    rowFacetFields,
+    colFacetFields
+  );
   
     // Compute shared measure domains across whole data for comparability
     const allMeasures = [...xFields, ...yFields].filter((f: any) => f.type === 'measure' && f.flavour === 'continuous');
@@ -217,8 +219,8 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
         spans: {
           baseCols,
           baseRows,
-          columns: computeLevelSpans(colFacetFields, baseCols),
-          rows: computeLevelSpans(rowFacetFields, baseRows),
+          columns: computeLevelSpans(colFacetFields, baseCols, colValuesLevels),
+          rows: computeLevelSpans(rowFacetFields, baseRows, rowValuesLevels),
         },
       }
     };
@@ -232,11 +234,25 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
     rowSizes?: Array<number | 'fr'>;
   };
   
+  function computeFacetLevelsAndCombos(
+    rows: Array<Record<string, any>>,
+    rowFacetFields: Field[],
+    colFacetFields: Field[]
+  ) {
+    const rowValuesLevels = rowFacetFields.map((f) => uniqueValuesForField(rows, f));
+    const colValuesLevels = colFacetFields.map((f) => uniqueValuesForField(rows, f));
+    const rowCombos = buildFacetCombos(rowFacetFields, rowValuesLevels);
+    const colCombos = buildFacetCombos(colFacetFields, colValuesLevels);
+    const safeRowCombos = rowCombos.length > 0 ? rowCombos : [[]];
+    const safeColCombos = colCombos.length > 0 ? colCombos : [[]];
+    return { rowValuesLevels, colValuesLevels, safeRowCombos, safeColCombos };
+  }
+  
   function buildBaseSpecForDataSubset(
     context: ChartGenerationContext,
     categoryAxis: 'x' | 'y' | null,
     excludedCategoryFieldId: string | null,
-    subsetRows: any[],
+    subsetRows: Array<Record<string, any>>,
     sharedMeasureDomains?: Record<string, [number, number]>,
     sharedNumericDomains?: Record<string, [number, number]>,
     rowFacetFields?: Field[] | Field | null,
@@ -251,25 +267,18 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
     let localXFields = xFields.filter(f => f.id !== excludedCategoryFieldId && !colFacetIds.includes(f.id));
     let localYFields = yFields.filter(f => f.id !== excludedCategoryFieldId && !rowFacetIds.includes(f.id));
     
-    // Inject category axis pseudo-dimension when required for bars
+    // Do not inject a pseudo dimension; instead provide a category axis descriptor to the base generator
+    let categoryAxisDescriptor: CategoryAxisDescriptor | undefined;
     if (categoryAxis && excludedCategoryFieldId) {
-      // Use the original context fields to locate the category field by id
       const axisOriginal = categoryAxis === 'x' ? xFields : yFields;
       const catField = axisOriginal.find((f) => f.id === excludedCategoryFieldId);
       if (catField) {
         const colName = getFieldColumnName(catField);
-        const pseudoDim: any = {
-          ...catField,
-          id: `${catField.id}__as_dim`,
-          type: 'dimension',
-          aggregation: undefined,
+        categoryAxisDescriptor = {
+          axis: categoryAxis,
           columnName: colName,
+          domain: sharedCategoryDomain,
         };
-        if (categoryAxis === 'x') {
-          localXFields = [pseudoDim, ...localXFields];
-        } else {
-          localYFields = [pseudoDim, ...localYFields];
-        }
       }
     }
   
@@ -278,6 +287,7 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       xFields: localXFields,
       yFields: localYFields,
       queryResult: { ...queryResult, rows: subsetRows },
+      categoryAxisDescriptor,
     };
   
     const baseResult = baseGeneratePlot(localContext);
@@ -285,8 +295,8 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
     // Apply shared domains by measure if provided
     if (sharedMeasureDomains || sharedNumericDomains) {
       const applyDomains = (opts: Plot.PlotOptions) => {
-        const xDomainKey = (opts as any)?.x?.label || (opts as any)?.x?.domainLabel;
-        const yDomainKey = (opts as any)?.y?.label || (opts as any)?.y?.domainLabel;
+        const xDomainKey = (opts as any)?.x?.domainKey || (opts as any)?.x?.domainLabel || (opts as any)?.x?.label;
+        const yDomainKey = (opts as any)?.y?.domainKey || (opts as any)?.y?.domainLabel || (opts as any)?.y?.label;
         const xDomain = (sharedNumericDomains && xDomainKey && sharedNumericDomains[xDomainKey]) || (sharedMeasureDomains && xDomainKey && sharedMeasureDomains[xDomainKey]);
         const yDomain = (sharedNumericDomains && yDomainKey && sharedNumericDomains[yDomainKey]) || (sharedMeasureDomains && yDomainKey && sharedMeasureDomains[yDomainKey]);
         const next: Plot.PlotOptions = { ...opts };
@@ -396,13 +406,14 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
     return { plots: [], columns: 1, rows: 1 };
   }
   
-  function computeLevelSpans(fields: Field[], base: number): number[] {
+  function computeLevelSpans(fields: Field[], base: number, levelValues: any[][]): number[] {
     // Each level label should span all inner levels and base plots
-    if (fields.length === 0) return [];
+    if (!fields || fields.length === 0) return [];
     const spans: number[] = [];
     for (let i = 0; i < fields.length; i++) {
-      // For now, each level spans the full base; consumer may refine when nested grids are used
-      spans.push(base);
+      const innerLevels = (levelValues || []).slice(i + 1);
+      const innerProduct = innerLevels.reduce((acc: number, vals: any[]) => acc * (Array.isArray(vals) ? Math.max(1, vals.length) : 1), 1);
+      spans.push(base * innerProduct);
     }
     return spans;
   }
