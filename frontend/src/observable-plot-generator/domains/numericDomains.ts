@@ -1,4 +1,5 @@
 import { getResultColumnName } from '../../utils/fieldUtils';
+import { DOMAIN_PAD_RATIO } from '../../config/chartLayoutConfig';
 
 /**
  * Compute shared numeric domains (min..max with 0 baseline when applicable) for
@@ -36,9 +37,9 @@ export function computeSharedNumericDomains(
     if (values.length === 0) continue;
     const min = Math.min(...values);
     const max = Math.max(...values);
-    const lower = min - Math.abs(min) * 0.05;
-    // Add 5% headroom for 2D charts (scatter/line) so points don't touch the boundary.
-    const upper = max <= 0 ? 0 : max * 1.05;
+    const lower = min - Math.abs(min) * DOMAIN_PAD_RATIO;
+    // Add headroom so points don't touch the boundary.
+    const upper = max <= 0 ? 0 : max * (1 + DOMAIN_PAD_RATIO);
     domains[label] = [lower, upper];
   }
 
