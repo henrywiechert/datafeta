@@ -27,12 +27,12 @@ export function detectDefaultChartTypeForPair(xField: Field, yField: Field): Cel
   }
 
   if (xIsMeasure && !yIsMeasure) {
-    if (yField.flavour === 'continuous') return 'line';
+    if (yField.flavour === 'continuous') return 'line'; // vertical line handled in renderer
     return 'barX';
   }
 
   if (!xIsMeasure && yIsMeasure) {
-    if (xField.flavour === 'continuous') return 'line';
+    if (xField.flavour === 'continuous') return 'line'; // standard horizontal line
     return 'barY';
   }
 

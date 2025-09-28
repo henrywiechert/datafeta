@@ -2,7 +2,7 @@ import * as Plot from '@observablehq/plot';
 import { Field } from '../../types';
 import { DEFAULT_CHART_COLOR, BAR_STEP_PX } from '../../config/chartLayoutConfig';
 import { getResultColumnName } from '../../utils/fieldUtils';
-import { lineChart } from './lineChart';
+import { lineChart, verticalLineChart } from './lineChart';
 import { scatterChart } from './scatterChart';
 import { tickStrip } from './tickStrip';
 import { CellChartType, ChartTypeOverrides, resolveChartTypeForPair } from '../helpers/chartTypeResolver';
@@ -54,11 +54,12 @@ export function generatePairChartOptions(
       return scatterChart(data, xCol, yCol, domainOptions);
     }
     case 'line': {
-      // measure vs continuous dimension – ensure dimension on X axis
+      // measure vs continuous dimension – ensure dimension on one axis
       if (xf.type === 'measure' && yf.type === 'dimension') {
-        const xCol = yf.columnName;
-        const yCol = getResultColumnName({ ...xf, aggregation: xf.aggregation || 'sum' } as any);
-        return lineChart(data, xCol, yCol, { x: xCol, y: yCol });
+        // Prefer vertical line when measure is on X and dimension on Y
+        const xCol = getResultColumnName({ ...xf, aggregation: xf.aggregation || 'sum' } as any);
+        const yCol = yf.columnName;
+        return verticalLineChart(data, xCol, yCol, { x: xCol, y: yCol });
       }
       if (xf.type === 'dimension' && yf.type === 'measure') {
         const xCol = xf.columnName;
