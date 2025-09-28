@@ -50,7 +50,36 @@ export function generatePairChartOptions(
         y: yCol,
         ...(xDomain || yDomain ? { domain: { x: xDomain, y: yDomain } } : {})
       };
-      // Always render scatter (empty when no numeric pairs), to keep base type consistent
+      // Special-case: measure vs measure should be a single dot (global aggregate),
+      // not one dot per record (which may be grouped by unrelated dimensions).
+      if (xf.type === 'measure' && yf.type === 'measure') {
+        const aggregate = (col: string, agg?: string) => {
+          const values = (Array.isArray(data) ? data : []).map((d) => d?.[col]).filter((v) => typeof v === 'number' && Number.isFinite(v)) as number[];
+          if (values.length === 0) return undefined as unknown as number;
+          const a = (agg || 'sum').toLowerCase();
+          switch (a) {
+            case 'sum':
+            case undefined as any:
+              return values.reduce((s, v) => s + v, 0);
+            case 'count':
+            case 'count_distinct':
+              // COUNT aliases are already counts per group; sum them
+              return values.reduce((s, v) => s + v, 0);
+            case 'min':
+              return Math.min(...values);
+            case 'max':
+              return Math.max(...values);
+            case 'avg':
+              // Fallback to simple mean across groups (not weighted); acceptable for now
+              return values.reduce((s, v) => s + v, 0) / values.length;
+            default:
+              return values.reduce((s, v) => s + v, 0);
+          }
+        };
+        const single = [{ [xCol]: aggregate(xCol, (xf as any).aggregation), [yCol]: aggregate(yCol, (yf as any).aggregation) } as any];
+        return scatterChart(single, xCol, yCol, domainOptions);
+      }
+      // Otherwise render scatter with full data
       return scatterChart(data, xCol, yCol, domainOptions);
     }
     case 'line': {
@@ -59,12 +88,16 @@ export function generatePairChartOptions(
         // Prefer vertical line when measure is on X and dimension on Y
         const xCol = getResultColumnName({ ...xf, aggregation: xf.aggregation || 'sum' } as any);
         const yCol = yf.columnName;
-        return verticalLineChart(data, xCol, yCol, { x: xCol, y: yCol });
+        const xDomain = sharedMeasureDomains?.[xCol];
+        const yDomain = sharedMeasureDomains?.[yCol];
+        return verticalLineChart(data, xCol, yCol, { x: xCol, y: yCol }, { x: xDomain, y: yDomain });
       }
       if (xf.type === 'dimension' && yf.type === 'measure') {
         const xCol = xf.columnName;
         const yCol = getResultColumnName({ ...yf, aggregation: yf.aggregation || 'sum' } as any);
-        return lineChart(data, xCol, yCol, { x: xCol, y: yCol });
+        const xDomain = sharedMeasureDomains?.[xCol];
+        const yDomain = sharedMeasureDomains?.[yCol];
+        return lineChart(data, xCol, yCol, { x: xCol, y: yCol }, { x: xDomain, y: yDomain });
       }
       // If both are measures or both are dimensions, fallback to scatter (empty if no data)
       const { xCol, yCol } = resolveXYColumns(xf, yf);
