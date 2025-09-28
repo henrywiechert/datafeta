@@ -42,8 +42,15 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
     }
 
     // Multi-measure on the same axis -> grid of bar charts (preferred over cartesian pairing)
+    // EXCEPT when the opposite axis has a continuous dimension; then use cartesian grid (line charts)
     if (analysis.isMultiMeasure && !analysis.hasMixedAxes) {
-      return multiMeasureBarChart(context);
+      const measuresOnX = analysis.hasXMeasure && !analysis.hasYMeasure;
+      const oppositeDims = measuresOnX ? (analysis as any).yDimensions : (analysis as any).xDimensions;
+      const hasOppositeContinuousDim = Array.isArray(oppositeDims) && oppositeDims.some((d: any) => d.flavour === 'continuous');
+      if (!hasOppositeContinuousDim) {
+        return multiMeasureBarChart(context);
+      }
+      // fall through to cartesian grid
     }
     
     // If both axes have at least one candidate (measure or dimension), build a cartesian pairing grid
