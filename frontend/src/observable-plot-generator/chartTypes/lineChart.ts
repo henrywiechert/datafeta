@@ -57,4 +57,58 @@ export function lineChart(
   };
 }
 
+/**
+ * Vertical line chart for continuous measure on X and continuous dimension on Y.
+ * Sorts by the Y dimension so the line flows bottom-to-top.
+ */
+export function verticalLineChart(
+  data: any[],
+  xColumn: string,
+  yColumn: string,
+  labels?: { x?: string; y?: string }
+): Plot.PlotOptions {
+  const clean = Array.isArray(data)
+    ? data.filter((d) => Number.isFinite(d[xColumn]))
+    : [];
+
+  if (clean.length === 0) {
+    return {
+      x: { label: labels?.x || xColumn, grid: true },
+      y: { label: labels?.y || yColumn, grid: true },
+      marks: [],
+    };
+  }
+
+  const toComparable = (v: any): number | string | null => {
+    if (v instanceof Date) return v.getTime();
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    if (typeof v === 'string') {
+      const num = Number.parseFloat(v);
+      if (Number.isFinite(num)) return num;
+      const ts = Date.parse(v);
+      if (!Number.isNaN(ts)) return ts;
+      return v;
+    }
+    return null;
+  };
+  const cleanSorted = clean.slice().sort((a, b) => {
+    const ay = toComparable(a[yColumn]);
+    const by = toComparable(b[yColumn]);
+    if (ay == null && by == null) return 0;
+    if (ay == null) return 1;
+    if (by == null) return -1;
+    if (typeof ay === 'string' || typeof by === 'string') return String(ay).localeCompare(String(by));
+    return (ay as number) - (by as number);
+  });
+
+  return {
+    x: { label: labels?.x || xColumn, grid: true },
+    y: { label: labels?.y || yColumn, grid: true },
+    marks: [
+      Plot.line(cleanSorted, { x: xColumn, y: yColumn, stroke: DEFAULT_CHART_COLOR }),
+      Plot.dot(cleanSorted, { x: xColumn, y: yColumn, fill: DEFAULT_CHART_COLOR, r: 2 }),
+    ],
+  };
+}
+
 

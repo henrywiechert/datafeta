@@ -35,7 +35,8 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
   try {
     // First, see if faceting is applicable.
     const facetPlan = planFacets(context);
-    if (facetPlan) {
+    // Only engage faceting when it actually changes the base (facets or category axis)
+    if (facetPlan && ((facetPlan.rowFacetFields?.length || 0) > 0 || (facetPlan.colFacetFields?.length || 0) > 0 || !!facetPlan.categoryAxis)) {
       // It's possible to have a plan but no facets, e.g., for a single bar chart
       // that needs a category axis. The faceting logic handles this 1x1 case.
       return generateFacetedGrid(context, facetPlan);
@@ -54,9 +55,15 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
     }
     
     // If both axes have at least one candidate (measure or dimension), build a cartesian pairing grid
-    // This includes single charts as 1x1 grids for unified domain handling
-    const xCandidates = [...analysis.xMeasures, ...analysis.xDimensions];
-    const yCandidates = [...analysis.yMeasures, ...analysis.yDimensions];
+    // Use only continuous dimensions and measures to form NxM pairs when present
+    const xCandidates = [
+      ...(analysis.xDimensions || []).filter((d: any) => d.flavour === 'continuous'),
+      ...(analysis.xMeasures || [])
+    ];
+    const yCandidates = [
+      ...(analysis.yDimensions || []).filter((d: any) => d.flavour === 'continuous'),
+      ...(analysis.yMeasures || [])
+    ];
 
     if (xCandidates.length > 0 && yCandidates.length > 0) {
       return generateCartesianGrid(context, analysis, xCandidates, yCandidates, overrides);
@@ -88,16 +95,16 @@ export function baseGeneratePlot(context: ChartGenerationContext): PlotResult {
   // Do not short-circuit on empty data here; downstream chart creators
   // render empty frames so faceted cells remain consistent.
 
-  // Mixed-axis measures → scatter
-  if (analysis.hasMixedAxes) {
-    const plotOptions = generateScatterPlot(analysis, context);
-    return { library: 'observable-plot', options: plotOptions, layout: { type: 'single' } };
-  }
-
   // If we have multiple candidates across axes (dimensions and/or measures),
   // build a cartesian grid so that combinations are preserved within faceting.
-  const xCandidates: Field[] = [...(analysis as any).xMeasures, ...(analysis as any).xDimensions];
-  const yCandidates: Field[] = [...(analysis as any).yMeasures, ...(analysis as any).yDimensions];
+  const xCandidates: Field[] = [
+    ...((analysis as any).xDimensions || []).filter((d: any) => d.flavour === 'continuous'),
+    ...((analysis as any).xMeasures || [])
+  ];
+  const yCandidates: Field[] = [
+    ...((analysis as any).yDimensions || []).filter((d: any) => d.flavour === 'continuous'),
+    ...((analysis as any).yMeasures || [])
+  ];
   const multiAcrossAxes =
     xCandidates.length > 0 && yCandidates.length > 0 && (xCandidates.length > 1 || yCandidates.length > 1);
   if (multiAcrossAxes) {
