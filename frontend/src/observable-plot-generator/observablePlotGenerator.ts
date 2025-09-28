@@ -124,6 +124,12 @@ export function baseGeneratePlot(context: ChartGenerationContext): PlotResult {
     };
   }
 
+  // Single pair across axes with measures on both sides → single scatter
+  if (analysis.hasMixedAxes) {
+    const plotOptions = generateScatterPlot(analysis, context);
+    return { library: 'observable-plot', options: plotOptions, layout: { type: 'single' } };
+  }
+
   // Multi-measure per axis → our existing bar grid
   if (analysis.isMultiMeasure && !analysis.hasMixedAxes) {
     try { return multiMeasureBarChart(context); } catch { /* fall through */ }

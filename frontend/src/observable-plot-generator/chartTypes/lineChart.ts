@@ -9,7 +9,8 @@ export function lineChart(
   data: any[],
   xColumn: string,
   yColumn: string,
-  labels?: { x?: string; y?: string }
+  labels?: { x?: string; y?: string },
+  domain?: { x?: [number, number]; y?: [number, number] }
 ): Plot.PlotOptions {
   // Filter to finite numeric values for y; x may be numeric or datetime/ordinal
   const clean = Array.isArray(data)
@@ -48,8 +49,8 @@ export function lineChart(
   });
 
   return {
-    x: { label: labels?.x || xColumn, grid: true },
-    y: { label: labels?.y || yColumn, grid: true },
+    x: { label: labels?.x || xColumn, grid: true, domain: domain?.x },
+    y: { label: labels?.y || yColumn, grid: true, domain: domain?.y },
     marks: [
       Plot.line(cleanSorted, { x: xColumn, y: yColumn, stroke: DEFAULT_CHART_COLOR }),
       Plot.dot(cleanSorted, { x: xColumn, y: yColumn, fill: DEFAULT_CHART_COLOR, r: 2 }),
@@ -65,7 +66,8 @@ export function verticalLineChart(
   data: any[],
   xColumn: string,
   yColumn: string,
-  labels?: { x?: string; y?: string }
+  labels?: { x?: string; y?: string },
+  domain?: { x?: [number, number]; y?: [number, number] }
 ): Plot.PlotOptions {
   const clean = Array.isArray(data)
     ? data.filter((d) => Number.isFinite(d[xColumn]))
@@ -102,8 +104,8 @@ export function verticalLineChart(
   });
 
   return {
-    x: { label: labels?.x || xColumn, grid: true },
-    y: { label: labels?.y || yColumn, grid: true },
+    x: { label: labels?.x || xColumn, grid: true, domain: domain?.x },
+    y: { label: labels?.y || yColumn, grid: true, domain: domain?.y },
     marks: [
       Plot.line(cleanSorted, { x: xColumn, y: yColumn, stroke: DEFAULT_CHART_COLOR }),
       Plot.dot(cleanSorted, { x: xColumn, y: yColumn, fill: DEFAULT_CHART_COLOR, r: 2 }),
