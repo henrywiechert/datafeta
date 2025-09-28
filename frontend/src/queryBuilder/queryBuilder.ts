@@ -35,9 +35,11 @@ export const buildAggregatedQuery = ({
     return null;
   }
 
-  const orderBy: OrderBy[] = fields
-    .filter(f => f.type === 'dimension' && f.flavour === 'discrete')
-    .map(f => ({ field: f.columnName }));
+  // Order by all dimensions to ensure deterministic series/category order and
+  // left-to-right flow for continuous dimensions (e.g., line charts)
+  const discreteDims = fields.filter(f => f.type === 'dimension' && f.flavour === 'discrete');
+  const continuousDims = fields.filter(f => f.type === 'dimension' && f.flavour === 'continuous');
+  const orderBy: OrderBy[] = [...discreteDims, ...continuousDims].map(f => ({ field: f.columnName }));
   
   const queryDesc: QueryDescription = {
     target_table: selectedTable,
@@ -81,9 +83,11 @@ export const buildRawQuery = ({
     }
   });
 
-  const orderBy: OrderBy[] = fields
-    .filter(f => f.type === 'dimension' && f.flavour === 'discrete')
-    .map(f => ({ field: f.columnName }));
+  // Order by dimensions when present; this preserves category order and sorts
+  // continuous dimensions for left-to-right flows in single-series charts
+  const discreteDims = fields.filter(f => f.type === 'dimension' && f.flavour === 'discrete');
+  const continuousDims = fields.filter(f => f.type === 'dimension' && f.flavour === 'continuous');
+  const orderBy: OrderBy[] = [...discreteDims, ...continuousDims].map(f => ({ field: f.columnName }));
 
   const queryDesc: QueryDescription = {
     target_table: selectedTable,
