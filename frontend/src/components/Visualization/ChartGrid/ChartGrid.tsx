@@ -227,6 +227,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     // Helpers for hierarchical label rendering
     const colLevels = spec.facetLabels?.colsLevels || [];
     const rowLevels = spec.facetLabels?.rowsLevels || [];
+    const hasRowFacets = rowLevels.length > 0;
 
     const baseCols = spec.facetLabels?.spans?.baseCols || 1;
     const baseRows = spec.facetLabels?.spans?.baseRows || 1;
@@ -238,7 +239,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     const X_LABEL_ROW_PX = 16;
 
     const yLevelsCount = rowLevels.length;
-    const leftLabelsPx = NAMES_BAND_LEFT_PX + VALUES_BAND_LEFT_PX * yLevelsCount;
+    const leftLabelsPx = hasRowFacets ? NAMES_BAND_LEFT_PX + VALUES_BAND_LEFT_PX * yLevelsCount : 0;
 
     // Dynamic gutters
     const dynamicYAxisPx = computeDynamicYAxisGutterPx(spec, rows);
@@ -343,7 +344,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
             
             {/* Left Y labels/scales area */}
             <div style={{ gridColumn: 1, gridRow: '1 / -1', pointerEvents: 'auto', borderRight: `1px solid ${dividerColor}` }}>
-              <div style={{ display: 'grid', gridTemplateColumns: `${leftLabelsPx}px ${yLabelColPx}px ${dynamicYAxisPx}px`, gridTemplateRows: plotRowsSpec }}>
+              <div style={{ display: 'grid', gridTemplateColumns: hasRowFacets ? `${leftLabelsPx}px ${yLabelColPx}px ${dynamicYAxisPx}px` : `${yLabelColPx}px ${dynamicYAxisPx}px`, gridTemplateRows: plotRowsSpec }}>
                 {/* Left facet labels area */}
                 <LeftFacetLabels spec={spec} plotRowsSpec={plotRowsSpec} baseRows={baseRows} />
 
@@ -357,7 +358,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                     <div
                       key={`y-label-${r}`}
                       style={{
-                        gridColumn: spec.facetLabels ? 2 : 1,
+                        gridColumn: hasRowFacets ? 2 : 1,
                         gridRow: r + 1,
                         display: 'flex',
                         alignItems: 'center',
@@ -383,7 +384,13 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                   );
                 })}
 
-                <YAxes spec={spec} rows={rows} dynamicYAxisPx={dynamicYAxisPx} rowHeights={actualRowHeights} />
+                <YAxes
+                  spec={spec}
+                  rows={rows}
+                  dynamicYAxisPx={dynamicYAxisPx}
+                  rowHeights={actualRowHeights}
+                  hasRowFacets={hasRowFacets}
+                />
               </div>
             </div>
 

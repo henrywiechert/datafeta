@@ -9,6 +9,7 @@ interface YAxesProps {
   rows: number;
   dynamicYAxisPx: number;
   rowHeights: number[]; // actual track heights in px per row
+  hasRowFacets: boolean;
 }
 
 /**
@@ -29,7 +30,7 @@ function buildYAxisOptions(domain: any, gutterPx: number, type?: string) {
   } as any;
 }
 
-const YAxes: React.FC<YAxesProps> = ({ spec, rows, dynamicYAxisPx, rowHeights }) => {
+const YAxes: React.FC<YAxesProps> = ({ spec, rows, dynamicYAxisPx, rowHeights, hasRowFacets }) => {
   return (
     <>
       {/* Left external y-axes gutter */}
@@ -42,7 +43,7 @@ const YAxes: React.FC<YAxesProps> = ({ spec, rows, dynamicYAxisPx, rowHeights })
           <div
             key={`y-axis-${r}`}
             style={{
-              gridColumn: spec.facetLabels ? 3 : 2,
+              gridColumn: hasRowFacets ? 3 : 2,
               gridRow: r + 1,
               borderBottom: r < rows - 1 ? '1px solid #99a795' : undefined,
             }}
