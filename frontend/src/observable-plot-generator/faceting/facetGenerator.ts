@@ -33,7 +33,6 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       // Collect all measures and continuous dims on the oriented axis, preserving original order
       const orientedFields = barOrientation === 'barX' ? xFields : yFields;
       const measureFields = orientedFields.filter((f) => f.type === 'measure');
-      const orientedContDims = orientedFields.filter((f) => f.type === 'dimension' && f.flavour === 'continuous');
       const seriesFields = orientedFields.filter((f) => f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous'));
       const sharedMeasureDomains = computeSharedMeasureDomains(queryResult.rows, measureFields as any[], measureFields as any[]);
 
