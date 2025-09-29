@@ -54,6 +54,7 @@ export function tickStrip(
             x: dimensionColumn,
             y: categoryDimensionColumn,
             stroke: DEFAULT_CHART_COLOR,
+            strokeWidth: 1.5,
           }),
         ],
       };
@@ -67,6 +68,7 @@ export function tickStrip(
         Plot.tickX(data, {
           x: dimensionColumn,
           stroke: DEFAULT_CHART_COLOR,
+          strokeWidth: 1.5,
         }),
       ],
     };
@@ -84,6 +86,7 @@ export function tickStrip(
           y: dimensionColumn,
           x: categoryDimensionColumn,
           stroke: DEFAULT_CHART_COLOR,
+          strokeWidth: 1.5,
         }),
       ],
     };
@@ -97,6 +100,7 @@ export function tickStrip(
       Plot.tickY(data, {
         y: dimensionColumn,
         stroke: DEFAULT_CHART_COLOR,
+        strokeWidth: 1.5,
       }),
     ],
   };
