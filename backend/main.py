@@ -4,6 +4,8 @@ import shutil
 import tempfile
 import logging # Import logging
 from fastapi import FastAPI, Request, status
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -61,9 +63,25 @@ def startup_event():
         logger.exception("Failed to create upload root directory")
         raise
 
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to the Data Analytics Platform API"}
+FRONTEND_BUILD_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "static"))
+
+# If a frontend build has been copied into backend/static (e.g. via Docker multi-stage build) serve it
+if os.path.isdir(FRONTEND_BUILD_DIR):
+    logger.info(f"Serving frontend build from: {FRONTEND_BUILD_DIR}")
+    app.mount("/", StaticFiles(directory=FRONTEND_BUILD_DIR, html=True), name="frontend")
+
+    @app.get("/health", include_in_schema=False)
+    def health_check():  # lightweight health endpoint still available even when SPA mounted at '/'
+        return {"status": "ok"}
+
+    # Optional explicit fallback (StaticFiles with html=True already handles index.html for 404 in subpaths)
+    @app.get("/api-info", include_in_schema=False)
+    def api_info():
+        return {"message": "Data Analytics Platform API", "version": app.version}
+else:
+    @app.get("/")
+    def read_root():
+        return {"message": "Welcome to the Data Analytics Platform API"}
 
 @app.on_event("shutdown")
 def shutdown_event():
