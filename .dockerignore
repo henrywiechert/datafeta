@@ -1,0 +1,23 @@
+# Node build artifacts
+frontend/node_modules
+frontend/build
+
+# Python caches
+**/__pycache__
+*.pyc
+
+# Virtual environments
+venv
+.env
+
+# Git
+.git
+.gitignore
+
+# IDE/editor
+.vscode
+.idea
+
+# Misc
+Dockerfile*
+README.md
