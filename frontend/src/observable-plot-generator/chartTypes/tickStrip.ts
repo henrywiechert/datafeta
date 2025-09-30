@@ -28,15 +28,15 @@ export function tickStrip(
     if (orientation === 'x') {
       return {
         x: { label: dimensionColumn, grid: true },
-        y: { label: ' ' },
-        height: BAR_STEP_PX * 1.8,
+        y: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: 0.1 as any },
+        height: BAR_STEP_PX * 2,
         marks: [],
       };
     } else {
       return {
         y: { label: dimensionColumn, grid: true },
-        x: { label: ' ' },
-        width: BAR_STEP_PX * 1.8,
+        x: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: 0.1 as any },
+        width: BAR_STEP_PX * 2,
         marks: [],
       };
     }
@@ -44,10 +44,16 @@ export function tickStrip(
 
   if (orientation === 'x') {
     if (categoryDimensionColumn) {
-      const categoryCount = new Set(data.map((row: any) => row[categoryDimensionColumn])).size;
+      const categories = Array.from(new Set(data.map((row: any) => row[categoryDimensionColumn])));
+      const categoryCount = categories.length;
       return {
         x: { label: dimensionColumn, grid: true },
-        y: { label: categoryDimensionColumn },
+        y: { 
+          label: categoryDimensionColumn,
+          domain: categories as any,
+          type: 'band' as any,
+          padding: 0.1 as any,
+        },
         height: Math.max(BAR_STEP_PX * 2, categoryCount * BAR_STEP_PX),
         marks: [
           Plot.tickX(data, {
@@ -61,9 +67,8 @@ export function tickStrip(
     }
     return {
       x: { label: dimensionColumn, grid: true },
-      y: { label: ' ' },
-      // Thickness behaves like a single bar: fixed pixel height (1x)
-      height: BAR_STEP_PX * 1.8,
+      y: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: 0.1 as any },
+      height: BAR_STEP_PX * 2,
       marks: [
         Plot.tickX(data, {
           x: dimensionColumn,
@@ -76,10 +81,16 @@ export function tickStrip(
 
   // orientation === 'y'
   if (categoryDimensionColumn) {
-    const categoryCount = new Set(data.map((row: any) => row[categoryDimensionColumn])).size;
+    const categories = Array.from(new Set(data.map((row: any) => row[categoryDimensionColumn])));
+    const categoryCount = categories.length;
     return {
       y: { label: dimensionColumn, grid: true },
-      x: { label: categoryDimensionColumn },
+      x: { 
+        label: categoryDimensionColumn,
+        domain: categories as any,
+        type: 'band' as any,
+        padding: 0.1 as any,
+      },
       width: Math.max(BAR_STEP_PX * 2, categoryCount * BAR_STEP_PX),
       marks: [
         Plot.tickY(data, {
@@ -93,9 +104,8 @@ export function tickStrip(
   }
   return {
     y: { label: dimensionColumn, grid: true },
-    x: { label: ' ' },
-    // Thickness behaves like a single bar: fixed pixel width (1x)
-    width: BAR_STEP_PX * 1.8,
+    x: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: 0.1 as any },
+    width: BAR_STEP_PX * 2,
     marks: [
       Plot.tickY(data, {
         y: dimensionColumn,
