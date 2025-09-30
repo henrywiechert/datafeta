@@ -36,21 +36,43 @@ app = FastAPI(
 )
 
 # CORS configuration
-origins = [
-    "http://localhost", # Allow localhost (any port)
-    "http://localhost:3000", # Allow frontend dev server
-    # Add any other origins if needed (e.g., your deployed frontend URL)
-]
+# "Failed to fetch" during CSV connect when using the all-in-one Docker image was caused by the
+# frontend making requests from origin http://localhost:8000 while only http://localhost and
+# http://localhost:3000 were allowed. FastAPI's CORS requires exact scheme+host+port matches.
+# We now:
+#  1. Support an environment variable CORS_ALLOW_ORIGINS (comma-separated) for overrides.
+#  2. Provide sensible development defaults including explicit port variants.
+cors_origins_env = os.environ.get("CORS_ALLOW_ORIGINS")
+if cors_origins_env:
+    origins = [o.strip() for o in cors_origins_env.split(",") if o.strip()]
+else:
+    origins = [
+        "http://localhost",           # (rarely matched unless no port in Origin)
+        "http://localhost:3000",      # CRA dev server
+        "http://localhost:8000",      # All-in-one container serving both frontend+backend
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8000",
+    ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"], # Allow all methods (GET, POST, etc.)
-    allow_headers=["*"], # Allow all headers
+    allow_methods=["*"],  # Allow all methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allow all headers
 )
+logger.info(f"CORS configured for origins: {origins}")
 
 app.include_router(data.router, prefix="/api/v1/data", tags=["data"])
+
+# Lightweight informational endpoints to avoid confusing 404s when users hit version or data roots directly
+@app.get("/api/v1", include_in_schema=False)
+def api_version_root():
+    return {"message": "Data Slicer API root", "version": app.version, "data_endpoints": "/api/v1/data/*"}
+
+@app.get("/api/v1/data", include_in_schema=False)
+def api_data_root():
+    return {"message": "Data endpoints root. See /docs for full schema.", "examples": ["POST /api/v1/data/connect", "GET /api/v1/data/tables"]}
 
 @app.on_event("startup")
 def startup_event():

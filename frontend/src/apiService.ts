@@ -1,6 +1,10 @@
 import { ConnectionDetails, DatabaseListResponse, TableListResponse, ColumnListResponse, QueryDescription, QueryResult } from './types';
 
-const API_BASE_URL = 'http://localhost:8000/api/v1/data'; // Ensure your backend runs on port 8000
+// Derive API base: Prefer explicit env var (REACT_APP_API_BASE, e.g. "/api/v1"), else fall back to
+// same-origin relative path (when frontend served by backend) and append /data segment used by router.
+// This avoids hard-coded localhost:8000 which breaks when containerized behind another host/port.
+const apiBasePrefix = (process.env.REACT_APP_API_BASE || '/api/v1').replace(/\/$/, '');
+const API_BASE_URL = `${apiBasePrefix}/data`;
 
 // Global abort controller for managing cancellable requests
 let currentAbortController: AbortController | null = null;
@@ -110,11 +114,12 @@ export const apiService = {
         return response.json();
     },
 
-    async listTables(database?: string, signal?: AbortSignal): Promise<TableListResponse> {
+  async listTables(database?: string, signal?: AbortSignal): Promise<TableListResponse> {
         const abortController = signal ? null : createAbortController();
         const requestSignal = signal || abortController?.signal;
-
-        const url = new URL(`${API_BASE_URL}/tables`);
+    // Support relative API_BASE_URL by using window.location.origin as base when needed
+    const base = API_BASE_URL.startsWith('http') ? API_BASE_URL : `${window.location.origin}${API_BASE_URL}`;
+    const url = new URL(`${base}/tables`);
         if (database) {
             url.searchParams.append('database', database);
         }
@@ -126,8 +131,8 @@ export const apiService = {
     async listColumns(table: string, database?: string, signal?: AbortSignal): Promise<ColumnListResponse> {
         const abortController = signal ? null : createAbortController();
         const requestSignal = signal || abortController?.signal;
-
-        const url = new URL(`${API_BASE_URL}/columns`);
+    const base = API_BASE_URL.startsWith('http') ? API_BASE_URL : `${window.location.origin}${API_BASE_URL}`;
+    const url = new URL(`${base}/columns`);
         url.searchParams.append('table', table);
         if (database) {
             url.searchParams.append('database', database);
