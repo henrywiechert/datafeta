@@ -76,12 +76,16 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
   if (singleXDim) {
     const dimCol = analysis.xDimensions[0].columnName;
     // If opposite axis has discrete dimension(s), treat them as categories (mirroring bar chart behavior)
-    const category = yDims.filter((d: any) => d.flavour === 'discrete').slice(-1)[0]?.columnName;
+    // Check categoryAxisDescriptor first (from faceting), then fall back to finding in yDims
+    const category = (context.categoryAxisDescriptor?.axis === 'y' ? context.categoryAxisDescriptor.columnName : null)
+      || yDims.filter((d: any) => d.flavour === 'discrete').slice(-1)[0]?.columnName;
     return { library: 'observable-plot', options: tickStrip(context, 'x', dimCol, category), layout: { type: 'single' } };
   }
   if (singleYDim) {
     const dimCol = analysis.yDimensions[0].columnName;
-    const category = xDims.filter((d: any) => d.flavour === 'discrete').slice(-1)[0]?.columnName;
+    // Check categoryAxisDescriptor first (from faceting), then fall back to finding in xDims
+    const category = (context.categoryAxisDescriptor?.axis === 'x' ? context.categoryAxisDescriptor.columnName : null)
+      || xDims.filter((d: any) => d.flavour === 'discrete').slice(-1)[0]?.columnName;
     return { library: 'observable-plot', options: tickStrip(context, 'y', dimCol, category), layout: { type: 'single' } };
   }
 
@@ -95,13 +99,17 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
     // Continuous on X, discrete on Y → tick-strip along X, categorized by Y
     if (xContinuousDims.length > 0 && yContinuousDims.length === 0 && yDiscreteDims.length > 0) {
       const xDimCol = xContinuousDims[0].columnName;
-      const categoryCol = yDiscreteDims.slice(-1)[0].columnName;
+      // Check categoryAxisDescriptor first (from faceting), then fall back to finding in yDiscreteDims
+      const categoryCol = (context.categoryAxisDescriptor?.axis === 'y' ? context.categoryAxisDescriptor.columnName : null)
+        || yDiscreteDims.slice(-1)[0].columnName;
       return { library: 'observable-plot', options: tickStrip(context, 'x', xDimCol, categoryCol), layout: { type: 'single' } };
     }
     // Continuous on Y, discrete on X → tick-strip along Y, categorized by X
     if (yContinuousDims.length > 0 && xContinuousDims.length === 0 && xDiscreteDims.length > 0) {
       const yDimCol = yContinuousDims[0].columnName;
-      const categoryCol = xDiscreteDims.slice(-1)[0].columnName;
+      // Check categoryAxisDescriptor first (from faceting), then fall back to finding in xDiscreteDims
+      const categoryCol = (context.categoryAxisDescriptor?.axis === 'x' ? context.categoryAxisDescriptor.columnName : null)
+        || xDiscreteDims.slice(-1)[0].columnName;
       return { library: 'observable-plot', options: tickStrip(context, 'y', yDimCol, categoryCol), layout: { type: 'single' } };
     }
     // Both continuous → scatter

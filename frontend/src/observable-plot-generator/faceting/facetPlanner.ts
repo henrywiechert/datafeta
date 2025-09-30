@@ -85,10 +85,9 @@ export function planFacets(context: ChartGenerationContext): FacetPlan | null {
     return null;
   }
 
-  // Avoid faceting for tick-strip scenarios:
-  // If there are no measures and exactly one axis has a continuous dimension
-  // while the opposite axis has only discrete dimensions, we want a single
-  // tick-strip with categories (not a faceted grid).
+  // Handle tick-strip scenarios (continuous dimension on one axis with discrete dimensions):
+  // General principle: Use the last discrete dimension from the opposite axis as category,
+  // and all other discrete dimensions (from both axes) become facets.
   const hasAnyMeasure = xFields.some((f) => f.type === 'measure') || yFields.some((f) => f.type === 'measure');
   if (!hasAnyMeasure) {
     const xContDims = xFields.filter((f) => f.type === 'dimension' && f.flavour === 'continuous');
@@ -96,10 +95,42 @@ export function planFacets(context: ChartGenerationContext): FacetPlan | null {
     const xDiscDims = xFields.filter((f) => f.type === 'dimension' && f.flavour === 'discrete');
     const yDiscDims = yFields.filter((f) => f.type === 'dimension' && f.flavour === 'discrete');
 
-    const xTickScenario = xContDims.length === 1 && yContDims.length === 0 && yDiscDims.length > 0;
-    const yTickScenario = yContDims.length === 1 && xContDims.length === 0 && xDiscDims.length > 0;
+    // Tick-strip: one axis has continuous dimension, the other may have discrete dimensions
+    const xTickScenario = xContDims.length === 1 && yContDims.length === 0;
+    const yTickScenario = yContDims.length === 1 && xContDims.length === 0;
+    
     if (xTickScenario || yTickScenario) {
-      return null; // let single-chart rules build tick-strip with category
+      const sameAxisDiscreteDims = xTickScenario ? xDiscDims : yDiscDims;
+      const oppositeAxisDiscreteDims = xTickScenario ? yDiscDims : xDiscDims;
+      const totalDiscreteDims = sameAxisDiscreteDims.length + oppositeAxisDiscreteDims.length;
+      
+      // If there's more than one discrete dimension total, we need faceting
+      if (totalDiscreteDims > 1) {
+        // Prefer the last discrete dimension from opposite axis as category
+        const categoryField = oppositeAxisDiscreteDims.length > 0
+          ? oppositeAxisDiscreteDims[oppositeAxisDiscreteDims.length - 1]
+          : null;
+        const categoryAxis = xTickScenario ? 'y' : 'x';
+        
+        // All other discrete dimensions become facets
+        const allDiscreteDims = [...xDiscDims, ...yDiscDims];
+        const facetDims = categoryField 
+          ? allDiscreteDims.filter((f) => f.id !== categoryField.id)
+          : allDiscreteDims;
+        
+        return {
+          rowFacetFields: yFields.filter((f) => facetDims.some((fd) => fd.id === f.id)),
+          colFacetFields: xFields.filter((f) => facetDims.some((fd) => fd.id === f.id)),
+          categoryAxis: categoryField ? categoryAxis : null,
+          categoryField: categoryField,
+          barOrientation: null, // tick-strip, not bar
+          sharedCategoryDomain: categoryField ? uniqueValuesForField(queryResult.rows, categoryField) : null,
+        };
+      }
+      
+      // Single discrete dimension: let single-chart rules handle it
+      // (simple tick-strip with category, no faceting needed)
+      return null;
     }
   }
 
