@@ -100,9 +100,13 @@ location / { root /usr/share/nginx/html; try_files $uri /index.html; }
 Backend:
 - `LOG_LEVEL` (default: INFO)
 - `PORT` (default: 8000)
+- `CORS_ALLOW_ORIGINS` (optional, comma-separated). Overrides default development origins. Example:
+	`CORS_ALLOW_ORIGINS=http://localhost:3000,http://127.0.0.1:5173`
+	Use this if you run the frontend dev server on a non-default host/port and encounter browser `Failed to fetch` errors (CORS).
 
 Frontend (Create React App – must start with `REACT_APP_`):
 - `REACT_APP_API_BASE` – base path or URL for API requests (e.g. `/api/v1` when served by same host)
+	If unset the app now defaults to `/api/v1` (relative) which is correct when the production build is served by the backend container. Previously a hard-coded `http://localhost:8000/api/v1/data` base could cause issues behind reverse proxies or alternative hostnames.
 
 ### Local Production Simulation
 
