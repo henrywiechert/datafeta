@@ -1,5 +1,61 @@
-import { Field, QueryDescription, Measure, OrderBy } from '../types';
+import { Field, QueryDescription, Measure, OrderBy, Filter, FilterConfig } from '../types';
 import { getResultColumnName } from '../utils/fieldUtils';
+
+/**
+ * Converts filter configurations to backend Filter[] format
+ */
+export const convertFilterConfigsToFilters = (
+  filterConfigs: Record<string, FilterConfig>
+): Filter[] => {
+  const filters: Filter[] = [];
+
+  Object.values(filterConfigs).forEach(config => {
+    if (config.type === 'discrete') {
+      // For discrete filters, use 'in' operator with selected values
+      if (config.selectedValues.length > 0) {
+        filters.push({
+          field: config.columnName,
+          operator: 'in',
+          value: config.selectedValues,
+        });
+      }
+    } else if (config.type === 'continuous') {
+      // For continuous filters, add >= and <= operators
+      if (config.min !== null) {
+        filters.push({
+          field: config.columnName,
+          operator: '>=',
+          value: config.min,
+        });
+      }
+      if (config.max !== null) {
+        filters.push({
+          field: config.columnName,
+          operator: '<=',
+          value: config.max,
+        });
+      }
+    } else if (config.type === 'datetime') {
+      // For datetime filters, add >= and <= operators with date strings
+      if (config.startDate !== null) {
+        filters.push({
+          field: config.columnName,
+          operator: '>=',
+          value: config.startDate,
+        });
+      }
+      if (config.endDate !== null) {
+        filters.push({
+          field: config.columnName,
+          operator: '<=',
+          value: config.endDate,
+        });
+      }
+    }
+  });
+
+  return filters;
+};
 
 /**
  * Builds a query that performs aggregations on the server.
@@ -9,10 +65,12 @@ export const buildAggregatedQuery = ({
   fields,
   selectedTable,
   selectedDatabase,
+  filterConfigurations = {},
 }: {
   fields: Field[];
   selectedTable: string;
   selectedDatabase?: string;
+  filterConfigurations?: Record<string, FilterConfig>;
 }): QueryDescription | null => {
 
   const dimensions = fields
@@ -41,11 +99,15 @@ export const buildAggregatedQuery = ({
   const continuousDims = fields.filter(f => f.type === 'dimension' && f.flavour === 'continuous');
   const orderBy: OrderBy[] = [...discreteDims, ...continuousDims].map(f => ({ field: f.columnName }));
   
+  // Convert filter configurations to filters
+  const filters = convertFilterConfigsToFilters(filterConfigurations);
+
   const queryDesc: QueryDescription = {
     target_table: selectedTable,
     target_database: selectedDatabase,
     dimensions,
     measures,
+    filters: filters.length > 0 ? filters : undefined,
     orderBy: orderBy.length > 0 ? orderBy : undefined,
   };
 
@@ -60,10 +122,12 @@ export const buildRawQuery = ({
   fields,
   selectedTable,
   selectedDatabase,
+  filterConfigurations = {},
 }: {
   fields: Field[];
   selectedTable: string;
   selectedDatabase?: string;
+  filterConfigurations?: Record<string, FilterConfig>;
 }): QueryDescription | null => {
   if (!selectedTable || fields.length === 0) {
     return null;
@@ -89,11 +153,15 @@ export const buildRawQuery = ({
   const continuousDims = fields.filter(f => f.type === 'dimension' && f.flavour === 'continuous');
   const orderBy: OrderBy[] = [...discreteDims, ...continuousDims].map(f => ({ field: f.columnName }));
 
+  // Convert filter configurations to filters
+  const filters = convertFilterConfigsToFilters(filterConfigurations);
+
   const queryDesc: QueryDescription = {
     target_table: selectedTable,
     target_database: selectedDatabase,
     dimensions,
     measures: [], // No server-side measures
+    filters: filters.length > 0 ? filters : undefined,
     orderBy: orderBy.length > 0 ? orderBy : undefined,
   };
 
@@ -122,16 +190,18 @@ export const buildQuery = ({
   fields,
   selectedTable,
   selectedDatabase,
+  filterConfigurations = {},
 }: {
   fields: Field[];
   selectedTable: string;
   selectedDatabase?: string;
+  filterConfigurations?: Record<string, FilterConfig>;
 }): QueryDescription | null => {
   const queryType = getQueryTypeFromFields(fields);
   
   if (queryType === 'aggregated') {
-    return buildAggregatedQuery({ fields, selectedTable, selectedDatabase });
+    return buildAggregatedQuery({ fields, selectedTable, selectedDatabase, filterConfigurations });
   } else {
-    return buildRawQuery({ fields, selectedTable, selectedDatabase });
+    return buildRawQuery({ fields, selectedTable, selectedDatabase, filterConfigurations });
   }
 };

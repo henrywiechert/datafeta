@@ -7,6 +7,7 @@ import { useVisualizationContext } from '../contexts/VisualizationContext';
 import { useDragDrop } from '../hooks/useDragDrop';
 import FieldsPanel from '../components/Visualization/FieldsPanel';
 import ChartPanel from '../components/Visualization/ChartPanel';
+import FilterPanel from '../components/Visualization/Filters/FilterPanel';
 import LoadingModal from '../components/LoadingModal';
 import { apiService } from '../apiService';
 
@@ -32,7 +33,7 @@ const VisualizationPage = () => {
     } = useVisualizationState();
 
     // Access the enhanced context with loading states and cancellation
-    const { state, cancelOperation } = useVisualizationContext();
+    const { state, dispatch, cancelOperation } = useVisualizationContext();
     const { 
         showLoadingModal, 
         loadingOperationType, 
@@ -44,7 +45,9 @@ const VisualizationPage = () => {
     const {
         handleAxisDrop,
         handleRemoveFromAxis,
-        handleReorderFields
+        handleReorderFields,
+        handleFilterDrop,
+        handleRemoveFromFilter,
     } = useDragDrop();
 
     // Simplified axis-specific handlers that use the generic handler
@@ -55,6 +58,12 @@ const VisualizationPage = () => {
     const handleYAxisDrop = (field: Field, source: DragSource, index?: number) => {
         handleAxisDrop('y', field, source, index);
     };
+
+    // Handle applying filters
+    const handleApplyFilters = React.useCallback(() => {
+        // Apply the current filter configurations to the query
+        dispatch({ type: 'APPLY_FILTERS' });
+    }, [dispatch]);
 
     // Handle cancellation of long-running operations
     const handleCancelOperation = React.useCallback(() => {
@@ -91,7 +100,7 @@ const VisualizationPage = () => {
             <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
                 <PanelGroup direction="horizontal">
                     {/* Left Panel - Fields with metadata selector */}
-                    <Panel defaultSize={25} minSize={10} maxSize={40}>
+                    <Panel defaultSize={20} minSize={10} maxSize={35}>
                         <FieldsPanel
                             availableFields={availableFields}
                             fieldsSearch={fieldsSearch}
@@ -112,8 +121,28 @@ const VisualizationPage = () => {
 
                     <PanelResizeHandle />
 
-                    {/* Main Content */}
-                    <Panel defaultSize={75} minSize={50}>
+                    {/* Filter Panel */}
+                    <Panel defaultSize={15} minSize={10} maxSize={30}>
+                        <FilterPanel
+                            filterFields={state.filterFields}
+                            filterConfigurations={state.filterConfigurations}
+                            filterMetadata={state.filterMetadata}
+                            onDrop={handleFilterDrop}
+                            onRemove={handleRemoveFromFilter}
+                            onConfigChange={(fieldId, config) => {
+                                dispatch({ 
+                                    type: 'SET_FILTER_CONFIGURATION', 
+                                    payload: { fieldId, config }
+                                });
+                            }}
+                            onApplyFilters={handleApplyFilters}
+                        />
+                    </Panel>
+
+                    <PanelResizeHandle />
+
+                    {/* Main Content - Chart */}
+                    <Panel defaultSize={65} minSize={40}>
                         <ChartPanel
                             xAxisFields={xAxisFields}
                             yAxisFields={yAxisFields}

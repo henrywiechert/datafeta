@@ -8,7 +8,7 @@ import { useVisualizationContext } from '../contexts/VisualizationContext';
  */
 export function useDragDrop() {
   const { state, dispatch } = useVisualizationContext();
-  const { xAxisFields, yAxisFields } = state;
+  const { xAxisFields, yAxisFields, filterFields } = state;
   
   /**
    * Handle drops between axes or from available fields
@@ -106,9 +106,49 @@ export function useDragDrop() {
     });
   }, [dispatch, xAxisFields, yAxisFields]);
 
+  /**
+   * Handle drops on the filter zone
+   */
+  const handleFilterDrop = useCallback((field: Field, source: DragSource) => {
+    // Handle drops from available fields or axes
+    if (source === 'AVAILABLE_FIELDS') {
+      // Find the field in available fields
+      const sourceField = state.availableFields.find(f => f.id === field.id);
+      if (!sourceField) return;
+      
+      // Create an independent copy of the field with a new ID
+      const fieldCopy = { ...sourceField, id: uuidv4() };
+      
+      // Add to filter fields
+      dispatch({ 
+        type: 'SET_FILTER_FIELDS', 
+        payload: [...filterFields, fieldCopy]
+      });
+    } else if (source === 'X_AXIS' || source === 'Y_AXIS') {
+      // Copy field from axis to filters (keep it on the axis too)
+      const fieldCopy = { ...field, id: uuidv4() };
+      dispatch({ 
+        type: 'SET_FILTER_FIELDS', 
+        payload: [...filterFields, fieldCopy]
+      });
+    }
+  }, [dispatch, state.availableFields, filterFields]);
+
+  /**
+   * Remove a field from the filter zone
+   */
+  const handleRemoveFromFilter = useCallback((fieldId: string) => {
+    const newFilterFields = filterFields.filter(f => f.id !== fieldId);
+    dispatch({ type: 'SET_FILTER_FIELDS', payload: newFilterFields });
+    // Also remove the filter configuration
+    dispatch({ type: 'REMOVE_FILTER_CONFIGURATION', payload: fieldId });
+  }, [dispatch, filterFields]);
+
   return {
     handleAxisDrop,
     handleRemoveFromAxis,
-    handleReorderFields
+    handleReorderFields,
+    handleFilterDrop,
+    handleRemoveFromFilter,
   };
 }

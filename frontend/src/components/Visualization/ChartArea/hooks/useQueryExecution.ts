@@ -11,6 +11,7 @@ interface UseQueryExecutionProps {
   selectedDatabase: string | null;
   xAxisFields: any[];
   yAxisFields: any[];
+  filterConfigurations: Record<string, any>;
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
   dispatch: (action: any) => void;
@@ -25,6 +26,7 @@ export const useQueryExecution = ({
   selectedDatabase,
   xAxisFields,
   yAxisFields,
+  filterConfigurations,
   startOperation,
   completeOperation,
   dispatch,
@@ -100,10 +102,11 @@ export const useQueryExecution = ({
       fields: allFields,
       selectedTable,
       selectedDatabase,
+      filterConfigurations,
     });
 
     return queryDesc;
-  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields]);
+  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields, filterConfigurations]);
 
   // Effect to handle query execution when fields change
   useEffect(() => {
@@ -129,6 +132,7 @@ export const useQueryExecution = ({
         fields: allFields,
         selectedTable,
         selectedDatabase: effectiveDatabase,
+        filterConfigurations,
       });
 
       // console.log(`📋 Generated query:`, { 
@@ -143,7 +147,7 @@ export const useQueryExecution = ({
     };
 
     fetchData();
-  }, [selectedTable, selectedDatabase, connectionDetails, xAxisFields, yAxisFields, dispatch, executeQuery]);
+  }, [selectedTable, selectedDatabase, connectionDetails, xAxisFields, yAxisFields, filterConfigurations, dispatch, executeQuery]);
 
   // Cleanup on unmount
   useEffect(() => {
