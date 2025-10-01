@@ -261,6 +261,7 @@ class ConnectionService:
             effective_connection_details = connection_details.copy(deep=True)
 
             if connection_details.type == "clickhouse":
+                logger.info(f"ClickHouse connection details: host={connection_details.host}, port={connection_details.port}")
                 if connection_details.connection_string:
                     connect_args['connection_string'] = connection_details.connection_string
                 elif connection_details.host:
@@ -272,6 +273,7 @@ class ConnectionService:
                         "database": connection_details.database,
                     }
                     connect_args = {k: v for k, v in ch_args.items() if v is not None}
+                    logger.info(f"ClickHouse connect_args: {connect_args}")
                 else:
                     raise InvalidInputError("Either connection_string or host must be provided for ClickHouse")
 

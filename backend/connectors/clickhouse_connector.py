@@ -18,10 +18,12 @@ class ClickHouseConnector(BaseConnector):
 
     def connect(self, connection_details: Dict[str, Any]) -> None:
         self.connection_details = connection_details
+        logger.info(f"ClickHouse connector received connection_details: {connection_details}")
         try:
             # Handle both connection string and individual parameters
             if 'connection_string' in self.connection_details:
                 # Assuming format: 'http://user:password@host:8123/database'
+                logger.info(f"Using connection string: {self.connection_details['connection_string']}")
                 self.client = clickhouse_connect.get_client(
                     dsn=self.connection_details['connection_string']
                 )
@@ -29,6 +31,7 @@ class ClickHouseConnector(BaseConnector):
                 # Ensure port is set to HTTP port if not specified
                 conn_params = self.connection_details.copy()
                 conn_params.setdefault('port', 8123)
+                logger.info(f"Using connection params (with defaults applied): {conn_params}")
                 self.client = clickhouse_connect.get_client(**conn_params)
             
             # Test connection

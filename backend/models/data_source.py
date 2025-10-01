@@ -30,7 +30,7 @@ class ConnectionDetails(BaseModel):
 
     # Optional fields for ClickHouse connection without connection string
     host: Optional[str] = None
-    port: Optional[int] = 9000
+    port: Optional[int] = 8123  # HTTP interface port (not 9000 which is native protocol)
     user: Optional[str] = 'default'
     password: Optional[str] = ''
     database: Optional[str] = 'default' # Default database for connection

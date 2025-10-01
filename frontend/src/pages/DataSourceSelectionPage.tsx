@@ -56,7 +56,7 @@ function DataSourceSelectionPage() {
              details.connection_string = connString;
         } else if (host) {
             details.host = host;
-            details.port = Number(port) || 9000;
+            details.port = Number(port) || 8123;  // Default to HTTP port
             details.user = user;
             details.password = password;
             details.database = dbName;
