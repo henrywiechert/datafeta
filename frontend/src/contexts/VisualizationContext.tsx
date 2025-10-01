@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, ReactNode, useRef, useCallback } from 'react';
-import { Field, Database, Table, QueryResult } from '../types';
+import { Field, Database, Table, QueryResult, FilterConfig, FilterMetadata } from '../types';
 import { getTimeoutForOperation } from '../config/loadingConfig';
 
 // Define loading operation types
@@ -25,6 +25,11 @@ interface VisualizationState {
   loadingOperationType: LoadingOperationType | null;
   loadingStartTime: number | null;
   canCancelOperation: boolean;
+  // Filter states
+  filterFields: Field[];
+  filterConfigurations: Record<string, FilterConfig>;
+  filterMetadata: Record<string, FilterMetadata>;
+  appliedFilterConfigurations: Record<string, FilterConfig>; // Actually applied filters
 }
 
 // Define action types
@@ -49,7 +54,13 @@ type VisualizationAction =
   | { type: 'SET_LOADING_START_TIME'; payload: number | null }
   | { type: 'CANCEL_OPERATION' }
   | { type: 'COMPLETE_SPECIFIC_OPERATION'; payload: LoadingOperationType; }
-  | { type: 'RESET_LOADING_STATES' };
+  | { type: 'RESET_LOADING_STATES' }
+  // Filter action types
+  | { type: 'SET_FILTER_FIELDS'; payload: Field[] }
+  | { type: 'SET_FILTER_CONFIGURATION'; payload: { fieldId: string; config: FilterConfig } }
+  | { type: 'SET_FILTER_METADATA'; payload: { fieldId: string; metadata: FilterMetadata } }
+  | { type: 'REMOVE_FILTER_CONFIGURATION'; payload: string }
+  | { type: 'APPLY_FILTERS' };
 
 // Initial state
 const initialState: VisualizationState = {
@@ -71,6 +82,11 @@ const initialState: VisualizationState = {
   loadingOperationType: null,
   loadingStartTime: null,
   canCancelOperation: false,
+  // Filter states
+  filterFields: [],
+  filterConfigurations: {},
+  filterMetadata: {},
+  appliedFilterConfigurations: {},
 };
 
 // Reducer function
@@ -194,6 +210,44 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
         loadingOperationType: null,
         loadingStartTime: null,
         canCancelOperation: false,
+      };
+    case 'SET_FILTER_FIELDS':
+      return { ...state, filterFields: action.payload };
+    case 'SET_FILTER_CONFIGURATION':
+      return {
+        ...state,
+        filterConfigurations: {
+          ...state.filterConfigurations,
+          [action.payload.fieldId]: action.payload.config,
+        },
+      };
+    case 'SET_FILTER_METADATA':
+      return {
+        ...state,
+        filterMetadata: {
+          ...state.filterMetadata,
+          [action.payload.fieldId]: action.payload.metadata,
+        },
+      };
+    case 'REMOVE_FILTER_CONFIGURATION':
+      {
+        const newConfigs = { ...state.filterConfigurations };
+        const newMetadata = { ...state.filterMetadata };
+        const newApplied = { ...state.appliedFilterConfigurations };
+        delete newConfigs[action.payload];
+        delete newMetadata[action.payload];
+        delete newApplied[action.payload];
+        return {
+          ...state,
+          filterConfigurations: newConfigs,
+          filterMetadata: newMetadata,
+          appliedFilterConfigurations: newApplied,
+        };
+      }
+    case 'APPLY_FILTERS':
+      return {
+        ...state,
+        appliedFilterConfigurations: { ...state.filterConfigurations },
       };
     case 'RESET_STATE':
       return initialState;

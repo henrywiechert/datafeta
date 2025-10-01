@@ -180,5 +180,133 @@ export const apiService = {
     // New method to create a new abort controller (for external use)
     createNewAbortController(): AbortController {
         return createAbortController();
+    },
+
+    // Fetch distinct values for a discrete field (for filter configuration)
+    async getDistinctValues(
+        field: string, 
+        table: string, 
+        database?: string,
+        signal?: AbortSignal
+    ): Promise<any[]> {
+        const abortController = signal ? null : createAbortController();
+        const requestSignal = signal || abortController?.signal;
+
+        // Build a query to get distinct values
+        const queryDesc = {
+            target_table: table,
+            target_database: database,
+            dimensions: [{ field, flavour: 'discrete' as const }],
+            measures: [],
+        };
+
+        const response = await fetchWithErrorHandling(`${API_BASE_URL}/query`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(queryDesc),
+        }, requestSignal);
+
+        const result: QueryResult = await response.json();
+        
+        if (result.error) {
+            throw new Error(result.error);
+        }
+
+        // Extract the values from the result
+        return result.rows.map(row => row[field]);
+    },
+
+    // Fetch min/max range for a continuous field (for filter configuration)
+    async getFieldRange(
+        field: string, 
+        table: string, 
+        database?: string,
+        signal?: AbortSignal
+    ): Promise<{ min: number; max: number }> {
+        const abortController = signal ? null : createAbortController();
+        const requestSignal = signal || abortController?.signal;
+
+        // Build a query to get min and max values
+        const queryDesc = {
+            target_table: table,
+            target_database: database,
+            dimensions: [],
+            measures: [
+                { field, aggregation: 'min' as const, alias: 'min_value' },
+                { field, aggregation: 'max' as const, alias: 'max_value' },
+            ],
+        };
+
+        const response = await fetchWithErrorHandling(`${API_BASE_URL}/query`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(queryDesc),
+        }, requestSignal);
+
+        const result: QueryResult = await response.json();
+        
+        if (result.error) {
+            throw new Error(result.error);
+        }
+
+        // Extract min and max from the result
+        if (result.rows.length > 0) {
+            return {
+                min: result.rows[0].min_value,
+                max: result.rows[0].max_value,
+            };
+        }
+
+        throw new Error('No data available for range calculation');
+    },
+
+    // Fetch min/max date range for a datetime field (for filter configuration)
+    async getDateTimeRange(
+        field: string, 
+        table: string, 
+        database?: string,
+        signal?: AbortSignal
+    ): Promise<{ min: string; max: string }> {
+        const abortController = signal ? null : createAbortController();
+        const requestSignal = signal || abortController?.signal;
+
+        // Build a query to get min and max datetime values
+        const queryDesc = {
+            target_table: table,
+            target_database: database,
+            dimensions: [],
+            measures: [
+                { field, aggregation: 'min' as const, alias: 'min_date' },
+                { field, aggregation: 'max' as const, alias: 'max_date' },
+            ],
+        };
+
+        const response = await fetchWithErrorHandling(`${API_BASE_URL}/query`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(queryDesc),
+        }, requestSignal);
+
+        const result: QueryResult = await response.json();
+        
+        if (result.error) {
+            throw new Error(result.error);
+        }
+
+        // Extract min and max from the result
+        if (result.rows.length > 0) {
+            return {
+                min: result.rows[0].min_date,
+                max: result.rows[0].max_date,
+            };
+        }
+
+        throw new Error('No data available for date range calculation');
     }
 }; 
