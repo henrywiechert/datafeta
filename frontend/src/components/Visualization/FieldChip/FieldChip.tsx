@@ -28,7 +28,7 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
       source,
       index
     }));
-    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.effectAllowed = 'copyMove';
   }, [field, source, index]);
 
   const handleDragEnd = useCallback(() => {
