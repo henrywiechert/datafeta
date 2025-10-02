@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Field, DataType } from '../types';
+import { Field, DataType, FilterMetadata } from '../types';
 import { apiService } from '../apiService';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
@@ -207,6 +207,162 @@ export function useVisualizationState() {
         }
     };
 
+    // Fetch filter metadata for a field
+    const fetchFilterMetadata = useCallback(async (field: Field) => {
+        if (!state.selectedTable) return;
+        const dbParam = connectionDetails?.type === 'clickhouse' ? state.selectedDatabase : undefined;
+
+        // Determine filter type based on field characteristics
+        const getFilterType = (): 'discrete' | 'continuous' | 'datetime' => {
+            if (field.dataType === 'datetime') {
+                return 'datetime';
+            }
+            return field.flavour === 'discrete' ? 'discrete' : 'continuous';
+        };
+
+        const filterType = getFilterType();
+
+        // Set loading state
+        const loadingMetadata: FilterMetadata = {
+            fieldId: field.id,
+            columnName: field.columnName,
+            type: filterType,
+            loading: true,
+            ...(filterType === 'discrete' ? { availableValues: [] } :
+                filterType === 'continuous' ? { min: 0, max: 0 } :
+                { min: '', max: '' })
+        } as FilterMetadata;
+
+        dispatch({
+            type: 'SET_FILTER_METADATA',
+            payload: { fieldId: field.id, metadata: loadingMetadata }
+        });
+
+        try {
+            if (filterType === 'discrete') {
+                const values = await apiService.getDistinctValues(
+                    field.columnName,
+                    state.selectedTable,
+                    dbParam
+                );
+                
+                const metadata: FilterMetadata = {
+                    fieldId: field.id,
+                    columnName: field.columnName,
+                    type: 'discrete',
+                    loading: false,
+                    availableValues: values,
+                };
+
+                dispatch({
+                    type: 'SET_FILTER_METADATA',
+                    payload: { fieldId: field.id, metadata }
+                });
+
+                // Initialize filter configuration with all values selected
+                dispatch({
+                    type: 'SET_FILTER_CONFIGURATION',
+                    payload: {
+                        fieldId: field.id,
+                        config: {
+                            fieldId: field.id,
+                            columnName: field.columnName,
+                            type: 'discrete',
+                            selectedValues: values,
+                        }
+                    }
+                });
+            } else if (filterType === 'continuous') {
+                const range = await apiService.getFieldRange(
+                    field.columnName,
+                    state.selectedTable,
+                    dbParam
+                );
+                
+                const metadata: FilterMetadata = {
+                    fieldId: field.id,
+                    columnName: field.columnName,
+                    type: 'continuous',
+                    loading: false,
+                    min: range.min,
+                    max: range.max,
+                };
+
+                dispatch({
+                    type: 'SET_FILTER_METADATA',
+                    payload: { fieldId: field.id, metadata }
+                });
+
+                // Initialize filter configuration with full range
+                dispatch({
+                    type: 'SET_FILTER_CONFIGURATION',
+                    payload: {
+                        fieldId: field.id,
+                        config: {
+                            fieldId: field.id,
+                            columnName: field.columnName,
+                            type: 'continuous',
+                            min: range.min,
+                            max: range.max,
+                        }
+                    }
+                });
+            } else if (filterType === 'datetime') {
+                const range = await apiService.getDateTimeRange(
+                    field.columnName,
+                    state.selectedTable,
+                    dbParam
+                );
+                
+                const metadata: FilterMetadata = {
+                    fieldId: field.id,
+                    columnName: field.columnName,
+                    type: 'datetime',
+                    loading: false,
+                    min: range.min,
+                    max: range.max,
+                };
+
+                dispatch({
+                    type: 'SET_FILTER_METADATA',
+                    payload: { fieldId: field.id, metadata }
+                });
+
+                // Initialize filter configuration with full range
+                dispatch({
+                    type: 'SET_FILTER_CONFIGURATION',
+                    payload: {
+                        fieldId: field.id,
+                        config: {
+                            fieldId: field.id,
+                            columnName: field.columnName,
+                            type: 'datetime',
+                            startDate: range.min,
+                            endDate: range.max,
+                        }
+                    }
+                });
+            }
+        } catch (err: any) {
+            // Set error state
+            const errorMetadata: FilterMetadata = {
+                fieldId: field.id,
+                columnName: field.columnName,
+                type: filterType,
+                loading: false,
+                error: err.message,
+                ...(filterType === 'discrete' ? { availableValues: [] } :
+                    filterType === 'continuous' ? { min: 0, max: 0 } :
+                    { min: '', max: '' })
+            } as FilterMetadata;
+
+            dispatch({
+                type: 'SET_FILTER_METADATA',
+                payload: { fieldId: field.id, metadata: errorMetadata }
+            });
+        }
+    }, [state.selectedTable, state.selectedDatabase, connectionDetails?.type, dispatch]);
+
     // --- Effects to trigger data fetching ---
     useEffect(() => {
         if (!connectionDetails) return;
@@ -238,7 +394,17 @@ export function useVisualizationState() {
                 fetchTables(state.selectedDatabase);
             }
         }
-    }, [state.selectedDatabase, state.tables.length, state.isLoadingMetadata, fetchTables])
+    }, [state.selectedDatabase, state.tables.length, state.isLoadingMetadata, fetchTables]);
+
+    // Fetch filter metadata when new filter fields are added
+    useEffect(() => {
+        state.filterFields.forEach(field => {
+            // Only fetch if metadata doesn't exist for this field
+            if (!state.filterMetadata[field.id]) {
+                fetchFilterMetadata(field);
+            }
+        });
+    }, [state.filterFields, state.filterMetadata, fetchFilterMetadata]);
 
     // --- Return all state and handlers ---
     return {

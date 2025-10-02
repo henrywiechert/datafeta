@@ -1,0 +1,30 @@
+.dropZone {
+  min-height: 60px;
+  padding: 8px;
+  border: 2px dashed #ccc;
+  border-radius: 4px;
+  background-color: #fafafa;
+  transition: all 0.2s ease;
+}
+
+.dropZone.isOver {
+  border-color: #1976d2;
+  background-color: #e3f2fd;
+}
+
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  color: #999;
+  font-style: italic;
+}
+
+.fieldsList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+

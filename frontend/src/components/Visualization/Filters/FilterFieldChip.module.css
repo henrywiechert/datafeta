@@ -1,0 +1,45 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 8px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background-color: #fafafa;
+}
+
+.chipContainer {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  gap: 4px;
+}
+
+.chip {
+  flex: 1;
+  justify-content: space-between;
+  max-width: 100%;
+}
+
+.chip .MuiChip-label {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.expandButton {
+  padding: 4px;
+}
+
+.controlContainer {
+  border-top: 1px solid #e0e0e0;
+  background-color: white;
+}
+
+.loading {
+  padding: 12px;
+  text-align: center;
+  font-size: 12px;
+  color: #666;
+}
+
+
