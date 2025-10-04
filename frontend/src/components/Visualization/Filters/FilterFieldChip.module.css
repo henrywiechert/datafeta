@@ -1,7 +1,7 @@
 .container {
   display: flex;
   flex-direction: column;
-  margin-bottom: 8px;
+  margin-bottom: 1px;
   border: 1px solid #e0e0e0;
   border-radius: 4px;
   background-color: #fafafa;
@@ -18,6 +18,16 @@
   flex: 1;
   justify-content: space-between;
   max-width: 100%;
+}
+
+.chip.discrete {
+  background-color: #e3f2fd !important; /* Light blue background */
+  border: 1px solid #1976d2 !important;
+}
+
+.chip.continuous {
+  background-color: #e8f5e8 !important; /* Light green background */
+  border: 1px solid #388e3c !important;
 }
 
 .chip .MuiChip-label {

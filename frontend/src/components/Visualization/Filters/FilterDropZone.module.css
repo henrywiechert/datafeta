@@ -1,6 +1,6 @@
 .dropZone {
-  min-height: 60px;
-  padding: 8px;
+  min-height: 40px;
+  padding: 1px;
   border: 2px dashed #ccc;
   border-radius: 4px;
   background-color: #fafafa;
@@ -24,7 +24,7 @@
 .fieldsList {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 1px;
 }
 
 
