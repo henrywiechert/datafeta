@@ -140,6 +140,17 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
     return field.columnName;
   };
 
+  // Determine the chip class name based on field flavour
+  const getChipClassName = () => {
+    const baseClass = styles.chip;
+    if (field.flavour === 'discrete') {
+      return `${baseClass} ${styles.discrete}`;
+    } else if (field.flavour === 'continuous') {
+      return `${baseClass} ${styles.continuous}`;
+    }
+    return baseClass;
+  };
+
   return (
     <Box className={styles.container}>
       <Box className={styles.chipContainer}>
@@ -148,7 +159,7 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
           size="small"
           onDelete={onRemove}
           deleteIcon={<CloseIcon />}
-          className={styles.chip}
+          className={getChipClassName()}
         />
         <IconButton
           size="small"

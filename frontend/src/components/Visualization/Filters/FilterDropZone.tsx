@@ -60,7 +60,7 @@ const FilterDropZone: React.FC<FilterDropZoneProps> = ({
     >
       {fields.length === 0 ? (
         <Typography variant="body2" className={styles.placeholder}>
-          Drop fields here to add filters
+          Filters
         </Typography>
       ) : (
         <Box className={styles.fieldsList}>
