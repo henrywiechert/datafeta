@@ -58,12 +58,6 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
           onRemove={onRemove}
           onConfigChange={onConfigChange}
         />
-
-        {hasActiveFilters && (
-          <Typography variant="caption" color="textSecondary" className={styles.hint}>
-            Configure filters above and click "Apply Filters" to update the visualization
-          </Typography>
-        )}
       </Box>
     </Box>
   );
