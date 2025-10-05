@@ -30,6 +30,8 @@ interface VisualizationState {
   filterConfigurations: Record<string, FilterConfig>;
   filterMetadata: Record<string, FilterMetadata>;
   appliedFilterConfigurations: Record<string, FilterConfig>; // Actually applied filters
+  // Color encoding state
+  colorField: Field | null;
 }
 
 // Define action types
@@ -60,7 +62,10 @@ type VisualizationAction =
   | { type: 'SET_FILTER_CONFIGURATION'; payload: { fieldId: string; config: FilterConfig } }
   | { type: 'SET_FILTER_METADATA'; payload: { fieldId: string; metadata: FilterMetadata } }
   | { type: 'REMOVE_FILTER_CONFIGURATION'; payload: string }
-  | { type: 'APPLY_FILTERS' };
+  | { type: 'APPLY_FILTERS' }
+  // Color encoding action types
+  | { type: 'SET_COLOR_FIELD'; payload: Field | null }
+  | { type: 'REMOVE_COLOR_FIELD' };
 
 // Initial state
 const initialState: VisualizationState = {
@@ -87,6 +92,8 @@ const initialState: VisualizationState = {
   filterConfigurations: {},
   filterMetadata: {},
   appliedFilterConfigurations: {},
+  // Color encoding state
+  colorField: null,
 };
 
 // Reducer function
@@ -249,6 +256,10 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
         ...state,
         appliedFilterConfigurations: { ...state.filterConfigurations },
       };
+    case 'SET_COLOR_FIELD':
+      return { ...state, colorField: action.payload };
+    case 'REMOVE_COLOR_FIELD':
+      return { ...state, colorField: null };
     case 'RESET_STATE':
       return initialState;
     default:

@@ -92,7 +92,7 @@ export type FieldType = 'dimension' | 'measure';
 export type Aggregation = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'count_distinct';
 export type Flavour = 'discrete' | 'continuous';
 export type DataType = 'string' | 'integer' | 'float' | 'datetime';
-export type DragSource = 'X_AXIS' | 'Y_AXIS' | 'AVAILABLE_FIELDS' | 'FILTER_ZONE';
+export type DragSource = 'X_AXIS' | 'Y_AXIS' | 'AVAILABLE_FIELDS' | 'FILTER_ZONE' | 'COLOR_ZONE';
 
 export interface Field {
   id: string; // A unique ID for each chip instance

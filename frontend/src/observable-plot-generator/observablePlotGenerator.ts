@@ -15,7 +15,7 @@ import { generateFacetedGrid } from './faceting/facetGenerator';
  * No complex pipeline - just analyze fields and generate chart directly
  */
 export function generatePlot(context: ChartGenerationContext, overrides?: ChartTypeOverrides): PlotResult {
-  const { xFields, yFields, queryResult } = context;
+  const { xFields, yFields, queryResult, colorField } = context;
 
   // Handle empty fields
   if (xFields.length === 0 && yFields.length === 0) {
@@ -90,7 +90,7 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
 // moved to rules/chartRules.ts
 
 export function baseGeneratePlot(context: ChartGenerationContext): PlotResult {
-  const { xFields, yFields, queryResult } = context;
+  const { xFields, yFields, queryResult, colorField } = context;
   const analysis = analyzeFields(xFields, yFields);
   // Do not short-circuit on empty data here; downstream chart creators
   // render empty frames so faceted cells remain consistent.
@@ -112,7 +112,7 @@ export function baseGeneratePlot(context: ChartGenerationContext): PlotResult {
     const sharedMeasureDomains = computeSharedMeasureDomains(queryResult.rows, xCandidates as any[], yCandidates as any[]);
     return {
       library: 'observable-plot',
-      plots: generateCartesianPlots(queryResult.rows, xCandidates, yCandidates, sharedMeasureDomains),
+      plots: generateCartesianPlots(queryResult.rows, xCandidates, yCandidates, sharedMeasureDomains, undefined, colorField),
       sharedDomains: { byMeasure: sharedMeasureDomains as any },
       layout: {
         type: 'grid',

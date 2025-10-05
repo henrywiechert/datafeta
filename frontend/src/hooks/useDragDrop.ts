@@ -8,7 +8,7 @@ import { useVisualizationContext } from '../contexts/VisualizationContext';
  */
 export function useDragDrop() {
   const { state, dispatch } = useVisualizationContext();
-  const { xAxisFields, yAxisFields, filterFields } = state;
+  const { xAxisFields, yAxisFields, filterFields, colorField } = state;
   
   /**
    * Handle drops between axes or from available fields
@@ -144,11 +144,45 @@ export function useDragDrop() {
     dispatch({ type: 'REMOVE_FILTER_CONFIGURATION', payload: fieldId });
   }, [dispatch, filterFields]);
 
+  /**
+   * Handle drops on the color zone (replaces existing field)
+   */
+  const handleColorDrop = useCallback((field: Field, source: DragSource) => {
+    let fieldToSet: Field;
+    
+    if (source === 'AVAILABLE_FIELDS') {
+      // Find the field in available fields
+      const sourceField = state.availableFields.find(f => f.id === field.id);
+      if (!sourceField) return;
+      
+      // Create an independent copy of the field with a new ID
+      fieldToSet = { ...sourceField, id: uuidv4() };
+    } else if (source === 'COLOR_ZONE') {
+      // Update from color zone itself (e.g., aggregation change)
+      fieldToSet = field;
+    } else {
+      // Copy from axis (keep it on the axis too)
+      fieldToSet = { ...field, id: uuidv4() };
+    }
+    
+    // Replace the existing color field with the new one
+    dispatch({ type: 'SET_COLOR_FIELD', payload: fieldToSet });
+  }, [dispatch, state.availableFields]);
+
+  /**
+   * Remove the field from the color zone
+   */
+  const handleRemoveFromColor = useCallback(() => {
+    dispatch({ type: 'REMOVE_COLOR_FIELD' });
+  }, [dispatch]);
+
   return {
     handleAxisDrop,
     handleRemoveFromAxis,
     handleReorderFields,
     handleFilterDrop,
     handleRemoveFromFilter,
+    handleColorDrop,
+    handleRemoveFromColor,
   };
 }

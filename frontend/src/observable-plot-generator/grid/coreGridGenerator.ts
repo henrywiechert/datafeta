@@ -28,13 +28,13 @@ export function generateCartesianGrid(
   yCandidates: Field[],
   overrides?: ChartTypeOverrides
 ): PlotResult {
-  const { queryResult } = context;
+  const { queryResult, colorField } = context;
   const data = queryResult.rows;
 
   // Compute shared domains for any measures used in the grid
   const sharedMeasureDomains = computeSharedMeasureDomains(data, xCandidates, yCandidates);
 
-  const plots = generateCartesianPlots(data, xCandidates, yCandidates, sharedMeasureDomains, overrides);
+  const plots = generateCartesianPlots(data, xCandidates, yCandidates, sharedMeasureDomains, overrides, colorField);
 
   // Derive per-column width and per-row height from plots' options when available
   const columnSizes: Array<number | 'fr'> = Array.from({ length: xCandidates.length }, (_, c) => {
@@ -70,7 +70,8 @@ export function generateCartesianPlots(
   xCandidates: Field[],
   yCandidates: Field[],
   sharedMeasureDomains: Record<string, [number, number]>,
-  overrides?: ChartTypeOverrides
+  overrides?: ChartTypeOverrides,
+  colorField?: Field
 ): CartesianPlot[] {
   const plots: CartesianPlot[] = [];
 
@@ -88,7 +89,8 @@ export function generateCartesianPlots(
         xField,
         yField,
         { ...sharedMeasureDomains, ...sharedNumeric },
-        overrides
+        overrides,
+        colorField
       );
       const title = buildCellTitle(xField, yField);
       plots.push({ id: `cell-${r}-${c}`, title, options, position: { row: r, col: c } });

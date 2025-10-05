@@ -1,11 +1,13 @@
 import { useCallback, useState, useEffect } from 'react';
 import { generatePlot } from '../../../../observable-plot-generator/observablePlotGenerator';
 import { PlotResult } from '../../../../observable-plot-generator/types';
+import { Field } from '../../../../types';
 import { logOperationTiming } from '../utils';
 
 interface UseChartGenerationProps {
   xAxisFields: any[];
   yAxisFields: any[];
+  colorField: Field | null;
   useTableView: boolean;
   queryResult: any; // Add queryResult here
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
@@ -23,6 +25,7 @@ interface UseChartGenerationReturn {
 export const useChartGeneration = ({
   xAxisFields,
   yAxisFields,
+  colorField,
   useTableView,
   queryResult, // Destructure here
   startOperation,
@@ -49,6 +52,7 @@ export const useChartGeneration = ({
       const plotResult = generatePlot({
         xFields: xAxisFields,
         yFields: yAxisFields,
+        colorField: colorField || undefined,
         queryResult,
       });
       
@@ -66,7 +70,7 @@ export const useChartGeneration = ({
       setChartInfo(null);
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, useTableView, startOperation, completeOperation, queryResult]);
+  }, [xAxisFields, yAxisFields, colorField, useTableView, startOperation, completeOperation, queryResult]);
 
   const cancelGeneration = useCallback(() => {
     // No-op since Observable Plot generation is synchronous
