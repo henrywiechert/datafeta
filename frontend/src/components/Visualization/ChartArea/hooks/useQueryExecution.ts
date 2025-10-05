@@ -1,7 +1,7 @@
 import { useCallback, useRef, useEffect, useMemo } from 'react';
 import { apiService } from '../../../../apiService';
 import { buildQuery } from '../../../../queryBuilder/queryBuilder';
-import { QueryDescription } from '../../../../types';
+import { QueryDescription, Field } from '../../../../types';
 import { useConnection } from '../../../../contexts/ConnectionContext';
 import { logOperationTiming } from '../utils';
 import { validateAndCleanData } from '../utils/dataValidation';
@@ -11,6 +11,7 @@ interface UseQueryExecutionProps {
   selectedDatabase: string | null;
   xAxisFields: any[];
   yAxisFields: any[];
+  colorField: Field | null;
   filterConfigurations: Record<string, any>;
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
@@ -26,6 +27,7 @@ export const useQueryExecution = ({
   selectedDatabase,
   xAxisFields,
   yAxisFields,
+  colorField,
   filterConfigurations,
   startOperation,
   completeOperation,
@@ -94,6 +96,11 @@ export const useQueryExecution = ({
   const currentQueryDescription = useMemo((): QueryDescription | null => {
     const allFields = [...xAxisFields, ...yAxisFields];
     
+    // Add colorField if it exists and is a dimension
+    if (colorField && colorField.type === 'dimension') {
+      allFields.push(colorField);
+    }
+    
     if (allFields.length === 0 || !selectedTable || !selectedDatabase) {
       return null;
     }
@@ -106,12 +113,17 @@ export const useQueryExecution = ({
     });
 
     return queryDesc;
-  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields, filterConfigurations]);
+  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields, colorField, filterConfigurations]);
 
   // Effect to handle query execution when fields change
   useEffect(() => {
     const fetchData = async () => {
       const allFields = [...xAxisFields, ...yAxisFields];
+      
+      // Add colorField if it exists and is a dimension
+      if (colorField && colorField.type === 'dimension') {
+        allFields.push(colorField);
+      }
       
       // For CSV connections using DuckDB, use 'main' as the default database if none is set
       let effectiveDatabase = selectedDatabase;
@@ -147,7 +159,7 @@ export const useQueryExecution = ({
     };
 
     fetchData();
-  }, [selectedTable, selectedDatabase, connectionDetails, xAxisFields, yAxisFields, filterConfigurations, dispatch, executeQuery]);
+  }, [selectedTable, selectedDatabase, connectionDetails, xAxisFields, yAxisFields, colorField, filterConfigurations, dispatch, executeQuery]);
 
   // Cleanup on unmount
   useEffect(() => {

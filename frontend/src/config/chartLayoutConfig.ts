@@ -9,6 +9,10 @@ export const BAR_STEP_PX = 40;
 // Default chart color used across all chart types
 export const DEFAULT_CHART_COLOR = 'steelblue';
 
+// Default color scheme for categorical color encoding
+// Using Paired for better support of many categories (12 distinct paired colors)
+export const DEFAULT_COLOR_SCHEME = 'Paired' as const;
+
 // Shared ratios and paddings for domains and band scales
 export const DOMAIN_PAD_RATIO = 0.05;
 export const BAND_PADDING = 0.1;

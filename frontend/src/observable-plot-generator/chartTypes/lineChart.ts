@@ -1,5 +1,6 @@
 import * as Plot from '@observablehq/plot';
-import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
+import { DEFAULT_CHART_COLOR, DEFAULT_COLOR_SCHEME } from '../../config/chartLayoutConfig';
+import { Field } from '../../types';
 
 /**
  * Line chart for continuous dimension on one axis and continuous measure on the other.
@@ -10,7 +11,8 @@ export function lineChart(
   xColumn: string,
   yColumn: string,
   labels?: { x?: string; y?: string },
-  domain?: { x?: [number, number]; y?: [number, number] }
+  domain?: { x?: [number, number]; y?: [number, number] },
+  colorField?: Field
 ): Plot.PlotOptions {
   // Filter to finite numeric values for y; x may be numeric or datetime/ordinal
   const clean = Array.isArray(data)
@@ -48,14 +50,39 @@ export function lineChart(
     return (ax as number) - (bx as number);
   });
 
-  return {
+  const lineConfig: any = { x: xColumn, y: yColumn };
+  const dotConfig: any = { x: xColumn, y: yColumn, r: 2 };
+  
+  if (colorField) {
+    // Add color encoding and z channel for grouping by color
+    lineConfig.stroke = colorField.columnName;
+    lineConfig.z = colorField.columnName;
+    dotConfig.fill = colorField.columnName;
+  } else {
+    lineConfig.stroke = DEFAULT_CHART_COLOR;
+    dotConfig.fill = DEFAULT_CHART_COLOR;
+  }
+  
+  const plotOptions: Plot.PlotOptions = {
     x: { label: labels?.x || xColumn, grid: true, domain: domain?.x },
     y: { label: labels?.y || yColumn, grid: true, domain: domain?.y },
     marks: [
-      Plot.line(cleanSorted, { x: xColumn, y: yColumn, stroke: DEFAULT_CHART_COLOR }),
-      Plot.dot(cleanSorted, { x: xColumn, y: yColumn, fill: DEFAULT_CHART_COLOR, r: 2 }),
+      Plot.line(cleanSorted, lineConfig),
+      Plot.dot(cleanSorted, dotConfig),
     ],
   };
+  
+  if (colorField) {
+    // Get unique color values for the domain
+    const colorValues = Array.from(new Set(cleanSorted.map(row => row[colorField.columnName])));
+    plotOptions.color = {
+      domain: colorValues,
+      scheme: DEFAULT_COLOR_SCHEME,
+      type: 'ordinal' as any
+    };
+  }
+  
+  return plotOptions;
 }
 
 /**
@@ -67,7 +94,8 @@ export function verticalLineChart(
   xColumn: string,
   yColumn: string,
   labels?: { x?: string; y?: string },
-  domain?: { x?: [number, number]; y?: [number, number] }
+  domain?: { x?: [number, number]; y?: [number, number] },
+  colorField?: Field
 ): Plot.PlotOptions {
   const clean = Array.isArray(data)
     ? data.filter((d) => Number.isFinite(d[xColumn]))
@@ -103,14 +131,39 @@ export function verticalLineChart(
     return (ay as number) - (by as number);
   });
 
-  return {
+  const lineConfig: any = { x: xColumn, y: yColumn };
+  const dotConfig: any = { x: xColumn, y: yColumn, r: 2 };
+  
+  if (colorField) {
+    // Add color encoding and z channel for grouping by color
+    lineConfig.stroke = colorField.columnName;
+    lineConfig.z = colorField.columnName;
+    dotConfig.fill = colorField.columnName;
+  } else {
+    lineConfig.stroke = DEFAULT_CHART_COLOR;
+    dotConfig.fill = DEFAULT_CHART_COLOR;
+  }
+  
+  const plotOptions: Plot.PlotOptions = {
     x: { label: labels?.x || xColumn, grid: true, domain: domain?.x },
     y: { label: labels?.y || yColumn, grid: true, domain: domain?.y },
     marks: [
-      Plot.line(cleanSorted, { x: xColumn, y: yColumn, stroke: DEFAULT_CHART_COLOR }),
-      Plot.dot(cleanSorted, { x: xColumn, y: yColumn, fill: DEFAULT_CHART_COLOR, r: 2 }),
+      Plot.line(cleanSorted, lineConfig),
+      Plot.dot(cleanSorted, dotConfig),
     ],
   };
+  
+  if (colorField) {
+    // Get unique color values for the domain
+    const colorValues = Array.from(new Set(cleanSorted.map(row => row[colorField.columnName])));
+    plotOptions.color = {
+      domain: colorValues,
+      scheme: DEFAULT_COLOR_SCHEME,
+      type: 'ordinal' as any
+    };
+  }
+  
+  return plotOptions;
 }
 
 
