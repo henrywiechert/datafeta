@@ -1,6 +1,6 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext } from '../types';
-import { DEFAULT_CHART_COLOR, BAR_STEP_PX } from '../../config/chartLayoutConfig';
+import { DEFAULT_CHART_COLOR, DEFAULT_COLOR_SCHEME, BAR_STEP_PX } from '../../config/chartLayoutConfig';
 import { getResultColumnName } from '../../utils/fieldUtils';
 
 // Compute numeric extent for a column, ignoring non-finite values
@@ -27,7 +27,7 @@ function paddedDomainIncludingZero(minVal: number, maxVal: number): [number, num
 }
 
 export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
-  const { queryResult, xFields, yFields } = context;
+  const { queryResult, xFields, yFields, colorField } = context;
   const data = queryResult.rows;
 
   const yMeasure = yFields.find(f => f.type === 'measure');
@@ -45,7 +45,8 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
 
     const barConfig: any = {
       y: measureName,
-      fill: DEFAULT_CHART_COLOR,
+      fill: colorField ? colorField.columnName : DEFAULT_CHART_COLOR,
+      ...(colorField && { order: colorField.columnName }), // Order stacks by color field
     };
     
     // Only add x field if we have a dimension
@@ -58,7 +59,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       const [minVal, maxVal] = numericExtent(data, measureName);
       const [d0, d1] = paddedDomainIncludingZero(minVal, maxVal);
       
-      return {
+      const plotOptions: Plot.PlotOptions = {
         width: calculatedWidth,
         marks: [
           Plot.barY(data, barConfig),
@@ -77,6 +78,19 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
           nice: false,
         },
       };
+      
+      // Add color scale if colorField is present (without legend - shown separately)
+      if (colorField) {
+        // Get unique color values for the domain
+        const colorValues = Array.from(new Set(data.map(row => row[colorField.columnName])));
+        plotOptions.color = {
+          domain: colorValues,
+          scheme: DEFAULT_COLOR_SCHEME,
+          type: 'ordinal' as any
+        };
+      }
+      
+      return plotOptions;
     } else {
       // Single vertical bar - assign a constant category to position the bar
       const singleCategory = ' ';
@@ -86,7 +100,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       const [minVal, maxVal] = numericExtent(data, measureName);
       const [d0, d1] = paddedDomainIncludingZero(minVal, maxVal);
 
-      return {
+      const plotOptions: Plot.PlotOptions = {
         width: barStep * 2,
         marks: [
           Plot.barY(data, configWithCategory),
@@ -95,6 +109,18 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
         x: { label: singleCategory, domain: [singleCategory] as any, type: 'band' as any },
         y: { grid: true, label: measureName, domain: [d0, d1] as any, nice: false },
       };
+      
+      // Add color scale if colorField is present (without legend - shown separately)
+      if (colorField) {
+        const colorValues = Array.from(new Set(data.map(row => row[colorField.columnName])));
+        plotOptions.color = {
+          domain: colorValues,
+          scheme: DEFAULT_COLOR_SCHEME,
+          type: 'ordinal' as any
+        };
+      }
+      
+      return plotOptions;
     }
   }
 
@@ -105,7 +131,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
 
     const barConfig: any = {
       x: measureName,
-      fill: DEFAULT_CHART_COLOR,
+      fill: colorField ? colorField.columnName : DEFAULT_CHART_COLOR,
     };
     
     // Only add y field if we have a dimension
@@ -118,7 +144,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       const [minVal, maxVal] = numericExtent(data, measureName);
       const [d0, d1] = paddedDomainIncludingZero(minVal, maxVal);
       
-      return {
+      const plotOptions: Plot.PlotOptions = {
         height: calculatedHeight,
         marks: [
           Plot.barX(data, barConfig),
@@ -137,6 +163,18 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
           nice: false,
         },
       };
+      
+      // Add color scale if colorField is present (without legend - shown separately)
+      if (colorField) {
+        const colorValues = Array.from(new Set(data.map(row => row[colorField.columnName])));
+        plotOptions.color = {
+          domain: colorValues,
+          scheme: DEFAULT_COLOR_SCHEME,
+          type: 'ordinal' as any
+        };
+      }
+      
+      return plotOptions;
     } else {
       // Single horizontal bar - assign a constant category to position the bar
       const singleCategory = ' ';
@@ -146,7 +184,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       const [minVal, maxVal] = numericExtent(data, measureName);
       const [d0, d1] = paddedDomainIncludingZero(minVal, maxVal);
 
-      return {
+      const plotOptions: Plot.PlotOptions = {
         height: barStep * 2,
         marks: [
           Plot.barX(data, configWithCategory),
@@ -155,6 +193,18 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
         y: { label: singleCategory, domain: [singleCategory] as any, type: 'band' as any },
         x: { grid: true, label: measureName, domain: [d0, d1] as any, nice: false },
       };
+      
+      // Add color scale if colorField is present (without legend - shown separately)
+      if (colorField) {
+        const colorValues = Array.from(new Set(data.map(row => row[colorField.columnName])));
+        plotOptions.color = {
+          domain: colorValues,
+          scheme: DEFAULT_COLOR_SCHEME,
+          type: 'ordinal' as any
+        };
+      }
+      
+      return plotOptions;
     }
   }
 

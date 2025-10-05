@@ -18,7 +18,7 @@ import { baseGeneratePlot } from '../observablePlotGenerator';
  * for bar charts where a category axis can be injected if needed (see below).
  */
 export function generateFacetedGrid(context: ChartGenerationContext, plan: FacetPlan): PlotResult {
-    const { xFields, yFields, queryResult } = context;
+    const { xFields, yFields, queryResult, colorField } = context;
     const {
       rowFacetFields,
       colFacetFields,

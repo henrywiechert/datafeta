@@ -30,7 +30,7 @@ export function generateScatterPlot(analysis: FieldAnalysis, context: ChartGener
 }
 
 export function generateChartOptions(analysis: FieldAnalysis, context: ChartGenerationContext): PlotResult {
-  const { queryResult } = context;
+  const { queryResult, colorField } = context;
   const data = queryResult.rows;
 
   const xDims = analysis.xDimensions || [];
@@ -52,7 +52,7 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
       const yDimCol = yContinuousDims[0].columnName;
       const xMeasure = analysis.xMeasures[0];
       const xMeasureCol = getResultColumnName({ ...xMeasure, aggregation: xMeasure.aggregation || 'sum' } as any);
-      return { library: 'observable-plot', options: lineChart(data, yDimCol, xMeasureCol, { x: yDimCol, y: xMeasureCol }), layout: { type: 'single' } };
+      return { library: 'observable-plot', options: lineChart(data, yDimCol, xMeasureCol, { x: yDimCol, y: xMeasureCol }, undefined, colorField), layout: { type: 'single' } };
     }
     if (yDiscreteDims.length > 0 || yDims.length > 0) {
       return { library: 'observable-plot', options: barChart(context), layout: { type: 'single' } };
@@ -64,7 +64,7 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
       const xDimCol = xContinuousDims[0].columnName;
       const yMeasure = analysis.yMeasures[0];
       const yMeasureCol = getResultColumnName({ ...yMeasure, aggregation: yMeasure.aggregation || 'sum' } as any);
-      return { library: 'observable-plot', options: lineChart(data, xDimCol, yMeasureCol, { x: xDimCol, y: yMeasureCol }), layout: { type: 'single' } };
+      return { library: 'observable-plot', options: lineChart(data, xDimCol, yMeasureCol, { x: xDimCol, y: yMeasureCol }, undefined, colorField), layout: { type: 'single' } };
     }
     if (xDiscreteDims.length > 0 || xDims.length > 0) {
       return { library: 'observable-plot', options: barChart(context), layout: { type: 'single' } };
@@ -116,7 +116,7 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
     if (xContinuousDims.length > 0 && yContinuousDims.length > 0) {
       const xDimCol = xContinuousDims[0].columnName;
       const yDimCol = yContinuousDims[0].columnName;
-      return { library: 'observable-plot', options: scatterChart(data, xDimCol, yDimCol, { x: xDimCol, y: yDimCol }), layout: { type: 'single' } };
+      return { library: 'observable-plot', options: scatterChart(data, xDimCol, yDimCol, { x: xDimCol, y: yDimCol }, colorField), layout: { type: 'single' } };
     }
     // Both discrete → simple dot plot (categorical scatter)
     if (xDiscreteDims.length > 0 && yDiscreteDims.length > 0) {
@@ -141,14 +141,14 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
     const yDim = analysis.yDimensions[0];
     const xMeasureCol = getResultColumnName({ ...xMeasure, aggregation: xMeasure.aggregation || 'sum' } as any);
     const yDimCol = yDim.columnName;
-    return { library: 'observable-plot', options: lineChart(data, yDimCol, xMeasureCol, { x: yDimCol, y: xMeasureCol }), layout: { type: 'single' } };
+    return { library: 'observable-plot', options: lineChart(data, yDimCol, xMeasureCol, { x: yDimCol, y: xMeasureCol }, undefined, colorField), layout: { type: 'single' } };
   }
   if (hasMeasureOnlyY) {
     const yMeasure = analysis.yMeasures[0];
     const xDim = analysis.xDimensions[0];
     const yMeasureCol = getResultColumnName({ ...yMeasure, aggregation: yMeasure.aggregation || 'sum' } as any);
     const xDimCol = xDim.columnName;
-    return { library: 'observable-plot', options: lineChart(data, xDimCol, yMeasureCol, { x: xDimCol, y: yMeasureCol }), layout: { type: 'single' } };
+    return { library: 'observable-plot', options: lineChart(data, xDimCol, yMeasureCol, { x: xDimCol, y: yMeasureCol }, undefined, colorField), layout: { type: 'single' } };
   }
 
   const multiXDim = analysis.hasXDimension && analysis.xDimensions.length > 1 && !analysis.hasYDimension && !analysis.hasMeasure;
