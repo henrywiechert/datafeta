@@ -1,6 +1,7 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext } from '../types';
-import { BAR_STEP_PX, DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
+import { Field } from '../../types';
+import { BAR_STEP_PX, DEFAULT_CHART_COLOR, DEFAULT_COLOR_SCHEME } from '../../config/chartLayoutConfig';
 
 /**
  * Tick-strip chart for a single continuous dimension.
@@ -14,7 +15,7 @@ export function tickStrip(
   dimensionColumn: string,
   categoryDimensionColumn?: string
 ): Plot.PlotOptions {
-  const { queryResult } = context;
+  const { queryResult, colorField } = context;
   const data = queryResult.rows;
 
   // Guard against invalid values; accept numbers or dates (Date objects or parseable strings)
@@ -46,7 +47,7 @@ export function tickStrip(
     if (categoryDimensionColumn) {
       const categories = Array.from(new Set(data.map((row: any) => row[categoryDimensionColumn])));
       const categoryCount = categories.length;
-      return {
+      const opts: Plot.PlotOptions = {
         x: { label: dimensionColumn, grid: true },
         y: { 
           label: categoryDimensionColumn,
@@ -59,31 +60,49 @@ export function tickStrip(
           Plot.tickX(data, {
             x: dimensionColumn,
             y: categoryDimensionColumn,
-            stroke: DEFAULT_CHART_COLOR,
+            stroke: colorField ? (colorField as Field).columnName : DEFAULT_CHART_COLOR,
             strokeWidth: 1.5,
           }),
         ],
       };
+      if (colorField) {
+        const values = Array.from(new Set((Array.isArray(data) ? data : []).map((row: any) => row[(colorField as Field).columnName])));
+        opts.color = {
+          domain: values as any,
+          scheme: DEFAULT_COLOR_SCHEME as any,
+          type: 'ordinal' as any,
+        } as any;
+      }
+      return opts;
     }
-    return {
+    const opts: Plot.PlotOptions = {
       x: { label: dimensionColumn, grid: true },
       y: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: 0.1 as any },
       height: BAR_STEP_PX * 2,
       marks: [
         Plot.tickX(data, {
           x: dimensionColumn,
-          stroke: DEFAULT_CHART_COLOR,
+          stroke: colorField ? (colorField as Field).columnName : DEFAULT_CHART_COLOR,
           strokeWidth: 1.5,
         }),
       ],
     };
+    if (colorField) {
+      const values = Array.from(new Set((Array.isArray(data) ? data : []).map((row: any) => row[(colorField as Field).columnName])));
+      opts.color = {
+        domain: values as any,
+        scheme: DEFAULT_COLOR_SCHEME as any,
+        type: 'ordinal' as any,
+      } as any;
+    }
+    return opts;
   }
 
   // orientation === 'y'
   if (categoryDimensionColumn) {
     const categories = Array.from(new Set(data.map((row: any) => row[categoryDimensionColumn])));
     const categoryCount = categories.length;
-    return {
+    const opts: Plot.PlotOptions = {
       y: { label: dimensionColumn, grid: true },
       x: { 
         label: categoryDimensionColumn,
@@ -96,24 +115,42 @@ export function tickStrip(
         Plot.tickY(data, {
           y: dimensionColumn,
           x: categoryDimensionColumn,
-          stroke: DEFAULT_CHART_COLOR,
+          stroke: colorField ? (colorField as Field).columnName : DEFAULT_CHART_COLOR,
           strokeWidth: 1.5,
         }),
       ],
     };
+    if (colorField) {
+      const values = Array.from(new Set((Array.isArray(data) ? data : []).map((row: any) => row[(colorField as Field).columnName])));
+      opts.color = {
+        domain: values as any,
+        scheme: DEFAULT_COLOR_SCHEME as any,
+        type: 'ordinal' as any,
+      } as any;
+    }
+    return opts;
   }
-  return {
+  const opts: Plot.PlotOptions = {
     y: { label: dimensionColumn, grid: true },
     x: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: 0.1 as any },
     width: BAR_STEP_PX * 2,
     marks: [
       Plot.tickY(data, {
         y: dimensionColumn,
-        stroke: DEFAULT_CHART_COLOR,
+        stroke: colorField ? (colorField as Field).columnName : DEFAULT_CHART_COLOR,
         strokeWidth: 1.5,
       }),
     ],
   };
+  if (colorField) {
+    const values = Array.from(new Set((Array.isArray(data) ? data : []).map((row: any) => row[(colorField as Field).columnName])));
+    opts.color = {
+      domain: values as any,
+      scheme: DEFAULT_COLOR_SCHEME as any,
+      type: 'ordinal' as any,
+    } as any;
+  }
+  return opts;
 }
 
 

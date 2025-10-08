@@ -46,7 +46,6 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
     const barConfig: any = {
       y: measureName,
       fill: colorField ? colorField.columnName : DEFAULT_CHART_COLOR,
-      ...(colorField && { order: colorField.columnName }), // Order stacks by color field
     };
     
     // Only add x field if we have a dimension
