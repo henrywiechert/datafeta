@@ -78,6 +78,7 @@ export const buildAggregatedQuery = ({
     .map((d) => ({
       field: d.columnName,
       flavour: d.flavour,
+      axis: d.axis,  // Preserve axis information if present
     }));
   
   const measures: Measure[] = fields
@@ -144,6 +145,7 @@ export const buildRawQuery = ({
     return {
       field: colName,
       flavour: field.flavour,
+      axis: field.axis,  // Preserve axis information if present
     }
   });
 
