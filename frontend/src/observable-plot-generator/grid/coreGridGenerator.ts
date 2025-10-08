@@ -5,6 +5,7 @@ import { ChartTypeOverrides } from '../helpers/chartTypeResolver';
 import { computeSharedNumericDomains } from '../domains/numericDomains';
 import { computeSharedMeasureDomains } from '../domains/measureDomains';
 import { ChartGenerationContext, PlotResult } from '../types';
+import { DEFAULT_COLOR_SCHEME } from '../../config/chartLayoutConfig';
 import { FieldAnalysis } from '../analysis/fieldAnalysis';
 
 export type CartesianPlot = {
@@ -79,12 +80,31 @@ export function generateCartesianPlots(
   // (this unifies scales across the whole matrix when the same field appears).
   const sharedNumeric = computeSharedNumericDomains(data, xCandidates as any[], yCandidates as any[]);
 
+  // Compute a shared color domain across the entire grid when a color field is present
+  const sharedColorDomain = (() => {
+    if (!colorField) return undefined;
+    const col = (colorField as any).columnName as string;
+    const seen = new Set<any>();
+    const values: any[] = [];
+    for (const row of Array.isArray(data) ? data : []) {
+      const v = row?.[col];
+      if (!seen.has(v)) {
+        seen.add(v);
+        values.push(v);
+      }
+    }
+    try {
+      values.sort((a, b) => (String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0));
+    } catch {}
+    return values;
+  })();
+
   for (let r = 0; r < yCandidates.length; r++) {
     for (let c = 0; c < xCandidates.length; c++) {
       const xField = xCandidates[c];
       const yField = yCandidates[r];
 
-      const options: Plot.PlotOptions = generatePairChartOptions(
+      let options: Plot.PlotOptions = generatePairChartOptions(
         data,
         xField,
         yField,
@@ -92,6 +112,19 @@ export function generateCartesianPlots(
         overrides,
         colorField
       );
+
+      // Apply shared color domain to keep color mapping consistent across the grid
+      if (sharedColorDomain && sharedColorDomain.length > 0) {
+        options = {
+          ...options,
+          color: {
+            ...(options as any).color,
+            domain: sharedColorDomain as any,
+            scheme: DEFAULT_COLOR_SCHEME as any,
+            type: 'ordinal' as any,
+          } as any,
+        };
+      }
       const title = buildCellTitle(xField, yField);
       plots.push({ id: `cell-${r}-${c}`, title, options, position: { row: r, col: c } });
     }
