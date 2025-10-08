@@ -94,9 +94,12 @@ export const useQueryExecution = ({
 
   // Memoize current query description to avoid unnecessary recalculations
   const currentQueryDescription = useMemo((): QueryDescription | null => {
-    const allFields = [...xAxisFields, ...yAxisFields];
+    // Tag fields with their axis for query optimization
+    const taggedXFields = xAxisFields.map(f => ({ ...f, axis: 'x' as const }));
+    const taggedYFields = yAxisFields.map(f => ({ ...f, axis: 'y' as const }));
+    const allFields = [...taggedXFields, ...taggedYFields];
     
-    // Add colorField if it exists and is a dimension
+    // Add colorField if it exists and is a dimension (no axis tagging for color)
     if (colorField && colorField.type === 'dimension') {
       allFields.push(colorField);
     }
@@ -118,9 +121,12 @@ export const useQueryExecution = ({
   // Effect to handle query execution when fields change
   useEffect(() => {
     const fetchData = async () => {
-      const allFields = [...xAxisFields, ...yAxisFields];
+      // Tag fields with their axis for query optimization
+      const taggedXFields = xAxisFields.map(f => ({ ...f, axis: 'x' as const }));
+      const taggedYFields = yAxisFields.map(f => ({ ...f, axis: 'y' as const }));
+      const allFields = [...taggedXFields, ...taggedYFields];
       
-      // Add colorField if it exists and is a dimension
+      // Add colorField if it exists and is a dimension (no axis tagging for color)
       if (colorField && colorField.type === 'dimension') {
         allFields.push(colorField);
       }

@@ -60,6 +60,7 @@ export interface OrderBy {
 export interface Dimension {
     field: string;
     flavour: Flavour;
+    axis?: 'x' | 'y';  // Optional: which axis the dimension is on
 }
 
 export interface QueryDescription {
@@ -101,6 +102,7 @@ export interface Field {
   aggregation?: Aggregation; // Optional, as dimensions don't have it
   flavour: Flavour;
   dataType: DataType;
+  axis?: 'x' | 'y';  // Optional: which axis the field is on (for query optimization)
 }
 
 // --- Filter Types --- //

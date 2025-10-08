@@ -102,6 +102,8 @@ class QueryService:
 
         # WHERE Clause (Filters)
         criteria: List[Criterion] = []
+        
+        # Add user-specified filters
         for f in query_desc.filters:
             operator_func = OPERATOR_MAP.get(f.operator)
             if not operator_func:
@@ -120,6 +122,15 @@ class QueryService:
                  criteria.append(operator_func(field, tuple(value)))
             else:
                 criteria.append(operator_func(field, value))
+        
+        # Automatically filter out NULLs from continuous dimensions
+        # NULL values in continuous dimensions (timestamps, prices, etc.) cannot be 
+        # visualized in tick-strips or scatter plots, and filtering them at query time
+        # can dramatically reduce dataset size (especially when most rows have NULLs)
+        if query_desc.dimensions:
+            for dim in query_desc.dimensions:
+                if dim.flavour == 'continuous':
+                    criteria.append(t[dim.field].notnull())
 
         if criteria:
             # Combine all criteria with AND
@@ -131,10 +142,26 @@ class QueryService:
             if query_desc.measures:
                 q = q.groupby(*[t[dim.field] for dim in query_desc.dimensions])
             else:
-                # If only dimensions are selected, use DISTINCT only if all dimensions are discrete
-                is_any_continuous = any(d.flavour == 'continuous' for d in query_desc.dimensions)
-                if not is_any_continuous:
-                    q = q.distinct()
+                # If only dimensions (no measures), decide whether to deduplicate:
+                # Use axis information (if provided) to distinguish tick-strips from scatter plots
+                continuous_dims = [d for d in query_desc.dimensions if d.flavour == 'continuous']
+                discrete_dims = [d for d in query_desc.dimensions if d.flavour == 'discrete']
+                
+                # Check if continuous dimensions span both axes (scatter plot scenario)
+                has_continuous_on_x = any(d.axis == 'x' for d in continuous_dims)
+                has_continuous_on_y = any(d.axis == 'y' for d in continuous_dims)
+                is_scatter_plot = has_continuous_on_x and has_continuous_on_y
+                
+                if not is_scatter_plot:
+                    # Deduplicate for:
+                    # - Tick-strip (continuous dims on same axis or single continuous dim)
+                    # - Discrete-only queries
+                    # Use GROUP BY when mixing discrete + continuous for proper SQL semantics
+                    if discrete_dims and continuous_dims:
+                        q = q.groupby(*[t[dim.field] for dim in query_desc.dimensions])
+                    else:
+                        q = q.distinct()
+                # else: scatter plot case (continuous dims on both X and Y) - keep all points, no deduplication
 
         # ORDER BY Clause
         if query_desc.orderBy:
