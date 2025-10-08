@@ -10,6 +10,7 @@ class Measure(BaseModel):
 class Dimension(BaseModel):
     field: str
     flavour: Literal['discrete', 'continuous']
+    axis: Optional[Literal['x', 'y']] = None  # Optional: which axis the dimension is on
 
 class Filter(BaseModel):
     field: str
