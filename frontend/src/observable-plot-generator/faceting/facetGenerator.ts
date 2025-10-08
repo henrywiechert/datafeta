@@ -79,17 +79,31 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
                     x: { label: measureName, grid: true, domain: valueDomain as any, nice: false, domainKey: measureName } as any,
                     y: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any, padding: BAND_PADDING as any, domainKey: categoryField?.columnName } as any,
                     marks: [
-                      Plot.barX(subset, { x: measureName, y: categoryField?.columnName || (() => categories[0]), fill: DEFAULT_CHART_COLOR }),
+                      Plot.barX(subset, { x: measureName, y: categoryField?.columnName || (() => categories[0]), fill: colorField ? (colorField as any).columnName : DEFAULT_CHART_COLOR }),
                       Plot.ruleX([0])
-                    ]
+                    ],
+                    ...(colorField && sharedColorDomain && sharedColorDomain.length > 0 ? {
+                      color: {
+                        domain: sharedColorDomain as any,
+                        scheme: DEFAULT_COLOR_SCHEME as any,
+                        type: 'ordinal' as any,
+                      } as any
+                    } : {})
                   }
                 : {
                     y: { label: measureName, grid: true, domain: valueDomain as any, nice: false, domainKey: measureName } as any,
                     x: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any, padding: BAND_PADDING as any, domainKey: categoryField?.columnName } as any,
                     marks: [
-                      Plot.barY(subset, { y: measureName, x: categoryField?.columnName || (() => categories[0]), fill: DEFAULT_CHART_COLOR }),
+                      Plot.barY(subset, { y: measureName, x: categoryField?.columnName || (() => categories[0]), fill: colorField ? (colorField as any).columnName : DEFAULT_CHART_COLOR }),
                       Plot.ruleY([0])
-                    ]
+                    ],
+                    ...(colorField && sharedColorDomain && sharedColorDomain.length > 0 ? {
+                      color: {
+                        domain: sharedColorDomain as any,
+                        scheme: DEFAULT_COLOR_SCHEME as any,
+                        type: 'ordinal' as any,
+                      } as any
+                    } : {})
                   } as any;
               title = measureName;
             } else {
