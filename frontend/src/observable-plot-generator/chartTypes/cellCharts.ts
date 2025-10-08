@@ -105,10 +105,10 @@ export function generatePairChartOptions(
       return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField);
     }
     case 'barX': {
-      return createBarX(data, xf, yf.type === 'dimension' ? yf : null, sharedMeasureDomains);
+      return createBarX(data, xf, yf.type === 'dimension' ? yf : null, sharedMeasureDomains, colorField);
     }
     case 'barY': {
-      return createBarY(data, yf, xf.type === 'dimension' ? xf : null, sharedMeasureDomains);
+      return createBarY(data, yf, xf.type === 'dimension' ? xf : null, sharedMeasureDomains, colorField);
     }
     case 'tickX': {
       // continuous dimension on X, optional discrete dimension category on Y
@@ -174,7 +174,8 @@ function createBarX(
   data: any[],
   measure: Field,
   yDimension: Field | null,
-  sharedDomains?: Domains
+  sharedDomains?: Domains,
+  colorField?: Field
 ): Plot.PlotOptions {
   const measureName = getResultColumnName({ ...measure, aggregation: measure.aggregation || 'sum' } as any);
   let domain = (sharedDomains && sharedDomains[measureName]) || undefined;
@@ -207,14 +208,14 @@ function createBarX(
     opts.inset = 0;
     opts.height = Math.max(BAR_STEP_PX * 2, categories.length * BAR_STEP_PX);
     opts.marks!.push(
-      Plot.barX(data, { x: measureName, y: yDimension.columnName, fill: DEFAULT_CHART_COLOR })
+      Plot.barX(data, { x: measureName, y: yDimension.columnName, fill: colorField ? colorField.columnName : DEFAULT_CHART_COLOR })
     );
   } else {
     // Remove hardcoded height for responsive sizing
     opts.y = { label: ' ' };
     opts.height = BAR_STEP_PX * 2;
     opts.marks!.push(
-      Plot.barX(data, { x: measureName, fill: DEFAULT_CHART_COLOR })
+      Plot.barX(data, { x: measureName, fill: colorField ? colorField.columnName : DEFAULT_CHART_COLOR })
     );
   }
 
@@ -225,7 +226,8 @@ function createBarY(
   data: any[],
   measure: Field,
   xDimension: Field | null,
-  sharedDomains?: Domains
+  sharedDomains?: Domains,
+  colorField?: Field
 ): Plot.PlotOptions {
   const measureName = getResultColumnName({ ...measure, aggregation: measure.aggregation || 'sum' } as any);
   let domain = (sharedDomains && sharedDomains[measureName]) || undefined;
@@ -258,14 +260,14 @@ function createBarY(
     opts.inset = 0;
     opts.width = Math.max(BAR_STEP_PX * 2, categories.length * BAR_STEP_PX);
     opts.marks!.push(
-      Plot.barY(data, { x: xDimension.columnName, y: measureName, fill: DEFAULT_CHART_COLOR })
+      Plot.barY(data, { x: xDimension.columnName, y: measureName, fill: colorField ? colorField.columnName : DEFAULT_CHART_COLOR })
     );
   } else {
     // Remove hardcoded width for responsive sizing
     opts.x = { label: ' ' };
     opts.width = BAR_STEP_PX * 2;
     opts.marks!.push(
-      Plot.barY(data, { y: measureName, fill: DEFAULT_CHART_COLOR })
+      Plot.barY(data, { y: measureName, fill: colorField ? colorField.columnName : DEFAULT_CHART_COLOR })
     );
   }
 
