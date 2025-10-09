@@ -105,6 +105,7 @@ class ClickHouseConnector(BaseConnector):
             raise DataSourceConnectionError("Not connected to ClickHouse.")
         logger.info(f"Executing ClickHouse query: {query}")
         try:
+            # Query with settings to preserve string types
             result = self.client.query(query)
             
             # Format column definitions
@@ -113,15 +114,30 @@ class ClickHouseConnector(BaseConnector):
             else:
                 columns = [{'name': name, 'type': 'unknown'} for name in result.column_names]
 
-            logger.debug(f"Formatted columns: {columns}")
+            logger.info(f"Formatted columns: {columns}")
 
             # Format rows into dictionaries
-            rows = [dict(zip(result.column_names, row)) for row in result.result_rows]
+            # Convert all values to ensure proper types (strings stay as strings, dates/datetimes to ISO strings)
+            rows = []
+            for row in result.result_rows:
+                row_dict = {}
+                for col_name, value in zip(result.column_names, row):
+                    # Convert datetime objects to ISO format strings if needed
+                    if hasattr(value, 'isoformat'):
+                        row_dict[col_name] = value.isoformat()
+                    else:
+                        row_dict[col_name] = value
+                rows.append(row_dict)
+            
+            # Log first few rows to diagnose what types we're getting
+            if rows:
+                logger.info(f"First row (processed): {rows[0]}")
+                logger.info(f"First row value types: {[(k, type(v).__name__) for k, v in rows[0].items()]}")
             
             # Convert any Decimal types to floats for JSON serialization compatibility
             rows = process_query_result_data(rows)
             
-            logger.debug(f"Returning {len(rows)} rows.")
+            logger.info(f"Returning {len(rows)} rows.")
 
             return columns, rows
         except Exception as e:

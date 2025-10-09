@@ -41,6 +41,99 @@ OPERATOR_MAP = {
 
 class QueryService:
 
+    def _get_datetime_part_expression(self, field_term: Any, date_part: str, date_mode: str, db_type: str) -> Any:
+        """
+        Generate database-specific SQL expression for extracting datetime parts.
+        
+        Args:
+            field_term: The field to extract from (pypika Field object)
+            date_part: The part to extract (year, month, day, etc.)
+            date_mode: Either 'distinct' or 'timeline'
+            db_type: The database type (clickhouse, duckdb, etc.)
+        
+        Returns:
+            A pypika expression for the datetime part extraction
+        """
+        if db_type == 'clickhouse':
+            # ClickHouse datetime functions
+            if date_mode == 'distinct':
+                # Extract just the part (returns integer or string)
+                part_func_map = {
+                    'year': lambda f: Function('toYear', f),
+                    'month': lambda f: Function('toMonth', f),
+                    'day': lambda f: Function('toDayOfMonth', f),
+                    'weekday': lambda f: Function('toDayOfWeek', f),  # Returns 1-7 (Monday=1)
+                    'hour': lambda f: Function('toHour', f),
+                    'minute': lambda f: Function('toMinute', f),
+                    'second': lambda f: Function('toSecond', f),
+                    # Subsecond parts: extract using modulo arithmetic
+                    # millisecond: 0-999
+                    'millisecond': lambda f: Function('toUnixTimestamp64Milli', f) % 1000,
+                    # microsecond: 0-999999
+                    'microsecond': lambda f: Function('toUnixTimestamp64Micro', f) % 1000000,
+                    # nanosecond: 0-999999999
+                    'nanosecond': lambda f: Function('toUnixTimestamp64Nano', f) % 1000000000,
+                }
+                return part_func_map[date_part](field_term)
+            else:  # timeline mode
+                # Timeline mode uses the SAME extraction as distinct mode
+                # The difference is semantic (how the user intends to use it), not in the SQL
+                # Timeline: temporal progression with grouping (e.g., hour 0-23 repeating per day)
+                # Distinct: aggregate across all time (e.g., which hour has most activity)
+                part_func_map = {
+                    'year': lambda f: Function('toYear', f),
+                    'month': lambda f: Function('toMonth', f),
+                    'day': lambda f: Function('toDayOfMonth', f),
+                    'weekday': lambda f: Function('toDayOfWeek', f),
+                    'hour': lambda f: Function('toHour', f),
+                    'minute': lambda f: Function('toMinute', f),
+                    'second': lambda f: Function('toSecond', f),
+                    # Subsecond parts: extract using modulo arithmetic
+                    'millisecond': lambda f: Function('toUnixTimestamp64Milli', f) % 1000,
+                    'microsecond': lambda f: Function('toUnixTimestamp64Micro', f) % 1000000,
+                    'nanosecond': lambda f: Function('toUnixTimestamp64Nano', f) % 1000000000,
+                }
+                return part_func_map[date_part](field_term)
+        else:
+            # DuckDB or other SQL databases using EXTRACT
+            if date_mode == 'distinct':
+                # EXTRACT returns numeric values
+                part_extract_map = {
+                    'year': 'YEAR',
+                    'month': 'MONTH',
+                    'day': 'DAY',
+                    'weekday': 'DOW',  # Day of week (0-6, Sunday=0)
+                    'hour': 'HOUR',
+                    'minute': 'MINUTE',
+                    'second': 'SECOND',
+                    'millisecond': 'MILLISECOND',
+                    'microsecond': 'MICROSECOND',
+                    'nanosecond': 'NANOSECOND',
+                }
+                # Using custom SQL since pypika doesn't have built-in EXTRACT syntax
+                from pypika.terms import ValueWrapper
+                extract_part = part_extract_map.get(date_part, date_part.upper())
+                # Return a custom function that will be rendered as EXTRACT(part FROM field)
+                return Function('EXTRACT', ValueWrapper(extract_part), field_term)
+            else:  # timeline mode
+                # Timeline mode uses the SAME extraction as distinct mode
+                # The difference is semantic (how the user intends to use it), not in the SQL
+                part_extract_map = {
+                    'year': 'YEAR',
+                    'month': 'MONTH',
+                    'day': 'DAY',
+                    'weekday': 'DOW',
+                    'hour': 'HOUR',
+                    'minute': 'MINUTE',
+                    'second': 'SECOND',
+                    'millisecond': 'MILLISECOND',
+                    'microsecond': 'MICROSECOND',
+                    'nanosecond': 'NANOSECOND',
+                }
+                from pypika.terms import ValueWrapper
+                extract_part = part_extract_map.get(date_part, date_part.upper())
+                return Function('EXTRACT', ValueWrapper(extract_part), field_term)
+
     def translate_to_sql(self, query_desc: QueryDescription, table_name: str, db_type: str = 'clickhouse', with_sampling: bool = False) -> str:
         """
         Translates a QueryDescription object into a SQL string.
@@ -74,9 +167,23 @@ class QueryService:
         # SELECT Clause (Dimensions + Measures)
         select_fields: List[Any] = []
         all_aliases = set()
+        # Track which dimensions have datetime parts (these will be aliased)
+        datetime_part_fields = set()
 
         if query_desc.dimensions:
-            select_fields.extend([t[dim.field] for dim in query_desc.dimensions])
+            for dim in query_desc.dimensions:
+                field_term = t[dim.field]
+                # Apply datetime part extraction if specified
+                if dim.date_part and dim.date_mode:
+                    field_term = self._get_datetime_part_expression(
+                        field_term, dim.date_part, dim.date_mode, db_type
+                    )
+                    # Add an alias so the column name matches the original field name
+                    # This allows the frontend to find the data under the expected column name
+                    field_term = field_term.as_(dim.field)
+                    all_aliases.add(dim.field)
+                    datetime_part_fields.add(dim.field)
+                select_fields.append(field_term)
 
         for measure in query_desc.measures:
             agg_func_builder = AGGREGATION_MAP.get(measure.aggregation)
@@ -140,7 +247,16 @@ class QueryService:
         if query_desc.dimensions:
             # Only group if there are measures, otherwise it's just selecting distinct dimension combinations
             if query_desc.measures:
-                q = q.groupby(*[t[dim.field] for dim in query_desc.dimensions])
+                # Build GROUP BY expressions (apply datetime parts if needed)
+                groupby_fields = []
+                for dim in query_desc.dimensions:
+                    field_term = t[dim.field]
+                    if dim.date_part and dim.date_mode:
+                        field_term = self._get_datetime_part_expression(
+                            field_term, dim.date_part, dim.date_mode, db_type
+                        )
+                    groupby_fields.append(field_term)
+                q = q.groupby(*groupby_fields)
             else:
                 # If only dimensions (no measures), decide whether to deduplicate:
                 # Use axis information (if provided) to distinguish tick-strips from scatter plots
@@ -158,7 +274,16 @@ class QueryService:
                     # - Discrete-only queries
                     # Use GROUP BY when mixing discrete + continuous for proper SQL semantics
                     if discrete_dims and continuous_dims:
-                        q = q.groupby(*[t[dim.field] for dim in query_desc.dimensions])
+                        # Build GROUP BY expressions (apply datetime parts if needed)
+                        groupby_fields = []
+                        for dim in query_desc.dimensions:
+                            field_term = t[dim.field]
+                            if dim.date_part and dim.date_mode:
+                                field_term = self._get_datetime_part_expression(
+                                    field_term, dim.date_part, dim.date_mode, db_type
+                                )
+                            groupby_fields.append(field_term)
+                        q = q.groupby(*groupby_fields)
                     else:
                         q = q.distinct()
                 # else: scatter plot case (continuous dims on both X and Y) - keep all points, no deduplication
@@ -166,10 +291,12 @@ class QueryService:
         # ORDER BY Clause
         if query_desc.orderBy:
             for order in query_desc.orderBy:
+                # Check if this field was aliased in SELECT (either a measure or datetime part)
                 if order.field in all_aliases:
-                    # Use the alias string directly
+                    # Use the alias name directly - it refers to the already-computed expression
                     field_term = order.field
                 else:
+                    # Regular field, just reference it
                     field_term = t[order.field]
 
                 pypika_order = Order.desc if order.direction == 'desc' else Order.asc

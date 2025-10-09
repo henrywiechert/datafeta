@@ -11,6 +11,8 @@ class Dimension(BaseModel):
     field: str
     flavour: Literal['discrete', 'continuous']
     axis: Optional[Literal['x', 'y']] = None  # Optional: which axis the dimension is on
+    date_part: Optional[Literal['year', 'month', 'day', 'weekday', 'hour', 'minute', 'second', 'millisecond', 'microsecond', 'nanosecond']] = None
+    date_mode: Optional[Literal['distinct', 'timeline']] = None
 
 class Filter(BaseModel):
     field: str

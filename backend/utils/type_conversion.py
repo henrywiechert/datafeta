@@ -1,5 +1,10 @@
 """
 Utility functions for type conversion in data processing.
+
+DateTime Parts Handling:
+- Distinct mode datetime parts return integers (e.g., month: 1-12) or native types
+- Timeline mode datetime parts return formatted strings (e.g., "2023-03", "2023-03-15")
+- Both integer and string types are natively JSON serializable and require no conversion
 """
 
 from decimal import Decimal
