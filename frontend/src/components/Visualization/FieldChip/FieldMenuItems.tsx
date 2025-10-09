@@ -1,5 +1,5 @@
 import React from 'react';
-import { Field } from '../../../types';
+import { Field, DateTimePart } from '../../../types';
 import menuStyles from '../ContextMenu.module.css';
 import SubMenu from '../SubMenu';
 import { canBeContinuous, canBeMeasure, getFieldAggregations } from './utils';
@@ -17,6 +17,16 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
   const isFieldContinuous = canBeContinuous(field);
   const isFieldMeasure = canBeMeasure(field);
   const isInAxisDropZone = source === 'X_AXIS' || source === 'Y_AXIS';
+  const isDateTime = field.dataType === 'datetime';
+
+  // DateTime parts list
+  const dateTimeParts: DateTimePart[] = [
+    'year', 'month', 'day', 'weekday', 'hour', 'minute', 'second', 
+    'millisecond', 'microsecond', 'nanosecond'
+  ];
+
+  // Helper to capitalize first letter
+  const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
   return (
     <>
@@ -60,6 +70,44 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
             <div className={menuStyles.menuItem} onClick={() => onUpdate({ dataType: 'datetime' })}>
               DateTime {field.dataType === 'datetime' && '✔'}
             </div>
+          </SubMenu>
+        </>
+      )}
+      
+      {/* DateTime Part Selection - shown for datetime fields */}
+      {isDateTime && (
+        <>
+          <div className={menuStyles.separator} />
+
+          <div 
+            className={menuStyles.menuItem} 
+            onClick={() => onUpdate({ dateTimePart: undefined, dateTimeMode: undefined })}
+          >
+            Full DateTime {!field.dateTimePart && !field.dateTimeMode && '✔'}
+          </div>
+
+          <SubMenu label="Distinct Parts">
+            {dateTimeParts.map(part => (
+              <div 
+                key={part}
+                className={menuStyles.menuItem} 
+                onClick={() => onUpdate({ dateTimePart: part, dateTimeMode: 'distinct' })}
+              >
+                {capitalize(part)} {field.dateTimePart === part && field.dateTimeMode === 'distinct' && '✔'}
+              </div>
+            ))}
+          </SubMenu>
+
+          <SubMenu label="Timeline Parts">
+            {dateTimeParts.map(part => (
+              <div 
+                key={part}
+                className={menuStyles.menuItem} 
+                onClick={() => onUpdate({ dateTimePart: part, dateTimeMode: 'timeline' })}
+              >
+                {capitalize(part)} {field.dateTimePart === part && field.dateTimeMode === 'timeline' && '✔'}
+              </div>
+            ))}
           </SubMenu>
         </>
       )}

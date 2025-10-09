@@ -79,6 +79,8 @@ export const buildAggregatedQuery = ({
       field: d.columnName,
       flavour: d.flavour,
       axis: d.axis,  // Preserve axis information if present
+      date_part: d.dateTimePart,  // Pass datetime part if present
+      date_mode: d.dateTimeMode,  // Pass datetime mode if present
     }));
   
   const measures: Measure[] = fields
@@ -146,6 +148,8 @@ export const buildRawQuery = ({
       field: colName,
       flavour: field.flavour,
       axis: field.axis,  // Preserve axis information if present
+      date_part: field.dateTimePart,  // Pass datetime part if present
+      date_mode: field.dateTimeMode,  // Pass datetime mode if present
     }
   });
 
