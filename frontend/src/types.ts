@@ -61,6 +61,8 @@ export interface Dimension {
     field: string;
     flavour: Flavour;
     axis?: 'x' | 'y';  // Optional: which axis the dimension is on
+    date_part?: DateTimePart; // Optional: which datetime part to extract
+    date_mode?: DateTimeMode; // Optional: distinct or timeline mode
 }
 
 export interface QueryDescription {
@@ -93,6 +95,8 @@ export type FieldType = 'dimension' | 'measure';
 export type Aggregation = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'count_distinct';
 export type Flavour = 'discrete' | 'continuous';
 export type DataType = 'string' | 'integer' | 'float' | 'datetime';
+export type DateTimePart = 'year' | 'month' | 'day' | 'weekday' | 'hour' | 'minute' | 'second' | 'millisecond' | 'microsecond' | 'nanosecond';
+export type DateTimeMode = 'distinct' | 'timeline';
 export type DragSource = 'X_AXIS' | 'Y_AXIS' | 'AVAILABLE_FIELDS' | 'FILTER_ZONE' | 'COLOR_ZONE';
 
 export interface Field {
@@ -103,6 +107,8 @@ export interface Field {
   flavour: Flavour;
   dataType: DataType;
   axis?: 'x' | 'y';  // Optional: which axis the field is on (for query optimization)
+  dateTimePart?: DateTimePart; // Optional: which datetime part to extract
+  dateTimeMode?: DateTimeMode; // Optional: distinct (e.g., 12 months) or timeline (e.g., Mar 2023, Mar 2024)
 }
 
 // --- Filter Types --- //

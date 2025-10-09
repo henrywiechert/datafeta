@@ -45,4 +45,41 @@ export function getResultColumnName(field: Field): string {
     return `${field.aggregation.toUpperCase()}(${field.columnName})`;
   }
   return field.columnName;
+}
+
+/**
+ * Gets the display name for a field, including datetime part information if present.
+ * @param field The field.
+ * @returns A formatted display name.
+ */
+export function getFieldDisplayName(field: Field): string {
+  const baseName = field.columnName;
+  
+  // If this field has a datetime part, format it
+  if (field.dateTimePart && field.dateTimeMode) {
+    const partName = field.dateTimePart.charAt(0).toUpperCase() + field.dateTimePart.slice(1);
+    const modeName = field.dateTimeMode === 'distinct' ? 'distinct' : 'timeline';
+    return `${partName} (${modeName})`;
+  }
+  
+  return baseName;
+}
+
+/**
+ * Gets a tooltip description for a field's datetime part configuration.
+ * @param field The field.
+ * @returns A description string, or undefined if no datetime part.
+ */
+export function getDateTimePartTooltip(field: Field): string | undefined {
+  if (!field.dateTimePart || !field.dateTimeMode) {
+    return undefined;
+  }
+  
+  const partName = field.dateTimePart.charAt(0).toUpperCase() + field.dateTimePart.slice(1);
+  
+  if (field.dateTimeMode === 'distinct') {
+    return `${partName} values only (e.g., 12 months: Jan, Feb, ..., Dec)`;
+  } else {
+    return `${partName} values for grouping (e.g., hour 0-23 repeating per day)`;
+  }
 } 

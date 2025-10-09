@@ -65,8 +65,10 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
     columnName: field.columnName, 
     aggregation: field.aggregation, 
     flavour: field.flavour, 
-    dataType: field.dataType
-  }), [field.columnName, field.aggregation, field.flavour, field.dataType]);
+    dataType: field.dataType,
+    dateTimePart: field.dateTimePart,
+    dateTimeMode: field.dateTimeMode
+  }), [field.columnName, field.aggregation, field.flavour, field.dataType, field.dateTimePart, field.dateTimeMode]);
   
   // Check for truncation when relevant properties change
   useLayoutEffect(() => {

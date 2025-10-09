@@ -1,5 +1,5 @@
 import { Field } from '../../../types';
-import { getAvailableAggregations } from '../../../utils/fieldUtils';
+import { getAvailableAggregations, getFieldDisplayName } from '../../../utils/fieldUtils';
 
 // Get available aggregations for a field
 export const getFieldAggregations = (field: Field) => {
@@ -23,7 +23,7 @@ export const canBeMeasure = (field: Field): boolean => {
 
 // Format the full label for a field
 export const formatFullLabel = (field: Field): string => {
-  return `${field.columnName}${field.aggregation ? `(${field.aggregation})` : ''} [${field.flavour}] (${field.dataType})`;
+  return `${getFieldDisplayName(field)}${field.aggregation ? `(${field.aggregation})` : ''} [${field.flavour}] (${field.dataType})`;
 };
 
 // Apply field update rules
@@ -66,6 +66,28 @@ export const applyFieldUpdateRules = (field: Field, updates: Partial<Field>): Fi
   if (updates.dataType === 'datetime') {
     newField.type = 'dimension';
     delete newField.aggregation; // Remove any aggregation since it's now a dimension
+  }
+
+  // When changing from datetime to non-datetime dataType, clear datetime part info
+  if (updates.dataType !== undefined && updates.dataType !== 'datetime') {
+    delete newField.dateTimePart;
+    delete newField.dateTimeMode;
+  }
+
+  // When setting a datetime part, ensure both part and mode are set
+  if (updates.dateTimePart !== undefined || updates.dateTimeMode !== undefined) {
+    // If clearing datetime part (setting to undefined), clear both
+    if (updates.dateTimePart === undefined || updates.dateTimeMode === undefined) {
+      delete newField.dateTimePart;
+      delete newField.dateTimeMode;
+    }
+    // Both must be set together or neither
+  }
+
+  // When a datetime part is selected, ensure field is a dimension
+  if (newField.dateTimePart && newField.dateTimeMode) {
+    newField.type = 'dimension';
+    delete newField.aggregation;
   }
 
   return newField;

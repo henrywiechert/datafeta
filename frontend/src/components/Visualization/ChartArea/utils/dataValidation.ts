@@ -31,8 +31,14 @@ export const validateAndCleanData = (result: any) => {
         
         // Handle string representations of invalid numbers
         if (typeof value === 'string') {
-          const numValue = parseFloat(value);
-          if (!isNaN(numValue)) {
+          // Only convert strings that are ENTIRELY numeric (not datetime strings like "2023-06-08 09:35:00")
+          // Use trim to handle whitespace, and check if the whole string converts cleanly
+          const trimmed = value.trim();
+          const numValue = parseFloat(trimmed);
+          
+          // Only convert if the string is entirely a number (parseFloat consumes the whole string)
+          // Check by converting back to string and comparing
+          if (!isNaN(numValue) && numValue.toString() === trimmed) {
             if (!isFinite(numValue)) {
               console.warn(`🚨 Invalid numeric string found in field ${key}: ${value}, replacing with null`);
               cleanedRow[key] = null;
@@ -41,7 +47,7 @@ export const validateAndCleanData = (result: any) => {
               cleanedRow[key] = numValue;
             }
           }
-          // Non-numeric strings are left as-is
+          // Non-numeric strings (including datetime strings) are left as-is
         }
       });
       
