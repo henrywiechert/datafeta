@@ -2,6 +2,7 @@ import * as Plot from '@observablehq/plot';
 import { Field } from '../../types';
 import { DEFAULT_CHART_COLOR, BAR_STEP_PX } from '../../config/chartLayoutConfig';
 import { getResultColumnName } from '../../utils/fieldUtils';
+import { getFieldColumnName } from '../helpers/fields';
 import { lineChart, verticalLineChart } from './lineChart';
 import { scatterChart } from './scatterChart';
 import { tickStrip } from './tickStrip';
@@ -197,18 +198,19 @@ function createBarX(
 
   if (yDimension) {
     // Remove hardcoded height for responsive sizing
-    const categories = Array.from(new Set(data.map((row) => row[yDimension.columnName])));
+    const yColumnName = getFieldColumnName(yDimension);
+    const categories = Array.from(new Set(data.map((row) => row[yColumnName])));
     // Preserve ordering by domain even when data missing; force all known categories if available in sharedDomains via label key
-    const domainKey = yDimension.columnName;
+    const domainKey = yColumnName;
     const sharedDomain = (sharedDomains && (sharedDomains as any)[domainKey]) as any[] | undefined;
-    opts.y = { label: yDimension.columnName, domain: (sharedDomain && Array.isArray(sharedDomain) ? sharedDomain : categories) as any, type: 'band' as any, padding: 0.1 as any };
+    opts.y = { label: yColumnName, domain: (sharedDomain && Array.isArray(sharedDomain) ? sharedDomain : categories) as any, type: 'band' as any, padding: 0.1 as any };
     // Ensure consistent bar thickness regardless of viewport: set fixed padding
     opts.marginTop = 0;
     opts.marginBottom = 0;
     opts.inset = 0;
     opts.height = Math.max(BAR_STEP_PX * 2, categories.length * BAR_STEP_PX);
     opts.marks!.push(
-      Plot.barX(data, { x: measureName, y: yDimension.columnName, fill: colorField ? colorField.columnName : DEFAULT_CHART_COLOR })
+      Plot.barX(data, { x: measureName, y: yColumnName, fill: colorField ? colorField.columnName : DEFAULT_CHART_COLOR })
     );
   } else {
     // Remove hardcoded height for responsive sizing
@@ -251,16 +253,17 @@ function createBarY(
 
   if (xDimension) {
     // Remove hardcoded width for responsive sizing
-    const categories = Array.from(new Set(data.map((row) => row[xDimension.columnName])));
-    const domainKey = xDimension.columnName;
+    const xColumnName = getFieldColumnName(xDimension);
+    const categories = Array.from(new Set(data.map((row) => row[xColumnName])));
+    const domainKey = xColumnName;
     const sharedDomain = (sharedDomains && (sharedDomains as any)[domainKey]) as any[] | undefined;
-    opts.x = { label: xDimension.columnName, domain: (sharedDomain && Array.isArray(sharedDomain) ? sharedDomain : categories) as any, type: 'band' as any, padding: 0.1 as any };
+    opts.x = { label: xColumnName, domain: (sharedDomain && Array.isArray(sharedDomain) ? sharedDomain : categories) as any, type: 'band' as any, padding: 0.1 as any };
     opts.marginLeft = 0;
     opts.marginRight = 0;
     opts.inset = 0;
     opts.width = Math.max(BAR_STEP_PX * 2, categories.length * BAR_STEP_PX);
     opts.marks!.push(
-      Plot.barY(data, { x: xDimension.columnName, y: measureName, fill: colorField ? colorField.columnName : DEFAULT_CHART_COLOR })
+      Plot.barY(data, { x: xColumnName, y: measureName, fill: colorField ? colorField.columnName : DEFAULT_CHART_COLOR })
     );
   } else {
     // Remove hardcoded width for responsive sizing

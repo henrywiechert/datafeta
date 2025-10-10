@@ -2,6 +2,7 @@ import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext } from '../types';
 import { DEFAULT_CHART_COLOR, DEFAULT_COLOR_SCHEME, BAR_STEP_PX } from '../../config/chartLayoutConfig';
 import { getResultColumnName } from '../../utils/fieldUtils';
+import { getFieldColumnName } from '../helpers/fields';
 
 // Compute numeric extent for a column, ignoring non-finite values
 function numericExtent(rows: any[], column: string): [number, number] {
@@ -50,8 +51,9 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
     
     // Only add x field if we have a dimension
     if (xDimension) {
-      barConfig.x = xDimension.columnName;
-      const categories = Array.from(new Set(data.map(row => row[xDimension.columnName])));
+      const xColumnName = getFieldColumnName(xDimension);
+      barConfig.x = xColumnName;
+      const categories = Array.from(new Set(data.map(row => row[xColumnName])));
       const calculatedWidth = categories.length * barStep;
 
       // Ensure measure axis includes 0 and ends at max +5%
@@ -65,7 +67,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
           Plot.ruleY([0])
         ],
         x: {
-          label: xDimension.columnName,
+          label: xColumnName,
           domain: categories as any,
           type: 'band' as any,
           padding: 0.1 as any,
@@ -135,8 +137,9 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
     
     // Only add y field if we have a dimension
     if (yDimension) {
-      barConfig.y = yDimension.columnName;
-      const categories = Array.from(new Set(data.map(row => row[yDimension.columnName])));
+      const yColumnName = getFieldColumnName(yDimension);
+      barConfig.y = yColumnName;
+      const categories = Array.from(new Set(data.map(row => row[yColumnName])));
       const calculatedHeight = categories.length * barStep;
 
       // Ensure measure axis includes 0 and ends at max +5%
@@ -150,7 +153,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
           Plot.ruleX([0])
         ],
         y: {
-          label: yDimension.columnName,
+          label: yColumnName,
           domain: categories as any,
           type: 'band' as any,
           padding: 0.1 as any,
