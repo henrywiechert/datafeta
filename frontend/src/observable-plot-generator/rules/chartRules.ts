@@ -5,7 +5,7 @@ import { barChart } from '../chartTypes/barChart';
 import { tickStrip } from '../chartTypes/tickStrip';
 import { lineChart } from '../chartTypes/lineChart';
 import { scatterChart } from '../chartTypes/scatterChart';
-import { getResultColumnName } from '../../utils/fieldUtils';
+import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 
 export function generateScatterPlot(analysis: FieldAnalysis, context: ChartGenerationContext): Plot.PlotOptions {
   const { queryResult } = context;
@@ -49,10 +49,15 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
 
   if (analysis.hasXMeasure && !analysis.hasYMeasure) {
     if (yContinuousDims.length > 0) {
-      const yDimCol = yContinuousDims[0].columnName;
+      const yDim = yContinuousDims[0];
+      const yDimCol = getResultColumnName(yDim);
       const xMeasure = analysis.xMeasures[0];
       const xMeasureCol = getResultColumnName({ ...xMeasure, aggregation: xMeasure.aggregation || 'sum' } as any);
-      return { library: 'observable-plot', options: lineChart(data, yDimCol, xMeasureCol, { x: yDimCol, y: xMeasureCol }, undefined, colorField), layout: { type: 'single' } };
+      return { 
+        library: 'observable-plot', 
+        options: lineChart(data, yDimCol, xMeasureCol, { x: getFieldDisplayName(yDim), y: xMeasureCol }, undefined, colorField), 
+        layout: { type: 'single' } 
+      };
     }
     if (yDiscreteDims.length > 0 || yDims.length > 0) {
       return { library: 'observable-plot', options: barChart(context), layout: { type: 'single' } };
@@ -61,10 +66,15 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
 
   if (analysis.hasYMeasure && !analysis.hasXMeasure) {
     if (xContinuousDims.length > 0) {
-      const xDimCol = xContinuousDims[0].columnName;
+      const xDim = xContinuousDims[0];
+      const xDimCol = getResultColumnName(xDim);
       const yMeasure = analysis.yMeasures[0];
       const yMeasureCol = getResultColumnName({ ...yMeasure, aggregation: yMeasure.aggregation || 'sum' } as any);
-      return { library: 'observable-plot', options: lineChart(data, xDimCol, yMeasureCol, { x: xDimCol, y: yMeasureCol }, undefined, colorField), layout: { type: 'single' } };
+      return { 
+        library: 'observable-plot', 
+        options: lineChart(data, xDimCol, yMeasureCol, { x: getFieldDisplayName(xDim), y: yMeasureCol }, undefined, colorField), 
+        layout: { type: 'single' } 
+      };
     }
     if (xDiscreteDims.length > 0 || xDims.length > 0) {
       return { library: 'observable-plot', options: barChart(context), layout: { type: 'single' } };
@@ -98,30 +108,48 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
 
     // Continuous on X, discrete on Y → tick-strip along X, categorized by Y
     if (xContinuousDims.length > 0 && yContinuousDims.length === 0 && yDiscreteDims.length > 0) {
-      const xDimCol = xContinuousDims[0].columnName;
+      const xDim = xContinuousDims[0];
+      const xDimCol = getResultColumnName(xDim);
+      const yDim = yDiscreteDims.slice(-1)[0];
       // Check categoryAxisDescriptor first (from faceting), then fall back to finding in yDiscreteDims
       const categoryCol = (context.categoryAxisDescriptor?.axis === 'y' ? context.categoryAxisDescriptor.columnName : null)
-        || yDiscreteDims.slice(-1)[0].columnName;
-      return { library: 'observable-plot', options: tickStrip(context, 'x', xDimCol, categoryCol), layout: { type: 'single' } };
+        || getResultColumnName(yDim);
+      return { 
+        library: 'observable-plot', 
+        options: tickStrip(context, 'x', xDimCol, categoryCol, { 
+          dimension: getFieldDisplayName(xDim), 
+          category: categoryCol 
+        }), 
+        layout: { type: 'single' } 
+      };
     }
     // Continuous on Y, discrete on X → tick-strip along Y, categorized by X
     if (yContinuousDims.length > 0 && xContinuousDims.length === 0 && xDiscreteDims.length > 0) {
-      const yDimCol = yContinuousDims[0].columnName;
+      const yDim = yContinuousDims[0];
+      const yDimCol = getResultColumnName(yDim);
+      const xDim = xDiscreteDims.slice(-1)[0];
       // Check categoryAxisDescriptor first (from faceting), then fall back to finding in xDiscreteDims
       const categoryCol = (context.categoryAxisDescriptor?.axis === 'x' ? context.categoryAxisDescriptor.columnName : null)
-        || xDiscreteDims.slice(-1)[0].columnName;
-      return { library: 'observable-plot', options: tickStrip(context, 'y', yDimCol, categoryCol), layout: { type: 'single' } };
+        || getResultColumnName(xDim);
+      return { 
+        library: 'observable-plot', 
+        options: tickStrip(context, 'y', yDimCol, categoryCol, { 
+          dimension: getFieldDisplayName(yDim), 
+          category: categoryCol 
+        }), 
+        layout: { type: 'single' } 
+      };
     }
     // Both continuous → scatter
     if (xContinuousDims.length > 0 && yContinuousDims.length > 0) {
-      const xDimCol = xContinuousDims[0].columnName;
-      const yDimCol = yContinuousDims[0].columnName;
+      const xDimCol = getResultColumnName(xContinuousDims[0]);
+      const yDimCol = getResultColumnName(yContinuousDims[0]);
       return { library: 'observable-plot', options: scatterChart(data, xDimCol, yDimCol, { x: xDimCol, y: yDimCol }, colorField), layout: { type: 'single' } };
     }
     // Both discrete → simple dot plot (categorical scatter)
     if (xDiscreteDims.length > 0 && yDiscreteDims.length > 0) {
-      const xCat = xDiscreteDims[0].columnName;
-      const yCat = yDiscreteDims[0].columnName;
+      const xCat = getResultColumnName(xDiscreteDims[0]);
+      const yCat = getResultColumnName(yDiscreteDims[0]);
       return {
         library: 'observable-plot',
         options: {
@@ -140,15 +168,23 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
     const xMeasure = analysis.xMeasures[0];
     const yDim = analysis.yDimensions[0];
     const xMeasureCol = getResultColumnName({ ...xMeasure, aggregation: xMeasure.aggregation || 'sum' } as any);
-    const yDimCol = yDim.columnName;
-    return { library: 'observable-plot', options: lineChart(data, yDimCol, xMeasureCol, { x: yDimCol, y: xMeasureCol }, undefined, colorField), layout: { type: 'single' } };
+    const yDimCol = getResultColumnName(yDim);
+    return { 
+      library: 'observable-plot', 
+      options: lineChart(data, yDimCol, xMeasureCol, { x: getFieldDisplayName(yDim), y: xMeasureCol }, undefined, colorField), 
+      layout: { type: 'single' } 
+    };
   }
   if (hasMeasureOnlyY) {
     const yMeasure = analysis.yMeasures[0];
     const xDim = analysis.xDimensions[0];
     const yMeasureCol = getResultColumnName({ ...yMeasure, aggregation: yMeasure.aggregation || 'sum' } as any);
-    const xDimCol = xDim.columnName;
-    return { library: 'observable-plot', options: lineChart(data, xDimCol, yMeasureCol, { x: xDimCol, y: yMeasureCol }, undefined, colorField), layout: { type: 'single' } };
+    const xDimCol = getResultColumnName(xDim);
+    return { 
+      library: 'observable-plot', 
+      options: lineChart(data, xDimCol, yMeasureCol, { x: getFieldDisplayName(xDim), y: yMeasureCol }, undefined, colorField), 
+      layout: { type: 'single' } 
+    };
   }
 
   const multiXDim = analysis.hasXDimension && analysis.xDimensions.length > 1 && !analysis.hasYDimension && !analysis.hasMeasure;
