@@ -26,8 +26,14 @@ export function uniqueValuesForField(rows: any[], field: Field): any[] {
     }
   });
   // Sort for consistency, especially important for facet ordering
+  // Smart sorting: if all values are numeric, sort numerically; otherwise sort as strings
   try {
-    values.sort((a, b) => (String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0));
+    const allNumeric = values.every(v => typeof v === 'number' && !Number.isNaN(v));
+    if (allNumeric) {
+      values.sort((a, b) => a - b);
+    } else {
+      values.sort((a, b) => (String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0));
+    }
   } catch (e) {
     // ignore sort errors for complex types
   }
