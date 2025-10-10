@@ -6,14 +6,16 @@ import { DOMAIN_PAD_RATIO } from '../../config/chartLayoutConfig';
  * Always start at 0 and pad the max by +5%.
  * 
  * For stacked charts with color fields, computes the domain based on stacked totals,
- * not individual segment values.
+ * not individual segment values. When faceting is present, computes per-facet stacked
+ * totals to avoid inflating the domain with data from other facets.
  */
 export function computeSharedMeasureDomains(
   data: any[],
   xCandidates: any[],
   yCandidates: any[],
   colorField?: any,
-  categoryField?: any
+  categoryField?: any,
+  facetFields?: any[]
 ): Record<string, [number, number]> {
   const measures: string[] = [];
 
@@ -35,20 +37,49 @@ export function computeSharedMeasureDomains(
     if (colorField && categoryField) {
       const categoryColumnName = getResultColumnName(categoryField);
       
-      // Group by category and sum the measure values
-      const categoryTotals = data.reduce((acc: any, row: any) => {
-        const category = row[categoryColumnName];
-        const value = row[measureName];
-        if (typeof value === 'number' && !Number.isNaN(value)) {
-          acc[category] = (acc[category] || 0) + value;
+      // If we have facet fields, compute stacked totals per facet combination, then take the max
+      if (facetFields && facetFields.length > 0) {
+        const facetColumnNames = facetFields.map((f: any) => getResultColumnName(f));
+        
+        // Group by facet combination, then by category within each facet
+        const facetGroups = data.reduce((acc: any, row: any) => {
+          // Create a key for this facet combination
+          const facetKey = facetColumnNames.map((col: string) => row[col]).join('|');
+          if (!acc[facetKey]) acc[facetKey] = {};
+          
+          const category = row[categoryColumnName];
+          const value = row[measureName];
+          if (typeof value === 'number' && !Number.isNaN(value)) {
+            if (!acc[facetKey][category]) acc[facetKey][category] = 0;
+            acc[facetKey][category] += value;
+          }
+          return acc;
+        }, {});
+        
+        // Find the max stacked total across all facets
+        for (const facetKey in facetGroups) {
+          const categoryTotals = Object.values(facetGroups[facetKey]) as number[];
+          if (categoryTotals.length > 0) {
+            const facetMax = Math.max(...categoryTotals);
+            if (facetMax > max) max = facetMax;
+          }
         }
-        return acc;
-      }, {});
-      
-      // Find the max stacked total
-      const totals = Object.values(categoryTotals) as number[];
-      if (totals.length > 0) {
-        max = Math.max(0, ...totals);
+      } else {
+        // No faceting - group by category and sum the measure values
+        const categoryTotals = data.reduce((acc: any, row: any) => {
+          const category = row[categoryColumnName];
+          const value = row[measureName];
+          if (typeof value === 'number' && !Number.isNaN(value)) {
+            acc[category] = (acc[category] || 0) + value;
+          }
+          return acc;
+        }, {});
+        
+        // Find the max stacked total
+        const totals = Object.values(categoryTotals) as number[];
+        if (totals.length > 0) {
+          max = Math.max(0, ...totals);
+        }
       }
     } else {
       // No stacking - just find the max individual value
