@@ -61,7 +61,29 @@ export function planFacets(context: ChartGenerationContext): FacetPlan | null {
     // Prefer using the opposite-axis discrete dimension as a category axis when available,
     // even if same-axis discrete fields exist. This keeps bar spacing consistent across facets.
     const oppositeAxisDiscreteDims = (measuresOnX ? yFields : xFields).filter((f) => f.type === 'dimension' && f.flavour === 'discrete');
-    if (oppositeAxisDiscreteDims.length > 0) {
+    
+    // Check if opposite axis has continuous dimensions - if so, we want line charts, not bars
+    const oppositeAxisContinuousDims = (measuresOnX ? yFields : xFields).filter((f) => f.type === 'dimension' && f.flavour === 'continuous');
+    
+    // If opposite axis has BOTH discrete and continuous dimensions:
+    // - Facet by discrete dimension(s)
+    // - Each facet shows a line chart grid with continuous dimension × measures
+    if (oppositeAxisDiscreteDims.length > 0 && oppositeAxisContinuousDims.length > 0) {
+      // X discrete dimensions → column facets, Y discrete dimensions → row facets
+      const xDiscDims = xFields.filter((f) => f.type === 'dimension' && f.flavour === 'discrete');
+      const yDiscDims = yFields.filter((f) => f.type === 'dimension' && f.flavour === 'discrete');
+      
+      return {
+        rowFacetFields: yDiscDims,
+        colFacetFields: xDiscDims,
+        categoryAxis: null,  // No category axis - we want line charts
+        categoryField: null,
+        barOrientation: null,  // No bar orientation - line charts
+        sharedCategoryDomain: null,
+      };
+    }
+    
+    if (oppositeAxisDiscreteDims.length > 0 && oppositeAxisContinuousDims.length === 0) {
       const categoryField = oppositeAxisDiscreteDims[oppositeAxisDiscreteDims.length - 1];
       const categoryAxis: 'x' | 'y' = measuresOnX ? 'y' : 'x';
       const barOrientation: 'barX' | 'barY' = measuresOnX ? 'barX' : 'barY';
@@ -150,6 +172,7 @@ export function planFacets(context: ChartGenerationContext): FacetPlan | null {
   // Example: X has a continuous dimension, Y has a measure + discrete dims → prefer line/scatter per facet, not bars.
   const hasXContinuousDim = xFields.some((f) => f.type === 'dimension' && f.flavour === 'continuous');
   const hasYContinuousDim = yFields.some((f) => f.type === 'dimension' && f.flavour === 'continuous');
+  
   if ((barOrientation === 'barY' && hasXContinuousDim) || (barOrientation === 'barX' && hasYContinuousDim)) {
     barOrientation = null;
     categoryAxis = null;
