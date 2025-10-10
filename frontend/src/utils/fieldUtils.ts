@@ -37,6 +37,7 @@ export function isMeasure(field: Field): boolean {
 /**
  * Gets the column name for a field as it would appear in a query result.
  * Dimensions use their column name directly, while measures use an alias.
+ * DateTime parts get a special alias: fieldname_part_mode
  * @param field The field.
  * @returns The name to look for in the query result columns.
  */
@@ -44,6 +45,12 @@ export function getResultColumnName(field: Field): string {
   if (field.type === 'measure' && field.aggregation) {
     return `${field.aggregation.toUpperCase()}(${field.columnName})`;
   }
+  
+  // If this is a datetime part, return the special alias
+  if (field.dateTimePart && field.dateTimeMode) {
+    return `${field.columnName}_${field.dateTimePart}_${field.dateTimeMode}`;
+  }
+  
   return field.columnName;
 }
 
