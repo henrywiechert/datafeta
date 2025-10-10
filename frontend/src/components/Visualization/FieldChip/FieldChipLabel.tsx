@@ -11,6 +11,11 @@ interface FieldChipLabelProps {
 
 const FieldChipLabel = forwardRef<HTMLSpanElement, FieldChipLabelProps>(
   ({ field, source }, ref) => {
+    const fieldName = getFieldDisplayName(field);
+    const aggregationText = field.aggregation ? ` (${field.aggregation})` : '';
+    const flavourText = ` [${field.flavour}]`;
+    const dataTypeText = ` (${field.dataType})`;
+    
     return (
       <span
         ref={ref}
@@ -29,7 +34,10 @@ const FieldChipLabel = forwardRef<HTMLSpanElement, FieldChipLabelProps>(
         <span className={`${styles.symbol} ${field.flavour === 'continuous' ? styles.continuousSymbol : styles.discreteSymbol}`}>
           #
         </span>
-        {getFieldDisplayName(field)} {field.aggregation && `(${field.aggregation})`} [{field.flavour}] ({field.dataType})
+        {fieldName}
+        {aggregationText}
+        {source !== 'AVAILABLE_FIELDS' && flavourText}
+        {source !== 'AVAILABLE_FIELDS' && dataTypeText}
       </span>
     );
   }
