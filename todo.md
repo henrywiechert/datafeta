@@ -22,3 +22,5 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 ## Filter section filter string - regex
 - support regex for filter string (optional)
 
+## Clickhouse DB selector - first attempt error
+- when using CH and switch to Viz page, there is red error, need to switch back and forth

@@ -1,6 +1,7 @@
 import * as Plot from '@observablehq/plot';
 import { DEFAULT_CHART_COLOR, DEFAULT_COLOR_SCHEME } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
+import { getResultColumnName } from '../../utils/fieldUtils';
 
 /**
  * Scatter chart for continuous measure vs continuous measure or dimension.
@@ -28,7 +29,8 @@ export function scatterChart(
   const dotConfig: any = { x: xColumn, y: yColumn, r: 4 };
   
   if (colorField) {
-    dotConfig.fill = colorField.columnName;
+    const colorColumnName = getResultColumnName(colorField);
+    dotConfig.fill = colorColumnName;
   } else {
     dotConfig.fill = DEFAULT_CHART_COLOR;
   }
@@ -46,7 +48,8 @@ export function scatterChart(
   
   if (colorField) {
     // Get unique color values for the domain
-    const colorValues = Array.from(new Set(clean.map(row => row[colorField.columnName])));
+    const colorColumnName = getResultColumnName(colorField);
+    const colorValues = Array.from(new Set(clean.map(row => row[colorColumnName])));
     plotOptions.color = {
       domain: colorValues,
       scheme: DEFAULT_COLOR_SCHEME,
