@@ -62,11 +62,11 @@ export function getResultColumnName(field: Field): string {
 export function getFieldDisplayName(field: Field): string {
   const baseName = field.columnName;
   
-  // If this field has a datetime part, format it
+  // If this field has a datetime part, format it with base name
   if (field.dateTimePart && field.dateTimeMode) {
     const partName = field.dateTimePart.charAt(0).toUpperCase() + field.dateTimePart.slice(1);
     const modeName = field.dateTimeMode === 'distinct' ? 'distinct' : 'timeline';
-    return `${partName} (${modeName})`;
+    return `${baseName} - ${partName} (${modeName})`;
   }
   
   return baseName;

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Typography, Chip } from '@mui/material';
 import { Field, DragSource } from '../../../types';
+import { getFieldDisplayName } from '../../../utils/fieldUtils';
 import styles from './ColorDropZone.module.css';
 
 interface ColorDropZoneProps {
@@ -76,7 +77,7 @@ const ColorDropZone: React.FC<ColorDropZoneProps> = ({
     >
       {colorField ? (
         <Chip
-          label={colorField.columnName}
+          label={getFieldDisplayName(colorField)}
           onDelete={onRemove}
           sx={getChipStyles()}
         />
