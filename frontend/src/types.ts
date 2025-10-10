@@ -50,6 +50,8 @@ export interface Filter {
     field: string;
     operator: '=' | '!=' | '>' | '<' | '>=' | '<=' | 'in' | 'not in' | 'like' | 'ilike' | 'is null' | 'is not null';
     value: any;
+    date_part?: DateTimePart;
+    date_mode?: DateTimeMode;
 }
 
 export interface OrderBy {
@@ -120,6 +122,8 @@ interface BaseFilterConfig {
   fieldId: string;
   columnName: string;
   type: FilterType;
+  dateTimePart?: DateTimePart;
+  dateTimeMode?: DateTimeMode;
 }
 
 // Discrete filter: user selects from available values

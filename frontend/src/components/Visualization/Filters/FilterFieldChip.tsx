@@ -66,6 +66,8 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
               columnName: field.columnName,
               type: 'discrete',
               selectedValues: values,
+              dateTimePart: field.dateTimePart,
+              dateTimeMode: field.dateTimeMode,
             });
           }}
         />
