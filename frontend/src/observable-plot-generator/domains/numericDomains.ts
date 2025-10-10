@@ -68,7 +68,13 @@ export function computeSharedCategoricalDomains(data: any[], fields: any[]): Rec
       }
     }
     try {
-      values.sort((a, b) => (String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0));
+      // Smart sorting: if all values are numeric, sort numerically; otherwise sort as strings
+      const allNumeric = values.every(v => typeof v === 'number' && !Number.isNaN(v));
+      if (allNumeric) {
+        values.sort((a, b) => a - b);
+      } else {
+        values.sort((a, b) => (String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0));
+      }
     } catch {}
     domains[col] = values;
   }
