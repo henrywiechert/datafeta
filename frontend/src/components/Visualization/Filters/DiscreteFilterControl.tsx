@@ -24,15 +24,39 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Filter available values based on search term
+  // Sort and filter available values based on search term
   const filteredValues = useMemo(() => {
-    if (!searchTerm.trim()) {
-      return metadata.availableValues;
+    // First, filter based on search term
+    let values = metadata.availableValues;
+    if (searchTerm.trim()) {
+      const lowerSearch = searchTerm.toLowerCase();
+      values = values.filter(value => 
+        String(value).toLowerCase().includes(lowerSearch)
+      );
     }
-    const lowerSearch = searchTerm.toLowerCase();
-    return metadata.availableValues.filter(value => 
-      String(value).toLowerCase().includes(lowerSearch)
-    );
+    
+    // Then sort: numeric if all values are numeric, otherwise alphabetic
+    const sortedValues = [...values];
+    
+    // Check if all values are numeric
+    const allNumeric = sortedValues.every(v => {
+      const num = Number(v);
+      return !isNaN(num) && isFinite(num);
+    });
+    
+    if (allNumeric) {
+      // Numeric sort
+      sortedValues.sort((a, b) => Number(a) - Number(b));
+    } else {
+      // Alphabetic sort
+      sortedValues.sort((a, b) => {
+        const strA = String(a);
+        const strB = String(b);
+        return strA.localeCompare(strB);
+      });
+    }
+    
+    return sortedValues;
   }, [metadata.availableValues, searchTerm]);
 
   const handleToggle = (value: any) => {

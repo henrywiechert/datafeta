@@ -3,6 +3,7 @@ import { Box, Typography } from '@mui/material';
 import { Field, QueryResult } from '../../../types';
 import * as Plot from '@observablehq/plot';
 import { DEFAULT_COLOR_SCHEME } from '../../../config/chartLayoutConfig';
+import { getFieldDisplayName, getResultColumnName } from '../../../utils/fieldUtils';
 import styles from './LegendPanel.module.css';
 
 interface LegendPanelProps {
@@ -20,18 +21,25 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
       return [];
     }
 
+    // Use getResultColumnName to handle DateTime parts correctly
+    const columnName = getResultColumnName(colorField);
     const uniqueValues = Array.from(
-      new Set(queryResult.rows.map(row => row[colorField.columnName]))
+      new Set(queryResult.rows.map(row => row[columnName]))
     ).filter(val => val !== null && val !== undefined);
 
     // Sort values for consistent display
+    // Smart sorting: if all values are numeric, sort numerically; otherwise sort as strings
     try {
-      uniqueValues.sort((a, b) => {
-        if (typeof a === 'string' && typeof b === 'string') {
-          return a.localeCompare(b);
-        }
-        return a < b ? -1 : a > b ? 1 : 0;
-      });
+      const allNumeric = uniqueValues.every(v => typeof v === 'number' && !Number.isNaN(v));
+      if (allNumeric) {
+        uniqueValues.sort((a, b) => (a as number) - (b as number));
+      } else if (typeof uniqueValues[0] === 'string') {
+        uniqueValues.sort((a, b) => String(a).localeCompare(String(b)));
+      } else {
+        uniqueValues.sort((a, b) => {
+          return a < b ? -1 : a > b ? 1 : 0;
+        });
+      }
     } catch (e) {
       // If sorting fails, keep original order
     }
@@ -58,7 +66,7 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
     <Box className={styles.container}>
       <Box className={styles.header}>
         <Typography variant="subtitle2" className={styles.title}>
-          Color: {colorField.columnName}
+          Color: {getFieldDisplayName(colorField)}
         </Typography>
       </Box>
       <Box className={styles.content}>
