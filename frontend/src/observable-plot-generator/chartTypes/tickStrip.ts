@@ -14,7 +14,8 @@ export function tickStrip(
   context: ChartGenerationContext,
   orientation: 'x' | 'y',
   dimensionColumn: string,
-  categoryDimensionColumn?: string
+  categoryDimensionColumn?: string,
+  labels?: { dimension?: string; category?: string }
 ): Plot.PlotOptions {
   const { queryResult, colorField } = context;
   const data = queryResult.rows;
@@ -29,14 +30,14 @@ export function tickStrip(
     // Render empty axes so cell frame is consistent
     if (orientation === 'x') {
       return {
-        x: { label: dimensionColumn, grid: true },
+        x: { label: labels?.dimension || dimensionColumn, grid: true },
         y: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: 0.1 as any },
         height: BAR_STEP_PX * 2,
         marks: [],
       };
     } else {
       return {
-        y: { label: dimensionColumn, grid: true },
+        y: { label: labels?.dimension || dimensionColumn, grid: true },
         x: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: 0.1 as any },
         width: BAR_STEP_PX * 2,
         marks: [],
@@ -50,9 +51,9 @@ export function tickStrip(
       const categoryCount = categories.length;
       const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
       const opts: Plot.PlotOptions = {
-        x: { label: dimensionColumn, grid: true },
+        x: { label: labels?.dimension || dimensionColumn, grid: true },
         y: { 
-          label: categoryDimensionColumn,
+          label: labels?.category || categoryDimensionColumn,
           domain: categories as any,
           type: 'band' as any,
           padding: 0.1 as any,
@@ -79,7 +80,7 @@ export function tickStrip(
     }
     const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
     const opts: Plot.PlotOptions = {
-      x: { label: dimensionColumn, grid: true },
+      x: { label: labels?.dimension || dimensionColumn, grid: true },
       y: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: 0.1 as any },
       height: BAR_STEP_PX * 2,
       marks: [
@@ -107,9 +108,9 @@ export function tickStrip(
     const categoryCount = categories.length;
     const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
     const opts: Plot.PlotOptions = {
-      y: { label: dimensionColumn, grid: true },
+      y: { label: labels?.dimension || dimensionColumn, grid: true },
       x: { 
-        label: categoryDimensionColumn,
+        label: labels?.category || categoryDimensionColumn,
         domain: categories as any,
         type: 'band' as any,
         padding: 0.1 as any,
@@ -136,7 +137,7 @@ export function tickStrip(
   }
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
   const opts: Plot.PlotOptions = {
-    y: { label: dimensionColumn, grid: true },
+    y: { label: labels?.dimension || dimensionColumn, grid: true },
     x: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: 0.1 as any },
     width: BAR_STEP_PX * 2,
     marks: [

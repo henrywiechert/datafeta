@@ -1,7 +1,7 @@
 import * as Plot from '@observablehq/plot';
 import { Field } from '../../types';
 import { DEFAULT_CHART_COLOR, BAR_STEP_PX } from '../../config/chartLayoutConfig';
-import { getResultColumnName } from '../../utils/fieldUtils';
+import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { getFieldColumnName } from '../helpers/fields';
 import { lineChart, verticalLineChart } from './lineChart';
 import { scatterChart } from './scatterChart';
@@ -89,17 +89,17 @@ export function generatePairChartOptions(
       if (xf.type === 'measure' && yf.type === 'dimension') {
         // Prefer vertical line when measure is on X and dimension on Y
         const xCol = getResultColumnName({ ...xf, aggregation: xf.aggregation || 'sum' } as any);
-        const yCol = yf.columnName;
+        const yCol = getResultColumnName(yf);
         const xDomain = sharedMeasureDomains?.[xCol];
         const yDomain = sharedMeasureDomains?.[yCol];
-        return verticalLineChart(data, xCol, yCol, { x: xCol, y: yCol }, { x: xDomain, y: yDomain }, colorField);
+        return verticalLineChart(data, xCol, yCol, { x: xCol, y: getFieldDisplayName(yf) }, { x: xDomain, y: yDomain }, colorField);
       }
       if (xf.type === 'dimension' && yf.type === 'measure') {
-        const xCol = xf.columnName;
+        const xCol = getResultColumnName(xf);
         const yCol = getResultColumnName({ ...yf, aggregation: yf.aggregation || 'sum' } as any);
         const xDomain = sharedMeasureDomains?.[xCol];
         const yDomain = sharedMeasureDomains?.[yCol];
-        return lineChart(data, xCol, yCol, { x: xCol, y: yCol }, { x: xDomain, y: yDomain }, colorField);
+        return lineChart(data, xCol, yCol, { x: getFieldDisplayName(xf), y: yCol }, { x: xDomain, y: yDomain }, colorField);
       }
       // If both are measures or both are dimensions, fallback to scatter (empty if no data)
       const { xCol, yCol } = resolveXYColumns(xf, yf);
@@ -120,8 +120,8 @@ export function generatePairChartOptions(
           // Build minimal context for tickStrip API
           { xFields: [], yFields: [], queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any },
           'x',
-          xDim.columnName,
-          category?.columnName
+          getResultColumnName(xDim),
+          category ? getResultColumnName(category) : undefined
         );
       }
       const { xCol, yCol } = resolveXYColumns(xf, yf);
@@ -135,8 +135,8 @@ export function generatePairChartOptions(
         return tickStrip(
           { xFields: [], yFields: [], queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any },
           'y',
-          yDim.columnName,
-          category?.columnName
+          getResultColumnName(yDim),
+          category ? getResultColumnName(category) : undefined
         );
       }
       const { xCol, yCol } = resolveXYColumns(xf, yf);
@@ -159,10 +159,10 @@ export function generatePairChartOptions(
 function resolveXYColumns(xf: Field, yf: Field): { xCol: string; yCol: string } {
   const xCol = xf.type === 'measure'
     ? getResultColumnName({ ...xf, aggregation: xf.aggregation || 'sum' } as any)
-    : xf.columnName;
+    : getResultColumnName(xf);
   const yCol = yf.type === 'measure'
     ? getResultColumnName({ ...yf, aggregation: yf.aggregation || 'sum' } as any)
-    : yf.columnName;
+    : getResultColumnName(yf);
   return { xCol, yCol };
 }
 
