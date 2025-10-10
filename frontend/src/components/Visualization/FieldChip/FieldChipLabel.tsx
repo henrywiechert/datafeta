@@ -2,6 +2,7 @@ import React, { forwardRef } from 'react';
 import { Field } from '../../../types';
 import styles from './FieldChipLabel.module.css';
 import { DragSource } from './types';
+import { getFieldDisplayName } from '../../../utils/fieldUtils';
 
 interface FieldChipLabelProps {
   field: Field;
@@ -28,7 +29,7 @@ const FieldChipLabel = forwardRef<HTMLSpanElement, FieldChipLabelProps>(
         <span className={`${styles.symbol} ${field.flavour === 'continuous' ? styles.continuousSymbol : styles.discreteSymbol}`}>
           #
         </span>
-        {field.columnName} {field.aggregation && `(${field.aggregation})`} [{field.flavour}] ({field.dataType})
+        {getFieldDisplayName(field)} {field.aggregation && `(${field.aggregation})`} [{field.flavour}] ({field.dataType})
       </span>
     );
   }

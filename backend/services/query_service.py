@@ -178,11 +178,12 @@ class QueryService:
                     field_term = self._get_datetime_part_expression(
                         field_term, dim.date_part, dim.date_mode, db_type
                     )
-                    # Add an alias so the column name matches the original field name
-                    # This allows the frontend to find the data under the expected column name
-                    field_term = field_term.as_(dim.field)
-                    all_aliases.add(dim.field)
-                    datetime_part_fields.add(dim.field)
+                    # Create a unique alias that includes the datetime part
+                    # Format: fieldname_part_mode (e.g., unix_timestamp_day_timeline)
+                    alias = f"{dim.field}_{dim.date_part}_{dim.date_mode}"
+                    field_term = field_term.as_(alias)
+                    all_aliases.add(alias)
+                    datetime_part_fields.add(alias)
                 select_fields.append(field_term)
 
         for measure in query_desc.measures:
