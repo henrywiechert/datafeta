@@ -1,6 +1,7 @@
 import * as Plot from '@observablehq/plot';
 import { DEFAULT_CHART_COLOR, DEFAULT_COLOR_SCHEME } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
+import { getResultColumnName } from '../../utils/fieldUtils';
 
 /**
  * Line chart for continuous dimension on one axis and continuous measure on the other.
@@ -55,9 +56,10 @@ export function lineChart(
   
   if (colorField) {
     // Add color encoding and z channel for grouping by color
-    lineConfig.stroke = colorField.columnName;
-    lineConfig.z = colorField.columnName;
-    dotConfig.fill = colorField.columnName;
+    const colorColumnName = getResultColumnName(colorField);
+    lineConfig.stroke = colorColumnName;
+    lineConfig.z = colorColumnName;
+    dotConfig.fill = colorColumnName;
   } else {
     lineConfig.stroke = DEFAULT_CHART_COLOR;
     dotConfig.fill = DEFAULT_CHART_COLOR;
@@ -74,7 +76,8 @@ export function lineChart(
   
   if (colorField) {
     // Get unique color values for the domain
-    const colorValues = Array.from(new Set(cleanSorted.map(row => row[colorField.columnName])));
+    const colorColumnName = getResultColumnName(colorField);
+    const colorValues = Array.from(new Set(cleanSorted.map(row => row[colorColumnName])));
     plotOptions.color = {
       domain: colorValues,
       scheme: DEFAULT_COLOR_SCHEME,
@@ -136,9 +139,10 @@ export function verticalLineChart(
   
   if (colorField) {
     // Add color encoding and z channel for grouping by color
-    lineConfig.stroke = colorField.columnName;
-    lineConfig.z = colorField.columnName;
-    dotConfig.fill = colorField.columnName;
+    const colorColumnName = getResultColumnName(colorField);
+    lineConfig.stroke = colorColumnName;
+    lineConfig.z = colorColumnName;
+    dotConfig.fill = colorColumnName;
   } else {
     lineConfig.stroke = DEFAULT_CHART_COLOR;
     dotConfig.fill = DEFAULT_CHART_COLOR;
@@ -155,7 +159,8 @@ export function verticalLineChart(
   
   if (colorField) {
     // Get unique color values for the domain
-    const colorValues = Array.from(new Set(cleanSorted.map(row => row[colorField.columnName])));
+    const colorColumnName = getResultColumnName(colorField);
+    const colorValues = Array.from(new Set(cleanSorted.map(row => row[colorColumnName])));
     plotOptions.color = {
       domain: colorValues,
       scheme: DEFAULT_COLOR_SCHEME,

@@ -74,12 +74,14 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
             if (isMeasure) {
               const measureName = getResultColumnName({ ...f, aggregation: (f as any).aggregation || 'sum' } as any);
               const valueDomain = (sharedMeasureDomains as any)[measureName] || [0, 1];
+              const categoryColumnName = categoryField ? getFieldColumnName(categoryField) : null;
+              const colorColumnName = colorField ? getFieldColumnName(colorField) : null;
               options = barOrientation === 'barX'
                 ? {
                     x: { label: measureName, grid: true, domain: valueDomain as any, nice: false, domainKey: measureName } as any,
-                    y: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any, padding: BAND_PADDING as any, domainKey: categoryField?.columnName } as any,
+                    y: { label: categoryColumnName || ' ', type: 'band' as any, domain: categories as any, padding: BAND_PADDING as any, domainKey: categoryColumnName } as any,
                     marks: [
-                      Plot.barX(subset, { x: measureName, y: categoryField?.columnName || (() => categories[0]), fill: colorField ? (colorField as any).columnName : DEFAULT_CHART_COLOR }),
+                      Plot.barX(subset, { x: measureName, y: categoryColumnName || (() => categories[0]), fill: colorColumnName || DEFAULT_CHART_COLOR }),
                       Plot.ruleX([0])
                     ],
                     ...(colorField && sharedColorDomain && sharedColorDomain.length > 0 ? {
@@ -92,9 +94,9 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
                   }
                 : {
                     y: { label: measureName, grid: true, domain: valueDomain as any, nice: false, domainKey: measureName } as any,
-                    x: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any, padding: BAND_PADDING as any, domainKey: categoryField?.columnName } as any,
+                    x: { label: categoryColumnName || ' ', type: 'band' as any, domain: categories as any, padding: BAND_PADDING as any, domainKey: categoryColumnName } as any,
                     marks: [
-                      Plot.barY(subset, { y: measureName, x: categoryField?.columnName || (() => categories[0]), fill: colorField ? (colorField as any).columnName : DEFAULT_CHART_COLOR }),
+                      Plot.barY(subset, { y: measureName, x: categoryColumnName || (() => categories[0]), fill: colorColumnName || DEFAULT_CHART_COLOR }),
                       Plot.ruleY([0])
                     ],
                     ...(colorField && sharedColorDomain && sharedColorDomain.length > 0 ? {
