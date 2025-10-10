@@ -187,16 +187,29 @@ export const apiService = {
         field: string, 
         table: string, 
         database?: string,
+        dateTimePart?: string,
+        dateTimeMode?: string,
         signal?: AbortSignal
     ): Promise<any[]> {
         const abortController = signal ? null : createAbortController();
         const requestSignal = signal || abortController?.signal;
 
         // Build a query to get distinct values
+        const dimension: any = { 
+            field, 
+            flavour: 'discrete' as const 
+        };
+        
+        // Add DateTime part information if provided
+        if (dateTimePart && dateTimeMode) {
+            dimension.date_part = dateTimePart;
+            dimension.date_mode = dateTimeMode;
+        }
+        
         const queryDesc = {
             target_table: table,
             target_database: database,
-            dimensions: [{ field, flavour: 'discrete' as const }],
+            dimensions: [dimension],
             measures: [],
         };
 
@@ -215,7 +228,12 @@ export const apiService = {
         }
 
         // Extract the values from the result
-        return result.rows.map(row => row[field]);
+        // For DateTime parts, use the aliased column name
+        const columnName = dateTimePart && dateTimeMode 
+            ? `${field}_${dateTimePart}_${dateTimeMode}`
+            : field;
+        
+        return result.rows.map(row => row[columnName]);
     },
 
     // Fetch min/max range for a continuous field (for filter configuration)
