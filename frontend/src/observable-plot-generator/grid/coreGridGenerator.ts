@@ -34,7 +34,7 @@ export function generateCartesianGrid(
   const data = queryResult.rows;
 
   // Compute shared domains for any measures used in the grid
-  const sharedMeasureDomains = computeSharedMeasureDomains(data, xCandidates, yCandidates);
+  const sharedMeasureDomains = computeSharedMeasureDomains(data, xCandidates, yCandidates, colorField);
 
   const plots = generateCartesianPlots(data, xCandidates, yCandidates, sharedMeasureDomains, overrides, colorField);
 

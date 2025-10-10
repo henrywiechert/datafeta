@@ -37,7 +37,13 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       const orientedFields = barOrientation === 'barX' ? xFields : yFields;
       const measureFields = orientedFields.filter((f) => f.type === 'measure');
       const seriesFields = orientedFields.filter((f) => f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous'));
-      const sharedMeasureDomains = computeSharedMeasureDomains(queryResult.rows, measureFields as any[], measureFields as any[]);
+      const sharedMeasureDomains = computeSharedMeasureDomains(
+        queryResult.rows, 
+        measureFields as any[], 
+        measureFields as any[],
+        colorField,  // Pass color field for stacking calculation
+        categoryField  // Pass category field for grouping
+      );
 
       // Choose facet fields excluding category
       const effectiveRowFacetFields = yFields.filter((f) => f.flavour === 'discrete' && (categoryAxis !== 'y' || f.id !== categoryField?.id));
@@ -96,7 +102,12 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
                     y: { label: measureName, grid: true, domain: valueDomain as any, nice: false, domainKey: measureName } as any,
                     x: { label: categoryColumnName || ' ', type: 'band' as any, domain: categories as any, padding: BAND_PADDING as any, domainKey: categoryColumnName } as any,
                     marks: [
-                      Plot.barY(subset, { y: measureName, x: categoryColumnName || (() => categories[0]), fill: colorColumnName || DEFAULT_CHART_COLOR }),
+                      Plot.barY(subset, { 
+                        y: measureName, 
+                        x: categoryColumnName || (() => categories[0]), 
+                        fill: colorColumnName || DEFAULT_CHART_COLOR,
+                        order: colorColumnName // Ensure consistent stacking order
+                      }),
                       Plot.ruleY([0])
                     ],
                     ...(colorField && sharedColorDomain && sharedColorDomain.length > 0 ? {
@@ -165,7 +176,13 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
     const allMeasures = [...xFields, ...yFields].filter((f: any) => f.type === 'measure' && f.flavour === 'continuous');
     const xCandidates = allMeasures; // reusing computeSharedMeasureDomains signature convenience
     const yCandidates = allMeasures;
-    const sharedMeasureDomains = computeSharedMeasureDomains(queryResult.rows, xCandidates as any[], yCandidates as any[]);
+    const sharedMeasureDomains = computeSharedMeasureDomains(
+      queryResult.rows, 
+      xCandidates as any[], 
+      yCandidates as any[],
+      colorField,  // Pass color field for stacking calculation
+      undefined  // No category field in cartesian grid mode
+    );
     // Compute shared numeric domains for continuous dimensions and measures (by column/alias)
     const sharedNumericDomains = computeSharedNumericDomains(queryResult.rows, xFields as any[], yFields as any[]);
   
