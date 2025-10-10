@@ -37,17 +37,18 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       const orientedFields = barOrientation === 'barX' ? xFields : yFields;
       const measureFields = orientedFields.filter((f) => f.type === 'measure');
       const seriesFields = orientedFields.filter((f) => f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous'));
+      // Choose facet fields excluding category
+      const effectiveRowFacetFields = yFields.filter((f) => f.flavour === 'discrete' && (categoryAxis !== 'y' || f.id !== categoryField?.id));
+      const effectiveColFacetFields = xFields.filter((f) => f.flavour === 'discrete' && (categoryAxis !== 'x' || f.id !== categoryField?.id));
+
       const sharedMeasureDomains = computeSharedMeasureDomains(
         queryResult.rows, 
         measureFields as any[], 
         measureFields as any[],
         colorField,  // Pass color field for stacking calculation
-        categoryField  // Pass category field for grouping
+        categoryField,  // Pass category field for grouping
+        [...effectiveRowFacetFields, ...effectiveColFacetFields]  // Pass facet fields for per-facet calculation
       );
-
-      // Choose facet fields excluding category
-      const effectiveRowFacetFields = yFields.filter((f) => f.flavour === 'discrete' && (categoryAxis !== 'y' || f.id !== categoryField?.id));
-      const effectiveColFacetFields = xFields.filter((f) => f.flavour === 'discrete' && (categoryAxis !== 'x' || f.id !== categoryField?.id));
 
       const { rowValuesLevels, colValuesLevels, safeRowCombos, safeColCombos } = computeFacetLevelsAndCombos(
         queryResult.rows,
