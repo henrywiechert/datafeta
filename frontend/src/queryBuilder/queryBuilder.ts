@@ -100,7 +100,14 @@ export const buildAggregatedQuery = ({
   // left-to-right flow for continuous dimensions (e.g., line charts)
   const discreteDims = fields.filter(f => f.type === 'dimension' && f.flavour === 'discrete');
   const continuousDims = fields.filter(f => f.type === 'dimension' && f.flavour === 'continuous');
-  const orderBy: OrderBy[] = [...discreteDims, ...continuousDims].map(f => ({ field: f.columnName }));
+  // For datetime parts, use the alias name (fieldname_part_mode), otherwise use column name
+  const orderBy: OrderBy[] = [...discreteDims, ...continuousDims].map(f => {
+    // If this is a datetime part, order by the alias
+    if (f.dateTimePart && f.dateTimeMode) {
+      return { field: `${f.columnName}_${f.dateTimePart}_${f.dateTimeMode}` };
+    }
+    return { field: f.columnName };
+  });
   
   // Convert filter configurations to filters
   const filters = convertFilterConfigsToFilters(filterConfigurations);
@@ -138,14 +145,19 @@ export const buildRawQuery = ({
 
   // Treat all fields as simple columns to select.
   // Use a Set to handle cases where the same field is on multiple axes.
-  const uniqueColumnNames = new Set(fields.map((f) => f.columnName));
+  // For datetime parts, use the full result column name (which includes part+mode) as the key
+  // This ensures multiple datetime parts from the same field are not deduplicated
+  const uniqueFields = new Map<string, Field>();
+  fields.forEach(f => {
+    const key = getResultColumnName(f);
+    if (!uniqueFields.has(key)) {
+      uniqueFields.set(key, f);
+    }
+  });
 
-  const dimensions = Array.from(uniqueColumnNames).map(colName => {
-    // We need to find the original field to get the flavour, but it's not critical
-    // if we just default to discrete. The column name is the important part.
-    const field = fields.find(f => f.columnName === colName)!;
+  const dimensions = Array.from(uniqueFields.values()).map(field => {
     return {
-      field: colName,
+      field: field.columnName,
       flavour: field.flavour,
       axis: field.axis,  // Preserve axis information if present
       date_part: field.dateTimePart,  // Pass datetime part if present
@@ -157,7 +169,14 @@ export const buildRawQuery = ({
   // continuous dimensions for left-to-right flows in single-series charts
   const discreteDims = fields.filter(f => f.type === 'dimension' && f.flavour === 'discrete');
   const continuousDims = fields.filter(f => f.type === 'dimension' && f.flavour === 'continuous');
-  const orderBy: OrderBy[] = [...discreteDims, ...continuousDims].map(f => ({ field: f.columnName }));
+  // For datetime parts, use the alias name (fieldname_part_mode), otherwise use column name
+  const orderBy: OrderBy[] = [...discreteDims, ...continuousDims].map(f => {
+    // If this is a datetime part, order by the alias
+    if (f.dateTimePart && f.dateTimeMode) {
+      return { field: `${f.columnName}_${f.dateTimePart}_${f.dateTimeMode}` };
+    }
+    return { field: f.columnName };
+  });
 
   // Convert filter configurations to filters
   const filters = convertFilterConfigsToFilters(filterConfigurations);
