@@ -276,6 +276,8 @@ export function useVisualizationState() {
                             columnName: field.columnName,
                             type: 'discrete',
                             selectedValues: values,
+                            dateTimePart: field.dateTimePart,
+                            dateTimeMode: field.dateTimeMode,
                         }
                     }
                 });

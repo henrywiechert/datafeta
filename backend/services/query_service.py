@@ -217,8 +217,20 @@ class QueryService:
             if not operator_func:
                  raise QueryGenerationError(f"Unsupported filter operator: {f.operator}")
 
-            # Ensure field name is quoted (done by t[...])
-            field = t[f.field]
+            # Check if this filter needs datetime part extraction
+            if f.date_part and f.date_mode:
+                # Apply datetime part extraction to the field before filtering
+                field_term = t[f.field]
+                field = self._get_datetime_part_expression(
+                    field_term, 
+                    f.date_part, 
+                    f.date_mode, 
+                    db_type
+                )
+            else:
+                # Regular field access
+                field = t[f.field]
+            
             value = f.value
 
             if f.operator in ['is null', 'is not null']:

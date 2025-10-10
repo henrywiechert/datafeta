@@ -13,11 +13,17 @@ export const convertFilterConfigsToFilters = (
     if (config.type === 'discrete') {
       // For discrete filters, use 'in' operator with selected values
       if (config.selectedValues.length > 0) {
-        filters.push({
+        const filter: Filter = {
           field: config.columnName,
           operator: 'in',
           value: config.selectedValues,
-        });
+        };
+        // Add datetime part information if present
+        if (config.dateTimePart && config.dateTimeMode) {
+          filter.date_part = config.dateTimePart;
+          filter.date_mode = config.dateTimeMode;
+        }
+        filters.push(filter);
       }
     } else if (config.type === 'continuous') {
       // For continuous filters, add >= and <= operators

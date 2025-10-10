@@ -19,6 +19,8 @@ class Filter(BaseModel):
     # Define allowed operators - expand later as needed
     operator: Literal['=', '!=', '>', '<', '>=', '<=', 'in', 'not in', 'like', 'ilike', 'is null', 'is not null']
     value: Any # Value type depends on operator (e.g., list for 'in')
+    date_part: Optional[Literal['year', 'month', 'day', 'weekday', 'hour', 'minute', 'second', 'millisecond', 'microsecond', 'nanosecond']] = None
+    date_mode: Optional[Literal['distinct', 'timeline']] = None
 
 class OrderBy(BaseModel):
     field: str # Can be a dimension field or a measure alias
