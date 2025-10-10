@@ -35,6 +35,7 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
   try {
     // First, see if faceting is applicable.
     const facetPlan = planFacets(context);
+    
     // Only engage faceting when it actually changes the base (facets or category axis)
     if (facetPlan && ((facetPlan.rowFacetFields?.length || 0) > 0 || (facetPlan.colFacetFields?.length || 0) > 0 || !!facetPlan.categoryAxis)) {
       // It's possible to have a plan but no facets, e.g., for a single bar chart
@@ -109,7 +110,7 @@ export function baseGeneratePlot(context: ChartGenerationContext): PlotResult {
     xCandidates.length > 0 && yCandidates.length > 0 && (xCandidates.length > 1 || yCandidates.length > 1);
   if (multiAcrossAxes) {
     // In faceting base-spec we don't need shared measure domains when only dimensions are used.
-    const sharedMeasureDomains = computeSharedMeasureDomains(queryResult.rows, xCandidates as any[], yCandidates as any[]);
+    const sharedMeasureDomains = computeSharedMeasureDomains(queryResult.rows, xCandidates as any[], yCandidates as any[], colorField);
     return {
       library: 'observable-plot',
       plots: generateCartesianPlots(queryResult.rows, xCandidates, yCandidates, sharedMeasureDomains, undefined, colorField),
