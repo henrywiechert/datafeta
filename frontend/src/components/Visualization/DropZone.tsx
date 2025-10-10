@@ -284,7 +284,7 @@ const DropZone: React.FC<DropZoneProps> = ({
               field.flavour === 'continuous';
               
             return (
-              <React.Fragment key={`${field.id}-${field.type}-${field.flavour}-${field.dataType}-${field.aggregation || 'none'}`}>
+              <React.Fragment key={`${field.id}-${field.type}-${field.flavour}-${field.dataType}-${field.aggregation || 'none'}-${field.dateTimePart || 'none'}-${field.dateTimeMode || 'none'}`}>
                 {/* Drop indicator line */}
                 {dragOverIndex === index && (
                   <div style={{

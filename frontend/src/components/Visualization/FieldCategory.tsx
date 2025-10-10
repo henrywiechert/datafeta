@@ -19,7 +19,7 @@ const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate }
       <Box className={styles.fieldsContainer}>
         {fields.map(field => (
           <FieldChip 
-            key={`${field.id}-${field.type}-${field.flavour}-${field.dataType}-${field.aggregation || 'none'}`} 
+            key={`${field.id}-${field.type}-${field.flavour}-${field.dataType}-${field.aggregation || 'none'}-${field.dateTimePart || 'none'}-${field.dateTimeMode || 'none'}`} 
             field={field} 
             onUpdate={onUpdate} 
             source="AVAILABLE_FIELDS" 
