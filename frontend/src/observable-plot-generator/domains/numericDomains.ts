@@ -21,7 +21,8 @@ export function computeSharedNumericDomains(
       const name = getResultColumnName({ ...field, aggregation: field.aggregation || 'sum' } as any);
       if (!labels.includes(name)) labels.push(name);
     } else if (field.type === 'dimension' && field.flavour === 'continuous') {
-      const name = field.columnName;
+      // Use getResultColumnName to handle DateTime parts correctly
+      const name = getResultColumnName(field);
       if (!labels.includes(name)) labels.push(name);
     }
   };
@@ -54,7 +55,8 @@ export function computeSharedCategoricalDomains(data: any[], fields: any[]): Rec
   const domains: Record<string, any[]> = {};
   const dims = fields.filter((f) => f && f.type === 'dimension' && f.flavour === 'discrete');
   for (const f of dims) {
-    const col = f.columnName;
+    // Use getResultColumnName to handle DateTime parts correctly (e.g., fieldname_part_mode)
+    const col = getResultColumnName(f);
     if (domains[col]) continue;
     const seen = new Set<any>();
     const values: any[] = [];

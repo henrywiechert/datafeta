@@ -46,7 +46,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
 
     const barConfig: any = {
       y: measureName,
-      fill: colorField ? colorField.columnName : DEFAULT_CHART_COLOR,
+      fill: colorField ? getFieldColumnName(colorField) : DEFAULT_CHART_COLOR,
     };
     
     // Only add x field if we have a dimension
@@ -83,7 +83,8 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       // Add color scale if colorField is present (without legend - shown separately)
       if (colorField) {
         // Get unique color values for the domain
-        const colorValues = Array.from(new Set(data.map(row => row[colorField.columnName])));
+        const colorColumnName = getFieldColumnName(colorField);
+        const colorValues = Array.from(new Set(data.map(row => row[colorColumnName])));
         plotOptions.color = {
           domain: colorValues,
           scheme: DEFAULT_COLOR_SCHEME,
@@ -113,7 +114,8 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       
       // Add color scale if colorField is present (without legend - shown separately)
       if (colorField) {
-        const colorValues = Array.from(new Set(data.map(row => row[colorField.columnName])));
+        const colorColumnName = getFieldColumnName(colorField);
+        const colorValues = Array.from(new Set(data.map(row => row[colorColumnName])));
         plotOptions.color = {
           domain: colorValues,
           scheme: DEFAULT_COLOR_SCHEME,
@@ -132,7 +134,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
 
     const barConfig: any = {
       x: measureName,
-      fill: colorField ? colorField.columnName : DEFAULT_CHART_COLOR,
+      fill: colorField ? getFieldColumnName(colorField) : DEFAULT_CHART_COLOR,
     };
     
     // Only add y field if we have a dimension
@@ -168,7 +170,8 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       
       // Add color scale if colorField is present (without legend - shown separately)
       if (colorField) {
-        const colorValues = Array.from(new Set(data.map(row => row[colorField.columnName])));
+        const colorColumnName = getFieldColumnName(colorField);
+        const colorValues = Array.from(new Set(data.map(row => row[colorColumnName])));
         plotOptions.color = {
           domain: colorValues,
           scheme: DEFAULT_COLOR_SCHEME,
@@ -198,7 +201,8 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       
       // Add color scale if colorField is present (without legend - shown separately)
       if (colorField) {
-        const colorValues = Array.from(new Set(data.map(row => row[colorField.columnName])));
+        const colorColumnName = getFieldColumnName(colorField);
+        const colorValues = Array.from(new Set(data.map(row => row[colorColumnName])));
         plotOptions.color = {
           domain: colorValues,
           scheme: DEFAULT_COLOR_SCHEME,

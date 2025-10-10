@@ -210,14 +210,14 @@ function createBarX(
     opts.inset = 0;
     opts.height = Math.max(BAR_STEP_PX * 2, categories.length * BAR_STEP_PX);
     opts.marks!.push(
-      Plot.barX(data, { x: measureName, y: yColumnName, fill: colorField ? colorField.columnName : DEFAULT_CHART_COLOR })
+      Plot.barX(data, { x: measureName, y: yColumnName, fill: colorField ? getFieldColumnName(colorField) : DEFAULT_CHART_COLOR })
     );
   } else {
     // Remove hardcoded height for responsive sizing
     opts.y = { label: ' ' };
     opts.height = BAR_STEP_PX * 2;
     opts.marks!.push(
-      Plot.barX(data, { x: measureName, fill: colorField ? colorField.columnName : DEFAULT_CHART_COLOR })
+      Plot.barX(data, { x: measureName, fill: colorField ? getFieldColumnName(colorField) : DEFAULT_CHART_COLOR })
     );
   }
 
@@ -263,14 +263,14 @@ function createBarY(
     opts.inset = 0;
     opts.width = Math.max(BAR_STEP_PX * 2, categories.length * BAR_STEP_PX);
     opts.marks!.push(
-      Plot.barY(data, { x: xColumnName, y: measureName, fill: colorField ? colorField.columnName : DEFAULT_CHART_COLOR })
+      Plot.barY(data, { x: xColumnName, y: measureName, fill: colorField ? getFieldColumnName(colorField) : DEFAULT_CHART_COLOR })
     );
   } else {
     // Remove hardcoded width for responsive sizing
     opts.x = { label: ' ' };
     opts.width = BAR_STEP_PX * 2;
     opts.marks!.push(
-      Plot.barY(data, { y: measureName, fill: colorField ? colorField.columnName : DEFAULT_CHART_COLOR })
+      Plot.barY(data, { y: measureName, fill: colorField ? getFieldColumnName(colorField) : DEFAULT_CHART_COLOR })
     );
   }
 
