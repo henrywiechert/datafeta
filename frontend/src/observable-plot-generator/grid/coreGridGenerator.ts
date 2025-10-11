@@ -5,9 +5,9 @@ import { ChartTypeOverrides } from '../helpers/chartTypeResolver';
 import { computeSharedNumericDomains } from '../domains/numericDomains';
 import { computeSharedMeasureDomains } from '../domains/measureDomains';
 import { ChartGenerationContext, PlotResult } from '../types';
-import { DEFAULT_COLOR_SCHEME } from '../../config/chartLayoutConfig';
 import { FieldAnalysis } from '../analysis/fieldAnalysis';
 import { getFieldColumnName } from '../helpers/fields';
+import { getPlotColorConfig } from '../utils/colorSchemeUtils';
 
 export type CartesianPlot = {
   id: string;
@@ -30,13 +30,13 @@ export function generateCartesianGrid(
   yCandidates: Field[],
   overrides?: ChartTypeOverrides
 ): PlotResult {
-  const { queryResult, colorField } = context;
+  const { queryResult, colorField, colorScheme } = context;
   const data = queryResult.rows;
 
   // Compute shared domains for any measures used in the grid
   const sharedMeasureDomains = computeSharedMeasureDomains(data, xCandidates, yCandidates, colorField);
 
-  const plots = generateCartesianPlots(data, xCandidates, yCandidates, sharedMeasureDomains, overrides, colorField);
+  const plots = generateCartesianPlots(data, xCandidates, yCandidates, sharedMeasureDomains, overrides, colorField, colorScheme);
 
   // Derive per-column width and per-row height from plots' options when available
   const columnSizes: Array<number | 'fr'> = Array.from({ length: xCandidates.length }, (_, c) => {
@@ -73,7 +73,8 @@ export function generateCartesianPlots(
   yCandidates: Field[],
   sharedMeasureDomains: Record<string, [number, number]>,
   overrides?: ChartTypeOverrides,
-  colorField?: Field
+  colorField?: Field,
+  colorScheme?: string
 ): CartesianPlot[] {
   const plots: CartesianPlot[] = [];
 
@@ -122,12 +123,13 @@ export function generateCartesianPlots(
 
       // Apply shared color domain to keep color mapping consistent across the grid
       if (sharedColorDomain && sharedColorDomain.length > 0) {
+        const colorConfig = getPlotColorConfig(colorScheme);
         options = {
           ...options,
           color: {
             ...(options as any).color,
             domain: sharedColorDomain as any,
-            scheme: DEFAULT_COLOR_SCHEME as any,
+            ...colorConfig as any,
             type: 'ordinal' as any,
           } as any,
         };

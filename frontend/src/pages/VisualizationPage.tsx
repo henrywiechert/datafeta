@@ -125,56 +125,47 @@ const VisualizationPage = () => {
 
                     <PanelResizeHandle />
 
-                    {/* Middle Panel - Filter and Color panels stacked vertically */}
+                    {/* Middle Panel - Property sections stacked vertically */}
                     <Panel defaultSize={15} minSize={10} maxSize={30}>
                         <Box sx={{ 
                             height: '100%', 
                             display: 'flex', 
                             flexDirection: 'column',
-                            overflow: 'hidden'
+                            overflow: 'auto',
+                            backgroundColor: '#fafafa',
                         }}>
-                            <Box sx={{ 
-                                flex: '0 0 auto',
-                                maxHeight: '50%',
-                                overflow: 'auto'
-                            }}>
-                                <FilterPanel
-                                    filterFields={state.filterFields}
-                                    filterConfigurations={state.filterConfigurations}
-                                    filterMetadata={state.filterMetadata}
-                                    onDrop={handleFilterDrop}
-                                    onRemove={handleRemoveFromFilter}
-                                    onConfigChange={(fieldId, config) => {
-                                        dispatch({ 
-                                            type: 'SET_FILTER_CONFIGURATION', 
-                                            payload: { fieldId, config }
-                                        });
-                                    }}
-                                    onApplyFilters={handleApplyFilters}
-                                />
-                            </Box>
-                            <Box sx={{ 
-                                flex: '0 0 auto',
-                                maxHeight: '30%',
-                                overflow: 'auto'
-                            }}>
-                                <ColorPanel
-                                    colorField={state.colorField}
-                                    onDrop={handleColorDrop}
-                                    onRemove={handleRemoveFromColor}
-                                />
-                            </Box>
+                            <FilterPanel
+                                filterFields={state.filterFields}
+                                filterConfigurations={state.filterConfigurations}
+                                filterMetadata={state.filterMetadata}
+                                onDrop={handleFilterDrop}
+                                onRemove={handleRemoveFromFilter}
+                                onConfigChange={(fieldId, config) => {
+                                    dispatch({ 
+                                        type: 'SET_FILTER_CONFIGURATION', 
+                                        payload: { fieldId, config }
+                                    });
+                                }}
+                                onApplyFilters={handleApplyFilters}
+                            />
+                            <ColorPanel
+                                colorField={state.colorField}
+                                colorScheme={state.colorScheme}
+                                onDrop={handleColorDrop}
+                                onRemove={handleRemoveFromColor}
+                                onSchemeChange={(schemeId) => {
+                                    dispatch({
+                                        type: 'SET_COLOR_SCHEME',
+                                        payload: schemeId
+                                    });
+                                }}
+                            />
                             {state.colorField && (
-                                <Box sx={{ 
-                                    flex: '0 0 auto',
-                                    maxHeight: '50%',
-                                    overflow: 'auto'
-                                }}>
-                                    <LegendPanel
-                                        colorField={state.colorField}
-                                        queryResult={state.queryResult}
-                                    />
-                                </Box>
+                                <LegendPanel
+                                    colorField={state.colorField}
+                                    queryResult={state.queryResult}
+                                    colorScheme={state.colorScheme}
+                                />
                             )}
                         </Box>
                     </Panel>

@@ -1,7 +1,8 @@
 import * as Plot from '@observablehq/plot';
-import { DEFAULT_CHART_COLOR, DEFAULT_COLOR_SCHEME } from '../../config/chartLayoutConfig';
+import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
+import { getPlotColorConfig } from '../utils/colorSchemeUtils';
 
 /**
  * Scatter chart for continuous measure vs continuous measure or dimension.
@@ -11,7 +12,8 @@ export function scatterChart(
   xColumn: string,
   yColumn: string,
   options?: { x?: string; y?: string; domain?: { x?: [number, number]; y?: [number, number] } },
-  colorField?: Field
+  colorField?: Field,
+  colorScheme?: string
 ): Plot.PlotOptions {
   const clean = Array.isArray(data)
     ? data.filter((d) => Number.isFinite(d[xColumn]) && Number.isFinite(d[yColumn]))
@@ -22,7 +24,7 @@ export function scatterChart(
     return {
       x: { label: options?.x || xColumn, grid: true, domain: options?.domain?.x },
       y: { label: options?.y || yColumn, grid: true, domain: options?.domain?.y },
-      marks: [],
+      marks: [Plot.ruleX([0]), Plot.ruleY([0])],
     };
   }
 
@@ -58,6 +60,8 @@ export function scatterChart(
     y: { label: options?.y || yColumn, grid: true, domain: options?.domain?.y },
     marks: [
       Plot.dot(clean, dotConfig),
+      Plot.ruleX([0]),
+      Plot.ruleY([0]),
     ],
   };
   
@@ -65,9 +69,10 @@ export function scatterChart(
     // Get unique color values for the domain
     const colorColumnName = getResultColumnName(colorField);
     const colorValues = Array.from(new Set(clean.map(row => row[colorColumnName])));
+    const colorConfig = getPlotColorConfig(colorScheme);
     plotOptions.color = {
       domain: colorValues,
-      scheme: DEFAULT_COLOR_SCHEME,
+      ...colorConfig as any,
       type: 'ordinal' as any
     };
   }

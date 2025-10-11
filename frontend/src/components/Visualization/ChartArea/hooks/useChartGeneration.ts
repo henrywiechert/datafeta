@@ -8,6 +8,7 @@ interface UseChartGenerationProps {
   xAxisFields: any[];
   yAxisFields: any[];
   colorField: Field | null;
+  colorScheme?: string;
   useTableView: boolean;
   queryResult: any; // Add queryResult here
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
@@ -26,6 +27,7 @@ export const useChartGeneration = ({
   xAxisFields,
   yAxisFields,
   colorField,
+  colorScheme,
   useTableView,
   queryResult, // Destructure here
   startOperation,
@@ -53,6 +55,7 @@ export const useChartGeneration = ({
         xFields: xAxisFields,
         yFields: yAxisFields,
         colorField: colorField || undefined,
+        colorScheme,
         queryResult,
       });
       
@@ -70,7 +73,7 @@ export const useChartGeneration = ({
       setChartInfo(null);
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, colorField, useTableView, startOperation, completeOperation, queryResult]);
+  }, [xAxisFields, yAxisFields, colorField, colorScheme, useTableView, startOperation, completeOperation, queryResult]);
 
   const cancelGeneration = useCallback(() => {
     // No-op since Observable Plot generation is synchronous

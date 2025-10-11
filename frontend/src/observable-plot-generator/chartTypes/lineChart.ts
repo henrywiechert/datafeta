@@ -1,7 +1,8 @@
 import * as Plot from '@observablehq/plot';
-import { DEFAULT_CHART_COLOR, DEFAULT_COLOR_SCHEME } from '../../config/chartLayoutConfig';
+import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
+import { getPlotColorConfig } from '../utils/colorSchemeUtils';
 
 /**
  * Line chart for continuous dimension on one axis and continuous measure on the other.
@@ -13,7 +14,8 @@ export function lineChart(
   yColumn: string,
   labels?: { x?: string; y?: string },
   domain?: { x?: [number, number]; y?: [number, number] },
-  colorField?: Field
+  colorField?: Field,
+  colorScheme?: string
 ): Plot.PlotOptions {
   // Filter to finite numeric values for y; x may be numeric or datetime/ordinal
   const clean = Array.isArray(data)
@@ -89,9 +91,10 @@ export function lineChart(
     // Get unique color values for the domain
     const colorColumnName = getResultColumnName(colorField);
     const colorValues = Array.from(new Set(cleanSorted.map(row => row[colorColumnName])));
+    const colorConfig = getPlotColorConfig(colorScheme);
     plotOptions.color = {
       domain: colorValues,
-      scheme: DEFAULT_COLOR_SCHEME,
+      ...colorConfig as any,
       type: 'ordinal' as any
     };
   }
@@ -109,7 +112,8 @@ export function verticalLineChart(
   yColumn: string,
   labels?: { x?: string; y?: string },
   domain?: { x?: [number, number]; y?: [number, number] },
-  colorField?: Field
+  colorField?: Field,
+  colorScheme?: string
 ): Plot.PlotOptions {
   const clean = Array.isArray(data)
     ? data.filter((d) => Number.isFinite(d[xColumn]))
@@ -183,14 +187,13 @@ export function verticalLineChart(
     // Get unique color values for the domain
     const colorColumnName = getResultColumnName(colorField);
     const colorValues = Array.from(new Set(cleanSorted.map(row => row[colorColumnName])));
+    const colorConfig = getPlotColorConfig(colorScheme);
     plotOptions.color = {
       domain: colorValues,
-      scheme: DEFAULT_COLOR_SCHEME,
+      ...colorConfig as any,
       type: 'ordinal' as any
     };
   }
   
   return plotOptions;
 }
-
-

@@ -1,8 +1,9 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext } from '../types';
-import { DEFAULT_CHART_COLOR, DEFAULT_COLOR_SCHEME, BAR_STEP_PX } from '../../config/chartLayoutConfig';
+import { DEFAULT_CHART_COLOR, BAR_STEP_PX } from '../../config/chartLayoutConfig';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { getFieldColumnName } from '../helpers/fields';
+import { getPlotColorConfig } from '../utils/colorSchemeUtils';
 
 // Compute numeric extent for a column, ignoring non-finite values
 function numericExtent(rows: any[], column: string): [number, number] {
@@ -28,7 +29,7 @@ function paddedDomainIncludingZero(minVal: number, maxVal: number): [number, num
 }
 
 export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
-  const { queryResult, xFields, yFields, colorField } = context;
+  const { queryResult, xFields, yFields, colorField, colorScheme } = context;
   const data = queryResult.rows;
 
   const yMeasure = yFields.find(f => f.type === 'measure');
@@ -63,7 +64,8 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       const plotOptions: Plot.PlotOptions = {
         width: calculatedWidth,
         marks: [
-          Plot.barY(data, { ...barConfig, tip: { pointer: 'y', preferredAnchor: 'top-right' } })
+          Plot.barY(data, { ...barConfig, tip: { pointer: 'y', preferredAnchor: 'top-right' } }),
+          Plot.ruleY([0])
         ],
         x: {
           label: xColumnName,
@@ -84,9 +86,10 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
         // Get unique color values for the domain
         const colorColumnName = getFieldColumnName(colorField);
         const colorValues = Array.from(new Set(data.map(row => row[colorColumnName])));
+        const colorConfig = getPlotColorConfig(colorScheme);
         plotOptions.color = {
           domain: colorValues,
-          scheme: DEFAULT_COLOR_SCHEME,
+          ...colorConfig as any,
           type: 'ordinal' as any
         };
       }
@@ -104,7 +107,8 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       const plotOptions: Plot.PlotOptions = {
         width: barStep * 2,
         marks: [
-          Plot.barY(data, { ...configWithCategory, tip: { pointer: 'y', preferredAnchor: 'top-right' } })
+          Plot.barY(data, { ...configWithCategory, tip: { pointer: 'y', preferredAnchor: 'top-right' } }),
+          Plot.ruleY([0])
         ],
         x: { label: singleCategory, domain: [singleCategory] as any, type: 'band' as any },
         y: { grid: true, label: measureName, domain: [d0, d1] as any, nice: false },
@@ -114,9 +118,10 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       if (colorField) {
         const colorColumnName = getFieldColumnName(colorField);
         const colorValues = Array.from(new Set(data.map(row => row[colorColumnName])));
+        const colorConfig = getPlotColorConfig(colorScheme);
         plotOptions.color = {
           domain: colorValues,
-          scheme: DEFAULT_COLOR_SCHEME,
+          ...colorConfig as any,
           type: 'ordinal' as any
         };
       }
@@ -149,7 +154,8 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       const plotOptions: Plot.PlotOptions = {
         height: calculatedHeight,
         marks: [
-          Plot.barX(data, { ...barConfig, tip: { pointer: 'x', preferredAnchor: 'top-right' } })
+          Plot.barX(data, { ...barConfig, tip: { pointer: 'x', preferredAnchor: 'top-right' } }),
+          Plot.ruleX([0])
         ],
         y: {
           label: yColumnName,
@@ -169,9 +175,10 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       if (colorField) {
         const colorColumnName = getFieldColumnName(colorField);
         const colorValues = Array.from(new Set(data.map(row => row[colorColumnName])));
+        const colorConfig = getPlotColorConfig(colorScheme);
         plotOptions.color = {
           domain: colorValues,
-          scheme: DEFAULT_COLOR_SCHEME,
+          ...colorConfig as any,
           type: 'ordinal' as any
         };
       }
@@ -189,7 +196,8 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       const plotOptions: Plot.PlotOptions = {
         height: barStep * 2,
         marks: [
-          Plot.barX(data, { ...configWithCategory, tip: { pointer: 'x', preferredAnchor: 'top-right' } })
+          Plot.barX(data, { ...configWithCategory, tip: { pointer: 'x', preferredAnchor: 'top-right' } }),
+          Plot.ruleX([0])
         ],
         y: { label: singleCategory, domain: [singleCategory] as any, type: 'band' as any },
         x: { grid: true, label: measureName, domain: [d0, d1] as any, nice: false },
@@ -199,9 +207,10 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       if (colorField) {
         const colorColumnName = getFieldColumnName(colorField);
         const colorValues = Array.from(new Set(data.map(row => row[colorColumnName])));
+        const colorConfig = getPlotColorConfig(colorScheme);
         plotOptions.color = {
           domain: colorValues,
-          scheme: DEFAULT_COLOR_SCHEME,
+          ...colorConfig as any,
           type: 'ordinal' as any
         };
       }
