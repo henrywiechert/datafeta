@@ -15,7 +15,7 @@ import { generateFacetedGrid } from './faceting/facetGenerator';
  * No complex pipeline - just analyze fields and generate chart directly
  */
 export function generatePlot(context: ChartGenerationContext, overrides?: ChartTypeOverrides): PlotResult {
-  const { xFields, yFields, queryResult, colorField } = context;
+  const { xFields, yFields, queryResult } = context;
 
   // Handle empty fields
   if (xFields.length === 0 && yFields.length === 0) {
@@ -34,7 +34,7 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
 
   try {
     // First, see if faceting is applicable.
-    const facetPlan = planFacets(context);
+  const facetPlan = planFacets(context);
     
     // Only engage faceting when it actually changes the base (facets or category axis)
     if (facetPlan && ((facetPlan.rowFacetFields?.length || 0) > 0 || (facetPlan.colFacetFields?.length || 0) > 0 || !!facetPlan.categoryAxis)) {
