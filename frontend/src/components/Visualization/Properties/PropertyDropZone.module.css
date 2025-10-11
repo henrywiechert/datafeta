@@ -7,12 +7,18 @@
   transition: all 0.2s ease;
 }
 
-.dropZone.isOver {
+.dropZone.hasContent {
+  background-color: #fafafa;
+  border: 1px solid #e0e0e0;
+  padding: 1px;
+}
+
+.dropZone.dragOver {
   border-color: #1976d2;
   background-color: #e3f2fd;
 }
 
-.placeholder {
+.emptyMessage {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -20,13 +26,11 @@
   color: #757575;
   font-size: 12px;
   font-weight: 400;
-  font-style: normal;
+  text-align: center;
 }
 
-.fieldsList {
+.content {
   display: flex;
   flex-direction: column;
   gap: 1px;
 }
-
-

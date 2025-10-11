@@ -11,6 +11,7 @@ export interface ChartGenerationContext {
   xFields: Field[];
   yFields: Field[];
   colorField?: Field;
+  colorScheme?: string;
   facetField?: Field;
   categoryAxisDescriptor?: CategoryAxisDescriptor;
   queryResult: QueryResult;

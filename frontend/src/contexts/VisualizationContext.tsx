@@ -32,6 +32,7 @@ interface VisualizationState {
   appliedFilterConfigurations: Record<string, FilterConfig>; // Actually applied filters
   // Color encoding state
   colorField: Field | null;
+  colorScheme: string;
 }
 
 // Define action types
@@ -65,6 +66,7 @@ type VisualizationAction =
   | { type: 'APPLY_FILTERS' }
   // Color encoding action types
   | { type: 'SET_COLOR_FIELD'; payload: Field | null }
+  | { type: 'SET_COLOR_SCHEME'; payload: string }
   | { type: 'REMOVE_COLOR_FIELD' };
 
 // Initial state
@@ -94,6 +96,7 @@ const initialState: VisualizationState = {
   appliedFilterConfigurations: {},
   // Color encoding state
   colorField: null,
+  colorScheme: 'tableau10',
 };
 
 // Reducer function
@@ -258,6 +261,8 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
       };
     case 'SET_COLOR_FIELD':
       return { ...state, colorField: action.payload };
+    case 'SET_COLOR_SCHEME':
+      return { ...state, colorScheme: action.payload };
     case 'REMOVE_COLOR_FIELD':
       return { ...state, colorField: null };
     case 'RESET_STATE':

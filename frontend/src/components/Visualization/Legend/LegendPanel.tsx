@@ -2,16 +2,19 @@ import React, { useMemo } from 'react';
 import { Box, Typography } from '@mui/material';
 import { Field, QueryResult } from '../../../types';
 import { getFieldDisplayName, getResultColumnName } from '../../../utils/fieldUtils';
+import { getSchemeById, DEFAULT_CATEGORICAL_SCHEME } from '../../../config/colorSchemes';
 import styles from './LegendPanel.module.css';
 
 interface LegendPanelProps {
   colorField: Field | null;
   queryResult: QueryResult | null;
+  colorScheme?: string;
 }
 
 const LegendPanel: React.FC<LegendPanelProps> = ({
   colorField,
   queryResult,
+  colorScheme = DEFAULT_CATEGORICAL_SCHEME,
 }) => {
   // Extract unique values from the color field
   const legendItems = useMemo(() => {
@@ -45,15 +48,16 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
     return uniqueValues;
   }, [colorField, queryResult]);
 
-  // Get color from Observable Plot's color scheme
+  // Get color from the selected color scheme
   const getColor = (value: any, index: number) => {
-    // Observable Plot's Paired scheme (12 colors)
-    const pairedColors = [
-      '#a6cee3', '#1f78b4', '#b2df8a', '#33a02c', '#fb9a99', '#e31a1c',
-      '#fdbf6f', '#ff7f00', '#cab2d6', '#6a3d9a', '#ffff99', '#b15928'
-    ];
+    const scheme = getSchemeById(colorScheme);
+    if (!scheme) {
+      // Fallback to default Tableau 10 colors
+      const tableau10 = ['#4e79a7', '#f28e2c', '#e15759', '#76b7b2', '#59a14f', '#edc949', '#af7aa1', '#ff9da7', '#9c755f', '#bab0ab'];
+      return tableau10[index % tableau10.length];
+    }
     
-    return pairedColors[index % pairedColors.length];
+    return scheme.colors[index % scheme.colors.length];
   };
 
   if (!colorField || legendItems.length === 0) {

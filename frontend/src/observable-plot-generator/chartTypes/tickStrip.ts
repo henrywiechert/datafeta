@@ -1,7 +1,8 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext } from '../types';
-import { BAR_STEP_PX, DEFAULT_CHART_COLOR, DEFAULT_COLOR_SCHEME } from '../../config/chartLayoutConfig';
+import { BAR_STEP_PX, DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 import { getResultColumnName } from '../../utils/fieldUtils';
+import { getPlotColorConfig } from '../utils/colorSchemeUtils';
 
 /**
  * Tick-strip chart for a single continuous dimension.
@@ -16,7 +17,7 @@ export function tickStrip(
   categoryDimensionColumn?: string,
   labels?: { dimension?: string; category?: string }
 ): Plot.PlotOptions {
-  const { queryResult, colorField } = context;
+  const { queryResult, colorField, colorScheme } = context;
   const data = queryResult.rows;
 
   // Guard against invalid values; accept numbers or dates (Date objects or parseable strings)
@@ -70,9 +71,10 @@ export function tickStrip(
       };
       if (colorField && colorColumnName) {
         const values = Array.from(new Set((Array.isArray(data) ? data : []).map((row: any) => row[colorColumnName])));
+        const colorConfig = getPlotColorConfig(colorScheme);
         opts.color = {
           domain: values as any,
-          scheme: DEFAULT_COLOR_SCHEME as any,
+          ...colorConfig as any,
           type: 'ordinal' as any,
         } as any;
       }
@@ -94,9 +96,10 @@ export function tickStrip(
     };
     if (colorField && colorColumnName) {
       const values = Array.from(new Set((Array.isArray(data) ? data : []).map((row: any) => row[colorColumnName])));
+      const colorConfig = getPlotColorConfig(colorScheme);
       opts.color = {
         domain: values as any,
-        scheme: DEFAULT_COLOR_SCHEME as any,
+        ...colorConfig as any,
         type: 'ordinal' as any,
       } as any;
     }
@@ -129,9 +132,10 @@ export function tickStrip(
     };
     if (colorField && colorColumnName) {
       const values = Array.from(new Set((Array.isArray(data) ? data : []).map((row: any) => row[colorColumnName])));
+      const colorConfig = getPlotColorConfig(colorScheme);
       opts.color = {
         domain: values as any,
-        scheme: DEFAULT_COLOR_SCHEME as any,
+        ...colorConfig as any,
         type: 'ordinal' as any,
       } as any;
     }
@@ -153,9 +157,10 @@ export function tickStrip(
   };
   if (colorField && colorColumnName) {
     const values = Array.from(new Set((Array.isArray(data) ? data : []).map((row: any) => row[colorColumnName])));
+    const colorConfig = getPlotColorConfig(colorScheme);
     opts.color = {
       domain: values as any,
-      scheme: DEFAULT_COLOR_SCHEME as any,
+      ...colorConfig as any,
       type: 'ordinal' as any,
     } as any;
   }
