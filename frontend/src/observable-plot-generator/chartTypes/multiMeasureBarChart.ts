@@ -213,6 +213,7 @@ function createHorizontalBarChart(
         x: measureName,
         y: categoryAccessor as any,
         fill: DEFAULT_CHART_COLOR,
+        tip: { pointer: 'x', preferredAnchor: 'top-right' },
       })
     );
   } else {
@@ -223,6 +224,7 @@ function createHorizontalBarChart(
       Plot.barX(data, {
         x: measureName,
         fill: DEFAULT_CHART_COLOR,
+        tip: { pointer: 'x', preferredAnchor: 'top-right' },
       })
     );
   }
@@ -262,6 +264,7 @@ function createVerticalBarChart(
         x: categoryAccessor as any,
         y: measureName,
         fill: DEFAULT_CHART_COLOR,
+        tip: { pointer: 'y', preferredAnchor: 'top-right' },
       })
     );
   } else {
@@ -272,6 +275,7 @@ function createVerticalBarChart(
       Plot.barY(data, {
         y: measureName,
         fill: DEFAULT_CHART_COLOR,
+        tip: { pointer: 'y', preferredAnchor: 'top-right' },
       })
     );
   }

@@ -52,7 +52,7 @@ export function lineChart(
   });
 
   const lineConfig: any = { x: xColumn, y: yColumn };
-  const dotConfig: any = { x: xColumn, y: yColumn, r: 2 };
+  const dotConfig: any = { x: xColumn, y: yColumn, r: 2, tip: { pointer: 'x', preferredAnchor: 'top-right' } };
   
   if (colorField) {
     // Add color encoding and z channel for grouping by color
@@ -135,7 +135,7 @@ export function verticalLineChart(
   });
 
   const lineConfig: any = { x: xColumn, y: yColumn };
-  const dotConfig: any = { x: xColumn, y: yColumn, r: 2 };
+  const dotConfig: any = { x: xColumn, y: yColumn, r: 2, tip: { pointer: 'x', preferredAnchor: 'top-right' } };
   
   if (colorField) {
     // Add color encoding and z channel for grouping by color

@@ -65,6 +65,7 @@ export function tickStrip(
             y: categoryDimensionColumn,
             stroke: colorColumnName || DEFAULT_CHART_COLOR,
             strokeWidth: 1.5,
+            tip: { pointer: 'x', preferredAnchor: 'top-right' },
           }),
         ],
       };
@@ -88,6 +89,7 @@ export function tickStrip(
           x: dimensionColumn,
           stroke: colorColumnName || DEFAULT_CHART_COLOR,
           strokeWidth: 1.5,
+          tip: { pointer: 'x', preferredAnchor: 'top-right' },
         }),
       ],
     };
@@ -122,6 +124,7 @@ export function tickStrip(
           x: categoryDimensionColumn,
           stroke: colorColumnName || DEFAULT_CHART_COLOR,
           strokeWidth: 1.5,
+          tip: { pointer: 'y', preferredAnchor: 'top-right' },
         }),
       ],
     };
@@ -145,6 +148,7 @@ export function tickStrip(
         y: dimensionColumn,
         stroke: colorColumnName || DEFAULT_CHART_COLOR,
         strokeWidth: 1.5,
+        tip: { pointer: 'y', preferredAnchor: 'top-right' },
       }),
     ],
   };
