@@ -24,26 +24,12 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
 
     // Use getResultColumnName to handle DateTime parts correctly
     const columnName = getResultColumnName(colorField);
+    
+    // Extract unique values in ORDER OF FIRST APPEARANCE (same as Observable Plot)
+    // This is critical for color consistency - Observable Plot assigns colors based on domain order
     const uniqueValues = Array.from(
       new Set(queryResult.rows.map(row => row[columnName]))
-    ).filter(val => val !== null && val !== undefined);
-
-    // Sort values for consistent display
-    // Smart sorting: if all values are numeric, sort numerically; otherwise sort as strings
-    try {
-      const allNumeric = uniqueValues.every(v => typeof v === 'number' && !Number.isNaN(v));
-      if (allNumeric) {
-        uniqueValues.sort((a, b) => (a as number) - (b as number));
-      } else if (typeof uniqueValues[0] === 'string') {
-        uniqueValues.sort((a, b) => String(a).localeCompare(String(b)));
-      } else {
-        uniqueValues.sort((a, b) => {
-          return a < b ? -1 : a > b ? 1 : 0;
-        });
-      }
-    } catch (e) {
-      // If sorting fails, keep original order
-    }
+    );
 
     return uniqueValues;
   }, [colorField, queryResult]);
@@ -57,6 +43,8 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
       return tableau10[index % tableau10.length];
     }
     
+    // Observable Plot assigns colors sequentially to all domain values, including NULL
+    // So we simply use the index to get the color from the scheme
     return scheme.colors[index % scheme.colors.length];
   };
 
@@ -79,7 +67,7 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
               sx={{ backgroundColor: getColor(value, index) }}
             />
             <Typography className={styles.legendLabel}>
-              {String(value)}
+              {value === null || value === undefined ? 'NULL' : String(value)}
             </Typography>
           </Box>
         ))}
