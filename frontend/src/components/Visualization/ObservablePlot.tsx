@@ -42,7 +42,9 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options }) => {
           ...options,
           width: finalWidth,
           height: finalHeight,
-        };
+          // Avoid clipping of tooltips beyond the plot frame
+          style: { ...(options as any).style, overflow: 'visible' } as any,
+        } as Plot.PlotOptions;
 
         try {
           const plot = Plot.plot(newOptions);

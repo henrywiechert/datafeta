@@ -34,6 +34,8 @@ export function scatterChart(
   } else {
     dotConfig.fill = DEFAULT_CHART_COLOR;
   }
+  // Enable tooltip on points; use pointer along X for easier targeting
+  dotConfig.tip = { pointer: 'x', preferredAnchor: 'top-right' } as any;
   
   const plotOptions: Plot.PlotOptions = {
     // Provide labels and retain as keys for domain application

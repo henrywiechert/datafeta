@@ -88,7 +88,7 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
                     x: { label: measureName, grid: true, domain: valueDomain as any, nice: false, domainKey: measureName } as any,
                     y: { label: categoryColumnName || ' ', type: 'band' as any, domain: categories as any, padding: BAND_PADDING as any, domainKey: categoryColumnName } as any,
                     marks: [
-                      Plot.barX(subset, { x: measureName, y: categoryColumnName || (() => categories[0]), fill: colorColumnName || DEFAULT_CHART_COLOR }),
+                      Plot.barX(subset, { x: measureName, y: categoryColumnName || (() => categories[0]), fill: colorColumnName || DEFAULT_CHART_COLOR, tip: { pointer: 'x', preferredAnchor: 'top-right' } }),
                       Plot.ruleX([0])
                     ],
                     ...(colorField && sharedColorDomain && sharedColorDomain.length > 0 ? {
@@ -108,7 +108,7 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
                         x: categoryColumnName || (() => categories[0]), 
                         fill: colorColumnName || DEFAULT_CHART_COLOR,
                         order: colorColumnName // Ensure consistent stacking order
-                      }),
+                      , tip: { pointer: 'y', preferredAnchor: 'top-right' } }),
                       Plot.ruleY([0])
                     ],
                     ...(colorField && sharedColorDomain && sharedColorDomain.length > 0 ? {
@@ -123,8 +123,8 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
             } else {
               const dimCol = (f as any).columnName;
               options = barOrientation === 'barX'
-                ? { x: { label: dimCol, grid: true }, y: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any, padding: BAND_PADDING as any }, marks: [Plot.tickX(subset, { x: dimCol, y: categoryField?.columnName || (() => categories[0]), stroke: DEFAULT_CHART_COLOR })] } as Plot.PlotOptions
-                : { y: { label: dimCol, grid: true }, x: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any, padding: BAND_PADDING as any }, marks: [Plot.tickY(subset, { y: dimCol, x: categoryField?.columnName || (() => categories[0]), stroke: DEFAULT_CHART_COLOR })] } as Plot.PlotOptions;
+                ? { x: { label: dimCol, grid: true }, y: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any, padding: BAND_PADDING as any }, marks: [Plot.tickX(subset, { x: dimCol, y: categoryField?.columnName || (() => categories[0]), stroke: DEFAULT_CHART_COLOR, tip: { pointer: 'x', preferredAnchor: 'top-right' } })] } as Plot.PlotOptions
+                : { y: { label: dimCol, grid: true }, x: { label: categoryField?.columnName || ' ', type: 'band' as any, domain: categories as any, padding: BAND_PADDING as any }, marks: [Plot.tickY(subset, { y: dimCol, x: categoryField?.columnName || (() => categories[0]), stroke: DEFAULT_CHART_COLOR, tip: { pointer: 'y', preferredAnchor: 'top-right' } })] } as Plot.PlotOptions;
               title = dimCol;
             }
             const pos = {

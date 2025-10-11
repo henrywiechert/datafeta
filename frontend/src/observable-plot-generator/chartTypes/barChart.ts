@@ -63,7 +63,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       const plotOptions: Plot.PlotOptions = {
         width: calculatedWidth,
         marks: [
-          Plot.barY(data, barConfig),
+          Plot.barY(data, { ...barConfig, tip: { pointer: 'y', preferredAnchor: 'top-right' } }),
           Plot.ruleY([0])
         ],
         x: {
@@ -105,7 +105,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       const plotOptions: Plot.PlotOptions = {
         width: barStep * 2,
         marks: [
-          Plot.barY(data, configWithCategory),
+          Plot.barY(data, { ...configWithCategory, tip: { pointer: 'y', preferredAnchor: 'top-right' } }),
           Plot.ruleY([0])
         ],
         x: { label: singleCategory, domain: [singleCategory] as any, type: 'band' as any },
@@ -151,7 +151,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       const plotOptions: Plot.PlotOptions = {
         height: calculatedHeight,
         marks: [
-          Plot.barX(data, barConfig),
+          Plot.barX(data, { ...barConfig, tip: { pointer: 'x', preferredAnchor: 'top-right' } }),
           Plot.ruleX([0])
         ],
         y: {
@@ -192,7 +192,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       const plotOptions: Plot.PlotOptions = {
         height: barStep * 2,
         marks: [
-          Plot.barX(data, configWithCategory),
+          Plot.barX(data, { ...configWithCategory, tip: { pointer: 'x', preferredAnchor: 'top-right' } }),
           Plot.ruleX([0])
         ],
         y: { label: singleCategory, domain: [singleCategory] as any, type: 'band' as any },
