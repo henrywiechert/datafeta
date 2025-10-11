@@ -33,8 +33,6 @@ export function generateScatterPlot(analysis: FieldAnalysis, context: ChartGener
         },
         tip: { pointer: 'x', preferredAnchor: 'top-right', format: { [xColumnName]: true, [yColumnName]: true, x: false, y: false, fill: false, r: false } }
       }),
-      Plot.ruleX([0]),
-      Plot.ruleY([0]),
     ],
   };
 }
