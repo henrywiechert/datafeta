@@ -1,8 +1,6 @@
 import React, { useMemo } from 'react';
 import { Box, Typography } from '@mui/material';
 import { Field, QueryResult } from '../../../types';
-import * as Plot from '@observablehq/plot';
-import { DEFAULT_COLOR_SCHEME } from '../../../config/chartLayoutConfig';
 import { getFieldDisplayName, getResultColumnName } from '../../../utils/fieldUtils';
 import styles from './LegendPanel.module.css';
 

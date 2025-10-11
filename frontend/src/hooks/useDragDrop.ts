@@ -8,7 +8,7 @@ import { useVisualizationContext } from '../contexts/VisualizationContext';
  */
 export function useDragDrop() {
   const { state, dispatch } = useVisualizationContext();
-  const { xAxisFields, yAxisFields, filterFields, colorField } = state;
+  const { xAxisFields, yAxisFields, filterFields } = state;
   
   /**
    * Handle drops between axes or from available fields
