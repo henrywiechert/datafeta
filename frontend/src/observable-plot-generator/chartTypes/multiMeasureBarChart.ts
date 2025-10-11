@@ -1,13 +1,13 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext, PlotResult } from '../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
-import { DEFAULT_CHART_COLOR, BAR_STEP_PX } from '../../config/chartLayoutConfig';
+import { DEFAULT_CHART_COLOR, BAR_STEP_PX, DEFAULT_COLOR_SCHEME } from '../../config/chartLayoutConfig';
 
 /**
  * Generate multiple bar charts with shared axes for multiple measures
  */
 export function multiMeasureBarChart(context: ChartGenerationContext): PlotResult {
-  const { queryResult, xFields, yFields } = context;
+  const { queryResult, xFields, yFields, colorField } = context;
   const data = queryResult.rows;
 
   const xMeasures = xFields.filter(f => f.type === 'measure');
@@ -34,6 +34,12 @@ export function multiMeasureBarChart(context: ChartGenerationContext): PlotResul
   const layoutType = xMeasures.length > 0 ? 'horizontal' : 'vertical';
 
   // Generate individual plots for each measure and position them
+  // Prepare color mapping if a color field is provided
+  const colorColumnName = colorField ? getResultColumnName(colorField as any) : undefined;
+  const colorDomain = colorColumnName
+    ? Array.from(new Set((data || []).map((row: any) => row[colorColumnName]).filter((v: any) => v !== null && v !== undefined)))
+    : undefined;
+
   const { plots, columnSizes, rowSizes } = generateMeasurePlots(
     xMeasures,
     yMeasures,
@@ -41,7 +47,9 @@ export function multiMeasureBarChart(context: ChartGenerationContext): PlotResul
     yDimensions,
     data,
     sharedDomains,
-    layoutType
+    layoutType,
+    colorColumnName,
+    colorDomain as any[] | undefined
   );
 
   return {
@@ -71,9 +79,12 @@ function calculateSharedDomains(measures: any[], data: any[]) {
     
     const values = data.map(row => row[measureName]).filter(v => typeof v === 'number' && isFinite(v));
     if (values.length > 0) {
-      const max = Math.max(0, ...values);
-      const upper = max === 0 ? 1 : max * 1.05; // +5% headroom
-      domains[measureName] = [0, upper];
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const lower = Math.min(0, min);
+      const upperRaw = Math.max(0, max);
+      const upper = upperRaw === 0 ? 1 : upperRaw * 1.05; // +5% headroom above max when positive
+      domains[measureName] = [lower, upper];
     }
   });
 
@@ -90,7 +101,9 @@ function generateMeasurePlots(
   yDimensions: any[],
   data: any[],
   sharedDomains: any,
-  layoutType: 'horizontal' | 'vertical'
+  layoutType: 'horizontal' | 'vertical',
+  colorColumnName?: string,
+  colorDomain?: any[]
 ): {
   plots: Array<{ id: string; title: string; options: Plot.PlotOptions; position: { row: number; col: number } }>;
   columnSizes: Array<number | 'fr'>;
@@ -106,14 +119,13 @@ function generateMeasurePlots(
   const BAR_STEP = BAR_STEP_PX;
 
   if (layoutType === 'horizontal') {
-    // Measures on X; categories on Y built from ALL dimensions on the opposite axis (fallback to same-axis)
+    // Measures on X; build categories from opposite-axis discrete dims when present
+    // If faceting consumed them, local yDimensions will be empty and we will render a single-band chart
     const categoryDims = yDimensions.length > 0 ? yDimensions : xDimensions;
-    const categoryLabel = categoryDims.length > 0 ? categoryDims.map((d: any) => d.columnName).join(' • ') : ' ';
-    const categoryAccessor = (row: any) =>
-      categoryDims.length > 0 ? categoryDims.map((d: any) => row[d.columnName]).join(' • ') : ' ';
-    const categories = Array.from(new Set(data.map(categoryAccessor)));
-    const categoryCount = categories.length || 1;
-    const rowHeightPx = Math.max(BAR_STEP * 2, categoryCount * BAR_STEP);
+    const categoryLabel = categoryDims.length > 0 ? categoryDims.map((d: any) => d.columnName).join(' • ') : null;
+    const categoryAccessor = categoryDims.length > 0 ? ((row: any) => categoryDims.map((d: any) => row[d.columnName]).join(' • ')) : null;
+  const categories = categoryDims.length > 0 ? (Array.from(new Set(data.map(categoryAccessor as any))) as string[]) : null;
+    const rowHeightPx = categories && categories.length > 0 ? Math.max(BAR_STEP * 2, categories.length * BAR_STEP) : BAR_STEP * 2;
 
     xMeasures.forEach((measure, index) => {
       const fieldForName = { ...measure, aggregation: measure.aggregation || 'sum' };
@@ -121,11 +133,13 @@ function generateMeasurePlots(
       const plotOptions = createHorizontalBarChart(
         measureName,
         categoryLabel,
-        categoryAccessor,
-        categories,
+        categoryAccessor as any,
+  categories as string[] | null,
         data,
         sharedDomains,
-        BAR_STEP
+        BAR_STEP,
+        colorColumnName,
+        colorDomain
       );
 
       plots.push({
@@ -144,14 +158,13 @@ function generateMeasurePlots(
   }
 
   // Vertical layout (Y measures): one column, multiple rows
-  // Categories on X built from ALL dimensions on the opposite axis (fallback to same-axis)
+  // Measures on Y; build categories from opposite-axis discrete dims when present
+  // If faceting consumed them, local xDimensions will be empty and we will render a single-band chart
   const categoryDims = xDimensions.length > 0 ? xDimensions : yDimensions;
-  const categoryLabel = categoryDims.length > 0 ? categoryDims.map((d: any) => d.columnName).join(' • ') : ' ';
-  const categoryAccessor = (row: any) =>
-    categoryDims.length > 0 ? categoryDims.map((d: any) => row[d.columnName]).join(' • ') : ' ';
-  const categories = Array.from(new Set(data.map(categoryAccessor)));
-  const categoryCount = categories.length || 1;
-  const columnWidthPx = Math.max(BAR_STEP * 2, categoryCount * BAR_STEP);
+  const categoryLabel = categoryDims.length > 0 ? categoryDims.map((d: any) => d.columnName).join(' • ') : null;
+  const categoryAccessor = categoryDims.length > 0 ? ((row: any) => categoryDims.map((d: any) => row[d.columnName]).join(' • ')) : null;
+  const categories = categoryDims.length > 0 ? (Array.from(new Set(data.map(categoryAccessor as any))) as string[]) : null;
+  const columnWidthPx = categories && categories.length > 0 ? Math.max(BAR_STEP * 2, categories.length * BAR_STEP) : BAR_STEP * 2;
 
   yMeasures.forEach((measure, index) => {
     const fieldForName = { ...measure, aggregation: measure.aggregation || 'sum' };
@@ -159,11 +172,13 @@ function generateMeasurePlots(
     const plotOptions = createVerticalBarChart(
       measureName,
       categoryLabel,
-      categoryAccessor,
-      categories,
+      categoryAccessor as any,
+  categories as string[] | null,
       data,
       sharedDomains,
-      BAR_STEP
+      BAR_STEP,
+      colorColumnName,
+      colorDomain
     );
 
     plots.push({
@@ -191,7 +206,9 @@ function createHorizontalBarChart(
   categories: string[] | null,
   data: any[],
   sharedDomains: any,
-  BAR_STEP: number
+  BAR_STEP: number,
+  colorColumnName?: string,
+  colorDomain?: any[]
 ): Plot.PlotOptions {
   const plotOptions: Plot.PlotOptions = {
     x: {
@@ -200,7 +217,7 @@ function createHorizontalBarChart(
       label: measureName,
       nice: false,
     },
-    marks: [Plot.ruleX([0])],
+    marks: [],
   };
 
   if (categoryAccessor && categories && categories.length > 0) {
@@ -208,25 +225,52 @@ function createHorizontalBarChart(
     const categoryCount = categories.length;
     plotOptions.height = Math.max(BAR_STEP * 2, categoryCount * BAR_STEP);
     plotOptions.y = { label: categoryLabel || ' ', domain: categories as any, type: 'band' as any, padding: 0.1 as any };
+    // Aggregate by category to ensure a single bar per category
+    const totalsByCat = new Map<string, number>();
+    for (const row of data) {
+      const cat = (categoryAccessor as any)(row) as string;
+      const v = row?.[measureName];
+      if (typeof v === 'number' && isFinite(v)) {
+        totalsByCat.set(cat, (totalsByCat.get(cat) || 0) + v);
+      }
+    }
+    const aggregated = categories.map((cat) => ({ cat, value: totalsByCat.get(cat) ?? 0 }));
     plotOptions.marks!.push(
-      Plot.barX(data, {
-        x: measureName,
-        y: categoryAccessor as any,
+      Plot.barX(aggregated as any, {
+        x: 'value',
+        y: 'cat' as any,
         fill: DEFAULT_CHART_COLOR,
+        inset: 2 as any,
         tip: { pointer: 'x', preferredAnchor: 'top-right' },
       })
     );
   } else {
-    // Single horizontal bar
+    // Single horizontal bar (aggregate across subset rows)
     plotOptions.height = BAR_STEP * 2;
-    plotOptions.y = { label: ' ', domain: [' '] as any, type: 'band' as any };
+    plotOptions.y = { label: ' ', domain: [' '] as any, type: 'band' as any, padding: 0.25 as any };
+    const total = (data || [])
+      .map((row: any) => row?.[measureName])
+      .filter((v: any) => typeof v === 'number' && isFinite(v))
+      .reduce((acc: number, v: number) => acc + v, 0);
+    const single = [{ key: ' ', value: total }];
     plotOptions.marks!.push(
-      Plot.barX(data, {
-        x: measureName,
+      Plot.barX(single, {
+        x: 'value',
+        y: 'key' as any,
+        // When there is no category axis, avoid color channel to prevent overlapping bars
         fill: DEFAULT_CHART_COLOR,
+        inset: 6 as any,
         tip: { pointer: 'x', preferredAnchor: 'top-right' },
       })
     );
+  }
+
+  if (colorColumnName && colorDomain && colorDomain.length > 0) {
+    plotOptions.color = {
+      domain: colorDomain as any,
+      scheme: DEFAULT_COLOR_SCHEME as any,
+      type: 'ordinal' as any,
+    } as any;
   }
 
   return plotOptions;
@@ -242,7 +286,9 @@ function createVerticalBarChart(
   categories: string[] | null,
   data: any[],
   sharedDomains: any,
-  BAR_STEP: number
+  BAR_STEP: number,
+  colorColumnName?: string,
+  colorDomain?: any[]
 ): Plot.PlotOptions {
   const plotOptions: Plot.PlotOptions = {
     y: {
@@ -251,7 +297,7 @@ function createVerticalBarChart(
       label: measureName,
       nice: false,
     },
-    marks: [Plot.ruleY([0])],
+    marks: [],
   };
 
   if (categoryAccessor && categories && categories.length > 0) {
@@ -259,25 +305,51 @@ function createVerticalBarChart(
     const categoryCount = categories.length;
     plotOptions.width = Math.max(BAR_STEP * 2, categoryCount * BAR_STEP);
     plotOptions.x = { label: categoryLabel || ' ', domain: categories as any, type: 'band' as any, padding: 0.1 as any };
+    // Aggregate by category to ensure a single bar per category
+    const totalsByCat = new Map<string, number>();
+    for (const row of data) {
+      const cat = (categoryAccessor as any)(row) as string;
+      const v = row?.[measureName];
+      if (typeof v === 'number' && isFinite(v)) {
+        totalsByCat.set(cat, (totalsByCat.get(cat) || 0) + v);
+      }
+    }
+    const aggregated = categories.map((cat) => ({ cat, value: totalsByCat.get(cat) ?? 0 }));
     plotOptions.marks!.push(
-      Plot.barY(data, {
-        x: categoryAccessor as any,
-        y: measureName,
+      Plot.barY(aggregated as any, {
+        y: 'value',
+        x: 'cat' as any,
         fill: DEFAULT_CHART_COLOR,
+        inset: 2 as any,
         tip: { pointer: 'y', preferredAnchor: 'top-right' },
       })
     );
   } else {
-    // Single vertical bar
+    // Single vertical bar (aggregate across subset rows)
     plotOptions.width = BAR_STEP * 2;
-    plotOptions.x = { label: ' ', domain: [' '] as any, type: 'band' as any };
+    plotOptions.x = { label: ' ', domain: [' '] as any, type: 'band' as any, padding: 0.25 as any };
+    const total = (data || [])
+      .map((row: any) => row?.[measureName])
+      .filter((v: any) => typeof v === 'number' && isFinite(v))
+      .reduce((acc: number, v: number) => acc + v, 0);
+    const single = [{ key: ' ', value: total }];
     plotOptions.marks!.push(
-      Plot.barY(data, {
-        y: measureName,
+      Plot.barY(single, {
+        y: 'value',
+        x: 'key' as any,
         fill: DEFAULT_CHART_COLOR,
+        inset: 6 as any,
         tip: { pointer: 'y', preferredAnchor: 'top-right' },
       })
     );
+  }
+
+  if (colorColumnName && colorDomain && colorDomain.length > 0) {
+    plotOptions.color = {
+      domain: colorDomain as any,
+      scheme: DEFAULT_COLOR_SCHEME as any,
+      type: 'ordinal' as any,
+    } as any;
   }
 
   return plotOptions;
