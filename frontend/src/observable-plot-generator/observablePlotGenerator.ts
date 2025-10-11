@@ -96,8 +96,9 @@ export function baseGeneratePlot(context: ChartGenerationContext): PlotResult {
   // Do not short-circuit on empty data here; downstream chart creators
   // render empty frames so faceted cells remain consistent.
 
-  // If we have multiple candidates across axes (dimensions and/or measures),
+  // If we have candidates across both axes (dimensions and/or measures),
   // build a cartesian grid so that combinations are preserved within faceting.
+  // This ensures proper axis orientation is maintained (e.g., vertical line charts).
   const xCandidates: Field[] = [
     ...((analysis as any).xDimensions || []).filter((d: any) => d.flavour === 'continuous'),
     ...((analysis as any).xMeasures || [])
@@ -106,9 +107,8 @@ export function baseGeneratePlot(context: ChartGenerationContext): PlotResult {
     ...((analysis as any).yDimensions || []).filter((d: any) => d.flavour === 'continuous'),
     ...((analysis as any).yMeasures || [])
   ];
-  const multiAcrossAxes =
-    xCandidates.length > 0 && yCandidates.length > 0 && (xCandidates.length > 1 || yCandidates.length > 1);
-  if (multiAcrossAxes) {
+  const hasAcrossAxes = xCandidates.length > 0 && yCandidates.length > 0;
+  if (hasAcrossAxes) {
     // In faceting base-spec we don't need shared measure domains when only dimensions are used.
     const sharedMeasureDomains = computeSharedMeasureDomains(queryResult.rows, xCandidates as any[], yCandidates as any[], colorField);
     return {

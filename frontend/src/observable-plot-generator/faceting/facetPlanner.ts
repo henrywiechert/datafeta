@@ -172,6 +172,36 @@ export function planFacets(context: ChartGenerationContext): FacetPlan | null {
   // Example: X has a continuous dimension, Y has a measure + discrete dims → prefer line/scatter per facet, not bars.
   const hasXContinuousDim = xFields.some((f) => f.type === 'dimension' && f.flavour === 'continuous');
   const hasYContinuousDim = yFields.some((f) => f.type === 'dimension' && f.flavour === 'continuous');
+  const xDiscreteDims = xFields.filter((f) => f.type === 'dimension' && f.flavour === 'discrete');
+  const yDiscreteDims = yFields.filter((f) => f.type === 'dimension' && f.flavour === 'discrete');
+  
+  // Special case: measure + discrete dimension on one axis, continuous dimension on the other
+  // → create row facets with swapped axes for vertical line charts
+  // Example: X has [discrete dim, measure], Y has [continuous dim]
+  // → Facet by discrete dim vertically, each facet shows continuous dim (X) vs measure (Y)
+  if (barOrientation === 'barX' && hasYContinuousDim && xDiscreteDims.length > 0) {
+    // Move discrete dims from X to row facets
+    return {
+      rowFacetFields: xDiscreteDims,
+      colFacetFields: yDiscreteDims,
+      categoryAxis: null,
+      categoryField: null,
+      barOrientation: null,
+      sharedCategoryDomain: null,
+    };
+  }
+  
+  if (barOrientation === 'barY' && hasXContinuousDim && yDiscreteDims.length > 0) {
+    // Move discrete dims from Y to row facets
+    return {
+      rowFacetFields: yDiscreteDims,
+      colFacetFields: xDiscreteDims,
+      categoryAxis: null,
+      categoryField: null,
+      barOrientation: null,
+      sharedCategoryDomain: null,
+    };
+  }
   
   if ((barOrientation === 'barY' && hasXContinuousDim) || (barOrientation === 'barX' && hasYContinuousDim)) {
     barOrientation = null;
