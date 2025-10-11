@@ -63,8 +63,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       const plotOptions: Plot.PlotOptions = {
         width: calculatedWidth,
         marks: [
-          Plot.barY(data, { ...barConfig, tip: { pointer: 'y', preferredAnchor: 'top-right' } }),
-          Plot.ruleY([0])
+          Plot.barY(data, { ...barConfig, tip: { pointer: 'y', preferredAnchor: 'top-right' } })
         ],
         x: {
           label: xColumnName,
@@ -105,8 +104,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       const plotOptions: Plot.PlotOptions = {
         width: barStep * 2,
         marks: [
-          Plot.barY(data, { ...configWithCategory, tip: { pointer: 'y', preferredAnchor: 'top-right' } }),
-          Plot.ruleY([0])
+          Plot.barY(data, { ...configWithCategory, tip: { pointer: 'y', preferredAnchor: 'top-right' } })
         ],
         x: { label: singleCategory, domain: [singleCategory] as any, type: 'band' as any },
         y: { grid: true, label: measureName, domain: [d0, d1] as any, nice: false },
@@ -151,8 +149,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       const plotOptions: Plot.PlotOptions = {
         height: calculatedHeight,
         marks: [
-          Plot.barX(data, { ...barConfig, tip: { pointer: 'x', preferredAnchor: 'top-right' } }),
-          Plot.ruleX([0])
+          Plot.barX(data, { ...barConfig, tip: { pointer: 'x', preferredAnchor: 'top-right' } })
         ],
         y: {
           label: yColumnName,
@@ -192,8 +189,7 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       const plotOptions: Plot.PlotOptions = {
         height: barStep * 2,
         marks: [
-          Plot.barX(data, { ...configWithCategory, tip: { pointer: 'x', preferredAnchor: 'top-right' } }),
-          Plot.ruleX([0])
+          Plot.barX(data, { ...configWithCategory, tip: { pointer: 'x', preferredAnchor: 'top-right' } })
         ],
         y: { label: singleCategory, domain: [singleCategory] as any, type: 'band' as any },
         x: { grid: true, label: measureName, domain: [d0, d1] as any, nice: false },
