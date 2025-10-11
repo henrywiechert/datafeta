@@ -22,7 +22,17 @@ export function generateScatterPlot(analysis: FieldAnalysis, context: ChartGener
     x: { label: xColumnName, grid: true },
     y: { label: yColumnName, grid: true },
     marks: [
-  Plot.dot(data, { x: xColumnName, y: yColumnName, fill: 'steelblue', r: 4, tip: { pointer: 'x', preferredAnchor: 'top-right' } }),
+      Plot.dot(data, {
+        x: { value: xColumnName, label: xColumnName },
+        y: { value: yColumnName, label: yColumnName },
+        fill: 'steelblue',
+        r: 4,
+        channels: {
+          [xColumnName]: { value: xColumnName, label: xColumnName },
+          [yColumnName]: { value: yColumnName, label: yColumnName },
+        },
+        tip: { pointer: 'x', preferredAnchor: 'top-right', format: { [xColumnName]: true, [yColumnName]: true, x: false, y: false, fill: false, r: false } }
+      }),
       Plot.ruleX([0]),
       Plot.ruleY([0]),
     ],
@@ -155,7 +165,17 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
         options: {
           x: { label: xCat },
           y: { label: yCat },
-          marks: [Plot.dot(data, { x: xCat, y: yCat, fill: 'steelblue', r: 2, tip: { pointer: 'x', preferredAnchor: 'top-right' } })],
+          marks: [Plot.dot(data, {
+            x: { value: xCat, label: xCat },
+            y: { value: yCat, label: yCat },
+            fill: 'steelblue',
+            r: 2,
+            channels: {
+              [xCat]: { value: xCat, label: xCat },
+              [yCat]: { value: yCat, label: yCat },
+            },
+            tip: { pointer: 'x', preferredAnchor: 'top-right', format: { [xCat]: true, [yCat]: true, x: false, y: false, fill: false, r: false } }
+          })],
         },
         layout: { type: 'single' },
       };
