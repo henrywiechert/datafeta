@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Box, Typography, Chip } from '@mui/material';
+import React from 'react';
+import { Chip, Box } from '@mui/material';
 import { Field, DragSource } from '../../../types';
+import { PropertyDropZone } from '../Properties';
 import { getFieldDisplayName } from '../../../utils/fieldUtils';
 import styles from './ColorDropZone.module.css';
 
@@ -15,25 +16,7 @@ const ColorDropZone: React.FC<ColorDropZoneProps> = ({
   onDrop,
   onRemove,
 }) => {
-  const [isOver, setIsOver] = useState(false);
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsOver(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsOver(false);
-  };
-
   const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsOver(false);
-
     try {
       const fieldData = e.dataTransfer.getData('application/json');
       if (fieldData) {
@@ -69,24 +52,29 @@ const ColorDropZone: React.FC<ColorDropZoneProps> = ({
   };
 
   return (
-    <Box
-      className={`${styles.dropZone} ${isOver ? styles.dragOver : ''}`}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
+    <PropertyDropZone
+      hasContent={colorField !== null}
+      emptyMessage="Drag a field here to color by"
       onDrop={handleDrop}
     >
-      {colorField ? (
-        <Chip
-          label={getFieldDisplayName(colorField)}
-          onDelete={onRemove}
-          sx={getChipStyles()}
-        />
-      ) : (
-        <Typography className={styles.emptyMessage}>
-          Drag a field here to color by
-        </Typography>
+      {colorField && (
+        <Box className={styles.chipContainer}>
+          <Chip
+            label={getFieldDisplayName(colorField)}
+            onDelete={onRemove}
+            size="small"
+            className={styles.chip}
+            sx={{
+              ...getChipStyles(),
+              '& .MuiChip-label': {
+                fontSize: '12px',
+                fontWeight: 500,
+              },
+            }}
+          />
+        </Box>
       )}
-    </Box>
+    </PropertyDropZone>
   );
 };
 

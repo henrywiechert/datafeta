@@ -1,9 +1,9 @@
 import React from 'react';
-import { Box, Typography, Button } from '@mui/material';
+import { Button } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import { Field, DragSource, FilterConfig, FilterMetadata } from '../../../types';
+import { PropertySection } from '../Properties';
 import FilterDropZone from './FilterDropZone';
-import styles from './FilterPanel.module.css';
 
 interface FilterPanelProps {
   filterFields: Field[];
@@ -24,42 +24,39 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   onConfigChange,
   onApplyFilters,
 }) => {
-  // Check if there are any active filters
   const hasActiveFilters = filterFields.length > 0;
 
   return (
-    <Box className={styles.container}>
-      {/* Header */}
-      <Box className={styles.header}>
-        <Box className={styles.titleContainer}>
-          <FilterListIcon fontSize="small" />
-          <Typography variant="h6" className={styles.title}>
-            Filters
-          </Typography>
-        </Box>
+    <PropertySection
+      title="Filters"
+      icon={<FilterListIcon fontSize="small" />}
+      defaultExpanded={true}
+      storageKey="filterPanel.expanded"
+      headerActions={
         <Button
           variant="contained"
           size="small"
           onClick={onApplyFilters}
           disabled={!hasActiveFilters}
-          className={styles.applyButton}
+          sx={{
+            fontSize: '12px',
+            padding: '4px 10px',
+            textTransform: 'none',
+          }}
         >
-          Apply Filters
+          Apply
         </Button>
-      </Box>
-
-      {/* Drop Zone */}
-      <Box className={styles.content}>
-        <FilterDropZone
-          fields={filterFields}
-          filterConfigurations={filterConfigurations}
-          filterMetadata={filterMetadata}
-          onDrop={onDrop}
-          onRemove={onRemove}
-          onConfigChange={onConfigChange}
-        />
-      </Box>
-    </Box>
+      }
+    >
+      <FilterDropZone
+        fields={filterFields}
+        filterConfigurations={filterConfigurations}
+        filterMetadata={filterMetadata}
+        onDrop={onDrop}
+        onRemove={onRemove}
+        onConfigChange={onConfigChange}
+      />
+    </PropertySection>
   );
 };
 

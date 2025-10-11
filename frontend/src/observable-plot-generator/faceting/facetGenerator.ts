@@ -1,5 +1,5 @@
 import * as Plot from '@observablehq/plot';
-import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING, MIN_BAND_TRACKS, MIN_SERIES_PANES, DEFAULT_COLOR_SCHEME } from '../../config/chartLayoutConfig';
+import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING, MIN_BAND_TRACKS, MIN_SERIES_PANES } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getFieldColumnName } from '../helpers/fields';
 import { ChartGenerationContext, PlotResult, CategoryAxisDescriptor } from '../types';
@@ -9,6 +9,7 @@ import { getResultColumnName } from '../../utils/fieldUtils';
 import { computeSharedMeasureDomains } from '../domains/measureDomains';
 import { computeSharedNumericDomains, computeSharedCategoricalDomains } from '../domains/numericDomains';
 import { baseGeneratePlot } from '../observablePlotGenerator';
+import { getPlotColorConfig } from '../utils/colorSchemeUtils';
 
 
 /**
@@ -18,7 +19,7 @@ import { baseGeneratePlot } from '../observablePlotGenerator';
  * for bar charts where a category axis can be injected if needed (see below).
  */
 export function generateFacetedGrid(context: ChartGenerationContext, plan: FacetPlan): PlotResult {
-    const { xFields, yFields, queryResult, colorField } = context;
+    const { xFields, yFields, queryResult, colorField, colorScheme } = context;
     const {
       rowFacetFields,
       colFacetFields,
@@ -83,17 +84,19 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
               const valueDomain = (sharedMeasureDomains as any)[measureName] || [0, 1];
               const categoryColumnName = categoryField ? getFieldColumnName(categoryField) : null;
               const colorColumnName = colorField ? getFieldColumnName(colorField) : null;
+              const colorConfig = getPlotColorConfig(colorScheme);
               options = barOrientation === 'barX'
                 ? {
                     x: { label: measureName, grid: true, domain: valueDomain as any, nice: false, domainKey: measureName } as any,
                     y: { label: categoryColumnName || ' ', type: 'band' as any, domain: categories as any, padding: BAND_PADDING as any, domainKey: categoryColumnName } as any,
                     marks: [
-                      Plot.barX(subset, { x: measureName, y: categoryColumnName || (() => categories[0]), fill: colorColumnName || DEFAULT_CHART_COLOR, tip: { pointer: 'x', preferredAnchor: 'top-right' } })
+                      Plot.barX(subset, { x: measureName, y: categoryColumnName || (() => categories[0]), fill: colorColumnName || DEFAULT_CHART_COLOR, tip: { pointer: 'x', preferredAnchor: 'top-right' } }),
+                      Plot.ruleX([0])
                     ],
                     ...(colorField && sharedColorDomain && sharedColorDomain.length > 0 ? {
                       color: {
                         domain: sharedColorDomain as any,
-                        scheme: DEFAULT_COLOR_SCHEME as any,
+                        ...colorConfig as any,
                         type: 'ordinal' as any,
                       } as any
                     } : {})
@@ -107,12 +110,13 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
                         x: categoryColumnName || (() => categories[0]), 
                         fill: colorColumnName || DEFAULT_CHART_COLOR,
                         order: colorColumnName // Ensure consistent stacking order
-                      , tip: { pointer: 'y', preferredAnchor: 'top-right' } })
+                      , tip: { pointer: 'y', preferredAnchor: 'top-right' } }),
+                      Plot.ruleY([0])
                     ],
                     ...(colorField && sharedColorDomain && sharedColorDomain.length > 0 ? {
                       color: {
                         domain: sharedColorDomain as any,
-                        scheme: DEFAULT_COLOR_SCHEME as any,
+                        ...colorConfig as any,
                         type: 'ordinal' as any,
                       } as any
                     } : {})
@@ -200,7 +204,8 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       rowFacetFields,
       colFacetFields,
       sharedCategoryDomain || undefined,
-      sharedColorDomain
+      sharedColorDomain,
+      colorScheme
     );
     const baseCols = baseSpec.columns;
     const baseRows = baseSpec.rows;
@@ -218,7 +223,8 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
           rowFacetFields,
           colFacetFields,
           sharedCategoryDomain || undefined,
-          sharedColorDomain
+          sharedColorDomain,
+          colorScheme
         );
   
         // Offset plots into the correct grid position
@@ -294,7 +300,8 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
     rowFacetFields?: Field[] | Field | null,
     colFacetFields?: Field[] | Field | null,
     sharedCategoryDomain?: any[],
-    sharedColorDomain?: any[]
+    sharedColorDomain?: any[],
+    colorScheme?: string
   ): BaseSpec {
     const { queryResult, xFields, yFields } = context;
   
@@ -341,10 +348,11 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
         if (yDomain) next.y = { ...(opts.y as any), domain: yDomain } as any;
         // Apply shared color domain so color mapping remains consistent across facets
         if (sharedColorDomain && sharedColorDomain.length > 0) {
+          const colorConfig = getPlotColorConfig(colorScheme);
           next.color = {
             ...(next as any).color,
             domain: sharedColorDomain as any,
-            scheme: DEFAULT_COLOR_SCHEME as any,
+            ...colorConfig as any,
             type: 'ordinal' as any,
           } as any;
         }
