@@ -1,6 +1,5 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext } from '../types';
-import { Field } from '../../types';
 import { BAR_STEP_PX, DEFAULT_CHART_COLOR, DEFAULT_COLOR_SCHEME } from '../../config/chartLayoutConfig';
 import { getResultColumnName } from '../../utils/fieldUtils';
 

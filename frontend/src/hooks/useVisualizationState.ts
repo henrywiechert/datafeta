@@ -187,7 +187,7 @@ export function useVisualizationState() {
         finally { 
             dispatch({ type: 'SET_LOADING_METADATA', payload: false });
         }
-    }, [state.selectedTable, state.selectedDatabase, connectionDetails?.type, dispatch]);
+    }, [state.selectedTable, state.selectedDatabase, state.xAxisFields, state.yAxisFields, connectionDetails?.type, dispatch]);
 
     // Helper function to map backend data types to our DataType enum
     const mapBackendDataType = (backendType: string): DataType => {
@@ -383,7 +383,7 @@ export function useVisualizationState() {
             fetchTables('');
         }
         // Columns fetch will trigger once selectedTable is set (CSV auto-selection handled in fetchTables)
-    }, [connectionDetails?.type]);
+    }, [connectionDetails, connectionDetails?.type, dispatch, fetchDatabases, fetchTables]);
     
     useEffect(() => {
         // Fetch columns when table is selected (either from initial load or user selection)
