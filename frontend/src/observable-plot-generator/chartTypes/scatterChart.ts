@@ -26,7 +26,17 @@ export function scatterChart(
     };
   }
 
-  const dotConfig: any = { x: xColumn, y: yColumn, r: 4 };
+  const xLabel = options?.x || xColumn;
+  const yLabel = options?.y || yColumn;
+  const dotConfig: any = {
+    x: { value: xColumn, label: xLabel },
+    y: { value: yColumn, label: yLabel },
+    r: 4,
+    channels: {
+      [xLabel]: { value: xColumn, label: xLabel },
+      [yLabel]: { value: yColumn, label: yLabel }
+    }
+  };
   
   if (colorField) {
     const colorColumnName = getResultColumnName(colorField);
@@ -35,7 +45,12 @@ export function scatterChart(
     dotConfig.fill = DEFAULT_CHART_COLOR;
   }
   // Enable tooltip on points; use pointer along X for easier targeting
-  dotConfig.tip = { pointer: 'x', preferredAnchor: 'top-right' } as any;
+  // Use format to only show x/y channels and rely on Plot's name-value layout for bold-ish labels.
+  dotConfig.tip = {
+    pointer: 'x',
+    preferredAnchor: 'top-right',
+    format: { [xLabel]: true, [yLabel]: true, x: false, y: false, fill: false, r: false }
+  } as any;
   
   const plotOptions: Plot.PlotOptions = {
     // Provide labels and retain as keys for domain application

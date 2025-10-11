@@ -51,8 +51,19 @@ export function lineChart(
     return (ax as number) - (bx as number);
   });
 
+  const xLabel = labels?.x || xColumn;
+  const yLabel = labels?.y || yColumn;
   const lineConfig: any = { x: xColumn, y: yColumn };
-  const dotConfig: any = { x: xColumn, y: yColumn, r: 2, tip: { pointer: 'x', preferredAnchor: 'top-right' } };
+  const dotConfig: any = {
+    x: { value: xColumn, label: xLabel },
+    y: { value: yColumn, label: yLabel },
+    r: 2,
+    channels: {
+      [xLabel]: { value: xColumn, label: xLabel },
+      [yLabel]: { value: yColumn, label: yLabel }
+    },
+    tip: { pointer: 'x', preferredAnchor: 'top-right', format: { [xLabel]: true, [yLabel]: true, x: false, y: false, fill: false, r: false } }
+  };
   
   if (colorField) {
     // Add color encoding and z channel for grouping by color
@@ -134,8 +145,19 @@ export function verticalLineChart(
     return (ay as number) - (by as number);
   });
 
+  const xLabel2 = labels?.x || xColumn;
+  const yLabel2 = labels?.y || yColumn;
   const lineConfig: any = { x: xColumn, y: yColumn };
-  const dotConfig: any = { x: xColumn, y: yColumn, r: 2, tip: { pointer: 'x', preferredAnchor: 'top-right' } };
+  const dotConfig: any = {
+    x: { value: xColumn, label: xLabel2 },
+    y: { value: yColumn, label: yLabel2 },
+    r: 2,
+    channels: {
+      [xLabel2]: { value: xColumn, label: xLabel2 },
+      [yLabel2]: { value: yColumn, label: yLabel2 }
+    },
+    tip: { pointer: 'x', preferredAnchor: 'top-right', format: { [xLabel2]: true, [yLabel2]: true, x: false, y: false, fill: false, r: false } }
+  };
   
   if (colorField) {
     // Add color encoding and z channel for grouping by color
