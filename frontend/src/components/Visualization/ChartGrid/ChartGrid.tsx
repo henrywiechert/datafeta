@@ -327,7 +327,9 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
           overflowY: 'auto',
           overflowX: 'hidden',
           zIndex: 2,
-          pointerEvents: 'auto'
+          // Important: disable pointer events at the container so underlying plots receive hover events.
+          // We re-enable pointer events selectively on interactive children (e.g., left labels area) below.
+          pointerEvents: 'none'
         }}>
           {/* Make scrollbar interactive */}
           <style>{`
@@ -394,9 +396,10 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
               </div>
             </div>
 
-            {/* Plots area (transparent, just for scrolling) */}
-            <div style={{ gridColumn: 2, gridRow: 1, pointerEvents: 'auto' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns, gridTemplateRows: plotRowsSpec, minWidth: `${totalContentWidthPx}px`, opacity: 0 }}>
+            {/* Plots area (transparent, just for scrolling).
+                Important: disable pointer events so this overlay does not block hover events to the SVG plots below. */}
+            <div style={{ gridColumn: 2, gridRow: 1, pointerEvents: 'none' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns, gridTemplateRows: plotRowsSpec, minWidth: `${totalContentWidthPx}px`, opacity: 0, pointerEvents: 'none' }}>
                 {(spec.plots || []).map((plot, index) => {
                   const key = plot.id || String(index);
                   const pos = plot.position;

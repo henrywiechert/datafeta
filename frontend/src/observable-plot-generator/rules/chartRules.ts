@@ -22,7 +22,7 @@ export function generateScatterPlot(analysis: FieldAnalysis, context: ChartGener
     x: { label: xColumnName, grid: true },
     y: { label: yColumnName, grid: true },
     marks: [
-      Plot.dot(data, { x: xColumnName, y: yColumnName, fill: 'steelblue', r: 4 }),
+  Plot.dot(data, { x: xColumnName, y: yColumnName, fill: 'steelblue', r: 4, tip: { pointer: 'x', preferredAnchor: 'top-right' } }),
       Plot.ruleX([0]),
       Plot.ruleY([0]),
     ],
@@ -155,7 +155,7 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
         options: {
           x: { label: xCat },
           y: { label: yCat },
-          marks: [Plot.dot(data, { x: xCat, y: yCat, fill: 'steelblue', r: 2 })],
+          marks: [Plot.dot(data, { x: xCat, y: yCat, fill: 'steelblue', r: 2, tip: { pointer: 'x', preferredAnchor: 'top-right' } })],
         },
         layout: { type: 'single' },
       };
