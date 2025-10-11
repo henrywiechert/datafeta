@@ -47,7 +47,7 @@ export function scatterChart(
   // Enable tooltip on points; use pointer along X for easier targeting
   // Use format to only show x/y channels and rely on Plot's name-value layout for bold-ish labels.
   dotConfig.tip = {
-    pointer: 'x',
+    closest: "xy",
     preferredAnchor: 'top-right',
     format: { [xLabel]: true, [yLabel]: true, x: false, y: false, fill: false, r: false }
   } as any;
