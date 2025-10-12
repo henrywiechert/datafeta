@@ -5,11 +5,32 @@ from backend.models.query import QueryDescription, Measure, Filter, OrderBy
 from typing import Any, Dict, List, Union
 from pypika import Query, Table, Criterion, Order, Field
 from pypika.functions import Count, Sum, Avg, Min, Max
-from pypika.terms import Function, PseudoColumn
+from pypika.terms import Function, PseudoColumn, Term
 from backend.exceptions import QueryGenerationError
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
+
+
+class ExtractTerm(Term):
+    """Custom pypika term for EXTRACT(part FROM field) syntax."""
+    def __init__(self, part: str, field: Term):
+        super().__init__()
+        self.part = part
+        self.field = field
+    
+    def get_sql(self, **kwargs) -> str:
+        """Render as EXTRACT(part FROM field) with optional alias."""
+        field_sql = self.field.get_sql(**kwargs)
+        sql = f"EXTRACT({self.part} FROM {field_sql})"
+        
+        # Handle alias if present (pypika stores it in self.alias)
+        if hasattr(self, 'alias') and self.alias:
+            quote_char = kwargs.get('quote_char', '"')
+            sql = f"{sql} {quote_char}{self.alias}{quote_char}"
+        
+        return sql
+
 
 # Mapping from our model to Pypika functions
 # Using Function for distinct count to generate COUNT(DISTINCT `field_name`)
@@ -110,11 +131,9 @@ class QueryService:
                     'microsecond': 'MICROSECOND',
                     'nanosecond': 'NANOSECOND',
                 }
-                # Using custom SQL since pypika doesn't have built-in EXTRACT syntax
-                from pypika.terms import ValueWrapper
+                # Use custom ExtractTerm for proper EXTRACT(part FROM field) syntax
                 extract_part = part_extract_map.get(date_part, date_part.upper())
-                # Return a custom function that will be rendered as EXTRACT(part FROM field)
-                return Function('EXTRACT', ValueWrapper(extract_part), field_term)
+                return ExtractTerm(extract_part, field_term)
             else:  # timeline mode
                 # Timeline mode uses the SAME extraction as distinct mode
                 # The difference is semantic (how the user intends to use it), not in the SQL
@@ -130,9 +149,9 @@ class QueryService:
                     'microsecond': 'MICROSECOND',
                     'nanosecond': 'NANOSECOND',
                 }
-                from pypika.terms import ValueWrapper
+                # Use custom ExtractTerm for proper EXTRACT(part FROM field) syntax
                 extract_part = part_extract_map.get(date_part, date_part.upper())
-                return Function('EXTRACT', ValueWrapper(extract_part), field_term)
+                return ExtractTerm(extract_part, field_term)
 
     def translate_to_sql(self, query_desc: QueryDescription, table_name: str, db_type: str = 'clickhouse', with_sampling: bool = False) -> str:
         """
