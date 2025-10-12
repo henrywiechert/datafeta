@@ -92,53 +92,63 @@ const ContinuousFilterControl: React.FC<ContinuousFilterControlProps> = ({
 
   return (
     <Box className={styles.container}>
-      {/* Range info */}
-      <Typography variant="caption" color="textSecondary" sx={{ mb: 1 }}>
-        Available range: {metadata.min.toLocaleString()} - {metadata.max.toLocaleString()}
-      </Typography>
+      <Box className={styles.filterBox}>
+        {/* Range header inside frame */}
+        <Box className={styles.rangeHeader}>
+          <Typography variant="caption" color="textSecondary">
+            Available range: {metadata.min.toLocaleString()} - {metadata.max.toLocaleString()}
+          </Typography>
+        </Box>
 
-      {/* Slider */}
-      <Box className={styles.sliderContainer}>
-        <Slider
-          value={sliderValue}
-          onChange={handleSliderChange}
-          onChangeCommitted={handleSliderCommit}
-          valueLabelDisplay="auto"
-          min={metadata.min}
-          max={metadata.max}
-          step={step}
-          size="small"
-        />
-      </Box>
+        {/* Slider */}
+        <Box className={styles.sliderContainer}>
+          <Slider
+            value={sliderValue}
+            onChange={handleSliderChange}
+            onChangeCommitted={handleSliderCommit}
+            valueLabelDisplay="auto"
+            min={metadata.min}
+            max={metadata.max}
+            step={step}
+            size="small"
+          />
+        </Box>
 
-      {/* Input fields */}
-      <Box className={styles.inputsContainer}>
-        <TextField
-          label="Min"
-          type="number"
-          size="small"
-          value={min ?? ''}
-          onChange={(e) => handleMinInputChange(e.target.value)}
-          inputProps={{
-            min: metadata.min,
-            max: metadata.max,
-            step,
-          }}
-          className={styles.input}
-        />
-        <TextField
-          label="Max"
-          type="number"
-          size="small"
-          value={max ?? ''}
-          onChange={(e) => handleMaxInputChange(e.target.value)}
-          inputProps={{
-            min: metadata.min,
-            max: metadata.max,
-            step,
-          }}
-          className={styles.input}
-        />
+        {/* Input fields */}
+        <Box className={styles.inputsContainer}>
+          <Box className={styles.inputGroup}>
+            <Typography variant="caption" className={styles.inputLabel}>Min</Typography>
+            <TextField
+              aria-label="Min value"
+              type="number"
+              size="small"
+              value={min ?? ''}
+              onChange={(e) => handleMinInputChange(e.target.value)}
+              inputProps={{
+                min: metadata.min,
+                max: metadata.max,
+                step,
+              }}
+              className={styles.input}
+            />
+          </Box>
+          <Box className={styles.inputGroup}>
+            <Typography variant="caption" className={styles.inputLabel}>Max</Typography>
+            <TextField
+              aria-label="Max value"
+              type="number"
+              size="small"
+              value={max ?? ''}
+              onChange={(e) => handleMaxInputChange(e.target.value)}
+              inputProps={{
+                min: metadata.min,
+                max: metadata.max,
+                step,
+              }}
+              className={styles.input}
+            />
+          </Box>
+        </Box>
       </Box>
     </Box>
   );
