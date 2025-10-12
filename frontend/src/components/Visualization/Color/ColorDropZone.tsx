@@ -1,5 +1,6 @@
 import React from 'react';
 import { Chip, Box } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import { Field, DragSource } from '../../../types';
 import { PropertyDropZone } from '../Properties';
 import { getFieldDisplayName } from '../../../utils/fieldUtils';
@@ -62,6 +63,7 @@ const ColorDropZone: React.FC<ColorDropZoneProps> = ({
           <Chip
             label={getFieldDisplayName(colorField)}
             onDelete={onRemove}
+            deleteIcon={<CloseIcon />}
             size="small"
             className={styles.chip}
             sx={{
