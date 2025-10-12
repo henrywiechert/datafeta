@@ -61,10 +61,12 @@ class FileConnector(BaseConnector):
             con = duckdb.connect(database=':memory:', read_only=False)
             safe_view_name = f'"{self._table_name}"'
             # Treat common missing tokens as NULL so numeric inference isn't downgraded to VARCHAR
+            # Support common datetime formats: MM.DD.YYYY and DD.MM.YYYY with times
             file_reader = (
                 f"read_csv_auto('"
                 f"{self.file_path}"
-                f"', SAMPLE_SIZE=-1, nullstr=['', 'NULL', 'null', 'NaN', 'nan', 'N/A', 'n/a', 'NA'])"
+                f"', SAMPLE_SIZE=1000, nullstr=['', 'NULL', 'null', 'NaN', 'nan', 'N/A', 'n/a', 'NA'], "
+                f"timestampformat='%m.%d.%Y %H:%M:%S')"
             )
             create_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {file_reader};"
             con.execute(create_view_sql)
@@ -92,10 +94,12 @@ class FileConnector(BaseConnector):
             con = duckdb.connect(database=':memory:', read_only=False)
             safe_view_name = f'"{self._table_name}"'
             # Treat common missing tokens as NULL so numeric inference isn't downgraded to VARCHAR
+            # Support common datetime formats: MM.DD.YYYY and DD.MM.YYYY with times
             file_reader = (
                 f"read_csv_auto('"
                 f"{self.file_path}"
-                f"', SAMPLE_SIZE=-1, nullstr=['', 'NULL', 'null', 'NaN', 'nan', 'N/A', 'n/a', 'NA'])"
+                f"', SAMPLE_SIZE=1000, nullstr=['', 'NULL', 'null', 'NaN', 'nan', 'N/A', 'n/a', 'NA'], "
+                f"timestampformat='%m.%d.%Y %H:%M:%S')"
             )
             create_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {file_reader};"
             con.execute(create_view_sql)
