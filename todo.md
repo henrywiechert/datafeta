@@ -13,14 +13,16 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 ## [DONE] Filter section sorting
 - sort values alphabetically (discrete values)
 
-## Filter section layout fix
+## [DONE] Filter section layout fix
 - make item list more dense and smaller font
 
-## Filter section number fields
+## [DONE] Filter section number fields
 - number fields have a strange offset in frames (add screenshot)
 
-## Filter section filter string - regex
+## [DONE] Filter section filter string - regex
 - support regex for filter string (optional)
 
 ## Clickhouse DB selector - first attempt error
 - when using CH and switch to Viz page, there is red error, need to switch back and forth
+
+Right scrollbar not touchable

@@ -60,7 +60,12 @@ class FileConnector(BaseConnector):
             # Create a new connection for this request
             con = duckdb.connect(database=':memory:', read_only=False)
             safe_view_name = f'"{self._table_name}"'
-            file_reader = f"read_csv_auto('{self.file_path}', SAMPLE_SIZE=-1, nullstr='NaN')"
+            # Treat common missing tokens as NULL so numeric inference isn't downgraded to VARCHAR
+            file_reader = (
+                f"read_csv_auto('"
+                f"{self.file_path}"
+                f"', SAMPLE_SIZE=-1, nullstr=['', 'NULL', 'null', 'NaN', 'nan', 'N/A', 'n/a', 'NA'])"
+            )
             create_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {file_reader};"
             con.execute(create_view_sql)
 
@@ -86,7 +91,12 @@ class FileConnector(BaseConnector):
             # Create a new connection for this request
             con = duckdb.connect(database=':memory:', read_only=False)
             safe_view_name = f'"{self._table_name}"'
-            file_reader = f"read_csv_auto('{self.file_path}', SAMPLE_SIZE=-1, nullstr='NaN')"
+            # Treat common missing tokens as NULL so numeric inference isn't downgraded to VARCHAR
+            file_reader = (
+                f"read_csv_auto('"
+                f"{self.file_path}"
+                f"', SAMPLE_SIZE=-1, nullstr=['', 'NULL', 'null', 'NaN', 'nan', 'N/A', 'n/a', 'NA'])"
+            )
             create_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {file_reader};"
             con.execute(create_view_sql)
 
