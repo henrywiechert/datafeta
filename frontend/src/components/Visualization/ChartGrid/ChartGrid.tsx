@@ -327,20 +327,15 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
           overflowY: 'auto',
           overflowX: 'hidden',
           zIndex: 2,
-          // Important: disable pointer events at the container so underlying plots receive hover events.
-          // We re-enable pointer events selectively on interactive children (e.g., left labels area) below.
-          pointerEvents: 'none'
+          // Allow pointer events on the scrollbar area (right edge)
+          // Content below will still receive hover events through the transparent grid
+          pointerEvents: 'auto'
         }}>
-          {/* Make scrollbar interactive */}
-          <style>{`
-            .vertical-scroll-content::-webkit-scrollbar {
-              pointer-events: auto;
-            }
-          `}</style>
           <div className="vertical-scroll-content" style={{
             display: 'grid',
             gridTemplateColumns: `${leftFixedWidthPx}px 1fr`,
             gridTemplateRows: plotRowsSpec,
+            // Disable pointer events on content so plots below receive hover
             pointerEvents: 'none'
           }}>
             
