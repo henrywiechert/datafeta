@@ -23,16 +23,30 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
   onChange,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [useRegex, setUseRegex] = useState(false);
+  const [regexError, setRegexError] = useState<string | null>(null);
 
   // Sort and filter available values based on search term
   const filteredValues = useMemo(() => {
-    // First, filter based on search term
+    // First, filter based on search term (plain or regex)
     let values = metadata.availableValues;
-    if (searchTerm.trim()) {
-      const lowerSearch = searchTerm.toLowerCase();
-      values = values.filter(value => 
-        String(value).toLowerCase().includes(lowerSearch)
-      );
+    const term = searchTerm.trim();
+    setRegexError(null);
+    if (term) {
+      if (useRegex) {
+        try {
+          const re = new RegExp(term);
+          values = values.filter(value => re.test(String(value)));
+        } catch (e: any) {
+          // invalid regex → don't filter further, surface error
+          setRegexError(e?.message || 'Invalid regex');
+        }
+      } else {
+        const lowerSearch = term.toLowerCase();
+        values = values.filter(value => 
+          String(value).toLowerCase().includes(lowerSearch)
+        );
+      }
     }
     
     // Then sort: numeric if all values are numeric, otherwise alphabetic
@@ -57,7 +71,11 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
     }
     
     return sortedValues;
-  }, [metadata.availableValues, searchTerm]);
+  }, [metadata.availableValues, searchTerm, useRegex]);
+
+  // Also recompute when regex mode toggles to keep list in sync
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const filteredValuesWithRegex = filteredValues; // alias for readability
 
   const handleToggle = (value: any) => {
     const currentIndex = selectedValues.indexOf(value);
@@ -73,12 +91,12 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
   };
 
   const handleSelectAll = () => {
-    onChange([...filteredValues]);
+    onChange([...filteredValuesWithRegex]);
   };
 
   const handleDeselectAll = () => {
     // Remove all filtered values from selection
-    const filteredSet = new Set(filteredValues);
+    const filteredSet = new Set(filteredValuesWithRegex);
     const newSelected = selectedValues.filter(v => !filteredSet.has(v));
     onChange(newSelected);
   };
@@ -116,39 +134,57 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
 
   return (
     <Box className={styles.container}>
-      {/* Search field */}
-      {metadata.availableValues.length > 10 && (
-        <TextField
-          size="small"
-          placeholder="Search values..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          fullWidth
-          sx={{ mb: 1 }}
-        />
-      )}
+      <Box className={styles.filterBox}>
+        {/* Search row inside header to align frames */}
+        {metadata.availableValues.length > 10 && (
+          <Box className={`${styles.searchRow} ${styles.searchHeader}`}>
+            <TextField
+              className={styles.searchField}
+              size="small"
+              variant="outlined"
+              placeholder="Search values..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              fullWidth
+              error={!!regexError}
+              helperText={regexError || ''}
+            />
+          </Box>
+        )}
 
-      {/* Select/Deselect All buttons */}
-      <Box className={styles.buttonGroup}>
-        <Button 
-          size="small" 
-          onClick={handleSelectAll}
+        {/* Select/Deselect All buttons */}
+        <Box className={styles.buttonGroup}>
+        <Box className={styles.leftButtons}>
+          <Button 
+            size="small" 
+            onClick={handleSelectAll}
+            variant="text"
+          >
+            Select All
+          </Button>
+          <Button 
+            size="small" 
+            onClick={handleDeselectAll}
+            variant="text"
+          >
+            Deselect All
+          </Button>
+        </Box>
+        <Button
+          size="small"
           variant="text"
+          color={useRegex ? 'primary' : 'inherit'}
+          className={`${styles.regexToggle} ${styles.regexRight} ${useRegex ? styles.toggleActive : ''}`}
+          aria-pressed={useRegex}
+          onClick={() => setUseRegex(!useRegex)}
         >
-          Select All
-        </Button>
-        <Button 
-          size="small" 
-          onClick={handleDeselectAll}
-          variant="text"
-        >
-          Deselect All
+          Regex
         </Button>
       </Box>
 
       {/* Checkbox list */}
       <Box className={styles.checkboxList}>
-        {filteredValues.map((value, index) => {
+        {filteredValuesWithRegex.map((value, index) => {
           const valueStr = String(value);
           const isChecked = selectedValues.includes(value);
           
@@ -167,6 +203,7 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
             />
           );
         })}
+      </Box>
       </Box>
 
       {/* Selection summary */}

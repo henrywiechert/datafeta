@@ -1,24 +1,52 @@
 .container {
   display: flex;
   flex-direction: column;
-  padding: 8px;
+  padding: 8px 10px;
   min-width: 200px;
 }
 
+.filterBox {
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.rangeHeader {
+  padding: 2px 2px;
+  border-bottom: 1px solid #e0e0e0;
+  background: #fafafa;
+}
+
 .sliderContainer {
-  padding: 8px 12px;
-  margin-bottom: 12px;
+  padding: 2px 12px;
+  border-bottom: 1px solid #e0e0e0;
 }
 
 .inputsContainer {
   display: flex;
   gap: 8px;
   align-items: center;
+  padding: 2px 10px 2px;
 }
 
 .input {
   flex: 1;
   min-width: 0;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.inputLabel {
+  display: block;
+  color: rgba(0,0,0,0.6);
+  margin-bottom: 4px;
+  padding-left: 2px; /* subtle indent to align with input content */
 }
 
 .input input {
@@ -27,6 +55,16 @@
 
 .input label {
   font-size: 12px;
+}
+
+/* Remove inner outline to avoid double frames; outer filterBox provides framing */
+.input :global(.MuiOutlinedInput-notchedOutline) {
+  border: 0 !important;
+}
+
+.input :global(.MuiOutlinedInput-root) {
+  background: transparent;
+  border-radius: 6px;
 }
 
 
