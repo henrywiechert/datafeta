@@ -25,4 +25,8 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 ## Clickhouse DB selector - first attempt error
 - when using CH and switch to Viz page, there is red error, need to switch back and forth
 
-Right scrollbar not touchable
+## [DONE] Right scrollbar not touchable
+- not selectable by mouse
+
+## [] Continous dimension for color
+- gradient feature
