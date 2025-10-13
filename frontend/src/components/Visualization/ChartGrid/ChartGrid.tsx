@@ -283,7 +283,9 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
           bottom: 0,
           overflowX: 'auto',
           overflowY: 'hidden',
-          zIndex: 1,
+          // Put the horizontal (plots) layer above the vertical labels/scroll layer so
+          // pointer events reach the SVG plots rather than an overlapping transparent div.
+          zIndex: 3,
           pointerEvents: 'auto'
         }}>
           
