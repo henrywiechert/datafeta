@@ -28,7 +28,7 @@ export function scatterChart(
     return {
       x: { label: options?.x || xColumn, grid: true, domain: options?.domain?.x },
       y: { label: options?.y || yColumn, grid: true, domain: options?.domain?.y },
-      marks: [Plot.ruleX([0]), Plot.ruleY([0])],
+      marks: [],
     };
   }
 
