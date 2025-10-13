@@ -67,8 +67,7 @@ export function lineChart(
     channels: {
       [xLabel]: { value: xColumn, label: xLabel },
       [yLabel]: { value: yColumn, label: yLabel }
-    },
-    tip: { pointer: 'x', preferredAnchor: 'top-right', format: { [xLabel]: true, [yLabel]: true, x: false, y: false, fill: false, r: false } }
+    }
   };
   
   if (colorField) {
@@ -77,6 +76,7 @@ export function lineChart(
     lineConfig.stroke = colorColumnName;
     lineConfig.z = colorColumnName;
     dotConfig.fill = colorColumnName;
+    dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
   } else {
     lineConfig.stroke = DEFAULT_CHART_COLOR;
     dotConfig.fill = DEFAULT_CHART_COLOR;
@@ -87,10 +87,22 @@ export function lineChart(
     const sizeScale = createSizeScale(cleanSorted, sizeField, sizeRange, manualSize || 2);
     const sizeColumnName = getResultColumnName(sizeField);
     lineConfig.strokeWidth = (d: any) => sizeScale.getSizeForValue(d[sizeColumnName]);
+    dotConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
   } else {
     lineConfig.strokeWidth = manualSize || 2;
   }
   
+  // Update tooltip format to include color and size when present
+  const tipFormat: any = { [xLabel]: true, [yLabel]: true, x: false, y: false, fill: false, r: false };
+  if (colorField) {
+    tipFormat[colorField.columnName] = true;
+  }
+  if (sizeField) {
+    tipFormat[sizeField.columnName] = true;
+  }
+  
+  dotConfig.tip = { pointer: 'x', preferredAnchor: 'top-right', format: tipFormat };
+
   const plotOptions: Plot.PlotOptions = {
     x: { label: labels?.x || xColumn, grid: true, domain: domain?.x },
     y: { label: labels?.y || yColumn, grid: true, domain: domain?.y },
@@ -185,6 +197,7 @@ export function verticalLineChart(
     lineConfig.stroke = colorColumnName;
     lineConfig.z = colorColumnName;
     dotConfig.fill = colorColumnName;
+    dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
   } else {
     lineConfig.stroke = DEFAULT_CHART_COLOR;
     dotConfig.fill = DEFAULT_CHART_COLOR;
