@@ -3,6 +3,7 @@ import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { getPlotColorConfig } from '../utils/colorSchemeUtils';
+import { createSizeScale } from '../utils/sizeUtils';
 
 /**
  * Scatter chart for continuous measure vs continuous measure or dimension.
@@ -13,7 +14,10 @@ export function scatterChart(
   yColumn: string,
   options?: { x?: string; y?: string; domain?: { x?: [number, number]; y?: [number, number] } },
   colorField?: Field,
-  colorScheme?: string
+  colorScheme?: string,
+  sizeField?: Field,
+  sizeRange?: [number, number],
+  manualSize?: number
 ): Plot.PlotOptions {
   const clean = Array.isArray(data)
     ? data.filter((d) => Number.isFinite(d[xColumn]) && Number.isFinite(d[yColumn]))
@@ -45,6 +49,15 @@ export function scatterChart(
     dotConfig.fill = colorColumnName;
   } else {
     dotConfig.fill = DEFAULT_CHART_COLOR;
+  }
+
+  // Apply size configuration
+  if (sizeField && sizeRange) {
+    const sizeScale = createSizeScale(clean, sizeField, sizeRange, manualSize || 4);
+    const sizeColumnName = getResultColumnName(sizeField);
+    dotConfig.r = (d: any) => sizeScale.getSizeForValue(d[sizeColumnName]);
+  } else {
+    dotConfig.r = manualSize || 4;
   }
   // Enable tooltip on points; use pointer along X for easier targeting
   // Use format to only show x/y channels and rely on Plot's name-value layout for bold-ish labels.

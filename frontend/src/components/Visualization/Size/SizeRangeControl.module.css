@@ -1,0 +1,49 @@
+/* Size Range Control specific styles */
+
+.container {
+  margin-top: 12px;
+  padding: 8px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background-color: #fafafa;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: #424242;
+}
+
+.description {
+  font-size: 11px;
+  color: #757575;
+  margin-top: 4px;
+  display: block;
+}
+
+.rangeSlider {
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.manualSlider {
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.rangeSlider .MuiSlider-thumb {
+  background-color: #1976d2;
+}
+
+.rangeSlider .MuiSlider-track {
+  background-color: #1976d2;
+}
+
+.manualSlider .MuiSlider-thumb {
+  background-color: #388e3c;
+}
+
+.manualSlider .MuiSlider-track {
+  background-color: #388e3c;
+}

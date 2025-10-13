@@ -9,7 +9,9 @@ import FieldsPanel from '../components/Visualization/FieldsPanel';
 import ChartPanel from '../components/Visualization/ChartPanel';
 import FilterPanel from '../components/Visualization/Filters/FilterPanel';
 import ColorPanel from '../components/Visualization/Color/ColorPanel';
+// import SizePanel from '../components/Visualization/Size/SizePanel';
 import LegendPanel from '../components/Visualization/Legend/LegendPanel';
+import SizePanel from '../components/Visualization/Size/SizePanelComplete';
 import LoadingModal from '../components/LoadingModal';
 import { apiService } from '../apiService';
 
@@ -52,6 +54,8 @@ const VisualizationPage = () => {
         handleRemoveFromFilter,
         handleColorDrop,
         handleRemoveFromColor,
+        handleSizeDrop,
+        handleRemoveFromSize,
     } = useDragDrop();
 
     // Simplified axis-specific handlers that use the generic handler
@@ -160,6 +164,7 @@ const VisualizationPage = () => {
                                     });
                                 }}
                             />
+                            <SizePanel />
                             {state.colorField && (
                                 <LegendPanel
                                     colorField={state.colorField}
