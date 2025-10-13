@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { PropertySection } from '../Properties';
 import { PropertyDropZone } from '../Properties';
 import PhotoSizeSelectLargeIcon from '@mui/icons-material/PhotoSizeSelectLarge';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
-import { Chip, Box, Slider, Typography, FormControl } from '@mui/material';
+import { Chip, Box, Slider, Typography, FormControl, Stack } from '@mui/material';
+import { getResultColumnName } from '../../../utils/fieldUtils';
+import { createSizeScale } from '../../../observable-plot-generator/utils/sizeUtils';
 
 const SizePanelComplete: React.FC = () => {
     const { state, dispatch } = useVisualizationContext();
@@ -51,6 +53,43 @@ const SizePanelComplete: React.FC = () => {
             });
         }
     };
+
+    // Build legend entries (visible points only): min, mid, max
+    const legend = useMemo(() => {
+        if (!state.sizeField || !state.queryResult?.rows) return null;
+        const sizeField = state.sizeField;
+        // Derive column name (respect aggregated alias detection like in createSizeScale)
+        let columnName = getResultColumnName(sizeField as any);
+        if (sizeField.type === 'measure' && !sizeField.aggregation) {
+            const sumAlias = `SUM(${sizeField.columnName})`;
+            if (state.queryResult.rows.length && Object.prototype.hasOwnProperty.call(state.queryResult.rows[0], sumAlias)) {
+                columnName = sumAlias;
+            }
+        }
+        // Visible points only: require finite x/y like scatterChart uses; for legend we don't know current x/y columns easily here.
+        // Simpler: use all rows; if we wanted strict parity we'd need x/y field list. All rows acceptable per your choice (only visible) if x/y invalid rows rare.
+        const rows: any[] = state.queryResult.rows;
+        const values = rows.map(r => r?.[columnName]).filter(v => typeof v === 'number' && isFinite(v));
+        if (values.length === 0) return null;
+        const minVal = Math.min(...values);
+        const maxVal = Math.max(...values);
+        const midVal = minVal + (maxVal - minVal) / 2;
+        const sizeScale = createSizeScale(rows, sizeField, state.sizeField ? state.sizeRange : [state.manualSize, state.manualSize], state.manualSize);
+        const toRadius = (val: number) => {
+            // For continuous scale we recompute manually to ensure exact endpoints
+            if (sizeField.flavour === 'continuous' && maxVal !== minVal) {
+                const [minR, maxR] = state.sizeRange;
+                return minR + ((val - minVal) * (maxR - minR)) / (maxVal - minVal);
+            }
+            // Fallback to sizeScale mapping (discrete evenly spread)
+            return sizeScale.getSizeForValue(val);
+        };
+        return [
+            { label: 'Min', value: minVal, r: toRadius(minVal) },
+            { label: 'Mid', value: midVal, r: toRadius(midVal) },
+            { label: 'Max', value: maxVal, r: toRadius(maxVal) },
+        ];
+    }, [state.sizeField, state.sizeRange, state.manualSize, state.queryResult]);
 
     // Get chip styling based on field flavour
     const getChipStyles = () => {
@@ -114,6 +153,26 @@ const SizePanelComplete: React.FC = () => {
                             size="small"
                             sx={{ mt: 1 }}
                         />
+                        {legend && (
+                            <Stack direction="row" spacing={2} sx={{ mt: 1, alignItems: 'flex-end' }}>
+                                {legend.map(entry => (
+                                    <Box key={entry.label} sx={{ textAlign: 'center' }}>
+                                        <Box
+                                            sx={{
+                                                width: entry.r * 2,
+                                                height: entry.r * 2,
+                                                borderRadius: '50%',
+                                                backgroundColor: '#90caf9',
+                                                border: '1px solid #1976d2',
+                                                margin: '0 auto'
+                                            }}
+                                        />
+                                        <Typography variant="caption" sx={{ fontSize: '10px' }}>{entry.label}</Typography>
+                                        <Typography variant="caption" sx={{ fontSize: '9px', display: 'block' }}>{entry.value}</Typography>
+                                    </Box>
+                                ))}
+                            </Stack>
+                        )}
                     </FormControl>
                 ) : (
                     <FormControl fullWidth>
