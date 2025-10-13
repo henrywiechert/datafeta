@@ -54,7 +54,15 @@ export function scatterChart(
   // Apply size configuration
   if (sizeField && sizeRange) {
     const sizeScale = createSizeScale(clean, sizeField, sizeRange, manualSize || 4);
-    const sizeColumnName = getResultColumnName(sizeField);
+    // Determine actual column name (handle implicit SUM aggregation alias like sizeUtils does)
+    let sizeColumnName = getResultColumnName(sizeField);
+    if (sizeField.type === 'measure' && !sizeField.aggregation) {
+      const sumAlias = `SUM(${sizeField.columnName})`;
+      if (clean.length && Object.prototype.hasOwnProperty.call(clean[0], sumAlias)) {
+        sizeColumnName = sumAlias;
+      }
+    }
+    // Provide a direct radius in pixels so we add an identity scale at plot level
     dotConfig.r = (d: any) => sizeScale.getSizeForValue(d[sizeColumnName]);
   } else {
     dotConfig.r = manualSize || 4;
@@ -71,6 +79,8 @@ export function scatterChart(
     // Provide labels and retain as keys for domain application
     x: { label: options?.x || xColumn, grid: true, domain: options?.domain?.x },
     y: { label: options?.y || yColumn, grid: true, domain: options?.domain?.y },
+    // Ensure r values returned by dotConfig.r are treated as absolute radii (no further scaling)
+    r: { type: 'identity' } as any,
     marks: [
       Plot.dot(clean, dotConfig),
     ],
