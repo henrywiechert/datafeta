@@ -12,7 +12,7 @@ import { ChartRenderer, ChartControls, DebugPanel } from './components';
  */
 const ChartArea: React.FC = () => {
   const { state, dispatch, startOperation, completeOperation } = useVisualizationContext();
-  const { xAxisFields, yAxisFields, colorField, colorScheme, selectedTable, selectedDatabase, queryResult, queryError, appliedFilterConfigurations } = state;
+  const { xAxisFields, yAxisFields, colorField, colorScheme, sizeField, sizeRange, manualSize, selectedTable, selectedDatabase, queryResult, queryError, appliedFilterConfigurations } = state;
 
   // Use the extracted data processing hook
   const { useTableView, tableData } = useDataProcessing({
@@ -40,6 +40,9 @@ const ChartArea: React.FC = () => {
     yAxisFields,
     colorField,
     colorScheme,
+    sizeField,
+    sizeRange,
+    manualSize,
     useTableView,
     queryResult, // Pass queryResult here
     startOperation,

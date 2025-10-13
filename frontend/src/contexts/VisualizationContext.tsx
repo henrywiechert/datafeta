@@ -33,6 +33,10 @@ interface VisualizationState {
   // Color encoding state
   colorField: Field | null;
   colorScheme: string;
+  // Size encoding state
+  sizeField: Field | null;
+  sizeRange: [number, number]; // Min and max size
+  manualSize: number; // Used when no field is present
 }
 
 // Define action types
@@ -67,7 +71,12 @@ type VisualizationAction =
   // Color encoding action types
   | { type: 'SET_COLOR_FIELD'; payload: Field | null }
   | { type: 'SET_COLOR_SCHEME'; payload: string }
-  | { type: 'REMOVE_COLOR_FIELD' };
+  | { type: 'REMOVE_COLOR_FIELD' }
+  // Size encoding action types
+  | { type: 'SET_SIZE_FIELD'; payload: Field | null }
+  | { type: 'SET_SIZE_RANGE'; payload: [number, number] }
+  | { type: 'SET_MANUAL_SIZE'; payload: number }
+  | { type: 'REMOVE_SIZE_FIELD' };
 
 // Initial state
 const initialState: VisualizationState = {
@@ -97,6 +106,10 @@ const initialState: VisualizationState = {
   // Color encoding state
   colorField: null,
   colorScheme: 'tableau10',
+  // Size encoding state
+  sizeField: null,
+  sizeRange: [4, 20], // Default range for sizes
+  manualSize: 10, // Default manual size
 };
 
 // Reducer function
@@ -265,6 +278,14 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
       return { ...state, colorScheme: action.payload };
     case 'REMOVE_COLOR_FIELD':
       return { ...state, colorField: null };
+    case 'SET_SIZE_FIELD':
+      return { ...state, sizeField: action.payload };
+    case 'SET_SIZE_RANGE':
+      return { ...state, sizeRange: action.payload };
+    case 'SET_MANUAL_SIZE':
+      return { ...state, manualSize: action.payload };
+    case 'REMOVE_SIZE_FIELD':
+      return { ...state, sizeField: null };
     case 'RESET_STATE':
       return initialState;
     default:

@@ -3,6 +3,7 @@ import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { getPlotColorConfig } from '../utils/colorSchemeUtils';
+import { createSizeScale } from '../utils/sizeUtils';
 
 /**
  * Line chart for continuous dimension on one axis and continuous measure on the other.
@@ -15,7 +16,10 @@ export function lineChart(
   labels?: { x?: string; y?: string },
   domain?: { x?: [number, number]; y?: [number, number] },
   colorField?: Field,
-  colorScheme?: string
+  colorScheme?: string,
+  sizeField?: Field,
+  sizeRange?: [number, number],
+  manualSize?: number
 ): Plot.PlotOptions {
   // Filter to finite numeric values for y; x may be numeric or datetime/ordinal
   const clean = Array.isArray(data)
@@ -77,6 +81,15 @@ export function lineChart(
     lineConfig.stroke = DEFAULT_CHART_COLOR;
     dotConfig.fill = DEFAULT_CHART_COLOR;
   }
+
+  // Apply size configuration for line width
+  if (sizeField && sizeRange) {
+    const sizeScale = createSizeScale(cleanSorted, sizeField, sizeRange, manualSize || 2);
+    const sizeColumnName = getResultColumnName(sizeField);
+    lineConfig.strokeWidth = (d: any) => sizeScale.getSizeForValue(d[sizeColumnName]);
+  } else {
+    lineConfig.strokeWidth = manualSize || 2;
+  }
   
   const plotOptions: Plot.PlotOptions = {
     x: { label: labels?.x || xColumn, grid: true, domain: domain?.x },
@@ -113,7 +126,10 @@ export function verticalLineChart(
   labels?: { x?: string; y?: string },
   domain?: { x?: [number, number]; y?: [number, number] },
   colorField?: Field,
-  colorScheme?: string
+  colorScheme?: string,
+  sizeField?: Field,
+  sizeRange?: [number, number],
+  manualSize?: number
 ): Plot.PlotOptions {
   const clean = Array.isArray(data)
     ? data.filter((d) => Number.isFinite(d[xColumn]))
@@ -172,6 +188,15 @@ export function verticalLineChart(
   } else {
     lineConfig.stroke = DEFAULT_CHART_COLOR;
     dotConfig.fill = DEFAULT_CHART_COLOR;
+  }
+
+  // Apply size configuration for line width
+  if (sizeField && sizeRange) {
+    const sizeScale = createSizeScale(cleanSorted, sizeField, sizeRange, manualSize || 2);
+    const sizeColumnName = getResultColumnName(sizeField);
+    lineConfig.strokeWidth = (d: any) => sizeScale.getSizeForValue(d[sizeColumnName]);
+  } else {
+    lineConfig.strokeWidth = manualSize || 2;
   }
   
   const plotOptions: Plot.PlotOptions = {

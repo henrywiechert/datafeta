@@ -38,7 +38,7 @@ export function generateScatterPlot(analysis: FieldAnalysis, context: ChartGener
 }
 
 export function generateChartOptions(analysis: FieldAnalysis, context: ChartGenerationContext): PlotResult {
-  const { queryResult, colorField } = context;
+  const { queryResult, colorField, sizeField, sizeRange, manualSize } = context;
   const data = queryResult.rows;
 
   const xDims = analysis.xDimensions || [];
@@ -63,7 +63,7 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
       const xMeasureCol = getResultColumnName({ ...xMeasure, aggregation: xMeasure.aggregation || 'sum' } as any);
       return { 
         library: 'observable-plot', 
-        options: lineChart(data, yDimCol, xMeasureCol, { x: getFieldDisplayName(yDim), y: xMeasureCol }, undefined, colorField), 
+        options: lineChart(data, yDimCol, xMeasureCol, { x: getFieldDisplayName(yDim), y: xMeasureCol }, undefined, colorField, undefined, sizeField, sizeRange, manualSize), 
         layout: { type: 'single' } 
       };
     }
@@ -80,7 +80,7 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
       const yMeasureCol = getResultColumnName({ ...yMeasure, aggregation: yMeasure.aggregation || 'sum' } as any);
       return { 
         library: 'observable-plot', 
-        options: lineChart(data, xDimCol, yMeasureCol, { x: getFieldDisplayName(xDim), y: yMeasureCol }, undefined, colorField), 
+        options: lineChart(data, xDimCol, yMeasureCol, { x: getFieldDisplayName(xDim), y: yMeasureCol }, undefined, colorField, undefined, sizeField, sizeRange, manualSize), 
         layout: { type: 'single' } 
       };
     }
@@ -152,7 +152,7 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
     if (xContinuousDims.length > 0 && yContinuousDims.length > 0) {
       const xDimCol = getResultColumnName(xContinuousDims[0]);
       const yDimCol = getResultColumnName(yContinuousDims[0]);
-      return { library: 'observable-plot', options: scatterChart(data, xDimCol, yDimCol, { x: xDimCol, y: yDimCol }, colorField), layout: { type: 'single' } };
+      return { library: 'observable-plot', options: scatterChart(data, xDimCol, yDimCol, { x: xDimCol, y: yDimCol }, colorField, undefined, sizeField, sizeRange, manualSize), layout: { type: 'single' } };
     }
     // Both discrete → simple dot plot (categorical scatter)
     if (xDiscreteDims.length > 0 && yDiscreteDims.length > 0) {
@@ -189,7 +189,7 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
     const yDimCol = getResultColumnName(yDim);
     return { 
       library: 'observable-plot', 
-      options: lineChart(data, yDimCol, xMeasureCol, { x: getFieldDisplayName(yDim), y: xMeasureCol }, undefined, colorField), 
+      options: lineChart(data, yDimCol, xMeasureCol, { x: getFieldDisplayName(yDim), y: xMeasureCol }, undefined, colorField, undefined, sizeField, sizeRange, manualSize), 
       layout: { type: 'single' } 
     };
   }
@@ -200,7 +200,7 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
     const xDimCol = getResultColumnName(xDim);
     return { 
       library: 'observable-plot', 
-      options: lineChart(data, xDimCol, yMeasureCol, { x: getFieldDisplayName(xDim), y: yMeasureCol }, undefined, colorField), 
+      options: lineChart(data, xDimCol, yMeasureCol, { x: getFieldDisplayName(xDim), y: yMeasureCol }, undefined, colorField, undefined, sizeField, sizeRange, manualSize), 
       layout: { type: 'single' } 
     };
   }
