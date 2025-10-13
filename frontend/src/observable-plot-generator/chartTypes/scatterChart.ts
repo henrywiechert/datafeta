@@ -47,6 +47,7 @@ export function scatterChart(
   if (colorField) {
     const colorColumnName = getResultColumnName(colorField);
     dotConfig.fill = colorColumnName;
+    dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
   } else {
     dotConfig.fill = DEFAULT_CHART_COLOR;
   }
@@ -64,15 +65,26 @@ export function scatterChart(
     }
     // Provide a direct radius in pixels so we add an identity scale at plot level
     dotConfig.r = (d: any) => sizeScale.getSizeForValue(d[sizeColumnName]);
+    dotConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
   } else {
     dotConfig.r = manualSize || 4;
   }
   // Enable tooltip on points; use pointer along X for easier targeting
   // Use format to only show x/y channels and rely on Plot's name-value layout for bold-ish labels.
+  const tipFormat: any = { [xLabel]: true, [yLabel]: true, x: false, y: false, fill: false, r: false };
+  
+  if (colorField) {
+    tipFormat[colorField.columnName] = true;
+  }
+  
+  if (sizeField) {
+    tipFormat[sizeField.columnName] = true;
+  }
+  
   dotConfig.tip = {
     closest: "xy",
     preferredAnchor: 'top-right',
-    format: { [xLabel]: true, [yLabel]: true, x: false, y: false, fill: false, r: false }
+    format: tipFormat
   } as any;
   
   const plotOptions: Plot.PlotOptions = {

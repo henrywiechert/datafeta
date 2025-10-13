@@ -152,21 +152,47 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
     if (xDiscreteDims.length > 0 && yDiscreteDims.length > 0) {
       const xCat = getResultColumnName(xDiscreteDims[0]);
       const yCat = getResultColumnName(yDiscreteDims[0]);
+      const dotConfig: any = {
+        x: { value: xCat, label: xCat },
+        y: { value: yCat, label: yCat },
+        fill: 'steelblue',
+        r: 2,
+        channels: {
+          [xCat]: { value: xCat, label: xCat },
+          [yCat]: { value: yCat, label: yCat },
+        }
+      };
+      
+      // Add color and size channels if present
+      if (colorField) {
+        const colorColumnName = getResultColumnName(colorField);
+        dotConfig.fill = colorColumnName;
+        dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
+      }
+      
+      if (sizeField) {
+        const sizeColumnName = getResultColumnName(sizeField);
+        dotConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
+        // Note: size scaling for discrete charts not implemented yet
+      }
+      
+      // Update tooltip format
+      const tipFormat: any = { [xCat]: true, [yCat]: true, x: false, y: false, fill: false, r: false };
+      if (colorField) {
+        tipFormat[colorField.columnName] = true;
+      }
+      if (sizeField) {
+        tipFormat[sizeField.columnName] = true;
+      }
+      
       return {
         library: 'observable-plot',
         options: {
           x: { label: xCat },
           y: { label: yCat },
           marks: [Plot.dot(data, {
-            x: { value: xCat, label: xCat },
-            y: { value: yCat, label: yCat },
-            fill: 'steelblue',
-            r: 2,
-            channels: {
-              [xCat]: { value: xCat, label: xCat },
-              [yCat]: { value: yCat, label: yCat },
-            },
-            tip: { pointer: 'x', preferredAnchor: 'top-right', format: { [xCat]: true, [yCat]: true, x: false, y: false, fill: false, r: false } }
+            ...dotConfig,
+            tip: { pointer: 'x', preferredAnchor: 'top-right', format: tipFormat }
           })],
         },
         layout: { type: 'single' },
