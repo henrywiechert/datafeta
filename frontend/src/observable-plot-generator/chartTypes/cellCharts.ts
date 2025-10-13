@@ -20,7 +20,10 @@ export function generatePairChartOptions(
   yField: Field | null,
   sharedMeasureDomains?: Domains,
   overrides?: ChartTypeOverrides,
-  colorField?: Field
+  colorField?: Field,
+  sizeField?: Field,
+  sizeRange?: [number, number],
+  manualSize?: number
 ): Plot.PlotOptions {
   if (!xField && !yField) {
     return messageOptions('No fields');
@@ -30,11 +33,11 @@ export function generatePairChartOptions(
   if (xField && !yField) {
     if (xField.type === 'measure') return createBarX(data, xField, null, sharedMeasureDomains);
     // Single dimension alone → show tick strip would be an alternative, but inside cartesian grid we stick to scatter
-    return scatterForDimOnly(data, xField, colorField);
+    return scatterForDimOnly(data, xField, colorField, sizeField, sizeRange, manualSize);
   }
   if (!xField && yField) {
     if (yField.type === 'measure') return createBarY(data, yField, null, sharedMeasureDomains);
-    return scatterForDimOnly(data, yField, colorField);
+    return scatterForDimOnly(data, yField, colorField, sizeField, sizeRange, manualSize);
   }
 
   const xf = xField!;
@@ -79,10 +82,10 @@ export function generatePairChartOptions(
           }
         };
         const single = [{ [xCol]: aggregate(xCol, (xf as any).aggregation), [yCol]: aggregate(yCol, (yf as any).aggregation) } as any];
-        return scatterChart(single, xCol, yCol, domainOptions, colorField);
+        return scatterChart(single, xCol, yCol, domainOptions, colorField, undefined, sizeField, sizeRange, manualSize);
       }
       // Otherwise render scatter with full data
-      return scatterChart(data, xCol, yCol, domainOptions, colorField);
+      return scatterChart(data, xCol, yCol, domainOptions, colorField, undefined, sizeField, sizeRange, manualSize);
     }
     case 'line': {
       // measure vs continuous dimension – ensure dimension on one axis
@@ -103,7 +106,7 @@ export function generatePairChartOptions(
       }
       // If both are measures or both are dimensions, fallback to scatter (empty if no data)
       const { xCol, yCol } = resolveXYColumns(xf, yf);
-      return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField);
+      return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, undefined, sizeField, sizeRange, manualSize);
     }
     case 'barX': {
       return createBarX(data, xf, yf.type === 'dimension' ? yf : null, sharedMeasureDomains, colorField);
@@ -125,7 +128,7 @@ export function generatePairChartOptions(
         );
       }
       const { xCol, yCol } = resolveXYColumns(xf, yf);
-      return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField);
+      return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, undefined, sizeField, sizeRange, manualSize);
     }
     case 'tickY': {
       // continuous dimension on Y, optional discrete dimension category on X
@@ -140,7 +143,7 @@ export function generatePairChartOptions(
         );
       }
       const { xCol, yCol } = resolveXYColumns(xf, yf);
-      return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField);
+      return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, undefined, sizeField, sizeRange, manualSize);
     }
     case 'dot': {
       const xCol = xf.columnName;
@@ -277,9 +280,16 @@ function createBarY(
   return opts;
 }
 
-function scatterForDimOnly(data: any[], dim: Field, colorField?: Field): Plot.PlotOptions {
+function scatterForDimOnly(
+  data: any[],
+  dim: Field,
+  colorField?: Field,
+  sizeField?: Field,
+  sizeRange?: [number, number],
+  manualSize?: number
+): Plot.PlotOptions {
   const col = dim.columnName;
-  return scatterChart(data, col, col, { x: col, y: col }, colorField);
+  return scatterChart(data, col, col, { x: col, y: col }, colorField, undefined, sizeField, sizeRange, manualSize);
 }
 
 function messageOptions(text: string): Plot.PlotOptions {

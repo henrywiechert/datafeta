@@ -8,7 +8,7 @@ import { scatterChart } from '../chartTypes/scatterChart';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 
 export function generateScatterPlot(analysis: FieldAnalysis, context: ChartGenerationContext): Plot.PlotOptions {
-  const { queryResult } = context;
+  const { queryResult, colorField, colorScheme, sizeField, sizeRange, manualSize } = context;
   const data = queryResult?.rows || [];
   const xMeasure = analysis.xMeasures[0];
   const yMeasure = analysis.yMeasures[0];
@@ -16,25 +16,19 @@ export function generateScatterPlot(analysis: FieldAnalysis, context: ChartGener
   const yFieldForName = { ...yMeasure, aggregation: yMeasure.aggregation || 'sum' };
   const xColumnName = getResultColumnName(xFieldForName as any);
   const yColumnName = getResultColumnName(yFieldForName as any);
-  return {
-    width: 400,
-    height: 300,
-    x: { label: xColumnName, grid: true },
-    y: { label: yColumnName, grid: true },
-    marks: [
-      Plot.dot(data, {
-        x: { value: xColumnName, label: xColumnName },
-        y: { value: yColumnName, label: yColumnName },
-        fill: 'steelblue',
-        r: 4,
-        channels: {
-          [xColumnName]: { value: xColumnName, label: xColumnName },
-          [yColumnName]: { value: yColumnName, label: yColumnName },
-        },
-        tip: { pointer: 'x', preferredAnchor: 'top-right', format: { [xColumnName]: true, [yColumnName]: true, x: false, y: false, fill: false, r: false } }
-      }),
-    ],
-  };
+
+  // Delegate to shared scatterChart helper so color & size logic stays consistent
+  return scatterChart(
+    data,
+    xColumnName,
+    yColumnName,
+    { x: xColumnName, y: yColumnName },
+    colorField,
+    colorScheme,
+    sizeField,
+    sizeRange,
+    manualSize
+  );
 }
 
 export function generateChartOptions(analysis: FieldAnalysis, context: ChartGenerationContext): PlotResult {

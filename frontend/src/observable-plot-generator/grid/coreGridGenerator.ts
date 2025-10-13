@@ -30,13 +30,24 @@ export function generateCartesianGrid(
   yCandidates: Field[],
   overrides?: ChartTypeOverrides
 ): PlotResult {
-  const { queryResult, colorField, colorScheme } = context;
+  const { queryResult, colorField, colorScheme, sizeField, sizeRange, manualSize } = context;
   const data = queryResult.rows;
 
   // Compute shared domains for any measures used in the grid
   const sharedMeasureDomains = computeSharedMeasureDomains(data, xCandidates, yCandidates, colorField);
 
-  const plots = generateCartesianPlots(data, xCandidates, yCandidates, sharedMeasureDomains, overrides, colorField, colorScheme);
+  const plots = generateCartesianPlots(
+    data,
+    xCandidates,
+    yCandidates,
+    sharedMeasureDomains,
+    overrides,
+    colorField,
+    colorScheme,
+    sizeField,
+    sizeRange,
+    manualSize
+  );
 
   // Derive per-column width and per-row height from plots' options when available
   const columnSizes: Array<number | 'fr'> = Array.from({ length: xCandidates.length }, (_, c) => {
@@ -74,7 +85,10 @@ export function generateCartesianPlots(
   sharedMeasureDomains: Record<string, [number, number]>,
   overrides?: ChartTypeOverrides,
   colorField?: Field,
-  colorScheme?: string
+  colorScheme?: string,
+  sizeField?: Field,
+  sizeRange?: [number, number],
+  manualSize?: number
 ): CartesianPlot[] {
   const plots: CartesianPlot[] = [];
 
@@ -118,7 +132,10 @@ export function generateCartesianPlots(
         yField,
         { ...sharedMeasureDomains, ...sharedNumeric },
         overrides,
-        colorField
+        colorField,
+        sizeField,
+        sizeRange,
+        manualSize
       );
 
       // Apply shared color domain to keep color mapping consistent across the grid
