@@ -30,3 +30,8 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 
 ## [] Continous dimension for color
 - gradient feature
+
+- add all used fields to tooltip
+
+- add panel for additional fields for tooltips
+
