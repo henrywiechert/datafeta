@@ -99,7 +99,7 @@ export type Flavour = 'discrete' | 'continuous';
 export type DataType = 'string' | 'integer' | 'float' | 'datetime';
 export type DateTimePart = 'year' | 'month' | 'day' | 'weekday' | 'hour' | 'minute' | 'second' | 'millisecond' | 'microsecond' | 'nanosecond';
 export type DateTimeMode = 'distinct' | 'timeline';
-export type DragSource = 'X_AXIS' | 'Y_AXIS' | 'AVAILABLE_FIELDS' | 'FILTER_ZONE' | 'COLOR_ZONE';
+export type DragSource = 'X_AXIS' | 'Y_AXIS' | 'AVAILABLE_FIELDS' | 'FILTER_ZONE' | 'COLOR_ZONE' | 'SIZE_ZONE';
 
 export interface Field {
   id: string; // A unique ID for each chip instance

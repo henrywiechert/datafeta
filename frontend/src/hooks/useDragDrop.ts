@@ -176,6 +176,38 @@ export function useDragDrop() {
     dispatch({ type: 'REMOVE_COLOR_FIELD' });
   }, [dispatch]);
 
+  /**
+   * Handle drops on the size zone (replaces existing field)
+   */
+  const handleSizeDrop = useCallback((field: Field, source: DragSource) => {
+    let fieldToSet: Field;
+    
+    if (source === 'AVAILABLE_FIELDS') {
+      // Find the field in available fields
+      const sourceField = state.availableFields.find(f => f.id === field.id);
+      if (!sourceField) return;
+      
+      // Create an independent copy of the field with a new ID
+      fieldToSet = { ...sourceField, id: uuidv4() };
+    } else if (source === 'SIZE_ZONE') {
+      // Update from size zone itself (e.g., aggregation change)
+      fieldToSet = field;
+    } else {
+      // Copy from axis (keep it on the axis too)
+      fieldToSet = { ...field, id: uuidv4() };
+    }
+    
+    // Replace the existing size field with the new one
+    dispatch({ type: 'SET_SIZE_FIELD', payload: fieldToSet });
+  }, [dispatch, state.availableFields]);
+
+  /**
+   * Remove the field from the size zone
+   */
+  const handleRemoveFromSize = useCallback(() => {
+    dispatch({ type: 'REMOVE_SIZE_FIELD' });
+  }, [dispatch]);
+
   return {
     handleAxisDrop,
     handleRemoveFromAxis,
@@ -184,5 +216,7 @@ export function useDragDrop() {
     handleRemoveFromFilter,
     handleColorDrop,
     handleRemoveFromColor,
+    handleSizeDrop,
+    handleRemoveFromSize,
   };
 }

@@ -9,6 +9,9 @@ interface UseChartGenerationProps {
   yAxisFields: any[];
   colorField: Field | null;
   colorScheme?: string;
+  sizeField: Field | null;
+  sizeRange: [number, number];
+  manualSize: number;
   useTableView: boolean;
   queryResult: any; // Add queryResult here
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
@@ -28,6 +31,9 @@ export const useChartGeneration = ({
   yAxisFields,
   colorField,
   colorScheme,
+  sizeField,
+  sizeRange,
+  manualSize,
   useTableView,
   queryResult, // Destructure here
   startOperation,
@@ -56,6 +62,9 @@ export const useChartGeneration = ({
         yFields: yAxisFields,
         colorField: colorField || undefined,
         colorScheme,
+        sizeField: sizeField || undefined,
+        sizeRange,
+        manualSize,
         queryResult,
       });
       
