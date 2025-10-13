@@ -60,8 +60,6 @@ export function scatterChart(
     y: { label: options?.y || yColumn, grid: true, domain: options?.domain?.y },
     marks: [
       Plot.dot(clean, dotConfig),
-      Plot.ruleX([0]),
-      Plot.ruleY([0]),
     ],
   };
   
