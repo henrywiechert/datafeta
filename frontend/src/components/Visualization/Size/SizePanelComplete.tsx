@@ -4,8 +4,10 @@ import { PropertyDropZone } from '../Properties';
 import PhotoSizeSelectLargeIcon from '@mui/icons-material/PhotoSizeSelectLarge';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { Chip, Box, Slider, Typography, FormControl, Stack } from '@mui/material';
-import { getResultColumnName } from '../../../utils/fieldUtils';
+import CloseIcon from '@mui/icons-material/Close';
+import { getResultColumnName, getFieldDisplayName } from '../../../utils/fieldUtils';
 import { createSizeScale } from '../../../observable-plot-generator/utils/sizeUtils';
+import styles from './SizePanelComplete.module.css';
 
 const SizePanelComplete: React.FC = () => {
     const { state, dispatch } = useVisualizationContext();
@@ -125,12 +127,20 @@ const SizePanelComplete: React.FC = () => {
                 onDrop={handleSizeDrop}
             >
                 {state.sizeField && (
-                    <Box sx={{ p: 1 }}>
+                    <Box className={styles.chipContainer}>
                         <Chip
-                            label={state.sizeField.columnName}
+                            label={getFieldDisplayName(state.sizeField)}
                             onDelete={handleRemoveFromSize}
+                            deleteIcon={<CloseIcon />}
                             size="small"
-                            sx={getChipStyles()}
+                            className={styles.chip}
+                            sx={{
+                                ...getChipStyles(),
+                                '& .MuiChip-label': {
+                                    fontSize: '12px',
+                                    fontWeight: 500,
+                                },
+                            }}
                         />
                     </Box>
                 )}
