@@ -17,7 +17,7 @@ export function tickStrip(
   categoryDimensionColumn?: string,
   labels?: { dimension?: string; category?: string }
 ): Plot.PlotOptions {
-  const { queryResult, colorField, colorScheme } = context;
+  const { queryResult, colorField, colorScheme, sizeField } = context;
   const data = queryResult.rows;
 
   // Guard against invalid values; accept numbers or dates (Date objects or parseable strings)
@@ -50,6 +50,38 @@ export function tickStrip(
       const categories = Array.from(new Set(data.map((row: any) => row[categoryDimensionColumn])));
       const categoryCount = categories.length;
       const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
+      
+      // Build tick config with channels
+      const tickConfig: any = {
+        x: dimensionColumn,
+        y: categoryDimensionColumn,
+        stroke: colorColumnName || DEFAULT_CHART_COLOR,
+        strokeWidth: 1.5,
+        channels: {}
+      };
+      
+      // Add color field to channels for tooltip
+      if (colorField && colorColumnName) {
+        tickConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
+      }
+      
+      // Add size field to channels for tooltip
+      if (sizeField) {
+        const sizeColumnName = getResultColumnName(sizeField);
+        tickConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
+      }
+      
+      // Build tip format
+      const tipFormat: any = { stroke: false };
+      if (colorField) {
+        tipFormat[colorField.columnName] = true;
+      }
+      if (sizeField) {
+        tipFormat[sizeField.columnName] = true;
+      }
+      
+      tickConfig.tip = { pointer: 'x', preferredAnchor: 'top-right', format: tipFormat };
+      
       const opts: Plot.PlotOptions = {
         x: { label: labels?.dimension || dimensionColumn, grid: true },
         y: { 
@@ -60,13 +92,7 @@ export function tickStrip(
         },
         height: Math.max(BAR_STEP_PX * 2, categoryCount * BAR_STEP_PX),
         marks: [
-          Plot.tickX(data, {
-            x: dimensionColumn,
-            y: categoryDimensionColumn,
-            stroke: colorColumnName || DEFAULT_CHART_COLOR,
-            strokeWidth: 1.5,
-            tip: { pointer: 'x', preferredAnchor: 'top-right' },
-          }),
+          Plot.tickX(data, tickConfig),
         ],
       };
       if (colorField && colorColumnName) {
@@ -81,17 +107,43 @@ export function tickStrip(
       return opts;
     }
     const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
+    
+    // Build tick config with channels
+    const tickConfig: any = {
+      x: dimensionColumn,
+      stroke: colorColumnName || DEFAULT_CHART_COLOR,
+      strokeWidth: 1.5,
+      channels: {}
+    };
+    
+    // Add color field to channels for tooltip
+    if (colorField && colorColumnName) {
+      tickConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
+    }
+    
+    // Add size field to channels for tooltip
+    if (sizeField) {
+      const sizeColumnName = getResultColumnName(sizeField);
+      tickConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
+    }
+    
+    // Build tip format
+    const tipFormat: any = { stroke: false };
+    if (colorField) {
+      tipFormat[colorField.columnName] = true;
+    }
+    if (sizeField) {
+      tipFormat[sizeField.columnName] = true;
+    }
+    
+    tickConfig.tip = { pointer: 'x', preferredAnchor: 'top-right', format: tipFormat };
+    
     const opts: Plot.PlotOptions = {
       x: { label: labels?.dimension || dimensionColumn, grid: true },
       y: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: 0.1 as any },
       height: BAR_STEP_PX * 2,
       marks: [
-        Plot.tickX(data, {
-          x: dimensionColumn,
-          stroke: colorColumnName || DEFAULT_CHART_COLOR,
-          strokeWidth: 1.5,
-          tip: { pointer: 'x', preferredAnchor: 'top-right' },
-        }),
+        Plot.tickX(data, tickConfig),
       ],
     };
     if (colorField && colorColumnName) {
@@ -111,6 +163,38 @@ export function tickStrip(
     const categories = Array.from(new Set(data.map((row: any) => row[categoryDimensionColumn])));
     const categoryCount = categories.length;
     const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
+    
+    // Build tick config with channels
+    const tickConfig: any = {
+      y: dimensionColumn,
+      x: categoryDimensionColumn,
+      stroke: colorColumnName || DEFAULT_CHART_COLOR,
+      strokeWidth: 1.5,
+      channels: {}
+    };
+    
+    // Add color field to channels for tooltip
+    if (colorField && colorColumnName) {
+      tickConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
+    }
+    
+    // Add size field to channels for tooltip
+    if (sizeField) {
+      const sizeColumnName = getResultColumnName(sizeField);
+      tickConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
+    }
+    
+    // Build tip format
+    const tipFormat: any = { stroke: false };
+    if (colorField) {
+      tipFormat[colorField.columnName] = true;
+    }
+    if (sizeField) {
+      tipFormat[sizeField.columnName] = true;
+    }
+    
+    tickConfig.tip = { pointer: 'y', preferredAnchor: 'top-right', format: tipFormat };
+    
     const opts: Plot.PlotOptions = {
       y: { label: labels?.dimension || dimensionColumn, grid: true },
       x: { 
@@ -121,13 +205,7 @@ export function tickStrip(
       },
       width: Math.max(BAR_STEP_PX * 2, categoryCount * BAR_STEP_PX),
       marks: [
-        Plot.tickY(data, {
-          y: dimensionColumn,
-          x: categoryDimensionColumn,
-          stroke: colorColumnName || DEFAULT_CHART_COLOR,
-          strokeWidth: 1.5,
-          tip: { pointer: 'y', preferredAnchor: 'top-right' },
-        }),
+        Plot.tickY(data, tickConfig),
       ],
     };
     if (colorField && colorColumnName) {
@@ -142,17 +220,43 @@ export function tickStrip(
     return opts;
   }
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
+  
+  // Build tick config with channels
+  const tickConfig: any = {
+    y: dimensionColumn,
+    stroke: colorColumnName || DEFAULT_CHART_COLOR,
+    strokeWidth: 1.5,
+    channels: {}
+  };
+  
+  // Add color field to channels for tooltip
+  if (colorField && colorColumnName) {
+    tickConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
+  }
+  
+  // Add size field to channels for tooltip
+  if (sizeField) {
+    const sizeColumnName = getResultColumnName(sizeField);
+    tickConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
+  }
+  
+  // Build tip format
+  const tipFormat: any = { stroke: false };
+  if (colorField) {
+    tipFormat[colorField.columnName] = true;
+  }
+  if (sizeField) {
+    tipFormat[sizeField.columnName] = true;
+  }
+  
+  tickConfig.tip = { pointer: 'y', preferredAnchor: 'top-right', format: tipFormat };
+  
   const opts: Plot.PlotOptions = {
     y: { label: labels?.dimension || dimensionColumn, grid: true },
     x: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: 0.1 as any },
     width: BAR_STEP_PX * 2,
     marks: [
-      Plot.tickY(data, {
-        y: dimensionColumn,
-        stroke: colorColumnName || DEFAULT_CHART_COLOR,
-        strokeWidth: 1.5,
-        tip: { pointer: 'y', preferredAnchor: 'top-right' },
-      }),
+      Plot.tickY(data, tickConfig),
     ],
   };
   if (colorField && colorColumnName) {

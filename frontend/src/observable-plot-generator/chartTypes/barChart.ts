@@ -29,7 +29,7 @@ function paddedDomainIncludingZero(minVal: number, maxVal: number): [number, num
 }
 
 export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
-  const { queryResult, xFields, yFields, colorField, colorScheme } = context;
+  const { queryResult, xFields, yFields, colorField, colorScheme, sizeField } = context;
   const data = queryResult.rows;
 
   const yMeasure = yFields.find(f => f.type === 'measure');
@@ -48,7 +48,20 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
     const barConfig: any = {
       y: measureName,
       fill: colorField ? getFieldColumnName(colorField) : DEFAULT_CHART_COLOR,
+      channels: {}
     };
+    
+    // Add color field to channels for tooltip
+    if (colorField) {
+      const colorColumnName = getFieldColumnName(colorField);
+      barConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
+    }
+    
+    // Add size field to channels for tooltip
+    if (sizeField) {
+      const sizeColumnName = getResultColumnName(sizeField);
+      barConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
+    }
     
     // Only add x field if we have a dimension
     if (xDimension) {
@@ -61,10 +74,19 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       const [minVal, maxVal] = numericExtent(data, measureName);
       const [d0, d1] = paddedDomainIncludingZero(minVal, maxVal);
       
+      // Build tip format to include color and size fields
+      const tipFormat: any = { fill: false };
+      if (colorField) {
+        tipFormat[colorField.columnName] = true;
+      }
+      if (sizeField) {
+        tipFormat[sizeField.columnName] = true;
+      }
+      
       const plotOptions: Plot.PlotOptions = {
         width: calculatedWidth,
         marks: [
-          Plot.barY(data, { ...barConfig, tip: { pointer: 'y', preferredAnchor: 'top-right' } }),
+          Plot.barY(data, { ...barConfig, tip: { pointer: 'y', preferredAnchor: 'top-right', format: tipFormat } }),
           Plot.ruleY([0])
         ],
         x: {
@@ -104,10 +126,19 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       const [minVal, maxVal] = numericExtent(data, measureName);
       const [d0, d1] = paddedDomainIncludingZero(minVal, maxVal);
 
+      // Build tip format to include color and size fields
+      const tipFormat: any = { fill: false };
+      if (colorField) {
+        tipFormat[colorField.columnName] = true;
+      }
+      if (sizeField) {
+        tipFormat[sizeField.columnName] = true;
+      }
+
       const plotOptions: Plot.PlotOptions = {
         width: barStep * 2,
         marks: [
-          Plot.barY(data, { ...configWithCategory, tip: { pointer: 'y', preferredAnchor: 'top-right' } }),
+          Plot.barY(data, { ...configWithCategory, tip: { pointer: 'y', preferredAnchor: 'top-right', format: tipFormat } }),
           Plot.ruleY([0])
         ],
         x: { label: singleCategory, domain: [singleCategory] as any, type: 'band' as any },
@@ -138,7 +169,20 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
     const barConfig: any = {
       x: measureName,
       fill: colorField ? getFieldColumnName(colorField) : DEFAULT_CHART_COLOR,
+      channels: {}
     };
+    
+    // Add color field to channels for tooltip
+    if (colorField) {
+      const colorColumnName = getFieldColumnName(colorField);
+      barConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
+    }
+    
+    // Add size field to channels for tooltip
+    if (sizeField) {
+      const sizeColumnName = getResultColumnName(sizeField);
+      barConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
+    }
     
     // Only add y field if we have a dimension
     if (yDimension) {
@@ -151,10 +195,19 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       const [minVal, maxVal] = numericExtent(data, measureName);
       const [d0, d1] = paddedDomainIncludingZero(minVal, maxVal);
       
+      // Build tip format to include color and size fields
+      const tipFormat: any = { fill: false };
+      if (colorField) {
+        tipFormat[colorField.columnName] = true;
+      }
+      if (sizeField) {
+        tipFormat[sizeField.columnName] = true;
+      }
+      
       const plotOptions: Plot.PlotOptions = {
         height: calculatedHeight,
         marks: [
-          Plot.barX(data, { ...barConfig, tip: { pointer: 'x', preferredAnchor: 'top-right' } }),
+          Plot.barX(data, { ...barConfig, tip: { pointer: 'x', preferredAnchor: 'top-right', format: tipFormat } }),
           Plot.ruleX([0])
         ],
         y: {
@@ -193,10 +246,19 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
       const [minVal, maxVal] = numericExtent(data, measureName);
       const [d0, d1] = paddedDomainIncludingZero(minVal, maxVal);
 
+      // Build tip format to include color and size fields
+      const tipFormat: any = { fill: false };
+      if (colorField) {
+        tipFormat[colorField.columnName] = true;
+      }
+      if (sizeField) {
+        tipFormat[sizeField.columnName] = true;
+      }
+
       const plotOptions: Plot.PlotOptions = {
         height: barStep * 2,
         marks: [
-          Plot.barX(data, { ...configWithCategory, tip: { pointer: 'x', preferredAnchor: 'top-right' } }),
+          Plot.barX(data, { ...configWithCategory, tip: { pointer: 'x', preferredAnchor: 'top-right', format: tipFormat } }),
           Plot.ruleX([0])
         ],
         y: { label: singleCategory, domain: [singleCategory] as any, type: 'band' as any },
