@@ -160,7 +160,8 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
       onContextMenu,
       onMouseDown: handleMouseDown,
       style: {
-        opacity: isDragging ? 0.5 : 1,
+        // Keep full opacity while dragging for readability
+        opacity: 1,
         cursor: 'grab',
         ...widthProps,
         overflow: 'hidden',
@@ -185,8 +186,26 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
     isInvalidOnAxis
   ]);
 
+  const handleWrapperDragStart = (e: React.DragEvent) => {
+    // Delegate to chip's drag start (ensures dataTransfer set when dragging wrapper)
+    if ((e.target as HTMLElement).closest('.field-chip')) {
+      return; // Chip itself will handle
+    }
+    onDragStart(e);
+  };
+
+  const handleWrapperDragEnd = () => {
+    onDragEnd();
+  };
+
   return (
-    <div ref={chipRef}>
+    <div
+      ref={chipRef}
+      draggable={!isTruncated} // when truncated Tooltip wraps Chip; keep wrapper draggable when not truncated
+      onDragStart={handleWrapperDragStart}
+      onDragEnd={handleWrapperDragEnd}
+      style={{ display: 'inline-block' }}
+    >
       {isTruncated ? (
         <Tooltip 
           title={<span className={labelStyles.tooltipContent}>{fullLabel}</span>} 
@@ -235,7 +254,15 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
             }
           }}
         >
-          <Chip {...chipProps} />
+          {/* Wrap Chip in a span with draggable to ensure drag events even through Tooltip cloning */}
+          <span
+            draggable
+            onDragStart={handleWrapperDragStart}
+            onDragEnd={handleWrapperDragEnd}
+            style={{ display: 'inline-flex' }}
+          >
+            <Chip {...chipProps} />
+          </span>
         </Tooltip>
       ) : (
         <Chip {...chipProps} />
