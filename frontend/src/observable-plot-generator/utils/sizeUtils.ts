@@ -25,7 +25,18 @@ export function createSizeScale(
     };
   }
 
-  const columnName = getResultColumnName(field);
+  // Determine the column name present in the result set.
+  // If this is a measure without an explicit aggregation (user dropped a raw measure as size)
+  // and the query was aggregated due to other measures, the backend will have applied a default
+  // aggregation (we inject SUM in the query layer). In that case, the actual column in the
+  // result rows is the aggregated alias (e.g., SUM(col)).
+  let columnName = getResultColumnName(field);
+  if (field.type === 'measure' && !field.aggregation) {
+    const sumAlias = `SUM(${field.columnName})`;
+    if (Array.isArray(data) && data.length > 0 && Object.prototype.hasOwnProperty.call(data[0], sumAlias)) {
+      columnName = sumAlias; // Use aggregated alias actually returned
+    }
+  }
   const [minSize, maxSize] = sizeRange;
 
   if (field.flavour === 'discrete') {

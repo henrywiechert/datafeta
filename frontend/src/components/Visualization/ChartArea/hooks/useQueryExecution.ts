@@ -12,6 +12,7 @@ interface UseQueryExecutionProps {
   xAxisFields: any[];
   yAxisFields: any[];
   colorField: Field | null;
+  sizeField?: Field | null;
   filterConfigurations: Record<string, any>;
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
@@ -28,6 +29,7 @@ export const useQueryExecution = ({
   xAxisFields,
   yAxisFields,
   colorField,
+  sizeField,
   filterConfigurations,
   startOperation,
   completeOperation,
@@ -97,11 +99,25 @@ export const useQueryExecution = ({
     // Tag fields with their axis for query optimization
     const taggedXFields = xAxisFields.map(f => ({ ...f, axis: 'x' as const }));
     const taggedYFields = yAxisFields.map(f => ({ ...f, axis: 'y' as const }));
-    const allFields = [...taggedXFields, ...taggedYFields];
+  const allFields = [...taggedXFields, ...taggedYFields];
     
     // Add colorField if it exists and is a dimension (no axis tagging for color)
     if (colorField && colorField.type === 'dimension') {
       allFields.push(colorField);
+    }
+    // Include sizeField when present and it's a dimension or measure so its column appears in the result
+    if (sizeField) {
+      // If it's a measure but lacks aggregation while other measures exist, assign a default aggregation (sum)
+      if (sizeField.type === 'measure' && !sizeField.aggregation) {
+        const hasOtherAggMeasures = [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation);
+        if (hasOtherAggMeasures) {
+          allFields.push({ ...sizeField, aggregation: 'sum' });
+        } else {
+          allFields.push(sizeField);
+        }
+      } else {
+        allFields.push(sizeField);
+      }
     }
     
     if (allFields.length === 0 || !selectedTable || !selectedDatabase) {
@@ -116,7 +132,7 @@ export const useQueryExecution = ({
     });
 
     return queryDesc;
-  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields, colorField, filterConfigurations]);
+  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields, colorField, sizeField, filterConfigurations]);
 
   // Effect to handle query execution when fields change
   useEffect(() => {
@@ -129,6 +145,20 @@ export const useQueryExecution = ({
       // Add colorField if it exists and is a dimension (no axis tagging for color)
       if (colorField && colorField.type === 'dimension') {
         allFields.push(colorField);
+      }
+
+      // Include sizeField when present; mirror color logic but allow measures too
+      if (sizeField) {
+        if (sizeField.type === 'measure' && !sizeField.aggregation) {
+          const hasOtherAggMeasures = [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation);
+            if (hasOtherAggMeasures) {
+              allFields.push({ ...sizeField, aggregation: 'sum' });
+            } else {
+              allFields.push(sizeField);
+            }
+        } else {
+          allFields.push(sizeField);
+        }
       }
       
       // For CSV connections using DuckDB, use 'main' as the default database if none is set
@@ -157,7 +187,7 @@ export const useQueryExecution = ({
     };
 
     fetchData();
-  }, [selectedTable, selectedDatabase, connectionDetails, xAxisFields, yAxisFields, colorField, filterConfigurations, dispatch, executeQuery]);
+  }, [selectedTable, selectedDatabase, connectionDetails, xAxisFields, yAxisFields, colorField, sizeField, filterConfigurations, dispatch, executeQuery]);
 
   // Cleanup on unmount
   useEffect(() => {

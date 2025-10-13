@@ -82,7 +82,7 @@ export const useChartGeneration = ({
       setChartInfo(null);
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, colorField, colorScheme, useTableView, startOperation, completeOperation, queryResult]);
+  }, [xAxisFields, yAxisFields, colorField, colorScheme, sizeField, sizeRange, manualSize, useTableView, startOperation, completeOperation, queryResult]);
 
   const cancelGeneration = useCallback(() => {
     // No-op since Observable Plot generation is synchronous

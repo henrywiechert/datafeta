@@ -28,6 +28,7 @@ const ChartArea: React.FC = () => {
     xAxisFields,
     yAxisFields,
     colorField,
+    sizeField,
     filterConfigurations: appliedFilterConfigurations,
     startOperation,
     completeOperation,
