@@ -136,7 +136,7 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     zeroBaseline = true,
     valueDomainOverride,
     tooltipColumns = [],
-    singleBarSizeMultiplier = 5,
+    singleBarSizeMultiplier = 1,
   } = params;
 
   const O = ORIENTATION[orientation];
@@ -156,6 +156,12 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     [O.category]: categoryColumn ? categoryColumn : () => categories[0],
     tip: { pointer: O.pointer, preferredAnchor: 'top-right', format: tipFormat }
   };
+
+  // When there's no category but there is color, enable stacking with z channel
+  if (!categoryColumn && colorColumn) {
+    baseConfig.z = colorColumn;
+    baseConfig.order = colorColumn;
+  }
 
   const barMark = O.bar(data, baseConfig);
   const zeroRule = O.rule([0]);

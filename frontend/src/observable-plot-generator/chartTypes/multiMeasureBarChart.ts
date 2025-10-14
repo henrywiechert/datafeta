@@ -93,7 +93,7 @@ export function multiMeasureBarChart(context: ChartGenerationContext): PlotResul
   });
 
   // Layout sizing replicates previous logic
-  const intrinsicSize = hasCategories && categories ? Math.max(BAR_STEP_PX * 2, categories.length * BAR_STEP_PX) : BAR_STEP_PX * 2;
+  const intrinsicSize = hasCategories && categories ? Math.max(BAR_STEP_PX, categories.length * BAR_STEP_PX) : BAR_STEP_PX;
   const columnSizes = layoutType === 'horizontal'
     ? Array.from({ length: plots.length }, () => 'fr' as const)
     : [intrinsicSize];

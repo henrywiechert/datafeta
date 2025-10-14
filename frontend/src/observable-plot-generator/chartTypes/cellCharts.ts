@@ -211,14 +211,14 @@ function createBarX(
     opts.marginTop = 0;
     opts.marginBottom = 0;
     opts.inset = 0;
-    opts.height = Math.max(BAR_STEP_PX * 2, categories.length * BAR_STEP_PX);
+    opts.height = Math.max(BAR_STEP_PX, categories.length * BAR_STEP_PX);
     opts.marks!.push(
       Plot.barX(data, { x: measureName, y: yColumnName, fill: colorField ? getFieldColumnName(colorField) : DEFAULT_CHART_COLOR, tip: { pointer: 'x', preferredAnchor: 'top-right' } })
     );
   } else {
     // Remove hardcoded height for responsive sizing
     opts.y = { label: ' ' };
-    opts.height = BAR_STEP_PX * 2;
+    opts.height = BAR_STEP_PX;
     opts.marks!.push(
       Plot.barX(data, { x: measureName, fill: colorField ? getFieldColumnName(colorField) : DEFAULT_CHART_COLOR, tip: { pointer: 'x', preferredAnchor: 'top-right' } })
     );
@@ -264,14 +264,14 @@ function createBarY(
     opts.marginLeft = 0;
     opts.marginRight = 0;
     opts.inset = 0;
-    opts.width = Math.max(BAR_STEP_PX * 2, categories.length * BAR_STEP_PX);
+    opts.width = Math.max(BAR_STEP_PX, categories.length * BAR_STEP_PX);
     opts.marks!.push(
       Plot.barY(data, { x: xColumnName, y: measureName, fill: colorField ? getFieldColumnName(colorField) : DEFAULT_CHART_COLOR, tip: { pointer: 'y', preferredAnchor: 'top-right' } })
     );
   } else {
     // Remove hardcoded width for responsive sizing
     opts.x = { label: ' ' };
-    opts.width = BAR_STEP_PX * 2;
+    opts.width = BAR_STEP_PX;
     opts.marks!.push(
       Plot.barY(data, { y: measureName, fill: colorField ? getFieldColumnName(colorField) : DEFAULT_CHART_COLOR, tip: { pointer: 'y', preferredAnchor: 'top-right' } })
     );
