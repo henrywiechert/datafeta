@@ -85,12 +85,20 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
               const categoryColumnName = categoryField ? getFieldColumnName(categoryField) : null;
               const colorColumnName = colorField ? getFieldColumnName(colorField) : null;
               const colorConfig = getPlotColorConfig(colorScheme);
+              
               options = barOrientation === 'barX'
                 ? {
                     x: { label: measureName, grid: true, domain: valueDomain as any, nice: false, domainKey: measureName } as any,
                     y: { label: categoryColumnName || ' ', type: 'band' as any, domain: categories as any, padding: BAND_PADDING as any, domainKey: categoryColumnName } as any,
                     marks: [
-                      Plot.barX(subset, { x: measureName, y: categoryColumnName || (() => categories[0]), fill: colorColumnName || DEFAULT_CHART_COLOR, tip: { pointer: 'x', preferredAnchor: 'top-right' } }),
+                      Plot.barX(subset, { 
+                        x: measureName, 
+                        y: categoryColumnName || (() => categories[0]), 
+                        fill: colorColumnName || DEFAULT_CHART_COLOR,
+                        // When there's no category but there is color, enable stacking with z channel
+                        ...(!categoryColumnName && colorColumnName ? { z: colorColumnName, order: colorColumnName } : colorColumnName ? { order: colorColumnName } : {}),
+                        tip: { pointer: 'x', preferredAnchor: 'top-right' } 
+                      }),
                       Plot.ruleX([0])
                     ],
                     ...(colorField && sharedColorDomain && sharedColorDomain.length > 0 ? {
@@ -109,8 +117,10 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
                         y: measureName, 
                         x: categoryColumnName || (() => categories[0]), 
                         fill: colorColumnName || DEFAULT_CHART_COLOR,
-                        order: colorColumnName // Ensure consistent stacking order
-                      , tip: { pointer: 'y', preferredAnchor: 'top-right' } }),
+                        // When there's no category but there is color, enable stacking with z channel
+                        ...(!categoryColumnName && colorColumnName ? { z: colorColumnName, order: colorColumnName } : colorColumnName ? { order: colorColumnName } : {}),
+                        tip: { pointer: 'y', preferredAnchor: 'top-right' } 
+                      }),
                       Plot.ruleY([0])
                     ],
                     ...(colorField && sharedColorDomain && sharedColorDomain.length > 0 ? {
