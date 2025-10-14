@@ -180,7 +180,6 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
     onDragStart,
     onDragEnd,
     onContextMenu,
-    isDragging,
     widthProps,
     chipLabel,
     isInvalidOnAxis
