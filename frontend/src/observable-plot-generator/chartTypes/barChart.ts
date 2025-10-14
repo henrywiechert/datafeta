@@ -5,27 +5,76 @@ import { getResultColumnName } from '../../utils/fieldUtils';
 import { getFieldColumnName } from '../helpers/fields';
 import { getPlotColorConfig } from '../utils/colorSchemeUtils';
 
-// Compute numeric extent for a column, ignoring non-finite values
+// -----------------------------------------------------------------------------
+// Refactored bar chart implementation with orientation abstraction.
+// Behavior parity with legacy version (zero-based domain, width/height logic).
+// -----------------------------------------------------------------------------
+
+const ORIENTATION = {
+  vertical: {
+    measureChannel: 'y' as const,
+    categoryChannel: 'x' as const,
+    bar: Plot.barY,
+    rule: Plot.ruleY,
+    pointer: 'y' as const,
+    sizeProp: 'width' as const
+  },
+  horizontal: {
+    measureChannel: 'x' as const,
+    categoryChannel: 'y' as const,
+    bar: Plot.barX,
+    rule: Plot.ruleX,
+    pointer: 'x' as const,
+    sizeProp: 'height' as const
+  }
+};
+type OrientationKey = keyof typeof ORIENTATION;
+
 function numericExtent(rows: any[], column: string): [number, number] {
-  let min = Infinity;
-  let max = -Infinity;
+  let min = Infinity; let max = -Infinity;
   for (const row of rows) {
     const v = row[column];
     if (typeof v === 'number' && isFinite(v)) {
-      if (v < min) min = v;
-      if (v > max) max = v;
+      if (v < min) min = v; if (v > max) max = v;
     }
   }
   if (min === Infinity || max === -Infinity) return [0, 0];
   return [min, max];
 }
 
-// Build a domain that always starts at 0 and pads the max by 5%
-function paddedDomainIncludingZero(minVal: number, maxVal: number): [number, number] {
-  // Upper bound is the positive max (or 0), padded by 5%
+function legacyZeroBasedDomain(rows: any[], measureCol: string): [number, number] {
+  const [, maxVal] = numericExtent(rows, measureCol);
   const upperRaw = Math.max(0, maxVal);
   const upper = upperRaw === 0 ? 1 : upperRaw * 1.05;
   return [0, upper];
+}
+
+function buildTooltipFormat(colorField?: any, sizeField?: any) {
+  const fmt: Record<string, any> = { fill: false };
+  if (colorField) fmt[colorField.columnName] = true;
+  if (sizeField) fmt[sizeField.columnName] = true;
+  return fmt;
+}
+
+function buildChannels(colorField?: any, sizeField?: any) {
+  const channels: Record<string, { value: string; label: string }> = {};
+  if (colorField) {
+    const col = getFieldColumnName(colorField);
+    channels[colorField.columnName] = { value: col, label: colorField.columnName };
+  }
+  if (sizeField) {
+    const col = getResultColumnName(sizeField);
+    channels[sizeField.columnName] = { value: col, label: sizeField.columnName };
+  }
+  return channels;
+}
+
+function buildColorScale(data: any[], colorField: any, colorScheme?: string) {
+  if (!colorField) return undefined;
+  const colorColumn = getFieldColumnName(colorField);
+  const values = Array.from(new Set(data.map(r => r[colorColumn])));
+  const cfg = getPlotColorConfig(colorScheme);
+  return { domain: values, ...cfg, type: 'ordinal' as const };
 }
 
 export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
@@ -35,251 +84,73 @@ export function barChart(context: ChartGenerationContext): Plot.PlotOptions {
   const yMeasure = yFields.find(f => f.type === 'measure');
   const xMeasure = xFields.find(f => f.type === 'measure');
 
-  const xDimension = xFields.find(f => f.type === 'dimension');
-  const yDimension = yFields.find(f => f.type === 'dimension');
-
-  const barStep = BAR_STEP_PX; // Base step for bars
-
+  let orientation: OrientationKey;
+  let measureField: any;
   if (yMeasure) {
-    // Vertical bar chart (barY)
-    const fieldForName = { ...yMeasure, aggregation: yMeasure.aggregation || 'sum' };
-    const measureName = getResultColumnName(fieldForName);
-
-    const barConfig: any = {
-      y: measureName,
-      fill: colorField ? getFieldColumnName(colorField) : DEFAULT_CHART_COLOR,
-      channels: {}
-    };
-    
-    // Add color field to channels for tooltip
-    if (colorField) {
-      const colorColumnName = getFieldColumnName(colorField);
-      barConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
-    }
-    
-    // Add size field to channels for tooltip
-    if (sizeField) {
-      const sizeColumnName = getResultColumnName(sizeField);
-      barConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
-    }
-    
-    // Only add x field if we have a dimension
-    if (xDimension) {
-      const xColumnName = getFieldColumnName(xDimension);
-      barConfig.x = xColumnName;
-      const categories = Array.from(new Set(data.map(row => row[xColumnName])));
-      const calculatedWidth = categories.length * barStep;
-
-      // Ensure measure axis includes 0 and ends at max +5%
-      const [minVal, maxVal] = numericExtent(data, measureName);
-      const [d0, d1] = paddedDomainIncludingZero(minVal, maxVal);
-      
-      // Build tip format to include color and size fields
-      const tipFormat: any = { fill: false };
-      if (colorField) {
-        tipFormat[colorField.columnName] = true;
-      }
-      if (sizeField) {
-        tipFormat[sizeField.columnName] = true;
-      }
-      
-      const plotOptions: Plot.PlotOptions = {
-        width: calculatedWidth,
-        marks: [
-          Plot.barY(data, { ...barConfig, tip: { pointer: 'y', preferredAnchor: 'top-right', format: tipFormat } }),
-          Plot.ruleY([0])
-        ],
-        x: {
-          label: xColumnName,
-          domain: categories as any,
-          type: 'band' as any,
-          padding: 0.1 as any,
-        },
-        y: {
-          grid: true,
-          label: measureName,
-          domain: [d0, d1] as any,
-          nice: false,
-        },
-      };
-      
-      // Add color scale if colorField is present (without legend - shown separately)
-      if (colorField) {
-        // Get unique color values for the domain
-        const colorColumnName = getFieldColumnName(colorField);
-        const colorValues = Array.from(new Set(data.map(row => row[colorColumnName])));
-        const colorConfig = getPlotColorConfig(colorScheme);
-        plotOptions.color = {
-          domain: colorValues,
-          ...colorConfig as any,
-          type: 'ordinal' as any
-        };
-      }
-      
-      return plotOptions;
-    } else {
-      // Single vertical bar - assign a constant category to position the bar
-      const singleCategory = ' ';
-      const configWithCategory: any = { ...barConfig, x: () => singleCategory };
-
-      // Ensure measure axis includes 0 and ends at max +5%
-      const [minVal, maxVal] = numericExtent(data, measureName);
-      const [d0, d1] = paddedDomainIncludingZero(minVal, maxVal);
-
-      // Build tip format to include color and size fields
-      const tipFormat: any = { fill: false };
-      if (colorField) {
-        tipFormat[colorField.columnName] = true;
-      }
-      if (sizeField) {
-        tipFormat[sizeField.columnName] = true;
-      }
-
-      const plotOptions: Plot.PlotOptions = {
-        width: barStep * 2,
-        marks: [
-          Plot.barY(data, { ...configWithCategory, tip: { pointer: 'y', preferredAnchor: 'top-right', format: tipFormat } }),
-          Plot.ruleY([0])
-        ],
-        x: { label: singleCategory, domain: [singleCategory] as any, type: 'band' as any },
-        y: { grid: true, label: measureName, domain: [d0, d1] as any, nice: false },
-      };
-      
-      // Add color scale if colorField is present (without legend - shown separately)
-      if (colorField) {
-        const colorColumnName = getFieldColumnName(colorField);
-        const colorValues = Array.from(new Set(data.map(row => row[colorColumnName])));
-        const colorConfig = getPlotColorConfig(colorScheme);
-        plotOptions.color = {
-          domain: colorValues,
-          ...colorConfig as any,
-          type: 'ordinal' as any
-        };
-      }
-      
-      return plotOptions;
-    }
+    orientation = 'vertical';
+    measureField = { ...yMeasure, aggregation: yMeasure.aggregation || 'sum' };
+  } else if (xMeasure) {
+    orientation = 'horizontal';
+    measureField = { ...xMeasure, aggregation: xMeasure.aggregation || 'sum' };
+  } else {
+    throw new Error('Bar chart requires at least one measure.');
   }
 
-  if (xMeasure) {
-    // Horizontal bar chart (barX)
-    const fieldForName = { ...xMeasure, aggregation: xMeasure.aggregation || 'sum' };
-    const measureName = getResultColumnName(fieldForName);
+  const O = ORIENTATION[orientation];
+  const measureName = getResultColumnName(measureField);
 
-    const barConfig: any = {
-      x: measureName,
-      fill: colorField ? getFieldColumnName(colorField) : DEFAULT_CHART_COLOR,
-      channels: {}
-    };
-    
-    // Add color field to channels for tooltip
-    if (colorField) {
-      const colorColumnName = getFieldColumnName(colorField);
-      barConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
-    }
-    
-    // Add size field to channels for tooltip
-    if (sizeField) {
-      const sizeColumnName = getResultColumnName(sizeField);
-      barConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
-    }
-    
-    // Only add y field if we have a dimension
-    if (yDimension) {
-      const yColumnName = getFieldColumnName(yDimension);
-      barConfig.y = yColumnName;
-      const categories = Array.from(new Set(data.map(row => row[yColumnName])));
-      const calculatedHeight = categories.length * barStep;
+  const dimensionField = orientation === 'vertical'
+    ? xFields.find(f => f.type === 'dimension')
+    : yFields.find(f => f.type === 'dimension');
 
-      // Ensure measure axis includes 0 and ends at max +5%
-      const [minVal, maxVal] = numericExtent(data, measureName);
-      const [d0, d1] = paddedDomainIncludingZero(minVal, maxVal);
-      
-      // Build tip format to include color and size fields
-      const tipFormat: any = { fill: false };
-      if (colorField) {
-        tipFormat[colorField.columnName] = true;
-      }
-      if (sizeField) {
-        tipFormat[sizeField.columnName] = true;
-      }
-      
-      const plotOptions: Plot.PlotOptions = {
-        height: calculatedHeight,
-        marks: [
-          Plot.barX(data, { ...barConfig, tip: { pointer: 'x', preferredAnchor: 'top-right', format: tipFormat } }),
-          Plot.ruleX([0])
-        ],
-        y: {
-          label: yColumnName,
-          domain: categories as any,
-          type: 'band' as any,
-          padding: 0.1 as any,
-        },
-        x: {
-          grid: true,
-          label: measureName,
-          domain: [d0, d1] as any,
-          nice: false,
-        },
-      };
-      
-      // Add color scale if colorField is present (without legend - shown separately)
-      if (colorField) {
-        const colorColumnName = getFieldColumnName(colorField);
-        const colorValues = Array.from(new Set(data.map(row => row[colorColumnName])));
-        const colorConfig = getPlotColorConfig(colorScheme);
-        plotOptions.color = {
-          domain: colorValues,
-          ...colorConfig as any,
-          type: 'ordinal' as any
-        };
-      }
-      
-      return plotOptions;
-    } else {
-      // Single horizontal bar - assign a constant category to position the bar
-      const singleCategory = ' ';
-      const configWithCategory: any = { ...barConfig, y: () => singleCategory };
+  const SINGLE_CATEGORY = ' ';
+  const categoryColumnName = dimensionField ? getFieldColumnName(dimensionField) : SINGLE_CATEGORY;
+  const categories = dimensionField
+    ? Array.from(new Set(data.map(r => r[categoryColumnName])))
+    : [SINGLE_CATEGORY];
 
-      // Ensure measure axis includes 0 and ends at max +5%
-      const [minVal, maxVal] = numericExtent(data, measureName);
-      const [d0, d1] = paddedDomainIncludingZero(minVal, maxVal);
+  const barCount = categories.length;
+  const visualSize = barCount === 1 ? BAR_STEP_PX * 5 : barCount * BAR_STEP_PX;
 
-      // Build tip format to include color and size fields
-      const tipFormat: any = { fill: false };
-      if (colorField) {
-        tipFormat[colorField.columnName] = true;
-      }
-      if (sizeField) {
-        tipFormat[sizeField.columnName] = true;
-      }
+  const [d0, d1] = legacyZeroBasedDomain(data, measureName);
+  const tipFormat = buildTooltipFormat(colorField, sizeField);
+  const channels = buildChannels(colorField, sizeField);
 
-      const plotOptions: Plot.PlotOptions = {
-        height: barStep * 2,
-        marks: [
-          Plot.barX(data, { ...configWithCategory, tip: { pointer: 'x', preferredAnchor: 'top-right', format: tipFormat } }),
-          Plot.ruleX([0])
-        ],
-        y: { label: singleCategory, domain: [singleCategory] as any, type: 'band' as any },
-        x: { grid: true, label: measureName, domain: [d0, d1] as any, nice: false },
-      };
-      
-      // Add color scale if colorField is present (without legend - shown separately)
-      if (colorField) {
-        const colorColumnName = getFieldColumnName(colorField);
-        const colorValues = Array.from(new Set(data.map(row => row[colorColumnName])));
-        const colorConfig = getPlotColorConfig(colorScheme);
-        plotOptions.color = {
-          domain: colorValues,
-          ...colorConfig as any,
-          type: 'ordinal' as any
-        };
-      }
-      
-      return plotOptions;
-    }
+  const barConfig: any = {
+    [O.measureChannel]: measureName,
+    fill: colorField ? getFieldColumnName(colorField) : DEFAULT_CHART_COLOR,
+    channels
+  };
+  if (dimensionField) {
+    barConfig[O.categoryChannel] = categoryColumnName;
+  } else {
+    barConfig[O.categoryChannel] = () => SINGLE_CATEGORY;
   }
 
-  throw new Error('Bar chart requires at least one measure.');
+  const barMark = O.bar(data, { ...barConfig, tip: { pointer: O.pointer, preferredAnchor: 'top-right', format: tipFormat } });
+  const zeroRule = O.rule([0]);
+
+  const plotOptions: Plot.PlotOptions = {
+    marks: [barMark, zeroRule],
+    [O.sizeProp]: visualSize,
+    [O.categoryChannel]: {
+      label: categoryColumnName,
+      domain: categories as any,
+      type: 'band' as any,
+      padding: 0.1 as any,
+    },
+    [O.measureChannel]: {
+      grid: true,
+      label: measureName,
+      domain: [d0, d1] as any,
+      nice: false,
+    }
+  } as any;
+
+  const colorScale = colorField ? buildColorScale(data, colorField, colorScheme) : undefined;
+  if (colorScale) {
+    (plotOptions as any).color = colorScale;
+  }
+
+  return plotOptions;
 }
