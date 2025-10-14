@@ -81,6 +81,13 @@ export function computeSharedMeasureDomains(
           max = Math.max(0, ...totals);
         }
       }
+    } else if (colorField && !categoryField) {
+      // Color field without category field: compute the total of all values (stacked in single bar)
+      const total = data
+        .map((row) => row[measureName])
+        .filter((v) => typeof v === 'number' && !Number.isNaN(v))
+        .reduce((sum, v) => sum + v, 0);
+      max = Math.max(0, total);
     } else {
       // No stacking - just find the max individual value
       const values = data

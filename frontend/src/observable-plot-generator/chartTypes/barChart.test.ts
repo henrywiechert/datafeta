@@ -96,4 +96,36 @@ describe('barChart refactored implementation', () => {
     expect(domain[0]).toBe(0);
     expect(domain[1]).toBeGreaterThan(100); // padded upper
   });
+
+  test('single bar with color field shows aggregated total', () => {
+    // When there's no category dimension but there IS a color field,
+    // the backend returns multiple rows (one per color category).
+    // The chart should aggregate these to show the total sum in a single bar.
+    // Color information is discarded since we're showing the aggregate total.
+    const ctx: ChartGenerationContext = {
+      queryResult: {
+        rows: [
+          { 'SUM(value)': 10, color: 'red' },
+          { 'SUM(value)': 20, color: 'blue' },
+          { 'SUM(value)': 30, color: 'green' }
+        ],
+        columns: [],
+        row_count: 3
+      } as any,
+      xFields: [],
+      yFields: [meas('value', 'sum')],
+      colorField: dim('color'),
+      sizeField: undefined,
+      colorScheme: undefined
+    };
+
+    const opts = barChart(ctx);
+    expect(opts.y?.label).toBe('SUM(value)');
+    expect(opts.x?.domain).toEqual([' ']); // single category
+    
+    // The domain should reflect the total (60 = 10+20+30), not individual values
+    const domain = opts.y?.domain as [number, number];
+    expect(domain[0]).toBe(0);
+    expect(domain[1]).toBeGreaterThanOrEqual(60); // total with padding (60 * 1.05 = 63)
+  });
 });
