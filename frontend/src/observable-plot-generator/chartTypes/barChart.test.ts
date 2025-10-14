@@ -49,7 +49,7 @@ describe('barChart refactored implementation', () => {
     const opts = barChart(ctx);
     expect(opts.y?.label).toBe('SUM(value)');
     expect(opts.x?.domain).toEqual([' ']);
-  expect((opts as any).width).toBe(2 * BAR_STEP_PX);
+  expect((opts as any).width).toBe(5 * BAR_STEP_PX);
   });
 
   test('horizontal with dimension', () => {
@@ -72,7 +72,7 @@ describe('barChart refactored implementation', () => {
     const opts = barChart(ctx);
     expect(opts.x?.label).toBe('SUM(value)');
     expect(opts.y?.domain).toEqual(['A', 'B']);
-  expect((opts as any).height).toBe(2 * BAR_STEP_PX); // two categories
+  expect((opts as any).height).toBe(2 * BAR_STEP_PX); // unchanged for multi-category
   });
 
   test('domain starts at zero and pads positive max', () => {

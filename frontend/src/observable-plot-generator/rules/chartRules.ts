@@ -37,11 +37,28 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
 
   const xDims = analysis.xDimensions || [];
   const yDims = analysis.yDimensions || [];
-  // Early: single continuous measure on one axis with no dimensions on the other → single-bar chart
-  if (analysis.hasXMeasure && !analysis.hasYMeasure && yDims.length === 0) {
-    return { library: 'observable-plot', options: barChart(context), layout: { type: 'single' } };
+  // Helper to decide if we should render a bar chart for single-axis measure scenarios without continuous opposition
+  function qualifiesForBarChart(): boolean {
+    // Only one side has measures
+    const singleAxisMeasure = (analysis.hasXMeasure && !analysis.hasYMeasure) || (analysis.hasYMeasure && !analysis.hasXMeasure);
+    if (!singleAxisMeasure) return false;
+    // If mixed axes (both measures) handled elsewhere
+    if (analysis.hasMixedAxes) return false;
+    // Determine opposing axis dims & whether any is continuous
+    if (analysis.hasXMeasure && !analysis.hasYMeasure) {
+      const anyContinuousOpp = yDims.some((d: any) => d.flavour === 'continuous');
+      if (anyContinuousOpp) return false; // line or tick-strip pathways handle this
+      return true; // either discrete dims or none -> bar
+    }
+    if (analysis.hasYMeasure && !analysis.hasXMeasure) {
+      const anyContinuousOpp = xDims.some((d: any) => d.flavour === 'continuous');
+      if (anyContinuousOpp) return false;
+      return true;
+    }
+    return false;
   }
-  if (analysis.hasYMeasure && !analysis.hasXMeasure && xDims.length === 0) {
+
+  if (qualifiesForBarChart()) {
     return { library: 'observable-plot', options: barChart(context), layout: { type: 'single' } };
   }
   const xDiscreteDims = xDims.filter((d: any) => d.flavour === 'discrete');
@@ -49,38 +66,27 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
   const xContinuousDims = xDims.filter((d: any) => d.flavour === 'continuous');
   const yContinuousDims = yDims.filter((d: any) => d.flavour === 'continuous');
 
-  if (analysis.hasXMeasure && !analysis.hasYMeasure) {
-    if (yContinuousDims.length > 0) {
-      const yDim = yContinuousDims[0];
-      const yDimCol = getResultColumnName(yDim);
-      const xMeasure = analysis.xMeasures[0];
-      const xMeasureCol = getResultColumnName({ ...xMeasure, aggregation: xMeasure.aggregation || 'sum' } as any);
-      return { 
-        library: 'observable-plot', 
-        options: lineChart(data, yDimCol, xMeasureCol, { x: getFieldDisplayName(yDim), y: xMeasureCol }, undefined, colorField, undefined, sizeField, sizeRange, manualSize), 
-        layout: { type: 'single' } 
-      };
-    }
-    if (yDiscreteDims.length > 0 || yDims.length > 0) {
-      return { library: 'observable-plot', options: barChart(context), layout: { type: 'single' } };
-    }
+  if (analysis.hasXMeasure && !analysis.hasYMeasure && yContinuousDims.length > 0) {
+    const yDim = yContinuousDims[0];
+    const yDimCol = getResultColumnName(yDim);
+    const xMeasure = analysis.xMeasures[0];
+    const xMeasureCol = getResultColumnName({ ...xMeasure, aggregation: xMeasure.aggregation || 'sum' } as any);
+    return { 
+      library: 'observable-plot', 
+      options: lineChart(data, yDimCol, xMeasureCol, { x: getFieldDisplayName(yDim), y: xMeasureCol }, undefined, colorField, undefined, sizeField, sizeRange, manualSize), 
+      layout: { type: 'single' } 
+    };
   }
-
-  if (analysis.hasYMeasure && !analysis.hasXMeasure) {
-    if (xContinuousDims.length > 0) {
-      const xDim = xContinuousDims[0];
-      const xDimCol = getResultColumnName(xDim);
-      const yMeasure = analysis.yMeasures[0];
-      const yMeasureCol = getResultColumnName({ ...yMeasure, aggregation: yMeasure.aggregation || 'sum' } as any);
-      return { 
-        library: 'observable-plot', 
-        options: lineChart(data, xDimCol, yMeasureCol, { x: getFieldDisplayName(xDim), y: yMeasureCol }, undefined, colorField, undefined, sizeField, sizeRange, manualSize), 
-        layout: { type: 'single' } 
-      };
-    }
-    if (xDiscreteDims.length > 0 || xDims.length > 0) {
-      return { library: 'observable-plot', options: barChart(context), layout: { type: 'single' } };
-    }
+  if (analysis.hasYMeasure && !analysis.hasXMeasure && xContinuousDims.length > 0) {
+    const xDim = xContinuousDims[0];
+    const xDimCol = getResultColumnName(xDim);
+    const yMeasure = analysis.yMeasures[0];
+    const yMeasureCol = getResultColumnName({ ...yMeasure, aggregation: yMeasure.aggregation || 'sum' } as any);
+    return { 
+      library: 'observable-plot', 
+      options: lineChart(data, xDimCol, yMeasureCol, { x: getFieldDisplayName(xDim), y: yMeasureCol }, undefined, colorField, undefined, sizeField, sizeRange, manualSize), 
+      layout: { type: 'single' } 
+    };
   }
 
   const singleXDim = analysis.hasXDimension && xContinuousDims.length === 1 && yDims.length === 0;

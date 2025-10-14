@@ -31,7 +31,12 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 ## [] Continous dimension for color
 - gradient feature
 
-- add all used fields to tooltip
+## [DONE] add all used fields to tooltip
+- add color + size when present
 
 - add panel for additional fields for tooltips
 
+- huger scatter data -> reduce data (remove duplicated pairs)
+
+## [] derived variables
+- which language ?
