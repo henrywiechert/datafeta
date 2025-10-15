@@ -1,6 +1,6 @@
 import * as Plot from '@observablehq/plot';
 import { getResultColumnName } from '../../utils/fieldUtils';
-import { getPlotColorConfig } from '../utils/colorSchemeUtils';
+import { ColorScaleInfo } from '../utils/colorSchemeUtils';
 import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 
@@ -18,8 +18,7 @@ export interface BarBuildParams {
   categoryColumn?: string;      // undefined => single bar
   categoriesDomain?: string[];  // consistent ordering if provided
   colorColumn?: string;
-  colorDomain?: any[];
-  colorSchemeId?: string;
+  colorScale?: ColorScaleInfo | null;
   bandPadding?: number;         // override band padding
   zeroBaseline?: boolean;
   valueDomainOverride?: [number, number];
@@ -180,8 +179,7 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     categoryColumn,
     categoriesDomain,
     colorColumn,
-    colorDomain,
-    colorSchemeId,
+    colorScale,
     bandPadding = BAND_PADDING,
     zeroBaseline = true,
     valueDomainOverride,
@@ -200,9 +198,15 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
   const tipFormat: any = { fill: false };
   tooltipColumns.forEach(c => tipFormat[c] = true);
 
+  const fillValue = colorColumn
+    ? (colorScale && colorScale.kind === 'continuous' && colorScale.accessor
+        ? (d: any) => colorScale.accessor?.(d) ?? null
+        : colorColumn)
+    : DEFAULT_CHART_COLOR;
+
   const baseConfig: any = {
     [O.measure]: measureName,
-    fill: colorColumn || DEFAULT_CHART_COLOR,
+    fill: fillValue,
     [O.category]: categoryColumn ? categoryColumn : () => categories[0],
     tip: { pointer: O.pointer, preferredAnchor: 'top-right', format: tipFormat }
   };
@@ -235,9 +239,25 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     [O.measure]: axisMeasure,
   } as any;
 
-  if (colorColumn && colorDomain) {
-    const colorCfg = getPlotColorConfig(colorSchemeId);
-    (plot as any).color = { domain: colorDomain as any, ...colorCfg as any, type: 'ordinal' as any };
+  if (colorColumn && colorScale) {
+    const colorConfig = colorScale.kind === 'continuous'
+      ? {
+          type: 'linear',
+          domain: colorScale.domain as [number, number],
+          range: colorScale.range,
+          clamp: true,
+        }
+      : {
+          type: 'ordinal' as any,
+          domain: colorScale.domain as any[],
+          range: colorScale.range,
+        };
+
+    (plot as any).color = {
+      ...(plot as any).color,
+      ...colorConfig,
+      label: colorColumn,
+    } as any;
   }
 
   return plot;

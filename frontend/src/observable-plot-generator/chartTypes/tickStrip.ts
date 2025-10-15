@@ -2,7 +2,7 @@ import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext } from '../types';
 import { BAR_STEP_PX, DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 import { getResultColumnName } from '../../utils/fieldUtils';
-import { getPlotColorConfig } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 
 /**
  * Tick-strip chart for a single continuous dimension.
@@ -19,6 +19,29 @@ export function tickStrip(
 ): Plot.PlotOptions {
   const { queryResult, colorField, colorScheme, sizeField } = context;
   const data = queryResult.rows;
+  const colorInfo = colorField ? deriveColorScaleInfo(data, colorField, colorScheme) : null;
+  const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
+  const strokeValue = colorField && colorInfo
+    ? (colorInfo.kind === 'continuous' && colorInfo.accessor
+        ? (d: any) => colorInfo.accessor?.(d) ?? null
+        : colorColumnName)
+    : DEFAULT_CHART_COLOR;
+  const colorScale = colorField && colorInfo
+    ? (colorInfo.kind === 'continuous'
+        ? {
+            type: 'linear',
+            domain: colorInfo.domain as [number, number],
+            range: colorInfo.range,
+            clamp: true,
+            label: colorField.columnName,
+          } as any
+        : {
+            type: 'ordinal' as any,
+            domain: colorInfo.domain as any[],
+            range: colorInfo.range,
+            label: colorField.columnName,
+          } as any)
+    : undefined;
 
   // Guard against invalid values; accept numbers or dates (Date objects or parseable strings)
   const isNumericOrDate = (v: any) =>
@@ -49,13 +72,11 @@ export function tickStrip(
     if (categoryDimensionColumn) {
       const categories = Array.from(new Set(data.map((row: any) => row[categoryDimensionColumn])));
       const categoryCount = categories.length;
-      const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
-      
       // Build tick config with channels
       const tickConfig: any = {
         x: dimensionColumn,
         y: categoryDimensionColumn,
-        stroke: colorColumnName || DEFAULT_CHART_COLOR,
+        stroke: strokeValue,
         strokeWidth: 1.5,
         channels: {}
       };
@@ -95,23 +116,19 @@ export function tickStrip(
           Plot.tickX(data, tickConfig),
         ],
       };
-      if (colorField && colorColumnName) {
-        const values = Array.from(new Set((Array.isArray(data) ? data : []).map((row: any) => row[colorColumnName])));
-        const colorConfig = getPlotColorConfig(colorScheme);
+      if (colorScale) {
         opts.color = {
-          domain: values as any,
-          ...colorConfig as any,
-          type: 'ordinal' as any,
+          ...(opts as any).color,
+          ...colorScale,
         } as any;
       }
       return opts;
     }
-    const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
     
     // Build tick config with channels
     const tickConfig: any = {
       x: dimensionColumn,
-      stroke: colorColumnName || DEFAULT_CHART_COLOR,
+      stroke: strokeValue,
       strokeWidth: 1.5,
       channels: {}
     };
@@ -146,13 +163,10 @@ export function tickStrip(
         Plot.tickX(data, tickConfig),
       ],
     };
-    if (colorField && colorColumnName) {
-      const values = Array.from(new Set((Array.isArray(data) ? data : []).map((row: any) => row[colorColumnName])));
-      const colorConfig = getPlotColorConfig(colorScheme);
+    if (colorScale) {
       opts.color = {
-        domain: values as any,
-        ...colorConfig as any,
-        type: 'ordinal' as any,
+        ...(opts as any).color,
+        ...colorScale,
       } as any;
     }
     return opts;
@@ -162,13 +176,11 @@ export function tickStrip(
   if (categoryDimensionColumn) {
     const categories = Array.from(new Set(data.map((row: any) => row[categoryDimensionColumn])));
     const categoryCount = categories.length;
-    const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
-    
     // Build tick config with channels
     const tickConfig: any = {
       y: dimensionColumn,
       x: categoryDimensionColumn,
-      stroke: colorColumnName || DEFAULT_CHART_COLOR,
+      stroke: strokeValue,
       strokeWidth: 1.5,
       channels: {}
     };
@@ -208,23 +220,18 @@ export function tickStrip(
         Plot.tickY(data, tickConfig),
       ],
     };
-    if (colorField && colorColumnName) {
-      const values = Array.from(new Set((Array.isArray(data) ? data : []).map((row: any) => row[colorColumnName])));
-      const colorConfig = getPlotColorConfig(colorScheme);
+    if (colorScale) {
       opts.color = {
-        domain: values as any,
-        ...colorConfig as any,
-        type: 'ordinal' as any,
+        ...(opts as any).color,
+        ...colorScale,
       } as any;
     }
     return opts;
   }
-  const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
-  
   // Build tick config with channels
   const tickConfig: any = {
     y: dimensionColumn,
-    stroke: colorColumnName || DEFAULT_CHART_COLOR,
+    stroke: strokeValue,
     strokeWidth: 1.5,
     channels: {}
   };
@@ -259,13 +266,10 @@ export function tickStrip(
       Plot.tickY(data, tickConfig),
     ],
   };
-  if (colorField && colorColumnName) {
-    const values = Array.from(new Set((Array.isArray(data) ? data : []).map((row: any) => row[colorColumnName])));
-    const colorConfig = getPlotColorConfig(colorScheme);
+  if (colorScale) {
     opts.color = {
-      domain: values as any,
-      ...colorConfig as any,
-      type: 'ordinal' as any,
+      ...(opts as any).color,
+      ...colorScale,
     } as any;
   }
   return opts;

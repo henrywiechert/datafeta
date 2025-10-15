@@ -2,8 +2,7 @@ import * as Plot from '@observablehq/plot';
 import { Field } from '../../types';
 import { computeSharedMeasureDomains } from '../domains/measureDomains';
 import { computeSharedNumericDomains, computeSharedCategoricalDomains } from '../domains/numericDomains';
-import { getPlotColorConfig } from '../utils/colorSchemeUtils';
-import { uniqueValuesForField } from './facetUtils';
+import { ColorScaleInfo, deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 
 /**
  * Consolidated domain information for faceted charts
@@ -12,7 +11,7 @@ export interface SharedDomains {
   measure: Record<string, [number, number]>;
   numeric: Record<string, [number, number]>;
   categorical: Record<string, any[]>;
-  color?: any[];
+  colorScale?: ColorScaleInfo | null;
 }
 
 /**
@@ -25,7 +24,8 @@ export function computeSharedDomainsForFaceting(
   yFields: Field[],
   colorField?: Field,
   categoryField?: Field,
-  facetFields?: Field[]
+  facetFields?: Field[],
+  colorSchemeId?: string
 ): SharedDomains {
   // Compute shared measure domains
   const allMeasures = [...xFields, ...yFields].filter((f: any) => f.type === 'measure' && f.flavour === 'continuous');
@@ -47,23 +47,14 @@ export function computeSharedDomainsForFaceting(
     : {};
 
   // Compute shared color domain
-  const colorDomain = colorField ? computeColorDomain(data, colorField) : undefined;
+  const colorScale = colorField ? deriveColorScaleInfo(data, colorField, colorSchemeId) : null;
 
   return {
     measure: measureDomains as Record<string, [number, number]>,
     numeric: numericDomains,
     categorical: categoricalDomains,
-    color: colorDomain,
+    colorScale,
   };
-}
-
-/**
- * Compute a sorted, deduplicated color domain from data.
- * Extracted from duplicated logic in facetGenerator and coreGridGenerator.
- */
-export function computeColorDomain(data: any[], colorField: Field): any[] {
-  const values = uniqueValuesForField(data, colorField);
-  return values;
 }
 
 /**
@@ -72,8 +63,7 @@ export function computeColorDomain(data: any[], colorField: Field): any[] {
  */
 export function applySharedDomains(
   plotOptions: Plot.PlotOptions,
-  sharedDomains: SharedDomains,
-  colorScheme?: string
+  sharedDomains: SharedDomains
 ): Plot.PlotOptions {
   const opts = { ...plotOptions };
   
@@ -95,13 +85,23 @@ export function applySharedDomains(
   }
   
   // Apply shared color domain
-  if (sharedDomains.color && sharedDomains.color.length > 0) {
-    const colorConfig = getPlotColorConfig(colorScheme);
+  if (sharedDomains.colorScale) {
+    const scale = sharedDomains.colorScale;
+    const colorConfig = scale.kind === 'continuous'
+      ? {
+          type: 'linear',
+          domain: scale.domain as [number, number],
+          range: scale.range,
+          clamp: true,
+        }
+      : {
+          type: 'ordinal' as any,
+          domain: scale.domain as any[],
+          range: scale.range,
+        };
     opts.color = {
       ...(opts as any).color,
-      domain: sharedDomains.color as any,
-      ...colorConfig as any,
-      type: 'ordinal' as any,
+      ...colorConfig,
     } as any;
   }
   
