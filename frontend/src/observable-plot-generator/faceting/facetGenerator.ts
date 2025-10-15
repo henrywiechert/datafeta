@@ -17,6 +17,7 @@ import {
 } from './facetDomains';
 import { computeGridLayout, computeFacetLabels, deriveCellSizes } from './facetGrid';
 import { getPlotColorConfig } from '../utils/colorSchemeUtils';
+import { coordinateFacetedGrid, CellGenerator, CellResult } from './facetCoordinator';
 
 /**
  * Chart-specific configuration derived from context and facet plan.
@@ -259,97 +260,41 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       };
     }
   
-  // Compute facet levels and safe combos
-  const { rowValuesLevels, colValuesLevels, safeRowCombos, safeColCombos } = computeFacetLevelsAndCombos(
-    queryResult.rows,
-    effectiveRowFacetFields,
-    effectiveColFacetFields
-  );
+  // GENERIC PATH: Use coordinator with default cell generator
+  // This is the new, cleaner architecture using the strategy pattern
   
-  // Compute all shared domains using centralized utility
-  const sharedDomains = computeSharedDomainsForFaceting(
-    queryResult.rows,
-    xFields,
-    yFields,
-    colorField,
-    categoryField || undefined,
-    [...effectiveRowFacetFields, ...effectiveColFacetFields]
-  );
-  
-  const combinedPlots: Array<{ id: string; title: string; options: Plot.PlotOptions; position: { row: number; col: number } }> = [];
-  
-    // Determine base layout by generating one sample facet (first values)
-    const sampleRows = filterRowsByFacets(queryResult.rows, effectiveRowFacetFields, safeRowCombos[0], effectiveColFacetFields, safeColCombos[0]);
+  // Create a cell generator that uses buildBaseSpecForDataSubset
+  const defaultCellGenerator: CellGenerator = (cellData, cellContext, sharedDomains, facetPosition) => {
+    // Create a modified context with filtered data
+    const localContext: ChartGenerationContext = {
+      ...cellContext,
+      queryResult: { ...cellContext.queryResult, rows: cellData },
+    };
+    
     const baseSpec = buildBaseSpecForDataSubset(
-      context,
+      localContext,
       categoryAxis,
       categoryField?.id || null,
-      sampleRows,
+      cellData,
       sharedDomains,
-      // pass all facet fields to be excluded in local context
       effectiveRowFacetFields,
       effectiveColFacetFields,
       sharedCategoryDomain || undefined,
-      colorScheme
+      cellContext.colorScheme
     );
-    const baseCols = baseSpec.columns;
-    const baseRows = baseSpec.rows;
+    
+    return baseSpec;
+  };
   
-    for (let r = 0; r < safeRowCombos.length; r++) {
-      for (let c = 0; c < safeColCombos.length; c++) {
-        const subset = filterRowsByFacets(queryResult.rows, effectiveRowFacetFields, safeRowCombos[r], effectiveColFacetFields, safeColCombos[c]);
-        const facetSpec = buildBaseSpecForDataSubset(
-          context,
-          categoryAxis,
-          categoryField?.id || null,
-          subset,
-          sharedDomains,
-          effectiveRowFacetFields,
-          effectiveColFacetFields,
-          sharedCategoryDomain || undefined,
-          colorScheme
-        );
-  
-        // Offset plots into the correct grid position
-        facetSpec.plots.forEach((p) => {
-          combinedPlots.push({
-            id: `${p.id}-r${r}-c${c}`,
-            title: p.title,
-            options: p.options,
-            position: { row: r * baseRows + p.position.row, col: c * baseCols + p.position.col },
-          });
-        });
-      }
-    }
-  
-    return {
-      library: 'observable-plot',
-      plots: combinedPlots,
-      sharedDomains: { byMeasure: sharedDomains.measure as any },
-      layout: {
-        type: 'grid',
-        columns: baseCols * safeColCombos.length,
-        rows: baseRows * safeRowCombos.length,
-        columnSizes: baseSpec.columnSizes && baseSpec.columnSizes.length > 0
-          ? Array.from({ length: baseCols * safeColCombos.length }, (_, idx) => baseSpec.columnSizes![idx % baseSpec.columnSizes!.length])
-          : Array.from({ length: baseCols * safeColCombos.length }, () => 'fr'),
-        rowSizes: baseSpec.rowSizes && baseSpec.rowSizes.length > 0
-          ? Array.from({ length: baseRows * safeRowCombos.length }, (_, idx) => baseSpec.rowSizes![idx % baseSpec.rowSizes!.length])
-          : Array.from({ length: baseRows * safeRowCombos.length }, () => 'fr'),
-      },
-      facetLabels: {
-        rowsLevels: effectiveRowFacetFields.length > 0 ? effectiveRowFacetFields.map((f, i) => ({ fieldLabel: getFieldColumnName(f), values: rowValuesLevels[i] })) : undefined,
-        colsLevels: effectiveColFacetFields.length > 0 ? effectiveColFacetFields.map((f, i) => ({ fieldLabel: getFieldColumnName(f), values: colValuesLevels[i] })) : undefined,
-        groupSpan: { columnsPerFacet: baseCols, rowsPerFacet: baseRows },
-        spans: {
-          baseCols,
-          baseRows,
-          columns: computeLevelSpans(effectiveColFacetFields, baseCols, colValuesLevels),
-          rows: computeLevelSpans(effectiveRowFacetFields, baseRows, rowValuesLevels),
-        },
-      }
-    };
-  }
+  // Use the coordinator for chart-type-agnostic faceting
+  return coordinateFacetedGrid({
+    context,
+    plan: { rowFacetFields: effectiveRowFacetFields, colFacetFields: effectiveColFacetFields },
+    cellGenerator: defaultCellGenerator,
+    categoryField,
+    sharedCategoryDomain: sharedCategoryDomain || undefined,
+  });
+}
 
   type BaseSpec = {
     plots: Array<{ id: string; title: string; options: Plot.PlotOptions; position: { row: number; col: number } }>;
