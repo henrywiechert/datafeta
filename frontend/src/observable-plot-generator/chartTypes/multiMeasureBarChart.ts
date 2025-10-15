@@ -7,7 +7,7 @@ import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField }
  * Generate multiple bar charts with shared axes for multiple measures
  */
 export function multiMeasureBarChart(context: ChartGenerationContext): PlotResult {
-  const { queryResult, xFields, yFields, sizeField } = context;
+  const { queryResult, xFields, yFields, sizeField, sizeRange, manualSize } = context;
   const data = queryResult.rows;
 
   const xMeasures = xFields.filter(f => f.type === 'measure');
@@ -65,7 +65,10 @@ export function multiMeasureBarChart(context: ChartGenerationContext): PlotResul
   const measures = layoutType === 'horizontal' ? xMeasures : yMeasures;
 
   // Dynamic band padding across all measures (same padding for consistency)
-  const dynamicBandPadding = computeBandPaddingFromSizeField(data, sizeField) ?? undefined;
+  const dynamicBandPadding = computeBandPaddingFromSizeField(data, sizeField, {
+    sizeRange,
+    manualSize,
+  }) ?? undefined;
 
   const plots = measures.map((measure, idx) => {
     const measureName = resolveMeasureAlias(measure as any);
