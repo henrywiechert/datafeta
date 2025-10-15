@@ -1,26 +1,10 @@
 import { Field } from '../../types';
 import { getFieldColumnName } from '../helpers/fields';
 
-export function filterRowsByFacet(
-  rows: any[],
-  rowField: Field | null,
-  rowValue: any,
-  colField: Field | null,
-  colValue: any
-): any[] {
-  return rows.filter((row) => {
-    if (rowField) {
-      const col = getFieldColumnName(rowField);
-      if (row[col] !== rowValue) return false;
-    }
-    if (colField) {
-      const col = getFieldColumnName(colField);
-      if (row[col] !== colValue) return false;
-    }
-    return true;
-  });
-}
-
+/**
+ * Filter rows by multiple facet field values (hierarchical faceting).
+ * This is the primary filtering function used in faceted grid generation.
+ */
 export function filterRowsByFacets(
   rows: any[],
   rowFields: Field[],
@@ -62,4 +46,34 @@ export function buildFacetCombos(fields: Field[], valuesLevels: any[][]): any[][
   };
   helper(0, []);
   return result;
+}
+
+/**
+ * Returns a sorted list of unique values for a given field from the dataset.
+ * Moved from facetPlanner.ts to consolidate utilities.
+ */
+export function uniqueValuesForField(rows: any[], field: Field): any[] {
+  const col = getFieldColumnName(field);
+  const seen = new Set<any>();
+  const values: any[] = [];
+  rows.forEach((row) => {
+    const v = row[col];
+    if (!seen.has(v)) {
+      seen.add(v);
+      values.push(v);
+    }
+  });
+  // Sort for consistency, especially important for facet ordering
+  // Smart sorting: if all values are numeric, sort numerically; otherwise sort as strings
+  try {
+    const allNumeric = values.every(v => typeof v === 'number' && !Number.isNaN(v));
+    if (allNumeric) {
+      values.sort((a, b) => a - b);
+    } else {
+      values.sort((a, b) => (String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0));
+    }
+  } catch (e) {
+    // ignore sort errors for complex types
+  }
+  return values;
 }
