@@ -34,12 +34,10 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
 
   try {
     // First, see if faceting is applicable.
-  const facetPlan = planFacets(context);
+    const facetPlan = planFacets(context);
     
-    // Only engage faceting when it actually changes the base (facets or category axis)
-    if (facetPlan && ((facetPlan.rowFacetFields?.length || 0) > 0 || (facetPlan.colFacetFields?.length || 0) > 0 || !!facetPlan.categoryAxis)) {
-      // It's possible to have a plan but no facets, e.g., for a single bar chart
-      // that needs a category axis. The faceting logic handles this 1x1 case.
+    // Only engage faceting when there are discrete fields that should become facets
+    if (facetPlan && ((facetPlan.rowFacetFields?.length || 0) > 0 || (facetPlan.colFacetFields?.length || 0) > 0)) {
       return generateFacetedGrid(context, facetPlan);
     }
 
