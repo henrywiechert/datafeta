@@ -7,7 +7,7 @@ import { lineChart, verticalLineChart } from './lineChart';
 import { scatterChart } from './scatterChart';
 import { tickStrip } from './tickStrip';
 import { CellChartType, ChartTypeOverrides, resolveChartTypeForPair } from '../helpers/chartTypeResolver';
-import { buildBarOptions, resolveMeasureAlias } from './barCore';
+import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField } from './barCore';
 
 type Domains = Record<string, [number, number]> | undefined;
 
@@ -32,12 +32,12 @@ export function generatePairChartOptions(
 
   // If one side is missing, choose orientation by the present measure
   if (xField && !yField) {
-    if (xField.type === 'measure') return createBarX(data, xField, null, sharedMeasureDomains);
+    if (xField.type === 'measure') return createBarX(data, xField, null, sharedMeasureDomains, colorField, sizeField, sizeRange, manualSize);
     // Single dimension alone → show tick strip would be an alternative, but inside cartesian grid we stick to scatter
     return scatterForDimOnly(data, xField, colorField, sizeField, sizeRange, manualSize);
   }
   if (!xField && yField) {
-    if (yField.type === 'measure') return createBarY(data, yField, null, sharedMeasureDomains);
+    if (yField.type === 'measure') return createBarY(data, yField, null, sharedMeasureDomains, colorField, sizeField, sizeRange, manualSize);
     return scatterForDimOnly(data, yField, colorField, sizeField, sizeRange, manualSize);
   }
 
@@ -110,10 +110,10 @@ export function generatePairChartOptions(
       return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, undefined, sizeField, sizeRange, manualSize);
     }
     case 'barX': {
-      return createBarX(data, xf, yf.type === 'dimension' ? yf : null, sharedMeasureDomains, colorField);
+      return createBarX(data, xf, yf.type === 'dimension' ? yf : null, sharedMeasureDomains, colorField, sizeField, sizeRange, manualSize);
     }
     case 'barY': {
-      return createBarY(data, yf, xf.type === 'dimension' ? xf : null, sharedMeasureDomains, colorField);
+      return createBarY(data, yf, xf.type === 'dimension' ? xf : null, sharedMeasureDomains, colorField, sizeField, sizeRange, manualSize);
     }
     case 'tickX': {
       // continuous dimension on X, optional discrete dimension category on Y
@@ -180,7 +180,10 @@ function createBarX(
   measure: Field,
   yDimension: Field | null,
   sharedDomains?: Domains,
-  colorField?: Field
+  colorField?: Field,
+  sizeField?: Field,
+  sizeRange?: [number, number],
+  manualSize?: number
 ): Plot.PlotOptions {
   const measureName = resolveMeasureAlias(measure);
   
@@ -200,6 +203,11 @@ function createBarX(
   }
   
   // Use barCore.buildBarOptions() instead of inline Plot.barX
+  const dynamicPadding = computeBandPaddingFromSizeField(data, sizeField, {
+    sizeRange,
+    manualSize,
+  }) ?? 0.1;
+  
   return buildBarOptions({
     data,
     measureName,
@@ -208,7 +216,7 @@ function createBarX(
     categoriesDomain,
     colorColumn: colorField ? getFieldColumnName(colorField) : undefined,
     colorDomain: undefined, // cellCharts doesn't use shared color domains
-    bandPadding: 0.1,
+    bandPadding: dynamicPadding,
     zeroBaseline: true,
     valueDomainOverride: valueDomain,
     tooltipColumns: [],
@@ -220,7 +228,10 @@ function createBarY(
   measure: Field,
   xDimension: Field | null,
   sharedDomains?: Domains,
-  colorField?: Field
+  colorField?: Field,
+  sizeField?: Field,
+  sizeRange?: [number, number],
+  manualSize?: number
 ): Plot.PlotOptions {
   const measureName = resolveMeasureAlias(measure);
   
@@ -240,6 +251,11 @@ function createBarY(
   }
   
   // Use barCore.buildBarOptions() instead of inline Plot.barY
+  const dynamicPadding = computeBandPaddingFromSizeField(data, sizeField, {
+    sizeRange,
+    manualSize,
+  }) ?? 0.1;
+  
   return buildBarOptions({
     data,
     measureName,
@@ -248,7 +264,7 @@ function createBarY(
     categoriesDomain,
     colorColumn: colorField ? getFieldColumnName(colorField) : undefined,
     colorDomain: undefined, // cellCharts doesn't use shared color domains
-    bandPadding: 0.1,
+    bandPadding: dynamicPadding,
     zeroBaseline: true,
     valueDomainOverride: valueDomain,
     tooltipColumns: [],
