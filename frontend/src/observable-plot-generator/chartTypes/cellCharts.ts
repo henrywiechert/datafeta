@@ -1,6 +1,6 @@
 import * as Plot from '@observablehq/plot';
 import { Field } from '../../types';
-import { DEFAULT_CHART_COLOR, BAR_STEP_PX } from '../../config/chartLayoutConfig';
+import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { getFieldColumnName } from '../helpers/fields';
 import { lineChart, verticalLineChart } from './lineChart';
