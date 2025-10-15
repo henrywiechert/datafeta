@@ -8,6 +8,7 @@ import { ChartGenerationContext, PlotResult } from '../types';
 import { FieldAnalysis } from '../analysis/fieldAnalysis';
 import { getFieldColumnName } from '../helpers/fields';
 import { getPlotColorConfig } from '../utils/colorSchemeUtils';
+import { computeColorDomain } from '../faceting/facetDomains';
 
 export type CartesianPlot = {
   id: string;
@@ -97,29 +98,7 @@ export function generateCartesianPlots(
   const sharedNumeric = computeSharedNumericDomains(data, xCandidates as any[], yCandidates as any[]);
 
   // Compute a shared color domain across the entire grid when a color field is present
-  const sharedColorDomain = (() => {
-    if (!colorField) return undefined;
-    const col = getFieldColumnName(colorField);
-    const seen = new Set<any>();
-    const values: any[] = [];
-    for (const row of Array.isArray(data) ? data : []) {
-      const v = row?.[col];
-      if (!seen.has(v)) {
-        seen.add(v);
-        values.push(v);
-      }
-    }
-    try {
-      // Smart sorting: if all values are numeric, sort numerically; otherwise sort as strings
-      const allNumeric = values.every(v => typeof v === 'number' && !Number.isNaN(v));
-      if (allNumeric) {
-        values.sort((a, b) => a - b);
-      } else {
-        values.sort((a, b) => (String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0));
-      }
-    } catch {}
-    return values;
-  })();
+  const sharedColorDomain = colorField ? computeColorDomain(data, colorField) : undefined;
 
   for (let r = 0; r < yCandidates.length; r++) {
     for (let c = 0; c < xCandidates.length; c++) {

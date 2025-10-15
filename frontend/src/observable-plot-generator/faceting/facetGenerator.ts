@@ -3,12 +3,19 @@ import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING, MIN_BAND_TRACKS, MIN_SE
 import { Field } from '../../types';
 import { getFieldColumnName } from '../helpers/fields';
 import { ChartGenerationContext, PlotResult, CategoryAxisDescriptor } from '../types';
-import { buildFacetCombos, filterRowsByFacets } from './facetUtils';
-import { FacetPlan, uniqueValuesForField } from './facetPlanner';
+import { buildFacetCombos, filterRowsByFacets, uniqueValuesForField } from './facetUtils';
+import { FacetPlan } from './facetPlanner';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { computeSharedMeasureDomains } from '../domains/measureDomains';
-import { computeSharedNumericDomains, computeSharedCategoricalDomains } from '../domains/numericDomains';
+import { computeSharedCategoricalDomains } from '../domains/numericDomains';
 import { baseGeneratePlot } from '../observablePlotGenerator';
+import { 
+  computeSharedDomainsForFaceting, 
+  applySharedDomains, 
+  applyIntrinsicSizeFromCategoryDomain,
+  SharedDomains
+} from './facetDomains';
+import { computeGridLayout, computeFacetLabels, deriveCellSizes } from './facetGrid';
 import { getPlotColorConfig } from '../utils/colorSchemeUtils';
 
 
@@ -185,21 +192,17 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
     colFacetFields
   );
   
-    // Compute shared measure domains across whole data for comparability
-    const allMeasures = [...xFields, ...yFields].filter((f: any) => f.type === 'measure' && f.flavour === 'continuous');
-    const xCandidates = allMeasures; // reusing computeSharedMeasureDomains signature convenience
-    const yCandidates = allMeasures;
-    const sharedMeasureDomains = computeSharedMeasureDomains(
-      queryResult.rows, 
-      xCandidates as any[], 
-      yCandidates as any[],
-      colorField,  // Pass color field for stacking calculation
-      undefined  // No category field in cartesian grid mode
-    );
-    // Compute shared numeric domains for continuous dimensions and measures (by column/alias)
-    const sharedNumericDomains = computeSharedNumericDomains(queryResult.rows, xFields as any[], yFields as any[]);
+  // Compute all shared domains using centralized utility
+  const sharedDomains = computeSharedDomainsForFaceting(
+    queryResult.rows,
+    xFields,
+    yFields,
+    colorField,
+    categoryField || undefined,
+    [...rowFacetFields, ...colFacetFields]
+  );
   
-    const combinedPlots: Array<{ id: string; title: string; options: Plot.PlotOptions; position: { row: number; col: number } }> = [];
+  const combinedPlots: Array<{ id: string; title: string; options: Plot.PlotOptions; position: { row: number; col: number } }> = [];
   
     // Determine base layout by generating one sample facet (first values)
     const sampleRows = filterRowsByFacets(queryResult.rows, rowFacetFields, safeRowCombos[0], colFacetFields, safeColCombos[0]);
@@ -208,13 +211,11 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       categoryAxis,
       categoryField?.id || null,
       sampleRows,
-      sharedMeasureDomains,
-      sharedNumericDomains,
+      sharedDomains,
       // pass all facet fields to be excluded in local context
       rowFacetFields,
       colFacetFields,
       sharedCategoryDomain || undefined,
-      sharedColorDomain,
       colorScheme
     );
     const baseCols = baseSpec.columns;
@@ -228,12 +229,10 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
           categoryAxis,
           categoryField?.id || null,
           subset,
-          sharedMeasureDomains,
-          sharedNumericDomains,
+          sharedDomains,
           rowFacetFields,
           colFacetFields,
           sharedCategoryDomain || undefined,
-          sharedColorDomain,
           colorScheme
         );
   
@@ -252,7 +251,7 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
     return {
       library: 'observable-plot',
       plots: combinedPlots,
-      sharedDomains: { byMeasure: sharedMeasureDomains as any },
+      sharedDomains: { byMeasure: sharedDomains.measure as any },
       layout: {
         type: 'grid',
         columns: baseCols * safeColCombos.length,
@@ -305,12 +304,10 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
     categoryAxis: 'x' | 'y' | null,
     excludedCategoryFieldId: string | null,
     subsetRows: Array<Record<string, any>>,
-    sharedMeasureDomains?: Record<string, [number, number]>,
-    sharedNumericDomains?: Record<string, [number, number]>,
+    sharedDomains: SharedDomains,
     rowFacetFields?: Field[] | Field | null,
     colFacetFields?: Field[] | Field | null,
     sharedCategoryDomain?: any[],
-    sharedColorDomain?: any[],
     colorScheme?: string
   ): BaseSpec {
     const { queryResult, xFields, yFields } = context;
@@ -346,82 +343,69 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
   
     const baseResult = baseGeneratePlot(localContext);
   
-    // Apply shared domains by measure if provided
-    if (sharedMeasureDomains || sharedNumericDomains || (sharedColorDomain && sharedColorDomain.length > 0)) {
-      const applyDomains = (opts: Plot.PlotOptions) => {
-        const xDomainKey = (opts as any)?.x?.domainKey || (opts as any)?.x?.domainLabel || (opts as any)?.x?.label;
-        const yDomainKey = (opts as any)?.y?.domainKey || (opts as any)?.y?.domainLabel || (opts as any)?.y?.label;
-        const xDomain = (sharedNumericDomains && xDomainKey && sharedNumericDomains[xDomainKey]) || (sharedMeasureDomains && xDomainKey && sharedMeasureDomains[xDomainKey]);
-        const yDomain = (sharedNumericDomains && yDomainKey && sharedNumericDomains[yDomainKey]) || (sharedMeasureDomains && yDomainKey && sharedMeasureDomains[yDomainKey]);
-        const next: Plot.PlotOptions = { ...opts };
-        if (xDomain) next.x = { ...(opts.x as any), domain: xDomain } as any;
-        if (yDomain) next.y = { ...(opts.y as any), domain: yDomain } as any;
-        // Apply shared color domain so color mapping remains consistent across facets
-        if (sharedColorDomain && sharedColorDomain.length > 0) {
-          const colorConfig = getPlotColorConfig(colorScheme);
-          next.color = {
-            ...(next as any).color,
-            domain: sharedColorDomain as any,
-            ...colorConfig as any,
-            type: 'ordinal' as any,
-          } as any;
-        }
-        // Apply shared categorical domain so band categories align across facets
-        if (sharedCategoryDomain && (next as any)?.x?.type === 'band') {
+    // Apply shared domains using centralized utility
+    const applyDomainsFn = (opts: Plot.PlotOptions) => {
+      // First apply standard shared domains (measure, numeric, color, categorical)
+      let next = applySharedDomains(opts, sharedDomains, colorScheme);
+      
+      // Apply categorical domain override if provided explicitly
+      if (sharedCategoryDomain && Array.isArray(sharedCategoryDomain)) {
+        if ((next as any)?.x?.type === 'band') {
           next.x = { ...(next.x as any), domain: sharedCategoryDomain as any } as any;
         }
-        if (sharedCategoryDomain && (next as any)?.y?.type === 'band') {
+        if ((next as any)?.y?.type === 'band') {
           next.y = { ...(next.y as any), domain: sharedCategoryDomain as any } as any;
         }
-        // Adjust intrinsic size based on shared categorical domain to keep bar thickness stable
-        if (sharedCategoryDomain && Array.isArray(sharedCategoryDomain) && sharedCategoryDomain.length > 0) {
-          const count = sharedCategoryDomain.length;
-          if (categoryAxis === 'y' && (next as any)?.y?.type === 'band') {
-            const minH = Math.max(BAR_STEP_PX * 2, count * BAR_STEP_PX);
-            (next as any).height = minH;
-          }
-          if (categoryAxis === 'x' && (next as any)?.x?.type === 'band') {
-            const minW = Math.max(BAR_STEP_PX * 2, count * BAR_STEP_PX);
-            (next as any).width = minW;
-          }
-        }
-        // Force zero baseline for bar charts: when categoryAxis is on one side,
-        // ensure the opposite numeric axis domain includes 0.
-        const coerceZeroBaseline = (domain: any, values: number[]) => {
-          if (!Array.isArray(values) || values.length === 0) return domain;
-          const min = Math.min(...values);
-          const max = Math.max(...values);
-          const lower = Math.min(0, min);
-          const upper = max <= 0 ? 0 : max;
-          return [lower, upper] as [number, number];
-        };
-        if (categoryAxis === 'x') {
-          const key = yDomainKey as string | undefined;
-          if (key) {
-            const vals = subsetRows
-              .map((row) => row?.[key as string])
-              .filter((v) => typeof v === 'number' && !Number.isNaN(v));
-            const coerced = coerceZeroBaseline((next as any)?.y?.domain, vals as number[]);
-            next.y = { ...(next.y as any), domain: coerced } as any;
-          }
-        } else if (categoryAxis === 'y') {
-          const key = xDomainKey as string | undefined;
-          if (key) {
-            const vals = subsetRows
-              .map((row) => row?.[key as string])
-              .filter((v) => typeof v === 'number' && !Number.isNaN(v));
-            const coerced = coerceZeroBaseline((next as any)?.x?.domain, vals as number[]);
-            next.x = { ...(next.x as any), domain: coerced } as any;
-          }
-        }
-        return next;
+      }
+      
+      // Apply intrinsic size adjustments for category domains
+      next = applyIntrinsicSizeFromCategoryDomain(
+        next, 
+        categoryAxis, 
+        sharedCategoryDomain, 
+        BAR_STEP_PX
+      );
+      
+      // Force zero baseline for bar charts: when categoryAxis is on one side,
+      // ensure the opposite numeric axis domain includes 0.
+      // TODO: This is bar-specific logic that should move to barCore.ts
+      const coerceZeroBaseline = (domain: any, values: number[]) => {
+        if (!Array.isArray(values) || values.length === 0) return domain;
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        const lower = Math.min(0, min);
+        const upper = max <= 0 ? 0 : max;
+        return [lower, upper] as [number, number];
       };
-      if (baseResult.options) {
-        baseResult.options = applyDomains(baseResult.options);
+      const xDomainKey = (next as any)?.x?.domainKey || (next as any)?.x?.domainLabel || (next as any)?.x?.label;
+      const yDomainKey = (next as any)?.y?.domainKey || (next as any)?.y?.domainLabel || (next as any)?.y?.label;
+      if (categoryAxis === 'x') {
+        const key = yDomainKey as string | undefined;
+        if (key) {
+          const vals = subsetRows
+            .map((row) => row?.[key as string])
+            .filter((v) => typeof v === 'number' && !Number.isNaN(v));
+          const coerced = coerceZeroBaseline((next as any)?.y?.domain, vals as number[]);
+          next.y = { ...(next.y as any), domain: coerced } as any;
+        }
+      } else if (categoryAxis === 'y') {
+        const key = xDomainKey as string | undefined;
+        if (key) {
+          const vals = subsetRows
+            .map((row) => row?.[key as string])
+            .filter((v) => typeof v === 'number' && !Number.isNaN(v));
+          const coerced = coerceZeroBaseline((next as any)?.x?.domain, vals as number[]);
+          next.x = { ...(next.x as any), domain: coerced } as any;
+        }
       }
-      if (baseResult.plots) {
-        baseResult.plots = baseResult.plots.map((p) => ({ ...p, options: applyDomains(p.options) }));
-      }
+      return next;
+    };
+    
+    if (baseResult.options) {
+      baseResult.options = applyDomainsFn(baseResult.options);
+    }
+    if (baseResult.plots) {
+      baseResult.plots = baseResult.plots.map((p) => ({ ...p, options: applyDomainsFn(p.options) }));
     }
   
     // Normalize to BaseSpec
