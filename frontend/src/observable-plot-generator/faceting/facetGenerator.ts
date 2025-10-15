@@ -99,9 +99,7 @@ function createBarCellGenerator(
   sharedCategoryDomain: any[],
   colorField?: Field,
   colorScheme?: string,
-  sizeField?: Field,
-  sizeRange?: [number, number],
-  manualSize?: number
+  bandPadding?: number
 ): CellGenerator {
   return (cellData, cellContext, sharedDomains, facetPosition): CellResult => {
     const orientedFields = barOrientation === 'barX' ? xFields : yFields;
@@ -138,11 +136,8 @@ function createBarCellGenerator(
         const measureName = resolveMeasureAlias(f);
         const valueDomain = (sharedDomains.measure as any)[measureName] || [0, 1];
         
-        // Compute dynamic band padding from size field if provided
-        const dynamicPadding = computeBandPaddingFromSizeField(cellData, sizeField, {
-          sizeRange,
-          manualSize,
-        }) ?? BAND_PADDING;
+        // Use the global band padding computed from size field
+        const dynamicPadding = bandPadding ?? BAND_PADDING;
         
         // Use barCore.buildBarOptions() instead of inline Plot.barX/barY
         options = buildBarOptions({
@@ -221,6 +216,12 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
     
   // BAR path: Use coordinator with bar cell generator
   if (barOrientation && categoryAxis) {
+    // Compute global band padding from size field if provided (applied to all facets)
+    const globalBandPadding = computeBandPaddingFromSizeField(context.queryResult.rows, sizeField, {
+      sizeRange,
+      manualSize,
+    }) ?? BAND_PADDING;
+    
     // Create a specialized cell generator for multi-measure bar charts
     const barCellGen = createBarCellGenerator(
       xFields,
@@ -231,9 +232,7 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       sharedCategoryDomain || [],
       colorField,
       colorScheme,
-      sizeField,
-      sizeRange,
-      manualSize
+      globalBandPadding
     );
     
     // Use the coordinator for chart-type-agnostic faceting
