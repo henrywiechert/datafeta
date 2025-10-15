@@ -1,6 +1,7 @@
 import { Field } from '../../types';
 import { getFieldColumnName } from '../helpers/fields';
 import { ChartGenerationContext } from '../types';
+import { uniqueValuesForField } from './facetUtils';
 
 export interface FacetPlan {
   rowFacetFields: Field[];
@@ -10,36 +11,6 @@ export interface FacetPlan {
   barOrientation: 'barX' | 'barY' | null;
   sharedCategoryDomain: any[] | null;
 }
-
-/**
- * Returns a sorted list of unique values for a given field from the dataset.
- */
-export function uniqueValuesForField(rows: any[], field: Field): any[] {
-  const col = getFieldColumnName(field);
-  const seen = new Set<any>();
-  const values: any[] = [];
-  rows.forEach((row) => {
-    const v = row[col];
-    if (!seen.has(v)) {
-      seen.add(v);
-      values.push(v);
-    }
-  });
-  // Sort for consistency, especially important for facet ordering
-  // Smart sorting: if all values are numeric, sort numerically; otherwise sort as strings
-  try {
-    const allNumeric = values.every(v => typeof v === 'number' && !Number.isNaN(v));
-    if (allNumeric) {
-      values.sort((a, b) => a - b);
-    } else {
-      values.sort((a, b) => (String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0));
-    }
-  } catch (e) {
-    // ignore sort errors for complex types
-  }
-  return values;
-}
-
 
 /**
  * Analyzes the fields to determine faceting strategy.
