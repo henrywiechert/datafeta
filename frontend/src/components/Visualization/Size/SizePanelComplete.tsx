@@ -56,22 +56,7 @@ const SizePanelComplete: React.FC = () => {
         return range;
     }, [state.sizeField, state.queryResult]);
     
-    // Clamp sizeRange to fieldValueRange when the field or data changes
-    useEffect(() => {
-        if (state.sizeField && fieldValueRange) {
-            const [minField, maxField] = fieldValueRange;
-            const [minSize, maxSize] = state.sizeRange;
-            
-            // Only update if current range is outside the field range
-            if (minSize < minField || maxSize > maxField || minSize > maxField || maxSize < minField) {
-                // Reset to the full field range
-                dispatch({
-                    type: 'SET_SIZE_RANGE',
-                    payload: [minField, maxField]
-                });
-            }
-        }
-    }, [state.sizeField, fieldValueRange]); // Intentionally exclude state.sizeRange and dispatch to avoid loops
+    // No longer need to clamp sizeRange to field values since sizeRange is always pixel radii
     
     const handleSizeDrop = (e: React.DragEvent) => {
         try {
@@ -86,16 +71,12 @@ const SizePanelComplete: React.FC = () => {
                         payload: field
                     });
                     
-                    // Initialize sizeRange to the actual field value range
-                    if (state.queryResult?.rows) {
-                        const valueRange = getSizeFieldValueRange(state.queryResult.rows, field);
-                        if (valueRange) {
-                            dispatch({
-                                type: 'SET_SIZE_RANGE',
-                                payload: valueRange
-                            });
-                        }
-                    }
+                    // Reset sizeRange to a reasonable pixel range for scatter/line charts
+                    // Don't use field value range - that was causing huge bubbles!
+                    dispatch({
+                        type: 'SET_SIZE_RANGE',
+                        payload: [4, 20] // Pixel radii, not data values
+                    });
                 }
             }
         } catch (error) {
@@ -231,27 +212,21 @@ const SizePanelComplete: React.FC = () => {
                 {state.sizeField ? (
                     <FormControl fullWidth>
                         <Typography variant="caption" gutterBottom>
-                            Size Range: {state.sizeRange[0].toFixed(2)} - {state.sizeRange[1].toFixed(2)}
+                            Size Range (pixels): {state.sizeRange[0].toFixed(0)} - {state.sizeRange[1].toFixed(0)}
                         </Typography>
-                        {fieldValueRange ? (
-                            <>
-                                <Slider
-                                    value={state.sizeRange}
-                                    onChange={handleSizeRangeChange}
-                                    valueLabelDisplay="auto"
-                                    min={fieldValueRange[0]}
-                                    max={fieldValueRange[1]}
-                                    step={(fieldValueRange[1] - fieldValueRange[0]) / 100}
-                                    size="small"
-                                    sx={{ mt: 1 }}
-                                />
-                                <Typography variant="caption" sx={{ fontSize: '10px', color: '#757575', mt: 0.5, display: 'block' }}>
-                                    Field value range: {fieldValueRange[0].toFixed(2)} - {fieldValueRange[1].toFixed(2)}
-                                </Typography>
-                            </>
-                        ) : (
-                            <Typography variant="caption" sx={{ fontSize: '11px', color: '#f57c00', mt: 1, display: 'block' }}>
-                                No valid values found for this field
+                        <Slider
+                            value={state.sizeRange}
+                            onChange={handleSizeRangeChange}
+                            valueLabelDisplay="auto"
+                            min={1}
+                            max={50}
+                            step={1}
+                            size="small"
+                            sx={{ mt: 1 }}
+                        />
+                        {fieldValueRange && (
+                            <Typography variant="caption" sx={{ fontSize: '10px', color: '#757575', mt: 0.5, display: 'block' }}>
+                                Field value range: {fieldValueRange[0].toFixed(2)} - {fieldValueRange[1].toFixed(2)}
                             </Typography>
                         )}
                         {legend && (

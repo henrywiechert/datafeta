@@ -204,7 +204,6 @@ function createBarX(
   
   // Use barCore.buildBarOptions() instead of inline Plot.barX
   const dynamicPadding = computeBandPaddingFromSizeField(data, sizeField, {
-    sizeRange,
     manualSize,
   }) ?? 0.1;
   
@@ -252,7 +251,6 @@ function createBarY(
   
   // Use barCore.buildBarOptions() instead of inline Plot.barY
   const dynamicPadding = computeBandPaddingFromSizeField(data, sizeField, {
-    sizeRange,
     manualSize,
   }) ?? 0.1;
   

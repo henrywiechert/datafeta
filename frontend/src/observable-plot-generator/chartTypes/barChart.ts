@@ -25,9 +25,8 @@ export function barChart(context: ChartGenerationContext) {
   const colorColumn = colorField ? getFieldColumnName(colorField) : undefined;
   const colorDomain = colorField ? Array.from(new Set(data.map(r => r[colorColumn!]))) : undefined;
 
-  // Derive dynamic band padding with size range and manual size
+  // Derive dynamic band padding with manual size
   const dynamicPadding = computeBandPaddingFromSizeField(data, sizeField, {
-    sizeRange,
     manualSize,
   }) ?? undefined;
 

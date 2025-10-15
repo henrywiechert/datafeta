@@ -12,6 +12,26 @@
     overscroll-behavior: contain; /* prevent scroll chaining/navigation gestures */
 }
 
+/* Force scrollbars to always be visible (override macOS overlay behavior) */
+.container::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+.container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 6px;
+}
+
+.container::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 6px;
+}
+
+.container::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
 .container > :last-child {
     flex: none; /* Don't constrain the chart size */
     min-height: 0;
@@ -84,4 +104,82 @@
     overflow: visible; /* Remove scrollbars from individual plots */
     align-items: center; /* Center the plot content */
     justify-content: center;
+}
+
+/* Vertical scroll layer - always show scrollbar */
+.verticalScrollLayer {
+    scrollbar-width: auto !important; /* Firefox - force standard scrollbar */
+    scrollbar-color: #888 #f1f1f1; /* Firefox: thumb track */
+    /* Force scrollbar to always show even when not needed */
+    overflow-y: scroll !important;
+}
+
+.verticalScrollLayer::-webkit-scrollbar {
+    -webkit-appearance: none;
+    width: 14px !important;
+    display: block !important; /* Ensure it's visible */
+}
+
+.verticalScrollLayer::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+}
+
+.verticalScrollLayer::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 6px;
+    border: 2px solid #f1f1f1;
+    min-height: 40px;
+}
+
+.verticalScrollLayer::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+.verticalScrollLayer::-webkit-scrollbar-thumb:active {
+    background: #333;
+}
+
+.verticalScrollLayer::-webkit-scrollbar-corner {
+    background: #f1f1f1;
+}
+
+/* Horizontal scroll layer - always show scrollbar */
+.horizontalScrollLayer {
+    scrollbar-width: auto !important; /* Firefox - force standard scrollbar */
+    scrollbar-color: #888 #f1f1f1; /* Firefox: thumb track */
+    /* Force scrollbar to always show even when not needed */
+    overflow-x: scroll !important;
+}
+
+.horizontalScrollLayer::-webkit-scrollbar {
+    -webkit-appearance: none;
+    height: 14px !important;
+    display: block !important; /* Ensure it's visible */
+}
+
+.horizontalScrollLayer::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+}
+
+.horizontalScrollLayer::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 6px;
+    border: 2px solid #f1f1f1;
+    min-width: 40px;
+}
+
+.horizontalScrollLayer::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+.horizontalScrollLayer::-webkit-scrollbar-thumb:active {
+    background: #333;
+}
+
+.horizontalScrollLayer::-webkit-scrollbar-corner {
+    background: #f1f1f1;
 }

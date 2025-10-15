@@ -66,7 +66,6 @@ export function multiMeasureBarChart(context: ChartGenerationContext): PlotResul
 
   // Dynamic band padding across all measures (same padding for consistency)
   const dynamicBandPadding = computeBandPaddingFromSizeField(data, sizeField, {
-    sizeRange,
     manualSize,
   }) ?? undefined;
 
