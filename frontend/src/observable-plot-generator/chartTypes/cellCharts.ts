@@ -7,6 +7,7 @@ import { lineChart, verticalLineChart } from './lineChart';
 import { scatterChart } from './scatterChart';
 import { tickStrip } from './tickStrip';
 import { CellChartType, ChartTypeOverrides, resolveChartTypeForPair } from '../helpers/chartTypeResolver';
+import { buildBarOptions, resolveMeasureAlias } from './barCore';
 
 type Domains = Record<string, [number, number]> | undefined;
 
@@ -181,50 +182,37 @@ function createBarX(
   sharedDomains?: Domains,
   colorField?: Field
 ): Plot.PlotOptions {
-  const measureName = getResultColumnName({ ...measure, aggregation: measure.aggregation || 'sum' } as any);
-  let domain = (sharedDomains && sharedDomains[measureName]) || undefined;
-  // For bars, force baseline at 0 and +5% headroom
-  if (Array.isArray(domain)) {
-    const upperRaw = Math.max(0, domain[1] as number);
-    domain = [0, (upperRaw === 0 ? 1 : upperRaw * 1.05)] as any;
-  } else {
-    // If no domain provided, compute from data
-    const vals = data.map((d) => d?.[measureName]).filter((v) => typeof v === 'number' && !Number.isNaN(v));
-    const max = vals.length ? Math.max(0, ...vals) : 0;
-    domain = [0, max === 0 ? 1 : max * 1.05] as any;
+  const measureName = resolveMeasureAlias(measure);
+  
+  // Extract value domain from shared domains if available
+  let valueDomain: [number, number] | undefined = (sharedDomains && sharedDomains[measureName]) as [number, number] | undefined;
+  
+  // Get category column and domain
+  const categoryColumn = yDimension ? getFieldColumnName(yDimension) : undefined;
+  let categoriesDomain: string[] | undefined;
+  
+  if (categoryColumn) {
+    const domainKey = categoryColumn;
+    const sharedCatDomain = (sharedDomains && (sharedDomains as any)[domainKey]) as any[] | undefined;
+    categoriesDomain = sharedCatDomain && Array.isArray(sharedCatDomain) 
+      ? sharedCatDomain 
+      : Array.from(new Set(data.map((row) => row[categoryColumn])));
   }
-
-  const opts: Plot.PlotOptions = {
-    x: { label: measureName, grid: true, domain, nice: false },
-    marks: [],
-  };
-
-  if (yDimension) {
-    // Remove hardcoded height for responsive sizing
-    const yColumnName = getFieldColumnName(yDimension);
-    const categories = Array.from(new Set(data.map((row) => row[yColumnName])));
-    // Preserve ordering by domain even when data missing; force all known categories if available in sharedDomains via label key
-    const domainKey = yColumnName;
-    const sharedDomain = (sharedDomains && (sharedDomains as any)[domainKey]) as any[] | undefined;
-    opts.y = { label: yColumnName, domain: (sharedDomain && Array.isArray(sharedDomain) ? sharedDomain : categories) as any, type: 'band' as any, padding: 0.1 as any };
-    // Ensure consistent bar thickness regardless of viewport: set fixed padding
-    opts.marginTop = 0;
-    opts.marginBottom = 0;
-    opts.inset = 0;
-    opts.height = Math.max(BAR_STEP_PX, categories.length * BAR_STEP_PX);
-    opts.marks!.push(
-      Plot.barX(data, { x: measureName, y: yColumnName, fill: colorField ? getFieldColumnName(colorField) : DEFAULT_CHART_COLOR, tip: { pointer: 'x', preferredAnchor: 'top-right' } })
-    );
-  } else {
-    // Remove hardcoded height for responsive sizing
-    opts.y = { label: ' ' };
-    opts.height = BAR_STEP_PX;
-    opts.marks!.push(
-      Plot.barX(data, { x: measureName, fill: colorField ? getFieldColumnName(colorField) : DEFAULT_CHART_COLOR, tip: { pointer: 'x', preferredAnchor: 'top-right' } })
-    );
-  }
-
-  return opts;
+  
+  // Use barCore.buildBarOptions() instead of inline Plot.barX
+  return buildBarOptions({
+    data,
+    measureName,
+    orientation: 'horizontal',
+    categoryColumn,
+    categoriesDomain,
+    colorColumn: colorField ? getFieldColumnName(colorField) : undefined,
+    colorDomain: undefined, // cellCharts doesn't use shared color domains
+    bandPadding: 0.1,
+    zeroBaseline: true,
+    valueDomainOverride: valueDomain,
+    tooltipColumns: [],
+  });
 }
 
 function createBarY(
@@ -234,50 +222,37 @@ function createBarY(
   sharedDomains?: Domains,
   colorField?: Field
 ): Plot.PlotOptions {
-  const measureName = getResultColumnName({ ...measure, aggregation: measure.aggregation || 'sum' } as any);
-  let domain = (sharedDomains && sharedDomains[measureName]) || undefined;
-  // For bars, force baseline at 0 and +5% headroom
-  if (Array.isArray(domain)) {
-    const upperRaw = Math.max(0, domain[1] as number);
-    domain = [0, (upperRaw === 0 ? 1 : upperRaw * 1.05)] as any;
-  } else {
-    const vals = data.map((d) => d?.[measureName]).filter((v) => typeof v === 'number' && !Number.isNaN(v));
-    if (vals.length > 0) {
-      const min = Math.min(...vals);
-      const max = Math.max(...vals);
-      domain = [Math.min(0, min), max <= 0 ? 0 : max] as any;
-    }
+  const measureName = resolveMeasureAlias(measure);
+  
+  // Extract value domain from shared domains if available
+  let valueDomain: [number, number] | undefined = (sharedDomains && sharedDomains[measureName]) as [number, number] | undefined;
+  
+  // Get category column and domain
+  const categoryColumn = xDimension ? getFieldColumnName(xDimension) : undefined;
+  let categoriesDomain: string[] | undefined;
+  
+  if (categoryColumn) {
+    const domainKey = categoryColumn;
+    const sharedCatDomain = (sharedDomains && (sharedDomains as any)[domainKey]) as any[] | undefined;
+    categoriesDomain = sharedCatDomain && Array.isArray(sharedCatDomain) 
+      ? sharedCatDomain 
+      : Array.from(new Set(data.map((row) => row[categoryColumn])));
   }
-
-  const opts: Plot.PlotOptions = {
-    y: { label: measureName, grid: true, domain, nice: false },
-    marks: [],
-  };
-
-  if (xDimension) {
-    // Remove hardcoded width for responsive sizing
-    const xColumnName = getFieldColumnName(xDimension);
-    const categories = Array.from(new Set(data.map((row) => row[xColumnName])));
-    const domainKey = xColumnName;
-    const sharedDomain = (sharedDomains && (sharedDomains as any)[domainKey]) as any[] | undefined;
-    opts.x = { label: xColumnName, domain: (sharedDomain && Array.isArray(sharedDomain) ? sharedDomain : categories) as any, type: 'band' as any, padding: 0.1 as any };
-    opts.marginLeft = 0;
-    opts.marginRight = 0;
-    opts.inset = 0;
-    opts.width = Math.max(BAR_STEP_PX, categories.length * BAR_STEP_PX);
-    opts.marks!.push(
-      Plot.barY(data, { x: xColumnName, y: measureName, fill: colorField ? getFieldColumnName(colorField) : DEFAULT_CHART_COLOR, tip: { pointer: 'y', preferredAnchor: 'top-right' } })
-    );
-  } else {
-    // Remove hardcoded width for responsive sizing
-    opts.x = { label: ' ' };
-    opts.width = BAR_STEP_PX;
-    opts.marks!.push(
-      Plot.barY(data, { y: measureName, fill: colorField ? getFieldColumnName(colorField) : DEFAULT_CHART_COLOR, tip: { pointer: 'y', preferredAnchor: 'top-right' } })
-    );
-  }
-
-  return opts;
+  
+  // Use barCore.buildBarOptions() instead of inline Plot.barY
+  return buildBarOptions({
+    data,
+    measureName,
+    orientation: 'vertical',
+    categoryColumn,
+    categoriesDomain,
+    colorColumn: colorField ? getFieldColumnName(colorField) : undefined,
+    colorDomain: undefined, // cellCharts doesn't use shared color domains
+    bandPadding: 0.1,
+    zeroBaseline: true,
+    valueDomainOverride: valueDomain,
+    tooltipColumns: [],
+  });
 }
 
 function scatterForDimOnly(
