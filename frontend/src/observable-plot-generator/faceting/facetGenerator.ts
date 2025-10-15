@@ -18,7 +18,7 @@ import {
 import { computeGridLayout, computeFacetLabels, deriveCellSizes } from './facetGrid';
 import { getPlotColorConfig } from '../utils/colorSchemeUtils';
 import { coordinateFacetedGrid, CellGenerator, CellResult, PositionedPlot } from './facetCoordinator';
-import { buildBarOptions, resolveMeasureAlias } from '../chartTypes/barCore';
+import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField } from '../chartTypes/barCore';
 
 /**
  * Chart-specific configuration derived from context and facet plan.
@@ -104,7 +104,10 @@ function createBarCellGenerator(
   categoryField: Field | null,
   sharedCategoryDomain: any[],
   colorField?: Field,
-  colorScheme?: string
+  colorScheme?: string,
+  sizeField?: Field,
+  sizeRange?: [number, number],
+  manualSize?: number
 ): CellGenerator {
   return (cellData, cellContext, sharedDomains, facetPosition): CellResult => {
     const orientedFields = barOrientation === 'barX' ? xFields : yFields;
@@ -141,6 +144,12 @@ function createBarCellGenerator(
         const measureName = resolveMeasureAlias(f);
         const valueDomain = (sharedDomains.measure as any)[measureName] || [0, 1];
         
+        // Compute dynamic band padding from size field if provided
+        const dynamicPadding = computeBandPaddingFromSizeField(cellData, sizeField, {
+          sizeRange,
+          manualSize,
+        }) ?? BAND_PADDING;
+        
         // Use barCore.buildBarOptions() instead of inline Plot.barX/barY
         options = buildBarOptions({
           data: cellData,
@@ -151,7 +160,7 @@ function createBarCellGenerator(
           colorColumn: colorColumnName,
           colorDomain: sharedDomains.color && sharedDomains.color.length > 0 ? sharedDomains.color : undefined,
           colorSchemeId: colorScheme,
-          bandPadding: BAND_PADDING,
+          bandPadding: dynamicPadding,
           zeroBaseline: true,
           valueDomainOverride: valueDomain as [number, number],
           tooltipColumns: [colorField?.columnName].filter(Boolean) as string[],
@@ -203,7 +212,7 @@ function createBarCellGenerator(
  * for bar charts where a category axis can be injected if needed (see below).
  */
 export function generateFacetedGrid(context: ChartGenerationContext, plan: FacetPlan): PlotResult {
-    const { xFields, yFields, queryResult, colorField, colorScheme } = context;
+    const { xFields, yFields, queryResult, colorField, colorScheme, sizeField, sizeRange, manualSize } = context;
     
     // Derive chart-specific configuration from the simplified plan
     const chartConfig = deriveChartConfig(context, plan);
@@ -230,7 +239,10 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       categoryField,
       sharedCategoryDomain || [],
       colorField,
-      colorScheme
+      colorScheme,
+      sizeField,
+      sizeRange,
+      manualSize
     );
     
     // Use the coordinator for chart-type-agnostic faceting

@@ -6,7 +6,7 @@ import { resolveMeasureAlias, buildBarOptions, computeBandPaddingFromSizeField }
 // This file now simply selects orientation + fields and delegates to barCore.
 
 export function barChart(context: ChartGenerationContext) {
-  const { queryResult, xFields, yFields, colorField, colorScheme, sizeField } = context;
+  const { queryResult, xFields, yFields, colorField, colorScheme, sizeField, sizeRange, manualSize } = context;
   const data = queryResult.rows;
 
   const yMeasure = yFields.find(f => f.type === 'measure');
@@ -25,8 +25,11 @@ export function barChart(context: ChartGenerationContext) {
   const colorColumn = colorField ? getFieldColumnName(colorField) : undefined;
   const colorDomain = colorField ? Array.from(new Set(data.map(r => r[colorColumn!]))) : undefined;
 
-  // Derive dynamic band padding only when a size field exists
-  const dynamicPadding = computeBandPaddingFromSizeField(data, sizeField) ?? undefined;
+  // Derive dynamic band padding with size range and manual size
+  const dynamicPadding = computeBandPaddingFromSizeField(data, sizeField, {
+    sizeRange,
+    manualSize,
+  }) ?? undefined;
 
   return buildBarOptions({
     data,

@@ -85,21 +85,61 @@ export interface BandPaddingOptions {
   minPadding?: number; // thickest
   maxPadding?: number; // thinnest
   defaultPadding?: number;
+  sizeRange?: [number, number]; // User-defined size range for mapping
+  manualSize?: number; // User-defined manual size (used when no size field)
 }
 
 export function computeBandPaddingFromSizeField(rows: any[], sizeField?: Field, opts: BandPaddingOptions = {}): number | undefined {
-  if (!sizeField) return undefined;
-  const { stat = 'median', minPadding = -2, maxPadding = 0.95, defaultPadding = BAND_PADDING } = opts;
+  const { stat = 'median', minPadding = 0, maxPadding = 0.95, defaultPadding = BAND_PADDING, sizeRange, manualSize } = opts;
+  
+  // If no size field, use manualSize to determine band padding
+  if (!sizeField) {
+    if (manualSize !== undefined && sizeRange !== undefined) {
+      // Map manualSize from sizeRange to padding range
+      const [minSize, maxSize] = sizeRange;
+      if (minSize === maxSize) return defaultPadding;
+      const sizeNorm = (manualSize - minSize) / (maxSize - minSize); // 0..1
+      // Larger size → smaller padding (thicker bars)
+      const padding = maxPadding - (maxPadding - minPadding) * sizeNorm;
+      return Math.max(minPadding, Math.min(maxPadding, padding));
+    }
+    return undefined;
+  }
+  
   const col = getResultColumnName({ ...sizeField, aggregation: sizeField.aggregation || 'sum' } as any);
   const values = rows.map(r => r[col]).filter(v => typeof v === 'number' && isFinite(v)) as number[];
   if (values.length === 0) return defaultPadding;
   values.sort((a,b)=>a-b);
   const min = values[0];
   const max = values[values.length - 1];
-  if (min === max) return defaultPadding;
+  if (min === max) {
+    // All values are the same - use sizeRange if available
+    if (sizeRange !== undefined) {
+      const [minSize, maxSize] = sizeRange;
+      const midSize = (minSize + maxSize) / 2;
+      if (minSize === maxSize) return defaultPadding;
+      const sizeNorm = (midSize - minSize) / (maxSize - minSize);
+      const padding = maxPadding - (maxPadding - minPadding) * sizeNorm;
+      return Math.max(minPadding, Math.min(maxPadding, padding));
+    }
+    return defaultPadding;
+  }
+  
   const metric = stat === 'mean' ? (values.reduce((a,b)=>a+b,0)/values.length) : (values[Math.floor(values.length/2)]);
   const norm = (metric - min) / (max - min); // 0..1
-  const padding = maxPadding + (minPadding - maxPadding) * norm; // interpolate
+  
+  // If sizeRange is provided, scale the metric value to the size range first
+  let effectiveNorm = norm;
+  if (sizeRange !== undefined) {
+    const [minSize, maxSize] = sizeRange;
+    // Map the normalized metric value to the size range
+    const mappedSize = minSize + norm * (maxSize - minSize);
+    // Then normalize within the size range
+    effectiveNorm = (mappedSize - minSize) / (maxSize - minSize);
+  }
+  
+  // Larger size → smaller padding (thicker bars)
+  const padding = maxPadding - (maxPadding - minPadding) * effectiveNorm;
   return Math.max(minPadding, Math.min(maxPadding, padding));
 }
 
