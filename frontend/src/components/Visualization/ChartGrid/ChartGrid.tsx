@@ -275,13 +275,13 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     return (
       <div className={styles.container} ref={containerRef} style={{ position: 'relative', height: '100%', overflow: 'hidden' }} onWheelCapture={onWheelCapture}>
         {/* Horizontal scroll layer (plots + top/bottom elements). Starts at leftFixedWidthPx to avoid overlapping the fixed Y band */}
-        <div ref={hScrollRef} style={{
+        <div ref={hScrollRef} className={styles.horizontalScrollLayer} style={{
           position: 'absolute',
           top: 0,
           left: leftFixedWidthPx,
-          right: 0,
+          right: 14, // Leave space for vertical scrollbar (14px wide)
           bottom: 0,
-          overflowX: 'auto',
+          overflowX: 'scroll',
           overflowY: 'hidden',
           // Put the horizontal (plots) layer above the vertical labels/scroll layer so
           // pointer events reach the SVG plots rather than an overlapping transparent div.
@@ -320,13 +320,13 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
         </div>
 
         {/* Vertical scroll layer (left Y elements + plots), clipped between top headers and bottom axes */}
-        <div ref={vScrollRef} style={{
+        <div ref={vScrollRef} className={styles.verticalScrollLayer} style={{
           position: 'absolute',
           top: spec.facetLabels ? topHeaderHeight : 0,
           left: 0,
           right: 0,
           bottom: dynamicXAxisPx + X_LABEL_ROW_PX,
-          overflowY: 'auto',
+          overflowY: 'scroll',
           overflowX: 'hidden',
           zIndex: 2,
           // Allow pointer events on the scrollbar area (right edge)

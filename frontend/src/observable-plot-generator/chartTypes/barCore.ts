@@ -85,7 +85,6 @@ export interface BandPaddingOptions {
   minPadding?: number; // thickest
   maxPadding?: number; // thinnest
   defaultPadding?: number;
-  sizeRange?: [number, number]; // User-defined size range for mapping (in actual field value units)
   manualSize?: number; // User-defined manual size (used when no size field, 1-50 range)
 }
 
@@ -116,7 +115,7 @@ export function getSizeFieldValueRange(rows: any[], sizeField?: Field): [number,
 }
 
 export function computeBandPaddingFromSizeField(rows: any[], sizeField?: Field, opts: BandPaddingOptions = {}): number | undefined {
-  const { stat = 'median', minPadding = 0, maxPadding = 0.95, defaultPadding = BAND_PADDING, sizeRange, manualSize } = opts;
+  const { stat = 'median', minPadding = 0, maxPadding = 0.95, defaultPadding = BAND_PADDING, manualSize } = opts;
   
   // If no size field, use manualSize to determine band padding
   if (!sizeField) {
@@ -130,7 +129,7 @@ export function computeBandPaddingFromSizeField(rows: any[], sizeField?: Field, 
     return undefined;
   }
   
-  // With size field: sizeRange should be in actual field value units
+  // With size field: compute band padding based on field value statistics
   const col = getResultColumnName({ ...sizeField, aggregation: sizeField.aggregation || 'sum' } as any);
   const values = rows.map(r => r[col]).filter(v => typeof v === 'number' && isFinite(v)) as number[];
   if (values.length === 0) return defaultPadding;
@@ -146,17 +145,10 @@ export function computeBandPaddingFromSizeField(rows: any[], sizeField?: Field, 
   // Compute the representative metric value (median or mean)
   const metric = stat === 'mean' ? (values.reduce((a,b)=>a+b,0)/values.length) : (values[Math.floor(values.length/2)]);
   
-  // If sizeRange is provided (user has adjusted the slider), use it
-  // Otherwise, use the data range
-  const [rangeMin, rangeMax] = sizeRange || [dataMin, dataMax];
+  // Normalize metric within data range
+  const norm = (metric - dataMin) / (dataMax - dataMin); // 0..1
   
-  // Clamp the metric to the sizeRange
-  const clampedMetric = Math.max(rangeMin, Math.min(rangeMax, metric));
-  
-  // Normalize within the size range
-  const norm = rangeMax === rangeMin ? 0.5 : (clampedMetric - rangeMin) / (rangeMax - rangeMin); // 0..1
-  
-  // Larger size → smaller padding (thicker bars)
+  // Larger normalized value → smaller padding (thicker bars)
   const padding = maxPadding - (maxPadding - minPadding) * norm;
   return Math.max(minPadding, Math.min(maxPadding, padding));
 }
