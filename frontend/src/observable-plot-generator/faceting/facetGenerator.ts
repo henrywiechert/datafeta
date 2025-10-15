@@ -3,20 +3,14 @@ import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING, MIN_BAND_TRACKS, MIN_SE
 import { Field } from '../../types';
 import { getFieldColumnName } from '../helpers/fields';
 import { ChartGenerationContext, PlotResult, CategoryAxisDescriptor } from '../types';
-import { buildFacetCombos, filterRowsByFacets, uniqueValuesForField } from './facetUtils';
+import { uniqueValuesForField } from './facetUtils';
 import { FacetPlan } from './facetPlanner';
-import { getResultColumnName } from '../../utils/fieldUtils';
-import { computeSharedMeasureDomains } from '../domains/measureDomains';
-import { computeSharedCategoricalDomains } from '../domains/numericDomains';
 import { baseGeneratePlot } from '../observablePlotGenerator';
 import { 
-  computeSharedDomainsForFaceting, 
   applySharedDomains, 
   applyIntrinsicSizeFromCategoryDomain,
   SharedDomains
 } from './facetDomains';
-import { computeGridLayout, computeFacetLabels, deriveCellSizes } from './facetGrid';
-import { getPlotColorConfig } from '../utils/colorSchemeUtils';
 import { coordinateFacetedGrid, CellGenerator, CellResult, PositionedPlot } from './facetCoordinator';
 import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField } from '../chartTypes/barCore';
 
@@ -212,7 +206,7 @@ function createBarCellGenerator(
  * for bar charts where a category axis can be injected if needed (see below).
  */
 export function generateFacetedGrid(context: ChartGenerationContext, plan: FacetPlan): PlotResult {
-    const { xFields, yFields, queryResult, colorField, colorScheme, sizeField, sizeRange, manualSize } = context;
+    const { xFields, yFields, colorField, colorScheme, sizeField, sizeRange, manualSize } = context;
     
     // Derive chart-specific configuration from the simplified plan
     const chartConfig = deriveChartConfig(context, plan);
@@ -224,9 +218,6 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       effectiveRowFacetFields,
       effectiveColFacetFields,
     } = chartConfig;
-    
-    // Compute a shared color domain across all facets when a color field is present
-    const sharedColorDomain = colorField ? uniqueValuesForField(queryResult.rows, colorField) : undefined;
     
   // BAR path: Use coordinator with bar cell generator
   if (barOrientation && categoryAxis) {

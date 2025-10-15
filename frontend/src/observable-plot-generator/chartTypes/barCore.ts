@@ -204,7 +204,6 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
   }
 
   const barMark = O.bar(data, baseConfig);
-  const zeroRule = O.rule([0]);
 
   const axisCategory = {
     label: categoryColumn || ' ',
