@@ -85,8 +85,34 @@ export interface BandPaddingOptions {
   minPadding?: number; // thickest
   maxPadding?: number; // thinnest
   defaultPadding?: number;
-  sizeRange?: [number, number]; // User-defined size range for mapping
-  manualSize?: number; // User-defined manual size (used when no size field)
+  sizeRange?: [number, number]; // User-defined size range for mapping (in actual field value units)
+  manualSize?: number; // User-defined manual size (used when no size field, 1-50 range)
+}
+
+/**
+ * Get the actual value range of a size field from the data.
+ * Returns [min, max] of the aggregated size field values, or undefined if no valid values.
+ */
+export function getSizeFieldValueRange(rows: any[], sizeField?: Field): [number, number] | undefined {
+  if (!sizeField || rows.length === 0) return undefined;
+  
+  const col = getResultColumnName({ ...sizeField, aggregation: sizeField.aggregation || 'sum' } as any);
+  const values = rows.map(r => r[col]).filter(v => typeof v === 'number' && isFinite(v)) as number[];
+  
+  if (values.length === 0) return undefined;
+  
+  values.sort((a, b) => a - b);
+  const min = values[0];
+  const max = values[values.length - 1];
+  
+  // If all values are the same, return a small range to avoid slider issues
+  if (min === max) {
+    if (min === 0) return [0, 1];
+    const padding = Math.abs(min) * 0.1; // 10% padding
+    return [min - padding, min + padding];
+  }
+  
+  return [min, max];
 }
 
 export function computeBandPaddingFromSizeField(rows: any[], sizeField?: Field, opts: BandPaddingOptions = {}): number | undefined {
@@ -94,11 +120,9 @@ export function computeBandPaddingFromSizeField(rows: any[], sizeField?: Field, 
   
   // If no size field, use manualSize to determine band padding
   if (!sizeField) {
-    if (manualSize !== undefined && sizeRange !== undefined) {
-      // Map manualSize from sizeRange to padding range
-      const [minSize, maxSize] = sizeRange;
-      if (minSize === maxSize) return defaultPadding;
-      const sizeNorm = (manualSize - minSize) / (maxSize - minSize); // 0..1
+    if (manualSize !== undefined) {
+      // manualSize is in 1-50 range, normalize to 0..1
+      const sizeNorm = (manualSize - 1) / (50 - 1); // 0..1
       // Larger size → smaller padding (thicker bars)
       const padding = maxPadding - (maxPadding - minPadding) * sizeNorm;
       return Math.max(minPadding, Math.min(maxPadding, padding));
@@ -106,40 +130,34 @@ export function computeBandPaddingFromSizeField(rows: any[], sizeField?: Field, 
     return undefined;
   }
   
+  // With size field: sizeRange should be in actual field value units
   const col = getResultColumnName({ ...sizeField, aggregation: sizeField.aggregation || 'sum' } as any);
   const values = rows.map(r => r[col]).filter(v => typeof v === 'number' && isFinite(v)) as number[];
   if (values.length === 0) return defaultPadding;
   values.sort((a,b)=>a-b);
-  const min = values[0];
-  const max = values[values.length - 1];
-  if (min === max) {
-    // All values are the same - use sizeRange if available
-    if (sizeRange !== undefined) {
-      const [minSize, maxSize] = sizeRange;
-      const midSize = (minSize + maxSize) / 2;
-      if (minSize === maxSize) return defaultPadding;
-      const sizeNorm = (midSize - minSize) / (maxSize - minSize);
-      const padding = maxPadding - (maxPadding - minPadding) * sizeNorm;
-      return Math.max(minPadding, Math.min(maxPadding, padding));
-    }
+  const dataMin = values[0];
+  const dataMax = values[values.length - 1];
+  
+  if (dataMin === dataMax) {
+    // All values are the same - use middle of range
     return defaultPadding;
   }
   
+  // Compute the representative metric value (median or mean)
   const metric = stat === 'mean' ? (values.reduce((a,b)=>a+b,0)/values.length) : (values[Math.floor(values.length/2)]);
-  const norm = (metric - min) / (max - min); // 0..1
   
-  // If sizeRange is provided, scale the metric value to the size range first
-  let effectiveNorm = norm;
-  if (sizeRange !== undefined) {
-    const [minSize, maxSize] = sizeRange;
-    // Map the normalized metric value to the size range
-    const mappedSize = minSize + norm * (maxSize - minSize);
-    // Then normalize within the size range
-    effectiveNorm = (mappedSize - minSize) / (maxSize - minSize);
-  }
+  // If sizeRange is provided (user has adjusted the slider), use it
+  // Otherwise, use the data range
+  const [rangeMin, rangeMax] = sizeRange || [dataMin, dataMax];
+  
+  // Clamp the metric to the sizeRange
+  const clampedMetric = Math.max(rangeMin, Math.min(rangeMax, metric));
+  
+  // Normalize within the size range
+  const norm = rangeMax === rangeMin ? 0.5 : (clampedMetric - rangeMin) / (rangeMax - rangeMin); // 0..1
   
   // Larger size → smaller padding (thicker bars)
-  const padding = maxPadding - (maxPadding - minPadding) * effectiveNorm;
+  const padding = maxPadding - (maxPadding - minPadding) * norm;
   return Math.max(minPadding, Math.min(maxPadding, padding));
 }
 
