@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
 import { Box, Typography } from '@mui/material';
 import { Field, QueryResult } from '../../../types';
-import { getFieldDisplayName, getResultColumnName } from '../../../utils/fieldUtils';
-import { getSchemeById, DEFAULT_CATEGORICAL_SCHEME } from '../../../config/colorSchemes';
+import { getFieldDisplayName } from '../../../utils/fieldUtils';
+import { deriveColorScaleInfo } from '../../../observable-plot-generator/utils/colorSchemeUtils';
+import { DEFAULT_CATEGORICAL_SCHEME } from '../../../config/colorSchemes';
 import styles from './LegendPanel.module.css';
 
 interface LegendPanelProps {
@@ -16,39 +17,59 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
   queryResult,
   colorScheme = DEFAULT_CATEGORICAL_SCHEME,
 }) => {
-  // Extract unique values from the color field
-  const legendItems = useMemo(() => {
+  const colorScale = useMemo(() => {
     if (!colorField || !queryResult?.rows) {
-      return [];
+      return null;
     }
+    return deriveColorScaleInfo(queryResult.rows, colorField, colorScheme);
+  }, [colorField, colorScheme, queryResult]);
 
-    // Use getResultColumnName to handle DateTime parts correctly
-    const columnName = getResultColumnName(colorField);
-    
-    // Extract unique values in ORDER OF FIRST APPEARANCE (same as Observable Plot)
-    // This is critical for color consistency - Observable Plot assigns colors based on domain order
-    const uniqueValues = Array.from(
-      new Set(queryResult.rows.map(row => row[columnName]))
-    );
-
-    return uniqueValues;
-  }, [colorField, queryResult]);
-
-  // Get color from the selected color scheme
-  const getColor = (value: any, index: number) => {
-    const scheme = getSchemeById(colorScheme);
-    if (!scheme) {
-      // Fallback to default Tableau 10 colors
-      const tableau10 = ['#4e79a7', '#f28e2c', '#e15759', '#76b7b2', '#59a14f', '#edc949', '#af7aa1', '#ff9da7', '#9c755f', '#bab0ab'];
-      return tableau10[index % tableau10.length];
+  const formatValue = (value: any): string => {
+    if (value === null || value === undefined) return 'NULL';
+    if (value instanceof Date) return value.toLocaleString();
+    if (typeof value === 'number') {
+      const formatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 });
+      return formatter.format(value);
     }
-    
-    // Observable Plot assigns colors sequentially to all domain values, including NULL
-    // So we simply use the index to get the color from the scheme
-    return scheme.colors[index % scheme.colors.length];
+    if (typeof value === 'string') {
+      // Attempt to detect ISO date strings for nicer formatting
+      const parsed = Date.parse(value);
+      if (!Number.isNaN(parsed) && value.length >= 8) {
+        return new Date(parsed).toLocaleString();
+      }
+      return value;
+    }
+    return String(value);
   };
 
-  if (!colorField || legendItems.length === 0) {
+  const discreteItems = useMemo(() => {
+    if (!colorField || !colorScale || colorScale.kind !== 'categorical') {
+      return [] as Array<{ label: string; color: string }>;
+    }
+    const domain = Array.isArray(colorScale.domain) ? colorScale.domain : [];
+    const range = colorScale.range;
+    return domain.map((value, index) => ({
+      label: formatValue(value),
+      color: range[index % range.length],
+    }));
+  }, [colorField, colorScale]);
+
+  const continuousLegend = useMemo(() => {
+    if (!colorField || !colorScale || colorScale.kind !== 'continuous' || colorScale.range.length === 0) {
+      return null;
+    }
+    const domain = colorScale.domain as [number, number];
+    const gradient = `linear-gradient(to right, ${colorScale.range.join(', ')})`;
+    const minLabel = formatValue(colorScale.rawMin ?? domain[0]);
+    const maxLabel = formatValue(colorScale.rawMax ?? domain[1]);
+    return {
+      gradient,
+      minLabel,
+      maxLabel,
+    };
+  }, [colorField, colorScale]);
+
+  if (!colorField || (!discreteItems.length && !continuousLegend)) {
     return null;
   }
 
@@ -60,17 +81,27 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
         </Typography>
       </Box>
       <Box className={styles.content}>
-        {legendItems.map((value, index) => (
-          <Box key={index} className={styles.legendItem}>
-            <Box
-              className={styles.colorSwatch}
-              sx={{ backgroundColor: getColor(value, index) }}
-            />
-            <Typography className={styles.legendLabel}>
-              {value === null || value === undefined ? 'NULL' : String(value)}
-            </Typography>
+        {continuousLegend ? (
+          <Box className={styles.gradientLegend}>
+            <Box className={styles.gradientBar} sx={{ backgroundImage: continuousLegend.gradient }} />
+            <Box className={styles.gradientLabels}>
+              <Typography className={styles.gradientLabel}>{continuousLegend.minLabel}</Typography>
+              <Typography className={styles.gradientLabel}>{continuousLegend.maxLabel}</Typography>
+            </Box>
           </Box>
-        ))}
+        ) : (
+          discreteItems.map((item, index) => (
+            <Box key={`${item.label}-${index}`} className={styles.legendItem}>
+              <Box
+                className={styles.colorSwatch}
+                sx={{ backgroundColor: item.color }}
+              />
+              <Typography className={styles.legendLabel}>
+                {item.label}
+              </Typography>
+            </Box>
+          ))
+        )}
       </Box>
     </Box>
   );

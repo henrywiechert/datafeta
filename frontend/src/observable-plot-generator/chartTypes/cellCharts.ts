@@ -8,6 +8,7 @@ import { scatterChart } from './scatterChart';
 import { tickStrip } from './tickStrip';
 import { CellChartType, ChartTypeOverrides, resolveChartTypeForPair } from '../helpers/chartTypeResolver';
 import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField } from './barCore';
+import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 
 type Domains = Record<string, [number, number]> | undefined;
 
@@ -24,7 +25,8 @@ export function generatePairChartOptions(
   colorField?: Field,
   sizeField?: Field,
   sizeRange?: [number, number],
-  manualSize?: number
+  manualSize?: number,
+  colorScheme?: string
 ): Plot.PlotOptions {
   if (!xField && !yField) {
     return messageOptions('No fields');
@@ -32,12 +34,12 @@ export function generatePairChartOptions(
 
   // If one side is missing, choose orientation by the present measure
   if (xField && !yField) {
-    if (xField.type === 'measure') return createBarX(data, xField, null, sharedMeasureDomains, colorField, sizeField, sizeRange, manualSize);
+    if (xField.type === 'measure') return createBarX(data, xField, null, sharedMeasureDomains, colorField, sizeField, sizeRange, manualSize, colorScheme);
     // Single dimension alone → show tick strip would be an alternative, but inside cartesian grid we stick to scatter
     return scatterForDimOnly(data, xField, colorField, sizeField, sizeRange, manualSize);
   }
   if (!xField && yField) {
-    if (yField.type === 'measure') return createBarY(data, yField, null, sharedMeasureDomains, colorField, sizeField, sizeRange, manualSize);
+    if (yField.type === 'measure') return createBarY(data, yField, null, sharedMeasureDomains, colorField, sizeField, sizeRange, manualSize, colorScheme);
     return scatterForDimOnly(data, yField, colorField, sizeField, sizeRange, manualSize);
   }
 
@@ -83,10 +85,10 @@ export function generatePairChartOptions(
           }
         };
         const single = [{ [xCol]: aggregate(xCol, (xf as any).aggregation), [yCol]: aggregate(yCol, (yf as any).aggregation) } as any];
-        return scatterChart(single, xCol, yCol, domainOptions, colorField, undefined, sizeField, sizeRange, manualSize);
+          return scatterChart(single, xCol, yCol, domainOptions, colorField, colorScheme, sizeField, sizeRange, manualSize);
       }
       // Otherwise render scatter with full data
-      return scatterChart(data, xCol, yCol, domainOptions, colorField, undefined, sizeField, sizeRange, manualSize);
+        return scatterChart(data, xCol, yCol, domainOptions, colorField, colorScheme, sizeField, sizeRange, manualSize);
     }
     case 'line': {
       // measure vs continuous dimension – ensure dimension on one axis
@@ -96,24 +98,24 @@ export function generatePairChartOptions(
         const yCol = getResultColumnName(yf);
         const xDomain = sharedMeasureDomains?.[xCol];
         const yDomain = sharedMeasureDomains?.[yCol];
-        return verticalLineChart(data, xCol, yCol, { x: xCol, y: getFieldDisplayName(yf) }, { x: xDomain, y: yDomain }, colorField, undefined, sizeField, sizeRange, manualSize);
+  return verticalLineChart(data, xCol, yCol, { x: xCol, y: getFieldDisplayName(yf) }, { x: xDomain, y: yDomain }, colorField, colorScheme, sizeField, sizeRange, manualSize);
       }
       if (xf.type === 'dimension' && yf.type === 'measure') {
         const xCol = getResultColumnName(xf);
         const yCol = getResultColumnName({ ...yf, aggregation: yf.aggregation || 'sum' } as any);
         const xDomain = sharedMeasureDomains?.[xCol];
         const yDomain = sharedMeasureDomains?.[yCol];
-        return lineChart(data, xCol, yCol, { x: getFieldDisplayName(xf), y: yCol }, { x: xDomain, y: yDomain }, colorField, undefined, sizeField, sizeRange, manualSize);
+  return lineChart(data, xCol, yCol, { x: getFieldDisplayName(xf), y: yCol }, { x: xDomain, y: yDomain }, colorField, colorScheme, sizeField, sizeRange, manualSize);
       }
       // If both are measures or both are dimensions, fallback to scatter (empty if no data)
       const { xCol, yCol } = resolveXYColumns(xf, yf);
-      return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, undefined, sizeField, sizeRange, manualSize);
+        return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, colorScheme, sizeField, sizeRange, manualSize);
     }
     case 'barX': {
-      return createBarX(data, xf, yf.type === 'dimension' ? yf : null, sharedMeasureDomains, colorField, sizeField, sizeRange, manualSize);
+  return createBarX(data, xf, yf.type === 'dimension' ? yf : null, sharedMeasureDomains, colorField, sizeField, sizeRange, manualSize, colorScheme);
     }
     case 'barY': {
-      return createBarY(data, yf, xf.type === 'dimension' ? xf : null, sharedMeasureDomains, colorField, sizeField, sizeRange, manualSize);
+  return createBarY(data, yf, xf.type === 'dimension' ? xf : null, sharedMeasureDomains, colorField, sizeField, sizeRange, manualSize, colorScheme);
     }
     case 'tickX': {
       // continuous dimension on X, optional discrete dimension category on Y
@@ -129,7 +131,7 @@ export function generatePairChartOptions(
         );
       }
       const { xCol, yCol } = resolveXYColumns(xf, yf);
-      return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, undefined, sizeField, sizeRange, manualSize);
+        return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, colorScheme, sizeField, sizeRange, manualSize);
     }
     case 'tickY': {
       // continuous dimension on Y, optional discrete dimension category on X
@@ -144,7 +146,7 @@ export function generatePairChartOptions(
         );
       }
       const { xCol, yCol } = resolveXYColumns(xf, yf);
-      return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, undefined, sizeField, sizeRange, manualSize);
+        return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, colorScheme, sizeField, sizeRange, manualSize);
     }
     case 'dot': {
       const xCol = xf.columnName;
@@ -183,7 +185,8 @@ function createBarX(
   colorField?: Field,
   sizeField?: Field,
   sizeRange?: [number, number],
-  manualSize?: number
+  manualSize?: number,
+  colorScheme?: string
 ): Plot.PlotOptions {
   const measureName = resolveMeasureAlias(measure);
   
@@ -206,6 +209,8 @@ function createBarX(
   const dynamicPadding = computeBandPaddingFromSizeField(data, sizeField, {
     manualSize,
   }) ?? 0.1;
+  const colorColumn = colorField ? getResultColumnName(colorField) : undefined;
+  const colorScale = colorField ? deriveColorScaleInfo(data, colorField, colorScheme) : null;
   
   return buildBarOptions({
     data,
@@ -213,12 +218,12 @@ function createBarX(
     orientation: 'horizontal',
     categoryColumn,
     categoriesDomain,
-    colorColumn: colorField ? getFieldColumnName(colorField) : undefined,
-    colorDomain: undefined, // cellCharts doesn't use shared color domains
+    colorColumn,
+    colorScale,
     bandPadding: dynamicPadding,
     zeroBaseline: true,
     valueDomainOverride: valueDomain,
-    tooltipColumns: [],
+    tooltipColumns: [colorField?.columnName].filter(Boolean) as string[],
   });
 }
 
@@ -230,7 +235,8 @@ function createBarY(
   colorField?: Field,
   sizeField?: Field,
   sizeRange?: [number, number],
-  manualSize?: number
+  manualSize?: number,
+  colorScheme?: string
 ): Plot.PlotOptions {
   const measureName = resolveMeasureAlias(measure);
   
@@ -253,6 +259,8 @@ function createBarY(
   const dynamicPadding = computeBandPaddingFromSizeField(data, sizeField, {
     manualSize,
   }) ?? 0.1;
+  const colorColumn = colorField ? getResultColumnName(colorField) : undefined;
+  const colorScale = colorField ? deriveColorScaleInfo(data, colorField, colorScheme) : null;
   
   return buildBarOptions({
     data,
@@ -260,12 +268,12 @@ function createBarY(
     orientation: 'vertical',
     categoryColumn,
     categoriesDomain,
-    colorColumn: colorField ? getFieldColumnName(colorField) : undefined,
-    colorDomain: undefined, // cellCharts doesn't use shared color domains
+    colorColumn,
+    colorScale,
     bandPadding: dynamicPadding,
     zeroBaseline: true,
     valueDomainOverride: valueDomain,
-    tooltipColumns: [],
+    tooltipColumns: [colorField?.columnName].filter(Boolean) as string[],
   });
 }
 

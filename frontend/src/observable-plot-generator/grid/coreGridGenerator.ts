@@ -6,8 +6,7 @@ import { computeSharedNumericDomains } from '../domains/numericDomains';
 import { computeSharedMeasureDomains } from '../domains/measureDomains';
 import { ChartGenerationContext, PlotResult } from '../types';
 import { FieldAnalysis } from '../analysis/fieldAnalysis';
-import { getPlotColorConfig } from '../utils/colorSchemeUtils';
-import { computeColorDomain } from '../faceting/facetDomains';
+import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 
 export type CartesianPlot = {
   id: string;
@@ -97,7 +96,7 @@ export function generateCartesianPlots(
   const sharedNumeric = computeSharedNumericDomains(data, xCandidates as any[], yCandidates as any[]);
 
   // Compute a shared color domain across the entire grid when a color field is present
-  const sharedColorDomain = colorField ? computeColorDomain(data, colorField) : undefined;
+  const sharedColorScale = colorField ? deriveColorScaleInfo(data, colorField, colorScheme) : null;
 
   for (let r = 0; r < yCandidates.length; r++) {
     for (let c = 0; c < xCandidates.length; c++) {
@@ -113,19 +112,33 @@ export function generateCartesianPlots(
         colorField,
         sizeField,
         sizeRange,
-        manualSize
+        manualSize,
+        colorScheme
       );
 
       // Apply shared color domain to keep color mapping consistent across the grid
-      if (sharedColorDomain && sharedColorDomain.length > 0) {
-        const colorConfig = getPlotColorConfig(colorScheme);
+      if (sharedColorScale) {
+        const colorLabel = colorField?.columnName;
+        const sharedConfig = sharedColorScale.kind === 'continuous'
+          ? {
+              type: 'linear',
+              domain: sharedColorScale.domain as [number, number],
+              range: sharedColorScale.range,
+              clamp: true,
+              label: colorLabel,
+            }
+          : {
+              type: 'ordinal' as any,
+              domain: sharedColorScale.domain as any[],
+              range: sharedColorScale.range,
+              label: colorLabel,
+            };
+
         options = {
           ...options,
           color: {
             ...(options as any).color,
-            domain: sharedColorDomain as any,
-            ...colorConfig as any,
-            type: 'ordinal' as any,
+            ...sharedConfig,
           } as any,
         };
       }

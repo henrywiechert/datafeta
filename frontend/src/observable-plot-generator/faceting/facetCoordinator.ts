@@ -82,7 +82,8 @@ export function coordinateFacetedGrid(config: FacetCoordinatorConfig): PlotResul
     yFields,
     colorField,
     categoryField || undefined,
-    [...rowFacetFields, ...colFacetFields]
+    [...rowFacetFields, ...colFacetFields],
+    context.colorScheme
   );
 
   // Override categorical domain if explicitly provided

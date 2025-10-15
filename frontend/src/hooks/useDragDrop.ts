@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Field, DragSource } from '../types';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
+import { DEFAULT_CATEGORICAL_SCHEME, DEFAULT_SEQUENTIAL_SCHEME } from '../config/colorSchemes';
 
 /**
  * Custom hook for handling drag and drop operations in the visualization
@@ -167,7 +168,12 @@ export function useDragDrop() {
     
     // Replace the existing color field with the new one
     dispatch({ type: 'SET_COLOR_FIELD', payload: fieldToSet });
-  }, [dispatch, state.availableFields]);
+
+    if (!state.colorField || state.colorField.flavour !== fieldToSet.flavour) {
+      const nextScheme = fieldToSet.flavour === 'continuous' ? DEFAULT_SEQUENTIAL_SCHEME : DEFAULT_CATEGORICAL_SCHEME;
+      dispatch({ type: 'SET_COLOR_SCHEME', payload: nextScheme });
+    }
+  }, [dispatch, state.availableFields, state.colorField]);
 
   /**
    * Remove the field from the color zone

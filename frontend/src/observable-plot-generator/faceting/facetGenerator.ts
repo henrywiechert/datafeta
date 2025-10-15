@@ -13,6 +13,7 @@ import {
 } from './facetDomains';
 import { coordinateFacetedGrid, CellGenerator, CellResult, PositionedPlot } from './facetCoordinator';
 import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField } from '../chartTypes/barCore';
+import { getResultColumnName } from '../../utils/fieldUtils';
 
 /**
  * Chart-specific configuration derived from context and facet plan.
@@ -97,8 +98,7 @@ function createBarCellGenerator(
   categoryAxis: 'x' | 'y',
   categoryField: Field | null,
   sharedCategoryDomain: any[],
-  colorField?: Field,
-  colorScheme?: string,
+  colorField?: Field | null,
   bandPadding?: number
 ): CellGenerator {
   return (cellData, cellContext, sharedDomains, facetPosition): CellResult => {
@@ -123,7 +123,7 @@ function createBarCellGenerator(
     
     const plots: PositionedPlot[] = [];
     const categoryColumnName = categoryField ? getFieldColumnName(categoryField) : undefined;
-    const colorColumnName = colorField ? getFieldColumnName(colorField) : undefined;
+    const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
     
     // Create a subplot per series using barCore.buildBarOptions()
     for (let s = 0; s < Math.max(1, seriesFields.length); s++) {
@@ -147,8 +147,7 @@ function createBarCellGenerator(
           categoryColumn: categoryColumnName,
           categoriesDomain: categories,
           colorColumn: colorColumnName,
-          colorDomain: sharedDomains.color && sharedDomains.color.length > 0 ? sharedDomains.color : undefined,
-          colorSchemeId: colorScheme,
+          colorScale: sharedDomains.colorScale,
           bandPadding: dynamicPadding,
           zeroBaseline: true,
           valueDomainOverride: valueDomain as [number, number],
@@ -230,7 +229,6 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       categoryField,
       sharedCategoryDomain || [],
       colorField,
-      colorScheme,
       globalBandPadding
     );
     
@@ -264,7 +262,6 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       effectiveRowFacetFields,
       effectiveColFacetFields,
       sharedCategoryDomain || undefined,
-      cellContext.colorScheme
     );
     
     return baseSpec;
@@ -296,8 +293,7 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
     sharedDomains: SharedDomains,
     rowFacetFields?: Field[] | Field | null,
     colFacetFields?: Field[] | Field | null,
-    sharedCategoryDomain?: any[],
-    colorScheme?: string
+    sharedCategoryDomain?: any[]
   ): BaseSpec {
     const { queryResult, xFields, yFields } = context;
   
@@ -335,7 +331,7 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
     // Apply shared domains using centralized utility
     const applyDomainsFn = (opts: Plot.PlotOptions) => {
       // First apply standard shared domains (measure, numeric, color, categorical)
-      let next = applySharedDomains(opts, sharedDomains, colorScheme);
+      let next = applySharedDomains(opts, sharedDomains);
       
       // Apply categorical domain override if provided explicitly
       if (sharedCategoryDomain && Array.isArray(sharedCategoryDomain)) {

@@ -2,7 +2,7 @@ import * as Plot from '@observablehq/plot';
 import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
-import { getPlotColorConfig } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
 
 /**
@@ -69,14 +69,20 @@ export function lineChart(
       [yLabel]: { value: yColumn, label: yLabel }
     }
   };
-  
-  if (colorField) {
-    // Add color encoding and z channel for grouping by color
-    const colorColumnName = getResultColumnName(colorField);
-    lineConfig.stroke = colorColumnName;
-    lineConfig.z = colorColumnName;
-    dotConfig.fill = colorColumnName;
+  const colorInfo = colorField ? deriveColorScaleInfo(cleanSorted, colorField, colorScheme) : null;
+  const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
+
+  if (colorField && colorInfo) {
     dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
+
+    if (colorInfo.kind === 'continuous' && colorInfo.accessor) {
+      dotConfig.fill = (d: any) => colorInfo.accessor?.(d) ?? null;
+      lineConfig.stroke = colorInfo.range[colorInfo.range.length - 1] || DEFAULT_CHART_COLOR;
+    } else {
+      lineConfig.stroke = colorColumnName;
+      lineConfig.z = colorColumnName;
+      dotConfig.fill = colorColumnName;
+    }
   } else {
     lineConfig.stroke = DEFAULT_CHART_COLOR;
     dotConfig.fill = DEFAULT_CHART_COLOR;
@@ -112,16 +118,23 @@ export function lineChart(
     ],
   };
   
-  if (colorField) {
-    // Get unique color values for the domain
-    const colorColumnName = getResultColumnName(colorField);
-    const colorValues = Array.from(new Set(cleanSorted.map(row => row[colorColumnName])));
-    const colorConfig = getPlotColorConfig(colorScheme);
-    plotOptions.color = {
-      domain: colorValues,
-      ...colorConfig as any,
-      type: 'ordinal' as any
-    };
+  if (colorField && colorInfo) {
+    if (colorInfo.kind === 'continuous') {
+      plotOptions.color = {
+        type: 'linear',
+        domain: colorInfo.domain as [number, number],
+        range: colorInfo.range,
+        clamp: true,
+        label: colorField.columnName,
+      } as any;
+    } else {
+      plotOptions.color = {
+        type: 'ordinal' as any,
+        domain: colorInfo.domain as any[],
+        range: colorInfo.range,
+        label: colorField.columnName,
+      } as any;
+    }
   }
   
   return plotOptions;
@@ -191,13 +204,20 @@ export function verticalLineChart(
     tip: { pointer: 'x', preferredAnchor: 'top-right', format: { [xLabel2]: true, [yLabel2]: true, x: false, y: false, fill: false, r: false } }
   };
   
-  if (colorField) {
-    // Add color encoding and z channel for grouping by color
-    const colorColumnName = getResultColumnName(colorField);
-    lineConfig.stroke = colorColumnName;
-    lineConfig.z = colorColumnName;
-    dotConfig.fill = colorColumnName;
+  const colorInfo = colorField ? deriveColorScaleInfo(cleanSorted, colorField, colorScheme) : null;
+  const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
+
+  if (colorField && colorInfo) {
     dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
+
+    if (colorInfo.kind === 'continuous' && colorInfo.accessor) {
+      dotConfig.fill = (d: any) => colorInfo.accessor?.(d) ?? null;
+      lineConfig.stroke = colorInfo.range[colorInfo.range.length - 1] || DEFAULT_CHART_COLOR;
+    } else {
+      lineConfig.stroke = colorColumnName;
+      lineConfig.z = colorColumnName;
+      dotConfig.fill = colorColumnName;
+    }
   } else {
     lineConfig.stroke = DEFAULT_CHART_COLOR;
     dotConfig.fill = DEFAULT_CHART_COLOR;
@@ -221,16 +241,23 @@ export function verticalLineChart(
     ],
   };
   
-  if (colorField) {
-    // Get unique color values for the domain
-    const colorColumnName = getResultColumnName(colorField);
-    const colorValues = Array.from(new Set(cleanSorted.map(row => row[colorColumnName])));
-    const colorConfig = getPlotColorConfig(colorScheme);
-    plotOptions.color = {
-      domain: colorValues,
-      ...colorConfig as any,
-      type: 'ordinal' as any
-    };
+  if (colorField && colorInfo) {
+    if (colorInfo.kind === 'continuous') {
+      plotOptions.color = {
+        type: 'linear',
+        domain: colorInfo.domain as [number, number],
+        range: colorInfo.range,
+        clamp: true,
+        label: colorField.columnName,
+      } as any;
+    } else {
+      plotOptions.color = {
+        type: 'ordinal' as any,
+        domain: colorInfo.domain as any[],
+        range: colorInfo.range,
+        label: colorField.columnName,
+      } as any;
+    }
   }
   
   return plotOptions;
