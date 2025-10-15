@@ -218,7 +218,6 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
   if (barOrientation && categoryAxis) {
     // Compute global band padding from size field if provided (applied to all facets)
     const globalBandPadding = computeBandPaddingFromSizeField(context.queryResult.rows, sizeField, {
-      sizeRange,
       manualSize,
     }) ?? BAND_PADDING;
     
