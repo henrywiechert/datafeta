@@ -18,6 +18,77 @@ import {
 import { computeGridLayout, computeFacetLabels, deriveCellSizes } from './facetGrid';
 import { getPlotColorConfig } from '../utils/colorSchemeUtils';
 
+/**
+ * Chart-specific configuration derived from context and facet plan.
+ * This bridges the gap between the simplified FacetPlan and chart-type-specific rendering needs.
+ */
+interface ChartConfig {
+  categoryAxis: 'x' | 'y' | null;
+  categoryField: Field | null;
+  barOrientation: 'barX' | 'barY' | null;
+  sharedCategoryDomain: any[] | null;
+  effectiveRowFacetFields: Field[];
+  effectiveColFacetFields: Field[];
+}
+
+/**
+ * Determine chart-specific configuration from context.
+ * This function encapsulates the logic that was previously in facetPlanner.
+ */
+function deriveChartConfig(
+  context: ChartGenerationContext,
+  plan: FacetPlan
+): ChartConfig {
+  const { xFields, yFields, queryResult } = context;
+  const { rowFacetFields, colFacetFields } = plan;
+
+  // Check if this is a bar chart scenario (measure on one axis only)
+  const xMeasure = xFields.find((f) => f.type === 'measure');
+  const yMeasure = yFields.find((f) => f.type === 'measure');
+  let barOrientation: 'barX' | 'barY' | null = xMeasure && !yMeasure ? 'barX' : (!xMeasure && yMeasure ? 'barY' : null);
+  let categoryAxis: 'x' | 'y' | null = barOrientation === 'barX' ? 'y' : (barOrientation === 'barY' ? 'x' : null);
+
+  // If the opposite axis contains a continuous dimension, do NOT force bar orientation/category axis.
+  const hasXContinuousDim = xFields.some((f) => f.type === 'dimension' && f.flavour === 'continuous');
+  const hasYContinuousDim = yFields.some((f) => f.type === 'dimension' && f.flavour === 'continuous');
+  
+  if ((barOrientation === 'barY' && hasXContinuousDim) || (barOrientation === 'barX' && hasYContinuousDim)) {
+    barOrientation = null;
+    categoryAxis = null;
+  }
+
+  let categoryField: Field | null = null;
+  let sharedCategoryDomain: any[] | null = null;
+
+  // If we have a category axis, find the appropriate discrete field to use
+  if (categoryAxis) {
+    const axisFields = categoryAxis === 'x' ? xFields : yFields;
+    const discreteFields = axisFields.filter((f) => f.flavour === 'discrete');
+    
+    // Use the last discrete field on the category axis
+    if (discreteFields.length > 0) {
+      categoryField = discreteFields[discreteFields.length - 1];
+      sharedCategoryDomain = uniqueValuesForField(queryResult.rows, categoryField);
+    } else {
+      // Fallback single category when none present
+      sharedCategoryDomain = [' '];
+    }
+  }
+
+  // Effective facet fields exclude the one used for category axis
+  const categoryFieldId = categoryField?.id;
+  const effectiveRowFacetFields = rowFacetFields.filter((f) => f.id !== categoryFieldId);
+  const effectiveColFacetFields = colFacetFields.filter((f) => f.id !== categoryFieldId);
+
+  return {
+    categoryAxis,
+    categoryField,
+    barOrientation,
+    sharedCategoryDomain,
+    effectiveRowFacetFields,
+    effectiveColFacetFields,
+  };
+}
 
 /**
  * Facet planner: If there are discrete fields present, facet the base chart by up to 2 fields
@@ -27,14 +98,17 @@ import { getPlotColorConfig } from '../utils/colorSchemeUtils';
  */
 export function generateFacetedGrid(context: ChartGenerationContext, plan: FacetPlan): PlotResult {
     const { xFields, yFields, queryResult, colorField, colorScheme } = context;
+    
+    // Derive chart-specific configuration from the simplified plan
+    const chartConfig = deriveChartConfig(context, plan);
     const {
-      rowFacetFields,
-      colFacetFields,
       categoryAxis,
       categoryField,
       barOrientation,
       sharedCategoryDomain,
-    } = plan;
+      effectiveRowFacetFields,
+      effectiveColFacetFields,
+    } = chartConfig;
     
     // Compute a shared color domain across all facets when a color field is present
     const sharedColorDomain = colorField ? uniqueValuesForField(queryResult.rows, colorField) : undefined;
@@ -188,8 +262,8 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
   // Compute facet levels and safe combos
   const { rowValuesLevels, colValuesLevels, safeRowCombos, safeColCombos } = computeFacetLevelsAndCombos(
     queryResult.rows,
-    rowFacetFields,
-    colFacetFields
+    effectiveRowFacetFields,
+    effectiveColFacetFields
   );
   
   // Compute all shared domains using centralized utility
@@ -199,13 +273,13 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
     yFields,
     colorField,
     categoryField || undefined,
-    [...rowFacetFields, ...colFacetFields]
+    [...effectiveRowFacetFields, ...effectiveColFacetFields]
   );
   
   const combinedPlots: Array<{ id: string; title: string; options: Plot.PlotOptions; position: { row: number; col: number } }> = [];
   
     // Determine base layout by generating one sample facet (first values)
-    const sampleRows = filterRowsByFacets(queryResult.rows, rowFacetFields, safeRowCombos[0], colFacetFields, safeColCombos[0]);
+    const sampleRows = filterRowsByFacets(queryResult.rows, effectiveRowFacetFields, safeRowCombos[0], effectiveColFacetFields, safeColCombos[0]);
     const baseSpec = buildBaseSpecForDataSubset(
       context,
       categoryAxis,
@@ -213,8 +287,8 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       sampleRows,
       sharedDomains,
       // pass all facet fields to be excluded in local context
-      rowFacetFields,
-      colFacetFields,
+      effectiveRowFacetFields,
+      effectiveColFacetFields,
       sharedCategoryDomain || undefined,
       colorScheme
     );
@@ -223,15 +297,15 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
   
     for (let r = 0; r < safeRowCombos.length; r++) {
       for (let c = 0; c < safeColCombos.length; c++) {
-        const subset = filterRowsByFacets(queryResult.rows, rowFacetFields, safeRowCombos[r], colFacetFields, safeColCombos[c]);
+        const subset = filterRowsByFacets(queryResult.rows, effectiveRowFacetFields, safeRowCombos[r], effectiveColFacetFields, safeColCombos[c]);
         const facetSpec = buildBaseSpecForDataSubset(
           context,
           categoryAxis,
           categoryField?.id || null,
           subset,
           sharedDomains,
-          rowFacetFields,
-          colFacetFields,
+          effectiveRowFacetFields,
+          effectiveColFacetFields,
           sharedCategoryDomain || undefined,
           colorScheme
         );
@@ -264,14 +338,14 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
           : Array.from({ length: baseRows * safeRowCombos.length }, () => 'fr'),
       },
       facetLabels: {
-        rowsLevels: rowFacetFields.length > 0 ? rowFacetFields.map((f, i) => ({ fieldLabel: getFieldColumnName(f), values: rowValuesLevels[i] })) : undefined,
-        colsLevels: colFacetFields.length > 0 ? colFacetFields.map((f, i) => ({ fieldLabel: getFieldColumnName(f), values: colValuesLevels[i] })) : undefined,
+        rowsLevels: effectiveRowFacetFields.length > 0 ? effectiveRowFacetFields.map((f, i) => ({ fieldLabel: getFieldColumnName(f), values: rowValuesLevels[i] })) : undefined,
+        colsLevels: effectiveColFacetFields.length > 0 ? effectiveColFacetFields.map((f, i) => ({ fieldLabel: getFieldColumnName(f), values: colValuesLevels[i] })) : undefined,
         groupSpan: { columnsPerFacet: baseCols, rowsPerFacet: baseRows },
         spans: {
           baseCols,
           baseRows,
-          columns: computeLevelSpans(colFacetFields, baseCols, colValuesLevels),
-          rows: computeLevelSpans(rowFacetFields, baseRows, rowValuesLevels),
+          columns: computeLevelSpans(effectiveColFacetFields, baseCols, colValuesLevels),
+          rows: computeLevelSpans(effectiveRowFacetFields, baseRows, rowValuesLevels),
         },
       }
     };
