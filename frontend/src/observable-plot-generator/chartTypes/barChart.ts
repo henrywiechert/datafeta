@@ -39,6 +39,6 @@ export function barChart(context: ChartGenerationContext) {
     bandPadding: dynamicPadding,
     zeroBaseline: true,
     tooltipColumns: [colorField?.columnName, sizeField?.columnName].filter(Boolean) as string[],
-    singleBarSizeMultiplier: 5, // legacy visual sizing for single bar (restored)
+    singleBarSizeMultiplier: 2, // legacy visual sizing for single bar (restored)
   });
 }

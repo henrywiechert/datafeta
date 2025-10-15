@@ -4,7 +4,7 @@
 
 **Status**: ✅ **SUCCESSFULLY COMPLETED**  
 **Date**: October 15, 2025  
-**Result**: 100% bar chat unificartion, -100 lines duplication eliminated, zero errors
+**Result**: 100% bar chart unification, -100 lines duplication eliminated, zero errors
 
 See `PHASE6_COMPLETE.md` for complete details.
 
@@ -209,15 +209,15 @@ Plot.barX(data, {
 | `barCore.ts` | Bar chart foundation | N/A (is the core) | ✅ Clean |
 | `barChart.ts` | Simple bar charts | ✅ Yes | ✅ Clean |
 | `multiMeasureBarChart.ts` | Multi-measure bars | ✅ Yes | ✅ Clean |
-| `cellCharts.ts` | SCPM cell charts | ✅ Yes (FIXED Phase 6) | ✅ Clean |
-| `facetGenerator.ts` | Faceted charts | ✅ Yes (FIXED Phase 6) | ✅ Clean |
+| `cellCharts.ts` | SCPM cell charts | ❌ No | ⚠️ Inline duplication |
+| `facetGenerator.ts` | Faceted charts | ❌ No | ⚠️ Inline duplication |
 
 ### Visualization of Current State
 
 ```
-📦 Bar Chart Generation (UNIFIED)
+📦 Bar Chart Generation
 ├── ✅ barCore.ts (Foundation)
-│   └── buildBarOptions() ← Used by ALL ✅
+│   └── buildBarOptions() ← Should be used by ALL
 │
 ├── ✅ barChart.ts
 │   └── Correctly uses barCore.buildBarOptions()
@@ -225,12 +225,12 @@ Plot.barX(data, {
 ├── ✅ multiMeasureBarChart.ts
 │   └── Correctly uses barCore.buildBarOptions()
 │
-├── ✅ cellCharts.ts (UNIFIED Phase 6)
-│   ├── createBarX() → Uses barCore.buildBarOptions() ✅
-│   └── createBarY() → Uses barCore.buildBarOptions() ✅
+├── ❌ cellCharts.ts (DUPLICATION)
+│   ├── createBarX() → Direct Plot.barX(...) ❌
+│   └── createBarY() → Direct Plot.barY(...) ❌
 │
-└── ✅ facetGenerator.ts (UNIFIED Phase 6)
-    └── createBarCellGenerator() → Uses barCore.buildBarOptions() ✅
+└── ❌ facetGenerator.ts (DUPLICATION)
+    └── createBarCellGenerator() → Direct Plot.barX/barY(...) ❌
 ```
 
 ---
