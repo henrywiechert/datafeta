@@ -1,6 +1,5 @@
 import * as Plot from '@observablehq/plot';
 import { Field } from '../../types';
-import { getFieldColumnName } from '../helpers/fields';
 import { computeSharedMeasureDomains } from '../domains/measureDomains';
 import { computeSharedNumericDomains, computeSharedCategoricalDomains } from '../domains/numericDomains';
 import { getPlotColorConfig } from '../utils/colorSchemeUtils';
@@ -63,7 +62,6 @@ export function computeSharedDomainsForFaceting(
  * Extracted from duplicated logic in facetGenerator and coreGridGenerator.
  */
 export function computeColorDomain(data: any[], colorField: Field): any[] {
-  const col = getFieldColumnName(colorField);
   const values = uniqueValuesForField(data, colorField);
   return values;
 }

@@ -6,7 +6,6 @@ import { computeSharedNumericDomains } from '../domains/numericDomains';
 import { computeSharedMeasureDomains } from '../domains/measureDomains';
 import { ChartGenerationContext, PlotResult } from '../types';
 import { FieldAnalysis } from '../analysis/fieldAnalysis';
-import { getFieldColumnName } from '../helpers/fields';
 import { getPlotColorConfig } from '../utils/colorSchemeUtils';
 import { computeColorDomain } from '../faceting/facetDomains';
 
