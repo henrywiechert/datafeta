@@ -18,6 +18,7 @@ import {
 import { computeGridLayout, computeFacetLabels, deriveCellSizes } from './facetGrid';
 import { getPlotColorConfig } from '../utils/colorSchemeUtils';
 import { coordinateFacetedGrid, CellGenerator, CellResult, PositionedPlot } from './facetCoordinator';
+import { buildBarOptions, resolveMeasureAlias } from '../chartTypes/barCore';
 
 /**
  * Chart-specific configuration derived from context and facet plan.
@@ -126,11 +127,10 @@ function createBarCellGenerator(
     const baseRowsPerFacet = barOrientation === 'barY' ? Math.max(MIN_SERIES_PANES, seriesFields.length) : 1;
     
     const plots: PositionedPlot[] = [];
-    const categoryColumnName = categoryField ? getFieldColumnName(categoryField) : null;
-    const colorColumnName = colorField ? getFieldColumnName(colorField) : null;
-    const colorConfig = getPlotColorConfig(colorScheme);
+    const categoryColumnName = categoryField ? getFieldColumnName(categoryField) : undefined;
+    const colorColumnName = colorField ? getFieldColumnName(colorField) : undefined;
     
-    // Create a subplot per series
+    // Create a subplot per series using barCore.buildBarOptions()
     for (let s = 0; s < Math.max(1, seriesFields.length); s++) {
       const f = seriesFields[s] || orientedFields.find((ff) => ff.type === 'measure')!;
       const isMeasure = f.type === 'measure';
@@ -138,54 +138,28 @@ function createBarCellGenerator(
       let title: string;
       
       if (isMeasure) {
-        const measureName = getResultColumnName({ ...f, aggregation: (f as any).aggregation || 'sum' } as any);
+        const measureName = resolveMeasureAlias(f);
         const valueDomain = (sharedDomains.measure as any)[measureName] || [0, 1];
         
-        options = barOrientation === 'barX'
-          ? {
-              x: { label: measureName, grid: true, domain: valueDomain as any, nice: false, domainKey: measureName } as any,
-              y: { label: categoryColumnName || ' ', type: 'band' as any, domain: categories as any, padding: BAND_PADDING as any, domainKey: categoryColumnName } as any,
-              marks: [
-                Plot.barX(cellData, { 
-                  x: measureName, 
-                  y: categoryColumnName || (() => categories[0]), 
-                  fill: colorColumnName || DEFAULT_CHART_COLOR,
-                  ...(!categoryColumnName && colorColumnName ? { z: colorColumnName, order: colorColumnName } : colorColumnName ? { order: colorColumnName } : {}),
-                  tip: { pointer: 'x', preferredAnchor: 'top-right' } 
-                }),
-                Plot.ruleX([0])
-              ],
-              ...(colorField && sharedDomains.color && sharedDomains.color.length > 0 ? {
-                color: {
-                  domain: sharedDomains.color as any,
-                  ...colorConfig as any,
-                  type: 'ordinal' as any,
-                } as any
-              } : {})
-            }
-          : {
-              y: { label: measureName, grid: true, domain: valueDomain as any, nice: false, domainKey: measureName } as any,
-              x: { label: categoryColumnName || ' ', type: 'band' as any, domain: categories as any, padding: BAND_PADDING as any, domainKey: categoryColumnName } as any,
-              marks: [
-                Plot.barY(cellData, { 
-                  y: measureName, 
-                  x: categoryColumnName || (() => categories[0]), 
-                  fill: colorColumnName || DEFAULT_CHART_COLOR,
-                  ...(!categoryColumnName && colorColumnName ? { z: colorColumnName, order: colorColumnName } : colorColumnName ? { order: colorColumnName } : {}),
-                  tip: { pointer: 'y', preferredAnchor: 'top-right' } 
-                }),
-                Plot.ruleY([0])
-              ],
-              ...(colorField && sharedDomains.color && sharedDomains.color.length > 0 ? {
-                color: {
-                  domain: sharedDomains.color as any,
-                  ...colorConfig as any,
-                  type: 'ordinal' as any,
-                } as any
-              } : {})
-            } as any;
+        // Use barCore.buildBarOptions() instead of inline Plot.barX/barY
+        options = buildBarOptions({
+          data: cellData,
+          measureName,
+          orientation: barOrientation === 'barX' ? 'horizontal' : 'vertical',
+          categoryColumn: categoryColumnName,
+          categoriesDomain: categories,
+          colorColumn: colorColumnName,
+          colorDomain: sharedDomains.color && sharedDomains.color.length > 0 ? sharedDomains.color : undefined,
+          colorSchemeId: colorScheme,
+          bandPadding: BAND_PADDING,
+          zeroBaseline: true,
+          valueDomainOverride: valueDomain as [number, number],
+          tooltipColumns: [colorField?.columnName].filter(Boolean) as string[],
+        });
+        
         title = measureName;
       } else {
+        // For dimension series (tick strips), keep inline since barCore doesn't handle this
         const dimCol = (f as any).columnName;
         options = barOrientation === 'barX'
           ? { 
