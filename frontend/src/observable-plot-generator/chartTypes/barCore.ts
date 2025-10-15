@@ -180,7 +180,7 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
   } as any;
 
   const plot: Plot.PlotOptions = {
-    marks: [barMark, zeroRule],
+    marks: [barMark],
     [O.sizeProp]: size,
     [O.category]: axisCategory,
     [O.measure]: axisMeasure,

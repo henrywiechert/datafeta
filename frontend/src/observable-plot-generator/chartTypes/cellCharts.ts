@@ -96,14 +96,14 @@ export function generatePairChartOptions(
         const yCol = getResultColumnName(yf);
         const xDomain = sharedMeasureDomains?.[xCol];
         const yDomain = sharedMeasureDomains?.[yCol];
-        return verticalLineChart(data, xCol, yCol, { x: xCol, y: getFieldDisplayName(yf) }, { x: xDomain, y: yDomain }, colorField);
+        return verticalLineChart(data, xCol, yCol, { x: xCol, y: getFieldDisplayName(yf) }, { x: xDomain, y: yDomain }, colorField, undefined, sizeField, sizeRange, manualSize);
       }
       if (xf.type === 'dimension' && yf.type === 'measure') {
         const xCol = getResultColumnName(xf);
         const yCol = getResultColumnName({ ...yf, aggregation: yf.aggregation || 'sum' } as any);
         const xDomain = sharedMeasureDomains?.[xCol];
         const yDomain = sharedMeasureDomains?.[yCol];
-        return lineChart(data, xCol, yCol, { x: getFieldDisplayName(xf), y: yCol }, { x: xDomain, y: yDomain }, colorField);
+        return lineChart(data, xCol, yCol, { x: getFieldDisplayName(xf), y: yCol }, { x: xDomain, y: yDomain }, colorField, undefined, sizeField, sizeRange, manualSize);
       }
       // If both are measures or both are dimensions, fallback to scatter (empty if no data)
       const { xCol, yCol } = resolveXYColumns(xf, yf);
