@@ -23,6 +23,8 @@ export function scatterChart(
     ? data.filter((d) => Number.isFinite(d[xColumn]) && Number.isFinite(d[yColumn]))
     : [];
 
+  console.log(`scatterChart: ${clean.length} points, xColumn=${xColumn}, yColumn=${yColumn}, options.domain=`, options?.domain);
+
   if (clean.length === 0) {
     // Render empty axes (no points) so the cell shape matches others
     return {
@@ -41,7 +43,7 @@ export function scatterChart(
     channels: {
       [xLabel]: { value: xColumn, label: xLabel },
       [yLabel]: { value: yColumn, label: yLabel }
-    }
+    },
   };
   
   const colorInfo = colorField ? deriveColorScaleInfo(clean, colorField, colorScheme) : null;
@@ -75,28 +77,64 @@ export function scatterChart(
   } else {
     dotConfig.r = manualSize || 4;
   }
-  // Enable tooltip on points; use pointer along X for easier targeting
-  // Use format to only show x/y channels and rely on Plot's name-value layout for bold-ish labels.
-  const tipFormat: any = { [xLabel]: true, [yLabel]: true, x: false, y: false, fill: false, r: false };
   
+  // Configure tooltip format to include all channels
+  const tipFormat: any = { [xLabel]: true, [yLabel]: true, x: false, y: false, fill: false, r: false };
   if (colorField) {
     tipFormat[colorField.columnName] = true;
   }
-  
   if (sizeField) {
     tipFormat[sizeField.columnName] = true;
   }
+
+  // Use a custom title function to ensure long strings aren't truncated
+  dotConfig.title = (d: any) => {
+    const formatValue = (val: any): string => {
+      if (typeof val === 'number' && !Number.isInteger(val)) {
+        return val.toFixed(2);
+      }
+      return String(val);
+    };
+    
+    const parts: string[] = [];
+    parts.push(`${xLabel}: ${formatValue(d[xColumn])}`);
+    parts.push(`${yLabel}: ${formatValue(d[yColumn])}`);
+    if (colorField) {
+      const colorColumnName = getResultColumnName(colorField);
+      parts.push(`${colorField.columnName}: ${formatValue(d[colorColumnName])}`);
+    }
+    if (sizeField) {
+      const sizeColumnName = getResultColumnName(sizeField);
+      parts.push(`${sizeField.columnName}: ${formatValue(d[sizeColumnName])}`);
+    }
+    return parts.join('\n');
+  };
+
+  dotConfig.tip = { format: tipFormat } as any;
   
-  dotConfig.tip = {
-    closest: "xy",
-    preferredAnchor: 'top-right',
-    format: tipFormat
-  } as any;
+  // For scatter plots, ALWAYS calculate domains from the actual data
+  // Don't use shared domains which are designed for bar charts (starting at 0)
+  const xValues = clean.map(d => d[xColumn]);
+  const xMin = Math.min(...xValues);
+  const xMax = Math.max(...xValues);
+  const xRange = xMax - xMin;
+  const xPadding = xRange * 0.05; // 5% padding on each side
+  const xDomain = [xMin - xPadding, xMax + xPadding] as [number, number];
+  
+  const yValues = clean.map(d => d[yColumn]);
+  const yMin = Math.min(...yValues);
+  const yMax = Math.max(...yValues);
+  const yRange = yMax - yMin;
+  const yPadding = yRange * 0.05; // 5% padding on each side
+  const yDomain = [yMin - yPadding, yMax + yPadding] as [number, number];
+  
+  console.log(`X Domain calculated from ${clean.length} points: [${xMin.toFixed(2)}, ${xMax.toFixed(2)}] -> [${xDomain[0].toFixed(2)}, ${xDomain[1].toFixed(2)}]`);
+  console.log(`Y Domain calculated from ${clean.length} points: [${yMin.toFixed(2)}, ${yMax.toFixed(2)}] -> [${yDomain[0].toFixed(2)}, ${yDomain[1].toFixed(2)}]`);
   
   const plotOptions: Plot.PlotOptions = {
     // Provide labels and retain as keys for domain application
-    x: { label: options?.x || xColumn, grid: true, domain: options?.domain?.x },
-    y: { label: options?.y || yColumn, grid: true, domain: options?.domain?.y },
+    x: { label: options?.x || xColumn, grid: true, domain: xDomain, nice: false },
+    y: { label: options?.y || yColumn, grid: true, domain: yDomain, nice: false },
     // Ensure r values returned by dotConfig.r are treated as absolute radii (no further scaling)
     r: { type: 'identity' } as any,
     marks: [
