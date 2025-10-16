@@ -5,12 +5,13 @@ import { Sheet, SheetManagerState, SheetAction, VisualizationStateSnapshot } fro
 const STORAGE_KEY = 'data-slicer-sheets';
 
 // Helper to create empty visualization state
-// Note: selectedDatabase and selectedTable are NOT included because they are shared across all sheets
+// Note: These are NOT included because they are shared across all sheets:
+// - selectedDatabase, selectedTable (data source selection)
+// - availableFields (derived from selected table)
 function createEmptyVisualizationState(): VisualizationStateSnapshot {
   return {
     xAxisFields: [],
     yAxisFields: [],
-    availableFields: [],
     filterFields: [],
     filterConfigurations: {},
     appliedFilterConfigurations: {},
