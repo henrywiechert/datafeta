@@ -53,6 +53,11 @@ export const useChartGeneration = ({
       return;
     }
 
+    // Don't generate chart if we have fields but no query result yet
+    if (!queryResult) {
+      return;
+    }
+
     try {
       startOperation('rendering', true);
       setRenderingError(null);

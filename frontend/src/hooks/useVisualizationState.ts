@@ -428,12 +428,21 @@ export function useVisualizationState() {
     // --- Effects to trigger data fetching ---
     useEffect(() => {
         if (!connectionDetails) return;
-        // Always refetch metadata when connection changes, but do not touch axis fields here
-        setMetadataError(null);
+        
+        // Only fetch if we don't already have the data
+        // This prevents duplicate fetches when switching sheets (VisualizationProvider remounts)
         if (connectionDetails.type === 'clickhouse') {
-            fetchDatabases();
+            // Only fetch databases if we don't have any yet
+            if (dataSource.databases.length === 0 && !dataSource.isLoadingMetadata) {
+                setMetadataError(null);
+                fetchDatabases();
+            }
         } else if (connectionDetails.type === 'csv') {
-            fetchTables('');
+            // Only fetch tables if we don't have any yet
+            if (dataSource.tables.length === 0 && !dataSource.isLoadingMetadata) {
+                setMetadataError(null);
+                fetchTables('');
+            }
         }
         // Columns fetch will trigger once selectedTable is set (CSV auto-selection handled in fetchTables)
         // eslint-disable-next-line react-hooks/exhaustive-deps

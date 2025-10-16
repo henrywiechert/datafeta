@@ -37,22 +37,20 @@ export const useQueryExecution = ({
 }: UseQueryExecutionProps): UseQueryExecutionReturn => {
   const { connectionDetails } = useConnection();
   const queryAbortControllerRef = useRef<AbortController | null>(null);
+  const queryInProgressRef = useRef<boolean>(false);
 
   const executeQuery = useCallback(async (queryDesc: QueryDescription) => {
     const startTime = Date.now();
-    // logOperationStart('executeQuery', { 
-    //   table: queryDesc.target_table, 
-    //   dims: queryDesc.dimensions?.length, 
-    //   measures: queryDesc.measures?.length 
-    // }); // Removed debugging log
     
     try {
-      // Cancel any existing query operation
-      if (queryAbortControllerRef.current) {
-        queryAbortControllerRef.current.abort();
+      // Check and set query in progress atomically
+      if (queryInProgressRef.current) {
+        return;
       }
+      // Mark query as in progress immediately
+      queryInProgressRef.current = true;
 
-      // Create new abort controller
+      // Create new abort controller (don't cancel existing, let it complete)
       queryAbortControllerRef.current = new AbortController();
 
       // Start query operation
@@ -76,10 +74,10 @@ export const useQueryExecution = ({
         }
       }
       
+      // Mark query as complete
+      queryInProgressRef.current = false;
       completeOperation('query');
     } catch (error: any) {
-      // console.error(`❌ Query failed after ${Date.now() - startTime}ms:`, error); // Removed debugging log
-      
       if (error.message === 'Request was cancelled') {
         // Operation was cancelled, don't set error
         dispatch({ type: 'SET_QUERY_ERROR', payload: null });
@@ -90,6 +88,8 @@ export const useQueryExecution = ({
         });
       }
       
+      // Mark query as complete even on error
+      queryInProgressRef.current = false;
       completeOperation('query');
     }
   }, [startOperation, completeOperation, dispatch]);
@@ -136,6 +136,11 @@ export const useQueryExecution = ({
 
   // Effect to handle query execution when fields change
   useEffect(() => {
+    // Check if query is already in progress at the start of the effect
+    if (queryInProgressRef.current) {
+      return;
+    }
+    
     const fetchData = async () => {
       // Tag fields with their axis for query optimization
       const taggedXFields = xAxisFields.map(f => ({ ...f, axis: 'x' as const }));
@@ -187,14 +192,16 @@ export const useQueryExecution = ({
     };
 
     fetchData();
-  }, [selectedTable, selectedDatabase, connectionDetails, xAxisFields, yAxisFields, colorField, sizeField, filterConfigurations, dispatch, executeQuery]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTable, selectedDatabase, connectionDetails, xAxisFields, yAxisFields, colorField, sizeField, filterConfigurations]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (queryAbortControllerRef.current) {
-        queryAbortControllerRef.current.abort();
-      }
+      // Don't abort queries - let them complete to avoid concurrent query issues with ClickHouse
+      // ClickHouse doesn't handle aborted queries well in a single session
+      // Just reset the in-progress flag
+      queryInProgressRef.current = false;
     };
   }, []);
 
