@@ -32,11 +32,6 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
       return formatter.format(value);
     }
     if (typeof value === 'string') {
-      // Attempt to detect ISO date strings for nicer formatting
-      const parsed = Date.parse(value);
-      if (!Number.isNaN(parsed) && value.length >= 8) {
-        return new Date(parsed).toLocaleString();
-      }
       return value;
     }
     return String(value);
