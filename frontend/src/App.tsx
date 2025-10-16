@@ -4,6 +4,7 @@ import { Tabs, Tab, Box, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitl
 import AddIcon from '@mui/icons-material/Add';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { SheetProvider, useSheetContext } from './contexts/SheetContext';
+import { DataSourceProvider } from './contexts/DataSourceContext';
 import './App.css';
 
 const DataSourceSelectionPage = lazy(() => import('./pages/DataSourceSelectionPage'));
@@ -253,9 +254,11 @@ function AppContent() {
 function App() {
   return (
     <Router>
-      <SheetProvider>
-        <AppContent />
-      </SheetProvider>
+      <DataSourceProvider>
+        <SheetProvider>
+          <AppContent />
+        </SheetProvider>
+      </DataSourceProvider>
     </Router>
   );
 }
