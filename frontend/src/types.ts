@@ -176,3 +176,48 @@ export interface DateTimeFilterMetadata extends BaseFilterMetadata {
 }
 
 export type FilterMetadata = DiscreteFilterMetadata | ContinuousFilterMetadata | DateTimeFilterMetadata;
+
+// --- Multi-Sheet Types --- //
+
+// Snapshot of visualization state for persistence in sheets
+// Note: selectedDatabase and selectedTable are NOT included here because they are shared across all sheets
+// The data source (database/table) is global and managed by VisualizationContext, not per-sheet
+export interface VisualizationStateSnapshot {
+  xAxisFields: Field[];
+  yAxisFields: Field[];
+  availableFields: Field[];
+  filterFields: Field[];
+  filterConfigurations: Record<string, FilterConfig>;
+  appliedFilterConfigurations: Record<string, FilterConfig>;
+  colorField: Field | null;
+  colorScheme: string;
+  sizeField: Field | null;
+  sizeRange: [number, number];
+  manualSize: number;
+}
+
+// Sheet represents a single visualization configuration
+export interface Sheet {
+  id: string;
+  name: string;
+  visualizationState: VisualizationStateSnapshot;
+  createdAt: number;
+  lastModified: number;
+}
+
+// Sheet manager state
+export interface SheetManagerState {
+  sheets: Sheet[];
+  activeSheetId: string;
+  nextSheetNumber: number;
+}
+
+// Actions for sheet management
+export type SheetAction =
+  | { type: 'ADD_SHEET'; payload?: Partial<Sheet> }
+  | { type: 'REMOVE_SHEET'; payload: string }
+  | { type: 'RENAME_SHEET'; payload: { id: string; name: string } }
+  | { type: 'SET_ACTIVE_SHEET'; payload: string }
+  | { type: 'UPDATE_SHEET_STATE'; payload: { id: string; state: Partial<VisualizationStateSnapshot> } }
+  | { type: 'DUPLICATE_SHEET'; payload: string }
+  | { type: 'LOAD_SHEETS'; payload: Sheet[] };

@@ -4,11 +4,44 @@ import { Field, DataType, FilterMetadata } from '../types';
 import { apiService } from '../apiService';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
+import { useSheetContext } from '../contexts/SheetContext';
 
 
 export function useVisualizationState() {
     const { connectionDetails } = useConnection();
     const { state, dispatch } = useVisualizationContext();
+    const { updateActiveSheetState } = useSheetContext();
+
+    // Sync visualization state changes back to the active sheet
+    // Note: We do NOT sync selectedDatabase and selectedTable because they are shared across all sheets
+    useEffect(() => {
+        updateActiveSheetState({
+            xAxisFields: state.xAxisFields,
+            yAxisFields: state.yAxisFields,
+            availableFields: state.availableFields,
+            filterFields: state.filterFields,
+            filterConfigurations: state.filterConfigurations,
+            appliedFilterConfigurations: state.appliedFilterConfigurations,
+            colorField: state.colorField,
+            colorScheme: state.colorScheme,
+            sizeField: state.sizeField,
+            sizeRange: state.sizeRange,
+            manualSize: state.manualSize,
+        });
+    }, [
+        state.xAxisFields,
+        state.yAxisFields,
+        state.availableFields,
+        state.filterFields,
+        state.filterConfigurations,
+        state.appliedFilterConfigurations,
+        state.colorField,
+        state.colorScheme,
+        state.sizeField,
+        state.sizeRange,
+        state.manualSize,
+        updateActiveSheetState,
+    ]);
 
     // --- Event Handlers ---
 

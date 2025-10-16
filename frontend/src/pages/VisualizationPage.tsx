@@ -3,8 +3,10 @@ import { Box } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { useVisualizationState } from '../hooks/useVisualizationState';
-import { useVisualizationContext } from '../contexts/VisualizationContext';
+import { useVisualizationContext, VisualizationProvider } from '../contexts/VisualizationContext';
+import { SheetProvider, useSheetContext } from '../contexts/SheetContext';
 import { useDragDrop } from '../hooks/useDragDrop';
+import { useConnection } from '../contexts/ConnectionContext';
 import FieldsPanel from '../components/Visualization/FieldsPanel';
 import ChartPanel from '../components/Visualization/ChartPanel';
 import FilterPanel from '../components/Visualization/Filters/FilterPanel';
@@ -13,15 +15,16 @@ import ColorPanel from '../components/Visualization/Color/ColorPanel';
 import LegendPanel from '../components/Visualization/Legend/LegendPanel';
 import SizePanel from '../components/Visualization/Size/SizePanelComplete';
 import LoadingModal from '../components/LoadingModal';
+import SheetTabs from '../components/Visualization/SheetTabs';
 import { apiService } from '../apiService';
 
 import { Field, DragSource } from '../types';
 
-const VisualizationPage = () => {
+// Inner component that uses both sheet and visualization contexts
+const VisualizationPageContent = () => {
     const [fieldsSearch, setFieldsSearch] = React.useState('');
     
     const {
-        connectionDetails,
         xAxisFields,
         yAxisFields,
         availableFields,
@@ -82,6 +85,8 @@ const VisualizationPage = () => {
         cancelOperation();
     }, [cancelOperation]);
 
+    const { connectionDetails } = useConnection();
+
     if (!connectionDetails) {
         return (
             <Box sx={{ p: 4, textAlign: 'center' }}>
@@ -99,7 +104,7 @@ const VisualizationPage = () => {
 
     return (
         <Box sx={{ 
-            height: '100%', 
+            height: '100vh', 
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden' 
@@ -200,7 +205,34 @@ const VisualizationPage = () => {
                 startTime={loadingStartTime}
                 onCancel={handleCancelOperation}
             />
+
+            {/* Sheet Tabs at bottom */}
+            <SheetTabs />
         </Box>
+    );
+};
+
+// Wrapper component that provides sheet context to visualization
+const VisualizationPageWithProvider = () => {
+    const { activeSheet } = useSheetContext();
+
+    // Use the sheet ID as key to force remount when switching sheets
+    return (
+        <VisualizationProvider 
+            key={activeSheet?.id} 
+            initialState={activeSheet?.visualizationState}
+        >
+            <VisualizationPageContent />
+        </VisualizationProvider>
+    );
+};
+
+// Main component with SheetProvider wrapper
+const VisualizationPage = () => {
+    return (
+        <SheetProvider>
+            <VisualizationPageWithProvider />
+        </SheetProvider>
     );
 };
 
