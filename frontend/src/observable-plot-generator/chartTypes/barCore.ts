@@ -192,7 +192,22 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
   const isSingle = categories.length === 1;
   const size = isSingle ? BAR_STEP_PX * singleBarSizeMultiplier : categories.length * BAR_STEP_PX;
 
-  const domain = valueDomainOverride || computeValueDomain(data, measureName, { zeroBaseline });
+  // Compute domain, accounting for stacking when there's no category but there is color
+  let domain: [number, number];
+  if (valueDomainOverride) {
+    domain = valueDomainOverride;
+  } else if (!categoryColumn && colorColumn) {
+    // Stacked bar: domain should be the sum of all segments
+    const values = data
+      .map(r => r[measureName])
+      .filter(v => typeof v === 'number' && isFinite(v));
+    const total = values.reduce((sum, v) => sum + v, 0);
+    const upper = total === 0 ? 1 : total * (1 + (zeroBaseline ? 0.05 : 0));
+    domain = [0, upper];
+  } else {
+    // Regular bar: use individual values
+    domain = computeValueDomain(data, measureName, { zeroBaseline });
+  }
 
   const fillValue = colorColumn
     ? (colorScale && colorScale.kind === 'continuous' && colorScale.accessor
