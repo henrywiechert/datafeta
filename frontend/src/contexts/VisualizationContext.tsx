@@ -311,10 +311,17 @@ const VisualizationContext = createContext<VisualizationContextType | undefined>
 // Provider component
 interface VisualizationProviderProps {
   children: ReactNode;
+  initialState?: Partial<VisualizationState>;
 }
 
-export function VisualizationProvider({ children }: VisualizationProviderProps) {
-  const [state, dispatch] = useReducer(visualizationReducer, initialState);
+export function VisualizationProvider({ children, initialState: initialStateProp }: VisualizationProviderProps) {
+  // Merge the default initial state with any provided initial state
+  const mergedInitialState = React.useMemo(() => ({
+    ...initialState,
+    ...initialStateProp,
+  }), [initialStateProp]);
+
+  const [state, dispatch] = useReducer(visualizationReducer, mergedInitialState);
   const timeoutRefs = useRef<{ [key: string]: NodeJS.Timeout | null }>({});
 
   // Start an operation with timeout handling
