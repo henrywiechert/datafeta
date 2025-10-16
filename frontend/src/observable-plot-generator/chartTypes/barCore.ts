@@ -32,7 +32,7 @@ export const ORIENTATION = {
     category: 'x' as const,
     bar: Plot.barY,
     rule: Plot.ruleY,
-    pointer: 'y' as const,
+    pointer: 'xy' as const,
     sizeProp: 'width' as const
   },
   horizontal: {
@@ -40,7 +40,7 @@ export const ORIENTATION = {
     category: 'y' as const,
     bar: Plot.barX,
     rule: Plot.ruleX,
-    pointer: 'x' as const,
+    pointer: 'xy' as const,
     sizeProp: 'height' as const
   }
 } as const;
@@ -194,21 +194,54 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
 
   const domain = valueDomainOverride || computeValueDomain(data, measureName, { zeroBaseline });
 
-  // Tooltip format: include specified raw columns (color/size) but not fill legend duplication
-  const tipFormat: any = { fill: false };
-  tooltipColumns.forEach(c => tipFormat[c] = true);
-
   const fillValue = colorColumn
     ? (colorScale && colorScale.kind === 'continuous' && colorScale.accessor
         ? (d: any) => colorScale.accessor?.(d) ?? null
         : colorColumn)
     : DEFAULT_CHART_COLOR;
 
+  // Build channels for tooltip - only include what we want to show
+  const channels: any = {};
+  
+  // Add measure to channels with its label
+  channels[measureName] = { value: measureName, label: measureName };
+  
+  // Add category to channels if present
+  if (categoryColumn) {
+    channels[categoryColumn] = { value: categoryColumn, label: categoryColumn };
+  }
+  
+  // Add color field to channels when present (avoid duplicate)
+  if (colorColumn && !channels[colorColumn]) {
+    channels[colorColumn] = { value: colorColumn, label: colorColumn };
+  }
+  
+  // Add any additional tooltip columns to channels (avoid duplicates)
+  tooltipColumns.forEach(col => {
+    if (col && !channels[col]) {
+      channels[col] = { value: col, label: col };
+    }
+  });
+
+  // Tooltip format: explicitly list what to show and hide everything else
+  const tipFormat: any = {};
+  
+  // Enable all our custom channels
+  Object.keys(channels).forEach(key => {
+    tipFormat[key] = true;
+  });
+  
+  // Explicitly hide the default positional channels to prevent duplication
+  tipFormat.x = false;
+  tipFormat.y = false;
+  tipFormat.fill = false;
+
   const baseConfig: any = {
     [O.measure]: measureName,
     fill: fillValue,
     [O.category]: categoryColumn ? categoryColumn : () => categories[0],
-    tip: { pointer: O.pointer, preferredAnchor: 'top-right', format: tipFormat }
+    channels: channels,
+    tip: { closest: 'xy', preferredAnchor: 'top-right', format: tipFormat }
   };
 
   // When there's no category but there is color, enable stacking with z channel
