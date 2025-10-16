@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Slider, Typography, FormControl } from '@mui/material';
 import { Field } from '../../../types';
 // import styles from './SizeRangeControl.module.css';
@@ -18,13 +18,38 @@ const SizeRangeControl: React.FC<SizeRangeControlProps> = ({
   onSizeRangeChange,
   onManualSizeChange,
 }) => {
-  const handleSizeRangeChange = (event: Event, newValue: number | number[]) => {
+  // Local state for visual feedback during dragging
+  const [localSizeRange, setLocalSizeRange] = useState<[number, number]>(sizeRange);
+  const [localManualSize, setLocalManualSize] = useState<number>(manualSize);
+
+  // Sync local state with props when they change externally
+  useEffect(() => {
+    setLocalSizeRange(sizeRange);
+  }, [sizeRange]);
+
+  useEffect(() => {
+    setLocalManualSize(manualSize);
+  }, [manualSize]);
+
+  const handleSizeRangeChange = (event: Event | React.SyntheticEvent, newValue: number | number[]) => {
+    if (Array.isArray(newValue) && newValue.length === 2) {
+      setLocalSizeRange([newValue[0], newValue[1]]);
+    }
+  };
+
+  const handleSizeRangeCommitted = (event: Event | React.SyntheticEvent, newValue: number | number[]) => {
     if (Array.isArray(newValue) && newValue.length === 2) {
       onSizeRangeChange([newValue[0], newValue[1]]);
     }
   };
 
-  const handleManualSizeChange = (event: Event, newValue: number | number[]) => {
+  const handleManualSizeChange = (event: Event | React.SyntheticEvent, newValue: number | number[]) => {
+    if (typeof newValue === 'number') {
+      setLocalManualSize(newValue);
+    }
+  };
+
+  const handleManualSizeCommitted = (event: Event | React.SyntheticEvent, newValue: number | number[]) => {
     if (typeof newValue === 'number') {
       onManualSizeChange(newValue);
     }
@@ -46,11 +71,12 @@ const SizeRangeControl: React.FC<SizeRangeControlProps> = ({
             marginBottom: '4px',
             color: '#424242'
           }}>
-            Size Range: {sizeRange[0]} - {sizeRange[1]}
+            Size Range: {localSizeRange[0]} - {localSizeRange[1]}
           </Typography>
           <Slider
-            value={sizeRange}
+            value={localSizeRange}
             onChange={handleSizeRangeChange}
+            onChangeCommitted={handleSizeRangeCommitted}
             valueLabelDisplay="auto"
             min={1}
             max={50}
@@ -77,11 +103,12 @@ const SizeRangeControl: React.FC<SizeRangeControlProps> = ({
             marginBottom: '4px',
             color: '#424242'
           }}>
-            Manual Size: {manualSize}
+            Manual Size: {localManualSize}
           </Typography>
           <Slider
-            value={manualSize}
+            value={localManualSize}
             onChange={handleManualSizeChange}
+            onChangeCommitted={handleManualSizeCommitted}
             valueLabelDisplay="auto"
             min={1}
             max={50}
