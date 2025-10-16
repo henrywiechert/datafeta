@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Field, DragSource } from '../types';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
+import { useDataSource } from '../contexts/DataSourceContext';
 import { DEFAULT_CATEGORICAL_SCHEME, DEFAULT_SEQUENTIAL_SCHEME } from '../config/colorSchemes';
 
 /**
@@ -9,6 +10,7 @@ import { DEFAULT_CATEGORICAL_SCHEME, DEFAULT_SEQUENTIAL_SCHEME } from '../config
  */
 export function useDragDrop() {
   const { state, dispatch } = useVisualizationContext();
+  const { dataSource } = useDataSource();
   const { xAxisFields, yAxisFields, filterFields } = state;
   
   /**
@@ -23,7 +25,7 @@ export function useDragDrop() {
     // Handle drops from available fields
     if (source === 'AVAILABLE_FIELDS') {
       // Find the field in available fields
-      const sourceField = state.availableFields.find(f => f.id === field.id);
+      const sourceField = dataSource.availableFields.find(f => f.id === field.id);
       if (!sourceField) return;
       
       // Create an independent copy of the field with a new ID
@@ -77,7 +79,7 @@ export function useDragDrop() {
         payload: newTargetFields 
       });
     }
-  }, [dispatch, state.availableFields, xAxisFields, yAxisFields]);
+  }, [dispatch, dataSource.availableFields, xAxisFields, yAxisFields]);
   
   /**
    * Remove a field from either axis
@@ -114,7 +116,7 @@ export function useDragDrop() {
     // Handle drops from available fields or axes
     if (source === 'AVAILABLE_FIELDS') {
       // Find the field in available fields
-      const sourceField = state.availableFields.find(f => f.id === field.id);
+      const sourceField = dataSource.availableFields.find(f => f.id === field.id);
       if (!sourceField) return;
       
       // Create an independent copy of the field with a new ID
@@ -133,7 +135,7 @@ export function useDragDrop() {
         payload: [...filterFields, fieldCopy]
       });
     }
-  }, [dispatch, state.availableFields, filterFields]);
+  }, [dispatch, dataSource.availableFields, filterFields]);
 
   /**
    * Remove a field from the filter zone
@@ -153,7 +155,7 @@ export function useDragDrop() {
     
     if (source === 'AVAILABLE_FIELDS') {
       // Find the field in available fields
-      const sourceField = state.availableFields.find(f => f.id === field.id);
+      const sourceField = dataSource.availableFields.find(f => f.id === field.id);
       if (!sourceField) return;
       
       // Create an independent copy of the field with a new ID
@@ -173,7 +175,7 @@ export function useDragDrop() {
       const nextScheme = fieldToSet.flavour === 'continuous' ? DEFAULT_SEQUENTIAL_SCHEME : DEFAULT_CATEGORICAL_SCHEME;
       dispatch({ type: 'SET_COLOR_SCHEME', payload: nextScheme });
     }
-  }, [dispatch, state.availableFields, state.colorField]);
+  }, [dispatch, dataSource.availableFields, state.colorField]);
 
   /**
    * Remove the field from the color zone
@@ -190,7 +192,7 @@ export function useDragDrop() {
     
     if (source === 'AVAILABLE_FIELDS') {
       // Find the field in available fields
-      const sourceField = state.availableFields.find(f => f.id === field.id);
+      const sourceField = dataSource.availableFields.find(f => f.id === field.id);
       if (!sourceField) return;
       
       // Create an independent copy of the field with a new ID
@@ -205,7 +207,7 @@ export function useDragDrop() {
     
     // Replace the existing size field with the new one
     dispatch({ type: 'SET_SIZE_FIELD', payload: fieldToSet });
-  }, [dispatch, state.availableFields]);
+  }, [dispatch, dataSource.availableFields]);
 
   /**
    * Remove the field from the size zone

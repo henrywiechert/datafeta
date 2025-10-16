@@ -5,12 +5,23 @@ import { apiService } from '../apiService';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
 import { useSheetContext } from '../contexts/SheetContext';
+import { useDataSource } from '../contexts/DataSourceContext';
 
 
 export function useVisualizationState() {
     const { connectionDetails } = useConnection();
     const { state, dispatch } = useVisualizationContext();
     const { updateActiveSheetState } = useSheetContext();
+    const { 
+        dataSource, 
+        setSelectedDatabase, 
+        setSelectedTable, 
+        setAvailableFields,
+        setDatabases,
+        setTables,
+        setIsLoadingMetadata,
+        setMetadataError
+    } = useDataSource();
 
     // Sync visualization state changes back to the active sheet
     // Note: We do NOT sync these because they are shared across all sheets:
@@ -46,7 +57,7 @@ export function useVisualizationState() {
     // --- Event Handlers ---
 
     const handleDropFromAvailableFields = useCallback((targetAxis: 'x' | 'y', fieldId: string, insertIndex?: number) => {
-        const field = state.availableFields.find(f => f.id === fieldId);
+        const field = dataSource.availableFields.find(f => f.id === fieldId);
         if (!field) return;
 
         const fieldToAdd = { ...field, id: uuidv4() };
@@ -70,7 +81,7 @@ export function useVisualizationState() {
                 dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: [...currentFields, fieldToAdd] });
             }
         }
-    }, [state.xAxisFields, state.yAxisFields, state.availableFields, dispatch]);
+    }, [state.xAxisFields, state.yAxisFields, dataSource.availableFields, dispatch]);
 
 
 
@@ -82,8 +93,17 @@ export function useVisualizationState() {
     }, [state.xAxisFields, state.yAxisFields, dispatch]);
 
     const handleFieldUpdate = useCallback((updatedField: Field) => {
+        // Update field in the axis fields (via VisualizationContext)
         dispatch({ type: 'UPDATE_FIELD', payload: updatedField });
-    }, [dispatch]);
+        
+        // Also update field in availableFields (via DataSourceContext)
+        const updatedAvailableFields = dataSource.availableFields.map((f) => 
+            f.id === updatedField.id ? updatedField : f
+        );
+        if (updatedAvailableFields.some((f, i) => f !== dataSource.availableFields[i])) {
+            setAvailableFields(updatedAvailableFields);
+        }
+    }, [dispatch, dataSource.availableFields, setAvailableFields]);
 
     const handleReorderFields = useCallback((axis: 'x' | 'y', fromIndex: number, toIndex: number) => {
         const currentFields = axis === 'x' ? state.xAxisFields : state.yAxisFields;
@@ -102,73 +122,73 @@ export function useVisualizationState() {
     }, [state.xAxisFields, state.yAxisFields, dispatch]);
 
     const handleDatabaseSelect = useCallback((dbName: string) => {
-        dispatch({ type: 'SET_SELECTED_DATABASE', payload: dbName });
-        dispatch({ type: 'SET_SELECTED_TABLE', payload: '' });
-        dispatch({ type: 'SET_TABLES', payload: [] });
-        dispatch({ type: 'SET_AVAILABLE_FIELDS', payload: [] });
-    }, [dispatch]);
+        setSelectedDatabase(dbName);
+        setSelectedTable('');
+        setTables([]);
+        setAvailableFields([]);
+    }, [setSelectedDatabase, setSelectedTable, setTables, setAvailableFields]);
 
     const handleTableSelect = useCallback((tableName: string) => {
-        dispatch({ type: 'SET_SELECTED_TABLE', payload: tableName });
+        setSelectedTable(tableName);
         // Clear existing fields when table changes
-        dispatch({ type: 'SET_AVAILABLE_FIELDS', payload: [] });
-    }, [dispatch]);
+        setAvailableFields([]);
+    }, [setSelectedTable, setAvailableFields]);
 
     // --- Data Fetching Logic ---
 
     const fetchDatabases = useCallback(async () => {
-        dispatch({ type: 'SET_LOADING_METADATA', payload: true });
-        dispatch({ type: 'SET_METADATA_ERROR', payload: null });
+        setIsLoadingMetadata(true);
+        setMetadataError(null);
         try {
             const response = await apiService.listDatabases();
-            dispatch({ type: 'SET_DATABASES', payload: response.databases || [] });
+            setDatabases(response.databases || []);
         } catch (err: any) { 
             if (err.message === 'Request was cancelled') {
                 // Request was cancelled, don't set error
-                dispatch({ type: 'SET_METADATA_ERROR', payload: null });
+                setMetadataError(null);
             } else {
-                dispatch({ type: 'SET_METADATA_ERROR', payload: err.message });
+                setMetadataError(err.message);
             }
         }
         finally { 
-            dispatch({ type: 'SET_LOADING_METADATA', payload: false });
+            setIsLoadingMetadata(false);
         }
-    }, [dispatch]);
+    }, [setIsLoadingMetadata, setMetadataError, setDatabases]);
 
     const fetchTables = useCallback(async (databaseName: string) => {
         const targetDatabase = databaseName;
         if (connectionDetails?.type === 'clickhouse' && !targetDatabase) return;
         
-        dispatch({ type: 'SET_LOADING_METADATA', payload: true });
-        dispatch({ type: 'SET_METADATA_ERROR', payload: null });
+        setIsLoadingMetadata(true);
+        setMetadataError(null);
         try {
             const response = await apiService.listTables(targetDatabase);
-            dispatch({ type: 'SET_TABLES', payload: response.tables || [] });
+            setTables(response.tables || []);
             if (connectionDetails?.type === 'csv' && response.tables?.length === 1) {
-                dispatch({ type: 'SET_SELECTED_TABLE', payload: response.tables[0].name });
+                setSelectedTable(response.tables[0].name);
             }
         } catch (err: any) { 
             if (err.message === 'Request was cancelled') {
                 // Request was cancelled, don't set error
-                dispatch({ type: 'SET_METADATA_ERROR', payload: null });
+                setMetadataError(null);
             } else {
-                dispatch({ type: 'SET_METADATA_ERROR', payload: err.message });
+                setMetadataError(err.message);
             }
         }
         finally { 
-            dispatch({ type: 'SET_LOADING_METADATA', payload: false });
+            setIsLoadingMetadata(false);
         }
-    }, [connectionDetails?.type, dispatch]);
+    }, [connectionDetails?.type, setIsLoadingMetadata, setMetadataError, setTables, setSelectedTable]);
 
     const fetchColumns = useCallback(async () => {
-        if (!state.selectedTable) return;
-        if (connectionDetails?.type === 'clickhouse' && !state.selectedDatabase) return;
+        if (!dataSource.selectedTable) return;
+        if (connectionDetails?.type === 'clickhouse' && !dataSource.selectedDatabase) return;
         
-        dispatch({ type: 'SET_LOADING_METADATA', payload: true });
-        dispatch({ type: 'SET_METADATA_ERROR', payload: null });
+        setIsLoadingMetadata(true);
+        setMetadataError(null);
         try {
-            const dbParam = connectionDetails?.type === 'clickhouse' ? state.selectedDatabase : undefined;
-            const response = await apiService.listColumns(state.selectedTable, dbParam);
+            const dbParam = connectionDetails?.type === 'clickhouse' ? dataSource.selectedDatabase : undefined;
+            const response = await apiService.listColumns(dataSource.selectedTable, dbParam);
             const fields: Field[] = response.columns.map(col => {
                 const dataType = mapBackendDataType(col.data_type);
                 
@@ -201,7 +221,7 @@ export function useVisualizationState() {
                     aggregation: aggregation,
                 };
             });
-            dispatch({ type: 'SET_AVAILABLE_FIELDS', payload: fields });
+            setAvailableFields(fields);
 
             // Mark axis fields that are not present in new schema as invalid
             const availableNames = new Set(fields.map(f => f.columnName));
@@ -212,15 +232,15 @@ export function useVisualizationState() {
         } catch (err: any) { 
             if (err.message === 'Request was cancelled') {
                 // Request was cancelled, don't set error
-                dispatch({ type: 'SET_METADATA_ERROR', payload: null });
+                setMetadataError(null);
             } else {
-                dispatch({ type: 'SET_METADATA_ERROR', payload: err.message });
+                setMetadataError(err.message);
             }
         }
         finally { 
-            dispatch({ type: 'SET_LOADING_METADATA', payload: false });
+            setIsLoadingMetadata(false);
         }
-    }, [state.selectedTable, state.selectedDatabase, state.xAxisFields, state.yAxisFields, connectionDetails?.type, dispatch]);
+    }, [dataSource.selectedTable, dataSource.selectedDatabase, state.xAxisFields, state.yAxisFields, connectionDetails?.type, setIsLoadingMetadata, setMetadataError, setAvailableFields, dispatch]);
 
     // Helper function to map backend data types to our DataType enum
     const mapBackendDataType = (backendType: string): DataType => {
@@ -242,8 +262,8 @@ export function useVisualizationState() {
 
     // Fetch filter metadata for a field
     const fetchFilterMetadata = useCallback(async (field: Field) => {
-        if (!state.selectedTable) return;
-        const dbParam = connectionDetails?.type === 'clickhouse' ? state.selectedDatabase : undefined;
+        if (!dataSource.selectedTable) return;
+        const dbParam = connectionDetails?.type === 'clickhouse' ? dataSource.selectedDatabase : undefined;
 
         // Determine filter type based on field characteristics
         const getFilterType = (): 'discrete' | 'continuous' | 'datetime' => {
@@ -280,7 +300,7 @@ export function useVisualizationState() {
             if (filterType === 'discrete') {
                 const values = await apiService.getDistinctValues(
                     field.columnName,
-                    state.selectedTable,
+                    dataSource.selectedTable,
                     dbParam,
                     field.dateTimePart,
                     field.dateTimeMode
@@ -317,7 +337,7 @@ export function useVisualizationState() {
             } else if (filterType === 'continuous') {
                 const range = await apiService.getFieldRange(
                     field.columnName,
-                    state.selectedTable,
+                    dataSource.selectedTable,
                     dbParam
                 );
                 
@@ -352,7 +372,7 @@ export function useVisualizationState() {
             } else if (filterType === 'datetime') {
                 const range = await apiService.getDateTimeRange(
                     field.columnName,
-                    state.selectedTable,
+                    dataSource.selectedTable,
                     dbParam
                 );
                 
@@ -403,40 +423,43 @@ export function useVisualizationState() {
                 payload: { fieldId: field.id, metadata: errorMetadata }
             });
         }
-    }, [state.selectedTable, state.selectedDatabase, connectionDetails?.type, dispatch]);
+    }, [dataSource.selectedTable, dataSource.selectedDatabase, connectionDetails?.type, dispatch]);
 
     // --- Effects to trigger data fetching ---
     useEffect(() => {
         if (!connectionDetails) return;
         // Always refetch metadata when connection changes, but do not touch axis fields here
-        dispatch({ type: 'SET_METADATA_ERROR', payload: null });
+        setMetadataError(null);
         if (connectionDetails.type === 'clickhouse') {
             fetchDatabases();
         } else if (connectionDetails.type === 'csv') {
             fetchTables('');
         }
         // Columns fetch will trigger once selectedTable is set (CSV auto-selection handled in fetchTables)
-    }, [connectionDetails, connectionDetails?.type, dispatch, fetchDatabases, fetchTables]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [connectionDetails, connectionDetails?.type]);
     
     useEffect(() => {
         // Fetch columns when table is selected (either from initial load or user selection)
-        if (state.selectedTable && !state.isLoadingMetadata) {
+        if (dataSource.selectedTable && !dataSource.isLoadingMetadata) {
             // Only fetch if we don't have fields or if the fields list was just cleared (user changed table)
-            if (state.availableFields.length === 0) {
+            if (dataSource.availableFields.length === 0) {
                 fetchColumns();
             }
         }
-    }, [state.selectedTable, state.availableFields.length, state.isLoadingMetadata, fetchColumns]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dataSource.selectedTable, dataSource.availableFields.length, dataSource.isLoadingMetadata]);
 
     useEffect(() => {
         // Fetch tables when database is selected (either from initial load or user selection)
-        if (state.selectedDatabase && !state.isLoadingMetadata) {
+        if (dataSource.selectedDatabase && !dataSource.isLoadingMetadata) {
             // Only fetch if we don't have tables or if the tables list was just cleared (user changed database)
-            if (state.tables.length === 0) {
-                fetchTables(state.selectedDatabase);
+            if (dataSource.tables.length === 0) {
+                fetchTables(dataSource.selectedDatabase);
             }
         }
-    }, [state.selectedDatabase, state.tables.length, state.isLoadingMetadata, fetchTables]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dataSource.selectedDatabase, dataSource.tables.length, dataSource.isLoadingMetadata]);
 
     // Fetch filter metadata when new filter fields are added
     useEffect(() => {
@@ -453,13 +476,13 @@ export function useVisualizationState() {
         connectionDetails,
         xAxisFields: state.xAxisFields,
         yAxisFields: state.yAxisFields,
-        availableFields: state.availableFields,
-        databases: state.databases,
-        tables: state.tables,
-        selectedDatabase: state.selectedDatabase,
-        selectedTable: state.selectedTable,
-        isLoadingMetadata: state.isLoadingMetadata,
-        metadataError: state.metadataError,
+        availableFields: dataSource.availableFields,
+        databases: dataSource.databases,
+        tables: dataSource.tables,
+        selectedDatabase: dataSource.selectedDatabase,
+        selectedTable: dataSource.selectedTable,
+        isLoadingMetadata: dataSource.isLoadingMetadata,
+        metadataError: dataSource.metadataError,
         handleFieldUpdate,
         handleDatabaseSelect,
         handleTableSelect,

@@ -1,6 +1,7 @@
 import React from 'react';
 import styles from '../ChartArea.module.css';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
+import { useDataSource } from '../../../contexts/DataSourceContext';
 import { useChartGeneration, useQueryExecution, useDataProcessing, useDebugView } from './hooks';
 import { ChartRenderer, ChartControls, DebugPanel } from './components';
 
@@ -12,7 +13,9 @@ import { ChartRenderer, ChartControls, DebugPanel } from './components';
  */
 const ChartArea: React.FC = () => {
   const { state, dispatch, startOperation, completeOperation } = useVisualizationContext();
-  const { xAxisFields, yAxisFields, colorField, colorScheme, sizeField, sizeRange, manualSize, selectedTable, selectedDatabase, queryResult, queryError, appliedFilterConfigurations } = state;
+  const { dataSource } = useDataSource();
+  const { xAxisFields, yAxisFields, colorField, colorScheme, sizeField, sizeRange, manualSize, queryResult, queryError, appliedFilterConfigurations } = state;
+  const { selectedTable, selectedDatabase } = dataSource;
 
   // Use the extracted data processing hook
   const { useTableView, tableData } = useDataProcessing({

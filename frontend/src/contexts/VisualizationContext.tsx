@@ -315,44 +315,17 @@ interface VisualizationProviderProps {
 }
 
 export function VisualizationProvider({ children, initialState: initialStateProp }: VisualizationProviderProps) {
-  // Store global state that should NOT be overwritten when switching sheets
-  const globalStateRef = useRef({
-    selectedDatabase: initialState.selectedDatabase,
-    selectedTable: initialState.selectedTable,
-    availableFields: initialState.availableFields,
-    databases: initialState.databases,
-    tables: initialState.tables,
-  });
-
   // Merge the default initial state with any provided initial state
-  // But preserve global state (database/table selection and metadata)
   const mergedInitialState = React.useMemo(() => {
     const merged = {
       ...initialState,
       ...initialStateProp,
-      // Always preserve global state
-      selectedDatabase: globalStateRef.current.selectedDatabase,
-      selectedTable: globalStateRef.current.selectedTable,
-      availableFields: globalStateRef.current.availableFields,
-      databases: globalStateRef.current.databases,
-      tables: globalStateRef.current.tables,
     };
     return merged;
   }, [initialStateProp]);
 
   const [state, dispatch] = useReducer(visualizationReducer, mergedInitialState);
   const timeoutRefs = useRef<{ [key: string]: NodeJS.Timeout | null }>({});
-
-  // Update the global state ref when database/table/fields change
-  React.useEffect(() => {
-    globalStateRef.current = {
-      selectedDatabase: state.selectedDatabase,
-      selectedTable: state.selectedTable,
-      availableFields: state.availableFields,
-      databases: state.databases,
-      tables: state.tables,
-    };
-  }, [state.selectedDatabase, state.selectedTable, state.availableFields, state.databases, state.tables]);
 
   // Start an operation with timeout handling
   const startOperation = useCallback((operationType: LoadingOperationType, canCancel: boolean = true) => {
