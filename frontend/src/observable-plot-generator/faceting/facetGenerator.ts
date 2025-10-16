@@ -139,6 +139,10 @@ function createBarCellGenerator(
         // Use the global band padding computed from size field
         const dynamicPadding = bandPadding ?? BAND_PADDING;
         
+        // Don't use valueDomainOverride for stacked bars (no category but has color)
+        // Let buildBarOptions calculate the correct stacked domain
+        const useStackedDomain = !categoryColumnName && colorColumnName;
+        
         // Use barCore.buildBarOptions() instead of inline Plot.barX/barY
         options = buildBarOptions({
           data: cellData,
@@ -150,7 +154,7 @@ function createBarCellGenerator(
           colorScale: sharedDomains.colorScale,
           bandPadding: dynamicPadding,
           zeroBaseline: true,
-          valueDomainOverride: valueDomain as [number, number],
+          valueDomainOverride: useStackedDomain ? undefined : (valueDomain as [number, number]),
           tooltipColumns: [colorField?.columnName].filter(Boolean) as string[],
         });
         

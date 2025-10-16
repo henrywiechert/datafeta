@@ -23,8 +23,6 @@ export function scatterChart(
     ? data.filter((d) => Number.isFinite(d[xColumn]) && Number.isFinite(d[yColumn]))
     : [];
 
-  console.log(`scatterChart: ${clean.length} points, xColumn=${xColumn}, yColumn=${yColumn}, options.domain=`, options?.domain);
-
   if (clean.length === 0) {
     // Render empty axes (no points) so the cell shape matches others
     return {
@@ -127,9 +125,6 @@ export function scatterChart(
   const yRange = yMax - yMin;
   const yPadding = yRange * 0.05; // 5% padding on each side
   const yDomain = [yMin - yPadding, yMax + yPadding] as [number, number];
-  
-  console.log(`X Domain calculated from ${clean.length} points: [${xMin.toFixed(2)}, ${xMax.toFixed(2)}] -> [${xDomain[0].toFixed(2)}, ${xDomain[1].toFixed(2)}]`);
-  console.log(`Y Domain calculated from ${clean.length} points: [${yMin.toFixed(2)}, ${yMax.toFixed(2)}] -> [${yDomain[0].toFixed(2)}, ${yDomain[1].toFixed(2)}]`);
   
   const plotOptions: Plot.PlotOptions = {
     // Provide labels and retain as keys for domain application
