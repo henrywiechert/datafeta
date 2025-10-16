@@ -212,6 +212,10 @@ function createBarX(
   const colorColumn = colorField ? getResultColumnName(colorField) : undefined;
   const colorScale = colorField ? deriveColorScaleInfo(data, colorField, colorScheme) : null;
   
+  // Don't use valueDomainOverride for stacked bars (no category but has color)
+  // Let buildBarOptions calculate the correct stacked domain
+  const useStackedDomain = !categoryColumn && colorColumn;
+  
   return buildBarOptions({
     data,
     measureName,
@@ -222,7 +226,7 @@ function createBarX(
     colorScale,
     bandPadding: dynamicPadding,
     zeroBaseline: true,
-    valueDomainOverride: valueDomain,
+    valueDomainOverride: useStackedDomain ? undefined : valueDomain,
     tooltipColumns: [colorField?.columnName].filter(Boolean) as string[],
   });
 }
@@ -262,6 +266,10 @@ function createBarY(
   const colorColumn = colorField ? getResultColumnName(colorField) : undefined;
   const colorScale = colorField ? deriveColorScaleInfo(data, colorField, colorScheme) : null;
   
+  // Don't use valueDomainOverride for stacked bars (no category but has color)
+  // Let buildBarOptions calculate the correct stacked domain
+  const useStackedDomain = !categoryColumn && colorColumn;
+  
   return buildBarOptions({
     data,
     measureName,
@@ -272,7 +280,7 @@ function createBarY(
     colorScale,
     bandPadding: dynamicPadding,
     zeroBaseline: true,
-    valueDomainOverride: valueDomain,
+    valueDomainOverride: useStackedDomain ? undefined : valueDomain,
     tooltipColumns: [colorField?.columnName].filter(Boolean) as string[],
   });
 }
