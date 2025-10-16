@@ -180,12 +180,13 @@ export type FilterMetadata = DiscreteFilterMetadata | ContinuousFilterMetadata |
 // --- Multi-Sheet Types --- //
 
 // Snapshot of visualization state for persistence in sheets
-// Note: selectedDatabase and selectedTable are NOT included here because they are shared across all sheets
-// The data source (database/table) is global and managed by VisualizationContext, not per-sheet
+// Note: These fields are NOT included because they are shared across all sheets:
+// - selectedDatabase, selectedTable (data source selection)
+// - availableFields (derived from selected table)
+// - databases, tables (metadata lists)
 export interface VisualizationStateSnapshot {
   xAxisFields: Field[];
   yAxisFields: Field[];
-  availableFields: Field[];
   filterFields: Field[];
   filterConfigurations: Record<string, FilterConfig>;
   appliedFilterConfigurations: Record<string, FilterConfig>;

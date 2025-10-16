@@ -13,12 +13,13 @@ export function useVisualizationState() {
     const { updateActiveSheetState } = useSheetContext();
 
     // Sync visualization state changes back to the active sheet
-    // Note: We do NOT sync selectedDatabase and selectedTable because they are shared across all sheets
+    // Note: We do NOT sync these because they are shared across all sheets:
+    // - selectedDatabase, selectedTable (data source selection)
+    // - availableFields (derived from selected table)
     useEffect(() => {
         updateActiveSheetState({
             xAxisFields: state.xAxisFields,
             yAxisFields: state.yAxisFields,
-            availableFields: state.availableFields,
             filterFields: state.filterFields,
             filterConfigurations: state.filterConfigurations,
             appliedFilterConfigurations: state.appliedFilterConfigurations,
@@ -31,7 +32,6 @@ export function useVisualizationState() {
     }, [
         state.xAxisFields,
         state.yAxisFields,
-        state.availableFields,
         state.filterFields,
         state.filterConfigurations,
         state.appliedFilterConfigurations,

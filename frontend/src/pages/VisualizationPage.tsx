@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { useVisualizationState } from '../hooks/useVisualizationState';
 import { useVisualizationContext, VisualizationProvider } from '../contexts/VisualizationContext';
-import { SheetProvider, useSheetContext } from '../contexts/SheetContext';
+import { useSheetContext } from '../contexts/SheetContext';
 import { useDragDrop } from '../hooks/useDragDrop';
 import { useConnection } from '../contexts/ConnectionContext';
 import FieldsPanel from '../components/Visualization/FieldsPanel';
@@ -15,7 +15,6 @@ import ColorPanel from '../components/Visualization/Color/ColorPanel';
 import LegendPanel from '../components/Visualization/Legend/LegendPanel';
 import SizePanel from '../components/Visualization/Size/SizePanelComplete';
 import LoadingModal from '../components/LoadingModal';
-import SheetTabs from '../components/Visualization/SheetTabs';
 import { apiService } from '../apiService';
 
 import { Field, DragSource } from '../types';
@@ -104,7 +103,7 @@ const VisualizationPageContent = () => {
 
     return (
         <Box sx={{ 
-            height: '100vh', 
+            height: '100%', 
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden' 
@@ -205,15 +204,13 @@ const VisualizationPageContent = () => {
                 startTime={loadingStartTime}
                 onCancel={handleCancelOperation}
             />
-
-            {/* Sheet Tabs at bottom */}
-            <SheetTabs />
         </Box>
     );
 };
 
-// Wrapper component that provides sheet context to visualization
-const VisualizationPageWithProvider = () => {
+// Main component - wraps content with VisualizationProvider
+// SheetProvider is now at App level
+const VisualizationPage = () => {
     const { activeSheet } = useSheetContext();
 
     // Use the sheet ID as key to force remount when switching sheets
@@ -224,15 +221,6 @@ const VisualizationPageWithProvider = () => {
         >
             <VisualizationPageContent />
         </VisualizationProvider>
-    );
-};
-
-// Main component with SheetProvider wrapper
-const VisualizationPage = () => {
-    return (
-        <SheetProvider>
-            <VisualizationPageWithProvider />
-        </SheetProvider>
     );
 };
 
