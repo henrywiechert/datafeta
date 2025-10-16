@@ -2,7 +2,7 @@ import * as Plot from '@observablehq/plot';
 import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
-import { getPlotColorConfig } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
 
 /**
@@ -44,10 +44,16 @@ export function scatterChart(
     }
   };
   
-  if (colorField) {
+  const colorInfo = colorField ? deriveColorScaleInfo(clean, colorField, colorScheme) : null;
+  if (colorField && colorInfo) {
     const colorColumnName = getResultColumnName(colorField);
-    dotConfig.fill = colorColumnName;
     dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
+
+    if (colorInfo.kind === 'continuous' && colorInfo.accessor) {
+      dotConfig.fill = (d: any) => colorInfo.accessor?.(d) ?? null;
+    } else {
+      dotConfig.fill = colorColumnName;
+    }
   } else {
     dotConfig.fill = DEFAULT_CHART_COLOR;
   }
@@ -98,16 +104,23 @@ export function scatterChart(
     ],
   };
   
-  if (colorField) {
-    // Get unique color values for the domain
-    const colorColumnName = getResultColumnName(colorField);
-    const colorValues = Array.from(new Set(clean.map(row => row[colorColumnName])));
-    const colorConfig = getPlotColorConfig(colorScheme);
-    plotOptions.color = {
-      domain: colorValues,
-      ...colorConfig as any,
-      type: 'ordinal' as any
-    };
+  if (colorField && colorInfo) {
+    if (colorInfo.kind === 'continuous') {
+      plotOptions.color = {
+        type: 'linear',
+        domain: colorInfo.domain as [number, number],
+        range: colorInfo.range,
+        clamp: true,
+        label: colorField.columnName,
+      } as any;
+    } else {
+      plotOptions.color = {
+        type: 'ordinal' as any,
+        domain: colorInfo.domain as any[],
+        range: colorInfo.range,
+        label: colorField.columnName,
+      } as any;
+    }
   }
   
   return plotOptions;

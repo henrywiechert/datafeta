@@ -1,6 +1,8 @@
 import { ChartGenerationContext } from '../types';
 import { getFieldColumnName } from '../helpers/fields';
 import { resolveMeasureAlias, buildBarOptions, computeBandPaddingFromSizeField } from './barCore';
+import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
+import { getResultColumnName } from '../../utils/fieldUtils';
 
 // Unified bar chart: single & (future) multi-measure handled via higher-level orchestrators.
 // This file now simply selects orientation + fields and delegates to barCore.
@@ -22,8 +24,8 @@ export function barChart(context: ChartGenerationContext) {
     : yFields.find(f => f.type === 'dimension');
   const categoryColumn = dimensionField ? getFieldColumnName(dimensionField) : undefined;
 
-  const colorColumn = colorField ? getFieldColumnName(colorField) : undefined;
-  const colorDomain = colorField ? Array.from(new Set(data.map(r => r[colorColumn!]))) : undefined;
+  const colorColumn = colorField ? getResultColumnName(colorField) : undefined;
+  const colorScale = colorField ? deriveColorScaleInfo(data, colorField, colorScheme) : null;
 
   // Derive dynamic band padding with manual size
   const dynamicPadding = computeBandPaddingFromSizeField(data, sizeField, {
@@ -36,8 +38,7 @@ export function barChart(context: ChartGenerationContext) {
     orientation,
     categoryColumn,
     colorColumn,
-    colorDomain,
-    colorSchemeId: colorScheme,
+  colorScale,
     bandPadding: dynamicPadding,
     zeroBaseline: true,
     tooltipColumns: [colorField?.columnName, sizeField?.columnName].filter(Boolean) as string[],
