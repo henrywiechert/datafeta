@@ -204,7 +204,7 @@ function createBarCellGenerator(
  * for bar charts where a category axis can be injected if needed (see below).
  */
 export function generateFacetedGrid(context: ChartGenerationContext, plan: FacetPlan): PlotResult {
-    const { xFields, yFields, colorField, colorScheme, sizeField, sizeRange, manualSize } = context;
+    const { xFields, yFields, colorField, sizeField, manualSize } = context;
     
     // Derive chart-specific configuration from the simplified plan
     const chartConfig = deriveChartConfig(context, plan);
