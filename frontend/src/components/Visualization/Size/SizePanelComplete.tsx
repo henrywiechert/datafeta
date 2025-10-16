@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { PropertySection } from '../Properties';
 import { PropertyDropZone } from '../Properties';
 import PhotoSizeSelectLargeIcon from '@mui/icons-material/PhotoSizeSelectLarge';
@@ -13,6 +13,19 @@ import styles from './SizePanelComplete.module.css';
 
 const SizePanelComplete: React.FC = () => {
     const { state, dispatch } = useVisualizationContext();
+    
+    // Local state for visual feedback during dragging
+    const [localSizeRange, setLocalSizeRange] = useState<[number, number]>(state.sizeRange);
+    const [localManualSize, setLocalManualSize] = useState<number>(state.manualSize);
+
+    // Sync local state with context state when they change externally
+    useEffect(() => {
+        setLocalSizeRange(state.sizeRange);
+    }, [state.sizeRange]);
+
+    useEffect(() => {
+        setLocalManualSize(state.manualSize);
+    }, [state.manualSize]);
     
     // Detect if current chart configuration will produce bar charts
     // Bar charts can't vary individual bar widths - they use uniform band padding
@@ -91,7 +104,13 @@ const SizePanelComplete: React.FC = () => {
         });
     };
 
-    const handleSizeRangeChange = (event: Event, newValue: number | number[]) => {
+    const handleSizeRangeChange = (event: Event | React.SyntheticEvent, newValue: number | number[]) => {
+        if (Array.isArray(newValue)) {
+            setLocalSizeRange([newValue[0], newValue[1]]);
+        }
+    };
+
+    const handleSizeRangeCommitted = (event: Event | React.SyntheticEvent, newValue: number | number[]) => {
         if (Array.isArray(newValue)) {
             dispatch({
                 type: 'SET_SIZE_RANGE',
@@ -100,7 +119,13 @@ const SizePanelComplete: React.FC = () => {
         }
     };
 
-    const handleManualSizeChange = (event: Event, newValue: number | number[]) => {
+    const handleManualSizeChange = (event: Event | React.SyntheticEvent, newValue: number | number[]) => {
+        if (typeof newValue === 'number') {
+            setLocalManualSize(newValue);
+        }
+    };
+
+    const handleManualSizeCommitted = (event: Event | React.SyntheticEvent, newValue: number | number[]) => {
         if (typeof newValue === 'number') {
             dispatch({
                 type: 'SET_MANUAL_SIZE',
@@ -212,11 +237,12 @@ const SizePanelComplete: React.FC = () => {
                 {state.sizeField ? (
                     <FormControl fullWidth>
                         <Typography variant="caption" gutterBottom>
-                            Size Range (pixels): {state.sizeRange[0].toFixed(0)} - {state.sizeRange[1].toFixed(0)}
+                            Size Range (pixels): {localSizeRange[0].toFixed(0)} - {localSizeRange[1].toFixed(0)}
                         </Typography>
                         <Slider
-                            value={state.sizeRange}
+                            value={localSizeRange}
                             onChange={handleSizeRangeChange}
+                            onChangeCommitted={handleSizeRangeCommitted}
                             valueLabelDisplay="auto"
                             min={1}
                             max={50}
@@ -253,11 +279,12 @@ const SizePanelComplete: React.FC = () => {
                 ) : (
                     <FormControl fullWidth>
                         <Typography variant="caption" gutterBottom>
-                            Manual Size: {state.manualSize}
+                            Manual Size: {localManualSize}
                         </Typography>
                         <Slider
-                            value={state.manualSize}
+                            value={localManualSize}
                             onChange={handleManualSizeChange}
+                            onChangeCommitted={handleManualSizeCommitted}
                             valueLabelDisplay="auto"
                             min={1}
                             max={50}
