@@ -14,7 +14,7 @@ class OptimizerConfig:
     enable_binning: bool = False  # Reserved for future
     
     # Thresholds
-    rounding_threshold: int = 5000  # Apply rounding if more than N unique pairs
+    rounding_threshold: int = 10000  # Apply rounding if more than N unique pairs
     binning_threshold: int = 10000  # Apply binning if more than N points
     
     # Rounding parameters
@@ -30,7 +30,7 @@ class OptimizerConfig:
         return cls(
             enable_distinct_pairs=os.getenv('OPTIMIZER_ENABLE_DISTINCT_PAIRS', 'true').lower() == 'true',
             enable_adaptive_rounding=os.getenv('OPTIMIZER_ENABLE_ADAPTIVE_ROUNDING', 'true').lower() == 'true',
-            rounding_threshold=int(os.getenv('OPTIMIZER_ROUNDING_THRESHOLD', '5000')),
+            rounding_threshold=int(os.getenv('OPTIMIZER_ROUNDING_THRESHOLD', '10000')),
             target_buckets=int(os.getenv('OPTIMIZER_TARGET_BUCKETS', '100')),
             estimation_timeout_ms=int(os.getenv('OPTIMIZER_ESTIMATION_TIMEOUT_MS', '500')),
         )

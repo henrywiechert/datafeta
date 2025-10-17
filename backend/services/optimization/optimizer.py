@@ -194,7 +194,7 @@ class QueryOptimizer:
                         threshold = self.config.rounding_threshold
                         if will_use_category_dedup:
                             # Use a lower threshold (1/5th) when discrete dimensions are present
-                            threshold = threshold // 5
+                            threshold = threshold // 2
                             logger.info(f"🎨 Category dedup detected - using lower threshold: {threshold}")
                         else:
                             logger.info(f"📏 Using standard threshold: {threshold}")
