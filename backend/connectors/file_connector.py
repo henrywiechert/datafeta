@@ -17,6 +17,7 @@ class FileConnector(BaseConnector):
         self.file_path: Optional[str] = None
         self._table_name: Optional[str] = None
         self._file_type: Optional[str] = None
+        self._csv_config: Dict[str, Any] = {}
         # The state_manager is no longer needed here, but we'll leave it
         # in the signature to avoid breaking the router dependency for now.
         # It can be cleaned up in a future refactor.
@@ -31,6 +32,15 @@ class FileConnector(BaseConnector):
         file_ext = file_ext.lower()
         if file_ext == '.csv':
             self._file_type = 'csv'
+            # Store CSV configuration from connection details
+            self._csv_config = {
+                'delimiter': connection_details.get('csv_delimiter', ','),
+                'header': connection_details.get('csv_has_header', True),
+                'decimal_separator': connection_details.get('csv_decimal_separator', '.'),
+                'thousands_separator': connection_details.get('csv_thousands_separator', ''),
+                'date_format': connection_details.get('csv_date_format', '%Y-%m-%d'),
+                'timestamp_format': connection_details.get('csv_timestamp_format', '%Y-%m-%d %H:%M:%S'),
+            }
         else:
              raise InvalidInputError(f"Unsupported file type: {file_ext}")
 
@@ -40,6 +50,58 @@ class FileConnector(BaseConnector):
     def disconnect(self) -> None:
         logger.info(f"FileConnector disconnected signal received for file: {self.file_path}")
         self.file_path = None
+
+    def _build_csv_reader_sql(self) -> str:
+        """Build DuckDB read_csv_auto SQL function call with proper parameter escaping."""
+        # Build parameters for read_csv_auto function
+        params = []
+        
+        # Delimiter
+        delimiter = self._csv_config.get('delimiter', ',')
+        if delimiter == '\\t':
+            delimiter = '\t'
+        # Escape single quotes in delimiter
+        delimiter_escaped = delimiter.replace("'", "''")
+        params.append(f"delim='{delimiter_escaped}'")
+        
+        # Header
+        header = self._csv_config.get('header', True)
+        params.append(f"header={str(header).lower()}")
+        
+        # Decimal separator
+        decimal_sep = self._csv_config.get('decimal_separator', '.')
+        decimal_escaped = decimal_sep.replace("'", "''")
+        params.append(f"decimal_separator='{decimal_escaped}'")
+        
+        # Thousands separator
+        thousands_sep = self._csv_config.get('thousands_separator', '')
+        if thousands_sep:
+            # Map common representations
+            if thousands_sep == 'comma':
+                thousands_sep = ','
+            elif thousands_sep == 'space':
+                thousands_sep = ' '
+            elif thousands_sep == 'apostrophe' or thousands_sep == "'":
+                thousands_sep = "'"
+            thousands_escaped = thousands_sep.replace("'", "''")
+            params.append(f"thousands='{thousands_escaped}'")
+        
+        # Date and timestamp formats - escape any single quotes
+        date_fmt = self._csv_config.get('date_format', '%Y-%m-%d')
+        timestamp_fmt = self._csv_config.get('timestamp_format', '%Y-%m-%d %H:%M:%S')
+        
+        date_fmt_escaped = date_fmt.replace("'", "''")
+        timestamp_fmt_escaped = timestamp_fmt.replace("'", "''")
+        
+        params.append(f"dateformat='{date_fmt_escaped}'")
+        params.append(f"timestampformat='{timestamp_fmt_escaped}'")
+        
+        # Sample size and null handling
+        params.append("sample_size=1000")
+        
+        # Build the complete function call
+        params_str = ', '.join(params)
+        return f"read_csv_auto('{self.file_path}', {params_str}, nullstr=['', 'NULL', 'null', 'NaN', 'nan', 'N/A', 'n/a', 'NA'])"
 
     def list_databases(self) -> List[Database]:
         return []
@@ -60,15 +122,13 @@ class FileConnector(BaseConnector):
             # Create a new connection for this request
             con = duckdb.connect(database=':memory:', read_only=False)
             safe_view_name = f'"{self._table_name}"'
-            # Treat common missing tokens as NULL so numeric inference isn't downgraded to VARCHAR
-            # Support common datetime formats: MM.DD.YYYY and DD.MM.YYYY with times
-            file_reader = (
-                f"read_csv_auto('"
-                f"{self.file_path}"
-                f"', SAMPLE_SIZE=1000, nullstr=['', 'NULL', 'null', 'NaN', 'nan', 'N/A', 'n/a', 'NA'], "
-                f"timestampformat='%m.%d.%Y %H:%M:%S')"
-            )
-            create_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {file_reader};"
+            
+            # Build CSV reader SQL with proper escaping
+            csv_reader_sql = self._build_csv_reader_sql()
+            
+            # Create a view from the CSV
+            create_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {csv_reader_sql};"
+            logger.debug(f"Creating view with SQL: {create_view_sql}")
             con.execute(create_view_sql)
 
             # Describe the view
@@ -93,15 +153,13 @@ class FileConnector(BaseConnector):
             # Create a new connection for this request
             con = duckdb.connect(database=':memory:', read_only=False)
             safe_view_name = f'"{self._table_name}"'
-            # Treat common missing tokens as NULL so numeric inference isn't downgraded to VARCHAR
-            # Support common datetime formats: MM.DD.YYYY and DD.MM.YYYY with times
-            file_reader = (
-                f"read_csv_auto('"
-                f"{self.file_path}"
-                f"', SAMPLE_SIZE=1000, nullstr=['', 'NULL', 'null', 'NaN', 'nan', 'N/A', 'n/a', 'NA'], "
-                f"timestampformat='%m.%d.%Y %H:%M:%S')"
-            )
-            create_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {file_reader};"
+            
+            # Build CSV reader SQL with proper escaping
+            csv_reader_sql = self._build_csv_reader_sql()
+            
+            # Create a view from the CSV
+            create_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {csv_reader_sql};"
+            logger.debug(f"Creating view with SQL: {create_view_sql}")
             con.execute(create_view_sql)
 
             # Execute query against the view

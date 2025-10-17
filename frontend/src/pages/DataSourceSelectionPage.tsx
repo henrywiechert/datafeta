@@ -16,6 +16,15 @@ function DataSourceSelectionPage() {
   const [password, setPassword] = useState<string>('');
   const [dbName, setDbName] = useState<string>('default');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  
+  // CSV configuration options
+  const [csvDelimiter, setCsvDelimiter] = useState<string>(',');
+  const [csvHasHeader, setCsvHasHeader] = useState<boolean>(true);
+  const [csvDecimalSeparator, setCsvDecimalSeparator] = useState<string>('.');
+  const [csvThousandsSeparator, setCsvThousandsSeparator] = useState<string>('');
+  const [csvDateFormat, setCsvDateFormat] = useState<string>('%Y-%m-%d');
+  const [csvTimestampFormat, setCsvTimestampFormat] = useState<string>('%Y-%m-%d %H:%M:%S');
+  const [showAdvancedCsvOptions, setShowAdvancedCsvOptions] = useState<boolean>(false);
 
   useEffect(() => {
     if (isConnected && connectionDetails) {
@@ -51,6 +60,13 @@ function DataSourceSelectionPage() {
         console.error(formError);
         return;
       }
+      // Add CSV configuration options
+      details.csv_delimiter = csvDelimiter;
+      details.csv_has_header = csvHasHeader;
+      details.csv_decimal_separator = csvDecimalSeparator;
+      details.csv_thousands_separator = csvThousandsSeparator;
+      details.csv_date_format = csvDateFormat;
+      details.csv_timestamp_format = csvTimestampFormat;
     } else {
         if (connString) {
              details.connection_string = connString;
@@ -114,6 +130,112 @@ function DataSourceSelectionPage() {
                 className={styles.input}
               />
               {filePath && <div className={styles.selectedFile}>Selected: {filePath}</div>}
+            </div>
+
+            {/* CSV Configuration Options */}
+            <div className={styles.csvConfigSection}>
+              <button 
+                type="button"
+                className={styles.toggleButton}
+                onClick={() => setShowAdvancedCsvOptions(!showAdvancedCsvOptions)}
+                disabled={isConnected || isLoading}
+              >
+                {showAdvancedCsvOptions ? '▼' : '▶'} Advanced CSV Options
+              </button>
+
+              {showAdvancedCsvOptions && (
+                <div className={styles.advancedOptions}>
+                  <div className={styles.formRow}>
+                    <div className={styles.formField}>
+                      <label className={styles.label}>Delimiter</label>
+                      <select 
+                        className={styles.select}
+                        value={csvDelimiter} 
+                        onChange={(e) => setCsvDelimiter(e.target.value)}
+                        disabled={isConnected || isLoading}
+                      >
+                        <option value=",">Comma (,)</option>
+                        <option value=";">Semicolon (;)</option>
+                        <option value="\t">Tab</option>
+                        <option value="|">Pipe (|)</option>
+                      </select>
+                    </div>
+                    <div className={styles.formField}>
+                      <label className={styles.label}>Header Row</label>
+                      <select 
+                        className={styles.select}
+                        value={csvHasHeader ? 'true' : 'false'} 
+                        onChange={(e) => setCsvHasHeader(e.target.value === 'true')}
+                        disabled={isConnected || isLoading}
+                      >
+                        <option value="true">Yes (first line)</option>
+                        <option value="false">No</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className={styles.formRow}>
+                    <div className={styles.formField}>
+                      <label className={styles.label}>Decimal Separator</label>
+                      <select 
+                        className={styles.select}
+                        value={csvDecimalSeparator} 
+                        onChange={(e) => setCsvDecimalSeparator(e.target.value)}
+                        disabled={isConnected || isLoading}
+                      >
+                        <option value=".">Period (.) - e.g., 1234.56</option>
+                        <option value=",">Comma (,) - e.g., 1234,56</option>
+                      </select>
+                    </div>
+                    <div className={styles.formField}>
+                      <label className={styles.label}>Thousands Separator</label>
+                      <select 
+                        className={styles.select}
+                        value={csvThousandsSeparator} 
+                        onChange={(e) => setCsvThousandsSeparator(e.target.value)}
+                        disabled={isConnected || isLoading}
+                      >
+                        <option value="">None - e.g., 1234567</option>
+                        <option value="comma">Comma (,) - e.g., 1,234,567</option>
+                        <option value="space">Space - e.g., 1 234 567</option>
+                        <option value="apostrophe">Apostrophe (') - e.g., 1'234'567</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className={styles.formRow}>
+                    <div className={styles.formField}>
+                      <label className={styles.label}>Date Format</label>
+                      <select 
+                        className={styles.select}
+                        value={csvDateFormat} 
+                        onChange={(e) => setCsvDateFormat(e.target.value)}
+                        disabled={isConnected || isLoading}
+                      >
+                        <option value="%Y-%m-%d">YYYY-MM-DD (2024-10-17)</option>
+                        <option value="%d.%m.%Y">DD.MM.YYYY (17.10.2024)</option>
+                        <option value="%m/%d/%Y">MM/DD/YYYY (10/17/2024)</option>
+                        <option value="%d/%m/%Y">DD/MM/YYYY (17/10/2024)</option>
+                      </select>
+                    </div>
+                    <div className={styles.formField}>
+                      <label className={styles.label}>Timestamp Format</label>
+                      <select 
+                        className={styles.select}
+                        value={csvTimestampFormat} 
+                        onChange={(e) => setCsvTimestampFormat(e.target.value)}
+                        disabled={isConnected || isLoading}
+                      >
+                        <option value="%Y-%m-%d %H:%M:%S">YYYY-MM-DD HH:MM:SS</option>
+                        <option value="%d.%m.%Y %H:%M:%S">DD.MM.YYYY HH:MM:SS</option>
+                        <option value="%m/%d/%Y %H:%M:%S">MM/DD/YYYY HH:MM:SS</option>
+                        <option value="%d/%m/%Y %H:%M:%S">DD/MM/YYYY HH:MM:SS</option>
+                        <option value="%Y-%m-%d %H:%M">YYYY-MM-DD HH:MM</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
