@@ -250,13 +250,18 @@ class QueryService:
                     if use_category_dedup:
                         groupby_fields_for_dedup.append(field_term)
                 
-                # For category deduplication: wrap discrete dimensions in any() aggregate
-                elif use_category_dedup and dim.flavour == 'discrete':
-                    # Use any() aggregate to pick arbitrary value for each (x,y) pair
-                    from pypika.functions import Function
-                    field_term = Function('any', field_term).as_(dim.field)
-                    all_aliases.add(dim.field)
-                    logger.debug(f"Wrapped discrete dimension {dim.field} in any() for category dedup")
+                # For category deduplication: handle continuous and discrete dimensions
+                elif use_category_dedup:
+                    if dim.flavour == 'continuous':
+                        # Continuous dimension without rounding - still needs GROUP BY
+                        groupby_fields_for_dedup.append(field_term)
+                        logger.debug(f"Added continuous dimension {dim.field} to GROUP BY for category dedup")
+                    elif dim.flavour == 'discrete':
+                        # Discrete dimension - wrap in any() aggregate
+                        # Function is already imported from pypika.terms at module level
+                        field_term = Function('any', field_term).as_(dim.field)
+                        all_aliases.add(dim.field)
+                        logger.debug(f"Wrapped discrete dimension {dim.field} in any() for category dedup")
                 
                 # Apply datetime part extraction if specified
                 if dim.date_part and dim.date_mode:

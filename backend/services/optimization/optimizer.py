@@ -156,50 +156,79 @@ class QueryOptimizer:
             # Pass estimator to strategy for accurate reduction estimation
             strategies.append(DistinctPairStrategy(self.db_type, estimator=self.estimator))
         
+        # Check if we'll need category deduplication
+        # If so, we should be more aggressive with rounding since discrete dims multiply row count
+        category_strategy = CategoryDeduplicationStrategy(self.db_type, estimator=self.estimator)
+        will_use_category_dedup = category_strategy.can_apply(query_desc)
+        
         # Apply adaptive rounding if enabled and dataset is still large
         if self.config.enable_adaptive_rounding:
-            if not self.estimator:
-                logger.warning("Adaptive rounding enabled but no estimator available")
+            if not self.connector:
+                logger.warning("Adaptive rounding enabled but no connector available")
             else:
                 try:
-                    # Estimate size after DISTINCT
-                    estimate = self.estimator.estimate_size(query_desc)
-                    unique_count = estimate.unique_pairs or estimate.total_rows
+                    # Get ACTUAL count of unique pairs with current filters
+                    # This is more accurate than estimation, especially with filters
+                    logger.info("=" * 60)
+                    logger.info("ROUNDING DECISION: Getting actual count...")
+                    unique_count = self._get_actual_unique_pair_count(query_desc)
                     
-                    logger.info(f"Estimated unique pairs after DISTINCT: {unique_count}")
-                    
-                    # Apply rounding if still above threshold
-                    if unique_count > self.config.rounding_threshold:
-                        logger.info(
-                            f"Applying adaptive rounding: {unique_count} > {self.config.rounding_threshold}"
-                        )
-                        
-                        # Get dimension ranges for rounding calculation
-                        dimension_ranges = estimate.dimension_ranges or {}
-                        
-                        # If we don't have ranges, try to fetch them
-                        if not dimension_ranges and self.estimator:
-                            dimension_ranges = self._fetch_dimension_ranges(query_desc)
-                        
-                        strategies.append(
-                            AdaptiveRoundingStrategy(
-                                db_type=self.db_type,
-                                estimator=self.estimator,
-                                target_buckets=self.config.target_buckets,
-                                dimension_ranges=dimension_ranges
-                            )
-                        )
+                    if unique_count is None:
+                        # Fall back to estimation if actual count fails
+                        logger.warning("⚠️  Failed to get actual count, falling back to estimation")
+                        if self.estimator:
+                            estimate = self.estimator.estimate_size(query_desc)
+                            unique_count = estimate.unique_pairs or estimate.total_rows
+                            logger.info(f"📊 Estimated unique pairs (fallback): {unique_count}")
+                        else:
+                            logger.error("❌ No estimator available either, CANNOT determine if rounding needed!")
+                            unique_count = None
                     else:
-                        logger.info(
-                            f"Skipping adaptive rounding: {unique_count} <= {self.config.rounding_threshold}"
-                        )
+                        logger.info(f"✅ Actual unique pair count: {unique_count}")
+                    
+                    if unique_count is not None:
+                        # When category dedup is needed, apply rounding more aggressively
+                        # The count represents unique (x,y) pairs after filters
+                        threshold = self.config.rounding_threshold
+                        if will_use_category_dedup:
+                            # Use a lower threshold (1/5th) when discrete dimensions are present
+                            threshold = threshold // 5
+                            logger.info(f"🎨 Category dedup detected - using lower threshold: {threshold}")
+                        else:
+                            logger.info(f"📏 Using standard threshold: {threshold}")
+                        
+                        # Apply rounding if still above threshold
+                        if unique_count > threshold:
+                            logger.info(
+                                f"✅ APPLYING ROUNDING: {unique_count} > {threshold}"
+                            )
+                            logger.info("=" * 60)
+                            
+                            # Fetch dimension ranges for rounding calculation
+                            dimension_ranges = self._fetch_dimension_ranges(query_desc)
+                            
+                            strategies.append(
+                                AdaptiveRoundingStrategy(
+                                    db_type=self.db_type,
+                                    estimator=self.estimator,
+                                    target_buckets=self.config.target_buckets,
+                                    dimension_ranges=dimension_ranges
+                                )
+                            )
+                        else:
+                            logger.info(
+                                f"❌ SKIPPING ROUNDING: {unique_count} <= {threshold}"
+                            )
+                            logger.info("=" * 60)
+                    else:
+                        logger.error("❌ Could not determine unique count - SKIPPING ROUNDING")
+                        logger.info("=" * 60)
                 except Exception as e:
                     logger.warning(f"Size estimation failed, skipping rounding: {e}", exc_info=True)
         
         # Apply category deduplication if we have discrete dimensions (e.g., color field)
         # This removes duplicate (x,y) pairs across categories
-        category_strategy = CategoryDeduplicationStrategy(self.db_type, estimator=self.estimator)
-        if category_strategy.can_apply(query_desc):
+        if will_use_category_dedup:
             logger.info("Adding category deduplication strategy to remove duplicate (x,y) pairs")
             strategies.append(category_strategy)
         
@@ -229,6 +258,110 @@ class QueryOptimizer:
             strategies.append(DiscreteDeduplicationStrategy(self.db_type, estimator=self.estimator))
         
         return strategies
+    
+    def _get_actual_unique_pair_count(self, query_desc: QueryDescription) -> Optional[int]:
+        """
+        Execute an actual count query to determine the number of unique pairs.
+        This is more accurate than estimation, especially when filters are applied.
+        
+        Args:
+            query_desc: Query description with filters
+            
+        Returns:
+            Count of unique (x,y) pairs, or None if query fails
+        """
+        from pypika import Query, Table
+        from pypika.functions import Count
+        
+        if not self.connector:
+            logger.warning("No connector available for actual count")
+            return None
+        
+        continuous_dims = [d for d in query_desc.dimensions if d.flavour == 'continuous']
+        if len(continuous_dims) < 2:
+            logger.warning(f"Need at least 2 continuous dimensions for count, got {len(continuous_dims)}")
+            return None
+        
+        logger.info(f"📊 Getting actual count for {len(continuous_dims)} continuous dimensions...")
+        
+        try:
+            # Build a query to count unique pairs with current filters
+            if self.db_type == 'clickhouse' and query_desc.target_database:
+                table = Table(query_desc.target_table, schema=query_desc.target_database)
+            else:
+                table = Table(query_desc.target_table)
+            
+            count_query = Query.from_(table)
+            
+            # Select the continuous dimensions (needed for GROUP BY)
+            for dim in continuous_dims:
+                field_term = getattr(table, dim.field)
+                count_query = count_query.select(field_term)
+            
+            # Add WHERE filters
+            for filter_obj in query_desc.filters:
+                field_term = getattr(table, filter_obj.field)
+                
+                if filter_obj.operator == '>=':
+                    count_query = count_query.where(field_term >= filter_obj.value)
+                elif filter_obj.operator == '<=':
+                    count_query = count_query.where(field_term <= filter_obj.value)
+                elif filter_obj.operator == '=':
+                    count_query = count_query.where(field_term == filter_obj.value)
+                elif filter_obj.operator == '!=':
+                    count_query = count_query.where(field_term != filter_obj.value)
+                elif filter_obj.operator == '>':
+                    count_query = count_query.where(field_term > filter_obj.value)
+                elif filter_obj.operator == '<':
+                    count_query = count_query.where(field_term < filter_obj.value)
+            
+            # Add NOT NULL filters for continuous dimensions
+            for dim in continuous_dims:
+                field_term = getattr(table, dim.field)
+                count_query = count_query.where(field_term.isnotnull())
+            
+            # GROUP BY the continuous dimensions
+            for dim in continuous_dims:
+                field_term = getattr(table, dim.field)
+                count_query = count_query.groupby(field_term)
+            
+            # We need to count the number of groups
+            # In ClickHouse, we can use: SELECT COUNT(*) FROM (SELECT ... GROUP BY x, y)
+            # Build the subquery SQL first, then wrap it
+            subquery_sql = count_query.get_sql(quote_char='`')
+            
+            # Wrap in COUNT
+            sql = f"SELECT COUNT(*) as unique_count FROM ({subquery_sql})"
+            logger.info(f"Executing actual count query to determine if rounding needed...")
+            logger.debug(f"Count SQL: {sql}")
+            
+            # Execute query
+            columns, rows = self.connector.fetch_data(sql)
+            
+            if rows and len(rows) > 0:
+                row = rows[0]
+                # Try different ways to access the count value
+                if isinstance(row, dict):
+                    count = row.get('unique_count') or row.get('count(*)') or row.get('COUNT(*)')
+                elif isinstance(row, (list, tuple)):
+                    count = row[0]
+                else:
+                    count = row
+                
+                if count is not None:
+                    logger.info(f"✅ Actual unique pair count: {count}")
+                    return int(count)
+                else:
+                    logger.warning(f"Count query returned None. Row: {row}")
+                    return None
+            else:
+                logger.warning("Count query returned no rows")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Failed to get actual count: {e}", exc_info=True)
+        
+        return None
     
     def _fetch_dimension_ranges(self, query_desc: QueryDescription) -> Dict[str, tuple]:
         """
