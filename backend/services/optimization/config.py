@@ -10,7 +10,7 @@ class OptimizerConfig:
     
     # Enable/disable optimization types
     enable_distinct_pairs: bool = True
-    enable_adaptive_rounding: bool = False  # Phase 3: Adaptive rounding for large datasets
+    enable_adaptive_rounding: bool = True  # Phase 3: Adaptive rounding for large datasets (default: enabled)
     enable_binning: bool = False  # Reserved for future
     
     # Thresholds
@@ -29,7 +29,7 @@ class OptimizerConfig:
         """Load configuration from environment variables."""
         return cls(
             enable_distinct_pairs=os.getenv('OPTIMIZER_ENABLE_DISTINCT_PAIRS', 'true').lower() == 'true',
-            enable_adaptive_rounding=os.getenv('OPTIMIZER_ENABLE_ADAPTIVE_ROUNDING', 'false').lower() == 'true',
+            enable_adaptive_rounding=os.getenv('OPTIMIZER_ENABLE_ADAPTIVE_ROUNDING', 'true').lower() == 'true',
             rounding_threshold=int(os.getenv('OPTIMIZER_ROUNDING_THRESHOLD', '5000')),
             target_buckets=int(os.getenv('OPTIMIZER_TARGET_BUCKETS', '100')),
             estimation_timeout_ms=int(os.getenv('OPTIMIZER_ESTIMATION_TIMEOUT_MS', '500')),

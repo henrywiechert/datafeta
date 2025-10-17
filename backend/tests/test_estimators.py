@@ -39,9 +39,11 @@ class TestClickHouseEstimator:
     def test_estimate_result_size(self):
         """Test basic result size estimation."""
         connector = Mock()
-        connector.execute_query = Mock(return_value=[
-            {'total_rows': 10000, 'unique_pairs': 3000}
-        ])
+        # Mock fetch_data which returns (columns, rows)
+        connector.fetch_data = Mock(return_value=(
+            [],  # columns (not used in estimator)
+            [{'total_rows': 10000, 'unique_pairs': 3000}]  # rows
+        ))
         
         estimator = ClickHouseEstimator(connector)
         
@@ -66,9 +68,8 @@ class TestClickHouseEstimator:
     def test_estimate_distinct_reduction(self):
         """Test DISTINCT reduction estimation."""
         connector = Mock()
-        connector.execute_query = Mock(return_value=[
-            {'total_rows': 10000, 'unique_pairs': 3000}
-        ])
+        connector.fetch_data = Mock(return_value=([], [
+            {'total_rows': 10000, 'unique_pairs': 3000}]))
         
         estimator = ClickHouseEstimator(connector)
         
@@ -92,9 +93,8 @@ class TestClickHouseEstimator:
     def test_builds_correct_sql_for_pairs(self):
         """Test that SQL is built correctly for pair estimation."""
         connector = Mock()
-        connector.execute_query = Mock(return_value=[
-            {'total_rows': 1000, 'unique_pairs': 500}
-        ])
+        connector.fetch_data = Mock(return_value=([], [
+            {'total_rows': 1000, 'unique_pairs': 500}]))
         
         estimator = ClickHouseEstimator(connector)
         
@@ -112,11 +112,11 @@ class TestClickHouseEstimator:
         
         estimator.estimate_result_size(query, query_desc, table)
         
-        # Verify execute_query was called
-        assert connector.execute_query.called
+        # Verify fetch_data was called
+        assert connector.fetch_data.called
         
         # Get the SQL that was executed
-        sql = connector.execute_query.call_args[0][0]
+        sql = connector.fetch_data.call_args[0][0]
         
         # Should contain uniq(tuple(...))
         assert 'uniq' in sql.lower() or 'uniqexact' in sql.lower()
@@ -125,9 +125,8 @@ class TestClickHouseEstimator:
     def test_handles_single_dimension(self):
         """Test estimation with single dimension."""
         connector = Mock()
-        connector.execute_query = Mock(return_value=[
-            {'total_rows': 5000, 'unique_pairs': 4000}
-        ])
+        connector.fetch_data = Mock(return_value=([], [
+            {'total_rows': 5000, 'unique_pairs': 4000}]))
         
         estimator = ClickHouseEstimator(connector)
         
@@ -186,9 +185,8 @@ class TestDuckDBEstimator:
     def test_estimate_result_size(self):
         """Test basic result size estimation."""
         connector = Mock()
-        connector.execute_query = Mock(return_value=[
-            {'total_rows': 8000, 'unique_pairs': 2500}
-        ])
+        connector.fetch_data = Mock(return_value=([], [
+            {'total_rows': 8000, 'unique_pairs': 2500}]))
         
         estimator = DuckDBEstimator(connector)
         
@@ -213,9 +211,8 @@ class TestDuckDBEstimator:
     def test_estimate_distinct_reduction(self):
         """Test DISTINCT reduction estimation."""
         connector = Mock()
-        connector.execute_query = Mock(return_value=[
-            {'total_rows': 5000, 'unique_pairs': 1000}
-        ])
+        connector.fetch_data = Mock(return_value=([], [
+            {'total_rows': 5000, 'unique_pairs': 1000}]))
         
         estimator = DuckDBEstimator(connector)
         
@@ -239,9 +236,8 @@ class TestDuckDBEstimator:
     def test_builds_correct_sql_for_pairs(self):
         """Test that SQL is built correctly for pair estimation."""
         connector = Mock()
-        connector.execute_query = Mock(return_value=[
-            {'total_rows': 2000, 'unique_pairs': 800}
-        ])
+        connector.fetch_data = Mock(return_value=([], [
+            {'total_rows': 2000, 'unique_pairs': 800}]))
         
         estimator = DuckDBEstimator(connector)
         
@@ -259,11 +255,11 @@ class TestDuckDBEstimator:
         
         estimator.estimate_result_size(query, query_desc, table)
         
-        # Verify execute_query was called
-        assert connector.execute_query.called
+        # Verify fetch_data was called
+        assert connector.fetch_data.called
         
         # Get the SQL that was executed
-        sql = connector.execute_query.call_args[0][0]
+        sql = connector.fetch_data.call_args[0][0]
         
         # Should contain approx_count_distinct and ROW
         assert 'approx_count_distinct' in sql.lower()
@@ -335,9 +331,8 @@ class TestEstimatorIntegration:
         from services.optimization.strategies.distinct_pairs import DistinctPairStrategy
         
         connector = Mock()
-        connector.execute_query = Mock(return_value=[
-            {'total_rows': 10000, 'unique_pairs': 2000}
-        ])
+        connector.fetch_data = Mock(return_value=([], [
+            {'total_rows': 10000, 'unique_pairs': 2000}]))
         
         estimator = ClickHouseEstimator(connector)
         strategy = DistinctPairStrategy(db_type='clickhouse', estimator=estimator)

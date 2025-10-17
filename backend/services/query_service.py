@@ -32,6 +32,17 @@ class ExtractTerm(Term):
         return sql
 
 
+class UnquotedField(Term):
+    """Custom pypika term for referencing aliases without quotes in ORDER BY."""
+    def __init__(self, name: str):
+        super().__init__()
+        self.name = name
+    
+    def get_sql(self, **kwargs) -> str:
+        """Return the field name without quotes."""
+        return self.name
+
+
 # Mapping from our model to Pypika functions
 # Using Function for distinct count to generate COUNT(DISTINCT `field_name`)
 # Note: get_sql(quote_char) is used to get the properly quoted field name
@@ -193,6 +204,22 @@ class QueryService:
 
         q = Query.from_(t)
 
+        # Create optimization plan EARLY before SELECT clause construction
+        # This allows us to extract rounding config for use during field selection
+        rounding_config = {}
+        optimization_plan = None
+        if with_optimization and optimizer:
+            try:
+                from backend.services.optimization.optimizer import OptimizationPlan
+                optimization_plan = optimizer.create_plan(query_desc)
+                # Extract rounding config from adaptive rounding strategy if present
+                for strategy in optimization_plan.strategies:
+                    if hasattr(strategy, 'prepare_rounding_config'):
+                        rounding_config = strategy.prepare_rounding_config(query_desc)
+                        logger.info(f"Rounding config prepared: {rounding_config}")
+            except Exception as e:
+                logger.warning(f"Failed to create optimization plan early: {e}")
+
         # SELECT Clause (Dimensions + Measures)
         select_fields: List[Any] = []
         all_aliases = set()
@@ -202,6 +229,17 @@ class QueryService:
         if query_desc.dimensions:
             for dim in query_desc.dimensions:
                 field_term = t[dim.field]
+                
+                # Apply rounding if configured for this dimension
+                if rounding_config and dim.field in rounding_config and dim.flavour == 'continuous':
+                    from backend.services.optimization.strategies.adaptive_rounding import RoundingHelper
+                    precision = rounding_config[dim.field]
+                    field_term = RoundingHelper.create_round_expression(field_term, precision, db_type)
+                    # Preserve original field name as alias
+                    field_term = field_term.as_(dim.field)
+                    all_aliases.add(dim.field)
+                    logger.debug(f"Applied rounding to {dim.field} with precision {precision}")
+                
                 # Apply datetime part extraction if specified
                 if dim.date_part and dim.date_mode:
                     field_term = self._get_datetime_part_expression(
@@ -287,12 +325,11 @@ class QueryService:
 
         # Apply query optimizations (e.g., DISTINCT for scatter plots)
         optimization_metadata = []
-        if with_optimization and optimizer:
+        if with_optimization and optimizer and optimization_plan:
             try:
-                from backend.services.optimization.optimizer import OptimizationPlan
-                plan = optimizer.create_plan(query_desc)
-                q = plan.apply(q, query_desc, t)
-                optimization_metadata = plan.get_metadata_summary()
+                # Use the plan we created earlier
+                q = optimization_plan.apply(q, query_desc, t)
+                optimization_metadata = optimization_plan.get_metadata_summary()
                 
                 if optimization_metadata:
                     logger.info(f"Applied {len(optimization_metadata)} optimizations")
@@ -346,15 +383,17 @@ class QueryService:
             for order in query_desc.orderBy:
                 # Check if this field was aliased in SELECT (either a measure or datetime part)
                 if order.field in all_aliases:
-                    # Use the alias name directly - it refers to the already-computed expression
-                    field_term = order.field
+                    # Field has an alias (from temporal binning or rounding)
+                    # Use UnquotedField to reference the alias without backticks
+                    # This ensures ClickHouse uses the aliased column from SELECT, not the raw table column
+                    field_term = UnquotedField(order.field)
                 else:
                     # Regular field, just reference it
                     field_term = t[order.field]
 
                 pypika_order = Order.desc if order.direction == 'desc' else Order.asc
                 # Pypika needs the field term (string or Field object) for order by
-                # If it's an alias string, Pypika should handle it correctly.
+                # UnquotedField generates unquoted alias names for ORDER BY
                 # If it's a table field, t[order.field] provides the Field object.
                 q = q.orderby(field_term, order=pypika_order)
 
