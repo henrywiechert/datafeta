@@ -11,6 +11,7 @@ from .strategies.base import OptimizationStrategy, OptimizationMetadata
 from .strategies.distinct_pairs import DistinctPairStrategy
 from .strategies.discrete_dedup import DiscreteDeduplicationStrategy
 from .strategies.adaptive_rounding import AdaptiveRoundingStrategy
+from .strategies.category_dedup import CategoryDeduplicationStrategy
 from .estimators.base import ResultSizeEstimator, BasicEstimator
 from .estimators.clickhouse import ClickHouseEstimator
 from .estimators.duckdb import DuckDBEstimator
@@ -194,6 +195,13 @@ class QueryOptimizer:
                         )
                 except Exception as e:
                     logger.warning(f"Size estimation failed, skipping rounding: {e}", exc_info=True)
+        
+        # Apply category deduplication if we have discrete dimensions (e.g., color field)
+        # This removes duplicate (x,y) pairs across categories
+        category_strategy = CategoryDeduplicationStrategy(self.db_type, estimator=self.estimator)
+        if category_strategy.can_apply(query_desc):
+            logger.info("Adding category deduplication strategy to remove duplicate (x,y) pairs")
+            strategies.append(category_strategy)
         
         return strategies
     
