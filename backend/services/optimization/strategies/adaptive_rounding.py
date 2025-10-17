@@ -87,6 +87,31 @@ class AdaptiveRoundingStrategy(OptimizationStrategy):
         
         return has_x and has_y
     
+    def prepare_rounding_config(self, query_desc: QueryDescription) -> Dict[str, int]:
+        """
+        Pre-calculate rounding configuration without applying it.
+        
+        This is called before query building so query_service can use the config.
+        
+        Args:
+            query_desc: Original query description
+            
+        Returns:
+            Dictionary mapping field names to rounding precision
+        """
+        if self.rounding_config:
+            return self.rounding_config  # Already calculated
+        
+        continuous_dims = [d for d in query_desc.dimensions if d.flavour == 'continuous']
+        
+        # Calculate rounding precision for each dimension
+        for dim in continuous_dims:
+            precision = self._calculate_rounding_precision(dim)
+            self.rounding_config[dim.field] = precision
+            logger.info(f"Will round {dim.field} to {precision} decimal places")
+        
+        return self.rounding_config
+    
     def apply(self, query: Query, query_desc: QueryDescription, table: Table) -> Query:
         """
         Apply adaptive rounding to the query.
@@ -102,13 +127,9 @@ class AdaptiveRoundingStrategy(OptimizationStrategy):
         Returns:
             Modified query with rounding applied
         """
-        continuous_dims = [d for d in query_desc.dimensions if d.flavour == 'continuous']
-        
-        # Calculate rounding precision for each dimension
-        for dim in continuous_dims:
-            precision = self._calculate_rounding_precision(dim)
-            self.rounding_config[dim.field] = precision
-            logger.info(f"Will round {dim.field} to {precision} decimal places")
+        # Ensure rounding config is prepared
+        if not self.rounding_config:
+            self.prepare_rounding_config(query_desc)
         
         # Build new SELECT clause with rounding
         # Note: We need to reconstruct the query with rounded expressions

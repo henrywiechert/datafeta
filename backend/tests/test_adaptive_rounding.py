@@ -194,9 +194,9 @@ class TestOptimizerAdaptiveRounding:
         # Create mock estimator that returns high unique count
         connector = Mock()
         connector.__class__.__name__ = 'ClickHouseConnector'
-        connector.execute_query = Mock(return_value=[
+        connector.fetch_data = Mock(return_value=([], [
             {'total_rows': 10000, 'unique_pairs': 6000}  # Above threshold
-        ])
+        ]))
         
         config = OptimizerConfig(
             enable_distinct_pairs=True,
@@ -234,9 +234,9 @@ class TestOptimizerAdaptiveRounding:
         # Create mock estimator that returns low unique count
         connector = Mock()
         connector.__class__.__name__ = 'ClickHouseConnector'
-        connector.execute_query = Mock(return_value=[
+        connector.fetch_data = Mock(return_value=([], [
             {'total_rows': 10000, 'unique_pairs': 3000}  # Below threshold
-        ])
+        ]))
         
         config = OptimizerConfig(
             enable_distinct_pairs=True,

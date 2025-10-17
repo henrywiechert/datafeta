@@ -112,7 +112,7 @@ class TestOptimizerConfig:
         config = OptimizerConfig()
         
         assert config.enable_distinct_pairs is True
-        assert config.enable_adaptive_rounding is False
+        assert config.enable_adaptive_rounding is True  # Changed to True by default in Phase 3
         assert config.rounding_threshold == 5000
         assert config.target_buckets == 100
     

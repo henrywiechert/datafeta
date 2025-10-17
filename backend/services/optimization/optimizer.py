@@ -156,41 +156,44 @@ class QueryOptimizer:
             strategies.append(DistinctPairStrategy(self.db_type, estimator=self.estimator))
         
         # Apply adaptive rounding if enabled and dataset is still large
-        if self.config.enable_adaptive_rounding and self.estimator:
-            try:
-                # Estimate size after DISTINCT
-                estimate = self.estimator.estimate_size(query_desc)
-                unique_count = estimate.unique_pairs or estimate.total_rows
-                
-                logger.info(f"Estimated unique pairs after DISTINCT: {unique_count}")
-                
-                # Apply rounding if still above threshold
-                if unique_count > self.config.rounding_threshold:
-                    logger.info(
-                        f"Applying adaptive rounding: {unique_count} > {self.config.rounding_threshold}"
-                    )
+        if self.config.enable_adaptive_rounding:
+            if not self.estimator:
+                logger.warning("Adaptive rounding enabled but no estimator available")
+            else:
+                try:
+                    # Estimate size after DISTINCT
+                    estimate = self.estimator.estimate_size(query_desc)
+                    unique_count = estimate.unique_pairs or estimate.total_rows
                     
-                    # Get dimension ranges for rounding calculation
-                    dimension_ranges = estimate.dimension_ranges or {}
+                    logger.info(f"Estimated unique pairs after DISTINCT: {unique_count}")
                     
-                    # If we don't have ranges, try to fetch them
-                    if not dimension_ranges and self.estimator:
-                        dimension_ranges = self._fetch_dimension_ranges(query_desc)
-                    
-                    strategies.append(
-                        AdaptiveRoundingStrategy(
-                            db_type=self.db_type,
-                            estimator=self.estimator,
-                            target_buckets=self.config.target_buckets,
-                            dimension_ranges=dimension_ranges
+                    # Apply rounding if still above threshold
+                    if unique_count > self.config.rounding_threshold:
+                        logger.info(
+                            f"Applying adaptive rounding: {unique_count} > {self.config.rounding_threshold}"
                         )
-                    )
-                else:
-                    logger.info(
-                        f"Skipping adaptive rounding: {unique_count} <= {self.config.rounding_threshold}"
-                    )
-            except Exception as e:
-                logger.warning(f"Size estimation failed, skipping rounding: {e}", exc_info=True)
+                        
+                        # Get dimension ranges for rounding calculation
+                        dimension_ranges = estimate.dimension_ranges or {}
+                        
+                        # If we don't have ranges, try to fetch them
+                        if not dimension_ranges and self.estimator:
+                            dimension_ranges = self._fetch_dimension_ranges(query_desc)
+                        
+                        strategies.append(
+                            AdaptiveRoundingStrategy(
+                                db_type=self.db_type,
+                                estimator=self.estimator,
+                                target_buckets=self.config.target_buckets,
+                                dimension_ranges=dimension_ranges
+                            )
+                        )
+                    else:
+                        logger.info(
+                            f"Skipping adaptive rounding: {unique_count} <= {self.config.rounding_threshold}"
+                        )
+                except Exception as e:
+                    logger.warning(f"Size estimation failed, skipping rounding: {e}", exc_info=True)
         
         return strategies
     
@@ -240,7 +243,10 @@ class QueryOptimizer:
         
         try:
             # Build a query to get MIN and MAX for all continuous dimensions
-            table = Table(query_desc.target_table)
+            if self.db_type == 'clickhouse' and query_desc.target_database:
+                table = Table(query_desc.target_table, schema=query_desc.target_database)
+            else:
+                table = Table(query_desc.target_table)
             range_query = Query.from_(table)
             
             for dim in continuous_dims:
@@ -254,10 +260,11 @@ class QueryOptimizer:
             sql = range_query.get_sql(quote_char='`')
             logger.debug(f"Fetching dimension ranges: {sql}")
             
-            result = self.connector.execute_query(sql)
+            # Use fetch_data() which returns (columns, rows)
+            columns, rows = self.connector.fetch_data(sql)
             
-            if result and len(result) > 0:
-                row = result[0]
+            if rows and len(rows) > 0:
+                row = rows[0]
                 for dim in continuous_dims:
                     min_key = f'min_{dim.field}'
                     max_key = f'max_{dim.field}'

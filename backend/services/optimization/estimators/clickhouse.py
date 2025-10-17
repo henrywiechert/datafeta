@@ -95,13 +95,14 @@ class ClickHouseEstimator(ResultSizeEstimator):
             sql = estimation_query.get_sql(quote_char='`')
             logger.debug(f"Executing estimation query: {sql}")
             
-            result = self.connector.execute_query(sql)
+            # Use fetch_data() which returns (columns, rows)
+            columns, rows = self.connector.fetch_data(sql)
             
-            if not result or len(result) == 0:
+            if not rows or len(rows) == 0:
                 logger.warning("Empty estimation result")
                 return EstimationResult(total_rows=0)
             
-            row = result[0]
+            row = rows[0]
             total_rows = row.get('total_rows', 0)
             unique_pairs = row.get('unique_pairs', total_rows)
             
