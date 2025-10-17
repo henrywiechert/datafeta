@@ -208,6 +208,7 @@ class QueryService:
         # This allows us to extract rounding config for use during field selection
         rounding_config = {}
         optimization_plan = None
+        use_category_dedup = False  # Flag for category deduplication
         if with_optimization and optimizer:
             try:
                 from backend.services.optimization.optimizer import OptimizationPlan
@@ -217,6 +218,10 @@ class QueryService:
                     if hasattr(strategy, 'prepare_rounding_config'):
                         rounding_config = strategy.prepare_rounding_config(query_desc)
                         logger.info(f"Rounding config prepared: {rounding_config}")
+                    # Check for category deduplication strategy
+                    if strategy.__class__.__name__ == 'CategoryDeduplicationStrategy':
+                        use_category_dedup = True
+                        logger.info("Category deduplication will be applied")
             except Exception as e:
                 logger.warning(f"Failed to create optimization plan early: {e}")
 
@@ -225,6 +230,8 @@ class QueryService:
         all_aliases = set()
         # Track which dimensions have datetime parts (these will be aliased)
         datetime_part_fields = set()
+        # Track fields for GROUP BY when using category deduplication
+        groupby_fields_for_dedup = []
 
         if query_desc.dimensions:
             for dim in query_desc.dimensions:
@@ -239,6 +246,17 @@ class QueryService:
                     field_term = field_term.as_(dim.field)
                     all_aliases.add(dim.field)
                     logger.debug(f"Applied rounding to {dim.field} with precision {precision}")
+                    # Add to GROUP BY for category dedup (use the rounded expression)
+                    if use_category_dedup:
+                        groupby_fields_for_dedup.append(field_term)
+                
+                # For category deduplication: wrap discrete dimensions in any() aggregate
+                elif use_category_dedup and dim.flavour == 'discrete':
+                    # Use any() aggregate to pick arbitrary value for each (x,y) pair
+                    from pypika.functions import Function
+                    field_term = Function('any', field_term).as_(dim.field)
+                    all_aliases.add(dim.field)
+                    logger.debug(f"Wrapped discrete dimension {dim.field} in any() for category dedup")
                 
                 # Apply datetime part extraction if specified
                 if dim.date_part and dim.date_mode:
@@ -251,6 +269,7 @@ class QueryService:
                     field_term = field_term.as_(alias)
                     all_aliases.add(alias)
                     datetime_part_fields.add(alias)
+                
                 select_fields.append(field_term)
 
         for measure in query_desc.measures:
@@ -327,8 +346,15 @@ class QueryService:
         optimization_metadata = []
         if with_optimization and optimizer and optimization_plan:
             try:
-                # Use the plan we created earlier
-                q = optimization_plan.apply(q, query_desc, t)
+                # If using category dedup with GROUP BY, we need special handling
+                if use_category_dedup:
+                    # Don't call .distinct() - GROUP BY handles deduplication
+                    # Just prepare rounding config (already done above)
+                    logger.info("Category deduplication active - skipping DISTINCT, using GROUP BY instead")
+                else:
+                    # Use the plan we created earlier
+                    q = optimization_plan.apply(q, query_desc, t)
+                
                 optimization_metadata = optimization_plan.get_metadata_summary()
                 
                 if optimization_metadata:
@@ -338,8 +364,13 @@ class QueryService:
         
         # GROUP BY Clause
         if query_desc.dimensions:
+            # Special handling for category deduplication
+            if use_category_dedup and groupby_fields_for_dedup:
+                # GROUP BY continuous dimensions only (discrete dims are wrapped in any())
+                q = q.groupby(*groupby_fields_for_dedup)
+                logger.info(f"Applied GROUP BY on {len(groupby_fields_for_dedup)} continuous dimensions for category dedup")
             # Only group if there are measures, otherwise it's just selecting distinct dimension combinations
-            if query_desc.measures:
+            elif query_desc.measures:
                 # Build GROUP BY expressions (apply datetime parts if needed)
                 groupby_fields = []
                 for dim in query_desc.dimensions:
