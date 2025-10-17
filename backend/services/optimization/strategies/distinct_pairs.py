@@ -1,4 +1,4 @@
-"""Strategy for applying DISTINCT to scatter plot coordinate pairs."""
+"""Strategy for applying DISTINCT to raw data queries."""
 
 import logging
 from typing import Optional
@@ -12,10 +12,13 @@ logger = logging.getLogger(__name__)
 
 class DistinctPairStrategy(OptimizationStrategy):
     """
-    Apply DISTINCT to get unique coordinate pairs for scatter plots.
+    Apply DISTINCT to get unique values/pairs for raw data queries.
     
-    This eliminates duplicate (x, y) points that provide no additional
-    visual information but significantly increase dataset size.
+    This eliminates duplicate rows that provide no additional information
+    but significantly increase dataset size. Useful for:
+    - Single dimensions (tick strips)
+    - Multiple dimensions (scatter plots)
+    - Discrete dimensions (filter values)
     """
     
     def __init__(self, db_type: str = 'clickhouse', estimator=None):
@@ -35,8 +38,7 @@ class DistinctPairStrategy(OptimizationStrategy):
         
         Requires:
         - No measures (raw data query)
-        - At least 2 continuous dimensions
-        - Continuous dimensions on different axes (scatter plot)
+        - At least 1 dimension
         """
         if query_desc.measures:
             return False
@@ -44,16 +46,8 @@ class DistinctPairStrategy(OptimizationStrategy):
         if not query_desc.dimensions:
             return False
         
-        continuous_dims = [d for d in query_desc.dimensions if d.flavour == 'continuous']
-        
-        if len(continuous_dims) < 2:
-            return False
-        
-        # Check if dimensions span both axes
-        has_x = any(d.axis == 'x' for d in continuous_dims)
-        has_y = any(d.axis == 'y' for d in continuous_dims)
-        
-        return has_x and has_y
+        # DISTINCT is useful for any raw data query to remove duplicates
+        return True
     
     def apply(self, query: Query, query_desc: QueryDescription, table: Table) -> Query:
         """
