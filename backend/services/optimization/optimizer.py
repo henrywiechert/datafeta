@@ -1,7 +1,7 @@
 """Main query optimizer that coordinates optimization strategies."""
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pypika import Query, Table
 
 from backend.models.query import QueryDescription
@@ -10,6 +10,7 @@ from .config import OptimizerConfig
 from .strategies.base import OptimizationStrategy, OptimizationMetadata
 from .strategies.distinct_pairs import DistinctPairStrategy
 from .strategies.discrete_dedup import DiscreteDeduplicationStrategy
+from .strategies.adaptive_rounding import AdaptiveRoundingStrategy
 from .estimators.base import ResultSizeEstimator, BasicEstimator
 from .estimators.clickhouse import ClickHouseEstimator
 from .estimators.duckdb import DuckDBEstimator
@@ -154,14 +155,42 @@ class QueryOptimizer:
             # Pass estimator to strategy for accurate reduction estimation
             strategies.append(DistinctPairStrategy(self.db_type, estimator=self.estimator))
         
-        # TODO: Add adaptive rounding in Phase 3
-        # if self.config.enable_adaptive_rounding:
-        #     try:
-        #         estimate = self.estimator.estimate_size(query_desc)
-        #         if estimate.unique_pairs and estimate.unique_pairs > self.config.rounding_threshold:
-        #             strategies.append(AdaptiveRoundingStrategy(...))
-        #     except Exception as e:
-        #         logger.warning(f"Size estimation failed, skipping rounding: {e}")
+        # Apply adaptive rounding if enabled and dataset is still large
+        if self.config.enable_adaptive_rounding and self.estimator:
+            try:
+                # Estimate size after DISTINCT
+                estimate = self.estimator.estimate_size(query_desc)
+                unique_count = estimate.unique_pairs or estimate.total_rows
+                
+                logger.info(f"Estimated unique pairs after DISTINCT: {unique_count}")
+                
+                # Apply rounding if still above threshold
+                if unique_count > self.config.rounding_threshold:
+                    logger.info(
+                        f"Applying adaptive rounding: {unique_count} > {self.config.rounding_threshold}"
+                    )
+                    
+                    # Get dimension ranges for rounding calculation
+                    dimension_ranges = estimate.dimension_ranges or {}
+                    
+                    # If we don't have ranges, try to fetch them
+                    if not dimension_ranges and self.estimator:
+                        dimension_ranges = self._fetch_dimension_ranges(query_desc)
+                    
+                    strategies.append(
+                        AdaptiveRoundingStrategy(
+                            db_type=self.db_type,
+                            estimator=self.estimator,
+                            target_buckets=self.config.target_buckets,
+                            dimension_ranges=dimension_ranges
+                        )
+                    )
+                else:
+                    logger.info(
+                        f"Skipping adaptive rounding: {unique_count} <= {self.config.rounding_threshold}"
+                    )
+            except Exception as e:
+                logger.warning(f"Size estimation failed, skipping rounding: {e}", exc_info=True)
         
         return strategies
     
@@ -189,3 +218,59 @@ class QueryOptimizer:
             strategies.append(DiscreteDeduplicationStrategy(self.db_type, estimator=self.estimator))
         
         return strategies
+    
+    def _fetch_dimension_ranges(self, query_desc: QueryDescription) -> Dict[str, tuple]:
+        """
+        Fetch min/max ranges for continuous dimensions.
+        
+        Args:
+            query_desc: Query description with dimensions
+            
+        Returns:
+            Dictionary mapping field names to (min, max) tuples
+        """
+        from pypika import Query, Table
+        from pypika.functions import Min, Max
+        
+        ranges = {}
+        continuous_dims = [d for d in query_desc.dimensions if d.flavour == 'continuous']
+        
+        if not continuous_dims or not self.connector:
+            return ranges
+        
+        try:
+            # Build a query to get MIN and MAX for all continuous dimensions
+            table = Table(query_desc.target_table)
+            range_query = Query.from_(table)
+            
+            for dim in continuous_dims:
+                field_term = getattr(table, dim.field)
+                range_query = range_query.select(
+                    Min(field_term).as_(f'min_{dim.field}'),
+                    Max(field_term).as_(f'max_{dim.field}')
+                )
+            
+            # Execute query
+            sql = range_query.get_sql(quote_char='`')
+            logger.debug(f"Fetching dimension ranges: {sql}")
+            
+            result = self.connector.execute_query(sql)
+            
+            if result and len(result) > 0:
+                row = result[0]
+                for dim in continuous_dims:
+                    min_key = f'min_{dim.field}'
+                    max_key = f'max_{dim.field}'
+                    
+                    if min_key in row and max_key in row:
+                        min_val = row[min_key]
+                        max_val = row[max_key]
+                        
+                        if min_val is not None and max_val is not None:
+                            ranges[dim.field] = (float(min_val), float(max_val))
+                            logger.info(f"Range for {dim.field}: [{min_val}, {max_val}]")
+            
+        except Exception as e:
+            logger.warning(f"Failed to fetch dimension ranges: {e}", exc_info=True)
+        
+        return ranges
