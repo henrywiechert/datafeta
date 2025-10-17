@@ -2,7 +2,7 @@
 
 import logging # Import logging
 from backend.models.query import QueryDescription, Measure, Filter, OrderBy
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Union, Tuple, Optional
 from pypika import Query, Table, Criterion, Order, Field
 from pypika.functions import Count, Sum, Avg, Min, Max
 from pypika.terms import Function, PseudoColumn, Term
@@ -153,7 +153,15 @@ class QueryService:
                 extract_part = part_extract_map.get(date_part, date_part.upper())
                 return ExtractTerm(extract_part, field_term)
 
-    def translate_to_sql(self, query_desc: QueryDescription, table_name: str, db_type: str = 'clickhouse', with_sampling: bool = False) -> str:
+    def translate_to_sql(
+        self, 
+        query_desc: QueryDescription, 
+        table_name: str, 
+        db_type: str = 'clickhouse', 
+        with_sampling: bool = False,
+        with_optimization: bool = True,
+        optimizer: Optional[Any] = None
+    ) -> Tuple[str, List[Dict[str, Any]]]:
         """
         Translates a QueryDescription object into a SQL string.
         Uses Pypika for safe query construction.
@@ -163,9 +171,11 @@ class QueryService:
             table_name: The name of the table to query (used as fallback or for non-schema sources).
             db_type: The type of database (e.g., 'clickhouse', 'duckdb') - may affect syntax slightly.
             with_sampling: If true, applies sampling for large raw queries.
+            with_optimization: Whether to apply query optimizations.
+            optimizer: QueryOptimizer instance (optional).
 
         Returns:
-            A SQL query string.
+            Tuple of (SQL query string, optimization metadata list).
         """
         # Choose quote character based on target DB type
         if db_type == 'clickhouse':
@@ -275,6 +285,20 @@ class QueryService:
             # Combine all criteria with AND
             q = q.where(Criterion.all(criteria))
 
+        # Apply query optimizations (e.g., DISTINCT for scatter plots)
+        optimization_metadata = []
+        if with_optimization and optimizer:
+            try:
+                from backend.services.optimization.optimizer import OptimizationPlan
+                plan = optimizer.create_plan(query_desc)
+                q = plan.apply(q, query_desc, t)
+                optimization_metadata = plan.get_metadata_summary()
+                
+                if optimization_metadata:
+                    logger.info(f"Applied {len(optimization_metadata)} optimizations")
+            except Exception as e:
+                logger.error(f"Optimization failed, falling back to unoptimized: {e}", exc_info=True)
+        
         # GROUP BY Clause
         if query_desc.dimensions:
             # Only group if there are measures, otherwise it's just selecting distinct dimension combinations
@@ -291,34 +315,31 @@ class QueryService:
                 q = q.groupby(*groupby_fields)
             else:
                 # If only dimensions (no measures), decide whether to deduplicate:
-                # Use axis information (if provided) to distinguish tick-strips from scatter plots
-                continuous_dims = [d for d in query_desc.dimensions if d.flavour == 'continuous']
-                discrete_dims = [d for d in query_desc.dimensions if d.flavour == 'discrete']
-                
-                # Check if continuous dimensions span both axes (scatter plot scenario)
-                has_continuous_on_x = any(d.axis == 'x' for d in continuous_dims)
-                has_continuous_on_y = any(d.axis == 'y' for d in continuous_dims)
-                is_scatter_plot = has_continuous_on_x and has_continuous_on_y
-                
-                if not is_scatter_plot:
-                    # Deduplicate for:
-                    # - Tick-strip (continuous dims on same axis or single continuous dim)
-                    # - Discrete-only queries
-                    # Use GROUP BY when mixing discrete + continuous for proper SQL semantics
-                    if discrete_dims and continuous_dims:
-                        # Build GROUP BY expressions (apply datetime parts if needed)
-                        groupby_fields = []
-                        for dim in query_desc.dimensions:
-                            field_term = t[dim.field]
-                            if dim.date_part and dim.date_mode:
-                                field_term = self._get_datetime_part_expression(
-                                    field_term, dim.date_part, dim.date_mode, db_type
-                                )
-                            groupby_fields.append(field_term)
-                        q = q.groupby(*groupby_fields)
-                    else:
-                        q = q.distinct()
-                # else: scatter plot case (continuous dims on both X and Y) - keep all points, no deduplication
+                # NOTE: This logic is now handled by the QueryOptimizer for scatter plots
+                # But we keep it for backward compatibility when optimizer is disabled
+                if not with_optimization or not optimizer:
+                    continuous_dims = [d for d in query_desc.dimensions if d.flavour == 'continuous']
+                    discrete_dims = [d for d in query_desc.dimensions if d.flavour == 'discrete']
+                    
+                    # Check if continuous dimensions span both axes (scatter plot scenario)
+                    has_continuous_on_x = any(d.axis == 'x' for d in continuous_dims)
+                    has_continuous_on_y = any(d.axis == 'y' for d in continuous_dims)
+                    is_scatter_plot = has_continuous_on_x and has_continuous_on_y
+                    
+                    if not is_scatter_plot:
+                        # Deduplicate for tick-strips and discrete-only queries
+                        if discrete_dims and continuous_dims:
+                            groupby_fields = []
+                            for dim in query_desc.dimensions:
+                                field_term = t[dim.field]
+                                if dim.date_part and dim.date_mode:
+                                    field_term = self._get_datetime_part_expression(
+                                        field_term, dim.date_part, dim.date_mode, db_type
+                                    )
+                                groupby_fields.append(field_term)
+                            q = q.groupby(*groupby_fields)
+                        else:
+                            q = q.distinct()
 
         # ORDER BY Clause
         if query_desc.orderBy:
@@ -370,7 +391,7 @@ class QueryService:
         sql_string = q.get_sql(quote_char=quote_char)
 
         logger.info(f"Generated SQL ({db_type}): {sql_string}")
-        return sql_string
+        return sql_string, optimization_metadata
 
     # Potential future methods:
     # def translate_to_pandas(self, query_desc: QueryDescription, connector: Any) -> Any:

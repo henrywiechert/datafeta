@@ -43,4 +43,9 @@ class QueryResult(BaseModel):
     rows: List[Dict[str, Any]] # e.g., [{"col1": "valA", "col2": 123}, ...]
     row_count: int
     query_sql: Optional[str] = None
-    error: Optional[str] = None # Include error message if query failed 
+    error: Optional[str] = None # Include error message if query failed
+    
+    # Optimization metadata (new fields)
+    optimizations_applied: Optional[List[Dict[str, Any]]] = None
+    original_estimate: Optional[int] = None
+    reduction_factor: Optional[float] = None 

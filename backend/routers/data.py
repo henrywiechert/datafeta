@@ -146,17 +146,28 @@ def execute_query(
         if not query_desc.target_database:
             raise InvalidInputError("target_database must be provided in the query description for ClickHouse.")
 
-    # --- Generate SQL using QueryService --- #
+    # --- Generate SQL using QueryService with Optimization --- #
     query_service = QueryService()
     sql_query: str
+    optimization_metadata = []
     db_type = conn_details.type
 
     try:
-        sql_query = query_service.translate_to_sql(
+        # Initialize optimizer
+        from backend.services.optimization.optimizer import QueryOptimizer
+        from backend.services.optimization.config import OptimizerConfig
+        
+        config = OptimizerConfig.from_env()
+        optimizer = QueryOptimizer(connector, config)
+        
+        # Translate query with optimization
+        sql_query, optimization_metadata = query_service.translate_to_sql(
             query_desc=query_desc,
             table_name=query_desc.target_table,
             db_type=db_type,
-            with_sampling=True  # Enable sampling for large raw queries
+            with_sampling=True,  # Enable sampling for large raw queries
+            with_optimization=True,  # Enable query optimizations
+            optimizer=optimizer
         )
     except ValueError as e:
         raise QueryGenerationError(f"Query generation error: {e}")
@@ -167,12 +178,27 @@ def execute_query(
     # --- Execute Query via Connector --- #
     try:
         columns, rows = connector.fetch_data(sql_query)
+        
+        # Calculate reduction factor if optimization was applied
+        reduction_factor = None
+        original_estimate = None
+        if optimization_metadata:
+            # For now, just use the estimated reduction from metadata
+            # In Phase 3, we'll add actual estimation queries
+            for opt in optimization_metadata:
+                if opt.get('reduction'):
+                    reduction_factor = opt['reduction']
+                    break
+        
         return QueryResult(
             columns=columns,
             rows=rows,
             row_count=len(rows),
             query_sql=sql_query,
-            error=None
+            error=None,
+            optimizations_applied=optimization_metadata if optimization_metadata else None,
+            original_estimate=original_estimate,
+            reduction_factor=reduction_factor
         )
     except NotImplementedError as e:
         # Treat as a 501-like scenario via QueryExecutionError
