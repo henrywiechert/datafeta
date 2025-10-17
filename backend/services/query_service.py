@@ -231,37 +231,49 @@ class QueryService:
         # Track which dimensions have datetime parts (these will be aliased)
         datetime_part_fields = set()
         # Track fields for GROUP BY when using category deduplication
-        groupby_fields_for_dedup = []
+        # Store tuples of (field_name, precision) instead of RoundFunction objects
+        groupby_field_info_for_dedup = []
 
         if query_desc.dimensions:
             for dim in query_desc.dimensions:
-                field_term = t[dim.field]
+                # Create fresh field reference from table
+                field_term = Field(dim.field, table=t)
                 
                 # Apply rounding if configured for this dimension
                 if rounding_config and dim.field in rounding_config and dim.flavour == 'continuous':
                     from backend.services.optimization.strategies.adaptive_rounding import RoundingHelper
                     precision = rounding_config[dim.field]
-                    field_term = RoundingHelper.create_round_expression(field_term, precision, db_type)
-                    # Preserve original field name as alias
-                    field_term = field_term.as_(dim.field)
+                    rounded_expr = RoundingHelper.create_round_expression(field_term, precision, db_type)
+                    
+                    # Store field info for GROUP BY (just the field name and precision)
+                    if use_category_dedup:
+                        groupby_field_info_for_dedup.append((dim.field, precision))
+                    
+                    # Preserve original field name as alias for SELECT
+                    field_term = rounded_expr.as_(dim.field)
                     all_aliases.add(dim.field)
                     logger.debug(f"Applied rounding to {dim.field} with precision {precision}")
-                    # Add to GROUP BY for category dedup (use the rounded expression)
-                    if use_category_dedup:
-                        groupby_fields_for_dedup.append(field_term)
                 
                 # For category deduplication: handle continuous and discrete dimensions
                 elif use_category_dedup:
                     if dim.flavour == 'continuous':
                         # Continuous dimension without rounding - still needs GROUP BY
-                        groupby_fields_for_dedup.append(field_term)
+                        groupby_field_info_for_dedup.append((dim.field, None))  # None means no rounding
                         logger.debug(f"Added continuous dimension {dim.field} to GROUP BY for category dedup")
                     elif dim.flavour == 'discrete':
-                        # Discrete dimension - wrap in any() aggregate
-                        # Function is already imported from pypika.terms at module level
-                        field_term = Function('any', field_term).as_(dim.field)
-                        all_aliases.add(dim.field)
-                        logger.debug(f"Wrapped discrete dimension {dim.field} in any() for category dedup")
+                        # Check if this discrete dimension has a filter applied
+                        has_filter = any(f.field == dim.field for f in query_desc.filters)
+                        
+                        if has_filter:
+                            # If filtered, add to GROUP BY instead of wrapping in any()
+                            # This avoids ClickHouse's "aggregate function in WHERE" error
+                            groupby_field_info_for_dedup.append((dim.field, None))
+                            logger.debug(f"Added filtered discrete dimension {dim.field} to GROUP BY (not using any())")
+                        else:
+                            # No filter - wrap in any() aggregate
+                            field_term = Function('any', field_term).as_(dim.field)
+                            all_aliases.add(dim.field)
+                            logger.debug(f"Wrapped discrete dimension {dim.field} in any() for category dedup")
                 
                 # Apply datetime part extraction if specified
                 if dim.date_part and dim.date_mode:
@@ -370,10 +382,20 @@ class QueryService:
         # GROUP BY Clause
         if query_desc.dimensions:
             # Special handling for category deduplication
-            if use_category_dedup and groupby_fields_for_dedup:
-                # GROUP BY continuous dimensions only (discrete dims are wrapped in any())
-                q = q.groupby(*groupby_fields_for_dedup)
-                logger.info(f"Applied GROUP BY on {len(groupby_fields_for_dedup)} continuous dimensions for category dedup")
+            if use_category_dedup and groupby_field_info_for_dedup:
+                # Build GROUP BY using field aliases (not the full ROUND expressions)
+                # ClickHouse allows referencing SELECT aliases in GROUP BY
+                logger.info(f"Building GROUP BY with {len(groupby_field_info_for_dedup)} fields (using aliases)")
+                
+                for field_name, precision in groupby_field_info_for_dedup:
+                    # Use Field() to reference the alias from SELECT
+                    q = q.groupby(Field(field_name))
+                    if precision is not None:
+                        logger.debug(f"  GROUP BY {field_name} (aliased ROUND with precision={precision})")
+                    else:
+                        logger.debug(f"  GROUP BY {field_name} (no rounding)")
+                
+                logger.info(f"Applied GROUP BY on {len(groupby_field_info_for_dedup)} continuous dimensions for category dedup")
             # Only group if there are measures, otherwise it's just selecting distinct dimension combinations
             elif query_desc.measures:
                 # Build GROUP BY expressions (apply datetime parts if needed)
@@ -419,18 +441,18 @@ class QueryService:
             for order in query_desc.orderBy:
                 # Check if this field was aliased in SELECT (either a measure or datetime part)
                 if order.field in all_aliases:
-                    # Field has an alias (from temporal binning or rounding)
-                    # Use UnquotedField to reference the alias without backticks
-                    # This ensures ClickHouse uses the aliased column from SELECT, not the raw table column
-                    field_term = UnquotedField(order.field)
+                    # Field has an alias (from temporal binning, rounding, or aggregation)
+                    # When using category dedup with GROUP BY, use quoted aliases
+                    # to clearly reference SELECT expressions (especially for any() aggregates)
+                    if use_category_dedup:
+                        field_term = Field(order.field)  # Quoted alias
+                    else:
+                        field_term = UnquotedField(order.field)  # Unquoted alias
                 else:
                     # Regular field, just reference it
                     field_term = t[order.field]
 
                 pypika_order = Order.desc if order.direction == 'desc' else Order.asc
-                # Pypika needs the field term (string or Field object) for order by
-                # UnquotedField generates unquoted alias names for ORDER BY
-                # If it's a table field, t[order.field] provides the Field object.
                 q = q.orderby(field_term, order=pypika_order)
 
         # --- NEW: Add sampling for large raw queries on supported databases ---
@@ -464,7 +486,6 @@ class QueryService:
 
         # Compile the query to string using the chosen quote char
         sql_string = q.get_sql(quote_char=quote_char)
-
         logger.info(f"Generated SQL ({db_type}): {sql_string}")
         return sql_string, optimization_metadata
 
