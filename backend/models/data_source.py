@@ -35,6 +35,14 @@ class ConnectionDetails(BaseModel):
     password: Optional[str] = ''
     database: Optional[str] = 'default' # Default database for connection
 
+    # Optional fields for CSV file configuration
+    csv_delimiter: Optional[str] = ','  # Delimiter character (comma, semicolon, tab, pipe, etc.)
+    csv_has_header: Optional[bool] = True  # Whether first line contains column headers
+    csv_decimal_separator: Optional[str] = '.'  # Decimal separator for numbers (. or ,)
+    csv_thousands_separator: Optional[str] = ''  # Thousands separator for numbers (empty, comma, apostrophe, space, etc.)
+    csv_date_format: Optional[str] = '%Y-%m-%d'  # Date format pattern
+    csv_timestamp_format: Optional[str] = '%Y-%m-%d %H:%M:%S'  # Timestamp format pattern
+
 class DataSourceListResponse(BaseModel):
     data_sources: List[DataSource]
 

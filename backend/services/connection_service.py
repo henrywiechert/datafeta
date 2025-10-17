@@ -198,6 +198,19 @@ class ConnectionService:
                         raise
                     await self._validate_csv_file(temp_file_path)
                     connect_args['file_path'] = temp_file_path
+                    # Pass CSV configuration options to the connector
+                    if connection_details.csv_delimiter is not None:
+                        connect_args['csv_delimiter'] = connection_details.csv_delimiter
+                    if connection_details.csv_has_header is not None:
+                        connect_args['csv_has_header'] = connection_details.csv_has_header
+                    if connection_details.csv_decimal_separator is not None:
+                        connect_args['csv_decimal_separator'] = connection_details.csv_decimal_separator
+                    if connection_details.csv_thousands_separator is not None:
+                        connect_args['csv_thousands_separator'] = connection_details.csv_thousands_separator
+                    if connection_details.csv_date_format is not None:
+                        connect_args['csv_date_format'] = connection_details.csv_date_format
+                    if connection_details.csv_timestamp_format is not None:
+                        connect_args['csv_timestamp_format'] = connection_details.csv_timestamp_format
                 finally:
                     if uploaded_file:
                         await uploaded_file.close()

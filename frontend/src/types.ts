@@ -23,6 +23,13 @@ export interface ConnectionDetails {
     user?: string;
     password?: string;
     database?: string;
+    // CSV configuration options
+    csv_delimiter?: string;
+    csv_has_header?: boolean;
+    csv_decimal_separator?: string;
+    csv_thousands_separator?: string;
+    csv_date_format?: string;
+    csv_timestamp_format?: string;
 }
 
 // Response types for list endpoints
