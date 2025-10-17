@@ -10,7 +10,7 @@ class OptimizerConfig:
     
     # Enable/disable optimization types
     enable_distinct_pairs: bool = True
-    enable_adaptive_rounding: bool = False  # Not implemented yet
+    enable_adaptive_rounding: bool = False  # Phase 3: Adaptive rounding for large datasets
     enable_binning: bool = False  # Reserved for future
     
     # Thresholds

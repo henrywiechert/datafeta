@@ -3,10 +3,13 @@
 from .base import OptimizationStrategy, OptimizationMetadata
 from .distinct_pairs import DistinctPairStrategy
 from .discrete_dedup import DiscreteDeduplicationStrategy
+from .adaptive_rounding import AdaptiveRoundingStrategy, RoundingHelper
 
 __all__ = [
     'OptimizationStrategy', 
     'OptimizationMetadata', 
     'DistinctPairStrategy',
     'DiscreteDeduplicationStrategy',
+    'AdaptiveRoundingStrategy',
+    'RoundingHelper',
 ]
