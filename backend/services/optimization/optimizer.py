@@ -9,7 +9,6 @@ from backend.connectors.base import BaseConnector
 from .config import OptimizerConfig
 from .strategies.base import OptimizationStrategy, OptimizationMetadata
 from .strategies.distinct_pairs import DistinctPairStrategy
-from .strategies.discrete_dedup import DiscreteDeduplicationStrategy
 from .strategies.adaptive_rounding import AdaptiveRoundingStrategy
 from .strategies.category_dedup import CategoryDeduplicationStrategy
 from .estimators.base import ResultSizeEstimator, BasicEstimator
@@ -86,7 +85,12 @@ class QueryOptimizer:
     
     def create_plan(self, query_desc: QueryDescription) -> OptimizationPlan:
         """
-        Analyze query and create optimization plan.
+        Analyze query and create optimization plan based on query characteristics.
+        
+        The backend doesn't need to know about chart types - it optimizes based on:
+        - Whether there are measures (aggregated vs raw data)
+        - Number and type of dimensions (continuous vs discrete)
+        - Filters and expected data size
         
         Args:
             query_desc: The query description to optimize
@@ -96,59 +100,57 @@ class QueryOptimizer:
         """
         strategies = []
         
-        # Detect chart type
-        chart_type = self._detect_chart_type(query_desc)
-        logger.info(f"Detected chart type: {chart_type}")
-        
-        if chart_type == 'scatter':
-            strategies.extend(self._create_scatter_strategies(query_desc))
-        elif chart_type == 'tick_strip':
-            strategies.extend(self._create_tick_strip_strategies(query_desc))
-        elif chart_type == 'discrete_only':
-            strategies.extend(self._create_discrete_strategies(query_desc))
-        
-        return OptimizationPlan(strategies)
-    
-    def _detect_chart_type(self, query_desc: QueryDescription) -> str:
-        """
-        Detect visualization type from query description.
-        
-        Returns:
-            One of: 'scatter', 'bar', 'line', 'tick_strip', 'discrete_only', 'unknown'
-        """
-        if not query_desc.dimensions:
-            return 'unknown'
-        
         has_measures = bool(query_desc.measures)
         continuous_dims = [d for d in query_desc.dimensions if d.flavour == 'continuous']
         discrete_dims = [d for d in query_desc.dimensions if d.flavour == 'discrete']
         
         if has_measures:
-            # Aggregated query - bar chart or line chart
-            return 'bar'
-        
-        # No measures - raw data query
-        if len(continuous_dims) >= 2:
-            # Check if continuous dims span both axes
-            has_x = any(d.axis == 'x' for d in continuous_dims)
-            has_y = any(d.axis == 'y' for d in continuous_dims)
+            # Aggregated query - no deduplication needed (GROUP BY handles it)
+            logger.info(f"Aggregated query with {len(query_desc.measures)} measures - no deduplication needed")
+        else:
+            # Raw data query - always deduplicate
+            logger.info(f"Raw data query with {len(continuous_dims)} continuous + {len(discrete_dims)} discrete dims")
             
-            if has_x and has_y:
-                return 'scatter'
-            else:
-                return 'tick_strip'
+            if len(continuous_dims) >= 2:
+                # Multiple continuous dimensions - apply scatter plot optimizations
+                strategies.extend(self._create_multi_continuous_strategies(query_desc))
+            elif len(continuous_dims) >= 1 or len(discrete_dims) >= 1:
+                # Single dimension or discrete only - apply simple deduplication
+                strategies.extend(self._create_simple_dedup_strategies(query_desc))
         
-        # Pure discrete query (no continuous dims)
-        if len(discrete_dims) > 0 and len(continuous_dims) == 0:
-            return 'discrete_only'
-        
-        return 'unknown'
+        return OptimizationPlan(strategies)
     
-    def _create_scatter_strategies(
+    def _create_simple_dedup_strategies(
         self,
         query_desc: QueryDescription
     ) -> List[OptimizationStrategy]:
-        """Create optimization strategies for scatter plots."""
+        """
+        Create deduplication strategies for simple queries (single dimension or discrete only).
+        
+        Always applies DISTINCT to remove duplicate values.
+        """
+        strategies = []
+        
+        # Always apply DISTINCT for raw data queries
+        if self.config.enable_distinct_pairs:
+            from backend.services.optimization.strategies.distinct_pairs import DistinctPairStrategy
+            strategies.append(DistinctPairStrategy(self.db_type, estimator=self.estimator))
+            logger.debug("Added DISTINCT strategy for deduplication")
+        
+        return strategies
+    
+    def _create_multi_continuous_strategies(
+        self,
+        query_desc: QueryDescription
+    ) -> List[OptimizationStrategy]:
+        """
+        Create optimization strategies for queries with multiple continuous dimensions.
+        
+        Applies:
+        - DISTINCT to remove duplicate (x,y) pairs
+        - Adaptive rounding if dataset is large
+        - Category deduplication if discrete dimensions present
+        """
         strategies = []
         
         # Always apply DISTINCT for scatter pairs
@@ -231,31 +233,6 @@ class QueryOptimizer:
         if will_use_category_dedup:
             logger.info("Adding category deduplication strategy to remove duplicate (x,y) pairs")
             strategies.append(category_strategy)
-        
-        return strategies
-    
-    def _create_tick_strip_strategies(
-        self,
-        query_desc: QueryDescription
-    ) -> List[OptimizationStrategy]:
-        """Create optimization strategies for tick strips."""
-        strategies = []
-        
-        # Tick strips already use DISTINCT in QueryService
-        # Could add sampling here if needed in the future
-        
-        return strategies
-    
-    def _create_discrete_strategies(
-        self,
-        query_desc: QueryDescription
-    ) -> List[OptimizationStrategy]:
-        """Create optimization strategies for discrete-only queries (e.g., filter values)."""
-        strategies = []
-        
-        # Always deduplicate discrete-only queries
-        if self.config.enable_distinct_pairs:  # Reuse this config option
-            strategies.append(DiscreteDeduplicationStrategy(self.db_type, estimator=self.estimator))
         
         return strategies
     
