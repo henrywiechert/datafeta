@@ -314,6 +314,10 @@ class QueryOptimizer:
                     count_query = count_query.where(field_term > filter_obj.value)
                 elif filter_obj.operator == '<':
                     count_query = count_query.where(field_term < filter_obj.value)
+                elif filter_obj.operator == 'in':
+                    count_query = count_query.where(field_term.isin(filter_obj.value))
+                elif filter_obj.operator == 'not in':
+                    count_query = count_query.where(field_term.notin(filter_obj.value))
             
             # Add NOT NULL filters for continuous dimensions
             for dim in continuous_dims:
