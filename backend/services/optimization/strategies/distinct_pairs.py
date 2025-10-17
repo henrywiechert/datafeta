@@ -1,6 +1,7 @@
 """Strategy for applying DISTINCT to scatter plot coordinate pairs."""
 
 import logging
+from typing import Optional
 from pypika import Query, Table
 
 from backend.models.query import QueryDescription
@@ -17,9 +18,11 @@ class DistinctPairStrategy(OptimizationStrategy):
     visual information but significantly increase dataset size.
     """
     
-    def __init__(self, db_type: str = 'clickhouse'):
+    def __init__(self, db_type: str = 'clickhouse', estimator=None):
         super().__init__(db_type)
         self._priority = 10  # Apply early
+        self.estimator = estimator  # Optional estimator for more accurate reduction estimates
+        self.actual_reduction: Optional[float] = None  # Store actual reduction after estimation
     
     @property
     def priority(self) -> int:
@@ -64,7 +67,18 @@ class DistinctPairStrategy(OptimizationStrategy):
         Returns:
             Modified query with DISTINCT applied
         """
-        # Simply call distinct() on the query
+        # If we have an estimator, get actual reduction estimate
+        if self.estimator:
+            try:
+                self.actual_reduction = self.estimator.estimate_distinct_reduction(
+                    query, query_desc, table
+                )
+                logger.info(f"Estimated DISTINCT reduction: {self.actual_reduction:.2%}")
+            except Exception as e:
+                logger.warning(f"Could not estimate reduction: {e}")
+                self.actual_reduction = None
+        
+        # Apply distinct() on the query
         optimized = query.distinct()
         
         logger.info("Applied DISTINCT to scatter plot query")
@@ -73,8 +87,13 @@ class DistinctPairStrategy(OptimizationStrategy):
     
     def get_metadata(self) -> OptimizationMetadata:
         """Return metadata about this optimization."""
+        # Use actual reduction if available, otherwise use default estimate
+        reduction = self.actual_reduction if self.actual_reduction is not None else 0.7
+        
         return OptimizationMetadata(
             strategy_name='distinct_pairs',
-            estimated_reduction=0.7,  # Typically 70% reduction
-            parameters={}
+            estimated_reduction=reduction,
+            parameters={
+                'estimation_method': 'database_specific' if self.actual_reduction is not None else 'default'
+            }
         )

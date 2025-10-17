@@ -10,6 +10,8 @@ from .config import OptimizerConfig
 from .strategies.base import OptimizationStrategy, OptimizationMetadata
 from .strategies.distinct_pairs import DistinctPairStrategy
 from .estimators.base import ResultSizeEstimator, BasicEstimator
+from .estimators.clickhouse import ClickHouseEstimator
+from .estimators.duckdb import DuckDBEstimator
 
 logger = logging.getLogger(__name__)
 
@@ -65,9 +67,19 @@ class QueryOptimizer:
         if not self.connector:
             return None
         
-        # For now, use BasicEstimator for all databases
-        # TODO: Add ClickHouse-specific and DuckDB-specific estimators
-        return BasicEstimator(self.connector)
+        # Detect connector type and create appropriate estimator
+        connector_class = self.connector.__class__.__name__
+        
+        if 'clickhouse' in connector_class.lower():
+            logger.info("Using ClickHouseEstimator for cardinality estimation")
+            return ClickHouseEstimator(self.connector)
+        elif 'duckdb' in connector_class.lower() or 'file' in connector_class.lower():
+            # FileConnector uses DuckDB internally
+            logger.info("Using DuckDBEstimator for cardinality estimation")
+            return DuckDBEstimator(self.connector)
+        else:
+            logger.info(f"Using BasicEstimator for {connector_class}")
+            return BasicEstimator(self.connector)
     
     def create_plan(self, query_desc: QueryDescription) -> OptimizationPlan:
         """
@@ -131,7 +143,8 @@ class QueryOptimizer:
         
         # Always apply DISTINCT for scatter pairs
         if self.config.enable_distinct_pairs:
-            strategies.append(DistinctPairStrategy(self.db_type))
+            # Pass estimator to strategy for accurate reduction estimation
+            strategies.append(DistinctPairStrategy(self.db_type, estimator=self.estimator))
         
         # TODO: Add adaptive rounding in Phase 3
         # if self.config.enable_adaptive_rounding:
