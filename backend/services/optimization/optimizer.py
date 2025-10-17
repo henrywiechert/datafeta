@@ -9,6 +9,7 @@ from backend.connectors.base import BaseConnector
 from .config import OptimizerConfig
 from .strategies.base import OptimizationStrategy, OptimizationMetadata
 from .strategies.distinct_pairs import DistinctPairStrategy
+from .strategies.discrete_dedup import DiscreteDeduplicationStrategy
 from .estimators.base import ResultSizeEstimator, BasicEstimator
 from .estimators.clickhouse import ClickHouseEstimator
 from .estimators.duckdb import DuckDBEstimator
@@ -101,6 +102,8 @@ class QueryOptimizer:
             strategies.extend(self._create_scatter_strategies(query_desc))
         elif chart_type == 'tick_strip':
             strategies.extend(self._create_tick_strip_strategies(query_desc))
+        elif chart_type == 'discrete_only':
+            strategies.extend(self._create_discrete_strategies(query_desc))
         
         return OptimizationPlan(strategies)
     
@@ -109,13 +112,14 @@ class QueryOptimizer:
         Detect visualization type from query description.
         
         Returns:
-            One of: 'scatter', 'bar', 'line', 'tick_strip', 'unknown'
+            One of: 'scatter', 'bar', 'line', 'tick_strip', 'discrete_only', 'unknown'
         """
         if not query_desc.dimensions:
             return 'unknown'
         
         has_measures = bool(query_desc.measures)
         continuous_dims = [d for d in query_desc.dimensions if d.flavour == 'continuous']
+        discrete_dims = [d for d in query_desc.dimensions if d.flavour == 'discrete']
         
         if has_measures:
             # Aggregated query - bar chart or line chart
@@ -131,6 +135,10 @@ class QueryOptimizer:
                 return 'scatter'
             else:
                 return 'tick_strip'
+        
+        # Pure discrete query (no continuous dims)
+        if len(discrete_dims) > 0 and len(continuous_dims) == 0:
+            return 'discrete_only'
         
         return 'unknown'
     
@@ -166,5 +174,18 @@ class QueryOptimizer:
         
         # Tick strips already use DISTINCT in QueryService
         # Could add sampling here if needed in the future
+        
+        return strategies
+    
+    def _create_discrete_strategies(
+        self,
+        query_desc: QueryDescription
+    ) -> List[OptimizationStrategy]:
+        """Create optimization strategies for discrete-only queries (e.g., filter values)."""
+        strategies = []
+        
+        # Always deduplicate discrete-only queries
+        if self.config.enable_distinct_pairs:  # Reuse this config option
+            strategies.append(DiscreteDeduplicationStrategy(self.db_type, estimator=self.estimator))
         
         return strategies
