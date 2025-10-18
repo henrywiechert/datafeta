@@ -83,6 +83,7 @@ export interface QueryDescription {
     orderBy?: OrderBy[];
     limit?: number;
     offset?: number;
+    optimization_hints?: OptimizationHints;  // Phase 1: Frontend can send explicit optimization hints
 }
 
 export interface QueryResultColumn {
@@ -96,6 +97,64 @@ export interface QueryResult {
     row_count: number;
     query_sql?: string;
     error?: string;
+    // Optimization metadata (Phase 1)
+    optimizations_applied?: OptimizationMetadata[];
+    original_estimate?: number;
+    reduction_factor?: number;
+    optimization_hints_used?: OptimizationHints | null;
+    optimization_override?: OptimizationOverride | null;
+    result_dimensions?: ResultDimensions;
+}
+
+// --- Optimization Types (Phase 1) ---
+
+/**
+ * Optimization hints sent from frontend to backend.
+ * Frontend explicitly tells backend what optimizations to apply
+ * based on chart type and user preferences.
+ */
+export interface OptimizationHints {
+    enable_distinct: boolean;          // Apply DISTINCT to remove duplicate pairs
+    enable_rounding: boolean;          // Apply rounding to continuous dimensions
+    enable_sampling: boolean;          // Apply sampling for large raw queries
+    enable_binning: boolean;           // Apply binning (future feature)
+    rounding_threshold?: number;       // Custom threshold for when to apply rounding
+    optimization_level: 'none' | 'light' | 'balanced' | 'aggressive';
+    purpose?: string;                  // Optional: describe why these hints (e.g., "scatter_plot")
+}
+
+/**
+ * Backend override information.
+ * Backend may override hints (e.g., for small tables where optimization overhead > benefit).
+ */
+export interface OptimizationOverride {
+    skip_all_optimizations: boolean;
+    reason: 'table_too_small' | 'user_disabled' | 'query_too_simple' | 'other';
+    table_stats?: {
+        row_count: number;
+        column_count: number;
+        threshold: number;
+    };
+}
+
+/**
+ * Result dimensions for display in UI.
+ * Shows the size of the result set.
+ */
+export interface ResultDimensions {
+    rows: number;
+    columns: number;
+    size_display: string;  // Formatted string like "4,800 × 2"
+}
+
+/**
+ * Metadata about a single optimization that was applied.
+ */
+export interface OptimizationMetadata {
+    strategy: string;
+    reduction?: string;
+    rounding_config?: Record<string, number>;
+    details?: string;
 }
 
 // --- New Types for Draggable Fields ---
