@@ -4,7 +4,7 @@ import { buildQuery } from '../../../../queryBuilder/queryBuilder';
 import { QueryDescription, Field, OptimizationHints } from '../../../../types';
 import { useConnection } from '../../../../contexts/ConnectionContext';
 import { logOperationTiming } from '../utils';
-import { validateAndCleanData } from '../utils/dataValidation';
+import { validateAndCleanData, remapCastExpressionColumns } from '../utils/dataValidation';
 import { generateOptimizationHintsFromFields } from '../../../../services/optimizationHintGenerator';
 
 interface UseQueryExecutionProps {
@@ -67,7 +67,27 @@ export const useQueryExecution = ({
       if (result.error) {
         dispatch({ type: 'SET_QUERY_ERROR', payload: result.error });
       } else {
-        const cleanedResult = validateAndCleanData(result);
+        // Build fields list for remapping
+        const allFieldsForRemapping = [...xAxisFields, ...yAxisFields];
+        if (colorField) allFieldsForRemapping.push(colorField);
+        if (sizeField) allFieldsForRemapping.push(sizeField);
+        
+        console.log('📊 Query result:', {
+          columns: result.columns?.map((c: any) => c.name || c),
+          firstRow: result.rows?.[0],
+          allFields: allFieldsForRemapping.map((f: any) => ({
+            columnName: f.columnName,
+            type: f.type,
+            aggregation: f.aggregation,
+            castType: f.castType,
+            castReplacement: f.castReplacement
+          }))
+        });
+        
+        // First, remap any CAST expression columns back to their expected aliases
+        let remappedResult = remapCastExpressionColumns(result, allFieldsForRemapping);
+        // Then clean and validate the data
+        const cleanedResult = validateAndCleanData(remappedResult);
         dispatch({ type: 'SET_QUERY_RESULT', payload: cleanedResult });
         
         // Warn if data was too large

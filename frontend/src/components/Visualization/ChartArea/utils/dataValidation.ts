@@ -3,6 +3,84 @@
  */
 
 /**
+ * Maps CAST expression columns back to their expected aliases
+ * When backend applies casting, column names become CAST/REPLACE expressions
+ * This function maps them back to the expected measure aliases like "SUM(fieldname)"
+ */
+export const remapCastExpressionColumns = (result: any, fields?: any[]): any => {
+  if (!result.rows || result.rows.length === 0 || !fields) {
+    return result;
+  }
+
+  console.log('🔍 Remapping debug:', {
+    resultColumns: result.columns?.map((c: any) => c.name || c),
+    fieldsWithCasting: fields.filter((f: any) => f.castType)
+  });
+
+  // Build a map of CAST expressions to their expected aliases
+  const castExpressionMap: Record<string, string> = {};
+  
+  fields.forEach(field => {
+    if (field.castType) {
+      // Field has casting applied - could be measure or dimension
+      let expectedAlias: string;
+      
+      if (field.type === 'measure' && field.aggregation) {
+        // Measure: SUM(fieldname)
+        expectedAlias = `${field.aggregation.toUpperCase()}(${field.columnName})`;
+      } else {
+        // Dimension or raw column: just the column name
+        expectedAlias = field.columnName;
+      }
+      
+      // Try to find the CAST expression in the result columns
+      // Look for pattern: CAST(REPLACE("FieldName", ...) AS TYPE)
+      const castExpression = result.columns
+        ?.find((col: any) => {
+          const colName = col.name || col;
+          return colName.includes('CAST') && colName.includes(field.columnName);
+        })
+        ?.name;
+      
+      if (castExpression) {
+        console.log(`  ✓ Mapping: "${castExpression}" → "${expectedAlias}"`);
+        castExpressionMap[castExpression] = expectedAlias;
+      }
+    }
+  });
+
+  // If no mappings found, return as-is
+  if (Object.keys(castExpressionMap).length === 0) {
+    console.log('  No CAST mappings found, returning result as-is');
+    return result;
+  }
+
+  // Remap the rows
+  const remappedRows = result.rows.map((row: any) => {
+    const newRow: any = {};
+    
+    Object.entries(row).forEach(([key, value]) => {
+      const mappedKey = castExpressionMap[key] || key;
+      newRow[mappedKey] = value;
+    });
+    
+    return newRow;
+  });
+
+  // Remap the columns
+  const remappedColumns = result.columns?.map((col: any) => {
+    const mappedName = castExpressionMap[col.name] || col.name;
+    return { ...col, name: mappedName };
+  });
+
+  return {
+    ...result,
+    rows: remappedRows,
+    columns: remappedColumns
+  };
+};
+
+/**
  * Validates and cleans data for chart consumption
  * Removes invalid numeric values and filters out empty rows
  */

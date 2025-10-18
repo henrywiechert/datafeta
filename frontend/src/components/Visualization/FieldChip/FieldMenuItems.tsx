@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Field, DateTimePart } from '../../../types';
 import menuStyles from '../ContextMenu.module.css';
 import SubMenu from '../SubMenu';
 import { canBeContinuous, canBeMeasure, getFieldAggregations } from './utils';
 import { DragSource } from './types';
+import ColumnCastingDialog from './ColumnCastingDialog';
 
 interface FieldMenuItemsProps {
   field: Field;
@@ -12,12 +13,18 @@ interface FieldMenuItemsProps {
 }
 
 const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate }) => {
+  const [castingDialogOpen, setCastingDialogOpen] = useState(false);
+  
   const isMeasure = field.type === 'measure';
   const availableAggregations = getFieldAggregations(field);
   const isFieldContinuous = canBeContinuous(field);
   const isFieldMeasure = canBeMeasure(field);
   const isInAxisDropZone = source === 'X_AXIS' || source === 'Y_AXIS';
   const isDateTime = field.dataType === 'datetime';
+  const hasCasting = field.castType !== undefined;
+  // Allow casting for any field - user can configure it regardless of type
+  // Backend will handle the casting attempt
+  const canCastField = !isInAxisDropZone; // Only in available fields panel, not on axes
 
   // DateTime parts list
   const dateTimeParts: DateTimePart[] = [
@@ -27,6 +34,20 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
 
   // Helper to capitalize first letter
   const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+  const handleCastingConfirm = (config: any) => {
+    if (config === null) {
+      // Remove casting
+      onUpdate({ castType: undefined, castReplacement: undefined });
+    } else {
+      // Apply casting
+      onUpdate({ 
+        castType: config.cast_type,
+        castReplacement: config.replacement_pattern
+      });
+    }
+    setCastingDialogOpen(false);
+  };
 
   return (
     <>
@@ -111,6 +132,19 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
           </SubMenu>
         </>
       )}
+
+      {/* Column Casting - shown for numeric fields or numeric measures in available fields panel */}
+      {canCastField && !isInAxisDropZone && (
+        <>
+          <div className={menuStyles.separator} />
+          <div 
+            className={menuStyles.menuItem}
+            onClick={() => setCastingDialogOpen(true)}
+          >
+            Configure Casting {hasCasting && '✔'}
+          </div>
+        </>
+      )}
       
       {isMeasure && availableAggregations.length > 0 && <div className={menuStyles.separator} />}
 
@@ -119,6 +153,19 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
           {agg} {field.aggregation === agg && '✔'}
         </div>
       ))}
+
+      <ColumnCastingDialog
+        open={castingDialogOpen}
+        columnName={field.columnName}
+        currentConfig={
+          field.castType ? {
+            cast_type: field.castType,
+            replacement_pattern: field.castReplacement
+          } : undefined
+        }
+        onConfirm={handleCastingConfirm}
+        onCancel={() => setCastingDialogOpen(false)}
+      />
     </>
   );
 };

@@ -30,6 +30,8 @@ export interface ConnectionDetails {
     csv_thousands_separator?: string;
     csv_date_format?: string;
     csv_timestamp_format?: string;
+    // Column casting configuration
+    column_casts?: ColumnCasts;
 }
 
 // Response types for list endpoints
@@ -74,6 +76,23 @@ export interface Dimension {
     date_mode?: DateTimeMode; // Optional: distinct or timeline mode
 }
 
+// --- Column Casting Types --- //
+
+/**
+ * Configuration for casting a single column.
+ * Maps column_name -> { cast_type, replacement_pattern }
+ */
+export interface ColumnCastConfig {
+    cast_type: 'BIGINT' | 'INTEGER' | 'DOUBLE' | 'FLOAT' | 'VARCHAR';
+    replacement_pattern?: string; // Pattern to replace (e.g., ',' for thousands separator)
+}
+
+/**
+ * Dictionary of column name -> casting configuration
+ * Example: { "Revenue": { cast_type: "BIGINT", replacement_pattern: "," } }
+ */
+export type ColumnCasts = Record<string, ColumnCastConfig>;
+
 export interface QueryDescription {
     target_table: string;
     target_database?: string;
@@ -84,6 +103,7 @@ export interface QueryDescription {
     limit?: number;
     offset?: number;
     optimization_hints?: OptimizationHints;  // Phase 1: Frontend can send explicit optimization hints
+    column_casts?: ColumnCasts;  // Column casting configuration
 }
 
 export interface QueryResultColumn {
@@ -177,6 +197,8 @@ export interface Field {
   axis?: 'x' | 'y';  // Optional: which axis the field is on (for query optimization)
   dateTimePart?: DateTimePart; // Optional: which datetime part to extract
   dateTimeMode?: DateTimeMode; // Optional: distinct (e.g., 12 months) or timeline (e.g., Mar 2023, Mar 2024)
+  castType?: ColumnCastConfig['cast_type']; // Optional: type to cast this column to
+  castReplacement?: string; // Optional: pattern to replace before casting (e.g., ',' for thousands separator)
 }
 
 // --- Filter Types --- //
