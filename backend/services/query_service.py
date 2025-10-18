@@ -55,6 +55,34 @@ class QuotedField(Term):
         return f"{quote_char}{self.name}{quote_char}"
 
 
+class CastField(Term):
+    """Custom pypika term for CAST(field AS type) with optional string replacement."""
+    def __init__(self, field: Term, cast_type: str, replacement_pattern: Optional[str] = None):
+        super().__init__()
+        self.field = field
+        self.cast_type = cast_type
+        self.replacement_pattern = replacement_pattern
+    
+    def get_sql(self, **kwargs) -> str:
+        """Render as CAST(REPLACE(field, pattern, '') AS type) or CAST(field AS type)."""
+        field_sql = self.field.get_sql(**kwargs)
+        
+        if self.replacement_pattern:
+            # CAST(REPLACE(field, 'pattern', '') AS type)
+            pattern_escaped = self.replacement_pattern.replace("'", "''")
+            sql = f"CAST(REPLACE({field_sql}, '{pattern_escaped}', '') AS {self.cast_type})"
+        else:
+            # Simple CAST(field AS type)
+            sql = f"CAST({field_sql} AS {self.cast_type})"
+        
+        # Handle alias if present
+        if hasattr(self, 'alias') and self.alias:
+            quote_char = kwargs.get('quote_char', '"')
+            sql = f"{sql} {quote_char}{self.alias}{quote_char}"
+        
+        return sql
+
+
 # Mapping from our model to Pypika functions
 # Using Function for distinct count to generate COUNT(DISTINCT `field_name`)
 # Note: get_sql(quote_char) is used to get the properly quoted field name
@@ -176,6 +204,31 @@ class QueryService:
                 extract_part = part_extract_map.get(date_part, date_part.upper())
                 return ExtractTerm(extract_part, field_term)
 
+    def _get_field_with_cast(self, table: Any, field_name: str, column_casts: Optional[Dict[str, Dict[str, str]]] = None) -> Any:
+        """
+        Get a field reference, applying CAST if configured for this column.
+        
+        Args:
+            table: PyPika Table object
+            field_name: Name of the field
+            column_casts: Dictionary mapping column names to {cast_type, replacement_pattern}
+                         Example: {'Revenue': {'cast_type': 'DOUBLE', 'replacement_pattern': ','}}
+        
+        Returns:
+            PyPika Field object or CastField object
+        """
+        field = table[field_name]
+        
+        if column_casts and field_name in column_casts:
+            cast_config = column_casts[field_name]
+            cast_type = cast_config.get('cast_type')
+            replacement_pattern = cast_config.get('replacement_pattern')
+            
+            if cast_type:
+                return CastField(field, cast_type, replacement_pattern)
+        
+        return field
+
     def translate_to_sql(
         self, 
         query_desc: QueryDescription, 
@@ -248,8 +301,8 @@ class QueryService:
 
         if query_desc.dimensions:
             for dim in query_desc.dimensions:
-                # Create fresh field reference from table
-                field_term = Field(dim.field, table=t)
+                # Create fresh field reference from table, applying cast if configured
+                field_term = self._get_field_with_cast(t, dim.field, query_desc.column_casts)
                 
                 # Apply rounding if configured for this dimension
                 if rounding_config and dim.field in rounding_config and dim.flavour == 'continuous':
@@ -306,7 +359,8 @@ class QueryService:
             if not agg_func_builder:
                 raise QueryGenerationError(f"Unsupported aggregation function: {measure.aggregation}")
 
-            field_term = t[measure.field]
+            # Apply cast if configured for this field
+            field_term = self._get_field_with_cast(t, measure.field, query_desc.column_casts)
             agg_term = agg_func_builder(field_term)
             
             # For DuckDB, wrap AVG and SUM with COALESCE to handle NULL results
@@ -335,7 +389,7 @@ class QueryService:
             # Check if this filter needs datetime part extraction
             if f.date_part and f.date_mode:
                 # Apply datetime part extraction to the field before filtering
-                field_term = t[f.field]
+                field_term = self._get_field_with_cast(t, f.field, query_desc.column_casts)
                 field = self._get_datetime_part_expression(
                     field_term, 
                     f.date_part, 
@@ -343,8 +397,8 @@ class QueryService:
                     db_type
                 )
             else:
-                # Regular field access
-                field = t[f.field]
+                # Regular field access with cast if configured
+                field = self._get_field_with_cast(t, f.field, query_desc.column_casts)
             
             value = f.value
 
@@ -365,7 +419,8 @@ class QueryService:
         if query_desc.dimensions:
             for dim in query_desc.dimensions:
                 if dim.flavour == 'continuous':
-                    criteria.append(t[dim.field].notnull())
+                    dim_field = self._get_field_with_cast(t, dim.field, query_desc.column_casts)
+                    criteria.append(dim_field.notnull())
 
         if criteria:
             # Combine all criteria with AND

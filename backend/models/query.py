@@ -91,6 +91,11 @@ class QueryDescription(BaseModel):
     
     # NEW: Optimization hints from frontend
     optimization_hints: Optional[OptimizationHints] = None
+    
+    # Column-level casting for handling quoted numbers and special formats
+    # Maps column_name to {cast_type, replacement_pattern}
+    # Example: {'Revenue': {'cast_type': 'DOUBLE', 'replacement_pattern': ','}}
+    column_casts: Optional[Dict[str, Dict[str, str]]] = None
 
 class QueryResult(BaseModel):
     columns: List[Dict[str, str]] # e.g., [{"name": "col1", "type": "string"}, ...]
