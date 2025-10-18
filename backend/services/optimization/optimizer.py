@@ -1,10 +1,10 @@
 """Main query optimizer that coordinates optimization strategies."""
 
 import logging
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 from pypika import Query, Table
 
-from backend.models.query import QueryDescription
+from backend.models.query import QueryDescription, OptimizationHints, OptimizationOverride
 from backend.connectors.base import BaseConnector
 from .config import OptimizerConfig
 from .strategies.base import OptimizationStrategy, OptimizationMetadata
@@ -21,9 +21,16 @@ logger = logging.getLogger(__name__)
 class OptimizationPlan:
     """Plan containing strategies to apply and metadata."""
     
-    def __init__(self, strategies: List[OptimizationStrategy]):
+    def __init__(
+        self, 
+        strategies: List[OptimizationStrategy],
+        override: Optional[OptimizationOverride] = None,
+        hints_used: Optional[OptimizationHints] = None
+    ):
         self.strategies = sorted(strategies, key=lambda s: s.priority)
         self.metadata: List[OptimizationMetadata] = []
+        self.override = override
+        self.hints_used = hints_used
     
     def apply(self, query: Query, query_desc: QueryDescription, table: Table) -> Query:
         """Apply all strategies in order."""
@@ -83,20 +90,120 @@ class QueryOptimizer:
             logger.info(f"Using BasicEstimator for {connector_class}")
             return BasicEstimator(self.connector)
     
+    def _check_table_size(self, query_desc: QueryDescription) -> Optional[OptimizationOverride]:
+        """
+        Quick check if table is small enough to skip all optimizations.
+        
+        Uses a fast COUNT(*) query (often cached by DB) to determine if
+        the table is small enough that optimizations would add more overhead
+        than they save.
+        
+        Args:
+            query_desc: The query description
+            
+        Returns:
+            OptimizationOverride if table is small, None otherwise
+        """
+        if not self.config.enable_small_table_detection:
+            logger.debug("Small table detection disabled")
+            return None
+        
+        if not self.connector:
+            logger.warning("No connector available for table size check")
+            return None
+        
+        try:
+            # Build table reference
+            if query_desc.target_database:
+                table_ref = f"{query_desc.target_database}.{query_desc.target_table}"
+            else:
+                table_ref = query_desc.target_table
+            
+            # Fast COUNT(*) query - usually cached by database
+            count_query = f"SELECT COUNT(*) as row_count FROM {table_ref}"
+            
+            logger.debug(f"Checking table size with: {count_query}")
+            result = self.connector.execute_query(count_query)
+            
+            if not result or len(result) == 0:
+                logger.warning("Table size check returned no results")
+                return None
+            
+            row_count = result[0].get('row_count', 0)
+            
+            # Get column count from query description
+            column_count = len(query_desc.dimensions) + len(query_desc.measures)
+            
+            # Check if below threshold
+            if row_count < self.config.small_table_threshold:
+                logger.info(
+                    f"✅ Small table detected: {row_count:,} rows < {self.config.small_table_threshold:,} threshold. "
+                    f"Skipping all optimizations to avoid overhead."
+                )
+                
+                return OptimizationOverride(
+                    skip_all_optimizations=True,
+                    reason="table_too_small",
+                    table_stats={
+                        "row_count": row_count,
+                        "column_count": column_count,
+                        "threshold": self.config.small_table_threshold
+                    }
+                )
+            
+            logger.info(f"Table size: {row_count:,} rows (>= threshold {self.config.small_table_threshold:,})")
+            return None
+            
+        except Exception as e:
+            logger.warning(f"Failed to check table size: {e}. Proceeding with optimization.", exc_info=True)
+            return None
+    
     def create_plan(self, query_desc: QueryDescription) -> OptimizationPlan:
         """
-        Analyze query and create optimization plan based on query characteristics.
+        Analyze query and create optimization plan.
         
-        The backend doesn't need to know about chart types - it optimizes based on:
-        - Whether there are measures (aggregated vs raw data)
-        - Number and type of dimensions (continuous vs discrete)
-        - Filters and expected data size
+        Priority order:
+        1. Check for backend override (small table detection)
+        2. Use frontend hints if provided
+        3. Fall back to defaults based on query structure
         
         Args:
             query_desc: The query description to optimize
             
         Returns:
             OptimizationPlan with strategies to apply
+        """
+        # PRIORITY 1: Check if table is too small for optimizations
+        override = self._check_table_size(query_desc)
+        if override and override.skip_all_optimizations:
+            logger.info("⚡ Returning empty optimization plan due to backend override")
+            return OptimizationPlan(
+                strategies=[],
+                override=override,
+                hints_used=query_desc.optimization_hints  # Keep for debugging
+            )
+        
+        # PRIORITY 2: Get optimization hints (from frontend or generate defaults)
+        hints = query_desc.optimization_hints
+        if hints:
+            logger.info("Using optimization hints from frontend")
+            strategies = self._create_strategies_from_hints(query_desc, hints)
+        else:
+            logger.info("No hints provided - using default behavior based on query structure")
+            strategies = self._create_strategies_from_query_structure(query_desc)
+            hints = None  # We'll track that no hints were provided
+        
+        return OptimizationPlan(
+            strategies=strategies,
+            override=None,
+            hints_used=hints
+        )
+    
+    def _create_strategies_from_query_structure(self, query_desc: QueryDescription) -> List[OptimizationStrategy]:
+        """
+        Create strategies based on query structure (backward compatibility).
+        
+        This is the default behavior when no hints are provided.
         """
         strategies = []
         
@@ -118,7 +225,60 @@ class QueryOptimizer:
                 # Single dimension or discrete only - apply simple deduplication
                 strategies.extend(self._create_simple_dedup_strategies(query_desc))
         
-        return OptimizationPlan(strategies)
+        return strategies
+    
+    def _create_strategies_from_hints(
+        self, 
+        query_desc: QueryDescription, 
+        hints: OptimizationHints
+    ) -> List[OptimizationStrategy]:
+        """
+        Create strategies based on explicit optimization hints from frontend.
+        
+        This is the new behavior when hints are provided.
+        """
+        strategies = []
+        
+        # Check optimization level first
+        if hints.optimization_level == 'none':
+            logger.info("Optimization level set to 'none' - skipping all optimizations")
+            return strategies
+        
+        # Apply DISTINCT if enabled
+        if hints.enable_distinct:
+            logger.info("Hints request DISTINCT optimization")
+            if self.config.enable_distinct_pairs:
+                strategies.append(DistinctPairStrategy(self.db_type, estimator=self.estimator))
+            else:
+                logger.warning("DISTINCT requested by hints but disabled in config")
+        
+        # Apply rounding if enabled
+        if hints.enable_rounding:
+            logger.info("Hints request rounding optimization")
+            if self.config.enable_adaptive_rounding:
+                # Use hint threshold or fall back to config
+                threshold = hints.rounding_threshold or self.config.rounding_threshold
+                
+                # For hints-based optimization, we still check if rounding is beneficial
+                # by looking at continuous dimensions
+                continuous_dims = [d for d in query_desc.dimensions if d.flavour == 'continuous']
+                if len(continuous_dims) >= 2:
+                    # Apply the multi-continuous strategies which include rounding
+                    # We'll need to refactor this to be more modular
+                    strategies.extend(self._create_multi_continuous_strategies(query_desc))
+                else:
+                    logger.info("Rounding requested but query doesn't have multiple continuous dims")
+            else:
+                logger.warning("Rounding requested by hints but disabled in config")
+        
+        # Note: Sampling and binning can be added here in future
+        if hints.enable_sampling:
+            logger.info("Sampling requested but not yet implemented")
+        
+        if hints.enable_binning:
+            logger.info("Binning requested but not yet implemented")
+        
+        return strategies
     
     def _create_simple_dedup_strategies(
         self,
