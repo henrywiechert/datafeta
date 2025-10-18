@@ -214,6 +214,7 @@ function DataSourceSelectionPage() {
                       >
                         <option value="%Y-%m-%d">YYYY-MM-DD (2024-10-17)</option>
                         <option value="%d.%m.%Y">DD.MM.YYYY (17.10.2024)</option>
+                        <option value="%m.%d.%Y">MM.DD.YYYY (10.17.2024)</option>
                         <option value="%m/%d/%Y">MM/DD/YYYY (10/17/2024)</option>
                         <option value="%d/%m/%Y">DD/MM/YYYY (17/10/2024)</option>
                       </select>
