@@ -43,6 +43,18 @@ class UnquotedField(Term):
         return self.name
 
 
+class QuotedField(Term):
+    """Custom pypika term for referencing aliases WITH quotes in ORDER BY."""
+    def __init__(self, name: str):
+        super().__init__()
+        self.name = name
+    
+    def get_sql(self, **kwargs) -> str:
+        """Return the field name WITH quotes (handles spaces and special characters)."""
+        quote_char = kwargs.get('quote_char', '"')
+        return f"{quote_char}{self.name}{quote_char}"
+
+
 # Mapping from our model to Pypika functions
 # Using Function for distinct count to generate COUNT(DISTINCT `field_name`)
 # Note: get_sql(quote_char) is used to get the properly quoted field name
@@ -388,8 +400,9 @@ class QueryService:
                 logger.info(f"Building GROUP BY with {len(groupby_field_info_for_dedup)} fields (using aliases)")
                 
                 for field_name, precision in groupby_field_info_for_dedup:
-                    # Use Field() to reference the alias from SELECT
-                    q = q.groupby(Field(field_name))
+                    # Use t[field_name] to reference the field with proper table context
+                    # This ensures field names with spaces are properly quoted
+                    q = q.groupby(t[field_name])
                     if precision is not None:
                         logger.debug(f"  GROUP BY {field_name} (aliased ROUND with precision={precision})")
                     else:
@@ -442,14 +455,11 @@ class QueryService:
                 # Check if this field was aliased in SELECT (either a measure or datetime part)
                 if order.field in all_aliases:
                     # Field has an alias (from temporal binning, rounding, or aggregation)
-                    # When using category dedup with GROUP BY, use quoted aliases
-                    # to clearly reference SELECT expressions (especially for any() aggregates)
-                    if use_category_dedup:
-                        field_term = Field(order.field)  # Quoted alias
-                    else:
-                        field_term = UnquotedField(order.field)  # Unquoted alias
+                    # Always use quoted aliases to ensure proper handling of spaces and special characters
+                    # in alias names (which inherit from original field names)
+                    field_term = QuotedField(order.field)
                 else:
-                    # Regular field, just reference it
+                    # Regular field, just reference it (uses table context for proper quoting)
                     field_term = t[order.field]
 
                 pypika_order = Order.desc if order.direction == 'desc' else Order.asc
