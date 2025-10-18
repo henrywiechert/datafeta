@@ -487,7 +487,15 @@ class QueryService:
         # Compile the query to string using the chosen quote char
         sql_string = q.get_sql(quote_char=quote_char)
         logger.info(f"Generated SQL ({db_type}): {sql_string}")
-        return sql_string, optimization_metadata
+        
+        # Build extended metadata including hints and override
+        extended_metadata = {
+            'optimizations': optimization_metadata,
+            'hints_used': optimization_plan.hints_used if optimization_plan else None,
+            'override': optimization_plan.override if optimization_plan else None
+        }
+        
+        return sql_string, extended_metadata
 
     # Potential future methods:
     # def translate_to_pandas(self, query_desc: QueryDescription, connector: Any) -> Any:
