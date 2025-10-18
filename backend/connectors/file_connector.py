@@ -73,18 +73,13 @@ class FileConnector(BaseConnector):
         decimal_escaped = decimal_sep.replace("'", "''")
         params.append(f"decimal_separator='{decimal_escaped}'")
         
-        # Thousands separator
-        thousands_sep = self._csv_config.get('thousands_separator', '')
-        if thousands_sep:
-            # Map common representations
-            if thousands_sep == 'comma':
-                thousands_sep = ','
-            elif thousands_sep == 'space':
-                thousands_sep = ' '
-            elif thousands_sep == 'apostrophe' or thousands_sep == "'":
-                thousands_sep = "'"
-            thousands_escaped = thousands_sep.replace("'", "''")
-            params.append(f"thousands='{thousands_escaped}'")
+        # Note: DuckDB's read_csv_auto() does NOT support a thousands_separator parameter.
+        # Thousands separators in quoted numbers (e.g., "217,351") are typically kept as strings
+        # by DuckDB. For proper numeric parsing with thousands separators, consider:
+        # 1. Pre-process the CSV to remove thousands separators
+        # 2. Use column type casting after reading (if column is detected as string)
+        # 3. Let users manually configure column types via frontend
+        # For now, we store the config for potential future use but don't pass it to DuckDB
         
         # Date and timestamp formats - escape any single quotes
         date_fmt = self._csv_config.get('date_format', '%Y-%m-%d')

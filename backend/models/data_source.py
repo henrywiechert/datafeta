@@ -14,6 +14,8 @@ class Column(BaseModel):
     name: str
     data_type: str
     # Add other parameters as needed, e.g., is_nullable, default_value
+    cast_type: Optional[str] = None  # Override detected type, e.g., 'DOUBLE' for quoted numbers
+    cast_replacement: Optional[str] = None  # Regex pattern to remove (e.g., ',' for thousands separator)
 
 # --- Connection and Listing Models --- #
 
@@ -42,6 +44,9 @@ class ConnectionDetails(BaseModel):
     csv_thousands_separator: Optional[str] = ''  # Thousands separator for numbers (empty, comma, apostrophe, space, etc.)
     csv_date_format: Optional[str] = '%Y-%m-%d'  # Date format pattern
     csv_timestamp_format: Optional[str] = '%Y-%m-%d %H:%M:%S'  # Timestamp format pattern
+    
+    # Column-level casting configuration for handling special cases (e.g., quoted numbers)
+    column_casts: Optional[Dict[str, Dict[str, str]]] = None  # Maps column_name to {cast_type, replacement_pattern}
 
 class DataSourceListResponse(BaseModel):
     data_sources: List[DataSource]
