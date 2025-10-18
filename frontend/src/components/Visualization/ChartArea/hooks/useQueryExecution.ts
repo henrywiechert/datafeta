@@ -1,10 +1,11 @@
 import { useCallback, useRef, useEffect, useMemo } from 'react';
 import { apiService } from '../../../../apiService';
 import { buildQuery } from '../../../../queryBuilder/queryBuilder';
-import { QueryDescription, Field } from '../../../../types';
+import { QueryDescription, Field, OptimizationHints } from '../../../../types';
 import { useConnection } from '../../../../contexts/ConnectionContext';
 import { logOperationTiming } from '../utils';
 import { validateAndCleanData } from '../utils/dataValidation';
+import { generateOptimizationHintsFromFields } from '../../../../services/optimizationHintGenerator';
 
 interface UseQueryExecutionProps {
   selectedTable: string | null;
@@ -21,6 +22,7 @@ interface UseQueryExecutionProps {
 
 interface UseQueryExecutionReturn {
   queryDescription: QueryDescription | null;
+  optimizationHints: OptimizationHints | null;
 }
 
 export const useQueryExecution = ({
@@ -94,6 +96,29 @@ export const useQueryExecution = ({
     }
   }, [startOperation, completeOperation, dispatch]);
 
+  // Memoize optimization hints generation
+  const optimizationHints = useMemo((): OptimizationHints | null => {
+    // Generate hints if we have fields
+    if (xAxisFields.length === 0 && yAxisFields.length === 0) {
+      return null;
+    }
+
+    try {
+      const hints = generateOptimizationHintsFromFields({
+        xAxisFields,
+        yAxisFields,
+        colorField,
+        sizeField,
+        userPreference: 'auto', // Could be made configurable via user settings
+      });
+      
+      return hints;
+    } catch (error) {
+      console.warn('Failed to generate optimization hints:', error);
+      return null;
+    }
+  }, [xAxisFields, yAxisFields, colorField, sizeField]);
+
   // Memoize current query description to avoid unnecessary recalculations
   const currentQueryDescription = useMemo((): QueryDescription | null => {
     // Tag fields with their axis for query optimization
@@ -131,8 +156,13 @@ export const useQueryExecution = ({
       filterConfigurations,
     });
 
+    // Include optimization hints in the query description
+    if (queryDesc && optimizationHints) {
+      queryDesc.optimization_hints = optimizationHints;
+    }
+
     return queryDesc;
-  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields, colorField, sizeField, filterConfigurations]);
+  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields, colorField, sizeField, filterConfigurations, optimizationHints]);
 
   // Effect to handle query execution when fields change
   useEffect(() => {
@@ -186,6 +216,11 @@ export const useQueryExecution = ({
         filterConfigurations,
       });
 
+      // Add optimization hints to query if available
+      if (queryDesc && optimizationHints) {
+        queryDesc.optimization_hints = optimizationHints;
+      }
+
       if (queryDesc) {
         await executeQuery(queryDesc);
       }
@@ -207,5 +242,6 @@ export const useQueryExecution = ({
 
   return {
     queryDescription: currentQueryDescription,
+    optimizationHints,
   };
 }; 

@@ -25,7 +25,7 @@ const ChartArea: React.FC = () => {
   });
 
   // Use the extracted query execution hook
-  const { queryDescription } = useQueryExecution({
+  const { queryDescription, optimizationHints } = useQueryExecution({
     selectedTable,
     selectedDatabase,
     xAxisFields,
@@ -63,6 +63,7 @@ const ChartArea: React.FC = () => {
     spec: spec,
     chartInfo,
     renderingError,
+    optimizationHints,
   };
 
   return (

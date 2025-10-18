@@ -52,10 +52,11 @@ class OptimizationHints(BaseModel):
     required_precision: Optional[Dict[str, int]] = None
     
     # Performance vs accuracy preference
-    optimization_level: Optional[Literal['none', 'conservative', 'balanced', 'aggressive']] = None
+    optimization_level: Optional[Literal['none', 'light', 'balanced', 'aggressive']] = None
     
     # Context information (for logging/debugging)
-    purpose: Optional[Literal['preview', 'visualization', 'export', 'analysis']] = None
+    # Frontend sends chart-specific purpose values
+    purpose: Optional[str] = None  # e.g., 'scatter_plot_deduplication', 'bar_chart_aggregation', etc.
     chart_context: Optional[Dict[str, Any]] = None
 
 class OptimizationOverride(BaseModel):
