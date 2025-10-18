@@ -335,10 +335,12 @@ class QueryService:
                             groupby_field_info_for_dedup.append((dim.field, None))
                             logger.debug(f"Added filtered discrete dimension {dim.field} to GROUP BY (not using any())")
                         else:
-                            # No filter - wrap in any() aggregate
-                            field_term = Function('any', field_term).as_(dim.field)
+                            # No filter - wrap in aggregate (engine-specific)
+                            # ClickHouse uses any(), DuckDB/others use first()
+                            agg_func_name = 'any' if db_type == 'clickhouse' else 'first'
+                            field_term = Function(agg_func_name, field_term).as_(dim.field)
                             all_aliases.add(dim.field)
-                            logger.debug(f"Wrapped discrete dimension {dim.field} in any() for category dedup")
+                            logger.debug(f"Wrapped discrete dimension {dim.field} in {agg_func_name}() for category dedup")
                 
                 # Apply datetime part extraction if specified
                 if dim.date_part and dim.date_mode:
@@ -351,6 +353,13 @@ class QueryService:
                     field_term = field_term.as_(alias)
                     all_aliases.add(alias)
                     datetime_part_fields.add(alias)
+                else:
+                    # If this dimension is a CAST expression, alias it back to the original field name
+                    # so the result column label remains clean and ORDER BY can reference the alias.
+                    if isinstance(field_term, CastField):
+                        field_term = field_term.as_(dim.field)
+                        all_aliases.add(dim.field)
+                        logger.debug(f"Aliased casted dimension {dim.field} back to its original name")
                 
                 select_fields.append(field_term)
 
