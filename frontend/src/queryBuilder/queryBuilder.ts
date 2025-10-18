@@ -1,5 +1,29 @@
-import { Field, QueryDescription, Measure, OrderBy, Filter, FilterConfig } from '../types';
+import { Field, QueryDescription, Measure, OrderBy, Filter, FilterConfig, ColumnCasts, ColumnCastConfig } from '../types';
 import { getResultColumnName } from '../utils/fieldUtils';
+
+/**
+ * Extracts column casting configuration from fields
+ * Returns a dictionary mapping column names to their casting config
+ */
+export const extractColumnCasts = (fields: Field[]): ColumnCasts | undefined => {
+  const columnCasts: ColumnCasts = {};
+  let hasCasts = false;
+
+  fields.forEach(field => {
+    if (field.castType) {
+      const castConfig: ColumnCastConfig = {
+        cast_type: field.castType,
+      };
+      if (field.castReplacement) {
+        castConfig.replacement_pattern = field.castReplacement;
+      }
+      columnCasts[field.columnName] = castConfig;
+      hasCasts = true;
+    }
+  });
+
+  return hasCasts ? columnCasts : undefined;
+};
 
 /**
  * Converts filter configurations to backend Filter[] format
@@ -118,6 +142,9 @@ export const buildAggregatedQuery = ({
   // Convert filter configurations to filters
   const filters = convertFilterConfigsToFilters(filterConfigurations);
 
+  // Extract column casting configuration
+  const columnCasts = extractColumnCasts(fields);
+
   const queryDesc: QueryDescription = {
     target_table: selectedTable,
     target_database: selectedDatabase,
@@ -125,6 +152,7 @@ export const buildAggregatedQuery = ({
     measures,
     filters: filters.length > 0 ? filters : undefined,
     orderBy: orderBy.length > 0 ? orderBy : undefined,
+    column_casts: columnCasts,
   };
 
   return queryDesc;
@@ -187,6 +215,9 @@ export const buildRawQuery = ({
   // Convert filter configurations to filters
   const filters = convertFilterConfigsToFilters(filterConfigurations);
 
+  // Extract column casting configuration
+  const columnCasts = extractColumnCasts(fields);
+
   const queryDesc: QueryDescription = {
     target_table: selectedTable,
     target_database: selectedDatabase,
@@ -194,6 +225,7 @@ export const buildRawQuery = ({
     measures: [], // No server-side measures
     filters: filters.length > 0 ? filters : undefined,
     orderBy: orderBy.length > 0 ? orderBy : undefined,
+    column_casts: columnCasts,
   };
 
   return queryDesc;
