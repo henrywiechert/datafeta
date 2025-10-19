@@ -1,6 +1,9 @@
 """Connector for ClickHouse database using HTTP protocol."""
 import logging
 from typing import List, Dict, Any, Tuple
+import threading
+from typing import Optional
+from urllib.parse import urlparse, parse_qs
 import clickhouse_connect
 from clickhouse_connect.driver.client import Client
 from backend.models.data_source import Database, Table, Column
@@ -15,6 +18,53 @@ class ClickHouseConnector(BaseConnector):
     def __init__(self):
         self.client: Client = None
         self.connection_details: Dict[str, Any] = None
+        # Serialize access to the client to avoid concurrent queries in the same session
+        self._client_lock: threading.Lock = threading.Lock()
+
+    def _get_current_database_from_client(self) -> Optional[str]:
+        """Attempt to read current database name from the server via a simple query."""
+        if not self.client:
+            return None
+        try:
+            with self._client_lock:
+                result = self.client.query('SELECT currentDatabase()')
+            if getattr(result, 'result_rows', None):
+                first_row = result.result_rows[0]
+                if isinstance(first_row, (list, tuple)) and len(first_row) > 0 and first_row[0]:
+                    return str(first_row[0])
+        except Exception:
+            # swallow and fallback
+            return None
+        return None
+
+    def _parse_database_from_details(self) -> Optional[str]:
+        """Extract database name from connection details or DSN if available."""
+        if not self.connection_details:
+            return None
+        # Direct param
+        db = self.connection_details.get('database')
+        if db:
+            return str(db)
+        # DSN param
+        dsn = self.connection_details.get('connection_string')
+        if not dsn:
+            return None
+        try:
+            parsed = urlparse(dsn)
+            # Prefer explicit query param first
+            qs = parse_qs(parsed.query)
+            query_db = qs.get('database', [None])[0]
+            if query_db:
+                return str(query_db)
+            # Fallback to first path segment if present
+            path = (parsed.path or '').lstrip('/')
+            if path:
+                first_segment = path.split('/')[0]
+                if first_segment:
+                    return str(first_segment)
+        except Exception:
+            return None
+        return None
 
     def connect(self, connection_details: Dict[str, Any]) -> None:
         self.connection_details = connection_details
@@ -35,7 +85,8 @@ class ClickHouseConnector(BaseConnector):
                 self.client = clickhouse_connect.get_client(**conn_params)
             
             # Test connection
-            self.client.query('SELECT 1')
+            with self._client_lock:
+                self.client.query('SELECT 1')
         except Exception as e:
             self.client = None
             raise DataSourceConnectionError(f"Failed to connect: {e}")
@@ -50,9 +101,21 @@ class ClickHouseConnector(BaseConnector):
         if not self.client:
             raise DataSourceConnectionError("Not connected to ClickHouse.")
         try:
-            result = self.client.query('SHOW DATABASES')
-            return [Database(name=row[0]) for row in result.result_rows]
+            with self._client_lock:
+                result = self.client.query('SHOW DATABASES')
+            databases = [Database(name=row[0]) for row in result.result_rows]
+            # Fallback: if no databases returned (e.g., permissions), include the connected database if available
+            if not databases:
+                current_db = self._get_current_database_from_client() or self._parse_database_from_details()
+                if current_db:
+                    return [Database(name=current_db)]
+            return databases
         except Exception as e:
+            # Graceful fallback to connected database when SHOW DATABASES fails
+            current_db = self._get_current_database_from_client() or self._parse_database_from_details()
+            if current_db:
+                logger.warning(f"SHOW DATABASES failed, falling back to connected database: {e}")
+                return [Database(name=current_db)]
             raise DataSourceConnectionError(f"Error listing databases: {e}")
 
     def list_tables(self, database: str) -> List[Table]:
@@ -67,7 +130,8 @@ class ClickHouseConnector(BaseConnector):
             if '`' in database:
                 raise ValueError(f"Invalid database name (contains backtick): {database}")
             query = f'SHOW TABLES FROM `{database}`'
-            result = self.client.query(query)
+            with self._client_lock:
+                result = self.client.query(query)
             return [Table(name=row[0]) for row in result.result_rows]
         except ValueError as e:
              raise InvalidInputError(str(e))
@@ -87,7 +151,8 @@ class ClickHouseConnector(BaseConnector):
                 raise ValueError(f"Invalid database or table name (contains backtick): {database}.{table}")
 
             query = f'DESCRIBE TABLE `{database}`.`{table}`'
-            result = self.client.query(query)
+            with self._client_lock:
+                result = self.client.query(query)
             columns = []
             for row in result.result_rows:
                 col_name = row[0]
@@ -106,7 +171,8 @@ class ClickHouseConnector(BaseConnector):
         logger.info(f"Executing ClickHouse query: {query}")
         try:
             # Query with settings to preserve string types
-            result = self.client.query(query)
+            with self._client_lock:
+                result = self.client.query(query)
             
             # Format column definitions
             if hasattr(result, 'columns') and result.columns:
