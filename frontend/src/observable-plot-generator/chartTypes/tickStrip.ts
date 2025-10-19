@@ -53,14 +53,14 @@ export function tickStrip(
     // Render empty axes so cell frame is consistent
     if (orientation === 'x') {
       return {
-        x: { label: labels?.dimension || dimensionColumn, grid: true },
+        x: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true } as any,
         y: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: 0.1 as any },
         height: BAR_STEP_PX * 2,
         marks: [],
       };
     } else {
       return {
-        y: { label: labels?.dimension || dimensionColumn, grid: true },
+        y: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true } as any,
         x: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: 0.1 as any },
         width: BAR_STEP_PX * 2,
         marks: [],
@@ -104,7 +104,7 @@ export function tickStrip(
       tickConfig.tip = { pointer: 'x', preferredAnchor: 'top-right', format: tipFormat };
       
       const opts: Plot.PlotOptions = {
-        x: { label: labels?.dimension || dimensionColumn, grid: true },
+        x: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true } as any,
         y: { 
           label: labels?.category || categoryDimensionColumn,
           domain: categories as any,
@@ -156,7 +156,7 @@ export function tickStrip(
     tickConfig.tip = { pointer: 'x', preferredAnchor: 'top-right', format: tipFormat };
     
     const opts: Plot.PlotOptions = {
-      x: { label: labels?.dimension || dimensionColumn, grid: true },
+      x: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true } as any,
       y: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: 0.1 as any },
       height: BAR_STEP_PX * 2,
       marks: [
@@ -208,7 +208,7 @@ export function tickStrip(
     tickConfig.tip = { pointer: 'y', preferredAnchor: 'top-right', format: tipFormat };
     
     const opts: Plot.PlotOptions = {
-      y: { label: labels?.dimension || dimensionColumn, grid: true },
+      y: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true } as any,
       x: { 
         label: labels?.category || categoryDimensionColumn,
         domain: categories as any,
@@ -259,7 +259,7 @@ export function tickStrip(
   tickConfig.tip = { pointer: 'y', preferredAnchor: 'top-right', format: tipFormat };
   
   const opts: Plot.PlotOptions = {
-    y: { label: labels?.dimension || dimensionColumn, grid: true },
+    y: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true } as any,
     x: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: 0.1 as any },
     width: BAR_STEP_PX * 2,
     marks: [
