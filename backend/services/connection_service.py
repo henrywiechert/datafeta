@@ -198,6 +198,8 @@ class ConnectionService:
                         raise
                     await self._validate_csv_file(temp_file_path)
                     connect_args['file_path'] = temp_file_path
+                    # Pass original filename for table naming
+                    connect_args['original_filename'] = uploaded_file.filename
                     # Pass CSV configuration options to the connector
                     if connection_details.csv_delimiter is not None:
                         connect_args['csv_delimiter'] = connection_details.csv_delimiter

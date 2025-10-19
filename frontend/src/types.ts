@@ -310,3 +310,50 @@ export type SheetAction =
   | { type: 'UPDATE_SHEET_STATE'; payload: { id: string; state: Partial<VisualizationStateSnapshot> } }
   | { type: 'DUPLICATE_SHEET'; payload: string }
   | { type: 'LOAD_SHEETS'; payload: Sheet[] };
+
+// --- Save/Load Configuration Types --- //
+
+/**
+ * Connection metadata for saved configurations.
+ * Excludes sensitive information like passwords.
+ */
+export interface SavedConnectionMetadata {
+  type: 'csv' | 'clickhouse';
+  // CSV-specific fields
+  file_path?: string;
+  csv_delimiter?: string;
+  csv_has_header?: boolean;
+  csv_decimal_separator?: string;
+  csv_thousands_separator?: string;
+  csv_date_format?: string;
+  csv_timestamp_format?: string;
+  // ClickHouse-specific fields (NO password)
+  host?: string;
+  port?: number;
+  user?: string;
+  database?: string;
+  // Column casting configuration
+  column_casts?: ColumnCasts;
+}
+
+/**
+ * Data source selection state (which database/table is selected)
+ */
+export interface SavedDataSourceSelection {
+  selectedDatabase: string;
+  selectedTable: string;
+}
+
+/**
+ * Complete saved configuration that can be exported/imported
+ */
+export interface SavedConfiguration {
+  version: string; // Semantic version for future compatibility
+  exportedAt: string; // ISO timestamp
+  appName: string; // "data-slicer" for validation
+  connection?: SavedConnectionMetadata; // Optional: may not have connection
+  dataSource?: SavedDataSourceSelection; // Optional: may not have selected data
+  sheets: Sheet[]; // All sheet configurations
+  activeSheetId?: string; // Which sheet was active
+  nextSheetNumber: number; // For continuing sheet numbering
+}

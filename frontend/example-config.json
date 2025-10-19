@@ -1,0 +1,125 @@
+{
+  "version": "1.0.0",
+  "exportedAt": "2025-10-19T12:00:00.000Z",
+  "appName": "data-slicer",
+  "connection": {
+    "type": "clickhouse",
+    "host": "localhost",
+    "port": 8123,
+    "user": "default",
+    "database": "demo_db"
+  },
+  "dataSource": {
+    "selectedDatabase": "demo_db",
+    "selectedTable": "sales_data"
+  },
+  "sheets": [
+    {
+      "id": "sheet-abc123",
+      "name": "Sales Overview",
+      "visualizationState": {
+        "xAxisFields": [
+          {
+            "id": "field-x1",
+            "columnName": "date",
+            "type": "dimension",
+            "flavour": "discrete",
+            "dataType": "datetime",
+            "axis": "x",
+            "dateTimePart": "month",
+            "dateTimeMode": "distinct"
+          }
+        ],
+        "yAxisFields": [
+          {
+            "id": "field-y1",
+            "columnName": "revenue",
+            "type": "measure",
+            "aggregation": "sum",
+            "flavour": "continuous",
+            "dataType": "float",
+            "axis": "y"
+          }
+        ],
+        "filterFields": [
+          {
+            "id": "field-f1",
+            "columnName": "region",
+            "type": "dimension",
+            "flavour": "discrete",
+            "dataType": "string"
+          }
+        ],
+        "filterConfigurations": {
+          "field-f1": {
+            "fieldId": "field-f1",
+            "columnName": "region",
+            "type": "discrete",
+            "selectedValues": ["North", "South", "East"]
+          }
+        },
+        "appliedFilterConfigurations": {
+          "field-f1": {
+            "fieldId": "field-f1",
+            "columnName": "region",
+            "type": "discrete",
+            "selectedValues": ["North", "South", "East"]
+          }
+        },
+        "colorField": {
+          "id": "field-c1",
+          "columnName": "product_category",
+          "type": "dimension",
+          "flavour": "discrete",
+          "dataType": "string"
+        },
+        "colorScheme": "tableau10",
+        "sizeField": null,
+        "sizeRange": [4, 20],
+        "manualSize": 8
+      },
+      "createdAt": 1697712000000,
+      "lastModified": 1697712000000
+    },
+    {
+      "id": "sheet-def456",
+      "name": "Product Analysis",
+      "visualizationState": {
+        "xAxisFields": [
+          {
+            "id": "field-x2",
+            "columnName": "product_name",
+            "type": "dimension",
+            "flavour": "discrete",
+            "dataType": "string",
+            "axis": "x"
+          }
+        ],
+        "yAxisFields": [
+          {
+            "id": "field-y2",
+            "columnName": "quantity",
+            "type": "measure",
+            "aggregation": "sum",
+            "flavour": "continuous",
+            "dataType": "integer",
+            "axis": "y"
+          }
+        ],
+        "filterFields": [],
+        "filterConfigurations": {},
+        "appliedFilterConfigurations": {},
+        "colorField": null,
+        "colorScheme": "steelblue",
+        "sizeField": null,
+        "sizeRange": [4, 20],
+        "manualSize": 8
+      },
+      "createdAt": 1697713000000,
+      "lastModified": 1697713000000
+    }
+  ],
+  "activeSheetId": "sheet-abc123",
+  "nextSheetNumber": 3
+}
+

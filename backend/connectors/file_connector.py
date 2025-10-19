@@ -2,6 +2,7 @@
 import logging
 import duckdb
 import os
+import re
 from typing import List, Dict, Any, Tuple, Optional
 from backend.models.data_source import Database, Table, Column
 from .base import BaseConnector
@@ -22,6 +23,41 @@ class FileConnector(BaseConnector):
         # in the signature to avoid breaking the router dependency for now.
         # It can be cleaned up in a future refactor.
         self.state_manager = state_manager
+
+    def _sanitize_table_name(self, filename: str) -> str:
+        """
+        Sanitize a filename to create a valid SQL table name.
+        
+        - Remove file extension
+        - Replace spaces and special characters with underscores
+        - Remove consecutive underscores
+        - Ensure it doesn't start with a number
+        - Convert to lowercase for consistency
+        """
+        # Remove extension
+        name = os.path.splitext(filename)[0]
+        
+        # Convert to lowercase
+        name = name.lower()
+        
+        # Replace spaces and special characters with underscores
+        name = re.sub(r'[^\w]+', '_', name)
+        
+        # Remove consecutive underscores
+        name = re.sub(r'_+', '_', name)
+        
+        # Remove leading/trailing underscores
+        name = name.strip('_')
+        
+        # Ensure it doesn't start with a number
+        if name and name[0].isdigit():
+            name = 'table_' + name
+        
+        # If empty after sanitization, use a default name
+        if not name:
+            name = 'uploaded_file'
+        
+        return name
 
     def connect(self, connection_details: Dict[str, Any]) -> None:
         self.file_path = connection_details.get("file_path")
@@ -44,8 +80,15 @@ class FileConnector(BaseConnector):
         else:
              raise InvalidInputError(f"Unsupported file type: {file_ext}")
 
-        self._table_name = os.path.splitext(os.path.basename(self.file_path))[0]
-        logger.info(f"FileConnector 'connected' to {self._file_type} file: {self.file_path}")
+        # Use original filename if provided, otherwise fall back to temp file name
+        original_filename = connection_details.get('original_filename')
+        if original_filename:
+            self._table_name = self._sanitize_table_name(original_filename)
+        else:
+            # Fall back to temp file basename (for backwards compatibility)
+            self._table_name = os.path.splitext(os.path.basename(self.file_path))[0]
+        
+        logger.info(f"FileConnector 'connected' to {self._file_type} file: {self.file_path} (table name: {self._table_name})")
 
     def disconnect(self) -> None:
         logger.info(f"FileConnector disconnected signal received for file: {self.file_path}")

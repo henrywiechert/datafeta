@@ -4,7 +4,17 @@ import { Tabs, Tab, Box, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitl
 import AddIcon from '@mui/icons-material/Add';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { SheetProvider, useSheetContext } from './contexts/SheetContext';
-import { DataSourceProvider } from './contexts/DataSourceContext';
+import { DataSourceProvider, useDataSource } from './contexts/DataSourceContext';
+import { useConnection } from './contexts/ConnectionContext';
+import SaveLoadMenu from './components/SaveLoadMenu';
+import ConnectionRestoreDialog from './components/ConnectionRestoreDialog';
+import { 
+  exportConfiguration, 
+  downloadConfigFile, 
+  validateConfiguration,
+  reconstructConnectionDetails 
+} from './services/configurationService';
+import { SavedConfiguration, SavedConnectionMetadata } from './types';
 import './App.css';
 
 const DataSourceSelectionPage = lazy(() => import('./pages/DataSourceSelectionPage'));
@@ -16,7 +26,9 @@ function AppContent() {
   const isDataSourcePage = location.pathname === '/';
   const isVisualizationPage = location.pathname.startsWith('/visualize');
   
-  const { state, setActiveSheet, addSheet, renameSheet, duplicateSheet, removeSheet } = useSheetContext();
+  const { state, setActiveSheet, addSheet, renameSheet, duplicateSheet, removeSheet, dispatch: sheetDispatch } = useSheetContext();
+  const { dataSource, setSelectedDatabase, setSelectedTable, setDatabases, setTables, setAvailableFields } = useDataSource();
+  const { connectionDetails, connect } = useConnection();
   
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
@@ -31,6 +43,11 @@ function AppContent() {
   }>({ open: false, sheetId: '', currentName: '' });
   
   const [newName, setNewName] = useState('');
+  
+  // State for configuration restore
+  const [pendingConfig, setPendingConfig] = useState<SavedConfiguration | null>(null);
+  const [showConnectionRestore, setShowConnectionRestore] = useState(false);
+  const [connectionMetadata, setConnectionMetadata] = useState<SavedConnectionMetadata | null>(null);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: string) => {
     if (newValue === 'datasources') {
@@ -104,11 +121,150 @@ function AppContent() {
     handleCloseContextMenu();
   };
 
+  // Save/Load Configuration Handlers
+  const handleSaveConfiguration = () => {
+    try {
+      const config = exportConfiguration(
+        state.sheets,
+        state.activeSheetId,
+        state.nextSheetNumber,
+        connectionDetails,
+        dataSource.selectedDatabase,
+        dataSource.selectedTable
+      );
+      downloadConfigFile(config);
+    } catch (error) {
+      console.error('Failed to save configuration:', error);
+      alert('Failed to save configuration: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  };
+
+  const handleLoadConfiguration = async (rawConfig: any) => {
+    try {
+      // Validate the configuration
+      const config = validateConfiguration(rawConfig);
+      
+      // If there's connection metadata, show the connection restore dialog
+      if (config.connection) {
+        setPendingConfig(config);
+        setConnectionMetadata(config.connection);
+        setShowConnectionRestore(true);
+      } else {
+        // No connection, just restore sheets and data source selection
+        restoreConfigurationState(config);
+      }
+    } catch (error) {
+      console.error('Failed to load configuration:', error);
+      alert('Failed to load configuration: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  };
+
+  const handleConnectionRestore = async (password: string, file?: File) => {
+    if (!connectionMetadata || !pendingConfig) return;
+
+    try {
+      // Reconstruct connection details with password
+      const details = reconstructConnectionDetails(connectionMetadata, password);
+      
+      // Attempt to connect
+      await connect(details, file);
+      
+      // If connection successful, restore the rest of the configuration
+      setShowConnectionRestore(false);
+      restoreConfigurationState(pendingConfig);
+      
+      // Navigate to visualization page if not already there
+      if (!isVisualizationPage) {
+        navigate('/visualize');
+      }
+    } catch (error) {
+      // Error is handled by the ConnectionRestoreDialog
+      throw error;
+    }
+  };
+
+  const handleConnectionRestoreCancel = () => {
+    setShowConnectionRestore(false);
+    setPendingConfig(null);
+    setConnectionMetadata(null);
+  };
+
+  const handleConnectionRestoreSkip = () => {
+    if (pendingConfig) {
+      setShowConnectionRestore(false);
+      restoreConfigurationState(pendingConfig);
+    }
+  };
+
+  const restoreConfigurationState = (config: SavedConfiguration) => {
+    try {
+      // Restore sheets
+      sheetDispatch({ type: 'LOAD_SHEETS', payload: config.sheets });
+      
+      // Restore active sheet if specified
+      if (config.activeSheetId) {
+        setActiveSheet(config.activeSheetId);
+      }
+      
+      // Navigate to visualization page first if we have sheets
+      // This ensures the visualization page hooks are mounted before we restore data source
+      if (config.sheets.length > 0 && !isVisualizationPage) {
+        navigate('/visualize');
+      }
+      
+      // Restore data source selection after navigation
+      // Give React time to mount the visualization page and its hooks
+      if (config.dataSource && connectionDetails?.type !== 'csv') {
+        // For ClickHouse: restore database and table selection
+        // Use requestAnimationFrame to wait for next render cycle
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            // Clear metadata arrays first to ensure useEffects trigger fetches
+            setDatabases([]);
+            setTables([]);
+            setAvailableFields([]);
+            
+            // Then set the restored database and table
+            // The useEffects in useVisualizationState will detect these changes
+            // and fetch the appropriate metadata (databases -> tables -> columns)
+            if (config.dataSource!.selectedDatabase) {
+              setSelectedDatabase(config.dataSource!.selectedDatabase);
+            }
+            if (config.dataSource!.selectedTable) {
+              setSelectedTable(config.dataSource!.selectedTable);
+            }
+          }, 0);
+        });
+      }
+      // For CSV: Don't restore anything - let the natural useEffect flow handle it
+      // The fetchTables will auto-detect and select the single table
+      
+      setPendingConfig(null);
+      setConnectionMetadata(null);
+    } catch (error) {
+      console.error('Failed to restore configuration state:', error);
+      alert('Failed to restore configuration: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  };
+
   // Determine current tab value
   const currentTab = isDataSourcePage ? 'datasources' : state.activeSheetId;
 
   return (
     <div className="App">
+      {/* Top bar with Save/Load menu */}
+      <Box sx={{ 
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        zIndex: 1000,
+      }}>
+        <SaveLoadMenu 
+          onSave={handleSaveConfiguration}
+          onLoad={handleLoadConfiguration}
+        />
+      </Box>
+
       {/* Main content area */}
       <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
         <Suspense fallback={null}>
@@ -247,6 +403,15 @@ function AppContent() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Connection Restore Dialog */}
+      <ConnectionRestoreDialog
+        open={showConnectionRestore}
+        connectionMetadata={connectionMetadata}
+        onConnect={handleConnectionRestore}
+        onCancel={handleConnectionRestoreCancel}
+        onSkip={handleConnectionRestoreSkip}
+      />
     </div>
   );
 }
