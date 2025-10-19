@@ -71,22 +71,28 @@ export function applySharedDomains(
   const xDomainKey = (opts as any)?.x?.domainKey || (opts as any)?.x?.domainLabel || (opts as any)?.x?.label;
   const yDomainKey = (opts as any)?.y?.domainKey || (opts as any)?.y?.domainLabel || (opts as any)?.y?.label;
   
-  // Check if domains are already explicitly set (scatter plots set their own)
+  // For faceted charts, we want to apply shared domains to ensure consistency across facets
+  // Scatter plots should use shared domains in faceting mode (nice: false indicates scatter)
+  const isScatterChart = (opts as any)?.x?.nice === false && (opts as any)?.y?.nice === false;
+  
+  // Check if domains are already explicitly set
   const xDomainAlreadySet = (opts as any)?.x?.domain !== undefined;
   const yDomainAlreadySet = (opts as any)?.y?.domain !== undefined;
   
-  // Apply numeric/measure domains to axes that don't already have domains set
-  // Scatter plots calculate their own domains, so they'll have domains already set
-  // Line charts and bar charts need shared domains for consistency across facets
+  // Apply numeric/measure domains to axes
+  // For scatter charts in faceting mode, override existing domains to ensure shared scales
+  // For other chart types, only apply if not already set
   const xDomain = (sharedDomains.numeric && xDomainKey && sharedDomains.numeric[xDomainKey]) 
     || (sharedDomains.measure && xDomainKey && sharedDomains.measure[xDomainKey]);
   const yDomain = (sharedDomains.numeric && yDomainKey && sharedDomains.numeric[yDomainKey]) 
     || (sharedDomains.measure && yDomainKey && sharedDomains.measure[yDomainKey]);
   
-  if (xDomain && opts.x && !xDomainAlreadySet) {
+  // Apply X domain: always override for scatter charts to ensure shared scales across facets
+  if (xDomain && opts.x && (isScatterChart || !xDomainAlreadySet)) {
     opts.x = { ...(opts.x as any), domain: xDomain } as any;
   }
-  if (yDomain && opts.y && !yDomainAlreadySet) {
+  // Apply Y domain: always override for scatter charts to ensure shared scales across facets
+  if (yDomain && opts.y && (isScatterChart || !yDomainAlreadySet)) {
     opts.y = { ...(opts.y as any), domain: yDomain } as any;
   }
   

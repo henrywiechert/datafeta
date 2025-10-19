@@ -110,21 +110,33 @@ export function scatterChart(
 
   dotConfig.tip = { format: tipFormat } as any;
   
-  // For scatter plots, ALWAYS calculate domains from the actual data
-  // Don't use shared domains which are designed for bar charts (starting at 0)
-  const xValues = clean.map(d => d[xColumn]);
-  const xMin = Math.min(...xValues);
-  const xMax = Math.max(...xValues);
-  const xRange = xMax - xMin;
-  const xPadding = xRange * 0.05; // 5% padding on each side
-  const xDomain = [xMin - xPadding, xMax + xPadding] as [number, number];
+  // Calculate domains: use shared domains if provided (for faceting/grids), otherwise calculate from local data
+  let xDomain: [number, number];
+  let yDomain: [number, number];
   
-  const yValues = clean.map(d => d[yColumn]);
-  const yMin = Math.min(...yValues);
-  const yMax = Math.max(...yValues);
-  const yRange = yMax - yMin;
-  const yPadding = yRange * 0.05; // 5% padding on each side
-  const yDomain = [yMin - yPadding, yMax + yPadding] as [number, number];
+  // X domain: use shared if provided, otherwise calculate from data
+  if (options?.domain?.x) {
+    xDomain = options.domain.x;
+  } else {
+    const xValues = clean.map(d => d[xColumn]);
+    const xMin = Math.min(...xValues);
+    const xMax = Math.max(...xValues);
+    const xRange = xMax - xMin;
+    const xPadding = xRange * 0.05; // 5% padding on each side
+    xDomain = [xMin - xPadding, xMax + xPadding] as [number, number];
+  }
+  
+  // Y domain: use shared if provided, otherwise calculate from data
+  if (options?.domain?.y) {
+    yDomain = options.domain.y;
+  } else {
+    const yValues = clean.map(d => d[yColumn]);
+    const yMin = Math.min(...yValues);
+    const yMax = Math.max(...yValues);
+    const yRange = yMax - yMin;
+    const yPadding = yRange * 0.05; // 5% padding on each side
+    yDomain = [yMin - yPadding, yMax + yPadding] as [number, number];
+  }
   
   const plotOptions: Plot.PlotOptions = {
     // Provide labels and retain as keys for domain application
