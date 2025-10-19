@@ -21,6 +21,8 @@ Data Slicer is a full-stack data analysis platform consisting of:
 - **Multi-Chart Faceting**: Sophisticated faceting system for multi-dimensional data exploration
 - **Field Classification**: Intelligent field type detection and classification system
 - **Responsive Design**: Mobile-friendly interface with adaptive layouts
+- **Multi-Sheet Support**: Create and manage multiple visualization sheets in a single workspace
+- **Save/Load Configurations**: Export and import complete workspace configurations as JSON files
 
 ### Architecture
 - **Frontend**: React with TypeScript, Material-UI components
@@ -48,6 +50,8 @@ uvicorn main:app --reload
 
 - [`frontend/`](./frontend/README.md) - Frontend application documentation
 - [`backend/`](./backend/README.md) - Backend API and service documentation
+- [`frontend/SAVE_LOAD_FEATURE.md`](./frontend/SAVE_LOAD_FEATURE.md) - Save/Load configuration feature guide
+- [`SAVE_LOAD_IMPLEMENTATION.md`](./SAVE_LOAD_IMPLEMENTATION.md) - Technical implementation details
 
 ## Deployment
 
