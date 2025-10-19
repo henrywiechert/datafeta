@@ -36,6 +36,7 @@ export const convertFilterConfigsToFilters = (
   Object.values(filterConfigs).forEach(config => {
     if (config.type === 'discrete') {
       // For discrete filters, use 'in' operator with selected values
+      // The backend will handle NULL values specially (converting to OR with IS NULL)
       if (config.selectedValues.length > 0) {
         const filter: Filter = {
           field: config.columnName,
