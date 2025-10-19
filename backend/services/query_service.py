@@ -416,8 +416,38 @@ class QueryService:
             elif f.operator in ['in', 'not in']:
                  if not isinstance(value, list):
                      raise QueryGenerationError(f"Value for '{f.operator}' operator must be a list.")
-                 # Pypika expects a tuple for isin
-                 criteria.append(operator_func(field, tuple(value)))
+                 
+                 # Handle NULL values specially - SQL IN doesn't match NULL
+                 # Split into non-null values and null check
+                 non_null_values = [v for v in value if v is not None]
+                 has_null = any(v is None for v in value)
+                 
+                 if f.operator == 'in':
+                     # Build: (field IN (non_nulls) OR field IS NULL)
+                     if non_null_values and has_null:
+                         # Both non-null and null: use OR
+                         in_criterion = field.isin(tuple(non_null_values))
+                         null_criterion = field.isnull()
+                         criteria.append(in_criterion | null_criterion)
+                     elif non_null_values:
+                         # Only non-null values
+                         criteria.append(field.isin(tuple(non_null_values)))
+                     elif has_null:
+                         # Only null
+                         criteria.append(field.isnull())
+                 else:  # 'not in'
+                     # Build: (field NOT IN (non_nulls) AND field IS NOT NULL)
+                     if non_null_values and has_null:
+                         # Both: field not in non-nulls and not null
+                         not_in_criterion = ~field.isin(tuple(non_null_values))
+                         not_null_criterion = field.notnull()
+                         criteria.append(not_in_criterion & not_null_criterion)
+                     elif non_null_values:
+                         # Only non-null values: just NOT IN
+                         criteria.append(~field.isin(tuple(non_null_values)))
+                     elif has_null:
+                         # Only null: everything except null
+                         criteria.append(field.notnull())
             else:
                 criteria.append(operator_func(field, value))
         
@@ -537,9 +567,12 @@ class QueryService:
         # and no user-defined limit, order, or filters exist.
         # This targets the simple "drag a field to see its distribution" use case.
         if with_sampling and is_raw_query and is_single_dimension and query_desc.limit is None and not query_desc.orderBy and not query_desc.filters:
-            # First, add a WHERE ... IS NOT NULL clause to sample from non-null values.
-            dimension_field_name = query_desc.dimensions[0].field
-            q = q.where(t[dimension_field_name].notnull())
+            # Only add a WHERE ... IS NOT NULL clause for continuous dimensions
+            # For discrete dimensions (e.g., filter metadata), we want to include NULLs
+            dimension = query_desc.dimensions[0]
+            if dimension.flavour == 'continuous':
+                dimension_field_name = dimension.field
+                q = q.where(t[dimension_field_name].notnull())
 
             if db_type == 'clickhouse':
                 # Using ORDER BY rand() is a compatible way to sample on any table engine.
