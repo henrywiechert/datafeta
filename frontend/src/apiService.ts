@@ -107,16 +107,12 @@ export const apiService = {
     },
 
     async listDatabases(signal?: AbortSignal): Promise<DatabaseListResponse> {
-        const abortController = signal ? null : createAbortController();
-        const requestSignal = signal || abortController?.signal;
-
-        const response = await fetchWithErrorHandling(`${API_BASE_URL}/databases`, {}, requestSignal);
+        const response = await fetchWithErrorHandling(`${API_BASE_URL}/databases`, {}, signal);
         return response.json();
     },
 
   async listTables(database?: string, signal?: AbortSignal): Promise<TableListResponse> {
-        const abortController = signal ? null : createAbortController();
-        const requestSignal = signal || abortController?.signal;
+        
     // Support relative API_BASE_URL by using window.location.origin as base when needed
     const base = API_BASE_URL.startsWith('http') ? API_BASE_URL : `${window.location.origin}${API_BASE_URL}`;
     const url = new URL(`${base}/tables`);
@@ -124,13 +120,12 @@ export const apiService = {
             url.searchParams.append('database', database);
         }
         
-        const response = await fetchWithErrorHandling(url.toString(), {}, requestSignal);
+        const response = await fetchWithErrorHandling(url.toString(), {}, signal);
         return response.json();
     },
 
     async listColumns(table: string, database?: string, signal?: AbortSignal): Promise<ColumnListResponse> {
-        const abortController = signal ? null : createAbortController();
-        const requestSignal = signal || abortController?.signal;
+        
     const base = API_BASE_URL.startsWith('http') ? API_BASE_URL : `${window.location.origin}${API_BASE_URL}`;
     const url = new URL(`${base}/columns`);
         url.searchParams.append('table', table);
@@ -138,7 +133,7 @@ export const apiService = {
             url.searchParams.append('database', database);
         }
         
-        const response = await fetchWithErrorHandling(url.toString(), {}, requestSignal);
+        const response = await fetchWithErrorHandling(url.toString(), {}, signal);
         return response.json();
     },
 
