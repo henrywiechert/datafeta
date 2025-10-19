@@ -36,34 +36,47 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
       if (useRegex) {
         try {
           const re = new RegExp(term);
-          values = values.filter(value => re.test(String(value)));
+          values = values.filter(value => {
+            // Handle null/undefined values
+            const displayValue = value === null || value === undefined ? '(null)' : String(value);
+            return re.test(displayValue);
+          });
         } catch (e: any) {
           // invalid regex → don't filter further, surface error
           setRegexError(e?.message || 'Invalid regex');
         }
       } else {
         const lowerSearch = term.toLowerCase();
-        values = values.filter(value => 
-          String(value).toLowerCase().includes(lowerSearch)
-        );
+        values = values.filter(value => {
+          // Handle null/undefined values
+          const displayValue = value === null || value === undefined ? '(null)' : String(value);
+          return displayValue.toLowerCase().includes(lowerSearch);
+        });
       }
     }
     
-    // Then sort: numeric if all values are numeric, otherwise alphabetic
+    // Then sort: numeric if all values are numeric (excluding nulls), otherwise alphabetic
     const sortedValues = [...values];
     
-    // Check if all values are numeric
-    const allNumeric = sortedValues.every(v => {
+    // Check if all non-null values are numeric
+    const nonNullValues = sortedValues.filter(v => v !== null && v !== undefined);
+    const allNumeric = nonNullValues.length > 0 && nonNullValues.every(v => {
       const num = Number(v);
       return !isNaN(num) && isFinite(num);
     });
     
     if (allNumeric) {
-      // Numeric sort
-      sortedValues.sort((a, b) => Number(a) - Number(b));
-    } else {
-      // Alphabetic sort
+      // Numeric sort - put nulls at the end
       sortedValues.sort((a, b) => {
+        if (a === null || a === undefined) return 1;
+        if (b === null || b === undefined) return -1;
+        return Number(a) - Number(b);
+      });
+    } else {
+      // Alphabetic sort - put nulls at the end
+      sortedValues.sort((a, b) => {
+        if (a === null || a === undefined) return 1;
+        if (b === null || b === undefined) return -1;
         const strA = String(a);
         const strB = String(b);
         return strA.localeCompare(strB);
@@ -185,7 +198,8 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
       {/* Checkbox list */}
       <Box className={styles.checkboxList}>
         {filteredValuesWithRegex.map((value, index) => {
-          const valueStr = String(value);
+          // Display null/undefined values as "(null)"
+          const valueStr = value === null || value === undefined ? '(null)' : String(value);
           const isChecked = selectedValues.includes(value);
           
           return (

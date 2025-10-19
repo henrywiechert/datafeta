@@ -132,6 +132,7 @@ def execute_query(
     except ValidationError as e:
         # Format the validation error for better readability
         error_details = json.dumps(e.errors(), indent=2)
+        logger.error(f"Query validation failed: {error_details}")
         # Re-raise with a more user-friendly message, including validation details
         raise InvalidInputError(f"Invalid query description:\n{error_details}", status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
