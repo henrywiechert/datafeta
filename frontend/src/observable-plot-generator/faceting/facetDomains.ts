@@ -71,32 +71,23 @@ export function applySharedDomains(
   const xDomainKey = (opts as any)?.x?.domainKey || (opts as any)?.x?.domainLabel || (opts as any)?.x?.label;
   const yDomainKey = (opts as any)?.y?.domainKey || (opts as any)?.y?.domainLabel || (opts as any)?.y?.label;
   
-  // Check if both axes have measure/numeric domains - this indicates a scatter plot
-  const xHasMeasureDomain = xDomainKey && (
-    (sharedDomains.measure && sharedDomains.measure[xDomainKey]) ||
-    (sharedDomains.numeric && sharedDomains.numeric[xDomainKey])
-  );
-  const yHasMeasureDomain = yDomainKey && (
-    (sharedDomains.measure && sharedDomains.measure[yDomainKey]) ||
-    (sharedDomains.numeric && sharedDomains.numeric[yDomainKey])
-  );
-  const isScatterPlot = xHasMeasureDomain && yHasMeasureDomain;
+  // Check if domains are already explicitly set (scatter plots set their own)
+  const xDomainAlreadySet = (opts as any)?.x?.domain !== undefined;
+  const yDomainAlreadySet = (opts as any)?.y?.domain !== undefined;
   
-  // For scatter plots, do NOT apply shared measure domains (which are designed for bar charts starting at 0)
-  // Scatter plots should calculate their own tight domains based on actual data
-  if (!isScatterPlot) {
-    // Apply numeric/measure domains to axes (only for non-scatter plots like bar charts)
-    const xDomain = (sharedDomains.numeric && xDomainKey && sharedDomains.numeric[xDomainKey]) 
-      || (sharedDomains.measure && xDomainKey && sharedDomains.measure[xDomainKey]);
-    const yDomain = (sharedDomains.numeric && yDomainKey && sharedDomains.numeric[yDomainKey]) 
-      || (sharedDomains.measure && yDomainKey && sharedDomains.measure[yDomainKey]);
-    
-    if (xDomain && opts.x) {
-      opts.x = { ...(opts.x as any), domain: xDomain } as any;
-    }
-    if (yDomain && opts.y) {
-      opts.y = { ...(opts.y as any), domain: yDomain } as any;
-    }
+  // Apply numeric/measure domains to axes that don't already have domains set
+  // Scatter plots calculate their own domains, so they'll have domains already set
+  // Line charts and bar charts need shared domains for consistency across facets
+  const xDomain = (sharedDomains.numeric && xDomainKey && sharedDomains.numeric[xDomainKey]) 
+    || (sharedDomains.measure && xDomainKey && sharedDomains.measure[xDomainKey]);
+  const yDomain = (sharedDomains.numeric && yDomainKey && sharedDomains.numeric[yDomainKey]) 
+    || (sharedDomains.measure && yDomainKey && sharedDomains.measure[yDomainKey]);
+  
+  if (xDomain && opts.x && !xDomainAlreadySet) {
+    opts.x = { ...(opts.x as any), domain: xDomain } as any;
+  }
+  if (yDomain && opts.y && !yDomainAlreadySet) {
+    opts.y = { ...(opts.y as any), domain: yDomain } as any;
   }
   
   // Apply shared color domain
