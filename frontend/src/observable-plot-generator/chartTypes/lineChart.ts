@@ -76,9 +76,13 @@ export function lineChart(
     dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
 
     if (colorInfo.kind === 'continuous' && colorInfo.accessor) {
+      // For continuous color: apply accessor to both dots and line segments
       dotConfig.fill = (d: any) => colorInfo.accessor?.(d) ?? null;
-      lineConfig.stroke = colorInfo.range[colorInfo.range.length - 1] || DEFAULT_CHART_COLOR;
+      lineConfig.stroke = (d: any) => colorInfo.accessor?.(d) ?? null;
+      // Split line into segments so each point-to-point segment can have its own color
+      lineConfig.z = null;  // Don't group by z, render as individual segments
     } else {
+      // For discrete color: use column name and group by z value
       lineConfig.stroke = colorColumnName;
       lineConfig.z = colorColumnName;
       dotConfig.fill = colorColumnName;
@@ -211,9 +215,13 @@ export function verticalLineChart(
     dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
 
     if (colorInfo.kind === 'continuous' && colorInfo.accessor) {
+      // For continuous color: apply accessor to both dots and line segments
       dotConfig.fill = (d: any) => colorInfo.accessor?.(d) ?? null;
-      lineConfig.stroke = colorInfo.range[colorInfo.range.length - 1] || DEFAULT_CHART_COLOR;
+      lineConfig.stroke = (d: any) => colorInfo.accessor?.(d) ?? null;
+      // Split line into segments so each point-to-point segment can have its own color
+      lineConfig.z = null;  // Don't group by z, render as individual segments
     } else {
+      // For discrete color: use column name and group by z value
       lineConfig.stroke = colorColumnName;
       lineConfig.z = colorColumnName;
       dotConfig.fill = colorColumnName;
