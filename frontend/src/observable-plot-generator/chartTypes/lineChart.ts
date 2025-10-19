@@ -28,8 +28,8 @@ export function lineChart(
 
   if (clean.length === 0) {
     return {
-      x: { label: labels?.x || xColumn, grid: true },
-      y: { label: labels?.y || yColumn, grid: true },
+      x: { label: labels?.x || xColumn, domainKey: xColumn, grid: true } as any,
+      y: { label: labels?.y || yColumn, domainKey: yColumn, grid: true } as any,
       marks: [],
     };
   }
@@ -110,8 +110,8 @@ export function lineChart(
   dotConfig.tip = { pointer: 'x', preferredAnchor: 'top-right', format: tipFormat };
 
   const plotOptions: Plot.PlotOptions = {
-    x: { label: labels?.x || xColumn, grid: true, domain: domain?.x },
-    y: { label: labels?.y || yColumn, grid: true, domain: domain?.y },
+    x: { label: labels?.x || xColumn, domainKey: xColumn, grid: true, domain: domain?.x } as any,
+    y: { label: labels?.y || yColumn, domainKey: yColumn, grid: true, domain: domain?.y } as any,
     marks: [
       Plot.line(cleanSorted, lineConfig),
       Plot.dot(cleanSorted, dotConfig),
@@ -162,8 +162,8 @@ export function verticalLineChart(
 
   if (clean.length === 0) {
     return {
-      x: { label: labels?.x || xColumn, grid: true },
-      y: { label: labels?.y || yColumn, grid: true },
+      x: { label: labels?.x || xColumn, domainKey: xColumn, grid: true } as any,
+      y: { label: labels?.y || yColumn, domainKey: yColumn, grid: true } as any,
       marks: [],
     };
   }
@@ -233,8 +233,8 @@ export function verticalLineChart(
   }
   
   const plotOptions: Plot.PlotOptions = {
-    x: { label: labels?.x || xColumn, grid: true, domain: domain?.x },
-    y: { label: labels?.y || yColumn, grid: true, domain: domain?.y },
+    x: { label: labels?.x || xColumn, domainKey: xColumn, grid: true, domain: domain?.x } as any,
+    y: { label: labels?.y || yColumn, domainKey: yColumn, grid: true, domain: domain?.y } as any,
     marks: [
       Plot.line(cleanSorted, lineConfig),
       Plot.dot(cleanSorted, dotConfig),

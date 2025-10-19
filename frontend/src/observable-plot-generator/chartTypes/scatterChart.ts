@@ -26,8 +26,8 @@ export function scatterChart(
   if (clean.length === 0) {
     // Render empty axes (no points) so the cell shape matches others
     return {
-      x: { label: options?.x || xColumn, grid: true, domain: options?.domain?.x },
-      y: { label: options?.y || yColumn, grid: true, domain: options?.domain?.y },
+      x: { label: options?.x || xColumn, domainKey: xColumn, grid: true, domain: options?.domain?.x } as any,
+      y: { label: options?.y || yColumn, domainKey: yColumn, grid: true, domain: options?.domain?.y } as any,
       marks: [],
     };
   }
@@ -128,8 +128,8 @@ export function scatterChart(
   
   const plotOptions: Plot.PlotOptions = {
     // Provide labels and retain as keys for domain application
-    x: { label: options?.x || xColumn, grid: true, domain: xDomain, nice: false },
-    y: { label: options?.y || yColumn, grid: true, domain: yDomain, nice: false },
+    x: { label: options?.x || xColumn, domainKey: xColumn, grid: true, domain: xDomain, nice: false } as any,
+    y: { label: options?.y || yColumn, domainKey: yColumn, grid: true, domain: yDomain, nice: false } as any,
     // Ensure r values returned by dotConfig.r are treated as absolute radii (no further scaling)
     r: { type: 'identity' } as any,
     marks: [
