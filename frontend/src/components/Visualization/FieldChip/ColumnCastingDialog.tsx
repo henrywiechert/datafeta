@@ -63,7 +63,7 @@ const ColumnCastingDialog: React.FC<ColumnCastingDialogProps> = ({
   // Get pattern suggestions based on cast type
   const getPatternSuggestions = (): string[] => {
     if (castType === 'BIGINT' || castType === 'INTEGER' || castType === 'DOUBLE' || castType === 'FLOAT') {
-      return [',', '.', ' ', '_'];
+      return [',', '.', ' ', '_', "'"];
     }
     return [];
   };
