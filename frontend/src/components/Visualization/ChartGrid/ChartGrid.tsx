@@ -60,10 +60,10 @@ function computeDynamicXAxisGutterPx(spec: PlotResult, columns: number): number 
       const longestPx = xDomain.reduce((m: number, v: any) => Math.max(m, estimateTextPx(String(v))), 0);
       // Approx vertical component of rotated labels at 45deg
       const rotatedVertical = Math.ceil(longestPx * Math.SQRT1_2) + 8; // 0.707 + padding
-      height = Math.max(28, 14 + rotatedVertical); // base tick + labels
+      height = Math.max(30, 14 + rotatedVertical); // base tick + labels
     } else {
       // numeric or time, modest ticks
-      height = 28;
+      height = 30;
     }
     if (height > maxHeight) maxHeight = height;
   }
@@ -280,7 +280,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
           top: 0,
           left: leftFixedWidthPx,
           right: 14, // Leave space for vertical scrollbar (14px wide)
-          bottom: 0,
+          bottom: 0, // Leave space for horizontal scrollbar
           overflowX: 'scroll',
           overflowY: 'hidden',
           // Put the horizontal (plots) layer above the vertical labels/scroll layer so
@@ -292,7 +292,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
           <div style={{
             display: 'grid',
             gridTemplateColumns: `minmax(0, 1fr)`,
-            gridTemplateRows: spec.facetLabels ? `${topHeaderHeight}px 1fr ${dynamicXAxisPx}px ${X_LABEL_ROW_PX}px` : `1fr ${dynamicXAxisPx}px ${X_LABEL_ROW_PX}px`,
+            gridTemplateRows: spec.facetLabels ? `${topHeaderHeight}px 1fr ${dynamicXAxisPx}px 0px` : `1fr ${dynamicXAxisPx}px 0px`,
             minWidth: `${totalContentWidthPx}px`,
             width: '100%',
             height: '100%'
