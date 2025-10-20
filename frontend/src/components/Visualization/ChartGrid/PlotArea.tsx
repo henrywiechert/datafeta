@@ -21,6 +21,7 @@ function suppressAxes(options: any, hideX: boolean, hideY: boolean) {
   next.marginLeft = 0;
   next.marginRight = 0;
   next.marginTop = 0;
+  // Add small bottom margin to prevent X-axis overlap with chart marks
   next.marginBottom = 0;
   next.inset = 0;
   if (hideX) {
@@ -50,7 +51,7 @@ const PlotArea: React.FC<PlotAreaProps> = ({
   totalContentWidthPx,
 }) => {
   return (
-    <div style={{ gridColumn: 1, gridRow: spec.facetLabels ? 2 : 1, overflow: 'hidden', position: 'relative' }}>
+    <div style={{ gridColumn: 1, gridRow: spec.facetLabels ? 2 : 1}}>
       <div
         ref={plotsTranslateRef}
         style={{
