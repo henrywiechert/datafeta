@@ -70,7 +70,7 @@ const XAxes: React.FC<XAxesProps> = ({
       </div>
 
       {/* Bottom X labels */}
-      <div style={{ gridColumn: 1, gridRow: spec.facetLabels ? 4 : 3 }}>
+      <div style={{ gridColumn: 1, gridRow: spec.facetLabels ? 5 : 4 }}>
         {(() => {
           const colSizes = spec.layout?.columnSizes as Array<number | 'fr'> | undefined;
           const hasFlexible = !colSizes || colSizes.some((c) => typeof c !== 'number');
