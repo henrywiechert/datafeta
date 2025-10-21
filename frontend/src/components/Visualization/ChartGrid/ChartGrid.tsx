@@ -325,7 +325,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
           top: spec.facetLabels ? topHeaderHeight : 0,
           left: 0,
           right: 0,
-          bottom: dynamicXAxisPx + X_LABEL_ROW_PX,
+          bottom: dynamicXAxisPx + X_LABEL_ROW_PX + 16,
           overflowY: 'scroll',
           overflowX: 'hidden',
           zIndex: 2,
