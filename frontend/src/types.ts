@@ -249,6 +249,10 @@ interface BaseFilterMetadata {
 export interface DiscreteFilterMetadata extends BaseFilterMetadata {
   type: 'discrete';
   availableValues: any[];
+  totalCount?: number; // Total number of unique values (when known)
+  isPartial?: boolean; // True if only showing partial results (e.g., first 100 of >5000)
+  warningMessage?: string; // Warning message to display to user
+  appliedRegexQuery?: string; // Backend LIKE pattern currently applied (if any)
 }
 
 export interface ContinuousFilterMetadata extends BaseFilterMetadata {

@@ -13,6 +13,7 @@ interface FilterPanelProps {
   onRemove: (fieldId: string) => void;
   onConfigChange: (fieldId: string, config: FilterConfig) => void;
   onApplyFilters: () => void;
+  onRefetchValues: (fieldId: string, regexPattern?: string) => Promise<void>;
 }
 
 const FilterPanel: React.FC<FilterPanelProps> = ({
@@ -23,6 +24,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   onRemove,
   onConfigChange,
   onApplyFilters,
+  onRefetchValues,
 }) => {
   const hasActiveFilters = filterFields.length > 0;
 
@@ -55,6 +57,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
         onDrop={onDrop}
         onRemove={onRemove}
         onConfigChange={onConfigChange}
+        onRefetchValues={onRefetchValues}
       />
     </PropertySection>
   );
