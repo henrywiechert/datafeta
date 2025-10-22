@@ -344,6 +344,7 @@ export function useVisualizationState() {
                     loading: false,
                     availableValues: values,
                     totalCount: count,
+                    originalTotalCount: count, // Store the original count for later reference
                     isPartial,
                     warningMessage,
                 };
@@ -549,6 +550,11 @@ export function useVisualizationState() {
             let warningMessage: string | undefined;
             let appliedRegexQuery: string | undefined = regexPattern;
             
+            // Preserve the original total count (without regex filter) to determine if field is inherently large
+            const originalTotalCount = currentMetadata && currentMetadata.type === 'discrete' 
+                ? (currentMetadata.originalTotalCount || currentMetadata.totalCount)
+                : count;
+            
             if (count <= 5000) {
                 // Fetch all values with the regex filter
                 values = await apiService.getDistinctValues(
@@ -559,9 +565,18 @@ export function useVisualizationState() {
                     field.dateTimeMode,
                     regexPattern
                 );
-                warningMessage = regexPattern 
-                    ? `Filtered to ${count.toLocaleString()} values matching your query.`
-                    : undefined;
+                
+                // Keep isPartial=true if this field originally had >5000 values
+                // This ensures the Query Regex field stays visible even if filter returns 0-5000 results
+                isPartial = (originalTotalCount || 0) > 5000;
+                
+                if (regexPattern) {
+                    if (count === 0) {
+                        warningMessage = `No values match your query pattern. Try a different pattern.`;
+                    } else {
+                        warningMessage = `Filtered to ${count.toLocaleString()} values matching your query.`;
+                    }
+                }
             } else {
                 // Still too many - fetch 100 random values matching the regex query
                 values = await apiService.getDistinctValues(
@@ -584,6 +599,7 @@ export function useVisualizationState() {
                 loading: false,
                 availableValues: values,
                 totalCount: count,
+                originalTotalCount, // Preserve the original total
                 isPartial,
                 warningMessage,
                 appliedRegexQuery,
@@ -594,8 +610,28 @@ export function useVisualizationState() {
                 payload: { fieldId, metadata }
             });
             
-            // Update selected values: if not partial (<=5000), select all new values
-            if (!isPartial) {
+            // Update selected values:
+            // - If count is 0: clear selections
+            // - If count <=5000 (and >0): select all new values
+            // - If count >5000: keep existing selections (partial results)
+            if (count === 0) {
+                // Clear selections when no results
+                dispatch({
+                    type: 'SET_FILTER_CONFIGURATION',
+                    payload: {
+                        fieldId,
+                        config: {
+                            fieldId: field.id,
+                            columnName: field.columnName,
+                            type: 'discrete',
+                            selectedValues: [],
+                            dateTimePart: field.dateTimePart,
+                            dateTimeMode: field.dateTimeMode,
+                        }
+                    }
+                });
+            } else if (count <= 5000) {
+                // Select all matching values when we have a manageable number
                 dispatch({
                     type: 'SET_FILTER_CONFIGURATION',
                     payload: {
@@ -611,6 +647,7 @@ export function useVisualizationState() {
                     }
                 });
             }
+            // If count > 5000, don't update selectedValues (keep existing 100 selected)
         } catch (err: any) {
             // Set error state
             const errorMetadata: FilterMetadata = {

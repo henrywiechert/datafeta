@@ -153,15 +153,9 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
     );
   }
 
-  if (metadata.availableValues.length === 0) {
-    return (
-      <Box className={styles.container}>
-        <Typography variant="caption" color="textSecondary">
-          No values available
-        </Typography>
-      </Box>
-    );
-  }
+  // Don't return early for 0 values if we have Query Regex capability
+  // (so user can refine their pattern)
+  const hasNoValues = metadata.availableValues.length === 0;
 
   return (
     <Box className={styles.container}>
@@ -200,6 +194,17 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
         </Box>
       )}
       
+      {/* Show message if no values (but still allow Query Regex above to be used) */}
+      {hasNoValues && !metadata.isPartial && (
+        <Box className={styles.container}>
+          <Typography variant="caption" color="textSecondary">
+            No values available
+          </Typography>
+        </Box>
+      )}
+      
+      {/* Only show filter controls if we have values */}
+      {!hasNoValues && (
       <Box className={styles.filterBox}>
         {/* List Filter - for client-side filtering of loaded values */}
         {metadata.availableValues.length > 10 && (
@@ -271,12 +276,13 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
           );
         })}
       </Box>
-      </Box>
-
+      
       {/* Selection summary */}
       <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
         {selectedValues.length} of {metadata.availableValues.length} selected
       </Typography>
+      </Box>
+      )}
     </Box>
   );
 };
