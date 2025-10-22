@@ -96,6 +96,10 @@ class QueryDescription(BaseModel):
     # Maps column_name to {cast_type, replacement_pattern}
     # Example: {'Revenue': {'cast_type': 'DOUBLE', 'replacement_pattern': ','}}
     column_casts: Optional[Dict[str, Dict[str, str]]] = None
+    
+    # For distinct value queries: apply LIKE pattern filter and random sampling
+    distinct_value_regex: Optional[str] = None  # SQL LIKE pattern to filter distinct values
+    use_random_sample: Optional[bool] = None  # Whether to use ORDER BY RANDOM() for sampling
 
 class QueryResult(BaseModel):
     columns: List[Dict[str, str]] # e.g., [{"name": "col1", "type": "string"}, ...]

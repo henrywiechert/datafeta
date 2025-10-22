@@ -6,7 +6,8 @@ import {
   Box, 
   TextField,
   CircularProgress,
-  Typography
+  Typography,
+  Alert
 } from '@mui/material';
 import { DiscreteFilterMetadata } from '../../../types';
 import styles from './DiscreteFilterControl.module.css';
@@ -15,22 +16,26 @@ interface DiscreteFilterControlProps {
   metadata: DiscreteFilterMetadata;
   selectedValues: any[];
   onChange: (selectedValues: any[]) => void;
+  onRefetchValues: (regexPattern?: string) => Promise<void>;
 }
 
 const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
   metadata,
   selectedValues,
   onChange,
+  onRefetchValues,
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [listFilterTerm, setListFilterTerm] = useState('');
+  const [queryRegex, setQueryRegex] = useState(metadata.appliedRegexQuery || '');
   const [useRegex, setUseRegex] = useState(false);
   const [regexError, setRegexError] = useState<string | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
-  // Sort and filter available values based on search term
+  // Sort and filter available values based on list filter term (client-side)
   const filteredValues = useMemo(() => {
-    // First, filter based on search term (plain or regex)
+    // First, filter based on list filter term (plain or regex)
     let values = metadata.availableValues;
-    const term = searchTerm.trim();
+    const term = listFilterTerm.trim();
     setRegexError(null);
     if (term) {
       if (useRegex) {
@@ -84,7 +89,7 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
     }
     
     return sortedValues;
-  }, [metadata.availableValues, searchTerm, useRegex]);
+  }, [metadata.availableValues, listFilterTerm, useRegex]);
 
   // Also recompute when regex mode toggles to keep list in sync
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -112,6 +117,19 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
     const filteredSet = new Set(filteredValuesWithRegex);
     const newSelected = selectedValues.filter(v => !filteredSet.has(v));
     onChange(newSelected);
+  };
+  
+  // Handle query regex update (backend filter)
+  const handleQueryRegexUpdate = async () => {
+    if (isUpdating) return;
+    setIsUpdating(true);
+    try {
+      await onRefetchValues(queryRegex.trim() || undefined);
+    } catch (error) {
+      console.error('Error refetching values:', error);
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   if (metadata.loading) {
@@ -147,17 +165,52 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
 
   return (
     <Box className={styles.container}>
+      {/* Warning message for partial results */}
+      {metadata.isPartial && metadata.warningMessage && (
+        <Alert severity="warning" sx={{ mb: 1, fontSize: '12px', padding: '4px 8px' }}>
+          {metadata.warningMessage}
+        </Alert>
+      )}
+      
+      {/* Query Regex - for backend filtering (only visible when partial or applied) */}
+      {(metadata.isPartial || metadata.appliedRegexQuery) && (
+        <Box sx={{ mb: 1 }}>
+          <Typography variant="caption" sx={{ display: 'block', mb: 0.5, fontWeight: 500 }}>
+            Query Regex (SQL LIKE filter):
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <TextField
+              size="small"
+              variant="outlined"
+              placeholder="Enter pattern..."
+              value={queryRegex}
+              onChange={(e) => setQueryRegex(e.target.value)}
+              fullWidth
+              disabled={isUpdating}
+            />
+            <Button
+              size="small"
+              variant="contained"
+              onClick={handleQueryRegexUpdate}
+              disabled={isUpdating || !queryRegex.trim()}
+            >
+              {isUpdating ? <CircularProgress size={16} /> : 'Update'}
+            </Button>
+          </Box>
+        </Box>
+      )}
+      
       <Box className={styles.filterBox}>
-        {/* Search row inside header to align frames */}
+        {/* List Filter - for client-side filtering of loaded values */}
         {metadata.availableValues.length > 10 && (
           <Box className={`${styles.searchRow} ${styles.searchHeader}`}>
             <TextField
               className={styles.searchField}
               size="small"
               variant="outlined"
-              placeholder="Search values..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder={metadata.isPartial ? "Filter loaded values..." : "Search values..."}
+              value={listFilterTerm}
+              onChange={(e) => setListFilterTerm(e.target.value)}
               fullWidth
               error={!!regexError}
               helperText={regexError || ''}

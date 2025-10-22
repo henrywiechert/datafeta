@@ -120,6 +120,117 @@ def list_columns(
     columns = connector.list_columns(database=database, table=table)
     return ColumnListResponse(columns=columns)
 
+@router.get("/distinct-count")
+def get_distinct_count(
+    field: str,
+    table: str,
+    database: Optional[str] = None,
+    regexPattern: Optional[str] = None,
+    dateTimePart: Optional[str] = None,
+    dateTimeMode: Optional[str] = None,
+    connector: BaseConnector = Depends(get_active_connector),
+    conn_details: ConnectionDetails = Depends(get_connection_details)
+):
+    """Get count of distinct values for a field, optionally filtered by a LIKE pattern."""
+    if conn_details.type == "clickhouse" and not database:
+        raise InvalidInputError("'database' query parameter is required for ClickHouse connections.")
+    
+    from pypika import Query, Table, functions as fn
+    from pypika.terms import Term
+    from pypika.functions import Cast
+    from backend.services.query_service import QueryService
+    
+    # Custom term for COUNT(DISTINCT field)
+    class CountDistinct(Term):
+        def __init__(self, field_expr):
+            super().__init__()
+            self.field_expr = field_expr
+        
+        def get_sql(self, **kwargs):
+            field_sql = self.field_expr.get_sql(**kwargs)
+            return f"COUNT(DISTINCT {field_sql})"
+    
+    # Build the table reference
+    if conn_details.type == 'clickhouse' and database:
+        db_table = Table(table, schema=database)
+    else:
+        db_table = Table(table)
+    
+    # Determine the field to count
+    query_service = QueryService()
+    if dateTimePart and dateTimeMode:
+        # For datetime parts, we need to extract the part first
+        field_expr = query_service._get_datetime_part_expression(
+            getattr(db_table, field), dateTimePart, dateTimeMode, conn_details.type
+        )
+    else:
+        field_expr = getattr(db_table, field)
+    
+    # Build count query using custom CountDistinct
+    count_expr = CountDistinct(field_expr)
+    count_query = Query.from_(db_table).select(count_expr.as_('count'))
+    
+    # Apply regex filter if provided
+    if regexPattern:
+        # Convert to LIKE pattern: %pattern%
+        like_pattern = f"%{regexPattern}%"
+        if dateTimePart and dateTimeMode:
+            # For datetime parts, apply LIKE to the extracted expression
+            # Need to cast to string for LIKE comparison
+            if conn_details.type == 'clickhouse':
+                count_query = count_query.where(
+                    Cast(field_expr, 'String').like(like_pattern)
+                )
+            else:
+                # DuckDB
+                count_query = count_query.where(
+                    Cast(field_expr, 'VARCHAR').like(like_pattern)
+                )
+        else:
+            # Regular field - apply LIKE directly
+            count_query = count_query.where(field_expr.like(like_pattern))
+    
+    # Execute query with appropriate quote character
+    quote_char = '`' if conn_details.type == 'clickhouse' else '"'
+    sql = count_query.get_sql(quote_char=quote_char)
+    logger.info(f"Executing distinct count query: {sql}")
+    
+    try:
+        columns, rows = connector.fetch_data(sql)
+        logger.info(f"Count query returned {len(rows)} rows. Columns: {columns}")
+        
+        if rows and len(rows) > 0:
+            row = rows[0]
+            logger.info(f"First row: {row}, type: {type(row)}")
+            
+            if isinstance(row, dict):
+                # Try multiple possible key names
+                # ClickHouse returns 'uniqExact(field)' or similar for COUNT(DISTINCT)
+                # We aliased it as 'count' but ClickHouse might ignore the alias
+                count = (
+                    row.get('count') or 
+                    row.get('COUNT(DISTINCT') or 
+                    row.get(f'uniqExact({field})') or
+                    # Fallback: get the first value in the dict
+                    (list(row.values())[0] if row else 0)
+                )
+                logger.info(f"Extracted count from dict: {count}, keys: {row.keys()}")
+            elif isinstance(row, (list, tuple)):
+                count = row[0] if len(row) > 0 else 0
+                logger.info(f"Extracted count from list/tuple: {count}")
+            else:
+                count = int(row)
+                logger.info(f"Converted row to int: {count}")
+            
+            logger.info(f"Returning count: {count}")
+            return {"count": count}
+        
+        logger.warning("No rows returned from count query")
+        return {"count": 0}
+    except Exception as e:
+        logger.exception(f"Error executing distinct count query: {sql}")
+        raise QueryExecutionError(f"Failed to count distinct values: {str(e)}")
+
 @router.post("/query", response_model=QueryResult, response_model_exclude_none=True)
 def execute_query(
     query_desc_data: Dict[str, Any] = Body(...),

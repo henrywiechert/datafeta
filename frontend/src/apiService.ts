@@ -184,6 +184,9 @@ export const apiService = {
         database?: string,
         dateTimePart?: string,
         dateTimeMode?: string,
+        regexPattern?: string,
+        limit?: number,
+        useRandomSample?: boolean,
         signal?: AbortSignal
     ): Promise<any[]> {
         const abortController = signal ? null : createAbortController();
@@ -201,12 +204,27 @@ export const apiService = {
             dimension.date_mode = dateTimeMode;
         }
         
-        const queryDesc = {
+        const queryDesc: any = {
             target_table: table,
             target_database: database,
             dimensions: [dimension],
             measures: [],
         };
+        
+        // Add regex filter if provided
+        if (regexPattern) {
+            queryDesc.distinct_value_regex = regexPattern;
+        }
+        
+        // Add limit if provided
+        if (limit !== undefined) {
+            queryDesc.limit = limit;
+        }
+        
+        // Add random sampling flag if needed
+        if (useRandomSample) {
+            queryDesc.use_random_sample = true;
+        }
 
         const response = await fetchWithErrorHandling(`${API_BASE_URL}/query`, {
             method: 'POST',
@@ -229,6 +247,52 @@ export const apiService = {
             : field;
         
         return result.rows.map(row => row[columnName]);
+    },
+    
+    // Get count of distinct values for a field (used before fetching all values)
+    async getDistinctValuesCount(
+        field: string,
+        table: string,
+        database?: string,
+        regexPattern?: string,
+        dateTimePart?: string,
+        dateTimeMode?: string,
+        signal?: AbortSignal
+    ): Promise<number> {
+        const abortController = signal ? null : createAbortController();
+        const requestSignal = signal || abortController?.signal;
+        
+        const params = new URLSearchParams({
+            field,
+            table,
+        });
+        
+        if (database) {
+            params.append('database', database);
+        }
+        if (regexPattern) {
+            params.append('regexPattern', regexPattern);
+        }
+        if (dateTimePart) {
+            params.append('dateTimePart', dateTimePart);
+        }
+        if (dateTimeMode) {
+            params.append('dateTimeMode', dateTimeMode);
+        }
+        
+        const response = await fetchWithErrorHandling(
+            `${API_BASE_URL}/distinct-count?${params.toString()}`,
+            {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            },
+            requestSignal
+        );
+        
+        const result = await response.json();
+        return result.count || 0;
     },
 
     // Fetch min/max range for a continuous field (for filter configuration)
