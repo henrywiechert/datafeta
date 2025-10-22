@@ -11,6 +11,7 @@ interface FilterDropZoneProps {
   onDrop: (field: Field, source: DragSource) => void;
   onRemove: (fieldId: string) => void;
   onConfigChange: (fieldId: string, config: FilterConfig) => void;
+  onRefetchValues: (fieldId: string, regexPattern?: string) => Promise<void>;
 }
 
 const FilterDropZone: React.FC<FilterDropZoneProps> = ({
@@ -20,6 +21,7 @@ const FilterDropZone: React.FC<FilterDropZoneProps> = ({
   onDrop,
   onRemove,
   onConfigChange,
+  onRefetchValues,
 }) => {
   const [isOver, setIsOver] = useState(false);
 
@@ -72,6 +74,7 @@ const FilterDropZone: React.FC<FilterDropZoneProps> = ({
               filterMetadata={filterMetadata[field.id]}
               onConfigChange={(config) => onConfigChange(field.id, config)}
               onRemove={() => onRemove(field.id)}
+              onRefetchValues={(regexPattern) => onRefetchValues(field.id, regexPattern)}
             />
           ))}
         </Box>

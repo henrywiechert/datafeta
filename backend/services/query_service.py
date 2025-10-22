@@ -460,6 +460,33 @@ class QueryService:
                 if dim.flavour == 'continuous':
                     dim_field = self._get_field_with_cast(t, dim.field, query_desc.column_casts)
                     criteria.append(dim_field.notnull())
+        
+        # For distinct value queries: apply LIKE filter if regex pattern is provided
+        # This is used when fetching filter metadata for fields with >5000 unique values
+        if query_desc.distinct_value_regex and query_desc.dimensions:
+            # Apply to the first dimension (distinct value queries only have one dimension)
+            dim = query_desc.dimensions[0]
+            
+            # Get field reference with potential datetime part extraction
+            if dim.date_part and dim.date_mode:
+                field_term = self._get_field_with_cast(t, dim.field, query_desc.column_casts)
+                field_expr = self._get_datetime_part_expression(
+                    field_term, dim.date_part, dim.date_mode, db_type
+                )
+                # Cast to string for LIKE comparison
+                if db_type == 'clickhouse':
+                    from pypika.functions import Cast
+                    field_expr = Cast(field_expr, 'String')
+                else:
+                    from pypika.functions import Cast
+                    field_expr = Cast(field_expr, 'VARCHAR')
+            else:
+                field_expr = self._get_field_with_cast(t, dim.field, query_desc.column_casts)
+            
+            # Apply LIKE filter with %pattern% format
+            like_pattern = f"%{query_desc.distinct_value_regex}%"
+            criteria.append(field_expr.like(like_pattern))
+            logger.info(f"Applied LIKE filter for distinct values: {like_pattern}")
 
         if criteria:
             # Combine all criteria with AND
@@ -566,7 +593,10 @@ class QueryService:
         # Apply sampling only if enabled, it's a raw query for a single dimension,
         # and no user-defined limit, order, or filters exist.
         # This targets the simple "drag a field to see its distribution" use case.
-        if with_sampling and is_raw_query and is_single_dimension and query_desc.limit is None and not query_desc.orderBy and not query_desc.filters:
+        # IMPORTANT: Skip this if use_random_sample is set (our new distinct value query logic)
+        if (with_sampling and is_raw_query and is_single_dimension and 
+            query_desc.limit is None and not query_desc.orderBy and not query_desc.filters and
+            not query_desc.use_random_sample):
             # Only add a WHERE ... IS NOT NULL clause for continuous dimensions
             # For discrete dimensions (e.g., filter metadata), we want to include NULLs
             dimension = query_desc.dimensions[0]
@@ -580,6 +610,17 @@ class QueryService:
             # In the future, other DB-specific sampling can be added here
             # elif db_type == 'postgresql':
             #     q = q.orderby(Function('random')).limit(5000)
+        
+        # For distinct value queries with >5000 items: use random sampling
+        if query_desc.use_random_sample:
+            if db_type == 'clickhouse':
+                q = q.orderby(Function('rand'))
+            elif db_type == 'duckdb':
+                q = q.orderby(Function('random'))
+            else:
+                # Fallback for other databases
+                q = q.orderby(Function('random'))
+            logger.info("Applied random sampling for distinct value query")
 
         # LIMIT and OFFSET Clause
         if query_desc.limit is not None:

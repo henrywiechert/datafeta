@@ -35,7 +35,8 @@ const VisualizationPageContent = () => {
         metadataError,
         handleFieldUpdate,
         handleDatabaseSelect,
-        handleTableSelect
+        handleTableSelect,
+        refetchFilterValues
     } = useVisualizationState();
 
     // Access the enhanced context with loading states and cancellation
@@ -155,6 +156,7 @@ const VisualizationPageContent = () => {
                                     });
                                 }}
                                 onApplyFilters={handleApplyFilters}
+                                onRefetchValues={refetchFilterValues}
                             />
                             <ColorPanel
                                 colorField={state.colorField}

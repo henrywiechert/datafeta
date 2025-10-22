@@ -298,13 +298,44 @@ export function useVisualizationState() {
 
         try {
             if (filterType === 'discrete') {
-                const values = await apiService.getDistinctValues(
+                // First, get the count of distinct values
+                const count = await apiService.getDistinctValuesCount(
                     field.columnName,
                     dataSource.selectedTable,
                     dbParam,
+                    undefined, // no regex filter initially
                     field.dateTimePart,
                     field.dateTimeMode
                 );
+                
+                let values: any[];
+                let isPartial = false;
+                let warningMessage: string | undefined;
+                
+                if (count <= 5000) {
+                    // Fetch all values
+                    values = await apiService.getDistinctValues(
+                        field.columnName,
+                        dataSource.selectedTable,
+                        dbParam,
+                        field.dateTimePart,
+                        field.dateTimeMode
+                    );
+                } else {
+                    // Too many values - fetch only 100 random samples
+                    values = await apiService.getDistinctValues(
+                        field.columnName,
+                        dataSource.selectedTable,
+                        dbParam,
+                        field.dateTimePart,
+                        field.dateTimeMode,
+                        undefined, // no regex filter
+                        100, // limit to 100
+                        true // use random sampling
+                    );
+                    isPartial = true;
+                    warningMessage = `This field has ${count.toLocaleString()} unique values. Showing 100 random samples. Use Query Regex to filter.`;
+                }
                 
                 const metadata: FilterMetadata = {
                     fieldId: field.id,
@@ -312,6 +343,9 @@ export function useVisualizationState() {
                     type: 'discrete',
                     loading: false,
                     availableValues: values,
+                    totalCount: count,
+                    isPartial,
+                    warningMessage,
                 };
 
                 dispatch({
@@ -319,7 +353,7 @@ export function useVisualizationState() {
                     payload: { fieldId: field.id, metadata }
                 });
 
-                // Initialize filter configuration with all values selected
+                // Initialize filter configuration with all fetched values selected
                 dispatch({
                     type: 'SET_FILTER_CONFIGURATION',
                     payload: {
@@ -480,6 +514,121 @@ export function useVisualizationState() {
         });
     }, [state.filterFields, state.filterMetadata, fetchFilterMetadata]);
 
+    // Refetch filter values with a regex pattern (for large discrete filters)
+    const refetchFilterValues = useCallback(async (fieldId: string, regexPattern?: string) => {
+        const field = state.filterFields.find(f => f.id === fieldId);
+        if (!field || !dataSource.selectedTable) return;
+        
+        const dbParam = connectionDetails?.type === 'clickhouse' ? dataSource.selectedDatabase : undefined;
+        
+        // Set loading state
+        const currentMetadata = state.filterMetadata[fieldId];
+        if (currentMetadata && currentMetadata.type === 'discrete') {
+            dispatch({
+                type: 'SET_FILTER_METADATA',
+                payload: {
+                    fieldId,
+                    metadata: { ...currentMetadata, loading: true }
+                }
+            });
+        }
+        
+        try {
+            // Get count with regex filter
+            const count = await apiService.getDistinctValuesCount(
+                field.columnName,
+                dataSource.selectedTable,
+                dbParam,
+                regexPattern,
+                field.dateTimePart,
+                field.dateTimeMode
+            );
+            
+            let values: any[];
+            let isPartial = false;
+            let warningMessage: string | undefined;
+            let appliedRegexQuery: string | undefined = regexPattern;
+            
+            if (count <= 5000) {
+                // Fetch all values with the regex filter
+                values = await apiService.getDistinctValues(
+                    field.columnName,
+                    dataSource.selectedTable,
+                    dbParam,
+                    field.dateTimePart,
+                    field.dateTimeMode,
+                    regexPattern
+                );
+                warningMessage = regexPattern 
+                    ? `Filtered to ${count.toLocaleString()} values matching your query.`
+                    : undefined;
+            } else {
+                // Still too many - fetch 100 random values matching the regex query
+                values = await apiService.getDistinctValues(
+                    field.columnName,
+                    dataSource.selectedTable,
+                    dbParam,
+                    field.dateTimePart,
+                    field.dateTimeMode,
+                    regexPattern,
+                    100 // Limit to 100 random samples
+                );
+                isPartial = true;
+                warningMessage = `Query matches ${count.toLocaleString()} values (still too many). Showing 100 random samples matching your pattern. Refine further to see all values.`;
+            }
+            
+            const metadata: FilterMetadata = {
+                fieldId: field.id,
+                columnName: field.columnName,
+                type: 'discrete',
+                loading: false,
+                availableValues: values,
+                totalCount: count,
+                isPartial,
+                warningMessage,
+                appliedRegexQuery,
+            };
+            
+            dispatch({
+                type: 'SET_FILTER_METADATA',
+                payload: { fieldId, metadata }
+            });
+            
+            // Update selected values: if not partial (<=5000), select all new values
+            if (!isPartial) {
+                dispatch({
+                    type: 'SET_FILTER_CONFIGURATION',
+                    payload: {
+                        fieldId,
+                        config: {
+                            fieldId: field.id,
+                            columnName: field.columnName,
+                            type: 'discrete',
+                            selectedValues: values,
+                            dateTimePart: field.dateTimePart,
+                            dateTimeMode: field.dateTimeMode,
+                        }
+                    }
+                });
+            }
+        } catch (err: any) {
+            // Set error state
+            const errorMetadata: FilterMetadata = {
+                fieldId: field.id,
+                columnName: field.columnName,
+                type: 'discrete',
+                loading: false,
+                error: err.message,
+                availableValues: [],
+            };
+            
+            dispatch({
+                type: 'SET_FILTER_METADATA',
+                payload: { fieldId, metadata: errorMetadata }
+            });
+        }
+    }, [state.filterFields, state.filterMetadata, dataSource.selectedTable, dataSource.selectedDatabase, connectionDetails?.type, dispatch]);
+
     // --- Return all state and handlers ---
     return {
         connectionDetails,
@@ -497,6 +646,7 @@ export function useVisualizationState() {
         handleTableSelect,
         handleRemoveFromAxis,
         handleDropFromAvailableFields,
-        handleReorderFields
+        handleReorderFields,
+        refetchFilterValues
     };
 } 

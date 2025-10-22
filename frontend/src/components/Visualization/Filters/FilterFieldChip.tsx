@@ -15,6 +15,7 @@ interface FilterFieldChipProps {
   filterMetadata: FilterMetadata | undefined;
   onConfigChange: (config: FilterConfig) => void;
   onRemove: () => void;
+  onRefetchValues: (regexPattern?: string) => Promise<void>;
 }
 
 const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
@@ -23,6 +24,7 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
   filterMetadata,
   onConfigChange,
   onRemove,
+  onRefetchValues,
 }) => {
   const [expanded, setExpanded] = useState(false);
 
@@ -70,6 +72,7 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
               dateTimeMode: field.dateTimeMode,
             });
           }}
+          onRefetchValues={onRefetchValues}
         />
       );
     }
