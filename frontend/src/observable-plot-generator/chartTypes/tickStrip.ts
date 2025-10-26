@@ -68,6 +68,28 @@ export function tickStrip(
     }
   }
 
+  // Compute domain from filtered data (numbers or dates)
+  const computeAxisDomain = () => {
+    const values = data
+      .map((row: any) => row[dimensionColumn])
+      .filter((v: any) => isNumericOrDate(v));
+    if (values.length === 0) return undefined;
+    const sample = values[0];
+    if (typeof sample === 'number') {
+      const nums = values as number[];
+      const min = Math.min(...nums);
+      const max = Math.max(...nums);
+      return [min, max] as [number, number];
+    }
+    // Treat as dates
+    const toDate = (v: any) => (v instanceof Date ? v : new Date(v));
+    const dates = (values as any[]).map(toDate);
+    const minD = new Date(Math.min(...dates.map((d) => d.getTime())));
+    const maxD = new Date(Math.max(...dates.map((d) => d.getTime())));
+    return [minD, maxD] as [Date, Date];
+  };
+  const axisDomain = computeAxisDomain();
+
   if (orientation === 'x') {
     if (categoryDimensionColumn) {
       const categories = Array.from(new Set(data.map((row: any) => row[categoryDimensionColumn])));
@@ -104,7 +126,7 @@ export function tickStrip(
       tickConfig.tip = { pointer: 'x', preferredAnchor: 'top-right', format: tipFormat };
       
       const opts: Plot.PlotOptions = {
-        x: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true } as any,
+        x: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
         y: { 
           label: labels?.category || categoryDimensionColumn,
           domain: categories as any,
@@ -156,7 +178,7 @@ export function tickStrip(
     tickConfig.tip = { pointer: 'x', preferredAnchor: 'top-right', format: tipFormat };
     
     const opts: Plot.PlotOptions = {
-      x: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true } as any,
+      x: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
       y: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: 0.1 as any },
       height: BAR_STEP_PX * 2,
       marks: [
@@ -208,7 +230,7 @@ export function tickStrip(
     tickConfig.tip = { pointer: 'y', preferredAnchor: 'top-right', format: tipFormat };
     
     const opts: Plot.PlotOptions = {
-      y: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true } as any,
+      y: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
       x: { 
         label: labels?.category || categoryDimensionColumn,
         domain: categories as any,
@@ -259,7 +281,7 @@ export function tickStrip(
   tickConfig.tip = { pointer: 'y', preferredAnchor: 'top-right', format: tipFormat };
   
   const opts: Plot.PlotOptions = {
-    y: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true } as any,
+    y: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
     x: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: 0.1 as any },
     width: BAR_STEP_PX * 2,
     marks: [

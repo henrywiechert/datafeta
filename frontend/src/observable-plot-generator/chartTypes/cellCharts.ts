@@ -50,9 +50,9 @@ export function generatePairChartOptions(
   switch (selected) {
     case 'scatter': {
       const { xCol, yCol } = resolveXYColumns(xf, yf);
-      // Apply shared domains if available
-      const xDomain = sharedMeasureDomains?.[xCol];
-      const yDomain = sharedMeasureDomains?.[yCol];
+      // Apply shared domains only for measures; dimensions should use local (filtered) domains
+      const xDomain = xf.type === 'measure' ? sharedMeasureDomains?.[xCol] : undefined;
+      const yDomain = yf.type === 'measure' ? sharedMeasureDomains?.[yCol] : undefined;
       const domainOptions = {
         x: xCol, 
         y: yCol,
