@@ -634,6 +634,31 @@ class QueryOptimizer:
                     Min(field_term).as_(f'min_{dim.field}'),
                     Max(field_term).as_(f'max_{dim.field}')
                 )
+
+            # Apply WHERE filters from the query description
+            for filter_obj in query_desc.filters:
+                field_term_f = getattr(table, filter_obj.field)
+                if filter_obj.operator == '>=':
+                    range_query = range_query.where(field_term_f >= filter_obj.value)
+                elif filter_obj.operator == '<=':
+                    range_query = range_query.where(field_term_f <= filter_obj.value)
+                elif filter_obj.operator == '=':
+                    range_query = range_query.where(field_term_f == filter_obj.value)
+                elif filter_obj.operator == '!=':
+                    range_query = range_query.where(field_term_f != filter_obj.value)
+                elif filter_obj.operator == '>':
+                    range_query = range_query.where(field_term_f > filter_obj.value)
+                elif filter_obj.operator == '<':
+                    range_query = range_query.where(field_term_f < filter_obj.value)
+                elif filter_obj.operator == 'in':
+                    range_query = range_query.where(field_term_f.isin(filter_obj.value))
+                elif filter_obj.operator == 'not in':
+                    range_query = range_query.where(field_term_f.notin(filter_obj.value))
+
+            # Exclude NULLs from continuous dimensions
+            for dim in continuous_dims:
+                field_term = getattr(table, dim.field)
+                range_query = range_query.where(field_term.isnotnull())
             
             # Execute query
             sql = range_query.get_sql(quote_char='`')
