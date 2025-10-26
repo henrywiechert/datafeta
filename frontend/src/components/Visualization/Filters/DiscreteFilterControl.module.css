@@ -41,20 +41,23 @@
   flex-direction: column;
   max-height: 200px;
   overflow-y: auto;
+  overflow-x: auto; /* allow horizontal scroll for long items */
   padding: 0;
 }
 
 .checkboxItem {
   margin: 0;
-  padding: 0 6px;
-  min-height: 24px; /* tighter row height */
+  padding: 0 4px;
+  min-height: 22px; /* tighter row height */
   display: flex;
   align-items: center;
+  white-space: nowrap; /* prevent line wrap per item */
 }
 
 .checkboxItem .MuiFormControlLabel-label {
-  font-size: 11.5px; /* smaller font */
+  font-size: 11px; /* smaller font */
   line-height: 1.15;
+  white-space: nowrap; /* prevent label wrapping */
 }
 
 .checkboxItem:hover {
@@ -67,7 +70,7 @@
 }
 
 .checkboxItem :global(.MuiSvgIcon-root) {
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .searchRow {

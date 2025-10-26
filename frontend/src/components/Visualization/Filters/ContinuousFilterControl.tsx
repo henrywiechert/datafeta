@@ -27,6 +27,9 @@ const ContinuousFilterControl: React.FC<ContinuousFilterControlProps> = ({
     min ?? metadata.min,
     max ?? metadata.max,
   ]);
+  // Local text state allows free typing before we validate/commit
+  const [minText, setMinText] = useState<string>(min !== null && min !== undefined ? String(min) : '');
+  const [maxText, setMaxText] = useState<string>(max !== null && max !== undefined ? String(max) : '');
 
   // Update local state when props change
   useEffect(() => {
@@ -34,6 +37,8 @@ const ContinuousFilterControl: React.FC<ContinuousFilterControlProps> = ({
       min ?? metadata.min,
       max ?? metadata.max,
     ]);
+    setMinText(min !== null && min !== undefined ? String(min) : '');
+    setMaxText(max !== null && max !== undefined ? String(max) : '');
   }, [min, max, metadata.min, metadata.max]);
 
   const handleSliderChange = (event: Event, newValue: number | number[]) => {
@@ -47,22 +52,32 @@ const ContinuousFilterControl: React.FC<ContinuousFilterControlProps> = ({
   };
 
   const handleMinInputChange = (value: string) => {
-    const numValue = parseFloat(value);
-    if (!isNaN(numValue)) {
+    setMinText(value);
+  };
+  const commitMinInput = () => {
+    if (minText === '') {
+      onChange(null, max);
+      return;
+    }
+    const numValue = Number(minText);
+    if (!Number.isNaN(numValue)) {
       const newMin = Math.max(metadata.min, Math.min(numValue, sliderValue[1]));
       onChange(newMin, max);
-    } else if (value === '') {
-      onChange(null, max);
     }
   };
 
   const handleMaxInputChange = (value: string) => {
-    const numValue = parseFloat(value);
-    if (!isNaN(numValue)) {
+    setMaxText(value);
+  };
+  const commitMaxInput = () => {
+    if (maxText === '') {
+      onChange(min, null);
+      return;
+    }
+    const numValue = Number(maxText);
+    if (!Number.isNaN(numValue)) {
       const newMax = Math.min(metadata.max, Math.max(numValue, sliderValue[0]));
       onChange(min, newMax);
-    } else if (value === '') {
-      onChange(min, null);
     }
   };
 
@@ -120,10 +135,12 @@ const ContinuousFilterControl: React.FC<ContinuousFilterControlProps> = ({
             <Typography variant="caption" className={styles.inputLabel}>Min</Typography>
             <TextField
               aria-label="Min value"
-              type="number"
+              type="text"
               size="small"
-              value={min ?? ''}
+              value={minText}
               onChange={(e) => handleMinInputChange(e.target.value)}
+              onBlur={commitMinInput}
+              onKeyDown={(e) => { if (e.key === 'Enter') commitMinInput(); }}
               inputProps={{
                 min: metadata.min,
                 max: metadata.max,
@@ -136,10 +153,12 @@ const ContinuousFilterControl: React.FC<ContinuousFilterControlProps> = ({
             <Typography variant="caption" className={styles.inputLabel}>Max</Typography>
             <TextField
               aria-label="Max value"
-              type="number"
+              type="text"
               size="small"
-              value={max ?? ''}
+              value={maxText}
               onChange={(e) => handleMaxInputChange(e.target.value)}
+              onBlur={commitMaxInput}
+              onKeyDown={(e) => { if (e.key === 'Enter') commitMaxInput(); }}
               inputProps={{
                 min: metadata.min,
                 max: metadata.max,
