@@ -63,8 +63,11 @@ export function computeValueDomain(rows: any[], measureName: string, opts: Compu
   const [minVal, maxVal] = numericExtent(rows, measureName);
   if (minVal === 0 && maxVal === 0) return [0, 1];
   if (zeroBaseline) {
-    const upperRaw = Math.max(0, maxVal);
-    const upper = upperRaw === 0 ? 1 : upperRaw * (1 + padRatio);
+    // Negative-only data: let bars extend below 0 with the upper clamped at 0
+    if (maxVal <= 0) {
+      return [minVal, 0];
+    }
+    const upper = maxVal * (1 + padRatio);
     return [0, upper];
   }
   // auto domain including negatives
