@@ -17,8 +17,8 @@ observablePlotGenerator.ts (main entry point)
 ├── generateChartOptions() - Rule-based chart selection
 ├── generateCartesianGrid() - N×M pairing grid
 └── chartTypes/
-    ├── barChart.ts
-    ├── multiMeasureBarChart.ts
+    ├── barChart.ts (delegates to barUnified)
+    ├── barUnified.ts (single+multi measure unified)
     ├── tickStrip.ts
     ├── lineChart.ts
     └── scatterChart.ts
