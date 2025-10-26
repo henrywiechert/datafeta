@@ -16,7 +16,9 @@ interface YAxesProps {
  * Build axis-only plot options for external gutters.
  */
 function buildYAxisOptions(domain: any, gutterPx: number, type?: string) {
-  const isCategorical = type === 'band' || (Array.isArray(domain) && domain.length > 0 && typeof domain[0] !== 'number');
+  const first = Array.isArray(domain) ? domain[0] : undefined;
+  const isDateRange = Array.isArray(domain) && domain.length === 2 && (first instanceof Date || domain[1] instanceof Date);
+  const isCategorical = type === 'band' || (Array.isArray(domain) && domain.length > 0 && typeof domain[0] !== 'number' && !isDateRange);
   return {
     frame: null,
     marginLeft: Math.max(12, gutterPx - 2),
