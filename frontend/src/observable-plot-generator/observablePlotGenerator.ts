@@ -1,6 +1,6 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext, PlotResult } from './types';
-import { multiMeasureBarChart } from './chartTypes/multiMeasureBarChart';
+import { barUnified } from './chartTypes/barUnified';
 import { generateChartOptions as genChartOptionsRule, generateScatterPlot } from './rules/chartRules';
 import { Field } from '../types';
 import { computeSharedMeasureDomains } from './domains/measureDomains';
@@ -48,7 +48,7 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
       const oppositeDims = measuresOnX ? (analysis as any).yDimensions : (analysis as any).xDimensions;
       const hasOppositeContinuousDim = Array.isArray(oppositeDims) && oppositeDims.some((d: any) => d.flavour === 'continuous');
       if (!hasOppositeContinuousDim) {
-        return multiMeasureBarChart(context);
+        return barUnified(context);
       }
       // fall through to cartesian grid
     }
@@ -142,7 +142,7 @@ export function baseGeneratePlot(context: ChartGenerationContext): PlotResult {
 
   // Multi-measure per axis → our existing bar grid
   if (analysis.isMultiMeasure && !analysis.hasMixedAxes) {
-    try { return multiMeasureBarChart(context); } catch { /* fall through */ }
+    try { return barUnified(context); } catch { /* fall through */ }
   }
 
   // Fallback to single-chart rules (this handles continuous dimensions on both axes)

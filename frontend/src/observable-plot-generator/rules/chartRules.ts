@@ -1,7 +1,7 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext, PlotResult } from '../types';
 import { FieldAnalysis } from '../analysis/fieldAnalysis';
-import { barChart } from '../chartTypes/barChart';
+import { barUnified } from '../chartTypes/barUnified';
 import { tickStrip } from '../chartTypes/tickStrip';
 import { lineChart } from '../chartTypes/lineChart';
 import { scatterChart } from '../chartTypes/scatterChart';
@@ -59,7 +59,7 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
   }
 
   if (qualifiesForBarChart()) {
-    return { library: 'observable-plot', options: barChart(context), layout: { type: 'single' } };
+    return barUnified(context);
   }
   const xContinuousDims = xDims.filter((d: any) => d.flavour === 'continuous');
   const yContinuousDims = yDims.filter((d: any) => d.flavour === 'continuous');
