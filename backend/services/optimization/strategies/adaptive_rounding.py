@@ -67,8 +67,11 @@ class AdaptiveRoundingStrategy(OptimizationStrategy):
         
         Requires:
         - No measures (raw data query)
-        - At least 2 continuous dimensions on different axes
+        - At least 1 continuous dimension
         - Dimensions have numeric data types
+        
+        Note: Previously limited to 2D (x,y). We now allow 1D (tick-strip)
+        when hints request rounding and thresholds are exceeded.
         """
         if query_desc.measures:
             return False
@@ -78,14 +81,7 @@ class AdaptiveRoundingStrategy(OptimizationStrategy):
         
         continuous_dims = [d for d in query_desc.dimensions if d.flavour == 'continuous']
         
-        if len(continuous_dims) < 2:
-            return False
-        
-        # Check if dimensions span both axes (scatter plot scenario)
-        has_x = any(d.axis == 'x' for d in continuous_dims)
-        has_y = any(d.axis == 'y' for d in continuous_dims)
-        
-        return has_x and has_y
+        return len(continuous_dims) >= 1
     
     def prepare_rounding_config(self, query_desc: QueryDescription) -> Dict[str, int]:
         """

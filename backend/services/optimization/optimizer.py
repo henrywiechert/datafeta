@@ -259,15 +259,39 @@ class QueryOptimizer:
                 # Use hint threshold or fall back to config
                 threshold = hints.rounding_threshold or self.config.rounding_threshold
                 
-                # For hints-based optimization, we still check if rounding is beneficial
-                # by looking at continuous dimensions
+                # Determine number of continuous dims
                 continuous_dims = [d for d in query_desc.dimensions if d.flavour == 'continuous']
+
                 if len(continuous_dims) >= 2:
                     # Apply the multi-continuous strategies which include rounding
-                    # We'll need to refactor this to be more modular
                     strategies.extend(self._create_multi_continuous_strategies(query_desc))
-                else:
-                    logger.info("Rounding requested but query doesn't have multiple continuous dims")
+                elif len(continuous_dims) == 1:
+                    # Single continuous dimension (tick-strip): decide rounding based on unique count threshold
+                    if not self.connector:
+                        logger.warning("Adaptive rounding (1D) requested but no connector available")
+                    else:
+                        try:
+                            unique_count = self._get_actual_unique_single_count(query_desc)
+                            if unique_count is None and self.estimator:
+                                estimate = self.estimator.estimate_size(query_desc)
+                                unique_count = estimate.unique_pairs or estimate.total_rows
+                                logger.info(f"📊 Estimated unique values (fallback, 1D): {unique_count}")
+
+                            if unique_count is not None and unique_count > threshold:
+                                logger.info(f"✅ APPLYING 1D ROUNDING: {unique_count} > {threshold}")
+                                dimension_ranges = self._fetch_dimension_ranges(query_desc)
+                                strategies.append(
+                                    AdaptiveRoundingStrategy(
+                                        db_type=self.db_type,
+                                        estimator=self.estimator,
+                                        target_buckets=self.config.target_buckets,
+                                        dimension_ranges=dimension_ranges
+                                    )
+                                )
+                            else:
+                                logger.info("❌ SKIPPING 1D ROUNDING: below threshold or unknown size")
+                        except Exception as e:
+                            logger.warning(f"1D rounding decision failed: {e}", exc_info=True)
             else:
                 logger.warning("Rounding requested by hints but disabled in config")
         
@@ -503,6 +527,79 @@ class QueryOptimizer:
             logger.error(f"Failed to get actual count: {e}", exc_info=True)
         
         return None
+    
+    def _get_actual_unique_single_count(self, query_desc: QueryDescription) -> Optional[int]:
+        """
+        Execute a count of distinct values for a single continuous dimension.
+        Used for tick-strip rounding decision.
+        """
+        from pypika import Query, Table
+        from pypika.functions import Count
+        
+        if not self.connector:
+            logger.warning("No connector available for actual single-dimension count")
+            return None
+        
+        continuous_dims = [d for d in query_desc.dimensions if d.flavour == 'continuous']
+        if len(continuous_dims) != 1:
+            logger.warning(f"Need exactly 1 continuous dimension for 1D count, got {len(continuous_dims)}")
+            return None
+        
+        try:
+            # Build table reference
+            if self.db_type == 'clickhouse' and query_desc.target_database:
+                table = Table(query_desc.target_table, schema=query_desc.target_database)
+            else:
+                table = Table(query_desc.target_table)
+            
+            dim = continuous_dims[0]
+            field_term = getattr(table, dim.field)
+            
+            # Build distinct count query with filters
+            count_query = Query.from_(table)
+            count_query = count_query.select(Count(field_term.distinct()).as_('unique_count'))
+            
+            for filter_obj in query_desc.filters:
+                field_term_f = getattr(table, filter_obj.field)
+                if filter_obj.operator == '>=':
+                    count_query = count_query.where(field_term_f >= filter_obj.value)
+                elif filter_obj.operator == '<=':
+                    count_query = count_query.where(field_term_f <= filter_obj.value)
+                elif filter_obj.operator == '=':
+                    count_query = count_query.where(field_term_f == filter_obj.value)
+                elif filter_obj.operator == '!=':
+                    count_query = count_query.where(field_term_f != filter_obj.value)
+                elif filter_obj.operator == '>':
+                    count_query = count_query.where(field_term_f > filter_obj.value)
+                elif filter_obj.operator == '<':
+                    count_query = count_query.where(field_term_f < filter_obj.value)
+                elif filter_obj.operator == 'in':
+                    count_query = count_query.where(field_term_f.isin(filter_obj.value))
+                elif filter_obj.operator == 'not in':
+                    count_query = count_query.where(field_term_f.notin(filter_obj.value))
+            
+            sql = count_query.get_sql(quote_char='`')
+            logger.info("Executing 1D unique count query to decide rounding...")
+            logger.debug(f"1D Count SQL: {sql}")
+            
+            columns, rows = self.connector.fetch_data(sql)
+            
+            if rows and len(rows) > 0:
+                row = rows[0]
+                if isinstance(row, dict):
+                    count = row.get('unique_count') or row.get('count(distinct)')
+                elif isinstance(row, (list, tuple)):
+                    count = row[0]
+                else:
+                    count = row
+                
+                if count is not None:
+                    return int(count)
+            
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get 1D unique count: {e}", exc_info=True)
+            return None
     
     def _fetch_dimension_ranges(self, query_desc: QueryDescription) -> Dict[str, tuple]:
         """

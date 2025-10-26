@@ -76,6 +76,16 @@ describe('optimizationHintGenerator', () => {
             
             expect(inferChartType(dimensions, measures, 'line')).toBe('line');
         });
+
+        test('should infer tickstrip from 1 continuous + 1 discrete dimension, no measures', () => {
+            const dimensions: Dimension[] = [
+                { field: 'price', flavour: 'continuous', axis: 'x' },
+                { field: 'category', flavour: 'discrete', axis: 'y' }
+            ];
+            const measures: Measure[] = [];
+
+            expect(inferChartType(dimensions, measures)).toBe('tickstrip');
+        });
     });
     
     describe('getRecommendedOptimizationLevel', () => {
@@ -203,6 +213,21 @@ describe('optimizationHintGenerator', () => {
             });
             
             expect(hints.rounding_threshold).toBe(50000);
+        });
+
+        test('should generate hints for tickstrip (rounding + distinct enabled)', () => {
+            const dimensions: Dimension[] = [
+                { field: 'price', flavour: 'continuous', axis: 'x' },
+                { field: 'category', flavour: 'discrete', axis: 'y' }
+            ];
+            const measures: Measure[] = [];
+
+            const hints = generateOptimizationHints({ dimensions, measures });
+
+            expect(hints.enable_distinct).toBe(true);
+            expect(hints.enable_rounding).toBe(true);
+            expect(hints.optimization_level).toBe('balanced');
+            expect(hints.purpose).toContain('tickstrip');
         });
         
         test('should handle empty dimensions and measures', () => {
