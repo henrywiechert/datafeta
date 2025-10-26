@@ -7,7 +7,7 @@ import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField }
  * Generate multiple bar charts with shared axes for multiple measures
  */
 export function multiMeasureBarChart(context: ChartGenerationContext): PlotResult {
-  const { queryResult, xFields, yFields, sizeField, sizeRange, manualSize } = context;
+  const { queryResult, xFields, yFields, sizeField, manualSize } = context;
   const data = queryResult.rows;
 
   const xMeasures = xFields.filter(f => f.type === 'measure');

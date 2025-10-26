@@ -57,8 +57,6 @@ const VisualizationPageContent = () => {
         handleRemoveFromFilter,
         handleColorDrop,
         handleRemoveFromColor,
-        handleSizeDrop,
-        handleRemoveFromSize,
     } = useDragDrop();
 
     // Simplified axis-specific handlers that use the generic handler
