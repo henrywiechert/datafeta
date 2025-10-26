@@ -11,7 +11,7 @@ import { OptimizationHints, Dimension, Measure, Field } from '../types';
 /**
  * Chart type definitions
  */
-export type ChartType = 'scatter' | 'bar' | 'line' | 'heatmap' | 'histogram' | 'table' | 'unknown';
+export type ChartType = 'scatter' | 'bar' | 'line' | 'heatmap' | 'histogram' | 'tickstrip' | 'table' | 'unknown';
 
 /**
  * User preference for optimization aggressiveness
@@ -72,6 +72,16 @@ const OPTIMIZATION_PROFILES: Record<ChartType, Partial<OptimizationHints>> = {
         enable_binning: false,
         optimization_level: 'light',
         purpose: 'histogram_binning'
+    },
+    
+    // Tick-strip: Raw data (dimension vs dimension with one continuous), benefits from rounding + distinct
+    tickstrip: {
+        enable_distinct: true,
+        enable_rounding: true,
+        enable_sampling: false,
+        enable_binning: false,
+        optimization_level: 'balanced',
+        purpose: 'tickstrip_density_control'
     },
     
     // Raw table view: May benefit from distinct
@@ -138,6 +148,11 @@ export function inferChartType(
         return 'histogram';
     }
     
+    // Tick-strip: 1 continuous + 1 discrete dimension, no measures
+    if (!hasMeasures && continuousDims.length === 1 && discreteDims.length === 1) {
+        return 'tickstrip';
+    }
+    
     // Table: Any raw data query
     if (!hasMeasures) {
         return 'table';
@@ -166,6 +181,11 @@ export function getRecommendedOptimizationLevel(
     
     // For heatmaps, balanced optimization
     if (chartType === 'heatmap') {
+        return 'balanced';
+    }
+    
+    // For tick-strip, balanced by default due to potential high cardinality on the continuous axis
+    if (chartType === 'tickstrip') {
         return 'balanced';
     }
     
@@ -198,6 +218,11 @@ function shouldEnableRounding(dimensions: Dimension[], chartType: ChartType): bo
         return true;
     }
     
+    // Rounding also helps tick-strip (single continuous axis) to control overplotting
+    if (chartType === 'tickstrip' && continuousDims.length >= 1) {
+        return true;
+    }
+    
     return false;
 }
 
@@ -222,7 +247,7 @@ function shouldEnableDistinct(
     }
     
     // For raw data queries, DISTINCT is beneficial
-    if (['scatter', 'table', 'heatmap'].includes(chartType)) {
+    if (['scatter', 'table', 'heatmap', 'tickstrip'].includes(chartType)) {
         return true;
     }
     
