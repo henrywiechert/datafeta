@@ -63,9 +63,15 @@ export function barUnified(context: ChartGenerationContext): PlotResult {
 
     // Build aggregated dataset mapping composite category when present
     const aggregated = categoryColumn
-      ? data.map(row => ({ [measureName]: row[measureName], [categoryColumn]: (categoryAccessor as any)(row) }))
-      : buildTotalOnlyData(data, measureName);
+      ? data.map(row => ({ [measureName]: row[measureName], [categoryColumn]: (categoryAccessor as any)(row), ...(colorColumn ? { [colorColumn]: (row as any)[colorColumn] } : {}) }))
+      : (
+          // When no categories but we do have a color column, keep per-row data for stacking by color.
+          colorColumn
+            ? data
+            : buildTotalOnlyData(data, measureName)
+        );
 
+    const useStackedDomain = !categoryColumn && !!colorColumn;
     const options = buildBarOptions({
       data: aggregated,
       measureName,
@@ -75,7 +81,7 @@ export function barUnified(context: ChartGenerationContext): PlotResult {
       colorColumn,
       colorScale,
       bandPadding,
-      valueDomainOverride: sharedDomains[measureName],
+      valueDomainOverride: useStackedDomain ? undefined : sharedDomains[measureName],
       // Keep legacy visual sizing multiplier for a single bar
       singleBarSizeMultiplier: 2,
       tooltipColumns: [colorField?.columnName, sizeField?.columnName].filter(Boolean) as string[],
