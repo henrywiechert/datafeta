@@ -3,7 +3,7 @@ import { PropertySection } from '../Properties';
 import { PropertyDropZone } from '../Properties';
 import PhotoSizeSelectLargeIcon from '@mui/icons-material/PhotoSizeSelectLarge';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
-import { Chip, Box, Slider, Typography, FormControl, Stack, Alert } from '@mui/material';
+import { Chip, Box, Slider, Typography, FormControl, Stack } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { getResultColumnName, getFieldDisplayName } from '../../../utils/fieldUtils';
 import { createSizeScale } from '../../../observable-plot-generator/utils/sizeUtils';
