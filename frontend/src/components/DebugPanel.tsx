@@ -7,7 +7,6 @@
 
 import React, { useState } from 'react';
 import { QueryResult, OptimizationHints, OptimizationOverride } from '../types';
-import { describeOptimizationHints } from '../services/optimizationHintGenerator';
 import './DebugPanel.css';
 
 interface DebugPanelProps {

@@ -114,7 +114,7 @@ export const useQueryExecution = ({
       queryInProgressRef.current = false;
       completeOperation('query');
     }
-  }, [startOperation, completeOperation, dispatch]);
+  }, [startOperation, completeOperation, dispatch, colorField, sizeField, xAxisFields, yAxisFields]);
 
   // Memoize optimization hints generation
   const optimizationHints = useMemo((): OptimizationHints | null => {

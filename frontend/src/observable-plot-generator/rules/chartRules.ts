@@ -61,8 +61,6 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
   if (qualifiesForBarChart()) {
     return { library: 'observable-plot', options: barChart(context), layout: { type: 'single' } };
   }
-  const xDiscreteDims = xDims.filter((d: any) => d.flavour === 'discrete');
-  const yDiscreteDims = yDims.filter((d: any) => d.flavour === 'discrete');
   const xContinuousDims = xDims.filter((d: any) => d.flavour === 'continuous');
   const yContinuousDims = yDims.filter((d: any) => d.flavour === 'continuous');
 

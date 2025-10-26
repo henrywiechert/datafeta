@@ -8,7 +8,7 @@ import { getResultColumnName } from '../../utils/fieldUtils';
 // This file now simply selects orientation + fields and delegates to barCore.
 
 export function barChart(context: ChartGenerationContext) {
-  const { queryResult, xFields, yFields, colorField, colorScheme, sizeField, sizeRange, manualSize } = context;
+  const { queryResult, xFields, yFields, colorField, colorScheme, sizeField, manualSize } = context;
   const data = queryResult.rows;
 
   const yMeasure = yFields.find(f => f.type === 'measure');
