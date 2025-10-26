@@ -89,11 +89,8 @@ export function barUnified(context: ChartGenerationContext): PlotResult {
     };
   });
 
-  // Single measure → return single plot options, else a grid
-  if (plots.length === 1) {
-    return { library: 'observable-plot', options: plots[0].options, layout: { type: 'single' } };
-  }
-
+  // Always return a grid-style PlotResult (even for a single plot) so that
+  // the renderer uses the unified left-side label/axis layout.
   const intrinsicSize = hasCategories && categories ? Math.max(BAR_STEP_PX, categories.length * BAR_STEP_PX) : BAR_STEP_PX;
   const columnSizes = orientation === 'horizontal'
     ? Array.from({ length: plots.length }, () => 'fr' as const)

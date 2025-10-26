@@ -355,38 +355,7 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
         BAR_STEP_PX
       );
       
-      // Force zero baseline for bar charts: when categoryAxis is on one side,
-      // ensure the opposite numeric axis domain includes 0.
-      // TODO: This is bar-specific logic that should move to barCore.ts
-      const coerceZeroBaseline = (domain: any, values: number[]) => {
-        if (!Array.isArray(values) || values.length === 0) return domain;
-        const min = Math.min(...values);
-        const max = Math.max(...values);
-        const lower = Math.min(0, min);
-        const upper = max <= 0 ? 0 : max;
-        return [lower, upper] as [number, number];
-      };
-      const xDomainKey = (next as any)?.x?.domainKey || (next as any)?.x?.domainLabel || (next as any)?.x?.label;
-      const yDomainKey = (next as any)?.y?.domainKey || (next as any)?.y?.domainLabel || (next as any)?.y?.label;
-      if (categoryAxis === 'x') {
-        const key = yDomainKey as string | undefined;
-        if (key) {
-          const vals = subsetRows
-            .map((row) => row?.[key as string])
-            .filter((v) => typeof v === 'number' && !Number.isNaN(v));
-          const coerced = coerceZeroBaseline((next as any)?.y?.domain, vals as number[]);
-          next.y = { ...(next.y as any), domain: coerced } as any;
-        }
-      } else if (categoryAxis === 'y') {
-        const key = xDomainKey as string | undefined;
-        if (key) {
-          const vals = subsetRows
-            .map((row) => row?.[key as string])
-            .filter((v) => typeof v === 'number' && !Number.isNaN(v));
-          const coerced = coerceZeroBaseline((next as any)?.x?.domain, vals as number[]);
-          next.x = { ...(next.x as any), domain: coerced } as any;
-        }
-      }
+      // No bar-specific coercion here; bar domains are handled centrally in barCore.
       return next;
     };
     
