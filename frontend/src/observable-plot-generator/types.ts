@@ -18,6 +18,14 @@ export interface ChartGenerationContext {
   facetField?: Field;
   categoryAxisDescriptor?: CategoryAxisDescriptor;
   queryResult: QueryResult;
+  /**
+   * When provided, these shared domains will be used instead of computing new ones.
+   * This is used by faceting to ensure all facets share the same Y-domain per measure.
+   */
+  sharedDomainsOverride?: {
+    measure?: Record<string, [number, number]>;
+    numeric?: Record<string, [number, number]>;
+  };
 }
 
 export interface PlotResult {
