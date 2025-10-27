@@ -270,19 +270,24 @@ class QueryService:
         q = Query.from_(t)
 
         # Create optimization plan EARLY before SELECT clause construction
-        # This allows us to extract rounding config for use during field selection
+        # This allows us to extract rounding/binning config for use during field selection
         rounding_config = {}
+        binning_config = {}
         optimization_plan = None
         use_category_dedup = False  # Flag for category deduplication
         if with_optimization and optimizer:
             try:
                 from backend.services.optimization.optimizer import OptimizationPlan
                 optimization_plan = optimizer.create_plan(query_desc)
-                # Extract rounding config from adaptive rounding strategy if present
+                # Extract rounding/binning config from strategies if present
                 for strategy in optimization_plan.strategies:
                     if hasattr(strategy, 'prepare_rounding_config'):
                         rounding_config = strategy.prepare_rounding_config(query_desc)
                         logger.info(f"Rounding config prepared: {rounding_config}")
+                    # Extract binning config from datetime binning strategy
+                    if hasattr(strategy, 'prepare_binning_config'):
+                        binning_config = strategy.prepare_binning_config(query_desc)
+                        logger.info(f"Binning config prepared: {binning_config}")
                     # Check for category deduplication strategy
                     if strategy.__class__.__name__ == 'CategoryDeduplicationStrategy':
                         use_category_dedup = True
@@ -304,8 +309,24 @@ class QueryService:
                 # Create fresh field reference from table, applying cast if configured
                 field_term = self._get_field_with_cast(t, dim.field, query_desc.column_casts)
                 
-                # Apply rounding if configured for this dimension
-                if rounding_config and dim.field in rounding_config and dim.flavour == 'continuous':
+                # Apply binning if configured for this timeline dimension
+                if binning_config and dim.field in binning_config and getattr(dim, 'date_mode', None) == 'timeline':
+                    from pypika.functions import Function as PypikaFunction
+                    unit = binning_config[dim.field]
+                    # ClickHouse uses date_trunc(unit, field), DuckDB uses date_trunc(unit, field)
+                    binned_expr = PypikaFunction('date_trunc', unit, field_term)
+                    
+                    # Store field info for GROUP BY if category dedup is enabled
+                    if use_category_dedup:
+                        groupby_field_info_for_dedup.append((dim.field, f"binned_{unit}"))
+                    
+                    # Preserve original field name as alias for SELECT
+                    field_term = binned_expr.as_(dim.field)
+                    all_aliases.add(dim.field)
+                    logger.debug(f"Applied datetime binning to {dim.field} with unit {unit}")
+                
+                # Apply rounding if configured for this dimension (non-datetime)
+                elif rounding_config and dim.field in rounding_config and dim.flavour == 'continuous':
                     from backend.services.optimization.strategies.adaptive_rounding import RoundingHelper
                     precision = rounding_config[dim.field]
                     rounded_expr = RoundingHelper.create_round_expression(field_term, precision, db_type)
@@ -496,6 +517,11 @@ class QueryService:
         optimization_metadata = []
         if with_optimization and optimizer and optimization_plan:
             try:
+                # Ensure DISTINCT when binning is active (belt-and-suspenders)
+                # This guards against future strategy failures before apply()
+                if 'unix_timestamp' in (binning_config or {}) and not q._distinct:
+                    q = q.distinct()
+
                 # If using category dedup with GROUP BY, we need special handling
                 if use_category_dedup:
                     # Don't call .distinct() - GROUP BY handles deduplication

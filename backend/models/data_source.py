@@ -16,6 +16,7 @@ class Column(BaseModel):
     # Add other parameters as needed, e.g., is_nullable, default_value
     cast_type: Optional[str] = None  # Override detected type, e.g., 'DOUBLE' for quoted numbers
     cast_replacement: Optional[str] = None  # Regex pattern to remove (e.g., ',' for thousands separator)
+    is_datetime: bool = False
 
 # --- Connection and Listing Models --- #
 

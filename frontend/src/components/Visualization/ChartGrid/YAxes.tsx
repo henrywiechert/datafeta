@@ -17,7 +17,9 @@ interface YAxesProps {
  */
 function buildYAxisOptions(domain: any, gutterPx: number, type?: string) {
   const first = Array.isArray(domain) ? domain[0] : undefined;
-  const isDateRange = Array.isArray(domain) && domain.length === 2 && (first instanceof Date || domain[1] instanceof Date);
+  const isDateString = typeof first === 'string' && /^\d{4}-\d{2}-\d{2}/.test(first);
+  const isDateRange = Array.isArray(domain) && domain.length === 2 && 
+    ((first instanceof Date || domain[1] instanceof Date) || isDateString);
   const isCategorical = type === 'band' || (Array.isArray(domain) && domain.length > 0 && typeof domain[0] !== 'number' && !isDateRange);
   return {
     frame: null,
@@ -27,7 +29,12 @@ function buildYAxisOptions(domain: any, gutterPx: number, type?: string) {
     marginBottom: 0,
     inset: 0,
     x: { axis: null },
-    y: { label: '', domain: domain ?? [0, 1], ...(isCategorical ? { type: 'band' as any } : {}), labelArrow: null },
+    y: { 
+      label: '', 
+      domain: domain ?? [0, 1], 
+      type: isDateRange ? 'utc' : (isCategorical ? 'band' : undefined),
+      labelArrow: null 
+    },
     marks: [Plot.axisY()],
   } as any;
 }

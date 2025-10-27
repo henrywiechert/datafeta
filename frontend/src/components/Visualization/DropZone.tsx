@@ -202,6 +202,20 @@ const DropZone: React.FC<DropZoneProps> = ({
       const data = JSON.parse(e.dataTransfer.getData('application/json'));
       const { field, source, index: sourceIndex } = data;
       
+      // Create a new field instance to avoid mutating the original
+      let newField: Field = {
+        ...field,
+      };
+      
+      // Auto-configure DateTime fields as timeline when dropped on axis
+      if (newField.dataType === 'datetime' && newField.flavour === 'continuous') {
+        newField = {
+          ...newField,
+          dateTimePart: undefined,
+          dateTimeMode: 'timeline'
+        };
+      }
+      
       // Handle reordering within the same axis
       if (source === (axis === 'x' ? 'X_AXIS' : 'Y_AXIS') && onReorderFields && sourceIndex !== undefined) {
         // Calculate target index based on mouse position
@@ -242,7 +256,7 @@ const DropZone: React.FC<DropZoneProps> = ({
         }
         
         // Enforce ordering rule: discrete fields before continuous fields
-        targetIndex = getValidTargetIndex(field, targetIndex, sourceIndex);
+        targetIndex = getValidTargetIndex(newField, targetIndex, sourceIndex);
         
         if (targetIndex !== sourceIndex) {
           onReorderFields(axis, sourceIndex, targetIndex);
@@ -250,8 +264,8 @@ const DropZone: React.FC<DropZoneProps> = ({
       } else {
         // Handle drops from available fields or cross-axis moves
         // Calculate insert index based on flavour ordering rule
-        const insertIndex = getValidInsertIndex(field);
-        onDrop(field, source, insertIndex);
+        const insertIndex = getValidInsertIndex(newField);
+        onDrop(newField, source, insertIndex);
       }
     } catch (error) {
       console.error('Error parsing drag data:', error);

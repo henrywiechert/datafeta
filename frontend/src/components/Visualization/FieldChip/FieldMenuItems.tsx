@@ -102,9 +102,9 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
 
           <div 
             className={menuStyles.menuItem} 
-            onClick={() => onUpdate({ dateTimePart: undefined, dateTimeMode: undefined })}
+            onClick={() => onUpdate({ dateTimePart: undefined, dateTimeMode: 'timeline' })}
           >
-            Full DateTime {!field.dateTimePart && !field.dateTimeMode && '✔'}
+            Full DateTime {!field.dateTimePart && field.dateTimeMode === 'timeline' && '✔'}
           </div>
 
           <SubMenu label="Distinct Parts">

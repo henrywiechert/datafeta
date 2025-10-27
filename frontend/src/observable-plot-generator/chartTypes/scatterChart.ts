@@ -12,7 +12,7 @@ export function scatterChart(
   data: any[],
   xColumn: string,
   yColumn: string,
-  options?: { x?: string; y?: string; domain?: { x?: [number, number]; y?: [number, number] } },
+  options?: { x?: string; y?: string; domain?: { x?: [number, number] | [Date, Date]; y?: [number, number] | [Date, Date] } },
   colorField?: Field,
   colorScheme?: string,
   sizeField?: Field,
@@ -111,8 +111,8 @@ export function scatterChart(
   dotConfig.tip = { format: tipFormat } as any;
   
   // Calculate domains: use shared domains if provided (for faceting/grids), otherwise calculate from local data
-  let xDomain: [number, number];
-  let yDomain: [number, number];
+  let xDomain: [number, number] | [Date, Date] | undefined;
+  let yDomain: [number, number] | [Date, Date] | undefined;
   
   // X domain: use shared if provided, otherwise calculate from data
   if (options?.domain?.x) {
