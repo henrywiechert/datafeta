@@ -24,7 +24,7 @@ export interface ChartGenerationContext {
    */
   sharedDomainsOverride?: {
     measure?: Record<string, [number, number]>;
-    numeric?: Record<string, [number, number]>;
+    numeric?: Record<string, [number, number] | [Date, Date]>;
   };
 }
 

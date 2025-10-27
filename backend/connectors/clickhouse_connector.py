@@ -157,7 +157,10 @@ class ClickHouseConnector(BaseConnector):
             for row in result.result_rows:
                 col_name = row[0]
                 col_type = row[1]
-                columns.append(Column(name=col_name, data_type=col_type))
+                col = Column(name=col_name, data_type=col_type)
+                if 'DateTime' in col_type or 'Date' in col_type:
+                    col.is_datetime = True
+                columns.append(col)
             return columns
         except ValueError as e:
             raise InvalidInputError(str(e))

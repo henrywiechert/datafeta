@@ -11,6 +11,7 @@ from .strategies.base import OptimizationStrategy, OptimizationMetadata
 from .strategies.distinct_pairs import DistinctPairStrategy
 from .strategies.adaptive_rounding import AdaptiveRoundingStrategy
 from .strategies.category_dedup import CategoryDeduplicationStrategy
+from .strategies.datetime_binning import DateTimeBinningStrategy
 from .estimators.base import ResultSizeEstimator, BasicEstimator
 from .estimators.clickhouse import ClickHouseEstimator
 from .estimators.duckdb import DuckDBEstimator
@@ -66,7 +67,14 @@ class QueryOptimizer:
     ):
         self.connector = connector
         self.config = config or OptimizerConfig()
-        self.db_type = getattr(connector, 'db_type', 'clickhouse') if connector else 'clickhouse'
+        
+        connector_class = connector.__class__.__name__ if connector else ''
+        if 'clickhouse' in connector_class.lower():
+            self.db_type = 'clickhouse'
+        elif 'duckdb' in connector_class.lower() or 'file' in connector_class.lower():
+            self.db_type = 'duckdb'
+        else:
+            self.db_type = 'generic'
         
         # Initialize estimator based on database type
         self.estimator = self._create_estimator()
@@ -123,13 +131,20 @@ class QueryOptimizer:
             count_query = f"SELECT COUNT(*) as row_count FROM {table_ref}"
             
             logger.debug(f"Checking table size with: {count_query}")
-            result = self.connector.execute_query(count_query)
+            # Use connector.fetch_data for consistency
+            columns, rows = self.connector.fetch_data(count_query)
             
-            if not result or len(result) == 0:
+            if not rows or len(rows) == 0:
                 logger.warning("Table size check returned no results")
                 return None
             
-            row_count = result[0].get('row_count', 0)
+            first_row = rows[0]
+            if isinstance(first_row, dict):
+                row_count = first_row.get('row_count', 0)
+            elif isinstance(first_row, (list, tuple)):
+                row_count = first_row[0] if len(first_row) > 0 else 0
+            else:
+                row_count = int(first_row)
             
             # Get column count from query description
             column_count = len(query_desc.dimensions) + len(query_desc.measures)
@@ -300,7 +315,58 @@ class QueryOptimizer:
             logger.info("Sampling requested but not yet implemented")
         
         if hints.enable_binning:
-            logger.info("Binning requested but not yet implemented")
+            logger.info("Binning requested via hints")
+            if self.config.enable_adaptive_rounding:
+                # Use the same logic as rounding but apply binning for timeline dims
+                timeline_dims = [d for d in query_desc.dimensions if d.date_mode == 'timeline']
+                logger.info(f"Timeline dimensions found: {len(timeline_dims)}")
+                if timeline_dims:
+                    try:
+                        # Handle single dimension (timeline) vs multiple dimensions
+                        continuous_dims = [d for d in query_desc.dimensions if d.flavour == 'continuous']
+                        logger.info(f"Continuous dimensions count: {len(continuous_dims)}")
+                        
+                        if len(continuous_dims) >= 2:
+                            logger.info("Calling _get_actual_unique_pair_count for 2+ dimensions")
+                            unique_count = self._get_actual_unique_pair_count(query_desc)
+                        elif len(continuous_dims) == 1:
+                            logger.info("Calling _get_actual_unique_single_count for 1 dimension")
+                            unique_count = self._get_actual_unique_single_count(query_desc)
+                            logger.info(f"_get_actual_unique_single_count returned: {unique_count}")
+                        else:
+                            logger.info("No continuous dimensions, unique_count = None")
+                            unique_count = None
+                            
+                        if unique_count is None and self.estimator:
+                            logger.info("unique_count is None, using estimator fallback")
+                            estimate = self.estimator.estimate_size(query_desc)
+                            unique_count = estimate.unique_pairs or estimate.total_rows
+                            logger.info(f"Estimator fallback returned: {unique_count}")
+                        
+                        if unique_count is not None:
+                            threshold = self.config.rounding_threshold
+                            logger.info(f"Comparing {unique_count} vs threshold {threshold}")
+                            if unique_count > threshold:
+                                logger.info(f"✅ APPLYING DATETIME BINNING: {unique_count} > {threshold}")
+                                dimension_ranges = self._fetch_dimension_ranges(query_desc)
+                                strategies.append(
+                                    DateTimeBinningStrategy(
+                                        db_type=self.db_type,
+                                        estimator=self.estimator,
+                                        target_buckets=self.config.target_buckets,
+                                        dimension_ranges=dimension_ranges
+                                    )
+                                )
+                            else:
+                                logger.info(f"❌ SKIPPING DATETIME BINNING: {unique_count} <= {threshold}")
+                        else:
+                            logger.warning("unique_count is still None after estimation")
+                    except Exception as e:
+                        logger.warning(f"Binning decision failed: {e}", exc_info=True)
+                else:
+                    logger.info("No timeline dimensions found, skipping binning")
+            else:
+                logger.warning("Binning requested by hints but adaptive rounding disabled in config")
         
         return strategies
     
@@ -327,95 +393,66 @@ class QueryOptimizer:
         self,
         query_desc: QueryDescription
     ) -> List[OptimizationStrategy]:
-        """
-        Create optimization strategies for queries with multiple continuous dimensions.
-        
-        Applies:
-        - DISTINCT to remove duplicate (x,y) pairs
-        - Adaptive rounding if dataset is large
-        - Category deduplication if discrete dimensions present
-        """
         strategies = []
         
-        # Always apply DISTINCT for scatter pairs
+        # Avoid DISTINCT duplication when binning will be applied
         if self.config.enable_distinct_pairs:
-            # Pass estimator to strategy for accurate reduction estimation
-            strategies.append(DistinctPairStrategy(self.db_type, estimator=self.estimator))
+            timeline_dims = [d for d in query_desc.dimensions if d.date_mode == 'timeline']
+            has_timeline = len(timeline_dims) > 0
+            if not has_timeline:
+                strategies.append(DistinctPairStrategy(self.db_type, estimator=self.estimator))
         
-        # Check if we'll need category deduplication
-        # If so, we should be more aggressive with rounding since discrete dims multiply row count
-        category_strategy = CategoryDeduplicationStrategy(self.db_type, estimator=self.estimator)
-        will_use_category_dedup = category_strategy.can_apply(query_desc)
+        # Check for timeline dimensions
+        timeline_dims = [d for d in query_desc.dimensions if d.date_mode == 'timeline']
+        has_timeline = len(timeline_dims) > 0
         
-        # Apply adaptive rounding if enabled and dataset is still large
+        # Apply adaptive rounding or binning if enabled and dataset is still large
         if self.config.enable_adaptive_rounding:
             if not self.connector:
                 logger.warning("Adaptive rounding enabled but no connector available")
             else:
                 try:
-                    # Get ACTUAL count of unique pairs with current filters
-                    # This is more accurate than estimation, especially with filters
-                    logger.info("=" * 60)
-                    logger.info("ROUNDING DECISION: Getting actual count...")
                     unique_count = self._get_actual_unique_pair_count(query_desc)
-                    
                     if unique_count is None:
-                        # Fall back to estimation if actual count fails
-                        logger.warning("⚠️  Failed to get actual count, falling back to estimation")
                         if self.estimator:
                             estimate = self.estimator.estimate_size(query_desc)
                             unique_count = estimate.unique_pairs or estimate.total_rows
-                            logger.info(f"📊 Estimated unique pairs (fallback): {unique_count}")
                         else:
-                            logger.error("❌ No estimator available either, CANNOT determine if rounding needed!")
                             unique_count = None
-                    else:
-                        logger.info(f"✅ Actual unique pair count: {unique_count}")
                     
                     if unique_count is not None:
-                        # When category dedup is needed, apply rounding more aggressively
-                        # The count represents unique (x,y) pairs after filters
+                        will_use_category_dedup = CategoryDeduplicationStrategy(self.db_type, estimator=self.estimator).can_apply(query_desc)
                         threshold = self.config.rounding_threshold
                         if will_use_category_dedup:
-                            # Use a lower threshold (1/5th) when discrete dimensions are present
                             threshold = threshold // 2
-                            logger.info(f"🎨 Category dedup detected - using lower threshold: {threshold}")
-                        else:
-                            logger.info(f"📏 Using standard threshold: {threshold}")
                         
-                        # Apply rounding if still above threshold
                         if unique_count > threshold:
-                            logger.info(
-                                f"✅ APPLYING ROUNDING: {unique_count} > {threshold}"
-                            )
-                            logger.info("=" * 60)
-                            
-                            # Fetch dimension ranges for rounding calculation
                             dimension_ranges = self._fetch_dimension_ranges(query_desc)
                             
-                            strategies.append(
-                                AdaptiveRoundingStrategy(
-                                    db_type=self.db_type,
-                                    estimator=self.estimator,
-                                    target_buckets=self.config.target_buckets,
-                                    dimension_ranges=dimension_ranges
+                            if has_timeline:
+                                strategies.append(
+                                    DateTimeBinningStrategy(
+                                        db_type=self.db_type,
+                                        estimator=self.estimator,
+                                        target_buckets=self.config.target_buckets,
+                                        dimension_ranges=dimension_ranges
+                                    )
                                 )
-                            )
-                        else:
-                            logger.info(
-                                f"❌ SKIPPING ROUNDING: {unique_count} <= {threshold}"
-                            )
-                            logger.info("=" * 60)
-                    else:
-                        logger.error("❌ Could not determine unique count - SKIPPING ROUNDING")
-                        logger.info("=" * 60)
+                            else:
+                                strategies.append(
+                                    AdaptiveRoundingStrategy(
+                                        db_type=self.db_type,
+                                        estimator=self.estimator,
+                                        target_buckets=self.config.target_buckets,
+                                        dimension_ranges=dimension_ranges
+                                    )
+                                )
                 except Exception as e:
-                    logger.warning(f"Size estimation failed, skipping rounding: {e}", exc_info=True)
+                    logger.warning(f"Size estimation failed, skipping rounding/binning: {e}", exc_info=True)
         
-        # Apply category deduplication if we have discrete dimensions (e.g., color field)
-        # This removes duplicate (x,y) pairs across categories
-        if will_use_category_dedup:
-            logger.info("Adding category deduplication strategy to remove duplicate (x,y) pairs")
+        # Apply category deduplication if we have discrete dimensions
+        category_strategy = CategoryDeduplicationStrategy(self.db_type, estimator=self.estimator)
+        if category_strategy.can_apply(query_desc):
             strategies.append(category_strategy)
         
         return strategies
@@ -557,7 +594,13 @@ class QueryOptimizer:
             
             # Build distinct count query with filters
             count_query = Query.from_(table)
-            count_query = count_query.select(Count(field_term.distinct()).as_('unique_count'))
+            # For ClickHouse, use uniq() function; for others, use COUNT(DISTINCT field)
+            if self.db_type == 'clickhouse':
+                from pypika.functions import Function
+                count_expr = Function('uniq', field_term).as_('unique_count')
+            else:
+                count_expr = Count(field_term).distinct().as_('unique_count')
+            count_query = count_query.select(count_expr)
             
             for filter_obj in query_desc.filters:
                 field_term_f = getattr(table, filter_obj.field)
@@ -579,23 +622,34 @@ class QueryOptimizer:
                     count_query = count_query.where(field_term_f.notin(filter_obj.value))
             
             sql = count_query.get_sql(quote_char='`')
-            logger.info("Executing 1D unique count query to decide rounding...")
-            logger.debug(f"1D Count SQL: {sql}")
+            logger.info("Executing 1D unique count query to decide binning/rounding...")
+            logger.info(f"1D Count SQL: {sql}")
             
             columns, rows = self.connector.fetch_data(sql)
             
+            logger.info(f"1D count query returned {len(rows) if rows else 0} rows, columns: {columns}")
+            
             if rows and len(rows) > 0:
                 row = rows[0]
+                logger.info(f"1D count first row: {row}, type: {type(row)}")
+                
                 if isinstance(row, dict):
-                    count = row.get('unique_count') or row.get('count(distinct)')
+                    count = row.get('unique_count') or row.get('count(distinct)') or row.get('COUNT(DISTINCT `unix_timestamp`)')
+                    logger.info(f"Extracted count from dict: {count}, available keys: {row.keys()}")
                 elif isinstance(row, (list, tuple)):
                     count = row[0]
+                    logger.info(f"Extracted count from list/tuple: {count}")
                 else:
                     count = row
+                    logger.info(f"Using row directly as count: {count}")
                 
                 if count is not None:
+                    logger.info(f"✅ 1D unique count result: {count}")
                     return int(count)
+                else:
+                    logger.warning(f"Count was None after extraction")
             
+            logger.warning("1D count query returned no usable data")
             return None
         except Exception as e:
             logger.error(f"Failed to get 1D unique count: {e}", exc_info=True)
@@ -612,7 +666,7 @@ class QueryOptimizer:
             Dictionary mapping field names to (min, max) tuples
         """
         from pypika import Query, Table
-        from pypika.functions import Min, Max
+        from pypika.functions import Min, Max, Function
         
         ranges = {}
         continuous_dims = [d for d in query_desc.dimensions if d.flavour == 'continuous']
@@ -630,10 +684,22 @@ class QueryOptimizer:
             
             for dim in continuous_dims:
                 field_term = getattr(table, dim.field)
-                range_query = range_query.select(
-                    Min(field_term).as_(f'min_{dim.field}'),
-                    Max(field_term).as_(f'max_{dim.field}')
-                )
+                if dim.date_mode == 'timeline':
+                    if self.db_type == 'clickhouse':
+                        ts_func = Function('toUnixTimestamp', field_term)
+                    elif self.db_type == 'duckdb':
+                        ts_func = Function('epoch', field_term)
+                    else:
+                        ts_func = field_term
+                    range_query = range_query.select(
+                        Min(ts_func).as_(f'min_{dim.field}'),
+                        Max(ts_func).as_(f'max_{dim.field}')
+                    )
+                else:
+                    range_query = range_query.select(
+                        Min(field_term).as_(f'min_{dim.field}'),
+                        Max(field_term).as_(f'max_{dim.field}')
+                    )
 
             # Apply WHERE filters from the query description
             for filter_obj in query_desc.filters:

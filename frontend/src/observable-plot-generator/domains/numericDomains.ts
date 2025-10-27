@@ -12,36 +12,54 @@ export function computeSharedNumericDomains(
   data: any[],
   xCandidates: any[],
   yCandidates: any[]
-): Record<string, [number, number]> {
+): Record<string, [number, number] | [Date, Date]> {
   const labels: string[] = [];
+  const fieldMap: Record<string, any> = {}; // label -> field
 
   const maybeAdd = (field: any) => {
     if (!field) return;
+    let name;
     if (field.type === 'measure') {
-      const name = getResultColumnName({ ...field, aggregation: field.aggregation || 'sum' } as any);
-      if (!labels.includes(name)) labels.push(name);
+      name = getResultColumnName({ ...field, aggregation: field.aggregation || 'sum' } as any);
     } else if (field.type === 'dimension' && field.flavour === 'continuous') {
-      // Use getResultColumnName to handle DateTime parts correctly
-      const name = getResultColumnName(field);
-      if (!labels.includes(name)) labels.push(name);
+      name = getResultColumnName(field);
+    }
+    if (name && !labels.includes(name)) {
+      labels.push(name);
+      fieldMap[name] = field;
     }
   };
 
   xCandidates?.forEach(maybeAdd);
   yCandidates?.forEach(maybeAdd);
 
-  const domains: Record<string, [number, number]> = {};
+  const domains: Record<string, [number, number] | [Date, Date]> = {};
   for (const label of labels) {
-    const values = data
-      .map((row) => row[label])
-      .filter((v) => typeof v === 'number' && !Number.isNaN(v));
-    if (values.length === 0) continue;
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const lower = min - Math.abs(min) * DOMAIN_PAD_RATIO;
-    // Add headroom so points don't touch the boundary.
-    const upper = max <= 0 ? 0 : max * (1 + DOMAIN_PAD_RATIO);
-    domains[label] = [lower, upper];
+    const field = fieldMap[label];
+    if (field.date_mode === 'timeline') {
+      const dateValues = data
+        .map((row) => new Date(row[label]))
+        .filter((d) => !isNaN(d.getTime()));
+      if (dateValues.length === 0) continue;
+      const timestamps = dateValues.map(d => d.getTime());
+      const minTs = Math.min(...timestamps);
+      const maxTs = Math.max(...timestamps);
+      const rangeMs = maxTs - minTs;
+      const padMs = rangeMs * DOMAIN_PAD_RATIO;
+      const minDate = new Date(minTs - padMs);
+      const maxDate = new Date(maxTs + padMs);
+      domains[label] = [minDate, maxDate];
+    } else {
+      const values = data
+        .map((row) => row[label])
+        .filter((v) => typeof v === 'number' && !Number.isNaN(v));
+      if (values.length === 0) continue;
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const lower = min - Math.abs(min) * DOMAIN_PAD_RATIO;
+      const upper = max <= 0 ? 0 : max * (1 + DOMAIN_PAD_RATIO);
+      domains[label] = [lower, upper];
+    }
   }
 
   return domains;

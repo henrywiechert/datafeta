@@ -173,7 +173,15 @@ class FileConnector(BaseConnector):
             describe_query = f"DESCRIBE {safe_view_name};"
             logger.debug(f"Executing describe query on view: {describe_query}")
             result = con.execute(describe_query).fetchall()
-            columns = [Column(name=row[0], data_type=row[1]) for row in result]
+            columns = []
+            datetime_types = {'TIMESTAMP', 'DATE', 'TIME', 'TIMESTAMP WITH TIME ZONE'}
+            for row in result:
+                col_name = row[0]
+                col_type = row[1].upper()
+                col = Column(name=col_name, data_type=col_type)
+                if col_type in datetime_types:
+                    col.is_datetime = True
+                columns.append(col)
             return columns
         except Exception as e:
             logger.exception(f"Error describing view {self._table_name} with DuckDB")

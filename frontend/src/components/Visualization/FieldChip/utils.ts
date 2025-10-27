@@ -74,14 +74,15 @@ export const applyFieldUpdateRules = (field: Field, updates: Partial<Field>): Fi
     delete newField.dateTimeMode;
   }
 
-  // When setting a datetime part, ensure both part and mode are set
+  // When setting a datetime part or mode
   if (updates.dateTimePart !== undefined || updates.dateTimeMode !== undefined) {
-    // If clearing datetime part (setting to undefined), clear both
-    if (updates.dateTimePart === undefined || updates.dateTimeMode === undefined) {
+    // If clearing both datetime part and mode, and BOTH are undefined in updates
+    if (updates.dateTimePart === undefined && updates.dateTimeMode === undefined) {
       delete newField.dateTimePart;
       delete newField.dateTimeMode;
     }
-    // Both must be set together or neither
+    // Otherwise, keep what's being set
+    // This allows Full DateTime (no part, but has mode='timeline')
   }
 
   // When a datetime part is selected, ensure field is a dimension
