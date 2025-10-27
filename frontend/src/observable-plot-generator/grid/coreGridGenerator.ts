@@ -81,7 +81,7 @@ export function generateCartesianPlots(
   data: any[],
   xCandidates: Field[],
   yCandidates: Field[],
-  sharedMeasureDomains: Record<string, [number, number]>,
+  sharedMeasureDomains: Record<string, [number, number] | [Date, Date]>,
   overrides?: ChartTypeOverrides,
   colorField?: Field,
   colorScheme?: string,

@@ -10,7 +10,7 @@ import { CellChartType, ChartTypeOverrides, resolveChartTypeForPair } from '../h
 import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField } from './barCore';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 
-type Domains = Record<string, [number, number]> | undefined;
+type Domains = Record<string, [number, number] | [Date, Date]> | undefined;
 
 /**
  * Generate PlotOptions for a single cell given X/Y fields and optional shared measure domains.

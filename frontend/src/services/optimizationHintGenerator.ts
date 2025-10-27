@@ -255,6 +255,20 @@ function shouldEnableDistinct(
 }
 
 /**
+ * Determine if binning should be enabled based on field configuration
+ * 
+ * @param dimensions - Array of dimension fields
+ * @returns Whether binning should be enabled
+ */
+function shouldEnableBinning(dimensions: Dimension[]): boolean {
+    // Binning is needed for timeline dimensions (full DateTime fields)
+    console.log('shouldEnableBinning - dimensions:', dimensions);
+    const hasTimelineDim = dimensions?.some(d => d.date_mode === 'timeline') || false;
+    console.log('shouldEnableBinning - hasTimelineDim:', hasTimelineDim);
+    return hasTimelineDim;
+}
+
+/**
  * Main function: Generate optimization hints based on chart configuration
  * 
  * @param options - Configuration options
@@ -296,6 +310,7 @@ export function generateOptimizationHints(options: {
     // Determine optimization settings based on analysis
     const enableDistinct = shouldEnableDistinct(dimensions, measures, chartType);
     const enableRounding = shouldEnableRounding(dimensions, chartType);
+    const enableBinning = shouldEnableBinning(dimensions);
     
     // Get recommended optimization level
     const totalFields = (dimensions?.length || 0) + (measures?.length || 0);
@@ -314,11 +329,13 @@ export function generateOptimizationHints(options: {
         enable_distinct: enableDistinct,
         enable_rounding: enableRounding,
         enable_sampling: false, // Reserved for future
-        enable_binning: false,  // Reserved for future
+        enable_binning: enableBinning,
         optimization_level: optimizationLevel,
         purpose: baseProfile.purpose || `${chartType}_chart`,
         ...(customRoundingThreshold && { rounding_threshold: customRoundingThreshold })
     };
+    
+    console.log('🔧 Generated optimization hints:', hints);
     
     return hints;
 }
@@ -351,6 +368,7 @@ export function generateOptimizationHintsFromFields(options: {
     // Process X axis fields
     xAxisFields.forEach(field => {
         if (field.type === 'dimension') {
+            console.log('Processing X field:', field.columnName, 'dateTimeMode:', field.dateTimeMode);
             dimensions.push({
                 field: field.columnName,
                 flavour: field.flavour,

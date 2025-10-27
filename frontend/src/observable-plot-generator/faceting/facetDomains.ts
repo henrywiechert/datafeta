@@ -9,7 +9,7 @@ import { ColorScaleInfo, deriveColorScaleInfo } from '../utils/colorSchemeUtils'
  */
 export interface SharedDomains {
   measure: Record<string, [number, number]>;
-  numeric: Record<string, [number, number]>;
+  numeric: Record<string, [number, number] | [Date, Date]>;
   categorical: Record<string, any[]>;
   colorScale?: ColorScaleInfo | null;
 }
@@ -70,10 +70,6 @@ export function applySharedDomains(
   // Get domain keys from axis configurations
   const xDomainKey = (opts as any)?.x?.domainKey || (opts as any)?.x?.domainLabel || (opts as any)?.x?.label;
   const yDomainKey = (opts as any)?.y?.domainKey || (opts as any)?.y?.domainLabel || (opts as any)?.y?.label;
-  
-  // Check if domains are already explicitly set
-  const xDomainAlreadySet = (opts as any)?.x?.domain !== undefined;
-  const yDomainAlreadySet = (opts as any)?.y?.domain !== undefined;
   
   // Look up shared domains by domainKey (which matches the data column name)
   // Check both numeric and measure domain maps
