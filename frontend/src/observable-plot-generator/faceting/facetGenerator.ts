@@ -251,10 +251,15 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
   
   // Create a cell generator that uses buildBaseSpecForDataSubset
   const defaultCellGenerator: CellGenerator = (cellData, cellContext, sharedDomains, facetPosition) => {
-    // Create a modified context with filtered data
+    // Create a modified context with filtered data and global shared domains
     const localContext: ChartGenerationContext = {
       ...cellContext,
       queryResult: { ...cellContext.queryResult, rows: cellData },
+      // Pass shared domains so Cartesian grid generation uses them instead of computing from cell data
+      sharedDomainsOverride: {
+        measure: sharedDomains.measure,
+        numeric: sharedDomains.numeric,
+      },
     };
     
     const baseSpec = buildBaseSpecForDataSubset(

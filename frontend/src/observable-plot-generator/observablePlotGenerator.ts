@@ -107,15 +107,19 @@ export function baseGeneratePlot(context: ChartGenerationContext): PlotResult {
   const multiAcrossAxes =
     xCandidates.length > 0 && yCandidates.length > 0 && (xCandidates.length > 1 || yCandidates.length > 1);
   if (multiAcrossAxes) {
-    // In faceting base-spec we don't need shared measure domains when only dimensions are used.
-    const sharedMeasureDomains = computeSharedMeasureDomains(queryResult.rows, xCandidates as any[], yCandidates as any[], colorField);
+    // Use provided shared domains if available (from faceting), otherwise compute from local data
+    const sharedMeasureDomains = context.sharedDomainsOverride?.measure 
+      || computeSharedMeasureDomains(queryResult.rows, xCandidates as any[], yCandidates as any[], colorField);
+    const sharedNumericDomains = context.sharedDomainsOverride?.numeric || {};
+    const combinedDomains = { ...sharedNumericDomains, ...sharedMeasureDomains };
+    
     return {
       library: 'observable-plot',
       plots: generateCartesianPlots(
         queryResult.rows,
         xCandidates,
         yCandidates,
-        sharedMeasureDomains,
+        combinedDomains,
         undefined,
         colorField,
         colorScheme,
