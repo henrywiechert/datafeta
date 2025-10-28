@@ -59,7 +59,13 @@ The application is built with React and consists of two main pages:
 - `npm run build` - Build for production
 
 ### Key Technologies
-- React 18 with TypeScript
-- Material-UI for component library
-- Observable Plot for chart generation
-- AG Grid Community for table views
+
+## DateTime Scatter Support
+
+When you place a continuous DateTime dimension on one axis and a continuous numeric dimension on the other (with no measures), the system renders a scatter plot. Previously this combination could produce no chart because the scatter logic only accepted strictly numeric values. The updated scatter generator now:
+
+* Detects date-like values (native `Date` objects or ISO-8601 strings) and normalizes them to `Date` instances.
+* Applies padded time domains using the global `DOMAIN_PAD_RATIO` constant for better visual spacing.
+* Provides empty axes (with correct time scale) if all values are invalid, ensuring consistent layout within grids/facets.
+
+This enables seamless transitions between tick-strip charts (single continuous dimension) and scatter charts (two continuous dimensions, including DateTime). No configuration changes are required; just drag a second continuous dimension onto the opposite axis.

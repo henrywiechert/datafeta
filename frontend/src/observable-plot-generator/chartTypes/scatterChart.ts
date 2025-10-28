@@ -1,5 +1,5 @@
 import * as Plot from '@observablehq/plot';
-import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
+import { DEFAULT_CHART_COLOR, DOMAIN_PAD_RATIO } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
@@ -19,15 +19,49 @@ export function scatterChart(
   sizeRange?: [number, number],
   manualSize?: number
 ): Plot.PlotOptions {
-  const clean = Array.isArray(data)
-    ? data.filter((d) => Number.isFinite(d[xColumn]) && Number.isFinite(d[yColumn]))
+  // Detect axis value kinds by sampling up to first 20 non-null values
+  const sampleValues = (column: string) => (Array.isArray(data) ? data.map(r => r?.[column]).filter(v => v !== null && v !== undefined) : []);
+  const xSamples = sampleValues(xColumn);
+  const ySamples = sampleValues(yColumn);
+  const isDateLike = (v: any) => v instanceof Date || (typeof v === 'string' && !Number.isNaN(Date.parse(v)));
+  const xIsDate = xSamples.some(isDateLike);
+  const yIsDate = ySamples.some(isDateLike);
+  const isNumeric = (v: any) => typeof v === 'number' && Number.isFinite(v);
+  const isValid = (col: string, isDateAxis: boolean, val: any) => {
+    if (isDateAxis) return isDateLike(val);
+    return isNumeric(val);
+  };
+
+  // Build cleaned & normalized data: convert date-like strings to Date objects so Plot time scale works
+  const clean: any[] = Array.isArray(data)
+    ? data.filter(d => isValid(xColumn, xIsDate, d?.[xColumn]) && isValid(yColumn, yIsDate, d?.[yColumn]))
+        .map(d => {
+          if (!xIsDate && !yIsDate) return d; // no normalization needed
+          const copy: any = { ...d };
+          if (xIsDate && !(copy[xColumn] instanceof Date)) copy[xColumn] = new Date(copy[xColumn]);
+          if (yIsDate && !(copy[yColumn] instanceof Date)) copy[yColumn] = new Date(copy[yColumn]);
+          return copy;
+        })
     : [];
 
   if (clean.length === 0) {
     // Render empty axes (no points) so the cell shape matches others
     return {
-      x: { label: options?.x || xColumn, domainKey: xColumn, grid: true, domain: options?.domain?.x } as any,
-      y: { label: options?.y || yColumn, domainKey: yColumn, grid: true, domain: options?.domain?.y } as any,
+      x: {
+        label: options?.x || xColumn,
+        domainKey: xColumn,
+        grid: true,
+        domain: options?.domain?.x,
+        // If axis inferred as date, ensure time scale
+        ...(xIsDate ? { type: 'utc' as any } : {})
+      } as any,
+      y: {
+        label: options?.y || yColumn,
+        domainKey: yColumn,
+        grid: true,
+        domain: options?.domain?.y,
+        ...(yIsDate ? { type: 'utc' as any } : {})
+      } as any,
       marks: [],
     };
   }
@@ -110,43 +144,69 @@ export function scatterChart(
 
   dotConfig.tip = { format: tipFormat } as any;
   
-  // Calculate domains: use shared domains if provided (for faceting/grids), otherwise calculate from local data
+  // Calculate domains: use shared domains if provided (for faceting/grids), otherwise calculate from local data.
+  // Numeric padding uses DOMAIN_PAD_RATIO; date padding expands by ratio of range.
   let xDomain: [number, number] | [Date, Date] | undefined;
   let yDomain: [number, number] | [Date, Date] | undefined;
-  
-  // X domain: use shared if provided, otherwise calculate from data
+
+  const buildNumericDomain = (values: number[]): [number, number] => {
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = max - min;
+    const pad = range * DOMAIN_PAD_RATIO;
+    return [min - pad, max + pad];
+  };
+  const buildDateDomain = (values: Date[]): [Date, Date] => {
+    const timestamps = values.map(d => d.getTime());
+    const minTs = Math.min(...timestamps);
+    const maxTs = Math.max(...timestamps);
+    const range = maxTs - minTs;
+    const pad = range * DOMAIN_PAD_RATIO;
+    return [new Date(minTs - pad), new Date(maxTs + pad)];
+  };
+
   if (options?.domain?.x) {
     xDomain = options.domain.x;
   } else {
-    const xValues = clean.map(d => d[xColumn]);
-    const xMin = Math.min(...xValues);
-    const xMax = Math.max(...xValues);
-    const xRange = xMax - xMin;
-    const xPadding = xRange * 0.05; // 5% padding on each side
-    xDomain = [xMin - xPadding, xMax + xPadding] as [number, number];
+    if (xIsDate) {
+      const values = clean.map(d => d[xColumn] as Date);
+      xDomain = buildDateDomain(values);
+    } else {
+      const values = clean.map(d => d[xColumn] as number);
+      xDomain = buildNumericDomain(values);
+    }
   }
-  
-  // Y domain: use shared if provided, otherwise calculate from data
   if (options?.domain?.y) {
     yDomain = options.domain.y;
   } else {
-    const yValues = clean.map(d => d[yColumn]);
-    const yMin = Math.min(...yValues);
-    const yMax = Math.max(...yValues);
-    const yRange = yMax - yMin;
-    const yPadding = yRange * 0.05; // 5% padding on each side
-    yDomain = [yMin - yPadding, yMax + yPadding] as [number, number];
+    if (yIsDate) {
+      const values = clean.map(d => d[yColumn] as Date);
+      yDomain = buildDateDomain(values);
+    } else {
+      const values = clean.map(d => d[yColumn] as number);
+      yDomain = buildNumericDomain(values);
+    }
   }
   
   const plotOptions: Plot.PlotOptions = {
-    // Provide labels and retain as keys for domain application
-    x: { label: options?.x || xColumn, domainKey: xColumn, grid: true, domain: xDomain, nice: false } as any,
-    y: { label: options?.y || yColumn, domainKey: yColumn, grid: true, domain: yDomain, nice: false } as any,
-    // Ensure r values returned by dotConfig.r are treated as absolute radii (no further scaling)
+    x: {
+      label: options?.x || xColumn,
+      domainKey: xColumn,
+      grid: true,
+      domain: xDomain,
+      nice: false,
+      ...(xIsDate ? { type: 'utc' as any } : {})
+    } as any,
+    y: {
+      label: options?.y || yColumn,
+      domainKey: yColumn,
+      grid: true,
+      domain: yDomain,
+      nice: false,
+      ...(yIsDate ? { type: 'utc' as any } : {})
+    } as any,
     r: { type: 'identity' } as any,
-    marks: [
-      Plot.dot(clean, dotConfig),
-    ],
+    marks: [Plot.dot(clean, dotConfig)],
   };
   
   if (colorField && colorInfo) {
