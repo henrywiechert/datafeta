@@ -37,6 +37,10 @@ interface VisualizationState {
   sizeField: Field | null;
   sizeRange: [number, number]; // Min and max size
   manualSize: number; // Used when no field is present
+  // --- Per-operation timing (phase 1 introduction) ---
+  operationStartTimes: Record<LoadingOperationType, number | null>; // individual start times
+  activeOperations: LoadingOperationType[]; // active operations list
+  modalPrimaryOperation: LoadingOperationType | null; // chosen operation for modal display
 }
 
 // Define action types
@@ -62,6 +66,10 @@ type VisualizationAction =
   | { type: 'CANCEL_OPERATION' }
   | { type: 'COMPLETE_SPECIFIC_OPERATION'; payload: LoadingOperationType; }
   | { type: 'RESET_LOADING_STATES' }
+  | { type: 'SET_OPERATION_START_TIME'; payload: { op: LoadingOperationType; time: number } }
+  | { type: 'ADD_ACTIVE_OPERATION'; payload: LoadingOperationType }
+  | { type: 'REMOVE_ACTIVE_OPERATION'; payload: LoadingOperationType }
+  | { type: 'SET_MODAL_PRIMARY_OPERATION'; payload: LoadingOperationType | null }
   // Filter action types
   | { type: 'SET_FILTER_FIELDS'; payload: Field[] }
   | { type: 'SET_FILTER_CONFIGURATION'; payload: { fieldId: string; config: FilterConfig } }
@@ -110,6 +118,10 @@ const initialState: VisualizationState = {
   sizeField: null,
   sizeRange: [4, 20], // Default range for sizes
   manualSize: 10, // Default manual size
+  // Per-operation timing defaults
+  operationStartTimes: { query: null, rendering: null, metadata: null },
+  activeOperations: [],
+  modalPrimaryOperation: null,
 };
 
 // Reducer function
@@ -190,6 +202,16 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
       };
     case 'SET_LOADING_START_TIME':
       return { ...state, loadingStartTime: action.payload };
+    case 'SET_OPERATION_START_TIME':
+      return { ...state, operationStartTimes: { ...state.operationStartTimes, [action.payload.op]: action.payload.time } };
+    case 'ADD_ACTIVE_OPERATION': {
+      if (state.activeOperations.includes(action.payload)) return state;
+      return { ...state, activeOperations: [...state.activeOperations, action.payload] };
+    }
+    case 'REMOVE_ACTIVE_OPERATION':
+      return { ...state, activeOperations: state.activeOperations.filter(o => o !== action.payload) };
+    case 'SET_MODAL_PRIMARY_OPERATION':
+      return { ...state, modalPrimaryOperation: action.payload };
     case 'CANCEL_OPERATION':
       return {
         ...state,
@@ -200,6 +222,9 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
         loadingOperationType: null,
         loadingStartTime: null,
         canCancelOperation: false,
+        operationStartTimes: { query: null, rendering: null, metadata: null },
+        activeOperations: [],
+        modalPrimaryOperation: null,
       };
     case 'COMPLETE_SPECIFIC_OPERATION':
       {
@@ -221,6 +246,7 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
           updatedState.loadingOperationType = null;
           updatedState.loadingStartTime = null;
           updatedState.canCancelOperation = false;
+          updatedState.modalPrimaryOperation = null;
         }
         return updatedState;
       }
@@ -233,6 +259,9 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
         loadingOperationType: null,
         loadingStartTime: null,
         canCancelOperation: false,
+        operationStartTimes: { query: null, rendering: null, metadata: null },
+        activeOperations: [],
+        modalPrimaryOperation: null,
       };
     case 'SET_FILTER_FIELDS':
       return { ...state, filterFields: action.payload };
@@ -328,6 +357,9 @@ export function VisualizationProvider({ children, initialState: initialStateProp
   const timeoutRefs = useRef<{ [key: string]: NodeJS.Timeout | null }>({});
 
   // Start an operation with timeout handling
+  // startOperation now records both legacy global start time and per-operation time.
+  // Legacy fields (loadingStartTime, loadingOperationType) remain for current modal component.
+  // New fields (operationStartTimes, activeOperations, modalPrimaryOperation) will support multi-operation modal.
   const startOperation = useCallback((operationType: LoadingOperationType, canCancel: boolean = true) => {
     
     // Clear any existing timeout for this operation
@@ -335,8 +367,13 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       clearTimeout(timeoutRefs.current[operationType]!);
     }
 
-    // Set loading state
-    dispatch({ type: 'SET_LOADING_START_TIME', payload: Date.now() });
+  // Global legacy start time retained for existing modal display
+  const now = Date.now();
+  dispatch({ type: 'SET_LOADING_START_TIME', payload: now });
+  // Record per-operation start time if not already set
+  dispatch({ type: 'SET_OPERATION_START_TIME', payload: { op: operationType, time: now } });
+  // Track active operation list
+  dispatch({ type: 'ADD_ACTIVE_OPERATION', payload: operationType });
     
     switch (operationType) {
       case 'query':
@@ -354,6 +391,8 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     const timeoutMs = getTimeoutForOperation(operationType);
     
     timeoutRefs.current[operationType] = setTimeout(() => {
+      // Choose primary operation if none selected (for future enhancement)
+      dispatch({ type: 'SET_MODAL_PRIMARY_OPERATION', payload: operationType });
       dispatch({ 
         type: 'SET_LOADING_MODAL', 
         payload: { show: true, operationType, canCancel } 
@@ -362,6 +401,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
   }, []);
 
   // Complete an operation
+  // completeOperation updates legacy flags plus removes the operation from new tracking lists.
   const completeOperation = useCallback((operationType: LoadingOperationType) => {
     
     // Clear only the specific timeout
@@ -370,8 +410,16 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       timeoutRefs.current[operationType] = null; // Mark as cleared
     }
 
+    // Remove from active operations list
+    dispatch({ type: 'REMOVE_ACTIVE_OPERATION', payload: operationType });
     // Dispatch action to update specific loading state and potentially hide modal
     dispatch({ type: 'COMPLETE_SPECIFIC_OPERATION', payload: operationType });
+    // If the completed op was the primary, clear primary (legacy modal still uses loadingOperationType)
+    // Future enhancement will recompute next primary.
+    // For now we simply null it to avoid stale references when we begin multi-op UI.
+    if (state.modalPrimaryOperation === operationType) {
+      dispatch({ type: 'SET_MODAL_PRIMARY_OPERATION', payload: null });
+    }
   }, []);
 
   // Cancel an operation
