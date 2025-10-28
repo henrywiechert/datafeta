@@ -36,7 +36,9 @@ export function computeSharedNumericDomains(
   const domains: Record<string, [number, number] | [Date, Date]> = {};
   for (const label of labels) {
     const field = fieldMap[label];
-    if (field.date_mode === 'timeline') {
+    // Frontend fields use camelCase: dateTimeMode ('timeline' | 'distinct')
+    const isTimeline = field?.dateTimeMode === 'timeline' || field?.date_mode === 'timeline';
+    if (isTimeline) {
       const dateValues = data
         .map((row) => new Date(row[label]))
         .filter((d) => !isNaN(d.getTime()));
