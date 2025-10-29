@@ -71,6 +71,10 @@ type VisualizationAction =
   | { type: 'REMOVE_ACTIVE_OPERATION'; payload: LoadingOperationType }
   | { type: 'SET_MODAL_PRIMARY_OPERATION'; payload: LoadingOperationType | null }
   | { type: 'ENSURE_PRIMARY_OPERATION'; payload: LoadingOperationType }
+  // REQUEST_SHOW_MODAL introduces a guarded path for revealing the modal after timeout.
+  // It validates that the target operation is still active to prevent showing a stale dialog
+  // when the operation already completed before the timeout fired.
+  | { type: 'REQUEST_SHOW_MODAL'; payload: { operationType: LoadingOperationType; canCancel: boolean } }
   // Filter action types
   | { type: 'SET_FILTER_FIELDS'; payload: Field[] }
   | { type: 'SET_FILTER_CONFIGURATION'; payload: { fieldId: string; config: FilterConfig } }
@@ -214,8 +218,22 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
     case 'SET_MODAL_PRIMARY_OPERATION':
       return { ...state, modalPrimaryOperation: action.payload };
     case 'ENSURE_PRIMARY_OPERATION': {
+      // Only set a primary if none exists AND the operation is still active.
       if (state.modalPrimaryOperation) return state;
+      if (!state.activeOperations.includes(action.payload)) return state; // operation already completed
       return { ...state, modalPrimaryOperation: action.payload };
+    }
+    case 'REQUEST_SHOW_MODAL': {
+      // Guard against race: if operation finished before timeout fired, ignore showing modal.
+      if (!state.activeOperations.includes(action.payload.operationType)) {
+        return state; // stale timeout
+      }
+      return {
+        ...state,
+        showLoadingModal: true,
+        loadingOperationType: action.payload.operationType,
+        canCancelOperation: action.payload.canCancel
+      };
     }
     case 'CANCEL_OPERATION':
       return {
@@ -436,12 +454,13 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     const timeoutMs = getTimeoutForOperation(operationType);
     
     timeoutRefs.current[operationType] = setTimeout(() => {
-      // Avoid stale closure on state by using ENSURE_PRIMARY_OPERATION which checks presence inside reducer.
+      // Timeout path now dispatches two guarded actions:
+      // 1) ENSURE_PRIMARY_OPERATION will only select this op if still active and there is no primary.
+      // 2) REQUEST_SHOW_MODAL will only show the modal if the op is still active at timeout fire.
+      // This eliminates cases where a very fast follow-up operation closes state before timeout,
+      // leaving the modal clock at 0:00 and cancel disabled due to missing active op linkage.
       dispatch({ type: 'ENSURE_PRIMARY_OPERATION', payload: operationType });
-      dispatch({ 
-        type: 'SET_LOADING_MODAL', 
-        payload: { show: true, operationType, canCancel } 
-      });
+      dispatch({ type: 'REQUEST_SHOW_MODAL', payload: { operationType, canCancel } });
     }, timeoutMs);
   }, []);
 
