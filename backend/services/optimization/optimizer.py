@@ -127,24 +127,53 @@ class QueryOptimizer:
             else:
                 table_ref = query_desc.target_table
             
-            # Fast COUNT(*) query - usually cached by database
-            count_query = f"SELECT COUNT(*) as row_count FROM {table_ref}"
-            
-            logger.debug(f"Checking table size with: {count_query}")
-            # Use connector.fetch_data for consistency
-            columns, rows = self.connector.fetch_data(count_query)
+            # Attempt to use in-memory cache first
+            row_count: Optional[int] = None
+            if self.config.enable_count_cache:
+                from .count_cache import get_global_count_cache
+                cache = get_global_count_cache(
+                    ttl_seconds=self.config.count_cache_ttl_seconds,
+                    max_size=self.config.count_cache_max_size
+                )
+                cache_key = f"table_size::{table_ref}"
+                cached = cache.get(cache_key)
+                if cached is not None:
+                    row_count = cached
+                    logger.debug(f"COUNT(*) cache hit for {table_ref}: {row_count}")
+                else:
+                    logger.debug(f"COUNT(*) cache miss for {table_ref}")
+            else:
+                logger.debug("Count cache disabled")
+
+            if row_count is None:
+                # Fast COUNT(*) query - usually cached by database
+                count_query = f"SELECT COUNT(*) as row_count FROM {table_ref}"
+                logger.debug(f"Checking table size with: {count_query}")
+                columns, rows = self.connector.fetch_data(count_query)
+            else:
+                # Fake rows data structure for uniform extraction logic
+                rows = [{"row_count": row_count}]
+                columns = [{"name": "row_count", "type": "UInt64"}]
             
             if not rows or len(rows) == 0:
                 logger.warning("Table size check returned no results")
                 return None
             
             first_row = rows[0]
-            if isinstance(first_row, dict):
-                row_count = first_row.get('row_count', 0)
-            elif isinstance(first_row, (list, tuple)):
-                row_count = first_row[0] if len(first_row) > 0 else 0
-            else:
-                row_count = int(first_row)
+            if row_count is None:  # Extract if not already from cache
+                if isinstance(first_row, dict):
+                    row_count = first_row.get('row_count', 0)
+                elif isinstance(first_row, (list, tuple)):
+                    row_count = first_row[0] if len(first_row) > 0 else 0
+                else:
+                    row_count = int(first_row)
+                # Store successful count in cache
+                if self.config.enable_count_cache and row_count is not None:
+                    try:
+                        cache.set(cache_key, int(row_count))  # type: ignore[name-defined]
+                        logger.debug(f"Cached COUNT(*) for {table_ref}: {row_count}")
+                    except Exception as ce:
+                        logger.debug(f"Failed to cache COUNT(*) for {table_ref}: {ce}")
             
             # Get column count from query description
             column_count = len(query_desc.dimensions) + len(query_desc.measures)
