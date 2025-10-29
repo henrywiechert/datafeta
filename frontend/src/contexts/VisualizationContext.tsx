@@ -70,6 +70,7 @@ type VisualizationAction =
   | { type: 'ADD_ACTIVE_OPERATION'; payload: LoadingOperationType }
   | { type: 'REMOVE_ACTIVE_OPERATION'; payload: LoadingOperationType }
   | { type: 'SET_MODAL_PRIMARY_OPERATION'; payload: LoadingOperationType | null }
+  | { type: 'ENSURE_PRIMARY_OPERATION'; payload: LoadingOperationType }
   // Filter action types
   | { type: 'SET_FILTER_FIELDS'; payload: Field[] }
   | { type: 'SET_FILTER_CONFIGURATION'; payload: { fieldId: string; config: FilterConfig } }
@@ -212,6 +213,10 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
       return { ...state, activeOperations: state.activeOperations.filter(o => o !== action.payload) };
     case 'SET_MODAL_PRIMARY_OPERATION':
       return { ...state, modalPrimaryOperation: action.payload };
+    case 'ENSURE_PRIMARY_OPERATION': {
+      if (state.modalPrimaryOperation) return state;
+      return { ...state, modalPrimaryOperation: action.payload };
+    }
     case 'CANCEL_OPERATION':
       return {
         ...state,
@@ -239,6 +244,38 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
           case 'metadata':
             updatedState.isLoadingMetadata = false;
             break;
+        }
+        // Clear start time for this operation
+        if (updatedState.operationStartTimes[action.payload] != null) {
+          updatedState.operationStartTimes = { ...updatedState.operationStartTimes, [action.payload]: null };
+        }
+        // Remove from activeOperations if present (defensive; already removed earlier in completeOperation)
+        if (updatedState.activeOperations.includes(action.payload)) {
+          updatedState.activeOperations = updatedState.activeOperations.filter(o => o !== action.payload);
+        }
+        // Recompute primary if necessary
+        if (updatedState.modalPrimaryOperation === action.payload) {
+          const remaining = updatedState.activeOperations;
+          if (remaining.length === 0) {
+            updatedState.modalPrimaryOperation = null;
+          } else {
+            // Choose earliest start (longest-running)
+            const longest = remaining.reduce((acc, op) => {
+              const t = updatedState.operationStartTimes[op] || Infinity;
+              const accT = updatedState.operationStartTimes[acc] || Infinity;
+              return t < accT ? op : acc;
+            }, remaining[0]);
+            updatedState.modalPrimaryOperation = longest;
+          }
+        }
+        // If modal is open but primary is null (edge race), attempt to assign one.
+        if (updatedState.showLoadingModal && !updatedState.modalPrimaryOperation && updatedState.activeOperations.length > 0) {
+          const longest = updatedState.activeOperations.reduce((acc, op) => {
+            const t = updatedState.operationStartTimes[op] || Infinity;
+            const accT = updatedState.operationStartTimes[acc] || Infinity;
+            return t < accT ? op : acc;
+          }, updatedState.activeOperations[0]);
+          updatedState.modalPrimaryOperation = longest;
         }
         // Only hide modal if all operations are complete
         if (!updatedState.isLoadingQuery && !updatedState.isLoadingRendering && !updatedState.isLoadingMetadata) {
@@ -360,6 +397,14 @@ export function VisualizationProvider({ children, initialState: initialStateProp
   // startOperation now records both legacy global start time and per-operation time.
   // Legacy fields (loadingStartTime, loadingOperationType) remain for current modal component.
   // New fields (operationStartTimes, activeOperations, modalPrimaryOperation) will support multi-operation modal.
+  // Rationale for ENSURE_PRIMARY_OPERATION & recompute logic:
+  // Previously the timeout closure captured stale state and could set a primary after completion,
+  // leaving the modal in a state where cancel button appeared unresponsive (operation already finished).
+  // We now:
+  //  1. Use reducer-based ENSURE_PRIMARY_OPERATION to avoid stale closure checks.
+  //  2. Recompute primary whenever an operation completes and the modal is still open.
+  //  3. Clear start time for completed operations to prevent elapsed calculations from growing indefinitely.
+  // This prevents hanging dialogs when a quick rendering follows a long query.
   const startOperation = useCallback((operationType: LoadingOperationType, canCancel: boolean = true) => {
     
     // Clear any existing timeout for this operation
@@ -391,8 +436,8 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     const timeoutMs = getTimeoutForOperation(operationType);
     
     timeoutRefs.current[operationType] = setTimeout(() => {
-      // Choose primary operation if none selected (for future enhancement)
-      dispatch({ type: 'SET_MODAL_PRIMARY_OPERATION', payload: operationType });
+      // Avoid stale closure on state by using ENSURE_PRIMARY_OPERATION which checks presence inside reducer.
+      dispatch({ type: 'ENSURE_PRIMARY_OPERATION', payload: operationType });
       dispatch({ 
         type: 'SET_LOADING_MODAL', 
         payload: { show: true, operationType, canCancel } 
@@ -410,16 +455,9 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       timeoutRefs.current[operationType] = null; // Mark as cleared
     }
 
-    // Remove from active operations list
+    // Remove from active operations list; recompute primary inside reducer logic
     dispatch({ type: 'REMOVE_ACTIVE_OPERATION', payload: operationType });
-    // Dispatch action to update specific loading state and potentially hide modal
     dispatch({ type: 'COMPLETE_SPECIFIC_OPERATION', payload: operationType });
-    // If the completed op was the primary, clear primary (legacy modal still uses loadingOperationType)
-    // Future enhancement will recompute next primary.
-    // For now we simply null it to avoid stale references when we begin multi-op UI.
-    if (state.modalPrimaryOperation === operationType) {
-      dispatch({ type: 'SET_MODAL_PRIMARY_OPERATION', payload: null });
-    }
   }, []);
 
   // Cancel an operation

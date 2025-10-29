@@ -16,10 +16,14 @@ import { LoadingOperationType } from '../contexts/VisualizationContext';
 
 interface LoadingModalProps {
   open: boolean;
-  operationType: LoadingOperationType | null;
+  operationType: LoadingOperationType | null; // legacy primary
   canCancel: boolean;
-  startTime: number | null;
+  startTime: number | null; // legacy start time
   onCancel: () => void;
+  // New multi-operation props (optional for backward compatibility)
+  activeOperations?: LoadingOperationType[];
+  modalPrimaryOperation?: LoadingOperationType | null;
+  operationStartTimes?: Record<LoadingOperationType, number | null>;
 }
 
 const getOperationMessage = (operationType: LoadingOperationType | null): string => {
@@ -48,30 +52,38 @@ const getOperationDescription = (operationType: LoadingOperationType | null): st
   }
 };
 
+// LoadingModal now supports multi-operation display. Legacy props (operationType, startTime) are still
+// accepted for backward compatibility; if multi-operation props are provided we prefer modalPrimaryOperation.
 export const LoadingModal: React.FC<LoadingModalProps> = ({
   open,
   operationType,
   canCancel,
   startTime,
   onCancel,
+  activeOperations = [],
+  modalPrimaryOperation = null,
+  operationStartTimes = { query: null, rendering: null, metadata: null }
 }) => {
   const [elapsedTime, setElapsedTime] = useState<number>(0);
 
   // Update elapsed time every second
+  // Determine which start time to use: prefer new primary operation
+  // Choose primary: new multi-op primary first, fallback to legacy single operation type
+  const effectivePrimary = modalPrimaryOperation || operationType;
+  const primaryStart = effectivePrimary ? operationStartTimes[effectivePrimary] : startTime;
+
   useEffect(() => {
-    if (!open || !startTime) {
+    if (!open || !primaryStart) {
       setElapsedTime(0);
       return;
     }
-
     const interval = setInterval(() => {
       const now = Date.now();
-      const elapsed = Math.floor((now - startTime) / 1000);
+      const elapsed = Math.floor((now - primaryStart) / 1000);
       setElapsedTime(elapsed);
     }, 1000);
-
     return () => clearInterval(interval);
-  }, [open, startTime]);
+  }, [open, primaryStart]);
 
   const formatTime = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
@@ -94,7 +106,7 @@ export const LoadingModal: React.FC<LoadingModalProps> = ({
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
         <Typography variant="h6" component="span">
-          {getOperationMessage(operationType)}
+          {getOperationMessage(effectivePrimary)}
         </Typography>
         {canCancel && (
           <IconButton
@@ -140,8 +152,26 @@ export const LoadingModal: React.FC<LoadingModalProps> = ({
             textAlign="center"
             sx={{ maxWidth: '400px' }}
           >
-            {getOperationDescription(operationType)}
+            {getOperationDescription(effectivePrimary)}
           </Typography>
+          {activeOperations.length > 1 && (
+            <Box sx={{ mt: 1, width: '100%' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                Other active operations:
+              </Typography>
+              <Box component="ul" sx={{ pl: 2, mt: 0.5, mb: 0, listStyle: 'disc' }}>
+                {activeOperations.filter(op => op !== effectivePrimary).map(op => {
+                  const st = operationStartTimes[op];
+                  const secs = st ? Math.floor((Date.now() - st) / 1000) : 0;
+                  return (
+                    <li key={op} style={{ fontSize: '0.75rem', opacity: 0.85 }}>
+                      {getOperationMessage(op)} – {formatTime(secs)}
+                    </li>
+                  );
+                })}
+              </Box>
+            </Box>
+          )}
         </Box>
       </DialogContent>
 
