@@ -203,6 +203,9 @@ const VisualizationPageContent = () => {
                 canCancel={canCancelOperation}
                 startTime={loadingStartTime}
                 onCancel={handleCancelOperation}
+                activeOperations={state.activeOperations}
+                modalPrimaryOperation={state.modalPrimaryOperation}
+                operationStartTimes={state.operationStartTimes}
             />
         </Box>
     );
