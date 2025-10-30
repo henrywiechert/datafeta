@@ -24,8 +24,13 @@ export function prepareLabelData(cfg: LabelRenderConfig): { shouldRender: boolea
   if (!cfg.labelsEnabled) return { shouldRender: false, data: [] };
   if (total === 0) return { shouldRender: false, data: [] };
 
-  // Auto suppression above threshold
+  // Auto suppression above threshold, with sampling for scatter
   if (cfg.samplingStrategy === 'auto' && total > cfg.samplingThreshold) {
+    if (cfg.chartType === 'scatter') {
+      const every = Math.max(1, Math.ceil(total / cfg.samplingThreshold));
+      const sampled = cfg.data.filter((_, i) => i % every === 0);
+      return { shouldRender: true, data: sampled };
+    }
     return { shouldRender: false, data: [] };
   }
   // Hard cap protection
