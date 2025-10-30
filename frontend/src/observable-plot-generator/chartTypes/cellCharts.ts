@@ -86,7 +86,7 @@ export function generatePairChartOptions(
           }
         };
         const single = [{ [xCol]: aggregate(xCol, (xf as any).aggregation), [yCol]: aggregate(yCol, (yf as any).aggregation) } as any];
-          return scatterChart(single, xCol, yCol, domainOptions, colorField, colorScheme, sizeField, sizeRange, manualSize);
+        return scatterChart(single, xCol, yCol, domainOptions, colorField, colorScheme, sizeField, sizeRange, manualSize, labelCfg);
       }
       // Otherwise render scatter with full data
           return scatterChart(data, xCol, yCol, domainOptions, colorField, colorScheme, sizeField, sizeRange, manualSize, labelCfg);
@@ -99,7 +99,7 @@ export function generatePairChartOptions(
         const yCol = getResultColumnName(yf);
         const xDomain = sharedMeasureDomains?.[xCol];
         const yDomain = sharedMeasureDomains?.[yCol];
-  return verticalLineChart(data, xCol, yCol, { x: xCol, y: getFieldDisplayName(yf) }, { x: xDomain, y: yDomain }, colorField, colorScheme, sizeField, sizeRange, manualSize);
+  return verticalLineChart(data, xCol, yCol, { x: xCol, y: getFieldDisplayName(yf) }, { x: xDomain, y: yDomain }, colorField, colorScheme, sizeField, sizeRange, manualSize, labelCfg);
       }
       if (xf.type === 'dimension' && yf.type === 'measure') {
         const xCol = getResultColumnName(xf);

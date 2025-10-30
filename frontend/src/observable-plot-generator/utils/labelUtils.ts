@@ -76,16 +76,25 @@ export function createLabelMark(prepared: { shouldRender: boolean; data: any[] }
   if (!prepared.shouldRender) return null;
   const textValues = prepared.data.map(d => buildLabelString(d, cfg)).filter(s => s.length > 0);
   if (textValues.length === 0) return null;
-  return Plot.text(prepared.data, {
+  const isScatter = cfg.chartType === 'scatter';
+  const isLine = cfg.chartType === 'line' || cfg.chartType === 'verticalLine';
+  // For scatter: push labels further up so they don't cover dot; remove halo stroke; disable pointer events
+  // For line: keep small halo for legibility
+  const base: any = {
     x: xCol,
     y: yCol,
     text: (d: any) => buildLabelString(d, cfg),
-    dy: -6,
+    dy: isScatter ? -12 : -6,
     fontSize: 11,
     lineHeight: 1.1,
     fill: 'black',
-    stroke: 'white',
-    strokeWidth: 3,
-    textAnchor: 'middle'
-  });
+    textAnchor: 'middle',
+    // Prevent text capturing hover when above dots/bars
+    pointerEvents: 'none'
+  };
+  if (!isScatter) {
+    base.stroke = 'white';
+    base.strokeWidth = 3;
+  }
+  return Plot.text(prepared.data, base);
 }
