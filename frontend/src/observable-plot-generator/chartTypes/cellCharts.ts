@@ -26,7 +26,8 @@ export function generatePairChartOptions(
   sizeField?: Field,
   sizeRange?: [number, number],
   manualSize?: number,
-  colorScheme?: string
+  colorScheme?: string,
+  labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
 ): Plot.PlotOptions {
   if (!xField && !yField) {
     return messageOptions('No fields');
@@ -88,7 +89,7 @@ export function generatePairChartOptions(
           return scatterChart(single, xCol, yCol, domainOptions, colorField, colorScheme, sizeField, sizeRange, manualSize);
       }
       // Otherwise render scatter with full data
-        return scatterChart(data, xCol, yCol, domainOptions, colorField, colorScheme, sizeField, sizeRange, manualSize);
+          return scatterChart(data, xCol, yCol, domainOptions, colorField, colorScheme, sizeField, sizeRange, manualSize, labelCfg);
     }
     case 'line': {
       // measure vs continuous dimension – ensure dimension on one axis
@@ -105,11 +106,11 @@ export function generatePairChartOptions(
         const yCol = getResultColumnName({ ...yf, aggregation: yf.aggregation || 'sum' } as any);
         const xDomain = sharedMeasureDomains?.[xCol];
         const yDomain = sharedMeasureDomains?.[yCol];
-  return lineChart(data, xCol, yCol, { x: getFieldDisplayName(xf), y: yCol }, { x: xDomain, y: yDomain }, colorField, colorScheme, sizeField, sizeRange, manualSize);
+    return lineChart(data, xCol, yCol, { x: getFieldDisplayName(xf), y: yCol }, { x: xDomain, y: yDomain }, colorField, colorScheme, sizeField, sizeRange, manualSize, labelCfg);
       }
       // If both are measures or both are dimensions, fallback to scatter (empty if no data)
       const { xCol, yCol } = resolveXYColumns(xf, yf);
-        return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, colorScheme, sizeField, sizeRange, manualSize);
+          return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, colorScheme, sizeField, sizeRange, manualSize, labelCfg);
     }
     case 'barX': {
   return createBarX(data, xf, yf.type === 'dimension' ? yf : null, sharedMeasureDomains, colorField, sizeField, sizeRange, manualSize, colorScheme);
@@ -131,7 +132,7 @@ export function generatePairChartOptions(
         );
       }
       const { xCol, yCol } = resolveXYColumns(xf, yf);
-        return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, colorScheme, sizeField, sizeRange, manualSize);
+          return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, colorScheme, sizeField, sizeRange, manualSize, labelCfg);
     }
     case 'tickY': {
       // continuous dimension on Y, optional discrete dimension category on X
@@ -146,7 +147,7 @@ export function generatePairChartOptions(
         );
       }
       const { xCol, yCol } = resolveXYColumns(xf, yf);
-        return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, colorScheme, sizeField, sizeRange, manualSize);
+          return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, colorScheme, sizeField, sizeRange, manualSize, labelCfg);
     }
     case 'dot': {
       const xCol = xf.columnName;

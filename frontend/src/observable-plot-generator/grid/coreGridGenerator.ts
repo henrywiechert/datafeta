@@ -35,6 +35,7 @@ export function generateCartesianGrid(
   // Compute shared domains for any measures used in the grid
   const sharedMeasureDomains = computeSharedMeasureDomains(data, xCandidates, yCandidates, colorField);
 
+  const labelCfg = buildLabelCfg(context);
   const plots = generateCartesianPlots(
     data,
     xCandidates,
@@ -45,7 +46,8 @@ export function generateCartesianGrid(
     colorScheme,
     sizeField,
     sizeRange,
-    manualSize
+    manualSize,
+    labelCfg
   );
 
   // Derive per-column width and per-row height from plots' options when available
@@ -87,7 +89,8 @@ export function generateCartesianPlots(
   colorScheme?: string,
   sizeField?: Field,
   sizeRange?: [number, number],
-  manualSize?: number
+  manualSize?: number,
+  labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
 ): CartesianPlot[] {
   const plots: CartesianPlot[] = [];
 
@@ -113,7 +116,8 @@ export function generateCartesianPlots(
         sizeField,
         sizeRange,
         manualSize,
-        colorScheme
+        colorScheme,
+        labelCfg
       );
 
       // Apply shared color domain to keep color mapping consistent across the grid
@@ -154,4 +158,22 @@ function buildCellTitle(xField: Field, yField: Field): string {
   const xLabel = xField.type === 'measure' ? `${xField.aggregation || 'sum'}(${xField.columnName})` : xField.columnName;
   const yLabel = yField.type === 'measure' ? `${yField.aggregation || 'sum'}(${yField.columnName})` : yField.columnName;
   return `${yLabel} vs ${xLabel}`;
+}
+
+function buildLabelCfg(context: ChartGenerationContext) {
+  const {
+    labelFields = [],
+    labelsEnabled = false,
+    labelSamplingStrategy = 'auto',
+    labelSamplingThreshold = 300,
+    labelSampleEvery = 1,
+  } = context as any;
+  if (!labelsEnabled && (labelFields?.length || 0) === 0) return undefined;
+  return {
+    labelFields,
+    labelsEnabled,
+    samplingStrategy: labelSamplingStrategy,
+    samplingThreshold: labelSamplingThreshold,
+    sampleEvery: labelSampleEvery,
+  };
 }

@@ -4,6 +4,8 @@ import { resolveMeasureAlias, buildBarOptions, computeBandPaddingFromSizeField }
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { BAR_STEP_PX, BAND_PADDING } from '../../config/chartLayoutConfig';
+// Label utilities
+import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 
 /**
  * Unified bar chart builder for 1+ measures on a single axis.
@@ -16,7 +18,10 @@ import { BAR_STEP_PX, BAND_PADDING } from '../../config/chartLayoutConfig';
  * - Value domains shared across measures
  * - Single-bar intrinsic sizing multiplier kept consistent
  */
-export function barUnified(context: ChartGenerationContext): PlotResult {
+export function barUnified(
+  context: ChartGenerationContext,
+  labelCfg?: { labelFields: any[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
+): PlotResult {
   const { queryResult, xFields, yFields, colorField, colorScheme, sizeField, manualSize } = context;
   const data = queryResult.rows;
 
@@ -86,6 +91,57 @@ export function barUnified(context: ChartGenerationContext): PlotResult {
       singleBarSizeMultiplier: 2,
       tooltipColumns: [colorField?.columnName, sizeField?.columnName].filter(Boolean) as string[],
     });
+
+    // --- Label integration -------------------------------------------------
+    if (labelCfg) {
+      // For bar charts we want one label per visible bar segment. Our aggregated dataset already
+      // represents either categories (one row per category) or stacking segments (one row per color when stacked).
+      // We approximate small segment filtering (<10px) only for stacked case by comparing relative value ratio.
+      let labelData = aggregated;
+      if (!categoryColumn && colorColumn) {
+        // stacked bar: filter out very small segments (<10px). We don't have pixel size yet; approximate by proportion.
+        const total = labelData.reduce((sum: number, r: any) => sum + (typeof r[measureName] === 'number' ? r[measureName] : 0), 0) || 0;
+        if (total > 0) {
+          labelData = labelData.filter(r => {
+            const v = r[measureName];
+            if (typeof v !== 'number' || !isFinite(v)) return false;
+            const proportion = v / total;
+            // Convert proportion to estimated pixels: barUnified uses domain upper with small padding. We use intrinsic size multiplier.
+            // Assume full bar length corresponds to ~ (options?.[orientation==='vertical'?'y':'x']?.domain span) but we lack pixel mapping.
+            // Simplify: skip segments contributing <1% of total (heuristic mapping to ~<10px for large bars).
+            return proportion >= 0.01; // >=1%
+          });
+        }
+      }
+      const labelConfig: LabelRenderConfig = {
+        data: labelData,
+        xColumn: orientation === 'vertical' ? (categoryColumn || '__category_placeholder') : measureName,
+        yColumn: orientation === 'vertical' ? measureName : (categoryColumn || '__category_placeholder'),
+        labelFields: labelCfg.labelFields as any[],
+        labelsEnabled: labelCfg.labelsEnabled,
+        samplingStrategy: labelCfg.samplingStrategy,
+        samplingThreshold: labelCfg.samplingThreshold,
+        sampleEvery: labelCfg.sampleEvery,
+        chartType: 'bar'
+      };
+      const prepared = prepareLabelData(labelConfig);
+      // When we have no category dimension provided, Plot builds a single bar: ensure x/y columns exist.
+      // aggregated rows contain measureName and maybe categoryColumn. For single bar (no category & no color) we synthesize a category value.
+      if (!categoryColumn) {
+        // add synthetic category field if missing for vertical orientation so labels anchor horizontally
+        if (orientation === 'vertical') {
+          labelConfig.xColumn = '__single_category';
+          labelConfig.data = labelConfig.data.map(r => ({ ...r, __single_category: ' ' }));
+        } else {
+          labelConfig.yColumn = '__single_category';
+          labelConfig.data = labelConfig.data.map(r => ({ ...r, __single_category: ' ' }));
+        }
+      }
+      const mark = createLabelMark(prepared, labelConfig, labelConfig.xColumn, labelConfig.yColumn);
+      if (mark) {
+        (options.marks = options.marks || []).push(mark as any);
+      }
+    }
 
     return {
       id: `${orientation === 'vertical' ? 'y' : 'x'}-measure-${idx}`,
