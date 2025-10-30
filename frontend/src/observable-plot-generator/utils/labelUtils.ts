@@ -11,6 +11,7 @@ export interface LabelRenderConfig {
   samplingThreshold: number;
   sampleEvery: number;
   chartType: 'scatter' | 'line' | 'verticalLine' | 'bar';
+  orientation?: 'vertical' | 'horizontal'; // for bar charts
 }
 
 export const HARD_CAP = 5000;
@@ -49,7 +50,14 @@ export function buildLabelString(d: any, cfg: LabelRenderConfig): string {
     if (cfg.chartType === 'scatter') {
       return `${formatValue(d[cfg.xColumn])}\n${formatValue(d[cfg.yColumn])}`;
     }
-    // line & verticalLine & bar default: y value
+    if (cfg.chartType === 'bar') {
+      // vertical bar: measure on y; horizontal bar: measure on x
+      if (cfg.orientation === 'horizontal') {
+        return `${formatValue(d[cfg.xColumn])}`;
+      }
+      return `${formatValue(d[cfg.yColumn])}`;
+    }
+    // line & verticalLine default: y value
     return `${formatValue(d[cfg.yColumn])}`;
   }
   const parts: string[] = [];
