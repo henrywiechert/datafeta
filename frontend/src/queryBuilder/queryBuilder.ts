@@ -97,11 +97,13 @@ export const buildAggregatedQuery = ({
   selectedTable,
   selectedDatabase,
   filterConfigurations = {},
+  labelFields = [],
 }: {
   fields: Field[];
   selectedTable: string;
   selectedDatabase?: string;
   filterConfigurations?: Record<string, FilterConfig>;
+  labelFields?: Field[];
 }): QueryDescription | null => {
 
   const dimensions = fields
@@ -154,6 +156,7 @@ export const buildAggregatedQuery = ({
     filters: filters.length > 0 ? filters : undefined,
     orderBy: orderBy.length > 0 ? orderBy : undefined,
     column_casts: columnCasts,
+    label_fields: labelFields.length > 0 ? dedupeLabelFields(labelFields, fields) : undefined,
   };
 
   return queryDesc;
@@ -168,11 +171,13 @@ export const buildRawQuery = ({
   selectedTable,
   selectedDatabase,
   filterConfigurations = {},
+  labelFields = [],
 }: {
   fields: Field[];
   selectedTable: string;
   selectedDatabase?: string;
   filterConfigurations?: Record<string, FilterConfig>;
+  labelFields?: Field[];
 }): QueryDescription | null => {
   if (!selectedTable || fields.length === 0) {
     return null;
@@ -227,6 +232,7 @@ export const buildRawQuery = ({
     filters: filters.length > 0 ? filters : undefined,
     orderBy: orderBy.length > 0 ? orderBy : undefined,
     column_casts: columnCasts,
+    label_fields: labelFields.length > 0 ? dedupeLabelFields(labelFields, fields) : undefined,
   };
 
   return queryDesc;
@@ -255,17 +261,34 @@ export const buildQuery = ({
   selectedTable,
   selectedDatabase,
   filterConfigurations = {},
+  labelFields = [],
 }: {
   fields: Field[];
   selectedTable: string;
   selectedDatabase?: string;
   filterConfigurations?: Record<string, FilterConfig>;
+  labelFields?: Field[];
 }): QueryDescription | null => {
   const queryType = getQueryTypeFromFields(fields);
   
   if (queryType === 'aggregated') {
-    return buildAggregatedQuery({ fields, selectedTable, selectedDatabase, filterConfigurations });
+    return buildAggregatedQuery({ fields, selectedTable, selectedDatabase, filterConfigurations, labelFields });
   } else {
-    return buildRawQuery({ fields, selectedTable, selectedDatabase, filterConfigurations });
+    return buildRawQuery({ fields, selectedTable, selectedDatabase, filterConfigurations, labelFields });
   }
 };
+
+/**
+ * Deduplicate label fields against existing visualization fields by columnName.
+ * Order is not significant; return array of column names.
+ */
+function dedupeLabelFields(labelFields: Field[], existingFields: Field[]): string[] {
+  const existingNames = new Set(existingFields.map(f => f.columnName));
+  const result: string[] = [];
+  for (const lf of labelFields) {
+    if (!existingNames.has(lf.columnName)) {
+      result.push(lf.columnName);
+    }
+  }
+  return result;
+}

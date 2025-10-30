@@ -4,6 +4,7 @@ import { Field } from '../../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
+import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 
 /**
  * Line chart for continuous dimension on one axis and continuous measure on the other.
@@ -19,7 +20,8 @@ export function lineChart(
   colorScheme?: string,
   sizeField?: Field,
   sizeRange?: [number, number],
-  manualSize?: number
+  manualSize?: number,
+  labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
 ): Plot.PlotOptions {
   // Filter to finite numeric values for y; x may be numeric or datetime/ordinal
   const clean = Array.isArray(data)
@@ -121,6 +123,25 @@ export function lineChart(
       Plot.dot(cleanSorted, dotConfig),
     ],
   };
+
+  if (labelCfg) {
+    const labelConfig: LabelRenderConfig = {
+      data: cleanSorted,
+      xColumn,
+      yColumn,
+      labelFields: labelCfg.labelFields,
+      labelsEnabled: labelCfg.labelsEnabled,
+      samplingStrategy: labelCfg.samplingStrategy,
+      samplingThreshold: labelCfg.samplingThreshold,
+      sampleEvery: labelCfg.sampleEvery,
+      chartType: 'line'
+    };
+    const prepared = prepareLabelData(labelConfig);
+    const labelMark = createLabelMark(prepared, labelConfig, xColumn, yColumn);
+    if (labelMark) {
+      (plotOptions.marks = plotOptions.marks || []).push(labelMark as any);
+    }
+  }
   
   if (colorField && colorInfo) {
     if (colorInfo.kind === 'continuous') {
@@ -158,7 +179,8 @@ export function verticalLineChart(
   colorScheme?: string,
   sizeField?: Field,
   sizeRange?: [number, number],
-  manualSize?: number
+  manualSize?: number,
+  labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
 ): Plot.PlotOptions {
   const clean = Array.isArray(data)
     ? data.filter((d) => Number.isFinite(d[xColumn]))
@@ -248,6 +270,25 @@ export function verticalLineChart(
       Plot.dot(cleanSorted, dotConfig),
     ],
   };
+
+  if (labelCfg) {
+    const labelConfig: LabelRenderConfig = {
+      data: cleanSorted,
+      xColumn,
+      yColumn,
+      labelFields: labelCfg.labelFields,
+      labelsEnabled: labelCfg.labelsEnabled,
+      samplingStrategy: labelCfg.samplingStrategy,
+      samplingThreshold: labelCfg.samplingThreshold,
+      sampleEvery: labelCfg.sampleEvery,
+      chartType: 'verticalLine'
+    };
+    const prepared = prepareLabelData(labelConfig);
+    const labelMark = createLabelMark(prepared, labelConfig, xColumn, yColumn);
+    if (labelMark) {
+      (plotOptions.marks = plotOptions.marks || []).push(labelMark as any);
+    }
+  }
   
   if (colorField && colorInfo) {
     if (colorInfo.kind === 'continuous') {
