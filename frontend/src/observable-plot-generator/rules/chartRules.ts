@@ -31,8 +31,12 @@ export function generateScatterPlot(analysis: FieldAnalysis, context: ChartGener
   );
 }
 
-export function generateChartOptions(analysis: FieldAnalysis, context: ChartGenerationContext): PlotResult {
-  const { queryResult, colorField, sizeField, sizeRange, manualSize } = context;
+export function generateChartOptions(
+  analysis: FieldAnalysis,
+  context: ChartGenerationContext,
+  labelCfg?: { labelFields: any[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
+): PlotResult {
+  const { queryResult, colorField, colorScheme, sizeField, sizeRange, manualSize } = context;
   const data = queryResult.rows;
 
   const xDims = analysis.xDimensions || [];
@@ -59,7 +63,7 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
   }
 
   if (qualifiesForBarChart()) {
-    return barUnified(context);
+    return barUnified(context, labelCfg);
   }
   const xContinuousDims = xDims.filter((d: any) => d.flavour === 'continuous');
   const yContinuousDims = yDims.filter((d: any) => d.flavour === 'continuous');
@@ -71,7 +75,7 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
     const xMeasureCol = getResultColumnName({ ...xMeasure, aggregation: xMeasure.aggregation || 'sum' } as any);
     return { 
       library: 'observable-plot', 
-      options: lineChart(data, yDimCol, xMeasureCol, { x: getFieldDisplayName(yDim), y: xMeasureCol }, undefined, colorField, undefined, sizeField, sizeRange, manualSize), 
+      options: lineChart(data, yDimCol, xMeasureCol, { x: getFieldDisplayName(yDim), y: xMeasureCol }, undefined, colorField, colorScheme, sizeField, sizeRange, manualSize, labelCfg), 
       layout: { type: 'single' } 
     };
   }
@@ -82,7 +86,7 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
     const yMeasureCol = getResultColumnName({ ...yMeasure, aggregation: yMeasure.aggregation || 'sum' } as any);
     return { 
       library: 'observable-plot', 
-      options: lineChart(data, xDimCol, yMeasureCol, { x: getFieldDisplayName(xDim), y: yMeasureCol }, undefined, colorField, undefined, sizeField, sizeRange, manualSize), 
+      options: lineChart(data, xDimCol, yMeasureCol, { x: getFieldDisplayName(xDim), y: yMeasureCol }, undefined, colorField, colorScheme, sizeField, sizeRange, manualSize, labelCfg), 
       layout: { type: 'single' } 
     };
   }
@@ -150,7 +154,7 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
     if (xContinuousDims.length > 0 && yContinuousDims.length > 0) {
       const xDimCol = getResultColumnName(xContinuousDims[0]);
       const yDimCol = getResultColumnName(yContinuousDims[0]);
-      return { library: 'observable-plot', options: scatterChart(data, xDimCol, yDimCol, { x: xDimCol, y: yDimCol }, colorField, undefined, sizeField, sizeRange, manualSize), layout: { type: 'single' } };
+      return { library: 'observable-plot', options: scatterChart(data, xDimCol, yDimCol, { x: xDimCol, y: yDimCol }, colorField, colorScheme, sizeField, sizeRange, manualSize, labelCfg), layout: { type: 'single' } };
     }
     // Both discrete → simple dot plot (categorical scatter)
     if (xDiscreteDims.length > 0 && yDiscreteDims.length > 0) {
@@ -213,7 +217,7 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
     const yDimCol = getResultColumnName(yDim);
     return { 
       library: 'observable-plot', 
-      options: lineChart(data, yDimCol, xMeasureCol, { x: getFieldDisplayName(yDim), y: xMeasureCol }, undefined, colorField, undefined, sizeField, sizeRange, manualSize), 
+  options: lineChart(data, yDimCol, xMeasureCol, { x: getFieldDisplayName(yDim), y: xMeasureCol }, undefined, colorField, colorScheme, sizeField, sizeRange, manualSize, labelCfg), 
       layout: { type: 'single' } 
     };
   }
@@ -224,7 +228,7 @@ export function generateChartOptions(analysis: FieldAnalysis, context: ChartGene
     const xDimCol = getResultColumnName(xDim);
     return { 
       library: 'observable-plot', 
-      options: lineChart(data, xDimCol, yMeasureCol, { x: getFieldDisplayName(xDim), y: yMeasureCol }, undefined, colorField, undefined, sizeField, sizeRange, manualSize), 
+  options: lineChart(data, xDimCol, yMeasureCol, { x: getFieldDisplayName(xDim), y: yMeasureCol }, undefined, colorField, colorScheme, sizeField, sizeRange, manualSize, labelCfg), 
       layout: { type: 'single' } 
     };
   }

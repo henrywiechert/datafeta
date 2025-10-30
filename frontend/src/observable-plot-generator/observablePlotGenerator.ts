@@ -43,12 +43,13 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
 
     // Multi-measure on the same axis -> grid of bar charts (preferred over cartesian pairing)
     // EXCEPT when the opposite axis has a continuous dimension; then use cartesian grid (line charts)
+    const labelCfg = buildLabelCfg(context);
     if (analysis.isMultiMeasure && !analysis.hasMixedAxes) {
       const measuresOnX = analysis.hasXMeasure && !analysis.hasYMeasure;
       const oppositeDims = measuresOnX ? (analysis as any).yDimensions : (analysis as any).xDimensions;
       const hasOppositeContinuousDim = Array.isArray(oppositeDims) && oppositeDims.some((d: any) => d.flavour === 'continuous');
       if (!hasOppositeContinuousDim) {
-        return barUnified(context);
+        return barUnified(context, labelCfg);
       }
       // fall through to cartesian grid
     }
@@ -69,7 +70,7 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
     }
 
     // Otherwise, generate single chart or simple multi on one axis (rare edge cases)
-    const result = genChartOptionsRule(analysis, context);
+  const result = genChartOptionsRule(analysis, context, labelCfg);
     return result;
 
   } catch (error) {
@@ -146,11 +147,11 @@ export function baseGeneratePlot(context: ChartGenerationContext): PlotResult {
 
   // Multi-measure per axis → our existing bar grid
   if (analysis.isMultiMeasure && !analysis.hasMixedAxes) {
-    try { return barUnified(context); } catch { /* fall through */ }
+    try { return barUnified(context, buildLabelCfg(context)); } catch { /* fall through */ }
   }
 
   // Fallback to single-chart rules (this handles continuous dimensions on both axes)
-  const single = genChartOptionsRule(analysis, context);
+  const single = genChartOptionsRule(analysis, context, buildLabelCfg(context));
   return single;
 }
 /**
@@ -175,5 +176,24 @@ function createMessageChart(message: string): PlotResult {
       ]
     },
     layout: { type: 'single' }
+  };
+}
+
+// Helper to construct unified label configuration object for chart builders
+function buildLabelCfg(context: ChartGenerationContext) {
+  const {
+    labelFields = [],
+    labelsEnabled = false,
+    labelSamplingStrategy = 'auto',
+    labelSamplingThreshold = 300,
+    labelSampleEvery = 1,
+  } = context as any;
+  if (!labelsEnabled && (labelFields?.length || 0) === 0) return undefined;
+  return {
+    labelFields,
+    labelsEnabled,
+    samplingStrategy: labelSamplingStrategy,
+    samplingThreshold: labelSamplingThreshold,
+    sampleEvery: labelSampleEvery,
   };
 }

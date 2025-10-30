@@ -18,6 +18,12 @@ export interface ChartGenerationContext {
   facetField?: Field;
   categoryAxisDescriptor?: CategoryAxisDescriptor;
   queryResult: QueryResult;
+  // --- Label configuration (optional) --------------------------------------
+  labelFields?: Field[];
+  labelsEnabled?: boolean;
+  labelSamplingStrategy?: 'auto' | 'all' | 'sample';
+  labelSamplingThreshold?: number;
+  labelSampleEvery?: number;
   /**
    * When provided, these shared domains will be used instead of computing new ones.
    * This is used by faceting to ensure all facets share the same Y-domain per measure.

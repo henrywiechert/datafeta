@@ -16,6 +16,11 @@ interface UseChartGenerationProps {
   queryResult: any; // Add queryResult here
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
+  labelFields?: Field[];
+  labelsEnabled?: boolean;
+  labelSamplingStrategy?: 'auto' | 'all' | 'sample';
+  labelSamplingThreshold?: number;
+  labelSampleEvery?: number;
 }
 
 interface UseChartGenerationReturn {
@@ -38,6 +43,11 @@ export const useChartGeneration = ({
   queryResult, // Destructure here
   startOperation,
   completeOperation,
+  labelFields = [],
+  labelsEnabled = false,
+  labelSamplingStrategy = 'auto',
+  labelSamplingThreshold = 300,
+  labelSampleEvery = 1,
 }: UseChartGenerationProps): UseChartGenerationReturn => {
   const [spec, setSpec] = useState<PlotResult | null>(null);
   const [chartInfo, setChartInfo] = useState<any | null>(null);
@@ -71,6 +81,11 @@ export const useChartGeneration = ({
         sizeRange,
         manualSize,
         queryResult,
+        labelFields,
+        labelsEnabled,
+        labelSamplingStrategy,
+        labelSamplingThreshold,
+        labelSampleEvery,
       });
       
       setSpec(plotResult);
@@ -87,7 +102,7 @@ export const useChartGeneration = ({
       setChartInfo(null);
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, colorField, colorScheme, sizeField, sizeRange, manualSize, useTableView, startOperation, completeOperation, queryResult]);
+  }, [xAxisFields, yAxisFields, colorField, colorScheme, sizeField, sizeRange, manualSize, useTableView, startOperation, completeOperation, queryResult, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery]);
 
   const cancelGeneration = useCallback(() => {
     // No-op since Observable Plot generation is synchronous
