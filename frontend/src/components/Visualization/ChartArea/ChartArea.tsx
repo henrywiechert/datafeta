@@ -33,6 +33,7 @@ const ChartArea: React.FC = () => {
     colorField,
     sizeField,
     filterConfigurations: appliedFilterConfigurations,
+    labelFields,
     startOperation,
     completeOperation,
     dispatch,
