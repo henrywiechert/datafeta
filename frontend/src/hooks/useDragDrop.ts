@@ -216,6 +216,25 @@ export function useDragDrop() {
     dispatch({ type: 'REMOVE_SIZE_FIELD' });
   }, [dispatch]);
 
+  // Label drop: similar to color/size but supports multiple fields (set semantics by columnName)
+  const handleLabelDrop = useCallback((field: Field, source: DragSource) => {
+    let fieldToAdd: Field;
+    if (source === 'AVAILABLE_FIELDS') {
+      const sourceField = dataSource.availableFields.find(f => f.id === field.id);
+      if (!sourceField) return;
+      fieldToAdd = { ...sourceField, id: uuidv4() };
+    } else if (source === 'X_AXIS' || source === 'Y_AXIS' || source === 'COLOR_ZONE' || source === 'SIZE_ZONE') {
+      fieldToAdd = { ...field, id: uuidv4() };
+    } else {
+      fieldToAdd = { ...field, id: uuidv4() };
+    }
+    dispatch({ type: 'ADD_LABEL_FIELD', payload: fieldToAdd });
+  }, [dispatch, dataSource.availableFields]);
+
+  const handleRemoveFromLabel = useCallback((fieldId: string) => {
+    dispatch({ type: 'REMOVE_LABEL_FIELD', payload: fieldId });
+  }, [dispatch]);
+
   return {
     handleAxisDrop,
     handleRemoveFromAxis,
@@ -226,5 +245,7 @@ export function useDragDrop() {
     handleRemoveFromColor,
     handleSizeDrop,
     handleRemoveFromSize,
+    handleLabelDrop,
+    handleRemoveFromLabel,
   };
 }

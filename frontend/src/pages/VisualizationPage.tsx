@@ -14,6 +14,7 @@ import ColorPanel from '../components/Visualization/Color/ColorPanel';
 // import SizePanel from '../components/Visualization/Size/SizePanel';
 import LegendPanel from '../components/Visualization/Legend/LegendPanel';
 import SizePanel from '../components/Visualization/Size/SizePanelComplete';
+import LabelPanel from '../components/Visualization/Label/LabelPanel';
 import LoadingModal from '../components/LoadingModal';
 import { apiService } from '../apiService';
 
@@ -168,6 +169,7 @@ const VisualizationPageContent = () => {
                                     });
                                 }}
                             />
+                            <LabelPanel />
                             <SizePanel />
                             {state.colorField && (
                                 <LegendPanel

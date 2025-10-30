@@ -4,6 +4,8 @@ import { Field } from '../../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
+// Label utilities
+import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils';
 
 /**
  * Scatter chart for continuous measure vs continuous measure or dimension.
@@ -18,6 +20,7 @@ export function scatterChart(
   sizeField?: Field,
   sizeRange?: [number, number],
   manualSize?: number
+  , labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
 ): Plot.PlotOptions {
   // Detect axis value kinds by sampling up to first 20 non-null values
   const sampleValues = (column: string) => (Array.isArray(data) ? data.map(r => r?.[column]).filter(v => v !== null && v !== undefined) : []);
@@ -208,6 +211,26 @@ export function scatterChart(
     r: { type: 'identity' } as any,
     marks: [Plot.dot(clean, dotConfig)],
   };
+
+  // Label integration
+  if (labelCfg) {
+    const labelConfig: LabelRenderConfig = {
+      data: clean,
+      xColumn,
+      yColumn,
+      labelFields: labelCfg.labelFields,
+      labelsEnabled: labelCfg.labelsEnabled,
+      samplingStrategy: labelCfg.samplingStrategy,
+      samplingThreshold: labelCfg.samplingThreshold,
+      sampleEvery: labelCfg.sampleEvery,
+      chartType: 'scatter'
+    };
+    const prepared = prepareLabelData(labelConfig);
+    const labelMark = createLabelMark(prepared, labelConfig, xColumn, yColumn);
+    if (labelMark) {
+      (plotOptions.marks = plotOptions.marks || []).push(labelMark as any);
+    }
+  }
   
   if (colorField && colorInfo) {
     if (colorInfo.kind === 'continuous') {

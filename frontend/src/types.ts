@@ -104,6 +104,8 @@ export interface QueryDescription {
     offset?: number;
     optimization_hints?: OptimizationHints;  // Phase 1: Frontend can send explicit optimization hints
     column_casts?: ColumnCasts;  // Column casting configuration
+  // NEW: raw fields needed for label rendering (order not significant)
+  label_fields?: string[];
 }
 
 export interface QueryResultColumn {
@@ -124,6 +126,8 @@ export interface QueryResult {
     optimization_hints_used?: OptimizationHints | null;
     optimization_override?: OptimizationOverride | null;
     result_dimensions?: ResultDimensions;
+  // Echo of label fields included (optional)
+  label_fields?: string[];
 }
 
 // --- Optimization Types (Phase 1) ---

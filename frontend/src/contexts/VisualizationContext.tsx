@@ -37,6 +37,12 @@ interface VisualizationState {
   sizeField: Field | null;
   sizeRange: [number, number]; // Min and max size
   manualSize: number; // Used when no field is present
+  // Label configuration state
+  labelFields: Field[]; // Fields whose values will be shown as labels (order not significant)
+  labelsEnabled: boolean; // Whether labels are enabled (auto true if labelFields non-empty)
+  labelSamplingStrategy: 'auto' | 'all' | 'sample';
+  labelSamplingThreshold: number; // threshold for auto strategy (e.g., 300)
+  labelSampleEvery: number; // nth point when strategy = sample (computed or user adjustable later)
   // --- Per-operation timing (phase 1 introduction) ---
   operationStartTimes: Record<LoadingOperationType, number | null>; // individual start times
   activeOperations: LoadingOperationType[]; // active operations list
@@ -89,7 +95,15 @@ type VisualizationAction =
   | { type: 'SET_SIZE_FIELD'; payload: Field | null }
   | { type: 'SET_SIZE_RANGE'; payload: [number, number] }
   | { type: 'SET_MANUAL_SIZE'; payload: number }
-  | { type: 'REMOVE_SIZE_FIELD' };
+  | { type: 'REMOVE_SIZE_FIELD' }
+  // Label actions
+  | { type: 'SET_LABEL_FIELDS'; payload: Field[] }
+  | { type: 'ADD_LABEL_FIELD'; payload: Field }
+  | { type: 'REMOVE_LABEL_FIELD'; payload: string }
+  | { type: 'SET_LABELS_ENABLED'; payload: boolean }
+  | { type: 'SET_LABEL_SAMPLING_STRATEGY'; payload: 'auto' | 'all' | 'sample' }
+  | { type: 'SET_LABEL_SAMPLING_THRESHOLD'; payload: number }
+  | { type: 'SET_LABEL_SAMPLE_EVERY'; payload: number };
 
 // Initial state
 const initialState: VisualizationState = {
@@ -123,6 +137,12 @@ const initialState: VisualizationState = {
   sizeField: null,
   sizeRange: [4, 20], // Default range for sizes
   manualSize: 10, // Default manual size
+  // Label configuration defaults
+  labelFields: [],
+  labelsEnabled: false,
+  labelSamplingStrategy: 'auto',
+  labelSamplingThreshold: 300,
+  labelSampleEvery: 1,
   // Per-operation timing defaults
   operationStartTimes: { query: null, rendering: null, metadata: null },
   activeOperations: [],
@@ -370,6 +390,28 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
       return { ...state, manualSize: action.payload };
     case 'REMOVE_SIZE_FIELD':
       return { ...state, sizeField: null };
+    // Label reducers
+    case 'SET_LABEL_FIELDS': {
+      return { ...state, labelFields: action.payload, labelsEnabled: action.payload.length > 0 || state.labelsEnabled };
+    }
+    case 'ADD_LABEL_FIELD': {
+      // Prevent duplicates by columnName
+      if (state.labelFields.some(f => f.columnName === action.payload.columnName)) return state;
+      const newFields = [...state.labelFields, action.payload];
+      return { ...state, labelFields: newFields, labelsEnabled: true };
+    }
+    case 'REMOVE_LABEL_FIELD': {
+      const newFields = state.labelFields.filter(f => f.id !== action.payload && f.columnName !== action.payload);
+      return { ...state, labelFields: newFields, labelsEnabled: newFields.length > 0 && state.labelsEnabled };
+    }
+    case 'SET_LABELS_ENABLED':
+      return { ...state, labelsEnabled: action.payload };
+    case 'SET_LABEL_SAMPLING_STRATEGY':
+      return { ...state, labelSamplingStrategy: action.payload };
+    case 'SET_LABEL_SAMPLING_THRESHOLD':
+      return { ...state, labelSamplingThreshold: action.payload };
+    case 'SET_LABEL_SAMPLE_EVERY':
+      return { ...state, labelSampleEvery: Math.max(1, action.payload) };
     case 'RESET_STATE':
       return initialState;
     default:
