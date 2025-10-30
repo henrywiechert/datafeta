@@ -61,7 +61,7 @@ const LabelPanel: React.FC<LabelPanelProps> = ({ projectedPointCount }) => {
         <Switch size="small" checked={labelsEnabled} onChange={handleToggleEnabled} />
         <Typography variant="body2" sx={{ ml: 1 }}>Show labels</Typography>
       </Box>
-      <Box sx={{ border: '1px dashed #bbb', p: 1, borderRadius: 1, minHeight: 48 }}
+      <Box sx={{ border: '1px dashed #e0e0e0', p: 1, borderRadius: 1, minHeight: 48, bgcolor: '#fafafa' }}
         onDragOver={(e) => { e.preventDefault(); }}
         onDrop={(e) => {
           e.preventDefault();
@@ -86,7 +86,7 @@ const LabelPanel: React.FC<LabelPanelProps> = ({ projectedPointCount }) => {
             <Chip
               key={f.id}
               size="small"
-              label={f.columnName}
+              label={f.columnName === '__current_measure__' ? 'Measure Value' : f.columnName}
               onDelete={() => handleRemoveFromLabel(f.id)}
             />
           ))}

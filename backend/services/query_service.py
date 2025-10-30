@@ -554,6 +554,19 @@ class QueryService:
             except Exception as e:
                 logger.error(f"Optimization failed, falling back to unoptimized: {e}", exc_info=True)
         
+        # CRITICAL: Ensure DISTINCT is applied for discrete-only queries (filter queries)
+        # This is essential for filter panels to show unique values only
+        if not query_desc.measures and query_desc.dimensions:
+            discrete_dims = [d for d in query_desc.dimensions if d.flavour == 'discrete']
+            continuous_dims = [d for d in query_desc.dimensions if d.flavour == 'continuous']
+            
+            # For pure discrete queries (no continuous dims), always apply DISTINCT
+            # This ensures filter panels show unique values
+            if len(discrete_dims) > 0 and len(continuous_dims) == 0:
+                if not use_category_dedup and not q._distinct:
+                    q = q.distinct()
+                    logger.info("Applied DISTINCT to discrete-only query for filter deduplication")
+        
         # GROUP BY Clause
         if query_desc.dimensions:
             # Special handling for category deduplication

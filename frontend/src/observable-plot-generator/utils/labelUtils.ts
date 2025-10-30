@@ -67,6 +67,10 @@ export function buildLabelString(d: any, cfg: LabelRenderConfig): string {
   }
   const parts: string[] = [];
   for (const f of cfg.labelFields) {
+    if (f.columnName === '__current_measure__') {
+      parts.push(formatValue(d[cfg.yColumn]));
+      continue;
+    }
     // Attempt multiple key candidates: adapted name + implicit SUM alias + original name
     const candidates: string[] = [];
     candidates.push(f.columnName);

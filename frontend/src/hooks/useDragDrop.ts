@@ -224,12 +224,18 @@ export function useDragDrop() {
       if (!sourceField) return;
       fieldToAdd = { ...sourceField, id: uuidv4() };
     } else if (source === 'X_AXIS' || source === 'Y_AXIS' || source === 'COLOR_ZONE' || source === 'SIZE_ZONE') {
-      fieldToAdd = { ...field, id: uuidv4() };
+      const axisFields = source === 'X_AXIS' ? state.xAxisFields : state.yAxisFields;
+      const measureCount = axisFields.filter(f => f.type === 'measure').length;
+      if (field.type === 'measure' && measureCount > 1) {
+        fieldToAdd = { id: uuidv4(), columnName: '__current_measure__', type: 'special' } as any;
+      } else {
+        fieldToAdd = { ...field, id: uuidv4() };
+      }
     } else {
       fieldToAdd = { ...field, id: uuidv4() };
     }
     dispatch({ type: 'ADD_LABEL_FIELD', payload: fieldToAdd });
-  }, [dispatch, dataSource.availableFields]);
+  }, [dispatch, dataSource.availableFields, state.xAxisFields, state.yAxisFields]);
 
   const handleRemoveFromLabel = useCallback((fieldId: string) => {
     dispatch({ type: 'REMOVE_LABEL_FIELD', payload: fieldId });
