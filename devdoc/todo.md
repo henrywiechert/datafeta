@@ -28,7 +28,7 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 ## [DONE] Right scrollbar not touchable
 - not selectable by mouse
 
-## [] Continous dimension for color
+## [DONE] Continous dimension for color
 - gradient feature
 
 ## [DONE] add all used fields to tooltip
@@ -37,6 +37,15 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 - add panel for additional fields for tooltips
 
 - huger scatter data -> reduce data (remove duplicated pairs)
+done
 
 ## [] derived variables
 - which language ?
+
+Filter:
+LIKE query to be used in final query optionally.
+Otherwise restrict the number of selected items.
+Reset button for filter.
+
+DateTime:
+When used as cont. dimension, measures on Y doe not work, only dimensions.
