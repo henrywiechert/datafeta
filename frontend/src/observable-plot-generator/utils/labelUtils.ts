@@ -1,0 +1,91 @@
+import * as Plot from '@observablehq/plot';
+import { Field } from '../../types';
+
+export interface LabelRenderConfig {
+  data: any[];
+  xColumn: string;
+  yColumn: string;
+  labelFields: Field[];
+  labelsEnabled: boolean;
+  samplingStrategy: 'auto' | 'all' | 'sample';
+  samplingThreshold: number;
+  sampleEvery: number;
+  chartType: 'scatter' | 'line' | 'verticalLine' | 'bar';
+}
+
+export const HARD_CAP = 5000;
+
+/**
+ * Decide whether labels should render and return sampled data subset if needed.
+ */
+export function prepareLabelData(cfg: LabelRenderConfig): { shouldRender: boolean; data: any[] } {
+  const total = cfg.data.length;
+  if (!cfg.labelsEnabled) return { shouldRender: false, data: [] };
+  if (total === 0) return { shouldRender: false, data: [] };
+
+  // Auto suppression above threshold
+  if (cfg.samplingStrategy === 'auto' && total > cfg.samplingThreshold) {
+    return { shouldRender: false, data: [] };
+  }
+  // Hard cap protection
+  if (cfg.samplingStrategy === 'all' && total > HARD_CAP) {
+    // Force sampling every computed interval
+    const every = Math.ceil(total / cfg.samplingThreshold);
+    const sampled = cfg.data.filter((_, i) => i % every === 0);
+    return { shouldRender: true, data: sampled };
+  }
+  if (cfg.samplingStrategy === 'sample') {
+    const every = Math.max(1, cfg.sampleEvery);
+    const sampled = cfg.data.filter((_, i) => i % every === 0);
+    return { shouldRender: true, data: sampled };
+  }
+  return { shouldRender: true, data: cfg.data };
+}
+
+/** Build label string for a datum based on fields or defaults */
+export function buildLabelString(d: any, cfg: LabelRenderConfig): string {
+  if (cfg.labelFields.length === 0) {
+    // Defaults
+    if (cfg.chartType === 'scatter') {
+      return `${formatValue(d[cfg.xColumn])}\n${formatValue(d[cfg.yColumn])}`;
+    }
+    // line & verticalLine & bar default: y value
+    return `${formatValue(d[cfg.yColumn])}`;
+  }
+  const parts: string[] = [];
+  for (const f of cfg.labelFields) {
+    const val = d[f.columnName];
+    if (val === null || val === undefined || val === '') continue;
+    parts.push(formatValue(val));
+  }
+  if (parts.length === 0) return '';
+  return parts.join('\n');
+}
+
+function formatValue(v: any): string {
+  if (typeof v === 'number') {
+    if (!Number.isInteger(v)) return v.toFixed(2);
+    return v.toString();
+  }
+  if (v instanceof Date) return v.toISOString();
+  return String(v);
+}
+
+/** Create Plot.text mark for labels */
+export function createLabelMark(prepared: { shouldRender: boolean; data: any[] }, cfg: LabelRenderConfig, xCol: string, yCol: string) {
+  if (!prepared.shouldRender) return null;
+  const textValues = prepared.data.map(d => buildLabelString(d, cfg)).filter(s => s.length > 0);
+  if (textValues.length === 0) return null;
+  return Plot.text(prepared.data, {
+    x: xCol,
+    y: yCol,
+    text: (d: any) => buildLabelString(d, cfg),
+    dy: -6,
+    fontSize: 11,
+    lineHeight: 1.1,
+    fill: 'black',
+    stroke: 'white',
+    strokeWidth: 3,
+    textAnchor: 'middle'
+  });
+}
