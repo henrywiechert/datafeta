@@ -183,16 +183,20 @@ export const buildRawQuery = ({
     return null;
   }
 
-  // Treat all fields as simple columns to select.
-  // Use a Set to handle cases where the same field is on multiple axes.
-  // For datetime parts, use the full result column name (which includes part+mode) as the key
-  // This ensures multiple datetime parts from the same field are not deduplicated
-  const uniqueFields = new Map<string, Field>();
-  fields.forEach(f => {
-    const key = getResultColumnName(f);
-    if (!uniqueFields.has(key)) {
-      uniqueFields.set(key, f);
+  // Treat all visualization fields + label fields as simple columns to select.
+  // Merge labelFields so they are guaranteed present even if not on axes.
+  const allRaw = [...fields];
+  for (const lf of labelFields) {
+    // Avoid duplicate by columnName & date part alias uniqueness
+    if (!allRaw.some(f => f.columnName === lf.columnName && f.dateTimePart === lf.dateTimePart && f.dateTimeMode === lf.dateTimeMode)) {
+      allRaw.push(lf);
     }
+  }
+  // Deduplicate on result column name (datetime part yields distinct alias)
+  const uniqueFields = new Map<string, Field>();
+  allRaw.forEach(f => {
+    const key = getResultColumnName(f);
+    if (!uniqueFields.has(key)) uniqueFields.set(key, f);
   });
 
   const dimensions = Array.from(uniqueFields.values()).map(field => {
@@ -207,8 +211,8 @@ export const buildRawQuery = ({
 
   // Order by dimensions when present; this preserves category order and sorts
   // continuous dimensions for left-to-right flows in single-series charts
-  const discreteDims = fields.filter(f => f.type === 'dimension' && f.flavour === 'discrete');
-  const continuousDims = fields.filter(f => f.type === 'dimension' && f.flavour === 'continuous');
+  const discreteDims = allRaw.filter(f => f.type === 'dimension' && f.flavour === 'discrete');
+  const continuousDims = allRaw.filter(f => f.type === 'dimension' && f.flavour === 'continuous');
   // For datetime parts, use the alias name (fieldname_part_mode), otherwise use column name
   const orderBy: OrderBy[] = [...discreteDims, ...continuousDims].map(f => {
     // If this is a datetime part, order by the alias
@@ -283,11 +287,16 @@ export const buildQuery = ({
  * Order is not significant; return array of column names.
  */
 function dedupeLabelFields(labelFields: Field[], existingFields: Field[]): string[] {
-  const existingNames = new Set(existingFields.map(f => f.columnName));
+  // We need the backend to return every column referenced by labels.
+  // If a label field already appears as a dimension/measure it will already be in SELECT, but
+  // including it again in label_fields is harmless and keeps logic simple.
+  // Preserve unique column names only.
   const result: string[] = [];
+  const seen = new Set<string>();
   for (const lf of labelFields) {
-    if (!existingNames.has(lf.columnName)) {
+    if (!seen.has(lf.columnName)) {
       result.push(lf.columnName);
+      seen.add(lf.columnName);
     }
   }
   return result;

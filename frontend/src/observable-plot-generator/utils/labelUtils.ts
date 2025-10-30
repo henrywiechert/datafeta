@@ -62,9 +62,26 @@ export function buildLabelString(d: any, cfg: LabelRenderConfig): string {
   }
   const parts: string[] = [];
   for (const f of cfg.labelFields) {
-    const val = d[f.columnName];
-    if (val === null || val === undefined || val === '') continue;
-    parts.push(formatValue(val));
+    // Attempt multiple key candidates: adapted name + implicit SUM alias + original name
+    const candidates: string[] = [];
+    candidates.push(f.columnName);
+    if ((f as any).originalColumnName) {
+      // Add implicit SUM variant first (backend may or may not include both)
+      candidates.push(`SUM(${(f as any).originalColumnName})`);
+      candidates.push((f as any).originalColumnName);
+    }
+    let found: any = undefined;
+    for (const key of candidates) {
+      if (key in d) {
+        const value = d[key];
+        if (value !== null && value !== undefined && value !== '') {
+          found = value;
+          break;
+        }
+      }
+    }
+    if (found === undefined) continue;
+    parts.push(formatValue(found));
   }
   if (parts.length === 0) return '';
   return parts.join('\n');
@@ -93,7 +110,7 @@ export function createLabelMark(prepared: { shouldRender: boolean; data: any[] }
     y: yCol,
     text: (d: any) => buildLabelString(d, cfg),
     dy: isScatter ? -12 : -6,
-    fontSize: 11,
+    fontSize: 10,
     lineHeight: 1.1,
     fill: 'black',
     textAnchor: 'middle',

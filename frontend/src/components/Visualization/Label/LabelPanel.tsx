@@ -65,15 +65,16 @@ const LabelPanel: React.FC<LabelPanelProps> = ({ projectedPointCount }) => {
         onDragOver={(e) => { e.preventDefault(); }}
         onDrop={(e) => {
           e.preventDefault();
-          const fieldJson = e.dataTransfer.getData('application/x-field');
-          if (fieldJson) {
-            try {
-              const field: Field = JSON.parse(fieldJson);
-              // We don't persist a drag source on Field objects; treat as coming from available fields
-              handleLabelDrop(field, 'AVAILABLE_FIELDS');
-            } catch (err) {
-              console.warn('Failed to parse dropped field for label zone', err);
-            }
+          // FieldChip sets 'application/json' with { field, source, index }
+          const payload = e.dataTransfer.getData('application/json');
+          if (!payload) return;
+          try {
+            const parsed = JSON.parse(payload);
+            const field: Field = parsed.field || parsed; // fallback if older format
+            const source: DragSource = parsed.source || 'AVAILABLE_FIELDS';
+            handleLabelDrop(field, source);
+          } catch (err) {
+            console.warn('Failed to parse dropped field for label zone', err);
           }
         }}
       >

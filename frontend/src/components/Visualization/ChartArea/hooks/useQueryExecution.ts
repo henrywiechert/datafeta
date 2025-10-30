@@ -15,6 +15,7 @@ interface UseQueryExecutionProps {
   colorField: Field | null;
   sizeField?: Field | null;
   filterConfigurations: Record<string, any>;
+  labelFields?: Field[];
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
   dispatch: (action: any) => void;
@@ -33,6 +34,7 @@ export const useQueryExecution = ({
   colorField,
   sizeField,
   filterConfigurations,
+  labelFields = [],
   startOperation,
   completeOperation,
   dispatch,
@@ -146,35 +148,51 @@ export const useQueryExecution = ({
     const taggedYFields = yAxisFields.map(f => ({ ...f, axis: 'y' as const }));
   const allFields = [...taggedXFields, ...taggedYFields];
     
-    // Add colorField if it exists and is a dimension (no axis tagging for color)
-    if (colorField && colorField.type === 'dimension') {
-      allFields.push(colorField);
+    // Include colorField whether dimension or measure so its column is selected.
+    // If it's a measure without aggregation but other aggregated measures exist, assign a default aggregation.
+    if (colorField) {
+      const colorEntry = (colorField.type === 'measure' && !colorField.aggregation && [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation))
+        ? { ...colorField, aggregation: 'sum' }
+        : colorField;
+      allFields.push(colorEntry);
     }
     // Include sizeField when present and it's a dimension or measure so its column appears in the result
     if (sizeField) {
-      // If it's a measure but lacks aggregation while other measures exist, assign a default aggregation (sum)
-      if (sizeField.type === 'measure' && !sizeField.aggregation) {
-        const hasOtherAggMeasures = [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation);
-        if (hasOtherAggMeasures) {
-          allFields.push({ ...sizeField, aggregation: 'sum' });
-        } else {
-          allFields.push(sizeField);
-        }
-      } else {
-        allFields.push(sizeField);
-      }
+      const sizeEntry = (sizeField.type === 'measure' && !sizeField.aggregation && [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation))
+        ? { ...sizeField, aggregation: 'sum' }
+        : sizeField;
+      allFields.push(sizeEntry);
     }
     
-    if (allFields.length === 0 || !selectedTable || !selectedDatabase) {
+    // Merge label fields (without axis tagging) so query builder can include them via label_fields
+  const mergedFields = [...allFields];
+    for (const lf of labelFields) {
+      if (!mergedFields.some(f => f.columnName === lf.columnName && f.dateTimePart === lf.dateTimePart && f.dateTimeMode === lf.dateTimeMode)) {
+        mergedFields.push(lf);
+      }
+    }
+
+    if (mergedFields.length === 0 || !selectedTable || !selectedDatabase) {
       return null;
     }
     
     const queryDesc = buildQuery({
-      fields: allFields,
+      fields: mergedFields,
       selectedTable,
       selectedDatabase,
       filterConfigurations,
+      labelFields,
     });
+
+    if (queryDesc) {
+      console.log('🧪 Query build (memo):', {
+        dimensions: queryDesc.dimensions?.map(d => d.field),
+        measures: queryDesc.measures?.map(m => m.alias || m.field),
+        label_fields: (queryDesc as any).label_fields,
+        colorField: colorField?.columnName,
+        sizeField: sizeField?.columnName
+      });
+    }
 
     // Include optimization hints in the query description
     if (queryDesc && optimizationHints) {
@@ -182,7 +200,7 @@ export const useQueryExecution = ({
     }
 
     return queryDesc;
-  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields, colorField, sizeField, filterConfigurations, optimizationHints]);
+  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields, colorField, sizeField, filterConfigurations, labelFields, optimizationHints]);
 
   // Effect to handle query execution when fields change
   useEffect(() => {
@@ -195,25 +213,29 @@ export const useQueryExecution = ({
       // Tag fields with their axis for query optimization
       const taggedXFields = xAxisFields.map(f => ({ ...f, axis: 'x' as const }));
       const taggedYFields = yAxisFields.map(f => ({ ...f, axis: 'y' as const }));
-      const allFields = [...taggedXFields, ...taggedYFields];
+  const allFields = [...taggedXFields, ...taggedYFields];
+      // Merge label fields for execution path (raw queries need them present; aggregated queries use label_fields list)
+  const mergedFields = [...allFields];
+      for (const lf of labelFields) {
+        if (!mergedFields.some(f => f.columnName === lf.columnName && f.dateTimePart === lf.dateTimePart && f.dateTimeMode === lf.dateTimeMode)) {
+          mergedFields.push(lf);
+        }
+      }
       
-      // Add colorField if it exists and is a dimension (no axis tagging for color)
-      if (colorField && colorField.type === 'dimension') {
-        allFields.push(colorField);
+      // Include colorField (dimension or measure). Mirror logic from memo block.
+      if (colorField) {
+        const colorEntry = (colorField.type === 'measure' && !colorField.aggregation && [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation))
+          ? { ...colorField, aggregation: 'sum' }
+          : colorField;
+        mergedFields.push(colorEntry);
       }
 
       // Include sizeField when present; mirror color logic but allow measures too
       if (sizeField) {
-        if (sizeField.type === 'measure' && !sizeField.aggregation) {
-          const hasOtherAggMeasures = [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation);
-            if (hasOtherAggMeasures) {
-              allFields.push({ ...sizeField, aggregation: 'sum' });
-            } else {
-              allFields.push(sizeField);
-            }
-        } else {
-          allFields.push(sizeField);
-        }
+        const sizeEntry = (sizeField.type === 'measure' && !sizeField.aggregation && [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation))
+          ? { ...sizeField, aggregation: 'sum' }
+          : sizeField;
+        mergedFields.push(sizeEntry);
       }
       
       // For CSV connections using DuckDB, use 'main' as the default database if none is set
@@ -222,7 +244,7 @@ export const useQueryExecution = ({
         effectiveDatabase = 'main'; // DuckDB's default database name
       }
       
-      if (allFields.length === 0 || !selectedTable || !effectiveDatabase) {
+      if (mergedFields.length === 0 || !selectedTable || !effectiveDatabase) {
         // If there's no query to run, clear previous results
         dispatch({ type: 'SET_QUERY_RESULT', payload: null });
         dispatch({ type: 'SET_QUERY_ERROR', payload: null });
@@ -230,11 +252,22 @@ export const useQueryExecution = ({
       }
       
       const queryDesc = buildQuery({
-        fields: allFields,
+        fields: mergedFields,
         selectedTable,
         selectedDatabase: effectiveDatabase,
         filterConfigurations,
+        labelFields,
       });
+
+      if (queryDesc) {
+        console.log('🧪 Query build (effect):', {
+          dimensions: queryDesc.dimensions?.map(d => d.field),
+          measures: queryDesc.measures?.map(m => m.alias || m.field),
+          label_fields: (queryDesc as any).label_fields,
+          colorField: colorField?.columnName,
+          sizeField: sizeField?.columnName
+        });
+      }
 
       // Add optimization hints to query if available
       if (queryDesc && optimizationHints) {
@@ -248,7 +281,7 @@ export const useQueryExecution = ({
 
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTable, selectedDatabase, connectionDetails, xAxisFields, yAxisFields, colorField, sizeField, filterConfigurations]);
+  }, [selectedTable, selectedDatabase, connectionDetails, xAxisFields, yAxisFields, colorField, sizeField, labelFields, filterConfigurations]);
 
   // Cleanup on unmount
   useEffect(() => {
