@@ -402,6 +402,22 @@ class QueryService:
             select_fields.append(agg_term.as_(measure.alias))
             all_aliases.add(measure.alias)
 
+        # --- NEW: Include label_fields as raw columns if provided and not already selected ---
+        if getattr(query_desc, 'label_fields', None):
+            existing_dimension_fields = {d.field for d in query_desc.dimensions} if query_desc.dimensions else set()
+            existing_measure_fields = {m.field for m in query_desc.measures} if query_desc.measures else set()
+            for lbl in query_desc.label_fields:
+                # Skip if already present as dimension or measure source
+                if lbl in existing_dimension_fields or lbl in existing_measure_fields:
+                    continue
+                # Add raw field; alias kept as original name for frontend lookup
+                try:
+                    raw_term = self._get_field_with_cast(t, lbl, query_desc.column_casts)
+                    select_fields.append(raw_term.as_(lbl))
+                    all_aliases.add(lbl)
+                except Exception as e:
+                    logger.warning(f"Failed to include label field '{lbl}' in SELECT: {e}")
+
         if not select_fields:
              raise QueryGenerationError("Query must have at least one dimension or measure.")
 

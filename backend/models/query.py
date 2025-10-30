@@ -100,6 +100,10 @@ class QueryDescription(BaseModel):
     # For distinct value queries: apply LIKE pattern filter and random sampling
     distinct_value_regex: Optional[str] = None  # SQL LIKE pattern to filter distinct values
     use_random_sample: Optional[bool] = None  # Whether to use ORDER BY RANDOM() for sampling
+    
+    # NEW: Fields needed for point/segment labels in visualization.
+    # Frontend treats order as irrelevant; backend simply ensures these columns are selected.
+    label_fields: Optional[List[str]] = None
 
 class QueryResult(BaseModel):
     columns: List[Dict[str, str]] # e.g., [{"name": "col1", "type": "string"}, ...]
@@ -119,3 +123,6 @@ class QueryResult(BaseModel):
     
     # NEW: Result dimensions for UI display
     result_dimensions: Optional[ResultDimensions] = None 
+    
+    # Echo back label fields included so frontend can validate presence
+    label_fields: Optional[List[str]] = None
