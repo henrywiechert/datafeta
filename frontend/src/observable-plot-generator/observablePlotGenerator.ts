@@ -126,7 +126,8 @@ export function baseGeneratePlot(context: ChartGenerationContext): PlotResult {
         colorScheme,
         sizeField,
         sizeRange,
-        manualSize
+        manualSize,
+        buildLabelCfg(context)
       ),
       sharedDomains: { byMeasure: sharedMeasureDomains as any },
       layout: {
@@ -141,7 +142,7 @@ export function baseGeneratePlot(context: ChartGenerationContext): PlotResult {
 
   // Single pair across axes with measures on both sides → single scatter
   if (analysis.hasMixedAxes) {
-    const plotOptions = generateScatterPlot(analysis, context);
+  const plotOptions = generateScatterPlot(analysis, context, buildLabelCfg(context));
     return { library: 'observable-plot', options: plotOptions, layout: { type: 'single' } };
   }
 

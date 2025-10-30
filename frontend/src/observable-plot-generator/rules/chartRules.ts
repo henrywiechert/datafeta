@@ -7,7 +7,11 @@ import { lineChart } from '../chartTypes/lineChart';
 import { scatterChart } from '../chartTypes/scatterChart';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 
-export function generateScatterPlot(analysis: FieldAnalysis, context: ChartGenerationContext): Plot.PlotOptions {
+export function generateScatterPlot(
+  analysis: FieldAnalysis,
+  context: ChartGenerationContext,
+  labelCfg?: { labelFields: any[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
+): Plot.PlotOptions {
   const { queryResult, colorField, colorScheme, sizeField, sizeRange, manualSize } = context;
   const data = queryResult?.rows || [];
   const xMeasure = analysis.xMeasures[0];
@@ -27,7 +31,8 @@ export function generateScatterPlot(analysis: FieldAnalysis, context: ChartGener
     colorScheme,
     sizeField,
     sizeRange,
-    manualSize
+    manualSize,
+    labelCfg
   );
 }
 
