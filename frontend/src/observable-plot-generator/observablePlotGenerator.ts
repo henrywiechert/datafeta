@@ -7,6 +7,7 @@ import { computeSharedMeasureDomains } from './domains/measureDomains';
 import { analyzeFields } from './analysis/fieldAnalysis';
 import { ChartTypeOverrides } from './helpers/chartTypeResolver';
 import { planFacets } from './faceting/facetPlanner';
+import { getResultColumnName } from '../utils/fieldUtils';
 import { generateCartesianGrid, generateCartesianPlots } from './grid/coreGridGenerator';
 import { generateFacetedGrid } from './faceting/facetGenerator';
 
@@ -188,10 +189,38 @@ function buildLabelCfg(context: ChartGenerationContext) {
     labelSamplingStrategy = 'auto',
     labelSamplingThreshold = 300,
     labelSampleEvery = 1,
+    queryResult,
   } = context as any;
   if (!labelsEnabled && (labelFields?.length || 0) === 0) return undefined;
+
+  // Adapt measure label field columnNames to aggregated aliases present in result rows.
+  // If a label field is a measure with aggregation, backend returns column as AGG(col).
+  // If measure has no aggregation but other aggregated measures forced a default (e.g., color/size), we still may see SUM(col).
+  const adaptedLabelFields = labelFields.map((f: Field) => {
+    if (f.type === 'measure') {
+      // If explicit aggregation present, use its result alias.
+      if (f.aggregation) {
+        return { ...f, columnName: getResultColumnName(f), originalColumnName: f.columnName } as any;
+      }
+      // If no aggregation, check if result rows carry a SUM alias for this column (implicit default applied elsewhere).
+      const implicitAlias = `SUM(${f.columnName})`;
+      if (queryResult?.rows?.length && Object.prototype.hasOwnProperty.call(queryResult.rows[0], implicitAlias)) {
+        return { ...f, columnName: implicitAlias, originalColumnName: f.columnName } as any;
+      }
+      // Fall back to original name.
+      return { ...f };
+    }
+    // For datetime part dimensions, getResultColumnName already returns alias; but we don't mutate dim names here.
+    return f;
+  });
+
+  if (queryResult?.rows?.length) {
+    const firstRowKeys = Object.keys(queryResult.rows[0] || {});
+    console.log('[LabelCfg] Adapted label fields:', adaptedLabelFields.map((f: any) => ({ columnName: f.columnName, original: f.originalColumnName })), 'First row keys:', firstRowKeys);
+  }
+
   return {
-    labelFields,
+    labelFields: adaptedLabelFields,
     labelsEnabled,
     samplingStrategy: labelSamplingStrategy,
     samplingThreshold: labelSamplingThreshold,
