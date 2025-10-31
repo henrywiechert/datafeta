@@ -1,8 +1,9 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext } from '../types';
-import { BAR_STEP_PX, DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
+import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING } from '../../config/chartLayoutConfig';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
+import { computeBandPaddingFromSizeField } from './barCore';
 
 /**
  * Tick-strip chart for a single continuous dimension.
@@ -17,7 +18,7 @@ export function tickStrip(
   categoryDimensionColumn?: string,
   labels?: { dimension?: string; category?: string }
 ): Plot.PlotOptions {
-  const { queryResult, colorField, colorScheme, sizeField } = context;
+  const { queryResult, colorField, colorScheme, sizeField, sizeRange, manualSize } = context;
   const data = queryResult.rows;
   const colorInfo = colorField ? deriveColorScaleInfo(data, colorField, colorScheme) : null;
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
@@ -90,6 +91,32 @@ export function tickStrip(
   };
   const axisDomain = computeAxisDomain();
 
+  // Compute band padding for category axes (like bar charts)
+  // This controls the "thickness" of tick marks along the category axis
+  // The padding value changes with manualSize: larger size → smaller padding → thicker tick marks
+  const bandPadding = computeBandPaddingFromSizeField(data, sizeField, { manualSize }) ?? BAND_PADDING;
+  
+  // Compute width/height multiplier for tick strips without categories
+  // This controls the length of tick marks when there's no category axis
+  const computeTickLengthMultiplier = () => {
+    if (sizeField && sizeRange) {
+      // When size field is present, use middle of range as representative
+      const [minSize, maxSize] = sizeRange;
+      const representativeSize = (minSize + maxSize) / 2;
+      // Normalize to 0..1 range (sizeRange is 1-50)
+      const sizeNorm = (representativeSize - 1) / (50 - 1);
+      // Map to multiplier: 0.5x to 2x (smaller size = shorter ticks, larger size = longer ticks)
+      return 0.5 + (sizeNorm * 1.5);
+    } else if (manualSize !== undefined) {
+      // manualSize is in 1-50 range, normalize to 0..1
+      const sizeNorm = (manualSize - 1) / (50 - 1);
+      // Map to multiplier: 0.5x to 2x
+      return 0.5 + (sizeNorm * 1.5);
+    }
+    return 1.0; // Default: no change
+  };
+  const tickLengthMultiplier = computeTickLengthMultiplier();
+
   if (orientation === 'x') {
     if (categoryDimensionColumn) {
       const categories = Array.from(new Set(data.map((row: any) => row[categoryDimensionColumn])));
@@ -131,7 +158,7 @@ export function tickStrip(
           label: labels?.category || categoryDimensionColumn,
           domain: categories as any,
           type: 'band' as any,
-          padding: 0.1 as any,
+          padding: bandPadding as any,
         },
         height: Math.max(BAR_STEP_PX * 2, categoryCount * BAR_STEP_PX),
         marks: [
@@ -180,7 +207,7 @@ export function tickStrip(
     const opts: Plot.PlotOptions = {
       x: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
       y: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: 0.1 as any },
-      height: BAR_STEP_PX * 2,
+      height: BAR_STEP_PX * 2 * tickLengthMultiplier,
       marks: [
         Plot.tickX(data, tickConfig),
       ],
@@ -235,7 +262,7 @@ export function tickStrip(
         label: labels?.category || categoryDimensionColumn,
         domain: categories as any,
         type: 'band' as any,
-        padding: 0.1 as any,
+        padding: bandPadding as any,
       },
       width: Math.max(BAR_STEP_PX * 2, categoryCount * BAR_STEP_PX),
       marks: [
@@ -283,7 +310,7 @@ export function tickStrip(
   const opts: Plot.PlotOptions = {
     y: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
     x: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: 0.1 as any },
-    width: BAR_STEP_PX * 2,
+    width: BAR_STEP_PX * 2 * tickLengthMultiplier,
     marks: [
       Plot.tickY(data, tickConfig),
     ],
