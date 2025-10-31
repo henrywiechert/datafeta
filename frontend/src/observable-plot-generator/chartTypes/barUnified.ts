@@ -77,6 +77,10 @@ export function barUnified(
         );
 
     const useStackedDomain = !categoryColumn && !!colorColumn;
+    // Determine single bar sizing multiplier (legacy expectation 5) when we truly have a single bar
+    const isSingleBar = !categoryColumn && !colorColumn;
+    const singleBarSizeMultiplier = isSingleBar ? 5 : 2;
+
     const options = buildBarOptions({
       data: aggregated,
       measureName,
@@ -88,7 +92,7 @@ export function barUnified(
       bandPadding,
       valueDomainOverride: useStackedDomain ? undefined : sharedDomains[measureName],
       // Keep legacy visual sizing multiplier for a single bar
-      singleBarSizeMultiplier: 2,
+      singleBarSizeMultiplier,
       tooltipColumns: [colorField?.columnName, sizeField?.columnName].filter(Boolean) as string[],
     });
 
@@ -198,20 +202,34 @@ function buildTotalOnlyData(data: any[], measureName: string) {
  */
 function calculateSharedDomains(measures: any[], data: any[]) {
   const domains: Record<string, [number, number]> = {};
+  const PAD = 0.05;
   measures.forEach(measure => {
     const fieldForName = { ...measure, aggregation: measure.aggregation || 'sum' };
     const measureName = getResultColumnName(fieldForName as any);
     const values = data.map(row => row[measureName]).filter((v: any) => typeof v === 'number' && isFinite(v));
-    if (values.length > 0) {
-      const min = Math.min(...values);
-      const max = Math.max(...values);
-      const lower = Math.min(0, min);
-      const upperRaw = Math.max(0, max);
-      const upper = upperRaw === 0 ? 1 : upperRaw * 1.05;
-      domains[measureName] = [lower, upper];
-    } else {
+    if (values.length === 0) {
       domains[measureName] = [0, 1];
+      return;
     }
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    // Negative-only
+    if (max <= 0) {
+      const span = Math.abs(max - min);
+      const pad = span * PAD;
+      domains[measureName] = [min - pad, 0];
+      return;
+    }
+    // Positive-only
+    if (min >= 0) {
+      const upper = max * (1 + PAD);
+      domains[measureName] = [0, upper === 0 ? 1 : upper];
+      return;
+    }
+    // Mixed
+    const span = max - min;
+    const pad = span * PAD;
+    domains[measureName] = [min - pad, max + pad];
   });
   return domains;
 }
