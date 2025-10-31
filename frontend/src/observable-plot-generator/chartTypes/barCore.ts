@@ -65,10 +65,23 @@ export function computeValueDomain(rows: any[], measureName: string, opts: Compu
   if (zeroBaseline) {
     // Negative-only data: let bars extend below 0 with the upper clamped at 0
     if (maxVal <= 0) {
+      // Optional small padding below min to prevent bar touching axis if span > 0
+      if (minVal < maxVal) {
+        const span = Math.abs(maxVal - minVal);
+        const pad = span * padRatio;
+        return [minVal - pad, 0];
+      }
       return [minVal, 0];
     }
-    const upper = maxVal * (1 + padRatio);
-    return [0, upper];
+    // Positive-only data: clamp lower at 0 and pad upper
+    if (minVal >= 0) {
+      const upper = maxVal * (1 + padRatio);
+      return [0, upper];
+    }
+    // Mixed negative & positive: include full span with padding both sides, keeping 0 inside domain
+    const span = maxVal - minVal;
+    const pad = span * padRatio;
+    return [minVal - pad, maxVal + pad];
   }
   // auto domain including negatives
   let lower = minVal;
@@ -205,8 +218,15 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
       .map(r => r[measureName])
       .filter(v => typeof v === 'number' && isFinite(v));
     const total = values.reduce((sum, v) => sum + v, 0);
-    const upper = total === 0 ? 1 : total * (1 + (zeroBaseline ? 0.05 : 0));
-    domain = [0, upper];
+    if (total === 0) {
+      domain = [0, 1];
+    } else if (total > 0) {
+      const upper = total * (1 + (zeroBaseline ? 0.05 : 0));
+      domain = [0, upper];
+    } else { // total < 0 (all segments negative)
+      const lower = total * (1 + (zeroBaseline ? 0.05 : 0)); // extend magnitude slightly
+      domain = [lower, 0];
+    }
   } else {
     // Regular bar: use individual values
     domain = computeValueDomain(data, measureName, { zeroBaseline });
