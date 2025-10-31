@@ -1,31 +1,79 @@
 import React from 'react';
-import { FormControl, Select, MenuItem, CircularProgress, Typography } from '@mui/material';
+import { Box, CircularProgress, Typography, TextField } from '@mui/material';
+import Autocomplete from '@mui/material/Autocomplete';
 import { Database, Table, Field } from '../../types';
 import styles from './CompactMetadataSelector.module.css';
 
-// Define custom styles for the MUI components
-const selectProps = {
-  sx: {
-    '& .MuiSelect-select': {
-      padding: '2px 8px',
-      fontSize: '0.75rem',
-      height: '18px',
-    }
-  },
-  MenuProps: {
-    PaperProps: {
-      style: {
-        maxHeight: 200,
-      },
-    },
-    sx: {
-      '& .MuiMenuItem-root': {
-        minHeight: '24px',
-        fontSize: '0.75rem',
-        padding: '2px 8px',
-      }
-    }
-  }
+type FilterableSelectProps = {
+  label: string;
+  placeholder: string;
+  options: string[];
+  value: string;
+  onChange: (value: string) => void;
+  loading?: boolean;
+  disabled?: boolean;
+  allowEmpty?: boolean;
+};
+
+const FilterableSelect: React.FC<FilterableSelectProps> = ({
+  label,
+  placeholder,
+  options,
+  value,
+  onChange,
+  loading = false,
+  disabled = false,
+  allowEmpty = true,
+}) => {
+  const handleChange = (_: unknown, newValue: string | null) => {
+    if (!allowEmpty && !newValue) return;
+    onChange(newValue ?? '');
+  };
+
+  return (
+    <Box className={styles.field}>
+      <Typography
+        variant="subtitle2"
+        className={styles.categoryTitle}
+        sx={{ fontWeight: 'normal', minWidth: '40px', paddingRight: '0px' }}
+      >
+        {label}
+      </Typography>
+      <Autocomplete
+        disablePortal
+        size="small"
+        value={value || null}
+        options={options}
+        onChange={handleChange}
+        disabled={disabled}
+        disableClearable={!allowEmpty}
+        autoHighlight
+        isOptionEqualToValue={(option, optionValue) => option === optionValue}
+        sx={{
+          flexGrow: 1,
+          '& .MuiInputBase-input': { fontSize: '0.8rem', padding: '4px 8px' },
+        }}
+        ListboxProps={{ style: { maxHeight: 240 } }}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            placeholder={placeholder}
+            size="small"
+            InputProps={{
+              ...params.InputProps,
+              endAdornment: (
+                <>
+                  {loading ? <CircularProgress color="inherit" size={12} /> : null}
+                  {params.InputProps.endAdornment}
+                </>
+              ),
+            }}
+          />
+        )}
+        noOptionsText="No matches"
+      />
+    </Box>
+  );
 };
 
 interface CompactMetadataSelectorProps {
@@ -53,6 +101,16 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
   onTableSelect,
   availableFields = []
 }) => {
+  const databaseOptions = React.useMemo(
+    () => databases.map((db) => db.name).sort(),
+    [databases]
+  );
+
+  const tableOptions = React.useMemo(
+    () => tables.map((tbl) => tbl.name).sort(),
+    [tables]
+  );
+
   return (
     <div className={styles.metadataSelector}>
       <Typography 
@@ -66,57 +124,25 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
         Data Source
       </Typography>
       {connectionType === 'clickhouse' && (
-        <div className={styles.field}>
-          <Typography variant="subtitle2" className={styles.categoryTitle} sx={{ fontWeight: 'normal', minWidth: '40px', paddingRight: '0px' }}>
-            DB
-          </Typography>
-          <FormControl size="small" fullWidth>
-            <Select 
-              value={selectedDatabase}
-              size="small"
-              onChange={(e) => onDatabaseSelect(e.target.value as string)}
-              fullWidth
-              displayEmpty
-              className={styles.selectRoot}
-              {...selectProps}
-            >
-              <MenuItem value="" disabled sx={{ fontSize: '0.75rem', minHeight: '24px' }}>Select DB</MenuItem>
-              {databases.map(db => (
-                <MenuItem key={db.name} value={db.name} className={styles.menuItem}>
-                  {db.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </div>
+        <FilterableSelect
+          label="DB"
+          placeholder="Search DB"
+          options={databaseOptions}
+          value={selectedDatabase}
+          onChange={onDatabaseSelect}
+        />
       )}
-      
-      <div className={styles.field}>
-        <Typography variant="subtitle2" className={styles.categoryTitle} sx={{ fontWeight: 'normal', minWidth: '40px', paddingRight: '0px' }}>
-          Table
-        </Typography>
-        <FormControl size="small" fullWidth disabled={tables.length === 0}>
-          <Select 
-            value={selectedTable}
-            size="small"
-            onChange={(e) => onTableSelect(e.target.value as string)}
-            fullWidth
-            displayEmpty
-            className={styles.selectRoot}
-            {...selectProps}
-          >
-            <MenuItem value="" disabled sx={{ fontSize: '0.75rem', minHeight: '24px' }}>Select Table</MenuItem>
-            {tables.map(tbl => (
-              <MenuItem key={tbl.name} value={tbl.name} className={styles.menuItem}>
-                {tbl.name}
-              </MenuItem>
-            ))}
-          </Select>
-          {isLoadingMetadata && (
-            <CircularProgress size={12} sx={{ position: 'absolute', right: 24, top: 6 }} />
-          )}
-        </FormControl>
-      </div>
+
+      <FilterableSelect
+        label="Table"
+        placeholder="Search Table"
+        options={tableOptions}
+        value={selectedTable}
+        onChange={onTableSelect}
+        loading={isLoadingMetadata}
+        disabled={tables.length === 0}
+        allowEmpty
+      />
       
       {metadataError && (
         <Typography variant="caption" className={styles.error}>
