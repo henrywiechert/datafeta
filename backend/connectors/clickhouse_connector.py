@@ -6,7 +6,7 @@ from typing import Optional
 from urllib.parse import urlparse, parse_qs
 import clickhouse_connect
 from clickhouse_connect.driver.client import Client
-from backend.models.data_source import Database, Table, Column
+from backend.models.data_source import Database, Table, Column, ForeignKeyRelationship
 from .base import BaseConnector
 from backend.exceptions import DataSourceConnectionError, QueryExecutionError, InvalidInputError
 from backend.utils.type_conversion import process_query_result_data
@@ -166,6 +166,79 @@ class ClickHouseConnector(BaseConnector):
             raise InvalidInputError(str(e))
         except Exception as e:
             raise DataSourceConnectionError(f"Error describing table {database}.{table}: {e}")
+
+    def detect_foreign_keys(self, database: str) -> List[ForeignKeyRelationship]:
+        """
+        Detect potential foreign key relationships in ClickHouse by analyzing column names.
+        
+        Since ClickHouse doesn't enforce FK constraints, we use heuristics:
+        - Look for columns ending in _id, _ID, Id, ID
+        - Match them with potential primary key columns (id, ID) in other tables
+        - Check if the column name prefix matches a table name
+        
+        Args:
+            database: Database name to analyze
+            
+        Returns:
+            List of detected relationships
+        """
+        if not self.client:
+            raise DataSourceConnectionError("Not connected to ClickHouse.")
+        
+        try:
+            relationships = []
+            tables = self.list_tables(database)
+            table_names = [t.name for t in tables]
+            
+            # Build a map of table -> columns
+            table_columns: Dict[str, List[Column]] = {}
+            for table in tables:
+                try:
+                    table_columns[table.name] = self.list_columns(database, table.name)
+                except Exception as e:
+                    logger.warning(f"Could not list columns for {table.name}: {e}")
+                    continue
+            
+            # Look for FK patterns
+            for from_table, columns in table_columns.items():
+                for col in columns:
+                    col_name = col.name.lower()
+                    
+                    # Check for common FK patterns
+                    if col_name.endswith('_id') or col_name.endswith('id'):
+                        # Extract potential table name
+                        potential_table = col_name.replace('_id', '').replace('id', '')
+                        
+                        # Check if any table name matches (with pluralization handling)
+                        for to_table in table_names:
+                            to_table_lower = to_table.lower()
+                            
+                            # Direct match or singular/plural variations
+                            if (potential_table == to_table_lower or
+                                potential_table + 's' == to_table_lower or
+                                potential_table == to_table_lower + 's' or
+                                potential_table + 'es' == to_table_lower):
+                                
+                                # Check if target table has an 'id' column
+                                to_columns = table_columns.get(to_table, [])
+                                has_id = any(c.name.lower() in ['id', '_id'] for c in to_columns)
+                                
+                                if has_id:
+                                    relationships.append(ForeignKeyRelationship(
+                                        from_table=from_table,
+                                        from_column=col.name,
+                                        to_table=to_table,
+                                        to_column='id',  # Assume standard 'id' column
+                                        relationship_type='many_to_one'
+                                    ))
+                                    logger.info(f"Detected FK: {from_table}.{col.name} -> {to_table}.id")
+                                    break  # Found a match, don't check other tables
+            
+            return relationships
+            
+        except Exception as e:
+            logger.warning(f"Error detecting foreign keys in {database}: {e}")
+            return []  # Return empty list on error
 
     def fetch_data(self, query: str) -> Tuple[List[Dict[str, str]], List[Dict[str, Any]]]:
         """Executes a SQL query on ClickHouse and returns column definitions and rows."""

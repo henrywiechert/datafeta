@@ -229,6 +229,32 @@ class QueryService:
         
         return field
 
+    def _parse_field_reference(self, field_name: str, table_map: Dict[str, Any], default_table: Any) -> Any:
+        """
+        Parse a field reference that may include a table prefix (e.g., 'customers.name').
+        
+        Args:
+            field_name: Field name, optionally with table prefix
+            table_map: Dictionary mapping table names to PyPika Table objects
+            default_table: Default table to use if no prefix specified
+            
+        Returns:
+            PyPika Field object
+        """
+        if '.' in field_name:
+            # Field has table prefix
+            parts = field_name.split('.', 1)
+            if len(parts) == 2:
+                table_name, col_name = parts
+                if table_name in table_map:
+                    return table_map[table_name][col_name]
+                else:
+                    logger.warning(f"Table '{table_name}' not found in table_map, using default table")
+                    return default_table[field_name]  # Fall back to full name as single field
+        
+        # No table prefix - use default table
+        return default_table[field_name]
+
     def translate_to_sql(
         self, 
         query_desc: QueryDescription, 
@@ -259,15 +285,66 @@ class QueryService:
         else: # Default to standard double quotes (e.g., for DuckDB)
             quote_char = '"'
 
-        # Create table reference, including schema (database) if provided
-        if db_type == 'clickhouse' and query_desc.target_database:
-            actual_table_name = query_desc.target_table
-            t = Table(actual_table_name, schema=query_desc.target_database)
+        # Handle virtual table with joins
+        table_map = {}  # Maps table names to PyPika Table objects
+        
+        if query_desc.virtual_table:
+            # Multi-table query with joins
+            primary_table_name = query_desc.virtual_table.primary_table
+            if db_type == 'clickhouse' and query_desc.target_database:
+                t = Table(primary_table_name, schema=query_desc.target_database)
+            else:
+                t = Table(primary_table_name)
+            
+            table_map[primary_table_name] = t
+            q = Query.from_(t)
+            
+            # Add JOINs
+            for join_def in query_desc.virtual_table.joined_tables:
+                if db_type == 'clickhouse' and query_desc.target_database:
+                    join_table = Table(join_def.table_name, schema=query_desc.target_database)
+                else:
+                    join_table = Table(join_def.table_name)
+                
+                table_map[join_def.table_name] = join_table
+                
+                # Parse join condition (simplified - assumes format "table1.col1 = table2.col2")
+                # For now, use raw SQL in join condition
+                if join_def.on_conditions:
+                    # Build join using first condition (can be extended for multiple conditions)
+                    condition = join_def.on_conditions[0]
+                    # We'll need to handle this carefully - for now, add join with basic parsing
+                    parts = condition.split('=')
+                    if len(parts) == 2:
+                        left_part = parts[0].strip().split('.')
+                        right_part = parts[1].strip().split('.')
+                        if len(left_part) == 2 and len(right_part) == 2:
+                            left_table_name, left_col = left_part
+                            right_table_name, right_col = right_part
+                            
+                            left_table_obj = table_map.get(left_table_name, t)
+                            right_table_obj = table_map.get(right_table_name, join_table)
+                            
+                            # Add the join
+                            if join_def.join_type == 'LEFT':
+                                q = q.left_join(join_table).on(left_table_obj[left_col] == right_table_obj[right_col])
+                            elif join_def.join_type == 'RIGHT':
+                                q = q.right_join(join_table).on(left_table_obj[left_col] == right_table_obj[right_col])
+                            elif join_def.join_type == 'FULL':
+                                q = q.full_outer_join(join_table).on(left_table_obj[left_col] == right_table_obj[right_col])
+                            else:  # INNER
+                                q = q.inner_join(join_table).on(left_table_obj[left_col] == right_table_obj[right_col])
         else:
-            actual_table_name = query_desc.target_table
-            t = Table(actual_table_name)
-
-        q = Query.from_(t)
+            # Single table query (existing logic)
+            if db_type == 'clickhouse' and query_desc.target_database:
+                actual_table_name = query_desc.target_table
+                t = Table(actual_table_name, schema=query_desc.target_database)
+            else:
+                actual_table_name = query_desc.target_table
+                t = Table(actual_table_name)
+            
+            table_map[query_desc.target_table] = t
+            q = Query.from_(t)
 
         # Create optimization plan EARLY before SELECT clause construction
         # This allows us to extract rounding/binning config for use during field selection
@@ -303,11 +380,25 @@ class QueryService:
         # Track fields for GROUP BY when using category deduplication
         # Store tuples of (field_name, precision) instead of RoundFunction objects
         groupby_field_info_for_dedup = []
+        
+        # Determine default table for field references
+        if query_desc.virtual_table:
+            default_table = table_map.get(query_desc.virtual_table.primary_table, t)
+        else:
+            default_table = t
 
         if query_desc.dimensions:
             for dim in query_desc.dimensions:
-                # Create fresh field reference from table, applying cast if configured
-                field_term = self._get_field_with_cast(t, dim.field, query_desc.column_casts)
+                # Parse field reference (may include table prefix like 'customers.name')
+                field_term = self._parse_field_reference(dim.field, table_map, default_table)
+                
+                # Apply cast if configured (note: column_casts keys may also have table prefixes)
+                if query_desc.column_casts and dim.field in query_desc.column_casts:
+                    cast_config = query_desc.column_casts[dim.field]
+                    cast_type = cast_config.get('cast_type')
+                    replacement_pattern = cast_config.get('replacement_pattern')
+                    if cast_type:
+                        field_term = CastField(field_term, cast_type, replacement_pattern)
                 
                 # Apply binning if configured for this timeline dimension
                 if binning_config and dim.field in binning_config and getattr(dim, 'date_mode', None) == 'timeline':
@@ -389,8 +480,17 @@ class QueryService:
             if not agg_func_builder:
                 raise QueryGenerationError(f"Unsupported aggregation function: {measure.aggregation}")
 
-            # Apply cast if configured for this field
-            field_term = self._get_field_with_cast(t, measure.field, query_desc.column_casts)
+            # Parse field reference (may include table prefix)
+            field_term = self._parse_field_reference(measure.field, table_map, default_table)
+            
+            # Apply cast if configured
+            if query_desc.column_casts and measure.field in query_desc.column_casts:
+                cast_config = query_desc.column_casts[measure.field]
+                cast_type = cast_config.get('cast_type')
+                replacement_pattern = cast_config.get('replacement_pattern')
+                if cast_type:
+                    field_term = CastField(field_term, cast_type, replacement_pattern)
+            
             agg_term = agg_func_builder(field_term)
             
             # For DuckDB, wrap AVG and SUM with COALESCE to handle NULL results
@@ -412,7 +512,17 @@ class QueryService:
                     continue
                 # Add raw field; alias kept as original name for frontend lookup
                 try:
-                    raw_term = self._get_field_with_cast(t, lbl, query_desc.column_casts)
+                    # Parse field reference (may include table prefix)
+                    raw_term = self._parse_field_reference(lbl, table_map, default_table)
+                    
+                    # Apply cast if configured
+                    if query_desc.column_casts and lbl in query_desc.column_casts:
+                        cast_config = query_desc.column_casts[lbl]
+                        cast_type = cast_config.get('cast_type')
+                        replacement_pattern = cast_config.get('replacement_pattern')
+                        if cast_type:
+                            raw_term = CastField(raw_term, cast_type, replacement_pattern)
+                    
                     select_fields.append(raw_term.as_(lbl))
                     all_aliases.add(lbl)
                 except Exception as e:
@@ -434,8 +544,17 @@ class QueryService:
 
             # Check if this filter needs datetime part extraction
             if f.date_part and f.date_mode:
-                # Apply datetime part extraction to the field before filtering
-                field_term = self._get_field_with_cast(t, f.field, query_desc.column_casts)
+                # Parse field reference (may include table prefix)
+                field_term = self._parse_field_reference(f.field, table_map, default_table)
+                
+                # Apply cast if configured
+                if query_desc.column_casts and f.field in query_desc.column_casts:
+                    cast_config = query_desc.column_casts[f.field]
+                    cast_type = cast_config.get('cast_type')
+                    replacement_pattern = cast_config.get('replacement_pattern')
+                    if cast_type:
+                        field_term = CastField(field_term, cast_type, replacement_pattern)
+                
                 field = self._get_datetime_part_expression(
                     field_term, 
                     f.date_part, 
@@ -443,8 +562,16 @@ class QueryService:
                     db_type
                 )
             else:
-                # Regular field access with cast if configured
-                field = self._get_field_with_cast(t, f.field, query_desc.column_casts)
+                # Parse field reference (may include table prefix)
+                field = self._parse_field_reference(f.field, table_map, default_table)
+                
+                # Apply cast if configured
+                if query_desc.column_casts and f.field in query_desc.column_casts:
+                    cast_config = query_desc.column_casts[f.field]
+                    cast_type = cast_config.get('cast_type')
+                    replacement_pattern = cast_config.get('replacement_pattern')
+                    if cast_type:
+                        field = CastField(field, cast_type, replacement_pattern)
             
             value = f.value
 

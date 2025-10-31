@@ -1,6 +1,6 @@
 """Pydantic models related to data sources and connections."""
 from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Literal
 
 # --- Data Source Primitives --- #
 
@@ -17,6 +17,30 @@ class Column(BaseModel):
     cast_type: Optional[str] = None  # Override detected type, e.g., 'DOUBLE' for quoted numbers
     cast_replacement: Optional[str] = None  # Regex pattern to remove (e.g., ',' for thousands separator)
     is_datetime: bool = False
+    table_name: Optional[str] = None  # Source table for this column (for multi-table support)
+
+# --- Multi-Table Support Models --- #
+
+class ForeignKeyRelationship(BaseModel):
+    """Represents a foreign key relationship between two tables."""
+    from_table: str
+    from_column: str
+    to_table: str
+    to_column: str
+    relationship_type: Literal['one_to_one', 'one_to_many', 'many_to_one', 'many_to_many'] = 'one_to_many'
+
+class TableJoinDefinition(BaseModel):
+    """Defines how a table should be joined to the primary table."""
+    table_name: str
+    join_type: Literal['INNER', 'LEFT', 'RIGHT', 'FULL'] = 'LEFT'
+    on_conditions: List[str]  # e.g., ["primary.id = joined.primary_id"]
+    alias: Optional[str] = None  # Optional table alias
+
+class VirtualTableDefinition(BaseModel):
+    """Defines a virtual merged table composed of multiple physical tables."""
+    primary_table: str
+    joined_tables: List[TableJoinDefinition] = []
+    name: Optional[str] = None  # Optional name for the virtual table
 
 # --- Connection and Listing Models --- #
 
@@ -59,4 +83,13 @@ class TableListResponse(BaseModel):
     tables: List[Table]
 
 class ColumnListResponse(BaseModel):
-    columns: List[Column] 
+    columns: List[Column]
+
+class TableRelationshipsResponse(BaseModel):
+    """Response containing detected foreign key relationships for a database."""
+    relationships: List[ForeignKeyRelationship]
+
+class MergedColumnsResponse(BaseModel):
+    """Response containing columns from multiple joined tables with table prefixes."""
+    columns: List[Column]
+    virtual_table: VirtualTableDefinition 

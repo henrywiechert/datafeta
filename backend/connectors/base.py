@@ -1,7 +1,7 @@
 """Base class for data source connectors."""
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Tuple
-from backend.models.data_source import Database, Table, Column
+from backend.models.data_source import Database, Table, Column, ForeignKeyRelationship
 
 class BaseConnector(ABC):
 
@@ -44,6 +44,21 @@ class BaseConnector(ABC):
             - List of data rows (e.g., [{'col1': 'valA', 'col2': 123}, ...])
         """
         pass
+
+    def detect_foreign_keys(self, database: str) -> List[ForeignKeyRelationship]:
+        """
+        Detect foreign key relationships between tables in a database.
+        
+        This is optional and may return empty list if not supported or detectable.
+        Subclasses can override to provide database-specific FK detection.
+        
+        Args:
+            database: The database name to analyze
+            
+        Returns:
+            List of detected foreign key relationships
+        """
+        return []  # Default: no FK detection
 
     # Later: Add method for fetching data
     # @abstractmethod

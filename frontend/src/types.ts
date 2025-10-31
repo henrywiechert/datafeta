@@ -11,6 +11,44 @@ export interface Table {
 export interface Column {
     name: string;
     data_type: string;
+    table_name?: string;  // Source table for this column (for multi-table support)
+}
+
+// --- Multi-Table Support Types --- //
+
+export interface ForeignKeyRelationship {
+    from_table: string;
+    from_column: string;
+    to_table: string;
+    to_column: string;
+    relationship_type: 'one_to_one' | 'one_to_many' | 'many_to_one' | 'many_to_many';
+}
+
+export interface TableJoinDefinition {
+    table_name: string;
+    join_type: 'INNER' | 'LEFT' | 'RIGHT' | 'FULL';
+    on_conditions: string[];
+    alias?: string;
+}
+
+export interface VirtualTableDefinition {
+    primary_table: string;
+    joined_tables: TableJoinDefinition[];
+    name?: string;
+}
+
+export interface TableRelationshipsResponse {
+    relationships: ForeignKeyRelationship[];
+}
+
+export interface SuggestedJoinsResponse {
+    primary_table: string;
+    suggested_tables: string[];
+}
+
+export interface MergedColumnsResponse {
+    columns: Column[];
+    virtual_table: VirtualTableDefinition;
 }
 
 // Request body for /connect endpoint
@@ -104,8 +142,10 @@ export interface QueryDescription {
     offset?: number;
     optimization_hints?: OptimizationHints;  // Phase 1: Frontend can send explicit optimization hints
     column_casts?: ColumnCasts;  // Column casting configuration
-  // NEW: raw fields needed for label rendering (order not significant)
-  label_fields?: string[];
+    // NEW: raw fields needed for label rendering (order not significant)
+    label_fields?: string[];
+    // NEW: Multi-table support - virtual table definition for joined queries
+    virtual_table?: VirtualTableDefinition;
 }
 
 export interface QueryResultColumn {
