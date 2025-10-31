@@ -161,16 +161,17 @@ function createBarCellGenerator(
         title = measureName;
       } else {
         // For dimension series (tick strips), keep inline since barCore doesn't handle this
+        // Use the computed bandPadding (from size slider) instead of hardcoded BAND_PADDING
         const dimCol = (f as any).columnName;
         options = barOrientation === 'barX'
           ? { 
               x: { label: dimCol, grid: true }, 
-              y: { label: categoryColumnName || ' ', type: 'band' as any, domain: categories as any, padding: BAND_PADDING as any }, 
+              y: { label: categoryColumnName || ' ', type: 'band' as any, domain: categories as any, padding: bandPadding as any }, 
               marks: [Plot.tickX(cellData, { x: dimCol, y: categoryColumnName || (() => categories[0]), stroke: DEFAULT_CHART_COLOR, tip: { pointer: 'x', preferredAnchor: 'top-right' } })] 
             } as Plot.PlotOptions
           : { 
               y: { label: dimCol, grid: true }, 
-              x: { label: categoryColumnName || ' ', type: 'band' as any, domain: categories as any, padding: BAND_PADDING as any }, 
+              x: { label: categoryColumnName || ' ', type: 'band' as any, domain: categories as any, padding: bandPadding as any }, 
               marks: [Plot.tickY(cellData, { y: dimCol, x: categoryColumnName || (() => categories[0]), stroke: DEFAULT_CHART_COLOR, tip: { pointer: 'y', preferredAnchor: 'top-right' } })] 
             } as Plot.PlotOptions;
         title = dimCol;
