@@ -7,11 +7,13 @@ from typing import Dict, Any, List, Optional
 from pydantic import ValidationError
 
 from backend.models.data_source import (
-    ConnectionDetails, DatabaseListResponse, TableListResponse, ColumnListResponse
+    ConnectionDetails, DatabaseListResponse, TableListResponse, ColumnListResponse,
+    TableRelationshipsResponse, MergedColumnsResponse, VirtualTableDefinition
 )
 from backend.models.query import QueryDescription, QueryResult
 from backend.services.query_service import QueryService
 from backend.services.connection_service import ConnectionService
+from backend.services.table_merge_service import TableMergeService
 from backend.connectors.base import BaseConnector
 
 # Import dependencies
@@ -340,5 +342,91 @@ def execute_query(
         # Log unexpected error
         logger.exception(f"Unexpected error during query execution")
         raise QueryExecutionError("An unexpected server error occurred during query execution.")
+
+# --- Multi-Table Support Endpoints --- #
+
+@router.get("/table-relationships", response_model=TableRelationshipsResponse)
+def get_table_relationships(
+    database: str,
+    connector: BaseConnector = Depends(get_active_connector),
+    conn_details: ConnectionDetails = Depends(get_connection_details)
+):
+    """
+    Detect and return foreign key relationships in a database.
+    Uses heuristics (column naming patterns) for databases that don't have formal FK constraints.
+    """
+    try:
+        relationships = connector.detect_foreign_keys(database)
+        logger.info(f"Detected {len(relationships)} relationships in database '{database}'")
+        return TableRelationshipsResponse(relationships=relationships)
+    except Exception as e:
+        logger.error(f"Error detecting relationships: {e}")
+        raise DataSourceConnectionError(f"Failed to detect table relationships: {e}")
+
+@router.get("/suggested-joins")
+def get_suggested_joins(
+    database: str,
+    primary_table: str,
+    connector: BaseConnector = Depends(get_active_connector),
+    conn_details: ConnectionDetails = Depends(get_connection_details)
+):
+    """
+    Get suggested tables that can be joined to a primary table.
+    Returns list of table names with detected relationships.
+    """
+    try:
+        merge_service = TableMergeService(connector)
+        suggested_tables = merge_service.get_suggested_tables(database, primary_table)
+        logger.info(f"Found {len(suggested_tables)} joinable tables for '{primary_table}'")
+        return {
+            "primary_table": primary_table,
+            "suggested_tables": suggested_tables
+        }
+    except Exception as e:
+        logger.error(f"Error getting suggested joins: {e}")
+        raise DataSourceConnectionError(f"Failed to get suggested joins: {e}")
+
+@router.post("/merged-columns", response_model=MergedColumnsResponse)
+def get_merged_columns(
+    database: str,
+    primary_table: str,
+    joined_tables: Optional[List[str]] = Body(None),
+    auto_detect: bool = Body(True),
+    connector: BaseConnector = Depends(get_active_connector),
+    conn_details: ConnectionDetails = Depends(get_connection_details)
+):
+    """
+    Get a merged column list from multiple tables with table name prefixes.
+    Creates a virtual table definition with automatic join detection.
+    
+    Args:
+        database: Database name
+        primary_table: Primary/main table
+        joined_tables: Optional list of tables to join (if None, auto-detect)
+        auto_detect: Whether to auto-detect joins (default: True)
+    
+    Returns:
+        MergedColumnsResponse with prefixed columns and virtual table definition
+    """
+    try:
+        merge_service = TableMergeService(connector)
+        
+        # Create virtual table definition
+        virtual_table = merge_service.create_virtual_table(
+            database=database,
+            primary_table=primary_table,
+            joined_tables=joined_tables,
+            auto_detect=auto_detect
+        )
+        
+        # Get merged columns
+        result = merge_service.get_merged_columns(database, virtual_table)
+        
+        logger.info(f"Created virtual table with {len(result.columns)} columns from {len(virtual_table.joined_tables) + 1} tables")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error creating merged columns: {e}")
+        raise DataSourceConnectionError(f"Failed to create merged columns: {e}")
 
 # Upload root cleanup is handled in app shutdown in backend/main.py

@@ -1,4 +1,14 @@
-import { ConnectionDetails, DatabaseListResponse, TableListResponse, ColumnListResponse, QueryDescription, QueryResult } from './types';
+import { 
+    ConnectionDetails, 
+    DatabaseListResponse, 
+    TableListResponse, 
+    ColumnListResponse, 
+    QueryDescription, 
+    QueryResult,
+    TableRelationshipsResponse,
+    SuggestedJoinsResponse,
+    MergedColumnsResponse
+} from './types';
 
 // Derive API base: Prefer explicit env var (REACT_APP_API_BASE, e.g. "/api/v1"), else fall back to
 // same-origin relative path (when frontend served by backend) and append /data segment used by router.
@@ -136,6 +146,50 @@ export const apiService = {
         const response = await fetchWithErrorHandling(url.toString(), {}, signal);
         return response.json();
     },
+
+    // --- Multi-Table Support Methods --- //
+
+    async getTableRelationships(database: string, signal?: AbortSignal): Promise<TableRelationshipsResponse> {
+        const base = API_BASE_URL.startsWith('http') ? API_BASE_URL : `${window.location.origin}${API_BASE_URL}`;
+        const url = new URL(`${base}/table-relationships`);
+        url.searchParams.append('database', database);
+        
+        const response = await fetchWithErrorHandling(url.toString(), {}, signal);
+        return response.json();
+    },
+
+    async getSuggestedJoins(database: string, primaryTable: string, signal?: AbortSignal): Promise<SuggestedJoinsResponse> {
+        const base = API_BASE_URL.startsWith('http') ? API_BASE_URL : `${window.location.origin}${API_BASE_URL}`;
+        const url = new URL(`${base}/suggested-joins`);
+        url.searchParams.append('database', database);
+        url.searchParams.append('primary_table', primaryTable);
+        
+        const response = await fetchWithErrorHandling(url.toString(), {}, signal);
+        return response.json();
+    },
+
+    async getMergedColumns(
+        database: string,
+        primaryTable: string,
+        joinedTables?: string[],
+        autoDetect: boolean = true,
+        signal?: AbortSignal
+    ): Promise<MergedColumnsResponse> {
+        const response = await fetchWithErrorHandling(`${API_BASE_URL}/merged-columns?database=${database}&primary_table=${primaryTable}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                joined_tables: joinedTables || null,
+                auto_detect: autoDetect
+            }),
+        }, signal);
+
+        return response.json();
+    },
+
+    // --- End Multi-Table Support --- //
 
     async executeQuery(queryDesc: QueryDescription, signal?: AbortSignal): Promise<QueryResult> {
         const abortController = signal ? null : createAbortController();

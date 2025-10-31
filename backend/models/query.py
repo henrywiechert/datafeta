@@ -1,6 +1,9 @@
 """Pydantic models related to query descriptions and results."""
 from pydantic import BaseModel, Field
-from typing import List, Dict, Any, Optional, Literal
+from typing import List, Dict, Any, Optional, Literal, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from backend.models.data_source import VirtualTableDefinition
 
 class Measure(BaseModel):
     field: str
@@ -104,6 +107,9 @@ class QueryDescription(BaseModel):
     # NEW: Fields needed for point/segment labels in visualization.
     # Frontend treats order as irrelevant; backend simply ensures these columns are selected.
     label_fields: Optional[List[str]] = None
+    
+    # NEW: Multi-table support - virtual table definition for joined queries
+    virtual_table: Optional['VirtualTableDefinition'] = None  # Forward reference
 
 class QueryResult(BaseModel):
     columns: List[Dict[str, str]] # e.g., [{"name": "col1", "type": "string"}, ...]
