@@ -81,4 +81,6 @@ When `layout.type === 'grid'`, the React `ChartGrid` uses CSS Grid to place each
 
 - Empty data or non-numeric values: charts degrade to a centered message (e.g., "No numeric data …").
 - Negative-only datasets: domains include 0 for context; when all values ≤ 0, the lower bound is the min and upper bound clamps to 0 to avoid inverted axes.
+- Mixed negative & positive bar datasets: domains expand to include the full span (min..max) with symmetric padding so bars extend both below and above the zero baseline.
+- Stacked single-bar (no category) charts with all-negative segments: domain spans [total - pad, 0] so segments render below baseline.
 - Extremely large facet counts: no virtualization/pagination yet.
