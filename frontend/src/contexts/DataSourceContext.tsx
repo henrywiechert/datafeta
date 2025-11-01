@@ -10,9 +10,13 @@ interface DataSourceState {
   tables: Table[];
   isLoadingMetadata: boolean;
   metadataError: string | null;
-  // Multi-table support
+  // Multi-table support - JOIN mode
   joinedTables: string[];  // List of additional tables joined to primary table
   suggestedJoinableTables: string[];  // Tables that can be joined
+  // Multi-table support - UNION mode
+  unionTables: string[];  // List of tables to combine with UNION ALL
+  suggestedUnionableTables: string[];  // Tables with matching schemas
+  // Virtual table definition
   virtualTable: VirtualTableDefinition | null;  // Current virtual table definition
 }
 
@@ -28,8 +32,11 @@ interface DataSourceContextType {
   setMetadataError: (error: string | null) => void;
   setJoinedTables: (tables: string[]) => void;
   setSuggestedJoinableTables: (tables: string[]) => void;
+  setUnionTables: (tables: string[]) => void;
+  setSuggestedUnionableTables: (tables: string[]) => void;
   setVirtualTable: (virtualTable: VirtualTableDefinition | null) => void;
   toggleJoinedTable: (tableName: string) => void;
+  toggleUnionTable: (tableName: string) => void;
 }
 
 const DataSourceContext = createContext<DataSourceContextType | undefined>(undefined);
@@ -46,6 +53,8 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     metadataError: null,
     joinedTables: [],
     suggestedJoinableTables: [],
+    unionTables: [],
+    suggestedUnionableTables: [],
     virtualTable: null,
   });
 
@@ -57,9 +66,11 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     setDataSource(prev => ({ 
       ...prev, 
       selectedTable: table,
-      // Reset joined tables when primary table changes
+      // Reset multi-table state when primary table changes
       joinedTables: [],
       suggestedJoinableTables: [],
+      unionTables: [],
+      suggestedUnionableTables: [],
       virtualTable: null,
     }));
   };
@@ -92,6 +103,14 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     setDataSource(prev => ({ ...prev, suggestedJoinableTables: tables }));
   };
 
+  const setUnionTables = (tables: string[]) => {
+    setDataSource(prev => ({ ...prev, unionTables: tables }));
+  };
+
+  const setSuggestedUnionableTables = (tables: string[]) => {
+    setDataSource(prev => ({ ...prev, suggestedUnionableTables: tables }));
+  };
+
   const setVirtualTable = (virtualTable: VirtualTableDefinition | null) => {
     setDataSource(prev => ({ ...prev, virtualTable }));
   };
@@ -103,6 +122,16 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
         ? prev.joinedTables.filter(t => t !== tableName)
         : [...prev.joinedTables, tableName];
       return { ...prev, joinedTables: newJoinedTables };
+    });
+  };
+
+  const toggleUnionTable = (tableName: string) => {
+    setDataSource(prev => {
+      const isCurrentlyUnioned = prev.unionTables.includes(tableName);
+      const newUnionTables = isCurrentlyUnioned
+        ? prev.unionTables.filter(t => t !== tableName)
+        : [...prev.unionTables, tableName];
+      return { ...prev, unionTables: newUnionTables };
     });
   };
 
@@ -119,8 +148,11 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
         setMetadataError,
         setJoinedTables,
         setSuggestedJoinableTables,
+        setUnionTables,
+        setSuggestedUnionableTables,
         setVirtualTable,
         toggleJoinedTable,
+        toggleUnionTable,
       }}
     >
       {children}

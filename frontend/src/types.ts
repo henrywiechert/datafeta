@@ -31,9 +31,16 @@ export interface TableJoinDefinition {
     alias?: string;
 }
 
+export interface UnionTableDefinition {
+    table_name: string;
+    filter_condition?: string;
+}
+
 export interface VirtualTableDefinition {
     primary_table: string;
+    mode: 'join' | 'union';
     joined_tables: TableJoinDefinition[];
+    union_tables: UnionTableDefinition[];
     name?: string;
 }
 
@@ -44,6 +51,12 @@ export interface TableRelationshipsResponse {
 export interface SuggestedJoinsResponse {
     primary_table: string;
     suggested_tables: string[];
+}
+
+export interface SuggestedUnionsResponse {
+    primary_table: string;
+    suggested_tables: string[];
+    schema_hash?: string;
 }
 
 export interface MergedColumnsResponse {

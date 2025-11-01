@@ -36,10 +36,17 @@ class TableJoinDefinition(BaseModel):
     on_conditions: List[str]  # e.g., ["primary.id = joined.primary_id"]
     alias: Optional[str] = None  # Optional table alias
 
+class UnionTableDefinition(BaseModel):
+    """Defines a table to be combined with UNION ALL (same schema)."""
+    table_name: str
+    filter_condition: Optional[str] = None  # Optional WHERE clause for this table
+
 class VirtualTableDefinition(BaseModel):
     """Defines a virtual merged table composed of multiple physical tables."""
     primary_table: str
-    joined_tables: List[TableJoinDefinition] = []
+    mode: Literal['join', 'union'] = 'join'  # How to combine tables
+    joined_tables: List[TableJoinDefinition] = []  # For JOIN mode
+    union_tables: List[UnionTableDefinition] = []  # For UNION ALL mode
     name: Optional[str] = None  # Optional name for the virtual table
 
 # --- Connection and Listing Models --- #
@@ -92,4 +99,10 @@ class TableRelationshipsResponse(BaseModel):
 class MergedColumnsResponse(BaseModel):
     """Response containing columns from multiple joined tables with table prefixes."""
     columns: List[Column]
-    virtual_table: VirtualTableDefinition 
+    virtual_table: VirtualTableDefinition
+
+class SuggestedUnionsResponse(BaseModel):
+    """Response containing tables with matching schemas that can be combined with UNION ALL."""
+    primary_table: str
+    suggested_tables: List[str]  # Tables with identical schema
+    schema_hash: Optional[str] = None  # Hash of the schema for validation 
