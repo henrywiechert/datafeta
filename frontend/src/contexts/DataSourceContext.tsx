@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Database, Table, Field } from '../types';
+import { Database, Table, Field, VirtualTableDefinition } from '../types';
 
 // Define the state interface for data source (shared across all sheets)
 interface DataSourceState {
@@ -10,6 +10,10 @@ interface DataSourceState {
   tables: Table[];
   isLoadingMetadata: boolean;
   metadataError: string | null;
+  // Multi-table support
+  joinedTables: string[];  // List of additional tables joined to primary table
+  suggestedJoinableTables: string[];  // Tables that can be joined
+  virtualTable: VirtualTableDefinition | null;  // Current virtual table definition
 }
 
 // Context interface
@@ -22,6 +26,10 @@ interface DataSourceContextType {
   setTables: (tables: Table[]) => void;
   setIsLoadingMetadata: (loading: boolean) => void;
   setMetadataError: (error: string | null) => void;
+  setJoinedTables: (tables: string[]) => void;
+  setSuggestedJoinableTables: (tables: string[]) => void;
+  setVirtualTable: (virtualTable: VirtualTableDefinition | null) => void;
+  toggleJoinedTable: (tableName: string) => void;
 }
 
 const DataSourceContext = createContext<DataSourceContextType | undefined>(undefined);
@@ -36,6 +44,9 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     tables: [],
     isLoadingMetadata: false,
     metadataError: null,
+    joinedTables: [],
+    suggestedJoinableTables: [],
+    virtualTable: null,
   });
 
   const setSelectedDatabase = (database: string) => {
@@ -43,7 +54,14 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
   };
 
   const setSelectedTable = (table: string) => {
-    setDataSource(prev => ({ ...prev, selectedTable: table }));
+    setDataSource(prev => ({ 
+      ...prev, 
+      selectedTable: table,
+      // Reset joined tables when primary table changes
+      joinedTables: [],
+      suggestedJoinableTables: [],
+      virtualTable: null,
+    }));
   };
 
   const setAvailableFields = (fields: Field[]) => {
@@ -66,6 +84,28 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     setDataSource(prev => ({ ...prev, metadataError: error }));
   };
 
+  const setJoinedTables = (tables: string[]) => {
+    setDataSource(prev => ({ ...prev, joinedTables: tables }));
+  };
+
+  const setSuggestedJoinableTables = (tables: string[]) => {
+    setDataSource(prev => ({ ...prev, suggestedJoinableTables: tables }));
+  };
+
+  const setVirtualTable = (virtualTable: VirtualTableDefinition | null) => {
+    setDataSource(prev => ({ ...prev, virtualTable }));
+  };
+
+  const toggleJoinedTable = (tableName: string) => {
+    setDataSource(prev => {
+      const isCurrentlyJoined = prev.joinedTables.includes(tableName);
+      const newJoinedTables = isCurrentlyJoined
+        ? prev.joinedTables.filter(t => t !== tableName)
+        : [...prev.joinedTables, tableName];
+      return { ...prev, joinedTables: newJoinedTables };
+    });
+  };
+
   return (
     <DataSourceContext.Provider
       value={{
@@ -77,6 +117,10 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
         setTables,
         setIsLoadingMetadata,
         setMetadataError,
+        setJoinedTables,
+        setSuggestedJoinableTables,
+        setVirtualTable,
+        toggleJoinedTable,
       }}
     >
       {children}

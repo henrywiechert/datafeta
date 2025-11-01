@@ -7,6 +7,7 @@ import { useVisualizationContext, VisualizationProvider } from '../contexts/Visu
 import { useSheetContext } from '../contexts/SheetContext';
 import { useDragDrop } from '../hooks/useDragDrop';
 import { useConnection } from '../contexts/ConnectionContext';
+import { useDataSource } from '../contexts/DataSourceContext';
 import FieldsPanel from '../components/Visualization/FieldsPanel';
 import ChartPanel from '../components/Visualization/ChartPanel';
 import FilterPanel from '../components/Visualization/Filters/FilterPanel';
@@ -85,6 +86,12 @@ const VisualizationPageContent = () => {
     }, [cancelOperation]);
 
     const { connectionDetails } = useConnection();
+    const dataSourceContext = useDataSource();
+    const { 
+        suggestedJoinableTables, 
+        joinedTables 
+    } = dataSourceContext.dataSource;
+    const { toggleJoinedTable } = dataSourceContext;
 
     if (!connectionDetails) {
         return (
@@ -128,6 +135,9 @@ const VisualizationPageContent = () => {
                             metadataError={metadataError}
                             onDatabaseSelect={handleDatabaseSelect}
                             onTableSelect={handleTableSelect}
+                            suggestedJoinableTables={suggestedJoinableTables}
+                            joinedTables={joinedTables}
+                            onToggleJoinedTable={toggleJoinedTable}
                         />
                     </Panel>
 

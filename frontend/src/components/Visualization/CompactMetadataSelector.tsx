@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, CircularProgress, Typography, TextField } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import { Database, Table, Field } from '../../types';
+import JoinTableSelector from './JoinTableSelector';
 import styles from './CompactMetadataSelector.module.css';
 
 type FilterableSelectProps = {
@@ -87,6 +88,10 @@ interface CompactMetadataSelectorProps {
   onDatabaseSelect: (database: string) => void;
   onTableSelect: (table: string) => void;
   availableFields?: Field[]; // Add the availableFields property
+  // Multi-table support
+  suggestedJoinableTables?: string[];
+  joinedTables?: string[];
+  onToggleJoinedTable?: (tableName: string) => void;
 }
 
 const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
@@ -99,7 +104,10 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
   metadataError,
   onDatabaseSelect,
   onTableSelect,
-  availableFields = []
+  availableFields = [],
+  suggestedJoinableTables = [],
+  joinedTables = [],
+  onToggleJoinedTable,
 }) => {
   const databaseOptions = React.useMemo(
     () => databases.map((db) => db.name).sort(),
@@ -143,6 +151,16 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
         disabled={tables.length === 0}
         allowEmpty
       />
+      
+      {/* Show joinable tables selector (only for ClickHouse) */}
+      {connectionType === 'clickhouse' && selectedTable && onToggleJoinedTable && (
+        <JoinTableSelector
+          primaryTable={selectedTable}
+          suggestedJoinableTables={suggestedJoinableTables}
+          joinedTables={joinedTables}
+          onToggleJoin={onToggleJoinedTable}
+        />
+      )}
       
       {metadataError && (
         <Typography variant="caption" className={styles.error}>

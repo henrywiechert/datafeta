@@ -1,7 +1,7 @@
 import { useCallback, useRef, useEffect, useMemo } from 'react';
 import { apiService } from '../../../../apiService';
 import { buildQuery } from '../../../../queryBuilder/queryBuilder';
-import { QueryDescription, Field, OptimizationHints } from '../../../../types';
+import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition } from '../../../../types';
 import { useConnection } from '../../../../contexts/ConnectionContext';
 import { logOperationTiming } from '../utils';
 import { validateAndCleanData, remapCastExpressionColumns } from '../utils/dataValidation';
@@ -16,6 +16,7 @@ interface UseQueryExecutionProps {
   sizeField?: Field | null;
   filterConfigurations: Record<string, any>;
   labelFields?: Field[];
+  virtualTable?: VirtualTableDefinition | null;
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
   dispatch: (action: any) => void;
@@ -35,6 +36,7 @@ export const useQueryExecution = ({
   sizeField,
   filterConfigurations,
   labelFields = [],
+  virtualTable = null,
   startOperation,
   completeOperation,
   dispatch,
@@ -182,6 +184,7 @@ export const useQueryExecution = ({
       selectedDatabase,
       filterConfigurations,
       labelFields,
+      virtualTable,
     });
 
     if (queryDesc) {
@@ -200,7 +203,7 @@ export const useQueryExecution = ({
     }
 
     return queryDesc;
-  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields, colorField, sizeField, filterConfigurations, labelFields, optimizationHints]);
+  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields, colorField, sizeField, filterConfigurations, labelFields, optimizationHints, virtualTable]);
 
   // Effect to handle query execution when fields change
   useEffect(() => {
@@ -257,6 +260,7 @@ export const useQueryExecution = ({
         selectedDatabase: effectiveDatabase,
         filterConfigurations,
         labelFields,
+        virtualTable,
       });
 
       if (queryDesc) {
