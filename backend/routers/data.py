@@ -293,10 +293,10 @@ def execute_query(
     try:
         columns, rows = connector.fetch_data(sql_query)
         
-        # Extract optimization metadata
-        optimization_metadata = extended_metadata.get('optimizations', [])
-        hints_used = extended_metadata.get('hints_used')
-        override = extended_metadata.get('override')
+        # Extract optimization metadata (extended_metadata is a list, not a dict)
+        optimization_metadata = extended_metadata if isinstance(extended_metadata, list) else []
+        hints_used = None  # Not returned separately anymore
+        override = None  # Not returned separately anymore
         
         # Calculate reduction factor if optimization was applied
         reduction_factor = None
@@ -386,43 +386,93 @@ def get_suggested_joins(
         logger.error(f"Error getting suggested joins: {e}")
         raise DataSourceConnectionError(f"Failed to get suggested joins: {e}")
 
+@router.get("/suggested-unions")
+def get_suggested_unions(
+    database: str,
+    primary_table: str,
+    connector: BaseConnector = Depends(get_active_connector),
+    conn_details: ConnectionDetails = Depends(get_connection_details)
+):
+    """
+    Get suggested tables with matching schemas that can be combined with UNION ALL.
+    Returns list of table names with identical column names and types.
+    """
+    try:
+        merge_service = TableMergeService(connector)
+        similar_tables = merge_service.get_similar_tables(database, primary_table)
+        logger.info(f"Found {len(similar_tables)} similar tables for '{primary_table}'")
+        return {
+            "primary_table": primary_table,
+            "suggested_tables": similar_tables
+        }
+    except Exception as e:
+        logger.error(f"Error getting suggested unions: {e}")
+        raise DataSourceConnectionError(f"Failed to get suggested unions: {e}")
+
 @router.post("/merged-columns", response_model=MergedColumnsResponse)
 def get_merged_columns(
     database: str,
     primary_table: str,
     joined_tables: Optional[List[str]] = Body(None),
+    union_tables: Optional[List[str]] = Body(None),
     auto_detect: bool = Body(True),
     connector: BaseConnector = Depends(get_active_connector),
     conn_details: ConnectionDetails = Depends(get_connection_details)
 ):
     """
-    Get a merged column list from multiple tables with table name prefixes.
-    Creates a virtual table definition with automatic join detection.
+    Get a merged column list from multiple tables.
+    
+    Supports two modes:
+    - JOIN mode: Tables with different schemas, columns get table prefixes
+    - UNION mode: Tables with identical schemas, columns stay the same + _source_table column added
     
     Args:
         database: Database name
         primary_table: Primary/main table
-        joined_tables: Optional list of tables to join (if None, auto-detect)
-        auto_detect: Whether to auto-detect joins (default: True)
+        joined_tables: Optional list of tables to join (JOIN mode)
+        union_tables: Optional list of tables to union (UNION mode)
+        auto_detect: Whether to auto-detect joins (default: True, for JOIN mode only)
     
     Returns:
-        MergedColumnsResponse with prefixed columns and virtual table definition
+        MergedColumnsResponse with columns and virtual table definition
     """
     try:
         merge_service = TableMergeService(connector)
         
-        # Create virtual table definition
-        virtual_table = merge_service.create_virtual_table(
-            database=database,
-            primary_table=primary_table,
-            joined_tables=joined_tables,
-            auto_detect=auto_detect
-        )
+        # Determine mode based on which tables are provided
+        if union_tables:
+            # UNION mode
+            virtual_table = merge_service.create_union_virtual_table(
+                database=database,
+                primary_table=primary_table,
+                union_tables=union_tables
+            )
+        else:
+            # JOIN mode (default)
+            virtual_table = merge_service.create_virtual_table(
+                database=database,
+                primary_table=primary_table,
+                joined_tables=joined_tables,
+                auto_detect=auto_detect
+            )
         
         # Get merged columns
         result = merge_service.get_merged_columns(database, virtual_table)
         
-        logger.info(f"Created virtual table with {len(result.columns)} columns from {len(virtual_table.joined_tables) + 1} tables")
+        # Add the virtual _source_table column for UNION mode
+        if virtual_table.mode == 'union':
+            from backend.models.data_source import Column
+            source_table_column = Column(
+                name='_source_table',
+                data_type='String',
+                is_datetime=False,
+                table_name=None
+            )
+            result.columns.append(source_table_column)
+            logger.info(f"Added _source_table virtual column for UNION mode")
+        
+        mode_info = f"UNION ({len(virtual_table.union_tables) + 1} tables)" if virtual_table.mode == 'union' else f"JOIN ({len(virtual_table.joined_tables) + 1} tables)"
+        logger.info(f"Created virtual table with {len(result.columns)} columns in {mode_info} mode")
         return result
         
     except Exception as e:
