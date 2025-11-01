@@ -246,16 +246,19 @@ class ClickHouseConnector(BaseConnector):
             logger.warning(f"Error detecting foreign keys in {database}: {e}")
             return []  # Return empty list on error
 
-    def detect_similar_tables(self, database: str, primary_table: str) -> List[str]:
+    def detect_similar_tables(self, database: str, primary_table: str, min_common_columns: int = 3) -> List[str]:
         """
-        Detect tables with identical schemas that can be combined with UNION ALL.
+        Detect tables with similar schemas that can be combined with UNION ALL.
         
-        Finds tables in the database that have the exact same column names and types
-        as the primary table. Useful for partitioned tables (e.g., logs_2024_01, logs_2024_02).
+        Finds tables in the database that have at least min_common_columns in common
+        with the primary table (same name AND type). This is useful for:
+        - Partitioned tables (e.g., logs_2024_01, logs_2024_02) with identical schemas
+        - Related tables with mostly overlapping schemas but some extra columns
         
         Args:
             database: Database name to search
             primary_table: Reference table to compare against
+            min_common_columns: Minimum number of common columns required (default: 3)
             
         Returns:
             List of table names with matching schemas (excluding primary table)
@@ -269,11 +272,11 @@ class ClickHouseConnector(BaseConnector):
             primary_schema = {col.name: col.data_type for col in primary_columns}
             
             logger.info(f"Primary table '{primary_table}' schema: {len(primary_columns)} columns")
-            logger.info(f"Primary schema: {primary_schema}")
+            logger.debug(f"Primary schema: {primary_schema}")
             
             # Get all tables in database
             tables = self.list_tables(database)
-            logger.info(f"Checking {len(tables)} tables in database '{database}'")
+            logger.info(f"Checking {len(tables)} tables in database '{database}' for similarity (min {min_common_columns} common columns)")
             similar_tables = []
             
             for table in tables:
@@ -286,36 +289,34 @@ class ClickHouseConnector(BaseConnector):
                     table_columns = self.list_columns(database, table.name)
                     table_schema = {col.name: col.data_type for col in table_columns}
                     
-                    logger.info(f"Comparing table '{table.name}': {len(table_columns)} columns")
+                    # Find common columns (same name AND same type)
+                    common_columns = {
+                        col_name 
+                        for col_name in primary_schema.keys() 
+                        if col_name in table_schema and primary_schema[col_name] == table_schema[col_name]
+                    }
                     
-                    # Compare schemas (must have identical column names and types)
-                    if table_schema == primary_schema:
+                    common_count = len(common_columns)
+                    logger.debug(f"Table '{table.name}': {common_count} common columns out of {len(table_columns)}")
+                    
+                    # Check if table has enough common columns
+                    if common_count >= min_common_columns:
                         similar_tables.append(table.name)
-                        logger.info(f"✓ Found matching table: {table.name}")
+                        logger.info(f"✓ Found similar table: {table.name} ({common_count} common columns)")
                     else:
-                        # Log differences for debugging
-                        primary_keys = set(primary_schema.keys())
-                        table_keys = set(table_schema.keys())
-                        if primary_keys != table_keys:
-                            missing = primary_keys - table_keys
-                            extra = table_keys - primary_keys
-                            logger.debug(f"  ✗ Table '{table.name}' column mismatch. Missing: {missing}, Extra: {extra}")
-                        else:
-                            # Same columns, different types
-                            type_diffs = [(k, primary_schema[k], table_schema[k]) 
-                                        for k in primary_keys 
-                                        if primary_schema[k] != table_schema[k]]
-                            logger.debug(f"  ✗ Table '{table.name}' type mismatch: {type_diffs[:3]}")  # Show first 3
+                        # Log why it was rejected
+                        logger.debug(f"  ✗ Table '{table.name}' only has {common_count} common columns (need {min_common_columns})")
                         
                 except Exception as e:
                     logger.debug(f"Could not check table {table.name}: {e}")
                     continue
             
-            logger.info(f"Found {len(similar_tables)} tables with matching schema for '{primary_table}'")
+            logger.info(f"Found {len(similar_tables)} tables with similar schema for '{primary_table}' (min {min_common_columns} common columns)")
             return similar_tables
             
         except Exception as e:
             logger.warning(f"Error detecting similar tables in {database}: {e}")
+            return []
             return []
 
     def fetch_data(self, query: str) -> Tuple[List[Dict[str, str]], List[Dict[str, Any]]]:

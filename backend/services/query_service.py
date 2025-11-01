@@ -267,8 +267,10 @@ class QueryService:
         """
         Translates a QueryDescription with UNION ALL virtual table into SQL.
         
-        Combines multiple tables with identical schemas using UNION ALL.
-        All tables must have the same columns.
+        Combines multiple tables using UNION ALL. Tables should have similar schemas
+        (at least some common columns). Only columns that are referenced in the query
+        will be selected, so partial schema matches work fine as long as the queried
+        columns exist in all tables.
         
         Args:
             query_desc: Query description with virtual_table in union mode
