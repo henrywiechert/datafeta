@@ -89,9 +89,11 @@ const VisualizationPageContent = () => {
     const dataSourceContext = useDataSource();
     const { 
         suggestedJoinableTables, 
-        joinedTables 
+        joinedTables,
+        suggestedUnionableTables,
+        unionTables
     } = dataSourceContext.dataSource;
-    const { toggleJoinedTable } = dataSourceContext;
+    const { toggleJoinedTable, toggleUnionTable } = dataSourceContext;
 
     if (!connectionDetails) {
         return (
@@ -138,6 +140,9 @@ const VisualizationPageContent = () => {
                             suggestedJoinableTables={suggestedJoinableTables}
                             joinedTables={joinedTables}
                             onToggleJoinedTable={toggleJoinedTable}
+                            suggestedUnionableTables={suggestedUnionableTables}
+                            unionTables={unionTables}
+                            onToggleUnionTable={toggleUnionTable}
                         />
                     </Panel>
 

@@ -22,6 +22,7 @@ export function useVisualizationState() {
         setIsLoadingMetadata,
         setMetadataError,
         setSuggestedJoinableTables,
+        setSuggestedUnionableTables,
         setVirtualTable
     } = useDataSource();
 
@@ -263,13 +264,30 @@ export function useVisualizationState() {
         }
     }, [dataSource.selectedTable, dataSource.selectedDatabase, connectionDetails?.type, setSuggestedJoinableTables]);
 
+    // Fetch suggested unions when table is selected
+    const fetchSuggestedUnions = useCallback(async () => {
+        if (!dataSource.selectedTable || !dataSource.selectedDatabase) return;
+        if (connectionDetails?.type !== 'clickhouse') return; // Only for database sources
+        
+        try {
+            const response = await apiService.getSuggestedUnions(
+                dataSource.selectedDatabase,
+                dataSource.selectedTable
+            );
+            setSuggestedUnionableTables(response.suggested_tables || []);
+        } catch (err: any) {
+            console.warn('Could not fetch suggested unions:', err.message);
+            setSuggestedUnionableTables([]);
+        }
+    }, [dataSource.selectedTable, dataSource.selectedDatabase, connectionDetails?.type, setSuggestedUnionableTables]);
+
     // Fetch merged columns when joined tables change
     const fetchMergedColumns = useCallback(async () => {
         if (!dataSource.selectedTable) return;
         if (connectionDetails?.type === 'clickhouse' && !dataSource.selectedDatabase) return;
         
-        // If no joined tables, fetch regular columns
-        if (dataSource.joinedTables.length === 0) {
+        // If no joined or union tables, fetch regular columns
+        if (dataSource.joinedTables.length === 0 && dataSource.unionTables.length === 0) {
             await fetchColumns();
             setVirtualTable(null);
             return;
@@ -277,11 +295,64 @@ export function useVisualizationState() {
         
         setIsLoadingMetadata(true);
         setMetadataError(null);
+        
         try {
+            // UNION mode - fetch columns with _source_table virtual column
+            if (dataSource.unionTables.length > 0) {
+                const response = await apiService.getMergedColumns(
+                    dataSource.selectedDatabase,
+                    dataSource.selectedTable,
+                    undefined, // No joined tables
+                    dataSource.unionTables, // Union tables
+                    false // Don't auto-detect
+                );
+                
+                // Convert columns to Field objects (includes _source_table)
+                const fields: Field[] = response.columns.map(col => {
+                    const dataType = mapBackendDataType(col.data_type);
+                    
+                    let type: 'dimension' | 'measure';
+                    let flavour: 'discrete' | 'continuous';
+                    let aggregation: 'sum' | 'avg' | 'min' | 'max' | 'count' | 'count_distinct' | undefined;
+                    
+                    if (dataType === 'string' || dataType === 'datetime') {
+                        type = 'dimension';
+                        flavour = 'discrete';
+                        aggregation = undefined;
+                    } else if (dataType === 'integer' || dataType === 'float') {
+                        type = 'measure';
+                        flavour = 'continuous';
+                        aggregation = 'sum';
+                    } else {
+                        type = 'dimension';
+                        flavour = 'discrete';
+                        aggregation = undefined;
+                    }
+                    
+                    return {
+                        id: `field-${col.name}`,
+                        columnName: col.name,
+                        type: type,
+                        flavour: flavour,
+                        dataType: dataType,
+                        tableName: col.table_name || undefined,
+                        aggregation: aggregation,
+                        axis: undefined
+                    };
+                });
+                
+                setAvailableFields(fields);
+                setVirtualTable(response.virtual_table);
+                setIsLoadingMetadata(false);
+                return;
+            }
+            
+            // JOIN mode - fetch merged columns with table prefixes
             const response = await apiService.getMergedColumns(
                 dataSource.selectedDatabase,
                 dataSource.selectedTable,
                 dataSource.joinedTables,
+                undefined, // No union tables
                 false // Don't auto-detect, use explicitly selected tables
             );
             
@@ -622,13 +693,21 @@ export function useVisualizationState() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dataSource.selectedTable, dataSource.selectedDatabase, connectionDetails?.type]);
 
-    // Fetch merged columns when joined tables change
+    // Fetch suggested unions when table is selected
+    useEffect(() => {
+        if (dataSource.selectedTable && dataSource.selectedDatabase && connectionDetails?.type === 'clickhouse') {
+            fetchSuggestedUnions();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dataSource.selectedTable, dataSource.selectedDatabase, connectionDetails?.type]);
+
+    // Fetch merged columns when joined or union tables change
     useEffect(() => {
         if (dataSource.selectedTable) {
             fetchMergedColumns();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dataSource.selectedTable, dataSource.joinedTables]);
+    }, [dataSource.selectedTable, dataSource.joinedTables, dataSource.unionTables]);
 
     // Fetch filter metadata when new filter fields are added
     useEffect(() => {

@@ -7,6 +7,7 @@ import {
     QueryResult,
     TableRelationshipsResponse,
     SuggestedJoinsResponse,
+    SuggestedUnionsResponse,
     MergedColumnsResponse
 } from './types';
 
@@ -168,10 +169,21 @@ export const apiService = {
         return response.json();
     },
 
+    async getSuggestedUnions(database: string, primaryTable: string, signal?: AbortSignal): Promise<SuggestedUnionsResponse> {
+        const base = API_BASE_URL.startsWith('http') ? API_BASE_URL : `${window.location.origin}${API_BASE_URL}`;
+        const url = new URL(`${base}/suggested-unions`);
+        url.searchParams.append('database', database);
+        url.searchParams.append('primary_table', primaryTable);
+        
+        const response = await fetchWithErrorHandling(url.toString(), {}, signal);
+        return response.json();
+    },
+
     async getMergedColumns(
         database: string,
         primaryTable: string,
         joinedTables?: string[],
+        unionTables?: string[],
         autoDetect: boolean = true,
         signal?: AbortSignal
     ): Promise<MergedColumnsResponse> {
@@ -182,6 +194,7 @@ export const apiService = {
             },
             body: JSON.stringify({
                 joined_tables: joinedTables || null,
+                union_tables: unionTables || null,
                 auto_detect: autoDetect
             }),
         }, signal);

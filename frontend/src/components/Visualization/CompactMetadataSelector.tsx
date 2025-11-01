@@ -3,6 +3,7 @@ import { Box, CircularProgress, Typography, TextField } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import { Database, Table, Field } from '../../types';
 import JoinTableSelector from './JoinTableSelector';
+import UnionTableSelector from './UnionTableSelector';
 import styles from './CompactMetadataSelector.module.css';
 
 type FilterableSelectProps = {
@@ -88,10 +89,14 @@ interface CompactMetadataSelectorProps {
   onDatabaseSelect: (database: string) => void;
   onTableSelect: (table: string) => void;
   availableFields?: Field[]; // Add the availableFields property
-  // Multi-table support
+  // Multi-table support - JOIN mode
   suggestedJoinableTables?: string[];
   joinedTables?: string[];
   onToggleJoinedTable?: (tableName: string) => void;
+  // Multi-table support - UNION mode
+  suggestedUnionableTables?: string[];
+  unionTables?: string[];
+  onToggleUnionTable?: (tableName: string) => void;
 }
 
 const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
@@ -108,6 +113,9 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
   suggestedJoinableTables = [],
   joinedTables = [],
   onToggleJoinedTable,
+  suggestedUnionableTables = [],
+  unionTables = [],
+  onToggleUnionTable,
 }) => {
   const databaseOptions = React.useMemo(
     () => databases.map((db) => db.name).sort(),
@@ -159,6 +167,16 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
           suggestedJoinableTables={suggestedJoinableTables}
           joinedTables={joinedTables}
           onToggleJoin={onToggleJoinedTable}
+        />
+      )}
+      
+      {/* Show unionable tables selector (only for ClickHouse) */}
+      {connectionType === 'clickhouse' && selectedTable && onToggleUnionTable && (
+        <UnionTableSelector
+          primaryTable={selectedTable}
+          suggestedUnionableTables={suggestedUnionableTables}
+          unionTables={unionTables}
+          onToggleUnion={onToggleUnionTable}
         />
       )}
       

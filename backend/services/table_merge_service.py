@@ -7,6 +7,7 @@ from backend.models.data_source import (
     ForeignKeyRelationship, 
     VirtualTableDefinition,
     TableJoinDefinition,
+    UnionTableDefinition,
     MergedColumnsResponse
 )
 from backend.connectors.base import BaseConnector
@@ -117,17 +118,42 @@ class TableMergeService:
         virtual_table: VirtualTableDefinition
     ) -> MergedColumnsResponse:
         """
-        Get all columns from a virtual table with table name prefixes.
+        Get all columns from a virtual table.
+        
+        For JOIN mode: Adds table name prefixes to distinguish columns from different tables.
+        For UNION mode: Returns columns without prefixes (all tables have same schema).
         
         Args:
             database: Database name
             virtual_table: Virtual table definition
             
         Returns:
-            MergedColumnsResponse with prefixed columns
+            MergedColumnsResponse with columns (prefixed for JOIN, unprefixed for UNION)
         """
         all_columns = []
         
+        # UNION mode: Just return columns from primary table (no prefixes, all tables have same schema)
+        if virtual_table.mode == 'union':
+            primary_columns = self.connector.list_columns(database, virtual_table.primary_table)
+            for col in primary_columns:
+                # No prefix for UNION mode
+                all_columns.append(Column(
+                    name=col.name,
+                    data_type=col.data_type,
+                    cast_type=col.cast_type,
+                    cast_replacement=col.cast_replacement,
+                    is_datetime=col.is_datetime,
+                    table_name=None  # No specific table since all tables have same columns
+                ))
+            
+            logger.info(f"UNION mode: {len(all_columns)} columns from {len(virtual_table.union_tables) + 1} tables")
+            
+            return MergedColumnsResponse(
+                columns=all_columns,
+                virtual_table=virtual_table
+            )
+        
+        # JOIN mode: Add table prefixes to distinguish columns
         # Get columns from primary table
         primary_columns = self.connector.list_columns(database, virtual_table.primary_table)
         for col in primary_columns:
@@ -161,7 +187,7 @@ class TableMergeService:
                 logger.error(f"Error getting columns from {join_def.table_name}: {e}")
                 # Continue with other tables
         
-        logger.info(f"Merged columns: {len(all_columns)} total from {1 + len(virtual_table.joined_tables)} tables")
+        logger.info(f"JOIN mode: {len(all_columns)} total from {1 + len(virtual_table.joined_tables)} tables")
         
         return MergedColumnsResponse(
             columns=all_columns,
@@ -185,3 +211,53 @@ class TableMergeService:
         """
         suggested_joins = self.suggest_joins(database, primary_table)
         return [join.table_name for join in suggested_joins]
+
+    def get_similar_tables(
+        self,
+        database: str,
+        primary_table: str
+    ) -> List[str]:
+        """
+        Get list of tables with identical schemas that can be combined with UNION ALL.
+        
+        Args:
+            database: Database name
+            primary_table: Primary table to compare against
+            
+        Returns:
+            List of table names with matching schemas
+        """
+        similar_tables = self.connector.detect_similar_tables(database, primary_table)
+        logger.info(f"Found {len(similar_tables)} similar tables for '{primary_table}'")
+        return similar_tables
+
+    def create_union_virtual_table(
+        self,
+        database: str,
+        primary_table: str,
+        union_tables: List[str]
+    ) -> VirtualTableDefinition:
+        """
+        Create a virtual table definition for UNION ALL operation.
+        
+        Args:
+            database: Database name
+            primary_table: Primary table name
+            union_tables: List of tables to union with primary table
+            
+        Returns:
+            VirtualTableDefinition with union mode
+        """
+        from backend.models.data_source import UnionTableDefinition
+        
+        union_defs = [
+            UnionTableDefinition(table_name=table_name)
+            for table_name in union_tables
+        ]
+        
+        return VirtualTableDefinition(
+            primary_table=primary_table,
+            mode='union',
+            union_tables=union_defs,
+            name=f"{primary_table}_combined"
+        )

@@ -27,6 +27,10 @@ interface FieldsPanelProps {
   suggestedJoinableTables?: string[];
   joinedTables?: string[];
   onToggleJoinedTable?: (tableName: string) => void;
+  // Multi-table union props
+  suggestedUnionableTables?: string[];
+  unionTables?: string[];
+  onToggleUnionTable?: (tableName: string) => void;
 }
 
 const FieldsPanel: React.FC<FieldsPanelProps> = ({
@@ -48,7 +52,11 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   // Multi-table join props
   suggestedJoinableTables,
   joinedTables,
-  onToggleJoinedTable
+  onToggleJoinedTable,
+  // Multi-table union props
+  suggestedUnionableTables,
+  unionTables,
+  onToggleUnionTable
 }) => {
   // Use our custom hook for drag and drop functionality
   const {
@@ -95,6 +103,9 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
         suggestedJoinableTables={suggestedJoinableTables}
         joinedTables={joinedTables}
         onToggleJoinedTable={onToggleJoinedTable}
+        suggestedUnionableTables={suggestedUnionableTables}
+        unionTables={unionTables}
+        onToggleUnionTable={onToggleUnionTable}
       />
       
       {/* Fields search below metadata */}

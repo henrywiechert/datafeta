@@ -60,6 +60,22 @@ class BaseConnector(ABC):
         """
         return []  # Default: no FK detection
 
+    def detect_similar_tables(self, database: str, primary_table: str) -> List[str]:
+        """
+        Detect tables with identical schemas that can be combined with UNION ALL.
+        
+        This is optional and may return empty list if not supported.
+        Subclasses can override to provide database-specific schema matching.
+        
+        Args:
+            database: The database name to search
+            primary_table: Reference table to compare against
+            
+        Returns:
+            List of table names with matching schemas
+        """
+        return []  # Default: no schema detection
+
     # Later: Add method for fetching data
     # @abstractmethod
     # def fetch_data(self, query: str) -> List[Dict[str, Any]]:

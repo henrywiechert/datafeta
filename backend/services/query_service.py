@@ -255,6 +255,131 @@ class QueryService:
         # No table prefix - use default table
         return default_table[field_name]
 
+    def _translate_union_query(
+        self,
+        query_desc: QueryDescription,
+        db_type: str = 'clickhouse',
+        quote_char: str = '`',
+        with_sampling: bool = False,
+        with_optimization: bool = True,
+        optimizer: Optional[Any] = None
+    ) -> Tuple[str, List[Dict[str, Any]]]:
+        """
+        Translates a QueryDescription with UNION ALL virtual table into SQL.
+        
+        Combines multiple tables with identical schemas using UNION ALL.
+        All tables must have the same columns.
+        
+        Args:
+            query_desc: Query description with virtual_table in union mode
+            db_type: Database type
+            quote_char: Quote character for identifiers
+            with_sampling: Whether to apply sampling
+            with_optimization: Whether to apply optimizations
+            optimizer: Query optimizer instance
+            
+        Returns:
+            Tuple of (SQL query string, optimization metadata)
+        """
+        virtual_table = query_desc.virtual_table
+        if not virtual_table or virtual_table.mode != 'union':
+            raise ValueError("Query description must have virtual_table in union mode")
+        
+        # Get all tables to union (primary + union tables)
+        all_tables = [virtual_table.primary_table] + [
+            ut.table_name for ut in virtual_table.union_tables
+        ]
+        
+        logger.info(f"Building UNION ALL query for tables: {all_tables}")
+        
+        # Build individual SELECT queries for each table
+        union_queries = []
+        for table_name in all_tables:
+            # Create a modified query_desc for this specific table
+            single_table_desc = query_desc.copy(deep=True)
+            single_table_desc.target_table = table_name
+            single_table_desc.virtual_table = None  # Remove virtual table for single query
+            
+            # Check if _source_table is the only dimension (special case)
+            has_source_table_dim = any(d.field == '_source_table' for d in single_table_desc.dimensions)
+            other_dimensions = [d for d in single_table_desc.dimensions if d.field != '_source_table']
+            
+            # If _source_table is the only thing being selected, we need to select something from the actual table
+            # We'll just select the literal, but we need at least one column to make a valid query
+            if has_source_table_dim and len(other_dimensions) == 0 and len(single_table_desc.measures) == 0:
+                # Create a simple SELECT query that just returns the table name
+                # This is a special case where user only wants to see which tables exist
+                simple_sql = f"SELECT '{table_name}' AS {quote_char}_source_table{quote_char} FROM {quote_char}{query_desc.target_database}{quote_char}.{quote_char}{table_name}{quote_char} LIMIT 1"
+                union_queries.append(f"({simple_sql})")
+                continue
+            
+            # Filter out _source_table from dimensions/filters/orderBy since it doesn't exist in physical tables
+            single_table_desc.dimensions = other_dimensions
+            single_table_desc.filters = [
+                f for f in single_table_desc.filters if f.field != '_source_table'
+            ]
+            # Remove ORDER BY and LIMIT from individual queries - we'll apply them to the UNION result
+            single_table_desc.orderBy = []
+            single_table_desc.limit = None
+            single_table_desc.offset = None
+            
+            # Translate single table query
+            single_sql, _ = self.translate_to_sql(
+                single_table_desc,
+                table_name=table_name,
+                db_type=db_type,
+                with_sampling=False,  # Don't sample individual queries
+                with_optimization=False  # Don't optimize individual queries
+            )
+            
+            # Add a virtual column to identify the source table
+            # Inject the column after SELECT and before FROM
+            # This adds: SELECT ..., 'table_name' AS _source_table FROM ...
+            if 'FROM' in single_sql:
+                select_part, from_part = single_sql.split('FROM', 1)
+                # Add the source table column before FROM
+                # Remove trailing whitespace/comma from select_part
+                select_part = select_part.rstrip()
+                if select_part.endswith(','):
+                    select_part = select_part[:-1]
+                # Add the virtual column
+                modified_sql = f"{select_part}, '{table_name}' AS {quote_char}_source_table{quote_char} FROM{from_part}"
+                union_queries.append(f"({modified_sql})")
+            else:
+                # Fallback if no FROM clause (shouldn't happen)
+                union_queries.append(f"({single_sql})")
+        
+        # Combine with UNION ALL
+        union_sql = "\nUNION ALL\n".join(union_queries)
+        
+        # Wrap in subquery if needed for ORDER BY or LIMIT
+        if query_desc.orderBy or query_desc.limit or query_desc.offset:
+            # Build outer query for ordering/limiting
+            outer_sql = f"SELECT * FROM (\n{union_sql}\n) AS union_result"
+            
+            # Add ORDER BY
+            if query_desc.orderBy:
+                order_clauses = []
+                for order in query_desc.orderBy:
+                    direction = "DESC" if order.direction == 'desc' else "ASC"
+                    order_clauses.append(f"{quote_char}{order.field}{quote_char} {direction}")
+                outer_sql += f"\nORDER BY {', '.join(order_clauses)}"
+            
+            # Add LIMIT and OFFSET
+            if query_desc.limit:
+                outer_sql += f"\nLIMIT {query_desc.limit}"
+                if query_desc.offset:
+                    outer_sql += f" OFFSET {query_desc.offset}"
+            
+            final_sql = outer_sql
+        else:
+            final_sql = union_sql
+        
+        logger.info(f"Generated UNION ALL query: {final_sql[:200]}...")
+        
+        # Return with empty optimization metadata
+        return (final_sql, [])
+
     def translate_to_sql(
         self, 
         query_desc: QueryDescription, 
@@ -284,6 +409,17 @@ class QueryService:
             quote_char = '`' # Backticks for ClickHouse
         else: # Default to standard double quotes (e.g., for DuckDB)
             quote_char = '"'
+
+        # Handle UNION ALL mode separately
+        if query_desc.virtual_table and query_desc.virtual_table.mode == 'union':
+            return self._translate_union_query(
+                query_desc, 
+                db_type=db_type,
+                quote_char=quote_char,
+                with_sampling=with_sampling,
+                with_optimization=with_optimization,
+                optimizer=optimizer
+            )
 
         # Handle virtual table with joins
         table_map = {}  # Maps table names to PyPika Table objects
