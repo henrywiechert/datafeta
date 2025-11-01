@@ -20,7 +20,9 @@ export function useVisualizationState() {
         setDatabases,
         setTables,
         setIsLoadingMetadata,
-        setMetadataError
+        setMetadataError,
+        setSuggestedJoinableTables,
+        setVirtualTable
     } = useDataSource();
 
     // Sync visualization state changes back to the active sheet
@@ -132,6 +134,8 @@ export function useVisualizationState() {
         setSelectedTable(tableName);
         // Clear existing fields when table changes
         setAvailableFields([]);
+        // Fetch suggested joins for the new table (will be called after table is set)
+        // The useEffect below will trigger fetchSuggestedJoins
     }, [setSelectedTable, setAvailableFields]);
 
     // --- Data Fetching Logic ---
@@ -241,6 +245,111 @@ export function useVisualizationState() {
             setIsLoadingMetadata(false);
         }
     }, [dataSource.selectedTable, dataSource.selectedDatabase, state.xAxisFields, state.yAxisFields, connectionDetails?.type, setIsLoadingMetadata, setMetadataError, setAvailableFields, dispatch]);
+
+    // Fetch suggested joinable tables for the selected primary table
+    const fetchSuggestedJoins = useCallback(async () => {
+        if (!dataSource.selectedTable || !dataSource.selectedDatabase) return;
+        if (connectionDetails?.type !== 'clickhouse') return; // Only for database sources
+        
+        try {
+            const response = await apiService.getSuggestedJoins(
+                dataSource.selectedDatabase,
+                dataSource.selectedTable
+            );
+            setSuggestedJoinableTables(response.suggested_tables || []);
+        } catch (err: any) {
+            console.warn('Could not fetch suggested joins:', err.message);
+            setSuggestedJoinableTables([]);
+        }
+    }, [dataSource.selectedTable, dataSource.selectedDatabase, connectionDetails?.type, setSuggestedJoinableTables]);
+
+    // Fetch merged columns when joined tables change
+    const fetchMergedColumns = useCallback(async () => {
+        if (!dataSource.selectedTable) return;
+        if (connectionDetails?.type === 'clickhouse' && !dataSource.selectedDatabase) return;
+        
+        // If no joined tables, fetch regular columns
+        if (dataSource.joinedTables.length === 0) {
+            await fetchColumns();
+            setVirtualTable(null);
+            return;
+        }
+        
+        setIsLoadingMetadata(true);
+        setMetadataError(null);
+        try {
+            const response = await apiService.getMergedColumns(
+                dataSource.selectedDatabase,
+                dataSource.selectedTable,
+                dataSource.joinedTables,
+                false // Don't auto-detect, use explicitly selected tables
+            );
+            
+            // Convert merged columns to Field objects
+            const fields: Field[] = response.columns.map(col => {
+                const dataType = mapBackendDataType(col.data_type);
+                
+                let type: 'dimension' | 'measure';
+                let flavour: 'discrete' | 'continuous';
+                let aggregation: 'sum' | 'avg' | 'min' | 'max' | 'count' | 'count_distinct' | undefined;
+                
+                if (dataType === 'string' || dataType === 'datetime') {
+                    type = 'dimension';
+                    flavour = 'discrete';
+                    aggregation = undefined;
+                } else if (dataType === 'integer' || dataType === 'float') {
+                    type = 'measure';
+                    flavour = 'continuous';
+                    aggregation = 'sum';
+                } else {
+                    type = 'dimension';
+                    flavour = 'discrete';
+                    aggregation = undefined;
+                }
+                
+                return {
+                    id: `field-${col.name}`,
+                    columnName: col.name, // Includes table prefix like 'customers.name'
+                    type: type,
+                    flavour: flavour,
+                    dataType: dataType,
+                    aggregation: aggregation,
+                };
+            });
+            
+            setAvailableFields(fields);
+            setVirtualTable(response.virtual_table);
+
+            // Mark axis fields that are not present in new schema as invalid
+            const availableNames = new Set(fields.map(f => f.columnName));
+            const patchedX = state.xAxisFields.map(f => ({ ...f, isInvalid: !availableNames.has(f.columnName) } as any));
+            const patchedY = state.yAxisFields.map(f => ({ ...f, isInvalid: !availableNames.has(f.columnName) } as any));
+            dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
+            dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
+        } catch (err: any) {
+            if (err.message === 'Request was cancelled') {
+                setMetadataError(null);
+            } else {
+                setMetadataError(err.message);
+            }
+        }
+        finally { 
+            setIsLoadingMetadata(false);
+        }
+    }, [
+        dataSource.selectedTable, 
+        dataSource.selectedDatabase, 
+        dataSource.joinedTables,
+        state.xAxisFields, 
+        state.yAxisFields, 
+        connectionDetails?.type, 
+        setIsLoadingMetadata, 
+        setMetadataError, 
+        setAvailableFields,
+        setVirtualTable,
+        dispatch,
+        fetchColumns
+    ]);
 
     // Helper function to map backend data types to our DataType enum
     const mapBackendDataType = (backendType: string): DataType => {
@@ -505,6 +614,22 @@ export function useVisualizationState() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dataSource.selectedDatabase, dataSource.tables.length, dataSource.isLoadingMetadata]);
 
+    // Fetch suggested joins when table is selected
+    useEffect(() => {
+        if (dataSource.selectedTable && dataSource.selectedDatabase && connectionDetails?.type === 'clickhouse') {
+            fetchSuggestedJoins();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dataSource.selectedTable, dataSource.selectedDatabase, connectionDetails?.type]);
+
+    // Fetch merged columns when joined tables change
+    useEffect(() => {
+        if (dataSource.selectedTable) {
+            fetchMergedColumns();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dataSource.selectedTable, dataSource.joinedTables]);
+
     // Fetch filter metadata when new filter fields are added
     useEffect(() => {
         state.filterFields.forEach(field => {
@@ -678,6 +803,12 @@ export function useVisualizationState() {
         selectedTable: dataSource.selectedTable,
         isLoadingMetadata: dataSource.isLoadingMetadata,
         metadataError: dataSource.metadataError,
+        // Multi-table support
+        joinedTables: dataSource.joinedTables,
+        suggestedJoinableTables: dataSource.suggestedJoinableTables,
+        virtualTable: dataSource.virtualTable,
+        fetchSuggestedJoins,
+        fetchMergedColumns,
         handleFieldUpdate,
         handleDatabaseSelect,
         handleTableSelect,

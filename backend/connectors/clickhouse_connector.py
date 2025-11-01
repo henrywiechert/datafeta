@@ -199,8 +199,14 @@ class ClickHouseConnector(BaseConnector):
                     logger.warning(f"Could not list columns for {table.name}: {e}")
                     continue
             
+            logger.info(f"Analyzing FK relationships in database '{database}' with {len(table_names)} tables")
+            logger.info(f"Table names: {table_names[:5]}...")  # Log first 5 tables
+            
             # Look for FK patterns
             for from_table, columns in table_columns.items():
+                col_names = [c.name for c in columns]
+                logger.debug(f"Table '{from_table}' has columns: {col_names}")
+                
                 for col in columns:
                     col_name = col.name.lower()
                     

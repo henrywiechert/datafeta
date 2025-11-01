@@ -4,6 +4,9 @@ from typing import List, Dict, Any, Optional, Literal, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from backend.models.data_source import VirtualTableDefinition
+else:
+    # Import at runtime to avoid circular import, will call model_rebuild() at end of file
+    VirtualTableDefinition = None
 
 class Measure(BaseModel):
     field: str
@@ -132,3 +135,12 @@ class QueryResult(BaseModel):
     
     # Echo back label fields included so frontend can validate presence
     label_fields: Optional[List[str]] = None
+
+# Rebuild QueryDescription model after VirtualTableDefinition is fully defined
+# This is needed to resolve the forward reference in the virtual_table field
+def _rebuild_models():
+    from backend.models.data_source import VirtualTableDefinition
+    QueryDescription.model_rebuild()
+
+# Call rebuild when module is imported
+_rebuild_models()

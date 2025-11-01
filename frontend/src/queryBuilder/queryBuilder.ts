@@ -1,4 +1,4 @@
-import { Field, QueryDescription, Measure, OrderBy, Filter, FilterConfig, ColumnCasts, ColumnCastConfig } from '../types';
+import { Field, QueryDescription, Measure, OrderBy, Filter, FilterConfig, ColumnCasts, ColumnCastConfig, VirtualTableDefinition } from '../types';
 import { getResultColumnName } from '../utils/fieldUtils';
 
 /**
@@ -98,12 +98,14 @@ export const buildAggregatedQuery = ({
   selectedDatabase,
   filterConfigurations = {},
   labelFields = [],
+  virtualTable = null,
 }: {
   fields: Field[];
   selectedTable: string;
   selectedDatabase?: string;
   filterConfigurations?: Record<string, FilterConfig>;
   labelFields?: Field[];
+  virtualTable?: VirtualTableDefinition | null;
 }): QueryDescription | null => {
 
   const dimensions = fields
@@ -157,6 +159,7 @@ export const buildAggregatedQuery = ({
     orderBy: orderBy.length > 0 ? orderBy : undefined,
     column_casts: columnCasts,
     label_fields: labelFields.length > 0 ? dedupeLabelFields(labelFields, fields) : undefined,
+    virtual_table: virtualTable || undefined,
   };
 
   return queryDesc;
@@ -172,12 +175,14 @@ export const buildRawQuery = ({
   selectedDatabase,
   filterConfigurations = {},
   labelFields = [],
+  virtualTable = null,
 }: {
   fields: Field[];
   selectedTable: string;
   selectedDatabase?: string;
   filterConfigurations?: Record<string, FilterConfig>;
   labelFields?: Field[];
+  virtualTable?: VirtualTableDefinition | null;
 }): QueryDescription | null => {
   if (!selectedTable || fields.length === 0) {
     return null;
@@ -237,6 +242,7 @@ export const buildRawQuery = ({
     orderBy: orderBy.length > 0 ? orderBy : undefined,
     column_casts: columnCasts,
     label_fields: labelFields.length > 0 ? dedupeLabelFields(labelFields, fields) : undefined,
+    virtual_table: virtualTable || undefined,
   };
 
   return queryDesc;
@@ -266,19 +272,21 @@ export const buildQuery = ({
   selectedDatabase,
   filterConfigurations = {},
   labelFields = [],
+  virtualTable = null,
 }: {
   fields: Field[];
   selectedTable: string;
   selectedDatabase?: string;
   filterConfigurations?: Record<string, FilterConfig>;
   labelFields?: Field[];
+  virtualTable?: VirtualTableDefinition | null;
 }): QueryDescription | null => {
   const queryType = getQueryTypeFromFields(fields);
   
   if (queryType === 'aggregated') {
-    return buildAggregatedQuery({ fields, selectedTable, selectedDatabase, filterConfigurations, labelFields });
+    return buildAggregatedQuery({ fields, selectedTable, selectedDatabase, filterConfigurations, labelFields, virtualTable });
   } else {
-    return buildRawQuery({ fields, selectedTable, selectedDatabase, filterConfigurations, labelFields });
+    return buildRawQuery({ fields, selectedTable, selectedDatabase, filterConfigurations, labelFields, virtualTable });
   }
 };
 
