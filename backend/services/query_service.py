@@ -525,6 +525,15 @@ class QueryService:
 
         if query_desc.dimensions:
             for dim in query_desc.dimensions:
+                # Special handling for _source_table virtual column
+                if dim.field == '_source_table':
+                    # Inject the table name as a literal
+                    actual_table = query_desc.target_table
+                    field_term = Criterion.wrap_constant(actual_table).as_('_source_table')
+                    select_fields.append(field_term)
+                    all_aliases.add('_source_table')
+                    continue
+                
                 # Parse field reference (may include table prefix like 'customers.name')
                 field_term = self._parse_field_reference(dim.field, table_map, default_table)
                 

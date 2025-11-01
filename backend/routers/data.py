@@ -120,6 +120,17 @@ def list_columns(
         raise InvalidInputError("'database' query parameter is required for ClickHouse connections.")
 
     columns = connector.list_columns(database=database, table=table)
+    
+    # Always add _source_table virtual column for consistency with UNION queries
+    from backend.models.data_source import Column
+    source_table_column = Column(
+        name='_source_table',
+        data_type='String',
+        is_datetime=False,
+        table_name=None
+    )
+    columns.append(source_table_column)
+    
     return ColumnListResponse(columns=columns)
 
 @router.get("/distinct-count")
