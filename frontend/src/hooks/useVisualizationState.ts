@@ -485,7 +485,8 @@ export function useVisualizationState() {
                     dbParam,
                     undefined, // no regex filter initially
                     field.dateTimePart,
-                    field.dateTimeMode
+                    field.dateTimeMode,
+                    dataSource.unionTables  // Pass union tables for _source_table handling
                 );
                 
                 let values: any[];
@@ -499,7 +500,11 @@ export function useVisualizationState() {
                         dataSource.selectedTable,
                         dbParam,
                         field.dateTimePart,
-                        field.dateTimeMode
+                        field.dateTimeMode,
+                        undefined, // no regex filter
+                        undefined, // no limit
+                        undefined, // no random sampling
+                        dataSource.unionTables  // Pass union tables
                     );
                 } else {
                     // Too many values - fetch only 100 random samples
@@ -511,7 +516,8 @@ export function useVisualizationState() {
                         field.dateTimeMode,
                         undefined, // no regex filter
                         100, // limit to 100
-                        true // use random sampling
+                        true, // use random sampling
+                        dataSource.unionTables  // Pass union tables
                     );
                     isPartial = true;
                     warningMessage = `This field has ${count.toLocaleString()} unique values. Showing 100 random samples. Use Query Regex to filter.`;
@@ -746,7 +752,8 @@ export function useVisualizationState() {
                 dbParam,
                 regexPattern,
                 field.dateTimePart,
-                field.dateTimeMode
+                field.dateTimeMode,
+                dataSource.unionTables  // Pass union tables for _source_table handling
             );
             
             let values: any[];
@@ -767,7 +774,10 @@ export function useVisualizationState() {
                     dbParam,
                     field.dateTimePart,
                     field.dateTimeMode,
-                    regexPattern
+                    regexPattern,
+                    undefined, // no limit
+                    undefined, // no random sampling
+                    dataSource.unionTables  // Pass union tables
                 );
                 
                 // Keep isPartial=true if this field originally had >5000 values
@@ -790,7 +800,9 @@ export function useVisualizationState() {
                     field.dateTimePart,
                     field.dateTimeMode,
                     regexPattern,
-                    100 // Limit to 100 random samples
+                    100, // Limit to 100 random samples
+                    true, // use random sampling
+                    dataSource.unionTables  // Pass union tables
                 );
                 isPartial = true;
                 warningMessage = `Query matches ${count.toLocaleString()} values (still too many). Showing 100 random samples matching your pattern. Refine further to see all values.`;

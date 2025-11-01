@@ -354,10 +354,34 @@ class QueryService:
         # Combine with UNION ALL
         union_sql = "\nUNION ALL\n".join(union_queries)
         
-        # Wrap in subquery if needed for ORDER BY or LIMIT
-        if query_desc.orderBy or query_desc.limit or query_desc.offset:
-            # Build outer query for ordering/limiting
+        # Check if we need an outer query (for ORDER BY, LIMIT, or _source_table filters)
+        source_table_filters = [f for f in query_desc.filters if f.field == '_source_table']
+        needs_outer_query = query_desc.orderBy or query_desc.limit or query_desc.offset or source_table_filters
+        
+        if needs_outer_query:
+            # Build outer query for ordering/limiting/filtering on _source_table
             outer_sql = f"SELECT * FROM (\n{union_sql}\n) AS union_result"
+            
+            # Add WHERE clause for _source_table filters
+            if source_table_filters:
+                where_clauses = []
+                for filter_obj in source_table_filters:
+                    if filter_obj.operator == '=':
+                        where_clauses.append(f"{quote_char}_source_table{quote_char} = '{filter_obj.value}'")
+                    elif filter_obj.operator == '!=':
+                        where_clauses.append(f"{quote_char}_source_table{quote_char} != '{filter_obj.value}'")
+                    elif filter_obj.operator == 'in':
+                        values = "', '".join(str(v) for v in filter_obj.value)
+                        where_clauses.append(f"{quote_char}_source_table{quote_char} IN ('{values}')")
+                    elif filter_obj.operator == 'not in':
+                        values = "', '".join(str(v) for v in filter_obj.value)
+                        where_clauses.append(f"{quote_char}_source_table{quote_char} NOT IN ('{values}')")
+                    elif filter_obj.operator == 'like':
+                        where_clauses.append(f"{quote_char}_source_table{quote_char} LIKE '{filter_obj.value}'")
+                    # Add more operators as needed
+                
+                if where_clauses:
+                    outer_sql += f"\nWHERE {' AND '.join(where_clauses)}"
             
             # Add ORDER BY
             if query_desc.orderBy:
@@ -527,13 +551,16 @@ class QueryService:
 
         if query_desc.dimensions:
             for dim in query_desc.dimensions:
-                # Special handling for _source_table virtual column
+                # Special handling for _source_table virtual column (UNION queries only)
                 if dim.field == '_source_table':
-                    # Inject the table name as a literal
-                    actual_table = query_desc.target_table
-                    field_term = Criterion.wrap_constant(actual_table).as_('_source_table')
-                    select_fields.append(field_term)
-                    all_aliases.add('_source_table')
+                    # This should only happen in UNION queries
+                    # For single tables, _source_table shouldn't be in the column list
+                    if not query_desc.virtual_table or query_desc.virtual_table.mode != 'union':
+                        logger.warning(f"_source_table used in non-UNION query, skipping")
+                        continue
+                    
+                    # For UNION queries, this is handled by injection in _translate_union_query
+                    # Just skip it here - it will be added by the UNION logic
                     continue
                 
                 # Parse field reference (may include table prefix like 'customers.name')
@@ -685,6 +712,10 @@ class QueryService:
         
         # Add user-specified filters
         for f in query_desc.filters:
+            # Skip _source_table filters in single-table queries (they're handled in UNION outer query)
+            if f.field == '_source_table':
+                continue
+            
             operator_func = OPERATOR_MAP.get(f.operator)
             if not operator_func:
                  raise QueryGenerationError(f"Unsupported filter operator: {f.operator}")

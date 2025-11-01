@@ -121,15 +121,8 @@ def list_columns(
 
     columns = connector.list_columns(database=database, table=table)
     
-    # Always add _source_table virtual column for consistency with UNION queries
-    from backend.models.data_source import Column
-    source_table_column = Column(
-        name='_source_table',
-        data_type='String',
-        is_datetime=False,
-        table_name=None
-    )
-    columns.append(source_table_column)
+    # Note: _source_table is NOT added here for single tables
+    # It's only added for UNION queries via the /merged-columns endpoint
     
     return ColumnListResponse(columns=columns)
 
@@ -141,12 +134,26 @@ def get_distinct_count(
     regexPattern: Optional[str] = None,
     dateTimePart: Optional[str] = None,
     dateTimeMode: Optional[str] = None,
+    unionTables: Optional[str] = None,  # Comma-separated list of union table names
     connector: BaseConnector = Depends(get_active_connector),
     conn_details: ConnectionDetails = Depends(get_connection_details)
 ):
     """Get count of distinct values for a field, optionally filtered by a LIKE pattern."""
     if conn_details.type == "clickhouse" and not database:
         raise InvalidInputError("'database' query parameter is required for ClickHouse connections.")
+    
+    # Special handling for _source_table virtual column (UNION queries only)
+    if field == '_source_table':
+        # Count the number of tables (primary + union tables)
+        if unionTables:
+            union_table_list = [t.strip() for t in unionTables.split(',') if t.strip()]
+            count = 1 + len(union_table_list)  # primary + union tables
+            logger.info(f"_source_table distinct count: {count} tables")
+            return {"count": count}
+        else:
+            # _source_table shouldn't be queried for single tables
+            logger.warning("_source_table requested for single table (should not happen)")
+            return {"count": 0}
     
     from pypika import Query, Table, functions as fn
     from pypika.terms import Term

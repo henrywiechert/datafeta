@@ -254,6 +254,7 @@ export const apiService = {
         regexPattern?: string,
         limit?: number,
         useRandomSample?: boolean,
+        unionTables?: string[],
         signal?: AbortSignal
     ): Promise<any[]> {
         const abortController = signal ? null : createAbortController();
@@ -277,6 +278,17 @@ export const apiService = {
             dimensions: [dimension],
             measures: [],
         };
+        
+        // Add virtual table definition for union queries
+        if (unionTables && unionTables.length > 0) {
+            queryDesc.virtual_table = {
+                primary_table: table,
+                mode: 'union',
+                joined_tables: [],
+                union_tables: unionTables.map((t: string) => ({ table_name: t })),
+                name: `${table}_union`
+            };
+        }
         
         // Add regex filter if provided
         if (regexPattern) {
@@ -324,6 +336,7 @@ export const apiService = {
         regexPattern?: string,
         dateTimePart?: string,
         dateTimeMode?: string,
+        unionTables?: string[],
         signal?: AbortSignal
     ): Promise<number> {
         const abortController = signal ? null : createAbortController();
@@ -345,6 +358,9 @@ export const apiService = {
         }
         if (dateTimeMode) {
             params.append('dateTimeMode', dateTimeMode);
+        }
+        if (unionTables && unionTables.length > 0) {
+            params.append('unionTables', unionTables.join(','));
         }
         
         const response = await fetchWithErrorHandling(
