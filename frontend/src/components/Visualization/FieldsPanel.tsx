@@ -23,6 +23,10 @@ interface FieldsPanelProps {
   metadataError: string | null;
   onDatabaseSelect: (database: string) => void;
   onTableSelect: (table: string) => void;
+  // Multi-table join props
+  suggestedJoinableTables?: string[];
+  joinedTables?: string[];
+  onToggleJoinedTable?: (tableName: string) => void;
 }
 
 const FieldsPanel: React.FC<FieldsPanelProps> = ({
@@ -40,7 +44,11 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   isLoadingMetadata,
   metadataError,
   onDatabaseSelect,
-  onTableSelect
+  onTableSelect,
+  // Multi-table join props
+  suggestedJoinableTables,
+  joinedTables,
+  onToggleJoinedTable
 }) => {
   // Use our custom hook for drag and drop functionality
   const {
@@ -84,6 +92,9 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
         onDatabaseSelect={onDatabaseSelect}
         onTableSelect={onTableSelect}
         availableFields={availableFields}
+        suggestedJoinableTables={suggestedJoinableTables}
+        joinedTables={joinedTables}
+        onToggleJoinedTable={onToggleJoinedTable}
       />
       
       {/* Fields search below metadata */}
