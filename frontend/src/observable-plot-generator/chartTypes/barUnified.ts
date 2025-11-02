@@ -77,9 +77,6 @@ export function barUnified(
         );
 
     const useStackedDomain = !categoryColumn && !!colorColumn;
-    // Determine single bar sizing multiplier (legacy expectation 5) when we truly have a single bar
-    const isSingleBar = !categoryColumn && !colorColumn;
-    const singleBarSizeMultiplier = isSingleBar ? 5 : 2;
 
     const options = buildBarOptions({
       data: aggregated,
@@ -91,8 +88,6 @@ export function barUnified(
       colorScale,
       bandPadding,
       valueDomainOverride: useStackedDomain ? undefined : sharedDomains[measureName],
-      // Keep legacy visual sizing multiplier for a single bar
-      singleBarSizeMultiplier,
       tooltipColumns: [colorField?.columnName, sizeField?.columnName].filter(Boolean) as string[],
     });
 

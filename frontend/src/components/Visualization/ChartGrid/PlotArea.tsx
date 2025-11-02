@@ -14,20 +14,26 @@ interface PlotAreaProps {
 
 /**
  * Remove axis labels (preserve grid). For external axes we also disable the axis lines.
+ * Force all margins and insets to 0 so plots fill cells exactly with no offset.
  */
 function suppressAxes(options: any, hideX: boolean, hideY: boolean) {
   const next = { ...options };
-  // Remove all margins so plot fills the cell exactly
+  // Force all margins and insets to 0 - don't preserve any defaults
   next.marginLeft = 0;
   next.marginRight = 0;
   next.marginTop = 0;
   next.marginBottom = 0;
   next.inset = 0;
+  next.insetLeft = 0;
+  next.insetRight = 0;
+  next.insetTop = 0;
+  next.insetBottom = 0;
+  
   if (hideX) {
     next.x = {
       ...(next.x || {}),
       label: '',
-      axis: null,
+      axis: false,
       grid: true,
     };
   }
@@ -35,7 +41,7 @@ function suppressAxes(options: any, hideX: boolean, hideY: boolean) {
     next.y = {
       ...(next.y || {}),
       label: '',
-      axis: null,
+      axis: false,
       grid: true,
     };
   }

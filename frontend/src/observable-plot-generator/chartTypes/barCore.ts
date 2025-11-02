@@ -23,7 +23,6 @@ export interface BarBuildParams {
   zeroBaseline?: boolean;
   valueDomainOverride?: [number, number];
   tooltipColumns?: string[];    // additional raw columns to show in tooltip
-  singleBarSizeMultiplier?: number; // factor for single bar intrinsic size (legacy 5)
 }
 
 export const ORIENTATION = {
@@ -200,13 +199,11 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     zeroBaseline = true,
     valueDomainOverride,
     tooltipColumns = [],
-    singleBarSizeMultiplier = 1,
   } = params;
 
   const O = ORIENTATION[orientation];
   const categories = categoriesDomain || deriveCategories(data, categoryColumn);
-  const isSingle = categories.length === 1;
-  const size = isSingle ? BAR_STEP_PX * singleBarSizeMultiplier : categories.length * BAR_STEP_PX;
+  const size = categories.length * BAR_STEP_PX;
 
   // Compute domain, accounting for stacking when there's no category but there is color
   let domain: [number, number];
@@ -290,11 +287,14 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
 
   const barMark = O.bar(data, baseConfig);
 
+  // For grid rendering, we want the band scale to use the full available space
+  // without Observable Plot's default margins. We'll set explicit range based on size.
   const axisCategory = {
     label: categoryColumn || ' ',
     domain: categories as any,
     type: 'band' as any,
     padding: bandPadding as any,
+    range: orientation === 'vertical' ? [0, size] : [size, 0],  // Full range, no margins
   };
   const axisMeasure = {
     label: measureName,
