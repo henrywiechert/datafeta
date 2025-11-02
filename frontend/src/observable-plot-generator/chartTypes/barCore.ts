@@ -287,18 +287,18 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
 
   const barMark = O.bar(data, baseConfig);
 
-  // For grid rendering, we want the band scale to use the full available space
-  // without Observable Plot's default margins. We'll set explicit range based on size.
   const axisCategory = {
     label: categoryColumn || ' ',
     domain: categories as any,
     type: 'band' as any,
     padding: bandPadding as any,
-    range: orientation === 'vertical' ? [0, size] : [size, 0],  // Full range, no margins
+    grid: false,  // Disable grid on category axis to prevent shifting with padding changes
+    // Don't set explicit range - let Observable Plot compute it naturally
+    // The suppressAxes function ensures margins are 0, so bands will fill available space
   };
   const axisMeasure = {
     label: measureName,
-    grid: true,
+    grid: true,  // Keep grid on measure axis (stable, won't shift with band padding)
     domain: domain as any,
     nice: false
   } as any;
