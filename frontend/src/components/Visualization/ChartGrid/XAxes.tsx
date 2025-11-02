@@ -11,7 +11,7 @@ interface XAxesProps {
   dynamicXAxisPx: number;
 }
 
-function buildXAxisOptions(label: string | undefined, domain: any, gutterPx: number, type?: string) {
+function buildXAxisOptions(label: string | undefined, domain: any, gutterPx: number, type?: string, padding?: number) {
   const first = Array.isArray(domain) ? domain[0] : undefined;
   const isDateString = typeof first === 'string' && /^\d{4}-\d{2}-\d{2}/.test(first);
   const isDateRange = Array.isArray(domain) && domain.length === 2 && 
@@ -30,7 +30,9 @@ function buildXAxisOptions(label: string | undefined, domain: any, gutterPx: num
       label: '', 
       domain: domain ?? [0, 1], 
       type: isDateRange ? 'utc' : (isCategorical ? 'band' : undefined),
-      labelArrow: null 
+      labelArrow: null,
+      nice: false,  // Match internal plot axis configuration for exact alignment
+      ...(padding !== undefined && isCategorical ? { padding } : {}),  // Match internal band padding for bar positioning
     }, 
     marks: [Plot.axisX()],
   } as any;
@@ -58,6 +60,7 @@ const XAxes: React.FC<XAxesProps> = ({
                 const xLabel = (sample as any)?.options?.x?.label;
                 const xDomain = (sample as any)?.options?.x?.domain;
                 const xType = (sample as any)?.options?.x?.type;
+                const xPadding = (sample as any)?.options?.x?.padding;
                 const xRotate = xType === 'band' ? -45 : 0;
                 return (
                   <div
@@ -68,7 +71,7 @@ const XAxes: React.FC<XAxesProps> = ({
                       borderTop: `1px solid #99a795`,
                     }}
                   >
-                    <ObservablePlot options={{ ...buildXAxisOptions(xLabel, xDomain, dynamicXAxisPx, xType), marks: [Plot.axisX({ tickRotate: xRotate as any })] as any }} />
+                    <ObservablePlot options={{ ...buildXAxisOptions(xLabel, xDomain, dynamicXAxisPx, xType, xPadding), marks: [Plot.axisX({ tickRotate: xRotate as any })] as any }} />
                   </div>
                 );
               })}

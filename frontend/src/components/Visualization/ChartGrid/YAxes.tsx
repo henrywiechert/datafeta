@@ -15,7 +15,7 @@ interface YAxesProps {
 /**
  * Build axis-only plot options for external gutters.
  */
-function buildYAxisOptions(domain: any, gutterPx: number, type?: string) {
+function buildYAxisOptions(domain: any, gutterPx: number, type?: string, padding?: number) {
   const first = Array.isArray(domain) ? domain[0] : undefined;
   const isDateString = typeof first === 'string' && /^\d{4}-\d{2}-\d{2}/.test(first);
   const isDateRange = Array.isArray(domain) && domain.length === 2 && 
@@ -33,7 +33,9 @@ function buildYAxisOptions(domain: any, gutterPx: number, type?: string) {
       label: '', 
       domain: domain ?? [0, 1], 
       type: isDateRange ? 'utc' : (isCategorical ? 'band' : undefined),
-      labelArrow: null 
+      labelArrow: null,
+      nice: false,  // Match internal plot axis configuration for exact alignment
+      ...(padding !== undefined && isCategorical ? { padding } : {}),  // Match internal band padding for bar positioning
     },
     marks: [Plot.axisY()],
   } as any;
@@ -47,6 +49,7 @@ const YAxes: React.FC<YAxesProps> = ({ spec, rows, dynamicYAxisPx, rowHeights, h
         const sample = (spec.plots || []).find((p: any) => p.position?.row === r);
         const yDomain = (sample as any)?.options?.y?.domain;
         const yType = (sample as any)?.options?.y?.type;
+        const yPadding = (sample as any)?.options?.y?.padding;
         const trackHeightPx = Math.max(1, rowHeights[r] ?? MIN_GRID_ROW_PX);
         return (
           <div
@@ -57,7 +60,7 @@ const YAxes: React.FC<YAxesProps> = ({ spec, rows, dynamicYAxisPx, rowHeights, h
               borderBottom: r < rows - 1 ? '1px solid #99a795' : undefined,
             }}
           >
-            <ObservablePlot options={{ ...buildYAxisOptions(yDomain, dynamicYAxisPx, yType), height: trackHeightPx }} />
+            <ObservablePlot options={{ ...buildYAxisOptions(yDomain, dynamicYAxisPx, yType, yPadding), height: trackHeightPx }} />
           </div>
         );
       })}
