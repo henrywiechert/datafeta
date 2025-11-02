@@ -411,6 +411,7 @@ export function useVisualizationState() {
         dataSource.selectedTable, 
         dataSource.selectedDatabase, 
         dataSource.joinedTables,
+        dataSource.unionTables,
         state.xAxisFields, 
         state.yAxisFields, 
         connectionDetails?.type, 
@@ -644,7 +645,7 @@ export function useVisualizationState() {
                 payload: { fieldId: field.id, metadata: errorMetadata }
             });
         }
-    }, [dataSource.selectedTable, dataSource.selectedDatabase, connectionDetails?.type, dispatch]);
+    }, [dataSource.selectedTable, dataSource.selectedDatabase, dataSource.unionTables, connectionDetails?.type, dispatch]);
 
     // --- Effects to trigger data fetching ---
     useEffect(() => {
@@ -880,7 +881,7 @@ export function useVisualizationState() {
                 payload: { fieldId, metadata: errorMetadata }
             });
         }
-    }, [state.filterFields, state.filterMetadata, dataSource.selectedTable, dataSource.selectedDatabase, connectionDetails?.type, dispatch]);
+    }, [state.filterFields, state.filterMetadata, dataSource.selectedTable, dataSource.selectedDatabase, dataSource.unionTables, connectionDetails?.type, dispatch]);
 
     // --- Return all state and handlers ---
     return {
