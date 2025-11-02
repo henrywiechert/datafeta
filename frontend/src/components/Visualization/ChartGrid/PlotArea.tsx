@@ -13,7 +13,8 @@ interface PlotAreaProps {
 }
 
 /**
- * Remove axis labels (preserve grid). For external axes we also disable the axis lines.
+ * Remove axis labels and axis rendering for external axis display.
+ * Preserve grid on measure axes (stable positioning) but disable on category axes (would shift with padding).
  * Force all margins and insets to 0 so plots fill cells exactly with no offset.
  */
 function suppressAxes(options: any, hideX: boolean, hideY: boolean) {
@@ -34,7 +35,7 @@ function suppressAxes(options: any, hideX: boolean, hideY: boolean) {
       ...(next.x || {}),
       label: '',
       axis: false,
-      grid: true,
+      // Preserve grid setting from original options (measure axes should have grid, category axes should not)
     };
   }
   if (hideY) {
@@ -42,7 +43,7 @@ function suppressAxes(options: any, hideX: boolean, hideY: boolean) {
       ...(next.y || {}),
       label: '',
       axis: false,
-      grid: true,
+      // Preserve grid setting from original options (measure axes should have grid, category axes should not)
     };
   }
   return next;
