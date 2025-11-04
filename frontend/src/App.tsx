@@ -10,7 +10,7 @@ import SaveLoadMenu from './components/SaveLoadMenu';
 import ConnectionRestoreDialog from './components/ConnectionRestoreDialog';
 import { 
   exportConfiguration, 
-  downloadConfigFile, 
+  saveConfigFile, 
   validateConfiguration,
   reconstructConnectionDetails 
 } from './services/configurationService';
@@ -122,7 +122,7 @@ function AppContent() {
   };
 
   // Save/Load Configuration Handlers
-  const handleSaveConfiguration = () => {
+  const handleSaveConfiguration = async () => {
     try {
       const config = exportConfiguration(
         state.sheets,
@@ -132,7 +132,7 @@ function AppContent() {
         dataSource.selectedDatabase,
         dataSource.selectedTable
       );
-      downloadConfigFile(config);
+      await saveConfigFile(config);
     } catch (error) {
       console.error('Failed to save configuration:', error);
       alert('Failed to save configuration: ' + (error instanceof Error ? error.message : 'Unknown error'));

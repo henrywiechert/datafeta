@@ -8,6 +8,28 @@ import {
 const CURRENT_VERSION = '1.0.0';
 const APP_NAME = 'data-slicer';
 
+// Type definitions for File System Access API
+interface FileSystemFileHandle {
+  createWritable(): Promise<FileSystemWritableFileStream>;
+}
+
+interface FileSystemWritableFileStream extends WritableStream {
+  write(data: Blob | string): Promise<void>;
+  close(): Promise<void>;
+}
+
+interface ShowSaveFilePickerOptions {
+  suggestedName?: string;
+  types?: Array<{
+    description: string;
+    accept: Record<string, string[]>;
+  }>;
+}
+
+interface WindowWithFileSystem extends Window {
+  showSaveFilePicker?(options?: ShowSaveFilePickerOptions): Promise<FileSystemFileHandle>;
+}
+
 /**
  * Creates a SavedConnectionMetadata object from ConnectionDetails,
  * stripping out sensitive information like passwords.
@@ -152,7 +174,73 @@ export function importConfiguration(jsonString: string): SavedConfiguration {
 }
 
 /**
+ * Generates a default filename for the configuration.
+ */
+function getDefaultFilename(): string {
+  return `data-slicer-config-${new Date().toISOString().slice(0, 10)}.json`;
+}
+
+/**
+ * Saves the configuration file using a file dialog if available, otherwise falls back to download.
+ * Uses the File System Access API in supported browsers, or prompts for filename in others.
+ */
+export async function saveConfigFile(config: SavedConfiguration): Promise<void> {
+  const json = JSON.stringify(config, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const defaultFilename = getDefaultFilename();
+
+  // Check if File System Access API is available (Chrome, Edge, Opera)
+  const windowWithFS = window as WindowWithFileSystem;
+  if (windowWithFS.showSaveFilePicker) {
+    try {
+      const fileHandle = await windowWithFS.showSaveFilePicker({
+        suggestedName: defaultFilename,
+        types: [{
+          description: 'JSON Configuration Files',
+          accept: { 'application/json': ['.json'] }
+        }]
+      });
+
+      const writable = await fileHandle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return;
+    } catch (error: any) {
+      // User cancelled the dialog, or error occurred
+      if (error.name === 'AbortError') {
+        return; // User cancelled, don't show error
+      }
+      // Fall through to fallback method
+      console.warn('File System Access API failed, using fallback:', error);
+    }
+  }
+
+  // Fallback: Prompt for filename or use default
+  let filename = defaultFilename;
+  
+  // Try to get filename from user via prompt
+  const userInput = prompt('Enter filename (or press OK to use default):', defaultFilename);
+  if (userInput !== null) {
+    // User provided input
+    if (userInput.trim()) {
+      // Ensure it has .json extension
+      filename = userInput.trim().endsWith('.json') 
+        ? userInput.trim() 
+        : `${userInput.trim()}.json`;
+    }
+    // If empty, use default filename
+  } else {
+    // User cancelled prompt, don't save
+    return;
+  }
+
+  // Use the download method as fallback
+  downloadConfigFile(config, filename);
+}
+
+/**
  * Triggers a browser download of the configuration as a JSON file.
+ * This is used as a fallback when the File System Access API is not available.
  */
 export function downloadConfigFile(config: SavedConfiguration, filename?: string): void {
   const json = JSON.stringify(config, null, 2);
@@ -161,7 +249,7 @@ export function downloadConfigFile(config: SavedConfiguration, filename?: string
   
   const link = document.createElement('a');
   link.href = url;
-  link.download = filename || `data-slicer-config-${new Date().toISOString().slice(0, 10)}.json`;
+  link.download = filename || getDefaultFilename();
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
