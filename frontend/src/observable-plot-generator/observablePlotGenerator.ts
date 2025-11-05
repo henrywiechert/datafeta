@@ -182,7 +182,7 @@ function createMessageChart(message: string): PlotResult {
 }
 
 // Helper to construct unified label configuration object for chart builders
-function buildLabelCfg(context: ChartGenerationContext) {
+export function buildLabelCfg(context: ChartGenerationContext) {
   const {
     labelFields = [],
     labelsEnabled = false,

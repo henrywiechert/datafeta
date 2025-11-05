@@ -14,6 +14,8 @@ import {
 import { coordinateFacetedGrid, CellGenerator, CellResult, PositionedPlot } from './facetCoordinator';
 import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField } from '../chartTypes/barCore';
 import { getResultColumnName } from '../../utils/fieldUtils';
+import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
+import { buildLabelCfg } from '../observablePlotGenerator';
 
 /**
  * Chart-specific configuration derived from context and facet plan.
@@ -99,7 +101,8 @@ function createBarCellGenerator(
   categoryField: Field | null,
   sharedCategoryDomain: any[],
   colorField?: Field | null,
-  bandPadding?: number
+  bandPadding?: number,
+  labelCfg?: { labelFields: any[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
 ): CellGenerator {
   return (cellData, cellContext, sharedDomains, facetPosition): CellResult => {
     const orientedFields = barOrientation === 'barX' ? xFields : yFields;
@@ -157,6 +160,54 @@ function createBarCellGenerator(
           valueDomainOverride: useStackedDomain ? undefined : (valueDomain as [number, number]),
           tooltipColumns: [colorField?.columnName].filter(Boolean) as string[],
         });
+        
+        // --- Label integration for faceted bars ---
+        if (labelCfg) {
+          let labelData = cellData;
+          const orientation = barOrientation === 'barX' ? 'horizontal' : 'vertical';
+          
+          // Aggregate label data by category (and color if present) to match Observable Plot's internal aggregation
+          if (categoryColumnName) {
+            const aggregatedMap = new Map<string, any>();
+            for (const row of cellData) {
+              const key = colorColumnName 
+                ? `${row[categoryColumnName]}|${row[colorColumnName] || ''}`
+                : String(row[categoryColumnName]);
+              if (!aggregatedMap.has(key)) {
+                aggregatedMap.set(key, {
+                  [measureName]: 0,
+                  [categoryColumnName]: row[categoryColumnName],
+                  ...(colorColumnName ? { [colorColumnName]: row[colorColumnName] } : {})
+                });
+              }
+              const existing = aggregatedMap.get(key);
+              const val = row[measureName];
+              if (typeof val === 'number' && isFinite(val)) {
+                existing[measureName] += val;
+              }
+            }
+            labelData = Array.from(aggregatedMap.values());
+          }
+          
+          const labelConfig: LabelRenderConfig = {
+            data: labelData,
+            xColumn: orientation === 'vertical' ? (categoryColumnName || '__single_category') : measureName,
+            yColumn: orientation === 'vertical' ? measureName : (categoryColumnName || '__single_category'),
+            labelFields: labelCfg.labelFields as any[],
+            labelsEnabled: labelCfg.labelsEnabled,
+            samplingStrategy: labelCfg.samplingStrategy,
+            samplingThreshold: labelCfg.samplingThreshold,
+            sampleEvery: labelCfg.sampleEvery,
+            chartType: 'bar',
+            orientation
+          };
+          
+          const prepared = prepareLabelData(labelConfig);
+          const mark = createLabelMark(prepared, labelConfig, labelConfig.xColumn, labelConfig.yColumn);
+          if (mark) {
+            (options.marks = options.marks || []).push(mark as any);
+          }
+        }
         
         title = measureName;
       } else {
@@ -225,6 +276,9 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       manualSize,
     }) ?? BAND_PADDING;
     
+    // Get label configuration
+    const labelCfg = buildLabelCfg(context);
+    
     // Create a specialized cell generator for multi-measure bar charts
     const barCellGen = createBarCellGenerator(
       xFields,
@@ -234,7 +288,8 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       categoryField,
       sharedCategoryDomain || [],
       colorField,
-      globalBandPadding
+      globalBandPadding,
+      labelCfg
     );
     
     // Use the coordinator for chart-type-agnostic faceting

@@ -93,10 +93,43 @@ export function barUnified(
 
     // --- Label integration -------------------------------------------------
     if (labelCfg) {
+      console.log('[barUnified] Label config present:', { 
+        labelsEnabled: labelCfg.labelsEnabled,
+        hasLabelFields: (labelCfg.labelFields?.length || 0) > 0,
+        categoryColumn,
+        colorColumn,
+        aggregatedLength: aggregated.length
+      });
+      
       // For bar charts we want one label per visible bar segment. Our aggregated dataset already
       // represents either categories (one row per category) or stacking segments (one row per color when stacked).
       // We approximate small segment filtering (<10px) only for stacked case by comparing relative value ratio.
       let labelData = aggregated;
+      
+      // When categories are present, Observable Plot aggregates bars internally by category (and color if present).
+      // We need to aggregate label data to match: one row per unique category (or category+color combination).
+      if (categoryColumn) {
+        const aggregatedMap = new Map<string, any>();
+        for (const row of aggregated) {
+          const key = colorColumn 
+            ? `${row[categoryColumn]}|${row[colorColumn] || ''}`
+            : String(row[categoryColumn]);
+          if (!aggregatedMap.has(key)) {
+            aggregatedMap.set(key, {
+              [measureName]: 0,
+              [categoryColumn]: row[categoryColumn],
+              ...(colorColumn ? { [colorColumn]: row[colorColumn] } : {})
+            });
+          }
+          const existing = aggregatedMap.get(key);
+          const val = row[measureName];
+          if (typeof val === 'number' && isFinite(val)) {
+            existing[measureName] += val;
+          }
+        }
+        labelData = Array.from(aggregatedMap.values());
+      }
+      
       const isStacked = !categoryColumn && !!colorColumn; // single bar stacked by color
       if (isStacked) {
         const total = labelData.reduce((sum: number, r: any) => sum + (typeof r[measureName] === 'number' ? r[measureName] : 0), 0) || 0;
@@ -109,7 +142,7 @@ export function barUnified(
           });
         }
       }
-      // When we have categories and color segments (grouped by category & color) labelData already one row per record.
+      // When we have categories and color segments (grouped by category & color) labelData now has one row per unique combination.
       // When we have categories only: one row per category -> fine.
       // When we have neither categories nor color: single bar -> need synthetic category.
       const needsSyntheticCategory = !categoryColumn && !colorColumn;
@@ -137,9 +170,21 @@ export function barUnified(
         }
       }
       const prepared = prepareLabelData(labelConfig);
+      console.log('[barUnified] Prepared label data:', {
+        shouldRender: prepared.shouldRender,
+        dataLength: prepared.data.length,
+        sampleData: prepared.data[0],
+        xColumn: labelConfig.xColumn,
+        yColumn: labelConfig.yColumn
+      });
+      
       const mark = createLabelMark(prepared, labelConfig, labelConfig.xColumn, labelConfig.yColumn);
+      console.log('[barUnified] Label mark created:', mark ? 'yes' : 'no');
       if (mark) {
         (options.marks = options.marks || []).push(mark as any);
+        console.log('[barUnified] Label mark added to options.marks, total marks:', options.marks?.length);
+      } else {
+        console.log('[barUnified] Label mark is null, not adding');
       }
     }
 
