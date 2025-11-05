@@ -24,9 +24,15 @@ export function prepareLabelData(cfg: LabelRenderConfig): { shouldRender: boolea
   if (!cfg.labelsEnabled) return { shouldRender: false, data: [] };
   if (total === 0) return { shouldRender: false, data: [] };
 
-  // Auto suppression above threshold, with sampling for scatter
+  // Auto suppression above threshold, with sampling for scatter and bar charts
   if (cfg.samplingStrategy === 'auto' && total > cfg.samplingThreshold) {
     if (cfg.chartType === 'scatter') {
+      const every = Math.max(1, Math.ceil(total / cfg.samplingThreshold));
+      const sampled = cfg.data.filter((_, i) => i % every === 0);
+      return { shouldRender: true, data: sampled };
+    }
+    // For bar charts, sample labels when there are too many categories
+    if (cfg.chartType === 'bar') {
       const every = Math.max(1, Math.ceil(total / cfg.samplingThreshold));
       const sampled = cfg.data.filter((_, i) => i % every === 0);
       return { shouldRender: true, data: sampled };
@@ -107,9 +113,26 @@ function formatValue(v: any): string {
 
 /** Create Plot.text mark for labels */
 export function createLabelMark(prepared: { shouldRender: boolean; data: any[] }, cfg: LabelRenderConfig, xCol: string, yCol: string) {
-  if (!prepared.shouldRender) return null;
+  if (!prepared.shouldRender) {
+    console.log('[LabelMark] Not rendering - shouldRender is false');
+    return null;
+  }
+  if (prepared.data.length === 0) {
+    console.log('[LabelMark] Not rendering - data is empty');
+    return null;
+  }
   const textValues = prepared.data.map(d => buildLabelString(d, cfg)).filter(s => s.length > 0);
-  if (textValues.length === 0) return null;
+  if (textValues.length === 0) {
+    console.log('[LabelMark] Not rendering - all label strings are empty', {
+      dataLength: prepared.data.length,
+      sample: prepared.data[0],
+      xCol,
+      yCol,
+      chartType: cfg.chartType,
+      orientation: cfg.orientation
+    });
+    return null;
+  }
   const isScatter = cfg.chartType === 'scatter';
   const isLine = cfg.chartType === 'line' || cfg.chartType === 'verticalLine';
   // For scatter: push labels further up so they don't cover dot; remove halo stroke; disable pointer events
