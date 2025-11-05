@@ -12,6 +12,8 @@ export interface LabelRenderConfig {
   sampleEvery: number;
   chartType: 'scatter' | 'line' | 'verticalLine' | 'bar';
   orientation?: 'vertical' | 'horizontal'; // for bar charts
+  colorColumn?: string; // for stacked bar labels
+  isStacked?: boolean; // whether bars are stacked (no category but has color)
 }
 
 export const HARD_CAP = 5000;
@@ -133,6 +135,40 @@ export function createLabelMark(prepared: { shouldRender: boolean; data: any[] }
     });
     return null;
   }
+  
+  // For stacked bars (no category but has color), use Plot.stackY or Plot.stackX
+  // This positions labels in the middle of each stacked segment
+  if (cfg.chartType === 'bar' && cfg.isStacked && cfg.colorColumn) {
+    const base: any = {
+      text: (d: any) => buildLabelString(d, cfg),
+      z: cfg.colorColumn, // Group by color for stacking
+      fontSize: 10,
+      lineHeight: 1.1,
+      fill: 'black',
+      textAnchor: 'middle',
+      pointerEvents: 'none',
+      stroke: 'white',
+      strokeWidth: 3,
+    };
+    
+    if (cfg.orientation === 'vertical') {
+      // Vertical stacked bar: use Plot.textY with Plot.stackY transform
+      return Plot.textY(prepared.data, Plot.stackY({
+        ...base,
+        x: xCol,
+        y: yCol,
+      }));
+    } else {
+      // Horizontal stacked bar: use Plot.textX with Plot.stackX transform
+      return Plot.textX(prepared.data, Plot.stackX({
+        ...base,
+        x: xCol,
+        y: yCol,
+      }));
+    }
+  }
+  
+  // Regular (non-stacked) labels
   const isScatter = cfg.chartType === 'scatter';
   const isLine = cfg.chartType === 'line' || cfg.chartType === 'verticalLine';
   // For scatter: push labels further up so they don't cover dot; remove halo stroke; disable pointer events
