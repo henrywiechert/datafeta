@@ -166,18 +166,20 @@ function createBarCellGenerator(
           let labelData = cellData;
           const orientation = barOrientation === 'barX' ? 'horizontal' : 'vertical';
           
-          // Aggregate label data by category (and color if present) to match Observable Plot's internal aggregation
-          if (categoryColumnName) {
+          // When categories are present AND we have color (stacked bars), use RAW data for Plot.stackY()
+          // When categories are present WITHOUT color, aggregate by category only
+          if (categoryColumnName && colorColumnName) {
+            // For stacked bars with categories: use raw data, Plot.stackY will handle the stacking
+            labelData = cellData; // Already has category, measure, and color columns
+          } else if (categoryColumnName) {
+            // For non-stacked categorical bars: aggregate by category only
             const aggregatedMap = new Map<string, any>();
             for (const row of cellData) {
-              const key = colorColumnName 
-                ? `${row[categoryColumnName]}|${row[colorColumnName] || ''}`
-                : String(row[categoryColumnName]);
+              const key = String(row[categoryColumnName]);
               if (!aggregatedMap.has(key)) {
                 aggregatedMap.set(key, {
                   [measureName]: 0,
-                  [categoryColumnName]: row[categoryColumnName],
-                  ...(colorColumnName ? { [colorColumnName]: row[colorColumnName] } : {})
+                  [categoryColumnName]: row[categoryColumnName]
                 });
               }
               const existing = aggregatedMap.get(key);
@@ -189,6 +191,9 @@ function createBarCellGenerator(
             labelData = Array.from(aggregatedMap.values());
           }
           
+          // Bars are stacked whenever we have a color field (regardless of whether we have categories)
+          const isStacked = !!colorColumnName;
+          
           const labelConfig: LabelRenderConfig = {
             data: labelData,
             xColumn: orientation === 'vertical' ? (categoryColumnName || '__single_category') : measureName,
@@ -199,7 +204,9 @@ function createBarCellGenerator(
             samplingThreshold: labelCfg.samplingThreshold,
             sampleEvery: labelCfg.sampleEvery,
             chartType: 'bar',
-            orientation
+            orientation,
+            colorColumn: colorColumnName,
+            isStacked: isStacked
           };
           
           const prepared = prepareLabelData(labelConfig);
