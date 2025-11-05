@@ -233,6 +233,18 @@ class QueryService:
         """
         Parse a field reference that may include a table prefix (e.g., 'customers.name').
         
+        Special handling for ClickHouse nested columns:
+        - Some ClickHouse columns have periods in their names (nested structures)
+        - Column names may include the table name as a prefix (e.g., 'tableName.column.subcolumn')
+        - We need to distinguish between:
+          a) Real table prefix for multi-table queries: 'orders.amount' where 'orders' is a joined table
+          b) Column name with periods in a single-table query: 'tableName.measurement.field' is the full column name
+        
+        Strategy:
+        - In multi-table queries (len(table_map) > 1): Parse as table.column if the prefix matches a known table
+        - In single-table queries (len(table_map) == 1): Treat the entire field name as a column name (don't split)
+          Exception: If the prefix matches a table OTHER than the default table, still split (handles edge cases)
+        
         Args:
             field_name: Field name, optionally with table prefix
             table_map: Dictionary mapping table names to PyPika Table objects
@@ -242,17 +254,44 @@ class QueryService:
             PyPika Field object
         """
         if '.' in field_name:
-            # Field has table prefix
             parts = field_name.split('.', 1)
             if len(parts) == 2:
-                table_name, col_name = parts
-                if table_name in table_map:
-                    return table_map[table_name][col_name]
+                potential_table_name, remaining = parts
+                
+                # Check if this looks like a table prefix
+                is_table_prefix = potential_table_name in table_map
+                
+                if is_table_prefix:
+                    # Check if this is a multi-table query
+                    is_multi_table = len(table_map) > 1
+                    
+                    # Get the default table's name for comparison
+                    default_table_name = None
+                    for tname, tobj in table_map.items():
+                        if tobj == default_table:
+                            default_table_name = tname
+                            break
+                    
+                    # Only split if:
+                    # 1. It's a multi-table query, OR
+                    # 2. The potential table name is different from the default table
+                    #    (this would be unusual but possible in edge cases)
+                    if is_multi_table or potential_table_name != default_table_name:
+                        # Treat as table.column reference
+                        logger.debug(f"Splitting field '{field_name}' into table '{potential_table_name}' and column '{remaining}'")
+                        return table_map[potential_table_name][remaining]
+                    else:
+                        # Single-table query and the prefix matches our only table
+                        # This means the column name itself includes the table prefix
+                        # Don't split - use the full name as column
+                        logger.debug(f"Single-table query: treating '{field_name}' as full column name (not splitting)")
+                        return default_table[field_name]
                 else:
-                    logger.warning(f"Table '{table_name}' not found in table_map, using default table")
-                    return default_table[field_name]  # Fall back to full name as single field
+                    # Not a known table prefix - use full name as column
+                    logger.debug(f"'{potential_table_name}' not in table_map, using full field name '{field_name}' as column")
+                    return default_table[field_name]
         
-        # No table prefix - use default table
+        # No periods - simple column name
         return default_table[field_name]
 
     def _translate_union_query(
