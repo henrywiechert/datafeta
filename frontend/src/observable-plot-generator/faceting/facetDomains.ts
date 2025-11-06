@@ -25,7 +25,8 @@ export function computeSharedDomainsForFaceting(
   colorField?: Field,
   categoryField?: Field,
   facetFields?: Field[],
-  colorSchemeId?: string
+  colorSchemeId?: string,
+  colorBias?: number
 ): SharedDomains {
   // Compute shared measure domains
   const allMeasures = [...xFields, ...yFields].filter((f: any) => f.type === 'measure' && f.flavour === 'continuous');
@@ -47,7 +48,7 @@ export function computeSharedDomainsForFaceting(
     : {};
 
   // Compute shared color domain
-  const colorScale = colorField ? deriveColorScaleInfo(data, colorField, colorSchemeId) : null;
+  const colorScale = colorField ? deriveColorScaleInfo(data, colorField, colorSchemeId, colorBias) : null;
 
   return {
     measure: measureDomains as Record<string, [number, number]>,

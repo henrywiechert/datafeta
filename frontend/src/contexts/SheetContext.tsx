@@ -17,6 +17,7 @@ function createEmptyVisualizationState(): VisualizationStateSnapshot {
     appliedFilterConfigurations: {},
     colorField: null,
     colorScheme: 'tableau10',
+    colorBias: 0,
     sizeField: null,
     sizeRange: [4, 20],
     manualSize: 10,

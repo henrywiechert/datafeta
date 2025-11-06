@@ -29,7 +29,7 @@ export function generateCartesianGrid(
   yCandidates: Field[],
   overrides?: ChartTypeOverrides
 ): PlotResult {
-  const { queryResult, colorField, colorScheme, sizeField, sizeRange, manualSize } = context;
+  const { queryResult, colorField, colorScheme, colorBias, sizeField, sizeRange, manualSize } = context;
   const data = queryResult.rows;
 
   // Compute shared domains for any measures used in the grid
@@ -44,6 +44,7 @@ export function generateCartesianGrid(
     overrides,
     colorField,
     colorScheme,
+    colorBias,
     sizeField,
     sizeRange,
     manualSize,
@@ -87,6 +88,7 @@ export function generateCartesianPlots(
   overrides?: ChartTypeOverrides,
   colorField?: Field,
   colorScheme?: string,
+  colorBias?: number,
   sizeField?: Field,
   sizeRange?: [number, number],
   manualSize?: number,
@@ -99,7 +101,7 @@ export function generateCartesianPlots(
   const sharedNumeric = computeSharedNumericDomains(data, xCandidates as any[], yCandidates as any[]);
 
   // Compute a shared color domain across the entire grid when a color field is present
-  const sharedColorScale = colorField ? deriveColorScaleInfo(data, colorField, colorScheme) : null;
+  const sharedColorScale = colorField ? deriveColorScaleInfo(data, colorField, colorScheme, colorBias) : null;
 
   for (let r = 0; r < yCandidates.length; r++) {
     for (let c = 0; c < xCandidates.length; c++) {
@@ -117,6 +119,7 @@ export function generateCartesianPlots(
         sizeRange,
         manualSize,
         colorScheme,
+        colorBias,
         labelCfg
       );
 

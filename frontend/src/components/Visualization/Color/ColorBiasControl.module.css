@@ -1,0 +1,13 @@
+.container {
+  padding: 12px 16px;
+  border-top: 1px solid #e0e0e0;
+  background-color: #fafafa;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #424242;
+  display: block;
+  margin-bottom: 4px;
+}

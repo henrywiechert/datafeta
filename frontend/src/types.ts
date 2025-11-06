@@ -342,6 +342,7 @@ export interface VisualizationStateSnapshot {
   appliedFilterConfigurations: Record<string, FilterConfig>;
   colorField: Field | null;
   colorScheme: string;
+  colorBias: number; // -1 (left bias) to 1 (right bias), 0 = centered
   sizeField: Field | null;
   sizeRange: [number, number];
   manualSize: number;
