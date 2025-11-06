@@ -17,6 +17,7 @@ export function scatterChart(
   options?: { x?: string; y?: string; domain?: { x?: [number, number] | [Date, Date]; y?: [number, number] | [Date, Date] } },
   colorField?: Field,
   colorScheme?: string,
+  colorBias?: number,
   sizeField?: Field,
   sizeRange?: [number, number],
   manualSize?: number
@@ -81,13 +82,33 @@ export function scatterChart(
     },
   };
   
-  const colorInfo = colorField ? deriveColorScaleInfo(clean, colorField, colorScheme) : null;
+  const colorInfo = colorField ? deriveColorScaleInfo(clean, colorField, colorScheme, colorBias) : null;
   if (colorField && colorInfo) {
     const colorColumnName = getResultColumnName(colorField);
     dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
 
-    if (colorInfo.kind === 'continuous' && colorInfo.accessor) {
-      dotConfig.fill = (d: any) => colorInfo.accessor?.(d) ?? null;
+    if (colorInfo.kind === 'continuous') {
+      // Apply bias transformation to continuous values
+      if (colorBias !== undefined && colorBias !== 0) {
+        const [min, max] = colorInfo.domain as [number, number];
+        const range_val = max - min;
+        const exponent = Math.pow(2, -colorBias);
+        
+        dotConfig.fill = (d: any) => {
+          const value = d[colorColumnName];
+          if (value == null) return null;
+          // Normalize to [0, 1]
+          const t = (value - min) / range_val;
+          // Apply power transform
+          const transformedT = Math.pow(Math.max(0, Math.min(1, t)), exponent);
+          // Return denormalized value for the scale to map
+          return min + transformedT * range_val;
+        };
+      } else if (colorInfo.accessor) {
+        dotConfig.fill = (d: any) => colorInfo.accessor?.(d) ?? null;
+      } else {
+        dotConfig.fill = colorColumnName;
+      }
     } else {
       dotConfig.fill = colorColumnName;
     }

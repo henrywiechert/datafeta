@@ -125,6 +125,7 @@ export function baseGeneratePlot(context: ChartGenerationContext): PlotResult {
         undefined,
         colorField,
         colorScheme,
+        context.colorBias,
         sizeField,
         sizeRange,
         manualSize,

@@ -175,12 +175,19 @@ const VisualizationPageContent = () => {
                             <ColorPanel
                                 colorField={state.colorField}
                                 colorScheme={state.colorScheme}
+                                colorBias={state.colorBias}
                                 onDrop={handleColorDrop}
                                 onRemove={handleRemoveFromColor}
                                 onSchemeChange={(schemeId) => {
                                     dispatch({
                                         type: 'SET_COLOR_SCHEME',
                                         payload: schemeId
+                                    });
+                                }}
+                                onBiasChange={(bias) => {
+                                    dispatch({
+                                        type: 'SET_COLOR_BIAS',
+                                        payload: bias
                                     });
                                 }}
                             />
@@ -191,6 +198,7 @@ const VisualizationPageContent = () => {
                                     colorField={state.colorField}
                                     queryResult={state.queryResult}
                                     colorScheme={state.colorScheme}
+                                    colorBias={state.colorBias}
                                 />
                             )}
                         </Box>

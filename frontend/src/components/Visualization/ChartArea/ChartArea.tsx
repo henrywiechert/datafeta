@@ -14,7 +14,7 @@ import { ChartRenderer, ChartControls, DebugPanel } from './components';
 const ChartArea: React.FC = () => {
   const { state, dispatch, startOperation, completeOperation } = useVisualizationContext();
   const { dataSource } = useDataSource();
-  const { xAxisFields, yAxisFields, colorField, colorScheme, sizeField, sizeRange, manualSize, queryResult, queryError, appliedFilterConfigurations, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery } = state as any;
+  const { xAxisFields, yAxisFields, colorField, colorScheme, colorBias, sizeField, sizeRange, manualSize, queryResult, queryError, appliedFilterConfigurations, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery } = state as any;
   const { selectedTable, selectedDatabase, virtualTable } = dataSource;
 
   // Use the extracted data processing hook
@@ -46,6 +46,7 @@ const ChartArea: React.FC = () => {
     yAxisFields,
     colorField,
     colorScheme,
+    colorBias,
     sizeField,
     sizeRange,
     manualSize,

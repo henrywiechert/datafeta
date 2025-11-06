@@ -10,19 +10,21 @@ interface LegendPanelProps {
   colorField: Field | null;
   queryResult: QueryResult | null;
   colorScheme?: string;
+  colorBias?: number;
 }
 
 const LegendPanel: React.FC<LegendPanelProps> = ({
   colorField,
   queryResult,
   colorScheme = DEFAULT_CATEGORICAL_SCHEME,
+  colorBias = 0,
 }) => {
   const colorScale = useMemo(() => {
     if (!colorField || !queryResult?.rows) {
       return null;
     }
-    return deriveColorScaleInfo(queryResult.rows, colorField, colorScheme);
-  }, [colorField, colorScheme, queryResult]);
+    return deriveColorScaleInfo(queryResult.rows, colorField, colorScheme, colorBias);
+  }, [colorField, colorScheme, colorBias, queryResult]);
 
   const formatValue = (value: any): string => {
     if (value === null || value === undefined) return 'NULL';
