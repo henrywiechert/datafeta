@@ -9,6 +9,7 @@ interface UseChartGenerationProps {
   yAxisFields: any[];
   colorField: Field | null;
   colorScheme?: string;
+  colorBias?: number;
   sizeField: Field | null;
   sizeRange: [number, number];
   manualSize: number;
@@ -36,6 +37,7 @@ export const useChartGeneration = ({
   yAxisFields,
   colorField,
   colorScheme,
+  colorBias = 0,
   sizeField,
   sizeRange,
   manualSize,
@@ -77,6 +79,7 @@ export const useChartGeneration = ({
         yFields: yAxisFields,
         colorField: colorField || undefined,
         colorScheme,
+        colorBias,
         sizeField: sizeField || undefined,
         sizeRange,
         manualSize,
@@ -102,7 +105,7 @@ export const useChartGeneration = ({
       setChartInfo(null);
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, colorField, colorScheme, sizeField, sizeRange, manualSize, useTableView, startOperation, completeOperation, queryResult, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery]);
+  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, sizeField, sizeRange, manualSize, useTableView, startOperation, completeOperation, queryResult, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery]);
 
   const cancelGeneration = useCallback(() => {
     // No-op since Observable Plot generation is synchronous

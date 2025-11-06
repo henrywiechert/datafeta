@@ -33,6 +33,7 @@ interface VisualizationState {
   // Color encoding state
   colorField: Field | null;
   colorScheme: string;
+  colorBias: number; // -1 (left bias) to 1 (right bias), 0 = centered
   // Size encoding state
   sizeField: Field | null;
   sizeRange: [number, number]; // Min and max size
@@ -90,6 +91,7 @@ type VisualizationAction =
   // Color encoding action types
   | { type: 'SET_COLOR_FIELD'; payload: Field | null }
   | { type: 'SET_COLOR_SCHEME'; payload: string }
+  | { type: 'SET_COLOR_BIAS'; payload: number }
   | { type: 'REMOVE_COLOR_FIELD' }
   // Size encoding action types
   | { type: 'SET_SIZE_FIELD'; payload: Field | null }
@@ -133,6 +135,7 @@ const initialState: VisualizationState = {
   // Color encoding state
   colorField: null,
   colorScheme: 'tableau10',
+  colorBias: 0, // Default: centered gradient
   // Size encoding state
   sizeField: null,
   sizeRange: [4, 20], // Default range for sizes
@@ -380,6 +383,8 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
       return { ...state, colorField: action.payload };
     case 'SET_COLOR_SCHEME':
       return { ...state, colorScheme: action.payload };
+    case 'SET_COLOR_BIAS':
+      return { ...state, colorBias: action.payload };
     case 'REMOVE_COLOR_FIELD':
       return { ...state, colorField: null };
     case 'SET_SIZE_FIELD':

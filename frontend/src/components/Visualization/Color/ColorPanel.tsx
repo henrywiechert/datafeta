@@ -4,21 +4,26 @@ import { Field, DragSource } from '../../../types';
 import { PropertySection } from '../Properties';
 import ColorDropZone from './ColorDropZone';
 import ColorSchemeSelector from './ColorSchemeSelector';
+import ColorBiasControl from './ColorBiasControl';
 
 interface ColorPanelProps {
   colorField: Field | null;
   colorScheme?: string;
+  colorBias?: number;
   onDrop: (field: Field, source: DragSource) => void;
   onRemove: () => void;
   onSchemeChange?: (schemeId: string) => void;
+  onBiasChange?: (bias: number) => void;
 }
 
 const ColorPanel: React.FC<ColorPanelProps> = ({
   colorField,
   colorScheme = 'tableau10',
+  colorBias = 0,
   onDrop,
   onRemove,
   onSchemeChange,
+  onBiasChange,
 }) => {
   return (
     <PropertySection
@@ -41,6 +46,12 @@ const ColorPanel: React.FC<ColorPanelProps> = ({
         onDrop={onDrop}
         onRemove={onRemove}
       />
+      {colorField && colorField.flavour === 'continuous' && onBiasChange && (
+        <ColorBiasControl
+          colorBias={colorBias}
+          onChange={onBiasChange}
+        />
+      )}
     </PropertySection>
   );
 };

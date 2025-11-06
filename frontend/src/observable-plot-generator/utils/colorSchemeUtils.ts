@@ -15,6 +15,7 @@ export interface ColorScaleInfo {
   accessor?: (row: any) => number | null;
   rawMin?: any;
   rawMax?: any;
+  interpolate?: (t: number) => string; // Custom interpolation function for bias
 }
 
 /**
@@ -79,12 +80,36 @@ function toNumeric(value: any): number | null {
 const DEFAULT_SINGLE_VALUE_EPSILON = 1;
 
 /**
+ * Apply bias to a normalized value (0-1).
+ * Bias ranges from -1 (left emphasis) to 1 (right emphasis), with 0 being neutral.
+ * Uses power scaling: bias < 0 uses exponent > 1, bias > 0 uses exponent < 1.
+ */
+function applyBias(t: number, bias: number): number {
+  // Clamp t to [0, 1]
+  t = Math.max(0, Math.min(1, t));
+  
+  if (bias === 0) {
+    return t;
+  }
+  
+  // Convert bias (-1 to 1) to exponent
+  // bias = -1 -> exponent = 3 (compress left side)
+  // bias = 0 -> exponent = 1 (linear)
+  // bias = 1 -> exponent = 0.33 (compress right side)
+  const exponent = Math.pow(2, -bias);
+  
+  return Math.pow(t, exponent);
+}
+
+/**
  * Derive a color scale description (domain, range, optional accessor) for a field.
+ * For continuous fields, bias parameter adjusts the color gradient emphasis.
  */
 export function deriveColorScaleInfo(
   data: any[] | undefined,
   field: Field,
-  colorSchemeId?: string
+  colorSchemeId?: string,
+  colorBias: number = 0
 ): ColorScaleInfo | null {
   if (!field || !Array.isArray(data)) {
     return null;
@@ -157,6 +182,25 @@ export function deriveColorScaleInfo(
     return numeric;
   };
 
+  // Create interpolation function with bias if needed
+  let interpolate: ((t: number) => string) | undefined = undefined;
+  if (colorBias !== 0 && range.length > 0) {
+    interpolate = (t: number) => {
+      const biasedT = applyBias(t, colorBias);
+      const idx = biasedT * (range.length - 1);
+      const lower = Math.floor(idx);
+      const upper = Math.ceil(idx);
+      
+      if (lower === upper || upper >= range.length) {
+        return range[Math.min(lower, range.length - 1)];
+      }
+      
+      // Simple linear interpolation between two colors (could be enhanced with proper color space interpolation)
+      const frac = idx - lower;
+      return interpolateColors(range[lower], range[upper], frac);
+    };
+  }
+
   return {
     kind: 'continuous',
     domain: [minNumeric, maxNumeric],
@@ -164,5 +208,28 @@ export function deriveColorScaleInfo(
     accessor: stableAccessor,
     rawMin,
     rawMax,
+    interpolate,
   };
+}
+
+/**
+ * Simple RGB color interpolation between two hex colors
+ */
+function interpolateColors(color1: string, color2: string, t: number): string {
+  const hex1 = color1.replace('#', '');
+  const hex2 = color2.replace('#', '');
+  
+  const r1 = parseInt(hex1.substring(0, 2), 16);
+  const g1 = parseInt(hex1.substring(2, 4), 16);
+  const b1 = parseInt(hex1.substring(4, 6), 16);
+  
+  const r2 = parseInt(hex2.substring(0, 2), 16);
+  const g2 = parseInt(hex2.substring(2, 4), 16);
+  const b2 = parseInt(hex2.substring(4, 6), 16);
+  
+  const r = Math.round(r1 + (r2 - r1) * t);
+  const g = Math.round(g1 + (g2 - g1) * t);
+  const b = Math.round(b1 + (b2 - b1) * t);
+  
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }

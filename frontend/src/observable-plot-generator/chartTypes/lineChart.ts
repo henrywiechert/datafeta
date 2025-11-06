@@ -18,6 +18,7 @@ export function lineChart(
   domain?: { x?: [number, number] | [Date, Date]; y?: [number, number] | [Date, Date] },
   colorField?: Field,
   colorScheme?: string,
+  colorBias?: number,
   sizeField?: Field,
   sizeRange?: [number, number],
   manualSize?: number,
@@ -71,18 +72,39 @@ export function lineChart(
       [yLabel]: { value: yColumn, label: yLabel }
     }
   };
-  const colorInfo = colorField ? deriveColorScaleInfo(cleanSorted, colorField, colorScheme) : null;
+  const colorInfo = colorField ? deriveColorScaleInfo(cleanSorted, colorField, colorScheme, colorBias) : null;
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
 
   if (colorField && colorInfo) {
     dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
 
-    if (colorInfo.kind === 'continuous' && colorInfo.accessor) {
-      // For continuous color: apply accessor to both dots and line segments
-      dotConfig.fill = (d: any) => colorInfo.accessor?.(d) ?? null;
-      lineConfig.stroke = (d: any) => colorInfo.accessor?.(d) ?? null;
-      // Split line into segments so each point-to-point segment can have its own color
-      lineConfig.z = null;  // Don't group by z, render as individual segments
+    if (colorInfo.kind === 'continuous') {
+      // Apply bias transformation to continuous values
+      if (colorBias !== undefined && colorBias !== 0) {
+        const [min, max] = colorInfo.domain as [number, number];
+        const range_val = max - min;
+        const exponent = Math.pow(2, -colorBias);
+        
+        const transformValue = (d: any) => {
+          const value = d[colorColumnName!];
+          if (value == null) return null;
+          const t = (value - min) / range_val;
+          const transformedT = Math.pow(Math.max(0, Math.min(1, t)), exponent);
+          return min + transformedT * range_val;
+        };
+        
+        dotConfig.fill = transformValue;
+        lineConfig.stroke = transformValue;
+        lineConfig.z = null;
+      } else if (colorInfo.accessor) {
+        dotConfig.fill = (d: any) => colorInfo.accessor?.(d) ?? null;
+        lineConfig.stroke = (d: any) => colorInfo.accessor?.(d) ?? null;
+        lineConfig.z = null;
+      } else {
+        lineConfig.stroke = colorColumnName;
+        lineConfig.z = colorColumnName;
+        dotConfig.fill = colorColumnName;
+      }
     } else {
       // For discrete color: use column name and group by z value
       lineConfig.stroke = colorColumnName;
@@ -177,6 +199,7 @@ export function verticalLineChart(
   domain?: { x?: [number, number] | [Date, Date]; y?: [number, number] | [Date, Date] },
   colorField?: Field,
   colorScheme?: string,
+  colorBias?: number,
   sizeField?: Field,
   sizeRange?: [number, number],
   manualSize?: number,
@@ -230,18 +253,39 @@ export function verticalLineChart(
     tip: { pointer: 'x', preferredAnchor: 'top-right', format: { [xLabel2]: true, [yLabel2]: true, x: false, y: false, fill: false, r: false } }
   };
   
-  const colorInfo = colorField ? deriveColorScaleInfo(cleanSorted, colorField, colorScheme) : null;
+  const colorInfo = colorField ? deriveColorScaleInfo(cleanSorted, colorField, colorScheme, colorBias) : null;
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
 
   if (colorField && colorInfo) {
     dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
 
-    if (colorInfo.kind === 'continuous' && colorInfo.accessor) {
-      // For continuous color: apply accessor to both dots and line segments
-      dotConfig.fill = (d: any) => colorInfo.accessor?.(d) ?? null;
-      lineConfig.stroke = (d: any) => colorInfo.accessor?.(d) ?? null;
-      // Split line into segments so each point-to-point segment can have its own color
-      lineConfig.z = null;  // Don't group by z, render as individual segments
+    if (colorInfo.kind === 'continuous') {
+      // Apply bias transformation to continuous values
+      if (colorBias !== undefined && colorBias !== 0) {
+        const [min, max] = colorInfo.domain as [number, number];
+        const range_val = max - min;
+        const exponent = Math.pow(2, -colorBias);
+        
+        const transformValue = (d: any) => {
+          const value = d[colorColumnName!];
+          if (value == null) return null;
+          const t = (value - min) / range_val;
+          const transformedT = Math.pow(Math.max(0, Math.min(1, t)), exponent);
+          return min + transformedT * range_val;
+        };
+        
+        dotConfig.fill = transformValue;
+        lineConfig.stroke = transformValue;
+        lineConfig.z = null;
+      } else if (colorInfo.accessor) {
+        dotConfig.fill = (d: any) => colorInfo.accessor?.(d) ?? null;
+        lineConfig.stroke = (d: any) => colorInfo.accessor?.(d) ?? null;
+        lineConfig.z = null;
+      } else {
+        lineConfig.stroke = colorColumnName;
+        lineConfig.z = colorColumnName;
+        dotConfig.fill = colorColumnName;
+      }
     } else {
       // For discrete color: use column name and group by z value
       lineConfig.stroke = colorColumnName;

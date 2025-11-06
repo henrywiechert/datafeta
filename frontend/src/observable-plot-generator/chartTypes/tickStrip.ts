@@ -18,9 +18,9 @@ export function tickStrip(
   categoryDimensionColumn?: string,
   labels?: { dimension?: string; category?: string }
 ): Plot.PlotOptions {
-  const { queryResult, colorField, colorScheme, sizeField, sizeRange, manualSize } = context;
+  const { queryResult, colorField, colorScheme, colorBias, sizeField, sizeRange, manualSize } = context;
   const data = queryResult.rows;
-  const colorInfo = colorField ? deriveColorScaleInfo(data, colorField, colorScheme) : null;
+  const colorInfo = colorField ? deriveColorScaleInfo(data, colorField, colorScheme, colorBias) : null;
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
   const strokeValue = colorField && colorInfo
     ? (colorInfo.kind === 'continuous' && colorInfo.accessor
