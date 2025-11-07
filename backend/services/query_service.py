@@ -393,44 +393,13 @@ class QueryService:
         # Combine with UNION ALL
         union_sql = "\nUNION ALL\n".join(union_queries)
         
-        # Determine if we need DISTINCT for discrete-only queries (filter queries)
-        # This prevents duplicate values when the same value exists in multiple tables
-        needs_distinct = False
-        distinct_columns = []
-        if not query_desc.measures and query_desc.dimensions:
-            discrete_dims = [d for d in query_desc.dimensions if d.flavour == 'discrete']
-            continuous_dims = [d for d in query_desc.dimensions if d.flavour == 'continuous']
-            # For pure discrete queries (no continuous dims), apply DISTINCT
-            if len(discrete_dims) > 0 and len(continuous_dims) == 0:
-                needs_distinct = True
-                # Build list of columns to select (excluding _source_table for DISTINCT)
-                # We need to deduplicate only on the actual data columns, not the source table
-                for dim in query_desc.dimensions:
-                    if dim.field != '_source_table':
-                        # Handle datetime parts - they get aliased
-                        if dim.date_part and dim.date_mode:
-                            col_name = f"{dim.field}_{dim.date_part}_{dim.date_mode}"
-                        else:
-                            col_name = dim.field
-                        distinct_columns.append(f"{quote_char}{col_name}{quote_char}")
-                logger.info(f"UNION query is discrete-only, will apply DISTINCT on columns: {distinct_columns}")
-        
-        # Check if we need an outer query (for ORDER BY, LIMIT, _source_table filters, or DISTINCT)
+        # Check if we need an outer query (for ORDER BY, LIMIT, or _source_table filters)
         source_table_filters = [f for f in query_desc.filters if f.field == '_source_table']
-        needs_outer_query = query_desc.orderBy or query_desc.limit or query_desc.offset or source_table_filters or needs_distinct
+        needs_outer_query = query_desc.orderBy or query_desc.limit or query_desc.offset or source_table_filters
         
         if needs_outer_query:
-            # Build outer query for ordering/limiting/filtering on _source_table/applying DISTINCT
-            if needs_distinct and distinct_columns:
-                # Select DISTINCT only on data columns, not _source_table
-                # This prevents duplicate values when the same value exists in multiple tables
-                columns_list = ', '.join(distinct_columns)
-                outer_sql = f"SELECT DISTINCT {columns_list} FROM (\n{union_sql}\n) AS union_result"
-            elif needs_distinct:
-                # Fallback if no distinct columns identified (shouldn't happen)
-                outer_sql = f"SELECT DISTINCT * FROM (\n{union_sql}\n) AS union_result"
-            else:
-                outer_sql = f"SELECT * FROM (\n{union_sql}\n) AS union_result"
+            # Build outer query for ordering/limiting/filtering on _source_table
+            outer_sql = f"SELECT * FROM (\n{union_sql}\n) AS union_result"
             
             # Add WHERE clause for _source_table filters
             if source_table_filters:
