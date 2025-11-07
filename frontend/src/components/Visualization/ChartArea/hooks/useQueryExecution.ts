@@ -285,7 +285,7 @@ export const useQueryExecution = ({
 
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTable, selectedDatabase, connectionDetails, xAxisFields, yAxisFields, colorField, sizeField, labelFields, filterConfigurations]);
+  }, [selectedTable, selectedDatabase, connectionDetails, xAxisFields, yAxisFields, colorField, sizeField, labelFields, filterConfigurations, virtualTable]);
 
   // Cleanup on unmount
   useEffect(() => {
