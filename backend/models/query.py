@@ -104,6 +104,11 @@ class QueryDescription(BaseModel):
     distinct_value_regex: Optional[str] = None  # SQL LIKE pattern to filter distinct values
     use_random_sample: Optional[bool] = None  # Whether to use ORDER BY RANDOM() for sampling
     
+    # NEW: Explicit flag for filter value queries
+    # When True, indicates this query is fetching distinct values for a filter dropdown
+    # In UNION mode, this triggers special handling to deduplicate across tables
+    fetch_filter_values: Optional[bool] = None
+    
     # NEW: Fields needed for point/segment labels in visualization.
     # Frontend treats order as irrelevant; backend simply ensures these columns are selected.
     label_fields: Optional[List[str]] = None
