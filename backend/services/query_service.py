@@ -393,13 +393,39 @@ class QueryService:
         # Combine with UNION ALL
         union_sql = "\nUNION ALL\n".join(union_queries)
         
-        # Check if we need an outer query (for ORDER BY, LIMIT, or _source_table filters)
+        # Check if this is an explicit filter value query (set by frontend)
+        # When fetching filter values across UNION tables, we need to deduplicate
+        # but ONLY on the data column, not including _source_table
+        needs_distinct = query_desc.fetch_filter_values is True
+        distinct_columns = []
+        
+        if needs_distinct:
+            # Build list of columns to select (excluding _source_table for DISTINCT)
+            for dim in query_desc.dimensions:
+                if dim.field != '_source_table':
+                    # Handle datetime parts - they get aliased
+                    if dim.date_part and dim.date_mode:
+                        col_name = f"{dim.field}_{dim.date_part}_{dim.date_mode}"
+                    else:
+                        col_name = dim.field
+                    distinct_columns.append(f"{quote_char}{col_name}{quote_char}")
+            logger.info(f"Filter value query (fetch_filter_values=True) - will apply DISTINCT on: {distinct_columns}")
+        
+        # Check if we need an outer query (for ORDER BY, LIMIT, _source_table filters, or DISTINCT)
         source_table_filters = [f for f in query_desc.filters if f.field == '_source_table']
-        needs_outer_query = query_desc.orderBy or query_desc.limit or query_desc.offset or source_table_filters
+        needs_outer_query = query_desc.orderBy or query_desc.limit or query_desc.offset or source_table_filters or needs_distinct
         
         if needs_outer_query:
-            # Build outer query for ordering/limiting/filtering on _source_table
-            outer_sql = f"SELECT * FROM (\n{union_sql}\n) AS union_result"
+            # Build outer query for ordering/limiting/filtering on _source_table/applying DISTINCT
+            if needs_distinct and distinct_columns:
+                # Filter value query: Select DISTINCT only on data columns, not _source_table
+                # This prevents duplicate values when the same value exists in multiple tables
+                columns_list = ', '.join(distinct_columns)
+                outer_sql = f"SELECT DISTINCT {columns_list} FROM (\n{union_sql}\n) AS union_result"
+                logger.info(f"Applied DISTINCT to filter value query in UNION mode")
+            else:
+                # Regular query: Select all columns
+                outer_sql = f"SELECT * FROM (\n{union_sql}\n) AS union_result"
             
             # Add WHERE clause for _source_table filters
             if source_table_filters:

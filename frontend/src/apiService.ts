@@ -277,6 +277,7 @@ export const apiService = {
             target_database: database,
             dimensions: [dimension],
             measures: [],
+            fetch_filter_values: true,  // Explicit flag for filter value queries
         };
         
         // Add virtual table definition for union queries
