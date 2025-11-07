@@ -49,8 +49,3 @@ Reset button for filter.
 
 DateTime:
 When used as cont. dimension, measures on Y doe not work, only dimensions.
-
-Auto detect measure/dimension/discrete/continous
-E.g.
-discrete types (string): count > 50 -> cont. measure (count)
-cont. type (number): cont. measure (sum)
