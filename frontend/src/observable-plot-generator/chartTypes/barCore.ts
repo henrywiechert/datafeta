@@ -270,13 +270,48 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
   tipFormat.x = false;
   tipFormat.y = false;
   tipFormat.fill = false;
+  
+  // Use a custom title function to ensure long strings aren't truncated (like scatter charts)
+  const titleFunc = (d: any) => {
+    const formatValue = (val: any): string => {
+      if (typeof val === 'number' && !Number.isInteger(val)) {
+        return val.toFixed(2);
+      }
+      return String(val);
+    };
+    
+    const parts: string[] = [];
+    
+    // Add measure value
+    parts.push(`${measureName}: ${formatValue(d[measureName])}`);
+    
+    // Add category if present
+    if (categoryColumn) {
+      parts.push(`${categoryColumn}: ${formatValue(d[categoryColumn])}`);
+    }
+    
+    // Add color field if present and not already shown
+    if (colorColumn && colorColumn !== categoryColumn && colorColumn !== measureName) {
+      parts.push(`${colorColumn}: ${formatValue(d[colorColumn])}`);
+    }
+    
+    // Add any additional tooltip columns
+    tooltipColumns.forEach(col => {
+      if (col && col !== measureName && col !== categoryColumn && col !== colorColumn) {
+        parts.push(`${col}: ${formatValue(d[col])}`);
+      }
+    });
+    
+    return parts.join('\n');
+  };
 
   const baseConfig: any = {
     [O.measure]: measureName,
     fill: fillValue,
     [O.category]: categoryColumn ? categoryColumn : () => categories[0],
     channels: channels,
-    tip: { closest: 'xy', preferredAnchor: 'top-right', format: tipFormat }
+    title: titleFunc,
+    tip: { format: tipFormat }
   };
 
   // When there's no category but there is color, enable stacking with z channel

@@ -126,7 +126,30 @@ export function lineChart(
     lineConfig.strokeWidth = manualSize || 2;
   }
   
-  // Update tooltip format to include color and size when present
+  // Use a custom title function to ensure long strings aren't truncated (like scatter charts)
+  dotConfig.title = (d: any) => {
+    const formatValue = (val: any): string => {
+      if (typeof val === 'number' && !Number.isInteger(val)) {
+        return val.toFixed(2);
+      }
+      return String(val);
+    };
+    
+    const parts: string[] = [];
+    parts.push(`${xLabel}: ${formatValue(d[xColumn])}`);
+    parts.push(`${yLabel}: ${formatValue(d[yColumn])}`);
+    if (colorField) {
+      const colorColumnName = getResultColumnName(colorField);
+      parts.push(`${colorField.columnName}: ${formatValue(d[colorColumnName])}`);
+    }
+    if (sizeField) {
+      const sizeColumnName = getResultColumnName(sizeField);
+      parts.push(`${sizeField.columnName}: ${formatValue(d[sizeColumnName])}`);
+    }
+    return parts.join('\n');
+  };
+  
+  // Configure tooltip format to include all channels (for proper rendering)
   const tipFormat: any = { [xLabel]: true, [yLabel]: true, x: false, y: false, fill: false, r: false };
   if (colorField) {
     tipFormat[colorField.columnName] = true;
@@ -135,7 +158,7 @@ export function lineChart(
     tipFormat[sizeField.columnName] = true;
   }
   
-  dotConfig.tip = { pointer: 'x', preferredAnchor: 'top-right', format: tipFormat };
+  dotConfig.tip = { format: tipFormat } as any;
 
   const plotOptions: Plot.PlotOptions = {
     x: { label: labels?.x || xColumn, domainKey: xColumn, grid: true, domain: domain?.x } as any,
@@ -249,8 +272,7 @@ export function verticalLineChart(
     channels: {
       [xLabel2]: { value: xColumn, label: xLabel2 },
       [yLabel2]: { value: yColumn, label: yLabel2 }
-    },
-    tip: { pointer: 'x', preferredAnchor: 'top-right', format: { [xLabel2]: true, [yLabel2]: true, x: false, y: false, fill: false, r: false } }
+    }
   };
   
   const colorInfo = colorField ? deriveColorScaleInfo(cleanSorted, colorField, colorScheme, colorBias) : null;
@@ -305,6 +327,40 @@ export function verticalLineChart(
   } else {
     lineConfig.strokeWidth = manualSize || 2;
   }
+  
+  // Use a custom title function to ensure long strings aren't truncated (like scatter charts)
+  dotConfig.title = (d: any) => {
+    const formatValue = (val: any): string => {
+      if (typeof val === 'number' && !Number.isInteger(val)) {
+        return val.toFixed(2);
+      }
+      return String(val);
+    };
+    
+    const parts: string[] = [];
+    parts.push(`${xLabel2}: ${formatValue(d[xColumn])}`);
+    parts.push(`${yLabel2}: ${formatValue(d[yColumn])}`);
+    if (colorField && colorColumnName) {
+      parts.push(`${colorField.columnName}: ${formatValue(d[colorColumnName])}`);
+    }
+    if (sizeField) {
+      const sizeColumnName = getResultColumnName(sizeField);
+      parts.push(`${sizeField.columnName}: ${formatValue(d[sizeColumnName])}`);
+    }
+    return parts.join('\n');
+  };
+  
+  // Configure tooltip format to include all channels (for proper rendering)
+  const tipFormat: any = { [xLabel2]: true, [yLabel2]: true, x: false, y: false, fill: false, r: false };
+  if (colorField) {
+    tipFormat[colorField.columnName] = true;
+  }
+  if (sizeField) {
+    const sizeColumnName = getResultColumnName(sizeField);
+    tipFormat[sizeField.columnName] = true;
+  }
+  
+  dotConfig.tip = { format: tipFormat } as any;
   
   const plotOptions: Plot.PlotOptions = {
     x: { label: labels?.x || xColumn, domainKey: xColumn, grid: true, domain: domain?.x } as any,
