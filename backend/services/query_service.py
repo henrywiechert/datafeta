@@ -2,10 +2,11 @@
 
 import logging # Import logging
 from backend.models.query import QueryDescription, Measure, Filter, OrderBy
-from typing import Any, Dict, List, Union, Tuple, Optional
-from pypika import Query, Table, Criterion, Order, Field
-from pypika.functions import Count, Sum, Avg, Min, Max
-from pypika.terms import Function, PseudoColumn, Term
+from typing import Any, Dict, List, Tuple, Optional, Set
+from dataclasses import dataclass
+from pypika import Query, Table, Criterion, Order
+from pypika.functions import Count, Sum, Avg, Min, Max, Coalesce, Cast
+from pypika.terms import Function, Term
 from backend.exceptions import QueryGenerationError
 
 # Get logger for this module
@@ -95,6 +96,55 @@ AGGREGATION_MAP = {
     'max': Max,
 }
 
+# Centralized datetime extraction maps per engine
+CLICKHOUSE_DATE_PART_MAP = {
+    'year': lambda f: Function('toYear', f),
+    'month': lambda f: Function('toMonth', f),
+    'day': lambda f: Function('toDayOfMonth', f),
+    'weekday': lambda f: Function('toDayOfWeek', f),
+    'hour': lambda f: Function('toHour', f),
+    'minute': lambda f: Function('toMinute', f),
+    'second': lambda f: Function('toSecond', f),
+    'millisecond': lambda f: Function('toUnixTimestamp64Milli', f) % 1000,
+    'microsecond': lambda f: Function('toUnixTimestamp64Micro', f) % 1000000,
+    'nanosecond': lambda f: Function('toUnixTimestamp64Nano', f) % 1000000000,
+}
+
+SQL_DATE_PART_MAP = {
+    'year': 'YEAR',
+    'month': 'MONTH',
+    'day': 'DAY',
+    'weekday': 'DOW',
+    'hour': 'HOUR',
+    'minute': 'MINUTE',
+    'second': 'SECOND',
+    'millisecond': 'MILLISECOND',
+    'microsecond': 'MICROSECOND',
+    'nanosecond': 'NANOSECOND',
+}
+
+@dataclass
+class TableContext:
+    query: Query
+    table_map: Dict[str, Any]
+    default_table: Any
+    primary_table: Any
+
+
+@dataclass
+class OptimizationContext:
+    plan: Optional[Any]
+    rounding_config: Dict[str, Any]
+    binning_config: Dict[str, Any]
+    use_category_dedup: bool
+
+
+@dataclass
+class SelectClauseResult:
+    fields: List[Any]
+    aliases: Set[str]
+    groupby_field_info_for_dedup: List[Tuple[str, Optional[Any]]]
+
 # Mapping from our model operators to Pypika criteria methods/standard SQL operators
 OPERATOR_MAP = {
     '=': lambda f, v: f == v,
@@ -127,82 +177,14 @@ class QueryService:
             A pypika expression for the datetime part extraction
         """
         if db_type == 'clickhouse':
-            # ClickHouse datetime functions
-            if date_mode == 'distinct':
-                # Extract just the part (returns integer or string)
-                part_func_map = {
-                    'year': lambda f: Function('toYear', f),
-                    'month': lambda f: Function('toMonth', f),
-                    'day': lambda f: Function('toDayOfMonth', f),
-                    'weekday': lambda f: Function('toDayOfWeek', f),  # Returns 1-7 (Monday=1)
-                    'hour': lambda f: Function('toHour', f),
-                    'minute': lambda f: Function('toMinute', f),
-                    'second': lambda f: Function('toSecond', f),
-                    # Subsecond parts: extract using modulo arithmetic
-                    # millisecond: 0-999
-                    'millisecond': lambda f: Function('toUnixTimestamp64Milli', f) % 1000,
-                    # microsecond: 0-999999
-                    'microsecond': lambda f: Function('toUnixTimestamp64Micro', f) % 1000000,
-                    # nanosecond: 0-999999999
-                    'nanosecond': lambda f: Function('toUnixTimestamp64Nano', f) % 1000000000,
-                }
-                return part_func_map[date_part](field_term)
-            else:  # timeline mode
-                # Timeline mode uses the SAME extraction as distinct mode
-                # The difference is semantic (how the user intends to use it), not in the SQL
-                # Timeline: temporal progression with grouping (e.g., hour 0-23 repeating per day)
-                # Distinct: aggregate across all time (e.g., which hour has most activity)
-                part_func_map = {
-                    'year': lambda f: Function('toYear', f),
-                    'month': lambda f: Function('toMonth', f),
-                    'day': lambda f: Function('toDayOfMonth', f),
-                    'weekday': lambda f: Function('toDayOfWeek', f),
-                    'hour': lambda f: Function('toHour', f),
-                    'minute': lambda f: Function('toMinute', f),
-                    'second': lambda f: Function('toSecond', f),
-                    # Subsecond parts: extract using modulo arithmetic
-                    'millisecond': lambda f: Function('toUnixTimestamp64Milli', f) % 1000,
-                    'microsecond': lambda f: Function('toUnixTimestamp64Micro', f) % 1000000,
-                    'nanosecond': lambda f: Function('toUnixTimestamp64Nano', f) % 1000000000,
-                }
-                return part_func_map[date_part](field_term)
-        else:
-            # DuckDB or other SQL databases using EXTRACT
-            if date_mode == 'distinct':
-                # EXTRACT returns numeric values
-                part_extract_map = {
-                    'year': 'YEAR',
-                    'month': 'MONTH',
-                    'day': 'DAY',
-                    'weekday': 'DOW',  # Day of week (0-6, Sunday=0)
-                    'hour': 'HOUR',
-                    'minute': 'MINUTE',
-                    'second': 'SECOND',
-                    'millisecond': 'MILLISECOND',
-                    'microsecond': 'MICROSECOND',
-                    'nanosecond': 'NANOSECOND',
-                }
-                # Use custom ExtractTerm for proper EXTRACT(part FROM field) syntax
-                extract_part = part_extract_map.get(date_part, date_part.upper())
-                return ExtractTerm(extract_part, field_term)
-            else:  # timeline mode
-                # Timeline mode uses the SAME extraction as distinct mode
-                # The difference is semantic (how the user intends to use it), not in the SQL
-                part_extract_map = {
-                    'year': 'YEAR',
-                    'month': 'MONTH',
-                    'day': 'DAY',
-                    'weekday': 'DOW',
-                    'hour': 'HOUR',
-                    'minute': 'MINUTE',
-                    'second': 'SECOND',
-                    'millisecond': 'MILLISECOND',
-                    'microsecond': 'MICROSECOND',
-                    'nanosecond': 'NANOSECOND',
-                }
-                # Use custom ExtractTerm for proper EXTRACT(part FROM field) syntax
-                extract_part = part_extract_map.get(date_part, date_part.upper())
-                return ExtractTerm(extract_part, field_term)
+            extractor = CLICKHOUSE_DATE_PART_MAP.get(date_part)
+            if not extractor:
+                raise QueryGenerationError(f"Unsupported datetime part '{date_part}' for ClickHouse")
+            return extractor(field_term)
+
+        # DuckDB or other SQL databases using EXTRACT
+        extract_part = SQL_DATE_PART_MAP.get(date_part, date_part.upper())
+        return ExtractTerm(extract_part, field_term)
 
     def _get_field_with_cast(self, table: Any, field_name: str, column_casts: Optional[Dict[str, Dict[str, str]]] = None) -> Any:
         """
@@ -218,16 +200,481 @@ class QueryService:
             PyPika Field object or CastField object
         """
         field = table[field_name]
-        
-        if column_casts and field_name in column_casts:
-            cast_config = column_casts[field_name]
-            cast_type = cast_config.get('cast_type')
-            replacement_pattern = cast_config.get('replacement_pattern')
-            
-            if cast_type:
-                return CastField(field, cast_type, replacement_pattern)
-        
-        return field
+        return self._apply_cast_if_configured(field_name, field, column_casts)
+
+    def _apply_cast_if_configured(
+        self,
+        field_identifier: str,
+        field_term: Any,
+        column_casts: Optional[Dict[str, Dict[str, str]]]
+    ) -> Any:
+        """Apply CastField wrapper when a cast configuration exists for the field."""
+        if not column_casts:
+            return field_term
+
+        cast_config = column_casts.get(field_identifier)
+        if not cast_config:
+            return field_term
+
+        cast_type = cast_config.get('cast_type')
+        if not cast_type:
+            return field_term
+
+        replacement_pattern = cast_config.get('replacement_pattern')
+        return CastField(field_term, cast_type, replacement_pattern)
+
+    def _build_table_context(
+        self,
+        query_desc: QueryDescription,
+        db_type: str,
+        fallback_table_name: Optional[str]
+    ) -> TableContext:
+        """Create initial PyPika query and table context for the provided description."""
+        table_map: Dict[str, Any] = {}
+
+        if query_desc.virtual_table:
+            primary_table_name = query_desc.virtual_table.primary_table
+            if db_type == 'clickhouse' and query_desc.target_database:
+                primary_table = Table(primary_table_name, schema=query_desc.target_database)
+            else:
+                primary_table = Table(primary_table_name)
+
+            table_map[primary_table_name] = primary_table
+            query = Query.from_(primary_table)
+
+            for join_def in query_desc.virtual_table.joined_tables:
+                if db_type == 'clickhouse' and query_desc.target_database:
+                    join_table = Table(join_def.table_name, schema=query_desc.target_database)
+                else:
+                    join_table = Table(join_def.table_name)
+
+                table_map[join_def.table_name] = join_table
+
+                if join_def.on_conditions:
+                    condition = join_def.on_conditions[0]
+                    parts = condition.split('=')
+                    if len(parts) == 2:
+                        left_part = parts[0].strip().split('.')
+                        right_part = parts[1].strip().split('.')
+                        if len(left_part) == 2 and len(right_part) == 2:
+                            left_table_name, left_col = left_part
+                            right_table_name, right_col = right_part
+
+                            left_table_obj = table_map.get(left_table_name, primary_table)
+                            right_table_obj = table_map.get(right_table_name, join_table)
+
+                            if join_def.join_type == 'LEFT':
+                                query = query.left_join(join_table).on(left_table_obj[left_col] == right_table_obj[right_col])
+                            elif join_def.join_type == 'RIGHT':
+                                query = query.right_join(join_table).on(left_table_obj[left_col] == right_table_obj[right_col])
+                            elif join_def.join_type == 'FULL':
+                                query = query.full_outer_join(join_table).on(left_table_obj[left_col] == right_table_obj[right_col])
+                            else:
+                                query = query.inner_join(join_table).on(left_table_obj[left_col] == right_table_obj[right_col])
+
+            default_table = table_map.get(primary_table_name, primary_table)
+            return TableContext(query=query, table_map=table_map, default_table=default_table, primary_table=primary_table)
+
+        # Single table query
+        target_table_name = query_desc.target_table or fallback_table_name
+        if not target_table_name:
+            raise QueryGenerationError("Target table must be specified for single table queries.")
+        if db_type == 'clickhouse' and query_desc.target_database:
+            table = Table(target_table_name, schema=query_desc.target_database)
+        else:
+            table = Table(target_table_name)
+
+        table_map[target_table_name] = table
+        query = Query.from_(table)
+        return TableContext(query=query, table_map=table_map, default_table=table, primary_table=table)
+
+    def _build_optimization_context(
+        self,
+        query_desc: QueryDescription,
+        optimizer: Optional[Any],
+        with_optimization: bool
+    ) -> OptimizationContext:
+        """Create optimization plan and derivative configs when available."""
+        rounding_config: Dict[str, Any] = {}
+        binning_config: Dict[str, Any] = {}
+        optimization_plan = None
+        use_category_dedup = False
+
+        if with_optimization and optimizer:
+            try:
+                optimization_plan = optimizer.create_plan(query_desc)
+                for strategy in optimization_plan.strategies:
+                    if hasattr(strategy, 'prepare_rounding_config'):
+                        rounding_config = strategy.prepare_rounding_config(query_desc)
+                        logger.info(f"Rounding config prepared: {rounding_config}")
+                    if hasattr(strategy, 'prepare_binning_config'):
+                        binning_config = strategy.prepare_binning_config(query_desc)
+                        logger.info(f"Binning config prepared: {binning_config}")
+                    if strategy.__class__.__name__ == 'CategoryDeduplicationStrategy':
+                        use_category_dedup = True
+                        logger.info("Category deduplication will be applied")
+            except Exception as exc:
+                logger.warning(f"Failed to create optimization plan early: {exc}")
+
+        return OptimizationContext(
+            plan=optimization_plan,
+            rounding_config=rounding_config,
+            binning_config=binning_config,
+            use_category_dedup=use_category_dedup,
+        )
+
+    def _build_select_clause(
+        self,
+        query_desc: QueryDescription,
+        table_map: Dict[str, Any],
+        default_table: Any,
+        db_type: str,
+        rounding_config: Dict[str, Any],
+        binning_config: Dict[str, Any],
+    use_category_dedup: bool
+    ) -> SelectClauseResult:
+        """Assemble SELECT fields and related alias/grouping metadata."""
+        select_fields: List[Any] = []
+        all_aliases: Set[str] = set()
+        groupby_field_info_for_dedup: List[Tuple[str, Optional[Any]]] = []
+
+        if query_desc.dimensions:
+            for dim in query_desc.dimensions:
+                if dim.field == '_source_table':
+                    if not query_desc.virtual_table or query_desc.virtual_table.mode != 'union':
+                        logger.warning("_source_table used in non-UNION query, skipping")
+                    continue
+
+                field_term = self._parse_field_reference(dim.field, table_map, default_table)
+                field_term = self._apply_cast_if_configured(dim.field, field_term, query_desc.column_casts)
+
+                if binning_config and dim.field in binning_config and getattr(dim, 'date_mode', None) == 'timeline':
+                    unit = binning_config[dim.field]
+                    binned_expr = Function('date_trunc', unit, field_term)
+                    if use_category_dedup:
+                        groupby_field_info_for_dedup.append((dim.field, f"binned_{unit}"))
+                    field_term = binned_expr.as_(dim.field)
+                    all_aliases.add(dim.field)
+                    logger.debug(f"Applied datetime binning to {dim.field} with unit {unit}")
+
+                elif rounding_config and dim.field in rounding_config and dim.flavour == 'continuous':
+                    from backend.services.optimization.strategies.adaptive_rounding import RoundingHelper
+                    precision = rounding_config[dim.field]
+                    rounded_expr = RoundingHelper.create_round_expression(field_term, precision, db_type)
+                    if use_category_dedup:
+                        groupby_field_info_for_dedup.append((dim.field, precision))
+                    field_term = rounded_expr.as_(dim.field)
+                    all_aliases.add(dim.field)
+                    logger.debug(f"Applied rounding to {dim.field} with precision {precision}")
+
+                elif use_category_dedup:
+                    if dim.flavour == 'continuous':
+                        groupby_field_info_for_dedup.append((dim.field, None))
+                        logger.debug(f"Added continuous dimension {dim.field} to GROUP BY for category dedup")
+                    elif dim.flavour == 'discrete':
+                        has_filter = any(f.field == dim.field for f in query_desc.filters)
+                        if has_filter:
+                            groupby_field_info_for_dedup.append((dim.field, None))
+                            logger.debug(f"Added filtered discrete dimension {dim.field} to GROUP BY (not using any())")
+                        else:
+                            agg_func_name = 'any' if db_type == 'clickhouse' else 'first'
+                            field_term = Function(agg_func_name, field_term).as_(dim.field)
+                            all_aliases.add(dim.field)
+                            logger.debug(f"Wrapped discrete dimension {dim.field} in {agg_func_name}() for category dedup")
+
+                if dim.date_part and dim.date_mode:
+                    field_term = self._get_datetime_part_expression(field_term, dim.date_part, dim.date_mode, db_type)
+                    alias = f"{dim.field}_{dim.date_part}_{dim.date_mode}"
+                    field_term = field_term.as_(alias)
+                    all_aliases.add(alias)
+                elif isinstance(field_term, CastField):
+                    field_term = field_term.as_(dim.field)
+                    all_aliases.add(dim.field)
+                    logger.debug(f"Aliased casted dimension {dim.field} back to its original name")
+
+                select_fields.append(field_term)
+
+        if query_desc.measures:
+            for measure in query_desc.measures:
+                agg_func_builder = AGGREGATION_MAP.get(measure.aggregation)
+                if not agg_func_builder:
+                    raise QueryGenerationError(f"Unsupported aggregation function: {measure.aggregation}")
+
+                field_term = self._parse_field_reference(measure.field, table_map, default_table)
+                field_term = self._apply_cast_if_configured(measure.field, field_term, query_desc.column_casts)
+
+                agg_term = agg_func_builder(field_term)
+
+                if db_type != 'clickhouse' and measure.aggregation in ['avg', 'sum']:
+                    agg_term = Coalesce(agg_term, 0)
+
+                select_fields.append(agg_term.as_(measure.alias))
+                all_aliases.add(measure.alias)
+
+        if getattr(query_desc, 'label_fields', None):
+            existing_dimension_fields = {d.field for d in query_desc.dimensions} if query_desc.dimensions else set()
+            existing_measure_fields = {m.field for m in query_desc.measures} if query_desc.measures else set()
+            for lbl in query_desc.label_fields:
+                if lbl in existing_dimension_fields or lbl in existing_measure_fields:
+                    continue
+                try:
+                    raw_term = self._parse_field_reference(lbl, table_map, default_table)
+                    raw_term = self._apply_cast_if_configured(lbl, raw_term, query_desc.column_casts)
+                    select_fields.append(raw_term.as_(lbl))
+                    all_aliases.add(lbl)
+                except Exception as exc:
+                    logger.warning(f"Failed to include label field '{lbl}' in SELECT: {exc}")
+
+        if not select_fields:
+            raise QueryGenerationError("Query must have at least one dimension or measure.")
+
+        return SelectClauseResult(
+            fields=select_fields,
+            aliases=all_aliases,
+            groupby_field_info_for_dedup=groupby_field_info_for_dedup,
+        )
+
+    def _build_filter_criteria(
+        self,
+        query_desc: QueryDescription,
+        table_map: Dict[str, Any],
+        default_table: Any,
+        db_type: str,
+        primary_table: Any
+    ) -> List[Criterion]:
+        """Translate filters, automatic null guards, and regex sampling into Criterion list."""
+        criteria: List[Criterion] = []
+
+        for f in query_desc.filters:
+            if f.field == '_source_table':
+                continue
+
+            operator_func = OPERATOR_MAP.get(f.operator)
+            if not operator_func:
+                raise QueryGenerationError(f"Unsupported filter operator: {f.operator}")
+
+            if f.date_part and f.date_mode:
+                field_term = self._parse_field_reference(f.field, table_map, default_table)
+                field_term = self._apply_cast_if_configured(f.field, field_term, query_desc.column_casts)
+                field = self._get_datetime_part_expression(field_term, f.date_part, f.date_mode, db_type)
+            else:
+                field = self._parse_field_reference(f.field, table_map, default_table)
+                field = self._apply_cast_if_configured(f.field, field, query_desc.column_casts)
+
+            value = f.value
+
+            if f.operator in ['is null', 'is not null']:
+                criteria.append(operator_func(field, None))
+            elif f.operator in ['in', 'not in']:
+                if not isinstance(value, list):
+                    raise QueryGenerationError(f"Value for '{f.operator}' operator must be a list.")
+
+                non_null_values = [v for v in value if v is not None]
+                has_null = any(v is None for v in value)
+
+                if f.operator == 'in':
+                    if non_null_values and has_null:
+                        in_criterion = field.isin(tuple(non_null_values))
+                        null_criterion = field.isnull()
+                        criteria.append(in_criterion | null_criterion)
+                    elif non_null_values:
+                        criteria.append(field.isin(tuple(non_null_values)))
+                    elif has_null:
+                        criteria.append(field.isnull())
+                else:
+                    if non_null_values and has_null:
+                        not_in_criterion = ~field.isin(tuple(non_null_values))
+                        not_null_criterion = field.notnull()
+                        criteria.append(not_in_criterion & not_null_criterion)
+                    elif non_null_values:
+                        criteria.append(~field.isin(tuple(non_null_values)))
+                    elif has_null:
+                        criteria.append(field.notnull())
+            else:
+                criteria.append(operator_func(field, value))
+
+        if query_desc.dimensions:
+            for dim in query_desc.dimensions:
+                if dim.flavour == 'continuous':
+                    dim_field = self._get_field_with_cast(primary_table, dim.field, query_desc.column_casts)
+                    criteria.append(dim_field.notnull())
+
+        if query_desc.distinct_value_regex and query_desc.dimensions:
+            dim = query_desc.dimensions[0]
+
+            if dim.date_part and dim.date_mode:
+                field_term = self._get_field_with_cast(primary_table, dim.field, query_desc.column_casts)
+                field_expr = self._get_datetime_part_expression(field_term, dim.date_part, dim.date_mode, db_type)
+                if db_type == 'clickhouse':
+                    field_expr = Cast(field_expr, 'String')
+                else:
+                    field_expr = Cast(field_expr, 'VARCHAR')
+            else:
+                field_expr = self._get_field_with_cast(primary_table, dim.field, query_desc.column_casts)
+
+            like_pattern = f"%{query_desc.distinct_value_regex}%"
+            criteria.append(field_expr.like(like_pattern))
+            logger.info(f"Applied LIKE filter for distinct values: {like_pattern}")
+
+        return criteria
+
+    def _apply_optimizations(
+        self,
+        query: Query,
+        optimization_plan: Optional[Any],
+        query_desc: QueryDescription,
+        primary_table: Any,
+        binning_config: Dict[str, Any],
+        use_category_dedup: bool,
+        with_optimization: bool,
+        optimizer: Optional[Any]
+    ) -> Tuple[Query, List[Dict[str, Any]]]:
+        """Apply optimization plan and return resulting query and metadata."""
+        optimization_metadata: List[Dict[str, Any]] = []
+
+        if with_optimization and optimizer and optimization_plan:
+            try:
+                if 'unix_timestamp' in (binning_config or {}) and not query._distinct:
+                    query = query.distinct()
+
+                if use_category_dedup:
+                    logger.info("Category deduplication active - skipping DISTINCT, using GROUP BY instead")
+                else:
+                    query = optimization_plan.apply(query, query_desc, primary_table)
+
+                optimization_metadata = optimization_plan.get_metadata_summary()
+                if optimization_metadata:
+                    logger.info(f"Applied {len(optimization_metadata)} optimizations")
+            except Exception as exc:
+                logger.error(f"Optimization failed, falling back to unoptimized: {exc}", exc_info=True)
+
+        return query, optimization_metadata
+
+    def _apply_grouping(
+        self,
+        query: Query,
+        query_desc: QueryDescription,
+        db_type: str,
+        primary_table: Any,
+        use_category_dedup: bool,
+        groupby_field_info_for_dedup: List[Tuple[str, Optional[Any]]],
+        with_optimization: bool,
+        optimizer: Optional[Any]
+    ) -> Query:
+        """Apply GROUP BY or DISTINCT logic derived from dimensions and strategies."""
+        if not query_desc.dimensions:
+            return query
+
+        if use_category_dedup and groupby_field_info_for_dedup:
+            logger.info(f"Building GROUP BY with {len(groupby_field_info_for_dedup)} fields (using aliases)")
+            for field_name, precision in groupby_field_info_for_dedup:
+                query = query.groupby(primary_table[field_name])
+                if precision is not None:
+                    logger.debug(f"  GROUP BY {field_name} (precision={precision})")
+                else:
+                    logger.debug(f"  GROUP BY {field_name} (no rounding)")
+            logger.info(f"Applied GROUP BY on {len(groupby_field_info_for_dedup)} continuous dimensions for category dedup")
+            return query
+
+        if query_desc.measures:
+            groupby_fields = []
+            for dim in query_desc.dimensions:
+                field_term = primary_table[dim.field]
+                if dim.date_part and dim.date_mode:
+                    field_term = self._get_datetime_part_expression(field_term, dim.date_part, dim.date_mode, db_type)
+                groupby_fields.append(field_term)
+            return query.groupby(*groupby_fields)
+
+        if with_optimization and optimizer:
+            return query
+
+        continuous_dims = [d for d in query_desc.dimensions if d.flavour == 'continuous']
+        discrete_dims = [d for d in query_desc.dimensions if d.flavour == 'discrete']
+
+        has_continuous_on_x = any(d.axis == 'x' for d in continuous_dims)
+        has_continuous_on_y = any(d.axis == 'y' for d in continuous_dims)
+        is_scatter_plot = has_continuous_on_x and has_continuous_on_y
+
+        if not is_scatter_plot:
+            if discrete_dims and continuous_dims:
+                groupby_fields = []
+                for dim in query_desc.dimensions:
+                    field_term = primary_table[dim.field]
+                    if dim.date_part and dim.date_mode:
+                        field_term = self._get_datetime_part_expression(field_term, dim.date_part, dim.date_mode, db_type)
+                    groupby_fields.append(field_term)
+                return query.groupby(*groupby_fields)
+            return query.distinct()
+
+        return query
+
+    def _apply_ordering(
+        self,
+        query: Query,
+        order_by: List[OrderBy],
+        all_aliases: Set[str],
+        primary_table: Any
+    ) -> Query:
+        """Apply ORDER BY clauses using aliases where appropriate."""
+        if not order_by:
+            return query
+
+        for order in order_by:
+            if order.field in all_aliases:
+                field_term = QuotedField(order.field)
+            else:
+                field_term = primary_table[order.field]
+
+            pypika_order = Order.desc if order.direction == 'desc' else Order.asc
+            query = query.orderby(field_term, order=pypika_order)
+
+        return query
+
+    def _apply_sampling_and_limits(
+        self,
+        query: Query,
+        query_desc: QueryDescription,
+        db_type: str,
+        primary_table: Any,
+        with_sampling: bool
+    ) -> Query:
+        """Apply sampling, random order, limits, and offsets based on query metadata."""
+        is_raw_query = not query_desc.measures
+        is_single_dimension = len(query_desc.dimensions) == 1 if query_desc.dimensions else False
+
+        if (
+            with_sampling
+            and is_raw_query
+            and is_single_dimension
+            and query_desc.limit is None
+            and not query_desc.orderBy
+            and not query_desc.filters
+            and not query_desc.use_random_sample
+        ):
+            dimension = query_desc.dimensions[0]
+            if dimension.flavour == 'continuous':
+                dimension_field_name = dimension.field
+                query = query.where(primary_table[dimension_field_name].notnull())
+
+            if db_type == 'clickhouse':
+                query = query.orderby(Function('rand')).limit(5000)
+
+        if query_desc.use_random_sample:
+            random_func = 'rand' if db_type == 'clickhouse' else 'random'
+            query = query.orderby(Function(random_func))
+            logger.info("Applied random sampling for distinct value query")
+
+        if query_desc.limit is not None:
+            if query_desc.limit < 0:
+                raise QueryGenerationError("Limit cannot be negative.")
+            query = query.limit(query_desc.limit)
+
+        if query_desc.offset is not None:
+            if query_desc.offset < 0:
+                raise QueryGenerationError("Offset cannot be negative.")
+            query = query.offset(query_desc.offset)
+
+        return query
 
     def _parse_field_reference(self, field_name: str, table_map: Dict[str, Any], default_table: Any) -> Any:
         """
@@ -512,417 +959,54 @@ class QueryService:
                 optimizer=optimizer
             )
 
-        # Handle virtual table with joins
-        table_map = {}  # Maps table names to PyPika Table objects
-        
-        if query_desc.virtual_table:
-            # Multi-table query with joins
-            primary_table_name = query_desc.virtual_table.primary_table
-            if db_type == 'clickhouse' and query_desc.target_database:
-                t = Table(primary_table_name, schema=query_desc.target_database)
-            else:
-                t = Table(primary_table_name)
-            
-            table_map[primary_table_name] = t
-            q = Query.from_(t)
-            
-            # Add JOINs
-            for join_def in query_desc.virtual_table.joined_tables:
-                if db_type == 'clickhouse' and query_desc.target_database:
-                    join_table = Table(join_def.table_name, schema=query_desc.target_database)
-                else:
-                    join_table = Table(join_def.table_name)
-                
-                table_map[join_def.table_name] = join_table
-                
-                # Parse join condition (simplified - assumes format "table1.col1 = table2.col2")
-                # For now, use raw SQL in join condition
-                if join_def.on_conditions:
-                    # Build join using first condition (can be extended for multiple conditions)
-                    condition = join_def.on_conditions[0]
-                    # We'll need to handle this carefully - for now, add join with basic parsing
-                    parts = condition.split('=')
-                    if len(parts) == 2:
-                        left_part = parts[0].strip().split('.')
-                        right_part = parts[1].strip().split('.')
-                        if len(left_part) == 2 and len(right_part) == 2:
-                            left_table_name, left_col = left_part
-                            right_table_name, right_col = right_part
-                            
-                            left_table_obj = table_map.get(left_table_name, t)
-                            right_table_obj = table_map.get(right_table_name, join_table)
-                            
-                            # Add the join
-                            if join_def.join_type == 'LEFT':
-                                q = q.left_join(join_table).on(left_table_obj[left_col] == right_table_obj[right_col])
-                            elif join_def.join_type == 'RIGHT':
-                                q = q.right_join(join_table).on(left_table_obj[left_col] == right_table_obj[right_col])
-                            elif join_def.join_type == 'FULL':
-                                q = q.full_outer_join(join_table).on(left_table_obj[left_col] == right_table_obj[right_col])
-                            else:  # INNER
-                                q = q.inner_join(join_table).on(left_table_obj[left_col] == right_table_obj[right_col])
-        else:
-            # Single table query (existing logic)
-            if db_type == 'clickhouse' and query_desc.target_database:
-                actual_table_name = query_desc.target_table
-                t = Table(actual_table_name, schema=query_desc.target_database)
-            else:
-                actual_table_name = query_desc.target_table
-                t = Table(actual_table_name)
-            
-            table_map[query_desc.target_table] = t
-            q = Query.from_(t)
+        table_context = self._build_table_context(query_desc, db_type, table_name)
+        q = table_context.query
+        table_map = table_context.table_map
+        default_table = table_context.default_table
+        t = table_context.primary_table
 
-        # Create optimization plan EARLY before SELECT clause construction
-        # This allows us to extract rounding/binning config for use during field selection
-        rounding_config = {}
-        binning_config = {}
-        optimization_plan = None
-        use_category_dedup = False  # Flag for category deduplication
-        if with_optimization and optimizer:
-            try:
-                from backend.services.optimization.optimizer import OptimizationPlan
-                optimization_plan = optimizer.create_plan(query_desc)
-                # Extract rounding/binning config from strategies if present
-                for strategy in optimization_plan.strategies:
-                    if hasattr(strategy, 'prepare_rounding_config'):
-                        rounding_config = strategy.prepare_rounding_config(query_desc)
-                        logger.info(f"Rounding config prepared: {rounding_config}")
-                    # Extract binning config from datetime binning strategy
-                    if hasattr(strategy, 'prepare_binning_config'):
-                        binning_config = strategy.prepare_binning_config(query_desc)
-                        logger.info(f"Binning config prepared: {binning_config}")
-                    # Check for category deduplication strategy
-                    if strategy.__class__.__name__ == 'CategoryDeduplicationStrategy':
-                        use_category_dedup = True
-                        logger.info("Category deduplication will be applied")
-            except Exception as e:
-                logger.warning(f"Failed to create optimization plan early: {e}")
+        optimization_ctx = self._build_optimization_context(query_desc, optimizer, with_optimization)
+        rounding_config = optimization_ctx.rounding_config
+        binning_config = optimization_ctx.binning_config
+        optimization_plan = optimization_ctx.plan
+        use_category_dedup = optimization_ctx.use_category_dedup
 
-        # SELECT Clause (Dimensions + Measures)
-        select_fields: List[Any] = []
-        all_aliases = set()
-        # Track which dimensions have datetime parts (these will be aliased)
-        datetime_part_fields = set()
-        # Track fields for GROUP BY when using category deduplication
-        # Store tuples of (field_name, precision) instead of RoundFunction objects
-        groupby_field_info_for_dedup = []
-        
-        # Determine default table for field references
-        if query_desc.virtual_table:
-            default_table = table_map.get(query_desc.virtual_table.primary_table, t)
-        else:
-            default_table = t
-
-        if query_desc.dimensions:
-            for dim in query_desc.dimensions:
-                # Special handling for _source_table virtual column (UNION queries only)
-                if dim.field == '_source_table':
-                    # This should only happen in UNION queries
-                    # For single tables, _source_table shouldn't be in the column list
-                    if not query_desc.virtual_table or query_desc.virtual_table.mode != 'union':
-                        logger.warning(f"_source_table used in non-UNION query, skipping")
-                        continue
-                    
-                    # For UNION queries, this is handled by injection in _translate_union_query
-                    # Just skip it here - it will be added by the UNION logic
-                    continue
-                
-                # Parse field reference (may include table prefix like 'customers.name')
-                field_term = self._parse_field_reference(dim.field, table_map, default_table)
-                
-                # Apply cast if configured (note: column_casts keys may also have table prefixes)
-                if query_desc.column_casts and dim.field in query_desc.column_casts:
-                    cast_config = query_desc.column_casts[dim.field]
-                    cast_type = cast_config.get('cast_type')
-                    replacement_pattern = cast_config.get('replacement_pattern')
-                    if cast_type:
-                        field_term = CastField(field_term, cast_type, replacement_pattern)
-                
-                # Apply binning if configured for this timeline dimension
-                if binning_config and dim.field in binning_config and getattr(dim, 'date_mode', None) == 'timeline':
-                    from pypika.functions import Function as PypikaFunction
-                    unit = binning_config[dim.field]
-                    # ClickHouse uses date_trunc(unit, field), DuckDB uses date_trunc(unit, field)
-                    binned_expr = PypikaFunction('date_trunc', unit, field_term)
-                    
-                    # Store field info for GROUP BY if category dedup is enabled
-                    if use_category_dedup:
-                        groupby_field_info_for_dedup.append((dim.field, f"binned_{unit}"))
-                    
-                    # Preserve original field name as alias for SELECT
-                    field_term = binned_expr.as_(dim.field)
-                    all_aliases.add(dim.field)
-                    logger.debug(f"Applied datetime binning to {dim.field} with unit {unit}")
-                
-                # Apply rounding if configured for this dimension (non-datetime)
-                elif rounding_config and dim.field in rounding_config and dim.flavour == 'continuous':
-                    from backend.services.optimization.strategies.adaptive_rounding import RoundingHelper
-                    precision = rounding_config[dim.field]
-                    rounded_expr = RoundingHelper.create_round_expression(field_term, precision, db_type)
-                    
-                    # Store field info for GROUP BY (just the field name and precision)
-                    if use_category_dedup:
-                        groupby_field_info_for_dedup.append((dim.field, precision))
-                    
-                    # Preserve original field name as alias for SELECT
-                    field_term = rounded_expr.as_(dim.field)
-                    all_aliases.add(dim.field)
-                    logger.debug(f"Applied rounding to {dim.field} with precision {precision}")
-                
-                # For category deduplication: handle continuous and discrete dimensions
-                elif use_category_dedup:
-                    if dim.flavour == 'continuous':
-                        # Continuous dimension without rounding - still needs GROUP BY
-                        groupby_field_info_for_dedup.append((dim.field, None))  # None means no rounding
-                        logger.debug(f"Added continuous dimension {dim.field} to GROUP BY for category dedup")
-                    elif dim.flavour == 'discrete':
-                        # Check if this discrete dimension has a filter applied
-                        has_filter = any(f.field == dim.field for f in query_desc.filters)
-                        
-                        if has_filter:
-                            # If filtered, add to GROUP BY instead of wrapping in any()
-                            # This avoids ClickHouse's "aggregate function in WHERE" error
-                            groupby_field_info_for_dedup.append((dim.field, None))
-                            logger.debug(f"Added filtered discrete dimension {dim.field} to GROUP BY (not using any())")
-                        else:
-                            # No filter - wrap in aggregate (engine-specific)
-                            # ClickHouse uses any(), DuckDB/others use first()
-                            agg_func_name = 'any' if db_type == 'clickhouse' else 'first'
-                            field_term = Function(agg_func_name, field_term).as_(dim.field)
-                            all_aliases.add(dim.field)
-                            logger.debug(f"Wrapped discrete dimension {dim.field} in {agg_func_name}() for category dedup")
-                
-                # Apply datetime part extraction if specified
-                if dim.date_part and dim.date_mode:
-                    field_term = self._get_datetime_part_expression(
-                        field_term, dim.date_part, dim.date_mode, db_type
-                    )
-                    # Create a unique alias that includes the datetime part
-                    # Format: fieldname_part_mode (e.g., unix_timestamp_day_timeline)
-                    alias = f"{dim.field}_{dim.date_part}_{dim.date_mode}"
-                    field_term = field_term.as_(alias)
-                    all_aliases.add(alias)
-                    datetime_part_fields.add(alias)
-                else:
-                    # If this dimension is a CAST expression, alias it back to the original field name
-                    # so the result column label remains clean and ORDER BY can reference the alias.
-                    if isinstance(field_term, CastField):
-                        field_term = field_term.as_(dim.field)
-                        all_aliases.add(dim.field)
-                        logger.debug(f"Aliased casted dimension {dim.field} back to its original name")
-                
-                select_fields.append(field_term)
-
-        for measure in query_desc.measures:
-            agg_func_builder = AGGREGATION_MAP.get(measure.aggregation)
-            if not agg_func_builder:
-                raise QueryGenerationError(f"Unsupported aggregation function: {measure.aggregation}")
-
-            # Parse field reference (may include table prefix)
-            field_term = self._parse_field_reference(measure.field, table_map, default_table)
-            
-            # Apply cast if configured
-            if query_desc.column_casts and measure.field in query_desc.column_casts:
-                cast_config = query_desc.column_casts[measure.field]
-                cast_type = cast_config.get('cast_type')
-                replacement_pattern = cast_config.get('replacement_pattern')
-                if cast_type:
-                    field_term = CastField(field_term, cast_type, replacement_pattern)
-            
-            agg_term = agg_func_builder(field_term)
-            
-            # For DuckDB, wrap AVG and SUM with COALESCE to handle NULL results
-            if db_type != 'clickhouse' and measure.aggregation in ['avg', 'sum']:
-                from pypika.functions import Coalesce
-                agg_term = Coalesce(agg_term, 0)
-            
-            # Pass alias as a simple string to .as_()
-            select_fields.append(agg_term.as_(measure.alias))
-            all_aliases.add(measure.alias)
-
-        # --- NEW: Include label_fields as raw columns if provided and not already selected ---
-        if getattr(query_desc, 'label_fields', None):
-            existing_dimension_fields = {d.field for d in query_desc.dimensions} if query_desc.dimensions else set()
-            existing_measure_fields = {m.field for m in query_desc.measures} if query_desc.measures else set()
-            for lbl in query_desc.label_fields:
-                # Skip if already present as dimension or measure source
-                if lbl in existing_dimension_fields or lbl in existing_measure_fields:
-                    continue
-                # Add raw field; alias kept as original name for frontend lookup
-                try:
-                    # Parse field reference (may include table prefix)
-                    raw_term = self._parse_field_reference(lbl, table_map, default_table)
-                    
-                    # Apply cast if configured
-                    if query_desc.column_casts and lbl in query_desc.column_casts:
-                        cast_config = query_desc.column_casts[lbl]
-                        cast_type = cast_config.get('cast_type')
-                        replacement_pattern = cast_config.get('replacement_pattern')
-                        if cast_type:
-                            raw_term = CastField(raw_term, cast_type, replacement_pattern)
-                    
-                    select_fields.append(raw_term.as_(lbl))
-                    all_aliases.add(lbl)
-                except Exception as e:
-                    logger.warning(f"Failed to include label field '{lbl}' in SELECT: {e}")
-
-        if not select_fields:
-             raise QueryGenerationError("Query must have at least one dimension or measure.")
+        select_result = self._build_select_clause(
+            query_desc,
+            table_map,
+            default_table,
+            db_type,
+            rounding_config,
+            binning_config,
+            use_category_dedup,
+        )
+        select_fields = select_result.fields
+        all_aliases = select_result.aliases
+        groupby_field_info_for_dedup = select_result.groupby_field_info_for_dedup
 
         q = q.select(*select_fields)
 
-        # WHERE Clause (Filters)
-        criteria: List[Criterion] = []
-        
-        # Add user-specified filters
-        for f in query_desc.filters:
-            # Skip _source_table filters in single-table queries (they're handled in UNION outer query)
-            if f.field == '_source_table':
-                continue
-            
-            operator_func = OPERATOR_MAP.get(f.operator)
-            if not operator_func:
-                 raise QueryGenerationError(f"Unsupported filter operator: {f.operator}")
-
-            # Check if this filter needs datetime part extraction
-            if f.date_part and f.date_mode:
-                # Parse field reference (may include table prefix)
-                field_term = self._parse_field_reference(f.field, table_map, default_table)
-                
-                # Apply cast if configured
-                if query_desc.column_casts and f.field in query_desc.column_casts:
-                    cast_config = query_desc.column_casts[f.field]
-                    cast_type = cast_config.get('cast_type')
-                    replacement_pattern = cast_config.get('replacement_pattern')
-                    if cast_type:
-                        field_term = CastField(field_term, cast_type, replacement_pattern)
-                
-                field = self._get_datetime_part_expression(
-                    field_term, 
-                    f.date_part, 
-                    f.date_mode, 
-                    db_type
-                )
-            else:
-                # Parse field reference (may include table prefix)
-                field = self._parse_field_reference(f.field, table_map, default_table)
-                
-                # Apply cast if configured
-                if query_desc.column_casts and f.field in query_desc.column_casts:
-                    cast_config = query_desc.column_casts[f.field]
-                    cast_type = cast_config.get('cast_type')
-                    replacement_pattern = cast_config.get('replacement_pattern')
-                    if cast_type:
-                        field = CastField(field, cast_type, replacement_pattern)
-            
-            value = f.value
-
-            if f.operator in ['is null', 'is not null']:
-                criteria.append(operator_func(field, None))
-            elif f.operator in ['in', 'not in']:
-                 if not isinstance(value, list):
-                     raise QueryGenerationError(f"Value for '{f.operator}' operator must be a list.")
-                 
-                 # Handle NULL values specially - SQL IN doesn't match NULL
-                 # Split into non-null values and null check
-                 non_null_values = [v for v in value if v is not None]
-                 has_null = any(v is None for v in value)
-                 
-                 if f.operator == 'in':
-                     # Build: (field IN (non_nulls) OR field IS NULL)
-                     if non_null_values and has_null:
-                         # Both non-null and null: use OR
-                         in_criterion = field.isin(tuple(non_null_values))
-                         null_criterion = field.isnull()
-                         criteria.append(in_criterion | null_criterion)
-                     elif non_null_values:
-                         # Only non-null values
-                         criteria.append(field.isin(tuple(non_null_values)))
-                     elif has_null:
-                         # Only null
-                         criteria.append(field.isnull())
-                 else:  # 'not in'
-                     # Build: (field NOT IN (non_nulls) AND field IS NOT NULL)
-                     if non_null_values and has_null:
-                         # Both: field not in non-nulls and not null
-                         not_in_criterion = ~field.isin(tuple(non_null_values))
-                         not_null_criterion = field.notnull()
-                         criteria.append(not_in_criterion & not_null_criterion)
-                     elif non_null_values:
-                         # Only non-null values: just NOT IN
-                         criteria.append(~field.isin(tuple(non_null_values)))
-                     elif has_null:
-                         # Only null: everything except null
-                         criteria.append(field.notnull())
-            else:
-                criteria.append(operator_func(field, value))
-        
-        # Automatically filter out NULLs from continuous dimensions
-        # NULL values in continuous dimensions (timestamps, prices, etc.) cannot be 
-        # visualized in tick-strips or scatter plots, and filtering them at query time
-        # can dramatically reduce dataset size (especially when most rows have NULLs)
-        if query_desc.dimensions:
-            for dim in query_desc.dimensions:
-                if dim.flavour == 'continuous':
-                    dim_field = self._get_field_with_cast(t, dim.field, query_desc.column_casts)
-                    criteria.append(dim_field.notnull())
-        
-        # For distinct value queries: apply LIKE filter if regex pattern is provided
-        # This is used when fetching filter metadata for fields with >5000 unique values
-        if query_desc.distinct_value_regex and query_desc.dimensions:
-            # Apply to the first dimension (distinct value queries only have one dimension)
-            dim = query_desc.dimensions[0]
-            
-            # Get field reference with potential datetime part extraction
-            if dim.date_part and dim.date_mode:
-                field_term = self._get_field_with_cast(t, dim.field, query_desc.column_casts)
-                field_expr = self._get_datetime_part_expression(
-                    field_term, dim.date_part, dim.date_mode, db_type
-                )
-                # Cast to string for LIKE comparison
-                if db_type == 'clickhouse':
-                    from pypika.functions import Cast
-                    field_expr = Cast(field_expr, 'String')
-                else:
-                    from pypika.functions import Cast
-                    field_expr = Cast(field_expr, 'VARCHAR')
-            else:
-                field_expr = self._get_field_with_cast(t, dim.field, query_desc.column_casts)
-            
-            # Apply LIKE filter with %pattern% format
-            like_pattern = f"%{query_desc.distinct_value_regex}%"
-            criteria.append(field_expr.like(like_pattern))
-            logger.info(f"Applied LIKE filter for distinct values: {like_pattern}")
+        criteria = self._build_filter_criteria(
+            query_desc,
+            table_map,
+            default_table,
+            db_type,
+            t,
+        )
 
         if criteria:
-            # Combine all criteria with AND
             q = q.where(Criterion.all(criteria))
 
-        # Apply query optimizations (e.g., DISTINCT for scatter plots)
-        optimization_metadata = []
-        if with_optimization and optimizer and optimization_plan:
-            try:
-                # Ensure DISTINCT when binning is active (belt-and-suspenders)
-                # This guards against future strategy failures before apply()
-                if 'unix_timestamp' in (binning_config or {}) and not q._distinct:
-                    q = q.distinct()
-
-                # If using category dedup with GROUP BY, we need special handling
-                if use_category_dedup:
-                    # Don't call .distinct() - GROUP BY handles deduplication
-                    # Just prepare rounding config (already done above)
-                    logger.info("Category deduplication active - skipping DISTINCT, using GROUP BY instead")
-                else:
-                    # Use the plan we created earlier
-                    q = optimization_plan.apply(q, query_desc, t)
-                
-                optimization_metadata = optimization_plan.get_metadata_summary()
-                
-                if optimization_metadata:
-                    logger.info(f"Applied {len(optimization_metadata)} optimizations")
-            except Exception as e:
-                logger.error(f"Optimization failed, falling back to unoptimized: {e}", exc_info=True)
+        q, optimization_metadata = self._apply_optimizations(
+            q,
+            optimization_plan,
+            query_desc,
+            t,
+            binning_config,
+            use_category_dedup,
+            with_optimization,
+            optimizer,
+        )
         
         # CRITICAL: Ensure DISTINCT is applied for discrete-only queries (filter queries)
         # This is essential for filter panels to show unique values only
@@ -937,125 +1021,20 @@ class QueryService:
                     q = q.distinct()
                     logger.info("Applied DISTINCT to discrete-only query for filter deduplication")
         
-        # GROUP BY Clause
-        if query_desc.dimensions:
-            # Special handling for category deduplication
-            if use_category_dedup and groupby_field_info_for_dedup:
-                # Build GROUP BY using field aliases (not the full ROUND expressions)
-                # ClickHouse allows referencing SELECT aliases in GROUP BY
-                logger.info(f"Building GROUP BY with {len(groupby_field_info_for_dedup)} fields (using aliases)")
-                
-                for field_name, precision in groupby_field_info_for_dedup:
-                    # Use t[field_name] to reference the field with proper table context
-                    # This ensures field names with spaces are properly quoted
-                    q = q.groupby(t[field_name])
-                    if precision is not None:
-                        logger.debug(f"  GROUP BY {field_name} (aliased ROUND with precision={precision})")
-                    else:
-                        logger.debug(f"  GROUP BY {field_name} (no rounding)")
-                
-                logger.info(f"Applied GROUP BY on {len(groupby_field_info_for_dedup)} continuous dimensions for category dedup")
-            # Only group if there are measures, otherwise it's just selecting distinct dimension combinations
-            elif query_desc.measures:
-                # Build GROUP BY expressions (apply datetime parts if needed)
-                groupby_fields = []
-                for dim in query_desc.dimensions:
-                    field_term = t[dim.field]
-                    if dim.date_part and dim.date_mode:
-                        field_term = self._get_datetime_part_expression(
-                            field_term, dim.date_part, dim.date_mode, db_type
-                        )
-                    groupby_fields.append(field_term)
-                q = q.groupby(*groupby_fields)
-            else:
-                # If only dimensions (no measures), decide whether to deduplicate:
-                # NOTE: This logic is now handled by the QueryOptimizer for scatter plots
-                # But we keep it for backward compatibility when optimizer is disabled
-                if not with_optimization or not optimizer:
-                    continuous_dims = [d for d in query_desc.dimensions if d.flavour == 'continuous']
-                    discrete_dims = [d for d in query_desc.dimensions if d.flavour == 'discrete']
-                    
-                    # Check if continuous dimensions span both axes (scatter plot scenario)
-                    has_continuous_on_x = any(d.axis == 'x' for d in continuous_dims)
-                    has_continuous_on_y = any(d.axis == 'y' for d in continuous_dims)
-                    is_scatter_plot = has_continuous_on_x and has_continuous_on_y
-                    
-                    if not is_scatter_plot:
-                        # Deduplicate for tick-strips and discrete-only queries
-                        if discrete_dims and continuous_dims:
-                            groupby_fields = []
-                            for dim in query_desc.dimensions:
-                                field_term = t[dim.field]
-                                if dim.date_part and dim.date_mode:
-                                    field_term = self._get_datetime_part_expression(
-                                        field_term, dim.date_part, dim.date_mode, db_type
-                                    )
-                                groupby_fields.append(field_term)
-                            q = q.groupby(*groupby_fields)
-                        else:
-                            q = q.distinct()
+        q = self._apply_grouping(
+            q,
+            query_desc,
+            db_type,
+            t,
+            use_category_dedup,
+            groupby_field_info_for_dedup,
+            with_optimization,
+            optimizer,
+        )
 
-        # ORDER BY Clause
-        if query_desc.orderBy:
-            for order in query_desc.orderBy:
-                # Check if this field was aliased in SELECT (either a measure or datetime part)
-                if order.field in all_aliases:
-                    # Field has an alias (from temporal binning, rounding, or aggregation)
-                    # Always use quoted aliases to ensure proper handling of spaces and special characters
-                    # in alias names (which inherit from original field names)
-                    field_term = QuotedField(order.field)
-                else:
-                    # Regular field, just reference it (uses table context for proper quoting)
-                    field_term = t[order.field]
+        q = self._apply_ordering(q, query_desc.orderBy, all_aliases, t)
 
-                pypika_order = Order.desc if order.direction == 'desc' else Order.asc
-                q = q.orderby(field_term, order=pypika_order)
-
-        # --- NEW: Add sampling for large raw queries on supported databases ---
-        is_raw_query = not query_desc.measures
-        is_single_dimension = len(query_desc.dimensions) == 1
-
-        # Apply sampling only if enabled, it's a raw query for a single dimension,
-        # and no user-defined limit, order, or filters exist.
-        # This targets the simple "drag a field to see its distribution" use case.
-        # IMPORTANT: Skip this if use_random_sample is set (our new distinct value query logic)
-        if (with_sampling and is_raw_query and is_single_dimension and 
-            query_desc.limit is None and not query_desc.orderBy and not query_desc.filters and
-            not query_desc.use_random_sample):
-            # Only add a WHERE ... IS NOT NULL clause for continuous dimensions
-            # For discrete dimensions (e.g., filter metadata), we want to include NULLs
-            dimension = query_desc.dimensions[0]
-            if dimension.flavour == 'continuous':
-                dimension_field_name = dimension.field
-                q = q.where(t[dimension_field_name].notnull())
-
-            if db_type == 'clickhouse':
-                # Using ORDER BY rand() is a compatible way to sample on any table engine.
-                q = q.orderby(Function('rand')).limit(5000)
-            # In the future, other DB-specific sampling can be added here
-            # elif db_type == 'postgresql':
-            #     q = q.orderby(Function('random')).limit(5000)
-        
-        # For distinct value queries with >5000 items: use random sampling
-        if query_desc.use_random_sample:
-            if db_type == 'clickhouse':
-                q = q.orderby(Function('rand'))
-            elif db_type == 'duckdb':
-                q = q.orderby(Function('random'))
-            else:
-                # Fallback for other databases
-                q = q.orderby(Function('random'))
-            logger.info("Applied random sampling for distinct value query")
-
-        # LIMIT and OFFSET Clause
-        if query_desc.limit is not None:
-            if query_desc.limit < 0:
-                 raise QueryGenerationError("Limit cannot be negative.")
-            q = q.limit(query_desc.limit)
-        if query_desc.offset is not None:
-            if query_desc.offset < 0:
-                raise QueryGenerationError("Offset cannot be negative.")
-            q = q.offset(query_desc.offset)
+        q = self._apply_sampling_and_limits(q, query_desc, db_type, t, with_sampling)
 
         # Compile the query to string using the chosen quote char
         sql_string = q.get_sql(quote_char=quote_char)
