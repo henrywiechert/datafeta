@@ -1,7 +1,18 @@
 """Test ORDER BY with aliased fields (rounding and temporal binning)."""
 
-import pytest
+import sys
+from pathlib import Path
 from unittest.mock import Mock
+
+import pytest
+
+# Ensure backend package imports resolve in legacy tests
+CURRENT_FILE = Path(__file__).resolve()
+BACKEND_ROOT = CURRENT_FILE.parents[2]
+PROJECT_ROOT = CURRENT_FILE.parents[3]
+sys.path.insert(0, str(BACKEND_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT))
+
 from backend.models.query import QueryDescription, Dimension, OrderBy
 from backend.services.query_service import QueryService
 from backend.services.optimization.optimizer import QueryOptimizer

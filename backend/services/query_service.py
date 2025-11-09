@@ -1,87 +1,29 @@
 """Service responsible for translating query descriptions into executable queries."""
 
-import logging # Import logging
-from backend.models.query import QueryDescription, Measure, Filter, OrderBy
-from typing import Any, Dict, List, Tuple, Optional, Set
-from dataclasses import dataclass
-from pypika import Query, Table, Criterion, Order
-from pypika.functions import Count, Sum, Avg, Min, Max, Coalesce, Cast
-from pypika.terms import Function, Term
+import logging
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+from pypika import Criterion, Order, Query, Table
+from pypika.functions import Avg, Cast, Coalesce, Count, Max, Min, Sum
+from pypika.terms import Function
+
 from backend.exceptions import QueryGenerationError
+from backend.models.query import Filter, Measure, OrderBy, QueryDescription
+from backend.services.query_components.contexts import (
+    OptimizationContext,
+    SelectClauseResult,
+    TableContext,
+)
+from backend.services.query_components.select_builder import SelectClauseBuilder
+from backend.services.query_components.terms import (
+    CastField,
+    ExtractTerm,
+    QuotedField,
+    UnquotedField,
+)
 
 # Get logger for this module
 logger = logging.getLogger(__name__)
-
-
-class ExtractTerm(Term):
-    """Custom pypika term for EXTRACT(part FROM field) syntax."""
-    def __init__(self, part: str, field: Term):
-        super().__init__()
-        self.part = part
-        self.field = field
-    
-    def get_sql(self, **kwargs) -> str:
-        """Render as EXTRACT(part FROM field) with optional alias."""
-        field_sql = self.field.get_sql(**kwargs)
-        sql = f"EXTRACT({self.part} FROM {field_sql})"
-        
-        # Handle alias if present (pypika stores it in self.alias)
-        if hasattr(self, 'alias') and self.alias:
-            quote_char = kwargs.get('quote_char', '"')
-            sql = f"{sql} {quote_char}{self.alias}{quote_char}"
-        
-        return sql
-
-
-class UnquotedField(Term):
-    """Custom pypika term for referencing aliases without quotes in ORDER BY."""
-    def __init__(self, name: str):
-        super().__init__()
-        self.name = name
-    
-    def get_sql(self, **kwargs) -> str:
-        """Return the field name without quotes."""
-        return self.name
-
-
-class QuotedField(Term):
-    """Custom pypika term for referencing aliases WITH quotes in ORDER BY."""
-    def __init__(self, name: str):
-        super().__init__()
-        self.name = name
-    
-    def get_sql(self, **kwargs) -> str:
-        """Return the field name WITH quotes (handles spaces and special characters)."""
-        quote_char = kwargs.get('quote_char', '"')
-        return f"{quote_char}{self.name}{quote_char}"
-
-
-class CastField(Term):
-    """Custom pypika term for CAST(field AS type) with optional string replacement."""
-    def __init__(self, field: Term, cast_type: str, replacement_pattern: Optional[str] = None):
-        super().__init__()
-        self.field = field
-        self.cast_type = cast_type
-        self.replacement_pattern = replacement_pattern
-    
-    def get_sql(self, **kwargs) -> str:
-        """Render as CAST(REPLACE(field, pattern, '') AS type) or CAST(field AS type)."""
-        field_sql = self.field.get_sql(**kwargs)
-        
-        if self.replacement_pattern:
-            # CAST(REPLACE(field, 'pattern', '') AS type)
-            pattern_escaped = self.replacement_pattern.replace("'", "''")
-            sql = f"CAST(REPLACE({field_sql}, '{pattern_escaped}', '') AS {self.cast_type})"
-        else:
-            # Simple CAST(field AS type)
-            sql = f"CAST({field_sql} AS {self.cast_type})"
-        
-        # Handle alias if present
-        if hasattr(self, 'alias') and self.alias:
-            quote_char = kwargs.get('quote_char', '"')
-            sql = f"{sql} {quote_char}{self.alias}{quote_char}"
-        
-        return sql
 
 
 # Mapping from our model to Pypika functions
@@ -122,28 +64,6 @@ SQL_DATE_PART_MAP = {
     'microsecond': 'MICROSECOND',
     'nanosecond': 'NANOSECOND',
 }
-
-@dataclass
-class TableContext:
-    query: Query
-    table_map: Dict[str, Any]
-    default_table: Any
-    primary_table: Any
-
-
-@dataclass
-class OptimizationContext:
-    plan: Optional[Any]
-    rounding_config: Dict[str, Any]
-    binning_config: Dict[str, Any]
-    use_category_dedup: bool
-
-
-@dataclass
-class SelectClauseResult:
-    fields: List[Any]
-    aliases: Set[str]
-    groupby_field_info_for_dedup: List[Tuple[str, Optional[Any]]]
 
 # Mapping from our model operators to Pypika criteria methods/standard SQL operators
 OPERATOR_MAP = {
@@ -331,107 +251,24 @@ class QueryService:
         db_type: str,
         rounding_config: Dict[str, Any],
         binning_config: Dict[str, Any],
-    use_category_dedup: bool
+        use_category_dedup: bool,
     ) -> SelectClauseResult:
         """Assemble SELECT fields and related alias/grouping metadata."""
-        select_fields: List[Any] = []
-        all_aliases: Set[str] = set()
-        groupby_field_info_for_dedup: List[Tuple[str, Optional[Any]]] = []
+        builder = SelectClauseBuilder(
+            parse_field_reference=self._parse_field_reference,
+            apply_cast_if_configured=self._apply_cast_if_configured,
+            get_datetime_part_expression=self._get_datetime_part_expression,
+        )
 
-        if query_desc.dimensions:
-            for dim in query_desc.dimensions:
-                if dim.field == '_source_table':
-                    if not query_desc.virtual_table or query_desc.virtual_table.mode != 'union':
-                        logger.warning("_source_table used in non-UNION query, skipping")
-                    continue
-
-                field_term = self._parse_field_reference(dim.field, table_map, default_table)
-                field_term = self._apply_cast_if_configured(dim.field, field_term, query_desc.column_casts)
-
-                if binning_config and dim.field in binning_config and getattr(dim, 'date_mode', None) == 'timeline':
-                    unit = binning_config[dim.field]
-                    binned_expr = Function('date_trunc', unit, field_term)
-                    if use_category_dedup:
-                        groupby_field_info_for_dedup.append((dim.field, f"binned_{unit}"))
-                    field_term = binned_expr.as_(dim.field)
-                    all_aliases.add(dim.field)
-                    logger.debug(f"Applied datetime binning to {dim.field} with unit {unit}")
-
-                elif rounding_config and dim.field in rounding_config and dim.flavour == 'continuous':
-                    from backend.services.optimization.strategies.adaptive_rounding import RoundingHelper
-                    precision = rounding_config[dim.field]
-                    rounded_expr = RoundingHelper.create_round_expression(field_term, precision, db_type)
-                    if use_category_dedup:
-                        groupby_field_info_for_dedup.append((dim.field, precision))
-                    field_term = rounded_expr.as_(dim.field)
-                    all_aliases.add(dim.field)
-                    logger.debug(f"Applied rounding to {dim.field} with precision {precision}")
-
-                elif use_category_dedup:
-                    if dim.flavour == 'continuous':
-                        groupby_field_info_for_dedup.append((dim.field, None))
-                        logger.debug(f"Added continuous dimension {dim.field} to GROUP BY for category dedup")
-                    elif dim.flavour == 'discrete':
-                        has_filter = any(f.field == dim.field for f in query_desc.filters)
-                        if has_filter:
-                            groupby_field_info_for_dedup.append((dim.field, None))
-                            logger.debug(f"Added filtered discrete dimension {dim.field} to GROUP BY (not using any())")
-                        else:
-                            agg_func_name = 'any' if db_type == 'clickhouse' else 'first'
-                            field_term = Function(agg_func_name, field_term).as_(dim.field)
-                            all_aliases.add(dim.field)
-                            logger.debug(f"Wrapped discrete dimension {dim.field} in {agg_func_name}() for category dedup")
-
-                if dim.date_part and dim.date_mode:
-                    field_term = self._get_datetime_part_expression(field_term, dim.date_part, dim.date_mode, db_type)
-                    alias = f"{dim.field}_{dim.date_part}_{dim.date_mode}"
-                    field_term = field_term.as_(alias)
-                    all_aliases.add(alias)
-                elif isinstance(field_term, CastField):
-                    field_term = field_term.as_(dim.field)
-                    all_aliases.add(dim.field)
-                    logger.debug(f"Aliased casted dimension {dim.field} back to its original name")
-
-                select_fields.append(field_term)
-
-        if query_desc.measures:
-            for measure in query_desc.measures:
-                agg_func_builder = AGGREGATION_MAP.get(measure.aggregation)
-                if not agg_func_builder:
-                    raise QueryGenerationError(f"Unsupported aggregation function: {measure.aggregation}")
-
-                field_term = self._parse_field_reference(measure.field, table_map, default_table)
-                field_term = self._apply_cast_if_configured(measure.field, field_term, query_desc.column_casts)
-
-                agg_term = agg_func_builder(field_term)
-
-                if db_type != 'clickhouse' and measure.aggregation in ['avg', 'sum']:
-                    agg_term = Coalesce(agg_term, 0)
-
-                select_fields.append(agg_term.as_(measure.alias))
-                all_aliases.add(measure.alias)
-
-        if getattr(query_desc, 'label_fields', None):
-            existing_dimension_fields = {d.field for d in query_desc.dimensions} if query_desc.dimensions else set()
-            existing_measure_fields = {m.field for m in query_desc.measures} if query_desc.measures else set()
-            for lbl in query_desc.label_fields:
-                if lbl in existing_dimension_fields or lbl in existing_measure_fields:
-                    continue
-                try:
-                    raw_term = self._parse_field_reference(lbl, table_map, default_table)
-                    raw_term = self._apply_cast_if_configured(lbl, raw_term, query_desc.column_casts)
-                    select_fields.append(raw_term.as_(lbl))
-                    all_aliases.add(lbl)
-                except Exception as exc:
-                    logger.warning(f"Failed to include label field '{lbl}' in SELECT: {exc}")
-
-        if not select_fields:
-            raise QueryGenerationError("Query must have at least one dimension or measure.")
-
-        return SelectClauseResult(
-            fields=select_fields,
-            aliases=all_aliases,
-            groupby_field_info_for_dedup=groupby_field_info_for_dedup,
+        return builder.build(
+            query_desc=query_desc,
+            table_map=table_map,
+            default_table=default_table,
+            db_type=db_type,
+            rounding_config=rounding_config,
+            binning_config=binning_config,
+            use_category_dedup=use_category_dedup,
+            aggregation_map=AGGREGATION_MAP,
         )
 
     def _build_filter_criteria(
