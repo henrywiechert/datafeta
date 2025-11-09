@@ -4,7 +4,7 @@ import logging
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from pypika import Criterion, Order, Query, Table
-from pypika.functions import Avg, Cast, Coalesce, Count, Max, Min, Sum
+from pypika.functions import Avg, Coalesce, Count, Max, Min, Sum
 from pypika.terms import Function
 
 from backend.exceptions import QueryGenerationError
@@ -21,14 +21,12 @@ from backend.services.query_components.terms import (
     QuotedField,
     UnquotedField,
 )
+from backend.services.query_components.filter_builder import FilterBuilder
 
-# Get logger for this module
 logger = logging.getLogger(__name__)
 
 
 # Mapping from our model to Pypika functions
-# Using Function for distinct count to generate COUNT(DISTINCT `field_name`)
-# Note: get_sql(quote_char) is used to get the properly quoted field name
 AGGREGATION_MAP = {
     'sum': Sum,
     'avg': Avg,
@@ -65,36 +63,12 @@ SQL_DATE_PART_MAP = {
     'nanosecond': 'NANOSECOND',
 }
 
-# Mapping from our model operators to Pypika criteria methods/standard SQL operators
-OPERATOR_MAP = {
-    '=': lambda f, v: f == v,
-    '!=': lambda f, v: f != v,
-    '>': lambda f, v: f > v,
-    '<': lambda f, v: f < v,
-    '>=': lambda f, v: f >= v,
-    '<=': lambda f, v: f <= v,
-    'in': lambda f, v: f.isin(v),
-    'not in': lambda f, v: ~f.isin(v),
-    'like': lambda f, v: f.like(v),
-    'ilike': lambda f, v: f.ilike(v), # Pypika's ilike might need DB specific handling (e.g., LOWER())
-    'is null': lambda f, v: f.isnull(),
-    'is not null': lambda f, v: f.notnull(),
-}
 
 class QueryService:
 
     def _get_datetime_part_expression(self, field_term: Any, date_part: str, date_mode: str, db_type: str) -> Any:
         """
         Generate database-specific SQL expression for extracting datetime parts.
-        
-        Args:
-            field_term: The field to extract from (pypika Field object)
-            date_part: The part to extract (year, month, day, etc.)
-            date_mode: Either 'distinct' or 'timeline'
-            db_type: The database type (clickhouse, duckdb, etc.)
-        
-        Returns:
-            A pypika expression for the datetime part extraction
         """
         if db_type == 'clickhouse':
             extractor = CLICKHOUSE_DATE_PART_MAP.get(date_part)
@@ -102,9 +76,9 @@ class QueryService:
                 raise QueryGenerationError(f"Unsupported datetime part '{date_part}' for ClickHouse")
             return extractor(field_term)
 
-        # DuckDB or other SQL databases using EXTRACT
         extract_part = SQL_DATE_PART_MAP.get(date_part, date_part.upper())
         return ExtractTerm(extract_part, field_term)
+
 
     def _get_field_with_cast(self, table: Any, field_name: str, column_casts: Optional[Dict[str, Dict[str, str]]] = None) -> Any:
         """
@@ -280,80 +254,20 @@ class QueryService:
         primary_table: Any
     ) -> List[Criterion]:
         """Translate filters, automatic null guards, and regex sampling into Criterion list."""
-        criteria: List[Criterion] = []
+        builder = FilterBuilder(
+            parse_field_reference=self._parse_field_reference,
+            apply_cast_if_configured=self._apply_cast_if_configured,
+            get_datetime_part_expression=self._get_datetime_part_expression,
+            get_field_with_cast=self._get_field_with_cast,
+        )
 
-        for f in query_desc.filters:
-            if f.field == '_source_table':
-                continue
-
-            operator_func = OPERATOR_MAP.get(f.operator)
-            if not operator_func:
-                raise QueryGenerationError(f"Unsupported filter operator: {f.operator}")
-
-            if f.date_part and f.date_mode:
-                field_term = self._parse_field_reference(f.field, table_map, default_table)
-                field_term = self._apply_cast_if_configured(f.field, field_term, query_desc.column_casts)
-                field = self._get_datetime_part_expression(field_term, f.date_part, f.date_mode, db_type)
-            else:
-                field = self._parse_field_reference(f.field, table_map, default_table)
-                field = self._apply_cast_if_configured(f.field, field, query_desc.column_casts)
-
-            value = f.value
-
-            if f.operator in ['is null', 'is not null']:
-                criteria.append(operator_func(field, None))
-            elif f.operator in ['in', 'not in']:
-                if not isinstance(value, list):
-                    raise QueryGenerationError(f"Value for '{f.operator}' operator must be a list.")
-
-                non_null_values = [v for v in value if v is not None]
-                has_null = any(v is None for v in value)
-
-                if f.operator == 'in':
-                    if non_null_values and has_null:
-                        in_criterion = field.isin(tuple(non_null_values))
-                        null_criterion = field.isnull()
-                        criteria.append(in_criterion | null_criterion)
-                    elif non_null_values:
-                        criteria.append(field.isin(tuple(non_null_values)))
-                    elif has_null:
-                        criteria.append(field.isnull())
-                else:
-                    if non_null_values and has_null:
-                        not_in_criterion = ~field.isin(tuple(non_null_values))
-                        not_null_criterion = field.notnull()
-                        criteria.append(not_in_criterion & not_null_criterion)
-                    elif non_null_values:
-                        criteria.append(~field.isin(tuple(non_null_values)))
-                    elif has_null:
-                        criteria.append(field.notnull())
-            else:
-                criteria.append(operator_func(field, value))
-
-        if query_desc.dimensions:
-            for dim in query_desc.dimensions:
-                if dim.flavour == 'continuous':
-                    dim_field = self._get_field_with_cast(primary_table, dim.field, query_desc.column_casts)
-                    criteria.append(dim_field.notnull())
-
-        if query_desc.distinct_value_regex and query_desc.dimensions:
-            dim = query_desc.dimensions[0]
-
-            if dim.date_part and dim.date_mode:
-                field_term = self._get_field_with_cast(primary_table, dim.field, query_desc.column_casts)
-                field_expr = self._get_datetime_part_expression(field_term, dim.date_part, dim.date_mode, db_type)
-                if db_type == 'clickhouse':
-                    field_expr = Cast(field_expr, 'String')
-                else:
-                    field_expr = Cast(field_expr, 'VARCHAR')
-            else:
-                field_expr = self._get_field_with_cast(primary_table, dim.field, query_desc.column_casts)
-
-            like_pattern = f"%{query_desc.distinct_value_regex}%"
-            criteria.append(field_expr.like(like_pattern))
-            logger.info(f"Applied LIKE filter for distinct values: {like_pattern}")
-
-        return criteria
+        return builder.build(
+            query_desc=query_desc,
+            table_map=table_map,
+            default_table=default_table,
+            db_type=db_type,
+            primary_table=primary_table,
+        )
 
     def _apply_optimizations(
         self,
