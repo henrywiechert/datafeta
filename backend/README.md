@@ -1,561 +1,225 @@
 # Backend Documentation
 
-The backend is a FastAPI-based REST API that provides data connectivity, query processing, and file handling capabilities for the data analysis platform.
+FastAPI-based REST API providing data connectivity, query processing, and optimization for the data analysis platform.
 
 ## Architecture Overview
 
 ### Core Components
-- **FastAPI Framework**: Modern Python web framework with automatic API documentation
-- **Multi-Connector Architecture**: Support for various data sources (databases, files)
-- **Query Generation Engine**: Dynamic SQL generation using pypika library
-- **File Processing**: Integrated DuckDB for CSV and file-based data analysis
-- **Error Handling**: Comprehensive exception handling and logging
 
-### Main Features
-- **Database Connectivity**: Connect to various database systems
-- **File Upload Support**: CSV file upload and processing with DuckDB
-- **Dynamic Query Generation**: Convert frontend query descriptions to optimized SQL
-- **RESTful API Design**: Clean API endpoints with automatic documentation
-- **CORS Support**: Configured for frontend integration
+- **FastAPI Application** (`main.py`): Entry point with CORS, exception handlers, static file serving
+- **Multi-Connector System**: Pluggable connectors for different data sources (ClickHouse, CSV via DuckDB)
+- **Query Generation Engine**: Dynamic SQL generation using PyPika with optimization strategies
+- **Session-Based State Management**: Per-user connection state via cookie-based sessions
+- **Query Optimization**: Automatic query optimization with adaptive rounding, binning, deduplication
+
+### Component Connections
+
+```
+Request → FastAPI Router → Dependencies (Session/Connector) → Services → Connectors → Data Source
+                                                                    ↓
+                                                          Query Optimization
+```
+
+**Request Flow:**
+1. FastAPI receives request, extracts/creates session ID from cookie
+2. `get_state_manager` dependency provides session-specific `ConnectionStateManager`
+3. Router endpoints use `get_active_connector` and `get_connection_details` dependencies
+4. Services (`ConnectionService`, `QueryService`) orchestrate business logic
+5. Connectors execute queries against data sources
+6. Query optimizer applies strategies based on result size estimates
 
 ## Project Structure
 
 ```
 backend/
-├── main.py                 # FastAPI application entry point
-├── routers/               # API route handlers
-│   └── data.py           # Data-related endpoints
-├── services/             # Business logic layer
-│   └── query_service.py  # Query generation and execution
-├── connectors/           # Data source connectors
-│   ├── base.py           # Abstract base connector
-│   ├── file_connector.py # File-based data sources (DuckDB)
-│   └── clickhouse_connector.py # ClickHouse database connector
-├── models/               # Data models and schemas
-├── exceptions.py         # Custom exception classes
-└── dependencies.py       # Dependency injection utilities
+├── main.py                    # FastAPI app, CORS, exception handlers, static serving
+├── routers/
+│   └── data.py               # API endpoints (connect, query, metadata)
+├── services/
+│   ├── connection_service.py    # Connection lifecycle, CSV upload handling
+│   ├── query_service.py         # SQL generation from QueryDescription
+│   ├── query_components/        # Modular query builders (select, filter, grouping, etc.)
+│   ├── optimization/            # Query optimization system
+│   │   ├── optimizer.py         # Main optimizer coordinating strategies
+│   │   ├── strategies/          # Optimization strategies (rounding, binning, dedup)
+│   │   ├── planners/            # Strategy planning logic
+│   │   └── estimators/          # Result size estimation (ClickHouse, DuckDB)
+│   ├── validation_service.py    # Input validation
+│   ├── table_merge_service.py   # Multi-table JOIN/UNION support
+│   └── query_result_builder.py  # Result formatting
+├── connectors/
+│   ├── base.py                 # BaseConnector abstract interface
+│   ├── clickhouse_connector.py  # ClickHouse database connector
+│   └── file_connector.py        # CSV file connector (DuckDB)
+├── models/
+│   ├── data_source.py          # ConnectionDetails, Database, Table, Column models
+│   └── query.py                 # QueryDescription, Measure, Dimension, Filter models
+├── dependencies.py              # Session management, dependency injection
+└── exceptions.py               # Custom exception hierarchy
 ```
+
+## Multi-User Support (Sessions)
+
+### Session Management
+
+The backend supports multiple concurrent users through **session-based state isolation**:
+
+- **Session Identification**: Cookie-based (`session_id` cookie, httponly)
+- **State Storage**: In-memory dictionary `session_storage: Dict[str, ConnectionStateManager]`
+- **Per-Session State**: Each session has its own:
+  - Active connector instance
+  - Connection details
+  - CSV temporary file path (session-scoped upload directory)
+  - Async lock for connect/disconnect serialization
+
+**Implementation** (`dependencies.py`):
+```python
+session_storage: Dict[str, ConnectionStateManager] = {}
+# Thread-safe access via _session_storage_lock
+
+async def get_state_manager(request, response, session_id) -> ConnectionStateManager:
+    # Creates new session if missing, sets cookie
+    # Returns session-specific ConnectionStateManager
+```
+
+**File Upload Isolation**: CSV uploads stored in `{upload_root_dir}/{session_id}/` directories, cleaned up on disconnect.
+
+**Note**: For production with multiple server instances, replace in-memory storage with Redis or similar.
 
 ## API Endpoints
 
-### Data Source Management
+### Connection Management
 
-#### Connect to Data Source
-```http
-POST /api/v1/data/connect
-Content-Type: application/json
+**POST `/api/v1/data/connect`** (multipart/form-data)
+- CSV: Upload file + connection details JSON
+- ClickHouse: Connection details JSON only
 
-{
-  "type": "database|file",
-  "connection_details": {
-    // Database: host, port, database, username, password
-    // File: file upload via multipart/form-data
-  }
-}
-```
+**POST `/api/v1/data/connect/json`** (application/json)
+- ClickHouse connections without file upload
 
-#### Disconnect from Data Source
-```http
-POST /api/v1/data/disconnect
-```
+**POST `/api/v1/data/disconnect`**
+- Disconnects connector, cleans up session files
 
 ### Metadata Discovery
 
-#### List Databases
-```http
-GET /api/v1/data/databases
-```
-
-#### List Tables
-```http
-GET /api/v1/data/tables?database={database_name}
-```
-
-#### List Columns
-```http
-GET /api/v1/data/columns?database={database_name}&table={table_name}
-```
+- **GET `/api/v1/data/databases`** - List databases
+- **GET `/api/v1/data/tables?database={db}`** - List tables
+- **GET `/api/v1/data/columns?table={table}&database={db}`** - List columns
+- **GET `/api/v1/data/distinct-count?field={field}&table={table}`** - Cardinality queries
 
 ### Query Execution
 
-#### Execute Query
-```http
-POST /api/v1/data/query
-Content-Type: application/json
-
+**POST `/api/v1/data/query`**
+```json
 {
-  "table_name": "table_name",
-  "query_description": {
-    "dimensions": [...],
-    "measures": [...],
-    "filters": [...],
-    "orderBy": [...],
-    "limit": 1000
-  }
+  "target_table": "table_name",
+  "target_database": "db_name",  // Optional, required for ClickHouse
+  "dimensions": [{"field": "col", "flavour": "discrete"}],
+  "measures": [{"field": "amount", "aggregation": "sum", "alias": "total"}],
+  "filters": [{"field": "status", "operator": "=", "value": "active"}],
+  "orderBy": [{"field": "total", "direction": "desc"}],
+  "limit": 1000,
+  "virtual_table": {...}  // Optional: multi-table JOIN/UNION
 }
 ```
 
-## Query Generation with Pypika
+### Multi-Table Support
 
-### QueryService Class
+- **GET `/api/v1/data/table-relationships?database={db}`** - Detect foreign keys
+- **GET `/api/v1/data/suggested-joins?database={db}&primary_table={table}`** - Suggest joinable tables
+- **GET `/api/v1/data/suggested-unions?database={db}&primary_table={table}`** - Suggest UNION-compatible tables
+- **POST `/api/v1/data/merged-columns`** - Get merged schema for JOIN/UNION queries
 
-The `QueryService` handles translation of frontend query descriptions to SQL using pypika:
+## Query Generation & Optimization
 
-```python
-from pypika import Query, Table, Field, Order, Criterion
-from pypika.functions import Sum, Avg, Count, Min, Max
+### QueryService Pipeline
 
-class QueryService:
-    def translate_to_sql(self, query_desc: QueryDescription, table_name: str) -> str:
-        # Convert query description to pypika Query object
-        # Return optimized SQL string
+`QueryService.translate_to_sql()` orchestrates:
+
+1. **Table Context**: Build PyPika query with single table or JOINs/UNIONs
+2. **Select Builder**: Dimensions, measures, datetime extraction, type casting
+3. **Filter Builder**: WHERE clauses, regex sampling, null guards
+4. **Optimization**: Apply strategies (rounding, binning, deduplication)
+5. **Grouping/Ordering**: GROUP BY, DISTINCT, ORDER BY
+6. **Sampling/Limits**: Automatic sampling for large raw queries
+
+### Query Optimization
+
+**QueryOptimizer** analyzes queries and applies strategies:
+
+- **Adaptive Rounding**: Round numeric values when result set is large
+- **DateTime Binning**: Bin continuous datetime dimensions
+- **Category Deduplication**: Remove duplicate category values
+- **Discrete Deduplication**: DISTINCT for discrete-only queries
+- **Sampling**: Automatic sampling for large raw queries (no aggregations)
+
+**Optimization Flow**:
+```
+QueryDescription → Estimator (size estimate) → StrategyPlanner → OptimizationPlan → Apply Strategies
 ```
 
-### Query Translation Process
+**Result Size Estimation**: Database-specific estimators (`ClickHouseEstimator`, `DuckDBEstimator`) use EXPLAIN queries or table statistics.
 
-#### 1. Table Setup
-```python
-table = Table(table_name)
-query = Query.from_(table)
-```
+## Connectors
 
-#### 2. Field Selection
-```python
-# Add dimensions (grouping fields)
-for dimension in query_desc.dimensions:
-    query = query.select(table[dimension.field])
+### BaseConnector Interface
 
-# Add measures (aggregated fields)  
-for measure in query_desc.measures:
-    agg_func = self._get_aggregation_function(measure.aggregation)
-    query = query.select(agg_func(table[measure.field]).as_(f"{measure.field}_{measure.aggregation}"))
-```
+All connectors implement:
+- `connect(connection_details)` - Establish connection
+- `disconnect()` - Close connection
+- `list_databases()` - List available databases
+- `list_tables(database)` - List tables
+- `list_columns(database, table)` - List columns with types
+- `fetch_data(query)` - Execute SQL, return (rows, columns)
 
-#### 3. Filter Application
-```python
-criteria = []
-for filter_item in query_desc.filters:
-    field = table[filter_item.field]
-    operator_func = OPERATOR_MAPPING[filter_item.operator]
-    criteria.append(operator_func(field, filter_item.value))
+### ClickHouseConnector
 
-if criteria:
-    query = query.where(Criterion.all(criteria))
-```
+- Uses `clickhouse-connect` client
+- Supports connection string or host/port/user/password
+- Database-aware (schema-qualified tables)
+- Foreign key detection via heuristics
 
-#### 4. Grouping Logic
-```python
-if query_desc.dimensions and query_desc.measures:
-    # Group by all dimensions when measures are present
-    query = query.groupby(*[table[dim.field] for dim in query_desc.dimensions])
-elif query_desc.dimensions and not query_desc.measures:
-    # Use DISTINCT for dimension-only queries
-    is_any_continuous = any(d.flavour == 'continuous' for d in query_desc.dimensions)
-    if not is_any_continuous:
-        query = query.distinct()
-```
+### FileConnector (CSV via DuckDB)
 
-#### 5. Ordering and Limits
-```python
-for order in query_desc.orderBy:
-    field_term = table[order.field] if order.field not in aliases else order.field
-    pypika_order = Order.desc if order.direction == 'desc' else Order.asc
-    query = query.orderby(field_term, order=pypika_order)
+- CSV upload processing with DuckDB
+- Configurable CSV parsing (delimiter, header, decimal/thousands separators, date formats)
+- In-memory DuckDB connections per query
+- Automatic schema detection via `DESCRIBE`
 
-if query_desc.limit:
-    query = query.limit(query_desc.limit)
-```
-
-### Supported Operators
-
-```python
-OPERATOR_MAPPING = {
-    '=': lambda f, v: f == v,
-    '!=': lambda f, v: f != v,
-    '>': lambda f, v: f > v,
-    '<': lambda f, v: f < v,
-    '>=': lambda f, v: f >= v,
-    '<=': lambda f, v: f <= v,
-    'in': lambda f, v: f.isin(v),
-    'not in': lambda f, v: ~f.isin(v),
-    'like': lambda f, v: f.like(v),
-    'ilike': lambda f, v: f.ilike(v),
-    'is null': lambda f, v: f.isnull(),
-    'is not null': lambda f, v: f.notnull(),
-}
-```
-
-### Aggregation Functions
-
-```python
-def _get_aggregation_function(self, aggregation: str):
-    aggregation_map = {
-        'count': lambda field: Count('*'),
-        'countd': lambda field: Count(field).distinct(),
-        'sum': lambda field: Sum(field),
-        'avg': lambda field: Avg(field),
-        'min': lambda field: Min(field),
-        'max': lambda field: Max(field),
-        'median': lambda field: self._median_function(field),  # DB-specific
-    }
-    return aggregation_map.get(aggregation)
-```
-
-## Data Source Connectors
-
-### Base Connector Architecture
-
-```python
-from abc import ABC, abstractmethod
-
-class BaseConnector(ABC):
-    @abstractmethod
-    def connect(self, connection_details: Dict[str, Any]) -> None:
-        pass
-    
-    @abstractmethod
-    def disconnect(self) -> None:
-        pass
-    
-    @abstractmethod
-    def list_databases(self) -> List[Database]:
-        pass
-    
-    @abstractmethod
-    def list_tables(self, database: str = None) -> List[Table]:
-        pass
-    
-    @abstractmethod
-    def list_columns(self, database: str = None, table: str = None) -> List[Column]:
-        pass
-    
-    @abstractmethod
-    def fetch_data(self, query: str) -> Tuple[List[Dict[str, str]], List[Dict[str, Any]]]:
-        pass
-```
-
-### File Connector (DuckDB Integration)
-
-The `FileConnector` provides CSV file processing using DuckDB:
-
-```python
-class FileConnector(BaseConnector):
-    def __init__(self, state_manager: ConnectionStateManager):
-        self.file_path = None
-        self._table_name = None
-        self._file_type = None
-        self.state_manager = state_manager
-```
-
-#### CSV Processing
-```python
-def connect(self, connection_details: Dict[str, Any]) -> None:
-    self.file_path = connection_details.get("file_path")
-    
-    # Validate file exists and is CSV
-    if not os.path.exists(self.file_path):
-        raise DataSourceConnectionError(f"File not found: {self.file_path}")
-    
-    _, file_ext = os.path.splitext(self.file_path)
-    if file_ext.lower() != '.csv':
-        raise InvalidInputError(f"Unsupported file type: {file_ext}")
-    
-    self._table_name = os.path.splitext(os.path.basename(self.file_path))[0]
-```
-
-#### Query Execution
-```python
-def fetch_data(self, query: str) -> Tuple[List[Dict[str, str]], List[Dict[str, Any]]]:
-    con = duckdb.connect(database=':memory:', read_only=False)
-    
-    # Create temporary view from CSV
-    safe_view_name = f'"{self._table_name}"'
-    file_reader = f"read_csv_auto('{self.file_path}', SAMPLE_SIZE=-1, nullstr='NaN')"
-    create_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {file_reader};"
-    
-    con.execute(create_view_sql)
-    
-    # Execute query against the view
-    result_relation = con.execute(query)
-    arrow_table = result_relation.fetch_arrow_table()
-    
-    # Convert to expected format
-    return self._convert_arrow_to_response(arrow_table)
-```
-
-#### Schema Detection
-```python
-def list_columns(self, database: str = None, table: str = None) -> List[Column]:
-    # Use DuckDB's automatic schema detection
-    con = duckdb.connect(database=':memory:', read_only=False)
-    
-    # Get column information from CSV
-    describe_query = f"DESCRIBE SELECT * FROM read_csv_auto('{self.file_path}', SAMPLE_SIZE=1000);"
-    result = con.execute(describe_query).fetchall()
-    
-    columns = []
-    for row in result:
-        columns.append(Column(
-            name=row[0],
-            type=self._map_duckdb_type_to_standard(row[1]),
-            nullable=True  # CSV files typically allow nulls
-        ))
-    
-    return columns
-```
-
-### ClickHouse Connector
-
-The `ClickhouseConnector` enables direct connectivity to ClickHouse clusters. It implements the `BaseConnector` contract and exposes database operations through the `clickhouse_connect` client.
-
-#### Connection Lifecycle
-```python
-class ClickhouseConnector(BaseConnector):
-    def __init__(self, state_manager: ConnectionStateManager):
-        self._client: Optional[Client] = None
-        self.state_manager = state_manager
-
-    def connect(self, connection_details: Dict[str, Any]) -> None:
-        self._client = ch_connect(
-            host=connection_details["host"],
-            port=connection_details.get("port", 8123),
-            username=connection_details.get("username"),
-            password=connection_details.get("password"),
-            database=connection_details.get("database"),
-        )
-        self.state_manager.set_active_connector(self)
-
-    def disconnect(self) -> None:
-        if self._client:
-            self._client.close()
-            self._client = None
-            self.state_manager.clear_active_connector()
-```
-
-#### Metadata Discovery
-```python
-def list_databases(self) -> List[Database]:
-    rows = self._client.query("SHOW DATABASES")
-    return [Database(name=row["name"]) for row in rows.result_rows]
-
-def list_tables(self, database: str | None = None) -> List[Table]:
-    db = database or self._client.database
-    query = f"SHOW TABLES FROM {db}"
-    rows = self._client.query(query)
-    return [Table(name=row["name"], database=db) for row in rows.result_rows]
-```
-
-#### Query Execution
-```python
-def fetch_data(self, query: str) -> Tuple[List[Dict[str, str]], List[Dict[str, Any]]]:
-    if not self._client:
-        raise DataSourceConnectionError("ClickHouse client is not connected")
-
-    result = self._client.query(query)
-    columns = [
-        {"name": field.name, "type": field.type}
-        for field in result.column_descriptions
-    ]
-    rows = [dict(zip(result.column_names, row)) for row in result.result_rows]
-    return rows, columns
-```
+**Connector Registry** (`ConnectionService`): Factory pattern for connector creation, registered by type (`csv`, `clickhouse`).
 
 ## Error Handling
 
-### Custom Exception Classes
+**Exception Hierarchy** (`exceptions.py`):
+- `AppException` (base) - All custom exceptions
+- `InvalidInputError` (400) - Validation errors
+- `DataSourceConnectionError` (503) - Connection failures
+- `QueryGenerationError` (400) - SQL generation failures
+- `QueryExecutionError` (500) - Query execution failures
+- `FileProcessingError` (500) - File upload/processing errors
 
-```python
-class AppException(Exception):
-    """Base exception for application-specific errors."""
-    pass
+**Global Exception Handlers** (`main.py`): Convert exceptions to JSON responses with appropriate status codes.
 
-class InvalidInputError(AppException):
-    """Raised when input validation fails."""
-    pass
+## Configuration
 
-class DataSourceConnectionError(AppException):
-    """Raised when data source connection fails."""
-    pass
+**Environment Variables**:
+- `LOG_LEVEL` - Logging level (default: INFO)
+- `CORS_ALLOW_ORIGINS` - Comma-separated allowed origins (overrides defaults)
+- Optimization config via `OptimizerConfig.from_env()` (thresholds, enable flags)
 
-class QueryGenerationError(AppException):
-    """Raised when SQL query generation fails."""
-    pass
+**Application State** (`app.state`):
+- `upload_root_dir` - Temporary directory for CSV uploads (created at startup, cleaned at shutdown)
 
-class QueryExecutionError(AppException):
-    """Raised when query execution fails."""
-    pass
+## Security & Validation
 
-class FileProcessingError(AppException):
-    """Raised when file processing operations fail."""
-    pass
-```
+- **SQL Injection Prevention**: PyPika parameterized query construction
+- **File Upload Limits**: 64 MiB max CSV size, MIME type validation, CSV format validation
+- **Path Safety**: Symlink-safe path checks, session-scoped file deletion
+- **Input Validation**: Pydantic models for request validation, `ValidationService` for business rules
 
-### Exception Handlers
+## Testing
 
-```python
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    logger.error(f"Request validation error: {exc.errors()}")
-    return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"detail": exc.errors()},
-    )
+- **Unit Tests**: `tests/unit/` - Service and component tests
+- **Integration Tests**: `tests/integration/` - End-to-end query optimization tests
+- **Contract Tests**: `tests/contract/` - API contract validation
 
-@app.exception_handler(AppException)
-async def app_exception_handler(request: Request, exc: AppException):
-    logger.error(f"Application error: {str(exc)}")
-    return JSONResponse(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        content={"detail": str(exc)},
-    )
-```
-
-## File Upload and Management
-
-### Temporary File Handling
-
-```python
-UPLOAD_DIR = "temp_uploads"
-
-def create_upload_directory():
-    if not os.path.exists(UPLOAD_DIR):
-        os.makedirs(UPLOAD_DIR)
-        logger.info(f"Created upload directory: {UPLOAD_DIR}")
-
-@app.on_event("shutdown")
-def shutdown_event():
-    """Clean up temporary upload directory on application shutdown."""
-    try:
-        if UPLOAD_DIR and os.path.exists(UPLOAD_DIR):
-            shutil.rmtree(UPLOAD_DIR)
-            logger.info(f"Cleaned up temporary directory: {UPLOAD_DIR}")
-    except Exception as e:
-        logger.exception(f"Error cleaning up temp directory {UPLOAD_DIR}")
-```
-
-### File Upload Endpoint
-
-```python
-@router.post("/connect")
-async def connect_data_source(
-    connection_type: str = Form(...),
-    file: UploadFile = File(None),
-    # Database connection parameters...
-):
-    if connection_type == "file":
-        if not file:
-            raise InvalidInputError("File is required for file connection")
-        
-        # Save uploaded file
-        file_path = os.path.join(UPLOAD_DIR, file.filename)
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        
-        # Connect using file connector
-        connection_details = {"file_path": file_path}
-        connector = FileConnector(state_manager)
-        connector.connect(connection_details)
-```
-
-## Configuration and Environment
-
-### CORS Configuration
-
-```python
-origins = [
-    "http://localhost",
-    "http://localhost:3000",
-    # Add production frontend URLs
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-```
-
-### Logging Configuration
-
-```python
-log_level_name = os.environ.get("LOG_LEVEL", "INFO").upper()
-log_level = getattr(logging, log_level_name, logging.INFO)
-
-logging.basicConfig(
-    level=log_level,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
-)
-```
-
-## Database Support (Future)
-
-### Planned Database Connectors
-
-#### PostgreSQL Connector
-```python
-class PostgreSQLConnector(BaseConnector):
-    def connect(self, connection_details):
-        # psycopg2 or asyncpg integration
-        pass
-```
-
-#### MySQL Connector
-```python
-class MySQLConnector(BaseConnector):
-    def connect(self, connection_details):
-        # MySQL connector integration
-        pass
-```
-
-## Performance Optimizations
-
-### Query Optimization
-- **Connection pooling**: Reuse database connections
-- **Query caching**: Cache frequently executed queries
-- **Result pagination**: Handle large result sets efficiently
-
-### File Processing Optimization
-- **Streaming CSV processing**: Handle large files without loading entirely into memory
-- **Columnar storage**: Leverage DuckDB's columnar format for analytics
-- **Parallel processing**: Multi-threaded file processing for large datasets
-
-## Security Features
-
-### Input Validation
-- **SQL injection prevention**: Parameterized queries through pypika
-- **File type validation**: Restrict file uploads to supported types
-- **Size limits**: Maximum file size restrictions
-
-### Access Control
-- **Authentication middleware**: Token-based authentication (future)
-- **Role-based permissions**: User access control (future)
-- **Audit logging**: Track all data access and modifications
-
-## Monitoring and Observability
-
-### Health Checks
-```python
-@app.get("/health")
-def health_check():
-    return {"status": "healthy", "timestamp": datetime.utcnow()}
-```
-
-### Metrics Collection
-- **Query execution times**: Track performance metrics
-- **Error rates**: Monitor exception frequencies
-- **Resource usage**: CPU and memory monitoring
-
-## Future Enhancements
-
-### Planned Features
-- **Advanced database connectors**: PostgreSQL, MySQL, ClickHouse support
-- **Authentication system**: User authentication and authorization
-- **Query caching**: Intelligent result caching system
-- **Real-time data**: WebSocket support for live data streams
-- **Data transformation**: ETL capabilities and data preprocessing
-- **Advanced file formats**: Parquet, JSON, Excel support
-- **Distributed processing**: Scaling for large dataset processing
-- **API versioning**: Versioned API endpoints for backwards compatibility
