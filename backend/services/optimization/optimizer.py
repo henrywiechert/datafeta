@@ -15,6 +15,7 @@ from .strategies.datetime_binning import DateTimeBinningStrategy
 from .estimators.base import ResultSizeEstimator, BasicEstimator
 from .estimators.clickhouse import ClickHouseEstimator
 from .estimators.duckdb import DuckDBEstimator
+from .table_size_detector import SmallTableDetector
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +79,11 @@ class QueryOptimizer:
         
         # Initialize estimator based on database type
         self.estimator = self._create_estimator()
+        self._small_table_detector = SmallTableDetector(
+            config=self.config,
+            connector=self.connector,
+            logger=logger,
+        )
     
     def _create_estimator(self) -> Optional[ResultSizeEstimator]:
         """Create appropriate estimator for database type."""
@@ -98,110 +104,6 @@ class QueryOptimizer:
             logger.info(f"Using BasicEstimator for {connector_class}")
             return BasicEstimator(self.connector)
     
-    def _check_table_size(self, query_desc: QueryDescription) -> Optional[OptimizationOverride]:
-        """
-        Quick check if table is small enough to skip all optimizations.
-        
-        Uses a fast COUNT(*) query (often cached by DB) to determine if
-        the table is small enough that optimizations would add more overhead
-        than they save.
-        
-        Args:
-            query_desc: The query description
-            
-        Returns:
-            OptimizationOverride if table is small, None otherwise
-        """
-        if not self.config.enable_small_table_detection:
-            logger.debug("Small table detection disabled")
-            return None
-        
-        if not self.connector:
-            logger.warning("No connector available for table size check")
-            return None
-        
-        try:
-            # Build table reference
-            if query_desc.target_database:
-                table_ref = f"{query_desc.target_database}.{query_desc.target_table}"
-            else:
-                table_ref = query_desc.target_table
-            
-            # Attempt to use in-memory cache first
-            row_count: Optional[int] = None
-            if self.config.enable_count_cache:
-                from .count_cache import get_global_count_cache
-                cache = get_global_count_cache(
-                    ttl_seconds=self.config.count_cache_ttl_seconds,
-                    max_size=self.config.count_cache_max_size
-                )
-                cache_key = f"table_size::{table_ref}"
-                cached = cache.get(cache_key)
-                if cached is not None:
-                    row_count = cached
-                    logger.debug(f"COUNT(*) cache hit for {table_ref}: {row_count}")
-                else:
-                    logger.debug(f"COUNT(*) cache miss for {table_ref}")
-            else:
-                logger.debug("Count cache disabled")
-
-            if row_count is None:
-                # Fast COUNT(*) query - usually cached by database
-                count_query = f"SELECT COUNT(*) as row_count FROM {table_ref}"
-                logger.debug(f"Checking table size with: {count_query}")
-                columns, rows = self.connector.fetch_data(count_query)
-            else:
-                # Fake rows data structure for uniform extraction logic
-                rows = [{"row_count": row_count}]
-                columns = [{"name": "row_count", "type": "UInt64"}]
-            
-            if not rows or len(rows) == 0:
-                logger.warning("Table size check returned no results")
-                return None
-            
-            first_row = rows[0]
-            if row_count is None:  # Extract if not already from cache
-                if isinstance(first_row, dict):
-                    row_count = first_row.get('row_count', 0)
-                elif isinstance(first_row, (list, tuple)):
-                    row_count = first_row[0] if len(first_row) > 0 else 0
-                else:
-                    row_count = int(first_row)
-                # Store successful count in cache
-                if self.config.enable_count_cache and row_count is not None:
-                    try:
-                        cache.set(cache_key, int(row_count))  # type: ignore[name-defined]
-                        logger.debug(f"Cached COUNT(*) for {table_ref}: {row_count}")
-                    except Exception as ce:
-                        logger.debug(f"Failed to cache COUNT(*) for {table_ref}: {ce}")
-            
-            # Get column count from query description
-            column_count = len(query_desc.dimensions) + len(query_desc.measures)
-            
-            # Check if below threshold
-            if row_count < self.config.small_table_threshold:
-                logger.info(
-                    f"✅ Small table detected: {row_count:,} rows < {self.config.small_table_threshold:,} threshold. "
-                    f"Skipping all optimizations to avoid overhead."
-                )
-                
-                return OptimizationOverride(
-                    skip_all_optimizations=True,
-                    reason="table_too_small",
-                    table_stats={
-                        "row_count": row_count,
-                        "column_count": column_count,
-                        "threshold": self.config.small_table_threshold
-                    }
-                )
-            
-            logger.info(f"Table size: {row_count:,} rows (>= threshold {self.config.small_table_threshold:,})")
-            return None
-            
-        except Exception as e:
-            logger.warning(f"Failed to check table size: {e}. Proceeding with optimization.", exc_info=True)
-            return None
-    
     def create_plan(self, query_desc: QueryDescription) -> OptimizationPlan:
         """
         Analyze query and create optimization plan.
@@ -218,7 +120,7 @@ class QueryOptimizer:
             OptimizationPlan with strategies to apply
         """
         # PRIORITY 1: Check if table is too small for optimizations
-        override = self._check_table_size(query_desc)
+        override = self._small_table_detector.check(query_desc)
         if override and override.skip_all_optimizations:
             logger.info("⚡ Returning empty optimization plan due to backend override")
             return OptimizationPlan(
