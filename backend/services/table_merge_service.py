@@ -261,3 +261,68 @@ class TableMergeService:
             union_tables=union_defs,
             name=f"{primary_table}_combined"
         )
+
+    def get_merged_columns_with_virtual(
+        self,
+        database: str,
+        primary_table: str,
+        joined_tables: Optional[List[str]] = None,
+        union_tables: Optional[List[str]] = None,
+        auto_detect: bool = True
+    ) -> MergedColumnsResponse:
+        """
+        Get a merged column list from multiple tables with automatic virtual table creation.
+        
+        Supports two modes:
+        - JOIN mode: Tables with different schemas, columns get table prefixes
+        - UNION mode: Tables with identical schemas, columns stay the same + _source_table column added
+        
+        Args:
+            database: Database name
+            primary_table: Primary/main table
+            joined_tables: Optional list of tables to join (JOIN mode)
+            union_tables: Optional list of tables to union (UNION mode)
+            auto_detect: Whether to auto-detect joins (default: True, for JOIN mode only)
+        
+        Returns:
+            MergedColumnsResponse with columns and virtual table definition
+        """
+        # Determine mode and create appropriate virtual table
+        if union_tables:
+            # UNION mode
+            virtual_table = self.create_union_virtual_table(
+                database=database,
+                primary_table=primary_table,
+                union_tables=union_tables
+            )
+        else:
+            # JOIN mode (default)
+            virtual_table = self.create_virtual_table(
+                database=database,
+                primary_table=primary_table,
+                joined_tables=joined_tables,
+                auto_detect=auto_detect
+            )
+        
+        # Get merged columns
+        result = self.get_merged_columns(database, virtual_table)
+        
+        # Add the virtual _source_table column for UNION mode
+        if virtual_table.mode == 'union':
+            source_table_column = Column(
+                name='_source_table',
+                data_type='String',
+                is_datetime=False,
+                table_name=None
+            )
+            result.columns.append(source_table_column)
+            logger.info(f"Added _source_table virtual column for UNION mode")
+        
+        mode_info = (
+            f"UNION ({len(virtual_table.union_tables) + 1} tables)" 
+            if virtual_table.mode == 'union' 
+            else f"JOIN ({len(virtual_table.joined_tables) + 1} tables)"
+        )
+        logger.info(f"Created virtual table with {len(result.columns)} columns in {mode_info} mode")
+        
+        return result

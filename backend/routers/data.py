@@ -320,43 +320,13 @@ def get_merged_columns(
     """
     try:
         merge_service = TableMergeService(connector)
-        
-        # Determine mode based on which tables are provided
-        if union_tables:
-            # UNION mode
-            virtual_table = merge_service.create_union_virtual_table(
-                database=database,
-                primary_table=primary_table,
-                union_tables=union_tables
-            )
-        else:
-            # JOIN mode (default)
-            virtual_table = merge_service.create_virtual_table(
-                database=database,
-                primary_table=primary_table,
-                joined_tables=joined_tables,
-                auto_detect=auto_detect
-            )
-        
-        # Get merged columns
-        result = merge_service.get_merged_columns(database, virtual_table)
-        
-        # Add the virtual _source_table column for UNION mode
-        if virtual_table.mode == 'union':
-            from backend.models.data_source import Column
-            source_table_column = Column(
-                name='_source_table',
-                data_type='String',
-                is_datetime=False,
-                table_name=None
-            )
-            result.columns.append(source_table_column)
-            logger.info(f"Added _source_table virtual column for UNION mode")
-        
-        mode_info = f"UNION ({len(virtual_table.union_tables) + 1} tables)" if virtual_table.mode == 'union' else f"JOIN ({len(virtual_table.joined_tables) + 1} tables)"
-        logger.info(f"Created virtual table with {len(result.columns)} columns in {mode_info} mode")
-        return result
-        
+        return merge_service.get_merged_columns_with_virtual(
+            database=database,
+            primary_table=primary_table,
+            joined_tables=joined_tables,
+            union_tables=union_tables,
+            auto_detect=auto_detect
+        )
     except Exception as e:
         logger.error(f"Error creating merged columns: {e}")
         raise DataSourceConnectionError(f"Failed to create merged columns: {e}")
