@@ -22,6 +22,10 @@ from backend.services.query_components.terms import (
     UnquotedField,
 )
 from backend.services.query_components.filter_builder import FilterBuilder
+from backend.services.query_components.sampling_limits_builder import (
+    SamplingAndLimitsBuilder,
+)
+from backend.services.query_components.optimization_applier import OptimizationApplier
 
 logger = logging.getLogger(__name__)
 
@@ -281,25 +285,17 @@ class QueryService:
         optimizer: Optional[Any]
     ) -> Tuple[Query, List[Dict[str, Any]]]:
         """Apply optimization plan and return resulting query and metadata."""
-        optimization_metadata: List[Dict[str, Any]] = []
-
-        if with_optimization and optimizer and optimization_plan:
-            try:
-                if 'unix_timestamp' in (binning_config or {}) and not query._distinct:
-                    query = query.distinct()
-
-                if use_category_dedup:
-                    logger.info("Category deduplication active - skipping DISTINCT, using GROUP BY instead")
-                else:
-                    query = optimization_plan.apply(query, query_desc, primary_table)
-
-                optimization_metadata = optimization_plan.get_metadata_summary()
-                if optimization_metadata:
-                    logger.info(f"Applied {len(optimization_metadata)} optimizations")
-            except Exception as exc:
-                logger.error(f"Optimization failed, falling back to unoptimized: {exc}", exc_info=True)
-
-        return query, optimization_metadata
+        applier = OptimizationApplier(logger=logger)
+        return applier.apply(
+            query=query,
+            optimization_plan=optimization_plan,
+            query_desc=query_desc,
+            primary_table=primary_table,
+            binning_config=binning_config,
+            use_category_dedup=use_category_dedup,
+            with_optimization=with_optimization,
+            optimizer=optimizer,
+        )
 
     def _apply_grouping(
         self,
@@ -389,43 +385,15 @@ class QueryService:
         primary_table: Any,
         with_sampling: bool
     ) -> Query:
-        """Apply sampling, random order, limits, and offsets based on query metadata."""
-        is_raw_query = not query_desc.measures
-        is_single_dimension = len(query_desc.dimensions) == 1 if query_desc.dimensions else False
-
-        if (
-            with_sampling
-            and is_raw_query
-            and is_single_dimension
-            and query_desc.limit is None
-            and not query_desc.orderBy
-            and not query_desc.filters
-            and not query_desc.use_random_sample
-        ):
-            dimension = query_desc.dimensions[0]
-            if dimension.flavour == 'continuous':
-                dimension_field_name = dimension.field
-                query = query.where(primary_table[dimension_field_name].notnull())
-
-            if db_type == 'clickhouse':
-                query = query.orderby(Function('rand')).limit(5000)
-
-        if query_desc.use_random_sample:
-            random_func = 'rand' if db_type == 'clickhouse' else 'random'
-            query = query.orderby(Function(random_func))
-            logger.info("Applied random sampling for distinct value query")
-
-        if query_desc.limit is not None:
-            if query_desc.limit < 0:
-                raise QueryGenerationError("Limit cannot be negative.")
-            query = query.limit(query_desc.limit)
-
-        if query_desc.offset is not None:
-            if query_desc.offset < 0:
-                raise QueryGenerationError("Offset cannot be negative.")
-            query = query.offset(query_desc.offset)
-
-        return query
+        """Delegate sampling and limit logic to SamplingAndLimitsBuilder."""
+        builder = SamplingAndLimitsBuilder(logger=logger)
+        return builder.apply(
+            query=query,
+            query_desc=query_desc,
+            db_type=db_type,
+            primary_table=primary_table,
+            with_sampling=with_sampling,
+        )
 
     def _parse_field_reference(self, field_name: str, table_map: Dict[str, Any], default_table: Any) -> Any:
         """
