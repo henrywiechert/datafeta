@@ -28,9 +28,9 @@ backend/
 ├── services/             # Business logic layer
 │   └── query_service.py  # Query generation and execution
 ├── connectors/           # Data source connectors
-│   ├── base_connector.py # Abstract base connector
-│   ├── file_connector.py # File-based data sources
-│   └── db_connector.py   # Database connectors (future)
+│   ├── base.py           # Abstract base connector
+│   ├── file_connector.py # File-based data sources (DuckDB)
+│   └── clickhouse_connector.py # ClickHouse database connector
 ├── models/               # Data models and schemas
 ├── exceptions.py         # Custom exception classes
 └── dependencies.py       # Dependency injection utilities
@@ -304,6 +304,62 @@ def list_columns(self, database: str = None, table: str = None) -> List[Column]:
     return columns
 ```
 
+### ClickHouse Connector
+
+The `ClickhouseConnector` enables direct connectivity to ClickHouse clusters. It implements the `BaseConnector` contract and exposes database operations through the `clickhouse_connect` client.
+
+#### Connection Lifecycle
+```python
+class ClickhouseConnector(BaseConnector):
+    def __init__(self, state_manager: ConnectionStateManager):
+        self._client: Optional[Client] = None
+        self.state_manager = state_manager
+
+    def connect(self, connection_details: Dict[str, Any]) -> None:
+        self._client = ch_connect(
+            host=connection_details["host"],
+            port=connection_details.get("port", 8123),
+            username=connection_details.get("username"),
+            password=connection_details.get("password"),
+            database=connection_details.get("database"),
+        )
+        self.state_manager.set_active_connector(self)
+
+    def disconnect(self) -> None:
+        if self._client:
+            self._client.close()
+            self._client = None
+            self.state_manager.clear_active_connector()
+```
+
+#### Metadata Discovery
+```python
+def list_databases(self) -> List[Database]:
+    rows = self._client.query("SHOW DATABASES")
+    return [Database(name=row["name"]) for row in rows.result_rows]
+
+def list_tables(self, database: str | None = None) -> List[Table]:
+    db = database or self._client.database
+    query = f"SHOW TABLES FROM {db}"
+    rows = self._client.query(query)
+    return [Table(name=row["name"], database=db) for row in rows.result_rows]
+```
+
+#### Query Execution
+```python
+def fetch_data(self, query: str) -> Tuple[List[Dict[str, str]], List[Dict[str, Any]]]:
+    if not self._client:
+        raise DataSourceConnectionError("ClickHouse client is not connected")
+
+    result = self._client.query(query)
+    columns = [
+        {"name": field.name, "type": field.type}
+        for field in result.column_descriptions
+    ]
+    rows = [dict(zip(result.column_names, row)) for row in result.result_rows]
+    return rows, columns
+```
+
 ## Error Handling
 
 ### Custom Exception Classes
@@ -451,14 +507,6 @@ class PostgreSQLConnector(BaseConnector):
 class MySQLConnector(BaseConnector):
     def connect(self, connection_details):
         # MySQL connector integration
-        pass
-```
-
-#### ClickHouse Connector
-```python
-class ClickHouseConnector(BaseConnector):
-    def connect(self, connection_details):
-        # ClickHouse driver integration
         pass
 ```
 
