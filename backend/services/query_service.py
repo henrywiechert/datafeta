@@ -29,6 +29,7 @@ from backend.services.query_components.optimization_applier import OptimizationA
 from backend.services.query_components.grouping_ordering_builder import (
     GroupingOrderingBuilder,
 )
+from backend.services.query_components.union_query_builder import UnionQueryBuilder
 
 logger = logging.getLogger(__name__)
 
@@ -424,183 +425,6 @@ class QueryService:
         # No periods - simple column name
         return default_table[field_name]
 
-    def _translate_union_query(
-        self,
-        query_desc: QueryDescription,
-        db_type: str = 'clickhouse',
-        quote_char: str = '`',
-        with_sampling: bool = False,
-        with_optimization: bool = True,
-        optimizer: Optional[Any] = None
-    ) -> Tuple[str, List[Dict[str, Any]]]:
-        """
-        Translates a QueryDescription with UNION ALL virtual table into SQL.
-        
-        Combines multiple tables using UNION ALL. Tables should have similar schemas
-        (at least some common columns). Only columns that are referenced in the query
-        will be selected, so partial schema matches work fine as long as the queried
-        columns exist in all tables.
-        
-        Args:
-            query_desc: Query description with virtual_table in union mode
-            db_type: Database type
-            quote_char: Quote character for identifiers
-            with_sampling: Whether to apply sampling
-            with_optimization: Whether to apply optimizations
-            optimizer: Query optimizer instance
-            
-        Returns:
-            Tuple of (SQL query string, optimization metadata)
-        """
-        virtual_table = query_desc.virtual_table
-        if not virtual_table or virtual_table.mode != 'union':
-            raise ValueError("Query description must have virtual_table in union mode")
-        
-        # Get all tables to union (primary + union tables)
-        all_tables = [virtual_table.primary_table] + [
-            ut.table_name for ut in virtual_table.union_tables
-        ]
-        
-        logger.info(f"Building UNION ALL query for tables: {all_tables}")
-        
-        # Build individual SELECT queries for each table
-        union_queries = []
-        for table_name in all_tables:
-            # Create a modified query_desc for this specific table
-            single_table_desc = query_desc.copy(deep=True)
-            single_table_desc.target_table = table_name
-            single_table_desc.virtual_table = None  # Remove virtual table for single query
-            
-            # Check if _source_table is the only dimension (special case)
-            has_source_table_dim = any(d.field == '_source_table' for d in single_table_desc.dimensions)
-            other_dimensions = [d for d in single_table_desc.dimensions if d.field != '_source_table']
-            
-            # If _source_table is the only thing being selected, we need to select something from the actual table
-            # We'll just select the literal, but we need at least one column to make a valid query
-            if has_source_table_dim and len(other_dimensions) == 0 and len(single_table_desc.measures) == 0:
-                # Create a simple SELECT query that just returns the table name
-                # This is a special case where user only wants to see which tables exist
-                simple_sql = f"SELECT '{table_name}' AS {quote_char}_source_table{quote_char} FROM {quote_char}{query_desc.target_database}{quote_char}.{quote_char}{table_name}{quote_char} LIMIT 1"
-                union_queries.append(f"({simple_sql})")
-                continue
-            
-            # Filter out _source_table from dimensions/filters/orderBy since it doesn't exist in physical tables
-            single_table_desc.dimensions = other_dimensions
-            single_table_desc.filters = [
-                f for f in single_table_desc.filters if f.field != '_source_table'
-            ]
-            # Remove ORDER BY and LIMIT from individual queries - we'll apply them to the UNION result
-            single_table_desc.orderBy = []
-            single_table_desc.limit = None
-            single_table_desc.offset = None
-            
-            # Translate single table query
-            single_sql, _ = self.translate_to_sql(
-                single_table_desc,
-                table_name=table_name,
-                db_type=db_type,
-                with_sampling=False,  # Don't sample individual queries
-                with_optimization=False  # Don't optimize individual queries
-            )
-            
-            # Add a virtual column to identify the source table
-            # Inject the column after SELECT and before FROM
-            # This adds: SELECT ..., 'table_name' AS _source_table FROM ...
-            if 'FROM' in single_sql:
-                select_part, from_part = single_sql.split('FROM', 1)
-                # Add the source table column before FROM
-                # Remove trailing whitespace/comma from select_part
-                select_part = select_part.rstrip()
-                if select_part.endswith(','):
-                    select_part = select_part[:-1]
-                # Add the virtual column
-                modified_sql = f"{select_part}, '{table_name}' AS {quote_char}_source_table{quote_char} FROM{from_part}"
-                union_queries.append(f"({modified_sql})")
-            else:
-                # Fallback if no FROM clause (shouldn't happen)
-                union_queries.append(f"({single_sql})")
-        
-        # Combine with UNION ALL
-        union_sql = "\nUNION ALL\n".join(union_queries)
-        
-        # Check if this is an explicit filter value query (set by frontend)
-        # When fetching filter values across UNION tables, we need to deduplicate
-        # but ONLY on the data column, not including _source_table
-        needs_distinct = query_desc.fetch_filter_values is True
-        distinct_columns = []
-        
-        if needs_distinct:
-            # Build list of columns to select (excluding _source_table for DISTINCT)
-            for dim in query_desc.dimensions:
-                if dim.field != '_source_table':
-                    # Handle datetime parts - they get aliased
-                    if dim.date_part and dim.date_mode:
-                        col_name = f"{dim.field}_{dim.date_part}_{dim.date_mode}"
-                    else:
-                        col_name = dim.field
-                    distinct_columns.append(f"{quote_char}{col_name}{quote_char}")
-            logger.info(f"Filter value query (fetch_filter_values=True) - will apply DISTINCT on: {distinct_columns}")
-        
-        # Check if we need an outer query (for ORDER BY, LIMIT, _source_table filters, or DISTINCT)
-        source_table_filters = [f for f in query_desc.filters if f.field == '_source_table']
-        needs_outer_query = query_desc.orderBy or query_desc.limit or query_desc.offset or source_table_filters or needs_distinct
-        
-        if needs_outer_query:
-            # Build outer query for ordering/limiting/filtering on _source_table/applying DISTINCT
-            if needs_distinct and distinct_columns:
-                # Filter value query: Select DISTINCT only on data columns, not _source_table
-                # This prevents duplicate values when the same value exists in multiple tables
-                columns_list = ', '.join(distinct_columns)
-                outer_sql = f"SELECT DISTINCT {columns_list} FROM (\n{union_sql}\n) AS union_result"
-                logger.info(f"Applied DISTINCT to filter value query in UNION mode")
-            else:
-                # Regular query: Select all columns
-                outer_sql = f"SELECT * FROM (\n{union_sql}\n) AS union_result"
-            
-            # Add WHERE clause for _source_table filters
-            if source_table_filters:
-                where_clauses = []
-                for filter_obj in source_table_filters:
-                    if filter_obj.operator == '=':
-                        where_clauses.append(f"{quote_char}_source_table{quote_char} = '{filter_obj.value}'")
-                    elif filter_obj.operator == '!=':
-                        where_clauses.append(f"{quote_char}_source_table{quote_char} != '{filter_obj.value}'")
-                    elif filter_obj.operator == 'in':
-                        values = "', '".join(str(v) for v in filter_obj.value)
-                        where_clauses.append(f"{quote_char}_source_table{quote_char} IN ('{values}')")
-                    elif filter_obj.operator == 'not in':
-                        values = "', '".join(str(v) for v in filter_obj.value)
-                        where_clauses.append(f"{quote_char}_source_table{quote_char} NOT IN ('{values}')")
-                    elif filter_obj.operator == 'like':
-                        where_clauses.append(f"{quote_char}_source_table{quote_char} LIKE '{filter_obj.value}'")
-                    # Add more operators as needed
-                
-                if where_clauses:
-                    outer_sql += f"\nWHERE {' AND '.join(where_clauses)}"
-            
-            # Add ORDER BY
-            if query_desc.orderBy:
-                order_clauses = []
-                for order in query_desc.orderBy:
-                    direction = "DESC" if order.direction == 'desc' else "ASC"
-                    order_clauses.append(f"{quote_char}{order.field}{quote_char} {direction}")
-                outer_sql += f"\nORDER BY {', '.join(order_clauses)}"
-            
-            # Add LIMIT and OFFSET
-            if query_desc.limit:
-                outer_sql += f"\nLIMIT {query_desc.limit}"
-                if query_desc.offset:
-                    outer_sql += f" OFFSET {query_desc.offset}"
-            
-            final_sql = outer_sql
-        else:
-            final_sql = union_sql
-        
-        logger.info(f"Generated UNION ALL query: {final_sql[:200]}...")
-        
-        # Return with empty optimization metadata
-        return (final_sql, [])
-
     def translate_to_sql(
         self, 
         query_desc: QueryDescription, 
@@ -633,13 +457,17 @@ class QueryService:
 
         # Handle UNION ALL mode separately
         if query_desc.virtual_table and query_desc.virtual_table.mode == 'union':
-            return self._translate_union_query(
-                query_desc, 
+            builder = UnionQueryBuilder(
+                translate_single_table=self.translate_to_sql,
+                logger=logger,
+            )
+            return builder.translate(
+                query_desc,
                 db_type=db_type,
                 quote_char=quote_char,
                 with_sampling=with_sampling,
                 with_optimization=with_optimization,
-                optimizer=optimizer
+                optimizer=optimizer,
             )
 
         table_context = self._build_table_context(query_desc, db_type, table_name)
