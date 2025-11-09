@@ -15,6 +15,7 @@ from backend.services.query_service import QueryService
 from backend.services.connection_service import ConnectionService
 from backend.services.table_merge_service import TableMergeService
 from backend.services.query_result_builder import QueryResultBuilder
+from backend.services.validation_service import ValidationService
 from backend.connectors.base import BaseConnector
 
 # Import dependencies
@@ -101,8 +102,7 @@ def list_tables(
     conn_details: ConnectionDetails = Depends(get_connection_details)
 ):
     """List tables for the current connection and selected database."""
-    if conn_details.type == "clickhouse" and not database:
-         raise InvalidInputError("'database' query parameter is required for ClickHouse connections.")
+    ValidationService.require_database_for_clickhouse(database, conn_details, "listing tables")
     tables = connector.list_tables(database=database)
     return TableListResponse(tables=tables)
 
@@ -114,11 +114,7 @@ def list_columns(
     conn_details: ConnectionDetails = Depends(get_connection_details)
 ):
     """List columns for the selected table (and database if applicable)."""
-    # Removed check for table existence - handled implicitly?
-    # if not table: raise HTTPException(...) # FastAPI handles missing required query param
-
-    if conn_details.type == "clickhouse" and not database:
-        raise InvalidInputError("'database' query parameter is required for ClickHouse connections.")
+    ValidationService.require_database_for_clickhouse(database, conn_details, "listing columns")
 
     columns = connector.list_columns(database=database, table=table)
     
@@ -174,13 +170,8 @@ def execute_query(
     # Connection check handled by dependencies
 
     # --- Basic Validation --- #
-    if conn_details.type == 'csv':
-        expected_table = getattr(connector, '_table_name', None)
-        if not expected_table or query_desc.target_table != expected_table:
-             raise InvalidInputError(f"Query target table '{query_desc.target_table}' does not match connected CSV table '{expected_table}'.")
-    elif conn_details.type == 'clickhouse':
-        if not query_desc.target_database:
-            raise InvalidInputError("target_database must be provided in the query description for ClickHouse.")
+    ValidationService.validate_csv_table_match(query_desc.target_table, connector, conn_details)
+    ValidationService.require_target_database_for_clickhouse(query_desc, conn_details)
 
     # --- Generate SQL using QueryService with Optimization --- #
     query_service = QueryService()

@@ -10,6 +10,7 @@ from pypika.functions import Cast
 from backend.connectors.base import BaseConnector
 from backend.models.data_source import ConnectionDetails
 from backend.exceptions import QueryExecutionError, InvalidInputError
+from backend.services.validation_service import ValidationService
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +60,7 @@ class CardinalityService:
             Distinct count as integer
         """
         # Validate ClickHouse database requirement
-        if self.conn_details.type == "clickhouse" and not database:
-            raise InvalidInputError("'database' query parameter is required for ClickHouse connections.")
+        ValidationService.require_database_for_clickhouse(database, self.conn_details, "counting distinct values")
         
         # Special handling for _source_table virtual column (UNION queries only)
         if field == '_source_table':
