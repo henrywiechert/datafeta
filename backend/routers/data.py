@@ -14,6 +14,7 @@ from backend.models.query import QueryDescription, QueryResult
 from backend.services.query_service import QueryService
 from backend.services.connection_service import ConnectionService
 from backend.services.table_merge_service import TableMergeService
+from backend.services.query_result_builder import QueryResultBuilder
 from backend.connectors.base import BaseConnector
 
 # Import dependencies
@@ -214,44 +215,13 @@ def execute_query(
     try:
         columns, rows = connector.fetch_data(sql_query)
         
-        # Extract optimization metadata (extended_metadata is a list, not a dict)
-        optimization_metadata = extended_metadata if isinstance(extended_metadata, list) else []
-        hints_used = None  # Not returned separately anymore
-        override = None  # Not returned separately anymore
-        
-        # Calculate reduction factor if optimization was applied
-        reduction_factor = None
-        original_estimate = None
-        if optimization_metadata:
-            # For now, just use the estimated reduction from metadata
-            # In Phase 3, we'll add actual estimation queries
-            for opt in optimization_metadata:
-                if opt.get('reduction'):
-                    reduction_factor = opt['reduction']
-                    break
-        
-        # Calculate result dimensions
-        from backend.models.query import ResultDimensions
-        row_count = len(rows)
-        column_count = len(columns)
-        result_dimensions = ResultDimensions(
-            rows=row_count,
-            columns=column_count,
-            size_display=f"{row_count:,} × {column_count}"
-        )
-        
-        return QueryResult(
+        # Build result using QueryResultBuilder
+        result_builder = QueryResultBuilder()
+        return result_builder.build_result(
             columns=columns,
             rows=rows,
-            row_count=row_count,
-            query_sql=sql_query,
-            error=None,
-            optimizations_applied=optimization_metadata if optimization_metadata else None,
-            original_estimate=original_estimate,
-            reduction_factor=reduction_factor,
-            optimization_hints_used=hints_used,
-            optimization_override=override,
-            result_dimensions=result_dimensions
+            sql_query=sql_query,
+            extended_metadata=extended_metadata
         )
     except NotImplementedError as e:
         # Treat as a 501-like scenario via QueryExecutionError
