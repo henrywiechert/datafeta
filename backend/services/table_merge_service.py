@@ -288,7 +288,8 @@ class TableMergeService:
             MergedColumnsResponse with columns and virtual table definition
         """
         # Determine mode and create appropriate virtual table
-        if union_tables:
+        # Check for union_tables is not None (to handle empty list correctly)
+        if union_tables is not None:
             # UNION mode
             virtual_table = self.create_union_virtual_table(
                 database=database,
