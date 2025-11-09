@@ -26,6 +26,9 @@ from backend.services.query_components.sampling_limits_builder import (
     SamplingAndLimitsBuilder,
 )
 from backend.services.query_components.optimization_applier import OptimizationApplier
+from backend.services.query_components.grouping_ordering_builder import (
+    GroupingOrderingBuilder,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -308,52 +311,20 @@ class QueryService:
         with_optimization: bool,
         optimizer: Optional[Any]
     ) -> Query:
-        """Apply GROUP BY or DISTINCT logic derived from dimensions and strategies."""
-        if not query_desc.dimensions:
-            return query
-
-        if use_category_dedup and groupby_field_info_for_dedup:
-            logger.info(f"Building GROUP BY with {len(groupby_field_info_for_dedup)} fields (using aliases)")
-            for field_name, precision in groupby_field_info_for_dedup:
-                query = query.groupby(primary_table[field_name])
-                if precision is not None:
-                    logger.debug(f"  GROUP BY {field_name} (precision={precision})")
-                else:
-                    logger.debug(f"  GROUP BY {field_name} (no rounding)")
-            logger.info(f"Applied GROUP BY on {len(groupby_field_info_for_dedup)} continuous dimensions for category dedup")
-            return query
-
-        if query_desc.measures:
-            groupby_fields = []
-            for dim in query_desc.dimensions:
-                field_term = primary_table[dim.field]
-                if dim.date_part and dim.date_mode:
-                    field_term = self._get_datetime_part_expression(field_term, dim.date_part, dim.date_mode, db_type)
-                groupby_fields.append(field_term)
-            return query.groupby(*groupby_fields)
-
-        if with_optimization and optimizer:
-            return query
-
-        continuous_dims = [d for d in query_desc.dimensions if d.flavour == 'continuous']
-        discrete_dims = [d for d in query_desc.dimensions if d.flavour == 'discrete']
-
-        has_continuous_on_x = any(d.axis == 'x' for d in continuous_dims)
-        has_continuous_on_y = any(d.axis == 'y' for d in continuous_dims)
-        is_scatter_plot = has_continuous_on_x and has_continuous_on_y
-
-        if not is_scatter_plot:
-            if discrete_dims and continuous_dims:
-                groupby_fields = []
-                for dim in query_desc.dimensions:
-                    field_term = primary_table[dim.field]
-                    if dim.date_part and dim.date_mode:
-                        field_term = self._get_datetime_part_expression(field_term, dim.date_part, dim.date_mode, db_type)
-                    groupby_fields.append(field_term)
-                return query.groupby(*groupby_fields)
-            return query.distinct()
-
-        return query
+        builder = GroupingOrderingBuilder(
+            logger=logger,
+            get_datetime_part_expression=self._get_datetime_part_expression,
+        )
+        return builder.apply_grouping(
+            query,
+            query_desc=query_desc,
+            db_type=db_type,
+            primary_table=primary_table,
+            use_category_dedup=use_category_dedup,
+            groupby_field_info_for_dedup=groupby_field_info_for_dedup,
+            with_optimization=with_optimization,
+            optimizer=optimizer,
+        )
 
     def _apply_ordering(
         self,
@@ -362,20 +333,13 @@ class QueryService:
         all_aliases: Set[str],
         primary_table: Any
     ) -> Query:
-        """Apply ORDER BY clauses using aliases where appropriate."""
-        if not order_by:
-            return query
-
-        for order in order_by:
-            if order.field in all_aliases:
-                field_term = QuotedField(order.field)
-            else:
-                field_term = primary_table[order.field]
-
-            pypika_order = Order.desc if order.direction == 'desc' else Order.asc
-            query = query.orderby(field_term, order=pypika_order)
-
-        return query
+        builder = GroupingOrderingBuilder(logger=logger)
+        return builder.apply_ordering(
+            query,
+            order_by=order_by,
+            all_aliases=all_aliases,
+            primary_table=primary_table,
+        )
 
     def _apply_sampling_and_limits(
         self,
