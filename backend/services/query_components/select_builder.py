@@ -53,10 +53,15 @@ class SelectClauseBuilder:
                 field_term = self._parse_field_reference(dim.field, table_map, default_table)
                 field_term = self._apply_cast_if_configured(dim.field, field_term, query_desc.column_casts)
 
+                # Skip optimization binning if user has explicitly selected a datetime part
+                # User's explicit selection takes precedence over automatic optimization
+                has_explicit_datetime_part = dim.date_part and dim.date_mode
+                
                 if (
                     binning_config
                     and dim.field in binning_config
                     and getattr(dim, "date_mode", None) == "timeline"
+                    and not has_explicit_datetime_part  # Skip if user selected a specific part
                 ):
                     unit = binning_config[dim.field]
                     binned_expr = Function("date_trunc", unit, field_term)
@@ -65,6 +70,11 @@ class SelectClauseBuilder:
                     field_term = binned_expr.as_(dim.field)
                     all_aliases.add(dim.field)
                     logger.debug("Applied datetime binning to %s with unit %s", dim.field, unit)
+                elif binning_config and dim.field in binning_config and has_explicit_datetime_part:
+                    logger.debug(
+                        "Skipping optimization binning for %s - user selected explicit datetime part: %s (%s)",
+                        dim.field, dim.date_part, dim.date_mode
+                    )
 
                 elif rounding_config and dim.field in rounding_config and dim.flavour == "continuous":
                     from backend.services.optimization.strategies.adaptive_rounding import RoundingHelper
