@@ -6,7 +6,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { Field, FilterConfig, FilterMetadata } from '../../../types';
 import DiscreteFilterControl from './DiscreteFilterControl';
 import ContinuousFilterControl from './ContinuousFilterControl';
-import { DateTimeFilterControl } from '../../DateTime';
+import { DateTimeRangeFilter } from '../../DateTime';
 import styles from './FilterFieldChip.module.css';
 
 interface FilterFieldChipProps {
@@ -100,14 +100,15 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
     }
 
     if (filterType === 'datetime' && filterMetadata.type === 'datetime') {
-      const startDate = filterConfig && filterConfig.type === 'datetime' ? filterConfig.startDate : null;
-      const endDate = filterConfig && filterConfig.type === 'datetime' ? filterConfig.endDate : null;
+      const startDateTime = filterConfig && filterConfig.type === 'datetime' ? filterConfig.startDate : null;
+      const endDateTime = filterConfig && filterConfig.type === 'datetime' ? filterConfig.endDate : null;
 
       return (
-        <DateTimeFilterControl
+        <DateTimeRangeFilter
           metadata={filterMetadata}
-          startDate={startDate}
-          endDate={endDate}
+          startDateTime={startDateTime}
+          endDateTime={endDateTime}
+          dateTimePart={field.dateTimePart}
           onChange={(newStart, newEnd) => {
             onConfigChange({
               fieldId: field.id,

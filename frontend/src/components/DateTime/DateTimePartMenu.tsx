@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { Field, DateTimePart } from '../../types';
+import { Field } from '../../types';
 import { DATETIME_PARTS, getDateTimePartDisplayName } from '../../utils/datetimeUtils';
 import SubMenu from '../Visualization/SubMenu';
 import menuStyles from '../Visualization/ContextMenu.module.css';

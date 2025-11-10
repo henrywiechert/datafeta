@@ -1,6 +1,6 @@
 """Custom PyPika term helpers used by QueryService and related builders."""
 
-from typing import Optional
+from typing import Any, List, Optional
 
 from pypika.terms import Term
 
@@ -68,6 +68,38 @@ class CastField(Term):
             sql = f"CAST(REPLACE({field_sql}, '{pattern_escaped}', '') AS {self.cast_type})"
         else:
             sql = f"CAST({field_sql} AS {self.cast_type})"
+
+        if hasattr(self, "alias") and self.alias:
+            quote_char = kwargs.get("quote_char", '"')
+            sql = f"{sql} {quote_char}{self.alias}{quote_char}"
+
+        return sql
+
+
+class CustomFunction(Term):
+    """Custom pypika term for arbitrary SQL functions with arguments."""
+
+    def __init__(self, function_name: str, args: List[Any]):
+        super().__init__()
+        self.function_name = function_name
+        self.args = args
+
+    def get_sql(self, **kwargs) -> str:
+        """Render as FUNCTION_NAME(arg1, arg2, ...) with optional alias."""
+        # Convert arguments to SQL representation
+        arg_sql_parts = []
+        for arg in self.args:
+            if isinstance(arg, Term):
+                arg_sql_parts.append(arg.get_sql(**kwargs))
+            elif isinstance(arg, str):
+                # Escape single quotes and wrap in quotes
+                escaped = arg.replace("'", "''")
+                arg_sql_parts.append(f"'{escaped}'")
+            else:
+                arg_sql_parts.append(str(arg))
+        
+        args_str = ", ".join(arg_sql_parts)
+        sql = f"{self.function_name}({args_str})"
 
         if hasattr(self, "alias") and self.alias:
             quote_char = kwargs.get("quote_char", '"')
