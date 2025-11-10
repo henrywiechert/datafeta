@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import GridResizeHandle from './GridResizeHandle';
+import VirtualResizeLine from './VirtualResizeLine';
 
 interface GridResizeOverlayProps {
   // Grid dimensions
@@ -106,6 +107,14 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
   onColumnResize,
   onRowResize,
 }) => {
+  // Drag state for virtual line
+  const [dragState, setDragState] = useState<{
+    orientation: 'horizontal' | 'vertical';
+    index: number;
+    startPosition: number;
+    currentDelta: number;
+  } | null>(null);
+
   // Calculate gridline positions
   const columnPositions = useMemo(() => {
     const plotAreaWidth = containerWidth - leftFixedWidth;
@@ -118,15 +127,24 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
   }, [rowTemplate, containerHeight, topHeaderHeight, bottomFixedHeight, rows]);
 
   // Column resize handlers (all columns get the same width)
-  const handleColumnResizeStart = () => {
-    // Could add visual feedback here
+  const handleColumnResizeStart = (index: number) => {
+    const startPosition = leftFixedWidth + columnPositions[index];
+    setDragState({
+      orientation: 'vertical',
+      index,
+      startPosition,
+      currentDelta: 0,
+    });
   };
 
   const handleColumnResizeMove = (delta: number, index: number) => {
-    // For now, we'll handle this in Phase 3 (virtual line)
+    setDragState(prev => prev ? { ...prev, currentDelta: delta } : null);
   };
 
   const handleColumnResizeEnd = (delta: number, index: number) => {
+    // Clear virtual line
+    setDragState(null);
+    
     if (!onColumnResize) return;
     
     // Calculate new width based on delta
@@ -138,15 +156,24 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
   };
 
   // Row resize handlers (all rows get the same height)
-  const handleRowResizeStart = () => {
-    // Could add visual feedback here
+  const handleRowResizeStart = (index: number) => {
+    const startPosition = topHeaderHeight + rowPositions[index];
+    setDragState({
+      orientation: 'horizontal',
+      index,
+      startPosition,
+      currentDelta: 0,
+    });
   };
 
   const handleRowResizeMove = (delta: number, index: number) => {
-    // For now, we'll handle this in Phase 3 (virtual line)
+    setDragState(prev => prev ? { ...prev, currentDelta: delta } : null);
   };
 
   const handleRowResizeEnd = (delta: number, index: number) => {
+    // Clear virtual line
+    setDragState(null);
+    
     if (!onRowResize) return;
     
     // Calculate new height based on delta
@@ -155,6 +182,40 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
     
     onRowResize(newHeight);
   };
+
+  // Calculate virtual line position and size
+  const virtualLineData = useMemo(() => {
+    if (!dragState) return null;
+
+    const { orientation, index, startPosition, currentDelta } = dragState;
+    const newPosition = startPosition + currentDelta;
+
+    if (orientation === 'vertical') {
+      // Column resize
+      const currentWidth = index > 0 
+        ? columnPositions[index] - columnPositions[index - 1] 
+        : columnPositions[0];
+      const newWidth = currentWidth + currentDelta;
+      
+      return {
+        orientation,
+        position: newPosition,
+        size: Math.max(50, newWidth), // Show constrained size
+      };
+    } else {
+      // Row resize
+      const currentHeight = index > 0 
+        ? rowPositions[index] - rowPositions[index - 1] 
+        : rowPositions[0];
+      const newHeight = currentHeight + currentDelta;
+      
+      return {
+        orientation,
+        position: newPosition,
+        size: Math.max(50, newHeight), // Show constrained size
+      };
+    }
+  }, [dragState, columnPositions, rowPositions]);
 
   return (
     <>
@@ -170,7 +231,7 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
             position={leftFixedWidth + xPos}
             length={bottomFixedHeight} // Only extends through X-axis area
             isInAxisArea={true}
-            onResizeStart={handleColumnResizeStart}
+            onResizeStart={() => handleColumnResizeStart(index)}
             onResizeMove={(delta) => handleColumnResizeMove(delta, index)}
             onResizeEnd={(delta) => handleColumnResizeEnd(delta, index)}
             zIndex={20} // Above grid content
@@ -190,13 +251,23 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
             position={topHeaderHeight + yPos}
             length={leftFixedWidth} // Only extends through Y-axis area
             isInAxisArea={true}
-            onResizeStart={handleRowResizeStart}
+            onResizeStart={() => handleRowResizeStart(index)}
             onResizeMove={(delta) => handleRowResizeMove(delta, index)}
             onResizeEnd={(delta) => handleRowResizeEnd(delta, index)}
             zIndex={20} // Above grid content
           />
         );
       })}
+
+      {/* Virtual resize line (shown during drag) */}
+      {virtualLineData && (
+        <VirtualResizeLine
+          orientation={virtualLineData.orientation}
+          position={virtualLineData.position}
+          isVisible={true}
+          displaySize={virtualLineData.size}
+        />
+      )}
     </>
   );
 };
