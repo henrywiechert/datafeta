@@ -6,7 +6,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { Field, FilterConfig, FilterMetadata } from '../../../types';
 import DiscreteFilterControl from './DiscreteFilterControl';
 import ContinuousFilterControl from './ContinuousFilterControl';
-import DateTimeFilterControl from './DateTimeFilterControl';
+import { DateTimeFilterControl } from '../../DateTime';
 import styles from './FilterFieldChip.module.css';
 
 interface FilterFieldChipProps {

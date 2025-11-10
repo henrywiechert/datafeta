@@ -1,4 +1,9 @@
 import { Field, Aggregation } from '../types';
+import { 
+  getResultColumnNameForDateTime,
+  getFieldDisplayNameWithDateTime,
+  getDateTimePartTooltip as getDateTimeTooltip 
+} from './datetimeUtils';
 
 const DISCRETE_AGGREGATIONS: Aggregation[] = ['min', 'max', 'count', 'count_distinct'];
 const CONTINUOUS_AGGREGATIONS: Aggregation[] = ['sum', 'avg', 'min', 'max', 'count', 'count_distinct'];
@@ -42,16 +47,7 @@ export function isMeasure(field: Field): boolean {
  * @returns The name to look for in the query result columns.
  */
 export function getResultColumnName(field: Field): string {
-  if (field.type === 'measure' && field.aggregation) {
-    return `${field.aggregation.toUpperCase()}(${field.columnName})`;
-  }
-  
-  // If this is a datetime part, return the special alias
-  if (field.dateTimePart && field.dateTimeMode) {
-    return `${field.columnName}_${field.dateTimePart}_${field.dateTimeMode}`;
-  }
-  
-  return field.columnName;
+  return getResultColumnNameForDateTime(field);
 }
 
 /**
@@ -60,16 +56,7 @@ export function getResultColumnName(field: Field): string {
  * @returns A formatted display name.
  */
 export function getFieldDisplayName(field: Field): string {
-  const baseName = field.columnName;
-  
-  // If this field has a datetime part, format it with base name
-  if (field.dateTimePart && field.dateTimeMode) {
-    const partName = field.dateTimePart.charAt(0).toUpperCase() + field.dateTimePart.slice(1);
-    const modeName = field.dateTimeMode === 'distinct' ? 'distinct' : 'timeline';
-    return `${baseName} - ${partName} (${modeName})`;
-  }
-  
-  return baseName;
+  return getFieldDisplayNameWithDateTime(field);
 }
 
 /**
@@ -78,15 +65,5 @@ export function getFieldDisplayName(field: Field): string {
  * @returns A description string, or undefined if no datetime part.
  */
 export function getDateTimePartTooltip(field: Field): string | undefined {
-  if (!field.dateTimePart || !field.dateTimeMode) {
-    return undefined;
-  }
-  
-  const partName = field.dateTimePart.charAt(0).toUpperCase() + field.dateTimePart.slice(1);
-  
-  if (field.dateTimeMode === 'distinct') {
-    return `${partName} values only (e.g., 12 months: Jan, Feb, ..., Dec)`;
-  } else {
-    return `${partName} values for grouping (e.g., hour 0-23 repeating per day)`;
-  }
+  return getDateTimeTooltip(field);
 } 

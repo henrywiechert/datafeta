@@ -11,6 +11,7 @@ from backend.connectors.base import BaseConnector
 from backend.models.data_source import ConnectionDetails
 from backend.exceptions import QueryExecutionError, InvalidInputError
 from backend.services.validation_service import ValidationService
+from backend.services.datetime_service import DateTimeService
 
 logger = logging.getLogger(__name__)
 
@@ -100,8 +101,6 @@ class CardinalityService:
         datetime_mode: Optional[str]
     ) -> str:
         """Build the COUNT(DISTINCT) SQL query."""
-        from backend.services.query_service import QueryService
-        
         # Build the table reference
         if self.conn_details.type == 'clickhouse' and database:
             db_table = Table(table, schema=database)
@@ -109,10 +108,9 @@ class CardinalityService:
             db_table = Table(table)
         
         # Determine the field expression to count
-        query_service = QueryService()
         if datetime_part and datetime_mode:
-            # For datetime parts, extract the part first
-            field_expr = query_service._get_datetime_part_expression(
+            # For datetime parts, extract the part first using DateTimeService
+            field_expr = DateTimeService.get_datetime_part_expression(
                 getattr(db_table, field), 
                 datetime_part, 
                 datetime_mode, 
