@@ -27,3 +27,33 @@
     position: relative;
     width: 100%;
 }
+
+/* Fullscreen mode styles */
+.chartWrapper.fullscreen {
+    background-color: white;
+    padding: 16px;
+}
+
+/* Apply fullscreen styles to the wrapper when in fullscreen mode */
+.chartWrapper:fullscreen {
+    background-color: white;
+    padding: 16px;
+}
+
+/* Webkit fullscreen support */
+.chartWrapper:-webkit-full-screen {
+    background-color: white;
+    padding: 16px;
+}
+
+/* Firefox fullscreen support */
+.chartWrapper:-moz-full-screen {
+    background-color: white;
+    padding: 16px;
+}
+
+/* IE/Edge fullscreen support */
+.chartWrapper:-ms-fullscreen {
+    background-color: white;
+    padding: 16px;
+}

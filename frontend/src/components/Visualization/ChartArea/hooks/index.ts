@@ -5,4 +5,5 @@
 export * from './useChartGeneration';
 export * from './useQueryExecution';
 export * from './useDataProcessing';
-export * from './useDebugView'; 
+export * from './useDebugView';
+export * from './useFullscreen'; 
