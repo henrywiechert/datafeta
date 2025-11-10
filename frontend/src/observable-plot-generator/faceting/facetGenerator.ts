@@ -12,7 +12,7 @@ import {
   SharedDomains
 } from './facetDomains';
 import { coordinateFacetedGrid, CellGenerator, CellResult, PositionedPlot } from './facetCoordinator';
-import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField } from '../chartTypes/barCore';
+import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField, sortCategoriesByValue } from '../chartTypes/barCore';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 import { buildLabelCfg } from '../observablePlotGenerator';
@@ -146,13 +146,19 @@ function createBarCellGenerator(
         // Let buildBarOptions calculate the correct stacked domain
         const useStackedDomain = !categoryColumnName && colorColumnName;
 
+        // Note: Sorting is now handled globally in generateFacetedGrid (before cell generation)
+        // so all facets share the same category order. This prevents misalignment when facets
+        // share a common axis but have different measure values.
+        // The 'categories' array passed in already reflects the global sort order.
+        let sortedCategories = categories;
+
         // Use barCore.buildBarOptions() instead of inline Plot.barX/barY
         options = buildBarOptions({
           data: cellData,
           measureName,
           orientation: barOrientation === 'barX' ? 'horizontal' : 'vertical',
           categoryColumn: categoryColumnName,
-          categoriesDomain: categories,
+          categoriesDomain: sortedCategories,
           colorColumn: colorColumnName,
           colorScale: sharedDomains.colorScale,
           bandPadding: dynamicPadding,
@@ -286,6 +292,26 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
     // Get label configuration
     const labelCfg = buildLabelCfg(context);
     
+    // Check if any measure has sorting enabled and apply it globally (across all facets)
+    let sortedCategoryDomain = sharedCategoryDomain || [];
+    const orientedFields = barOrientation === 'barX' ? xFields : yFields;
+    const measures = orientedFields.filter(f => f.type === 'measure');
+    const measureWithSort = measures.find(m => (m as any).barSortOrder && (m as any).barSortOrder !== 'none');
+    
+    if (measureWithSort && categoryField && sortedCategoryDomain.length > 0) {
+      const measureName = resolveMeasureAlias(measureWithSort);
+      const categoryColumnName = getFieldColumnName(categoryField);
+      
+      // Sort using the FULL dataset (all facets combined) to get a consistent order
+      sortedCategoryDomain = sortCategoriesByValue(
+        sortedCategoryDomain,
+        context.queryResult.rows,
+        categoryColumnName,
+        measureName,
+        (measureWithSort as any).barSortOrder
+      );
+    }
+    
     // Create a specialized cell generator for multi-measure bar charts
     const barCellGen = createBarCellGenerator(
       xFields,
@@ -293,7 +319,7 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       barOrientation,
       categoryAxis,
       categoryField,
-      sharedCategoryDomain || [],
+      sortedCategoryDomain,
       colorField,
       globalBandPadding,
       labelCfg

@@ -16,6 +16,12 @@ const FieldChipLabel = forwardRef<HTMLSpanElement, FieldChipLabelProps>(
     const flavourText = ` [${field.flavour}]`;
     const dataTypeText = ` (${field.dataType})`;
     
+    // Add sort indicator for measures on axes with active sorting
+    const isOnAxis = source === 'X_AXIS' || source === 'Y_AXIS';
+    const sortIndicator = isOnAxis && field.type === 'measure' && field.barSortOrder && field.barSortOrder !== 'none'
+      ? ` ${field.barSortOrder === 'asc' ? '↑' : '↓'}`
+      : '';
+    
     return (
       <span
         ref={ref}
@@ -36,6 +42,7 @@ const FieldChipLabel = forwardRef<HTMLSpanElement, FieldChipLabelProps>(
         </span>
         {fieldName}
         {aggregationText}
+        {sortIndicator}
         {source !== 'AVAILABLE_FIELDS' && flavourText}
         {source !== 'AVAILABLE_FIELDS' && dataTypeText}
       </span>

@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Box } from '@mui/material';
 import ChartGrid from '../../ChartGrid/ChartGrid';
 import TableView from '../../TableView';
+import BarSortControl from './BarSortControl';
 import { PlotResult } from '../../../../observable-plot-generator/types';
 import { TableData } from '../types';
 
@@ -70,10 +71,17 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
         minHeight: 0, 
         overflow: 'hidden',
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        position: 'relative'
       }}
     >
       {content}
+      {!useTableView && (
+        <BarSortControl 
+          xFields={xAxisFields} 
+          yFields={yAxisFields}
+        />
+      )}
     </Box>
   );
 };

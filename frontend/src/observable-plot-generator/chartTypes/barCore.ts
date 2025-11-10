@@ -185,6 +185,41 @@ export function aggregateByCategory(data: any[], categoryColumn: string, measure
   return Array.from(totals.entries()).map(([cat, value]) => ({ cat, value }));
 }
 
+/**
+ * Sorts categories by their aggregated values.
+ * @param categories - Array of category values
+ * @param data - Dataset with category and measure columns
+ * @param categoryColumn - Column name for categories
+ * @param measureName - Column name for measure values
+ * @param sortOrder - 'asc' for ascending, 'desc' for descending, 'none' for natural order
+ * @returns Sorted array of categories
+ */
+export function sortCategoriesByValue(
+  categories: string[],
+  data: any[],
+  categoryColumn: string,
+  measureName: string,
+  sortOrder: 'asc' | 'desc' | 'none' | undefined
+): string[] {
+  if (!sortOrder || sortOrder === 'none') {
+    return categories;
+  }
+
+  // Aggregate values by category
+  const aggregated = aggregateByCategory(data, categoryColumn, measureName);
+  const valueMap = new Map(aggregated.map(item => [item.cat, item.value]));
+
+  // Sort categories by their values
+  const sorted = [...categories].sort((a, b) => {
+    const valA = valueMap.get(a) ?? 0;
+    const valB = valueMap.get(b) ?? 0;
+    const diff = valA - valB;
+    return sortOrder === 'asc' ? diff : -diff;
+  });
+
+  return sorted;
+}
+
 // ---------- Builder ---------------------------------------------------------
 export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
   const {

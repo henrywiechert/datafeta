@@ -7,7 +7,7 @@ import { lineChart, verticalLineChart } from './lineChart';
 import { scatterChart } from './scatterChart';
 import { tickStrip } from './tickStrip';
 import { CellChartType, ChartTypeOverrides, resolveChartTypeForPair } from '../helpers/chartTypeResolver';
-import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField } from './barCore';
+import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField, sortCategoriesByValue } from './barCore';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 
 type Domains = Record<string, [number, number] | [Date, Date]> | undefined;
@@ -206,6 +206,17 @@ function createBarX(
     categoriesDomain = sharedCatDomain && Array.isArray(sharedCatDomain) 
       ? sharedCatDomain 
       : Array.from(new Set(data.map((row) => row[categoryColumn])));
+    
+    // Apply sorting if specified
+    if ((measure as any).barSortOrder && (measure as any).barSortOrder !== 'none') {
+      categoriesDomain = sortCategoriesByValue(
+        categoriesDomain,
+        data,
+        categoryColumn,
+        measureName,
+        (measure as any).barSortOrder
+      );
+    }
   }
   
   // Use barCore.buildBarOptions() instead of inline Plot.barX
@@ -261,6 +272,17 @@ function createBarY(
     categoriesDomain = sharedCatDomain && Array.isArray(sharedCatDomain) 
       ? sharedCatDomain 
       : Array.from(new Set(data.map((row) => row[categoryColumn])));
+    
+    // Apply sorting if specified
+    if ((measure as any).barSortOrder && (measure as any).barSortOrder !== 'none') {
+      categoriesDomain = sortCategoriesByValue(
+        categoriesDomain,
+        data,
+        categoryColumn,
+        measureName,
+        (measure as any).barSortOrder
+      );
+    }
   }
   
   // Use barCore.buildBarOptions() instead of inline Plot.barY
