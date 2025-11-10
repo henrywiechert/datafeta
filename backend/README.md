@@ -6,7 +6,7 @@ FastAPI-based REST API providing data connectivity, query processing, and optimi
 
 ### Core Components
 
-- **FastAPI Application** (`main.py`): Entry point with CORS, exception handlers, static file serving
+- **FastAPI Application** ([`main.py`](main.py)): Entry point with CORS, exception handlers, static file serving
 - **Multi-Connector System**: Pluggable connectors for different data sources (ClickHouse, CSV via DuckDB)
 - **Query Generation Engine**: Dynamic SQL generation using PyPika with optimization strategies
 - **Session-Based State Management**: Per-user connection state via cookie-based sessions
@@ -22,9 +22,9 @@ Request → FastAPI Router → Dependencies (Session/Connector) → Services →
 
 **Request Flow:**
 1. FastAPI receives request, extracts/creates session ID from cookie
-2. `get_state_manager` dependency provides session-specific `ConnectionStateManager`
-3. Router endpoints use `get_active_connector` and `get_connection_details` dependencies
-4. Services (`ConnectionService`, `QueryService`) orchestrate business logic
+2. [`get_state_manager`](dependencies.py#L58) dependency provides session-specific [`ConnectionStateManager`](dependencies.py#L17)
+3. Router endpoints use [`get_active_connector`](dependencies.py#L99) and [`get_connection_details`](dependencies.py#L108) dependencies
+4. Services ([`ConnectionService`](services/connection_service.py#L57), [`QueryService`](services/query_service.py#L75)) orchestrate business logic
 5. Connectors execute queries against data sources
 6. Query optimizer applies strategies based on result size estimates
 
@@ -65,24 +65,18 @@ backend/
 The backend supports multiple concurrent users through **session-based state isolation**:
 
 - **Session Identification**: Cookie-based (`session_id` cookie, httponly)
-- **State Storage**: In-memory dictionary `session_storage: Dict[str, ConnectionStateManager]`
+- **State Storage**: In-memory dictionary [`session_storage: Dict[str, ConnectionStateManager]`](dependencies.py#L48)
 - **Per-Session State**: Each session has its own:
   - Active connector instance
   - Connection details
   - CSV temporary file path (session-scoped upload directory)
   - Async lock for connect/disconnect serialization
 
-**Implementation** (`dependencies.py`):
-```python
-session_storage: Dict[str, ConnectionStateManager] = {}
-# Thread-safe access via _session_storage_lock
+**Implementation** ([`dependencies.py`](dependencies.py)):
+- [`get_state_manager`](dependencies.py#L58): Creates new session if missing, sets cookie, returns session-specific `ConnectionStateManager`
+- [`ConnectionStateManager`](dependencies.py#L17): Holds per-session connection state with async lock
 
-async def get_state_manager(request, response, session_id) -> ConnectionStateManager:
-    # Creates new session if missing, sets cookie
-    # Returns session-specific ConnectionStateManager
-```
-
-**File Upload Isolation**: CSV uploads stored in `{upload_root_dir}/{session_id}/` directories, cleaned up on disconnect.
+**File Upload Isolation**: CSV uploads stored in `{upload_root_dir}/{session_id}/` directories via [`_get_session_upload_dir`](services/connection_service.py#L69), cleaned up on disconnect via [`disconnect`](services/connection_service.py#L313).
 
 **Note**: For production with multiple server instances, replace in-memory storage with Redis or similar.
 
@@ -90,26 +84,29 @@ async def get_state_manager(request, response, session_id) -> ConnectionStateMan
 
 ### Connection Management
 
-**POST `/api/v1/data/connect`** (multipart/form-data)
+**POST [`/api/v1/data/connect`](routers/data.py#L53)** (multipart/form-data)
 - CSV: Upload file + connection details JSON
 - ClickHouse: Connection details JSON only
+- Handler: [`connect_to_datasource`](routers/data.py#L54) → [`ConnectionService.connect_multipart`](services/connection_service.py#L156)
 
-**POST `/api/v1/data/connect/json`** (application/json)
+**POST [`/api/v1/data/connect/json`](routers/data.py#L65)** (application/json)
 - ClickHouse connections without file upload
+- Handler: [`connect_to_datasource_json`](routers/data.py#L66) → [`ConnectionService.connect_json`](services/connection_service.py#L259)
 
-**POST `/api/v1/data/disconnect`**
+**POST [`/api/v1/data/disconnect`](routers/data.py#L76)**
 - Disconnects connector, cleans up session files
+- Handler: [`disconnect_datasource`](routers/data.py#L77) → [`ConnectionService.disconnect`](services/connection_service.py#L313)
 
 ### Metadata Discovery
 
-- **GET `/api/v1/data/databases`** - List databases
-- **GET `/api/v1/data/tables?database={db}`** - List tables
-- **GET `/api/v1/data/columns?table={table}&database={db}`** - List columns
-- **GET `/api/v1/data/distinct-count?field={field}&table={table}`** - Cardinality queries
+- **GET [`/api/v1/data/databases`](routers/data.py#L86)** - List databases via [`list_databases`](routers/data.py#L87)
+- **GET [`/api/v1/data/tables`](routers/data.py#L98)** - List tables via [`list_tables`](routers/data.py#L99)
+- **GET [`/api/v1/data/columns`](routers/data.py#L109)** - List columns via [`list_columns`](routers/data.py#L110)
+- **GET [`/api/v1/data/distinct-count`](routers/data.py#L126)** - Cardinality queries via [`CardinalityService`](services/cardinality_service.py)
 
 ### Query Execution
 
-**POST `/api/v1/data/query`**
+**POST [`/api/v1/data/query`](routers/data.py#L154)**
 ```json
 {
   "target_table": "table_name",
@@ -122,35 +119,36 @@ async def get_state_manager(request, response, session_id) -> ConnectionStateMan
   "virtual_table": {...}  // Optional: multi-table JOIN/UNION
 }
 ```
+Handler: [`execute_query`](routers/data.py#L155) → [`QueryService.translate_to_sql`](services/query_service.py#L428)
 
 ### Multi-Table Support
 
-- **GET `/api/v1/data/table-relationships?database={db}`** - Detect foreign keys
-- **GET `/api/v1/data/suggested-joins?database={db}&primary_table={table}`** - Suggest joinable tables
-- **GET `/api/v1/data/suggested-unions?database={db}&primary_table={table}`** - Suggest UNION-compatible tables
-- **POST `/api/v1/data/merged-columns`** - Get merged schema for JOIN/UNION queries
+- **GET [`/api/v1/data/table-relationships`](routers/data.py#L230)** - Detect foreign keys via [`get_table_relationships`](routers/data.py#L231)
+- **GET [`/api/v1/data/suggested-joins`](routers/data.py#L248)** - Suggest joinable tables via [`get_suggested_joins`](routers/data.py#L249)
+- **GET [`/api/v1/data/suggested-unions`](routers/data.py#L271)** - Suggest UNION-compatible tables via [`get_suggested_unions`](routers/data.py#L272)
+- **POST [`/api/v1/data/merged-columns`](routers/data.py#L294)** - Get merged schema via [`get_merged_columns`](routers/data.py#L295) → [`TableMergeService`](services/table_merge_service.py)
 
 ## Query Generation & Optimization
 
 ### QueryService Pipeline
 
-`QueryService.translate_to_sql()` orchestrates:
+[`QueryService.translate_to_sql`](services/query_service.py#L428) orchestrates:
 
-1. **Table Context**: Build PyPika query with single table or JOINs/UNIONs
-2. **Select Builder**: Dimensions, measures, datetime extraction, type casting
-3. **Filter Builder**: WHERE clauses, regex sampling, null guards
-4. **Optimization**: Apply strategies (rounding, binning, deduplication)
-5. **Grouping/Ordering**: GROUP BY, DISTINCT, ORDER BY
-6. **Sampling/Limits**: Automatic sampling for large raw queries
+1. **Table Context**: [`_build_table_context`](services/query_service.py#L128) - Build PyPika query with single table or JOINs/UNIONs
+2. **Select Builder**: [`_build_select_clause`](services/query_service.py#L228) → [`SelectClauseBuilder`](services/query_components/select_builder.py) - Dimensions, measures, datetime extraction, type casting
+3. **Filter Builder**: [`_build_filter_criteria`](services/query_service.py#L256) → [`FilterBuilder`](services/query_components/filter_builder.py) - WHERE clauses, regex sampling, null guards
+4. **Optimization**: [`_apply_optimizations`](services/query_service.py#L280) → [`OptimizationApplier`](services/query_components/optimization_applier.py) - Apply strategies (rounding, binning, deduplication)
+5. **Grouping/Ordering**: [`_apply_grouping`](services/query_service.py#L304) and [`_apply_ordering`](services/query_service.py#L330) → [`GroupingOrderingBuilder`](services/query_components/grouping_ordering_builder.py) - GROUP BY, DISTINCT, ORDER BY
+6. **Sampling/Limits**: [`_apply_sampling_and_limits`](services/query_service.py#L345) → [`SamplingAndLimitsBuilder`](services/query_components/sampling_limits_builder.py) - Automatic sampling for large raw queries
 
 ### Query Optimization
 
-**QueryOptimizer** analyzes queries and applies strategies:
+[`QueryOptimizer`](services/optimization/optimizer.py#L51) analyzes queries and applies strategies:
 
-- **Adaptive Rounding**: Round numeric values when result set is large
-- **DateTime Binning**: Bin continuous datetime dimensions
-- **Category Deduplication**: Remove duplicate category values
-- **Discrete Deduplication**: DISTINCT for discrete-only queries
+- **Adaptive Rounding**: [`AdaptiveRoundingStrategy`](services/optimization/strategies/adaptive_rounding.py) - Round numeric values when result set is large
+- **DateTime Binning**: [`DateTimeBinningStrategy`](services/optimization/strategies/datetime_binning.py) - Bin continuous datetime dimensions
+- **Category Deduplication**: [`CategoryDeduplicationStrategy`](services/optimization/strategies/category_dedup.py) - Remove duplicate category values
+- **Discrete Deduplication**: [`DiscreteDeduplicationStrategy`](services/optimization/strategies/discrete_dedup.py) - DISTINCT for discrete-only queries
 - **Sampling**: Automatic sampling for large raw queries (no aggregations)
 
 **Optimization Flow**:
@@ -158,68 +156,72 @@ async def get_state_manager(request, response, session_id) -> ConnectionStateMan
 QueryDescription → Estimator (size estimate) → StrategyPlanner → OptimizationPlan → Apply Strategies
 ```
 
-**Result Size Estimation**: Database-specific estimators (`ClickHouseEstimator`, `DuckDBEstimator`) use EXPLAIN queries or table statistics.
+- [`QueryOptimizer.create_plan`](services/optimization/optimizer.py) creates [`OptimizationPlan`](services/optimization/optimizer.py#L20)
+- [`StrategyPlanner`](services/optimization/strategy_planner.py) selects strategies based on query characteristics
+- **Result Size Estimation**: Database-specific estimators ([`ClickHouseEstimator`](services/optimization/estimators/clickhouse.py), [`DuckDBEstimator`](services/optimization/estimators/duckdb.py)) use EXPLAIN queries or table statistics
 
 ## Connectors
 
 ### BaseConnector Interface
 
-All connectors implement:
-- `connect(connection_details)` - Establish connection
-- `disconnect()` - Close connection
-- `list_databases()` - List available databases
-- `list_tables(database)` - List tables
-- `list_columns(database, table)` - List columns with types
-- `fetch_data(query)` - Execute SQL, return (rows, columns)
+All connectors implement [`BaseConnector`](connectors/base.py):
+- [`connect(connection_details)`](connectors/base.py) - Establish connection
+- [`disconnect()`](connectors/base.py) - Close connection
+- [`list_databases()`](connectors/base.py) - List available databases
+- [`list_tables(database)`](connectors/base.py) - List tables
+- [`list_columns(database, table)`](connectors/base.py) - List columns with types
+- [`fetch_data(query)`](connectors/base.py) - Execute SQL, return (rows, columns)
 
 ### ClickHouseConnector
 
+[`ClickHouseConnector`](connectors/clickhouse_connector.py#L17):
 - Uses `clickhouse-connect` client
 - Supports connection string or host/port/user/password
 - Database-aware (schema-qualified tables)
-- Foreign key detection via heuristics
+- Foreign key detection via [`detect_foreign_keys`](connectors/clickhouse_connector.py) heuristics
 
 ### FileConnector (CSV via DuckDB)
 
+[`FileConnector`](connectors/file_connector.py):
 - CSV upload processing with DuckDB
 - Configurable CSV parsing (delimiter, header, decimal/thousands separators, date formats)
 - In-memory DuckDB connections per query
 - Automatic schema detection via `DESCRIBE`
 
-**Connector Registry** (`ConnectionService`): Factory pattern for connector creation, registered by type (`csv`, `clickhouse`).
+**Connector Registry**: [`ConnectorRegistry`](services/connection_service.py#L40) factory pattern in [`ConnectionService._get_connector`](services/connection_service.py#L122) for connector creation, registered by type (`csv`, `clickhouse`).
 
 ## Error Handling
 
-**Exception Hierarchy** (`exceptions.py`):
-- `AppException` (base) - All custom exceptions
-- `InvalidInputError` (400) - Validation errors
-- `DataSourceConnectionError` (503) - Connection failures
-- `QueryGenerationError` (400) - SQL generation failures
-- `QueryExecutionError` (500) - Query execution failures
-- `FileProcessingError` (500) - File upload/processing errors
+**Exception Hierarchy** ([`exceptions.py`](exceptions.py)):
+- [`AppException`](exceptions.py#L6) (base) - All custom exceptions
+- [`InvalidInputError`](exceptions.py#L15) (400) - Validation errors
+- [`DataSourceConnectionError`](exceptions.py#L33) (503) - Connection failures
+- [`QueryGenerationError`](exceptions.py#L38) (400) - SQL generation failures
+- [`QueryExecutionError`](exceptions.py#L43) (500) - Query execution failures
+- [`FileProcessingError`](exceptions.py#L48) (500) - File upload/processing errors
 
-**Global Exception Handlers** (`main.py`): Convert exceptions to JSON responses with appropriate status codes.
+**Global Exception Handlers** ([`main.py`](main.py#L123)): Convert exceptions to JSON responses with appropriate status codes via [`app_exception_handler`](main.py#L132), [`data_source_exception_handler`](main.py#L140), [`query_execution_exception_handler`](main.py#L149).
 
 ## Configuration
 
 **Environment Variables**:
-- `LOG_LEVEL` - Logging level (default: INFO)
-- `CORS_ALLOW_ORIGINS` - Comma-separated allowed origins (overrides defaults)
-- Optimization config via `OptimizerConfig.from_env()` (thresholds, enable flags)
+- `LOG_LEVEL` - Logging level (default: INFO), configured in [`main.py`](main.py#L20)
+- `CORS_ALLOW_ORIGINS` - Comma-separated allowed origins (overrides defaults), configured in [`main.py`](main.py#L45)
+- Optimization config via [`OptimizerConfig.from_env`](services/optimization/config.py) (thresholds, enable flags)
 
 **Application State** (`app.state`):
-- `upload_root_dir` - Temporary directory for CSV uploads (created at startup, cleaned at shutdown)
+- `upload_root_dir` - Temporary directory for CSV uploads (created at [`startup_event`](main.py#L77), cleaned at [`shutdown_event`](main.py#L108))
 
 ## Security & Validation
 
-- **SQL Injection Prevention**: PyPika parameterized query construction
-- **File Upload Limits**: 64 MiB max CSV size, MIME type validation, CSV format validation
-- **Path Safety**: Symlink-safe path checks, session-scoped file deletion
-- **Input Validation**: Pydantic models for request validation, `ValidationService` for business rules
+- **SQL Injection Prevention**: PyPika parameterized query construction in [`QueryService`](services/query_service.py)
+- **File Upload Limits**: 64 MiB max CSV size, MIME type validation, CSV format validation in [`ConnectionService._save_uploaded_file_with_limit`](services/connection_service.py#L85) and [`_validate_csv_file`](services/connection_service.py#L103)
+- **Path Safety**: Symlink-safe path checks via [`_is_path_within_directory`](services/connection_service.py#L75), session-scoped file deletion
+- **Input Validation**: Pydantic models ([`ConnectionDetails`](models/data_source.py), [`QueryDescription`](models/query.py)) for request validation, [`ValidationService`](services/validation_service.py) for business rules
 
 ## Testing
 
-- **Unit Tests**: `tests/unit/` - Service and component tests
-- **Integration Tests**: `tests/integration/` - End-to-end query optimization tests
-- **Contract Tests**: `tests/contract/` - API contract validation
+- **Unit Tests**: [`tests/unit/`](tests/unit/) - Service and component tests
+- **Integration Tests**: [`tests/integration/`](tests/integration/) - End-to-end query optimization tests
+- **Contract Tests**: [`tests/contract/`](tests/contract/) - API contract validation
 
