@@ -45,6 +45,7 @@ AGGREGATION_MAP = {
 }
 
 # Centralized datetime extraction maps per engine
+# DISTINCT MODE: Extract just the part (e.g., hour 0-23, month 1-12)
 CLICKHOUSE_DATE_PART_MAP = {
     'year': lambda f: Function('toYear', f),
     'month': lambda f: Function('toMonth', f),
@@ -56,6 +57,20 @@ CLICKHOUSE_DATE_PART_MAP = {
     'millisecond': lambda f: Function('toUnixTimestamp64Milli', f) % 1000,
     'microsecond': lambda f: Function('toUnixTimestamp64Micro', f) % 1000000,
     'nanosecond': lambda f: Function('toUnixTimestamp64Nano', f) % 1000000000,
+}
+
+# TIMELINE MODE: Truncate to preserve timeline (e.g., "2024-01-15 14:00:00")
+CLICKHOUSE_TIMELINE_MAP = {
+    'year': lambda f: Function('toStartOfYear', f),
+    'month': lambda f: Function('toStartOfMonth', f),
+    'day': lambda f: Function('toStartOfDay', f),
+    'weekday': lambda f: Function('toStartOfDay', f),  # Group by day for weekday timeline
+    'hour': lambda f: Function('toStartOfHour', f),
+    'minute': lambda f: Function('toStartOfMinute', f),
+    'second': lambda f: Function('toStartOfSecond', f),
+    'millisecond': lambda f: Function('toStartOfMillisecond', f),
+    'microsecond': lambda f: Function('toStartOfMicrosecond', f),
+    'nanosecond': lambda f: Function('toStartOfNanosecond', f),
 }
 
 SQL_DATE_PART_MAP = {
@@ -71,21 +86,65 @@ SQL_DATE_PART_MAP = {
     'nanosecond': 'NANOSECOND',
 }
 
+# Timeline mode for SQL uses date_trunc
+SQL_TIMELINE_UNIT_MAP = {
+    'year': 'year',
+    'month': 'month',
+    'day': 'day',
+    'weekday': 'day',  # Group by day for weekday timeline
+    'hour': 'hour',
+    'minute': 'minute',
+    'second': 'second',
+    'millisecond': 'millisecond',
+    'microsecond': 'microsecond',
+    'nanosecond': 'nanosecond',
+}
+
 
 class QueryService:
 
     def _get_datetime_part_expression(self, field_term: Any, date_part: str, date_mode: str, db_type: str) -> Any:
         """
         Generate database-specific SQL expression for extracting datetime parts.
+        
+        Args:
+            field_term: The field/column to extract from
+            date_part: The part to extract (year, month, day, hour, etc.)
+            date_mode: Either 'distinct' or 'timeline'
+            db_type: The database type (clickhouse, duckdb, etc.)
+        
+        Returns:
+            PyPika expression for the datetime extraction
+            
+        Behavior:
+            - distinct mode: Extracts just the part (e.g., hour → 0-23, month → 1-12)
+            - timeline mode: Truncates to preserve timeline (e.g., hour → "2024-01-15 14:00:00")
         """
         if db_type == 'clickhouse':
-            extractor = CLICKHOUSE_DATE_PART_MAP.get(date_part)
-            if not extractor:
-                raise QueryGenerationError(f"Unsupported datetime part '{date_part}' for ClickHouse")
-            return extractor(field_term)
-
-        extract_part = SQL_DATE_PART_MAP.get(date_part, date_part.upper())
-        return ExtractTerm(extract_part, field_term)
+            if date_mode == 'timeline':
+                # Use timeline functions that preserve the full datetime
+                extractor = CLICKHOUSE_TIMELINE_MAP.get(date_part)
+                if not extractor:
+                    raise QueryGenerationError(f"Unsupported datetime part '{date_part}' for ClickHouse timeline mode")
+                return extractor(field_term)
+            else:
+                # Use distinct mode (extract just the part)
+                extractor = CLICKHOUSE_DATE_PART_MAP.get(date_part)
+                if not extractor:
+                    raise QueryGenerationError(f"Unsupported datetime part '{date_part}' for ClickHouse")
+                return extractor(field_term)
+        
+        # For SQL databases (DuckDB, PostgreSQL, etc.)
+        if date_mode == 'timeline':
+            # Use date_trunc for timeline mode
+            unit = SQL_TIMELINE_UNIT_MAP.get(date_part)
+            if not unit:
+                raise QueryGenerationError(f"Unsupported datetime part '{date_part}' for SQL timeline mode")
+            return Function('date_trunc', unit, field_term)
+        else:
+            # Use EXTRACT for distinct mode
+            extract_part = SQL_DATE_PART_MAP.get(date_part, date_part.upper())
+            return ExtractTerm(extract_part, field_term)
 
 
     def _get_field_with_cast(self, table: Any, field_name: str, column_casts: Optional[Dict[str, Dict[str, str]]] = None) -> Any:
