@@ -160,6 +160,105 @@ def test_date_part_dimension_uses_extract_alias(query_service: QueryService) -> 
     assert "\"sale_date_year_distinct\"" in sql
 
 
+def test_date_part_timeline_mode_uses_date_trunc(query_service: QueryService) -> None:
+    """Timeline mode datetime parts should use date_trunc to preserve timeline."""
+    description = _make_base_description(
+        dimensions=[
+            Dimension(
+                field="created_at",
+                flavour="continuous",
+                date_part="hour",
+                date_mode="timeline",
+            )
+        ]
+    )
+
+    sql, _ = query_service.translate_to_sql(
+        query_desc=description,
+        table_name="events",
+        db_type="duckdb",
+        with_optimization=False,
+    )
+
+    # Timeline mode should use date_trunc, not EXTRACT
+    assert "date_trunc('hour'," in sql.lower()
+    assert "\"created_at_hour_timeline\"" in sql
+
+
+def test_date_part_timeline_mode_clickhouse(query_service: QueryService) -> None:
+    """Timeline mode in ClickHouse should use toStartOf* functions."""
+    description = _make_base_description(
+        dimensions=[
+            Dimension(
+                field="timestamp",
+                flavour="continuous",
+                date_part="day",
+                date_mode="timeline",
+            )
+        ]
+    )
+
+    sql, _ = query_service.translate_to_sql(
+        query_desc=description,
+        table_name="logs",
+        db_type="clickhouse",
+        with_optimization=False,
+    )
+
+    # ClickHouse timeline mode should use toStartOfDay
+    assert "toStartOfDay(" in sql
+    assert "`timestamp_day_timeline`" in sql
+
+
+def test_date_part_distinct_vs_timeline_difference(query_service: QueryService) -> None:
+    """Verify distinct and timeline modes produce different SQL."""
+    # Distinct mode
+    desc_distinct = _make_base_description(
+        dimensions=[
+            Dimension(
+                field="event_time",
+                flavour="discrete",
+                date_part="month",
+                date_mode="distinct",
+            )
+        ]
+    )
+
+    sql_distinct, _ = query_service.translate_to_sql(
+        query_desc=desc_distinct,
+        table_name="events",
+        db_type="clickhouse",
+        with_optimization=False,
+    )
+
+    # Timeline mode
+    desc_timeline = _make_base_description(
+        dimensions=[
+            Dimension(
+                field="event_time",
+                flavour="continuous",
+                date_part="month",
+                date_mode="timeline",
+            )
+        ]
+    )
+
+    sql_timeline, _ = query_service.translate_to_sql(
+        query_desc=desc_timeline,
+        table_name="events",
+        db_type="clickhouse",
+        with_optimization=False,
+    )
+
+    # Distinct uses toMonth (returns 1-12)
+    assert "toMonth(" in sql_distinct
+    # Timeline uses toStartOfMonth (returns full date)
+    assert "toStartOfMonth(" in sql_timeline
+    # Different aliases
+    assert "`event_time_month_distinct`" in sql_distinct
+    assert "`event_time_month_timeline`" in sql_timeline
+
+
 def test_rounding_config_wraps_continuous_dimension(query_service: QueryService) -> None:
     """Rounding config should wrap continuous dimensions in ROUND() expressions."""
     description = _make_base_description(
