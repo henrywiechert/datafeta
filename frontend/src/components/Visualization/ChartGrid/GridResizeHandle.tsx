@@ -102,7 +102,7 @@ const GridResizeHandle: React.FC<GridResizeHandleProps> = ({
           ? {
               top: `${position}px`,
               left: 0,
-              width: '100%',
+              width: `${length}px`,
               height: `${RESIZE_HANDLE_WIDTH}px`,
               transform: 'translateY(-50%)', // Center on gridline
               cursor: isInAxisArea ? 'row-resize' : 'default',

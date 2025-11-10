@@ -36,13 +36,13 @@ const VirtualResizeLine: React.FC<VirtualResizeLineProps> = ({
                 top: `${position}px`,
                 left: 0,
                 width: '100%',
-                height: '2px',
+                height: '1px',
               }
             : {
                 left: `${position}px`,
                 top: 0,
                 height: '100%',
-                width: '2px',
+                width: '1px',
               }),
           backgroundColor: RESIZE_HANDLE_HOVER_COLOR,
           opacity: 0.8,
