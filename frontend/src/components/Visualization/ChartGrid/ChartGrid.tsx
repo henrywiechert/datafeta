@@ -4,7 +4,15 @@ import { QueryResult } from '../../../types';
 import { PlotResult } from '../../../observable-plot-generator/types';
 import ObservablePlot from '../ObservablePlot';
 import styles from './ChartGrid.module.css';
-import { MIN_GRID_COLUMN_PX, MIN_GRID_ROW_PX } from '../../../config/chartLayoutConfig';
+import { 
+  MIN_GRID_COLUMN_PX, 
+  MIN_GRID_ROW_PX,
+  GRID_DIVIDER_COLOR,
+  NAMES_BAND_LEFT_PX,
+  VALUES_BAND_LEFT_PX,
+  VALUES_BAND_TOP_PX,
+  X_LABEL_ROW_PX
+} from '../../../config/chartLayoutConfig';
 import PlotArea from './PlotArea';
 import XAxes from './XAxes';
 import YAxes from './YAxes';
@@ -98,6 +106,75 @@ function computeDynamicYLabelColPx(spec: PlotResult, rowHeightPx: number): numbe
 
 /**
  * ChartGrid - Renders Observable Plot charts (single or multiple)
+ * 
+ * ===============================================================================
+ * ARCHITECTURE: Three-Layer Scrolling System
+ * ===============================================================================
+ * 
+ * This component uses THREE overlapping absolute-positioned layers to achieve
+ * independent horizontal and vertical scrolling behavior for faceted chart grids.
+ * 
+ * WHY THREE LAYERS?
+ * - We need horizontal scrolling for wide grids (many columns)
+ * - We need vertical scrolling for tall grids (many rows)
+ * - We need FIXED Y-axis labels on the left (don't scroll horizontally)
+ * - We need FIXED X-axis labels at the bottom (don't scroll vertically)
+ * - We need FIXED facet headers at top and left (don't scroll in their direction)
+ * 
+ * LAYER 1: HORIZONTAL SCROLL (z-index: 3, highest)
+ * --------------------------------------------------
+ * Position: Absolute, left offset by fixed Y-axis width, scrolls horizontally
+ * Contains:
+ *   - Top facet headers (column labels) - FIXED when scrolling vertically
+ *   - Main plots area - Synced with vertical scroll via translateY transform
+ *   - Bottom X-axes - FIXED when scrolling vertically
+ * Grid Structure:
+ *   gridTemplateColumns: single column (minmax(0, 1fr))
+ *   gridTemplateRows: [topHeader | plots (1fr) | xAxes | spacer]
+ * 
+ * LAYER 2: VERTICAL SCROLL (z-index: 2, middle)
+ * ----------------------------------------------
+ * Position: Absolute, full width, scrolls vertically
+ * Contains:
+ *   - Left Y-axes and labels (fixed width) - FIXED when scrolling horizontally
+ *   - Transparent sizing divs (for proper scrollbar calculation)
+ * Grid Structure:
+ *   gridTemplateColumns: [leftFixed | spacer (1fr)]
+ *   gridTemplateRows: matches plot grid (one row per plot row)
+ * Pointer Events: Mostly disabled to allow clicks through to Layer 1 plots
+ * 
+ * LAYER 3: PLOT GRID (inside Layer 1's plot area)
+ * ------------------------------------------------
+ * The actual CSS Grid containing the faceted charts
+ * Grid Structure:
+ *   gridTemplateColumns: plotTemplateColumns (e.g., "400px minmax(160px, 1fr) 300px")
+ *   gridTemplateRows: plotRowsSpec (e.g., "200px 150px 200px")
+ * Positioning: Each plot has explicit gridColumn and gridRow
+ * Vertical Sync: Translated via transform: translateY(-scrollTop) to match Layer 2
+ * 
+ * COORDINATE SYSTEMS:
+ * -------------------
+ * 1. Grid Positions: 1-based (CSS Grid spec: gridColumn: 1, gridRow: 1)
+ * 2. Array Indices: 0-based (JavaScript: plots[0], columnSizes[0])
+ * 3. Scroll Offsets: Pixels from top-left origin (scrollTop, scrollLeft)
+ * 4. Template Strings: Space-separated track sizes ("400px 1fr 300px")
+ * 
+ * SCROLLING MECHANICS:
+ * --------------------
+ * - User scrolls Layer 1 (horizontal) → plots move left/right
+ * - User scrolls Layer 2 (vertical) → Y-axes move up/down
+ * - Layer 1 plots are translateY-synced with Layer 2's scrollTop
+ * - Wheel events are routed: deltaY → vertical, deltaX → horizontal
+ * 
+ * RESIZE FEATURE (future):
+ * ------------------------
+ * - Resize handles will be positioned on grid lines (between columns/rows)
+ * - Handles will be in the axis areas (where cursor changes)
+ * - Dragging updates columnSizes/rowSizes state arrays
+ * - Template strings are regenerated from state on each resize
+ * - All three layers must stay synchronized during resize
+ * 
+ * ===============================================================================
  */
 const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -232,12 +309,6 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     const baseCols = spec.facetLabels?.spans?.baseCols || 1;
     const baseRows = spec.facetLabels?.spans?.baseRows || 1;
 
-    // Sizing constants for label bands and axis gutters
-    const NAMES_BAND_LEFT_PX = 20;
-    const VALUES_BAND_LEFT_PX = 20;
-    const VALUES_BAND_TOP_PX = 20;
-    const X_LABEL_ROW_PX = 16;
-
     const yLevelsCount = rowLevels.length;
     const leftLabelsPx = hasRowFacets ? NAMES_BAND_LEFT_PX + VALUES_BAND_LEFT_PX * yLevelsCount : 0;
 
@@ -250,8 +321,6 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     // Calculate header height for proper alignment
     const topHeaderHeight = colLevels.length > 0 ? 
       20 + (colLevels.length * VALUES_BAND_TOP_PX) : 0; // Names band + value bands
-
-    const dividerColor = '#99a795';
 
     // Wheel routing: capture phase on container to detect pointer position
     const onWheelCapture: React.WheelEventHandler<HTMLDivElement> = (e) => {
@@ -274,7 +343,10 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
     return (
       <div className={styles.container} ref={containerRef} style={{ position: 'relative', height: '100%', overflow: 'hidden' }} onWheelCapture={onWheelCapture}>
-        {/* Horizontal scroll layer (plots + top/bottom elements). Starts at leftFixedWidthPx to avoid overlapping the fixed Y band */}
+        {/* ===============================================================
+            LAYER 1: HORIZONTAL SCROLL (z-index: 3)
+            Contains: top headers, plots (with vertical sync), bottom axes
+            =============================================================== */}
         <div ref={hScrollRef} className={styles.horizontalScrollLayer} style={{
           position: 'absolute',
           top: 0,
@@ -300,7 +372,10 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
             {/* Top facet headers (if present) */}
             <TopFacetLabels spec={spec} plotTemplateColumns={plotTemplateColumns} baseCols={baseCols} />
 
-            {/* Main plots area (clipped so translated plots don't overlap headers/footers) */}
+            {/* ======================================================
+                LAYER 3: PLOT GRID (inside this PlotArea component)
+                The actual CSS Grid with faceted charts
+                ====================================================== */}
             <PlotArea
               spec={spec}
               plotsTranslateRef={plotsTranslateRef}
@@ -319,7 +394,10 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
           </div>
         </div>
 
-        {/* Vertical scroll layer (left Y elements + plots), clipped between top headers and bottom axes */}
+        {/* ===============================================================
+            LAYER 2: VERTICAL SCROLL (z-index: 2)
+            Contains: left Y-axes/labels, transparent sizing divs
+            =============================================================== */}
         <div ref={vScrollRef} className={styles.verticalScrollLayer} style={{
           position: 'absolute',
           top: spec.facetLabels ? topHeaderHeight : 0,
@@ -342,7 +420,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
           }}>
             
             {/* Left Y labels/scales area */}
-            <div style={{ gridColumn: 1, gridRow: '1 / -1', pointerEvents: 'auto', borderRight: `1px solid ${dividerColor}` }}>
+            <div style={{ gridColumn: 1, gridRow: '1 / -1', pointerEvents: 'auto', borderRight: `1px solid ${GRID_DIVIDER_COLOR}` }}>
               <div style={{ display: 'grid', gridTemplateColumns: hasRowFacets ? `${leftLabelsPx}px ${yLabelColPx}px ${dynamicYAxisPx}px` : `${yLabelColPx}px ${dynamicYAxisPx}px`, gridTemplateRows: plotRowsSpec }}>
                 {/* Left facet labels area */}
                 <LeftFacetLabels spec={spec} plotRowsSpec={plotRowsSpec} baseRows={baseRows} />
@@ -364,7 +442,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
                         justifyContent: 'center',
                         padding: 0,
                         margin: 0,
-                        borderBottom: `1px solid ${dividerColor}`,
+                        borderBottom: `1px solid ${GRID_DIVIDER_COLOR}`,
                       }}
                     >
                       <div style={{ 

@@ -2,7 +2,7 @@ import React from 'react';
 import * as Plot from '@observablehq/plot';
 import ObservablePlot from '../ObservablePlot';
 import { PlotResult } from '../../../observable-plot-generator/types';
-import { MIN_GRID_ROW_PX } from '../../../config/chartLayoutConfig';
+import { MIN_GRID_ROW_PX, GRID_DIVIDER_COLOR } from '../../../config/chartLayoutConfig';
 
 interface YAxesProps {
   spec: PlotResult;
@@ -57,7 +57,7 @@ const YAxes: React.FC<YAxesProps> = ({ spec, rows, dynamicYAxisPx, rowHeights, h
             style={{
               gridColumn: hasRowFacets ? 3 : 2,
               gridRow: r + 1,
-              borderBottom: r < rows - 1 ? '1px solid #99a795' : undefined,
+              borderBottom: r < rows - 1 ? `1px solid ${GRID_DIVIDER_COLOR}` : undefined,
             }}
           >
             <ObservablePlot options={{ ...buildYAxisOptions(yDomain, dynamicYAxisPx, yType, yPadding), height: trackHeightPx }} />
