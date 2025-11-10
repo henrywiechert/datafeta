@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 
 import { QueryResult } from '../../../types';
 import { PlotResult } from '../../../observable-plot-generator/types';
@@ -17,6 +17,7 @@ import PlotArea from './PlotArea';
 import XAxes from './XAxes';
 import YAxes from './YAxes';
 import { TopFacetLabels, LeftFacetLabels } from './FacetLabels';
+import GridResizeOverlay from './GridResizeOverlay';
 
 interface ChartGridProps {
   spec: PlotResult | null;
@@ -184,6 +185,9 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   const [rowHeightPx, setRowHeightPx] = useState<number>(MIN_GRID_ROW_PX);
   const rowsForSizing = (typeof (spec as any)?.layout?.rows === 'number' ? (spec as any).layout.rows : 1) as number;
 
+  // Container dimensions for resize overlay positioning
+  const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
+
   // User-controlled cell sizing (uniform across all cells)
   // null = use automatic sizing, number = user has manually resized
   const [userCellWidth, setUserCellWidth] = useState<number | null>(null);
@@ -203,6 +207,17 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
   // Check if user has made any size overrides
   const hasUserSizeOverrides = userCellWidth !== null || userCellHeight !== null;
+
+  // Resize handlers (called by GridResizeOverlay)
+  const handleColumnResize = useCallback((newWidth: number) => {
+    const constrainedWidth = Math.max(50, Math.min(5000, Math.round(newWidth)));
+    setUserCellWidth(constrainedWidth);
+  }, []);
+
+  const handleRowResize = useCallback((newHeight: number) => {
+    const constrainedHeight = Math.max(50, Math.min(5000, Math.round(newHeight)));
+    setUserCellHeight(constrainedHeight);
+  }, []);
 
   // Route vertical wheel deltas to the vertical scroller so vertical scroll
   // works even when the pointer is over the horizontal layer (charts/headers).
@@ -264,6 +279,29 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
       window.removeEventListener('resize', updateRowHeight);
     };
   }, [rowsForSizing, spec]);
+
+  // Track container dimensions for resize overlay
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        setContainerDimensions({
+          width: containerRef.current.clientWidth,
+          height: containerRef.current.clientHeight,
+        });
+      }
+    };
+
+    // Initial measurement
+    updateDimensions();
+
+    // Observe size changes
+    const ro = new ResizeObserver(updateDimensions);
+    ro.observe(containerRef.current);
+
+    return () => ro.disconnect();
+  }, [spec]);
   
   // Handle null or missing spec
   if (!spec) {
@@ -520,6 +558,31 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Grid Resize Overlay - handles positioned on gridlines in axis areas */}
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          pointerEvents: 'none', // Only handles are interactive
+          zIndex: 100, // Above everything else
+        }}>
+          <GridResizeOverlay
+            columns={columns}
+            rows={rows}
+            columnTemplate={plotTemplateColumns}
+            rowTemplate={plotRowsSpec}
+            leftFixedWidth={leftFixedWidthPx}
+            bottomFixedHeight={dynamicXAxisPx}
+            topHeaderHeight={topHeaderHeight}
+            containerWidth={containerDimensions.width}
+            containerHeight={containerDimensions.height}
+            onColumnResize={handleColumnResize}
+            onRowResize={handleRowResize}
+          />
         </div>
       </div>
     );
