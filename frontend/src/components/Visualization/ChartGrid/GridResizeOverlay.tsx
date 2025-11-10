@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import GridResizeHandle from './GridResizeHandle';
 import VirtualResizeLine from './VirtualResizeLine';
 
@@ -20,9 +20,57 @@ interface GridResizeOverlayProps {
   containerWidth: number;
   containerHeight: number;
   
+  // Reference to the actual plot grid for measuring positions
+  plotGridRef: React.RefObject<HTMLDivElement>;
+  
   // Resize callbacks
   onColumnResize?: (newWidth: number) => void;
-  onRowResize?: (newHeight: number) => void;
+  onRowResize?: (newWidth: number) => void;
+}
+
+/**
+ * Measure actual gridline positions from the rendered CSS Grid.
+ * This is more accurate than calculating from template strings, especially for flexible units.
+ * 
+ * @param gridElement - The grid container element
+ * @param count - Number of tracks (columns or rows)
+ * @param orientation - 'horizontal' for row positions, 'vertical' for column positions
+ * @returns Array of cumulative positions in px relative to the grid container
+ */
+function measureGridPositions(gridElement: HTMLDivElement | null, count: number, orientation: 'horizontal' | 'vertical'): number[] {
+  if (!gridElement || gridElement.children.length === 0) {
+    // Fallback: evenly spaced positions
+    return Array.from({ length: count + 1 }, (_, i) => i * 100);
+  }
+
+  const gridRect = gridElement.getBoundingClientRect();
+  const positions: number[] = [0]; // First gridline at 0
+  
+  // Get unique positions by measuring children
+  const uniquePositions = new Set<number>();
+  
+  for (let i = 0; i < gridElement.children.length; i++) {
+    const child = gridElement.children[i] as HTMLElement;
+    const childRect = child.getBoundingClientRect();
+    
+    if (orientation === 'vertical') {
+      // Measure columns: left and right edges
+      const leftPos = childRect.left - gridRect.left;
+      const rightPos = childRect.right - gridRect.left;
+      uniquePositions.add(Math.round(leftPos));
+      uniquePositions.add(Math.round(rightPos));
+    } else {
+      // Measure rows: top and bottom edges
+      const topPos = childRect.top - gridRect.top;
+      const bottomPos = childRect.bottom - gridRect.top;
+      uniquePositions.add(Math.round(topPos));
+      uniquePositions.add(Math.round(bottomPos));
+    }
+  }
+  
+  // Sort and return
+  const sorted = Array.from(uniquePositions).sort((a, b) => a - b);
+  return sorted.slice(0, count + 1);
 }
 
 /**
@@ -104,6 +152,7 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
   topHeaderHeight,
   containerWidth,
   containerHeight,
+  plotGridRef,
   onColumnResize,
   onRowResize,
 }) => {
@@ -115,16 +164,54 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
     currentDelta: number;
   } | null>(null);
 
-  // Calculate gridline positions
+  // Measured gridline positions from actual DOM
+  const [measuredColumnPositions, setMeasuredColumnPositions] = useState<number[]>([]);
+  const [measuredRowPositions, setMeasuredRowPositions] = useState<number[]>([]);
+
+  // Measure actual grid positions when layout changes
+  useEffect(() => {
+    if (!plotGridRef.current) return;
+
+    const measurePositions = () => {
+      if (plotGridRef.current) {
+        const colPos = measureGridPositions(plotGridRef.current, columns, 'vertical');
+        const rowPos = measureGridPositions(plotGridRef.current, rows, 'horizontal');
+        setMeasuredColumnPositions(colPos);
+        setMeasuredRowPositions(rowPos);
+      }
+    };
+
+    // Measure after a short delay to ensure grid has been laid out
+    const timeoutId = setTimeout(measurePositions, 0);
+
+    // Also re-measure on resize
+    const ro = new ResizeObserver(measurePositions);
+    if (plotGridRef.current) {
+      ro.observe(plotGridRef.current);
+    }
+
+    return () => {
+      clearTimeout(timeoutId);
+      ro.disconnect();
+    };
+  }, [plotGridRef, columns, rows, columnTemplate, rowTemplate, containerWidth, containerHeight]);
+
+  // Fallback to calculated positions if measurement not available yet
   const columnPositions = useMemo(() => {
+    if (measuredColumnPositions.length > 0) {
+      return measuredColumnPositions;
+    }
     const plotAreaWidth = containerWidth - leftFixedWidth;
     return parseGridTemplate(columnTemplate, plotAreaWidth, columns);
-  }, [columnTemplate, containerWidth, leftFixedWidth, columns]);
+  }, [measuredColumnPositions, columnTemplate, containerWidth, leftFixedWidth, columns]);
 
   const rowPositions = useMemo(() => {
+    if (measuredRowPositions.length > 0) {
+      return measuredRowPositions;
+    }
     const plotAreaHeight = containerHeight - topHeaderHeight - bottomFixedHeight;
     return parseGridTemplate(rowTemplate, plotAreaHeight, rows);
-  }, [rowTemplate, containerHeight, topHeaderHeight, bottomFixedHeight, rows]);
+  }, [measuredRowPositions, rowTemplate, containerHeight, topHeaderHeight, bottomFixedHeight, rows]);
 
   // Column resize handlers (all columns get the same width)
   const handleColumnResizeStart = (index: number) => {
