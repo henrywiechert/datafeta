@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import styles from '../ChartArea.module.css';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { useDataSource } from '../../../contexts/DataSourceContext';
-import { useChartGeneration, useQueryExecution, useDataProcessing, useDebugView } from './hooks';
+import { useChartGeneration, useQueryExecution, useDataProcessing, useDebugView, useFullscreen } from './hooks';
 import { ChartRenderer, ChartControls, DebugPanel } from './components';
 
 /**
@@ -16,6 +16,9 @@ const ChartArea: React.FC = () => {
   const { dataSource } = useDataSource();
   const { xAxisFields, yAxisFields, colorField, colorScheme, colorBias, sizeField, sizeRange, manualSize, queryResult, queryError, appliedFilterConfigurations, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery } = state as any;
   const { selectedTable, selectedDatabase, virtualTable } = dataSource;
+  
+  // Ref for the fullscreen target element
+  const chartWrapperRef = useRef<HTMLDivElement>(null);
 
   // Use the extracted data processing hook
   const { useTableView, tableData } = useDataProcessing({
@@ -63,6 +66,9 @@ const ChartArea: React.FC = () => {
 
   // Use the extracted debug view hook
   const { isDebugOpen, debugHeight, maxDebugHeight, toggleDebugView, handleDebugResize } = useDebugView();
+  
+  // Use the fullscreen hook
+  const { isFullscreen, toggleFullscreen, isSupported: isFullscreenSupported } = useFullscreen(chartWrapperRef);
 
   const debugData = {
     queryDescription,
@@ -76,7 +82,10 @@ const ChartArea: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      <div className={styles.chartWrapper}>
+      <div 
+        ref={chartWrapperRef}
+        className={`${styles.chartWrapper} ${isFullscreen ? styles.fullscreen : ''}`}
+      >
         <ChartRenderer
           useTableView={useTableView}
           tableData={tableData}
@@ -91,6 +100,9 @@ const ChartArea: React.FC = () => {
         <ChartControls
           isDebugOpen={isDebugOpen}
           onToggleDebug={toggleDebugView}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={toggleFullscreen}
+          isFullscreenSupported={isFullscreenSupported}
         />
         
         <DebugPanel
