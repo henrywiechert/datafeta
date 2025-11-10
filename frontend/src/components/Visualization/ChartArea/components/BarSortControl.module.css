@@ -1,0 +1,48 @@
+.container {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.sortButton {
+  pointer-events: auto;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sortButton:hover {
+  background: rgba(255, 255, 255, 1);
+  border-color: #1976d2;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.sortButton:active {
+  transform: scale(0.95);
+}
+
+.sortButton.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sortButton.visible {
+  opacity: 1;
+}
+
+/* Smooth fade transition */
+.sortButton {
+  transition: opacity 0.2s ease;
+}
+
