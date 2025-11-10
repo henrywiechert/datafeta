@@ -1,5 +1,11 @@
 import React from 'react';
 import { PlotResult } from '../../../observable-plot-generator/types';
+import { 
+  GRID_DIVIDER_COLOR, 
+  VALUES_BAND_TOP_PX, 
+  NAMES_BAND_LEFT_PX, 
+  VALUES_BAND_LEFT_PX 
+} from '../../../config/chartLayoutConfig';
 
 interface FacetLabelsProps {
   spec: PlotResult;
@@ -8,11 +14,6 @@ interface FacetLabelsProps {
   baseCols: number;
   baseRows: number;
 }
-
-const dividerColor = '#99a795';
-const VALUES_BAND_TOP_PX = 20;
-const NAMES_BAND_LEFT_PX = 20;
-const VALUES_BAND_LEFT_PX = 20;
 
 export const TopFacetLabels: React.FC<Pick<FacetLabelsProps, 'spec' | 'plotTemplateColumns' | 'baseCols'>> = ({
   spec,
@@ -64,8 +65,8 @@ export const TopFacetLabels: React.FC<Pick<FacetLabelsProps, 'spec' | 'plotTempl
                     height: `${VALUES_BAND_TOP_PX}px`,
                     gridColumn: `${startCol} / span ${span}`,
                     background: 'transparent',
-                    borderBottom: `1px solid ${dividerColor}`,
-                    borderRight: `1px solid ${dividerColor}`,
+                    borderBottom: `1px solid ${GRID_DIVIDER_COLOR}`,
+                    borderRight: `1px solid ${GRID_DIVIDER_COLOR}`,
                     fontSize: '10px',
                     padding: 0,
                     overflow: 'hidden',
@@ -152,9 +153,9 @@ export const LeftFacetLabels: React.FC<Pick<FacetLabelsProps, 'spec' | 'plotRows
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  borderRight: levelIdx === rowLevels.length - 1 ? '1px solid #99a795' : undefined,
-                  borderLeft: levelIdx > 0 ? '1px solid #99a795' : undefined,
-                  borderBottom: '1px solid #99a795',
+                  borderRight: levelIdx === rowLevels.length - 1 ? `1px solid ${GRID_DIVIDER_COLOR}` : undefined,
+                  borderLeft: levelIdx > 0 ? `1px solid ${GRID_DIVIDER_COLOR}` : undefined,
+                  borderBottom: `1px solid ${GRID_DIVIDER_COLOR}`,
                   background: 'transparent',
                   padding: 0,
                   overflow: 'hidden',

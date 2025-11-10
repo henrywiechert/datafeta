@@ -3,6 +3,7 @@ import * as Plot from '@observablehq/plot';
 import { PlotResult } from '../../../observable-plot-generator/types';
 import ObservablePlot from '../ObservablePlot';
 import styles from './ChartGrid.module.css';
+import { GRID_DIVIDER_COLOR } from '../../../config/chartLayoutConfig';
 
 interface PlotAreaProps {
   spec: PlotResult;
@@ -80,8 +81,8 @@ const PlotArea: React.FC<PlotAreaProps> = ({
             ? {
                 gridColumn: pos.col + 1,
                 gridRow: pos.row + 1,
-                borderRight: '1px solid #99a795',
-                borderBottom: '1px solid #99a795',
+                borderRight: `1px solid ${GRID_DIVIDER_COLOR}`,
+                borderBottom: `1px solid ${GRID_DIVIDER_COLOR}`,
               }
             : undefined;
           const opts = suppressAxes(plot.options, true, true);
