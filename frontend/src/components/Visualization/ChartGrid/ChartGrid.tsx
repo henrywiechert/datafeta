@@ -184,6 +184,26 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   const [rowHeightPx, setRowHeightPx] = useState<number>(MIN_GRID_ROW_PX);
   const rowsForSizing = (typeof (spec as any)?.layout?.rows === 'number' ? (spec as any).layout.rows : 1) as number;
 
+  // User-controlled cell sizing (uniform across all cells)
+  // null = use automatic sizing, number = user has manually resized
+  const [userCellWidth, setUserCellWidth] = useState<number | null>(null);
+  const [userCellHeight, setUserCellHeight] = useState<number | null>(null);
+
+  // Reset user overrides when spec changes (new data/chart type)
+  useEffect(() => {
+    setUserCellWidth(null);
+    setUserCellHeight(null);
+  }, [spec?.layout?.columns, spec?.layout?.rows]);
+
+  // Handler to reset cell sizes to automatic
+  const handleResetCellSizes = () => {
+    setUserCellWidth(null);
+    setUserCellHeight(null);
+  };
+
+  // Check if user has made any size overrides
+  const hasUserSizeOverrides = userCellWidth !== null || userCellHeight !== null;
+
   // Route vertical wheel deltas to the vertical scroller so vertical scroll
   // works even when the pointer is over the horizontal layer (charts/headers).
   // Wheel handling is set on the outer container with capture. We route vertical deltas
@@ -265,8 +285,11 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     const rowSizes = spec.layout?.rowSizes;
 
     const minColumnPx = MIN_GRID_COLUMN_PX; // minimum width; columns expand when there is space
-    const plotTemplateColumns =
-      layoutType === 'vertical'
+    
+    // Column template: use user override if set, otherwise use spec or automatic sizing
+    const plotTemplateColumns = userCellWidth !== null
+      ? `repeat(${columns}, ${userCellWidth}px)` // Uniform user-controlled sizing
+      : layoutType === 'vertical'
         ? `minmax(${minColumnPx}px, 1fr)`
         : columnSizes && columnSizes.length > 0
           ? columnSizes
@@ -277,6 +300,9 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
     // Compute total content width from columnSizes (fallback to min width)
     const totalContentWidthPx = (() => {
+      // User override takes precedence
+      if (userCellWidth !== null) return columns * userCellWidth;
+      
       if (!columnSizes || columnSizes.length === 0) return columns * minColumnPx;
       let sum = 0;
       for (let i = 0; i < Math.min(columns, columnSizes.length); i++) {
@@ -287,8 +313,14 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     })();
 
     // Rows spec to apply consistently across all stacked layers (plots, left labels, transparent sizing)
-    // Use explicit rowSizes when provided; otherwise infer from first column samples' heights, fallback to rowHeightPx
+    // User override takes precedence, then use explicit rowSizes, otherwise infer from samples or use automatic rowHeightPx
     const inferredRowSizes: Array<number | 'fr'> = (() => {
+      // If user has set a height override, use that for all rows
+      if (userCellHeight !== null) {
+        return Array(rows).fill(userCellHeight);
+      }
+      
+      // Otherwise use the existing logic
       const sizes: Array<number | 'fr'> = [];
       for (let r = 0; r < rows; r++) {
         const sample = (spec.plots || []).find((p) => p.position?.row === r);
