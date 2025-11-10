@@ -29,7 +29,7 @@ export const VALUES_BAND_TOP_PX = 20;
 export const X_LABEL_ROW_PX = 16;
 
 // Resize handle constants (for future dynamic resize feature)
-export const RESIZE_HANDLE_WIDTH = 8;
+export const RESIZE_HANDLE_WIDTH = 2;
 export const RESIZE_HANDLE_COLOR = '#99a795';
 export const RESIZE_HANDLE_HOVER_COLOR = '#6b7a67';
 

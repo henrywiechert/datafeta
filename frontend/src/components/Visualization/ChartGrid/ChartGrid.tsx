@@ -182,6 +182,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   const hScrollRef = useRef<HTMLDivElement>(null);
   const vScrollRef = useRef<HTMLDivElement>(null);
   const plotsTranslateRef = useRef<HTMLDivElement>(null);
+  const plotGridRef = useRef<HTMLDivElement>(null); // Reference to the actual plot grid for measuring positions
   const [rowHeightPx, setRowHeightPx] = useState<number>(MIN_GRID_ROW_PX);
   const rowsForSizing = (typeof (spec as any)?.layout?.rows === 'number' ? (spec as any).layout.rows : 1) as number;
 
@@ -544,7 +545,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
             {/* Plots area (transparent, just for scrolling).
                 Important: disable pointer events so this overlay does not block hover events to the SVG plots below. */}
             <div style={{ gridColumn: 2, gridRow: 1, pointerEvents: 'none' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns, gridTemplateRows: plotRowsSpec, minWidth: `${totalContentWidthPx}px`, opacity: 0, pointerEvents: 'none' }}>
+              <div ref={plotGridRef} style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns, gridTemplateRows: plotRowsSpec, minWidth: `${totalContentWidthPx}px`, opacity: 0, pointerEvents: 'none' }}>
                 {(spec.plots || []).map((plot, index) => {
                   const key = plot.id || String(index);
                   const pos = plot.position;
@@ -580,6 +581,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
             topHeaderHeight={topHeaderHeight}
             containerWidth={containerDimensions.width}
             containerHeight={containerDimensions.height}
+            plotGridRef={plotGridRef}
             onColumnResize={handleColumnResize}
             onRowResize={handleRowResize}
           />
