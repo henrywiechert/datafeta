@@ -10,6 +10,7 @@ from pypika.functions import Cast
 
 from backend.exceptions import QueryGenerationError
 from backend.models.query import QueryDescription
+from backend.services.query_components.terms import CustomFunction
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +86,11 @@ class FilterBuilder:
                     )
                 )
             else:
-                criteria.append(operator_func(field, value))
+                # Wrap datetime values for ClickHouse
+                wrapped_value = self._wrap_datetime_value_if_needed(
+                    value, db_type, definition.operator
+                )
+                criteria.append(operator_func(field, wrapped_value))
 
         if query_desc.dimensions:
             for dim in query_desc.dimensions:
@@ -193,3 +198,53 @@ class FilterBuilder:
         like_pattern = f"%{query_desc.distinct_value_regex}%"
         logger.info("Applied LIKE filter for distinct values: %s", like_pattern)
         return field_expr.like(like_pattern)
+
+    def _wrap_datetime_value_if_needed(
+        self,
+        value: Any,
+        db_type: str,
+        operator: str,
+    ) -> Any:
+        """
+        Wrap datetime string values for ClickHouse when needed.
+        
+        ClickHouse requires explicit conversion for DateTime64 comparisons.
+        This wraps datetime strings with parseDateTime64BestEffort() for ClickHouse.
+        """
+        # Only apply for ClickHouse and comparison operators
+        if db_type != "clickhouse":
+            return value
+        
+        # Check if value is a datetime string with milliseconds
+        if isinstance(value, str) and self._is_datetime_string(value):
+            logger.debug(
+                "Wrapping datetime value '%s' with parseDateTime64BestEffort for ClickHouse",
+                value
+            )
+            # Use parseDateTime64BestEffort which handles various formats
+            return CustomFunction("parseDateTime64BestEffort", [value, 3])
+        
+        return value
+    
+    def _is_datetime_string(self, value: str) -> bool:
+        """
+        Check if a string looks like a datetime with milliseconds.
+        
+        Examples:
+        - '2023-10-26 13:05:54.479' -> True
+        - '2023-10-26T13:05:54.479Z' -> True
+        - '2023-10-26' -> False
+        - 'some text' -> False
+        """
+        # Check for datetime pattern: contains both date-like and time-like parts
+        # with optional milliseconds
+        if not isinstance(value, str):
+            return False
+        
+        # Look for datetime patterns: YYYY-MM-DD followed by time with colons
+        # and optionally a decimal point for milliseconds
+        has_date = "-" in value and len(value.split("-")[0]) == 4
+        has_time = ":" in value
+        has_milliseconds = "." in value and ":" in value.split(".")[-2]
+        
+        return has_date and has_time and has_milliseconds

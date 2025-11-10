@@ -448,12 +448,13 @@ export function useVisualizationState() {
 
         // Determine filter type based on field characteristics
         const getFilterType = (): 'discrete' | 'continuous' | 'datetime' => {
-            // If it's a datetime field WITH a part specified, treat as discrete
-            if (field.dataType === 'datetime' && field.dateTimePart && field.dateTimeMode) {
-                return 'discrete';
-            }
-            // If it's a full datetime field (no part), treat as datetime
             if (field.dataType === 'datetime') {
+                // Distinct datetime parts → discrete filter (e.g., select hours 8, 9, 14, 15)
+                if (field.dateTimePart && field.dateTimeMode === 'distinct') {
+                    return 'discrete';
+                }
+                // Full datetime OR timeline parts → datetime range filter
+                // Timeline parts use range filtering because they can have thousands of values
                 return 'datetime';
             }
             return field.flavour === 'discrete' ? 'discrete' : 'continuous';
