@@ -256,6 +256,7 @@ export interface Field {
   dateTimeMode?: DateTimeMode; // Optional: distinct (e.g., 12 months) or timeline (e.g., Mar 2023, Mar 2024)
   castType?: ColumnCastConfig['cast_type']; // Optional: type to cast this column to
   castReplacement?: string; // Optional: pattern to replace before casting (e.g., ',' for thousands separator)
+  barSortOrder?: 'none' | 'asc' | 'desc'; // Optional: sort order for bar charts
 }
 
 // --- Filter Types --- //

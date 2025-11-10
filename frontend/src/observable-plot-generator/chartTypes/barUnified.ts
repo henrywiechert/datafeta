@@ -1,6 +1,6 @@
 import { ChartGenerationContext, PlotResult } from '../types';
 import { getFieldColumnName } from '../helpers/fields';
-import { resolveMeasureAlias, buildBarOptions, computeBandPaddingFromSizeField } from './barCore';
+import { resolveMeasureAlias, buildBarOptions, computeBandPaddingFromSizeField, sortCategoriesByValue } from './barCore';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { BAR_STEP_PX, BAND_PADDING } from '../../config/chartLayoutConfig';
@@ -63,6 +63,28 @@ export function barUnified(
   // Shared value domains across measures for consistent scaling
   const sharedDomains = calculateSharedDomains(measures as any[], data);
 
+  // Apply bar sorting if specified on any measure
+  // Use the first measure with a non-'none' sort order
+  let sortedCategories = categories;
+  if (hasCategories && categories) {
+    const measureWithSort = measures.find((m: any) => m.barSortOrder && m.barSortOrder !== 'none');
+    if (measureWithSort) {
+      const sortMeasureName = resolveMeasureAlias(measureWithSort as any);
+      // Build aggregated data for sorting
+      const aggregatedForSort = data.map(row => ({
+        [sortMeasureName]: row[sortMeasureName],
+        [categoryColumn!]: (categoryAccessor as any)(row)
+      }));
+      sortedCategories = sortCategoriesByValue(
+        categories,
+        aggregatedForSort,
+        categoryColumn!,
+        sortMeasureName,
+        (measureWithSort as any).barSortOrder
+      );
+    }
+  }
+
   const plots = measures.map((measure, idx) => {
     const measureName = resolveMeasureAlias(measure as any);
 
@@ -83,7 +105,7 @@ export function barUnified(
       measureName,
       orientation,
       categoryColumn,
-      categoriesDomain: categories,
+      categoriesDomain: sortedCategories,
       colorColumn,
       colorScale,
       bandPadding,

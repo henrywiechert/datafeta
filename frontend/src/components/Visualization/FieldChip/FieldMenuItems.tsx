@@ -113,6 +113,24 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
         </div>
       ))}
 
+      {/* Bar Sort Order - shown for measures on axes */}
+      {isMeasure && isInAxisDropZone && (
+        <>
+          <div className={menuStyles.separator} />
+          <SubMenu label="Bar Sort Order">
+            <div className={menuStyles.menuItem} onClick={() => onUpdate({ barSortOrder: 'none' })}>
+              None (Natural Order) {(!field.barSortOrder || field.barSortOrder === 'none') && '✔'}
+            </div>
+            <div className={menuStyles.menuItem} onClick={() => onUpdate({ barSortOrder: 'asc' })}>
+              Ascending ↑ {field.barSortOrder === 'asc' && '✔'}
+            </div>
+            <div className={menuStyles.menuItem} onClick={() => onUpdate({ barSortOrder: 'desc' })}>
+              Descending ↓ {field.barSortOrder === 'desc' && '✔'}
+            </div>
+          </SubMenu>
+        </>
+      )}
+
       <ColumnCastingDialog
         open={castingDialogOpen}
         columnName={field.columnName}
