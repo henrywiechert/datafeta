@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Field, DateTimePart } from '../../../types';
+import { Field } from '../../../types';
 import menuStyles from '../ContextMenu.module.css';
 import SubMenu from '../SubMenu';
 import { canBeContinuous, canBeMeasure, getFieldAggregations } from './utils';
 import { DragSource } from './types';
 import ColumnCastingDialog from './ColumnCastingDialog';
+import DateTimePartMenu from '../../DateTime/DateTimePartMenu';
 
 interface FieldMenuItemsProps {
   field: Field;
@@ -25,15 +26,6 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
   // Allow casting for any field - user can configure it regardless of type
   // Backend will handle the casting attempt
   const canCastField = !isInAxisDropZone; // Only in available fields panel, not on axes
-
-  // DateTime parts list
-  const dateTimeParts: DateTimePart[] = [
-    'year', 'month', 'day', 'weekday', 'hour', 'minute', 'second', 
-    'millisecond', 'microsecond', 'nanosecond'
-  ];
-
-  // Helper to capitalize first letter
-  const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
   const handleCastingConfirm = (config: any) => {
     if (config === null) {
@@ -97,40 +89,7 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
       
       {/* DateTime Part Selection - shown for datetime fields */}
       {isDateTime && (
-        <>
-          <div className={menuStyles.separator} />
-
-          <div 
-            className={menuStyles.menuItem} 
-            onClick={() => onUpdate({ dateTimePart: undefined, dateTimeMode: 'timeline' })}
-          >
-            Full DateTime {!field.dateTimePart && field.dateTimeMode === 'timeline' && '✔'}
-          </div>
-
-          <SubMenu label="Distinct Parts">
-            {dateTimeParts.map(part => (
-              <div 
-                key={part}
-                className={menuStyles.menuItem} 
-                onClick={() => onUpdate({ dateTimePart: part, dateTimeMode: 'distinct' })}
-              >
-                {capitalize(part)} {field.dateTimePart === part && field.dateTimeMode === 'distinct' && '✔'}
-              </div>
-            ))}
-          </SubMenu>
-
-          <SubMenu label="Timeline Parts">
-            {dateTimeParts.map(part => (
-              <div 
-                key={part}
-                className={menuStyles.menuItem} 
-                onClick={() => onUpdate({ dateTimePart: part, dateTimeMode: 'timeline' })}
-              >
-                {capitalize(part)} {field.dateTimePart === part && field.dateTimeMode === 'timeline' && '✔'}
-              </div>
-            ))}
-          </SubMenu>
-        </>
+        <DateTimePartMenu field={field} onUpdate={onUpdate} />
       )}
 
       {/* Column Casting - shown for numeric fields or numeric measures in available fields panel */}
