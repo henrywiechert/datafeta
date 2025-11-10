@@ -21,4 +21,22 @@ export const BAND_PADDING = 0.1;
 export const MIN_BAND_TRACKS = 1; // Minimum number of band steps to allocate
 export const MIN_SERIES_PANES = 1; // Minimum panes when splitting series per facet
 
+// Grid visual constants
+export const GRID_DIVIDER_COLOR = '#99a795';
+export const NAMES_BAND_LEFT_PX = 20;
+export const VALUES_BAND_LEFT_PX = 20;
+export const VALUES_BAND_TOP_PX = 20;
+export const X_LABEL_ROW_PX = 16;
+
+// Resize handle constants (for future dynamic resize feature)
+export const RESIZE_HANDLE_WIDTH = 8;
+export const RESIZE_HANDLE_COLOR = '#99a795';
+export const RESIZE_HANDLE_HOVER_COLOR = '#6b7a67';
+
+// Aggressive min/max for cell resize (will be refined per chart type later)
+export const MIN_CELL_WIDTH_PX = 50;
+export const MAX_CELL_WIDTH_PX = 5000;
+export const MIN_CELL_HEIGHT_PX = 50;
+export const MAX_CELL_HEIGHT_PX = 5000;
+
 

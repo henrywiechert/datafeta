@@ -2,6 +2,7 @@ import React from 'react';
 import * as Plot from '@observablehq/plot';
 import ObservablePlot from '../ObservablePlot';
 import { PlotResult } from '../../../observable-plot-generator/types';
+import { GRID_DIVIDER_COLOR } from '../../../config/chartLayoutConfig';
 
 interface XAxesProps {
   spec: PlotResult;
@@ -67,8 +68,8 @@ const XAxes: React.FC<XAxesProps> = ({
                     key={`x-axis-${c}`}
                     style={{
                       gridColumn: c + 1,
-                      borderRight: c < columns - 1 ? '1px solid #99a795' : undefined,
-                      borderTop: `1px solid #99a795`,
+                      borderRight: c < columns - 1 ? `1px solid ${GRID_DIVIDER_COLOR}` : undefined,
+                      borderTop: `1px solid ${GRID_DIVIDER_COLOR}`,
                     }}
                   >
                     <ObservablePlot options={{ ...buildXAxisOptions(xLabel, xDomain, dynamicXAxisPx, xType, xPadding), marks: [Plot.axisX({ tickRotate: xRotate as any })] as any }} />
