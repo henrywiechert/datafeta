@@ -44,7 +44,6 @@ function measureGridPositions(gridElement: HTMLDivElement | null, count: number,
   }
 
   const gridRect = gridElement.getBoundingClientRect();
-  const positions: number[] = [0]; // First gridline at 0
   
   // Get unique positions by measuring children
   const uniquePositions = new Set<number>();
