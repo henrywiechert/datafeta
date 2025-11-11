@@ -105,7 +105,21 @@ type VisualizationAction =
   | { type: 'SET_LABELS_ENABLED'; payload: boolean }
   | { type: 'SET_LABEL_SAMPLING_STRATEGY'; payload: 'auto' | 'all' | 'sample' }
   | { type: 'SET_LABEL_SAMPLING_THRESHOLD'; payload: number }
-  | { type: 'SET_LABEL_SAMPLE_EVERY'; payload: number };
+  | { type: 'SET_LABEL_SAMPLE_EVERY'; payload: number }
+  // Undo/Redo actions
+  | { type: 'RESTORE_UNDOABLE_STATE'; payload: {
+      xAxisFields: Field[];
+      yAxisFields: Field[];
+      filterFields: Field[];
+      filterConfigurations: Record<string, FilterConfig>;
+      appliedFilterConfigurations: Record<string, FilterConfig>;
+      colorField: Field | null;
+      colorScheme: string;
+      colorBias: number;
+      sizeField: Field | null;
+      sizeRange: [number, number];
+      manualSize: number;
+    } };
 
 // Initial state
 const initialState: VisualizationState = {
@@ -417,6 +431,21 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
       return { ...state, labelSamplingThreshold: action.payload };
     case 'SET_LABEL_SAMPLE_EVERY':
       return { ...state, labelSampleEvery: Math.max(1, action.payload) };
+    case 'RESTORE_UNDOABLE_STATE':
+      return {
+        ...state,
+        xAxisFields: action.payload.xAxisFields,
+        yAxisFields: action.payload.yAxisFields,
+        filterFields: action.payload.filterFields,
+        filterConfigurations: action.payload.filterConfigurations,
+        appliedFilterConfigurations: action.payload.appliedFilterConfigurations,
+        colorField: action.payload.colorField,
+        colorScheme: action.payload.colorScheme,
+        colorBias: action.payload.colorBias,
+        sizeField: action.payload.sizeField,
+        sizeRange: action.payload.sizeRange,
+        manualSize: action.payload.manualSize,
+      };
     case 'RESET_STATE':
       return initialState;
     default:
@@ -434,6 +463,20 @@ interface VisualizationContextType {
   cancelOperation: () => void;
   // Timeout management
   timeoutRefs: React.MutableRefObject<{ [key: string]: NodeJS.Timeout | null }>;
+  // Undo/Redo helper
+  getUndoableSnapshot: () => {
+    xAxisFields: Field[];
+    yAxisFields: Field[];
+    filterFields: Field[];
+    filterConfigurations: Record<string, FilterConfig>;
+    appliedFilterConfigurations: Record<string, FilterConfig>;
+    colorField: Field | null;
+    colorScheme: string;
+    colorBias: number;
+    sizeField: Field | null;
+    sizeRange: [number, number];
+    manualSize: number;
+  };
 }
 
 // Create context
@@ -549,6 +592,35 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     };
   }, []);
 
+  // Get undoable state snapshot
+  const getUndoableSnapshot = useCallback(() => {
+    return {
+      xAxisFields: state.xAxisFields,
+      yAxisFields: state.yAxisFields,
+      filterFields: state.filterFields,
+      filterConfigurations: state.filterConfigurations,
+      appliedFilterConfigurations: state.appliedFilterConfigurations,
+      colorField: state.colorField,
+      colorScheme: state.colorScheme,
+      colorBias: state.colorBias,
+      sizeField: state.sizeField,
+      sizeRange: state.sizeRange,
+      manualSize: state.manualSize,
+    };
+  }, [
+    state.xAxisFields,
+    state.yAxisFields,
+    state.filterFields,
+    state.filterConfigurations,
+    state.appliedFilterConfigurations,
+    state.colorField,
+    state.colorScheme,
+    state.colorBias,
+    state.sizeField,
+    state.sizeRange,
+    state.manualSize,
+  ]);
+
   return (
     <VisualizationContext.Provider value={{ 
       state, 
@@ -556,7 +628,8 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       startOperation, 
       completeOperation, 
       cancelOperation, 
-      timeoutRefs
+      timeoutRefs,
+      getUndoableSnapshot
     }}>
       {children}
     </VisualizationContext.Provider>
