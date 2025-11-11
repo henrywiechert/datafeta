@@ -1,13 +1,17 @@
 import React from 'react';
-import { Box } from '@mui/material';
+import { Box, IconButton, Tooltip } from '@mui/material';
+import UndoIcon from '@mui/icons-material/Undo';
+import RedoIcon from '@mui/icons-material/Redo';
 import { Link } from 'react-router-dom';
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { useVisualizationState } from '../hooks/useVisualizationState';
 import { useVisualizationContext, VisualizationProvider } from '../contexts/VisualizationContext';
+import { UndoRedoProvider } from '../contexts/UndoRedoContext';
 import { useSheetContext } from '../contexts/SheetContext';
 import { useDragDrop } from '../hooks/useDragDrop';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useDataSource } from '../contexts/DataSourceContext';
+import { useUndoRedo } from '../hooks/useUndoRedo';
 import FieldsPanel from '../components/Visualization/FieldsPanel';
 import ChartPanel from '../components/Visualization/ChartPanel';
 import FilterPanel from '../components/Visualization/Filters/FilterPanel';
@@ -42,7 +46,8 @@ const VisualizationPageContent = () => {
     } = useVisualizationState();
 
     // Access the enhanced context with loading states and cancellation
-    const { state, dispatch, cancelOperation } = useVisualizationContext();
+    const { state, dispatch, cancelOperation, getUndoableSnapshot } = useVisualizationContext();
+    const { recordAction, undo, completeUndo, redo, completeRedo, canUndo, canRedo, clearHistory } = useUndoRedo();
     const { 
         showLoadingModal, 
         loadingOperationType, 
@@ -61,6 +66,41 @@ const VisualizationPageContent = () => {
         handleRemoveFromColor,
     } = useDragDrop();
 
+    // Undo/Redo handlers
+    const handleUndo = React.useCallback(() => {
+        const previousState = undo();
+        if (previousState) {
+            // Save current state before undoing
+            const currentState = getUndoableSnapshot();
+            
+            // Restore previous state
+            dispatch({
+                type: 'RESTORE_UNDOABLE_STATE',
+                payload: previousState
+            });
+            
+            // Complete the undo operation
+            completeUndo(currentState);
+        }
+    }, [undo, completeUndo, dispatch, getUndoableSnapshot]);
+
+    const handleRedo = React.useCallback(() => {
+        const nextState = redo();
+        if (nextState) {
+            // Save current state before redoing
+            const currentState = getUndoableSnapshot();
+            
+            // Restore next state
+            dispatch({
+                type: 'RESTORE_UNDOABLE_STATE',
+                payload: nextState
+            });
+            
+            // Complete the redo operation
+            completeRedo(currentState);
+        }
+    }, [redo, completeRedo, dispatch, getUndoableSnapshot]);
+
     // Simplified axis-specific handlers that use the generic handler
     const handleXAxisDrop = (field: Field, source: DragSource, index?: number) => {
         handleAxisDrop('x', field, source, index);
@@ -72,9 +112,12 @@ const VisualizationPageContent = () => {
 
     // Handle applying filters
     const handleApplyFilters = React.useCallback(() => {
+        // Record current state for undo
+        recordAction(getUndoableSnapshot());
+        
         // Apply the current filter configurations to the query
         dispatch({ type: 'APPLY_FILTERS' });
-    }, [dispatch]);
+    }, [dispatch, recordAction, getUndoableSnapshot]);
 
     // Handle cancellation of long-running operations
     const handleCancelOperation = React.useCallback(() => {
@@ -94,6 +137,36 @@ const VisualizationPageContent = () => {
         unionTables
     } = dataSourceContext.dataSource;
     const { toggleJoinedTable, toggleUnionTable } = dataSourceContext;
+    const { state: sheetState } = useSheetContext();
+
+    // Clear undo history when switching sheets
+    React.useEffect(() => {
+        clearHistory();
+    }, [sheetState.activeSheetId, clearHistory]);
+
+    // Keyboard shortcuts for undo/redo
+    React.useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            // Check for Ctrl+Z (Windows/Linux) or Cmd+Z (Mac)
+            const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+            const modifierKey = isMac ? event.metaKey : event.ctrlKey;
+            
+            if (modifierKey && event.key === 'z' && !event.shiftKey) {
+                // Undo: Ctrl+Z or Cmd+Z
+                event.preventDefault();
+                handleUndo();
+            } else if (modifierKey && event.key === 'z' && event.shiftKey) {
+                // Redo: Ctrl+Shift+Z or Cmd+Shift+Z
+                event.preventDefault();
+                handleRedo();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [handleUndo, handleRedo]);
 
     if (!connectionDetails) {
         return (
@@ -117,6 +190,45 @@ const VisualizationPageContent = () => {
             flexDirection: 'column',
             overflow: 'hidden' 
         }}>
+            {/* Undo/Redo Controls */}
+            <Box sx={{ 
+                position: 'absolute', 
+                top: 8, 
+                right: 8, 
+                zIndex: 1000,
+                display: 'flex',
+                gap: 1,
+                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                borderRadius: 1,
+                padding: '4px',
+                boxShadow: 1
+            }}>
+                <Tooltip title="Undo (Ctrl+Z)">
+                    <span>
+                        <IconButton
+                            onClick={handleUndo}
+                            disabled={!canUndo}
+                            size="small"
+                            sx={{ color: canUndo ? 'primary.main' : 'action.disabled' }}
+                        >
+                            <UndoIcon fontSize="small" />
+                        </IconButton>
+                    </span>
+                </Tooltip>
+                <Tooltip title="Redo (Ctrl+Shift+Z)">
+                    <span>
+                        <IconButton
+                            onClick={handleRedo}
+                            disabled={!canRedo}
+                            size="small"
+                            sx={{ color: canRedo ? 'primary.main' : 'action.disabled' }}
+                        >
+                            <RedoIcon fontSize="small" />
+                        </IconButton>
+                    </span>
+                </Tooltip>
+            </Box>
+            
             {/* Main Layout with react-resizable-panels */}
             <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
                 <PanelGroup direction="horizontal">
@@ -164,6 +276,9 @@ const VisualizationPageContent = () => {
                                 onDrop={handleFilterDrop}
                                 onRemove={handleRemoveFromFilter}
                                 onConfigChange={(fieldId, config) => {
+                                    // Record current state for undo
+                                    recordAction(getUndoableSnapshot());
+                                    
                                     dispatch({ 
                                         type: 'SET_FILTER_CONFIGURATION', 
                                         payload: { fieldId, config }
@@ -179,12 +294,18 @@ const VisualizationPageContent = () => {
                                 onDrop={handleColorDrop}
                                 onRemove={handleRemoveFromColor}
                                 onSchemeChange={(schemeId) => {
+                                    // Record current state for undo
+                                    recordAction(getUndoableSnapshot());
+                                    
                                     dispatch({
                                         type: 'SET_COLOR_SCHEME',
                                         payload: schemeId
                                     });
                                 }}
                                 onBiasChange={(bias) => {
+                                    // Record current state for undo
+                                    recordAction(getUndoableSnapshot());
+                                    
                                     dispatch({
                                         type: 'SET_COLOR_BIAS',
                                         payload: bias
@@ -236,7 +357,7 @@ const VisualizationPageContent = () => {
     );
 };
 
-// Main component - wraps content with VisualizationProvider
+// Main component - wraps content with VisualizationProvider and UndoRedoProvider
 // SheetProvider is now at App level
 const VisualizationPage = () => {
     const { activeSheet } = useSheetContext();
@@ -247,7 +368,9 @@ const VisualizationPage = () => {
             key={activeSheet?.id} 
             initialState={activeSheet?.visualizationState}
         >
-            <VisualizationPageContent />
+            <UndoRedoProvider>
+                <VisualizationPageContent />
+            </UndoRedoProvider>
         </VisualizationProvider>
     );
 };

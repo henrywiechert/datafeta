@@ -10,9 +10,11 @@ import { createSizeScale } from '../../../observable-plot-generator/utils/sizeUt
 import { getSizeFieldValueRange } from '../../../observable-plot-generator/chartTypes/barCore';
 import { Field } from '../../../types';
 import styles from './SizePanelComplete.module.css';
+import { useUndoRedo } from '../../../hooks/useUndoRedo';
 
 const SizePanelComplete: React.FC = () => {
-    const { state, dispatch } = useVisualizationContext();
+    const { state, dispatch, getUndoableSnapshot } = useVisualizationContext();
+    const { recordAction } = useUndoRedo();
     
     // Local state for visual feedback during dragging
     const [localSizeRange, setLocalSizeRange] = useState<[number, number]>(state.sizeRange);
@@ -112,6 +114,9 @@ const SizePanelComplete: React.FC = () => {
 
     const handleSizeRangeCommitted = (event: Event | React.SyntheticEvent, newValue: number | number[]) => {
         if (Array.isArray(newValue)) {
+            // Record current state for undo
+            recordAction(getUndoableSnapshot());
+            
             dispatch({
                 type: 'SET_SIZE_RANGE',
                 payload: [newValue[0], newValue[1]]
@@ -127,6 +132,9 @@ const SizePanelComplete: React.FC = () => {
 
     const handleManualSizeCommitted = (event: Event | React.SyntheticEvent, newValue: number | number[]) => {
         if (typeof newValue === 'number') {
+            // Record current state for undo
+            recordAction(getUndoableSnapshot());
+            
             dispatch({
                 type: 'SET_MANUAL_SIZE',
                 payload: newValue

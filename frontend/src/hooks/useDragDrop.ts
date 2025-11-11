@@ -4,14 +4,16 @@ import { Field, DragSource } from '../types';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
 import { useDataSource } from '../contexts/DataSourceContext';
 import { DEFAULT_CATEGORICAL_SCHEME, DEFAULT_SEQUENTIAL_SCHEME } from '../config/colorSchemes';
+import { useUndoRedo } from './useUndoRedo';
 
 /**
  * Custom hook for handling drag and drop operations in the visualization
  */
 export function useDragDrop() {
-  const { state, dispatch } = useVisualizationContext();
+  const { state, dispatch, getUndoableSnapshot } = useVisualizationContext();
   const { dataSource } = useDataSource();
   const { xAxisFields, yAxisFields, filterFields } = state;
+  const { recordAction } = useUndoRedo();
   
   /**
    * Handle drops between axes or from available fields
@@ -22,6 +24,9 @@ export function useDragDrop() {
     source: DragSource, 
     index?: number
   ) => {
+    // Record current state for undo
+    recordAction(getUndoableSnapshot());
+    
     // Handle drops from available fields
     if (source === 'AVAILABLE_FIELDS') {
       // Find the field in available fields
@@ -79,22 +84,28 @@ export function useDragDrop() {
         payload: newTargetFields 
       });
     }
-  }, [dispatch, dataSource.availableFields, xAxisFields, yAxisFields]);
+  }, [dispatch, dataSource.availableFields, xAxisFields, yAxisFields, recordAction, getUndoableSnapshot]);
   
   /**
    * Remove a field from either axis
    */
   const handleRemoveFromAxis = useCallback((fieldId: string) => {
+    // Record current state for undo
+    recordAction(getUndoableSnapshot());
+    
     const newXFields = xAxisFields.filter(f => f.id !== fieldId);
     const newYFields = yAxisFields.filter(f => f.id !== fieldId);
     dispatch({ type: 'SET_X_AXIS_FIELDS', payload: newXFields });
     dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: newYFields });
-  }, [dispatch, xAxisFields, yAxisFields]);
+  }, [dispatch, xAxisFields, yAxisFields, recordAction, getUndoableSnapshot]);
   
   /**
    * Reorder fields within an axis
    */
   const handleReorderFields = useCallback((axis: 'x' | 'y', fromIndex: number, toIndex: number) => {
+    // Record current state for undo
+    recordAction(getUndoableSnapshot());
+    
     const currentFields = axis === 'x' ? xAxisFields : yAxisFields;
     const newFields = [...currentFields];
     
@@ -107,12 +118,14 @@ export function useDragDrop() {
       type: axis === 'x' ? 'SET_X_AXIS_FIELDS' : 'SET_Y_AXIS_FIELDS', 
       payload: newFields 
     });
-  }, [dispatch, xAxisFields, yAxisFields]);
+  }, [dispatch, xAxisFields, yAxisFields, recordAction, getUndoableSnapshot]);
 
   /**
    * Handle drops on the filter zone
    */
   const handleFilterDrop = useCallback((field: Field, source: DragSource) => {
+    // Record current state for undo
+    recordAction(getUndoableSnapshot());
     // Handle drops from available fields or axes
     if (source === 'AVAILABLE_FIELDS') {
       // Find the field in available fields
@@ -135,22 +148,27 @@ export function useDragDrop() {
         payload: [...filterFields, fieldCopy]
       });
     }
-  }, [dispatch, dataSource.availableFields, filterFields]);
+  }, [dispatch, dataSource.availableFields, filterFields, recordAction, getUndoableSnapshot]);
 
   /**
    * Remove a field from the filter zone
    */
   const handleRemoveFromFilter = useCallback((fieldId: string) => {
+    // Record current state for undo
+    recordAction(getUndoableSnapshot());
+    
     const newFilterFields = filterFields.filter(f => f.id !== fieldId);
     dispatch({ type: 'SET_FILTER_FIELDS', payload: newFilterFields });
     // Also remove the filter configuration
     dispatch({ type: 'REMOVE_FILTER_CONFIGURATION', payload: fieldId });
-  }, [dispatch, filterFields]);
+  }, [dispatch, filterFields, recordAction, getUndoableSnapshot]);
 
   /**
    * Handle drops on the color zone (replaces existing field)
    */
   const handleColorDrop = useCallback((field: Field, source: DragSource) => {
+    // Record current state for undo
+    recordAction(getUndoableSnapshot());
     let fieldToSet: Field;
     
     if (source === 'AVAILABLE_FIELDS') {
@@ -175,19 +193,24 @@ export function useDragDrop() {
       const nextScheme = fieldToSet.flavour === 'continuous' ? DEFAULT_SEQUENTIAL_SCHEME : DEFAULT_CATEGORICAL_SCHEME;
       dispatch({ type: 'SET_COLOR_SCHEME', payload: nextScheme });
     }
-  }, [dispatch, dataSource.availableFields, state.colorField]);
+  }, [dispatch, dataSource.availableFields, state.colorField, recordAction, getUndoableSnapshot]);
 
   /**
    * Remove the field from the color zone
    */
   const handleRemoveFromColor = useCallback(() => {
+    // Record current state for undo
+    recordAction(getUndoableSnapshot());
+    
     dispatch({ type: 'REMOVE_COLOR_FIELD' });
-  }, [dispatch]);
+  }, [dispatch, recordAction, getUndoableSnapshot]);
 
   /**
    * Handle drops on the size zone (replaces existing field)
    */
   const handleSizeDrop = useCallback((field: Field, source: DragSource) => {
+    // Record current state for undo
+    recordAction(getUndoableSnapshot());
     let fieldToSet: Field;
     
     if (source === 'AVAILABLE_FIELDS') {
@@ -207,17 +230,22 @@ export function useDragDrop() {
     
     // Replace the existing size field with the new one
     dispatch({ type: 'SET_SIZE_FIELD', payload: fieldToSet });
-  }, [dispatch, dataSource.availableFields]);
+  }, [dispatch, dataSource.availableFields, recordAction, getUndoableSnapshot]);
 
   /**
    * Remove the field from the size zone
    */
   const handleRemoveFromSize = useCallback(() => {
+    // Record current state for undo
+    recordAction(getUndoableSnapshot());
+    
     dispatch({ type: 'REMOVE_SIZE_FIELD' });
-  }, [dispatch]);
+  }, [dispatch, recordAction, getUndoableSnapshot]);
 
   // Label drop: similar to color/size but supports multiple fields (set semantics by columnName)
   const handleLabelDrop = useCallback((field: Field, source: DragSource) => {
+    // Record current state for undo
+    recordAction(getUndoableSnapshot());
     let fieldToAdd: Field;
     if (source === 'AVAILABLE_FIELDS') {
       const sourceField = dataSource.availableFields.find(f => f.id === field.id);
@@ -235,11 +263,14 @@ export function useDragDrop() {
       fieldToAdd = { ...field, id: uuidv4() };
     }
     dispatch({ type: 'ADD_LABEL_FIELD', payload: fieldToAdd });
-  }, [dispatch, dataSource.availableFields, state.xAxisFields, state.yAxisFields]);
+  }, [dispatch, dataSource.availableFields, state.xAxisFields, state.yAxisFields, recordAction, getUndoableSnapshot]);
 
   const handleRemoveFromLabel = useCallback((fieldId: string) => {
+    // Record current state for undo
+    recordAction(getUndoableSnapshot());
+    
     dispatch({ type: 'REMOVE_LABEL_FIELD', payload: fieldId });
-  }, [dispatch]);
+  }, [dispatch, recordAction, getUndoableSnapshot]);
 
   return {
     handleAxisDrop,
