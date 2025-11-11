@@ -49,3 +49,8 @@ Reset button for filter.
 
 DateTime:
 When used as cont. dimension, measures on Y doe not work, only dimensions.
+
+Negative Bar charts
+Not working
+
+Endless Undo
