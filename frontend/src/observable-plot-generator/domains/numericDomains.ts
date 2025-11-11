@@ -58,8 +58,10 @@ export function computeSharedNumericDomains(
       if (values.length === 0) continue;
       const min = Math.min(...values);
       const max = Math.max(...values);
-      const lower = min - Math.abs(min) * DOMAIN_PAD_RATIO;
-      const upper = max <= 0 ? 0 : max * (1 + DOMAIN_PAD_RATIO);
+      const span = max - min;
+      const pad = span * DOMAIN_PAD_RATIO;
+      const lower = min - pad;
+      const upper = max + pad;
       domains[label] = [lower, upper];
     }
   }
