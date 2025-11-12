@@ -267,8 +267,8 @@ function calculateSharedDomains(measures: any[], data: any[]) {
     const max = Math.max(...values);
     // Negative-only
     if (max <= 0) {
-      const span = Math.abs(max - min);
-      const pad = span * PAD;
+      const magnitude = Math.max(Math.abs(min), Math.abs(max));
+      const pad = magnitude === 0 ? 1 : magnitude * PAD;
       domains[measureName] = [min - pad, 0];
       return;
     }
