@@ -3,11 +3,12 @@ import { DOMAIN_PAD_RATIO } from '../../config/chartLayoutConfig';
 
 /**
  * Compute shared numeric domains for all measures used across a grid.
- * Always start at 0 and pad the max by +5%.
+ * Preserves negative ranges and adds DOMAIN_PAD_RATIO headroom to both sides.
  * 
  * For stacked charts with color fields, computes the domain based on stacked totals,
- * not individual segment values. When faceting is present, computes per-facet stacked
- * totals to avoid inflating the domain with data from other facets.
+ * separating positive and negative stacks so mixed-sign data keeps the correct extent.
+ * When faceting is present, totals are computed per facet to avoid inflating the
+ * domain with data from other facets.
  */
 export function computeSharedMeasureDomains(
   data: any[],
@@ -31,75 +32,88 @@ export function computeSharedMeasureDomains(
 
   const domains: Record<string, [number, number]> = {};
   measures.forEach((measureName) => {
-    let max = 0;
+    let minVal = Infinity;
+    let maxVal = -Infinity;
+
+    const updateRange = (value: number) => {
+      if (typeof value !== 'number' || Number.isNaN(value)) return;
+      if (value < minVal) minVal = value;
+      if (value > maxVal) maxVal = value;
+    };
     
-    // If we have both a color field and category field, we need to compute stacked totals
     if (colorField && categoryField) {
       const categoryColumnName = getResultColumnName(categoryField);
-      
-      // If we have facet fields, compute stacked totals per facet combination, then take the max
-      if (facetFields && facetFields.length > 0) {
-        const facetColumnNames = facetFields.map((f: any) => getResultColumnName(f));
-        
-        // Group by facet combination, then by category within each facet
-        const facetGroups = data.reduce((acc: any, row: any) => {
-          // Create a key for this facet combination
-          const facetKey = facetColumnNames.map((col: string) => row[col]).join('|');
-          if (!acc[facetKey]) acc[facetKey] = {};
-          
-          const category = row[categoryColumnName];
-          const value = row[measureName];
-          if (typeof value === 'number' && !Number.isNaN(value)) {
-            if (!acc[facetKey][category]) acc[facetKey][category] = 0;
-            acc[facetKey][category] += value;
-          }
-          return acc;
-        }, {});
-        
-        // Find the max stacked total across all facets
-        for (const facetKey in facetGroups) {
-          const categoryTotals = Object.values(facetGroups[facetKey]) as number[];
-          if (categoryTotals.length > 0) {
-            const facetMax = Math.max(...categoryTotals);
-            if (facetMax > max) max = facetMax;
-          }
+      const facetColumnNames = facetFields?.map((f: any) => getResultColumnName(f)) ?? [];
+      const stackTotals = new Map<string, { pos: number; neg: number }>();
+
+      for (const row of data) {
+        const category = row[categoryColumnName];
+        const value = row[measureName];
+        if (typeof value !== 'number' || Number.isNaN(value)) continue;
+
+        const facetKey = facetColumnNames.length > 0
+          ? facetColumnNames.map((col: string) => row[col]).join('|')
+          : '__global__';
+        const key = `${facetKey}::${category}`;
+        const entry = stackTotals.get(key) ?? { pos: 0, neg: 0 };
+        if (value >= 0) {
+          entry.pos += value;
+        } else {
+          entry.neg += value;
         }
-      } else {
-        // No faceting - group by category and sum the measure values
-        const categoryTotals = data.reduce((acc: any, row: any) => {
-          const category = row[categoryColumnName];
-          const value = row[measureName];
-          if (typeof value === 'number' && !Number.isNaN(value)) {
-            acc[category] = (acc[category] || 0) + value;
-          }
-          return acc;
-        }, {});
-        
-        // Find the max stacked total
-        const totals = Object.values(categoryTotals) as number[];
-        if (totals.length > 0) {
-          max = Math.max(0, ...totals);
+        stackTotals.set(key, entry);
+      }
+
+      stackTotals.forEach(({ pos, neg }) => {
+        if (pos !== 0) updateRange(pos);
+        if (neg !== 0) updateRange(neg);
+      });
+    } else if (colorField && !categoryField) {
+      let posTotal = 0;
+      let negTotal = 0;
+      for (const row of data) {
+        const value = row[measureName];
+        if (typeof value !== 'number' || Number.isNaN(value)) continue;
+        if (value >= 0) {
+          posTotal += value;
+        } else {
+          negTotal += value;
         }
       }
-    } else if (colorField && !categoryField) {
-      // Color field without category field: compute the total of all values (stacked in single bar)
-      const total = data
-        .map((row) => row[measureName])
-        .filter((v) => typeof v === 'number' && !Number.isNaN(v))
-        .reduce((sum, v) => sum + v, 0);
-      max = Math.max(0, total);
+      if (posTotal !== 0) updateRange(posTotal);
+      if (negTotal !== 0) updateRange(negTotal);
     } else {
-      // No stacking - just find the max individual value
-      const values = data
-        .map((row) => row[measureName])
-        .filter((v) => typeof v === 'number' && !Number.isNaN(v));
-      if (values.length > 0) {
-        max = Math.max(0, ...values);
+      for (const row of data) {
+        updateRange(row[measureName]);
       }
     }
-    
-    const upper = max === 0 ? 1 : max * (1 + DOMAIN_PAD_RATIO);
-    domains[measureName] = [0, upper];
+
+    if (minVal === Infinity || maxVal === -Infinity) {
+      domains[measureName] = [0, 1];
+      return;
+    }
+
+    if (minVal === 0 && maxVal === 0) {
+      domains[measureName] = [0, 1];
+      return;
+    }
+
+    if (maxVal <= 0) {
+      const padBase = Math.max(Math.abs(minVal), Math.abs(maxVal));
+      const pad = padBase === 0 ? 1 : padBase * DOMAIN_PAD_RATIO;
+      domains[measureName] = [minVal - pad, 0];
+      return;
+    }
+
+    if (minVal >= 0) {
+      const upper = maxVal * (1 + DOMAIN_PAD_RATIO);
+      domains[measureName] = [0, upper === 0 ? 1 : upper];
+      return;
+    }
+
+    const span = maxVal - minVal;
+    const pad = span * DOMAIN_PAD_RATIO;
+    domains[measureName] = [minVal - pad, maxVal + pad];
   });
 
   return domains;
