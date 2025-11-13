@@ -23,6 +23,11 @@ export interface BarBuildParams {
   zeroBaseline?: boolean;
   valueDomainOverride?: [number, number];
   tooltipColumns?: string[];    // additional raw columns to show in tooltip
+  /**
+   * Optional manual color used when there is no color field.
+   * When provided and no colorColumn is set, bars will use this as their fill.
+   */
+  manualColor?: string;
 }
 
 export const ORIENTATION = {
@@ -234,6 +239,7 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     zeroBaseline = true,
     valueDomainOverride,
     tooltipColumns = [],
+    manualColor,
   } = params;
 
   const O = ORIENTATION[orientation];
@@ -268,7 +274,7 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     ? (colorScale && colorScale.kind === 'continuous' && colorScale.accessor
         ? (d: any) => colorScale.accessor?.(d) ?? null
         : colorColumn)
-    : DEFAULT_CHART_COLOR;
+    : (manualColor || DEFAULT_CHART_COLOR);
 
   // Build channels for tooltip - only include what we want to show
   const channels: any = {};

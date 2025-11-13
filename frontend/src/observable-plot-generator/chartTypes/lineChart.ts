@@ -19,6 +19,8 @@ export function lineChart(
   colorField?: Field,
   colorScheme?: string,
   colorBias?: number,
+  // Optional manual color used when there is no color field
+  manualColor?: string,
   sizeField?: Field,
   sizeRange?: [number, number],
   manualSize?: number,
@@ -112,8 +114,10 @@ export function lineChart(
       dotConfig.fill = colorColumnName;
     }
   } else {
-    lineConfig.stroke = DEFAULT_CHART_COLOR;
-    dotConfig.fill = DEFAULT_CHART_COLOR;
+    // When there's no color field, fall back to a single manual color if provided
+    const fallbackColor = manualColor || DEFAULT_CHART_COLOR;
+    lineConfig.stroke = fallbackColor;
+    dotConfig.fill = fallbackColor;
   }
 
   // Apply size configuration for line width

@@ -16,7 +16,7 @@ import { generateFacetedGrid } from './faceting/facetGenerator';
  * No complex pipeline - just analyze fields and generate chart directly
  */
 export function generatePlot(context: ChartGenerationContext, overrides?: ChartTypeOverrides): PlotResult {
-  const { xFields, yFields, queryResult } = context;
+  const { xFields, yFields, queryResult, colorField, manualColor } = context;
 
   // Handle empty fields
   if (xFields.length === 0 && yFields.length === 0) {
@@ -28,29 +28,40 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
     return createMessageChart('No data available.');
   }
 
+  // If no color field is present, apply a global fixed color early so all
+  // downstream generators see a consistent default.
+  const effectiveContext: ChartGenerationContext = {
+    ...context,
+    colorField,
+    // When there is no color field, use manualColor as the default mark color.
+    // Individual chart generators interpret this via their own options.
+    // We keep colorScheme available for legends once a field is present.
+    manualColor,
+  };
+
   // Analyze fields to determine chart type
-  const analysis = analyzeFields(xFields, yFields);
+  const analysis = analyzeFields(effectiveContext.xFields, effectiveContext.yFields);
   
   // We allow dimension-only continuous charts (tick-strip/scatter), so do not require measures here.
 
   try {
     // First, see if faceting is applicable.
-    const facetPlan = planFacets(context);
+  const facetPlan = planFacets(effectiveContext);
     
     // Only engage faceting when there are discrete fields that should become facets
     if (facetPlan && ((facetPlan.rowFacetFields?.length || 0) > 0 || (facetPlan.colFacetFields?.length || 0) > 0)) {
-      return generateFacetedGrid(context, facetPlan);
+  return generateFacetedGrid(effectiveContext, facetPlan);
     }
 
     // Multi-measure on the same axis -> grid of bar charts (preferred over cartesian pairing)
     // EXCEPT when the opposite axis has a continuous dimension; then use cartesian grid (line charts)
-    const labelCfg = buildLabelCfg(context);
+  const labelCfg = buildLabelCfg(effectiveContext);
     if (analysis.isMultiMeasure && !analysis.hasMixedAxes) {
       const measuresOnX = analysis.hasXMeasure && !analysis.hasYMeasure;
       const oppositeDims = measuresOnX ? (analysis as any).yDimensions : (analysis as any).xDimensions;
       const hasOppositeContinuousDim = Array.isArray(oppositeDims) && oppositeDims.some((d: any) => d.flavour === 'continuous');
       if (!hasOppositeContinuousDim) {
-        return barUnified(context, labelCfg);
+  return barUnified(effectiveContext, labelCfg);
       }
       // fall through to cartesian grid
     }
@@ -67,11 +78,11 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
     ];
 
     if (xCandidates.length > 0 && yCandidates.length > 0) {
-      return generateCartesianGrid(context, analysis, xCandidates, yCandidates, overrides);
+  return generateCartesianGrid(effectiveContext, analysis, xCandidates, yCandidates, overrides);
     }
 
     // Otherwise, generate single chart or simple multi on one axis (rare edge cases)
-  const result = genChartOptionsRule(analysis, context, labelCfg);
+  const result = genChartOptionsRule(analysis, effectiveContext, labelCfg);
     return result;
 
   } catch (error) {
@@ -129,6 +140,7 @@ export function baseGeneratePlot(context: ChartGenerationContext): PlotResult {
         sizeField,
         sizeRange,
         manualSize,
+        context.manualColor,
         buildLabelCfg(context)
       ),
       sharedDomains: { byMeasure: sharedMeasureDomains as any },

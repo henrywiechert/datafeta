@@ -305,6 +305,7 @@ const VisualizationPageContent = () => {
                                 colorField={state.colorField}
                                 colorScheme={state.colorScheme}
                                 colorBias={state.colorBias}
+                                manualColor={state.manualColor}
                                 onDrop={handleColorDrop}
                                 onRemove={handleRemoveFromColor}
                                 onSchemeChange={(schemeId) => {
@@ -323,6 +324,15 @@ const VisualizationPageContent = () => {
                                     dispatch({
                                         type: 'SET_COLOR_BIAS',
                                         payload: bias
+                                    });
+                                }}
+                                onManualColorChange={(color) => {
+                                    // Record current state for undo
+                                    recordAction(getUndoableSnapshot());
+
+                                    dispatch({
+                                        type: 'SET_MANUAL_COLOR',
+                                        payload: color,
                                     });
                                 }}
                             />

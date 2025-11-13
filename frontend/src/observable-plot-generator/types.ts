@@ -13,6 +13,7 @@ export interface ChartGenerationContext {
   colorField?: Field;
   colorScheme?: string;
   colorBias?: number;
+  manualColor?: string;
   sizeField?: Field;
   sizeRange?: [number, number];
   manualSize?: number;
