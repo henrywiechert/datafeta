@@ -14,7 +14,7 @@ import { ChartRenderer, ChartControls, DebugPanel } from './components';
 const ChartArea: React.FC = () => {
   const { state, dispatch, startOperation, completeOperation } = useVisualizationContext();
   const { dataSource } = useDataSource();
-  const { xAxisFields, yAxisFields, colorField, colorScheme, colorBias, sizeField, sizeRange, manualSize, queryResult, queryError, appliedFilterConfigurations, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery } = state as any;
+  const { xAxisFields, yAxisFields, colorField, colorScheme, colorBias, sizeField, sizeRange, manualSize, queryResult, queryError, appliedFilterConfigurations, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, virtualColumns } = state as any;
   const { selectedTable, selectedDatabase, virtualTable } = dataSource;
   
   // Ref for the fullscreen target element
@@ -38,6 +38,7 @@ const ChartArea: React.FC = () => {
     filterConfigurations: appliedFilterConfigurations,
     labelFields,
     virtualTable,
+    virtualColumns,
     startOperation,
     completeOperation,
     dispatch,
