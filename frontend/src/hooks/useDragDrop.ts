@@ -8,12 +8,16 @@ import { useUndoRedo } from './useUndoRedo';
 
 /**
  * Custom hook for handling drag and drop operations in the visualization
+ * @param availableFields Optional override for available fields (includes virtual columns if provided)
  */
-export function useDragDrop() {
+export function useDragDrop(availableFields?: Field[]) {
   const { state, dispatch, getUndoableSnapshot } = useVisualizationContext();
   const { dataSource } = useDataSource();
   const { xAxisFields, yAxisFields, filterFields } = state;
   const { recordAction } = useUndoRedo();
+  
+  // Use provided availableFields or fall back to dataSource.availableFields
+  const fieldsToUse = availableFields || dataSource.availableFields;
   
   /**
    * Handle drops between axes or from available fields
@@ -29,8 +33,8 @@ export function useDragDrop() {
     
     // Handle drops from available fields
     if (source === 'AVAILABLE_FIELDS') {
-      // Find the field in available fields
-      const sourceField = dataSource.availableFields.find(f => f.id === field.id);
+      // Find the field in available fields (includes virtual columns if provided)
+      const sourceField = fieldsToUse.find(f => f.id === field.id);
       if (!sourceField) return;
       
       // Create an independent copy of the field with a new ID
@@ -84,7 +88,7 @@ export function useDragDrop() {
         payload: newTargetFields 
       });
     }
-  }, [dispatch, dataSource.availableFields, xAxisFields, yAxisFields, recordAction, getUndoableSnapshot]);
+  }, [dispatch, fieldsToUse, xAxisFields, yAxisFields, recordAction, getUndoableSnapshot]);
   
   /**
    * Remove a field from either axis
@@ -128,8 +132,8 @@ export function useDragDrop() {
     recordAction(getUndoableSnapshot());
     // Handle drops from available fields or axes
     if (source === 'AVAILABLE_FIELDS') {
-      // Find the field in available fields
-      const sourceField = dataSource.availableFields.find(f => f.id === field.id);
+      // Find the field in available fields (includes virtual columns)
+      const sourceField = fieldsToUse.find(f => f.id === field.id);
       if (!sourceField) return;
       
       // Create an independent copy of the field with a new ID
@@ -148,7 +152,7 @@ export function useDragDrop() {
         payload: [...filterFields, fieldCopy]
       });
     }
-  }, [dispatch, dataSource.availableFields, filterFields, recordAction, getUndoableSnapshot]);
+  }, [dispatch, fieldsToUse, filterFields, recordAction, getUndoableSnapshot]);
 
   /**
    * Remove a field from the filter zone
@@ -172,8 +176,8 @@ export function useDragDrop() {
     let fieldToSet: Field;
     
     if (source === 'AVAILABLE_FIELDS') {
-      // Find the field in available fields
-      const sourceField = dataSource.availableFields.find(f => f.id === field.id);
+      // Find the field in available fields (includes virtual columns)
+      const sourceField = fieldsToUse.find(f => f.id === field.id);
       if (!sourceField) return;
       
       // Create an independent copy of the field with a new ID
@@ -193,7 +197,7 @@ export function useDragDrop() {
       const nextScheme = fieldToSet.flavour === 'continuous' ? DEFAULT_SEQUENTIAL_SCHEME : DEFAULT_CATEGORICAL_SCHEME;
       dispatch({ type: 'SET_COLOR_SCHEME', payload: nextScheme });
     }
-  }, [dispatch, dataSource.availableFields, state.colorField, recordAction, getUndoableSnapshot]);
+  }, [dispatch, fieldsToUse, state.colorField, recordAction, getUndoableSnapshot]);
 
   /**
    * Remove the field from the color zone
@@ -214,8 +218,8 @@ export function useDragDrop() {
     let fieldToSet: Field;
     
     if (source === 'AVAILABLE_FIELDS') {
-      // Find the field in available fields
-      const sourceField = dataSource.availableFields.find(f => f.id === field.id);
+      // Find the field in available fields (includes virtual columns)
+      const sourceField = fieldsToUse.find(f => f.id === field.id);
       if (!sourceField) return;
       
       // Create an independent copy of the field with a new ID
@@ -230,7 +234,7 @@ export function useDragDrop() {
     
     // Replace the existing size field with the new one
     dispatch({ type: 'SET_SIZE_FIELD', payload: fieldToSet });
-  }, [dispatch, dataSource.availableFields, recordAction, getUndoableSnapshot]);
+  }, [dispatch, fieldsToUse, recordAction, getUndoableSnapshot]);
 
   /**
    * Remove the field from the size zone
@@ -248,7 +252,7 @@ export function useDragDrop() {
     recordAction(getUndoableSnapshot());
     let fieldToAdd: Field;
     if (source === 'AVAILABLE_FIELDS') {
-      const sourceField = dataSource.availableFields.find(f => f.id === field.id);
+      const sourceField = fieldsToUse.find(f => f.id === field.id);
       if (!sourceField) return;
       fieldToAdd = { ...sourceField, id: uuidv4() };
     } else if (source === 'X_AXIS' || source === 'Y_AXIS' || source === 'COLOR_ZONE' || source === 'SIZE_ZONE') {
@@ -263,7 +267,7 @@ export function useDragDrop() {
       fieldToAdd = { ...field, id: uuidv4() };
     }
     dispatch({ type: 'ADD_LABEL_FIELD', payload: fieldToAdd });
-  }, [dispatch, dataSource.availableFields, state.xAxisFields, state.yAxisFields, recordAction, getUndoableSnapshot]);
+  }, [dispatch, fieldsToUse, state.xAxisFields, state.yAxisFields, recordAction, getUndoableSnapshot]);
 
   const handleRemoveFromLabel = useCallback((fieldId: string) => {
     // Record current state for undo

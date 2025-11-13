@@ -324,7 +324,8 @@ class QueryService:
         use_category_dedup: bool,
         groupby_field_info_for_dedup: List[Tuple[str, Optional[Any]]],
         with_optimization: bool,
-        optimizer: Optional[Any]
+        optimizer: Optional[Any],
+        vc_builder: Optional[VirtualColumnExpressionBuilder] = None
     ) -> Query:
         builder = GroupingOrderingBuilder(
             logger=logger,
@@ -339,6 +340,7 @@ class QueryService:
             groupby_field_info_for_dedup=groupby_field_info_for_dedup,
             with_optimization=with_optimization,
             optimizer=optimizer,
+            vc_builder=vc_builder,
         )
 
     def _apply_ordering(
@@ -346,7 +348,8 @@ class QueryService:
         query: Query,
         order_by: List[OrderBy],
         all_aliases: Set[str],
-        primary_table: Any
+        primary_table: Any,
+        vc_builder: Optional[VirtualColumnExpressionBuilder] = None
     ) -> Query:
         builder = GroupingOrderingBuilder(logger=logger)
         return builder.apply_ordering(
@@ -354,6 +357,7 @@ class QueryService:
             order_by=order_by,
             all_aliases=all_aliases,
             primary_table=primary_table,
+            vc_builder=vc_builder,
         )
 
     def _apply_sampling_and_limits(
@@ -574,9 +578,10 @@ class QueryService:
             groupby_field_info_for_dedup,
             with_optimization,
             optimizer,
+            vc_builder,
         )
 
-        q = self._apply_ordering(q, query_desc.orderBy, all_aliases, t)
+        q = self._apply_ordering(q, query_desc.orderBy, all_aliases, t, vc_builder)
 
         q = self._apply_sampling_and_limits(q, query_desc, db_type, t, with_sampling)
 
