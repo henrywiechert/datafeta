@@ -17,6 +17,7 @@ interface UseQueryExecutionProps {
   filterConfigurations: Record<string, any>;
   labelFields?: Field[];
   virtualTable?: VirtualTableDefinition | null;
+  virtualColumns?: import('../../../../types').VirtualColumnDefinition[];
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
   dispatch: (action: any) => void;
@@ -37,6 +38,7 @@ export const useQueryExecution = ({
   filterConfigurations,
   labelFields = [],
   virtualTable = null,
+  virtualColumns = [],
   startOperation,
   completeOperation,
   dispatch,
@@ -185,6 +187,7 @@ export const useQueryExecution = ({
       filterConfigurations,
       labelFields,
       virtualTable,
+      virtualColumns,
     });
 
     if (queryDesc) {
@@ -261,6 +264,7 @@ export const useQueryExecution = ({
         filterConfigurations,
         labelFields,
         virtualTable,
+        virtualColumns,
       });
 
       if (queryDesc) {
