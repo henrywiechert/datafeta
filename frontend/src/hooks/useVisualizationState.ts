@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Field, DataType, FilterMetadata } from '../types';
 import { apiService } from '../apiService';
@@ -59,10 +59,28 @@ export function useVisualizationState() {
         updateActiveSheetState,
     ]);
 
+    // --- Merge virtual columns into available fields ---
+    const availableFieldsWithVirtual = useMemo(() => {
+        const virtualFields: Field[] = state.virtualColumns.map((vc, index) => ({
+            id: `virtual_${vc.name}_${index}`,
+            columnName: vc.name,
+            type: 'measure' as const, // Virtual columns are typically measures (computed values)
+            flavour: 'continuous' as const, // Virtual columns are continuous by default
+            dataType: vc.output_type === 'numeric' ? 'decimal' as DataType :
+                      vc.output_type === 'datetime' ? 'timestamp' as DataType :
+                      'text' as DataType,
+            // Add a marker that this is a virtual column
+            // @ts-ignore - We'll add is_virtual to Field type if needed
+            is_virtual: true,
+        }));
+        
+        return [...dataSource.availableFields, ...virtualFields];
+    }, [dataSource.availableFields, state.virtualColumns]);
+
     // --- Event Handlers ---
 
     const handleDropFromAvailableFields = useCallback((targetAxis: 'x' | 'y', fieldId: string, insertIndex?: number) => {
-        const field = dataSource.availableFields.find(f => f.id === fieldId);
+        const field = availableFieldsWithVirtual.find(f => f.id === fieldId);
         if (!field) return;
 
         const fieldToAdd = { ...field, id: uuidv4() };
@@ -86,7 +104,7 @@ export function useVisualizationState() {
                 dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: [...currentFields, fieldToAdd] });
             }
         }
-    }, [state.xAxisFields, state.yAxisFields, dataSource.availableFields, dispatch]);
+    }, [state.xAxisFields, state.yAxisFields, availableFieldsWithVirtual, dispatch]);
 
 
 
@@ -905,7 +923,7 @@ export function useVisualizationState() {
         connectionDetails,
         xAxisFields: state.xAxisFields,
         yAxisFields: state.yAxisFields,
-        availableFields: dataSource.availableFields,
+        availableFields: availableFieldsWithVirtual,
         databases: dataSource.databases,
         tables: dataSource.tables,
         selectedDatabase: dataSource.selectedDatabase,
