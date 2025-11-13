@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, ReactNode, useRef, useCallback } from 'react';
-import { Field, Database, Table, QueryResult, FilterConfig, FilterMetadata } from '../types';
+import { Field, Database, Table, QueryResult, FilterConfig, FilterMetadata, VirtualColumnDefinition } from '../types';
 import { getTimeoutForOperation } from '../config/loadingConfig';
 
 // Define loading operation types
@@ -48,6 +48,8 @@ interface VisualizationState {
   operationStartTimes: Record<LoadingOperationType, number | null>; // individual start times
   activeOperations: LoadingOperationType[]; // active operations list
   modalPrimaryOperation: LoadingOperationType | null; // chosen operation for modal display
+  // Virtual columns (calculated columns)
+  virtualColumns: VirtualColumnDefinition[];
 }
 
 // Define action types
@@ -106,6 +108,11 @@ type VisualizationAction =
   | { type: 'SET_LABEL_SAMPLING_STRATEGY'; payload: 'auto' | 'all' | 'sample' }
   | { type: 'SET_LABEL_SAMPLING_THRESHOLD'; payload: number }
   | { type: 'SET_LABEL_SAMPLE_EVERY'; payload: number }
+  // Virtual column action types
+  | { type: 'SET_VIRTUAL_COLUMNS'; payload: VirtualColumnDefinition[] }
+  | { type: 'ADD_VIRTUAL_COLUMN'; payload: VirtualColumnDefinition }
+  | { type: 'UPDATE_VIRTUAL_COLUMN'; payload: { index: number; column: VirtualColumnDefinition } }
+  | { type: 'REMOVE_VIRTUAL_COLUMN'; payload: number }
   // Undo/Redo actions
   | { type: 'RESTORE_UNDOABLE_STATE'; payload: {
       xAxisFields: Field[];
@@ -119,6 +126,7 @@ type VisualizationAction =
       sizeField: Field | null;
       sizeRange: [number, number];
       manualSize: number;
+      virtualColumns: VirtualColumnDefinition[];
     } };
 
 // Initial state
@@ -164,6 +172,8 @@ const initialState: VisualizationState = {
   operationStartTimes: { query: null, rendering: null, metadata: null },
   activeOperations: [],
   modalPrimaryOperation: null,
+  // Virtual columns defaults
+  virtualColumns: [],
 };
 
 // Reducer function
@@ -431,6 +441,21 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
       return { ...state, labelSamplingThreshold: action.payload };
     case 'SET_LABEL_SAMPLE_EVERY':
       return { ...state, labelSampleEvery: Math.max(1, action.payload) };
+    // Virtual column reducers
+    case 'SET_VIRTUAL_COLUMNS':
+      return { ...state, virtualColumns: action.payload };
+    case 'ADD_VIRTUAL_COLUMN':
+      return { ...state, virtualColumns: [...state.virtualColumns, action.payload] };
+    case 'UPDATE_VIRTUAL_COLUMN': {
+      const newColumns = [...state.virtualColumns];
+      newColumns[action.payload.index] = action.payload.column;
+      return { ...state, virtualColumns: newColumns };
+    }
+    case 'REMOVE_VIRTUAL_COLUMN':
+      return { 
+        ...state, 
+        virtualColumns: state.virtualColumns.filter((_, i) => i !== action.payload) 
+      };
     case 'RESTORE_UNDOABLE_STATE':
       return {
         ...state,
@@ -445,6 +470,7 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
         sizeField: action.payload.sizeField,
         sizeRange: action.payload.sizeRange,
         manualSize: action.payload.manualSize,
+        virtualColumns: action.payload.virtualColumns,
       };
     case 'RESET_STATE':
       return initialState;
