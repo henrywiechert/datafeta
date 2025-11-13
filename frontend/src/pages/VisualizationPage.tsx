@@ -59,7 +59,7 @@ const VisualizationPageContent = () => {
         canCancelOperation 
     } = state;
 
-    // Use our custom drag-and-drop hook
+    // Use our custom drag-and-drop hook with virtual columns included
     const {
         handleAxisDrop,
         handleRemoveFromAxis,
@@ -68,7 +68,7 @@ const VisualizationPageContent = () => {
         handleRemoveFromFilter,
         handleColorDrop,
         handleRemoveFromColor,
-    } = useDragDrop();
+    } = useDragDrop(availableFields);
 
     // Undo/Redo handlers
     const handleUndo = React.useCallback(() => {
