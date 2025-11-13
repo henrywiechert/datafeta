@@ -42,7 +42,11 @@ const VisualizationPageContent = () => {
         handleFieldUpdate,
         handleDatabaseSelect,
         handleTableSelect,
-        refetchFilterValues
+        refetchFilterValues,
+        virtualColumns,
+        handleAddVirtualColumn,
+        handleUpdateVirtualColumn,
+        handleRemoveVirtualColumn
     } = useVisualizationState();
 
     // Access the enhanced context with loading states and cancellation
@@ -261,6 +265,10 @@ const VisualizationPageContent = () => {
                             suggestedUnionableTables={suggestedUnionableTables}
                             unionTables={unionTables}
                             onToggleUnionTable={toggleUnionTable}
+                            virtualColumns={virtualColumns}
+                            onAddVirtualColumn={handleAddVirtualColumn}
+                            onUpdateVirtualColumn={handleUpdateVirtualColumn}
+                            onRemoveVirtualColumn={handleRemoveVirtualColumn}
                         />
                     </Panel>
 
