@@ -16,6 +16,10 @@ const FieldChipLabel = forwardRef<HTMLSpanElement, FieldChipLabelProps>(
     const flavourText = ` [${field.flavour}]`;
     const dataTypeText = ` (${field.dataType})`;
     
+    // Check if this is a virtual column
+    // @ts-ignore - is_virtual is not in Field type yet but we set it in availableFieldsWithVirtual
+    const isVirtual = (field as any).is_virtual;
+    
     // Add sort indicator for measures on axes with active sorting
     const isOnAxis = source === 'X_AXIS' || source === 'Y_AXIS';
     const sortIndicator = isOnAxis && field.type === 'measure' && field.barSortOrder && field.barSortOrder !== 'none'
@@ -38,7 +42,7 @@ const FieldChipLabel = forwardRef<HTMLSpanElement, FieldChipLabelProps>(
         }}
       >
         <span className={`${styles.symbol} ${field.flavour === 'continuous' ? styles.continuousSymbol : styles.discreteSymbol}`}>
-          #
+          {isVirtual ? 'ƒ' : '#'}
         </span>
         {fieldName}
         {aggregationText}
