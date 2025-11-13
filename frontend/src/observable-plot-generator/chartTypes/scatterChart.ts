@@ -18,6 +18,8 @@ export function scatterChart(
   colorField?: Field,
   colorScheme?: string,
   colorBias?: number,
+  // Optional manual color used when there is no color field
+  manualColor?: string,
   sizeField?: Field,
   sizeRange?: [number, number],
   manualSize?: number
@@ -113,7 +115,8 @@ export function scatterChart(
       dotConfig.fill = colorColumnName;
     }
   } else {
-    dotConfig.fill = DEFAULT_CHART_COLOR;
+    // When there's no color field, fall back to a single manual color if provided
+    dotConfig.fill = manualColor || DEFAULT_CHART_COLOR;
   }
 
   // Apply size configuration

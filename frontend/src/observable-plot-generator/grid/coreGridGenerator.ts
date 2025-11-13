@@ -48,6 +48,7 @@ export function generateCartesianGrid(
     sizeField,
     sizeRange,
     manualSize,
+    context.manualColor,
     labelCfg
   );
 
@@ -92,6 +93,7 @@ export function generateCartesianPlots(
   sizeField?: Field,
   sizeRange?: [number, number],
   manualSize?: number,
+  manualColor?: string,
   labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
 ): CartesianPlot[] {
   const plots: CartesianPlot[] = [];
@@ -120,6 +122,7 @@ export function generateCartesianPlots(
         manualSize,
         colorScheme,
         colorBias,
+        manualColor,
         labelCfg
       );
 

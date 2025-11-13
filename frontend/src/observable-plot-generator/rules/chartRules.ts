@@ -30,6 +30,7 @@ export function generateScatterPlot(
     colorField,
     colorScheme,
     colorBias,
+    context.manualColor,
     sizeField,
     sizeRange,
     manualSize,
@@ -81,7 +82,21 @@ export function generateChartOptions(
     const xMeasureCol = getResultColumnName({ ...xMeasure, aggregation: xMeasure.aggregation || 'sum' } as any);
     return { 
       library: 'observable-plot', 
-      options: lineChart(data, yDimCol, xMeasureCol, { x: getFieldDisplayName(yDim), y: xMeasureCol }, undefined, colorField, colorScheme, context.colorBias, sizeField, sizeRange, manualSize, labelCfg), 
+      options: lineChart(
+        data,
+        yDimCol,
+        xMeasureCol,
+        { x: getFieldDisplayName(yDim), y: xMeasureCol },
+        undefined,
+        colorField,
+        colorScheme,
+        context.colorBias,
+        context.manualColor,
+        sizeField,
+        sizeRange,
+        manualSize,
+        labelCfg
+      ), 
       layout: { type: 'single' } 
     };
   }
@@ -92,7 +107,21 @@ export function generateChartOptions(
     const yMeasureCol = getResultColumnName({ ...yMeasure, aggregation: yMeasure.aggregation || 'sum' } as any);
     return { 
       library: 'observable-plot', 
-      options: lineChart(data, xDimCol, yMeasureCol, { x: getFieldDisplayName(xDim), y: yMeasureCol }, undefined, colorField, colorScheme, context.colorBias, sizeField, sizeRange, manualSize, labelCfg), 
+      options: lineChart(
+        data,
+        xDimCol,
+        yMeasureCol,
+        { x: getFieldDisplayName(xDim), y: yMeasureCol },
+        undefined,
+        colorField,
+        colorScheme,
+        context.colorBias,
+        context.manualColor,
+        sizeField,
+        sizeRange,
+        manualSize,
+        labelCfg
+      ), 
       layout: { type: 'single' } 
     };
   }
@@ -160,7 +189,24 @@ export function generateChartOptions(
     if (xContinuousDims.length > 0 && yContinuousDims.length > 0) {
       const xDimCol = getResultColumnName(xContinuousDims[0]);
       const yDimCol = getResultColumnName(yContinuousDims[0]);
-      return { library: 'observable-plot', options: scatterChart(data, xDimCol, yDimCol, { x: xDimCol, y: yDimCol }, colorField, colorScheme, context.colorBias, sizeField, sizeRange, manualSize, labelCfg), layout: { type: 'single' } };
+      return {
+        library: 'observable-plot',
+        options: scatterChart(
+          data,
+          xDimCol,
+          yDimCol,
+          { x: xDimCol, y: yDimCol },
+          colorField,
+          colorScheme,
+          context.colorBias,
+          context.manualColor,
+          sizeField,
+          sizeRange,
+          manualSize,
+          labelCfg
+        ),
+        layout: { type: 'single' }
+      };
     }
     // Both discrete → simple dot plot (categorical scatter)
     if (xDiscreteDims.length > 0 && yDiscreteDims.length > 0) {
@@ -223,7 +269,21 @@ export function generateChartOptions(
     const yDimCol = getResultColumnName(yDim);
     return { 
       library: 'observable-plot', 
-  options: lineChart(data, yDimCol, xMeasureCol, { x: getFieldDisplayName(yDim), y: xMeasureCol }, undefined, colorField, colorScheme, context.colorBias, sizeField, sizeRange, manualSize, labelCfg), 
+      options: lineChart(
+        data,
+        yDimCol,
+        xMeasureCol,
+        { x: getFieldDisplayName(yDim), y: xMeasureCol },
+        undefined,
+        colorField,
+        colorScheme,
+        context.colorBias,
+        context.manualColor,
+        sizeField,
+        sizeRange,
+        manualSize,
+        labelCfg
+      ), 
       layout: { type: 'single' } 
     };
   }
@@ -234,7 +294,21 @@ export function generateChartOptions(
     const xDimCol = getResultColumnName(xDim);
     return { 
       library: 'observable-plot', 
-  options: lineChart(data, xDimCol, yMeasureCol, { x: getFieldDisplayName(xDim), y: yMeasureCol }, undefined, colorField, colorScheme, context.colorBias, sizeField, sizeRange, manualSize, labelCfg), 
+      options: lineChart(
+        data,
+        xDimCol,
+        yMeasureCol,
+        { x: getFieldDisplayName(xDim), y: yMeasureCol },
+        undefined,
+        colorField,
+        colorScheme,
+        context.colorBias,
+        context.manualColor,
+        sizeField,
+        sizeRange,
+        manualSize,
+        labelCfg
+      ), 
       layout: { type: 'single' } 
     };
   }
