@@ -492,3 +492,80 @@ class TestVirtualColumnExpressionBuilder:
         
         term = builder.register_virtual_column(vc)
         assert isinstance(term, Term)
+    
+    # ========================================================================
+    # SQL CASE WHEN Syntax Support
+    # ========================================================================
+    
+    def test_sql_case_when_simple(self):
+        """Test SQL CASE WHEN syntax with simple condition."""
+        vc = VirtualColumnDefinition(
+            name='category',
+            expression='CASE WHEN amount > 1000 THEN \'High\' ELSE \'Low\' END',
+            output_type='VARCHAR'
+        )
+        
+        term = self.builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='"')
+        assert 'CASE' in sql
+        assert 'amount' in sql
+    
+    def test_sql_case_when_multiple_conditions(self):
+        """Test SQL CASE WHEN with multiple WHEN clauses."""
+        vc = VirtualColumnDefinition(
+            name='grade',
+            expression='CASE WHEN score >= 90 THEN \'A\' WHEN score >= 80 THEN \'B\' WHEN score >= 70 THEN \'C\' ELSE \'F\' END',
+            output_type='VARCHAR'
+        )
+        
+        term = self.builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='"')
+        assert 'CASE' in sql
+        assert 'score' in sql
+    
+    def test_sql_case_when_no_else(self):
+        """Test SQL CASE WHEN without ELSE clause."""
+        vc = VirtualColumnDefinition(
+            name='flag',
+            expression='CASE WHEN active = 1 THEN \'Yes\' END',
+        )
+        
+        # Should convert = to ==
+        term = self.builder.register_virtual_column(vc)
+        assert isinstance(term, Term)
+    
+    def test_sql_case_when_with_arithmetic(self):
+        """Test SQL CASE WHEN with arithmetic in result."""
+        vc = VirtualColumnDefinition(
+            name='adjusted_price',
+            expression='CASE WHEN day = 20 THEN rate * 2 ELSE rate END',
+        )
+        
+        term = self.builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='"')
+        assert 'CASE' in sql
+        assert 'day' in sql
+        assert 'rate' in sql
+    
+    def test_sql_case_when_mixed_case_keywords(self):
+        """Test SQL CASE WHEN with mixed case keywords."""
+        vc = VirtualColumnDefinition(
+            name='status',
+            expression='case when value > 100 then \'high\' else \'low\' end',
+        )
+        
+        term = self.builder.register_virtual_column(vc)
+        assert isinstance(term, Term)
+    
+    def test_pypika_case_still_works(self):
+        """Test that Pypika Python syntax still works."""
+        vc = VirtualColumnDefinition(
+            name='category',
+            expression='CASE().when(amount > 1000, "High").else_("Low")',
+            output_type='VARCHAR'
+        )
+        
+        term = self.builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='"')
+        assert 'CASE' in sql
+

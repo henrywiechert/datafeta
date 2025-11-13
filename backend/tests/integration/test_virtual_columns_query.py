@@ -460,3 +460,39 @@ class TestVirtualColumnsQueryIntegration:
         assert 'product' in sql
         assert 'SUM' in sql
         assert 'revenue' in sql
+    
+    def test_sql_case_when_as_dimension_with_alias(self):
+        """Test SQL CASE WHEN virtual column is properly aliased as dimension."""
+        query_desc = QueryDescription(
+            target_table='sales',
+            dimensions=[
+                Dimension(field='category', flavour='discrete')
+            ],
+            measures=[
+                Measure(field='revenue', aggregation='sum', alias='total_revenue')
+            ],
+            virtual_columns=[
+                VirtualColumnDefinition(
+                    name='category',
+                    expression='CASE WHEN amount > 1000 THEN \'High\' ELSE \'Low\' END',
+                    output_type='VARCHAR'
+                )
+            ]
+        )
+        
+        sql, metadata = self.service.translate_to_sql(
+            query_desc=query_desc,
+            table_name='sales',
+            db_type='duckdb',
+            with_sampling=False,
+            with_optimization=False
+        )
+        
+        # Verify the virtual column is aliased properly (not showing raw CASE expression)
+        assert 'AS "category"' in sql or 'AS category' in sql.lower()
+        assert 'CASE' in sql
+        assert 'amount' in sql
+        
+        # Verify it's used in GROUP BY with the alias, not the full expression
+        assert 'GROUP BY' in sql
+

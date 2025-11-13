@@ -23,10 +23,12 @@ class SelectClauseBuilder:
         parse_field_reference: Callable[[str, Dict[str, Any], Any], Any],
         apply_cast_if_configured: Callable[[str, Any, Optional[Dict[str, Dict[str, str]]]], Any],
         get_datetime_part_expression: Callable[[Any, str, str, str], Any],
+        vc_builder: Optional[Any] = None,  # VirtualColumnExpressionBuilder
     ) -> None:
         self._parse_field_reference = parse_field_reference
         self._apply_cast_if_configured = apply_cast_if_configured
         self._get_datetime_part_expression = get_datetime_part_expression
+        self._vc_builder = vc_builder
 
     def build(
         self,
@@ -52,6 +54,9 @@ class SelectClauseBuilder:
 
                 field_term = self._parse_field_reference(dim.field, table_map, default_table)
                 field_term = self._apply_cast_if_configured(dim.field, field_term, query_desc.column_casts)
+
+                # Check if this is a virtual column that needs aliasing
+                is_virtual_column = self._vc_builder and self._vc_builder.is_virtual_column(dim.field)
 
                 # Skip optimization binning if user has explicitly selected a datetime part
                 # User's explicit selection takes precedence over automatic optimization
@@ -122,6 +127,11 @@ class SelectClauseBuilder:
                     field_term = field_term.as_(dim.field)
                     all_aliases.add(dim.field)
                     logger.debug("Aliased casted dimension %s back to its original name", dim.field)
+                elif is_virtual_column:
+                    # Virtual columns always need to be aliased to their name
+                    field_term = field_term.as_(dim.field)
+                    all_aliases.add(dim.field)
+                    logger.debug("Aliased virtual column %s to its name", dim.field)
 
                 select_fields.append(field_term)
 
