@@ -31,6 +31,9 @@ from backend.services.query_components.grouping_ordering_builder import (
     GroupingOrderingBuilder,
 )
 from backend.services.query_components.union_query_builder import UnionQueryBuilder
+from backend.services.query_components.virtual_column_builder import (
+    VirtualColumnExpressionBuilder,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -219,10 +222,23 @@ class QueryService:
         rounding_config: Dict[str, Any],
         binning_config: Dict[str, Any],
         use_category_dedup: bool,
+        vc_builder: Optional[VirtualColumnExpressionBuilder] = None,  # NEW
     ) -> SelectClauseResult:
         """Assemble SELECT fields and related alias/grouping metadata."""
+        
+        # Create a closure that includes vc_builder for checking virtual columns
+        def parse_field_with_vc(field_name: str, table_map_inner: Dict[str, Any], default_table_inner: Any) -> Any:
+            # Check if this is a virtual column first
+            if vc_builder and vc_builder.is_virtual_column(field_name):
+                vc_term = vc_builder.get_virtual_column_term(field_name)
+                if vc_term:
+                    logger.debug(f"Resolved '{field_name}' as virtual column in SELECT")
+                    return vc_term
+            # Otherwise use normal field reference parsing
+            return self._parse_field_reference(field_name, table_map_inner, default_table_inner)
+        
         builder = SelectClauseBuilder(
-            parse_field_reference=self._parse_field_reference,
+            parse_field_reference=parse_field_with_vc,  # Use closure
             apply_cast_if_configured=self._apply_cast_if_configured,
             get_datetime_part_expression=self._get_datetime_part_expression,
         )
@@ -244,11 +260,24 @@ class QueryService:
         table_map: Dict[str, Any],
         default_table: Any,
         db_type: str,
-        primary_table: Any
+        primary_table: Any,
+        vc_builder: Optional[VirtualColumnExpressionBuilder] = None,  # NEW
     ) -> List[Criterion]:
         """Translate filters, automatic null guards, and regex sampling into Criterion list."""
+        
+        # Create a closure that includes vc_builder for checking virtual columns
+        def parse_field_with_vc(field_name: str, table_map_inner: Dict[str, Any], default_table_inner: Any) -> Any:
+            # Check if this is a virtual column first
+            if vc_builder and vc_builder.is_virtual_column(field_name):
+                vc_term = vc_builder.get_virtual_column_term(field_name)
+                if vc_term:
+                    logger.debug(f"Resolved '{field_name}' as virtual column in WHERE")
+                    return vc_term
+            # Otherwise use normal field reference parsing
+            return self._parse_field_reference(field_name, table_map_inner, default_table_inner)
+        
         builder = FilterBuilder(
-            parse_field_reference=self._parse_field_reference,
+            parse_field_reference=parse_field_with_vc,  # Use closure
             apply_cast_if_configured=self._apply_cast_if_configured,
             get_datetime_part_expression=self._get_datetime_part_expression,
             get_field_with_cast=self._get_field_with_cast,
@@ -461,6 +490,23 @@ class QueryService:
         default_table = table_context.default_table
         t = table_context.primary_table
 
+        # NEW: Initialize virtual column builder if virtual columns are defined
+        vc_builder = None
+        if query_desc.virtual_columns:
+            vc_builder = VirtualColumnExpressionBuilder(
+                table_map=table_map,
+                default_table=default_table
+            )
+            
+            # Register all virtual columns
+            for vc in query_desc.virtual_columns:
+                try:
+                    vc_builder.register_virtual_column(vc)
+                    logger.info(f"Registered virtual column: {vc.name}")
+                except QueryGenerationError as e:
+                    logger.error(f"Failed to register virtual column '{vc.name}': {e}")
+                    raise
+
         optimization_ctx = self._build_optimization_context(query_desc, optimizer, with_optimization)
         rounding_config = optimization_ctx.rounding_config
         binning_config = optimization_ctx.binning_config
@@ -475,6 +521,7 @@ class QueryService:
             rounding_config,
             binning_config,
             use_category_dedup,
+            vc_builder,  # NEW: Pass virtual column builder
         )
         select_fields = select_result.fields
         all_aliases = select_result.aliases
@@ -488,6 +535,7 @@ class QueryService:
             default_table,
             db_type,
             t,
+            vc_builder,  # NEW: Pass virtual column builder
         )
 
         if criteria:

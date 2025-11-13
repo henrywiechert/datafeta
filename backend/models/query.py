@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional, Literal, TYPE_CHECKING
 
 # Always import for type annotation
-from backend.models.data_source import VirtualTableDefinition
+from backend.models.data_source import VirtualTableDefinition, VirtualColumnDefinition
 
 class Measure(BaseModel):
     field: str
@@ -115,6 +115,9 @@ class QueryDescription(BaseModel):
     
     # NEW: Multi-table support - virtual table definition for joined queries
     virtual_table: Optional[VirtualTableDefinition] = None
+    
+    # NEW: Virtual columns - calculated columns defined by SQL expressions
+    virtual_columns: Optional[List[VirtualColumnDefinition]] = None
 
 class QueryResult(BaseModel):
     columns: List[Dict[str, str]] # e.g., [{"name": "col1", "type": "string"}, ...]

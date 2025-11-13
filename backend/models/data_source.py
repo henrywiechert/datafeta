@@ -1,5 +1,5 @@
 """Pydantic models related to data sources and connections."""
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, validator
 from typing import List, Dict, Any, Optional, Literal
 
 # --- Data Source Primitives --- #
@@ -18,6 +18,7 @@ class Column(BaseModel):
     cast_replacement: Optional[str] = None  # Regex pattern to remove (e.g., ',' for thousands separator)
     is_datetime: bool = False
     table_name: Optional[str] = None  # Source table for this column (for multi-table support)
+    is_virtual: Optional[bool] = False  # True if this is a virtual/calculated column
 
 # --- Multi-Table Support Models --- #
 
@@ -48,6 +49,69 @@ class VirtualTableDefinition(BaseModel):
     joined_tables: List[TableJoinDefinition] = []  # For JOIN mode
     union_tables: List[UnionTableDefinition] = []  # For UNION ALL mode
     name: Optional[str] = None  # Optional name for the virtual table
+
+class VirtualColumnDefinition(BaseModel):
+    """
+    Definition of a virtual (calculated) column.
+    
+    Virtual columns are calculated from other columns using SQL expressions,
+    evaluated at the database level for performance.
+    
+    Examples:
+        # Simple arithmetic
+        VirtualColumnDefinition(
+            name="profit",
+            expression="(revenue - cost)",
+            output_type="DOUBLE"
+        )
+        
+        # With functions
+        VirtualColumnDefinition(
+            name="rounded_price",
+            expression="ROUND(price, 2)",
+            output_type="DOUBLE"
+        )
+        
+        # Conditional
+        VirtualColumnDefinition(
+            name="status_label",
+            expression="CASE().when(active == 1, 'Active').else_('Inactive')",
+            output_type="VARCHAR"
+        )
+    """
+    name: str = Field(..., description="Name of the virtual column (must be unique)")
+    expression: str = Field(..., description="SQL expression to calculate the column")
+    output_type: Optional[str] = Field(None, description="Expected SQL data type (e.g., 'DOUBLE', 'VARCHAR', 'INTEGER')")
+    description: Optional[str] = Field(None, description="Human-readable description of the column")
+    
+    @validator('name')
+    def validate_name(cls, v):
+        """Ensure name is a valid identifier."""
+        if not v or not v.strip():
+            raise ValueError("Virtual column name cannot be empty")
+        v = v.strip()
+        if not v[0].isalpha() and v[0] != '_':
+            raise ValueError("Virtual column name must start with a letter or underscore")
+        if not all(c.isalnum() or c == '_' for c in v):
+            raise ValueError("Virtual column name must contain only letters, numbers, and underscores")
+        return v
+    
+    @validator('expression')
+    def validate_expression_not_empty(cls, v):
+        """Ensure expression is not empty."""
+        if not v or not v.strip():
+            raise ValueError("Expression cannot be empty")
+        return v.strip()
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "name": "profit",
+                "expression": "(revenue - cost)",
+                "output_type": "DOUBLE",
+                "description": "Net profit calculated as revenue minus cost"
+            }
+        }
 
 # --- Connection and Listing Models --- #
 
