@@ -61,18 +61,49 @@ export function useVisualizationState() {
 
     // --- Merge virtual columns into available fields ---
     const availableFieldsWithVirtual = useMemo(() => {
-        const virtualFields: Field[] = state.virtualColumns.map((vc, index) => ({
-            id: `virtual_${vc.name}_${index}`,
-            columnName: vc.name,
-            type: 'measure' as const, // Virtual columns are typically measures (computed values)
-            flavour: 'continuous' as const, // Virtual columns are continuous by default
-            dataType: vc.output_type === 'numeric' ? 'decimal' as DataType :
-                      vc.output_type === 'datetime' ? 'timestamp' as DataType :
-                      'text' as DataType,
-            // Add a marker that this is a virtual column
-            // @ts-ignore - We'll add is_virtual to Field type if needed
-            is_virtual: true,
-        }));
+        const virtualFields: Field[] = state.virtualColumns.map((vc, index) => {
+            // Map output type to data type
+            let dataType: DataType;
+            if (vc.output_type === 'numeric') {
+                dataType = 'float'; // Use float for numeric virtual columns
+            } else if (vc.output_type === 'datetime') {
+                dataType = 'datetime';
+            } else {
+                dataType = 'string'; // Default to string for text
+            }
+            
+            // Default type and flavour based on output type (same logic as regular fields)
+            let type: 'dimension' | 'measure';
+            let flavour: 'discrete' | 'continuous';
+            let aggregation: 'sum' | 'avg' | 'min' | 'max' | 'count' | 'count_distinct' | undefined;
+            
+            if (vc.output_type === 'text' || vc.output_type === 'datetime') {
+                type = 'dimension';
+                flavour = 'discrete';
+                aggregation = undefined;
+            } else if (vc.output_type === 'numeric') {
+                // Default numeric virtual columns to dimension (can be changed to measure in UI)
+                type = 'dimension';
+                flavour = 'discrete';
+                aggregation = undefined;
+            } else {
+                type = 'dimension';
+                flavour = 'discrete';
+                aggregation = undefined;
+            }
+            
+            return {
+                id: `virtual_${vc.name}_${index}`,
+                columnName: vc.name,
+                type: type,
+                flavour: flavour,
+                dataType: dataType,
+                aggregation: aggregation,
+                // Add a marker that this is a virtual column
+                // @ts-ignore - We'll add is_virtual to Field type if needed
+                is_virtual: true,
+            };
+        });
         
         return [...dataSource.availableFields, ...virtualFields];
     }, [dataSource.availableFields, state.virtualColumns]);

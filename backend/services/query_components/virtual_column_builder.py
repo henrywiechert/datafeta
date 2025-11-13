@@ -287,6 +287,10 @@ class VirtualColumnExpressionBuilder:
         
         Supports qualified names: table.column
         
+        IMPORTANT: Only treats as qualified (table.column) if the prefix is a known table name.
+        Otherwise, the entire field_name (including dots) is treated as a column name.
+        This allows columns like 'measurement.temp' to work correctly.
+        
         Args:
             field_name: Column name, optionally qualified
             
@@ -294,10 +298,20 @@ class VirtualColumnExpressionBuilder:
             Pypika Field object
         """
         if '.' in field_name:
-            # Qualified name: table.column
+            # Check if this is actually a table-qualified reference
             table_name, column_name = field_name.split('.', 1)
-            table = self.table_map.get(table_name, self.default_table)
-            return table[column_name]
+            
+            # Only split if the prefix is a known table name
+            if table_name in self.table_map:
+                # Qualified name: table.column
+                logger.debug(f"Field '{field_name}' recognized as qualified: table '{table_name}', column '{column_name}'")
+                table = self.table_map[table_name]
+                return table[column_name]
+            else:
+                # Not a table prefix - treat entire name as column name
+                # This handles columns like 'measurement.temp' where the dot is part of the column name
+                logger.debug(f"Field '{field_name}' prefix '{table_name}' not a known table, treating as full column name")
+                return self.default_table[field_name]
         else:
             # Unqualified name: column
             return self.default_table[field_name]
