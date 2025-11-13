@@ -42,6 +42,7 @@ export function useVisualizationState() {
             sizeField: state.sizeField,
             sizeRange: state.sizeRange,
             manualSize: state.manualSize,
+            virtualColumns: state.virtualColumns,
         });
     }, [
         state.xAxisFields,
@@ -54,6 +55,7 @@ export function useVisualizationState() {
         state.sizeField,
         state.sizeRange,
         state.manualSize,
+        state.virtualColumns,
         updateActiveSheetState,
     ]);
 
@@ -884,6 +886,20 @@ export function useVisualizationState() {
         }
     }, [state.filterFields, state.filterMetadata, dataSource.selectedTable, dataSource.selectedDatabase, dataSource.unionTables, connectionDetails?.type, dispatch]);
 
+    // --- Virtual Column Handlers ---
+    
+    const handleAddVirtualColumn = useCallback((column: import('../types').VirtualColumnDefinition) => {
+        dispatch({ type: 'ADD_VIRTUAL_COLUMN', payload: column });
+    }, [dispatch]);
+
+    const handleUpdateVirtualColumn = useCallback((index: number, column: import('../types').VirtualColumnDefinition) => {
+        dispatch({ type: 'UPDATE_VIRTUAL_COLUMN', payload: { index, column } });
+    }, [dispatch]);
+
+    const handleRemoveVirtualColumn = useCallback((index: number) => {
+        dispatch({ type: 'REMOVE_VIRTUAL_COLUMN', payload: index });
+    }, [dispatch]);
+
     // --- Return all state and handlers ---
     return {
         connectionDetails,
@@ -908,6 +924,11 @@ export function useVisualizationState() {
         handleRemoveFromAxis,
         handleDropFromAvailableFields,
         handleReorderFields,
-        refetchFilterValues
+        refetchFilterValues,
+        // Virtual columns
+        virtualColumns: state.virtualColumns,
+        handleAddVirtualColumn,
+        handleUpdateVirtualColumn,
+        handleRemoveVirtualColumn,
     };
 } 

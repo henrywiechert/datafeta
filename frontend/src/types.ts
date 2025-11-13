@@ -12,6 +12,20 @@ export interface Column {
     name: string;
     data_type: string;
     table_name?: string;  // Source table for this column (for multi-table support)
+    is_virtual?: boolean;  // Flag for virtual/calculated columns
+}
+
+// --- Virtual Column Types --- //
+
+/**
+ * Virtual column (calculated column) definition.
+ * Allows users to create new columns based on SQL expressions.
+ */
+export interface VirtualColumnDefinition {
+    name: string;                    // Column name (identifier format)
+    expression: string;              // SQL expression (e.g., "(revenue - cost) / revenue * 100")
+    output_type?: 'numeric' | 'text' | 'datetime';  // Output data type
+    description?: string;            // User-friendly description
 }
 
 // --- Multi-Table Support Types --- //
@@ -159,6 +173,8 @@ export interface QueryDescription {
     label_fields?: string[];
     // NEW: Multi-table support - virtual table definition for joined queries
     virtual_table?: VirtualTableDefinition;
+    // NEW: Virtual columns (calculated columns) defined by SQL expressions
+    virtual_columns?: VirtualColumnDefinition[];
 }
 
 export interface QueryResultColumn {
@@ -347,6 +363,7 @@ export interface VisualizationStateSnapshot {
   sizeField: Field | null;
   sizeRange: [number, number];
   manualSize: number;
+  virtualColumns?: VirtualColumnDefinition[]; // Virtual/calculated columns
 }
 
 // Sheet represents a single visualization configuration
