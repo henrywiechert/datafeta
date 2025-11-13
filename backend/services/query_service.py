@@ -241,6 +241,7 @@ class QueryService:
             parse_field_reference=parse_field_with_vc,  # Use closure
             apply_cast_if_configured=self._apply_cast_if_configured,
             get_datetime_part_expression=self._get_datetime_part_expression,
+            vc_builder=vc_builder,  # Pass vc_builder for aliasing logic
         )
 
         return builder.build(

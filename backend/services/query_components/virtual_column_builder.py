@@ -122,7 +122,7 @@ class VirtualColumnExpressionBuilder:
         Parse a SQL expression string into a Pypika Term.
         
         This uses a restricted eval() approach with a safe namespace.
-        For production, this implementation balances security and functionality.
+        Supports both SQL-style CASE WHEN syntax and Pypika Python syntax.
         
         Args:
             expression: SQL expression string
@@ -135,6 +135,9 @@ class VirtualColumnExpressionBuilder:
         """
         # Validate expression for security
         self._validate_expression_safety(expression)
+        
+        # Convert SQL CASE WHEN to Pypika syntax if present
+        expression = self._convert_sql_case_to_pypika(expression)
         
         # Extract column references
         column_refs = self._extract_column_references(expression)
@@ -170,6 +173,63 @@ class VirtualColumnExpressionBuilder:
             
         except Exception as e:
             raise ValueError(f"Failed to evaluate expression: {e}")
+    
+    def _convert_sql_case_to_pypika(self, expression: str) -> str:
+        """
+        Convert SQL CASE WHEN syntax to Pypika Python syntax.
+        
+        Transforms:
+            CASE WHEN x > 10 THEN 'High' WHEN x > 5 THEN 'Medium' ELSE 'Low' END
+        To:
+            CASE().when(x > 10, 'High').when(x > 5, 'Medium').else_('Low')
+        
+        Args:
+            expression: Expression possibly containing SQL CASE syntax
+            
+        Returns:
+            Expression with CASE converted to Pypika syntax
+        """
+        import re
+        
+        # Check if expression contains SQL CASE syntax
+        if not re.search(r'\bCASE\s+WHEN\b', expression, re.IGNORECASE):
+            return expression
+        
+        # Pattern to match CASE WHEN ... THEN ... ELSE ... END
+        case_pattern = r'\bCASE\s+((?:WHEN\s+(.+?)\s+THEN\s+(.+?)\s*)+)(?:ELSE\s+(.+?)\s+)?END\b'
+        
+        def replace_case(match):
+            when_clauses = match.group(1)
+            else_clause = match.group(4) if match.group(4) else None
+            
+            # Extract all WHEN...THEN pairs
+            when_pattern = r'WHEN\s+(.+?)\s+THEN\s+(.+?)(?=\s+(?:WHEN|ELSE|$))'
+            when_matches = re.findall(when_pattern, when_clauses, re.IGNORECASE)
+            
+            # Build Pypika syntax
+            pypika_expr = 'CASE()'
+            for condition, value in when_matches:
+                # Clean up condition and value
+                condition = condition.strip()
+                value = value.strip()
+                
+                # Convert SQL = to Python ==
+                condition = re.sub(r'\b(\w+)\s*=\s*', r'\1 == ', condition)
+                
+                pypika_expr += f'.when({condition}, {value})'
+            
+            # Add ELSE clause if present
+            if else_clause:
+                else_clause = else_clause.strip()
+                pypika_expr += f'.else_({else_clause})'
+            
+            return pypika_expr
+        
+        # Replace all CASE expressions
+        converted = re.sub(case_pattern, replace_case, expression, flags=re.IGNORECASE | re.DOTALL)
+        
+        logger.debug(f"Converted SQL CASE syntax: '{expression}' -> '{converted}'")
+        return converted
     
     def _validate_expression_safety(self, expression: str) -> None:
         """
