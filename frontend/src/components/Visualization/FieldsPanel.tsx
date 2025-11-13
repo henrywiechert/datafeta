@@ -1,9 +1,11 @@
 import React, { useMemo } from 'react';
-import { Typography } from '@mui/material';
+import { Typography, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import FieldsSearch from './FieldsSearch';
 import FieldCategory from './FieldCategory';
 import CompactMetadataSelector from './CompactMetadataSelector';
-import { Field, Database, Table } from '../../types';
+import VirtualColumnManager from '../VirtualColumns/VirtualColumnManager';
+import { Field, Database, Table, VirtualColumnDefinition } from '../../types';
 import { useFieldsPanelDrag } from '../../hooks/useFieldsPanelDrag';
 import styles from './FieldsPanel.module.css';
 
@@ -31,6 +33,11 @@ interface FieldsPanelProps {
   suggestedUnionableTables?: string[];
   unionTables?: string[];
   onToggleUnionTable?: (tableName: string) => void;
+  // Virtual columns props
+  virtualColumns?: VirtualColumnDefinition[];
+  onAddVirtualColumn?: (column: VirtualColumnDefinition) => void;
+  onUpdateVirtualColumn?: (index: number, column: VirtualColumnDefinition) => void;
+  onRemoveVirtualColumn?: (index: number) => void;
 }
 
 const FieldsPanel: React.FC<FieldsPanelProps> = ({
@@ -56,7 +63,12 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   // Multi-table union props
   suggestedUnionableTables,
   unionTables,
-  onToggleUnionTable
+  onToggleUnionTable,
+  // Virtual columns props
+  virtualColumns = [],
+  onAddVirtualColumn,
+  onUpdateVirtualColumn,
+  onRemoveVirtualColumn
 }) => {
   // Use our custom hook for drag and drop functionality
   const {
@@ -107,6 +119,40 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
         unionTables={unionTables}
         onToggleUnionTable={onToggleUnionTable}
       />
+      
+      {/* Virtual Columns Manager */}
+      {onAddVirtualColumn && onUpdateVirtualColumn && onRemoveVirtualColumn && (
+        <Accordion 
+          defaultExpanded={false}
+          sx={{ 
+            boxShadow: 'none',
+            '&:before': { display: 'none' },
+            borderTop: '1px solid #e0e0e0'
+          }}
+        >
+          <AccordionSummary 
+            expandIcon={<ExpandMoreIcon />}
+            sx={{ 
+              minHeight: 40,
+              '&.Mui-expanded': { minHeight: 40 },
+              '& .MuiAccordionSummary-content': { margin: '8px 0' }
+            }}
+          >
+            <Typography variant="subtitle2" fontWeight="bold" fontSize="0.85rem">
+              Virtual Columns
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails sx={{ p: 1, maxHeight: 300, overflow: 'auto' }}>
+            <VirtualColumnManager
+              virtualColumns={virtualColumns}
+              availableColumns={availableFields.map(f => f.columnName)}
+              onAdd={onAddVirtualColumn}
+              onEdit={onUpdateVirtualColumn}
+              onDelete={onRemoveVirtualColumn}
+            />
+          </AccordionDetails>
+        </Accordion>
+      )}
       
       {/* Fields search below metadata */}
       <div className={styles.header}>
