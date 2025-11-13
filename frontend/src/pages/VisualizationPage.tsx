@@ -76,7 +76,10 @@ const VisualizationPageContent = () => {
             // Restore previous state
             dispatch({
                 type: 'RESTORE_UNDOABLE_STATE',
-                payload: previousState
+                payload: {
+                    ...previousState,
+                    virtualColumns: previousState.virtualColumns || []
+                }
             });
             
             // Complete the undo operation
@@ -93,7 +96,10 @@ const VisualizationPageContent = () => {
             // Restore next state
             dispatch({
                 type: 'RESTORE_UNDOABLE_STATE',
-                payload: nextState
+                payload: {
+                    ...nextState,
+                    virtualColumns: nextState.virtualColumns || []
+                }
             });
             
             // Complete the redo operation

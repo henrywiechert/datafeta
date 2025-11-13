@@ -206,7 +206,7 @@ export const useQueryExecution = ({
     }
 
     return queryDesc;
-  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields, colorField, sizeField, filterConfigurations, labelFields, optimizationHints, virtualTable]);
+  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields, colorField, sizeField, filterConfigurations, labelFields, optimizationHints, virtualTable, virtualColumns]);
 
   // Effect to handle query execution when fields change
   useEffect(() => {
