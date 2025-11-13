@@ -7,7 +7,7 @@ import logging
 from pypika.terms import Term, Field, ValueWrapper
 from pypika import Case
 from pypika.functions import (
-    Round, Abs, Coalesce, Concat, Upper, Lower, 
+    Function, Abs, Coalesce, Concat, Upper, Lower, 
     Length, Substring, Cast
 )
 
@@ -15,6 +15,13 @@ from backend.exceptions import QueryGenerationError
 from backend.models.data_source import VirtualColumnDefinition
 
 logger = logging.getLogger(__name__)
+
+
+# Custom function classes for functions not directly available in Pypika
+class Round(Function):
+    """ROUND function for rounding numeric values."""
+    def __init__(self, term, precision=None):
+        super(Round, self).__init__('ROUND', term, precision) if precision is not None else super(Round, self).__init__('ROUND', term)
 
 
 class VirtualColumnExpressionBuilder:
@@ -143,9 +150,17 @@ class VirtualColumnExpressionBuilder:
         # Build safe namespace for eval
         namespace = self._build_safe_namespace(column_refs)
         
+        # Replace qualified names (table.column) with safe identifiers (table__column)
+        # This allows eval to work with our namespace mapping
+        eval_expression = expression
+        for col_ref in column_refs:
+            if '.' in col_ref:
+                safe_name = col_ref.replace('.', '__')
+                eval_expression = eval_expression.replace(col_ref, safe_name)
+        
         # Evaluate expression
         try:
-            result = eval(expression, {"__builtins__": {}}, namespace)
+            result = eval(eval_expression, {"__builtins__": {}}, namespace)
             
             if not isinstance(result, Term):
                 # Wrap literals
@@ -242,8 +257,10 @@ class VirtualColumnExpressionBuilder:
         namespace = {}
         
         # Add column references
+        # For qualified names (table.column), use safe key (table__column)
         for col_ref in column_refs:
-            namespace[col_ref] = self._get_field_reference(col_ref)
+            safe_key = col_ref.replace('.', '__') if '.' in col_ref else col_ref
+            namespace[safe_key] = self._get_field_reference(col_ref)
         
         # Add allowed functions
         namespace.update({
