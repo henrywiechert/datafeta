@@ -129,6 +129,7 @@ const VirtualColumnEditor: React.FC<VirtualColumnEditorProps> = ({
     { label: 'Rounding', value: 'ROUND(amount, 2)', type: 'numeric' },
     { label: 'String concat', value: 'CONCAT(first_name, \' \', last_name)', type: 'text' },
     { label: 'Conditional', value: 'CASE WHEN amount > 1000 THEN \'High\' ELSE \'Low\' END', type: 'text' },
+    { label: 'Multi-condition', value: 'CASE WHEN score >= 90 THEN \'A\' WHEN score >= 80 THEN \'B\' ELSE \'C\' END', type: 'text' },
     { label: 'Absolute value', value: 'ABS(delta)', type: 'numeric' },
     { label: 'Upper case', value: 'UPPER(status)', type: 'text' },
   ];
