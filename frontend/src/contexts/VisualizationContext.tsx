@@ -632,6 +632,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       sizeField: state.sizeField,
       sizeRange: state.sizeRange,
       manualSize: state.manualSize,
+      virtualColumns: state.virtualColumns,
     };
   }, [
     state.xAxisFields,
@@ -645,6 +646,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     state.sizeField,
     state.sizeRange,
     state.manualSize,
+    state.virtualColumns,
   ]);
 
   return (
