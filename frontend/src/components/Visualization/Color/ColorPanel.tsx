@@ -5,25 +5,30 @@ import { PropertySection } from '../Properties';
 import ColorDropZone from './ColorDropZone';
 import ColorSchemeSelector from './ColorSchemeSelector';
 import ColorBiasControl from './ColorBiasControl';
+import ManualColorSelector from './ManualColorSelector';
 
 interface ColorPanelProps {
   colorField: Field | null;
   colorScheme?: string;
   colorBias?: number;
+  manualColor?: string;
   onDrop: (field: Field, source: DragSource) => void;
   onRemove: () => void;
   onSchemeChange?: (schemeId: string) => void;
   onBiasChange?: (bias: number) => void;
+  onManualColorChange?: (color: string) => void;
 }
 
 const ColorPanel: React.FC<ColorPanelProps> = ({
   colorField,
   colorScheme = 'tableau10',
   colorBias = 0,
+  manualColor = '#1976d2',
   onDrop,
   onRemove,
   onSchemeChange,
   onBiasChange,
+  onManualColorChange,
 }) => {
   return (
     <PropertySection
@@ -38,7 +43,14 @@ const ColorPanel: React.FC<ColorPanelProps> = ({
             fieldFlavour={colorField.flavour}
             onSchemeChange={onSchemeChange}
           />
-        ) : null
+        ) : (
+          onManualColorChange && (
+            <ManualColorSelector
+              value={manualColor}
+              onChange={onManualColorChange}
+            />
+          )
+        )
       }
     >
       <ColorDropZone
