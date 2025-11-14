@@ -539,7 +539,8 @@ export function useVisualizationState() {
                     undefined, // no regex filter initially
                     field.dateTimePart,
                     field.dateTimeMode,
-                    dataSource.unionTables  // Pass union tables for _source_table handling
+                    dataSource.unionTables,  // Pass union tables for _source_table handling
+                    state.virtualColumns  // Pass virtual columns for expression support
                 );
                 
                 let values: any[];
@@ -557,7 +558,8 @@ export function useVisualizationState() {
                         undefined, // no regex filter
                         undefined, // no limit
                         undefined, // no random sampling
-                        dataSource.unionTables  // Pass union tables
+                        dataSource.unionTables,  // Pass union tables
+                        state.virtualColumns  // Pass virtual columns
                     );
                 } else {
                     // Too many values - fetch only 100 random samples
@@ -570,7 +572,8 @@ export function useVisualizationState() {
                         undefined, // no regex filter
                         100, // limit to 100
                         true, // use random sampling
-                        dataSource.unionTables  // Pass union tables
+                        dataSource.unionTables,  // Pass union tables
+                        state.virtualColumns  // Pass virtual columns
                     );
                     isPartial = true;
                     warningMessage = `This field has ${count.toLocaleString()} unique values. Showing 100 random samples. Use Query Regex to filter.`;
@@ -806,7 +809,8 @@ export function useVisualizationState() {
                 regexPattern,
                 field.dateTimePart,
                 field.dateTimeMode,
-                dataSource.unionTables  // Pass union tables for _source_table handling
+                dataSource.unionTables,  // Pass union tables for _source_table handling
+                state.virtualColumns  // Pass virtual columns for expression support
             );
             
             let values: any[];
@@ -830,7 +834,8 @@ export function useVisualizationState() {
                     regexPattern,
                     undefined, // no limit
                     undefined, // no random sampling
-                    dataSource.unionTables  // Pass union tables
+                    dataSource.unionTables,  // Pass union tables
+                    state.virtualColumns  // Pass virtual columns
                 );
                 
                 // Keep isPartial=true if this field originally had >5000 values
@@ -855,7 +860,8 @@ export function useVisualizationState() {
                     regexPattern,
                     100, // Limit to 100 random samples
                     true, // use random sampling
-                    dataSource.unionTables  // Pass union tables
+                    dataSource.unionTables,  // Pass union tables
+                    state.virtualColumns  // Pass virtual columns
                 );
                 isPartial = true;
                 warningMessage = `Query matches ${count.toLocaleString()} values (still too many). Showing 100 random samples matching your pattern. Refine further to see all values.`;
