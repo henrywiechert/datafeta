@@ -43,7 +43,8 @@ class CardinalityService:
         regex_pattern: Optional[str] = None,
         datetime_part: Optional[str] = None,
         datetime_mode: Optional[str] = None,
-        union_tables: Optional[str] = None
+        union_tables: Optional[str] = None,
+        virtual_columns: Optional[list] = None
     ) -> int:
         """
         Get count of distinct values for a field.
@@ -56,6 +57,7 @@ class CardinalityService:
             datetime_part: Optional datetime part extraction (year, month, etc.)
             datetime_mode: Optional datetime mode for extraction
             union_tables: Comma-separated list of union table names
+            virtual_columns: Optional list of VirtualColumnDefinition objects
             
         Returns:
             Distinct count as integer
@@ -74,7 +76,8 @@ class CardinalityService:
             database=database,
             regex_pattern=regex_pattern,
             datetime_part=datetime_part,
-            datetime_mode=datetime_mode
+            datetime_mode=datetime_mode,
+            virtual_columns=virtual_columns
         )
         
         return self._execute_count_query(sql, field)
@@ -98,17 +101,43 @@ class CardinalityService:
         database: Optional[str],
         regex_pattern: Optional[str],
         datetime_part: Optional[str],
-        datetime_mode: Optional[str]
+        datetime_mode: Optional[str],
+        virtual_columns: Optional[list] = None
     ) -> str:
         """Build the COUNT(DISTINCT) SQL query."""
+        # Import here to avoid circular dependency
+        from backend.services.query_components.virtual_column_builder import VirtualColumnExpressionBuilder
+        
         # Build the table reference
         if self.conn_details.type == 'clickhouse' and database:
             db_table = Table(table, schema=database)
         else:
             db_table = Table(table)
         
+        # Initialize virtual column builder if virtual columns are defined
+        vc_builder = None
+        if virtual_columns:
+            table_map = {table: db_table}
+            vc_builder = VirtualColumnExpressionBuilder(
+                table_map=table_map,
+                default_table=db_table
+            )
+            
+            # Register all virtual columns
+            for vc in virtual_columns:
+                try:
+                    vc_builder.register_virtual_column(vc)
+                    logger.debug(f"Registered virtual column for cardinality: {vc.name}")
+                except Exception as e:
+                    logger.error(f"Failed to register virtual column '{vc.name}': {e}")
+                    raise QueryExecutionError(f"Invalid virtual column '{vc.name}': {e}")
+        
         # Determine the field expression to count
-        if datetime_part and datetime_mode:
+        # Check if this is a virtual column first
+        if vc_builder and vc_builder.is_virtual_column(field):
+            field_expr = vc_builder.get_virtual_column_term(field)
+            logger.debug(f"Using virtual column expression for cardinality count: {field}")
+        elif datetime_part and datetime_mode:
             # For datetime parts, extract the part first using DateTimeService
             field_expr = DateTimeService.get_datetime_part_expression(
                 getattr(db_table, field), 

@@ -8,7 +8,8 @@ import {
     TableRelationshipsResponse,
     SuggestedJoinsResponse,
     SuggestedUnionsResponse,
-    MergedColumnsResponse
+    MergedColumnsResponse,
+    VirtualColumnDefinition
 } from './types';
 
 // Derive API base: Prefer explicit env var (REACT_APP_API_BASE, e.g. "/api/v1"), else fall back to
@@ -255,6 +256,7 @@ export const apiService = {
         limit?: number,
         useRandomSample?: boolean,
         unionTables?: string[],
+        virtualColumns?: VirtualColumnDefinition[],
         signal?: AbortSignal
     ): Promise<any[]> {
         const abortController = signal ? null : createAbortController();
@@ -279,6 +281,11 @@ export const apiService = {
             measures: [],
             fetch_filter_values: true,  // Explicit flag for filter value queries
         };
+        
+        // Add virtual columns if provided
+        if (virtualColumns && virtualColumns.length > 0) {
+            queryDesc.virtual_columns = virtualColumns;
+        }
         
         // Add virtual table definition for union queries
         if (unionTables && unionTables.length > 0) {
@@ -338,39 +345,45 @@ export const apiService = {
         dateTimePart?: string,
         dateTimeMode?: string,
         unionTables?: string[],
+        virtualColumns?: VirtualColumnDefinition[],
         signal?: AbortSignal
     ): Promise<number> {
         const abortController = signal ? null : createAbortController();
         const requestSignal = signal || abortController?.signal;
         
-        const params = new URLSearchParams({
+        // Build request body
+        const requestBody: any = {
             field,
             table,
-        });
+        };
         
         if (database) {
-            params.append('database', database);
+            requestBody.database = database;
         }
         if (regexPattern) {
-            params.append('regexPattern', regexPattern);
+            requestBody.regexPattern = regexPattern;
         }
         if (dateTimePart) {
-            params.append('dateTimePart', dateTimePart);
+            requestBody.dateTimePart = dateTimePart;
         }
         if (dateTimeMode) {
-            params.append('dateTimeMode', dateTimeMode);
+            requestBody.dateTimeMode = dateTimeMode;
         }
         if (unionTables && unionTables.length > 0) {
-            params.append('unionTables', unionTables.join(','));
+            requestBody.unionTables = unionTables.join(',');
+        }
+        if (virtualColumns && virtualColumns.length > 0) {
+            requestBody.virtualColumns = virtualColumns;
         }
         
         const response = await fetchWithErrorHandling(
-            `${API_BASE_URL}/distinct-count?${params.toString()}`,
+            `${API_BASE_URL}/distinct-count`,
             {
-                method: 'GET',
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
+                body: JSON.stringify(requestBody),
             },
             requestSignal
         );
