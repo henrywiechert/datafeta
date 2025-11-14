@@ -123,30 +123,46 @@ def list_columns(
     
     return ColumnListResponse(columns=columns)
 
-@router.get("/distinct-count")
+@router.post("/distinct-count")
 def get_distinct_count(
-    field: str,
-    table: str,
-    database: Optional[str] = None,
-    regexPattern: Optional[str] = None,
-    dateTimePart: Optional[str] = None,
-    dateTimeMode: Optional[str] = None,
-    unionTables: Optional[str] = None,  # Comma-separated list of union table names
+    request_data: Dict[str, Any] = Body(...),
     connector: BaseConnector = Depends(get_active_connector),
     conn_details: ConnectionDetails = Depends(get_connection_details)
 ):
-    """Get count of distinct values for a field, optionally filtered by a LIKE pattern."""
+    """Get count of distinct values for a field, optionally filtered by a LIKE pattern.
+    
+    Now accepts POST to support virtual column definitions.
+    """
     from backend.services.cardinality_service import CardinalityService
+    from backend.models.data_source import VirtualColumnDefinition
+    
+    # Extract parameters
+    field = request_data.get('field')
+    table = request_data.get('table')
+    database = request_data.get('database')
+    regex_pattern = request_data.get('regexPattern')
+    datetime_part = request_data.get('dateTimePart')
+    datetime_mode = request_data.get('dateTimeMode')
+    union_tables = request_data.get('unionTables')
+    
+    # Parse virtual columns if provided
+    virtual_columns = None
+    if 'virtualColumns' in request_data and request_data['virtualColumns']:
+        virtual_columns = [
+            VirtualColumnDefinition.parse_obj(vc) 
+            for vc in request_data['virtualColumns']
+        ]
     
     service = CardinalityService(connector, conn_details)
     count = service.get_distinct_count(
         field=field,
         table=table,
         database=database,
-        regex_pattern=regexPattern,
-        datetime_part=dateTimePart,
-        datetime_mode=dateTimeMode,
-        union_tables=unionTables
+        regex_pattern=regex_pattern,
+        datetime_part=datetime_part,
+        datetime_mode=datetime_mode,
+        union_tables=union_tables,
+        virtual_columns=virtual_columns
     )
     
     return {"count": count}
