@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -16,6 +16,7 @@ import {
   Chip,
   Paper,
   Divider,
+  Autocomplete,
 } from '@mui/material';
 import FunctionsIcon from '@mui/icons-material/Functions';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
@@ -43,6 +44,7 @@ const VirtualColumnEditor: React.FC<VirtualColumnEditorProps> = ({
   const [outputType, setOutputType] = useState<'numeric' | 'text' | 'datetime' | ''>('');
   const [description, setDescription] = useState('');
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [columnSearch, setColumnSearch] = useState('');
 
   // Initialize form when dialog opens or column changes
   useEffect(() => {
@@ -59,10 +61,18 @@ const VirtualColumnEditor: React.FC<VirtualColumnEditorProps> = ({
         setDescription('');
       }
       setErrors({});
+      setColumnSearch('');
     }
   }, [open, column]);
 
-  const validateForm = (): boolean => {
+  // Memoize filtered columns for Autocomplete to improve performance
+  const filteredColumns = useMemo(() => {
+    if (!columnSearch) return availableColumns.slice(0, 100); // Show first 100 by default
+    const search = columnSearch.toLowerCase();
+    return availableColumns.filter(col => col.toLowerCase().includes(search));
+  }, [availableColumns, columnSearch]);
+
+  const validateForm = useCallback((): boolean => {
     const newErrors: { [key: string]: string } = {};
 
     // Validate name
@@ -91,7 +101,22 @@ const VirtualColumnEditor: React.FC<VirtualColumnEditorProps> = ({
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, [name, expression, existingNames]);
+
+  // Clear errors when user starts typing (without re-validating)
+  const handleNameChange = useCallback((value: string) => {
+    setName(value);
+    if (errors.name) {
+      setErrors(prev => ({ ...prev, name: '' }));
+    }
+  }, [errors.name]);
+
+  const handleExpressionChange = useCallback((value: string) => {
+    setExpression(value);
+    if (errors.expression) {
+      setErrors(prev => ({ ...prev, expression: '' }));
+    }
+  }, [errors.expression]);
 
   const handleSave = () => {
     if (validateForm()) {
@@ -105,7 +130,7 @@ const VirtualColumnEditor: React.FC<VirtualColumnEditorProps> = ({
     }
   };
 
-  const insertColumn = (columnName: string) => {
+  const insertColumn = useCallback((columnName: string) => {
     // Insert column name at cursor position in expression field
     const textField = document.getElementById('expression-input') as HTMLInputElement;
     if (textField) {
@@ -121,7 +146,7 @@ const VirtualColumnEditor: React.FC<VirtualColumnEditorProps> = ({
         textField.setSelectionRange(start + columnName.length, start + columnName.length);
       }, 0);
     }
-  };
+  }, [expression]);
 
   const exampleExpressions = [
     { label: 'Arithmetic', value: '(revenue - cost) / revenue * 100', type: 'numeric' },
@@ -150,7 +175,7 @@ const VirtualColumnEditor: React.FC<VirtualColumnEditorProps> = ({
           <TextField
             label="Column Name"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => handleNameChange(e.target.value)}
             error={!!errors.name}
             helperText={errors.name || 'Use letters, numbers, and underscores only (e.g., profit_margin)'}
             fullWidth
@@ -164,7 +189,7 @@ const VirtualColumnEditor: React.FC<VirtualColumnEditorProps> = ({
               id="expression-input"
               label="SQL Expression"
               value={expression}
-              onChange={(e) => setExpression(e.target.value)}
+              onChange={(e) => handleExpressionChange(e.target.value)}
               error={!!errors.expression}
               helperText={errors.expression || 'Enter a SQL expression using columns and functions'}
               fullWidth
@@ -174,22 +199,42 @@ const VirtualColumnEditor: React.FC<VirtualColumnEditorProps> = ({
               sx={{ fontFamily: 'monospace' }}
             />
 
-            {/* Available Columns */}
-            <Box sx={{ mt: 1 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-                Available columns (click to insert):
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                {availableColumns.map((col) => (
-                  <Chip
-                    key={col}
-                    label={col}
+            {/* Column Picker - Autocomplete for performance with large column lists */}
+            <Box sx={{ mt: 1.5 }}>
+              <Autocomplete
+                options={filteredColumns}
+                inputValue={columnSearch}
+                onInputChange={(_, newValue) => setColumnSearch(newValue)}
+                onChange={(_, value) => {
+                  if (value) {
+                    insertColumn(value);
+                    setColumnSearch(''); // Clear search after insertion
+                  }
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Search columns to insert"
                     size="small"
-                    onClick={() => insertColumn(col)}
-                    sx={{ cursor: 'pointer' }}
+                    helperText={`${availableColumns.length} columns available${columnSearch ? ` (showing ${filteredColumns.length} matches)` : ' (showing first 100)'}`}
                   />
-                ))}
-              </Box>
+                )}
+                renderOption={(props, option) => (
+                  <li {...props} key={option}>
+                    <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                      {option}
+                    </Typography>
+                  </li>
+                )}
+                noOptionsText="No matching columns found"
+                clearOnBlur
+                blurOnSelect
+                openOnFocus
+                selectOnFocus
+                ListboxProps={{
+                  style: { maxHeight: '200px' }
+                }}
+              />
             </Box>
           </Box>
 
