@@ -5,6 +5,7 @@ import { barUnified } from '../chartTypes/barUnified';
 import { tickStrip } from '../chartTypes/tickStrip';
 import { lineChart } from '../chartTypes/lineChart';
 import { scatterChart } from '../chartTypes/scatterChart';
+import { barChart } from '../chartTypes/barChart';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 
 export function generateScatterPlot(
@@ -48,6 +49,95 @@ export function generateChartOptions(
 
   const xDims = analysis.xDimensions || [];
   const yDims = analysis.yDimensions || [];
+
+  const xContinuousDims = xDims.filter((d: any) => d.flavour === 'continuous');
+  const yContinuousDims = yDims.filter((d: any) => d.flavour === 'continuous');
+  const xContinuousMeasures = (analysis.xMeasures || []).filter((m: any) => m.flavour === 'continuous');
+  const yContinuousMeasures = (analysis.yMeasures || []).filter((m: any) => m.flavour === 'continuous');
+
+  // Special case: continuous dimension + continuous measure on the SAME axis,
+  // with the opposite axis empty. Expected layout:
+  // - a tick-strip for the dimension
+  // - a single bar for the measure
+  // stacked horizontally (X-axis case) or vertically (Y-axis case).
+  const hasSameAxisMixOnX =
+    xContinuousDims.length > 0 &&
+    xContinuousMeasures.length > 0 &&
+    !analysis.hasYMeasure &&
+    !analysis.hasYDimension;
+
+  const hasSameAxisMixOnY =
+    yContinuousDims.length > 0 &&
+    yContinuousMeasures.length > 0 &&
+    !analysis.hasXMeasure &&
+    !analysis.hasXDimension;
+
+  if (hasSameAxisMixOnX || hasSameAxisMixOnY) {
+    const onX = hasSameAxisMixOnX;
+    const dim = (onX ? xContinuousDims[0] : yContinuousDims[0]) as any;
+    const measure = (onX ? xContinuousMeasures[0] : yContinuousMeasures[0]) as any;
+
+    const dimCol = getResultColumnName(dim);
+    const tickOptions = tickStrip(
+      context,
+      onX ? 'x' : 'y',
+      dimCol
+    );
+
+    // Build a minimal bar context that isolates the continuous measure on its axis
+    // so we render a single aggregated bar (no categories).
+    const barContext: ChartGenerationContext = {
+      ...context,
+      xFields: onX ? [measure] : [],
+      yFields: onX ? [] : [measure],
+    };
+    const barOptions = barChart(barContext, labelCfg);
+
+    const measureName = getResultColumnName({ ...measure, aggregation: measure.aggregation || 'sum' } as any);
+
+    const plots = onX
+      ? [
+          {
+            id: 'dim-tick',
+            title: dim.columnName,
+            options: tickOptions,
+            position: { row: 0, col: 0 },
+          },
+          {
+            id: 'measure-bar',
+            title: measureName,
+            options: barOptions,
+            position: { row: 0, col: 1 },
+          },
+        ]
+      : [
+          {
+            id: 'dim-tick',
+            title: dim.columnName,
+            options: tickOptions,
+            position: { row: 0, col: 0 },
+          },
+          {
+            id: 'measure-bar',
+            title: measureName,
+            options: barOptions,
+            position: { row: 1, col: 0 },
+          },
+        ];
+
+    return {
+      library: 'observable-plot',
+      plots,
+      layout: {
+        type: 'grid',
+        columns: onX ? 2 : 1,
+        rows: onX ? 1 : 2,
+        columnSizes: onX ? ['fr', 'fr'] : ['fr'],
+        rowSizes: onX ? ['fr'] : ['fr', 'fr'],
+      },
+    };
+  }
+
   // Helper to decide if we should render a bar chart for single-axis measure scenarios without continuous opposition
   function qualifiesForBarChart(): boolean {
     // Only one side has measures
@@ -72,8 +162,6 @@ export function generateChartOptions(
   if (qualifiesForBarChart()) {
     return barUnified(context, labelCfg);
   }
-  const xContinuousDims = xDims.filter((d: any) => d.flavour === 'continuous');
-  const yContinuousDims = yDims.filter((d: any) => d.flavour === 'continuous');
 
   if (analysis.hasXMeasure && !analysis.hasYMeasure && yContinuousDims.length > 0) {
     const yDim = yContinuousDims[0];
