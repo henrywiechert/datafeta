@@ -6,11 +6,15 @@ import { getResultColumnName } from '../../utils/fieldUtils';
 import { BAR_STEP_PX, BAND_PADDING } from '../../config/chartLayoutConfig';
 // Label utilities
 import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
+// Tick strip for continuous dimensions
+import { tickStrip } from './tickStrip';
 
 /**
- * Unified bar chart builder for 1+ measures on a single axis.
+ * Unified bar chart builder for 1+ measures (and optionally continuous dimensions) on a single axis.
  * - Single measure → returns single Plot options
  * - Multiple measures → returns grid of small-multiple bar charts
+ * - Continuous dimensions → returns tick strips
+ * - Mixed → returns grid with both bars and tick strips stacked
  *
  * Harmonizes:
  * - Category derivation (composite categories across all opposite-axis discrete dimensions)
@@ -25,24 +29,32 @@ export function barUnified(
   const { queryResult, xFields, yFields, colorField, colorScheme, manualColor, sizeField, manualSize } = context;
   const data = queryResult.rows;
 
-  // Determine orientation and measure set
+  // Determine orientation and collect both measures and continuous dimensions
   const yMeasures = yFields.filter(f => f.type === 'measure');
   const xMeasures = xFields.filter(f => f.type === 'measure');
-  if (yMeasures.length === 0 && xMeasures.length === 0) {
-    throw new Error('Bar chart requires at least one measure.');
+  const yContinuousDims = yFields.filter(f => f.type === 'dimension' && f.flavour === 'continuous');
+  const xContinuousDims = xFields.filter(f => f.type === 'dimension' && f.flavour === 'continuous');
+  
+  if (yMeasures.length === 0 && xMeasures.length === 0 && yContinuousDims.length === 0 && xContinuousDims.length === 0) {
+    throw new Error('Bar/tick strip chart requires at least one measure or continuous dimension.');
   }
 
-  const orientation: 'vertical' | 'horizontal' = yMeasures.length > 0 ? 'vertical' : 'horizontal';
+  const orientation: 'vertical' | 'horizontal' = (yMeasures.length + yContinuousDims.length) > 0 ? 'vertical' : 'horizontal';
   const measures = orientation === 'vertical' ? yMeasures : xMeasures;
+  const continuousDims = orientation === 'vertical' ? yContinuousDims : xContinuousDims;
 
-  // Category dimensions strategy: use opposite-axis discrete dims; fallback to same-axis dims if none
+  // Category dimensions strategy: 
+  // - If we have continuous dimensions on the same axis, do NOT use categories
+  //   (each bar/strip should show the total, not broken down by category)
+  // - Otherwise, use opposite-axis discrete dims; fallback to same-axis discrete dims if none
+  const hasContinuousDimsOnSameAxis = continuousDims.length > 0;
   const oppDims = orientation === 'vertical'
-    ? xFields.filter(f => f.type === 'dimension')
-    : yFields.filter(f => f.type === 'dimension');
+    ? xFields.filter(f => f.type === 'dimension' && f.flavour !== 'continuous')
+    : yFields.filter(f => f.type === 'dimension' && f.flavour !== 'continuous');
   const sameDims = orientation === 'vertical'
-    ? yFields.filter(f => f.type === 'dimension')
-    : xFields.filter(f => f.type === 'dimension');
-  const categoryDims = oppDims.length > 0 ? oppDims : sameDims;
+    ? yFields.filter(f => f.type === 'dimension' && f.flavour !== 'continuous')
+    : xFields.filter(f => f.type === 'dimension' && f.flavour !== 'continuous');
+  const categoryDims = hasContinuousDimsOnSameAxis ? [] : (oppDims.length > 0 ? oppDims : sameDims);
 
   const hasCategories = categoryDims.length > 0;
   const categoryAccessor = hasCategories
@@ -210,24 +222,45 @@ export function barUnified(
     };
   });
 
+  // Add tick strips for continuous dimensions
+  const tickStripPlots = continuousDims.map((dim, idx) => {
+    const dimCol = getFieldColumnName(dim);
+    const axis = orientation === 'horizontal' ? 'x' : 'y';
+    const tickOptions = tickStrip(context, axis, dimCol, categoryColumn, {
+      dimension: dim.columnName,
+      category: categoryColumn
+    });
+    
+    const plotIdx = measures.length + idx;
+    return {
+      id: `${orientation === 'vertical' ? 'y' : 'x'}-dim-${idx}`,
+      title: dim.columnName,
+      options: tickOptions,
+      position: orientation === 'vertical' ? { row: plotIdx, col: 0 } : { row: 0, col: plotIdx }
+    };
+  });
+
+  // Combine bar plots and tick strip plots
+  const allPlots = [...plots, ...tickStripPlots];
+
   // Always return a grid-style PlotResult (even for a single plot) so that
   // the renderer uses the unified left-side label/axis layout.
   const intrinsicSize = hasCategories && categories ? Math.max(BAR_STEP_PX, categories.length * BAR_STEP_PX) : BAR_STEP_PX;
   const columnSizes = orientation === 'horizontal'
-    ? Array.from({ length: plots.length }, () => 'fr' as const)
+    ? Array.from({ length: allPlots.length }, () => 'fr' as const)
     : [intrinsicSize];
   const rowSizes = orientation === 'horizontal'
     ? [intrinsicSize]
-    : Array.from({ length: plots.length }, () => 'fr' as const);
+    : Array.from({ length: allPlots.length }, () => 'fr' as const);
 
   return {
     library: 'observable-plot',
-    plots,
+    plots: allPlots,
     sharedDomains,
     layout: {
       type: 'grid',
-      columns: orientation === 'horizontal' ? plots.length : 1,
-      rows: orientation === 'horizontal' ? 1 : plots.length,
+      columns: orientation === 'horizontal' ? allPlots.length : 1,
+      rows: orientation === 'horizontal' ? 1 : allPlots.length,
       columnSizes,
       rowSizes,
     },
