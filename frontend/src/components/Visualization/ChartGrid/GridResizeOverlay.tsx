@@ -19,6 +19,11 @@ interface GridResizeOverlayProps {
   // Container dimensions
   containerWidth: number;
   containerHeight: number;
+
+  // Current scroll offsets so we can keep handles aligned with the
+  // scrolled grid content.
+  horizontalScrollOffset: number;
+  verticalScrollOffset: number;
   
   // Reference to the actual plot grid for measuring positions
   plotGridRef: React.RefObject<HTMLDivElement>;
@@ -151,6 +156,8 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
   topHeaderHeight,
   containerWidth,
   containerHeight,
+   horizontalScrollOffset,
+   verticalScrollOffset,
   plotGridRef,
   onColumnResize,
   onRowResize,
@@ -214,7 +221,10 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
 
   // Column resize handlers (all columns get the same width)
   const handleColumnResizeStart = (index: number) => {
-    const startPosition = leftFixedWidth + columnPositions[index];
+    // Column handles live in the bottom X-axis area, which scrolls horizontally.
+    // Subtract the current horizontal scroll so the handle stays aligned with the
+    // visible gridline.
+    const startPosition = leftFixedWidth + columnPositions[index] - horizontalScrollOffset;
     setDragState({
       orientation: 'vertical',
       index,
@@ -243,7 +253,10 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
 
   // Row resize handlers (all rows get the same height)
   const handleRowResizeStart = (index: number) => {
-    const startPosition = topHeaderHeight + rowPositions[index];
+    // Row handles live in the left Y-axis area, which scrolls vertically.
+    // Subtract the current vertical scroll so the handle stays aligned with the
+    // visible gridline.
+    const startPosition = topHeaderHeight + rowPositions[index] - verticalScrollOffset;
     setDragState({
       orientation: 'horizontal',
       index,
@@ -314,7 +327,8 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
           <GridResizeHandle
             key={`col-${index}`}
             orientation="vertical"
-            position={leftFixedWidth + xPos}
+            // Adjust for horizontal scroll so the handle tracks the visible gridline.
+            position={leftFixedWidth + xPos - horizontalScrollOffset}
             length={bottomFixedHeight} // Only extends through X-axis area
             isInAxisArea={true}
             onResizeStart={() => handleColumnResizeStart(index)}
@@ -334,7 +348,8 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
           <GridResizeHandle
             key={`row-${index}`}
             orientation="horizontal"
-            position={topHeaderHeight + yPos}
+            // Adjust for vertical scroll so the handle tracks the visible gridline.
+            position={topHeaderHeight + yPos - verticalScrollOffset}
             length={leftFixedWidth} // Only extends through Y-axis area
             isInAxisArea={true}
             onResizeStart={() => handleRowResizeStart(index)}
