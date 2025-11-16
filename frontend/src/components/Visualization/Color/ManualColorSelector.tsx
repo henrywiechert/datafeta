@@ -9,13 +9,16 @@ interface ManualColorSelectorProps {
 
 // A small set of predefined brand / utility colors
 const PREDEFINED_COLORS: string[] = [
-  '#1976d2', // primary blue
-  '#2e7d32', // green
-  '#ed6c02', // orange
-  '#d32f2f', // red
-  '#6a1b9a', // purple
-  '#00838f', // teal
-  '#455a64', // blue gray
+  '#4e79a7',
+  '#f28e2c',
+  '#e15759',
+  '#76b7b2',
+  '#59a14f',
+  '#edc949',
+  '#af7aa1',
+  '#ff9da7',
+  '#9c755f',
+  '#bab0ab'
 ];
 
 const ManualColorSelector: React.FC<ManualColorSelectorProps> = ({ value, onChange }) => {
@@ -81,31 +84,37 @@ const ManualColorSelector: React.FC<ManualColorSelectorProps> = ({ value, onChan
         }}
         PaperProps={{
           sx: {
-            maxHeight: 320,
-            width: 200,
+            padding: '8px',
           },
         }}
       >
-        {PREDEFINED_COLORS.map((color) => (
-          <MenuItem
-            key={color}
-            onClick={() => handleSelect(color)}
-          >
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(5, 1fr)',
+            gap: '6px',
+          }}
+        >
+          {PREDEFINED_COLORS.map((color) => (
             <Box
+              key={color}
+              onClick={() => handleSelect(color)}
               sx={{
-                width: 18,
-                height: 18,
+                width: 28,
+                height: 28,
                 borderRadius: '50%',
                 backgroundColor: color,
                 border: '1px solid rgba(0,0,0,0.2)',
-                mr: 1.5,
+                cursor: 'pointer',
+                '&:hover': {
+                  transform: 'scale(1.15)',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                },
+                transition: 'all 0.15s ease',
               }}
             />
-            <Box component="span" sx={{ fontFamily: 'monospace', fontSize: 12 }}>
-              {color}
-            </Box>
-          </MenuItem>
-        ))}
+          ))}
+        </Box>
       </Menu>
     </>
   );
