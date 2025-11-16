@@ -20,6 +20,7 @@ import ColorPanel from '../components/Visualization/Color/ColorPanel';
 import LegendPanel from '../components/Visualization/Legend/LegendPanel';
 import SizePanel from '../components/Visualization/Size/SizePanelComplete';
 import LabelPanel from '../components/Visualization/Label/LabelPanel';
+import FieldOverridesPanel from '../components/Visualization/Overrides/FieldOverridesPanel';
 import LoadingModal from '../components/LoadingModal';
 import { apiService } from '../apiService';
 
@@ -82,7 +83,8 @@ const VisualizationPageContent = () => {
                 type: 'RESTORE_UNDOABLE_STATE',
                 payload: {
                     ...previousState,
-                    virtualColumns: previousState.virtualColumns || []
+                    virtualColumns: previousState.virtualColumns || [],
+                    fieldOverrides: previousState.fieldOverrides || {},
                 }
             });
             
@@ -102,7 +104,8 @@ const VisualizationPageContent = () => {
                 type: 'RESTORE_UNDOABLE_STATE',
                 payload: {
                     ...nextState,
-                    virtualColumns: nextState.virtualColumns || []
+                    virtualColumns: nextState.virtualColumns || [],
+                    fieldOverrides: nextState.fieldOverrides || {},
                 }
             });
             
@@ -338,6 +341,7 @@ const VisualizationPageContent = () => {
                             />
                             <LabelPanel />
                             <SizePanel />
+                            <FieldOverridesPanel />
                             {state.colorField && (
                                 <LegendPanel
                                     colorField={state.colorField}

@@ -1,7 +1,8 @@
 import { useCallback, useState, useEffect } from 'react';
 import { generatePlot } from '../../../../observable-plot-generator/observablePlotGenerator';
 import { PlotResult } from '../../../../observable-plot-generator/types';
-import { Field } from '../../../../types';
+import { Field, FieldOverrideState } from '../../../../types';
+import { computeOverrideTargets } from '../../../../observable-plot-generator/utils/fieldOverrides';
 import { logOperationTiming } from '../utils';
 
 interface UseChartGenerationProps {
@@ -23,6 +24,7 @@ interface UseChartGenerationProps {
   labelSamplingStrategy?: 'auto' | 'all' | 'sample';
   labelSamplingThreshold?: number;
   labelSampleEvery?: number;
+  fieldOverrides?: Record<string, FieldOverrideState>;
 }
 
 interface UseChartGenerationReturn {
@@ -52,6 +54,7 @@ export const useChartGeneration = ({
   labelSamplingStrategy = 'auto',
   labelSamplingThreshold = 300,
   labelSampleEvery = 1,
+  fieldOverrides = {},
 }: UseChartGenerationProps): UseChartGenerationReturn => {
   const [spec, setSpec] = useState<PlotResult | null>(null);
   const [chartInfo, setChartInfo] = useState<any | null>(null);
@@ -75,6 +78,11 @@ export const useChartGeneration = ({
       startOperation('rendering', true);
       setRenderingError(null);
 
+      const overrideTargets = computeOverrideTargets(
+        xAxisFields as Field[],
+        yAxisFields as Field[]
+      );
+
       const plotResult = generatePlot({
         xFields: xAxisFields,
         yFields: yAxisFields,
@@ -91,6 +99,8 @@ export const useChartGeneration = ({
         labelSamplingStrategy,
         labelSamplingThreshold,
         labelSampleEvery,
+        fieldOverrides,
+        fieldOverrideTargets: overrideTargets,
       });
       
       setSpec(plotResult);
@@ -107,7 +117,7 @@ export const useChartGeneration = ({
       setChartInfo(null);
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, useTableView, startOperation, completeOperation, queryResult, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery]);
+  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, useTableView, startOperation, completeOperation, queryResult, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, fieldOverrides]);
 
   const cancelGeneration = useCallback(() => {
     // No-op since Observable Plot generation is synchronous
