@@ -92,17 +92,24 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
     };
   }
 
-  // Multi-measure on same axis → bar grid (preferred over cartesian)
-  // EXCEPT when opposite axis has continuous dimension → falls through to single-chart rules
-  if (analysis.isMultiMeasure && !analysis.hasMixedAxes) {
-    const measuresOnX = analysis.hasXMeasure && !analysis.hasYMeasure;
-    const oppositeDims = measuresOnX ? (analysis as any).yDimensions : (analysis as any).xDimensions;
+  // Multi-continuous fields on same axis → stacked grid (bars/tick strips)
+  // EXCEPT when opposite axis has continuous fields → falls through to cartesian grid
+  if (analysis.isMultiContinuousOnSameAxis) {
+    // Determine which axis has the multiple continuous fields
+    const xContinuousMeasures = (analysis.xMeasures || []).filter((m: any) => m.flavour === 'continuous');
+    const yContinuousMeasures = (analysis.yMeasures || []).filter((m: any) => m.flavour === 'continuous');
+    const xContinuousDims = (analysis.xDimensions || []).filter((d: any) => d.flavour === 'continuous');
+    const yContinuousDims = (analysis.yDimensions || []).filter((d: any) => d.flavour === 'continuous');
+    
+    const multiOnX = (xContinuousMeasures.length + xContinuousDims.length) > 1;
+    const oppositeDims = multiOnX ? analysis.yDimensions : analysis.xDimensions;
     const hasOppositeContinuousDim = Array.isArray(oppositeDims) && oppositeDims.some((d: any) => d.flavour === 'continuous');
+    
     if (!hasOppositeContinuousDim) {
       try {
         return barUnified(context, labelCfg);
       } catch (error) {
-        console.warn('Bar chart generation failed, falling back:', error);
+        console.warn('Stacked grid generation failed, falling back:', error);
         // fall through to single-chart rules
       }
     }
