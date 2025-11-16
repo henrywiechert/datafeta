@@ -1,4 +1,5 @@
-import { Field, QueryResult } from '../types';
+import { Field, QueryResult, FieldOverrideState } from '../types';
+import { FieldOverrideTarget } from './utils/fieldOverrides';
 import * as Plot from '@observablehq/plot';
 
 export interface CategoryAxisDescriptor {
@@ -26,6 +27,16 @@ export interface ChartGenerationContext {
   labelSamplingStrategy?: 'auto' | 'all' | 'sample';
   labelSamplingThreshold?: number;
   labelSampleEvery?: number;
+  /**
+   * Per-field chart overrides keyed by Field.id.
+   * These are derived from visualization state and persisted with sheets.
+   */
+  fieldOverrides?: Record<string, FieldOverrideState>;
+  /**
+   * Computed list of fields that are eligible for per-field overrides,
+   * based on axis placement and continuous field counts.
+   */
+  fieldOverrideTargets?: FieldOverrideTarget[];
   /**
    * When provided, these shared domains will be used instead of computing new ones.
    * This is used by faceting to ensure all facets share the same Y-domain per measure.

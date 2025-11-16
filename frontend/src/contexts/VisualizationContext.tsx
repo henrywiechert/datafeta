@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, ReactNode, useRef, useCallback } from 'react';
-import { Field, Database, Table, QueryResult, FilterConfig, FilterMetadata, VirtualColumnDefinition } from '../types';
+import { Field, Database, Table, QueryResult, FilterConfig, FilterMetadata, VirtualColumnDefinition, FieldOverrideState } from '../types';
 import { getTimeoutForOperation } from '../config/loadingConfig';
 
 // Define loading operation types
@@ -51,6 +51,8 @@ interface VisualizationState {
   modalPrimaryOperation: LoadingOperationType | null; // chosen operation for modal display
   // Virtual columns (calculated columns)
   virtualColumns: VirtualColumnDefinition[];
+  // Per-field chart overrides
+  fieldOverrides: Record<string, FieldOverrideState>;
 }
 
 // Define action types
@@ -115,6 +117,10 @@ type VisualizationAction =
   | { type: 'ADD_VIRTUAL_COLUMN'; payload: VirtualColumnDefinition }
   | { type: 'UPDATE_VIRTUAL_COLUMN'; payload: { index: number; column: VirtualColumnDefinition } }
   | { type: 'REMOVE_VIRTUAL_COLUMN'; payload: number }
+  // Per-field chart override actions
+  | { type: 'SET_FIELD_OVERRIDES'; payload: Record<string, FieldOverrideState> }
+  | { type: 'UPDATE_FIELD_OVERRIDE'; payload: { fieldId: string; override: Partial<FieldOverrideState> } }
+  | { type: 'CLEAR_FIELD_OVERRIDE'; payload: { fieldId: string } }
   // Undo/Redo actions
   | { type: 'RESTORE_UNDOABLE_STATE'; payload: {
       xAxisFields: Field[];
@@ -129,6 +135,7 @@ type VisualizationAction =
       sizeRange: [number, number];
       manualSize: number;
       virtualColumns: VirtualColumnDefinition[];
+      fieldOverrides: Record<string, FieldOverrideState>;
     } };
 
 // Initial state
@@ -177,6 +184,8 @@ const initialState: VisualizationState = {
   modalPrimaryOperation: null,
   // Virtual columns defaults
   virtualColumns: [],
+  // Per-field overrides default
+  fieldOverrides: {},
 };
 
 // Reducer function
@@ -461,6 +470,25 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
         ...state, 
         virtualColumns: state.virtualColumns.filter((_, i) => i !== action.payload) 
       };
+    // Per-field chart override reducers
+    case 'SET_FIELD_OVERRIDES':
+      return { ...state, fieldOverrides: action.payload };
+    case 'UPDATE_FIELD_OVERRIDE': {
+      const { fieldId, override } = action.payload;
+      const existing = state.fieldOverrides[fieldId] || {};
+      return {
+        ...state,
+        fieldOverrides: {
+          ...state.fieldOverrides,
+          [fieldId]: { ...existing, ...override },
+        },
+      };
+    }
+    case 'CLEAR_FIELD_OVERRIDE': {
+      const next = { ...state.fieldOverrides };
+      delete next[action.payload.fieldId];
+      return { ...state, fieldOverrides: next };
+    }
     case 'RESTORE_UNDOABLE_STATE':
       return {
         ...state,
@@ -476,6 +504,7 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
         sizeRange: action.payload.sizeRange,
         manualSize: action.payload.manualSize,
         virtualColumns: action.payload.virtualColumns,
+        fieldOverrides: action.payload.fieldOverrides || {},
       };
     case 'RESET_STATE':
       return initialState;
@@ -507,6 +536,8 @@ interface VisualizationContextType {
     sizeField: Field | null;
     sizeRange: [number, number];
     manualSize: number;
+    virtualColumns: VirtualColumnDefinition[];
+    fieldOverrides: Record<string, FieldOverrideState>;
   };
 }
 
@@ -638,6 +669,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       sizeRange: state.sizeRange,
       manualSize: state.manualSize,
       virtualColumns: state.virtualColumns,
+      fieldOverrides: state.fieldOverrides,
     };
   }, [
     state.xAxisFields,
@@ -652,6 +684,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     state.sizeRange,
     state.manualSize,
     state.virtualColumns,
+    state.fieldOverrides,
   ]);
 
   return (

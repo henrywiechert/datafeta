@@ -5,6 +5,8 @@ import { ChartTypeOverrides } from '../helpers/chartTypeResolver';
 import { computeSharedNumericDomains } from '../domains/numericDomains';
 import { computeSharedMeasureDomains } from '../domains/measureDomains';
 import { ChartGenerationContext, PlotResult } from '../types';
+import { FieldOverrideState } from '../../types';
+import { FieldOverrideTarget } from '../utils/fieldOverrides';
 import { FieldAnalysis } from '../analysis/fieldAnalysis';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 
@@ -94,7 +96,10 @@ export function generateCartesianPlots(
   sizeRange?: [number, number],
   manualSize?: number,
   manualColor?: string,
-  labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
+  labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number },
+  fieldOverrides?: Record<string, FieldOverrideState>,
+  fieldOverrideTargets?: FieldOverrideTarget[],
+  allFields?: Field[]
 ): CartesianPlot[] {
   const plots: CartesianPlot[] = [];
 
@@ -105,10 +110,72 @@ export function generateCartesianPlots(
   // Compute a shared color domain across the entire grid when a color field is present
   const sharedColorScale = colorField ? deriveColorScaleInfo(data, colorField, colorScheme, colorBias) : null;
 
+  // Build lookup maps for overrides and fields
+  const overrideMap: Record<string, FieldOverrideState> = fieldOverrides || {};
+  const targetAxisByFieldId: Record<string, 'x' | 'y'> = {};
+  (fieldOverrideTargets || []).forEach((t) => {
+    targetAxisByFieldId[t.fieldId] = t.axis;
+  });
+  const fieldById: Record<string, Field> = {};
+  (allFields || []).forEach((f) => {
+    if (!fieldById[f.id]) {
+      fieldById[f.id] = f;
+    }
+  });
+
   for (let r = 0; r < yCandidates.length; r++) {
     for (let c = 0; c < xCandidates.length; c++) {
       const xField = xCandidates[c];
       const yField = yCandidates[r];
+
+      // Resolve effective overrides for this cell based on which axis is configured
+      const xTargetAxis = targetAxisByFieldId[xField.id];
+      const yTargetAxis = targetAxisByFieldId[yField.id];
+      const xOverride = xTargetAxis === 'x' ? overrideMap[xField.id] : undefined;
+      const yOverride = yTargetAxis === 'y' ? overrideMap[yField.id] : undefined;
+
+      // Prefer X-axis override when both are present (defensive; rules should prevent this)
+      const cellOverride: FieldOverrideState | undefined = xOverride || yOverride;
+
+      // Start from global encodings
+      let cellColorField: Field | undefined | null = colorField;
+      let cellColorScheme: string | undefined = colorScheme;
+      let cellColorBias: number | undefined = colorBias;
+      let cellManualColor: string | undefined = manualColor;
+      let cellSizeField: Field | undefined | null = sizeField;
+      let cellSizeRange: [number, number] | undefined = sizeRange;
+      let cellManualSize: number | undefined = manualSize;
+
+      if (cellOverride) {
+        if (cellOverride.colorFieldId) {
+          const cf = fieldById[cellOverride.colorFieldId];
+          if (cf) {
+            cellColorField = cf;
+          }
+        }
+        if (cellOverride.colorScheme !== undefined) {
+          cellColorScheme = cellOverride.colorScheme;
+        }
+        if (cellOverride.colorBias !== undefined) {
+          cellColorBias = cellOverride.colorBias;
+        }
+        if (cellOverride.manualColor) {
+          cellManualColor = cellOverride.manualColor;
+        }
+
+        if (cellOverride.sizeFieldId) {
+          const sf = fieldById[cellOverride.sizeFieldId];
+          if (sf) {
+            cellSizeField = sf;
+          }
+        }
+        if (cellOverride.sizeRange) {
+          cellSizeRange = cellOverride.sizeRange;
+        }
+        if (cellOverride.manualSize !== undefined) {
+          cellManualSize = cellOverride.manualSize;
+        }
+      }
 
       let options: Plot.PlotOptions = generatePairChartOptions(
         data,
@@ -116,13 +183,13 @@ export function generateCartesianPlots(
         yField,
         { ...sharedMeasureDomains, ...sharedNumeric },
         overrides,
-        colorField,
-        sizeField,
-        sizeRange,
-        manualSize,
-        colorScheme,
-        colorBias,
-        manualColor,
+        cellColorField || undefined,
+        cellSizeField || undefined,
+        cellSizeRange,
+        cellManualSize,
+        cellColorScheme,
+        cellColorBias,
+        cellManualColor,
         labelCfg
       );
 
