@@ -11,8 +11,14 @@ import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils
 /**
  * Helper to wrap a single Plot.PlotOptions into a 1x1 grid PlotResult.
  * Eliminates the legacy 'single' layout type.
+ * Extracts intrinsic sizing from plot options if present (e.g., bar charts, tick strips).
  */
 function wrapAs1x1Grid(options: Plot.PlotOptions, id: string = 'plot', title: string = ''): PlotResult {
+  // Extract intrinsic sizing from plot options if present
+  // Bar charts and tick strips set explicit width/height for categorical layouts
+  const intrinsicWidth = typeof (options as any).width === 'number' ? (options as any).width : 'fr';
+  const intrinsicHeight = typeof (options as any).height === 'number' ? (options as any).height : 'fr';
+  
   return {
     library: 'observable-plot',
     plots: [{
@@ -25,8 +31,8 @@ function wrapAs1x1Grid(options: Plot.PlotOptions, id: string = 'plot', title: st
       type: 'grid',
       columns: 1,
       rows: 1,
-      columnSizes: ['fr'],
-      rowSizes: ['fr']
+      columnSizes: [intrinsicWidth],
+      rowSizes: [intrinsicHeight]
     }
   };
 }

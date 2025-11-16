@@ -41,20 +41,22 @@ function deriveChartConfig(
   const { xFields, yFields, queryResult } = context;
   const { rowFacetFields, colFacetFields } = plan;
 
-  // Check if this is a bar chart scenario (measure on one axis only)
+  // Check if this is a bar/tick strip scenario (measure or continuous dimension on one axis only)
   const xMeasure = xFields.find((f) => f.type === 'measure');
   const yMeasure = yFields.find((f) => f.type === 'measure');
-  let barOrientation: 'barX' | 'barY' | null = xMeasure && !yMeasure ? 'barX' : (!xMeasure && yMeasure ? 'barY' : null);
-  let categoryAxis: 'x' | 'y' | null = barOrientation === 'barX' ? 'y' : (barOrientation === 'barY' ? 'x' : null);
+  const xContinuousDim = xFields.find((f) => f.type === 'dimension' && f.flavour === 'continuous');
+  const yContinuousDim = yFields.find((f) => f.type === 'dimension' && f.flavour === 'continuous');
 
-  // If the opposite axis contains a continuous dimension, do NOT force bar orientation/category axis.
-  const hasXContinuousDim = xFields.some((f) => f.type === 'dimension' && f.flavour === 'continuous');
-  const hasYContinuousDim = yFields.some((f) => f.type === 'dimension' && f.flavour === 'continuous');
-  
-  if ((barOrientation === 'barY' && hasXContinuousDim) || (barOrientation === 'barX' && hasYContinuousDim)) {
-    barOrientation = null;
-    categoryAxis = null;
+  // Detect bar/tick strip orientation: continuous field on one axis, discrete on other
+  // This handles both measures (bars) and continuous dimensions (tick strips)
+  let barOrientation: 'barX' | 'barY' | null = null;
+  if ((xMeasure || xContinuousDim) && !yMeasure && !yContinuousDim) {
+    barOrientation = 'barX';
+  } else if ((yMeasure || yContinuousDim) && !xMeasure && !xContinuousDim) {
+    barOrientation = 'barY';
   }
+  
+  let categoryAxis: 'x' | 'y' | null = barOrientation === 'barX' ? 'y' : (barOrientation === 'barY' ? 'x' : null);
 
   let categoryField: Field | null = null;
   let sharedCategoryDomain: any[] | null = null;
@@ -102,7 +104,8 @@ function createBarCellGenerator(
   sharedCategoryDomain: any[],
   colorField?: Field | null,
   bandPadding?: number,
-  labelCfg?: { labelFields: any[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
+  labelCfg?: { labelFields: any[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number },
+  manualColor?: string
 ): CellGenerator {
   return (cellData, cellContext, sharedDomains, facetPosition): CellResult => {
     const orientedFields = barOrientation === 'barX' ? xFields : yFields;
@@ -227,17 +230,40 @@ function createBarCellGenerator(
         // For dimension series (tick strips), keep inline since barCore doesn't handle this
         // Use the computed bandPadding (from size slider) instead of hardcoded BAND_PADDING
         const dimCol = (f as any).columnName;
+        // Use color field if present, otherwise use manual color or default
+        const tickStroke = colorColumnName || manualColor || DEFAULT_CHART_COLOR;
         options = barOrientation === 'barX'
           ? { 
               x: { label: dimCol, grid: true }, 
               y: { label: categoryColumnName || ' ', type: 'band' as any, domain: categories as any, padding: bandPadding as any }, 
-              marks: [Plot.tickX(cellData, { x: dimCol, y: categoryColumnName || (() => categories[0]), stroke: DEFAULT_CHART_COLOR, tip: { pointer: 'x', preferredAnchor: 'top-right' } })] 
+              marks: [Plot.tickX(cellData, { x: dimCol, y: categoryColumnName || (() => categories[0]), stroke: tickStroke, tip: { pointer: 'x', preferredAnchor: 'top-right' } })] 
             } as Plot.PlotOptions
           : { 
               y: { label: dimCol, grid: true }, 
               x: { label: categoryColumnName || ' ', type: 'band' as any, domain: categories as any, padding: bandPadding as any }, 
-              marks: [Plot.tickY(cellData, { y: dimCol, x: categoryColumnName || (() => categories[0]), stroke: DEFAULT_CHART_COLOR, tip: { pointer: 'y', preferredAnchor: 'top-right' } })] 
+              marks: [Plot.tickY(cellData, { y: dimCol, x: categoryColumnName || (() => categories[0]), stroke: tickStroke, tip: { pointer: 'y', preferredAnchor: 'top-right' } })] 
             } as Plot.PlotOptions;
+        
+        // Add color scale configuration if color field is present
+        if (colorColumnName && sharedDomains.colorScale) {
+          const colorScale = sharedDomains.colorScale;
+          const colorConfig = colorScale.kind === 'continuous'
+            ? {
+                type: 'linear' as const,
+                domain: colorScale.domain as [number, number],
+                range: colorScale.range,
+                clamp: true,
+                label: colorField?.columnName,
+              }
+            : {
+                type: 'ordinal' as const,
+                domain: colorScale.domain as any[],
+                range: colorScale.range,
+                label: colorField?.columnName,
+              };
+          (options as any).color = colorConfig;
+        }
+        
         title = dimCol;
       }
       
@@ -269,7 +295,7 @@ function createBarCellGenerator(
  * for bar charts where a category axis can be injected if needed (see below).
  */
 export function generateFacetedGrid(context: ChartGenerationContext, plan: FacetPlan): PlotResult {
-    const { xFields, yFields, colorField, sizeField, manualSize } = context;
+    const { xFields, yFields, colorField, sizeField, manualSize, manualColor } = context;
     
     // Derive chart-specific configuration from the simplified plan
     const chartConfig = deriveChartConfig(context, plan);
@@ -322,7 +348,8 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       sortedCategoryDomain,
       colorField,
       globalBandPadding,
-      labelCfg
+      labelCfg,
+      manualColor
     );
     
     // Use the coordinator for chart-type-agnostic faceting

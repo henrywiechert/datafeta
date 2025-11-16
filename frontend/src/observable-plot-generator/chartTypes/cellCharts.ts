@@ -126,8 +126,18 @@ export function generatePairChartOptions(
       const category = yf.type === 'dimension' && yf.flavour === 'discrete' ? yf : null;
       if (xDim) {
         return tickStrip(
-          // Build minimal context for tickStrip API
-          { xFields: [], yFields: [], queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any },
+          // Build minimal context for tickStrip API, including size parameters
+          { 
+            xFields: [], 
+            yFields: [], 
+            queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any,
+            colorField,
+            colorScheme,
+            colorBias,
+            sizeField,
+            sizeRange,
+            manualSize
+          },
           'x',
           getResultColumnName(xDim),
           category ? getResultColumnName(category) : undefined
@@ -142,7 +152,17 @@ export function generatePairChartOptions(
       const category = xf.type === 'dimension' && xf.flavour === 'discrete' ? xf : null;
       if (yDim) {
         return tickStrip(
-          { xFields: [], yFields: [], queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any },
+          {
+            xFields: [], 
+            yFields: [], 
+            queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any,
+            colorField,
+            colorScheme,
+            colorBias,
+            sizeField,
+            sizeRange,
+            manualSize
+          },
           'y',
           getResultColumnName(yDim),
           category ? getResultColumnName(category) : undefined
