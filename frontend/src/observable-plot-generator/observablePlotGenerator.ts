@@ -12,103 +12,25 @@ import { generateCartesianGrid, generateCartesianPlots } from './grid/coreGridGe
 import { generateFacetedGrid } from './faceting/facetGenerator';
 
 /**
- * Simple, direct Observable Plot generation
- * No complex pipeline - just analyze fields and generate chart directly
+ * Core chart generation logic (internal function).
+ * Always returns grid layout with plots array, treating 1x1 as a grid.
+ * 
+ * This is the unified logic shared by both generatePlot and baseGeneratePlot.
+ * - Analyzes fields to determine chart type
+ * - Builds cartesian grids for candidate pairs
+ * - Handles multi-measure scenarios
+ * - Delegates to single-chart rules when needed
+ * - Always returns grid layout format (no 'single' type)
+ * 
+ * @param context - Chart generation context with fields, data, and styling
+ * @param overrides - Optional chart type overrides for specific fields
+ * @returns PlotResult with plots array and grid layout
  */
-export function generatePlot(context: ChartGenerationContext, overrides?: ChartTypeOverrides): PlotResult {
-  const { xFields, yFields, queryResult, colorField, manualColor } = context;
-
-  // Handle empty fields
-  if (xFields.length === 0 && yFields.length === 0) {
-    return createMessageChart('Drag fields to the axes to create a chart.');
-  }
-
-  // Check if we have any data
-  if (!queryResult?.rows || queryResult.rows.length === 0) {
-    return createMessageChart('No data available.');
-  }
-
-  // If no color field is present, apply a global fixed color early so all
-  // downstream generators see a consistent default.
-  const effectiveContext: ChartGenerationContext = {
-    ...context,
-    colorField,
-    // When there is no color field, use manualColor as the default mark color.
-    // Individual chart generators interpret this via their own options.
-    // We keep colorScheme available for legends once a field is present.
-    manualColor,
-  };
-
-  // Analyze fields to determine chart type
-  const analysis = analyzeFields(effectiveContext.xFields, effectiveContext.yFields);
-  
-  // We allow dimension-only continuous charts (tick-strip/scatter), so do not require measures here.
-
-  try {
-    // First, see if faceting is applicable.
-  const facetPlan = planFacets(effectiveContext);
-    
-    // Only engage faceting when there are discrete fields that should become facets
-    if (facetPlan && ((facetPlan.rowFacetFields?.length || 0) > 0 || (facetPlan.colFacetFields?.length || 0) > 0)) {
-  return generateFacetedGrid(effectiveContext, facetPlan);
-    }
-
-    // Multi-measure on the same axis -> grid of bar charts (preferred over cartesian pairing)
-    // EXCEPT when the opposite axis has a continuous dimension; then use cartesian grid (line charts)
-  const labelCfg = buildLabelCfg(effectiveContext);
-    if (analysis.isMultiMeasure && !analysis.hasMixedAxes) {
-      const measuresOnX = analysis.hasXMeasure && !analysis.hasYMeasure;
-      const oppositeDims = measuresOnX ? (analysis as any).yDimensions : (analysis as any).xDimensions;
-      const hasOppositeContinuousDim = Array.isArray(oppositeDims) && oppositeDims.some((d: any) => d.flavour === 'continuous');
-      if (!hasOppositeContinuousDim) {
-  return barUnified(effectiveContext, labelCfg);
-      }
-      // fall through to cartesian grid
-    }
-    
-    // If both axes have at least one candidate (measure or dimension), build a cartesian pairing grid
-    // Use only continuous dimensions and measures to form NxM pairs when present
-    const xCandidates = [
-      ...(analysis.xDimensions || []).filter((d: any) => d.flavour === 'continuous'),
-      ...(analysis.xMeasures || [])
-    ];
-    const yCandidates = [
-      ...(analysis.yDimensions || []).filter((d: any) => d.flavour === 'continuous'),
-      ...(analysis.yMeasures || [])
-    ];
-
-    if (xCandidates.length > 0 && yCandidates.length > 0) {
-  return generateCartesianGrid(effectiveContext, analysis, xCandidates, yCandidates, overrides);
-    }
-
-    // Otherwise, generate single chart or simple multi on one axis (rare edge cases)
-  const result = genChartOptionsRule(analysis, effectiveContext, labelCfg);
-    return result;
-
-  } catch (error) {
-    console.error('Chart generation failed:', error);
-    return createMessageChart(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
-}
-
-/**
- * Simple field analysis - no complex classification
- */
-// moved to analysis/fieldAnalysis.ts
-
-/**
- * Generate scatter plot for measures on both X and Y axes
- */
-// moved to rules/chartRules.ts
-
-export function baseGeneratePlot(context: ChartGenerationContext): PlotResult {
+function generatePlotCore(context: ChartGenerationContext, overrides?: ChartTypeOverrides): PlotResult {
   const { xFields, yFields, queryResult, colorField, colorScheme, sizeField, sizeRange, manualSize } = context;
   const analysis = analyzeFields(xFields, yFields);
-  // Do not short-circuit on empty data here; downstream chart creators
-  // render empty frames so faceted cells remain consistent.
 
-  // If we have multiple candidates across axes (dimensions and/or measures),
-  // build a cartesian grid so that combinations are preserved within faceting.
+  // Build candidate lists for cartesian pairing
   const xCandidates: Field[] = [
     ...((analysis as any).xDimensions || []).filter((d: any) => d.flavour === 'continuous'),
     ...((analysis as any).xMeasures || [])
@@ -117,57 +39,142 @@ export function baseGeneratePlot(context: ChartGenerationContext): PlotResult {
     ...((analysis as any).yDimensions || []).filter((d: any) => d.flavour === 'continuous'),
     ...((analysis as any).yMeasures || [])
   ];
-  const multiAcrossAxes =
-    xCandidates.length > 0 && yCandidates.length > 0 && (xCandidates.length > 1 || yCandidates.length > 1);
-  if (multiAcrossAxes) {
+
+  const labelCfg = buildLabelCfg(context);
+
+  // ALWAYS build a cartesian grid when we have candidates on both axes (including 1x1)
+  if (xCandidates.length > 0 && yCandidates.length > 0) {
     // Use provided shared domains if available (from faceting), otherwise compute from local data
     const sharedMeasureDomains = context.sharedDomainsOverride?.measure 
       || computeSharedMeasureDomains(queryResult.rows, xCandidates as any[], yCandidates as any[], colorField);
     const sharedNumericDomains = context.sharedDomainsOverride?.numeric || {};
     const combinedDomains = { ...sharedNumericDomains, ...sharedMeasureDomains };
     
+    const plots = generateCartesianPlots(
+      queryResult.rows,
+      xCandidates,
+      yCandidates,
+      combinedDomains,
+      overrides,
+      colorField,
+      colorScheme,
+      context.colorBias,
+      sizeField,
+      sizeRange,
+      manualSize,
+      context.manualColor,
+      labelCfg
+    );
+
+    // Determine column/row sizes from plots
+    const columnSizes: Array<number | 'fr'> = Array.from({ length: xCandidates.length }, (_, c) => {
+      const sample = plots.find((p) => p.position?.col === c);
+      const w = (sample as any)?.options?.width;
+      return typeof w === 'number' ? w : 'fr';
+    });
+    const rowSizes: Array<number | 'fr'> = Array.from({ length: yCandidates.length }, (_, r) => {
+      const sample = plots.find((p) => p.position?.row === r);
+      const h = (sample as any)?.options?.height;
+      return typeof h === 'number' ? h : 'fr';
+    });
+
     return {
       library: 'observable-plot',
-      plots: generateCartesianPlots(
-        queryResult.rows,
-        xCandidates,
-        yCandidates,
-        combinedDomains,
-        undefined,
-        colorField,
-        colorScheme,
-        context.colorBias,
-        sizeField,
-        sizeRange,
-        manualSize,
-        context.manualColor,
-        buildLabelCfg(context)
-      ),
+      plots,
       sharedDomains: { byMeasure: sharedMeasureDomains as any },
       layout: {
         type: 'grid',
         columns: xCandidates.length,
         rows: yCandidates.length,
-        columnSizes: Array.from({ length: xCandidates.length }, () => 'fr'),
-        rowSizes: Array.from({ length: yCandidates.length }, () => 'fr'),
+        columnSizes,
+        rowSizes,
       },
     };
   }
 
-  // Single pair across axes with measures on both sides → single scatter
-  if (analysis.hasMixedAxes) {
-  const plotOptions = generateScatterPlot(analysis, context, buildLabelCfg(context));
-    return { library: 'observable-plot', options: plotOptions, layout: { type: 'single' } };
-  }
-
-  // Multi-measure per axis → our existing bar grid
+  // Multi-measure on same axis → bar grid (preferred over cartesian)
+  // EXCEPT when opposite axis has continuous dimension → falls through to single-chart rules
   if (analysis.isMultiMeasure && !analysis.hasMixedAxes) {
-    try { return barUnified(context, buildLabelCfg(context)); } catch { /* fall through */ }
+    const measuresOnX = analysis.hasXMeasure && !analysis.hasYMeasure;
+    const oppositeDims = measuresOnX ? (analysis as any).yDimensions : (analysis as any).xDimensions;
+    const hasOppositeContinuousDim = Array.isArray(oppositeDims) && oppositeDims.some((d: any) => d.flavour === 'continuous');
+    if (!hasOppositeContinuousDim) {
+      try {
+        return barUnified(context, labelCfg);
+      } catch (error) {
+        console.warn('Bar chart generation failed, falling back:', error);
+        // fall through to single-chart rules
+      }
+    }
   }
 
-  // Fallback to single-chart rules (this handles continuous dimensions on both axes)
-  const single = genChartOptionsRule(analysis, context, buildLabelCfg(context));
-  return single;
+  // Single pair or single-axis scenarios → delegate to chartRules
+  // chartRules will also return grid format after we update it
+  const result = genChartOptionsRule(analysis, context, labelCfg);
+  return result;
+}
+
+/**
+ * Simple, direct Observable Plot generation
+ * No complex pipeline - just analyze fields and generate chart directly
+ */
+/**
+ * Main entry point for chart generation from the UI.
+ * Validates inputs, handles faceting, then delegates to core logic.
+ * 
+ * @param context - Chart generation context with fields, data, and styling
+ * @param overrides - Optional chart type overrides for specific fields
+ * @returns PlotResult with plots array and grid layout
+ */
+export function generatePlot(context: ChartGenerationContext, overrides?: ChartTypeOverrides): PlotResult {
+  const { xFields, yFields, queryResult, colorField, manualColor } = context;
+
+  // Validate inputs
+  if (xFields.length === 0 && yFields.length === 0) {
+    return createMessageChart('Drag fields to the axes to create a chart.');
+  }
+
+  if (!queryResult?.rows || queryResult.rows.length === 0) {
+    return createMessageChart('No data available.');
+  }
+
+  // Apply default color if no color field present
+  const effectiveContext: ChartGenerationContext = {
+    ...context,
+    colorField,
+    manualColor,
+  };
+
+  try {
+    // Check if faceting is applicable
+    const facetPlan = planFacets(effectiveContext);
+    
+    // Only engage faceting when there are discrete fields that should become facets
+    if (facetPlan && ((facetPlan.rowFacetFields?.length || 0) > 0 || (facetPlan.colFacetFields?.length || 0) > 0)) {
+      return generateFacetedGrid(effectiveContext, facetPlan);
+    }
+
+    // Delegate to core chart generation logic
+    return generatePlotCore(effectiveContext, overrides);
+
+  } catch (error) {
+    console.error('Chart generation failed:', error);
+    return createMessageChart(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
+ * Chart generation for faceting system.
+ * Skips validation and faceting (already handled by faceting coordinator).
+ * 
+ * @param context - Chart generation context with fields, data, and styling
+ * @param overrides - Optional chart type overrides for specific fields
+ * @returns PlotResult with plots array and grid layout
+ */
+export function baseGeneratePlot(context: ChartGenerationContext, overrides?: ChartTypeOverrides): PlotResult {
+  // Delegate directly to core logic without validation or faceting
+  // This is used by faceting system where validation has already occurred
+  return generatePlotCore(context, overrides);
 }
 /**
  * Compute shared numeric domains for all measures used across a grid.
@@ -176,21 +183,32 @@ export function baseGeneratePlot(context: ChartGenerationContext): PlotResult {
 // moved to domains/measureDomains.ts
 
 /**
- * Create a simple message chart
+ * Create a simple message chart (as 1x1 grid)
  */
 function createMessageChart(message: string): PlotResult {
   return {
     library: 'observable-plot',
-    options: {
-      marks: [
-        Plot.text([message], {
-          frameAnchor: "middle",
-          fontSize: 14,
-          fill: "gray"
-        })
-      ]
-    },
-    layout: { type: 'single' }
+    plots: [{
+      id: 'message',
+      title: '',
+      options: {
+        marks: [
+          Plot.text([message], {
+            frameAnchor: "middle",
+            fontSize: 14,
+            fill: "gray"
+          })
+        ]
+      },
+      position: { row: 0, col: 0 }
+    }],
+    layout: {
+      type: 'grid',
+      columns: 1,
+      rows: 1,
+      columnSizes: ['fr'],
+      rowSizes: ['fr']
+    }
   };
 }
 

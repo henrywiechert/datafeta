@@ -38,26 +38,35 @@ export interface ChartGenerationContext {
 
 export interface PlotResult {
   library: 'observable-plot';
-  options?: Plot.PlotOptions; // Single plot (legacy)
-  plots?: Array<{
+  /**
+   * @deprecated Legacy format - use plots array instead. Will be removed in future version.
+   * For backward compatibility only. All new code should return plots array.
+   */
+  options?: Plot.PlotOptions;
+  /**
+   * Array of plots with their positions in a grid layout.
+   * Even single charts are represented as a 1x1 grid for consistency.
+   */
+  plots: Array<{
     id: string;
     title: string;
     options: Plot.PlotOptions;
-    position?: { row: number; col: number; };
-  }>; // Multiple plots with shared axes
+    position: { row: number; col: number; };
+  }>;
   sharedDomains?: {
     x?: any;
     y?: any;
     byMeasure?: Record<string, [number, number]>;
   };
-  layout?: {
-    type: 'single' | 'grid' | 'vertical' | 'horizontal';
-    columns?: number;
-    rows?: number;
+  layout: {
+    /** Grid layout type. 'single' is deprecated - use 1x1 grid instead */
+    type: 'grid' | 'vertical' | 'horizontal';
+    columns: number;
+    rows: number;
     // Optional explicit track sizes for CSS grid rendering
     // number => pixels, 'fr' => fractional unit (defaults to 1fr)
-    columnSizes?: Array<number | 'fr'>;
-    rowSizes?: Array<number | 'fr'>;
+    columnSizes: Array<number | 'fr'>;
+    rowSizes: Array<number | 'fr'>;
   };
   // Optional global facet label metadata for rendering outer labels once (not per-plot)
   facetLabels?: {

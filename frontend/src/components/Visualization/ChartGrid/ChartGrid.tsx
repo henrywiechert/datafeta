@@ -627,16 +627,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     );
   }
 
-  // Handle single plot (legacy format)
-  if (spec.options) {
-    return (
-      <div className={`${styles.container} ${styles.observablePlotContainer}`} ref={containerRef}>
-        <ObservablePlot options={spec.options} />
-      </div>
-    );
-  }
-
-  // Fallback
+  // Fallback: no plots available
   return (
     <div className={styles.container} ref={containerRef}>
       <p>No chart data available</p>

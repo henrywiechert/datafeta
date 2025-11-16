@@ -8,6 +8,29 @@ import { scatterChart } from '../chartTypes/scatterChart';
 import { barChart } from '../chartTypes/barChart';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 
+/**
+ * Helper to wrap a single Plot.PlotOptions into a 1x1 grid PlotResult.
+ * Eliminates the legacy 'single' layout type.
+ */
+function wrapAs1x1Grid(options: Plot.PlotOptions, id: string = 'plot', title: string = ''): PlotResult {
+  return {
+    library: 'observable-plot',
+    plots: [{
+      id,
+      title,
+      options,
+      position: { row: 0, col: 0 }
+    }],
+    layout: {
+      type: 'grid',
+      columns: 1,
+      rows: 1,
+      columnSizes: ['fr'],
+      rowSizes: ['fr']
+    }
+  };
+}
+
 export function generateScatterPlot(
   analysis: FieldAnalysis,
   context: ChartGenerationContext,
@@ -138,25 +161,23 @@ export function generateChartOptions(
     };
   }
 
-  // Helper to decide if we should render a bar chart for single-axis measure scenarios without continuous opposition
+  // Helper to decide if we should render a bar chart
+  // Bar chart: one or more continuous measures on one axis AND the other axis contains no continuous fields
   function qualifiesForBarChart(): boolean {
-    // Only one side has measures
-    const singleAxisMeasure = (analysis.hasXMeasure && !analysis.hasYMeasure) || (analysis.hasYMeasure && !analysis.hasXMeasure);
-    if (!singleAxisMeasure) return false;
-    // If mixed axes (both measures) handled elsewhere
-    if (analysis.hasMixedAxes) return false;
-    // Determine opposing axis dims & whether any is continuous
-    if (analysis.hasXMeasure && !analysis.hasYMeasure) {
-      const anyContinuousOpp = yDims.some((d: any) => d.flavour === 'continuous');
-      if (anyContinuousOpp) return false; // line or tick-strip pathways handle this
-      return true; // either discrete dims or none -> bar
+    const xHasContinuousMeasure = xContinuousMeasures.length > 0;
+    const yHasContinuousMeasure = yContinuousMeasures.length > 0;
+    
+    // Need measures on exactly one axis (not both, not neither)
+    if (!(xHasContinuousMeasure !== yHasContinuousMeasure)) return false;
+    
+    // Check that the opposite axis has no continuous fields (neither continuous measures nor continuous dimensions)
+    if (xHasContinuousMeasure) {
+      const yHasContinuous = yContinuousMeasures.length > 0 || yContinuousDims.length > 0;
+      return !yHasContinuous;
+    } else {
+      const xHasContinuous = xContinuousMeasures.length > 0 || xContinuousDims.length > 0;
+      return !xHasContinuous;
     }
-    if (analysis.hasYMeasure && !analysis.hasXMeasure) {
-      const anyContinuousOpp = xDims.some((d: any) => d.flavour === 'continuous');
-      if (anyContinuousOpp) return false;
-      return true;
-    }
-    return false;
   }
 
   if (qualifiesForBarChart()) {
@@ -168,9 +189,8 @@ export function generateChartOptions(
     const yDimCol = getResultColumnName(yDim);
     const xMeasure = analysis.xMeasures[0];
     const xMeasureCol = getResultColumnName({ ...xMeasure, aggregation: xMeasure.aggregation || 'sum' } as any);
-    return { 
-      library: 'observable-plot', 
-      options: lineChart(
+    return wrapAs1x1Grid(
+      lineChart(
         data,
         yDimCol,
         xMeasureCol,
@@ -184,18 +204,18 @@ export function generateChartOptions(
         sizeRange,
         manualSize,
         labelCfg
-      ), 
-      layout: { type: 'single' } 
-    };
+      ),
+      'line-chart',
+      `${yDim.columnName} vs ${xMeasure.columnName}`
+    );
   }
   if (analysis.hasYMeasure && !analysis.hasXMeasure && xContinuousDims.length > 0) {
     const xDim = xContinuousDims[0];
     const xDimCol = getResultColumnName(xDim);
     const yMeasure = analysis.yMeasures[0];
     const yMeasureCol = getResultColumnName({ ...yMeasure, aggregation: yMeasure.aggregation || 'sum' } as any);
-    return { 
-      library: 'observable-plot', 
-      options: lineChart(
+    return wrapAs1x1Grid(
+      lineChart(
         data,
         xDimCol,
         yMeasureCol,
@@ -209,9 +229,10 @@ export function generateChartOptions(
         sizeRange,
         manualSize,
         labelCfg
-      ), 
-      layout: { type: 'single' } 
-    };
+      ),
+      'line-chart',
+      `${xDim.columnName} vs ${yMeasure.columnName}`
+    );
   }
 
   const singleXDim = analysis.hasXDimension && xContinuousDims.length === 1 && yDims.length === 0;
@@ -222,14 +243,14 @@ export function generateChartOptions(
     // Check categoryAxisDescriptor first (from faceting), then fall back to finding in yDims
     const category = (context.categoryAxisDescriptor?.axis === 'y' ? context.categoryAxisDescriptor.columnName : null)
       || yDims.filter((d: any) => d.flavour === 'discrete').slice(-1)[0]?.columnName;
-    return { library: 'observable-plot', options: tickStrip(context, 'x', dimCol, category), layout: { type: 'single' } };
+    return wrapAs1x1Grid(tickStrip(context, 'x', dimCol, category), 'tick-strip-x', dimCol);
   }
   if (singleYDim) {
     const dimCol = analysis.yDimensions[0].columnName;
     // Check categoryAxisDescriptor first (from faceting), then fall back to finding in xDims
     const category = (context.categoryAxisDescriptor?.axis === 'x' ? context.categoryAxisDescriptor.columnName : null)
       || xDims.filter((d: any) => d.flavour === 'discrete').slice(-1)[0]?.columnName;
-    return { library: 'observable-plot', options: tickStrip(context, 'y', dimCol, category), layout: { type: 'single' } };
+    return wrapAs1x1Grid(tickStrip(context, 'y', dimCol, category), 'tick-strip-y', dimCol);
   }
 
   const bothDims = analysis.hasXDimension && analysis.hasYDimension && analysis.xDimensions.length > 0 && analysis.yDimensions.length > 0;
@@ -247,14 +268,14 @@ export function generateChartOptions(
       // Check categoryAxisDescriptor first (from faceting), then fall back to finding in yDiscreteDims
       const categoryCol = (context.categoryAxisDescriptor?.axis === 'y' ? context.categoryAxisDescriptor.columnName : null)
         || getResultColumnName(yDim);
-      return { 
-        library: 'observable-plot', 
-        options: tickStrip(context, 'x', xDimCol, categoryCol, { 
+      return wrapAs1x1Grid(
+        tickStrip(context, 'x', xDimCol, categoryCol, { 
           dimension: getFieldDisplayName(xDim), 
           category: categoryCol 
-        }), 
-        layout: { type: 'single' } 
-      };
+        }),
+        'tick-strip-x-categorized',
+        `${xDim.columnName} by ${yDim.columnName}`
+      );
     }
     // Continuous on Y, discrete on X → tick-strip along Y, categorized by X
     if (yContinuousDims.length > 0 && xContinuousDims.length === 0 && xDiscreteDims.length > 0) {
@@ -264,22 +285,21 @@ export function generateChartOptions(
       // Check categoryAxisDescriptor first (from faceting), then fall back to finding in xDiscreteDims
       const categoryCol = (context.categoryAxisDescriptor?.axis === 'x' ? context.categoryAxisDescriptor.columnName : null)
         || getResultColumnName(xDim);
-      return { 
-        library: 'observable-plot', 
-        options: tickStrip(context, 'y', yDimCol, categoryCol, { 
+      return wrapAs1x1Grid(
+        tickStrip(context, 'y', yDimCol, categoryCol, { 
           dimension: getFieldDisplayName(yDim), 
           category: categoryCol 
-        }), 
-        layout: { type: 'single' } 
-      };
+        }),
+        'tick-strip-y-categorized',
+        `${yDim.columnName} by ${xDim.columnName}`
+      );
     }
     // Both continuous → scatter
     if (xContinuousDims.length > 0 && yContinuousDims.length > 0) {
       const xDimCol = getResultColumnName(xContinuousDims[0]);
       const yDimCol = getResultColumnName(yContinuousDims[0]);
-      return {
-        library: 'observable-plot',
-        options: scatterChart(
+      return wrapAs1x1Grid(
+        scatterChart(
           data,
           xDimCol,
           yDimCol,
@@ -293,8 +313,9 @@ export function generateChartOptions(
           manualSize,
           labelCfg
         ),
-        layout: { type: 'single' }
-      };
+        'scatter',
+        `${xContinuousDims[0].columnName} vs ${yContinuousDims[0].columnName}`
+      );
     }
     // Both discrete → simple dot plot (categorical scatter)
     if (xDiscreteDims.length > 0 && yDiscreteDims.length > 0) {
@@ -333,9 +354,8 @@ export function generateChartOptions(
         tipFormat[sizeField.columnName] = true;
       }
       
-      return {
-        library: 'observable-plot',
-        options: {
+      return wrapAs1x1Grid(
+        {
           x: { label: xCat },
           y: { label: yCat },
           marks: [Plot.dot(data, {
@@ -343,8 +363,9 @@ export function generateChartOptions(
             tip: { pointer: 'x', preferredAnchor: 'top-right', format: tipFormat }
           })],
         },
-        layout: { type: 'single' },
-      };
+        'dot-plot',
+        `${xDiscreteDims[0].columnName} vs ${yDiscreteDims[0].columnName}`
+      );
     }
   }
 
@@ -355,9 +376,8 @@ export function generateChartOptions(
     const yDim = analysis.yDimensions[0];
     const xMeasureCol = getResultColumnName({ ...xMeasure, aggregation: xMeasure.aggregation || 'sum' } as any);
     const yDimCol = getResultColumnName(yDim);
-    return { 
-      library: 'observable-plot', 
-      options: lineChart(
+    return wrapAs1x1Grid(
+      lineChart(
         data,
         yDimCol,
         xMeasureCol,
@@ -371,18 +391,18 @@ export function generateChartOptions(
         sizeRange,
         manualSize,
         labelCfg
-      ), 
-      layout: { type: 'single' } 
-    };
+      ),
+      'line-chart',
+      `${yDim.columnName} vs ${xMeasure.columnName}`
+    );
   }
   if (hasMeasureOnlyY) {
     const yMeasure = analysis.yMeasures[0];
     const xDim = analysis.xDimensions[0];
     const yMeasureCol = getResultColumnName({ ...yMeasure, aggregation: yMeasure.aggregation || 'sum' } as any);
     const xDimCol = getResultColumnName(xDim);
-    return { 
-      library: 'observable-plot', 
-      options: lineChart(
+    return wrapAs1x1Grid(
+      lineChart(
         data,
         xDimCol,
         yMeasureCol,
@@ -396,9 +416,10 @@ export function generateChartOptions(
         sizeRange,
         manualSize,
         labelCfg
-      ), 
-      layout: { type: 'single' } 
-    };
+      ),
+      'line-chart',
+      `${xDim.columnName} vs ${yMeasure.columnName}`
+    );
   }
 
   const multiXDim = analysis.hasXDimension && analysis.xDimensions.length > 1 && !analysis.hasYDimension && !analysis.hasMeasure;
@@ -412,7 +433,11 @@ export function generateChartOptions(
     return { library: 'observable-plot', plots, layout: { type: 'grid', columns: 1, rows: plots.length, columnSizes: ['fr'], rowSizes: Array.from({ length: plots.length }, () => 'fr') } };
   }
 
-  return { library: 'observable-plot', options: { marks: [Plot.text(['Unsupported field combination'], { frameAnchor: 'middle', fontSize: 14, fill: 'gray' })] }, layout: { type: 'single' } };
+  return wrapAs1x1Grid(
+    { marks: [Plot.text(['Unsupported field combination'], { frameAnchor: 'middle', fontSize: 14, fill: 'gray' })] },
+    'unsupported',
+    'Unsupported field combination'
+  );
 }
 
 
