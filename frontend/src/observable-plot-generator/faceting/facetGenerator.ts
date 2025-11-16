@@ -227,19 +227,46 @@ function createBarCellGenerator(
         
         title = measureName;
       } else {
-        // For dimension series (tick strips), keep inline since barCore doesn't handle this
-        // Use the computed bandPadding (from size slider) instead of hardcoded BAND_PADDING
+        // For dimension series (tick strips), compute explicit domain from data
         const dimCol = (f as any).columnName;
+        
+        // Compute domain from the cell's filtered data
+        const isNumericOrDate = (v: any) =>
+          (typeof v === 'number' && Number.isFinite(v)) ||
+          v instanceof Date ||
+          (typeof v === 'string' && !Number.isNaN(Date.parse(v)));
+        
+        const values = cellData
+          .map((row: any) => row[dimCol])
+          .filter((v: any) => isNumericOrDate(v));
+        
+        let axisDomain: [number, number] | [Date, Date] | undefined;
+        if (values.length > 0) {
+          const sample = values[0];
+          if (typeof sample === 'number') {
+            const nums = values as number[];
+            const min = Math.min(...nums);
+            const max = Math.max(...nums);
+            axisDomain = [min, max];
+          } else {
+            const toDate = (v: any) => (v instanceof Date ? v : new Date(v));
+            const dates = values.map(toDate);
+            const minD = new Date(Math.min(...dates.map((d: Date) => d.getTime())));
+            const maxD = new Date(Math.max(...dates.map((d: Date) => d.getTime())));
+            axisDomain = [minD, maxD];
+          }
+        }
+        
         // Use color field if present, otherwise use manual color or default
         const tickStroke = colorColumnName || manualColor || DEFAULT_CHART_COLOR;
         options = barOrientation === 'barX'
           ? { 
-              x: { label: dimCol, grid: true }, 
+              x: axisDomain ? { label: dimCol, domain: axisDomain as any, nice: false, grid: true } : { label: dimCol, grid: true }, 
               y: { label: categoryColumnName || ' ', type: 'band' as any, domain: categories as any, padding: bandPadding as any }, 
               marks: [Plot.tickX(cellData, { x: dimCol, y: categoryColumnName || (() => categories[0]), stroke: tickStroke, tip: { pointer: 'x', preferredAnchor: 'top-right' } })] 
             } as Plot.PlotOptions
           : { 
-              y: { label: dimCol, grid: true }, 
+              y: axisDomain ? { label: dimCol, domain: axisDomain as any, nice: false, grid: true } : { label: dimCol, grid: true }, 
               x: { label: categoryColumnName || ' ', type: 'band' as any, domain: categories as any, padding: bandPadding as any }, 
               marks: [Plot.tickY(cellData, { y: dimCol, x: categoryColumnName || (() => categories[0]), stroke: tickStroke, tip: { pointer: 'y', preferredAnchor: 'top-right' } })] 
             } as Plot.PlotOptions;
