@@ -63,7 +63,10 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
       sizeRange,
       manualSize,
       context.manualColor,
-      labelCfg
+      labelCfg,
+      context.fieldOverrides,
+      context.fieldOverrideTargets,
+      [...xFields, ...yFields, ...(colorField ? [colorField] : []), ...(sizeField ? [sizeField] : [])]
     );
 
     // Determine column/row sizes from plots
@@ -228,13 +231,33 @@ export function buildLabelCfg(context: ChartGenerationContext) {
     labelSamplingThreshold = 300,
     labelSampleEvery = 1,
     queryResult,
+    fieldOverrides = {},
+    fieldOverrideTargets = [],
   } = context as any;
-  if (!labelsEnabled && (labelFields?.length || 0) === 0) return undefined;
+  // If nothing is globally enabled and no per-field overrides request labels, bail early.
+  const hasGlobalLabels = labelsEnabled || (labelFields?.length || 0) > 0;
+
+  // Build a quick lookup of fields that explicitly force labels on/off
+  const forcedOnIds = new Set<string>();
+  const forcedOffIds = new Set<string>();
+  (fieldOverrideTargets as any[] || []).forEach((t: any) => {
+    const override = (fieldOverrides || {})[t.fieldId];
+    if (!override) return;
+    if (override.dataLabelMode === 'on') {
+      forcedOnIds.add(t.fieldId);
+    } else if (override.dataLabelMode === 'off') {
+      forcedOffIds.add(t.fieldId);
+    }
+  });
+
+  if (!hasGlobalLabels && forcedOnIds.size === 0) {
+    return undefined;
+  }
 
   // Adapt measure label field columnNames to aggregated aliases present in result rows.
   // If a label field is a measure with aggregation, backend returns column as AGG(col).
   // If measure has no aggregation but other aggregated measures forced a default (e.g., color/size), we still may see SUM(col).
-  const adaptedLabelFields = labelFields.map((f: Field) => {
+  const baseLabelFields = labelFields.map((f: Field) => {
     if (f.type === 'measure') {
       // If explicit aggregation present, use its result alias.
       if (f.aggregation) {
@@ -252,14 +275,31 @@ export function buildLabelCfg(context: ChartGenerationContext) {
     return f;
   });
 
+  // Include fields that specifically force labels on, even if not part of global labelFields.
+  const enforcedLabelFields: Field[] = [];
+  const allContextFields: Field[] = [
+    ...(context.xFields || []),
+    ...(context.yFields || []),
+  ];
+  allContextFields.forEach((f) => {
+    if (!forcedOnIds.has(f.id)) return;
+    if (forcedOffIds.has(f.id)) return;
+    // Avoid duplicates by columnName
+    if (!baseLabelFields.some((lf: any) => lf.columnName === f.columnName)) {
+      enforcedLabelFields.push(f);
+    }
+  });
+
+  const combinedLabelFields = [...baseLabelFields, ...enforcedLabelFields];
+
   if (queryResult?.rows?.length) {
     const firstRowKeys = Object.keys(queryResult.rows[0] || {});
-    console.log('[LabelCfg] Adapted label fields:', adaptedLabelFields.map((f: any) => ({ columnName: f.columnName, original: f.originalColumnName })), 'First row keys:', firstRowKeys);
+    console.log('[LabelCfg] Adapted label fields:', combinedLabelFields.map((f: any) => ({ columnName: f.columnName, original: (f as any).originalColumnName })), 'First row keys:', firstRowKeys);
   }
 
   return {
-    labelFields: adaptedLabelFields,
-    labelsEnabled,
+    labelFields: combinedLabelFields,
+    labelsEnabled: hasGlobalLabels || forcedOnIds.size > 0,
     samplingStrategy: labelSamplingStrategy,
     samplingThreshold: labelSamplingThreshold,
     sampleEvery: labelSampleEvery,

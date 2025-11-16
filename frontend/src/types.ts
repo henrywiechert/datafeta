@@ -346,6 +346,35 @@ export type FilterMetadata = DiscreteFilterMetadata | ContinuousFilterMetadata |
 
 // --- Multi-Sheet Types --- //
 
+// Per-field chart override configuration (color, size, labels)
+export type DataLabelMode = 'inherit' | 'on' | 'off';
+
+export interface FieldOverrideState {
+  // Color overrides
+  colorFieldId?: string | null; // Optional: use a specific field as color encoding for charts this field contributes to
+  colorScheme?: string;
+  colorBias?: number;
+  manualColor?: string;
+
+  // Size overrides
+  sizeFieldId?: string | null; // Optional: use a specific field as size encoding
+  sizeRange?: [number, number];
+  manualSize?: number;
+
+  // Label overrides
+  /**
+   * Display label override for this field (used for axis titles, legend labels, chart titles).
+   */
+  displayLabel?: string;
+  /**
+   * Per-field data label mode:
+   * - 'inherit': follow global label configuration
+   * - 'on': force labels on for charts this field contributes to
+   * - 'off': suppress labels for charts this field contributes to
+   */
+  dataLabelMode?: DataLabelMode;
+}
+
 // Snapshot of visualization state for persistence in sheets
 // Note: These fields are NOT included because they are shared across all sheets:
 // - selectedDatabase, selectedTable (data source selection)
@@ -363,6 +392,11 @@ export interface VisualizationStateSnapshot {
   sizeField: Field | null;
   sizeRange: [number, number];
   manualSize: number;
+  /**
+   * Per-field chart overrides keyed by Field.id.
+   * Persisted with sheets and saved configurations.
+   */
+  fieldOverrides?: Record<string, FieldOverrideState>;
   virtualColumns?: VirtualColumnDefinition[]; // Virtual/calculated columns
 }
 

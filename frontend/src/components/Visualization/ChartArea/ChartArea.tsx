@@ -14,7 +14,27 @@ import { ChartRenderer, ChartControls, DebugPanel } from './components';
 const ChartArea: React.FC = () => {
   const { state, dispatch, startOperation, completeOperation } = useVisualizationContext();
   const { dataSource } = useDataSource();
-  const { xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, queryResult, queryError, appliedFilterConfigurations, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, virtualColumns } = state as any;
+  const {
+    xAxisFields,
+    yAxisFields,
+    colorField,
+    colorScheme,
+    colorBias,
+    manualColor,
+    sizeField,
+    sizeRange,
+    manualSize,
+    queryResult,
+    queryError,
+    appliedFilterConfigurations,
+    labelFields,
+    labelsEnabled,
+    labelSamplingStrategy,
+    labelSamplingThreshold,
+    labelSampleEvery,
+    virtualColumns,
+    fieldOverrides,
+  } = state as any;
   const { selectedTable, selectedDatabase, virtualTable } = dataSource;
   
   // Ref for the fullscreen target element
@@ -64,6 +84,7 @@ const ChartArea: React.FC = () => {
     labelSamplingStrategy,
     labelSamplingThreshold,
     labelSampleEvery,
+    fieldOverrides,
   });
 
   // Use the extracted debug view hook
