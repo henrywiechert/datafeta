@@ -190,7 +190,18 @@ export function generateCartesianPlots(
         cellColorScheme,
         cellColorBias,
         cellManualColor,
-        labelCfg
+        (() => {
+          // Per-cell label configuration based on dataLabelMode
+          if (!labelCfg) return undefined;
+          if (cellOverride?.dataLabelMode === 'off') {
+            return undefined;
+          }
+          if (cellOverride?.dataLabelMode === 'on') {
+            return { ...labelCfg, labelsEnabled: true };
+          }
+          // inherit
+          return labelCfg;
+        })()
       );
 
       // Apply shared color domain to keep color mapping consistent across the grid
