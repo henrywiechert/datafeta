@@ -189,6 +189,13 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   // Container dimensions for resize overlay positioning
   const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
 
+  // Track scroll offsets so the resize handles can stay aligned with the
+  // scrolled grid content in both directions.
+  const [scrollOffsets, setScrollOffsets] = useState<{ horizontal: number; vertical: number }>({
+    horizontal: 0,
+    vertical: 0,
+  });
+
   // User-controlled cell sizing (uniform across all cells)
   // null = use automatic sizing, number = user has manually resized
   const [userCellWidth, setUserCellWidth] = useState<number | null>(null);
@@ -235,7 +242,28 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     const onScroll = () => {
       const y = scroller.scrollTop;
       (target as HTMLDivElement).style.transform = `translateY(${-y}px)`;
+      // Keep vertical scroll offset in state for the resize overlay.
+      setScrollOffsets((prev) =>
+        prev.vertical === y ? prev : { ...prev, vertical: y }
+      );
     };
+    onScroll();
+    scroller.addEventListener('scroll', onScroll, { passive: true } as any);
+    return () => scroller.removeEventListener('scroll', onScroll as any);
+  }, [spec]);
+
+  // Track horizontal scroll so column resize handles track the visible gridlines.
+  useEffect(() => {
+    const scroller = hScrollRef.current;
+    if (!scroller) return;
+
+    const onScroll = () => {
+      const x = scroller.scrollLeft;
+      setScrollOffsets((prev) =>
+        prev.horizontal === x ? prev : { ...prev, horizontal: x }
+      );
+    };
+
     onScroll();
     scroller.addEventListener('scroll', onScroll, { passive: true } as any);
     return () => scroller.removeEventListener('scroll', onScroll as any);
@@ -581,6 +609,8 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
             topHeaderHeight={topHeaderHeight}
             containerWidth={containerDimensions.width}
             containerHeight={containerDimensions.height}
+            horizontalScrollOffset={scrollOffsets.horizontal}
+            verticalScrollOffset={scrollOffsets.vertical}
             plotGridRef={plotGridRef}
             onColumnResize={handleColumnResize}
             onRowResize={handleRowResize}
