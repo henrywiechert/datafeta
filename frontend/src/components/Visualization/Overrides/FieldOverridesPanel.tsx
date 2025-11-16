@@ -1,13 +1,17 @@
 import React, { useMemo, useState } from 'react';
 import { Box, Typography, TextField, MenuItem, Chip, IconButton, Tooltip, Divider, ToggleButton, ToggleButtonGroup, Switch, FormControlLabel } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import TuneIcon from '@mui/icons-material/Tune';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { PropertySection } from '../Properties';
+import { PropertySection, PropertyDropZone } from '../Properties';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { useUndoRedo } from '../../../contexts/UndoRedoContext';
-import { Field, FieldOverrideState, DataLabelMode } from '../../../types';
+import { Field, FieldOverrideState, DataLabelMode, DragSource } from '../../../types';
 import { computeOverrideTargets } from '../../../observable-plot-generator/utils/fieldOverrides';
+import { getFieldDisplayName } from '../../../utils/fieldUtils';
 import ManualColorSelector from '../Color/ManualColorSelector';
+import ColorSchemeSelector from '../Color/ColorSchemeSelector';
+import ColorBiasControl from '../Color/ColorBiasControl';
 import SizeRangeControl from '../Size/SizeRangeControl';
 
 const LABEL_MODE_OPTIONS: { value: DataLabelMode; label: string }[] = [
@@ -112,6 +116,8 @@ const FieldOverridesPanel: React.FC = () => {
     const resolvedSizeField = override.sizeFieldId ? fieldById[override.sizeFieldId] || null : null;
 
     const effectiveManualColor = override.manualColor || '#4e79a7';
+    const effectiveColorScheme = override.colorScheme || colorScheme || 'tableau10';
+    const effectiveColorBias = override.colorBias ?? colorBias ?? 0;
     const sizeRange: [number, number] = override.sizeRange || [4, 20];
     const manualSize = override.manualSize ?? 10;
 
@@ -120,39 +126,101 @@ const FieldOverridesPanel: React.FC = () => {
       handleUpdateOverride(targetField.id, { dataLabelMode: value });
     };
 
+    const handleColorDrop = (e: React.DragEvent) => {
+      try {
+        const fieldData = e.dataTransfer.getData('application/json');
+        if (fieldData) {
+          const parsedData = JSON.parse(fieldData);
+          const { field } = parsedData;
+          if (field) {
+            handleUpdateOverride(targetField.id, { colorFieldId: field.id });
+          }
+        }
+      } catch (error) {
+        console.error('Error handling color drop:', error);
+      }
+    };
+
+    const handleColorRemove = () => {
+      handleUpdateOverride(targetField.id, { colorFieldId: null });
+    };
+
+    const getChipStyles = (field: Field) => {
+      if (field.flavour === 'discrete') {
+        return {
+          backgroundColor: '#e3f2fd',
+          border: '1px solid #1976d2',
+        };
+      } else if (field.flavour === 'continuous') {
+        return {
+          backgroundColor: '#e8f5e8',
+          border: '1px solid #388e3c',
+        };
+      }
+      return {};
+    };
+
     return (
       <>
-        {/* Color override */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
-          <Typography variant="caption" sx={{ minWidth: 60 }}>
-            Color
-          </Typography>
-          <TextField
-            select
-            size="small"
-            variant="outlined"
-            label="Color field"
-            value={override.colorFieldId ?? ''}
-            onChange={(e) =>
-              handleUpdateOverride(targetField.id, {
-                colorFieldId: e.target.value || null,
-              })
-            }
-            sx={{ minWidth: 140 }}
-          >
-            <MenuItem value="">Inherit</MenuItem>
-            {allColorCandidateFields.map((f) => (
-              <MenuItem key={f.id} value={f.id}>
-                {f.columnName}
-              </MenuItem>
-            ))}
-          </TextField>
-          {!resolvedColorField && (
-            <ManualColorSelector
-              value={effectiveManualColor}
-              onChange={(color) =>
+        {/* Color override with drop zone */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="caption" sx={{ minWidth: 60 }}>
+              Color
+            </Typography>
+            <Box sx={{ flex: 1 }}>
+              <PropertyDropZone
+                hasContent={resolvedColorField !== null}
+                emptyMessage="Drag a field or use manual color"
+                onDrop={handleColorDrop}
+              >
+                {resolvedColorField && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Chip
+                      label={getFieldDisplayName(resolvedColorField)}
+                      onDelete={handleColorRemove}
+                      deleteIcon={<CloseIcon />}
+                      size="small"
+                      sx={{
+                        ...getChipStyles(resolvedColorField),
+                        '& .MuiChip-label': {
+                          fontSize: '12px',
+                          fontWeight: 500,
+                        },
+                      }}
+                    />
+                  </Box>
+                )}
+              </PropertyDropZone>
+            </Box>
+            {resolvedColorField && resolvedColorField.flavour === 'discrete' && (
+              <ColorSchemeSelector
+                currentSchemeId={effectiveColorScheme}
+                fieldFlavour={resolvedColorField.flavour}
+                onSchemeChange={(schemeId) =>
+                  handleUpdateOverride(targetField.id, {
+                    colorScheme: schemeId,
+                  })
+                }
+              />
+            )}
+            {!resolvedColorField && (
+              <ManualColorSelector
+                value={effectiveManualColor}
+                onChange={(color) =>
+                  handleUpdateOverride(targetField.id, {
+                    manualColor: color,
+                  })
+                }
+              />
+            )}
+          </Box>
+          {resolvedColorField && resolvedColorField.flavour === 'continuous' && (
+            <ColorBiasControl
+              colorBias={effectiveColorBias}
+              onChange={(bias) =>
                 handleUpdateOverride(targetField.id, {
-                  manualColor: color,
+                  colorBias: bias,
                 })
               }
             />
@@ -269,18 +337,48 @@ const FieldOverridesPanel: React.FC = () => {
     const resolvedGlobalSizeField = sizeField as Field | null;
 
     const effectiveManualColor = manualColor || '#4e79a7';
+    const effectiveColorScheme = colorScheme || 'tableau10';
+    const effectiveColorBias = colorBias ?? 0;
 
-    const handleGlobalColorFieldChange = (value: string) => {
+    const handleGlobalColorDrop = (e: React.DragEvent) => {
+      try {
+        const fieldData = e.dataTransfer.getData('application/json');
+        if (fieldData) {
+          const parsedData = JSON.parse(fieldData);
+          const { field, source } = parsedData;
+          if (field) {
+            recordAction(getUndoableSnapshot());
+            clearColorOverridesForAllFields();
+            dispatch({ type: 'SET_COLOR_FIELD', payload: field });
+          }
+        }
+      } catch (error) {
+        console.error('Error handling color drop:', error);
+      }
+    };
+
+    const handleGlobalColorRemove = () => {
       recordAction(getUndoableSnapshot());
       clearColorOverridesForAllFields();
-      const selected = value ? fieldById[value] || null : null;
-      dispatch({ type: 'SET_COLOR_FIELD', payload: selected || null });
+      dispatch({ type: 'SET_COLOR_FIELD', payload: null });
     };
 
     const handleGlobalManualColorChange = (color: string) => {
       recordAction(getUndoableSnapshot());
       clearColorOverridesForAllFields();
       dispatch({ type: 'SET_MANUAL_COLOR', payload: color });
+    };
+
+    const handleGlobalColorSchemeChange = (schemeId: string) => {
+      recordAction(getUndoableSnapshot());
+      clearColorOverridesForAllFields();
+      dispatch({ type: 'SET_COLOR_SCHEME', payload: schemeId });
+    };
+
+    const handleGlobalColorBiasChange = (bias: number) => {
+      recordAction(getUndoableSnapshot());
+      clearColorOverridesForAllFields();
+      dispatch({ type: 'SET_COLOR_BIAS', payload: bias });
     };
 
     const handleGlobalSizeFieldChange = (value: string) => {
@@ -307,33 +405,72 @@ const FieldOverridesPanel: React.FC = () => {
       dispatch({ type: 'SET_LABELS_ENABLED', payload: checked });
     };
 
+    const getChipStyles = (field: Field) => {
+      if (field.flavour === 'discrete') {
+        return {
+          backgroundColor: '#e3f2fd',
+          border: '1px solid #1976d2',
+        };
+      } else if (field.flavour === 'continuous') {
+        return {
+          backgroundColor: '#e8f5e8',
+          border: '1px solid #388e3c',
+        };
+      }
+      return {};
+    };
+
     return (
       <Box sx={{ p: 1, pt: 0.5, pb: 0.5 }}>
-        {/* Color (global) */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
-          <Typography variant="caption" sx={{ minWidth: 60 }}>
-            Color
-          </Typography>
-          <TextField
-            select
-            size="small"
-            variant="outlined"
-            label="Color field"
-            value={resolvedGlobalColorField?.id ?? ''}
-            onChange={(e) => handleGlobalColorFieldChange(e.target.value)}
-            sx={{ minWidth: 140 }}
-          >
-            <MenuItem value="">None</MenuItem>
-            {allColorCandidateFields.map((f) => (
-              <MenuItem key={f.id} value={f.id}>
-                {f.columnName}
-              </MenuItem>
-            ))}
-          </TextField>
-          {!resolvedGlobalColorField && (
-            <ManualColorSelector
-              value={effectiveManualColor}
-              onChange={handleGlobalManualColorChange}
+        {/* Color (global) with drop zone */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="caption" sx={{ minWidth: 60 }}>
+              Color
+            </Typography>
+            <Box sx={{ flex: 1 }}>
+              <PropertyDropZone
+                hasContent={resolvedGlobalColorField !== null}
+                emptyMessage="Drag a field or use manual color"
+                onDrop={handleGlobalColorDrop}
+              >
+                {resolvedGlobalColorField && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Chip
+                      label={getFieldDisplayName(resolvedGlobalColorField)}
+                      onDelete={handleGlobalColorRemove}
+                      deleteIcon={<CloseIcon />}
+                      size="small"
+                      sx={{
+                        ...getChipStyles(resolvedGlobalColorField),
+                        '& .MuiChip-label': {
+                          fontSize: '12px',
+                          fontWeight: 500,
+                        },
+                      }}
+                    />
+                  </Box>
+                )}
+              </PropertyDropZone>
+            </Box>
+            {resolvedGlobalColorField && resolvedGlobalColorField.flavour === 'discrete' && (
+              <ColorSchemeSelector
+                currentSchemeId={effectiveColorScheme}
+                fieldFlavour={resolvedGlobalColorField.flavour}
+                onSchemeChange={handleGlobalColorSchemeChange}
+              />
+            )}
+            {!resolvedGlobalColorField && (
+              <ManualColorSelector
+                value={effectiveManualColor}
+                onChange={handleGlobalManualColorChange}
+              />
+            )}
+          </Box>
+          {resolvedGlobalColorField && resolvedGlobalColorField.flavour === 'continuous' && (
+            <ColorBiasControl
+              colorBias={effectiveColorBias}
+              onChange={handleGlobalColorBiasChange}
             />
           )}
         </Box>
