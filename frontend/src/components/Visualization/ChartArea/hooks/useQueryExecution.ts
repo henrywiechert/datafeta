@@ -1,5 +1,6 @@
 import { useCallback, useRef, useEffect, useMemo } from 'react';
 import { apiService } from '../../../../apiService';
+import { useVisualizationContext } from '../../../../contexts/VisualizationContext';
 import { buildQuery } from '../../../../queryBuilder/queryBuilder';
 import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition } from '../../../../types';
 import { useConnection } from '../../../../contexts/ConnectionContext';
@@ -52,6 +53,22 @@ export const useQueryExecution = ({
   const { connectionDetails } = useConnection();
   const queryAbortControllerRef = useRef<AbortController | null>(null);
   const queryInProgressRef = useRef<boolean>(false);
+  // Track last executed version to avoid duplicate runs within same render cycle
+  const lastExecutedVersionRef = useRef<number | null>(null);
+  // Access visualization context for queryVersion
+  // (Avoid adding heavy dependencies; only pull version)
+  // Import lazily to prevent circular issues.
+  const { state: vizState } = useVisualizationContext();
+  const queryVersion: number = vizState.queryVersion;
+  const queryVersionRef = useRef<number>(queryVersion);
+  // Log version changes for diagnostics
+  useEffect(() => {
+    if (queryVersionRef.current !== queryVersion) {
+      queryVersionRef.current = queryVersion;
+    }
+  }, [queryVersion]);
+
+  // NOTE: Fingerprint removed in favor of monotonic queryVersion which increments only for semantic changes.
 
   const executeQuery = useCallback(async (queryDesc: QueryDescription) => {
     const startTime = Date.now();
@@ -223,6 +240,7 @@ export const useQueryExecution = ({
     });
 
     if (queryDesc) {
+      // Minimal build log (safe to remove later)
       console.log('🧪 Query build (memo):', {
         dimensions: queryDesc.dimensions?.map(d => d.field),
         measures: queryDesc.measures?.map(m => m.alias || m.field),
@@ -242,112 +260,21 @@ export const useQueryExecution = ({
 
   // Effect to handle query execution when fields change
   useEffect(() => {
-    // Check if query is already in progress at the start of the effect
-    if (queryInProgressRef.current) {
+    if (queryInProgressRef.current) return;
+    // Require semantic prerequisites
+    if (!currentQueryDescription) {
+      dispatch({ type: 'SET_QUERY_RESULT', payload: null });
+      dispatch({ type: 'SET_QUERY_ERROR', payload: null });
       return;
     }
-    
-    const fetchData = async () => {
-      // Tag fields with their axis for query optimization
-      const taggedXFields = xAxisFields.map(f => ({ ...f, axis: 'x' as const }));
-      const taggedYFields = yAxisFields.map(f => ({ ...f, axis: 'y' as const }));
-  const allFields = [...taggedXFields, ...taggedYFields];
-      // Merge label fields for execution path (raw queries need them present; aggregated queries use label_fields list)
-  const mergedFields = [...allFields];
-      for (const lf of labelFields) {
-        if (!mergedFields.some(f => f.columnName === lf.columnName && f.dateTimePart === lf.dateTimePart && f.dateTimeMode === lf.dateTimeMode)) {
-          mergedFields.push(lf);
-        }
-      }
-      
-      // Include colorField (dimension or measure). Mirror logic from memo block.
-      if (colorField) {
-        const colorEntry = (colorField.type === 'measure' && !colorField.aggregation && [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation))
-          ? { ...colorField, aggregation: 'sum' }
-          : colorField;
-        mergedFields.push(colorEntry);
-      }
-
-      // Include sizeField when present; mirror color logic but allow measures too
-      if (sizeField) {
-        const sizeEntry = (sizeField.type === 'measure' && !sizeField.aggregation && [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation))
-          ? { ...sizeField, aggregation: 'sum' }
-          : sizeField;
-        mergedFields.push(sizeEntry);
-      }
-      
-      // Include additional color/size fields from per-field overrides
-      for (const addlColorField of additionalColorFields) {
-        if (!mergedFields.some(f => f.id === addlColorField.id)) {
-          const colorEntry = (addlColorField.type === 'measure' && !addlColorField.aggregation && [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation))
-            ? { ...addlColorField, aggregation: 'sum' }
-            : addlColorField;
-          mergedFields.push(colorEntry);
-        }
-      }
-      for (const addlSizeField of additionalSizeFields) {
-        if (!mergedFields.some(f => f.id === addlSizeField.id)) {
-          const sizeEntry = (addlSizeField.type === 'measure' && !addlSizeField.aggregation && [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation))
-            ? { ...addlSizeField, aggregation: 'sum' }
-            : addlSizeField;
-          mergedFields.push(sizeEntry);
-        }
-      }
-      for (const addlLabelField of additionalLabelFields) {
-        if (!mergedFields.some(f => f.id === addlLabelField.id)) {
-          const labelEntry = (addlLabelField.type === 'measure' && !addlLabelField.aggregation && [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation))
-            ? { ...addlLabelField, aggregation: 'sum' }
-            : addlLabelField;
-          mergedFields.push(labelEntry);
-        }
-      }
-      
-      // For CSV connections using DuckDB, use 'main' as the default database if none is set
-      let effectiveDatabase = selectedDatabase;
-      if (connectionDetails?.type === 'csv' && !selectedDatabase) {
-        effectiveDatabase = 'main'; // DuckDB's default database name
-      }
-      
-      if (mergedFields.length === 0 || !selectedTable || !effectiveDatabase) {
-        // If there's no query to run, clear previous results
-        dispatch({ type: 'SET_QUERY_RESULT', payload: null });
-        dispatch({ type: 'SET_QUERY_ERROR', payload: null });
-        return;
-      }
-      
-      const queryDesc = buildQuery({
-        fields: mergedFields,
-        selectedTable,
-        selectedDatabase: effectiveDatabase,
-        filterConfigurations,
-        labelFields,
-        virtualTable,
-        virtualColumns,
-      });
-
-      if (queryDesc) {
-        console.log('🧪 Query build (effect):', {
-          dimensions: queryDesc.dimensions?.map(d => d.field),
-          measures: queryDesc.measures?.map(m => m.alias || m.field),
-          label_fields: (queryDesc as any).label_fields,
-          colorField: colorField?.columnName,
-          sizeField: sizeField?.columnName
-        });
-      }
-
-      // Add optimization hints to query if available
-      if (queryDesc && optimizationHints) {
-        queryDesc.optimization_hints = optimizationHints;
-      }
-
-      if (queryDesc) {
-        await executeQuery(queryDesc);
-      }
-    };
-
-    fetchData();
+    // Only execute when queryVersion advances
+    if (lastExecutedVersionRef.current === queryVersion) {
+      return; // version unchanged -> skip
+    }
+    lastExecutedVersionRef.current = queryVersion;
+    executeQuery(currentQueryDescription);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTable, selectedDatabase, connectionDetails, xAxisFields, yAxisFields, colorField, sizeField, labelFields, filterConfigurations, virtualTable, additionalColorFields, additionalSizeFields, additionalLabelFields]);
+  }, [queryVersion, connectionDetails, currentQueryDescription]);
 
   // Cleanup on unmount
   useEffect(() => {

@@ -527,13 +527,17 @@ const FieldOverridesPanel: React.FC = () => {
 
     const handleGlobalSizeRangeChange = (range: [number, number]) => {
       recordAction(getUndoableSnapshot());
-      clearSizeOverridesForAllFields();
+      // Changing the global size range should not reset per-field size overrides.
+      // Clearing overrides here caused additionalSizeFields array identity to change,
+      // which in turn retriggered queries unnecessarily on mouse-up of the size slider.
+      // We only update the global size range now.
       dispatch({ type: 'SET_SIZE_RANGE', payload: range });
     };
 
     const handleGlobalManualSizeChange = (value: number) => {
       recordAction(getUndoableSnapshot());
-      clearSizeOverridesForAllFields();
+      // Changing the global manual size should not reset per-field size overrides.
+      // Resetting overrides invalidated additionalSizeFields causing a query re-run.
       dispatch({ type: 'SET_MANUAL_SIZE', payload: value });
     };
 

@@ -53,6 +53,7 @@ interface VisualizationState {
   virtualColumns: VirtualColumnDefinition[];
   // Per-field chart overrides
   fieldOverrides: Record<string, FieldOverrideState>;
+  queryVersion: number; // increments only when query semantics change
 }
 
 // Define action types
@@ -186,15 +187,28 @@ const initialState: VisualizationState = {
   virtualColumns: [],
   // Per-field overrides default
   fieldOverrides: {},
+  queryVersion: 0,
 };
+
+// Helper: shallow compare field id arrays (order significant where provided)
+function sameFieldArray(a: Field[], b: Field[]) {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].id !== b[i].id) return false;
+  }
+  return true;
+}
 
 // Reducer function
 function visualizationReducer(state: VisualizationState, action: VisualizationAction): VisualizationState {
   switch (action.type) {
     case 'SET_X_AXIS_FIELDS':
-      return { ...state, xAxisFields: action.payload };
+      if (sameFieldArray(state.xAxisFields, action.payload)) return state; // no semantic change
+      return { ...state, xAxisFields: action.payload, queryVersion: state.queryVersion + 1 };
     case 'SET_Y_AXIS_FIELDS':
-      return { ...state, yAxisFields: action.payload };
+      if (sameFieldArray(state.yAxisFields, action.payload)) return state;
+      return { ...state, yAxisFields: action.payload, queryVersion: state.queryVersion + 1 };
     case 'SET_AVAILABLE_FIELDS':
       return { ...state, availableFields: action.payload };
     case 'SET_DATABASES':
@@ -202,9 +216,11 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
     case 'SET_TABLES':
       return { ...state, tables: action.payload };
     case 'SET_SELECTED_DATABASE':
-      return { ...state, selectedDatabase: action.payload };
+      if (state.selectedDatabase === action.payload) return state;
+      return { ...state, selectedDatabase: action.payload, queryVersion: state.queryVersion + 1 };
     case 'SET_SELECTED_TABLE':
-      return { ...state, selectedTable: action.payload };
+      if (state.selectedTable === action.payload) return state;
+      return { ...state, selectedTable: action.payload, queryVersion: state.queryVersion + 1 };
     case 'SET_LOADING_METADATA':
       return { ...state, isLoadingMetadata: action.payload };
     case 'SET_METADATA_ERROR':
@@ -242,11 +258,13 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
         return f;
       });
 
+      const bumped = xChanged || yChanged || (state.colorField && state.colorField.id === updated.id) || (state.sizeField && state.sizeField.id === updated.id) || state.labelFields.some(f => f.id === updated.id);
       return {
         ...state,
         xAxisFields: xChanged ? newX : state.xAxisFields,
         yAxisFields: yChanged ? newY : state.yAxisFields,
         availableFields: availChanged ? newAvail : state.availableFields,
+        queryVersion: bumped ? state.queryVersion + 1 : state.queryVersion,
       };
     }
     case 'SET_QUERY_RESULT':
@@ -386,6 +404,7 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
           ...state.filterConfigurations,
           [action.payload.fieldId]: action.payload.config,
         },
+        queryVersion: state.queryVersion + 1,
       };
     case 'SET_FILTER_METADATA':
       return {
@@ -408,44 +427,55 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
           filterConfigurations: newConfigs,
           filterMetadata: newMetadata,
           appliedFilterConfigurations: newApplied,
+          queryVersion: state.queryVersion + 1,
         };
       }
     case 'APPLY_FILTERS':
       return {
         ...state,
         appliedFilterConfigurations: { ...state.filterConfigurations },
+        queryVersion: state.queryVersion + 1,
       };
-    case 'SET_COLOR_FIELD':
-      return { ...state, colorField: action.payload };
+    case 'SET_COLOR_FIELD': {
+      if (state.colorField?.id === action.payload?.id) return state;
+      return { ...state, colorField: action.payload, queryVersion: state.queryVersion + 1 };
+    }
     case 'SET_COLOR_SCHEME':
       return { ...state, colorScheme: action.payload };
     case 'SET_COLOR_BIAS':
       return { ...state, colorBias: action.payload };
     case 'SET_MANUAL_COLOR':
       return { ...state, manualColor: action.payload };
-    case 'REMOVE_COLOR_FIELD':
-      return { ...state, colorField: null };
+    case 'REMOVE_COLOR_FIELD': {
+      if (!state.colorField) return state;
+      return { ...state, colorField: null, queryVersion: state.queryVersion + 1 };
+    }
     case 'SET_SIZE_FIELD':
-      return { ...state, sizeField: action.payload };
+      if (state.sizeField?.id === action.payload?.id) return state;
+      return { ...state, sizeField: action.payload, queryVersion: state.queryVersion + 1 };
     case 'SET_SIZE_RANGE':
+      // Purely visual; should not alter query semantics
       return { ...state, sizeRange: action.payload };
     case 'SET_MANUAL_SIZE':
+      // Purely visual; should not alter query semantics
       return { ...state, manualSize: action.payload };
     case 'REMOVE_SIZE_FIELD':
-      return { ...state, sizeField: null };
+      if (!state.sizeField) return state;
+      return { ...state, sizeField: null, queryVersion: state.queryVersion + 1 };
     // Label reducers
     case 'SET_LABEL_FIELDS': {
-      return { ...state, labelFields: action.payload, labelsEnabled: action.payload.length > 0 || state.labelsEnabled };
+      if (sameFieldArray(state.labelFields, action.payload)) return state;
+      return { ...state, labelFields: action.payload, labelsEnabled: action.payload.length > 0 || state.labelsEnabled, queryVersion: state.queryVersion + 1 };
     }
     case 'ADD_LABEL_FIELD': {
-      // Prevent duplicates by columnName
-      if (state.labelFields.some(f => f.columnName === action.payload.columnName)) return state;
+      if (state.labelFields.some(f => f.columnName === action.payload.columnName)) return state; // no change
       const newFields = [...state.labelFields, action.payload];
-      return { ...state, labelFields: newFields, labelsEnabled: true };
+      return { ...state, labelFields: newFields, labelsEnabled: true, queryVersion: state.queryVersion + 1 };
     }
     case 'REMOVE_LABEL_FIELD': {
       const newFields = state.labelFields.filter(f => f.id !== action.payload && f.columnName !== action.payload);
-      return { ...state, labelFields: newFields, labelsEnabled: newFields.length > 0 && state.labelsEnabled };
+      if (newFields.length === state.labelFields.length) return state; // nothing removed
+      return { ...state, labelFields: newFields, labelsEnabled: newFields.length > 0 && state.labelsEnabled, queryVersion: state.queryVersion + 1 };
     }
     case 'SET_LABELS_ENABLED':
       return { ...state, labelsEnabled: action.payload };
@@ -456,23 +486,33 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
     case 'SET_LABEL_SAMPLE_EVERY':
       return { ...state, labelSampleEvery: Math.max(1, action.payload) };
     // Virtual column reducers
-    case 'SET_VIRTUAL_COLUMNS':
-      return { ...state, virtualColumns: action.payload };
+    case 'SET_VIRTUAL_COLUMNS': {
+      // Simple length + names check to avoid bump on identical content
+      const sameLen = state.virtualColumns.length === action.payload.length;
+      const sameNames = sameLen && state.virtualColumns.every((vc, i) => vc.name === action.payload[i].name && vc.expression === action.payload[i].expression);
+      if (sameNames) return state;
+      return { ...state, virtualColumns: action.payload, queryVersion: state.queryVersion + 1 };
+    }
     case 'ADD_VIRTUAL_COLUMN':
-      return { ...state, virtualColumns: [...state.virtualColumns, action.payload] };
+      return { ...state, virtualColumns: [...state.virtualColumns, action.payload], queryVersion: state.queryVersion + 1 };
     case 'UPDATE_VIRTUAL_COLUMN': {
       const newColumns = [...state.virtualColumns];
+      const prev = newColumns[action.payload.index];
       newColumns[action.payload.index] = action.payload.column;
-      return { ...state, virtualColumns: newColumns };
+      const changed = !prev || prev.name !== action.payload.column.name || prev.expression !== action.payload.column.expression;
+      return { ...state, virtualColumns: newColumns, queryVersion: changed ? state.queryVersion + 1 : state.queryVersion };
     }
-    case 'REMOVE_VIRTUAL_COLUMN':
+    case 'REMOVE_VIRTUAL_COLUMN': {
+      if (action.payload < 0 || action.payload >= state.virtualColumns.length) return state;
       return { 
         ...state, 
-        virtualColumns: state.virtualColumns.filter((_, i) => i !== action.payload) 
+        virtualColumns: state.virtualColumns.filter((_, i) => i !== action.payload),
+        queryVersion: state.queryVersion + 1,
       };
+    }
     // Per-field chart override reducers
     case 'SET_FIELD_OVERRIDES':
-      return { ...state, fieldOverrides: action.payload };
+      return { ...state, fieldOverrides: action.payload }; // overrides do not change query semantics directly
     case 'UPDATE_FIELD_OVERRIDE': {
       const { fieldId, override } = action.payload;
       const existing = state.fieldOverrides[fieldId] || {};
@@ -505,6 +545,7 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
         manualSize: action.payload.manualSize,
         virtualColumns: action.payload.virtualColumns,
         fieldOverrides: action.payload.fieldOverrides || {},
+        queryVersion: state.queryVersion + 1,
       };
     case 'RESET_STATE':
       return initialState;
