@@ -404,7 +404,6 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
           ...state.filterConfigurations,
           [action.payload.fieldId]: action.payload.config,
         },
-        queryVersion: state.queryVersion + 1,
       };
     case 'SET_FILTER_METADATA':
       return {
@@ -416,20 +415,20 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
       };
     case 'REMOVE_FILTER_CONFIGURATION':
       {
-        const newConfigs = { ...state.filterConfigurations };
-        const newMetadata = { ...state.filterMetadata };
-        const newApplied = { ...state.appliedFilterConfigurations };
-        delete newConfigs[action.payload];
-        delete newMetadata[action.payload];
-        delete newApplied[action.payload];
-        return {
-          ...state,
-          filterConfigurations: newConfigs,
-          filterMetadata: newMetadata,
-          appliedFilterConfigurations: newApplied,
+      const newConfigs = { ...state.filterConfigurations };
+      const newMetadata = { ...state.filterMetadata };
+      const newApplied = { ...state.appliedFilterConfigurations };
+      delete newConfigs[action.payload];
+      delete newMetadata[action.payload];
+      delete newApplied[action.payload];
+      return {
+        ...state,
+        filterConfigurations: newConfigs,
+        filterMetadata: newMetadata,
+        appliedFilterConfigurations: newApplied,
           queryVersion: state.queryVersion + 1,
-        };
-      }
+      };
+    }
     case 'APPLY_FILTERS':
       return {
         ...state,
