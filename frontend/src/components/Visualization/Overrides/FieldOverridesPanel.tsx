@@ -72,10 +72,10 @@ const FieldOverridesPanel: React.FC = () => {
     return map;
   }, [xAxisFields, yAxisFields, filterFields, availableFields, colorField, sizeField]);
 
-  const allMeasureFields = useMemo(
+  const allSizeCandidateFields = useMemo(
     () =>
       Object.values(fieldById).filter(
-        (f) => f.type === 'measure'
+        (f) => f.type === 'dimension' || f.type === 'measure'
       ),
     [fieldById]
   );
@@ -159,6 +159,29 @@ const FieldOverridesPanel: React.FC = () => {
 
     const handleColorRemove = () => {
       handleUpdateOverride(targetField.id, { colorFieldId: null, colorField: null });
+    };
+
+    const handleSizeDrop = (e: React.DragEvent) => {
+      try {
+        const fieldData = e.dataTransfer.getData('application/json');
+        if (fieldData) {
+          const parsedData = JSON.parse(fieldData);
+          const { field } = parsedData;
+          if (field) {
+            // Store the sizeField object directly, not just the ID
+            handleUpdateOverride(targetField.id, { 
+              sizeFieldId: field.id,
+              sizeField: field  // Store the actual field object
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error handling size drop:', error);
+      }
+    };
+
+    const handleSizeRemove = () => {
+      handleUpdateOverride(targetField.id, { sizeFieldId: null, sizeField: null });
     };
 
     const getChipStyles = (field: Field) => {
@@ -245,31 +268,39 @@ const FieldOverridesPanel: React.FC = () => {
 
         <Divider sx={{ my: 1 }} />
 
-        {/* Size override */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
-          <Typography variant="caption" sx={{ minWidth: 60 }}>
-            Size
-          </Typography>
-          <TextField
-            select
-            size="small"
-            variant="outlined"
-            label="Size field"
-            value={override.sizeFieldId ?? ''}
-            onChange={(e) =>
-              handleUpdateOverride(targetField.id, {
-                sizeFieldId: e.target.value || null,
-              })
-            }
-            sx={{ minWidth: 140 }}
-          >
-            <MenuItem value="">Inherit</MenuItem>
-            {allMeasureFields.map((f) => (
-              <MenuItem key={f.id} value={f.id}>
-                {f.columnName}
-              </MenuItem>
-            ))}
-          </TextField>
+        {/* Size override with drop zone */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="caption" sx={{ minWidth: 60 }}>
+              Size
+            </Typography>
+            <Box sx={{ flex: 1 }}>
+              <PropertyDropZone
+                hasContent={resolvedSizeField !== null}
+                emptyMessage="Drag a field or use manual size"
+                onDrop={handleSizeDrop}
+              >
+                {resolvedSizeField && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Chip
+                      label={getFieldDisplayName(resolvedSizeField)}
+                      onDelete={handleSizeRemove}
+                      deleteIcon={<CloseIcon />}
+                      size="small"
+                      sx={{
+                        backgroundColor: '#f5f5f5',
+                        border: '1px solid #bdbdbd',
+                        '& .MuiChip-label': {
+                          fontSize: '12px',
+                          fontWeight: 500,
+                        },
+                      }}
+                    />
+                  </Box>
+                )}
+              </PropertyDropZone>
+            </Box>
+          </Box>
         </Box>
         <SizeRangeControl
           sizeField={resolvedSizeField}
@@ -397,11 +428,27 @@ const FieldOverridesPanel: React.FC = () => {
       dispatch({ type: 'SET_COLOR_BIAS', payload: bias });
     };
 
-    const handleGlobalSizeFieldChange = (value: string) => {
+    const handleGlobalSizeDrop = (e: React.DragEvent) => {
+      try {
+        const fieldData = e.dataTransfer.getData('application/json');
+        if (fieldData) {
+          const parsedData = JSON.parse(fieldData);
+          const { field } = parsedData;
+          if (field) {
+            recordAction(getUndoableSnapshot());
+            clearSizeOverridesForAllFields();
+            dispatch({ type: 'SET_SIZE_FIELD', payload: field });
+          }
+        }
+      } catch (error) {
+        console.error('Error handling size drop:', error);
+      }
+    };
+
+    const handleGlobalSizeRemove = () => {
       recordAction(getUndoableSnapshot());
       clearSizeOverridesForAllFields();
-      const selected = value ? fieldById[value] || null : null;
-      dispatch({ type: 'SET_SIZE_FIELD', payload: selected || null });
+      dispatch({ type: 'SET_SIZE_FIELD', payload: null });
     };
 
     const handleGlobalSizeRangeChange = (range: [number, number]) => {
@@ -493,27 +540,39 @@ const FieldOverridesPanel: React.FC = () => {
 
         <Divider sx={{ my: 1 }} />
 
-        {/* Size (global) */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
-          <Typography variant="caption" sx={{ minWidth: 60 }}>
-            Size
-          </Typography>
-          <TextField
-            select
-            size="small"
-            variant="outlined"
-            label="Size field"
-            value={resolvedGlobalSizeField?.id ?? ''}
-            onChange={(e) => handleGlobalSizeFieldChange(e.target.value)}
-            sx={{ minWidth: 140 }}
-          >
-            <MenuItem value="">None</MenuItem>
-            {allMeasureFields.map((f) => (
-              <MenuItem key={f.id} value={f.id}>
-                {f.columnName}
-              </MenuItem>
-            ))}
-          </TextField>
+        {/* Size (global) with drop zone */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="caption" sx={{ minWidth: 60 }}>
+              Size
+            </Typography>
+            <Box sx={{ flex: 1 }}>
+              <PropertyDropZone
+                hasContent={resolvedGlobalSizeField !== null}
+                emptyMessage="Drag a field or use manual size"
+                onDrop={handleGlobalSizeDrop}
+              >
+                {resolvedGlobalSizeField && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Chip
+                      label={getFieldDisplayName(resolvedGlobalSizeField)}
+                      onDelete={handleGlobalSizeRemove}
+                      deleteIcon={<CloseIcon />}
+                      size="small"
+                      sx={{
+                        backgroundColor: '#f5f5f5',
+                        border: '1px solid #bdbdbd',
+                        '& .MuiChip-label': {
+                          fontSize: '12px',
+                          fontWeight: 500,
+                        },
+                      }}
+                    />
+                  </Box>
+                )}
+              </PropertyDropZone>
+            </Box>
+          </Box>
         </Box>
         <SizeRangeControl
           sizeField={resolvedGlobalSizeField || null}
