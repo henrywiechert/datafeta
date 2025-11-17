@@ -197,16 +197,29 @@ export function generateCartesianPlots(
         cellColorBias,
         cellManualColor,
         (() => {
-          // Per-cell label configuration based on dataLabelMode
+          // Per-cell label configuration based on dataLabelMode and labelFields
           if (!labelCfg) return undefined;
           if (cellOverride?.dataLabelMode === 'off') {
             return undefined;
           }
-          if (cellOverride?.dataLabelMode === 'on') {
-            return { ...labelCfg, labelsEnabled: true };
+          
+          // Build effective labelCfg for this cell
+          let effectiveLabelCfg = { ...labelCfg };
+          
+          // If cell override has labelFields, use those instead of global
+          if (cellOverride?.labelFields && cellOverride.labelFields.length > 0) {
+            effectiveLabelCfg = {
+              ...effectiveLabelCfg,
+              labelFields: cellOverride.labelFields,
+            };
           }
-          // inherit
-          return labelCfg;
+          
+          // If dataLabelMode is 'on', force enable labels
+          if (cellOverride?.dataLabelMode === 'on') {
+            effectiveLabelCfg.labelsEnabled = true;
+          }
+          
+          return effectiveLabelCfg;
         })()
       );
 

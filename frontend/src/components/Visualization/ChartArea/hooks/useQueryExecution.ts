@@ -20,6 +20,7 @@ interface UseQueryExecutionProps {
   virtualColumns?: import('../../../../types').VirtualColumnDefinition[];
   additionalColorFields?: Field[];
   additionalSizeFields?: Field[];
+  additionalLabelFields?: Field[];
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
   dispatch: (action: any) => void;
@@ -43,6 +44,7 @@ export const useQueryExecution = ({
   virtualColumns = [],
   additionalColorFields = [],
   additionalSizeFields = [],
+  additionalLabelFields = [],
   startOperation,
   completeOperation,
   dispatch,
@@ -189,6 +191,14 @@ export const useQueryExecution = ({
         allFields.push(sizeEntry);
       }
     }
+    for (const addlLabelField of additionalLabelFields) {
+      if (!allFields.some(f => f.id === addlLabelField.id)) {
+        const labelEntry = (addlLabelField.type === 'measure' && !addlLabelField.aggregation && [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation))
+          ? { ...addlLabelField, aggregation: 'sum' }
+          : addlLabelField;
+        allFields.push(labelEntry);
+      }
+    }
     
     // Merge label fields (without axis tagging) so query builder can include them via label_fields
   const mergedFields = [...allFields];
@@ -228,7 +238,7 @@ export const useQueryExecution = ({
     }
 
     return queryDesc;
-  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields, colorField, sizeField, filterConfigurations, labelFields, optimizationHints, virtualTable, virtualColumns, additionalColorFields, additionalSizeFields]);
+  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields, colorField, sizeField, filterConfigurations, labelFields, optimizationHints, virtualTable, virtualColumns, additionalColorFields, additionalSizeFields, additionalLabelFields]);
 
   // Effect to handle query execution when fields change
   useEffect(() => {
@@ -283,6 +293,14 @@ export const useQueryExecution = ({
           mergedFields.push(sizeEntry);
         }
       }
+      for (const addlLabelField of additionalLabelFields) {
+        if (!mergedFields.some(f => f.id === addlLabelField.id)) {
+          const labelEntry = (addlLabelField.type === 'measure' && !addlLabelField.aggregation && [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation))
+            ? { ...addlLabelField, aggregation: 'sum' }
+            : addlLabelField;
+          mergedFields.push(labelEntry);
+        }
+      }
       
       // For CSV connections using DuckDB, use 'main' as the default database if none is set
       let effectiveDatabase = selectedDatabase;
@@ -329,7 +347,7 @@ export const useQueryExecution = ({
 
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTable, selectedDatabase, connectionDetails, xAxisFields, yAxisFields, colorField, sizeField, labelFields, filterConfigurations, virtualTable, additionalColorFields, additionalSizeFields]);
+  }, [selectedTable, selectedDatabase, connectionDetails, xAxisFields, yAxisFields, colorField, sizeField, labelFields, filterConfigurations, virtualTable, additionalColorFields, additionalSizeFields, additionalLabelFields]);
 
   // Cleanup on unmount
   useEffect(() => {

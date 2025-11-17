@@ -63,6 +63,21 @@ const ChartArea: React.FC = () => {
     return fields;
   }, [fieldOverrides]);
 
+  const additionalLabelFields = React.useMemo(() => {
+    const fields: any[] = [];
+    Object.values(fieldOverrides || {}).forEach((override: any) => {
+      if (override.labelFields) {
+        override.labelFields.forEach((labelField: any) => {
+          if (!fields.some((f: any) => f.id === labelField.id)) {
+            fields.push(labelField);
+          }
+        });
+      }
+    });
+    console.log('[ChartArea] additionalLabelFields:', fields.map((f: any) => f.columnName));
+    return fields;
+  }, [fieldOverrides]);
+
   // Use the extracted data processing hook
   const { useTableView, tableData } = useDataProcessing({
     xAxisFields,
@@ -87,6 +102,7 @@ const ChartArea: React.FC = () => {
     dispatch,
     additionalColorFields,
     additionalSizeFields,
+    additionalLabelFields,
   });
 
   // Use the extracted chart generation hook

@@ -37,6 +37,7 @@ const FieldOverridesPanel: React.FC = () => {
     sizeField,
     sizeRange,
     manualSize,
+    labelFields,
     labelsEnabled,
     labelSamplingStrategy,
     labelSamplingThreshold,
@@ -182,6 +183,36 @@ const FieldOverridesPanel: React.FC = () => {
 
     const handleSizeRemove = () => {
       handleUpdateOverride(targetField.id, { sizeFieldId: null, sizeField: null });
+    };
+
+    const handleLabelDrop = (e: React.DragEvent) => {
+      try {
+        const fieldData = e.dataTransfer.getData('application/json');
+        if (fieldData) {
+          const parsedData = JSON.parse(fieldData);
+          const { field } = parsedData;
+          if (field) {
+            // Add field to labelFields array (support multiple fields)
+            const currentLabelFields = override.labelFields || [];
+            // Avoid duplicates
+            if (!currentLabelFields.some((f: Field) => f.id === field.id)) {
+              handleUpdateOverride(targetField.id, {
+                labelFields: [...currentLabelFields, field],
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error handling label drop:', error);
+      }
+    };
+
+    const handleLabelRemove = (fieldIdToRemove: string) => {
+      const currentLabelFields = override.labelFields || [];
+      const updatedLabelFields = currentLabelFields.filter((f: Field) => f.id !== fieldIdToRemove);
+      handleUpdateOverride(targetField.id, {
+        labelFields: updatedLabelFields.length > 0 ? updatedLabelFields : undefined,
+      });
     };
 
     const getChipStyles = (field: Field) => {
@@ -341,6 +372,40 @@ const FieldOverridesPanel: React.FC = () => {
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography variant="caption" sx={{ minWidth: 60 }}>
+              Label fields
+            </Typography>
+            <Box sx={{ flex: 1 }}>
+              <PropertyDropZone
+                hasContent={(override.labelFields?.length || 0) > 0}
+                emptyMessage="Drag fields to show as labels"
+                onDrop={handleLabelDrop}
+              >
+                {override.labelFields && override.labelFields.length > 0 && (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {override.labelFields.map((field: Field) => (
+                      <Chip
+                        key={field.id}
+                        label={getFieldDisplayName(field)}
+                        onDelete={() => handleLabelRemove(field.id)}
+                        deleteIcon={<CloseIcon />}
+                        size="small"
+                        sx={{
+                          backgroundColor: '#fff3e0',
+                          border: '1px solid #ff9800',
+                          '& .MuiChip-label': {
+                            fontSize: '12px',
+                            fontWeight: 500,
+                          },
+                        }}
+                      />
+                    ))}
+                  </Box>
+                )}
+              </PropertyDropZone>
+            </Box>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="caption" sx={{ minWidth: 60 }}>
               Data labels
             </Typography>
             <ToggleButtonGroup
@@ -374,6 +439,15 @@ const FieldOverridesPanel: React.FC = () => {
     const next: typeof fieldOverrides = {};
     Object.entries(fieldOverrides || {}).forEach(([id, override]: any) => {
       const { sizeFieldId, sizeRange, manualSize, ...rest } = override || {};
+      next[id] = rest;
+    });
+    dispatch({ type: 'SET_FIELD_OVERRIDES', payload: next });
+  };
+
+  const clearLabelOverridesForAllFields = () => {
+    const next: typeof fieldOverrides = {};
+    Object.entries(fieldOverrides || {}).forEach(([id, override]: any) => {
+      const { labelFields, ...rest } = override || {};
       next[id] = rest;
     });
     dispatch({ type: 'SET_FIELD_OVERRIDES', payload: next });
@@ -466,6 +540,36 @@ const FieldOverridesPanel: React.FC = () => {
     const handleGlobalLabelsEnabledChange = (checked: boolean) => {
       recordAction(getUndoableSnapshot());
       dispatch({ type: 'SET_LABELS_ENABLED', payload: checked });
+    };
+
+    const handleGlobalLabelDrop = (e: React.DragEvent) => {
+      try {
+        const fieldData = e.dataTransfer.getData('application/json');
+        if (fieldData) {
+          const parsedData = JSON.parse(fieldData);
+          const { field } = parsedData;
+          if (field) {
+            recordAction(getUndoableSnapshot());
+            clearLabelOverridesForAllFields();
+            // Add field to global labelFields array
+            const currentLabelFields = labelFields as Field[] || [];
+            // Avoid duplicates
+            if (!currentLabelFields.some((f: Field) => f.id === field.id)) {
+              dispatch({ type: 'SET_LABEL_FIELDS', payload: [...currentLabelFields, field] });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error handling global label drop:', error);
+      }
+    };
+
+    const handleGlobalLabelRemove = (fieldIdToRemove: string) => {
+      recordAction(getUndoableSnapshot());
+      clearLabelOverridesForAllFields();
+      const currentLabelFields = labelFields as Field[] || [];
+      const updatedLabelFields = currentLabelFields.filter((f: Field) => f.id !== fieldIdToRemove);
+      dispatch({ type: 'SET_LABEL_FIELDS', payload: updatedLabelFields });
     };
 
     const getChipStyles = (field: Field) => {
@@ -584,21 +688,52 @@ const FieldOverridesPanel: React.FC = () => {
 
         <Divider sx={{ my: 1 }} />
 
-        {/* Labels (global toggle only) */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-          <Typography variant="caption" sx={{ minWidth: 60 }}>
-            Labels
-          </Typography>
-          <FormControlLabel
-            control={
-              <Switch
-                size="small"
-                checked={labelsEnabled}
-                onChange={(e) => handleGlobalLabelsEnabledChange(e.target.checked)}
-              />
-            }
-            label={<Typography variant="caption">Show labels</Typography>}
-          />
+        {/* Labels (global) with drop zone */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="caption" sx={{ minWidth: 60 }}>
+              Label fields
+            </Typography>
+            <Box sx={{ flex: 1 }}>
+              <PropertyDropZone
+                hasContent={(labelFields?.length || 0) > 0}
+                emptyMessage="Drag fields to show as labels"
+                onDrop={handleGlobalLabelDrop}
+              >
+                {labelFields && labelFields.length > 0 && (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {(labelFields as Field[]).map((field: Field) => (
+                      <Chip
+                        key={field.id}
+                        label={getFieldDisplayName(field)}
+                        onDelete={() => handleGlobalLabelRemove(field.id)}
+                        deleteIcon={<CloseIcon />}
+                        size="small"
+                        sx={{
+                          backgroundColor: '#fff3e0',
+                          border: '1px solid #ff9800',
+                          '& .MuiChip-label': {
+                            fontSize: '12px',
+                            fontWeight: 500,
+                          },
+                        }}
+                      />
+                    ))}
+                  </Box>
+                )}
+              </PropertyDropZone>
+            </Box>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="caption" sx={{ minWidth: 60 }}>
+              Show labels
+            </Typography>
+            <Switch
+              size="small"
+              checked={labelsEnabled}
+              onChange={(e) => handleGlobalLabelsEnabledChange(e.target.checked)}
+            />
+          </Box>
         </Box>
       </Box>
     );
