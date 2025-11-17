@@ -772,6 +772,7 @@ export function useVisualizationState() {
     }, [dataSource.selectedTable, dataSource.joinedTables, dataSource.unionTables]);
 
     // Fetch filter metadata when new filter fields are added
+    // Also re-fetch when the selected table/database changes to handle config loading scenarios
     useEffect(() => {
         state.filterFields.forEach(field => {
             // Only fetch if metadata doesn't exist for this field
@@ -779,7 +780,13 @@ export function useVisualizationState() {
                 fetchFilterMetadata(field);
             }
         });
-    }, [state.filterFields, state.filterMetadata, fetchFilterMetadata]);
+    }, [
+        state.filterFields, 
+        state.filterMetadata, 
+        fetchFilterMetadata,
+        dataSource.selectedTable,      // Re-run when table changes (e.g., after config load)
+        dataSource.selectedDatabase    // Re-run when database changes (ClickHouse)
+    ]);
 
     // Refetch filter values with a regex pattern (for large discrete filters)
     const refetchFilterValues = useCallback(async (fieldId: string, regexPattern?: string) => {
