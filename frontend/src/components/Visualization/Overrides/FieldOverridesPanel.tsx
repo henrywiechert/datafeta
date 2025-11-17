@@ -28,6 +28,7 @@ const FieldOverridesPanel: React.FC = () => {
     xAxisFields,
     yAxisFields,
     availableFields,
+    filterFields,
     fieldOverrides,
     colorField,
     colorScheme,
@@ -50,8 +51,18 @@ const FieldOverridesPanel: React.FC = () => {
   );
 
   // Build a lookup of all known fields by id to resolve override references
+  // Include fields from ALL sources: axes, filters, available, and currently selected color/size fields
   const fieldById = useMemo(() => {
-    const all: Field[] = [...(xAxisFields as Field[]), ...(yAxisFields as Field[]), ...(availableFields as Field[])];
+    const all: Field[] = [
+      ...(xAxisFields as Field[]), 
+      ...(yAxisFields as Field[]), 
+      ...(filterFields as Field[]),
+      ...(availableFields as Field[])
+    ];
+    // Also include current color and size fields if they exist
+    if (colorField) all.push(colorField as Field);
+    if (sizeField) all.push(sizeField as Field);
+    
     const map: Record<string, Field> = {};
     for (const f of all) {
       if (!map[f.id]) {
@@ -59,7 +70,7 @@ const FieldOverridesPanel: React.FC = () => {
       }
     }
     return map;
-  }, [xAxisFields, yAxisFields, availableFields]);
+  }, [xAxisFields, yAxisFields, filterFields, availableFields, colorField, sizeField]);
 
   const allMeasureFields = useMemo(
     () =>
@@ -112,8 +123,9 @@ const FieldOverridesPanel: React.FC = () => {
   const renderFieldBody = (targetField: Field, axis: 'x' | 'y') => {
     const override: FieldOverrideState = fieldOverrides[targetField.id] || {};
 
-    const resolvedColorField = override.colorFieldId ? fieldById[override.colorFieldId] || null : null;
-    const resolvedSizeField = override.sizeFieldId ? fieldById[override.sizeFieldId] || null : null;
+    // Prefer the stored field object over the lookup
+    const resolvedColorField = override.colorField || (override.colorFieldId ? fieldById[override.colorFieldId] || null : null);
+    const resolvedSizeField = override.sizeField || (override.sizeFieldId ? fieldById[override.sizeFieldId] || null : null);
 
     const effectiveManualColor = override.manualColor || '#4e79a7';
     const effectiveColorScheme = override.colorScheme || colorScheme || 'tableau10';
@@ -133,7 +145,11 @@ const FieldOverridesPanel: React.FC = () => {
           const parsedData = JSON.parse(fieldData);
           const { field } = parsedData;
           if (field) {
-            handleUpdateOverride(targetField.id, { colorFieldId: field.id });
+            // Store the colorField object directly, not just the ID
+            handleUpdateOverride(targetField.id, { 
+              colorFieldId: field.id,
+              colorField: field  // Store the actual field object
+            });
           }
         }
       } catch (error) {
@@ -142,7 +158,7 @@ const FieldOverridesPanel: React.FC = () => {
     };
 
     const handleColorRemove = () => {
-      handleUpdateOverride(targetField.id, { colorFieldId: null });
+      handleUpdateOverride(targetField.id, { colorFieldId: null, colorField: null });
     };
 
     const getChipStyles = (field: Field) => {
@@ -193,7 +209,7 @@ const FieldOverridesPanel: React.FC = () => {
                 )}
               </PropertyDropZone>
             </Box>
-            {resolvedColorField && resolvedColorField.flavour === 'discrete' && (
+            {resolvedColorField && (
               <ColorSchemeSelector
                 currentSchemeId={effectiveColorScheme}
                 fieldFlavour={resolvedColorField.flavour}
@@ -453,7 +469,7 @@ const FieldOverridesPanel: React.FC = () => {
                 )}
               </PropertyDropZone>
             </Box>
-            {resolvedGlobalColorField && resolvedGlobalColorField.flavour === 'discrete' && (
+            {resolvedGlobalColorField && (
               <ColorSchemeSelector
                 currentSchemeId={effectiveColorScheme}
                 fieldFlavour={resolvedGlobalColorField.flavour}

@@ -40,6 +40,29 @@ const ChartArea: React.FC = () => {
   // Ref for the fullscreen target element
   const chartWrapperRef = useRef<HTMLDivElement>(null);
 
+  // Collect additional color/size fields from field overrides
+  const additionalColorFields = React.useMemo(() => {
+    const fields: any[] = [];
+    Object.values(fieldOverrides || {}).forEach((override: any) => {
+      if (override.colorField && !fields.some((f: any) => f.id === override.colorField.id)) {
+        fields.push(override.colorField);
+      }
+    });
+    console.log('[ChartArea] additionalColorFields:', fields.map((f: any) => f.columnName));
+    return fields;
+  }, [fieldOverrides]);
+
+  const additionalSizeFields = React.useMemo(() => {
+    const fields: any[] = [];
+    Object.values(fieldOverrides || {}).forEach((override: any) => {
+      if (override.sizeField && !fields.some((f: any) => f.id === override.sizeField.id)) {
+        fields.push(override.sizeField);
+      }
+    });
+    console.log('[ChartArea] additionalSizeFields:', fields.map((f: any) => f.columnName));
+    return fields;
+  }, [fieldOverrides]);
+
   // Use the extracted data processing hook
   const { useTableView, tableData } = useDataProcessing({
     xAxisFields,
@@ -62,6 +85,8 @@ const ChartArea: React.FC = () => {
     startOperation,
     completeOperation,
     dispatch,
+    additionalColorFields,
+    additionalSizeFields,
   });
 
   // Use the extracted chart generation hook
