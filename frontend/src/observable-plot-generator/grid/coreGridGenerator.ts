@@ -147,7 +147,10 @@ export function generateCartesianPlots(
       let cellManualSize: number | undefined = manualSize;
 
       if (cellOverride) {
-        if (cellOverride.colorFieldId) {
+        // Color field: prefer stored field object, fallback to lookup by ID
+        if (cellOverride.colorField) {
+          cellColorField = cellOverride.colorField;
+        } else if (cellOverride.colorFieldId) {
           const cf = fieldById[cellOverride.colorFieldId];
           if (cf) {
             cellColorField = cf;
@@ -163,7 +166,10 @@ export function generateCartesianPlots(
           cellManualColor = cellOverride.manualColor;
         }
 
-        if (cellOverride.sizeFieldId) {
+        // Size field: prefer stored field object, fallback to lookup by ID
+        if (cellOverride.sizeField) {
+          cellSizeField = cellOverride.sizeField;
+        } else if (cellOverride.sizeFieldId) {
           const sf = fieldById[cellOverride.sizeFieldId];
           if (sf) {
             cellSizeField = sf;
