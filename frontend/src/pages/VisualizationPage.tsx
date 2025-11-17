@@ -64,8 +64,6 @@ const VisualizationPageContent = () => {
         handleReorderFields,
         handleFilterDrop,
         handleRemoveFromFilter,
-        handleColorDrop,
-        handleRemoveFromColor,
     } = useDragDrop(availableFields);
 
     // Undo/Redo handlers
