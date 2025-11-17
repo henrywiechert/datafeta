@@ -15,10 +15,7 @@ import { useUndoRedo } from '../hooks/useUndoRedo';
 import FieldsPanel from '../components/Visualization/FieldsPanel';
 import ChartPanel from '../components/Visualization/ChartPanel';
 import FilterPanel from '../components/Visualization/Filters/FilterPanel';
-import ColorPanel from '../components/Visualization/Color/ColorPanel';
-// import SizePanel from '../components/Visualization/Size/SizePanel';
 import LegendPanel from '../components/Visualization/Legend/LegendPanel';
-import SizePanel from '../components/Visualization/Size/SizePanelComplete';
 import LabelPanel from '../components/Visualization/Label/LabelPanel';
 import FieldOverridesPanel from '../components/Visualization/Overrides/FieldOverridesPanel';
 import LoadingModal from '../components/LoadingModal';
@@ -304,43 +301,7 @@ const VisualizationPageContent = () => {
                                 onApplyFilters={handleApplyFilters}
                                 onRefetchValues={refetchFilterValues}
                             />
-                            <ColorPanel
-                                colorField={state.colorField}
-                                colorScheme={state.colorScheme}
-                                colorBias={state.colorBias}
-                                manualColor={state.manualColor}
-                                onDrop={handleColorDrop}
-                                onRemove={handleRemoveFromColor}
-                                onSchemeChange={(schemeId) => {
-                                    // Record current state for undo
-                                    recordAction(getUndoableSnapshot());
-                                    
-                                    dispatch({
-                                        type: 'SET_COLOR_SCHEME',
-                                        payload: schemeId
-                                    });
-                                }}
-                                onBiasChange={(bias) => {
-                                    // Record current state for undo
-                                    recordAction(getUndoableSnapshot());
-                                    
-                                    dispatch({
-                                        type: 'SET_COLOR_BIAS',
-                                        payload: bias
-                                    });
-                                }}
-                                onManualColorChange={(color) => {
-                                    // Record current state for undo
-                                    recordAction(getUndoableSnapshot());
-
-                                    dispatch({
-                                        type: 'SET_MANUAL_COLOR',
-                                        payload: color,
-                                    });
-                                }}
-                            />
                             <LabelPanel />
-                            <SizePanel />
                             <FieldOverridesPanel />
                             {state.colorField && (
                                 <LegendPanel
