@@ -18,6 +18,8 @@ interface UseQueryExecutionProps {
   labelFields?: Field[];
   virtualTable?: VirtualTableDefinition | null;
   virtualColumns?: import('../../../../types').VirtualColumnDefinition[];
+  additionalColorFields?: Field[];
+  additionalSizeFields?: Field[];
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
   dispatch: (action: any) => void;
@@ -39,6 +41,8 @@ export const useQueryExecution = ({
   labelFields = [],
   virtualTable = null,
   virtualColumns = [],
+  additionalColorFields = [],
+  additionalSizeFields = [],
   startOperation,
   completeOperation,
   dispatch,
@@ -168,6 +172,24 @@ export const useQueryExecution = ({
       allFields.push(sizeEntry);
     }
     
+    // Include additional color/size fields from per-field overrides
+    for (const addlColorField of additionalColorFields) {
+      if (!allFields.some(f => f.id === addlColorField.id)) {
+        const colorEntry = (addlColorField.type === 'measure' && !addlColorField.aggregation && [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation))
+          ? { ...addlColorField, aggregation: 'sum' }
+          : addlColorField;
+        allFields.push(colorEntry);
+      }
+    }
+    for (const addlSizeField of additionalSizeFields) {
+      if (!allFields.some(f => f.id === addlSizeField.id)) {
+        const sizeEntry = (addlSizeField.type === 'measure' && !addlSizeField.aggregation && [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation))
+          ? { ...addlSizeField, aggregation: 'sum' }
+          : addlSizeField;
+        allFields.push(sizeEntry);
+      }
+    }
+    
     // Merge label fields (without axis tagging) so query builder can include them via label_fields
   const mergedFields = [...allFields];
     for (const lf of labelFields) {
@@ -206,7 +228,7 @@ export const useQueryExecution = ({
     }
 
     return queryDesc;
-  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields, colorField, sizeField, filterConfigurations, labelFields, optimizationHints, virtualTable, virtualColumns]);
+  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields, colorField, sizeField, filterConfigurations, labelFields, optimizationHints, virtualTable, virtualColumns, additionalColorFields, additionalSizeFields]);
 
   // Effect to handle query execution when fields change
   useEffect(() => {
@@ -242,6 +264,24 @@ export const useQueryExecution = ({
           ? { ...sizeField, aggregation: 'sum' }
           : sizeField;
         mergedFields.push(sizeEntry);
+      }
+      
+      // Include additional color/size fields from per-field overrides
+      for (const addlColorField of additionalColorFields) {
+        if (!mergedFields.some(f => f.id === addlColorField.id)) {
+          const colorEntry = (addlColorField.type === 'measure' && !addlColorField.aggregation && [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation))
+            ? { ...addlColorField, aggregation: 'sum' }
+            : addlColorField;
+          mergedFields.push(colorEntry);
+        }
+      }
+      for (const addlSizeField of additionalSizeFields) {
+        if (!mergedFields.some(f => f.id === addlSizeField.id)) {
+          const sizeEntry = (addlSizeField.type === 'measure' && !addlSizeField.aggregation && [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation))
+            ? { ...addlSizeField, aggregation: 'sum' }
+            : addlSizeField;
+          mergedFields.push(sizeEntry);
+        }
       }
       
       // For CSV connections using DuckDB, use 'main' as the default database if none is set
@@ -289,7 +329,7 @@ export const useQueryExecution = ({
 
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTable, selectedDatabase, connectionDetails, xAxisFields, yAxisFields, colorField, sizeField, labelFields, filterConfigurations, virtualTable]);
+  }, [selectedTable, selectedDatabase, connectionDetails, xAxisFields, yAxisFields, colorField, sizeField, labelFields, filterConfigurations, virtualTable, additionalColorFields, additionalSizeFields]);
 
   // Cleanup on unmount
   useEffect(() => {

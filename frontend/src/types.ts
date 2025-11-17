@@ -352,12 +352,14 @@ export type DataLabelMode = 'inherit' | 'on' | 'off';
 export interface FieldOverrideState {
   // Color overrides
   colorFieldId?: string | null; // Optional: use a specific field as color encoding for charts this field contributes to
+  colorField?: Field | null; // The actual field object (stored for fields not in availableFields)
   colorScheme?: string;
   colorBias?: number;
   manualColor?: string;
 
   // Size overrides
   sizeFieldId?: string | null; // Optional: use a specific field as size encoding
+  sizeField?: Field | null; // The actual field object (stored for fields not in availableFields)
   sizeRange?: [number, number];
   manualSize?: number;
 
