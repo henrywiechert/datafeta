@@ -375,6 +375,11 @@ export interface FieldOverrideState {
    * - 'off': suppress labels for charts this field contributes to
    */
   dataLabelMode?: DataLabelMode;
+  /**
+   * Label fields to show as text on charts this field contributes to.
+   * Array of Field objects (supports multiple fields that get concatenated).
+   */
+  labelFields?: Field[];
 }
 
 // Snapshot of visualization state for persistence in sheets
