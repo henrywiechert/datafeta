@@ -55,3 +55,5 @@ Not working
 
 Endless Undo
 Done
+
+No re-query on Size change
