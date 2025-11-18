@@ -63,3 +63,41 @@ To verify the fix:
 The previous fix (referenced in the user's message) added `dataSource.selectedTable` and `dataSource.selectedDatabase` to the useEffect dependencies to trigger re-fetching when these change. While this correctly identified *when* to re-fetch, it didn't solve the underlying problem of parallel fetches canceling each other via the global abort controller.
 
 This new fix completes the solution by making each field's metadata fetch independent and non-interfering.
+
+## Additional Fix: Preserving Filter Configurations
+
+After the initial fix, a second issue was discovered: when loading a configuration from JSON or switching tabs, the filter checkboxes would show all values as selected instead of the saved selections, even though the charts and queries were correct.
+
+### Root Cause
+
+The `fetchFilterMetadata` function was unconditionally dispatching a `SET_FILTER_CONFIGURATION` action that selected all available values (or full range for continuous/datetime filters). This would overwrite any filter configuration that was:
+1. Loaded from a saved JSON file
+2. Restored when switching between tabs
+
+### Solution
+
+Modified `fetchFilterMetadata` to check if a filter configuration already exists before initializing a default one:
+
+```typescript
+// Initialize filter configuration with all fetched values selected
+// BUT only if a configuration doesn't already exist (e.g., from loaded JSON)
+if (!state.filterConfigurations[field.id]) {
+    dispatch({
+        type: 'SET_FILTER_CONFIGURATION',
+        payload: { ... }
+    });
+}
+```
+
+This fix was applied to all three filter types:
+- **Discrete filters**: Only select all values if no configuration exists
+- **Continuous filters**: Only set full range if no configuration exists  
+- **DateTime filters**: Only set full range if no configuration exists
+
+Also added `state.filterConfigurations` to the `fetchFilterMetadata` dependencies so it can check the current state.
+
+### Result
+
+- Filter configurations from loaded JSON files are now properly preserved
+- Tab switching maintains the correct checkbox selections
+- New filters still get sensible defaults (all selected for discrete, full range for continuous/datetime)
