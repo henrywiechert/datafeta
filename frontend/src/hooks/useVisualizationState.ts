@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Field, DataType, FilterMetadata } from '../types';
 import { apiService } from '../apiService';
@@ -12,6 +12,10 @@ export function useVisualizationState() {
     const { connectionDetails } = useConnection();
     const { state, dispatch } = useVisualizationContext();
     const { updateActiveSheetState } = useSheetContext();
+    
+    // Store abort controllers for filter metadata fetches, keyed by fieldId
+    // This allows each field's metadata fetch to be independently cancellable
+    const filterMetadataAbortControllers = useRef<Map<string, AbortController>>(new Map());
     const { 
         dataSource, 
         setSelectedDatabase, 
@@ -25,6 +29,16 @@ export function useVisualizationState() {
         setSuggestedUnionableTables,
         setVirtualTable
     } = useDataSource();
+
+    // Cleanup: abort all pending filter metadata fetches on unmount
+    useEffect(() => {
+        return () => {
+            filterMetadataAbortControllers.current.forEach(controller => {
+                controller.abort();
+            });
+            filterMetadataAbortControllers.current.clear();
+        };
+    }, []);
 
     // Sync visualization state changes back to the active sheet
     // Note: We do NOT sync these because they are shared across all sheets:
@@ -497,6 +511,16 @@ export function useVisualizationState() {
         if (!dataSource.selectedTable) return;
         const dbParam = connectionDetails?.type === 'clickhouse' ? dataSource.selectedDatabase : undefined;
 
+        // Cancel any existing fetch for this field
+        const existingController = filterMetadataAbortControllers.current.get(field.id);
+        if (existingController) {
+            existingController.abort();
+        }
+
+        // Create a new abort controller for this field's fetch
+        const abortController = new AbortController();
+        filterMetadataAbortControllers.current.set(field.id, abortController);
+
         // Determine filter type based on field characteristics
         const getFilterType = (): 'discrete' | 'continuous' | 'datetime' => {
             if (field.dataType === 'datetime') {
@@ -540,7 +564,8 @@ export function useVisualizationState() {
                     field.dateTimePart,
                     field.dateTimeMode,
                     dataSource.unionTables,  // Pass union tables for _source_table handling
-                    state.virtualColumns  // Pass virtual columns for expression support
+                    state.virtualColumns,  // Pass virtual columns for expression support
+                    abortController.signal  // Pass the abort signal
                 );
                 
                 let values: any[];
@@ -559,7 +584,8 @@ export function useVisualizationState() {
                         undefined, // no limit
                         undefined, // no random sampling
                         dataSource.unionTables,  // Pass union tables
-                        state.virtualColumns  // Pass virtual columns
+                        state.virtualColumns,  // Pass virtual columns
+                        abortController.signal  // Pass the abort signal
                     );
                 } else {
                     // Too many values - fetch only 100 random samples
@@ -573,7 +599,8 @@ export function useVisualizationState() {
                         100, // limit to 100
                         true, // use random sampling
                         dataSource.unionTables,  // Pass union tables
-                        state.virtualColumns  // Pass virtual columns
+                        state.virtualColumns,  // Pass virtual columns
+                        abortController.signal  // Pass the abort signal
                     );
                     isPartial = true;
                     warningMessage = `This field has ${count.toLocaleString()} unique values. Showing 100 random samples. Use Query Regex to filter.`;
@@ -682,8 +709,19 @@ export function useVisualizationState() {
                     }
                 });
             }
+            
+            // Clean up the abort controller after successful fetch
+            filterMetadataAbortControllers.current.delete(field.id);
         } catch (err: any) {
-            // Set error state
+            // Clean up the abort controller
+            filterMetadataAbortControllers.current.delete(field.id);
+            
+            // Don't set error state if the request was aborted (this is intentional cancellation)
+            if (err.message === 'Request was cancelled') {
+                return;
+            }
+            
+            // Set error state for actual errors
             const errorMetadata: FilterMetadata = {
                 fieldId: field.id,
                 columnName: field.columnName,
@@ -700,7 +738,7 @@ export function useVisualizationState() {
                 payload: { fieldId: field.id, metadata: errorMetadata }
             });
         }
-    }, [dataSource.selectedTable, dataSource.selectedDatabase, dataSource.unionTables, connectionDetails?.type, dispatch]);
+    }, [dataSource.selectedTable, dataSource.selectedDatabase, dataSource.unionTables, connectionDetails?.type, dispatch, state.virtualColumns]);
 
     // --- Effects to trigger data fetching ---
     useEffect(() => {
@@ -795,6 +833,16 @@ export function useVisualizationState() {
         
         const dbParam = connectionDetails?.type === 'clickhouse' ? dataSource.selectedDatabase : undefined;
         
+        // Cancel any existing fetch for this field
+        const existingController = filterMetadataAbortControllers.current.get(fieldId);
+        if (existingController) {
+            existingController.abort();
+        }
+
+        // Create a new abort controller for this field's refetch
+        const abortController = new AbortController();
+        filterMetadataAbortControllers.current.set(fieldId, abortController);
+        
         // Set loading state
         const currentMetadata = state.filterMetadata[fieldId];
         if (currentMetadata && currentMetadata.type === 'discrete') {
@@ -817,7 +865,8 @@ export function useVisualizationState() {
                 field.dateTimePart,
                 field.dateTimeMode,
                 dataSource.unionTables,  // Pass union tables for _source_table handling
-                state.virtualColumns  // Pass virtual columns for expression support
+                state.virtualColumns,  // Pass virtual columns for expression support
+                abortController.signal  // Pass the abort signal
             );
             
             let values: any[];
@@ -842,7 +891,8 @@ export function useVisualizationState() {
                     undefined, // no limit
                     undefined, // no random sampling
                     dataSource.unionTables,  // Pass union tables
-                    state.virtualColumns  // Pass virtual columns
+                    state.virtualColumns,  // Pass virtual columns
+                    abortController.signal  // Pass the abort signal
                 );
                 
                 // Keep isPartial=true if this field originally had >5000 values
@@ -868,7 +918,8 @@ export function useVisualizationState() {
                     100, // Limit to 100 random samples
                     true, // use random sampling
                     dataSource.unionTables,  // Pass union tables
-                    state.virtualColumns  // Pass virtual columns
+                    state.virtualColumns,  // Pass virtual columns
+                    abortController.signal  // Pass the abort signal
                 );
                 isPartial = true;
                 warningMessage = `Query matches ${count.toLocaleString()} values (still too many). Showing 100 random samples matching your pattern. Refine further to see all values.`;
@@ -930,8 +981,19 @@ export function useVisualizationState() {
                 });
             }
             // If count > 5000, don't update selectedValues (keep existing 100 selected)
+            
+            // Clean up the abort controller after successful refetch
+            filterMetadataAbortControllers.current.delete(fieldId);
         } catch (err: any) {
-            // Set error state
+            // Clean up the abort controller
+            filterMetadataAbortControllers.current.delete(fieldId);
+            
+            // Don't set error state if the request was aborted (this is intentional cancellation)
+            if (err.message === 'Request was cancelled') {
+                return;
+            }
+            
+            // Set error state for actual errors
             const errorMetadata: FilterMetadata = {
                 fieldId: field.id,
                 columnName: field.columnName,
@@ -946,7 +1008,7 @@ export function useVisualizationState() {
                 payload: { fieldId, metadata: errorMetadata }
             });
         }
-    }, [state.filterFields, state.filterMetadata, dataSource.selectedTable, dataSource.selectedDatabase, dataSource.unionTables, connectionDetails?.type, dispatch]);
+    }, [state.filterFields, state.filterMetadata, dataSource.selectedTable, dataSource.selectedDatabase, dataSource.unionTables, connectionDetails?.type, dispatch, state.virtualColumns]);
 
     // --- Virtual Column Handlers ---
     
