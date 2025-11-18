@@ -60,6 +60,7 @@ interface VisualizationState {
 type VisualizationAction =
   | { type: 'SET_X_AXIS_FIELDS'; payload: Field[] }
   | { type: 'SET_Y_AXIS_FIELDS'; payload: Field[] }
+  | { type: 'SWAP_AXIS_FIELDS' }
   | { type: 'SET_AVAILABLE_FIELDS'; payload: Field[] }
   | { type: 'SET_DATABASES'; payload: Database[] }
   | { type: 'SET_TABLES'; payload: Table[] }
@@ -209,6 +210,14 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
     case 'SET_Y_AXIS_FIELDS':
       if (sameFieldArray(state.yAxisFields, action.payload)) return state;
       return { ...state, yAxisFields: action.payload, queryVersion: state.queryVersion + 1 };
+    case 'SWAP_AXIS_FIELDS':
+      // Swap X and Y axis fields
+      return { 
+        ...state, 
+        xAxisFields: state.yAxisFields, 
+        yAxisFields: state.xAxisFields, 
+        queryVersion: state.queryVersion + 1 
+      };
     case 'SET_AVAILABLE_FIELDS':
       return { ...state, availableFields: action.payload };
     case 'SET_DATABASES':
