@@ -624,20 +624,23 @@ export function useVisualizationState() {
                 });
 
                 // Initialize filter configuration with all fetched values selected
-                dispatch({
-                    type: 'SET_FILTER_CONFIGURATION',
-                    payload: {
-                        fieldId: field.id,
-                        config: {
+                // BUT only if a configuration doesn't already exist (e.g., from loaded JSON)
+                if (!state.filterConfigurations[field.id]) {
+                    dispatch({
+                        type: 'SET_FILTER_CONFIGURATION',
+                        payload: {
                             fieldId: field.id,
-                            columnName: field.columnName,
-                            type: 'discrete',
-                            selectedValues: values,
-                            dateTimePart: field.dateTimePart,
-                            dateTimeMode: field.dateTimeMode,
+                            config: {
+                                fieldId: field.id,
+                                columnName: field.columnName,
+                                type: 'discrete',
+                                selectedValues: values,
+                                dateTimePart: field.dateTimePart,
+                                dateTimeMode: field.dateTimeMode,
+                            }
                         }
-                    }
-                });
+                    });
+                }
             } else if (filterType === 'continuous') {
                 const range = await apiService.getFieldRange(
                     field.columnName,
@@ -660,19 +663,22 @@ export function useVisualizationState() {
                 });
 
                 // Initialize filter configuration with full range
-                dispatch({
-                    type: 'SET_FILTER_CONFIGURATION',
-                    payload: {
-                        fieldId: field.id,
-                        config: {
+                // BUT only if a configuration doesn't already exist (e.g., from loaded JSON)
+                if (!state.filterConfigurations[field.id]) {
+                    dispatch({
+                        type: 'SET_FILTER_CONFIGURATION',
+                        payload: {
                             fieldId: field.id,
-                            columnName: field.columnName,
-                            type: 'continuous',
-                            min: range.min,
-                            max: range.max,
+                            config: {
+                                fieldId: field.id,
+                                columnName: field.columnName,
+                                type: 'continuous',
+                                min: range.min,
+                                max: range.max,
+                            }
                         }
-                    }
-                });
+                    });
+                }
             } else if (filterType === 'datetime') {
                 const range = await apiService.getDateTimeRange(
                     field.columnName,
@@ -695,19 +701,22 @@ export function useVisualizationState() {
                 });
 
                 // Initialize filter configuration with full range
-                dispatch({
-                    type: 'SET_FILTER_CONFIGURATION',
-                    payload: {
-                        fieldId: field.id,
-                        config: {
+                // BUT only if a configuration doesn't already exist (e.g., from loaded JSON)
+                if (!state.filterConfigurations[field.id]) {
+                    dispatch({
+                        type: 'SET_FILTER_CONFIGURATION',
+                        payload: {
                             fieldId: field.id,
-                            columnName: field.columnName,
-                            type: 'datetime',
-                            startDate: range.min,
-                            endDate: range.max,
+                            config: {
+                                fieldId: field.id,
+                                columnName: field.columnName,
+                                type: 'datetime',
+                                startDate: range.min,
+                                endDate: range.max,
+                            }
                         }
-                    }
-                });
+                    });
+                }
             }
             
             // Clean up the abort controller after successful fetch
@@ -738,7 +747,7 @@ export function useVisualizationState() {
                 payload: { fieldId: field.id, metadata: errorMetadata }
             });
         }
-    }, [dataSource.selectedTable, dataSource.selectedDatabase, dataSource.unionTables, connectionDetails?.type, dispatch, state.virtualColumns]);
+    }, [dataSource.selectedTable, dataSource.selectedDatabase, dataSource.unionTables, connectionDetails?.type, dispatch, state.virtualColumns, state.filterConfigurations]);
 
     // --- Effects to trigger data fetching ---
     useEffect(() => {
