@@ -20,6 +20,23 @@ const LABEL_MODE_OPTIONS: { value: DataLabelMode; label: string }[] = [
   { value: 'off', label: 'Off' },
 ];
 
+const CHIP_BASE_SX = {
+  maxWidth: '100%',
+  minWidth: 0,
+  display: 'inline-flex',
+  flexShrink: 1,
+} as const;
+
+const CHIP_LABEL_SX = {
+  fontSize: '12px',
+  fontWeight: 500,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  maxWidth: '100%',
+  display: 'block',
+} as const;
+
 const FieldOverridesPanel: React.FC = () => {
   const { state, dispatch, getUndoableSnapshot } = useVisualizationContext();
   const { recordAction } = useUndoRedo();
@@ -238,24 +255,32 @@ const FieldOverridesPanel: React.FC = () => {
             <Typography variant="caption" sx={{ minWidth: 60 }}>
               Color
             </Typography>
-            <Box sx={{ flex: 1 }}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
               <PropertyDropZone
                 hasContent={resolvedColorField !== null}
                 emptyMessage="Drag a field or use manual color"
                 onDrop={handleColorDrop}
               >
                 {resolvedColorField && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      minWidth: 0,
+                      width: '100%',
+                    }}
+                  >
                     <Chip
                       label={getFieldDisplayName(resolvedColorField)}
                       onDelete={handleColorRemove}
                       deleteIcon={<CloseIcon />}
                       size="small"
                       sx={{
+                        ...CHIP_BASE_SX,
                         ...getChipStyles(resolvedColorField),
                         '& .MuiChip-label': {
-                          fontSize: '12px',
-                          fontWeight: 500,
+                          ...CHIP_LABEL_SX,
                         },
                       }}
                     />
@@ -305,25 +330,33 @@ const FieldOverridesPanel: React.FC = () => {
             <Typography variant="caption" sx={{ minWidth: 60 }}>
               Size
             </Typography>
-            <Box sx={{ flex: 1 }}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
               <PropertyDropZone
                 hasContent={resolvedSizeField !== null}
                 emptyMessage="Drag a field or use manual size"
                 onDrop={handleSizeDrop}
               >
                 {resolvedSizeField && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      minWidth: 0,
+                      width: '100%',
+                    }}
+                  >
                     <Chip
                       label={getFieldDisplayName(resolvedSizeField)}
                       onDelete={handleSizeRemove}
                       deleteIcon={<CloseIcon />}
                       size="small"
                       sx={{
+                        ...CHIP_BASE_SX,
                         backgroundColor: '#f5f5f5',
                         border: '1px solid #bdbdbd',
                         '& .MuiChip-label': {
-                          fontSize: '12px',
-                          fontWeight: 500,
+                          ...CHIP_LABEL_SX,
                         },
                       }}
                     />
@@ -367,21 +400,29 @@ const FieldOverridesPanel: React.FC = () => {
                   displayLabel: e.target.value || undefined,
                 })
               }
-              sx={{ flex: 1 }}
+              sx={{ flex: 1, minWidth: 0 }}
             />
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography variant="caption" sx={{ minWidth: 60 }}>
               Label fields
             </Typography>
-            <Box sx={{ flex: 1 }}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
               <PropertyDropZone
                 hasContent={(override.labelFields?.length || 0) > 0}
                 emptyMessage="Drag fields to show as labels"
                 onDrop={handleLabelDrop}
               >
                 {override.labelFields && override.labelFields.length > 0 && (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: 0.5,
+                      minWidth: 0,
+                      width: '100%',
+                    }}
+                  >
                     {override.labelFields.map((field: Field) => (
                       <Chip
                         key={field.id}
@@ -390,11 +431,11 @@ const FieldOverridesPanel: React.FC = () => {
                         deleteIcon={<CloseIcon />}
                         size="small"
                         sx={{
+                          ...CHIP_BASE_SX,
                           backgroundColor: '#fff3e0',
                           border: '1px solid #ff9800',
                           '& .MuiChip-label': {
-                            fontSize: '12px',
-                            fontWeight: 500,
+                            ...CHIP_LABEL_SX,
                           },
                         }}
                       />
@@ -599,24 +640,32 @@ const FieldOverridesPanel: React.FC = () => {
             <Typography variant="caption" sx={{ minWidth: 60 }}>
               Color
             </Typography>
-            <Box sx={{ flex: 1 }}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
               <PropertyDropZone
                 hasContent={resolvedGlobalColorField !== null}
                 emptyMessage="Drag a field or use manual color"
                 onDrop={handleGlobalColorDrop}
               >
                 {resolvedGlobalColorField && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      minWidth: 0,
+                      width: '100%',
+                    }}
+                  >
                     <Chip
                       label={getFieldDisplayName(resolvedGlobalColorField)}
                       onDelete={handleGlobalColorRemove}
                       deleteIcon={<CloseIcon />}
                       size="small"
                       sx={{
+                        ...CHIP_BASE_SX,
                         ...getChipStyles(resolvedGlobalColorField),
                         '& .MuiChip-label': {
-                          fontSize: '12px',
-                          fontWeight: 500,
+                          ...CHIP_LABEL_SX,
                         },
                       }}
                     />
@@ -654,25 +703,33 @@ const FieldOverridesPanel: React.FC = () => {
             <Typography variant="caption" sx={{ minWidth: 60 }}>
               Size
             </Typography>
-            <Box sx={{ flex: 1 }}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
               <PropertyDropZone
                 hasContent={resolvedGlobalSizeField !== null}
                 emptyMessage="Drag a field or use manual size"
                 onDrop={handleGlobalSizeDrop}
               >
                 {resolvedGlobalSizeField && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      minWidth: 0,
+                      width: '100%',
+                    }}
+                  >
                     <Chip
                       label={getFieldDisplayName(resolvedGlobalSizeField)}
                       onDelete={handleGlobalSizeRemove}
                       deleteIcon={<CloseIcon />}
                       size="small"
                       sx={{
+                        ...CHIP_BASE_SX,
                         backgroundColor: '#f5f5f5',
                         border: '1px solid #bdbdbd',
                         '& .MuiChip-label': {
-                          fontSize: '12px',
-                          fontWeight: 500,
+                          ...CHIP_LABEL_SX,
                         },
                       }}
                     />
@@ -698,14 +755,22 @@ const FieldOverridesPanel: React.FC = () => {
             <Typography variant="caption" sx={{ minWidth: 60 }}>
               Label fields
             </Typography>
-            <Box sx={{ flex: 1 }}>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
               <PropertyDropZone
                 hasContent={(labelFields?.length || 0) > 0}
                 emptyMessage="Drag fields to show as labels"
                 onDrop={handleGlobalLabelDrop}
               >
                 {labelFields && labelFields.length > 0 && (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: 0.5,
+                      minWidth: 0,
+                      width: '100%',
+                    }}
+                  >
                     {(labelFields as Field[]).map((field: Field) => (
                       <Chip
                         key={field.id}
@@ -714,11 +779,11 @@ const FieldOverridesPanel: React.FC = () => {
                         deleteIcon={<CloseIcon />}
                         size="small"
                         sx={{
+                          ...CHIP_BASE_SX,
                           backgroundColor: '#fff3e0',
                           border: '1px solid #ff9800',
                           '& .MuiChip-label': {
-                            fontSize: '12px',
-                            fontWeight: 500,
+                            ...CHIP_LABEL_SX,
                           },
                         }}
                       />
