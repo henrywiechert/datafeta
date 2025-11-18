@@ -5,6 +5,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 
 interface ChartControlsProps {
   isDebugOpen: boolean;
@@ -12,6 +13,7 @@ interface ChartControlsProps {
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
   isFullscreenSupported?: boolean;
+  onSwapAxis?: () => void;
 }
 
 const ChartControls: React.FC<ChartControlsProps> = ({
@@ -20,6 +22,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
   isFullscreen = false,
   onToggleFullscreen,
   isFullscreenSupported = true,
+  onSwapAxis,
 }) => {
   return (
     <Box sx={{ 
@@ -32,8 +35,8 @@ const ChartControls: React.FC<ChartControlsProps> = ({
       borderTop: isDebugOpen ? '1px solid #e0e0e0' : 'none',
       flexShrink: 0
     }}>
-      {/* Left side - Fullscreen button */}
-      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+      {/* Left side - Fullscreen and Swap Axis buttons */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         {isFullscreenSupported && onToggleFullscreen && (
           <>
             <Tooltip title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}>
@@ -53,6 +56,28 @@ const ChartControls: React.FC<ChartControlsProps> = ({
             </Tooltip>
             <Typography variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
               Fullscreen
+            </Typography>
+          </>
+        )}
+        
+        {onSwapAxis && (
+          <>
+            <Tooltip title="Swap X/Y Axes">
+              <IconButton 
+                onClick={onSwapAxis}
+                size="small"
+                color="default"
+                sx={{ 
+                  '&:hover': {
+                    backgroundColor: 'action.hover',
+                  }
+                }}
+              >
+                <SwapHorizIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Typography variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
+              Swap Axes
             </Typography>
           </>
         )}
