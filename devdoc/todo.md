@@ -57,3 +57,7 @@ Endless Undo
 Done
 
 No re-query on Size change
+Done
+
+Axis flip
+

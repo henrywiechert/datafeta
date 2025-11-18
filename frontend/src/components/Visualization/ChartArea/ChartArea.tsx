@@ -1,7 +1,8 @@
-import React, { useRef } from 'react';
+import React, { useRef, useCallback } from 'react';
 import styles from '../ChartArea.module.css';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { useDataSource } from '../../../contexts/DataSourceContext';
+import { useUndoRedo } from '../../../hooks/useUndoRedo';
 import { useChartGeneration, useQueryExecution, useDataProcessing, useDebugView, useFullscreen } from './hooks';
 import { ChartRenderer, ChartControls, DebugPanel } from './components';
 
@@ -12,7 +13,8 @@ import { ChartRenderer, ChartControls, DebugPanel } from './components';
  * orchestrator that delegates responsibilities to specialized hooks and components.
  */
 const ChartArea: React.FC = () => {
-  const { state, dispatch, startOperation, completeOperation } = useVisualizationContext();
+  const { state, dispatch, startOperation, completeOperation, getUndoableSnapshot } = useVisualizationContext();
+  const { recordAction } = useUndoRedo();
   const { dataSource } = useDataSource();
   const {
     xAxisFields,
@@ -134,6 +136,15 @@ const ChartArea: React.FC = () => {
   // Use the fullscreen hook
   const { isFullscreen, toggleFullscreen, isSupported: isFullscreenSupported } = useFullscreen(chartWrapperRef);
 
+  // Handle swapping X and Y axes
+  const handleSwapAxis = useCallback(() => {
+    // Record current state for undo
+    recordAction(getUndoableSnapshot());
+    
+    // Dispatch the swap action
+    dispatch({ type: 'SWAP_AXIS_FIELDS' });
+  }, [recordAction, getUndoableSnapshot, dispatch]);
+
   const debugData = {
     queryDescription,
     queryResult,
@@ -167,6 +178,7 @@ const ChartArea: React.FC = () => {
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
           isFullscreenSupported={isFullscreenSupported}
+          onSwapAxis={handleSwapAxis}
         />
         
         <DebugPanel
