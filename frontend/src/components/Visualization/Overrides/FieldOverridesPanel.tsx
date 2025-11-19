@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { Box, Typography, TextField, MenuItem, Chip, IconButton, Tooltip, Divider, ToggleButton, ToggleButtonGroup, Switch, FormControlLabel } from '@mui/material';
+import { Box, Typography, TextField, Chip, IconButton, Tooltip, Divider, ToggleButton, ToggleButtonGroup, Switch, styled } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import TuneIcon from '@mui/icons-material/Tune';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { PropertySection, PropertyDropZone } from '../Properties';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { useUndoRedo } from '../../../contexts/UndoRedoContext';
-import { Field, FieldOverrideState, DataLabelMode, DragSource } from '../../../types';
+import { Field, FieldOverrideState, DataLabelMode } from '../../../types';
 import { computeOverrideTargets } from '../../../observable-plot-generator/utils/fieldOverrides';
 import { getFieldDisplayName } from '../../../utils/fieldUtils';
 import ManualColorSelector from '../Color/ManualColorSelector';
@@ -20,22 +20,27 @@ const LABEL_MODE_OPTIONS: { value: DataLabelMode; label: string }[] = [
   { value: 'off', label: 'Off' },
 ];
 
-const CHIP_BASE_SX = {
-  maxWidth: '100%',
+const TruncatedChip = styled(Chip)({
+  // Ensure the Chip itself can shrink
   minWidth: 0,
+  // Use flexbox to position the label and delete icon
   display: 'inline-flex',
-  flexShrink: 1,
-} as const;
+  alignItems: 'center',
 
-const CHIP_LABEL_SX = {
-  fontSize: '12px',
-  fontWeight: 500,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-  maxWidth: '100%',
-  display: 'block',
-} as const;
+  // The label should grow to fill available space, pushing the icon to the right
+  '& .MuiChip-label': {
+    flexGrow: 1,
+    textAlign: 'left',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+
+  // The delete icon should not shrink
+  '& .MuiChip-deleteIcon': {
+    flexShrink: 0,
+  },
+});
 
 const FieldOverridesPanel: React.FC = () => {
   const { state, dispatch, getUndoableSnapshot } = useVisualizationContext();
@@ -56,9 +61,6 @@ const FieldOverridesPanel: React.FC = () => {
     manualSize,
     labelFields,
     labelsEnabled,
-    labelSamplingStrategy,
-    labelSamplingThreshold,
-    labelSampleEvery,
   } = state as any;
 
   const [expandedId, setExpandedId] = useState<string | null>('__all__');
@@ -90,21 +92,9 @@ const FieldOverridesPanel: React.FC = () => {
     return map;
   }, [xAxisFields, yAxisFields, filterFields, availableFields, colorField, sizeField]);
 
-  const allSizeCandidateFields = useMemo(
-    () =>
-      Object.values(fieldById).filter(
-        (f) => f.type === 'dimension' || f.type === 'measure'
-      ),
-    [fieldById]
-  );
-
-  const allColorCandidateFields = useMemo(
-    () =>
-      Object.values(fieldById).filter(
-        (f) => f.type === 'dimension' || f.type === 'measure'
-      ),
-    [fieldById]
-  );
+  // The following memos were removed as they were unused and caused lint warnings.
+  // const allSizeCandidateFields = useMemo(...);
+  // const allColorCandidateFields = useMemo(...);
 
   const rows = useMemo(
     () => {
@@ -271,17 +261,15 @@ const FieldOverridesPanel: React.FC = () => {
                       width: '100%',
                     }}
                   >
-                    <Chip
+                    <TruncatedChip
                       label={getFieldDisplayName(resolvedColorField)}
+                      title={getFieldDisplayName(resolvedColorField)}
                       onDelete={handleColorRemove}
                       deleteIcon={<CloseIcon />}
                       size="small"
                       sx={{
-                        ...CHIP_BASE_SX,
+                        flex: 1, // Fill available space
                         ...getChipStyles(resolvedColorField),
-                        '& .MuiChip-label': {
-                          ...CHIP_LABEL_SX,
-                        },
                       }}
                     />
                   </Box>
@@ -346,18 +334,15 @@ const FieldOverridesPanel: React.FC = () => {
                       width: '100%',
                     }}
                   >
-                    <Chip
+                    <TruncatedChip
                       label={getFieldDisplayName(resolvedSizeField)}
+                      title={getFieldDisplayName(resolvedSizeField)}
                       onDelete={handleSizeRemove}
                       deleteIcon={<CloseIcon />}
                       size="small"
                       sx={{
-                        ...CHIP_BASE_SX,
-                        backgroundColor: '#f5f5f5',
-                        border: '1px solid #bdbdbd',
-                        '& .MuiChip-label': {
-                          ...CHIP_LABEL_SX,
-                        },
+                        flex: 1, // Fill available space
+                        ...getChipStyles(resolvedSizeField),
                       }}
                     />
                   </Box>
@@ -423,23 +408,27 @@ const FieldOverridesPanel: React.FC = () => {
                       width: '100%',
                     }}
                   >
-                    {override.labelFields.map((field: Field) => (
-                      <Chip
-                        key={field.id}
-                        label={getFieldDisplayName(field)}
-                        onDelete={() => handleLabelRemove(field.id)}
-                        deleteIcon={<CloseIcon />}
-                        size="small"
-                        sx={{
-                          ...CHIP_BASE_SX,
-                          backgroundColor: '#fff3e0',
-                          border: '1px solid #ff9800',
-                          '& .MuiChip-label': {
-                            ...CHIP_LABEL_SX,
-                          },
-                        }}
-                      />
-                    ))}
+                    {override.labelFields.map((field: Field) => {
+                      const labelText = getFieldDisplayName(field);
+                      return (
+                        <TruncatedChip
+                          key={field.id}
+                          label={labelText}
+                          title={labelText}
+                          onDelete={() => handleLabelRemove(field.id)}
+                          deleteIcon={<CloseIcon />}
+                          size="small"
+                          sx={{
+                            // If there's only one label, let it fill the space.
+                            // If there are multiple, cap their width.
+                            ...((override.labelFields || []).length === 1
+                              ? { flex: 1 }
+                              : { maxWidth: 160 }),
+                            ...getChipStyles(field),
+                          }}
+                        />
+                      );
+                    })}
                   </Box>
                 )}
               </PropertyDropZone>
@@ -507,7 +496,8 @@ const FieldOverridesPanel: React.FC = () => {
         const fieldData = e.dataTransfer.getData('application/json');
         if (fieldData) {
           const parsedData = JSON.parse(fieldData);
-          const { field, source } = parsedData;
+          // The 'source' variable was unused and has been removed to fix a lint warning.
+          const { field } = parsedData;
           if (field) {
             recordAction(getUndoableSnapshot());
             clearColorOverridesForAllFields();
@@ -656,17 +646,15 @@ const FieldOverridesPanel: React.FC = () => {
                       width: '100%',
                     }}
                   >
-                    <Chip
+                    <TruncatedChip
                       label={getFieldDisplayName(resolvedGlobalColorField)}
+                      title={getFieldDisplayName(resolvedGlobalColorField)}
                       onDelete={handleGlobalColorRemove}
                       deleteIcon={<CloseIcon />}
                       size="small"
                       sx={{
-                        ...CHIP_BASE_SX,
+                        flex: 1, // Fill available space
                         ...getChipStyles(resolvedGlobalColorField),
-                        '& .MuiChip-label': {
-                          ...CHIP_LABEL_SX,
-                        },
                       }}
                     />
                   </Box>
@@ -719,18 +707,15 @@ const FieldOverridesPanel: React.FC = () => {
                       width: '100%',
                     }}
                   >
-                    <Chip
+                    <TruncatedChip
                       label={getFieldDisplayName(resolvedGlobalSizeField)}
+                      title={getFieldDisplayName(resolvedGlobalSizeField)}
                       onDelete={handleGlobalSizeRemove}
                       deleteIcon={<CloseIcon />}
                       size="small"
                       sx={{
-                        ...CHIP_BASE_SX,
-                        backgroundColor: '#f5f5f5',
-                        border: '1px solid #bdbdbd',
-                        '& .MuiChip-label': {
-                          ...CHIP_LABEL_SX,
-                        },
+                        flex: 1, // Fill available space
+                        ...getChipStyles(resolvedGlobalSizeField),
                       }}
                     />
                   </Box>
@@ -771,23 +756,27 @@ const FieldOverridesPanel: React.FC = () => {
                       width: '100%',
                     }}
                   >
-                    {(labelFields as Field[]).map((field: Field) => (
-                      <Chip
-                        key={field.id}
-                        label={getFieldDisplayName(field)}
-                        onDelete={() => handleGlobalLabelRemove(field.id)}
-                        deleteIcon={<CloseIcon />}
-                        size="small"
-                        sx={{
-                          ...CHIP_BASE_SX,
-                          backgroundColor: '#fff3e0',
-                          border: '1px solid #ff9800',
-                          '& .MuiChip-label': {
-                            ...CHIP_LABEL_SX,
-                          },
-                        }}
-                      />
-                    ))}
+                    {(labelFields as Field[]).map((field: Field) => {
+                      const labelText = getFieldDisplayName(field);
+                      return (
+                        <TruncatedChip
+                          key={field.id}
+                          label={labelText}
+                          title={labelText}
+                          onDelete={() => handleGlobalLabelRemove(field.id)}
+                          deleteIcon={<CloseIcon />}
+                          size="small"
+                          sx={{
+                            // If there's only one label, let it fill the space.
+                            // If there are multiple, cap their width.
+                            ...(((labelFields as Field[]) || []).length === 1
+                              ? { flex: 1 }
+                              : { maxWidth: 160 }),
+                            ...getChipStyles(field),
+                          }}
+                        />
+                      );
+                    })}
                   </Box>
                 )}
               </PropertyDropZone>
