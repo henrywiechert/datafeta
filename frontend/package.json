@@ -6,9 +6,8 @@
     "@emotion/react": "^11.11.4",
     "@emotion/styled": "^11.11.5",
     "@mui/icons-material": "^5.15.20",
-    "@mui/lab": "^5.0.0-alpha.173",
     "@mui/material": "^5.15.20",
-    "@mui/system": "^5.15.20",
+    "@observablehq/plot": "^0.6.14",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
@@ -17,7 +16,6 @@
     "@types/node": "^16.18.104",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
-    "ag-charts-react": "^10.1.1",
     "ag-grid-community": "^34.0.0",
     "ag-grid-react": "^34.0.0",
     "react": "^18.3.1",
@@ -26,8 +24,7 @@
     "react-router-dom": "^6.25.1",
     "react-scripts": "5.0.1",
     "typescript": "^4.9.5",
-    "web-vitals": "^2.1.4",
-    "@observablehq/plot": "^0.6.14"
+    "web-vitals": "^2.1.4"
   },
   "scripts": {
     "start": "react-scripts start",
