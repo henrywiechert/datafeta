@@ -6,6 +6,8 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import UndoIcon from '@mui/icons-material/Undo';
+import RedoIcon from '@mui/icons-material/Redo';
 
 interface ChartControlsProps {
   isDebugOpen: boolean;
@@ -14,6 +16,10 @@ interface ChartControlsProps {
   onToggleFullscreen?: () => void;
   isFullscreenSupported?: boolean;
   onSwapAxis?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
 }
 
 const ChartControls: React.FC<ChartControlsProps> = ({
@@ -23,6 +29,10 @@ const ChartControls: React.FC<ChartControlsProps> = ({
   onToggleFullscreen,
   isFullscreenSupported = true,
   onSwapAxis,
+  canUndo = false,
+  canRedo = false,
+  onUndo,
+  onRedo,
 }) => {
   return (
     <Box sx={{ 
@@ -74,6 +84,46 @@ const ChartControls: React.FC<ChartControlsProps> = ({
               </IconButton>
             </Tooltip>
           </>
+        )}
+        
+        {onUndo && (
+          <Tooltip title="Undo (Ctrl+Z)">
+            <span>
+              <IconButton 
+                onClick={onUndo}
+                size="small"
+                disabled={!canUndo}
+                sx={{ 
+                  color: canUndo ? 'primary.main' : 'action.disabled',
+                  '&:hover': {
+                    backgroundColor: canUndo ? 'action.hover' : 'transparent',
+                  }
+                }}
+              >
+                <UndoIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
+        
+        {onRedo && (
+          <Tooltip title="Redo (Ctrl+Shift+Z)">
+            <span>
+              <IconButton 
+                onClick={onRedo}
+                size="small"
+                disabled={!canRedo}
+                sx={{ 
+                  color: canRedo ? 'primary.main' : 'action.disabled',
+                  '&:hover': {
+                    backgroundColor: canRedo ? 'action.hover' : 'transparent',
+                  }
+                }}
+              >
+                <RedoIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
         )}
       </Box>
 

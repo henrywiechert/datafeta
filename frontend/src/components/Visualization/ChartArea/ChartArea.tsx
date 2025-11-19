@@ -14,7 +14,7 @@ import { ChartRenderer, ChartControls, DebugPanel } from './components';
  */
 const ChartArea: React.FC = () => {
   const { state, dispatch, startOperation, completeOperation, getUndoableSnapshot } = useVisualizationContext();
-  const { recordAction } = useUndoRedo();
+  const { recordAction, undo, completeUndo, redo, completeRedo, canUndo, canRedo } = useUndoRedo();
   const { dataSource } = useDataSource();
   const {
     xAxisFields,
@@ -145,6 +145,49 @@ const ChartArea: React.FC = () => {
     dispatch({ type: 'SWAP_AXIS_FIELDS' });
   }, [recordAction, getUndoableSnapshot, dispatch]);
 
+  // Undo/Redo handlers
+  const handleUndo = useCallback(() => {
+    const previousState = undo();
+    if (previousState) {
+      // Save current state before undoing
+      const currentState = getUndoableSnapshot();
+      
+      // Restore previous state
+      dispatch({
+        type: 'RESTORE_UNDOABLE_STATE',
+        payload: {
+          ...previousState,
+          virtualColumns: previousState.virtualColumns || [],
+          fieldOverrides: previousState.fieldOverrides || {},
+        }
+      });
+      
+      // Complete the undo operation
+      completeUndo(currentState);
+    }
+  }, [undo, completeUndo, dispatch, getUndoableSnapshot]);
+
+  const handleRedo = useCallback(() => {
+    const nextState = redo();
+    if (nextState) {
+      // Save current state before redoing
+      const currentState = getUndoableSnapshot();
+      
+      // Restore next state
+      dispatch({
+        type: 'RESTORE_UNDOABLE_STATE',
+        payload: {
+          ...nextState,
+          virtualColumns: nextState.virtualColumns || [],
+          fieldOverrides: nextState.fieldOverrides || {},
+        }
+      });
+      
+      // Complete the redo operation
+      completeRedo(currentState);
+    }
+  }, [redo, completeRedo, dispatch, getUndoableSnapshot]);
+
   const debugData = {
     queryDescription,
     queryResult,
@@ -179,6 +222,10 @@ const ChartArea: React.FC = () => {
           onToggleFullscreen={toggleFullscreen}
           isFullscreenSupported={isFullscreenSupported}
           onSwapAxis={handleSwapAxis}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
         />
         
         <DebugPanel
