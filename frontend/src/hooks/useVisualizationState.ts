@@ -32,15 +32,15 @@ export function useVisualizationState() {
 
     // Cleanup: abort all pending filter metadata fetches on unmount
     useEffect(() => {
+        // Capture current controllers map reference to avoid eslint warning about ref changing
+        const controllers = filterMetadataAbortControllers.current;
         return () => {
-            filterMetadataAbortControllers.current.forEach(controller => {
+            controllers.forEach(controller => {
                 controller.abort();
             });
-            filterMetadataAbortControllers.current.clear();
+            controllers.clear();
         };
-    }, []);
-
-    // Sync visualization state changes back to the active sheet
+    }, []);    // Sync visualization state changes back to the active sheet
     // Note: We do NOT sync these because they are shared across all sheets:
     // - selectedDatabase, selectedTable (data source selection)
     // - availableFields (derived from selected table)
