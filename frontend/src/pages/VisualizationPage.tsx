@@ -198,45 +198,6 @@ const VisualizationPageContent = () => {
             flexDirection: 'column',
             overflow: 'hidden' 
         }}>
-            {/* Undo/Redo Controls */}
-            <Box sx={{ 
-                position: 'absolute', 
-                top: 8, 
-                right: 8, 
-                zIndex: 1000,
-                display: 'flex',
-                gap: 1,
-                backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                borderRadius: 1,
-                padding: '4px',
-                boxShadow: 1
-            }}>
-                <Tooltip title="Undo (Ctrl+Z)">
-                    <span>
-                        <IconButton
-                            onClick={handleUndo}
-                            disabled={!canUndo}
-                            size="small"
-                            sx={{ color: canUndo ? 'primary.main' : 'action.disabled' }}
-                        >
-                            <UndoIcon fontSize="small" />
-                        </IconButton>
-                    </span>
-                </Tooltip>
-                <Tooltip title="Redo (Ctrl+Shift+Z)">
-                    <span>
-                        <IconButton
-                            onClick={handleRedo}
-                            disabled={!canRedo}
-                            size="small"
-                            sx={{ color: canRedo ? 'primary.main' : 'action.disabled' }}
-                        >
-                            <RedoIcon fontSize="small" />
-                        </IconButton>
-                    </span>
-                </Tooltip>
-            </Box>
-            
             {/* Main Layout with react-resizable-panels */}
             <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
                 <PanelGroup direction="horizontal">
