@@ -190,4 +190,20 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   );
 };
 
-export default FieldsPanel;
+// Custom comparison to prevent re-renders when filter configurations change
+// Only re-render if fields, search, database/table selection, or virtual columns actually change
+const arePropsEqual = (prev: FieldsPanelProps, next: FieldsPanelProps) => {
+  return (
+    prev.availableFields === next.availableFields &&
+    prev.fieldsSearch === next.fieldsSearch &&
+    prev.selectedDatabase === next.selectedDatabase &&
+    prev.selectedTable === next.selectedTable &&
+    prev.isLoadingMetadata === next.isLoadingMetadata &&
+    prev.metadataError === next.metadataError &&
+    prev.virtualColumns === next.virtualColumns &&
+    prev.joinedTables === next.joinedTables &&
+    prev.unionTables === next.unionTables
+  );
+};
+
+export default React.memo(FieldsPanel, arePropsEqual);
