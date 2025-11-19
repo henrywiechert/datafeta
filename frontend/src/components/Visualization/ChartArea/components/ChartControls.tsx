@@ -54,9 +54,6 @@ const ChartControls: React.FC<ChartControlsProps> = ({
                 {isFullscreen ? <FullscreenExitIcon fontSize="small" /> : <FullscreenIcon fontSize="small" />}
               </IconButton>
             </Tooltip>
-            <Typography variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
-              Fullscreen
-            </Typography>
           </>
         )}
         
@@ -76,9 +73,6 @@ const ChartControls: React.FC<ChartControlsProps> = ({
                 <SwapHorizIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Typography variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
-              Swap Axes
-            </Typography>
           </>
         )}
       </Box>
