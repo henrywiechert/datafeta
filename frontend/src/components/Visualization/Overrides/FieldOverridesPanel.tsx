@@ -831,7 +831,7 @@ const FieldOverridesPanel: React.FC = () => {
                 }}
                 onClick={() => setExpandedId(isExpanded ? null : row.id)}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
                   {isAll ? (
                     <Chip
                       size="small"
@@ -844,10 +844,19 @@ const FieldOverridesPanel: React.FC = () => {
                       size="small"
                       label={row.axis?.toUpperCase()}
                       color="default"
-                      sx={{ height: 20, fontSize: '0.7rem' }}
+                      sx={{ height: 20, fontSize: '0.7rem', flexShrink: 0 }}
                     />
                   )}
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      fontWeight: 500,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                    title={row.label}
+                  >
                     {row.label}
                   </Typography>
                 </Box>
