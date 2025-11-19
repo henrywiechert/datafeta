@@ -524,18 +524,41 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
     case 'UPDATE_FIELD_OVERRIDE': {
       const { fieldId, override } = action.payload;
       const existing = state.fieldOverrides[fieldId] || {};
+      // Check if this update affects query-relevant fields (color, size, or label)
+      const affectsQuery = 
+        'colorField' in override || 
+        'colorFieldId' in override || 
+        'sizeField' in override || 
+        'sizeFieldId' in override || 
+        'labelFields' in override;
+      
       return {
         ...state,
         fieldOverrides: {
           ...state.fieldOverrides,
           [fieldId]: { ...existing, ...override },
         },
+        queryVersion: affectsQuery ? state.queryVersion + 1 : state.queryVersion,
       };
     }
     case 'CLEAR_FIELD_OVERRIDE': {
+      const existingOverride = state.fieldOverrides[action.payload.fieldId];
+      // Check if the override being cleared affects query-relevant fields
+      const affectsQuery = existingOverride && (
+        existingOverride.colorField || 
+        existingOverride.colorFieldId || 
+        existingOverride.sizeField || 
+        existingOverride.sizeFieldId || 
+        existingOverride.labelFields
+      );
+      
       const next = { ...state.fieldOverrides };
       delete next[action.payload.fieldId];
-      return { ...state, fieldOverrides: next };
+      return { 
+        ...state, 
+        fieldOverrides: next,
+        queryVersion: affectsQuery ? state.queryVersion + 1 : state.queryVersion,
+      };
     }
     case 'RESTORE_UNDOABLE_STATE':
       return {
