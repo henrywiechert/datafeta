@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Box } from '@mui/material';
 import ChartGrid from '../../ChartGrid/ChartGrid';
-import TableView from '../../TableView';
+import TableViewLazy from '../../TableViewLazy';
 import BarSortControl from './BarSortControl';
 import { PlotResult } from '../../../../observable-plot-generator/types';
 import { TableData } from '../types';
@@ -50,7 +50,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
   }, [isDebugOpen, debugHeight]); // Trigger when debug state changes
 
   const content = useTableView ? (
-    <TableView 
+    <TableViewLazy 
       columns={tableData.columns} 
       rows={tableData.rows} 
       xFields={xAxisFields}
