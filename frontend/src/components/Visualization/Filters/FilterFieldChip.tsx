@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Chip, Box, IconButton, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -32,38 +32,6 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
     setExpanded(!expanded);
   };
 
-  // Memoize these handlers to keep callbacks stable for child components (CheckboxItem memoization)
-  const handleDiscreteChange = useCallback((values: any[]) => {
-    onConfigChange({
-      fieldId: field.id,
-      columnName: field.columnName,
-      type: 'discrete',
-      selectedValues: values,
-      dateTimePart: field.dateTimePart,
-      dateTimeMode: field.dateTimeMode,
-    });
-  }, [field.id, field.columnName, field.dateTimePart, field.dateTimeMode, onConfigChange]);
-
-  const handleContinuousChange = useCallback((newMin: number | null, newMax: number | null) => {
-    onConfigChange({
-      fieldId: field.id,
-      columnName: field.columnName,
-      type: 'continuous',
-      min: newMin,
-      max: newMax,
-    });
-  }, [field.id, field.columnName, onConfigChange]);
-
-  const handleDateTimeChange = useCallback((startDate: string | null, endDate: string | null) => {
-    onConfigChange({
-      fieldId: field.id,
-      columnName: field.columnName,
-      type: 'datetime',
-      startDate,
-      endDate,
-    });
-  }, [field.id, field.columnName, onConfigChange]);
-
   // Determine filter type based on field characteristics
   const getFilterType = (): 'discrete' | 'continuous' | 'datetime' => {
     // If it's a datetime field WITH a part specified, treat as discrete
@@ -94,7 +62,16 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
         <DiscreteFilterControl
           metadata={filterMetadata}
           selectedValues={selectedValues}
-          onChange={handleDiscreteChange}
+          onChange={(values) => {
+            onConfigChange({
+              fieldId: field.id,
+              columnName: field.columnName,
+              type: 'discrete',
+              selectedValues: values,
+              dateTimePart: field.dateTimePart,
+              dateTimeMode: field.dateTimeMode,
+            });
+          }}
           onRefetchValues={onRefetchValues}
         />
       );
@@ -109,7 +86,15 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
           metadata={filterMetadata}
           min={min}
           max={max}
-          onChange={handleContinuousChange}
+          onChange={(newMin, newMax) => {
+            onConfigChange({
+              fieldId: field.id,
+              columnName: field.columnName,
+              type: 'continuous',
+              min: newMin,
+              max: newMax,
+            });
+          }}
         />
       );
     }
@@ -124,7 +109,15 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
           startDateTime={startDateTime}
           endDateTime={endDateTime}
           dateTimePart={field.dateTimePart}
-          onChange={handleDateTimeChange}
+          onChange={(newStart, newEnd) => {
+            onConfigChange({
+              fieldId: field.id,
+              columnName: field.columnName,
+              type: 'datetime',
+              startDate: newStart,
+              endDate: newEnd,
+            });
+          }}
         />
       );
     }
