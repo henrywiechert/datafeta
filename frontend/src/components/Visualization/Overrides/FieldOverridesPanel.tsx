@@ -25,7 +25,6 @@ const CHIP_BASE_SX = {
   minWidth: 0,
   display: 'inline-flex',
   flexShrink: 1,
-  overflow: 'hidden',
 } as const;
 
 const CHIP_LABEL_SX = {
@@ -36,7 +35,6 @@ const CHIP_LABEL_SX = {
   whiteSpace: 'nowrap',
   maxWidth: '100%',
   display: 'block',
-  minWidth: 0,
 } as const;
 
 const FieldOverridesPanel: React.FC = () => {
@@ -275,7 +273,6 @@ const FieldOverridesPanel: React.FC = () => {
                   >
                     <Chip
                       label={getFieldDisplayName(resolvedColorField)}
-                      title={getFieldDisplayName(resolvedColorField)}
                       onDelete={handleColorRemove}
                       deleteIcon={<CloseIcon />}
                       size="small"
@@ -351,7 +348,6 @@ const FieldOverridesPanel: React.FC = () => {
                   >
                     <Chip
                       label={getFieldDisplayName(resolvedSizeField)}
-                      title={getFieldDisplayName(resolvedSizeField)}
                       onDelete={handleSizeRemove}
                       deleteIcon={<CloseIcon />}
                       size="small"
@@ -427,27 +423,23 @@ const FieldOverridesPanel: React.FC = () => {
                       width: '100%',
                     }}
                   >
-                    {override.labelFields.map((field: Field) => {
-                      const labelText = getFieldDisplayName(field);
-                      return (
-                        <Chip
-                          key={field.id}
-                          label={labelText}
-                          title={labelText}
-                          onDelete={() => handleLabelRemove(field.id)}
-                          deleteIcon={<CloseIcon />}
-                          size="small"
-                          sx={{
-                            ...CHIP_BASE_SX,
-                            backgroundColor: '#fff3e0',
-                            border: '1px solid #ff9800',
-                            '& .MuiChip-label': {
-                              ...CHIP_LABEL_SX,
-                            },
-                          }}
-                        />
-                      );
-                    })}
+                    {override.labelFields.map((field: Field) => (
+                      <Chip
+                        key={field.id}
+                        label={getFieldDisplayName(field)}
+                        onDelete={() => handleLabelRemove(field.id)}
+                        deleteIcon={<CloseIcon />}
+                        size="small"
+                        sx={{
+                          ...CHIP_BASE_SX,
+                          backgroundColor: '#fff3e0',
+                          border: '1px solid #ff9800',
+                          '& .MuiChip-label': {
+                            ...CHIP_LABEL_SX,
+                          },
+                        }}
+                      />
+                    ))}
                   </Box>
                 )}
               </PropertyDropZone>
@@ -666,7 +658,6 @@ const FieldOverridesPanel: React.FC = () => {
                   >
                     <Chip
                       label={getFieldDisplayName(resolvedGlobalColorField)}
-                      title={getFieldDisplayName(resolvedGlobalColorField)}
                       onDelete={handleGlobalColorRemove}
                       deleteIcon={<CloseIcon />}
                       size="small"
@@ -730,7 +721,6 @@ const FieldOverridesPanel: React.FC = () => {
                   >
                     <Chip
                       label={getFieldDisplayName(resolvedGlobalSizeField)}
-                      title={getFieldDisplayName(resolvedGlobalSizeField)}
                       onDelete={handleGlobalSizeRemove}
                       deleteIcon={<CloseIcon />}
                       size="small"
@@ -781,27 +771,23 @@ const FieldOverridesPanel: React.FC = () => {
                       width: '100%',
                     }}
                   >
-                    {(labelFields as Field[]).map((field: Field) => {
-                      const labelText = getFieldDisplayName(field);
-                      return (
-                        <Chip
-                          key={field.id}
-                          label={labelText}
-                          title={labelText}
-                          onDelete={() => handleGlobalLabelRemove(field.id)}
-                          deleteIcon={<CloseIcon />}
-                          size="small"
-                          sx={{
-                            ...CHIP_BASE_SX,
-                            backgroundColor: '#fff3e0',
-                            border: '1px solid #ff9800',
-                            '& .MuiChip-label': {
-                              ...CHIP_LABEL_SX,
-                            },
-                          }}
-                        />
-                      );
-                    })}
+                    {(labelFields as Field[]).map((field: Field) => (
+                      <Chip
+                        key={field.id}
+                        label={getFieldDisplayName(field)}
+                        onDelete={() => handleGlobalLabelRemove(field.id)}
+                        deleteIcon={<CloseIcon />}
+                        size="small"
+                        sx={{
+                          ...CHIP_BASE_SX,
+                          backgroundColor: '#fff3e0',
+                          border: '1px solid #ff9800',
+                          '& .MuiChip-label': {
+                            ...CHIP_LABEL_SX,
+                          },
+                        }}
+                      />
+                    ))}
                   </Box>
                 )}
               </PropertyDropZone>
