@@ -42,7 +42,7 @@ export function generateScatterPlot(
   context: ChartGenerationContext,
   labelCfg?: { labelFields: any[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
 ): Plot.PlotOptions {
-  const { queryResult, colorField, colorScheme, colorBias, sizeField, sizeRange, manualSize } = context;
+  const { queryResult, colorField, colorScheme, colorBias, sizeField, sizeRange, manualSize, tooltipFields } = context;
   const data = queryResult?.rows || [];
   const xMeasure = analysis.xMeasures[0];
   const yMeasure = analysis.yMeasures[0];
@@ -64,7 +64,8 @@ export function generateScatterPlot(
     sizeField,
     sizeRange,
     manualSize,
-    labelCfg
+    labelCfg,
+    tooltipFields
   );
 }
 
@@ -73,7 +74,7 @@ export function generateChartOptions(
   context: ChartGenerationContext,
   labelCfg?: { labelFields: any[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
 ): PlotResult {
-  const { queryResult, colorField, colorScheme, sizeField, sizeRange, manualSize } = context;
+  const { queryResult, colorField, colorScheme, sizeField, sizeRange, manualSize, tooltipFields } = context;
   const data = queryResult.rows;
 
   const xDims = analysis.xDimensions || [];
@@ -209,7 +210,8 @@ export function generateChartOptions(
         sizeField,
         sizeRange,
         manualSize,
-        labelCfg
+        labelCfg,
+        tooltipFields
       ),
       'line-chart',
       `${yDim.columnName} vs ${xMeasure.columnName}`
@@ -234,7 +236,8 @@ export function generateChartOptions(
         sizeField,
         sizeRange,
         manualSize,
-        labelCfg
+        labelCfg,
+        tooltipFields
       ),
       'line-chart',
       `${xDim.columnName} vs ${yMeasure.columnName}`
@@ -317,7 +320,8 @@ export function generateChartOptions(
           sizeField,
           sizeRange,
           manualSize,
-          labelCfg
+          labelCfg,
+          tooltipFields
         ),
         'scatter',
         `${xContinuousDims[0].columnName} vs ${yContinuousDims[0].columnName}`
@@ -396,7 +400,8 @@ export function generateChartOptions(
         sizeField,
         sizeRange,
         manualSize,
-        labelCfg
+        labelCfg,
+        tooltipFields
       ),
       'line-chart',
       `${yDim.columnName} vs ${xMeasure.columnName}`
@@ -421,7 +426,8 @@ export function generateChartOptions(
         sizeField,
         sizeRange,
         manualSize,
-        labelCfg
+        labelCfg,
+        tooltipFields
       ),
       'line-chart',
       `${xDim.columnName} vs ${yMeasure.columnName}`

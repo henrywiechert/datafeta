@@ -27,6 +27,8 @@ export interface ChartGenerationContext {
   labelSamplingStrategy?: 'auto' | 'all' | 'sample';
   labelSamplingThreshold?: number;
   labelSampleEvery?: number;
+  // --- Tooltip configuration (optional) ------------------------------------
+  tooltipFields?: Field[];
   /**
    * Per-field chart overrides keyed by Field.id.
    * These are derived from visualization state and persisted with sheets.

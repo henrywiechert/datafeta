@@ -45,6 +45,8 @@ interface VisualizationState {
   labelSamplingStrategy: 'auto' | 'all' | 'sample';
   labelSamplingThreshold: number; // threshold for auto strategy (e.g., 300)
   labelSampleEvery: number; // nth point when strategy = sample (computed or user adjustable later)
+  // Tooltip configuration state
+  tooltipFields: Field[]; // Fields whose values will be shown in tooltips only (do not affect chart visualization)
   // --- Per-operation timing (phase 1 introduction) ---
   operationStartTimes: Record<LoadingOperationType, number | null>; // individual start times
   activeOperations: LoadingOperationType[]; // active operations list
@@ -116,6 +118,10 @@ type VisualizationAction =
   | { type: 'SET_LABEL_SAMPLING_STRATEGY'; payload: 'auto' | 'all' | 'sample' }
   | { type: 'SET_LABEL_SAMPLING_THRESHOLD'; payload: number }
   | { type: 'SET_LABEL_SAMPLE_EVERY'; payload: number }
+  // Tooltip actions
+  | { type: 'SET_TOOLTIP_FIELDS'; payload: Field[] }
+  | { type: 'ADD_TOOLTIP_FIELD'; payload: Field }
+  | { type: 'REMOVE_TOOLTIP_FIELD'; payload: string }
   // Virtual column action types
   | { type: 'SET_VIRTUAL_COLUMNS'; payload: VirtualColumnDefinition[] }
   | { type: 'ADD_VIRTUAL_COLUMN'; payload: VirtualColumnDefinition }
@@ -184,6 +190,8 @@ const initialState: VisualizationState = {
   labelSamplingStrategy: 'auto',
   labelSamplingThreshold: 300,
   labelSampleEvery: 1,
+  // Tooltip configuration defaults
+  tooltipFields: [],
   // Per-operation timing defaults
   operationStartTimes: { query: null, rendering: null, metadata: null },
   activeOperations: [],
@@ -498,6 +506,21 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
       return { ...state, labelSamplingThreshold: action.payload };
     case 'SET_LABEL_SAMPLE_EVERY':
       return { ...state, labelSampleEvery: Math.max(1, action.payload) };
+    // Tooltip reducers
+    case 'SET_TOOLTIP_FIELDS': {
+      if (sameFieldArray(state.tooltipFields, action.payload)) return state;
+      return { ...state, tooltipFields: action.payload, queryVersion: state.queryVersion + 1 };
+    }
+    case 'ADD_TOOLTIP_FIELD': {
+      if (state.tooltipFields.some(f => f.columnName === action.payload.columnName)) return state; // no change
+      const newFields = [...state.tooltipFields, action.payload];
+      return { ...state, tooltipFields: newFields, queryVersion: state.queryVersion + 1 };
+    }
+    case 'REMOVE_TOOLTIP_FIELD': {
+      const newFields = state.tooltipFields.filter(f => f.id !== action.payload && f.columnName !== action.payload);
+      if (newFields.length === state.tooltipFields.length) return state; // nothing removed
+      return { ...state, tooltipFields: newFields, queryVersion: state.queryVersion + 1 };
+    }
     // Virtual column reducers
     case 'SET_VIRTUAL_COLUMNS': {
       // Simple length + names check to avoid bump on identical content
@@ -630,6 +653,7 @@ interface VisualizationContextType {
     sizeField: Field | null;
     sizeRange: [number, number];
     manualSize: number;
+    tooltipFields: Field[];
     virtualColumns: VirtualColumnDefinition[];
     fieldOverrides: Record<string, FieldOverrideState>;
   };
@@ -762,6 +786,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       sizeField: state.sizeField,
       sizeRange: state.sizeRange,
       manualSize: state.manualSize,
+      tooltipFields: state.tooltipFields,
       virtualColumns: state.virtualColumns,
       virtualColumnFieldPreferences: state.virtualColumnFieldPreferences,
       fieldOverrides: state.fieldOverrides,
@@ -778,6 +803,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     state.sizeField,
     state.sizeRange,
     state.manualSize,
+    state.tooltipFields,
     state.virtualColumns,
     state.virtualColumnFieldPreferences,
     state.fieldOverrides,

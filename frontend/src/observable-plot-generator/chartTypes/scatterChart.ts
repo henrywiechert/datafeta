@@ -24,6 +24,7 @@ export function scatterChart(
   sizeRange?: [number, number],
   manualSize?: number
   , labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
+  , tooltipFields?: Field[]
 ): Plot.PlotOptions {
   // Detect axis value kinds by sampling up to first 20 non-null values
   const sampleValues = (column: string) => (Array.isArray(data) ? data.map(r => r?.[column]).filter(v => v !== null && v !== undefined) : []);
@@ -145,6 +146,15 @@ export function scatterChart(
   if (sizeField) {
     tipFormat[sizeField.columnName] = true;
   }
+  // Add tooltip fields to tipFormat
+  if (tooltipFields) {
+    tooltipFields.forEach(tf => {
+      const colName = getResultColumnName(tf);
+      if (colName) {
+        tipFormat[tf.columnName] = true;
+      }
+    });
+  }
 
   // Use a custom title function to ensure long strings aren't truncated
   dotConfig.title = (d: any) => {
@@ -165,6 +175,19 @@ export function scatterChart(
     if (sizeField) {
       const sizeColumnName = getResultColumnName(sizeField);
       parts.push(`${sizeField.columnName}: ${formatValue(d[sizeColumnName])}`);
+    }
+    // Add tooltip fields to title
+    if (tooltipFields) {
+      tooltipFields.forEach(tf => {
+        const colName = getResultColumnName(tf);
+        if (colName && colName !== xColumn && colName !== yColumn) {
+          const colorColName = colorField ? getResultColumnName(colorField) : null;
+          const sizeColName = sizeField ? getResultColumnName(sizeField) : null;
+          if (colName !== colorColName && colName !== sizeColName) {
+            parts.push(`${tf.columnName}: ${formatValue(d[colName])}`);
+          }
+        }
+      });
     }
     return parts.join('\n');
   };

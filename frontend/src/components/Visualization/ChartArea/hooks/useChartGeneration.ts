@@ -24,6 +24,7 @@ interface UseChartGenerationProps {
   labelSamplingStrategy?: 'auto' | 'all' | 'sample';
   labelSamplingThreshold?: number;
   labelSampleEvery?: number;
+  tooltipFields?: Field[];
   fieldOverrides?: Record<string, FieldOverrideState>;
 }
 
@@ -54,6 +55,7 @@ export const useChartGeneration = ({
   labelSamplingStrategy = 'auto',
   labelSamplingThreshold = 300,
   labelSampleEvery = 1,
+  tooltipFields = [],
   fieldOverrides = {},
 }: UseChartGenerationProps): UseChartGenerationReturn => {
   const [spec, setSpec] = useState<PlotResult | null>(null);
@@ -99,6 +101,7 @@ export const useChartGeneration = ({
         labelSamplingStrategy,
         labelSamplingThreshold,
         labelSampleEvery,
+        tooltipFields,
         fieldOverrides,
         fieldOverrideTargets: overrideTargets,
       });
