@@ -5,6 +5,9 @@
   overflow: hidden;
   /* Performance optimization: hint browser about changes during resize */
   will-change: width;
+  /* Don't use contain: paint to avoid z-index stacking issues with menus */
+  position: relative;
+  z-index: 1;
 }
 
 .header {
@@ -49,8 +52,8 @@
   gap: 0px;
   align-items: stretch; /* Make children fill width */
   width: 100%;
-  /* Performance hint for large lists */
-  contain: layout;
+  /* Performance hint for large lists - use layout only, not paint */
+  /* contain: layout; removed to prevent z-index stacking issues with context menus */
 }
 
 .emptyMessage {

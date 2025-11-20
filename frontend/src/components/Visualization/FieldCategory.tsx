@@ -14,7 +14,7 @@ interface FieldCategoryProps {
 // Use virtualization if more than this many fields
 // Lower threshold since full-width chips cause more reflow during resize
 const VIRTUALIZATION_THRESHOLD = 50;
-const ITEM_HEIGHT = 32; // Height of each field chip
+const ITEM_HEIGHT = 21; // Height of each field chip (20px chip + 1px margin)
 
 // Stable style object for virtualized rows (defined outside component to avoid recreation)
 const ROW_BASE_STYLE = { 
@@ -24,7 +24,7 @@ const ROW_BASE_STYLE = {
   justifyContent: 'flex-start' as const,
   width: '100%',
   boxSizing: 'border-box' as const,
-  contain: 'layout style' as const, // CSS containment for performance
+  // contain removed to prevent z-index stacking issues with context menus
 };
 
 const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate }) => {
@@ -101,7 +101,7 @@ const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate }
         <Typography variant="subtitle2" className={styles.categoryTitle}>
           {title} ({fields.length})
         </Typography>
-        <Box ref={containerRef} style={{ width: '100%', contain: 'layout' }}>
+        <Box ref={containerRef} style={{ width: '100%' }}>
           <List
             defaultHeight={listHeight}
             rowCount={fields.length}
