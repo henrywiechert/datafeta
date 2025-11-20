@@ -158,6 +158,7 @@ const ChartArea: React.FC = () => {
         payload: {
           ...previousState,
           virtualColumns: previousState.virtualColumns || [],
+          virtualColumnFieldPreferences: previousState.virtualColumnFieldPreferences || {},
           fieldOverrides: previousState.fieldOverrides || {},
         }
       });
@@ -179,6 +180,7 @@ const ChartArea: React.FC = () => {
         payload: {
           ...nextState,
           virtualColumns: nextState.virtualColumns || [],
+          virtualColumnFieldPreferences: nextState.virtualColumnFieldPreferences || {},
           fieldOverrides: nextState.fieldOverrides || {},
         }
       });

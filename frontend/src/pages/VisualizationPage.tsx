@@ -103,6 +103,7 @@ const VisualizationPageContent = () => {
                 payload: {
                     ...previousState,
                     virtualColumns: previousState.virtualColumns || [],
+                    virtualColumnFieldPreferences: previousState.virtualColumnFieldPreferences || {},
                     fieldOverrides: previousState.fieldOverrides || {},
                 }
             });
@@ -124,6 +125,7 @@ const VisualizationPageContent = () => {
                 payload: {
                     ...nextState,
                     virtualColumns: nextState.virtualColumns || [],
+                    virtualColumnFieldPreferences: nextState.virtualColumnFieldPreferences || {},
                     fieldOverrides: nextState.fieldOverrides || {},
                 }
             });

@@ -51,6 +51,8 @@ interface VisualizationState {
   modalPrimaryOperation: LoadingOperationType | null; // chosen operation for modal display
   // Virtual columns (calculated columns)
   virtualColumns: VirtualColumnDefinition[];
+  // Virtual column field preferences (stores type, flavour, aggregation for virtual columns in available fields)
+  virtualColumnFieldPreferences: Record<string, { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }>;
   // Per-field chart overrides
   fieldOverrides: Record<string, FieldOverrideState>;
   queryVersion: number; // increments only when query semantics change
@@ -119,6 +121,7 @@ type VisualizationAction =
   | { type: 'ADD_VIRTUAL_COLUMN'; payload: VirtualColumnDefinition }
   | { type: 'UPDATE_VIRTUAL_COLUMN'; payload: { index: number; column: VirtualColumnDefinition } }
   | { type: 'REMOVE_VIRTUAL_COLUMN'; payload: number }
+  | { type: 'UPDATE_VIRTUAL_COLUMN_FIELD_PREFERENCE'; payload: { columnName: string; preference: { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string } } }
   // Per-field chart override actions
   | { type: 'SET_FIELD_OVERRIDES'; payload: Record<string, FieldOverrideState> }
   | { type: 'UPDATE_FIELD_OVERRIDE'; payload: { fieldId: string; override: Partial<FieldOverrideState> } }
@@ -137,6 +140,7 @@ type VisualizationAction =
       sizeRange: [number, number];
       manualSize: number;
       virtualColumns: VirtualColumnDefinition[];
+      virtualColumnFieldPreferences: Record<string, { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }>;
       fieldOverrides: Record<string, FieldOverrideState>;
     } };
 
@@ -186,6 +190,7 @@ const initialState: VisualizationState = {
   modalPrimaryOperation: null,
   // Virtual columns defaults
   virtualColumns: [],
+  virtualColumnFieldPreferences: {},
   // Per-field overrides default
   fieldOverrides: {},
   queryVersion: 0,
@@ -512,10 +517,26 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
     }
     case 'REMOVE_VIRTUAL_COLUMN': {
       if (action.payload < 0 || action.payload >= state.virtualColumns.length) return state;
+      const removedColumn = state.virtualColumns[action.payload];
+      const newPreferences = { ...state.virtualColumnFieldPreferences };
+      delete newPreferences[removedColumn.name];
       return { 
         ...state, 
         virtualColumns: state.virtualColumns.filter((_, i) => i !== action.payload),
+        virtualColumnFieldPreferences: newPreferences,
         queryVersion: state.queryVersion + 1,
+      };
+    }
+    case 'UPDATE_VIRTUAL_COLUMN_FIELD_PREFERENCE': {
+      return {
+        ...state,
+        virtualColumnFieldPreferences: {
+          ...state.virtualColumnFieldPreferences,
+          [action.payload.columnName]: {
+            ...state.virtualColumnFieldPreferences[action.payload.columnName],
+            ...action.payload.preference,
+          },
+        },
       };
     }
     // Per-field chart override reducers
@@ -575,6 +596,7 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
         sizeRange: action.payload.sizeRange,
         manualSize: action.payload.manualSize,
         virtualColumns: action.payload.virtualColumns,
+        virtualColumnFieldPreferences: action.payload.virtualColumnFieldPreferences || {},
         fieldOverrides: action.payload.fieldOverrides || {},
         queryVersion: state.queryVersion + 1,
       };
@@ -741,6 +763,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       sizeRange: state.sizeRange,
       manualSize: state.manualSize,
       virtualColumns: state.virtualColumns,
+      virtualColumnFieldPreferences: state.virtualColumnFieldPreferences,
       fieldOverrides: state.fieldOverrides,
     };
   }, [
@@ -756,6 +779,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     state.sizeRange,
     state.manualSize,
     state.virtualColumns,
+    state.virtualColumnFieldPreferences,
     state.fieldOverrides,
   ]);
 
