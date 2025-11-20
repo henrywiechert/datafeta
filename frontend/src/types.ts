@@ -405,6 +405,7 @@ export interface VisualizationStateSnapshot {
    */
   fieldOverrides?: Record<string, FieldOverrideState>;
   virtualColumns?: VirtualColumnDefinition[]; // Virtual/calculated columns
+  virtualColumnFieldPreferences?: Record<string, { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }>; // Field preferences for virtual columns
 }
 
 // Sheet represents a single visualization configuration

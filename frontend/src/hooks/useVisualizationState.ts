@@ -57,6 +57,7 @@ export function useVisualizationState() {
             sizeRange: state.sizeRange,
             manualSize: state.manualSize,
             virtualColumns: state.virtualColumns,
+            virtualColumnFieldPreferences: state.virtualColumnFieldPreferences,
         });
     }, [
         state.xAxisFields,
@@ -70,6 +71,7 @@ export function useVisualizationState() {
         state.sizeRange,
         state.manualSize,
         state.virtualColumns,
+        state.virtualColumnFieldPreferences,
         updateActiveSheetState,
     ]);
 
@@ -86,12 +88,20 @@ export function useVisualizationState() {
                 dataType = 'string'; // Default to string for text
             }
             
+            // Check if there are stored preferences for this virtual column
+            const preferences = state.virtualColumnFieldPreferences[vc.name];
+            
             // Default type and flavour based on output type (same logic as regular fields)
             let type: 'dimension' | 'measure';
             let flavour: 'discrete' | 'continuous';
             let aggregation: 'sum' | 'avg' | 'min' | 'max' | 'count' | 'count_distinct' | undefined;
             
-            if (vc.output_type === 'text' || vc.output_type === 'datetime') {
+            if (preferences) {
+                // Use stored preferences if available
+                type = preferences.type || 'dimension';
+                flavour = preferences.flavour || 'discrete';
+                aggregation = preferences.aggregation as any;
+            } else if (vc.output_type === 'text' || vc.output_type === 'datetime') {
                 type = 'dimension';
                 flavour = 'discrete';
                 aggregation = undefined;
@@ -120,7 +130,7 @@ export function useVisualizationState() {
         });
         
         return [...dataSource.availableFields, ...virtualFields];
-    }, [dataSource.availableFields, state.virtualColumns]);
+    }, [dataSource.availableFields, state.virtualColumns, state.virtualColumnFieldPreferences]);
 
     // --- Event Handlers ---
 
@@ -164,12 +174,31 @@ export function useVisualizationState() {
         // Update field in the axis fields (via VisualizationContext)
         dispatch({ type: 'UPDATE_FIELD', payload: updatedField });
         
-        // Also update field in availableFields (via DataSourceContext)
-        const updatedAvailableFields = dataSource.availableFields.map((f) => 
-            f.id === updatedField.id ? updatedField : f
-        );
-        if (updatedAvailableFields.some((f, i) => f !== dataSource.availableFields[i])) {
-            setAvailableFields(updatedAvailableFields);
+        // Check if this is a virtual column field
+        // @ts-ignore - is_virtual is added dynamically
+        const isVirtual = updatedField.is_virtual === true;
+        
+        if (isVirtual) {
+            // For virtual columns, update the field preferences in state
+            dispatch({
+                type: 'UPDATE_VIRTUAL_COLUMN_FIELD_PREFERENCE',
+                payload: {
+                    columnName: updatedField.columnName,
+                    preference: {
+                        type: updatedField.type,
+                        flavour: updatedField.flavour,
+                        aggregation: updatedField.aggregation,
+                    },
+                },
+            });
+        } else {
+            // For regular fields, update in availableFields (via DataSourceContext)
+            const updatedAvailableFields = dataSource.availableFields.map((f) => 
+                f.id === updatedField.id ? updatedField : f
+            );
+            if (updatedAvailableFields.some((f, i) => f !== dataSource.availableFields[i])) {
+                setAvailableFields(updatedAvailableFields);
+            }
         }
     }, [dispatch, dataSource.availableFields, setAvailableFields]);
 
