@@ -5,6 +5,7 @@ import { getResultColumnName } from '../../utils/fieldUtils';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
 import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
+import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 
 /**
  * Line chart for continuous dimension on one axis and continuous measure on the other.
@@ -131,61 +132,8 @@ export function lineChart(
     lineConfig.strokeWidth = manualSize || 2;
   }
   
-  // Use a custom title function to ensure long strings aren't truncated (like scatter charts)
-  dotConfig.title = (d: any) => {
-    const formatValue = (val: any): string => {
-      if (typeof val === 'number' && !Number.isInteger(val)) {
-        return val.toFixed(2);
-      }
-      return String(val);
-    };
-    
-    const parts: string[] = [];
-    parts.push(`${xLabel}: ${formatValue(d[xColumn])}`);
-    parts.push(`${yLabel}: ${formatValue(d[yColumn])}`);
-    if (colorField) {
-      const colorColumnName = getResultColumnName(colorField);
-      parts.push(`${colorField.columnName}: ${formatValue(d[colorColumnName])}`);
-    }
-    if (sizeField) {
-      const sizeColumnName = getResultColumnName(sizeField);
-      parts.push(`${sizeField.columnName}: ${formatValue(d[sizeColumnName])}`);
-    }
-    // Add tooltip fields
-    if (tooltipFields) {
-      tooltipFields.forEach(tf => {
-        const colName = getResultColumnName(tf);
-        if (colName && colName !== xColumn && colName !== yColumn) {
-          const colorColName = colorField ? getResultColumnName(colorField) : null;
-          const sizeColName = sizeField ? getResultColumnName(sizeField) : null;
-          if (colName !== colorColName && colName !== sizeColName) {
-            parts.push(`${tf.columnName}: ${formatValue(d[colName])}`);
-          }
-        }
-      });
-    }
-    return parts.join('\n');
-  };
-  
-  // Configure tooltip format to include all channels (for proper rendering)
-  const tipFormat: any = { [xLabel]: true, [yLabel]: true, x: false, y: false, fill: false, r: false };
-  if (colorField) {
-    tipFormat[colorField.columnName] = true;
-  }
-  if (sizeField) {
-    tipFormat[sizeField.columnName] = true;
-  }
-  // Add tooltip fields to tipFormat
-  if (tooltipFields) {
-    tooltipFields.forEach(tf => {
-      const colName = getResultColumnName(tf);
-      if (colName) {
-        tipFormat[tf.columnName] = true;
-      }
-    });
-  }
-  
-  dotConfig.tip = { format: tipFormat } as any;
+  // Disable built-in Observable Plot tooltip (we'll use custom tooltips)
+  // dotConfig.tip is not set, which disables the default tooltip
 
   const plotOptions: Plot.PlotOptions = {
     x: { label: labels?.x || xColumn, domainKey: xColumn, grid: true, domain: domain?.x } as any,
@@ -233,6 +181,21 @@ export function lineChart(
       } as any;
     }
   }
+  
+  // Add custom tooltip configuration
+  (plotOptions as any).__customTooltip = {
+    enabled: true,
+    data: cleanSorted, // Pass the data array for tooltip access
+    getFields: createTooltipFieldsGetter(
+      [
+        { label: xLabel, column: xColumn },
+        { label: yLabel, column: yColumn }
+      ],
+      colorField,
+      sizeField,
+      tooltipFields
+    )
+  };
   
   return plotOptions;
 }
@@ -356,60 +319,8 @@ export function verticalLineChart(
     lineConfig.strokeWidth = manualSize || 2;
   }
   
-  // Use a custom title function to ensure long strings aren't truncated (like scatter charts)
-  dotConfig.title = (d: any) => {
-    const formatValue = (val: any): string => {
-      if (typeof val === 'number' && !Number.isInteger(val)) {
-        return val.toFixed(2);
-      }
-      return String(val);
-    };
-    
-    const parts: string[] = [];
-    parts.push(`${xLabel2}: ${formatValue(d[xColumn])}`);
-    parts.push(`${yLabel2}: ${formatValue(d[yColumn])}`);
-    if (colorField && colorColumnName) {
-      parts.push(`${colorField.columnName}: ${formatValue(d[colorColumnName])}`);
-    }
-    if (sizeField) {
-      const sizeColumnName = getResultColumnName(sizeField);
-      parts.push(`${sizeField.columnName}: ${formatValue(d[sizeColumnName])}`);
-    }
-    // Add tooltip fields
-    if (tooltipFields) {
-      tooltipFields.forEach(tf => {
-        const colName = getResultColumnName(tf);
-        if (colName && colName !== xColumn && colName !== yColumn) {
-          const sizeColName = sizeField ? getResultColumnName(sizeField) : null;
-          if (colName !== colorColumnName && colName !== sizeColName) {
-            parts.push(`${tf.columnName}: ${formatValue(d[colName])}`);
-          }
-        }
-      });
-    }
-    return parts.join('\n');
-  };
-  
-  // Configure tooltip format to include all channels (for proper rendering)
-  const tipFormat: any = { [xLabel2]: true, [yLabel2]: true, x: false, y: false, fill: false, r: false };
-  if (colorField) {
-    tipFormat[colorField.columnName] = true;
-  }
-  if (sizeField) {
-    const sizeColumnName = getResultColumnName(sizeField);
-    tipFormat[sizeField.columnName] = true;
-  }
-  // Add tooltip fields to tipFormat
-  if (tooltipFields) {
-    tooltipFields.forEach(tf => {
-      const colName = getResultColumnName(tf);
-      if (colName) {
-        tipFormat[tf.columnName] = true;
-      }
-    });
-  }
-  
-  dotConfig.tip = { format: tipFormat } as any;
+  // Disable built-in Observable Plot tooltip (we'll use custom tooltips)
+  // dotConfig.tip is not set, which disables the default tooltip
   
   const plotOptions: Plot.PlotOptions = {
     x: { label: labels?.x || xColumn, domainKey: xColumn, grid: true, domain: domain?.x } as any,
@@ -457,6 +368,21 @@ export function verticalLineChart(
       } as any;
     }
   }
+  
+  // Add custom tooltip configuration
+  (plotOptions as any).__customTooltip = {
+    enabled: true,
+    data: cleanSorted, // Pass the data array for tooltip access
+    getFields: createTooltipFieldsGetter(
+      [
+        { label: xLabel2, column: xColumn },
+        { label: yLabel2, column: yColumn }
+      ],
+      colorField,
+      sizeField,
+      tooltipFields
+    )
+  };
   
   return plotOptions;
 }
