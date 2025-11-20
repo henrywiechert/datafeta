@@ -130,6 +130,41 @@ export function tickStrip(
         });
       }
       
+      // Use a custom title function to ensure consistent styling (like scatter charts)
+      tickConfig.title = (d: any) => {
+        const formatValue = (val: any): string => {
+          if (typeof val === 'number' && !Number.isInteger(val)) {
+            return val.toFixed(2);
+          }
+          return String(val);
+        };
+        
+        const parts: string[] = [];
+        parts.push(`${labels?.dimension || dimensionColumn}: ${formatValue(d[dimensionColumn])}`);
+        parts.push(`${labels?.category || categoryDimensionColumn}: ${formatValue(d[categoryDimensionColumn])}`);
+        if (colorField) {
+          parts.push(`${colorField.columnName}: ${formatValue(d[colorColumnName!])}`);
+        }
+        if (sizeField) {
+          const sizeColumnName = getResultColumnName(sizeField);
+          parts.push(`${sizeField.columnName}: ${formatValue(d[sizeColumnName])}`);
+        }
+        // Add tooltip fields
+        if (tooltipFields) {
+          tooltipFields.forEach(tf => {
+            const colName = getResultColumnName(tf);
+            if (colName && colName !== dimensionColumn && colName !== categoryDimensionColumn) {
+              const colorColName = colorField ? getResultColumnName(colorField) : null;
+              const sizeColName = sizeField ? getResultColumnName(sizeField) : null;
+              if (colName !== colorColName && colName !== sizeColName) {
+                parts.push(`${tf.columnName}: ${formatValue(d[colName])}`);
+              }
+            }
+          });
+        }
+        return parts.join('\n');
+      };
+      
       // Build tip format
       const tipFormat: any = { stroke: false };
       if (colorField) {
@@ -145,7 +180,7 @@ export function tickStrip(
         });
       }
       
-      tickConfig.tip = { pointer: 'x', preferredAnchor: 'top-right', format: tipFormat };
+      tickConfig.tip = { format: tipFormat };
       
       const opts: Plot.PlotOptions = {
         x: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
@@ -200,6 +235,40 @@ export function tickStrip(
       });
     }
     
+    // Use a custom title function to ensure consistent styling (like scatter charts)
+    tickConfig.title = (d: any) => {
+      const formatValue = (val: any): string => {
+        if (typeof val === 'number' && !Number.isInteger(val)) {
+          return val.toFixed(2);
+        }
+        return String(val);
+      };
+      
+      const parts: string[] = [];
+      parts.push(`${labels?.dimension || dimensionColumn}: ${formatValue(d[dimensionColumn])}`);
+      if (colorField) {
+        parts.push(`${colorField.columnName}: ${formatValue(d[colorColumnName!])}`);
+      }
+      if (sizeField) {
+        const sizeColumnName = getResultColumnName(sizeField);
+        parts.push(`${sizeField.columnName}: ${formatValue(d[sizeColumnName])}`);
+      }
+      // Add tooltip fields
+      if (tooltipFields) {
+        tooltipFields.forEach(tf => {
+          const colName = getResultColumnName(tf);
+          if (colName && colName !== dimensionColumn) {
+            const colorColName = colorField ? getResultColumnName(colorField) : null;
+            const sizeColName = sizeField ? getResultColumnName(sizeField) : null;
+            if (colName !== colorColName && colName !== sizeColName) {
+              parts.push(`${tf.columnName}: ${formatValue(d[colName])}`);
+            }
+          }
+        });
+      }
+      return parts.join('\n');
+    };
+    
     // Build tip format
     const tipFormat: any = { stroke: false };
     if (colorField) {
@@ -215,7 +284,7 @@ export function tickStrip(
       });
     }
     
-    tickConfig.tip = { pointer: 'x', preferredAnchor: 'top-right', format: tipFormat };
+    tickConfig.tip = { format: tipFormat };
     
     const opts: Plot.PlotOptions = {
       x: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
@@ -268,6 +337,41 @@ export function tickStrip(
       });
     }
     
+    // Use a custom title function to ensure consistent styling (like scatter charts)
+    tickConfig.title = (d: any) => {
+      const formatValue = (val: any): string => {
+        if (typeof val === 'number' && !Number.isInteger(val)) {
+          return val.toFixed(2);
+        }
+        return String(val);
+      };
+      
+      const parts: string[] = [];
+      parts.push(`${labels?.dimension || dimensionColumn}: ${formatValue(d[dimensionColumn])}`);
+      parts.push(`${labels?.category || categoryDimensionColumn}: ${formatValue(d[categoryDimensionColumn])}`);
+      if (colorField) {
+        parts.push(`${colorField.columnName}: ${formatValue(d[colorColumnName!])}`);
+      }
+      if (sizeField) {
+        const sizeColumnName = getResultColumnName(sizeField);
+        parts.push(`${sizeField.columnName}: ${formatValue(d[sizeColumnName])}`);
+      }
+      // Add tooltip fields
+      if (tooltipFields) {
+        tooltipFields.forEach(tf => {
+          const colName = getResultColumnName(tf);
+          if (colName && colName !== dimensionColumn && colName !== categoryDimensionColumn) {
+            const colorColName = colorField ? getResultColumnName(colorField) : null;
+            const sizeColName = sizeField ? getResultColumnName(sizeField) : null;
+            if (colName !== colorColName && colName !== sizeColName) {
+              parts.push(`${tf.columnName}: ${formatValue(d[colName])}`);
+            }
+          }
+        });
+      }
+      return parts.join('\n');
+    };
+    
     // Build tip format
     const tipFormat: any = { stroke: false };
     if (colorField) {
@@ -283,7 +387,7 @@ export function tickStrip(
       });
     }
     
-    tickConfig.tip = { pointer: 'y', preferredAnchor: 'top-right', format: tipFormat };
+    tickConfig.tip = { format: tipFormat };
     
     const opts: Plot.PlotOptions = {
       y: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
@@ -337,6 +441,40 @@ export function tickStrip(
     });
   }
   
+  // Use a custom title function to ensure consistent styling (like scatter charts)
+  tickConfig.title = (d: any) => {
+    const formatValue = (val: any): string => {
+      if (typeof val === 'number' && !Number.isInteger(val)) {
+        return val.toFixed(2);
+      }
+      return String(val);
+    };
+    
+    const parts: string[] = [];
+    parts.push(`${labels?.dimension || dimensionColumn}: ${formatValue(d[dimensionColumn])}`);
+    if (colorField) {
+      parts.push(`${colorField.columnName}: ${formatValue(d[colorColumnName!])}`);
+    }
+    if (sizeField) {
+      const sizeColumnName = getResultColumnName(sizeField);
+      parts.push(`${sizeField.columnName}: ${formatValue(d[sizeColumnName])}`);
+    }
+    // Add tooltip fields
+    if (tooltipFields) {
+      tooltipFields.forEach(tf => {
+        const colName = getResultColumnName(tf);
+        if (colName && colName !== dimensionColumn) {
+          const colorColName = colorField ? getResultColumnName(colorField) : null;
+          const sizeColName = sizeField ? getResultColumnName(sizeField) : null;
+          if (colName !== colorColName && colName !== sizeColName) {
+            parts.push(`${tf.columnName}: ${formatValue(d[colName])}`);
+          }
+        }
+      });
+    }
+    return parts.join('\n');
+  };
+  
   // Build tip format
   const tipFormat: any = { stroke: false };
   if (colorField) {
@@ -352,7 +490,7 @@ export function tickStrip(
     });
   }
   
-  tickConfig.tip = { pointer: 'y', preferredAnchor: 'top-right', format: tipFormat };
+  tickConfig.tip = { format: tipFormat };
   
   const opts: Plot.PlotOptions = {
     y: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
