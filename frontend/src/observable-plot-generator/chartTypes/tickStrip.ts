@@ -4,6 +4,187 @@ import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING } from '../../config/cha
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { computeBandPaddingFromSizeField } from './barCore';
+import { Field } from '../../types';
+
+// ---------- Helper Functions ---------------------------------------------------------
+
+/**
+ * Format a value for display in tooltips
+ */
+function formatValue(val: any): string {
+  if (typeof val === 'number' && !Number.isInteger(val)) {
+    return val.toFixed(2);
+  }
+  return String(val);
+}
+
+/**
+ * Add color, size, and tooltip fields to tickConfig channels
+ */
+function addChannelsToConfig(
+  tickConfig: any,
+  colorField: Field | undefined,
+  colorColumnName: string | undefined,
+  sizeField: Field | undefined,
+  tooltipFields: Field[] | undefined
+): void {
+  // Add color field to channels for tooltip
+  if (colorField && colorColumnName) {
+    tickConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
+  }
+  
+  // Add size field to channels for tooltip
+  if (sizeField) {
+    const sizeColumnName = getResultColumnName(sizeField);
+    tickConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
+  }
+  
+  // Add tooltip fields to channels
+  if (tooltipFields) {
+    tooltipFields.forEach(tf => {
+      const colName = getResultColumnName(tf);
+      if (colName && !tickConfig.channels[tf.columnName]) {
+        tickConfig.channels[tf.columnName] = { value: colName, label: tf.columnName };
+      }
+    });
+  }
+}
+
+/**
+ * Create a custom title function for tooltips (consistent styling across all chart types)
+ */
+function createTitleFunction(
+  dimensionColumn: string,
+  dimensionLabel: string,
+  categoryDimensionColumn: string | undefined,
+  categoryLabel: string | undefined,
+  colorField: Field | undefined,
+  colorColumnName: string | undefined,
+  sizeField: Field | undefined,
+  tooltipFields: Field[] | undefined
+): (d: any) => string {
+  return (d: any) => {
+    const parts: string[] = [];
+    
+    // Always add dimension
+    parts.push(`${dimensionLabel}: ${formatValue(d[dimensionColumn])}`);
+    
+    // Add category if present
+    if (categoryDimensionColumn) {
+      parts.push(`${categoryLabel}: ${formatValue(d[categoryDimensionColumn])}`);
+    }
+    
+    // Add color field
+    if (colorField && colorColumnName) {
+      parts.push(`${colorField.columnName}: ${formatValue(d[colorColumnName])}`);
+    }
+    
+    // Add size field
+    if (sizeField) {
+      const sizeColumnName = getResultColumnName(sizeField);
+      parts.push(`${sizeField.columnName}: ${formatValue(d[sizeColumnName])}`);
+    }
+    
+    // Add additional tooltip fields (avoid duplicates)
+    if (tooltipFields) {
+      tooltipFields.forEach(tf => {
+        const colName = getResultColumnName(tf);
+        if (colName && colName !== dimensionColumn && colName !== categoryDimensionColumn) {
+          const colorColName = colorField ? getResultColumnName(colorField) : null;
+          const sizeColName = sizeField ? getResultColumnName(sizeField) : null;
+          if (colName !== colorColName && colName !== sizeColName) {
+            parts.push(`${tf.columnName}: ${formatValue(d[colName])}`);
+          }
+        }
+      });
+    }
+    
+    return parts.join('\n');
+  };
+}
+
+/**
+ * Build tip format object for tooltips
+ */
+function buildTipFormat(
+  colorField: Field | undefined,
+  sizeField: Field | undefined,
+  tooltipFields: Field[] | undefined
+): any {
+  const tipFormat: any = { stroke: false };
+  
+  if (colorField) {
+    tipFormat[colorField.columnName] = true;
+  }
+  if (sizeField) {
+    tipFormat[sizeField.columnName] = true;
+  }
+  if (tooltipFields) {
+    tooltipFields.forEach(tf => {
+      tipFormat[tf.columnName] = true;
+    });
+  }
+  
+  return tipFormat;
+}
+
+/**
+ * Apply color scale to plot options if color field is present
+ */
+function applyColorScale(opts: Plot.PlotOptions, colorScale: any): void {
+  if (colorScale) {
+    opts.color = {
+      ...(opts as any).color,
+      ...colorScale,
+    } as any;
+  }
+}
+
+/**
+ * Build complete tick configuration with channels, title, and tip
+ */
+function buildTickConfig(
+  baseConfig: any,
+  dimensionColumn: string,
+  dimensionLabel: string,
+  categoryDimensionColumn: string | undefined,
+  categoryLabel: string | undefined,
+  strokeValue: any,
+  colorField: Field | undefined,
+  colorColumnName: string | undefined,
+  sizeField: Field | undefined,
+  tooltipFields: Field[] | undefined
+): any {
+  const tickConfig: any = {
+    ...baseConfig,
+    stroke: strokeValue,
+    strokeWidth: 1.5,
+    channels: {}
+  };
+  
+  // Add channels
+  addChannelsToConfig(tickConfig, colorField, colorColumnName, sizeField, tooltipFields);
+  
+  // Add custom title function
+  tickConfig.title = createTitleFunction(
+    dimensionColumn,
+    dimensionLabel,
+    categoryDimensionColumn,
+    categoryLabel,
+    colorField,
+    colorColumnName,
+    sizeField,
+    tooltipFields
+  );
+  
+  // Add tip configuration
+  const tipFormat = buildTipFormat(colorField, sizeField, tooltipFields);
+  tickConfig.tip = { format: tipFormat };
+  
+  return tickConfig;
+}
+
+// ---------- Main Function ---------------------------------------------------------
 
 /**
  * Tick-strip chart for a single continuous dimension.
@@ -96,417 +277,126 @@ export function tickStrip(
   };
   const axisDomain = computeAxisDomain();
 
+  const dimensionLabel = labels?.dimension || dimensionColumn;
+  const categoryLabel = labels?.category || categoryDimensionColumn;
+
+  // X-orientation
   if (orientation === 'x') {
     if (categoryDimensionColumn) {
+      // X-orientation with category
       const categories = Array.from(new Set(data.map((row: any) => row[categoryDimensionColumn])));
       const categoryCount = categories.length;
-      // Build tick config with channels
-      const tickConfig: any = {
-        x: dimensionColumn,
-        y: categoryDimensionColumn,
-        stroke: strokeValue,
-        strokeWidth: 1.5,
-        channels: {}
-      };
       
-      // Add color field to channels for tooltip
-      if (colorField && colorColumnName) {
-        tickConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
-      }
-      
-      // Add size field to channels for tooltip
-      if (sizeField) {
-        const sizeColumnName = getResultColumnName(sizeField);
-        tickConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
-      }
-      
-      // Add tooltip fields to channels
-      if (tooltipFields) {
-        tooltipFields.forEach(tf => {
-          const colName = getResultColumnName(tf);
-          if (colName && !tickConfig.channels[tf.columnName]) {
-            tickConfig.channels[tf.columnName] = { value: colName, label: tf.columnName };
-          }
-        });
-      }
-      
-      // Use a custom title function to ensure consistent styling (like scatter charts)
-      tickConfig.title = (d: any) => {
-        const formatValue = (val: any): string => {
-          if (typeof val === 'number' && !Number.isInteger(val)) {
-            return val.toFixed(2);
-          }
-          return String(val);
-        };
-        
-        const parts: string[] = [];
-        parts.push(`${labels?.dimension || dimensionColumn}: ${formatValue(d[dimensionColumn])}`);
-        parts.push(`${labels?.category || categoryDimensionColumn}: ${formatValue(d[categoryDimensionColumn])}`);
-        if (colorField) {
-          parts.push(`${colorField.columnName}: ${formatValue(d[colorColumnName!])}`);
-        }
-        if (sizeField) {
-          const sizeColumnName = getResultColumnName(sizeField);
-          parts.push(`${sizeField.columnName}: ${formatValue(d[sizeColumnName])}`);
-        }
-        // Add tooltip fields
-        if (tooltipFields) {
-          tooltipFields.forEach(tf => {
-            const colName = getResultColumnName(tf);
-            if (colName && colName !== dimensionColumn && colName !== categoryDimensionColumn) {
-              const colorColName = colorField ? getResultColumnName(colorField) : null;
-              const sizeColName = sizeField ? getResultColumnName(sizeField) : null;
-              if (colName !== colorColName && colName !== sizeColName) {
-                parts.push(`${tf.columnName}: ${formatValue(d[colName])}`);
-              }
-            }
-          });
-        }
-        return parts.join('\n');
-      };
-      
-      // Build tip format
-      const tipFormat: any = { stroke: false };
-      if (colorField) {
-        tipFormat[colorField.columnName] = true;
-      }
-      if (sizeField) {
-        tipFormat[sizeField.columnName] = true;
-      }
-      // Add tooltip fields to tipFormat
-      if (tooltipFields) {
-        tooltipFields.forEach(tf => {
-          tipFormat[tf.columnName] = true;
-        });
-      }
-      
-      tickConfig.tip = { format: tipFormat };
+      const tickConfig = buildTickConfig(
+        { x: dimensionColumn, y: categoryDimensionColumn },
+        dimensionColumn,
+        dimensionLabel,
+        categoryDimensionColumn,
+        categoryLabel,
+        strokeValue,
+        colorField,
+        colorColumnName,
+        sizeField,
+        tooltipFields
+      );
       
       const opts: Plot.PlotOptions = {
-        x: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
+        x: { label: dimensionLabel, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
         y: { 
-          label: labels?.category || categoryDimensionColumn,
+          label: categoryLabel,
           domain: categories as any,
           type: 'band' as any,
           padding: bandPadding as any,
         },
         height: Math.max(BAR_STEP_PX * 2, categoryCount * BAR_STEP_PX),
-        marks: [
-          Plot.tickX(data, tickConfig),
-        ],
+        marks: [Plot.tickX(data, tickConfig)],
       };
-      if (colorScale) {
-        opts.color = {
-          ...(opts as any).color,
-          ...colorScale,
-        } as any;
-      }
+      
+      applyColorScale(opts, colorScale);
       return opts;
     }
     
-    // Build tick config with channels
-    // Map all ticks to the dummy category so band padding affects thickness
-    const tickConfig: any = {
-      x: dimensionColumn,
-      y: () => ' ',
-      stroke: strokeValue,
-      strokeWidth: 1.5,
-      channels: {}
-    };
-    
-    // Add color field to channels for tooltip
-    if (colorField && colorColumnName) {
-      tickConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
-    }
-    
-    // Add size field to channels for tooltip
-    if (sizeField) {
-      const sizeColumnName = getResultColumnName(sizeField);
-      tickConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
-    }
-    
-    // Add tooltip fields to channels
-    if (tooltipFields) {
-      tooltipFields.forEach(tf => {
-        const colName = getResultColumnName(tf);
-        if (colName && !tickConfig.channels[tf.columnName]) {
-          tickConfig.channels[tf.columnName] = { value: colName, label: tf.columnName };
-        }
-      });
-    }
-    
-    // Use a custom title function to ensure consistent styling (like scatter charts)
-    tickConfig.title = (d: any) => {
-      const formatValue = (val: any): string => {
-        if (typeof val === 'number' && !Number.isInteger(val)) {
-          return val.toFixed(2);
-        }
-        return String(val);
-      };
-      
-      const parts: string[] = [];
-      parts.push(`${labels?.dimension || dimensionColumn}: ${formatValue(d[dimensionColumn])}`);
-      if (colorField) {
-        parts.push(`${colorField.columnName}: ${formatValue(d[colorColumnName!])}`);
-      }
-      if (sizeField) {
-        const sizeColumnName = getResultColumnName(sizeField);
-        parts.push(`${sizeField.columnName}: ${formatValue(d[sizeColumnName])}`);
-      }
-      // Add tooltip fields
-      if (tooltipFields) {
-        tooltipFields.forEach(tf => {
-          const colName = getResultColumnName(tf);
-          if (colName && colName !== dimensionColumn) {
-            const colorColName = colorField ? getResultColumnName(colorField) : null;
-            const sizeColName = sizeField ? getResultColumnName(sizeField) : null;
-            if (colName !== colorColName && colName !== sizeColName) {
-              parts.push(`${tf.columnName}: ${formatValue(d[colName])}`);
-            }
-          }
-        });
-      }
-      return parts.join('\n');
-    };
-    
-    // Build tip format
-    const tipFormat: any = { stroke: false };
-    if (colorField) {
-      tipFormat[colorField.columnName] = true;
-    }
-    if (sizeField) {
-      tipFormat[sizeField.columnName] = true;
-    }
-    // Add tooltip fields to tipFormat
-    if (tooltipFields) {
-      tooltipFields.forEach(tf => {
-        tipFormat[tf.columnName] = true;
-      });
-    }
-    
-    tickConfig.tip = { format: tipFormat };
+    // X-orientation without category (single strip)
+    const tickConfig = buildTickConfig(
+      { x: dimensionColumn, y: () => ' ' },
+      dimensionColumn,
+      dimensionLabel,
+      undefined,
+      undefined,
+      strokeValue,
+      colorField,
+      colorColumnName,
+      sizeField,
+      tooltipFields
+    );
     
     const opts: Plot.PlotOptions = {
-      x: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
+      x: { label: dimensionLabel, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
       y: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: bandPadding as any },
       height: BAR_STEP_PX,
-      marks: [
-        Plot.tickX(data, tickConfig),
-      ],
+      marks: [Plot.tickX(data, tickConfig)],
     };
-    if (colorScale) {
-      opts.color = {
-        ...(opts as any).color,
-        ...colorScale,
-      } as any;
-    }
+    
+    applyColorScale(opts, colorScale);
     return opts;
   }
 
-  // orientation === 'y'
+  // Y-orientation
   if (categoryDimensionColumn) {
+    // Y-orientation with category
     const categories = Array.from(new Set(data.map((row: any) => row[categoryDimensionColumn])));
     const categoryCount = categories.length;
-    // Build tick config with channels
-    const tickConfig: any = {
-      y: dimensionColumn,
-      x: categoryDimensionColumn,
-      stroke: strokeValue,
-      strokeWidth: 1.5,
-      channels: {}
-    };
     
-    // Add color field to channels for tooltip
-    if (colorField && colorColumnName) {
-      tickConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
-    }
-    
-    // Add size field to channels for tooltip
-    if (sizeField) {
-      const sizeColumnName = getResultColumnName(sizeField);
-      tickConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
-    }
-    
-    // Add tooltip fields to channels
-    if (tooltipFields) {
-      tooltipFields.forEach(tf => {
-        const colName = getResultColumnName(tf);
-        if (colName && !tickConfig.channels[tf.columnName]) {
-          tickConfig.channels[tf.columnName] = { value: colName, label: tf.columnName };
-        }
-      });
-    }
-    
-    // Use a custom title function to ensure consistent styling (like scatter charts)
-    tickConfig.title = (d: any) => {
-      const formatValue = (val: any): string => {
-        if (typeof val === 'number' && !Number.isInteger(val)) {
-          return val.toFixed(2);
-        }
-        return String(val);
-      };
-      
-      const parts: string[] = [];
-      parts.push(`${labels?.dimension || dimensionColumn}: ${formatValue(d[dimensionColumn])}`);
-      parts.push(`${labels?.category || categoryDimensionColumn}: ${formatValue(d[categoryDimensionColumn])}`);
-      if (colorField) {
-        parts.push(`${colorField.columnName}: ${formatValue(d[colorColumnName!])}`);
-      }
-      if (sizeField) {
-        const sizeColumnName = getResultColumnName(sizeField);
-        parts.push(`${sizeField.columnName}: ${formatValue(d[sizeColumnName])}`);
-      }
-      // Add tooltip fields
-      if (tooltipFields) {
-        tooltipFields.forEach(tf => {
-          const colName = getResultColumnName(tf);
-          if (colName && colName !== dimensionColumn && colName !== categoryDimensionColumn) {
-            const colorColName = colorField ? getResultColumnName(colorField) : null;
-            const sizeColName = sizeField ? getResultColumnName(sizeField) : null;
-            if (colName !== colorColName && colName !== sizeColName) {
-              parts.push(`${tf.columnName}: ${formatValue(d[colName])}`);
-            }
-          }
-        });
-      }
-      return parts.join('\n');
-    };
-    
-    // Build tip format
-    const tipFormat: any = { stroke: false };
-    if (colorField) {
-      tipFormat[colorField.columnName] = true;
-    }
-    if (sizeField) {
-      tipFormat[sizeField.columnName] = true;
-    }
-    // Add tooltip fields to tipFormat
-    if (tooltipFields) {
-      tooltipFields.forEach(tf => {
-        tipFormat[tf.columnName] = true;
-      });
-    }
-    
-    tickConfig.tip = { format: tipFormat };
+    const tickConfig = buildTickConfig(
+      { y: dimensionColumn, x: categoryDimensionColumn },
+      dimensionColumn,
+      dimensionLabel,
+      categoryDimensionColumn,
+      categoryLabel,
+      strokeValue,
+      colorField,
+      colorColumnName,
+      sizeField,
+      tooltipFields
+    );
     
     const opts: Plot.PlotOptions = {
-      y: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
+      y: { label: dimensionLabel, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
       x: { 
-        label: labels?.category || categoryDimensionColumn,
+        label: categoryLabel,
         domain: categories as any,
         type: 'band' as any,
         padding: bandPadding as any,
       },
       width: Math.max(BAR_STEP_PX * 2, categoryCount * BAR_STEP_PX),
-      marks: [
-        Plot.tickY(data, tickConfig),
-      ],
-    };
-    if (colorScale) {
-      opts.color = {
-        ...(opts as any).color,
-        ...colorScale,
-      } as any;
-    }
-    return opts;
-  }
-  // Build tick config with channels
-  // Map all ticks to the dummy category so band padding affects thickness
-  const tickConfig: any = {
-    y: dimensionColumn,
-    x: () => ' ',
-    stroke: strokeValue,
-    strokeWidth: 1.5,
-    channels: {}
-  };
-  
-  // Add color field to channels for tooltip
-  if (colorField && colorColumnName) {
-    tickConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
-  }
-  
-  // Add size field to channels for tooltip
-  if (sizeField) {
-    const sizeColumnName = getResultColumnName(sizeField);
-    tickConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
-  }
-  
-  // Add tooltip fields to channels
-  if (tooltipFields) {
-    tooltipFields.forEach(tf => {
-      const colName = getResultColumnName(tf);
-      if (colName && !tickConfig.channels[tf.columnName]) {
-        tickConfig.channels[tf.columnName] = { value: colName, label: tf.columnName };
-      }
-    });
-  }
-  
-  // Use a custom title function to ensure consistent styling (like scatter charts)
-  tickConfig.title = (d: any) => {
-    const formatValue = (val: any): string => {
-      if (typeof val === 'number' && !Number.isInteger(val)) {
-        return val.toFixed(2);
-      }
-      return String(val);
+      marks: [Plot.tickY(data, tickConfig)],
     };
     
-    const parts: string[] = [];
-    parts.push(`${labels?.dimension || dimensionColumn}: ${formatValue(d[dimensionColumn])}`);
-    if (colorField) {
-      parts.push(`${colorField.columnName}: ${formatValue(d[colorColumnName!])}`);
-    }
-    if (sizeField) {
-      const sizeColumnName = getResultColumnName(sizeField);
-      parts.push(`${sizeField.columnName}: ${formatValue(d[sizeColumnName])}`);
-    }
-    // Add tooltip fields
-    if (tooltipFields) {
-      tooltipFields.forEach(tf => {
-        const colName = getResultColumnName(tf);
-        if (colName && colName !== dimensionColumn) {
-          const colorColName = colorField ? getResultColumnName(colorField) : null;
-          const sizeColName = sizeField ? getResultColumnName(sizeField) : null;
-          if (colName !== colorColName && colName !== sizeColName) {
-            parts.push(`${tf.columnName}: ${formatValue(d[colName])}`);
-          }
-        }
-      });
-    }
-    return parts.join('\n');
-  };
-  
-  // Build tip format
-  const tipFormat: any = { stroke: false };
-  if (colorField) {
-    tipFormat[colorField.columnName] = true;
-  }
-  if (sizeField) {
-    tipFormat[sizeField.columnName] = true;
-  }
-  // Add tooltip fields to tipFormat
-  if (tooltipFields) {
-    tooltipFields.forEach(tf => {
-      tipFormat[tf.columnName] = true;
-    });
+    applyColorScale(opts, colorScale);
+    return opts;
   }
   
-  tickConfig.tip = { format: tipFormat };
+  // Y-orientation without category (single strip)
+  const tickConfig = buildTickConfig(
+    { y: dimensionColumn, x: () => ' ' },
+    dimensionColumn,
+    dimensionLabel,
+    undefined,
+    undefined,
+    strokeValue,
+    colorField,
+    colorColumnName,
+    sizeField,
+    tooltipFields
+  );
   
   const opts: Plot.PlotOptions = {
-    y: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
+    y: { label: dimensionLabel, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
     x: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: bandPadding as any },
     width: BAR_STEP_PX,
-    marks: [
-      Plot.tickY(data, tickConfig),
-    ],
+    marks: [Plot.tickY(data, tickConfig)],
   };
-  if (colorScale) {
-    opts.color = {
-      ...(opts as any).color,
-      ...colorScale,
-    } as any;
-  }
+  
+  applyColorScale(opts, colorScale);
   return opts;
 }
-
-
