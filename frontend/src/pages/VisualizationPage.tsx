@@ -249,9 +249,6 @@ const VisualizationPageContent = () => {
                                 onDrop={handleFilterDrop}
                                 onRemove={handleRemoveFromFilter}
                                 onConfigChange={(fieldId, config) => {
-                                    // Record current state for undo
-                                    recordAction(getUndoableSnapshot());
-                                    
                                     dispatch({ 
                                         type: 'SET_FILTER_CONFIGURATION', 
                                         payload: { fieldId, config }

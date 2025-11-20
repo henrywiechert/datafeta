@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import { Field, DragSource, FilterConfig, FilterMetadata } from '../../../types';
@@ -26,6 +26,31 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   onApplyFilters,
   onRefetchValues,
 }) => {
+  // Keep local state for pending filter changes - only update Context on Apply
+  const [localConfigurations, setLocalConfigurations] = useState(filterConfigurations);
+
+  // Sync local state when filterConfigurations changes (e.g., from Apply or undo/redo)
+  useEffect(() => {
+    setLocalConfigurations(filterConfigurations);
+  }, [filterConfigurations]);
+
+  const handleLocalConfigChange = (fieldId: string, config: FilterConfig) => {
+    setLocalConfigurations(prev => ({
+      ...prev,
+      [fieldId]: config,
+    }));
+  };
+
+  const handleApply = () => {
+    // Batch update all changes to Context
+    Object.entries(localConfigurations).forEach(([fieldId, config]) => {
+      if (JSON.stringify(config) !== JSON.stringify(filterConfigurations[fieldId])) {
+        onConfigChange(fieldId, config);
+      }
+    });
+    onApplyFilters();
+  };
+
   const hasActiveFilters = filterFields.length > 0;
 
   return (
@@ -38,7 +63,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
         <Button
           variant="contained"
           size="small"
-          onClick={onApplyFilters}
+          onClick={handleApply}
           disabled={!hasActiveFilters}
           sx={{
             fontSize: '12px',
@@ -52,11 +77,11 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
     >
       <FilterDropZone
         fields={filterFields}
-        filterConfigurations={filterConfigurations}
+        filterConfigurations={localConfigurations}
         filterMetadata={filterMetadata}
         onDrop={onDrop}
         onRemove={onRemove}
-        onConfigChange={onConfigChange}
+        onConfigChange={handleLocalConfigChange}
         onRefetchValues={onRefetchValues}
       />
     </PropertySection>
