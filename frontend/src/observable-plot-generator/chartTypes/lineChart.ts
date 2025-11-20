@@ -134,6 +134,16 @@ export function lineChart(
   
   // Disable built-in Observable Plot tooltip (we'll use custom tooltips)
   // dotConfig.tip is not set, which disables the default tooltip
+  
+  // Add invisible larger dots for better hover detection
+  const hoverDotConfig: any = {
+    x: xColumn,
+    y: yColumn,
+    r: 12, // Larger radius for easier hovering
+    fill: 'transparent',
+    stroke: 'transparent',
+    strokeWidth: 0,
+  };
 
   const plotOptions: Plot.PlotOptions = {
     x: { label: labels?.x || xColumn, domainKey: xColumn, grid: true, domain: domain?.x } as any,
@@ -141,6 +151,7 @@ export function lineChart(
     marks: [
       Plot.line(cleanSorted, lineConfig),
       Plot.dot(cleanSorted, dotConfig),
+      Plot.dot(cleanSorted, hoverDotConfig), // Invisible larger dots for easier hovering
     ],
   };
 
@@ -322,12 +333,23 @@ export function verticalLineChart(
   // Disable built-in Observable Plot tooltip (we'll use custom tooltips)
   // dotConfig.tip is not set, which disables the default tooltip
   
+  // Add invisible larger dots for better hover detection
+  const hoverDotConfig: any = {
+    x: xColumn,
+    y: yColumn,
+    r: 12, // Larger radius for easier hovering
+    fill: 'transparent',
+    stroke: 'transparent',
+    strokeWidth: 0,
+  };
+  
   const plotOptions: Plot.PlotOptions = {
     x: { label: labels?.x || xColumn, domainKey: xColumn, grid: true, domain: domain?.x } as any,
     y: { label: labels?.y || yColumn, domainKey: yColumn, grid: true, domain: domain?.y } as any,
     marks: [
       Plot.line(cleanSorted, lineConfig),
       Plot.dot(cleanSorted, dotConfig),
+      Plot.dot(cleanSorted, hoverDotConfig), // Invisible larger dots for easier hovering
     ],
   };
 
