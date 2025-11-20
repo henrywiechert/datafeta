@@ -3,6 +3,7 @@ import { getResultColumnName } from '../../utils/fieldUtils';
 import { ColorScaleInfo } from '../utils/colorSchemeUtils';
 import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
+import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 
 export type Orientation = 'vertical' | 'horizontal';
 
@@ -307,52 +308,14 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     tipFormat[key] = true;
   });
   
-  // Explicitly hide the default positional channels to prevent duplication
-  tipFormat.x = false;
-  tipFormat.y = false;
-  tipFormat.fill = false;
-  
-  // Use a custom title function to ensure long strings aren't truncated (like scatter charts)
-  const titleFunc = (d: any) => {
-    const formatValue = (val: any): string => {
-      if (typeof val === 'number' && !Number.isInteger(val)) {
-        return val.toFixed(2);
-      }
-      return String(val);
-    };
-    
-    const parts: string[] = [];
-    
-    // Add measure value
-    parts.push(`${measureName}: ${formatValue(d[measureName])}`);
-    
-    // Add category if present
-    if (categoryColumn) {
-      parts.push(`${categoryColumn}: ${formatValue(d[categoryColumn])}`);
-    }
-    
-    // Add color field if present and not already shown
-    if (colorColumn && colorColumn !== categoryColumn && colorColumn !== measureName) {
-      parts.push(`${colorColumn}: ${formatValue(d[colorColumn])}`);
-    }
-    
-    // Add any additional tooltip columns
-    tooltipColumns.forEach(col => {
-      if (col && col !== measureName && col !== categoryColumn && col !== colorColumn) {
-        parts.push(`${col}: ${formatValue(d[col])}`);
-      }
-    });
-    
-    return parts.join('\n');
-  };
+  // Disable built-in Observable Plot tooltip (we'll use custom tooltips)
+  // Don't set title and tip on baseConfig
 
   const baseConfig: any = {
     [O.measure]: measureName,
     fill: fillValue,
     [O.category]: categoryColumn ? categoryColumn : () => categories[0],
-    channels: channels,
-    title: titleFunc,
-    tip: { format: tipFormat }
+    channels: channels
   };
 
   // When there's no category but there is color, enable stacking with z channel
@@ -406,6 +369,33 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
       label: colorColumn,
     } as any;
   }
+
+  // Add custom tooltip configuration
+  const mainFields: { label: string; column: string }[] = [
+    { label: measureName, column: measureName }
+  ];
+  
+  if (categoryColumn) {
+    mainFields.push({ label: categoryColumn, column: categoryColumn });
+  }
+  
+  // Extract fields from tooltipColumns
+  const tooltipFieldsArray: Field[] = tooltipColumns
+    .filter(col => col && col !== measureName && col !== categoryColumn && col !== colorColumn)
+    .map(col => ({ columnName: col, type: 'dimension' } as Field));
+  
+  (plot as any).__customTooltip = {
+    enabled: true,
+    data: data, // Pass the data array for tooltip access
+    getFields: createTooltipFieldsGetter(
+      mainFields,
+      colorColumn && colorColumn !== categoryColumn && colorColumn !== measureName
+        ? { columnName: colorColumn, type: 'dimension' } as Field
+        : undefined,
+      undefined, // No size field in bar charts
+      tooltipFieldsArray.length > 0 ? tooltipFieldsArray : undefined
+    )
+  };
 
   return plot;
 }

@@ -5,6 +5,7 @@ import { getResultColumnName } from '../../utils/fieldUtils';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { computeBandPaddingFromSizeField } from './barCore';
 import { Field } from '../../types';
+import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 
 // ---------- Helper Functions ---------------------------------------------------------
 
@@ -20,6 +21,7 @@ function formatValue(val: any): string {
 
 /**
  * Add color, size, and tooltip fields to tickConfig channels
+ * Note: We don't add channels anymore since we're using custom tooltips
  */
 function addChannelsToConfig(
   tickConfig: any,
@@ -28,26 +30,8 @@ function addChannelsToConfig(
   sizeField: Field | undefined,
   tooltipFields: Field[] | undefined
 ): void {
-  // Add color field to channels for tooltip
-  if (colorField && colorColumnName) {
-    tickConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
-  }
-  
-  // Add size field to channels for tooltip
-  if (sizeField) {
-    const sizeColumnName = getResultColumnName(sizeField);
-    tickConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
-  }
-  
-  // Add tooltip fields to channels
-  if (tooltipFields) {
-    tooltipFields.forEach(tf => {
-      const colName = getResultColumnName(tf);
-      if (colName && !tickConfig.channels[tf.columnName]) {
-        tickConfig.channels[tf.columnName] = { value: colName, label: tf.columnName };
-      }
-    });
-  }
+  // Channels removed - not needed for custom tooltips
+  // Observable Plot auto-generates tooltips from channels, which we don't want
 }
 
 /**
@@ -141,6 +125,40 @@ function applyColorScale(opts: Plot.PlotOptions, colorScale: any): void {
 }
 
 /**
+ * Add custom tooltip configuration to plot options
+ */
+function addCustomTooltip(
+  opts: Plot.PlotOptions,
+  data: any[],
+  dimensionColumn: string,
+  dimensionLabel: string,
+  categoryDimensionColumn: string | undefined,
+  categoryLabel: string | undefined,
+  colorField: Field | undefined,
+  sizeField: Field | undefined,
+  tooltipFields: Field[] | undefined
+): void {
+  const mainFields: { label: string; column: string }[] = [
+    { label: dimensionLabel, column: dimensionColumn }
+  ];
+  
+  if (categoryDimensionColumn && categoryLabel) {
+    mainFields.push({ label: categoryLabel, column: categoryDimensionColumn });
+  }
+  
+  (opts as any).__customTooltip = {
+    enabled: true,
+    data: data, // Pass the data array for tooltip access
+    getFields: createTooltipFieldsGetter(
+      mainFields,
+      colorField,
+      sizeField,
+      tooltipFields
+    )
+  };
+}
+
+/**
  * Build complete tick configuration with channels, title, and tip
  */
 function buildTickConfig(
@@ -158,28 +176,11 @@ function buildTickConfig(
   const tickConfig: any = {
     ...baseConfig,
     stroke: strokeValue,
-    strokeWidth: 1.5,
-    channels: {}
+    strokeWidth: 1.5
   };
   
-  // Add channels
-  addChannelsToConfig(tickConfig, colorField, colorColumnName, sizeField, tooltipFields);
-  
-  // Add custom title function
-  tickConfig.title = createTitleFunction(
-    dimensionColumn,
-    dimensionLabel,
-    categoryDimensionColumn,
-    categoryLabel,
-    colorField,
-    colorColumnName,
-    sizeField,
-    tooltipFields
-  );
-  
-  // Add tip configuration
-  const tipFormat = buildTipFormat(colorField, sizeField, tooltipFields);
-  tickConfig.tip = { format: tipFormat };
+  // Don't add channels or tip - we'll use custom tooltips instead
+  // Observable Plot auto-generates tooltips from channels, which conflicts with custom tooltips
   
   return tickConfig;
 }
@@ -313,6 +314,7 @@ export function tickStrip(
       };
       
       applyColorScale(opts, colorScale);
+      addCustomTooltip(opts, data, dimensionColumn, dimensionLabel, categoryDimensionColumn, categoryLabel, colorField, sizeField, tooltipFields);
       return opts;
     }
     
@@ -338,6 +340,7 @@ export function tickStrip(
     };
     
     applyColorScale(opts, colorScale);
+    addCustomTooltip(opts, data, dimensionColumn, dimensionLabel, undefined, undefined, colorField, sizeField, tooltipFields);
     return opts;
   }
 
@@ -373,6 +376,7 @@ export function tickStrip(
     };
     
     applyColorScale(opts, colorScale);
+    addCustomTooltip(opts, data, dimensionColumn, dimensionLabel, categoryDimensionColumn, categoryLabel, colorField, sizeField, tooltipFields);
     return opts;
   }
   
@@ -398,5 +402,6 @@ export function tickStrip(
   };
   
   applyColorScale(opts, colorScale);
+  addCustomTooltip(opts, data, dimensionColumn, dimensionLabel, undefined, undefined, colorField, sizeField, tooltipFields);
   return opts;
 }
