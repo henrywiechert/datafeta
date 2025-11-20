@@ -225,14 +225,19 @@ export const useQueryExecution = ({
       }
     }
 
-    if (mergedFields.length === 0 || !selectedTable || !selectedDatabase) {
+    if (mergedFields.length === 0 || !selectedTable) {
+      return null;
+    }
+    
+    // For ClickHouse, database is required; for CSV, it's not
+    if (connectionDetails?.type === 'clickhouse' && !selectedDatabase) {
       return null;
     }
     
     const queryDesc = buildQuery({
       fields: mergedFields,
       selectedTable,
-      selectedDatabase,
+      selectedDatabase: selectedDatabase || undefined,
       filterConfigurations,
       labelFields,
       virtualTable,
