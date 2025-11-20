@@ -66,7 +66,8 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
       labelCfg,
       context.fieldOverrides,
       context.fieldOverrideTargets,
-      [...xFields, ...yFields, ...(colorField ? [colorField] : []), ...(sizeField ? [sizeField] : [])]
+      [...xFields, ...yFields, ...(colorField ? [colorField] : []), ...(sizeField ? [sizeField] : [])],
+      context.tooltipFields
     );
 
     // Determine column/row sizes from plots

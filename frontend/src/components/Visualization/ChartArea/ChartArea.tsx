@@ -34,6 +34,7 @@ const ChartArea: React.FC = () => {
     labelSamplingStrategy,
     labelSamplingThreshold,
     labelSampleEvery,
+    tooltipFields,
     virtualColumns,
     fieldOverrides,
   } = state as any;
@@ -97,6 +98,7 @@ const ChartArea: React.FC = () => {
     sizeField,
     filterConfigurations: appliedFilterConfigurations,
     labelFields,
+    tooltipFields,
     virtualTable,
     virtualColumns,
     startOperation,
@@ -127,6 +129,7 @@ const ChartArea: React.FC = () => {
     labelSamplingStrategy,
     labelSamplingThreshold,
     labelSampleEvery,
+    tooltipFields,
     fieldOverrides,
   });
 

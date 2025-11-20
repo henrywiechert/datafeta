@@ -24,7 +24,8 @@ export function lineChart(
   sizeField?: Field,
   sizeRange?: [number, number],
   manualSize?: number,
-  labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
+  labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number },
+  tooltipFields?: Field[]
 ): Plot.PlotOptions {
   // Filter to finite numeric values for y; x may be numeric or datetime/ordinal
   const clean = Array.isArray(data)
@@ -150,6 +151,19 @@ export function lineChart(
       const sizeColumnName = getResultColumnName(sizeField);
       parts.push(`${sizeField.columnName}: ${formatValue(d[sizeColumnName])}`);
     }
+    // Add tooltip fields
+    if (tooltipFields) {
+      tooltipFields.forEach(tf => {
+        const colName = getResultColumnName(tf);
+        if (colName && colName !== xColumn && colName !== yColumn) {
+          const colorColName = colorField ? getResultColumnName(colorField) : null;
+          const sizeColName = sizeField ? getResultColumnName(sizeField) : null;
+          if (colName !== colorColName && colName !== sizeColName) {
+            parts.push(`${tf.columnName}: ${formatValue(d[colName])}`);
+          }
+        }
+      });
+    }
     return parts.join('\n');
   };
   
@@ -160,6 +174,15 @@ export function lineChart(
   }
   if (sizeField) {
     tipFormat[sizeField.columnName] = true;
+  }
+  // Add tooltip fields to tipFormat
+  if (tooltipFields) {
+    tooltipFields.forEach(tf => {
+      const colName = getResultColumnName(tf);
+      if (colName) {
+        tipFormat[tf.columnName] = true;
+      }
+    });
   }
   
   dotConfig.tip = { format: tipFormat } as any;
@@ -230,7 +253,8 @@ export function verticalLineChart(
   sizeField?: Field,
   sizeRange?: [number, number],
   manualSize?: number,
-  labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
+  labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number },
+  tooltipFields?: Field[]
 ): Plot.PlotOptions {
   const clean = Array.isArray(data)
     ? data.filter((d) => Number.isFinite(d[xColumn]))
@@ -351,6 +375,18 @@ export function verticalLineChart(
       const sizeColumnName = getResultColumnName(sizeField);
       parts.push(`${sizeField.columnName}: ${formatValue(d[sizeColumnName])}`);
     }
+    // Add tooltip fields
+    if (tooltipFields) {
+      tooltipFields.forEach(tf => {
+        const colName = getResultColumnName(tf);
+        if (colName && colName !== xColumn && colName !== yColumn) {
+          const sizeColName = sizeField ? getResultColumnName(sizeField) : null;
+          if (colName !== colorColumnName && colName !== sizeColName) {
+            parts.push(`${tf.columnName}: ${formatValue(d[colName])}`);
+          }
+        }
+      });
+    }
     return parts.join('\n');
   };
   
@@ -362,6 +398,15 @@ export function verticalLineChart(
   if (sizeField) {
     const sizeColumnName = getResultColumnName(sizeField);
     tipFormat[sizeField.columnName] = true;
+  }
+  // Add tooltip fields to tipFormat
+  if (tooltipFields) {
+    tooltipFields.forEach(tf => {
+      const colName = getResultColumnName(tf);
+      if (colName) {
+        tipFormat[tf.columnName] = true;
+      }
+    });
   }
   
   dotConfig.tip = { format: tipFormat } as any;

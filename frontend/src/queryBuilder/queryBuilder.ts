@@ -98,6 +98,7 @@ export const buildAggregatedQuery = ({
   selectedDatabase,
   filterConfigurations = {},
   labelFields = [],
+  tooltipFields = [],
   virtualTable = null,
   virtualColumns = [],
 }: {
@@ -106,11 +107,22 @@ export const buildAggregatedQuery = ({
   selectedDatabase?: string;
   filterConfigurations?: Record<string, FilterConfig>;
   labelFields?: Field[];
+  tooltipFields?: Field[];
   virtualTable?: VirtualTableDefinition | null;
   virtualColumns?: import('../types').VirtualColumnDefinition[];
 }): QueryDescription | null => {
 
-  const dimensions = fields
+  // Merge tooltip fields with regular fields for dimension/measure extraction
+  // Tooltip fields should be included in the query as dimensions
+  const allFieldsForQuery = [...fields];
+  for (const tf of tooltipFields) {
+    // Avoid duplicate by columnName & date part alias uniqueness
+    if (!allFieldsForQuery.some(f => f.columnName === tf.columnName && f.dateTimePart === tf.dateTimePart && f.dateTimeMode === tf.dateTimeMode)) {
+      allFieldsForQuery.push(tf);
+    }
+  }
+
+  const dimensions = allFieldsForQuery
     .filter((f) => f.type === 'dimension')
     .map((d) => ({
       field: d.columnName,
@@ -120,7 +132,7 @@ export const buildAggregatedQuery = ({
       date_mode: d.dateTimeMode,  // Pass datetime mode if present
     }));
   
-  const measures: Measure[] = fields
+  const measures: Measure[] = allFieldsForQuery
     .filter((f) => f.type === 'measure')
     .map((m) => ({
       field: m.columnName,
@@ -135,8 +147,8 @@ export const buildAggregatedQuery = ({
 
   // Order by all dimensions to ensure deterministic series/category order and
   // left-to-right flow for continuous dimensions (e.g., line charts)
-  const discreteDims = fields.filter(f => f.type === 'dimension' && f.flavour === 'discrete');
-  const continuousDims = fields.filter(f => f.type === 'dimension' && f.flavour === 'continuous');
+  const discreteDims = allFieldsForQuery.filter(f => f.type === 'dimension' && f.flavour === 'discrete');
+  const continuousDims = allFieldsForQuery.filter(f => f.type === 'dimension' && f.flavour === 'continuous');
   // For datetime parts, use the alias name (fieldname_part_mode), otherwise use column name
   const orderBy: OrderBy[] = [...discreteDims, ...continuousDims].map(f => {
     // If this is a datetime part, order by the alias
@@ -150,7 +162,7 @@ export const buildAggregatedQuery = ({
   const filters = convertFilterConfigsToFilters(filterConfigurations);
 
   // Extract column casting configuration
-  const columnCasts = extractColumnCasts(fields);
+  const columnCasts = extractColumnCasts(allFieldsForQuery);
 
   const queryDesc: QueryDescription = {
     target_table: selectedTable,
@@ -178,6 +190,7 @@ export const buildRawQuery = ({
   selectedDatabase,
   filterConfigurations = {},
   labelFields = [],
+  tooltipFields = [],
   virtualTable = null,
   virtualColumns = [],
 }: {
@@ -186,6 +199,7 @@ export const buildRawQuery = ({
   selectedDatabase?: string;
   filterConfigurations?: Record<string, FilterConfig>;
   labelFields?: Field[];
+  tooltipFields?: Field[];
   virtualTable?: VirtualTableDefinition | null;
   virtualColumns?: import('../types').VirtualColumnDefinition[];
 }): QueryDescription | null => {
@@ -193,13 +207,19 @@ export const buildRawQuery = ({
     return null;
   }
 
-  // Treat all visualization fields + label fields as simple columns to select.
-  // Merge labelFields so they are guaranteed present even if not on axes.
+  // Treat all visualization fields + label fields + tooltip fields as simple columns to select.
+  // Merge labelFields and tooltipFields so they are guaranteed present even if not on axes.
   const allRaw = [...fields];
   for (const lf of labelFields) {
     // Avoid duplicate by columnName & date part alias uniqueness
     if (!allRaw.some(f => f.columnName === lf.columnName && f.dateTimePart === lf.dateTimePart && f.dateTimeMode === lf.dateTimeMode)) {
       allRaw.push(lf);
+    }
+  }
+  for (const tf of tooltipFields) {
+    // Avoid duplicate by columnName & date part alias uniqueness
+    if (!allRaw.some(f => f.columnName === tf.columnName && f.dateTimePart === tf.dateTimePart && f.dateTimeMode === tf.dateTimeMode)) {
+      allRaw.push(tf);
     }
   }
   // Deduplicate on result column name (datetime part yields distinct alias)
@@ -278,6 +298,7 @@ export const buildQuery = ({
   selectedDatabase,
   filterConfigurations = {},
   labelFields = [],
+  tooltipFields = [],
   virtualTable = null,
   virtualColumns = [],
 }: {
@@ -286,15 +307,16 @@ export const buildQuery = ({
   selectedDatabase?: string;
   filterConfigurations?: Record<string, FilterConfig>;
   labelFields?: Field[];
+  tooltipFields?: Field[];
   virtualTable?: VirtualTableDefinition | null;
   virtualColumns?: import('../types').VirtualColumnDefinition[];
 }): QueryDescription | null => {
   const queryType = getQueryTypeFromFields(fields);
   
   if (queryType === 'aggregated') {
-    return buildAggregatedQuery({ fields, selectedTable, selectedDatabase, filterConfigurations, labelFields, virtualTable, virtualColumns });
+    return buildAggregatedQuery({ fields, selectedTable, selectedDatabase, filterConfigurations, labelFields, tooltipFields, virtualTable, virtualColumns });
   } else {
-    return buildRawQuery({ fields, selectedTable, selectedDatabase, filterConfigurations, labelFields, virtualTable, virtualColumns });
+    return buildRawQuery({ fields, selectedTable, selectedDatabase, filterConfigurations, labelFields, tooltipFields, virtualTable, virtualColumns });
   }
 };
 

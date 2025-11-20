@@ -18,7 +18,7 @@ export function tickStrip(
   categoryDimensionColumn?: string,
   labels?: { dimension?: string; category?: string }
 ): Plot.PlotOptions {
-  const { queryResult, colorField, colorScheme, colorBias, sizeField, sizeRange, manualSize, manualColor } = context;
+  const { queryResult, colorField, colorScheme, colorBias, sizeField, sizeRange, manualSize, manualColor, tooltipFields } = context;
   const data = queryResult.rows;
   const colorInfo = colorField ? deriveColorScaleInfo(data, colorField, colorScheme, colorBias) : null;
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
@@ -120,6 +120,16 @@ export function tickStrip(
         tickConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
       }
       
+      // Add tooltip fields to channels
+      if (tooltipFields) {
+        tooltipFields.forEach(tf => {
+          const colName = getResultColumnName(tf);
+          if (colName && !tickConfig.channels[tf.columnName]) {
+            tickConfig.channels[tf.columnName] = { value: colName, label: tf.columnName };
+          }
+        });
+      }
+      
       // Build tip format
       const tipFormat: any = { stroke: false };
       if (colorField) {
@@ -127,6 +137,12 @@ export function tickStrip(
       }
       if (sizeField) {
         tipFormat[sizeField.columnName] = true;
+      }
+      // Add tooltip fields to tipFormat
+      if (tooltipFields) {
+        tooltipFields.forEach(tf => {
+          tipFormat[tf.columnName] = true;
+        });
       }
       
       tickConfig.tip = { pointer: 'x', preferredAnchor: 'top-right', format: tipFormat };
@@ -174,6 +190,16 @@ export function tickStrip(
       tickConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
     }
     
+    // Add tooltip fields to channels
+    if (tooltipFields) {
+      tooltipFields.forEach(tf => {
+        const colName = getResultColumnName(tf);
+        if (colName && !tickConfig.channels[tf.columnName]) {
+          tickConfig.channels[tf.columnName] = { value: colName, label: tf.columnName };
+        }
+      });
+    }
+    
     // Build tip format
     const tipFormat: any = { stroke: false };
     if (colorField) {
@@ -181,6 +207,12 @@ export function tickStrip(
     }
     if (sizeField) {
       tipFormat[sizeField.columnName] = true;
+    }
+    // Add tooltip fields to tipFormat
+    if (tooltipFields) {
+      tooltipFields.forEach(tf => {
+        tipFormat[tf.columnName] = true;
+      });
     }
     
     tickConfig.tip = { pointer: 'x', preferredAnchor: 'top-right', format: tipFormat };
@@ -226,6 +258,16 @@ export function tickStrip(
       tickConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
     }
     
+    // Add tooltip fields to channels
+    if (tooltipFields) {
+      tooltipFields.forEach(tf => {
+        const colName = getResultColumnName(tf);
+        if (colName && !tickConfig.channels[tf.columnName]) {
+          tickConfig.channels[tf.columnName] = { value: colName, label: tf.columnName };
+        }
+      });
+    }
+    
     // Build tip format
     const tipFormat: any = { stroke: false };
     if (colorField) {
@@ -233,6 +275,12 @@ export function tickStrip(
     }
     if (sizeField) {
       tipFormat[sizeField.columnName] = true;
+    }
+    // Add tooltip fields to tipFormat
+    if (tooltipFields) {
+      tooltipFields.forEach(tf => {
+        tipFormat[tf.columnName] = true;
+      });
     }
     
     tickConfig.tip = { pointer: 'y', preferredAnchor: 'top-right', format: tipFormat };
@@ -279,6 +327,16 @@ export function tickStrip(
     tickConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
   }
   
+  // Add tooltip fields to channels
+  if (tooltipFields) {
+    tooltipFields.forEach(tf => {
+      const colName = getResultColumnName(tf);
+      if (colName && !tickConfig.channels[tf.columnName]) {
+        tickConfig.channels[tf.columnName] = { value: colName, label: tf.columnName };
+      }
+    });
+  }
+  
   // Build tip format
   const tipFormat: any = { stroke: false };
   if (colorField) {
@@ -286,6 +344,12 @@ export function tickStrip(
   }
   if (sizeField) {
     tipFormat[sizeField.columnName] = true;
+  }
+  // Add tooltip fields to tipFormat
+  if (tooltipFields) {
+    tooltipFields.forEach(tf => {
+      tipFormat[tf.columnName] = true;
+    });
   }
   
   tickConfig.tip = { pointer: 'y', preferredAnchor: 'top-right', format: tipFormat };

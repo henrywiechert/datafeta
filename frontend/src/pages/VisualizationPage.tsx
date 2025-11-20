@@ -17,6 +17,7 @@ import ChartPanel from '../components/Visualization/ChartPanel';
 import FilterPanel from '../components/Visualization/Filters/FilterPanel';
 import LegendPanel from '../components/Visualization/Legend/LegendPanel';
 import LabelPanel from '../components/Visualization/Label/LabelPanel';
+import TooltipPanel from '../components/Visualization/Tooltip/TooltipPanel';
 import FieldOverridesPanel from '../components/Visualization/Overrides/FieldOverridesPanel';
 import LoadingModal from '../components/LoadingModal';
 import { apiService } from '../apiService';
@@ -293,6 +294,7 @@ const VisualizationPageContent = () => {
                                 onRefetchValues={refetchFilterValues}
                             />
                             <LabelPanel />
+                            <TooltipPanel />
                             <FieldOverridesPanel />
                             {state.colorField && (
                                 <LegendPanel
