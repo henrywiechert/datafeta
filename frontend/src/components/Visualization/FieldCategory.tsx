@@ -12,27 +12,46 @@ interface FieldCategoryProps {
 }
 
 // Use virtualization if more than this many fields
-const VIRTUALIZATION_THRESHOLD = 100;
+// Lower threshold since full-width chips cause more reflow during resize
+const VIRTUALIZATION_THRESHOLD = 50;
 const ITEM_HEIGHT = 32; // Height of each field chip
+
+// Stable style object for virtualized rows (defined outside component to avoid recreation)
+const ROW_BASE_STYLE = { 
+  paddingBottom: 0,
+  display: 'flex' as const,
+  alignItems: 'center' as const,
+  justifyContent: 'flex-start' as const,
+  width: '100%',
+  boxSizing: 'border-box' as const,
+  contain: 'layout style' as const, // CSS containment for performance
+};
 
 const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerHeight, setContainerHeight] = useState(600);
   
-  // Measure available height for the list
+  // Measure available height for the list (debounced for performance)
   useEffect(() => {
     if (!containerRef.current) return;
     
+    let timeoutId: number | undefined;
     const updateHeight = () => {
-      if (containerRef.current) {
-        const parentElement = containerRef.current.parentElement;
-        if (parentElement) {
-          const rect = parentElement.getBoundingClientRect();
-          // Calculate available space, accounting for other elements
-          const availableHeight = Math.max(300, rect.height - 100);
-          setContainerHeight(availableHeight);
-        }
+      if (timeoutId) {
+        cancelAnimationFrame(timeoutId);
       }
+      // Throttle updates to animation frames
+      timeoutId = requestAnimationFrame(() => {
+        if (containerRef.current) {
+          const parentElement = containerRef.current.parentElement;
+          if (parentElement) {
+            const rect = parentElement.getBoundingClientRect();
+            // Calculate available space, accounting for other elements
+            const availableHeight = Math.max(300, rect.height - 100);
+            setContainerHeight(availableHeight);
+          }
+        }
+      });
     };
     
     updateHeight();
@@ -44,6 +63,9 @@ const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate }
     }
     
     return () => {
+      if (timeoutId) {
+        cancelAnimationFrame(timeoutId);
+      }
       resizeObserver.disconnect();
     };
   }, []);
@@ -60,15 +82,8 @@ const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate }
     const { index, style } = props;
     const field = fields[index];
     return (
-      <div style={{ 
-        ...style, 
-        paddingBottom: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'flex-start'
-      }}>
+      <div style={{ ...style, ...ROW_BASE_STYLE }}>
         <FieldChip 
-          key={`${field.id}-${field.type}-${field.flavour}-${field.dataType}-${field.aggregation || 'none'}-${field.dateTimePart || 'none'}-${field.dateTimeMode || 'none'}`} 
           field={field} 
           onUpdate={onUpdate} 
           source="AVAILABLE_FIELDS" 
@@ -86,14 +101,17 @@ const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate }
         <Typography variant="subtitle2" className={styles.categoryTitle}>
           {title} ({fields.length})
         </Typography>
-        <Box ref={containerRef} style={{ width: '100%' }}>
+        <Box ref={containerRef} style={{ width: '100%', contain: 'layout' }}>
           <List
             defaultHeight={listHeight}
             rowCount={fields.length}
             rowHeight={ITEM_HEIGHT}
             rowComponent={RowComponent}
             rowProps={{}}
-            style={{ overflowX: 'hidden' }}
+            style={{ 
+              overflowX: 'hidden',
+              willChange: 'transform', // Hint browser for smooth scrolling
+            }}
           >
             {null}
           </List>
