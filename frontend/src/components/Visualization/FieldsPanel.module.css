@@ -3,6 +3,8 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* Performance optimization: hint browser about changes during resize */
+  will-change: width;
 }
 
 .header {
@@ -45,7 +47,10 @@
   display: flex;
   flex-direction: column;
   gap: 0px;
-  align-items: flex-start;
+  align-items: stretch; /* Make children fill width */
+  width: 100%;
+  /* Performance hint for large lists */
+  contain: layout;
 }
 
 .emptyMessage {
