@@ -76,4 +76,6 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
   );
 };
 
-export default FieldChip;
+// Memoize to prevent unnecessary re-renders during panel resizing
+// Only re-render if field, source, onUpdate, or index props change
+export default React.memo(FieldChip);

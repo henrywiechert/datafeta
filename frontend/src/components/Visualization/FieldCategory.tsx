@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Typography, Box } from '@mui/material';
+import { List } from 'react-window';
 import FieldChip from './FieldChip/index';
 import { Field } from '../../types';
 import styles from './FieldsPanel.module.css';
@@ -10,7 +11,98 @@ interface FieldCategoryProps {
   onUpdate: (field: Field) => void;
 }
 
+// Use virtualization if more than this many fields
+const VIRTUALIZATION_THRESHOLD = 100;
+const ITEM_HEIGHT = 32; // Height of each field chip
+
 const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerHeight, setContainerHeight] = useState(600);
+  
+  // Measure available height for the list
+  useEffect(() => {
+    if (!containerRef.current) return;
+    
+    const updateHeight = () => {
+      if (containerRef.current) {
+        const parentElement = containerRef.current.parentElement;
+        if (parentElement) {
+          const rect = parentElement.getBoundingClientRect();
+          // Calculate available space, accounting for other elements
+          const availableHeight = Math.max(300, rect.height - 100);
+          setContainerHeight(availableHeight);
+        }
+      }
+    };
+    
+    updateHeight();
+    
+    // Use ResizeObserver for more accurate tracking
+    const resizeObserver = new ResizeObserver(updateHeight);
+    if (containerRef.current.parentElement) {
+      resizeObserver.observe(containerRef.current.parentElement);
+    }
+    
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
+  
+  // Use virtualization for large lists
+  const useVirtualization = fields.length > VIRTUALIZATION_THRESHOLD;
+  
+  // Row component for virtualized list
+  const RowComponent = useCallback((props: {
+    ariaAttributes: { 'aria-posinset': number; 'aria-setsize': number; role: 'listitem' };
+    index: number;
+    style: React.CSSProperties;
+  }) => {
+    const { index, style } = props;
+    const field = fields[index];
+    return (
+      <div style={{ 
+        ...style, 
+        paddingBottom: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'flex-start'
+      }}>
+        <FieldChip 
+          key={`${field.id}-${field.type}-${field.flavour}-${field.dataType}-${field.aggregation || 'none'}-${field.dateTimePart || 'none'}-${field.dateTimeMode || 'none'}`} 
+          field={field} 
+          onUpdate={onUpdate} 
+          source="AVAILABLE_FIELDS" 
+        />
+      </div>
+    );
+  }, [fields, onUpdate]);
+  
+  if (useVirtualization) {
+    // Virtualized rendering for performance with many fields
+    const listHeight = Math.min(fields.length * ITEM_HEIGHT, containerHeight);
+    
+    return (
+      <Box className={styles.fieldCategory}>
+        <Typography variant="subtitle2" className={styles.categoryTitle}>
+          {title} ({fields.length})
+        </Typography>
+        <Box ref={containerRef} style={{ width: '100%' }}>
+          <List
+            defaultHeight={listHeight}
+            rowCount={fields.length}
+            rowHeight={ITEM_HEIGHT}
+            rowComponent={RowComponent}
+            rowProps={{}}
+            style={{ overflowX: 'hidden' }}
+          >
+            {null}
+          </List>
+        </Box>
+      </Box>
+    );
+  }
+  
+  // Standard rendering for small lists
   return (
     <Box className={styles.fieldCategory}>
       <Typography variant="subtitle2" className={styles.categoryTitle}>
@@ -35,4 +127,6 @@ const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate }
   );
 };
 
-export default FieldCategory;
+// Memoize to prevent unnecessary re-renders when parent re-renders
+// Only re-render if title, fields array, or onUpdate callback changes
+export default React.memo(FieldCategory);
