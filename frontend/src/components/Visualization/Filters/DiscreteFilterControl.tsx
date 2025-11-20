@@ -1,7 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { 
-  Checkbox, 
-  FormControlLabel, 
   Button, 
   Box, 
   TextField,
@@ -18,6 +16,33 @@ interface DiscreteFilterControlProps {
   onChange: (selectedValues: any[]) => void;
   onRefetchValues: (regexPattern?: string) => Promise<void>;
 }
+
+// Memoized checkbox item to prevent unnecessary re-renders
+// Each checkbox only re-renders when its own checked state changes
+interface CheckboxItemProps {
+  value: any;
+  valueStr: string;
+  isChecked: boolean;
+  onToggle: (value: any) => void;
+}
+
+const CheckboxItem = React.memo<CheckboxItemProps>(({ value, valueStr, isChecked, onToggle }) => {
+  const handleChange = useCallback(() => {
+    onToggle(value);
+  }, [value, onToggle]);
+
+  return (
+    <label className={styles.checkboxItem}>
+      <input
+        type="checkbox"
+        checked={isChecked}
+        onChange={handleChange}
+        className={styles.nativeCheckbox}
+      />
+      <span className={styles.checkboxLabel}>{valueStr}</span>
+    </label>
+  );
+});
 
 const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
   metadata,
@@ -95,18 +120,25 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const filteredValuesWithRegex = filteredValues; // alias for readability
 
-  const handleToggle = (value: any) => {
-    const currentIndex = selectedValues.indexOf(value);
+  // Create a Set for O(1) lookup performance instead of O(n) with .includes()
+  // This is critical for performance with large lists (e.g., 500+ items)
+  const selectedValuesSet = useMemo(() => new Set(selectedValues), [selectedValues]);
+
+  // Memoize the toggle handler to prevent unnecessary re-renders of child components
+  const handleToggle = useCallback((value: any) => {
     const newSelected = [...selectedValues];
 
-    if (currentIndex === -1) {
-      newSelected.push(value);
+    if (selectedValuesSet.has(value)) {
+      // Remove from selection
+      const index = newSelected.indexOf(value);
+      newSelected.splice(index, 1);
     } else {
-      newSelected.splice(currentIndex, 1);
+      // Add to selection
+      newSelected.push(value);
     }
 
     onChange(newSelected);
-  };
+  }, [selectedValues, selectedValuesSet, onChange]);
 
   const handleSelectAll = () => {
     onChange([...filteredValuesWithRegex]);
@@ -258,20 +290,16 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
         {filteredValuesWithRegex.map((value, index) => {
           // Display null/undefined values as "(null)"
           const valueStr = value === null || value === undefined ? '(null)' : String(value);
-          const isChecked = selectedValues.includes(value);
+          // Use Set for O(1) lookup instead of Array.includes() for O(n) lookup
+          const isChecked = selectedValuesSet.has(value);
           
           return (
-            <FormControlLabel
+            <CheckboxItem
               key={`${valueStr}-${index}`}
-              control={
-                <Checkbox
-                  checked={isChecked}
-                  onChange={() => handleToggle(value)}
-                  size="small"
-                />
-              }
-              label={valueStr}
-              className={styles.checkboxItem}
+              value={value}
+              valueStr={valueStr}
+              isChecked={isChecked}
+              onToggle={handleToggle}
             />
           );
         })}
