@@ -82,17 +82,30 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
     };
   }, [source, fieldProperties, checkTruncation]);
 
-  // Set up ResizeObserver to detect size changes
+  // Set up ResizeObserver to detect size changes (debounced for performance)
   useLayoutEffect(() => {
     const el = chipLabelRef.current;
     const parentEl = chipRef.current;
     
     if (el && parentEl) {
-      const resizeObserver = new ResizeObserver(checkTruncation);
+      let timeoutId: number | undefined;
+      const debouncedCheck = () => {
+        if (timeoutId) {
+          cancelAnimationFrame(timeoutId);
+        }
+        timeoutId = requestAnimationFrame(() => {
+          checkTruncation();
+        });
+      };
+      
+      const resizeObserver = new ResizeObserver(debouncedCheck);
       resizeObserver.observe(parentEl);
       resizeObserver.observe(el);
       
       return () => {
+        if (timeoutId) {
+          cancelAnimationFrame(timeoutId);
+        }
         resizeObserver.disconnect();
       };
     }
@@ -115,7 +128,7 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
       };
     } else {
       return {
-        width: '100%',
+        width: '100%', // Fill available space
         maxWidth: '100%',
       };
     }
@@ -203,7 +216,11 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
       draggable={!isTruncated} // when truncated Tooltip wraps Chip; keep wrapper draggable when not truncated
       onDragStart={handleWrapperDragStart}
       onDragEnd={handleWrapperDragEnd}
-      style={{ display: 'inline-block' }}
+      style={{ 
+        display: source === 'AVAILABLE_FIELDS' ? 'block' : 'inline-block',
+        width: source === 'AVAILABLE_FIELDS' ? '100%' : 'auto',
+        maxWidth: '100%',
+      }}
     >
       {isTruncated ? (
         <Tooltip 
@@ -258,7 +275,10 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
             draggable
             onDragStart={handleWrapperDragStart}
             onDragEnd={handleWrapperDragEnd}
-            style={{ display: 'inline-flex' }}
+            style={{ 
+              display: source === 'AVAILABLE_FIELDS' ? 'flex' : 'inline-flex',
+              width: source === 'AVAILABLE_FIELDS' ? '100%' : 'auto',
+            }}
           >
             <Chip {...chipProps} />
           </span>

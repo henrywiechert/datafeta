@@ -38,11 +38,12 @@
     vertical-align: middle;
     justify-content: flex-start;
     text-align: left;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    width: 100%; /* Fill available space */
     max-width: 100%;
-    width: 100%;
+    box-sizing: border-box;
+    /* Performance optimizations for resize */
+    contain: layout style; /* Isolate layout calculations */
+    will-change: auto; /* Don't persist layers unnecessarily */
 }
 
 /* Framed style for axis drop zones */
@@ -142,8 +143,20 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     display: block;
-    width: 100%;
     text-align: left;
+    flex: 1 1 auto;
+    min-width: 0; /* Important: allows flex child to shrink below content size */
+}
+
+/* Override MUI Chip label styling for text-only chips to enable ellipsis */
+.chip.textOnly :global(.MuiChip-label) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-left: 0;
+    padding-right: 0;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 /* Specific styles for better truncation detection */
@@ -157,6 +170,10 @@
 .availableFieldsText {
     width: 100%;
     display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0; /* Allow shrinking below content size */
 }
 
 .axisFieldsText {
