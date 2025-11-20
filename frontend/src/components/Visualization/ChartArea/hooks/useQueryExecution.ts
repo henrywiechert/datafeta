@@ -17,6 +17,7 @@ interface UseQueryExecutionProps {
   sizeField?: Field | null;
   filterConfigurations: Record<string, any>;
   labelFields?: Field[];
+  tooltipFields?: Field[];
   virtualTable?: VirtualTableDefinition | null;
   virtualColumns?: import('../../../../types').VirtualColumnDefinition[];
   additionalColorFields?: Field[];
@@ -41,6 +42,7 @@ export const useQueryExecution = ({
   sizeField,
   filterConfigurations,
   labelFields = [],
+  tooltipFields = [],
   virtualTable = null,
   virtualColumns = [],
   additionalColorFields = [],
@@ -240,6 +242,7 @@ export const useQueryExecution = ({
       selectedDatabase: selectedDatabase || undefined,
       filterConfigurations,
       labelFields,
+      tooltipFields,
       virtualTable,
       virtualColumns,
     });
@@ -261,7 +264,7 @@ export const useQueryExecution = ({
     }
 
     return queryDesc;
-  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields, colorField, sizeField, filterConfigurations, labelFields, optimizationHints, virtualTable, virtualColumns, additionalColorFields, additionalSizeFields, additionalLabelFields]);
+  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields, colorField, sizeField, filterConfigurations, labelFields, tooltipFields, optimizationHints, virtualTable, virtualColumns, additionalColorFields, additionalSizeFields, additionalLabelFields]);
 
   // Effect to handle query execution when fields change
   useEffect(() => {

@@ -99,7 +99,8 @@ export function generateCartesianPlots(
   labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number },
   fieldOverrides?: Record<string, FieldOverrideState>,
   fieldOverrideTargets?: FieldOverrideTarget[],
-  allFields?: Field[]
+  allFields?: Field[],
+  tooltipFields?: Field[]
 ): CartesianPlot[] {
   const plots: CartesianPlot[] = [];
 
@@ -220,7 +221,8 @@ export function generateCartesianPlots(
           }
           
           return effectiveLabelCfg;
-        })()
+        })(),
+        tooltipFields
       );
 
       // Apply shared color domain to keep color mapping consistent across the grid

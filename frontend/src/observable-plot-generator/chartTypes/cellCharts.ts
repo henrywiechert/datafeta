@@ -29,7 +29,8 @@ export function generatePairChartOptions(
   colorScheme?: string,
   colorBias?: number,
   manualColor?: string,
-  labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
+  labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number },
+  tooltipFields?: Field[]
 ): Plot.PlotOptions {
   if (!xField && !yField) {
     return messageOptions('No fields');
@@ -39,11 +40,11 @@ export function generatePairChartOptions(
   if (xField && !yField) {
     if (xField.type === 'measure') return createBarX(data, xField, null, sharedMeasureDomains, colorField, sizeField, sizeRange, manualSize, colorScheme, colorBias);
     // Single dimension alone → show tick strip would be an alternative, but inside cartesian grid we stick to scatter
-    return scatterForDimOnly(data, xField, colorField, sizeField, sizeRange, manualSize, colorBias, manualColor);
+    return scatterForDimOnly(data, xField, colorField, sizeField, sizeRange, manualSize, colorBias, manualColor, tooltipFields);
   }
   if (!xField && yField) {
     if (yField.type === 'measure') return createBarY(data, yField, null, sharedMeasureDomains, colorField, sizeField, sizeRange, manualSize, colorScheme, colorBias);
-    return scatterForDimOnly(data, yField, colorField, sizeField, sizeRange, manualSize, colorBias, manualColor);
+    return scatterForDimOnly(data, yField, colorField, sizeField, sizeRange, manualSize, colorBias, manualColor, tooltipFields);
   }
 
   const xf = xField!;
@@ -88,10 +89,10 @@ export function generatePairChartOptions(
           }
         };
         const single = [{ [xCol]: aggregate(xCol, (xf as any).aggregation), [yCol]: aggregate(yCol, (yf as any).aggregation) } as any];
-        return scatterChart(single, xCol, yCol, domainOptions, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, labelCfg);
+        return scatterChart(single, xCol, yCol, domainOptions, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, labelCfg, tooltipFields);
       }
       // Otherwise render scatter with full data
-	  return scatterChart(data, xCol, yCol, domainOptions, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, labelCfg);
+	  return scatterChart(data, xCol, yCol, domainOptions, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, labelCfg, tooltipFields);
     }
     case 'line': {
       // measure vs continuous dimension – ensure dimension on one axis
@@ -108,11 +109,11 @@ export function generatePairChartOptions(
         const yCol = getResultColumnName({ ...yf, aggregation: yf.aggregation || 'sum' } as any);
         const xDomain = sharedMeasureDomains?.[xCol];
         const yDomain = sharedMeasureDomains?.[yCol];
-  return lineChart(data, xCol, yCol, { x: getFieldDisplayName(xf), y: yCol }, { x: xDomain, y: yDomain }, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, labelCfg);
+  return lineChart(data, xCol, yCol, { x: getFieldDisplayName(xf), y: yCol }, { x: xDomain, y: yDomain }, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, labelCfg, tooltipFields);
       }
       // If both are measures or both are dimensions, fallback to scatter (empty if no data)
       const { xCol, yCol } = resolveXYColumns(xf, yf);
-          return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, labelCfg);
+          return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, labelCfg, tooltipFields);
     }
     case 'barX': {
   return createBarX(data, xf, yf.type === 'dimension' ? yf : null, sharedMeasureDomains, colorField, sizeField, sizeRange, manualSize, colorScheme, colorBias);
@@ -340,10 +341,11 @@ function scatterForDimOnly(
   sizeRange?: [number, number],
   manualSize?: number,
   colorBias?: number,
-  manualColor?: string
+  manualColor?: string,
+  tooltipFields?: Field[]
 ): Plot.PlotOptions {
   const col = dim.columnName;
-  return scatterChart(data, col, col, { x: col, y: col }, colorField, undefined, colorBias, manualColor, sizeField, sizeRange, manualSize);
+  return scatterChart(data, col, col, { x: col, y: col }, colorField, undefined, colorBias, manualColor, sizeField, sizeRange, manualSize, undefined, tooltipFields);
 }
 
 function messageOptions(text: string): Plot.PlotOptions {

@@ -26,7 +26,7 @@ export function barUnified(
   context: ChartGenerationContext,
   labelCfg?: { labelFields: any[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
 ): PlotResult {
-  const { queryResult, xFields, yFields, colorField, colorScheme, manualColor, sizeField, manualSize } = context;
+  const { queryResult, xFields, yFields, colorField, colorScheme, manualColor, sizeField, manualSize, tooltipFields } = context;
   const data = queryResult.rows;
 
   // Determine orientation and collect both measures and continuous dimensions
@@ -122,7 +122,11 @@ export function barUnified(
       colorScale,
       bandPadding,
       valueDomainOverride: useStackedDomain ? undefined : sharedDomains[measureName],
-      tooltipColumns: [colorField?.columnName, sizeField?.columnName].filter(Boolean) as string[],
+      tooltipColumns: [
+        colorField?.columnName,
+        sizeField?.columnName,
+        ...(tooltipFields?.map(f => getResultColumnName(f)) || [])
+      ].filter(Boolean) as string[],
       // When there's no color field, use the global manualColor as the bar fill
       manualColor: colorField ? undefined : manualColor,
     });
