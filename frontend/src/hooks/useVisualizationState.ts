@@ -223,15 +223,20 @@ export function useVisualizationState() {
         setSelectedTable('');
         setTables([]);
         setAvailableFields([]);
-    }, [setSelectedDatabase, setSelectedTable, setTables, setAvailableFields]);
+        // Dispatch to VisualizationContext to increment queryVersion
+        dispatch({ type: 'SET_SELECTED_DATABASE', payload: dbName });
+        dispatch({ type: 'SET_SELECTED_TABLE', payload: '' });
+    }, [setSelectedDatabase, setSelectedTable, setTables, setAvailableFields, dispatch]);
 
     const handleTableSelect = useCallback((tableName: string) => {
         setSelectedTable(tableName);
         // Clear existing fields when table changes
         setAvailableFields([]);
+        // Dispatch to VisualizationContext to increment queryVersion
+        dispatch({ type: 'SET_SELECTED_TABLE', payload: tableName });
         // Fetch suggested joins for the new table (will be called after table is set)
         // The useEffect below will trigger fetchSuggestedJoins
-    }, [setSelectedTable, setAvailableFields]);
+    }, [setSelectedTable, setAvailableFields, dispatch]);
 
     // --- Data Fetching Logic ---
 
@@ -265,6 +270,8 @@ export function useVisualizationState() {
             setTables(response.tables || []);
             if (connectionDetails?.type === 'csv' && response.tables?.length === 1) {
                 setSelectedTable(response.tables[0].name);
+                // Dispatch to VisualizationContext to increment queryVersion for CSV auto-selection
+                dispatch({ type: 'SET_SELECTED_TABLE', payload: response.tables[0].name });
             }
         } catch (err: any) { 
             if (err.message === 'Request was cancelled') {
@@ -277,7 +284,7 @@ export function useVisualizationState() {
         finally { 
             setIsLoadingMetadata(false);
         }
-    }, [connectionDetails?.type, setIsLoadingMetadata, setMetadataError, setTables, setSelectedTable]);
+    }, [connectionDetails?.type, setIsLoadingMetadata, setMetadataError, setTables, setSelectedTable, dispatch]);
 
     const fetchColumns = useCallback(async () => {
         if (!dataSource.selectedTable) return;
