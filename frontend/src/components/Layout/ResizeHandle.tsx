@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Box, Tooltip } from '@mui/material';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 
@@ -23,6 +23,8 @@ const ResizeHandle: React.FC<ResizeHandleProps> = ({
   const [isHovered, setIsHovered] = useState(false);
   const [tempSize, setTempSize] = useState(currentSize);
   const handleRef = useRef<HTMLDivElement>(null);
+  const rafIdRef = useRef<number | null>(null);
+  const lastResizeRef = useRef<number>(currentSize);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -30,6 +32,7 @@ const ResizeHandle: React.FC<ResizeHandleProps> = ({
     const initialPos = direction === 'horizontal' ? e.clientX : e.clientY;
     const initialSize = currentSize;
     setTempSize(initialSize);
+    lastResizeRef.current = initialSize;
     
     const handleMouseMove = (e: MouseEvent) => {
       const currentPos = direction === 'horizontal' ? e.clientX : e.clientY;
@@ -58,15 +61,32 @@ const ResizeHandle: React.FC<ResizeHandleProps> = ({
       // Apply constraints
       newSize = Math.max(minSize, Math.min(maxSize, newSize));
       
-      // Update display size
+      // Update display size immediately for smooth visual feedback
       setTempSize(newSize);
       
-      // Update actual size
-      onResize(newSize);
+      // Throttle the actual resize callback using requestAnimationFrame
+      // This prevents excessive re-renders of the panel content
+      if (rafIdRef.current === null) {
+        rafIdRef.current = requestAnimationFrame(() => {
+          onResize(newSize);
+          lastResizeRef.current = newSize;
+          rafIdRef.current = null;
+        });
+      }
     };
 
     const handleMouseUp = () => {
       setIsDragging(false);
+      
+      // Cancel any pending RAF callback
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+      
+      // Ensure final resize is committed
+      onResize(lastResizeRef.current);
+      
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
       document.body.style.cursor = '';
@@ -78,6 +98,15 @@ const ResizeHandle: React.FC<ResizeHandleProps> = ({
     document.body.style.cursor = direction === 'horizontal' ? 'col-resize' : 'row-resize';
     document.body.style.userSelect = 'none';
   }, [direction, onResize, currentSize, minSize, maxSize, edge]);
+
+  // Cleanup RAF on unmount
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+    };
+  }, []);
 
   const isHorizontal = direction === 'horizontal';
   const showIndicator = isHovered || isDragging;
