@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import styles from './ContextMenu.module.css';
 
 interface MenuPosition {
@@ -57,17 +58,22 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ position, onClose, children }
     };
   }, [onClose]);
 
-  return (
+  // Render as portal to avoid parent CSS containment and z-index issues
+  return createPortal(
     <div
       ref={menuRef}
       className={styles.menu}
       style={{ 
         top: adjustedPosition.y,
-        left: adjustedPosition.x
+        left: adjustedPosition.x,
+        backgroundColor: '#ffffff',
+        opacity: 1,
       }}
+      onClick={(e) => e.stopPropagation()}
     >
       {children}
-    </div>
+    </div>,
+    document.body
   );
 };
 

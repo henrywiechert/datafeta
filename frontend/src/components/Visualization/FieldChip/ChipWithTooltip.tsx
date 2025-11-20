@@ -217,9 +217,11 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
       onDragStart={handleWrapperDragStart}
       onDragEnd={handleWrapperDragEnd}
       style={{ 
-        display: source === 'AVAILABLE_FIELDS' ? 'block' : 'inline-block',
+        display: source === 'AVAILABLE_FIELDS' ? 'flex' : 'inline-flex',
         width: source === 'AVAILABLE_FIELDS' ? '100%' : 'auto',
         maxWidth: '100%',
+        alignItems: 'center',
+        minHeight: source === 'AVAILABLE_FIELDS' ? '20px' : 'auto', // Match chip height
       }}
     >
       {isTruncated ? (

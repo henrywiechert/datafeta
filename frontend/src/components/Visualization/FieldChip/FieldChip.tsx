@@ -37,13 +37,11 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index })
 
   const handleContextMenu = useCallback((event: React.MouseEvent) => {
     event.preventDefault();
+    event.stopPropagation();
     
-    // Get the element's position
-    const rect = event.currentTarget.getBoundingClientRect();
-    
-    // Position menu relative to the element, not the exact click point
-    const x = rect.left;
-    const y = rect.bottom + 5; // 5px below the element
+    // Use click coordinates for more reliable positioning
+    const x = event.clientX;
+    const y = event.clientY;
     
     setMenuPosition({ x, y });
   }, []);
