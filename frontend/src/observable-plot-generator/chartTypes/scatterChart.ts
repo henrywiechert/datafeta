@@ -6,6 +6,7 @@ import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
 // Label utilities
 import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils';
+import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 
 /**
  * Scatter chart for continuous measure vs continuous measure or dimension.
@@ -138,61 +139,8 @@ export function scatterChart(
     dotConfig.r = manualSize || 4;
   }
   
-  // Configure tooltip format to include all channels
-  const tipFormat: any = { [xLabel]: true, [yLabel]: true, x: false, y: false, fill: false, r: false };
-  if (colorField) {
-    tipFormat[colorField.columnName] = true;
-  }
-  if (sizeField) {
-    tipFormat[sizeField.columnName] = true;
-  }
-  // Add tooltip fields to tipFormat
-  if (tooltipFields) {
-    tooltipFields.forEach(tf => {
-      const colName = getResultColumnName(tf);
-      if (colName) {
-        tipFormat[tf.columnName] = true;
-      }
-    });
-  }
-
-  // Use a custom title function to ensure long strings aren't truncated
-  dotConfig.title = (d: any) => {
-    const formatValue = (val: any): string => {
-      if (typeof val === 'number' && !Number.isInteger(val)) {
-        return val.toFixed(2);
-      }
-      return String(val);
-    };
-    
-    const parts: string[] = [];
-    parts.push(`${xLabel}: ${formatValue(d[xColumn])}`);
-    parts.push(`${yLabel}: ${formatValue(d[yColumn])}`);
-    if (colorField) {
-      const colorColumnName = getResultColumnName(colorField);
-      parts.push(`${colorField.columnName}: ${formatValue(d[colorColumnName])}`);
-    }
-    if (sizeField) {
-      const sizeColumnName = getResultColumnName(sizeField);
-      parts.push(`${sizeField.columnName}: ${formatValue(d[sizeColumnName])}`);
-    }
-    // Add tooltip fields to title
-    if (tooltipFields) {
-      tooltipFields.forEach(tf => {
-        const colName = getResultColumnName(tf);
-        if (colName && colName !== xColumn && colName !== yColumn) {
-          const colorColName = colorField ? getResultColumnName(colorField) : null;
-          const sizeColName = sizeField ? getResultColumnName(sizeField) : null;
-          if (colName !== colorColName && colName !== sizeColName) {
-            parts.push(`${tf.columnName}: ${formatValue(d[colName])}`);
-          }
-        }
-      });
-    }
-    return parts.join('\n');
-  };
-
-  dotConfig.tip = { format: tipFormat } as any;
+  // Disable built-in Observable Plot tooltip (we'll use custom tooltips)
+  // dotConfig.tip is not set, which disables the default tooltip
   
   // Calculate domains: use shared domains if provided (for faceting/grids), otherwise calculate from local data.
   // Numeric padding uses DOMAIN_PAD_RATIO; date padding expands by ratio of range.
@@ -297,6 +245,21 @@ export function scatterChart(
       } as any;
     }
   }
+  
+  // Add custom tooltip configuration
+  (plotOptions as any).__customTooltip = {
+    enabled: true,
+    data: clean, // Pass the data array for tooltip access
+    getFields: createTooltipFieldsGetter(
+      [
+        { label: xLabel, column: xColumn },
+        { label: yLabel, column: yColumn }
+      ],
+      colorField,
+      sizeField,
+      tooltipFields
+    )
+  };
   
   return plotOptions;
 }
