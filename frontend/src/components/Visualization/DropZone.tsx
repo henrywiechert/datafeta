@@ -312,7 +312,7 @@ const DropZone: React.FC<DropZoneProps> = ({
               field.flavour === 'continuous';
               
             return (
-              <React.Fragment key={`${field.id}-${field.type}-${field.flavour}-${field.dataType}-${field.aggregation || 'none'}-${field.dateTimePart || 'none'}-${field.dateTimeMode || 'none'}`}>
+              <React.Fragment key={field.id}>
                 {/* Drop indicator line */}
                 {dragOverIndex === index && (
                   <div style={{
@@ -367,4 +367,17 @@ const DropZone: React.FC<DropZoneProps> = ({
   );
 };
 
-export default DropZone;
+// Memoize DropZone to prevent re-renders when props haven't changed
+export default React.memo(DropZone, (prevProps, nextProps) => {
+  // Compare field array by reference - if it's the same array, don't re-render
+  // This works because the reducer creates new arrays only when fields actually change
+  return (
+    prevProps.fields === nextProps.fields &&
+    prevProps.axis === nextProps.axis &&
+    prevProps.onDrop === nextProps.onDrop &&
+    prevProps.onFieldUpdate === nextProps.onFieldUpdate &&
+    prevProps.onRemoveField === nextProps.onRemoveField &&
+    prevProps.onReorderFields === nextProps.onReorderFields &&
+    prevProps.onMoveFieldBetweenAxes === nextProps.onMoveFieldBetweenAxes
+  );
+});

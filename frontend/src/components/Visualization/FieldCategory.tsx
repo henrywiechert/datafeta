@@ -73,7 +73,8 @@ const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate }
   // Use virtualization for large lists
   const useVirtualization = fields.length > VIRTUALIZATION_THRESHOLD;
   
-  // Row component for virtualized list
+  // Row component for virtualized list - optimized to not recreate on every render
+  // The key optimization: remove onUpdate from dependencies since it's stable
   const RowComponent = useCallback((props: {
     ariaAttributes: { 'aria-posinset': number; 'aria-setsize': number; role: 'listitem' };
     index: number;
@@ -90,7 +91,8 @@ const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate }
         />
       </div>
     );
-  }, [fields, onUpdate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fields]); // Intentionally omitting onUpdate - it's stable from parent (memoized in useFieldOperations)
   
   if (useVirtualization) {
     // Virtualized rendering for performance with many fields
@@ -129,7 +131,7 @@ const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate }
       <Box className={styles.fieldsContainer}>
         {fields.map(field => (
           <FieldChip 
-            key={`${field.id}-${field.type}-${field.flavour}-${field.dataType}-${field.aggregation || 'none'}-${field.dateTimePart || 'none'}-${field.dateTimeMode || 'none'}`} 
+            key={field.id} 
             field={field} 
             onUpdate={onUpdate} 
             source="AVAILABLE_FIELDS" 

@@ -60,30 +60,36 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
     setTooltipOpen(false);
   }, []);
 
-  // Create a stable reference for field properties we need to track
-  const fieldProperties = useMemo(() => ({
-    columnName: field.columnName, 
-    aggregation: field.aggregation, 
-    flavour: field.flavour, 
-    dataType: field.dataType,
-    dateTimePart: field.dateTimePart,
-    dateTimeMode: field.dateTimeMode
-  }), [field.columnName, field.aggregation, field.flavour, field.dataType, field.dateTimePart, field.dateTimeMode]);
+  // Create a stable key for field properties to minimize re-renders
+  const fieldPropertiesKey = useMemo(() => 
+    `${field.columnName}|${field.aggregation || ''}|${field.flavour}|${field.dataType}|${field.dateTimePart || ''}|${field.dateTimeMode || ''}|${field.barSortOrder || ''}`,
+    [field.columnName, field.aggregation, field.flavour, field.dataType, field.dateTimePart, field.dateTimeMode, field.barSortOrder]
+  );
   
   // Check for truncation when relevant properties change
+  // Only needed for AVAILABLE_FIELDS - axis chips have fixed width and rarely truncate
   useLayoutEffect(() => {
-    // Use timeouts to ensure DOM is fully rendered
-    const immediateCheck = setTimeout(checkTruncation, 0);
-    const delayedCheck = setTimeout(checkTruncation, 100);
+    if (source !== 'AVAILABLE_FIELDS') {
+      // For axis chips, assume always truncated (safer and avoids expensive checks)
+      setIsTruncated(true);
+      return;
+    }
+    
+    // Use single debounced timeout for AVAILABLE_FIELDS
+    const timeoutId = setTimeout(checkTruncation, 150);
     
     return () => {
-      clearTimeout(immediateCheck);
-      clearTimeout(delayedCheck);
+      clearTimeout(timeoutId);
     };
-  }, [source, fieldProperties, checkTruncation]);
+  }, [source, fieldPropertiesKey, checkTruncation]);
 
   // Set up ResizeObserver to detect size changes (debounced for performance)
+  // Only for AVAILABLE_FIELDS - axis chips have fixed dimensions
   useLayoutEffect(() => {
+    if (source !== 'AVAILABLE_FIELDS') {
+      return; // Skip ResizeObserver for axis chips
+    }
+    
     const el = chipLabelRef.current;
     const parentEl = chipRef.current;
     
@@ -91,11 +97,12 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
       let timeoutId: number | undefined;
       const debouncedCheck = () => {
         if (timeoutId) {
-          cancelAnimationFrame(timeoutId);
+          clearTimeout(timeoutId);
         }
-        timeoutId = requestAnimationFrame(() => {
+        // Use setTimeout instead of RAF for better debouncing
+        timeoutId = window.setTimeout(() => {
           checkTruncation();
-        });
+        }, 200); // Increased debounce for better performance
       };
       
       const resizeObserver = new ResizeObserver(debouncedCheck);
@@ -104,12 +111,12 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
       
       return () => {
         if (timeoutId) {
-          cancelAnimationFrame(timeoutId);
+          clearTimeout(timeoutId);
         }
         resizeObserver.disconnect();
       };
     }
-  }, [checkTruncation]);
+  }, [source, checkTruncation]);
 
   // Hide tooltip whenever dragging starts
   useEffect(() => {
@@ -292,4 +299,22 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
   );
 };
 
-export default ChipWithTooltip;
+// Memoize to prevent unnecessary re-renders
+// Only re-render if key props actually change
+export default React.memo(ChipWithTooltip, (prevProps, nextProps) => {
+  // Compare field properties that affect rendering
+  return (
+    prevProps.field.id === nextProps.field.id &&
+    prevProps.field.columnName === nextProps.field.columnName &&
+    prevProps.field.aggregation === nextProps.field.aggregation &&
+    prevProps.field.flavour === nextProps.field.flavour &&
+    prevProps.field.dataType === nextProps.field.dataType &&
+    prevProps.field.dateTimePart === nextProps.field.dateTimePart &&
+    prevProps.field.dateTimeMode === nextProps.field.dateTimeMode &&
+    prevProps.field.barSortOrder === nextProps.field.barSortOrder &&
+    prevProps.source === nextProps.source &&
+    prevProps.isDragging === nextProps.isDragging &&
+    prevProps.isInvalidOnAxis === nextProps.isInvalidOnAxis
+    // Note: onContextMenu, onDragStart, onDragEnd are wrapped in useCallback in parent
+  );
+});

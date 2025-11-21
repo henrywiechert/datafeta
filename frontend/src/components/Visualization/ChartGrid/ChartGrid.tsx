@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 
 import { QueryResult } from '../../../types';
 import { PlotResult } from '../../../observable-plot-generator/types';
-import ObservablePlot from '../ObservablePlot';
 import styles from './ChartGrid.module.css';
 import { 
   MIN_GRID_COLUMN_PX, 
@@ -665,4 +664,9 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   );
 };
 
-export default ChartGrid;
+// Memoize to prevent unnecessary re-renders when only unrelated state changes
+export default React.memo(ChartGrid, (prevProps, nextProps) => {
+  // Only re-render if spec or data actually changes
+  // Use shallow comparison for spec and data references
+  return prevProps.spec === nextProps.spec && prevProps.data === nextProps.data;
+});
