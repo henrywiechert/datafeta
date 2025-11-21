@@ -190,4 +190,19 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   );
 };
 
-export default FieldsPanel;
+// Memoize FieldsPanel to prevent unnecessary re-renders
+export default React.memo(FieldsPanel, (prevProps, nextProps) => {
+  // Only re-render if actual data or callbacks change
+  return (
+    prevProps.availableFields === nextProps.availableFields &&
+    prevProps.fieldsSearch === nextProps.fieldsSearch &&
+    prevProps.onFieldUpdate === nextProps.onFieldUpdate &&
+    prevProps.onRemoveFromAxis === nextProps.onRemoveFromAxis &&
+    prevProps.selectedDatabase === nextProps.selectedDatabase &&
+    prevProps.selectedTable === nextProps.selectedTable &&
+    prevProps.databases === nextProps.databases &&
+    prevProps.tables === nextProps.tables &&
+    prevProps.isLoadingMetadata === nextProps.isLoadingMetadata &&
+    prevProps.virtualColumns === nextProps.virtualColumns
+  );
+});

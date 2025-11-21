@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { Box } from '@mui/material';
 import ChartGrid from '../../ChartGrid/ChartGrid';
 import TableViewLazy from '../../TableViewLazy';
@@ -49,19 +49,25 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
     return () => clearTimeout(timeoutId);
   }, [isDebugOpen, debugHeight]); // Trigger when debug state changes
 
-  const content = useTableView ? (
-    <TableViewLazy 
-      columns={tableData.columns} 
-      rows={tableData.rows} 
-      xFields={xAxisFields}
-      yFields={yAxisFields}
-    />
-  ) : (
-    <ChartGrid 
-      spec={spec} 
-      data={queryResult} 
-    />
-  );
+  // Memoize content to prevent re-rendering when unrelated props change
+  const content = useMemo(() => {
+    if (useTableView) {
+      return (
+        <TableViewLazy 
+          columns={tableData.columns} 
+          rows={tableData.rows} 
+          xFields={xAxisFields}
+          yFields={yAxisFields}
+        />
+      );
+    }
+    return (
+      <ChartGrid 
+        spec={spec} 
+        data={queryResult} 
+      />
+    );
+  }, [useTableView, tableData, spec, queryResult, xAxisFields, yAxisFields]);
 
   return (
     <Box 
@@ -86,4 +92,16 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
   );
 };
 
-export default ChartRenderer; 
+// Memoize the entire component to prevent re-renders when props haven't changed
+export default React.memo(ChartRenderer, (prevProps, nextProps) => {
+  return (
+    prevProps.useTableView === nextProps.useTableView &&
+    prevProps.tableData === nextProps.tableData &&
+    prevProps.spec === nextProps.spec &&
+    prevProps.queryResult === nextProps.queryResult &&
+    prevProps.xAxisFields === nextProps.xAxisFields &&
+    prevProps.yAxisFields === nextProps.yAxisFields &&
+    prevProps.isDebugOpen === nextProps.isDebugOpen &&
+    prevProps.debugHeight === nextProps.debugHeight
+  );
+}); 
