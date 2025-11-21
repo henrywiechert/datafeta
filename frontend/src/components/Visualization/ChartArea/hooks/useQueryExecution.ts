@@ -7,6 +7,8 @@ import { useConnection } from '../../../../contexts/ConnectionContext';
 import { logOperationTiming } from '../utils';
 import { validateAndCleanData, remapCastExpressionColumns } from '../utils/dataValidation';
 import { generateOptimizationHintsFromFields } from '../../../../services/optimizationHintGenerator';
+import { requiresUnpivoting, buildUnpivotedQuery } from '../../../../queryBuilder/syntheticQueryBuilder';
+import { useDataSource } from '../../../../contexts/DataSourceContext';
 
 interface UseQueryExecutionProps {
   selectedTable: string | null;
@@ -53,6 +55,7 @@ export const useQueryExecution = ({
   dispatch,
 }: UseQueryExecutionProps): UseQueryExecutionReturn => {
   const { connectionDetails } = useConnection();
+  const { dataSource } = useDataSource();
   const queryAbortControllerRef = useRef<AbortController | null>(null);
   const queryInProgressRef = useRef<boolean>(false);
   // Track last executed version to avoid duplicate runs within same render cycle
@@ -72,7 +75,7 @@ export const useQueryExecution = ({
 
   // NOTE: Fingerprint removed in favor of monotonic queryVersion which increments only for semantic changes.
 
-  const executeQuery = useCallback(async (queryDesc: QueryDescription) => {
+  const executeQuery = useCallback(async (queryDesc: QueryDescription, useUnpivot: boolean = false) => {
     const startTime = Date.now();
     
     try {
@@ -91,7 +94,28 @@ export const useQueryExecution = ({
 
       dispatch({ type: 'SET_QUERY_ERROR', payload: null });
       
-      const result = await apiService.executeQuery(queryDesc, queryAbortControllerRef.current.signal);
+      let result;
+      
+      if (useUnpivot) {
+        // Execute unpivot query (multiple queries merged)
+        result = await buildUnpivotedQuery({
+          xFields: xAxisFields,
+          yFields: yAxisFields,
+          availableFields: dataSource.availableFields,
+          selectedTable: selectedTable!,
+          selectedDatabase: selectedDatabase || undefined,
+          filterConfigurations,
+          appliedFilterConfigurations: vizState.appliedFilterConfigurations,
+          labelFields,
+          tooltipFields,
+          virtualTable,
+          virtualColumns,
+          signal: queryAbortControllerRef.current.signal,
+        });
+      } else {
+        // Execute normal query
+        result = await apiService.executeQuery(queryDesc, queryAbortControllerRef.current.signal);
+      }
       
       logOperationTiming('Query', startTime, { rows: result.row_count });
       
@@ -145,7 +169,7 @@ export const useQueryExecution = ({
       queryInProgressRef.current = false;
       completeOperation('query');
     }
-  }, [startOperation, completeOperation, dispatch, colorField, sizeField, xAxisFields, yAxisFields]);
+  }, [startOperation, completeOperation, dispatch, colorField, sizeField, xAxisFields, yAxisFields, dataSource.availableFields, filterConfigurations, vizState.appliedFilterConfigurations, labelFields, tooltipFields, virtualTable, virtualColumns, selectedTable, selectedDatabase]);
 
   // Memoize optimization hints generation
   const optimizationHints = useMemo((): OptimizationHints | null => {
@@ -269,12 +293,17 @@ export const useQueryExecution = ({
   // Effect to handle query execution when fields change
   useEffect(() => {
     if (queryInProgressRef.current) return;
-    // Require semantic prerequisites
-    if (!currentQueryDescription) {
+    
+    // Check if unpivoting is required
+    const needsUnpivot = requiresUnpivoting([...xAxisFields, ...yAxisFields]);
+    
+    // For unpivot queries, we don't need currentQueryDescription
+    if (!needsUnpivot && !currentQueryDescription) {
       dispatch({ type: 'SET_QUERY_RESULT', payload: null });
       dispatch({ type: 'SET_QUERY_ERROR', payload: null });
       return;
     }
+    
     // Only execute when queryVersion advances
     // Capture and update ref synchronously to prevent race condition in Strict Mode
     const previousVersion = lastExecutedVersionRef.current;
@@ -283,9 +312,16 @@ export const useQueryExecution = ({
     }
     // Update ref BEFORE async call to prevent double execution in Strict Mode
     lastExecutedVersionRef.current = queryVersion;
-    executeQuery(currentQueryDescription);
+    
+    if (needsUnpivot) {
+      // Execute unpivot query
+      executeQuery(null as any, true);
+    } else if (currentQueryDescription) {
+      // Execute normal query
+      executeQuery(currentQueryDescription, false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryVersion, connectionDetails, currentQueryDescription]);
+  }, [queryVersion, connectionDetails, currentQueryDescription, xAxisFields, yAxisFields]);
 
   // Cleanup on unmount
   useEffect(() => {

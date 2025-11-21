@@ -273,6 +273,11 @@ export interface Field {
   castType?: ColumnCastConfig['cast_type']; // Optional: type to cast this column to
   castReplacement?: string; // Optional: pattern to replace before casting (e.g., ',' for thousands separator)
   barSortOrder?: 'none' | 'asc' | 'desc'; // Optional: sort order for bar charts
+  // Synthetic field properties (MeasureNames/MeasureValues)
+  isSynthetic?: boolean; // Flag for synthetic fields
+  syntheticType?: 'MeasureNames' | 'MeasureValues'; // Type of synthetic field
+  isTypeChangeable?: boolean; // Whether type can be changed (false for synthetic fields)
+  isFlavourChangeable?: boolean; // Whether flavour can be changed (false for synthetic fields)
 }
 
 // --- Filter Types --- //

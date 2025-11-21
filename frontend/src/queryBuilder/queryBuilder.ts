@@ -1,5 +1,6 @@
 import { Field, QueryDescription, Measure, OrderBy, Filter, FilterConfig, ColumnCasts, ColumnCastConfig, VirtualTableDefinition } from '../types';
 import { getResultColumnName } from '../utils/fieldUtils';
+import { requiresUnpivoting } from './syntheticQueryBuilder';
 
 /**
  * Extracts column casting configuration from fields

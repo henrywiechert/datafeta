@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { Field, FilterMetadata, VirtualColumnDefinition } from '../types';
 import { apiService } from '../apiService';
+import { isMeasureNamesField, getMeasureNames } from '../utils/syntheticFields';
 
 interface ConnectionDetails {
     type: 'clickhouse' | 'csv';
@@ -16,6 +17,7 @@ interface UseFilterMetadataParams {
     unionTables: string[];
     connectionDetails: ConnectionDetails | null;
     dispatch: React.Dispatch<any>;
+    availableFields: Field[]; // Needed for synthetic fields (MeasureNames)
 }
 
 export interface UseFilterMetadataReturn {
@@ -32,7 +34,8 @@ export function useFilterMetadata({
     selectedDatabase,
     unionTables,
     connectionDetails,
-    dispatch
+    dispatch,
+    availableFields
 }: UseFilterMetadataParams): UseFilterMetadataReturn {
 
     // Store abort controllers for filter metadata fetches, keyed by fieldId
@@ -54,6 +57,45 @@ export function useFilterMetadata({
     // Fetch filter metadata for a field
     const fetchFilterMetadata = useCallback(async (field: Field) => {
         if (!selectedTable) return;
+        
+        // Handle synthetic MeasureNames field specially
+        if (isMeasureNamesField(field)) {
+            const measureNames = getMeasureNames(availableFields);
+            
+            const metadata: FilterMetadata = {
+                fieldId: field.id,
+                columnName: field.columnName,
+                type: 'discrete',
+                loading: false,
+                availableValues: measureNames,
+                totalCount: measureNames.length,
+                originalTotalCount: measureNames.length,
+            };
+
+            dispatch({
+                type: 'SET_FILTER_METADATA',
+                payload: { fieldId: field.id, metadata }
+            });
+
+            // Initialize filter configuration with all measures selected
+            if (!filterConfigurations[field.id]) {
+                dispatch({
+                    type: 'SET_FILTER_CONFIGURATION',
+                    payload: {
+                        fieldId: field.id,
+                        config: {
+                            fieldId: field.id,
+                            columnName: field.columnName,
+                            type: 'discrete',
+                            selectedValues: measureNames,
+                        }
+                    }
+                });
+            }
+            
+            return; // Done with synthetic field handling
+        }
+        
         const dbParam = connectionDetails?.type === 'clickhouse' ? selectedDatabase : undefined;
 
         // Cancel any existing fetch for this field
@@ -296,7 +338,7 @@ export function useFilterMetadata({
                 payload: { fieldId: field.id, metadata: errorMetadata }
             });
         }
-    }, [selectedTable, selectedDatabase, unionTables, connectionDetails?.type, dispatch, virtualColumns, filterConfigurations]);
+    }, [selectedTable, selectedDatabase, unionTables, connectionDetails?.type, dispatch, virtualColumns, filterConfigurations, availableFields]);
 
     // Refetch filter values with a regex pattern (for large discrete filters)
     const refetchFilterValues = useCallback(async (fieldId: string, regexPattern?: string) => {
