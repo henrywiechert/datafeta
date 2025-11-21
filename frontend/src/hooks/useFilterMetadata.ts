@@ -190,7 +190,9 @@ export function useFilterMetadata({
                 const range = await apiService.getFieldRange(
                     field.columnName,
                     selectedTable,
-                    dbParam
+                    dbParam,
+                    virtualColumns,
+                    abortController.signal
                 );
                 
                 const metadata: FilterMetadata = {
@@ -228,7 +230,9 @@ export function useFilterMetadata({
                 const range = await apiService.getDateTimeRange(
                     field.columnName,
                     selectedTable,
-                    dbParam
+                    dbParam,
+                    virtualColumns,
+                    abortController.signal
                 );
                 
                 const metadata: FilterMetadata = {
