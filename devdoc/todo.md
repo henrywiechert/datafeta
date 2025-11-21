@@ -61,3 +61,10 @@ Done
 
 Axis flip
 
+Move between axis -> no query
+Check also color/size/label move
+
+tickStrip refactor
+
+dropzone refactor
+

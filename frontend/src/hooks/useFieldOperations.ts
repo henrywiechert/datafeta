@@ -23,6 +23,7 @@ export interface UseFieldOperationsReturn {
     handleRemoveFromAxis: (fieldId: string) => void;
     handleFieldUpdate: (updatedField: Field) => void;
     handleReorderFields: (axis: 'x' | 'y', fromIndex: number, toIndex: number) => void;
+    handleMoveFieldBetweenAxes: (fieldId: string, fromAxis: 'x' | 'y', toAxis: 'x' | 'y', insertIndex?: number) => void;
     handleDatabaseSelect: (dbName: string) => void;
     handleTableSelect: (tableName: string) => void;
 }
@@ -118,6 +119,14 @@ export function useFieldOperations({
         }
     }, [xAxisFields, yAxisFields, dispatch]);
 
+    const handleMoveFieldBetweenAxes = useCallback((fieldId: string, fromAxis: 'x' | 'y', toAxis: 'x' | 'y', insertIndex?: number) => {
+        // Use atomic action to move field between axes without triggering double query
+        dispatch({ 
+            type: 'MOVE_FIELD_BETWEEN_AXES', 
+            payload: { fieldId, fromAxis, toAxis, insertIndex } 
+        });
+    }, [dispatch]);
+
     const handleDatabaseSelect = useCallback((dbName: string) => {
         dataSourceSetters.setSelectedDatabase(dbName);
         dataSourceSetters.setSelectedTable('');
@@ -143,6 +152,7 @@ export function useFieldOperations({
         handleRemoveFromAxis,
         handleFieldUpdate,
         handleReorderFields,
+        handleMoveFieldBetweenAxes,
         handleDatabaseSelect,
         handleTableSelect,
     };

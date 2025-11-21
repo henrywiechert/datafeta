@@ -12,6 +12,7 @@ interface ChartPanelProps {
   onFieldUpdate: (field: Field) => void;
   onRemoveField: (fieldId: string) => void;
   onReorderFields: (axis: 'x' | 'y', fromIndex: number, toIndex: number) => void;
+  onMoveFieldBetweenAxes: (fieldId: string, fromAxis: 'x' | 'y', toAxis: 'x' | 'y', insertIndex?: number) => void;
 }
 
 const ChartPanel: React.FC<ChartPanelProps> = ({
@@ -21,7 +22,8 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
   onYAxisDrop,
   onFieldUpdate,
   onRemoveField,
-  onReorderFields
+  onReorderFields,
+  onMoveFieldBetweenAxes
 }) => {
   return (
     <Box sx={{ height: '100%', p: 1, display: 'flex', flexDirection: 'column' }}>
@@ -33,6 +35,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
           onFieldUpdate={onFieldUpdate}
           onRemoveField={onRemoveField}
           onReorderFields={onReorderFields}
+          onMoveFieldBetweenAxes={onMoveFieldBetweenAxes}
         >
           X
         </DropZone>
@@ -45,6 +48,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
           onFieldUpdate={onFieldUpdate}
           onRemoveField={onRemoveField}
           onReorderFields={onReorderFields}
+          onMoveFieldBetweenAxes={onMoveFieldBetweenAxes}
         >
           Y
         </DropZone>

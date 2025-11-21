@@ -276,9 +276,12 @@ export const useQueryExecution = ({
       return;
     }
     // Only execute when queryVersion advances
-    if (lastExecutedVersionRef.current === queryVersion) {
+    // Capture and update ref synchronously to prevent race condition in Strict Mode
+    const previousVersion = lastExecutedVersionRef.current;
+    if (previousVersion === queryVersion) {
       return; // version unchanged -> skip
     }
+    // Update ref BEFORE async call to prevent double execution in Strict Mode
     lastExecutedVersionRef.current = queryVersion;
     executeQuery(currentQueryDescription);
     // eslint-disable-next-line react-hooks/exhaustive-deps

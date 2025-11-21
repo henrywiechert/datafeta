@@ -11,6 +11,7 @@ interface DropZoneProps {
   onFieldUpdate: (field: Field) => void;
   onRemoveField: (fieldId: string) => void;
   onReorderFields?: (axis: 'x' | 'y', fromIndex: number, toIndex: number) => void;
+  onMoveFieldBetweenAxes?: (fieldId: string, fromAxis: 'x' | 'y', toAxis: 'x' | 'y', insertIndex?: number) => void;
 }
 
 const DropZone: React.FC<DropZoneProps> = ({ 
@@ -20,7 +21,8 @@ const DropZone: React.FC<DropZoneProps> = ({
   fields, 
   onFieldUpdate,
   onRemoveField,
-  onReorderFields
+  onReorderFields,
+  onMoveFieldBetweenAxes
 }) => {
   const [isOver, setIsOver] = useState(false);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -261,8 +263,20 @@ const DropZone: React.FC<DropZoneProps> = ({
         if (targetIndex !== sourceIndex) {
           onReorderFields(axis, sourceIndex, targetIndex);
         }
+      } else if ((source === 'X_AXIS' || source === 'Y_AXIS') && source !== (axis === 'x' ? 'X_AXIS' : 'Y_AXIS')) {
+        // Handle cross-axis moves atomically to avoid double query
+        if (onMoveFieldBetweenAxes) {
+          const fromAxis = source === 'X_AXIS' ? 'x' : 'y';
+          const toAxis = axis;
+          const insertIndex = getValidInsertIndex(newField);
+          onMoveFieldBetweenAxes(field.id, fromAxis, toAxis, insertIndex);
+        } else {
+          // Fallback to old behavior if handler not provided
+          const insertIndex = getValidInsertIndex(newField);
+          onDrop(newField, source, insertIndex);
+        }
       } else {
-        // Handle drops from available fields or cross-axis moves
+        // Handle drops from available fields
         // Calculate insert index based on flavour ordering rule
         const insertIndex = getValidInsertIndex(newField);
         onDrop(newField, source, insertIndex);
