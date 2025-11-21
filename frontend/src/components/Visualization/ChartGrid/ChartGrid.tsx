@@ -272,6 +272,8 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   // Ensure the scroller is mounted and measured before computing, and keep it updated
   useEffect(() => {
     let rafId = 0;
+    let updateRafId: number | null = null;
+    let isUpdateScheduled = false;
     let ro: ResizeObserver | null = null;
 
     const updateRowHeight = () => {
@@ -283,6 +285,15 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
         const h = Math.max(MIN_GRID_ROW_PX, Math.floor(available / r));
         setRowHeightPx(h);
       }
+      isUpdateScheduled = false;
+    };
+
+    // Throttle updates using requestAnimationFrame
+    const scheduleUpdate = () => {
+      if (!isUpdateScheduled) {
+        isUpdateScheduled = true;
+        updateRafId = requestAnimationFrame(updateRowHeight);
+      }
     };
 
     const attachWhenReady = () => {
@@ -292,25 +303,29 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
       }
       // Initial compute once the element exists
       updateRowHeight();
-      // Observe size changes of the scroller
-      ro = new ResizeObserver(() => updateRowHeight());
+      // Observe size changes of the scroller with RAF throttling
+      ro = new ResizeObserver(scheduleUpdate);
       ro.observe(vScrollRef.current as Element);
-      // Also respond to window resizes
-      window.addEventListener('resize', updateRowHeight);
+      // Also respond to window resizes with throttling
+      window.addEventListener('resize', scheduleUpdate);
     };
 
     attachWhenReady();
 
     return () => {
       if (rafId) window.cancelAnimationFrame(rafId);
+      if (updateRafId !== null) window.cancelAnimationFrame(updateRafId);
       if (ro) ro.disconnect();
-      window.removeEventListener('resize', updateRowHeight);
+      window.removeEventListener('resize', scheduleUpdate);
     };
   }, [rowsForSizing, spec]);
 
   // Track container dimensions for resize overlay
   useEffect(() => {
     if (!containerRef.current) return;
+
+    let rafId: number | null = null;
+    let isUpdateScheduled = false;
 
     const updateDimensions = () => {
       if (containerRef.current) {
@@ -319,16 +334,30 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
           height: containerRef.current.clientHeight,
         });
       }
+      isUpdateScheduled = false;
+    };
+
+    // Throttle updates using requestAnimationFrame
+    const scheduleUpdate = () => {
+      if (!isUpdateScheduled) {
+        isUpdateScheduled = true;
+        rafId = requestAnimationFrame(updateDimensions);
+      }
     };
 
     // Initial measurement
     updateDimensions();
 
-    // Observe size changes
-    const ro = new ResizeObserver(updateDimensions);
+    // Observe size changes with RAF throttling
+    const ro = new ResizeObserver(scheduleUpdate);
     ro.observe(containerRef.current);
 
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+    };
   }, [spec]);
   
   // Handle null or missing spec
