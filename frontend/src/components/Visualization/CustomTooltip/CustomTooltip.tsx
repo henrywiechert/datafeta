@@ -31,11 +31,6 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
     anchor: 'right' 
   });
 
-  // Debug logging
-  useEffect(() => {
-    console.log('[CustomTooltip] Render:', { visible, x, y, fieldsCount: fields.length, fields });
-  }, [visible, x, y, fields]);
-
   // Smart positioning to prevent tooltip from going off-screen
   useEffect(() => {
     if (!visible || !tooltipRef.current) return;
@@ -74,8 +69,6 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
   if (!visible || fields.length === 0) {
     return null;
   }
-
-  console.log('[CustomTooltip] Rendering tooltip at:', { x: position.x, y: position.y, anchor: position.anchor, fields });
 
   return (
     <div 
