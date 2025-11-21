@@ -49,9 +49,11 @@ Reset button for filter.
 
 DateTime:
 When used as cont. dimension, measures on Y doe not work, only dimensions.
+(no autoscale of X in active area, for dimension that works)
 
 Negative Bar charts
 Not working
+Done
 
 Endless Undo
 Done
@@ -60,9 +62,11 @@ No re-query on Size change
 Done
 
 Axis flip
+Done
 
 Move between axis -> no query
 Check also color/size/label move
+Done
 
 tickStrip refactor
 

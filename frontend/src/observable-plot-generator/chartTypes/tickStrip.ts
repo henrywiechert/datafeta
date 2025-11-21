@@ -10,109 +10,6 @@ import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 // ---------- Helper Functions ---------------------------------------------------------
 
 /**
- * Format a value for display in tooltips
- */
-function formatValue(val: any): string {
-  if (typeof val === 'number' && !Number.isInteger(val)) {
-    return val.toFixed(2);
-  }
-  return String(val);
-}
-
-/**
- * Add color, size, and tooltip fields to tickConfig channels
- * Note: We don't add channels anymore since we're using custom tooltips
- */
-function addChannelsToConfig(
-  tickConfig: any,
-  colorField: Field | undefined,
-  colorColumnName: string | undefined,
-  sizeField: Field | undefined,
-  tooltipFields: Field[] | undefined
-): void {
-  // Channels removed - not needed for custom tooltips
-  // Observable Plot auto-generates tooltips from channels, which we don't want
-}
-
-/**
- * Create a custom title function for tooltips (consistent styling across all chart types)
- */
-function createTitleFunction(
-  dimensionColumn: string,
-  dimensionLabel: string,
-  categoryDimensionColumn: string | undefined,
-  categoryLabel: string | undefined,
-  colorField: Field | undefined,
-  colorColumnName: string | undefined,
-  sizeField: Field | undefined,
-  tooltipFields: Field[] | undefined
-): (d: any) => string {
-  return (d: any) => {
-    const parts: string[] = [];
-    
-    // Always add dimension
-    parts.push(`${dimensionLabel}: ${formatValue(d[dimensionColumn])}`);
-    
-    // Add category if present
-    if (categoryDimensionColumn) {
-      parts.push(`${categoryLabel}: ${formatValue(d[categoryDimensionColumn])}`);
-    }
-    
-    // Add color field
-    if (colorField && colorColumnName) {
-      parts.push(`${colorField.columnName}: ${formatValue(d[colorColumnName])}`);
-    }
-    
-    // Add size field
-    if (sizeField) {
-      const sizeColumnName = getResultColumnName(sizeField);
-      parts.push(`${sizeField.columnName}: ${formatValue(d[sizeColumnName])}`);
-    }
-    
-    // Add additional tooltip fields (avoid duplicates)
-    if (tooltipFields) {
-      tooltipFields.forEach(tf => {
-        const colName = getResultColumnName(tf);
-        if (colName && colName !== dimensionColumn && colName !== categoryDimensionColumn) {
-          const colorColName = colorField ? getResultColumnName(colorField) : null;
-          const sizeColName = sizeField ? getResultColumnName(sizeField) : null;
-          if (colName !== colorColName && colName !== sizeColName) {
-            parts.push(`${tf.columnName}: ${formatValue(d[colName])}`);
-          }
-        }
-      });
-    }
-    
-    return parts.join('\n');
-  };
-}
-
-/**
- * Build tip format object for tooltips
- */
-function buildTipFormat(
-  colorField: Field | undefined,
-  sizeField: Field | undefined,
-  tooltipFields: Field[] | undefined
-): any {
-  const tipFormat: any = { stroke: false };
-  
-  if (colorField) {
-    tipFormat[colorField.columnName] = true;
-  }
-  if (sizeField) {
-    tipFormat[sizeField.columnName] = true;
-  }
-  if (tooltipFields) {
-    tooltipFields.forEach(tf => {
-      tipFormat[tf.columnName] = true;
-    });
-  }
-  
-  return tipFormat;
-}
-
-/**
  * Apply color scale to plot options if color field is present
  */
 function applyColorScale(opts: Plot.PlotOptions, colorScale: any): void {
@@ -183,6 +80,110 @@ function buildTickConfig(
   // Observable Plot auto-generates tooltips from channels, which conflicts with custom tooltips
   
   return tickConfig;
+}
+
+/**
+ * Create hover dot configuration for better tooltip detection
+ */
+function createHoverDotConfig(
+  orientation: 'x' | 'y',
+  dimensionColumn: string,
+  categoryDimensionColumn: string | undefined
+): any {
+  const config: any = {
+    r: 6,
+    fill: 'transparent',
+    stroke: 'transparent',
+    strokeWidth: 0,
+  };
+  
+  if (orientation === 'x') {
+    config.x = dimensionColumn;
+    config.y = categoryDimensionColumn || (() => ' ');
+  } else {
+    config.y = dimensionColumn;
+    config.x = categoryDimensionColumn || (() => ' ');
+  }
+  
+  return config;
+}
+
+/**
+ * Build plot options for tick strip chart
+ */
+function buildPlotOptions(
+  orientation: 'x' | 'y',
+  data: any[],
+  dimensionColumn: string,
+  dimensionLabel: string,
+  categoryDimensionColumn: string | undefined,
+  categoryLabel: string | undefined,
+  axisDomain: [number, number] | [Date, Date] | undefined,
+  bandPadding: number,
+  tickConfig: any,
+  hoverDotConfig: any,
+  colorScale: any,
+  colorField: Field | undefined,
+  sizeField: Field | undefined,
+  tooltipFields: Field[] | undefined
+): Plot.PlotOptions {
+  const categories = categoryDimensionColumn 
+    ? Array.from(new Set(data.map((row: any) => row[categoryDimensionColumn])))
+    : undefined;
+  const categoryCount = categories?.length || 1;
+  
+  let opts: Plot.PlotOptions;
+  
+  if (orientation === 'x') {
+    const markType = Plot.tickX;
+    opts = {
+      x: { 
+        label: dimensionLabel, 
+        domainKey: dimensionColumn, 
+        grid: true, 
+        ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) 
+      } as any,
+      y: categoryDimensionColumn 
+        ? { 
+            label: categoryLabel,
+            domain: categories as any,
+            type: 'band' as any,
+            padding: bandPadding as any,
+          }
+        : { label: ' ', domain: [' '] as any, type: 'band' as any, padding: bandPadding as any },
+      height: categoryDimensionColumn 
+        ? Math.max(BAR_STEP_PX * 2, categoryCount * BAR_STEP_PX)
+        : BAR_STEP_PX,
+      marks: [markType(data, tickConfig), Plot.dot(data, hoverDotConfig)],
+    };
+  } else {
+    const markType = Plot.tickY;
+    opts = {
+      y: { 
+        label: dimensionLabel, 
+        domainKey: dimensionColumn, 
+        grid: true, 
+        ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) 
+      } as any,
+      x: categoryDimensionColumn 
+        ? { 
+            label: categoryLabel,
+            domain: categories as any,
+            type: 'band' as any,
+            padding: bandPadding as any,
+          }
+        : { label: ' ', domain: [' '] as any, type: 'band' as any, padding: bandPadding as any },
+      width: categoryDimensionColumn 
+        ? Math.max(BAR_STEP_PX * 2, categoryCount * BAR_STEP_PX)
+        : BAR_STEP_PX,
+      marks: [markType(data, tickConfig), Plot.dot(data, hoverDotConfig)],
+    };
+  }
+  
+  applyColorScale(opts, colorScale);
+  addCustomTooltip(opts, data, dimensionColumn, dimensionLabel, categoryDimensionColumn, categoryLabel, colorField, sizeField, tooltipFields);
+  
+  return opts;
 }
 
 // ---------- Main Function ---------------------------------------------------------
@@ -281,142 +282,17 @@ export function tickStrip(
   const dimensionLabel = labels?.dimension || dimensionColumn;
   const categoryLabel = labels?.category || categoryDimensionColumn;
 
-  // X-orientation
-  if (orientation === 'x') {
-    if (categoryDimensionColumn) {
-      // X-orientation with category
-      const categories = Array.from(new Set(data.map((row: any) => row[categoryDimensionColumn])));
-      const categoryCount = categories.length;
-      
-      const tickConfig = buildTickConfig(
-        { x: dimensionColumn, y: categoryDimensionColumn },
-        dimensionColumn,
-        dimensionLabel,
-        categoryDimensionColumn,
-        categoryLabel,
-        strokeValue,
-        colorField,
-        colorColumnName,
-        sizeField,
-        tooltipFields
-      );
-      
-      // Add invisible dots for better hover detection
-      const hoverDotConfig: any = {
-        x: dimensionColumn,
-        y: categoryDimensionColumn,
-        r: 6,
-        fill: 'transparent',
-        stroke: 'transparent',
-        strokeWidth: 0,
-      };
-      
-      const opts: Plot.PlotOptions = {
-        x: { label: dimensionLabel, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
-        y: { 
-          label: categoryLabel,
-          domain: categories as any,
-          type: 'band' as any,
-          padding: bandPadding as any,
-        },
-        height: Math.max(BAR_STEP_PX * 2, categoryCount * BAR_STEP_PX),
-        marks: [Plot.tickX(data, tickConfig), Plot.dot(data, hoverDotConfig)],
-      };
-      
-      applyColorScale(opts, colorScale);
-      addCustomTooltip(opts, data, dimensionColumn, dimensionLabel, categoryDimensionColumn, categoryLabel, colorField, sizeField, tooltipFields);
-      return opts;
-    }
+  // Build tick configuration
+  const baseConfig = orientation === 'x'
+    ? { x: dimensionColumn, y: categoryDimensionColumn || (() => ' ') }
+    : { y: dimensionColumn, x: categoryDimensionColumn || (() => ' ') };
     
-    // X-orientation without category (single strip)
-    const tickConfig = buildTickConfig(
-      { x: dimensionColumn, y: () => ' ' },
-      dimensionColumn,
-      dimensionLabel,
-      undefined,
-      undefined,
-      strokeValue,
-      colorField,
-      colorColumnName,
-      sizeField,
-      tooltipFields
-    );
-    
-    // Add invisible dots for better hover detection
-    const hoverDotConfig: any = {
-      x: dimensionColumn,
-      y: () => ' ',
-      r: 6,
-      fill: 'transparent',
-      stroke: 'transparent',
-      strokeWidth: 0,
-    };
-    
-    const opts: Plot.PlotOptions = {
-      x: { label: dimensionLabel, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
-      y: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: bandPadding as any },
-      height: BAR_STEP_PX,
-      marks: [Plot.tickX(data, tickConfig), Plot.dot(data, hoverDotConfig)],
-    };
-    
-    applyColorScale(opts, colorScale);
-    addCustomTooltip(opts, data, dimensionColumn, dimensionLabel, undefined, undefined, colorField, sizeField, tooltipFields);
-    return opts;
-  }
-
-  // Y-orientation
-  if (categoryDimensionColumn) {
-    // Y-orientation with category
-    const categories = Array.from(new Set(data.map((row: any) => row[categoryDimensionColumn])));
-    const categoryCount = categories.length;
-    
-    const tickConfig = buildTickConfig(
-      { y: dimensionColumn, x: categoryDimensionColumn },
-      dimensionColumn,
-      dimensionLabel,
-      categoryDimensionColumn,
-      categoryLabel,
-      strokeValue,
-      colorField,
-      colorColumnName,
-      sizeField,
-      tooltipFields
-    );
-    
-    // Add invisible dots for better hover detection
-    const hoverDotConfig: any = {
-      y: dimensionColumn,
-      x: categoryDimensionColumn,
-      r: 6,
-      fill: 'transparent',
-      stroke: 'transparent',
-      strokeWidth: 0,
-    };
-    
-    const opts: Plot.PlotOptions = {
-      y: { label: dimensionLabel, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
-      x: { 
-        label: categoryLabel,
-        domain: categories as any,
-        type: 'band' as any,
-        padding: bandPadding as any,
-      },
-      width: Math.max(BAR_STEP_PX * 2, categoryCount * BAR_STEP_PX),
-      marks: [Plot.tickY(data, tickConfig), Plot.dot(data, hoverDotConfig)],
-    };
-    
-    applyColorScale(opts, colorScale);
-    addCustomTooltip(opts, data, dimensionColumn, dimensionLabel, categoryDimensionColumn, categoryLabel, colorField, sizeField, tooltipFields);
-    return opts;
-  }
-  
-  // Y-orientation without category (single strip)
   const tickConfig = buildTickConfig(
-    { y: dimensionColumn, x: () => ' ' },
+    baseConfig,
     dimensionColumn,
     dimensionLabel,
-    undefined,
-    undefined,
+    categoryDimensionColumn,
+    categoryLabel,
     strokeValue,
     colorField,
     colorColumnName,
@@ -424,24 +300,24 @@ export function tickStrip(
     tooltipFields
   );
   
-  // Add invisible dots for better hover detection
-  const hoverDotConfig: any = {
-    y: dimensionColumn,
-    x: () => ' ',
-    r: 6,
-    fill: 'transparent',
-    stroke: 'transparent',
-    strokeWidth: 0,
-  };
+  // Create hover dot configuration for better tooltip detection
+  const hoverDotConfig = createHoverDotConfig(orientation, dimensionColumn, categoryDimensionColumn);
   
-  const opts: Plot.PlotOptions = {
-    y: { label: dimensionLabel, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
-    x: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: bandPadding as any },
-    width: BAR_STEP_PX,
-    marks: [Plot.tickY(data, tickConfig), Plot.dot(data, hoverDotConfig)],
-  };
-  
-  applyColorScale(opts, colorScale);
-  addCustomTooltip(opts, data, dimensionColumn, dimensionLabel, undefined, undefined, colorField, sizeField, tooltipFields);
-  return opts;
+  // Build and return plot options
+  return buildPlotOptions(
+    orientation,
+    data,
+    dimensionColumn,
+    dimensionLabel,
+    categoryDimensionColumn,
+    categoryLabel,
+    axisDomain,
+    bandPadding,
+    tickConfig,
+    hoverDotConfig,
+    colorScale,
+    colorField,
+    sizeField,
+    tooltipFields
+  );
 }
