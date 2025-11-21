@@ -3,6 +3,77 @@ import { Field } from '../../types';
 import FieldChip, { DragSource } from './FieldChip';
 import styles from './DropZone.module.css';
 
+// Style constants
+const DROPZONE_STYLES = {
+  container: { display: 'flex' },
+  label: { 
+    fontWeight: 'normal' as const, 
+    marginRight: '5px', 
+    minWidth: '6px', 
+    textAlign: 'left' as const, 
+    display: 'flex', 
+    alignItems: 'center' 
+  },
+  dropArea: { 
+    flex: 1, 
+    padding: '2px 4px', 
+    minHeight: '28px', 
+    display: 'flex', 
+    alignItems: 'center' 
+  },
+  fieldsWrapper: { 
+    display: 'flex', 
+    flexWrap: 'wrap' as const, 
+    alignItems: 'center', 
+    gap: '2px', 
+    position: 'relative' as const, 
+    width: '100%' 
+  },
+  dropIndicator: {
+    width: '2px',
+    height: '24px',
+    backgroundColor: '#1976d2',
+    zIndex: 1000
+  },
+  flavourSeparator: {
+    width: '1px',
+    height: '16px',
+    backgroundColor: '#ccc',
+    margin: '0 2px'
+  },
+  emptyMessage: { 
+    color: '#666', 
+    fontStyle: 'italic' as const, 
+    fontSize: '12px',
+    padding: '1px 0'
+  }
+} as const;
+
+// Helper function to parse drag data safely
+function parseDragData(dataTransfer: DataTransfer): { field: Field; source: DragSource; index?: number } | null {
+  try {
+    const dragData = dataTransfer.getData('application/json');
+    if (dragData) {
+      return JSON.parse(dragData);
+    }
+  } catch (error) {
+    console.error('Error parsing drag data:', error);
+  }
+  return null;
+}
+
+// Helper function to convert axis to DragSource
+function axisToDragSource(axis: 'x' | 'y'): DragSource {
+  return axis === 'x' ? 'X_AXIS' : 'Y_AXIS';
+}
+
+// Helper function to convert DragSource to axis
+function dragSourceToAxis(source: DragSource): 'x' | 'y' | null {
+  if (source === 'X_AXIS') return 'x';
+  if (source === 'Y_AXIS') return 'y';
+  return null;
+}
+
 interface DropZoneProps {
   children?: React.ReactNode;
   onDrop: (field: Field, source: DragSource, index?: number) => void;
@@ -81,6 +152,36 @@ const DropZone: React.FC<DropZoneProps> = ({
     }
   };
 
+  // Helper function to calculate drop index from mouse position
+  const calculateDropIndexFromMouse = (mouseX: number, containerElement: EventTarget & Element): number => {
+    const fieldChips = containerElement.querySelectorAll('.field-chip');
+    
+    if (fieldChips.length === 0) {
+      return 0;
+    }
+    
+    // Check if mouse is before the first field
+    const firstChip = fieldChips[0] as HTMLElement;
+    const firstChipRect = firstChip.getBoundingClientRect();
+    
+    if (mouseX < firstChipRect.left) {
+      return 0;
+    }
+    
+    // Check positions between and after fields
+    for (let i = 0; i < fieldChips.length; i++) {
+      const chipRect = (fieldChips[i] as HTMLElement).getBoundingClientRect();
+      const chipCenter = chipRect.left + chipRect.width / 2;
+      
+      if (mouseX < chipCenter) {
+        return i;
+      }
+    }
+    
+    // Mouse is after all fields
+    return fields.length;
+  };
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
@@ -94,96 +195,33 @@ const DropZone: React.FC<DropZoneProps> = ({
     setIsOver(true);
 
     // Try to get the dragged field info to determine valid drop positions
-    try {
-      const dragData = e.dataTransfer.getData('application/json');
-      if (dragData) {
-        const { field, source, index: sourceIndex } = JSON.parse(dragData);
+    const dragData = parseDragData(e.dataTransfer);
+    if (dragData) {
+      const { field, source, index: sourceIndex } = dragData;
+      
+      // Calculate drop position based on ordering rules
+      if (source === axisToDragSource(axis) && sourceIndex !== undefined) {
+        // Reordering within same axis - show visual indicator at valid position
+        let requestedIndex = calculateDropIndexFromMouse(e.clientX, e.currentTarget);
         
-        // Calculate drop position based on ordering rules
-        if (source === (axis === 'x' ? 'X_AXIS' : 'Y_AXIS') && sourceIndex !== undefined) {
-          // Reordering within same axis - show visual indicator at valid position
-          const mouseX = e.clientX;
-          const fieldChips = e.currentTarget.querySelectorAll('.field-chip');
-          let requestedIndex = 0;
-          
-          // Calculate requested position based on mouse
-          if (fieldChips.length > 0) {
-            const firstChip = fieldChips[0] as HTMLElement;
-            const firstChipRect = firstChip.getBoundingClientRect();
-            
-            if (mouseX < firstChipRect.left) {
-              requestedIndex = 0;
-            } else {
-              let found = false;
-              for (let i = 0; i < fieldChips.length; i++) {
-                const chipRect = (fieldChips[i] as HTMLElement).getBoundingClientRect();
-                const chipCenter = chipRect.left + chipRect.width / 2;
-                
-                if (mouseX < chipCenter) {
-                  requestedIndex = i;
-                  found = true;
-                  break;
-                }
-              }
-              
-              if (!found) {
-                requestedIndex = fields.length;
-              }
-            }
-          }
-          
-          // Adjust for the field being moved
-          if (requestedIndex > sourceIndex) {
-            requestedIndex = Math.max(requestedIndex - 1, sourceIndex);
-          }
-          
-          // Get the valid index based on ordering rules
-          const validIndex = getValidTargetIndex(field, requestedIndex, sourceIndex);
-          setDragOverIndex(validIndex);
-        } else {
-          // New field drop - show indicator at valid position based on flavour
-          const validIndex = getValidInsertIndex(field);
-          setDragOverIndex(validIndex);
+        // Adjust for the field being moved
+        if (requestedIndex > sourceIndex) {
+          requestedIndex = Math.max(requestedIndex - 1, sourceIndex);
         }
-        return;
+        
+        // Get the valid index based on ordering rules
+        const validIndex = getValidTargetIndex(field, requestedIndex, sourceIndex);
+        setDragOverIndex(validIndex);
+      } else {
+        // New field drop - show indicator at valid position based on flavour
+        const validIndex = getValidInsertIndex(field);
+        setDragOverIndex(validIndex);
       }
-    } catch (error) {
-      // If we can't parse drag data, fall back to basic positioning
+      return;
     }
 
     // Fallback: Calculate drop position based on mouse position only
-    if (fields.length > 0) {
-      const mouseX = e.clientX;
-      const fieldChips = e.currentTarget.querySelectorAll('.field-chip');
-      
-      // Check if mouse is before the first field
-      if (fieldChips.length > 0) {
-        const firstChip = fieldChips[0] as HTMLElement;
-        const firstChipRect = firstChip.getBoundingClientRect();
-        
-        if (mouseX < firstChipRect.left) {
-          setDragOverIndex(0);
-          return;
-        }
-      }
-      
-      // Check positions between and after fields
-      for (let i = 0; i < fieldChips.length; i++) {
-        const chipRect = (fieldChips[i] as HTMLElement).getBoundingClientRect();
-        const chipCenter = chipRect.left + chipRect.width / 2;
-        
-        // If mouse is in the left half of this chip, drop before it
-        if (mouseX < chipCenter) {
-          setDragOverIndex(i);
-          return;
-        }
-      }
-      
-      // If we get here, mouse is after all fields
-      setDragOverIndex(fields.length);
-    } else {
-      setDragOverIndex(0);
-    }
+    setDragOverIndex(calculateDropIndexFromMouse(e.clientX, e.currentTarget));
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
@@ -200,97 +238,70 @@ const DropZone: React.FC<DropZoneProps> = ({
     setIsOver(false);
     setDragOverIndex(null);
     
-    try {
-      const data = JSON.parse(e.dataTransfer.getData('application/json'));
-      const { field, source, index: sourceIndex } = data;
-      
-      // Create a new field instance to avoid mutating the original
-      let newField: Field = {
-        ...field,
+    const data = parseDragData(e.dataTransfer);
+    if (!data) {
+      return;
+    }
+    
+    const { field, source, index: sourceIndex } = data;
+    
+    // Create a new field instance to avoid mutating the original
+    let newField: Field = {
+      ...field,
+    };
+    
+    // Auto-configure DateTime fields as timeline when dropped on axis
+    if (newField.dataType === 'datetime' && newField.flavour === 'continuous') {
+      newField = {
+        ...newField,
+        dateTimePart: undefined,
+        dateTimeMode: 'timeline'
       };
+    }
+    
+    // Handle reordering within the same axis
+    if (source === axisToDragSource(axis) && onReorderFields && sourceIndex !== undefined) {
+      // Calculate target index based on mouse position
+      let targetIndex = calculateDropIndexFromMouse(e.clientX, e.currentTarget);
       
-      // Auto-configure DateTime fields as timeline when dropped on axis
-      if (newField.dataType === 'datetime' && newField.flavour === 'continuous') {
-        newField = {
-          ...newField,
-          dateTimePart: undefined,
-          dateTimeMode: 'timeline'
-        };
+      // Adjust for the field being moved (since it will be removed first)
+      if (targetIndex > sourceIndex) {
+        targetIndex = Math.max(targetIndex - 1, sourceIndex);
       }
       
-      // Handle reordering within the same axis
-      if (source === (axis === 'x' ? 'X_AXIS' : 'Y_AXIS') && onReorderFields && sourceIndex !== undefined) {
-        // Calculate target index based on mouse position
-        const mouseX = e.clientX;
-        const fieldChips = e.currentTarget.querySelectorAll('.field-chip');
-        let targetIndex = 0;
-        
-        // Check if mouse is before the first field
-        if (fieldChips.length > 0) {
-          const firstChip = fieldChips[0] as HTMLElement;
-          const firstChipRect = firstChip.getBoundingClientRect();
-          
-          if (mouseX < firstChipRect.left) {
-            targetIndex = 0;
-          } else {
-            // Check positions between and after fields
-            let found = false;
-            for (let i = 0; i < fieldChips.length; i++) {
-              const chipRect = (fieldChips[i] as HTMLElement).getBoundingClientRect();
-              const chipCenter = chipRect.left + chipRect.width / 2;
-              
-              if (mouseX < chipCenter) {
-                targetIndex = i;
-                found = true;
-                break;
-              }
-            }
-            
-            if (!found) {
-              targetIndex = fields.length;
-            }
-          }
-        }
-        
-        // Adjust for the field being moved (since it will be removed first)
-        if (targetIndex > sourceIndex) {
-          targetIndex = Math.max(targetIndex - 1, sourceIndex);
-        }
-        
-        // Enforce ordering rule: discrete fields before continuous fields
-        targetIndex = getValidTargetIndex(newField, targetIndex, sourceIndex);
-        
-        if (targetIndex !== sourceIndex) {
-          onReorderFields(axis, sourceIndex, targetIndex);
-        }
-      } else if ((source === 'X_AXIS' || source === 'Y_AXIS') && source !== (axis === 'x' ? 'X_AXIS' : 'Y_AXIS')) {
-        // Handle cross-axis moves atomically to avoid double query
-        if (onMoveFieldBetweenAxes) {
-          const fromAxis = source === 'X_AXIS' ? 'x' : 'y';
-          const toAxis = axis;
-          const insertIndex = getValidInsertIndex(newField);
+      // Enforce ordering rule: discrete fields before continuous fields
+      targetIndex = getValidTargetIndex(newField, targetIndex, sourceIndex);
+      
+      if (targetIndex !== sourceIndex) {
+        onReorderFields(axis, sourceIndex, targetIndex);
+      }
+    } else if ((source === 'X_AXIS' || source === 'Y_AXIS') && source !== axisToDragSource(axis)) {
+      // Handle cross-axis moves atomically to avoid double query
+      if (onMoveFieldBetweenAxes) {
+        const fromAxis = dragSourceToAxis(source);
+        const toAxis = axis;
+        const insertIndex = getValidInsertIndex(newField);
+        if (fromAxis) {
           onMoveFieldBetweenAxes(field.id, fromAxis, toAxis, insertIndex);
-        } else {
-          // Fallback to old behavior if handler not provided
-          const insertIndex = getValidInsertIndex(newField);
-          onDrop(newField, source, insertIndex);
         }
       } else {
-        // Handle drops from available fields
-        // Calculate insert index based on flavour ordering rule
+        // Fallback to old behavior if handler not provided
         const insertIndex = getValidInsertIndex(newField);
         onDrop(newField, source, insertIndex);
       }
-    } catch (error) {
-      console.error('Error parsing drag data:', error);
+    } else {
+      // Handle drops from available fields
+      // Calculate insert index based on flavour ordering rule
+      const insertIndex = getValidInsertIndex(newField);
+      onDrop(newField, source, insertIndex);
     }
   };
 
   const dropZoneClass = `${styles.dropZone} ${isOver ? styles.isOver : ''}`;
 
   return (
-    <div style={{ display: 'flex' }}>
-      <div style={{ fontWeight: 'normal', marginRight: '5px', minWidth: '6px', textAlign: 'left', display: 'flex', alignItems: 'center' }}>
+    <div style={DROPZONE_STYLES.container}>
+      <div style={DROPZONE_STYLES.label}>
         {children}
       </div>
       <div
@@ -298,9 +309,9 @@ const DropZone: React.FC<DropZoneProps> = ({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        style={{ flex: 1, padding: '2px 4px', minHeight: '28px', display: 'flex', alignItems: 'center' }}
+        style={DROPZONE_STYLES.dropArea}
       >
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px', position: 'relative', width: '100%' }}>
+        <div style={DROPZONE_STYLES.fieldsWrapper}>
           {fields.map((field, index) => {
             // Determine if this field exists in current availableFields (by columnName)
             // We don't have availableFields here; rely on a marker set upstream on field.isInvalid
@@ -315,28 +326,18 @@ const DropZone: React.FC<DropZoneProps> = ({
               <React.Fragment key={field.id}>
                 {/* Drop indicator line */}
                 {dragOverIndex === index && (
-                  <div style={{
-                    width: '2px',
-                    height: '24px',
-                    backgroundColor: '#1976d2',
-                    zIndex: 1000
-                  }} />
+                  <div style={DROPZONE_STYLES.dropIndicator} />
                 )}
                 
                 {/* Visual separator between discrete and continuous fields */}
                 {isDiscreteToContinuousBoundary && (
-                  <div style={{
-                    width: '1px',
-                    height: '16px',
-                    backgroundColor: '#ccc',
-                    margin: '0 2px'
-                  }} />
+                  <div style={DROPZONE_STYLES.flavourSeparator} />
                 )}
                 
                 <FieldChip
                   field={field}
                   onUpdate={onFieldUpdate}
-                  source={axis === 'x' ? 'X_AXIS' : 'Y_AXIS'}
+                  source={axisToDragSource(axis)}
                   index={index}
                   isInvalidOnAxis={isInvalid}
                 />
@@ -345,21 +346,11 @@ const DropZone: React.FC<DropZoneProps> = ({
           })}
           {/* Drop indicator at the end */}
           {dragOverIndex === fields.length && (
-            <div style={{
-              width: '2px',
-              height: '24px',
-              backgroundColor: '#1976d2',
-              zIndex: 1000
-            }} />
+            <div style={DROPZONE_STYLES.dropIndicator} />
           )}
         </div>
         {fields.length === 0 && (
-          <div style={{ 
-            color: '#666', 
-            fontStyle: 'italic', 
-            fontSize: '12px',
-            padding: '1px 0'
-          }}>
+          <div style={DROPZONE_STYLES.emptyMessage}>
           </div>
         )}
       </div>
