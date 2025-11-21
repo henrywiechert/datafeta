@@ -301,6 +301,16 @@ export function tickStrip(
         tooltipFields
       );
       
+      // Add invisible dots for better hover detection
+      const hoverDotConfig: any = {
+        x: dimensionColumn,
+        y: categoryDimensionColumn,
+        r: 6,
+        fill: 'transparent',
+        stroke: 'transparent',
+        strokeWidth: 0,
+      };
+      
       const opts: Plot.PlotOptions = {
         x: { label: dimensionLabel, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
         y: { 
@@ -310,7 +320,7 @@ export function tickStrip(
           padding: bandPadding as any,
         },
         height: Math.max(BAR_STEP_PX * 2, categoryCount * BAR_STEP_PX),
-        marks: [Plot.tickX(data, tickConfig)],
+        marks: [Plot.tickX(data, tickConfig), Plot.dot(data, hoverDotConfig)],
       };
       
       applyColorScale(opts, colorScale);
@@ -332,11 +342,21 @@ export function tickStrip(
       tooltipFields
     );
     
+    // Add invisible dots for better hover detection
+    const hoverDotConfig: any = {
+      x: dimensionColumn,
+      y: () => ' ',
+      r: 6,
+      fill: 'transparent',
+      stroke: 'transparent',
+      strokeWidth: 0,
+    };
+    
     const opts: Plot.PlotOptions = {
       x: { label: dimensionLabel, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
       y: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: bandPadding as any },
       height: BAR_STEP_PX,
-      marks: [Plot.tickX(data, tickConfig)],
+      marks: [Plot.tickX(data, tickConfig), Plot.dot(data, hoverDotConfig)],
     };
     
     applyColorScale(opts, colorScale);
@@ -363,6 +383,16 @@ export function tickStrip(
       tooltipFields
     );
     
+    // Add invisible dots for better hover detection
+    const hoverDotConfig: any = {
+      y: dimensionColumn,
+      x: categoryDimensionColumn,
+      r: 6,
+      fill: 'transparent',
+      stroke: 'transparent',
+      strokeWidth: 0,
+    };
+    
     const opts: Plot.PlotOptions = {
       y: { label: dimensionLabel, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
       x: { 
@@ -372,7 +402,7 @@ export function tickStrip(
         padding: bandPadding as any,
       },
       width: Math.max(BAR_STEP_PX * 2, categoryCount * BAR_STEP_PX),
-      marks: [Plot.tickY(data, tickConfig)],
+      marks: [Plot.tickY(data, tickConfig), Plot.dot(data, hoverDotConfig)],
     };
     
     applyColorScale(opts, colorScale);
@@ -394,11 +424,21 @@ export function tickStrip(
     tooltipFields
   );
   
+  // Add invisible dots for better hover detection
+  const hoverDotConfig: any = {
+    y: dimensionColumn,
+    x: () => ' ',
+    r: 6,
+    fill: 'transparent',
+    stroke: 'transparent',
+    strokeWidth: 0,
+  };
+  
   const opts: Plot.PlotOptions = {
     y: { label: dimensionLabel, domainKey: dimensionColumn, grid: true, ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}) } as any,
     x: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: bandPadding as any },
     width: BAR_STEP_PX,
-    marks: [Plot.tickY(data, tickConfig)],
+    marks: [Plot.tickY(data, tickConfig), Plot.dot(data, hoverDotConfig)],
   };
   
   applyColorScale(opts, colorScale);

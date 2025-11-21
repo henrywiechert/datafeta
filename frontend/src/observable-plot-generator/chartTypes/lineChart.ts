@@ -139,7 +139,7 @@ export function lineChart(
   const hoverDotConfig: any = {
     x: xColumn,
     y: yColumn,
-    r: 12, // Larger radius for easier hovering
+    r: 6, // Larger radius for easier hovering (reduced for smaller highlight)
     fill: 'transparent',
     stroke: 'transparent',
     strokeWidth: 0,
@@ -337,7 +337,7 @@ export function verticalLineChart(
   const hoverDotConfig: any = {
     x: xColumn,
     y: yColumn,
-    r: 12, // Larger radius for easier hovering
+    r: 6, // Larger radius for easier hovering (reduced for smaller highlight)
     fill: 'transparent',
     stroke: 'transparent',
     strokeWidth: 0,
