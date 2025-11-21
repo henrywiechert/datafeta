@@ -82,7 +82,8 @@ export function useVisualizationState() {
         selectedDatabase: dataSource.selectedDatabase,
         unionTables: dataSource.unionTables,
         connectionDetails,
-        dispatch
+        dispatch,
+        availableFields: dataSource.availableFields
     });
 
     // Sync visualization state changes back to the active sheet

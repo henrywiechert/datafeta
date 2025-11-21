@@ -6,6 +6,7 @@ import { canBeContinuous, canBeMeasure, getFieldAggregations } from './utils';
 import { DragSource } from './types';
 import ColumnCastingDialog from './ColumnCastingDialog';
 import DateTimePartMenu from '../../DateTime/DateTimePartMenu';
+import { isSyntheticField } from '../../../utils/syntheticFields';
 
 interface FieldMenuItemsProps {
   field: Field;
@@ -26,6 +27,11 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
   // Allow casting for any field - user can configure it regardless of type
   // Backend will handle the casting attempt
   const canCastField = !isInAxisDropZone; // Only in available fields panel, not on axes
+  
+  // Check if field is synthetic (MeasureNames/MeasureValues)
+  const isSynthetic = isSyntheticField(field);
+  const canChangeType = field.isTypeChangeable !== false && !isSynthetic;
+  const canChangeFlavour = field.isFlavourChangeable !== false && !isSynthetic;
 
   const handleCastingConfirm = (config: any) => {
     if (config === null) {
@@ -43,24 +49,40 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
 
   return (
     <>
-      <div className={menuStyles.menuItem} onClick={() => onUpdate({ type: 'dimension' })}>
+      {/* Show synthetic field badge if applicable */}
+      {isSynthetic && (
+        <>
+          <div className={menuStyles.menuItem} style={{ color: '#666', fontStyle: 'italic', cursor: 'default' }}>
+            🔒 Synthetic Field
+          </div>
+          <div className={menuStyles.separator} />
+        </>
+      )}
+      
+      <div 
+        className={`${menuStyles.menuItem} ${!canChangeType ? menuStyles.disabled : ''}`}
+        onClick={canChangeType ? () => onUpdate({ type: 'dimension' }) : undefined}
+      >
         Dimension {field.type === 'dimension' && '✔'}
       </div>
       <div 
-        className={`${menuStyles.menuItem} ${!isFieldMeasure ? menuStyles.disabled : ''}`} 
-        onClick={isFieldMeasure ? () => onUpdate({ type: 'measure' }) : undefined}
+        className={`${menuStyles.menuItem} ${!isFieldMeasure || !canChangeType ? menuStyles.disabled : ''}`} 
+        onClick={isFieldMeasure && canChangeType ? () => onUpdate({ type: 'measure' }) : undefined}
       >
         Measure {field.type === 'measure' && '✔'}
       </div>
       
       <div className={menuStyles.separator} />
 
-      <div className={menuStyles.menuItem} onClick={() => onUpdate({ flavour: 'discrete' })}>
+      <div 
+        className={`${menuStyles.menuItem} ${!canChangeFlavour ? menuStyles.disabled : ''}`}
+        onClick={canChangeFlavour ? () => onUpdate({ flavour: 'discrete' }) : undefined}
+      >
         Discrete {field.flavour === 'discrete' && '✔'}
       </div>
       <div 
-        className={`${menuStyles.menuItem} ${!isFieldContinuous ? menuStyles.disabled : ''}`}
-        onClick={isFieldContinuous ? () => onUpdate({ flavour: 'continuous' }) : undefined}
+        className={`${menuStyles.menuItem} ${!isFieldContinuous || !canChangeFlavour ? menuStyles.disabled : ''}`}
+        onClick={isFieldContinuous && canChangeFlavour ? () => onUpdate({ flavour: 'continuous' }) : undefined}
       >
         Continuous {field.flavour === 'continuous' && '✔'}
       </div>
