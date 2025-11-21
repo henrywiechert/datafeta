@@ -66,12 +66,18 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
     [field.columnName, field.aggregation, field.flavour, field.dataType, field.dateTimePart, field.dateTimeMode, field.barSortOrder]
   );
   
+  // Normalize source to distinguish between axis chips (X/Y are the same) and available fields
+  const isAxisChip = source === 'X_AXIS' || source === 'Y_AXIS';
+  
   // Check for truncation when relevant properties change
   // Only needed for AVAILABLE_FIELDS - axis chips have fixed width and rarely truncate
   useLayoutEffect(() => {
-    if (source !== 'AVAILABLE_FIELDS') {
+    if (isAxisChip) {
       // For axis chips, assume always truncated (safer and avoids expensive checks)
-      setIsTruncated(true);
+      // Only update state if it's not already set to avoid triggering re-renders
+      if (!isTruncated) {
+        setIsTruncated(true);
+      }
       return;
     }
     
@@ -81,12 +87,13 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [source, fieldPropertiesKey, checkTruncation]);
+    // Use isAxisChip instead of source to avoid re-running when swapping X_AXIS <-> Y_AXIS
+  }, [isAxisChip, fieldPropertiesKey, checkTruncation, isTruncated]);
 
   // Set up ResizeObserver to detect size changes (debounced for performance)
   // Only for AVAILABLE_FIELDS - axis chips have fixed dimensions
   useLayoutEffect(() => {
-    if (source !== 'AVAILABLE_FIELDS') {
+    if (isAxisChip) {
       return; // Skip ResizeObserver for axis chips
     }
     
@@ -116,7 +123,8 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
         resizeObserver.disconnect();
       };
     }
-  }, [source, checkTruncation]);
+    // Use isAxisChip instead of source to avoid re-running when swapping X_AXIS <-> Y_AXIS
+  }, [isAxisChip, checkTruncation]);
 
   // Hide tooltip whenever dragging starts
   useEffect(() => {
