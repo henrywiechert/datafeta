@@ -1,46 +1,16 @@
 import React, { useMemo, useState } from 'react';
-import { Box, Typography, TextField, Chip, IconButton, Tooltip, Divider, ToggleButton, ToggleButtonGroup, Switch, styled } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import { Box, Divider } from '@mui/material';
 import TuneIcon from '@mui/icons-material/Tune';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import { PropertySection, PropertyDropZone } from '../Properties';
+import { PropertySection } from '../Properties';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { useUndoRedo } from '../../../contexts/UndoRedoContext';
-import { Field, FieldOverrideState, DataLabelMode } from '../../../types';
+import { Field } from '../../../types';
 import { computeOverrideTargets } from '../../../observable-plot-generator/utils/fieldOverrides';
-import { getFieldDisplayName } from '../../../utils/fieldUtils';
-import ManualColorSelector from '../Color/ManualColorSelector';
-import ColorSchemeSelector from '../Color/ColorSchemeSelector';
-import ColorBiasControl from '../Color/ColorBiasControl';
-import SizeRangeControl from '../Size/SizeRangeControl';
-
-const LABEL_MODE_OPTIONS: { value: DataLabelMode; label: string }[] = [
-  { value: 'inherit', label: 'Inherit' },
-  { value: 'on', label: 'On' },
-  { value: 'off', label: 'Off' },
-];
-
-const TruncatedChip = styled(Chip)({
-  // Ensure the Chip itself can shrink
-  minWidth: 0,
-  // Use flexbox to position the label and delete icon
-  display: 'inline-flex',
-  alignItems: 'center',
-
-  // The label should grow to fill available space, pushing the icon to the right
-  '& .MuiChip-label': {
-    flexGrow: 1,
-    textAlign: 'left',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-
-  // The delete icon should not shrink
-  '& .MuiChip-deleteIcon': {
-    flexShrink: 0,
-  },
-});
+import { useFieldOverrides } from './useFieldOverrides';
+import ColorFieldControl from './ColorFieldControl';
+import SizeFieldControl from './SizeFieldControl';
+import LabelFieldControl from './LabelFieldControl';
+import FieldOverrideRow from './FieldOverrideRow';
 
 const FieldOverridesPanel: React.FC = () => {
   const { state, dispatch, getUndoableSnapshot } = useVisualizationContext();
@@ -70,31 +40,28 @@ const FieldOverridesPanel: React.FC = () => {
     [xAxisFields, yAxisFields]
   );
 
-  // Build a lookup of all known fields by id to resolve override references
-  // Include fields from ALL sources: axes, filters, available, and currently selected color/size fields
-  const fieldById = useMemo(() => {
-    const all: Field[] = [
-      ...(xAxisFields as Field[]), 
-      ...(yAxisFields as Field[]), 
-      ...(filterFields as Field[]),
-      ...(availableFields as Field[])
-    ];
-    // Also include current color and size fields if they exist
-    if (colorField) all.push(colorField as Field);
-    if (sizeField) all.push(sizeField as Field);
-    
-    const map: Record<string, Field> = {};
-    for (const f of all) {
-      if (!map[f.id]) {
-        map[f.id] = f;
-      }
-    }
-    return map;
-  }, [xAxisFields, yAxisFields, filterFields, availableFields, colorField, sizeField]);
-
-  // The following memos were removed as they were unused and caused lint warnings.
-  // const allSizeCandidateFields = useMemo(...);
-  // const allColorCandidateFields = useMemo(...);
+  const {
+    handleUpdateOverride,
+    handleClearOverride,
+    clearColorOverridesForAllFields,
+    clearSizeOverridesForAllFields,
+    clearLabelOverridesForAllFields,
+    resolveColorField,
+    resolveSizeField,
+  } = useFieldOverrides({
+    xAxisFields: xAxisFields as Field[],
+    yAxisFields: yAxisFields as Field[],
+    filterFields: filterFields as Field[],
+    availableFields: availableFields as Field[],
+    colorField: colorField as Field | null,
+    sizeField: sizeField as Field | null,
+    fieldOverrides,
+    colorScheme: colorScheme || 'tableau10',
+    colorBias: colorBias ?? 0,
+    dispatch,
+    recordAction,
+    getUndoableSnapshot,
+  });
 
   const rows = useMemo(
     () => {
@@ -112,378 +79,102 @@ const FieldOverridesPanel: React.FC = () => {
     [targets]
   );
 
-  const handleUpdateOverride = (fieldId: string, patch: Partial<FieldOverrideState>) => {
-    recordAction(getUndoableSnapshot());
-    dispatch({
-      type: 'UPDATE_FIELD_OVERRIDE',
-      payload: { fieldId, override: patch },
-    });
-  };
+  // Per-field override rendering
+  const renderFieldControls = (targetField: Field) => {
+    const override = fieldOverrides[targetField.id] || {};
+    const resolvedColorField = resolveColorField(override);
+    const resolvedSizeField = resolveSizeField(override);
 
-  const handleClearOverride = (fieldId: string) => {
-    recordAction(getUndoableSnapshot());
-    dispatch({
-      type: 'CLEAR_FIELD_OVERRIDE',
-      payload: { fieldId },
-    });
-  };
-
-  const renderFieldBody = (targetField: Field, axis: 'x' | 'y') => {
-    const override: FieldOverrideState = fieldOverrides[targetField.id] || {};
-
-    // Prefer the stored field object over the lookup
-    const resolvedColorField = override.colorField || (override.colorFieldId ? fieldById[override.colorFieldId] || null : null);
-    const resolvedSizeField = override.sizeField || (override.sizeFieldId ? fieldById[override.sizeFieldId] || null : null);
-
-    const effectiveManualColor = override.manualColor || '#4e79a7';
+    const effectiveManualColor = override.manualColor || manualColor || '#4e79a7';
     const effectiveColorScheme = override.colorScheme || colorScheme || 'tableau10';
     const effectiveColorBias = override.colorBias ?? colorBias ?? 0;
-    const sizeRange: [number, number] = override.sizeRange || [4, 20];
-    const manualSize = override.manualSize ?? 10;
+    const effectiveSizeRange: [number, number] = override.sizeRange || sizeRange || [4, 20];
+    const effectiveManualSize = override.manualSize ?? manualSize ?? 10;
 
-    const handleLabelModeChange = (_: React.MouseEvent<HTMLElement>, value: DataLabelMode | null) => {
-      if (!value) return;
-      handleUpdateOverride(targetField.id, { dataLabelMode: value });
-    };
+    return (
+      <>
+        <ColorFieldControl
+          field={resolvedColorField}
+          colorScheme={effectiveColorScheme}
+          colorBias={effectiveColorBias}
+          manualColor={effectiveManualColor}
+          onDrop={(field) => handleUpdateOverride(targetField.id, { 
+            colorFieldId: field.id,
+            colorField: field
+          })}
+          onRemove={() => handleUpdateOverride(targetField.id, { 
+            colorFieldId: null, 
+            colorField: null 
+          })}
+          onSchemeChange={(schemeId) => handleUpdateOverride(targetField.id, { 
+            colorScheme: schemeId 
+          })}
+          onColorChange={(color) => handleUpdateOverride(targetField.id, { 
+            manualColor: color 
+          })}
+          onBiasChange={(bias) => handleUpdateOverride(targetField.id, { 
+            colorBias: bias 
+          })}
+        />
 
-    const handleColorDrop = (e: React.DragEvent) => {
-      try {
-        const fieldData = e.dataTransfer.getData('application/json');
-        if (fieldData) {
-          const parsedData = JSON.parse(fieldData);
-          const { field } = parsedData;
-          if (field) {
-            // Store the colorField object directly, not just the ID
-            handleUpdateOverride(targetField.id, { 
-              colorFieldId: field.id,
-              colorField: field  // Store the actual field object
-            });
-          }
-        }
-      } catch (error) {
-        console.error('Error handling color drop:', error);
-      }
-    };
+        <Divider sx={{ my: 1 }} />
 
-    const handleColorRemove = () => {
-      handleUpdateOverride(targetField.id, { colorFieldId: null, colorField: null });
-    };
+        <SizeFieldControl
+          field={resolvedSizeField}
+          sizeRange={effectiveSizeRange}
+          manualSize={effectiveManualSize}
+          onDrop={(field) => handleUpdateOverride(targetField.id, { 
+            sizeFieldId: field.id,
+            sizeField: field
+          })}
+          onRemove={() => handleUpdateOverride(targetField.id, { 
+            sizeFieldId: null, 
+            sizeField: null 
+          })}
+          onSizeRangeChange={(range) => handleUpdateOverride(targetField.id, { 
+            sizeRange: range 
+          })}
+          onManualSizeChange={(size) => handleUpdateOverride(targetField.id, { 
+            manualSize: size 
+          })}
+        />
 
-    const handleSizeDrop = (e: React.DragEvent) => {
-      try {
-        const fieldData = e.dataTransfer.getData('application/json');
-        if (fieldData) {
-          const parsedData = JSON.parse(fieldData);
-          const { field } = parsedData;
-          if (field) {
-            // Store the sizeField object directly, not just the ID
-            handleUpdateOverride(targetField.id, { 
-              sizeFieldId: field.id,
-              sizeField: field  // Store the actual field object
-            });
-          }
-        }
-      } catch (error) {
-        console.error('Error handling size drop:', error);
-      }
-    };
+        <Divider sx={{ my: 1 }} />
 
-    const handleSizeRemove = () => {
-      handleUpdateOverride(targetField.id, { sizeFieldId: null, sizeField: null });
-    };
-
-    const handleLabelDrop = (e: React.DragEvent) => {
-      try {
-        const fieldData = e.dataTransfer.getData('application/json');
-        if (fieldData) {
-          const parsedData = JSON.parse(fieldData);
-          const { field } = parsedData;
-          if (field) {
-            // Add field to labelFields array (support multiple fields)
+        <LabelFieldControl
+          labelFields={override.labelFields || []}
+          displayLabel={override.displayLabel}
+          dataLabelMode={override.dataLabelMode}
+          showDisplayLabel={true}
+          showDataLabelMode={true}
+          onLabelDrop={(field) => {
             const currentLabelFields = override.labelFields || [];
-            // Avoid duplicates
             if (!currentLabelFields.some((f: Field) => f.id === field.id)) {
               handleUpdateOverride(targetField.id, {
                 labelFields: [...currentLabelFields, field],
               });
             }
-          }
-        }
-      } catch (error) {
-        console.error('Error handling label drop:', error);
-      }
-    };
-
-    const handleLabelRemove = (fieldIdToRemove: string) => {
-      const currentLabelFields = override.labelFields || [];
-      const updatedLabelFields = currentLabelFields.filter((f: Field) => f.id !== fieldIdToRemove);
-      handleUpdateOverride(targetField.id, {
-        labelFields: updatedLabelFields.length > 0 ? updatedLabelFields : undefined,
-      });
-    };
-
-    const getChipStyles = (field: Field) => {
-      if (field.flavour === 'discrete') {
-        return {
-          backgroundColor: '#e3f2fd',
-          border: '1px solid #1976d2',
-        };
-      } else if (field.flavour === 'continuous') {
-        return {
-          backgroundColor: '#e8f5e8',
-          border: '1px solid #388e3c',
-        };
-      }
-      return {};
-    };
-
-    return (
-      <>
-        {/* Color override with drop zone */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="caption" sx={{ minWidth: 60 }}>
-              Color
-            </Typography>
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <PropertyDropZone
-                hasContent={resolvedColorField !== null}
-                emptyMessage="Drag a field or use manual color"
-                onDrop={handleColorDrop}
-              >
-                {resolvedColorField && (
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.5,
-                      minWidth: 0,
-                      width: '100%',
-                    }}
-                  >
-                    <TruncatedChip
-                      label={getFieldDisplayName(resolvedColorField)}
-                      title={getFieldDisplayName(resolvedColorField)}
-                      onDelete={handleColorRemove}
-                      deleteIcon={<CloseIcon />}
-                      size="small"
-                      sx={{
-                        flex: 1, // Fill available space
-                        ...getChipStyles(resolvedColorField),
-                      }}
-                    />
-                  </Box>
-                )}
-              </PropertyDropZone>
-            </Box>
-            {resolvedColorField && (
-              <ColorSchemeSelector
-                currentSchemeId={effectiveColorScheme}
-                fieldFlavour={resolvedColorField.flavour}
-                onSchemeChange={(schemeId) =>
-                  handleUpdateOverride(targetField.id, {
-                    colorScheme: schemeId,
-                  })
-                }
-              />
-            )}
-            {!resolvedColorField && (
-              <ManualColorSelector
-                value={effectiveManualColor}
-                onChange={(color) =>
-                  handleUpdateOverride(targetField.id, {
-                    manualColor: color,
-                  })
-                }
-              />
-            )}
-          </Box>
-          {resolvedColorField && resolvedColorField.flavour === 'continuous' && (
-            <ColorBiasControl
-              colorBias={effectiveColorBias}
-              onChange={(bias) =>
-                handleUpdateOverride(targetField.id, {
-                  colorBias: bias,
-                })
-              }
-            />
-          )}
-        </Box>
-
-        <Divider sx={{ my: 1 }} />
-
-        {/* Size override with drop zone */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="caption" sx={{ minWidth: 60 }}>
-              Size
-            </Typography>
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <PropertyDropZone
-                hasContent={resolvedSizeField !== null}
-                emptyMessage="Drag a field or use manual size"
-                onDrop={handleSizeDrop}
-              >
-                {resolvedSizeField && (
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.5,
-                      minWidth: 0,
-                      width: '100%',
-                    }}
-                  >
-                    <TruncatedChip
-                      label={getFieldDisplayName(resolvedSizeField)}
-                      title={getFieldDisplayName(resolvedSizeField)}
-                      onDelete={handleSizeRemove}
-                      deleteIcon={<CloseIcon />}
-                      size="small"
-                      sx={{
-                        flex: 1, // Fill available space
-                        ...getChipStyles(resolvedSizeField),
-                      }}
-                    />
-                  </Box>
-                )}
-              </PropertyDropZone>
-            </Box>
-          </Box>
-        </Box>
-        <SizeRangeControl
-          sizeField={resolvedSizeField}
-          sizeRange={sizeRange}
-          manualSize={manualSize}
-          onSizeRangeChange={(range) =>
+          }}
+          onLabelRemove={(fieldId) => {
+            const currentLabelFields = override.labelFields || [];
+            const updatedLabelFields = currentLabelFields.filter((f: Field) => f.id !== fieldId);
             handleUpdateOverride(targetField.id, {
-              sizeRange: range,
-            })
-          }
-          onManualSizeChange={(value) =>
-            handleUpdateOverride(targetField.id, {
-              manualSize: value,
-            })
-          }
+              labelFields: updatedLabelFields.length > 0 ? updatedLabelFields : undefined,
+            });
+          }}
+          onDisplayLabelChange={(label) => handleUpdateOverride(targetField.id, { 
+            displayLabel: label 
+          })}
+          onDataLabelModeChange={(mode) => handleUpdateOverride(targetField.id, { 
+            dataLabelMode: mode 
+          })}
         />
-
-        <Divider sx={{ my: 1 }} />
-
-        {/* Label overrides */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="caption" sx={{ minWidth: 60 }}>
-              Label
-            </Typography>
-            <TextField
-              size="small"
-              variant="outlined"
-              label="Display label"
-              value={override.displayLabel ?? ''}
-              onChange={(e) =>
-                handleUpdateOverride(targetField.id, {
-                  displayLabel: e.target.value || undefined,
-                })
-              }
-              sx={{ flex: 1, minWidth: 0 }}
-            />
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="caption" sx={{ minWidth: 60 }}>
-              Label fields
-            </Typography>
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <PropertyDropZone
-                hasContent={(override.labelFields?.length || 0) > 0}
-                emptyMessage="Drag fields to show as labels"
-                onDrop={handleLabelDrop}
-              >
-                {override.labelFields && override.labelFields.length > 0 && (
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: 0.5,
-                      minWidth: 0,
-                      width: '100%',
-                    }}
-                  >
-                    {override.labelFields.map((field: Field) => {
-                      const labelText = getFieldDisplayName(field);
-                      return (
-                        <TruncatedChip
-                          key={field.id}
-                          label={labelText}
-                          title={labelText}
-                          onDelete={() => handleLabelRemove(field.id)}
-                          deleteIcon={<CloseIcon />}
-                          size="small"
-                          sx={{
-                            // If there's only one label, let it fill the space.
-                            // If there are multiple, cap their width.
-                            ...((override.labelFields || []).length === 1
-                              ? { flex: 1 }
-                              : { maxWidth: 160 }),
-                            ...getChipStyles(field),
-                          }}
-                        />
-                      );
-                    })}
-                  </Box>
-                )}
-              </PropertyDropZone>
-            </Box>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="caption" sx={{ minWidth: 60 }}>
-              Data labels
-            </Typography>
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={override.dataLabelMode ?? 'inherit'}
-              onChange={handleLabelModeChange}
-            >
-              {LABEL_MODE_OPTIONS.map((opt) => (
-                <ToggleButton key={opt.value} value={opt.value}>
-                  <Typography variant="caption">{opt.label}</Typography>
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-          </Box>
-        </Box>
       </>
     );
   };
 
-  const clearColorOverridesForAllFields = () => {
-    const next: typeof fieldOverrides = {};
-    Object.entries(fieldOverrides || {}).forEach(([id, override]: any) => {
-      const { colorFieldId, colorScheme, colorBias, manualColor, ...rest } = override || {};
-      next[id] = rest;
-    });
-    dispatch({ type: 'SET_FIELD_OVERRIDES', payload: next });
-  };
-
-  const clearSizeOverridesForAllFields = () => {
-    const next: typeof fieldOverrides = {};
-    Object.entries(fieldOverrides || {}).forEach(([id, override]: any) => {
-      const { sizeFieldId, sizeRange, manualSize, ...rest } = override || {};
-      next[id] = rest;
-    });
-    dispatch({ type: 'SET_FIELD_OVERRIDES', payload: next });
-  };
-
-  const clearLabelOverridesForAllFields = () => {
-    const next: typeof fieldOverrides = {};
-    Object.entries(fieldOverrides || {}).forEach(([id, override]: any) => {
-      const { labelFields, ...rest } = override || {};
-      next[id] = rest;
-    });
-    dispatch({ type: 'SET_FIELD_OVERRIDES', payload: next });
-  };
-
-  const renderAllBody = () => {
+  // Global override rendering
+  const renderGlobalControls = () => {
     const resolvedGlobalColorField = colorField as Field | null;
     const resolvedGlobalSizeField = sizeField as Field | null;
 
@@ -491,308 +182,92 @@ const FieldOverridesPanel: React.FC = () => {
     const effectiveColorScheme = colorScheme || 'tableau10';
     const effectiveColorBias = colorBias ?? 0;
 
-    const handleGlobalColorDrop = (e: React.DragEvent) => {
-      try {
-        const fieldData = e.dataTransfer.getData('application/json');
-        if (fieldData) {
-          const parsedData = JSON.parse(fieldData);
-          // The 'source' variable was unused and has been removed to fix a lint warning.
-          const { field } = parsedData;
-          if (field) {
+    return (
+      <Box sx={{ p: 1, pt: 0.5, pb: 0.5 }}>
+        <ColorFieldControl
+          field={resolvedGlobalColorField}
+          colorScheme={effectiveColorScheme}
+          colorBias={effectiveColorBias}
+          manualColor={effectiveManualColor}
+          onDrop={(field) => {
             recordAction(getUndoableSnapshot());
             clearColorOverridesForAllFields();
             dispatch({ type: 'SET_COLOR_FIELD', payload: field });
-          }
-        }
-      } catch (error) {
-        console.error('Error handling color drop:', error);
-      }
-    };
-
-    const handleGlobalColorRemove = () => {
-      recordAction(getUndoableSnapshot());
-      clearColorOverridesForAllFields();
-      dispatch({ type: 'SET_COLOR_FIELD', payload: null });
-    };
-
-    const handleGlobalManualColorChange = (color: string) => {
-      recordAction(getUndoableSnapshot());
-      clearColorOverridesForAllFields();
-      dispatch({ type: 'SET_MANUAL_COLOR', payload: color });
-    };
-
-    const handleGlobalColorSchemeChange = (schemeId: string) => {
-      recordAction(getUndoableSnapshot());
-      clearColorOverridesForAllFields();
-      dispatch({ type: 'SET_COLOR_SCHEME', payload: schemeId });
-    };
-
-    const handleGlobalColorBiasChange = (bias: number) => {
-      recordAction(getUndoableSnapshot());
-      clearColorOverridesForAllFields();
-      dispatch({ type: 'SET_COLOR_BIAS', payload: bias });
-    };
-
-    const handleGlobalSizeDrop = (e: React.DragEvent) => {
-      try {
-        const fieldData = e.dataTransfer.getData('application/json');
-        if (fieldData) {
-          const parsedData = JSON.parse(fieldData);
-          const { field } = parsedData;
-          if (field) {
+          }}
+          onRemove={() => {
             recordAction(getUndoableSnapshot());
-            clearSizeOverridesForAllFields();
-            dispatch({ type: 'SET_SIZE_FIELD', payload: field });
-          }
-        }
-      } catch (error) {
-        console.error('Error handling size drop:', error);
-      }
-    };
-
-    const handleGlobalSizeRemove = () => {
-      recordAction(getUndoableSnapshot());
-      clearSizeOverridesForAllFields();
-      dispatch({ type: 'SET_SIZE_FIELD', payload: null });
-    };
-
-    const handleGlobalSizeRangeChange = (range: [number, number]) => {
-      recordAction(getUndoableSnapshot());
-      // Changing the global size range should not reset per-field size overrides.
-      // Clearing overrides here caused additionalSizeFields array identity to change,
-      // which in turn retriggered queries unnecessarily on mouse-up of the size slider.
-      // We only update the global size range now.
-      dispatch({ type: 'SET_SIZE_RANGE', payload: range });
-    };
-
-    const handleGlobalManualSizeChange = (value: number) => {
-      recordAction(getUndoableSnapshot());
-      // Changing the global manual size should not reset per-field size overrides.
-      // Resetting overrides invalidated additionalSizeFields causing a query re-run.
-      dispatch({ type: 'SET_MANUAL_SIZE', payload: value });
-    };
-
-    const handleGlobalLabelsEnabledChange = (checked: boolean) => {
-      recordAction(getUndoableSnapshot());
-      dispatch({ type: 'SET_LABELS_ENABLED', payload: checked });
-    };
-
-    const handleGlobalLabelDrop = (e: React.DragEvent) => {
-      try {
-        const fieldData = e.dataTransfer.getData('application/json');
-        if (fieldData) {
-          const parsedData = JSON.parse(fieldData);
-          const { field } = parsedData;
-          if (field) {
+            clearColorOverridesForAllFields();
+            dispatch({ type: 'SET_COLOR_FIELD', payload: null });
+          }}
+          onSchemeChange={(schemeId) => {
             recordAction(getUndoableSnapshot());
-            clearLabelOverridesForAllFields();
-            // Add field to global labelFields array
-            const currentLabelFields = labelFields as Field[] || [];
-            // Avoid duplicates
-            if (!currentLabelFields.some((f: Field) => f.id === field.id)) {
-              dispatch({ type: 'SET_LABEL_FIELDS', payload: [...currentLabelFields, field] });
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error handling global label drop:', error);
-      }
-    };
-
-    const handleGlobalLabelRemove = (fieldIdToRemove: string) => {
-      recordAction(getUndoableSnapshot());
-      clearLabelOverridesForAllFields();
-      const currentLabelFields = labelFields as Field[] || [];
-      const updatedLabelFields = currentLabelFields.filter((f: Field) => f.id !== fieldIdToRemove);
-      dispatch({ type: 'SET_LABEL_FIELDS', payload: updatedLabelFields });
-    };
-
-    const getChipStyles = (field: Field) => {
-      if (field.flavour === 'discrete') {
-        return {
-          backgroundColor: '#e3f2fd',
-          border: '1px solid #1976d2',
-        };
-      } else if (field.flavour === 'continuous') {
-        return {
-          backgroundColor: '#e8f5e8',
-          border: '1px solid #388e3c',
-        };
-      }
-      return {};
-    };
-
-    return (
-      <Box sx={{ p: 1, pt: 0.5, pb: 0.5 }}>
-        {/* Color (global) with drop zone */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="caption" sx={{ minWidth: 60 }}>
-              Color
-            </Typography>
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <PropertyDropZone
-                hasContent={resolvedGlobalColorField !== null}
-                emptyMessage="Drag a field or use manual color"
-                onDrop={handleGlobalColorDrop}
-              >
-                {resolvedGlobalColorField && (
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.5,
-                      minWidth: 0,
-                      width: '100%',
-                    }}
-                  >
-                    <TruncatedChip
-                      label={getFieldDisplayName(resolvedGlobalColorField)}
-                      title={getFieldDisplayName(resolvedGlobalColorField)}
-                      onDelete={handleGlobalColorRemove}
-                      deleteIcon={<CloseIcon />}
-                      size="small"
-                      sx={{
-                        flex: 1, // Fill available space
-                        ...getChipStyles(resolvedGlobalColorField),
-                      }}
-                    />
-                  </Box>
-                )}
-              </PropertyDropZone>
-            </Box>
-            {resolvedGlobalColorField && (
-              <ColorSchemeSelector
-                currentSchemeId={effectiveColorScheme}
-                fieldFlavour={resolvedGlobalColorField.flavour}
-                onSchemeChange={handleGlobalColorSchemeChange}
-              />
-            )}
-            {!resolvedGlobalColorField && (
-              <ManualColorSelector
-                value={effectiveManualColor}
-                onChange={handleGlobalManualColorChange}
-              />
-            )}
-          </Box>
-          {resolvedGlobalColorField && resolvedGlobalColorField.flavour === 'continuous' && (
-            <ColorBiasControl
-              colorBias={effectiveColorBias}
-              onChange={handleGlobalColorBiasChange}
-            />
-          )}
-        </Box>
-
-        <Divider sx={{ my: 1 }} />
-
-        {/* Size (global) with drop zone */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="caption" sx={{ minWidth: 60 }}>
-              Size
-            </Typography>
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <PropertyDropZone
-                hasContent={resolvedGlobalSizeField !== null}
-                emptyMessage="Drag a field or use manual size"
-                onDrop={handleGlobalSizeDrop}
-              >
-                {resolvedGlobalSizeField && (
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.5,
-                      minWidth: 0,
-                      width: '100%',
-                    }}
-                  >
-                    <TruncatedChip
-                      label={getFieldDisplayName(resolvedGlobalSizeField)}
-                      title={getFieldDisplayName(resolvedGlobalSizeField)}
-                      onDelete={handleGlobalSizeRemove}
-                      deleteIcon={<CloseIcon />}
-                      size="small"
-                      sx={{
-                        flex: 1, // Fill available space
-                        ...getChipStyles(resolvedGlobalSizeField),
-                      }}
-                    />
-                  </Box>
-                )}
-              </PropertyDropZone>
-            </Box>
-          </Box>
-        </Box>
-        <SizeRangeControl
-          sizeField={resolvedGlobalSizeField || null}
-          sizeRange={sizeRange}
-          manualSize={manualSize}
-          onSizeRangeChange={handleGlobalSizeRangeChange}
-          onManualSizeChange={handleGlobalManualSizeChange}
+            clearColorOverridesForAllFields();
+            dispatch({ type: 'SET_COLOR_SCHEME', payload: schemeId });
+          }}
+          onColorChange={(color) => {
+            recordAction(getUndoableSnapshot());
+            clearColorOverridesForAllFields();
+            dispatch({ type: 'SET_MANUAL_COLOR', payload: color });
+          }}
+          onBiasChange={(bias) => {
+            recordAction(getUndoableSnapshot());
+            clearColorOverridesForAllFields();
+            dispatch({ type: 'SET_COLOR_BIAS', payload: bias });
+          }}
         />
 
         <Divider sx={{ my: 1 }} />
 
-        {/* Labels (global) with drop zone */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="caption" sx={{ minWidth: 60 }}>
-              Label fields
-            </Typography>
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <PropertyDropZone
-                hasContent={(labelFields?.length || 0) > 0}
-                emptyMessage="Drag fields to show as labels"
-                onDrop={handleGlobalLabelDrop}
-              >
-                {labelFields && labelFields.length > 0 && (
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: 0.5,
-                      minWidth: 0,
-                      width: '100%',
-                    }}
-                  >
-                    {(labelFields as Field[]).map((field: Field) => {
-                      const labelText = getFieldDisplayName(field);
-                      return (
-                        <TruncatedChip
-                          key={field.id}
-                          label={labelText}
-                          title={labelText}
-                          onDelete={() => handleGlobalLabelRemove(field.id)}
-                          deleteIcon={<CloseIcon />}
-                          size="small"
-                          sx={{
-                            // If there's only one label, let it fill the space.
-                            // If there are multiple, cap their width.
-                            ...(((labelFields as Field[]) || []).length === 1
-                              ? { flex: 1 }
-                              : { maxWidth: 160 }),
-                            ...getChipStyles(field),
-                          }}
-                        />
-                      );
-                    })}
-                  </Box>
-                )}
-              </PropertyDropZone>
-            </Box>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="caption" sx={{ minWidth: 60 }}>
-              Show labels
-            </Typography>
-            <Switch
-              size="small"
-              checked={labelsEnabled}
-              onChange={(e) => handleGlobalLabelsEnabledChange(e.target.checked)}
-            />
-          </Box>
-        </Box>
+        <SizeFieldControl
+          field={resolvedGlobalSizeField}
+          sizeRange={sizeRange}
+          manualSize={manualSize}
+          onDrop={(field) => {
+            recordAction(getUndoableSnapshot());
+            clearSizeOverridesForAllFields();
+            dispatch({ type: 'SET_SIZE_FIELD', payload: field });
+          }}
+          onRemove={() => {
+            recordAction(getUndoableSnapshot());
+            clearSizeOverridesForAllFields();
+            dispatch({ type: 'SET_SIZE_FIELD', payload: null });
+          }}
+          onSizeRangeChange={(range) => {
+            recordAction(getUndoableSnapshot());
+            dispatch({ type: 'SET_SIZE_RANGE', payload: range });
+          }}
+          onManualSizeChange={(size) => {
+            recordAction(getUndoableSnapshot());
+            dispatch({ type: 'SET_MANUAL_SIZE', payload: size });
+          }}
+        />
+
+        <Divider sx={{ my: 1 }} />
+
+        <LabelFieldControl
+          labelFields={labelFields as Field[] || []}
+          showLabelsEnabled={true}
+          labelsEnabled={labelsEnabled}
+          onLabelDrop={(field) => {
+            recordAction(getUndoableSnapshot());
+            clearLabelOverridesForAllFields();
+            const currentLabelFields = labelFields as Field[] || [];
+            if (!currentLabelFields.some((f: Field) => f.id === field.id)) {
+              dispatch({ type: 'SET_LABEL_FIELDS', payload: [...currentLabelFields, field] });
+            }
+          }}
+          onLabelRemove={(fieldId) => {
+            recordAction(getUndoableSnapshot());
+            clearLabelOverridesForAllFields();
+            const currentLabelFields = labelFields as Field[] || [];
+            const updatedLabelFields = currentLabelFields.filter((f: Field) => f.id !== fieldId);
+            dispatch({ type: 'SET_LABEL_FIELDS', payload: updatedLabelFields });
+          }}
+          onLabelsEnabledChange={(enabled) => {
+            recordAction(getUndoableSnapshot());
+            dispatch({ type: 'SET_LABELS_ENABLED', payload: enabled });
+          }}
+        />
       </Box>
     );
   };
@@ -806,89 +281,24 @@ const FieldOverridesPanel: React.FC = () => {
     >
       <Box sx={{ display: 'flex', flexDirection: 'column' }}>
         {rows.map((row) => {
-          const isAll = row.id === '__all__';
+          const isGlobal = row.id === '__all__';
           const isExpanded = expandedId === row.id;
-          const hasOverride = !isAll && !!fieldOverrides[row.id];
+          const hasOverride = !isGlobal && !!fieldOverrides[row.id];
 
           return (
-            <Box
+            <FieldOverrideRow
               key={row.id}
-              sx={{
-                border: '1px solid #e0e0e0',
-                borderRadius: 1,
-                mb: 0.75,
-                backgroundColor: isExpanded ? '#f5f5f5' : '#fafafa',
-              }}
+              id={row.id}
+              label={row.label}
+              axis={row.axis}
+              isGlobal={isGlobal}
+              hasOverride={hasOverride}
+              isExpanded={isExpanded}
+              onToggle={() => setExpandedId(isExpanded ? null : row.id)}
+              onClear={() => handleClearOverride(row.id)}
             >
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  px: 1,
-                  py: 0.5,
-                  cursor: 'pointer',
-                }}
-                onClick={() => setExpandedId(isExpanded ? null : row.id)}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-                  {isAll ? (
-                    <Chip
-                      size="small"
-                      label="ALL"
-                      color="default"
-                      sx={{ height: 20, fontSize: '0.7rem' }}
-                    />
-                  ) : (
-                    <Chip
-                      size="small"
-                      label={row.axis?.toUpperCase()}
-                      color="default"
-                      sx={{ height: 20, fontSize: '0.7rem', flexShrink: 0 }}
-                    />
-                  )}
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontWeight: 500,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                    title={row.label}
-                  >
-                    {row.label}
-                  </Typography>
-                </Box>
-                {!isAll && (
-                  <Tooltip title="Reset overrides for this field">
-                    <span
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleClearOverride(row.id);
-                      }}
-                    >
-                      <IconButton
-                        size="small"
-                        disabled={!hasOverride}
-                      >
-                        <RefreshIcon fontSize="small" />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                )}
-              </Box>
-              {isExpanded && !isAll && row.field && row.axis && (
-                <Box sx={{ px: 1, pb: 1 }}>
-                  {renderFieldBody(row.field, row.axis)}
-                </Box>
-              )}
-              {isExpanded && isAll && (
-                <Box sx={{ px: 1, pb: 1 }}>
-                  {renderAllBody()}
-                </Box>
-              )}
-            </Box>
+              {isGlobal ? renderGlobalControls() : (row.field && renderFieldControls(row.field))}
+            </FieldOverrideRow>
           );
         })}
       </Box>
@@ -897,5 +307,3 @@ const FieldOverridesPanel: React.FC = () => {
 };
 
 export default FieldOverridesPanel;
-
-
