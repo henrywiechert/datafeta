@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Menu, MenuItem, Box, Tooltip } from '@mui/material';
+import { Button, Menu, Box, Tooltip } from '@mui/material';
 import PaletteIcon from '@mui/icons-material/Palette';
 
 interface ManualColorSelectorProps {

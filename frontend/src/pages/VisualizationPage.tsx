@@ -1,7 +1,5 @@
 import React from 'react';
-import { Box, IconButton, Tooltip } from '@mui/material';
-import UndoIcon from '@mui/icons-material/Undo';
-import RedoIcon from '@mui/icons-material/Redo';
+import { Box } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { useVisualizationState } from '../hooks/useVisualizationState';
@@ -50,31 +48,8 @@ const VisualizationPageContent = () => {
 
     // Access the enhanced context with loading states and cancellation
     const { state, dispatch, cancelOperation, getUndoableSnapshot } = useVisualizationContext();
-    const { recordAction, undo, completeUndo, redo, completeRedo, canUndo, canRedo, clearHistory } = useUndoRedo();
+    const { recordAction, undo, completeUndo, redo, completeRedo, clearHistory } = useUndoRedo();
     
-    // Debounce undo recording for filter config changes to avoid blocking on every checkbox click
-    const filterUndoTimerRef = React.useRef<NodeJS.Timeout | null>(null);
-    const lastFilterStateRef = React.useRef<any>(null);
-    
-    const recordFilterUndoDebounced = React.useCallback(() => {
-        // Cancel any pending undo recording
-        if (filterUndoTimerRef.current) {
-            clearTimeout(filterUndoTimerRef.current);
-        }
-        
-        // Record the state before the first change (if not already recorded)
-        if (!lastFilterStateRef.current) {
-            lastFilterStateRef.current = getUndoableSnapshot();
-        }
-        
-        // Set a timer to record undo after 500ms of no changes
-        filterUndoTimerRef.current = setTimeout(() => {
-            if (lastFilterStateRef.current) {
-                recordAction(lastFilterStateRef.current);
-                lastFilterStateRef.current = null;
-            }
-        }, 500);
-    }, [recordAction, getUndoableSnapshot]);
     const { 
         showLoadingModal, 
         loadingOperationType, 
@@ -177,15 +152,6 @@ const VisualizationPageContent = () => {
     React.useEffect(() => {
         clearHistory();
     }, [sheetState.activeSheetId, clearHistory]);
-    
-    // Cleanup debounce timer on unmount
-    React.useEffect(() => {
-        return () => {
-            if (filterUndoTimerRef.current) {
-                clearTimeout(filterUndoTimerRef.current);
-            }
-        };
-    }, []);
 
     // Keyboard shortcuts for undo/redo
     React.useEffect(() => {
