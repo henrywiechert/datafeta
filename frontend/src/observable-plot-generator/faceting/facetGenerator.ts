@@ -16,6 +16,7 @@ import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField, 
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 import { buildLabelCfg } from '../observablePlotGenerator';
+import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 
 /**
  * Chart-specific configuration derived from context and facet plan.
@@ -259,17 +260,25 @@ function createBarCellGenerator(
         
         // Use color field if present, otherwise use manual color or default
         const tickStroke = colorColumnName || manualColor || DEFAULT_CHART_COLOR;
-        options = barOrientation === 'barX'
-          ? { 
-              x: axisDomain ? { label: dimCol, domain: axisDomain as any, nice: false, grid: true } : { label: dimCol, grid: true }, 
-              y: { label: categoryColumnName || ' ', type: 'band' as any, domain: categories as any, padding: bandPadding as any }, 
-              marks: [Plot.tickX(cellData, { x: dimCol, y: categoryColumnName || (() => categories[0]), stroke: tickStroke, tip: { pointer: 'x', preferredAnchor: 'top-right' } })] 
-            } as Plot.PlotOptions
-          : { 
-              y: axisDomain ? { label: dimCol, domain: axisDomain as any, nice: false, grid: true } : { label: dimCol, grid: true }, 
-              x: { label: categoryColumnName || ' ', type: 'band' as any, domain: categories as any, padding: bandPadding as any }, 
-              marks: [Plot.tickY(cellData, { y: dimCol, x: categoryColumnName || (() => categories[0]), stroke: tickStroke, tip: { pointer: 'y', preferredAnchor: 'top-right' } })] 
-            } as Plot.PlotOptions;
+        
+        // Create configurations for tick marks and hover dots
+        if (barOrientation === 'barX') {
+          const tickConfig = { x: dimCol, y: categoryColumnName || (() => categories[0]), stroke: tickStroke, strokeWidth: 1.5 };
+          const hoverDotConfig = { x: dimCol, y: categoryColumnName || (() => categories[0]), r: 6, fill: 'transparent', stroke: 'transparent', strokeWidth: 0 };
+          options = {
+            x: axisDomain ? { label: dimCol, domain: axisDomain as any, nice: false, grid: true } : { label: dimCol, grid: true },
+            y: { label: categoryColumnName || ' ', type: 'band' as any, domain: categories as any, padding: bandPadding as any },
+            marks: [Plot.tickX(cellData, tickConfig), Plot.dot(cellData, hoverDotConfig)]
+          } as Plot.PlotOptions;
+        } else {
+          const tickConfig = { y: dimCol, x: categoryColumnName || (() => categories[0]), stroke: tickStroke, strokeWidth: 1.5 };
+          const hoverDotConfig = { y: dimCol, x: categoryColumnName || (() => categories[0]), r: 6, fill: 'transparent', stroke: 'transparent', strokeWidth: 0 };
+          options = {
+            y: axisDomain ? { label: dimCol, domain: axisDomain as any, nice: false, grid: true } : { label: dimCol, grid: true },
+            x: { label: categoryColumnName || ' ', type: 'band' as any, domain: categories as any, padding: bandPadding as any },
+            marks: [Plot.tickY(cellData, tickConfig), Plot.dot(cellData, hoverDotConfig)]
+          } as Plot.PlotOptions;
+        }
         
         // Add color scale configuration if color field is present
         if (colorColumnName && sharedDomains.colorScale) {
@@ -290,6 +299,22 @@ function createBarCellGenerator(
               };
           (options as any).color = colorConfig;
         }
+        
+        // Add custom tooltip configuration
+        const mainFields: { label: string; column: string }[] = [{ label: dimCol, column: dimCol }];
+        if (categoryColumnName) {
+          mainFields.push({ label: categoryColumnName, column: categoryColumnName });
+        }
+        (options as any).__customTooltip = {
+          enabled: true,
+          data: cellData,
+          getFields: createTooltipFieldsGetter(
+            mainFields,
+            colorField || undefined,
+            undefined, // No size field for tick strips
+            cellContext.tooltipFields
+          )
+        };
         
         title = dimCol;
       }
