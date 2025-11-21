@@ -118,6 +118,9 @@ function addTooltipListeners(
     const handleMouseEnter = (e: Event) => {
       const mouseEvent = e as MouseEvent;
       
+      // Add highlight class to emphasize the hovered mark
+      mark.classList.add('chart-mark--highlighted');
+      
       // Try multiple ways to get data:
       // 1. From __data__ property (D3 style)
       // 2. From our data array if provided
@@ -173,6 +176,10 @@ function addTooltipListeners(
 
     const handleMouseLeave = () => {
       console.log('[CustomTooltip] Mouse leave');
+      
+      // Remove highlight class when mouse leaves
+      mark.classList.remove('chart-mark--highlighted');
+      
       hideTooltip();
     };
 
