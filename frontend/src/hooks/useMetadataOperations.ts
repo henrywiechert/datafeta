@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { Field, DataType } from '../types';
 import { apiService } from '../apiService';
+import { generateSyntheticFields } from '../utils/syntheticFields';
 
 interface ConnectionDetails {
     type: 'clickhouse' | 'csv';
@@ -161,7 +162,11 @@ export function useMetadataOperations({
                     aggregation: aggregation,
                 };
             });
-            dataSourceSetters.setAvailableFields(fields);
+            
+            // Generate and append synthetic fields (MeasureNames/MeasureValues)
+            const syntheticFields = generateSyntheticFields(fields);
+            const fieldsWithSynthetic = [...fields, ...syntheticFields];
+            dataSourceSetters.setAvailableFields(fieldsWithSynthetic);
 
             // Mark axis fields that are not present in new schema as invalid
             const availableNames = new Set(fields.map(f => f.columnName));
@@ -276,7 +281,10 @@ export function useMetadataOperations({
                     };
                 });
                 
-                dataSourceSetters.setAvailableFields(fields);
+                // Generate and append synthetic fields (MeasureNames/MeasureValues)
+                const syntheticFields = generateSyntheticFields(fields);
+                const fieldsWithSynthetic = [...fields, ...syntheticFields];
+                dataSourceSetters.setAvailableFields(fieldsWithSynthetic);
                 dataSourceSetters.setVirtualTable(response.virtual_table);
                 dataSourceSetters.setIsLoadingMetadata(false);
                 return;
@@ -323,7 +331,10 @@ export function useMetadataOperations({
                 };
             });
             
-            dataSourceSetters.setAvailableFields(fields);
+            // Generate and append synthetic fields (MeasureNames/MeasureValues)
+            const syntheticFields = generateSyntheticFields(fields);
+            const fieldsWithSynthetic = [...fields, ...syntheticFields];
+            dataSourceSetters.setAvailableFields(fieldsWithSynthetic);
             dataSourceSetters.setVirtualTable(response.virtual_table);
 
             // Mark axis fields that are not present in new schema as invalid
