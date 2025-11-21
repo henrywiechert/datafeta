@@ -20,16 +20,28 @@ import FieldContextMenu from './FieldContextMenu';
 const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index }) => {
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  
+  // Use refs to avoid recreating callbacks when field/source/index change
+  const fieldRef = React.useRef(field);
+  const sourceRef = React.useRef(source);
+  const indexRef = React.useRef(index);
+  
+  // Update refs when props change
+  React.useEffect(() => {
+    fieldRef.current = field;
+    sourceRef.current = source;
+    indexRef.current = index;
+  }, [field, source, index]);
 
   const handleDragStart = useCallback((e: React.DragEvent) => {
     setIsDragging(true);
     e.dataTransfer.setData('application/json', JSON.stringify({
-      field,
-      source,
-      index
+      field: fieldRef.current,
+      source: sourceRef.current,
+      index: indexRef.current
     }));
     e.dataTransfer.effectAllowed = 'copyMove';
-  }, [field, source, index]);
+  }, []); // No dependencies - uses refs
 
   const handleDragEnd = useCallback(() => {
     setIsDragging(false);
