@@ -116,23 +116,13 @@ function formatValue(v: any): string {
 /** Create Plot.text mark for labels */
 export function createLabelMark(prepared: { shouldRender: boolean; data: any[] }, cfg: LabelRenderConfig, xCol: string, yCol: string) {
   if (!prepared.shouldRender) {
-    console.log('[LabelMark] Not rendering - shouldRender is false');
     return null;
   }
   if (prepared.data.length === 0) {
-    console.log('[LabelMark] Not rendering - data is empty');
     return null;
   }
   const textValues = prepared.data.map(d => buildLabelString(d, cfg)).filter(s => s.length > 0);
   if (textValues.length === 0) {
-    console.log('[LabelMark] Not rendering - all label strings are empty', {
-      dataLength: prepared.data.length,
-      sample: prepared.data[0],
-      xCol,
-      yCol,
-      chartType: cfg.chartType,
-      orientation: cfg.orientation
-    });
     return null;
   }
   

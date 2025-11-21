@@ -72,7 +72,6 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
   }, [x, y, visible]);
 
   if (!visible || fields.length === 0) {
-    console.log('[CustomTooltip] Not rendering:', { visible, fieldsLength: fields.length });
     return null;
   }
 
