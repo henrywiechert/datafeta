@@ -178,6 +178,9 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
   useEffect(() => {
     if (!plotGridRef.current) return;
 
+    let rafId: number | null = null;
+    let isUpdateScheduled = false;
+
     const measurePositions = () => {
       if (plotGridRef.current) {
         const colPos = measureGridPositions(plotGridRef.current, columns, 'vertical');
@@ -185,13 +188,22 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
         setMeasuredColumnPositions(colPos);
         setMeasuredRowPositions(rowPos);
       }
+      isUpdateScheduled = false;
+    };
+
+    // Throttle measurements using requestAnimationFrame
+    const scheduleMeasurement = () => {
+      if (!isUpdateScheduled) {
+        isUpdateScheduled = true;
+        rafId = requestAnimationFrame(measurePositions);
+      }
     };
 
     // Measure after a short delay to ensure grid has been laid out
     const timeoutId = setTimeout(measurePositions, 0);
 
-    // Also re-measure on resize
-    const ro = new ResizeObserver(measurePositions);
+    // Also re-measure on resize with RAF throttling
+    const ro = new ResizeObserver(scheduleMeasurement);
     if (plotGridRef.current) {
       ro.observe(plotGridRef.current);
     }
@@ -199,6 +211,9 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
     return () => {
       clearTimeout(timeoutId);
       ro.disconnect();
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
     };
   }, [plotGridRef, columns, rows, columnTemplate, rowTemplate, containerWidth, containerHeight]);
 
