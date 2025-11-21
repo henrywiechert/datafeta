@@ -397,13 +397,14 @@ export const apiService = {
         field: string, 
         table: string, 
         database?: string,
+        virtualColumns?: VirtualColumnDefinition[],
         signal?: AbortSignal
     ): Promise<{ min: number; max: number }> {
         const abortController = signal ? null : createAbortController();
         const requestSignal = signal || abortController?.signal;
 
         // Build a query to get min and max values
-        const queryDesc = {
+        const queryDesc: any = {
             target_table: table,
             target_database: database,
             dimensions: [],
@@ -412,6 +413,11 @@ export const apiService = {
                 { field, aggregation: 'max' as const, alias: 'max_value' },
             ],
         };
+
+        // Add virtual columns if provided
+        if (virtualColumns && virtualColumns.length > 0) {
+            queryDesc.virtual_columns = virtualColumns;
+        }
 
         const response = await fetchWithErrorHandling(`${API_BASE_URL}/query`, {
             method: 'POST',
@@ -443,13 +449,14 @@ export const apiService = {
         field: string, 
         table: string, 
         database?: string,
+        virtualColumns?: VirtualColumnDefinition[],
         signal?: AbortSignal
     ): Promise<{ min: string; max: string }> {
         const abortController = signal ? null : createAbortController();
         const requestSignal = signal || abortController?.signal;
 
         // Build a query to get min and max datetime values
-        const queryDesc = {
+        const queryDesc: any = {
             target_table: table,
             target_database: database,
             dimensions: [],
@@ -458,6 +465,11 @@ export const apiService = {
                 { field, aggregation: 'max' as const, alias: 'max_date' },
             ],
         };
+
+        // Add virtual columns if provided
+        if (virtualColumns && virtualColumns.length > 0) {
+            queryDesc.virtual_columns = virtualColumns;
+        }
 
         const response = await fetchWithErrorHandling(`${API_BASE_URL}/query`, {
             method: 'POST',
