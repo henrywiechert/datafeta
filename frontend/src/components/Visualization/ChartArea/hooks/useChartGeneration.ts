@@ -120,7 +120,7 @@ export const useChartGeneration = ({
       setChartInfo(null);
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, useTableView, startOperation, completeOperation, queryResult, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, fieldOverrides]);
+  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, useTableView, startOperation, completeOperation, queryResult, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, tooltipFields, fieldOverrides]);
 
   const cancelGeneration = useCallback(() => {
     // No-op since Observable Plot generation is synchronous

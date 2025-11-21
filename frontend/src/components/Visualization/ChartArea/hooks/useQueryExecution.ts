@@ -264,7 +264,7 @@ export const useQueryExecution = ({
     }
 
     return queryDesc;
-  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields, colorField, sizeField, filterConfigurations, labelFields, tooltipFields, optimizationHints, virtualTable, virtualColumns, additionalColorFields, additionalSizeFields, additionalLabelFields]);
+  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields, colorField, sizeField, filterConfigurations, labelFields, tooltipFields, optimizationHints, virtualTable, virtualColumns, additionalColorFields, additionalSizeFields, additionalLabelFields, connectionDetails?.type]);
 
   // Effect to handle query execution when fields change
   useEffect(() => {

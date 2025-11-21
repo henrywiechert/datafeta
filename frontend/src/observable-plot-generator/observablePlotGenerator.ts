@@ -1,14 +1,14 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext, PlotResult } from './types';
 import { barUnified } from './chartTypes/barUnified';
-import { generateChartOptions as genChartOptionsRule, generateScatterPlot } from './rules/chartRules';
+import { generateChartOptions as genChartOptionsRule } from './rules/chartRules';
 import { Field } from '../types';
 import { computeSharedMeasureDomains } from './domains/measureDomains';
 import { analyzeFields } from './analysis/fieldAnalysis';
 import { ChartTypeOverrides } from './helpers/chartTypeResolver';
 import { planFacets } from './faceting/facetPlanner';
 import { getResultColumnName } from '../utils/fieldUtils';
-import { generateCartesianGrid, generateCartesianPlots } from './grid/coreGridGenerator';
+import { generateCartesianPlots } from './grid/coreGridGenerator';
 import { generateFacetedGrid } from './faceting/facetGenerator';
 
 /**
@@ -101,9 +101,7 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
   if (analysis.isMultiContinuousOnSameAxis) {
     // Determine which axis has the multiple continuous fields
     const xContinuousMeasures = (analysis.xMeasures || []).filter((m: any) => m.flavour === 'continuous');
-    const yContinuousMeasures = (analysis.yMeasures || []).filter((m: any) => m.flavour === 'continuous');
     const xContinuousDims = (analysis.xDimensions || []).filter((d: any) => d.flavour === 'continuous');
-    const yContinuousDims = (analysis.yDimensions || []).filter((d: any) => d.flavour === 'continuous');
     
     const multiOnX = (xContinuousMeasures.length + xContinuousDims.length) > 1;
     const oppositeDims = multiOnX ? analysis.yDimensions : analysis.xDimensions;

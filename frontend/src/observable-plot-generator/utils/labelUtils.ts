@@ -160,7 +160,6 @@ export function createLabelMark(prepared: { shouldRender: boolean; data: any[] }
   
   // Regular (non-stacked) labels
   const isScatter = cfg.chartType === 'scatter';
-  const isLine = cfg.chartType === 'line' || cfg.chartType === 'verticalLine';
   // For scatter: push labels further up so they don't cover dot; remove halo stroke; disable pointer events
   // For line: keep small halo for legibility
   const base: any = {
