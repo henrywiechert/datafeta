@@ -4,6 +4,7 @@ import {
   isMeasureNamesField, 
   isMeasureValuesField, 
   getMeasureFieldsForUnpivot,
+  isSyntheticField,
   MEASURE_NAMES_FIELD,
   MEASURE_VALUES_FIELD 
 } from '../utils/syntheticFields';
@@ -31,13 +32,12 @@ export function detectSyntheticFieldUsage(fields: Field[]): {
 }
 
 /**
- * Build and execute unpivoted query for synthetic MeasureNames/MeasureValues fields
+ * Build and execute query for synthetic MeasureNames/MeasureValues fields
  * 
  * Strategy:
- * 1. Get list of measures to unpivot (filtered by MeasureNames if applicable)
- * 2. For each measure, build a separate query replacing MeasureValues with that measure
- * 3. Execute all queries in parallel
- * 4. Merge results, adding MeasureNames column to each row
+ * 1. Get list of measures to include (filtered by MeasureNames if applicable)
+ * 2. Build a single query with all measures as separate columns
+ * 3. Return result - the visualization layer will handle MeasureNames/MeasureValues mapping
  */
 export async function buildUnpivotedQuery({
   xFields,
@@ -49,6 +49,8 @@ export async function buildUnpivotedQuery({
   appliedFilterConfigurations,
   labelFields = [],
   tooltipFields = [],
+  colorField = null,
+  sizeField = null,
   virtualTable = null,
   virtualColumns = [],
   signal,
@@ -62,32 +64,58 @@ export async function buildUnpivotedQuery({
   appliedFilterConfigurations: Record<string, FilterConfig>;
   labelFields?: Field[];
   tooltipFields?: Field[];
+  colorField?: Field | null;
+  sizeField?: Field | null;
   virtualTable?: VirtualTableDefinition | null;
   virtualColumns?: VirtualColumnDefinition[];
   signal?: AbortSignal;
 }): Promise<QueryResult> {
-  // Detect synthetic field usage
+  // Detect synthetic field usage - include all fields that should be in the query
   const allFields = [...xFields, ...yFields];
+  
+  // Add colorField and sizeField if present (and not synthetic)
+  if (colorField && !isSyntheticField(colorField)) {
+    allFields.push(colorField);
+  }
+  if (sizeField && !isSyntheticField(sizeField)) {
+    allFields.push(sizeField);
+  }
   const { hasMeasureNames, hasMeasureValues, measureValuesField } = detectSyntheticFieldUsage(allFields);
 
-  if (!hasMeasureValues) {
-    throw new Error('MeasureValues field not found in query fields');
+  if (!hasMeasureValues && !hasMeasureNames) {
+    throw new Error('Neither MeasureValues nor MeasureNames field found in query fields');
   }
 
-  // Get MeasureNames filter if it exists
+  // Get MeasureNames filter if it exists and collect field IDs to remove from filters
   let measureNamesFilter: string[] | undefined;
-  const measureNamesFilterConfig = Object.values(appliedFilterConfigurations).find(
-    config => config.columnName === MEASURE_NAMES_FIELD
+  let measureNamesFieldId: string | undefined;
+  let measureValuesFieldId: string | undefined;
+  
+  // Find MeasureNames filter and field ID
+  const measureNamesFilterEntry = Object.entries(appliedFilterConfigurations).find(
+    ([fieldId, config]) => config.columnName === MEASURE_NAMES_FIELD
   );
-  if (measureNamesFilterConfig && measureNamesFilterConfig.type === 'discrete') {
-    measureNamesFilter = measureNamesFilterConfig.selectedValues;
+  if (measureNamesFilterEntry) {
+    const [fieldId, config] = measureNamesFilterEntry;
+    measureNamesFieldId = fieldId;
+    if (config.type === 'discrete') {
+      measureNamesFilter = config.selectedValues;
+    }
+  }
+  
+  // Find MeasureValues field ID (in case it's filtered, though it shouldn't be)
+  const measureValuesFilterEntry = Object.entries(appliedFilterConfigurations).find(
+    ([fieldId, config]) => config.columnName === MEASURE_VALUES_FIELD
+  );
+  if (measureValuesFilterEntry) {
+    measureValuesFieldId = measureValuesFilterEntry[0];
   }
 
-  // Get actual measure fields to unpivot
+  // Get actual measure fields to include
   const measureFields = getMeasureFieldsForUnpivot(availableFields, measureNamesFilter);
 
   if (measureFields.length === 0) {
-    // No measures to unpivot - return empty result
+    // No measures - return empty result
     return {
       columns: [],
       rows: [],
@@ -95,156 +123,219 @@ export async function buildUnpivotedQuery({
     };
   }
 
-  // Remove MeasureNames and MeasureValues from filter configurations
-  // (we'll handle MeasureNames filter ourselves, and MeasureValues doesn't exist in the data)
+  // Remove MeasureNames and MeasureValues from filter configurations by field ID
   const filteredFilterConfigurations = { ...appliedFilterConfigurations };
-  delete filteredFilterConfigurations[MEASURE_NAMES_FIELD];
-  delete filteredFilterConfigurations[MEASURE_VALUES_FIELD];
+  if (measureNamesFieldId) {
+    delete filteredFilterConfigurations[measureNamesFieldId];
+  }
+  if (measureValuesFieldId) {
+    delete filteredFilterConfigurations[measureValuesFieldId];
+  }
 
-  // Build a query for each measure
-  const queryPromises = measureFields.map(async (measureField) => {
-    // Replace MeasureValues field with the actual measure field
-    const fieldsForQuery = allFields.map(field => {
-      if (isMeasureValuesField(field)) {
-        // Replace MeasureValues with the actual measure, preserving aggregation settings
-        return {
-          ...measureField,
-          id: field.id,
-          aggregation: field.aggregation || measureField.aggregation || 'sum',
-          axis: field.axis,
-        };
-      } else if (isMeasureNamesField(field)) {
-        // Skip MeasureNames - we'll add it to the result later
-        return null;
-      }
-      return field;
-    }).filter((f): f is Field => f !== null);
-
-    // Separate into x and y based on original axis
-    const xFieldsForQuery = fieldsForQuery.filter(f => {
-      const originalField = allFields.find(of => of.id === f.id);
-      return xFields.some(xf => xf.id === (originalField?.id || f.id));
+  // Build field list: replace MeasureValues/MeasureNames with actual measure fields
+  const fieldsForQuery: Field[] = [];
+  
+  // Add dimension fields and non-measure fields (excluding synthetic fields)
+  for (const field of allFields) {
+    if (!isMeasureValuesField(field) && !isMeasureNamesField(field) && field.type === 'dimension') {
+      fieldsForQuery.push(field);
+    }
+  }
+  
+  // Add all measure fields with the aggregation from MeasureValues
+  const aggregation = measureValuesField?.aggregation || 'sum';
+  for (const measureField of measureFields) {
+    fieldsForQuery.push({
+      ...measureField,
+      aggregation: aggregation,
     });
-    const yFieldsForQuery = fieldsForQuery.filter(f => {
-      const originalField = allFields.find(of => of.id === f.id);
-      return yFields.some(yf => yf.id === (originalField?.id || f.id));
-    });
-
-    // Determine if this should be an aggregated or raw query
-    const hasMeasures = fieldsForQuery.some(f => f.type === 'measure');
-    let queryDesc: QueryDescription | null;
-
-    if (hasMeasures) {
-      queryDesc = buildAggregatedQuery({
-        fields: fieldsForQuery,
-        selectedTable,
-        selectedDatabase,
-        filterConfigurations: filteredFilterConfigurations,
-        labelFields,
-        tooltipFields,
-        virtualTable,
-        virtualColumns,
-      });
-    } else {
-      queryDesc = buildRawQuery({
-        fields: fieldsForQuery,
-        selectedTable,
-        selectedDatabase,
-        filterConfigurations: filteredFilterConfigurations,
-        labelFields,
-        tooltipFields,
-        virtualTable,
-        virtualColumns,
+  }
+  
+  // If colorField or sizeField are measures (not in measureFields), add them too
+  if (colorField && colorField.type === 'measure' && !isSyntheticField(colorField)) {
+    if (!measureFields.some(m => m.columnName === colorField.columnName)) {
+      fieldsForQuery.push({
+        ...colorField,
+        aggregation: colorField.aggregation || 'sum',
       });
     }
-
-    if (!queryDesc) {
-      return { measureName: measureField.columnName, result: null };
-    }
-
-    // Execute query
-    try {
-      const result = await apiService.executeQuery(queryDesc, signal);
-      return { measureName: measureField.columnName, result };
-    } catch (error) {
-      console.error(`Error executing query for measure ${measureField.columnName}:`, error);
-      return { measureName: measureField.columnName, result: null, error };
-    }
-  });
-
-  // Execute all queries in parallel
-  const queryResults = await Promise.all(queryPromises);
-
-  // Merge results
-  return transformResultsForUnpivot(queryResults, measureValuesField!);
-}
-
-/**
- * Merge query results from individual measure queries into a single result
- * with MeasureNames and MeasureValues columns
- */
-export function transformResultsForUnpivot(
-  queryResults: Array<{ measureName: string; result: QueryResult | null; error?: any }>,
-  measureValuesField: Field
-): QueryResult {
-  const mergedRows: any[] = [];
-  let mergedColumns: QueryResult['columns'] = [];
-  let firstResult: QueryResult | null = null;
-
-  // Process each measure's results
-  for (const { measureName, result, error } of queryResults) {
-    if (!result || error) {
-      continue;
-    }
-
-    // Use first valid result to determine column structure
-    if (!firstResult) {
-      firstResult = result;
-      // Build merged column list (excluding the measure column, adding MeasureNames and MeasureValues)
-      const measureColumnName = getResultColumnName(measureValuesField);
-      mergedColumns = [
-        ...result.columns.filter(col => col.name !== measureColumnName),
-        { name: MEASURE_NAMES_FIELD, type: 'string' },
-        { name: MEASURE_VALUES_FIELD, type: result.columns.find(col => col.name === measureColumnName)?.type || 'float' },
-      ];
-    }
-
-    // Add MeasureNames column to each row
-    for (const row of result.rows) {
-      const measureColumnName = getResultColumnName(measureValuesField);
-      const measureValue = row[measureColumnName];
-
-      // Create new row with MeasureNames and MeasureValues
-      const newRow: any = {};
-      
-      // Copy dimension columns
-      for (const col of result.columns) {
-        if (col.name !== measureColumnName) {
-          newRow[col.name] = row[col.name];
-        }
-      }
-      
-      // Add synthetic columns
-      newRow[MEASURE_NAMES_FIELD] = measureName;
-      newRow[MEASURE_VALUES_FIELD] = measureValue;
-
-      mergedRows.push(newRow);
+  }
+  if (sizeField && sizeField.type === 'measure' && !isSyntheticField(sizeField)) {
+    if (!measureFields.some(m => m.columnName === sizeField.columnName)) {
+      fieldsForQuery.push({
+        ...sizeField,
+        aggregation: sizeField.aggregation || 'sum',
+      });
     }
   }
 
-  // Return merged result
+  // Build and execute single query with all measures
+  let queryDesc: QueryDescription | null;
+  
+  if (fieldsForQuery.some(f => f.type === 'measure')) {
+    queryDesc = buildAggregatedQuery({
+      fields: fieldsForQuery,
+      selectedTable,
+      selectedDatabase,
+      filterConfigurations: filteredFilterConfigurations,
+      labelFields,
+      tooltipFields,
+      virtualTable,
+      virtualColumns,
+    });
+  } else {
+    queryDesc = buildRawQuery({
+      fields: fieldsForQuery,
+      selectedTable,
+      selectedDatabase,
+      filterConfigurations: filteredFilterConfigurations,
+      labelFields,
+      tooltipFields,
+      virtualTable,
+      virtualColumns,
+    });
+  }
+
+  if (!queryDesc) {
+    return {
+      columns: [],
+      rows: [],
+      row_count: 0,
+    };
+  }
+
+  // Execute query
+  const result = await apiService.executeQuery(queryDesc, signal);
+  
+  // Transform result: convert measure columns into MeasureNames/MeasureValues rows
+  return transformMeasuresToRows(result, measureFields, allFields);
+}
+
+/**
+ * Transform query result from wide format (measures as columns) to long format
+ * (measures as rows with MeasureNames and MeasureValues columns)
+ * 
+ * Input:  { species: 'Adelie', SUM(culmen_length_mm): 100, SUM(culmen_depth_mm): 50 }
+ * Output: [
+ *   { species: 'Adelie', MeasureNames: "culmen_length_mm", SUM(MeasureValues): 100 },
+ *   { species: 'Adelie', MeasureNames: "culmen_depth_mm", SUM(MeasureValues): 50 }
+ * ]
+ */
+function transformMeasuresToRows(
+  result: QueryResult,
+  measureFields: Field[],
+  originalFields: Field[]
+): QueryResult {
+  const transformedRows: any[] = [];
+  
+  // Get all fields that should be copied to each row (dimensions + non-unpivoted measures)
+  const fieldsToKeep = originalFields.filter(
+    f => !isMeasureValuesField(f) && !isMeasureNamesField(f)
+  );
+  
+  // Separate into dimensions and measures
+  const dimensionFields = fieldsToKeep.filter(f => f.type === 'dimension');
+  const otherMeasureFields = fieldsToKeep.filter(f => f.type === 'measure');
+  
+  // Get measure names being unpivoted
+  const unpivotedMeasureNames = new Set(measureFields.map(f => f.columnName));
+  
+  // Find the MeasureValues field to get its aggregation
+  const measureValuesField = originalFields.find(f => isMeasureValuesField(f));
+  const aggregation = measureValuesField?.aggregation || 'sum';
+  
+  // The result column name for MeasureValues should match what chart expects
+  // For a measure with aggregation, it's: AGG(columnName)
+  const measureValuesColumnName = `${aggregation.toUpperCase()}(${MEASURE_VALUES_FIELD})`;
+  
+  // Get measure column names (with aggregation aliases)
+  const measureColumnNames = measureFields.map(f => {
+    // Find the result column name for this measure
+    const col = result.columns.find(c => {
+      // Match by base name (handles SUM(field), AVG(field), etc.)
+      return c.name.includes(f.columnName);
+    });
+    return col ? col.name : f.columnName;
+  });
+
+  // Transform each row
+  for (const row of result.rows) {
+    // For each measure, create a new row
+    for (let i = 0; i < measureFields.length; i++) {
+      const measureField = measureFields[i];
+      const measureColumnName = measureColumnNames[i];
+      const measureValue = row[measureColumnName];
+
+      // Skip if value is null/undefined
+      if (measureValue == null) {
+        continue;
+      }
+
+      const newRow: any = {};
+
+      // Copy dimension values
+      for (const dimField of dimensionFields) {
+        const dimColumnName = getResultColumnName(dimField);
+        newRow[dimColumnName] = row[dimColumnName];
+      }
+      
+      // Copy other measure values (measures that aren't being unpivoted, like colorField/sizeField)
+      for (const measureField of otherMeasureFields) {
+        // Only copy if this measure is NOT one being unpivoted
+        if (!unpivotedMeasureNames.has(measureField.columnName)) {
+          const measureColumnName = getResultColumnName(measureField);
+          newRow[measureColumnName] = row[measureColumnName];
+        }
+      }
+
+      // Add synthetic columns with proper names
+      newRow[MEASURE_NAMES_FIELD] = measureField.columnName;
+      newRow[measureValuesColumnName] = measureValue;
+
+      transformedRows.push(newRow);
+    }
+  }
+
+  // Build new column list
+  const newColumns: QueryResult['columns'] = [];
+  
+  // Add dimension columns
+  for (const dimField of dimensionFields) {
+    const dimColumnName = getResultColumnName(dimField);
+    const origCol = result.columns.find(c => c.name === dimColumnName);
+    if (origCol) {
+      newColumns.push(origCol);
+    }
+  }
+  
+  // Add other measure columns (that aren't being unpivoted)
+  for (const measureField of otherMeasureFields) {
+    if (!unpivotedMeasureNames.has(measureField.columnName)) {
+      const measureColumnName = getResultColumnName(measureField);
+      const origCol = result.columns.find(c => c.name === measureColumnName);
+      if (origCol) {
+        newColumns.push(origCol);
+      }
+    }
+  }
+  
+  // Add synthetic columns with proper names
+  newColumns.push({ name: MEASURE_NAMES_FIELD, type: 'string' });
+  newColumns.push({ name: measureValuesColumnName, type: 'float' });
+
   return {
-    columns: mergedColumns,
-    rows: mergedRows,
-    row_count: mergedRows.length,
-    query_sql: firstResult?.query_sql,
+    columns: newColumns,
+    rows: transformedRows,
+    row_count: transformedRows.length,
+    query_sql: result.query_sql,
   };
 }
 
 /**
- * Check if the given fields require unpivoting (i.e., contain MeasureValues)
+ * Check if the given fields require synthetic field handling
+ * (i.e., contain MeasureValues or MeasureNames)
  */
 export function requiresUnpivoting(fields: Field[]): boolean {
-  return fields.some(field => isMeasureValuesField(field));
+  return fields.some(field => isMeasureValuesField(field) || isMeasureNamesField(field));
 }
 
