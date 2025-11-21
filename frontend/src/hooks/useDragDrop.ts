@@ -64,28 +64,15 @@ export function useDragDrop(availableFields?: Field[]) {
     
     // Only proceed if we're moving between different axes
     if (sourceAxis !== targetAxis) {
-      // Remove from source axis
-      const sourceFields = sourceAxis === 'x' ? xAxisFields : yAxisFields;
-      const newSourceFields = sourceFields.filter(f => f.id !== field.id);
-      
-      // Add to target axis
-      const targetFields = targetAxis === 'x' ? xAxisFields : yAxisFields;
-      const newTargetFields = [...targetFields];
-      
-      if (index !== undefined) {
-        newTargetFields.splice(index, 0, field);
-      } else {
-        newTargetFields.push(field);
-      }
-      
-      // Update both axes
-      dispatch({ 
-        type: sourceAxis === 'x' ? 'SET_X_AXIS_FIELDS' : 'SET_Y_AXIS_FIELDS', 
-        payload: newSourceFields 
-      });
-      dispatch({ 
-        type: targetAxis === 'x' ? 'SET_X_AXIS_FIELDS' : 'SET_Y_AXIS_FIELDS', 
-        payload: newTargetFields 
+      // Use atomic action to move field between axes without triggering double query
+      dispatch({
+        type: 'MOVE_FIELD_BETWEEN_AXES',
+        payload: {
+          fieldId: field.id,
+          fromAxis: sourceAxis,
+          toAxis: targetAxis,
+          insertIndex: index
+        }
       });
     }
   }, [dispatch, fieldsToUse, xAxisFields, yAxisFields, recordAction, getUndoableSnapshot]);
@@ -276,10 +263,24 @@ export function useDragDrop(availableFields?: Field[]) {
     dispatch({ type: 'REMOVE_LABEL_FIELD', payload: fieldId });
   }, [dispatch, recordAction, getUndoableSnapshot]);
 
+  /**
+   * Atomically move a field between axes without triggering double query
+   */
+  const handleMoveFieldBetweenAxes = useCallback((fieldId: string, fromAxis: 'x' | 'y', toAxis: 'x' | 'y', insertIndex?: number) => {
+    // Record current state for undo
+    recordAction(getUndoableSnapshot());
+    
+    dispatch({
+      type: 'MOVE_FIELD_BETWEEN_AXES',
+      payload: { fieldId, fromAxis, toAxis, insertIndex }
+    });
+  }, [dispatch, recordAction, getUndoableSnapshot]);
+
   return {
     handleAxisDrop,
     handleRemoveFromAxis,
     handleReorderFields,
+    handleMoveFieldBetweenAxes,
     handleFilterDrop,
     handleRemoveFromFilter,
     handleColorDrop,

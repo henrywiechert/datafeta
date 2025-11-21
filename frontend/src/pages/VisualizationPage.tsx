@@ -83,15 +83,14 @@ const VisualizationPageContent = () => {
     } = state;
 
     // Use our custom drag-and-drop hook with virtual columns included
-    const {
+    const { 
         handleAxisDrop,
         handleRemoveFromAxis,
         handleReorderFields,
+        handleMoveFieldBetweenAxes,
         handleFilterDrop,
         handleRemoveFromFilter,
-    } = useDragDrop(availableFields);
-
-    // Undo/Redo handlers
+    } = useDragDrop(availableFields);    // Undo/Redo handlers
     const handleUndo = React.useCallback(() => {
         const previousState = undo();
         if (previousState) {
@@ -319,6 +318,7 @@ const VisualizationPageContent = () => {
                             onFieldUpdate={handleFieldUpdate}
                             onRemoveField={handleRemoveFromAxis}
                             onReorderFields={handleReorderFields}
+                            onMoveFieldBetweenAxes={handleMoveFieldBetweenAxes}
                         />
                     </Panel>
                 </PanelGroup>

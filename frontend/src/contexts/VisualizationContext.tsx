@@ -65,6 +65,7 @@ type VisualizationAction =
   | { type: 'SET_X_AXIS_FIELDS'; payload: Field[] }
   | { type: 'SET_Y_AXIS_FIELDS'; payload: Field[] }
   | { type: 'SWAP_AXIS_FIELDS' }
+  | { type: 'MOVE_FIELD_BETWEEN_AXES'; payload: { fieldId: string; fromAxis: 'x' | 'y'; toAxis: 'x' | 'y'; insertIndex?: number } }
   | { type: 'SET_AVAILABLE_FIELDS'; payload: Field[] }
   | { type: 'SET_DATABASES'; payload: Database[] }
   | { type: 'SET_TABLES'; payload: Table[] }
@@ -224,13 +225,48 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
       if (sameFieldArray(state.yAxisFields, action.payload)) return state;
       return { ...state, yAxisFields: action.payload, queryVersion: state.queryVersion + 1 };
     case 'SWAP_AXIS_FIELDS':
-      // Swap X and Y axis fields
+      // Swap X and Y axis fields - no query needed, just rearranging existing fields
       return { 
         ...state, 
         xAxisFields: state.yAxisFields, 
-        yAxisFields: state.xAxisFields, 
-        queryVersion: state.queryVersion + 1 
+        yAxisFields: state.xAxisFields
       };
+    case 'MOVE_FIELD_BETWEEN_AXES': {
+      // Atomically move a field from one axis to another
+      const { fieldId, fromAxis, toAxis, insertIndex } = action.payload;
+      const sourceFields = fromAxis === 'x' ? state.xAxisFields : state.yAxisFields;
+      const targetFields = toAxis === 'x' ? state.xAxisFields : state.yAxisFields;
+      
+      // Find and remove the field from source axis
+      const fieldToMove = sourceFields.find(f => f.id === fieldId);
+      if (!fieldToMove) {
+        return state; // Field not found
+      }
+      
+      // Check if field already in target position (prevent redundant moves in Strict Mode)
+      const fieldAlreadyInTarget = targetFields.some(f => f.id === fieldId);
+      if (fieldAlreadyInTarget) {
+        return state;
+      }
+      
+      const newSourceFields = sourceFields.filter(f => f.id !== fieldId);
+      
+      // Add to target axis at specified index
+      const newTargetFields = [...targetFields];
+      if (insertIndex !== undefined) {
+        newTargetFields.splice(insertIndex, 0, fieldToMove);
+      } else {
+        newTargetFields.push(fieldToMove);
+      }
+      
+      // Update both axes in a single state change
+      // NOTE: Don't increment queryVersion - we're just rearranging existing fields
+      return {
+        ...state,
+        xAxisFields: fromAxis === 'x' ? newSourceFields : toAxis === 'x' ? newTargetFields : state.xAxisFields,
+        yAxisFields: fromAxis === 'y' ? newSourceFields : toAxis === 'y' ? newTargetFields : state.yAxisFields
+      };
+    }
     case 'SET_AVAILABLE_FIELDS':
       return { ...state, availableFields: action.payload };
     case 'SET_DATABASES':
