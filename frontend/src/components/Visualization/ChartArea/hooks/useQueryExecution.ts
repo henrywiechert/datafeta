@@ -108,6 +108,8 @@ export const useQueryExecution = ({
           appliedFilterConfigurations: vizState.appliedFilterConfigurations,
           labelFields,
           tooltipFields,
+          colorField,
+          sizeField,
           virtualTable,
           virtualColumns,
           signal: queryAbortControllerRef.current.signal,
