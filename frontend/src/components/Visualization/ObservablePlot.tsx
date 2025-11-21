@@ -109,8 +109,6 @@ function addTooltipListeners(
   // Observable Plot typically uses these elements for data visualization
   const marks = plot.querySelectorAll('circle, rect, path[fill]:not([fill="none"])');
 
-  console.log(`[CustomTooltip] Found ${marks.length} marks to attach tooltips to`);
-
   marks.forEach((mark, index) => {
     // Observable Plot stores data on elements via __data__ property
     const element = mark as any;
@@ -126,40 +124,22 @@ function addTooltipListeners(
       // 2. From our data array if provided
       let data = element.__data__;
       
-      console.log(`[CustomTooltip] Mark ${index} - Raw __data__:`, element.__data__);
-      console.log(`[CustomTooltip] Mark ${index} - Type of __data__:`, typeof element.__data__);
-      
       if (!data && config.data && config.data.length > 0) {
         // Fallback: use data array index if available
         // This assumes marks are in same order as data
         if (index < config.data.length) {
           data = config.data[index];
-          console.log(`[CustomTooltip] Mark ${index} - Using fallback data from array[${index}]:`, data);
         }
       }
       
       // If __data__ is a number (index), it might be storing the index instead of actual data
       if (typeof data === 'number' && config.data && data < config.data.length) {
-        console.log(`[CustomTooltip] Mark ${index} - __data__ is number ${data}, using as index into data array`);
         data = config.data[data];
       }
-      
-      console.log(`[CustomTooltip] Mouse enter on mark ${index}:`, {
-        hasData: !!data,
-        dataType: typeof data,
-        data: data,
-        dataKeys: data && typeof data === 'object' ? Object.keys(data) : [],
-        element: element,
-        __data__: element.__data__,
-        configDataLength: config.data?.length,
-        configDataSample: config.data?.[0],
-        configEnabled: config.enabled
-      });
       
       if (data) {
         try {
           const fields = config.getFields(data);
-          console.log('[CustomTooltip] Generated fields:', fields);
           showTooltip(mouseEvent.clientX, mouseEvent.clientY, fields);
         } catch (error) {
           console.warn('[CustomTooltip] Error generating tooltip fields:', error);
@@ -175,8 +155,6 @@ function addTooltipListeners(
     };
 
     const handleMouseLeave = () => {
-      console.log('[CustomTooltip] Mouse leave');
-      
       // Remove highlight class when mouse leaves
       mark.classList.remove('chart-mark--highlighted');
       
