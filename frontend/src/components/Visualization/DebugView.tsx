@@ -32,6 +32,26 @@ const DebugView: React.FC<DebugViewProps> = ({
   } = debugData;
   const hasError = queryError || renderingError;
 
+  // Create a safe version of queryResult for display to avoid "Invalid string length" errors with large datasets
+  const getSafeQueryResult = (result: QueryResult | null) => {
+    if (!result) return null;
+    
+    const rowCount = result.rows?.length || 0;
+    const maxRowsToShow = 100; // Limit to first 100 rows
+    
+    return {
+      ...result,
+      rows: rowCount > maxRowsToShow 
+        ? result.rows.slice(0, maxRowsToShow)
+        : result.rows,
+      _metadata: {
+        totalRows: rowCount,
+        displayedRows: Math.min(rowCount, maxRowsToShow),
+        truncated: rowCount > maxRowsToShow
+      }
+    };
+  };
+
   return (
     <div className={styles.container}>
       {/* New Optimization Debug Panel */}
@@ -121,7 +141,7 @@ const DebugView: React.FC<DebugViewProps> = ({
           </div>
           <div className={styles.panel}>
             <h3>Result</h3>
-            <pre>{JSON.stringify(queryResult, null, 2)}</pre>
+            <pre>{JSON.stringify(getSafeQueryResult(queryResult), null, 2)}</pre>
           </div>
         </>
       )}
