@@ -44,23 +44,13 @@ const ManualColorSelector: React.FC<ManualColorSelectorProps> = ({ value, onChan
         <Button
           size="small"
           onClick={handleClick}
-          startIcon={<PaletteIcon fontSize="small" />}
+          startIcon={<PaletteIcon fontSize="small" sx={{ color: value }} />}
           sx={{
             fontSize: '12px',
             padding: '2px 8px',
             textTransform: 'none',
             minWidth: 'auto',
             color: '#1976d2',
-            '&:before': {
-              content: '""',
-              display: 'inline-block',
-              width: 12,
-              height: 12,
-              borderRadius: '50%',
-              backgroundColor: value,
-              border: '1px solid rgba(0,0,0,0.2)',
-              marginRight: 0.5,
-            },
             '&:hover': {
               backgroundColor: 'rgba(25, 118, 210, 0.04)',
             },
