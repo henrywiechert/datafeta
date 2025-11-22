@@ -38,8 +38,9 @@ class TableJoinDefinition(BaseModel):
     alias: Optional[str] = None  # Optional table alias
 
 class UnionTableDefinition(BaseModel):
-    """Defines a table to be combined with UNION ALL (same schema)."""
+    """Defines a table to be combined with UNION ALL (flexible schema with NULL fill)."""
     table_name: str
+    database: Optional[str] = None  # Optional database name (for cross-database unions)
     filter_condition: Optional[str] = None  # Optional WHERE clause for this table
 
 class VirtualTableDefinition(BaseModel):

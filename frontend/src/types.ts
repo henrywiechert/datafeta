@@ -47,6 +47,7 @@ export interface TableJoinDefinition {
 
 export interface UnionTableDefinition {
     table_name: string;
+    database?: string;  // Optional database name for cross-database unions
     filter_condition?: string;
 }
 

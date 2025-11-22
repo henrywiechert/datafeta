@@ -8,14 +8,15 @@ interface DataSourceState {
   availableFields: Field[];
   databases: Database[];
   tables: Table[];
+  tablesCache: Record<string, Table[]>;  // Cache of tables by database name (for cross-database union)
   isLoadingMetadata: boolean;
   metadataError: string | null;
   // Multi-table support - JOIN mode
   joinedTables: string[];  // List of additional tables joined to primary table
   suggestedJoinableTables: string[];  // Tables that can be joined
   // Multi-table support - UNION mode
-  unionTables: string[];  // List of tables to combine with UNION ALL
-  suggestedUnionableTables: string[];  // Tables with matching schemas
+  unionTables: Array<{database: string, table_name: string}>;  // List of tables to combine with UNION ALL (cross-database)
+  suggestedUnionableTables: string[];  // DEPRECATED: Kept for backward compatibility
   // Virtual table definition
   virtualTable: VirtualTableDefinition | null;  // Current virtual table definition
 }
@@ -28,15 +29,17 @@ interface DataSourceContextType {
   setAvailableFields: (fields: Field[]) => void;
   setDatabases: (databases: Database[]) => void;
   setTables: (tables: Table[]) => void;
+  setTablesForDatabase: (database: string, tables: Table[]) => void;
   setIsLoadingMetadata: (loading: boolean) => void;
   setMetadataError: (error: string | null) => void;
   setJoinedTables: (tables: string[]) => void;
   setSuggestedJoinableTables: (tables: string[]) => void;
-  setUnionTables: (tables: string[]) => void;
+  setUnionTables: (tables: Array<{database: string, table_name: string}>) => void;
   setSuggestedUnionableTables: (tables: string[]) => void;
   setVirtualTable: (virtualTable: VirtualTableDefinition | null) => void;
   toggleJoinedTable: (tableName: string) => void;
-  toggleUnionTable: (tableName: string) => void;
+  addUnionTable: (database: string, tableName: string) => void;
+  removeUnionTable: (database: string, tableName: string) => void;
 }
 
 const DataSourceContext = createContext<DataSourceContextType | undefined>(undefined);
@@ -49,6 +52,7 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     availableFields: [],
     databases: [],
     tables: [],
+    tablesCache: {},
     isLoadingMetadata: false,
     metadataError: null,
     joinedTables: [],
@@ -84,7 +88,21 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
   };
 
   const setTables = (tables: Table[]) => {
-    setDataSource(prev => ({ ...prev, tables }));
+    setDataSource(prev => ({ 
+      ...prev, 
+      tables,
+      // Also update cache for current database
+      tablesCache: prev.selectedDatabase 
+        ? { ...prev.tablesCache, [prev.selectedDatabase]: tables }
+        : prev.tablesCache
+    }));
+  };
+
+  const setTablesForDatabase = (database: string, tables: Table[]) => {
+    setDataSource(prev => ({
+      ...prev,
+      tablesCache: { ...prev.tablesCache, [database]: tables }
+    }));
   };
 
   const setIsLoadingMetadata = (loading: boolean) => {
@@ -103,7 +121,7 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     setDataSource(prev => ({ ...prev, suggestedJoinableTables: tables }));
   };
 
-  const setUnionTables = (tables: string[]) => {
+  const setUnionTables = (tables: Array<{database: string, table_name: string}>) => {
     setDataSource(prev => ({ ...prev, unionTables: tables }));
   };
 
@@ -125,14 +143,28 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const toggleUnionTable = (tableName: string) => {
+  const addUnionTable = (database: string, tableName: string) => {
     setDataSource(prev => {
-      const isCurrentlyUnioned = prev.unionTables.includes(tableName);
-      const newUnionTables = isCurrentlyUnioned
-        ? prev.unionTables.filter(t => t !== tableName)
-        : [...prev.unionTables, tableName];
-      return { ...prev, unionTables: newUnionTables };
+      // Check if table is already in the union
+      const exists = prev.unionTables.some(
+        ut => ut.database === database && ut.table_name === tableName
+      );
+      if (exists) return prev;
+      
+      return {
+        ...prev,
+        unionTables: [...prev.unionTables, { database, table_name: tableName }]
+      };
     });
+  };
+
+  const removeUnionTable = (database: string, tableName: string) => {
+    setDataSource(prev => ({
+      ...prev,
+      unionTables: prev.unionTables.filter(
+        ut => !(ut.database === database && ut.table_name === tableName)
+      )
+    }));
   };
 
   return (
@@ -144,6 +176,7 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
         setAvailableFields,
         setDatabases,
         setTables,
+        setTablesForDatabase,
         setIsLoadingMetadata,
         setMetadataError,
         setJoinedTables,
@@ -152,7 +185,8 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
         setSuggestedUnionableTables,
         setVirtualTable,
         toggleJoinedTable,
-        toggleUnionTable,
+        addUnionTable,
+        removeUnionTable,
       }}
     >
       {children}

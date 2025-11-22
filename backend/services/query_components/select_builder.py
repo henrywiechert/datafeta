@@ -47,9 +47,10 @@ class SelectClauseBuilder:
 
         if query_desc.dimensions:
             for dim in query_desc.dimensions:
-                if dim.field == "_source_table":
+                # Skip source tracking columns - they are handled by union query builder
+                if dim.field in ("_source_database", "_source_table"):
                     if not query_desc.virtual_table or query_desc.virtual_table.mode != "union":
-                        logger.warning("_source_table used in non-UNION query, skipping")
+                        logger.warning(f"{dim.field} used in non-UNION query, skipping")
                     continue
 
                 field_term = self._parse_field_reference(dim.field, table_map, default_table)

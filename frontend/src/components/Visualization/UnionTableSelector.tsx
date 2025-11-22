@@ -1,36 +1,82 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Box, 
   Typography, 
   Chip, 
   Tooltip, 
   IconButton,
-  Collapse
+  Collapse,
+  Button,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel
 } from '@mui/material';
 import MergeIcon from '@mui/icons-material/Merge';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import AddIcon from '@mui/icons-material/Add';
+import { Database, Table } from '../../types';
 import styles from './UnionTableSelector.module.css';
+
+interface UnionTableRef {
+  database: string;
+  table_name: string;
+}
 
 interface UnionTableSelectorProps {
   primaryTable: string;
-  suggestedUnionableTables: string[];
-  unionTables: string[];
-  onToggleUnion: (tableName: string) => void;
+  primaryDatabase: string;
+  databases: Database[];
+  allTables: { [database: string]: Table[] };  // Map of database -> tables
+  unionTables: UnionTableRef[];
+  onAddUnionTable: (database: string, tableName: string) => void;
+  onRemoveUnionTable: (database: string, tableName: string) => void;
+  onLoadTables?: (database: string) => void;  // Load tables for a database
 }
 
 const UnionTableSelector: React.FC<UnionTableSelectorProps> = ({
   primaryTable,
-  suggestedUnionableTables,
+  primaryDatabase,
+  databases,
+  allTables,
   unionTables,
-  onToggleUnion,
+  onAddUnionTable,
+  onRemoveUnionTable,
+  onLoadTables,
 }) => {
-  const [expanded, setExpanded] = React.useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [selectedDatabase, setSelectedDatabase] = useState<string>('');
+  const [selectedTable, setSelectedTable] = useState<string>('');
 
-  if (suggestedUnionableTables.length === 0) {
-    return null; // No unionable tables to show
-  }
+  const handleDatabaseChange = (database: string) => {
+    setSelectedDatabase(database);
+    setSelectedTable('');
+    // Load tables for this database if callback provided
+    if (onLoadTables && !allTables[database]) {
+      onLoadTables(database);
+    }
+  };
+
+  const handleAddTable = () => {
+    if (selectedDatabase && selectedTable) {
+      onAddUnionTable(selectedDatabase, selectedTable);
+      setSelectedTable('');
+    }
+  };
+
+  const handleRemoveTable = (database: string, tableName: string) => {
+    onRemoveUnionTable(database, tableName);
+  };
+
+  const availableTables = selectedDatabase ? (allTables[selectedDatabase] || []) : [];
+  
+  // Filter out primary table and already added tables
+  const filteredTables = availableTables.filter(t => {
+    if (selectedDatabase === primaryDatabase && t.name === primaryTable) return false;
+    return !unionTables.some(ut => ut.database === selectedDatabase && ut.table_name === t.name);
+  });
 
   return (
     <Box className={styles.container}>
@@ -40,7 +86,7 @@ const UnionTableSelector: React.FC<UnionTableSelectorProps> = ({
           fontWeight="bold"
           fontSize="0.85rem"
         >
-          Combine Similar Tables
+          Combine Tables (UNION ALL)
         </Typography>
         <IconButton 
           size="small" 
@@ -52,22 +98,64 @@ const UnionTableSelector: React.FC<UnionTableSelectorProps> = ({
       </Box>
 
       <Collapse in={expanded}>
+        <Box className={styles.addTableSection}>
+          <FormControl size="small" style={{ minWidth: 120, marginRight: 8 }}>
+            <InputLabel>Database</InputLabel>
+            <Select
+              value={selectedDatabase}
+              onChange={(e) => handleDatabaseChange(e.target.value)}
+              label="Database"
+            >
+              {databases.map((db) => (
+                <MenuItem key={db.name} value={db.name}>
+                  {db.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" style={{ minWidth: 150, marginRight: 8 }} disabled={!selectedDatabase}>
+            <InputLabel>Table</InputLabel>
+            <Select
+              value={selectedTable}
+              onChange={(e) => setSelectedTable(e.target.value)}
+              label="Table"
+            >
+              {filteredTables.map((table) => (
+                <MenuItem key={table.name} value={table.name}>
+                  {table.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <Button
+            size="small"
+            variant="contained"
+            onClick={handleAddTable}
+            disabled={!selectedDatabase || !selectedTable}
+            startIcon={<AddIcon />}
+          >
+            Add
+          </Button>
+        </Box>
+
         <Box className={styles.tableList}>
-          {suggestedUnionableTables.map((tableName) => {
-            const isUnioned = unionTables.includes(tableName);
+          {unionTables.map((unionTable, index) => {
+            const displayLabel = `${unionTable.database}.${unionTable.table_name}`;
             
             return (
               <Tooltip 
-                key={tableName}
-                title={isUnioned ? `Click to remove ${tableName} from union` : `Click to combine with ${tableName}`}
+                key={`${unionTable.database}.${unionTable.table_name}-${index}`}
+                title={`Click to remove ${displayLabel} from union`}
                 arrow
               >
                 <Chip
-                  label={tableName}
-                  onClick={() => onToggleUnion(tableName)}
-                  icon={isUnioned ? <RemoveCircleOutlineIcon /> : <MergeIcon />}
-                  color={isUnioned ? "secondary" : "default"}
-                  variant={isUnioned ? "filled" : "outlined"}
+                  label={displayLabel}
+                  onClick={() => handleRemoveTable(unionTable.database, unionTable.table_name)}
+                  icon={<RemoveCircleOutlineIcon />}
+                  color="secondary"
+                  variant="filled"
                   className={styles.tableChip}
                   size="small"
                 />
@@ -79,7 +167,7 @@ const UnionTableSelector: React.FC<UnionTableSelectorProps> = ({
         {unionTables.length > 0 && (
           <Box className={styles.unionInfo}>
             <Typography variant="caption" color="text.secondary">
-              Combining {unionTables.length + 1} {unionTables.length === 0 ? 'table' : 'tables'} ({primaryTable} + {unionTables.length} more)
+              Combining {unionTables.length + 1} tables ({primaryDatabase}.{primaryTable} + {unionTables.length} more)
             </Typography>
           </Box>
         )}

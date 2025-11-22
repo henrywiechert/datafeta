@@ -29,10 +29,12 @@ interface FieldsPanelProps {
   suggestedJoinableTables?: string[];
   joinedTables?: string[];
   onToggleJoinedTable?: (tableName: string) => void;
-  // Multi-table union props
-  suggestedUnionableTables?: string[];
-  unionTables?: string[];
-  onToggleUnionTable?: (tableName: string) => void;
+  // Multi-table union props (cross-database)
+  unionTables?: Array<{database: string, table_name: string}>;
+  onAddUnionTable?: (database: string, tableName: string) => void;
+  onRemoveUnionTable?: (database: string, tableName: string) => void;
+  tablesCache?: Record<string, Table[]>;
+  onLoadTablesForDatabase?: (database: string) => void;
   // Virtual columns props
   virtualColumns?: VirtualColumnDefinition[];
   onAddVirtualColumn?: (column: VirtualColumnDefinition) => void;
@@ -61,9 +63,11 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   joinedTables,
   onToggleJoinedTable,
   // Multi-table union props
-  suggestedUnionableTables,
   unionTables,
-  onToggleUnionTable,
+  onAddUnionTable,
+  onRemoveUnionTable,
+  tablesCache,
+  onLoadTablesForDatabase,
   // Virtual columns props
   virtualColumns = [],
   onAddVirtualColumn,
@@ -115,9 +119,11 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
         suggestedJoinableTables={suggestedJoinableTables}
         joinedTables={joinedTables}
         onToggleJoinedTable={onToggleJoinedTable}
-        suggestedUnionableTables={suggestedUnionableTables}
         unionTables={unionTables}
-        onToggleUnionTable={onToggleUnionTable}
+        onAddUnionTable={onAddUnionTable}
+        onRemoveUnionTable={onRemoveUnionTable}
+        tablesCache={tablesCache}
+        onLoadTablesForDatabase={onLoadTablesForDatabase}
       />
       
       {/* Virtual Columns Manager */}
