@@ -92,9 +92,9 @@ class UnionQueryBuilder:
                 single_table_desc,
                 table_name,
                 db_type,
-                with_sampling=False,
-                with_optimization=False,
-                optimizer=None,
+                with_sampling=with_sampling,
+                with_optimization=with_optimization,
+                optimizer=optimizer,
             )
 
             # Add source tracking columns to the query
