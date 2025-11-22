@@ -14,7 +14,7 @@ interface UseFilterMetadataParams {
     virtualColumns: VirtualColumnDefinition[];
     selectedTable: string;
     selectedDatabase: string;
-    unionTables: string[];
+    unionTables: Array<{database: string, table_name: string}>;
     connectionDetails: ConnectionDetails | null;
     dispatch: React.Dispatch<any>;
     availableFields: Field[]; // Needed for synthetic fields (MeasureNames)
@@ -37,6 +37,10 @@ export function useFilterMetadata({
     dispatch,
     availableFields
 }: UseFilterMetadataParams): UseFilterMetadataReturn {
+
+    // Convert new union table format to legacy format for API calls
+    // API expects string[] that will be joined with commas
+    const unionTablesForApi = unionTables.map(ut => `${ut.database}.${ut.table_name}`);
 
     // Store abort controllers for filter metadata fetches, keyed by fieldId
     // This allows each field's metadata fetch to be independently cancellable
@@ -150,7 +154,7 @@ export function useFilterMetadata({
                     undefined, // no regex filter initially
                     field.dateTimePart,
                     field.dateTimeMode,
-                    unionTables,  // Pass union tables for _source_table handling
+                    unionTablesForApi,  // Pass union tables for _source_table handling
                     virtualColumns,  // Pass virtual columns for expression support
                     abortController.signal  // Pass the abort signal
                 );
@@ -170,7 +174,7 @@ export function useFilterMetadata({
                         undefined, // no regex filter
                         undefined, // no limit
                         undefined, // no random sampling
-                        unionTables,  // Pass union tables
+                        unionTablesForApi,  // Pass union tables
                         virtualColumns,  // Pass virtual columns
                         abortController.signal  // Pass the abort signal
                     );
@@ -185,7 +189,7 @@ export function useFilterMetadata({
                         undefined, // no regex filter
                         100, // limit to 100
                         true, // use random sampling
-                        unionTables,  // Pass union tables
+                        unionTablesForApi,  // Pass union tables
                         virtualColumns,  // Pass virtual columns
                         abortController.signal  // Pass the abort signal
                     );
@@ -378,7 +382,7 @@ export function useFilterMetadata({
                 regexPattern,
                 field.dateTimePart,
                 field.dateTimeMode,
-                unionTables,  // Pass union tables for _source_table handling
+                unionTablesForApi,  // Pass union tables for _source_table handling
                 virtualColumns,  // Pass virtual columns for expression support
                 abortController.signal  // Pass the abort signal
             );
@@ -404,7 +408,7 @@ export function useFilterMetadata({
                     regexPattern,
                     undefined, // no limit
                     undefined, // no random sampling
-                    unionTables,  // Pass union tables
+                    unionTablesForApi,  // Pass union tables
                     virtualColumns,  // Pass virtual columns
                     abortController.signal  // Pass the abort signal
                 );
@@ -431,7 +435,7 @@ export function useFilterMetadata({
                     regexPattern,
                     100, // Limit to 100 random samples
                     true, // use random sampling
-                    unionTables,  // Pass union tables
+                    unionTablesForApi,  // Pass union tables
                     virtualColumns,  // Pass virtual columns
                     abortController.signal  // Pass the abort signal
                 );

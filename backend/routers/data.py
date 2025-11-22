@@ -292,43 +292,41 @@ def get_suggested_unions(
     conn_details: ConnectionDetails = Depends(get_connection_details)
 ):
     """
-    Get suggested tables with matching schemas that can be combined with UNION ALL.
-    Returns list of table names with identical column names and types.
+    DEPRECATED: This endpoint is deprecated in favor of manual table selection.
+    
+    Previously returned tables with matching schemas that could be combined with UNION ALL.
+    Now returns empty list as cross-database UNION ALL uses manual selection.
     """
-    try:
-        merge_service = TableMergeService(connector)
-        similar_tables = merge_service.get_similar_tables(database, primary_table)
-        logger.info(f"Found {len(similar_tables)} similar tables for '{primary_table}'")
-        return {
-            "primary_table": primary_table,
-            "suggested_tables": similar_tables
-        }
-    except Exception as e:
-        logger.error(f"Error getting suggested unions: {e}")
-        raise DataSourceConnectionError(f"Failed to get suggested unions: {e}")
+    logger.warning("Deprecated endpoint /suggested-unions called - returning empty list")
+    return {
+        "primary_table": primary_table,
+        "suggested_tables": []
+    }
 
 @router.post("/merged-columns", response_model=MergedColumnsResponse)
 def get_merged_columns(
     database: str,
     primary_table: str,
     joined_tables: Optional[List[str]] = Body(None),
-    union_tables: Optional[List[str]] = Body(None),
+    union_tables: Optional[List] = Body(None),
     auto_detect: bool = Body(True),
     connector: BaseConnector = Depends(get_active_connector),
     conn_details: ConnectionDetails = Depends(get_connection_details)
 ):
     """
-    Get a merged column list from multiple tables.
+    Get a merged column list from multiple tables (supports cross-database UNION).
     
     Supports two modes:
     - JOIN mode: Tables with different schemas, columns get table prefixes
-    - UNION mode: Tables with identical schemas, columns stay the same + _source_table column added
+    - UNION mode: Flexible schemas with NULL fill, adds _source_database and _source_table columns
     
     Args:
-        database: Database name
+        database: Default database name (for primary table)
         primary_table: Primary/main table
         joined_tables: Optional list of tables to join (JOIN mode)
-        union_tables: Optional list of tables to union (UNION mode)
+        union_tables: Optional list of union table definitions (UNION mode)
+                     Format: [{"database": "db1", "table_name": "orders"}, ...]
+                     Legacy format: ["table1", "table2"] (uses default database)
         auto_detect: Whether to auto-detect joins (default: True, for JOIN mode only)
     
     Returns:

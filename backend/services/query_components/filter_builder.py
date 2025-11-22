@@ -59,7 +59,8 @@ class FilterBuilder:
         criteria: List[Criterion] = []
 
         for definition in query_desc.filters:
-            if definition.field == "_source_table":
+            # Skip source tracking columns - they are handled in outer query for UNION mode
+            if definition.field in ("_source_database", "_source_table"):
                 continue
 
             operator_func = self._operator_map.get(definition.operator)
