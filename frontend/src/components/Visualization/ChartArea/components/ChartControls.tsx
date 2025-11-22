@@ -8,6 +8,7 @@ import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
+import QueryStatusIndicator from './QueryStatusIndicator';
 
 interface ChartControlsProps {
   isDebugOpen: boolean;
@@ -129,6 +130,8 @@ const ChartControls: React.FC<ChartControlsProps> = ({
 
       {/* Right side - Debug button */}
       <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        {/* Last query status indicator */}
+        <QueryStatusIndicator />
         <IconButton 
           onClick={onToggleDebug}
           size="small"
@@ -143,9 +146,6 @@ const ChartControls: React.FC<ChartControlsProps> = ({
           <BugReportIcon fontSize="small" />
           {isDebugOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
         </IconButton>
-        <Typography variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
-          Debug
-        </Typography>
       </Box>
     </Box>
   );
