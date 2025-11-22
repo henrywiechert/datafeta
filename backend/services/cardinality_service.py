@@ -65,9 +65,11 @@ class CardinalityService:
         # Validate ClickHouse database requirement
         ValidationService.require_database_for_clickhouse(database, self.conn_details, "counting distinct values")
         
-        # Special handling for _source_table virtual column (UNION queries only)
+        # Special handling for source tracking virtual columns (UNION queries only)
         if field == '_source_table':
             return self._count_source_tables(union_tables)
+        if field == '_source_database':
+            return self._count_source_databases(union_tables)
         
         # Build and execute the count query
         sql = self._build_count_query(
@@ -93,6 +95,24 @@ class CardinalityService:
             # _source_table shouldn't be queried for single tables
             logger.warning("_source_table requested for single table (should not happen)")
             return 0
+    
+    def _count_source_databases(self, union_tables: Optional[str]) -> int:
+        """Count the number of unique databases in a UNION query."""
+        if union_tables:
+            # Parse union_tables which may be in format "db1.table1,db2.table2,..."
+            # or could be structured data passed through
+            databases = set()
+            union_table_list = [t.strip() for t in union_tables.split(',') if t.strip()]
+            for table_ref in union_table_list:
+                if '.' in table_ref:
+                    db = table_ref.split('.')[0]
+                    databases.add(db)
+            count = len(databases) if databases else 1  # At least 1 database (primary)
+            logger.info(f"_source_database distinct count: {count} databases")
+            return count
+        else:
+            logger.warning("_source_database requested for single table (should not happen)")
+            return 1  # Single database by default
     
     def _build_count_query(
         self,

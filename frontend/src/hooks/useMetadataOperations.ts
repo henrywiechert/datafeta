@@ -15,7 +15,7 @@ interface DataSourceState {
     availableFields: Field[];
     isLoadingMetadata: boolean;
     joinedTables: string[];
-    unionTables: string[];
+    unionTables: Array<{database: string, table_name: string}>;
 }
 
 interface DataSourceSetters {
@@ -204,22 +204,12 @@ export function useMetadataOperations({
         }
     }, [dataSource.selectedTable, dataSource.selectedDatabase, connectionDetails?.type, dataSourceSetters]);
 
-    // Fetch suggested unions when table is selected
+    // DEPRECATED: Auto-suggestion removed in favor of manual cross-database table selection
+    // Kept as no-op for backward compatibility
     const fetchSuggestedUnions = useCallback(async () => {
-        if (!dataSource.selectedTable || !dataSource.selectedDatabase) return;
-        if (connectionDetails?.type !== 'clickhouse') return; // Only for database sources
-        
-        try {
-            const response = await apiService.getSuggestedUnions(
-                dataSource.selectedDatabase,
-                dataSource.selectedTable
-            );
-            dataSourceSetters.setSuggestedUnionableTables(response.suggested_tables || []);
-        } catch (err: any) {
-            console.warn('Could not fetch suggested unions:', err.message);
-            dataSourceSetters.setSuggestedUnionableTables([]);
-        }
-    }, [dataSource.selectedTable, dataSource.selectedDatabase, connectionDetails?.type, dataSourceSetters]);
+        // No longer fetches suggestions - cross-database UNION uses manual selection
+        dataSourceSetters.setSuggestedUnionableTables([]);
+    }, [dataSourceSetters]);
 
     // Fetch merged columns when joined tables change
     const fetchMergedColumns = useCallback(async () => {

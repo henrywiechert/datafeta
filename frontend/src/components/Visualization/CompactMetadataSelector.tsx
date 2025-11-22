@@ -93,10 +93,12 @@ interface CompactMetadataSelectorProps {
   suggestedJoinableTables?: string[];
   joinedTables?: string[];
   onToggleJoinedTable?: (tableName: string) => void;
-  // Multi-table support - UNION mode
-  suggestedUnionableTables?: string[];
-  unionTables?: string[];
-  onToggleUnionTable?: (tableName: string) => void;
+  // Multi-table support - UNION mode (cross-database)
+  unionTables?: Array<{database: string, table_name: string}>;
+  onAddUnionTable?: (database: string, tableName: string) => void;
+  onRemoveUnionTable?: (database: string, tableName: string) => void;
+  tablesCache?: Record<string, Table[]>;  // Cache of tables by database
+  onLoadTablesForDatabase?: (database: string) => void;  // Load tables for a specific database
 }
 
 const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
@@ -113,9 +115,11 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
   suggestedJoinableTables = [],
   joinedTables = [],
   onToggleJoinedTable,
-  suggestedUnionableTables = [],
   unionTables = [],
-  onToggleUnionTable,
+  onAddUnionTable,
+  onRemoveUnionTable,
+  tablesCache = {},
+  onLoadTablesForDatabase,
 }) => {
   const databaseOptions = React.useMemo(
     () => databases.map((db) => db.name).sort(),
@@ -171,12 +175,16 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
       )}
       
       {/* Show unionable tables selector (only for ClickHouse) */}
-      {connectionType === 'clickhouse' && selectedTable && onToggleUnionTable && (
+      {connectionType === 'clickhouse' && selectedTable && onAddUnionTable && onRemoveUnionTable && (
         <UnionTableSelector
           primaryTable={selectedTable}
-          suggestedUnionableTables={suggestedUnionableTables}
+          primaryDatabase={selectedDatabase}
+          databases={databases}
+          allTables={tablesCache}  // Use the full tables cache for all databases
           unionTables={unionTables}
-          onToggleUnion={onToggleUnionTable}
+          onAddUnionTable={onAddUnionTable}
+          onRemoveUnionTable={onRemoveUnionTable}
+          onLoadTables={onLoadTablesForDatabase}
         />
       )}
       

@@ -132,21 +132,49 @@ class TableMergeService:
         """
         all_columns = []
         
-        # UNION mode: Just return columns from primary table (no prefixes, all tables have same schema)
+        # UNION mode: Flexible schema support - merge all columns from all tables
         if virtual_table.mode == 'union':
-            primary_columns = self.connector.list_columns(database, virtual_table.primary_table)
-            for col in primary_columns:
-                # No prefix for UNION mode
-                all_columns.append(Column(
-                    name=col.name,
-                    data_type=col.data_type,
-                    cast_type=col.cast_type,
-                    cast_replacement=col.cast_replacement,
-                    is_datetime=col.is_datetime,
-                    table_name=None  # No specific table since all tables have same columns
-                ))
+            # Collect all unique columns across all tables
+            column_map = {}  # {column_name: Column}
             
-            logger.info(f"UNION mode: {len(all_columns)} columns from {len(virtual_table.union_tables) + 1} tables")
+            # Get columns from primary table
+            try:
+                primary_columns = self.connector.list_columns(database, virtual_table.primary_table)
+                for col in primary_columns:
+                    if col.name not in column_map:
+                        column_map[col.name] = Column(
+                            name=col.name,
+                            data_type=col.data_type,
+                            cast_type=col.cast_type,
+                            cast_replacement=col.cast_replacement,
+                            is_datetime=col.is_datetime,
+                            table_name=None  # No specific table for UNION columns
+                        )
+            except Exception as e:
+                logger.error(f"Error getting columns from primary table {virtual_table.primary_table}: {e}")
+            
+            # Get columns from union tables
+            for ut in virtual_table.union_tables:
+                ut_database = ut.database if ut.database else database
+                try:
+                    union_columns = self.connector.list_columns(ut_database, ut.table_name)
+                    for col in union_columns:
+                        if col.name not in column_map:
+                            # New column found - add it
+                            column_map[col.name] = Column(
+                                name=col.name,
+                                data_type=col.data_type,
+                                cast_type=col.cast_type,
+                                cast_replacement=col.cast_replacement,
+                                is_datetime=col.is_datetime,
+                                table_name=None
+                            )
+                except Exception as e:
+                    logger.error(f"Error getting columns from {ut_database}.{ut.table_name}: {e}")
+                    # Continue with other tables
+            
+            all_columns = list(column_map.values())
+            logger.info(f"UNION mode: {len(all_columns)} unique columns from {len(virtual_table.union_tables) + 1} tables (flexible schema)")
             
             return MergedColumnsResponse(
                 columns=all_columns,
@@ -235,25 +263,36 @@ class TableMergeService:
         self,
         database: str,
         primary_table: str,
-        union_tables: List[str]
+        union_tables: List[Dict[str, str]]
     ) -> VirtualTableDefinition:
         """
-        Create a virtual table definition for UNION ALL operation.
+        Create a virtual table definition for UNION ALL operation (cross-database support).
         
         Args:
-            database: Database name
+            database: Default database name (for primary table if not specified)
             primary_table: Primary table name
-            union_tables: List of tables to union with primary table
+            union_tables: List of dicts with 'database' and 'table_name' keys
+                         Example: [{'database': 'db1', 'table_name': 'orders'}, ...]
             
         Returns:
             VirtualTableDefinition with union mode
         """
         from backend.models.data_source import UnionTableDefinition
         
-        union_defs = [
-            UnionTableDefinition(table_name=table_name)
-            for table_name in union_tables
-        ]
+        union_defs = []
+        for ut in union_tables:
+            if isinstance(ut, dict):
+                # New format: dict with database and table_name
+                union_defs.append(UnionTableDefinition(
+                    table_name=ut['table_name'],
+                    database=ut.get('database')
+                ))
+            else:
+                # Legacy format: just table name string (backward compatibility)
+                union_defs.append(UnionTableDefinition(
+                    table_name=ut,
+                    database=None
+                ))
         
         return VirtualTableDefinition(
             primary_table=primary_table,
@@ -267,7 +306,7 @@ class TableMergeService:
         database: str,
         primary_table: str,
         joined_tables: Optional[List[str]] = None,
-        union_tables: Optional[List[str]] = None,
+        union_tables: Optional[List] = None,
         auto_detect: bool = True
     ) -> MergedColumnsResponse:
         """
@@ -275,13 +314,15 @@ class TableMergeService:
         
         Supports two modes:
         - JOIN mode: Tables with different schemas, columns get table prefixes
-        - UNION mode: Tables with identical schemas, columns stay the same + _source_table column added
+        - UNION mode: Flexible schemas with NULL fill, adds _source_database and _source_table columns
         
         Args:
             database: Database name
             primary_table: Primary/main table
             joined_tables: Optional list of tables to join (JOIN mode)
-            union_tables: Optional list of tables to union (UNION mode)
+            union_tables: Optional list of tables/dicts to union (UNION mode)
+                         Can be: [{'database': 'db1', 'table_name': 'orders'}, ...]
+                         Or legacy: ['table1', 'table2', ...]
             auto_detect: Whether to auto-detect joins (default: True, for JOIN mode only)
         
         Returns:
@@ -308,16 +349,23 @@ class TableMergeService:
         # Get merged columns
         result = self.get_merged_columns(database, virtual_table)
         
-        # Add the virtual _source_table column for UNION mode
+        # Add the virtual _source_database and _source_table columns for UNION mode
         if virtual_table.mode == 'union':
+            source_database_column = Column(
+                name='_source_database',
+                data_type='String',
+                is_datetime=False,
+                table_name=None
+            )
             source_table_column = Column(
                 name='_source_table',
                 data_type='String',
                 is_datetime=False,
                 table_name=None
             )
+            result.columns.append(source_database_column)
             result.columns.append(source_table_column)
-            logger.info(f"Added _source_table virtual column for UNION mode")
+            logger.info(f"Added _source_database and _source_table virtual columns for UNION mode")
         
         mode_info = (
             f"UNION ({len(virtual_table.union_tables) + 1} tables)" 

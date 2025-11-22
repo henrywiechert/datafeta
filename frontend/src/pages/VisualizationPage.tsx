@@ -142,11 +142,23 @@ const VisualizationPageContent = () => {
     const { 
         suggestedJoinableTables, 
         joinedTables,
-        suggestedUnionableTables,
-        unionTables
+        unionTables,
+        tablesCache
     } = dataSourceContext.dataSource;
-    const { toggleJoinedTable, toggleUnionTable } = dataSourceContext;
+    const { toggleJoinedTable, addUnionTable, removeUnionTable, setTablesForDatabase } = dataSourceContext;
     const { state: sheetState } = useSheetContext();
+    
+    // Handler to load tables for a specific database (for cross-database union)
+    const handleLoadTablesForDatabase = React.useCallback(async (database: string) => {
+        if (!database || tablesCache[database]) return; // Skip if already loaded
+        
+        try {
+            const response = await apiService.listTables(database);
+            setTablesForDatabase(database, response.tables);
+        } catch (err) {
+            console.error(`Failed to load tables for database ${database}:`, err);
+        }
+    }, [tablesCache, setTablesForDatabase]);
 
     // Clear undo history when switching sheets
     React.useEffect(() => {
@@ -222,9 +234,11 @@ const VisualizationPageContent = () => {
                             suggestedJoinableTables={suggestedJoinableTables}
                             joinedTables={joinedTables}
                             onToggleJoinedTable={toggleJoinedTable}
-                            suggestedUnionableTables={suggestedUnionableTables}
                             unionTables={unionTables}
-                            onToggleUnionTable={toggleUnionTable}
+                            onAddUnionTable={addUnionTable}
+                            onRemoveUnionTable={removeUnionTable}
+                            tablesCache={tablesCache}
+                            onLoadTablesForDatabase={handleLoadTablesForDatabase}
                             virtualColumns={virtualColumns}
                             onAddVirtualColumn={handleAddVirtualColumn}
                             onUpdateVirtualColumn={handleUpdateVirtualColumn}

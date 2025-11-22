@@ -184,7 +184,7 @@ export const apiService = {
         database: string,
         primaryTable: string,
         joinedTables?: string[],
-        unionTables?: string[],
+        unionTables?: Array<{database: string, table_name: string}> | string[],
         autoDetect: boolean = true,
         signal?: AbortSignal
     ): Promise<MergedColumnsResponse> {
@@ -195,7 +195,7 @@ export const apiService = {
             },
             body: JSON.stringify({
                 joined_tables: joinedTables || null,
-                union_tables: unionTables || null,
+                union_tables: unionTables || null,  // Can be new format or legacy format
                 auto_detect: autoDetect
             }),
         }, signal);
