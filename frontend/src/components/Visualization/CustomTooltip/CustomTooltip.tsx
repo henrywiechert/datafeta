@@ -17,6 +17,7 @@ interface CustomTooltipProps {
 /**
  * Custom HTML tooltip component with full CSS control.
  * Replaces Observable Plot's built-in SVG tooltips for better formatting.
+ * Supports both normal and fullscreen modes.
  */
 export const CustomTooltip: React.FC<CustomTooltipProps> = ({ 
   x, 
@@ -37,28 +38,45 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
 
     const tooltip = tooltipRef.current;
     const rect = tooltip.getBoundingClientRect();
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
+    
+    // Check if we're in fullscreen mode
+    const fullscreenElement = (
+      document.fullscreenElement ||
+      (document as any).webkitFullscreenElement ||
+      (document as any).mozFullScreenElement ||
+      (document as any).msFullscreenElement
+    ) as HTMLElement | null;
+
+    // If in fullscreen, calculate bounds relative to fullscreen element
+    // Otherwise, use viewport bounds
+    const bounds = fullscreenElement 
+      ? fullscreenElement.getBoundingClientRect()
+      : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+
+    const viewportWidth = bounds.width;
+    const viewportHeight = bounds.height;
     
     let newX = x;
     let newY = y;
     let anchor = 'right';
 
+    // Adjust coordinates if in fullscreen to be relative to fullscreen element
+    if (fullscreenElement) {
+      newX = x - bounds.left;
+      newY = y - bounds.top;
+    }
+
     // Check horizontal overflow
-    if (x + rect.width + 15 > viewportWidth) {
+    if (newX + rect.width + 15 > viewportWidth) {
       // Position to left of cursor
       anchor = 'left';
-      newX = x;
-    } else {
-      // Position to right of cursor (default)
-      newX = x;
     }
 
     // Check vertical overflow
-    if (y + rect.height / 2 > viewportHeight) {
+    if (newY + rect.height / 2 > viewportHeight) {
       // Move up
       newY = viewportHeight - rect.height / 2 - 10;
-    } else if (y - rect.height / 2 < 0) {
+    } else if (newY - rect.height / 2 < 0) {
       // Move down
       newY = rect.height / 2 + 10;
     }

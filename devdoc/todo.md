@@ -76,3 +76,16 @@ done
 
 !!! Optimization hints do not work for cross DB tables.
 Done
+
+Fix layout of middle panel
+
+Dashboard mode
+Per sheet chart areas combined in in one page.
+Keep controls visible, when not changing query.
+Data-set is unchanged. Filtering is then delegated to frontend.
+
+Sharing feature
+Store required data-set with config online.
+Share sheets and/or dashboard
+
+Tooltips not working in Fullscreen

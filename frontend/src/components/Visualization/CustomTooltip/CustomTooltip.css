@@ -31,6 +31,14 @@
   animation: tooltipFadeIn 0.15s ease-in;
 }
 
+/* When inside fullscreen element, use absolute positioning */
+:fullscreen .custom-tooltip,
+:-webkit-full-screen .custom-tooltip,
+:-moz-full-screen .custom-tooltip,
+:-ms-fullscreen .custom-tooltip {
+  position: absolute;
+}
+
 @keyframes tooltipFadeIn {
   from { 
     opacity: 0;
