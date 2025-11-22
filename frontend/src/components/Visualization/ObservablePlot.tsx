@@ -20,7 +20,40 @@ interface ObservablePlotProps {
 const ObservablePlot: React.FC<ObservablePlotProps> = ({ options }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [portalTarget, setPortalTarget] = useState<HTMLElement>(document.body);
   const { tooltip, showTooltip, hideTooltip, updatePosition } = useChartTooltip();
+
+  // Detect fullscreen mode and update portal target
+  useEffect(() => {
+    const updatePortalTarget = () => {
+      const fullscreenElement = (
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      ) as HTMLElement | null;
+
+      // If we're in fullscreen mode, render tooltip inside fullscreen element
+      // Otherwise, render to document.body
+      setPortalTarget(fullscreenElement || document.body);
+    };
+
+    // Initial check
+    updatePortalTarget();
+
+    // Listen for fullscreen changes
+    document.addEventListener('fullscreenchange', updatePortalTarget);
+    document.addEventListener('webkitfullscreenchange', updatePortalTarget);
+    document.addEventListener('mozfullscreenchange', updatePortalTarget);
+    document.addEventListener('MSFullscreenChange', updatePortalTarget);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', updatePortalTarget);
+      document.removeEventListener('webkitfullscreenchange', updatePortalTarget);
+      document.removeEventListener('mozfullscreenchange', updatePortalTarget);
+      document.removeEventListener('MSFullscreenChange', updatePortalTarget);
+    };
+  }, []);
 
   useEffect(() => {
     const resizeObserver = new ResizeObserver(entries => {
@@ -80,7 +113,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options }) => {
   return (
     <>
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
-      {/* Render tooltip at document body level using portal to avoid container clipping */}
+      {/* Render tooltip using portal - to fullscreen element if in fullscreen, otherwise to body */}
       {ReactDOM.createPortal(
         <CustomTooltip
           x={tooltip.x}
@@ -88,7 +121,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options }) => {
           fields={tooltip.fields}
           visible={tooltip.visible}
         />,
-        document.body
+        portalTarget
       )}
     </>
   );
