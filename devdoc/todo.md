@@ -69,6 +69,10 @@ Check also color/size/label move
 Done
 
 tickStrip refactor
+done
 
 dropzone refactor
+done
 
+!!! Optimization hints do not work for cross DB tables.
+Done
