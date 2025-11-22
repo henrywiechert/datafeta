@@ -92,7 +92,7 @@ const FieldOverridesPanel: React.FC = () => {
     const effectiveManualSize = override.manualSize ?? manualSize ?? 10;
 
     return (
-      <>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
         <ColorFieldControl
           field={resolvedColorField}
           colorScheme={effectiveColorScheme}
@@ -117,8 +117,6 @@ const FieldOverridesPanel: React.FC = () => {
           })}
         />
 
-        <Divider sx={{ my: 1 }} />
-
         <SizeFieldControl
           field={resolvedSizeField}
           sizeRange={effectiveSizeRange}
@@ -139,13 +137,9 @@ const FieldOverridesPanel: React.FC = () => {
           })}
         />
 
-        <Divider sx={{ my: 1 }} />
-
         <LabelFieldControl
           labelFields={override.labelFields || []}
-          displayLabel={override.displayLabel}
           dataLabelMode={override.dataLabelMode}
-          showDisplayLabel={true}
           showDataLabelMode={true}
           onLabelDrop={(field) => {
             const currentLabelFields = override.labelFields || [];
@@ -162,14 +156,11 @@ const FieldOverridesPanel: React.FC = () => {
               labelFields: updatedLabelFields.length > 0 ? updatedLabelFields : undefined,
             });
           }}
-          onDisplayLabelChange={(label) => handleUpdateOverride(targetField.id, { 
-            displayLabel: label 
-          })}
           onDataLabelModeChange={(mode) => handleUpdateOverride(targetField.id, { 
             dataLabelMode: mode 
           })}
         />
-      </>
+      </Box>
     );
   };
 
@@ -183,7 +174,7 @@ const FieldOverridesPanel: React.FC = () => {
     const effectiveColorBias = colorBias ?? 0;
 
     return (
-      <Box sx={{ p: 1, pt: 0.5, pb: 0.5 }}>
+      <Box sx={{ p: 0.75, pt: 0.5, pb: 0.5, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
         <ColorFieldControl
           field={resolvedGlobalColorField}
           colorScheme={effectiveColorScheme}
@@ -216,8 +207,6 @@ const FieldOverridesPanel: React.FC = () => {
           }}
         />
 
-        <Divider sx={{ my: 1 }} />
-
         <SizeFieldControl
           field={resolvedGlobalSizeField}
           sizeRange={sizeRange}
@@ -241,8 +230,6 @@ const FieldOverridesPanel: React.FC = () => {
             dispatch({ type: 'SET_MANUAL_SIZE', payload: size });
           }}
         />
-
-        <Divider sx={{ my: 1 }} />
 
         <LabelFieldControl
           labelFields={labelFields as Field[] || []}

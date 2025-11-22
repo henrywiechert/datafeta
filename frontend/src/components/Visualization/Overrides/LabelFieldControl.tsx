@@ -71,30 +71,23 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      {showDisplayLabel && onDisplayLabelChange && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="caption" sx={{ minWidth: 60 }}>
-            Label
-          </Typography>
-          <TextField
-            size="small"
-            variant="outlined"
-            label="Display label"
-            value={displayLabel ?? ''}
-            onChange={(e) => onDisplayLabelChange(e.target.value || undefined)}
-            sx={{ flex: 1, minWidth: 0 }}
-          />
-        </Box>
-      )}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography variant="caption" sx={{ minWidth: 60 }}>
-          Label fields
+    <Box sx={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: 0.5,
+      p: 0.75,
+      border: '1px solid #d0d0d0',
+      borderRadius: '4px',
+      backgroundColor: '#fafafa'
+    }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+        <Typography variant="caption" sx={{ minWidth: 50, fontSize: '0.7rem', fontWeight: 500 }}>
+          Label
         </Typography>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Box sx={{ flex: 1, minWidth: 60 }}>
           <PropertyDropZone
             hasContent={labelFields.length > 0}
-            emptyMessage="Drag fields to show as labels"
+            emptyMessage="Drag fields"
             onDrop={handleDrop}
           >
             {labelFields.length > 0 && (
@@ -118,9 +111,11 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
                       deleteIcon={<CloseIcon />}
                       size="small"
                       sx={{
+                        height: 26,
+                        fontSize: '0.75rem',
                         ...(labelFields.length === 1
                           ? { flex: 1 }
-                          : { maxWidth: 160 }),
+                          : { maxWidth: 140 }),
                         ...getChipStyles(field),
                       }}
                     />
@@ -130,36 +125,38 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
             )}
           </PropertyDropZone>
         </Box>
+        {showLabelsEnabled && onLabelsEnabledChange && (
+          <Switch
+            size="small"
+            checked={labelsEnabled}
+            onChange={(e) => onLabelsEnabledChange(e.target.checked)}
+            sx={{ ml: 0.5 }}
+          />
+        )}
       </Box>
       {showDataLabelMode && onDataLabelModeChange && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="caption" sx={{ minWidth: 60 }}>
-            Data labels
-          </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pl: 6.5 }}>
           <ToggleButtonGroup
             exclusive
             size="small"
             value={dataLabelMode}
             onChange={handleLabelModeChange}
+            sx={{ 
+              height: 24,
+              '& .MuiToggleButton-root': { 
+                py: 0.25, 
+                px: 1,
+                fontSize: '0.7rem',
+                textTransform: 'none'
+              }
+            }}
           >
             {LABEL_MODE_OPTIONS.map((opt) => (
               <ToggleButton key={opt.value} value={opt.value}>
-                <Typography variant="caption">{opt.label}</Typography>
+                {opt.label}
               </ToggleButton>
             ))}
           </ToggleButtonGroup>
-        </Box>
-      )}
-      {showLabelsEnabled && onLabelsEnabledChange && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="caption" sx={{ minWidth: 60 }}>
-            Show labels
-          </Typography>
-          <Switch
-            size="small"
-            checked={labelsEnabled}
-            onChange={(e) => onLabelsEnabledChange(e.target.checked)}
-          />
         </Box>
       )}
     </Box>

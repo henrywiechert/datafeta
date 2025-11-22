@@ -1,32 +1,35 @@
 .dropZone {
-  min-height: 44px;
+  min-height: 30px;
+  min-width: 60px;
   padding: 1px;
-  border: 1px dashed #e0e0e0;
+  border: 2px dashed #1976d2;
   border-radius: 4px;
-  background-color: #fafafa;
+  background-color: #f0f7ff;
   transition: all 0.2s ease;
 }
 
 .dropZone.hasContent {
-  background-color: #fafafa;
-  border: 1px solid #e0e0e0;
+  background-color: #ffffff;
+  border: 2px solid #1976d2;
   padding: 1px;
 }
 
 .dropZone.dragOver {
-  border-color: #1976d2;
-  background-color: #e3f2fd;
+  border-color: #1565c0;
+  background-color: #bbdefb;
+  border-style: solid;
 }
 
 .emptyMessage {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 44px;
-  color: #757575;
-  font-size: 12px;
-  font-weight: 400;
+  min-height: 30px;
+  color: #1976d2;
+  font-size: 0.7rem;
+  font-weight: 500;
   text-align: center;
+  padding: 0 4px;
 }
 
 .content {

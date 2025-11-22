@@ -57,21 +57,20 @@ const SizeRangeControl: React.FC<SizeRangeControlProps> = ({
 
   return (
     <Box sx={{ 
-      marginTop: '12px',
-      padding: '8px 12px',
-      border: '1px solid #e0e0e0',
+      marginTop: '4px',
+      padding: '4px 8px',
       borderRadius: '4px',
-      backgroundColor: '#fafafa'
+      backgroundColor: '#f9f9f9'
     }}>
       {sizeField ? (
         <FormControl fullWidth>
           <Typography variant="body2" sx={{ 
-            fontSize: '12px',
+            fontSize: '0.7rem',
             fontWeight: 500,
-            marginBottom: '4px',
+            marginBottom: '2px',
             color: '#424242'
           }}>
-            Size Range: {localSizeRange[0]} - {localSizeRange[1]}
+            Range: {localSizeRange[0]} - {localSizeRange[1]}
           </Typography>
           <Slider
             value={localSizeRange}
@@ -81,30 +80,11 @@ const SizeRangeControl: React.FC<SizeRangeControlProps> = ({
             min={1}
             max={50}
             size="small"
-            sx={{ marginTop: '4px', marginBottom: '4px' }}
+            sx={{ marginTop: '2px', marginBottom: '2px' }}
           />
-          <Typography variant="caption" sx={{ 
-            fontSize: '11px',
-            color: '#757575',
-            marginTop: '4px',
-            display: 'block'
-          }}>
-            {sizeField.flavour === 'discrete' 
-              ? 'Values distributed equally across size range'
-              : 'Linear mapping from field values to size range'
-            }
-          </Typography>
         </FormControl>
       ) : (
         <FormControl fullWidth>
-          <Typography variant="body2" sx={{ 
-            fontSize: '12px',
-            fontWeight: 500,
-            marginBottom: '4px',
-            color: '#424242'
-          }}>
-            Manual Size: {localManualSize}
-          </Typography>
           <Slider
             value={localManualSize}
             onChange={handleManualSizeChange}
@@ -113,16 +93,8 @@ const SizeRangeControl: React.FC<SizeRangeControlProps> = ({
             min={1}
             max={50}
             size="small"
-            sx={{ marginTop: '4px', marginBottom: '4px' }}
+            sx={{ marginTop: '2px', marginBottom: '2px' }}
           />
-          <Typography variant="caption" sx={{ 
-            fontSize: '11px',
-            color: '#757575',
-            marginTop: '4px',
-            display: 'block'
-          }}>
-            Size when no field is selected
-          </Typography>
         </FormControl>
       )}
     </Box>

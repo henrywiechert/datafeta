@@ -56,15 +56,24 @@ const ColorFieldControl: React.FC<ColorFieldControlProps> = ({
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography variant="caption" sx={{ minWidth: 60 }}>
+    <Box sx={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: 0.5, 
+      mb: 0,
+      p: 0.75,
+      border: '1px solid #d0d0d0',
+      borderRadius: '4px',
+      backgroundColor: '#fafafa'
+    }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+        <Typography variant="caption" sx={{ minWidth: 50, fontSize: '0.7rem', fontWeight: 500 }}>
           Color
         </Typography>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Box sx={{ flex: 1, minWidth: 60 }}>
           <PropertyDropZone
             hasContent={field !== null}
-            emptyMessage="Drag a field or use manual color"
+            emptyMessage="Drag field"
             onDrop={handleDrop}
           >
             {field && (
@@ -85,6 +94,8 @@ const ColorFieldControl: React.FC<ColorFieldControlProps> = ({
                   size="small"
                   sx={{
                     flex: 1,
+                    height: 26,
+                    fontSize: '0.75rem',
                     ...getChipStyles(field),
                   }}
                 />
