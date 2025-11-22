@@ -32,9 +32,6 @@ const ColorBiasControl: React.FC<ColorBiasControlProps> = ({ colorBias, onChange
 
   return (
     <Box className={styles.container}>
-      <Typography variant="caption" className={styles.label}>
-        Gradient Bias: {getBiasLabel(localBias)}
-      </Typography>
       <Slider
         value={localBias}
         onChange={handleSliderChange}
@@ -42,31 +39,23 @@ const ColorBiasControl: React.FC<ColorBiasControlProps> = ({ colorBias, onChange
         min={-1}
         max={1}
         step={0.05}
-        marks={[
-          { value: -1, label: 'Left' },
-          { value: 0, label: 'Center' },
-          { value: 1, label: 'Right' },
-        ]}
         valueLabelDisplay="auto"
         valueLabelFormat={(value) => value.toFixed(2)}
         size="small"
         sx={{ 
-          mt: 1,
-          mb: 0.5,
+          mt: 0.5,
+          mb: 0.25,
           '& .MuiSlider-mark': {
             backgroundColor: '#bdbdbd',
-            height: 8,
-            width: 2,
+            height: 6,
+            width: 1,
           },
           '& .MuiSlider-markLabel': {
-            fontSize: '10px',
+            fontSize: '0.65rem',
             color: '#757575',
           },
         }}
       />
-      <Typography variant="caption" sx={{ fontSize: '11px', color: '#757575', mt: 0.5, display: 'block' }}>
-        Adjust color emphasis: left biases towards lower values, right towards higher values
-      </Typography>
     </Box>
   );
 };

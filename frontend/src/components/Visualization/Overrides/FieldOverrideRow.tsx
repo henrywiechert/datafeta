@@ -28,10 +28,9 @@ const FieldOverrideRow: React.FC<FieldOverrideRowProps> = ({
   return (
     <Box
       sx={{
-        border: '1px solid #e0e0e0',
-        borderRadius: 1,
-        mb: 0.75,
-        backgroundColor: isExpanded ? '#f5f5f5' : '#fafafa',
+        borderBottom: '1px solid #e0e0e0',
+        mb: 0.5,
+        backgroundColor: isExpanded ? '#fafafa' : 'transparent',
       }}
     >
       <Box
@@ -39,32 +38,36 @@ const FieldOverrideRow: React.FC<FieldOverrideRowProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          px: 1,
-          py: 0.5,
+          px: 0.75,
+          py: 0.4,
           cursor: 'pointer',
+          '&:hover': {
+            backgroundColor: '#f5f5f5',
+          },
         }}
         onClick={onToggle}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
           {isGlobal ? (
             <Chip
               size="small"
               label="ALL"
               color="default"
-              sx={{ height: 20, fontSize: '0.7rem' }}
+              sx={{ height: 18, fontSize: '0.65rem', px: 0.5 }}
             />
           ) : (
             <Chip
               size="small"
               label={axis?.toUpperCase()}
               color="default"
-              sx={{ height: 20, fontSize: '0.7rem', flexShrink: 0 }}
+              sx={{ height: 18, fontSize: '0.65rem', px: 0.5, flexShrink: 0 }}
             />
           )}
           <Typography
             variant="body2"
             sx={{
               fontWeight: 500,
+              fontSize: '0.8rem',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -75,7 +78,7 @@ const FieldOverrideRow: React.FC<FieldOverrideRowProps> = ({
           </Typography>
         </Box>
         {!isGlobal && (
-          <Tooltip title="Reset overrides for this field">
+          <Tooltip title="Reset overrides">
             <span
               onClick={(e) => {
                 e.stopPropagation();
@@ -85,15 +88,16 @@ const FieldOverrideRow: React.FC<FieldOverrideRowProps> = ({
               <IconButton
                 size="small"
                 disabled={!hasOverride}
+                sx={{ p: 0.25 }}
               >
-                <RefreshIcon fontSize="small" />
+                <RefreshIcon sx={{ fontSize: '1rem' }} />
               </IconButton>
             </span>
           </Tooltip>
         )}
       </Box>
       {isExpanded && (
-        <Box sx={{ px: 1, pb: 1 }}>
+        <Box sx={{ px: 0.75, pb: 0.75, pt: 0.25 }}>
           {children}
         </Box>
       )}
