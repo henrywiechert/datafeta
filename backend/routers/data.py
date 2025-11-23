@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 from backend.models.data_source import (
     ConnectionDetails, DatabaseListResponse, TableListResponse, ColumnListResponse,
-    TableRelationshipsResponse, MergedColumnsResponse, VirtualTableDefinition
+    TableRelationshipsResponse, MergedColumnsResponse, VirtualTableDefinition, Column
 )
 from backend.models.query import QueryDescription, QueryResult
 from backend.services.query_service import QueryService
@@ -118,8 +118,22 @@ def list_columns(
 
     columns = connector.list_columns(database=database, table=table)
     
-    # Note: _source_table is NOT added here for single tables
-    # It's only added for UNION queries via the /merged-columns endpoint
+    # Always add _source_database and _source_table virtual columns
+    # These are always available to prevent charts from breaking when unions are removed
+    source_database_column = Column(
+        name='_source_database',
+        data_type='String',
+        is_datetime=False,
+        table_name=None
+    )
+    source_table_column = Column(
+        name='_source_table',
+        data_type='String',
+        is_datetime=False,
+        table_name=None
+    )
+    columns.append(source_database_column)
+    columns.append(source_table_column)
     
     return ColumnListResponse(columns=columns)
 
