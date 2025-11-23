@@ -57,16 +57,7 @@ const PlotArea: React.FC<PlotAreaProps> = ({
   plotRowsSpec,
   totalContentWidthPx,
 }) => {
-  // Debug logging for render
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[PlotArea] Rendering with:', {
-      plotsCount: spec.plots?.length ?? 0,
-      plotIds: spec.plots?.map(p => p.id).join(', '),
-      hasFacets: !!spec.facetLabels,
-      columns: spec.layout?.columns,
-      rows: spec.layout?.rows,
-    });
-  }
+  // Debug logging disabled for performance with large faceted grids
   
   return (
     <div style={{ gridColumn: 1, gridRow: spec.facetLabels ? 2 : 1, overflow: 'hidden', position: 'relative' }}>
@@ -123,40 +114,25 @@ export default React.memo(PlotArea, (prevProps, nextProps) => {
     prevProps.plotRowsSpec !== nextProps.plotRowsSpec ||
     prevProps.totalContentWidthPx !== nextProps.totalContentWidthPx
   ) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[PlotArea] Re-rendering: layout props changed');
-    }
     return false;
   }
   
   // Compare spec.plots reference - if different, always re-render
   // This is conservative but ensures we don't miss updates
   if (prevProps.spec.plots !== nextProps.spec.plots) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[PlotArea] Re-rendering: plots array changed');
-    }
     return false;
   }
   
   // If facetLabels reference changed, re-render
   if (prevProps.spec.facetLabels !== nextProps.spec.facetLabels) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[PlotArea] Re-rendering: facetLabels changed');
-    }
     return false;
   }
   
   // If layout reference changed, re-render
   if (prevProps.spec.layout !== nextProps.spec.layout) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[PlotArea] Re-rendering: layout changed');
-    }
     return false;
   }
   
   // All references are stable, skip re-render
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[PlotArea] Skipping re-render: all props stable');
-  }
   return true;
 });

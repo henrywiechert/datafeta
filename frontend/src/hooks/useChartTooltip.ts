@@ -51,7 +51,7 @@ export function useChartTooltip() {
   }, []);
 
   const hideTooltip = useCallback(() => {
-    console.log('[useChartTooltip] hideTooltip called');
+    // console.log('[useChartTooltip] hideTooltip called');
     
     // Clear auto-hide timeout
     if (autoHideTimeoutRef.current) {

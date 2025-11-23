@@ -77,9 +77,6 @@ export default React.memo(YAxes, (prevProps, nextProps) => {
     prevProps.dynamicYAxisPx !== nextProps.dynamicYAxisPx ||
     prevProps.hasRowFacets !== nextProps.hasRowFacets
   ) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[YAxes] Re-rendering: primitive props changed');
-    }
     return false;
   }
   
@@ -87,16 +84,10 @@ export default React.memo(YAxes, (prevProps, nextProps) => {
   if (prevProps.rowHeights !== nextProps.rowHeights) {
     // If reference changed, check if values actually differ
     if (prevProps.rowHeights.length !== nextProps.rowHeights.length) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[YAxes] Re-rendering: rowHeights length changed');
-      }
       return false;
     }
     for (let i = 0; i < prevProps.rowHeights.length; i++) {
       if (prevProps.rowHeights[i] !== nextProps.rowHeights[i]) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[YAxes] Re-rendering: rowHeights values changed');
-        }
         return false;
       }
     }
@@ -104,14 +95,8 @@ export default React.memo(YAxes, (prevProps, nextProps) => {
   
   // Check spec.plots reference
   if (prevProps.spec.plots !== nextProps.spec.plots) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[YAxes] Re-rendering: plots changed');
-    }
     return false;
   }
   
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[YAxes] Skipping re-render');
-  }
   return true;
 });
