@@ -183,6 +183,122 @@ class AdaptiveRoundingPlanner:
             self._logger.warning("Binning decision failed: %s", exc, exc_info=True)
             return None
 
+    def plan_for_field(
+        self,
+        query_desc: QueryDescription,
+        field_name: str,
+        threshold: int,
+    ) -> Optional[OptimizationStrategy]:
+        """
+        Plan rounding/binning strategy for a specific field.
+        
+        This is called when frontend provides field-level optimization hints,
+        allowing precise control over which fields get optimized.
+        
+        Args:
+            query_desc: Query description
+            field_name: Name of the field to optimize
+            threshold: Rounding threshold for this field
+            
+        Returns:
+            Optimization strategy for this field, or None
+        """
+        if not self._config.enable_adaptive_rounding:
+            self._logger.info(f"Rounding disabled in config for field {field_name}")
+            return None
+
+        if not self._connector:
+            self._logger.warning(f"No connector available for field {field_name}")
+            return None
+
+        # Find the dimension in query_desc
+        target_dim = None
+        for dim in query_desc.dimensions:
+            if dim.field == field_name:
+                target_dim = dim
+                break
+
+        if not target_dim:
+            self._logger.warning(f"Field {field_name} not found in dimensions")
+            return None
+
+        if target_dim.flavour != "continuous":
+            self._logger.info(f"Field {field_name} is not continuous, skipping rounding")
+            return None
+
+        self._logger.info(
+            f"Planning rounding for field {field_name} (threshold: {threshold})"
+        )
+
+        try:
+            # Check if this is a timeline dimension (needs binning instead of rounding)
+            if target_dim.date_mode == "timeline":
+                self._logger.info(f"Field {field_name} is a timeline dimension, using binning")
+                # For timeline, we need to check cardinality and apply binning
+                continuous_dims = [d for d in query_desc.dimensions if d.flavour == "continuous"]
+                if len(continuous_dims) >= 2:
+                    unique_count = self._get_actual_unique_pair_count(query_desc)
+                elif len(continuous_dims) == 1:
+                    unique_count = self._get_actual_unique_single_count(query_desc)
+                else:
+                    unique_count = None
+
+                if unique_count is None and self._estimator:
+                    estimate = self._estimator.estimate_size(query_desc)
+                    unique_count = estimate.unique_pairs or estimate.total_rows
+
+                if unique_count is not None and unique_count > threshold:
+                    dimension_ranges = self._fetch_dimension_ranges(query_desc)
+                    return DateTimeBinningStrategy(
+                        db_type=self._db_type,
+                        estimator=self._estimator,
+                        target_buckets=self._config.target_buckets,
+                        dimension_ranges=dimension_ranges,
+                    )
+                else:
+                    self._logger.info(
+                        f"Field {field_name}: cardinality {unique_count} <= threshold {threshold}"
+                    )
+                    return None
+
+            # Regular continuous dimension - apply rounding
+            # Check cardinality
+            continuous_dims = [d for d in query_desc.dimensions if d.flavour == "continuous"]
+            if len(continuous_dims) >= 2:
+                unique_count = self._get_actual_unique_pair_count(query_desc)
+            elif len(continuous_dims) == 1:
+                unique_count = self._get_actual_unique_single_count(query_desc)
+            else:
+                unique_count = None
+
+            if unique_count is None and self._estimator:
+                estimate = self._estimator.estimate_size(query_desc)
+                unique_count = estimate.unique_pairs or estimate.total_rows
+
+            if unique_count is not None and unique_count > threshold:
+                self._logger.info(
+                    f"Applying rounding to field {field_name}: {unique_count} > {threshold}"
+                )
+                dimension_ranges = self._fetch_dimension_ranges(query_desc)
+                return AdaptiveRoundingStrategy(
+                    db_type=self._db_type,
+                    estimator=self._estimator,
+                    target_buckets=self._config.target_buckets,
+                    dimension_ranges=dimension_ranges,
+                )
+            else:
+                self._logger.info(
+                    f"Skipping rounding for field {field_name}: {unique_count} <= {threshold}"
+                )
+                return None
+
+        except Exception as exc:  # pragma: no cover - defensive path
+            self._logger.warning(
+                f"Failed to plan rounding for field {field_name}: {exc}",
+                exc_info=True,
+            )
+            return None
+
     def _get_actual_unique_pair_count(self, query_desc: QueryDescription) -> Optional[int]:
         from pypika import Query, Table
         from pypika.functions import Count

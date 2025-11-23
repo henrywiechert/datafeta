@@ -1,139 +1,52 @@
 /**
- * Unit tests for Optimization Hint Generator
+ * Unit tests for Optimization Hint Generator (Field-Level)
  */
 
 import {
     generateOptimizationHints,
     generateOptimizationHintsFromFields,
-    inferChartType,
-    getRecommendedOptimizationLevel,
-    describeOptimizationHints,
-    ChartType
+    describeOptimizationHints
 } from './optimizationHintGenerator';
 import { Dimension, Measure, Field, OptimizationHints } from '../types';
 
-describe('optimizationHintGenerator', () => {
-    describe('inferChartType', () => {
-        test('should infer scatter plot from 2 continuous dimensions, no measures', () => {
-            const dimensions: Dimension[] = [
-                { field: 'price', flavour: 'continuous', axis: 'x' },
-                { field: 'quantity', flavour: 'continuous', axis: 'y' }
-            ];
-            const measures: Measure[] = [];
-            
-            expect(inferChartType(dimensions, measures)).toBe('scatter');
-        });
-        
-        test('should infer bar chart from discrete dimension + measure', () => {
-            const dimensions: Dimension[] = [
-                { field: 'category', flavour: 'discrete', axis: 'x' }
-            ];
-            const measures: Measure[] = [
-                { field: 'sales', aggregation: 'sum', alias: 'total_sales' }
-            ];
-            
-            expect(inferChartType(dimensions, measures)).toBe('bar');
-        });
-        
-        test('should infer heatmap from 2 discrete dimensions + measure', () => {
-            const dimensions: Dimension[] = [
-                { field: 'category', flavour: 'discrete', axis: 'x' },
-                { field: 'region', flavour: 'discrete', axis: 'y' }
-            ];
-            const measures: Measure[] = [
-                { field: 'sales', aggregation: 'sum', alias: 'total_sales' }
-            ];
-            
-            expect(inferChartType(dimensions, measures)).toBe('heatmap');
-        });
-        
-        test('should infer histogram from 1 continuous dimension + measure', () => {
-            const dimensions: Dimension[] = [
-                { field: 'price', flavour: 'continuous', axis: 'x' }
-            ];
-            const measures: Measure[] = [
-                { field: 'price', aggregation: 'count', alias: 'count' }
-            ];
-            
-            expect(inferChartType(dimensions, measures)).toBe('histogram');
-        });
-        
-        test('should infer table from raw data query', () => {
-            const dimensions: Dimension[] = [
-                { field: 'id', flavour: 'discrete' }
-            ];
-            const measures: Measure[] = [];
-            
-            expect(inferChartType(dimensions, measures)).toBe('table');
-        });
-        
-        test('should use explicit chart type when provided', () => {
-            const dimensions: Dimension[] = [
-                { field: 'price', flavour: 'continuous', axis: 'x' },
-                { field: 'quantity', flavour: 'continuous', axis: 'y' }
-            ];
-            const measures: Measure[] = [];
-            
-            expect(inferChartType(dimensions, measures, 'line')).toBe('line');
-        });
-
-        test('should infer tickstrip from 1 continuous + 1 discrete dimension, no measures', () => {
-            const dimensions: Dimension[] = [
-                { field: 'price', flavour: 'continuous', axis: 'x' },
-                { field: 'category', flavour: 'discrete', axis: 'y' }
-            ];
-            const measures: Measure[] = [];
-
-            expect(inferChartType(dimensions, measures)).toBe('tickstrip');
-        });
-    });
-    
-    describe('getRecommendedOptimizationLevel', () => {
-        test('should recommend aggressive for scatter with 4+ fields', () => {
-            expect(getRecommendedOptimizationLevel('scatter', 4)).toBe('aggressive');
-        });
-        
-        test('should recommend balanced for scatter with 2-3 fields', () => {
-            expect(getRecommendedOptimizationLevel('scatter', 2)).toBe('balanced');
-            expect(getRecommendedOptimizationLevel('scatter', 3)).toBe('balanced');
-        });
-        
-        test('should recommend light for scatter with 1 field', () => {
-            expect(getRecommendedOptimizationLevel('scatter', 1)).toBe('light');
-        });
-        
-        test('should recommend balanced for heatmap', () => {
-            expect(getRecommendedOptimizationLevel('heatmap', 3)).toBe('balanced');
-        });
-        
-        test('should recommend light for aggregated charts', () => {
-            expect(getRecommendedOptimizationLevel('bar', 2)).toBe('light');
-            expect(getRecommendedOptimizationLevel('line', 2)).toBe('light');
-            expect(getRecommendedOptimizationLevel('histogram', 2)).toBe('light');
-        });
-    });
-    
+describe('optimizationHintGenerator - Field-Level Hints', () => {
     describe('generateOptimizationHints', () => {
-        test('should generate hints for scatter plot', () => {
+        test('should generate field hints for continuous dimensions (raw data)', () => {
             const dimensions: Dimension[] = [
-                { field: 'price', flavour: 'continuous', axis: 'x' },
-                { field: 'quantity', flavour: 'continuous', axis: 'y' }
+                { field: 'price', flavour: 'continuous' },
+                { field: 'quantity', flavour: 'continuous' }
             ];
             const measures: Measure[] = [];
             
             const hints = generateOptimizationHints({ dimensions, measures });
             
-            expect(hints.enable_distinct).toBe(true);
-            expect(hints.enable_rounding).toBe(true);
-            expect(hints.enable_sampling).toBe(false);
-            expect(hints.enable_binning).toBe(false);
+            expect(hints.field_hints).toBeDefined();
+            expect(hints.field_hints?.length).toBe(2);
+            expect(hints.field_hints?.[0].field).toBe('price');
+            expect(hints.field_hints?.[0].enable_rounding).toBe(true);
+            expect(hints.field_hints?.[1].field).toBe('quantity');
+            expect(hints.field_hints?.[1].enable_rounding).toBe(true);
+            expect(hints.enable_global_distinct).toBe(true); // Raw data
             expect(hints.optimization_level).toBe('balanced');
-            expect(hints.purpose).toContain('scatter');
         });
         
-        test('should generate hints for bar chart', () => {
+        test('should not generate field hints for discrete dimensions', () => {
             const dimensions: Dimension[] = [
-                { field: 'category', flavour: 'discrete', axis: 'x' }
+                { field: 'category', flavour: 'discrete' },
+                { field: 'region', flavour: 'discrete' }
+            ];
+            const measures: Measure[] = [];
+            
+            const hints = generateOptimizationHints({ dimensions, measures });
+            
+            expect(hints.field_hints).toBeDefined();
+            expect(hints.field_hints?.length).toBe(0); // No continuous dimensions
+            expect(hints.enable_global_distinct).toBe(true); // Raw data
+        });
+        
+        test('should disable global distinct for aggregated queries', () => {
+            const dimensions: Dimension[] = [
+                { field: 'category', flavour: 'discrete' }
             ];
             const measures: Measure[] = [
                 { field: 'sales', aggregation: 'sum', alias: 'total_sales' }
@@ -141,32 +54,44 @@ describe('optimizationHintGenerator', () => {
             
             const hints = generateOptimizationHints({ dimensions, measures });
             
-            expect(hints.enable_distinct).toBe(false); // Aggregated query
-            expect(hints.enable_rounding).toBe(false);
+            expect(hints.enable_global_distinct).toBe(false); // Aggregated query
             expect(hints.optimization_level).toBe('light');
-            expect(hints.purpose).toContain('bar');
         });
         
-        test('should generate hints for complex scatter (4 fields)', () => {
+        test('should generate hints for timeline dimensions', () => {
             const dimensions: Dimension[] = [
-                { field: 'price', flavour: 'continuous', axis: 'x' },
-                { field: 'quantity', flavour: 'continuous', axis: 'y' },
-                { field: 'category', flavour: 'discrete' }, // color
-                { field: 'region', flavour: 'discrete' }    // additional dimension
+                { field: 'timestamp', flavour: 'continuous', date_mode: 'timeline' }
             ];
             const measures: Measure[] = [];
             
             const hints = generateOptimizationHints({ dimensions, measures });
             
-            expect(hints.enable_distinct).toBe(true);
-            expect(hints.enable_rounding).toBe(true);
-            expect(hints.optimization_level).toBe('aggressive'); // 4 fields
+            expect(hints.field_hints).toBeDefined();
+            expect(hints.field_hints?.length).toBe(1);
+            expect(hints.field_hints?.[0].field).toBe('timestamp');
+            expect(hints.field_hints?.[0].enable_rounding).toBe(true);
+            expect(hints.field_hints?.[0].reason).toBe('datetime_timeline');
+        });
+        
+        test('should recommend aggressive level for 4+ fields with continuous dims', () => {
+            const dimensions: Dimension[] = [
+                { field: 'price', flavour: 'continuous' },
+                { field: 'quantity', flavour: 'continuous' },
+                { field: 'discount', flavour: 'continuous' },
+                { field: 'weight', flavour: 'continuous' }
+            ];
+            const measures: Measure[] = [];
+            
+            const hints = generateOptimizationHints({ dimensions, measures });
+            
+            expect(hints.optimization_level).toBe('aggressive');
+            expect(hints.field_hints?.length).toBe(4);
         });
         
         test('should respect user preference "none"', () => {
             const dimensions: Dimension[] = [
-                { field: 'price', flavour: 'continuous', axis: 'x' },
-                { field: 'quantity', flavour: 'continuous', axis: 'y' }
+                { field: 'price', flavour: 'continuous' },
+                { field: 'quantity', flavour: 'continuous' }
             ];
             const measures: Measure[] = [];
             
@@ -176,19 +101,17 @@ describe('optimizationHintGenerator', () => {
                 userPreference: 'none'
             });
             
-            expect(hints.enable_distinct).toBe(false);
-            expect(hints.enable_rounding).toBe(false);
+            expect(hints.field_hints?.length).toBe(0);
+            expect(hints.enable_global_distinct).toBe(false);
             expect(hints.optimization_level).toBe('none');
             expect(hints.purpose).toBe('user_disabled');
         });
         
         test('should respect user preference "aggressive"', () => {
             const dimensions: Dimension[] = [
-                { field: 'category', flavour: 'discrete', axis: 'x' }
+                { field: 'price', flavour: 'continuous' }
             ];
-            const measures: Measure[] = [
-                { field: 'sales', aggregation: 'sum', alias: 'total_sales' }
-            ];
+            const measures: Measure[] = [];
             
             const hints = generateOptimizationHints({
                 dimensions,
@@ -197,37 +120,36 @@ describe('optimizationHintGenerator', () => {
             });
             
             expect(hints.optimization_level).toBe('aggressive');
+            expect(hints.field_hints?.[0].rounding_threshold).toBe(200); // aggressive threshold
         });
         
-        test('should include custom rounding threshold', () => {
+        test('should use different thresholds based on optimization level', () => {
             const dimensions: Dimension[] = [
-                { field: 'price', flavour: 'continuous', axis: 'x' },
-                { field: 'quantity', flavour: 'continuous', axis: 'y' }
+                { field: 'price', flavour: 'continuous' }
             ];
             const measures: Measure[] = [];
             
-            const hints = generateOptimizationHints({
+            const lightHints = generateOptimizationHints({
                 dimensions,
                 measures,
-                customRoundingThreshold: 50000
+                userPreference: 'light'
             });
             
-            expect(hints.rounding_threshold).toBe(50000);
-        });
-
-        test('should generate hints for tickstrip (rounding + distinct enabled)', () => {
-            const dimensions: Dimension[] = [
-                { field: 'price', flavour: 'continuous', axis: 'x' },
-                { field: 'category', flavour: 'discrete', axis: 'y' }
-            ];
-            const measures: Measure[] = [];
-
-            const hints = generateOptimizationHints({ dimensions, measures });
-
-            expect(hints.enable_distinct).toBe(true);
-            expect(hints.enable_rounding).toBe(true);
-            expect(hints.optimization_level).toBe('balanced');
-            expect(hints.purpose).toContain('tickstrip');
+            const balancedHints = generateOptimizationHints({
+                dimensions,
+                measures,
+                userPreference: 'balanced'
+            });
+            
+            const aggressiveHints = generateOptimizationHints({
+                dimensions,
+                measures,
+                userPreference: 'aggressive'
+            });
+            
+            expect(lightHints.field_hints?.[0].rounding_threshold).toBe(1000);
+            expect(balancedHints.field_hints?.[0].rounding_threshold).toBe(500);
+            expect(aggressiveHints.field_hints?.[0].rounding_threshold).toBe(200);
         });
         
         test('should handle empty dimensions and measures', () => {
@@ -236,13 +158,15 @@ describe('optimizationHintGenerator', () => {
                 measures: []
             });
             
+            expect(hints.field_hints?.length).toBe(0);
+            expect(hints.enable_global_distinct).toBe(true); // No measures = raw data
             expect(hints.optimization_level).not.toBe('none');
-            expect(hints.purpose).toBeDefined();
+            expect(hints.purpose).toBe('field_based_optimization');
         });
     });
     
     describe('generateOptimizationHintsFromFields', () => {
-        test('should generate hints from Field objects', () => {
+        test('should generate field hints from Field objects (continuous dims)', () => {
             const xAxisFields: Field[] = [
                 {
                     id: '1',
@@ -270,12 +194,13 @@ describe('optimizationHintGenerator', () => {
                 yAxisFields
             });
             
-            expect(hints.enable_distinct).toBe(true);
-            expect(hints.enable_rounding).toBe(true);
-            expect(hints.purpose).toContain('scatter');
+            expect(hints.field_hints).toBeDefined();
+            expect(hints.field_hints?.length).toBe(2);
+            expect(hints.enable_global_distinct).toBe(true); // Raw data
+            expect(hints.purpose).toBe('field_based_optimization');
         });
         
-        test('should handle measure fields', () => {
+        test('should handle measure fields and disable global distinct', () => {
             const xAxisFields: Field[] = [
                 {
                     id: '1',
@@ -304,8 +229,8 @@ describe('optimizationHintGenerator', () => {
                 yAxisFields
             });
             
-            expect(hints.enable_distinct).toBe(false); // Aggregated query
-            expect(hints.purpose).toContain('bar');
+            expect(hints.enable_global_distinct).toBe(false); // Aggregated query
+            expect(hints.purpose).toBe('field_based_optimization');
         });
         
         test('should include color field in analysis', () => {
@@ -345,11 +270,45 @@ describe('optimizationHintGenerator', () => {
                 colorField
             });
             
-            // 3 fields total: should still be balanced
+            // Color field is discrete, so doesn't generate field hint
+            expect(hints.field_hints?.length).toBe(2); // Only continuous dims
             expect(hints.optimization_level).toBe('balanced');
         });
         
-        test('should include size field as measure', () => {
+        test('should deduplicate fields across axes', () => {
+            const xAxisFields: Field[] = [
+                {
+                    id: '1',
+                    columnName: 'price',
+                    type: 'dimension',
+                    flavour: 'continuous',
+                    dataType: 'float',
+                    axis: 'x'
+                }
+            ];
+            
+            const yAxisFields: Field[] = [
+                {
+                    id: '2',
+                    columnName: 'price', // Same field as X
+                    type: 'dimension',
+                    flavour: 'continuous',
+                    dataType: 'float',
+                    axis: 'y'
+                }
+            ];
+            
+            const hints = generateOptimizationHintsFromFields({
+                xAxisFields,
+                yAxisFields
+            });
+            
+            // Should only have one hint for 'price'
+            expect(hints.field_hints?.length).toBe(1);
+            expect(hints.field_hints?.[0].field).toBe('price');
+        });
+        
+        test('should include size field as measure and disable global distinct', () => {
             const xAxisFields: Field[] = [
                 {
                     id: '1',
@@ -387,34 +346,61 @@ describe('optimizationHintGenerator', () => {
                 sizeField
             });
             
-            // Has measure, so should disable distinct
-            expect(hints.enable_distinct).toBe(false);
+            // Has measure, so should disable global distinct
+            expect(hints.enable_global_distinct).toBe(false);
+            // Still has field hints for continuous dimensions
+            expect(hints.field_hints?.length).toBeGreaterThan(0);
+        });
+        
+        test('should handle datetime timeline fields', () => {
+            const xAxisFields: Field[] = [
+                {
+                    id: '1',
+                    columnName: 'timestamp',
+                    type: 'dimension',
+                    flavour: 'continuous',
+                    dataType: 'datetime',
+                    axis: 'x',
+                    dateTimeMode: 'timeline'
+                }
+            ];
+            
+            const yAxisFields: Field[] = [];
+            
+            const hints = generateOptimizationHintsFromFields({
+                xAxisFields,
+                yAxisFields
+            });
+            
+            expect(hints.field_hints).toBeDefined();
+            expect(hints.field_hints?.length).toBe(1);
+            expect(hints.field_hints?.[0].reason).toBe('datetime_timeline');
         });
     });
     
     describe('describeOptimizationHints', () => {
-        test('should describe hints with multiple optimizations', () => {
+        test('should describe field-level hints with rounding', () => {
             const hints: OptimizationHints = {
-                enable_distinct: true,
-                enable_rounding: true,
-                enable_sampling: false,
-                enable_binning: false,
+                field_hints: [
+                    { field: 'price', enable_rounding: true, enable_sampling: false, reason: 'continuous_dimension' },
+                    { field: 'quantity', enable_rounding: true, enable_sampling: false, reason: 'continuous_dimension' }
+                ],
+                enable_global_distinct: true,
                 optimization_level: 'balanced',
-                purpose: 'test'
+                purpose: 'field_based_optimization'
             };
             
             const description = describeOptimizationHints(hints);
             expect(description).toContain('DISTINCT');
             expect(description).toContain('Rounding');
+            expect(description).toContain('2 fields');
             expect(description).toContain('balanced');
         });
         
         test('should describe hints with no optimizations', () => {
             const hints: OptimizationHints = {
-                enable_distinct: false,
-                enable_rounding: false,
-                enable_sampling: false,
-                enable_binning: false,
+                field_hints: [],
+                enable_global_distinct: false,
                 optimization_level: 'light',
                 purpose: 'test'
             };
@@ -424,21 +410,50 @@ describe('optimizationHintGenerator', () => {
             expect(description).toContain('light');
         });
         
-        test('should describe all optimization types', () => {
+        test('should describe field hints with sampling', () => {
+            const hints: OptimizationHints = {
+                field_hints: [
+                    { field: 'price', enable_rounding: false, enable_sampling: true, reason: 'high_cardinality', sampling_rate: 0.1 }
+                ],
+                enable_global_distinct: false,
+                optimization_level: 'aggressive',
+                purpose: 'test'
+            };
+            
+            const description = describeOptimizationHints(hints);
+            expect(description).toContain('Sampling');
+            expect(description).toContain('1 field');
+        });
+        
+        test('should handle backward compatibility with legacy hints', () => {
             const hints: OptimizationHints = {
                 enable_distinct: true,
                 enable_rounding: true,
-                enable_sampling: true,
-                enable_binning: true,
-                optimization_level: 'aggressive',
+                optimization_level: 'balanced',
                 purpose: 'test'
             };
             
             const description = describeOptimizationHints(hints);
             expect(description).toContain('DISTINCT');
             expect(description).toContain('Rounding');
-            expect(description).toContain('Sampling');
-            expect(description).toContain('Binning');
+            expect(description).toContain('legacy');
+        });
+        
+        test('should prioritize field hints over legacy hints', () => {
+            const hints: OptimizationHints = {
+                field_hints: [
+                    { field: 'price', enable_rounding: true, enable_sampling: false, reason: 'continuous_dimension' }
+                ],
+                enable_global_distinct: true,
+                enable_distinct: true, // legacy, should be ignored
+                enable_rounding: true, // legacy, should be ignored
+                optimization_level: 'balanced',
+                purpose: 'test'
+            };
+            
+            const description = describeOptimizationHints(hints);
+            expect(description).toContain('Rounding (1 field)');
+            expect(description).not.toContain('legacy');
         });
     });
 });
