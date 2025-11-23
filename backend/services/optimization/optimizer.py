@@ -136,10 +136,16 @@ class QueryOptimizer:
         # PRIORITY 2: Get optimization hints (from frontend or generate defaults)
         hints = query_desc.optimization_hints
         if hints:
-            logger.info("Using optimization hints from frontend")
+            field_count = len(hints.field_hints) if hints.field_hints else 0
+            logger.info(
+                f"✅ Using optimization hints from frontend: "
+                f"{field_count} field hints, "
+                f"global_distinct={hints.enable_global_distinct}, "
+                f"level={hints.optimization_level}"
+            )
             strategies = self._strategy_planner.create_from_hints(query_desc, hints)
         else:
-            logger.info("No hints provided - using default behavior based on query structure")
+            logger.info("⚠️ No hints provided - using default behavior based on query structure")
             strategies = self._strategy_planner.create_from_query_structure(query_desc)
             hints = None  # We'll track that no hints were provided
         

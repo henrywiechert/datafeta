@@ -16,7 +16,7 @@ class QueryResultBuilder:
         columns: List[str],
         rows: List[Any],
         sql_query: str,
-        extended_metadata: Optional[List[Dict[str, Any]]] = None
+        extended_metadata: Optional[Dict[str, Any]] = None
     ) -> QueryResult:
         """
         Build a complete QueryResult from query execution results.
@@ -25,15 +25,23 @@ class QueryResultBuilder:
             columns: Column names from query execution
             rows: Data rows from query execution
             sql_query: The executed SQL query string
-            extended_metadata: Optional optimization metadata from query translation
+            extended_metadata: Optional dict with keys:
+                - 'optimizations': List of optimization metadata
+                - 'hints_used': OptimizationHints that were used
+                - 'override': OptimizationOverride if any
             
         Returns:
             QueryResult with all metadata populated
         """
-        # Extract optimization metadata
+        # Extract optimization metadata from extended_metadata dict
         optimization_metadata = []
-        if extended_metadata and isinstance(extended_metadata, list):
-            optimization_metadata = extended_metadata
+        hints_used = None
+        override = None
+        
+        if extended_metadata and isinstance(extended_metadata, dict):
+            optimization_metadata = extended_metadata.get('optimizations', [])
+            hints_used = extended_metadata.get('hints_used')
+            override = extended_metadata.get('override')
         
         # Calculate reduction factor if optimization was applied
         reduction_factor = None
@@ -58,6 +66,8 @@ class QueryResultBuilder:
         logger.info(
             f"Built query result: {result_dimensions.size_display}, "
             f"optimizations={len(optimization_metadata)}, "
+            f"hints_used={hints_used is not None}, "
+            f"override={override is not None}, "
             f"reduction={reduction_factor}"
         )
         
@@ -70,7 +80,7 @@ class QueryResultBuilder:
             optimizations_applied=optimization_metadata if optimization_metadata else None,
             original_estimate=original_estimate,
             reduction_factor=reduction_factor,
-            optimization_hints_used=None,  # Not returned separately anymore
-            optimization_override=None,  # Not returned separately anymore
+            optimization_hints_used=hints_used,  # Now extracted from extended_metadata
+            optimization_override=override,  # Now extracted from extended_metadata
             result_dimensions=result_dimensions
         )
