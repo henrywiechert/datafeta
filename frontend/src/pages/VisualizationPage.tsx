@@ -145,8 +145,36 @@ const VisualizationPageContent = () => {
         unionTables,
         tablesCache
     } = dataSourceContext.dataSource;
-    const { toggleJoinedTable, addUnionTable, removeUnionTable, setTablesForDatabase } = dataSourceContext;
+    const { toggleJoinedTable: toggleJoinedTableBase, addUnionTable: addUnionTableBase, removeUnionTable: removeUnionTableBase, setTablesForDatabase } = dataSourceContext;
     const { state: sheetState } = useSheetContext();
+    
+    // Wrap joined table toggle to trigger query re-execution
+    const toggleJoinedTable = React.useCallback((tableName: string) => {
+        toggleJoinedTableBase(tableName);
+        // Notify that table joins/unions were modified to trigger query re-execution
+        // We use setTimeout to ensure the metadata update (fetchMergedColumns) completes first
+        setTimeout(() => {
+            dispatch({ type: 'TABLE_JOINS_UNIONS_MODIFIED' });
+        }, 100);
+    }, [toggleJoinedTableBase, dispatch]);
+    
+    // Wrap union table operations to trigger query re-execution
+    const addUnionTable = React.useCallback((database: string, tableName: string) => {
+        addUnionTableBase(database, tableName);
+        // Notify that table joins/unions were modified to trigger query re-execution
+        // We use setTimeout to ensure the metadata update (fetchMergedColumns) completes first
+        setTimeout(() => {
+            dispatch({ type: 'TABLE_JOINS_UNIONS_MODIFIED' });
+        }, 100);
+    }, [addUnionTableBase, dispatch]);
+    
+    const removeUnionTable = React.useCallback((database: string, tableName: string) => {
+        removeUnionTableBase(database, tableName);
+        // Notify that table joins/unions were modified to trigger query re-execution
+        setTimeout(() => {
+            dispatch({ type: 'TABLE_JOINS_UNIONS_MODIFIED' });
+        }, 100);
+    }, [removeUnionTableBase, dispatch]);
     
     // Handler to load tables for a specific database (for cross-database union)
     const handleLoadTablesForDatabase = React.useCallback(async (database: string) => {
