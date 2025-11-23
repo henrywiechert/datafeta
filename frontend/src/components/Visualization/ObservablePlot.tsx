@@ -22,6 +22,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options }) => {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [portalTarget, setPortalTarget] = useState<HTMLElement>(document.body);
   const { tooltip, showTooltip, hideTooltip, updatePosition } = useChartTooltip();
+  const cleanupFunctionsRef = useRef<Array<() => void>>([]);
 
   // Detect fullscreen mode and update portal target
   useEffect(() => {
@@ -84,6 +85,13 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options }) => {
 
       // Only render if we have valid dimensions to prevent errors.
       if (finalWidth > 0 && finalHeight > 0) {
+        // IMPORTANT: Hide tooltip before clearing DOM to prevent stuck tooltips
+        hideTooltip();
+        
+        // Clean up any existing event listeners from previous render
+        cleanupFunctionsRef.current.forEach(cleanup => cleanup());
+        cleanupFunctionsRef.current = [];
+        
         const newOptions = {
           ...options,
           width: finalWidth,
@@ -101,13 +109,21 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options }) => {
           // Add custom tooltip event listeners if configured
           const customTooltipConfig = options.__customTooltip;
           if (customTooltipConfig?.enabled) {
-            addTooltipListeners(plot, customTooltipConfig, showTooltip, hideTooltip, updatePosition);
+            const cleanup = addTooltipListeners(plot, customTooltipConfig, showTooltip, hideTooltip, updatePosition);
+            cleanupFunctionsRef.current.push(cleanup);
           }
         } catch (error) {
           console.error('ObservablePlot - Error creating plot:', error);
         }
       }
     }
+    
+    // Cleanup on unmount
+    return () => {
+      hideTooltip();
+      cleanupFunctionsRef.current.forEach(cleanup => cleanup());
+      cleanupFunctionsRef.current = [];
+    };
   }, [options, dimensions, showTooltip, hideTooltip, updatePosition]);
 
   return (
@@ -130,6 +146,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options }) => {
 /**
  * Add tooltip event listeners to Observable Plot marks.
  * Extracts data from marks and displays custom tooltip on hover.
+ * Returns a cleanup function to remove all event listeners.
  */
 function addTooltipListeners(
   plot: SVGSVGElement | HTMLElement,
@@ -137,10 +154,11 @@ function addTooltipListeners(
   showTooltip: (x: number, y: number, fields: TooltipField[]) => void,
   hideTooltip: () => void,
   updatePosition: (x: number, y: number) => void
-): void {
+): () => void {
   // Find all interactive marks (circles, rects, paths with fill)
   // Observable Plot typically uses these elements for data visualization
   const marks = plot.querySelectorAll('circle, rect, path[fill]:not([fill="none"])');
+  const cleanupFunctions: Array<() => void> = [];
 
   marks.forEach((mark, index) => {
     // Observable Plot stores data on elements via __data__ property
@@ -198,13 +216,82 @@ function addTooltipListeners(
     mark.addEventListener('mousemove', handleMouseMove);
     mark.addEventListener('mouseleave', handleMouseLeave);
 
-    // Store event listeners for potential cleanup
-    (mark as any)._tooltipListeners = {
-      mouseenter: handleMouseEnter,
-      mousemove: handleMouseMove,
-      mouseleave: handleMouseLeave,
-    };
+    // Store cleanup function for this mark
+    cleanupFunctions.push(() => {
+      mark.removeEventListener('mouseenter', handleMouseEnter);
+      mark.removeEventListener('mousemove', handleMouseMove);
+      mark.removeEventListener('mouseleave', handleMouseLeave);
+      mark.classList.remove('chart-mark--highlighted');
+    });
   });
+  
+  // Add global fallback handlers to prevent stuck tooltips
+  const handleDocumentMouseLeave = (e: MouseEvent) => {
+    // If mouse leaves the plot container, hide tooltip
+    const rect = plot.getBoundingClientRect();
+    const isOutside = (
+      e.clientX < rect.left ||
+      e.clientX > rect.right ||
+      e.clientY < rect.top ||
+      e.clientY > rect.bottom
+    );
+    
+    if (isOutside) {
+      hideTooltip();
+    }
+  };
+  
+  const handleDocumentClick = () => {
+    // Hide tooltip on any click
+    hideTooltip();
+  };
+  
+  const handleScroll = () => {
+    // Hide tooltip on scroll (tooltip position becomes invalid)
+    hideTooltip();
+  };
+  
+  const handleKeyDown = (e: KeyboardEvent) => {
+    // Hide tooltip on Escape key
+    if (e.key === 'Escape') {
+      hideTooltip();
+    }
+  };
+  
+  const handleWindowBlur = () => {
+    // Hide tooltip when window loses focus
+    hideTooltip();
+  };
+  
+  // Add global listeners
+  document.addEventListener('mousemove', handleDocumentMouseLeave);
+  document.addEventListener('click', handleDocumentClick);
+  document.addEventListener('scroll', handleScroll, true); // useCapture for all scrolls
+  document.addEventListener('keydown', handleKeyDown);
+  window.addEventListener('blur', handleWindowBlur);
+  
+  // Add plot container leave handler as additional safety
+  const handlePlotMouseLeave = () => {
+    hideTooltip();
+  };
+  plot.addEventListener('mouseleave', handlePlotMouseLeave);
+  
+  // Return cleanup function that removes all listeners
+  return () => {
+    // Clean up mark listeners
+    cleanupFunctions.forEach(cleanup => cleanup());
+    
+    // Clean up global listeners
+    document.removeEventListener('mousemove', handleDocumentMouseLeave);
+    document.removeEventListener('click', handleDocumentClick);
+    document.removeEventListener('scroll', handleScroll, true);
+    document.removeEventListener('keydown', handleKeyDown);
+    window.removeEventListener('blur', handleWindowBlur);
+    plot.removeEventListener('mouseleave', handlePlotMouseLeave);
+    
+    // Final safety: hide tooltip on cleanup
+    hideTooltip();
+  };
 }
 
 export default ObservablePlot; 
