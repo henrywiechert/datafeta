@@ -349,23 +349,23 @@ class TableMergeService:
         # Get merged columns
         result = self.get_merged_columns(database, virtual_table)
         
-        # Add the virtual _source_database and _source_table columns for UNION mode
-        if virtual_table.mode == 'union':
-            source_database_column = Column(
-                name='_source_database',
-                data_type='String',
-                is_datetime=False,
-                table_name=None
-            )
-            source_table_column = Column(
-                name='_source_table',
-                data_type='String',
-                is_datetime=False,
-                table_name=None
-            )
-            result.columns.append(source_database_column)
-            result.columns.append(source_table_column)
-            logger.info(f"Added _source_database and _source_table virtual columns for UNION mode")
+        # Add the virtual _source_database and _source_table columns for ALL modes
+        # These fields are always available to prevent charts from breaking when unions are removed
+        source_database_column = Column(
+            name='_source_database',
+            data_type='String',
+            is_datetime=False,
+            table_name=None
+        )
+        source_table_column = Column(
+            name='_source_table',
+            data_type='String',
+            is_datetime=False,
+            table_name=None
+        )
+        result.columns.append(source_database_column)
+        result.columns.append(source_table_column)
+        logger.info(f"Added _source_database and _source_table virtual columns")
         
         mode_info = (
             f"UNION ({len(virtual_table.union_tables) + 1} tables)" 
