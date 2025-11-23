@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 
 import { QueryResult } from '../../../types';
 import { PlotResult } from '../../../observable-plot-generator/types';
@@ -187,6 +187,12 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
   // Container dimensions for resize overlay positioning
   const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
+  
+  // Stabilization: Prevent intermediate renders during spec changes
+  // When spec changes, freeze dimension updates briefly to allow single clean render
+  const [isStabilizing, setIsStabilizing] = useState(false);
+  const stabilizationTimeoutRef = useRef<number | null>(null);
+  const pendingRowHeightRef = useRef<number | null>(null);
 
   // Track scroll offsets so the resize handles can stay aligned with the
   // scrolled grid content in both directions.
@@ -205,6 +211,47 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     setUserCellWidth(null);
     setUserCellHeight(null);
   }, [spec?.layout?.columns, spec?.layout?.rows]);
+  
+  // Stabilization effect: Freeze dimension updates briefly when spec changes
+  // This prevents ResizeObservers from triggering intermediate renders
+  useEffect(() => {
+    // Clear any existing stabilization timeout
+    if (stabilizationTimeoutRef.current !== null) {
+      clearTimeout(stabilizationTimeoutRef.current);
+    }
+    
+    // Clear any pending row height from previous stabilization
+    pendingRowHeightRef.current = null;
+    
+    // Freeze updates
+    setIsStabilizing(true);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[ChartGrid] Stabilizing: freezing dimension updates for 300ms');
+    }
+    
+    // Unfreeze after layout has settled (300ms should cover browser layout + paint + debouncing)
+    stabilizationTimeoutRef.current = window.setTimeout(() => {
+      setIsStabilizing(false);
+      stabilizationTimeoutRef.current = null;
+      
+      // Apply any pending rowHeight updates that were deferred during stabilization
+      if (pendingRowHeightRef.current !== null) {
+        const pendingHeight = pendingRowHeightRef.current;
+        pendingRowHeightRef.current = null;
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[ChartGrid] Applying pending rowHeight after stabilization:', pendingHeight);
+        }
+        setRowHeightPx((prev) => prev === pendingHeight ? prev : pendingHeight);
+      }
+    }, 300);
+    
+    return () => {
+      if (stabilizationTimeoutRef.current !== null) {
+        clearTimeout(stabilizationTimeoutRef.current);
+      }
+    };
+  }, [spec?.plots?.length, spec?.layout?.columns, spec?.layout?.rows]);
 
   // Handler to reset cell sizes to automatic
   const handleResetCellSizes = () => {
@@ -280,26 +327,60 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   useEffect(() => {
     let rafId = 0;
     let updateRafId: number | null = null;
+    let debounceTimeoutId: number | null = null;
     let isUpdateScheduled = false;
     let ro: ResizeObserver | null = null;
 
     const updateRowHeight = () => {
       const scroller = vScrollRef.current;
       if (!scroller) return;
+      
       const available = scroller.clientHeight;
       const r = Math.max(1, rowsForSizing);
       if (available > 0) {
         const h = Math.max(MIN_GRID_ROW_PX, Math.floor(available / r));
-        setRowHeightPx(h);
+        
+        // CRITICAL: During stabilization, store pending height instead of updating state
+        // This prevents intermediate renders when faceting changes
+        const container = containerRef.current;
+        if (container && (container as any).__isStabilizing) {
+          pendingRowHeightRef.current = h;
+          isUpdateScheduled = false;
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[ChartGrid] Deferring rowHeight update during stabilization:', h);
+          }
+          return;
+        }
+        
+        // Not stabilizing: apply immediately
+        setRowHeightPx((prev) => {
+          // Only update if actually changed to avoid unnecessary renders
+          if (prev !== h && process.env.NODE_ENV === 'development') {
+            console.log('[ChartGrid] Updating rowHeight:', prev, '→', h);
+          }
+          return prev === h ? prev : h;
+        });
       }
       isUpdateScheduled = false;
     };
 
-    // Throttle updates using requestAnimationFrame
+    // Debounce + RAF throttling: Wait for layout to settle before recalculating
+    // This prevents intermediate renders during faceting changes
     const scheduleUpdate = () => {
       if (!isUpdateScheduled) {
         isUpdateScheduled = true;
-        updateRafId = requestAnimationFrame(updateRowHeight);
+        
+        // Clear any pending debounce
+        if (debounceTimeoutId !== null) {
+          clearTimeout(debounceTimeoutId);
+        }
+        
+        // Debounce: Wait 250ms for layout to settle, then schedule RAF update
+        // Longer delay ensures all DOM mutations and faceting changes have completed
+        debounceTimeoutId = window.setTimeout(() => {
+          updateRafId = requestAnimationFrame(updateRowHeight);
+          debounceTimeoutId = null;
+        }, 250);
       }
     };
 
@@ -308,12 +389,13 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
         rafId = window.requestAnimationFrame(attachWhenReady);
         return;
       }
-      // Initial compute once the element exists
-      updateRowHeight();
-      // Observe size changes of the scroller with RAF throttling
+      // Initial compute: Also use debounced schedule to avoid immediate update during faceting changes
+      // This prevents intermediate renders when the effect re-runs
+      scheduleUpdate();
+      // Observe size changes of the scroller with debounced RAF throttling
       ro = new ResizeObserver(scheduleUpdate);
       ro.observe(vScrollRef.current as Element);
-      // Also respond to window resizes with throttling
+      // Also respond to window resizes with debouncing
       window.addEventListener('resize', scheduleUpdate);
     };
 
@@ -322,6 +404,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     return () => {
       if (rafId) window.cancelAnimationFrame(rafId);
       if (updateRafId !== null) window.cancelAnimationFrame(updateRafId);
+      if (debounceTimeoutId !== null) clearTimeout(debounceTimeoutId);
       if (ro) ro.disconnect();
       window.removeEventListener('resize', scheduleUpdate);
     };
@@ -333,30 +416,56 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     if (!containerRef.current) return;
 
     let rafId: number | null = null;
+    let debounceTimeoutId: number | null = null;
     let isUpdateScheduled = false;
 
     const updateDimensions = () => {
-      if (containerRef.current) {
-        setContainerDimensions({
-          width: containerRef.current.clientWidth,
-          height: containerRef.current.clientHeight,
-        });
+      if (!containerRef.current) {
+        isUpdateScheduled = false;
+        return;
       }
+      
+      // CRITICAL: Don't update during stabilization period
+      if ((containerRef.current as any).__isStabilizing) {
+        isUpdateScheduled = false;
+        return;
+      }
+      
+      const newWidth = containerRef.current.clientWidth;
+      const newHeight = containerRef.current.clientHeight;
+      
+      setContainerDimensions((prev) => {
+        // Only update if actually changed to avoid unnecessary renders
+        if (prev.width === newWidth && prev.height === newHeight) {
+          return prev;
+        }
+        return { width: newWidth, height: newHeight };
+      });
+      
       isUpdateScheduled = false;
     };
 
-    // Throttle updates using requestAnimationFrame
+    // Debounce + RAF throttling for smoother updates
     const scheduleUpdate = () => {
       if (!isUpdateScheduled) {
         isUpdateScheduled = true;
-        rafId = requestAnimationFrame(updateDimensions);
+        
+        if (debounceTimeoutId !== null) {
+          clearTimeout(debounceTimeoutId);
+        }
+        
+        // Shorter debounce for container (50ms) since it's less disruptive
+        debounceTimeoutId = window.setTimeout(() => {
+          rafId = requestAnimationFrame(updateDimensions);
+          debounceTimeoutId = null;
+        }, 50);
       }
     };
 
-    // Initial measurement
+    // Initial measurement (immediate, no debounce)
     updateDimensions();
 
-    // Observe size changes with RAF throttling
+    // Observe size changes with debounced RAF throttling
     const ro = new ResizeObserver(scheduleUpdate);
     ro.observe(containerRef.current);
 
@@ -365,8 +474,161 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
       }
+      if (debounceTimeoutId !== null) {
+        clearTimeout(debounceTimeoutId);
+      }
     };
   }, []); // Empty deps - container size tracking is independent of spec
+  
+  // Sync stabilization flag to DOM for closure access in ResizeObserver callbacks
+  useEffect(() => {
+    if (containerRef.current) {
+      (containerRef.current as any).__isStabilizing = isStabilizing;
+    }
+  }, [isStabilizing]);
+  
+  // Memoize all layout calculations to prevent cascading re-renders
+  // This ensures that when rowHeightPx changes, all derived values update in ONE batch
+  // IMPORTANT: This must be called unconditionally (before any early returns)
+  const layoutCalcs = useMemo(() => {
+    if (!spec || !spec.plots || spec.plots.length === 0) {
+      return null;
+    }
+
+    const layoutType = spec.layout?.type || 'grid';
+    const columns = spec.layout?.columns || 1;
+    const rows = spec.layout?.rows || 1;
+    const columnSizes = spec.layout?.columnSizes;
+    const rowSizes = spec.layout?.rowSizes;
+    const minColumnPx = MIN_GRID_COLUMN_PX;
+    
+    // CRITICAL: Calculate rowHeightPx synchronously during render
+    // This prevents stale height values when faceting changes (e.g., 30 rows → 3 rows)
+    // Read container height directly from ref (if available) instead of waiting for ResizeObserver
+    let calculatedRowHeightPx = rowHeightPx; // Fallback to state
+    if (vScrollRef.current && userCellHeight === null) {
+      const availableHeight = vScrollRef.current.clientHeight;
+      if (availableHeight > 0) {
+        calculatedRowHeightPx = Math.max(MIN_GRID_ROW_PX, Math.floor(availableHeight / Math.max(1, rows)));
+      }
+    } else if (userCellHeight !== null) {
+      calculatedRowHeightPx = userCellHeight;
+    }
+    
+    if (process.env.NODE_ENV === 'development' && calculatedRowHeightPx !== rowHeightPx) {
+      console.log('[ChartGrid] Synchronously calculated rowHeight:', rowHeightPx, '→', calculatedRowHeightPx);
+    }
+    
+    // Column template
+    const plotTemplateColumns = userCellWidth !== null
+      ? `repeat(${columns}, ${userCellWidth}px)`
+      : layoutType === 'vertical'
+        ? `minmax(${minColumnPx}px, 1fr)`
+        : columnSizes && columnSizes.length > 0
+          ? columnSizes
+              .slice(0, columns)
+              .map((c) => (typeof c === 'number' ? `${c}px` : `minmax(${minColumnPx}px, 1fr)`))
+              .join(' ')
+          : `repeat(${columns}, minmax(${minColumnPx}px, 1fr))`;
+
+    // Total content width
+    let totalContentWidthPx: number;
+    if (userCellWidth !== null) {
+      totalContentWidthPx = columns * userCellWidth;
+    } else if (!columnSizes || columnSizes.length === 0) {
+      totalContentWidthPx = columns * minColumnPx;
+    } else {
+      let sum = 0;
+      for (let i = 0; i < Math.min(columns, columnSizes.length); i++) {
+        const c = columnSizes[i];
+        sum += typeof c === 'number' ? c : minColumnPx;
+      }
+      totalContentWidthPx = sum;
+    }
+
+    // Inferred row sizes
+    let inferredRowSizes: Array<number | 'fr'>;
+    if (userCellHeight !== null) {
+      inferredRowSizes = Array(rows).fill(userCellHeight);
+    } else {
+      const sizes: Array<number | 'fr'> = [];
+      for (let r = 0; r < rows; r++) {
+        const sample = spec.plots.find((p) => p.position?.row === r);
+        const h = (sample as any)?.options?.height;
+        sizes.push(typeof h === 'number' ? h : rowSizes && typeof rowSizes[r] === 'number' ? (rowSizes[r] as number) : calculatedRowHeightPx);
+      }
+      inferredRowSizes = sizes;
+    }
+
+    const plotRowsSpec = inferredRowSizes.map((h) => (typeof h === 'number' ? `${h}px` : `${calculatedRowHeightPx}px`)).join(' ');
+    const actualRowHeights: number[] = inferredRowSizes.map((h) => (typeof h === 'number' ? h : calculatedRowHeightPx));
+
+    // Facet label helpers
+    const colLevels = spec.facetLabels?.colsLevels || [];
+    const rowLevels = spec.facetLabels?.rowsLevels || [];
+    const hasRowFacets = rowLevels.length > 0;
+    const baseCols = spec.facetLabels?.spans?.baseCols || 1;
+    const baseRows = spec.facetLabels?.spans?.baseRows || 1;
+    const yLevelsCount = rowLevels.length;
+    const leftLabelsPx = hasRowFacets ? NAMES_BAND_LEFT_PX + VALUES_BAND_LEFT_PX * yLevelsCount : 0;
+
+    // Dynamic gutters
+    const dynamicYAxisPx = computeDynamicYAxisGutterPx(spec, rows);
+    const dynamicXAxisPx = computeDynamicXAxisGutterPx(spec, columns);
+    const yLabelColPx = computeDynamicYLabelColPx(spec, calculatedRowHeightPx);
+    const leftFixedWidthPx = leftLabelsPx + yLabelColPx + dynamicYAxisPx;
+    const topHeaderHeight = colLevels.length > 0 ? 20 + (colLevels.length * VALUES_BAND_TOP_PX) : 0;
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[ChartGrid] Layout calculations recomputed:', {
+        columns,
+        rows,
+        rowHeightPx: calculatedRowHeightPx,
+        plotRowsSpec,
+      });
+    }
+
+    return {
+      layoutType,
+      columns,
+      rows,
+      calculatedRowHeightPx,
+      plotTemplateColumns,
+      totalContentWidthPx,
+      inferredRowSizes,
+      plotRowsSpec,
+      actualRowHeights,
+      colLevels,
+      hasRowFacets,
+      baseCols,
+      baseRows,
+      leftLabelsPx,
+      dynamicYAxisPx,
+      dynamicXAxisPx,
+      yLabelColPx,
+      leftFixedWidthPx,
+      topHeaderHeight,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    spec?.plots,
+    spec?.layout,
+    spec?.facetLabels,
+    userCellWidth,
+    userCellHeight,
+    rowHeightPx,
+  ]);
+  
+  // Sync state with calculated height (for ResizeObserver to use as baseline)
+  // This effect runs after render, so it doesn't block the initial render with correct height
+  useEffect(() => {
+    if (layoutCalcs && layoutCalcs.calculatedRowHeightPx !== rowHeightPx) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[ChartGrid] Syncing state with calculated rowHeight:', rowHeightPx, '→', layoutCalcs.calculatedRowHeightPx);
+      }
+      setRowHeightPx(layoutCalcs.calculatedRowHeightPx);
+    }
+  }, [layoutCalcs, rowHeightPx]);
   
   // Handle null or missing spec
   if (!spec) {
@@ -378,84 +640,26 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
   }
 
   // Handle multi-plot scenarios (grid / horizontal / vertical)
-  if (spec.plots && spec.plots.length > 0) {
-    const layoutType = spec.layout?.type || 'grid';
-    const columns = spec.layout?.columns || 1;
-    const rows = spec.layout?.rows || 1;
-
-    // Build template tracks
-    const columnSizes = spec.layout?.columnSizes;
-    const rowSizes = spec.layout?.rowSizes;
-
-    const minColumnPx = MIN_GRID_COLUMN_PX; // minimum width; columns expand when there is space
-    
-    // Column template: use user override if set, otherwise use spec or automatic sizing
-    const plotTemplateColumns = userCellWidth !== null
-      ? `repeat(${columns}, ${userCellWidth}px)` // Uniform user-controlled sizing
-      : layoutType === 'vertical'
-        ? `minmax(${minColumnPx}px, 1fr)`
-        : columnSizes && columnSizes.length > 0
-          ? columnSizes
-              .slice(0, columns)
-              .map((c) => (typeof c === 'number' ? `${c}px` : `minmax(${minColumnPx}px, 1fr)`))
-              .join(' ')
-          : `repeat(${columns}, minmax(${minColumnPx}px, 1fr))`;
-
-    // Compute total content width from columnSizes (fallback to min width)
-    const totalContentWidthPx = (() => {
-      // User override takes precedence
-      if (userCellWidth !== null) return columns * userCellWidth;
-      
-      if (!columnSizes || columnSizes.length === 0) return columns * minColumnPx;
-      let sum = 0;
-      for (let i = 0; i < Math.min(columns, columnSizes.length); i++) {
-        const c = columnSizes[i];
-        sum += typeof c === 'number' ? c : minColumnPx;
-      }
-      return sum;
-    })();
-
-    // Rows spec to apply consistently across all stacked layers (plots, left labels, transparent sizing)
-    // User override takes precedence, then use explicit rowSizes, otherwise infer from samples or use automatic rowHeightPx
-    const inferredRowSizes: Array<number | 'fr'> = (() => {
-      // If user has set a height override, use that for all rows
-      if (userCellHeight !== null) {
-        return Array(rows).fill(userCellHeight);
-      }
-      
-      // Otherwise use the existing logic
-      const sizes: Array<number | 'fr'> = [];
-      for (let r = 0; r < rows; r++) {
-        const sample = (spec.plots || []).find((p) => p.position?.row === r);
-        const h = (sample as any)?.options?.height;
-        sizes.push(typeof h === 'number' ? h : rowSizes && typeof rowSizes[r] === 'number' ? (rowSizes[r] as number) : rowHeightPx);
-      }
-      return sizes;
-    })();
-
-    const plotRowsSpec = inferredRowSizes.map((h) => (typeof h === 'number' ? `${h}px` : `${rowHeightPx}px`)).join(' ');
-    const actualRowHeights: number[] = inferredRowSizes.map((h) => (typeof h === 'number' ? h : rowHeightPx));
-
-    // Helpers for hierarchical label rendering
-    const colLevels = spec.facetLabels?.colsLevels || [];
-    const rowLevels = spec.facetLabels?.rowsLevels || [];
-    const hasRowFacets = rowLevels.length > 0;
-
-    const baseCols = spec.facetLabels?.spans?.baseCols || 1;
-    const baseRows = spec.facetLabels?.spans?.baseRows || 1;
-
-    const yLevelsCount = rowLevels.length;
-    const leftLabelsPx = hasRowFacets ? NAMES_BAND_LEFT_PX + VALUES_BAND_LEFT_PX * yLevelsCount : 0;
-
-    // Dynamic gutters
-    const dynamicYAxisPx = computeDynamicYAxisGutterPx(spec, rows);
-    const dynamicXAxisPx = computeDynamicXAxisGutterPx(spec, columns);
-    const yLabelColPx = computeDynamicYLabelColPx(spec, rowHeightPx);
-    const leftFixedWidthPx = leftLabelsPx + yLabelColPx + dynamicYAxisPx;
-
-    // Calculate header height for proper alignment
-    const topHeaderHeight = colLevels.length > 0 ? 
-      20 + (colLevels.length * VALUES_BAND_TOP_PX) : 0; // Names band + value bands
+  if (layoutCalcs) {
+    const {
+      columns,
+      rows,
+      calculatedRowHeightPx,
+      plotTemplateColumns,
+      totalContentWidthPx,
+      plotRowsSpec,
+      actualRowHeights,
+      colLevels,
+      hasRowFacets,
+      baseCols,
+      baseRows,
+      leftLabelsPx,
+      dynamicYAxisPx,
+      dynamicXAxisPx,
+      yLabelColPx,
+      leftFixedWidthPx,
+      topHeaderHeight,
+    } = layoutCalcs;
 
     // Wheel routing: capture phase on container to detect pointer position
     const onWheelCapture: React.WheelEventHandler<HTMLDivElement> = (e) => {
