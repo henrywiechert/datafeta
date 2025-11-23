@@ -203,18 +203,39 @@ export interface QueryResult {
 // --- Optimization Types (Phase 1) ---
 
 /**
+ * Field-level optimization hint.
+ * Specifies optimization settings for a specific field based on its characteristics.
+ */
+export interface FieldOptimizationHint {
+    field: string;                      // Field name (column name)
+    enable_rounding: boolean;           // Apply rounding to this field
+    rounding_threshold?: number;        // Custom threshold for this field
+    enable_sampling: boolean;           // Apply sampling for this field (future)
+    sampling_rate?: number;             // Sampling rate (0.0 to 1.0)
+    reason: string;                     // Why this optimization (e.g., "continuous_dimension")
+}
+
+/**
  * Optimization hints sent from frontend to backend.
  * Frontend explicitly tells backend what optimizations to apply
- * based on chart type and user preferences.
+ * based on field characteristics and user preferences.
  */
 export interface OptimizationHints {
-    enable_distinct: boolean;          // Apply DISTINCT to remove duplicate pairs
-    enable_rounding: boolean;          // Apply rounding to continuous dimensions
-    enable_sampling: boolean;          // Apply sampling for large raw queries
-    enable_binning: boolean;           // Apply binning (future feature)
-    rounding_threshold?: number;       // Custom threshold for when to apply rounding
+    // NEW: Field-level hints (each field gets its own optimization config)
+    field_hints?: FieldOptimizationHint[];
+    
+    // Global optimizations (apply to entire query)
+    enable_global_distinct?: boolean;   // Apply DISTINCT to remove duplicate rows
+    
+    // DEPRECATED but kept for backward compatibility
+    enable_distinct?: boolean;          // Use enable_global_distinct instead
+    enable_rounding?: boolean;          // Use field_hints instead
+    enable_sampling?: boolean;          // Use field_hints instead
+    enable_binning?: boolean;           // Use field_hints instead
+    rounding_threshold?: number;        // Use field_hints instead
+    
     optimization_level: 'none' | 'light' | 'balanced' | 'aggressive';
-    purpose?: string;                  // Optional: describe why these hints (e.g., "scatter_plot")
+    purpose?: string;                   // Optional: describe why these hints
 }
 
 /**

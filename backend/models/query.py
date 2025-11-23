@@ -29,24 +29,43 @@ class OrderBy(BaseModel):
     field: str # Can be a dimension field or a measure alias
     direction: Literal['asc', 'desc'] = 'asc'
 
+class FieldOptimizationHint(BaseModel):
+    """
+    Field-level optimization hint.
+    Specifies optimization settings for a specific field based on its characteristics.
+    """
+    
+    field: str  # Field name (column name)
+    enable_rounding: bool = False  # Apply rounding to this field
+    rounding_threshold: Optional[int] = Field(None, ge=0)  # Custom threshold for this field
+    enable_sampling: bool = False  # Apply sampling for this field (future)
+    sampling_rate: Optional[float] = Field(None, ge=0.0, le=1.0)  # Sampling rate
+    reason: str  # Why this optimization (e.g., "continuous_dimension")
+
 class OptimizationHints(BaseModel):
     """
     Optimization hints provided by frontend to guide query optimization.
     
     These hints reflect the frontend's knowledge about:
-    - Chart type and visualization requirements
+    - Field characteristics (continuous/discrete, cardinality, data type)
     - User preferences for speed vs precision
     - Dataset size expectations
     - Context (preview vs final result)
     """
     
-    # Core optimization toggles
-    enable_distinct: Optional[bool] = None
-    enable_rounding: Optional[bool] = None
-    enable_sampling: Optional[bool] = None
-    enable_binning: Optional[bool] = None
+    # NEW: Field-level hints (each field gets its own optimization config)
+    field_hints: Optional[List[FieldOptimizationHint]] = None
     
-    # Thresholds and limits
+    # Global optimizations (apply to entire query)
+    enable_global_distinct: Optional[bool] = None  # Apply DISTINCT to remove duplicate rows
+    
+    # DEPRECATED but kept for backward compatibility
+    enable_distinct: Optional[bool] = None  # Use enable_global_distinct instead
+    enable_rounding: Optional[bool] = None  # Use field_hints instead
+    enable_sampling: Optional[bool] = None  # Use field_hints instead
+    enable_binning: Optional[bool] = None  # Use field_hints instead
+    
+    # Thresholds and limits (deprecated in favor of field-level settings)
     rounding_threshold: Optional[int] = Field(None, ge=0)
     max_result_size: Optional[int] = Field(None, ge=0)
     sampling_rate: Optional[float] = Field(None, ge=0.0, le=1.0)
@@ -58,8 +77,7 @@ class OptimizationHints(BaseModel):
     optimization_level: Optional[Literal['none', 'light', 'balanced', 'aggressive']] = None
     
     # Context information (for logging/debugging)
-    # Frontend sends chart-specific purpose values
-    purpose: Optional[str] = None  # e.g., 'scatter_plot_deduplication', 'bar_chart_aggregation', etc.
+    purpose: Optional[str] = None
     chart_context: Optional[Dict[str, Any]] = None
 
 class OptimizationOverride(BaseModel):

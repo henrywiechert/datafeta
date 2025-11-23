@@ -89,39 +89,82 @@ class StrategyPlanner:
             self._logger.info("Optimization level set to 'none' - skipping all optimizations")
             return strategies
 
-        if hints.enable_distinct:
-            self._logger.info("Hints request DISTINCT optimization")
+        # NEW: Process field-level hints if provided
+        if hints.field_hints:
+            self._logger.info(f"Processing {len(hints.field_hints)} field-level hints")
+            for field_hint in hints.field_hints:
+                field_name = field_hint.field
+                self._logger.info(
+                    f"Field '{field_name}': rounding={field_hint.enable_rounding}, "
+                    f"sampling={field_hint.enable_sampling}, reason={field_hint.reason}"
+                )
+
+                if field_hint.enable_rounding:
+                    if self._config.enable_adaptive_rounding:
+                        threshold = field_hint.rounding_threshold or self._config.rounding_threshold
+                        strategy = self._rounding_planner.plan_for_field(
+                            query_desc,
+                            field_name,
+                            threshold
+                        )
+                        if strategy:
+                            strategies.append(strategy)
+                            self._logger.info(f"Added rounding strategy for field '{field_name}'")
+                        else:
+                            self._logger.info(f"No rounding needed for field '{field_name}'")
+                    else:
+                        self._logger.warning(
+                            f"Rounding requested for field '{field_name}' but disabled in config"
+                        )
+
+                if field_hint.enable_sampling:
+                    self._logger.info(f"Sampling requested for field '{field_name}' (not yet implemented)")
+        
+        # Process global distinct (new field-aware flag)
+        if hints.enable_global_distinct:
+            self._logger.info("Hints request global DISTINCT optimization")
             if self._config.enable_distinct_pairs:
                 strategies.append(DistinctPairStrategy(self._db_type, estimator=self._estimator))
             else:
-                self._logger.warning("DISTINCT requested by hints but disabled in config")
+                self._logger.warning("Global DISTINCT requested by hints but disabled in config")
 
-        if hints.enable_rounding:
-            self._logger.info("Hints request rounding optimization")
-            if self._config.enable_adaptive_rounding:
-                threshold = hints.rounding_threshold or self._config.rounding_threshold
-                continuous_dims = [d for d in query_desc.dimensions if d.flavour == "continuous"]
+        # BACKWARD COMPATIBILITY: Handle old-style hints if no field_hints provided
+        if not hints.field_hints or len(hints.field_hints) == 0:
+            self._logger.info("No field-level hints provided, falling back to legacy hint processing")
+            
+            if hints.enable_distinct:
+                self._logger.info("Legacy hints request DISTINCT optimization")
+                if self._config.enable_distinct_pairs:
+                    strategies.append(DistinctPairStrategy(self._db_type, estimator=self._estimator))
+                else:
+                    self._logger.warning("DISTINCT requested by hints but disabled in config")
 
-                if len(continuous_dims) >= 2:
-                    strategies.extend(self._plan_multi_continuous(query_desc))
-                elif len(continuous_dims) == 1:
-                    rounding_strategy = self._rounding_planner.plan_single_dimension(query_desc, threshold)
-                    if rounding_strategy:
-                        strategies.append(rounding_strategy)
-            else:
-                self._logger.warning("Rounding requested by hints but disabled in config")
+            if hints.enable_rounding:
+                self._logger.info("Legacy hints request rounding optimization")
+                if self._config.enable_adaptive_rounding:
+                    threshold = hints.rounding_threshold or self._config.rounding_threshold
+                    continuous_dims = [d for d in query_desc.dimensions if d.flavour == "continuous"]
 
-        if hints.enable_sampling:
-            self._logger.info("Sampling requested but not yet implemented")
+                    if len(continuous_dims) >= 2:
+                        strategies.extend(self._plan_multi_continuous(query_desc))
+                    elif len(continuous_dims) == 1:
+                        rounding_strategy = self._rounding_planner.plan_single_dimension(query_desc, threshold)
+                        if rounding_strategy:
+                            strategies.append(rounding_strategy)
+                else:
+                    self._logger.warning("Rounding requested by hints but disabled in config")
 
-        if hints.enable_binning:
-            self._logger.info("Binning requested via hints")
-            if self._config.enable_adaptive_rounding:
-                strategy = self._rounding_planner.plan_binning(query_desc, threshold=self._config.rounding_threshold)
-                if strategy:
-                    strategies.append(strategy)
-            else:
-                self._logger.warning("Binning requested by hints but adaptive rounding disabled in config")
+            if hints.enable_sampling:
+                self._logger.info("Sampling requested but not yet implemented")
+
+            if hints.enable_binning:
+                self._logger.info("Binning requested via hints")
+                if self._config.enable_adaptive_rounding:
+                    strategy = self._rounding_planner.plan_binning(query_desc, threshold=self._config.rounding_threshold)
+                    if strategy:
+                        strategies.append(strategy)
+                else:
+                    self._logger.warning("Binning requested by hints but adaptive rounding disabled in config")
 
         return strategies
 
