@@ -74,47 +74,92 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options }) => {
   }, []);
 
   useEffect(() => {
-    if (containerRef.current) {
-      // Determine final plot dimensions, prioritizing explicit options over observed dimensions.
-      const observedWidth = dimensions.width;
-      const observedHeight = dimensions.height;
-      const finalWidth = options.width !== undefined ? options.width : (observedWidth > 0 ? observedWidth : 400);
-      const finalHeight = options.height !== undefined ? options.height : (observedHeight > 0 ? observedHeight : 300);
+    if (!containerRef.current) return;
+    
+    // Determine final plot dimensions, prioritizing explicit options over observed dimensions.
+    const observedWidth = dimensions.width;
+    const observedHeight = dimensions.height;
+    const finalWidth = options.width !== undefined ? options.width : (observedWidth > 0 ? observedWidth : 400);
+    const finalHeight = options.height !== undefined ? options.height : (observedHeight > 0 ? observedHeight : 300);
 
-
-
-      // Only render if we have valid dimensions to prevent errors.
-      if (finalWidth > 0 && finalHeight > 0) {
-        // IMPORTANT: Hide tooltip before clearing DOM to prevent stuck tooltips
-        hideTooltip();
-        
-        // Clean up any existing event listeners from previous render
-        cleanupFunctionsRef.current.forEach(cleanup => cleanup());
-        cleanupFunctionsRef.current = [];
-        
-        const newOptions = {
-          ...options,
-          width: finalWidth,
-          height: finalHeight,
-          // Avoid clipping of tooltips beyond the plot frame
-          style: { ...(options as any).style, overflow: 'visible' } as any,
-        } as Plot.PlotOptions;
-
-        try {
-          const plot = Plot.plot(newOptions);
-          
-          containerRef.current.innerHTML = '';
-          containerRef.current.appendChild(plot);
-
-          // Add custom tooltip event listeners if configured
-          const customTooltipConfig = options.__customTooltip;
-          if (customTooltipConfig?.enabled) {
-            const cleanup = addTooltipListeners(plot, customTooltipConfig, showTooltip, hideTooltip, updatePosition);
-            cleanupFunctionsRef.current.push(cleanup);
+    // Debug logging
+    if (process.env.NODE_ENV === 'development') {
+      const marks = options.marks as any[];
+      const marksCount = marks?.length ?? 0;
+      
+      // Try to extract data info from marks
+      let dataInfo = 'unknown';
+      let dataSnapshot = null;
+      if (marks && marks.length > 0) {
+        const firstMark = marks[0];
+        if (firstMark?.data) {
+          const data = firstMark.data;
+          if (Array.isArray(data)) {
+            dataInfo = `${data.length} rows`;
+            // Take first few rows as snapshot for debugging
+            dataSnapshot = data.slice(0, 3);
+          } else {
+            dataInfo = typeof data;
           }
-        } catch (error) {
-          console.error('ObservablePlot - Error creating plot:', error);
         }
+      }
+      
+      console.log('[ObservablePlot] Rendering plot:', {
+        width: finalWidth,
+        height: finalHeight,
+        marksCount,
+        dataInfo,
+        dataSnapshot,
+        hasX: !!(options as any).x,
+        hasY: !!(options as any).y,
+        hasColor: !!(options as any).color,
+        optionsKeys: Object.keys(options).filter(k => !['width', 'height', 'style', '__customTooltip'].includes(k)),
+      });
+    }
+
+    // Only render if we have valid dimensions to prevent errors.
+    if (finalWidth > 0 && finalHeight > 0) {
+      // IMPORTANT: Hide tooltip before clearing DOM to prevent stuck tooltips
+      hideTooltip();
+      
+      // Clean up any existing event listeners from previous render
+      cleanupFunctionsRef.current.forEach(cleanup => cleanup());
+      cleanupFunctionsRef.current = [];
+      
+      // Create fresh options object with final dimensions
+      // CRITICAL: Spread options to ensure Observable Plot doesn't use cached results
+      const newOptions = {
+        ...options,
+        width: finalWidth,
+        height: finalHeight,
+        // Avoid clipping of tooltips beyond the plot frame
+        style: { ...(options as any).style, overflow: 'visible' } as any,
+      } as Plot.PlotOptions;
+
+      try {
+        // Force Observable Plot to create fresh plot (no caching)
+        const plot = Plot.plot(newOptions);
+        
+        // Use replaceChildren for better performance than innerHTML
+        // This is a single synchronous operation that's faster for the browser to process
+        containerRef.current.replaceChildren(plot);
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[ObservablePlot] Plot rendered successfully');
+        }
+
+        // Add custom tooltip event listeners if configured
+        const customTooltipConfig = options.__customTooltip;
+        if (customTooltipConfig?.enabled) {
+          const cleanup = addTooltipListeners(plot, customTooltipConfig, showTooltip, hideTooltip, updatePosition);
+          cleanupFunctionsRef.current.push(cleanup);
+        }
+      } catch (error) {
+        console.error('ObservablePlot - Error creating plot:', error);
+      }
+    } else {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[ObservablePlot] Skipping render - invalid dimensions:', { finalWidth, finalHeight });
       }
     }
     
@@ -294,4 +339,32 @@ function addTooltipListeners(
   };
 }
 
-export default ObservablePlot; 
+// Memoize to prevent re-renders when options haven't changed
+// CONSERVATIVE: Only skip render if options reference is identical
+// This preserves performance for stable references while ensuring updates aren't missed
+export default React.memo(ObservablePlot, (prevProps, nextProps) => {
+  // Only skip if exact same object reference
+  // Any new options object will trigger re-render
+  const shouldSkip = prevProps.options === nextProps.options;
+  
+  // Debug logging (remove in production if needed)
+  if (process.env.NODE_ENV === 'development' && !shouldSkip) {
+    const prevOpts = prevProps.options as any;
+    const nextOpts = nextProps.options as any;
+    
+    // Log what changed for debugging
+    const changes: string[] = [];
+    const allKeys = new Set([...Object.keys(prevOpts), ...Object.keys(nextOpts)]);
+    allKeys.forEach(key => {
+      if (prevOpts[key] !== nextOpts[key]) {
+        changes.push(key);
+      }
+    });
+    
+    if (changes.length > 0 && changes.length < 10) {
+      console.log('[ObservablePlot] Re-rendering due to changes in:', changes);
+    }
+  }
+  
+  return shouldSkip;
+}); 

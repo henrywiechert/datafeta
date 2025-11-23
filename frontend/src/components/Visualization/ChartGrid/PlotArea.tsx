@@ -57,6 +57,17 @@ const PlotArea: React.FC<PlotAreaProps> = ({
   plotRowsSpec,
   totalContentWidthPx,
 }) => {
+  // Debug logging for render
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[PlotArea] Rendering with:', {
+      plotsCount: spec.plots?.length ?? 0,
+      plotIds: spec.plots?.map(p => p.id).join(', '),
+      hasFacets: !!spec.facetLabels,
+      columns: spec.layout?.columns,
+      rows: spec.layout?.rows,
+    });
+  }
+  
   return (
     <div style={{ gridColumn: 1, gridRow: spec.facetLabels ? 2 : 1, overflow: 'hidden', position: 'relative' }}>
       <div
@@ -75,6 +86,7 @@ const PlotArea: React.FC<PlotAreaProps> = ({
         }}
       >
         {(spec.plots || []).map((plot: { id: string, position?: { row: number, col: number }, options: Plot.PlotOptions }, index: number) => {
+          // Use plot.id as base key
           const key = plot.id || String(index);
           const pos = plot.position;
           const gridItemStyle: React.CSSProperties | undefined = pos
@@ -86,10 +98,13 @@ const PlotArea: React.FC<PlotAreaProps> = ({
               }
             : undefined;
           const opts = suppressAxes(plot.options, true, true);
+          
+          // CRITICAL: Pass key directly to ObservablePlot to force re-mount on data changes
+          // The key prop isn't officially on ObservablePlot but React uses it for reconciliation
           return (
             <div key={key} className={styles.plotWrapper} style={gridItemStyle}>
               <div className={styles.observablePlotContainer}>
-                <ObservablePlot options={opts} />
+                <ObservablePlot key={key} options={opts} />
               </div>
             </div>
           );
@@ -99,4 +114,49 @@ const PlotArea: React.FC<PlotAreaProps> = ({
   );
 };
 
-export default PlotArea;
+// Memoize to prevent re-renders when props haven't changed
+// CONSERVATIVE: Be more lenient to avoid missing updates
+export default React.memo(PlotArea, (prevProps, nextProps) => {
+  // Compare primitive props
+  if (
+    prevProps.plotTemplateColumns !== nextProps.plotTemplateColumns ||
+    prevProps.plotRowsSpec !== nextProps.plotRowsSpec ||
+    prevProps.totalContentWidthPx !== nextProps.totalContentWidthPx
+  ) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[PlotArea] Re-rendering: layout props changed');
+    }
+    return false;
+  }
+  
+  // Compare spec.plots reference - if different, always re-render
+  // This is conservative but ensures we don't miss updates
+  if (prevProps.spec.plots !== nextProps.spec.plots) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[PlotArea] Re-rendering: plots array changed');
+    }
+    return false;
+  }
+  
+  // If facetLabels reference changed, re-render
+  if (prevProps.spec.facetLabels !== nextProps.spec.facetLabels) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[PlotArea] Re-rendering: facetLabels changed');
+    }
+    return false;
+  }
+  
+  // If layout reference changed, re-render
+  if (prevProps.spec.layout !== nextProps.spec.layout) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[PlotArea] Re-rendering: layout changed');
+    }
+    return false;
+  }
+  
+  // All references are stable, skip re-render
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[PlotArea] Skipping re-render: all props stable');
+  }
+  return true;
+});

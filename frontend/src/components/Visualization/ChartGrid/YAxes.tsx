@@ -68,4 +68,50 @@ const YAxes: React.FC<YAxesProps> = ({ spec, rows, dynamicYAxisPx, rowHeights, h
   );
 };
 
-export default YAxes;
+// Memoize to prevent re-renders when props haven't changed
+// CONSERVATIVE: Check reference equality, re-render if changes detected
+export default React.memo(YAxes, (prevProps, nextProps) => {
+  // Check primitive props
+  if (
+    prevProps.rows !== nextProps.rows ||
+    prevProps.dynamicYAxisPx !== nextProps.dynamicYAxisPx ||
+    prevProps.hasRowFacets !== nextProps.hasRowFacets
+  ) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[YAxes] Re-rendering: primitive props changed');
+    }
+    return false;
+  }
+  
+  // Check rowHeights array reference first (most common case)
+  if (prevProps.rowHeights !== nextProps.rowHeights) {
+    // If reference changed, check if values actually differ
+    if (prevProps.rowHeights.length !== nextProps.rowHeights.length) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[YAxes] Re-rendering: rowHeights length changed');
+      }
+      return false;
+    }
+    for (let i = 0; i < prevProps.rowHeights.length; i++) {
+      if (prevProps.rowHeights[i] !== nextProps.rowHeights[i]) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[YAxes] Re-rendering: rowHeights values changed');
+        }
+        return false;
+      }
+    }
+  }
+  
+  // Check spec.plots reference
+  if (prevProps.spec.plots !== nextProps.spec.plots) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[YAxes] Re-rendering: plots changed');
+    }
+    return false;
+  }
+  
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[YAxes] Skipping re-render');
+  }
+  return true;
+});

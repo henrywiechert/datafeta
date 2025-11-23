@@ -234,6 +234,11 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
 
   // Keep the plots grid in the horizontal layer visually in sync with the
   // vertical scroller by translating it opposite to the vertical scroll offset.
+  // NOTE: We need to re-attach when the DOM structure changes (multi-plot scenarios)
+  // but we avoid depending on the full spec object to prevent unnecessary re-runs
+  const plotsCount = spec?.plots?.length ?? 0;
+  const hasMultiPlot = plotsCount > 1;
+  
   useEffect(() => {
     const scroller = vScrollRef.current;
     const target = plotsTranslateRef.current;
@@ -249,9 +254,10 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     onScroll();
     scroller.addEventListener('scroll', onScroll, { passive: true } as any);
     return () => scroller.removeEventListener('scroll', onScroll as any);
-  }, [spec]);
+  }, [hasMultiPlot]); // Re-attach when plot structure changes, not on every spec change
 
   // Track horizontal scroll so column resize handles track the visible gridlines.
+  // NOTE: Re-attach when plot structure changes to handle DOM recreation
   useEffect(() => {
     const scroller = hScrollRef.current;
     if (!scroller) return;
@@ -266,10 +272,11 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
     onScroll();
     scroller.addEventListener('scroll', onScroll, { passive: true } as any);
     return () => scroller.removeEventListener('scroll', onScroll as any);
-  }, [spec]);
+  }, [hasMultiPlot]); // Re-attach when plot structure changes, not on every spec change
 
   // Dynamically size row height globally (not conditionally in the grid branch)
   // Ensure the scroller is mounted and measured before computing, and keep it updated
+  // NOTE: Only depends on rowsForSizing, not full spec, to avoid unnecessary reinitializations
   useEffect(() => {
     let rafId = 0;
     let updateRafId: number | null = null;
@@ -318,9 +325,10 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
       if (ro) ro.disconnect();
       window.removeEventListener('resize', scheduleUpdate);
     };
-  }, [rowsForSizing, spec]);
+  }, [rowsForSizing]); // Only rowsForSizing, not spec - avoids teardown on every spec change
 
   // Track container dimensions for resize overlay
+  // NOTE: No spec dependency needed - container size tracking is independent of spec changes
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -358,7 +366,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
         cancelAnimationFrame(rafId);
       }
     };
-  }, [spec]);
+  }, []); // Empty deps - container size tracking is independent of spec
   
   // Handle null or missing spec
   if (!spec) {
