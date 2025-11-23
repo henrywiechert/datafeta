@@ -9,7 +9,7 @@ import { useVisualizationContext } from '../../../../contexts/VisualizationConte
  * - Red when last query failed
  * - Grey when no query was run yet
  */
-const QueryStatusIndicator: React.FC<{ size?: number }> = ({ size = 12 }) => {
+const QueryStatusIndicator: React.FC<{ size?: number; onClick?: () => void }> = ({ size = 12, onClick }) => {
   const { state } = useVisualizationContext();
   const { queryResult, queryError } = state as any;
 
@@ -34,7 +34,15 @@ const QueryStatusIndicator: React.FC<{ size?: number }> = ({ size = 12 }) => {
 
   return (
     <Tooltip title={title} arrow>
-      <Box sx={{ display: 'flex', alignItems: 'center', ml: 0.5 }}>
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          ml: 0.5,
+          cursor: onClick ? 'pointer' : 'default',
+        }}
+        onClick={onClick}
+      >
         <Typography
           data-testid="query-status-indicator"
           aria-label={`Query status: ${status}`}
@@ -52,6 +60,10 @@ const QueryStatusIndicator: React.FC<{ size?: number }> = ({ size = 12 }) => {
             ariaLive: 'polite',
             display: 'inline-block',
             textTransform: 'none',
+            transition: 'opacity 0.2s',
+            '&:hover': onClick ? {
+              opacity: 0.8,
+            } : {},
           }}
         >
           Query

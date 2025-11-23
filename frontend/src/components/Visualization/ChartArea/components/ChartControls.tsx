@@ -1,6 +1,5 @@
 import React from 'react';
-import { Box, IconButton, Typography, Tooltip } from '@mui/material';
-import BugReportIcon from '@mui/icons-material/BugReport';
+import { Box, IconButton, Tooltip } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
@@ -128,24 +127,9 @@ const ChartControls: React.FC<ChartControlsProps> = ({
         )}
       </Box>
 
-      {/* Right side - Debug button */}
+      {/* Right side - Query status indicator (clickable to toggle debug) */}
       <Box sx={{ display: 'flex', alignItems: 'center' }}>
-        {/* Last query status indicator */}
-        <QueryStatusIndicator />
-        <IconButton 
-          onClick={onToggleDebug}
-          size="small"
-          color={isDebugOpen ? 'primary' : 'default'}
-          sx={{ 
-            backgroundColor: isDebugOpen ? 'primary.50' : 'transparent',
-            '&:hover': {
-              backgroundColor: isDebugOpen ? 'primary.100' : 'action.hover',
-            }
-          }}
-        >
-          <BugReportIcon fontSize="small" />
-          {isDebugOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-        </IconButton>
+        <QueryStatusIndicator onClick={onToggleDebug} />
       </Box>
     </Box>
   );
