@@ -150,6 +150,9 @@ export function generateOptimizationHints(options: {
     // (Measures don't currently need field-level optimization hints)
     const fieldHints: FieldOptimizationHint[] = [];
     
+    console.log(`📊 Analyzing ${dimensions.length} dimensions for optimization:`, 
+        dimensions.map(d => ({ field: d.field, flavour: d.flavour, date_mode: d.date_mode })));
+    
     for (const dim of dimensions) {
         const hint = generateFieldOptimizationHint(
             {
@@ -162,11 +165,15 @@ export function generateOptimizationHints(options: {
             optimizationLevel
         );
         
+        console.log(`  Field '${dim.field}': rounding=${hint.enable_rounding}, sampling=${hint.enable_sampling}, reason=${hint.reason}`);
+        
         // Only include hints that actually enable some optimization
         if (hint.enable_rounding || hint.enable_sampling) {
             fieldHints.push(hint);
         }
     }
+    
+    console.log(`✅ Generated ${fieldHints.length} field hints from ${dimensions.length} dimensions`);
     
     // Determine if global DISTINCT should be applied
     const enableGlobalDistinct = shouldEnableGlobalDistinct(measures);

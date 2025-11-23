@@ -177,10 +177,18 @@ export const useQueryExecution = ({
   const optimizationHints = useMemo((): OptimizationHints | null => {
     // Generate hints if we have fields
     if (xAxisFields.length === 0 && yAxisFields.length === 0) {
+      console.log('⚠️ No fields present, skipping optimization hints generation');
       return null;
     }
 
     try {
+      console.log('🔧 Generating optimization hints for fields:', {
+        xFields: xAxisFields.map(f => ({ name: f.columnName, type: f.type, flavour: f.flavour })),
+        yFields: yAxisFields.map(f => ({ name: f.columnName, type: f.type, flavour: f.flavour })),
+        color: colorField?.columnName,
+        size: sizeField?.columnName
+      });
+      
       const hints = generateOptimizationHintsFromFields({
         xAxisFields,
         yAxisFields,
@@ -189,9 +197,15 @@ export const useQueryExecution = ({
         userPreference: 'auto', // Could be made configurable via user settings
       });
       
+      console.log('✅ Generated hints:', {
+        field_hints: hints.field_hints?.length || 0,
+        enable_global_distinct: hints.enable_global_distinct,
+        level: hints.optimization_level
+      });
+      
       return hints;
     } catch (error) {
-      console.warn('Failed to generate optimization hints:', error);
+      console.error('❌ Failed to generate optimization hints:', error);
       return null;
     }
   }, [xAxisFields, yAxisFields, colorField, sizeField]);
@@ -287,6 +301,13 @@ export const useQueryExecution = ({
     // Include optimization hints in the query description
     if (queryDesc && optimizationHints) {
       queryDesc.optimization_hints = optimizationHints;
+      console.log('✅ Attached optimization hints to query:', {
+        field_hints_count: optimizationHints.field_hints?.length || 0,
+        enable_global_distinct: optimizationHints.enable_global_distinct,
+        optimization_level: optimizationHints.optimization_level
+      });
+    } else if (queryDesc && !optimizationHints) {
+      console.log('⚠️ No optimization hints generated for this query');
     }
 
     return queryDesc;
