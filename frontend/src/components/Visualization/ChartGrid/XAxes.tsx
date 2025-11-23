@@ -132,19 +132,13 @@ const XAxes: React.FC<XAxesProps> = ({
 // Memoize to prevent re-renders when props haven't changed
 // CONSERVATIVE: Check reference equality, re-render if any key reference changes
 export default React.memo(XAxes, (prevProps, nextProps) => {
-  const shouldSkip = (
+  return (
     prevProps.columns === nextProps.columns &&
     prevProps.plotTemplateColumns === nextProps.plotTemplateColumns &&
     prevProps.totalContentWidthPx === nextProps.totalContentWidthPx &&
     prevProps.dynamicXAxisPx === nextProps.dynamicXAxisPx &&
     prevProps.spec.plots === nextProps.spec.plots &&
-    prevProps.spec.facetLabels === nextProps.spec.facetLabels && // Reference check, not boolean
+    prevProps.spec.facetLabels === nextProps.spec.facetLabels &&
     prevProps.spec.layout === nextProps.spec.layout
   );
-  
-  if (process.env.NODE_ENV === 'development' && !shouldSkip) {
-    console.log('[XAxes] Re-rendering');
-  }
-  
-  return shouldSkip;
 });

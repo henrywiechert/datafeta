@@ -82,40 +82,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options }) => {
     const finalWidth = options.width !== undefined ? options.width : (observedWidth > 0 ? observedWidth : 400);
     const finalHeight = options.height !== undefined ? options.height : (observedHeight > 0 ? observedHeight : 300);
 
-    // Debug logging
-    if (process.env.NODE_ENV === 'development') {
-      const marks = options.marks as any[];
-      const marksCount = marks?.length ?? 0;
-      
-      // Try to extract data info from marks
-      let dataInfo = 'unknown';
-      let dataSnapshot = null;
-      if (marks && marks.length > 0) {
-        const firstMark = marks[0];
-        if (firstMark?.data) {
-          const data = firstMark.data;
-          if (Array.isArray(data)) {
-            dataInfo = `${data.length} rows`;
-            // Take first few rows as snapshot for debugging
-            dataSnapshot = data.slice(0, 3);
-          } else {
-            dataInfo = typeof data;
-          }
-        }
-      }
-      
-      console.log('[ObservablePlot] Rendering plot:', {
-        width: finalWidth,
-        height: finalHeight,
-        marksCount,
-        dataInfo,
-        dataSnapshot,
-        hasX: !!(options as any).x,
-        hasY: !!(options as any).y,
-        hasColor: !!(options as any).color,
-        optionsKeys: Object.keys(options).filter(k => !['width', 'height', 'style', '__customTooltip'].includes(k)),
-      });
-    }
+    // Debug logging disabled for performance with large faceted grids
 
     // Only render if we have valid dimensions to prevent errors.
     if (finalWidth > 0 && finalHeight > 0) {
@@ -144,9 +111,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options }) => {
         // This is a single synchronous operation that's faster for the browser to process
         containerRef.current.replaceChildren(plot);
 
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[ObservablePlot] Plot rendered successfully');
-        }
+        // Success - no log needed to reduce console spam
 
         // Add custom tooltip event listeners if configured
         const customTooltipConfig = options.__customTooltip;
@@ -345,26 +310,5 @@ function addTooltipListeners(
 export default React.memo(ObservablePlot, (prevProps, nextProps) => {
   // Only skip if exact same object reference
   // Any new options object will trigger re-render
-  const shouldSkip = prevProps.options === nextProps.options;
-  
-  // Debug logging (remove in production if needed)
-  if (process.env.NODE_ENV === 'development' && !shouldSkip) {
-    const prevOpts = prevProps.options as any;
-    const nextOpts = nextProps.options as any;
-    
-    // Log what changed for debugging
-    const changes: string[] = [];
-    const allKeys = new Set([...Object.keys(prevOpts), ...Object.keys(nextOpts)]);
-    allKeys.forEach(key => {
-      if (prevOpts[key] !== nextOpts[key]) {
-        changes.push(key);
-      }
-    });
-    
-    if (changes.length > 0 && changes.length < 10) {
-      console.log('[ObservablePlot] Re-rendering due to changes in:', changes);
-    }
-  }
-  
-  return shouldSkip;
+  return prevProps.options === nextProps.options;
 }); 
