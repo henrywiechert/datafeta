@@ -47,10 +47,24 @@ class SelectClauseBuilder:
 
         if query_desc.dimensions:
             for dim in query_desc.dimensions:
-                # Skip source tracking columns - they are handled by union query builder
-                if dim.field in ("_source_database", "_source_table"):
-                    if not query_desc.virtual_table or query_desc.virtual_table.mode != "union":
-                        logger.warning(f"{dim.field} used in non-UNION query, skipping")
+                # Handle source tracking columns as literals for single-table queries
+                # (UnionQueryBuilder handles these differently for union mode)
+                if dim.field == "_source_database":
+                    # Add as literal value
+                    from pypika.terms import ValueWrapper
+                    database_value = query_desc.target_database or ''
+                    field_term = ValueWrapper(database_value).as_(dim.field)
+                    select_fields.append(field_term)
+                    all_aliases.add(dim.field)
+                    continue
+                
+                if dim.field == "_source_table":
+                    # Add as literal value
+                    from pypika.terms import ValueWrapper
+                    table_value = query_desc.target_table
+                    field_term = ValueWrapper(table_value).as_(dim.field)
+                    select_fields.append(field_term)
+                    all_aliases.add(dim.field)
                     continue
 
                 field_term = self._parse_field_reference(dim.field, table_map, default_table)

@@ -85,19 +85,19 @@ class CardinalityService:
         return self._execute_count_query(sql, field)
     
     def _count_source_tables(self, union_tables: Optional[str]) -> int:
-        """Count the number of tables in a UNION query."""
+        """Count the number of tables (single table or UNION query)."""
         if union_tables:
             union_table_list = [t.strip() for t in union_tables.split(',') if t.strip()]
             count = 1 + len(union_table_list)  # primary + union tables
             logger.info(f"_source_table distinct count: {count} tables")
             return count
         else:
-            # _source_table shouldn't be queried for single tables
-            logger.warning("_source_table requested for single table (should not happen)")
-            return 0
+            # Single table case - always return 1
+            logger.info("_source_table distinct count: 1 (single table)")
+            return 1
     
     def _count_source_databases(self, union_tables: Optional[str]) -> int:
-        """Count the number of unique databases in a UNION query."""
+        """Count the number of unique databases (single table or UNION query)."""
         if union_tables:
             # Parse union_tables which may be in format "db1.table1,db2.table2,..."
             # or could be structured data passed through
@@ -111,8 +111,9 @@ class CardinalityService:
             logger.info(f"_source_database distinct count: {count} databases")
             return count
         else:
-            logger.warning("_source_database requested for single table (should not happen)")
-            return 1  # Single database by default
+            # Single table case - always return 1
+            logger.info("_source_database distinct count: 1 (single table)")
+            return 1
     
     def _build_count_query(
         self,
