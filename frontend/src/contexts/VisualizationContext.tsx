@@ -149,7 +149,9 @@ type VisualizationAction =
       virtualColumns: VirtualColumnDefinition[];
       virtualColumnFieldPreferences: Record<string, { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }>;
       fieldOverrides: Record<string, FieldOverrideState>;
-    } };
+    } }
+  // Multi-table actions (joins/unions)
+  | { type: 'TABLE_JOINS_UNIONS_MODIFIED' };
 
 // Initial state
 const initialState: VisualizationState = {
@@ -661,6 +663,9 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
       };
     case 'RESET_STATE':
       return initialState;
+    case 'TABLE_JOINS_UNIONS_MODIFIED':
+      // When joins or unions are modified, increment query version to trigger re-execution
+      return { ...state, queryVersion: state.queryVersion + 1 };
     default:
       return state;
   }
