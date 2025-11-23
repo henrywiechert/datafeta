@@ -15,7 +15,7 @@ interface FacetLabelsProps {
   baseRows: number;
 }
 
-export const TopFacetLabels: React.FC<Pick<FacetLabelsProps, 'spec' | 'plotTemplateColumns' | 'baseCols'>> = ({
+const TopFacetLabelsComponent: React.FC<Pick<FacetLabelsProps, 'spec' | 'plotTemplateColumns' | 'baseCols'>> = ({
   spec,
   plotTemplateColumns,
   baseCols,
@@ -84,7 +84,24 @@ export const TopFacetLabels: React.FC<Pick<FacetLabelsProps, 'spec' | 'plotTempl
   );
 };
 
-export const LeftFacetLabels: React.FC<Pick<FacetLabelsProps, 'spec' | 'plotRowsSpec' | 'baseRows'>> = ({
+// Memoize to prevent re-renders when props haven't changed
+// CONSERVATIVE: Only check reference equality
+export const TopFacetLabels = React.memo(TopFacetLabelsComponent, (prevProps, nextProps) => {
+  const shouldSkip = (
+    prevProps.plotTemplateColumns === nextProps.plotTemplateColumns &&
+    prevProps.baseCols === nextProps.baseCols &&
+    prevProps.spec.facetLabels === nextProps.spec.facetLabels &&
+    prevProps.spec.layout === nextProps.spec.layout
+  );
+  
+  if (process.env.NODE_ENV === 'development' && !shouldSkip) {
+    console.log('[TopFacetLabels] Re-rendering');
+  }
+  
+  return shouldSkip;
+});
+
+const LeftFacetLabelsComponent: React.FC<Pick<FacetLabelsProps, 'spec' | 'plotRowsSpec' | 'baseRows'>> = ({
   spec,
   plotRowsSpec,
   baseRows,
@@ -181,3 +198,20 @@ export const LeftFacetLabels: React.FC<Pick<FacetLabelsProps, 'spec' | 'plotRows
     </div>
   );
 };
+
+// Memoize to prevent re-renders when props haven't changed
+// CONSERVATIVE: Only check reference equality
+export const LeftFacetLabels = React.memo(LeftFacetLabelsComponent, (prevProps, nextProps) => {
+  const shouldSkip = (
+    prevProps.plotRowsSpec === nextProps.plotRowsSpec &&
+    prevProps.baseRows === nextProps.baseRows &&
+    prevProps.spec.facetLabels === nextProps.spec.facetLabels &&
+    prevProps.spec.layout === nextProps.spec.layout
+  );
+  
+  if (process.env.NODE_ENV === 'development' && !shouldSkip) {
+    console.log('[LeftFacetLabels] Re-rendering');
+  }
+  
+  return shouldSkip;
+});
