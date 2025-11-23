@@ -94,12 +94,14 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
     availableFields
       .filter(field => field.type === 'dimension')
       .filter(filterBySearch)
+      .sort((a, b) => a.columnName.localeCompare(b.columnName))
   ), [availableFields, filterBySearch]);
 
   const filteredMeasures = useMemo(() => (
     availableFields
       .filter(field => field.type === 'measure')
       .filter(filterBySearch)
+      .sort((a, b) => a.columnName.localeCompare(b.columnName))
   ), [availableFields, filterBySearch]);
 
   return (
