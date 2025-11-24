@@ -163,6 +163,12 @@ class SelectClauseBuilder:
                     measure.field, field_term, query_desc.column_casts
                 )
 
+                # For ClickHouse COUNT() with dotted field names, use single quotes
+                # Other aggregations (SUM, AVG, etc.) use normal backtick quoting
+                if db_type == "clickhouse" and measure.aggregation == "count" and '.' in measure.field:
+                    from backend.services.query_components.terms import LiteralColumnName
+                    field_term = LiteralColumnName(measure.field)
+
                 agg_term = agg_func_builder(field_term)
 
                 if db_type != "clickhouse" and measure.aggregation in ["avg", "sum"]:
