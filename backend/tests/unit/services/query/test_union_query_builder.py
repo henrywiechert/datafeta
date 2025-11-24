@@ -120,3 +120,36 @@ def test_file_connector_empty_database():
     # PyPika may format empty string as '' or ""
     assert ("''" in query_sql or '""' in query_sql)  # Empty database
     assert "'uploaded_file'" in query_sql  # Table name
+
+
+def test_union_query_with_qualified_table_names():
+    """Test that union queries correctly handle qualified database.table names."""
+    query_description = QueryDescription(
+        target_table="sales_2023",
+        target_database="analytics",
+        dimensions=[
+            Dimension(field="_source_database", flavour="discrete"),
+            Dimension(field="_source_table", flavour="discrete")
+        ],
+        virtual_table=VirtualTableDefinition(
+            primary_table="sales_2023",
+            mode="union",
+            # Simulating frontend sending qualified names like "other_db.sales_2024"
+            union_tables=[UnionTableDefinition(table_name="other_db.sales_2024")],
+        ),
+    )
+
+    query_sql, metadata = QueryService().translate_to_sql(
+        query_description,
+        table_name="sales_2023",
+        db_type="clickhouse",
+        with_optimization=False,
+    )
+
+    # Should properly parse and quote the qualified table name
+    assert "`other_db`.`sales_2024`" in query_sql
+    # Should show correct source values
+    assert "'other_db'" in query_sql  # _source_database for union table
+    assert "'sales_2024'" in query_sql  # _source_table for union table
+    assert "'analytics'" in query_sql  # _source_database for primary table
+    assert "'sales_2023'" in query_sql  # _source_table for primary table
