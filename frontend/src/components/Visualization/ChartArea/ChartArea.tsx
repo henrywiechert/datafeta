@@ -1,8 +1,9 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useEffect, useLayoutEffect } from 'react';
 import styles from '../ChartArea.module.css';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { useDataSource } from '../../../contexts/DataSourceContext';
 import { useUndoRedo } from '../../../hooks/useUndoRedo';
+import { useRenderingCoordinator } from '../../../hooks/useRenderingCoordinator';
 import { useChartGeneration, useQueryExecution, useDataProcessing, useDebugView, useFullscreen } from './hooks';
 import { ChartRenderer, ChartControls, DebugPanel } from './components';
 
@@ -16,6 +17,7 @@ const ChartArea: React.FC = () => {
   const { state, dispatch, startOperation, completeOperation, getUndoableSnapshot } = useVisualizationContext();
   const { recordAction, undo, completeUndo, redo, completeRedo, canUndo, canRedo } = useUndoRedo();
   const { dataSource } = useDataSource();
+  const renderingCoordinator = useRenderingCoordinator();
   const {
     xAxisFields,
     yAxisFields,
@@ -203,6 +205,54 @@ const ChartArea: React.FC = () => {
     optimizationHints,
   };
 
+  // Set up rendering tracking when spec changes
+  // CRITICAL: Use useLayoutEffect instead of useEffect to ensure this runs
+  // synchronously BEFORE child component effects (like ObservablePlot rendering).
+  // This prevents race conditions where plots render before the batch is set up.
+  useLayoutEffect(() => {
+    if (useTableView) {
+      // In table view, no chart rendering happens - cancel any pending rendering
+      renderingCoordinator.cancelRenderingBatch();
+      return;
+    }
+
+    if (spec && spec.plots && spec.plots.length > 0) {
+      // Extract plot IDs from the spec
+      const plotIds = spec.plots.map(plot => plot.id);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[ChartArea] Setting up rendering batch for', plotIds.length, 'plots');
+      }
+      
+      // Start tracking this batch of plots
+      // This runs BEFORE ObservablePlot effects, so the batch is ready
+      // when plots start reporting completion
+      renderingCoordinator.startRenderingBatch(plotIds, () => {
+        // All plots have rendered, complete the rendering operation
+        // Only complete if we're actually in a rendering state
+        if (state.isLoadingRendering) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[ChartArea] All plots rendered, completing rendering operation');
+          }
+          completeOperation('rendering');
+        }
+      });
+    } else if (spec !== null && state.isLoadingRendering) {
+      // If spec exists but has no plots, complete rendering immediately
+      // (This handles the case where a valid spec generates no plots)
+      // Only complete if we started a rendering operation
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[ChartArea] Spec has no plots, completing rendering immediately');
+      }
+      completeOperation('rendering');
+    }
+  }, [spec, useTableView, renderingCoordinator, completeOperation, state.isLoadingRendering]);
+
+  // Create a callback for when individual plots render
+  const handlePlotRenderComplete = useCallback((plotId: string) => {
+    renderingCoordinator.markPlotRendered(plotId);
+  }, [renderingCoordinator]);
+
   return (
     <div className={styles.container}>
       <div 
@@ -218,6 +268,7 @@ const ChartArea: React.FC = () => {
           yAxisFields={yAxisFields}
           isDebugOpen={isDebugOpen}
           debugHeight={debugHeight}
+          onPlotRenderComplete={handlePlotRenderComplete}
         />
         
         <ChartControls

@@ -15,6 +15,7 @@ interface ChartRendererProps {
   yAxisFields: any[];
   isDebugOpen: boolean;
   debugHeight: number;
+  onPlotRenderComplete?: (plotId: string) => void;
 }
 
 const ChartRenderer: React.FC<ChartRendererProps> = ({
@@ -26,6 +27,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
   yAxisFields,
   isDebugOpen,
   debugHeight,
+  onPlotRenderComplete,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -64,10 +66,11 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
     return (
       <ChartGrid 
         spec={spec} 
-        data={queryResult} 
+        data={queryResult}
+        onPlotRenderComplete={onPlotRenderComplete}
       />
     );
-  }, [useTableView, tableData, spec, queryResult, xAxisFields, yAxisFields]);
+  }, [useTableView, tableData, spec, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete]);
 
   return (
     <Box 
@@ -102,6 +105,7 @@ export default React.memo(ChartRenderer, (prevProps, nextProps) => {
     prevProps.xAxisFields === nextProps.xAxisFields &&
     prevProps.yAxisFields === nextProps.yAxisFields &&
     prevProps.isDebugOpen === nextProps.isDebugOpen &&
-    prevProps.debugHeight === nextProps.debugHeight
+    prevProps.debugHeight === nextProps.debugHeight &&
+    prevProps.onPlotRenderComplete === nextProps.onPlotRenderComplete
   );
 }); 

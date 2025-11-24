@@ -363,7 +363,13 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
     case 'REQUEST_SHOW_MODAL': {
       // Guard against race: if operation finished before timeout fired, ignore showing modal.
       if (!state.activeOperations.includes(action.payload.operationType)) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[VisualizationContext] REQUEST_SHOW_MODAL ignored - operation already completed:', action.payload.operationType);
+        }
         return state; // stale timeout
+      }
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[VisualizationContext] Showing modal for operation:', action.payload.operationType);
       }
       return {
         ...state,
@@ -764,7 +770,14 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     // Set timeout to show modal
     const timeoutMs = getTimeoutForOperation(operationType);
     
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[VisualizationContext] startOperation(${operationType}): will show modal after ${timeoutMs}ms`);
+    }
+    
     timeoutRefs.current[operationType] = setTimeout(() => {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[VisualizationContext] Modal timeout fired for ${operationType} after ${timeoutMs}ms`);
+      }
       // Timeout path now dispatches two guarded actions:
       // 1) ENSURE_PRIMARY_OPERATION will only select this op if still active and there is no primary.
       // 2) REQUEST_SHOW_MODAL will only show the modal if the op is still active at timeout fire.
@@ -779,10 +792,17 @@ export function VisualizationProvider({ children, initialState: initialStateProp
   // completeOperation updates legacy flags plus removes the operation from new tracking lists.
   const completeOperation = useCallback((operationType: LoadingOperationType) => {
     
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[VisualizationContext] completeOperation(${operationType})`);
+    }
+    
     // Clear only the specific timeout
     if (timeoutRefs.current[operationType]) {
       clearTimeout(timeoutRefs.current[operationType]!);
       timeoutRefs.current[operationType] = null; // Mark as cleared
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[VisualizationContext] Cleared timeout for ${operationType}`);
+      }
     }
 
     // Remove from active operations list; recompute primary inside reducer logic

@@ -15,9 +15,11 @@ interface ObservablePlotProps {
   options: Plot.PlotOptions & {
     __customTooltip?: CustomTooltipConfig;
   };
+  plotId?: string; // Unique ID for tracking rendering
+  onRenderComplete?: (plotId: string) => void; // Callback when rendering is done
 }
 
-const ObservablePlot: React.FC<ObservablePlotProps> = ({ options }) => {
+const ObservablePlot: React.FC<ObservablePlotProps> = ({ options, plotId, onRenderComplete }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [portalTarget, setPortalTarget] = useState<HTMLElement>(document.body);
@@ -119,8 +121,25 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options }) => {
           const cleanup = addTooltipListeners(plot, customTooltipConfig, showTooltip, hideTooltip, updatePosition);
           cleanupFunctionsRef.current.push(cleanup);
         }
+
+        // Notify that rendering is complete - use requestAnimationFrame to ensure DOM is updated
+        if (plotId && onRenderComplete) {
+          requestAnimationFrame(() => {
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[ObservablePlot] Render complete for plot:', plotId);
+            }
+            onRenderComplete(plotId);
+          });
+        }
       } catch (error) {
         console.error('ObservablePlot - Error creating plot:', error);
+        // Still notify completion even on error to prevent hanging
+        if (plotId && onRenderComplete) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[ObservablePlot] Render error for plot, marking complete:', plotId);
+          }
+          onRenderComplete(plotId);
+        }
       }
     } else {
       if (process.env.NODE_ENV === 'development') {
