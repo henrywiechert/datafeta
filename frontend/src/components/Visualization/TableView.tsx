@@ -107,6 +107,8 @@ const TableView: React.FC<TableViewProps> = ({ columns, rows, xFields, yFields }
       resizable: true,
       pinned: col.pinned || undefined,
       cellStyle: col.cellStyle || { textAlign: 'left' as const },
+      // Use valueGetter to handle field names with dots (which AG Grid interprets as nested paths)
+      valueGetter: (params: any) => params.data?.[col.field],
       valueFormatter: (params: any) => (params.value === null || params.value === undefined) ? '' : String(params.value),
       // Add row spanning support
       rowSpan: col.rowSpan,
@@ -171,6 +173,7 @@ const TableView: React.FC<TableViewProps> = ({ columns, rows, xFields, yFields }
             resizable: true,
             minWidth: layoutType === 'grid' ? 60 : 80,
             cellStyle: { textAlign: 'left' as const },
+            // Note: valueGetter is set per-column to handle field names with dots
             valueFormatter: (params: any) => (params.value === null || params.value === undefined) ? '' : String(params.value),
           }}
           pagination={shouldPaginate}
