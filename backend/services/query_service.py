@@ -144,8 +144,9 @@ class QueryService:
                     condition = join_def.on_conditions[0]
                     parts = condition.split('=')
                     if len(parts) == 2:
-                        left_part = parts[0].strip().split('.')
-                        right_part = parts[1].strip().split('.')
+                        # Split only on first dot to handle column names that contain dots
+                        left_part = parts[0].strip().split('.', 1)
+                        right_part = parts[1].strip().split('.', 1)
                         if len(left_part) == 2 and len(right_part) == 2:
                             left_table_name, left_col = left_part
                             right_table_name, right_col = right_part

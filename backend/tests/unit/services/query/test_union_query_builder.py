@@ -123,7 +123,7 @@ def test_file_connector_empty_database():
 
 
 def test_union_query_with_qualified_table_names():
-    """Test that union queries correctly handle qualified database.table names."""
+    """Test that union queries correctly handle qualified database/table names with '/' separator."""
     query_description = QueryDescription(
         target_table="sales_2023",
         target_database="analytics",
@@ -134,8 +134,9 @@ def test_union_query_with_qualified_table_names():
         virtual_table=VirtualTableDefinition(
             primary_table="sales_2023",
             mode="union",
-            # Simulating frontend sending qualified names like "other_db.sales_2024"
-            union_tables=[UnionTableDefinition(table_name="other_db.sales_2024")],
+            # Simulating frontend sending qualified names like "other_db/sales_2024"
+            # Using '/' separator to avoid conflicts with column names that contain dots
+            union_tables=[UnionTableDefinition(table_name="other_db/sales_2024")],
         ),
     )
 
