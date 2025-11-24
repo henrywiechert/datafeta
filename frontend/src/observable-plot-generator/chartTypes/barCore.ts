@@ -23,7 +23,7 @@ export interface BarBuildParams {
   bandPadding?: number;         // override band padding
   zeroBaseline?: boolean;
   valueDomainOverride?: [number, number];
-  tooltipColumns?: string[];    // additional raw columns to show in tooltip
+  tooltipFields?: Field[];    // additional fields to show in tooltip
   /**
    * Optional manual color used when there is no color field.
    * When provided and no colorColumn is set, bars will use this as their fill.
@@ -239,7 +239,7 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     bandPadding = BAND_PADDING,
     zeroBaseline = true,
     valueDomainOverride,
-    tooltipColumns = [],
+    tooltipFields = [],
     manualColor,
   } = params;
 
@@ -292,13 +292,6 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
   if (colorColumn && !channels[colorColumn]) {
     channels[colorColumn] = { value: colorColumn, label: colorColumn };
   }
-  
-  // Add any additional tooltip columns to channels (avoid duplicates)
-  tooltipColumns.forEach(col => {
-    if (col && !channels[col]) {
-      channels[col] = { value: col, label: col };
-    }
-  });
 
   // Tooltip format: explicitly list what to show and hide everything else
   const tipFormat: any = {};
@@ -379,11 +372,7 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     mainFields.push({ label: categoryColumn, column: categoryColumn });
   }
   
-  // Extract fields from tooltipColumns
-  const tooltipFieldsArray: Field[] = tooltipColumns
-    .filter(col => col && col !== measureName && col !== categoryColumn && col !== colorColumn)
-    .map(col => ({ columnName: col, type: 'dimension' } as Field));
-  
+  // Pass tooltipFields directly to createTooltipFieldsGetter
   (plot as any).__customTooltip = {
     enabled: true,
     data: data, // Pass the data array for tooltip access
@@ -393,7 +382,7 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
         ? { columnName: colorColumn, type: 'dimension' } as Field
         : undefined,
       undefined, // No size field in bar charts
-      tooltipFieldsArray.length > 0 ? tooltipFieldsArray : undefined
+      tooltipFields.length > 0 ? tooltipFields : undefined
     )
   };
 

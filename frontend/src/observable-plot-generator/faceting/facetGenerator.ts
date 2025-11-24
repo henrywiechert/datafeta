@@ -106,7 +106,8 @@ function createBarCellGenerator(
   colorField?: Field | null,
   bandPadding?: number,
   labelCfg?: { labelFields: any[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number },
-  manualColor?: string
+  manualColor?: string,
+  tooltipFields?: Field[]
 ): CellGenerator {
   return (cellData, cellContext, sharedDomains, facetPosition): CellResult => {
     const orientedFields = barOrientation === 'barX' ? xFields : yFields;
@@ -168,7 +169,7 @@ function createBarCellGenerator(
           bandPadding: dynamicPadding,
           zeroBaseline: true,
           valueDomainOverride: useStackedDomain ? undefined : (valueDomain as [number, number]),
-          tooltipColumns: [colorField?.columnName].filter(Boolean) as string[],
+          tooltipFields: tooltipFields,
         });
         
         // --- Label integration for faceted bars ---
@@ -401,7 +402,8 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       colorField,
       globalBandPadding,
       labelCfg,
-      manualColor
+      manualColor,
+      context.tooltipFields
     );
     
     // Use the coordinator for chart-type-agnostic faceting
