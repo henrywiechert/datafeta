@@ -1,7 +1,5 @@
 import React from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';

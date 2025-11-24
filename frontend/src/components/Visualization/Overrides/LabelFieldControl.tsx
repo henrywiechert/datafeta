@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, TextField, Chip, ToggleButton, ToggleButtonGroup, Switch, styled } from '@mui/material';
+import { Box, Typography, Chip, ToggleButton, ToggleButtonGroup, Switch, styled } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import { Field, DataLabelMode } from '../../../types';
