@@ -62,11 +62,6 @@ const TooltipPanel: React.FC = () => {
           ))}
         </Box>
       </Box>
-      <Box sx={{ mt: 1 }}>
-        <Typography variant="caption" sx={{ color: '#666', display: 'block' }}>
-          Tooltip fields do not affect the chart visualization—they only appear when hovering.
-        </Typography>
-      </Box>
     </PropertySection>
   );
 };
