@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 
 import { QueryResult } from '../../../types';
 import { PlotResult } from '../../../observable-plot-generator/types';
@@ -14,6 +14,7 @@ import { MultiPlotGrid } from './MultiPlotGrid';
 interface ChartGridProps {
   spec: PlotResult | null;
   data: QueryResult | null;
+  onPlotRenderComplete?: (plotId: string) => void;
 }
 
 /**
@@ -30,7 +31,7 @@ interface ChartGridProps {
  * - Container dimension tracking (useContainerDimensions)
  * - User cell size overrides (useCellSizeOverrides)
  */
-const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
+const ChartGrid: React.FC<ChartGridProps> = ({ spec, data, onPlotRenderComplete }) => {
   // Refs for DOM elements
   const containerRef = useRef<HTMLDivElement>(null);
   const hScrollRef = useRef<HTMLDivElement>(null);
@@ -102,6 +103,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data }) => {
           plotsTranslateRef,
           plotGridRef,
         }}
+        onPlotRenderComplete={onPlotRenderComplete}
       />
     );
   }
