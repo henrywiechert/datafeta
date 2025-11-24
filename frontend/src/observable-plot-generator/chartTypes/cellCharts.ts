@@ -38,12 +38,38 @@ export function generatePairChartOptions(
 
   // If one side is missing, choose orientation by the present measure
   if (xField && !yField) {
-    if (xField.type === 'measure') return createBarX(data, xField, null, sharedMeasureDomains, colorField, sizeField, sizeRange, manualSize, colorScheme, colorBias, tooltipFields);
+    if (xField.type === 'measure') return createBarX(
+      data,
+      xField,
+      null,
+      sharedMeasureDomains,
+      colorField,
+      sizeField,
+      sizeRange,
+      manualSize,
+      colorScheme,
+      colorBias,
+      manualColor,
+      tooltipFields
+    );
     // Single dimension alone → show tick strip would be an alternative, but inside cartesian grid we stick to scatter
     return scatterForDimOnly(data, xField, colorField, sizeField, sizeRange, manualSize, colorBias, manualColor, tooltipFields);
   }
   if (!xField && yField) {
-    if (yField.type === 'measure') return createBarY(data, yField, null, sharedMeasureDomains, colorField, sizeField, sizeRange, manualSize, colorScheme, colorBias, tooltipFields);
+    if (yField.type === 'measure') return createBarY(
+      data,
+      yField,
+      null,
+      sharedMeasureDomains,
+      colorField,
+      sizeField,
+      sizeRange,
+      manualSize,
+      colorScheme,
+      colorBias,
+      manualColor,
+      tooltipFields
+    );
     return scatterForDimOnly(data, yField, colorField, sizeField, sizeRange, manualSize, colorBias, manualColor, tooltipFields);
   }
 
@@ -116,10 +142,36 @@ export function generatePairChartOptions(
           return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, labelCfg, tooltipFields);
     }
     case 'barX': {
-  return createBarX(data, xf, yf.type === 'dimension' ? yf : null, sharedMeasureDomains, colorField, sizeField, sizeRange, manualSize, colorScheme, colorBias, tooltipFields);
+      return createBarX(
+        data,
+        xf,
+        yf.type === 'dimension' ? yf : null,
+        sharedMeasureDomains,
+        colorField,
+        sizeField,
+        sizeRange,
+        manualSize,
+        colorScheme,
+        colorBias,
+        manualColor,
+        tooltipFields
+      );
     }
     case 'barY': {
-  return createBarY(data, yf, xf.type === 'dimension' ? xf : null, sharedMeasureDomains, colorField, sizeField, sizeRange, manualSize, colorScheme, colorBias, tooltipFields);
+      return createBarY(
+        data,
+        yf,
+        xf.type === 'dimension' ? xf : null,
+        sharedMeasureDomains,
+        colorField,
+        sizeField,
+        sizeRange,
+        manualSize,
+        colorScheme,
+        colorBias,
+        manualColor,
+        tooltipFields
+      );
     }
     case 'tickX': {
       // continuous dimension on X, optional discrete dimension category on Y
@@ -212,6 +264,7 @@ function createBarX(
   manualSize?: number,
   colorScheme?: string,
   colorBias?: number,
+  manualColor?: string,
   tooltipFields?: Field[]
 ): Plot.PlotOptions {
   const measureName = resolveMeasureAlias(measure);
@@ -265,6 +318,8 @@ function createBarX(
     zeroBaseline: true,
     valueDomainOverride: useStackedDomain ? undefined : valueDomain,
     tooltipFields: tooltipFields,
+    // When there's no color field, use the global/manual bar color for fill
+    manualColor: colorField ? undefined : manualColor,
   });
 }
 
@@ -279,6 +334,7 @@ function createBarY(
   manualSize?: number,
   colorScheme?: string,
   colorBias?: number,
+  manualColor?: string,
   tooltipFields?: Field[]
 ): Plot.PlotOptions {
   const measureName = resolveMeasureAlias(measure);
@@ -332,6 +388,8 @@ function createBarY(
     zeroBaseline: true,
     valueDomainOverride: useStackedDomain ? undefined : valueDomain,
     tooltipFields: tooltipFields,
+    // When there's no color field, use the global/manual bar color for fill
+    manualColor: colorField ? undefined : manualColor,
   });
 }
 
