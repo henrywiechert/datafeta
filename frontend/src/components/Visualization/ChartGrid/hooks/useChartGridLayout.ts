@@ -1,6 +1,6 @@
 import { useMemo, RefObject } from 'react';
 import { PlotResult } from '../../../../observable-plot-generator/types';
-import { MIN_GRID_COLUMN_PX, NAMES_BAND_LEFT_PX, VALUES_BAND_LEFT_PX, VALUES_BAND_TOP_PX } from '../../../../config/chartLayoutConfig';
+import { MIN_GRID_COLUMN_PX, MIN_GRID_ROW_PX, NAMES_BAND_LEFT_PX, VALUES_BAND_LEFT_PX, VALUES_BAND_TOP_PX } from '../../../../config/chartLayoutConfig';
 import {
   computeDynamicYAxisGutterPx,
   computeDynamicXAxisGutterPx,
@@ -64,7 +64,6 @@ export function useChartGridLayout(
     if (vScrollRef.current && userCellHeight === null) {
       const availableHeight = vScrollRef.current.clientHeight;
       if (availableHeight > 0) {
-        const MIN_GRID_ROW_PX = 160; // Import from config if needed
         calculatedRowHeightPx = Math.max(MIN_GRID_ROW_PX, Math.floor(availableHeight / Math.max(1, rows)));
       }
     } else if (userCellHeight !== null) {
