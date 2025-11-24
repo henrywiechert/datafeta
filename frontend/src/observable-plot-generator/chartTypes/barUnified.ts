@@ -122,11 +122,7 @@ export function barUnified(
       colorScale,
       bandPadding,
       valueDomainOverride: useStackedDomain ? undefined : sharedDomains[measureName],
-      tooltipColumns: [
-        colorField?.columnName,
-        sizeField?.columnName,
-        ...(tooltipFields?.map(f => getResultColumnName(f)) || [])
-      ].filter(Boolean) as string[],
+      tooltipFields: tooltipFields,
       // When there's no color field, use the global manualColor as the bar fill
       manualColor: colorField ? undefined : manualColor,
     });
