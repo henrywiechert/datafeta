@@ -151,9 +151,7 @@ export function useChartGridLayout(
       topHeaderHeight,
     };
   }, [
-    spec?.plots,
-    spec?.layout,
-    spec?.facetLabels,
+    spec,
     userCellWidth,
     userCellHeight,
     rowHeightPx,
