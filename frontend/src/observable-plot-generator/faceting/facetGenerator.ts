@@ -170,6 +170,8 @@ function createBarCellGenerator(
           zeroBaseline: true,
           valueDomainOverride: useStackedDomain ? undefined : (valueDomain as [number, number]),
           tooltipFields: tooltipFields,
+          // When there's no color field, use the global/manual bar color for fill
+          manualColor: colorField ? undefined : manualColor,
         });
         
         // --- Label integration for faceted bars ---
