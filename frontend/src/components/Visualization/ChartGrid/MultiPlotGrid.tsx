@@ -25,6 +25,7 @@ interface MultiPlotGridProps {
     plotsTranslateRef: RefObject<HTMLDivElement>;
     plotGridRef: RefObject<HTMLDivElement>;
   };
+  onPlotRenderComplete?: (plotId: string) => void;
 }
 
 /**
@@ -51,6 +52,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
   containerDimensions,
   cellSizeOverrides,
   refs,
+  onPlotRenderComplete,
 }) => {
   const {
     columns,
@@ -125,6 +127,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
             plotTemplateColumns={plotTemplateColumns}
             plotRowsSpec={plotRowsSpec}
             totalContentWidthPx={totalContentWidthPx}
+            onPlotRenderComplete={onPlotRenderComplete}
           />
 
           <XAxes

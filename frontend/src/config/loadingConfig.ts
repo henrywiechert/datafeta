@@ -57,7 +57,7 @@ const getEnvironmentConfig = (): Partial<LoadingConfig> => {
     return {
       timeouts: {
         query: 1000,      // 1 second in development
-        rendering: 100,   // 100ms in development - show modal immediately for testing
+        rendering: 100,   // 100ms in development - show modal quickly for rendering
         metadata: 3000,   // 3 seconds in development
         worker: 10000,    // 10 seconds in development
         api: 30000,       // 30 seconds in development

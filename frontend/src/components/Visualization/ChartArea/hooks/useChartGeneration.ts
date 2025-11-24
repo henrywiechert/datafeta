@@ -77,8 +77,15 @@ export const useChartGeneration = ({
     }
 
     try {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useChartGeneration] Starting rendering operation');
+      }
       startOperation('rendering', true);
       setRenderingError(null);
+
+      // CRITICAL: Yield to event loop BEFORE starting heavy synchronous work
+      // This allows the modal timeout to fire and display the modal
+      await new Promise(resolve => setTimeout(resolve, 0));
 
       const overrideTargets = computeOverrideTargets(
         xAxisFields as Field[],
@@ -106,18 +113,38 @@ export const useChartGeneration = ({
         fieldOverrideTargets: overrideTargets,
       });
       
+      const plotCount = plotResult.plots?.length || 0;
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useChartGeneration] Generated spec with', plotCount, 'plots');
+      }
+      
+      // For large numbers of plots, the synchronous DOM rendering will block
+      // the main thread for seconds. Yield to the event loop BEFORE setting
+      // the spec to give the modal a chance to appear.
+      if (plotCount > 100) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useChartGeneration] Large plot count detected, yielding to show modal');
+        }
+        // Yield to event loop to let modal appear
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      
       setSpec(plotResult);
       setChartInfo({ chartType: 'observable-plot' });
       setRenderingError(null);
       
-      logOperationTiming('Chart generation', startTime, { mode: 'observable-plot' });
-      completeOperation('rendering');
+      logOperationTiming('Chart spec generation', startTime, { mode: 'observable-plot' });
+      
+      // NOTE: We don't complete the rendering operation here anymore.
+      // The actual DOM rendering happens later, and ChartArea will coordinate
+      // completion after all plots have rendered.
       
     } catch (error: any) {
       console.error('Observable Plot generation failed:', error);
       setRenderingError(`Chart generation failed: ${error.message || 'Unknown error'}`);
       setSpec(null);
       setChartInfo(null);
+      // On error, complete the operation immediately since no rendering will happen
       completeOperation('rendering');
     }
   }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, useTableView, startOperation, completeOperation, queryResult, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, tooltipFields, fieldOverrides]);

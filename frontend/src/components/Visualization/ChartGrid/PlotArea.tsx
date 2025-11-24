@@ -11,6 +11,7 @@ interface PlotAreaProps {
   plotTemplateColumns: string;
   plotRowsSpec: string;
   totalContentWidthPx: number;
+  onPlotRenderComplete?: (plotId: string) => void;
 }
 
 /**
@@ -56,6 +57,7 @@ const PlotArea: React.FC<PlotAreaProps> = ({
   plotTemplateColumns,
   plotRowsSpec,
   totalContentWidthPx,
+  onPlotRenderComplete,
 }) => {
   // Debug logging disabled for performance with large faceted grids
   
@@ -95,7 +97,12 @@ const PlotArea: React.FC<PlotAreaProps> = ({
           return (
             <div key={key} className={styles.plotWrapper} style={gridItemStyle}>
               <div className={styles.observablePlotContainer}>
-                <ObservablePlot key={key} options={opts} />
+                <ObservablePlot 
+                  key={key} 
+                  options={opts} 
+                  plotId={plot.id}
+                  onRenderComplete={onPlotRenderComplete}
+                />
               </div>
             </div>
           );
