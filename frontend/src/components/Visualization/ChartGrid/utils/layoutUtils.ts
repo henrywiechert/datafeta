@@ -1,5 +1,5 @@
 import { PlotResult } from '../../../../observable-plot-generator/types';
-import { MIN_GRID_COLUMN_PX, MIN_GRID_ROW_PX } from '../../../../config/chartLayoutConfig';
+import { MIN_GRID_ROW_PX } from '../../../../config/chartLayoutConfig';
 
 const TEXT_PX_PER_CHAR = 6; // conservative estimate for 12-14px font
 const MIN_Y_AXIS_GUTTER_PX = 28;

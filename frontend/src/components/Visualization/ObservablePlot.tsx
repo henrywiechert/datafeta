@@ -153,7 +153,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options, plotId, onRend
       cleanupFunctionsRef.current.forEach(cleanup => cleanup());
       cleanupFunctionsRef.current = [];
     };
-  }, [options, dimensions, showTooltip, hideTooltip, updatePosition]);
+  }, [options, dimensions, showTooltip, hideTooltip, updatePosition, onRenderComplete, plotId]);
 
   return (
     <>

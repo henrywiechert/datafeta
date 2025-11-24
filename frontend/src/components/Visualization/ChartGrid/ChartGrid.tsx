@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 import { QueryResult } from '../../../types';
 import { PlotResult } from '../../../observable-plot-generator/types';

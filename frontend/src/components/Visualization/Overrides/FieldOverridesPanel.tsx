@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Box, Divider } from '@mui/material';
+import { Box } from '@mui/material';
 import TuneIcon from '@mui/icons-material/Tune';
 import { PropertySection } from '../Properties';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Slider, Typography } from '@mui/material';
+import { Box, Slider } from '@mui/material';
 import styles from './ColorBiasControl.module.css';
 
 interface ColorBiasControlProps {
@@ -20,14 +20,6 @@ const ColorBiasControl: React.FC<ColorBiasControlProps> = ({ colorBias, onChange
 
   const handleSliderCommit = (event: Event | React.SyntheticEvent, newValue: number | number[]) => {
     onChange(newValue as number);
-  };
-
-  const getBiasLabel = (value: number): string => {
-    if (value < -0.6) return 'Strong Left';
-    if (value < -0.2) return 'Left';
-    if (value > 0.6) return 'Strong Right';
-    if (value > 0.2) return 'Right';
-    return 'Centered';
   };
 
   return (

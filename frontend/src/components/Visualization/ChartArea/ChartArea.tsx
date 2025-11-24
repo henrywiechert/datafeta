@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect, useLayoutEffect } from 'react';
+import React, { useRef, useCallback, useLayoutEffect } from 'react';
 import styles from '../ChartArea.module.css';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { useDataSource } from '../../../contexts/DataSourceContext';
