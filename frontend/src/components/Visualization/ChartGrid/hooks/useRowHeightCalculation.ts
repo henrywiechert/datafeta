@@ -78,9 +78,11 @@ export function useRowHeightCalculation(
         rafId = window.requestAnimationFrame(attachWhenReady);
         return;
       }
-      // Initial compute: Also use debounced schedule to avoid immediate update during faceting changes
-      // This prevents intermediate renders when the effect re-runs
-      scheduleUpdate();
+      // CRITICAL: Initial compute should happen immediately on first render
+      // This ensures the chart is sized correctly when first measure is dropped
+      // Use RAF but skip debounce for initial calculation
+      updateRafId = requestAnimationFrame(updateRowHeight);
+      
       // Observe size changes of the scroller with debounced RAF throttling
       ro = new ResizeObserver(scheduleUpdate);
       ro.observe(vScrollRef.current as Element);
