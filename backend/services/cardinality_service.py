@@ -99,13 +99,13 @@ class CardinalityService:
     def _count_source_databases(self, union_tables: Optional[str]) -> int:
         """Count the number of unique databases (single table or UNION query)."""
         if union_tables:
-            # Parse union_tables which may be in format "db1.table1,db2.table2,..."
-            # or could be structured data passed through
+            # Parse union_tables which may be in format "db1/table1,db2/table2,..."
+            # Using '/' separator to avoid conflicts with column names that contain dots
             databases = set()
             union_table_list = [t.strip() for t in union_tables.split(',') if t.strip()]
             for table_ref in union_table_list:
-                if '.' in table_ref:
-                    db = table_ref.split('.')[0]
+                if '/' in table_ref:
+                    db = table_ref.split('/')[0]
                     databases.add(db)
             count = len(databases) if databases else 1  # At least 1 database (primary)
             logger.info(f"_source_database distinct count: {count} databases")

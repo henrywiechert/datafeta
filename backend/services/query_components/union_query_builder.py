@@ -39,8 +39,9 @@ class UnionQueryBuilder:
         primary_db = query_desc.target_database or ""
         
         # Parse primary table in case it's also a qualified name
-        if not primary_db and '.' in virtual_table.primary_table:
-            parts = virtual_table.primary_table.split('.', 1)
+        # Using '/' separator to avoid conflicts with column names that contain dots
+        if not primary_db and '/' in virtual_table.primary_table:
+            parts = virtual_table.primary_table.split('/', 1)
             if len(parts) == 2:
                 primary_db, primary_table = parts
                 table_refs = [(primary_db, primary_table)]
@@ -51,23 +52,20 @@ class UnionQueryBuilder:
         
         # Union tables can specify their own database
         for ut in virtual_table.union_tables:
-            self._logger.info(f"Processing union table: table_name='{ut.table_name}', database='{ut.database}', type={type(ut.database)}, is_none={ut.database is None}")
-            # If table_name contains a dot and no explicit database is provided,
-            # treat it as a fully qualified database.table reference
-            if (ut.database is None or ut.database == "") and '.' in ut.table_name:
-                parts = ut.table_name.split('.', 1)
+            # If table_name contains '/' and no explicit database is provided,
+            # treat it as a fully qualified database/table reference
+            # Using '/' separator to avoid conflicts with column names that contain dots
+            if (ut.database is None or ut.database == "") and '/' in ut.table_name:
+                parts = ut.table_name.split('/', 1)
                 if len(parts) == 2:
                     db, table = parts
-                    self._logger.info(f"Parsed qualified table name '{ut.table_name}' -> database='{db}', table='{table}'")
                     table_refs.append((db, table))
                 else:
                     # Shouldn't happen, but fallback to using primary_db
                     db = primary_db
-                    self._logger.info(f"Failed to parse qualified name, using primary_db='{primary_db}'")
                     table_refs.append((db, ut.table_name))
             else:
                 db = ut.database if ut.database else primary_db
-                self._logger.info(f"Using database '{db}' for table '{ut.table_name}' (ut.database='{ut.database}', primary_db='{primary_db}')")
                 table_refs.append((db, ut.table_name))
         
         self._logger.info("Building UNION ALL query for tables: %s", 

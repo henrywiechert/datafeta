@@ -155,9 +155,10 @@ class TableMergeService:
             
             # Get columns from union tables
             for ut in virtual_table.union_tables:
-                # Parse qualified table names (database.table format)
-                if (ut.database is None or ut.database == "") and '.' in ut.table_name:
-                    parts = ut.table_name.split('.', 1)
+                # Parse qualified table names (database/table format)
+                # Using '/' separator to avoid conflicts with column names that contain dots
+                if (ut.database is None or ut.database == "") and '/' in ut.table_name:
+                    parts = ut.table_name.split('/', 1)
                     if len(parts) == 2:
                         ut_database, ut_table = parts
                     else:
