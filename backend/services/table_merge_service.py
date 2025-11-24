@@ -155,9 +155,19 @@ class TableMergeService:
             
             # Get columns from union tables
             for ut in virtual_table.union_tables:
-                ut_database = ut.database if ut.database else database
+                # Parse qualified table names (database.table format)
+                if (ut.database is None or ut.database == "") and '.' in ut.table_name:
+                    parts = ut.table_name.split('.', 1)
+                    if len(parts) == 2:
+                        ut_database, ut_table = parts
+                    else:
+                        ut_database = database
+                        ut_table = ut.table_name
+                else:
+                    ut_database = ut.database if ut.database else database
+                    ut_table = ut.table_name
                 try:
-                    union_columns = self.connector.list_columns(ut_database, ut.table_name)
+                    union_columns = self.connector.list_columns(ut_database, ut_table)
                     for col in union_columns:
                         if col.name not in column_map:
                             # New column found - add it
@@ -170,7 +180,7 @@ class TableMergeService:
                                 table_name=None
                             )
                 except Exception as e:
-                    logger.error(f"Error getting columns from {ut_database}.{ut.table_name}: {e}")
+                    logger.error(f"Error getting columns from {ut_database}.{ut_table}: {e}")
                     # Continue with other tables
             
             all_columns = list(column_map.values())
