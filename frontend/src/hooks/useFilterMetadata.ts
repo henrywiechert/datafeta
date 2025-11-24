@@ -40,7 +40,8 @@ export function useFilterMetadata({
 
     // Convert new union table format to legacy format for API calls
     // API expects string[] that will be joined with commas
-    const unionTablesForApi = unionTables.map(ut => `${ut.database}.${ut.table_name}`);
+    // Use '/' separator instead of '.' to avoid conflicts with column names that contain dots
+    const unionTablesForApi = unionTables.map(ut => `${ut.database}/${ut.table_name}`);
 
     // Store abort controllers for filter metadata fetches, keyed by fieldId
     // This allows each field's metadata fetch to be independently cancellable
