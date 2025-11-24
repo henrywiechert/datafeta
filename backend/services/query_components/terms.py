@@ -106,3 +106,22 @@ class CustomFunction(Term):
             sql = f"{sql} {quote_char}{self.alias}{quote_char}"
 
         return sql
+
+
+class LiteralColumnName(Term):
+    """
+    Custom term for column names that should be rendered as string literals.
+    
+    Used for ClickHouse column names that contain dots - these must be quoted
+    with single quotes instead of backticks inside aggregate functions.
+    """
+
+    def __init__(self, column_name: str):
+        super().__init__()
+        self.column_name = column_name
+
+    def get_sql(self, **kwargs) -> str:
+        """Render as a single-quoted string literal."""
+        # Escape single quotes by doubling them
+        escaped = self.column_name.replace("'", "''")
+        return f"'{escaped}'"
