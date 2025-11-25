@@ -16,7 +16,7 @@ def test_grouping_added_for_measures():
     ctx = qs._build_table_context(desc, "duckdb", "sales")
     q = ctx.query.select(ctx.primary_table["category"], ctx.primary_table["revenue"])
 
-    builder = GroupingOrderingBuilder(get_datetime_part_expression=qs._get_datetime_part_expression)
+    builder = GroupingOrderingBuilder()
     q2 = builder.apply_grouping(
         q,
         query_desc=desc,

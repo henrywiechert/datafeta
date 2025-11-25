@@ -56,31 +56,6 @@ AGGREGATION_MAP = {
 
 class QueryService:
 
-    def _get_datetime_part_expression(self, field_term: Any, date_part: str, date_mode: str, db_type: str) -> Any:
-        """
-        Generate database-specific SQL expression for extracting datetime parts.
-        
-        Delegates to DateTimeService for the actual implementation.
-        This method is kept for backward compatibility with existing code.
-        
-        Args:
-            field_term: The field/column to extract from
-            date_part: The part to extract (year, month, day, hour, etc.)
-            date_mode: Either 'distinct' or 'timeline'
-            db_type: The database type (clickhouse, duckdb, etc.)
-        
-        Returns:
-            PyPika expression for the datetime extraction
-            
-        Behavior:
-            - distinct mode: Extracts just the part (e.g., hour → 0-23, month → 1-12)
-            - timeline mode: Truncates to preserve timeline (e.g., hour → "2024-01-15 14:00:00")
-        """
-        return DateTimeService.get_datetime_part_expression(
-            field_term, date_part, date_mode, db_type
-        )
-
-
     def _get_field_with_cast(self, table: Any, field_name: str, column_casts: Optional[Dict[str, Dict[str, str]]] = None) -> Any:
         """
         Get a field reference, applying CAST if configured for this column.
@@ -186,7 +161,6 @@ class QueryService:
         builder = SelectClauseBuilder(
             parse_field_reference=field_parser.parse,
             apply_cast_if_configured=self._apply_cast_if_configured,
-            get_datetime_part_expression=self._get_datetime_part_expression,
             vc_builder=vc_builder,  # Pass vc_builder for aliasing logic
         )
 
@@ -222,7 +196,6 @@ class QueryService:
         builder = FilterBuilder(
             parse_field_reference=field_parser.parse,
             apply_cast_if_configured=self._apply_cast_if_configured,
-            get_datetime_part_expression=self._get_datetime_part_expression,
             get_field_with_cast=self._get_field_with_cast,
         )
 
@@ -272,7 +245,6 @@ class QueryService:
     ) -> Query:
         builder = GroupingOrderingBuilder(
             logger=logger,
-            get_datetime_part_expression=self._get_datetime_part_expression,
         )
         return builder.apply_grouping(
             query,

@@ -22,7 +22,6 @@ def test_in_filter_with_null_expands_to_is_null():
     builder = FilterBuilder(
         parse_field_reference=parse_field,
         apply_cast_if_configured=qs._apply_cast_if_configured,
-        get_datetime_part_expression=qs._get_datetime_part_expression,
         get_field_with_cast=qs._get_field_with_cast,
     )
 
