@@ -16,6 +16,7 @@ from backend.services.query_components.contexts import (
     TableContext,
 )
 from backend.services.query_components.select_builder import SelectClauseBuilder
+from backend.services.query_components.table_context_builder import TableContextBuilder
 from backend.services.query_components.terms import (
     CastField,
     ExtractTerm,
@@ -123,64 +124,8 @@ class QueryService:
         fallback_table_name: Optional[str]
     ) -> TableContext:
         """Create initial PyPika query and table context for the provided description."""
-        table_map: Dict[str, Any] = {}
-
-        if query_desc.virtual_table:
-            primary_table_name = query_desc.virtual_table.primary_table
-            if db_type == 'clickhouse' and query_desc.target_database:
-                primary_table = Table(primary_table_name, schema=query_desc.target_database)
-            else:
-                primary_table = Table(primary_table_name)
-
-            table_map[primary_table_name] = primary_table
-            query = Query.from_(primary_table)
-
-            for join_def in query_desc.virtual_table.joined_tables:
-                if db_type == 'clickhouse' and query_desc.target_database:
-                    join_table = Table(join_def.table_name, schema=query_desc.target_database)
-                else:
-                    join_table = Table(join_def.table_name)
-
-                table_map[join_def.table_name] = join_table
-
-                if join_def.on_conditions:
-                    condition = join_def.on_conditions[0]
-                    parts = condition.split('=')
-                    if len(parts) == 2:
-                        # Split only on first dot to handle column names that contain dots
-                        left_part = parts[0].strip().split('.', 1)
-                        right_part = parts[1].strip().split('.', 1)
-                        if len(left_part) == 2 and len(right_part) == 2:
-                            left_table_name, left_col = left_part
-                            right_table_name, right_col = right_part
-
-                            left_table_obj = table_map.get(left_table_name, primary_table)
-                            right_table_obj = table_map.get(right_table_name, join_table)
-
-                            if join_def.join_type == 'LEFT':
-                                query = query.left_join(join_table).on(left_table_obj[left_col] == right_table_obj[right_col])
-                            elif join_def.join_type == 'RIGHT':
-                                query = query.right_join(join_table).on(left_table_obj[left_col] == right_table_obj[right_col])
-                            elif join_def.join_type == 'FULL':
-                                query = query.full_outer_join(join_table).on(left_table_obj[left_col] == right_table_obj[right_col])
-                            else:
-                                query = query.inner_join(join_table).on(left_table_obj[left_col] == right_table_obj[right_col])
-
-            default_table = table_map.get(primary_table_name, primary_table)
-            return TableContext(query=query, table_map=table_map, default_table=default_table, primary_table=primary_table)
-
-        # Single table query
-        target_table_name = query_desc.target_table or fallback_table_name
-        if not target_table_name:
-            raise QueryGenerationError("Target table must be specified for single table queries.")
-        if db_type == 'clickhouse' and query_desc.target_database:
-            table = Table(target_table_name, schema=query_desc.target_database)
-        else:
-            table = Table(target_table_name)
-
-        table_map[target_table_name] = table
-        query = Query.from_(table)
-        return TableContext(query=query, table_map=table_map, default_table=table, primary_table=table)
+        builder = TableContextBuilder()
+        return builder.build(query_desc, db_type, fallback_table_name)
 
     def _build_optimization_context(
         self,
