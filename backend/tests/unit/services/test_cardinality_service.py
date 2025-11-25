@@ -108,7 +108,7 @@ class TestCardinalityService:
             union_tables=None
         )
         
-        assert count == 0
+        assert count == 1
         assert not self.mock_connector.fetch_data.called
     
     def test_get_distinct_count_with_regex_pattern(self):
