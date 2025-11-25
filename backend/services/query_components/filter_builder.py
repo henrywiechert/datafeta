@@ -36,7 +36,7 @@ class FilterBuilder:
 
     def __init__(
         self,
-        parse_field_reference: Callable[[str, Dict[str, Any], Any], Any],
+        parse_field_reference: Callable[[str], Any],
         apply_cast_if_configured: Callable[[str, Any, Optional[Dict[str, Dict[str, str]]]], Any],
         get_datetime_part_expression: Callable[[Any, str, str, str], Any],
         get_field_with_cast: Callable[[Any, str, Optional[Dict[str, Dict[str, str]]]], Any],
@@ -120,9 +120,7 @@ class FilterBuilder:
         column_casts: Optional[Dict[str, Dict[str, str]]],
     ) -> Any:
         if definition.date_part and definition.date_mode:
-            field_term = self._parse_field_reference(
-                definition.field, table_map, default_table
-            )
+            field_term = self._parse_field_reference(definition.field)
             field_term = self._apply_cast_if_configured(
                 definition.field, field_term, column_casts
             )
@@ -130,9 +128,7 @@ class FilterBuilder:
                 field_term, definition.date_part, definition.date_mode, db_type
             )
 
-        field = self._parse_field_reference(
-            definition.field, table_map, default_table
-        )
+        field = self._parse_field_reference(definition.field)
         return self._apply_cast_if_configured(
             definition.field, field, column_casts
         )

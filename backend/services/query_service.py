@@ -237,13 +237,8 @@ class QueryService:
             vc_builder=vc_builder
         )
         
-        # Create adapter function to match the old signature (field_name, table_map, default_table)
-        # while using the new parser that only needs field_name
-        def parse_field_adapter(field_name: str, table_map_param: Dict[str, Any], default_table_param: Any) -> Any:
-            return field_parser.parse(field_name)
-        
         builder = SelectClauseBuilder(
-            parse_field_reference=parse_field_adapter,
+            parse_field_reference=field_parser.parse,
             apply_cast_if_configured=self._apply_cast_if_configured,
             get_datetime_part_expression=self._get_datetime_part_expression,
             vc_builder=vc_builder,  # Pass vc_builder for aliasing logic
@@ -278,12 +273,8 @@ class QueryService:
             vc_builder=vc_builder
         )
         
-        # Create adapter function to match the old signature
-        def parse_field_adapter(field_name: str, table_map_param: Dict[str, Any], default_table_param: Any) -> Any:
-            return field_parser.parse(field_name)
-        
         builder = FilterBuilder(
-            parse_field_reference=parse_field_adapter,
+            parse_field_reference=field_parser.parse,
             apply_cast_if_configured=self._apply_cast_if_configured,
             get_datetime_part_expression=self._get_datetime_part_expression,
             get_field_with_cast=self._get_field_with_cast,
