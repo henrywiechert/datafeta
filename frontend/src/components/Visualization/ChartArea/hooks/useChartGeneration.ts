@@ -17,6 +17,7 @@ interface UseChartGenerationProps {
   manualSize: number;
   useTableView: boolean;
   queryResult: any; // Add queryResult here
+  queryVersion?: number; // Add queryVersion to detect union/join changes
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
   labelFields?: Field[];
@@ -48,6 +49,7 @@ export const useChartGeneration = ({
   manualSize,
   useTableView,
   queryResult, // Destructure here
+  queryVersion, // Destructure queryVersion
   startOperation,
   completeOperation,
   labelFields = [],
@@ -147,7 +149,7 @@ export const useChartGeneration = ({
       // On error, complete the operation immediately since no rendering will happen
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, useTableView, startOperation, completeOperation, queryResult, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, tooltipFields, fieldOverrides]);
+  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, useTableView, startOperation, completeOperation, queryResult, queryVersion, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, tooltipFields, fieldOverrides]);
 
   const cancelGeneration = useCallback(() => {
     // No-op since Observable Plot generation is synchronous

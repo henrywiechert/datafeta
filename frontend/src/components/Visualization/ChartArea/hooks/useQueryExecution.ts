@@ -116,6 +116,7 @@ export const useQueryExecution = ({
         });
       } else {
         // Execute normal query
+        console.log('🚀 Executing query with virtualTable:', queryDesc.virtual_table);
         result = await apiService.executeQuery(queryDesc, queryAbortControllerRef.current.signal);
       }
       
@@ -212,6 +213,8 @@ export const useQueryExecution = ({
 
   // Memoize current query description to avoid unnecessary recalculations
   const currentQueryDescription = useMemo((): QueryDescription | null => {
+    console.log('🔧 currentQueryDescription recalculating with virtualTable:', virtualTable);
+    
     // Tag fields with their axis for query optimization
     const taggedXFields = xAxisFields.map(f => ({ ...f, axis: 'x' as const }));
     const taggedYFields = yAxisFields.map(f => ({ ...f, axis: 'y' as const }));
@@ -294,7 +297,12 @@ export const useQueryExecution = ({
         measures: queryDesc.measures?.map(m => m.alias || m.field),
         label_fields: (queryDesc as any).label_fields,
         colorField: colorField?.columnName,
-        sizeField: sizeField?.columnName
+        sizeField: sizeField?.columnName,
+        virtualTable: virtualTable ? {
+          mode: virtualTable.mode,
+          unionTables: virtualTable.union_tables?.length || 0,
+          joinedTables: virtualTable.joined_tables?.length || 0
+        } : null
       });
     }
 

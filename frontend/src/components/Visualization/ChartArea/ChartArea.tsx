@@ -30,6 +30,7 @@ const ChartArea: React.FC = () => {
     manualSize,
     queryResult,
     queryError,
+    queryVersion,
     appliedFilterConfigurations,
     labelFields,
     labelsEnabled,
@@ -124,6 +125,7 @@ const ChartArea: React.FC = () => {
     manualSize,
     useTableView,
     queryResult, // Pass queryResult here
+    queryVersion, // Pass queryVersion to detect UNION/JOIN changes
     startOperation,
     completeOperation,
     labelFields,

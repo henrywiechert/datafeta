@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Field, DataType } from '../types';
 import { apiService } from '../apiService';
 import { generateSyntheticFields } from '../utils/syntheticFields';
@@ -16,6 +16,7 @@ interface DataSourceState {
     isLoadingMetadata: boolean;
     joinedTables: string[];
     unionTables: Array<{database: string, table_name: string}>;
+    virtualTable: any | null;
 }
 
 interface DataSourceSetters {
@@ -277,6 +278,8 @@ export function useMetadataOperations({
                 dataSourceSetters.setAvailableFields(fieldsWithSynthetic);
                 dataSourceSetters.setVirtualTable(response.virtual_table);
                 dataSourceSetters.setIsLoadingMetadata(false);
+                
+                // Don't dispatch here - let the useEffect below handle it after virtualTable is set
                 return;
             }
             
@@ -333,6 +336,8 @@ export function useMetadataOperations({
             const patchedY = yAxisFields.map(f => ({ ...f, isInvalid: !availableNames.has(f.columnName) } as any));
             dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
             dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
+            
+            // Don't dispatch here - let the useEffect below handle it after virtualTable is set
         } catch (err: any) {
             if (err.message === 'Request was cancelled') {
                 dataSourceSetters.setMetadataError(null);
@@ -424,6 +429,26 @@ export function useMetadataOperations({
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dataSource.selectedTable, dataSource.joinedTables, dataSource.unionTables]);
+
+    // Dispatch TABLE_JOINS_UNIONS_MODIFIED when virtualTable changes
+    // This ensures virtualTable is updated in context before query executes
+    // Also dispatches when virtualTable becomes null (union tables removed)
+    const prevVirtualTableRef = useRef<any>(dataSource.virtualTable);
+    useEffect(() => {
+        // Skip initial mount
+        if (prevVirtualTableRef.current === undefined && dataSource.virtualTable === null) {
+            prevVirtualTableRef.current = dataSource.virtualTable;
+            return;
+        }
+        
+        // Dispatch whenever virtualTable changes (including to/from null)
+        if (prevVirtualTableRef.current !== dataSource.virtualTable) {
+            console.log('📋 virtualTable updated, dispatching TABLE_JOINS_UNIONS_MODIFIED:', dataSource.virtualTable);
+            prevVirtualTableRef.current = dataSource.virtualTable;
+            dispatch({ type: 'TABLE_JOINS_UNIONS_MODIFIED' });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dataSource.virtualTable]);
 
     return {
         fetchDatabases,

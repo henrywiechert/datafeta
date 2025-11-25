@@ -220,12 +220,28 @@ function sameFieldArray(a: Field[], b: Field[]) {
 // Reducer function
 function visualizationReducer(state: VisualizationState, action: VisualizationAction): VisualizationState {
   switch (action.type) {
-    case 'SET_X_AXIS_FIELDS':
+    case 'SET_X_AXIS_FIELDS': {
       if (sameFieldArray(state.xAxisFields, action.payload)) return state; // no semantic change
-      return { ...state, xAxisFields: action.payload, queryVersion: state.queryVersion + 1 };
-    case 'SET_Y_AXIS_FIELDS':
+      // If we're only removing fields (payload is subset of current), don't increment queryVersion
+      // The query result already contains the data, we're just hiding columns
+      const isRemovalOnly = action.payload.every(f => state.xAxisFields.some(existing => existing.id === f.id));
+      return { 
+        ...state, 
+        xAxisFields: action.payload, 
+        queryVersion: isRemovalOnly ? state.queryVersion : state.queryVersion + 1 
+      };
+    }
+    case 'SET_Y_AXIS_FIELDS': {
       if (sameFieldArray(state.yAxisFields, action.payload)) return state;
-      return { ...state, yAxisFields: action.payload, queryVersion: state.queryVersion + 1 };
+      // If we're only removing fields (payload is subset of current), don't increment queryVersion
+      // The query result already contains the data, we're just hiding columns
+      const isRemovalOnly = action.payload.every(f => state.yAxisFields.some(existing => existing.id === f.id));
+      return { 
+        ...state, 
+        yAxisFields: action.payload, 
+        queryVersion: isRemovalOnly ? state.queryVersion : state.queryVersion + 1 
+      };
+    }
     case 'SWAP_AXIS_FIELDS':
       // Swap X and Y axis fields - no query needed, just rearranging existing fields
       return { 
