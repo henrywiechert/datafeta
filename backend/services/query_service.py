@@ -16,6 +16,7 @@ from backend.services.query_components.contexts import (
     TableContext,
 )
 from backend.services.query_components.select_builder import SelectClauseBuilder
+from backend.services.query_components.table_context_builder import TableContextBuilder
 from backend.services.query_components.terms import (
     CastField,
     ExtractTerm,
@@ -34,6 +35,10 @@ from backend.services.query_components.union_query_builder import UnionQueryBuil
 from backend.services.query_components.virtual_column_builder import (
     VirtualColumnExpressionBuilder,
 )
+from backend.services.query_components.field_reference_parser import (
+    FieldReferenceParser,
+)
+from backend.services.query_components.distinct_applier import DistinctApplier
 
 logger = logging.getLogger(__name__)
 
@@ -50,31 +55,6 @@ AGGREGATION_MAP = {
 
 
 class QueryService:
-
-    def _get_datetime_part_expression(self, field_term: Any, date_part: str, date_mode: str, db_type: str) -> Any:
-        """
-        Generate database-specific SQL expression for extracting datetime parts.
-        
-        Delegates to DateTimeService for the actual implementation.
-        This method is kept for backward compatibility with existing code.
-        
-        Args:
-            field_term: The field/column to extract from
-            date_part: The part to extract (year, month, day, hour, etc.)
-            date_mode: Either 'distinct' or 'timeline'
-            db_type: The database type (clickhouse, duckdb, etc.)
-        
-        Returns:
-            PyPika expression for the datetime extraction
-            
-        Behavior:
-            - distinct mode: Extracts just the part (e.g., hour → 0-23, month → 1-12)
-            - timeline mode: Truncates to preserve timeline (e.g., hour → "2024-01-15 14:00:00")
-        """
-        return DateTimeService.get_datetime_part_expression(
-            field_term, date_part, date_mode, db_type
-        )
-
 
     def _get_field_with_cast(self, table: Any, field_name: str, column_casts: Optional[Dict[str, Dict[str, str]]] = None) -> Any:
         """
@@ -120,64 +100,8 @@ class QueryService:
         fallback_table_name: Optional[str]
     ) -> TableContext:
         """Create initial PyPika query and table context for the provided description."""
-        table_map: Dict[str, Any] = {}
-
-        if query_desc.virtual_table:
-            primary_table_name = query_desc.virtual_table.primary_table
-            if db_type == 'clickhouse' and query_desc.target_database:
-                primary_table = Table(primary_table_name, schema=query_desc.target_database)
-            else:
-                primary_table = Table(primary_table_name)
-
-            table_map[primary_table_name] = primary_table
-            query = Query.from_(primary_table)
-
-            for join_def in query_desc.virtual_table.joined_tables:
-                if db_type == 'clickhouse' and query_desc.target_database:
-                    join_table = Table(join_def.table_name, schema=query_desc.target_database)
-                else:
-                    join_table = Table(join_def.table_name)
-
-                table_map[join_def.table_name] = join_table
-
-                if join_def.on_conditions:
-                    condition = join_def.on_conditions[0]
-                    parts = condition.split('=')
-                    if len(parts) == 2:
-                        # Split only on first dot to handle column names that contain dots
-                        left_part = parts[0].strip().split('.', 1)
-                        right_part = parts[1].strip().split('.', 1)
-                        if len(left_part) == 2 and len(right_part) == 2:
-                            left_table_name, left_col = left_part
-                            right_table_name, right_col = right_part
-
-                            left_table_obj = table_map.get(left_table_name, primary_table)
-                            right_table_obj = table_map.get(right_table_name, join_table)
-
-                            if join_def.join_type == 'LEFT':
-                                query = query.left_join(join_table).on(left_table_obj[left_col] == right_table_obj[right_col])
-                            elif join_def.join_type == 'RIGHT':
-                                query = query.right_join(join_table).on(left_table_obj[left_col] == right_table_obj[right_col])
-                            elif join_def.join_type == 'FULL':
-                                query = query.full_outer_join(join_table).on(left_table_obj[left_col] == right_table_obj[right_col])
-                            else:
-                                query = query.inner_join(join_table).on(left_table_obj[left_col] == right_table_obj[right_col])
-
-            default_table = table_map.get(primary_table_name, primary_table)
-            return TableContext(query=query, table_map=table_map, default_table=default_table, primary_table=primary_table)
-
-        # Single table query
-        target_table_name = query_desc.target_table or fallback_table_name
-        if not target_table_name:
-            raise QueryGenerationError("Target table must be specified for single table queries.")
-        if db_type == 'clickhouse' and query_desc.target_database:
-            table = Table(target_table_name, schema=query_desc.target_database)
-        else:
-            table = Table(target_table_name)
-
-        table_map[target_table_name] = table
-        query = Query.from_(table)
-        return TableContext(query=query, table_map=table_map, default_table=table, primary_table=table)
+        builder = TableContextBuilder()
+        return builder.build(query_desc, db_type, fallback_table_name)
 
     def _build_optimization_context(
         self,
@@ -223,25 +147,20 @@ class QueryService:
         rounding_config: Dict[str, Any],
         binning_config: Dict[str, Any],
         use_category_dedup: bool,
-        vc_builder: Optional[VirtualColumnExpressionBuilder] = None,  # NEW
+        vc_builder: Optional[VirtualColumnExpressionBuilder] = None,
     ) -> SelectClauseResult:
         """Assemble SELECT fields and related alias/grouping metadata."""
         
-        # Create a closure that includes vc_builder for checking virtual columns
-        def parse_field_with_vc(field_name: str, table_map_inner: Dict[str, Any], default_table_inner: Any) -> Any:
-            # Check if this is a virtual column first
-            if vc_builder and vc_builder.is_virtual_column(field_name):
-                vc_term = vc_builder.get_virtual_column_term(field_name)
-                if vc_term:
-                    logger.debug(f"Resolved '{field_name}' as virtual column in SELECT")
-                    return vc_term
-            # Otherwise use normal field reference parsing
-            return self._parse_field_reference(field_name, table_map_inner, default_table_inner)
+        # Create field reference parser that handles virtual columns
+        field_parser = FieldReferenceParser(
+            table_map=table_map,
+            default_table=default_table,
+            vc_builder=vc_builder
+        )
         
         builder = SelectClauseBuilder(
-            parse_field_reference=parse_field_with_vc,  # Use closure
+            parse_field_reference=field_parser.parse,
             apply_cast_if_configured=self._apply_cast_if_configured,
-            get_datetime_part_expression=self._get_datetime_part_expression,
             vc_builder=vc_builder,  # Pass vc_builder for aliasing logic
         )
 
@@ -263,25 +182,20 @@ class QueryService:
         default_table: Any,
         db_type: str,
         primary_table: Any,
-        vc_builder: Optional[VirtualColumnExpressionBuilder] = None,  # NEW
+        vc_builder: Optional[VirtualColumnExpressionBuilder] = None,
     ) -> List[Criterion]:
         """Translate filters, automatic null guards, and regex sampling into Criterion list."""
         
-        # Create a closure that includes vc_builder for checking virtual columns
-        def parse_field_with_vc(field_name: str, table_map_inner: Dict[str, Any], default_table_inner: Any) -> Any:
-            # Check if this is a virtual column first
-            if vc_builder and vc_builder.is_virtual_column(field_name):
-                vc_term = vc_builder.get_virtual_column_term(field_name)
-                if vc_term:
-                    logger.debug(f"Resolved '{field_name}' as virtual column in WHERE")
-                    return vc_term
-            # Otherwise use normal field reference parsing
-            return self._parse_field_reference(field_name, table_map_inner, default_table_inner)
+        # Create field reference parser that handles virtual columns
+        field_parser = FieldReferenceParser(
+            table_map=table_map,
+            default_table=default_table,
+            vc_builder=vc_builder
+        )
         
         builder = FilterBuilder(
-            parse_field_reference=parse_field_with_vc,  # Use closure
+            parse_field_reference=field_parser.parse,
             apply_cast_if_configured=self._apply_cast_if_configured,
-            get_datetime_part_expression=self._get_datetime_part_expression,
             get_field_with_cast=self._get_field_with_cast,
         )
 
@@ -331,7 +245,6 @@ class QueryService:
     ) -> Query:
         builder = GroupingOrderingBuilder(
             logger=logger,
-            get_datetime_part_expression=self._get_datetime_part_expression,
         )
         return builder.apply_grouping(
             query,
@@ -383,6 +296,9 @@ class QueryService:
     def _parse_field_reference(self, field_name: str, table_map: Dict[str, Any], default_table: Any) -> Any:
         """
         Parse a field reference that may include a table prefix (e.g., 'customers.name').
+        
+        DEPRECATED: Use FieldReferenceParser class instead. This method is kept for
+        backward compatibility with existing tests.
         
         Special handling for ClickHouse nested columns:
         - Some ClickHouse columns have periods in their names (nested structures)
@@ -452,7 +368,8 @@ class QueryService:
         db_type: str = 'clickhouse', 
         with_sampling: bool = False,
         with_optimization: bool = True,
-        optimizer: Optional[Any] = None
+        optimizer: Optional[Any] = None,
+        connector: Optional[Any] = None
     ) -> Tuple[str, List[Dict[str, Any]]]:
         """
         Translates a QueryDescription object into a SQL string.
@@ -465,6 +382,7 @@ class QueryService:
             with_sampling: If true, applies sampling for large raw queries.
             with_optimization: Whether to apply query optimizations.
             optimizer: QueryOptimizer instance (optional).
+            connector: Database connector (optional, needed for union table column filtering).
 
         Returns:
             Tuple of (SQL query string, optimization metadata list).
@@ -479,6 +397,7 @@ class QueryService:
         if query_desc.virtual_table and query_desc.virtual_table.mode == 'union':
             builder = UnionQueryBuilder(
                 translate_single_table=self.translate_to_sql,
+                connector=connector,
                 logger=logger,
             )
             return builder.translate(
@@ -558,18 +477,9 @@ class QueryService:
             optimizer,
         )
         
-        # CRITICAL: Ensure DISTINCT is applied for discrete-only queries (filter queries)
-        # This is essential for filter panels to show unique values only
-        if not query_desc.measures and query_desc.dimensions:
-            discrete_dims = [d for d in query_desc.dimensions if d.flavour == 'discrete']
-            continuous_dims = [d for d in query_desc.dimensions if d.flavour == 'continuous']
-            
-            # For pure discrete queries (no continuous dims), always apply DISTINCT
-            # This ensures filter panels show unique values
-            if len(discrete_dims) > 0 and len(continuous_dims) == 0:
-                if not use_category_dedup and not q._distinct:
-                    q = q.distinct()
-                    logger.info("Applied DISTINCT to discrete-only query for filter deduplication")
+        # Apply DISTINCT for discrete-only dimension queries (e.g., filter panels)
+        distinct_applier = DistinctApplier()
+        q = distinct_applier.apply_if_needed(q, query_desc, use_category_dedup)
         
         q = self._apply_grouping(
             q,

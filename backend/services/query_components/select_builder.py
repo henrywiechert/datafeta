@@ -9,6 +9,7 @@ from pypika.terms import Function
 
 from backend.exceptions import QueryGenerationError
 from backend.models.query import QueryDescription
+from backend.services.datetime_service import DateTimeService
 from backend.services.query_components.contexts import SelectClauseResult
 from backend.services.query_components.terms import CastField
 
@@ -20,14 +21,12 @@ class SelectClauseBuilder:
 
     def __init__(
         self,
-        parse_field_reference: Callable[[str, Dict[str, Any], Any], Any],
+        parse_field_reference: Callable[[str], Any],
         apply_cast_if_configured: Callable[[str, Any, Optional[Dict[str, Dict[str, str]]]], Any],
-        get_datetime_part_expression: Callable[[Any, str, str, str], Any],
         vc_builder: Optional[Any] = None,  # VirtualColumnExpressionBuilder
     ) -> None:
         self._parse_field_reference = parse_field_reference
         self._apply_cast_if_configured = apply_cast_if_configured
-        self._get_datetime_part_expression = get_datetime_part_expression
         self._vc_builder = vc_builder
 
     def build(
@@ -67,7 +66,7 @@ class SelectClauseBuilder:
                     all_aliases.add(dim.field)
                     continue
 
-                field_term = self._parse_field_reference(dim.field, table_map, default_table)
+                field_term = self._parse_field_reference(dim.field)
                 field_term = self._apply_cast_if_configured(dim.field, field_term, query_desc.column_casts)
 
                 # Check if this is a virtual column that needs aliasing
@@ -132,7 +131,7 @@ class SelectClauseBuilder:
                             )
 
                 if dim.date_part and dim.date_mode:
-                    field_term = self._get_datetime_part_expression(
+                    field_term = DateTimeService.get_datetime_part_expression(
                         field_term, dim.date_part, dim.date_mode, db_type
                     )
                     alias = f"{dim.field}_{dim.date_part}_{dim.date_mode}"
@@ -155,15 +154,13 @@ class SelectClauseBuilder:
                 agg_func_builder = aggregation_map.get(measure.aggregation)
                 if not agg_func_builder:
                     raise QueryGenerationError(
-                        f"Unsupported aggregation function: {measure.aggregation}"
-                    )
-
-                field_term = self._parse_field_reference(measure.field, table_map, default_table)
-                field_term = self._apply_cast_if_configured(
-                    measure.field, field_term, query_desc.column_casts
+                    f"Unsupported aggregation function: {measure.aggregation}"
                 )
 
-                # For ClickHouse COUNT() with dotted field names, use single quotes
+                field_term = self._parse_field_reference(measure.field)
+                field_term = self._apply_cast_if_configured(
+                    measure.field, field_term, query_desc.column_casts
+                )                # For ClickHouse COUNT() with dotted field names, use single quotes
                 # Other aggregations (SUM, AVG, etc.) use normal backtick quoting
                 if db_type == "clickhouse" and measure.aggregation == "count" and '.' in measure.field:
                     from backend.services.query_components.terms import LiteralColumnName
@@ -186,7 +183,7 @@ class SelectClauseBuilder:
                 if lbl in existing_dimension_fields or lbl in existing_measure_fields:
                     continue
                 try:
-                    raw_term = self._parse_field_reference(lbl, table_map, default_table)
+                    raw_term = self._parse_field_reference(lbl)
                     raw_term = self._apply_cast_if_configured(lbl, raw_term, query_desc.column_casts)
                     select_fields.append(raw_term.as_(lbl))
                     all_aliases.add(lbl)
