@@ -28,7 +28,7 @@ function AppContent() {
   
   const { state, setActiveSheet, addSheet, renameSheet, duplicateSheet, removeSheet, dispatch: sheetDispatch } = useSheetContext();
   const { dataSource, setSelectedDatabase, setSelectedTable, setDatabases, setTables, setAvailableFields } = useDataSource();
-  const { connectionDetails, connect } = useConnection();
+  const { connectionDetails, connect, disconnect, isConnected } = useConnection();
   
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
@@ -141,6 +141,24 @@ function AppContent() {
 
   const handleLoadConfiguration = async (rawConfig: any) => {
     try {
+      // Check if currently connected - warn user before proceeding
+      if (isConnected) {
+        const confirmed = window.confirm(
+          'You are currently connected to a data source. Loading this configuration will disconnect you first. Continue?'
+        );
+        if (!confirmed) {
+          return; // User cancelled
+        }
+        
+        // Disconnect from current connection
+        try {
+          await disconnect();
+        } catch (err) {
+          console.error('Failed to disconnect before loading configuration:', err);
+          // Continue anyway - validation will handle errors
+        }
+      }
+      
       // Validate the configuration
       const config = validateConfiguration(rawConfig);
       
