@@ -8,6 +8,7 @@ from typing import Any, Iterable, List, Optional, Sequence
 from pypika import Order, Query
 
 from backend.models.query import OrderBy, QueryDescription
+from backend.services.datetime_service import DateTimeService
 from backend.services.query_components.terms import QuotedField
 
 
@@ -18,10 +19,8 @@ class GroupingOrderingBuilder:
         self,
         *,
         logger: logging.Logger | None = None,
-        get_datetime_part_expression: Optional[callable] = None,
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
-        self._get_datetime_part_expression = get_datetime_part_expression
 
     # --- GROUPING -----------------------------------------------------
 
@@ -74,8 +73,8 @@ class GroupingOrderingBuilder:
                 else:
                     field_term = primary_table[dim.field]
                 
-                if dim.date_part and dim.date_mode and self._get_datetime_part_expression:
-                    field_term = self._get_datetime_part_expression(
+                if dim.date_part and dim.date_mode:
+                    field_term = DateTimeService.get_datetime_part_expression(
                         field_term, dim.date_part, dim.date_mode, db_type
                     )
                 groupby_fields.append(field_term)
@@ -102,8 +101,8 @@ class GroupingOrderingBuilder:
                     else:
                         field_term = primary_table[dim.field]
                     
-                    if dim.date_part and dim.date_mode and self._get_datetime_part_expression:
-                        field_term = self._get_datetime_part_expression(
+                    if dim.date_part and dim.date_mode:
+                        field_term = DateTimeService.get_datetime_part_expression(
                             field_term, dim.date_part, dim.date_mode, db_type
                         )
                     groupby_fields.append(field_term)

@@ -224,7 +224,8 @@ def execute_query(
             db_type=db_type,
             with_sampling=True,  # Enable sampling for large raw queries
             with_optimization=True,  # Enable query optimizations
-            optimizer=optimizer
+            optimizer=optimizer,
+            connector=connector  # Pass connector for union table column filtering
         )
     except ValueError as e:
         raise QueryGenerationError(f"Query generation error: {e}")
