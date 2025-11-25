@@ -38,6 +38,7 @@ from backend.services.query_components.virtual_column_builder import (
 from backend.services.query_components.field_reference_parser import (
     FieldReferenceParser,
 )
+from backend.services.query_components.distinct_applier import DistinctApplier
 
 logger = logging.getLogger(__name__)
 
@@ -504,18 +505,9 @@ class QueryService:
             optimizer,
         )
         
-        # CRITICAL: Ensure DISTINCT is applied for discrete-only queries (filter queries)
-        # This is essential for filter panels to show unique values only
-        if not query_desc.measures and query_desc.dimensions:
-            discrete_dims = [d for d in query_desc.dimensions if d.flavour == 'discrete']
-            continuous_dims = [d for d in query_desc.dimensions if d.flavour == 'continuous']
-            
-            # For pure discrete queries (no continuous dims), always apply DISTINCT
-            # This ensures filter panels show unique values
-            if len(discrete_dims) > 0 and len(continuous_dims) == 0:
-                if not use_category_dedup and not q._distinct:
-                    q = q.distinct()
-                    logger.info("Applied DISTINCT to discrete-only query for filter deduplication")
+        # Apply DISTINCT for discrete-only dimension queries (e.g., filter panels)
+        distinct_applier = DistinctApplier()
+        q = distinct_applier.apply_if_needed(q, query_desc, use_category_dedup)
         
         q = self._apply_grouping(
             q,
