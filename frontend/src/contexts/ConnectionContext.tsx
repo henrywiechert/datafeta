@@ -28,6 +28,16 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
   const { dispatch } = useVisualizationContext();
 
   const connect = useCallback(async (details: ConnectionDetails, file?: File) => {
+    // If already connected, disconnect first to clean up resources
+    if (isConnected) {
+      try {
+        await apiService.disconnect();
+      } catch (err) {
+        console.warn('Failed to disconnect from previous connection:', err);
+        // Continue anyway - attempt new connection
+      }
+    }
+
     setIsLoading(true);
     setError(null);
     setMessage(null);
@@ -46,6 +56,9 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
       dispatch({ type: 'SET_AVAILABLE_FIELDS', payload: [] });
       dispatch({ type: 'SET_SELECTED_DATABASE', payload: '' });
       dispatch({ type: 'SET_SELECTED_TABLE', payload: '' });
+      // Clear query results to free memory
+      dispatch({ type: 'SET_QUERY_RESULT', payload: null });
+      dispatch({ type: 'SET_QUERY_ERROR', payload: null });
       // Don't navigate here
     } catch (err: any) {
         let errorMessage = 'Connection failed';
@@ -90,12 +103,20 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
     } finally {
       setIsConnected(false);
       setConnectionDetails(null);
-      // Clear message/error related to disconnect action itself after clearing state?
-      // setMessage(null); // Optional: Clear message after success/failure handled
-      // setError(null); // Optional: Clear error
+      
+      // Clear all visualization state to free memory - don't use RESET_STATE as it clears axis fields too
+      // Just clear metadata and query results
+      dispatch({ type: 'SET_DATABASES', payload: [] });
+      dispatch({ type: 'SET_TABLES', payload: [] });
+      dispatch({ type: 'SET_AVAILABLE_FIELDS', payload: [] });
+      dispatch({ type: 'SET_SELECTED_DATABASE', payload: '' });
+      dispatch({ type: 'SET_SELECTED_TABLE', payload: '' });
+      dispatch({ type: 'SET_QUERY_RESULT', payload: null });
+      dispatch({ type: 'SET_QUERY_ERROR', payload: null });
+      
       setIsLoading(false);
     }
-  }, []);
+  }, [dispatch]);
 
   const value = {
     isConnected,
