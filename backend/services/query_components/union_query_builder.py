@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
-from backend.models.query import QueryDescription
+from backend.models.query import Dimension, Measure, QueryDescription
 
 
 class UnionQueryBuilder:
@@ -15,10 +15,36 @@ class UnionQueryBuilder:
         self,
         translate_single_table: Callable[[QueryDescription, str, str, bool, bool, Optional[object]], Tuple[str, List[Dict]]],
         *,
+        connector: Optional[Any] = None,
         logger: Optional[logging.Logger] = None,
     ) -> None:
         self._translate_single_table = translate_single_table
+        self._connector = connector
         self._logger = logger or logging.getLogger(__name__)
+
+    def _get_table_columns(self, database: str, table_name: str) -> Set[str]:
+        """
+        Get the set of column names for a specific table.
+        
+        Args:
+            database: Database name
+            table_name: Table name
+            
+        Returns:
+            Set of column names that exist in the table
+        """
+        if not self._connector:
+            # If no connector available, assume all columns exist (backward compatibility)
+            return set()
+        
+        try:
+            columns = self._connector.list_columns(database, table_name)
+            column_names = {col.name for col in columns}
+            self._logger.debug(f"Table {database}.{table_name} has {len(column_names)} columns")
+            return column_names
+        except Exception as e:
+            self._logger.warning(f"Could not fetch columns for {database}.{table_name}: {e}. Assuming all fields exist.")
+            return set()  # Empty set means "don't filter" (assume all exist)
 
     def translate(
         self,
@@ -71,24 +97,38 @@ class UnionQueryBuilder:
         self._logger.info("Building UNION ALL query for tables: %s", 
                          [f"{db}.{tbl}" if db else tbl for db, tbl in table_refs])
 
+        # First pass: determine which fields exist in which tables
+        # This ensures we can build consistent SELECT lists with proper column order
+        table_columns_map = {}  # {(database, table_name): Set[column_names]}
+        for database, table_name in table_refs:
+            table_columns_map[(database, table_name)] = self._get_table_columns(database, table_name)
+        
+        # Build the complete ordered list of field names (for consistent SELECT order)
+        # Order: dimensions first, then measures
+        all_dimension_fields = []
+        for dim in query_desc.dimensions:
+            if dim.field not in ("_source_database", "_source_table"):
+                if dim.date_part and dim.date_mode:
+                    field_key = f"{dim.field}_{dim.date_part}_{dim.date_mode}"
+                else:
+                    field_key = dim.field
+                all_dimension_fields.append((field_key, dim))
+        
+        all_measure_fields = []
+        for measure in query_desc.measures:
+            field_key = measure.alias if measure.alias else f"{measure.aggregation}({measure.field})"
+            all_measure_fields.append((field_key, measure))
+
         union_queries: List[str] = []
         for database, table_name in table_refs:
-            if hasattr(query_desc, "model_copy"):
-                single_table_desc = query_desc.model_copy(deep=True)
-            else:  # pragma: no cover - fallback for Pydantic < 2.0
-                single_table_desc = query_desc.copy(deep=True)
-            single_table_desc.target_table = table_name
-            single_table_desc.target_database = database
-            single_table_desc.virtual_table = None
-
+            table_columns = table_columns_map.get((database, table_name), set())
+            
             # Check for source tracking dimensions
-            has_source_db_dim = any(d.field == "_source_database" for d in single_table_desc.dimensions)
-            has_source_table_dim = any(d.field == "_source_table" for d in single_table_desc.dimensions)
-            other_dimensions = [d for d in single_table_desc.dimensions 
-                              if d.field not in ("_source_database", "_source_table")]
+            has_source_db_dim = any(d.field == "_source_database" for d in query_desc.dimensions)
+            has_source_table_dim = any(d.field == "_source_table" for d in query_desc.dimensions)
 
             # Special case: only source tracking columns requested
-            if (has_source_db_dim or has_source_table_dim) and not other_dimensions and not single_table_desc.measures:
+            if (has_source_db_dim or has_source_table_dim) and not all_dimension_fields and not all_measure_fields:
                 # Build table reference (database and table_name are already properly parsed)
                 if database:
                     table_reference = f"{quote_char}{database}{quote_char}.{quote_char}{table_name}{quote_char}"
@@ -105,7 +145,36 @@ class UnionQueryBuilder:
                 union_queries.append(f"({simple_sql})")
                 continue
 
-            single_table_desc.dimensions = other_dimensions
+            # Build query for this table with consistent column order
+            # Create a query descriptor with only fields that exist in this table
+            if hasattr(query_desc, "model_copy"):
+                single_table_desc = query_desc.model_copy(deep=True)
+            else:  # pragma: no cover - fallback for Pydantic < 2.0
+                single_table_desc = query_desc.copy(deep=True)
+            single_table_desc.target_table = table_name
+            single_table_desc.target_database = database
+            single_table_desc.virtual_table = None
+            
+            # Filter to only dimensions that exist in this table
+            existing_dimensions = []
+            missing_dimension_keys = []
+            for field_key, dim in all_dimension_fields:
+                if not table_columns or dim.field in table_columns:
+                    existing_dimensions.append(dim)
+                else:
+                    missing_dimension_keys.append(field_key)
+            
+            # Filter to only measures that exist in this table
+            existing_measures = []
+            missing_measure_keys = []
+            for field_key, measure in all_measure_fields:
+                if not table_columns or measure.field in table_columns:
+                    existing_measures.append(measure)
+                else:
+                    missing_measure_keys.append((field_key, measure))
+            
+            single_table_desc.dimensions = existing_dimensions
+            single_table_desc.measures = existing_measures
             # Filter out source tracking filters (handled in outer query)
             single_table_desc.filters = [f for f in single_table_desc.filters 
                                         if f.field not in ("_source_database", "_source_table")]
@@ -113,14 +182,135 @@ class UnionQueryBuilder:
             single_table_desc.limit = None
             single_table_desc.offset = None
 
-            single_sql, _ = self._translate_single_table(
-                single_table_desc,
-                table_name,
-                db_type,
-                with_sampling=with_sampling,
-                with_optimization=with_optimization,
-                optimizer=optimizer,
-            )
+            # Check if ALL fields are missing from this table
+            if table_columns and not existing_dimensions and not existing_measures:
+                # All requested fields are missing from this table - build NULL-only query
+                if database:
+                    table_reference = f"{quote_char}{database}{quote_char}.{quote_char}{table_name}{quote_char}"
+                else:
+                    table_reference = f"{quote_char}{table_name}{quote_char}"
+                
+                select_items = []
+                
+                # Add NULL for all dimensions (in order)
+                for field_key in missing_dimension_keys:
+                    select_items.append(f"NULL AS {quote_char}{field_key}{quote_char}")
+                
+                # Add NULL for all measures (in order)
+                for field_key, measure in missing_measure_keys:
+                    if db_type == 'clickhouse':
+                        select_items.append(f"CAST(NULL AS Nullable(Float64)) AS {quote_char}{field_key}{quote_char}")
+                    else:
+                        select_items.append(f"NULL AS {quote_char}{field_key}{quote_char}")
+                
+                # Determine query type:
+                # - If any dimensions: return 0 rows (dimensions without values don't make sense)
+                # - If only measures: return 1 NULL row for aggregation
+                if missing_dimension_keys:
+                    single_sql = f"SELECT {', '.join(select_items)} FROM {table_reference} WHERE 1=0"
+                    self._logger.info(f"All dimensions missing from table {table_name}, generated empty result (0 rows)")
+                else:
+                    single_sql = f"SELECT {', '.join(select_items)} FROM {table_reference} LIMIT 1"
+                    self._logger.info(f"All measures missing from table {table_name}, generated NULL-only aggregated query (1 row)")
+            else:
+                # Generate SQL for fields that exist in this table
+                single_sql, _ = self._translate_single_table(
+                    single_table_desc,
+                    table_name,
+                    db_type,
+                    with_sampling=with_sampling,
+                    with_optimization=with_optimization,
+                    optimizer=optimizer,
+                )
+                
+                # Parse the generated SQL to extract SELECT expressions
+                if "FROM" in single_sql:
+                    select_clause, from_and_rest = single_sql.split("FROM", 1)
+                    
+                    # Extract the SELECT expressions that were generated (with optimizations applied)
+                    select_clause = select_clause.strip()
+                    if select_clause.upper().startswith("SELECT"):
+                        select_clause = select_clause[6:].strip()
+                    if select_clause.upper().startswith("DISTINCT"):
+                        select_clause = select_clause[8:].strip()
+                    
+                    # Parse existing SELECT items to extract expressions by alias
+                    import re
+                    existing_expressions = {}
+                    # Split by comma first, then parse each item
+                    # This handles complex expressions with nested commas better
+                    select_items_raw = []
+                    paren_depth = 0
+                    current_item = []
+                    for char in select_clause:
+                        if char == '(':
+                            paren_depth += 1
+                            current_item.append(char)
+                        elif char == ')':
+                            paren_depth -= 1
+                            current_item.append(char)
+                        elif char == ',' and paren_depth == 0:
+                            select_items_raw.append(''.join(current_item).strip())
+                            current_item = []
+                        else:
+                            current_item.append(char)
+                    if current_item:
+                        select_items_raw.append(''.join(current_item).strip())
+                    
+                    # Now parse each item to extract expression and alias
+                    for item in select_items_raw:
+                        # Pattern: <expression> AS `alias` or <expression> `alias`
+                        pattern = r'^(.+?)\s+(?:AS\s+)?' + re.escape(quote_char) + r'([^' + re.escape(quote_char) + r']+)' + re.escape(quote_char) + r'$'
+                        match = re.match(pattern, item.strip(), re.IGNORECASE)
+                        if match:
+                            expr = match.group(1).strip()
+                            alias = match.group(2)
+                            existing_expressions[alias] = expr
+                    
+                    # Build new SELECT clause with ALL fields in correct order
+                    select_items = []
+                    
+                    # Add dimensions in order
+                    for field_key, dim in all_dimension_fields:
+                        if not table_columns or dim.field in table_columns:
+                            # Field exists - use the expression from generated SQL (preserves optimizations)
+                            if field_key in existing_expressions:
+                                expr = existing_expressions[field_key]
+                                select_items.append(f"{expr} AS {quote_char}{field_key}{quote_char}")
+                            else:
+                                # Fallback: use raw field (shouldn't happen if translate_single_table worked)
+                                select_items.append(f"{quote_char}{dim.field}{quote_char} AS {quote_char}{field_key}{quote_char}")
+                        else:
+                            # Field missing - NULL
+                            select_items.append(f"NULL AS {quote_char}{field_key}{quote_char}")
+                    
+                    # Add measures in order
+                    for field_key, measure in all_measure_fields:
+                        if not table_columns or measure.field in table_columns:
+                            # Field exists - use expression from generated SQL and add type cast for ClickHouse
+                            if field_key in existing_expressions:
+                                expr = existing_expressions[field_key]
+                                if db_type == 'clickhouse':
+                                    select_items.append(f"CAST({expr} AS Nullable(Float64)) AS {quote_char}{field_key}{quote_char}")
+                                else:
+                                    select_items.append(f"{expr} AS {quote_char}{field_key}{quote_char}")
+                            else:
+                                # Fallback: build aggregation manually
+                                agg_expr = f"{measure.aggregation.upper()}({quote_char}{measure.field}{quote_char})"
+                                if db_type == 'clickhouse':
+                                    select_items.append(f"CAST({agg_expr} AS Nullable(Float64)) AS {quote_char}{field_key}{quote_char}")
+                                else:
+                                    select_items.append(f"{agg_expr} AS {quote_char}{field_key}{quote_char}")
+                        else:
+                            # Field missing - NULL
+                            if db_type == 'clickhouse':
+                                select_items.append(f"CAST(NULL AS Nullable(Float64)) AS {quote_char}{field_key}{quote_char}")
+                            else:
+                                select_items.append(f"NULL AS {quote_char}{field_key}{quote_char}")
+                    
+                    # Rebuild the complete SQL with ordered SELECT
+                    single_sql = f"SELECT {', '.join(select_items)} FROM{from_and_rest}"
+                    self._logger.debug(f"Rebuilt SQL for table {table_name} with {len(select_items)} fields in correct order, preserving optimizations")
 
             # Add source tracking columns to the query
             if "FROM" in single_sql:
@@ -142,7 +332,13 @@ class UnionQueryBuilder:
 
         union_sql = "\nUNION ALL\n".join(union_queries)
 
-        needs_distinct = query_desc.fetch_filter_values is True
+        # Determine if DISTINCT is needed:
+        # 1. Explicitly requested via fetch_filter_values flag
+        # 2. For dimension-only queries (no measures) to avoid duplicate combinations in UNION
+        has_dimensions = bool(all_dimension_fields)
+        has_measures = bool(all_measure_fields)
+        needs_distinct = query_desc.fetch_filter_values is True or (has_dimensions and not has_measures)
+        
         distinct_columns: List[str] = []
         if needs_distinct:
             for dim in query_desc.dimensions:
@@ -154,10 +350,17 @@ class UnionQueryBuilder:
                 else:
                     col_name = dim.field
                 distinct_columns.append(f"{quote_char}{col_name}{quote_char}")
-            self._logger.info(
-                "Filter value query (fetch_filter_values=True) - will apply DISTINCT on: %s",
-                distinct_columns,
-            )
+            
+            if query_desc.fetch_filter_values:
+                self._logger.info(
+                    "Filter value query (fetch_filter_values=True) - will apply DISTINCT on: %s",
+                    distinct_columns,
+                )
+            else:
+                self._logger.info(
+                    "Dimension-only UNION query - will apply DISTINCT to avoid duplicate combinations on: %s",
+                    distinct_columns,
+                )
 
         # Get filters for source tracking columns
         source_db_filters = [f for f in query_desc.filters if f.field == "_source_database"]
