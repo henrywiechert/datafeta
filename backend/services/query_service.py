@@ -452,7 +452,8 @@ class QueryService:
         db_type: str = 'clickhouse', 
         with_sampling: bool = False,
         with_optimization: bool = True,
-        optimizer: Optional[Any] = None
+        optimizer: Optional[Any] = None,
+        connector: Optional[Any] = None
     ) -> Tuple[str, List[Dict[str, Any]]]:
         """
         Translates a QueryDescription object into a SQL string.
@@ -465,6 +466,7 @@ class QueryService:
             with_sampling: If true, applies sampling for large raw queries.
             with_optimization: Whether to apply query optimizations.
             optimizer: QueryOptimizer instance (optional).
+            connector: Database connector (optional, needed for union table column filtering).
 
         Returns:
             Tuple of (SQL query string, optimization metadata list).
@@ -479,6 +481,7 @@ class QueryService:
         if query_desc.virtual_table and query_desc.virtual_table.mode == 'union':
             builder = UnionQueryBuilder(
                 translate_single_table=self.translate_to_sql,
+                connector=connector,
                 logger=logger,
             )
             return builder.translate(
