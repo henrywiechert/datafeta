@@ -9,6 +9,7 @@ from pypika.terms import Function
 
 from backend.exceptions import QueryGenerationError
 from backend.models.query import QueryDescription
+from backend.services.datetime_service import DateTimeService
 from backend.services.query_components.contexts import SelectClauseResult
 from backend.services.query_components.terms import CastField
 
@@ -22,12 +23,10 @@ class SelectClauseBuilder:
         self,
         parse_field_reference: Callable[[str], Any],
         apply_cast_if_configured: Callable[[str, Any, Optional[Dict[str, Dict[str, str]]]], Any],
-        get_datetime_part_expression: Callable[[Any, str, str, str], Any],
         vc_builder: Optional[Any] = None,  # VirtualColumnExpressionBuilder
     ) -> None:
         self._parse_field_reference = parse_field_reference
         self._apply_cast_if_configured = apply_cast_if_configured
-        self._get_datetime_part_expression = get_datetime_part_expression
         self._vc_builder = vc_builder
 
     def build(
@@ -132,7 +131,7 @@ class SelectClauseBuilder:
                             )
 
                 if dim.date_part and dim.date_mode:
-                    field_term = self._get_datetime_part_expression(
+                    field_term = DateTimeService.get_datetime_part_expression(
                         field_term, dim.date_part, dim.date_mode, db_type
                     )
                     alias = f"{dim.field}_{dim.date_part}_{dim.date_mode}"

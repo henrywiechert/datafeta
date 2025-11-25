@@ -10,6 +10,7 @@ from pypika.functions import Cast
 
 from backend.exceptions import QueryGenerationError
 from backend.models.query import QueryDescription
+from backend.services.datetime_service import DateTimeService
 from backend.services.query_components.terms import CustomFunction
 
 logger = logging.getLogger(__name__)
@@ -38,13 +39,11 @@ class FilterBuilder:
         self,
         parse_field_reference: Callable[[str], Any],
         apply_cast_if_configured: Callable[[str, Any, Optional[Dict[str, Dict[str, str]]]], Any],
-        get_datetime_part_expression: Callable[[Any, str, str, str], Any],
         get_field_with_cast: Callable[[Any, str, Optional[Dict[str, Dict[str, str]]]], Any],
         operator_map: Optional[Dict[str, Callable[[Any, Any], Criterion]]] = None,
     ) -> None:
         self._parse_field_reference = parse_field_reference
         self._apply_cast_if_configured = apply_cast_if_configured
-        self._get_datetime_part_expression = get_datetime_part_expression
         self._get_field_with_cast = get_field_with_cast
         self._operator_map = operator_map or OPERATOR_MAP
 
@@ -124,7 +123,7 @@ class FilterBuilder:
             field_term = self._apply_cast_if_configured(
                 definition.field, field_term, column_casts
             )
-            return self._get_datetime_part_expression(
+            return DateTimeService.get_datetime_part_expression(
                 field_term, definition.date_part, definition.date_mode, db_type
             )
 
@@ -182,7 +181,7 @@ class FilterBuilder:
             field_term = self._get_field_with_cast(
                 primary_table, dim.field, query_desc.column_casts
             )
-            field_expr = self._get_datetime_part_expression(
+            field_expr = DateTimeService.get_datetime_part_expression(
                 field_term, dim.date_part, dim.date_mode, db_type
             )
             cast_type = "String" if db_type == "clickhouse" else "VARCHAR"
