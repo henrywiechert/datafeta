@@ -38,12 +38,39 @@ backend/
 ├── services/
 │   ├── connection_service.py    # Connection lifecycle, CSV upload handling
 │   ├── query_service.py         # SQL generation from QueryDescription
-│   ├── query_components/        # Modular query builders (select, filter, grouping, etc.)
+│   ├── cardinality_service.py   # Distinct count calculations with filters
+│   ├── datetime_service.py      # Datetime field transformations and extractions
+│   ├── query_components/        # Modular query builders
+│   │   ├── select_builder.py
+│   │   ├── filter_builder.py
+│   │   ├── grouping_ordering_builder.py
+│   │   ├── sampling_limits_builder.py
+│   │   ├── optimization_applier.py
+│   │   ├── table_context_builder.py
+│   │   ├── union_query_builder.py
+│   │   ├── virtual_column_builder.py
+│   │   ├── distinct_applier.py
+│   │   ├── field_reference_parser.py
+│   │   ├── contexts.py
+│   │   └── terms.py
 │   ├── optimization/            # Query optimization system
 │   │   ├── optimizer.py         # Main optimizer coordinating strategies
-│   │   ├── strategies/          # Optimization strategies (rounding, binning, dedup)
-│   │   ├── planners/            # Strategy planning logic
-│   │   └── estimators/          # Result size estimation (ClickHouse, DuckDB)
+│   │   ├── config.py            # Optimizer configuration
+│   │   ├── count_cache.py       # Caching for count estimates
+│   │   ├── table_size_detector.py  # Small table detection
+│   │   ├── strategy_planner.py  # Strategy selection logic
+│   │   ├── strategies/          # Optimization strategies
+│   │   │   ├── adaptive_rounding.py
+│   │   │   ├── datetime_binning.py
+│   │   │   ├── category_dedup.py
+│   │   │   ├── discrete_dedup.py
+│   │   │   └── distinct_pairs.py
+│   │   ├── planners/            # Strategy-specific planners
+│   │   │   ├── adaptive_rounding_planner.py
+│   │   │   └── dedup_planner.py
+│   │   └── estimators/          # Result size estimation
+│   │       ├── clickhouse.py
+│   │       └── duckdb.py
 │   ├── validation_service.py    # Input validation
 │   ├── table_merge_service.py   # Multi-table JOIN/UNION support
 │   └── query_result_builder.py  # Result formatting
@@ -102,7 +129,7 @@ The backend supports multiple concurrent users through **session-based state iso
 - **GET [`/api/v1/data/databases`](routers/data.py#L86)** - List databases via [`list_databases`](routers/data.py#L87)
 - **GET [`/api/v1/data/tables`](routers/data.py#L98)** - List tables via [`list_tables`](routers/data.py#L99)
 - **GET [`/api/v1/data/columns`](routers/data.py#L109)** - List columns via [`list_columns`](routers/data.py#L110)
-- **GET [`/api/v1/data/distinct-count`](routers/data.py#L126)** - Cardinality queries via [`CardinalityService`](services/cardinality_service.py)
+- **POST [`/api/v1/data/distinct-count`](routers/data.py#L140)** - Cardinality queries via [`CardinalityService`](services/cardinality_service.py)
 
 ### Query Execution
 
@@ -149,6 +176,7 @@ Handler: [`execute_query`](routers/data.py#L155) → [`QueryService.translate_to
 - **DateTime Binning**: [`DateTimeBinningStrategy`](services/optimization/strategies/datetime_binning.py) - Bin continuous datetime dimensions
 - **Category Deduplication**: [`CategoryDeduplicationStrategy`](services/optimization/strategies/category_dedup.py) - Remove duplicate category values
 - **Discrete Deduplication**: [`DiscreteDeduplicationStrategy`](services/optimization/strategies/discrete_dedup.py) - DISTINCT for discrete-only queries
+- **Distinct Pairs**: [`DistinctPairStrategy`](services/optimization/strategies/distinct_pairs.py) - Apply DISTINCT to raw data queries for unique value/pair extraction
 - **Sampling**: Automatic sampling for large raw queries (no aggregations)
 
 **Optimization Flow**:
