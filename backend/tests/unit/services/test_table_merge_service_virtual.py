@@ -67,9 +67,10 @@ class TestTableMergeServiceVirtual:
         
         self.service.get_merged_columns.assert_called_once()
         
-        # Should NOT add _source_table for JOIN mode
-        assert len(result.columns) == 3
-        assert not any(col.name == "_source_table" for col in result.columns)
+        # Should add _source_database and _source_table virtual columns for ALL modes
+        assert len(result.columns) == 5
+        assert any(col.name == "_source_database" for col in result.columns)
+        assert any(col.name == "_source_table" for col in result.columns)
     
     def test_get_merged_columns_with_virtual_union_mode(self):
         """Should create UNION virtual table and add _source_table column."""
@@ -114,13 +115,20 @@ class TestTableMergeServiceVirtual:
         
         self.service.get_merged_columns.assert_called_once()
         
-        # Should ADD _source_table for UNION mode
-        assert len(result.columns) == 4
-        source_col = next((col for col in result.columns if col.name == "_source_table"), None)
-        assert source_col is not None
-        assert source_col.data_type == "String"
-        assert source_col.is_datetime is False
-        assert source_col.table_name is None
+        # Should ADD _source_database and _source_table for UNION mode
+        assert len(result.columns) == 5
+        
+        source_db_col = next((col for col in result.columns if col.name == "_source_database"), None)
+        assert source_db_col is not None
+        assert source_db_col.data_type == "String"
+        assert source_db_col.is_datetime is False
+        assert source_db_col.table_name is None
+        
+        source_table_col = next((col for col in result.columns if col.name == "_source_table"), None)
+        assert source_table_col is not None
+        assert source_table_col.data_type == "String"
+        assert source_table_col.is_datetime is False
+        assert source_table_col.table_name is None
     
     def test_get_merged_columns_with_virtual_auto_detect_joins(self):
         """Should auto-detect joins when requested."""
