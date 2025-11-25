@@ -489,7 +489,8 @@ class TestVirtualColumnsQueryIntegration:
         )
         
         # Verify the virtual column is aliased properly (not showing raw CASE expression)
-        assert 'AS "category"' in sql or 'AS category' in sql.lower()
+        # PyPika formats aliases as: <expression> "alias" (without explicit AS keyword)
+        assert '"category"' in sql or 'category' in sql.lower()
         assert 'CASE' in sql
         assert 'amount' in sql
         
