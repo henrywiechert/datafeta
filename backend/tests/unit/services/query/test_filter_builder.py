@@ -15,8 +15,12 @@ def test_in_filter_with_null_expands_to_is_null():
 
     ctx = qs._build_table_context(desc, "duckdb", "sales")
 
+    # Create a simple field parser that resolves to the primary table
+    def parse_field(field_name: str):
+        return ctx.primary_table.field(field_name)
+
     builder = FilterBuilder(
-        parse_field_reference=qs._parse_field_reference,
+        parse_field_reference=parse_field,
         apply_cast_if_configured=qs._apply_cast_if_configured,
         get_datetime_part_expression=qs._get_datetime_part_expression,
         get_field_with_cast=qs._get_field_with_cast,
