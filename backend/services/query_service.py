@@ -34,6 +34,9 @@ from backend.services.query_components.union_query_builder import UnionQueryBuil
 from backend.services.query_components.virtual_column_builder import (
     VirtualColumnExpressionBuilder,
 )
+from backend.services.query_components.field_reference_parser import (
+    FieldReferenceParser,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -223,23 +226,24 @@ class QueryService:
         rounding_config: Dict[str, Any],
         binning_config: Dict[str, Any],
         use_category_dedup: bool,
-        vc_builder: Optional[VirtualColumnExpressionBuilder] = None,  # NEW
+        vc_builder: Optional[VirtualColumnExpressionBuilder] = None,
     ) -> SelectClauseResult:
         """Assemble SELECT fields and related alias/grouping metadata."""
         
-        # Create a closure that includes vc_builder for checking virtual columns
-        def parse_field_with_vc(field_name: str, table_map_inner: Dict[str, Any], default_table_inner: Any) -> Any:
-            # Check if this is a virtual column first
-            if vc_builder and vc_builder.is_virtual_column(field_name):
-                vc_term = vc_builder.get_virtual_column_term(field_name)
-                if vc_term:
-                    logger.debug(f"Resolved '{field_name}' as virtual column in SELECT")
-                    return vc_term
-            # Otherwise use normal field reference parsing
-            return self._parse_field_reference(field_name, table_map_inner, default_table_inner)
+        # Create field reference parser that handles virtual columns
+        field_parser = FieldReferenceParser(
+            table_map=table_map,
+            default_table=default_table,
+            vc_builder=vc_builder
+        )
+        
+        # Create adapter function to match the old signature (field_name, table_map, default_table)
+        # while using the new parser that only needs field_name
+        def parse_field_adapter(field_name: str, table_map_param: Dict[str, Any], default_table_param: Any) -> Any:
+            return field_parser.parse(field_name)
         
         builder = SelectClauseBuilder(
-            parse_field_reference=parse_field_with_vc,  # Use closure
+            parse_field_reference=parse_field_adapter,
             apply_cast_if_configured=self._apply_cast_if_configured,
             get_datetime_part_expression=self._get_datetime_part_expression,
             vc_builder=vc_builder,  # Pass vc_builder for aliasing logic
@@ -263,23 +267,23 @@ class QueryService:
         default_table: Any,
         db_type: str,
         primary_table: Any,
-        vc_builder: Optional[VirtualColumnExpressionBuilder] = None,  # NEW
+        vc_builder: Optional[VirtualColumnExpressionBuilder] = None,
     ) -> List[Criterion]:
         """Translate filters, automatic null guards, and regex sampling into Criterion list."""
         
-        # Create a closure that includes vc_builder for checking virtual columns
-        def parse_field_with_vc(field_name: str, table_map_inner: Dict[str, Any], default_table_inner: Any) -> Any:
-            # Check if this is a virtual column first
-            if vc_builder and vc_builder.is_virtual_column(field_name):
-                vc_term = vc_builder.get_virtual_column_term(field_name)
-                if vc_term:
-                    logger.debug(f"Resolved '{field_name}' as virtual column in WHERE")
-                    return vc_term
-            # Otherwise use normal field reference parsing
-            return self._parse_field_reference(field_name, table_map_inner, default_table_inner)
+        # Create field reference parser that handles virtual columns
+        field_parser = FieldReferenceParser(
+            table_map=table_map,
+            default_table=default_table,
+            vc_builder=vc_builder
+        )
+        
+        # Create adapter function to match the old signature
+        def parse_field_adapter(field_name: str, table_map_param: Dict[str, Any], default_table_param: Any) -> Any:
+            return field_parser.parse(field_name)
         
         builder = FilterBuilder(
-            parse_field_reference=parse_field_with_vc,  # Use closure
+            parse_field_reference=parse_field_adapter,
             apply_cast_if_configured=self._apply_cast_if_configured,
             get_datetime_part_expression=self._get_datetime_part_expression,
             get_field_with_cast=self._get_field_with_cast,
@@ -383,6 +387,9 @@ class QueryService:
     def _parse_field_reference(self, field_name: str, table_map: Dict[str, Any], default_table: Any) -> Any:
         """
         Parse a field reference that may include a table prefix (e.g., 'customers.name').
+        
+        DEPRECATED: Use FieldReferenceParser class instead. This method is kept for
+        backward compatibility with existing tests.
         
         Special handling for ClickHouse nested columns:
         - Some ClickHouse columns have periods in their names (nested structures)
