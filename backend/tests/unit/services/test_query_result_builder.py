@@ -60,14 +60,16 @@ class TestQueryResultBuilder:
         ]
         sql_query = "SELECT category, COUNT(*) FROM table GROUP BY category"
         
-        extended_metadata = [
-            {
-                "strategy": "adaptive_rounding",
-                "field": "value",
-                "reduction": 0.75,
-                "details": {"precision": 2}
-            }
-        ]
+        extended_metadata = {
+            'optimizations': [
+                {
+                    "strategy": "adaptive_rounding",
+                    "field": "value",
+                    "reduction": 0.75,
+                    "details": {"precision": 2}
+                }
+            ]
+        }
         
         result = builder.build_result(
             columns=columns,
@@ -140,18 +142,20 @@ class TestQueryResultBuilder:
         ]
         sql_query = "SELECT field1, field2 FROM table"
         
-        extended_metadata = [
-            {
-                "strategy": "adaptive_rounding",
-                "field": "field1",
-                "reduction": 0.5
-            },
-            {
-                "strategy": "category_dedup",
-                "field": "field2",
-                "reduction": 0.3
-            }
-        ]
+        extended_metadata = {
+            'optimizations': [
+                {
+                    "strategy": "adaptive_rounding",
+                    "field": "field1",
+                    "reduction": 0.5
+                },
+                {
+                    "strategy": "category_dedup",
+                    "field": "field2",
+                    "reduction": 0.3
+                }
+            ]
+        }
         
         result = builder.build_result(
             columns=columns,
@@ -172,13 +176,15 @@ class TestQueryResultBuilder:
         rows = [{"x": 1}]
         sql_query = "SELECT x FROM table"
         
-        extended_metadata = [
-            {
-                "strategy": "some_strategy",
-                "field": "x"
-                # No 'reduction' key
-            }
-        ]
+        extended_metadata = {
+            'optimizations': [
+                {
+                    "strategy": "some_strategy",
+                    "field": "x"
+                    # No 'reduction' key
+                }
+            ]
+        }
         
         result = builder.build_result(
             columns=columns,
