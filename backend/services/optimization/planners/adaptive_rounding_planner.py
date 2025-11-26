@@ -446,11 +446,13 @@ class AdaptiveRoundingPlanner:
 
         row = rows[0]
         if isinstance(row, dict):
-            count = (
-                row.get("unique_count")
-                or row.get("count(distinct)")
-                or row.get("COUNT(DISTINCT `unix_timestamp`)")
-            )
+            # Prefer explicit aliases; fall back to the first non-None value if necessary.
+            count = row.get("unique_count") or row.get("count(distinct)")
+            if count is None:
+                for value in row.values():
+                    if value is not None:
+                        count = value
+                        break
         elif isinstance(row, (list, tuple)):
             count = row[0]
         else:
