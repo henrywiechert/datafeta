@@ -32,9 +32,6 @@ class OptimizationApplier:
 
         if with_optimization and optimizer and optimization_plan:
             try:
-                if "unix_timestamp" in (binning_config or {}) and not query._distinct:
-                    query = query.distinct()
-
                 if use_category_dedup:
                     self._logger.info(
                         "Category deduplication active - skipping DISTINCT, using GROUP BY instead"
