@@ -376,9 +376,15 @@ class UnionQueryBuilder:
 
         if needs_outer_query:
             if needs_distinct and distinct_columns:
-                columns_list = ", ".join(distinct_columns)
+                # Include source tracking columns in the SELECT even with DISTINCT
+                # They're excluded from the DISTINCT list but must be in the result
+                all_columns = distinct_columns + [
+                    f"{quote_char}_source_database{quote_char}",
+                    f"{quote_char}_source_table{quote_char}"
+                ]
+                columns_list = ", ".join(all_columns)
                 outer_sql = f"SELECT DISTINCT {columns_list} FROM (\n{union_sql}\n) AS union_result"
-                self._logger.info("Applied DISTINCT to filter value query in UNION mode")
+                self._logger.info("Applied DISTINCT to filter value query in UNION mode (including source columns)")
             else:
                 outer_sql = f"SELECT * FROM (\n{union_sql}\n) AS union_result"
 
