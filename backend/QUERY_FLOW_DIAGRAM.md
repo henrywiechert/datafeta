@@ -5,35 +5,35 @@
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │ FRONTEND                                                                        │
-│ Sends POST /api/v1/data/query with QueryDescription JSON                       │
+│ Sends POST /api/v1/data/query with QueryDescription JSON                        │
 │ {                                                                               │
-│   target_table, target_database,                                               │
-│   dimensions[], measures[], filters[],                                         │
-│   virtual_table?: {...},          ← Multi-table JOINs/UNIONs                  │
-│   virtual_columns?: [...],        ← Computed columns                           │
-│   optimization_hints?: {...}      ← Frontend optimization guidance             │
+│   target_table, target_database,                                                │
+│   dimensions[], measures[], filters[],                                          │
+│   virtual_table?: {...},          ← Multi-table JOINs/UNIONs                    │
+│   virtual_columns?: [...],        ← Computed columns                            │
+│   optimization_hints?: {...}      ← Frontend optimization guidance              │
 │ }                                                                               │
 └─────────────────────────────────────────────────────────────────────────────────┘
                                       ↓
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│ 1. FASTAPI ROUTER                     [routers/data.py:184]                    │
-│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
+│ 1. FASTAPI ROUTER                     [routers/data.py:184]                     │
+│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━   │
 │ @router.post("/query")                                                          │
 │                                                                                 │
-│ 1a. Extract session_id from cookie → get ConnectionStateManager                │
-│ 1b. Get active connector (depends on session)                                  │
-│ 1c. Parse & validate QueryDescription (Pydantic model)                         │
-│ 1d. Validate CSV table match & require database for ClickHouse                 │
+│ 1a. Extract session_id from cookie → get ConnectionStateManager                 │
+│ 1b. Get active connector (depends on session)                                   │
+│ 1c. Parse & validate QueryDescription (Pydantic model)                          │
+│ 1d. Validate CSV table match & require database for ClickHouse                  │
 └─────────────────────────────────────────────────────────────────────────────────┘
                                       ↓
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│ 2. QUERY SERVICE INITIALIZATION       [services/query_service.py:428]          │
-│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
+│ 2. QUERY SERVICE INITIALIZATION       [services/query_service.py:428]           │
+│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━   │
 │ QueryService.translate_to_sql()                                                 │
 │                                                                                 │
-│ 2a. Initialize QueryOptimizer with connector & config                          │
-│ 2b. Determine db_type (clickhouse/duckdb/generic)                              │
-│ 2c. Select quote_char (" for ClickHouse, ` for others)                         │
+│ 2a. Initialize QueryOptimizer with connector & config                           │
+│ 2b. Determine db_type (clickhouse/duckdb/generic)                               │
+│ 2c. Select quote_char (" for ClickHouse, ` for others)                          │
 └─────────────────────────────────────────────────────────────────────────────────┘
                                       ↓
                     ┌─────────────────┴────────────────┐
@@ -44,35 +44,35 @@
     ┌───────────────────────────┘           └────────────────────────────┐
     ↓                                                                     ↓
 ┌─────────────────────────────────────────┐    ┌──────────────────────────────────────────┐
-│ 3A. UNION TABLE PATH 🔶 COMPLEX         │    │ 3B. STANDARD PATH (Single/JOIN)          │
+│ 3A. UNION TABLE PATH - COMPLEX          │    │ 3B. STANDARD PATH (Single/JOIN)          │
 │ [union_query_builder.py]                │    │ [query_service.py:410-516]               │
-│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │    │ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
+│ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  │    │ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ │
 │                                         │    │                                          │
-│ 3A.1 Parse database/table refs         │    │ 3B.1 Build Table Context                │
-│      (support db/table notation)       │    │      [table_context_builder.py]         │
-│                                         │    │      ┌──────────────────────────┐       │
-│ 3A.2 Get columns for each table        │    │      │ Has virtual_table.mode   │       │
-│      (filter fields per table)         │    │      │ = "join"?                │       │
-│                                         │    │      └────┬─────────────────┬───┘       │
-│ 3A.3 Build ordered field list          │    │           │ YES             │ NO        │
-│      (dimensions + measures)           │    │           ↓                 ↓           │
-│                                         │    │    ┌──────────┐      ┌──────────┐      │
-│ 3A.4 FOR EACH table in union:          │    │    │Multi-    │      │Single    │      │
-│      • Filter QueryDesc to only        │    │    │Table w/  │      │Table     │      │
-│        fields existing in table        │    │    │JOINs     │      │Query     │      │
-│      • Add _source_database/table      │    │    └──────────┘      └──────────┘      │
-│      • Call translate_single_table()   │    │         │                  │            │
-│        recursively 🔄                  │    │         └──────┬───────────┘            │
-│      • Wrap in parentheses             │    │                ↓                        │
-│                                         │    │    Creates: query, table_map,          │
-│ 3A.5 JOIN with " UNION ALL "           │    │    default_table, primary_table         │
+│ 3A.1 Parse database/table refs          │    │ 3B.1 Build Table Context                 │
+│      (support db/table notation)        │    │      [table_context_builder.py]          │
+│                                         │    │      ┌──────────────────────────┐        │
+│ 3A.2 Get columns for each table         │    │      │ Has virtual_table.mode   │        │
+│      (filter fields per table)          │    │      │ = "join"?                │        │
+│                                         │    │      └────┬─────────────────┬───┘        │
+│ 3A.3 Build ordered field list           │    │           │ YES             │ NO         │
+│      (dimensions + measures)            │    │           ↓                 ↓            │
+│                                         │    │    ┌──────────┐      ┌──────────┐        │
+│ 3A.4 FOR EACH table in union:           │    │    │Multi-    │      │Single    │        │
+│      • Filter QueryDesc to only         │    │    │Table w/  │      │Table     │        │
+│        fields existing in table         │    │    │JOINs     │      │Query     │        │
+│      • Add _source_database/table       │    │    └──────────┘      └──────────┘        │
+│      • Call translate_single_table()    │    │         │                  │             │
+│        recursively                      │    │         └──────┬───────────┘             │
+│      • Wrap in parentheses              │    │                ↓                         │
+│                                         │    │    Creates: query, table_map,            │
+│ 3A.5 JOIN with " UNION ALL "            │    │    default_table, primary_table          │
 │                                         │    │                                          │
-│ 3A.6 Return final SQL + metadata       │    │ 3B.2 Register Virtual Columns 🔶        │
-│                                         │    │      [virtual_column_builder.py]        │
-│ COMPLEXITY: High                        │    │      IF virtual_columns defined:        │
-│ • Recursive query building              │    │      • Parse expressions                │
-│ • Column filtering per table            │    │      • Support table.column refs        │
-│ • Schema alignment across tables        │    │      • Validate & cache                 │
+│ 3A.6 Return final SQL + metadata        │    │ 3B.2 Register Virtual Columns            │
+│                                         │    │      [virtual_column_builder.py]         │
+│ COMPLEXITY: High                        │    │      IF virtual_columns defined:         │
+│ • Recursive query building              │    │      • Parse expressions                 │
+│ • Column filtering per table            │    │      • Support table.column refs         │
+│ • Schema alignment across tables        │    │      • Validate & cache                  │
 │ • Source tracking injection             │    │                                          │
 └─────────────────────────────────────────┘    └──────────────────────────────────────────┘
                     │                                                   │
