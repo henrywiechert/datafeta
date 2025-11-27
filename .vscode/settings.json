@@ -1,0 +1,15 @@
+{
+    "lineCountDecorator.enabled": true,
+    "lineCountDecorator.excludePatterns": [
+        "**/node_modules/**",
+        "**/.git/**",
+        "**/dist/**",
+        "**/out/**"
+    ],
+    "lineCountDecorator.fileExtensions": [
+        "tsx", "css"
+    ],
+    "files.exclude": {
+        "**/__pycache__": true
+    }
+}
