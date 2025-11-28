@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Tuple
 
 from backend.connectors.base import BaseConnector
 from backend.models.query import QueryDescription
+from backend.services.datetime_service import DateTimeService
 
 from ..config import OptimizerConfig
 from ..estimators.base import ResultSizeEstimator
@@ -32,6 +33,8 @@ class AdaptiveRoundingPlanner:
         self._estimator = estimator
         self._db_type = db_type
         self._logger = logger or logging.getLogger(__name__)
+        # Set quote character based on database type
+        self._quote_char = '`' if db_type == 'clickhouse' else '"'
 
     def plan_multi_dimensional(
         self,
@@ -333,6 +336,16 @@ class AdaptiveRoundingPlanner:
 
         for filter_obj in query_desc.filters:
             field_term = getattr(table, filter_obj.field)
+            
+            # Apply datetime extraction if filter has date_part and date_mode
+            if filter_obj.date_part and filter_obj.date_mode:
+                field_term = DateTimeService.get_datetime_part_expression(
+                    field_term, 
+                    filter_obj.date_part, 
+                    filter_obj.date_mode, 
+                    self._db_type
+                )
+            
             if filter_obj.operator == ">=":
                 count_query = count_query.where(field_term >= filter_obj.value)
             elif filter_obj.operator == "<=":
@@ -358,7 +371,7 @@ class AdaptiveRoundingPlanner:
             field_term = getattr(table, dim.field)
             count_query = count_query.groupby(field_term)
 
-        subquery_sql = count_query.get_sql(quote_char="`")
+        subquery_sql = count_query.get_sql(quote_char=self._quote_char)
         sql = f"SELECT COUNT(*) as unique_count FROM ({subquery_sql})"
         self._logger.info("Executing actual count query to determine if rounding needed...")
         self._logger.debug("Count SQL: %s", sql)
@@ -417,6 +430,16 @@ class AdaptiveRoundingPlanner:
 
         for filter_obj in query_desc.filters:
             field_term_f = getattr(table, filter_obj.field)
+            
+            # Apply datetime extraction if filter has date_part and date_mode
+            if filter_obj.date_part and filter_obj.date_mode:
+                field_term_f = DateTimeService.get_datetime_part_expression(
+                    field_term_f, 
+                    filter_obj.date_part, 
+                    filter_obj.date_mode, 
+                    self._db_type
+                )
+            
             if filter_obj.operator == ">=":
                 count_query = count_query.where(field_term_f >= filter_obj.value)
             elif filter_obj.operator == "<=":
@@ -434,7 +457,7 @@ class AdaptiveRoundingPlanner:
             elif filter_obj.operator == "not in":
                 count_query = count_query.where(field_term_f.notin(filter_obj.value))
 
-        sql = count_query.get_sql(quote_char="`")
+        sql = count_query.get_sql(quote_char=self._quote_char)
         self._logger.info("Executing 1D unique count query to decide binning/rounding...")
         self._logger.info("1D Count SQL: %s", sql)
 
@@ -502,6 +525,16 @@ class AdaptiveRoundingPlanner:
 
         for filter_obj in query_desc.filters:
             field_term_f = getattr(table, filter_obj.field)
+            
+            # Apply datetime extraction if filter has date_part and date_mode
+            if filter_obj.date_part and filter_obj.date_mode:
+                field_term_f = DateTimeService.get_datetime_part_expression(
+                    field_term_f, 
+                    filter_obj.date_part, 
+                    filter_obj.date_mode, 
+                    self._db_type
+                )
+            
             if filter_obj.operator == ">=":
                 range_query = range_query.where(field_term_f >= filter_obj.value)
             elif filter_obj.operator == "<=":
@@ -523,7 +556,7 @@ class AdaptiveRoundingPlanner:
             field_term = getattr(table, dim.field)
             range_query = range_query.where(field_term.isnotnull())
 
-        sql = range_query.get_sql(quote_char="`")
+        sql = range_query.get_sql(quote_char=self._quote_char)
         self._logger.debug("Fetching dimension ranges: %s", sql)
 
         _, rows = self._connector.fetch_data(sql)  # type: ignore[union-attr]
