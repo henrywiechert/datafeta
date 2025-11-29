@@ -30,15 +30,14 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
   const { xFields, yFields, queryResult, colorField, colorScheme, sizeField, sizeRange, manualSize } = context;
   const analysis = analyzeFields(xFields, yFields);
 
-  // Build candidate lists for cartesian pairing
-  const xCandidates: Field[] = [
-    ...((analysis as any).xDimensions || []).filter((d: any) => d.flavour === 'continuous'),
-    ...((analysis as any).xMeasures || [])
-  ];
-  const yCandidates: Field[] = [
-    ...((analysis as any).yDimensions || []).filter((d: any) => d.flavour === 'continuous'),
-    ...((analysis as any).yMeasures || [])
-  ];
+  // Build candidate lists for cartesian pairing, preserving the original field order
+  // Only include continuous dimensions and measures (discrete dimensions are handled by faceting)
+  const xCandidates: Field[] = xFields.filter((f: Field) => 
+    f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
+  );
+  const yCandidates: Field[] = yFields.filter((f: Field) => 
+    f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
+  );
 
   const labelCfg = buildLabelCfg(context);
 
