@@ -132,6 +132,23 @@ const DropZone: React.FC<DropZoneProps> = ({
     }
   };
 
+  // Helper function to get valid insert index for new fields from a requested position
+  const getValidInsertIndexFromPosition = (field: Field, requestedIndex: number): number => {
+    if (field.flavour === 'discrete') {
+      // Discrete fields can only be placed before continuous fields
+      const firstContinuousIndex = fields.findIndex(f => f.flavour === 'continuous');
+      const maxIndex = firstContinuousIndex === -1 ? fields.length : firstContinuousIndex;
+      return Math.min(requestedIndex, maxIndex);
+    } else {
+      // Continuous fields can only be placed after discrete fields
+      const lastDiscreteIndex = fields.map((f, i) => ({ field: f, index: i }))
+        .filter(({ field }) => field.flavour === 'discrete')
+        .pop()?.index;
+      const minIndex = lastDiscreteIndex === undefined ? 0 : lastDiscreteIndex + 1;
+      return Math.max(requestedIndex, minIndex);
+    }
+  };
+
   // Helper function to get valid target index for reordering within same axis
   const getValidTargetIndex = (field: Field, requestedIndex: number, sourceIndex: number): number => {
     // Create a copy of fields without the field being moved
@@ -213,8 +230,9 @@ const DropZone: React.FC<DropZoneProps> = ({
         const validIndex = getValidTargetIndex(field, requestedIndex, sourceIndex);
         setDragOverIndex(validIndex);
       } else {
-        // New field drop - show indicator at valid position based on flavour
-        const validIndex = getValidInsertIndex(field);
+        // New field drop - calculate position from mouse and adjust for ordering rules
+        const requestedIndex = calculateDropIndexFromMouse(e.clientX, e.currentTarget);
+        const validIndex = getValidInsertIndexFromPosition(field, requestedIndex);
         setDragOverIndex(validIndex);
       }
       return;
@@ -280,19 +298,23 @@ const DropZone: React.FC<DropZoneProps> = ({
       if (onMoveFieldBetweenAxes) {
         const fromAxis = dragSourceToAxis(source);
         const toAxis = axis;
-        const insertIndex = getValidInsertIndex(newField);
+        // Calculate position from mouse and adjust for ordering rules
+        const requestedIndex = calculateDropIndexFromMouse(e.clientX, e.currentTarget);
+        const insertIndex = getValidInsertIndexFromPosition(newField, requestedIndex);
         if (fromAxis) {
           onMoveFieldBetweenAxes(field.id, fromAxis, toAxis, insertIndex);
         }
       } else {
         // Fallback to old behavior if handler not provided
-        const insertIndex = getValidInsertIndex(newField);
+        const requestedIndex = calculateDropIndexFromMouse(e.clientX, e.currentTarget);
+        const insertIndex = getValidInsertIndexFromPosition(newField, requestedIndex);
         onDrop(newField, source, insertIndex);
       }
     } else {
       // Handle drops from available fields
-      // Calculate insert index based on flavour ordering rule
-      const insertIndex = getValidInsertIndex(newField);
+      // Calculate position from mouse and adjust for ordering rules
+      const requestedIndex = calculateDropIndexFromMouse(e.clientX, e.currentTarget);
+      const insertIndex = getValidInsertIndexFromPosition(newField, requestedIndex);
       onDrop(newField, source, insertIndex);
     }
   };
