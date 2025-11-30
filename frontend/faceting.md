@@ -2,9 +2,20 @@
 
 The faceting system enables sophisticated multi-dimensional data exploration by automatically generating multiple related charts based on field combinations and types.
 
+**Last Updated**: November 30, 2025
+
 ## Faceting Overview
 
-Faceting creates multiple charts to display different slices or combinations of data, enabling users to explore patterns across dimensions and measures. The system builds on top of basic chart types to create coordinated views.
+Faceting creates multiple charts to display different slices or combinations of data, enabling users to explore patterns across dimensions and measures. The system uses a **coordinator pattern** where chart-type-agnostic orchestration is separated from chart-type-specific rendering logic.
+
+### Architecture Components
+
+- **Facet Planner** (`facetPlanner.ts`): Analyzes fields to determine which discrete dimensions should become facets
+- **Facet Coordinator** (`facetCoordinator.ts`): Chart-type-agnostic orchestration of facet grid generation
+- **Cell Generator**: Strategy pattern for chart-type-specific rendering of individual facet cells
+- **Facet Domains** (`facetDomains.ts`): Computes shared domains across all facets for consistent scales
+- **Facet Grid** (`facetGrid.ts`): Layout calculations and facet label generation
+- **Facet Utils** (`facetUtils.ts`): Utility functions for facet combinations and data filtering
 
 ## Faceting Triggers
 
@@ -83,27 +94,84 @@ type FacetingField = {
 };
 ```
 
-### Faceting Manager
-The `FacetingManager` component handles:
+### Facet Planning
+The `planFacets` function determines which discrete dimensions should become facets:
 
-- **Dimension analysis**: Identifying discrete dimensions suitable for faceting
-- **Layout calculation**: Determining grid dimensions and arrangements
-- **Chart coordination**: Ensuring consistent scales and styling across facets
-- **Responsive behavior**: Adapting layouts to screen size constraints
+```typescript
+export interface FacetPlan {
+  rowFacetFields: Field[];
+  colFacetFields: Field[];
+}
+
+// Simple rule: X discrete → column facets, Y discrete → row facets
+// Chart generators can adjust by reserving fields for category encoding
+```
+
+### Facet Coordinator (Chart-Type-Agnostic)
+The `coordinateFacetedGrid` function handles mechanical aspects:
+
+- **Facet combinations**: Computing all row/column facet combinations
+- **Shared domains**: Computing consistent scales across all facets
+- **Data filtering**: Filtering data for each facet cell
+- **Grid assembly**: Arranging plots in the final grid layout
+- **Strategy delegation**: Delegates chart-specific rendering to cell generators
+
+### Cell Generator (Strategy Pattern)
+Chart-type-specific logic is encapsulated in cell generators:
+
+```typescript
+type CellGenerator = (
+  cellData: any[],
+  cellContext: ChartGenerationContext,
+  sharedDomains: SharedDomains,
+  facetPosition: { row: number; col: number }
+) => CellResult;
+
+// Different chart types provide their own generators:
+// - Bar charts: generates bar plots with category encoding
+// - Line charts: generates line plots with series
+// - Scatter plots: generates scatter plots with points
+```
 
 ## Layout Strategies
 
 ### Grid-Based Layouts
-- **CSS Grid implementation**: Flexible grid system for multi-chart arrangements
-- **Responsive breakpoints**: Automatic adaptation to different screen sizes
+- **CSS Grid implementation**: Flexible grid system for multi-chart arrangements (`MultiPlotGrid` component)
+- **Three-layer scrolling architecture**: Separate layers for facet labels, axes, and plot area
+- **Dynamic sizing**: Mix of fixed pixel sizes and flexible 'fr' units
 - **Consistent spacing**: Uniform gaps and alignment across all charts
+
+### Grid Layout Computation
+```typescript
+export interface GridLayout {
+  type: 'grid';
+  columns: number;  // baseCols × numColFacets
+  rows: number;     // baseRows × numRowFacets
+  columnSizes: Array<number | 'fr'>;
+  rowSizes: Array<number | 'fr'>;
+}
+```
+
+### Facet Labels
+Hierarchical facet labels with proper span calculations:
+
+```typescript
+export interface FacetLabels {
+  rowsLevels?: Array<{ fieldLabel: string; values: any[] }>;
+  colsLevels?: Array<{ fieldLabel: string; values: any[] }>;
+  groupSpan: { columnsPerFacet: number; rowsPerFacet: number };
+  spans: { baseCols: number; baseRows: number; columns: number[]; rows: number[] };
+}
+```
 
 ### Shared Domains
 Critical for meaningful comparisons across faceted charts:
 
-- **Synchronized scales**: Consistent axis ranges across related charts
-- **Domain calculation**: Automatic computation of appropriate ranges
-- **Zero baseline**: Inclusion of zero for meaningful measure comparisons
+- **Synchronized scales**: Consistent axis ranges across all facets (computed in `facetDomains.ts`)
+- **Domain types**: Supports numeric, temporal, and categorical domains
+- **Per-measure domains**: Each measure gets its own shared domain
+- **Color domains**: Shared color scales across facets
+- **Zero baseline**: Automatic inclusion of zero for measures when appropriate
 
 ## Faceting with Different Chart Types
 
@@ -127,49 +195,96 @@ Critical for meaningful comparisons across faceted charts:
 - **Comparative analysis**: Side-by-side distribution comparisons
 - **Dense data visualization**: Efficient space usage for many categories
 
-## Table View Integration
+## Rendering Architecture
+
+### MultiPlotGrid Component
+The `MultiPlotGrid` component implements a three-layer scrolling architecture:
+
+#### Layer 1: Top Facet Headers
+- **Position**: Fixed at top
+- **Content**: Column facet labels (if present)
+- **Behavior**: Sticky horizontal scroll synchronization
+
+#### Layer 2: Y-Axes Area
+- **Position**: Fixed on left
+- **Content**: Y-axis labels and ticks
+- **Behavior**: Sticky vertical scroll synchronization
+
+#### Layer 3: Scrollable Plot Grid
+- **Position**: Main scrollable area
+- **Content**: Actual chart plots in CSS Grid
+- **Sub-layers**:
+  - Left facet labels (row headers)
+  - Plot area (charts)
+  - X-axes (bottom)
+
+### FacetLabels Components
+- **TopFacetLabels**: Renders column facet headers with hierarchical levels
+- **LeftFacetLabels**: Renders row facet headers with hierarchical levels
+- **Span calculations**: Proper colspan/rowspan for multi-level facets
 
 ### Discrete-Only Scenarios
 When only discrete dimensions are present (no measures or continuous dimensions):
 
-#### Y-axis Only Layout
-- **Format**: Vertical column display
-- **Content**: Unique values listed vertically
-- **Use case**: Simple category enumeration
-
-#### X-axis Only Layout
-- **Format**: Horizontal row display  
-- **Content**: Unique values arranged horizontally
-- **Use case**: Category comparison across horizontal space
-
-#### Both Axes Layout
-- **Format**: Grid table where X values become columns, Y values become rows
-- **Content**: Cells show "Abc" indicator where value combinations exist
-- **Use case**: Cross-tabulation and relationship mapping
+**Note**: The current implementation focuses on measure-based visualizations. Discrete-only scenarios (pure categorical cross-tabulation) may use simplified representations or alternative chart types like scatter plots with categorical axes.
 
 #### Hierarchical Grouping
 - **Multiple dimensions on same axis**: Creates hierarchical grouping structure
 - **Leftmost dimension**: Becomes outer grouping level
-- **Visual hierarchy**: Clear indication of grouping relationships
+- **Nested facets**: Inner dimensions create sub-facets within outer facets
+- **Visual hierarchy**: Clear indication of grouping relationships through facet labels
 
 ## Performance Considerations
 
 ### Large Facet Counts
-- **Memory usage**: Efficient chart instance management
-- **Rendering optimization**: Progressive loading for large facet grids
-- **User experience**: Loading indicators and progressive disclosure
+- **Memory usage**: Each facet creates a separate Observable Plot instance
+- **Rendering coordination**: `useRenderingCoordinator` hook tracks when all plots complete
+- **Progressive rendering**: Charts render incrementally as data becomes available
+- **User experience**: Loading indicators during facet generation
 
 ### Data Volume
-- **Per-facet limits**: Reasonable data limits per individual chart
-- **Aggregation strategies**: Smart pre-aggregation for large datasets
-- **Sampling techniques**: Statistical sampling when appropriate
+- **Per-facet filtering**: Each facet receives only its filtered subset of data
+- **Shared domain computation**: Single pass through full dataset for domain calculation
+- **Aggregation strategies**: Pre-aggregated queries from backend reduce client-side processing
+- **Sampling techniques**: Backend optimization hints support sampling for large datasets
+
+### Layout Optimization
+- **Memoization**: FacetLabels components use React.memo to prevent unnecessary re-renders
+- **Stabilization**: `useStabilization` hook prevents layout thrashing during resize
+- **Scroll sync**: Efficient scroll synchronization using requestAnimationFrame
+- **Cell size caching**: User-defined cell sizes cached in localStorage
+
+## Implementation Details
+
+### Key Files
+- `frontend/src/observable-plot-generator/faceting/facetPlanner.ts`: Facet planning logic
+- `frontend/src/observable-plot-generator/faceting/facetCoordinator.ts`: Main orchestration
+- `frontend/src/observable-plot-generator/faceting/facetDomains.ts`: Shared domain computation
+- `frontend/src/observable-plot-generator/faceting/facetGrid.ts`: Layout calculations
+- `frontend/src/observable-plot-generator/faceting/facetUtils.ts`: Utility functions
+- `frontend/src/components/Visualization/ChartGrid/MultiPlotGrid.tsx`: React rendering
+- `frontend/src/components/Visualization/ChartGrid/FacetLabels.tsx`: Facet label components
+
+### Data Flow
+```
+1. Field Analysis → Determine discrete dimensions
+2. Facet Planning → Create FacetPlan (row/col facet fields)
+3. Compute Combinations → All row × col facet value combinations
+4. Compute Shared Domains → Consistent scales across all facets
+5. Generate Sample Cell → Determine base layout dimensions
+6. Loop Through Facets → Filter data and generate each cell
+7. Assemble Grid → Combine all plots with layout configuration
+8. Render → MultiPlotGrid component displays the result
+```
 
 ## Future Enhancements
 
 ### Planned Features
 - **Interactive brushing**: Cross-chart selection and filtering
 - **Dynamic faceting**: User-controlled facet dimension changes
-- **Facet virtualization**: Efficient handling of very large facet counts
-- **Custom facet layouts**: User-defined arrangement patterns
-- **Facet legends**: Coordinated legend systems across charts
+- **Facet virtualization**: Efficient handling of very large facet counts (100+ facets)
+- **Custom facet layouts**: User-defined arrangement patterns and ordering
+- **Facet legends**: Coordinated legend systems shared across charts
 - **Animation transitions**: Smooth transitions between faceting states
+- **Facet search/filter**: Find specific facets in large grids
+- **Facet collapse/expand**: Hierarchical collapsible facet groups
