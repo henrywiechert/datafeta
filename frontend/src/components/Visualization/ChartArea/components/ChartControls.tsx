@@ -6,6 +6,7 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
 import QueryStatusIndicator from './QueryStatusIndicator';
+import DatasetStatus from './DatasetStatus';
 
 interface ChartControlsProps {
   isDebugOpen: boolean;
@@ -125,8 +126,9 @@ const ChartControls: React.FC<ChartControlsProps> = ({
         )}
       </Box>
 
-      {/* Right side - Query status indicator (clickable to toggle debug) */}
+      {/* Right side - Dataset status and Query button */}
       <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        <DatasetStatus />
         <QueryStatusIndicator onClick={onToggleDebug} />
       </Box>
     </Box>
