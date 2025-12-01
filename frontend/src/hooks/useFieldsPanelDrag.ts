@@ -1,11 +1,17 @@
 import { useState, DragEvent } from 'react';
+import { useSelection } from '../contexts/SelectionContext';
 
 /**
  * Custom hook to handle drag and drop operations in the fields panel
- * @param onRemoveFromAxis Function to call when removing a field from an axis
+ * @param onRemoveFromAxis Function to call when removing a single field from an axis
+ * @param onRemoveMultipleFromAxis Optional function to call when removing multiple fields (batched)
  */
-export function useFieldsPanelDrag(onRemoveFromAxis: (fieldId: string) => void) {
+export function useFieldsPanelDrag(
+  onRemoveFromAxis: (fieldId: string) => void,
+  onRemoveMultipleFromAxis?: (fieldIds: string[]) => void
+) {
   const [isDragOver, setIsDragOver] = useState(false);
+  const selection = useSelection();
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -43,11 +49,29 @@ export function useFieldsPanelDrag(onRemoveFromAxis: (fieldId: string) => void) 
     
     try {
       const data = JSON.parse(e.dataTransfer.getData('application/json'));
-      const { field, source } = data;
+      
+      // Handle unified payload format (always arrays) and legacy format
+      let fields = data.fields;
+      const source = data.source;
+      
+      // Backward compatibility: normalize legacy single-field format
+      if (!fields && data.field) {
+        fields = [data.field];
+      }
       
       // Only remove if dragging from an axis (not from available fields)
-      if (source === 'X_AXIS' || source === 'Y_AXIS') {
-        onRemoveFromAxis(field.id);
+      if ((source === 'X_AXIS' || source === 'Y_AXIS') && fields && fields.length > 0) {
+        // Use batch removal for multiple fields to avoid race conditions
+        if (fields.length > 1 && onRemoveMultipleFromAxis) {
+          const fieldIds = fields.map((f: any) => f.id);
+          onRemoveMultipleFromAxis(fieldIds);
+        } else {
+          // Single field removal
+          fields.forEach((f: any) => onRemoveFromAxis(f.id));
+        }
+        
+        // Clear selection after successful removal
+        selection.clearSelection();
       }
     } catch (error) {
       console.error('Error processing drop event:', error);

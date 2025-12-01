@@ -11,6 +11,7 @@ interface FieldContextMenuProps {
   onUpdate: (field: Field) => void;
   menuPosition: { x: number; y: number } | null;
   onCloseMenu: () => void;
+  selectedFields?: Field[]; // For bulk editing
 }
 
 const FieldContextMenu: React.FC<FieldContextMenuProps> = ({ 
@@ -18,17 +19,27 @@ const FieldContextMenu: React.FC<FieldContextMenuProps> = ({
   source, 
   onUpdate, 
   menuPosition, 
-  onCloseMenu 
+  onCloseMenu,
+  selectedFields = []
 }) => {
   const handleUpdate = useCallback((updates: Partial<Field>) => {
-    const updatedField = applyFieldUpdateRules(field, updates);
-    
-    // If null is returned, the update wasn't allowed by the rules
-    if (updatedField) {
-      onUpdate(updatedField);
-      onCloseMenu();
+    // If multiple fields are selected, update all of them
+    if (selectedFields.length > 1) {
+      selectedFields.forEach(selectedField => {
+        const updatedField = applyFieldUpdateRules(selectedField, updates);
+        if (updatedField) {
+          onUpdate(updatedField);
+        }
+      });
+    } else {
+      // Single field update
+      const updatedField = applyFieldUpdateRules(field, updates);
+      if (updatedField) {
+        onUpdate(updatedField);
+      }
     }
-  }, [field, onUpdate, onCloseMenu]);
+    onCloseMenu();
+  }, [field, selectedFields, onUpdate, onCloseMenu]);
   
   if (!menuPosition) {
     return null;
@@ -40,6 +51,7 @@ const FieldContextMenu: React.FC<FieldContextMenuProps> = ({
         field={field}
         source={source}
         onUpdate={handleUpdate}
+        selectedFields={selectedFields}
       />
     </ContextMenu>
   );

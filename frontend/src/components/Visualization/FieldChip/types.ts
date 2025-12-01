@@ -8,4 +8,5 @@ export interface FieldChipProps {
   onUpdate: (field: Field) => void;
   index?: number;
   isInvalidOnAxis?: boolean;
+  allFields?: Field[]; // For range selection
 }

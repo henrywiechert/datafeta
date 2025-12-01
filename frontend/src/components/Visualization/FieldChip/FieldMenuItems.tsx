@@ -12,10 +12,14 @@ interface FieldMenuItemsProps {
   field: Field;
   source: DragSource;
   onUpdate: (updates: Partial<Field>) => void;
+  selectedFields?: Field[]; // For bulk editing
 }
 
-const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate }) => {
+const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate, selectedFields = [] }) => {
   const [castingDialogOpen, setCastingDialogOpen] = useState(false);
+  
+  // Check if we're in bulk edit mode
+  const isBulkEdit = selectedFields.length > 1;
   
   const isMeasure = field.type === 'measure';
   const availableAggregations = getFieldAggregations(field);
@@ -32,6 +36,11 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
   const isSynthetic = isSyntheticField(field);
   const canChangeType = field.isTypeChangeable !== false && !isSynthetic;
   const canChangeFlavour = field.isFlavourChangeable !== false && !isSynthetic;
+  
+  // For bulk edit, check if all selected fields can perform the operation
+  const allCanBeMeasure = isBulkEdit ? selectedFields.every(f => canBeMeasure(f)) : isFieldMeasure;
+  const allCanBeContinuous = isBulkEdit ? selectedFields.every(f => canBeContinuous(f)) : isFieldContinuous;
+  const allAreMeasures = isBulkEdit ? selectedFields.every(f => f.type === 'measure') : isMeasure;
 
   const handleCastingConfirm = (config: any) => {
     if (config === null) {
@@ -49,8 +58,18 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
 
   return (
     <>
-      {/* Show synthetic field badge if applicable */}
-      {isSynthetic && (
+      {/* Show bulk edit indicator if applicable */}
+      {isBulkEdit && (
+        <>
+          <div className={menuStyles.menuItem} style={{ color: '#1976d2', fontWeight: 'bold', cursor: 'default' }}>
+            Apply to {selectedFields.length} fields
+          </div>
+          <div className={menuStyles.separator} />
+        </>
+      )}
+      
+      {/* Show synthetic field badge if applicable (only for single field) */}
+      {!isBulkEdit && isSynthetic && (
         <>
           <div className={menuStyles.menuItem} style={{ color: '#666', fontStyle: 'italic', cursor: 'default' }}>
             🔒 Synthetic Field
@@ -63,13 +82,13 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
         className={`${menuStyles.menuItem} ${!canChangeType ? menuStyles.disabled : ''}`}
         onClick={canChangeType ? () => onUpdate({ type: 'dimension' }) : undefined}
       >
-        Dimension {field.type === 'dimension' && '✔'}
+        Dimension {!isBulkEdit && field.type === 'dimension' && '✔'}
       </div>
       <div 
-        className={`${menuStyles.menuItem} ${!isFieldMeasure || !canChangeType ? menuStyles.disabled : ''}`} 
-        onClick={isFieldMeasure && canChangeType ? () => onUpdate({ type: 'measure' }) : undefined}
+        className={`${menuStyles.menuItem} ${!allCanBeMeasure || !canChangeType ? menuStyles.disabled : ''}`} 
+        onClick={allCanBeMeasure && canChangeType ? () => onUpdate({ type: 'measure' }) : undefined}
       >
-        Measure {field.type === 'measure' && '✔'}
+        Measure {!isBulkEdit && field.type === 'measure' && '✔'}
       </div>
       
       <div className={menuStyles.separator} />
@@ -78,13 +97,13 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
         className={`${menuStyles.menuItem} ${!canChangeFlavour ? menuStyles.disabled : ''}`}
         onClick={canChangeFlavour ? () => onUpdate({ flavour: 'discrete' }) : undefined}
       >
-        Discrete {field.flavour === 'discrete' && '✔'}
+        Discrete {!isBulkEdit && field.flavour === 'discrete' && '✔'}
       </div>
       <div 
-        className={`${menuStyles.menuItem} ${!isFieldContinuous || !canChangeFlavour ? menuStyles.disabled : ''}`}
-        onClick={isFieldContinuous && canChangeFlavour ? () => onUpdate({ flavour: 'continuous' }) : undefined}
+        className={`${menuStyles.menuItem} ${!allCanBeContinuous || !canChangeFlavour ? menuStyles.disabled : ''}`}
+        onClick={allCanBeContinuous && canChangeFlavour ? () => onUpdate({ flavour: 'continuous' }) : undefined}
       >
-        Continuous {field.flavour === 'continuous' && '✔'}
+        Continuous {!isBulkEdit && field.flavour === 'continuous' && '✔'}
       </div>
       
       {/* Only show data type selection when field is in available fields panel */}
@@ -127,27 +146,27 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
         </>
       )}
       
-      {isMeasure && availableAggregations.length > 0 && <div className={menuStyles.separator} />}
+      {allAreMeasures && availableAggregations.length > 0 && <div className={menuStyles.separator} />}
 
-      {isMeasure && availableAggregations.map(agg => (
+      {allAreMeasures && availableAggregations.map(agg => (
         <div key={agg} className={menuStyles.menuItem} onClick={() => onUpdate({ aggregation: agg })}>
-          {agg} {field.aggregation === agg && '✔'}
+          {agg} {!isBulkEdit && field.aggregation === agg && '✔'}
         </div>
       ))}
 
       {/* Bar Sort Order - shown for measures on axes */}
-      {isMeasure && isInAxisDropZone && (
+      {allAreMeasures && isInAxisDropZone && (
         <>
           <div className={menuStyles.separator} />
           <SubMenu label="Bar Sort Order">
             <div className={menuStyles.menuItem} onClick={() => onUpdate({ barSortOrder: 'none' })}>
-              None (Natural Order) {(!field.barSortOrder || field.barSortOrder === 'none') && '✔'}
+              None (Natural Order) {!isBulkEdit && (!field.barSortOrder || field.barSortOrder === 'none') && '✔'}
             </div>
             <div className={menuStyles.menuItem} onClick={() => onUpdate({ barSortOrder: 'asc' })}>
-              Ascending ↑ {field.barSortOrder === 'asc' && '✔'}
+              Ascending ↑ {!isBulkEdit && field.barSortOrder === 'asc' && '✔'}
             </div>
             <div className={menuStyles.menuItem} onClick={() => onUpdate({ barSortOrder: 'desc' })}>
-              Descending ↓ {field.barSortOrder === 'desc' && '✔'}
+              Descending ↓ {!isBulkEdit && field.barSortOrder === 'desc' && '✔'}
             </div>
           </SubMenu>
         </>

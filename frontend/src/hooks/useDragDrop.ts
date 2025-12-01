@@ -21,39 +21,46 @@ export function useDragDrop(availableFields?: Field[]) {
   
   /**
    * Handle drops between axes or from available fields
+   * Always receives fields as an array (single field = array of length 1)
    */
   const handleAxisDrop = useCallback((
     targetAxis: 'x' | 'y', 
-    field: Field, 
+    field: Field | Field[], 
     source: DragSource, 
     index?: number
   ) => {
     // Record current state for undo
     recordAction(getUndoableSnapshot());
     
+    // Ensure we're working with an array
+    const fieldsToAdd = Array.isArray(field) ? field : [field];
+    
+    if (fieldsToAdd.length === 0) return;
+    
     // Handle drops from available fields
     if (source === 'AVAILABLE_FIELDS') {
-      // Find the field in available fields (includes virtual columns if provided)
-      const sourceField = fieldsToUse.find(f => f.id === field.id);
-      if (!sourceField) return;
+      // Create copies with new IDs for each field
+      const fieldCopies = fieldsToAdd.map(f => {
+        const sourceField = fieldsToUse.find(sf => sf.id === f.id);
+        if (!sourceField) return null;
+        return { ...sourceField, id: uuidv4() };
+      }).filter(Boolean) as Field[];
       
-      // Create an independent copy of the field with a new ID
-      // This ensures that field properties can be changed independently on axes
-      const fieldCopy = { ...sourceField, id: uuidv4() };
+      if (fieldCopies.length === 0) return;
       
       // Add to target axis at the specified index or at the end
       const targetFields = targetAxis === 'x' ? [...xAxisFields] : [...yAxisFields];
       
       if (index !== undefined) {
-        targetFields.splice(index, 0, fieldCopy);
+        targetFields.splice(index, 0, ...fieldCopies);
       } else {
-        targetFields.push(fieldCopy);
+        targetFields.push(...fieldCopies);
       }
       
       // Update the target axis
       dispatch({ 
-        type: targetAxis === 'x' ? 'SET_X_AXIS_FIELDS' : 'SET_Y_AXIS_FIELDS', 
-        payload: targetFields 
+        type: targetAxis === 'x' ? 'SET_X_AXIS_FIELDS' : 'SET_Y_AXIS_FIELDS',
+        payload: targetFields
       });
       
       return;
@@ -64,16 +71,42 @@ export function useDragDrop(availableFields?: Field[]) {
     
     // Only proceed if we're moving between different axes
     if (sourceAxis !== targetAxis) {
-      // Use atomic action to move field between axes without triggering double query
-      dispatch({
-        type: 'MOVE_FIELD_BETWEEN_AXES',
-        payload: {
-          fieldId: field.id,
-          fromAxis: sourceAxis,
-          toAxis: targetAxis,
-          insertIndex: index
+      // Use atomic action for single field to avoid double query
+      if (fieldsToAdd.length === 1) {
+        dispatch({
+          type: 'MOVE_FIELD_BETWEEN_AXES',
+          payload: {
+            fieldId: fieldsToAdd[0].id,
+            fromAxis: sourceAxis,
+            toAxis: targetAxis,
+            insertIndex: index
+          }
+        });
+      } else {
+        // Multiple fields - remove from source and add to target
+        const sourceFields = sourceAxis === 'x' ? xAxisFields : yAxisFields;
+        const targetFields = targetAxis === 'x' ? xAxisFields : yAxisFields;
+        const fieldIds = fieldsToAdd.map(f => f.id);
+        const remainingSourceFields = sourceFields.filter(f => !fieldIds.includes(f.id));
+        
+        // Insert at specified index or append to target
+        const updatedTargetFields = [...targetFields];
+        if (index !== undefined) {
+          updatedTargetFields.splice(index, 0, ...fieldsToAdd);
+        } else {
+          updatedTargetFields.push(...fieldsToAdd);
         }
-      });
+        
+        // Update both axes
+        dispatch({ 
+          type: sourceAxis === 'x' ? 'SET_X_AXIS_FIELDS' : 'SET_Y_AXIS_FIELDS', 
+          payload: remainingSourceFields 
+        });
+        dispatch({ 
+          type: targetAxis === 'x' ? 'SET_X_AXIS_FIELDS' : 'SET_Y_AXIS_FIELDS', 
+          payload: updatedTargetFields 
+        });
+      }
     }
   }, [dispatch, fieldsToUse, xAxisFields, yAxisFields, recordAction, getUndoableSnapshot]);
   
@@ -86,6 +119,21 @@ export function useDragDrop(availableFields?: Field[]) {
     
     const newXFields = xAxisFields.filter(f => f.id !== fieldId);
     const newYFields = yAxisFields.filter(f => f.id !== fieldId);
+    dispatch({ type: 'SET_X_AXIS_FIELDS', payload: newXFields });
+    dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: newYFields });
+  }, [dispatch, xAxisFields, yAxisFields, recordAction, getUndoableSnapshot]);
+  
+  /**
+   * Remove multiple fields from axes in a single batched operation
+   * This avoids race conditions when removing multiple fields at once
+   */
+  const handleRemoveMultipleFromAxis = useCallback((fieldIds: string[]) => {
+    // Record current state for undo
+    recordAction(getUndoableSnapshot());
+    
+    const fieldIdSet = new Set(fieldIds);
+    const newXFields = xAxisFields.filter(f => !fieldIdSet.has(f.id));
+    const newYFields = yAxisFields.filter(f => !fieldIdSet.has(f.id));
     dispatch({ type: 'SET_X_AXIS_FIELDS', payload: newXFields });
     dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: newYFields });
   }, [dispatch, xAxisFields, yAxisFields, recordAction, getUndoableSnapshot]);
@@ -279,6 +327,7 @@ export function useDragDrop(availableFields?: Field[]) {
   return {
     handleAxisDrop,
     handleRemoveFromAxis,
+    handleRemoveMultipleFromAxis,
     handleReorderFields,
     handleMoveFieldBetweenAxes,
     handleFilterDrop,

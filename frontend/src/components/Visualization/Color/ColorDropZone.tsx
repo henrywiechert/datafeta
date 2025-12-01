@@ -22,11 +22,19 @@ const ColorDropZone: React.FC<ColorDropZoneProps> = ({
       const fieldData = e.dataTransfer.getData('application/json');
       if (fieldData) {
         const parsedData = JSON.parse(fieldData);
-        const { field, source } = parsedData;
         
-        if (field) {
-          // Replace existing field with the new one
-          onDrop(field, source as DragSource);
+        // Handle unified payload format (always arrays) and legacy format
+        let fields = parsedData.fields;
+        const source = parsedData.source;
+        
+        // Backward compatibility: normalize legacy single-field format
+        if (!fields && parsedData.field) {
+          fields = [parsedData.field];
+        }
+        
+        // For color zone, only take the first field (single field only)
+        if (fields && fields.length > 0) {
+          onDrop(fields[0], source as DragSource);
         }
       }
     } catch (error) {

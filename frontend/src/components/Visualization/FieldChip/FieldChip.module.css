@@ -192,3 +192,29 @@
     background-color: #fde7e9 !important; /* light red */
     border-color: #e57373 !important;
 }
+
+/* Selection styles - darker than hover */
+.chip.textOnly.selected {
+    border-radius: 16px;
+    border: 1px solid #666 !important;
+}
+
+.chip.textOnly.discrete.selected {
+    background-color: #90caf9 !important; /* Darker blue than hover */
+}
+
+.chip.textOnly.continuous.selected {
+    background-color: #a5d6a7 !important; /* Darker green than hover */
+}
+
+.chip.framed.selected {
+    border-color: #666 !important;
+}
+
+.chip.framed.discrete.selected {
+    background-color: #90caf9 !important; /* Darker blue than hover */
+}
+
+.chip.framed.continuous.selected {
+    background-color: #a5d6a7 !important; /* Darker green than hover */
+}

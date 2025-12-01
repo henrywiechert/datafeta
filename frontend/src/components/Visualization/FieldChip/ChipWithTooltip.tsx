@@ -14,8 +14,12 @@ interface ChipWithTooltipProps {
   onContextMenu: (event: React.MouseEvent) => void;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
+  onClick?: (e: React.MouseEvent) => void;
+  onMouseDown?: (e: React.MouseEvent) => void;
   isDragging: boolean;
+  isSelected?: boolean;
   isInvalidOnAxis?: boolean;
+  dragCount?: number; // Number of fields being dragged (for visual feedback)
 }
 
 const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
@@ -24,8 +28,12 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
   onContextMenu,
   onDragStart,
   onDragEnd,
+  onClick,
+  onMouseDown,
   isDragging,
-  isInvalidOnAxis
+  isSelected = false,
+  isInvalidOnAxis,
+  dragCount
 }) => {
   const chipLabelRef = useRef<HTMLSpanElement>(null);
   const chipRef = useRef<HTMLDivElement>(null);
@@ -176,16 +184,21 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
       onDragEnd();
     };
 
-    const handleMouseDown = () => {
+    const handleMouseDown = (e: React.MouseEvent) => {
       setTooltipOpen(false);
+      // Call parent onMouseDown handler if provided
+      if (onMouseDown) {
+        onMouseDown(e);
+      }
     };
 
     return {
-      className: `${styles.chip} ${field.flavour === 'continuous' ? styles.continuous : styles.discrete} ${source === 'AVAILABLE_FIELDS' ? styles.textOnly : styles.framed} ${isInvalidOnAxis ? styles.invalidAxisField : ''} field-chip`,
+      className: `${styles.chip} ${field.flavour === 'continuous' ? styles.continuous : styles.discrete} ${source === 'AVAILABLE_FIELDS' ? styles.textOnly : styles.framed} ${isInvalidOnAxis ? styles.invalidAxisField : ''} ${isSelected ? styles.selected : ''} field-chip`,
       draggable: true,
       onDragStart: handleDragStartInternal,
       onDragEnd: handleDragEndInternal,
       onContextMenu,
+      onClick,
       onMouseDown: handleMouseDown,
       style: {
         // Keep full opacity while dragging for readability
@@ -208,9 +221,11 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
     onDragStart,
     onDragEnd,
     onContextMenu,
+    onClick,
     widthProps,
     chipLabel,
-    isInvalidOnAxis
+    isInvalidOnAxis,
+    isSelected
   ]);
 
   const handleWrapperDragStart = (e: React.DragEvent) => {
@@ -237,8 +252,31 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
         maxWidth: '100%',
         alignItems: 'center',
         minHeight: source === 'AVAILABLE_FIELDS' ? '20px' : 'auto', // Match chip height
+        position: 'relative',
       }}
     >
+      {/* Show badge when dragging multiple fields */}
+      {isDragging && dragCount && dragCount > 1 && (
+        <div style={{
+          position: 'absolute',
+          top: -8,
+          right: -8,
+          backgroundColor: '#1976d2',
+          color: 'white',
+          borderRadius: '50%',
+          width: 20,
+          height: 20,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '11px',
+          fontWeight: 'bold',
+          zIndex: 1000,
+          pointerEvents: 'none',
+        }}>
+          {dragCount}
+        </div>
+      )}
       {isTruncated ? (
         <Tooltip 
           title={<span className={labelStyles.tooltipContent}>{fullLabel}</span>} 
@@ -322,7 +360,9 @@ export default React.memo(ChipWithTooltip, (prevProps, nextProps) => {
     prevProps.field.barSortOrder === nextProps.field.barSortOrder &&
     prevProps.source === nextProps.source &&
     prevProps.isDragging === nextProps.isDragging &&
-    prevProps.isInvalidOnAxis === nextProps.isInvalidOnAxis
-    // Note: onContextMenu, onDragStart, onDragEnd are wrapped in useCallback in parent
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.isInvalidOnAxis === nextProps.isInvalidOnAxis &&
+    prevProps.dragCount === nextProps.dragCount
+    // Note: onContextMenu, onDragStart, onDragEnd, onClick are wrapped in useCallback in parent
   );
 });
