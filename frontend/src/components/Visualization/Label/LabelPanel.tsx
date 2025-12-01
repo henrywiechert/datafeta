@@ -65,14 +65,27 @@ const LabelPanel: React.FC<LabelPanelProps> = ({ projectedPointCount }) => {
         onDragOver={(e) => { e.preventDefault(); }}
         onDrop={(e) => {
           e.preventDefault();
-          // FieldChip sets 'application/json' with { field, source, index }
           const payload = e.dataTransfer.getData('application/json');
           if (!payload) return;
           try {
             const parsed = JSON.parse(payload);
-            const field: Field = parsed.field || parsed; // fallback if older format
+            
+            // Handle unified payload format (always arrays) and legacy format
+            let fields = parsed.fields;
             const source: DragSource = parsed.source || 'AVAILABLE_FIELDS';
-            handleLabelDrop(field, source);
+            
+            // Backward compatibility: normalize legacy single-field format
+            if (!fields && parsed.field) {
+              fields = [parsed.field];
+            } else if (!fields && !parsed.field) {
+              // Very old format: just the field object
+              fields = [parsed];
+            }
+            
+            // Add each field to labels
+            if (fields && fields.length > 0) {
+              fields.forEach((field: Field) => handleLabelDrop(field, source));
+            }
           } catch (err) {
             console.warn('Failed to parse dropped field for label zone', err);
           }

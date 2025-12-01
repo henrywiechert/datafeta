@@ -26,9 +26,18 @@ export const parseDragData = (e: React.DragEvent): { field: Field | null } => {
     const fieldData = e.dataTransfer.getData('application/json');
     if (fieldData) {
       const parsedData = JSON.parse(fieldData);
-      const { field } = parsedData;
-      if (field) {
-        return { field };
+      
+      // Handle unified payload format (always arrays) and legacy format
+      let fields = parsedData.fields;
+      
+      // Backward compatibility: normalize legacy single-field format
+      if (!fields && parsedData.field) {
+        fields = [parsedData.field];
+      }
+      
+      // For overrides, only take the first field (single field only)
+      if (fields && fields.length > 0) {
+        return { field: fields[0] };
       }
     }
   } catch (error) {

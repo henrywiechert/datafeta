@@ -21,6 +21,7 @@ interface UseFieldOperationsParams {
 export interface UseFieldOperationsReturn {
     handleDropFromAvailableFields: (targetAxis: 'x' | 'y', fieldId: string, insertIndex?: number) => void;
     handleRemoveFromAxis: (fieldId: string) => void;
+    handleRemoveMultipleFromAxis: (fieldIds: string[]) => void;
     handleFieldUpdate: (updatedField: Field) => void;
     handleReorderFields: (axis: 'x' | 'y', fromIndex: number, toIndex: number) => void;
     handleMoveFieldBetweenAxes: (fieldId: string, fromAxis: 'x' | 'y', toAxis: 'x' | 'y', insertIndex?: number) => void;
@@ -37,36 +38,49 @@ export function useFieldOperations({
     dataSourceSetters
 }: UseFieldOperationsParams): UseFieldOperationsReturn {
 
-    const handleDropFromAvailableFields = useCallback((targetAxis: 'x' | 'y', fieldId: string, insertIndex?: number) => {
-        const field = availableFieldsWithVirtual.find(f => f.id === fieldId);
-        if (!field) return;
-
-        const fieldToAdd = { ...field, id: uuidv4() };
+    const handleDropFromAvailableFields = useCallback((targetAxis: 'x' | 'y', fieldId: string | string[], insertIndex?: number) => {
+        // Always work with arrays (single field = array of length 1)
+        const fieldIds = Array.isArray(fieldId) ? fieldId : [fieldId];
         
-        if (targetAxis === 'x') {
-            const currentFields = xAxisFields;
-            if (insertIndex !== undefined) {
-                const newFields = [...currentFields];
-                newFields.splice(insertIndex, 0, fieldToAdd);
-                dispatch({ type: 'SET_X_AXIS_FIELDS', payload: newFields });
-            } else {
-                dispatch({ type: 'SET_X_AXIS_FIELDS', payload: [...currentFields, fieldToAdd] });
-            }
+        // Map field IDs to actual field objects with new UUIDs
+        const fieldsToAdd = fieldIds.map(id => {
+            const field = availableFieldsWithVirtual.find(f => f.id === id);
+            if (!field) return null;
+            return { ...field, id: uuidv4() };
+        }).filter(Boolean) as Field[];
+
+        if (fieldsToAdd.length === 0) return;
+        
+        // Get current fields for target axis
+        const currentFields = targetAxis === 'x' ? xAxisFields : yAxisFields;
+        
+        // Insert fields at specified index or append to end
+        const newFields = [...currentFields];
+        if (insertIndex !== undefined) {
+            newFields.splice(insertIndex, 0, ...fieldsToAdd);
         } else {
-            const currentFields = yAxisFields;
-            if (insertIndex !== undefined) {
-                const newFields = [...currentFields];
-                newFields.splice(insertIndex, 0, fieldToAdd);
-                dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: newFields });
-            } else {
-                dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: [...currentFields, fieldToAdd] });
-            }
+            newFields.push(...fieldsToAdd);
         }
+        
+        // Update target axis
+        dispatch({ 
+            type: targetAxis === 'x' ? 'SET_X_AXIS_FIELDS' : 'SET_Y_AXIS_FIELDS', 
+            payload: newFields 
+        });
     }, [xAxisFields, yAxisFields, availableFieldsWithVirtual, dispatch]);
 
     const handleRemoveFromAxis = useCallback((fieldId: string) => {
         const newXFields = xAxisFields.filter(f => f.id !== fieldId);
         const newYFields = yAxisFields.filter(f => f.id !== fieldId);
+        dispatch({ type: 'SET_X_AXIS_FIELDS', payload: newXFields });
+        dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: newYFields });
+    }, [xAxisFields, yAxisFields, dispatch]);
+    
+    // Batch removal for multiple fields to avoid race conditions
+    const handleRemoveMultipleFromAxis = useCallback((fieldIds: string[]) => {
+        const fieldIdSet = new Set(fieldIds);
+        const newXFields = xAxisFields.filter(f => !fieldIdSet.has(f.id));
+        const newYFields = yAxisFields.filter(f => !fieldIdSet.has(f.id));
         dispatch({ type: 'SET_X_AXIS_FIELDS', payload: newXFields });
         dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: newYFields });
     }, [xAxisFields, yAxisFields, dispatch]);
@@ -150,6 +164,7 @@ export function useFieldOperations({
     return {
         handleDropFromAvailableFields,
         handleRemoveFromAxis,
+        handleRemoveMultipleFromAxis,
         handleFieldUpdate,
         handleReorderFields,
         handleMoveFieldBetweenAxes,

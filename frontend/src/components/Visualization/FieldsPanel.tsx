@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useRef } from 'react';
 import { Typography, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import FieldsSearch from './FieldsSearch';
@@ -8,6 +8,7 @@ import VirtualColumnManager from '../VirtualColumns/VirtualColumnManager';
 import { Field, Database, Table, VirtualColumnDefinition } from '../../types';
 import { useFieldsPanelDrag } from '../../hooks/useFieldsPanelDrag';
 import styles from './FieldsPanel.module.css';
+import { useSelection } from '../../contexts/SelectionContext';
 
 interface FieldsPanelProps {
   availableFields: Field[];
@@ -15,6 +16,7 @@ interface FieldsPanelProps {
   onFieldsSearchChange: (search: string) => void;
   onFieldUpdate: (field: Field) => void;
   onRemoveFromAxis: (fieldId: string) => void;
+  onRemoveMultipleFromAxis?: (fieldIds: string[]) => void;
   // New props for metadata selection
   connectionType: string;
   selectedDatabase: string;
@@ -48,6 +50,7 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   onFieldsSearchChange,
   onFieldUpdate,
   onRemoveFromAxis,
+  onRemoveMultipleFromAxis,
   // New props for metadata selection
   connectionType,
   selectedDatabase,
@@ -74,13 +77,38 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   onUpdateVirtualColumn,
   onRemoveVirtualColumn
 }) => {
+  const selection = useSelection();
+  const containerRef = useRef<HTMLDivElement>(null);
+  
   // Use our custom hook for drag and drop functionality
   const {
     isDragOver,
     handleDragOver,
     handleDragLeave,
     handleDrop
-  } = useFieldsPanelDrag(onRemoveFromAxis);
+  } = useFieldsPanelDrag(onRemoveFromAxis, onRemoveMultipleFromAxis);
+  
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        selection.clearSelection();
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selection]);
+  
+  // Handle clicks on empty space to clear selection
+  const handleContainerClick = (e: React.MouseEvent) => {
+    // Only clear if clicking directly on the container or fields list
+    if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains(styles.fieldsList)) {
+      selection.clearSelection();
+    }
+  };
 
   // Create filter function that works with search term
   const filterBySearch = useMemo(() => (field: Field) => (
@@ -105,7 +133,7 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   ), [availableFields, filterBySearch]);
 
   return (
-    <div className={styles.container} style={{ border: '1px solid #ddd', borderRadius: 6, padding: 0 }}>
+    <div ref={containerRef} className={styles.container} onClick={handleContainerClick} style={{ border: '1px solid #ddd', borderRadius: 6, padding: 0 }}>
       {/* Metadata selector at the top */}
       <CompactMetadataSelector
         connectionType={connectionType}
