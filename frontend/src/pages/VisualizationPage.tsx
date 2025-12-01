@@ -5,6 +5,7 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { useVisualizationState } from '../hooks/useVisualizationState';
 import { useVisualizationContext, VisualizationProvider } from '../contexts/VisualizationContext';
 import { UndoRedoProvider } from '../contexts/UndoRedoContext';
+import { SelectionProvider } from '../contexts/SelectionContext';
 import { useSheetContext } from '../contexts/SheetContext';
 import { useDragDrop } from '../hooks/useDragDrop';
 import { useConnection } from '../contexts/ConnectionContext';
@@ -61,6 +62,7 @@ const VisualizationPageContent = () => {
     const { 
         handleAxisDrop,
         handleRemoveFromAxis,
+        handleRemoveMultipleFromAxis,
         handleReorderFields,
         handleMoveFieldBetweenAxes,
         handleFilterDrop,
@@ -111,11 +113,11 @@ const VisualizationPageContent = () => {
     }, [redo, completeRedo, dispatch, getUndoableSnapshot]);
 
     // Simplified axis-specific handlers that use the generic handler
-    const handleXAxisDrop = (field: Field, source: DragSource, index?: number) => {
+    const handleXAxisDrop = (field: Field | Field[], source: DragSource, index?: number) => {
         handleAxisDrop('x', field, source, index);
     };
 
-    const handleYAxisDrop = (field: Field, source: DragSource, index?: number) => {
+    const handleYAxisDrop = (field: Field | Field[], source: DragSource, index?: number) => {
         handleAxisDrop('y', field, source, index);
     };
 
@@ -223,15 +225,16 @@ const VisualizationPageContent = () => {
     }
 
     return (
-        <Box sx={{ 
-            height: '100%', 
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden' 
-        }}>
-            {/* Main Layout with react-resizable-panels */}
-            <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-                <PanelGroup direction="horizontal">
+        <SelectionProvider>
+            <Box sx={{ 
+                height: '100%', 
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden' 
+            }}>
+                {/* Main Layout with react-resizable-panels */}
+                <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
+                    <PanelGroup direction="horizontal">
                     {/* Left Panel - Fields with metadata selector */}
                     <Panel defaultSize={20} minSize={10} maxSize={35}>
                         <FieldsPanel
@@ -240,6 +243,7 @@ const VisualizationPageContent = () => {
                             onFieldsSearchChange={setFieldsSearch}
                             onFieldUpdate={handleFieldUpdate}
                             onRemoveFromAxis={handleRemoveFromAxis}
+                            onRemoveMultipleFromAxis={handleRemoveMultipleFromAxis}
                             connectionType={connectionDetails?.type || ''}
                             selectedDatabase={selectedDatabase}
                             selectedTable={selectedTable}
@@ -334,6 +338,7 @@ const VisualizationPageContent = () => {
                 operationStartTimes={state.operationStartTimes}
             />
         </Box>
+        </SelectionProvider>
     );
 };
 

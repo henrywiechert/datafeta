@@ -78,12 +78,20 @@ const SizePanelComplete: React.FC = () => {
             const fieldData = e.dataTransfer.getData('application/json');
             if (fieldData) {
                 const parsedData = JSON.parse(fieldData);
-                const { field } = parsedData;
                 
-                if (field) {
+                // Handle unified payload format (always arrays) and legacy format
+                let fields = parsedData.fields;
+                
+                // Backward compatibility: normalize legacy single-field format
+                if (!fields && parsedData.field) {
+                    fields = [parsedData.field];
+                }
+                
+                // For size, only take the first field (single field only)
+                if (fields && fields.length > 0) {
                     dispatch({
                         type: 'SET_SIZE_FIELD',
-                        payload: field
+                        payload: fields[0]
                     });
                     
                     // Reset sizeRange to a reasonable pixel range for scatter/line charts

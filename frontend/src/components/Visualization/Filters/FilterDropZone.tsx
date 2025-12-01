@@ -41,13 +41,27 @@ const FilterDropZone: React.FC<FilterDropZoneProps> = ({
 
     try {
       const data = JSON.parse(e.dataTransfer.getData('application/json'));
-      const { field, source } = data;
       
-      // Check if field is already in filter zone
-      const alreadyExists = fields.some(f => f.id === field.id);
-      if (!alreadyExists) {
-        onDrop(field, source);
+      // Handle unified payload format (always arrays) and legacy format
+      let fieldsToAdd = data.fields;
+      const source = data.source;
+      
+      // Backward compatibility: normalize legacy single-field format
+      if (!fieldsToAdd && data.field) {
+        fieldsToAdd = [data.field];
       }
+      
+      if (!fieldsToAdd || fieldsToAdd.length === 0) {
+        return;
+      }
+      
+      // Add each field that's not already in the filter zone
+      fieldsToAdd.forEach((field: Field) => {
+        const alreadyExists = fields.some(f => f.id === field.id);
+        if (!alreadyExists) {
+          onDrop(field, source);
+        }
+      });
     } catch (error) {
       console.error('Error parsing drag data:', error);
     }

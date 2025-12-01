@@ -1,14 +1,15 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Box } from '@mui/material';
 import DropZone from './DropZone';
 import ChartArea from './ChartArea';
 import { Field, DragSource } from '../../types';
+import { useSelection } from '../../contexts/SelectionContext';
 
 interface ChartPanelProps {
   xAxisFields: Field[];
   yAxisFields: Field[];
-  onXAxisDrop: (field: Field, source: DragSource, index?: number) => void;
-  onYAxisDrop: (field: Field, source: DragSource, index?: number) => void;
+  onXAxisDrop: (field: Field | Field[], source: DragSource, index?: number) => void;
+  onYAxisDrop: (field: Field | Field[], source: DragSource, index?: number) => void;
   onFieldUpdate: (field: Field) => void;
   onRemoveField: (fieldId: string) => void;
   onReorderFields: (axis: 'x' | 'y', fromIndex: number, toIndex: number) => void;
@@ -25,8 +26,37 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
   onReorderFields,
   onMoveFieldBetweenAxes
 }) => {
+  const selection = useSelection();
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        selection.clearSelection();
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selection]);
+  
+  // Handle clicks on empty space to clear selection
+  const handleContainerClick = (e: React.MouseEvent) => {
+    // Only clear if clicking on the container itself
+    if (e.target === e.currentTarget) {
+      selection.clearSelection();
+    }
+  };
+  
   return (
-    <Box sx={{ height: '100%', p: 1, display: 'flex', flexDirection: 'column' }}>
+    <Box 
+      ref={containerRef}
+      onClick={handleContainerClick}
+      sx={{ height: '100%', p: 1, display: 'flex', flexDirection: 'column' }}
+    >
       <Box sx={{ mb: 1 }}>
         <DropZone 
           onDrop={onXAxisDrop}

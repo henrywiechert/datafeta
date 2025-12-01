@@ -73,9 +73,10 @@ const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate }
   // Use virtualization for large lists
   const useVirtualization = fields.length > VIRTUALIZATION_THRESHOLD;
   
-  // Row component for virtualized list - optimized to not recreate on every render
-  // The key optimization: remove onUpdate from dependencies since it's stable
-  const RowComponent = useCallback((props: {
+  // Row component for virtualized list
+  // Note: Not using useCallback here because FieldChip uses selection context
+  // and needs to re-render when selection state changes
+  const RowComponent = (props: {
     ariaAttributes: { 'aria-posinset': number; 'aria-setsize': number; role: 'listitem' };
     index: number;
     style: React.CSSProperties;
@@ -87,12 +88,12 @@ const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate }
         <FieldChip 
           field={field} 
           onUpdate={onUpdate} 
-          source="AVAILABLE_FIELDS" 
+          source="AVAILABLE_FIELDS"
+          allFields={fields}
         />
       </div>
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fields]); // Intentionally omitting onUpdate - it's stable from parent (memoized in useFieldOperations)
+  };
   
   if (useVirtualization) {
     // Virtualized rendering for performance with many fields
@@ -134,7 +135,8 @@ const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate }
             key={field.id} 
             field={field} 
             onUpdate={onUpdate} 
-            source="AVAILABLE_FIELDS" 
+            source="AVAILABLE_FIELDS"
+            allFields={fields}
           />
         ))}
         {fields.length === 0 && (

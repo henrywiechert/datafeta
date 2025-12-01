@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Field } from '../../types';
 import FieldChip, { DragSource } from './FieldChip';
+import { useSelection } from '../../contexts/SelectionContext';
 import styles from './DropZone.module.css';
 
 // Style constants
@@ -50,11 +51,29 @@ const DROPZONE_STYLES = {
 } as const;
 
 // Helper function to parse drag data safely
-function parseDragData(dataTransfer: DataTransfer): { field: Field; source: DragSource; index?: number } | null {
+// Returns unified structure with arrays for fields and indices
+// Legacy single-field payloads are normalized to arrays
+function parseDragData(dataTransfer: DataTransfer): { fields: Field[]; source: DragSource; indices: number[] } | null {
   try {
     const dragData = dataTransfer.getData('application/json');
     if (dragData) {
-      return JSON.parse(dragData);
+      const parsed = JSON.parse(dragData);
+      
+      // Normalize legacy single-field format to array format
+      if (parsed.field && !parsed.fields) {
+        return {
+          fields: [parsed.field],
+          source: parsed.source,
+          indices: parsed.index !== undefined ? [parsed.index] : [-1],
+        };
+      }
+      
+      // Return unified format (already arrays)
+      return {
+        fields: parsed.fields || [],
+        source: parsed.source,
+        indices: parsed.indices || [],
+      };
     }
   } catch (error) {
     console.error('Error parsing drag data:', error);
@@ -76,7 +95,7 @@ function dragSourceToAxis(source: DragSource): 'x' | 'y' | null {
 
 interface DropZoneProps {
   children?: React.ReactNode;
-  onDrop: (field: Field, source: DragSource, index?: number) => void;
+  onDrop: (field: Field | Field[], source: DragSource, index?: number) => void;
   axis: 'x' | 'y';
   fields: Field[];
   onFieldUpdate: (field: Field) => void;
@@ -98,6 +117,7 @@ const DropZone: React.FC<DropZoneProps> = ({
   const [isOver, setIsOver] = useState(false);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const dragLeaveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const selection = useSelection();
 
   // Reset drag state when any drag operation ends globally
   React.useEffect(() => {
@@ -214,10 +234,20 @@ const DropZone: React.FC<DropZoneProps> = ({
     // Try to get the dragged field info to determine valid drop positions
     const dragData = parseDragData(e.dataTransfer);
     if (dragData) {
-      const { field, source, index: sourceIndex } = dragData;
+      const { fields, source, indices } = dragData;
+      
+      // Get the first field for positioning (determines where the group will be placed)
+      const firstField = fields.length > 0 ? fields[0] : null;
+      const sourceIndex = indices.length > 0 ? indices[0] : undefined;
+      
+      if (!firstField) {
+        // No field data available, use fallback
+        setDragOverIndex(calculateDropIndexFromMouse(e.clientX, e.currentTarget));
+        return;
+      }
       
       // Calculate drop position based on ordering rules
-      if (source === axisToDragSource(axis) && sourceIndex !== undefined) {
+      if (source === axisToDragSource(axis) && sourceIndex !== undefined && sourceIndex >= 0) {
         // Reordering within same axis - show visual indicator at valid position
         let requestedIndex = calculateDropIndexFromMouse(e.clientX, e.currentTarget);
         
@@ -227,12 +257,12 @@ const DropZone: React.FC<DropZoneProps> = ({
         }
         
         // Get the valid index based on ordering rules
-        const validIndex = getValidTargetIndex(field, requestedIndex, sourceIndex);
+        const validIndex = getValidTargetIndex(firstField, requestedIndex, sourceIndex);
         setDragOverIndex(validIndex);
       } else {
         // New field drop - calculate position from mouse and adjust for ordering rules
         const requestedIndex = calculateDropIndexFromMouse(e.clientX, e.currentTarget);
-        const validIndex = getValidInsertIndexFromPosition(field, requestedIndex);
+        const validIndex = getValidInsertIndexFromPosition(firstField, requestedIndex);
         setDragOverIndex(validIndex);
       }
       return;
@@ -257,28 +287,29 @@ const DropZone: React.FC<DropZoneProps> = ({
     setDragOverIndex(null);
     
     const data = parseDragData(e.dataTransfer);
-    if (!data) {
+    if (!data || data.fields.length === 0) {
       return;
     }
     
-    const { field, source, index: sourceIndex } = data;
+    const { fields, source, indices } = data;
+    const firstField = fields[0];
+    const sourceIndex = indices.length > 0 && indices[0] >= 0 ? indices[0] : undefined;
     
-    // Create a new field instance to avoid mutating the original
-    let newField: Field = {
-      ...field,
-    };
+    // Process all fields: auto-configure DateTime fields as timeline when dropped on axis
+    const processedFields = fields.map(f => {
+      let newField = { ...f };
+      if (newField.dataType === 'datetime' && newField.flavour === 'continuous') {
+        newField = {
+          ...newField,
+          dateTimePart: undefined,
+          dateTimeMode: 'timeline'
+        };
+      }
+      return newField;
+    });
     
-    // Auto-configure DateTime fields as timeline when dropped on axis
-    if (newField.dataType === 'datetime' && newField.flavour === 'continuous') {
-      newField = {
-        ...newField,
-        dateTimePart: undefined,
-        dateTimeMode: 'timeline'
-      };
-    }
-    
-    // Handle reordering within the same axis
-    if (source === axisToDragSource(axis) && onReorderFields && sourceIndex !== undefined) {
+    // Handle reordering within the same axis (single field only)
+    if (source === axisToDragSource(axis) && onReorderFields && sourceIndex !== undefined && fields.length === 1) {
       // Calculate target index based on mouse position
       let targetIndex = calculateDropIndexFromMouse(e.clientX, e.currentTarget);
       
@@ -288,35 +319,43 @@ const DropZone: React.FC<DropZoneProps> = ({
       }
       
       // Enforce ordering rule: discrete fields before continuous fields
-      targetIndex = getValidTargetIndex(newField, targetIndex, sourceIndex);
+      targetIndex = getValidTargetIndex(firstField, targetIndex, sourceIndex);
       
       if (targetIndex !== sourceIndex) {
         onReorderFields(axis, sourceIndex, targetIndex);
       }
-    } else if ((source === 'X_AXIS' || source === 'Y_AXIS') && source !== axisToDragSource(axis)) {
-      // Handle cross-axis moves atomically to avoid double query
+      // Clear selection after successful drop
+      selection.clearSelection();
+      return;
+    }
+    
+    // Handle cross-axis moves atomically (single field only)
+    if ((source === 'X_AXIS' || source === 'Y_AXIS') && source !== axisToDragSource(axis) && fields.length === 1) {
       if (onMoveFieldBetweenAxes) {
         const fromAxis = dragSourceToAxis(source);
         const toAxis = axis;
         // Calculate position from mouse and adjust for ordering rules
         const requestedIndex = calculateDropIndexFromMouse(e.clientX, e.currentTarget);
-        const insertIndex = getValidInsertIndexFromPosition(newField, requestedIndex);
+        const insertIndex = getValidInsertIndexFromPosition(firstField, requestedIndex);
         if (fromAxis) {
-          onMoveFieldBetweenAxes(field.id, fromAxis, toAxis, insertIndex);
+          onMoveFieldBetweenAxes(firstField.id, fromAxis, toAxis, insertIndex);
         }
-      } else {
-        // Fallback to old behavior if handler not provided
-        const requestedIndex = calculateDropIndexFromMouse(e.clientX, e.currentTarget);
-        const insertIndex = getValidInsertIndexFromPosition(newField, requestedIndex);
-        onDrop(newField, source, insertIndex);
+        // Clear selection after successful drop
+        selection.clearSelection();
+        return;
       }
-    } else {
-      // Handle drops from available fields
-      // Calculate position from mouse and adjust for ordering rules
-      const requestedIndex = calculateDropIndexFromMouse(e.clientX, e.currentTarget);
-      const insertIndex = getValidInsertIndexFromPosition(newField, requestedIndex);
-      onDrop(newField, source, insertIndex);
     }
+    
+    // Handle all other drops (from available fields, cross-axis multi-field, etc.)
+    // Calculate position from mouse and adjust for ordering rules
+    const requestedIndex = calculateDropIndexFromMouse(e.clientX, e.currentTarget);
+    const insertIndex = getValidInsertIndexFromPosition(firstField, requestedIndex);
+    
+    // Pass array to onDrop (supports both single and multiple fields)
+    onDrop(processedFields, source, insertIndex);
+    
+    // Clear selection after successful drop
+    selection.clearSelection();
   };
 
   const dropZoneClass = `${styles.dropZone} ${isOver ? styles.isOver : ''}`;
@@ -362,6 +401,7 @@ const DropZone: React.FC<DropZoneProps> = ({
                   source={axisToDragSource(axis)}
                   index={index}
                   isInvalidOnAxis={isInvalid}
+                  allFields={fields}
                 />
               </React.Fragment>
             );
