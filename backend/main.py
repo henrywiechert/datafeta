@@ -3,6 +3,9 @@ import os
 import shutil
 import tempfile
 import logging # Import logging
+import json
+from pathlib import Path
+from datetime import datetime, timezone
 from fastapi import FastAPI, Request, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -28,6 +31,21 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__) # Get logger for this module
 logger.info(f"Logging configured with level: {logging.getLevelName(log_level)}")
+
+# Load version info
+VERSION_INFO = None
+version_file = Path(__file__).parent / 'version.json'
+if version_file.exists():
+    with open(version_file, 'r') as f:
+        VERSION_INFO = json.load(f)
+else:
+    VERSION_INFO = {
+        'version': 'debug',
+        'gitHash': None,
+        'gitTag': None,
+        'buildDate': datetime.now(timezone.utc).isoformat()
+    }
+logger.info(f"Backend version: {VERSION_INFO['version']}")
 
 app = FastAPI(
     title="Data Analytics Platform API",
@@ -73,6 +91,11 @@ def api_version_root():
 @app.get("/api/v1/data", include_in_schema=False)
 def api_data_root():
     return {"message": "Data endpoints root. See /docs for full schema.", "examples": ["POST /api/v1/data/connect", "GET /api/v1/data/tables"]}
+
+@app.get("/api/version")
+def get_version():
+    """Return version information."""
+    return VERSION_INFO
 
 @app.on_event("startup")
 def startup_event():
