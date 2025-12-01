@@ -1,11 +1,16 @@
-import React, { useState, useEffect, ChangeEvent } from 'react';
+import React, { useState, useEffect, ChangeEvent, useRef } from 'react';
 import { ConnectionDetails } from '../types';
 import { useConnection } from '../contexts/ConnectionContext';
 import { Link } from 'react-router-dom';
 import { apiService } from '../apiService';
 import styles from './DataSourceSelectionPage.module.css';
+import { readFileAsText } from '../services/configurationService';
 
-function DataSourceSelectionPage() {
+interface DataSourceSelectionPageProps {
+  onLoadConfiguration: (config: any) => Promise<void>;
+}
+
+function DataSourceSelectionPage({ onLoadConfiguration }: DataSourceSelectionPageProps) {
   const { isConnected, isLoading, error, message, connect, disconnect, connectionDetails } = useConnection();
 
   const [connectionType, setConnectionType] = useState<'csv' | 'clickhouse' | 'kaggle'>('clickhouse');
@@ -39,6 +44,8 @@ function DataSourceSelectionPage() {
   const [searchError, setSearchError] = useState<string>('');
   const [kaggleManualMode, setKaggleManualMode] = useState<boolean>(false);
   const [kaggleManualDataset, setKaggleManualDataset] = useState<string>('');
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isConnected && connectionDetails) {
@@ -202,12 +209,55 @@ function DataSourceSelectionPage() {
     }
   };
 
+  const handleLoadConfig = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const jsonString = await readFileAsText(file);
+      const config = JSON.parse(jsonString);
+      
+      // Use the same handler as the Visualization page Load button
+      await onLoadConfiguration(config);
+    } catch (error: any) {
+      console.error('Failed to load configuration:', error);
+      alert('Failed to load configuration: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   return (
     <div className={styles.container}>
       <h2 className={styles.pageTitle}>Data Source Selection</h2>
 
       <div className={styles.card}>
         <h3 className={styles.sectionTitle}>Connect to a Data Source</h3>
+        
+        {/* Load Configuration Button */}
+        <div className={styles.loadConfigSection}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            onChange={handleLoadConfig}
+            style={{ display: 'none' }}
+            id="config-file-input"
+          />
+          <label htmlFor="config-file-input">
+            <button
+              className={styles.loadButton}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isConnected || isLoading}
+              type="button"
+            >
+              Load Configuration
+            </button>
+          </label>
+        </div>
         
         <div className={styles.formGroup}>
           <label className={styles.label}>Data Source Type</label>
