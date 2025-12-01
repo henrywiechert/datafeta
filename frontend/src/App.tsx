@@ -8,6 +8,7 @@ import { DataSourceProvider, useDataSource } from './contexts/DataSourceContext'
 import { useConnection } from './contexts/ConnectionContext';
 import SaveLoadMenu from './components/SaveLoadMenu';
 import ConnectionRestoreDialog from './components/ConnectionRestoreDialog';
+import VersionDisplay from './components/VersionDisplay';
 import { 
   exportConfiguration, 
   saveConfigFile, 
@@ -270,19 +271,6 @@ function AppContent() {
 
   return (
     <div className="App">
-      {/* Top bar with Save/Load menu */}
-      <Box sx={{ 
-        position: 'absolute',
-        top: 8,
-        right: 8,
-        zIndex: 1000,
-      }}>
-        <SaveLoadMenu 
-          onSave={handleSaveConfiguration}
-          onLoad={handleLoadConfiguration}
-        />
-      </Box>
-
       {/* Main content area */}
       <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
         <Suspense fallback={null}>
@@ -359,6 +347,13 @@ function AppContent() {
             <AddIcon fontSize="small" />
           </IconButton>
         </Tooltip>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto', pr: 2 }}>
+          <SaveLoadMenu
+            onSave={handleSaveConfiguration}
+            onLoad={handleLoadConfiguration}
+          />
+          <VersionDisplay />
+        </Box>
       </Box>
 
       {/* Context Menu */}
