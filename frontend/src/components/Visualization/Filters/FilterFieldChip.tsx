@@ -132,6 +132,25 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
     return null;
   };
 
+  // Format number for display (smart decimal places)
+  const formatNumber = (value: number | null): string => {
+    if (value === null) return '∞';
+    
+    // For very small or very large numbers, use exponential notation
+    if (Math.abs(value) >= 1e6 || (Math.abs(value) < 0.001 && value !== 0)) {
+      return value.toExponential(2);
+    }
+    
+    // For integers or numbers very close to integers, show no decimals
+    if (Math.abs(value - Math.round(value)) < 0.0001) {
+      return Math.round(value).toString();
+    }
+    
+    // For other numbers, show up to 3 significant decimal places
+    // Remove trailing zeros
+    return parseFloat(value.toPrecision(4)).toString();
+  };
+
   // Get summary text for the chip
   const getSummaryText = () => {
     if (!filterConfig) return field.columnName;
@@ -143,7 +162,9 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
 
     if (filterConfig.type === 'continuous') {
       if (filterConfig.min !== null || filterConfig.max !== null) {
-        return `${field.columnName} [${filterConfig.min ?? '∞'} - ${filterConfig.max ?? '∞'}]`;
+        const minStr = formatNumber(filterConfig.min);
+        const maxStr = formatNumber(filterConfig.max);
+        return `${field.columnName} [${minStr} - ${maxStr}]`;
       }
       return field.columnName;
     }
