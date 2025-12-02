@@ -493,6 +493,8 @@ export interface SavedConnectionMetadata {
 export interface SavedDataSourceSelection {
   selectedDatabase: string;
   selectedTable: string;
+  fullTableName: string; // Combined db.table or just table for CSV (e.g., "mydb.orders" or "sales.csv")
+  unionTables?: Array<{database: string, table_name: string}>; // Tables combined with UNION ALL
 }
 
 /**
