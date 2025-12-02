@@ -317,6 +317,7 @@ const range = await apiService.getFieldRange(
   table: string,
   database?: string,
   virtualColumns?: VirtualColumnDefinition[],
+  unionTables?: string[],
   signal?: AbortSignal
 );
 // Returns: { min: number, max: number }
@@ -332,6 +333,7 @@ const range = await apiService.getDateTimeRange(
   table: string,
   database?: string,
   virtualColumns?: VirtualColumnDefinition[],
+  unionTables?: string[],
   signal?: AbortSignal
 );
 // Returns: { min: string, max: string }
@@ -977,6 +979,7 @@ getFieldRange(
   table: string,
   database?: string,
   virtualColumns?: VirtualColumnDefinition[],
+  unionTables?: string[],
   signal?: AbortSignal
 ): Promise<{min: number, max: number}>
 
@@ -985,6 +988,7 @@ getDateTimeRange(
   table: string,
   database?: string,
   virtualColumns?: VirtualColumnDefinition[],
+  unionTables?: string[],
   signal?: AbortSignal
 ): Promise<{min: string, max: string}>
 

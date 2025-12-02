@@ -339,6 +339,10 @@ class UnionQueryBuilder:
         has_measures = bool(all_measure_fields)
         needs_distinct = query_desc.fetch_filter_values is True or (has_dimensions and not has_measures)
         
+        # For measure-only queries (no dimensions), we need to aggregate across all union results
+        # Example: MIN/MAX queries for filter ranges need the overall min/max, not per-table
+        needs_outer_aggregation = has_measures and not has_dimensions
+        
         distinct_columns: List[str] = []
         if needs_distinct:
             for dim in query_desc.dimensions:
@@ -372,10 +376,38 @@ class UnionQueryBuilder:
             or bool(source_db_filters)
             or bool(source_table_filters)
             or needs_distinct
+            or needs_outer_aggregation
         )
 
         if needs_outer_query:
-            if needs_distinct and distinct_columns:
+            if needs_outer_aggregation:
+                # Build outer aggregation query for measure-only queries
+                # Re-aggregate across all union results to get overall min/max/sum/etc
+                select_parts = []
+                for field_key, measure in all_measure_fields:
+                    agg = measure.aggregation.upper()
+                    # Map aggregations that need re-aggregation
+                    if agg == "MIN":
+                        select_parts.append(f"MIN({quote_char}{field_key}{quote_char}) AS {quote_char}{field_key}{quote_char}")
+                    elif agg == "MAX":
+                        select_parts.append(f"MAX({quote_char}{field_key}{quote_char}) AS {quote_char}{field_key}{quote_char}")
+                    elif agg == "SUM":
+                        select_parts.append(f"SUM({quote_char}{field_key}{quote_char}) AS {quote_char}{field_key}{quote_char}")
+                    elif agg == "COUNT":
+                        select_parts.append(f"SUM({quote_char}{field_key}{quote_char}) AS {quote_char}{field_key}{quote_char}")
+                    elif agg == "COUNT_DISTINCT":
+                        # Can't re-aggregate count distinct, keep as-is
+                        select_parts.append(f"SUM({quote_char}{field_key}{quote_char}) AS {quote_char}{field_key}{quote_char}")
+                    elif agg == "AVG":
+                        # For average, we need weighted average if possible, otherwise just average the averages
+                        select_parts.append(f"AVG({quote_char}{field_key}{quote_char}) AS {quote_char}{field_key}{quote_char}")
+                    else:
+                        # Default: just select the field
+                        select_parts.append(f"{quote_char}{field_key}{quote_char}")
+                
+                outer_sql = f"SELECT {', '.join(select_parts)} FROM (\n{union_sql}\n) AS union_result"
+                self._logger.info("Applied outer aggregation for measure-only UNION query to get overall min/max/sum")
+            elif needs_distinct and distinct_columns:
                 # Include source tracking columns in the SELECT even with DISTINCT
                 # They're excluded from the DISTINCT list but must be in the result
                 all_columns = distinct_columns + [
