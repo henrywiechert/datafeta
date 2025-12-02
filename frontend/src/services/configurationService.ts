@@ -78,7 +78,8 @@ export function exportConfiguration(
   nextSheetNumber: number,
   connectionDetails: ConnectionDetails | null,
   selectedDatabase: string,
-  selectedTable: string
+  selectedTable: string,
+  unionTables?: Array<{database: string, table_name: string}>
 ): SavedConfiguration {
   const config: SavedConfiguration = {
     version: CURRENT_VERSION,
@@ -97,10 +98,21 @@ export function exportConfiguration(
 
   // Add data source selection if available
   if (selectedDatabase || selectedTable) {
+    // Construct full table name (database.table or just table for CSV)
+    const fullTableName = selectedDatabase 
+      ? `${selectedDatabase}.${selectedTable}`
+      : selectedTable;
+    
     config.dataSource = {
       selectedDatabase,
       selectedTable,
+      fullTableName,
     };
+    
+    // Add union tables if present
+    if (unionTables && unionTables.length > 0) {
+      config.dataSource.unionTables = unionTables;
+    }
   }
 
   return config;
@@ -153,6 +165,14 @@ export function validateConfiguration(config: any): SavedConfiguration {
     if (!config.connection.type || !['csv', 'clickhouse'].includes(config.connection.type)) {
       throw new Error('Invalid configuration: connection.type must be "csv" or "clickhouse"');
     }
+  }
+
+  // Add backward compatibility: generate fullTableName if missing
+  if (config.dataSource && !config.dataSource.fullTableName) {
+    const { selectedDatabase, selectedTable } = config.dataSource;
+    config.dataSource.fullTableName = selectedDatabase 
+      ? `${selectedDatabase}.${selectedTable}`
+      : selectedTable;
   }
 
   return config as SavedConfiguration;
