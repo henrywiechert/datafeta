@@ -4,18 +4,12 @@
 FROM node:20-alpine AS frontend-build
 WORKDIR /app/frontend
 
-# Install git for version generation
-RUN apk add --no-cache git
-
 COPY frontend/package*.json ./
 RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
 
-# Copy .git directory for version generation
-COPY .git /app/.git
-
-# Generate version info and build
-RUN npm run build
+# Build without running prebuild script (version.json already generated before Docker build)
+RUN npx react-scripts build
 
 # ===== Backend build stage =====
 FROM python:3.11-slim AS backend
@@ -24,17 +18,10 @@ WORKDIR /app
 # System deps (if any needed later add here)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    git \
   && rm -rf /var/lib/apt/lists/*
 
-# Copy backend code
+# Copy backend code (version.json should already be generated and copied)
 COPY backend/ ./backend/
-
-# Copy .git directory for version generation
-COPY .git ./.git
-
-# Generate backend version
-RUN python3 backend/scripts/generate_version.py
 
 # Copy frontend build into backend/static so FastAPI can serve it
 COPY --from=frontend-build /app/frontend/build ./backend/static
