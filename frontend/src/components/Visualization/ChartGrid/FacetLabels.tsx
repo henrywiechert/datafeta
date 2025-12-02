@@ -28,6 +28,7 @@ const TopFacetLabelsComponent: React.FC<Pick<FacetLabelsProps, 'spec' | 'plotTem
       <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns }}>
         <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'center' }}>
           <div
+            title={colLevels.map((l: { fieldLabel: string }) => l.fieldLabel).join(' / ')}
             style={{
               position: 'sticky',
               left: 0,
@@ -39,6 +40,7 @@ const TopFacetLabelsComponent: React.FC<Pick<FacetLabelsProps, 'spec' | 'plotTem
               background: 'white',
               padding: '2px 6px',
               zIndex: 2,
+              cursor: 'default',
             }}
           >
             {colLevels.map((l: { fieldLabel: string }) => l.fieldLabel).join(' / ')}
@@ -58,6 +60,7 @@ const TopFacetLabelsComponent: React.FC<Pick<FacetLabelsProps, 'spec' | 'plotTem
               cells.push(
                 <div
                   key={`col-level-${levelIdx}-seg-${r}-val-${i}`}
+                  title={String(val)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -70,6 +73,7 @@ const TopFacetLabelsComponent: React.FC<Pick<FacetLabelsProps, 'spec' | 'plotTem
                     fontSize: '10px',
                     padding: 0,
                     overflow: 'hidden',
+                    cursor: 'default',
                   }}
                 >
                   {String(val)}
@@ -131,6 +135,7 @@ const LeftFacetLabelsComponent: React.FC<Pick<FacetLabelsProps, 'spec' | 'plotRo
         }}
       >
         <div
+          title={rowLevels.map((l: { fieldLabel: string }) => l.fieldLabel).join(' / ')}
           style={{
             writingMode: 'vertical-rl',
             transform: 'rotate(180deg)',
@@ -139,6 +144,7 @@ const LeftFacetLabelsComponent: React.FC<Pick<FacetLabelsProps, 'spec' | 'plotRo
             background: 'white',
             padding: '4px 2px',
             margin: 'auto',
+            cursor: 'default',
           }}
         >
           {rowLevels.map((l: { fieldLabel: string }) => l.fieldLabel).join(' / ')}
@@ -158,6 +164,7 @@ const LeftFacetLabelsComponent: React.FC<Pick<FacetLabelsProps, 'spec' | 'plotRo
             cells.push(
               <div
                 key={`yval-level-${levelIdx}-rep-${r}-val-${i}`}
+                title={String(val)}
                 style={{
                   gridColumn: levelIdx + 2,
                   gridRow: `${startRow} / span ${span}`,
@@ -170,6 +177,7 @@ const LeftFacetLabelsComponent: React.FC<Pick<FacetLabelsProps, 'spec' | 'plotRo
                   background: 'transparent',
                   padding: 0,
                   overflow: 'hidden',
+                  cursor: 'default',
                 }}
               >
                 <div
