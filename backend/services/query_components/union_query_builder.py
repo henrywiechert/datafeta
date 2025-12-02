@@ -339,9 +339,22 @@ class UnionQueryBuilder:
         has_measures = bool(all_measure_fields)
         needs_distinct = query_desc.fetch_filter_values is True or (has_dimensions and not has_measures)
         
-        # For measure-only queries (no dimensions), we need to aggregate across all union results
+        # Check if we have source tracking dimensions (_source_database, _source_table)
+        has_source_dimensions = any(
+            dim.field in ("_source_database", "_source_table") 
+            for dim in query_desc.dimensions
+        )
+        
+        # For measure-only queries (no dimensions at all, including source tracking), 
+        # we need to aggregate across all union results
         # Example: MIN/MAX queries for filter ranges need the overall min/max, not per-table
-        needs_outer_aggregation = has_measures and not has_dimensions
+        # But do NOT apply if we have source tracking dimensions or ORDER BY (chart queries)
+        needs_outer_aggregation = (
+            has_measures 
+            and not has_dimensions 
+            and not has_source_dimensions
+            and not bool(query_desc.orderBy)
+        )
         
         distinct_columns: List[str] = []
         if needs_distinct:
