@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Tuple
 import threading
 from typing import Optional
 from urllib.parse import urlparse, parse_qs
+import socket
 import clickhouse_connect
 from clickhouse_connect.driver.client import Client
 from backend.models.data_source import Database, Table, Column, ForeignKeyRelationship
@@ -69,18 +70,25 @@ class ClickHouseConnector(BaseConnector):
     def connect(self, connection_details: Dict[str, Any]) -> None:
         self.connection_details = connection_details
         logger.info(f"ClickHouse connector received connection_details: {connection_details}")
+        
+        # Set global socket timeout to handle firewall blocking scenarios
+        old_timeout = socket.getdefaulttimeout()
+        socket.setdefaulttimeout(5)
+        
         try:
             # Handle both connection string and individual parameters
             if 'connection_string' in self.connection_details:
-                # Assuming format: 'http://user:password@host:8123/database'
                 logger.info(f"Using connection string: {self.connection_details['connection_string']}")
                 self.client = clickhouse_connect.get_client(
-                    dsn=self.connection_details['connection_string']
+                    dsn=self.connection_details['connection_string'],
+                    connect_timeout=5,
+                    send_receive_timeout=30
                 )
             else:
-                # Ensure port is set to HTTP port if not specified
                 conn_params = self.connection_details.copy()
                 conn_params.setdefault('port', 8123)
+                conn_params.setdefault('connect_timeout', 5)
+                conn_params.setdefault('send_receive_timeout', 30)
                 logger.info(f"Using connection params (with defaults applied): {conn_params}")
                 self.client = clickhouse_connect.get_client(**conn_params)
             
@@ -90,12 +98,19 @@ class ClickHouseConnector(BaseConnector):
         except Exception as e:
             self.client = None
             raise DataSourceConnectionError(f"Failed to connect: {e}")
+        finally:
+            socket.setdefaulttimeout(old_timeout)
 
     def disconnect(self) -> None:
-        if self.client:
-            self.client.close()
-            self.client = None
-        self.connection_details = None
+        with self._client_lock:
+            if self.client:
+                try:
+                    self.client.close()
+                except Exception as e:
+                    logger.warning(f"Error closing ClickHouse client: {e}")
+                finally:
+                    self.client = None
+            self.connection_details = None
 
     def list_databases(self) -> List[Database]:
         if not self.client:

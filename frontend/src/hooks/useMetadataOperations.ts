@@ -365,24 +365,35 @@ export function useMetadataOperations({
     useEffect(() => {
         if (!connectionDetails) return;
         
-        // Only fetch if we don't already have the data
-        // This prevents duplicate fetches when switching sheets (VisualizationProvider remounts)
+        // Clear existing metadata and fetch new data when connection changes
+        // This ensures we get fresh data after reconnecting to a different server
         if (connectionDetails.type === 'clickhouse') {
-            // Only fetch databases if we don't have any yet
-            if (dataSource.databases.length === 0 && !dataSource.isLoadingMetadata) {
+            // Clear old metadata first
+            dataSourceSetters.setDatabases([]);
+            dataSourceSetters.setTables([]);
+            dataSourceSetters.setAvailableFields([]);
+            dataSourceSetters.setSelectedTable('');
+            // Clear selected database via dispatch
+            dispatch({ type: 'SET_SELECTED_DATABASE', payload: '' });
+            // Fetch new databases
+            if (!dataSource.isLoadingMetadata) {
                 dataSourceSetters.setMetadataError(null);
                 fetchDatabases();
             }
         } else if (connectionDetails.type === 'csv') {
-            // Only fetch tables if we don't have any yet
-            if (dataSource.tables.length === 0 && !dataSource.isLoadingMetadata) {
+            // Clear old metadata first
+            dataSourceSetters.setTables([]);
+            dataSourceSetters.setAvailableFields([]);
+            dataSourceSetters.setSelectedTable('');
+            // Fetch new tables
+            if (!dataSource.isLoadingMetadata) {
                 dataSourceSetters.setMetadataError(null);
                 fetchTables('');
             }
         }
         // Columns fetch will trigger once selectedTable is set (CSV auto-selection handled in fetchTables)
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [connectionDetails, connectionDetails?.type]);
+    }, [connectionDetails]);
     
     useEffect(() => {
         // Fetch columns when table is selected (either from initial load or user selection)
