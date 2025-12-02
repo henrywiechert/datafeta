@@ -398,6 +398,7 @@ export const apiService = {
         table: string, 
         database?: string,
         virtualColumns?: VirtualColumnDefinition[],
+        unionTables?: string[],
         signal?: AbortSignal
     ): Promise<{ min: number; max: number }> {
         const abortController = signal ? null : createAbortController();
@@ -417,6 +418,17 @@ export const apiService = {
         // Add virtual columns if provided
         if (virtualColumns && virtualColumns.length > 0) {
             queryDesc.virtual_columns = virtualColumns;
+        }
+
+        // Add virtual table definition for union queries
+        if (unionTables && unionTables.length > 0) {
+            queryDesc.virtual_table = {
+                primary_table: table,
+                mode: 'union',
+                joined_tables: [],
+                union_tables: unionTables.map((t: string) => ({ table_name: t })),
+                name: `${table}_union`
+            };
         }
 
         const response = await fetchWithErrorHandling(`${API_BASE_URL}/query`, {
@@ -450,6 +462,7 @@ export const apiService = {
         table: string, 
         database?: string,
         virtualColumns?: VirtualColumnDefinition[],
+        unionTables?: string[],
         signal?: AbortSignal
     ): Promise<{ min: string; max: string }> {
         const abortController = signal ? null : createAbortController();
@@ -469,6 +482,17 @@ export const apiService = {
         // Add virtual columns if provided
         if (virtualColumns && virtualColumns.length > 0) {
             queryDesc.virtual_columns = virtualColumns;
+        }
+
+        // Add virtual table definition for union queries
+        if (unionTables && unionTables.length > 0) {
+            queryDesc.virtual_table = {
+                primary_table: table,
+                mode: 'union',
+                joined_tables: [],
+                union_tables: unionTables.map((t: string) => ({ table_name: t })),
+                name: `${table}_union`
+            };
         }
 
         const response = await fetchWithErrorHandling(`${API_BASE_URL}/query`, {
