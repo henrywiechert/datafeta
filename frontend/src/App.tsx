@@ -28,7 +28,7 @@ function AppContent() {
   const isVisualizationPage = location.pathname.startsWith('/visualize');
   
   const { state, setActiveSheet, addSheet, renameSheet, duplicateSheet, removeSheet, dispatch: sheetDispatch } = useSheetContext();
-  const { dataSource, setSelectedDatabase, setSelectedTable, setDatabases, setTables, setAvailableFields } = useDataSource();
+  const { dataSource, setSelectedDatabase, setSelectedTable, setDatabases, setTables, setAvailableFields, setUnionTables } = useDataSource();
   const { connectionDetails, connect, disconnect, isConnected } = useConnection();
   
   const [contextMenu, setContextMenu] = useState<{
@@ -131,7 +131,8 @@ function AppContent() {
         state.nextSheetNumber,
         connectionDetails,
         dataSource.selectedDatabase,
-        dataSource.selectedTable
+        dataSource.selectedTable,
+        dataSource.unionTables
       );
       await saveConfigFile(config);
     } catch (error) {
@@ -251,6 +252,10 @@ function AppContent() {
             }
             if (config.dataSource!.selectedTable) {
               setSelectedTable(config.dataSource!.selectedTable);
+            }
+            // Restore union tables if present
+            if (config.dataSource!.unionTables && config.dataSource!.unionTables.length > 0) {
+              setUnionTables(config.dataSource!.unionTables);
             }
           }, 0);
         });
