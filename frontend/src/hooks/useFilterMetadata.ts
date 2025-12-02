@@ -46,6 +46,9 @@ export function useFilterMetadata({
     // Store abort controllers for filter metadata fetches, keyed by fieldId
     // This allows each field's metadata fetch to be independently cancellable
     const filterMetadataAbortControllers = useRef<Map<string, AbortController>>(new Map());
+    
+    // Track previous union tables to detect actual changes (not just reference changes)
+    const prevUnionTablesRef = useRef<string>('');
 
     // Cleanup: abort all pending filter metadata fetches on unmount
     useEffect(() => {
@@ -239,6 +242,7 @@ export function useFilterMetadata({
                     selectedTable,
                     dbParam,
                     virtualColumns,
+                    unionTablesForApi,
                     abortController.signal
                 );
                 
@@ -279,6 +283,7 @@ export function useFilterMetadata({
                     selectedTable,
                     dbParam,
                     virtualColumns,
+                    unionTablesForApi,
                     abortController.signal
                 );
                 
@@ -543,8 +548,30 @@ export function useFilterMetadata({
         filterMetadata, 
         fetchFilterMetadata,
         selectedTable,      // Re-run when table changes (e.g., after config load)
-        selectedDatabase    // Re-run when database changes (ClickHouse)
+        selectedDatabase,   // Re-run when database changes (ClickHouse)
+        unionTablesForApi   // Re-run when union tables change (ensures new fields get correct range)
     ]);
+
+    // Re-fetch filter metadata when union tables change
+    // This ensures continuous field ranges and discrete value lists are updated to include all union tables
+    useEffect(() => {
+        // Serialize union tables to detect actual changes
+        const currentUnionTablesStr = JSON.stringify(unionTables);
+        
+        // Only refetch if union tables actually changed (not just reference change)
+        // AND it's not the initial mount (empty string check)
+        if (prevUnionTablesRef.current !== currentUnionTablesStr && prevUnionTablesRef.current !== '') {
+            // Re-fetch metadata for ALL filter fields (not just ones with existing metadata)
+            // This ensures ranges are updated when union tables change, even if field was just added
+            filterFields.forEach(field => {
+                fetchFilterMetadata(field);
+            });
+        }
+        prevUnionTablesRef.current = currentUnionTablesStr;
+        // Include fetchFilterMetadata so it uses the latest closure with updated unionTablesForApi
+        // filterFields and filterMetadata are intentionally excluded to prevent loops
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [unionTables, fetchFilterMetadata]);
 
     return {
         fetchFilterMetadata,
