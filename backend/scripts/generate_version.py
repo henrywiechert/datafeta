@@ -11,8 +11,9 @@ def exec_git(command):
     try:
         result = subprocess.run(
             command.split(),
-            capture_output=True,
-            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
             check=True
         )
         return result.stdout.strip()

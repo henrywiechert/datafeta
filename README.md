@@ -61,20 +61,39 @@ You can deploy the application in several ways depending on your infrastructure 
 
 The repository contains a multi-stage `Dockerfile` that builds the React frontend and packages it with the FastAPI backend. The frontend production build is copied into `backend/static` and is served directly by FastAPI.
 
-Build and run with Docker:
+**Important**: Version information is generated from git before building the Docker image. Use the provided build script:
 
 ```bash
+./build-docker.sh
+```
+
+Or manually generate version files and build:
+
+```bash
+# Generate version files
+cd frontend && node scripts/generate-version.js && cd ..
+python3 backend/scripts/generate_version.py
+
+# Build Docker image
 docker build -t data-slicer .
+```
+
+Then run:
+
+```bash
 docker run -p 8000:8000 data-slicer
 ```
 
-Then open: http://localhost:8000
+Open: http://localhost:8000
 
 API base path (as used by the frontend) is `/api/v1`.
 
 ### 2. Docker Compose
 
 ```bash
+# Generate version files first
+./build-docker.sh
+# Or use docker-compose after version files are generated
 docker compose up --build
 ```
 
