@@ -149,6 +149,7 @@ class ConnectionDetails(BaseModel):
     kaggle_username: Optional[str] = None  # Kaggle username for API authentication
     kaggle_api_key: Optional[str] = None  # Kaggle API key for authentication
     kaggle_dataset: Optional[str] = None  # Dataset reference in format "owner/dataset-name"
+    kaggle_csv_files: Optional[List[str]] = None  # Pre-fetched list of CSV files to avoid 403 errors
 
 class DataSourceListResponse(BaseModel):
     data_sources: List[DataSource]

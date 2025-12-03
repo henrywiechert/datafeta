@@ -376,7 +376,6 @@ async def search_kaggle_datasets(
     
     Returns list of matching datasets with metadata.
     """
-    from kaggle.api.kaggle_api_extended import KaggleApi
     import re
     
     username = search_request.get('username')
@@ -387,16 +386,33 @@ async def search_kaggle_datasets(
         raise InvalidInputError("Kaggle username and API key are required")
     
     try:
-        # Authenticate with Kaggle
+        # Monkey-patch exit() to prevent Kaggle library from calling sys.exit()
+        import builtins
+        original_exit = builtins.exit
+        builtins.exit = lambda *args, **kwargs: None
+        
+        try:
+            from kaggle.api.kaggle_api_extended import KaggleApi
+        finally:
+            # Restore original exit
+            builtins.exit = original_exit
+        
+        # Authenticate with Kaggle (also patch exit during authenticate call)
         api = KaggleApi()
         api.username = username
         api.key = api_key
-        api.authenticate()
         
-        # Search public datasets (limit to 50 results for performance)
-        datasets = api.dataset_list(search=search_query, page=1, max_size=50)
+        # Patch exit again for authenticate() call
+        builtins.exit = lambda *args, **kwargs: None
+        try:
+            api.authenticate()
+        finally:
+            builtins.exit = original_exit
         
-        # Filter by regex if provided
+        # Search public datasets (limit to 200 results)
+        datasets = api.dataset_list(search=search_query, page=1, max_size=200)
+        
+        # Filter to only include public datasets and optionally by regex
         regex_pattern = None
         if search_query:
             try:
@@ -407,6 +423,10 @@ async def search_kaggle_datasets(
         
         results = []
         for dataset in datasets:
+            # Skip private datasets
+            if hasattr(dataset, 'isPrivate') and dataset.isPrivate:
+                continue
+            
             # Apply regex filtering if provided
             if regex_pattern:
                 dataset_full_name = f"{dataset.ref}"
@@ -417,18 +437,35 @@ async def search_kaggle_datasets(
             try:
                 files = api.dataset_list_files(dataset.ref).files
                 csv_file_count = sum(1 for f in files if f.name.lower().endswith('.csv'))
-            except:
+            except Exception as file_error:
+                # If we get a 403 error, skip this dataset as it's not accessible
+                error_msg = str(file_error)
+                if '403' in error_msg or 'Forbidden' in error_msg:
+                    logger.debug(f"Skipping dataset {dataset.ref} - 403 Forbidden when listing files")
+                    continue
+                # For other errors, just set count to 0
                 csv_file_count = 0
             
-            # Convert size to MB
-            size_mb = round(dataset.totalBytes / (1024 * 1024), 2) if dataset.totalBytes else 0
+            # Convert size to MB (use size attribute if available, otherwise 0)
+            size_mb = 0
+            if hasattr(dataset, 'size'):
+                size_mb = round(dataset.size / (1024 * 1024), 2) if dataset.size else 0
+            elif hasattr(dataset, 'totalBytes'):
+                size_mb = round(dataset.totalBytes / (1024 * 1024), 2) if dataset.totalBytes else 0
+            
+            # Get last updated date if available
+            last_updated = None
+            if hasattr(dataset, 'lastUpdated') and dataset.lastUpdated:
+                last_updated = str(dataset.lastUpdated)
+            elif hasattr(dataset, 'last_updated') and dataset.last_updated:
+                last_updated = str(dataset.last_updated)
             
             results.append({
                 'ref': dataset.ref,
                 'title': dataset.title or dataset.ref,
                 'size_mb': size_mb,
                 'csv_file_count': csv_file_count,
-                'last_updated': str(dataset.lastUpdated) if dataset.lastUpdated else None
+                'last_updated': last_updated
             })
         
         logger.info(f"Found {len(results)} datasets matching pattern '{search_query}'")
@@ -453,8 +490,6 @@ async def list_kaggle_dataset_files(
     
     Returns list of CSV files with sizes.
     """
-    from kaggle.api.kaggle_api_extended import KaggleApi
-    
     username = file_request.get('username')
     api_key = file_request.get('api_key')
     dataset = file_request.get('dataset')
@@ -466,20 +501,62 @@ async def list_kaggle_dataset_files(
         raise InvalidInputError("Dataset must be in format 'owner/dataset-name'")
     
     try:
-        # Authenticate with Kaggle
+        # Monkey-patch exit() to prevent Kaggle library from calling sys.exit()
+        import builtins
+        original_exit = builtins.exit
+        builtins.exit = lambda *args, **kwargs: None
+        
+        try:
+            from kaggle.api.kaggle_api_extended import KaggleApi
+        finally:
+            # Restore original exit
+            builtins.exit = original_exit
+        
+        # Authenticate with Kaggle (also patch exit during authenticate call)
         api = KaggleApi()
         api.username = username
         api.key = api_key
-        api.authenticate()
+        
+        # Patch exit again for authenticate() call
+        builtins.exit = lambda *args, **kwargs: None
+        try:
+            api.authenticate()
+        finally:
+            builtins.exit = original_exit
         
         # List files in the dataset
-        files_list = api.dataset_list_files(dataset).files
+        try:
+            files_list = api.dataset_list_files(dataset).files
+        except Exception as list_error:
+            # Check if this is a 403 Forbidden error
+            error_msg = str(list_error)
+            if '403' in error_msg or 'Forbidden' in error_msg:
+                raise DataSourceConnectionError(
+                    f"Cannot access dataset '{dataset}': 403 Forbidden. "
+                    f"You may need to accept the dataset's terms first. "
+                    f"Visit https://www.kaggle.com/datasets/{dataset} and click 'Download' or view the data to accept terms."
+                )
+            raise
         
         # Filter for CSV files and format response
         csv_files = []
         for file in files_list:
             if file.name.lower().endswith('.csv'):
-                size_mb = round(file.totalBytes / (1024 * 1024), 2) if file.totalBytes else 0
+                # Try to get file size from various possible attributes
+                size_mb = 0
+                size_bytes = None
+                
+                # Check different possible attribute names
+                for attr in ['size', 'totalBytes', 'total_bytes']:
+                    if hasattr(file, attr):
+                        val = getattr(file, attr)
+                        if val and val > 0:
+                            size_bytes = val
+                            break
+                
+                if size_bytes:
+                    size_mb = round(size_bytes / (1024 * 1024), 2)
+                
                 csv_files.append({
                     'name': file.name,
                     'size_mb': size_mb
