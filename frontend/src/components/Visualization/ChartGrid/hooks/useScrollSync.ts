@@ -13,13 +13,16 @@ export interface ScrollSyncState {
 /**
  * Hook for synchronizing scroll between horizontal and vertical layers
  * Handles wheel event routing and scroll offset tracking
+ * 
+ * @param usesGridLayout - True when using the MultiPlotGrid architecture (including single plots)
+ *   This triggers re-attachment of scroll handlers when the layout structure changes
  */
 export function useScrollSync(
   hScrollRef: RefObject<HTMLDivElement>,
   vScrollRef: RefObject<HTMLDivElement>,
   plotsTranslateRef: RefObject<HTMLDivElement>,
   containerRef: RefObject<HTMLDivElement>,
-  hasMultiPlot: boolean
+  usesGridLayout: boolean
 ): ScrollSyncState {
   const [scrollOffsets, setScrollOffsets] = useState<ScrollOffsets>({
     horizontal: 0,
@@ -45,7 +48,7 @@ export function useScrollSync(
     onScroll();
     scroller.addEventListener('scroll', onScroll, { passive: true } as any);
     return () => scroller.removeEventListener('scroll', onScroll as any);
-  }, [hasMultiPlot, vScrollRef, plotsTranslateRef]); // Re-attach when plot structure changes, not on every spec change
+  }, [usesGridLayout, vScrollRef, plotsTranslateRef]); // Re-attach when plot structure changes, not on every spec change
 
   // Track horizontal scroll so column resize handles track the visible gridlines.
   useEffect(() => {
@@ -62,7 +65,7 @@ export function useScrollSync(
     onScroll();
     scroller.addEventListener('scroll', onScroll, { passive: true } as any);
     return () => scroller.removeEventListener('scroll', onScroll as any);
-  }, [hasMultiPlot, hScrollRef]); // Re-attach when plot structure changes, not on every spec change
+  }, [usesGridLayout, hScrollRef]); // Re-attach when plot structure changes, not on every spec change
 
   // Wheel routing handler
   const onWheelCapture = (e: React.WheelEvent<HTMLDivElement>, leftFixedWidthPx: number) => {
