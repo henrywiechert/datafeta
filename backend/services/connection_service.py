@@ -302,6 +302,7 @@ class ConnectionService:
                     "kaggle_username": connection_details.kaggle_username,
                     "kaggle_api_key": connection_details.kaggle_api_key,
                     "kaggle_dataset": connection_details.kaggle_dataset,
+                    "kaggle_csv_files": connection_details.kaggle_csv_files,
                     "download_dir": session_dir,
                 }
                 logger.info(f"Kaggle connect_args prepared for dataset: {connection_details.kaggle_dataset}")

@@ -2,8 +2,13 @@
 import logging
 import os
 import re
-from typing import List, Dict, Any, Tuple, Optional
-from kaggle.api.kaggle_api_extended import KaggleApi
+from typing import List, Dict, Any, Tuple, Optional, TYPE_CHECKING
+
+# Import KaggleApi only for type checking, not at runtime
+# This prevents the kaggle library from calling sys.exit() during module import
+if TYPE_CHECKING:
+    from kaggle.api.kaggle_api_extended import KaggleApi
+
 from backend.models.data_source import Database, Table, Column
 from .base import BaseConnector
 from backend.exceptions import DataSourceConnectionError, InvalidInputError, QueryExecutionError
@@ -25,6 +30,7 @@ class KaggleConnector(BaseConnector):
         self.dataset: Optional[str] = None  # Format: "owner/dataset-name"
         self.download_dir: Optional[str] = None
         self.downloaded_files: List[str] = []  # Track downloaded file paths
+        self._cached_csv_files: Optional[List[str]] = None  # Cache CSV file list to avoid repeated API calls
         
     def _sanitize_table_name(self, filename: str) -> str:
         """
@@ -62,12 +68,24 @@ class KaggleConnector(BaseConnector):
             raise DataSourceConnectionError("Kaggle username and API key are required")
         
         try:
-            self.api = KaggleApi()
-            # Set credentials programmatically
-            self.api.username = self.username
-            self.api.key = self.api_key
-            self.api.authenticate()
-            logger.info(f"Successfully authenticated with Kaggle as {self.username}")
+            # Monkey-patch exit() to prevent Kaggle library from calling sys.exit()
+            import builtins
+            original_exit = builtins.exit
+            builtins.exit = lambda *args, **kwargs: None
+            
+            try:
+                # Import KaggleApi here to avoid sys.exit() during module import
+                from kaggle.api.kaggle_api_extended import KaggleApi
+                
+                self.api = KaggleApi()
+                # Set credentials programmatically
+                self.api.username = self.username
+                self.api.key = self.api_key
+                self.api.authenticate()
+                logger.info(f"Successfully authenticated with Kaggle as {self.username}")
+            finally:
+                # Restore original exit
+                builtins.exit = original_exit
         except Exception as e:
             logger.exception("Failed to authenticate with Kaggle API")
             raise DataSourceConnectionError(f"Kaggle authentication failed: {e}")
@@ -77,12 +95,27 @@ class KaggleConnector(BaseConnector):
         if not self.api or not self.dataset:
             raise DataSourceConnectionError("Not connected to a Kaggle dataset")
         
+        # Return cached list if available to avoid repeated API calls that may fail with 403
+        if self._cached_csv_files is not None:
+            logger.debug(f"Returning cached CSV file list ({len(self._cached_csv_files)} files)")
+            return self._cached_csv_files
+        
         try:
             owner, dataset_name = self.dataset.split('/')
+            logger.debug(f"Listing files for dataset {self.dataset}")
             files = self.api.dataset_list_files(owner, dataset_name).files
             csv_files = [f.name for f in files if f.name.lower().endswith('.csv')]
+            logger.info(f"Found {len(csv_files)} CSV files in dataset {self.dataset}")
+            # Cache the result
+            self._cached_csv_files = csv_files
             return csv_files
         except Exception as e:
+            error_msg = str(e)
+            if '403' in error_msg or 'Forbidden' in error_msg:
+                raise DataSourceConnectionError(
+                    f"Cannot access dataset '{self.dataset}': 403 Forbidden. "
+                    f"Visit https://www.kaggle.com/datasets/{self.dataset} to accept the dataset's terms and conditions."
+                )
             logger.exception(f"Failed to list files in dataset {self.dataset}")
             raise DataSourceConnectionError(f"Failed to list dataset files: {e}")
     
@@ -101,10 +134,10 @@ class KaggleConnector(BaseConnector):
         try:
             owner, dataset_name = self.dataset.split('/')
             logger.info(f"Downloading {filename} from {self.dataset}...")
+            # Note: dataset_download_file signature is (owner, dataset, file_name, path=None, force=False, quiet=True)
             self.api.dataset_download_file(
-                owner,
-                dataset_name,
-                filename,
+                dataset=f"{owner}/{dataset_name}",
+                file_name=filename,
                 path=self.download_dir,
                 force=False,
                 quiet=False
@@ -117,6 +150,12 @@ class KaggleConnector(BaseConnector):
             logger.info(f"Successfully downloaded {filename} to {file_path}")
             return file_path
         except Exception as e:
+            error_msg = str(e)
+            if '403' in error_msg or 'Forbidden' in error_msg:
+                raise DataSourceConnectionError(
+                    f"Cannot download file from dataset '{self.dataset}': 403 Forbidden. "
+                    f"Visit https://www.kaggle.com/datasets/{self.dataset} to accept the dataset's terms and conditions."
+                )
             logger.exception(f"Failed to download file {filename} from dataset {self.dataset}")
             raise DataSourceConnectionError(f"Failed to download file {filename}: {e}")
     
@@ -126,6 +165,7 @@ class KaggleConnector(BaseConnector):
         self.api_key = connection_details.get("kaggle_api_key")
         self.dataset = connection_details.get("kaggle_dataset")
         self.download_dir = connection_details.get("download_dir")
+        csv_files_from_frontend = connection_details.get("kaggle_csv_files")
         
         if not self.dataset:
             raise DataSourceConnectionError("Kaggle dataset reference is required (format: owner/dataset-name)")
@@ -140,14 +180,27 @@ class KaggleConnector(BaseConnector):
         # Authenticate with Kaggle
         self._authenticate_kaggle()
         
-        # Verify dataset exists and is accessible
+        # Use pre-fetched file list from frontend if available (avoids 403 errors)
+        if csv_files_from_frontend:
+            self._cached_csv_files = csv_files_from_frontend
+            logger.info(f"Successfully connected to Kaggle dataset: {self.dataset} ({len(csv_files_from_frontend)} CSV files from frontend)")
+            return
+        
+        # Try to pre-cache the file list to avoid issues later
+        # If this fails, we'll just proceed and try again when needed
         try:
             owner, dataset_name = self.dataset.split('/')
-            dataset_info = self.api.dataset_list_files(owner, dataset_name)
-            logger.info(f"Successfully connected to Kaggle dataset: {self.dataset}")
+            files = self.api.dataset_list_files(owner, dataset_name).files
+            csv_files = [f.name for f in files if f.name.lower().endswith('.csv')]
+            self._cached_csv_files = csv_files
+            logger.info(f"Successfully connected to Kaggle dataset: {self.dataset} ({len(csv_files)} CSV files)")
         except Exception as e:
-            logger.exception(f"Failed to access Kaggle dataset {self.dataset}")
-            raise DataSourceConnectionError(f"Cannot access dataset {self.dataset}: {e}")
+            error_msg = str(e)
+            # If we get a 403, don't cache anything and let it fail later with a proper error
+            if '403' not in error_msg and 'Forbidden' not in error_msg:
+                logger.warning(f"Failed to pre-cache file list during connect: {e}")
+            # For 403 errors, we'll try again later when list_tables is called
+            logger.info(f"Connected to Kaggle dataset: {self.dataset} (file list not cached)")
     
     def disconnect(self) -> None:
         """Clean up downloaded files and close connection."""
@@ -166,6 +219,7 @@ class KaggleConnector(BaseConnector):
         self.api_key = None
         self.dataset = None
         self.download_dir = None
+        self._cached_csv_files = None  # Clear cache
         logger.info("Disconnected from Kaggle dataset")
     
     def list_databases(self) -> List[Database]:
