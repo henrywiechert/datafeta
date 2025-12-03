@@ -22,6 +22,8 @@ def test_grouping_added_for_measures():
         query_desc=desc,
         db_type="duckdb",
         primary_table=ctx.primary_table,
+        table_map=ctx.table_map,
+        default_table=ctx.default_table,
         use_category_dedup=False,
         groupby_field_info_for_dedup=[],
         with_optimization=False,

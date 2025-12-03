@@ -280,17 +280,34 @@ def get_table_relationships(
 def get_suggested_joins(
     database: str,
     primary_table: str,
+    joined_tables: Optional[str] = None,  # Comma-separated list of already-joined tables
     connector: BaseConnector = Depends(get_active_connector),
     conn_details: ConnectionDetails = Depends(get_connection_details)
 ):
     """
-    Get suggested tables that can be joined to a primary table.
+    Get suggested tables that can be joined to a primary table or already-joined tables.
     Returns list of table names with detected relationships.
+    
+    Args:
+        database: Database name
+        primary_table: Primary table name
+        joined_tables: Optional comma-separated list of already-joined table names
+                      (to find additional tables that can join to them)
     """
     try:
         merge_service = TableMergeService(connector)
-        suggested_tables = merge_service.get_suggested_tables(database, primary_table)
-        logger.info(f"Found {len(suggested_tables)} joinable tables for '{primary_table}'")
+        
+        # Parse joined_tables if provided
+        joined_table_list = []
+        if joined_tables:
+            joined_table_list = [t.strip() for t in joined_tables.split(',') if t.strip()]
+        
+        suggested_tables = merge_service.get_suggested_tables(
+            database, 
+            primary_table,
+            already_joined=joined_table_list
+        )
+        logger.info(f"Found {len(suggested_tables)} joinable tables for '{primary_table}' (with {len(joined_table_list)} already joined)")
         return {
             "primary_table": primary_table,
             "suggested_tables": suggested_tables

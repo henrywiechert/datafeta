@@ -190,20 +190,26 @@ export function useMetadataOperations({
 
     // Fetch suggested joinable tables for the selected primary table
     const fetchSuggestedJoins = useCallback(async () => {
-        if (!dataSource.selectedTable || !dataSource.selectedDatabase) return;
-        if (connectionDetails?.type !== 'clickhouse') return; // Only for database sources
+        if (!dataSource.selectedTable) return;
+        // Support JOIN for both ClickHouse and Kaggle
+        if (connectionDetails?.type !== 'clickhouse' && connectionDetails?.type !== 'kaggle') return;
+        
+        // For Kaggle, use 'kaggle' as database name
+        const database = connectionDetails?.type === 'kaggle' ? 'kaggle' : dataSource.selectedDatabase;
+        if (!database) return;
         
         try {
             const response = await apiService.getSuggestedJoins(
-                dataSource.selectedDatabase,
-                dataSource.selectedTable
+                database,
+                dataSource.selectedTable,
+                dataSource.joinedTables  // Pass already-joined tables for transitive relationships
             );
             dataSourceSetters.setSuggestedJoinableTables(response.suggested_tables || []);
         } catch (err: any) {
             console.warn('Could not fetch suggested joins:', err.message);
             dataSourceSetters.setSuggestedJoinableTables([]);
         }
-    }, [dataSource.selectedTable, dataSource.selectedDatabase, connectionDetails?.type, dataSourceSetters]);
+    }, [dataSource.selectedTable, dataSource.selectedDatabase, dataSource.joinedTables, connectionDetails?.type, dataSourceSetters]);
 
     // DEPRECATED: Auto-suggestion removed in favor of manual cross-database table selection
     // Kept as no-op for backward compatibility
@@ -417,13 +423,14 @@ export function useMetadataOperations({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dataSource.selectedDatabase, dataSource.tables.length, dataSource.isLoadingMetadata]);
 
-    // Fetch suggested joins when table is selected
+    // Fetch suggested joins when table is selected or joined tables change (for ClickHouse and Kaggle)
+    // This enables transitive relationships: when you join table B, you can then see tables that join to B
     useEffect(() => {
-        if (dataSource.selectedTable && dataSource.selectedDatabase && connectionDetails?.type === 'clickhouse') {
+        if (dataSource.selectedTable && (connectionDetails?.type === 'clickhouse' || connectionDetails?.type === 'kaggle')) {
             fetchSuggestedJoins();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dataSource.selectedTable, dataSource.selectedDatabase, connectionDetails?.type]);
+    }, [dataSource.selectedTable, dataSource.selectedDatabase, dataSource.joinedTables, connectionDetails?.type]);
 
     // Fetch suggested unions when table is selected
     useEffect(() => {

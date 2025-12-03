@@ -225,35 +225,80 @@ class ClickHouseConnector(BaseConnector):
                 for col in columns:
                     col_name = col.name.lower()
                     
-                    # Check for common FK patterns
-                    if col_name.endswith('_id') or col_name.endswith('id'):
-                        # Extract potential table name
-                        potential_table = col_name.replace('_id', '').replace('id', '')
+                    # Check for common FK patterns (more relaxed: _id, id, _Id, Id)
+                    if col_name.endswith('_id') or col_name.endswith('id') or col.name.endswith('_Id') or col.name.endswith('Id'):
+                        # Extract potential table name (handle both lowercase and original case)
+                        potential_table_lower = col_name.replace('_id', '').replace('id', '')
+                        
+                        # Also try with original case for patterns like "CustomerId"
+                        potential_table_original = col.name.replace('_Id', '').replace('Id', '').replace('_id', '').replace('id', '')
                         
                         # Check if any table name matches (with pluralization handling)
+                        found_match = False
                         for to_table in table_names:
+                            if found_match:
+                                break
+                                
                             to_table_lower = to_table.lower()
                             
-                            # Direct match or singular/plural variations
-                            if (potential_table == to_table_lower or
-                                potential_table + 's' == to_table_lower or
-                                potential_table == to_table_lower + 's' or
-                                potential_table + 'es' == to_table_lower):
-                                
-                                # Check if target table has an 'id' column
-                                to_columns = table_columns.get(to_table, [])
-                                has_id = any(c.name.lower() in ['id', '_id'] for c in to_columns)
-                                
-                                if has_id:
-                                    relationships.append(ForeignKeyRelationship(
-                                        from_table=from_table,
-                                        from_column=col.name,
-                                        to_table=to_table,
-                                        to_column='id',  # Assume standard 'id' column
-                                        relationship_type='many_to_one'
-                                    ))
-                                    logger.info(f"Detected FK: {from_table}.{col.name} -> {to_table}.id")
-                                    break  # Found a match, don't check other tables
+                            # Direct match or singular/plural variations (try both case variations)
+                            potential_tables = [potential_table_lower, potential_table_original.lower()]
+                            
+                            for potential_table in potential_tables:
+                                if potential_table and (potential_table == to_table_lower or
+                                    potential_table + 's' == to_table_lower or
+                                    potential_table == to_table_lower + 's' or
+                                    potential_table + 'es' == to_table_lower):
+                                    
+                                    # Check if target table has an 'id', 'Id', or '{tablename}Id' column
+                                    to_columns = table_columns.get(to_table, [])
+                                    # Look for: 'id', '_id', or columns like 'constructorId', 'driverId', etc.
+                                    to_col_names = [c.name.lower() for c in to_columns]
+                                    
+                                    # For PK detection, try both singular and plural forms
+                                    # E.g., for table 'constructors', check both 'constructorsid' and 'constructorid'
+                                    table_singular = to_table_lower.rstrip('s') if to_table_lower.endswith('s') else to_table_lower
+                                    table_singular_camel = to_table.rstrip('s') if to_table.endswith('s') else to_table
+                                    
+                                    has_id = (
+                                        'id' in to_col_names or 
+                                        '_id' in to_col_names or
+                                        to_table_lower + 'id' in to_col_names or
+                                        table_singular + 'id' in to_col_names or  # Check singular form
+                                        any(c.name == to_table + 'Id' for c in to_columns) or  # Check plural camelCase
+                                        any(c.name == table_singular_camel + 'Id' for c in to_columns)  # Check singular camelCase
+                                    )
+                                    
+                                    if has_id:
+                                        # Determine the actual PK column name (id, _id, constructorId, etc.)
+                                        to_col_name = 'id'  # default
+                                        if 'id' in to_col_names:
+                                            to_col_name = 'id'
+                                        elif '_id' in to_col_names:
+                                            to_col_name = '_id'
+                                        elif to_table_lower + 'id' in to_col_names:
+                                            # Find the actual column with proper case
+                                            for c in to_columns:
+                                                if c.name.lower() == to_table_lower + 'id':
+                                                    to_col_name = c.name
+                                                    break
+                                        elif table_singular + 'id' in to_col_names:
+                                            # Find the actual column with proper case (singular form)
+                                            for c in to_columns:
+                                                if c.name.lower() == table_singular + 'id':
+                                                    to_col_name = c.name
+                                                    break
+                                        
+                                        relationships.append(ForeignKeyRelationship(
+                                            from_table=from_table,
+                                            from_column=col.name,
+                                            to_table=to_table,
+                                            to_column=to_col_name,
+                                            relationship_type='many_to_one'
+                                        ))
+                                        logger.info(f"Detected FK: {from_table}.{col.name} -> {to_table}.{to_col_name}")
+                                        found_match = True
+                                        break  # Found a match, don't check other potential_table variations
             
             return relationships
             

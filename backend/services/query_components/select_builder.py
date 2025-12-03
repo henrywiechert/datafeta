@@ -146,6 +146,12 @@ class SelectClauseBuilder:
                     field_term = field_term.as_(dim.field)
                     all_aliases.add(dim.field)
                     logger.debug("Aliased virtual column %s to its name", dim.field)
+                elif '.' in dim.field and len(table_map) > 1:
+                    # Multi-table query with table-qualified field name needs aliasing
+                    # to preserve the full name (e.g., "constructors.name")
+                    field_term = field_term.as_(dim.field)
+                    all_aliases.add(dim.field)
+                    logger.debug("Aliased qualified dimension %s to preserve table prefix", dim.field)
 
                 select_fields.append(field_term)
 
