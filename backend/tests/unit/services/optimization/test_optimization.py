@@ -98,3 +98,39 @@ def test_hint_based_binning_delegates_to_rounding_planner() -> None:
 
     assert any(isinstance(strategy, DateTimeBinningStrategy) for strategy in plan.strategies)
     planner._rounding_planner.plan_binning.assert_called_once()
+
+
+def test_datetime_binning_applied_for_aggregated_query_with_timeline_dimension() -> None:
+    """Test that datetime binning is applied even when measures are present."""
+    from backend.models.query import Measure
+    
+    config = OptimizerConfig(rounding_threshold=100)
+    optimizer = _make_optimizer(config)
+    planner: StrategyPlanner = optimizer._strategy_planner
+    
+    # Mock the binning planner to return a strategy
+    mock_binning_strategy = DateTimeBinningStrategy(
+        db_type="clickhouse",
+        estimator=None,
+        target_buckets=100,
+        dimension_ranges={"timestamp": (1000000.0, 2000000.0)},
+    )
+    planner._rounding_planner.plan_binning = Mock(return_value=mock_binning_strategy)
+    
+    # Create query with measures AND timeline dimension (like MeasureValues scenario)
+    query = QueryDescription(
+        target_table="events",
+        dimensions=[
+            Dimension(field="timestamp", flavour="continuous", axis="x", date_mode="timeline"),
+        ],
+        measures=[
+            Measure(field="value", aggregation="sum", alias="total_value"),
+        ],
+        optimization_hints=None
+    )
+
+    plan = optimizer.create_plan(query)
+
+    # Should include datetime binning even with measures present
+    assert any(isinstance(strategy, DateTimeBinningStrategy) for strategy in plan.strategies)
+    planner._rounding_planner.plan_binning.assert_called_once()

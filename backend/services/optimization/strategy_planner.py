@@ -56,6 +56,7 @@ class StrategyPlanner:
         has_measures = bool(query_desc.measures)
         continuous_dims = [d for d in query_desc.dimensions if d.flavour == "continuous"]
         discrete_dims = [d for d in query_desc.dimensions if d.flavour == "discrete"]
+        timeline_dims = [d for d in query_desc.dimensions if d.flavour == "continuous" and d.date_mode == "timeline"]
 
         if has_measures:
             # Aggregated query - GROUP BY handles deduplication.
@@ -63,6 +64,20 @@ class StrategyPlanner:
                 "Aggregated query with %s measures - no deduplication needed",
                 len(query_desc.measures),
             )
+            
+            # However, we still need to bin timeline dimensions to prevent too many groups
+            if timeline_dims and self._config.enable_adaptive_rounding:
+                self._logger.info(
+                    "Checking if datetime binning needed for %s timeline dimensions",
+                    len(timeline_dims),
+                )
+                binning_strategy = self._rounding_planner.plan_binning(
+                    query_desc,
+                    threshold=self._config.rounding_threshold
+                )
+                if binning_strategy:
+                    strategies.append(binning_strategy)
+                    self._logger.info("Applied datetime binning strategy for aggregated query")
         else:
             self._logger.info(
                 "Raw data query with %s continuous + %s discrete dims",
