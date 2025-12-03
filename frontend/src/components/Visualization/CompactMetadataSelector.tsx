@@ -164,8 +164,8 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
         allowEmpty
       />
       
-      {/* Show joinable tables selector (only for ClickHouse) */}
-      {connectionType === 'clickhouse' && selectedTable && onToggleJoinedTable && (
+      {/* Show joinable tables selector (for ClickHouse and Kaggle) */}
+      {(connectionType === 'clickhouse' || connectionType === 'kaggle') && selectedTable && onToggleJoinedTable && (
         <JoinTableSelector
           primaryTable={selectedTable}
           suggestedJoinableTables={suggestedJoinableTables}
