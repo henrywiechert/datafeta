@@ -53,6 +53,7 @@ export async function buildUnpivotedQuery({
   sizeField = null,
   virtualTable = null,
   virtualColumns = [],
+  optimizationHints = undefined,
   signal,
 }: {
   xFields: Field[];
@@ -68,6 +69,7 @@ export async function buildUnpivotedQuery({
   sizeField?: Field | null;
   virtualTable?: VirtualTableDefinition | null;
   virtualColumns?: VirtualColumnDefinition[];
+  optimizationHints?: any;
   signal?: AbortSignal;
 }): Promise<QueryResult> {
   // Detect synthetic field usage - include all fields that should be in the query
@@ -202,6 +204,16 @@ export async function buildUnpivotedQuery({
       rows: [],
       row_count: 0,
     };
+  }
+
+  // Attach optimization hints if provided
+  if (optimizationHints) {
+    queryDesc.optimization_hints = optimizationHints;
+    console.log('✅ Attached optimization hints to unpivot query:', {
+      field_hints_count: optimizationHints.field_hints?.length || 0,
+      enable_global_distinct: optimizationHints.enable_global_distinct,
+      optimization_level: optimizationHints.optimization_level
+    });
   }
 
   // Execute query

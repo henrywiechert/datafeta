@@ -112,6 +112,7 @@ export const useQueryExecution = ({
           sizeField,
           virtualTable,
           virtualColumns,
+          optimizationHints,
           signal: queryAbortControllerRef.current.signal,
         });
       } else {
