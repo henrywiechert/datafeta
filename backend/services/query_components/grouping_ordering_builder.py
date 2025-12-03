@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 from pypika import Order, Query
 
 from backend.models.query import OrderBy, QueryDescription
 from backend.services.datetime_service import DateTimeService
+from backend.services.query_components.field_reference_parser import FieldReferenceParser
 from backend.services.query_components.terms import QuotedField
 
 
@@ -31,6 +32,8 @@ class GroupingOrderingBuilder:
         query_desc: QueryDescription,
         db_type: str,
         primary_table: Any,
+        table_map: Dict[str, Any],
+        default_table: Any,
         use_category_dedup: bool,
         groupby_field_info_for_dedup: List[tuple[str, Optional[Any]]],
         with_optimization: bool,
@@ -39,6 +42,13 @@ class GroupingOrderingBuilder:
     ) -> Query:
         if not query_desc.dimensions:
             return query
+        
+        # Create field reference parser for proper table.column resolution
+        field_parser = FieldReferenceParser(
+            table_map=table_map,
+            default_table=default_table,
+            vc_builder=vc_builder
+        )
 
         if use_category_dedup and groupby_field_info_for_dedup:
             self._logger.info(
@@ -46,12 +56,9 @@ class GroupingOrderingBuilder:
                 len(groupby_field_info_for_dedup),
             )
             for field_name, precision in groupby_field_info_for_dedup:
-                # Check if this is a virtual column
-                if vc_builder and vc_builder.is_virtual_column(field_name):
-                    field_term = vc_builder.get_virtual_column_term(field_name)
-                    self._logger.debug("Using virtual column expression for GROUP BY: %s", field_name)
-                else:
-                    field_term = primary_table[field_name]
+                # Use field parser to handle table prefixes properly
+                field_term = field_parser.parse(field_name)
+                self._logger.debug("GROUP BY field: %s", field_name)
                 query = query.groupby(field_term)
                 if precision is not None:
                     self._logger.debug("  GROUP BY %s (precision=%s)", field_name, precision)
@@ -66,12 +73,8 @@ class GroupingOrderingBuilder:
         if query_desc.measures:
             groupby_fields = []
             for dim in query_desc.dimensions:
-                # Check if this is a virtual column
-                if vc_builder and vc_builder.is_virtual_column(dim.field):
-                    field_term = vc_builder.get_virtual_column_term(dim.field)
-                    self._logger.debug("Using virtual column expression for GROUP BY: %s", dim.field)
-                else:
-                    field_term = primary_table[dim.field]
+                # Use field parser to handle table prefixes properly
+                field_term = field_parser.parse(dim.field)
                 
                 if dim.date_part and dim.date_mode:
                     field_term = DateTimeService.get_datetime_part_expression(
@@ -94,12 +97,8 @@ class GroupingOrderingBuilder:
             if discrete_dims and continuous_dims:
                 groupby_fields = []
                 for dim in query_desc.dimensions:
-                    # Check if this is a virtual column
-                    if vc_builder and vc_builder.is_virtual_column(dim.field):
-                        field_term = vc_builder.get_virtual_column_term(dim.field)
-                        self._logger.debug("Using virtual column expression for GROUP BY: %s", dim.field)
-                    else:
-                        field_term = primary_table[dim.field]
+                    # Use field parser to handle table prefixes properly
+                    field_term = field_parser.parse(dim.field)
                     
                     if dim.date_part and dim.date_mode:
                         field_term = DateTimeService.get_datetime_part_expression(
@@ -120,21 +119,28 @@ class GroupingOrderingBuilder:
         order_by: Sequence[OrderBy],
         all_aliases: Iterable[str],
         primary_table: Any,
+        table_map: Dict[str, Any],
+        default_table: Any,
         vc_builder: Optional[Any] = None,
     ) -> Query:
         if not order_by:
             return query
+        
+        # Create field reference parser for proper table.column resolution
+        field_parser = FieldReferenceParser(
+            table_map=table_map,
+            default_table=default_table,
+            vc_builder=vc_builder
+        )
 
         alias_set = set(all_aliases)
         for order in order_by:
             if order.field in alias_set:
                 field_term = QuotedField(order.field)
-            elif vc_builder and vc_builder.is_virtual_column(order.field):
-                # Use the virtual column expression for ORDER BY
-                field_term = vc_builder.get_virtual_column_term(order.field)
-                self._logger.debug(f"Using virtual column expression for ORDER BY: {order.field}")
             else:
-                field_term = primary_table[order.field]
+                # Use field parser to handle table prefixes and virtual columns
+                field_term = field_parser.parse(order.field)
+                self._logger.debug(f"ORDER BY field: {order.field}")
 
             pypika_order = Order.desc if order.direction == "desc" else Order.asc
             query = query.orderby(field_term, order=pypika_order)

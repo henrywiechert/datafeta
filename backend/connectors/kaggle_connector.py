@@ -9,7 +9,7 @@ from typing import List, Dict, Any, Tuple, Optional, TYPE_CHECKING
 if TYPE_CHECKING:
     from kaggle.api.kaggle_api_extended import KaggleApi
 
-from backend.models.data_source import Database, Table, Column
+from backend.models.data_source import Database, Table, Column, ForeignKeyRelationship
 from .base import BaseConnector
 from backend.exceptions import DataSourceConnectionError, InvalidInputError, QueryExecutionError
 from backend.dependencies import ConnectionStateManager
@@ -344,3 +344,138 @@ class KaggleConnector(BaseConnector):
         finally:
             if con:
                 con.close()
+    
+    def detect_foreign_keys(self, database: str) -> List[ForeignKeyRelationship]:
+        """
+        Detect potential foreign key relationships in Kaggle dataset by analyzing column names.
+        
+        Uses the same heuristic approach as ClickHouse connector:
+        - Look for columns ending in _id, _ID, Id, ID
+        - Match them with potential primary key columns (id, ID) in other tables
+        - Check if the column name prefix matches a table name
+        
+        Args:
+            database: Database name (should be 'kaggle' or None)
+            
+        Returns:
+            List of detected foreign key relationships
+        """
+        if database and database != "kaggle":
+            raise InvalidInputError(f"Invalid database '{database}'. Kaggle connector only supports 'kaggle' database.")
+        
+        try:
+            relationships = []
+            tables = self.list_tables(database)
+            table_names = [t.name for t in tables]
+            
+            # Build a map of table -> columns
+            table_columns: Dict[str, List[Column]] = {}
+            for table in tables:
+                try:
+                    table_columns[table.name] = self.list_columns(database, table.name)
+                except Exception as e:
+                    logger.warning(f"Could not list columns for {table.name}: {e}")
+                    continue
+            
+            logger.info(f"Analyzing FK relationships in Kaggle dataset '{self.dataset}' with {len(table_names)} tables")
+            logger.info(f"Table names: {table_names}")  # Log all tables
+            logger.info(f"Successfully retrieved columns for {len(table_columns)} tables")
+            
+            # Look for FK patterns
+            for from_table, columns in table_columns.items():
+                col_names = [c.name for c in columns]
+                logger.info(f"Table '{from_table}' has {len(columns)} columns: {col_names}")
+                
+                for col in columns:
+                    col_name = col.name.lower()
+                    
+                    # Check for common FK patterns (more relaxed: _id, id, _Id, Id)
+                    if col_name.endswith('_id') or col_name.endswith('id') or col.name.endswith('_Id') or col.name.endswith('Id'):
+                        logger.debug(f"Found potential FK column: {from_table}.{col.name}")
+                        
+                        # Extract potential table name (handle both lowercase and original case)
+                        potential_table_lower = col_name.replace('_id', '').replace('id', '')
+                        
+                        # Also try with original case for patterns like "CustomerId"
+                        potential_table_original = col.name.replace('_Id', '').replace('Id', '').replace('_id', '').replace('id', '')
+                        
+                        logger.debug(f"  Potential table names: lower='{potential_table_lower}', original='{potential_table_original.lower()}'")
+                        
+                        # Check if any table name matches (with pluralization handling)
+                        found_match = False
+                        for to_table in table_names:
+                            if found_match:
+                                break
+                                
+                            to_table_lower = to_table.lower()
+                            
+                            # Direct match or singular/plural variations (try both case variations)
+                            potential_tables = [potential_table_lower, potential_table_original.lower()]
+                            
+                            for potential_table in potential_tables:
+                                if potential_table and (potential_table == to_table_lower or
+                                    potential_table + 's' == to_table_lower or
+                                    potential_table == to_table_lower + 's' or
+                                    potential_table + 'es' == to_table_lower):
+                                    
+                                    logger.debug(f"  Match found! '{potential_table}' matches table '{to_table}'")
+                                    
+                                    # Check if target table has an 'id', 'Id', or '{tablename}Id' column
+                                    to_columns = table_columns.get(to_table, [])
+                                    # Look for: 'id', '_id', or columns like 'constructorId', 'driverId', etc.
+                                    to_col_names = [c.name.lower() for c in to_columns]
+                                    
+                                    # For PK detection, try both singular and plural forms
+                                    # E.g., for table 'constructors', check both 'constructorsid' and 'constructorid'
+                                    table_singular = to_table_lower.rstrip('s') if to_table_lower.endswith('s') else to_table_lower
+                                    table_singular_camel = to_table.rstrip('s') if to_table.endswith('s') else to_table
+                                    
+                                    has_id = (
+                                        'id' in to_col_names or 
+                                        '_id' in to_col_names or
+                                        to_table_lower + 'id' in to_col_names or
+                                        table_singular + 'id' in to_col_names or  # Check singular form
+                                        any(c.name == to_table + 'Id' for c in to_columns) or  # Check plural camelCase
+                                        any(c.name == table_singular_camel + 'Id' for c in to_columns)  # Check singular camelCase
+                                    )
+                                    
+                                    if not has_id:
+                                        logger.debug(f"  Skipping: table '{to_table}' has no 'id' or '{to_table}Id' column")
+                                
+                                    if has_id:
+                                        # Determine the actual PK column name (id, _id, constructorId, etc.)
+                                        to_col_name = 'id'  # default
+                                        if 'id' in to_col_names:
+                                            to_col_name = 'id'
+                                        elif '_id' in to_col_names:
+                                            to_col_name = '_id'
+                                        elif to_table_lower + 'id' in to_col_names:
+                                            # Find the actual column with proper case
+                                            for c in to_columns:
+                                                if c.name.lower() == to_table_lower + 'id':
+                                                    to_col_name = c.name
+                                                    break
+                                        elif table_singular + 'id' in to_col_names:
+                                            # Find the actual column with proper case (singular form)
+                                            for c in to_columns:
+                                                if c.name.lower() == table_singular + 'id':
+                                                    to_col_name = c.name
+                                                    break
+                                        
+                                        relationships.append(ForeignKeyRelationship(
+                                            from_table=from_table,
+                                            from_column=col.name,
+                                            to_table=to_table,
+                                            to_column=to_col_name,
+                                            relationship_type='many_to_one'
+                                        ))
+                                        logger.info(f"Detected FK: {from_table}.{col.name} -> {to_table}.{to_col_name}")
+                                        found_match = True
+                                        break  # Found a match, don't check other potential_table variations
+            
+            logger.info(f"Detected {len(relationships)} foreign key relationships in Kaggle dataset")
+            return relationships
+            
+        except Exception as e:
+            logger.warning(f"Error detecting foreign keys in Kaggle dataset: {e}")
+            return []  # Return empty list on error, don't break existing functionality

@@ -237,6 +237,8 @@ class QueryService:
         query_desc: QueryDescription,
         db_type: str,
         primary_table: Any,
+        table_map: Dict[str, Any],
+        default_table: Any,
         use_category_dedup: bool,
         groupby_field_info_for_dedup: List[Tuple[str, Optional[Any]]],
         with_optimization: bool,
@@ -251,6 +253,8 @@ class QueryService:
             query_desc=query_desc,
             db_type=db_type,
             primary_table=primary_table,
+            table_map=table_map,
+            default_table=default_table,
             use_category_dedup=use_category_dedup,
             groupby_field_info_for_dedup=groupby_field_info_for_dedup,
             with_optimization=with_optimization,
@@ -264,6 +268,8 @@ class QueryService:
         order_by: List[OrderBy],
         all_aliases: Set[str],
         primary_table: Any,
+        table_map: Dict[str, Any],
+        default_table: Any,
         vc_builder: Optional[VirtualColumnExpressionBuilder] = None
     ) -> Query:
         builder = GroupingOrderingBuilder(logger=logger)
@@ -272,6 +278,8 @@ class QueryService:
             order_by=order_by,
             all_aliases=all_aliases,
             primary_table=primary_table,
+            table_map=table_map,
+            default_table=default_table,
             vc_builder=vc_builder,
         )
 
@@ -486,6 +494,8 @@ class QueryService:
             query_desc,
             db_type,
             t,
+            table_context.table_map,
+            table_context.default_table,
             use_category_dedup,
             groupby_field_info_for_dedup,
             with_optimization,
@@ -493,7 +503,7 @@ class QueryService:
             vc_builder,
         )
 
-        q = self._apply_ordering(q, query_desc.orderBy, all_aliases, t, vc_builder)
+        q = self._apply_ordering(q, query_desc.orderBy, all_aliases, t, table_context.table_map, table_context.default_table, vc_builder)
 
         q = self._apply_sampling_and_limits(q, query_desc, db_type, t, with_sampling)
 

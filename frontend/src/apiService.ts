@@ -162,11 +162,16 @@ export const apiService = {
         return response.json();
     },
 
-    async getSuggestedJoins(database: string, primaryTable: string, signal?: AbortSignal): Promise<SuggestedJoinsResponse> {
+    async getSuggestedJoins(database: string, primaryTable: string, joinedTables?: string[], signal?: AbortSignal): Promise<SuggestedJoinsResponse> {
         const base = API_BASE_URL.startsWith('http') ? API_BASE_URL : `${window.location.origin}${API_BASE_URL}`;
         const url = new URL(`${base}/suggested-joins`);
         url.searchParams.append('database', database);
         url.searchParams.append('primary_table', primaryTable);
+        
+        // Add joined_tables parameter if provided (for transitive relationships)
+        if (joinedTables && joinedTables.length > 0) {
+            url.searchParams.append('joined_tables', joinedTables.join(','));
+        }
         
         const response = await fetchWithErrorHandling(url.toString(), {}, signal);
         return response.json();

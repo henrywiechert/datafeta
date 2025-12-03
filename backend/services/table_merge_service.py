@@ -236,20 +236,51 @@ class TableMergeService:
     def get_suggested_tables(
         self,
         database: str,
-        primary_table: str
+        primary_table: str,
+        already_joined: Optional[List[str]] = None
     ) -> List[str]:
         """
-        Get list of tables that can be joined to the primary table.
+        Get list of tables that can be joined to the primary table or already-joined tables.
+        
+        Supports transitive relationships: if you've already joined table B to table A,
+        this will also suggest tables that can join to B.
         
         Args:
             database: Database name
             primary_table: Primary table name
+            already_joined: List of tables already joined (to find additional joinable tables)
             
         Returns:
-            List of table names that have detected relationships
+            List of table names that have detected relationships (excluding already joined)
         """
-        suggested_joins = self.suggest_joins(database, primary_table)
-        return [join.table_name for join in suggested_joins]
+        already_joined = already_joined or []
+        
+        # Get all relationships in the database
+        all_relationships = self.connector.detect_foreign_keys(database)
+        
+        # Tables to check for relationships (primary + already joined)
+        tables_to_check = {primary_table} | set(already_joined)
+        
+        # Find all tables that can be joined
+        joinable_tables = set()
+        
+        for rel in all_relationships:
+            # Check if the from_table is one we're looking at
+            if rel.from_table in tables_to_check:
+                if rel.to_table not in tables_to_check:
+                    joinable_tables.add(rel.to_table)
+            
+            # Check if the to_table is one we're looking at (reverse relationship)
+            elif rel.to_table in tables_to_check:
+                if rel.from_table not in tables_to_check:
+                    joinable_tables.add(rel.from_table)
+        
+        result = sorted(list(joinable_tables))
+        logger.info(
+            f"Found {len(result)} joinable tables for primary '{primary_table}' "
+            f"with {len(already_joined)} already joined: {result}"
+        )
+        return result
 
     def get_similar_tables(
         self,
