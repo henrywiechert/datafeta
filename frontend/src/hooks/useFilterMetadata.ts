@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { Field, FilterMetadata, VirtualColumnDefinition } from '../types';
+import { Field, FilterMetadata, VirtualColumnDefinition, VirtualTableDefinition } from '../types';
 import { apiService } from '../apiService';
 import { isMeasureNamesField, getMeasureNames } from '../utils/syntheticFields';
 
@@ -12,6 +12,7 @@ interface UseFilterMetadataParams {
     filterMetadata: Record<string, FilterMetadata>;
     filterConfigurations: Record<string, any>;
     virtualColumns: VirtualColumnDefinition[];
+    virtualTable?: VirtualTableDefinition;
     selectedTable: string;
     selectedDatabase: string;
     unionTables: Array<{database: string, table_name: string}>;
@@ -30,6 +31,7 @@ export function useFilterMetadata({
     filterMetadata,
     filterConfigurations,
     virtualColumns,
+    virtualTable,
     selectedTable,
     selectedDatabase,
     unionTables,
@@ -160,6 +162,7 @@ export function useFilterMetadata({
                     field.dateTimeMode,
                     unionTablesForApi,  // Pass union tables for _source_table handling
                     virtualColumns,  // Pass virtual columns for expression support
+                    virtualTable,  // Pass virtual table for JOIN support
                     abortController.signal  // Pass the abort signal
                 );
                 
@@ -180,6 +183,7 @@ export function useFilterMetadata({
                         undefined, // no random sampling
                         unionTablesForApi,  // Pass union tables
                         virtualColumns,  // Pass virtual columns
+                        virtualTable,  // Pass virtual table for JOIN support
                         abortController.signal  // Pass the abort signal
                     );
                 } else {
@@ -195,6 +199,7 @@ export function useFilterMetadata({
                         true, // use random sampling
                         unionTablesForApi,  // Pass union tables
                         virtualColumns,  // Pass virtual columns
+                        virtualTable,  // Pass virtual table for JOIN support
                         abortController.signal  // Pass the abort signal
                     );
                     isPartial = true;
@@ -390,6 +395,7 @@ export function useFilterMetadata({
                 field.dateTimeMode,
                 unionTablesForApi,  // Pass union tables for _source_table handling
                 virtualColumns,  // Pass virtual columns for expression support
+                virtualTable,  // Pass virtual table for JOIN support
                 abortController.signal  // Pass the abort signal
             );
             
@@ -416,6 +422,7 @@ export function useFilterMetadata({
                     undefined, // no random sampling
                     unionTablesForApi,  // Pass union tables
                     virtualColumns,  // Pass virtual columns
+                    virtualTable,  // Pass virtual table for JOIN support
                     abortController.signal  // Pass the abort signal
                 );
                 
@@ -443,6 +450,7 @@ export function useFilterMetadata({
                     true, // use random sampling
                     unionTablesForApi,  // Pass union tables
                     virtualColumns,  // Pass virtual columns
+                    virtualTable,  // Pass virtual table for JOIN support
                     abortController.signal  // Pass the abort signal
                 );
                 isPartial = true;

@@ -451,14 +451,14 @@ function DataSourceSelectionPage({ onLoadConfiguration }: DataSourceSelectionPag
 
               {!kaggleManualMode ? (
                 <div className={styles.formField}>
-                  <label className={styles.label}>Search Public Datasets (regex)</label>
+                  <label className={styles.label}>Search Public Datasets</label>
                   <div style={{display: 'flex', gap: '8px'}}>
                     <input 
                       className={styles.input}
                       type="text" 
                       value={kaggleSearchQuery} 
                       onChange={(e) => setKaggleSearchQuery(e.target.value)} 
-                      placeholder="e.g., covid|pandemic or .*sales.*"
+                      placeholder="e.g., penguin, covid sales, or amulyas/penguin-size-dataset"
                       disabled={isConnected || isLoading || isSearching}
                       style={{flex: 1}}
                     />
@@ -470,6 +470,9 @@ function DataSourceSelectionPage({ onLoadConfiguration }: DataSourceSelectionPag
                     >
                       {isSearching ? 'Searching...' : 'Search'}
                     </button>
+                  </div>
+                  <div style={{fontSize: '12px', color: '#666', marginTop: '4px'}}>
+                    Search by keywords or enter exact dataset (owner/dataset-name). Returns up to 200 results. Leave empty to browse recent datasets.
                   </div>
                 </div>
               ) : (
@@ -521,7 +524,7 @@ function DataSourceSelectionPage({ onLoadConfiguration }: DataSourceSelectionPag
                       >
                         <div style={{fontWeight: 'bold'}}>{dataset.title}</div>
                         <div style={{fontSize: '0.85em', color: '#666'}}>
-                          {dataset.ref} • {dataset.size_mb} MB • {dataset.csv_file_count} CSV files
+                          {dataset.ref} • {dataset.size_mb} MB{dataset.csv_file_count !== null && dataset.csv_file_count !== undefined ? ` • ${dataset.csv_file_count} CSV files` : ''}
                         </div>
                       </div>
                     ))}

@@ -23,14 +23,21 @@ from .exceptions import (
 log_level_name = os.environ.get("LOG_LEVEL", "INFO").upper()
 log_level = getattr(logging, log_level_name, logging.INFO)
 
+# Configure logging to both file and console
+log_file = Path(__file__).parent / 'backend.log'
 logging.basicConfig(
     level=log_level,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
+    datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[
+        logging.FileHandler(log_file),
+        logging.StreamHandler()
+    ]
 )
 
 logger = logging.getLogger(__name__) # Get logger for this module
 logger.info(f"Logging configured with level: {logging.getLevelName(log_level)}")
+logger.info(f"Logging to file: {log_file}")
 
 # Load version info
 VERSION_INFO = None

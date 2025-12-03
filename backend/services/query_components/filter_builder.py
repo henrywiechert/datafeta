@@ -92,11 +92,15 @@ class FilterBuilder:
                 )
                 criteria.append(operator_func(field, wrapped_value))
 
+        # Automatic NULL filtering for continuous dimensions
         if query_desc.dimensions:
             for dim in query_desc.dimensions:
                 if dim.flavour == "continuous":
-                    dim_field = self._get_field_with_cast(
-                        primary_table, dim.field, query_desc.column_casts
+                    # Use parse_field_reference to handle joined table fields correctly
+                    # (e.g., "races.date" should resolve to races table, not primary table)
+                    dim_field = self._parse_field_reference(dim.field)
+                    dim_field = self._apply_cast_if_configured(
+                        dim.field, dim_field, query_desc.column_casts
                     )
                     criteria.append(dim_field.notnull())
 

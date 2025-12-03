@@ -24,14 +24,17 @@ class TableMergeService:
     def suggest_joins(
         self, 
         database: str, 
-        primary_table: str
+        primary_table: str,
+        already_joined: Optional[List[str]] = None
     ) -> List[TableJoinDefinition]:
         """
         Suggest potential joins for a primary table based on detected foreign keys.
+        Supports transitive joins through already-joined tables.
         
         Args:
             database: Database name
             primary_table: The primary table to find joins for
+            already_joined: List of tables already joined (for transitive relationship detection)
             
         Returns:
             List of suggested join definitions
@@ -41,27 +44,42 @@ class TableMergeService:
         
         suggested_joins = []
         
-        # Find relationships where the primary table is involved
+        # Build list of tables to check for relationships (primary + already joined)
+        tables_to_check = [primary_table]
+        if already_joined:
+            tables_to_check.extend(already_joined)
+        
+        # Find relationships where any of our tables is involved
         for rel in all_relationships:
             join_def = None
             
-            # Case 1: Primary table has FK to another table
-            if rel.from_table == primary_table:
-                join_def = TableJoinDefinition(
-                    table_name=rel.to_table,
-                    join_type='LEFT',  # Default to LEFT JOIN to preserve all primary records
-                    on_conditions=[f"{primary_table}.{rel.from_column} = {rel.to_table}.{rel.to_column}"],
-                    alias=None
-                )
-            
-            # Case 2: Another table has FK to primary table
-            elif rel.to_table == primary_table:
-                join_def = TableJoinDefinition(
-                    table_name=rel.from_table,
-                    join_type='LEFT',
-                    on_conditions=[f"{primary_table}.{rel.to_column} = {rel.from_table}.{rel.from_column}"],
-                    alias=None
-                )
+            # Check each table we're connected to
+            for check_table in tables_to_check:
+                # Case 1: check_table has FK to another table
+                if rel.from_table == check_table:
+                    target_table = rel.to_table
+                    # Don't suggest joining to ourselves or already-joined tables
+                    if target_table not in tables_to_check:
+                        join_def = TableJoinDefinition(
+                            table_name=target_table,
+                            join_type='LEFT',  # Default to LEFT JOIN to preserve all primary records
+                            on_conditions=[f"{check_table}.{rel.from_column} = {target_table}.{rel.to_column}"],
+                            alias=None
+                        )
+                        break
+                
+                # Case 2: Another table has FK to check_table
+                elif rel.to_table == check_table:
+                    source_table = rel.from_table
+                    # Don't suggest joining to ourselves or already-joined tables
+                    if source_table not in tables_to_check:
+                        join_def = TableJoinDefinition(
+                            table_name=source_table,
+                            join_type='LEFT',
+                            on_conditions=[f"{check_table}.{rel.to_column} = {source_table}.{rel.from_column}"],
+                            alias=None
+                        )
+                        break
             
             if join_def:
                 # Avoid duplicate suggestions
@@ -93,15 +111,37 @@ class TableMergeService:
         joins = []
         
         if auto_detect or joined_tables:
-            # Get all suggested joins
-            suggested_joins = self.suggest_joins(database, primary_table)
-            
+            # When we have joined_tables, we need to find join paths for ALL of them
+            # This includes both direct joins to primary and transitive joins through other joined tables
             if joined_tables:
-                # Filter to only the requested tables
-                joins = [j for j in suggested_joins if j.table_name in joined_tables]
+                # Build the full set of tables incrementally to handle transitive joins
+                all_join_defs = []
+                remaining_tables = set(joined_tables)
+                processed_tables = []
+                
+                # Process tables in order, building up the join graph
+                while remaining_tables:
+                    # Get suggestions based on what we've processed so far
+                    suggested_joins = self.suggest_joins(database, primary_table, already_joined=processed_tables)
+                    
+                    # Find which remaining tables are in the suggestions
+                    found_in_round = []
+                    for join_def in suggested_joins:
+                        if join_def.table_name in remaining_tables:
+                            all_join_defs.append(join_def)
+                            found_in_round.append(join_def.table_name)
+                            remaining_tables.remove(join_def.table_name)
+                            processed_tables.append(join_def.table_name)
+                    
+                    # If we didn't find any tables in this round, we can't join the remaining ones
+                    if not found_in_round:
+                        logger.warning(f"Could not find join paths for tables: {remaining_tables}")
+                        break
+                
+                joins = all_join_defs
             elif auto_detect:
                 # Use all suggested joins
-                joins = suggested_joins
+                joins = self.suggest_joins(database, primary_table, already_joined=None)
         
         virtual_table = VirtualTableDefinition(
             primary_table=primary_table,
@@ -209,8 +249,10 @@ class TableMergeService:
         
         # Get columns from joined tables
         for join_def in virtual_table.joined_tables:
+            logger.info(f"Fetching columns for joined table: {join_def.table_name}")
             try:
                 joined_columns = self.connector.list_columns(database, join_def.table_name)
+                logger.info(f"Got {len(joined_columns)} columns from {join_def.table_name}")
                 for col in joined_columns:
                     # Add table prefix
                     prefixed_col = Column(

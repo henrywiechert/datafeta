@@ -78,6 +78,7 @@ export function useVisualizationState() {
         filterMetadata: state.filterMetadata,
         filterConfigurations: state.filterConfigurations,
         virtualColumns: state.virtualColumns,
+        virtualTable: dataSource.virtualTable || undefined,
         selectedTable: dataSource.selectedTable,
         selectedDatabase: dataSource.selectedDatabase,
         unionTables: dataSource.unionTables,
