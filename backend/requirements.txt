@@ -6,3 +6,4 @@ python-multipart
 pypika==0.48.9
 duckdb
 pyarrow
+kaggle>=1.5.0

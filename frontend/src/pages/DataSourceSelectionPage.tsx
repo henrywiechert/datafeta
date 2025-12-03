@@ -2,12 +2,13 @@ import React, { useState, useEffect, ChangeEvent } from 'react';
 import { ConnectionDetails } from '../types';
 import { useConnection } from '../contexts/ConnectionContext';
 import { Link } from 'react-router-dom';
+import { apiService } from '../apiService';
 import styles from './DataSourceSelectionPage.module.css';
 
 function DataSourceSelectionPage() {
   const { isConnected, isLoading, error, message, connect, disconnect, connectionDetails } = useConnection();
 
-  const [connectionType, setConnectionType] = useState<'csv' | 'clickhouse'>('clickhouse');
+  const [connectionType, setConnectionType] = useState<'csv' | 'clickhouse' | 'kaggle'>('clickhouse');
   const [filePath, setFilePath] = useState<string>('');
   const [connString, setConnString] = useState<string>('');
   const [host, setHost] = useState<string>('localhost');
@@ -25,6 +26,19 @@ function DataSourceSelectionPage() {
   const [csvDateFormat, setCsvDateFormat] = useState<string>('%Y-%m-%d');
   const [csvTimestampFormat, setCsvTimestampFormat] = useState<string>('%Y-%m-%d %H:%M:%S');
   const [showAdvancedCsvOptions, setShowAdvancedCsvOptions] = useState<boolean>(false);
+  
+  // Kaggle-specific state
+  const [kaggleUsername, setKaggleUsername] = useState<string>('');
+  const [kaggleApiKey, setKaggleApiKey] = useState<string>('');
+  const [kaggleSearchQuery, setKaggleSearchQuery] = useState<string>('');
+  const [kaggleDatasets, setKaggleDatasets] = useState<any[]>([]);
+  const [selectedKaggleDataset, setSelectedKaggleDataset] = useState<string>('');
+  const [kaggleFiles, setKaggleFiles] = useState<any[]>([]);
+  const [selectedKaggleFile, setSelectedKaggleFile] = useState<string>('');
+  const [isSearching, setIsSearching] = useState<boolean>(false);
+  const [searchError, setSearchError] = useState<string>('');
+  const [kaggleManualMode, setKaggleManualMode] = useState<boolean>(false);
+  const [kaggleManualDataset, setKaggleManualDataset] = useState<string>('');
 
   useEffect(() => {
     if (isConnected && connectionDetails) {
@@ -50,6 +64,85 @@ function DataSourceSelectionPage() {
     }
   };
 
+  // Kaggle-specific handlers
+  const handleKaggleSearch = async () => {
+    if (!kaggleUsername || !kaggleApiKey) {
+      setSearchError('Please enter your Kaggle username and API key');
+      return;
+    }
+    
+    setIsSearching(true);
+    setSearchError('');
+    setKaggleDatasets([]);
+    setSelectedKaggleDataset('');
+    setKaggleFiles([]);
+    
+    try {
+      const result = await apiService.searchKaggleDatasets(
+        kaggleUsername,
+        kaggleApiKey,
+        kaggleSearchQuery
+      );
+      setKaggleDatasets(result.datasets);
+      if (result.datasets.length === 0) {
+        setSearchError('No datasets found matching your search');
+      }
+    } catch (err) {
+      setSearchError(err instanceof Error ? err.message : 'Failed to search Kaggle datasets');
+      console.error('Kaggle search error:', err);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleKaggleDatasetSelect = async (datasetRef: string) => {
+    setSelectedKaggleDataset(datasetRef);
+    setKaggleFiles([]);
+    setSelectedKaggleFile('');
+    
+    try {
+      const result = await apiService.listKaggleFiles(
+        kaggleUsername,
+        kaggleApiKey,
+        datasetRef
+      );
+      setKaggleFiles(result.files);
+    } catch (err) {
+      setSearchError(err instanceof Error ? err.message : 'Failed to list dataset files');
+      console.error('Kaggle files error:', err);
+    }
+  };
+
+  const handleKaggleManualEntry = async () => {
+    if (!kaggleManualDataset) {
+      setSearchError('Please enter a dataset reference');
+      return;
+    }
+    
+    // Validate format
+    if (!kaggleManualDataset.includes('/')) {
+      setSearchError('Dataset must be in format: owner/dataset-name');
+      return;
+    }
+    
+    setSearchError('');
+    setSelectedKaggleDataset(kaggleManualDataset);
+    setKaggleFiles([]);
+    setSelectedKaggleFile('');
+    
+    try {
+      const result = await apiService.listKaggleFiles(
+        kaggleUsername,
+        kaggleApiKey,
+        kaggleManualDataset
+      );
+      setKaggleFiles(result.files);
+    } catch (err) {
+      setSearchError(err instanceof Error ? err.message : 'Failed to list dataset files');
+      console.error('Kaggle files error:', err);
+    }
+  };
+
   const handleConnect = async () => {
     let details: ConnectionDetails = { type: connectionType };
     let formError: string | null = null;
@@ -67,6 +160,17 @@ function DataSourceSelectionPage() {
       details.csv_thousands_separator = csvThousandsSeparator;
       details.csv_date_format = csvDateFormat;
       details.csv_timestamp_format = csvTimestampFormat;
+    } else if (connectionType === 'kaggle') {
+      if (!kaggleUsername || !kaggleApiKey || !selectedKaggleDataset) {
+        formError = 'Please provide Kaggle credentials and select a dataset';
+        console.error(formError);
+        return;
+      }
+      details.kaggle_username = kaggleUsername;
+      details.kaggle_api_key = kaggleApiKey;
+      details.kaggle_dataset = selectedKaggleDataset;
+      // Pass the list of CSV files we already successfully fetched
+      details.kaggle_csv_files = kaggleFiles.map(f => f.name);
     } else {
         if (connString) {
              details.connection_string = connString;
@@ -110,11 +214,12 @@ function DataSourceSelectionPage() {
           <select 
             className={styles.select} 
             value={connectionType} 
-            onChange={(e) => setConnectionType(e.target.value as 'csv' | 'clickhouse')} 
+            onChange={(e) => setConnectionType(e.target.value as 'csv' | 'clickhouse' | 'kaggle')} 
             disabled={isConnected || isLoading}
           >
             <option value="csv">CSV File</option>
             <option value="clickhouse">ClickHouse</option>
+            <option value="kaggle">Kaggle Dataset</option>
           </select>
         </div>
 
@@ -236,6 +341,160 @@ function DataSourceSelectionPage() {
                       </select>
                     </div>
                   </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {connectionType === 'kaggle' && (
+          <div className={styles.formGroup}>
+            <div className={styles.kaggleSection}>
+              <div className={styles.formField}>
+                <label className={styles.label}>Kaggle Username</label>
+                <input 
+                  className={styles.input}
+                  type="text" 
+                  value={kaggleUsername} 
+                  onChange={(e) => setKaggleUsername(e.target.value)} 
+                  placeholder="Your Kaggle username"
+                  disabled={isConnected || isLoading}
+                />
+              </div>
+              
+              <div className={styles.formField}>
+                <label className={styles.label}>Kaggle API Key</label>
+                <input 
+                  className={styles.input}
+                  type="password" 
+                  value={kaggleApiKey} 
+                  onChange={(e) => setKaggleApiKey(e.target.value)} 
+                  placeholder="Your Kaggle API key"
+                  disabled={isConnected || isLoading}
+                />
+                <small style={{color: '#666', fontSize: '0.85em'}}>
+                  Get your API key from <a href="https://www.kaggle.com/settings/account" target="_blank" rel="noopener noreferrer">Kaggle Account Settings</a>
+                </small>
+              </div>
+
+              <div className={styles.formField}>
+                <div style={{display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px'}}>
+                  <label className={styles.label} style={{margin: 0}}>Dataset Selection Mode</label>
+                  <label style={{display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '0.9em'}}>
+                    <input 
+                      type="checkbox"
+                      checked={kaggleManualMode}
+                      onChange={(e) => {
+                        setKaggleManualMode(e.target.checked);
+                        setSearchError('');
+                        setKaggleDatasets([]);
+                        setSelectedKaggleDataset('');
+                        setKaggleFiles([]);
+                      }}
+                      disabled={isConnected || isLoading}
+                      style={{marginRight: '6px'}}
+                    />
+                    Manual Entry
+                  </label>
+                </div>
+              </div>
+
+              {!kaggleManualMode ? (
+                <div className={styles.formField}>
+                  <label className={styles.label}>Search Public Datasets (regex)</label>
+                  <div style={{display: 'flex', gap: '8px'}}>
+                    <input 
+                      className={styles.input}
+                      type="text" 
+                      value={kaggleSearchQuery} 
+                      onChange={(e) => setKaggleSearchQuery(e.target.value)} 
+                      placeholder="e.g., covid|pandemic or .*sales.*"
+                      disabled={isConnected || isLoading || isSearching}
+                      style={{flex: 1}}
+                    />
+                    <button 
+                      className={styles.button}
+                      onClick={handleKaggleSearch}
+                      disabled={isConnected || isLoading || isSearching || !kaggleUsername || !kaggleApiKey}
+                      style={{minWidth: '100px'}}
+                    >
+                      {isSearching ? 'Searching...' : 'Search'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className={styles.formField}>
+                  <label className={styles.label}>Dataset Reference</label>
+                  <div style={{display: 'flex', gap: '8px'}}>
+                    <input 
+                      className={styles.input}
+                      type="text" 
+                      value={kaggleManualDataset} 
+                      onChange={(e) => setKaggleManualDataset(e.target.value)} 
+                      placeholder="owner/dataset-name (e.g., karnikakapoor/satellite-orbital-catalog)"
+                      disabled={isConnected || isLoading}
+                      style={{flex: 1}}
+                    />
+                    <button 
+                      className={styles.button}
+                      onClick={handleKaggleManualEntry}
+                      disabled={isConnected || isLoading || !kaggleUsername || !kaggleApiKey || !kaggleManualDataset}
+                      style={{minWidth: '100px'}}
+                    >
+                      Load Files
+                    </button>
+                  </div>
+                  <small style={{color: '#666', fontSize: '0.85em', display: 'block', marginTop: '4px'}}>
+                    Find the dataset on <a href="https://www.kaggle.com/datasets" target="_blank" rel="noopener noreferrer">Kaggle</a> and copy the owner/dataset-name from the URL
+                  </small>
+                </div>
+              )}
+
+              {searchError && (
+                <div className={styles.errorMessage}>{searchError}</div>
+              )}
+
+              {kaggleDatasets.length > 0 && (
+                <div className={styles.formField}>
+                  <label className={styles.label}>Select Dataset ({kaggleDatasets.length} found)</label>
+                  <div style={{maxHeight: '200px', overflowY: 'auto', border: '1px solid #ddd', borderRadius: '4px'}}>
+                    {kaggleDatasets.map((dataset) => (
+                      <div 
+                        key={dataset.ref}
+                        onClick={() => handleKaggleDatasetSelect(dataset.ref)}
+                        style={{
+                          padding: '10px',
+                          cursor: 'pointer',
+                          backgroundColor: selectedKaggleDataset === dataset.ref ? '#e3f2fd' : 'white',
+                          borderBottom: '1px solid #eee'
+                        }}
+                      >
+                        <div style={{fontWeight: 'bold'}}>{dataset.title}</div>
+                        <div style={{fontSize: '0.85em', color: '#666'}}>
+                          {dataset.ref} • {dataset.size_mb} MB • {dataset.csv_file_count} CSV files
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {kaggleFiles.length > 0 && (
+                <div className={styles.formField}>
+                  <label className={styles.label}>Select CSV File</label>
+                  <select 
+                    className={styles.select}
+                    value={selectedKaggleFile} 
+                    onChange={(e) => setSelectedKaggleFile(e.target.value)}
+                    disabled={isConnected || isLoading}
+                  >
+                    <option value="">-- Select a file --</option>
+                    {kaggleFiles.map((file) => (
+                      <option key={file.name} value={file.name}>
+                        {file.name} ({file.size_mb} MB)
+                      </option>
+                    ))}
+                  </select>
                 </div>
               )}
             </div>

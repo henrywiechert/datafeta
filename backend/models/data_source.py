@@ -123,7 +123,7 @@ class DataSource(BaseModel):
     # Removed connection details from here to avoid duplication with ConnectionDetails
 
 class ConnectionDetails(BaseModel):
-    type: str # "csv" or "clickhouse"
+    type: Literal['csv', 'clickhouse', 'kaggle']
     connection_string: Optional[str] = None
     # file_path: Optional[str] = None # Managed internally by backend for uploads
 
@@ -144,6 +144,12 @@ class ConnectionDetails(BaseModel):
     
     # Column-level casting configuration for handling special cases (e.g., quoted numbers)
     column_casts: Optional[Dict[str, Dict[str, str]]] = None  # Maps column_name to {cast_type, replacement_pattern}
+    
+    # Optional fields for Kaggle connection
+    kaggle_username: Optional[str] = None  # Kaggle username for API authentication
+    kaggle_api_key: Optional[str] = None  # Kaggle API key for authentication
+    kaggle_dataset: Optional[str] = None  # Dataset reference in format "owner/dataset-name"
+    kaggle_csv_files: Optional[List[str]] = None  # Pre-fetched list of CSV files to avoid 403 errors
 
 class DataSourceListResponse(BaseModel):
     data_sources: List[DataSource]
