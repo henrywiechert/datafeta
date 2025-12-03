@@ -4,7 +4,7 @@ import { apiService } from '../apiService';
 import { isMeasureNamesField, getMeasureNames } from '../utils/syntheticFields';
 
 interface ConnectionDetails {
-    type: 'clickhouse' | 'csv';
+    type: 'clickhouse' | 'csv' | 'kaggle';
 }
 
 interface UseFilterMetadataParams {
