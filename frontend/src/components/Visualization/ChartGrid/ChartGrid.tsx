@@ -40,7 +40,9 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data, onPlotRenderComplete 
   const plotGridRef = useRef<HTMLDivElement>(null);
 
   // Derived values
-  const hasMultiPlot = (spec?.plots?.length ?? 0) > 1;
+  // Note: We use MultiPlotGrid architecture for any number of plots (including single plots)
+  // so scroll handlers must be attached whenever we have plots, not just when count > 1
+  const usesGridLayout = (spec?.plots?.length ?? 0) >= 1;
   const rowsForSizing = spec?.layout?.rows ?? 1;
 
   // Custom hooks for state management
@@ -58,7 +60,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data, onPlotRenderComplete 
     vScrollRef,
     plotsTranslateRef,
     containerRef,
-    hasMultiPlot
+    usesGridLayout
   );
   const layoutCalcs = useChartGridLayout(
     spec,
