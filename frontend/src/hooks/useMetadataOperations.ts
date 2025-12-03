@@ -4,7 +4,7 @@ import { apiService } from '../apiService';
 import { generateSyntheticFields } from '../utils/syntheticFields';
 
 interface ConnectionDetails {
-    type: 'clickhouse' | 'csv';
+    type: 'clickhouse' | 'csv' | 'kaggle';
 }
 
 interface DataSourceState {

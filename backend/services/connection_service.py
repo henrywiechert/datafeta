@@ -15,6 +15,7 @@ from backend.models.data_source import ConnectionDetails
 from backend.connectors.base import BaseConnector
 from backend.connectors.file_connector import FileConnector
 from backend.connectors.clickhouse_connector import ClickHouseConnector
+from backend.connectors.kaggle_connector import KaggleConnector
 from backend.exceptions import (
     AppException,
     InvalidInputError,
@@ -130,6 +131,8 @@ class ConnectionService:
             registry.register("csv", lambda sm: FileConnector(state_manager=sm))
             # ClickHouse connector ignores state_manager
             registry.register("clickhouse", lambda sm: ClickHouseConnector())
+            # Kaggle connector requires state_manager for session file management
+            registry.register("kaggle", lambda sm: KaggleConnector(state_manager=sm))
             _CONNECTOR_REGISTRY = registry
         return registry.create(connection_details.type, state_manager)
 
@@ -291,6 +294,17 @@ class ConnectionService:
                     logger.info(f"ClickHouse connect_args: {connect_args}")
                 else:
                     raise InvalidInputError("Either connection_string or host must be provided for ClickHouse")
+            elif connection_details.type == "kaggle":
+                logger.info(f"Kaggle connection for dataset: {connection_details.kaggle_dataset}")
+                # Create session-specific download directory
+                session_dir = self._get_session_upload_dir(session_id)
+                connect_args = {
+                    "kaggle_username": connection_details.kaggle_username,
+                    "kaggle_api_key": connection_details.kaggle_api_key,
+                    "kaggle_dataset": connection_details.kaggle_dataset,
+                    "download_dir": session_dir,
+                }
+                logger.info(f"Kaggle connect_args prepared for dataset: {connection_details.kaggle_dataset}")
 
             connector = self._get_connector(effective_connection_details, self.state_manager)
             await run_in_threadpool(connector.connect, connect_args)

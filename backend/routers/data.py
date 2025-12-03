@@ -360,4 +360,136 @@ def get_merged_columns(
         logger.error(f"Error creating merged columns: {e}")
         raise DataSourceConnectionError(f"Failed to create merged columns: {e}")
 
+# --- Kaggle-Specific Endpoints --- #
+
+@router.post("/kaggle/search")
+async def search_kaggle_datasets(
+    search_request: Dict[str, Any] = Body(...)
+):
+    """
+    Search public Kaggle datasets using regex pattern.
+    
+    Request body:
+        username: Kaggle username
+        api_key: Kaggle API key
+        search_query: Regex pattern to match dataset names/titles
+    
+    Returns list of matching datasets with metadata.
+    """
+    from kaggle.api.kaggle_api_extended import KaggleApi
+    import re
+    
+    username = search_request.get('username')
+    api_key = search_request.get('api_key')
+    search_query = search_request.get('search_query', '')
+    
+    if not username or not api_key:
+        raise InvalidInputError("Kaggle username and API key are required")
+    
+    try:
+        # Authenticate with Kaggle
+        api = KaggleApi()
+        api.username = username
+        api.key = api_key
+        api.authenticate()
+        
+        # Search public datasets (limit to 50 results for performance)
+        datasets = api.dataset_list(search=search_query, page=1, max_size=50)
+        
+        # Filter by regex if provided
+        regex_pattern = None
+        if search_query:
+            try:
+                regex_pattern = re.compile(search_query, re.IGNORECASE)
+            except re.error:
+                # If invalid regex, treat as literal string search
+                regex_pattern = None
+        
+        results = []
+        for dataset in datasets:
+            # Apply regex filtering if provided
+            if regex_pattern:
+                dataset_full_name = f"{dataset.ref}"
+                if not regex_pattern.search(dataset_full_name) and not regex_pattern.search(dataset.title or ''):
+                    continue
+            
+            # Get file count for CSV files
+            try:
+                files = api.dataset_list_files(dataset.ref).files
+                csv_file_count = sum(1 for f in files if f.name.lower().endswith('.csv'))
+            except:
+                csv_file_count = 0
+            
+            # Convert size to MB
+            size_mb = round(dataset.totalBytes / (1024 * 1024), 2) if dataset.totalBytes else 0
+            
+            results.append({
+                'ref': dataset.ref,
+                'title': dataset.title or dataset.ref,
+                'size_mb': size_mb,
+                'csv_file_count': csv_file_count,
+                'last_updated': str(dataset.lastUpdated) if dataset.lastUpdated else None
+            })
+        
+        logger.info(f"Found {len(results)} datasets matching pattern '{search_query}'")
+        return {'datasets': results}
+        
+    except Exception as e:
+        logger.exception("Failed to search Kaggle datasets")
+        raise DataSourceConnectionError(f"Kaggle search failed: {e}")
+
+
+@router.post("/kaggle/files")
+async def list_kaggle_dataset_files(
+    file_request: Dict[str, Any] = Body(...)
+):
+    """
+    List CSV files in a specific Kaggle dataset.
+    
+    Request body:
+        username: Kaggle username
+        api_key: Kaggle API key
+        dataset: Dataset reference (owner/dataset-name)
+    
+    Returns list of CSV files with sizes.
+    """
+    from kaggle.api.kaggle_api_extended import KaggleApi
+    
+    username = file_request.get('username')
+    api_key = file_request.get('api_key')
+    dataset = file_request.get('dataset')
+    
+    if not username or not api_key or not dataset:
+        raise InvalidInputError("Kaggle username, API key, and dataset are required")
+    
+    if '/' not in dataset:
+        raise InvalidInputError("Dataset must be in format 'owner/dataset-name'")
+    
+    try:
+        # Authenticate with Kaggle
+        api = KaggleApi()
+        api.username = username
+        api.key = api_key
+        api.authenticate()
+        
+        # List files in the dataset
+        files_list = api.dataset_list_files(dataset).files
+        
+        # Filter for CSV files and format response
+        csv_files = []
+        for file in files_list:
+            if file.name.lower().endswith('.csv'):
+                size_mb = round(file.totalBytes / (1024 * 1024), 2) if file.totalBytes else 0
+                csv_files.append({
+                    'name': file.name,
+                    'size_mb': size_mb
+                })
+        
+        logger.info(f"Found {len(csv_files)} CSV files in dataset '{dataset}'")
+        return {'files': csv_files}
+        
+    except Exception as e:
+        logger.exception(f"Failed to list files in dataset '{dataset}'")
+        raise DataSourceConnectionError(f"Failed to list dataset files: {e}")
+
 # Upload root cleanup is handled in app shutdown in backend/main.py
