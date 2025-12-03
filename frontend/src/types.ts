@@ -79,9 +79,32 @@ export interface MergedColumnsResponse {
     virtual_table: VirtualTableDefinition;
 }
 
+// --- Kaggle-Specific Types --- //
+
+export interface KaggleDataset {
+    ref: string;                    // Dataset reference (owner/dataset-name)
+    title: string;                  // Dataset title
+    size_mb: number;                // Size in megabytes
+    csv_file_count: number;         // Number of CSV files
+    last_updated: string | null;    // Last update timestamp
+}
+
+export interface KaggleFile {
+    name: string;                   // File name
+    size_mb: number;                // Size in megabytes
+}
+
+export interface KaggleSearchResponse {
+    datasets: KaggleDataset[];
+}
+
+export interface KaggleFilesResponse {
+    files: KaggleFile[];
+}
+
 // Request body for /connect endpoint
 export interface ConnectionDetails {
-    type: 'csv' | 'clickhouse';
+    type: 'csv' | 'clickhouse' | 'kaggle';
     file_path?: string;
     connection_string?: string;
     host?: string;
@@ -98,6 +121,11 @@ export interface ConnectionDetails {
     csv_timestamp_format?: string;
     // Column casting configuration
     column_casts?: ColumnCasts;
+    // Kaggle configuration options
+    kaggle_username?: string;
+    kaggle_api_key?: string;
+    kaggle_dataset?: string;
+    kaggle_csv_files?: string[];
 }
 
 // Response types for list endpoints
@@ -469,7 +497,7 @@ export type SheetAction =
  * Excludes sensitive information like passwords.
  */
 export interface SavedConnectionMetadata {
-  type: 'csv' | 'clickhouse';
+  type: 'csv' | 'clickhouse' | 'kaggle';
   // CSV-specific fields
   file_path?: string;
   csv_delimiter?: string;

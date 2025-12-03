@@ -360,4 +360,213 @@ def get_merged_columns(
         logger.error(f"Error creating merged columns: {e}")
         raise DataSourceConnectionError(f"Failed to create merged columns: {e}")
 
+# --- Kaggle-Specific Endpoints --- #
+
+@router.post("/kaggle/search")
+async def search_kaggle_datasets(
+    search_request: Dict[str, Any] = Body(...)
+):
+    """
+    Search public Kaggle datasets using regex pattern.
+    
+    Request body:
+        username: Kaggle username
+        api_key: Kaggle API key
+        search_query: Regex pattern to match dataset names/titles
+    
+    Returns list of matching datasets with metadata.
+    """
+    import re
+    
+    username = search_request.get('username')
+    api_key = search_request.get('api_key')
+    search_query = search_request.get('search_query', '')
+    
+    if not username or not api_key:
+        raise InvalidInputError("Kaggle username and API key are required")
+    
+    try:
+        # Monkey-patch exit() to prevent Kaggle library from calling sys.exit()
+        import builtins
+        original_exit = builtins.exit
+        builtins.exit = lambda *args, **kwargs: None
+        
+        try:
+            from kaggle.api.kaggle_api_extended import KaggleApi
+        finally:
+            # Restore original exit
+            builtins.exit = original_exit
+        
+        # Authenticate with Kaggle (also patch exit during authenticate call)
+        api = KaggleApi()
+        api.username = username
+        api.key = api_key
+        
+        # Patch exit again for authenticate() call
+        builtins.exit = lambda *args, **kwargs: None
+        try:
+            api.authenticate()
+        finally:
+            builtins.exit = original_exit
+        
+        # Search public datasets (limit to 200 results)
+        datasets = api.dataset_list(search=search_query, page=1, max_size=200)
+        
+        # Filter to only include public datasets and optionally by regex
+        regex_pattern = None
+        if search_query:
+            try:
+                regex_pattern = re.compile(search_query, re.IGNORECASE)
+            except re.error:
+                # If invalid regex, treat as literal string search
+                regex_pattern = None
+        
+        results = []
+        for dataset in datasets:
+            # Skip private datasets
+            if hasattr(dataset, 'isPrivate') and dataset.isPrivate:
+                continue
+            
+            # Apply regex filtering if provided
+            if regex_pattern:
+                dataset_full_name = f"{dataset.ref}"
+                if not regex_pattern.search(dataset_full_name) and not regex_pattern.search(dataset.title or ''):
+                    continue
+            
+            # Get file count for CSV files
+            try:
+                files = api.dataset_list_files(dataset.ref).files
+                csv_file_count = sum(1 for f in files if f.name.lower().endswith('.csv'))
+            except Exception as file_error:
+                # If we get a 403 error, skip this dataset as it's not accessible
+                error_msg = str(file_error)
+                if '403' in error_msg or 'Forbidden' in error_msg:
+                    logger.debug(f"Skipping dataset {dataset.ref} - 403 Forbidden when listing files")
+                    continue
+                # For other errors, just set count to 0
+                csv_file_count = 0
+            
+            # Convert size to MB (use size attribute if available, otherwise 0)
+            size_mb = 0
+            if hasattr(dataset, 'size'):
+                size_mb = round(dataset.size / (1024 * 1024), 2) if dataset.size else 0
+            elif hasattr(dataset, 'totalBytes'):
+                size_mb = round(dataset.totalBytes / (1024 * 1024), 2) if dataset.totalBytes else 0
+            
+            # Get last updated date if available
+            last_updated = None
+            if hasattr(dataset, 'lastUpdated') and dataset.lastUpdated:
+                last_updated = str(dataset.lastUpdated)
+            elif hasattr(dataset, 'last_updated') and dataset.last_updated:
+                last_updated = str(dataset.last_updated)
+            
+            results.append({
+                'ref': dataset.ref,
+                'title': dataset.title or dataset.ref,
+                'size_mb': size_mb,
+                'csv_file_count': csv_file_count,
+                'last_updated': last_updated
+            })
+        
+        logger.info(f"Found {len(results)} datasets matching pattern '{search_query}'")
+        return {'datasets': results}
+        
+    except Exception as e:
+        logger.exception("Failed to search Kaggle datasets")
+        raise DataSourceConnectionError(f"Kaggle search failed: {e}")
+
+
+@router.post("/kaggle/files")
+async def list_kaggle_dataset_files(
+    file_request: Dict[str, Any] = Body(...)
+):
+    """
+    List CSV files in a specific Kaggle dataset.
+    
+    Request body:
+        username: Kaggle username
+        api_key: Kaggle API key
+        dataset: Dataset reference (owner/dataset-name)
+    
+    Returns list of CSV files with sizes.
+    """
+    username = file_request.get('username')
+    api_key = file_request.get('api_key')
+    dataset = file_request.get('dataset')
+    
+    if not username or not api_key or not dataset:
+        raise InvalidInputError("Kaggle username, API key, and dataset are required")
+    
+    if '/' not in dataset:
+        raise InvalidInputError("Dataset must be in format 'owner/dataset-name'")
+    
+    try:
+        # Monkey-patch exit() to prevent Kaggle library from calling sys.exit()
+        import builtins
+        original_exit = builtins.exit
+        builtins.exit = lambda *args, **kwargs: None
+        
+        try:
+            from kaggle.api.kaggle_api_extended import KaggleApi
+        finally:
+            # Restore original exit
+            builtins.exit = original_exit
+        
+        # Authenticate with Kaggle (also patch exit during authenticate call)
+        api = KaggleApi()
+        api.username = username
+        api.key = api_key
+        
+        # Patch exit again for authenticate() call
+        builtins.exit = lambda *args, **kwargs: None
+        try:
+            api.authenticate()
+        finally:
+            builtins.exit = original_exit
+        
+        # List files in the dataset
+        try:
+            files_list = api.dataset_list_files(dataset).files
+        except Exception as list_error:
+            # Check if this is a 403 Forbidden error
+            error_msg = str(list_error)
+            if '403' in error_msg or 'Forbidden' in error_msg:
+                raise DataSourceConnectionError(
+                    f"Cannot access dataset '{dataset}': 403 Forbidden. "
+                    f"You may need to accept the dataset's terms first. "
+                    f"Visit https://www.kaggle.com/datasets/{dataset} and click 'Download' or view the data to accept terms."
+                )
+            raise
+        
+        # Filter for CSV files and format response
+        csv_files = []
+        for file in files_list:
+            if file.name.lower().endswith('.csv'):
+                # Try to get file size from various possible attributes
+                size_mb = 0
+                size_bytes = None
+                
+                # Check different possible attribute names
+                for attr in ['size', 'totalBytes', 'total_bytes']:
+                    if hasattr(file, attr):
+                        val = getattr(file, attr)
+                        if val and val > 0:
+                            size_bytes = val
+                            break
+                
+                if size_bytes:
+                    size_mb = round(size_bytes / (1024 * 1024), 2)
+                
+                csv_files.append({
+                    'name': file.name,
+                    'size_mb': size_mb
+                })
+        
+        logger.info(f"Found {len(csv_files)} CSV files in dataset '{dataset}'")
+        return {'files': csv_files}
+        
+    except Exception as e:
+        logger.exception(f"Failed to list files in dataset '{dataset}'")
+        raise DataSourceConnectionError(f"Failed to list dataset files: {e}")
+
 # Upload root cleanup is handled in app shutdown in backend/main.py
