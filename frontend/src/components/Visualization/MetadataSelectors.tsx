@@ -55,8 +55,8 @@ function MetadataSelectors({
         </FormControl>
       )}
 
-      {/* Table Selector (ClickHouse or CSV) */}
-      {(connectionType === 'clickhouse' || connectionType === 'csv') && (
+      {/* Table Selector (ClickHouse, CSV, or Kaggle) */}
+      {(connectionType === 'clickhouse' || connectionType === 'csv' || connectionType === 'kaggle') && (
         <FormControl fullWidth className={styles.formControl}>
           <InputLabel id="tbl-select-label">Table</InputLabel>
           <Select
