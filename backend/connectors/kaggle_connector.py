@@ -264,7 +264,7 @@ class KaggleConnector(BaseConnector):
             
             # Create a temporary view from the CSV
             safe_view_name = f'"{table}"'
-            csv_reader_sql = f"read_csv_auto('{file_path}')"
+            csv_reader_sql = f"read_csv_auto('{file_path}', ignore_errors=true)"
             create_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {csv_reader_sql};"
             logger.debug(f"Creating view with SQL: {create_view_sql}")
             con.execute(create_view_sql)
@@ -314,7 +314,7 @@ class KaggleConnector(BaseConnector):
                 table_name = self._sanitize_table_name(csv_file)
                 file_path = os.path.join(self.download_dir, csv_file)
                 safe_view_name = f'"{table_name}"'
-                csv_reader_sql = f"read_csv_auto('{file_path}')"
+                csv_reader_sql = f"read_csv_auto('{file_path}', ignore_errors=true)"
                 create_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {csv_reader_sql};"
                 logger.debug(f"Creating view {table_name} from {csv_file}")
                 con.execute(create_view_sql)
@@ -389,17 +389,25 @@ class KaggleConnector(BaseConnector):
                 for col in columns:
                     col_name = col.name.lower()
                     
-                    # Check for common FK patterns (more relaxed: _id, id, _Id, Id)
-                    if col_name.endswith('_id') or col_name.endswith('id') or col.name.endswith('_Id') or col.name.endswith('Id'):
+                    # Check for common FK patterns: ends with 'id' (case-insensitive)
+                    # This matches: id, _id, Id, _Id, driverId, driver_id, DriverId, etc.
+                    if col_name.endswith('id') or col_name.endswith('_id'):
                         logger.debug(f"Found potential FK column: {from_table}.{col.name}")
                         
-                        # Extract potential table name (handle both lowercase and original case)
-                        potential_table_lower = col_name.replace('_id', '').replace('id', '')
+                        # Extract potential table name from the column
+                        # Handle patterns: driverId -> driver, driver_id -> driver, constructorId -> constructor
+                        potential_table_name = col_name
                         
-                        # Also try with original case for patterns like "CustomerId"
-                        potential_table_original = col.name.replace('_Id', '').replace('Id', '').replace('_id', '').replace('id', '')
+                        # Remove common suffixes in order of specificity
+                        if potential_table_name.endswith('_id'):
+                            potential_table_name = potential_table_name[:-3]  # Remove '_id'
+                        elif potential_table_name.endswith('id'):
+                            potential_table_name = potential_table_name[:-2]  # Remove 'id'
                         
-                        logger.debug(f"  Potential table names: lower='{potential_table_lower}', original='{potential_table_original.lower()}'")
+                        # Remove underscore prefix if exists (e.g., _driver_id -> driver)
+                        potential_table_name = potential_table_name.lstrip('_')
+                        
+                        logger.debug(f"  Extracted potential table name: '{potential_table_name}' from column '{col.name}'")
                         
                         # Check if any table name matches (with pluralization handling)
                         found_match = False
@@ -409,69 +417,89 @@ class KaggleConnector(BaseConnector):
                                 
                             to_table_lower = to_table.lower()
                             
-                            # Direct match or singular/plural variations (try both case variations)
-                            potential_tables = [potential_table_lower, potential_table_original.lower()]
+                            # Check for match with pluralization variations
+                            # Examples: driver->drivers, race->races, status->statuses
+                            is_match = (
+                                potential_table_name == to_table_lower or  # Exact match
+                                potential_table_name + 's' == to_table_lower or  # Singular to plural: driver->drivers
+                                potential_table_name + 'es' == to_table_lower or  # Singular to plural: status->statuses
+                                potential_table_name == to_table_lower + 's' or  # Plural to singular (if FK has plural)
+                                potential_table_name == to_table_lower.rstrip('s')  # drivers -> driver (if table is plural)
+                            )
                             
-                            for potential_table in potential_tables:
-                                if potential_table and (potential_table == to_table_lower or
-                                    potential_table + 's' == to_table_lower or
-                                    potential_table == to_table_lower + 's' or
-                                    potential_table + 'es' == to_table_lower):
-                                    
-                                    logger.debug(f"  Match found! '{potential_table}' matches table '{to_table}'")
-                                    
-                                    # Check if target table has an 'id', 'Id', or '{tablename}Id' column
-                                    to_columns = table_columns.get(to_table, [])
-                                    # Look for: 'id', '_id', or columns like 'constructorId', 'driverId', etc.
-                                    to_col_names = [c.name.lower() for c in to_columns]
-                                    
-                                    # For PK detection, try both singular and plural forms
-                                    # E.g., for table 'constructors', check both 'constructorsid' and 'constructorid'
-                                    table_singular = to_table_lower.rstrip('s') if to_table_lower.endswith('s') else to_table_lower
-                                    table_singular_camel = to_table.rstrip('s') if to_table.endswith('s') else to_table
-                                    
-                                    has_id = (
-                                        'id' in to_col_names or 
-                                        '_id' in to_col_names or
-                                        to_table_lower + 'id' in to_col_names or
-                                        table_singular + 'id' in to_col_names or  # Check singular form
-                                        any(c.name == to_table + 'Id' for c in to_columns) or  # Check plural camelCase
-                                        any(c.name == table_singular_camel + 'Id' for c in to_columns)  # Check singular camelCase
-                                    )
-                                    
-                                    if not has_id:
-                                        logger.debug(f"  Skipping: table '{to_table}' has no 'id' or '{to_table}Id' column")
+                            if is_match:
+                                logger.debug(f"  ✓ Match found! '{potential_table_name}' matches table '{to_table}'")
                                 
-                                    if has_id:
-                                        # Determine the actual PK column name (id, _id, constructorId, etc.)
-                                        to_col_name = 'id'  # default
-                                        if 'id' in to_col_names:
-                                            to_col_name = 'id'
-                                        elif '_id' in to_col_names:
-                                            to_col_name = '_id'
-                                        elif to_table_lower + 'id' in to_col_names:
-                                            # Find the actual column with proper case
-                                            for c in to_columns:
-                                                if c.name.lower() == to_table_lower + 'id':
-                                                    to_col_name = c.name
-                                                    break
-                                        elif table_singular + 'id' in to_col_names:
-                                            # Find the actual column with proper case (singular form)
-                                            for c in to_columns:
-                                                if c.name.lower() == table_singular + 'id':
-                                                    to_col_name = c.name
-                                                    break
-                                        
-                                        relationships.append(ForeignKeyRelationship(
-                                            from_table=from_table,
-                                            from_column=col.name,
-                                            to_table=to_table,
-                                            to_column=to_col_name,
-                                            relationship_type='many_to_one'
-                                        ))
-                                        logger.info(f"Detected FK: {from_table}.{col.name} -> {to_table}.{to_col_name}")
-                                        found_match = True
-                                        break  # Found a match, don't check other potential_table variations
+                                # Check if target table has an 'id', 'Id', or '{tablename}Id' column
+                                to_columns = table_columns.get(to_table, [])
+                                # Look for: 'id', '_id', or columns like 'constructorId', 'driverId', etc.
+                                to_col_names = [c.name.lower() for c in to_columns]
+                                
+                                logger.debug(f"  Checking if table '{to_table}' has PK. Columns: {to_col_names}")
+                                
+                                # For PK detection, try both singular and plural forms
+                                # E.g., for table 'constructors', check both 'constructorsid' and 'constructorid'
+                                table_singular = to_table_lower.rstrip('s') if to_table_lower.endswith('s') else to_table_lower
+                                table_singular_camel = to_table.rstrip('s') if to_table.endswith('s') else to_table
+                                
+                                has_id = (
+                                    'id' in to_col_names or 
+                                    '_id' in to_col_names or
+                                    to_table_lower + 'id' in to_col_names or
+                                    to_table_lower + '_id' in to_col_names or  # Check plural_id (e.g., constructors_id)
+                                    table_singular + 'id' in to_col_names or  # Check singular form (e.g., constructorid)
+                                    table_singular + '_id' in to_col_names or  # Check singular_id (e.g., constructor_id)
+                                    any(c.name == to_table + 'Id' for c in to_columns) or  # Check plural camelCase
+                                    any(c.name == table_singular_camel + 'Id' for c in to_columns)  # Check singular camelCase
+                                )
+                                
+                                logger.debug(f"  PK check result: has_id={has_id} (looking for: id, _id, {to_table_lower}id, {to_table_lower}_id, {table_singular}id, {table_singular}_id)")
+                                
+                                if not has_id:
+                                    logger.debug(f"  ✗ Skipping: table '{to_table}' has no suitable PK column")
+                                    continue
+                            
+                                # Determine the actual PK column name (id, _id, constructor_id, constructorId, etc.)
+                                to_col_name = 'id'  # default
+                                if 'id' in to_col_names:
+                                    to_col_name = 'id'
+                                elif '_id' in to_col_names:
+                                    to_col_name = '_id'
+                                elif table_singular + '_id' in to_col_names:
+                                    # Find the actual column with proper case (e.g., constructor_id)
+                                    for c in to_columns:
+                                        if c.name.lower() == table_singular + '_id':
+                                            to_col_name = c.name
+                                            break
+                                elif to_table_lower + '_id' in to_col_names:
+                                    # Find the actual column with proper case (e.g., constructors_id)
+                                    for c in to_columns:
+                                        if c.name.lower() == to_table_lower + '_id':
+                                            to_col_name = c.name
+                                            break
+                                elif table_singular + 'id' in to_col_names:
+                                    # Find the actual column with proper case (singular form, e.g., constructorid)
+                                    for c in to_columns:
+                                        if c.name.lower() == table_singular + 'id':
+                                            to_col_name = c.name
+                                            break
+                                elif to_table_lower + 'id' in to_col_names:
+                                    # Find the actual column with proper case (e.g., constructorsid)
+                                    for c in to_columns:
+                                        if c.name.lower() == to_table_lower + 'id':
+                                            to_col_name = c.name
+                                            break
+                                
+                                relationships.append(ForeignKeyRelationship(
+                                    from_table=from_table,
+                                    from_column=col.name,
+                                    to_table=to_table,
+                                    to_column=to_col_name,
+                                    relationship_type='many_to_one'
+                                ))
+                                logger.info(f"Detected FK: {from_table}.{col.name} -> {to_table}.{to_col_name}")
+                                found_match = True
+                                break  # Found a match, move to next column
             
             logger.info(f"Detected {len(relationships)} foreign key relationships in Kaggle dataset")
             return relationships

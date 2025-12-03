@@ -11,7 +11,8 @@ import {
     KaggleSearchResponse,
     KaggleFilesResponse,
     MergedColumnsResponse,
-    VirtualColumnDefinition
+    VirtualColumnDefinition,
+    VirtualTableDefinition
 } from './types';
 
 // Derive API base: Prefer explicit env var (REACT_APP_API_BASE, e.g. "/api/v1"), else fall back to
@@ -264,6 +265,7 @@ export const apiService = {
         useRandomSample?: boolean,
         unionTables?: string[],
         virtualColumns?: VirtualColumnDefinition[],
+        virtualTable?: VirtualTableDefinition,
         signal?: AbortSignal
     ): Promise<any[]> {
         const abortController = signal ? null : createAbortController();
@@ -294,8 +296,11 @@ export const apiService = {
             queryDesc.virtual_columns = virtualColumns;
         }
         
-        // Add virtual table definition for union queries
-        if (unionTables && unionTables.length > 0) {
+        // Add virtual table definition (for both UNION and JOIN queries)
+        if (virtualTable) {
+            queryDesc.virtual_table = virtualTable;
+        } else if (unionTables && unionTables.length > 0) {
+            // Legacy: build union virtual table if not provided
             queryDesc.virtual_table = {
                 primary_table: table,
                 mode: 'union',
@@ -353,6 +358,7 @@ export const apiService = {
         dateTimeMode?: string,
         unionTables?: string[],
         virtualColumns?: VirtualColumnDefinition[],
+        virtualTable?: VirtualTableDefinition,
         signal?: AbortSignal
     ): Promise<number> {
         const abortController = signal ? null : createAbortController();
@@ -381,6 +387,9 @@ export const apiService = {
         }
         if (virtualColumns && virtualColumns.length > 0) {
             requestBody.virtualColumns = virtualColumns;
+        }
+        if (virtualTable) {
+            requestBody.virtualTable = virtualTable;
         }
         
         const response = await fetchWithErrorHandling(
