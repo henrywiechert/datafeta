@@ -37,6 +37,8 @@ function DataSourceSelectionPage() {
   const [selectedKaggleFile, setSelectedKaggleFile] = useState<string>('');
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [searchError, setSearchError] = useState<string>('');
+  const [kaggleManualMode, setKaggleManualMode] = useState<boolean>(false);
+  const [kaggleManualDataset, setKaggleManualDataset] = useState<string>('');
 
   useEffect(() => {
     if (isConnected && connectionDetails) {
@@ -111,6 +113,36 @@ function DataSourceSelectionPage() {
     }
   };
 
+  const handleKaggleManualEntry = async () => {
+    if (!kaggleManualDataset) {
+      setSearchError('Please enter a dataset reference');
+      return;
+    }
+    
+    // Validate format
+    if (!kaggleManualDataset.includes('/')) {
+      setSearchError('Dataset must be in format: owner/dataset-name');
+      return;
+    }
+    
+    setSearchError('');
+    setSelectedKaggleDataset(kaggleManualDataset);
+    setKaggleFiles([]);
+    setSelectedKaggleFile('');
+    
+    try {
+      const result = await apiService.listKaggleFiles(
+        kaggleUsername,
+        kaggleApiKey,
+        kaggleManualDataset
+      );
+      setKaggleFiles(result.files);
+    } catch (err) {
+      setSearchError(err instanceof Error ? err.message : 'Failed to list dataset files');
+      console.error('Kaggle files error:', err);
+    }
+  };
+
   const handleConnect = async () => {
     let details: ConnectionDetails = { type: connectionType };
     let formError: string | null = null;
@@ -137,6 +169,8 @@ function DataSourceSelectionPage() {
       details.kaggle_username = kaggleUsername;
       details.kaggle_api_key = kaggleApiKey;
       details.kaggle_dataset = selectedKaggleDataset;
+      // Pass the list of CSV files we already successfully fetched
+      details.kaggle_csv_files = kaggleFiles.map(f => f.name);
     } else {
         if (connString) {
              details.connection_string = connString;
@@ -344,27 +378,77 @@ function DataSourceSelectionPage() {
               </div>
 
               <div className={styles.formField}>
-                <label className={styles.label}>Search Public Datasets (regex)</label>
-                <div style={{display: 'flex', gap: '8px'}}>
-                  <input 
-                    className={styles.input}
-                    type="text" 
-                    value={kaggleSearchQuery} 
-                    onChange={(e) => setKaggleSearchQuery(e.target.value)} 
-                    placeholder="e.g., covid|pandemic or .*sales.*"
-                    disabled={isConnected || isLoading || isSearching}
-                    style={{flex: 1}}
-                  />
-                  <button 
-                    className={styles.button}
-                    onClick={handleKaggleSearch}
-                    disabled={isConnected || isLoading || isSearching || !kaggleUsername || !kaggleApiKey}
-                    style={{minWidth: '100px'}}
-                  >
-                    {isSearching ? 'Searching...' : 'Search'}
-                  </button>
+                <div style={{display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px'}}>
+                  <label className={styles.label} style={{margin: 0}}>Dataset Selection Mode</label>
+                  <label style={{display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '0.9em'}}>
+                    <input 
+                      type="checkbox"
+                      checked={kaggleManualMode}
+                      onChange={(e) => {
+                        setKaggleManualMode(e.target.checked);
+                        setSearchError('');
+                        setKaggleDatasets([]);
+                        setSelectedKaggleDataset('');
+                        setKaggleFiles([]);
+                      }}
+                      disabled={isConnected || isLoading}
+                      style={{marginRight: '6px'}}
+                    />
+                    Manual Entry
+                  </label>
                 </div>
               </div>
+
+              {!kaggleManualMode ? (
+                <div className={styles.formField}>
+                  <label className={styles.label}>Search Public Datasets (regex)</label>
+                  <div style={{display: 'flex', gap: '8px'}}>
+                    <input 
+                      className={styles.input}
+                      type="text" 
+                      value={kaggleSearchQuery} 
+                      onChange={(e) => setKaggleSearchQuery(e.target.value)} 
+                      placeholder="e.g., covid|pandemic or .*sales.*"
+                      disabled={isConnected || isLoading || isSearching}
+                      style={{flex: 1}}
+                    />
+                    <button 
+                      className={styles.button}
+                      onClick={handleKaggleSearch}
+                      disabled={isConnected || isLoading || isSearching || !kaggleUsername || !kaggleApiKey}
+                      style={{minWidth: '100px'}}
+                    >
+                      {isSearching ? 'Searching...' : 'Search'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className={styles.formField}>
+                  <label className={styles.label}>Dataset Reference</label>
+                  <div style={{display: 'flex', gap: '8px'}}>
+                    <input 
+                      className={styles.input}
+                      type="text" 
+                      value={kaggleManualDataset} 
+                      onChange={(e) => setKaggleManualDataset(e.target.value)} 
+                      placeholder="owner/dataset-name (e.g., karnikakapoor/satellite-orbital-catalog)"
+                      disabled={isConnected || isLoading}
+                      style={{flex: 1}}
+                    />
+                    <button 
+                      className={styles.button}
+                      onClick={handleKaggleManualEntry}
+                      disabled={isConnected || isLoading || !kaggleUsername || !kaggleApiKey || !kaggleManualDataset}
+                      style={{minWidth: '100px'}}
+                    >
+                      Load Files
+                    </button>
+                  </div>
+                  <small style={{color: '#666', fontSize: '0.85em', display: 'block', marginTop: '4px'}}>
+                    Find the dataset on <a href="https://www.kaggle.com/datasets" target="_blank" rel="noopener noreferrer">Kaggle</a> and copy the owner/dataset-name from the URL
+                  </small>
+                </div>
+              )}
 
               {searchError && (
                 <div className={styles.errorMessage}>{searchError}</div>

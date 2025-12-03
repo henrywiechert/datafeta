@@ -125,6 +125,7 @@ export interface ConnectionDetails {
     kaggle_username?: string;
     kaggle_api_key?: string;
     kaggle_dataset?: string;
+    kaggle_csv_files?: string[];
 }
 
 // Response types for list endpoints

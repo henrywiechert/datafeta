@@ -104,9 +104,9 @@ export function useMetadataOperations({
         try {
             const response = await apiService.listTables(targetDatabase);
             dataSourceSetters.setTables(response.tables || []);
-            if (connectionDetails?.type === 'csv' && response.tables?.length === 1) {
+            if ((connectionDetails?.type === 'csv' || connectionDetails?.type === 'kaggle') && response.tables?.length === 1) {
                 dataSourceSetters.setSelectedTable(response.tables[0].name);
-                // Dispatch to VisualizationContext to increment queryVersion for CSV auto-selection
+                // Dispatch to VisualizationContext to increment queryVersion for CSV/Kaggle auto-selection
                 dispatch({ type: 'SET_SELECTED_TABLE', payload: response.tables[0].name });
             }
         } catch (err: any) { 
@@ -380,7 +380,7 @@ export function useMetadataOperations({
                 dataSourceSetters.setMetadataError(null);
                 fetchDatabases();
             }
-        } else if (connectionDetails.type === 'csv') {
+        } else if (connectionDetails.type === 'csv' || connectionDetails.type === 'kaggle') {
             // Clear old metadata first
             dataSourceSetters.setTables([]);
             dataSourceSetters.setAvailableFields([]);
@@ -391,7 +391,7 @@ export function useMetadataOperations({
                 fetchTables('');
             }
         }
-        // Columns fetch will trigger once selectedTable is set (CSV auto-selection handled in fetchTables)
+        // Columns fetch will trigger once selectedTable is set (CSV/Kaggle auto-selection handled in fetchTables)
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [connectionDetails]);
     
