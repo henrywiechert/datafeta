@@ -44,7 +44,8 @@ class CardinalityService:
         datetime_part: Optional[str] = None,
         datetime_mode: Optional[str] = None,
         union_tables: Optional[str] = None,
-        virtual_columns: Optional[list] = None
+        virtual_columns: Optional[list] = None,
+        virtual_table: Optional[object] = None
     ) -> int:
         """
         Get count of distinct values for a field.
@@ -58,6 +59,7 @@ class CardinalityService:
             datetime_mode: Optional datetime mode for extraction
             union_tables: Comma-separated list of union table names
             virtual_columns: Optional list of VirtualColumnDefinition objects
+            virtual_table: Optional VirtualTableDefinition for JOIN support
             
         Returns:
             Distinct count as integer
@@ -79,7 +81,8 @@ class CardinalityService:
             regex_pattern=regex_pattern,
             datetime_part=datetime_part,
             datetime_mode=datetime_mode,
-            virtual_columns=virtual_columns
+            virtual_columns=virtual_columns,
+            virtual_table=virtual_table
         )
         
         return self._execute_count_query(sql, field)
@@ -123,22 +126,42 @@ class CardinalityService:
         regex_pattern: Optional[str],
         datetime_part: Optional[str],
         datetime_mode: Optional[str],
-        virtual_columns: Optional[list] = None
+        virtual_columns: Optional[list] = None,
+        virtual_table: Optional[object] = None
     ) -> str:
         """Build the COUNT(DISTINCT) SQL query."""
         # Import here to avoid circular dependency
         from backend.services.query_components.virtual_column_builder import VirtualColumnExpressionBuilder
+        from backend.services.query_components.table_context_builder import TableContextBuilder
         
-        # Build the table reference
-        if self.conn_details.type == 'clickhouse' and database:
+        # Build the table reference and handle JOINs if virtual_table is provided
+        if virtual_table and virtual_table.joined_tables:
+            # Use TableContextBuilder to create proper JOIN query
+            builder = TableContextBuilder()
+            # Create a minimal QueryDescription-like object for the builder
+            class MinimalQueryDesc:
+                def __init__(self, primary_table, virtual_table):
+                    self.target_table = primary_table
+                    self.target_database = database
+                    self.virtual_table = virtual_table
+            
+            query_desc = MinimalQueryDesc(table, virtual_table)
+            context = builder.build(query_desc, self.conn_details.type, table)
+            count_query = context.query
+            db_table = context.primary_table
+            table_map = context.table_map
+        elif self.conn_details.type == 'clickhouse' and database:
             db_table = Table(table, schema=database)
+            count_query = Query.from_(db_table)
+            table_map = {table: db_table}
         else:
             db_table = Table(table)
+            count_query = Query.from_(db_table)
+            table_map = {table: db_table}
         
         # Initialize virtual column builder if virtual columns are defined
         vc_builder = None
         if virtual_columns:
-            table_map = {table: db_table}
             vc_builder = VirtualColumnExpressionBuilder(
                 table_map=table_map,
                 default_table=db_table
@@ -160,18 +183,36 @@ class CardinalityService:
             logger.debug(f"Using virtual column expression for cardinality count: {field}")
         elif datetime_part and datetime_mode:
             # For datetime parts, extract the part first using DateTimeService
+            # Handle qualified field names (e.g., "races.date")
+            if '.' in field:
+                parts = field.split('.', 1)
+                if len(parts) == 2 and parts[0] in table_map:
+                    base_field = table_map[parts[0]][parts[1]]
+                else:
+                    base_field = db_table[field]
+            else:
+                base_field = db_table[field]
+            
             field_expr = DateTimeService.get_datetime_part_expression(
-                getattr(db_table, field), 
+                base_field, 
                 datetime_part, 
                 datetime_mode, 
                 self.conn_details.type
             )
         else:
-            field_expr = getattr(db_table, field)
+            # Handle qualified field names (e.g., "races.date")
+            if '.' in field:
+                parts = field.split('.', 1)
+                if len(parts) == 2 and parts[0] in table_map:
+                    field_expr = table_map[parts[0]][parts[1]]
+                else:
+                    field_expr = db_table[field]
+            else:
+                field_expr = db_table[field]
         
         # Build count query using custom CountDistinct
         count_expr = CountDistinct(field_expr)
-        count_query = Query.from_(db_table).select(count_expr.as_('count'))
+        count_query = count_query.select(count_expr.as_('count'))
         
         # Apply regex filter if provided
         if regex_pattern:

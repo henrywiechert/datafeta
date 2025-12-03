@@ -167,6 +167,12 @@ def get_distinct_count(
             for vc in request_data['virtualColumns']
         ]
     
+    # Parse virtual table if provided (for JOIN support)
+    from backend.models.data_source import VirtualTableDefinition
+    virtual_table = None
+    if 'virtualTable' in request_data and request_data['virtualTable']:
+        virtual_table = VirtualTableDefinition.parse_obj(request_data['virtualTable'])
+    
     service = CardinalityService(connector, conn_details)
     count = service.get_distinct_count(
         field=field,
@@ -176,7 +182,8 @@ def get_distinct_count(
         datetime_part=datetime_part,
         datetime_mode=datetime_mode,
         union_tables=union_tables,
-        virtual_columns=virtual_columns
+        virtual_columns=virtual_columns,
+        virtual_table=virtual_table
     )
     
     return {"count": count}
@@ -384,20 +391,25 @@ async def search_kaggle_datasets(
     search_request: Dict[str, Any] = Body(...)
 ):
     """
-    Search public Kaggle datasets using regex pattern.
+    Search public Kaggle datasets.
     
     Request body:
         username: Kaggle username
         api_key: Kaggle API key
-        search_query: Regex pattern to match dataset names/titles
+        search_query: Search keywords or dataset reference (owner/dataset-name)
+        max_results: Maximum number of results to return (default: 200, max: 1000)
     
     Returns list of matching datasets with metadata.
+    
+    Note: If search_query looks like a dataset reference (contains '/'),
+    it will attempt direct lookup. Otherwise, uses Kaggle API keyword search.
     """
     import re
     
     username = search_request.get('username')
     api_key = search_request.get('api_key')
-    search_query = search_request.get('search_query', '')
+    search_query = search_request.get('search_query', '').strip()
+    max_results = min(search_request.get('max_results', 200), 1000)  # Cap at 1000, default 200
     
     if not username or not api_key:
         raise InvalidInputError("Kaggle username and API key are required")
@@ -426,42 +438,98 @@ async def search_kaggle_datasets(
         finally:
             builtins.exit = original_exit
         
-        # Search public datasets (limit to 200 results)
-        datasets = api.dataset_list(search=search_query, page=1, max_size=200)
+        all_datasets = []
         
-        # Filter to only include public datasets and optionally by regex
-        regex_pattern = None
-        if search_query:
+        # Check if search_query looks like a dataset reference (contains '/')
+        if search_query and '/' in search_query:
+            # Try direct dataset lookup first
             try:
-                regex_pattern = re.compile(search_query, re.IGNORECASE)
-            except re.error:
-                # If invalid regex, treat as literal string search
-                regex_pattern = None
+                logger.info(f"Attempting direct lookup for dataset: {search_query}")
+                dataset_metadata = api.dataset_metadata(search_query, path=None)
+                # If successful, create a dataset-like object
+                # We'll add this to results after the search
+                direct_match = type('obj', (object,), {
+                    'ref': search_query,
+                    'title': dataset_metadata.get('title', search_query),
+                    'isPrivate': False,
+                    'size': dataset_metadata.get('totalBytes', 0),
+                })()
+                all_datasets.append(direct_match)
+                logger.info(f"Direct lookup successful for {search_query}")
+            except Exception as direct_error:
+                logger.debug(f"Direct lookup failed for {search_query}: {direct_error}")
+                # Fall through to regular search
+        
+        # Fetch datasets with pagination
+        # Note: Kaggle API internally limits results, but we can try to get more
+        page = 1
+        
+        while len(all_datasets) < max_results:
+            try:
+                # Use sort_by='hottest' for most relevant results
+                # But if search_query is empty, don't sort to get more variety
+                # Note: The Kaggle API doesn't expose a page_size parameter in dataset_list
+                # It internally uses a fixed page size, so we rely on pagination
+                datasets = api.dataset_list(
+                    search=search_query if search_query else None,
+                    page=page,
+                    sort_by='hottest' if search_query else 'published'
+                )
+                
+                if not datasets:
+                    break  # No more results
+                
+                all_datasets.extend(datasets)
+                
+                # Kaggle API returns fixed-size pages (typically 20 results)
+                # If we got fewer results, we've likely reached the end
+                if len(datasets) < 20:
+                    break
+                
+                page += 1
+                
+            except Exception as page_error:
+                logger.warning(f"Error fetching page {page}: {page_error}")
+                break  # Stop pagination on error
+        
+        # Trim to max_results
+        all_datasets = all_datasets[:max_results]
         
         results = []
-        for dataset in datasets:
+        seen_refs = set()  # Track seen dataset refs to avoid duplicates
+        rate_limit_hit = False
+        
+        for dataset in all_datasets:
+            # Skip duplicates
+            if dataset.ref in seen_refs:
+                continue
+            seen_refs.add(dataset.ref)
+            
             # Skip private datasets
             if hasattr(dataset, 'isPrivate') and dataset.isPrivate:
                 continue
             
-            # Apply regex filtering if provided
-            if regex_pattern:
-                dataset_full_name = f"{dataset.ref}"
-                if not regex_pattern.search(dataset_full_name) and not regex_pattern.search(dataset.title or ''):
-                    continue
-            
-            # Get file count for CSV files
-            try:
-                files = api.dataset_list_files(dataset.ref).files
-                csv_file_count = sum(1 for f in files if f.name.lower().endswith('.csv'))
-            except Exception as file_error:
-                # If we get a 403 error, skip this dataset as it's not accessible
-                error_msg = str(file_error)
-                if '403' in error_msg or 'Forbidden' in error_msg:
-                    logger.debug(f"Skipping dataset {dataset.ref} - 403 Forbidden when listing files")
-                    continue
-                # For other errors, just set count to 0
-                csv_file_count = 0
+            # Get file count for CSV files (skip if we've hit rate limits)
+            csv_file_count = None  # None means "unknown"
+            if not rate_limit_hit:
+                try:
+                    files = api.dataset_list_files(dataset.ref).files
+                    csv_file_count = sum(1 for f in files if f.name.lower().endswith('.csv'))
+                except Exception as file_error:
+                    error_msg = str(file_error)
+                    # If we get a 403 error, skip this dataset as it's not accessible
+                    if '403' in error_msg or 'Forbidden' in error_msg:
+                        logger.debug(f"Skipping dataset {dataset.ref} - 403 Forbidden when listing files")
+                        continue
+                    # If we hit rate limits, stop trying to list files for remaining datasets
+                    elif '429' in error_msg or 'Too Many Requests' in error_msg:
+                        logger.warning(f"Rate limit hit while listing files for {dataset.ref}. File counts will be unavailable for remaining datasets.")
+                        rate_limit_hit = True
+                        csv_file_count = None
+                    else:
+                        # For other errors, just set count to unknown
+                        logger.debug(f"Error listing files for {dataset.ref}: {error_msg}")
+                        csv_file_count = None
             
             # Convert size to MB (use size attribute if available, otherwise 0)
             size_mb = 0
@@ -485,7 +553,7 @@ async def search_kaggle_datasets(
                 'last_updated': last_updated
             })
         
-        logger.info(f"Found {len(results)} datasets matching pattern '{search_query}'")
+        logger.info(f"Found {len(results)} datasets for search '{search_query}' (fetched {len(all_datasets)} total, {len(results)} accessible)")
         return {'datasets': results}
         
     except Exception as e:
