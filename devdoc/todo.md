@@ -103,3 +103,4 @@ Table lost
 Size not correctly applied when faceting is active.
 In facets (by measure) where size field is always 0, the size looks larger, than in facets where some points have 0.4
 
+No tick strip when using DateTime as continous field only.

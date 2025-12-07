@@ -14,7 +14,7 @@ interface FieldsPanelProps {
   availableFields: Field[];
   fieldsSearch: string;
   onFieldsSearchChange: (search: string) => void;
-  onFieldUpdate: (field: Field) => void;
+  onFieldUpdate: (fields: Field | Field[]) => void;
   onRemoveFromAxis: (fieldId: string) => void;
   onRemoveMultipleFromAxis?: (fieldIds: string[]) => void;
   // New props for metadata selection
