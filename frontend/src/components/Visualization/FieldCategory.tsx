@@ -8,7 +8,7 @@ import styles from './FieldsPanel.module.css';
 interface FieldCategoryProps {
   title: string;
   fields: Field[];
-  onUpdate: (field: Field) => void;
+  onUpdate: (fields: Field | Field[]) => void;
 }
 
 // Use virtualization if more than this many fields
@@ -87,7 +87,7 @@ const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate }
       <div style={{ ...style, ...ROW_BASE_STYLE }}>
         <FieldChip 
           field={field} 
-          onUpdate={onUpdate} 
+          onUpdate={onUpdate}
           source="AVAILABLE_FIELDS"
           allFields={fields}
         />
@@ -134,7 +134,7 @@ const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate }
           <FieldChip 
             key={field.id} 
             field={field} 
-            onUpdate={onUpdate} 
+            onUpdate={onUpdate}
             source="AVAILABLE_FIELDS"
             allFields={fields}
           />

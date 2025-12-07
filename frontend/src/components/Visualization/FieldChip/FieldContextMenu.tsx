@@ -8,7 +8,7 @@ import FieldMenuItems from './FieldMenuItems';
 interface FieldContextMenuProps {
   field: Field;
   source: DragSource;
-  onUpdate: (field: Field) => void;
+  onUpdate: (fields: Field | Field[]) => void; // Accepts single field or array
   menuPosition: { x: number; y: number } | null;
   onCloseMenu: () => void;
   selectedFields?: Field[]; // For bulk editing
@@ -23,21 +23,21 @@ const FieldContextMenu: React.FC<FieldContextMenuProps> = ({
   selectedFields = []
 }) => {
   const handleUpdate = useCallback((updates: Partial<Field>) => {
-    // If multiple fields are selected, update all of them
-    if (selectedFields.length > 1) {
-      selectedFields.forEach(selectedField => {
-        const updatedField = applyFieldUpdateRules(selectedField, updates);
-        if (updatedField) {
-          onUpdate(updatedField);
-        }
-      });
-    } else {
-      // Single field update
-      const updatedField = applyFieldUpdateRules(field, updates);
-      if (updatedField) {
-        onUpdate(updatedField);
-      }
+    // Always work with an array - single field is just an array of length 1
+    const fieldsToUpdate = selectedFields.length > 0 ? selectedFields : [field];
+    
+    // Apply updates to all fields
+    const updatedFields = fieldsToUpdate
+      .map(selectedField => applyFieldUpdateRules(selectedField, updates))
+      .filter((f): f is Field => f !== null);
+    
+    if (updatedFields.length === 0) {
+      onCloseMenu();
+      return;
     }
+    
+    // Pass array to onUpdate - it handles both single and multiple
+    onUpdate(updatedFields.length === 1 ? updatedFields[0] : updatedFields);
     onCloseMenu();
   }, [field, selectedFields, onUpdate, onCloseMenu]);
   
