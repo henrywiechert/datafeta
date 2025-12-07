@@ -69,6 +69,18 @@ export const categoricalSchemes: ColorScheme[] = [
     colors: ['#fbb4ae', '#b3cde3', '#ccebc5', '#decbe4', '#fed9a6', '#ffffcc', '#e5d8bd', '#fddaec', '#f2f2f2'],
     description: 'Soft pastel colors',
   },
+  {
+    id: 'tableau20',
+    name: 'Tableau 20',
+    type: 'categorical',
+    colors: [
+      '#4e79a7', '#f28e2c', '#e15759', '#76b7b2', '#59a14f',
+      '#edc949', '#af7aa1', '#ff9da7', '#9c755f', '#bab0ab',
+      '#a0cbe8', '#ffbe7d', '#ff9d9a', '#acd7c5', '#8cd17d',
+      '#f1ce63', '#d4a6c8', '#fabfd2', '#d7b5a6', '#d4d4d4'
+    ],
+    description: 'Extended Tableau color scheme with 20 colors',
+  },
 ];
 
 // Sequential color schemes (for continuous data)
