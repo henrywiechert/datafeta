@@ -78,6 +78,7 @@ done
 Done
 
 Fix layout of middle panel
+Done, but could be improved
 
 Dashboard mode
 Per sheet chart areas combined in in one page.
@@ -89,3 +90,12 @@ Store required data-set with config online.
 Share sheets and/or dashboard
 
 Tooltips not working in Fullscreen
+Done
+
+Better progress dialog
+Rendering, SQL query
+
+Query Optimization improvements. Still cases where everything hangs, because to many data points are rendered.
+
+Sheet switch destroys something
+Table lost
