@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Field } from '../../../types';
 import Chip from '@mui/material/Chip';
 import Tooltip from '@mui/material/Tooltip';
@@ -7,6 +7,8 @@ import { formatFullLabel } from './utils';
 import { DragSource } from './types';
 import FieldChipLabel from './FieldChipLabel';
 import labelStyles from './FieldChipLabel.module.css';
+import { useTruncationDetection } from './useTruncationDetection';
+import { getChipWidthProps, getChipClassNames } from './chipStyles';
 
 interface ChipWithTooltipProps {
   field: Field;
@@ -32,136 +34,34 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
   onMouseDown,
   isDragging,
   isSelected = false,
-  isInvalidOnAxis,
+  isInvalidOnAxis = false,
   dragCount
 }) => {
-  const chipLabelRef = useRef<HTMLSpanElement>(null);
-  const chipRef = useRef<HTMLDivElement>(null);
-  const [isTruncated, setIsTruncated] = useState(false);
-  const [tooltipOpen, setTooltipOpen] = useState(false);
-
-  // Function to check if text is truncated
-  const checkTruncation = useCallback(() => {
-    const el = chipLabelRef.current;
-    if (el) {
-      // Add small buffer (1px) to account for rounding errors
-      const scrollWidth = el.scrollWidth;
-      const clientWidth = el.clientWidth;
-      const isTextTruncated = scrollWidth > (clientWidth + 1);
-      
-      // Apply different truncation logic based on source
-      if (source === 'AVAILABLE_FIELDS') {
-        // For Fields area - only show tooltip when definitely truncated
-        setIsTruncated(isTextTruncated && scrollWidth - clientWidth > 5); // More significant truncation
-      } else {
-        // For drop zones - show tooltip when there's any truncation
-        setIsTruncated(isTextTruncated);
-      }
-    }
-  }, [source]);
-
-  const handleTooltipOpen = useCallback(() => {
-    setTooltipOpen(true);
-  }, []);
-
-  const handleTooltipClose = useCallback(() => {
-    setTooltipOpen(false);
-  }, []);
-
   // Create a stable key for field properties to minimize re-renders
   const fieldPropertiesKey = useMemo(() => 
     `${field.columnName}|${field.aggregation || ''}|${field.flavour}|${field.dataType}|${field.dateTimePart || ''}|${field.dateTimeMode || ''}|${field.barSortOrder || ''}`,
     [field.columnName, field.aggregation, field.flavour, field.dataType, field.dateTimePart, field.dateTimeMode, field.barSortOrder]
   );
-  
-  // Normalize source to distinguish between axis chips (X/Y are the same) and available fields
-  const isAxisChip = source === 'X_AXIS' || source === 'Y_AXIS';
-  
-  // Check for truncation when relevant properties change
-  // Only needed for AVAILABLE_FIELDS - axis chips have fixed width and rarely truncate
-  useLayoutEffect(() => {
-    if (isAxisChip) {
-      // For axis chips, assume always truncated (safer and avoids expensive checks)
-      // Only update state if it's not already set to avoid triggering re-renders
-      if (!isTruncated) {
-        setIsTruncated(true);
-      }
-      return;
-    }
-    
-    // Use single debounced timeout for AVAILABLE_FIELDS
-    const timeoutId = setTimeout(checkTruncation, 150);
-    
-    return () => {
-      clearTimeout(timeoutId);
-    };
-    // Use isAxisChip instead of source to avoid re-running when swapping X_AXIS <-> Y_AXIS
-  }, [isAxisChip, fieldPropertiesKey, checkTruncation, isTruncated]);
 
-  // Set up ResizeObserver to detect size changes (debounced for performance)
-  // Only for AVAILABLE_FIELDS - axis chips have fixed dimensions
-  useLayoutEffect(() => {
-    if (isAxisChip) {
-      return; // Skip ResizeObserver for axis chips
-    }
-    
-    const el = chipLabelRef.current;
-    const parentEl = chipRef.current;
-    
-    if (el && parentEl) {
-      let timeoutId: number | undefined;
-      const debouncedCheck = () => {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-        // Use setTimeout instead of RAF for better debouncing
-        timeoutId = window.setTimeout(() => {
-          checkTruncation();
-        }, 200); // Increased debounce for better performance
-      };
-      
-      const resizeObserver = new ResizeObserver(debouncedCheck);
-      resizeObserver.observe(parentEl);
-      resizeObserver.observe(el);
-      
-      return () => {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-        resizeObserver.disconnect();
-      };
-    }
-    // Use isAxisChip instead of source to avoid re-running when swapping X_AXIS <-> Y_AXIS
-  }, [isAxisChip, checkTruncation]);
-
-  // Hide tooltip whenever dragging starts
-  useEffect(() => {
-    if (isDragging) {
-      setTooltipOpen(false);
-    }
-  }, [isDragging]);
+  // Use custom hook for truncation detection and tooltip management
+  const {
+    isTruncated,
+    chipLabelRef,
+    chipRef,
+    tooltipOpen,
+    handleTooltipOpen,
+    handleTooltipClose,
+  } = useTruncationDetection({
+    source,
+    fieldPropertiesKey,
+    isDragging,
+  });
 
   // Width properties based on source
-  const widthProps = useMemo(() => {
-    if (source !== 'AVAILABLE_FIELDS') {
-      return {
-        width: 240,
-        maxWidth: 240,
-        minWidth: 160,
-      };
-    } else {
-      return {
-        width: '100%', // Fill available space
-        maxWidth: '100%',
-      };
-    }
-  }, [source]);
+  const widthProps = useMemo(() => getChipWidthProps(source), [source]);
 
   // Full label for tooltip
-  const fullLabel = useMemo(() => 
-    formatFullLabel(field),
-    [field]
-  );
+  const fullLabel = useMemo(() => formatFullLabel(field), [field]);
 
   // ChipLabel component with forwarded ref
   const chipLabel = useMemo(() => (
@@ -175,33 +75,31 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
   // Chip props
   const chipProps = useMemo(() => {
     const handleDragStartInternal = (e: React.DragEvent) => {
-      setTooltipOpen(false);
+      handleTooltipClose();
       onDragStart(e);
     };
 
     const handleDragEndInternal = () => {
-      setTooltipOpen(false);
+      handleTooltipClose();
       onDragEnd();
     };
 
-    const handleMouseDown = (e: React.MouseEvent) => {
-      setTooltipOpen(false);
-      // Call parent onMouseDown handler if provided
+    const handleMouseDownInternal = (e: React.MouseEvent) => {
+      handleTooltipClose();
       if (onMouseDown) {
         onMouseDown(e);
       }
     };
 
     return {
-      className: `${styles.chip} ${field.flavour === 'continuous' ? styles.continuous : styles.discrete} ${source === 'AVAILABLE_FIELDS' ? styles.textOnly : styles.framed} ${isInvalidOnAxis ? styles.invalidAxisField : ''} ${isSelected ? styles.selected : ''} field-chip`,
+      className: getChipClassNames(field, source, isInvalidOnAxis, isSelected, styles),
       draggable: true,
       onDragStart: handleDragStartInternal,
       onDragEnd: handleDragEndInternal,
       onContextMenu,
       onClick,
-      onMouseDown: handleMouseDown,
+      onMouseDown: handleMouseDownInternal,
       style: {
-        // Keep full opacity while dragging for readability
         opacity: 1,
         cursor: 'grab',
         ...widthProps,
@@ -216,16 +114,18 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
       label: chipLabel
     };
   }, [
-    field.flavour,
+    field,
     source,
+    isInvalidOnAxis,
+    isSelected,
     onDragStart,
     onDragEnd,
     onContextMenu,
     onClick,
+    onMouseDown,
     widthProps,
     chipLabel,
-    isInvalidOnAxis,
-    isSelected
+    handleTooltipClose
   ]);
 
   const handleWrapperDragStart = (e: React.DragEvent) => {
