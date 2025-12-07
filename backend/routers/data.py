@@ -386,6 +386,41 @@ def get_merged_columns(
 
 # --- Kaggle-Specific Endpoints --- #
 
+# Cache for Kaggle search results (to avoid repeated API calls and rate limits)
+import hashlib
+import time
+import threading
+from typing import Dict, Any, Optional
+
+class KaggleSearchCache:
+    """Simple TTL cache for Kaggle search results."""
+    def __init__(self, ttl_seconds: int = 600, max_size: int = 100):
+        self.ttl = ttl_seconds
+        self.max_size = max_size
+        self.cache: Dict[str, Dict[str, Any]] = {}  # key -> {results, timestamp}
+        self.lock = threading.Lock()
+    
+    def get(self, key: str) -> Optional[Dict[str, Any]]:
+        with self.lock:
+            if key not in self.cache:
+                return None
+            entry = self.cache[key]
+            if time.time() - entry['timestamp'] > self.ttl:
+                del self.cache[key]
+                return None
+            return entry['results']
+    
+    def set(self, key: str, results: Dict[str, Any]) -> None:
+        with self.lock:
+            # Simple eviction: remove oldest if at capacity
+            if key not in self.cache and len(self.cache) >= self.max_size:
+                oldest_key = min(self.cache.keys(), key=lambda k: self.cache[k]['timestamp'])
+                del self.cache[oldest_key]
+            self.cache[key] = {'results': results, 'timestamp': time.time()}
+
+# Global cache for Kaggle search results (10 minute TTL, max 100 searches)
+_kaggle_search_cache = KaggleSearchCache(ttl_seconds=600, max_size=100)
+
 @router.post("/kaggle/search")
 async def search_kaggle_datasets(
     search_request: Dict[str, Any] = Body(...)
@@ -397,22 +432,39 @@ async def search_kaggle_datasets(
         username: Kaggle username
         api_key: Kaggle API key
         search_query: Search keywords or dataset reference (owner/dataset-name)
-        max_results: Maximum number of results to return (default: 200, max: 1000)
+        max_results: Maximum number of results to return (default: 100, max: 1000)
     
     Returns list of matching datasets with metadata.
+    
+    Optimizations to reduce API calls and avoid rate limits:
+    - Results are cached for 10 minutes (per user + query combination)
+    - File counts are only fetched for the first 50 datasets
+    - Small delays added between file listing calls (500ms per 10 calls)
+    - Stops fetching file counts if rate limit is hit
     
     Note: If search_query looks like a dataset reference (contains '/'),
     it will attempt direct lookup. Otherwise, uses Kaggle API keyword search.
     """
     import re
+    import json
     
     username = search_request.get('username')
     api_key = search_request.get('api_key')
     search_query = search_request.get('search_query', '').strip()
-    max_results = min(search_request.get('max_results', 200), 1000)  # Cap at 1000, default 200
+    max_results = min(search_request.get('max_results', 100), 1000)  # Cap at 1000, default 100
     
     if not username or not api_key:
         raise InvalidInputError("Kaggle username and API key are required")
+    
+    # Create cache key based on username and search query (max_results affects results)
+    cache_key = f"kaggle_search:{username}:{search_query}:{max_results}"
+    cache_key_hash = hashlib.md5(cache_key.encode()).hexdigest()
+    
+    # Check cache first
+    cached_results = _kaggle_search_cache.get(cache_key_hash)
+    if cached_results is not None:
+        logger.info(f"Returning cached results for search '{search_query}' ({len(cached_results['datasets'])} datasets)")
+        return cached_results
     
     try:
         # Monkey-patch exit() to prevent Kaggle library from calling sys.exit()
@@ -498,6 +550,8 @@ async def search_kaggle_datasets(
         results = []
         seen_refs = set()  # Track seen dataset refs to avoid duplicates
         rate_limit_hit = False
+        file_list_call_count = 0  # Track API calls to add delays
+        MAX_FILE_LIST_CALLS = 50  # Limit file listing to first 50 datasets to avoid rate limits
         
         for dataset in all_datasets:
             # Skip duplicates
@@ -509,12 +563,19 @@ async def search_kaggle_datasets(
             if hasattr(dataset, 'isPrivate') and dataset.isPrivate:
                 continue
             
-            # Get file count for CSV files (skip if we've hit rate limits)
+            # Get file count for CSV files (skip if we've hit rate limits or exceeded max calls)
             csv_file_count = None  # None means "unknown"
-            if not rate_limit_hit:
+            if not rate_limit_hit and file_list_call_count < MAX_FILE_LIST_CALLS:
                 try:
+                    # Add a small delay every 10 API calls to avoid rate limits
+                    # Kaggle API typically allows ~100 calls per minute
+                    if file_list_call_count > 0 and file_list_call_count % 10 == 0:
+                        import asyncio
+                        await asyncio.sleep(0.5)  # 500ms delay
+                    
                     files = api.dataset_list_files(dataset.ref).files
                     csv_file_count = sum(1 for f in files if f.name.lower().endswith('.csv'))
+                    file_list_call_count += 1
                 except Exception as file_error:
                     error_msg = str(file_error)
                     # If we get a 403 error, skip this dataset as it's not accessible
@@ -530,6 +591,10 @@ async def search_kaggle_datasets(
                         # For other errors, just set count to unknown
                         logger.debug(f"Error listing files for {dataset.ref}: {error_msg}")
                         csv_file_count = None
+            elif file_list_call_count >= MAX_FILE_LIST_CALLS and not rate_limit_hit:
+                # Log once when we hit the limit
+                logger.info(f"Reached file listing limit ({MAX_FILE_LIST_CALLS} datasets). Remaining datasets will not have file counts.")
+                rate_limit_hit = True  # Reuse flag to prevent further attempts
             
             # Convert size to MB (use size attribute if available, otherwise 0)
             size_mb = 0
@@ -554,7 +619,13 @@ async def search_kaggle_datasets(
             })
         
         logger.info(f"Found {len(results)} datasets for search '{search_query}' (fetched {len(all_datasets)} total, {len(results)} accessible)")
-        return {'datasets': results}
+        
+        # Cache the results before returning
+        response = {'datasets': results}
+        _kaggle_search_cache.set(cache_key_hash, response)
+        logger.debug(f"Cached search results for key: {cache_key_hash}")
+        
+        return response
         
     except Exception as e:
         logger.exception("Failed to search Kaggle datasets")
