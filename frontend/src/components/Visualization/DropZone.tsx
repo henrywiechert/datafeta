@@ -98,7 +98,7 @@ interface DropZoneProps {
   onDrop: (field: Field | Field[], source: DragSource, index?: number) => void;
   axis: 'x' | 'y';
   fields: Field[];
-  onFieldUpdate: (field: Field) => void;
+  onFieldUpdate: (fields: Field | Field[]) => void;
   onRemoveField: (fieldId: string) => void;
   onReorderFields?: (axis: 'x' | 'y', fromIndex: number, toIndex: number) => void;
   onMoveFieldBetweenAxes?: (fieldId: string, fromAxis: 'x' | 'y', toAxis: 'x' | 'y', insertIndex?: number) => void;

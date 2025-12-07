@@ -10,7 +10,7 @@ interface ChartPanelProps {
   yAxisFields: Field[];
   onXAxisDrop: (field: Field | Field[], source: DragSource, index?: number) => void;
   onYAxisDrop: (field: Field | Field[], source: DragSource, index?: number) => void;
-  onFieldUpdate: (field: Field) => void;
+  onFieldUpdate: (fields: Field | Field[]) => void;
   onRemoveField: (fieldId: string) => void;
   onReorderFields: (axis: 'x' | 'y', fromIndex: number, toIndex: number) => void;
   onMoveFieldBetweenAxes: (fieldId: string, fromAxis: 'x' | 'y', toAxis: 'x' | 'y', insertIndex?: number) => void;
