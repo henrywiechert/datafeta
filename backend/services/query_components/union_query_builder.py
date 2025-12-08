@@ -508,6 +508,12 @@ class UnionQueryBuilder:
             single_table_desc.limit = None
             single_table_desc.offset = None
 
+            # Skip tables that have no measures when measures are requested
+            # This prevents tables without the requested fields from polluting results with NULL rows
+            if all_measure_fields and not existing_measures:
+                self._logger.info(f"Skipping table {table_name} - has dimensions but none of the requested measures")
+                continue
+
             # Check if ALL fields are missing from this table
             if table_columns and not existing_dimensions and not existing_measures:
                 single_sql = self._build_null_only_query(
