@@ -2,7 +2,8 @@ import {
   SavedConfiguration, 
   SavedConnectionMetadata, 
   ConnectionDetails,
-  Sheet 
+  Sheet,
+  TableJoinDefinition
 } from '../types';
 
 const CURRENT_VERSION = '1.0.0';
@@ -59,6 +60,11 @@ export function sanitizeConnectionDetails(
     if (details.user) sanitized.user = details.user;
     if (details.database) sanitized.database = details.database;
     // Explicitly DO NOT include password or connection_string
+  } else if (details.type === 'kaggle') {
+    // Kaggle configuration (NO API key)
+    if (details.kaggle_dataset) sanitized.kaggle_dataset = details.kaggle_dataset;
+    if (details.kaggle_csv_files) sanitized.kaggle_csv_files = details.kaggle_csv_files;
+    // Explicitly DO NOT include kaggle_username or kaggle_api_key
   }
 
   // Column casting configuration
@@ -79,7 +85,8 @@ export function exportConfiguration(
   connectionDetails: ConnectionDetails | null,
   selectedDatabase: string,
   selectedTable: string,
-  unionTables?: Array<{database: string, table_name: string}>
+  unionTables?: Array<{database: string, table_name: string}>,
+  joinedTables?: TableJoinDefinition[]
 ): SavedConfiguration {
   const config: SavedConfiguration = {
     version: CURRENT_VERSION,
@@ -112,6 +119,11 @@ export function exportConfiguration(
     // Add union tables if present
     if (unionTables && unionTables.length > 0) {
       config.dataSource.unionTables = unionTables;
+    }
+    
+    // Add joined tables if present
+    if (joinedTables && joinedTables.length > 0) {
+      config.dataSource.joinedTables = joinedTables;
     }
   }
 
@@ -298,11 +310,13 @@ export function readFileAsText(file: File): Promise<string> {
 
 /**
  * Reconstructs ConnectionDetails from SavedConnectionMetadata.
- * Note: Password must be provided separately by the user.
+ * Note: Password/credentials must be provided separately by the user.
  */
 export function reconstructConnectionDetails(
   metadata: SavedConnectionMetadata,
-  password?: string
+  password?: string,
+  kaggleUsername?: string,
+  kaggleApiKey?: string
 ): ConnectionDetails {
   const details: ConnectionDetails = {
     type: metadata.type,
@@ -324,6 +338,12 @@ export function reconstructConnectionDetails(
     if (metadata.user) details.user = metadata.user;
     if (metadata.database) details.database = metadata.database;
     if (password) details.password = password;
+  } else if (metadata.type === 'kaggle') {
+    // Kaggle configuration
+    if (metadata.kaggle_dataset) details.kaggle_dataset = metadata.kaggle_dataset;
+    if (metadata.kaggle_csv_files) details.kaggle_csv_files = metadata.kaggle_csv_files;
+    if (kaggleUsername) details.kaggle_username = kaggleUsername;
+    if (kaggleApiKey) details.kaggle_api_key = kaggleApiKey;
   }
 
   // Column casting configuration

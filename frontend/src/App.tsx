@@ -28,7 +28,7 @@ function AppContent() {
   const isVisualizationPage = location.pathname.startsWith('/visualize');
   
   const { state, setActiveSheet, addSheet, renameSheet, duplicateSheet, removeSheet, dispatch: sheetDispatch } = useSheetContext();
-  const { dataSource, setSelectedDatabase, setSelectedTable, setDatabases, setTables, setAvailableFields, setUnionTables } = useDataSource();
+  const { dataSource, setSelectedDatabase, setSelectedTable, setDatabases, setTables, setAvailableFields, setUnionTables, setVirtualTable } = useDataSource();
   const { connectionDetails, connect, disconnect, isConnected } = useConnection();
   
   const [contextMenu, setContextMenu] = useState<{
@@ -132,7 +132,8 @@ function AppContent() {
         connectionDetails,
         dataSource.selectedDatabase,
         dataSource.selectedTable,
-        dataSource.unionTables
+        dataSource.unionTables,
+        dataSource.virtualTable?.joined_tables
       );
       await saveConfigFile(config);
     } catch (error) {
@@ -179,12 +180,12 @@ function AppContent() {
     }
   };
 
-  const handleConnectionRestore = async (password: string, file?: File) => {
+  const handleConnectionRestore = async (password: string, file?: File, kaggleUsername?: string, kaggleApiKey?: string) => {
     if (!connectionMetadata || !pendingConfig) return;
 
     try {
-      // Reconstruct connection details with password
-      const details = reconstructConnectionDetails(connectionMetadata, password);
+      // Reconstruct connection details with password or Kaggle credentials
+      const details = reconstructConnectionDetails(connectionMetadata, password, kaggleUsername, kaggleApiKey);
       
       // Attempt to connect
       await connect(details, file);
@@ -256,6 +257,16 @@ function AppContent() {
             // Restore union tables if present
             if (config.dataSource!.unionTables && config.dataSource!.unionTables.length > 0) {
               setUnionTables(config.dataSource!.unionTables);
+            }
+            // Restore joined tables if present
+            if (config.dataSource!.joinedTables && config.dataSource!.joinedTables.length > 0) {
+              // Recreate the virtual table with join mode
+              setVirtualTable({
+                primary_table: config.dataSource!.selectedTable,
+                mode: 'join',
+                joined_tables: config.dataSource!.joinedTables,
+                union_tables: [],
+              });
             }
           }, 0);
         });

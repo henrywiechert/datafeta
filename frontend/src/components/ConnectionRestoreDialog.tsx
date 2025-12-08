@@ -16,7 +16,7 @@ import { SavedConnectionMetadata } from '../types';
 interface ConnectionRestoreDialogProps {
   open: boolean;
   connectionMetadata: SavedConnectionMetadata | null;
-  onConnect: (password: string, file?: File) => Promise<void>;
+  onConnect: (password: string, file?: File, kaggleUsername?: string, kaggleApiKey?: string) => Promise<void>;
   onCancel: () => void;
   onSkip: () => void;
 }
@@ -30,6 +30,8 @@ export default function ConnectionRestoreDialog({
 }: ConnectionRestoreDialogProps) {
   const [password, setPassword] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [kaggleUsername, setKaggleUsername] = useState('');
+  const [kaggleApiKey, setKaggleApiKey] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,6 +39,8 @@ export default function ConnectionRestoreDialog({
     if (open) {
       setPassword('');
       setFile(null);
+      setKaggleUsername('');
+      setKaggleApiKey('');
       setError(null);
       setIsConnecting(false);
     }
@@ -46,6 +50,7 @@ export default function ConnectionRestoreDialog({
 
   const isClickHouse = connectionMetadata.type === 'clickhouse';
   const isCsv = connectionMetadata.type === 'csv';
+  const isKaggle = connectionMetadata.type === 'kaggle';
 
   const handleConnect = async () => {
     setIsConnecting(true);
@@ -59,7 +64,14 @@ export default function ConnectionRestoreDialog({
         return;
       }
 
-      await onConnect(password, file || undefined);
+      // For Kaggle, we need credentials
+      if (isKaggle && (!kaggleUsername || !kaggleApiKey)) {
+        setError('Please provide Kaggle username and API key');
+        setIsConnecting(false);
+        return;
+      }
+
+      await onConnect(password, file || undefined, kaggleUsername || undefined, kaggleApiKey || undefined);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Connection failed');
       setIsConnecting(false);
@@ -161,6 +173,52 @@ export default function ConnectionRestoreDialog({
             </>
           )}
 
+          {isKaggle && (
+            <>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Kaggle Dataset
+              </Typography>
+              <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                <Typography variant="body2">
+                  <strong>Dataset:</strong> {connectionMetadata.kaggle_dataset || 'N/A'}
+                </Typography>
+                {connectionMetadata.kaggle_csv_files && connectionMetadata.kaggle_csv_files.length > 0 && (
+                  <Typography variant="body2">
+                    <strong>CSV Files:</strong> {connectionMetadata.kaggle_csv_files.join(', ')}
+                  </Typography>
+                )}
+              </Box>
+
+              <TextField
+                autoFocus
+                margin="dense"
+                label="Kaggle Username"
+                type="text"
+                fullWidth
+                value={kaggleUsername}
+                onChange={(e) => setKaggleUsername(e.target.value)}
+                disabled={isConnecting}
+                sx={{ mb: 2 }}
+              />
+
+              <TextField
+                margin="dense"
+                label="Kaggle API Key"
+                type="password"
+                fullWidth
+                value={kaggleApiKey}
+                onChange={(e) => setKaggleApiKey(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && !isConnecting) {
+                    e.preventDefault();
+                    handleConnect();
+                  }
+                }}
+                disabled={isConnecting}
+              />
+            </>
+          )}
+
           {error && (
             <Alert severity="error" sx={{ mt: 2 }}>
               {error}
@@ -178,7 +236,7 @@ export default function ConnectionRestoreDialog({
         <Button
           onClick={handleConnect}
           variant="contained"
-          disabled={isConnecting || (isCsv && !file)}
+          disabled={isConnecting || (isCsv && !file) || (isKaggle && (!kaggleUsername || !kaggleApiKey))}
           startIcon={isConnecting ? <CircularProgress size={20} /> : null}
         >
           {isConnecting ? 'Connecting...' : 'Connect'}
