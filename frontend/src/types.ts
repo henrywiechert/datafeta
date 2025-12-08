@@ -511,6 +511,9 @@ export interface SavedConnectionMetadata {
   port?: number;
   user?: string;
   database?: string;
+  // Kaggle-specific fields (NO API key)
+  kaggle_dataset?: string;  // Dataset reference (owner/dataset-name)
+  kaggle_csv_files?: string[];  // List of CSV files in the dataset
   // Column casting configuration
   column_casts?: ColumnCasts;
 }
@@ -523,6 +526,7 @@ export interface SavedDataSourceSelection {
   selectedTable: string;
   fullTableName: string; // Combined db.table or just table for CSV (e.g., "mydb.orders" or "sales.csv")
   unionTables?: Array<{database: string, table_name: string}>; // Tables combined with UNION ALL
+  joinedTables?: TableJoinDefinition[]; // Tables joined with the primary table
 }
 
 /**
