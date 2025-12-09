@@ -428,7 +428,8 @@ class QueryService:
         if query_desc.virtual_columns:
             vc_builder = VirtualColumnExpressionBuilder(
                 table_map=table_map,
-                default_table=default_table
+                default_table=default_table,
+                db_type=db_type,
             )
             
             # Register all virtual columns

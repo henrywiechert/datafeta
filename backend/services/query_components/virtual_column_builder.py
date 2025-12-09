@@ -24,6 +24,51 @@ class Round(Function):
         super(Round, self).__init__('ROUND', term, precision) if precision is not None else super(Round, self).__init__('ROUND', term)
 
 
+class SplitFunctionTerm(Term):
+    """Custom term for SPLIT(value, delimiter, index) handling DB-specific syntax."""
+
+    def __init__(self, value: Term, delimiter: Term, index: Term, db_type: str):
+        super().__init__()
+        self.value = value
+        self.delimiter = delimiter
+        self.index = index
+        self.db_type = db_type
+
+    def _normalized_db_type(self, explicit: Optional[str]) -> str:
+        db_type = (explicit or self.db_type or 'clickhouse').lower()
+        if db_type in {'csv', 'file', 'duckdb', 'kaggle'}:
+            return 'duckdb'
+        return db_type
+
+    def get_sql(self, **kwargs) -> str:
+        db_type = self._normalized_db_type(kwargs.get('db_type'))
+        value_sql = self.value.get_sql(**kwargs)
+        delimiter_sql = self.delimiter.get_sql(**kwargs)
+        index_sql = self.index.get_sql(**kwargs)
+
+        if db_type == 'clickhouse':
+            safe_value_sql = f"coalesce({value_sql}, '')"
+            parts_sql = f"splitByString({delimiter_sql}, {safe_value_sql})"
+            length_sql = f"toInt64(length({parts_sql}))"
+            base_index_sql = (
+                f"if(({index_sql}) > 0, ({index_sql}), {length_sql} + ({index_sql}) + 1)"
+            )
+            safe_length_sql = f"greatest({length_sql}, 1)"
+            clamped_index_sql = f"greatest(1, least({base_index_sql}, {safe_length_sql}))"
+            element_sql = f"arrayStringConcat(arraySlice({parts_sql}, {clamped_index_sql}, 1), '')"
+            out_of_range_sql = f"(({base_index_sql}) < 1 OR ({base_index_sql}) > {length_sql} OR {length_sql} = 0)"
+            sql = f"if({out_of_range_sql}, '', {element_sql})"
+        else:
+            # Default to split_part syntax (DuckDB/Postgres style)
+            sql = f"split_part({value_sql}, {delimiter_sql}, {index_sql})"
+
+        if getattr(self, 'alias', None):
+            quote_char = kwargs.get('quote_char', '"')
+            sql = f"{sql} {quote_char}{self.alias}{quote_char}"
+
+        return sql
+
+
 class VirtualColumnExpressionBuilder:
     """
     Converts virtual column string expressions to Pypika Terms.
@@ -32,7 +77,7 @@ class VirtualColumnExpressionBuilder:
     - Arithmetic: +, -, *, /, %
     - Comparison: ==, !=, >, <, >=, <=
     - Logical: AND, OR, NOT
-    - Functions: ROUND, ABS, COALESCE, CONCAT, UPPER, LOWER, etc.
+    - Functions: ROUND, ABS, COALESCE, CONCAT, UPPER, LOWER, SPLIT, etc.
     - Conditionals: CASE().when(condition, value).else_(default)
     - Qualified column names: table.column
     
@@ -43,7 +88,12 @@ class VirtualColumnExpressionBuilder:
     - Validates column names as identifiers
     """
     
-    def __init__(self, table_map: Dict[str, Any], default_table: Any):
+    def __init__(
+        self,
+        table_map: Dict[str, Any],
+        default_table: Any,
+        db_type: str = 'clickhouse'
+    ):
         """
         Initialize the builder.
         
@@ -55,6 +105,7 @@ class VirtualColumnExpressionBuilder:
         self.default_table = default_table
         self.virtual_column_map: Dict[str, Term] = {}
         self._registered_names: Set[str] = set()
+        self.db_type = self._normalize_db_type(db_type)
     
     def register_virtual_column(
         self, 
@@ -292,7 +343,7 @@ class VirtualColumnExpressionBuilder:
         function_names = {
             'ROUND', 'ABS', 'COALESCE', 'CONCAT', 'UPPER', 'LOWER',
             'LENGTH', 'SUBSTRING', 'CAST', 'SUM', 'AVG', 'COUNT', 
-            'MIN', 'MAX', 'FLOOR', 'CEIL', 'SQRT', 'POW', 'MOD'
+            'MIN', 'MAX', 'FLOOR', 'CEIL', 'SQRT', 'POW', 'MOD', 'SPLIT'
         }
         
         columns = []
@@ -334,6 +385,7 @@ class VirtualColumnExpressionBuilder:
             'SUBSTRING': Substring,
             'CAST': Cast,
             'CASE': self._create_case_builder,
+            'SPLIT': self._split_function,
         })
         
         # Add Python operators (already work with Pypika Terms)
@@ -388,3 +440,25 @@ class VirtualColumnExpressionBuilder:
             Pypika Case object
         """
         return Case()
+
+    @staticmethod
+    def _normalize_db_type(db_type: Optional[str]) -> str:
+        if not db_type:
+            return 'clickhouse'
+        normalized = db_type.lower()
+        if normalized in {'csv', 'file', 'duckdb', 'kaggle'}:
+            return 'duckdb'
+        return normalized
+
+    @staticmethod
+    def _ensure_term(value: Any) -> Term:
+        if isinstance(value, Term):
+            return value
+        return ValueWrapper(value)
+
+    def _split_function(self, value: Any, delimiter: Any, index: Any) -> Term:
+        """Build SPLIT(value, delimiter, index) term with DB-specific SQL."""
+        value_term = self._ensure_term(value)
+        delimiter_term = self._ensure_term(delimiter)
+        index_term = self._ensure_term(index)
+        return SplitFunctionTerm(value_term, delimiter_term, index_term, self.db_type)
