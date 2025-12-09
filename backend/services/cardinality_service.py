@@ -164,7 +164,8 @@ class CardinalityService:
         if virtual_columns:
             vc_builder = VirtualColumnExpressionBuilder(
                 table_map=table_map,
-                default_table=db_table
+                default_table=db_table,
+                db_type=self.conn_details.type,
             )
             
             # Register all virtual columns

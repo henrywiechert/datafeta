@@ -220,6 +220,7 @@ Database Execution
 - `LENGTH(string)`
 - `SUBSTRING(string, start, length)`
 - `CAST(value, type)`
+- `SPLIT(string, delimiter, index)` _(positive indexes from left, negative from right, out-of-range → empty)_
 
 ### Conditionals
 - `CASE().when(condition, value).when(...).else_(default)`

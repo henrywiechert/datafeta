@@ -156,6 +156,7 @@ const VirtualColumnEditor: React.FC<VirtualColumnEditorProps> = ({
     { label: 'Multi-condition', value: 'CASE WHEN score >= 90 THEN \'A\' WHEN score >= 80 THEN \'B\' ELSE \'C\' END', type: 'text' },
     { label: 'Absolute value', value: 'ABS(delta)', type: 'numeric' },
     { label: 'Upper case', value: 'UPPER(status)', type: 'text' },
+    { label: 'Split segment', value: 'SPLIT(process_name, ":", -1)', type: 'text' },
   ];
 
   return (
@@ -300,7 +301,7 @@ const VirtualColumnEditor: React.FC<VirtualColumnEditorProps> = ({
             <Alert severity="info" sx={{ mt: 1.5 }}>
               <Typography variant="caption">
                 <strong>Supported:</strong> Arithmetic (+, -, *, /, %), 
-                Functions (ROUND, ABS, COALESCE, CONCAT, UPPER, LOWER, etc.), 
+                Functions (ROUND, ABS, COALESCE, CONCAT, UPPER, LOWER, SPLIT, etc.), 
                 Conditionals (CASE WHEN ... THEN ... ELSE ... END)
               </Typography>
             </Alert>
