@@ -130,6 +130,7 @@ class SelectClauseBuilder:
                                 agg_func_name,
                             )
 
+                # Apply aliasing logic - virtual columns and casts need aliases for ORDER BY
                 if dim.date_part and dim.date_mode:
                     field_term = DateTimeService.get_datetime_part_expression(
                         field_term, dim.date_part, dim.date_mode, db_type
@@ -137,15 +138,13 @@ class SelectClauseBuilder:
                     alias = f"{dim.field}_{dim.date_part}_{dim.date_mode}"
                     field_term = field_term.as_(alias)
                     all_aliases.add(alias)
-                elif isinstance(field_term, CastField):
+                elif isinstance(field_term, CastField) or is_virtual_column:
+                    # Both CastField and virtual columns need aliasing
                     field_term = field_term.as_(dim.field)
                     all_aliases.add(dim.field)
-                    logger.debug("Aliased casted dimension %s back to its original name", dim.field)
-                elif is_virtual_column:
-                    # Virtual columns always need to be aliased to their name
-                    field_term = field_term.as_(dim.field)
-                    all_aliases.add(dim.field)
-                    logger.debug("Aliased virtual column %s to its name", dim.field)
+                    logger.debug("Aliased %s %s back to its original name", 
+                                "virtual column" if is_virtual_column else "casted dimension", 
+                                dim.field)
                 elif '.' in dim.field and len(table_map) > 1:
                     # Multi-table query with table-qualified field name needs aliasing
                     # to preserve the full name (e.g., "constructors.name")
