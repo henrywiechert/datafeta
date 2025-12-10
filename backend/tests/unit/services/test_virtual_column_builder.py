@@ -123,6 +123,57 @@ class TestVirtualColumnExpressionBuilder:
         sql = term.get_sql(quote_char='"')
         assert 'UPPER' in sql
         assert 'name' in sql
+
+    def test_split_function_clickhouse_positive_index(self):
+        """SPLIT should extract the requested part for ClickHouse dialect."""
+        builder = VirtualColumnExpressionBuilder(self.table_map, self.table, db_type='clickhouse')
+        vc = VirtualColumnDefinition(
+            name='process_segment',
+            expression='SPLIT(process_name, ":", 2)'
+        )
+
+        term = builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='`')
+        assert 'splitByString' in sql
+        assert 'arraySlice' in sql
+
+    def test_split_function_clickhouse_negative_index(self):
+        """Negative SPLIT index should count from the end for ClickHouse."""
+        builder = VirtualColumnExpressionBuilder(self.table_map, self.table, db_type='clickhouse')
+        vc = VirtualColumnDefinition(
+            name='last_segment',
+            expression='SPLIT(process_name, ":", -1)'
+        )
+
+        term = builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='`')
+        assert 'toInt64' in sql  # Ensures safe length casting for negative math
+        assert 'arraySlice' in sql
+
+    def test_split_function_duckdb(self):
+        """SPLIT should map to split_part on DuckDB-compatible sources."""
+        builder = VirtualColumnExpressionBuilder(self.table_map, self.table, db_type='duckdb')
+        vc = VirtualColumnDefinition(
+            name='file_prefix',
+            expression='SPLIT(file_name, "_", -1)'
+        )
+
+        term = builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='"')
+        assert 'split_part' in sql
+
+    def test_split_function_alias_rendering(self):
+        """Custom split term must honor aliases assigned downstream."""
+        builder = VirtualColumnExpressionBuilder(self.table_map, self.table, db_type='clickhouse')
+        vc = VirtualColumnDefinition(
+            name='device_segment',
+            expression='SPLIT(device_id, "-", 1)'
+        )
+
+        term = builder.register_virtual_column(vc)
+        sql = term.as_('device_segment').get_sql(quote_char='`')
+        assert 'device_segment' in sql
+        assert sql.strip().endswith('`device_segment`')
     
     # ========================================================================
     # Conditional Expressions (CASE WHEN)
