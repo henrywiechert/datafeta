@@ -24,6 +24,13 @@ class Round(Function):
         super(Round, self).__init__('ROUND', term, precision) if precision is not None else super(Round, self).__init__('ROUND', term)
 
 
+class Int(Cast):
+    """INT function for converting values to integers (uses BIGINT for large values)."""
+    def __init__(self, term):
+        # Use pypika's Cast class with BIGINT type
+        super(Int, self).__init__(term, 'BIGINT')
+
+
 class SplitFunctionTerm(Term):
     """Custom term for SPLIT(value, delimiter, index) handling DB-specific syntax."""
 
@@ -77,7 +84,7 @@ class VirtualColumnExpressionBuilder:
     - Arithmetic: +, -, *, /, %
     - Comparison: ==, !=, >, <, >=, <=
     - Logical: AND, OR, NOT
-    - Functions: ROUND, ABS, COALESCE, CONCAT, UPPER, LOWER, SPLIT, etc.
+    - Functions: ROUND, ABS, COALESCE, CONCAT, UPPER, LOWER, SPLIT, INT, etc.
     - Conditionals: CASE().when(condition, value).else_(default)
     - Qualified column names: table.column
     
@@ -131,6 +138,7 @@ class VirtualColumnExpressionBuilder:
         if name in self._registered_names:
             raise QueryGenerationError(f"Duplicate virtual column name: {name}")
         
+        logger.info(f"Registering virtual column '{name}' with expression: '{expression}' (repr: {repr(expression)})")
         logger.debug(f"Registering virtual column '{name}' with expression: {expression}")
         
         try:
@@ -192,6 +200,7 @@ class VirtualColumnExpressionBuilder:
         
         # Extract column references
         column_refs = self._extract_column_references(expression)
+        logger.debug(f"Extracted column references from '{expression}': {column_refs}")
         
         # Check for references to virtual columns (not allowed)
         virtual_refs = [col for col in column_refs if col in self._registered_names]
@@ -212,6 +221,8 @@ class VirtualColumnExpressionBuilder:
                 safe_name = col_ref.replace('.', '__')
                 eval_expression = eval_expression.replace(col_ref, safe_name)
         
+        logger.debug(f"Eval expression: '{eval_expression}', namespace keys: {list(namespace.keys())}")
+        
         # Evaluate expression
         try:
             result = eval(eval_expression, {"__builtins__": {}}, namespace)
@@ -222,6 +233,14 @@ class VirtualColumnExpressionBuilder:
             
             return result
             
+        except TypeError as e:
+            if "'Field' object is not callable" in str(e):
+                raise ValueError(
+                    f"Invalid expression syntax. It appears you're trying to call a column as a function. "
+                    f"Expression: '{expression}'. If you meant to reference a column, remove the parentheses. "
+                    f"If you meant to call a function, check that it's a supported function (ROUND, ABS, INT, MOD, etc.)"
+                )
+            raise ValueError(f"Failed to evaluate expression: {e}")
         except Exception as e:
             raise ValueError(f"Failed to evaluate expression: {e}")
     
@@ -343,7 +362,7 @@ class VirtualColumnExpressionBuilder:
         function_names = {
             'ROUND', 'ABS', 'COALESCE', 'CONCAT', 'UPPER', 'LOWER',
             'LENGTH', 'SUBSTRING', 'CAST', 'SUM', 'AVG', 'COUNT', 
-            'MIN', 'MAX', 'FLOOR', 'CEIL', 'SQRT', 'POW', 'MOD', 'SPLIT'
+            'MIN', 'MAX', 'FLOOR', 'CEIL', 'SQRT', 'POW', 'MOD', 'SPLIT', 'INT'
         }
         
         columns = []
@@ -386,6 +405,7 @@ class VirtualColumnExpressionBuilder:
             'CAST': Cast,
             'CASE': self._create_case_builder,
             'SPLIT': self._split_function,
+            'INT': Int,
         })
         
         # Add Python operators (already work with Pypika Terms)
