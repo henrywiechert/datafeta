@@ -59,6 +59,32 @@ class TestVirtualColumnExpressionBuilder:
         assert 'revenue' in sql
         assert 'cost' in sql
     
+    def test_modulo_operator(self):
+        """Test modulo operator (%)."""
+        vc = VirtualColumnDefinition(
+            name='remainder',
+            expression='(quantity % 10)',
+        )
+        
+        term = self.builder.register_virtual_column(vc)
+        assert isinstance(term, Term)
+        sql = term.get_sql(quote_char='"')
+        assert 'quantity' in sql
+    
+    def test_int_with_modulo(self):
+        """Test INT function combined with modulo operator."""
+        vc = VirtualColumnDefinition(
+            name='int_remainder',
+            expression='INT(price % 100)',
+        )
+        
+        term = self.builder.register_virtual_column(vc)
+        assert isinstance(term, Term)
+        sql = term.get_sql(quote_char='"')
+        assert 'CAST' in sql
+        assert 'BIGINT' in sql
+        assert 'price' in sql
+    
     def test_arithmetic_with_type_cast(self):
         """Test arithmetic with output type casting."""
         vc = VirtualColumnDefinition(
@@ -110,6 +136,32 @@ class TestVirtualColumnExpressionBuilder:
         sql = term.get_sql(quote_char='"')
         assert 'COALESCE' in sql
         assert 'discount' in sql
+    
+    def test_int_function(self):
+        """Test INT function for converting to integer."""
+        vc = VirtualColumnDefinition(
+            name='integer_value',
+            expression='INT(price)',
+        )
+        
+        term = self.builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='"')
+        assert 'CAST' in sql
+        assert 'BIGINT' in sql
+        assert 'price' in sql
+    
+    def test_int_with_division(self):
+        """Test INT function with division expression."""
+        vc = VirtualColumnDefinition(
+            name='CL',
+            expression='INT(address/64)',
+        )
+        
+        term = self.builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='"')
+        assert 'CAST' in sql
+        assert 'BIGINT' in sql
+        assert 'address' in sql
     
     def test_string_functions(self):
         """Test string manipulation functions."""
@@ -378,6 +430,16 @@ class TestVirtualColumnExpressionBuilder:
         )
         
         with pytest.raises(QueryGenerationError, match='Invalid virtual column expression'):
+            self.builder.register_virtual_column(vc)
+    
+    def test_column_called_as_function_error(self):
+        """Test that calling a column as a function gives a helpful error."""
+        vc = VirtualColumnDefinition(
+            name='invalid',
+            expression='price()'  # Trying to call column as function
+        )
+        
+        with pytest.raises(QueryGenerationError, match='trying to call a column as a function'):
             self.builder.register_virtual_column(vc)
     
     def test_undefined_column_warning(self):
