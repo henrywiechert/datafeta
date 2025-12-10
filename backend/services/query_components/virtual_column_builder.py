@@ -24,16 +24,11 @@ class Round(Function):
         super(Round, self).__init__('ROUND', term, precision) if precision is not None else super(Round, self).__init__('ROUND', term)
 
 
-class Int(Function):
+class Int(Cast):
     """INT function for converting values to integers (uses BIGINT for large values)."""
     def __init__(self, term):
-        super(Int, self).__init__('CAST', term)
-        # Override to generate CAST(term AS BIGINT)
-    
-    def get_sql(self, **kwargs):
-        # Generate: CAST(term AS BIGINT) to support large integer values
-        term_sql = self.args[0].get_sql(**kwargs)
-        return f"CAST({term_sql} AS BIGINT)"
+        # Use pypika's Cast class with BIGINT type
+        super(Int, self).__init__(term, 'BIGINT')
 
 
 class VirtualColumnExpressionBuilder:
