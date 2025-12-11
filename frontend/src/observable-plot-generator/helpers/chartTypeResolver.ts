@@ -1,4 +1,4 @@
-import { Field } from '../../types';
+import { Field, UserChartType } from '../../types';
 
 // Cell-level chart types for a pair of fields
 export type CellChartType = 'scatter' | 'line' | 'barX' | 'barY' | 'tickX' | 'tickY' | 'dot';
@@ -77,4 +77,57 @@ export function resolveChartTypeForPair(
   return detectDefaultChartTypeForPair(xField, yField);
 }
 
+/**
+ * Maps user-facing chart types to internal CellChartType based on field axis context.
+ * 
+ * User-facing types are simplified (4 options):
+ * - 'line': line chart
+ * - 'scatter': scatter/dot plot
+ * - 'tick': tick strip (distribution)
+ * - 'bar': bar chart
+ * 
+ * Internal CellChartType has orientation variants (barX/barY, tickX/tickY).
+ * The mapping determines orientation based on which axis the overriding field is on.
+ * 
+ * @param userType - User-selected chart type
+ * @param fieldAxis - Which axis ('x' or 'y') the field with the override is on
+ * @param xField - The X-axis field in the pair
+ * @param yField - The Y-axis field in the pair
+ * @returns The appropriate CellChartType with correct orientation
+ */
+export function mapUserChartTypeToCellChartType(
+  userType: UserChartType,
+  fieldAxis: 'x' | 'y',
+  xField: Field,
+  yField: Field
+): CellChartType {
+  switch (userType) {
+    case 'bar':
+      // Bar orientation is determined by which axis has the measure
+      // If the measure is on X, bars extend horizontally (barX)
+      // If the measure is on Y, bars extend vertically (barY)
+      if (fieldAxis === 'x') {
+        return 'barX';
+      }
+      return 'barY';
+    
+    case 'tick':
+      // Tick orientation matches the axis of the continuous dimension
+      // tickX = ticks along X axis, tickY = ticks along Y axis
+      if (fieldAxis === 'x') {
+        return 'tickX';
+      }
+      return 'tickY';
+    
+    case 'scatter':
+      return 'scatter';
+    
+    case 'line':
+      return 'line';
+    
+    default:
+      // Fallback to auto-detection
+      return detectDefaultChartTypeForPair(xField, yField);
+  }
+}
 

@@ -401,8 +401,9 @@ export type FilterMetadata = DiscreteFilterMetadata | ContinuousFilterMetadata |
 
 // --- Multi-Sheet Types --- //
 
-// Per-field chart override configuration (color, size, labels)
+// Per-field chart override configuration (color, size, labels, chart type)
 export type DataLabelMode = 'inherit' | 'on' | 'off';
+export type UserChartType = 'line' | 'scatter' | 'tick' | 'bar';
 
 export interface FieldOverrideState {
   // Color overrides
@@ -435,6 +436,17 @@ export interface FieldOverrideState {
    * Array of Field objects (supports multiple fields that get concatenated).
    */
   labelFields?: Field[];
+
+  // Chart type override
+  /**
+   * Per-field chart type override.
+   * - 'line': line chart (requires continuous dimension on opposite axis)
+   * - 'scatter': scatter/dot plot
+   * - 'tick': tick strip (distribution visualization)
+   * - 'bar': bar chart
+   * When undefined, chart type is auto-detected based on field types.
+   */
+  chartType?: UserChartType;
 }
 
 // Snapshot of visualization state for persistence in sheets
@@ -459,6 +471,11 @@ export interface VisualizationStateSnapshot {
    * Persisted with sheets and saved configurations.
    */
   fieldOverrides?: Record<string, FieldOverrideState>;
+  /**
+   * Global chart type override (applies to all charts when set).
+   * null = auto-detect chart type based on field types.
+   */
+  globalChartType?: UserChartType | null;
   virtualColumns?: VirtualColumnDefinition[]; // Virtual/calculated columns
   virtualColumnFieldPreferences?: Record<string, { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }>; // Field preferences for virtual columns
   tooltipFields?: Field[]; // Fields to show in tooltips only (do not affect chart visualization)

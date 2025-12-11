@@ -1,4 +1,4 @@
-import { Field, QueryResult, FieldOverrideState } from '../types';
+import { Field, QueryResult, FieldOverrideState, UserChartType } from '../types';
 import { FieldOverrideTarget } from './utils/fieldOverrides';
 import * as Plot from '@observablehq/plot';
 
@@ -34,6 +34,10 @@ export interface ChartGenerationContext {
    * These are derived from visualization state and persisted with sheets.
    */
   fieldOverrides?: Record<string, FieldOverrideState>;
+  /**
+   * Global chart type override (applies to all charts when no per-field override is set).
+   */
+  globalChartType?: UserChartType | null;
   /**
    * Computed list of fields that are eligible for per-field overrides,
    * based on axis placement and continuous field counts.

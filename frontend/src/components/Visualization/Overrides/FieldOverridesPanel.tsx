@@ -10,6 +10,7 @@ import { useFieldOverrides } from './useFieldOverrides';
 import ColorFieldControl from './ColorFieldControl';
 import SizeFieldControl from './SizeFieldControl';
 import LabelFieldControl from './LabelFieldControl';
+import ChartTypeControl from './ChartTypeControl';
 import FieldOverrideRow from './FieldOverrideRow';
 
 const FieldOverridesPanel: React.FC = () => {
@@ -31,6 +32,7 @@ const FieldOverridesPanel: React.FC = () => {
     manualSize,
     labelFields,
     labelsEnabled,
+    globalChartType,
   } = state as any;
 
   const [expandedId, setExpandedId] = useState<string | null>('__all__');
@@ -46,6 +48,7 @@ const FieldOverridesPanel: React.FC = () => {
     clearColorOverridesForAllFields,
     clearSizeOverridesForAllFields,
     clearLabelOverridesForAllFields,
+    clearChartTypeOverridesForAllFields,
     resolveColorField,
     resolveSizeField,
   } = useFieldOverrides({
@@ -93,6 +96,11 @@ const FieldOverridesPanel: React.FC = () => {
 
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+        <ChartTypeControl
+          chartType={override.chartType}
+          onChange={(chartType) => handleUpdateOverride(targetField.id, { chartType })}
+        />
+
         <ColorFieldControl
           field={resolvedColorField}
           colorScheme={effectiveColorScheme}
@@ -175,6 +183,15 @@ const FieldOverridesPanel: React.FC = () => {
 
     return (
       <Box sx={{ p: 0.75, pt: 0.5, pb: 0.5, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+        <ChartTypeControl
+          chartType={globalChartType ?? undefined}
+          onChange={(chartType) => {
+            recordAction(getUndoableSnapshot());
+            clearChartTypeOverridesForAllFields();
+            dispatch({ type: 'SET_GLOBAL_CHART_TYPE', payload: chartType ?? null });
+          }}
+        />
+
         <ColorFieldControl
           field={resolvedGlobalColorField}
           colorScheme={effectiveColorScheme}
