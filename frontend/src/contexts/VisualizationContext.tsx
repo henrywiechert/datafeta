@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, ReactNode, useRef, useCallback } from 'react';
-import { Field, Database, Table, QueryResult, FilterConfig, FilterMetadata, VirtualColumnDefinition, FieldOverrideState } from '../types';
+import { Field, Database, Table, QueryResult, FilterConfig, FilterMetadata, VirtualColumnDefinition, FieldOverrideState, UserChartType } from '../types';
 import { getTimeoutForOperation } from '../config/loadingConfig';
 
 // Define loading operation types
@@ -57,6 +57,8 @@ interface VisualizationState {
   virtualColumnFieldPreferences: Record<string, { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }>;
   // Per-field chart overrides
   fieldOverrides: Record<string, FieldOverrideState>;
+  // Global chart type override (applies to all charts when set)
+  globalChartType: UserChartType | null;
   queryVersion: number; // increments only when query semantics change
 }
 
@@ -133,6 +135,8 @@ type VisualizationAction =
   | { type: 'SET_FIELD_OVERRIDES'; payload: Record<string, FieldOverrideState> }
   | { type: 'UPDATE_FIELD_OVERRIDE'; payload: { fieldId: string; override: Partial<FieldOverrideState> } }
   | { type: 'CLEAR_FIELD_OVERRIDE'; payload: { fieldId: string } }
+  // Global chart type action
+  | { type: 'SET_GLOBAL_CHART_TYPE'; payload: UserChartType | null }
   // Undo/Redo actions
   | { type: 'RESTORE_UNDOABLE_STATE'; payload: {
       xAxisFields: Field[];
@@ -149,6 +153,7 @@ type VisualizationAction =
       virtualColumns: VirtualColumnDefinition[];
       virtualColumnFieldPreferences: Record<string, { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }>;
       fieldOverrides: Record<string, FieldOverrideState>;
+      globalChartType?: UserChartType | null;
     } }
   // Multi-table actions (joins/unions)
   | { type: 'TABLE_JOINS_UNIONS_MODIFIED' };
@@ -204,6 +209,8 @@ const initialState: VisualizationState = {
   virtualColumnFieldPreferences: {},
   // Per-field overrides default
   fieldOverrides: {},
+  // Global chart type default (null = auto-detect)
+  globalChartType: null,
   queryVersion: 0,
 };
 
@@ -658,12 +665,15 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
       
       const next = { ...state.fieldOverrides };
       delete next[action.payload.fieldId];
-      return { 
-        ...state, 
+      return {
+        ...state,
         fieldOverrides: next,
         queryVersion: affectsQuery ? state.queryVersion + 1 : state.queryVersion,
       };
     }
+    case 'SET_GLOBAL_CHART_TYPE':
+      // Global chart type is purely visual; does not affect query semantics
+      return { ...state, globalChartType: action.payload };
     case 'RESTORE_UNDOABLE_STATE':
       return {
         ...state,
@@ -681,6 +691,7 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
         virtualColumns: action.payload.virtualColumns,
         virtualColumnFieldPreferences: action.payload.virtualColumnFieldPreferences || {},
         fieldOverrides: action.payload.fieldOverrides || {},
+        globalChartType: action.payload.globalChartType ?? null,
         queryVersion: state.queryVersion + 1,
       };
     case 'RESET_STATE':

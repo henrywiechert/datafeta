@@ -22,6 +22,7 @@ interface FieldOverrideHandlers {
   clearColorOverridesForAllFields: () => void;
   clearSizeOverridesForAllFields: () => void;
   clearLabelOverridesForAllFields: () => void;
+  clearChartTypeOverridesForAllFields: () => void;
   fieldById: Record<string, Field>;
   resolveColorField: (override: FieldOverrideState) => Field | null;
   resolveSizeField: (override: FieldOverrideState) => Field | null;
@@ -105,6 +106,15 @@ export const useFieldOverrides = (props: UseFieldOverridesProps): FieldOverrideH
     dispatch({ type: 'SET_FIELD_OVERRIDES', payload: next });
   };
 
+  const clearChartTypeOverridesForAllFields = () => {
+    const next: typeof fieldOverrides = {};
+    Object.entries(fieldOverrides || {}).forEach(([id, override]: any) => {
+      const { chartType, ...rest } = override || {};
+      next[id] = rest;
+    });
+    dispatch({ type: 'SET_FIELD_OVERRIDES', payload: next });
+  };
+
   const resolveColorField = (override: FieldOverrideState): Field | null => {
     return override.colorField || (override.colorFieldId ? fieldById[override.colorFieldId] || null : null);
   };
@@ -119,6 +129,7 @@ export const useFieldOverrides = (props: UseFieldOverridesProps): FieldOverrideH
     clearColorOverridesForAllFields,
     clearSizeOverridesForAllFields,
     clearLabelOverridesForAllFields,
+    clearChartTypeOverridesForAllFields,
     fieldById,
     resolveColorField,
     resolveSizeField,
