@@ -142,6 +142,65 @@ export function generatePairChartOptions(
           return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, labelCfg, tooltipFields);
     }
     case 'barX': {
+      // barX expects a measure on X and optional category on Y
+      // Fallback handling for mismatched field types:
+      if (xf.type !== 'measure') {
+        // If X is not a measure, try to find the measure on Y
+        if (yf.type === 'measure') {
+          // Swap: use Y as measure, X as category (render as barY)
+          return createBarY(
+            data,
+            yf,
+            xf.type === 'dimension' ? xf : null,
+            sharedMeasureDomains,
+            colorField,
+            sizeField,
+            sizeRange,
+            manualSize,
+            colorScheme,
+            colorBias,
+            manualColor,
+            tooltipFields
+          );
+        }
+        // Neither is a measure: fallback to scatter
+        const { xCol, yCol } = resolveXYColumns(xf, yf);
+        return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, labelCfg, tooltipFields);
+      }
+      // X is a measure - check if Y is also a measure (measure vs measure)
+      if (yf.type === 'measure') {
+        // Aggregate to single point and render as single bar (no category)
+        const { xCol, yCol } = resolveXYColumns(xf, yf);
+        const aggregate = (col: string, agg?: string) => {
+          const values = (Array.isArray(data) ? data : []).map((d) => d?.[col]).filter((v) => typeof v === 'number' && Number.isFinite(v)) as number[];
+          if (values.length === 0) return 0;
+          const a = (agg || 'sum').toLowerCase();
+          switch (a) {
+            case 'sum': return values.reduce((s, v) => s + v, 0);
+            case 'count':
+            case 'count_distinct': return values.reduce((s, v) => s + v, 0);
+            case 'min': return Math.min(...values);
+            case 'max': return Math.max(...values);
+            case 'avg': return values.reduce((s, v) => s + v, 0) / values.length;
+            default: return values.reduce((s, v) => s + v, 0);
+          }
+        };
+        const aggData = [{ [xCol]: aggregate(xCol, xf.aggregation) }];
+        return createBarX(
+          aggData,
+          xf,
+          null,  // No category dimension
+          sharedMeasureDomains,
+          undefined,  // No color for single bar
+          undefined,
+          undefined,
+          manualSize,
+          colorScheme,
+          colorBias,
+          manualColor,
+          tooltipFields
+        );
+      }
       return createBarX(
         data,
         xf,
@@ -158,6 +217,65 @@ export function generatePairChartOptions(
       );
     }
     case 'barY': {
+      // barY expects a measure on Y and optional category on X
+      // Fallback handling for mismatched field types:
+      if (yf.type !== 'measure') {
+        // If Y is not a measure, try to find the measure on X
+        if (xf.type === 'measure') {
+          // Swap: use X as measure, Y as category (render as barX)
+          return createBarX(
+            data,
+            xf,
+            yf.type === 'dimension' ? yf : null,
+            sharedMeasureDomains,
+            colorField,
+            sizeField,
+            sizeRange,
+            manualSize,
+            colorScheme,
+            colorBias,
+            manualColor,
+            tooltipFields
+          );
+        }
+        // Neither is a measure: fallback to scatter
+        const { xCol, yCol } = resolveXYColumns(xf, yf);
+        return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, labelCfg, tooltipFields);
+      }
+      // Y is a measure - check if X is also a measure (measure vs measure)
+      if (xf.type === 'measure') {
+        // Aggregate to single point and render as single bar (no category)
+        const { xCol, yCol } = resolveXYColumns(xf, yf);
+        const aggregate = (col: string, agg?: string) => {
+          const values = (Array.isArray(data) ? data : []).map((d) => d?.[col]).filter((v) => typeof v === 'number' && Number.isFinite(v)) as number[];
+          if (values.length === 0) return 0;
+          const a = (agg || 'sum').toLowerCase();
+          switch (a) {
+            case 'sum': return values.reduce((s, v) => s + v, 0);
+            case 'count':
+            case 'count_distinct': return values.reduce((s, v) => s + v, 0);
+            case 'min': return Math.min(...values);
+            case 'max': return Math.max(...values);
+            case 'avg': return values.reduce((s, v) => s + v, 0) / values.length;
+            default: return values.reduce((s, v) => s + v, 0);
+          }
+        };
+        const aggData = [{ [yCol]: aggregate(yCol, yf.aggregation) }];
+        return createBarY(
+          aggData,
+          yf,
+          null,  // No category dimension
+          sharedMeasureDomains,
+          undefined,  // No color for single bar
+          undefined,
+          undefined,
+          manualSize,
+          colorScheme,
+          colorBias,
+          manualColor,
+          tooltipFields
+        );
+      }
       return createBarY(
         data,
         yf,
@@ -174,10 +292,16 @@ export function generatePairChartOptions(
       );
     }
     case 'tickX': {
-      // continuous dimension on X, optional discrete dimension category on Y
+      // Tick strip along X axis - expects continuous data on X
+      // First, try continuous dimension on X
       const xDim = xf.type === 'dimension' && xf.flavour === 'continuous' ? xf : null;
+      // If X is a measure (continuous), we can also render as tick strip
+      const xMeasure = xf.type === 'measure' && xf.flavour === 'continuous' ? xf : null;
+      const xContinuous = xDim || xMeasure;
       const category = yf.type === 'dimension' && yf.flavour === 'discrete' ? yf : null;
-      if (xDim) {
+      
+      if (xContinuous) {
+        const xCol = xDim ? getResultColumnName(xDim) : getResultColumnName({ ...xMeasure!, aggregation: xMeasure!.aggregation || 'sum' } as any);
         return tickStrip(
           // Build minimal context for tickStrip API, including size parameters
           { 
@@ -192,18 +316,48 @@ export function generatePairChartOptions(
             manualSize
           },
           'x',
-          getResultColumnName(xDim),
+          xCol,
           category ? getResultColumnName(category) : undefined
         );
       }
+      // If X is discrete but Y has continuous data, swap to tickY
+      if (yf.flavour === 'continuous') {
+        const yCol = yf.type === 'measure' 
+          ? getResultColumnName({ ...yf, aggregation: yf.aggregation || 'sum' } as any)
+          : getResultColumnName(yf);
+        const xCategory = xf.type === 'dimension' && xf.flavour === 'discrete' ? xf : null;
+        return tickStrip(
+          { 
+            xFields: [], 
+            yFields: [], 
+            queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any,
+            colorField,
+            colorScheme,
+            colorBias,
+            sizeField,
+            sizeRange,
+            manualSize
+          },
+          'y',
+          yCol,
+          xCategory ? getResultColumnName(xCategory) : undefined
+        );
+      }
+      // Both discrete - fallback to scatter/dot
       const { xCol, yCol } = resolveXYColumns(xf, yf);
-	  return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, labelCfg);
+      return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, labelCfg, tooltipFields);
     }
     case 'tickY': {
-      // continuous dimension on Y, optional discrete dimension category on X
+      // Tick strip along Y axis - expects continuous data on Y
+      // First, try continuous dimension on Y
       const yDim = yf.type === 'dimension' && yf.flavour === 'continuous' ? yf : null;
+      // If Y is a measure (continuous), we can also render as tick strip
+      const yMeasure = yf.type === 'measure' && yf.flavour === 'continuous' ? yf : null;
+      const yContinuous = yDim || yMeasure;
       const category = xf.type === 'dimension' && xf.flavour === 'discrete' ? xf : null;
-      if (yDim) {
+      
+      if (yContinuous) {
+        const yCol = yDim ? getResultColumnName(yDim) : getResultColumnName({ ...yMeasure!, aggregation: yMeasure!.aggregation || 'sum' } as any);
         return tickStrip(
           {
             xFields: [], 
@@ -217,12 +371,36 @@ export function generatePairChartOptions(
             manualSize
           },
           'y',
-          getResultColumnName(yDim),
+          yCol,
           category ? getResultColumnName(category) : undefined
         );
       }
-  const { xCol, yCol } = resolveXYColumns(xf, yf);
-	  return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, labelCfg);
+      // If Y is discrete but X has continuous data, swap to tickX
+      if (xf.flavour === 'continuous') {
+        const xCol = xf.type === 'measure' 
+          ? getResultColumnName({ ...xf, aggregation: xf.aggregation || 'sum' } as any)
+          : getResultColumnName(xf);
+        const yCategory = yf.type === 'dimension' && yf.flavour === 'discrete' ? yf : null;
+        return tickStrip(
+          { 
+            xFields: [], 
+            yFields: [], 
+            queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any,
+            colorField,
+            colorScheme,
+            colorBias,
+            sizeField,
+            sizeRange,
+            manualSize
+          },
+          'x',
+          xCol,
+          yCategory ? getResultColumnName(yCategory) : undefined
+        );
+      }
+      // Both discrete - fallback to scatter/dot
+      const { xCol, yCol } = resolveXYColumns(xf, yf);
+      return scatterChart(data, xCol, yCol, { x: xCol, y: yCol }, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, labelCfg, tooltipFields);
     }
     case 'dot': {
       const xCol = xf.columnName;
@@ -413,5 +591,4 @@ function messageOptions(text: string): Plot.PlotOptions {
     marks: [Plot.text([text], { frameAnchor: 'middle', fontSize: 12, fill: 'gray' })],
   };
 }
-
 

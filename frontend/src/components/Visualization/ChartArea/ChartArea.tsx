@@ -40,6 +40,7 @@ const ChartArea: React.FC = () => {
     tooltipFields,
     virtualColumns,
     fieldOverrides,
+    globalChartType,
   } = state as any;
   const { selectedTable, selectedDatabase, virtualTable } = dataSource;
   
@@ -135,6 +136,7 @@ const ChartArea: React.FC = () => {
     labelSampleEvery,
     tooltipFields,
     fieldOverrides,
+    globalChartType,
   });
 
   // Use the extracted debug view hook
