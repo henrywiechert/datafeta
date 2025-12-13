@@ -117,10 +117,19 @@ export function useDragDrop(availableFields?: Field[]) {
     // Record current state for undo
     recordAction(getUndoableSnapshot());
     
-    const newXFields = xAxisFields.filter(f => f.id !== fieldId);
-    const newYFields = yAxisFields.filter(f => f.id !== fieldId);
-    dispatch({ type: 'SET_X_AXIS_FIELDS', payload: newXFields });
-    dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: newYFields });
+    // Check which axis contains the field and only update that axis
+    const isInXAxis = xAxisFields.some(f => f.id === fieldId);
+    const isInYAxis = yAxisFields.some(f => f.id === fieldId);
+    
+    if (isInXAxis) {
+      const newXFields = xAxisFields.filter(f => f.id !== fieldId);
+      dispatch({ type: 'SET_X_AXIS_FIELDS', payload: newXFields });
+    }
+    
+    if (isInYAxis) {
+      const newYFields = yAxisFields.filter(f => f.id !== fieldId);
+      dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: newYFields });
+    }
   }, [dispatch, xAxisFields, yAxisFields, recordAction, getUndoableSnapshot]);
   
   /**
@@ -134,8 +143,14 @@ export function useDragDrop(availableFields?: Field[]) {
     const fieldIdSet = new Set(fieldIds);
     const newXFields = xAxisFields.filter(f => !fieldIdSet.has(f.id));
     const newYFields = yAxisFields.filter(f => !fieldIdSet.has(f.id));
-    dispatch({ type: 'SET_X_AXIS_FIELDS', payload: newXFields });
-    dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: newYFields });
+    
+    // Only dispatch if fields were actually removed from that axis
+    if (newXFields.length !== xAxisFields.length) {
+      dispatch({ type: 'SET_X_AXIS_FIELDS', payload: newXFields });
+    }
+    if (newYFields.length !== yAxisFields.length) {
+      dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: newYFields });
+    }
   }, [dispatch, xAxisFields, yAxisFields, recordAction, getUndoableSnapshot]);
   
   /**
