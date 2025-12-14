@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useRef, useEffect, useMemo } from 'react';
 import { flushSync } from 'react-dom';
 import { Field, DragSource } from '../types';
 
@@ -14,10 +14,8 @@ interface SelectionState {
   anchorSource: DragSource | null;
 }
 
-interface SelectionContextType {
-  selectedFields: SelectedField[];
-  anchorFieldId: string | null;
-  anchorSource: DragSource | null;
+// Callbacks context - stable, never changes
+interface SelectionCallbacksType {
   isSelected: (fieldId: string, source: DragSource) => boolean;
   getSelectedCount: () => number;
   getSelectedFieldsForSource: (source: DragSource) => SelectedField[];
@@ -30,8 +28,34 @@ interface SelectionContextType {
   clearSelectionIfDifferentSource: (source: DragSource) => void;
 }
 
+// Full context type (includes state - causes re-renders when selection changes)
+interface SelectionContextType extends SelectionCallbacksType {
+  selectedFields: SelectedField[];
+  anchorFieldId: string | null;
+  anchorSource: DragSource | null;
+}
+
+// Two separate contexts: one for callbacks (stable), one for state (changes)
+const SelectionCallbacksContext = createContext<SelectionCallbacksType | undefined>(undefined);
 const SelectionContext = createContext<SelectionContextType | undefined>(undefined);
 
+/**
+ * Use this hook when you ONLY need the stable callbacks (isSelected, getSelectedCount, etc.)
+ * Components using this hook will NOT re-render when selection state changes.
+ * The callbacks use refs internally to always return current state.
+ */
+export const useSelectionCallbacks = () => {
+  const context = useContext(SelectionCallbacksContext);
+  if (!context) {
+    throw new Error('useSelectionCallbacks must be used within a SelectionProvider');
+  }
+  return context;
+};
+
+/**
+ * Use this hook when you need access to the selection state (selectedFields, etc.)
+ * Components using this hook WILL re-render when selection state changes.
+ */
 export const useSelection = () => {
   const context = useContext(SelectionContext);
   if (!context) {
@@ -51,29 +75,26 @@ export const SelectionProvider: React.FC<SelectionProviderProps> = ({ children }
     anchorSource: null,
   });
 
-  // Debug: Log state changes
-  React.useEffect(() => {
-    console.log('[SelectionContext] State updated:', {
-      selectedCount: state.selectedFields.length,
-      anchorFieldId: state.anchorFieldId,
-      anchorSource: state.anchorSource,
-      fields: state.selectedFields.map(f => f.field.columnName)
-    });
+  // Use a ref to always have current state available without causing callback recreation
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
   }, [state]);
 
+  // These callbacks use the ref so they don't need to recreate when state changes
   const isSelected = useCallback((fieldId: string, source: DragSource): boolean => {
-    return state.selectedFields.some(
+    return stateRef.current.selectedFields.some(
       sf => sf.fieldId === fieldId && sf.source === source
     );
-  }, [state.selectedFields]);
+  }, []);
 
   const getSelectedCount = useCallback((): number => {
-    return state.selectedFields.length;
-  }, [state.selectedFields]);
+    return stateRef.current.selectedFields.length;
+  }, []);
 
   const getSelectedFieldsForSource = useCallback((source: DragSource): SelectedField[] => {
-    return state.selectedFields.filter(sf => sf.source === source);
-  }, [state.selectedFields]);
+    return stateRef.current.selectedFields.filter(sf => sf.source === source);
+  }, []);
 
   const selectField = useCallback((fieldId: string, source: DragSource, field: Field) => {
     setState(prevState => {
@@ -106,12 +127,6 @@ export const SelectionProvider: React.FC<SelectionProviderProps> = ({ children }
   const selectSingle = useCallback((fieldId: string, source: DragSource, field: Field) => {
     // Atomically clear all selection and select only this field
     // This ensures the anchor is properly set to this field
-    console.log('[SelectionContext] selectSingle called:', { 
-      fieldId, 
-      fieldName: field.columnName, 
-      source,
-      settingAnchor: fieldId 
-    });
     // Use flushSync for immediate visual feedback
     flushSync(() => {
       setState({
@@ -210,13 +225,6 @@ export const SelectionProvider: React.FC<SelectionProviderProps> = ({ children }
         field,
       }));
 
-    console.log('[SelectionContext] Selecting range:', {
-      startIndex,
-      endIndex,
-      fieldCount: rangeFields.length,
-      fields: rangeFields.map(f => f.field.columnName)
-    });
-
     // Shift-click replaces selection with the range (standard behavior)
     // Don't merge with existing selection - just select the range
     setState({
@@ -250,7 +258,7 @@ export const SelectionProvider: React.FC<SelectionProviderProps> = ({ children }
     });
   }, []);
 
-  const value: SelectionContextType = React.useMemo(() => ({
+  const value: SelectionContextType = useMemo(() => ({
     selectedFields: state.selectedFields,
     anchorFieldId: state.anchorFieldId,
     anchorSource: state.anchorSource,
@@ -280,10 +288,36 @@ export const SelectionProvider: React.FC<SelectionProviderProps> = ({ children }
     clearSelectionIfDifferentSource,
   ]);
 
+  // Callbacks-only context - completely stable, never changes
+  const callbacksValue: SelectionCallbacksType = useMemo(() => ({
+    isSelected,
+    getSelectedCount,
+    getSelectedFieldsForSource,
+    selectField,
+    selectSingle,
+    deselectField,
+    toggleSelection,
+    selectRange,
+    clearSelection,
+    clearSelectionIfDifferentSource,
+  }), [
+    isSelected,
+    getSelectedCount,
+    getSelectedFieldsForSource,
+    selectField,
+    selectSingle,
+    deselectField,
+    toggleSelection,
+    selectRange,
+    clearSelection,
+    clearSelectionIfDifferentSource,
+  ]);
+
   return (
-    <SelectionContext.Provider value={value}>
-      {children}
-    </SelectionContext.Provider>
+    <SelectionCallbacksContext.Provider value={callbacksValue}>
+      <SelectionContext.Provider value={value}>
+        {children}
+      </SelectionContext.Provider>
+    </SelectionCallbacksContext.Provider>
   );
 };
-
