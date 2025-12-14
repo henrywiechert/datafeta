@@ -1,7 +1,7 @@
-import { useCallback, useRef, useEffect, useState } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { Field } from '../../../types';
 import { DragSource } from './types';
-import { useSelectionCallbacks } from '../../../contexts/SelectionContext';
+import { useSelection } from '../../../contexts/SelectionContext';
 
 interface UseFieldSelectionProps {
   field: Field;
@@ -19,83 +19,62 @@ interface UseFieldSelectionReturn {
 /**
  * Custom hook to handle field selection logic
  * Supports single-click, Ctrl/Cmd+click (toggle), and Shift+click (range)
- * 
- * Uses useSelectionCallbacks to avoid re-renders when other fields' selection changes.
- * Only re-renders when THIS field's selection state changes (via local state).
  */
 export const useFieldSelection = ({
   field,
   source,
   allFields,
 }: UseFieldSelectionProps): UseFieldSelectionReturn => {
-  const callbacks = useSelectionCallbacks();
+  const selection = useSelection();
+  const selectionRef = useRef(selection);
   
-  // Track this field's selected state locally to trigger re-renders when it changes
-  // We initialize by checking current state, and update via mouse handlers
-  const [isSelected, setIsSelected] = useState(() => callbacks.isSelected(field.id, source));
-  
-  // Use refs to avoid callback recreation when props change
-  const fieldRef = useRef(field);
-  const sourceRef = useRef(source);
-  const allFieldsRef = useRef(allFields);
-  const callbacksRef = useRef(callbacks);
-  
-  // Update refs synchronously
-  fieldRef.current = field;
-  sourceRef.current = source;
-  allFieldsRef.current = allFields;
-  callbacksRef.current = callbacks;
-
-  // Sync isSelected state when field changes
+  // Keep selection ref up-to-date
   useEffect(() => {
-    setIsSelected(callbacks.isSelected(field.id, source));
-  }, [field.id, source, callbacks]);
+    selectionRef.current = selection;
+  }, [selection]);
+
+  const isSelected = selection.isSelected(field.id, source);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    const cb = callbacksRef.current;
-    const currentField = fieldRef.current;
-    const currentSource = sourceRef.current;
-    const currentAllFields = allFieldsRef.current;
-    const currentIsSelected = cb.isSelected(currentField.id, currentSource);
+    const currentSelection = selectionRef.current;
+    const currentIsSelected = currentSelection.isSelected(field.id, source);
     
     // Detect modifier keys
     const isCtrlOrCmd = e.ctrlKey || e.metaKey;
     const isShift = e.shiftKey;
 
-    if (isShift && currentAllFields) {
+    console.log('[useFieldSelection] handleMouseDown:', {
+      fieldName: field.columnName,
+      isShift,
+      isCtrlOrCmd,
+      isSelected: currentIsSelected,
+      selectionCount: currentSelection.selectedFields.length,
+      hasAnchor: !!currentSelection.anchorFieldId,
+      source
+    });
+
+    if (isShift && currentSelection.anchorFieldId && allFields) {
       // Shift+click: Select range from anchor to this field
-      // We need to get anchor from the callback's ref
+      console.log('[useFieldSelection] Shift-click: calling selectRange');
       e.preventDefault();
       e.stopPropagation();
-      // For range selection, we get anchor from internal state via getSelectedFieldsForSource
-      const selectedForSource = cb.getSelectedFieldsForSource(currentSource);
-      if (selectedForSource.length > 0) {
-        // Use the first selected field as anchor for range
-        const anchorId = selectedForSource[0].fieldId;
-        cb.selectRange(anchorId, currentField.id, currentSource, currentAllFields);
-      } else {
-        // No anchor, just select this one
-        cb.selectSingle(currentField.id, currentSource, currentField);
-      }
-      // Update local state - this field should now be selected
-      setIsSelected(true);
+      currentSelection.selectRange(currentSelection.anchorFieldId, field.id, source, allFields);
     } else if (isCtrlOrCmd) {
       // Ctrl/Cmd+click: Toggle selection
+      console.log('[useFieldSelection] Ctrl/Cmd-click: calling toggleSelection');
       e.preventDefault();
       e.stopPropagation();
-      cb.toggleSelection(currentField.id, currentSource, currentField);
-      // Update local state
-      setIsSelected(!currentIsSelected);
-    } else if (currentIsSelected && cb.getSelectedCount() > 1) {
+      currentSelection.toggleSelection(field.id, source, field);
+    } else if (currentIsSelected && currentSelection.selectedFields.length > 1) {
       // Field is already selected as part of multi-selection
       // Preserve selection for multi-field drag
+      console.log('[useFieldSelection] Already selected in multi-selection: preserving selection for drag');
     } else {
       // Regular mousedown: Select this field
-      cb.selectSingle(currentField.id, currentSource, currentField);
-      // Update local state
-      setIsSelected(true);
+      console.log('[useFieldSelection] Regular mousedown: calling selectSingle');
+      currentSelection.selectSingle(field.id, source, field);
     }
-  }, []); // Empty deps - all values accessed via refs
+  }, [field, source, allFields]);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -105,19 +84,16 @@ export const useFieldSelection = ({
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const cb = callbacksRef.current;
-    const currentField = fieldRef.current;
-    const currentSource = sourceRef.current;
-    const currentIsSelected = cb.isSelected(currentField.id, currentSource);
+    const currentSelection = selectionRef.current;
+    const currentIsSelected = currentSelection.isSelected(field.id, source);
     
     // If field is not selected, select it first
     if (!currentIsSelected) {
-      cb.selectSingle(currentField.id, currentSource, currentField);
-      setIsSelected(true);
+      currentSelection.selectSingle(field.id, source, field);
     }
     
     return { x: e.clientX, y: e.clientY };
-  }, []); // Empty deps - all values accessed via refs
+  }, [field, source]);
 
   return {
     isSelected,

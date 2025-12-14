@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Field } from '../types';
 
@@ -37,18 +37,6 @@ export function useFieldOperations({
     dispatch,
     dataSourceSetters
 }: UseFieldOperationsParams): UseFieldOperationsReturn {
-    // Use refs to access current values without causing callback recreation
-    const availableFieldsRef = useRef(availableFields);
-    availableFieldsRef.current = availableFields;
-    
-    const xAxisFieldsRef = useRef(xAxisFields);
-    xAxisFieldsRef.current = xAxisFields;
-    
-    const yAxisFieldsRef = useRef(yAxisFields);
-    yAxisFieldsRef.current = yAxisFields;
-    
-    const availableFieldsWithVirtualRef = useRef(availableFieldsWithVirtual);
-    availableFieldsWithVirtualRef.current = availableFieldsWithVirtual;
 
     const handleDropFromAvailableFields = useCallback((targetAxis: 'x' | 'y', fieldId: string | string[], insertIndex?: number) => {
         // Always work with arrays (single field = array of length 1)
@@ -56,7 +44,7 @@ export function useFieldOperations({
         
         // Map field IDs to actual field objects with new UUIDs
         const fieldsToAdd = fieldIds.map(id => {
-            const field = availableFieldsWithVirtualRef.current.find(f => f.id === id);
+            const field = availableFieldsWithVirtual.find(f => f.id === id);
             if (!field) return null;
             return { ...field, id: uuidv4() };
         }).filter(Boolean) as Field[];
@@ -64,7 +52,7 @@ export function useFieldOperations({
         if (fieldsToAdd.length === 0) return;
         
         // Get current fields for target axis
-        const currentFields = targetAxis === 'x' ? xAxisFieldsRef.current : yAxisFieldsRef.current;
+        const currentFields = targetAxis === 'x' ? xAxisFields : yAxisFields;
         
         // Insert fields at specified index or append to end
         const newFields = [...currentFields];
@@ -79,23 +67,23 @@ export function useFieldOperations({
             type: targetAxis === 'x' ? 'SET_X_AXIS_FIELDS' : 'SET_Y_AXIS_FIELDS', 
             payload: newFields 
         });
-    }, [dispatch]);
+    }, [xAxisFields, yAxisFields, availableFieldsWithVirtual, dispatch]);
 
     const handleRemoveFromAxis = useCallback((fieldId: string) => {
-        const newXFields = xAxisFieldsRef.current.filter(f => f.id !== fieldId);
-        const newYFields = yAxisFieldsRef.current.filter(f => f.id !== fieldId);
+        const newXFields = xAxisFields.filter(f => f.id !== fieldId);
+        const newYFields = yAxisFields.filter(f => f.id !== fieldId);
         dispatch({ type: 'SET_X_AXIS_FIELDS', payload: newXFields });
         dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: newYFields });
-    }, [dispatch]);
+    }, [xAxisFields, yAxisFields, dispatch]);
     
     // Batch removal for multiple fields to avoid race conditions
     const handleRemoveMultipleFromAxis = useCallback((fieldIds: string[]) => {
         const fieldIdSet = new Set(fieldIds);
-        const newXFields = xAxisFieldsRef.current.filter(f => !fieldIdSet.has(f.id));
-        const newYFields = yAxisFieldsRef.current.filter(f => !fieldIdSet.has(f.id));
+        const newXFields = xAxisFields.filter(f => !fieldIdSet.has(f.id));
+        const newYFields = yAxisFields.filter(f => !fieldIdSet.has(f.id));
         dispatch({ type: 'SET_X_AXIS_FIELDS', payload: newXFields });
         dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: newYFields });
-    }, [dispatch]);
+    }, [xAxisFields, yAxisFields, dispatch]);
 
     // Helper function for batch update logic (used by handleFieldUpdate)
     const batchUpdateFields = useCallback((updatedFields: Field[]) => {
@@ -128,15 +116,14 @@ export function useFieldOperations({
         
         // Update regular fields in availableFields in one batch
         if (regularFields.length > 0) {
-            const currentAvailableFields = availableFieldsRef.current;
-            const updatedAvailableFields = currentAvailableFields.map((f) => 
+            const updatedAvailableFields = availableFields.map((f) => 
                 updatedFieldsMap.has(f.id) ? updatedFieldsMap.get(f.id)! : f
             );
-            if (updatedAvailableFields.some((f, i) => f !== currentAvailableFields[i])) {
+            if (updatedAvailableFields.some((f, i) => f !== availableFields[i])) {
                 dataSourceSetters.setAvailableFields(updatedAvailableFields);
             }
         }
-    }, [dispatch, dataSourceSetters]);
+    }, [dispatch, availableFields, dataSourceSetters]);
 
     const handleFieldUpdate = useCallback((updatedField: Field | Field[]) => {
         // Normalize to array for consistent handling
@@ -166,11 +153,10 @@ export function useFieldOperations({
                     },
                 });
             } else {
-                const currentAvailableFields = availableFieldsRef.current;
-                const updatedAvailableFields = currentAvailableFields.map((f) => 
+                const updatedAvailableFields = availableFields.map((f) => 
                     f.id === field.id ? field : f
                 );
-                if (updatedAvailableFields.some((f, i) => f !== currentAvailableFields[i])) {
+                if (updatedAvailableFields.some((f, i) => f !== availableFields[i])) {
                     dataSourceSetters.setAvailableFields(updatedAvailableFields);
                 }
             }
@@ -178,10 +164,10 @@ export function useFieldOperations({
             // Multiple fields - use batch update logic
             batchUpdateFields(fieldsToUpdate);
         }
-    }, [dispatch, dataSourceSetters, batchUpdateFields]);
+    }, [dispatch, availableFields, dataSourceSetters, batchUpdateFields]);
 
     const handleReorderFields = useCallback((axis: 'x' | 'y', fromIndex: number, toIndex: number) => {
-        const currentFields = axis === 'x' ? xAxisFieldsRef.current : yAxisFieldsRef.current;
+        const currentFields = axis === 'x' ? xAxisFields : yAxisFields;
         const newFields = [...currentFields];
         
         // Remove the field from its current position
@@ -194,7 +180,7 @@ export function useFieldOperations({
         } else {
             dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: newFields });
         }
-    }, [dispatch]);
+    }, [xAxisFields, yAxisFields, dispatch]);
 
     const handleMoveFieldBetweenAxes = useCallback((fieldId: string, fromAxis: 'x' | 'y', toAxis: 'x' | 'y', insertIndex?: number) => {
         // Use atomic action to move field between axes without triggering double query

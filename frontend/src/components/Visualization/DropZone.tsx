@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Field } from '../../types';
 import FieldChip, { DragSource } from './FieldChip';
-import { useSelectionCallbacks } from '../../contexts/SelectionContext';
+import { useSelection } from '../../contexts/SelectionContext';
 import styles from './DropZone.module.css';
 
 // Style constants
@@ -117,7 +117,7 @@ const DropZone: React.FC<DropZoneProps> = ({
   const [isOver, setIsOver] = useState(false);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const dragLeaveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-  const { clearSelection } = useSelectionCallbacks();
+  const selection = useSelection();
 
   // Reset drag state when any drag operation ends globally
   React.useEffect(() => {
@@ -325,7 +325,7 @@ const DropZone: React.FC<DropZoneProps> = ({
         onReorderFields(axis, sourceIndex, targetIndex);
       }
       // Clear selection after successful drop
-      clearSelection();
+      selection.clearSelection();
       return;
     }
     
@@ -341,7 +341,7 @@ const DropZone: React.FC<DropZoneProps> = ({
           onMoveFieldBetweenAxes(firstField.id, fromAxis, toAxis, insertIndex);
         }
         // Clear selection after successful drop
-        clearSelection();
+        selection.clearSelection();
         return;
       }
     }
@@ -355,7 +355,7 @@ const DropZone: React.FC<DropZoneProps> = ({
     onDrop(processedFields, source, insertIndex);
     
     // Clear selection after successful drop
-    clearSelection();
+    selection.clearSelection();
   };
 
   const dropZoneClass = `${styles.dropZone} ${isOver ? styles.isOver : ''}`;

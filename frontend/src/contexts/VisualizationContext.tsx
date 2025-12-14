@@ -897,27 +897,16 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     state.fieldOverrides,
   ]);
 
-  // Memoize context value to prevent unnecessary re-renders of consumers
-  // when VisualizationProvider re-renders but the value hasn't changed
-  const contextValue = React.useMemo(() => ({
-    state, 
-    dispatch, 
-    startOperation, 
-    completeOperation, 
-    cancelOperation, 
-    timeoutRefs,
-    getUndoableSnapshot
-  }), [
-    state,
-    dispatch,
-    startOperation,
-    completeOperation,
-    cancelOperation,
-    getUndoableSnapshot
-  ]);
-
   return (
-    <VisualizationContext.Provider value={contextValue}>
+    <VisualizationContext.Provider value={{ 
+      state, 
+      dispatch, 
+      startOperation, 
+      completeOperation, 
+      cancelOperation, 
+      timeoutRefs,
+      getUndoableSnapshot
+    }}>
       {children}
     </VisualizationContext.Provider>
   );

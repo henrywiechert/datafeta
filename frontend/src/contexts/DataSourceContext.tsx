@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { Database, Table, Field, VirtualTableDefinition } from '../types';
 
 // Define the state interface for data source (shared across all sheets)
@@ -62,11 +62,11 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     virtualTable: null,
   });
 
-  const setSelectedDatabase = useCallback((database: string) => {
+  const setSelectedDatabase = (database: string) => {
     setDataSource(prev => ({ ...prev, selectedDatabase: database }));
-  }, []);
+  };
 
-  const setSelectedTable = useCallback((table: string) => {
+  const setSelectedTable = (table: string) => {
     setDataSource(prev => ({ 
       ...prev, 
       selectedTable: table,
@@ -77,17 +77,17 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
       suggestedUnionableTables: [],
       virtualTable: null,
     }));
-  }, []);
+  };
 
-  const setAvailableFields = useCallback((fields: Field[]) => {
+  const setAvailableFields = (fields: Field[]) => {
     setDataSource(prev => ({ ...prev, availableFields: fields }));
-  }, []);
+  };
 
-  const setDatabases = useCallback((databases: Database[]) => {
+  const setDatabases = (databases: Database[]) => {
     setDataSource(prev => ({ ...prev, databases }));
-  }, []);
+  };
 
-  const setTables = useCallback((tables: Table[]) => {
+  const setTables = (tables: Table[]) => {
     setDataSource(prev => ({ 
       ...prev, 
       tables,
@@ -96,44 +96,44 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
         ? { ...prev.tablesCache, [prev.selectedDatabase]: tables }
         : prev.tablesCache
     }));
-  }, []);
+  };
 
-  const setTablesForDatabase = useCallback((database: string, tables: Table[]) => {
+  const setTablesForDatabase = (database: string, tables: Table[]) => {
     setDataSource(prev => ({
       ...prev,
       tablesCache: { ...prev.tablesCache, [database]: tables }
     }));
-  }, []);
+  };
 
-  const setIsLoadingMetadata = useCallback((loading: boolean) => {
+  const setIsLoadingMetadata = (loading: boolean) => {
     setDataSource(prev => ({ ...prev, isLoadingMetadata: loading }));
-  }, []);
+  };
 
-  const setMetadataError = useCallback((error: string | null) => {
+  const setMetadataError = (error: string | null) => {
     setDataSource(prev => ({ ...prev, metadataError: error }));
-  }, []);
+  };
 
-  const setJoinedTables = useCallback((tables: string[]) => {
+  const setJoinedTables = (tables: string[]) => {
     setDataSource(prev => ({ ...prev, joinedTables: tables }));
-  }, []);
+  };
 
-  const setSuggestedJoinableTables = useCallback((tables: string[]) => {
+  const setSuggestedJoinableTables = (tables: string[]) => {
     setDataSource(prev => ({ ...prev, suggestedJoinableTables: tables }));
-  }, []);
+  };
 
-  const setUnionTables = useCallback((tables: Array<{database: string, table_name: string}>) => {
+  const setUnionTables = (tables: Array<{database: string, table_name: string}>) => {
     setDataSource(prev => ({ ...prev, unionTables: tables }));
-  }, []);
+  };
 
-  const setSuggestedUnionableTables = useCallback((tables: string[]) => {
+  const setSuggestedUnionableTables = (tables: string[]) => {
     setDataSource(prev => ({ ...prev, suggestedUnionableTables: tables }));
-  }, []);
+  };
 
-  const setVirtualTable = useCallback((virtualTable: VirtualTableDefinition | null) => {
+  const setVirtualTable = (virtualTable: VirtualTableDefinition | null) => {
     setDataSource(prev => ({ ...prev, virtualTable }));
-  }, []);
+  };
 
-  const toggleJoinedTable = useCallback((tableName: string) => {
+  const toggleJoinedTable = (tableName: string) => {
     setDataSource(prev => {
       const isCurrentlyJoined = prev.joinedTables.includes(tableName);
       const newJoinedTables = isCurrentlyJoined
@@ -141,9 +141,9 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
         : [...prev.joinedTables, tableName];
       return { ...prev, joinedTables: newJoinedTables };
     });
-  }, []);
+  };
 
-  const addUnionTable = useCallback((database: string, tableName: string) => {
+  const addUnionTable = (database: string, tableName: string) => {
     setDataSource(prev => {
       // Check if table is already in the union
       const exists = prev.unionTables.some(
@@ -156,57 +156,39 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
         unionTables: [...prev.unionTables, { database, table_name: tableName }]
       };
     });
-  }, []);
+  };
 
-  const removeUnionTable = useCallback((database: string, tableName: string) => {
+  const removeUnionTable = (database: string, tableName: string) => {
     setDataSource(prev => ({
       ...prev,
       unionTables: prev.unionTables.filter(
         ut => !(ut.database === database && ut.table_name === tableName)
       )
     }));
-  }, []);
-
-  const contextValue = useMemo(() => ({
-    dataSource,
-    setSelectedDatabase,
-    setSelectedTable,
-    setAvailableFields,
-    setDatabases,
-    setTables,
-    setTablesForDatabase,
-    setIsLoadingMetadata,
-    setMetadataError,
-    setJoinedTables,
-    setSuggestedJoinableTables,
-    setUnionTables,
-    setSuggestedUnionableTables,
-    setVirtualTable,
-    toggleJoinedTable,
-    addUnionTable,
-    removeUnionTable,
-  }), [
-    dataSource,
-    setSelectedDatabase,
-    setSelectedTable,
-    setAvailableFields,
-    setDatabases,
-    setTables,
-    setTablesForDatabase,
-    setIsLoadingMetadata,
-    setMetadataError,
-    setJoinedTables,
-    setSuggestedJoinableTables,
-    setUnionTables,
-    setSuggestedUnionableTables,
-    setVirtualTable,
-    toggleJoinedTable,
-    addUnionTable,
-    removeUnionTable,
-  ]);
+  };
 
   return (
-    <DataSourceContext.Provider value={contextValue}>
+    <DataSourceContext.Provider
+      value={{
+        dataSource,
+        setSelectedDatabase,
+        setSelectedTable,
+        setAvailableFields,
+        setDatabases,
+        setTables,
+        setTablesForDatabase,
+        setIsLoadingMetadata,
+        setMetadataError,
+        setJoinedTables,
+        setSuggestedJoinableTables,
+        setUnionTables,
+        setSuggestedUnionableTables,
+        setVirtualTable,
+        toggleJoinedTable,
+        addUnionTable,
+        removeUnionTable,
+      }}
+    >
       {children}
     </DataSourceContext.Provider>
   );
