@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
 import { useSheetContext } from '../contexts/SheetContext';
@@ -28,9 +28,8 @@ export function useVisualizationState() {
         setVirtualTable
     } = dataSourceContext;
 
-    // Memoize data source setters to prevent recreation on every render
-    // This prevents downstream hooks from recreating their callbacks unnecessarily
-    const dataSourceSetters = useMemo(() => ({
+    // Data source setters for sub-hooks
+    const dataSourceSetters = {
         setSelectedDatabase,
         setSelectedTable,
         setAvailableFields,
@@ -41,18 +40,7 @@ export function useVisualizationState() {
         setSuggestedJoinableTables,
         setSuggestedUnionableTables,
         setVirtualTable
-    }), [
-        setSelectedDatabase,
-        setSelectedTable,
-        setAvailableFields,
-        setDatabases,
-        setTables,
-        setIsLoadingMetadata,
-        setMetadataError,
-        setSuggestedJoinableTables,
-        setSuggestedUnionableTables,
-        setVirtualTable
-    ]);
+    };
 
     // Initialize sub-hooks
     const virtualColumns = useVirtualColumns({

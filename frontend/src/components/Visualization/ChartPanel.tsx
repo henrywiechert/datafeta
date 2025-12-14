@@ -3,7 +3,7 @@ import { Box } from '@mui/material';
 import DropZone from './DropZone';
 import ChartArea from './ChartArea';
 import { Field, DragSource } from '../../types';
-import { useSelectionCallbacks } from '../../contexts/SelectionContext';
+import { useSelection } from '../../contexts/SelectionContext';
 
 interface ChartPanelProps {
   xAxisFields: Field[];
@@ -26,14 +26,14 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
   onReorderFields,
   onMoveFieldBetweenAxes
 }) => {
-  const { clearSelection } = useSelectionCallbacks();
+  const selection = useSelection();
   const containerRef = useRef<HTMLDivElement>(null);
   
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        clearSelection();
+        selection.clearSelection();
       }
     };
     
@@ -41,13 +41,13 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [clearSelection]);
+  }, [selection]);
   
   // Handle clicks on empty space to clear selection
   const handleContainerClick = (e: React.MouseEvent) => {
     // Only clear if clicking on the container itself
     if (e.target === e.currentTarget) {
-      clearSelection();
+      selection.clearSelection();
     }
   };
   
