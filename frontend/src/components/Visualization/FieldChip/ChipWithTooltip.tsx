@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Field } from '../../../types';
 import Chip from '@mui/material/Chip';
 import Tooltip from '@mui/material/Tooltip';

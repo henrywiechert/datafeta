@@ -1,9 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { Box } from '@mui/material';
 import DropZone from './DropZone';
 import ChartArea from './ChartArea';
 import { Field, DragSource } from '../../types';
-import { useSelection } from '../../contexts/SelectionContext';
+import { useSelectionStore } from '../../stores/selectionStore';
 
 interface ChartPanelProps {
   xAxisFields: Field[];
@@ -26,14 +26,16 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
   onReorderFields,
   onMoveFieldBetweenAxes
 }) => {
-  const selection = useSelection();
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Get clearSelection action (stable reference, never causes re-render)
+  const clearSelection = useSelectionStore((s) => s.clearSelection);
   
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        selection.clearSelection();
+        clearSelection();
       }
     };
     
@@ -41,15 +43,15 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selection]);
+  }, [clearSelection]);
   
   // Handle clicks on empty space to clear selection
-  const handleContainerClick = (e: React.MouseEvent) => {
+  const handleContainerClick = useCallback((e: React.MouseEvent) => {
     // Only clear if clicking on the container itself
     if (e.target === e.currentTarget) {
-      selection.clearSelection();
+      clearSelection();
     }
-  };
+  }, [clearSelection]);
   
   return (
     <Box 

@@ -1,5 +1,5 @@
 import { useState, DragEvent } from 'react';
-import { useSelection } from '../contexts/SelectionContext';
+import { useSelectionStore } from '../stores/selectionStore';
 
 /**
  * Custom hook to handle drag and drop operations in the fields panel
@@ -11,7 +11,9 @@ export function useFieldsPanelDrag(
   onRemoveMultipleFromAxis?: (fieldIds: string[]) => void
 ) {
   const [isDragOver, setIsDragOver] = useState(false);
-  const selection = useSelection();
+  
+  // Get clearSelection action (stable reference, never causes re-render)
+  const clearSelection = useSelectionStore((s) => s.clearSelection);
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -71,7 +73,7 @@ export function useFieldsPanelDrag(
         }
         
         // Clear selection after successful removal
-        selection.clearSelection();
+        clearSelection();
       }
     } catch (error) {
       console.error('Error processing drop event:', error);

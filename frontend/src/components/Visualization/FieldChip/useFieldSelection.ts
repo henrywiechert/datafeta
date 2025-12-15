@@ -1,7 +1,8 @@
-import { useCallback, useRef, useEffect } from 'react';
+import { useCallback } from 'react';
 import { Field } from '../../../types';
 import { DragSource } from './types';
-import { useSelection } from '../../../contexts/SelectionContext';
+import { useSelectionStore } from '../../../stores/selectionStore';
+import { useIsFieldSelected } from '../../../stores/useFieldSelected';
 
 interface UseFieldSelectionProps {
   field: Field;
@@ -19,25 +20,28 @@ interface UseFieldSelectionReturn {
 /**
  * Custom hook to handle field selection logic
  * Supports single-click, Ctrl/Cmd+click (toggle), and Shift+click (range)
+ * 
+ * Performance: Uses Zustand selectors for granular subscriptions.
+ * The hook only subscribes to:
+ * - isSelected for THIS field (via useIsFieldSelected)
+ * - anchorFieldId (for shift-click range selection)
+ * - selectedFields.length (for multi-selection drag behavior)
+ * 
+ * Actions are read directly from store.getState() in handlers
+ * to avoid unnecessary subscriptions.
  */
 export const useFieldSelection = ({
   field,
   source,
   allFields,
 }: UseFieldSelectionProps): UseFieldSelectionReturn => {
-  const selection = useSelection();
-  const selectionRef = useRef(selection);
-  
-  // Keep selection ref up-to-date
-  useEffect(() => {
-    selectionRef.current = selection;
-  }, [selection]);
-
-  const isSelected = selection.isSelected(field.id, source);
+  // Granular subscription - only this field's selection status
+  const isSelected = useIsFieldSelected(field.id, source);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    const currentSelection = selectionRef.current;
-    const currentIsSelected = currentSelection.isSelected(field.id, source);
+    // Get actions and state directly from store (no subscription)
+    const store = useSelectionStore.getState();
+    const currentIsSelected = store.isSelected(field.id, source);
     
     // Detect modifier keys
     const isCtrlOrCmd = e.ctrlKey || e.metaKey;
@@ -48,31 +52,31 @@ export const useFieldSelection = ({
       isShift,
       isCtrlOrCmd,
       isSelected: currentIsSelected,
-      selectionCount: currentSelection.selectedFields.length,
-      hasAnchor: !!currentSelection.anchorFieldId,
+      selectionCount: store.selectedFields.length,
+      hasAnchor: !!store.anchorFieldId,
       source
     });
 
-    if (isShift && currentSelection.anchorFieldId && allFields) {
+    if (isShift && store.anchorFieldId && allFields) {
       // Shift+click: Select range from anchor to this field
       console.log('[useFieldSelection] Shift-click: calling selectRange');
       e.preventDefault();
       e.stopPropagation();
-      currentSelection.selectRange(currentSelection.anchorFieldId, field.id, source, allFields);
+      store.selectRange(store.anchorFieldId, field.id, source, allFields);
     } else if (isCtrlOrCmd) {
       // Ctrl/Cmd+click: Toggle selection
       console.log('[useFieldSelection] Ctrl/Cmd-click: calling toggleSelection');
       e.preventDefault();
       e.stopPropagation();
-      currentSelection.toggleSelection(field.id, source, field);
-    } else if (currentIsSelected && currentSelection.selectedFields.length > 1) {
+      store.toggleSelection(field.id, source, field);
+    } else if (currentIsSelected && store.selectedFields.length > 1) {
       // Field is already selected as part of multi-selection
       // Preserve selection for multi-field drag
       console.log('[useFieldSelection] Already selected in multi-selection: preserving selection for drag');
     } else {
       // Regular mousedown: Select this field
       console.log('[useFieldSelection] Regular mousedown: calling selectSingle');
-      currentSelection.selectSingle(field.id, source, field);
+      store.selectSingle(field.id, source, field);
     }
   }, [field, source, allFields]);
 
@@ -84,12 +88,14 @@ export const useFieldSelection = ({
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const currentSelection = selectionRef.current;
-    const currentIsSelected = currentSelection.isSelected(field.id, source);
+    
+    // Get state directly from store (no subscription)
+    const store = useSelectionStore.getState();
+    const currentIsSelected = store.isSelected(field.id, source);
     
     // If field is not selected, select it first
     if (!currentIsSelected) {
-      currentSelection.selectSingle(field.id, source, field);
+      store.selectSingle(field.id, source, field);
     }
     
     return { x: e.clientX, y: e.clientY };
