@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useRef } from 'react';
+import React, { useMemo, useEffect, useRef, useCallback } from 'react';
 import { Typography, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import FieldsSearch from './FieldsSearch';
@@ -8,7 +8,7 @@ import VirtualColumnManager from '../VirtualColumns/VirtualColumnManager';
 import { Field, Database, Table, VirtualColumnDefinition } from '../../types';
 import { useFieldsPanelDrag } from '../../hooks/useFieldsPanelDrag';
 import styles from './FieldsPanel.module.css';
-import { useSelection } from '../../contexts/SelectionContext';
+import { useSelectionStore } from '../../stores/selectionStore';
 
 interface FieldsPanelProps {
   availableFields: Field[];
@@ -77,8 +77,10 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   onUpdateVirtualColumn,
   onRemoveVirtualColumn
 }) => {
-  const selection = useSelection();
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Get clearSelection action (stable reference, never causes re-render)
+  const clearSelection = useSelectionStore((s) => s.clearSelection);
   
   // Use our custom hook for drag and drop functionality
   const {
@@ -92,7 +94,7 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        selection.clearSelection();
+        clearSelection();
       }
     };
     
@@ -100,15 +102,15 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selection]);
+  }, [clearSelection]);
   
   // Handle clicks on empty space to clear selection
-  const handleContainerClick = (e: React.MouseEvent) => {
+  const handleContainerClick = useCallback((e: React.MouseEvent) => {
     // Only clear if clicking directly on the container or fields list
     if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains(styles.fieldsList)) {
-      selection.clearSelection();
+      clearSelection();
     }
-  };
+  }, [clearSelection]);
 
   // Create filter function that works with search term
   const filterBySearch = useMemo(() => (field: Field) => (

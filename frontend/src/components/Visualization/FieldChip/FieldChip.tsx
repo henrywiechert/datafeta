@@ -2,7 +2,8 @@ import React, { useState, useCallback } from 'react';
 import { FieldChipProps } from './types';
 import ChipWithTooltip from './ChipWithTooltip';
 import FieldContextMenu from './FieldContextMenu';
-import { useSelection } from '../../../contexts/SelectionContext';
+import { useSelectionStore } from '../../../stores/selectionStore';
+import { useIsFieldSelected } from '../../../stores/useFieldSelected';
 import { useDragHandlers } from './useDragHandlers';
 import { useFieldSelection } from './useFieldSelection';
 
@@ -20,10 +21,20 @@ import { useFieldSelection } from './useFieldSelection';
  * - Visual styling based on field properties (continuous/discrete)
  * - Automatic truncation detection with ResizeObserver
  * - Multi-select with modifier keys (Ctrl/Cmd, Shift)
+ * 
+ * Performance:
+ * - Uses Zustand selectors for granular re-renders
+ * - Only re-renders when THIS field's selection status changes
  */
 const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index, allFields }) => {
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
-  const selection = useSelection();
+  
+  // Granular subscription - only re-renders when THIS field's selection changes
+  const isSelected = useIsFieldSelected(field.id, source);
+  
+  // Get stable action references (never cause re-renders)
+  const getSelectedFieldsForSource = useSelectionStore((s) => s.getSelectedFieldsForSource);
+  const getSelectedCount = useSelectionStore((s) => s.getSelectedCount);
 
   // Use custom hooks for cleaner separation of concerns
   const { isDragging, handleDragStart, handleDragEnd } = useDragHandlers({
@@ -34,7 +45,6 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index, a
   });
 
   const { 
-    isSelected, 
     handleMouseDown, 
     handleClick, 
     handleContextMenu: handleContextMenuSelection 
@@ -53,7 +63,13 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index, a
     setMenuPosition(null);
   }, []);
 
-  const dragCount = isSelected && selection.selectedFields.length > 1 ? selection.selectedFields.length : undefined;
+  // dragCount computed on demand - only affects this chip when dragging
+  const dragCount = isDragging && isSelected ? getSelectedCount() : undefined;
+  
+  // selectedFields for context menu - only fetched when menu opens
+  const selectedFieldsForMenu = menuPosition 
+    ? getSelectedFieldsForSource(source).map(sf => sf.field) 
+    : [];
   
   return (
     <>
@@ -78,12 +94,13 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index, a
         onUpdate={onUpdate}
         menuPosition={menuPosition}
         onCloseMenu={handleCloseMenu}
-        selectedFields={selection.selectedFields.filter(sf => sf.source === source).map(sf => sf.field)}
+        selectedFields={selectedFieldsForMenu}
       />
     </>
   );
 };
 
-// Note: Not using React.memo here because the component uses context (useSelection)
-// which needs to trigger re-renders when selection state changes
+// Note: Not using React.memo here because the component now uses Zustand selectors
+// which provide granular subscriptions. The component only re-renders when
+// the selected isSelected value changes for THIS specific field.
 export default FieldChip;
