@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Typography, Box } from '@mui/material';
 import { List } from 'react-window';
 import FieldChip from './FieldChip/index';

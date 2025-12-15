@@ -54,6 +54,7 @@ The frontend is a React-based data analysis application that provides an intuiti
 - **[Faceting System](./faceting.md)** - Multi-chart faceting architecture
 - **[Field Classification](./fields.md)** - Field types and aggregations
 - **[API Communication](./api.md)** - Backend API and query handling
+- **[UI Management](./ui-management.md)** - Component hierarchy, state flow, and render mechanics
 
 ## Development
 

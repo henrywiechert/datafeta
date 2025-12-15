@@ -5,7 +5,6 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { useVisualizationState } from '../hooks/useVisualizationState';
 import { useVisualizationContext, VisualizationProvider } from '../contexts/VisualizationContext';
 import { UndoRedoProvider } from '../contexts/UndoRedoContext';
-import { SelectionProvider } from '../contexts/SelectionContext';
 import { useSheetContext } from '../contexts/SheetContext';
 import { useDragDrop } from '../hooks/useDragDrop';
 import { useConnection } from '../contexts/ConnectionContext';
@@ -225,13 +224,12 @@ const VisualizationPageContent = () => {
     }
 
     return (
-        <SelectionProvider>
-            <Box sx={{ 
-                height: '100%', 
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden' 
-            }}>
+        <Box sx={{ 
+            height: '100%', 
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden' 
+        }}>
                 {/* Main Layout with react-resizable-panels */}
                 <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
                     <PanelGroup direction="horizontal">
@@ -338,7 +336,6 @@ const VisualizationPageContent = () => {
                 operationStartTimes={state.operationStartTimes}
             />
         </Box>
-        </SelectionProvider>
     );
 };
 

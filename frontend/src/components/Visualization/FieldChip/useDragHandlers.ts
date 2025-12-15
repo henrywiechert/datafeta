@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Field } from '../../../types';
 import { DragSource } from './types';
-import { useSelection } from '../../../contexts/SelectionContext';
+import { useSelectionStore } from '../../../stores/selectionStore';
 import { createDragImageWithBadge, setDragImage, createDragPayload } from './dragImageUtils';
 
 interface UseDragHandlersProps {
@@ -20,6 +20,9 @@ interface UseDragHandlersReturn {
 /**
  * Custom hook to handle drag-and-drop logic for field chips
  * Extracts drag start, drag end, and drag image creation
+ * 
+ * Performance: Uses Zustand getState() to read selection state only
+ * when drag starts, avoiding unnecessary subscriptions and re-renders.
  */
 export const useDragHandlers = ({
   field,
@@ -28,42 +31,39 @@ export const useDragHandlers = ({
   allFields,
 }: UseDragHandlersProps): UseDragHandlersReturn => {
   const [isDragging, setIsDragging] = useState(false);
-  const selection = useSelection();
   
   // Use refs to avoid recreating callbacks when field/source/index change
   const fieldRef = useRef(field);
   const sourceRef = useRef(source);
   const indexRef = useRef(index);
-  const selectionRef = useRef(selection);
   
-  // Update refs when props change
-  useEffect(() => {
-    fieldRef.current = field;
-    sourceRef.current = source;
-    indexRef.current = index;
-    selectionRef.current = selection;
-  }, [field, source, index, selection]);
+  // Update refs when props change (no effect dependencies on selection)
+  fieldRef.current = field;
+  sourceRef.current = source;
+  indexRef.current = index;
 
   const handleDragStart = useCallback((e: React.DragEvent) => {
     setIsDragging(true);
-    const currentSelection = selectionRef.current;
-    const currentIsSelected = currentSelection.isSelected(field.id, source);
+    
+    // Read selection state directly without subscribing
+    const store = useSelectionStore.getState();
+    const currentIsSelected = store.isSelected(field.id, source);
     
     console.log('[useDragHandlers] handleDragStart:', {
       fieldName: field.columnName,
       source,
       isSelected: currentIsSelected,
-      selectionCount: currentSelection.selectedFields.length,
-      selectedForThisSource: currentSelection.getSelectedFieldsForSource(source).length
+      selectionCount: store.selectedFields.length,
+      selectedForThisSource: store.getSelectedFieldsForSource(source).length
     });
     
     // Unified drag payload structure: always use arrays
     let fields: Field[];
     let indices: number[];
     
-    if (currentIsSelected && currentSelection.selectedFields.length > 1) {
+    if (currentIsSelected && store.selectedFields.length > 1) {
       // Multi-field drag: drag all selected fields from this source
-      const selectedForSource = currentSelection.getSelectedFieldsForSource(source);
+      const selectedForSource = store.getSelectedFieldsForSource(source);
       console.log('[useDragHandlers] Multi-field drag:', {
         count: selectedForSource.length,
         fields: selectedForSource.map(sf => sf.field.columnName)
@@ -92,7 +92,7 @@ export const useDragHandlers = ({
     e.dataTransfer.effectAllowed = 'copyMove';
     
     // Clear selection after starting drag
-    setTimeout(() => currentSelection.clearSelection(), 0);
+    setTimeout(() => store.clearSelection(), 0);
   }, [field, source, allFields]);
 
   const handleDragEnd = useCallback(() => {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Field } from '../../types';
 import FieldChip, { DragSource } from './FieldChip';
-import { useSelection } from '../../contexts/SelectionContext';
+import { useSelectionStore } from '../../stores/selectionStore';
 import styles from './DropZone.module.css';
 
 // Style constants
@@ -117,7 +117,9 @@ const DropZone: React.FC<DropZoneProps> = ({
   const [isOver, setIsOver] = useState(false);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const dragLeaveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-  const selection = useSelection();
+  
+  // Get clearSelection action (stable reference, never causes re-render)
+  const clearSelection = useSelectionStore((s) => s.clearSelection);
 
   // Reset drag state when any drag operation ends globally
   React.useEffect(() => {
@@ -138,19 +140,6 @@ const DropZone: React.FC<DropZoneProps> = ({
       }
     };
   }, []);
-
-  // Helper function to get valid insert index for new fields based on flavour
-  const getValidInsertIndex = (field: Field): number => {
-    if (field.flavour === 'discrete') {
-      // Discrete fields go before any continuous fields
-      // Find the first continuous field and insert before it
-      const firstContinuousIndex = fields.findIndex(f => f.flavour === 'continuous');
-      return firstContinuousIndex === -1 ? fields.length : firstContinuousIndex;
-    } else {
-      // Continuous fields go after all discrete fields
-      return fields.length;
-    }
-  };
 
   // Helper function to get valid insert index for new fields from a requested position
   const getValidInsertIndexFromPosition = (field: Field, requestedIndex: number): number => {
@@ -325,7 +314,7 @@ const DropZone: React.FC<DropZoneProps> = ({
         onReorderFields(axis, sourceIndex, targetIndex);
       }
       // Clear selection after successful drop
-      selection.clearSelection();
+      clearSelection();
       return;
     }
     
@@ -341,7 +330,7 @@ const DropZone: React.FC<DropZoneProps> = ({
           onMoveFieldBetweenAxes(firstField.id, fromAxis, toAxis, insertIndex);
         }
         // Clear selection after successful drop
-        selection.clearSelection();
+        clearSelection();
         return;
       }
     }
@@ -355,7 +344,7 @@ const DropZone: React.FC<DropZoneProps> = ({
     onDrop(processedFields, source, insertIndex);
     
     // Clear selection after successful drop
-    selection.clearSelection();
+    clearSelection();
   };
 
   const dropZoneClass = `${styles.dropZone} ${isOver ? styles.isOver : ''}`;
