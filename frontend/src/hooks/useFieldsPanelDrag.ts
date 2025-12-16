@@ -13,7 +13,7 @@ export function useFieldsPanelDrag(
   const [isDragOver, setIsDragOver] = useState(false);
   
   // Get clearSelection action (stable reference, never causes re-render)
-  const clearSelection = useSelectionStore((s) => s.clearSelection);
+  const clearSelection = useSelectionStore((s: any) => s.clearSelection);
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();

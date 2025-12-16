@@ -119,7 +119,7 @@ const DropZone: React.FC<DropZoneProps> = ({
   const dragLeaveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   
   // Get clearSelection action (stable reference, never causes re-render)
-  const clearSelection = useSelectionStore((s) => s.clearSelection);
+  const clearSelection = useSelectionStore((s: any) => s.clearSelection);
 
   // Reset drag state when any drag operation ends globally
   React.useEffect(() => {

@@ -36,19 +36,19 @@ export const useSelectionStore = create<SelectionStore>((set, get) => ({
   anchorSource: null,
 
   // Computed (read from current state without subscribing)
-  isSelected: (fieldId, source) => {
-    return get().selectedFields.some(sf => sf.fieldId === fieldId && sf.source === source);
+  isSelected: (fieldId: string, source: DragSource) => {
+    return get().selectedFields.some((sf: SelectedField) => sf.fieldId === fieldId && sf.source === source);
   },
 
   getSelectedCount: () => get().selectedFields.length,
 
-  getSelectedFieldsForSource: (source) => {
-    return get().selectedFields.filter(sf => sf.source === source);
+  getSelectedFieldsForSource: (source: DragSource) => {
+    return get().selectedFields.filter((sf: SelectedField) => sf.source === source);
   },
 
   // Actions
-  selectField: (fieldId, source, field) => {
-    set((state) => {
+  selectField: (fieldId: string, source: DragSource, field: Field) => {
+    set((state: SelectionState) => {
       // If selecting from a different source, clear previous selection
       if (state.selectedFields.length > 0 && state.selectedFields[0].source !== source) {
         return {
@@ -59,7 +59,7 @@ export const useSelectionStore = create<SelectionStore>((set, get) => ({
       }
 
       // Check if already selected
-      if (state.selectedFields.some(sf => sf.fieldId === fieldId && sf.source === source)) {
+      if (state.selectedFields.some((sf: SelectedField) => sf.fieldId === fieldId && sf.source === source)) {
         return state;
       }
 
@@ -71,7 +71,7 @@ export const useSelectionStore = create<SelectionStore>((set, get) => ({
     });
   },
 
-  selectSingle: (fieldId, source, field) => {
+  selectSingle: (fieldId: string, source: DragSource, field: Field) => {
     // Use flushSync for immediate visual feedback
     flushSync(() => {
       set({
@@ -82,10 +82,10 @@ export const useSelectionStore = create<SelectionStore>((set, get) => ({
     });
   },
 
-  deselectField: (fieldId, source) => {
-    set((state) => ({
+  deselectField: (fieldId: string, source: DragSource) => {
+    set((state: SelectionState) => ({
       selectedFields: state.selectedFields.filter(
-        sf => !(sf.fieldId === fieldId && sf.source === source)
+        (sf: SelectedField) => !(sf.fieldId === fieldId && sf.source === source)
       ),
       // Clear anchor if we're deselecting it
       anchorFieldId: state.anchorFieldId === fieldId ? null : state.anchorFieldId,
@@ -93,8 +93,8 @@ export const useSelectionStore = create<SelectionStore>((set, get) => ({
     }));
   },
 
-  toggleSelection: (fieldId, source, field) => {
-    set((state) => {
+  toggleSelection: (fieldId: string, source: DragSource, field: Field) => {
+    set((state: SelectionState) => {
       // If selecting from a different source, clear previous selection and select this one
       if (state.selectedFields.length > 0 && state.selectedFields[0].source !== source) {
         return {
@@ -105,13 +105,13 @@ export const useSelectionStore = create<SelectionStore>((set, get) => ({
       }
 
       const alreadySelected = state.selectedFields.some(
-        sf => sf.fieldId === fieldId && sf.source === source
+        (sf: SelectedField) => sf.fieldId === fieldId && sf.source === source
       );
 
       if (alreadySelected) {
         // Deselect
         const newSelectedFields = state.selectedFields.filter(
-          sf => !(sf.fieldId === fieldId && sf.source === source)
+          (sf: SelectedField) => !(sf.fieldId === fieldId && sf.source === source)
         );
         return {
           selectedFields: newSelectedFields,
@@ -129,10 +129,10 @@ export const useSelectionStore = create<SelectionStore>((set, get) => ({
     });
   },
 
-  selectRange: (fromFieldId, toFieldId, source, allFields) => {
+  selectRange: (fromFieldId: string, toFieldId: string, source: DragSource, allFields: Field[]) => {
     // Find indices of the range
-    const fromIndex = allFields.findIndex(f => f.id === fromFieldId);
-    const toIndex = allFields.findIndex(f => f.id === toFieldId);
+    const fromIndex = allFields.findIndex((f: Field) => f.id === fromFieldId);
+    const toIndex = allFields.findIndex((f: Field) => f.id === toFieldId);
 
     if (fromIndex === -1 || toIndex === -1) {
       console.warn('[SelectionStore] selectRange: field not found in allFields', {
@@ -149,7 +149,7 @@ export const useSelectionStore = create<SelectionStore>((set, get) => ({
 
     const rangeFields = allFields
       .slice(startIndex, endIndex + 1)
-      .map(field => ({
+      .map((field: Field) => ({
         fieldId: field.id,
         source,
         field,
@@ -174,8 +174,8 @@ export const useSelectionStore = create<SelectionStore>((set, get) => ({
     });
   },
 
-  clearSelectionIfDifferentSource: (source) => {
-    set((state) => {
+  clearSelectionIfDifferentSource: (source: DragSource) => {
+    set((state: SelectionState) => {
       if (state.selectedFields.length > 0 && state.selectedFields[0].source !== source) {
         return {
           selectedFields: [],

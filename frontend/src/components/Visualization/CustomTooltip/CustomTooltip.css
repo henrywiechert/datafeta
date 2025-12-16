@@ -25,7 +25,6 @@
   
   /* Layout */
   max-width: 800px;
-  white-space: nowrap;
   
   /* Animation */
   animation: tooltipFadeIn 0.15s ease-in;
@@ -101,8 +100,11 @@
 .custom-tooltip__value {
   font-weight: normal;
   color: #e0e0e0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  flex: 1;
+  min-width: 0;
 }
 
 /* Optional: Add slight spacing between label and value */

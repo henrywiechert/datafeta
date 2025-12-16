@@ -33,8 +33,8 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index, a
   const isSelected = useIsFieldSelected(field.id, source);
   
   // Get stable action references (never cause re-renders)
-  const getSelectedFieldsForSource = useSelectionStore((s) => s.getSelectedFieldsForSource);
-  const getSelectedCount = useSelectionStore((s) => s.getSelectedCount);
+  const getSelectedFieldsForSource = useSelectionStore((s: any) => s.getSelectedFieldsForSource);
+  const getSelectedCount = useSelectionStore((s: any) => s.getSelectedCount);
 
   // Use custom hooks for cleaner separation of concerns
   const { isDragging, handleDragStart, handleDragEnd } = useDragHandlers({
@@ -68,7 +68,7 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index, a
   
   // selectedFields for context menu - only fetched when menu opens
   const selectedFieldsForMenu = menuPosition 
-    ? getSelectedFieldsForSource(source).map(sf => sf.field) 
+    ? getSelectedFieldsForSource(source).map((sf: any) => sf.field) 
     : [];
   
   return (
