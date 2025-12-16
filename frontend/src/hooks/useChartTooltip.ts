@@ -6,6 +6,7 @@ interface TooltipState {
   x: number;
   y: number;
   fields: TooltipField[];
+  colorHex?: string;
 }
 
 /**
@@ -27,7 +28,8 @@ export function useChartTooltip() {
   const showTooltip = useCallback((
     x: number,
     y: number,
-    fields: TooltipField[]
+    fields: TooltipField[],
+    colorHex?: string
   ) => {
     console.log('[useChartTooltip] showTooltip called:', { x, y, fieldsCount: fields.length, fields });
     
@@ -41,6 +43,7 @@ export function useChartTooltip() {
       x,
       y,
       fields,
+      colorHex,
     });
     
     // Set auto-hide timeout as safety fallback
