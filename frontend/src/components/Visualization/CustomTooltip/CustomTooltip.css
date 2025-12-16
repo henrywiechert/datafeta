@@ -25,6 +25,7 @@
   
   /* Layout */
   max-width: 800px;
+  width: max-content; /* Ensure consistent width calculation */
   
   /* Animation */
   animation: tooltipFadeIn 0.15s ease-in;
@@ -52,10 +53,12 @@
 /* Positioning variants */
 .custom-tooltip--right {
   transform: translate(10px, -50%);
+  max-width: 800px;
 }
 
 .custom-tooltip--left {
   transform: translate(calc(-100% - 10px), -50%);
+  max-width: 800px; /* Ensure same max-width as right */
 }
 
 .custom-tooltip--left {
