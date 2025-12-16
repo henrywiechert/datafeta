@@ -10,7 +10,7 @@ import { DragSource } from '../types';
  */
 export function useIsFieldSelected(fieldId: string, source: DragSource): boolean {
   return useSelectionStore(
-    (state) => state.selectedFields.some(sf => sf.fieldId === fieldId && sf.source === source)
+    (state: any) => state.selectedFields.some((sf: any) => sf.fieldId === fieldId && sf.source === source)
   );
 }
 
@@ -18,14 +18,14 @@ export function useIsFieldSelected(fieldId: string, source: DragSource): boolean
  * Hook that returns selection count. Only re-renders when count changes.
  */
 export function useSelectionCount(): number {
-  return useSelectionStore((state) => state.selectedFields.length);
+  return useSelectionStore((state: any) => state.selectedFields.length);
 }
 
 /**
  * Hook that returns anchor field info. Only re-renders when anchor changes.
  */
 export function useSelectionAnchor() {
-  const anchorFieldId = useSelectionStore((state) => state.anchorFieldId);
-  const anchorSource = useSelectionStore((state) => state.anchorSource);
+  const anchorFieldId = useSelectionStore((state: any) => state.anchorFieldId);
+  const anchorSource = useSelectionStore((state: any) => state.anchorSource);
   return { anchorFieldId, anchorSource };
 }

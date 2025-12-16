@@ -80,7 +80,7 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   
   // Get clearSelection action (stable reference, never causes re-render)
-  const clearSelection = useSelectionStore((s) => s.clearSelection);
+  const clearSelection = useSelectionStore((s: any) => s.clearSelection);
   
   // Use our custom hook for drag and drop functionality
   const {

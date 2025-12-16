@@ -66,10 +66,10 @@ export const useDragHandlers = ({
       const selectedForSource = store.getSelectedFieldsForSource(source);
       console.log('[useDragHandlers] Multi-field drag:', {
         count: selectedForSource.length,
-        fields: selectedForSource.map(sf => sf.field.columnName)
+        fields: selectedForSource.map((sf: any) => sf.field.columnName)
       });
-      fields = selectedForSource.map(sf => sf.field);
-      indices = selectedForSource.map(sf => {
+      fields = selectedForSource.map((sf: any) => sf.field);
+      indices = selectedForSource.map((sf: any) => {
         if (allFields) {
           return allFields.findIndex(f => f.id === sf.fieldId);
         }
