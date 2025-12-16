@@ -33,7 +33,8 @@ function addCustomTooltip(
   categoryLabel: string | undefined,
   colorField: Field | undefined,
   sizeField: Field | undefined,
-  tooltipFields: Field[] | undefined
+  tooltipFields: Field[] | undefined,
+  getColor?: (d: any) => string | undefined
 ): void {
   const mainFields: { label: string; column: string }[] = [
     { label: dimensionLabel, column: dimensionColumn }
@@ -51,7 +52,8 @@ function addCustomTooltip(
       colorField,
       sizeField,
       tooltipFields
-    )
+    ),
+    getColor
   };
 }
 
@@ -181,7 +183,37 @@ function buildPlotOptions(
   }
   
   applyColorScale(opts, colorScale);
-  addCustomTooltip(opts, data, dimensionColumn, dimensionLabel, categoryDimensionColumn, categoryLabel, colorField, sizeField, tooltipFields);
+  // Build getColor resolver from known scale
+  let getColor: ((d: any) => string | undefined) | undefined;
+  if (colorField && colorScale) {
+    const colorCol = colorField ? getResultColumnName(colorField) : undefined;
+    if (colorCol) {
+      if (colorScale.kind === 'continuous') {
+        const [min, max] = colorScale.domain as [number, number];
+        const range = colorScale.range;
+        const accessor = colorScale.accessor;
+        getColor = (d: any) => {
+          const raw = accessor ? accessor(d) : (d[colorCol] as number);
+          if (raw == null || !isFinite(raw as number)) return undefined;
+          if (max === min) return range[0];
+          const t = Math.max(0, Math.min(1, (((raw as number) - min) / (max - min)) ));
+          const idx = Math.round(t * (range.length - 1));
+          return range[Math.max(0, Math.min(range.length - 1, idx))];
+        };
+      } else {
+        const domain = colorScale.domain as any[];
+        const range = colorScale.range;
+        getColor = (d: any) => {
+          const val = d[colorCol];
+          const key = val instanceof Date ? val.valueOf() : val;
+          const idx = domain.findIndex(v => (v instanceof Date ? v.valueOf() : v) === key);
+          const i = idx >= 0 ? idx : 0;
+          return range[i % range.length];
+        };
+      }
+    }
+  }
+  addCustomTooltip(opts, data, dimensionColumn, dimensionLabel, categoryDimensionColumn, categoryLabel, colorField, sizeField, tooltipFields, getColor);
   
   return opts;
 }

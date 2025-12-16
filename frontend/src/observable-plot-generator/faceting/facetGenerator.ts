@@ -316,7 +316,39 @@ function createBarCellGenerator(
             colorField || undefined,
             undefined, // No size field for tick strips
             cellContext.tooltipFields
-          )
+          ),
+          getColor: (() => {
+            const scale = sharedDomains.colorScale;
+            if (colorColumnName && scale) {
+              if (scale.kind === 'continuous') {
+                const [min, max] = scale.domain as [number, number];
+                const range = scale.range;
+                const accessor = scale.accessor;
+                return (d: any) => {
+                  const raw = accessor ? accessor(d) : (d[colorColumnName] as number);
+                  if (raw == null || !isFinite(raw as number)) return undefined;
+                  if (max === min) return range[0];
+                  const t = Math.max(0, Math.min(1, (((raw as number) - min) / (max - min)) ));
+                  const idx = Math.round(t * (range.length - 1));
+                  return range[Math.max(0, Math.min(range.length - 1, idx))];
+                };
+              } else {
+                const domain = scale.domain as any[];
+                const range = scale.range;
+                return (d: any) => {
+                  const val = d[colorColumnName];
+                  const key = val instanceof Date ? val.valueOf() : val;
+                  const idx = domain.findIndex(v => (v instanceof Date ? v.valueOf() : v) === key);
+                  const i = idx >= 0 ? idx : 0;
+                  return range[i % range.length];
+                };
+              }
+            }
+            if (!colorField && manualColor) {
+              return () => manualColor!;
+            }
+            return undefined;
+          })()
         };
         
         title = dimCol;

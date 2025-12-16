@@ -12,6 +12,7 @@ interface CustomTooltipProps {
   y: number;
   fields: TooltipField[];
   visible: boolean;
+  colorHex?: string; // Optional color mark representing the hovered chart element color
 }
 
 /**
@@ -23,7 +24,8 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
   x, 
   y, 
   fields, 
-  visible 
+  visible,
+  colorHex
 }) => {
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ x: number; y: number; anchor: string }>({ 
@@ -98,6 +100,8 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
         display: 'block',
         visibility: 'visible',
         opacity: 1,
+        // Vertical color bar on the left when colorHex is provided
+        ...(colorHex ? { borderLeft: `8px solid ${colorHex}`, paddingLeft: 12 } : {})
       }}
     >
       {fields.map((field, idx) => (

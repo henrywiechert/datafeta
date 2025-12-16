@@ -9,6 +9,7 @@ export interface CustomTooltipConfig {
   enabled: boolean;
   getFields: (data: any) => TooltipField[];
   data?: any[]; // Original data array for indexing
+  getColor?: (data: any) => string | undefined; // Optional: derive mark color without DOM
 }
 
 interface ObservablePlotProps {
@@ -165,6 +166,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options, plotId, onRend
           y={tooltip.y}
           fields={tooltip.fields}
           visible={tooltip.visible}
+          colorHex={tooltip.colorHex}
         />,
         portalTarget
       )}
@@ -180,7 +182,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options, plotId, onRend
 function addTooltipListeners(
   plot: SVGSVGElement | HTMLElement,
   config: CustomTooltipConfig,
-  showTooltip: (x: number, y: number, fields: TooltipField[]) => void,
+  showTooltip: (x: number, y: number, fields: TooltipField[], colorHex?: string) => void,
   hideTooltip: () => void,
   updatePosition: (x: number, y: number) => void
 ): () => void {
@@ -195,9 +197,6 @@ function addTooltipListeners(
     
     const handleMouseEnter = (e: Event) => {
       const mouseEvent = e as MouseEvent;
-      
-      // Add highlight class to emphasize the hovered mark
-      mark.classList.add('chart-mark--highlighted');
       
       // Try multiple ways to get data:
       // 1. From __data__ property (D3 style)
@@ -220,7 +219,31 @@ function addTooltipListeners(
       if (data) {
         try {
           const fields = config.getFields(data);
-          showTooltip(mouseEvent.clientX, mouseEvent.clientY, fields);
+          // Prefer color supplied by generator (no DOM probing)
+          let colorHex: string | undefined = undefined;
+          try {
+            colorHex = config.getColor ? config.getColor(data) : undefined;
+          } catch {}
+          // Fallback: inspect the hovered SVG element BEFORE applying highlight class
+          if (!colorHex && mark instanceof Element) {
+            const el = mark as Element;
+            const cs = getComputedStyle(el);
+            const resolveColor = (val: string | null): string | undefined => {
+              if (!val) return undefined;
+              const v = val.trim();
+              if (v === 'none' || v === 'transparent' || v === 'rgba(0, 0, 0, 0)' || v === 'rgba(0,0,0,0)') return undefined;
+              if (v === 'currentColor') {
+                const cc = cs.getPropertyValue('color');
+                return cc && cc !== 'none' ? cc.trim() : undefined;
+              }
+              return v;
+            };
+            colorHex = resolveColor(el.getAttribute('fill')) || resolveColor(cs.getPropertyValue('fill')) ||
+                       resolveColor(el.getAttribute('stroke')) || resolveColor(cs.getPropertyValue('stroke'));
+          }
+          showTooltip(mouseEvent.clientX, mouseEvent.clientY, fields, colorHex);
+          // Add highlight class AFTER computing color to avoid style interference
+          mark.classList.add('chart-mark--highlighted');
         } catch (error) {
           console.warn('[CustomTooltip] Error generating tooltip fields:', error);
         }

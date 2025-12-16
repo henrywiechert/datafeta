@@ -89,6 +89,26 @@
   margin-bottom: 0;
 }
 
+/* Header with color swatch */
+.custom-tooltip__header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.custom-tooltip__color-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  margin-right: 6px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.2) inset;
+}
+
+.custom-tooltip__header-spacer {
+  flex: 1 1 auto;
+}
+
 /* Label - BOLD */
 .custom-tooltip__label {
   font-weight: bold;
@@ -122,7 +142,5 @@
   cursor: pointer;
   /* Minimal stroke enhancement */
   stroke-width: 1;
-  stroke: currentColor;
-  stroke-opacity: 0.8;
 }
 
