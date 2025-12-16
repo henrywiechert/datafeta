@@ -205,7 +205,44 @@ export function lineChart(
       colorField,
       sizeField,
       tooltipFields
-    )
+    ),
+    getColor: (() => {
+      if (colorField && colorInfo) {
+        const colorCol = colorColumnName!;
+        if (colorInfo.kind === 'categorical') {
+          const domain = colorInfo.domain as any[];
+          const range = colorInfo.range;
+          return (d: any) => {
+            const val = d[colorCol];
+            const key = val instanceof Date ? val.valueOf() : val;
+            const idx = domain.findIndex(v => (v instanceof Date ? v.valueOf() : v) === key);
+            const i = idx >= 0 ? idx : 0;
+            return range[i % range.length];
+          };
+        } else {
+          const [min, max] = colorInfo.domain as [number, number];
+          const range = colorInfo.range;
+          const accessor = colorInfo.accessor;
+          const tOf = (d: any) => {
+            const raw = accessor ? accessor(d) : (d[colorCol] as number);
+            if (raw == null || !isFinite(raw as number)) return undefined;
+            if (max === min) return 0;
+            const t = ((raw as number) - min) / (max - min);
+            return Math.max(0, Math.min(1, t));
+          };
+          return (d: any) => {
+            const t = tOf(d);
+            if (t === undefined) return undefined;
+            const idx = Math.round(t * (range.length - 1));
+            return range[Math.max(0, Math.min(range.length - 1, idx))];
+          };
+        }
+      }
+      if (manualColor) {
+        return () => manualColor!;
+      }
+      return undefined;
+    })()
   };
   
   return plotOptions;
@@ -403,7 +440,42 @@ export function verticalLineChart(
       colorField,
       sizeField,
       tooltipFields
-    )
+    ),
+    getColor: (() => {
+      if (colorField && colorInfo) {
+        const colorCol = colorColumnName!;
+        if (colorInfo.kind === 'categorical') {
+          const domain = colorInfo.domain as any[];
+          const range = colorInfo.range;
+          return (d: any) => {
+            const val = d[colorCol];
+            const key = val instanceof Date ? val.valueOf() : val;
+            const idx = domain.findIndex(v => (v instanceof Date ? v.valueOf() : v) === key);
+            const i = idx >= 0 ? idx : 0;
+            return range[i % range.length];
+          };
+        } else {
+          const [min, max] = colorInfo.domain as [number, number];
+          const range = colorInfo.range;
+          const accessor = colorInfo.accessor;
+          const tOf = (d: any) => {
+            const raw = accessor ? accessor(d) : (d[colorCol] as number);
+            if (raw == null || !isFinite(raw as number)) return undefined;
+            if (max === min) return 0;
+            const t = ((raw as number) - min) / (max - min);
+            return Math.max(0, Math.min(1, t));
+          };
+          return (d: any) => {
+            const t = tOf(d);
+            if (t === undefined) return undefined;
+            const idx = Math.round(t * (range.length - 1));
+            return range[Math.max(0, Math.min(range.length - 1, idx))];
+          };
+        }
+      }
+      // No color field: match the mark's default color
+      return () => DEFAULT_CHART_COLOR;
+    })()
   };
   
   return plotOptions;
