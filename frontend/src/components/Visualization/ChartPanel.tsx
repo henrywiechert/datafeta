@@ -29,7 +29,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   
   // Get clearSelection action (stable reference, never causes re-render)
-  const clearSelection = useSelectionStore((s) => s.clearSelection);
+  const clearSelection = useSelectionStore((s: any) => s.clearSelection);
   
   // Handle keyboard shortcuts
   useEffect(() => {
