@@ -1,6 +1,6 @@
 import * as Plot from '@observablehq/plot';
 import { getResultColumnName } from '../../utils/fieldUtils';
-import { ColorScaleInfo } from '../utils/colorSchemeUtils';
+import { ColorScaleInfo, createColorResolver } from '../utils/colorSchemeUtils';
 import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
@@ -384,42 +384,7 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
       undefined, // No size field in bar charts
       tooltipFields.length > 0 ? tooltipFields : undefined
     ),
-    getColor: (() => {
-      if (colorColumn && colorScale) {
-        if (colorScale.kind === 'categorical') {
-          const domain = colorScale.domain as any[];
-          const range = colorScale.range;
-          return (d: any) => {
-            const val = d[colorColumn];
-            const key = val instanceof Date ? val.valueOf() : val;
-            const idx = domain.findIndex(v => (v instanceof Date ? v.valueOf() : v) === key);
-            const i = idx >= 0 ? idx : 0;
-            return range[i % range.length];
-          };
-        } else {
-          const [min, max] = colorScale.domain as [number, number];
-          const range = colorScale.range;
-          const accessor = colorScale.accessor;
-          const tOf = (d: any) => {
-            const raw = accessor ? accessor(d) : (d[colorColumn] as number);
-            if (raw == null || !isFinite(raw as number)) return undefined;
-            if (max === min) return 0;
-            const t = ((raw as number) - min) / (max - min);
-            return Math.max(0, Math.min(1, t));
-          };
-          return (d: any) => {
-            const t = tOf(d);
-            if (t === undefined) return undefined;
-            const idx = Math.round(t * (range.length - 1));
-            return range[Math.max(0, Math.min(range.length - 1, idx))];
-          };
-        }
-      }
-      if (manualColor) {
-        return () => manualColor!;
-      }
-      return undefined;
-    })()
+    getColor: createColorResolver(colorScale, colorColumn, manualColor)
   };
 
   return plot;

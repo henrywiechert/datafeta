@@ -2,7 +2,7 @@ import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext } from '../types';
 import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING } from '../../config/chartLayoutConfig';
 import { getResultColumnName } from '../../utils/fieldUtils';
-import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo, createColorResolver } from '../utils/colorSchemeUtils';
 import { computeBandPaddingFromSizeField } from './barCore';
 import { Field } from '../../types';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
@@ -183,36 +183,9 @@ function buildPlotOptions(
   }
   
   applyColorScale(opts, colorScale);
-  // Build getColor resolver from known scale
-  let getColor: ((d: any) => string | undefined) | undefined;
-  if (colorField && colorScale) {
-    const colorCol = colorField ? getResultColumnName(colorField) : undefined;
-    if (colorCol) {
-      if (colorScale.kind === 'continuous') {
-        const [min, max] = colorScale.domain as [number, number];
-        const range = colorScale.range;
-        const accessor = colorScale.accessor;
-        getColor = (d: any) => {
-          const raw = accessor ? accessor(d) : (d[colorCol] as number);
-          if (raw == null || !isFinite(raw as number)) return undefined;
-          if (max === min) return range[0];
-          const t = Math.max(0, Math.min(1, (((raw as number) - min) / (max - min)) ));
-          const idx = Math.round(t * (range.length - 1));
-          return range[Math.max(0, Math.min(range.length - 1, idx))];
-        };
-      } else {
-        const domain = colorScale.domain as any[];
-        const range = colorScale.range;
-        getColor = (d: any) => {
-          const val = d[colorCol];
-          const key = val instanceof Date ? val.valueOf() : val;
-          const idx = domain.findIndex(v => (v instanceof Date ? v.valueOf() : v) === key);
-          const i = idx >= 0 ? idx : 0;
-          return range[i % range.length];
-        };
-      }
-    }
-  }
+  // Build getColor resolver from known scale using shared utility
+  const colorCol = colorField ? getResultColumnName(colorField) : undefined;
+  const getColor = createColorResolver(colorScale, colorCol);
   addCustomTooltip(opts, data, dimensionColumn, dimensionLabel, categoryDimensionColumn, categoryLabel, colorField, sizeField, tooltipFields, getColor);
   
   return opts;

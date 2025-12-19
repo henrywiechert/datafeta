@@ -28,10 +28,6 @@ export function createTooltipFieldsGetter(
   excludeColumns?: string[]
 ): (d: any) => TooltipField[] {
   return (d: any): TooltipField[] => {
-    console.log('[createTooltipFieldsGetter] Input data:', d);
-    console.log('[createTooltipFieldsGetter] Available keys:', Object.keys(d || {}));
-    console.log('[createTooltipFieldsGetter] Main fields to extract:', mainFields);
-    
     const fields: TooltipField[] = [];
     const exclude = new Set(excludeColumns || []);
     
@@ -39,7 +35,6 @@ export function createTooltipFieldsGetter(
     mainFields.forEach(({ label, column }) => {
       if (!exclude.has(column)) {
         const value = d[column];
-        console.log(`[createTooltipFieldsGetter] Extracting ${column}:`, value, 'from data:', d);
         fields.push({ 
           label, 
           value: value,
