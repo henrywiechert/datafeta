@@ -2,7 +2,7 @@ import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext } from '../types';
 import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING } from '../../config/chartLayoutConfig';
 import { getResultColumnName } from '../../utils/fieldUtils';
-import { deriveColorScaleInfo, createColorResolver } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { computeBandPaddingFromSizeField } from './barCore';
 import { Field } from '../../types';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
@@ -22,7 +22,7 @@ function applyColorScale(opts: Plot.PlotOptions, colorScale: any): void {
 }
 
 /**
- * Add custom tooltip configuration to plot options
+ * Add custom tooltip configuration to plot options (color is read directly from DOM)
  */
 function addCustomTooltip(
   opts: Plot.PlotOptions,
@@ -33,8 +33,7 @@ function addCustomTooltip(
   categoryLabel: string | undefined,
   colorField: Field | undefined,
   sizeField: Field | undefined,
-  tooltipFields: Field[] | undefined,
-  getColor?: (d: any) => string | undefined
+  tooltipFields: Field[] | undefined
 ): void {
   const mainFields: { label: string; column: string }[] = [
     { label: dimensionLabel, column: dimensionColumn }
@@ -46,14 +45,13 @@ function addCustomTooltip(
   
   (opts as any).__customTooltip = {
     enabled: true,
-    data: data, // Pass the data array for tooltip access
+    data: data,
     getFields: createTooltipFieldsGetter(
       mainFields,
       colorField,
       sizeField,
       tooltipFields
-    ),
-    getColor
+    )
   };
 }
 
@@ -183,10 +181,7 @@ function buildPlotOptions(
   }
   
   applyColorScale(opts, colorScale);
-  // Build getColor resolver from known scale using shared utility
-  const colorCol = colorField ? getResultColumnName(colorField) : undefined;
-  const getColor = createColorResolver(colorScale, colorCol);
-  addCustomTooltip(opts, data, dimensionColumn, dimensionLabel, categoryDimensionColumn, categoryLabel, colorField, sizeField, tooltipFields, getColor);
+  addCustomTooltip(opts, data, dimensionColumn, dimensionLabel, categoryDimensionColumn, categoryLabel, colorField, sizeField, tooltipFields);
   
   return opts;
 }

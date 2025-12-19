@@ -2,7 +2,7 @@ import * as Plot from '@observablehq/plot';
 import { DEFAULT_CHART_COLOR, DOMAIN_PAD_RATIO } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
-import { deriveColorScaleInfo, createColorResolver } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
 // Label utilities
 import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils';
@@ -246,11 +246,10 @@ export function scatterChart(
     }
   }
   
-  // Add custom tooltip configuration
-  const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
+  // Add custom tooltip configuration (color is read directly from DOM)
   (plotOptions as any).__customTooltip = {
     enabled: true,
-    data: clean, // Pass the data array for tooltip access
+    data: clean,
     getFields: createTooltipFieldsGetter(
       [
         { label: xLabel, column: xColumn },
@@ -259,8 +258,7 @@ export function scatterChart(
       colorField,
       sizeField,
       tooltipFields
-    ),
-    getColor: createColorResolver(colorInfo, colorColumnName, manualColor)
+    )
   };
   
   return plotOptions;

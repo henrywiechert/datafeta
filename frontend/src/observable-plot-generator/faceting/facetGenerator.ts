@@ -17,7 +17,6 @@ import { getResultColumnName } from '../../utils/fieldUtils';
 import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 import { buildLabelCfg } from '../observablePlotGenerator';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
-import { createColorResolver } from '../utils/colorSchemeUtils';
 
 /**
  * Chart-specific configuration derived from context and facet plan.
@@ -317,8 +316,8 @@ function createBarCellGenerator(
             colorField || undefined,
             undefined, // No size field for tick strips
             cellContext.tooltipFields
-          ),
-          getColor: createColorResolver(sharedDomains.colorScale, colorColumnName, !colorField ? manualColor : undefined)
+          )
+          // Note: Color is read directly from DOM element
         };
         
         title = dimCol;
