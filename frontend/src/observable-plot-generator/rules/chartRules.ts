@@ -7,17 +7,28 @@ import { lineChart } from '../chartTypes/lineChart';
 import { scatterChart } from '../chartTypes/scatterChart';
 import { barChart } from '../chartTypes/barChart';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
+import { BAR_STEP_PX, MIN_BAR_STEP_PX } from '../../config/chartLayoutConfig';
+
+interface SizeOptions {
+  intrinsicWidth?: number | 'fr';
+  intrinsicHeight?: number | 'fr';
+  minWidth?: number;
+  minHeight?: number;
+}
 
 /**
  * Helper to wrap a single Plot.PlotOptions into a 1x1 grid PlotResult.
  * Eliminates the legacy 'single' layout type.
- * Extracts intrinsic sizing from plot options if present (e.g., bar charts, tick strips).
+ * Accepts optional size parameters for intrinsic sizing and resize constraints.
  */
-function wrapAs1x1Grid(options: Plot.PlotOptions, id: string = 'plot', title: string = ''): PlotResult {
-  // Extract intrinsic sizing from plot options if present
-  // Bar charts and tick strips set explicit width/height for categorical layouts
-  const intrinsicWidth = typeof (options as any).width === 'number' ? (options as any).width : 'fr';
-  const intrinsicHeight = typeof (options as any).height === 'number' ? (options as any).height : 'fr';
+function wrapAs1x1Grid(
+  options: Plot.PlotOptions, 
+  id: string = 'plot', 
+  title: string = '',
+  sizeOptions?: SizeOptions
+): PlotResult {
+  const intrinsicWidth = sizeOptions?.intrinsicWidth ?? 'fr';
+  const intrinsicHeight = sizeOptions?.intrinsicHeight ?? 'fr';
   
   return {
     library: 'observable-plot',
@@ -32,9 +43,43 @@ function wrapAs1x1Grid(options: Plot.PlotOptions, id: string = 'plot', title: st
       columns: 1,
       rows: 1,
       columnSizes: [intrinsicWidth],
-      rowSizes: [intrinsicHeight]
+      rowSizes: [intrinsicHeight],
+      // Minimum sizes for resize constraints (based on categories * MIN_BAR_STEP_PX)
+      minColumnSizes: sizeOptions?.minWidth ? [sizeOptions.minWidth] : undefined,
+      minRowSizes: sizeOptions?.minHeight ? [sizeOptions.minHeight] : undefined,
     }
   };
+}
+
+/**
+ * Helper to wrap a tick strip with proper intrinsic and minimum sizing.
+ * Calculates sizes based on category count.
+ */
+function wrapTickStripAs1x1Grid(
+  context: ChartGenerationContext,
+  options: Plot.PlotOptions, 
+  orientation: 'x' | 'y',
+  id: string,
+  title: string,
+  categoryColumn?: string
+): PlotResult {
+  // Count categories to determine sizing
+  const data = context.queryResult?.rows || [];
+  let categoryCount = 1;
+  if (categoryColumn) {
+    const uniqueCategories = new Set(data.map(row => row[categoryColumn]));
+    categoryCount = Math.max(1, uniqueCategories.size);
+  }
+  
+  const intrinsicSize = Math.max(BAR_STEP_PX, categoryCount * BAR_STEP_PX);
+  const minSize = Math.max(MIN_BAR_STEP_PX, categoryCount * MIN_BAR_STEP_PX);
+  
+  // For x-orientation (tickX), height is fixed; for y-orientation (tickY), width is fixed
+  const sizeOptions: SizeOptions = orientation === 'x'
+    ? { intrinsicHeight: intrinsicSize, minHeight: minSize }
+    : { intrinsicWidth: intrinsicSize, minWidth: minSize };
+  
+  return wrapAs1x1Grid(options, id, title, sizeOptions);
 }
 
 export function generateScatterPlot(
@@ -254,7 +299,7 @@ export function generateChartOptions(
     // Check categoryAxisDescriptor first (from faceting), then fall back to finding in yDims
     const category = (context.categoryAxisDescriptor?.axis === 'y' ? context.categoryAxisDescriptor.columnName : null)
       || yDims.filter((d: any) => d.flavour === 'discrete').slice(-1)[0]?.columnName;
-    return wrapAs1x1Grid(tickStrip(context, 'x', dimCol, category), 'tick-strip-x', dimCol);
+    return wrapTickStripAs1x1Grid(context, tickStrip(context, 'x', dimCol, category), 'x', 'tick-strip-x', dimCol, category);
   }
   if (singleYDim) {
     // Use the continuous dimension, not analysis.yDimensions[0] which may include discrete dims
@@ -263,7 +308,7 @@ export function generateChartOptions(
     // Check categoryAxisDescriptor first (from faceting), then fall back to finding in xDims
     const category = (context.categoryAxisDescriptor?.axis === 'x' ? context.categoryAxisDescriptor.columnName : null)
       || xDims.filter((d: any) => d.flavour === 'discrete').slice(-1)[0]?.columnName;
-    return wrapAs1x1Grid(tickStrip(context, 'y', dimCol, category), 'tick-strip-y', dimCol);
+    return wrapTickStripAs1x1Grid(context, tickStrip(context, 'y', dimCol, category), 'y', 'tick-strip-y', dimCol, category);
   }
 
   const bothDims = analysis.hasXDimension && analysis.hasYDimension && analysis.xDimensions.length > 0 && analysis.yDimensions.length > 0;
@@ -281,13 +326,16 @@ export function generateChartOptions(
       // Check categoryAxisDescriptor first (from faceting), then fall back to finding in yDiscreteDims
       const categoryCol = (context.categoryAxisDescriptor?.axis === 'y' ? context.categoryAxisDescriptor.columnName : null)
         || getResultColumnName(yDim);
-      return wrapAs1x1Grid(
+      return wrapTickStripAs1x1Grid(
+        context,
         tickStrip(context, 'x', xDimCol, categoryCol, { 
           dimension: getFieldDisplayName(xDim), 
           category: categoryCol 
         }),
+        'x',
         'tick-strip-x-categorized',
-        `${xDim.columnName} by ${yDim.columnName}`
+        `${xDim.columnName} by ${yDim.columnName}`,
+        categoryCol
       );
     }
     // Continuous on Y, discrete on X → tick-strip along Y, categorized by X
@@ -298,13 +346,16 @@ export function generateChartOptions(
       // Check categoryAxisDescriptor first (from faceting), then fall back to finding in xDiscreteDims
       const categoryCol = (context.categoryAxisDescriptor?.axis === 'x' ? context.categoryAxisDescriptor.columnName : null)
         || getResultColumnName(xDim);
-      return wrapAs1x1Grid(
+      return wrapTickStripAs1x1Grid(
+        context,
         tickStrip(context, 'y', yDimCol, categoryCol, { 
           dimension: getFieldDisplayName(yDim), 
           category: categoryCol 
         }),
+        'y',
         'tick-strip-y-categorized',
-        `${yDim.columnName} by ${xDim.columnName}`
+        `${yDim.columnName} by ${xDim.columnName}`,
+        categoryCol
       );
     }
     // Both continuous → scatter

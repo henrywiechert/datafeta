@@ -84,6 +84,10 @@ export interface PlotResult {
     // number => pixels, 'fr' => fractional unit (defaults to 1fr)
     columnSizes: Array<number | 'fr'>;
     rowSizes: Array<number | 'fr'>;
+    // Optional minimum sizes for resize constraints (based on categories * MIN_BAR_STEP_PX)
+    // If not provided, falls back to absolute minimum (50px)
+    minColumnSizes?: Array<number>;
+    minRowSizes?: Array<number>;
   };
   // Optional global facet label metadata for rendering outer labels once (not per-plot)
   facetLabels?: {

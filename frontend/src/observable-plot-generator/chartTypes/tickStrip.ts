@@ -140,6 +140,12 @@ function buildPlotOptions(
   
   let opts: Plot.PlotOptions;
   
+  // NOTE: We intentionally do NOT set explicit height/width here.
+  // The intrinsic size is communicated via rowSizes/columnSizes in PlotResult.layout,
+  // which sets the CSS grid cell size. ObservablePlot then renders to fit the container.
+  // This allows resize handles to work - when user resizes, the container changes,
+  // and Observable Plot re-renders proportionally (band scale naturally scales).
+  
   if (orientation === 'x') {
     const markType = Plot.tickX;
     opts = {
@@ -157,9 +163,7 @@ function buildPlotOptions(
             padding: bandPadding as any,
           }
         : { label: ' ', domain: [' '] as any, type: 'band' as any, padding: bandPadding as any },
-      height: categoryDimensionColumn 
-        ? Math.max(BAR_STEP_PX * 2, categoryCount * BAR_STEP_PX)
-        : BAR_STEP_PX,
+      // Size handled by layout system, not here - enables resize handles
       marks: [markType(data, tickConfig), Plot.dot(data, hoverDotConfig)],
     };
   } else {
@@ -179,9 +183,7 @@ function buildPlotOptions(
             padding: bandPadding as any,
           }
         : { label: ' ', domain: [' '] as any, type: 'band' as any, padding: bandPadding as any },
-      width: categoryDimensionColumn 
-        ? Math.max(BAR_STEP_PX * 2, categoryCount * BAR_STEP_PX)
-        : BAR_STEP_PX,
+      // Size handled by layout system, not here - enables resize handles
       marks: [markType(data, tickConfig), Plot.dot(data, hoverDotConfig)],
     };
   }
@@ -247,18 +249,17 @@ export function tickStrip(
   const hasValid = Array.isArray(data) && data.some((row) => isNumericOrDate(row[dimensionColumn]));
   if (!hasValid) {
     // Render empty axes so cell frame is consistent
+    // Size is handled by layout system, not here - enables resize handles
     if (orientation === 'x') {
       return {
         x: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true } as any,
         y: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: bandPadding as any },
-        height: BAR_STEP_PX,
         marks: [],
       };
     } else {
       return {
         y: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true } as any,
         x: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: bandPadding as any },
-        width: BAR_STEP_PX,
         marks: [],
       };
     }
