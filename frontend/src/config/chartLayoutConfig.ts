@@ -6,6 +6,10 @@ export const MIN_GRID_ROW_PX = 120;
 // Fixed bar thickness step for categorical axis sizing in bar charts
 export const BAR_STEP_PX = 40;
 
+// Minimum bar thickness step when resizing down (allows shrinking bars)
+// Minimum resize size = categories * MIN_BAR_STEP_PX
+export const MIN_BAR_STEP_PX = 15;
+
 // Default chart color used across all chart types
 export const DEFAULT_CHART_COLOR = 'steelblue';
 

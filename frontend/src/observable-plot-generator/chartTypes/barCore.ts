@@ -335,9 +335,14 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     nice: false
   } as any;
 
+  // NOTE: We intentionally do NOT set explicit height/width here.
+  // The intrinsic size is communicated via rowSizes/columnSizes in PlotResult.layout,
+  // which sets the CSS grid cell size. ObservablePlot then renders to fit the container.
+  // This allows resize handles to work - when user resizes, the container changes,
+  // and Observable Plot re-renders proportionally (band scale naturally scales).
   const plot: Plot.PlotOptions = {
     marks: [barMark],
-    [O.sizeProp]: size,
+    // Size is handled by layout system, not here - enables resize handles
     [O.category]: axisCategory,
     [O.measure]: axisMeasure,
   } as any;

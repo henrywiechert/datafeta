@@ -3,7 +3,7 @@ import { getFieldColumnName } from '../helpers/fields';
 import { resolveMeasureAlias, buildBarOptions, computeBandPaddingFromSizeField, sortCategoriesByValue } from './barCore';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { getResultColumnName } from '../../utils/fieldUtils';
-import { BAR_STEP_PX, BAND_PADDING } from '../../config/chartLayoutConfig';
+import { BAR_STEP_PX, MIN_BAR_STEP_PX, BAND_PADDING } from '../../config/chartLayoutConfig';
 // Label utilities
 import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 // Tick strip for continuous dimensions
@@ -245,13 +245,24 @@ export function barUnified(
 
   // Always return a grid-style PlotResult (even for a single plot) so that
   // the renderer uses the unified left-side label/axis layout.
-  const intrinsicSize = hasCategories && categories ? Math.max(BAR_STEP_PX, categories.length * BAR_STEP_PX) : BAR_STEP_PX;
+  const categoryCount = hasCategories && categories ? categories.length : 1;
+  const intrinsicSize = Math.max(BAR_STEP_PX, categoryCount * BAR_STEP_PX);
+  const minSize = Math.max(MIN_BAR_STEP_PX, categoryCount * MIN_BAR_STEP_PX);
+  
   const columnSizes = orientation === 'horizontal'
     ? Array.from({ length: allPlots.length }, () => 'fr' as const)
     : [intrinsicSize];
   const rowSizes = orientation === 'horizontal'
     ? [intrinsicSize]
     : Array.from({ length: allPlots.length }, () => 'fr' as const);
+  
+  // Minimum sizes for resize constraints - based on MIN_BAR_STEP_PX per category
+  const minColumnSizes = orientation === 'horizontal'
+    ? undefined  // 'fr' columns don't have a fixed minimum
+    : [minSize];
+  const minRowSizes = orientation === 'horizontal'
+    ? [minSize]
+    : undefined;  // 'fr' rows don't have a fixed minimum
 
   return {
     library: 'observable-plot',
@@ -263,6 +274,8 @@ export function barUnified(
       rows: orientation === 'horizontal' ? 1 : allPlots.length,
       columnSizes,
       rowSizes,
+      minColumnSizes,
+      minRowSizes,
     },
   };
 }
