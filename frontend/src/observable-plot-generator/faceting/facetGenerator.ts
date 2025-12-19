@@ -231,33 +231,39 @@ function createBarCellGenerator(
         
         title = measureName;
       } else {
-        // For dimension series (tick strips), compute explicit domain from data
-        const dimCol = (f as any).columnName;
+        // For dimension series (tick strips), use shared domain for consistency across facets
+        const dimCol = getResultColumnName(f);
         
-        // Compute domain from the cell's filtered data
-        const isNumericOrDate = (v: any) =>
-          (typeof v === 'number' && Number.isFinite(v)) ||
-          v instanceof Date ||
-          (typeof v === 'string' && !Number.isNaN(Date.parse(v)));
+        // Use shared domain from sharedDomains.numeric for consistent scales across facets
+        // Fall back to computing from cell data only if no shared domain exists
+        let axisDomain: [number, number] | [Date, Date] | undefined = 
+          sharedDomains.numeric?.[dimCol] as [number, number] | [Date, Date] | undefined;
         
-        const values = cellData
-          .map((row: any) => row[dimCol])
-          .filter((v: any) => isNumericOrDate(v));
-        
-        let axisDomain: [number, number] | [Date, Date] | undefined;
-        if (values.length > 0) {
-          const sample = values[0];
-          if (typeof sample === 'number') {
-            const nums = values as number[];
-            const min = Math.min(...nums);
-            const max = Math.max(...nums);
-            axisDomain = [min, max];
-          } else {
-            const toDate = (v: any) => (v instanceof Date ? v : new Date(v));
-            const dates = values.map(toDate);
-            const minD = new Date(Math.min(...dates.map((d: Date) => d.getTime())));
-            const maxD = new Date(Math.max(...dates.map((d: Date) => d.getTime())));
-            axisDomain = [minD, maxD];
+        if (!axisDomain) {
+          // Fallback: compute domain from the cell's filtered data
+          const isNumericOrDate = (v: any) =>
+            (typeof v === 'number' && Number.isFinite(v)) ||
+            v instanceof Date ||
+            (typeof v === 'string' && !Number.isNaN(Date.parse(v)));
+          
+          const values = cellData
+            .map((row: any) => row[dimCol])
+            .filter((v: any) => isNumericOrDate(v));
+          
+          if (values.length > 0) {
+            const sample = values[0];
+            if (typeof sample === 'number') {
+              const nums = values as number[];
+              const min = Math.min(...nums);
+              const max = Math.max(...nums);
+              axisDomain = [min, max];
+            } else {
+              const toDate = (v: any) => (v instanceof Date ? v : new Date(v));
+              const dates = values.map(toDate);
+              const minD = new Date(Math.min(...dates.map((d: Date) => d.getTime())));
+              const maxD = new Date(Math.max(...dates.map((d: Date) => d.getTime())));
+              axisDomain = [minD, maxD];
+            }
           }
         }
         
@@ -269,18 +275,22 @@ function createBarCellGenerator(
           const tickConfig = { x: dimCol, y: categoryColumnName || (() => categories[0]), stroke: tickStroke, strokeWidth: 1.5 };
           const hoverDotConfig = { x: dimCol, y: categoryColumnName || (() => categories[0]), r: 6, fill: 'transparent', stroke: 'transparent', strokeWidth: 0 };
           options = {
-            x: axisDomain ? { label: dimCol, domain: axisDomain as any, nice: false, grid: true } : { label: dimCol, grid: true },
-            y: { label: categoryColumnName || ' ', type: 'band' as any, domain: categories as any, padding: bandPadding as any },
+            x: axisDomain 
+              ? { label: dimCol, domainKey: dimCol, domain: axisDomain, nice: false, grid: true } as any
+              : { label: dimCol, domainKey: dimCol, grid: true } as any,
+            y: { label: categoryColumnName || ' ', type: 'band', domain: categories, padding: bandPadding } as any,
             marks: [Plot.tickX(cellData, tickConfig), Plot.dot(cellData, hoverDotConfig)]
-          } as Plot.PlotOptions;
+          };
         } else {
           const tickConfig = { y: dimCol, x: categoryColumnName || (() => categories[0]), stroke: tickStroke, strokeWidth: 1.5 };
           const hoverDotConfig = { y: dimCol, x: categoryColumnName || (() => categories[0]), r: 6, fill: 'transparent', stroke: 'transparent', strokeWidth: 0 };
           options = {
-            y: axisDomain ? { label: dimCol, domain: axisDomain as any, nice: false, grid: true } : { label: dimCol, grid: true },
-            x: { label: categoryColumnName || ' ', type: 'band' as any, domain: categories as any, padding: bandPadding as any },
+            y: axisDomain 
+              ? { label: dimCol, domainKey: dimCol, domain: axisDomain, nice: false, grid: true } as any
+              : { label: dimCol, domainKey: dimCol, grid: true } as any,
+            x: { label: categoryColumnName || ' ', type: 'band', domain: categories, padding: bandPadding } as any,
             marks: [Plot.tickY(cellData, tickConfig), Plot.dot(cellData, hoverDotConfig)]
-          } as Plot.PlotOptions;
+          };
         }
         
         // Add color scale configuration if color field is present

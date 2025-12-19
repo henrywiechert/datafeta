@@ -247,7 +247,9 @@ export function generateChartOptions(
   const singleXDim = analysis.hasXDimension && xContinuousDims.length === 1 && yDims.length === 0;
   const singleYDim = analysis.hasYDimension && yContinuousDims.length === 1 && xDims.length === 0;
   if (singleXDim) {
-    const dimCol = analysis.xDimensions[0].columnName;
+    // Use the continuous dimension, not analysis.xDimensions[0] which may include discrete dims
+    const dim = xContinuousDims[0];
+    const dimCol = getResultColumnName(dim);
     // If opposite axis has discrete dimension(s), treat them as categories (mirroring bar chart behavior)
     // Check categoryAxisDescriptor first (from faceting), then fall back to finding in yDims
     const category = (context.categoryAxisDescriptor?.axis === 'y' ? context.categoryAxisDescriptor.columnName : null)
@@ -255,7 +257,9 @@ export function generateChartOptions(
     return wrapAs1x1Grid(tickStrip(context, 'x', dimCol, category), 'tick-strip-x', dimCol);
   }
   if (singleYDim) {
-    const dimCol = analysis.yDimensions[0].columnName;
+    // Use the continuous dimension, not analysis.yDimensions[0] which may include discrete dims
+    const dim = yContinuousDims[0];
+    const dimCol = getResultColumnName(dim);
     // Check categoryAxisDescriptor first (from faceting), then fall back to finding in xDims
     const category = (context.categoryAxisDescriptor?.axis === 'x' ? context.categoryAxisDescriptor.columnName : null)
       || xDims.filter((d: any) => d.flavour === 'discrete').slice(-1)[0]?.columnName;
@@ -437,11 +441,17 @@ export function generateChartOptions(
   const multiXDim = analysis.hasXDimension && analysis.xDimensions.length > 1 && !analysis.hasYDimension && !analysis.hasMeasure;
   const multiYDim = analysis.hasYDimension && analysis.yDimensions.length > 1 && !analysis.hasXDimension && !analysis.hasMeasure;
   if (multiXDim) {
-    const plots = analysis.xDimensions.map((dim: any, i: number) => ({ id: `x-dim-${i}`, title: dim.columnName, position: { row: 0, col: i }, options: tickStrip(context, 'x', dim.columnName) }));
+    const plots = analysis.xDimensions.map((dim: any, i: number) => {
+      const dimCol = getResultColumnName(dim);
+      return { id: `x-dim-${i}`, title: dim.columnName, position: { row: 0, col: i }, options: tickStrip(context, 'x', dimCol) };
+    });
     return { library: 'observable-plot', plots, layout: { type: 'grid', columns: plots.length, rows: 1, columnSizes: Array.from({ length: plots.length }, () => 'fr'), rowSizes: ['fr'] } };
   }
   if (multiYDim) {
-    const plots = analysis.yDimensions.map((dim: any, i: number) => ({ id: `y-dim-${i}`, title: dim.columnName, position: { row: i, col: 0 }, options: tickStrip(context, 'y', dim.columnName) }));
+    const plots = analysis.yDimensions.map((dim: any, i: number) => {
+      const dimCol = getResultColumnName(dim);
+      return { id: `y-dim-${i}`, title: dim.columnName, position: { row: i, col: 0 }, options: tickStrip(context, 'y', dimCol) };
+    });
     return { library: 'observable-plot', plots, layout: { type: 'grid', columns: 1, rows: plots.length, columnSizes: ['fr'], rowSizes: Array.from({ length: plots.length }, () => 'fr') } };
   }
 
