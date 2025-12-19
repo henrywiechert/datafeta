@@ -7,6 +7,8 @@ import { computeBandPaddingFromSizeField } from './barCore';
 import { Field } from '../../types';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 
+type Domains = Record<string, [number, number] | [Date, Date] | any[]> | undefined;
+
 // ---------- Helper Functions ---------------------------------------------------------
 
 /**
@@ -125,10 +127,14 @@ function buildPlotOptions(
   colorScale: any,
   colorField: Field | undefined,
   sizeField: Field | undefined,
-  tooltipFields: Field[] | undefined
+  tooltipFields: Field[] | undefined,
+  sharedCategoryDomain?: any[]
 ): Plot.PlotOptions {
+  // Use shared category domain if available, otherwise compute from local data
   const categories = categoryDimensionColumn 
-    ? Array.from(new Set(data.map((row: any) => row[categoryDimensionColumn])))
+    ? (sharedCategoryDomain && Array.isArray(sharedCategoryDomain) && sharedCategoryDomain.length > 0
+        ? sharedCategoryDomain
+        : Array.from(new Set(data.map((row: any) => row[categoryDimensionColumn]))))
     : undefined;
   const categoryCount = categories?.length || 1;
   
@@ -199,7 +205,8 @@ export function tickStrip(
   orientation: 'x' | 'y',
   dimensionColumn: string,
   categoryDimensionColumn?: string,
-  labels?: { dimension?: string; category?: string }
+  labels?: { dimension?: string; category?: string },
+  sharedDomains?: Domains
 ): Plot.PlotOptions {
   const { queryResult, colorField, colorScheme, colorBias, sizeField, manualSize, manualColor, tooltipFields } = context;
   const data = queryResult.rows;
@@ -257,8 +264,16 @@ export function tickStrip(
     }
   }
 
-  // Compute domain from filtered data (numbers or dates)
-  const computeAxisDomain = () => {
+  // First check for shared domain (for faceted charts)
+  const sharedAxisDomain = sharedDomains?.[dimensionColumn] as [number, number] | [Date, Date] | undefined;
+  
+  // Compute domain from filtered data (numbers or dates) if no shared domain
+  const computeAxisDomain = (): [number, number] | [Date, Date] | undefined => {
+    // Use shared domain if available
+    if (sharedAxisDomain && Array.isArray(sharedAxisDomain) && sharedAxisDomain.length === 2) {
+      return sharedAxisDomain;
+    }
+    
     const values = data
       .map((row: any) => row[dimensionColumn])
       .filter((v: any) => isNumericOrDate(v));
@@ -278,6 +293,11 @@ export function tickStrip(
     return [minD, maxD] as [Date, Date];
   };
   const axisDomain = computeAxisDomain();
+  
+  // Also check for shared category domain
+  const sharedCategoryDomain = categoryDimensionColumn 
+    ? sharedDomains?.[categoryDimensionColumn] as any[] | undefined 
+    : undefined;
 
   const dimensionLabel = labels?.dimension || dimensionColumn;
   const categoryLabel = labels?.category || categoryDimensionColumn;
@@ -318,6 +338,7 @@ export function tickStrip(
     colorScale,
     colorField,
     sizeField,
-    tooltipFields
+    tooltipFields,
+    sharedCategoryDomain
   );
 }

@@ -81,11 +81,12 @@ export function applySharedDomains(
   
   // Apply domains: ALWAYS override when we have a shared domain to ensure consistency across facets
   // This is critical for faceted charts where each facet should share the same scale
+  // Setting nice: false prevents Observable Plot from extending the domain
   if (xDomain && opts.x) {
-    opts.x = { ...(opts.x as any), domain: xDomain } as any;
+    opts.x = { ...(opts.x as any), domain: xDomain, nice: false } as any;
   }
   if (yDomain && opts.y) {
-    opts.y = { ...(opts.y as any), domain: yDomain } as any;
+    opts.y = { ...(opts.y as any), domain: yDomain, nice: false } as any;
   }
   
   // Apply shared color domain
