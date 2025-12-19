@@ -60,6 +60,9 @@ interface VisualizationState {
   // Global chart type override (applies to all charts when set)
   globalChartType: UserChartType | null;
   queryVersion: number; // increments only when query semantics change
+  // Panel collapse state
+  leftPanelCollapsed: boolean;
+  middlePanelCollapsed: boolean;
 }
 
 // Define action types
@@ -156,7 +159,11 @@ type VisualizationAction =
       globalChartType?: UserChartType | null;
     } }
   // Multi-table actions (joins/unions)
-  | { type: 'TABLE_JOINS_UNIONS_MODIFIED' };
+  | { type: 'TABLE_JOINS_UNIONS_MODIFIED' }
+  // Panel collapse actions
+  | { type: 'TOGGLE_LEFT_PANEL' }
+  | { type: 'TOGGLE_MIDDLE_PANEL' }
+  | { type: 'SET_PANEL_COLLAPSED'; payload: { panel: 'left' | 'middle'; collapsed: boolean } };
 
 // Initial state
 const initialState: VisualizationState = {
@@ -212,6 +219,9 @@ const initialState: VisualizationState = {
   // Global chart type default (null = auto-detect)
   globalChartType: null,
   queryVersion: 0,
+  // Panel collapse defaults
+  leftPanelCollapsed: false,
+  middlePanelCollapsed: false,
 };
 
 // Helper: shallow compare field id arrays (order significant where provided)
@@ -699,6 +709,16 @@ function visualizationReducer(state: VisualizationState, action: VisualizationAc
     case 'TABLE_JOINS_UNIONS_MODIFIED':
       // When joins or unions are modified, increment query version to trigger re-execution
       return { ...state, queryVersion: state.queryVersion + 1 };
+    // Panel collapse reducers
+    case 'TOGGLE_LEFT_PANEL':
+      return { ...state, leftPanelCollapsed: !state.leftPanelCollapsed };
+    case 'TOGGLE_MIDDLE_PANEL':
+      return { ...state, middlePanelCollapsed: !state.middlePanelCollapsed };
+    case 'SET_PANEL_COLLAPSED':
+      if (action.payload.panel === 'left') {
+        return { ...state, leftPanelCollapsed: action.payload.collapsed };
+      }
+      return { ...state, middlePanelCollapsed: action.payload.collapsed };
     default:
       return state;
   }
