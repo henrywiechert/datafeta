@@ -229,18 +229,20 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
 };
 
 // Memoize FieldsPanel to prevent unnecessary re-renders
+// PERFORMANCE NOTE: Callbacks (onFieldUpdate, onRemoveFromAxis, etc.) are NOT compared
+// because they are now stable thanks to refs pattern in useDragDrop and useFieldOperations.
+// This prevents FieldsPanel from re-rendering when chart state changes.
 export default React.memo(FieldsPanel, (prevProps, nextProps) => {
-  // Only re-render if actual data or callbacks change
+  // Only re-render if actual data changes - callbacks are stable
   return (
     prevProps.availableFields === nextProps.availableFields &&
     prevProps.fieldsSearch === nextProps.fieldsSearch &&
-    prevProps.onFieldUpdate === nextProps.onFieldUpdate &&
-    prevProps.onRemoveFromAxis === nextProps.onRemoveFromAxis &&
     prevProps.selectedDatabase === nextProps.selectedDatabase &&
     prevProps.selectedTable === nextProps.selectedTable &&
     prevProps.databases === nextProps.databases &&
     prevProps.tables === nextProps.tables &&
     prevProps.isLoadingMetadata === nextProps.isLoadingMetadata &&
     prevProps.virtualColumns === nextProps.virtualColumns
+    // Callbacks NOT compared - they are now stable (see useDragDrop.ts, useFieldOperations.ts)
   );
 });
