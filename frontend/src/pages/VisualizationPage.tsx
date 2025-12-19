@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useRef, useCallback } from 'react';
 import { Box } from '@mui/material';
 import { Link } from 'react-router-dom';
-import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import { Panel, PanelGroup, ImperativePanelHandle } from "react-resizable-panels";
 import { useVisualizationState } from '../hooks/useVisualizationState';
 import { useVisualizationContext, VisualizationProvider } from '../contexts/VisualizationContext';
 import { UndoRedoProvider } from '../contexts/UndoRedoContext';
@@ -18,6 +18,8 @@ import LabelPanel from '../components/Visualization/Label/LabelPanel';
 import TooltipPanel from '../components/Visualization/Tooltip/TooltipPanel';
 import FieldOverridesPanel from '../components/Visualization/Overrides/FieldOverridesPanel';
 import LoadingModal from '../components/LoadingModal';
+import CollapsedPanelStrip from '../components/Layout/CollapsedPanelStrip';
+import PanelResizeHandleWithToggle from '../components/Layout/PanelResizeHandleWithToggle';
 import { apiService } from '../apiService';
 
 import { Field, DragSource } from '../types';
@@ -54,8 +56,33 @@ const VisualizationPageContent = () => {
         showLoadingModal, 
         loadingOperationType, 
         loadingStartTime, 
-        canCancelOperation 
+        canCancelOperation,
+        leftPanelCollapsed,
+        middlePanelCollapsed,
     } = state;
+
+    // Panel refs for imperative control
+    const leftPanelRef = useRef<ImperativePanelHandle>(null);
+    const middlePanelRef = useRef<ImperativePanelHandle>(null);
+
+    // Panel toggle handlers
+    const toggleLeftPanel = useCallback(() => {
+        dispatch({ type: 'TOGGLE_LEFT_PANEL' });
+        if (leftPanelCollapsed) {
+            leftPanelRef.current?.expand();
+        } else {
+            leftPanelRef.current?.collapse();
+        }
+    }, [dispatch, leftPanelCollapsed]);
+
+    const toggleMiddlePanel = useCallback(() => {
+        dispatch({ type: 'TOGGLE_MIDDLE_PANEL' });
+        if (middlePanelCollapsed) {
+            middlePanelRef.current?.expand();
+        } else {
+            middlePanelRef.current?.collapse();
+        }
+    }, [dispatch, middlePanelCollapsed]);
 
     // Use our custom drag-and-drop hook with virtual columns included
     const { 
@@ -184,10 +211,10 @@ const VisualizationPageContent = () => {
         clearHistory();
     }, [sheetState.activeSheetId, clearHistory]);
 
-    // Keyboard shortcuts for undo/redo
+    // Keyboard shortcuts for undo/redo and panel toggles
     React.useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
-            // Check for Ctrl+Z (Windows/Linux) or Cmd+Z (Mac)
+            // Check for Ctrl (Windows/Linux) or Cmd (Mac)
             const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
             const modifierKey = isMac ? event.metaKey : event.ctrlKey;
             
@@ -199,6 +226,14 @@ const VisualizationPageContent = () => {
                 // Redo: Ctrl+Shift+Z or Cmd+Shift+Z
                 event.preventDefault();
                 handleRedo();
+            } else if (modifierKey && event.key === 'b') {
+                // Toggle left panel: Ctrl+B or Cmd+B
+                event.preventDefault();
+                toggleLeftPanel();
+            } else if (modifierKey && event.key === 'j') {
+                // Toggle middle panel: Ctrl+J or Cmd+J
+                event.preventDefault();
+                toggleMiddlePanel();
             }
         };
 
@@ -206,7 +241,7 @@ const VisualizationPageContent = () => {
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
         };
-    }, [handleUndo, handleRedo]);
+    }, [handleUndo, handleRedo, toggleLeftPanel, toggleMiddlePanel]);
 
     if (!connectionDetails) {
         return (
@@ -234,79 +269,113 @@ const VisualizationPageContent = () => {
                 <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
                     <PanelGroup direction="horizontal">
                     {/* Left Panel - Fields with metadata selector */}
-                    <Panel defaultSize={20} minSize={10} maxSize={35}>
-                        <FieldsPanel
-                            availableFields={availableFields}
-                            fieldsSearch={fieldsSearch}
-                            onFieldsSearchChange={setFieldsSearch}
-                            onFieldUpdate={handleFieldUpdate}
-                            onRemoveFromAxis={handleRemoveFromAxis}
-                            onRemoveMultipleFromAxis={handleRemoveMultipleFromAxis}
-                            connectionType={connectionDetails?.type || ''}
-                            selectedDatabase={selectedDatabase}
-                            selectedTable={selectedTable}
-                            databases={databases}
-                            tables={tables}
-                            isLoadingMetadata={isLoadingMetadata}
-                            metadataError={metadataError}
-                            onDatabaseSelect={handleDatabaseSelect}
-                            onTableSelect={handleTableSelect}
-                            suggestedJoinableTables={suggestedJoinableTables}
-                            joinedTables={joinedTables}
-                            onToggleJoinedTable={toggleJoinedTable}
-                            unionTables={unionTables}
-                            onAddUnionTable={addUnionTable}
-                            onRemoveUnionTable={removeUnionTable}
-                            tablesCache={tablesCache}
-                            onLoadTablesForDatabase={handleLoadTablesForDatabase}
+                    <Panel 
+                        ref={leftPanelRef}
+                        defaultSize={20} 
+                        minSize={10}
+                        maxSize={35}
+                        collapsible
+                        collapsedSize={0}
+                        onCollapse={() => dispatch({ type: 'SET_PANEL_COLLAPSED', payload: { panel: 'left', collapsed: true } })}
+                        onExpand={() => dispatch({ type: 'SET_PANEL_COLLAPSED', payload: { panel: 'left', collapsed: false } })}
+                    >
+                        {leftPanelCollapsed ? (
+                            <CollapsedPanelStrip 
+                                label="Fields" 
+                                onExpand={toggleLeftPanel}
+                                tooltipPlacement="right"
+                            />
+                        ) : (
+                            <FieldsPanel
+                                    availableFields={availableFields}
+                                    fieldsSearch={fieldsSearch}
+                                    onFieldsSearchChange={setFieldsSearch}
+                                    onFieldUpdate={handleFieldUpdate}
+                                    onRemoveFromAxis={handleRemoveFromAxis}
+                                    onRemoveMultipleFromAxis={handleRemoveMultipleFromAxis}
+                                    connectionType={connectionDetails?.type || ''}
+                                    selectedDatabase={selectedDatabase}
+                                    selectedTable={selectedTable}
+                                    databases={databases}
+                                    tables={tables}
+                                    isLoadingMetadata={isLoadingMetadata}
+                                    metadataError={metadataError}
+                                    onDatabaseSelect={handleDatabaseSelect}
+                                    onTableSelect={handleTableSelect}
+                                    suggestedJoinableTables={suggestedJoinableTables}
+                                    joinedTables={joinedTables}
+                                    onToggleJoinedTable={toggleJoinedTable}
+                                    unionTables={unionTables}
+                                    onAddUnionTable={addUnionTable}
+                                    onRemoveUnionTable={removeUnionTable}
+                                    tablesCache={tablesCache}
+                                    onLoadTablesForDatabase={handleLoadTablesForDatabase}
                             virtualColumns={virtualColumns}
                             onAddVirtualColumn={handleAddVirtualColumn}
                             onUpdateVirtualColumn={handleUpdateVirtualColumn}
                             onRemoveVirtualColumn={handleRemoveVirtualColumn}
                         />
+                        )}
                     </Panel>
 
-                    <PanelResizeHandle />
+                    <PanelResizeHandleWithToggle onDoubleClick={toggleLeftPanel} />
 
                     {/* Middle Panel - Property sections stacked vertically */}
-                    <Panel defaultSize={15} minSize={10} maxSize={30}>
-                        <Box sx={{ 
-                            height: '100%', 
-                            display: 'flex', 
-                            flexDirection: 'column',
-                            overflow: 'auto',
-                            backgroundColor: '#fafafa',
-                        }}>
-                            <FilterPanel
-                                filterFields={state.filterFields}
-                                filterConfigurations={state.filterConfigurations}
-                                filterMetadata={state.filterMetadata}
-                                onDrop={handleFilterDrop}
-                                onRemove={handleRemoveFromFilter}
-                                onConfigChange={(fieldId, config) => {
-                                    dispatch({ 
-                                        type: 'SET_FILTER_CONFIGURATION', 
-                                        payload: { fieldId, config }
-                                    });
-                                }}
-                                onApplyFilters={handleApplyFilters}
-                                onRefetchValues={refetchFilterValues}
+                    <Panel 
+                        ref={middlePanelRef}
+                        defaultSize={15} 
+                        minSize={10}
+                        maxSize={30}
+                        collapsible
+                        collapsedSize={0}
+                        onCollapse={() => dispatch({ type: 'SET_PANEL_COLLAPSED', payload: { panel: 'middle', collapsed: true } })}
+                        onExpand={() => dispatch({ type: 'SET_PANEL_COLLAPSED', payload: { panel: 'middle', collapsed: false } })}
+                    >
+                        {middlePanelCollapsed ? (
+                            <CollapsedPanelStrip 
+                                label="Properties" 
+                                onExpand={toggleMiddlePanel}
+                                tooltipPlacement="right"
                             />
-                            <LabelPanel />
-                            <TooltipPanel />
-                            <FieldOverridesPanel />
-                            {state.colorField && (
-                                <LegendPanel
-                                    colorField={state.colorField}
-                                    queryResult={state.queryResult}
-                                    colorScheme={state.colorScheme}
-                                    colorBias={state.colorBias}
+                        ) : (
+                            <Box sx={{ 
+                                height: '100%', 
+                                display: 'flex', 
+                                flexDirection: 'column',
+                                overflow: 'auto',
+                                backgroundColor: '#fafafa',
+                            }}>
+                                <FilterPanel
+                                    filterFields={state.filterFields}
+                                    filterConfigurations={state.filterConfigurations}
+                                    filterMetadata={state.filterMetadata}
+                                    onDrop={handleFilterDrop}
+                                    onRemove={handleRemoveFromFilter}
+                                    onConfigChange={(fieldId, config) => {
+                                        dispatch({ 
+                                            type: 'SET_FILTER_CONFIGURATION', 
+                                            payload: { fieldId, config }
+                                        });
+                                    }}
+                                    onApplyFilters={handleApplyFilters}
+                                    onRefetchValues={refetchFilterValues}
                                 />
-                            )}
-                        </Box>
+                                <LabelPanel />
+                                <TooltipPanel />
+                                <FieldOverridesPanel />
+                                {state.colorField && (
+                                    <LegendPanel
+                                        colorField={state.colorField}
+                                        queryResult={state.queryResult}
+                                        colorScheme={state.colorScheme}
+                                        colorBias={state.colorBias}
+                                    />
+                                )}
+                            </Box>
+                        )}
                     </Panel>
 
-                    <PanelResizeHandle />
+                    <PanelResizeHandleWithToggle onDoubleClick={toggleMiddlePanel} />
 
                     {/* Main Content - Chart */}
                     <Panel defaultSize={65} minSize={40}>
