@@ -1,6 +1,6 @@
 import * as Plot from '@observablehq/plot';
 import { getResultColumnName } from '../../utils/fieldUtils';
-import { ColorScaleInfo, createColorResolver } from '../utils/colorSchemeUtils';
+import { ColorScaleInfo } from '../utils/colorSchemeUtils';
 import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
@@ -372,10 +372,10 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     mainFields.push({ label: categoryColumn, column: categoryColumn });
   }
   
-  // Pass tooltipFields directly to createTooltipFieldsGetter
+  // Pass tooltipFields directly to createTooltipFieldsGetter (color is read directly from DOM)
   (plot as any).__customTooltip = {
     enabled: true,
-    data: data, // Pass the data array for tooltip access
+    data: data,
     getFields: createTooltipFieldsGetter(
       mainFields,
       colorColumn && colorColumn !== categoryColumn && colorColumn !== measureName
@@ -383,8 +383,7 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
         : undefined,
       undefined, // No size field in bar charts
       tooltipFields.length > 0 ? tooltipFields : undefined
-    ),
-    getColor: createColorResolver(colorScale, colorColumn, manualColor)
+    )
   };
 
   return plot;
