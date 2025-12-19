@@ -26,6 +26,8 @@ interface MultiPlotGridProps {
     plotGridRef: RefObject<HTMLDivElement>;
   };
   onPlotRenderComplete?: (plotId: string) => void;
+  /** True when we're showing stale content during a deferred transition */
+  isTransitioning?: boolean;
 }
 
 /**
@@ -53,6 +55,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
   cellSizeOverrides,
   refs,
   onPlotRenderComplete,
+  isTransitioning = false,
 }) => {
   const {
     columns,
@@ -80,7 +83,15 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
     <div
       className={styles.container}
       ref={containerRef}
-      style={{ position: 'relative', height: '100%', overflow: 'hidden' }}
+      style={{ 
+        position: 'relative', 
+        height: '100%', 
+        overflow: 'hidden',
+        // During transitions, slightly dim the old content to indicate update in progress
+        // This provides subtle visual feedback without causing layout shifts
+        opacity: isTransitioning ? 0.5 : 1,
+        transition: 'opacity 0.15s ease-out',
+      }}
       onWheelCapture={(e) => onWheelCapture(e, leftFixedWidthPx)}
     >
       {/* ===============================================================
