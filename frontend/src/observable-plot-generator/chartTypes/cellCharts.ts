@@ -317,7 +317,9 @@ export function generatePairChartOptions(
           },
           'x',
           xCol,
-          category ? getResultColumnName(category) : undefined
+          category ? getResultColumnName(category) : undefined,
+          undefined,
+          sharedMeasureDomains
         );
       }
       // If X is discrete but Y has continuous data, swap to tickY
@@ -340,7 +342,9 @@ export function generatePairChartOptions(
           },
           'y',
           yCol,
-          xCategory ? getResultColumnName(xCategory) : undefined
+          xCategory ? getResultColumnName(xCategory) : undefined,
+          undefined,
+          sharedMeasureDomains
         );
       }
       // Both discrete - fallback to scatter/dot
@@ -372,7 +376,9 @@ export function generatePairChartOptions(
           },
           'y',
           yCol,
-          category ? getResultColumnName(category) : undefined
+          category ? getResultColumnName(category) : undefined,
+          undefined,
+          sharedMeasureDomains
         );
       }
       // If Y is discrete but X has continuous data, swap to tickX
@@ -395,7 +401,9 @@ export function generatePairChartOptions(
           },
           'x',
           xCol,
-          yCategory ? getResultColumnName(yCategory) : undefined
+          yCategory ? getResultColumnName(yCategory) : undefined,
+          undefined,
+          sharedMeasureDomains
         );
       }
       // Both discrete - fallback to scatter/dot

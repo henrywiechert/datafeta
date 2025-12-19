@@ -229,7 +229,7 @@ export function barUnified(
     const tickOptions = tickStrip(context, axis, dimCol, categoryColumn, {
       dimension: dim.columnName,
       category: categoryColumn
-    });
+    }, sharedDomains);
     
     const plotIdx = measures.length + idx;
     return {
