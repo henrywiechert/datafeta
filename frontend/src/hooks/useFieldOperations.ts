@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Field } from '../types';
 
@@ -29,6 +29,13 @@ export interface UseFieldOperationsReturn {
     handleTableSelect: (tableName: string) => void;
 }
 
+/**
+ * Hook for field operations like dropping, removing, reordering fields.
+ * 
+ * PERFORMANCE NOTE: This hook uses refs to store frequently-changing state
+ * so that callbacks remain stable across re-renders. This prevents unnecessary
+ * re-renders of components like FieldsPanel that receive these callbacks as props.
+ */
 export function useFieldOperations({
     xAxisFields,
     yAxisFields,
@@ -38,13 +45,42 @@ export function useFieldOperations({
     dataSourceSetters
 }: UseFieldOperationsParams): UseFieldOperationsReturn {
 
+    // === REFS FOR STABLE CALLBACKS ===
+    // Store frequently-changing state in refs so callbacks don't need to be recreated
+    const xAxisFieldsRef = useRef(xAxisFields);
+    const yAxisFieldsRef = useRef(yAxisFields);
+    const availableFieldsWithVirtualRef = useRef(availableFieldsWithVirtual);
+    const availableFieldsRef = useRef(availableFields);
+    
+    // Keep refs synchronized with latest state
+    useEffect(() => {
+        xAxisFieldsRef.current = xAxisFields;
+    }, [xAxisFields]);
+    
+    useEffect(() => {
+        yAxisFieldsRef.current = yAxisFields;
+    }, [yAxisFields]);
+    
+    useEffect(() => {
+        availableFieldsWithVirtualRef.current = availableFieldsWithVirtual;
+    }, [availableFieldsWithVirtual]);
+    
+    useEffect(() => {
+        availableFieldsRef.current = availableFields;
+    }, [availableFields]);
+
     const handleDropFromAvailableFields = useCallback((targetAxis: 'x' | 'y', fieldId: string | string[], insertIndex?: number) => {
         // Always work with arrays (single field = array of length 1)
         const fieldIds = Array.isArray(fieldId) ? fieldId : [fieldId];
         
+        // Read current state from refs for stable callback
+        const currentAvailableFieldsWithVirtual = availableFieldsWithVirtualRef.current;
+        const currentXFields = xAxisFieldsRef.current;
+        const currentYFields = yAxisFieldsRef.current;
+        
         // Map field IDs to actual field objects with new UUIDs
         const fieldsToAdd = fieldIds.map(id => {
-            const field = availableFieldsWithVirtual.find(f => f.id === id);
+            const field = currentAvailableFieldsWithVirtual.find(f => f.id === id);
             if (!field) return null;
             return { ...field, id: uuidv4() };
         }).filter(Boolean) as Field[];
@@ -52,7 +88,7 @@ export function useFieldOperations({
         if (fieldsToAdd.length === 0) return;
         
         // Get current fields for target axis
-        const currentFields = targetAxis === 'x' ? xAxisFields : yAxisFields;
+        const currentFields = targetAxis === 'x' ? currentXFields : currentYFields;
         
         // Insert fields at specified index or append to end
         const newFields = [...currentFields];
@@ -67,26 +103,37 @@ export function useFieldOperations({
             type: targetAxis === 'x' ? 'SET_X_AXIS_FIELDS' : 'SET_Y_AXIS_FIELDS', 
             payload: newFields 
         });
-    }, [xAxisFields, yAxisFields, availableFieldsWithVirtual, dispatch]);
+    }, [dispatch]); // Stable deps only - state read from refs
 
     const handleRemoveFromAxis = useCallback((fieldId: string) => {
-        const newXFields = xAxisFields.filter(f => f.id !== fieldId);
-        const newYFields = yAxisFields.filter(f => f.id !== fieldId);
+        // Read current state from refs for stable callback
+        const currentXFields = xAxisFieldsRef.current;
+        const currentYFields = yAxisFieldsRef.current;
+        
+        const newXFields = currentXFields.filter(f => f.id !== fieldId);
+        const newYFields = currentYFields.filter(f => f.id !== fieldId);
         dispatch({ type: 'SET_X_AXIS_FIELDS', payload: newXFields });
         dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: newYFields });
-    }, [xAxisFields, yAxisFields, dispatch]);
+    }, [dispatch]); // Stable deps only - state read from refs
     
     // Batch removal for multiple fields to avoid race conditions
     const handleRemoveMultipleFromAxis = useCallback((fieldIds: string[]) => {
+        // Read current state from refs for stable callback
+        const currentXFields = xAxisFieldsRef.current;
+        const currentYFields = yAxisFieldsRef.current;
+        
         const fieldIdSet = new Set(fieldIds);
-        const newXFields = xAxisFields.filter(f => !fieldIdSet.has(f.id));
-        const newYFields = yAxisFields.filter(f => !fieldIdSet.has(f.id));
+        const newXFields = currentXFields.filter(f => !fieldIdSet.has(f.id));
+        const newYFields = currentYFields.filter(f => !fieldIdSet.has(f.id));
         dispatch({ type: 'SET_X_AXIS_FIELDS', payload: newXFields });
         dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: newYFields });
-    }, [xAxisFields, yAxisFields, dispatch]);
+    }, [dispatch]); // Stable deps only - state read from refs
 
     // Helper function for batch update logic (used by handleFieldUpdate)
     const batchUpdateFields = useCallback((updatedFields: Field[]) => {
+        // Read current state from refs for stable callback
+        const currentAvailableFields = availableFieldsRef.current;
+        
         // Update fields in axes (via VisualizationContext)
         updatedFields.forEach(field => {
             dispatch({ type: 'UPDATE_FIELD', payload: field });
@@ -116,16 +163,19 @@ export function useFieldOperations({
         
         // Update regular fields in availableFields in one batch
         if (regularFields.length > 0) {
-            const updatedAvailableFields = availableFields.map((f) => 
+            const updatedAvailableFields = currentAvailableFields.map((f) => 
                 updatedFieldsMap.has(f.id) ? updatedFieldsMap.get(f.id)! : f
             );
-            if (updatedAvailableFields.some((f, i) => f !== availableFields[i])) {
+            if (updatedAvailableFields.some((f, i) => f !== currentAvailableFields[i])) {
                 dataSourceSetters.setAvailableFields(updatedAvailableFields);
             }
         }
-    }, [dispatch, availableFields, dataSourceSetters]);
+    }, [dispatch, dataSourceSetters]); // Stable deps only - state read from refs
 
     const handleFieldUpdate = useCallback((updatedField: Field | Field[]) => {
+        // Read current state from refs for stable callback
+        const currentAvailableFields = availableFieldsRef.current;
+        
         // Normalize to array for consistent handling
         const fieldsToUpdate = Array.isArray(updatedField) ? updatedField : [updatedField];
         
@@ -153,10 +203,10 @@ export function useFieldOperations({
                     },
                 });
             } else {
-                const updatedAvailableFields = availableFields.map((f) => 
+                const updatedAvailableFields = currentAvailableFields.map((f) => 
                     f.id === field.id ? field : f
                 );
-                if (updatedAvailableFields.some((f, i) => f !== availableFields[i])) {
+                if (updatedAvailableFields.some((f, i) => f !== currentAvailableFields[i])) {
                     dataSourceSetters.setAvailableFields(updatedAvailableFields);
                 }
             }
@@ -164,10 +214,11 @@ export function useFieldOperations({
             // Multiple fields - use batch update logic
             batchUpdateFields(fieldsToUpdate);
         }
-    }, [dispatch, availableFields, dataSourceSetters, batchUpdateFields]);
+    }, [dispatch, dataSourceSetters, batchUpdateFields]); // Stable deps only - state read from refs
 
     const handleReorderFields = useCallback((axis: 'x' | 'y', fromIndex: number, toIndex: number) => {
-        const currentFields = axis === 'x' ? xAxisFields : yAxisFields;
+        // Read current state from refs for stable callback
+        const currentFields = axis === 'x' ? xAxisFieldsRef.current : yAxisFieldsRef.current;
         const newFields = [...currentFields];
         
         // Remove the field from its current position
@@ -180,7 +231,7 @@ export function useFieldOperations({
         } else {
             dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: newFields });
         }
-    }, [xAxisFields, yAxisFields, dispatch]);
+    }, [dispatch]); // Stable deps only - state read from refs
 
     const handleMoveFieldBetweenAxes = useCallback((fieldId: string, fromAxis: 'x' | 'y', toAxis: 'x' | 'y', insertIndex?: number) => {
         // Use atomic action to move field between axes without triggering double query

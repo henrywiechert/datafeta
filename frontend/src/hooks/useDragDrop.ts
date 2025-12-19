@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Field, DragSource } from '../types';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
@@ -9,6 +9,10 @@ import { useUndoRedo } from './useUndoRedo';
 /**
  * Custom hook for handling drag and drop operations in the visualization
  * @param availableFields Optional override for available fields (includes virtual columns if provided)
+ * 
+ * PERFORMANCE NOTE: This hook uses refs to store frequently-changing state (axis fields, filter fields)
+ * so that callbacks remain stable across re-renders. This prevents unnecessary re-renders of components
+ * like FieldsPanel that receive these callbacks as props.
  */
 export function useDragDrop(availableFields?: Field[]) {
   const { state, dispatch, getUndoableSnapshot } = useVisualizationContext();
@@ -18,6 +22,36 @@ export function useDragDrop(availableFields?: Field[]) {
   
   // Use provided availableFields or fall back to dataSource.availableFields
   const fieldsToUse = availableFields || dataSource.availableFields;
+  
+  // === REFS FOR STABLE CALLBACKS ===
+  // Store frequently-changing state in refs so callbacks don't need to be recreated
+  // when this state changes. Callbacks read from refs at execution time.
+  const xAxisFieldsRef = useRef(xAxisFields);
+  const yAxisFieldsRef = useRef(yAxisFields);
+  const filterFieldsRef = useRef(filterFields);
+  const fieldsToUseRef = useRef(fieldsToUse);
+  const colorFieldRef = useRef(state.colorField);
+  
+  // Keep refs synchronized with latest state
+  useEffect(() => {
+    xAxisFieldsRef.current = xAxisFields;
+  }, [xAxisFields]);
+  
+  useEffect(() => {
+    yAxisFieldsRef.current = yAxisFields;
+  }, [yAxisFields]);
+  
+  useEffect(() => {
+    filterFieldsRef.current = filterFields;
+  }, [filterFields]);
+  
+  useEffect(() => {
+    fieldsToUseRef.current = fieldsToUse;
+  }, [fieldsToUse]);
+  
+  useEffect(() => {
+    colorFieldRef.current = state.colorField;
+  }, [state.colorField]);
   
   /**
    * Handle drops between axes or from available fields
@@ -37,11 +71,16 @@ export function useDragDrop(availableFields?: Field[]) {
     
     if (fieldsToAdd.length === 0) return;
     
+    // Read current state from refs for stable callback
+    const currentXFields = xAxisFieldsRef.current;
+    const currentYFields = yAxisFieldsRef.current;
+    const currentFieldsToUse = fieldsToUseRef.current;
+    
     // Handle drops from available fields
     if (source === 'AVAILABLE_FIELDS') {
       // Create copies with new IDs for each field
       const fieldCopies = fieldsToAdd.map(f => {
-        const sourceField = fieldsToUse.find(sf => sf.id === f.id);
+        const sourceField = currentFieldsToUse.find(sf => sf.id === f.id);
         if (!sourceField) return null;
         return { ...sourceField, id: uuidv4() };
       }).filter(Boolean) as Field[];
@@ -49,7 +88,7 @@ export function useDragDrop(availableFields?: Field[]) {
       if (fieldCopies.length === 0) return;
       
       // Add to target axis at the specified index or at the end
-      const targetFields = targetAxis === 'x' ? [...xAxisFields] : [...yAxisFields];
+      const targetFields = targetAxis === 'x' ? [...currentXFields] : [...currentYFields];
       
       if (index !== undefined) {
         targetFields.splice(index, 0, ...fieldCopies);
@@ -84,8 +123,8 @@ export function useDragDrop(availableFields?: Field[]) {
         });
       } else {
         // Multiple fields - remove from source and add to target
-        const sourceFields = sourceAxis === 'x' ? xAxisFields : yAxisFields;
-        const targetFields = targetAxis === 'x' ? xAxisFields : yAxisFields;
+        const sourceFields = sourceAxis === 'x' ? currentXFields : currentYFields;
+        const targetFields = targetAxis === 'x' ? currentXFields : currentYFields;
         const fieldIds = fieldsToAdd.map(f => f.id);
         const remainingSourceFields = sourceFields.filter(f => !fieldIds.includes(f.id));
         
@@ -108,7 +147,7 @@ export function useDragDrop(availableFields?: Field[]) {
         });
       }
     }
-  }, [dispatch, fieldsToUse, xAxisFields, yAxisFields, recordAction, getUndoableSnapshot]);
+  }, [dispatch, recordAction, getUndoableSnapshot]); // Stable deps only - state read from refs
   
   /**
    * Remove a field from either axis
@@ -117,20 +156,24 @@ export function useDragDrop(availableFields?: Field[]) {
     // Record current state for undo
     recordAction(getUndoableSnapshot());
     
+    // Read current state from refs for stable callback
+    const currentXFields = xAxisFieldsRef.current;
+    const currentYFields = yAxisFieldsRef.current;
+    
     // Check which axis contains the field and only update that axis
-    const isInXAxis = xAxisFields.some(f => f.id === fieldId);
-    const isInYAxis = yAxisFields.some(f => f.id === fieldId);
+    const isInXAxis = currentXFields.some(f => f.id === fieldId);
+    const isInYAxis = currentYFields.some(f => f.id === fieldId);
     
     if (isInXAxis) {
-      const newXFields = xAxisFields.filter(f => f.id !== fieldId);
+      const newXFields = currentXFields.filter(f => f.id !== fieldId);
       dispatch({ type: 'SET_X_AXIS_FIELDS', payload: newXFields });
     }
     
     if (isInYAxis) {
-      const newYFields = yAxisFields.filter(f => f.id !== fieldId);
+      const newYFields = currentYFields.filter(f => f.id !== fieldId);
       dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: newYFields });
     }
-  }, [dispatch, xAxisFields, yAxisFields, recordAction, getUndoableSnapshot]);
+  }, [dispatch, recordAction, getUndoableSnapshot]); // Stable deps only - state read from refs
   
   /**
    * Remove multiple fields from axes in a single batched operation
@@ -140,18 +183,22 @@ export function useDragDrop(availableFields?: Field[]) {
     // Record current state for undo
     recordAction(getUndoableSnapshot());
     
+    // Read current state from refs for stable callback
+    const currentXFields = xAxisFieldsRef.current;
+    const currentYFields = yAxisFieldsRef.current;
+    
     const fieldIdSet = new Set(fieldIds);
-    const newXFields = xAxisFields.filter(f => !fieldIdSet.has(f.id));
-    const newYFields = yAxisFields.filter(f => !fieldIdSet.has(f.id));
+    const newXFields = currentXFields.filter(f => !fieldIdSet.has(f.id));
+    const newYFields = currentYFields.filter(f => !fieldIdSet.has(f.id));
     
     // Only dispatch if fields were actually removed from that axis
-    if (newXFields.length !== xAxisFields.length) {
+    if (newXFields.length !== currentXFields.length) {
       dispatch({ type: 'SET_X_AXIS_FIELDS', payload: newXFields });
     }
-    if (newYFields.length !== yAxisFields.length) {
+    if (newYFields.length !== currentYFields.length) {
       dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: newYFields });
     }
-  }, [dispatch, xAxisFields, yAxisFields, recordAction, getUndoableSnapshot]);
+  }, [dispatch, recordAction, getUndoableSnapshot]); // Stable deps only - state read from refs
   
   /**
    * Reorder fields within an axis
@@ -160,7 +207,8 @@ export function useDragDrop(availableFields?: Field[]) {
     // Record current state for undo
     recordAction(getUndoableSnapshot());
     
-    const currentFields = axis === 'x' ? xAxisFields : yAxisFields;
+    // Read current state from refs for stable callback
+    const currentFields = axis === 'x' ? xAxisFieldsRef.current : yAxisFieldsRef.current;
     const newFields = [...currentFields];
     
     // Remove the field from its current position
@@ -172,7 +220,7 @@ export function useDragDrop(availableFields?: Field[]) {
       type: axis === 'x' ? 'SET_X_AXIS_FIELDS' : 'SET_Y_AXIS_FIELDS', 
       payload: newFields 
     });
-  }, [dispatch, xAxisFields, yAxisFields, recordAction, getUndoableSnapshot]);
+  }, [dispatch, recordAction, getUndoableSnapshot]); // Stable deps only - state read from refs
 
   /**
    * Handle drops on the filter zone
@@ -180,10 +228,15 @@ export function useDragDrop(availableFields?: Field[]) {
   const handleFilterDrop = useCallback((field: Field, source: DragSource) => {
     // Record current state for undo
     recordAction(getUndoableSnapshot());
+    
+    // Read current state from refs for stable callback
+    const currentFieldsToUse = fieldsToUseRef.current;
+    const currentFilterFields = filterFieldsRef.current;
+    
     // Handle drops from available fields or axes
     if (source === 'AVAILABLE_FIELDS') {
       // Find the field in available fields (includes virtual columns)
-      const sourceField = fieldsToUse.find(f => f.id === field.id);
+      const sourceField = currentFieldsToUse.find(f => f.id === field.id);
       if (!sourceField) return;
       
       // Create an independent copy of the field with a new ID
@@ -192,17 +245,17 @@ export function useDragDrop(availableFields?: Field[]) {
       // Add to filter fields
       dispatch({ 
         type: 'SET_FILTER_FIELDS', 
-        payload: [...filterFields, fieldCopy]
+        payload: [...currentFilterFields, fieldCopy]
       });
     } else if (source === 'X_AXIS' || source === 'Y_AXIS') {
       // Copy field from axis to filters (keep it on the axis too)
       const fieldCopy = { ...field, id: uuidv4() };
       dispatch({ 
         type: 'SET_FILTER_FIELDS', 
-        payload: [...filterFields, fieldCopy]
+        payload: [...currentFilterFields, fieldCopy]
       });
     }
-  }, [dispatch, fieldsToUse, filterFields, recordAction, getUndoableSnapshot]);
+  }, [dispatch, recordAction, getUndoableSnapshot]); // Stable deps only - state read from refs
 
   /**
    * Remove a field from the filter zone
@@ -211,11 +264,14 @@ export function useDragDrop(availableFields?: Field[]) {
     // Record current state for undo
     recordAction(getUndoableSnapshot());
     
-    const newFilterFields = filterFields.filter(f => f.id !== fieldId);
+    // Read current state from refs for stable callback
+    const currentFilterFields = filterFieldsRef.current;
+    
+    const newFilterFields = currentFilterFields.filter(f => f.id !== fieldId);
     dispatch({ type: 'SET_FILTER_FIELDS', payload: newFilterFields });
     // Also remove the filter configuration
     dispatch({ type: 'REMOVE_FILTER_CONFIGURATION', payload: fieldId });
-  }, [dispatch, filterFields, recordAction, getUndoableSnapshot]);
+  }, [dispatch, recordAction, getUndoableSnapshot]); // Stable deps only - state read from refs
 
   /**
    * Handle drops on the color zone (replaces existing field)
@@ -223,11 +279,16 @@ export function useDragDrop(availableFields?: Field[]) {
   const handleColorDrop = useCallback((field: Field, source: DragSource) => {
     // Record current state for undo
     recordAction(getUndoableSnapshot());
+    
+    // Read current state from refs for stable callback
+    const currentFieldsToUse = fieldsToUseRef.current;
+    const currentColorField = colorFieldRef.current;
+    
     let fieldToSet: Field;
     
     if (source === 'AVAILABLE_FIELDS') {
       // Find the field in available fields (includes virtual columns)
-      const sourceField = fieldsToUse.find(f => f.id === field.id);
+      const sourceField = currentFieldsToUse.find(f => f.id === field.id);
       if (!sourceField) return;
       
       // Create an independent copy of the field with a new ID
@@ -243,11 +304,11 @@ export function useDragDrop(availableFields?: Field[]) {
     // Replace the existing color field with the new one
     dispatch({ type: 'SET_COLOR_FIELD', payload: fieldToSet });
 
-    if (!state.colorField || state.colorField.flavour !== fieldToSet.flavour) {
+    if (!currentColorField || currentColorField.flavour !== fieldToSet.flavour) {
       const nextScheme = fieldToSet.flavour === 'continuous' ? DEFAULT_SEQUENTIAL_SCHEME : DEFAULT_CATEGORICAL_SCHEME;
       dispatch({ type: 'SET_COLOR_SCHEME', payload: nextScheme });
     }
-  }, [dispatch, fieldsToUse, state.colorField, recordAction, getUndoableSnapshot]);
+  }, [dispatch, recordAction, getUndoableSnapshot]); // Stable deps only - state read from refs
 
   /**
    * Remove the field from the color zone
@@ -265,11 +326,15 @@ export function useDragDrop(availableFields?: Field[]) {
   const handleSizeDrop = useCallback((field: Field, source: DragSource) => {
     // Record current state for undo
     recordAction(getUndoableSnapshot());
+    
+    // Read current state from refs for stable callback
+    const currentFieldsToUse = fieldsToUseRef.current;
+    
     let fieldToSet: Field;
     
     if (source === 'AVAILABLE_FIELDS') {
       // Find the field in available fields (includes virtual columns)
-      const sourceField = fieldsToUse.find(f => f.id === field.id);
+      const sourceField = currentFieldsToUse.find(f => f.id === field.id);
       if (!sourceField) return;
       
       // Create an independent copy of the field with a new ID
@@ -284,7 +349,7 @@ export function useDragDrop(availableFields?: Field[]) {
     
     // Replace the existing size field with the new one
     dispatch({ type: 'SET_SIZE_FIELD', payload: fieldToSet });
-  }, [dispatch, fieldsToUse, recordAction, getUndoableSnapshot]);
+  }, [dispatch, recordAction, getUndoableSnapshot]); // Stable deps only - state read from refs
 
   /**
    * Remove the field from the size zone
@@ -300,13 +365,19 @@ export function useDragDrop(availableFields?: Field[]) {
   const handleLabelDrop = useCallback((field: Field, source: DragSource) => {
     // Record current state for undo
     recordAction(getUndoableSnapshot());
+    
+    // Read current state from refs for stable callback
+    const currentFieldsToUse = fieldsToUseRef.current;
+    const currentXFields = xAxisFieldsRef.current;
+    const currentYFields = yAxisFieldsRef.current;
+    
     let fieldToAdd: Field;
     if (source === 'AVAILABLE_FIELDS') {
-      const sourceField = fieldsToUse.find(f => f.id === field.id);
+      const sourceField = currentFieldsToUse.find(f => f.id === field.id);
       if (!sourceField) return;
       fieldToAdd = { ...sourceField, id: uuidv4() };
     } else if (source === 'X_AXIS' || source === 'Y_AXIS' || source === 'COLOR_ZONE' || source === 'SIZE_ZONE') {
-      const axisFields = source === 'X_AXIS' ? state.xAxisFields : state.yAxisFields;
+      const axisFields = source === 'X_AXIS' ? currentXFields : currentYFields;
       const measureCount = axisFields.filter(f => f.type === 'measure').length;
       if (field.type === 'measure' && measureCount > 1) {
         fieldToAdd = { id: uuidv4(), columnName: '__current_measure__', type: 'special' } as any;
@@ -317,7 +388,7 @@ export function useDragDrop(availableFields?: Field[]) {
       fieldToAdd = { ...field, id: uuidv4() };
     }
     dispatch({ type: 'ADD_LABEL_FIELD', payload: fieldToAdd });
-  }, [dispatch, fieldsToUse, state.xAxisFields, state.yAxisFields, recordAction, getUndoableSnapshot]);
+  }, [dispatch, recordAction, getUndoableSnapshot]); // Stable deps only - state read from refs
 
   const handleRemoveFromLabel = useCallback((fieldId: string) => {
     // Record current state for undo
