@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useDeferredValue } from 'react';
 
 import { QueryResult } from '../../../types';
 import { PlotResult } from '../../../observable-plot-generator/types';
@@ -30,6 +30,10 @@ interface ChartGridProps {
  * - Row height calculation (useRowHeightCalculation)
  * - Container dimension tracking (useContainerDimensions)
  * - User cell size overrides (useCellSizeOverrides)
+ * 
+ * IMPORTANT: Uses useDeferredValue to prevent intermediate "half-ready" renders
+ * when faceting changes due to filter updates. This ensures React keeps showing
+ * the old chart until the new spec is fully ready.
  */
 const ChartGrid: React.FC<ChartGridProps> = ({ spec, data, onPlotRenderComplete }) => {
   // Refs for DOM elements
@@ -39,15 +43,28 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data, onPlotRenderComplete 
   const plotsTranslateRef = useRef<HTMLDivElement>(null);
   const plotGridRef = useRef<HTMLDivElement>(null);
 
+  // Use deferred value to prevent intermediate renders during faceting transitions.
+  // When spec changes (e.g., filter changes faceting from 30 rows to 3 rows),
+  // React will keep showing the old chart while preparing the new one.
+  // This eliminates the "animation" effect of partially-ready specifications.
+  const deferredSpec = useDeferredValue(spec);
+  
+  // Track if we're in a transition (showing stale content)
+  const isTransitioning = spec !== deferredSpec;
+  
+  // Use the deferred spec for all layout calculations and rendering
+  const activeSpec = deferredSpec;
+
   // Derived values
   // Note: We use MultiPlotGrid architecture for any number of plots (including single plots)
   // so scroll handlers must be attached whenever we have plots, not just when count > 1
-  const usesGridLayout = (spec?.plots?.length ?? 0) >= 1;
-  const rowsForSizing = spec?.layout?.rows ?? 1;
+  const usesGridLayout = (activeSpec?.plots?.length ?? 0) >= 1;
+  const rowsForSizing = activeSpec?.layout?.rows ?? 1;
 
   // Custom hooks for state management
-  const stabilization = useStabilization(spec, containerRef);
-  const cellSizeOverrides = useCellSizeOverrides(spec);
+  // Use activeSpec (deferred) for stabilization to prevent unnecessary stabilization cycles
+  const stabilization = useStabilization(activeSpec, containerRef);
+  const cellSizeOverrides = useCellSizeOverrides(activeSpec);
   const rowHeightPx = useRowHeightCalculation(
     vScrollRef,
     rowsForSizing,
@@ -63,7 +80,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data, onPlotRenderComplete 
     usesGridLayout
   );
   const layoutCalcs = useChartGridLayout(
-    spec,
+    activeSpec,
     cellSizeOverrides.userCellWidth,
     cellSizeOverrides.userCellHeight,
     rowHeightPx,
@@ -81,7 +98,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data, onPlotRenderComplete 
   }, [layoutCalcs, rowHeightPx]);
 
   // Handle null or missing spec
-  if (!spec) {
+  if (!activeSpec) {
     return (
       <div className={styles.container} ref={containerRef}>
         <p>No chart data available.</p>
@@ -93,7 +110,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data, onPlotRenderComplete 
   if (layoutCalcs) {
     return (
       <MultiPlotGrid
-        spec={spec}
+        spec={activeSpec}
         layoutCalcs={layoutCalcs}
         scrollSync={scrollSync}
         containerDimensions={containerDimensions}
@@ -106,6 +123,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data, onPlotRenderComplete 
           plotGridRef,
         }}
         onPlotRenderComplete={onPlotRenderComplete}
+        isTransitioning={isTransitioning}
       />
     );
   }
@@ -122,5 +140,6 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data, onPlotRenderComplete 
 export default React.memo(ChartGrid, (prevProps, nextProps) => {
   // Only re-render if spec or data actually changes
   // Use shallow comparison for spec and data references
+  // Note: The useDeferredValue inside handles transition smoothly
   return prevProps.spec === nextProps.spec && prevProps.data === nextProps.data;
 });
