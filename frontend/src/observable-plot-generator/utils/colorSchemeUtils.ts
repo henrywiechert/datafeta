@@ -233,3 +233,113 @@ function interpolateColors(color1: string, color2: string, t: number): string {
   
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
+
+/**
+ * Normalize a value to a canonical string key for categorical comparison.
+ * Handles Date objects, numbers, strings, null/undefined consistently.
+ */
+function toCanonicalKey(value: any): string {
+  if (value === null || value === undefined) {
+    return '__NULL__';
+  }
+  if (value instanceof Date) {
+    return `__DATE__${value.getTime()}`;
+  }
+  if (typeof value === 'number') {
+    return `__NUM__${value}`;
+  }
+  if (typeof value === 'boolean') {
+    return `__BOOL__${value}`;
+  }
+  // For strings, use directly but prefix to avoid collision with special keys
+  return `__STR__${String(value)}`;
+}
+
+/**
+ * Create a color resolver function from a ColorScaleInfo.
+ * This is the single source of truth for resolving data point -> color.
+ * 
+ * For categorical scales: builds an O(1) lookup map with robust type handling.
+ * For continuous scales: normalizes value to [0,1] and maps to color range.
+ * 
+ * @param colorScale - The color scale info (from deriveColorScaleInfo)
+ * @param colorColumnName - The column name to read from data rows
+ * @param fallbackColor - Optional color to return when no color field (e.g., manualColor)
+ * @returns A function (d: any) => string | undefined that resolves a data row to its color
+ */
+export function createColorResolver(
+  colorScale: ColorScaleInfo | null | undefined,
+  colorColumnName: string | undefined,
+  fallbackColor?: string
+): ((d: any) => string | undefined) | undefined {
+  // No color field: return static fallback if provided
+  if (!colorScale || !colorColumnName) {
+    if (fallbackColor) {
+      return () => fallbackColor;
+    }
+    return undefined;
+  }
+
+  if (colorScale.kind === 'categorical') {
+    const domain = colorScale.domain as any[];
+    const range = colorScale.range;
+    
+    // Build a Map for O(1) lookup with canonical keys
+    const colorMap = new Map<string, string>();
+    for (let i = 0; i < domain.length; i++) {
+      const key = toCanonicalKey(domain[i]);
+      colorMap.set(key, range[i % range.length]);
+    }
+    
+    return (d: any): string | undefined => {
+      const val = d?.[colorColumnName];
+      const key = toCanonicalKey(val);
+      const color = colorMap.get(key);
+      
+      // If not found in map, try looser matching (handle edge cases like "5" vs 5)
+      if (color === undefined) {
+        // Try numeric coercion for string/number mismatches
+        if (typeof val === 'string') {
+          const numVal = Number(val);
+          if (!isNaN(numVal)) {
+            const numKey = toCanonicalKey(numVal);
+            const numColor = colorMap.get(numKey);
+            if (numColor !== undefined) return numColor;
+          }
+        } else if (typeof val === 'number') {
+          const strKey = toCanonicalKey(String(val));
+          const strColor = colorMap.get(strKey);
+          if (strColor !== undefined) return strColor;
+        }
+        // Value truly not in domain - return undefined (no fallback to first color!)
+        return undefined;
+      }
+      
+      return color;
+    };
+  } else {
+    // Continuous scale
+    const [min, max] = colorScale.domain as [number, number];
+    const range = colorScale.range;
+    const accessor = colorScale.accessor;
+    
+    return (d: any): string | undefined => {
+      const raw = accessor ? accessor(d) : toNumeric(d?.[colorColumnName]);
+      if (raw === null || raw === undefined || !isFinite(raw as number)) {
+        return undefined;
+      }
+      
+      // Handle edge case of single-value domain
+      if (max === min) {
+        return range[0];
+      }
+      
+      // Normalize to [0, 1]
+      const t = Math.max(0, Math.min(1, ((raw as number) - min) / (max - min)));
+      
+      // Map to color index
+      const idx = Math.round(t * (range.length - 1));
+      return range[Math.max(0, Math.min(range.length - 1, idx))];
+    };
+  }
+}
