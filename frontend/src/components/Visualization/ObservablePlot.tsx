@@ -9,7 +9,7 @@ export interface CustomTooltipConfig {
   enabled: boolean;
   getFields: (data: any) => TooltipField[];
   data?: any[]; // Original data array for indexing
-  getColor?: (data: any) => string | undefined; // Optional: derive mark color without DOM
+  // Note: Color is now read directly from the SVG element, which is always accurate
 }
 
 interface ObservablePlotProps {
@@ -190,6 +190,82 @@ function addTooltipListeners(
   // Observable Plot typically uses these elements for data visualization
   const marks = plot.querySelectorAll('circle, rect, path[fill]:not([fill="none"])');
   const cleanupFunctions: Array<() => void> = [];
+  
+  // Helper to check if a color value is "visible" (not transparent/none)
+  const isVisibleColor = (val: string | null): boolean => {
+    if (!val) return false;
+    const v = val.trim().toLowerCase();
+    return v !== 'none' && v !== 'transparent' && 
+           v !== 'rgba(0, 0, 0, 0)' && v !== 'rgba(0,0,0,0)';
+  };
+  
+  // Helper to resolve color from the SVG element directly - this reads what's actually rendered
+  const resolveColorFromElement = (el: Element): string | undefined => {
+    const cs = getComputedStyle(el);
+    const resolveColor = (val: string | null): string | undefined => {
+      if (!val) return undefined;
+      const v = val.trim();
+      if (v === 'none' || v === 'transparent' || v === 'rgba(0, 0, 0, 0)' || v === 'rgba(0,0,0,0)') return undefined;
+      if (v === 'currentColor') {
+        const cc = cs.getPropertyValue('color');
+        return cc && cc !== 'none' ? cc.trim() : undefined;
+      }
+      return v;
+    };
+    
+    // Try the element directly first
+    let color = resolveColor(el.getAttribute('fill')) || resolveColor(cs.getPropertyValue('fill')) ||
+                resolveColor(el.getAttribute('stroke')) || resolveColor(cs.getPropertyValue('stroke'));
+    
+    if (color) return color;
+    
+    // If this element is transparent (like hover dots), look for a visible sibling at the same position
+    if (el.tagName.toLowerCase() === 'circle') {
+      const cx = el.getAttribute('cx');
+      const cy = el.getAttribute('cy');
+      
+      // Look for another circle at the same position with visible color
+      if (cx && cy) {
+        const parent = el.parentElement;
+        if (parent) {
+          // Search in parent's parent (the SVG or a higher group) for circles at same position
+          const svgRoot = el.closest('svg');
+          if (svgRoot) {
+            const allCircles = Array.from(svgRoot.querySelectorAll('circle'));
+            for (const sibling of allCircles) {
+              if (sibling === el) continue;
+              if (sibling.getAttribute('cx') === cx && sibling.getAttribute('cy') === cy) {
+                const sibFill = sibling.getAttribute('fill');
+                const sibStroke = sibling.getAttribute('stroke');
+                if (isVisibleColor(sibFill)) {
+                  color = sibFill!;
+                  break;
+                }
+                if (isVisibleColor(sibStroke)) {
+                  color = sibStroke!;
+                  break;
+                }
+                // Also try computed style
+                const sibCs = getComputedStyle(sibling);
+                const sibCsFill = sibCs.getPropertyValue('fill');
+                const sibCsStroke = sibCs.getPropertyValue('stroke');
+                if (isVisibleColor(sibCsFill)) {
+                  color = sibCsFill;
+                  break;
+                }
+                if (isVisibleColor(sibCsStroke)) {
+                  color = sibCsStroke;
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    return color;
+  };
 
   marks.forEach((mark, index) => {
     // Observable Plot stores data on elements via __data__ property
@@ -219,28 +295,14 @@ function addTooltipListeners(
       if (data) {
         try {
           const fields = config.getFields(data);
-          // Prefer color supplied by generator (no DOM probing)
+          
+          // PRIMARY: Read color directly from the SVG element - this is what's actually rendered
+          // and is always correct. Do this BEFORE adding highlight class.
           let colorHex: string | undefined = undefined;
-          try {
-            colorHex = config.getColor ? config.getColor(data) : undefined;
-          } catch {}
-          // Fallback: inspect the hovered SVG element BEFORE applying highlight class
-          if (!colorHex && mark instanceof Element) {
-            const el = mark as Element;
-            const cs = getComputedStyle(el);
-            const resolveColor = (val: string | null): string | undefined => {
-              if (!val) return undefined;
-              const v = val.trim();
-              if (v === 'none' || v === 'transparent' || v === 'rgba(0, 0, 0, 0)' || v === 'rgba(0,0,0,0)') return undefined;
-              if (v === 'currentColor') {
-                const cc = cs.getPropertyValue('color');
-                return cc && cc !== 'none' ? cc.trim() : undefined;
-              }
-              return v;
-            };
-            colorHex = resolveColor(el.getAttribute('fill')) || resolveColor(cs.getPropertyValue('fill')) ||
-                       resolveColor(el.getAttribute('stroke')) || resolveColor(cs.getPropertyValue('stroke'));
+          if (mark instanceof Element) {
+            colorHex = resolveColorFromElement(mark);
           }
+          
           showTooltip(mouseEvent.clientX, mouseEvent.clientY, fields, colorHex);
           // Add highlight class AFTER computing color to avoid style interference
           mark.classList.add('chart-mark--highlighted');

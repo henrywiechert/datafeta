@@ -2,7 +2,7 @@ import * as Plot from '@observablehq/plot';
 import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
-import { deriveColorScaleInfo, createColorResolver } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
 import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
@@ -193,10 +193,10 @@ export function lineChart(
     }
   }
   
-  // Add custom tooltip configuration
+  // Add custom tooltip configuration (color is read directly from DOM)
   (plotOptions as any).__customTooltip = {
     enabled: true,
-    data: cleanSorted, // Pass the data array for tooltip access
+    data: cleanSorted,
     getFields: createTooltipFieldsGetter(
       [
         { label: xLabel, column: xColumn },
@@ -205,8 +205,7 @@ export function lineChart(
       colorField,
       sizeField,
       tooltipFields
-    ),
-    getColor: createColorResolver(colorInfo, colorColumnName, manualColor)
+    )
   };
   
   return plotOptions;
@@ -392,10 +391,10 @@ export function verticalLineChart(
     }
   }
   
-  // Add custom tooltip configuration
+  // Add custom tooltip configuration (color is read directly from DOM)
   (plotOptions as any).__customTooltip = {
     enabled: true,
-    data: cleanSorted, // Pass the data array for tooltip access
+    data: cleanSorted,
     getFields: createTooltipFieldsGetter(
       [
         { label: xLabel2, column: xColumn },
@@ -404,8 +403,7 @@ export function verticalLineChart(
       colorField,
       sizeField,
       tooltipFields
-    ),
-    getColor: createColorResolver(colorInfo, colorColumnName, DEFAULT_CHART_COLOR)
+    )
   };
   
   return plotOptions;
