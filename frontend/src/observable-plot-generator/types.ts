@@ -51,6 +51,11 @@ export interface ChartGenerationContext {
     measure?: Record<string, [number, number]>;
     numeric?: Record<string, [number, number] | [Date, Date]>;
   };
+  /**
+   * Source measures contributing to MeasureValues synthetic field.
+   * Used for applying per-measure overrides when rendering unpivoted data.
+   */
+  measureValuesSourceFields?: Field[];
 }
 
 export interface PlotResult {

@@ -84,6 +84,12 @@ export function encodingReducer(state: VisualizationState, action: Visualization
       return { ...state, tooltipFields: newFields, queryVersion: state.queryVersion + 1 };
     }
     
+    // MeasureNames/MeasureValues source tracking
+    case 'SET_MEASURE_VALUES_SOURCE_FIELDS': {
+      if (sameFieldArray(state.measureValuesSourceFields, action.payload)) return state;
+      return { ...state, measureValuesSourceFields: action.payload };
+    }
+    
     default:
       return null; // Not handled by this reducer
   }

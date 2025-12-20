@@ -7,11 +7,16 @@ export interface FieldOverrideTarget {
   fieldId: string;
   axis: 'x' | 'y';
   field: Field;
+  /** True when this target represents a source measure behind MeasureValues */
+  isMeasureValuesMember?: boolean;
 }
 
 /**
  * Compute the list of fields that are eligible for per-field overrides,
  * following the rules:
+ *
+ * 0. (NEW) When MeasureValues is on an axis and source measures are provided,
+ *    return the source measures as override targets.
  *
  * 1. When only one axis has 2 or more continuous fields: every continuous field
  *    on that axis gets an override.
@@ -21,11 +26,29 @@ export interface FieldOverrideTarget {
  *
  * 3. When both axes have the same number of continuous fields, take the fields
  *    from the X-axis for override possibility.
+ * 
+ * @param measureValuesSourceFields - Source measures contributing to MeasureValues (for synthetic field support)
  */
 export function computeOverrideTargets(
   xFields: Field[],
-  yFields: Field[]
+  yFields: Field[],
+  measureValuesSourceFields?: Field[]
 ): FieldOverrideTarget[] {
+  // Check if MeasureValues is on either axis
+  const measureValuesOnX = xFields.some(f => f.syntheticType === 'MeasureValues');
+  const measureValuesOnY = yFields.some(f => f.syntheticType === 'MeasureValues');
+  
+  // If MeasureValues is present and we have source measures, return them as targets
+  if ((measureValuesOnX || measureValuesOnY) && measureValuesSourceFields && measureValuesSourceFields.length > 0) {
+    const axis = measureValuesOnY ? 'y' : 'x';
+    return measureValuesSourceFields.map(f => ({
+      fieldId: f.id,
+      axis,
+      field: f,
+      isMeasureValuesMember: true,
+    }));
+  }
+  
   const isContinuous = (f: Field) =>
     f.flavour === 'continuous' && (f.type === 'dimension' || f.type === 'measure');
 

@@ -8,6 +8,7 @@ import { BAR_STEP_PX, MIN_BAR_STEP_PX, BAND_PADDING } from '../../config/chartLa
 import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 // Tick strip for continuous dimensions
 import { tickStrip } from './tickStrip';
+import { isMeasureValuesField, combineMeasureValuesOverrides } from '../../utils/syntheticFields';
 
 /**
  * Unified bar chart builder for 1+ measures (and optionally continuous dimensions) on a single axis.
@@ -26,8 +27,18 @@ export function barUnified(
   context: ChartGenerationContext,
   labelCfg?: { labelFields: any[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
 ): PlotResult {
-  const { queryResult, xFields, yFields, colorField, colorScheme, manualColor, sizeField, manualSize, tooltipFields } = context;
+  const { queryResult, xFields, yFields, colorField, colorScheme, manualColor, sizeField, manualSize, tooltipFields, fieldOverrides, measureValuesSourceFields } = context;
   const data = queryResult.rows;
+  
+  // Check if MeasureValues is being used and get combined overrides from source measures
+  const hasMeasureValuesOnAxis = [...xFields, ...yFields].some(f => isMeasureValuesField(f));
+  const combinedMeasureOverride = hasMeasureValuesOnAxis
+    ? combineMeasureValuesOverrides(measureValuesSourceFields, fieldOverrides)
+    : undefined;
+  
+  // Use combined override values if available (for MeasureValues charts)
+  const effectiveManualSize = combinedMeasureOverride?.manualSize ?? manualSize;
+  const effectiveManualColor = combinedMeasureOverride?.manualColor ?? manualColor;
 
   // Determine orientation and collect both measures and continuous dimensions
   const yMeasures = yFields.filter(f => f.type === 'measure');
@@ -70,7 +81,8 @@ export function barUnified(
   const colorScale = colorField ? deriveColorScaleInfo(data, colorField, colorScheme, context.colorBias) : null;
 
   // Dynamic band padding with consistent fallback for all cases
-  const bandPadding = computeBandPaddingFromSizeField(data, sizeField, { manualSize }) ?? BAND_PADDING;
+  // Use effective manual size which may come from combined MeasureValues overrides
+  const bandPadding = computeBandPaddingFromSizeField(data, sizeField, { manualSize: effectiveManualSize }) ?? BAND_PADDING;
 
   // Shared value domains across measures for consistent scaling
   const sharedDomains = calculateSharedDomains(measures as any[], data);
@@ -123,8 +135,8 @@ export function barUnified(
       bandPadding,
       valueDomainOverride: useStackedDomain ? undefined : sharedDomains[measureName],
       tooltipFields: tooltipFields,
-      // When there's no color field, use the global manualColor as the bar fill
-      manualColor: colorField ? undefined : manualColor,
+      // When there's no color field, use the global/effective manualColor as the bar fill
+      manualColor: colorField ? undefined : effectiveManualColor,
     });
 
     // --- Label integration -------------------------------------------------
