@@ -10,7 +10,7 @@ import { FieldOverrideTarget } from '../utils/fieldOverrides';
 import { FieldAnalysis } from '../analysis/fieldAnalysis';
 import { deriveColorScaleInfo, applyMeasureNameColorOverrides } from '../utils/colorSchemeUtils';
 import { isMeasureValuesField, combineMeasureValuesOverrides } from '../../utils/syntheticFields';
-import { hasHeterogeneousChartTypes, generateMeasureValuesMultiMarkPlot } from '../chartTypes/measureValuesMultiMark';
+import { hasAnyMeasureOverrides, generateMeasureValuesMultiMarkPlot } from '../chartTypes/measureValuesMultiMark';
 
 export type CartesianPlot = {
   id: string;
@@ -252,15 +252,17 @@ export function generateCartesianPlots(
         }
       }
 
-      // Check if we need multi-mark rendering for MeasureValues with heterogeneous chart types
+      // Check if we need multi-mark rendering for MeasureValues with per-measure overrides
       const needsMultiMark = (xIsMeasureValues || yIsMeasureValues) && 
         measureValuesSourceFields?.length && 
-        hasHeterogeneousChartTypes(measureValuesSourceFields, fieldOverrides);
+        hasAnyMeasureOverrides(measureValuesSourceFields, fieldOverrides);
 
       let options: Plot.PlotOptions;
       
       if (needsMultiMark) {
         // Use multi-mark rendering for per-measure chart types
+        // Pass the GLOBAL manualSize (not cellManualSize from combined overrides)
+        // so each measure falls back to the global default, not to another measure's override
         options = generateMeasureValuesMultiMarkPlot({
           data,
           xField,
@@ -269,7 +271,8 @@ export function generateCartesianPlots(
           fieldOverrides: fieldOverrides || {},
           colorField: cellColorField || undefined,
           sharedColorScale: sharedColorScale,
-          manualSize: cellManualSize,
+          manualSize: manualSize,  // Use global, not cellManualSize
+          manualColor: manualColor,  // Pass global manual color as fallback
           sharedDomains: { ...sharedMeasureDomains, ...sharedNumeric },
           tooltipFields,
         });
