@@ -104,3 +104,31 @@ Size not correctly applied when faceting is active.
 In facets (by measure) where size field is always 0, the size looks larger, than in facets where some points have 0.4
 
 No tick strip when using DateTime as continous field only.
+
+Shape encoding (circle, square, triangle, cross, diamond)
+
+Ordinal type
+// What Polaris suggests:
+type DataType = 'nominal' | 'ordinal' | 'quantitative';
+
+Hierarchical/chained filters -> 2 chained time filter.
+
+Drill Down (Year->Month->Day ...)
+
+Zoom via UI
+
+Expose Filters to ChartArea UI
+
+Geographical Maps
+
+Text as primary Mark -> wordcloud
+
+Reference / Trend lines / Bands
+
+Table calculations ?
+moving avg, running total, percent of total, rank, year over year change
+
+Category reorder by drag/drop
+
+Manually Color assigmnets for discrete colors
+

@@ -8,7 +8,9 @@ import { ChartGenerationContext, PlotResult } from '../types';
 import { FieldOverrideState, UserChartType } from '../../types';
 import { FieldOverrideTarget } from '../utils/fieldOverrides';
 import { FieldAnalysis } from '../analysis/fieldAnalysis';
-import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo, applyMeasureNameColorOverrides } from '../utils/colorSchemeUtils';
+import { isMeasureValuesField, combineMeasureValuesOverrides } from '../../utils/syntheticFields';
+import { hasHeterogeneousChartTypes, generateMeasureValuesMultiMarkPlot } from '../chartTypes/measureValuesMultiMark';
 
 export type CartesianPlot = {
   id: string;
@@ -56,7 +58,8 @@ export function generateCartesianGrid(
     context.fieldOverrideTargets,
     [...xCandidates, ...yCandidates, ...(colorField ? [colorField] : []), ...(sizeField ? [sizeField] : [])],
     context.tooltipFields,
-    context.globalChartType
+    context.globalChartType,
+    context.measureValuesSourceFields
   );
 
   // Derive per-column width and per-row height from plots' options when available
@@ -106,7 +109,8 @@ export function generateCartesianPlots(
   fieldOverrideTargets?: FieldOverrideTarget[],
   allFields?: Field[],
   tooltipFields?: Field[],
-  globalChartType?: UserChartType | null
+  globalChartType?: UserChartType | null,
+  measureValuesSourceFields?: Field[]
 ): CartesianPlot[] {
   const plots: CartesianPlot[] = [];
 
@@ -115,7 +119,15 @@ export function generateCartesianPlots(
   const sharedNumeric = computeSharedNumericDomains(data, xCandidates as any[], yCandidates as any[]);
 
   // Compute a shared color domain across the entire grid when a color field is present
-  const sharedColorScale = colorField ? deriveColorScaleInfo(data, colorField, colorScheme, colorBias) : null;
+  let sharedColorScale = colorField ? deriveColorScaleInfo(data, colorField, colorScheme, colorBias) : null;
+  
+  // Apply per-measure color overrides if color field is MeasureNames
+  sharedColorScale = applyMeasureNameColorOverrides(
+    sharedColorScale,
+    colorField,
+    measureValuesSourceFields,
+    fieldOverrides
+  );
 
   // Build lookup maps for overrides and fields
   const overrideMap: Record<string, FieldOverrideState> = fieldOverrides || {};
@@ -130,16 +142,32 @@ export function generateCartesianPlots(
     }
   });
 
+  // Pre-compute combined override for MeasureValues if applicable
+  const measureValuesOverride = combineMeasureValuesOverrides(
+    measureValuesSourceFields,
+    fieldOverrides
+  );
+
   for (let r = 0; r < yCandidates.length; r++) {
     for (let c = 0; c < xCandidates.length; c++) {
       const xField = xCandidates[c];
       const yField = yCandidates[r];
 
+      // Check if either axis has MeasureValues
+      const xIsMeasureValues = isMeasureValuesField(xField);
+      const yIsMeasureValues = isMeasureValuesField(yField);
+
       // Resolve effective overrides for this cell based on which axis is configured
       const xTargetAxis = targetAxisByFieldId[xField.id];
       const yTargetAxis = targetAxisByFieldId[yField.id];
-      const xOverride = xTargetAxis === 'x' ? overrideMap[xField.id] : undefined;
-      const yOverride = yTargetAxis === 'y' ? overrideMap[yField.id] : undefined;
+      
+      // For MeasureValues fields, use the combined override from source measures
+      const xOverride = xIsMeasureValues 
+        ? measureValuesOverride 
+        : (xTargetAxis === 'x' ? overrideMap[xField.id] : undefined);
+      const yOverride = yIsMeasureValues 
+        ? measureValuesOverride 
+        : (yTargetAxis === 'y' ? overrideMap[yField.id] : undefined);
 
       // Prefer X-axis override when both are present (defensive; rules should prevent this)
       const cellOverride: FieldOverrideState | undefined = xOverride || yOverride;
@@ -224,46 +252,73 @@ export function generateCartesianPlots(
         }
       }
 
-      let options: Plot.PlotOptions = generatePairChartOptions(
-        data,
-        xField,
-        yField,
-        { ...sharedMeasureDomains, ...sharedNumeric },
-        cellChartTypeOverrides,
-        cellColorField || undefined,
-        cellSizeField || undefined,
-        cellSizeRange,
-        cellManualSize,
-        cellColorScheme,
-        cellColorBias,
-        cellManualColor,
-        (() => {
-          // Per-cell label configuration based on dataLabelMode and labelFields
-          if (!labelCfg) return undefined;
-          if (cellOverride?.dataLabelMode === 'off') {
-            return undefined;
-          }
-          
-          // Build effective labelCfg for this cell
-          let effectiveLabelCfg = { ...labelCfg };
-          
-          // If cell override has labelFields, use those instead of global
-          if (cellOverride?.labelFields && cellOverride.labelFields.length > 0) {
-            effectiveLabelCfg = {
-              ...effectiveLabelCfg,
-              labelFields: cellOverride.labelFields,
-            };
-          }
-          
-          // If dataLabelMode is 'on', force enable labels
-          if (cellOverride?.dataLabelMode === 'on') {
-            effectiveLabelCfg.labelsEnabled = true;
-          }
-          
-          return effectiveLabelCfg;
-        })(),
-        tooltipFields
-      );
+      // Check if we need multi-mark rendering for MeasureValues with heterogeneous chart types
+      const needsMultiMark = (xIsMeasureValues || yIsMeasureValues) && 
+        measureValuesSourceFields?.length && 
+        hasHeterogeneousChartTypes(measureValuesSourceFields, fieldOverrides);
+
+      let options: Plot.PlotOptions;
+      
+      if (needsMultiMark) {
+        // Use multi-mark rendering for per-measure chart types
+        options = generateMeasureValuesMultiMarkPlot({
+          data,
+          xField,
+          yField,
+          measureValuesSourceFields: measureValuesSourceFields!,
+          fieldOverrides: fieldOverrides || {},
+          colorField: cellColorField || undefined,
+          colorScheme: cellColorScheme,
+          colorBias: cellColorBias,
+          sizeField: cellSizeField || undefined,
+          sizeRange: cellSizeRange,
+          manualSize: cellManualSize,
+          sharedDomains: { ...sharedMeasureDomains, ...sharedNumeric },
+          tooltipFields,
+        });
+      } else {
+        // Standard single-mark rendering
+        options = generatePairChartOptions(
+          data,
+          xField,
+          yField,
+          { ...sharedMeasureDomains, ...sharedNumeric },
+          cellChartTypeOverrides,
+          cellColorField || undefined,
+          cellSizeField || undefined,
+          cellSizeRange,
+          cellManualSize,
+          cellColorScheme,
+          cellColorBias,
+          cellManualColor,
+          (() => {
+            // Per-cell label configuration based on dataLabelMode and labelFields
+            if (!labelCfg) return undefined;
+            if (cellOverride?.dataLabelMode === 'off') {
+              return undefined;
+            }
+            
+            // Build effective labelCfg for this cell
+            let effectiveLabelCfg = { ...labelCfg };
+            
+            // If cell override has labelFields, use those instead of global
+            if (cellOverride?.labelFields && cellOverride.labelFields.length > 0) {
+              effectiveLabelCfg = {
+                ...effectiveLabelCfg,
+                labelFields: cellOverride.labelFields,
+              };
+            }
+            
+            // If dataLabelMode is 'on', force enable labels
+            if (cellOverride?.dataLabelMode === 'on') {
+              effectiveLabelCfg.labelsEnabled = true;
+            }
+            
+            return effectiveLabelCfg;
+          })(),
+          tooltipFields
+        );
+      }
 
       // Apply shared color domain to keep color mapping consistent across the grid
       if (sharedColorScale) {

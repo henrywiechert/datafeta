@@ -17,6 +17,7 @@ import { getResultColumnName } from '../../utils/fieldUtils';
 import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 import { buildLabelCfg } from '../observablePlotGenerator';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
+import { isMeasureValuesField, combineMeasureValuesOverrides } from '../../utils/syntheticFields';
 
 /**
  * Chart-specific configuration derived from context and facet plan.
@@ -361,7 +362,17 @@ function createBarCellGenerator(
  * for bar charts where a category axis can be injected if needed (see below).
  */
 export function generateFacetedGrid(context: ChartGenerationContext, plan: FacetPlan): PlotResult {
-    const { xFields, yFields, colorField, sizeField, manualSize, manualColor } = context;
+    const { xFields, yFields, colorField, sizeField, manualSize, manualColor, fieldOverrides, measureValuesSourceFields } = context;
+    
+    // Check if MeasureValues is being used and get combined overrides from source measures
+    const hasMeasureValuesOnAxis = [...xFields, ...yFields].some(f => isMeasureValuesField(f));
+    const combinedMeasureOverride = hasMeasureValuesOnAxis
+      ? combineMeasureValuesOverrides(measureValuesSourceFields, fieldOverrides)
+      : undefined;
+    
+    // Use combined override's manualSize if available (for MeasureValues charts)
+    const effectiveManualSize = combinedMeasureOverride?.manualSize ?? manualSize;
+    const effectiveManualColor = combinedMeasureOverride?.manualColor ?? manualColor;
     
     // Derive chart-specific configuration from the simplified plan
     const chartConfig = deriveChartConfig(context, plan);
@@ -377,8 +388,9 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
   // BAR path: Use coordinator with bar cell generator
   if (barOrientation && categoryAxis) {
     // Compute global band padding from size field if provided (applied to all facets)
+    // Use effective manual size which may come from combined MeasureValues overrides
     const globalBandPadding = computeBandPaddingFromSizeField(context.queryResult.rows, sizeField, {
-      manualSize,
+      manualSize: effectiveManualSize,
     }) ?? BAND_PADDING;
     
     // Get label configuration
@@ -415,7 +427,7 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       colorField,
       globalBandPadding,
       labelCfg,
-      manualColor,
+      effectiveManualColor,
       context.tooltipFields
     );
     

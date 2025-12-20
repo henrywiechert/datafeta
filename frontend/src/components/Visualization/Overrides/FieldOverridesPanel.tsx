@@ -33,13 +33,18 @@ const FieldOverridesPanel: React.FC = () => {
     labelFields,
     labelsEnabled,
     globalChartType,
+    measureValuesSourceFields,
   } = state as any;
 
   const [expandedId, setExpandedId] = useState<string | null>('__all__');
 
   const targets = useMemo(
-    () => computeOverrideTargets(xAxisFields as Field[], yAxisFields as Field[]),
-    [xAxisFields, yAxisFields]
+    () => computeOverrideTargets(
+      xAxisFields as Field[], 
+      yAxisFields as Field[],
+      measureValuesSourceFields as Field[]
+    ),
+    [xAxisFields, yAxisFields, measureValuesSourceFields]
   );
 
   const {

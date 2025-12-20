@@ -9,6 +9,7 @@ import { validateAndCleanData, remapCastExpressionColumns } from '../utils/dataV
 import { generateOptimizationHintsFromFields } from '../../../../services/optimizationHintGenerator';
 import { requiresUnpivoting, buildUnpivotedQuery } from '../../../../queryBuilder/syntheticQueryBuilder';
 import { useDataSource } from '../../../../contexts/DataSourceContext';
+import { getMeasureFieldsForUnpivot, MEASURE_NAMES_FIELD } from '../../../../utils/syntheticFields';
 
 interface UseQueryExecutionProps {
   selectedTable: string | null;
@@ -346,11 +347,30 @@ export const useQueryExecution = ({
     lastExecutedVersionRef.current = queryVersion;
     
     if (needsUnpivot) {
+      // Compute source measures (respecting MeasureNames filter if present)
+      const measureNamesFilterEntry = Object.entries(vizState.appliedFilterConfigurations).find(
+        ([, config]) => config.columnName === MEASURE_NAMES_FIELD
+      );
+      const measureNamesFilterValues = measureNamesFilterEntry && measureNamesFilterEntry[1].type === 'discrete'
+        ? (measureNamesFilterEntry[1] as any).selectedValues as string[]
+        : undefined;
+      
+      const sourceMeasures = getMeasureFieldsForUnpivot(
+        dataSource.availableFields,
+        measureNamesFilterValues
+      );
+      dispatch({ type: 'SET_MEASURE_VALUES_SOURCE_FIELDS', payload: sourceMeasures });
+      
       // Execute unpivot query
       executeQuery(null as any, true);
-    } else if (currentQueryDescription) {
-      // Execute normal query
-      executeQuery(currentQueryDescription, false);
+    } else {
+      // Clear source measures when not using unpivot
+      dispatch({ type: 'SET_MEASURE_VALUES_SOURCE_FIELDS', payload: [] });
+      
+      if (currentQueryDescription) {
+        // Execute normal query
+        executeQuery(currentQueryDescription, false);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryVersion, connectionDetails, currentQueryDescription, xAxisFields, yAxisFields]);

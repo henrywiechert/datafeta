@@ -60,6 +60,8 @@ export interface VisualizationState {
   // Panel collapse state
   leftPanelCollapsed: boolean;
   middlePanelCollapsed: boolean;
+  // MeasureNames/MeasureValues source tracking
+  measureValuesSourceFields: Field[];
 }
 
 // Define action types
@@ -158,7 +160,9 @@ export type VisualizationAction =
   // Panel collapse actions
   | { type: 'TOGGLE_LEFT_PANEL' }
   | { type: 'TOGGLE_MIDDLE_PANEL' }
-  | { type: 'SET_PANEL_COLLAPSED'; payload: { panel: 'left' | 'middle'; collapsed: boolean } };
+  | { type: 'SET_PANEL_COLLAPSED'; payload: { panel: 'left' | 'middle'; collapsed: boolean } }
+  // MeasureNames/MeasureValues source tracking actions
+  | { type: 'SET_MEASURE_VALUES_SOURCE_FIELDS'; payload: Field[] };
 
 // Helper type for reducer functions
 export type ReducerFn = (state: VisualizationState, action: VisualizationAction) => VisualizationState;

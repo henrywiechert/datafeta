@@ -56,5 +56,7 @@ export const initialState: VisualizationState = {
   // Panel collapse defaults
   leftPanelCollapsed: false,
   middlePanelCollapsed: false,
+  // MeasureNames/MeasureValues source tracking defaults
+  measureValuesSourceFields: [],
 };
 

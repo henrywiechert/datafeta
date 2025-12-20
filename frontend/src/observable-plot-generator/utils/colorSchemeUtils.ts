@@ -3,8 +3,9 @@
  */
 
 import { getSchemeById, DEFAULT_CATEGORICAL_SCHEME, DEFAULT_SEQUENTIAL_SCHEME } from '../../config/colorSchemes';
-import { Field } from '../../types';
+import { Field, FieldOverrideState } from '../../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
+import { isMeasureNamesField } from '../../utils/syntheticFields';
 
 export type ColorScaleKind = 'categorical' | 'continuous';
 
@@ -232,5 +233,66 @@ function interpolateColors(color1: string, color2: string, t: number): string {
   const b = Math.round(b1 + (b2 - b1) * t);
   
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
+/**
+ * Apply per-measure color overrides to a color scale when the color field is MeasureNames.
+ * This allows users to set specific colors for individual measures when using MeasureValues.
+ * 
+ * @param colorScale - The existing color scale info
+ * @param colorField - The color field (must be MeasureNames for overrides to apply)
+ * @param measureValuesSourceFields - Source measures contributing to MeasureValues
+ * @param fieldOverrides - Per-field overrides keyed by field ID
+ * @returns Modified color scale with per-measure overrides applied, or original if no overrides
+ */
+export function applyMeasureNameColorOverrides(
+  colorScale: ColorScaleInfo | null,
+  colorField: Field | undefined,
+  measureValuesSourceFields: Field[] | undefined,
+  fieldOverrides: Record<string, FieldOverrideState> | undefined
+): ColorScaleInfo | null {
+  // Only apply overrides if:
+  // 1. We have a color scale
+  // 2. The color field is MeasureNames
+  // 3. We have source measures and field overrides
+  if (
+    !colorScale ||
+    !colorField ||
+    !isMeasureNamesField(colorField) ||
+    !measureValuesSourceFields?.length ||
+    !fieldOverrides ||
+    colorScale.kind !== 'categorical'
+  ) {
+    return colorScale;
+  }
+
+  // Build a map from measure name to override color
+  const overrideColorMap = new Map<string, string>();
+  for (const sourceField of measureValuesSourceFields) {
+    const override = fieldOverrides[sourceField.id];
+    if (override?.manualColor) {
+      overrideColorMap.set(sourceField.columnName, override.manualColor);
+    }
+  }
+
+  // If no overrides found, return original scale
+  if (overrideColorMap.size === 0) {
+    return colorScale;
+  }
+
+  // Create new range with overridden colors
+  const newRange = colorScale.domain.map((measureName, index) => {
+    const overrideColor = overrideColorMap.get(measureName);
+    if (overrideColor) {
+      return overrideColor;
+    }
+    // Fall back to original color from the range
+    return colorScale.range[index % colorScale.range.length];
+  });
+
+  return {
+    ...colorScale,
+    range: newRange,
+  };
 }
 
