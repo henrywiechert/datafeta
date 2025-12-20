@@ -8,15 +8,14 @@
 
 import * as Plot from '@observablehq/plot';
 import { Field, FieldOverrideState, UserChartType } from '../../types';
-import { MEASURE_NAMES_FIELD, MEASURE_VALUES_FIELD } from '../../utils/syntheticFields';
+import { MEASURE_NAMES_FIELD } from '../../utils/syntheticFields';
 import { getResultColumnName } from '../../utils/fieldUtils';
-import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
-import { deriveColorScaleInfo, ColorScaleInfo } from '../utils/colorSchemeUtils';
+import { ColorScaleInfo } from '../utils/colorSchemeUtils';
+import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 
 /**
  * Check if source measures have heterogeneous (different) chart type overrides.
- * Returns true if at least two measures have different chart types specified,
- * OR if at least one measure has a chart type override (allowing mixed default + override).
+ * Returns true if at least one measure has a chart type override.
  */
 export function hasHeterogeneousChartTypes(
   measureValuesSourceFields: Field[] | undefined,
@@ -26,28 +25,14 @@ export function hasHeterogeneousChartTypes(
     return false;
   }
 
-  const definedChartTypes: UserChartType[] = [];
-  
   for (const sourceField of measureValuesSourceFields) {
     const override = fieldOverrides[sourceField.id];
     if (override?.chartType) {
-      definedChartTypes.push(override.chartType);
+      return true;
     }
   }
 
-  // Return true if:
-  // 1. At least one measure has a chart type override (will mix with defaults)
-  // 2. Or multiple measures have different chart types
-  if (definedChartTypes.length === 0) {
-    return false;
-  }
-
-  // Check if there are different chart types among the defined ones
-  const uniqueTypes = new Set(definedChartTypes);
-  
-  // If there's at least one defined chart type, use multi-mark rendering
-  // This allows mixing overridden measures with default-type measures
-  return definedChartTypes.length > 0;
+  return false;
 }
 
 /**
@@ -68,39 +53,21 @@ function getMeasureChartType(
 function getMeasureSize(
   measureField: Field,
   fieldOverrides: Record<string, FieldOverrideState> | undefined,
-  defaultSize: number = 5
+  defaultSize: number = 4
 ): number {
   const override = fieldOverrides?.[measureField.id];
   return override?.manualSize ?? defaultSize;
 }
 
-/**
- * Get the color for a specific measure from overrides.
- */
-function getMeasureColor(
-  measureField: Field,
-  fieldOverrides: Record<string, FieldOverrideState> | undefined,
-  defaultColors: string[],
-  measureIndex: number
-): string {
-  const override = fieldOverrides?.[measureField.id];
-  if (override?.manualColor) {
-    return override.manualColor;
-  }
-  return defaultColors[measureIndex % defaultColors.length];
-}
-
 interface MultiMarkConfig {
   data: any[];
   xField: Field;
-  yField: Field; // This would be MeasureValues typically
+  yField: Field;
   measureValuesSourceFields: Field[];
   fieldOverrides: Record<string, FieldOverrideState>;
   colorField?: Field;
   colorScheme?: string;
-  colorBias?: number;
-  sizeField?: Field;
-  sizeRange?: [number, number];
+  sharedColorScale?: ColorScaleInfo | null;
   manualSize?: number;
   sharedDomains?: Record<string, [number, number] | [Date, Date]>;
   tooltipFields?: Field[];
@@ -108,102 +75,100 @@ interface MultiMarkConfig {
 
 /**
  * Create marks for a specific chart type.
- * Returns an array of marks (some chart types need multiple marks, e.g., line + dots for hover).
+ * Returns an array of marks (some chart types need multiple marks, e.g., line + dots).
  */
 function createMarksForType(
   chartType: UserChartType,
   filteredData: any[],
   xColumn: string,
   yColumn: string,
-  color: string,
-  measureName: string,
+  colorValue: string | ((d: any) => any),
   sizeValue: number,
-  orientation: 'vertical' | 'horizontal' = 'vertical'
+  orientation: 'vertical' | 'horizontal',
+  tooltipChannels?: Record<string, any>
 ): Plot.Markish[] {
-  const marks: Plot.Markish[] = [];
-  
-  // Tooltip function
-  const tooltip = (d: any) => `${measureName}: ${d[yColumn]}`;
+  // Common options (no tip - we use custom tooltips)
+  const baseOptions: any = {
+    x: xColumn,
+    y: yColumn,
+  };
+
+  // Add tooltip channels for hover interaction
+  if (tooltipChannels) {
+    baseOptions.channels = tooltipChannels;
+  }
 
   switch (chartType) {
-    case 'line':
-      // Line mark
-      marks.push(Plot.line(filteredData, {
+    case 'line': {
+      // Line chart with visible dots (like the original lineChart)
+      const lineConfig: any = {
+        ...baseOptions,
+        stroke: colorValue,
+        strokeWidth: sizeValue,
+        z: colorValue, // Group lines by color
+      };
+      const dotConfig: any = {
+        ...baseOptions,
+        fill: colorValue,
+        r: Math.max(2, sizeValue / 2), // Dot size proportional to line width
+        channels: tooltipChannels,
+      };
+      // Invisible hover dots for better tooltip detection
+      const hoverDotConfig: any = {
         x: xColumn,
         y: yColumn,
-        stroke: color,
-        strokeWidth: 2,
-        curve: 'catmull-rom',
-      }));
-      // Add dots on the line for better visibility
-      marks.push(Plot.dot(filteredData, {
-        x: xColumn,
-        y: yColumn,
-        fill: color,
-        r: 3,
-        tip: true,
-        title: tooltip,
-      }));
-      break;
+        r: 6,
+        fill: 'transparent',
+        stroke: 'transparent',
+        strokeWidth: 0,
+      };
+      return [
+        Plot.line(filteredData, lineConfig),
+        Plot.dot(filteredData, dotConfig),
+        Plot.dot(filteredData, hoverDotConfig),
+      ];
+    }
 
     case 'tick':
-      // Tick marks for continuous dimensions
       if (orientation === 'vertical') {
-        marks.push(Plot.tickY(filteredData, {
-          x: xColumn,
-          y: yColumn,
-          stroke: color,
-          strokeWidth: 2,
-          tip: true,
-          title: tooltip,
-        }));
+        return [Plot.tickY(filteredData, {
+          ...baseOptions,
+          stroke: colorValue,
+          strokeWidth: sizeValue,
+        })];
       } else {
-        marks.push(Plot.tickX(filteredData, {
+        return [Plot.tickX(filteredData, {
           x: yColumn,
           y: xColumn,
-          stroke: color,
-          strokeWidth: 2,
-          tip: true,
-          title: tooltip,
-        }));
+          stroke: colorValue,
+          strokeWidth: sizeValue,
+          channels: tooltipChannels,
+        })];
       }
-      break;
 
     case 'bar':
-      // For bars, use appropriate orientation
       if (orientation === 'vertical') {
-        marks.push(Plot.barY(filteredData, {
-          x: xColumn,
-          y: yColumn,
-          fill: color,
-          tip: true,
-          title: tooltip,
-        }));
+        return [Plot.barY(filteredData, {
+          ...baseOptions,
+          fill: colorValue,
+        })];
       } else {
-        marks.push(Plot.barX(filteredData, {
+        return [Plot.barX(filteredData, {
           x: yColumn,
           y: xColumn,
-          fill: color,
-          tip: true,
-          title: tooltip,
-        }));
+          fill: colorValue,
+          channels: tooltipChannels,
+        })];
       }
-      break;
 
     case 'scatter':
     default:
-      marks.push(Plot.dot(filteredData, {
-        x: xColumn,
-        y: yColumn,
-        fill: color,
+      return [Plot.dot(filteredData, {
+        ...baseOptions,
+        fill: colorValue,
         r: sizeValue,
-        tip: true,
-        title: tooltip,
-      }));
-      break;
+      })];
   }
-
-  return marks;
 }
 
 /**
@@ -217,34 +182,44 @@ export function generateMeasureValuesMultiMarkPlot(config: MultiMarkConfig): Plo
     yField,
     measureValuesSourceFields,
     fieldOverrides,
+    colorField,
+    sharedColorScale,
     sharedDomains,
-    manualSize = 5,
+    manualSize = 4,
+    tooltipFields,
   } = config;
 
   // Determine which field is MeasureValues and which is the category/x-axis
   const isMeasureValuesOnY = yField.syntheticType === 'MeasureValues';
   const measureValuesField = isMeasureValuesOnY ? yField : xField;
   
-  // IMPORTANT: Use getResultColumnName to get the actual column name in the data
-  // This handles aggregation aliases like "SUM(MeasureValues)" instead of just "MeasureValues"
+  // Get the actual column name in the data (handles aggregation aliases)
   const measureValuesColumn = getResultColumnName(measureValuesField);
   const measureNamesColumn = MEASURE_NAMES_FIELD;
   
-  // The other axis field (usually a dimension for x-axis)
+  // The other axis field
   const categoryField = isMeasureValuesOnY ? xField : yField;
   const categoryColumn = getResultColumnName(categoryField);
   
-  // Determine orientation for bar charts
   const orientation: 'vertical' | 'horizontal' = isMeasureValuesOnY ? 'vertical' : 'horizontal';
 
-  // Default color palette (steelblue-based)
-  const defaultColors = [
-    'steelblue', '#f28e2c', '#e15759', '#76b7b2', '#59a14f',
-    '#edc949', '#af7aa1', '#ff9da7', '#9c755f', '#bab0ab'
-  ];
+  // Build tooltip channels from tooltipFields if provided
+  let tooltipChannels: Record<string, any> | undefined;
+  if (tooltipFields && tooltipFields.length > 0) {
+    tooltipChannels = {};
+    for (const field of tooltipFields) {
+      const colName = getResultColumnName(field);
+      tooltipChannels[field.columnName] = { value: colName, label: field.columnName };
+    }
+  }
 
   // Create marks for each source measure
   const allMarks: Plot.Markish[] = [];
+
+  // Check if we have a color field (like MeasureNames on Color)
+  // If so, use the MeasureNames column for color instead of per-measure colors
+  const hasColorField = !!colorField;
+  const colorColumn = colorField ? getResultColumnName(colorField) : undefined;
 
   for (let i = 0; i < measureValuesSourceFields.length; i++) {
     const measureField = measureValuesSourceFields[i];
@@ -255,50 +230,49 @@ export function generateMeasureValuesMultiMarkPlot(config: MultiMarkConfig): Plo
     
     if (filteredData.length === 0) continue;
 
-    // Get chart type for this measure (default to line for multi-measure)
+    // Get chart type for this measure
     const chartType = getMeasureChartType(measureField, fieldOverrides, 'line');
-    
-    // Get color for this measure
-    const color = getMeasureColor(measureField, fieldOverrides, defaultColors, i);
     
     // Get size for this measure
     const sizeValue = getMeasureSize(measureField, fieldOverrides, manualSize);
 
-    // Create the appropriate marks for this measure
-    const measureMarks = createMarksForType(
+    // Determine color: use color column if color field exists, otherwise use measure name
+    // This ensures the color from the global color encoding is used
+    const colorValue = hasColorField ? colorColumn! : measureName;
+
+    // Create the marks for this measure (may be multiple, e.g., line + dots)
+    const marks = createMarksForType(
       chartType,
       filteredData,
       isMeasureValuesOnY ? categoryColumn : measureValuesColumn,
       isMeasureValuesOnY ? measureValuesColumn : categoryColumn,
-      color,
-      measureName,
+      colorValue,
       sizeValue,
-      orientation
+      orientation,
+      tooltipChannels
     );
 
-    allMarks.push(...measureMarks);
+    allMarks.push(...marks);
   }
 
-  // Add a baseline rule at y=0 for reference
-  allMarks.push(Plot.ruleY([0], { stroke: '#ccc', strokeWidth: 1 }));
+  // Add a baseline rule at y=0
+  allMarks.push(Plot.ruleY([0], { stroke: '#ddd', strokeWidth: 1 }));
 
   // Build axis configurations
-  // Use friendly display names for labels, but the column names are used internally
   const xAxisConfig: any = {
-    label: isMeasureValuesOnY ? categoryField.columnName : measureValuesField.columnName,
+    label: categoryField.columnName,
     grid: true,
   };
   
   const yAxisConfig: any = {
-    label: isMeasureValuesOnY ? measureValuesField.columnName : categoryField.columnName,
+    label: measureValuesField.columnName,
     grid: true,
     nice: true,
   };
 
   // Apply shared domains if available
-  // Check both the raw column name and the aggregated alias
   if (sharedDomains) {
-    const measureDomain = sharedDomains[measureValuesColumn] || sharedDomains[MEASURE_VALUES_FIELD];
+    const measureDomain = sharedDomains[measureValuesColumn];
     if (measureDomain) {
       if (isMeasureValuesOnY) {
         yAxisConfig.domain = measureDomain;
@@ -308,22 +282,52 @@ export function generateMeasureValuesMultiMarkPlot(config: MultiMarkConfig): Plo
     }
   }
 
-  // Build legend showing measure names with their colors
-  const legendDomain = measureValuesSourceFields.map(f => f.columnName);
-  const legendRange = measureValuesSourceFields.map((f, i) => 
-    getMeasureColor(f, fieldOverrides, defaultColors, i)
-  );
-
-  return {
+  // Build the plot options
+  const plotOptions: Plot.PlotOptions = {
     x: xAxisConfig,
     y: yAxisConfig,
-    color: {
-      type: 'ordinal',
-      domain: legendDomain,
-      range: legendRange,
-      legend: true,
-    },
     marks: allMarks,
   };
-}
 
+  // Apply the shared color scale if available (from the parent context)
+  // This uses the same color configuration as the rest of the chart system
+  // Note: legend is NOT set here - it comes from the parent coordinator
+  if (sharedColorScale) {
+    const colorConfig = sharedColorScale.kind === 'continuous'
+      ? {
+          type: 'linear' as const,
+          domain: sharedColorScale.domain as [number, number],
+          range: sharedColorScale.range,
+          clamp: true,
+        }
+      : {
+          type: 'ordinal' as const,
+          domain: sharedColorScale.domain as any[],
+          range: sharedColorScale.range,
+        };
+    
+    (plotOptions as any).color = {
+      ...colorConfig,
+      label: colorField?.columnName,
+    };
+  }
+
+  // Add custom tooltip configuration (same system as other chart types)
+  const xLabel = categoryField.columnName;
+  const yLabel = measureValuesField.columnName;
+  (plotOptions as any).__customTooltip = {
+    enabled: true,
+    data: data,
+    getFields: createTooltipFieldsGetter(
+      [
+        { label: xLabel, column: categoryColumn },
+        { label: yLabel, column: measureValuesColumn }
+      ],
+      colorField,
+      undefined, // sizeField not applicable here
+      tooltipFields
+    )
+  };
+
+  return plotOptions;
+}
