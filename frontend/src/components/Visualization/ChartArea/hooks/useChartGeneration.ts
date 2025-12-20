@@ -28,6 +28,7 @@ interface UseChartGenerationProps {
   tooltipFields?: Field[];
   fieldOverrides?: Record<string, FieldOverrideState>;
   globalChartType?: UserChartType | null;
+  measureValuesSourceFields?: Field[];
 }
 
 interface UseChartGenerationReturn {
@@ -61,6 +62,7 @@ export const useChartGeneration = ({
   tooltipFields = [],
   fieldOverrides = {},
   globalChartType,
+  measureValuesSourceFields = [],
 }: UseChartGenerationProps): UseChartGenerationReturn => {
   const [spec, setSpec] = useState<PlotResult | null>(null);
   const [chartInfo, setChartInfo] = useState<any | null>(null);
@@ -93,7 +95,8 @@ export const useChartGeneration = ({
 
       const overrideTargets = computeOverrideTargets(
         xAxisFields as Field[],
-        yAxisFields as Field[]
+        yAxisFields as Field[],
+        measureValuesSourceFields
       );
 
       const plotResult = generatePlot({
@@ -116,6 +119,7 @@ export const useChartGeneration = ({
         fieldOverrides,
         fieldOverrideTargets: overrideTargets,
         globalChartType,
+        measureValuesSourceFields,
       });
       
       const plotCount = plotResult.plots?.length || 0;
@@ -152,7 +156,7 @@ export const useChartGeneration = ({
       // On error, complete the operation immediately since no rendering will happen
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, useTableView, startOperation, completeOperation, queryResult, queryVersion, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, tooltipFields, fieldOverrides, globalChartType]);
+  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, useTableView, startOperation, completeOperation, queryResult, queryVersion, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, tooltipFields, fieldOverrides, globalChartType, measureValuesSourceFields]);
 
   const cancelGeneration = useCallback(() => {
     // No-op since Observable Plot generation is synchronous

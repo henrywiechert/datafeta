@@ -1,8 +1,8 @@
 import * as Plot from '@observablehq/plot';
-import { Field } from '../../types';
+import { Field, FieldOverrideState } from '../../types';
 import { computeSharedMeasureDomains } from '../domains/measureDomains';
 import { computeSharedNumericDomains, computeSharedCategoricalDomains } from '../domains/numericDomains';
-import { ColorScaleInfo, deriveColorScaleInfo } from '../utils/colorSchemeUtils';
+import { ColorScaleInfo, deriveColorScaleInfo, applyMeasureNameColorOverrides } from '../utils/colorSchemeUtils';
 
 /**
  * Consolidated domain information for faceted charts
@@ -17,6 +17,9 @@ export interface SharedDomains {
 /**
  * Compute all shared domains needed for faceting.
  * This centralizes domain computation logic that was duplicated across facetGenerator and coreGridGenerator.
+ * 
+ * @param measureValuesSourceFields - Optional source measures for MeasureValues (for per-measure color overrides)
+ * @param fieldOverrides - Optional per-field overrides (for per-measure color overrides)
  */
 export function computeSharedDomainsForFaceting(
   data: any[],
@@ -26,7 +29,9 @@ export function computeSharedDomainsForFaceting(
   categoryField?: Field,
   facetFields?: Field[],
   colorSchemeId?: string,
-  colorBias?: number
+  colorBias?: number,
+  measureValuesSourceFields?: Field[],
+  fieldOverrides?: Record<string, FieldOverrideState>
 ): SharedDomains {
   // Compute shared measure domains
   const allMeasures = [...xFields, ...yFields].filter((f: any) => f.type === 'measure' && f.flavour === 'continuous');
@@ -48,7 +53,15 @@ export function computeSharedDomainsForFaceting(
     : {};
 
   // Compute shared color domain
-  const colorScale = colorField ? deriveColorScaleInfo(data, colorField, colorSchemeId, colorBias) : null;
+  let colorScale = colorField ? deriveColorScaleInfo(data, colorField, colorSchemeId, colorBias) : null;
+  
+  // Apply per-measure color overrides if color field is MeasureNames and we have source fields
+  colorScale = applyMeasureNameColorOverrides(
+    colorScale,
+    colorField,
+    measureValuesSourceFields,
+    fieldOverrides
+  );
 
   return {
     measure: measureDomains as Record<string, [number, number]>,
