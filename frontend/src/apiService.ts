@@ -1,3 +1,4 @@
+import { tableFromIPC, Table as ArrowTable } from 'apache-arrow';
 import { 
     ConnectionDetails, 
     DatabaseListResponse, 
@@ -233,6 +234,113 @@ export const apiService = {
         }
         
         return result;
+    },
+
+    /**
+     * Execute a query and return results using Apache Arrow IPC transport.
+     * 
+     * This is more efficient for large datasets compared to JSON:
+     * - ~60-70% smaller payload (binary vs text)
+     * - Faster parsing (binary vs JSON.parse)
+     * - Type fidelity preserved (int64, float64, etc.)
+     * 
+     * @param queryDesc - Query description object
+     * @param signal - Optional AbortSignal for cancellation
+     * @returns QueryResult with data converted from Arrow format
+     */
+    async executeQueryArrow(queryDesc: QueryDescription, signal?: AbortSignal): Promise<QueryResult> {
+        const abortController = signal ? null : createAbortController();
+        const requestSignal = signal || abortController?.signal;
+
+        const fetchOptions: RequestInit = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(queryDesc),
+            signal: requestSignal,
+            credentials: 'include',
+        };
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/query-arrow`, fetchOptions);
+            
+            if (!response.ok) {
+                // Handle error responses (still JSON)
+                let errorMessage = `Request failed with status ${response.status}`;
+                try {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        const errorData = await response.json();
+                        errorMessage = errorData.detail || JSON.stringify(errorData);
+                    } else {
+                        const errorText = await response.text();
+                        errorMessage = errorText || errorMessage;
+                    }
+                } catch (parseError) {
+                    errorMessage = `Request failed with status ${response.status} (${response.statusText})`;
+                }
+                throw new Error(errorMessage);
+            }
+
+            // Get metadata from response headers
+            const rowCount = parseInt(response.headers.get('X-Arrow-Row-Count') || '0', 10);
+            const columnCount = parseInt(response.headers.get('X-Arrow-Column-Count') || '0', 10);
+
+            // Parse Arrow IPC stream
+            const arrayBuffer = await response.arrayBuffer();
+            const arrowTable: ArrowTable = tableFromIPC(arrayBuffer);
+
+            // Convert Arrow table to QueryResult format
+            const columns = arrowTable.schema.fields.map(field => ({
+                name: field.name,
+                type: field.type.toString(),
+            }));
+
+            // Convert Arrow rows to array of objects
+            // This is where we bridge Arrow's columnar format to row-oriented for Observable Plot
+            const rows: { [key: string]: any }[] = [];
+            const numRows = arrowTable.numRows;
+            
+            // Get column accessors for efficient iteration
+            const columnAccessors = columns.map(col => arrowTable.getChild(col.name));
+            
+            for (let i = 0; i < numRows; i++) {
+                const row: { [key: string]: any } = {};
+                for (let j = 0; j < columns.length; j++) {
+                    const accessor = columnAccessors[j];
+                    if (accessor) {
+                        let value = accessor.get(i);
+                        // Convert BigInt to number if needed (JavaScript number is sufficient for most OLAP use cases)
+                        if (typeof value === 'bigint') {
+                            value = Number(value);
+                        }
+                        row[columns[j].name] = value;
+                    }
+                }
+                rows.push(row);
+            }
+
+            console.log(`📊 Arrow transport: ${arrayBuffer.byteLength} bytes → ${numRows} rows × ${columnCount} columns`);
+
+            return {
+                columns,
+                rows,
+                row_count: rowCount || numRows,
+                // Note: SQL not included in Arrow transport (would require separate metadata channel)
+                query_sql: undefined,
+                result_dimensions: {
+                    rows: rowCount || numRows,
+                    columns: columnCount || columns.length,
+                    size_display: `${(rowCount || numRows).toLocaleString()} × ${columnCount || columns.length}`,
+                },
+            };
+        } catch (error) {
+            if (error instanceof Error && error.name === 'AbortError') {
+                throw new Error('Request was cancelled');
+            }
+            throw error;
+        }
     },
 
     // New method to cancel all ongoing requests

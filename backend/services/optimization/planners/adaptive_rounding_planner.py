@@ -15,6 +15,10 @@ from ..strategies.adaptive_rounding import AdaptiveRoundingStrategy
 from ..strategies.base import OptimizationStrategy
 from ..strategies.datetime_binning import DateTimeBinningStrategy
 
+# Virtual columns that only exist in UNION queries, not in actual tables.
+# These must be skipped when building estimation/range queries against real tables.
+VIRTUAL_COLUMNS = frozenset({'_source_database', '_source_table'})
+
 
 class AdaptiveRoundingPlanner:
     """Create rounding and binning strategies based on query shape."""
@@ -335,6 +339,11 @@ class AdaptiveRoundingPlanner:
             count_query = count_query.select(field_term)
 
         for filter_obj in query_desc.filters:
+            # Skip filters on virtual columns that don't exist in the actual table
+            if filter_obj.field in VIRTUAL_COLUMNS:
+                self._logger.debug("Skipping filter on virtual column '%s' for estimation query", filter_obj.field)
+                continue
+                
             field_term = getattr(table, filter_obj.field)
             
             # Apply datetime extraction if filter has date_part and date_mode
@@ -429,6 +438,11 @@ class AdaptiveRoundingPlanner:
         count_query = count_query.select(count_expr)
 
         for filter_obj in query_desc.filters:
+            # Skip filters on virtual columns that don't exist in the actual table
+            if filter_obj.field in VIRTUAL_COLUMNS:
+                self._logger.debug("Skipping filter on virtual column '%s' for estimation query", filter_obj.field)
+                continue
+                
             field_term_f = getattr(table, filter_obj.field)
             
             # Apply datetime extraction if filter has date_part and date_mode
@@ -524,6 +538,11 @@ class AdaptiveRoundingPlanner:
                 )
 
         for filter_obj in query_desc.filters:
+            # Skip filters on virtual columns that don't exist in the actual table
+            if filter_obj.field in VIRTUAL_COLUMNS:
+                self._logger.debug("Skipping filter on virtual column '%s' for range query", filter_obj.field)
+                continue
+                
             field_term_f = getattr(table, filter_obj.field)
             
             # Apply datetime extraction if filter has date_part and date_mode

@@ -4,6 +4,9 @@ import duckdb
 import os
 import re
 from typing import List, Dict, Any, Tuple, Optional
+
+import pyarrow as pa
+
 from backend.models.data_source import Database, Table, Column
 from .base import BaseConnector
 from backend.exceptions import DataSourceConnectionError, InvalidInputError, QueryExecutionError
@@ -229,6 +232,51 @@ class FileConnector(BaseConnector):
         except Exception as e:
             logger.exception(f"Error executing query on file view {self._table_name}")
             raise QueryExecutionError(f"Failed to execute query on {self._file_type} file: {e}")
+        finally:
+            if con:
+                con.close()
+
+    def fetch_data_arrow(self, query: str) -> pa.Table:
+        """
+        Executes a query and returns data as an Apache Arrow Table.
+        
+        This is optimized for DuckDB since it natively produces Arrow tables,
+        avoiding the intermediate conversion to Python dicts.
+
+        Args:
+            query: The executable query string (SQL).
+
+        Returns:
+            PyArrow Table containing the query results.
+        """
+        if not self.file_path or not self._table_name:
+            raise DataSourceConnectionError("Not connected to a file.")
+
+        con = None
+        try:
+            # Create a new connection for this request
+            con = duckdb.connect(database=':memory:', read_only=False)
+            safe_view_name = f'"{self._table_name}"'
+            
+            # Build CSV reader SQL with proper escaping
+            csv_reader_sql = self._build_csv_reader_sql()
+            
+            # Create a view from the CSV
+            create_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {csv_reader_sql};"
+            logger.debug(f"Creating view with SQL: {create_view_sql}")
+            con.execute(create_view_sql)
+
+            # Execute query against the view and get Arrow table directly
+            logger.debug(f"Executing Arrow query against view `{self._table_name}`: {query}")
+            result_relation = con.execute(query)
+            arrow_table = result_relation.fetch_arrow_table()
+            
+            logger.debug(f"Arrow fetch returning {arrow_table.num_columns} columns and {arrow_table.num_rows} rows.")
+            return arrow_table
+
+        except Exception as e:
+            logger.exception(f"Error executing Arrow query on file view {self._table_name}")
+            raise QueryExecutionError(f"Failed to execute Arrow query on {self._file_type} file: {e}")
         finally:
             if con:
                 con.close()

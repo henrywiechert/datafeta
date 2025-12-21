@@ -2,7 +2,9 @@
 
 import logging # Import logging
 import json
+import pyarrow as pa
 from fastapi import APIRouter, Form, File, UploadFile, Depends, Body, status, Request
+from fastapi.responses import Response
 from typing import Dict, Any, List, Optional
 from pydantic import ValidationError
 
@@ -262,6 +264,94 @@ def execute_query(
         # Log unexpected error
         logger.exception(f"Unexpected error during query execution")
         raise QueryExecutionError("An unexpected server error occurred during query execution.")
+
+
+@router.post("/query-arrow")
+def execute_query_arrow(
+    query_desc_data: Dict[str, Any] = Body(...),
+    connector: BaseConnector = Depends(get_active_connector),
+    conn_details: ConnectionDetails = Depends(get_connection_details)
+):
+    """
+    Translates a query description, executes it via the current connector, 
+    and returns results in Apache Arrow IPC streaming format.
+    
+    This is more efficient for large datasets compared to JSON:
+    - ~60-70% smaller payload (binary vs text)
+    - Zero-copy parsing possible on client
+    - Type fidelity preserved (int64, float64, etc.)
+    
+    Returns:
+        Binary Arrow IPC stream with media type application/vnd.apache.arrow.stream
+    """
+    try:
+        query_desc = QueryDescription.parse_obj(query_desc_data)
+    except ValidationError as e:
+        error_details = json.dumps(e.errors(), indent=2)
+        logger.error(f"Query validation failed: {error_details}")
+        raise InvalidInputError(f"Invalid query description:\n{error_details}", status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    # --- Basic Validation --- #
+    ValidationService.validate_csv_table_match(query_desc.target_table, connector, conn_details)
+    ValidationService.require_target_database_for_clickhouse(query_desc, conn_details)
+
+    # --- Generate SQL using QueryService with Optimization --- #
+    query_service = QueryService()
+    db_type = conn_details.type
+
+    try:
+        from backend.services.optimization.optimizer import QueryOptimizer
+        from backend.services.optimization.config import OptimizerConfig
+        
+        config = OptimizerConfig.from_env()
+        optimizer = QueryOptimizer(connector, config)
+        
+        sql_query, extended_metadata = query_service.translate_to_sql(
+            query_desc=query_desc,
+            table_name=query_desc.target_table,
+            db_type=db_type,
+            with_sampling=True,
+            with_optimization=True,
+            optimizer=optimizer,
+            connector=connector
+        )
+    except ValueError as e:
+        raise QueryGenerationError(f"Query generation error: {e}")
+    except Exception as e:
+        logger.exception(f"Unexpected error during query translation")
+        raise QueryGenerationError("Internal server error during query generation.")
+
+    # --- Execute Query via Connector and get Arrow table --- #
+    try:
+        arrow_table = connector.fetch_data_arrow(sql_query)
+        
+        # Serialize Arrow table to IPC streaming format
+        sink = pa.BufferOutputStream()
+        with pa.ipc.new_stream(sink, arrow_table.schema) as writer:
+            writer.write_table(arrow_table)
+        
+        arrow_bytes = sink.getvalue().to_pybytes()
+        
+        logger.info(f"Returning Arrow IPC response: {len(arrow_bytes)} bytes, {arrow_table.num_rows} rows, {arrow_table.num_columns} columns")
+        
+        # Note: We don't include SQL in headers as it may contain special characters
+        # that are invalid in HTTP headers (newlines, unicode, etc.)
+        return Response(
+            content=arrow_bytes,
+            media_type="application/vnd.apache.arrow.stream",
+            headers={
+                "X-Arrow-Row-Count": str(arrow_table.num_rows),
+                "X-Arrow-Column-Count": str(arrow_table.num_columns),
+            }
+        )
+    except NotImplementedError as e:
+        raise QueryExecutionError(str(e))
+    except (QueryExecutionError, DataSourceConnectionError):
+        raise
+    except Exception as e:
+        logger.exception(f"Unexpected error during Arrow query execution")
+        raise QueryExecutionError("An unexpected server error occurred during query execution.")
+
 
 # --- Multi-Table Support Endpoints --- #
 
