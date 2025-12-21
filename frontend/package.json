@@ -19,6 +19,7 @@
     "@types/react-window": "^1.8.8",
     "ag-grid-community": "^34.0.0",
     "ag-grid-react": "^34.0.0",
+    "apache-arrow": "^21.1.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-resizable-panels": "^2.0.22",

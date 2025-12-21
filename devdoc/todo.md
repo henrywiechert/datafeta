@@ -132,3 +132,4 @@ Category reorder by drag/drop
 
 Manually Color assigmnets for discrete colors
 
+Arrow columnar storage
