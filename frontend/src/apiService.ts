@@ -252,6 +252,7 @@ export const apiService = {
         rowCount: number;
         columnCount: number;
         columns: { name: string; type: string }[];
+        querySql?: string;
     }> {
         const abortController = signal ? null : createAbortController();
         const requestSignal = signal || abortController?.signal;
@@ -288,6 +289,10 @@ export const apiService = {
 
             const rowCount = parseInt(response.headers.get('X-Arrow-Row-Count') || '0', 10);
             const columnCount = parseInt(response.headers.get('X-Arrow-Column-Count') || '0', 10);
+            
+            // Decode SQL from base64 header
+            const sqlBase64 = response.headers.get('X-Query-Sql-Base64');
+            const querySql = sqlBase64 ? atob(sqlBase64) : undefined;
 
             const arrayBuffer = await response.arrayBuffer();
             const arrowTable: ArrowTable = tableFromIPC(arrayBuffer);
@@ -305,6 +310,7 @@ export const apiService = {
                 rowCount: rowCount || arrowTable.numRows,
                 columnCount: columnCount || columns.length,
                 columns,
+                querySql,
             };
         } catch (error) {
             if (error instanceof Error && error.name === 'AbortError') {
