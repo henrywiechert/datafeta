@@ -160,12 +160,17 @@ class ClickHouseEstimator(ResultSizeEstimator):
             )
         )
         
-        # Apply filters from original query
+        # Apply filters from original query (skip virtual columns that don't exist in actual tables)
+        VIRTUAL_COLUMNS = {'_source_database', '_source_table'}
+        
         if query_desc.filters:
             from backend.services.query_service import QueryService
             query_service = QueryService()
             
             for filter_item in query_desc.filters:
+                # Skip filters on virtual columns
+                if filter_item.field in VIRTUAL_COLUMNS:
+                    continue
                 criterion = query_service._build_filter_criterion(table, filter_item)
                 if criterion:
                     estimation_query = estimation_query.where(criterion)

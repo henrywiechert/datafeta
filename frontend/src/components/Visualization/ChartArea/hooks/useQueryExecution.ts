@@ -117,9 +117,15 @@ export const useQueryExecution = ({
           signal: queryAbortControllerRef.current.signal,
         });
       } else {
-        // Execute normal query
-        console.log('🚀 Executing query with virtualTable:', queryDesc.virtual_table);
-        result = await apiService.executeQuery(queryDesc, queryAbortControllerRef.current.signal);
+        // Execute normal query - use Arrow transport for better performance
+        console.log('🚀 Executing query with Arrow transport, virtualTable:', queryDesc.virtual_table);
+        try {
+          result = await apiService.executeQueryArrow(queryDesc, queryAbortControllerRef.current.signal);
+        } catch (arrowError: any) {
+          // Fallback to JSON if Arrow endpoint fails (e.g., older backend)
+          console.warn('⚠️ Arrow transport failed, falling back to JSON:', arrowError.message);
+          result = await apiService.executeQuery(queryDesc, queryAbortControllerRef.current.signal);
+        }
       }
       
       logOperationTiming('Query', startTime, { rows: result.row_count });

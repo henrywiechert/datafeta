@@ -1,6 +1,9 @@
 """Base class for data source connectors."""
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Tuple
+
+import pyarrow as pa
+
 from backend.models.data_source import Database, Table, Column, ForeignKeyRelationship
 
 class BaseConnector(ABC):
@@ -44,6 +47,37 @@ class BaseConnector(ABC):
             - List of data rows (e.g., [{'col1': 'valA', 'col2': 123}, ...])
         """
         pass
+
+    def fetch_data_arrow(self, query: str) -> pa.Table:
+        """
+        Executes a query and returns data as an Apache Arrow Table.
+        
+        This is more efficient for large datasets as it avoids JSON serialization.
+        Subclasses should override this method for optimal performance.
+        Default implementation falls back to fetch_data() and converts to Arrow.
+
+        Args:
+            query: The executable query string (e.g., SQL).
+
+        Returns:
+            PyArrow Table containing the query results.
+        """
+        # Default fallback: use fetch_data and convert to Arrow
+        columns, rows = self.fetch_data(query)
+        
+        if not rows:
+            # Create empty table with schema from columns
+            schema_fields = [(col['name'], pa.string()) for col in columns]
+            schema = pa.schema(schema_fields)
+            return pa.table({col['name']: [] for col in columns}, schema=schema)
+        
+        # Convert row-oriented data to columnar format for Arrow
+        column_data = {col['name']: [] for col in columns}
+        for row in rows:
+            for col in columns:
+                column_data[col['name']].append(row.get(col['name']))
+        
+        return pa.table(column_data)
 
     def detect_foreign_keys(self, database: str) -> List[ForeignKeyRelationship]:
         """

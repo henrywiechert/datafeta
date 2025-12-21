@@ -5,8 +5,11 @@ import threading
 from typing import Optional
 from urllib.parse import urlparse, parse_qs
 import socket
+
+import pyarrow as pa
 import clickhouse_connect
 from clickhouse_connect.driver.client import Client
+
 from backend.models.data_source import Database, Table, Column, ForeignKeyRelationship
 from .base import BaseConnector
 from backend.exceptions import DataSourceConnectionError, QueryExecutionError, InvalidInputError
@@ -423,4 +426,33 @@ class ClickHouseConnector(BaseConnector):
             return columns, rows
         except Exception as e:
             logger.exception(f"Error executing ClickHouse query (details above)")
+            raise QueryExecutionError(str(e))
+
+    def fetch_data_arrow(self, query: str) -> pa.Table:
+        """
+        Executes a SQL query on ClickHouse and returns data as an Apache Arrow Table.
+        
+        Uses clickhouse-connect's native Arrow support for optimal performance.
+
+        Args:
+            query: The executable query string (SQL).
+
+        Returns:
+            PyArrow Table containing the query results.
+        """
+        if not self.client:
+            raise DataSourceConnectionError("Not connected to ClickHouse.")
+        
+        logger.info(f"Executing ClickHouse Arrow query: {query}")
+        try:
+            with self._client_lock:
+                # Use query_arrow for native Arrow support
+                # clickhouse-connect returns a PyArrow Table directly
+                arrow_table = self.client.query_arrow(query)
+            
+            logger.info(f"Arrow query returning {arrow_table.num_rows} rows, {arrow_table.num_columns} columns.")
+            return arrow_table
+            
+        except Exception as e:
+            logger.exception(f"Error executing ClickHouse Arrow query (details above)")
             raise QueryExecutionError(str(e))
