@@ -6,19 +6,24 @@
  */
 
 import * as duckdb from '@duckdb/duckdb-wasm';
-import { Table as ArrowTable, tableToIPC } from 'apache-arrow';
+import { Table as ArrowTable } from 'apache-arrow';
 
-// DuckDB WASM bundle configuration
-const DUCKDB_BUNDLES: duckdb.DuckDBBundles = {
-  mvp: {
-    mainModule: 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-mvp.wasm',
-    mainWorker: 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-browser-mvp.worker.js',
-  },
-  eh: {
-    mainModule: 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-eh.wasm',
-    mainWorker: 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist/duckdb-browser-eh.worker.js',
-  },
-};
+// CDN URLs for DuckDB WASM bundles
+const DUCKDB_CDN_BASE = 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist';
+
+/**
+ * Create a same-origin worker from a cross-origin script URL.
+ * This works around CORS restrictions by fetching the script and creating a blob URL.
+ */
+async function createWorkerFromUrl(url: string): Promise<Worker> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch worker script: ${response.status}`);
+  }
+  const blob = await response.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  return new Worker(blobUrl);
+}
 
 export interface QueryResult {
   columns: string[];
@@ -43,6 +48,7 @@ class DuckDBService {
   private conn: duckdb.AsyncDuckDBConnection | null = null;
   private worker: Worker | null = null;
   private _status: DuckDBInitStatus = 'uninitialized';
+  private _lastError: string | null = null;
   private initPromise: Promise<void> | null = null;
   private registeredTables: Set<string> = new Set();
 
@@ -58,6 +64,20 @@ class DuckDBService {
    */
   get isReady(): boolean {
     return this._status === 'ready' && this.conn !== null;
+  }
+
+  /**
+   * Check if the service is currently initializing
+   */
+  get isInitializing(): boolean {
+    return this._status === 'initializing';
+  }
+
+  /**
+   * Get the last error message if any
+   */
+  get lastError(): string | null {
+    return this._lastError;
   }
 
   /**
@@ -88,9 +108,11 @@ class DuckDBService {
     try {
       await this.initPromise;
       this._status = 'ready';
+      this._lastError = null;
       console.log('✅ DuckDB WASM initialized successfully');
     } catch (error) {
       this._status = 'error';
+      this._lastError = error instanceof Error ? error.message : String(error);
       this.initPromise = null;
       console.error('❌ Failed to initialize DuckDB WASM:', error);
       throw error;
@@ -98,27 +120,28 @@ class DuckDBService {
   }
 
   private async _doInitialize(): Promise<void> {
-    // Select the best bundle for this browser
-    const bundle = await duckdb.selectBundle(DUCKDB_BUNDLES);
+    // Use MVP bundle (smaller, more compatible)
+    const wasmUrl = `${DUCKDB_CDN_BASE}/duckdb-mvp.wasm`;
+    const workerUrl = `${DUCKDB_CDN_BASE}/duckdb-browser-mvp.worker.js`;
     
-    if (!bundle.mainWorker) {
-      throw new Error('No suitable DuckDB WASM bundle found for this browser');
-    }
-
-    // Create worker and initialize DuckDB
-    const workerUrl = bundle.mainWorker;
-    this.worker = new Worker(workerUrl);
+    console.log('🦆 Loading DuckDB WASM worker...');
+    
+    // Create worker using blob URL to avoid CORS issues
+    this.worker = await createWorkerFromUrl(workerUrl);
     
     const logger = new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING);
     this.db = new duckdb.AsyncDuckDB(logger, this.worker);
     
-    await this.db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+    console.log('🦆 Instantiating DuckDB WASM...');
+    await this.db.instantiate(wasmUrl);
     
     // Open a connection
     this.conn = await this.db.connect();
     
-    // Enable progress tracking for long queries (optional)
+    // Disable progress bar (not needed for our use case)
     await this.conn.query(`SET enable_progress_bar = false`);
+    
+    console.log('🦆 DuckDB WASM ready!');
   }
 
   /**
@@ -170,29 +193,30 @@ class DuckDBService {
     // Drop existing table if it exists
     if (this.registeredTables.has(name)) {
       await this.conn!.query(`DROP TABLE IF EXISTS "${name}"`);
+      this.registeredTables.delete(name);
     }
 
-    // Register the Arrow table using IPC serialization
-    const ipcBuffer = tableToIPC(table);
-    await this.db!.registerFileBuffer(
-      `${name}.arrow`,
-      new Uint8Array(ipcBuffer)
-    );
+    // Convert Arrow table to JSON rows for insertion
+    // This is less efficient than direct Arrow but more reliable across DuckDB WASM versions
+    const rows: Record<string, any>[] = [];
+    const convertValue = (value: any): any => {
+      if (typeof value === 'bigint') {
+        return Number.isSafeInteger(Number(value)) ? Number(value) : value.toString();
+      }
+      return value;
+    };
     
-    // Create table from the registered file
-    await this.conn!.query(`
-      CREATE TABLE "${name}" AS 
-      SELECT * FROM read_parquet('${name}.arrow')
-    `).catch(async () => {
-      // Fallback: try Arrow IPC format
-      await this.conn!.query(`
-        CREATE TABLE "${name}" AS 
-        SELECT * FROM '${name}.arrow'
-      `);
-    });
-
-    this.registeredTables.add(name);
-    console.log(`📊 Registered table "${name}" with DuckDB WASM`);
+    for (let i = 0; i < table.numRows; i++) {
+      const row: Record<string, any> = {};
+      for (const field of table.schema.fields) {
+        row[field.name] = convertValue(table.getChild(field.name)?.get(i));
+      }
+      rows.push(row);
+    }
+    
+    // Use JSON-based registration
+    await this.registerJsonData(name, rows);
+    console.log(`📊 Registered Arrow table "${name}" with ${table.numRows} rows (via JSON conversion)`);
   }
 
   /**
