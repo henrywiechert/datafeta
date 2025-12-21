@@ -237,6 +237,84 @@ export const apiService = {
     },
 
     /**
+     * Execute a query and return raw Arrow table (for DuckDB WASM caching).
+     * 
+     * Returns the Arrow table directly without converting to rows.
+     * More efficient for caching scenarios where we want to pass data to DuckDB WASM.
+     * 
+     * @param queryDesc - Query description object
+     * @param signal - Optional AbortSignal for cancellation
+     * @returns Object containing Arrow table and metadata
+     */
+    async executeQueryArrowRaw(queryDesc: QueryDescription, signal?: AbortSignal): Promise<{
+        arrowTable: ArrowTable;
+        arrowBuffer: ArrayBuffer;
+        rowCount: number;
+        columnCount: number;
+        columns: { name: string; type: string }[];
+    }> {
+        const abortController = signal ? null : createAbortController();
+        const requestSignal = signal || abortController?.signal;
+
+        const fetchOptions: RequestInit = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(queryDesc),
+            signal: requestSignal,
+            credentials: 'include',
+        };
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/query-arrow`, fetchOptions);
+            
+            if (!response.ok) {
+                let errorMessage = `Request failed with status ${response.status}`;
+                try {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        const errorData = await response.json();
+                        errorMessage = errorData.detail || JSON.stringify(errorData);
+                    } else {
+                        const errorText = await response.text();
+                        errorMessage = errorText || errorMessage;
+                    }
+                } catch (parseError) {
+                    errorMessage = `Request failed with status ${response.status} (${response.statusText})`;
+                }
+                throw new Error(errorMessage);
+            }
+
+            const rowCount = parseInt(response.headers.get('X-Arrow-Row-Count') || '0', 10);
+            const columnCount = parseInt(response.headers.get('X-Arrow-Column-Count') || '0', 10);
+
+            const arrayBuffer = await response.arrayBuffer();
+            const arrowTable: ArrowTable = tableFromIPC(arrayBuffer);
+
+            const columns = arrowTable.schema.fields.map(field => ({
+                name: field.name,
+                type: field.type.toString(),
+            }));
+
+            console.log(`📊 Arrow raw fetch: ${arrayBuffer.byteLength} bytes → ${arrowTable.numRows} rows × ${columnCount} columns`);
+
+            return {
+                arrowTable,
+                arrowBuffer: arrayBuffer,
+                rowCount: rowCount || arrowTable.numRows,
+                columnCount: columnCount || columns.length,
+                columns,
+            };
+        } catch (error) {
+            if (error instanceof Error && error.name === 'AbortError') {
+                throw new Error('Request was cancelled');
+            }
+            throw error;
+        }
+    },
+
+    /**
      * Execute a query and return results using Apache Arrow IPC transport.
      * 
      * This is more efficient for large datasets compared to JSON:
