@@ -10,6 +10,8 @@ import { generateOptimizationHintsFromFields } from '../../../../services/optimi
 import { requiresUnpivoting, buildUnpivotedQuery } from '../../../../queryBuilder/syntheticQueryBuilder';
 import { useDataSource } from '../../../../contexts/DataSourceContext';
 import { getMeasureFieldsForUnpivot, MEASURE_NAMES_FIELD } from '../../../../utils/syntheticFields';
+import { duckdbService } from '../../../../services/duckdbService';
+import { cacheManager } from '../../../../services/cacheManager';
 
 interface UseQueryExecutionProps {
   selectedTable: string | null;
@@ -74,6 +76,23 @@ export const useQueryExecution = ({
     }
   }, [queryVersion]);
 
+  // Initialize DuckDB WASM on mount
+  useEffect(() => {
+    const initDuckDB = async () => {
+      if (!duckdbService.isReady && !duckdbService.isInitializing) {
+        try {
+          console.log('🦆 Initializing DuckDB WASM for local data caching...');
+          await duckdbService.initialize();
+          console.log('✅ DuckDB WASM ready for local caching');
+        } catch (error) {
+          console.warn('⚠️ DuckDB WASM initialization failed, local caching disabled:', error);
+          // Continue without local caching - queries will still work via backend
+        }
+      }
+    };
+    initDuckDB();
+  }, []);
+
   // NOTE: Fingerprint removed in favor of monotonic queryVersion which increments only for semantic changes.
 
   const executeQuery = useCallback(async (queryDesc: QueryDescription, useUnpivot: boolean = false) => {
@@ -120,7 +139,53 @@ export const useQueryExecution = ({
         // Execute normal query - use Arrow transport for better performance
         console.log('🚀 Executing query with Arrow transport, virtualTable:', queryDesc.virtual_table);
         try {
-          result = await apiService.executeQueryArrow(queryDesc, queryAbortControllerRef.current.signal);
+          // Use raw Arrow endpoint if DuckDB is ready for caching
+          if (duckdbService.isReady) {
+            const arrowResult = await apiService.executeQueryArrowRaw(queryDesc, queryAbortControllerRef.current.signal);
+            
+            // Cache the Arrow table in DuckDB for local queries
+            if (arrowResult.arrowTable && arrowResult.arrowTable.numRows > 0) {
+              try {
+                await cacheManager.cacheArrowTable(
+                  selectedTable!,
+                  selectedDatabase || undefined,
+                  arrowResult.arrowTable
+                );
+                console.log('📦 Cached query result in DuckDB WASM');
+              } catch (cacheError) {
+                console.warn('⚠️ Failed to cache in DuckDB:', cacheError);
+              }
+            }
+            
+            // Convert Arrow table to standard result format
+            // Note: Arrow may return BigInt for large integers - convert to Number if safe
+            const convertValue = (value: any): any => {
+              if (typeof value === 'bigint') {
+                return Number.isSafeInteger(Number(value)) ? Number(value) : value.toString();
+              }
+              return value;
+            };
+            
+            const columns = arrowResult.columns;
+            const rows: Record<string, any>[] = [];
+            for (let i = 0; i < arrowResult.arrowTable.numRows; i++) {
+              const row: Record<string, any> = {};
+              for (const col of arrowResult.arrowTable.schema.fields) {
+                row[col.name] = convertValue(arrowResult.arrowTable.getChild(col.name)?.get(i));
+              }
+              rows.push(row);
+            }
+            
+            result = {
+              columns,
+              rows,
+              row_count: arrowResult.rowCount,
+              query_sql: arrowResult.querySql,
+            };
+          } else {
+            // DuckDB not ready - use standard Arrow endpoint
+            result = await apiService.executeQueryArrow(queryDesc, queryAbortControllerRef.current.signal);
+          }
         } catch (arrowError: any) {
           // Fallback to JSON if Arrow endpoint fails (e.g., older backend)
           console.warn('⚠️ Arrow transport failed, falling back to JSON:', arrowError.message);

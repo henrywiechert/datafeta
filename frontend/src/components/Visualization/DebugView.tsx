@@ -62,6 +62,11 @@ const DuckDBCacheInfo: React.FC = () => {
                    duckdbService.status === 'initializing' ? 'initializing' : 
                    duckdbService.status === 'error' ? 'error' : 'not_initialized');
           
+          // Capture error from duckdbService if available
+          if (duckdbService.status === 'error' && duckdbService.lastError) {
+            setError(duckdbService.lastError);
+          }
+          
           if (duckdbService.isReady) {
             setCacheStats(cacheManager.getStats());
             setTables(cacheManager.cacheKeys);
@@ -102,7 +107,7 @@ const DuckDBCacheInfo: React.FC = () => {
       {status === 'not_initialized' && (
         <div style={{ marginTop: '8px' }}>
           <p style={{ fontSize: '11px', color: '#666', margin: '0 0 8px 0' }}>
-            Frontend local caching is available but not yet integrated into the query flow.
+            DuckDB WASM will initialize automatically on first query.
           </p>
           <button 
             onClick={handleInitialize}
@@ -116,7 +121,7 @@ const DuckDBCacheInfo: React.FC = () => {
               borderRadius: '4px',
             }}
           >
-            Initialize DuckDB WASM
+            Initialize Now
           </button>
         </div>
       )}
@@ -144,7 +149,7 @@ const DuckDBCacheInfo: React.FC = () => {
             </details>
           ) : (
             <p style={{ fontSize: '11px', color: '#888' }}>
-              No data cached yet. Caching integration coming soon.
+              No data cached yet. Run a query to populate the cache.
             </p>
           )}
         </>
@@ -166,6 +171,24 @@ const DebugView: React.FC<DebugViewProps> = ({
     optimizationHints,
   } = debugData;
   const hasError = queryError || renderingError;
+
+  // Custom JSON replacer to handle BigInt values (from Arrow/ClickHouse)
+  const bigIntReplacer = (_key: string, value: any): any => {
+    if (typeof value === 'bigint') {
+      // Convert BigInt to number if within safe range, otherwise to string
+      return Number.isSafeInteger(Number(value)) ? Number(value) : value.toString();
+    }
+    return value;
+  };
+
+  // Safe JSON.stringify that handles BigInt
+  const safeStringify = (obj: any, indent: number = 2): string => {
+    try {
+      return JSON.stringify(obj, bigIntReplacer, indent);
+    } catch (e) {
+      return `[Error serializing: ${e instanceof Error ? e.message : 'Unknown error'}]`;
+    }
+  };
 
   // Create a safe version of queryResult for display to avoid "Invalid string length" errors with large datasets
   const getSafeQueryResult = (result: QueryResult | null) => {
@@ -202,7 +225,7 @@ const DebugView: React.FC<DebugViewProps> = ({
         <>
           <div className={styles.panel}>
             <CollapsibleSection title="Query Description (JSON)" defaultExpanded={true}>
-              <pre>{JSON.stringify(queryDescription, null, 2)}</pre>
+              <pre>{safeStringify(queryDescription)}</pre>
             </CollapsibleSection>
             {queryResult?.query_sql && (
               <CollapsibleSection title="Generated SQL" defaultExpanded={true}>
@@ -211,12 +234,12 @@ const DebugView: React.FC<DebugViewProps> = ({
             )}
             {spec && (
               <CollapsibleSection title="Specification">
-                <pre>{JSON.stringify(spec, null, 2)}</pre>
+                <pre>{safeStringify(spec)}</pre>
               </CollapsibleSection>
             )}
             {chartInfo && (
               <CollapsibleSection title="Chart Information">
-                <pre>{JSON.stringify(chartInfo, null, 2)}</pre>
+                <pre>{safeStringify(chartInfo)}</pre>
               </CollapsibleSection>
             )}
             <CollapsibleSection title="Local Cache (DuckDB WASM)">
@@ -250,19 +273,19 @@ const DebugView: React.FC<DebugViewProps> = ({
         <>
           <div className={styles.panel}>
             <CollapsibleSection title="Query Description (JSON)">
-              <pre>{JSON.stringify(queryDescription, null, 2)}</pre>
+              <pre>{safeStringify(queryDescription)}</pre>
             </CollapsibleSection>
             <CollapsibleSection title="Generated SQL" defaultExpanded={true}>
               <pre>{queryResult.query_sql || 'No SQL available'}</pre>
             </CollapsibleSection>
             {spec && (
               <CollapsibleSection title="Specification">
-                <pre>{JSON.stringify(spec, null, 2)}</pre>
+                <pre>{safeStringify(spec)}</pre>
               </CollapsibleSection>
             )}
             {chartInfo && (
               <CollapsibleSection title="Chart Information">
-                <pre>{JSON.stringify(chartInfo, null, 2)}</pre>
+                <pre>{safeStringify(chartInfo)}</pre>
               </CollapsibleSection>
             )}
             <CollapsibleSection title="Local Cache (DuckDB WASM)">
@@ -271,7 +294,7 @@ const DebugView: React.FC<DebugViewProps> = ({
           </div>
           <div className={styles.panel}>
             <CollapsibleSection title="Result Data">
-              <pre>{JSON.stringify(getSafeQueryResult(queryResult), null, 2)}</pre>
+              <pre>{safeStringify(getSafeQueryResult(queryResult))}</pre>
             </CollapsibleSection>
           </div>
         </>
