@@ -364,6 +364,10 @@ export const apiService = {
             // Get metadata from response headers
             const rowCount = parseInt(response.headers.get('X-Arrow-Row-Count') || '0', 10);
             const columnCount = parseInt(response.headers.get('X-Arrow-Column-Count') || '0', 10);
+            
+            // Decode SQL from base64 header
+            const sqlBase64 = response.headers.get('X-Query-Sql-Base64');
+            const querySql = sqlBase64 ? atob(sqlBase64) : undefined;
 
             // Parse Arrow IPC stream
             const arrayBuffer = await response.arrayBuffer();
@@ -405,8 +409,7 @@ export const apiService = {
                 columns,
                 rows,
                 row_count: rowCount || numRows,
-                // Note: SQL not included in Arrow transport (would require separate metadata channel)
-                query_sql: undefined,
+                query_sql: querySql,
                 result_dimensions: {
                     rows: rowCount || numRows,
                     columns: columnCount || columns.length,
