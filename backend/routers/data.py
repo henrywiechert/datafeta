@@ -334,14 +334,17 @@ def execute_query_arrow(
         
         logger.info(f"Returning Arrow IPC response: {len(arrow_bytes)} bytes, {arrow_table.num_rows} rows, {arrow_table.num_columns} columns")
         
-        # Note: We don't include SQL in headers as it may contain special characters
-        # that are invalid in HTTP headers (newlines, unicode, etc.)
+        # Base64 encode SQL to safely include in headers (handles newlines, unicode, etc.)
+        import base64
+        sql_b64 = base64.b64encode(sql_query.encode('utf-8')).decode('ascii')
+        
         return Response(
             content=arrow_bytes,
             media_type="application/vnd.apache.arrow.stream",
             headers={
                 "X-Arrow-Row-Count": str(arrow_table.num_rows),
                 "X-Arrow-Column-Count": str(arrow_table.num_columns),
+                "X-Query-Sql-Base64": sql_b64,
             }
         )
     except NotImplementedError as e:
