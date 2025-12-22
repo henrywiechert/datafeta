@@ -17,6 +17,18 @@ export {
 } from './cacheManager';
 export type { CachedTableInfo, CacheFilterState, CacheStats } from './cacheManager';
 
+// Column Cache Manager - column-level incremental caching
+export { columnCacheManager, ColumnCacheManager } from './columnCacheManager';
+export type { CachedColumnInfo, ColumnCacheStats } from './columnCacheManager';
+
+// Filter Tier Manager - base vs refinement filter tracking
+export { filterTierManager, FilterTierManager } from './filterTierManager';
+export type { FilterTier, FilterTierConfig, TieredFilter } from './filterTierManager';
+
+// Query Decision Engine - determines query strategy
+export { queryDecisionEngine, QueryDecisionEngine } from './queryDecisionEngine';
+export type { QueryStrategy, QueryDecision, QueryDecisionInput } from './queryDecisionEngine';
+
 // Chart Query Service - per-chart local queries
 export { chartQueryService, ChartQueryService } from './chartQueryService';
 export type { 
