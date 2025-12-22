@@ -28,14 +28,29 @@ class FilterTierManager {
   // Set of column names that are treated as base filters
   private baseFilterColumns: Set<string> = new Set();
   
-  // Cached hash of current base filter state
-  private currentBaseFilterHash: string = '';
-  
-  // Stored base filter configurations
-  private baseFilterConfigs: Record<string, any> = {};
+  /**
+   * Base-filter state must be scoped per (database, table). Otherwise switching tables/connections
+   * can produce incorrect cache hits/misses and invalidations.
+   */
+  private baseFilterStateByContext: Map<string, { hash: string; configs: Record<string, any> }> = new Map();
+  private lastContextKey: string = '_default::_unknown';
   
   // Callback for base filter changes
   private onBaseFilterChange?: () => void;
+  
+  private getContextKey(sourceTable?: string, sourceDatabase?: string): string {
+    return `${sourceDatabase || '_default'}::${sourceTable || '_unknown'}`;
+  }
+  
+  private getStateFor(sourceTable?: string, sourceDatabase?: string): { hash: string; configs: Record<string, any> } {
+    const key = this.getContextKey(sourceTable, sourceDatabase);
+    this.lastContextKey = key;
+    const existing = this.baseFilterStateByContext.get(key);
+    if (existing) return existing;
+    const init = { hash: '', configs: {} as Record<string, any> };
+    this.baseFilterStateByContext.set(key, init);
+    return init;
+  }
   
   /**
    * Configure which columns are treated as base filters
@@ -151,32 +166,45 @@ class FilterTierManager {
   /**
    * Get current base filter hash
    */
-  getBaseFilterHash(): string {
-    return this.currentBaseFilterHash;
+  getBaseFilterHash(sourceTable?: string, sourceDatabase?: string): string {
+    // If called without context, return the last used context to keep DebugView working.
+    if (!sourceTable && !sourceDatabase) {
+      return this.baseFilterStateByContext.get(this.lastContextKey)?.hash || '';
+    }
+    return this.getStateFor(sourceTable, sourceDatabase).hash;
   }
   
   /**
    * Check if base filters have changed since last update
    */
-  hasBaseFilterChanged(filterConfigurations: Record<string, any>): boolean {
+  hasBaseFilterChanged(
+    filterConfigurations: Record<string, any>,
+    sourceTable?: string,
+    sourceDatabase?: string
+  ): boolean {
     const baseFilters = this.getBaseFiltersOnly(filterConfigurations);
     const newHash = this.hashFilters(baseFilters);
-    
-    return newHash !== this.currentBaseFilterHash;
+    const state = this.getStateFor(sourceTable, sourceDatabase);
+    return newHash !== state.hash;
   }
   
   /**
    * Update stored base filter state
    * Call this after fetching data with new base filters
    */
-  updateBaseFilters(filterConfigurations: Record<string, any>): void {
+  updateBaseFilters(
+    filterConfigurations: Record<string, any>,
+    sourceTable?: string,
+    sourceDatabase?: string
+  ): void {
     const baseFilters = this.getBaseFiltersOnly(filterConfigurations);
-    const oldHash = this.currentBaseFilterHash;
-    this.currentBaseFilterHash = this.hashFilters(baseFilters);
-    this.baseFilterConfigs = { ...baseFilters };
+    const state = this.getStateFor(sourceTable, sourceDatabase);
+    const oldHash = state.hash;
+    state.hash = this.hashFilters(baseFilters);
+    state.configs = { ...baseFilters };
     
-    if (oldHash !== this.currentBaseFilterHash) {
-      console.log(`🔄 Base filter hash updated: ${oldHash || '(empty)'} → ${this.currentBaseFilterHash || '(empty)'}`);
+    if (oldHash !== state.hash) {
+      console.log(`🔄 Base filter hash updated (${this.lastContextKey}): ${oldHash || '(empty)'} → ${state.hash || '(empty)'}`);
       this.onBaseFilterChange?.();
     }
   }
@@ -184,8 +212,14 @@ class FilterTierManager {
   /**
    * Get the stored base filter configurations
    */
-  getStoredBaseFilters(): Record<string, any> {
-    return { ...this.baseFilterConfigs };
+  getStoredBaseFilters(sourceTable?: string, sourceDatabase?: string): Record<string, any> {
+    // If called without context, return the last used context to keep DebugView working.
+    if (!sourceTable && !sourceDatabase) {
+      const state = this.baseFilterStateByContext.get(this.lastContextKey);
+      return state ? { ...state.configs } : {};
+    }
+    const state = this.getStateFor(sourceTable, sourceDatabase);
+    return { ...state.configs };
   }
   
   /**
@@ -240,8 +274,8 @@ class FilterTierManager {
    */
   reset(): void {
     this.baseFilterColumns.clear();
-    this.currentBaseFilterHash = '';
-    this.baseFilterConfigs = {};
+    this.baseFilterStateByContext.clear();
+    this.lastContextKey = '_default::_unknown';
     console.log('🔄 Filter tier manager reset');
   }
   
@@ -253,12 +287,17 @@ class FilterTierManager {
     baseFilterColumns: string[];
     currentBaseFilterHash: string;
     storedBaseFilterCount: number;
+    contextCount: number;
+    currentContextKey: string;
   } {
+    const state = this.baseFilterStateByContext.get(this.lastContextKey);
     return {
       baseFilterColumnCount: this.baseFilterColumns.size,
       baseFilterColumns: Array.from(this.baseFilterColumns),
-      currentBaseFilterHash: this.currentBaseFilterHash,
-      storedBaseFilterCount: Object.keys(this.baseFilterConfigs).length,
+      currentBaseFilterHash: state?.hash || '',
+      storedBaseFilterCount: state ? Object.keys(state.configs).length : 0,
+      contextCount: this.baseFilterStateByContext.size,
+      currentContextKey: this.lastContextKey,
     };
   }
 }

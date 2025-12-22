@@ -4,8 +4,7 @@ import { PlotResult } from '../../observable-plot-generator/types';
 import styles from './DebugView.module.css';
 import { DebugPanel as NewDebugPanel } from '../DebugPanel';
 import { duckdbService, QueryLogEntry } from '../../services/duckdbService';
-import { cacheManager, CacheStats, CachedTableInfo } from '../../services/cacheManager';
-import { columnCacheManager, CachedColumnInfo } from '../../services/columnCacheManager';
+import { columnCacheManager, CachedColumnInfo, ColumnCacheStats } from '../../services/columnCacheManager';
 import { filterTierManager } from '../../services/filterTierManager';
 import { queryDecisionEngine, QueryDecision } from '../../services/queryDecisionEngine';
 
@@ -53,8 +52,12 @@ const CollapsibleSection: React.FC<{
 
 /** DuckDB Cache Info component */
 const DuckDBCacheInfo: React.FC = () => {
-  const [cacheStats, setCacheStats] = useState<CacheStats | null>(null);
-  const [tableInfo, setTableInfo] = useState<CachedTableInfo[]>([]);
+  const [cacheStats, setCacheStats] = useState<ColumnCacheStats | null>(null);
+  const [tableInfo, setTableInfo] = useState<Array<{
+    cacheKey: string;
+    tableName: string;
+    columns: CachedColumnInfo[];
+  }>>([]);
   const [queryLog, setQueryLog] = useState<QueryLogEntry[]>([]);
   const [status, setStatus] = useState<'not_initialized' | 'initializing' | 'ready' | 'error'>('not_initialized');
   const [error, setError] = useState<string | null>(null);
@@ -75,8 +78,8 @@ const DuckDBCacheInfo: React.FC = () => {
           }
           
           if (duckdbService.isReady) {
-            setCacheStats(cacheManager.getStats());
-            setTableInfo(cacheManager.getAllTableInfo());
+            setCacheStats(columnCacheManager.getStats());
+            setTableInfo(columnCacheManager.getAllCacheInfo());
             setQueryLog(duckdbService.queryLog);
           }
         }
@@ -110,13 +113,12 @@ const DuckDBCacheInfo: React.FC = () => {
   const handleTestQuery = async () => {
     if (!duckdbService.isReady) return;
     
-    const tables = cacheManager.cacheKeys;
-    if (tables.length === 0) {
+    if (tableInfo.length === 0) {
       alert('No cached tables. Run a backend query first to cache data.');
       return;
     }
     
-    const tableName = tables[0];
+    const tableName = tableInfo[0].tableName;
     const sql = `SELECT COUNT(*) as total_rows FROM "${tableName}"`;
     try {
       const result = await duckdbService.query(sql);
@@ -131,14 +133,13 @@ const DuckDBCacheInfo: React.FC = () => {
   const handleTestDistinct = async () => {
     if (!duckdbService.isReady) return;
     
-    const tables = cacheManager.getAllTableInfo();
-    if (tables.length === 0) {
+    if (tableInfo.length === 0) {
       alert('No cached tables. Run a backend query first to cache data.');
       return;
     }
     
-    const table = tables[0];
-    const cols = table.columns.slice(0, 2);
+    const table = tableInfo[0];
+    const cols = table.columns.map(c => c.columnName).slice(0, 2);
     if (cols.length < 2) {
       alert('Need at least 2 columns for DISTINCT test.');
       return;
@@ -146,7 +147,7 @@ const DuckDBCacheInfo: React.FC = () => {
     
     // Show distinct values with counts to understand distribution
     const sql = `SELECT "${cols[0]}", "${cols[1]}", COUNT(*) as count 
-                 FROM "${table.name}" 
+                 FROM "${table.tableName}" 
                  GROUP BY "${cols[0]}", "${cols[1]}" 
                  ORDER BY count DESC 
                  LIMIT 20`;
@@ -163,14 +164,13 @@ const DuckDBCacheInfo: React.FC = () => {
   const handleShowSample = async () => {
     if (!duckdbService.isReady) return;
     
-    const tables = cacheManager.getAllTableInfo();
-    if (tables.length === 0) {
+    if (tableInfo.length === 0) {
       alert('No cached tables. Run a backend query first to cache data.');
       return;
     }
     
-    const table = tables[0];
-    const cols = table.columns.slice(0, 2);
+    const table = tableInfo[0];
+    const cols = table.columns.map(c => c.columnName).slice(0, 2);
     
     // Combined stats query
     const sql = cols.length >= 2 
@@ -181,8 +181,8 @@ const DuckDBCacheInfo: React.FC = () => {
            MAX("${cols[0]}") as "${cols[0]}_max",
            MIN("${cols[1]}") as "${cols[1]}_min", 
            MAX("${cols[1]}") as "${cols[1]}_max"
-         FROM "${table.name}"`
-      : `SELECT COUNT(*) as total_rows FROM "${table.name}"`;
+         FROM "${table.tableName}"`
+      : `SELECT COUNT(*) as total_rows FROM "${table.tableName}"`;
     
     try {
       const result = await duckdbService.query(sql);
@@ -197,15 +197,14 @@ const DuckDBCacheInfo: React.FC = () => {
   const handleShowRawSample = async () => {
     if (!duckdbService.isReady) return;
     
-    const tables = cacheManager.getAllTableInfo();
-    if (tables.length === 0) {
+    if (tableInfo.length === 0) {
       alert('No cached tables. Run a backend query first to cache data.');
       return;
     }
     
-    const table = tables[0];
+    const table = tableInfo[0];
     // Use random sampling to get representative data
-    const sql = `SELECT * FROM "${table.name}" USING SAMPLE 10 ROWS`;
+    const sql = `SELECT * FROM "${table.tableName}" USING SAMPLE 10 ROWS`;
     
     try {
       const result = await duckdbService.query(sql);
@@ -223,7 +222,7 @@ const DuckDBCacheInfo: React.FC = () => {
       // Fallback if USING SAMPLE not supported
       console.warn('Random sample failed, trying ORDER BY RANDOM():', e);
       try {
-        const fallbackSql = `SELECT * FROM "${table.name}" ORDER BY RANDOM() LIMIT 10`;
+        const fallbackSql = `SELECT * FROM "${table.tableName}" ORDER BY RANDOM() LIMIT 10`;
         const result = await duckdbService.query(fallbackSql);
         setLastResult({ sql: fallbackSql, rows: result.rows, columns: result.columns });
         setQueryLog(duckdbService.queryLog);
@@ -285,8 +284,9 @@ const DuckDBCacheInfo: React.FC = () => {
         <>
           {cacheStats && (
             <>
-              <p>Cached tables: {cacheStats.tableCount}</p>
-              <p>Total rows: {cacheStats.totalRows.toLocaleString()}</p>
+              <p>Cached tables: {tableInfo.length}</p>
+              <p>Total rows (max per cache entry): {cacheStats.totalRows.toLocaleString()}</p>
+              <p>Cached columns: {cacheStats.totalColumns.toLocaleString()}</p>
             </>
           )}
           
@@ -298,11 +298,11 @@ const DuckDBCacheInfo: React.FC = () => {
               </summary>
               <div style={{ marginLeft: '12px', marginTop: '8px' }}>
                 {tableInfo.map(table => (
-                  <details key={table.name} style={{ marginBottom: '8px' }}>
+                  <details key={table.cacheKey} style={{ marginBottom: '8px' }}>
                     <summary style={{ cursor: 'pointer', fontSize: '12px' }}>
-                      <strong>{table.name}</strong>
+                      <strong>{table.tableName}</strong>
                       <span style={{ color: '#666', marginLeft: '8px' }}>
-                        ({table.rowCount.toLocaleString()} rows, {table.columns.length} cols)
+                        ({(table.columns[0]?.rowCount || 0).toLocaleString()} rows, {table.columns.length} cols)
                       </span>
                     </summary>
                     <div style={{ 
@@ -315,10 +315,13 @@ const DuckDBCacheInfo: React.FC = () => {
                       borderRadius: '4px'
                     }}>
                       <div style={{ color: '#666', marginBottom: '4px' }}>
-                        Source: {table.sourceDatabase ? `${table.sourceDatabase}.` : ''}{table.sourceTable}
+                        Source: {table.columns[0]?.sourceDatabase ? `${table.columns[0].sourceDatabase}.` : ''}{table.columns[0]?.sourceTable || ''}
                       </div>
                       <div style={{ color: '#666', marginBottom: '4px' }}>
-                        Cached: {table.cachedAt.toLocaleTimeString()}
+                        Base filter hash: {table.columns[0]?.baseFilterHash || '(none)'}
+                      </div>
+                      <div style={{ color: '#666', marginBottom: '4px' }}>
+                        Cached: {table.columns[0]?.cachedAt?.toLocaleTimeString?.() || ''}
                       </div>
                       <div>
                         <strong>Columns:</strong>
@@ -330,7 +333,7 @@ const DuckDBCacheInfo: React.FC = () => {
                         }}>
                           {table.columns.map(col => (
                             <span 
-                              key={col}
+                              key={col.columnName}
                               style={{
                                 backgroundColor: '#e3f2fd',
                                 padding: '2px 6px',
@@ -338,7 +341,7 @@ const DuckDBCacheInfo: React.FC = () => {
                                 fontSize: '10px'
                               }}
                             >
-                              {col}
+                              {col.columnName} <span style={{ color: '#999' }}>({col.dataType})</span>
                             </span>
                           ))}
                         </div>

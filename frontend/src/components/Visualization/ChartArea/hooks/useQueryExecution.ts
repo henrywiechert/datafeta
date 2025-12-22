@@ -11,7 +11,6 @@ import { requiresUnpivoting, buildUnpivotedQuery } from '../../../../queryBuilde
 import { useDataSource } from '../../../../contexts/DataSourceContext';
 import { getMeasureFieldsForUnpivot, MEASURE_NAMES_FIELD } from '../../../../utils/syntheticFields';
 import { duckdbService } from '../../../../services/duckdbService';
-import { cacheManager } from '../../../../services/cacheManager';
 import { columnCacheManager } from '../../../../services/columnCacheManager';
 import { queryDecisionEngine, QueryDecision } from '../../../../services/queryDecisionEngine';
 import { filterTierManager } from '../../../../services/filterTierManager';
@@ -170,6 +169,8 @@ export const useQueryExecution = ({
               filterConfigurations,
               requiresAggregation,
               dimensions,
+              virtualTable: queryDesc.virtual_table,
+              virtualColumns: queryDesc.virtual_columns,
             });
             
             lastQueryDecisionRef.current = decision;
@@ -229,15 +230,8 @@ export const useQueryExecution = ({
                     arrowResult.arrowTable
                   );
                   
-                  // Also cache in the legacy cache manager for backward compatibility
-                  await cacheManager.cacheArrowTable(
-                    selectedTable,
-                    selectedDatabase || undefined,
-                    arrowResult.arrowTable
-                  );
-                  
                   // Update base filters after successful cache
-                  filterTierManager.updateBaseFilters(filterConfigurations);
+                  filterTierManager.updateBaseFilters(filterConfigurations, selectedTable, selectedDatabase || undefined);
                   
                   console.log(`📦 Cached ${arrowResult.arrowTable.numRows} rows (strategy: ${decision.strategy})`);
                 } catch (cacheError) {

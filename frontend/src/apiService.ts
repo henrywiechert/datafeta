@@ -750,6 +750,8 @@ export const apiService = {
         table: string,
         database?: string,
         filters?: Record<string, any>,
+        virtualColumns?: VirtualColumnDefinition[],
+        virtualTable?: VirtualTableDefinition,
         signal?: AbortSignal
     ): Promise<number> {
         const abortController = signal ? null : createAbortController();
@@ -764,6 +766,12 @@ export const apiService = {
         }
         if (filters && Object.keys(filters).length > 0) {
             requestBody.filters = filters;
+        }
+        if (virtualColumns && virtualColumns.length > 0) {
+            requestBody.virtualColumns = virtualColumns;
+        }
+        if (virtualTable) {
+            requestBody.virtualTable = virtualTable;
         }
 
         const response = await fetchWithErrorHandling(

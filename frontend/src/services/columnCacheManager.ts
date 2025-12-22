@@ -1,9 +1,13 @@
 /**
  * Column Cache Manager
  * 
- * Manages column-level caching in DuckDB WASM.
- * Tracks individual columns rather than full query results,
- * enabling incremental fetching of only missing columns.
+ * Manages a per-table/per-base-filter snapshot cache in DuckDB WASM and tracks
+ * which columns are present in that snapshot.
+ *
+ * Important: despite the name, this is NOT yet "true incremental column caching".
+ * Today, `cacheColumns()` replaces the entire cached table for a cacheKey.
+ * The decision engine can still reason about "missing columns", but the fetch/merge
+ * step for only-missing-columns is a follow-up.
  */
 
 import { duckdbService } from './duckdbService';
@@ -56,6 +60,13 @@ class ColumnCacheManager {
       baseFilterHash || '_nofilter'
     ];
     return parts.join('__').replace(/[^a-zA-Z0-9_]/g, '_');
+  }
+  
+  private generateCacheKeyPrefix(sourceTable: string, sourceDatabase?: string): string {
+    // Must match the first two parts of generateCacheKey() exactly.
+    const safeDb = (sourceDatabase || '_default').replace(/[^a-zA-Z0-9_]/g, '_');
+    const safeTable = (sourceTable || '').replace(/[^a-zA-Z0-9_]/g, '_');
+    return `${safeDb}__${safeTable}__`;
   }
   
   /**
@@ -235,11 +246,11 @@ class ColumnCacheManager {
     sourceDatabase?: string
   ): Promise<void> {
     const keysToDelete: string[] = [];
+    const prefix = this.generateCacheKeyPrefix(sourceTable, sourceDatabase);
     
     for (const [cacheKey, _columnMap] of Array.from(this.cacheIndex.entries())) {
-      // Check if this cache key belongs to the specified table
-      const prefix = this.generateCacheKey(sourceTable, sourceDatabase, '').replace(/__[^_]*$/, '__');
-      if (cacheKey.startsWith(prefix.replace(/__$/, ''))) {
+      // Cache key format: {db}__{table}__{filterHash}
+      if (cacheKey.startsWith(prefix)) {
         keysToDelete.push(cacheKey);
       }
     }
