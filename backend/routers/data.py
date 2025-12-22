@@ -160,9 +160,14 @@ def get_row_count(
     Returns:
         {"count": <number>}
     """
+    from backend.models.data_source import VirtualColumnDefinition, VirtualTableDefinition
+    from backend.models.query import QueryDescription, Measure as QueryMeasure, Filter as QueryFilter
+
     table = request_data.get('table')
     database = request_data.get('database')
-    filters = request_data.get('filters', {})
+    filters = request_data.get('filters', {})  # frontend filter-config shape (dict)
+    virtual_columns_data = request_data.get('virtualColumns') or []
+    virtual_table_data = request_data.get('virtualTable')
     
     if not table:
         raise InvalidInputError("Table name is required")
@@ -170,47 +175,90 @@ def get_row_count(
     ValidationService.require_database_for_clickhouse(database, conn_details, "counting rows")
     
     try:
-        # Build a simple COUNT(*) query
-        db_type = conn_details.type
-        if db_type == 'clickhouse':
-            quote_char = '`'
-        else:
-            quote_char = '"'
-        
-        # Basic COUNT(*) query
-        if database:
-            sql_query = f"SELECT COUNT(*) as cnt FROM {quote_char}{database}{quote_char}.{quote_char}{table}{quote_char}"
-        else:
-            sql_query = f"SELECT COUNT(*) as cnt FROM {quote_char}{table}{quote_char}"
-        
-        # Apply filters if provided (simplified version)
-        if filters:
-            conditions = []
-            for key, config in filters.items():
-                column_name = config.get('columnName', key)
-                filter_type = config.get('type')
-                
+        # Parse virtual columns/table if provided so row-count works for virtual columns (e.g. time_idx_shifted)
+        virtual_columns = None
+        if virtual_columns_data:
+            virtual_columns = [VirtualColumnDefinition.parse_obj(vc) for vc in virtual_columns_data]
+
+        virtual_table = None
+        if virtual_table_data:
+            virtual_table = VirtualTableDefinition.parse_obj(virtual_table_data)
+
+        # Convert frontend filter-config dict to backend QueryFilter list so QueryService can handle:
+        # - correct quoting per connector
+        # - virtual columns via VirtualColumnExpressionBuilder
+        # - join/union via virtual_table
+        query_filters: List[QueryFilter] = []
+        BUILTIN_UNION_VIRTUALS = {'_source_database', '_source_table'}
+
+        if isinstance(filters, dict):
+            for _key, cfg in filters.items():
+                if not isinstance(cfg, dict):
+                    continue
+
+                field = cfg.get('columnName') or _key
+                if not field:
+                    continue
+
+                # Skip builtin union-only columns if not in union mode
+                if field in BUILTIN_UNION_VIRTUALS and not (virtual_table and getattr(virtual_table, 'mode', None) == 'union'):
+                    continue
+
+                filter_type = cfg.get('type')
+                date_part = cfg.get('dateTimePart')
+                date_mode = cfg.get('dateTimeMode')
+
                 if filter_type == 'discrete':
-                    selected_values = config.get('selectedValues', [])
-                    if selected_values:
-                        quoted_values = [f"'{v}'" if isinstance(v, str) else str(v) for v in selected_values]
-                        conditions.append(f"{quote_char}{column_name}{quote_char} IN ({', '.join(quoted_values)})")
-                
+                    selected = cfg.get('selectedValues') or []
+                    if selected:
+                        query_filters.append(
+                            QueryFilter(field=field, operator='in', value=selected, date_part=date_part, date_mode=date_mode)
+                        )
                 elif filter_type in ('continuous', 'range'):
-                    min_val = config.get('minValue') or config.get('min')
-                    max_val = config.get('maxValue') or config.get('max')
-                    if min_val is not None and max_val is not None:
-                        conditions.append(f"{quote_char}{column_name}{quote_char} BETWEEN {min_val} AND {max_val}")
-                    elif min_val is not None:
-                        conditions.append(f"{quote_char}{column_name}{quote_char} >= {min_val}")
-                    elif max_val is not None:
-                        conditions.append(f"{quote_char}{column_name}{quote_char} <= {max_val}")
-            
-            if conditions:
-                sql_query += " WHERE " + " AND ".join(conditions)
-        
-        logger.info(f"Row count query: {sql_query}")
-        
+                    min_val = cfg.get('minValue')
+                    if min_val is None:
+                        min_val = cfg.get('min')
+                    max_val = cfg.get('maxValue')
+                    if max_val is None:
+                        max_val = cfg.get('max')
+                    if min_val is not None:
+                        query_filters.append(
+                            QueryFilter(field=field, operator='>=', value=min_val, date_part=date_part, date_mode=date_mode)
+                        )
+                    if max_val is not None:
+                        query_filters.append(
+                            QueryFilter(field=field, operator='<=', value=max_val, date_part=date_part, date_mode=date_mode)
+                        )
+                elif filter_type == 'datetime':
+                    start = cfg.get('startDate')
+                    end = cfg.get('endDate')
+                    if start is not None:
+                        query_filters.append(QueryFilter(field=field, operator='>=', value=start))
+                    if end is not None:
+                        query_filters.append(QueryFilter(field=field, operator='<=', value=end))
+
+        query_desc = QueryDescription(
+            target_table=table,
+            target_database=database,
+            dimensions=[],
+            measures=[QueryMeasure(field='*', aggregation='count', alias='cnt')],
+            filters=query_filters,
+            virtual_table=virtual_table,
+            virtual_columns=virtual_columns,
+        )
+
+        query_service = QueryService()
+        sql_query, _meta = query_service.translate_to_sql(
+            query_desc=query_desc,
+            table_name=table,
+            db_type=conn_details.type,
+            with_sampling=False,
+            with_optimization=False,
+            optimizer=None,
+            connector=connector,
+        )
+
+        logger.info(f"Row count query (translated): {sql_query}")
         columns, rows = connector.fetch_data(sql_query)
         
         if rows and len(rows) > 0:
