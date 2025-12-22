@@ -99,6 +99,18 @@ class ResultDimensions(BaseModel):
     columns: int
     size_display: str  # e.g., "1,234 × 5"
 
+class ResultBudget(BaseModel):
+    """
+    Frontend-provided safety budget for large result sets.
+    
+    Used primarily to avoid rendering failures (e.g. scatter with too many points).
+    Backend treats this as best-effort and may fall back depending on DB support.
+    """
+    max_rows: int = Field(..., ge=1)
+    strategy: Literal['none', 'random', 'stratified'] = 'none'
+    stratify_field: Optional[str] = None
+    min_per_stratum: Optional[int] = Field(None, ge=0)
+
 class QueryDescription(BaseModel):
     target_table: str
     target_database: Optional[str] = None # Required for database sources like ClickHouse
@@ -136,6 +148,13 @@ class QueryDescription(BaseModel):
     
     # NEW: Virtual columns - calculated columns defined by SQL expressions
     virtual_columns: Optional[List[VirtualColumnDefinition]] = None
+
+    # NEW: Result budget / reduction hints for oversize results (best-effort)
+    result_budget: Optional[ResultBudget] = None
+
+    # NEW: Force raw row output (no DISTINCT / no GROUP BY) for local caching slices.
+    # Backend will also use this to disable optimizations/sampling to preserve fidelity.
+    force_raw_rows: Optional[bool] = None
 
 class QueryResult(BaseModel):
     columns: List[Dict[str, str]] # e.g., [{"name": "col1", "type": "string"}, ...]

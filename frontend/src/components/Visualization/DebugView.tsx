@@ -630,6 +630,12 @@ const CacheStrategyInfo: React.FC<{ lastQueryDecision?: QueryDecision | null }> 
                 Estimated rows: {lastQueryDecision.estimatedRowCount.toLocaleString()}
               </div>
             )}
+            {(lastQueryDecision as any).resultBudget && (
+              <div style={{ fontSize: '11px', marginTop: '4px' }}>
+                Budget: {(lastQueryDecision as any).resultBudget.max_rows.toLocaleString()} • {(lastQueryDecision as any).resultBudget.strategy}
+                {(lastQueryDecision as any).resultBudget.stratify_field ? ` • by ${(lastQueryDecision as any).resultBudget.stratify_field}` : ''}
+              </div>
+            )}
             {lastQueryDecision.columnsToFetch && lastQueryDecision.columnsToFetch.length > 0 && (
               <div style={{ fontSize: '11px', marginTop: '4px' }}>
                 Columns to fetch: {lastQueryDecision.columnsToFetch.join(', ')}

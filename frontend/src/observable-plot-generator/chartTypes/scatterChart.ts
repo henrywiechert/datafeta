@@ -8,6 +8,87 @@ import { createSizeScale } from '../utils/sizeUtils';
 import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 
+type ScatterResultBudget = {
+  maxPoints: number;
+  // If discrete color is present, we sample per category to preserve representation
+  stratifyBy?: string;
+  minPerStratum: number;
+};
+
+function computeScatterBudget(clean: any[], colorField?: Field): ScatterResultBudget {
+  const hasDiscreteColor = !!colorField && colorField.flavour === 'discrete';
+  // Heuristic: Observable Plot struggles earlier when there is discrete color (multiple series).
+  // Keep this conservative; backend/local reduction should normally keep us under this anyway.
+  const maxPoints = hasDiscreteColor ? 50_000 : 100_000;
+  const minPerStratum = hasDiscreteColor ? 200 : 0;
+  const stratifyBy = hasDiscreteColor && colorField ? getResultColumnName(colorField) : undefined;
+  return { maxPoints, stratifyBy, minPerStratum };
+}
+
+function stratifiedSampleRows(rows: any[], stratifyBy: string, maxPoints: number, minPerStratum: number): any[] {
+  if (rows.length <= maxPoints) return rows;
+  const groups = new Map<any, any[]>();
+  for (const r of rows) {
+    const k = r?.[stratifyBy];
+    const arr = groups.get(k) || [];
+    arr.push(r);
+    groups.set(k, arr);
+  }
+
+  const total = rows.length;
+  const entries = Array.from(groups.entries());
+  const picks: any[] = [];
+
+  // Shuffle helper (Fisher–Yates)
+  const shuffle = (arr: any[]) => {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  };
+
+  // First pass: proportional target with floor, but respect minPerStratum
+  const targets = entries.map(([k, arr]) => {
+    const proportional = Math.floor((maxPoints * arr.length) / total);
+    const target = Math.min(arr.length, Math.max(minPerStratum, proportional));
+    return { k, arr, target };
+  });
+
+  // Adjust down if we overshot maxPoints (common with minPerStratum)
+  let currentTotal = targets.reduce((s, t) => s + t.target, 0);
+  if (currentTotal > maxPoints) {
+    // Reduce targets from the largest groups first, never below minPerStratum (or 1 if group exists)
+    targets.sort((a, b) => b.target - a.target);
+    let i = 0;
+    while (currentTotal > maxPoints && targets.length > 0) {
+      const t = targets[i % targets.length];
+      const floorMin = Math.min(t.arr.length, Math.max(minPerStratum, 1));
+      if (t.target > floorMin) {
+        t.target -= 1;
+        currentTotal -= 1;
+      }
+      i++;
+      // Safety break
+      if (i > 10_000_000) break;
+    }
+  }
+
+  for (const t of targets) {
+    const arr = shuffle(t.arr.slice());
+    picks.push(...arr.slice(0, t.target));
+  }
+
+  // If we undershot due to rounding, top up uniformly
+  if (picks.length < maxPoints) {
+    const remaining = rows.filter(r => !picks.includes(r));
+    shuffle(remaining);
+    picks.push(...remaining.slice(0, maxPoints - picks.length));
+  }
+
+  return picks;
+}
+
 /**
  * Scatter chart for continuous measure vs continuous measure or dimension.
  */
@@ -74,6 +155,13 @@ export function scatterChart(
     };
   }
 
+  // Result budget / safeguard: avoid rendering pathological numbers of points.
+  // Prefer stratified sampling when discrete color is present.
+  const budget = computeScatterBudget(clean, colorField);
+  const budgeted = budget.stratifyBy
+    ? stratifiedSampleRows(clean, budget.stratifyBy, budget.maxPoints, budget.minPerStratum)
+    : (clean.length > budget.maxPoints ? clean.sort(() => Math.random() - 0.5).slice(0, budget.maxPoints) : clean);
+
   const xLabel = options?.x || xColumn;
   const yLabel = options?.y || yColumn;
   const dotConfig: any = {
@@ -86,7 +174,7 @@ export function scatterChart(
     },
   };
   
-  const colorInfo = colorField ? deriveColorScaleInfo(clean, colorField, colorScheme, colorBias) : null;
+  const colorInfo = colorField ? deriveColorScaleInfo(budgeted, colorField, colorScheme, colorBias) : null;
   if (colorField && colorInfo) {
     const colorColumnName = getResultColumnName(colorField);
     dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
@@ -204,7 +292,7 @@ export function scatterChart(
       ...(yIsDate ? { type: 'utc' as any } : {})
     } as any,
     r: { type: 'identity' } as any,
-    marks: [Plot.dot(clean, dotConfig)],
+    marks: [Plot.dot(budgeted, dotConfig)],
   };
 
   // Label integration
