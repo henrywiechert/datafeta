@@ -105,20 +105,20 @@ Example: `sales_analytics_abc123` for table "sales" in database "analytics" with
 
 ### Table Schema
 
-Cached tables preserve the original column structure from the query result:
+Cached tables preserve the original column structure and types from the Arrow data:
 
 ```sql
--- Example cached table schema
+-- Example cached table schema (types from Arrow)
 CREATE TABLE "sales_analytics" (
-  "date" VARCHAR,
+  "date" TIMESTAMP,
   "product" VARCHAR,
   "region" VARCHAR,
   "revenue" DOUBLE,
-  "quantity" INTEGER
+  "quantity" BIGINT
 );
 ```
 
-Column types are inferred from the JavaScript values during JSON insertion.
+Column types are preserved natively via Arrow IPC insertion (`insertArrowFromIPCStream`), which provides zero-copy data transfer from the Arrow table to DuckDB.
 
 ## Query Optimization
 
@@ -157,25 +157,25 @@ Simple aggregations can be computed locally without backend involvement.
 
 ## Current Limitations
 
-1. **JSON Conversion**: Arrow tables are converted to JSON for DuckDB insertion (performance overhead)
-2. **No Persistence**: Cache is cleared on page refresh
-3. **Memory Constraints**: Browser memory limits apply
-4. **Single Connection**: One DuckDB connection shared across all operations
+1. **No Persistence**: Cache is cleared on page refresh
+2. **Memory Constraints**: Browser memory limits apply
+3. **Single Connection**: One DuckDB connection shared across all operations
 
 ## Debug Information
 
 The Debug Panel displays DuckDB status:
 
 - **Status**: Not initialized / Initializing / Ready / Error
-- **Cached Tables**: Count of registered tables
+- **Cached Tables**: Count of registered tables with column details
 - **Total Rows**: Sum of all cached row counts
-- **Table Names**: List of cache keys
+- **Local Queries**: Log of executed DuckDB queries with timing
+- **Test Buttons**: COUNT(*), DISTINCT, Stats, Sample Rows
 
 ## Future Potential
 
 ### Short-term Enhancements
 
-1. **Direct Arrow Registration**: Use DuckDB's native Arrow support instead of JSON conversion
+1. ~~**Direct Arrow Registration**: Use DuckDB's native Arrow support instead of JSON conversion~~ ✅ Implemented
 2. **Incremental Caching**: Cache individual columns rather than full query results
 3. **IndexedDB Persistence**: Store cache across sessions
 4. **Web Worker Isolation**: Run DuckDB entirely in a worker for better responsiveness
