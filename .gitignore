@@ -92,3 +92,6 @@ package-lock.json
 /frontend/build
 
 # VS Code
+
+# Backend logs
+backend/backend.log
