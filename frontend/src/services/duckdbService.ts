@@ -6,7 +6,7 @@
  */
 
 import * as duckdb from '@duckdb/duckdb-wasm';
-import { Table as ArrowTable } from 'apache-arrow';
+import { Table as ArrowTable, tableToIPC } from 'apache-arrow';
 
 // CDN URLs for DuckDB WASM bundles
 const DUCKDB_CDN_BASE = 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/dist';
@@ -249,6 +249,7 @@ class DuckDBService {
 
   /**
    * Register an Arrow table with DuckDB for querying
+   * Uses native Arrow insertion for zero-copy performance.
    * 
    * @param name - Table name to use in queries
    * @param table - Arrow Table to register
@@ -264,6 +265,32 @@ class DuckDBService {
       this.registeredTables.delete(name);
     }
 
+    try {
+      // Convert Arrow table to IPC stream format
+      const ipcBuffer = tableToIPC(table);
+      
+      // Use native Arrow IPC insertion (efficient, preserves all types)
+      // Type assertion needed as TypeScript definitions may be out of sync
+      const conn = this.conn! as any;
+      await conn.insertArrowFromIPCStream(new Uint8Array(ipcBuffer), { 
+        name, 
+        create: true 
+      });
+      
+      this.registeredTables.add(name);
+      console.log(`📊 Registered Arrow table "${name}" with ${table.numRows} rows (native Arrow IPC)`);
+    } catch (nativeError) {
+      // Fallback to JSON-based insertion for edge cases
+      console.warn(`⚠️ Native Arrow insertion failed, using fallback:`, nativeError);
+      await this.registerArrowTableFallback(name, table);
+    }
+  }
+
+  /**
+   * Fallback method for Arrow table registration using JSON conversion.
+   * Used when native insertArrowTable fails (unusual types, browser compatibility).
+   */
+  private async registerArrowTableFallback(name: string, table: ArrowTable): Promise<void> {
     // Build column definitions from Arrow schema (preserves correct types!)
     const columnDefs = table.schema.fields.map(field => {
       const sqlType = this.arrowTypeToSql(field.type.toString());
@@ -301,11 +328,12 @@ class DuckDBService {
     }
 
     this.registeredTables.add(name);
-    console.log(`📊 Registered Arrow table "${name}" with ${table.numRows} rows (schema preserved)`);
+    console.log(`📊 Registered Arrow table "${name}" with ${table.numRows} rows (fallback)`);
   }
 
   /**
-   * Convert Arrow type string to DuckDB SQL type
+   * Convert Arrow type string to DuckDB SQL type.
+   * Used by registerArrowTableFallback when native insertion fails.
    */
   private arrowTypeToSql(arrowType: string): string {
     const typeStr = arrowType.toLowerCase();
