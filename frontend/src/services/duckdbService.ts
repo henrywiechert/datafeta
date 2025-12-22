@@ -43,6 +43,15 @@ export type DuckDBInitStatus = 'uninitialized' | 'initializing' | 'ready' | 'err
  * const result = await duckdbService.query('SELECT DISTINCT x, y FROM my_data');
  * ```
  */
+/** Query log entry for debugging */
+export interface QueryLogEntry {
+  sql: string;
+  timestamp: Date;
+  durationMs: number;
+  rowCount: number;
+  error?: string;
+}
+
 class DuckDBService {
   private db: duckdb.AsyncDuckDB | null = null;
   private conn: duckdb.AsyncDuckDBConnection | null = null;
@@ -51,6 +60,8 @@ class DuckDBService {
   private _lastError: string | null = null;
   private initPromise: Promise<void> | null = null;
   private registeredTables: Set<string> = new Set();
+  private _queryLog: QueryLogEntry[] = [];
+  private readonly MAX_QUERY_LOG_SIZE = 50;
 
   /**
    * Current initialization status
@@ -85,6 +96,38 @@ class DuckDBService {
    */
   get tableNames(): string[] {
     return Array.from(this.registeredTables);
+  }
+
+  /**
+   * Get recent query log for debugging
+   */
+  get queryLog(): QueryLogEntry[] {
+    return [...this._queryLog];
+  }
+
+  /**
+   * Clear the query log
+   */
+  clearQueryLog(): void {
+    this._queryLog = [];
+  }
+
+  /**
+   * Add entry to query log
+   */
+  private logQuery(sql: string, durationMs: number, rowCount: number, error?: string): void {
+    this._queryLog.unshift({
+      sql,
+      timestamp: new Date(),
+      durationMs,
+      rowCount,
+      error,
+    });
+    
+    // Keep log size bounded
+    if (this._queryLog.length > this.MAX_QUERY_LOG_SIZE) {
+      this._queryLog.pop();
+    }
   }
 
   /**
@@ -155,10 +198,20 @@ class DuckDBService {
       throw new Error('DuckDB WASM not initialized. Call initialize() first.');
     }
 
+    const startTime = performance.now();
     try {
       const result = await this.conn!.query(sql);
-      return this.arrowTableToResult(result);
+      const converted = this.arrowTableToResult(result);
+      const durationMs = Math.round(performance.now() - startTime);
+      
+      this.logQuery(sql, durationMs, converted.rowCount);
+      console.log(`🦆 Local query (${durationMs}ms, ${converted.rowCount} rows): ${sql.substring(0, 100)}...`);
+      
+      return converted;
     } catch (error) {
+      const durationMs = Math.round(performance.now() - startTime);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logQuery(sql, durationMs, 0, errorMsg);
       console.error('DuckDB query error:', error);
       throw error;
     }
@@ -176,7 +229,22 @@ class DuckDBService {
       throw new Error('DuckDB WASM not initialized. Call initialize() first.');
     }
 
-    return await this.conn!.query(sql);
+    const startTime = performance.now();
+    try {
+      const result = await this.conn!.query(sql);
+      const durationMs = Math.round(performance.now() - startTime);
+      
+      this.logQuery(sql, durationMs, result.numRows);
+      console.log(`🦆 Local query Arrow (${durationMs}ms, ${result.numRows} rows): ${sql.substring(0, 100)}...`);
+      
+      return result;
+    } catch (error) {
+      const durationMs = Math.round(performance.now() - startTime);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logQuery(sql, durationMs, 0, errorMsg);
+      console.error('DuckDB Arrow query error:', error);
+      throw error;
+    }
   }
 
   /**
@@ -196,27 +264,89 @@ class DuckDBService {
       this.registeredTables.delete(name);
     }
 
-    // Convert Arrow table to JSON rows for insertion
-    // This is less efficient than direct Arrow but more reliable across DuckDB WASM versions
-    const rows: Record<string, any>[] = [];
+    // Build column definitions from Arrow schema (preserves correct types!)
+    const columnDefs = table.schema.fields.map(field => {
+      const sqlType = this.arrowTypeToSql(field.type.toString());
+      return `"${field.name}" ${sqlType}`;
+    }).join(', ');
+
+    // Create table with explicit schema from Arrow
+    await this.conn!.query(`CREATE TABLE "${name}" (${columnDefs})`);
+
+    // Convert Arrow values and insert
     const convertValue = (value: any): any => {
       if (typeof value === 'bigint') {
         return Number.isSafeInteger(Number(value)) ? Number(value) : value.toString();
       }
       return value;
     };
+
+    // Insert data in batches
+    const batchSize = 1000;
+    const columns = table.schema.fields.map(f => f.name);
     
-    for (let i = 0; i < table.numRows; i++) {
-      const row: Record<string, any> = {};
-      for (const field of table.schema.fields) {
-        row[field.name] = convertValue(table.getChild(field.name)?.get(i));
+    for (let i = 0; i < table.numRows; i += batchSize) {
+      const endIdx = Math.min(i + batchSize, table.numRows);
+      const values: string[] = [];
+      
+      for (let j = i; j < endIdx; j++) {
+        const rowValues = columns.map(col => {
+          const value = convertValue(table.getChild(col)?.get(j));
+          return this.formatValue(value);
+        });
+        values.push(`(${rowValues.join(', ')})`);
       }
-      rows.push(row);
+      
+      await this.conn!.query(`INSERT INTO "${name}" VALUES ${values.join(', ')}`);
     }
+
+    this.registeredTables.add(name);
+    console.log(`📊 Registered Arrow table "${name}" with ${table.numRows} rows (schema preserved)`);
+  }
+
+  /**
+   * Convert Arrow type string to DuckDB SQL type
+   */
+  private arrowTypeToSql(arrowType: string): string {
+    const typeStr = arrowType.toLowerCase();
     
-    // Use JSON-based registration
-    await this.registerJsonData(name, rows);
-    console.log(`📊 Registered Arrow table "${name}" with ${table.numRows} rows (via JSON conversion)`);
+    // Float types
+    if (typeStr.includes('float') || typeStr.includes('double')) {
+      return 'DOUBLE';
+    }
+    // Integer types
+    if (typeStr.includes('int64') || typeStr.includes('bigint')) {
+      return 'BIGINT';
+    }
+    if (typeStr.includes('int32') || typeStr.includes('int')) {
+      return 'INTEGER';
+    }
+    if (typeStr.includes('int16')) {
+      return 'SMALLINT';
+    }
+    if (typeStr.includes('int8')) {
+      return 'TINYINT';
+    }
+    // Boolean
+    if (typeStr.includes('bool')) {
+      return 'BOOLEAN';
+    }
+    // Date/Time types
+    if (typeStr.includes('timestamp')) {
+      return 'TIMESTAMP';
+    }
+    if (typeStr.includes('date')) {
+      return 'DATE';
+    }
+    if (typeStr.includes('time')) {
+      return 'TIME';
+    }
+    // Decimal
+    if (typeStr.includes('decimal')) {
+      return 'DECIMAL';
+    }
+    // Default to VARCHAR for strings and unknown types
+    return 'VARCHAR';
   }
 
   /**

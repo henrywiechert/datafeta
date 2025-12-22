@@ -3,8 +3,8 @@ import { QueryDescription, QueryResult, OptimizationHints } from '../../types';
 import { PlotResult } from '../../observable-plot-generator/types';
 import styles from './DebugView.module.css';
 import { DebugPanel as NewDebugPanel } from '../DebugPanel';
-import { duckdbService } from '../../services/duckdbService';
-import { cacheManager, CacheStats } from '../../services/cacheManager';
+import { duckdbService, QueryLogEntry } from '../../services/duckdbService';
+import { cacheManager, CacheStats, CachedTableInfo } from '../../services/cacheManager';
 
 export interface DebugData {
   queryDescription: QueryDescription | null;
@@ -49,9 +49,11 @@ const CollapsibleSection: React.FC<{
 /** DuckDB Cache Info component */
 const DuckDBCacheInfo: React.FC = () => {
   const [cacheStats, setCacheStats] = useState<CacheStats | null>(null);
-  const [tables, setTables] = useState<string[]>([]);
+  const [tableInfo, setTableInfo] = useState<CachedTableInfo[]>([]);
+  const [queryLog, setQueryLog] = useState<QueryLogEntry[]>([]);
   const [status, setStatus] = useState<'not_initialized' | 'initializing' | 'ready' | 'error'>('not_initialized');
   const [error, setError] = useState<string | null>(null);
+  const [lastResult, setLastResult] = useState<{ sql: string; rows: any[]; columns: string[] } | null>(null);
   
   useEffect(() => {
     // Update cache stats periodically
@@ -69,7 +71,8 @@ const DuckDBCacheInfo: React.FC = () => {
           
           if (duckdbService.isReady) {
             setCacheStats(cacheManager.getStats());
-            setTables(cacheManager.cacheKeys);
+            setTableInfo(cacheManager.getAllTableInfo());
+            setQueryLog(duckdbService.queryLog);
           }
         }
       } catch (e) {
@@ -78,7 +81,7 @@ const DuckDBCacheInfo: React.FC = () => {
     };
     
     updateStats();
-    const interval = setInterval(updateStats, 2000);
+    const interval = setInterval(updateStats, 1000); // Update more frequently for query log
     return () => clearInterval(interval);
   }, []);
   
@@ -92,6 +95,147 @@ const DuckDBCacheInfo: React.FC = () => {
       setStatus('error');
       setError(e instanceof Error ? e.message : 'Failed to initialize');
     }
+  };
+
+  const handleClearLog = () => {
+    duckdbService.clearQueryLog();
+    setQueryLog([]);
+  };
+
+  const handleTestQuery = async () => {
+    if (!duckdbService.isReady) return;
+    
+    const tables = cacheManager.cacheKeys;
+    if (tables.length === 0) {
+      alert('No cached tables. Run a backend query first to cache data.');
+      return;
+    }
+    
+    const tableName = tables[0];
+    const sql = `SELECT COUNT(*) as total_rows FROM "${tableName}"`;
+    try {
+      const result = await duckdbService.query(sql);
+      setLastResult({ sql, rows: result.rows, columns: result.columns });
+      setQueryLog(duckdbService.queryLog);
+    } catch (e) {
+      console.error('Test query failed:', e);
+      setLastResult({ sql, rows: [], columns: ['error'] });
+    }
+  };
+
+  const handleTestDistinct = async () => {
+    if (!duckdbService.isReady) return;
+    
+    const tables = cacheManager.getAllTableInfo();
+    if (tables.length === 0) {
+      alert('No cached tables. Run a backend query first to cache data.');
+      return;
+    }
+    
+    const table = tables[0];
+    const cols = table.columns.slice(0, 2);
+    if (cols.length < 2) {
+      alert('Need at least 2 columns for DISTINCT test.');
+      return;
+    }
+    
+    // Show distinct values with counts to understand distribution
+    const sql = `SELECT "${cols[0]}", "${cols[1]}", COUNT(*) as count 
+                 FROM "${table.name}" 
+                 GROUP BY "${cols[0]}", "${cols[1]}" 
+                 ORDER BY count DESC 
+                 LIMIT 20`;
+    try {
+      const result = await duckdbService.query(sql);
+      setLastResult({ sql, rows: result.rows, columns: result.columns });
+      setQueryLog(duckdbService.queryLog);
+    } catch (e) {
+      console.error('DISTINCT test failed:', e);
+      setLastResult({ sql, rows: [], columns: ['error'] });
+    }
+  };
+
+  const handleShowSample = async () => {
+    if (!duckdbService.isReady) return;
+    
+    const tables = cacheManager.getAllTableInfo();
+    if (tables.length === 0) {
+      alert('No cached tables. Run a backend query first to cache data.');
+      return;
+    }
+    
+    const table = tables[0];
+    const cols = table.columns.slice(0, 2);
+    
+    // Combined stats query
+    const sql = cols.length >= 2 
+      ? `SELECT 
+           COUNT(*) as total_rows,
+           COUNT(DISTINCT ("${cols[0]}", "${cols[1]}")) as distinct_pairs,
+           MIN("${cols[0]}") as "${cols[0]}_min", 
+           MAX("${cols[0]}") as "${cols[0]}_max",
+           MIN("${cols[1]}") as "${cols[1]}_min", 
+           MAX("${cols[1]}") as "${cols[1]}_max"
+         FROM "${table.name}"`
+      : `SELECT COUNT(*) as total_rows FROM "${table.name}"`;
+    
+    try {
+      const result = await duckdbService.query(sql);
+      setLastResult({ sql, rows: result.rows, columns: result.columns });
+      setQueryLog(duckdbService.queryLog);
+    } catch (e) {
+      console.error('Stats query failed:', e);
+      setLastResult({ sql, rows: [], columns: ['error'] });
+    }
+  };
+
+  const handleShowRawSample = async () => {
+    if (!duckdbService.isReady) return;
+    
+    const tables = cacheManager.getAllTableInfo();
+    if (tables.length === 0) {
+      alert('No cached tables. Run a backend query first to cache data.');
+      return;
+    }
+    
+    const table = tables[0];
+    // Use random sampling to get representative data
+    const sql = `SELECT * FROM "${table.name}" USING SAMPLE 10 ROWS`;
+    
+    try {
+      const result = await duckdbService.query(sql);
+      // Also log with typeof for each value to debug type issues
+      console.log('🔍 Random sample with types:', result.rows.map(row => {
+        const typed: Record<string, string> = {};
+        for (const col of result.columns) {
+          typed[col] = `${row[col]} (${typeof row[col]})`;
+        }
+        return typed;
+      }));
+      setLastResult({ sql, rows: result.rows, columns: result.columns });
+      setQueryLog(duckdbService.queryLog);
+    } catch (e) {
+      // Fallback if USING SAMPLE not supported
+      console.warn('Random sample failed, trying ORDER BY RANDOM():', e);
+      try {
+        const fallbackSql = `SELECT * FROM "${table.name}" ORDER BY RANDOM() LIMIT 10`;
+        const result = await duckdbService.query(fallbackSql);
+        setLastResult({ sql: fallbackSql, rows: result.rows, columns: result.columns });
+        setQueryLog(duckdbService.queryLog);
+      } catch (e2) {
+        console.error('Sample query failed:', e2);
+        setLastResult({ sql, rows: [], columns: ['error'] });
+      }
+    }
+  };
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('en-US', { 
+      hour12: false, 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit' 
+    });
   };
   
   return (
@@ -140,18 +284,271 @@ const DuckDBCacheInfo: React.FC = () => {
               <p>Total rows: {cacheStats.totalRows.toLocaleString()}</p>
             </>
           )}
-          {tables.length > 0 ? (
-            <details>
-              <summary>Table names ({tables.length})</summary>
-              <ul className={styles.tableList}>
-                {tables.map(t => <li key={t}>{t}</li>)}
-              </ul>
+          
+          {/* Cached Tables with Column Info */}
+          {tableInfo.length > 0 ? (
+            <details style={{ marginTop: '8px' }}>
+              <summary style={{ cursor: 'pointer', fontWeight: 500 }}>
+                📊 Cached Tables ({tableInfo.length})
+              </summary>
+              <div style={{ marginLeft: '12px', marginTop: '8px' }}>
+                {tableInfo.map(table => (
+                  <details key={table.name} style={{ marginBottom: '8px' }}>
+                    <summary style={{ cursor: 'pointer', fontSize: '12px' }}>
+                      <strong>{table.name}</strong>
+                      <span style={{ color: '#666', marginLeft: '8px' }}>
+                        ({table.rowCount.toLocaleString()} rows, {table.columns.length} cols)
+                      </span>
+                    </summary>
+                    <div style={{ 
+                      marginLeft: '16px', 
+                      marginTop: '4px',
+                      fontSize: '11px',
+                      fontFamily: 'monospace',
+                      backgroundColor: '#f5f5f5',
+                      padding: '6px',
+                      borderRadius: '4px'
+                    }}>
+                      <div style={{ color: '#666', marginBottom: '4px' }}>
+                        Source: {table.sourceDatabase ? `${table.sourceDatabase}.` : ''}{table.sourceTable}
+                      </div>
+                      <div style={{ color: '#666', marginBottom: '4px' }}>
+                        Cached: {table.cachedAt.toLocaleTimeString()}
+                      </div>
+                      <div>
+                        <strong>Columns:</strong>
+                        <div style={{ 
+                          display: 'flex', 
+                          flexWrap: 'wrap', 
+                          gap: '4px',
+                          marginTop: '4px'
+                        }}>
+                          {table.columns.map(col => (
+                            <span 
+                              key={col}
+                              style={{
+                                backgroundColor: '#e3f2fd',
+                                padding: '2px 6px',
+                                borderRadius: '3px',
+                                fontSize: '10px'
+                              }}
+                            >
+                              {col}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </details>
+                ))}
+              </div>
             </details>
           ) : (
             <p style={{ fontSize: '11px', color: '#888' }}>
               No data cached yet. Run a query to populate the cache.
             </p>
           )}
+
+          {/* Test Query Buttons */}
+          {tableInfo.length > 0 && (
+            <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button
+                onClick={handleTestQuery}
+                style={{
+                  padding: '4px 10px',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  backgroundColor: '#e3f2fd',
+                  border: '1px solid #90caf9',
+                  borderRadius: '4px',
+                }}
+              >
+                🧪 COUNT(*)
+              </button>
+              <button
+                onClick={handleTestDistinct}
+                style={{
+                  padding: '4px 10px',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  backgroundColor: '#e8f5e9',
+                  border: '1px solid #a5d6a7',
+                  borderRadius: '4px',
+                }}
+              >
+                🧪 DISTINCT
+              </button>
+              <button
+                onClick={handleShowSample}
+                style={{
+                  padding: '4px 10px',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  backgroundColor: '#fff3e0',
+                  border: '1px solid #ffcc80',
+                  borderRadius: '4px',
+                }}
+              >
+                🔬 Stats
+              </button>
+              <button
+                onClick={handleShowRawSample}
+                style={{
+                  padding: '4px 10px',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  backgroundColor: '#fce4ec',
+                  border: '1px solid #f48fb1',
+                  borderRadius: '4px',
+                }}
+              >
+                📋 Sample Rows
+              </button>
+            </div>
+          )}
+
+          {/* Query Result Display */}
+          {lastResult && (
+            <div style={{ 
+              marginTop: '12px', 
+              padding: '8px', 
+              backgroundColor: '#fafafa', 
+              borderRadius: '4px',
+              border: '1px solid #e0e0e0'
+            }}>
+              <div style={{ 
+                fontSize: '10px', 
+                fontFamily: 'monospace', 
+                color: '#666',
+                marginBottom: '8px',
+                wordBreak: 'break-all'
+              }}>
+                {lastResult.sql}
+              </div>
+              <table style={{ 
+                width: '100%', 
+                fontSize: '11px', 
+                borderCollapse: 'collapse',
+                fontFamily: 'monospace'
+              }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#e3f2fd' }}>
+                    {lastResult.columns.map(col => (
+                      <th key={col} style={{ 
+                        padding: '4px 8px', 
+                        textAlign: 'left',
+                        borderBottom: '1px solid #90caf9'
+                      }}>
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {lastResult.rows.map((row, idx) => (
+                    <tr key={idx} style={{ backgroundColor: idx % 2 === 0 ? '#fff' : '#f5f5f5' }}>
+                      {lastResult.columns.map(col => (
+                        <td key={col} style={{ 
+                          padding: '4px 8px',
+                          borderBottom: '1px solid #eee'
+                        }}>
+                          {typeof row[col] === 'number' 
+                            ? row[col].toLocaleString(undefined, { maximumFractionDigits: 6 })
+                            : String(row[col] ?? 'null')}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <button
+                onClick={() => setLastResult(null)}
+                style={{
+                  marginTop: '8px',
+                  padding: '2px 8px',
+                  fontSize: '10px',
+                  cursor: 'pointer',
+                  backgroundColor: '#eee',
+                  border: '1px solid #ccc',
+                  borderRadius: '3px',
+                }}
+              >
+                Clear Result
+              </button>
+            </div>
+          )}
+
+          {/* Local Query Log */}
+          <details style={{ marginTop: '12px' }} open={queryLog.length > 0}>
+            <summary style={{ cursor: 'pointer', fontWeight: 500 }}>
+              🔍 Local Queries ({queryLog.length})
+              {queryLog.length > 0 && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleClearLog(); }}
+                  style={{
+                    marginLeft: '8px',
+                    padding: '2px 6px',
+                    fontSize: '10px',
+                    cursor: 'pointer',
+                    backgroundColor: '#eee',
+                    border: '1px solid #ccc',
+                    borderRadius: '3px',
+                  }}
+                >
+                  Clear
+                </button>
+              )}
+            </summary>
+            <div style={{ marginTop: '8px', maxHeight: '300px', overflow: 'auto' }}>
+              {queryLog.length === 0 ? (
+                <p style={{ fontSize: '11px', color: '#888', margin: '4px 0' }}>
+                  No local queries executed yet.
+                </p>
+              ) : (
+                queryLog.map((entry, idx) => (
+                  <div 
+                    key={idx}
+                    style={{
+                      marginBottom: '8px',
+                      padding: '8px',
+                      backgroundColor: entry.error ? '#ffebee' : '#f5f5f5',
+                      borderRadius: '4px',
+                      borderLeft: entry.error ? '3px solid #f44336' : '3px solid #4caf50',
+                      fontSize: '11px',
+                    }}
+                  >
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between',
+                      marginBottom: '4px',
+                      color: '#666'
+                    }}>
+                      <span>{formatTime(entry.timestamp)}</span>
+                      <span>
+                        {entry.durationMs}ms • {entry.rowCount.toLocaleString()} rows
+                      </span>
+                    </div>
+                    <pre style={{ 
+                      margin: 0,
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-all',
+                      fontFamily: 'monospace',
+                      fontSize: '10px',
+                      maxHeight: '80px',
+                      overflow: 'auto'
+                    }}>
+                      {entry.sql}
+                    </pre>
+                    {entry.error && (
+                      <div style={{ color: '#f44336', marginTop: '4px' }}>
+                        Error: {entry.error}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </details>
         </>
       )}
     </div>
