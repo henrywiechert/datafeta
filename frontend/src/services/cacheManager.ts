@@ -278,6 +278,13 @@ class CacheManager {
   get cacheKeys(): string[] {
     return Array.from(this.cachedTables.keys());
   }
+
+  /**
+   * Get all cached table info for debugging
+   */
+  getAllTableInfo(): CachedTableInfo[] {
+    return Array.from(this.cachedTables.values());
+  }
 }
 
 // Export singleton instance
