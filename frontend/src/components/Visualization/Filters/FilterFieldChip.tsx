@@ -1,12 +1,15 @@
 import React, { useState, useCallback } from 'react';
-import { Chip, Box, IconButton, Collapse } from '@mui/material';
+import { Chip, Box, IconButton, Collapse, Tooltip, ToggleButton } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import CloseIcon from '@mui/icons-material/Close';
+import LockIcon from '@mui/icons-material/Lock';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
 import { Field, FilterConfig, FilterMetadata } from '../../../types';
 import DiscreteFilterControl from './DiscreteFilterControl';
 import ContinuousFilterControl from './ContinuousFilterControl';
 import { DateTimeRangeFilter } from '../../DateTime';
+import { filterTierManager } from '../../../services/filterTierManager';
 import styles from './FilterFieldChip.module.css';
 
 interface FilterFieldChipProps {
@@ -27,9 +30,28 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
   onRefetchValues,
 }) => {
   const [expanded, setExpanded] = useState(false);
+  
+  // Track if this filter is a "base" filter (changes require backend re-query)
+  // Default: base (locked), can toggle to refinement (local filter only)
+  const [isBaseFilter, setIsBaseFilter] = useState(() => 
+    filterTierManager.isBaseFilter(field.columnName)
+  );
 
   const handleToggleExpand = () => {
     setExpanded(!expanded);
+  };
+  
+  const handleToggleFilterTier = () => {
+    const newIsBase = !isBaseFilter;
+    setIsBaseFilter(newIsBase);
+    
+    if (newIsBase) {
+      filterTierManager.addBaseFilterColumn(field.columnName);
+    } else {
+      filterTierManager.removeBaseFilterColumn(field.columnName);
+    }
+    
+    console.log(`🔧 Filter "${field.columnName}" is now ${newIsBase ? 'BASE' : 'REFINEMENT'}`);
   };
 
   // Memoize these handlers to keep callbacks stable for child components (CheckboxItem memoization)
@@ -193,6 +215,36 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
   return (
     <Box className={styles.container}>
       <Box className={styles.chipContainer}>
+        <Tooltip 
+          title={isBaseFilter 
+            ? "Base filter (changes re-fetch from backend)" 
+            : "Refinement filter (applied locally, instant)"}
+          placement="top"
+          arrow
+        >
+          <ToggleButton
+            value="base"
+            selected={isBaseFilter}
+            onChange={handleToggleFilterTier}
+            size="small"
+            sx={{
+              padding: '2px',
+              minWidth: '24px',
+              height: '24px',
+              marginRight: '4px',
+              border: 'none',
+              '&.Mui-selected': {
+                backgroundColor: 'primary.light',
+                color: 'primary.contrastText',
+                '&:hover': {
+                  backgroundColor: 'primary.main',
+                },
+              },
+            }}
+          >
+            {isBaseFilter ? <LockIcon sx={{ fontSize: 14 }} /> : <LockOpenIcon sx={{ fontSize: 14 }} />}
+          </ToggleButton>
+        </Tooltip>
         <Chip
           label={getSummaryText()}
           size="small"

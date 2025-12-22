@@ -1,7 +1,7 @@
 """DuckDB-specific result size estimator."""
 
 import logging
-from typing import List, Optional
+from typing import FrozenSet, List, Optional, Set
 from pypika import Query, Table
 from pypika.functions import Function
 
@@ -10,6 +10,9 @@ from backend.models.query import QueryDescription
 from .base import ResultSizeEstimator, EstimationResult
 
 logger = logging.getLogger(__name__)
+
+# Built-in virtual columns that only exist in UNION queries, not in actual tables.
+BUILTIN_VIRTUAL_COLUMNS: FrozenSet[str] = frozenset({'_source_database', '_source_table'})
 
 
 class ApproxCountDistinctFunction(Function):
@@ -49,6 +52,23 @@ class DuckDBEstimator(ResultSizeEstimator):
         super().__init__(connector)
         self.use_exact = use_exact
     
+    def _get_virtual_column_names(self, query_desc: QueryDescription) -> Set[str]:
+        """
+        Get the set of all virtual column names that don't exist in the actual table.
+        
+        This includes:
+        - Built-in virtual columns (_source_database, _source_table)
+        - User-defined virtual columns from query_desc.virtual_columns
+        """
+        virtual_names: Set[str] = set(BUILTIN_VIRTUAL_COLUMNS)
+        
+        if query_desc.virtual_columns:
+            for vc in query_desc.virtual_columns:
+                virtual_names.add(vc.name)
+                logger.debug("Tracking user-defined virtual column: %s", vc.name)
+        
+        return virtual_names
+    
     def estimate_result_size(
         self,
         query: Query,
@@ -70,13 +90,25 @@ class DuckDBEstimator(ResultSizeEstimator):
         Returns:
             EstimationResult with cardinality estimates
         """
+        # Get all virtual column names (built-in + user-defined)
+        virtual_columns = self._get_virtual_column_names(query_desc)
+        
+        # Filter out dimensions that are virtual columns
         continuous_dims = [
             d for d in query_desc.dimensions 
-            if d.flavour == 'continuous'
+            if d.flavour == 'continuous' and d.field not in virtual_columns
         ]
         
         if not continuous_dims:
-            logger.warning("No continuous dimensions found for estimation")
+            # Check if we filtered out virtual columns
+            all_continuous = [d for d in query_desc.dimensions if d.flavour == 'continuous']
+            if all_continuous:
+                logger.info(
+                    "Skipping DuckDB estimation: all %s continuous dimensions are virtual columns",
+                    len(all_continuous)
+                )
+            else:
+                logger.warning("No continuous dimensions found for estimation")
             return EstimationResult(total_rows=0)
         
         try:
@@ -178,16 +210,17 @@ class DuckDBEstimator(ResultSizeEstimator):
             )
         )
         
-        # Apply filters from original query (skip virtual columns that don't exist in actual tables)
-        VIRTUAL_COLUMNS = {'_source_database', '_source_table'}
+        # Get all virtual column names (built-in + user-defined)
+        virtual_columns = self._get_virtual_column_names(query_desc)
         
         if query_desc.filters:
             from backend.services.query_service import QueryService
             query_service = QueryService()
             
             for filter_item in query_desc.filters:
-                # Skip filters on virtual columns
-                if filter_item.field in VIRTUAL_COLUMNS:
+                # Skip filters on virtual columns that don't exist in the actual table
+                if filter_item.field in virtual_columns:
+                    logger.debug("Skipping filter on virtual column '%s' for estimation query", filter_item.field)
                     continue
                 criterion = query_service._build_filter_criterion(table, filter_item)
                 if criterion:
