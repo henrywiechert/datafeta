@@ -162,6 +162,16 @@ class SelectClauseBuilder:
                     f"Unsupported aggregation function: {measure.aggregation}"
                 )
 
+                # Special-case COUNT(*) / ClickHouse count() so we don't generate count(`*`)
+                if measure.aggregation == "count" and measure.field == "*":
+                    if db_type == "clickhouse":
+                        agg_term = Function("count")
+                    else:
+                        agg_term = Count("*")
+                    select_fields.append(agg_term.as_(measure.alias))
+                    all_aliases.add(measure.alias)
+                    continue
+
                 field_term = self._parse_field_reference(measure.field)
                 field_term = self._apply_cast_if_configured(
                     measure.field, field_term, query_desc.column_casts

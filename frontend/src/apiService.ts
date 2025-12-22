@@ -401,7 +401,8 @@ export const apiService = {
                         let value = accessor.get(i);
                         // Convert BigInt to number if needed (JavaScript number is sufficient for most OLAP use cases)
                         if (typeof value === 'bigint') {
-                            value = Number(value);
+                            // Avoid precision loss for large int64 values
+                            value = Number.isSafeInteger(Number(value)) ? Number(value) : value.toString();
                         }
                         row[columns[j].name] = value;
                     }

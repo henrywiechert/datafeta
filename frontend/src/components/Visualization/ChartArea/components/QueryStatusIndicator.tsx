@@ -66,7 +66,7 @@ const QueryStatusIndicator: React.FC<{ size?: number; onClick?: () => void }> = 
             } : {},
           }}
         >
-          Query Info
+          Query
         </Typography>
       </Box>
     </Tooltip>

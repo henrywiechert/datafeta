@@ -65,6 +65,34 @@ describe('Data Validation', () => {
     });
   });
 
+  test('should convert quoted numeric strings (e.g. \"123\") to numbers', () => {
+    const mockResult = {
+      rows: [
+        { category: 'A', 'SUM(amount)': '"150235288461"' },
+      ],
+      row_count: 1
+    };
+
+    const cleanedResult = validateAndCleanData(mockResult);
+    expect(cleanedResult.rows).toHaveLength(1);
+    expect(typeof cleanedResult.rows[0]['SUM(amount)']).toBe('number');
+    expect(cleanedResult.rows[0]['SUM(amount)']).toBe(150235288461);
+  });
+
+  test('should convert escaped-quoted numeric strings (e.g. \\\\\"123\\\\\") to numbers', () => {
+    const mockResult = {
+      rows: [
+        { category: 'A', 'SUM(amount)': '\\"150235288461\\"' },
+      ],
+      row_count: 1
+    };
+
+    const cleanedResult = validateAndCleanData(mockResult);
+    expect(cleanedResult.rows).toHaveLength(1);
+    expect(typeof cleanedResult.rows[0]['SUM(amount)']).toBe('number');
+    expect(cleanedResult.rows[0]['SUM(amount)']).toBe(150235288461);
+  });
+
   test('should reject invalid numeric values', () => {
     const mockResult = {
       rows: [

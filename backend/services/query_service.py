@@ -511,6 +511,14 @@ class QueryService:
         # Compile the query to string using the chosen quote char
         sql_string = q.get_sql(quote_char=quote_char)
         logger.info(f"Generated SQL ({db_type}): {sql_string}")
+
+        # --- Result budget / reduction (best-effort) ---------------------------------
+        # This is applied after the pypika query is compiled. We wrap SQL with an outer
+        # sampling query when the frontend requests a result_budget (e.g. oversize scatter).
+        try:
+            sql_string = self._apply_result_budget(sql_string, query_desc, db_type=db_type, quote_char=quote_char)
+        except Exception as exc:  # pragma: no cover
+            logger.warning("Result budget wrapper failed, continuing without reduction: %s", exc, exc_info=True)
         
         # Build extended metadata including hints and override
         extended_metadata = {
@@ -520,6 +528,65 @@ class QueryService:
         }
         
         return sql_string, extended_metadata
+
+    def _apply_result_budget(self, sql: str, query_desc: QueryDescription, *, db_type: str, quote_char: str) -> str:
+        budget = getattr(query_desc, "result_budget", None)
+        if not budget:
+            return sql
+        if not getattr(budget, "max_rows", None) or budget.strategy == "none":
+            return sql
+
+        # Only apply to "raw" queries (scatter-style point queries).
+        # Aggregated queries already reduce via GROUP BY and should not be randomly sampled here.
+        if query_desc.measures:
+            return sql
+
+        # Detect scatter plot: continuous dimensions exist on both axes.
+        has_cont_x = any(d.axis == "x" and d.flavour == "continuous" for d in query_desc.dimensions or [])
+        has_cont_y = any(d.axis == "y" and d.flavour == "continuous" for d in query_desc.dimensions or [])
+        is_scatter = has_cont_x and has_cont_y
+        if not is_scatter:
+            return sql
+
+        max_rows = int(budget.max_rows)
+        strategy = budget.strategy
+        stratify_field = budget.stratify_field
+        min_per = int(budget.min_per_stratum or 0)
+
+        # Normalize the base query as a subquery
+        base_sql = sql.strip().rstrip(";")
+
+        if strategy == "stratified" and stratify_field:
+            # Best-effort stratified sampling with window functions.
+            # This is designed to preserve proportions across discrete categories.
+            #
+            # ClickHouse uses rand(); DuckDB uses random().
+            rand_func = "rand()" if db_type == "clickhouse" else "random()"
+            qf = f"{quote_char}{stratify_field}{quote_char}"
+            # ClickHouse supports greatest(); DuckDB supports greatest().
+            # Use integer truncation for target rows per stratum.
+            if db_type == "clickhouse":
+                target_expr = f"greatest({min_per}, intDiv({max_rows} * cat_cnt, total_cnt))"
+            else:
+                target_expr = f"greatest({min_per}, cast({max_rows} * cat_cnt / total_cnt as integer))"
+
+            return f"""
+SELECT * FROM (
+  SELECT
+    base.*,
+    row_number() OVER (PARTITION BY {qf} ORDER BY {rand_func}) AS rn,
+    count(*) OVER (PARTITION BY {qf}) AS cat_cnt,
+    count(*) OVER () AS total_cnt
+  FROM (
+    {base_sql}
+  ) AS base
+) AS sampled
+WHERE rn <= {target_expr}
+""".strip()
+
+        # Fallback: random global sample to max_rows
+        rand_func = "rand" if db_type == "clickhouse" else "random"
+        return f'SELECT * FROM (\n{base_sql}\n) AS base\nORDER BY {rand_func}()\nLIMIT {max_rows}'
 
     # Potential future methods:
     # def translate_to_pandas(self, query_desc: QueryDescription, connector: Any) -> Any:

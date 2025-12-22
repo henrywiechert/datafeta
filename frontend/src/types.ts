@@ -204,6 +204,21 @@ export interface QueryDescription {
     virtual_table?: VirtualTableDefinition;
     // NEW: Virtual columns (calculated columns) defined by SQL expressions
     virtual_columns?: VirtualColumnDefinition[];
+    // NEW: Result budget / reduction hints (frontend-guided safety for rendering)
+    result_budget?: ResultBudget;
+    // NEW: Force raw rows (no DISTINCT / no GROUP BY) for local caching slices (best-effort)
+    force_raw_rows?: boolean;
+}
+
+export interface ResultBudget {
+    // Max number of rows/points to return for this query (best-effort).
+    max_rows: number;
+    // Reduction strategy to apply when over budget.
+    strategy: 'none' | 'random' | 'stratified';
+    // For stratified sampling: column name to stratify by (typically discrete color field)
+    stratify_field?: string;
+    // Minimum rows per stratum (helps preserve small categories)
+    min_per_stratum?: number;
 }
 
 export interface QueryResultColumn {

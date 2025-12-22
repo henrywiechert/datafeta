@@ -40,6 +40,10 @@ class DistinctApplier:
         # Don't apply DISTINCT if query has measures (aggregation handles uniqueness)
         if query_desc.measures:
             return False
+
+        # Force raw rows: never apply DISTINCT (used for local caching slices)
+        if getattr(query_desc, "force_raw_rows", False):
+            return False
         
         # Don't apply DISTINCT if no dimensions
         if not query_desc.dimensions:

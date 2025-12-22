@@ -47,21 +47,13 @@ Manages the DuckDB WASM instance lifecycle:
 
 ### CacheManager (`services/cacheManager.ts`)
 
-Tracks what data is cached and manages cache lifecycle:
-
-- **Cache keys**: Generated from table name, database, and filter state
-- **Metadata tracking**: Row counts, column names, cache timestamps
-- **Invalidation**: Clears stale data when filters change
-- **Statistics**: Provides cache hit/miss metrics for debugging
+Legacy table-level cache manager. The current architecture primarily uses `ColumnCacheManager` for tracking cached slices and `DuckDBService` for storage.
 
 ### ColumnCacheManager (`services/columnCacheManager.ts`) - NEW
 
-Manages column-level incremental caching:
+Manages **base-filtered slice caching** in DuckDB WASM and tracks which columns exist in that slice:
 
-- **Column tracking**: Knows which individual columns are cached per table
-- **Incremental fetching**: Only requests missing columns from backend
-- **Filter-aware**: Caches tied to base filter hash
-- **Cache key structure**: `{database}_{table}_{filterHash}_{column}`
+- **Slice keying**: cache entries are keyed by `(database, table, baseFilterHash)`\n- **Column tracking**: keeps metadata about which columns are present in the cached slice\n- **Invalidation**: base filter changes invalidate cached slices\n\nNote: despite the name, this is **not yet true incremental per-column fetching/merging**. Today, a cache refresh replaces the cached DuckDB table for a slice key.
 
 ### FilterTierManager (`services/filterTierManager.ts`) - NEW
 
@@ -69,7 +61,7 @@ Distinguishes between base and refinement filters:
 
 - **Base filters**: Changes trigger backend re-query and cache invalidation
 - **Refinement filters**: Applied locally via DuckDB WHERE clause (instant)
-- **Hash tracking**: Tracks base filter state for cache key generation
+- **Hash tracking**: Tracks base filter state **scoped per (database, table)** for cache key generation
 - **UI integration**: Toggle lock icon on filter chips
 
 ### QueryDecisionEngine (`services/queryDecisionEngine.ts`) - NEW
@@ -77,9 +69,9 @@ Distinguishes between base and refinement filters:
 Determines query strategy based on dataset characteristics:
 
 - **Size probing**: Calls backend `/row-count` endpoint to estimate dataset size
-- **Strategy selection**:
-  - Below threshold (500K rows): Fetch raw columns, aggregate locally
-  - Above threshold: Fetch pre-aggregated from backend
+- **Strategy selection** (hybrid):
+  - **≤ 100k base-filtered rows**: fetch a **raw slice** and do grouping/reduction locally
+  - **> 100k base-filtered rows**: prefer backend aggregation and/or backend reduction
 - **Cache awareness**: Checks which columns are already cached
 - **Decision logging**: Tracks decisions for debugging
 
@@ -95,9 +87,8 @@ Executes optimized queries for individual charts:
 
 ### Query Flow
 
-1. **Initial Query**: When user configures visualization axes, a query is sent to the backend
-2. **Arrow Response**: Backend returns data in Arrow format with full precision
-3. **Cache Storage**: Arrow table is converted to JSON and stored in DuckDB WASM
+1. **Decision**: Frontend probes row count (base filters) and decides local vs backend.\n2. **Raw slice fetch (small datasets)**: Frontend requests a **raw slice** (base filters only) via Arrow and caches it in DuckDB.\n3. **Local grouping/reduction**: Refinement filters, grouping changes, and scatter reduction run locally against the cached slice.\n4. **Backend query (large datasets)**: Frontend sends the normal chart query to backend. For oversize scatter, it sends a **result budget** hint so backend can reduce the returned points before transport.
+3. **Cache Storage**: Arrow table is registered into DuckDB WASM using native Arrow IPC insertion (no JSON conversion in the normal path).
 4. **Local Queries**: Subsequent chart renders query DuckDB WASM instead of backend
 
 ### What the Backend Still Does
@@ -117,6 +108,14 @@ The backend remains the authoritative query generator. DuckDB WASM performs **po
 ## Caching Strategy
 
 ### What Gets Cached
+
+Two conceptual layers:
+
+- **Raw slice cache (DuckDB WASM)**: base-filtered slice of raw rows, used for local grouping and local filtering.\n- **Derived/remote results**: for large datasets we typically do not cache raw rows locally; results may be reduced/aggregated by backend.
+
+### Result budgets (scatter safety)
+
+Scatter plots can become unrenderable in Observable Plot when point counts are high (especially with discrete color). The frontend uses a conservative budget:\n\n- **No discrete color**: up to ~100k points\n- **Discrete color present**: up to ~50k points with **stratified sampling**\n\nBudget is applied as:\n- **Backend-side** when the decision engine prefers remote execution (via `QueryDescription.result_budget`).\n- **Frontend-side safeguard** in the scatter renderer to prevent crashes even if a larger result slips through.
 
 - Complete query result sets from the backend
 - One table per unique combination of:

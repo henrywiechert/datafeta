@@ -40,6 +40,11 @@ class GroupingOrderingBuilder:
         optimizer: Optional[Any],
         vc_builder: Optional[Any] = None,
     ) -> Query:
+        # Force raw rows: do not apply GROUP BY or DISTINCT.
+        # Used for local caching slices where duplicates matter for downstream aggregation.
+        if getattr(query_desc, "force_raw_rows", False):
+            return query
+
         if not query_desc.dimensions:
             return query
         

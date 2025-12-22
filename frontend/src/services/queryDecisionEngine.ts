@@ -18,8 +18,8 @@ import { apiService } from '../apiService';
 import { columnCacheManager } from './columnCacheManager';
 import { filterTierManager } from './filterTierManager';
 
-// Default threshold: 500,000 rows
-const DEFAULT_SIZE_THRESHOLD = 500_000;
+// Default threshold: 100,000 rows (local OK up to this; above prefer backend)
+const DEFAULT_SIZE_THRESHOLD = 100_000;
 
 export type QueryStrategy = 'raw_columns' | 'pre_aggregated' | 'cache_hit';
 
@@ -44,6 +44,14 @@ export interface QueryDecision {
   
   // Reason for decision (for debugging)
   reason: string;
+
+  // Optional: budget info for downstream reduction/debugging
+  resultBudget?: {
+    max_rows: number;
+    strategy: 'none' | 'random' | 'stratified';
+    stratify_field?: string;
+    min_per_stratum?: number;
+  };
 }
 
 export interface QueryDecisionInput {
@@ -170,16 +178,15 @@ class QueryDecisionEngine {
           reason: `Row count (${rowCount.toLocaleString()}) exceeds threshold (${sizeThreshold.toLocaleString()}) - fetching pre-aggregated`,
         };
       } else {
-        // No aggregation needed but large dataset - still fetch raw but warn
+        // No aggregation needed but large dataset - go remote (do not attempt to cache raw slice).
         return {
-          strategy: 'raw_columns',
-          columnsToFetch: missingColumns,
-          cachedColumns,
+          strategy: 'pre_aggregated',
+          columnsToFetch: requiredColumns,
           estimatedRowCount: rowCount,
           requiresBackendQuery: true,
           baseFilterHash,
           refinementFilters,
-          reason: `Large dataset (${rowCount.toLocaleString()} rows) without aggregation - fetching raw columns (may be slow)`,
+          reason: `Large dataset (${rowCount.toLocaleString()} rows) without aggregation - remote query with reduction/budget`,
         };
       }
     }

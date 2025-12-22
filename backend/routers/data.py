@@ -367,12 +367,14 @@ def execute_query(
         optimizer = QueryOptimizer(connector, config)
         
         # Translate query with optimization
+        # For local caching slices: preserve fidelity by disabling sampling/optimization.
+        is_force_raw = bool(getattr(query_desc, "force_raw_rows", False))
         sql_query, extended_metadata = query_service.translate_to_sql(
             query_desc=query_desc,
             table_name=query_desc.target_table,
             db_type=db_type,
-            with_sampling=True,  # Enable sampling for large raw queries
-            with_optimization=True,  # Enable query optimizations
+            with_sampling=(False if is_force_raw else True),  # avoid sampling for raw slice caching
+            with_optimization=(False if is_force_raw else True),  # avoid rounding/sampling/optimizations
             optimizer=optimizer,
             connector=connector  # Pass connector for union table column filtering
         )
@@ -446,12 +448,14 @@ def execute_query_arrow(
         config = OptimizerConfig.from_env()
         optimizer = QueryOptimizer(connector, config)
         
+        # For local caching slices: preserve fidelity by disabling sampling/optimization.
+        is_force_raw = bool(getattr(query_desc, "force_raw_rows", False))
         sql_query, extended_metadata = query_service.translate_to_sql(
             query_desc=query_desc,
             table_name=query_desc.target_table,
             db_type=db_type,
-            with_sampling=True,
-            with_optimization=True,
+            with_sampling=(False if is_force_raw else True),
+            with_optimization=(False if is_force_raw else True),
             optimizer=optimizer,
             connector=connector
         )
