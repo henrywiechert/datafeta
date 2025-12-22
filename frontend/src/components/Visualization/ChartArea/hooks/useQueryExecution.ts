@@ -2,6 +2,7 @@ import { useCallback, useRef, useEffect, useMemo } from 'react';
 import { apiService } from '../../../../apiService';
 import { useVisualizationContext } from '../../../../contexts/VisualizationContext';
 import { buildQuery } from '../../../../queryBuilder/queryBuilder';
+import { buildRawQuery } from '../../../../queryBuilder/queryBuilder';
 import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition } from '../../../../types';
 import { useConnection } from '../../../../contexts/ConnectionContext';
 import { logOperationTiming } from '../utils';
@@ -14,6 +15,7 @@ import { duckdbService } from '../../../../services/duckdbService';
 import { columnCacheManager } from '../../../../services/columnCacheManager';
 import { queryDecisionEngine, QueryDecision } from '../../../../services/queryDecisionEngine';
 import { filterTierManager } from '../../../../services/filterTierManager';
+import { getResultColumnName } from '../../../../utils/fieldUtils';
 
 interface UseQueryExecutionProps {
   selectedTable: string | null;
@@ -145,22 +147,46 @@ export const useQueryExecution = ({
         // Execute normal query - use Query Decision Engine when DuckDB is ready
         console.log('🚀 Executing query with Arrow transport, virtualTable:', queryDesc.virtual_table);
         
+        // Determine if this is a scatter-style raw query (continuous on both axes)
+        const isScatter = !!queryDesc.dimensions &&
+          queryDesc.dimensions.some(d => d.axis === 'x' && d.flavour === 'continuous') &&
+          queryDesc.dimensions.some(d => d.axis === 'y' && d.flavour === 'continuous');
+        const hasDiscreteColor = !!colorField && colorField.flavour === 'discrete';
+        // Conservative budget to prevent Observable Plot failures
+        const scatterMaxPoints = hasDiscreteColor ? 50_000 : 100_000;
+        const scatterMinPerStratum = hasDiscreteColor ? 200 : 0;
+
+        // If this is scatter, attach a best-effort budget hint for backend/local reduction.
+        const queryDescExec: QueryDescription = isScatter ? ({
+          ...queryDesc,
+          result_budget: {
+            max_rows: scatterMaxPoints,
+            strategy: hasDiscreteColor ? 'stratified' : 'random',
+            stratify_field: hasDiscreteColor && colorField ? getResultColumnName(colorField) : undefined,
+            min_per_stratum: scatterMinPerStratum,
+          },
+        } as any) : queryDesc;
+
         // Extract required columns from query description
         const requiredColumns: string[] = [
-          ...(queryDesc.dimensions?.map(d => d.field) || []),
-          ...(queryDesc.measures?.map(m => m.field) || []),
+          ...(queryDescExec.dimensions?.map(d => d.field) || []),
+          ...(queryDescExec.measures?.map(m => m.field) || []),
         ];
         
         // Determine if we have aggregations
-        const requiresAggregation = (queryDesc.measures?.length ?? 0) > 0 &&
-          queryDesc.measures!.some(m => m.aggregation);
+        const requiresAggregation = (queryDescExec.measures?.length ?? 0) > 0 &&
+          queryDescExec.measures!.some(m => m.aggregation);
         
         // Get dimensions for potential pre-aggregation
-        const dimensions = queryDesc.dimensions?.map(d => d.field) || [];
+        const dimensions = queryDescExec.dimensions?.map(d => d.field) || [];
         
         try {
           // Use Query Decision Engine if DuckDB is ready
           if (duckdbService.isReady && selectedTable) {
+            // Split filters: base define cache slice; refinement applied locally
+            const baseFilterConfigs = filterTierManager.getBaseFiltersOnly(filterConfigurations);
+            const refinementFilterConfigs = filterTierManager.getRefinementFilters(filterConfigurations);
+
             // Get query decision
             const decision = await queryDecisionEngine.decide({
               sourceTable: selectedTable,
@@ -169,11 +195,15 @@ export const useQueryExecution = ({
               filterConfigurations,
               requiresAggregation,
               dimensions,
-              virtualTable: queryDesc.virtual_table,
-              virtualColumns: queryDesc.virtual_columns,
+              virtualTable: queryDescExec.virtual_table,
+              virtualColumns: queryDescExec.virtual_columns,
             });
             
             lastQueryDecisionRef.current = decision;
+            // Attach budget info to decision for debugging (if present)
+            if ((queryDescExec as any).result_budget) {
+              (decision as any).resultBudget = (queryDescExec as any).result_budget;
+            }
             console.log('🧠 Query decision:', decision.strategy, '-', decision.reason);
             
             if (decision.strategy === 'cache_hit' && !decision.requiresBackendQuery) {
@@ -188,14 +218,65 @@ export const useQueryExecution = ({
               
               if (cacheTableName) {
                 // Build local query with refinement filters
-                const refinementWhere = filterTierManager.buildRefinementWhereClause(
-                  decision.refinementFilters || {}
-                );
+                const refinementWhere = filterTierManager.buildRefinementWhereClause(refinementFilterConfigs);
                 
-                // Simple SELECT for now - later we'll add aggregation support
-                let localSql = `SELECT ${requiredColumns.map(c => `"${c}"`).join(', ')} FROM "${cacheTableName}"`;
-                if (refinementWhere) {
-                  localSql += ` WHERE ${refinementWhere}`;
+                // DuckDB can end up with VARCHAR columns when upstream types are ambiguous.
+                // For local aggregations, be defensive: strip embedded quote characters and TRY_CAST to DOUBLE.
+                const buildNumericExpr = (colName: string) =>
+                  `TRY_CAST(REPLACE(CAST("${colName}" AS VARCHAR), '\"', '') AS DOUBLE)`;
+
+                const buildMeasureExpr = (m: any) => {
+                  const fn = (m.aggregation || 'sum').toLowerCase();
+                  if (fn === 'count') return `COUNT(*) AS "${m.alias}"`;
+                  if (fn === 'count_distinct') return `COUNT(DISTINCT "${m.field}") AS "${m.alias}"`;
+                  if (fn === 'min') return `MIN(${buildNumericExpr(m.field)}) AS "${m.alias}"`;
+                  if (fn === 'max') return `MAX(${buildNumericExpr(m.field)}) AS "${m.alias}"`;
+                  if (fn === 'avg') return `AVG(${buildNumericExpr(m.field)}) AS "${m.alias}"`;
+                  // default sum
+                  return `SUM(${buildNumericExpr(m.field)}) AS "${m.alias}"`;
+                };
+
+                // Local query: either raw select (scatter) or local aggregation (grouping changes)
+                let localSql = '';
+                if (!queryDesc.measures || queryDesc.measures.length === 0) {
+                  localSql = `SELECT ${requiredColumns.map(c => `"${c}"`).join(', ')} FROM "${cacheTableName}"`;
+                  if (refinementWhere) {
+                    localSql += ` WHERE ${refinementWhere}`;
+                  }
+                } else {
+                  const dimCols = (queryDesc.dimensions || []).map(d => d.field);
+                  const selectDims = dimCols.map(c => `"${c}"`).join(', ');
+                  const selectMeasures = queryDesc.measures.map(buildMeasureExpr).join(', ');
+                  localSql = `SELECT ${[selectDims, selectMeasures].filter(Boolean).join(', ')} FROM "${cacheTableName}"`;
+                  if (refinementWhere) {
+                    localSql += ` WHERE ${refinementWhere}`;
+                  }
+                  if (dimCols.length > 0) {
+                    localSql += ` GROUP BY ${dimCols.map(c => `"${c}"`).join(', ')}`;
+                  }
+                }
+                // Scatter reduction (best-effort) on cache path
+                if (isScatter && localSql) {
+                  if (hasDiscreteColor && colorField?.columnName) {
+                    const strat = colorField.columnName;
+                    localSql = `
+WITH base AS (
+  ${localSql}
+),
+ranked AS (
+  SELECT
+    base.*,
+    row_number() OVER (PARTITION BY "${strat}" ORDER BY random()) AS rn,
+    count(*) OVER (PARTITION BY "${strat}") AS cat_cnt,
+    count(*) OVER () AS total_cnt
+  FROM base
+)
+SELECT * FROM ranked
+WHERE rn <= greatest(${scatterMinPerStratum}, cast(${scatterMaxPoints} * cat_cnt / total_cnt as integer))
+                    `.trim();
+                  } else {
+                    localSql = `SELECT * FROM (${localSql}) AS base ORDER BY random() LIMIT ${scatterMaxPoints}`;
+                  }
                 }
                 
                 const localResult = await duckdbService.query(localSql);
@@ -217,11 +298,44 @@ export const useQueryExecution = ({
             }
             
             if (decision.requiresBackendQuery) {
-              // Fetch from backend and cache
-              const arrowResult = await apiService.executeQueryArrowRaw(queryDesc, queryAbortControllerRef.current.signal);
+              // Backend query required.
+              // If local is allowed (below threshold), fetch a raw slice (base filters only) for caching,
+              // then compute aggregation locally when needed.
+
+              let backendQueryDesc: QueryDescription = queryDescExec;
+              if (decision.strategy === 'raw_columns') {
+                // Build a raw slice query that preserves duplicates and disables backend optimizations.
+                const rawFields = [
+                  ...(xAxisFields || []),
+                  ...(yAxisFields || []),
+                  ...(colorField ? [colorField] : []),
+                  ...(sizeField ? [sizeField] : []),
+                  ...(labelFields || []),
+                  ...(tooltipFields || []),
+                ].map((f: any) => ({ ...f, aggregation: undefined }));
+
+                const rawSlice = buildRawQuery({
+                  fields: rawFields as any,
+                  selectedTable: selectedTable!,
+                  selectedDatabase: selectedDatabase || undefined,
+                  filterConfigurations: baseFilterConfigs as any,
+                  labelFields,
+                  tooltipFields,
+                  virtualTable: virtualTable,
+                  virtualColumns: virtualColumns,
+                }) as any;
+
+                if (rawSlice) {
+                  rawSlice.force_raw_rows = true;
+                  backendQueryDesc = rawSlice;
+                }
+              }
+
+              const arrowResult = await apiService.executeQueryArrowRaw(backendQueryDesc, queryAbortControllerRef.current.signal);
               
-              // Cache the Arrow table using column cache manager
-              if (arrowResult.arrowTable && arrowResult.arrowTable.numRows > 0) {
+              // Cache only when we are building/refreshing a local raw slice (below threshold).
+              // For remote-preferred strategies we avoid caching to prevent huge local tables.
+              if (decision.strategy === 'raw_columns' && arrowResult.arrowTable && arrowResult.arrowTable.numRows > 0) {
                 try {
                   await columnCacheManager.cacheColumns(
                     selectedTable,
@@ -239,7 +353,44 @@ export const useQueryExecution = ({
                 }
               }
               
-              // Convert Arrow table to standard result format
+              // If the current view needs aggregation and we fetched a raw slice, compute locally.
+              if (decision.strategy === 'raw_columns' && requiresAggregation) {
+                const cacheTableName = columnCacheManager.getCacheTableName(
+                  selectedTable,
+                  selectedDatabase || undefined,
+                  decision.baseFilterHash
+                );
+                if (cacheTableName) {
+                  const refinementWhere = filterTierManager.buildRefinementWhereClause(refinementFilterConfigs);
+                  const dimCols = (queryDesc.dimensions || []).map(d => d.field);
+                  const selectDims = dimCols.map(c => `"${c}"`).join(', ');
+                  // Same defensive numeric casting as cache-hit path
+                  const buildNumericExpr = (colName: string) =>
+                    `TRY_CAST(REPLACE(CAST("${colName}" AS VARCHAR), '\"', '') AS DOUBLE)`;
+                  const selectMeasures = (queryDesc.measures || []).map(m => {
+                    const fn = (m.aggregation || 'sum').toLowerCase();
+                    if (fn === 'count') return `COUNT(*) AS "${m.alias}"`;
+                    if (fn === 'count_distinct') return `COUNT(DISTINCT "${m.field}") AS "${m.alias}"`;
+                    if (fn === 'min') return `MIN(${buildNumericExpr(m.field)}) AS "${m.alias}"`;
+                    if (fn === 'max') return `MAX(${buildNumericExpr(m.field)}) AS "${m.alias}"`;
+                    if (fn === 'avg') return `AVG(${buildNumericExpr(m.field)}) AS "${m.alias}"`;
+                    return `SUM(${buildNumericExpr(m.field)}) AS "${m.alias}"`;
+                  }).join(', ');
+                  let localAggSql = `SELECT ${[selectDims, selectMeasures].filter(Boolean).join(', ')} FROM "${cacheTableName}"`;
+                  if (refinementWhere) localAggSql += ` WHERE ${refinementWhere}`;
+                  if (dimCols.length > 0) localAggSql += ` GROUP BY ${dimCols.map(c => `"${c}"`).join(', ')}`;
+                  const localAgg = await duckdbService.query(localAggSql);
+                  result = {
+                    columns: localAgg.columns.map(c => ({ name: c, type: 'unknown' })),
+                    rows: localAgg.rows,
+                    row_count: localAgg.rows.length,
+                    query_sql: localAggSql,
+                    local_query: true,
+                  };
+                }
+              }
+
+              // Otherwise convert Arrow table to standard result format
               const convertValue = (value: any): any => {
                 if (typeof value === 'bigint') {
                   return Number.isSafeInteger(Number(value)) ? Number(value) : value.toString();
@@ -247,31 +398,33 @@ export const useQueryExecution = ({
                 return value;
               };
               
-              const columns = arrowResult.columns;
-              const rows: Record<string, any>[] = [];
-              for (let i = 0; i < arrowResult.arrowTable.numRows; i++) {
-                const row: Record<string, any> = {};
-                for (const col of arrowResult.arrowTable.schema.fields) {
-                  row[col.name] = convertValue(arrowResult.arrowTable.getChild(col.name)?.get(i));
+              if (!result) {
+                const columns = arrowResult.columns;
+                const rows: Record<string, any>[] = [];
+                for (let i = 0; i < arrowResult.arrowTable.numRows; i++) {
+                  const row: Record<string, any> = {};
+                  for (const col of arrowResult.arrowTable.schema.fields) {
+                    row[col.name] = convertValue(arrowResult.arrowTable.getChild(col.name)?.get(i));
+                  }
+                  rows.push(row);
                 }
-                rows.push(row);
+                
+                result = {
+                  columns,
+                  rows,
+                  row_count: arrowResult.rowCount,
+                  query_sql: arrowResult.querySql,
+                };
               }
-              
-              result = {
-                columns,
-                rows,
-                row_count: arrowResult.rowCount,
-                query_sql: arrowResult.querySql,
-              };
             }
           } else {
             // DuckDB not ready - use standard Arrow endpoint
-            result = await apiService.executeQueryArrow(queryDesc, queryAbortControllerRef.current.signal);
+            result = await apiService.executeQueryArrow(queryDescExec, queryAbortControllerRef.current.signal);
           }
         } catch (arrowError: any) {
           // Fallback to JSON if Arrow endpoint fails (e.g., older backend)
           console.warn('⚠️ Arrow transport failed, falling back to JSON:', arrowError.message);
-          result = await apiService.executeQuery(queryDesc, queryAbortControllerRef.current.signal);
+          result = await apiService.executeQuery(queryDescExec, queryAbortControllerRef.current.signal);
         }
       }
       

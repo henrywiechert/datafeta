@@ -107,25 +107,61 @@ export const validateAndCleanData = (result: any) => {
           }
         }
         
-        // Handle string representations of invalid numbers
+        // Handle string representations of numeric values
         if (typeof value === 'string') {
-          // Only convert strings that are ENTIRELY numeric (not datetime strings like "2023-06-08 09:35:00")
-          // Use trim to handle whitespace, and check if the whole string converts cleanly
           const trimmed = value.trim();
-          const numValue = parseFloat(trimmed);
-          
-          // Only convert if the string is entirely a number (parseFloat consumes the whole string)
-          // Check by converting back to string and comparing
-          if (!isNaN(numValue) && numValue.toString() === trimmed) {
-            if (!isFinite(numValue)) {
+
+          // Some sources (or transformations) can produce numeric strings wrapped in quotes,
+          // e.g. "\"150235288461\"" (a string containing "150235288461").
+          // In some cases the quotes are escaped and the string looks like \\"150\\".
+          let unwrapped = trimmed;
+
+          // Try to decode JSON-string-literals (handles nested escaping robustly).
+          // Example: unwrapped = "\"150\"" -> JSON.parse(unwrapped) === "150"
+          // Example: unwrapped = "\\\"150\\\"" (string contains \"150\") is not valid JSON,
+          // but if it is enclosed in quotes it becomes parseable; we handle the common valid cases here.
+          for (let i = 0; i < 2; i++) {
+            const t = unwrapped.trim();
+            if (t.startsWith('"') && t.endsWith('"')) {
+              try {
+                const parsed = JSON.parse(t);
+                if (typeof parsed === 'string') {
+                  unwrapped = parsed;
+                  continue;
+                }
+              } catch {
+                // fall through
+              }
+            }
+            break;
+          }
+
+          // Fallback: unwrap a couple common non-JSON encodings
+          const unwrapOnce = (s: string) => {
+            const t = s.trim();
+            if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
+              return t.slice(1, -1).trim();
+            }
+            if ((t.startsWith('\\"') && t.endsWith('\\"')) || (t.startsWith("\\'") && t.endsWith("\\'"))) {
+              return t.slice(2, -2).trim();
+            }
+            return t;
+          };
+          unwrapped = unwrapOnce(unwrapOnce(unwrapped));
+
+          // Only convert strings that are ENTIRELY numeric (avoid datetimes like "2023-06-08 09:35:00")
+          // Accept integers, floats, and scientific notation.
+          const numericPattern = /^-?\d+(\.\d+)?([eE][+-]?\d+)?$/;
+          if (numericPattern.test(unwrapped)) {
+            const numValue = Number(unwrapped);
+            if (!isFinite(numValue) || isNaN(numValue)) {
               console.warn(`🚨 Invalid numeric string found in field ${key}: ${value}, replacing with null`);
               cleanedRow[key] = null;
             } else {
-              // Convert valid numeric strings to numbers
+              // Convert valid numeric strings to numbers (best-effort; may lose precision for huge integers)
               cleanedRow[key] = numValue;
             }
           }
-          // Non-numeric strings (including datetime strings) are left as-is
         }
       });
       

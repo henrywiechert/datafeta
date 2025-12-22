@@ -10,6 +10,19 @@ DateTime Parts Handling:
 from decimal import Decimal
 from typing import Any, Dict, List
 
+MAX_JS_SAFE_INT = 9_007_199_254_740_991  # 2^53 - 1
+
+
+def _unwrap_quoted_string(s: str) -> str:
+    # Handle values like '"123"' or "'123'" (quotes included)
+    s2 = s.strip()
+    if (s2.startswith('"') and s2.endswith('"')) or (s2.startswith("'") and s2.endswith("'")):
+        return s2[1:-1].strip()
+    # Handle values like '\\"123\\"' or "\\'123\\'" where backslashes are literal chars
+    if (s2.startswith('\\"') and s2.endswith('\\"')) or (s2.startswith("\\'") and s2.endswith("\\'")):
+        return s2[2:-2].strip()
+    return s2
+
 
 def convert_decimal_to_float(value: Any) -> Any:
     """
@@ -23,6 +36,28 @@ def convert_decimal_to_float(value: Any) -> Any:
     """
     if isinstance(value, Decimal):
         return float(value)
+    # Normalize suspicious numeric strings that arrive double-quoted (common with some CH types/expressions)
+    if isinstance(value, str):
+        s = _unwrap_quoted_string(value)
+        # Only convert if it looks fully numeric (avoid datetimes/ids with suffixes)
+        # Allow ints, floats, and scientific notation.
+        import re
+        if re.fullmatch(r"-?\d+(\.\d+)?([eE][+-]?\d+)?", s or ""):
+            # Prefer int when possible
+            if re.fullmatch(r"-?\d+", s):
+                try:
+                    i = int(s)
+                    # Avoid creating unsafe JS numbers; return string instead.
+                    if abs(i) > MAX_JS_SAFE_INT:
+                        return str(i)
+                    return i
+                except Exception:
+                    return value
+            try:
+                f = float(s)
+                return f
+            except Exception:
+                return value
     return value
 
 

@@ -187,6 +187,18 @@ class ColumnCacheManager {
     
     console.log(`📦 Cached ${arrowTable.schema.fields.length} columns for ${sourceTable}: ${arrowTable.schema.fields.map(f => f.name).join(', ')}`);
   }
+
+  /**
+   * Check whether a base-filtered slice (any columns) exists for this table.
+   */
+  hasAnyCacheFor(
+    sourceTable: string,
+    sourceDatabase?: string,
+    baseFilterHash?: string
+  ): boolean {
+    const cacheKey = this.generateCacheKey(sourceTable, sourceDatabase, baseFilterHash);
+    return this.cacheIndex.has(cacheKey) && !!this.tableNames.get(cacheKey);
+  }
   
   /**
    * Cache columns from Arrow IPC buffer
