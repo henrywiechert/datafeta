@@ -731,6 +731,57 @@ export const apiService = {
         throw new Error('No data available for date range calculation');
     },
 
+    // --- Row Count Probing (for Query Decision Engine) --- //
+
+    /**
+     * Get the total row count for a table with optional filters applied.
+     * 
+     * Used by QueryDecisionEngine to determine query strategy:
+     * - Small datasets: Fetch raw columns for local caching
+     * - Large datasets: Fetch pre-aggregated data
+     * 
+     * @param table - Table name
+     * @param database - Database name (required for ClickHouse)
+     * @param filters - Optional filter configurations to apply
+     * @param signal - Optional AbortSignal for cancellation
+     * @returns Row count number
+     */
+    async getRowCount(
+        table: string,
+        database?: string,
+        filters?: Record<string, any>,
+        signal?: AbortSignal
+    ): Promise<number> {
+        const abortController = signal ? null : createAbortController();
+        const requestSignal = signal || abortController?.signal;
+
+        const requestBody: any = {
+            table,
+        };
+
+        if (database) {
+            requestBody.database = database;
+        }
+        if (filters && Object.keys(filters).length > 0) {
+            requestBody.filters = filters;
+        }
+
+        const response = await fetchWithErrorHandling(
+            `${API_BASE_URL}/row-count`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestBody),
+            },
+            requestSignal
+        );
+
+        const result = await response.json();
+        return result.count || 0;
+    },
+
     // --- Kaggle-Specific Methods --- //
 
     async searchKaggleDatasets(username: string, apiKey: string, searchQuery: string): Promise<KaggleSearchResponse> {

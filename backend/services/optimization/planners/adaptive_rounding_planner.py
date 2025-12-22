@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, FrozenSet, List, Optional, Set, Tuple
 
 from backend.connectors.base import BaseConnector
 from backend.models.query import QueryDescription
@@ -15,9 +15,9 @@ from ..strategies.adaptive_rounding import AdaptiveRoundingStrategy
 from ..strategies.base import OptimizationStrategy
 from ..strategies.datetime_binning import DateTimeBinningStrategy
 
-# Virtual columns that only exist in UNION queries, not in actual tables.
+# Built-in virtual columns that only exist in UNION queries, not in actual tables.
 # These must be skipped when building estimation/range queries against real tables.
-VIRTUAL_COLUMNS = frozenset({'_source_database', '_source_table'})
+BUILTIN_VIRTUAL_COLUMNS: FrozenSet[str] = frozenset({'_source_database', '_source_table'})
 
 
 class AdaptiveRoundingPlanner:
@@ -39,6 +39,23 @@ class AdaptiveRoundingPlanner:
         self._logger = logger or logging.getLogger(__name__)
         # Set quote character based on database type
         self._quote_char = '`' if db_type == 'clickhouse' else '"'
+
+    def _get_virtual_column_names(self, query_desc: QueryDescription) -> Set[str]:
+        """
+        Get the set of all virtual column names that don't exist in the actual table.
+        
+        This includes:
+        - Built-in virtual columns (_source_database, _source_table)
+        - User-defined virtual columns from query_desc.virtual_columns
+        """
+        virtual_names: Set[str] = set(BUILTIN_VIRTUAL_COLUMNS)
+        
+        if query_desc.virtual_columns:
+            for vc in query_desc.virtual_columns:
+                virtual_names.add(vc.name)
+                self._logger.debug("Tracking user-defined virtual column: %s", vc.name)
+        
+        return virtual_names
 
     def plan_multi_dimensional(
         self,
@@ -314,12 +331,29 @@ class AdaptiveRoundingPlanner:
             self._logger.warning("No connector available for actual count")
             return None
 
-        continuous_dims = [d for d in query_desc.dimensions if d.flavour == "continuous"]
+        # Get all virtual column names (built-in + user-defined)
+        virtual_columns = self._get_virtual_column_names(query_desc)
+
+        # Filter out dimensions that are virtual columns - they don't exist in the real table
+        continuous_dims = [
+            d for d in query_desc.dimensions 
+            if d.flavour == "continuous" and d.field not in virtual_columns
+        ]
+        
         if len(continuous_dims) < 2:
-            self._logger.warning(
-                "Need at least 2 continuous dimensions for count, got %s",
-                len(continuous_dims),
-            )
+            # Check if we filtered out virtual columns - if so, log appropriately
+            all_continuous = [d for d in query_desc.dimensions if d.flavour == "continuous"]
+            if len(all_continuous) >= 2 and len(continuous_dims) < 2:
+                self._logger.info(
+                    "Skipping pair count estimation: %s of %s continuous dimensions are virtual columns",
+                    len(all_continuous) - len(continuous_dims),
+                    len(all_continuous),
+                )
+            else:
+                self._logger.warning(
+                    "Need at least 2 continuous dimensions for count, got %s",
+                    len(continuous_dims),
+                )
             return None
 
         self._logger.info(
@@ -340,7 +374,7 @@ class AdaptiveRoundingPlanner:
 
         for filter_obj in query_desc.filters:
             # Skip filters on virtual columns that don't exist in the actual table
-            if filter_obj.field in VIRTUAL_COLUMNS:
+            if filter_obj.field in virtual_columns:
                 self._logger.debug("Skipping filter on virtual column '%s' for estimation query", filter_obj.field)
                 continue
                 
@@ -414,12 +448,28 @@ class AdaptiveRoundingPlanner:
             self._logger.warning("No connector available for actual single-dimension count")
             return None
 
-        continuous_dims = [d for d in query_desc.dimensions if d.flavour == "continuous"]
+        # Get all virtual column names (built-in + user-defined)
+        virtual_columns = self._get_virtual_column_names(query_desc)
+
+        # Filter out dimensions that are virtual columns - they don't exist in the real table
+        continuous_dims = [
+            d for d in query_desc.dimensions 
+            if d.flavour == "continuous" and d.field not in virtual_columns
+        ]
+        
         if len(continuous_dims) != 1:
-            self._logger.warning(
-                "Need exactly 1 continuous dimension for 1D count, got %s",
-                len(continuous_dims),
-            )
+            # Check if we filtered out virtual columns
+            all_continuous = [d for d in query_desc.dimensions if d.flavour == "continuous"]
+            if len(all_continuous) == 1 and len(continuous_dims) == 0:
+                self._logger.info(
+                    "Skipping 1D count estimation: the only continuous dimension '%s' is a virtual column",
+                    all_continuous[0].field,
+                )
+            else:
+                self._logger.warning(
+                    "Need exactly 1 non-virtual continuous dimension for 1D count, got %s",
+                    len(continuous_dims),
+                )
             return None
 
         if self._db_type == "clickhouse" and query_desc.target_database:
@@ -439,7 +489,7 @@ class AdaptiveRoundingPlanner:
 
         for filter_obj in query_desc.filters:
             # Skip filters on virtual columns that don't exist in the actual table
-            if filter_obj.field in VIRTUAL_COLUMNS:
+            if filter_obj.field in virtual_columns:
                 self._logger.debug("Skipping filter on virtual column '%s' for estimation query", filter_obj.field)
                 continue
                 
@@ -507,7 +557,15 @@ class AdaptiveRoundingPlanner:
         from pypika.functions import Function, Max, Min
 
         ranges: Dict[str, Tuple[float, float]] = {}
-        continuous_dims = [d for d in query_desc.dimensions if d.flavour == "continuous"]
+        
+        # Get all virtual column names (built-in + user-defined)
+        virtual_columns = self._get_virtual_column_names(query_desc)
+        
+        # Filter out dimensions that are virtual columns - they don't exist in the real table
+        continuous_dims = [
+            d for d in query_desc.dimensions 
+            if d.flavour == "continuous" and d.field not in virtual_columns
+        ]
 
         if not continuous_dims or not self._connector:
             return ranges
@@ -539,7 +597,7 @@ class AdaptiveRoundingPlanner:
 
         for filter_obj in query_desc.filters:
             # Skip filters on virtual columns that don't exist in the actual table
-            if filter_obj.field in VIRTUAL_COLUMNS:
+            if filter_obj.field in virtual_columns:
                 self._logger.debug("Skipping filter on virtual column '%s' for range query", filter_obj.field)
                 continue
                 

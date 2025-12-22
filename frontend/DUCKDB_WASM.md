@@ -54,6 +54,35 @@ Tracks what data is cached and manages cache lifecycle:
 - **Invalidation**: Clears stale data when filters change
 - **Statistics**: Provides cache hit/miss metrics for debugging
 
+### ColumnCacheManager (`services/columnCacheManager.ts`) - NEW
+
+Manages column-level incremental caching:
+
+- **Column tracking**: Knows which individual columns are cached per table
+- **Incremental fetching**: Only requests missing columns from backend
+- **Filter-aware**: Caches tied to base filter hash
+- **Cache key structure**: `{database}_{table}_{filterHash}_{column}`
+
+### FilterTierManager (`services/filterTierManager.ts`) - NEW
+
+Distinguishes between base and refinement filters:
+
+- **Base filters**: Changes trigger backend re-query and cache invalidation
+- **Refinement filters**: Applied locally via DuckDB WHERE clause (instant)
+- **Hash tracking**: Tracks base filter state for cache key generation
+- **UI integration**: Toggle lock icon on filter chips
+
+### QueryDecisionEngine (`services/queryDecisionEngine.ts`) - NEW
+
+Determines query strategy based on dataset characteristics:
+
+- **Size probing**: Calls backend `/row-count` endpoint to estimate dataset size
+- **Strategy selection**:
+  - Below threshold (500K rows): Fetch raw columns, aggregate locally
+  - Above threshold: Fetch pre-aggregated from backend
+- **Cache awareness**: Checks which columns are already cached
+- **Decision logging**: Tracks decisions for debugging
+
 ### ChartQueryService (`services/chartQueryService.ts`)
 
 Executes optimized queries for individual charts:
@@ -163,20 +192,37 @@ Simple aggregations can be computed locally without backend involvement.
 
 ## Debug Information
 
-The Debug Panel displays DuckDB status:
+The Debug Panel displays comprehensive caching information:
 
+### DuckDB Status Section
 - **Status**: Not initialized / Initializing / Ready / Error
 - **Cached Tables**: Count of registered tables with column details
 - **Total Rows**: Sum of all cached row counts
 - **Local Queries**: Log of executed DuckDB queries with timing
 - **Test Buttons**: COUNT(*), DISTINCT, Stats, Sample Rows
 
+### Cache Strategy Section (NEW)
+- **Last Query Decision**: Shows the strategy used (CACHE HIT, RAW COLUMNS, PRE-AGGREGATED)
+- **Decision reason**: Explains why that strategy was chosen
+- **Estimated row count**: From backend probe
+- **Columns to fetch / cached**: Lists which columns need fetching vs already cached
+
+### Filter Tiers Section (NEW)
+- **Base Filter Hash**: Current hash of base filters
+- **Base Filter Columns**: Which columns are marked as base filters (🔒)
+- Toggle filter tier via lock icon on filter chips
+
+### Column Cache Section (NEW)
+- **Per-table cache entries**: Shows cached tables with filter hash
+- **Column details**: List of cached columns with data types
+- **Row counts and timestamps**: When data was cached
+
 ## Future Potential
 
 ### Short-term Enhancements
 
 1. ~~**Direct Arrow Registration**: Use DuckDB's native Arrow support instead of JSON conversion~~ ✅ Implemented
-2. **Incremental Caching**: Cache individual columns rather than full query results
+2. ~~**Incremental Caching**: Cache individual columns rather than full query results~~ ✅ Implemented
 3. **IndexedDB Persistence**: Store cache across sessions
 4. **Web Worker Isolation**: Run DuckDB entirely in a worker for better responsiveness
 
@@ -206,8 +252,12 @@ Currently, DuckDB WASM is automatically initialized on first query. Future versi
 ## Related Files
 
 - `services/duckdbService.ts` - Core DuckDB WASM wrapper
-- `services/cacheManager.ts` - Cache metadata and lifecycle
+- `services/cacheManager.ts` - Cache metadata and lifecycle (legacy)
+- `services/columnCacheManager.ts` - Column-level cache tracking
+- `services/filterTierManager.ts` - Base vs refinement filter management
+- `services/queryDecisionEngine.ts` - Query strategy selection
 - `services/chartQueryService.ts` - Per-chart query optimization
 - `hooks/useLocalDataCache.ts` - React integration hook
 - `observable-plot-generator/grid/localQueryGridGenerator.ts` - Chart grid with local queries
+- `components/Visualization/Filters/FilterFieldChip.tsx` - Filter tier toggle UI
 

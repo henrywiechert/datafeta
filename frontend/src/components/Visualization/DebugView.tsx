@@ -5,6 +5,9 @@ import styles from './DebugView.module.css';
 import { DebugPanel as NewDebugPanel } from '../DebugPanel';
 import { duckdbService, QueryLogEntry } from '../../services/duckdbService';
 import { cacheManager, CacheStats, CachedTableInfo } from '../../services/cacheManager';
+import { columnCacheManager, CachedColumnInfo } from '../../services/columnCacheManager';
+import { filterTierManager } from '../../services/filterTierManager';
+import { queryDecisionEngine, QueryDecision } from '../../services/queryDecisionEngine';
 
 export interface DebugData {
   queryDescription: QueryDescription | null;
@@ -14,6 +17,8 @@ export interface DebugData {
   chartInfo?: any;
   renderingError?: string | null;
   optimizationHints?: OptimizationHints | null;
+  /** Last query decision from the decision engine */
+  lastQueryDecision?: QueryDecision | null;
 }
 
 interface DebugViewProps {
@@ -555,6 +560,202 @@ const DuckDBCacheInfo: React.FC = () => {
   );
 };
 
+/** Cache Strategy & Filter Tiers Info component */
+const CacheStrategyInfo: React.FC<{ lastQueryDecision?: QueryDecision | null }> = ({ lastQueryDecision }) => {
+  const [filterTierStats, setFilterTierStats] = useState<{
+    baseFilterColumnCount: number;
+    baseFilterColumns: string[];
+    currentBaseFilterHash: string;
+    storedBaseFilterCount: number;
+  } | null>(null);
+  
+  const [decisionEngineStats, setDecisionEngineStats] = useState<{
+    sizeThreshold: number;
+    rowCountCacheSize: number;
+  } | null>(null);
+  
+  const [columnCacheInfo, setColumnCacheInfo] = useState<Array<{
+    cacheKey: string;
+    tableName: string;
+    columns: CachedColumnInfo[];
+  }>>([]);
+  
+  useEffect(() => {
+    const updateStats = () => {
+      try {
+        setFilterTierStats(filterTierManager.getStats());
+        setDecisionEngineStats(queryDecisionEngine.getStats());
+        setColumnCacheInfo(columnCacheManager.getAllCacheInfo());
+      } catch (e) {
+        console.warn('Failed to update cache strategy stats:', e);
+      }
+    };
+    
+    updateStats();
+    const interval = setInterval(updateStats, 2000);
+    return () => clearInterval(interval);
+  }, []);
+  
+  return (
+    <div style={{ fontSize: '12px', padding: '8px' }}>
+      {/* Query Decision */}
+      <details open={!!lastQueryDecision}>
+        <summary style={{ cursor: 'pointer', fontWeight: 600, marginBottom: '8px' }}>
+          🧠 Last Query Decision
+        </summary>
+        {lastQueryDecision ? (
+          <div style={{ 
+            padding: '8px', 
+            backgroundColor: lastQueryDecision.strategy === 'cache_hit' ? '#e8f5e9' : 
+                            lastQueryDecision.strategy === 'raw_columns' ? '#e3f2fd' : '#fff3e0',
+            borderRadius: '4px',
+            marginBottom: '12px'
+          }}>
+            <div style={{ fontWeight: 500 }}>
+              Strategy: <span style={{ 
+                color: lastQueryDecision.strategy === 'cache_hit' ? '#2e7d32' : 
+                       lastQueryDecision.strategy === 'raw_columns' ? '#1565c0' : '#ef6c00'
+              }}>
+                {lastQueryDecision.strategy.toUpperCase().replace('_', ' ')}
+              </span>
+            </div>
+            <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+              {lastQueryDecision.reason}
+            </div>
+            {lastQueryDecision.estimatedRowCount && (
+              <div style={{ fontSize: '11px', marginTop: '4px' }}>
+                Estimated rows: {lastQueryDecision.estimatedRowCount.toLocaleString()}
+              </div>
+            )}
+            {lastQueryDecision.columnsToFetch && lastQueryDecision.columnsToFetch.length > 0 && (
+              <div style={{ fontSize: '11px', marginTop: '4px' }}>
+                Columns to fetch: {lastQueryDecision.columnsToFetch.join(', ')}
+              </div>
+            )}
+            {lastQueryDecision.cachedColumns && lastQueryDecision.cachedColumns.length > 0 && (
+              <div style={{ fontSize: '11px', marginTop: '4px' }}>
+                Cached columns: {lastQueryDecision.cachedColumns.join(', ')}
+              </div>
+            )}
+          </div>
+        ) : (
+          <p style={{ color: '#999', fontSize: '11px' }}>No query decision yet.</p>
+        )}
+      </details>
+      
+      {/* Filter Tiers */}
+      <details>
+        <summary style={{ cursor: 'pointer', fontWeight: 600, marginBottom: '8px' }}>
+          🔐 Filter Tiers
+        </summary>
+        {filterTierStats && (
+          <div style={{ padding: '8px', backgroundColor: '#f5f5f5', borderRadius: '4px', marginBottom: '12px' }}>
+            <div style={{ marginBottom: '8px' }}>
+              <strong>Base Filter Hash:</strong>{' '}
+              <code style={{ backgroundColor: '#e0e0e0', padding: '2px 4px', borderRadius: '2px' }}>
+                {filterTierStats.currentBaseFilterHash || '(none)'}
+              </code>
+            </div>
+            {filterTierStats.baseFilterColumns.length > 0 ? (
+              <div>
+                <strong>Base Filter Columns ({filterTierStats.baseFilterColumnCount}):</strong>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
+                  {filterTierStats.baseFilterColumns.map(col => (
+                    <span key={col} style={{
+                      backgroundColor: '#bbdefb',
+                      color: '#0d47a1',
+                      padding: '2px 6px',
+                      borderRadius: '10px',
+                      fontSize: '10px'
+                    }}>
+                      🔒 {col}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p style={{ fontSize: '11px', color: '#999' }}>
+                All filters are base filters by default. Toggle the lock icon on filter chips to mark as refinement.
+              </p>
+            )}
+          </div>
+        )}
+      </details>
+      
+      {/* Decision Engine Config */}
+      <details>
+        <summary style={{ cursor: 'pointer', fontWeight: 600, marginBottom: '8px' }}>
+          ⚙️ Decision Engine Config
+        </summary>
+        {decisionEngineStats && (
+          <div style={{ padding: '8px', backgroundColor: '#f5f5f5', borderRadius: '4px', marginBottom: '12px' }}>
+            <div>
+              <strong>Size Threshold:</strong>{' '}
+              {decisionEngineStats.sizeThreshold.toLocaleString()} rows
+            </div>
+            <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
+              Below threshold → fetch raw columns | Above → pre-aggregate
+            </div>
+            <div style={{ marginTop: '8px' }}>
+              <strong>Row Count Cache:</strong> {decisionEngineStats.rowCountCacheSize} entries
+            </div>
+          </div>
+        )}
+      </details>
+      
+      {/* Column Cache Details */}
+      <details>
+        <summary style={{ cursor: 'pointer', fontWeight: 600, marginBottom: '8px' }}>
+          📊 Column Cache ({columnCacheInfo.length} tables)
+        </summary>
+        {columnCacheInfo.length > 0 ? (
+          <div style={{ padding: '8px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
+            {columnCacheInfo.map(cache => (
+              <div key={cache.cacheKey} style={{ 
+                marginBottom: '8px', 
+                padding: '6px', 
+                backgroundColor: '#fff',
+                borderRadius: '4px',
+                border: '1px solid #e0e0e0'
+              }}>
+                <div style={{ fontWeight: 500, marginBottom: '4px' }}>
+                  {cache.tableName}
+                </div>
+                <div style={{ fontSize: '10px', color: '#666', marginBottom: '4px' }}>
+                  Key: {cache.cacheKey}
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                  {cache.columns.map(col => (
+                    <span key={col.columnName} style={{
+                      backgroundColor: '#e8f5e9',
+                      color: '#2e7d32',
+                      padding: '2px 6px',
+                      borderRadius: '10px',
+                      fontSize: '10px'
+                    }}>
+                      {col.columnName} <span style={{ color: '#999' }}>({col.dataType})</span>
+                    </span>
+                  ))}
+                </div>
+                {cache.columns.length > 0 && (
+                  <div style={{ fontSize: '10px', color: '#666', marginTop: '4px' }}>
+                    {cache.columns[0].rowCount.toLocaleString()} rows • 
+                    Cached: {cache.columns[0].cachedAt.toLocaleTimeString()}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p style={{ fontSize: '11px', color: '#999', padding: '8px' }}>
+            No column-level cache data. Run a query to populate the cache.
+          </p>
+        )}
+      </details>
+    </div>
+  );
+};
+
 const DebugView: React.FC<DebugViewProps> = ({
   debugData
 }) => {
@@ -566,6 +767,7 @@ const DebugView: React.FC<DebugViewProps> = ({
     chartInfo,
     renderingError,
     optimizationHints,
+    lastQueryDecision,
   } = debugData;
   const hasError = queryError || renderingError;
 
@@ -642,6 +844,9 @@ const DebugView: React.FC<DebugViewProps> = ({
             <CollapsibleSection title="Local Cache (DuckDB WASM)">
               <DuckDBCacheInfo />
             </CollapsibleSection>
+            <CollapsibleSection title="Cache Strategy & Filter Tiers">
+              <CacheStrategyInfo lastQueryDecision={lastQueryDecision} />
+            </CollapsibleSection>
           </div>
           <div className={styles.panel}>
             {queryError && (
@@ -687,6 +892,9 @@ const DebugView: React.FC<DebugViewProps> = ({
             )}
             <CollapsibleSection title="Local Cache (DuckDB WASM)">
               <DuckDBCacheInfo />
+            </CollapsibleSection>
+            <CollapsibleSection title="Cache Strategy & Filter Tiers">
+              <CacheStrategyInfo lastQueryDecision={lastQueryDecision} />
             </CollapsibleSection>
           </div>
           <div className={styles.panel}>

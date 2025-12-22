@@ -12,6 +12,9 @@ import { useDataSource } from '../../../../contexts/DataSourceContext';
 import { getMeasureFieldsForUnpivot, MEASURE_NAMES_FIELD } from '../../../../utils/syntheticFields';
 import { duckdbService } from '../../../../services/duckdbService';
 import { cacheManager } from '../../../../services/cacheManager';
+import { columnCacheManager } from '../../../../services/columnCacheManager';
+import { queryDecisionEngine, QueryDecision } from '../../../../services/queryDecisionEngine';
+import { filterTierManager } from '../../../../services/filterTierManager';
 
 interface UseQueryExecutionProps {
   selectedTable: string | null;
@@ -36,6 +39,8 @@ interface UseQueryExecutionProps {
 interface UseQueryExecutionReturn {
   queryDescription: QueryDescription | null;
   optimizationHints: OptimizationHints | null;
+  /** Last query decision from the decision engine */
+  lastQueryDecision: QueryDecision | null;
 }
 
 export const useQueryExecution = ({
@@ -63,6 +68,8 @@ export const useQueryExecution = ({
   const queryInProgressRef = useRef<boolean>(false);
   // Track last executed version to avoid duplicate runs within same render cycle
   const lastExecutedVersionRef = useRef<number | null>(null);
+  // Track last query decision for debugging and UI display
+  const lastQueryDecisionRef = useRef<QueryDecision | null>(null);
   // Access visualization context for queryVersion
   // (Avoid adding heavy dependencies; only pull version)
   // Import lazily to prevent circular issues.
@@ -136,52 +143,133 @@ export const useQueryExecution = ({
           signal: queryAbortControllerRef.current.signal,
         });
       } else {
-        // Execute normal query - use Arrow transport for better performance
+        // Execute normal query - use Query Decision Engine when DuckDB is ready
         console.log('🚀 Executing query with Arrow transport, virtualTable:', queryDesc.virtual_table);
+        
+        // Extract required columns from query description
+        const requiredColumns: string[] = [
+          ...(queryDesc.dimensions?.map(d => d.field) || []),
+          ...(queryDesc.measures?.map(m => m.field) || []),
+        ];
+        
+        // Determine if we have aggregations
+        const requiresAggregation = (queryDesc.measures?.length ?? 0) > 0 &&
+          queryDesc.measures!.some(m => m.aggregation);
+        
+        // Get dimensions for potential pre-aggregation
+        const dimensions = queryDesc.dimensions?.map(d => d.field) || [];
+        
         try {
-          // Use raw Arrow endpoint if DuckDB is ready for caching
-          if (duckdbService.isReady) {
-            const arrowResult = await apiService.executeQueryArrowRaw(queryDesc, queryAbortControllerRef.current.signal);
+          // Use Query Decision Engine if DuckDB is ready
+          if (duckdbService.isReady && selectedTable) {
+            // Get query decision
+            const decision = await queryDecisionEngine.decide({
+              sourceTable: selectedTable,
+              sourceDatabase: selectedDatabase || undefined,
+              requiredColumns,
+              filterConfigurations,
+              requiresAggregation,
+              dimensions,
+            });
             
-            // Cache the Arrow table in DuckDB for local queries
-            if (arrowResult.arrowTable && arrowResult.arrowTable.numRows > 0) {
-              try {
-                await cacheManager.cacheArrowTable(
-                  selectedTable!,
-                  selectedDatabase || undefined,
-                  arrowResult.arrowTable
+            lastQueryDecisionRef.current = decision;
+            console.log('🧠 Query decision:', decision.strategy, '-', decision.reason);
+            
+            if (decision.strategy === 'cache_hit' && !decision.requiresBackendQuery) {
+              // All data is in cache - execute locally
+              console.log('📦 Cache hit! Executing query locally...');
+              
+              const cacheTableName = columnCacheManager.getCacheTableName(
+                selectedTable,
+                selectedDatabase || undefined,
+                decision.baseFilterHash
+              );
+              
+              if (cacheTableName) {
+                // Build local query with refinement filters
+                const refinementWhere = filterTierManager.buildRefinementWhereClause(
+                  decision.refinementFilters || {}
                 );
-                console.log('📦 Cached query result in DuckDB WASM');
-              } catch (cacheError) {
-                console.warn('⚠️ Failed to cache in DuckDB:', cacheError);
+                
+                // Simple SELECT for now - later we'll add aggregation support
+                let localSql = `SELECT ${requiredColumns.map(c => `"${c}"`).join(', ')} FROM "${cacheTableName}"`;
+                if (refinementWhere) {
+                  localSql += ` WHERE ${refinementWhere}`;
+                }
+                
+                const localResult = await duckdbService.query(localSql);
+                
+                result = {
+                  columns: localResult.columns.map(c => ({ name: c, type: 'unknown' })),
+                  rows: localResult.rows,
+                  row_count: localResult.rows.length,
+                  query_sql: localSql,
+                  local_query: true, // Mark as local query for debugging
+                };
+                
+                console.log(`✅ Local query returned ${result.row_count} rows`);
+              } else {
+                // Cache table not found - fall through to backend query
+                console.warn('⚠️ Cache table not found, falling back to backend');
+                decision.requiresBackendQuery = true;
               }
             }
             
-            // Convert Arrow table to standard result format
-            // Note: Arrow may return BigInt for large integers - convert to Number if safe
-            const convertValue = (value: any): any => {
-              if (typeof value === 'bigint') {
-                return Number.isSafeInteger(Number(value)) ? Number(value) : value.toString();
+            if (decision.requiresBackendQuery) {
+              // Fetch from backend and cache
+              const arrowResult = await apiService.executeQueryArrowRaw(queryDesc, queryAbortControllerRef.current.signal);
+              
+              // Cache the Arrow table using column cache manager
+              if (arrowResult.arrowTable && arrowResult.arrowTable.numRows > 0) {
+                try {
+                  await columnCacheManager.cacheColumns(
+                    selectedTable,
+                    selectedDatabase || undefined,
+                    decision.baseFilterHash,
+                    arrowResult.arrowTable
+                  );
+                  
+                  // Also cache in the legacy cache manager for backward compatibility
+                  await cacheManager.cacheArrowTable(
+                    selectedTable,
+                    selectedDatabase || undefined,
+                    arrowResult.arrowTable
+                  );
+                  
+                  // Update base filters after successful cache
+                  filterTierManager.updateBaseFilters(filterConfigurations);
+                  
+                  console.log(`📦 Cached ${arrowResult.arrowTable.numRows} rows (strategy: ${decision.strategy})`);
+                } catch (cacheError) {
+                  console.warn('⚠️ Failed to cache in DuckDB:', cacheError);
+                }
               }
-              return value;
-            };
-            
-            const columns = arrowResult.columns;
-            const rows: Record<string, any>[] = [];
-            for (let i = 0; i < arrowResult.arrowTable.numRows; i++) {
-              const row: Record<string, any> = {};
-              for (const col of arrowResult.arrowTable.schema.fields) {
-                row[col.name] = convertValue(arrowResult.arrowTable.getChild(col.name)?.get(i));
+              
+              // Convert Arrow table to standard result format
+              const convertValue = (value: any): any => {
+                if (typeof value === 'bigint') {
+                  return Number.isSafeInteger(Number(value)) ? Number(value) : value.toString();
+                }
+                return value;
+              };
+              
+              const columns = arrowResult.columns;
+              const rows: Record<string, any>[] = [];
+              for (let i = 0; i < arrowResult.arrowTable.numRows; i++) {
+                const row: Record<string, any> = {};
+                for (const col of arrowResult.arrowTable.schema.fields) {
+                  row[col.name] = convertValue(arrowResult.arrowTable.getChild(col.name)?.get(i));
+                }
+                rows.push(row);
               }
-              rows.push(row);
+              
+              result = {
+                columns,
+                rows,
+                row_count: arrowResult.rowCount,
+                query_sql: arrowResult.querySql,
+              };
             }
-            
-            result = {
-              columns,
-              rows,
-              row_count: arrowResult.rowCount,
-              query_sql: arrowResult.querySql,
-            };
           } else {
             // DuckDB not ready - use standard Arrow endpoint
             result = await apiService.executeQueryArrow(queryDesc, queryAbortControllerRef.current.signal);
@@ -191,6 +279,11 @@ export const useQueryExecution = ({
           console.warn('⚠️ Arrow transport failed, falling back to JSON:', arrowError.message);
           result = await apiService.executeQuery(queryDesc, queryAbortControllerRef.current.signal);
         }
+      }
+      
+      // Ensure result is defined before proceeding
+      if (!result) {
+        throw new Error('Query did not return a result');
       }
       
       logOperationTiming('Query', startTime, { rows: result.row_count });
@@ -459,5 +552,6 @@ export const useQueryExecution = ({
   return {
     queryDescription: currentQueryDescription,
     optimizationHints,
+    lastQueryDecision: lastQueryDecisionRef.current,
   };
 }; 

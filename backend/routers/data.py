@@ -139,6 +139,98 @@ def list_columns(
     
     return ColumnListResponse(columns=columns)
 
+@router.post("/row-count")
+def get_row_count(
+    request_data: Dict[str, Any] = Body(...),
+    connector: BaseConnector = Depends(get_active_connector),
+    conn_details: ConnectionDetails = Depends(get_connection_details)
+):
+    """
+    Get the total row count for a table with optional filters applied.
+    
+    This endpoint is used for probing dataset size to determine query strategy:
+    - Small datasets: Fetch raw columns for local caching
+    - Large datasets: Fetch pre-aggregated data
+    
+    Request body:
+        table: Table name
+        database: Database name (required for ClickHouse)
+        filters: Optional filter configurations to apply
+    
+    Returns:
+        {"count": <number>}
+    """
+    table = request_data.get('table')
+    database = request_data.get('database')
+    filters = request_data.get('filters', {})
+    
+    if not table:
+        raise InvalidInputError("Table name is required")
+    
+    ValidationService.require_database_for_clickhouse(database, conn_details, "counting rows")
+    
+    try:
+        # Build a simple COUNT(*) query
+        db_type = conn_details.type
+        if db_type == 'clickhouse':
+            quote_char = '`'
+        else:
+            quote_char = '"'
+        
+        # Basic COUNT(*) query
+        if database:
+            sql_query = f"SELECT COUNT(*) as cnt FROM {quote_char}{database}{quote_char}.{quote_char}{table}{quote_char}"
+        else:
+            sql_query = f"SELECT COUNT(*) as cnt FROM {quote_char}{table}{quote_char}"
+        
+        # Apply filters if provided (simplified version)
+        if filters:
+            conditions = []
+            for key, config in filters.items():
+                column_name = config.get('columnName', key)
+                filter_type = config.get('type')
+                
+                if filter_type == 'discrete':
+                    selected_values = config.get('selectedValues', [])
+                    if selected_values:
+                        quoted_values = [f"'{v}'" if isinstance(v, str) else str(v) for v in selected_values]
+                        conditions.append(f"{quote_char}{column_name}{quote_char} IN ({', '.join(quoted_values)})")
+                
+                elif filter_type in ('continuous', 'range'):
+                    min_val = config.get('minValue') or config.get('min')
+                    max_val = config.get('maxValue') or config.get('max')
+                    if min_val is not None and max_val is not None:
+                        conditions.append(f"{quote_char}{column_name}{quote_char} BETWEEN {min_val} AND {max_val}")
+                    elif min_val is not None:
+                        conditions.append(f"{quote_char}{column_name}{quote_char} >= {min_val}")
+                    elif max_val is not None:
+                        conditions.append(f"{quote_char}{column_name}{quote_char} <= {max_val}")
+            
+            if conditions:
+                sql_query += " WHERE " + " AND ".join(conditions)
+        
+        logger.info(f"Row count query: {sql_query}")
+        
+        columns, rows = connector.fetch_data(sql_query)
+        
+        if rows and len(rows) > 0:
+            count = rows[0].get('cnt', rows[0].get('count', 0))
+            # Handle various return types
+            if isinstance(count, (int, float)):
+                count = int(count)
+            else:
+                count = int(count) if count else 0
+        else:
+            count = 0
+        
+        logger.info(f"Row count for {database}.{table}: {count:,}")
+        return {"count": count}
+        
+    except Exception as e:
+        logger.exception(f"Error counting rows in {database}.{table}")
+        raise QueryExecutionError(f"Failed to count rows: {e}")
+
+
 @router.post("/distinct-count")
 def get_distinct_count(
     request_data: Dict[str, Any] = Body(...),
