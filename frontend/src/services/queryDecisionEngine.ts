@@ -9,11 +9,14 @@
  * Implements hybrid aggregation approach:
  * - Small datasets (< threshold): Fetch raw columns, aggregate locally
  * - Large datasets (> threshold): Fetch pre-aggregated from backend
+ *
+ * Note: "raw_columns" currently still executes the normal backend chart query.
+ * True "fetch only missing columns and merge into cache" is a follow-up.
  */
 
 import { apiService } from '../apiService';
 import { columnCacheManager } from './columnCacheManager';
-import { filterTierManager, FilterTier } from './filterTierManager';
+import { filterTierManager } from './filterTierManager';
 
 // Default threshold: 500,000 rows
 const DEFAULT_SIZE_THRESHOLD = 500_000;
@@ -52,6 +55,9 @@ export interface QueryDecisionInput {
   requiresAggregation: boolean;
   // Optional: dimensions for aggregation (used when deciding pre-aggregation)
   dimensions?: string[];
+  // Optional: virtual table/columns context (needed for correct row-count probing)
+  virtualTable?: any;
+  virtualColumns?: any[];
   // Optional: override the size threshold
   sizeThreshold?: number;
 }
@@ -87,25 +93,27 @@ class QueryDecisionEngine {
       filterConfigurations,
       requiresAggregation,
       dimensions = [],
+      virtualTable,
+      virtualColumns,
       sizeThreshold = this.sizeThreshold,
     } = input;
     
     // Step 1: Determine filter tier state
-    const baseFilterHash = filterTierManager.getBaseFilterHash();
+    const baseFilterHash = filterTierManager.getBaseFilterHash(sourceTable, sourceDatabase);
     const refinementFilters = filterTierManager.getRefinementFilters(filterConfigurations);
-    const hasBaseFilterChanged = filterTierManager.hasBaseFilterChanged(filterConfigurations);
+    const hasBaseFilterChanged = filterTierManager.hasBaseFilterChanged(filterConfigurations, sourceTable, sourceDatabase);
     
     // Step 2: Check if base filters changed - forces backend query
     if (hasBaseFilterChanged) {
       // Clear column cache for this table (base filter changed)
       await columnCacheManager.invalidateForTable(sourceTable, sourceDatabase);
-      filterTierManager.updateBaseFilters(filterConfigurations);
+      filterTierManager.updateBaseFilters(filterConfigurations, sourceTable, sourceDatabase);
       
       return {
         strategy: 'raw_columns',
         columnsToFetch: requiredColumns,
         requiresBackendQuery: true,
-        baseFilterHash: filterTierManager.getBaseFilterHash(),
+        baseFilterHash: filterTierManager.getBaseFilterHash(sourceTable, sourceDatabase),
         refinementFilters,
         reason: 'Base filter changed - cache invalidated',
       };
@@ -134,7 +142,7 @@ class QueryDecisionEngine {
     
     // Step 4: Need to fetch missing columns - determine strategy
     // Probe row count to decide raw vs aggregated
-    const rowCount = await this.probeRowCount(sourceTable, sourceDatabase, filterConfigurations);
+    const rowCount = await this.probeRowCount(sourceTable, sourceDatabase, filterConfigurations, virtualTable, virtualColumns);
     
     // Step 5: Decide strategy based on size
     if (rowCount <= sizeThreshold) {
@@ -183,12 +191,13 @@ class QueryDecisionEngine {
   private async probeRowCount(
     sourceTable: string,
     sourceDatabase?: string,
-    filterConfigurations?: Record<string, any>
+    filterConfigurations?: Record<string, any>,
+    virtualTable?: any,
+    virtualColumns?: any[]
   ): Promise<number> {
     // Create cache key
-    const filterHash = filterTierManager.hashFilters(
-      filterTierManager.getBaseFiltersOnly(filterConfigurations || {})
-    );
+    const baseFiltersOnly = filterTierManager.getBaseFiltersOnly(filterConfigurations || {});
+    const filterHash = filterTierManager.hashFilters(baseFiltersOnly);
     const cacheKey = `${sourceDatabase || ''}_${sourceTable}_${filterHash}`;
     
     // Check cache
@@ -200,7 +209,13 @@ class QueryDecisionEngine {
     
     try {
       // Call backend count endpoint
-      const count = await apiService.getRowCount(sourceTable, sourceDatabase, filterConfigurations);
+      const count = await apiService.getRowCount(
+        sourceTable,
+        sourceDatabase,
+        baseFiltersOnly,
+        virtualColumns,
+        virtualTable
+      );
       
       // Cache the result
       this.rowCountCache.set(cacheKey, { count, timestamp: Date.now() });
