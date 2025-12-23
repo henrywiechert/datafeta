@@ -19,7 +19,7 @@ function computeScatterBudget(clean: any[], colorField?: Field): ScatterResultBu
   const hasDiscreteColor = !!colorField && colorField.flavour === 'discrete';
   // Heuristic: Observable Plot struggles earlier when there is discrete color (multiple series).
   // Keep this conservative; backend/local reduction should normally keep us under this anyway.
-  const maxPoints = hasDiscreteColor ? 50_000 : 100_000;
+  const maxPoints = hasDiscreteColor ? 20_000 : 100_000;
   const minPerStratum = hasDiscreteColor ? 200 : 0;
   const stratifyBy = hasDiscreteColor && colorField ? getResultColumnName(colorField) : undefined;
   return { maxPoints, stratifyBy, minPerStratum };

@@ -7,6 +7,172 @@ import { createSizeScale } from '../utils/sizeUtils';
 import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 
+type LineBudget = {
+  maxPoints: number;
+  // Prefer allocating a minimum per series when there is discrete color (multiple lines).
+  minPerSeries: number;
+  // Dot marks are much heavier than a single path; cap dots separately to avoid stack overflows.
+  maxDots: number;
+};
+
+function computeLineBudget(hasDiscreteColor: boolean): LineBudget {
+  // Lines (and dots) can stack overflow when we render hundreds of thousands of points.
+  // Keep this conservative; the goal is visual fidelity, not exact point-for-point rendering.
+  return {
+    // Keep line points under a conservative cap; dots are capped separately (see maxDots).
+    maxPoints: hasDiscreteColor ? 10_000 : 30_000,
+    minPerSeries: hasDiscreteColor ? 200 : 0,
+    maxDots: hasDiscreteColor ? 5_000 : 10_000,
+  };
+}
+
+type XKind = 'time' | 'number' | 'other';
+
+function inferXKind(sampleValues: any[]): XKind {
+  for (const v of sampleValues) {
+    if (v instanceof Date) return 'time';
+    if (typeof v === 'number' && Number.isFinite(v)) return 'number';
+    if (typeof v === 'string') {
+      const t = v.trim();
+      if (!t) continue;
+      // If it's a pure number string, treat as numeric.
+      if (/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(t)) return 'number';
+      const ts = Date.parse(t);
+      if (!Number.isNaN(ts)) return 'time';
+    }
+  }
+  return 'other';
+}
+
+function toXNumber(v: any, kind: XKind): number | null {
+  if (kind === 'time') {
+    if (v instanceof Date) return v.getTime();
+    if (typeof v === 'string') {
+      const ts = Date.parse(v);
+      return Number.isNaN(ts) ? null : ts;
+    }
+    return null;
+  }
+  if (kind === 'number') {
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    if (typeof v === 'string') {
+      const num = Number.parseFloat(v);
+      return Number.isFinite(num) ? num : null;
+    }
+    if (v instanceof Date) return v.getTime();
+    return null;
+  }
+  // other: try best-effort numeric conversion, else null
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === 'string') {
+    const ts = Date.parse(v);
+    if (!Number.isNaN(ts)) return ts;
+    const num = Number.parseFloat(v);
+    if (Number.isFinite(num)) return num;
+  }
+  return null;
+}
+
+/**
+ * Bin-aggregate a line series so we end up with ~one point per x "position".
+ * This makes line charts readable (unlike scatter) and avoids vertical hairballs when x has many distinct values.
+ *
+ * For now we keep it simple: average Y per bin. (Min/max envelope is a follow-up.)
+ */
+function binAggregateLine(
+  rowsSorted: any[],
+  xColumn: string,
+  yColumn: string,
+  opts: {
+    maxBins: number;
+    xKind: XKind;
+  }
+): any[] {
+  const n = rowsSorted.length;
+  const { maxBins, xKind } = opts;
+  if (n <= maxBins || maxBins <= 0) return rowsSorted;
+
+  // Build numeric x values and global span
+  let minX = Infinity;
+  let maxX = -Infinity;
+  const xs: Array<number | null> = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const xNum = toXNumber(rowsSorted[i]?.[xColumn], xKind);
+    xs[i] = xNum;
+    if (xNum == null) continue;
+    if (xNum < minX) minX = xNum;
+    if (xNum > maxX) maxX = xNum;
+  }
+  if (minX === Infinity || maxX === -Infinity) {
+    // Fallback: uniform stride sample
+    const stride = Math.ceil(n / maxBins);
+    const out: any[] = [];
+    for (let i = 0; i < n; i += stride) out.push(rowsSorted[i]);
+    if (out[out.length - 1] !== rowsSorted[n - 1]) out.push(rowsSorted[n - 1]);
+    return out;
+  }
+
+  const span = maxX - minX;
+  if (span === 0) {
+    // All x identical -> just average y into a single point.
+    let sumY = 0;
+    let cnt = 0;
+    for (const r of rowsSorted) {
+      const y = r?.[yColumn];
+      if (typeof y === 'number' && Number.isFinite(y)) {
+        sumY += y;
+        cnt++;
+      }
+    }
+    const yAvg = cnt ? sumY / cnt : 0;
+    const xVal = xKind === 'time' ? new Date(minX) : minX;
+    return [{ ...rowsSorted[0], [xColumn]: xVal, [yColumn]: yAvg }];
+  }
+
+  const bins = Math.min(maxBins, n);
+  const binWidth = span / bins;
+
+  type Acc = { sumX: number; sumY: number; cnt: number };
+  const accs: Acc[] = Array.from({ length: bins }, () => ({ sumX: 0, sumY: 0, cnt: 0 }));
+
+  for (let i = 0; i < n; i++) {
+    const xNum = xs[i];
+    const y = rowsSorted[i]?.[yColumn];
+    if (xNum == null) continue;
+    if (typeof y !== 'number' || !Number.isFinite(y)) continue;
+    let b = Math.floor((xNum - minX) / binWidth);
+    if (b < 0) b = 0;
+    if (b >= bins) b = bins - 1;
+    const a = accs[b];
+    a.sumX += xNum;
+    a.sumY += y;
+    a.cnt += 1;
+  }
+
+  const out: any[] = [];
+  for (let b = 0; b < bins; b++) {
+    const a = accs[b];
+    if (a.cnt === 0) continue;
+    const xAvg = a.sumX / a.cnt;
+    const yAvg = a.sumY / a.cnt;
+    const xVal = xKind === 'time' ? new Date(xAvg) : xAvg;
+    out.push({ ...rowsSorted[0], [xColumn]: xVal, [yColumn]: yAvg });
+  }
+
+  return out;
+}
+
+function sampleEvery<T>(arr: T[], maxCount: number): T[] {
+  if (arr.length <= maxCount) return arr;
+  const stride = Math.ceil(arr.length / maxCount);
+  const out: T[] = [];
+  for (let i = 0; i < arr.length; i += stride) out.push(arr[i]);
+  // ensure last point present (helps hover at end)
+  if (out[out.length - 1] !== arr[arr.length - 1]) out.push(arr[arr.length - 1]);
+  return out;
+}
+
 /**
  * Line chart for continuous dimension on one axis and continuous measure on the other.
  * xColumn/yColumn are data column names in the query result to use.
@@ -64,6 +230,58 @@ export function lineChart(
     return (ax as number) - (bx as number);
   });
 
+  // ---- Auto bin-aggregation (line-specific) --------------------------------
+  // Line charts should read left-to-right with ~one point per x position.
+  // For dense x domains, bin + average reduces clutter and removes near-vertical hairballs.
+  const _ = colorField ? deriveColorScaleInfo(cleanSorted, colorField, colorScheme, colorBias) : null;
+  const hasDiscreteColor = !!colorField && colorField.flavour === 'discrete';
+  const budget = computeLineBudget(hasDiscreteColor);
+  const xKind: XKind = inferXKind(cleanSorted.slice(0, 25).map(r => r?.[xColumn]));
+  const colorColumnNamePre = colorField ? getResultColumnName(colorField) : undefined;
+
+  // Heuristic bin count: align with our previous safety budgets.
+  const maxBins = budget.maxPoints;
+  let budgetedSorted = cleanSorted;
+  if (cleanSorted.length > maxBins) {
+    if (hasDiscreteColor && colorColumnNamePre) {
+      const groups = new Map<any, any[]>();
+      for (const r of cleanSorted) {
+        const k = r?.[colorColumnNamePre];
+        const arr = groups.get(k) || [];
+        arr.push(r);
+        groups.set(k, arr);
+      }
+      const reduced: any[] = [];
+      for (const [_k, arr] of Array.from(groups.entries())) {
+        const arrSorted = arr.slice().sort((a, b) => {
+          const ax = toComparable(a[xColumn]);
+          const bx = toComparable(b[xColumn]);
+          if (ax == null && bx == null) return 0;
+          if (ax == null) return 1;
+          if (bx == null) return -1;
+          if (typeof ax === 'string' || typeof bx === 'string') return String(ax).localeCompare(String(bx));
+          return (ax as number) - (bx as number);
+        });
+        reduced.push(...binAggregateLine(arrSorted, xColumn, yColumn, { maxBins, xKind }));
+      }
+      budgetedSorted = reduced.slice().sort((a, b) => {
+        const ax = toComparable(a[xColumn]);
+        const bx = toComparable(b[xColumn]);
+        if (ax == null && bx == null) return 0;
+        if (ax == null) return 1;
+        if (bx == null) return -1;
+        if (typeof ax === 'string' || typeof bx === 'string') return String(ax).localeCompare(String(bx));
+        return (ax as number) - (bx as number);
+      });
+    } else {
+      budgetedSorted = binAggregateLine(cleanSorted, xColumn, yColumn, { maxBins, xKind });
+    }
+    console.warn(`⚠️ Line bin-aggregate applied: ${cleanSorted.length} → ${budgetedSorted.length} points (xKind=${xKind})`);
+  }
+
+  // Dots are expensive at scale; keep the line at budgetedSorted, but cap dot density separately.
+  const dotData = sampleEvery(budgetedSorted, budget.maxDots);
+
   const xLabel = labels?.x || xColumn;
   const yLabel = labels?.y || yColumn;
   const lineConfig: any = { x: xColumn, y: yColumn };
@@ -76,7 +294,7 @@ export function lineChart(
       [yLabel]: { value: yColumn, label: yLabel }
     }
   };
-  const colorInfo = colorField ? deriveColorScaleInfo(cleanSorted, colorField, colorScheme, colorBias) : null;
+  const colorInfo = colorField ? deriveColorScaleInfo(budgetedSorted, colorField, colorScheme, colorBias) : null;
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
 
   if (colorField && colorInfo) {
@@ -124,7 +342,7 @@ export function lineChart(
 
   // Apply size configuration for line width
   if (sizeField && sizeRange) {
-    const sizeScale = createSizeScale(cleanSorted, sizeField, sizeRange, manualSize || 2);
+    const sizeScale = createSizeScale(budgetedSorted, sizeField, sizeRange, manualSize || 2);
     const sizeColumnName = getResultColumnName(sizeField);
     lineConfig.strokeWidth = (d: any) => sizeScale.getSizeForValue(d[sizeColumnName]);
     dotConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
@@ -149,15 +367,15 @@ export function lineChart(
     x: { label: labels?.x || xColumn, domainKey: xColumn, grid: true, domain: domain?.x } as any,
     y: { label: labels?.y || yColumn, domainKey: yColumn, grid: true, domain: domain?.y } as any,
     marks: [
-      Plot.line(cleanSorted, lineConfig),
-      Plot.dot(cleanSorted, dotConfig),
-      Plot.dot(cleanSorted, hoverDotConfig), // Invisible larger dots for easier hovering
+      Plot.line(budgetedSorted, lineConfig),
+      Plot.dot(dotData, dotConfig),
+      Plot.dot(dotData, hoverDotConfig), // Invisible larger dots for easier hovering
     ],
   };
 
   if (labelCfg) {
     const labelConfig: LabelRenderConfig = {
-      data: cleanSorted,
+      data: budgetedSorted,
       xColumn,
       yColumn,
       labelFields: labelCfg.labelFields,
@@ -196,7 +414,7 @@ export function lineChart(
   // Add custom tooltip configuration (color is read directly from DOM)
   (plotOptions as any).__customTooltip = {
     enabled: true,
-    data: cleanSorted,
+    data: budgetedSorted,
     getFields: createTooltipFieldsGetter(
       [
         { label: xLabel, column: xColumn },
@@ -264,6 +482,55 @@ export function verticalLineChart(
     return (ay as number) - (by as number);
   });
 
+  // ---- Auto bin-aggregation (line-specific) --------------------------------
+  const __ = colorField ? deriveColorScaleInfo(cleanSorted, colorField, colorScheme, colorBias) : null;
+  const hasDiscreteColor = !!colorField && colorField.flavour === 'discrete';
+  const budget = computeLineBudget(hasDiscreteColor);
+  const yKind: XKind = inferXKind(cleanSorted.slice(0, 25).map(r => r?.[yColumn]));
+  const colorColumnNamePre = colorField ? getResultColumnName(colorField) : undefined;
+
+  const maxBins = budget.maxPoints;
+  let budgetedSorted = cleanSorted;
+  if (cleanSorted.length > maxBins) {
+    if (hasDiscreteColor && colorColumnNamePre) {
+      const groups = new Map<any, any[]>();
+      for (const r of cleanSorted) {
+        const k = r?.[colorColumnNamePre];
+        const arr = groups.get(k) || [];
+        arr.push(r);
+        groups.set(k, arr);
+      }
+      const reduced: any[] = [];
+      for (const [_k, arr] of Array.from(groups.entries())) {
+        const arrSorted = arr.slice().sort((a, b) => {
+          const ay = toComparable(a[yColumn]);
+          const by = toComparable(b[yColumn]);
+          if (ay == null && by == null) return 0;
+          if (ay == null) return 1;
+          if (by == null) return -1;
+          if (typeof ay === 'string' || typeof by === 'string') return String(ay).localeCompare(String(by));
+          return (ay as number) - (by as number);
+        });
+        // Here yColumn is the ordered axis; aggregate measure (xColumn) per y-bin.
+        reduced.push(...binAggregateLine(arrSorted, yColumn, xColumn, { maxBins, xKind: yKind }));
+      }
+      budgetedSorted = reduced.slice().sort((a, b) => {
+        const ay = toComparable(a[yColumn]);
+        const by = toComparable(b[yColumn]);
+        if (ay == null && by == null) return 0;
+        if (ay == null) return 1;
+        if (by == null) return -1;
+        if (typeof ay === 'string' || typeof by === 'string') return String(ay).localeCompare(String(by));
+        return (ay as number) - (by as number);
+      });
+    } else {
+      budgetedSorted = binAggregateLine(cleanSorted, yColumn, xColumn, { maxBins, xKind: yKind });
+    }
+    console.warn(`⚠️ Vertical line bin-aggregate applied: ${cleanSorted.length} → ${budgetedSorted.length} points (yKind=${yKind})`);
+  }
+
+  const dotData = sampleEvery(budgetedSorted, budget.maxDots);
+
   const xLabel2 = labels?.x || xColumn;
   const yLabel2 = labels?.y || yColumn;
   const lineConfig: any = { x: xColumn, y: yColumn };
@@ -277,7 +544,7 @@ export function verticalLineChart(
     }
   };
   
-  const colorInfo = colorField ? deriveColorScaleInfo(cleanSorted, colorField, colorScheme, colorBias) : null;
+  const colorInfo = colorField ? deriveColorScaleInfo(budgetedSorted, colorField, colorScheme, colorBias) : null;
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
 
   if (colorField && colorInfo) {
@@ -323,7 +590,7 @@ export function verticalLineChart(
 
   // Apply size configuration for line width
   if (sizeField && sizeRange) {
-    const sizeScale = createSizeScale(cleanSorted, sizeField, sizeRange, manualSize || 2);
+    const sizeScale = createSizeScale(budgetedSorted, sizeField, sizeRange, manualSize || 2);
     const sizeColumnName = getResultColumnName(sizeField);
     lineConfig.strokeWidth = (d: any) => sizeScale.getSizeForValue(d[sizeColumnName]);
   } else {
@@ -347,15 +614,15 @@ export function verticalLineChart(
     x: { label: labels?.x || xColumn, domainKey: xColumn, grid: true, domain: domain?.x } as any,
     y: { label: labels?.y || yColumn, domainKey: yColumn, grid: true, domain: domain?.y } as any,
     marks: [
-      Plot.line(cleanSorted, lineConfig),
-      Plot.dot(cleanSorted, dotConfig),
-      Plot.dot(cleanSorted, hoverDotConfig), // Invisible larger dots for easier hovering
+      Plot.line(budgetedSorted, lineConfig),
+      Plot.dot(dotData, dotConfig),
+      Plot.dot(dotData, hoverDotConfig), // Invisible larger dots for easier hovering
     ],
   };
 
   if (labelCfg) {
     const labelConfig: LabelRenderConfig = {
-      data: cleanSorted,
+      data: budgetedSorted,
       xColumn,
       yColumn,
       labelFields: labelCfg.labelFields,
@@ -394,7 +661,7 @@ export function verticalLineChart(
   // Add custom tooltip configuration (color is read directly from DOM)
   (plotOptions as any).__customTooltip = {
     enabled: true,
-    data: cleanSorted,
+    data: budgetedSorted,
     getFields: createTooltipFieldsGetter(
       [
         { label: xLabel2, column: xColumn },

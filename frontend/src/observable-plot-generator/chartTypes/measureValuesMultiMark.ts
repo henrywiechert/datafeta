@@ -100,6 +100,72 @@ function createMarksForType(
   orientation: 'vertical' | 'horizontal',
   tooltipChannels?: Record<string, any>
 ): Plot.Markish[] {
+  // ---- Reduction helpers (safety) ------------------------------------------
+  // MeasureValues plots can accidentally try to render 100k+ points per mark layer.
+  // Observable Plot can stack overflow in those cases. We apply a lightweight reduction for line marks.
+  const toComparable = (v: any): number | string | null => {
+    if (v instanceof Date) return v.getTime();
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    if (typeof v === 'string') {
+      const num = Number.parseFloat(v);
+      if (Number.isFinite(num)) return num;
+      const ts = Date.parse(v);
+      if (!Number.isNaN(ts)) return ts;
+      return v;
+    }
+    return null;
+  };
+
+  const sampleEvery = <T,>(arr: T[], maxCount: number): T[] => {
+    if (arr.length <= maxCount) return arr;
+    const stride = Math.ceil(arr.length / maxCount);
+    const out: T[] = [];
+    for (let i = 0; i < arr.length; i += stride) out.push(arr[i]);
+    if (out[out.length - 1] !== arr[arr.length - 1]) out.push(arr[arr.length - 1]);
+    return out;
+  };
+
+  // M4-ish reduction: preserve first/last and per-bucket min/max in Y; good spike retention.
+  const reduceLine = (rows: any[], maxPoints: number): any[] => {
+    if (rows.length <= maxPoints) return rows;
+    const sorted = rows.slice().sort((a, b) => {
+      const ax = toComparable(a[xColumn]);
+      const bx = toComparable(b[xColumn]);
+      if (ax == null && bx == null) return 0;
+      if (ax == null) return 1;
+      if (bx == null) return -1;
+      if (typeof ax === 'string' || typeof bx === 'string') return String(ax).localeCompare(String(bx));
+      return (ax as number) - (bx as number);
+    });
+    const n = sorted.length;
+    const keep = new Set<number>();
+    keep.add(0);
+    keep.add(n - 1);
+    // Buckets contribute up to 2 points each.
+    const bucketCount = Math.max(1, Math.floor((maxPoints - keep.size) / 2));
+    const bucketSize = n / bucketCount;
+    for (let b = 0; b < bucketCount; b++) {
+      const start = Math.floor(b * bucketSize);
+      const end = Math.min(n, Math.floor((b + 1) * bucketSize));
+      if (end <= start) continue;
+      let bMin = Infinity, bMax = -Infinity, iMin = start, iMax = start;
+      for (let i = start; i < end; i++) {
+        const y = sorted[i]?.[yColumn];
+        if (typeof y !== 'number' || !Number.isFinite(y)) continue;
+        if (y < bMin) { bMin = y; iMin = i; }
+        if (y > bMax) { bMax = y; iMax = i; }
+      }
+      keep.add(iMin);
+      keep.add(iMax);
+    }
+    const idx = Array.from(keep).sort((i, j) => i - j);
+    const picked = idx.map(i => sorted[i]);
+    return picked.length > maxPoints ? sampleEvery(picked, maxPoints) : picked;
+  };
+
+  const LINE_MAX_POINTS = 10_000;
+  const DOT_MAX_POINTS = 8_000;
+
   // Common options (no tip - we use custom tooltips)
   const baseOptions: any = {
     x: xColumn,
@@ -113,6 +179,10 @@ function createMarksForType(
 
   switch (chartType) {
     case 'line': {
+      // Reduce points for line safety; cap dots even further.
+      const lineData = reduceLine(filteredData, LINE_MAX_POINTS);
+      const dotData = sampleEvery(lineData, DOT_MAX_POINTS);
+
       // Line chart with visible dots
       // Using static color values (not column references) ensures independent strokeWidth per mark
       const lineConfig: any = {
@@ -136,9 +206,9 @@ function createMarksForType(
         strokeWidth: 0,
       };
       return [
-        Plot.line(filteredData, lineConfig),
-        Plot.dot(filteredData, dotConfig),
-        Plot.dot(filteredData, hoverDotConfig),
+        Plot.line(lineData, lineConfig),
+        Plot.dot(dotData, dotConfig),
+        Plot.dot(dotData, hoverDotConfig),
       ];
     }
 

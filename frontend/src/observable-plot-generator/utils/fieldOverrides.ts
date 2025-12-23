@@ -74,16 +74,23 @@ export function computeOverrideTargets(
     return yContinuous.map((f) => ({ fieldId: f.id, axis: 'y', field: f }));
   }
 
-  // Case 2/3: continuous on both axes and more than 2 in total
-  if (xCount > 0 && yCount > 0 && total > 2) {
+  // Case 2/3: continuous on both axes.
+  // If total > 2: pick axis with more continuous fields.
+  // If counts are equal (including total === 2): prefer X-axis.
+  if (xCount > 0 && yCount > 0) {
+    // Same number on both axes → prefer X-axis (covers the common 1x1 continuous case).
+    if (xCount === yCount) {
+      return xContinuous.map((f) => ({ fieldId: f.id, axis: 'x', field: f }));
+    }
+    // Only apply "pick the larger axis" when we have more than 2 continuous fields in total.
+    if (total > 2) {
     if (xCount > yCount) {
       return xContinuous.map((f) => ({ fieldId: f.id, axis: 'x', field: f }));
     }
     if (yCount > xCount) {
       return yContinuous.map((f) => ({ fieldId: f.id, axis: 'y', field: f }));
     }
-    // Same number on both axes → prefer X-axis
-    return xContinuous.map((f) => ({ fieldId: f.id, axis: 'x', field: f }));
+    }
   }
 
   // Fallback: do not expose overrides if none of the above rules matched
