@@ -136,6 +136,9 @@ export const apiService = {
         if (database) {
             url.searchParams.append('database', database);
         }
+        if (process.env.NODE_ENV !== 'production') {
+            console.debug('[apiService] listTables', { database, url: url.toString() });
+        }
         
         const response = await fetchWithErrorHandling(url.toString(), {}, signal);
         return response.json();

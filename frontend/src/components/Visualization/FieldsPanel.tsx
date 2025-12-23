@@ -237,11 +237,18 @@ export default React.memo(FieldsPanel, (prevProps, nextProps) => {
   return (
     prevProps.availableFields === nextProps.availableFields &&
     prevProps.fieldsSearch === nextProps.fieldsSearch &&
+    prevProps.connectionType === nextProps.connectionType &&
     prevProps.selectedDatabase === nextProps.selectedDatabase &&
     prevProps.selectedTable === nextProps.selectedTable &&
     prevProps.databases === nextProps.databases &&
     prevProps.tables === nextProps.tables &&
     prevProps.isLoadingMetadata === nextProps.isLoadingMetadata &&
+    prevProps.metadataError === nextProps.metadataError &&
+    // Multi-table props must trigger rerender so JOIN/UNION UIs update correctly
+    prevProps.suggestedJoinableTables === nextProps.suggestedJoinableTables &&
+    prevProps.joinedTables === nextProps.joinedTables &&
+    prevProps.unionTables === nextProps.unionTables &&
+    prevProps.tablesCache === nextProps.tablesCache &&
     prevProps.virtualColumns === nextProps.virtualColumns
     // Callbacks NOT compared - they are now stable (see useDragDrop.ts, useFieldOperations.ts)
   );

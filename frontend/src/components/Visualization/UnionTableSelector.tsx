@@ -53,8 +53,10 @@ const UnionTableSelector: React.FC<UnionTableSelectorProps> = ({
     setSelectedDatabase(database);
     setSelectedTable('');
     // Load tables for this database if callback provided
-    if (onLoadTables && !allTables[database]) {
-      onLoadTables(database);
+    if (onLoadTables) {
+      const cached = allTables[database];
+      // If not loaded yet (undefined) or previously loaded as empty, try loading.
+      if (!cached || cached.length === 0) onLoadTables(database);
     }
   };
 
@@ -68,6 +70,9 @@ const UnionTableSelector: React.FC<UnionTableSelectorProps> = ({
   const handleRemoveTable = (database: string, tableName: string) => {
     onRemoveUnionTable(database, tableName);
   };
+
+  const isLoadingTables =
+    !!selectedDatabase && !!onLoadTables && allTables[selectedDatabase] === undefined;
 
   const availableTables = selectedDatabase ? (allTables[selectedDatabase] || []) : [];
   
@@ -120,6 +125,16 @@ const UnionTableSelector: React.FC<UnionTableSelectorProps> = ({
               onChange={(e) => setSelectedTable(e.target.value)}
               label="Table"
             >
+              {isLoadingTables && (
+                <MenuItem value="" disabled>
+                  Loading…
+                </MenuItem>
+              )}
+              {!isLoadingTables && selectedDatabase && filteredTables.length === 0 && (
+                <MenuItem value="" disabled>
+                  No tables
+                </MenuItem>
+              )}
               {filteredTables.map((table) => (
                 <MenuItem key={table.name} value={table.name}>
                   {table.name}

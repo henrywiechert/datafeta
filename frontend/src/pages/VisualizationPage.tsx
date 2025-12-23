@@ -173,7 +173,13 @@ const VisualizationPageContent = () => {
         unionTables,
         tablesCache
     } = dataSourceContext.dataSource;
-    const { toggleJoinedTable: toggleJoinedTableBase, addUnionTable: addUnionTableBase, removeUnionTable: removeUnionTableBase, setTablesForDatabase } = dataSourceContext;
+    const {
+        toggleJoinedTable: toggleJoinedTableBase,
+        addUnionTable: addUnionTableBase,
+        removeUnionTable: removeUnionTableBase,
+        setTablesForDatabase,
+        setMetadataError,
+    } = dataSourceContext;
     const { state: sheetState } = useSheetContext();
     
     // Wrap joined table toggle
@@ -196,15 +202,33 @@ const VisualizationPageContent = () => {
     
     // Handler to load tables for a specific database (for cross-database union)
     const handleLoadTablesForDatabase = React.useCallback(async (database: string) => {
-        if (!database || tablesCache[database]) return; // Skip if already loaded
+        if (!database) return;
+        // Skip only if we already have a non-empty table list cached.
+        // Note: `[]` is truthy, so a plain truthiness check incorrectly prevents loading.
+        const cached = tablesCache[database];
+        if (Array.isArray(cached) && cached.length > 0) return;
         
         try {
+            if (process.env.NODE_ENV !== 'production') {
+                console.debug('[UNION] load tables for database', { database, cached });
+            }
+            setMetadataError(null);
             const response = await apiService.listTables(database);
-            setTablesForDatabase(database, response.tables);
+            if (process.env.NODE_ENV !== 'production') {
+                console.debug('[UNION] loaded tables', { database, count: response.tables?.length ?? 0 });
+            }
+            setTablesForDatabase(database, response.tables || []);
         } catch (err) {
             console.error(`Failed to load tables for database ${database}:`, err);
+            // Mark as "loaded" (empty) so UI doesn't get stuck on "Loading…"
+            setTablesForDatabase(database, []);
+            const message =
+                err instanceof Error
+                    ? err.message
+                    : `Failed to load tables for database ${database}`;
+            setMetadataError(message);
         }
-    }, [tablesCache, setTablesForDatabase]);
+    }, [tablesCache, setTablesForDatabase, setMetadataError]);
 
     // Clear undo history when switching sheets
     React.useEffect(() => {
