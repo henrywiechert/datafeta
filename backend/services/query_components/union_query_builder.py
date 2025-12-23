@@ -305,21 +305,28 @@ class UnionQueryBuilder:
                     expr = existing_expressions[field_key]
                     select_items.append(f"{expr} AS {quote_char}{field_key}{quote_char}")
                 else:
-                    # Fallback: use raw field
-                    select_items.append(f"{quote_char}{dim.field}{quote_char} AS {quote_char}{field_key}{quote_char}")
+                    # Fallback: select the (already-aliased) output column name.
+                    # This is critical for derived dimension aliases like datetime parts:
+                    # e.g. dim.field="utc" but field_key="utc_second_timeline". In optimized/budget-wrapped SQL,
+                    # the top-level FROM may not expose the raw base field ("utc"), but it does expose the alias.
+                    select_items.append(f"{quote_char}{field_key}{quote_char} AS {quote_char}{field_key}{quote_char}")
             else:
                 # Field missing - NULL
                 select_items.append(self._build_null_column(field_key, False, db_type, quote_char))
         
         # Add measures in order
         for field_key, measure in all_measure_fields:
-            if not table_columns or measure.field in table_columns:
+            # COUNT(*) is valid for any table; it does not require a physical column named "*".
+            is_star_count = measure.aggregation == "count" and measure.field == "*"
+            if not table_columns or measure.field in table_columns or is_star_count:
                 # Field exists - use expression from generated SQL
                 if field_key in existing_expressions:
                     expr = existing_expressions[field_key]
                 else:
-                    # Fallback: build aggregation manually
-                    expr = f"{measure.aggregation.upper()}({quote_char}{measure.field}{quote_char})"
+                    # Fallback: select the (already-aliased) output column name.
+                    # The single-table SQL is expected to have produced a column with this alias,
+                    # even if it is nested inside sampling/budget wrappers.
+                    expr = f"{quote_char}{field_key}{quote_char}"
                 
                 # Add type cast for ClickHouse
                 if db_type == 'clickhouse':
@@ -494,7 +501,9 @@ class UnionQueryBuilder:
             existing_measures = []
             missing_measure_keys = []
             for field_key, measure in all_measure_fields:
-                if not table_columns or measure.field in table_columns:
+                # COUNT(*) is valid for any table; it does not require a column named "*".
+                is_star_count = measure.aggregation == "count" and measure.field == "*"
+                if not table_columns or measure.field in table_columns or is_star_count:
                     existing_measures.append(measure)
                 else:
                     missing_measure_keys.append((field_key, measure))
@@ -553,6 +562,14 @@ class UnionQueryBuilder:
                 union_queries.append(f"({modified_sql})")
             else:
                 union_queries.append(f"({single_sql})")
+
+        # If every table was skipped (e.g. schema mismatch), return a safe empty result
+        # instead of generating invalid SQL like `FROM (\n\n) AS union_result`.
+        if not union_queries:
+            if all_measure_fields:
+                parts = [f"0 AS {quote_char}{field_key}{quote_char}" for field_key, _m in all_measure_fields]
+                return f"SELECT {', '.join(parts)}", []
+            return "SELECT 1 WHERE 1=0", []
 
         union_sql = "\nUNION ALL\n".join(union_queries)
 
