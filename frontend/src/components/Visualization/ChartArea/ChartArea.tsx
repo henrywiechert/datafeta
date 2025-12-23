@@ -56,7 +56,6 @@ const ChartArea: React.FC = () => {
         fields.push(override.colorField);
       }
     });
-    console.log('[ChartArea] additionalColorFields:', fields.map((f: any) => f.columnName));
     return fields;
   }, [fieldOverrides]);
 
@@ -67,7 +66,6 @@ const ChartArea: React.FC = () => {
         fields.push(override.sizeField);
       }
     });
-    console.log('[ChartArea] additionalSizeFields:', fields.map((f: any) => f.columnName));
     return fields;
   }, [fieldOverrides]);
 
@@ -82,7 +80,6 @@ const ChartArea: React.FC = () => {
         });
       }
     });
-    console.log('[ChartArea] additionalLabelFields:', fields.map((f: any) => f.columnName));
     return fields;
   }, [fieldOverrides]);
 

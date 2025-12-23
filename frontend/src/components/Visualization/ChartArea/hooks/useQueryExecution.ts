@@ -16,6 +16,8 @@ import { columnCacheManager } from '../../../../services/columnCacheManager';
 import { queryDecisionEngine, QueryDecision } from '../../../../services/queryDecisionEngine';
 import { filterTierManager } from '../../../../services/filterTierManager';
 import { getResultColumnName } from '../../../../utils/fieldUtils';
+import { buildAggregateSql, buildSelectSql, applyPointBudgetSql } from '../../../../services/localSqlBuilder';
+import { queryExecutionOrchestrator } from '../../../../services/queryExecutionOrchestrator';
 
 interface UseQueryExecutionProps {
   selectedTable: string | null;
@@ -211,14 +213,16 @@ export const useQueryExecution = ({
         const dimensions = queryDescExec.dimensions?.map(d => d.field) || [];
         
         try {
-          // Use Query Decision Engine if DuckDB is ready
-          if (duckdbService.isReady && selectedTable) {
             // Split filters: base define cache slice; refinement applied locally
             const baseFilterConfigs = filterTierManager.getBaseFiltersOnly(filterConfigurations);
             const refinementFilterConfigs = filterTierManager.getRefinementFilters(filterConfigurations);
 
-            // Get query decision
-            const decision = await queryDecisionEngine.decide({
+          // Build a backend query desc (raw slice) only when needed.
+          // NOTE: the decision engine currently sets strategy; the orchestrator will use queryDescExec.
+          // Here we keep the raw-slice builder for backward-compat and to keep the hook's UI-derived field list.
+          let backendQueryDesc: QueryDescription = queryDescExec;
+          if (duckdbService.isReady && selectedTable) {
+            const decisionPreview = await queryDecisionEngine.decide({
               sourceTable: selectedTable,
               sourceDatabase: selectedDatabase || undefined,
               requiredColumns,
@@ -228,113 +232,7 @@ export const useQueryExecution = ({
               virtualTable: queryDescExec.virtual_table,
               virtualColumns: queryDescExec.virtual_columns,
             });
-            
-            lastQueryDecisionRef.current = decision;
-            // Attach budget info to decision for debugging (if present)
-            if ((queryDescExec as any).result_budget) {
-              (decision as any).resultBudget = (queryDescExec as any).result_budget;
-            }
-            console.log('🧠 Query decision:', decision.strategy, '-', decision.reason);
-            
-            if (decision.strategy === 'cache_hit' && !decision.requiresBackendQuery) {
-              // All data is in cache - execute locally
-              console.log('📦 Cache hit! Executing query locally...');
-              
-              const cacheTableName = columnCacheManager.getCacheTableName(
-                selectedTable,
-                selectedDatabase || undefined,
-                decision.baseFilterHash
-              );
-              
-              if (cacheTableName) {
-                // Build local query with refinement filters
-                const refinementWhere = filterTierManager.buildRefinementWhereClause(refinementFilterConfigs);
-                
-                // DuckDB can end up with VARCHAR columns when upstream types are ambiguous.
-                // For local aggregations, be defensive: strip embedded quote characters and TRY_CAST to DOUBLE.
-                const buildNumericExpr = (colName: string) =>
-                  `TRY_CAST(REPLACE(CAST("${colName}" AS VARCHAR), '\"', '') AS DOUBLE)`;
-
-                const buildMeasureExpr = (m: any) => {
-                  const fn = (m.aggregation || 'sum').toLowerCase();
-                  if (fn === 'count') return `COUNT(*) AS "${m.alias}"`;
-                  if (fn === 'count_distinct') return `COUNT(DISTINCT "${m.field}") AS "${m.alias}"`;
-                  if (fn === 'min') return `MIN(${buildNumericExpr(m.field)}) AS "${m.alias}"`;
-                  if (fn === 'max') return `MAX(${buildNumericExpr(m.field)}) AS "${m.alias}"`;
-                  if (fn === 'avg') return `AVG(${buildNumericExpr(m.field)}) AS "${m.alias}"`;
-                  // default sum
-                  return `SUM(${buildNumericExpr(m.field)}) AS "${m.alias}"`;
-                };
-
-                // Local query: either raw select (scatter) or local aggregation (grouping changes)
-                let localSql = '';
-                if (!queryDesc.measures || queryDesc.measures.length === 0) {
-                  localSql = `SELECT ${requiredColumns.map(c => `"${c}"`).join(', ')} FROM "${cacheTableName}"`;
-                  if (refinementWhere) {
-                    localSql += ` WHERE ${refinementWhere}`;
-                  }
-                } else {
-                  const dimCols = (queryDesc.dimensions || []).map(d => d.field);
-                  const selectDims = dimCols.map(c => `"${c}"`).join(', ');
-                  const selectMeasures = queryDesc.measures.map(buildMeasureExpr).join(', ');
-                  localSql = `SELECT ${[selectDims, selectMeasures].filter(Boolean).join(', ')} FROM "${cacheTableName}"`;
-                  if (refinementWhere) {
-                    localSql += ` WHERE ${refinementWhere}`;
-                  }
-                  if (dimCols.length > 0) {
-                    localSql += ` GROUP BY ${dimCols.map(c => `"${c}"`).join(', ')}`;
-                  }
-                }
-                // Point reduction (best-effort) on cache path
-                if (isPointChart && localSql) {
-                  if (stratifyField) {
-                    const strat = stratifyField;
-                    localSql = `
-WITH base AS (
-  ${localSql}
-),
-ranked AS (
-  SELECT
-    base.*,
-    row_number() OVER (PARTITION BY "${strat}" ORDER BY random()) AS rn,
-    count(*) OVER (PARTITION BY "${strat}") AS cat_cnt,
-    count(*) OVER () AS total_cnt
-  FROM base
-)
-SELECT * FROM ranked
-WHERE rn <= greatest(${scatterMinPerStratum}, cast(${scatterMaxPoints} * cat_cnt / total_cnt as integer))
-                    `.trim();
-                  } else {
-                    localSql = `SELECT * FROM (${localSql}) AS base ORDER BY random() LIMIT ${scatterMaxPoints}`;
-                  }
-                }
-                
-                const localResult = await duckdbService.query(localSql);
-                
-                result = {
-                  columns: localResult.columns.map(c => ({ name: c, type: 'unknown' })),
-                  rows: localResult.rows,
-                  row_count: localResult.rows.length,
-                  query_sql: localSql,
-                  local_query: true, // Mark as local query for debugging
-                };
-                
-                console.log(`✅ Local query returned ${result.row_count} rows`);
-              } else {
-                // Cache table not found - fall through to backend query
-                console.warn('⚠️ Cache table not found, falling back to backend');
-                decision.requiresBackendQuery = true;
-              }
-            }
-            
-            if (decision.requiresBackendQuery) {
-              // Backend query required.
-              // If local is allowed (below threshold), fetch a raw slice (base filters only) for caching,
-              // then compute aggregation locally when needed.
-
-              let backendQueryDesc: QueryDescription = queryDescExec;
-              if (decision.strategy === 'raw_columns') {
-                // Build a raw slice query that preserves duplicates and disables backend optimizations.
+            if (decisionPreview.strategy === 'raw_columns') {
                 const rawFields = [
                   ...(xAxisFields || []),
                   ...(yAxisFields || []),
@@ -357,104 +255,41 @@ WHERE rn <= greatest(${scatterMinPerStratum}, cast(${scatterMaxPoints} * cat_cnt
 
                 if (rawSlice) {
                   rawSlice.force_raw_rows = true;
-                  // Preserve point budgets on the raw-slice path (otherwise first-drag / high-threshold
-                  // scenarios can accidentally request the full >500k rows and blow up rendering).
                   if ((queryDescExec as any).result_budget) {
                     (rawSlice as any).result_budget = (queryDescExec as any).result_budget;
                   }
                   backendQueryDesc = rawSlice;
                 }
-              }
-
-              const arrowResult = await apiService.executeQueryArrowRaw(backendQueryDesc, queryAbortControllerRef.current.signal);
-              
-              // Cache only when we are building/refreshing a local raw slice (below threshold).
-              // For remote-preferred strategies we avoid caching to prevent huge local tables.
-              if (decision.strategy === 'raw_columns' && arrowResult.arrowTable && arrowResult.arrowTable.numRows > 0) {
-                try {
-                  await columnCacheManager.cacheColumns(
-                    selectedTable,
-                    selectedDatabase || undefined,
-                    decision.baseFilterHash,
-                    arrowResult.arrowTable
-                  );
-                  
-                  // Update base filters after successful cache
-                  filterTierManager.updateBaseFilters(filterConfigurations, selectedTable, selectedDatabase || undefined);
-                  
-                  console.log(`📦 Cached ${arrowResult.arrowTable.numRows} rows (strategy: ${decision.strategy})`);
-                } catch (cacheError) {
-                  console.warn('⚠️ Failed to cache in DuckDB:', cacheError);
-                }
-              }
-              
-              // If the current view needs aggregation and we fetched a raw slice, compute locally.
-              if (decision.strategy === 'raw_columns' && requiresAggregation) {
-                const cacheTableName = columnCacheManager.getCacheTableName(
-                  selectedTable,
-                  selectedDatabase || undefined,
-                  decision.baseFilterHash
-                );
-                if (cacheTableName) {
-                  const refinementWhere = filterTierManager.buildRefinementWhereClause(refinementFilterConfigs);
-                  const dimCols = (queryDesc.dimensions || []).map(d => d.field);
-                  const selectDims = dimCols.map(c => `"${c}"`).join(', ');
-                  // Same defensive numeric casting as cache-hit path
-                  const buildNumericExpr = (colName: string) =>
-                    `TRY_CAST(REPLACE(CAST("${colName}" AS VARCHAR), '\"', '') AS DOUBLE)`;
-                  const selectMeasures = (queryDesc.measures || []).map(m => {
-                    const fn = (m.aggregation || 'sum').toLowerCase();
-                    if (fn === 'count') return `COUNT(*) AS "${m.alias}"`;
-                    if (fn === 'count_distinct') return `COUNT(DISTINCT "${m.field}") AS "${m.alias}"`;
-                    if (fn === 'min') return `MIN(${buildNumericExpr(m.field)}) AS "${m.alias}"`;
-                    if (fn === 'max') return `MAX(${buildNumericExpr(m.field)}) AS "${m.alias}"`;
-                    if (fn === 'avg') return `AVG(${buildNumericExpr(m.field)}) AS "${m.alias}"`;
-                    return `SUM(${buildNumericExpr(m.field)}) AS "${m.alias}"`;
-                  }).join(', ');
-                  let localAggSql = `SELECT ${[selectDims, selectMeasures].filter(Boolean).join(', ')} FROM "${cacheTableName}"`;
-                  if (refinementWhere) localAggSql += ` WHERE ${refinementWhere}`;
-                  if (dimCols.length > 0) localAggSql += ` GROUP BY ${dimCols.map(c => `"${c}"`).join(', ')}`;
-                  const localAgg = await duckdbService.query(localAggSql);
-                  result = {
-                    columns: localAgg.columns.map(c => ({ name: c, type: 'unknown' })),
-                    rows: localAgg.rows,
-                    row_count: localAgg.rows.length,
-                    query_sql: localAggSql,
-                    local_query: true,
-                  };
-                }
-              }
-
-              // Otherwise convert Arrow table to standard result format
-              const convertValue = (value: any): any => {
-                if (typeof value === 'bigint') {
-                  return Number.isSafeInteger(Number(value)) ? Number(value) : value.toString();
-                }
-                return value;
-              };
-              
-              if (!result) {
-                const columns = arrowResult.columns;
-                const rows: Record<string, any>[] = [];
-                for (let i = 0; i < arrowResult.arrowTable.numRows; i++) {
-                  const row: Record<string, any> = {};
-                  for (const col of arrowResult.arrowTable.schema.fields) {
-                    row[col.name] = convertValue(arrowResult.arrowTable.getChild(col.name)?.get(i));
-                  }
-                  rows.push(row);
-                }
-                
-                result = {
-                  columns,
-                  rows,
-                  row_count: arrowResult.rowCount,
-                  query_sql: arrowResult.querySql,
-                };
-              }
             }
-          } else {
-            // DuckDB not ready - use standard Arrow endpoint
-            result = await apiService.executeQueryArrow(queryDescExec, queryAbortControllerRef.current.signal);
+          }
+
+          const { result: orchestratedResult, decision } = await queryExecutionOrchestrator.execute({
+            viewQueryDesc: queryDescExec,
+            fetchQueryDesc: backendQueryDesc,
+            selectedTable: selectedTable!,
+            selectedDatabase: selectedDatabase || undefined,
+            filterConfigurations,
+            requiredColumns,
+            requiresAggregation,
+            dimensions,
+            baseFilterConfigs,
+            refinementFilterConfigs,
+            pointBudget: {
+              isPointChart,
+              stratifyField: stratifyField || undefined,
+              maxPoints: scatterMaxPoints,
+              minPerStratum: scatterMinPerStratum,
+            },
+            signal: queryAbortControllerRef.current.signal,
+          });
+
+          result = orchestratedResult;
+          if (decision) {
+            lastQueryDecisionRef.current = decision;
+            if ((queryDescExec as any).result_budget) {
+              (decision as any).resultBudget = (queryDescExec as any).result_budget;
+            }
+            console.log('🧠 Query decision:', decision.strategy, '-', decision.reason);
           }
         } catch (arrowError: any) {
           // Fallback to JSON if Arrow endpoint fails (e.g., older backend)
@@ -566,7 +401,23 @@ WHERE rn <= greatest(${scatterMinPerStratum}, cast(${scatterMaxPoints} * cat_cnt
     // Tag fields with their axis for query optimization
     const taggedXFields = xAxisFields.map(f => ({ ...f, axis: 'x' as const }));
     const taggedYFields = yAxisFields.map(f => ({ ...f, axis: 'y' as const }));
-  const allFields = [...taggedXFields, ...taggedYFields];
+
+    // If measures are present on exactly one axis, the intent is an aggregated chart (bar/line).
+    // Ensure axis-measures have a default aggregation; otherwise buildQuery() falls back to raw
+    // and we end up with unaggregated results (no bars / no local aggregation).
+    const xHasMeasure = taggedXFields.some(f => f.type === 'measure');
+    const yHasMeasure = taggedYFields.some(f => f.type === 'measure');
+    const shouldDefaultAxisMeasureAgg = xHasMeasure !== yHasMeasure;
+    const defaultAggFor = (f: any) => (f.flavour === 'continuous' ? 'sum' : 'count');
+
+    const normalizedXFields = shouldDefaultAxisMeasureAgg && xHasMeasure
+      ? taggedXFields.map((f: any) => (f.type === 'measure' && !f.aggregation ? { ...f, aggregation: defaultAggFor(f) } : f))
+      : taggedXFields;
+    const normalizedYFields = shouldDefaultAxisMeasureAgg && yHasMeasure
+      ? taggedYFields.map((f: any) => (f.type === 'measure' && !f.aggregation ? { ...f, aggregation: defaultAggFor(f) } : f))
+      : taggedYFields;
+
+    const allFields = [...normalizedXFields, ...normalizedYFields];
     
     // Include colorField whether dimension or measure so its column is selected.
     // If it's a measure without aggregation but other aggregated measures exist, assign a default aggregation.

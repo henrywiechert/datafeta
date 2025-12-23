@@ -8,18 +8,9 @@
 export { duckdbService, DuckDBService } from './duckdbService';
 export type { QueryResult as DuckDBQueryResult, DuckDBInitStatus } from './duckdbService';
 
-// Cache Manager - tracks cached data in DuckDB WASM
-export { 
-  cacheManager, 
-  CacheManager, 
-  generateFilterHash,
-  shouldQueryLocally,
-} from './cacheManager';
-export type { CachedTableInfo, CacheFilterState, CacheStats } from './cacheManager';
-
 // Column Cache Manager - column-level incremental caching
 export { columnCacheManager, ColumnCacheManager } from './columnCacheManager';
-export type { CachedColumnInfo, ColumnCacheStats } from './columnCacheManager';
+export type { CachedColumnInfo, ColumnCacheStats, LocalCacheHandle } from './columnCacheManager';
 
 // Filter Tier Manager - base vs refinement filter tracking
 export { filterTierManager, FilterTierManager } from './filterTierManager';
@@ -36,6 +27,23 @@ export type {
   ChartQueryResult, 
   RoundingPrecision,
 } from './chartQueryService';
+
+// Query Execution Orchestrator - centralizes local/remote execution
+export { queryExecutionOrchestrator, QueryExecutionOrchestrator } from './queryExecutionOrchestrator';
+export type { QueryExecutionOrchestratorInput, OrchestratedQueryResult, PointBudgetOptions } from './queryExecutionOrchestrator';
+
+// Local SQL builder helpers
+export {
+  quoteIdent,
+  buildNumericExpr,
+  buildMeasureExpr,
+  buildSelectSql,
+  buildAggregateSql,
+  applyPointBudgetSql,
+} from './localSqlBuilder';
+
+// Arrow adapters/utilities
+export { arrowTableToRows, normalizeArrowValue } from './arrowResultAdapter';
 
 // Optimization Hint Generator (existing)
 export { 

@@ -7,8 +7,8 @@
  */
 
 import { duckdbService, QueryResult } from './duckdbService';
-import { cacheManager } from './cacheManager';
 import { Field } from '../types';
+import { getFieldOutputColumnName } from '../utils/fieldColumnName';
 
 export interface ChartQueryOptions {
   /** Apply rounding to reduce point count */
@@ -52,7 +52,7 @@ class ChartQueryService {
   /**
    * Query data for a single chart (X, Y pair) from local cache.
    * 
-   * @param cacheKey - Table name in DuckDB WASM cache
+   * @param cacheKey - DuckDB table name holding the cached slice
    * @param xField - X-axis field
    * @param yField - Y-axis field
    * @param options - Query options (rounding, additional columns, etc.)
@@ -74,8 +74,8 @@ class ChartQueryService {
       throw new Error(`Table "${cacheKey}" not found in cache`);
     }
 
-    const xCol = this.getColumnName(xField);
-    const yCol = this.getColumnName(yField);
+    const xCol = getFieldOutputColumnName(xField);
+    const yCol = getFieldOutputColumnName(yField);
     
     const {
       rounding = false,
@@ -334,7 +334,7 @@ class ChartQueryService {
 
     for (const yField of yFields) {
       for (const xField of xFields) {
-        const key = `${this.getColumnName(xField)}_${this.getColumnName(yField)}`;
+        const key = `${getFieldOutputColumnName(xField)}_${getFieldOutputColumnName(yField)}`;
         
         promises.push(
           this.queryForChartPair(cacheKey, xField, yField, options)
@@ -360,16 +360,6 @@ class ChartQueryService {
   }
 
   /**
-   * Get column name from field, handling datetime parts.
-   */
-  private getColumnName(field: Field): string {
-    if (field.dateTimePart && field.dateTimeMode) {
-      return `${field.columnName}_${field.dateTimePart}_${field.dateTimeMode}`;
-    }
-    return field.columnName;
-  }
-
-  /**
    * Query for a single dimension (tick strip / 1D visualization).
    */
   async queryForSingleDimension(
@@ -378,7 +368,7 @@ class ChartQueryService {
     options: ChartQueryOptions = {}
   ): Promise<ChartQueryResult> {
     const startTime = performance.now();
-    const col = this.getColumnName(field);
+    const col = getFieldOutputColumnName(field);
 
     const {
       rounding = false,

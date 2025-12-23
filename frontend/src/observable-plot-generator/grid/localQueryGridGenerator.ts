@@ -20,6 +20,7 @@ import { isMeasureValuesField, combineMeasureValuesOverrides } from '../../utils
 import { hasAnyMeasureOverrides, generateMeasureValuesMultiMarkPlot } from '../chartTypes/measureValuesMultiMark';
 import { chartQueryService, ChartQueryOptions } from '../../services/chartQueryService';
 import { CartesianPlot } from './coreGridGenerator';
+import { getFieldOutputColumnName } from '../../utils/fieldColumnName';
 
 export interface LocalQueryGridOptions {
   /** Cache key (table name) in DuckDB WASM */
@@ -162,10 +163,10 @@ async function generateCartesianPlotsLocal(
     targetBuckets,
     roundingThreshold,
     additionalColumns: [
-      ...(colorField ? [getColumnName(colorField)] : []),
-      ...(sizeField ? [getColumnName(sizeField)] : []),
-      ...(labelCfg?.labelFields?.map(f => getColumnName(f)) || []),
-      ...(tooltipFields?.map(f => getColumnName(f)) || []),
+      ...(colorField ? [getFieldOutputColumnName(colorField)] : []),
+      ...(sizeField ? [getFieldOutputColumnName(sizeField)] : []),
+      ...(labelCfg?.labelFields?.map(f => getFieldOutputColumnName(f)) || []),
+      ...(tooltipFields?.map(f => getFieldOutputColumnName(f)) || []),
     ].filter((v, i, a) => a.indexOf(v) === i), // Deduplicate
   };
 
@@ -468,13 +469,6 @@ async function generateSinglePlotLocal(
   } as CartesianPlot & { _metadata: any };
 
   return plotWithMetadata;
-}
-
-function getColumnName(field: Field): string {
-  if (field.dateTimePart && field.dateTimeMode) {
-    return `${field.columnName}_${field.dateTimePart}_${field.dateTimeMode}`;
-  }
-  return field.columnName;
 }
 
 function buildCellTitle(xField: Field, yField: Field): string {

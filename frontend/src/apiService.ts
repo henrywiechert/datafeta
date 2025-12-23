@@ -15,6 +15,7 @@ import {
     VirtualColumnDefinition,
     VirtualTableDefinition
 } from './types';
+import { arrowTableToRows } from './services/arrowResultAdapter';
 
 // Derive API base: Prefer explicit env var (REACT_APP_API_BASE, e.g. "/api/v1"), else fall back to
 // same-origin relative path (when frontend served by backend) and append /data segment used by router.
@@ -387,28 +388,8 @@ export const apiService = {
 
             // Convert Arrow rows to array of objects
             // This is where we bridge Arrow's columnar format to row-oriented for Observable Plot
-            const rows: { [key: string]: any }[] = [];
+            const rows = arrowTableToRows(arrowTable);
             const numRows = arrowTable.numRows;
-            
-            // Get column accessors for efficient iteration
-            const columnAccessors = columns.map(col => arrowTable.getChild(col.name));
-            
-            for (let i = 0; i < numRows; i++) {
-                const row: { [key: string]: any } = {};
-                for (let j = 0; j < columns.length; j++) {
-                    const accessor = columnAccessors[j];
-                    if (accessor) {
-                        let value = accessor.get(i);
-                        // Convert BigInt to number if needed (JavaScript number is sufficient for most OLAP use cases)
-                        if (typeof value === 'bigint') {
-                            // Avoid precision loss for large int64 values
-                            value = Number.isSafeInteger(Number(value)) ? Number(value) : value.toString();
-                        }
-                        row[columns[j].name] = value;
-                    }
-                }
-                rows.push(row);
-            }
 
             console.log(`📊 Arrow transport: ${arrayBuffer.byteLength} bytes → ${numRows} rows × ${columnCount} columns`);
 

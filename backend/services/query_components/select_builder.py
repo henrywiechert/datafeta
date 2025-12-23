@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Dict, Optional, Set
 
+from pypika.functions import Count
 from pypika.terms import Function
 
 from backend.exceptions import QueryGenerationError
