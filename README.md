@@ -50,8 +50,8 @@ uvicorn main:app --reload
 
 - [`frontend/`](./frontend/README.md) - Frontend application documentation
 - [`backend/`](./backend/README.md) - Backend API and service documentation
-- [`frontend/SAVE_LOAD_FEATURE.md`](./frontend/SAVE_LOAD_FEATURE.md) - Save/Load configuration feature guide
-- [`SAVE_LOAD_IMPLEMENTATION.md`](./SAVE_LOAD_IMPLEMENTATION.md) - Technical implementation details
+- [`frontend/ARROW.md`](./frontend/ARROW.md) - Arrow transport between backend and frontend
+- [`frontend/DUCKDB_WASM.md`](./frontend/DUCKDB_WASM.md) - DuckDB WASM local caching + local query execution
 
 ## Deployment
 
