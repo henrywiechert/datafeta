@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect, useMemo } from 'react';
 
 /**
  * Hook to coordinate rendering operations and track when they're complete.
@@ -25,11 +25,9 @@ export function useRenderingCoordinator() {
     const wasTracking = pendingPlotsRef.current.has(plotId);
     pendingPlotsRef.current.delete(plotId);
     
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[RenderingCoordinator] Plot rendered:', plotId, 
-        '| Was tracking:', wasTracking,
-        '| Remaining:', pendingPlotsRef.current.size);
-    }
+    // Avoid per-plot logging: with large faceted grids this can freeze the UI.
+    // Keep a lightweight signal only if needed for debugging.
+    // if (process.env.NODE_ENV === 'development') { ... }
     
     // If all plots are rendered, call the completion callback
     if (pendingPlotsRef.current.size === 0 && onAllRenderedRef.current) {
@@ -68,7 +66,8 @@ export function useRenderingCoordinator() {
     }
 
     if (process.env.NODE_ENV === 'development') {
-      console.log('[RenderingCoordinator] Starting batch with', plotIds.length, 'plots:', plotIds);
+      // Avoid logging 1000+ IDs (very slow in Chrome devtools).
+      console.log('[RenderingCoordinator] Starting batch with', plotIds.length, 'plots');
     }
 
     // Register all plots
@@ -130,12 +129,14 @@ export function useRenderingCoordinator() {
     };
   }, []);
 
-  return {
+  // Return a stable object so consumers can safely include it in deps without
+  // retriggering effects on every render.
+  return useMemo(() => ({
     registerPlot,
     markPlotRendered,
     startRenderingBatch,
     cancelRenderingBatch,
     getRenderingState,
-  };
+  }), [registerPlot, markPlotRendered, startRenderingBatch, cancelRenderingBatch, getRenderingState]);
 }
 

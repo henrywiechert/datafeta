@@ -77,6 +77,18 @@ class SmallTableDetector:
             return None
 
     def _build_table_reference(self, query_desc: QueryDescription) -> str:
+        """
+        Build a table reference suitable for the underlying connector's SQL dialect.
+
+        Important: the FileConnector path uses DuckDB over a temporary VIEW named after
+        `target_table`. It does NOT support database/schema qualification, and the
+        string 'default' (common ClickHouse database name) is a DuckDB keyword and
+        will cause `default.<table>` to fail to parse.
+        """
+        if self._connector and type(self._connector).__name__ == "FileConnector":
+            # DuckDB temp view name – always quote to handle spaces/special chars.
+            return f'"{query_desc.target_table}"'
+
         if query_desc.target_database:
             return f"{query_desc.target_database}.{query_desc.target_table}"
         return query_desc.target_table

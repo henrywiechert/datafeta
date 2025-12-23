@@ -112,6 +112,24 @@ export const buildAggregatedQuery = ({
   virtualColumns?: import('../types').VirtualColumnDefinition[];
 }): QueryDescription | null => {
 
+  const defaultAggFor = (f: Field): Measure['aggregation'] => {
+    // For continuous numeric measures, default to sum; for discrete measures, default to count.
+    return f.flavour === 'continuous' ? 'sum' : 'count';
+  };
+
+  const dedupeByKey = <T,>(items: T[], keyFn: (t: T) => string): T[] => {
+    const out: T[] = [];
+    const seen = new Set<string>();
+    for (const it of items) {
+      const key = keyFn(it);
+      if (!seen.has(key)) {
+        out.push(it);
+        seen.add(key);
+      }
+    }
+    return out;
+  };
+
   // Merge tooltip fields with regular fields for dimension/measure extraction
   // Tooltip fields should be included in the query as dimensions
   const allFieldsForQuery = [...fields];
@@ -122,7 +140,8 @@ export const buildAggregatedQuery = ({
     }
   }
 
-  const dimensions = allFieldsForQuery
+  const dimensions = dedupeByKey(
+    allFieldsForQuery
     .filter((f) => f.type === 'dimension')
     .map((d) => ({
       field: d.columnName,
@@ -130,15 +149,21 @@ export const buildAggregatedQuery = ({
       axis: d.axis,  // Preserve axis information if present
       date_part: d.dateTimePart,  // Pass datetime part if present
       date_mode: d.dateTimeMode,  // Pass datetime mode if present
-    }));
+    })),
+    // Dedupe by output column name (datetime parts produce distinct aliases)
+    (dim) => (dim.date_part && dim.date_mode ? `${dim.field}_${dim.date_part}_${dim.date_mode}` : dim.field)
+  );
   
-  const measures: Measure[] = allFieldsForQuery
+  const measures: Measure[] = dedupeByKey(
+    allFieldsForQuery
     .filter((f) => f.type === 'measure')
     .map((m) => ({
       field: m.columnName,
-      aggregation: m.aggregation!,
+      aggregation: (m.aggregation || defaultAggFor(m)) as any,
       alias: getResultColumnName(m),
-    }));
+    })),
+    (m) => m.alias
+  );
 
   // Only run a query if there is at least one measure or dimension.
   if (!selectedTable || (dimensions.length === 0 && measures.length === 0)) {
@@ -285,7 +310,15 @@ export const getQueryTypeFromFields = (fields: Field[]): 'raw' | 'aggregated' =>
     field.type === 'measure' && field.aggregation
   );
   
-  return hasMeasuresWithAggregation ? 'aggregated' : 'raw';
+  if (hasMeasuresWithAggregation) return 'aggregated';
+
+  // If measures are present on exactly one axis, the user intent is an aggregated chart
+  // (bar/line). In that case we will apply a default aggregation.
+  const xHasMeasure = fields.some(f => f.type === 'measure' && f.axis === 'x');
+  const yHasMeasure = fields.some(f => f.type === 'measure' && f.axis === 'y');
+  if (xHasMeasure !== yHasMeasure) return 'aggregated';
+
+  return 'raw';
 };
 
 /**

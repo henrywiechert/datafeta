@@ -1,0 +1,93 @@
+export function quoteIdent(name: string): string {
+  // DuckDB uses standard SQL identifier quoting via double quotes.
+  return `"${String(name).replace(/"/g, '""')}"`;
+}
+
+/**
+ * DuckDB can end up with VARCHAR columns when upstream types are ambiguous.
+ * For local aggregations, be defensive: strip embedded quote characters and TRY_CAST to DOUBLE.
+ */
+export function buildNumericExpr(colName: string): string {
+  const col = quoteIdent(colName);
+  return `TRY_CAST(REPLACE(CAST(${col} AS VARCHAR), '\"', '') AS DOUBLE)`;
+}
+
+export type MeasureLike = {
+  field: string;
+  aggregation?: string;
+  alias: string;
+};
+
+export function buildMeasureExpr(m: MeasureLike): string {
+  const fn = (m.aggregation || 'sum').toLowerCase();
+  const alias = quoteIdent(m.alias);
+
+  if (fn === 'count') return `COUNT(*) AS ${alias}`;
+  if (fn === 'count_distinct') return `COUNT(DISTINCT ${quoteIdent(m.field)}) AS ${alias}`;
+  if (fn === 'min') return `MIN(${buildNumericExpr(m.field)}) AS ${alias}`;
+  if (fn === 'max') return `MAX(${buildNumericExpr(m.field)}) AS ${alias}`;
+  if (fn === 'avg') return `AVG(${buildNumericExpr(m.field)}) AS ${alias}`;
+  // default sum
+  return `SUM(${buildNumericExpr(m.field)}) AS ${alias}`;
+}
+
+export function buildSelectSql(args: {
+  tableName: string;
+  columns: string[];
+  whereClause?: string;
+}): string {
+  const selectCols = args.columns.map(quoteIdent).join(', ');
+  let sql = `SELECT ${selectCols} FROM ${quoteIdent(args.tableName)}`;
+  if (args.whereClause) sql += ` WHERE ${args.whereClause}`;
+  return sql;
+}
+
+export function buildAggregateSql(args: {
+  tableName: string;
+  dimensionColumns: string[];
+  measures: MeasureLike[];
+  whereClause?: string;
+}): string {
+  const dimCols = args.dimensionColumns.map(quoteIdent);
+  const selectDims = dimCols.join(', ');
+  const selectMeasures = args.measures.map(buildMeasureExpr).join(', ');
+  const selectList = [selectDims, selectMeasures].filter(Boolean).join(', ');
+
+  let sql = `SELECT ${selectList} FROM ${quoteIdent(args.tableName)}`;
+  if (args.whereClause) sql += ` WHERE ${args.whereClause}`;
+  if (args.dimensionColumns.length > 0) {
+    sql += ` GROUP BY ${dimCols.join(', ')}`;
+  }
+  return sql;
+}
+
+export function applyPointBudgetSql(
+  baseSql: string,
+  budget: { stratifyField?: string; maxRows: number; minPerStratum?: number }
+): string {
+  const { stratifyField, maxRows, minPerStratum = 0 } = budget;
+  if (!baseSql) return baseSql;
+
+  if (stratifyField) {
+    const strat = quoteIdent(stratifyField);
+    return `
+WITH base AS (
+  ${baseSql}
+),
+ranked AS (
+  SELECT
+    base.*,
+    row_number() OVER (PARTITION BY ${strat} ORDER BY random()) AS rn,
+    count(*) OVER (PARTITION BY ${strat}) AS cat_cnt,
+    count(*) OVER () AS total_cnt
+  FROM base
+)
+SELECT * FROM ranked
+WHERE rn <= greatest(${minPerStratum}, cast(${maxRows} * cat_cnt / total_cnt as integer))
+    `.trim();
+  }
+
+  return `SELECT * FROM (${baseSql}) AS base ORDER BY random() LIMIT ${maxRows}`;
+}
+
+
