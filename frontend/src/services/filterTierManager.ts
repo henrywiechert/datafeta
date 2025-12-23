@@ -149,8 +149,28 @@ class FilterTierManager {
       return '';
     }
     
-    // Sort keys for consistent hashing
-    const sortedJson = JSON.stringify(filters, Object.keys(filters).sort());
+    // Stable stringify that preserves nested config contents (selectedValues/min/max/etc).
+    // NOTE: JSON.stringify's replacer-array option (previous implementation) incorrectly
+    // strips nested keys, causing different filter configs to hash the same.
+    const stableStringify = (value: any): string => {
+      const normalize = (v: any): any => {
+        if (v === null || v === undefined) return v;
+        if (typeof v === 'bigint') return v.toString();
+        if (Array.isArray(v)) return v.map(normalize);
+        if (v instanceof Date) return v.toISOString();
+        if (typeof v === 'object') {
+          const out: Record<string, any> = {};
+          for (const k of Object.keys(v).sort()) {
+            out[k] = normalize(v[k]);
+          }
+          return out;
+        }
+        return v;
+      };
+      return JSON.stringify(normalize(value));
+    };
+
+    const sortedJson = stableStringify(filters);
     
     // Simple hash function
     let hash = 0;

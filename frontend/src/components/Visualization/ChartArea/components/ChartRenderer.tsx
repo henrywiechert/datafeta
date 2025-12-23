@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { Box } from '@mui/material';
 import ChartGrid from '../../ChartGrid/ChartGrid';
 import TableViewLazy from '../../TableViewLazy';
@@ -30,26 +30,9 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
   onPlotRenderComplete,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-
-  // Force a resize event when the debug panel state changes
-  useEffect(() => {
-    const triggerResize = () => {
-      if (containerRef.current) {
-        // Multiple resize events to handle different timing scenarios
-        window.dispatchEvent(new Event('resize'));
-        
-        // Second event after a short delay for cases where layout is still updating
-        setTimeout(() => {
-          window.dispatchEvent(new Event('resize'));
-        }, 50);
-      }
-    };
-
-    // Delay to ensure layout changes are complete
-    const timeoutId = setTimeout(triggerResize, 100);
-    
-    return () => clearTimeout(timeoutId);
-  }, [isDebugOpen, debugHeight]); // Trigger when debug state changes
+  // NOTE: We intentionally do NOT dispatch global window resize events here.
+  // With large faceted grids, this forces every ObservablePlot instance to re-render,
+  // creating multi-second UI stalls. Each plot already has a ResizeObserver.
 
   // Memoize content to prevent re-rendering when unrelated props change
   const content = useMemo(() => {

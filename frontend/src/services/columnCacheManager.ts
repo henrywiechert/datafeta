@@ -13,6 +13,15 @@
 import { duckdbService } from './duckdbService';
 import { Table as ArrowTable, tableFromIPC } from 'apache-arrow';
 
+export interface LocalCacheHandle {
+  sourceTable: string;
+  sourceDatabase?: string;
+  /** Hash representing the base-filter slice used to build this local cache. */
+  baseFilterHash: string;
+  /** DuckDB table name that holds the cached slice. */
+  duckdbTableName: string;
+}
+
 export interface CachedColumnInfo {
   columnName: string;
   sourceTable: string;
@@ -223,6 +232,25 @@ class ColumnCacheManager {
   ): string | undefined {
     const cacheKey = this.generateCacheKey(sourceTable, sourceDatabase, baseFilterHash);
     return this.tableNames.get(cacheKey);
+  }
+
+  /**
+   * Get a stable handle for a cached slice. Returns undefined if the slice isn't cached yet.
+   */
+  getCacheHandle(
+    sourceTable: string,
+    sourceDatabase?: string,
+    baseFilterHash?: string
+  ): LocalCacheHandle | undefined {
+    const hash = baseFilterHash || '';
+    const duckdbTableName = this.getCacheTableName(sourceTable, sourceDatabase, hash);
+    if (!duckdbTableName) return undefined;
+    return {
+      sourceTable,
+      sourceDatabase,
+      baseFilterHash: hash,
+      duckdbTableName,
+    };
   }
   
   /**

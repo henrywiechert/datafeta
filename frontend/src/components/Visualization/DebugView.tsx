@@ -62,6 +62,8 @@ const DuckDBCacheInfo: React.FC = () => {
   const [status, setStatus] = useState<'not_initialized' | 'initializing' | 'ready' | 'error'>('not_initialized');
   const [error, setError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<{ sql: string; rows: any[]; columns: string[] } | null>(null);
+  const [expandedTableKey, setExpandedTableKey] = useState<string | null>(null);
+  const [showAllLocalQueries, setShowAllLocalQueries] = useState(false);
   
   useEffect(() => {
     // Update cache stats periodically
@@ -89,7 +91,9 @@ const DuckDBCacheInfo: React.FC = () => {
     };
     
     updateStats();
-    const interval = setInterval(updateStats, 1000); // Update more frequently for query log
+    // Polling too frequently + rendering large lists can freeze the UI.
+    // 5s is plenty for debug info and keeps the panel responsive.
+    const interval = setInterval(updateStats, 5000);
     return () => clearInterval(interval);
   }, []);
   
@@ -292,65 +296,83 @@ const DuckDBCacheInfo: React.FC = () => {
           
           {/* Cached Tables with Column Info */}
           {tableInfo.length > 0 ? (
-            <details style={{ marginTop: '8px' }}>
-              <summary style={{ cursor: 'pointer', fontWeight: 500 }}>
+            <div style={{ marginTop: '8px' }}>
+              <div style={{ cursor: 'default', fontWeight: 500 }}>
                 📊 Cached Tables ({tableInfo.length})
-              </summary>
-              <div style={{ marginLeft: '12px', marginTop: '8px' }}>
-                {tableInfo.map(table => (
-                  <details key={table.cacheKey} style={{ marginBottom: '8px' }}>
-                    <summary style={{ cursor: 'pointer', fontSize: '12px' }}>
-                      <strong>{table.tableName}</strong>
-                      <span style={{ color: '#666', marginLeft: '8px' }}>
-                        ({(table.columns[0]?.rowCount || 0).toLocaleString()} rows, {table.columns.length} cols)
-                      </span>
-                    </summary>
-                    <div style={{ 
-                      marginLeft: '16px', 
-                      marginTop: '4px',
-                      fontSize: '11px',
-                      fontFamily: 'monospace',
-                      backgroundColor: '#f5f5f5',
-                      padding: '6px',
-                      borderRadius: '4px'
-                    }}>
-                      <div style={{ color: '#666', marginBottom: '4px' }}>
-                        Source: {table.columns[0]?.sourceDatabase ? `${table.columns[0].sourceDatabase}.` : ''}{table.columns[0]?.sourceTable || ''}
-                      </div>
-                      <div style={{ color: '#666', marginBottom: '4px' }}>
-                        Base filter hash: {table.columns[0]?.baseFilterHash || '(none)'}
-                      </div>
-                      <div style={{ color: '#666', marginBottom: '4px' }}>
-                        Cached: {table.columns[0]?.cachedAt?.toLocaleTimeString?.() || ''}
-                      </div>
-                      <div>
-                        <strong>Columns:</strong>
-                        <div style={{ 
-                          display: 'flex', 
-                          flexWrap: 'wrap', 
-                          gap: '4px',
-                          marginTop: '4px'
-                        }}>
-                          {table.columns.map(col => (
-                            <span 
-                              key={col.columnName}
-                              style={{
-                                backgroundColor: '#e3f2fd',
-                                padding: '2px 6px',
-                                borderRadius: '3px',
-                                fontSize: '10px'
-                              }}
-                            >
-                              {col.columnName} <span style={{ color: '#999' }}>({col.dataType})</span>
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </details>
-                ))}
               </div>
-            </details>
+              <div style={{ marginLeft: '12px', marginTop: '8px' }}>
+                {tableInfo.map((table) => {
+                  const isOpen = expandedTableKey === table.cacheKey;
+                  return (
+                    <div key={table.cacheKey} style={{ marginBottom: '8px' }}>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setExpandedTableKey(isOpen ? null : table.cacheKey)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setExpandedTableKey(isOpen ? null : table.cacheKey);
+                          }
+                        }}
+                        style={{ cursor: 'pointer', fontSize: '12px' }}
+                      >
+                        <span style={{ marginRight: '6px' }}>{isOpen ? '▼' : '▶'}</span>
+                        <strong>{table.tableName}</strong>
+                        <span style={{ color: '#666', marginLeft: '8px' }}>
+                          ({(table.columns[0]?.rowCount || 0).toLocaleString()} rows, {table.columns.length} cols)
+                        </span>
+                      </div>
+
+                      {isOpen && (
+                        <div style={{ 
+                          marginLeft: '16px', 
+                          marginTop: '4px',
+                          fontSize: '11px',
+                          fontFamily: 'monospace',
+                          backgroundColor: '#f5f5f5',
+                          padding: '6px',
+                          borderRadius: '4px'
+                        }}>
+                          <div style={{ color: '#666', marginBottom: '4px' }}>
+                            Source: {table.columns[0]?.sourceDatabase ? `${table.columns[0].sourceDatabase}.` : ''}{table.columns[0]?.sourceTable || ''}
+                          </div>
+                          <div style={{ color: '#666', marginBottom: '4px' }}>
+                            Base filter hash: {table.columns[0]?.baseFilterHash || '(none)'}
+                          </div>
+                          <div style={{ color: '#666', marginBottom: '4px' }}>
+                            Cached: {table.columns[0]?.cachedAt?.toLocaleTimeString?.() || ''}
+                          </div>
+                          <div>
+                            <strong>Columns:</strong>
+                            <div style={{ 
+                              display: 'flex', 
+                              flexWrap: 'wrap', 
+                              gap: '4px',
+                              marginTop: '4px'
+                            }}>
+                              {table.columns.map(col => (
+                                <span 
+                                  key={col.columnName}
+                                  style={{
+                                    backgroundColor: '#e3f2fd',
+                                    padding: '2px 6px',
+                                    borderRadius: '3px',
+                                    fontSize: '10px'
+                                  }}
+                                >
+                                  {col.columnName} <span style={{ color: '#999' }}>({col.dataType})</span>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           ) : (
             <p style={{ fontSize: '11px', color: '#888' }}>
               No data cached yet. Run a query to populate the cache.
@@ -487,33 +509,48 @@ const DuckDBCacheInfo: React.FC = () => {
           )}
 
           {/* Local Query Log */}
-          <details style={{ marginTop: '12px' }} open={queryLog.length > 0}>
-            <summary style={{ cursor: 'pointer', fontWeight: 500 }}>
+          <div style={{ marginTop: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 500 }}>
               🔍 Local Queries ({queryLog.length})
               {queryLog.length > 0 && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleClearLog(); }}
-                  style={{
-                    marginLeft: '8px',
-                    padding: '2px 6px',
-                    fontSize: '10px',
-                    cursor: 'pointer',
-                    backgroundColor: '#eee',
-                    border: '1px solid #ccc',
-                    borderRadius: '3px',
-                  }}
-                >
-                  Clear
-                </button>
+                <>
+                  <button
+                    onClick={handleClearLog}
+                    style={{
+                      marginLeft: '8px',
+                      padding: '2px 6px',
+                      fontSize: '10px',
+                      cursor: 'pointer',
+                      backgroundColor: '#eee',
+                      border: '1px solid #ccc',
+                      borderRadius: '3px',
+                    }}
+                  >
+                    Clear
+                  </button>
+                  <button
+                    onClick={() => setShowAllLocalQueries((v) => !v)}
+                    style={{
+                      padding: '2px 6px',
+                      fontSize: '10px',
+                      cursor: 'pointer',
+                      backgroundColor: '#e3f2fd',
+                      border: '1px solid #90caf9',
+                      borderRadius: '3px',
+                    }}
+                  >
+                    {showAllLocalQueries ? 'Show last 10' : 'Show all'}
+                  </button>
+                </>
               )}
-            </summary>
+            </div>
             <div style={{ marginTop: '8px', maxHeight: '300px', overflow: 'auto' }}>
               {queryLog.length === 0 ? (
                 <p style={{ fontSize: '11px', color: '#888', margin: '4px 0' }}>
                   No local queries executed yet.
                 </p>
               ) : (
-                queryLog.map((entry, idx) => (
+                (showAllLocalQueries ? queryLog : queryLog.slice(0, 10)).map((entry, idx) => (
                   <div 
                     key={idx}
                     style={{
@@ -556,7 +593,7 @@ const DuckDBCacheInfo: React.FC = () => {
                 ))
               )}
             </div>
-          </details>
+          </div>
         </>
       )}
     </div>
