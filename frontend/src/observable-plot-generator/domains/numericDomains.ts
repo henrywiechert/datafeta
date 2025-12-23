@@ -39,25 +39,33 @@ export function computeSharedNumericDomains(
     // Frontend fields use camelCase: dateTimeMode ('timeline' | 'distinct')
     const isTimeline = field?.dateTimeMode === 'timeline' || field?.date_mode === 'timeline';
     if (isTimeline) {
-      const dateValues = data
-        .map((row) => new Date(row[label]))
-        .filter((d) => !isNaN(d.getTime()));
-      if (dateValues.length === 0) continue;
-      const timestamps = dateValues.map(d => d.getTime());
-      const minTs = Math.min(...timestamps);
-      const maxTs = Math.max(...timestamps);
+      // IMPORTANT: avoid Math.min(...hugeArray) / Math.max(...hugeArray) which can stack overflow.
+      let minTs = Infinity;
+      let maxTs = -Infinity;
+      for (const row of data) {
+        const d = new Date(row[label]);
+        const ts = d.getTime();
+        if (!Number.isFinite(ts)) continue;
+        if (ts < minTs) minTs = ts;
+        if (ts > maxTs) maxTs = ts;
+      }
+      if (minTs === Infinity || maxTs === -Infinity) continue;
       const rangeMs = maxTs - minTs;
       const padMs = rangeMs * DOMAIN_PAD_RATIO;
       const minDate = new Date(minTs - padMs);
       const maxDate = new Date(maxTs + padMs);
       domains[label] = [minDate, maxDate];
     } else {
-      const values = data
-        .map((row) => row[label])
-        .filter((v) => typeof v === 'number' && !Number.isNaN(v));
-      if (values.length === 0) continue;
-      const min = Math.min(...values);
-      const max = Math.max(...values);
+      // IMPORTANT: avoid Math.min(...hugeArray) / Math.max(...hugeArray) which can stack overflow.
+      let min = Infinity;
+      let max = -Infinity;
+      for (const row of data) {
+        const v = row[label];
+        if (typeof v !== 'number' || Number.isNaN(v)) continue;
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+      if (min === Infinity || max === -Infinity) continue;
       const span = max - min;
       const pad = span * DOMAIN_PAD_RATIO;
       const lower = min - pad;

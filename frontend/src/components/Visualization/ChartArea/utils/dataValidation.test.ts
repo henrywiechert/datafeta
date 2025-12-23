@@ -2,7 +2,7 @@
  * Test for data validation utilities to ensure numeric aggregation results are handled correctly.
  */
 
-import { validateAndCleanData } from '../utils/dataValidation';
+import { validateAndCleanData, remapCastExpressionColumns } from '../utils/dataValidation';
 
 describe('Data Validation', () => {
   test('should handle SUM aggregation results as numbers', () => {
@@ -111,5 +111,30 @@ describe('Data Validation', () => {
     expect(cleanedResult.rows[0]['SUM(amount)']).toBeNull();
     expect(cleanedResult.rows[1]['SUM(amount)']).toBeNull();
     expect(cleanedResult.rows[2]['SUM(amount)']).toBe(250.0);
+  });
+
+  test('should convert bigint COUNT results to numbers when safe', () => {
+    const mockResult: any = {
+      // Avoid BigInt literal syntax (508532n) to keep TS target compatibility
+      rows: [{ 'COUNT(x)': BigInt('508532') }],
+      row_count: 1
+    };
+    const cleaned = validateAndCleanData(mockResult);
+    expect(cleaned.rows[0]['COUNT(x)']).toBe(508532);
+  });
+
+  test('should remap qualified COUNT(table.col) to COUNT(col) when fields expect unqualified name', () => {
+    const mockResult: any = {
+      columns: [{ name: 'COUNT(coreLoadControlData.slotUtilizationAvg)', type: 'unknown' }],
+      rows: [{ 'COUNT(coreLoadControlData.slotUtilizationAvg)': 508532 }],
+      row_count: 1,
+    };
+
+    const fields: any[] = [
+      { type: 'measure', aggregation: 'count', columnName: 'slotUtilizationAvg' }, // unqualified expectation
+    ];
+
+    const remapped = remapCastExpressionColumns(mockResult, fields);
+    expect(remapped.rows[0]['COUNT(slotUtilizationAvg)']).toBe(508532);
   });
 });

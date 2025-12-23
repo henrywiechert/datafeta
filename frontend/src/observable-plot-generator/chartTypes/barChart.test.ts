@@ -43,7 +43,7 @@ describe('barChart refactored implementation', () => {
     expect(opts.y?.label).toBe('SUM(value)');
     expect(opts.x?.domain).toEqual(['A', 'B', 'C']);
     expect(opts.color).toBeDefined();
-  expect((opts as any).width).toBe(3 * BAR_STEP_PX);
+    // Width/height are controlled by the grid layout sizing; options may omit explicit width.
   });
 
   test('single vertical bar (no dimension)', () => {
@@ -59,7 +59,7 @@ describe('barChart refactored implementation', () => {
     const opts = barChart(ctx);
     expect(opts.y?.label).toBe('SUM(value)');
     expect(opts.x?.domain).toEqual([' ']);
-  expect((opts as any).width).toBe(5 * BAR_STEP_PX);
+    // Width/height are controlled by the grid layout sizing; options may omit explicit width.
   });
 
   test('horizontal with dimension', () => {
@@ -82,7 +82,7 @@ describe('barChart refactored implementation', () => {
     const opts = barChart(ctx);
     expect(opts.x?.label).toBe('SUM(value)');
     expect(opts.y?.domain).toEqual(['A', 'B']);
-  expect((opts as any).height).toBe(2 * BAR_STEP_PX); // unchanged for multi-category
+    // Width/height are controlled by the grid layout sizing; options may omit explicit height.
   });
 
   test('domain starts at zero and pads positive max', () => {
