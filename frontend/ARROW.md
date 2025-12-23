@@ -27,15 +27,13 @@ For datasets with 10,000+ rows, Arrow typically provides 3-5x smaller payload si
 
 ### Connector Interface
 
-Each data connector (ClickHouse, DuckDB/CSV) implements an Arrow export method:
+Each data connector (ClickHouse, DuckDB/CSV) can export Arrow via the base connector helper:
 
 ```python
 # backend/connectors/base.py
 class BaseConnector(ABC):
-    @abstractmethod
-    def execute_query_arrow(self, sql: str) -> pa.Table:
-        """Execute query and return results as Arrow Table."""
-        pass
+    def fetch_data_arrow(self, query: str) -> pa.Table:
+        """Execute query and return results as a PyArrow Table."""
 ```
 
 ### ClickHouse Connector
@@ -121,6 +119,10 @@ Returns parsed result with rows/columns in standard format. Used when DuckDB WAS
 
 ### `executeQueryArrowRaw(queryDesc)`
 Returns the raw Arrow table object along with metadata. Used when DuckDB WASM caching is enabled, allowing the Arrow table to be registered directly.
+
+## Related Docs
+
+- `frontend/DUCKDB_WASM.md` describes how Arrow results are registered into DuckDB WASM for local caching/querying.
 
 ## Fallback Mechanism
 

@@ -70,10 +70,12 @@ Determines query strategy based on dataset characteristics:
 
 - **Size probing**: Calls backend `/row-count` endpoint to estimate dataset size
 - **Strategy selection** (hybrid):
-  - **≤ 100k base-filtered rows**: fetch a **raw slice** and do grouping/reduction locally
-  - **> 100k base-filtered rows**: prefer backend aggregation and/or backend reduction
+  - **≤ size threshold (configurable)**: fetch a **raw slice** and do grouping/reduction locally
+  - **> size threshold**: prefer backend aggregation and/or backend reduction
 - **Cache awareness**: Checks which columns are already cached
 - **Decision logging**: Tracks decisions for debugging
+
+Note: the default threshold is defined in `frontend/src/services/queryDecisionEngine.ts` and may be tuned for your environment.
 
 ### ChartQueryService (`services/chartQueryService.ts`)
 
@@ -115,7 +117,18 @@ Two conceptual layers:
 
 ### Result budgets (scatter safety)
 
-Scatter plots can become unrenderable in Observable Plot when point counts are high (especially with discrete color). The frontend uses a conservative budget:\n\n- **No discrete color**: up to ~100k points\n- **Discrete color present**: up to ~50k points with **stratified sampling**\n\nBudget is applied as:\n- **Backend-side** when the decision engine prefers remote execution (via `QueryDescription.result_budget`).\n- **Frontend-side safeguard** in the scatter renderer to prevent crashes even if a larger result slips through.
+Scatter plots can become unrenderable in Observable Plot when point counts are high (especially with discrete color). The frontend applies a **configurable result budget**:
+
+- **Backend-side** when the decision engine prefers remote execution (via `QueryDescription.result_budget`).
+- **Frontend-side safeguard** in the scatter renderer to prevent crashes even if a larger result slips through.
+
+The actual defaults can be tuned in `useQueryExecution.ts` and `scatterChart.ts`.
+
+### Line charts: auto aggregation (anti-hairball)
+
+For “continuous dimension vs measure” pairs the default chart type is a line. Dense X domains can produce “hairball” visuals (near-vertical segments) if many points land on the same or near-same X positions.
+
+The frontend now auto-aggregates dense line series by **binning the ordered axis** and computing a representative value per bin (currently: **average**). This produces a readable left-to-right line while keeping scatter charts as “full truth”.
 
 - Complete query result sets from the backend
 - One table per unique combination of:
@@ -221,7 +234,7 @@ The Debug Panel displays comprehensive caching information:
 ### Short-term Enhancements
 
 1. ~~**Direct Arrow Registration**: Use DuckDB's native Arrow support instead of JSON conversion~~ ✅ Implemented
-2. ~~**Incremental Caching**: Cache individual columns rather than full query results~~ ✅ Implemented
+2. **Incremental Column Fetching**: Fetch only missing columns and merge into the local slice cache (planned; not fully implemented yet)
 3. **IndexedDB Persistence**: Store cache across sessions
 4. **Web Worker Isolation**: Run DuckDB entirely in a worker for better responsiveness
 
@@ -256,7 +269,6 @@ Currently, DuckDB WASM is automatically initialized on first query. Future versi
 - `services/filterTierManager.ts` - Base vs refinement filter management
 - `services/queryDecisionEngine.ts` - Query strategy selection
 - `services/chartQueryService.ts` - Per-chart query optimization
-- `hooks/useLocalDataCache.ts` - React integration hook
 - `observable-plot-generator/grid/localQueryGridGenerator.ts` - Chart grid with local queries
 - `components/Visualization/Filters/FilterFieldChip.tsx` - Filter tier toggle UI
 

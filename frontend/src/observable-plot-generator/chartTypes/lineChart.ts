@@ -20,9 +20,9 @@ function computeLineBudget(hasDiscreteColor: boolean): LineBudget {
   // Keep this conservative; the goal is visual fidelity, not exact point-for-point rendering.
   return {
     // Keep line points under a conservative cap; dots are capped separately (see maxDots).
-    maxPoints: hasDiscreteColor ? 10_000 : 30_000,
+    maxPoints: hasDiscreteColor ? 1_000 : 1_000,
     minPerSeries: hasDiscreteColor ? 200 : 0,
-    maxDots: hasDiscreteColor ? 5_000 : 10_000,
+    maxDots: hasDiscreteColor ? 1_000 : 1_000,
   };
 }
 
