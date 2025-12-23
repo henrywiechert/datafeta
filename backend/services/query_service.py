@@ -536,17 +536,14 @@ class QueryService:
         if not getattr(budget, "max_rows", None) or budget.strategy == "none":
             return sql
 
-        # Only apply to "raw" queries (scatter-style point queries).
+        # Only apply to "raw" queries.
         # Aggregated queries already reduce via GROUP BY and should not be randomly sampled here.
         if query_desc.measures:
             return sql
 
-        # Detect scatter plot: continuous dimensions exist on both axes.
-        has_cont_x = any(d.axis == "x" and d.flavour == "continuous" for d in query_desc.dimensions or [])
-        has_cont_y = any(d.axis == "y" and d.flavour == "continuous" for d in query_desc.dimensions or [])
-        is_scatter = has_cont_x and has_cont_y
-        if not is_scatter:
-            return sql
+        # If the frontend explicitly provided a budget, apply it for any non-aggregated query.
+        # Do NOT depend on axis metadata here: during UI interactions we can temporarily miss axis info,
+        # which would cause inconsistent "first drag" behavior.
 
         max_rows = int(budget.max_rows)
         strategy = budget.strategy

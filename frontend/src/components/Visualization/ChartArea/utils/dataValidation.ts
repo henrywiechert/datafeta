@@ -17,10 +17,13 @@ export const remapCastExpressionColumns = (result: any, fields?: any[]): any => 
     fieldsWithCasting: fields.filter((f: any) => f.castType)
   });
 
-  // Build a map of CAST expressions to their expected aliases
+  // Build a map of result-column names -> expected aliases.
+  // Historically this was only used for CAST(...) expression columns, but we also need it for
+  // qualified aggregation aliases coming from backend/local execution (e.g. COUNT(tbl.col) vs COUNT(col)).
   const castExpressionMap: Record<string, string> = {};
   
   fields.forEach(field => {
+    // 1) CAST expression remapping (existing behavior)
     if (field.castType) {
       // Field has casting applied - could be measure or dimension
       let expectedAlias: string;
@@ -45,6 +48,37 @@ export const remapCastExpressionColumns = (result: any, fields?: any[]): any => 
       if (castExpression) {
         console.log(`  ✓ Mapping: "${castExpression}" → "${expectedAlias}"`);
         castExpressionMap[castExpression] = expectedAlias;
+      }
+    }
+
+    // 2) Qualified aggregation alias remapping (new behavior)
+    // Some execution paths can return aggregation aliases with a table-qualified column name,
+    // e.g. COUNT(coreLoadControlData.slotUtilizationAvg) while the UI fields expect COUNT(slotUtilizationAvg).
+    // If the expected alias is missing, but we can find a qualified variant, remap it.
+    if (field.type === 'measure' && field.aggregation && typeof field.columnName === 'string') {
+      const agg = field.aggregation.toUpperCase();
+      const expectedAlias = `${agg}(${field.columnName})`;
+      const hasExpected = result.rows?.[0] && Object.prototype.hasOwnProperty.call(result.rows[0], expectedAlias);
+      if (hasExpected) {
+        return;
+      }
+
+      // Only attempt remap when the field columnName is unqualified.
+      // If it's already qualified, expectedAlias is already the qualified one.
+      if (!field.columnName.includes('.')) {
+        const qualifiedCandidate = result.columns?.find((col: any) => {
+          const colName = col.name || col;
+          return (
+            typeof colName === 'string' &&
+            colName.startsWith(`${agg}(`) &&
+            colName.endsWith(`.${field.columnName})`)
+          );
+        });
+        const qualifiedName = qualifiedCandidate?.name || qualifiedCandidate;
+        if (qualifiedName && typeof qualifiedName === 'string') {
+          console.log(`  ✓ Mapping: "${qualifiedName}" → "${expectedAlias}" (qualified aggregation alias)`);
+          castExpressionMap[qualifiedName] = expectedAlias;
+        }
       }
     }
   });
@@ -98,6 +132,21 @@ export const validateAndCleanData = (result: any) => {
       // Clean each field in the row
       Object.keys(cleanedRow).forEach(key => {
         const value = cleanedRow[key];
+
+        // DuckDB (and Arrow) can yield BigInt for COUNT(*) and some integer aggregates.
+        // Observable Plot expects JS numbers for numeric channels.
+        if (typeof value === 'bigint') {
+          // Avoid BigInt literals (0n) to keep compatibility with TS targets < ES2020.
+          const zero = BigInt(0);
+          const abs = value < zero ? -value : value;
+          if (abs <= BigInt(Number.MAX_SAFE_INTEGER)) {
+            cleanedRow[key] = Number(value);
+          } else {
+            // Too large to represent safely; keep as string to avoid misleading numbers.
+            cleanedRow[key] = value.toString();
+          }
+          return;
+        }
         
         // Handle invalid numeric values
         if (typeof value === 'number') {

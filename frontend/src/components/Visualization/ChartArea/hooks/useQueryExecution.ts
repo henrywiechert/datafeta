@@ -147,29 +147,59 @@ export const useQueryExecution = ({
         // Execute normal query - use Query Decision Engine when DuckDB is ready
         console.log('🚀 Executing query with Arrow transport, virtualTable:', queryDesc.virtual_table);
         
-        // Determine if this is a scatter-style raw query (continuous on both axes)
+        // Determine if this is a point/dot-style raw query.
+        // IMPORTANT: We must protect Plot.dot-style charts (scatter/strip/tickstrip) from huge row counts.
+        // Previously we only budgeted when *both* axes were continuous ("true scatter").
+        // If user adds a discrete dimension on an axis (e.g. 6 categories), it's still a point chart and
+        // still needs a point budget — otherwise we can return >500k rows and Plot can stack overflow.
+        const hasMeasures = (queryDesc.measures?.length ?? 0) > 0;
+        // Be robust during drag/drop: axis metadata can be transiently missing on the first update.
+        // For chart queries in this hook, "raw + >=2 dimensions" is the safe indicator of a point/dot plot.
+        const isPointChart = !hasMeasures && ((queryDesc.dimensions || []).length >= 2);
+
+        // Keep the old "true scatter" flag only for logging/debugging.
         const isScatter = !!queryDesc.dimensions &&
           queryDesc.dimensions.some(d => d.axis === 'x' && d.flavour === 'continuous') &&
           queryDesc.dimensions.some(d => d.axis === 'y' && d.flavour === 'continuous');
+
         const hasDiscreteColor = !!colorField && colorField.flavour === 'discrete';
         // Conservative budget to prevent Observable Plot failures
-        const scatterMaxPoints = hasDiscreteColor ? 50_000 : 100_000;
+        const scatterMaxPoints = hasDiscreteColor ? 10_000 : 30_000;
         const scatterMinPerStratum = hasDiscreteColor ? 200 : 0;
 
-        // If this is scatter, attach a best-effort budget hint for backend/local reduction.
-        const queryDescExec: QueryDescription = isScatter ? ({
+        // Backend aliases datetime parts as `${field}_${date_part}_${date_mode}`.
+        // When we want to stratify (and when building local SQL), we must refer to the aliased output column,
+        // not the raw base column, otherwise reduction fails (e.g. utc "Minute" -> utc_minute_distinct).
+        const getDimOutputName = (d: any) =>
+          d?.date_part && d?.date_mode ? `${d.field}_${d.date_part}_${d.date_mode}` : d.field;
+
+        // Choose a stratification field for budgeted sampling:
+        // - Prefer discrete color field (best visual preservation).
+        // - Else, if an axis is discrete (or a datetime-part selection), stratify by that axis to ensure each category keeps points.
+        const discreteAxisDim =
+          queryDesc.dimensions?.find(d => d.axis === 'x' && (d.flavour === 'discrete' || (d.date_part && d.date_mode))) ||
+          queryDesc.dimensions?.find(d => d.axis === 'y' && (d.flavour === 'discrete' || (d.date_part && d.date_mode))) ||
+          // Fallback when axis is missing: pick any discrete-like dimension (incl. datetime parts)
+          queryDesc.dimensions?.find(d => d.flavour === 'discrete' || (d.date_part && d.date_mode));
+        const discreteAxisField = discreteAxisDim ? getDimOutputName(discreteAxisDim) : undefined;
+        const stratifyField =
+          (hasDiscreteColor && colorField ? getResultColumnName(colorField) : undefined) ||
+          discreteAxisField;
+
+        // If this is a point chart, attach a best-effort budget hint for backend/local reduction.
+        const queryDescExec: QueryDescription = isPointChart ? ({
           ...queryDesc,
           result_budget: {
             max_rows: scatterMaxPoints,
-            strategy: hasDiscreteColor ? 'stratified' : 'random',
-            stratify_field: hasDiscreteColor && colorField ? getResultColumnName(colorField) : undefined,
+            strategy: stratifyField ? 'stratified' : 'random',
+            stratify_field: stratifyField,
             min_per_stratum: scatterMinPerStratum,
           },
         } as any) : queryDesc;
 
         // Extract required columns from query description
         const requiredColumns: string[] = [
-          ...(queryDescExec.dimensions?.map(d => d.field) || []),
+          ...(queryDescExec.dimensions?.map(d => getDimOutputName(d)) || []),
           ...(queryDescExec.measures?.map(m => m.field) || []),
         ];
         
@@ -255,10 +285,10 @@ export const useQueryExecution = ({
                     localSql += ` GROUP BY ${dimCols.map(c => `"${c}"`).join(', ')}`;
                   }
                 }
-                // Scatter reduction (best-effort) on cache path
-                if (isScatter && localSql) {
-                  if (hasDiscreteColor && colorField?.columnName) {
-                    const strat = colorField.columnName;
+                // Point reduction (best-effort) on cache path
+                if (isPointChart && localSql) {
+                  if (stratifyField) {
+                    const strat = stratifyField;
                     localSql = `
 WITH base AS (
   ${localSql}
@@ -327,6 +357,11 @@ WHERE rn <= greatest(${scatterMinPerStratum}, cast(${scatterMaxPoints} * cat_cnt
 
                 if (rawSlice) {
                   rawSlice.force_raw_rows = true;
+                  // Preserve point budgets on the raw-slice path (otherwise first-drag / high-threshold
+                  // scenarios can accidentally request the full >500k rows and blow up rendering).
+                  if ((queryDescExec as any).result_budget) {
+                    (rawSlice as any).result_budget = (queryDescExec as any).result_budget;
+                  }
                   backendQueryDesc = rawSlice;
                 }
               }
