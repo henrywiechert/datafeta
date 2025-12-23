@@ -554,20 +554,38 @@ class QueryService:
         base_sql = sql.strip().rstrip(";")
 
         if strategy == "stratified" and stratify_field:
-            # Best-effort stratified sampling with window functions.
-            # This is designed to preserve proportions across discrete categories.
+            # Defensive: only stratify if the stratify field is actually projected by the base query.
+            # In UNION / multi-table scenarios a table-qualified stratify field (e.g. `dlFdSchedData.laMode`)
+            # may be absent from some per-table queries or from DISTINCT-reduced queries, which would make
+            # the window PARTITION BY fail with "Missing columns".
             #
-            # ClickHouse uses rand(); DuckDB uses random().
-            rand_func = "rand()" if db_type == "clickhouse" else "random()"
-            qf = f"{quote_char}{stratify_field}{quote_char}"
-            # ClickHouse supports greatest(); DuckDB supports greatest().
-            # Use integer truncation for target rows per stratum.
-            if db_type == "clickhouse":
-                target_expr = f"greatest({min_per}, intDiv({max_rows} * cat_cnt, total_cnt))"
-            else:
-                target_expr = f"greatest({min_per}, cast({max_rows} * cat_cnt / total_cnt as integer))"
+            # Heuristic: require the quoted field to appear in the SELECT clause (before FROM).
+            import re
 
-            return f"""
+            qf = f"{quote_char}{stratify_field}{quote_char}"
+            from_match = re.search(r"\bFROM\b", base_sql, re.IGNORECASE)
+            select_region = base_sql[: from_match.start()] if from_match else base_sql
+            if qf not in select_region:
+                logger.warning(
+                    "Result budget stratified sampling requested, but stratify field %s not present in SELECT; "
+                    "falling back to random sampling.",
+                    stratify_field,
+                )
+                strategy = "random"
+            else:
+                # Best-effort stratified sampling with window functions.
+                # This is designed to preserve proportions across discrete categories.
+                #
+                # ClickHouse uses rand(); DuckDB uses random().
+                rand_func = "rand()" if db_type == "clickhouse" else "random()"
+                # ClickHouse supports greatest(); DuckDB supports greatest().
+                # Use integer truncation for target rows per stratum.
+                if db_type == "clickhouse":
+                    target_expr = f"greatest({min_per}, intDiv({max_rows} * cat_cnt, total_cnt))"
+                else:
+                    target_expr = f"greatest({min_per}, cast({max_rows} * cat_cnt / total_cnt as integer))"
+
+                return f"""
 SELECT * FROM (
   SELECT
     base.*,
