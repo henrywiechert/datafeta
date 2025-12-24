@@ -28,7 +28,22 @@ import {
   type SqlQueryLogEntry,
 } from './queryLogImpl';
 
+import { duckdbService } from '../services/duckdbService';
+
 type OriginFilter = 'all' | 'remote' | 'local';
+
+function safeStringify(value: any): string {
+  return JSON.stringify(
+    value,
+    (_key, v) => {
+      if (typeof v === 'bigint') return v.toString();
+      // JSON.stringify turns NaN/Infinity into null, which is misleading for debugging.
+      if (typeof v === 'number' && !Number.isFinite(v)) return String(v);
+      return v;
+    },
+    2
+  );
+}
 
 function formatTime(ts: number): string {
   const d = new Date(ts);
@@ -42,6 +57,9 @@ export default function SqlQueryViewerDialog(props: { open: boolean; onClose: ()
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [formatEnabled, setFormatEnabled] = useState(true);
+  const [localPreview, setLocalPreview] = useState<{ columns: string[]; rows: any[]; rowCount: number; error?: string } | null>(null);
+  const [scratchSql, setScratchSql] = useState('');
+  const [scratchResult, setScratchResult] = useState<{ columns: string[]; rows: any[]; rowCount: number; error?: string } | null>(null);
 
   // Subscribe to the dev-only store.
   const [version, setVersion] = useState(0);
@@ -74,6 +92,14 @@ export default function SqlQueryViewerDialog(props: { open: boolean; onClose: ()
       setSelectedId(filteredEntries[0].id);
     }
   }, [open, filteredEntries, selectedId]);
+
+  // Keep scratchpad SQL in sync with selection (user can still edit).
+  useEffect(() => {
+    if (!open) return;
+    if (selected?.origin === 'local' && selected.sql) {
+      setScratchSql(selected.sql);
+    }
+  }, [open, selected?.id]); // intentionally only when selection changes
 
   const originChip = (origin: 'remote' | 'local') => {
     return (
@@ -204,6 +230,31 @@ export default function SqlQueryViewerDialog(props: { open: boolean; onClose: ()
             <Typography variant="subtitle1" sx={{ flex: 1, fontWeight: 700 }} noWrap>
               {selected?.label || 'SQL'}
             </Typography>
+            {selected?.origin === 'local' && (
+              <Button
+                variant="outlined"
+                color="inherit"
+                disabled={!duckdbService.isReady}
+                onClick={async () => {
+                  if (!selected) return;
+                  setLocalPreview(null);
+                  try {
+                    const res = await duckdbService.query(selected.sql);
+                    // Show up to first 20 rows to keep the UI snappy.
+                    setLocalPreview({ columns: res.columns, rows: res.rows.slice(0, 20), rowCount: res.rowCount });
+                  } catch (e: any) {
+                    setLocalPreview({
+                      columns: [],
+                      rows: [],
+                      rowCount: 0,
+                      error: e?.message || String(e),
+                    });
+                  }
+                }}
+              >
+                Run locally
+              </Button>
+            )}
             <Button
               startIcon={<ContentCopyIcon />}
               variant="outlined"
@@ -215,6 +266,113 @@ export default function SqlQueryViewerDialog(props: { open: boolean; onClose: ()
           </Box>
 
           <Box sx={{ p: 2, overflow: 'auto', flex: 1, bgcolor: detailBg }}>
+            {/* Local scratchpad */}
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              Local scratchpad (DuckDB)
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+              <Button
+                variant="outlined"
+                color="inherit"
+                disabled={!duckdbService.isReady || !scratchSql.trim()}
+                onClick={async () => {
+                  setScratchResult(null);
+                  try {
+                    const res = await duckdbService.query(scratchSql);
+                    setScratchResult({ columns: res.columns, rows: res.rows.slice(0, 50), rowCount: res.rowCount });
+                  } catch (e: any) {
+                    setScratchResult({
+                      columns: [],
+                      rows: [],
+                      rowCount: 0,
+                      error: e?.message || String(e),
+                    });
+                  }
+                }}
+              >
+                Run
+              </Button>
+              <Button
+                variant="text"
+                color="inherit"
+                disabled={!selected?.sql}
+                onClick={() => {
+                  if (selected?.sql) setScratchSql(selected.sql);
+                }}
+              >
+                Reset to selected
+              </Button>
+            </Box>
+            <TextField
+              value={scratchSql}
+              onChange={(e) => setScratchSql(e.target.value)}
+              placeholder='Example: SELECT * FROM "cache_..." USING SAMPLE 10 ROWS'
+              multiline
+              minRows={3}
+              maxRows={10}
+              fullWidth
+              sx={{ bgcolor: 'background.paper', mb: 2 }}
+            />
+            {scratchResult && (
+              <>
+                <Box
+                  component="pre"
+                  sx={{
+                    m: 0,
+                    p: 1.5,
+                    borderRadius: 1,
+                    bgcolor: 'background.paper',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    overflow: 'auto',
+                    fontSize: 12,
+                    mb: 2,
+                  }}
+                >
+                  {scratchResult.error
+                    ? scratchResult.error
+                    : safeStringify({
+                        rowCount: scratchResult.rowCount,
+                        columns: scratchResult.columns,
+                        firstRow: scratchResult.rows[0] ?? null,
+                        rowsPreview: scratchResult.rows,
+                      })}
+                </Box>
+                <Divider sx={{ mb: 2 }} />
+              </>
+            )}
+
+            {localPreview && (
+              <>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  Local result preview {localPreview.error ? '(error)' : ''}
+                </Typography>
+                <Box
+                  component="pre"
+                  sx={{
+                    m: 0,
+                    p: 1.5,
+                    borderRadius: 1,
+                    bgcolor: 'background.paper',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    overflow: 'auto',
+                    fontSize: 12,
+                    mb: 2,
+                  }}
+                >
+                  {localPreview.error
+                    ? localPreview.error
+                    : safeStringify({
+                        rowCount: localPreview.rowCount,
+                        columns: localPreview.columns,
+                        firstRow: localPreview.rows[0] ?? null,
+                        rowsPreview: localPreview.rows,
+                      })}
+                </Box>
+                <Divider sx={{ mb: 2 }} />
+              </>
+            )}
             {selected?.meta && (
               <>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>
@@ -233,7 +391,7 @@ export default function SqlQueryViewerDialog(props: { open: boolean; onClose: ()
                     fontSize: 12,
                   }}
                 >
-                  {JSON.stringify(selected.meta, null, 2)}
+                  {safeStringify(selected.meta)}
                 </Box>
                 <Divider sx={{ my: 2 }} />
               </>
