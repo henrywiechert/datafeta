@@ -6,6 +6,7 @@ import { filterTierManager } from './filterTierManager';
 import { queryDecisionEngine, QueryDecision } from './queryDecisionEngine';
 import { buildAggregateSql, buildSelectSql, applyPointBudgetSql } from './localSqlBuilder';
 import { arrowTableToRows } from './arrowResultAdapter';
+import { logSqlQuery } from '../devtools/queryLog';
 
 export interface PointBudgetOptions {
   isPointChart: boolean;
@@ -138,6 +139,18 @@ class QueryExecutionOrchestrator {
           });
         }
 
+        logSqlQuery({
+          origin: 'local',
+          sql: localSql,
+          label: 'DuckDB (cache_hit)',
+          meta: {
+            selectedTable,
+            selectedDatabase,
+            baseFilterHash: decision.baseFilterHash,
+            decision: { strategy: decision.strategy, reason: decision.reason },
+          },
+        });
+
         const localResult = await duckdbService.query(localSql);
         return {
           decision,
@@ -195,6 +208,18 @@ class QueryExecutionOrchestrator {
           dimensionColumns: dimCols,
           measures: (viewQueryDesc.measures || []) as any,
           whereClause: refinementWhere || undefined,
+        });
+
+        logSqlQuery({
+          origin: 'local',
+          sql: localAggSql,
+          label: 'DuckDB (local_aggregate)',
+          meta: {
+            selectedTable,
+            selectedDatabase,
+            baseFilterHash: decision.baseFilterHash,
+            decision: { strategy: decision.strategy, reason: decision.reason },
+          },
         });
 
         const localAgg = await duckdbService.query(localAggSql);

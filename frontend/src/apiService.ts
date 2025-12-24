@@ -16,6 +16,7 @@ import {
     VirtualTableDefinition
 } from './types';
 import { arrowTableToRows } from './services/arrowResultAdapter';
+import { logSqlQuery } from './devtools/queryLog';
 
 // Derive API base: Prefer explicit env var (REACT_APP_API_BASE, e.g. "/api/v1"), else fall back to
 // same-origin relative path (when frontend served by backend) and append /data segment used by router.
@@ -222,6 +223,7 @@ export const apiService = {
         const abortController = signal ? null : createAbortController();
         const requestSignal = signal || abortController?.signal;
 
+        const start = performance.now();
         const response = await fetchWithErrorHandling(`${API_BASE_URL}/query`, {
             method: 'POST',
             headers: {
@@ -231,10 +233,26 @@ export const apiService = {
         }, requestSignal);
 
         const result: QueryResult = await response.json();
+        const durationMs = Math.round(performance.now() - start);
         
         // Check for backend errors returned within the QueryResult
         if (result.error) {
             throw new Error(result.error);
+        }
+
+        if (result.query_sql) {
+            logSqlQuery({
+                origin: 'remote',
+                sql: result.query_sql,
+                label: 'POST /data/query (JSON)',
+                durationMs,
+                meta: {
+                    transport: 'json',
+                    target_table: (queryDesc as any).target_table,
+                    target_database: (queryDesc as any).target_database,
+                    row_count: (result as any).row_count,
+                }
+            });
         }
         
         return result;
@@ -261,6 +279,7 @@ export const apiService = {
         const abortController = signal ? null : createAbortController();
         const requestSignal = signal || abortController?.signal;
 
+        const start = performance.now();
         const fetchOptions: RequestInit = {
             method: 'POST',
             headers: {
@@ -297,6 +316,7 @@ export const apiService = {
             // Decode SQL from base64 header
             const sqlBase64 = response.headers.get('X-Query-Sql-Base64');
             const querySql = sqlBase64 ? atob(sqlBase64) : undefined;
+            const durationMs = Math.round(performance.now() - start);
 
             const arrayBuffer = await response.arrayBuffer();
             const arrowTable: ArrowTable = tableFromIPC(arrayBuffer);
@@ -307,6 +327,24 @@ export const apiService = {
             }));
 
             console.log(`📊 Arrow raw fetch: ${arrayBuffer.byteLength} bytes → ${arrowTable.numRows} rows × ${columnCount} columns`);
+
+            if (querySql) {
+                logSqlQuery({
+                    origin: 'remote',
+                    sql: querySql,
+                    label: 'POST /data/query-arrow (Arrow raw)',
+                    durationMs,
+                    meta: {
+                        transport: 'arrow',
+                        raw: true,
+                        target_table: (queryDesc as any).target_table,
+                        target_database: (queryDesc as any).target_database,
+                        arrow_rows: rowCount || arrowTable.numRows,
+                        arrow_cols: columnCount || columns.length,
+                        bytes: arrayBuffer.byteLength,
+                    }
+                });
+            }
 
             return {
                 arrowTable,
@@ -340,6 +378,7 @@ export const apiService = {
         const abortController = signal ? null : createAbortController();
         const requestSignal = signal || abortController?.signal;
 
+        const start = performance.now();
         const fetchOptions: RequestInit = {
             method: 'POST',
             headers: {
@@ -378,6 +417,7 @@ export const apiService = {
             // Decode SQL from base64 header
             const sqlBase64 = response.headers.get('X-Query-Sql-Base64');
             const querySql = sqlBase64 ? atob(sqlBase64) : undefined;
+            const durationMs = Math.round(performance.now() - start);
 
             // Parse Arrow IPC stream
             const arrayBuffer = await response.arrayBuffer();
@@ -395,6 +435,24 @@ export const apiService = {
             const numRows = arrowTable.numRows;
 
             console.log(`📊 Arrow transport: ${arrayBuffer.byteLength} bytes → ${numRows} rows × ${columnCount} columns`);
+
+            if (querySql) {
+                logSqlQuery({
+                    origin: 'remote',
+                    sql: querySql,
+                    label: 'POST /data/query-arrow (Arrow rows)',
+                    durationMs,
+                    meta: {
+                        transport: 'arrow',
+                        raw: false,
+                        target_table: (queryDesc as any).target_table,
+                        target_database: (queryDesc as any).target_database,
+                        arrow_rows: rowCount || numRows,
+                        arrow_cols: columnCount || columns.length,
+                        bytes: arrayBuffer.byteLength,
+                    }
+                });
+            }
 
             return {
                 columns,
