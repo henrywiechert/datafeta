@@ -155,9 +155,21 @@ export const useQueryExecution = ({
         // If user adds a discrete dimension on an axis (e.g. 6 categories), it's still a point chart and
         // still needs a point budget — otherwise we can return >500k rows and Plot can stack overflow.
         const hasMeasures = (queryDesc.measures?.length ?? 0) > 0;
+        const dims = queryDesc.dimensions || [];
+
         // Be robust during drag/drop: axis metadata can be transiently missing on the first update.
-        // For chart queries in this hook, "raw + >=2 dimensions" is the safe indicator of a point/dot plot.
-        const isPointChart = !hasMeasures && ((queryDesc.dimensions || []).length >= 2);
+        // For chart queries in this hook, we must protect Plot mark-heavy charts from huge row counts.
+        //
+        // - Scatter-like: raw + >=2 dimensions
+        // - Tick-strip: raw + exactly 1 continuous dimension (other axis empty)
+        //
+        // Without this, switching a cached column from measure→dimension can produce a local cache-hit
+        // query returning 500k+ rows, and Plot.tickX/tickY can stack overflow.
+        const isTickStripLike =
+          !hasMeasures &&
+          dims.length === 1 &&
+          (dims[0] as any)?.flavour === 'continuous';
+        const isPointChart = (!hasMeasures && dims.length >= 2) || isTickStripLike;
 
         // Keep the old "true scatter" flag only for logging/debugging.
         const isScatter = !!queryDesc.dimensions &&

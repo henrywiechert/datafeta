@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
@@ -7,6 +7,11 @@ import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
 import QueryStatusIndicator from './QueryStatusIndicator';
 import DatasetStatus from './DatasetStatus';
+
+const DevSqlViewerControl =
+  process.env.NODE_ENV !== 'production'
+    ? React.lazy(() => import('../../../../devtools/DevSqlViewerControl'))
+    : null;
 
 interface ChartControlsProps {
   isDebugOpen: boolean;
@@ -46,6 +51,11 @@ const ChartControls: React.FC<ChartControlsProps> = ({
     }}>
       {/* Left side - Fullscreen and Swap Axis buttons */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        {DevSqlViewerControl && (
+          <Suspense fallback={null}>
+            <DevSqlViewerControl />
+          </Suspense>
+        )}
         {isFullscreenSupported && onToggleFullscreen && (
           <>
             <Tooltip title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}>
