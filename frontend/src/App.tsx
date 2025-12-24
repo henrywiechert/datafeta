@@ -288,7 +288,7 @@ function AppContent() {
   return (
     <div className="App">
       {/* Main content area */}
-      <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
+      <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
         <Suspense fallback={null}>
           <Routes>
             <Route path="/" element={<DataSourceSelectionPage onLoadConfiguration={handleLoadConfiguration} />} />
