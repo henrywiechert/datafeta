@@ -3,7 +3,8 @@ import { Box, CircularProgress, Typography, TextField } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import { Database, Table, Field } from '../../types';
 import JoinTableSelector from './JoinTableSelector';
-import UnionTableSelector from './UnionTableSelector';
+import TableAddPicker from './TableAddPicker';
+import SelectedTablesList from './SelectedTablesList';
 import styles from './CompactMetadataSelector.module.css';
 
 type FilterableSelectProps = {
@@ -131,6 +132,25 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
     [tables]
   );
 
+  const handleAddTable = React.useCallback(
+    (payload: { database: string; table: string }) => {
+      // First add becomes primary (staged selection): mutate real selection only on Add.
+      if (!selectedTable) {
+        onDatabaseSelect(payload.database);
+        onTableSelect(payload.table);
+        return;
+      }
+      // Subsequent adds are UNION secondaries.
+      if (onAddUnionTable) onAddUnionTable(payload.database, payload.table);
+    },
+    [selectedTable, onAddUnionTable, onDatabaseSelect, onTableSelect]
+  );
+
+  const handleRemovePrimary = React.useCallback(() => {
+    // Clear primary (this also resets JOIN/UNION in DataSourceContext via setSelectedTable)
+    onTableSelect('');
+  }, [onTableSelect]);
+
   return (
     <div className={styles.metadataSelector}>
       <Typography 
@@ -143,26 +163,38 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
       >
         Data Source
       </Typography>
-      {connectionType === 'clickhouse' && (
+      {connectionType === 'clickhouse' ? (
+        <>
+          <TableAddPicker
+            databases={databaseOptions}
+            tablesCache={tablesCache}
+            onLoadTablesForDatabase={onLoadTablesForDatabase}
+            primaryDatabase={selectedDatabase}
+            primaryTable={selectedTable}
+            unionTables={unionTables}
+            onAdd={handleAddTable}
+          />
+
+          <SelectedTablesList
+            primaryDatabase={selectedDatabase}
+            primaryTable={selectedTable}
+            unionTables={unionTables}
+            onRemovePrimary={handleRemovePrimary}
+            onRemoveUnionTable={(db, t) => onRemoveUnionTable?.(db, t)}
+          />
+        </>
+      ) : (
         <FilterableSelect
-          label="DB"
-          placeholder="Search DB"
-          options={databaseOptions}
-          value={selectedDatabase}
-          onChange={onDatabaseSelect}
+          label="Table"
+          placeholder="Search Table"
+          options={tableOptions}
+          value={selectedTable}
+          onChange={onTableSelect}
+          loading={isLoadingMetadata}
+          disabled={tables.length === 0}
+          allowEmpty
         />
       )}
-
-      <FilterableSelect
-        label="Table"
-        placeholder="Search Table"
-        options={tableOptions}
-        value={selectedTable}
-        onChange={onTableSelect}
-        loading={isLoadingMetadata}
-        disabled={tables.length === 0}
-        allowEmpty
-      />
       
       {/* Show joinable tables selector (for ClickHouse and Kaggle) */}
       {(connectionType === 'clickhouse' || connectionType === 'kaggle') && selectedTable && onToggleJoinedTable && (
@@ -171,20 +203,6 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
           suggestedJoinableTables={suggestedJoinableTables}
           joinedTables={joinedTables}
           onToggleJoin={onToggleJoinedTable}
-        />
-      )}
-      
-      {/* Show unionable tables selector (only for ClickHouse) */}
-      {connectionType === 'clickhouse' && selectedTable && onAddUnionTable && onRemoveUnionTable && (
-        <UnionTableSelector
-          primaryTable={selectedTable}
-          primaryDatabase={selectedDatabase}
-          databases={databases}
-          allTables={tablesCache}  // Use the full tables cache for all databases
-          unionTables={unionTables}
-          onAddUnionTable={onAddUnionTable}
-          onRemoveUnionTable={onRemoveUnionTable}
-          onLoadTables={onLoadTablesForDatabase}
         />
       )}
       
