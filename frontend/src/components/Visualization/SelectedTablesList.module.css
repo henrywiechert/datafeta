@@ -1,0 +1,42 @@
+.container {
+  padding: 8px 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-bottom: 1px solid #e0e0e0;
+  background-color: #fafafa;
+}
+
+.list {
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: white;
+}
+
+.listItem {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+.primaryRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.roleChip {
+  height: 20px;
+}
+
+.tableName {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.metaPlaceholder {
+  font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+
