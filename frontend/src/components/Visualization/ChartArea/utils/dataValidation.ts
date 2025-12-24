@@ -125,8 +125,7 @@ export const validateAndCleanData = (result: any) => {
 
   console.log(`🧹 Validating and cleaning ${result.rows.length} rows`);
   
-  const cleanedRows = result.rows
-    .map((row: any) => {
+  const mappedRows = result.rows.map((row: any) => {
       const cleanedRow = { ...row };
       
       // Clean each field in the row
@@ -215,18 +214,30 @@ export const validateAndCleanData = (result: any) => {
       });
       
       return cleanedRow;
-    })
-    .filter((row: any) => {
-      // Filter out rows that are completely null/undefined
-      const hasValidData = Object.values(row).some(value => 
-        value !== null && value !== undefined && value !== ''
-      );
-      return hasValidData;
     });
+
+  const cleanedRows = mappedRows.filter((row: any) => {
+    // Filter out rows that are completely null/undefined
+    const hasValidData = Object.values(row).some(value =>
+      value !== null && value !== undefined && value !== ''
+    );
+    return hasValidData;
+  });
 
   const filteredCount = result.rows.length - cleanedRows.length;
   if (filteredCount > 0) {
     console.warn(`🧹 Filtered out ${filteredCount} invalid rows`);
+  }
+
+  // Special-case: single-row aggregate results can legitimately be "all NULL" (e.g. SUM over non-numeric strings).
+  // Dropping it makes downstream charts show nothing and hides the actual issue.
+  // Keep the row so the UI can surface "no numeric data"/nulls deterministically.
+  if (cleanedRows.length === 0 && mappedRows.length === 1) {
+    return {
+      ...result,
+      rows: mappedRows,
+      row_count: 1,
+    };
   }
 
   return {

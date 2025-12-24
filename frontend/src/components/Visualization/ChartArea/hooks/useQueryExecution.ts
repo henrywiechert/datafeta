@@ -149,32 +149,35 @@ export const useQueryExecution = ({
         // Execute normal query - use Query Decision Engine when DuckDB is ready
         console.log('🚀 Executing query with Arrow transport, virtualTable:', queryDesc.virtual_table);
         
-        // Determine if this is a point/dot-style raw query.
-        // IMPORTANT: We must protect Plot.dot-style charts (scatter/strip/tickstrip) from huge row counts.
-        // Previously we only budgeted when *both* axes were continuous ("true scatter").
-        // If user adds a discrete dimension on an axis (e.g. 6 categories), it's still a point chart and
-        // still needs a point budget — otherwise we can return >500k rows and Plot can stack overflow.
+        // Determine if this is a point/dot-style chart query.
+        // IMPORTANT: We must protect Plot dot/tick-based charts from huge row counts.
+        //
+        // There are two *separate* reasons a result can explode:
+        // 1) Raw point charts (no measures) with >=2 dimensions (scatter-like)
+        // 2) Tick-strip (exactly 1 continuous dimension, other axis empty)
+        // 3) Scatter charts that *do* have measures (e.g. continuous color/size) — these still render one mark
+        //    per (x,y) group and can be enormous; budget must apply even when measures exist.
         const hasMeasures = (queryDesc.measures?.length ?? 0) > 0;
         const dims = queryDesc.dimensions || [];
 
-        // Be robust during drag/drop: axis metadata can be transiently missing on the first update.
-        // For chart queries in this hook, we must protect Plot mark-heavy charts from huge row counts.
-        //
-        // - Scatter-like: raw + >=2 dimensions
-        // - Tick-strip: raw + exactly 1 continuous dimension (other axis empty)
-        //
-        // Without this, switching a cached column from measure→dimension can produce a local cache-hit
-        // query returning 500k+ rows, and Plot.tickX/tickY can stack overflow.
         const isTickStripLike =
           !hasMeasures &&
           dims.length === 1 &&
           (dims[0] as any)?.flavour === 'continuous';
-        const isPointChart = (!hasMeasures && dims.length >= 2) || isTickStripLike;
 
-        // Keep the old "true scatter" flag only for logging/debugging.
-        const isScatter = !!queryDesc.dimensions &&
+        // True scatter: continuous dimension on x AND continuous dimension on y.
+        // Note: this can still include measures (e.g. continuous color), so don't gate on hasMeasures.
+        const isTrueScatter = !!queryDesc.dimensions &&
           queryDesc.dimensions.some(d => d.axis === 'x' && d.flavour === 'continuous') &&
           queryDesc.dimensions.some(d => d.axis === 'y' && d.flavour === 'continuous');
+
+        // Generic raw point chart heuristic (covers categorical scatter etc.) only when there are no measures.
+        const isRawPointChart = !hasMeasures && dims.length >= 2;
+
+        const isPointChart = isTickStripLike || isTrueScatter || isRawPointChart;
+
+        // Keep the old flag name for downstream readability.
+        const isScatter = isTrueScatter;
 
         const hasDiscreteColor = !!colorField && colorField.flavour === 'discrete';
         // Conservative budget to prevent Observable Plot failures

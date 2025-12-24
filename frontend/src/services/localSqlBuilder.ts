@@ -9,7 +9,39 @@ export function quoteIdent(name: string): string {
  */
 export function buildNumericExpr(colName: string): string {
   const col = quoteIdent(colName);
-  return `TRY_CAST(REPLACE(CAST(${col} AS VARCHAR), '\"', '') AS DOUBLE)`;
+  // Goal:
+  // - If the cached DuckDB column is already numeric, DON'T do expensive string parsing.
+  // - If it's string-like, parse common numeric string formats.
+  // - In both cases, treat NaN/Inf as NULL so SUM/AVG don't get poisoned.
+
+  const isBadFloat = (expr: string) =>
+    `LOWER(CAST(${expr} AS VARCHAR)) IN ('nan','-nan','inf','infinity','-inf','-infinity')`;
+
+  // Numeric path: keep the value, but drop NaN/Inf.
+  const numeric = `CASE
+  WHEN ${col} IS NULL THEN NULL
+  WHEN ${isBadFloat(col)} THEN NULL
+  ELSE CAST(${col} AS DOUBLE)
+END`;
+
+  // String parsing path:
+  // - Cast to VARCHAR, trim, remove embedded quotes, remove spaces
+  // - If there's a '.', treat ',' as thousands separator (remove)
+  // - Else, treat ',' as decimal separator (replace with '.')
+  const cleaned = `REPLACE(REPLACE(TRIM(CAST(${col} AS VARCHAR)), '"', ''), ' ', '')`;
+  const parsed = `TRY_CAST(CASE WHEN INSTR(${cleaned}, '.') > 0 THEN REPLACE(${cleaned}, ',', '') ELSE REPLACE(${cleaned}, ',', '.') END AS DOUBLE)`;
+  const parsedSafe = `CASE
+  WHEN ${parsed} IS NULL THEN NULL
+  WHEN ${isBadFloat(parsed)} THEN NULL
+  ELSE ${parsed}
+END`;
+
+  // Use DuckDB's typeof() to avoid guessing based on Arrow metadata.
+  // typeof() returns strings like 'DOUBLE', 'VARCHAR', etc.
+  return `CASE
+  WHEN typeof(${col}) IN ('TINYINT','SMALLINT','INTEGER','BIGINT','HUGEINT','UTINYINT','USMALLINT','UINTEGER','UBIGINT','DECIMAL','REAL','FLOAT','DOUBLE') THEN (${numeric})
+  ELSE (${parsedSafe})
+END`;
 }
 
 export type MeasureLike = {
