@@ -46,6 +46,13 @@ pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
+If you prefer running from the repo root:
+
+```bash
+python -m pip install -r backend/requirements.txt
+uvicorn backend.main:app --reload
+```
+
 ## Documentation Structure
 
 - [`frontend/`](./frontend/README.md) - Frontend application documentation

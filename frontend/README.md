@@ -2,7 +2,7 @@
 
 The frontend is a React-based data analysis application that provides an intuitive interface for connecting to data sources, exploring data, and creating interactive visualizations.
 
-**Last Updated**: November 30, 2025
+**Last Updated**: December 24, 2025
 
 ## Application Overview
 
@@ -19,6 +19,8 @@ The frontend is a React-based data analysis application that provides an intuiti
 - **Multi-Table Support**: Table joins and cross-database unions
 - **Query Optimization**: Field-level optimization hints for performance
 - **Virtual Columns**: Calculated fields with SQL expressions
+- **Arrow transport**: Efficient binary transfer for larger query results
+- **DuckDB WASM local cache**: Column-slice caching + local refinement filtering and local aggregation where applicable
 
 ## Application Structure
 
@@ -33,12 +35,18 @@ The frontend is a React-based data analysis application that provides an intuiti
 - `src/hooks/` - Custom React hooks (queries, metadata, filters)
 - `src/utils/` - Utilities (field classification, datetime handling)
 - `src/apiService.ts` - Backend API integration
+- `src/services/` - Query execution orchestration, local SQL builder, caching services
 
 ## Architecture
 
 ### State Management
 - **ConnectionContext**: Data source connections, tables, columns, multi-table configuration
 - **VisualizationContext**: Field selection, query building, chart state, optimization hints
+
+### Query execution (high level)
+- **Backend** remains the source of truth for SQL generation and remote execution.
+- **Frontend** can fetch Arrow results and optionally cache a base-filtered slice in DuckDB WASM.
+- **Caching** is standardized on **column-slice caching** (keyed by `(database, table, baseFilterHash)`), tracked via `LocalCacheHandle`.
 
 ### Chart Generation Pipeline
 1. Field classification (dimension/measure, discrete/continuous)
@@ -62,3 +70,6 @@ The frontend is a React-based data analysis application that provides an intuiti
 - `npm start` - Development server (port 3000)
 - `npm test` - Run test suite
 - `npm run build` - Production build
+
+### Environment Variables
+- **`REACT_APP_API_BASE`**: API base path or absolute URL (default: `/api/v1`). The frontend calls endpoints under `${REACT_APP_API_BASE}/data/*`.

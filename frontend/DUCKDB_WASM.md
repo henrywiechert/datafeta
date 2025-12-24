@@ -45,15 +45,23 @@ Manages the DuckDB WASM instance lifecycle:
 - Blob URL workaround for CORS restrictions on CDN-hosted worker scripts
 - BigInt-to-Number conversion for JavaScript compatibility
 
-### CacheManager (`services/cacheManager.ts`)
+### CacheManager (`services/cacheManager.ts`) (removed)
 
-Legacy table-level cache manager. The current architecture primarily uses `ColumnCacheManager` for tracking cached slices and `DuckDBService` for storage.
+The legacy table-level cache manager was removed during the cache unification work. The current architecture standardizes on **column-slice caching** via `ColumnCacheManager` + `LocalCacheHandle`.
 
 ### ColumnCacheManager (`services/columnCacheManager.ts`) - NEW
 
-Manages **base-filtered slice caching** in DuckDB WASM and tracks which columns exist in that slice:
+Manages **base-filtered slice caching** in DuckDB WASM and tracks which columns exist in that slice.
 
-- **Slice keying**: cache entries are keyed by `(database, table, baseFilterHash)`\n- **Column tracking**: keeps metadata about which columns are present in the cached slice\n- **Invalidation**: base filter changes invalidate cached slices\n\nNote: despite the name, this is **not yet true incremental per-column fetching/merging**. Today, a cache refresh replaces the cached DuckDB table for a slice key.
+Important concepts:
+- **`LocalCacheHandle`**: `{ sourceTable, sourceDatabase?, baseFilterHash?, duckdbTableName }` returned for a cached slice.
+- **Cache key**: `(database, table, baseFilterHash)` (implementation detail; the DuckDB table name is derived from this key).
+
+- **Slice keying**: cache entries are keyed by `(database, table, baseFilterHash)`
+- **Column tracking**: keeps metadata about which columns are present in the cached slice
+- **Invalidation**: base filter changes invalidate cached slices
+
+Note: despite the name, this is **not yet true incremental per-column fetching/merging**. Today, a cache refresh replaces the cached DuckDB table for a slice key.
 
 ### FilterTierManager (`services/filterTierManager.ts`) - NEW
 
@@ -89,9 +97,11 @@ Executes optimized queries for individual charts:
 
 ### Query Flow
 
-1. **Decision**: Frontend probes row count (base filters) and decides local vs backend.\n2. **Raw slice fetch (small datasets)**: Frontend requests a **raw slice** (base filters only) via Arrow and caches it in DuckDB.\n3. **Local grouping/reduction**: Refinement filters, grouping changes, and scatter reduction run locally against the cached slice.\n4. **Backend query (large datasets)**: Frontend sends the normal chart query to backend. For oversize scatter, it sends a **result budget** hint so backend can reduce the returned points before transport.
-3. **Cache Storage**: Arrow table is registered into DuckDB WASM using native Arrow IPC insertion (no JSON conversion in the normal path).
-4. **Local Queries**: Subsequent chart renders query DuckDB WASM instead of backend
+1. **Decision**: Frontend probes row count (base filters) and decides local vs backend.
+2. **Raw slice fetch (small datasets)**: Frontend requests a **raw slice** (base filters only) via Arrow and caches it in DuckDB.
+3. **Cache storage**: Arrow IPC is registered into DuckDB WASM (no JSON conversion in the normal path).
+4. **Local grouping/reduction**: Refinement filters, grouping changes, and point reduction can run locally against the cached slice.
+5. **Backend query (large datasets)**: Frontend sends the normal chart query to backend. For oversize scatter, it can send a **result budget** hint so backend reduces points before transport.
 
 ### What the Backend Still Does
 

@@ -2,6 +2,22 @@
 
 FastAPI-based REST API providing data connectivity, query processing, and optimization for the data analysis platform.
 
+## Running locally
+
+From the `backend/` directory:
+
+```bash
+python -m pip install -r requirements.txt
+uvicorn main:app --reload
+```
+
+From the repo root:
+
+```bash
+python -m pip install -r backend/requirements.txt
+uvicorn backend.main:app --reload
+```
+
 ## Architecture Overview
 
 ### Core Components
@@ -147,6 +163,10 @@ The backend supports multiple concurrent users through **session-based state iso
 }
 ```
 Handler: [`execute_query`](routers/data.py#L155) → [`QueryService.translate_to_sql`](services/query_service.py#L428)
+
+### Arrow transport
+
+- **POST `/api/v1/data/query-arrow`**: Returns Arrow IPC stream (see `frontend/ARROW.md` for details)
 
 ### Multi-Table Support
 
