@@ -517,6 +517,89 @@ class UnionQueryBuilder:
             single_table_desc.limit = None
             single_table_desc.offset = None
 
+            # If the query has filters on fields that do not exist in this table, this table must
+            # contribute an empty result set (those rows would have NULLs for the missing field
+            # in the aligned UNION schema, and thus fail the filter predicates).
+            #
+            # Without this guard, ClickHouse/DuckDB will error with UNKNOWN_IDENTIFIER.
+            if table_columns:
+                missing_filter_fields = [
+                    f.field for f in single_table_desc.filters
+                    if f.field not in table_columns
+                ]
+                if missing_filter_fields:
+                    self._logger.info(
+                        "Skipping table %s.%s due to missing filter fields: %s",
+                        database, table_name, missing_filter_fields,
+                    )
+                    has_dimensions = bool(all_dimension_fields)
+                    has_measures = bool(all_measure_fields)
+
+                    # For dimension queries, return 0 rows with the aligned schema.
+                    if has_dimensions:
+                        dim_keys = [field_key for field_key, _d in all_dimension_fields]
+                        single_sql = self._build_null_only_query(
+                            database,
+                            table_name,
+                            dim_keys,
+                            all_measure_fields,
+                            db_type,
+                            quote_char,
+                        )
+                    # For measure-only queries, return a single "empty-set" row.
+                    # COUNT(*) over an empty set should be 0; other aggregations can be NULL.
+                    elif has_measures:
+                        select_items: List[str] = []
+                        for field_key, measure in all_measure_fields:
+                            is_count = measure.aggregation == "count"
+                            if is_count:
+                                if db_type == "clickhouse":
+                                    select_items.append(
+                                        f"CAST(0 AS Nullable(Float64)) AS {quote_char}{field_key}{quote_char}"
+                                    )
+                                else:
+                                    select_items.append(f"0 AS {quote_char}{field_key}{quote_char}")
+                            else:
+                                select_items.append(self._build_null_column(field_key, True, db_type, quote_char))
+
+                        # Include source tracking columns so outer filters (e.g. _source_database IN (...))
+                        # remain valid.
+                        select_items.append(f"'{database}' AS {quote_char}_source_database{quote_char}")
+                        select_items.append(f"'{table_name}' AS {quote_char}_source_table{quote_char}")
+                        union_queries.append(f"(SELECT {', '.join(select_items)})")
+                        continue
+                    else:
+                        # No fields requested besides (maybe) source columns; safe to contribute nothing.
+                        continue
+
+                    # For the dimension-query empty-set SQL, fall through to the normal source-column
+                    # injection below (it has a FROM clause we can augment).
+                    # Ensure we don't apply the missing filters.
+                    single_table_desc.filters = []
+                    # We'll also skip the normal translation step below since we already have SQL.
+                    # Rebuild it to include full column order + source tracking.
+                    single_sql = self._rebuild_select_with_nulls(
+                        single_sql, all_dimension_fields, all_measure_fields,
+                        table_columns, table_name, db_type, quote_char
+                    )
+
+                    # Add source tracking columns to the query
+                    if "FROM" in single_sql:
+                        select_part, from_part = single_sql.split("FROM", 1)
+                        select_part = select_part.rstrip()
+                        if select_part.endswith(','):
+                            select_part = select_part[:-1]
+                        modified_sql = (
+                            f"{select_part}, "
+                            f"'{database}' AS {quote_char}_source_database{quote_char}, "
+                            f"'{table_name}' AS {quote_char}_source_table{quote_char} "
+                            f"FROM{from_part}"
+                        )
+                        union_queries.append(f"({modified_sql})")
+                    else:
+                        union_queries.append(f"({single_sql})")
+                    continue
+
             # Skip tables that have no measures when measures are requested
             # This prevents tables without the requested fields from polluting results with NULL rows
             if all_measure_fields and not existing_measures:
