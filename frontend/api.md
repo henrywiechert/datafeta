@@ -2,7 +2,7 @@
 
 This document details the frontend's API communication system, including data source connections, query handling, and backend integration using pypika notation.
 
-**Last Updated**: November 30, 2025
+**Last Updated**: December 24, 2025
 
 ## API Service Architecture
 
@@ -33,18 +33,18 @@ The backend uses session-based state management to track connections per user:
 
 ## Connection Management
 
-### Database Connections
+### ClickHouse Connections
 
 #### Connection Establishment
 ```typescript
-// Connect to database
-const connection = await apiService.connect({
-  type: 'database',
+// Connect to ClickHouse (session-based; cookies are used)
+await apiService.connect({
+  type: 'clickhouse',
   host: 'localhost',
-  port: 5432,
-  database: 'analytics',
-  username: 'user',
-  password: 'password'
+  port: 8123,       // ClickHouse HTTP interface
+  user: 'default',
+  password: '',
+  database: 'default',
 });
 ```
 
@@ -53,16 +53,15 @@ const connection = await apiService.connect({
 - **State management**: Managed through backend `ConnectionStateManager`
 - **Resource cleanup**: Automatic cleanup on disconnection or session timeout
 
-### File Upload Support
+### CSV Upload Support
 
 #### CSV File Upload
 ```typescript
-// Upload and connect to CSV file
-const fileConnection = await apiService.connect({
-  type: 'file',
-  file: csvFileObject,
-  tableName: 'uploaded_data'
-});
+// Upload and connect to a CSV file (multipart/form-data under the hood)
+await apiService.connect(
+  { type: 'csv', csv_delimiter: ',', csv_has_header: true },
+  csvFileObject
+);
 ```
 
 #### File Processing
@@ -95,7 +94,7 @@ const tables = await apiService.listTables(databaseName);
 ### Column Introspection
 ```typescript
 // Get columns for table
-const columns = await apiService.listColumns(databaseName, tableName);
+const columns = await apiService.listColumns(tableName, databaseName);
 // Returns: Array<{ name: string; type: string; nullable: boolean }>
 ```
 
@@ -226,6 +225,13 @@ interface VirtualColumnDefinition {
 const result = await apiService.executeQuery(queryDescription);
 // Returns: QueryResult with columns, data, and optimization metadata
 ```
+
+### Arrow transport
+
+For larger result sets, the frontend may use the Arrow endpoint to reduce payload size and parse time:
+
+- `POST /api/v1/data/query-arrow` (Arrow IPC stream)
+- Falls back to JSON (`/api/v1/data/query`) when needed
 
 ### Query Result Structure
 
