@@ -93,6 +93,14 @@ Executes optimized queries for individual charts:
 - **Adaptive rounding**: Applies precision reduction for continuous dimensions
 - **Local aggregation**: Performs GROUP BY operations client-side
 
+### QueryExecutionOrchestrator (`services/queryExecutionOrchestrator.ts`) - NEW
+
+Orchestrates end-to-end query execution (decision, fetch, caching, local execution):
+
+- Chooses between **remote aggregation** vs **raw-slice fetch + local aggregation**
+- Uses Arrow (`/query-arrow`) for raw slices and registers them into DuckDB WASM
+- Builds local SQL via `localSqlBuilder.ts` (casts, aggregations, point budgets)
+
 ## Interaction with Backend Queries
 
 ### Query Flow
