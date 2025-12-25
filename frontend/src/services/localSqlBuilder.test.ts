@@ -16,7 +16,8 @@ describe('localSqlBuilder datetime parts (DuckDB)', () => {
     if (item.kind === 'expr') {
       expect(item.alias).toBe('ts_minute_timeline');
       expect(item.expr).toContain("date_trunc('minute'");
-      expect(item.expr).toContain(quoteIdent('ts'));
+      // should use robust timestamp expression (TRY_CAST path)
+      expect(item.expr).toContain('to_timestamp');
     }
   });
 
@@ -27,7 +28,7 @@ describe('localSqlBuilder datetime parts (DuckDB)', () => {
       dateMode: 'distinct',
     });
     expect(expr).toContain('EXTRACT(MINUTE FROM');
-    expect(expr).toContain(quoteIdent('ts'));
+    expect(expr).toContain('to_timestamp');
   });
 
   test('distinct weekday is ISO 1..7 using EXTRACT(DOW) normalization', () => {
