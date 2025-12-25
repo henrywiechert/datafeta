@@ -3,6 +3,36 @@ export function quoteIdent(name: string): string {
   return `"${String(name).replace(/"/g, '""')}"`;
 }
 
+/**
+ * Build a robust DuckDB timestamp expression for a column that might be typed as
+ * TIMESTAMP/DATE already or might be a string.
+ *
+ * We prefer not to throw: if parsing fails, return NULL (TRY_CAST).
+ */
+export function buildDuckDbTimestampExpr(colName: string): string {
+  const col = quoteIdent(colName);
+  // DuckDB typeof() returns strings like 'TIMESTAMP', 'DATE', 'VARCHAR', ...
+  // Treat DATE/TIMESTAMP* as safe; otherwise try-cast from string-like columns.
+  //
+  // Many CSV-derived datasets store time as epoch seconds/milliseconds in an integer column.
+  // In those cases, TRY_CAST(... AS TIMESTAMP) will not work, but to_timestamp()/epoch_ms() will.
+  const numericTypes =
+    "('TINYINT','SMALLINT','INTEGER','BIGINT','HUGEINT','UTINYINT','USMALLINT','UINTEGER','UBIGINT','DECIMAL','REAL','FLOAT','DOUBLE')";
+  return `CASE
+  WHEN ${col} IS NULL THEN NULL
+  WHEN typeof(${col}) LIKE 'TIMESTAMP%' THEN CAST(${col} AS TIMESTAMP)
+  WHEN typeof(${col}) = 'DATE' THEN CAST(${col} AS TIMESTAMP)
+  WHEN typeof(${col}) = 'TIMESTAMPTZ' THEN CAST(${col} AS TIMESTAMP)
+  WHEN typeof(${col}) IN ${numericTypes} THEN
+    CASE
+      -- Heuristic: epoch milliseconds are typically >= 1e12 (vs seconds ~ 1e9).
+      WHEN abs(CAST(${col} AS DOUBLE)) >= 1e12 THEN CAST(epoch_ms(CAST(${col} AS BIGINT)) AS TIMESTAMP)
+      ELSE CAST(to_timestamp(CAST(${col} AS DOUBLE)) AS TIMESTAMP)
+    END
+  ELSE TRY_CAST(${col} AS TIMESTAMP)
+END`;
+}
+
 export type SelectItem =
   | { kind: 'column'; column: string; alias?: string }
   | { kind: 'expr'; expr: string; alias: string };
@@ -34,11 +64,11 @@ export function buildDuckDbDateTimePartSelectItem(args: {
 }): SelectItem {
   const { field, datePart, dateMode } = args;
   const alias = `${field}_${datePart}_${dateMode}`;
-  const col = quoteIdent(field);
+  const ts = buildDuckDbTimestampExpr(field);
 
-  // We treat timestamps as UTC in local DuckDB. Most cached timestamps are timezone-naive
-  // and already represent UTC, so this is intentionally a no-op at the SQL level.
-  const utcTs = col;
+  // We interpret timestamps as UTC in local DuckDB. Most cached timestamps are timezone-naive
+  // and already represent UTC, so this is intentionally a no-op beyond robust parsing.
+  const utcTs = ts;
 
   if (dateMode === 'timeline') {
     // Special-case weekday timeline: treat as day-binning (same as backend)
