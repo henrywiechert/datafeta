@@ -4,7 +4,13 @@ import { duckdbService } from './duckdbService';
 import { columnCacheManager } from './columnCacheManager';
 import { filterTierManager } from './filterTierManager';
 import { queryDecisionEngine, QueryDecision } from './queryDecisionEngine';
-import { buildAggregateSql, buildSelectSql, applyPointBudgetSql } from './localSqlBuilder';
+import {
+  applyPointBudgetSql,
+  buildAggregateSql,
+  buildDuckDbDateTimePartSelectItem,
+  buildSelectSql,
+  SelectItem,
+} from './localSqlBuilder';
 import { arrowTableToRows } from './arrowResultAdapter';
 import { logSqlQuery } from '../devtools/queryLog';
 
@@ -56,6 +62,23 @@ class QueryExecutionOrchestrator {
     return d?.date_part && d?.date_mode ? `${d.field}_${d.date_part}_${d.date_mode}` : d.field;
   }
 
+  private _selectItemKey(item: SelectItem): string {
+    return item.kind === 'expr' ? item.alias : (item.alias || item.column);
+  }
+
+  private _dedupeSelectItemsPreserveOrder(items: SelectItem[]): SelectItem[] {
+    const out: SelectItem[] = [];
+    const seen = new Set<string>();
+    for (const it of items) {
+      const key = this._selectItemKey(it);
+      if (!seen.has(key)) {
+        out.push(it);
+        seen.add(key);
+      }
+    }
+    return out;
+  }
+
   private _dedupePreserveOrder(values: string[]): string[] {
     const out: string[] = [];
     const seen = new Set<string>();
@@ -68,6 +91,33 @@ class QueryExecutionOrchestrator {
     return out;
   }
 
+  private _buildLocalDimensionSelectItems(dimensions: any[] | undefined): SelectItem[] {
+    const dims = dimensions || [];
+    const items = dims.map((d: any): SelectItem => {
+      if (d?.date_part && d?.date_mode) {
+        return buildDuckDbDateTimePartSelectItem({
+          field: d.field,
+          datePart: d.date_part,
+          dateMode: d.date_mode,
+        });
+      }
+      return { kind: 'column', column: d.field };
+    });
+    return this._dedupeSelectItemsPreserveOrder(items);
+  }
+
+  /**
+   * Columns we must have present in the local cache to compute the current view.
+   * For datetime parts, this is the *base datetime column* (we compute parts locally).
+   */
+  private _getCacheRequiredColumns(viewQueryDesc: QueryDescription): string[] {
+    const dimBaseCols = (viewQueryDesc.dimensions || []).map((d: any) => d.field);
+    const measureCols = (viewQueryDesc.measures || [])
+      .map((m: any) => m.field)
+      .filter((f: any) => typeof f === 'string' && f !== '*');
+    return this._dedupePreserveOrder([...dimBaseCols, ...measureCols]);
+  }
+
   async execute(input: QueryExecutionOrchestratorInput): Promise<OrchestratedQueryResult> {
     const {
       viewQueryDesc,
@@ -75,7 +125,7 @@ class QueryExecutionOrchestrator {
       selectedTable,
       selectedDatabase,
       filterConfigurations,
-      requiredColumns,
+      requiredColumns: _requiredColumns,
       requiresAggregation,
       dimensions,
       baseFilterConfigs,
@@ -90,10 +140,13 @@ class QueryExecutionOrchestrator {
       return { result: res };
     }
 
+    // For local execution, cache requirements are based on *base* columns, not derived datetime-part aliases.
+    const cacheRequiredColumns = this._getCacheRequiredColumns(viewQueryDesc);
+
     const decision = await queryDecisionEngine.decide({
       sourceTable: selectedTable,
       sourceDatabase: selectedDatabase || undefined,
-      requiredColumns,
+      requiredColumns: cacheRequiredColumns,
       filterConfigurations,
       requiresAggregation,
       dimensions,
@@ -111,21 +164,19 @@ class QueryExecutionOrchestrator {
 
       if (cacheTableName) {
         const refinementWhere = filterTierManager.buildRefinementWhereClause(refinementFilterConfigs);
+        const dimSelectItems = this._buildLocalDimensionSelectItems(viewQueryDesc.dimensions as any);
 
         let localSql = '';
         if (!viewQueryDesc.measures || viewQueryDesc.measures.length === 0) {
           localSql = buildSelectSql({
             tableName: cacheTableName,
-            columns: requiredColumns,
+            selectItems: dimSelectItems,
             whereClause: refinementWhere || undefined,
           });
         } else {
-          const dimCols = this._dedupePreserveOrder(
-            (viewQueryDesc.dimensions || []).map((d: any) => this._getDimOutputName(d))
-          );
           localSql = buildAggregateSql({
             tableName: cacheTableName,
-            dimensionColumns: dimCols,
+            dimensionSelectItems: dimSelectItems,
             measures: (viewQueryDesc.measures || []) as any,
             whereClause: refinementWhere || undefined,
           });
@@ -199,13 +250,11 @@ class QueryExecutionOrchestrator {
       );
       if (cacheTableName) {
         const refinementWhere = filterTierManager.buildRefinementWhereClause(refinementFilterConfigs);
-        const dimCols = this._dedupePreserveOrder(
-          (viewQueryDesc.dimensions || []).map((d: any) => this._getDimOutputName(d))
-        );
+        const dimSelectItems = this._buildLocalDimensionSelectItems(viewQueryDesc.dimensions as any);
 
         const localAggSql = buildAggregateSql({
           tableName: cacheTableName,
-          dimensionColumns: dimCols,
+          dimensionSelectItems: dimSelectItems,
           measures: (viewQueryDesc.measures || []) as any,
           whereClause: refinementWhere || undefined,
         });
