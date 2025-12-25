@@ -57,9 +57,6 @@ export interface VisualizationState {
   // Global chart type override
   globalChartType: UserChartType | null;
   queryVersion: number;
-  // Panel collapse state
-  leftPanelCollapsed: boolean;
-  middlePanelCollapsed: boolean;
   // MeasureNames/MeasureValues source tracking
   measureValuesSourceFields: Field[];
 }
@@ -157,10 +154,6 @@ export type VisualizationAction =
     } }
   // Multi-table actions
   | { type: 'TABLE_JOINS_UNIONS_MODIFIED' }
-  // Panel collapse actions
-  | { type: 'TOGGLE_LEFT_PANEL' }
-  | { type: 'TOGGLE_MIDDLE_PANEL' }
-  | { type: 'SET_PANEL_COLLAPSED'; payload: { panel: 'left' | 'middle'; collapsed: boolean } }
   // MeasureNames/MeasureValues source tracking actions
   | { type: 'SET_MEASURE_VALUES_SOURCE_FIELDS'; payload: Field[] };
 

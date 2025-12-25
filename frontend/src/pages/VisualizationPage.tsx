@@ -28,6 +28,12 @@ import { Field, DragSource } from '../types';
 const VisualizationPageContent = () => {
     const [fieldsSearch, setFieldsSearch] = React.useState('');
     
+    // Panel collapse state - kept LOCAL to avoid re-rendering the entire chart grid
+    // when panels are toggled. This was previously in VisualizationContext but caused
+    // unnecessary re-renders of ChartArea and its 160+ facet children.
+    const [leftPanelCollapsed, setLeftPanelCollapsed] = React.useState(false);
+    const [middlePanelCollapsed, setMiddlePanelCollapsed] = React.useState(false);
+    
     const {
         xAxisFields,
         yAxisFields,
@@ -57,32 +63,34 @@ const VisualizationPageContent = () => {
         loadingOperationType, 
         loadingStartTime, 
         canCancelOperation,
-        leftPanelCollapsed,
-        middlePanelCollapsed,
     } = state;
 
     // Panel refs for imperative control
     const leftPanelRef = useRef<ImperativePanelHandle>(null);
     const middlePanelRef = useRef<ImperativePanelHandle>(null);
 
-    // Panel toggle handlers
+    // Panel toggle handlers - use local state to avoid re-rendering chart grid
     const toggleLeftPanel = useCallback(() => {
-        dispatch({ type: 'TOGGLE_LEFT_PANEL' });
-        if (leftPanelCollapsed) {
-            leftPanelRef.current?.expand();
-        } else {
-            leftPanelRef.current?.collapse();
-        }
-    }, [dispatch, leftPanelCollapsed]);
+        setLeftPanelCollapsed(prev => {
+            if (prev) {
+                leftPanelRef.current?.expand();
+            } else {
+                leftPanelRef.current?.collapse();
+            }
+            return !prev;
+        });
+    }, []);
 
     const toggleMiddlePanel = useCallback(() => {
-        dispatch({ type: 'TOGGLE_MIDDLE_PANEL' });
-        if (middlePanelCollapsed) {
-            middlePanelRef.current?.expand();
-        } else {
-            middlePanelRef.current?.collapse();
-        }
-    }, [dispatch, middlePanelCollapsed]);
+        setMiddlePanelCollapsed(prev => {
+            if (prev) {
+                middlePanelRef.current?.expand();
+            } else {
+                middlePanelRef.current?.collapse();
+            }
+            return !prev;
+        });
+    }, []);
 
     // Use our custom drag-and-drop hook with virtual columns included
     const { 
@@ -300,8 +308,8 @@ const VisualizationPageContent = () => {
                         maxSize={35}
                         collapsible
                         collapsedSize={0}
-                        onCollapse={() => dispatch({ type: 'SET_PANEL_COLLAPSED', payload: { panel: 'left', collapsed: true } })}
-                        onExpand={() => dispatch({ type: 'SET_PANEL_COLLAPSED', payload: { panel: 'left', collapsed: false } })}
+                        onCollapse={() => setLeftPanelCollapsed(true)}
+                        onExpand={() => setLeftPanelCollapsed(false)}
                     >
                         {leftPanelCollapsed ? (
                             <CollapsedPanelStrip 
@@ -352,8 +360,8 @@ const VisualizationPageContent = () => {
                         maxSize={30}
                         collapsible
                         collapsedSize={0}
-                        onCollapse={() => dispatch({ type: 'SET_PANEL_COLLAPSED', payload: { panel: 'middle', collapsed: true } })}
-                        onExpand={() => dispatch({ type: 'SET_PANEL_COLLAPSED', payload: { panel: 'middle', collapsed: false } })}
+                        onCollapse={() => setMiddlePanelCollapsed(true)}
+                        onExpand={() => setMiddlePanelCollapsed(false)}
                     >
                         {middlePanelCollapsed ? (
                             <CollapsedPanelStrip 
