@@ -23,32 +23,53 @@ class DateTimeService:
     2. Timeline mode: Truncates to preserve timeline (e.g., hour → "2024-01-15 14:00:00")
     """
     
+    @staticmethod
+    def _to_utc_clickhouse(field_term: Any) -> Any:
+        """
+        Normalize a ClickHouse DateTime/DateTime64 term to UTC before extracting/truncating parts.
+        """
+        return Function('toTimeZone', field_term, 'UTC')
+
+    @staticmethod
+    def _to_utc_sql(field_term: Any, db_type: str) -> Any:
+        """
+        Best-effort UTC normalization for SQL engines.
+
+        For DuckDB, timestamps are typically timezone-naive; we still apply a UTC wrapper
+        when available so part extraction is consistently interpreted as UTC.
+        """
+        if db_type == 'duckdb':
+            # DuckDB supports timezone('UTC', ts) for tz conversions / interpretation.
+            return Function('timezone', 'UTC', field_term)
+        return field_term
+
     # DISTINCT MODE: Extract just the part (e.g., hour 0-23, month 1-12)
     CLICKHOUSE_DATE_PART_MAP: Dict[str, Callable[[Any], Any]] = {
-        'year': lambda f: Function('toYear', f),
-        'month': lambda f: Function('toMonth', f),
-        'day': lambda f: Function('toDayOfMonth', f),
-        'weekday': lambda f: Function('toDayOfWeek', f),
-        'hour': lambda f: Function('toHour', f),
-        'minute': lambda f: Function('toMinute', f),
-        'second': lambda f: Function('toSecond', f),
-        'millisecond': lambda f: Function('toUnixTimestamp64Milli', f) % 1000,
-        'microsecond': lambda f: Function('toUnixTimestamp64Micro', f) % 1000000,
-        'nanosecond': lambda f: Function('toUnixTimestamp64Nano', f) % 1000000000,
+        'year': lambda f: Function('toYear', DateTimeService._to_utc_clickhouse(f)),
+        'month': lambda f: Function('toMonth', DateTimeService._to_utc_clickhouse(f)),
+        'day': lambda f: Function('toDayOfMonth', DateTimeService._to_utc_clickhouse(f)),
+        # ClickHouse toDayOfWeek is ISO: Monday=1 ... Sunday=7
+        'weekday': lambda f: Function('toDayOfWeek', DateTimeService._to_utc_clickhouse(f)),
+        'hour': lambda f: Function('toHour', DateTimeService._to_utc_clickhouse(f)),
+        'minute': lambda f: Function('toMinute', DateTimeService._to_utc_clickhouse(f)),
+        'second': lambda f: Function('toSecond', DateTimeService._to_utc_clickhouse(f)),
+        'millisecond': lambda f: Function('toUnixTimestamp64Milli', DateTimeService._to_utc_clickhouse(f)) % 1000,
+        'microsecond': lambda f: Function('toUnixTimestamp64Micro', DateTimeService._to_utc_clickhouse(f)) % 1000000,
+        'nanosecond': lambda f: Function('toUnixTimestamp64Nano', DateTimeService._to_utc_clickhouse(f)) % 1000000000,
     }
     
     # TIMELINE MODE: Truncate to preserve timeline (e.g., "2024-01-15 14:00:00")
     CLICKHOUSE_TIMELINE_MAP: Dict[str, Callable[[Any], Any]] = {
-        'year': lambda f: Function('toStartOfYear', f),
-        'month': lambda f: Function('toStartOfMonth', f),
-        'day': lambda f: Function('toStartOfDay', f),
-        'weekday': lambda f: Function('toStartOfDay', f),  # Group by day for weekday timeline
-        'hour': lambda f: Function('toStartOfHour', f),
-        'minute': lambda f: Function('toStartOfMinute', f),
-        'second': lambda f: Function('toStartOfSecond', f),
-        'millisecond': lambda f: Function('toStartOfMillisecond', f),
-        'microsecond': lambda f: Function('toStartOfMicrosecond', f),
-        'nanosecond': lambda f: Function('toStartOfNanosecond', f),
+        'year': lambda f: Function('toStartOfYear', DateTimeService._to_utc_clickhouse(f)),
+        'month': lambda f: Function('toStartOfMonth', DateTimeService._to_utc_clickhouse(f)),
+        'day': lambda f: Function('toStartOfDay', DateTimeService._to_utc_clickhouse(f)),
+        'weekday': lambda f: Function('toStartOfDay', DateTimeService._to_utc_clickhouse(f)),  # Group by day for weekday timeline
+        'hour': lambda f: Function('toStartOfHour', DateTimeService._to_utc_clickhouse(f)),
+        'minute': lambda f: Function('toStartOfMinute', DateTimeService._to_utc_clickhouse(f)),
+        'second': lambda f: Function('toStartOfSecond', DateTimeService._to_utc_clickhouse(f)),
+        'millisecond': lambda f: Function('toStartOfMillisecond', DateTimeService._to_utc_clickhouse(f)),
+        'microsecond': lambda f: Function('toStartOfMicrosecond', DateTimeService._to_utc_clickhouse(f)),
+        'nanosecond': lambda f: Function('toStartOfNanosecond', DateTimeService._to_utc_clickhouse(f)),
     }
     
     # SQL DISTINCT MODE: EXTRACT parts
@@ -119,7 +140,7 @@ class DateTimeService:
         if db_type == 'clickhouse':
             return cls._get_clickhouse_expression(field_term, date_part, date_mode)
         else:
-            return cls._get_sql_expression(field_term, date_part, date_mode)
+            return cls._get_sql_expression(field_term, date_part, date_mode, db_type)
     
     @classmethod
     def _get_clickhouse_expression(
@@ -151,9 +172,11 @@ class DateTimeService:
         cls,
         field_term: Any,
         date_part: str,
-        date_mode: str
+        date_mode: str,
+        db_type: str
     ) -> Any:
         """Generate SQL-standard datetime expression (DuckDB, PostgreSQL, etc.)."""
+        field_utc = cls._to_utc_sql(field_term, db_type)
         if date_mode == 'timeline':
             # Use date_trunc for timeline mode
             unit = cls.SQL_TIMELINE_UNIT_MAP.get(date_part)
@@ -161,11 +184,17 @@ class DateTimeService:
                 raise QueryGenerationError(
                     f"Unsupported datetime part '{date_part}' for SQL timeline mode"
                 )
-            return Function('date_trunc', unit, field_term)
+            return Function('date_trunc', unit, field_utc)
         else:
             # Use EXTRACT for distinct mode
+            if date_part == 'weekday':
+                # ISO weekday: Mon=1 ... Sun=7
+                # Most SQL engines (incl DuckDB, Postgres) use DOW as 0=Sun..6=Sat.
+                dow = ExtractTerm('DOW', field_utc)
+                return ((dow + 6) % 7) + 1
+
             extract_part = cls.SQL_DATE_PART_MAP.get(date_part, date_part.upper())
-            return ExtractTerm(extract_part, field_term)
+            return ExtractTerm(extract_part, field_utc)
     
     @classmethod
     def get_supported_parts(cls) -> list[str]:
