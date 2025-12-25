@@ -53,9 +53,6 @@ export const initialState: VisualizationState = {
   // Global chart type default (null = auto-detect)
   globalChartType: null,
   queryVersion: 0,
-  // Panel collapse defaults
-  leftPanelCollapsed: false,
-  middlePanelCollapsed: false,
   // MeasureNames/MeasureValues source tracking defaults
   measureValuesSourceFields: [],
 };

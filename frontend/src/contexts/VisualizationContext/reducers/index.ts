@@ -5,7 +5,6 @@ import { filterReducer } from './filterReducer';
 import { encodingReducer } from './encodingReducer';
 import { virtualColumnReducer } from './virtualColumnReducer';
 import { overridesReducer } from './overridesReducer';
-import { panelReducer } from './panelReducer';
 import { undoRedoReducer } from './undoRedoReducer';
 
 /**
@@ -21,7 +20,6 @@ export function visualizationReducer(state: VisualizationState, action: Visualiz
     encodingReducer,
     virtualColumnReducer,
     overridesReducer,
-    panelReducer,
     undoRedoReducer,
   ];
 
