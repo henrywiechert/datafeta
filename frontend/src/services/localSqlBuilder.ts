@@ -3,6 +3,70 @@ export function quoteIdent(name: string): string {
   return `"${String(name).replace(/"/g, '""')}"`;
 }
 
+export type SelectItem =
+  | { kind: 'column'; column: string; alias?: string }
+  | { kind: 'expr'; expr: string; alias: string };
+
+export function buildSelectItemSql(item: SelectItem): string {
+  if (item.kind === 'column') {
+    const col = quoteIdent(item.column);
+    if (item.alias && item.alias !== item.column) {
+      return `${col} AS ${quoteIdent(item.alias)}`;
+    }
+    return col;
+  }
+  return `${item.expr} AS ${quoteIdent(item.alias)}`;
+}
+
+/**
+ * Build DuckDB SQL expression for datetime parts in UTC.
+ *
+ * Modes:
+ * - distinct: bounded part extraction (minute 0-59, hour 0-23, ...)
+ * - timeline: date_trunc bins along the full timeline
+ *
+ * Weekday (distinct) is normalized to ISO (Mon=1 ... Sun=7).
+ */
+export function buildDuckDbDateTimePartSelectItem(args: {
+  field: string;
+  datePart: string;
+  dateMode: string;
+}): SelectItem {
+  const { field, datePart, dateMode } = args;
+  const alias = `${field}_${datePart}_${dateMode}`;
+  const col = quoteIdent(field);
+
+  // We treat timestamps as UTC in local DuckDB. Most cached timestamps are timezone-naive
+  // and already represent UTC, so this is intentionally a no-op at the SQL level.
+  const utcTs = col;
+
+  if (dateMode === 'timeline') {
+    // Special-case weekday timeline: treat as day-binning (same as backend)
+    const unit = datePart === 'weekday' ? 'day' : datePart;
+    return { kind: 'expr', expr: `date_trunc('${unit}', ${utcTs})`, alias };
+  }
+
+  if (datePart === 'weekday') {
+    // DuckDB EXTRACT(DOW) is 0=Sunday..6=Saturday; normalize to ISO weekday 1=Mon..7=Sun.
+    const dow = `EXTRACT(DOW FROM ${utcTs})`;
+    const iso = `((CAST(${dow} AS INTEGER) + 6) % 7) + 1`;
+    return { kind: 'expr', expr: iso, alias };
+  }
+
+  // Distinct mode for supported parts
+  return { kind: 'expr', expr: `EXTRACT(${datePart.toUpperCase()} FROM ${utcTs})`, alias };
+}
+
+export function buildDuckDbDateTimePartExpr(args: {
+  field: string;
+  datePart: string;
+  dateMode: string;
+}): string {
+  const item = buildDuckDbDateTimePartSelectItem(args);
+  // DateTime parts always produce an expression; fall back defensively.
+  return item.kind === 'expr' ? item.expr : quoteIdent(args.field);
+}
+
 /**
  * DuckDB can end up with VARCHAR columns when upstream types are ambiguous.
  * For local aggregations, be defensive: strip embedded quote characters and TRY_CAST to DOUBLE.
@@ -65,10 +129,15 @@ export function buildMeasureExpr(m: MeasureLike): string {
 
 export function buildSelectSql(args: {
   tableName: string;
-  columns: string[];
+  columns?: string[];
+  selectItems?: SelectItem[];
   whereClause?: string;
 }): string {
-  const selectCols = args.columns.map(quoteIdent).join(', ');
+  const items: SelectItem[] =
+    args.selectItems && args.selectItems.length > 0
+      ? args.selectItems
+      : (args.columns || []).map((c) => ({ kind: 'column', column: c }));
+  const selectCols = items.map(buildSelectItemSql).join(', ');
   let sql = `SELECT ${selectCols} FROM ${quoteIdent(args.tableName)}`;
   if (args.whereClause) sql += ` WHERE ${args.whereClause}`;
   return sql;
@@ -76,19 +145,26 @@ export function buildSelectSql(args: {
 
 export function buildAggregateSql(args: {
   tableName: string;
-  dimensionColumns: string[];
+  dimensionColumns?: string[];
+  dimensionSelectItems?: SelectItem[];
   measures: MeasureLike[];
   whereClause?: string;
 }): string {
-  const dimCols = args.dimensionColumns.map(quoteIdent);
-  const selectDims = dimCols.join(', ');
+  const dimItems: SelectItem[] =
+    args.dimensionSelectItems && args.dimensionSelectItems.length > 0
+      ? args.dimensionSelectItems
+      : (args.dimensionColumns || []).map((c) => ({ kind: 'column', column: c }));
+  const selectDims = dimItems.map(buildSelectItemSql).join(', ');
+  const groupByCols = dimItems.map((d) =>
+    d.kind === 'expr' ? quoteIdent(d.alias) : quoteIdent(d.alias || d.column)
+  );
   const selectMeasures = args.measures.map(buildMeasureExpr).join(', ');
   const selectList = [selectDims, selectMeasures].filter(Boolean).join(', ');
 
   let sql = `SELECT ${selectList} FROM ${quoteIdent(args.tableName)}`;
   if (args.whereClause) sql += ` WHERE ${args.whereClause}`;
-  if (args.dimensionColumns.length > 0) {
-    sql += ` GROUP BY ${dimCols.join(', ')}`;
+  if (groupByCols.length > 0) {
+    sql += ` GROUP BY ${groupByCols.join(', ')}`;
   }
   return sql;
 }

@@ -214,9 +214,10 @@ export const useQueryExecution = ({
           },
         } as any) : queryDesc;
 
-        // Extract required columns from query description
+        // Columns required for local caching/execution.
+        // IMPORTANT: for datetime parts we require the *base* datetime column (we compute the part locally in DuckDB).
         const requiredColumns: string[] = [
-          ...(queryDescExec.dimensions?.map(d => getDimOutputName(d)) || []),
+          ...(queryDescExec.dimensions?.map(d => d.field) || []),
           ...(queryDescExec.measures?.map(m => m.field) || []),
         ];
         
@@ -255,7 +256,13 @@ export const useQueryExecution = ({
                   ...(sizeField ? [sizeField] : []),
                   ...(labelFields || []),
                   ...(tooltipFields || []),
-                ].map((f: any) => ({ ...f, aggregation: undefined }));
+                // For local DuckDB, we cache base datetime columns and compute datetime parts locally.
+                ].map((f: any) => ({
+                  ...f,
+                  aggregation: undefined,
+                  dateTimePart: undefined,
+                  dateTimeMode: undefined,
+                }));
 
                 const rawSlice = buildRawQuery({
                   fields: rawFields as any,

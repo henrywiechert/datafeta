@@ -80,7 +80,7 @@ export function getDateTimePartTooltip(field: Field): string | undefined {
   if (field.dateTimeMode === 'distinct') {
     return `${partName} values only (e.g., 12 months: Jan, Feb, ..., Dec)`;
   } else {
-    return `${partName} values for grouping (e.g., hour 0-23 repeating per day)`;
+    return `${partName} timeline bins (e.g., date_trunc to ${partName.toLowerCase()} → timestamps across the dataset)`;
   }
 }
 

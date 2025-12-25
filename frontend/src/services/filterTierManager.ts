@@ -9,6 +9,8 @@
  * while still supporting complex filter scenarios.
  */
 
+import { buildDuckDbDateTimePartExpr } from './localSqlBuilder';
+
 export type FilterTier = 'base' | 'refinement';
 
 export interface FilterTierConfig {
@@ -250,21 +252,39 @@ class FilterTierManager {
    */
   buildRefinementWhereClause(refinementFilters: Record<string, any>): string {
     const conditions: string[] = [];
+
+    const quoteValue = (v: any): string => {
+      if (v === null || v === undefined) return 'NULL';
+      if (typeof v === 'number') return String(v);
+      if (typeof v === 'bigint') return v.toString();
+      if (v instanceof Date) return `'${v.toISOString().replace(/'/g, "''")}'`;
+      if (typeof v === 'string') return `'${v.replace(/'/g, "''")}'`;
+      // Fallback: stringify objects/booleans
+      return `'${String(v).replace(/'/g, "''")}'`;
+    };
     
     for (const [_key, config] of Object.entries(refinementFilters)) {
       const columnName = config.columnName;
       
       if (!columnName) continue;
+
+      // If this filter targets a datetime part/mode, build a computed expression instead of a raw column reference.
+      const hasDateTimePart = !!(config.dateTimePart && config.dateTimeMode);
+      const columnExpr = hasDateTimePart
+        ? `(${buildDuckDbDateTimePartExpr({
+            field: columnName,
+            datePart: config.dateTimePart,
+            dateMode: config.dateTimeMode,
+          })})`
+        : `"${columnName}"`;
       
       // Handle different filter types
       if (config.type === 'discrete') {
         // Discrete filter: IN clause
         const selectedValues = config.selectedValues || [];
         if (selectedValues.length > 0) {
-          const quotedValues = selectedValues.map((v: any) => 
-            typeof v === 'string' ? `'${v.replace(/'/g, "''")}'` : v
-          );
-          conditions.push(`"${columnName}" IN (${quotedValues.join(', ')})`);
+          const quotedValues = selectedValues.map(quoteValue);
+          conditions.push(`${columnExpr} IN (${quotedValues.join(', ')})`);
         }
       } else if (config.type === 'continuous' || config.type === 'range') {
         // Range filter: BETWEEN or >= / <=
@@ -272,16 +292,16 @@ class FilterTierManager {
         const max = config.maxValue ?? config.max;
         
         if (min !== undefined && max !== undefined) {
-          conditions.push(`"${columnName}" BETWEEN ${min} AND ${max}`);
+          conditions.push(`${columnExpr} BETWEEN ${min} AND ${max}`);
         } else if (min !== undefined) {
-          conditions.push(`"${columnName}" >= ${min}`);
+          conditions.push(`${columnExpr} >= ${min}`);
         } else if (max !== undefined) {
-          conditions.push(`"${columnName}" <= ${max}`);
+          conditions.push(`${columnExpr} <= ${max}`);
         }
       } else if (config.type === 'datetime') {
         // DateTime filter
         if (config.startDate && config.endDate) {
-          conditions.push(`"${columnName}" BETWEEN '${config.startDate}' AND '${config.endDate}'`);
+          conditions.push(`${columnExpr} BETWEEN ${quoteValue(config.startDate)} AND ${quoteValue(config.endDate)}`);
         }
       }
     }
