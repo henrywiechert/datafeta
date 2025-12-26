@@ -128,7 +128,7 @@ export function generatePairChartOptions(
         const yCol = getResultColumnName(yf);
         const xDomain = sharedMeasureDomains?.[xCol];
         const yDomain = sharedMeasureDomains?.[yCol];
-  return verticalLineChart(data, xCol, yCol, { x: xCol, y: getFieldDisplayName(yf) }, { x: xDomain, y: yDomain }, colorField, colorScheme, colorBias, sizeField, sizeRange, manualSize, labelCfg);
+  return verticalLineChart(data, xCol, yCol, { x: xCol, y: getFieldDisplayName(yf) }, { x: xDomain, y: yDomain }, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, labelCfg, tooltipFields);
       }
       if (xf.type === 'dimension' && yf.type === 'measure') {
         const xCol = getResultColumnName(xf);
