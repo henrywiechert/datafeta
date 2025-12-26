@@ -5,6 +5,7 @@ import {
   Sheet,
   TableJoinDefinition
 } from '../types';
+import { ClickHouseOverrides } from '../components/ConnectionRestoreDialog';
 
 const CURRENT_VERSION = '1.0.0';
 const APP_NAME = 'data-slicer';
@@ -311,12 +312,14 @@ export function readFileAsText(file: File): Promise<string> {
 /**
  * Reconstructs ConnectionDetails from SavedConnectionMetadata.
  * Note: Password/credentials must be provided separately by the user.
+ * For ClickHouse, optional overrides can be provided for host, port, user, database.
  */
 export function reconstructConnectionDetails(
   metadata: SavedConnectionMetadata,
   password?: string,
   kaggleUsername?: string,
-  kaggleApiKey?: string
+  kaggleApiKey?: string,
+  clickHouseOverrides?: ClickHouseOverrides
 ): ConnectionDetails {
   const details: ConnectionDetails = {
     type: metadata.type,
@@ -332,11 +335,11 @@ export function reconstructConnectionDetails(
     if (metadata.csv_date_format) details.csv_date_format = metadata.csv_date_format;
     if (metadata.csv_timestamp_format) details.csv_timestamp_format = metadata.csv_timestamp_format;
   } else if (metadata.type === 'clickhouse') {
-    // ClickHouse configuration
-    if (metadata.host) details.host = metadata.host;
-    if (metadata.port) details.port = metadata.port;
-    if (metadata.user) details.user = metadata.user;
-    if (metadata.database) details.database = metadata.database;
+    // ClickHouse configuration - use overrides if provided, otherwise fall back to metadata
+    details.host = clickHouseOverrides?.host ?? metadata.host;
+    details.port = clickHouseOverrides?.port ?? metadata.port;
+    details.user = clickHouseOverrides?.user ?? metadata.user;
+    details.database = clickHouseOverrides?.database ?? metadata.database;
     if (password) details.password = password;
   } else if (metadata.type === 'kaggle') {
     // Kaggle configuration
