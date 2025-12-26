@@ -7,6 +7,49 @@ import { createSizeScale } from '../utils/sizeUtils';
 import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 
+// ---------- Orientation abstraction -----------------------------------------
+
+export type LineOrientation = 'horizontal' | 'vertical';
+
+const LINE_ORIENTATION = {
+  horizontal: {
+    independentAxis: 'x' as const,
+    dependentAxis: 'y' as const,
+    chartType: 'line' as const,
+  },
+  vertical: {
+    independentAxis: 'y' as const,
+    dependentAxis: 'x' as const,
+    chartType: 'verticalLine' as const,
+  }
+} as const;
+
+// ---------- Types & Interfaces ----------------------------------------------
+
+export interface LineBuildParams {
+  data: any[];
+  xColumn: string;
+  yColumn: string;
+  orientation: LineOrientation;
+  labels?: { x?: string; y?: string };
+  domain?: { x?: [number, number] | [Date, Date]; y?: [number, number] | [Date, Date] };
+  colorField?: Field;
+  colorScheme?: string;
+  colorBias?: number;
+  manualColor?: string;
+  sizeField?: Field;
+  sizeRange?: [number, number];
+  manualSize?: number;
+  labelCfg?: {
+    labelFields: Field[];
+    labelsEnabled: boolean;
+    samplingStrategy: 'auto' | 'all' | 'sample';
+    samplingThreshold: number;
+    sampleEvery: number;
+  };
+  tooltipFields?: Field[];
+}
+
 type LineBudget = {
   maxPoints: number;
   // Prefer allocating a minimum per series when there is discrete color (multiple lines).
@@ -174,29 +217,68 @@ function sampleEvery<T>(arr: T[], maxCount: number): T[] {
 }
 
 /**
- * Line chart for continuous dimension on one axis and continuous measure on the other.
- * xColumn/yColumn are data column names in the query result to use.
+ * Convert a value to a comparable form for sorting (number, string, or null).
+ * Handles Date, number, and string (with numeric/date parsing).
  */
-export function lineChart(
-  data: any[],
-  xColumn: string,
-  yColumn: string,
-  labels?: { x?: string; y?: string },
-  domain?: { x?: [number, number] | [Date, Date]; y?: [number, number] | [Date, Date] },
-  colorField?: Field,
-  colorScheme?: string,
-  colorBias?: number,
-  // Optional manual color used when there is no color field
-  manualColor?: string,
-  sizeField?: Field,
-  sizeRange?: [number, number],
-  manualSize?: number,
-  labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number },
-  tooltipFields?: Field[]
-): Plot.PlotOptions {
-  // Filter to finite numeric values for y; x may be numeric or datetime/ordinal
+function toComparable(v: any): number | string | null {
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  if (typeof v === 'string') {
+    const num = Number.parseFloat(v);
+    if (Number.isFinite(num)) return num;
+    const ts = Date.parse(v);
+    if (!Number.isNaN(ts)) return ts;
+    return v; // fallback lexical
+  }
+  return null;
+}
+
+/**
+ * Sort comparator using toComparable for a given column.
+ */
+function compareByColumn(column: string) {
+  return (a: any, b: any): number => {
+    const av = toComparable(a[column]);
+    const bv = toComparable(b[column]);
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    if (typeof av === 'string' || typeof bv === 'string') return String(av).localeCompare(String(bv));
+    return (av as number) - (bv as number);
+  };
+}
+
+// ---------- Core Builder ----------------------------------------------------
+
+/**
+ * Unified line chart builder supporting both horizontal (x=independent) and vertical (y=independent) orientations.
+ */
+export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
+  const {
+    data,
+    xColumn,
+    yColumn,
+    orientation,
+    labels,
+    domain,
+    colorField,
+    colorScheme,
+    colorBias,
+    manualColor,
+    sizeField,
+    sizeRange,
+    manualSize,
+    labelCfg,
+    tooltipFields,
+  } = params;
+
+  const O = LINE_ORIENTATION[orientation];
+  const independentColumn = orientation === 'horizontal' ? xColumn : yColumn;
+  const dependentColumn = orientation === 'horizontal' ? yColumn : xColumn;
+
+  // Filter to finite numeric values for the dependent axis
   const clean = Array.isArray(data)
-    ? data.filter((d) => Number.isFinite(d[yColumn]))
+    ? data.filter((d) => Number.isFinite(d[dependentColumn]))
     : [];
 
   if (clean.length === 0) {
@@ -207,43 +289,20 @@ export function lineChart(
     };
   }
 
-  // Ensure the line flows left-to-right by sorting by the X dimension
-  const toComparable = (v: any): number | string | null => {
-    if (v instanceof Date) return v.getTime();
-    if (typeof v === 'number' && Number.isFinite(v)) return v;
-    if (typeof v === 'string') {
-      const num = Number.parseFloat(v);
-      if (Number.isFinite(num)) return num;
-      const ts = Date.parse(v);
-      if (!Number.isNaN(ts)) return ts;
-      return v; // fallback lexical
-    }
-    return null;
-  };
-  const cleanSorted = clean.slice().sort((a, b) => {
-    const ax = toComparable(a[xColumn]);
-    const bx = toComparable(b[xColumn]);
-    if (ax == null && bx == null) return 0;
-    if (ax == null) return 1;
-    if (bx == null) return -1;
-    if (typeof ax === 'string' || typeof bx === 'string') return String(ax).localeCompare(String(bx));
-    return (ax as number) - (bx as number);
-  });
+  // Sort by the independent axis so the line flows correctly
+  const cleanSorted = clean.slice().sort(compareByColumn(independentColumn));
 
   // ---- Auto bin-aggregation (line-specific) --------------------------------
-  // Line charts should read left-to-right with ~one point per x position.
-  // For dense x domains, bin + average reduces clutter and removes near-vertical hairballs.
-  const _ = colorField ? deriveColorScaleInfo(cleanSorted, colorField, colorScheme, colorBias) : null;
   const hasDiscreteColor = !!colorField && colorField.flavour === 'discrete';
   const budget = computeLineBudget(hasDiscreteColor);
-  const xKind: XKind = inferXKind(cleanSorted.slice(0, 25).map(r => r?.[xColumn]));
+  const axisKind: XKind = inferXKind(cleanSorted.slice(0, 25).map(r => r?.[independentColumn]));
   const colorColumnNamePre = colorField ? getResultColumnName(colorField) : undefined;
 
-  // Heuristic bin count: align with our previous safety budgets.
   const maxBins = budget.maxPoints;
   let budgetedSorted = cleanSorted;
   if (cleanSorted.length > maxBins) {
     if (hasDiscreteColor && colorColumnNamePre) {
+      // Group by color, bin-aggregate each group separately
       const groups = new Map<any, any[]>();
       for (const r of cleanSorted) {
         const k = r?.[colorColumnNamePre];
@@ -252,34 +311,19 @@ export function lineChart(
         groups.set(k, arr);
       }
       const reduced: any[] = [];
-      for (const [_k, arr] of Array.from(groups.entries())) {
-        const arrSorted = arr.slice().sort((a, b) => {
-          const ax = toComparable(a[xColumn]);
-          const bx = toComparable(b[xColumn]);
-          if (ax == null && bx == null) return 0;
-          if (ax == null) return 1;
-          if (bx == null) return -1;
-          if (typeof ax === 'string' || typeof bx === 'string') return String(ax).localeCompare(String(bx));
-          return (ax as number) - (bx as number);
-        });
-        reduced.push(...binAggregateLine(arrSorted, xColumn, yColumn, { maxBins, xKind }));
+      for (const [, arr] of Array.from(groups.entries())) {
+        const arrSorted = arr.slice().sort(compareByColumn(independentColumn));
+        reduced.push(...binAggregateLine(arrSorted, independentColumn, dependentColumn, { maxBins, xKind: axisKind }));
       }
-      budgetedSorted = reduced.slice().sort((a, b) => {
-        const ax = toComparable(a[xColumn]);
-        const bx = toComparable(b[xColumn]);
-        if (ax == null && bx == null) return 0;
-        if (ax == null) return 1;
-        if (bx == null) return -1;
-        if (typeof ax === 'string' || typeof bx === 'string') return String(ax).localeCompare(String(bx));
-        return (ax as number) - (bx as number);
-      });
+      budgetedSorted = reduced.slice().sort(compareByColumn(independentColumn));
     } else {
-      budgetedSorted = binAggregateLine(cleanSorted, xColumn, yColumn, { maxBins, xKind });
+      budgetedSorted = binAggregateLine(cleanSorted, independentColumn, dependentColumn, { maxBins, xKind: axisKind });
     }
-    console.warn(`⚠️ Line bin-aggregate applied: ${cleanSorted.length} → ${budgetedSorted.length} points (xKind=${xKind})`);
+    const chartLabel = orientation === 'horizontal' ? 'Line' : 'Vertical line';
+    console.warn(`⚠️ ${chartLabel} bin-aggregate applied: ${cleanSorted.length} → ${budgetedSorted.length} points (axisKind=${axisKind})`);
   }
 
-  // Dots are expensive at scale; keep the line at budgetedSorted, but cap dot density separately.
+  // Dots are expensive at scale; cap dot density separately
   const dotData = sampleEvery(budgetedSorted, budget.maxDots);
 
   const xLabel = labels?.x || xColumn;
@@ -294,6 +338,7 @@ export function lineChart(
       [yLabel]: { value: yColumn, label: yLabel }
     }
   };
+
   const colorInfo = colorField ? deriveColorScaleInfo(budgetedSorted, colorField, colorScheme, colorBias) : null;
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
 
@@ -350,14 +395,11 @@ export function lineChart(
     lineConfig.strokeWidth = manualSize || 2;
   }
   
-  // Disable built-in Observable Plot tooltip (we'll use custom tooltips)
-  // dotConfig.tip is not set, which disables the default tooltip
-  
   // Add invisible larger dots for better hover detection
   const hoverDotConfig: any = {
     x: xColumn,
     y: yColumn,
-    r: 6, // Larger radius for easier hovering (reduced for smaller highlight)
+    r: 6,
     fill: 'transparent',
     stroke: 'transparent',
     strokeWidth: 0,
@@ -369,7 +411,7 @@ export function lineChart(
     marks: [
       Plot.line(budgetedSorted, lineConfig),
       Plot.dot(dotData, dotConfig),
-      Plot.dot(dotData, hoverDotConfig), // Invisible larger dots for easier hovering
+      Plot.dot(dotData, hoverDotConfig),
     ],
   };
 
@@ -383,7 +425,7 @@ export function lineChart(
       samplingStrategy: labelCfg.samplingStrategy,
       samplingThreshold: labelCfg.samplingThreshold,
       sampleEvery: labelCfg.sampleEvery,
-      chartType: 'line'
+      chartType: O.chartType
     };
     const prepared = prepareLabelData(labelConfig);
     const labelMark = createLabelMark(prepared, labelConfig, xColumn, yColumn);
@@ -411,7 +453,7 @@ export function lineChart(
     }
   }
   
-  // Add custom tooltip configuration (color is read directly from DOM)
+  // Add custom tooltip configuration
   (plotOptions as any).__customTooltip = {
     enabled: true,
     data: budgetedSorted,
@@ -429,6 +471,47 @@ export function lineChart(
   return plotOptions;
 }
 
+// ---------- Public API (thin wrappers) --------------------------------------
+
+/**
+ * Line chart for continuous dimension on one axis and continuous measure on the other.
+ * xColumn/yColumn are data column names in the query result to use.
+ */
+export function lineChart(
+  data: any[],
+  xColumn: string,
+  yColumn: string,
+  labels?: { x?: string; y?: string },
+  domain?: { x?: [number, number] | [Date, Date]; y?: [number, number] | [Date, Date] },
+  colorField?: Field,
+  colorScheme?: string,
+  colorBias?: number,
+  manualColor?: string,
+  sizeField?: Field,
+  sizeRange?: [number, number],
+  manualSize?: number,
+  labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number },
+  tooltipFields?: Field[]
+): Plot.PlotOptions {
+  return buildLineOptions({
+    data,
+    xColumn,
+    yColumn,
+    orientation: 'horizontal',
+    labels,
+    domain,
+    colorField,
+    colorScheme,
+    colorBias,
+    manualColor,
+    sizeField,
+    sizeRange,
+    manualSize,
+    labelCfg,
+    tooltipFields,
+  });
+}
+
 /**
  * Vertical line chart for continuous measure on X and continuous dimension on Y.
  * Sorts by the Y dimension so the line flows bottom-to-top.
@@ -442,236 +525,28 @@ export function verticalLineChart(
   colorField?: Field,
   colorScheme?: string,
   colorBias?: number,
+  manualColor?: string,
   sizeField?: Field,
   sizeRange?: [number, number],
   manualSize?: number,
   labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number },
   tooltipFields?: Field[]
 ): Plot.PlotOptions {
-  const clean = Array.isArray(data)
-    ? data.filter((d) => Number.isFinite(d[xColumn]))
-    : [];
-
-  if (clean.length === 0) {
-    return {
-      x: { label: labels?.x || xColumn, domainKey: xColumn, grid: true } as any,
-      y: { label: labels?.y || yColumn, domainKey: yColumn, grid: true } as any,
-      marks: [],
-    };
-  }
-
-  const toComparable = (v: any): number | string | null => {
-    if (v instanceof Date) return v.getTime();
-    if (typeof v === 'number' && Number.isFinite(v)) return v;
-    if (typeof v === 'string') {
-      const num = Number.parseFloat(v);
-      if (Number.isFinite(num)) return num;
-      const ts = Date.parse(v);
-      if (!Number.isNaN(ts)) return ts;
-      return v;
-    }
-    return null;
-  };
-  const cleanSorted = clean.slice().sort((a, b) => {
-    const ay = toComparable(a[yColumn]);
-    const by = toComparable(b[yColumn]);
-    if (ay == null && by == null) return 0;
-    if (ay == null) return 1;
-    if (by == null) return -1;
-    if (typeof ay === 'string' || typeof by === 'string') return String(ay).localeCompare(String(by));
-    return (ay as number) - (by as number);
+  return buildLineOptions({
+    data,
+    xColumn,
+    yColumn,
+    orientation: 'vertical',
+    labels,
+    domain,
+    colorField,
+    colorScheme,
+    colorBias,
+    manualColor,
+    sizeField,
+    sizeRange,
+    manualSize,
+    labelCfg,
+    tooltipFields,
   });
-
-  // ---- Auto bin-aggregation (line-specific) --------------------------------
-  const __ = colorField ? deriveColorScaleInfo(cleanSorted, colorField, colorScheme, colorBias) : null;
-  const hasDiscreteColor = !!colorField && colorField.flavour === 'discrete';
-  const budget = computeLineBudget(hasDiscreteColor);
-  const yKind: XKind = inferXKind(cleanSorted.slice(0, 25).map(r => r?.[yColumn]));
-  const colorColumnNamePre = colorField ? getResultColumnName(colorField) : undefined;
-
-  const maxBins = budget.maxPoints;
-  let budgetedSorted = cleanSorted;
-  if (cleanSorted.length > maxBins) {
-    if (hasDiscreteColor && colorColumnNamePre) {
-      const groups = new Map<any, any[]>();
-      for (const r of cleanSorted) {
-        const k = r?.[colorColumnNamePre];
-        const arr = groups.get(k) || [];
-        arr.push(r);
-        groups.set(k, arr);
-      }
-      const reduced: any[] = [];
-      for (const [_k, arr] of Array.from(groups.entries())) {
-        const arrSorted = arr.slice().sort((a, b) => {
-          const ay = toComparable(a[yColumn]);
-          const by = toComparable(b[yColumn]);
-          if (ay == null && by == null) return 0;
-          if (ay == null) return 1;
-          if (by == null) return -1;
-          if (typeof ay === 'string' || typeof by === 'string') return String(ay).localeCompare(String(by));
-          return (ay as number) - (by as number);
-        });
-        // Here yColumn is the ordered axis; aggregate measure (xColumn) per y-bin.
-        reduced.push(...binAggregateLine(arrSorted, yColumn, xColumn, { maxBins, xKind: yKind }));
-      }
-      budgetedSorted = reduced.slice().sort((a, b) => {
-        const ay = toComparable(a[yColumn]);
-        const by = toComparable(b[yColumn]);
-        if (ay == null && by == null) return 0;
-        if (ay == null) return 1;
-        if (by == null) return -1;
-        if (typeof ay === 'string' || typeof by === 'string') return String(ay).localeCompare(String(by));
-        return (ay as number) - (by as number);
-      });
-    } else {
-      budgetedSorted = binAggregateLine(cleanSorted, yColumn, xColumn, { maxBins, xKind: yKind });
-    }
-    console.warn(`⚠️ Vertical line bin-aggregate applied: ${cleanSorted.length} → ${budgetedSorted.length} points (yKind=${yKind})`);
-  }
-
-  const dotData = sampleEvery(budgetedSorted, budget.maxDots);
-
-  const xLabel2 = labels?.x || xColumn;
-  const yLabel2 = labels?.y || yColumn;
-  const lineConfig: any = { x: xColumn, y: yColumn };
-  const dotConfig: any = {
-    x: { value: xColumn, label: xLabel2 },
-    y: { value: yColumn, label: yLabel2 },
-    r: 2,
-    channels: {
-      [xLabel2]: { value: xColumn, label: xLabel2 },
-      [yLabel2]: { value: yColumn, label: yLabel2 }
-    }
-  };
-  
-  const colorInfo = colorField ? deriveColorScaleInfo(budgetedSorted, colorField, colorScheme, colorBias) : null;
-  const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
-
-  if (colorField && colorInfo) {
-    dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
-
-    if (colorInfo.kind === 'continuous') {
-      // Apply bias transformation to continuous values
-      if (colorBias !== undefined && colorBias !== 0) {
-        const [min, max] = colorInfo.domain as [number, number];
-        const range_val = max - min;
-        const exponent = Math.pow(2, -colorBias);
-        
-        const transformValue = (d: any) => {
-          const value = d[colorColumnName!];
-          if (value == null) return null;
-          const t = (value - min) / range_val;
-          const transformedT = Math.pow(Math.max(0, Math.min(1, t)), exponent);
-          return min + transformedT * range_val;
-        };
-        
-        dotConfig.fill = transformValue;
-        lineConfig.stroke = transformValue;
-        lineConfig.z = null;
-      } else if (colorInfo.accessor) {
-        dotConfig.fill = (d: any) => colorInfo.accessor?.(d) ?? null;
-        lineConfig.stroke = (d: any) => colorInfo.accessor?.(d) ?? null;
-        lineConfig.z = null;
-      } else {
-        lineConfig.stroke = colorColumnName;
-        lineConfig.z = colorColumnName;
-        dotConfig.fill = colorColumnName;
-      }
-    } else {
-      // For discrete color: use column name and group by z value
-      lineConfig.stroke = colorColumnName;
-      lineConfig.z = colorColumnName;
-      dotConfig.fill = colorColumnName;
-    }
-  } else {
-    lineConfig.stroke = DEFAULT_CHART_COLOR;
-    dotConfig.fill = DEFAULT_CHART_COLOR;
-  }
-
-  // Apply size configuration for line width
-  if (sizeField && sizeRange) {
-    const sizeScale = createSizeScale(budgetedSorted, sizeField, sizeRange, manualSize || 2);
-    const sizeColumnName = getResultColumnName(sizeField);
-    lineConfig.strokeWidth = (d: any) => sizeScale.getSizeForValue(d[sizeColumnName]);
-  } else {
-    lineConfig.strokeWidth = manualSize || 2;
-  }
-  
-  // Disable built-in Observable Plot tooltip (we'll use custom tooltips)
-  // dotConfig.tip is not set, which disables the default tooltip
-  
-  // Add invisible larger dots for better hover detection
-  const hoverDotConfig: any = {
-    x: xColumn,
-    y: yColumn,
-    r: 6, // Larger radius for easier hovering (reduced for smaller highlight)
-    fill: 'transparent',
-    stroke: 'transparent',
-    strokeWidth: 0,
-  };
-  
-  const plotOptions: Plot.PlotOptions = {
-    x: { label: labels?.x || xColumn, domainKey: xColumn, grid: true, domain: domain?.x } as any,
-    y: { label: labels?.y || yColumn, domainKey: yColumn, grid: true, domain: domain?.y } as any,
-    marks: [
-      Plot.line(budgetedSorted, lineConfig),
-      Plot.dot(dotData, dotConfig),
-      Plot.dot(dotData, hoverDotConfig), // Invisible larger dots for easier hovering
-    ],
-  };
-
-  if (labelCfg) {
-    const labelConfig: LabelRenderConfig = {
-      data: budgetedSorted,
-      xColumn,
-      yColumn,
-      labelFields: labelCfg.labelFields,
-      labelsEnabled: labelCfg.labelsEnabled,
-      samplingStrategy: labelCfg.samplingStrategy,
-      samplingThreshold: labelCfg.samplingThreshold,
-      sampleEvery: labelCfg.sampleEvery,
-      chartType: 'verticalLine'
-    };
-    const prepared = prepareLabelData(labelConfig);
-    const labelMark = createLabelMark(prepared, labelConfig, xColumn, yColumn);
-    if (labelMark) {
-      (plotOptions.marks = plotOptions.marks || []).push(labelMark as any);
-    }
-  }
-  
-  if (colorField && colorInfo) {
-    if (colorInfo.kind === 'continuous') {
-      plotOptions.color = {
-        type: 'linear',
-        domain: colorInfo.domain as [number, number],
-        range: colorInfo.range,
-        clamp: true,
-        label: colorField.columnName,
-      } as any;
-    } else {
-      plotOptions.color = {
-        type: 'ordinal' as any,
-        domain: colorInfo.domain as any[],
-        range: colorInfo.range,
-        label: colorField.columnName,
-      } as any;
-    }
-  }
-  
-  // Add custom tooltip configuration (color is read directly from DOM)
-  (plotOptions as any).__customTooltip = {
-    enabled: true,
-    data: budgetedSorted,
-    getFields: createTooltipFieldsGetter(
-      [
-        { label: xLabel2, column: xColumn },
-        { label: yLabel2, column: yColumn }
-      ],
-      colorField,
-      sizeField,
-      tooltipFields
-    )
-  };
-  
-  return plotOptions;
 }
