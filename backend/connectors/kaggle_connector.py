@@ -4,17 +4,17 @@ import os
 import re
 from typing import List, Dict, Any, Tuple, Optional, TYPE_CHECKING
 
-# Import KaggleApi only for type checking, not at runtime
-# This prevents the kaggle library from calling sys.exit() during module import
-if TYPE_CHECKING:
-    from kaggle.api.kaggle_api_extended import KaggleApi
+import duckdb
 
 from backend.models.data_source import Database, Table, Column, ForeignKeyRelationship
 from .base import BaseConnector
 from backend.exceptions import DataSourceConnectionError, InvalidInputError, QueryExecutionError
-from backend.dependencies import ConnectionStateManager
-import duckdb
 from backend.utils.type_conversion import process_query_result_data
+
+# Import only for type checking to prevent circular import
+if TYPE_CHECKING:
+    from kaggle.api.kaggle_api_extended import KaggleApi
+    from backend.dependencies import ConnectionStateManager
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class KaggleConnector(BaseConnector):
     """Connector for querying public Kaggle datasets using DuckDB."""
     
-    def __init__(self, state_manager: ConnectionStateManager):
+    def __init__(self, state_manager: "ConnectionStateManager"):
         self.state_manager = state_manager
         self.api: Optional[KaggleApi] = None
         self.username: Optional[str] = None
