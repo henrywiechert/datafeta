@@ -7,7 +7,7 @@ import { SheetProvider, useSheetContext } from './contexts/SheetContext';
 import { DataSourceProvider, useDataSource } from './contexts/DataSourceContext';
 import { useConnection } from './contexts/ConnectionContext';
 import SaveLoadMenu from './components/SaveLoadMenu';
-import ConnectionRestoreDialog from './components/ConnectionRestoreDialog';
+import ConnectionRestoreDialog, { ClickHouseOverrides } from './components/ConnectionRestoreDialog';
 import VersionDisplay from './components/VersionDisplay';
 import { 
   exportConfiguration, 
@@ -197,12 +197,24 @@ function AppContent() {
     }
   };
 
-  const handleConnectionRestore = async (password: string, file?: File, kaggleUsername?: string, kaggleApiKey?: string) => {
+  const handleConnectionRestore = async (
+    password: string,
+    file?: File,
+    kaggleUsername?: string,
+    kaggleApiKey?: string,
+    clickHouseOverrides?: ClickHouseOverrides
+  ) => {
     if (!connectionMetadata || !pendingConfig) return;
 
     try {
-      // Reconstruct connection details with password or Kaggle credentials
-      const details = reconstructConnectionDetails(connectionMetadata, password, kaggleUsername, kaggleApiKey);
+      // Reconstruct connection details with password, Kaggle credentials, or ClickHouse overrides
+      const details = reconstructConnectionDetails(
+        connectionMetadata,
+        password,
+        kaggleUsername,
+        kaggleApiKey,
+        clickHouseOverrides
+      );
       
       // Attempt to connect
       await connect(details, file);

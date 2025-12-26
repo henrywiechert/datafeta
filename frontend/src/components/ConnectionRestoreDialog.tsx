@@ -13,10 +13,27 @@ import {
 } from '@mui/material';
 import { SavedConnectionMetadata } from '../types';
 
+/**
+ * Override values for ClickHouse connection parameters.
+ * Allows user to modify host, port, user, database when restoring a snapshot.
+ */
+export interface ClickHouseOverrides {
+  host?: string;
+  port?: number;
+  user?: string;
+  database?: string;
+}
+
 interface ConnectionRestoreDialogProps {
   open: boolean;
   connectionMetadata: SavedConnectionMetadata | null;
-  onConnect: (password: string, file?: File, kaggleUsername?: string, kaggleApiKey?: string) => Promise<void>;
+  onConnect: (
+    password: string,
+    file?: File,
+    kaggleUsername?: string,
+    kaggleApiKey?: string,
+    clickHouseOverrides?: ClickHouseOverrides
+  ) => Promise<void>;
   onCancel: () => void;
   onSkip: () => void;
 }
@@ -35,16 +52,30 @@ export default function ConnectionRestoreDialog({
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // ClickHouse editable fields
+  const [host, setHost] = useState('');
+  const [port, setPort] = useState('');
+  const [user, setUser] = useState('');
+  const [database, setDatabase] = useState('');
+
   useEffect(() => {
-    if (open) {
+    if (open && connectionMetadata) {
       setPassword('');
       setFile(null);
       setKaggleUsername('');
       setKaggleApiKey('');
       setError(null);
       setIsConnecting(false);
+
+      // Initialize ClickHouse fields from metadata
+      if (connectionMetadata.type === 'clickhouse') {
+        setHost(connectionMetadata.host || '');
+        setPort(connectionMetadata.port?.toString() || '');
+        setUser(connectionMetadata.user || '');
+        setDatabase(connectionMetadata.database || '');
+      }
     }
-  }, [open]);
+  }, [open, connectionMetadata]);
 
   if (!connectionMetadata) return null;
 
@@ -71,7 +102,30 @@ export default function ConnectionRestoreDialog({
         return;
       }
 
-      await onConnect(password, file || undefined, kaggleUsername || undefined, kaggleApiKey || undefined);
+      // For ClickHouse, validate required fields
+      if (isClickHouse && (!host || !port)) {
+        setError('Host and port are required');
+        setIsConnecting(false);
+        return;
+      }
+
+      // Build ClickHouse overrides if applicable
+      const clickHouseOverrides: ClickHouseOverrides | undefined = isClickHouse
+        ? {
+            host: host || undefined,
+            port: port ? parseInt(port, 10) : undefined,
+            user: user || undefined,
+            database: database || undefined,
+          }
+        : undefined;
+
+      await onConnect(
+        password,
+        file || undefined,
+        kaggleUsername || undefined,
+        kaggleApiKey || undefined,
+        clickHouseOverrides
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Connection failed');
       setIsConnecting(false);
@@ -98,23 +152,52 @@ export default function ConnectionRestoreDialog({
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 ClickHouse Connection
               </Typography>
-              <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-                <Typography variant="body2">
-                  <strong>Host:</strong> {connectionMetadata.host || 'N/A'}
-                </Typography>
-                <Typography variant="body2">
-                  <strong>Port:</strong> {connectionMetadata.port || 'N/A'}
-                </Typography>
-                <Typography variant="body2">
-                  <strong>User:</strong> {connectionMetadata.user || 'N/A'}
-                </Typography>
-                <Typography variant="body2">
-                  <strong>Database:</strong> {connectionMetadata.database || 'N/A'}
-                </Typography>
+
+              <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
+                <TextField
+                  autoFocus
+                  margin="dense"
+                  label="Host"
+                  type="text"
+                  fullWidth
+                  value={host}
+                  onChange={(e) => setHost(e.target.value)}
+                  disabled={isConnecting}
+                  sx={{ flex: 2 }}
+                />
+                <TextField
+                  margin="dense"
+                  label="Port"
+                  type="number"
+                  value={port}
+                  onChange={(e) => setPort(e.target.value)}
+                  disabled={isConnecting}
+                  sx={{ flex: 1 }}
+                />
+              </Box>
+
+              <Box sx={{ display: 'flex', gap: 2, mb: 1 }}>
+                <TextField
+                  margin="dense"
+                  label="User"
+                  type="text"
+                  fullWidth
+                  value={user}
+                  onChange={(e) => setUser(e.target.value)}
+                  disabled={isConnecting}
+                />
+                <TextField
+                  margin="dense"
+                  label="Database"
+                  type="text"
+                  fullWidth
+                  value={database}
+                  onChange={(e) => setDatabase(e.target.value)}
+                  disabled={isConnecting}
+                />
               </Box>
 
               <TextField
-                autoFocus
                 margin="dense"
                 label="Password"
                 type="password"
