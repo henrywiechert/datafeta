@@ -175,6 +175,10 @@ export function useMetadataOperations({
             const patchedY = yAxisFields.map(f => ({ ...f, isInvalid: !availableNames.has(f.columnName) } as any));
             dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
             dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
+            
+            // Note: FORCE_QUERY_REFRESH is handled by the snapshot detection effect
+            // which waits for BOTH availableFields AND selectedTable to be set.
+            // Dispatching here would fire too early (before selectedTable is restored).
         } catch (err: any) { 
             if (err.message === 'Request was cancelled') {
                 // Request was cancelled, don't set error
@@ -368,8 +372,23 @@ export function useMetadataOperations({
     ]);
 
     // --- Effects to trigger data fetching ---
+    // Track if we've already initialized for this connection to avoid re-clearing
+    // when multiple hook instances run (e.g., due to nested VisualizationProvider)
+    const connectionInitializedRef = useRef<string | null>(null);
+    
     useEffect(() => {
         if (!connectionDetails) return;
+        
+        // Create a connection identifier to track initialization
+        const connectionId = `${connectionDetails.type}-${Date.now()}`;
+        
+        // Skip if we've already initialized for a connection and selectedTable is set
+        // This prevents clearing selectedTable that was set by snapshot restore
+        if (connectionInitializedRef.current && dataSource.selectedTable) {
+            return;
+        }
+        
+        connectionInitializedRef.current = connectionId;
         
         // Clear existing metadata and fetch new data when connection changes
         // This ensures we get fresh data after reconnecting to a different server
@@ -378,7 +397,10 @@ export function useMetadataOperations({
             dataSourceSetters.setDatabases([]);
             dataSourceSetters.setTables([]);
             dataSourceSetters.setAvailableFields([]);
-            dataSourceSetters.setSelectedTable('');
+            // Only clear selectedTable if it's not already set (snapshot restore case)
+            if (!dataSource.selectedTable) {
+                dataSourceSetters.setSelectedTable('');
+            }
             // Clear selected database via dispatch
             dispatch({ type: 'SET_SELECTED_DATABASE', payload: '' });
             // Fetch new databases
@@ -390,7 +412,10 @@ export function useMetadataOperations({
             // Clear old metadata first
             dataSourceSetters.setTables([]);
             dataSourceSetters.setAvailableFields([]);
-            dataSourceSetters.setSelectedTable('');
+            // Only clear selectedTable if it's not already set (snapshot restore case)
+            if (!dataSource.selectedTable) {
+                dataSourceSetters.setSelectedTable('');
+            }
             // Fetch new tables
             if (!dataSource.isLoadingMetadata) {
                 dataSourceSetters.setMetadataError(null);
@@ -447,6 +472,44 @@ export function useMetadataOperations({
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dataSource.selectedTable, dataSource.joinedTables, dataSource.unionTables]);
+
+    // --- Effect to handle snapshot loading with pre-populated axis fields ---
+    // When VisualizationProvider mounts with initialState containing axis fields,
+    // and metadata is already loaded (e.g., user connected on DataSourcePage first),
+    // we need to force a query refresh since fetchColumns won't be called again.
+    // 
+    // Key insight: We only want to trigger this for snapshot-loaded fields, not when
+    // user adds fields interactively. We detect this by checking if fields were present
+    // on the FIRST render of this hook instance.
+    const initialAxisFieldsRef = useRef<{ x: number; y: number } | null>(null);
+    const hasTriggeredInitialQueryRef = useRef(false);
+    
+    // Capture initial field counts on first render only
+    if (initialAxisFieldsRef.current === null) {
+        initialAxisFieldsRef.current = {
+            x: xAxisFields.length,
+            y: yAxisFields.length
+        };
+    }
+    
+    useEffect(() => {
+        // Only trigger once per mount
+        if (hasTriggeredInitialQueryRef.current) return;
+        
+        // Only trigger if fields were present on initial render (snapshot load)
+        const hadInitialFields = initialAxisFieldsRef.current && 
+            (initialAxisFieldsRef.current.x > 0 || initialAxisFieldsRef.current.y > 0);
+        if (!hadInitialFields) return;
+        
+        // Check conditions for snapshot-loaded state
+        const hasMetadata = dataSource.selectedTable && dataSource.availableFields.length > 0;
+        const isConnected = !!connectionDetails;
+        
+        if (hasMetadata && isConnected) {
+            hasTriggeredInitialQueryRef.current = true;
+            dispatch({ type: 'FORCE_QUERY_REFRESH' });
+        }
+    }, [dataSource.selectedTable, dataSource.availableFields.length, connectionDetails, dispatch]);
 
     // Dispatch TABLE_JOINS_UNIONS_MODIFIED when virtualTable changes
     // This ensures virtualTable is updated in context before query executes
