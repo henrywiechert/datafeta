@@ -88,19 +88,27 @@ export function computeSharedCategoricalDomains(data: any[], fields: any[]): Rec
     // Use getResultColumnName to handle DateTime parts correctly (e.g., fieldname_part_mode)
     const col = getResultColumnName(f);
     if (domains[col]) continue;
-    const seen = new Set<any>();
+    
+    // Use Map with a key function to handle Date objects correctly
+    // (Date objects need to be compared by timestamp value, not by reference)
+    const seen = new Map<string | number, any>();
     const values: any[] = [];
     for (const row of data) {
       const v = row[col];
-      if (!seen.has(v)) {
-        seen.add(v);
+      // For Date objects, use timestamp as key; for others, use the value itself
+      const key = v instanceof Date ? v.getTime() : v;
+      if (!seen.has(key)) {
+        seen.set(key, v);
         values.push(v);
       }
     }
     try {
-      // Smart sorting: if all values are numeric, sort numerically; otherwise sort as strings
+      // Smart sorting: dates by timestamp, numbers numerically, others as strings
+      const allDates = values.every(v => v instanceof Date);
       const allNumeric = values.every(v => typeof v === 'number' && !Number.isNaN(v));
-      if (allNumeric) {
+      if (allDates) {
+        values.sort((a, b) => a.getTime() - b.getTime());
+      } else if (allNumeric) {
         values.sort((a, b) => a - b);
       } else {
         values.sort((a, b) => (String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0));

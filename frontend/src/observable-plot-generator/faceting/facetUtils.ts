@@ -2,6 +2,18 @@ import { Field } from '../../types';
 import { getFieldColumnName } from '../helpers/fields';
 
 /**
+ * Compare two values for equality, handling Date objects by timestamp.
+ */
+function valuesEqual(a: any, b: any): boolean {
+  if (a === b) return true;
+  // Compare Date objects by timestamp value, not reference
+  if (a instanceof Date && b instanceof Date) {
+    return a.getTime() === b.getTime();
+  }
+  return false;
+}
+
+/**
  * Filter rows by multiple facet field values (hierarchical faceting).
  * This is the primary filtering function used in faceted grid generation.
  */
@@ -17,13 +29,13 @@ export function filterRowsByFacets(
       const f = rowFields[i];
       const v = rowValues[i];
       const col = getFieldColumnName(f);
-      if (v !== undefined && row[col] !== v) return false;
+      if (v !== undefined && !valuesEqual(row[col], v)) return false;
     }
     for (let j = 0; j < colFields.length; j++) {
       const f = colFields[j];
       const v = colValues[j];
       const col = getFieldColumnName(f);
-      if (v !== undefined && row[col] !== v) return false;
+      if (v !== undefined && !valuesEqual(row[col], v)) return false;
     }
     return true;
   });
@@ -54,20 +66,27 @@ export function buildFacetCombos(fields: Field[], valuesLevels: any[][]): any[][
  */
 export function uniqueValuesForField(rows: any[], field: Field): any[] {
   const col = getFieldColumnName(field);
-  const seen = new Set<any>();
+  // Use Map with key function to handle Date objects correctly
+  // (Dates need to be compared by timestamp value, not by reference)
+  const seen = new Map<string | number, any>();
   const values: any[] = [];
   rows.forEach((row) => {
     const v = row[col];
-    if (!seen.has(v)) {
-      seen.add(v);
+    // For Date objects, use timestamp as key; for others, use the value itself
+    const key = v instanceof Date ? v.getTime() : v;
+    if (!seen.has(key)) {
+      seen.set(key, v);
       values.push(v);
     }
   });
   // Sort for consistency, especially important for facet ordering
-  // Smart sorting: if all values are numeric, sort numerically; otherwise sort as strings
+  // Smart sorting: dates by timestamp, numbers numerically, others as strings
   try {
+    const allDates = values.every(v => v instanceof Date);
     const allNumeric = values.every(v => typeof v === 'number' && !Number.isNaN(v));
-    if (allNumeric) {
+    if (allDates) {
+      values.sort((a, b) => a.getTime() - b.getTime());
+    } else if (allNumeric) {
       values.sort((a, b) => a - b);
     } else {
       values.sort((a, b) => (String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0));
