@@ -6,6 +6,7 @@ import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
 import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
+import { formatDateTick } from '../utils/dateFormatUtils';
 
 // ---------- Orientation abstraction -----------------------------------------
 
@@ -405,9 +406,24 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     strokeWidth: 0,
   };
 
+  const xIsTime = axisKind === 'time' || (domain?.x?.[0] instanceof Date);
+  const yIsTime = domain?.y?.[0] instanceof Date;
+
   const plotOptions: Plot.PlotOptions = {
-    x: { label: labels?.x || xColumn, domainKey: xColumn, grid: true, domain: domain?.x } as any,
-    y: { label: labels?.y || yColumn, domainKey: yColumn, grid: true, domain: domain?.y } as any,
+    x: {
+      label: labels?.x || xColumn,
+      domainKey: xColumn,
+      grid: true,
+      domain: domain?.x,
+      ...(xIsTime ? { type: 'utc' as any, tickFormat: formatDateTick } : {}),
+    } as any,
+    y: {
+      label: labels?.y || yColumn,
+      domainKey: yColumn,
+      grid: true,
+      domain: domain?.y,
+      ...(yIsTime ? { type: 'utc' as any, tickFormat: formatDateTick } : {}),
+    } as any,
     marks: [
       Plot.line(budgetedSorted, lineConfig),
       Plot.dot(dotData, dotConfig),

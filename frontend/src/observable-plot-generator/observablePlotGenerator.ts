@@ -7,7 +7,7 @@ import { computeSharedMeasureDomains } from './domains/measureDomains';
 import { analyzeFields } from './analysis/fieldAnalysis';
 import { ChartTypeOverrides } from './helpers/chartTypeResolver';
 import { planFacets } from './faceting/facetPlanner';
-import { getResultColumnName } from '../utils/fieldUtils';
+import { getResultColumnName, normalizeTimelineData } from '../utils/fieldUtils';
 import { generateCartesianPlots } from './grid/coreGridGenerator';
 import { generateFacetedGrid } from './faceting/facetGenerator';
 
@@ -137,7 +137,7 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
  * @returns PlotResult with plots array and grid layout
  */
 export function generatePlot(context: ChartGenerationContext, overrides?: ChartTypeOverrides): PlotResult {
-  const { xFields, yFields, queryResult, colorField, manualColor } = context;
+  const { xFields, yFields, queryResult, colorField, manualColor, sizeField } = context;
 
   // Validate inputs
   if (xFields.length === 0 && yFields.length === 0) {
@@ -148,9 +148,23 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
     return createMessageChart('No data available.');
   }
 
+  // Normalize timeline datetime fields: convert epoch numbers → Date objects
+  // so Observable Plot uses time scales (with proper date formatting) instead of linear numeric scales.
+  const allFields: Field[] = [
+    ...xFields,
+    ...yFields,
+    ...(colorField ? [colorField] : []),
+    ...(sizeField ? [sizeField] : []),
+  ];
+  const normalizedRows = normalizeTimelineData(queryResult.rows, allFields);
+  const normalizedQueryResult = normalizedRows !== queryResult.rows
+    ? { ...queryResult, rows: normalizedRows }
+    : queryResult;
+
   // Apply default color if no color field present
   const effectiveContext: ChartGenerationContext = {
     ...context,
+    queryResult: normalizedQueryResult,
     colorField,
     manualColor,
   };

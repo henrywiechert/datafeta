@@ -6,6 +6,17 @@ import {
   NAMES_BAND_LEFT_PX, 
   VALUES_BAND_LEFT_PX 
 } from '../../../config/chartLayoutConfig';
+import { formatDateTick } from '../../../observable-plot-generator/utils/dateFormatUtils';
+
+/**
+ * Format a facet label value. Uses ISO-style format for Dates, otherwise String().
+ */
+function formatFacetValue(val: any): string {
+  if (val instanceof Date) {
+    return formatDateTick(val);
+  }
+  return String(val);
+}
 
 interface FacetLabelsProps {
   spec: PlotResult;
@@ -60,7 +71,7 @@ const TopFacetLabelsComponent: React.FC<Pick<FacetLabelsProps, 'spec' | 'plotTem
               cells.push(
                 <div
                   key={`col-level-${levelIdx}-seg-${r}-val-${i}`}
-                  title={String(val)}
+                  title={formatFacetValue(val)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -76,7 +87,7 @@ const TopFacetLabelsComponent: React.FC<Pick<FacetLabelsProps, 'spec' | 'plotTem
                     cursor: 'default',
                   }}
                 >
-                  {String(val)}
+                  {formatFacetValue(val)}
                 </div>
               );
             });
@@ -164,7 +175,7 @@ const LeftFacetLabelsComponent: React.FC<Pick<FacetLabelsProps, 'spec' | 'plotRo
             cells.push(
               <div
                 key={`yval-level-${levelIdx}-rep-${r}-val-${i}`}
-                title={String(val)}
+                title={formatFacetValue(val)}
                 style={{
                   gridColumn: levelIdx + 2,
                   gridRow: `${startRow} / span ${span}`,
@@ -189,7 +200,7 @@ const LeftFacetLabelsComponent: React.FC<Pick<FacetLabelsProps, 'spec' | 'plotRo
                     fontSize: '10px',
                   }}
                 >
-                  {String(val)}
+                  {formatFacetValue(val)}
                 </div>
               </div>
             );

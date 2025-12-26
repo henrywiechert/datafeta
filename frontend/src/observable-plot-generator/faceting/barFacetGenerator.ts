@@ -8,6 +8,7 @@ import { buildBarOptions, resolveMeasureAlias } from '../chartTypes/barCore';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
+import { formatDateTick } from '../utils/dateFormatUtils';
 
 /**
  * Label configuration for bar cell generator.
@@ -288,12 +289,21 @@ function buildTickStripOptions(
   let options: Plot.PlotOptions;
   
   // Create configurations for tick marks and hover dots
+  const isTimeDomain = axisDomain?.[0] instanceof Date;
+
   if (barOrientation === 'barX') {
     const tickConfig = { x: dimCol, y: categoryColumnName || (() => categories[0]), stroke: tickStroke, strokeWidth: 1.5 };
     const hoverDotConfig = { x: dimCol, y: categoryColumnName || (() => categories[0]), r: 6, fill: 'transparent', stroke: 'transparent', strokeWidth: 0 };
     options = {
       x: axisDomain 
-        ? { label: dimCol, domainKey: dimCol, domain: axisDomain, nice: false, grid: true } as any
+        ? {
+            label: dimCol,
+            domainKey: dimCol,
+            domain: axisDomain,
+            nice: false,
+            grid: true,
+            ...(isTimeDomain ? { type: 'utc' as any, tickFormat: formatDateTick } : {}),
+          } as any
         : { label: dimCol, domainKey: dimCol, grid: true } as any,
       y: { label: categoryColumnName || ' ', type: 'band', domain: categories, padding: bandPadding } as any,
       marks: [Plot.tickX(cellData, tickConfig), Plot.dot(cellData, hoverDotConfig)]
@@ -303,7 +313,14 @@ function buildTickStripOptions(
     const hoverDotConfig = { y: dimCol, x: categoryColumnName || (() => categories[0]), r: 6, fill: 'transparent', stroke: 'transparent', strokeWidth: 0 };
     options = {
       y: axisDomain 
-        ? { label: dimCol, domainKey: dimCol, domain: axisDomain, nice: false, grid: true } as any
+        ? {
+            label: dimCol,
+            domainKey: dimCol,
+            domain: axisDomain,
+            nice: false,
+            grid: true,
+            ...(isTimeDomain ? { type: 'utc' as any, tickFormat: formatDateTick } : {}),
+          } as any
         : { label: dimCol, domainKey: dimCol, grid: true } as any,
       x: { label: categoryColumnName || ' ', type: 'band', domain: categories, padding: bandPadding } as any,
       marks: [Plot.tickY(cellData, tickConfig), Plot.dot(cellData, hoverDotConfig)]
