@@ -4,6 +4,18 @@ import { Sheet, SheetManagerState, SheetAction, VisualizationStateSnapshot } fro
 
 const STORAGE_KEY = 'data-slicer-sheets';
 
+/**
+ * Clears sheet state from localStorage.
+ * Can be called externally to reset workspace.
+ */
+export function clearSheetStorage(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch (error) {
+    console.error('Failed to clear sheets from localStorage:', error);
+  }
+}
+
 // Helper to create empty visualization state
 // Note: These are NOT included because they are shared across all sheets:
 // - selectedDatabase, selectedTable (data source selection)
@@ -153,6 +165,16 @@ function sheetReducer(state: SheetManagerState, action: SheetAction): SheetManag
       };
     }
 
+    case 'RESET_WORKSPACE': {
+      // Create a fresh sheet and reset to initial state
+      const freshSheet = createNewSheet('Sheet 1');
+      return {
+        sheets: [freshSheet],
+        activeSheetId: freshSheet.id,
+        nextSheetNumber: 2,
+      };
+    }
+
     default:
       return state;
   }
@@ -169,6 +191,7 @@ interface SheetContextType {
   setActiveSheet: (id: string) => void;
   updateActiveSheetState: (state: Partial<VisualizationStateSnapshot>) => void;
   duplicateSheet: (id: string) => void;
+  resetWorkspace: () => void;
 }
 
 const SheetContext = createContext<SheetContextType | undefined>(undefined);
@@ -232,6 +255,13 @@ export function SheetProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'DUPLICATE_SHEET', payload: id });
   }, []);
 
+  const resetWorkspace = useCallback(() => {
+    // Clear localStorage first
+    clearSheetStorage();
+    // Then dispatch reset action
+    dispatch({ type: 'RESET_WORKSPACE' });
+  }, []);
+
   return (
     <SheetContext.Provider
       value={{
@@ -244,6 +274,7 @@ export function SheetProvider({ children }: { children: React.ReactNode }) {
         setActiveSheet,
         updateActiveSheetState,
         duplicateSheet,
+        resetWorkspace,
       }}
     >
       {children}

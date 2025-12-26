@@ -520,7 +520,8 @@ export type SheetAction =
   | { type: 'SET_ACTIVE_SHEET'; payload: string }
   | { type: 'UPDATE_SHEET_STATE'; payload: { id: string; state: Partial<VisualizationStateSnapshot> } }
   | { type: 'DUPLICATE_SHEET'; payload: string }
-  | { type: 'LOAD_SHEETS'; payload: Sheet[] };
+  | { type: 'LOAD_SHEETS'; payload: Sheet[] }
+  | { type: 'RESET_WORKSPACE' };
 
 // --- Save/Load Configuration Types --- //
 
