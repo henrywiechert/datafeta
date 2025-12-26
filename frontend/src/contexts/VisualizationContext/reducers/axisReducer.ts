@@ -124,6 +124,10 @@ export function axisReducer(state: VisualizationState, action: VisualizationActi
       return initialState;
     case 'TABLE_JOINS_UNIONS_MODIFIED':
       return { ...state, queryVersion: state.queryVersion + 1 };
+    case 'FORCE_QUERY_REFRESH':
+      // Used after metadata loads to ensure query execution is triggered
+      // (e.g., when loading a snapshot with pre-populated axis fields)
+      return { ...state, queryVersion: state.queryVersion + 1 };
     default:
       return null; // Not handled by this reducer
   }

@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useState } from 'react';
+import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Tabs, Tab, Box, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
@@ -49,6 +49,23 @@ function AppContent() {
   const [pendingConfig, setPendingConfig] = useState<SavedConfiguration | null>(null);
   const [showConnectionRestore, setShowConnectionRestore] = useState(false);
   const [connectionMetadata, setConnectionMetadata] = useState<SavedConnectionMetadata | null>(null);
+
+  // Warn user before accidental page reload when connected
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isConnected) {
+        // Standard way to trigger the browser's "Leave site?" dialog
+        e.preventDefault();
+        // Chrome requires returnValue to be set (even if empty string)
+        e.returnValue = '';
+        // Some older browsers use the return value as the message
+        return 'You have an active connection. Are you sure you want to leave?';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isConnected]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: string) => {
     if (newValue === 'datasources') {
@@ -235,11 +252,16 @@ function AppContent() {
       
       // Restore data source selection after navigation
       // Give React time to mount the visualization page and its hooks
-      if (config.dataSource && connectionDetails?.type !== 'csv') {
+      // Note: Use config.connection.type instead of connectionDetails?.type because
+      // connectionDetails state might not be updated yet (React batches state updates)
+      const connectionType = config.connection?.type;
+      
+      if (config.dataSource && connectionType !== 'csv') {
         // For ClickHouse: restore database and table selection
         // Use requestAnimationFrame to wait for next render cycle
         requestAnimationFrame(() => {
           setTimeout(() => {
+            
             // Clear metadata arrays first to ensure useEffects trigger fetches
             setDatabases([]);
             setTables([]);
