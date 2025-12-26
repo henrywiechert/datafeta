@@ -37,34 +37,8 @@ export interface ChartAreaProps {
   // Future props will be added here as needed
 }
 
-// Hook-specific interfaces
-export interface UseChartGenerationProps {
-  xAxisFields: any[];
-  yAxisFields: any[];
-  useTableView: boolean;
-  startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
-  completeOperation: () => void;
-}
-
-export interface UseQueryExecutionProps {
-  selectedTable: string | null;
-  selectedDatabase: string | null;
-  xAxisFields: any[];
-  yAxisFields: any[];
-  startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
-  completeOperation: () => void;
-  dispatch: (action: any) => void;
-}
-
-export interface UseDataProcessingProps {
-  xAxisFields: any[];
-  yAxisFields: any[];
-  queryResult: any;
-}
-
-export interface UseDebugViewProps {
-  // No props needed for now
-}
+// Note: Hook-specific interfaces (UseQueryExecutionProps, UseQueryBuilderProps, etc.)
+// are now defined in their respective hook files for better colocation and type safety.
 
 // Component-specific interfaces
 export interface ChartRendererProps {
