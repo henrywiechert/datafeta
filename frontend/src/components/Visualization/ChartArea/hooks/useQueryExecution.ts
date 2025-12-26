@@ -1,36 +1,40 @@
-import { useCallback, useRef, useEffect, useMemo } from 'react';
-import { apiService } from '../../../../apiService';
+/**
+ * useQueryExecution Hook
+ * 
+ * Thin coordinator that composes query building and execution hooks.
+ * Responsibilities:
+ * - Initialize DuckDB WASM on mount
+ * - Coordinate version tracking and execution triggers
+ * - Handle unpivot detection
+ * 
+ * Query building is delegated to useQueryBuilder.
+ * Query execution is delegated to useQueryExecutor.
+ */
+
+import { useRef, useEffect } from 'react';
 import { useVisualizationContext } from '../../../../contexts/VisualizationContext';
-import { buildQuery } from '../../../../queryBuilder/queryBuilder';
-import { buildRawQuery } from '../../../../queryBuilder/queryBuilder';
-import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition } from '../../../../types';
+import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition } from '../../../../types';
 import { useConnection } from '../../../../contexts/ConnectionContext';
-import { logOperationTiming } from '../utils';
-import { validateAndCleanData, remapCastExpressionColumns } from '../utils/dataValidation';
-import { generateOptimizationHintsFromFields } from '../../../../services/optimizationHintGenerator';
-import { requiresUnpivoting, buildUnpivotedQuery } from '../../../../queryBuilder/syntheticQueryBuilder';
+import { requiresUnpivoting } from '../../../../queryBuilder/syntheticQueryBuilder';
 import { useDataSource } from '../../../../contexts/DataSourceContext';
 import { getMeasureFieldsForUnpivot, MEASURE_NAMES_FIELD } from '../../../../utils/syntheticFields';
 import { duckdbService } from '../../../../services/duckdbService';
-import { columnCacheManager } from '../../../../services/columnCacheManager';
-import { queryDecisionEngine, QueryDecision } from '../../../../services/queryDecisionEngine';
-import { filterTierManager } from '../../../../services/filterTierManager';
-import { getResultColumnName } from '../../../../utils/fieldUtils';
-import { buildAggregateSql, buildSelectSql, applyPointBudgetSql } from '../../../../services/localSqlBuilder';
-import { queryExecutionOrchestrator } from '../../../../services/queryExecutionOrchestrator';
+import { QueryDecision } from '../../../../services/queryDecisionEngine';
+import { useQueryBuilder } from './useQueryBuilder';
+import { useQueryExecutor } from './useQueryExecutor';
 
-interface UseQueryExecutionProps {
+export interface UseQueryExecutionProps {
   selectedTable: string | null;
   selectedDatabase: string | null;
-  xAxisFields: any[];
-  yAxisFields: any[];
+  xAxisFields: Field[];
+  yAxisFields: Field[];
   colorField: Field | null;
   sizeField?: Field | null;
   filterConfigurations: Record<string, any>;
   labelFields?: Field[];
   tooltipFields?: Field[];
   virtualTable?: VirtualTableDefinition | null;
-  virtualColumns?: import('../../../../types').VirtualColumnDefinition[];
+  virtualColumns?: VirtualColumnDefinition[];
   additionalColorFields?: Field[];
   additionalSizeFields?: Field[];
   additionalLabelFields?: Field[];
@@ -39,20 +43,44 @@ interface UseQueryExecutionProps {
   dispatch: (action: any) => void;
 }
 
-interface UseQueryExecutionReturn {
+export interface UseQueryExecutionReturn {
   queryDescription: QueryDescription | null;
   optimizationHints: OptimizationHints | null;
   /** Last query decision from the decision engine */
   lastQueryDecision: QueryDecision | null;
 }
 
+/**
+ * Initialize DuckDB WASM service.
+ * Extracted as a simple effect to keep the main hook clean.
+ */
+function useDuckDBInit(): void {
+  useEffect(() => {
+    const initDuckDB = async () => {
+      if (!duckdbService.isReady && !duckdbService.isInitializing) {
+        try {
+          console.log('🦆 Initializing DuckDB WASM for local data caching...');
+          await duckdbService.initialize();
+          console.log('✅ DuckDB WASM ready for local caching');
+        } catch (error) {
+          console.warn('⚠️ DuckDB WASM initialization failed, local caching disabled:', error);
+        }
+      }
+    };
+    initDuckDB();
+  }, []);
+}
+
+/**
+ * Main query execution hook - coordinates building and executing queries.
+ */
 export const useQueryExecution = ({
   selectedTable,
   selectedDatabase,
   xAxisFields,
   yAxisFields,
   colorField,
-  sizeField,
+  sizeField = null,
   filterConfigurations,
   labelFields = [],
   tooltipFields = [],
@@ -67,546 +95,117 @@ export const useQueryExecution = ({
 }: UseQueryExecutionProps): UseQueryExecutionReturn => {
   const { connectionDetails } = useConnection();
   const { dataSource } = useDataSource();
-  const queryAbortControllerRef = useRef<AbortController | null>(null);
-  const queryInProgressRef = useRef<boolean>(false);
-  // Track last executed version to avoid duplicate runs within same render cycle
-  const lastExecutedVersionRef = useRef<number | null>(null);
-  // Track last query decision for debugging and UI display
-  const lastQueryDecisionRef = useRef<QueryDecision | null>(null);
-  // Access visualization context for queryVersion
-  // (Avoid adding heavy dependencies; only pull version)
-  // Import lazily to prevent circular issues.
   const { state: vizState } = useVisualizationContext();
+
+  // Track query version for deduplication
   const queryVersion: number = vizState.queryVersion;
-  const queryVersionRef = useRef<number>(queryVersion);
-  // Log version changes for diagnostics
-  useEffect(() => {
-    if (queryVersionRef.current !== queryVersion) {
-      queryVersionRef.current = queryVersion;
-    }
-  }, [queryVersion]);
+  const lastExecutedVersionRef = useRef<number | null>(null);
 
-  // Initialize DuckDB WASM on mount
-  useEffect(() => {
-    const initDuckDB = async () => {
-      if (!duckdbService.isReady && !duckdbService.isInitializing) {
-        try {
-          console.log('🦆 Initializing DuckDB WASM for local data caching...');
-          await duckdbService.initialize();
-          console.log('✅ DuckDB WASM ready for local caching');
-        } catch (error) {
-          console.warn('⚠️ DuckDB WASM initialization failed, local caching disabled:', error);
-          // Continue without local caching - queries will still work via backend
-        }
-      }
-    };
-    initDuckDB();
-  }, []);
+  // Initialize DuckDB WASM
+  useDuckDBInit();
 
-  // NOTE: Fingerprint removed in favor of monotonic queryVersion which increments only for semantic changes.
+  // Build query description and optimization hints
+  const { queryDescription, optimizationHints } = useQueryBuilder({
+    selectedTable,
+    selectedDatabase,
+    xAxisFields,
+    yAxisFields,
+    colorField,
+    sizeField,
+    filterConfigurations,
+    labelFields,
+    tooltipFields,
+    virtualTable,
+    virtualColumns,
+    additionalColorFields,
+    additionalSizeFields,
+    additionalLabelFields,
+    connectionType: connectionDetails?.type,
+  });
 
-  const executeQuery = useCallback(async (queryDesc: QueryDescription, useUnpivot: boolean = false) => {
-    const startTime = Date.now();
-    
-    try {
-      // Check and set query in progress atomically
-      if (queryInProgressRef.current) {
-        return;
-      }
-      // Mark query as in progress immediately
-      queryInProgressRef.current = true;
+  // Get query executor
+  const { executeQuery, lastQueryDecision, queryInProgressRef } = useQueryExecutor({
+    selectedTable,
+    selectedDatabase,
+    xAxisFields,
+    yAxisFields,
+    colorField,
+    sizeField,
+    filterConfigurations,
+    appliedFilterConfigurations: vizState.appliedFilterConfigurations,
+    labelFields,
+    tooltipFields,
+    virtualTable,
+    virtualColumns,
+    availableFields: dataSource.availableFields,
+    optimizationHints,
+    dispatch,
+    startOperation,
+    completeOperation,
+  });
 
-      // Create new abort controller (don't cancel existing, let it complete)
-      queryAbortControllerRef.current = new AbortController();
-
-      // Start query operation
-      startOperation('query', true);
-
-      dispatch({ type: 'SET_QUERY_ERROR', payload: null });
-      
-      let result;
-      
-      if (useUnpivot) {
-        // Execute unpivot query (multiple queries merged)
-        result = await buildUnpivotedQuery({
-          xFields: xAxisFields,
-          yFields: yAxisFields,
-          availableFields: dataSource.availableFields,
-          selectedTable: selectedTable!,
-          selectedDatabase: selectedDatabase || undefined,
-          filterConfigurations,
-          appliedFilterConfigurations: vizState.appliedFilterConfigurations,
-          labelFields,
-          tooltipFields,
-          colorField,
-          sizeField,
-          virtualTable,
-          virtualColumns,
-          optimizationHints,
-          signal: queryAbortControllerRef.current.signal,
-        });
-      } else {
-        // Execute normal query - use Query Decision Engine when DuckDB is ready
-        console.log('🚀 Executing query with Arrow transport, virtualTable:', queryDesc.virtual_table);
-        
-        // Determine if this is a point/dot-style chart query.
-        // IMPORTANT: We must protect Plot dot/tick-based charts from huge row counts.
-        //
-        // There are two *separate* reasons a result can explode:
-        // 1) Raw point charts (no measures) with >=2 dimensions (scatter-like)
-        // 2) Tick-strip (exactly 1 continuous dimension, other axis empty)
-        // 3) Scatter charts that *do* have measures (e.g. continuous color/size) — these still render one mark
-        //    per (x,y) group and can be enormous; budget must apply even when measures exist.
-        const hasMeasures = (queryDesc.measures?.length ?? 0) > 0;
-        const dims = queryDesc.dimensions || [];
-
-        const isTickStripLike =
-          !hasMeasures &&
-          dims.length === 1 &&
-          (dims[0] as any)?.flavour === 'continuous';
-
-        // True scatter: continuous dimension on x AND continuous dimension on y.
-        // Note: this can still include measures (e.g. continuous color), so don't gate on hasMeasures.
-        const isTrueScatter = !!queryDesc.dimensions &&
-          queryDesc.dimensions.some(d => d.axis === 'x' && d.flavour === 'continuous') &&
-          queryDesc.dimensions.some(d => d.axis === 'y' && d.flavour === 'continuous');
-
-        // Generic raw point chart heuristic (covers categorical scatter etc.) only when there are no measures.
-        const isRawPointChart = !hasMeasures && dims.length >= 2;
-
-        const isPointChart = isTickStripLike || isTrueScatter || isRawPointChart;
-
-        // Keep the old flag name for downstream readability.
-        const isScatter = isTrueScatter;
-
-        const hasDiscreteColor = !!colorField && colorField.flavour === 'discrete';
-        // Conservative budget to prevent Observable Plot failures
-        const scatterMaxPoints = hasDiscreteColor ? 10_000 : 30_000;
-        const scatterMinPerStratum = hasDiscreteColor ? 200 : 0;
-
-        // Backend aliases datetime parts as `${field}_${date_part}_${date_mode}`.
-        // When we want to stratify (and when building local SQL), we must refer to the aliased output column,
-        // not the raw base column, otherwise reduction fails (e.g. utc "Minute" -> utc_minute_distinct).
-        const getDimOutputName = (d: any) =>
-          d?.date_part && d?.date_mode ? `${d.field}_${d.date_part}_${d.date_mode}` : d.field;
-
-        // Choose a stratification field for budgeted sampling:
-        // - Prefer discrete color field (best visual preservation).
-        // - Else, if an axis is discrete (or a datetime-part selection), stratify by that axis to ensure each category keeps points.
-        const discreteAxisDim =
-          queryDesc.dimensions?.find(d => d.axis === 'x' && (d.flavour === 'discrete' || (d.date_part && d.date_mode))) ||
-          queryDesc.dimensions?.find(d => d.axis === 'y' && (d.flavour === 'discrete' || (d.date_part && d.date_mode))) ||
-          // Fallback when axis is missing: pick any discrete-like dimension (incl. datetime parts)
-          queryDesc.dimensions?.find(d => d.flavour === 'discrete' || (d.date_part && d.date_mode));
-        const discreteAxisField = discreteAxisDim ? getDimOutputName(discreteAxisDim) : undefined;
-        const stratifyField =
-          (hasDiscreteColor && colorField ? getResultColumnName(colorField) : undefined) ||
-          discreteAxisField;
-
-        // If this is a point chart, attach a best-effort budget hint for backend/local reduction.
-        const queryDescExec: QueryDescription = isPointChart ? ({
-          ...queryDesc,
-          result_budget: {
-            max_rows: scatterMaxPoints,
-            strategy: stratifyField ? 'stratified' : 'random',
-            stratify_field: stratifyField,
-            min_per_stratum: scatterMinPerStratum,
-          },
-        } as any) : queryDesc;
-
-        // Columns required for local caching/execution.
-        // IMPORTANT: for datetime parts we require the *base* datetime column (we compute the part locally in DuckDB).
-        const requiredColumns: string[] = [
-          ...(queryDescExec.dimensions?.map(d => d.field) || []),
-          ...(queryDescExec.measures?.map(m => m.field) || []),
-        ];
-        
-        // Determine if we have aggregations
-        const requiresAggregation = (queryDescExec.measures?.length ?? 0) > 0 &&
-          queryDescExec.measures!.some(m => m.aggregation);
-        
-        // Get dimensions for potential pre-aggregation
-        const dimensions = queryDescExec.dimensions?.map(d => d.field) || [];
-        
-        try {
-            // Split filters: base define cache slice; refinement applied locally
-            const baseFilterConfigs = filterTierManager.getBaseFiltersOnly(filterConfigurations);
-            const refinementFilterConfigs = filterTierManager.getRefinementFilters(filterConfigurations);
-
-          // Build a backend query desc (raw slice) only when needed.
-          // NOTE: the decision engine currently sets strategy; the orchestrator will use queryDescExec.
-          // Here we keep the raw-slice builder for backward-compat and to keep the hook's UI-derived field list.
-          let backendQueryDesc: QueryDescription = queryDescExec;
-          if (duckdbService.isReady && selectedTable) {
-            const decisionPreview = await queryDecisionEngine.decide({
-              sourceTable: selectedTable,
-              sourceDatabase: selectedDatabase || undefined,
-              requiredColumns,
-              filterConfigurations,
-              requiresAggregation,
-              dimensions,
-              virtualTable: queryDescExec.virtual_table,
-              virtualColumns: queryDescExec.virtual_columns,
-            });
-            if (decisionPreview.strategy === 'raw_columns') {
-                const rawFields = [
-                  ...(xAxisFields || []),
-                  ...(yAxisFields || []),
-                  ...(colorField ? [colorField] : []),
-                  ...(sizeField ? [sizeField] : []),
-                  ...(labelFields || []),
-                  ...(tooltipFields || []),
-                // For local DuckDB, we cache base datetime columns and compute datetime parts locally.
-                ].map((f: any) => ({
-                  ...f,
-                  aggregation: undefined,
-                  dateTimePart: undefined,
-                  dateTimeMode: undefined,
-                }));
-
-                const rawSlice = buildRawQuery({
-                  fields: rawFields as any,
-                  selectedTable: selectedTable!,
-                  selectedDatabase: selectedDatabase || undefined,
-                  filterConfigurations: baseFilterConfigs as any,
-                  labelFields,
-                  tooltipFields,
-                  virtualTable: virtualTable,
-                  virtualColumns: virtualColumns,
-                }) as any;
-
-                if (rawSlice) {
-                  rawSlice.force_raw_rows = true;
-                  if ((queryDescExec as any).result_budget) {
-                    (rawSlice as any).result_budget = (queryDescExec as any).result_budget;
-                  }
-                  backendQueryDesc = rawSlice;
-                }
-            }
-          }
-
-          const { result: orchestratedResult, decision } = await queryExecutionOrchestrator.execute({
-            viewQueryDesc: queryDescExec,
-            fetchQueryDesc: backendQueryDesc,
-            selectedTable: selectedTable!,
-            selectedDatabase: selectedDatabase || undefined,
-            filterConfigurations,
-            requiredColumns,
-            requiresAggregation,
-            dimensions,
-            baseFilterConfigs,
-            refinementFilterConfigs,
-            pointBudget: {
-              isPointChart,
-              stratifyField: stratifyField || undefined,
-              maxPoints: scatterMaxPoints,
-              minPerStratum: scatterMinPerStratum,
-            },
-            signal: queryAbortControllerRef.current.signal,
-          });
-
-          result = orchestratedResult;
-          if (decision) {
-            lastQueryDecisionRef.current = decision;
-            if ((queryDescExec as any).result_budget) {
-              (decision as any).resultBudget = (queryDescExec as any).result_budget;
-            }
-            console.log('🧠 Query decision:', decision.strategy, '-', decision.reason);
-          }
-        } catch (arrowError: any) {
-          // Fallback to JSON if Arrow endpoint fails (e.g., older backend)
-          console.warn('⚠️ Arrow transport failed, falling back to JSON:', arrowError.message);
-          result = await apiService.executeQuery(queryDescExec, queryAbortControllerRef.current.signal);
-        }
-      }
-      
-      // Ensure result is defined before proceeding
-      if (!result) {
-        throw new Error('Query did not return a result');
-      }
-      
-      logOperationTiming('Query', startTime, { rows: result.row_count });
-      
-      if (result.error) {
-        dispatch({ type: 'SET_QUERY_ERROR', payload: result.error });
-      } else {
-        // Build fields list for remapping
-        const allFieldsForRemapping = [...xAxisFields, ...yAxisFields];
-        if (colorField) allFieldsForRemapping.push(colorField);
-        if (sizeField) allFieldsForRemapping.push(sizeField);
-        
-        console.log('📊 Query result:', {
-          columns: result.columns?.map((c: any) => c.name || c),
-          firstRow: result.rows?.[0],
-          allFields: allFieldsForRemapping.map((f: any) => ({
-            columnName: f.columnName,
-            type: f.type,
-            aggregation: f.aggregation,
-            castType: f.castType,
-            castReplacement: f.castReplacement
-          }))
-        });
-        
-        // First, remap any CAST expression columns back to their expected aliases
-        let remappedResult = remapCastExpressionColumns(result, allFieldsForRemapping);
-        // Then clean and validate the data
-        const cleanedResult = validateAndCleanData(remappedResult);
-        dispatch({ type: 'SET_QUERY_RESULT', payload: cleanedResult });
-        
-        // Warn if data was too large
-        if (result.row_count > 50000) {
-          console.warn(`⚠️ Large dataset detected (${result.row_count} rows). Consider using aggregation or filtering.`);
-        }
-      }
-      
-      // Mark query as complete
-      queryInProgressRef.current = false;
-      completeOperation('query');
-    } catch (error: any) {
-      if (error.message === 'Request was cancelled') {
-        // Operation was cancelled, don't set error
-        dispatch({ type: 'SET_QUERY_ERROR', payload: null });
-      } else {
-        dispatch({
-          type: 'SET_QUERY_ERROR',
-          payload: error.message || 'An unexpected error occurred.',
-        });
-      }
-      
-      // Mark query as complete even on error
-      queryInProgressRef.current = false;
-      completeOperation('query');
-    }
-  }, [startOperation, completeOperation, dispatch, colorField, sizeField, xAxisFields, yAxisFields, dataSource.availableFields, filterConfigurations, vizState.appliedFilterConfigurations, labelFields, tooltipFields, virtualTable, virtualColumns, selectedTable, selectedDatabase]);
-
-  // Memoize optimization hints generation
-  const optimizationHints = useMemo((): OptimizationHints | null => {
-    // Generate hints if we have fields
-    if (xAxisFields.length === 0 && yAxisFields.length === 0) {
-      console.log('⚠️ No fields present, skipping optimization hints generation');
-      return null;
-    }
-
-    try {
-      console.log('🔧 Generating optimization hints for fields:', {
-        xFields: xAxisFields.map(f => ({ name: f.columnName, type: f.type, flavour: f.flavour })),
-        yFields: yAxisFields.map(f => ({ name: f.columnName, type: f.type, flavour: f.flavour })),
-        color: colorField?.columnName,
-        size: sizeField?.columnName
-      });
-      
-      const hints = generateOptimizationHintsFromFields({
-        xAxisFields,
-        yAxisFields,
-        colorField,
-        sizeField,
-        userPreference: 'auto', // Could be made configurable via user settings
-      });
-      
-      console.log('✅ Generated hints:', {
-        field_hints: hints.field_hints?.length || 0,
-        enable_global_distinct: hints.enable_global_distinct,
-        level: hints.optimization_level
-      });
-      
-      return hints;
-    } catch (error) {
-      console.error('❌ Failed to generate optimization hints:', error);
-      return null;
-    }
-  }, [xAxisFields, yAxisFields, colorField, sizeField]);
-
-  // Memoize current query description to avoid unnecessary recalculations
-  const currentQueryDescription = useMemo((): QueryDescription | null => {
-    console.log('🔧 currentQueryDescription recalculating with virtualTable:', virtualTable);
-    
-    // Tag fields with their axis for query optimization
-    const taggedXFields = xAxisFields.map(f => ({ ...f, axis: 'x' as const }));
-    const taggedYFields = yAxisFields.map(f => ({ ...f, axis: 'y' as const }));
-
-    // If measures are present on exactly one axis, the intent is an aggregated chart (bar/line).
-    // Ensure axis-measures have a default aggregation; otherwise buildQuery() falls back to raw
-    // and we end up with unaggregated results (no bars / no local aggregation).
-    const xHasMeasure = taggedXFields.some(f => f.type === 'measure');
-    const yHasMeasure = taggedYFields.some(f => f.type === 'measure');
-    const shouldDefaultAxisMeasureAgg = xHasMeasure !== yHasMeasure;
-    const defaultAggFor = (f: any) => (f.flavour === 'continuous' ? 'sum' : 'count');
-
-    const normalizedXFields = shouldDefaultAxisMeasureAgg && xHasMeasure
-      ? taggedXFields.map((f: any) => (f.type === 'measure' && !f.aggregation ? { ...f, aggregation: defaultAggFor(f) } : f))
-      : taggedXFields;
-    const normalizedYFields = shouldDefaultAxisMeasureAgg && yHasMeasure
-      ? taggedYFields.map((f: any) => (f.type === 'measure' && !f.aggregation ? { ...f, aggregation: defaultAggFor(f) } : f))
-      : taggedYFields;
-
-    const allFields = [...normalizedXFields, ...normalizedYFields];
-    
-    // Include colorField whether dimension or measure so its column is selected.
-    // If it's a measure without aggregation but other aggregated measures exist, assign a default aggregation.
-    if (colorField) {
-      const colorEntry = (colorField.type === 'measure' && !colorField.aggregation && [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation))
-        ? { ...colorField, aggregation: 'sum' }
-        : colorField;
-      allFields.push(colorEntry);
-    }
-    // Include sizeField when present and it's a dimension or measure so its column appears in the result
-    if (sizeField) {
-      const sizeEntry = (sizeField.type === 'measure' && !sizeField.aggregation && [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation))
-        ? { ...sizeField, aggregation: 'sum' }
-        : sizeField;
-      allFields.push(sizeEntry);
-    }
-    
-    // Include additional color/size fields from per-field overrides
-    for (const addlColorField of additionalColorFields) {
-      if (!allFields.some(f => f.id === addlColorField.id)) {
-        const colorEntry = (addlColorField.type === 'measure' && !addlColorField.aggregation && [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation))
-          ? { ...addlColorField, aggregation: 'sum' }
-          : addlColorField;
-        allFields.push(colorEntry);
-      }
-    }
-    for (const addlSizeField of additionalSizeFields) {
-      if (!allFields.some(f => f.id === addlSizeField.id)) {
-        const sizeEntry = (addlSizeField.type === 'measure' && !addlSizeField.aggregation && [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation))
-          ? { ...addlSizeField, aggregation: 'sum' }
-          : addlSizeField;
-        allFields.push(sizeEntry);
-      }
-    }
-    for (const addlLabelField of additionalLabelFields) {
-      if (!allFields.some(f => f.id === addlLabelField.id)) {
-        const labelEntry = (addlLabelField.type === 'measure' && !addlLabelField.aggregation && [...xAxisFields, ...yAxisFields].some(f => f.type === 'measure' && f.aggregation))
-          ? { ...addlLabelField, aggregation: 'sum' }
-          : addlLabelField;
-        allFields.push(labelEntry);
-      }
-    }
-    
-    // Merge label fields (without axis tagging) so query builder can include them via label_fields
-  const mergedFields = [...allFields];
-    for (const lf of labelFields) {
-      if (!mergedFields.some(f => f.columnName === lf.columnName && f.dateTimePart === lf.dateTimePart && f.dateTimeMode === lf.dateTimeMode)) {
-        mergedFields.push(lf);
-      }
-    }
-
-    if (mergedFields.length === 0 || !selectedTable) {
-      return null;
-    }
-    
-    // For ClickHouse, database is required; for CSV, it's not
-    if (connectionDetails?.type === 'clickhouse' && !selectedDatabase) {
-      return null;
-    }
-    
-    const queryDesc = buildQuery({
-      fields: mergedFields,
-      selectedTable,
-      selectedDatabase: selectedDatabase || undefined,
-      filterConfigurations,
-      labelFields,
-      tooltipFields,
-      virtualTable,
-      virtualColumns,
-    });
-
-    if (queryDesc) {
-      // Minimal build log (safe to remove later)
-      console.log('🧪 Query build (memo):', {
-        dimensions: queryDesc.dimensions?.map(d => d.field),
-        measures: queryDesc.measures?.map(m => m.alias || m.field),
-        label_fields: (queryDesc as any).label_fields,
-        colorField: colorField?.columnName,
-        sizeField: sizeField?.columnName,
-        virtualTable: virtualTable ? {
-          mode: virtualTable.mode,
-          unionTables: virtualTable.union_tables?.length || 0,
-          joinedTables: virtualTable.joined_tables?.length || 0
-        } : null
-      });
-    }
-
-    // Include optimization hints in the query description
-    if (queryDesc && optimizationHints) {
-      queryDesc.optimization_hints = optimizationHints;
-      console.log('✅ Attached optimization hints to query:', {
-        field_hints_count: optimizationHints.field_hints?.length || 0,
-        enable_global_distinct: optimizationHints.enable_global_distinct,
-        optimization_level: optimizationHints.optimization_level
-      });
-    } else if (queryDesc && !optimizationHints) {
-      console.log('⚠️ No optimization hints generated for this query');
-    }
-
-    return queryDesc;
-  }, [selectedTable, selectedDatabase, xAxisFields, yAxisFields, colorField, sizeField, filterConfigurations, labelFields, tooltipFields, optimizationHints, virtualTable, virtualColumns, additionalColorFields, additionalSizeFields, additionalLabelFields, connectionDetails?.type]);
-
-  // Effect to handle query execution when fields change
+  // Effect to handle query execution when version changes
   useEffect(() => {
     if (queryInProgressRef.current) return;
-    
+
     // Check if unpivoting is required
     const needsUnpivot = requiresUnpivoting([...xAxisFields, ...yAxisFields]);
-    
-    // For unpivot queries, we don't need currentQueryDescription
-    if (!needsUnpivot && !currentQueryDescription) {
+
+    // For unpivot queries, we don't need queryDescription
+    if (!needsUnpivot && !queryDescription) {
       dispatch({ type: 'SET_QUERY_RESULT', payload: null });
       dispatch({ type: 'SET_QUERY_ERROR', payload: null });
       return;
     }
-    
+
     // Only execute when queryVersion advances
-    // Capture and update ref synchronously to prevent race condition in Strict Mode
     const previousVersion = lastExecutedVersionRef.current;
     if (previousVersion === queryVersion) {
-      return; // version unchanged -> skip
+      return;
     }
     // Update ref BEFORE async call to prevent double execution in Strict Mode
     lastExecutedVersionRef.current = queryVersion;
-    
+
     if (needsUnpivot) {
       // Compute source measures (respecting MeasureNames filter if present)
       const measureNamesFilterEntry = Object.entries(vizState.appliedFilterConfigurations).find(
         ([, config]) => config.columnName === MEASURE_NAMES_FIELD
       );
-      const measureNamesFilterValues = measureNamesFilterEntry && measureNamesFilterEntry[1].type === 'discrete'
-        ? (measureNamesFilterEntry[1] as any).selectedValues as string[]
-        : undefined;
-      
+      const measureNamesFilterValues =
+        measureNamesFilterEntry && measureNamesFilterEntry[1].type === 'discrete'
+          ? (measureNamesFilterEntry[1] as any).selectedValues as string[]
+          : undefined;
+
       const sourceMeasures = getMeasureFieldsForUnpivot(
         dataSource.availableFields,
         measureNamesFilterValues
       );
       dispatch({ type: 'SET_MEASURE_VALUES_SOURCE_FIELDS', payload: sourceMeasures });
-      
+
       // Execute unpivot query
       executeQuery(null as any, true);
     } else {
       // Clear source measures when not using unpivot
       dispatch({ type: 'SET_MEASURE_VALUES_SOURCE_FIELDS', payload: [] });
-      
-      if (currentQueryDescription) {
-        // Execute normal query
-        executeQuery(currentQueryDescription, false);
+
+      if (queryDescription) {
+        executeQuery(queryDescription, false);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryVersion, connectionDetails, currentQueryDescription, xAxisFields, yAxisFields]);
+  }, [queryVersion, connectionDetails, queryDescription, xAxisFields, yAxisFields]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      // Don't abort queries - let them complete to avoid concurrent query issues with ClickHouse
-      // ClickHouse doesn't handle aborted queries well in a single session
-      // Just reset the in-progress flag
+      // Don't abort queries - let them complete to avoid concurrent query issues
       queryInProgressRef.current = false;
     };
-  }, []);
+  }, [queryInProgressRef]);
 
   return {
-    queryDescription: currentQueryDescription,
+    queryDescription,
     optimizationHints,
-    lastQueryDecision: lastQueryDecisionRef.current,
+    lastQueryDecision,
   };
-}; 
+};
