@@ -276,6 +276,12 @@
   margin-bottom: 0;
 }
 
+.kaggleSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 /* Responsive design for smaller screens */
 @media (max-width: 600px) {
   .container {
