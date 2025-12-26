@@ -1,10 +1,11 @@
-import React, { Suspense } from 'react';
-import { Box, IconButton, Tooltip } from '@mui/material';
+import React, { Suspense, useState } from 'react';
+import { Box, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import QueryStatusIndicator from './QueryStatusIndicator';
 import DatasetStatus from './DatasetStatus';
 
@@ -24,6 +25,7 @@ interface ChartControlsProps {
   canRedo?: boolean;
   onUndo?: () => void;
   onRedo?: () => void;
+  onResetWorkspace?: () => void;
 }
 
 const ChartControls: React.FC<ChartControlsProps> = ({
@@ -37,7 +39,23 @@ const ChartControls: React.FC<ChartControlsProps> = ({
   canRedo = false,
   onUndo,
   onRedo,
+  onResetWorkspace,
 }) => {
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+
+  const handleResetClick = () => {
+    setResetDialogOpen(true);
+  };
+
+  const handleResetConfirm = () => {
+    setResetDialogOpen(false);
+    onResetWorkspace?.();
+  };
+
+  const handleResetCancel = () => {
+    setResetDialogOpen(false);
+  };
+
   return (
     <Box sx={{ 
       display: 'flex', 
@@ -134,6 +152,25 @@ const ChartControls: React.FC<ChartControlsProps> = ({
             </span>
           </Tooltip>
         )}
+
+        {onResetWorkspace && (
+          <Tooltip title="Reset Workspace">
+            <IconButton 
+              onClick={handleResetClick}
+              size="small"
+              sx={{ 
+                ml: 1,
+                color: 'warning.main',
+                '&:hover': {
+                  backgroundColor: 'warning.light',
+                  color: 'warning.dark',
+                }
+              }}
+            >
+              <RestartAltIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
 
       {/* Right side - Dataset status and Query button */}
@@ -141,6 +178,32 @@ const ChartControls: React.FC<ChartControlsProps> = ({
         <DatasetStatus />
         <QueryStatusIndicator onClick={onToggleDebug} />
       </Box>
+
+      {/* Reset Workspace Confirmation Dialog */}
+      <Dialog
+        open={resetDialogOpen}
+        onClose={handleResetCancel}
+        aria-labelledby="reset-dialog-title"
+        aria-describedby="reset-dialog-description"
+      >
+        <DialogTitle id="reset-dialog-title">
+          Reset Workspace?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="reset-dialog-description">
+            This will clear all sheets, axes, filters, and visualization settings. 
+            This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleResetCancel} autoFocus>
+            Cancel
+          </Button>
+          <Button onClick={handleResetConfirm} color="warning" variant="contained">
+            Reset
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
