@@ -1,211 +1,72 @@
-import React, { useState, useEffect, ChangeEvent, useRef } from 'react';
-import { ConnectionDetails } from '../types';
+/**
+ * DataSourceSelectionPage - Refactored to use useConnectionForm hook and sub-components.
+ * 
+ * This page allows users to connect to different data sources:
+ * - CSV file upload
+ * - ClickHouse database
+ * - Kaggle datasets
+ */
+
+import React, { useEffect, useRef, ChangeEvent } from 'react';
 import { useConnection } from '../contexts/ConnectionContext';
 import { Link } from 'react-router-dom';
-import { apiService } from '../apiService';
-import styles from './DataSourceSelectionPage.module.css';
+import { useConnectionForm } from '../hooks/useConnectionForm';
+import {
+  CsvConnectionForm,
+  ClickHouseConnectionForm,
+  KaggleConnectionForm,
+  ConnectionType,
+} from '../components/ConnectionForms';
 import { readFileAsText } from '../services/configurationService';
+import styles from './DataSourceSelectionPage.module.css';
 
 interface DataSourceSelectionPageProps {
   onLoadConfiguration: (config: any) => Promise<void>;
 }
 
 function DataSourceSelectionPage({ onLoadConfiguration }: DataSourceSelectionPageProps) {
-  const { isConnected, isLoading, error, message, connect, disconnect, connectionDetails } = useConnection();
+  const {
+    isConnected,
+    isLoading,
+    error,
+    message,
+    connect,
+    disconnect,
+    connectionDetails,
+  } = useConnection();
 
-  const [connectionType, setConnectionType] = useState<'csv' | 'clickhouse' | 'kaggle'>('clickhouse');
-  const [filePath, setFilePath] = useState<string>('');
-  const [connString, setConnString] = useState<string>('');
-  const [host, setHost] = useState<string>('localhost');
-  const [port, setPort] = useState<number | string>(8123);
-  const [user, setUser] = useState<string>('default');
-  const [password, setPassword] = useState<string>('');
-  const [dbName, setDbName] = useState<string>('default');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  
-  // CSV configuration options
-  const [csvDelimiter, setCsvDelimiter] = useState<string>(',');
-  const [csvHasHeader, setCsvHasHeader] = useState<boolean>(true);
-  const [csvDecimalSeparator, setCsvDecimalSeparator] = useState<string>('.');
-  const [csvThousandsSeparator, setCsvThousandsSeparator] = useState<string>('');
-  const [csvDateFormat, setCsvDateFormat] = useState<string>('%Y-%m-%d');
-  const [csvTimestampFormat, setCsvTimestampFormat] = useState<string>('%Y-%m-%d %H:%M:%S');
-  const [showAdvancedCsvOptions, setShowAdvancedCsvOptions] = useState<boolean>(false);
-  
-  // Kaggle-specific state
-  const [kaggleUsername, setKaggleUsername] = useState<string>('');
-  const [kaggleApiKey, setKaggleApiKey] = useState<string>('');
-  const [kaggleSearchQuery, setKaggleSearchQuery] = useState<string>('');
-  const [kaggleDatasets, setKaggleDatasets] = useState<any[]>([]);
-  const [selectedKaggleDataset, setSelectedKaggleDataset] = useState<string>('');
-  const [kaggleFiles, setKaggleFiles] = useState<any[]>([]);
-  const [selectedKaggleFile, setSelectedKaggleFile] = useState<string>('');
-  const [isSearching, setIsSearching] = useState<boolean>(false);
-  const [searchError, setSearchError] = useState<string>('');
-  const [kaggleManualMode, setKaggleManualMode] = useState<boolean>(false);
-  const [kaggleManualDataset, setKaggleManualDataset] = useState<string>('');
-
+  const form = useConnectionForm();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Sync form state when reconnecting (e.g., page refresh while connected)
   useEffect(() => {
     if (isConnected && connectionDetails) {
-      setConnectionType(connectionDetails.type);
-      setConnString(connectionDetails.connection_string || '');
-      setHost(connectionDetails.host || 'localhost');
-      setPort(connectionDetails.port || 8123);
-      setUser(connectionDetails.user || 'default');
-      setPassword(connectionDetails.password || '');
-      setDbName(connectionDetails.database || 'default');
-      setFilePath('');
-      setSelectedFile(null);
+      form.syncFromConnectionDetails(connectionDetails);
     }
+    // Only run when connection state changes, not on every form update
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, connectionDetails]);
 
-  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      setSelectedFile(event.target.files[0]);
-      setFilePath(event.target.files[0].name);
-    } else {
-        setSelectedFile(null);
-        setFilePath('');
-    }
-  };
-
-  // Kaggle-specific handlers
-  const handleKaggleSearch = async () => {
-    if (!kaggleUsername || !kaggleApiKey) {
-      setSearchError('Please enter your Kaggle username and API key');
-      return;
-    }
-    
-    setIsSearching(true);
-    setSearchError('');
-    setKaggleDatasets([]);
-    setSelectedKaggleDataset('');
-    setKaggleFiles([]);
-    
-    try {
-      const result = await apiService.searchKaggleDatasets(
-        kaggleUsername,
-        kaggleApiKey,
-        kaggleSearchQuery
-      );
-      setKaggleDatasets(result.datasets);
-      if (result.datasets.length === 0) {
-        setSearchError('No datasets found matching your search');
-      }
-    } catch (err) {
-      setSearchError(err instanceof Error ? err.message : 'Failed to search Kaggle datasets');
-      console.error('Kaggle search error:', err);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  const handleKaggleDatasetSelect = async (datasetRef: string) => {
-    setSelectedKaggleDataset(datasetRef);
-    setKaggleFiles([]);
-    setSelectedKaggleFile('');
-    
-    try {
-      const result = await apiService.listKaggleFiles(
-        kaggleUsername,
-        kaggleApiKey,
-        datasetRef
-      );
-      setKaggleFiles(result.files);
-    } catch (err) {
-      setSearchError(err instanceof Error ? err.message : 'Failed to list dataset files');
-      console.error('Kaggle files error:', err);
-    }
-  };
-
-  const handleKaggleManualEntry = async () => {
-    if (!kaggleManualDataset) {
-      setSearchError('Please enter a dataset reference');
-      return;
-    }
-    
-    // Validate format
-    if (!kaggleManualDataset.includes('/')) {
-      setSearchError('Dataset must be in format: owner/dataset-name');
-      return;
-    }
-    
-    setSearchError('');
-    setSelectedKaggleDataset(kaggleManualDataset);
-    setKaggleFiles([]);
-    setSelectedKaggleFile('');
-    
-    try {
-      const result = await apiService.listKaggleFiles(
-        kaggleUsername,
-        kaggleApiKey,
-        kaggleManualDataset
-      );
-      setKaggleFiles(result.files);
-    } catch (err) {
-      setSearchError(err instanceof Error ? err.message : 'Failed to list dataset files');
-      console.error('Kaggle files error:', err);
-    }
-  };
-
   const handleConnect = async () => {
-    let details: ConnectionDetails = { type: connectionType };
-    let formError: string | null = null;
-
-    if (connectionType === 'csv') {
-      if (!selectedFile) {
-        formError = 'CSV File is required. Please select a file.';
-        console.error(formError);
-        return;
-      }
-      // Add CSV configuration options
-      details.csv_delimiter = csvDelimiter;
-      details.csv_has_header = csvHasHeader;
-      details.csv_decimal_separator = csvDecimalSeparator;
-      details.csv_thousands_separator = csvThousandsSeparator;
-      details.csv_date_format = csvDateFormat;
-      details.csv_timestamp_format = csvTimestampFormat;
-    } else if (connectionType === 'kaggle') {
-      if (!kaggleUsername || !kaggleApiKey || !selectedKaggleDataset) {
-        formError = 'Please provide Kaggle credentials and select a dataset';
-        console.error(formError);
-        return;
-      }
-      details.kaggle_username = kaggleUsername;
-      details.kaggle_api_key = kaggleApiKey;
-      details.kaggle_dataset = selectedKaggleDataset;
-      // Pass the list of CSV files we already successfully fetched
-      details.kaggle_csv_files = kaggleFiles.map(f => f.name);
-    } else {
-        if (connString) {
-             details.connection_string = connString;
-        } else if (host) {
-            details.host = host;
-            details.port = Number(port) || 8123;  // Default to HTTP port
-            details.user = user;
-            details.password = password;
-            details.database = dbName;
-        } else {
-            formError = 'For ClickHouse, provide Connection String or Host.';
-            console.error(formError);
-            return;
-        }
+    const validation = form.validateForm();
+    if (!validation.isValid) {
+      console.error(validation.errorMessage);
+      return;
     }
 
+    const details = form.buildConnectionDetails();
     try {
-      await connect(details, selectedFile ?? undefined);
+      await connect(details, form.csvState.selectedFile ?? undefined);
     } catch (err) {
-      console.error("Connect API call failed:", err);
+      console.error('Connect API call failed:', err);
     }
   };
 
   const handleDisconnect = async () => {
     try {
-        await disconnect();
+      await disconnect();
     } catch (err) {
-        console.error("Disconnect API call failed (unexpectedly):", err);
+      console.error('Disconnect API call failed (unexpectedly):', err);
     }
   };
 
@@ -216,19 +77,24 @@ function DataSourceSelectionPage({ onLoadConfiguration }: DataSourceSelectionPag
     try {
       const jsonString = await readFileAsText(file);
       const config = JSON.parse(jsonString);
-      
+
       // Use the same handler as the Visualization page Load button
       await onLoadConfiguration(config);
     } catch (error: any) {
       console.error('Failed to load configuration:', error);
-      alert('Failed to load configuration: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      alert(
+        'Failed to load configuration: ' +
+          (error instanceof Error ? error.message : 'Unknown error')
+      );
     }
-    
+
     // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
+
+  const formDisabled = isConnected || isLoading;
 
   return (
     <div className={styles.container}>
@@ -236,7 +102,7 @@ function DataSourceSelectionPage({ onLoadConfiguration }: DataSourceSelectionPag
 
       <div className={styles.card}>
         <h3 className={styles.sectionTitle}>Connect to a Data Source</h3>
-        
+
         {/* Load Configuration Button */}
         <div className={styles.loadConfigSection}>
           <input
@@ -251,21 +117,22 @@ function DataSourceSelectionPage({ onLoadConfiguration }: DataSourceSelectionPag
             <button
               className={styles.loadButton}
               onClick={() => fileInputRef.current?.click()}
-              disabled={isConnected || isLoading}
+              disabled={formDisabled}
               type="button"
             >
               Load Configuration
             </button>
           </label>
         </div>
-        
+
+        {/* Connection Type Selector */}
         <div className={styles.formGroup}>
           <label className={styles.label}>Data Source Type</label>
-          <select 
-            className={styles.select} 
-            value={connectionType} 
-            onChange={(e) => setConnectionType(e.target.value as 'csv' | 'clickhouse' | 'kaggle')} 
-            disabled={isConnected || isLoading}
+          <select
+            className={styles.select}
+            value={form.connectionType}
+            onChange={(e) => form.setConnectionType(e.target.value as ConnectionType)}
+            disabled={formDisabled}
           >
             <option value="csv">CSV File</option>
             <option value="clickhouse">ClickHouse</option>
@@ -273,379 +140,49 @@ function DataSourceSelectionPage({ onLoadConfiguration }: DataSourceSelectionPag
           </select>
         </div>
 
-        {connectionType === 'csv' && (
-          <div className={styles.formGroup}>
-            <div className={styles.fileUpload}>
-              <label className={styles.label}>CSV File</label>
-              <input 
-                type="file" 
-                accept=".csv" 
-                onChange={handleFileChange} 
-                disabled={isConnected || isLoading}
-                className={styles.input}
-              />
-              {filePath && <div className={styles.selectedFile}>Selected: {filePath}</div>}
-            </div>
-
-            {/* CSV Configuration Options */}
-            <div className={styles.csvConfigSection}>
-              <button 
-                type="button"
-                className={styles.toggleButton}
-                onClick={() => setShowAdvancedCsvOptions(!showAdvancedCsvOptions)}
-                disabled={isConnected || isLoading}
-              >
-                {showAdvancedCsvOptions ? '▼' : '▶'} Advanced CSV Options
-              </button>
-
-              {showAdvancedCsvOptions && (
-                <div className={styles.advancedOptions}>
-                  <div className={styles.formRow}>
-                    <div className={styles.formField}>
-                      <label className={styles.label}>Delimiter</label>
-                      <select 
-                        className={styles.select}
-                        value={csvDelimiter} 
-                        onChange={(e) => setCsvDelimiter(e.target.value)}
-                        disabled={isConnected || isLoading}
-                      >
-                        <option value=",">Comma (,)</option>
-                        <option value=";">Semicolon (;)</option>
-                        <option value="\t">Tab</option>
-                        <option value="|">Pipe (|)</option>
-                      </select>
-                    </div>
-                    <div className={styles.formField}>
-                      <label className={styles.label}>Header Row</label>
-                      <select 
-                        className={styles.select}
-                        value={csvHasHeader ? 'true' : 'false'} 
-                        onChange={(e) => setCsvHasHeader(e.target.value === 'true')}
-                        disabled={isConnected || isLoading}
-                      >
-                        <option value="true">Yes (first line)</option>
-                        <option value="false">No</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className={styles.formRow}>
-                    <div className={styles.formField}>
-                      <label className={styles.label}>Decimal Separator</label>
-                      <select 
-                        className={styles.select}
-                        value={csvDecimalSeparator} 
-                        onChange={(e) => setCsvDecimalSeparator(e.target.value)}
-                        disabled={isConnected || isLoading}
-                      >
-                        <option value=".">Period (.) - e.g., 1234.56</option>
-                        <option value=",">Comma (,) - e.g., 1234,56</option>
-                      </select>
-                    </div>
-                    <div className={styles.formField}>
-                      <label className={styles.label}>Thousands Separator</label>
-                      <select 
-                        className={styles.select}
-                        value={csvThousandsSeparator} 
-                        onChange={(e) => setCsvThousandsSeparator(e.target.value)}
-                        disabled={isConnected || isLoading}
-                      >
-                        <option value="">None - e.g., 1234567</option>
-                        <option value="comma">Comma (,) - e.g., 1,234,567</option>
-                        <option value="space">Space - e.g., 1 234 567</option>
-                        <option value="apostrophe">Apostrophe (') - e.g., 1'234'567</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className={styles.formRow}>
-                    <div className={styles.formField}>
-                      <label className={styles.label}>Date Format</label>
-                      <select 
-                        className={styles.select}
-                        value={csvDateFormat} 
-                        onChange={(e) => setCsvDateFormat(e.target.value)}
-                        disabled={isConnected || isLoading}
-                      >
-                        <option value="%Y-%m-%d">YYYY-MM-DD (2024-10-17)</option>
-                        <option value="%d.%m.%Y">DD.MM.YYYY (17.10.2024)</option>
-                        <option value="%m.%d.%Y">MM.DD.YYYY (10.17.2024)</option>
-                        <option value="%m/%d/%Y">MM/DD/YYYY (10/17/2024)</option>
-                        <option value="%d/%m/%Y">DD/MM/YYYY (17/10/2024)</option>
-                      </select>
-                    </div>
-                    <div className={styles.formField}>
-                      <label className={styles.label}>Timestamp Format</label>
-                      <select 
-                        className={styles.select}
-                        value={csvTimestampFormat} 
-                        onChange={(e) => setCsvTimestampFormat(e.target.value)}
-                        disabled={isConnected || isLoading}
-                      >
-                        <option value="%Y-%m-%d %H:%M:%S">YYYY-MM-DD HH:MM:SS</option>
-                        <option value="%d.%m.%Y %H:%M:%S">DD.MM.YYYY HH:MM:SS</option>
-                        <option value="%m.%d.%Y %H:%M:%S">MM.DD.YYYY HH:MM:SS</option>
-                        <option value="%m/%d/%Y %H:%M:%S">MM/DD/YYYY HH:MM:SS</option>
-                        <option value="%d/%m/%Y %H:%M:%S">DD/MM/YYYY HH:MM:SS</option>
-                        <option value="%Y-%m-%d %H:%M">YYYY-MM-DD HH:MM</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+        {/* Render the appropriate form based on connection type */}
+        {form.connectionType === 'csv' && (
+          <CsvConnectionForm
+            state={form.csvState}
+            onUpdate={form.updateCsvState}
+            onFileChange={form.handleFileChange}
+            disabled={formDisabled}
+          />
         )}
 
-        {connectionType === 'kaggle' && (
-          <div className={styles.formGroup}>
-            <div className={styles.kaggleSection}>
-              <div className={styles.formField}>
-                <label className={styles.label}>Kaggle Username</label>
-                <input 
-                  className={styles.input}
-                  type="text" 
-                  value={kaggleUsername} 
-                  onChange={(e) => setKaggleUsername(e.target.value)} 
-                  placeholder="Your Kaggle username"
-                  disabled={isConnected || isLoading}
-                />
-              </div>
-              
-              <div className={styles.formField}>
-                <label className={styles.label}>Kaggle API Key</label>
-                <input 
-                  className={styles.input}
-                  type="password" 
-                  value={kaggleApiKey} 
-                  onChange={(e) => setKaggleApiKey(e.target.value)} 
-                  placeholder="Your Kaggle API key"
-                  disabled={isConnected || isLoading}
-                />
-                <small style={{color: '#666', fontSize: '0.85em'}}>
-                  Get your API key from <a href="https://www.kaggle.com/settings/account" target="_blank" rel="noopener noreferrer">Kaggle Account Settings</a>
-                </small>
-              </div>
-
-              <div className={styles.formField}>
-                <div style={{display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px'}}>
-                  <label className={styles.label} style={{margin: 0}}>Dataset Selection Mode</label>
-                  <label style={{display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '0.9em'}}>
-                    <input 
-                      type="checkbox"
-                      checked={kaggleManualMode}
-                      onChange={(e) => {
-                        setKaggleManualMode(e.target.checked);
-                        setSearchError('');
-                        setKaggleDatasets([]);
-                        setSelectedKaggleDataset('');
-                        setKaggleFiles([]);
-                      }}
-                      disabled={isConnected || isLoading}
-                      style={{marginRight: '6px'}}
-                    />
-                    Manual Entry
-                  </label>
-                </div>
-              </div>
-
-              {!kaggleManualMode ? (
-                <div className={styles.formField}>
-                  <label className={styles.label}>Search Public Datasets</label>
-                  <div style={{display: 'flex', gap: '8px'}}>
-                    <input 
-                      className={styles.input}
-                      type="text" 
-                      value={kaggleSearchQuery} 
-                      onChange={(e) => setKaggleSearchQuery(e.target.value)} 
-                      placeholder="e.g., penguin, covid sales, or amulyas/penguin-size-dataset"
-                      disabled={isConnected || isLoading || isSearching}
-                      style={{flex: 1}}
-                    />
-                    <button 
-                      className={styles.button}
-                      onClick={handleKaggleSearch}
-                      disabled={isConnected || isLoading || isSearching || !kaggleUsername || !kaggleApiKey}
-                      style={{minWidth: '100px'}}
-                    >
-                      {isSearching ? 'Searching...' : 'Search'}
-                    </button>
-                  </div>
-                  <div style={{fontSize: '12px', color: '#666', marginTop: '4px'}}>
-                    Search by keywords or enter exact dataset (owner/dataset-name). Returns up to 200 results. Leave empty to browse recent datasets.
-                  </div>
-                </div>
-              ) : (
-                <div className={styles.formField}>
-                  <label className={styles.label}>Dataset Reference</label>
-                  <div style={{display: 'flex', gap: '8px'}}>
-                    <input 
-                      className={styles.input}
-                      type="text" 
-                      value={kaggleManualDataset} 
-                      onChange={(e) => setKaggleManualDataset(e.target.value)} 
-                      placeholder="owner/dataset-name (e.g., karnikakapoor/satellite-orbital-catalog)"
-                      disabled={isConnected || isLoading}
-                      style={{flex: 1}}
-                    />
-                    <button 
-                      className={styles.button}
-                      onClick={handleKaggleManualEntry}
-                      disabled={isConnected || isLoading || !kaggleUsername || !kaggleApiKey || !kaggleManualDataset}
-                      style={{minWidth: '100px'}}
-                    >
-                      Load Files
-                    </button>
-                  </div>
-                  <small style={{color: '#666', fontSize: '0.85em', display: 'block', marginTop: '4px'}}>
-                    Find the dataset on <a href="https://www.kaggle.com/datasets" target="_blank" rel="noopener noreferrer">Kaggle</a> and copy the owner/dataset-name from the URL
-                  </small>
-                </div>
-              )}
-
-              {searchError && (
-                <div className={styles.errorMessage}>{searchError}</div>
-              )}
-
-              {kaggleDatasets.length > 0 && (
-                <div className={styles.formField}>
-                  <label className={styles.label}>Select Dataset ({kaggleDatasets.length} found)</label>
-                  <div style={{maxHeight: '200px', overflowY: 'auto', border: '1px solid #ddd', borderRadius: '4px'}}>
-                    {kaggleDatasets.map((dataset) => (
-                      <div 
-                        key={dataset.ref}
-                        onClick={() => handleKaggleDatasetSelect(dataset.ref)}
-                        style={{
-                          padding: '10px',
-                          cursor: 'pointer',
-                          backgroundColor: selectedKaggleDataset === dataset.ref ? '#e3f2fd' : 'white',
-                          borderBottom: '1px solid #eee'
-                        }}
-                      >
-                        <div style={{fontWeight: 'bold'}}>{dataset.title}</div>
-                        <div style={{fontSize: '0.85em', color: '#666'}}>
-                          {dataset.ref} • {dataset.size_mb} MB{dataset.csv_file_count !== null && dataset.csv_file_count !== undefined ? ` • ${dataset.csv_file_count} CSV files` : ''}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {kaggleFiles.length > 0 && (
-                <div className={styles.formField}>
-                  <label className={styles.label}>Select CSV File</label>
-                  <select 
-                    className={styles.select}
-                    value={selectedKaggleFile} 
-                    onChange={(e) => setSelectedKaggleFile(e.target.value)}
-                    disabled={isConnected || isLoading}
-                  >
-                    <option value="">-- Select a file --</option>
-                    {kaggleFiles.map((file) => (
-                      <option key={file.name} value={file.name}>
-                        {file.name} ({file.size_mb} MB)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-          </div>
+        {form.connectionType === 'clickhouse' && (
+          <ClickHouseConnectionForm
+            state={form.clickHouseState}
+            onUpdate={form.updateClickHouseState}
+            disabled={formDisabled}
+          />
         )}
 
-        {connectionType === 'clickhouse' && (
-          <>
-            <div className={styles.connectionStringSection}>
-              <div className={styles.formField}>
-                <label className={styles.label}>Connection String</label>
-                <input 
-                  className={`${styles.input} ${styles.inputWide}`}
-                  type="text" 
-                  value={connString} 
-                  onChange={(e) => setConnString(e.target.value)} 
-                  placeholder="clickhouse://user:pass@host:port/db" 
-                  disabled={isConnected || isLoading} 
-                />
-              </div>
-            </div>
-
-            <div className={styles.orDivider}>OR provide details below</div>
-
-            <div className={styles.fieldsSection}>
-              <div className={styles.formRow}>
-                <div className={styles.formField}>
-                  <label className={styles.label}>Host</label>
-                  <input 
-                    className={styles.input}
-                    type="text" 
-                    value={host} 
-                    onChange={(e) => setHost(e.target.value)} 
-                    disabled={isConnected || isLoading || !!connString} 
-                  />
-                </div>
-                <div className={styles.formField}>
-                  <label className={styles.label}>Port</label>
-                  <input 
-                    className={`${styles.input} ${styles.inputSmall}`}
-                    type="number" 
-                    value={port} 
-                    onChange={(e) => setPort(e.target.value)} 
-                    disabled={isConnected || isLoading || !!connString} 
-                  />
-                </div>
-              </div>
-              
-              <div className={styles.formRow}>
-                <div className={styles.formField}>
-                  <label className={styles.label}>User</label>
-                  <input 
-                    className={styles.input}
-                    type="text" 
-                    value={user} 
-                    onChange={(e) => setUser(e.target.value)} 
-                    disabled={isConnected || isLoading || !!connString} 
-                  />
-                </div>
-                <div className={styles.formField}>
-                  <label className={styles.label}>Password</label>
-                  <input 
-                    className={styles.input}
-                    type="password" 
-                    value={password} 
-                    onChange={(e) => setPassword(e.target.value)} 
-                    disabled={isConnected || isLoading || !!connString} 
-                  />
-                </div>
-              </div>
-              
-              <div className={styles.formField}>
-                <label className={styles.label}>Database</label>
-                <input 
-                  className={styles.input}
-                  type="text" 
-                  value={dbName} 
-                  onChange={(e) => setDbName(e.target.value)} 
-                  disabled={isConnected || isLoading || !!connString} 
-                />
-              </div>
-            </div>
-          </>
+        {form.connectionType === 'kaggle' && (
+          <KaggleConnectionForm
+            state={form.kaggleState}
+            onUpdate={form.updateKaggleState}
+            onSearch={form.searchKaggleDatasets}
+            onSelectDataset={form.selectKaggleDataset}
+            onLoadManual={form.loadKaggleFilesManual}
+            disabled={formDisabled}
+          />
         )}
 
+        {/* Connect/Disconnect Buttons */}
         <div className={styles.buttonContainer}>
           {!isConnected ? (
-            <button 
-              className={styles.button} 
-              onClick={handleConnect} 
+            <button
+              className={styles.button}
+              onClick={handleConnect}
               disabled={isLoading}
             >
               Connect
             </button>
           ) : (
-            <button 
-              className={`${styles.button} ${styles.disconnectButton}`} 
-              onClick={handleDisconnect} 
+            <button
+              className={`${styles.button} ${styles.disconnectButton}`}
+              onClick={handleDisconnect}
               disabled={isLoading}
             >
               Disconnect
@@ -653,12 +190,14 @@ function DataSourceSelectionPage({ onLoadConfiguration }: DataSourceSelectionPag
           )}
         </div>
 
+        {/* Status Messages */}
         <div className={styles.messageContainer}>
           {isLoading && <div className={styles.loadingText}>Connecting...</div>}
           {error && <div className={styles.errorMessage}>Error: {error}</div>}
           {message && (
             <div className={styles.successMessage}>
-              {message} {isConnected ? <Link to="/visualize">Go to Visualization</Link> : null}
+              {message}{' '}
+              {isConnected ? <Link to="/visualize">Go to Visualization</Link> : null}
             </div>
           )}
         </div>
