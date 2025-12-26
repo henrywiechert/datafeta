@@ -2,6 +2,7 @@ import React, { useRef, useCallback, useLayoutEffect } from 'react';
 import styles from '../ChartArea.module.css';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { useDataSource } from '../../../contexts/DataSourceContext';
+import { useSheetContext } from '../../../contexts/SheetContext';
 import { useUndoRedo } from '../../../hooks/useUndoRedo';
 import { useRenderingCoordinator } from '../../../hooks/useRenderingCoordinator';
 import { useChartGeneration, useQueryExecution, useDataProcessing, useDebugView, useFullscreen } from './hooks';
@@ -17,6 +18,7 @@ const ChartArea: React.FC = () => {
   const { state, dispatch, startOperation, completeOperation, getUndoableSnapshot } = useVisualizationContext();
   const { recordAction, undo, completeUndo, redo, completeRedo, canUndo, canRedo } = useUndoRedo();
   const { dataSource } = useDataSource();
+  const { resetWorkspace } = useSheetContext();
   const renderingCoordinator = useRenderingCoordinator();
   const {
     xAxisFields,
@@ -286,6 +288,7 @@ const ChartArea: React.FC = () => {
           canRedo={canRedo}
           onUndo={handleUndo}
           onRedo={handleRedo}
+          onResetWorkspace={resetWorkspace}
         />
         
         <DebugPanel

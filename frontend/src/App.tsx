@@ -27,7 +27,7 @@ function AppContent() {
   const isDataSourcePage = location.pathname === '/';
   const isVisualizationPage = location.pathname.startsWith('/visualize');
   
-  const { state, setActiveSheet, addSheet, renameSheet, duplicateSheet, removeSheet, dispatch: sheetDispatch } = useSheetContext();
+  const { state, setActiveSheet, addSheet, renameSheet, duplicateSheet, removeSheet, resetWorkspace, dispatch: sheetDispatch } = useSheetContext();
   const { dataSource, setSelectedDatabase, setSelectedTable, setDatabases, setTables, setAvailableFields, setUnionTables, setVirtualTable } = useDataSource();
   const { connectionDetails, connect, disconnect, isConnected } = useConnection();
   
@@ -66,6 +66,19 @@ function AppContent() {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isConnected]);
+
+  // Reset workspace on page load if not connected
+  // This prevents stale visualization state from persisting after page reload
+  const initialLoadRef = React.useRef(true);
+  useEffect(() => {
+    if (initialLoadRef.current) {
+      initialLoadRef.current = false;
+      // On initial load, if not connected, reset the workspace to clear stale state
+      if (!isConnected) {
+        resetWorkspace();
+      }
+    }
+  }, []); // Empty deps - only run on mount
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: string) => {
     if (newValue === 'datasources') {
