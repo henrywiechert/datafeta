@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import data
+from .routers import connection, metadata, query, relationships, kaggle
 # Import custom exceptions
 from .exceptions import (
     AppException, InvalidInputError, DataSourceConnectionError,
@@ -88,7 +88,12 @@ app.add_middleware(
 )
 logger.info(f"CORS configured for origins: {origins}")
 
-app.include_router(data.router, prefix="/api/v1/data", tags=["data"])
+# Mount all routers with /api/v1/data prefix for backward compatibility
+app.include_router(connection.router, prefix="/api/v1/data", tags=["connection"])
+app.include_router(metadata.router, prefix="/api/v1/data", tags=["metadata"])
+app.include_router(query.router, prefix="/api/v1/data", tags=["query"])
+app.include_router(relationships.router, prefix="/api/v1/data", tags=["relationships"])
+app.include_router(kaggle.router, prefix="/api/v1/data/kaggle", tags=["kaggle"])
 
 # Lightweight informational endpoints to avoid confusing 404s when users hit version or data roots directly
 @app.get("/api/v1", include_in_schema=False)

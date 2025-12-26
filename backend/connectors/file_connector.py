@@ -3,21 +3,23 @@ import logging
 import duckdb
 import os
 import re
-from typing import List, Dict, Any, Tuple, Optional
+from typing import List, Dict, Any, Tuple, Optional, TYPE_CHECKING
 
 import pyarrow as pa
 
 from backend.models.data_source import Database, Table, Column
 from .base import BaseConnector
 from backend.exceptions import DataSourceConnectionError, InvalidInputError, QueryExecutionError
-from backend.dependencies import ConnectionStateManager
 from backend.utils.type_conversion import process_query_result_data
+
+if TYPE_CHECKING:
+    from backend.dependencies import ConnectionStateManager
 
 logger = logging.getLogger(__name__)
 
 class FileConnector(BaseConnector):
     """Connector for querying files (CSV, JSON, etc.) using DuckDB."""
-    def __init__(self, state_manager: ConnectionStateManager):
+    def __init__(self, state_manager: "ConnectionStateManager"):
         self.file_path: Optional[str] = None
         self._table_name: Optional[str] = None
         self._file_type: Optional[str] = None
