@@ -7,6 +7,7 @@ import { createSizeScale } from '../utils/sizeUtils';
 // Label utilities
 import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
+import { formatDateTick } from '../utils/dateFormatUtils';
 
 type ScatterResultBudget = {
   maxPoints: number;
@@ -141,15 +142,15 @@ export function scatterChart(
         domainKey: xColumn,
         grid: true,
         domain: options?.domain?.x,
-        // If axis inferred as date, ensure time scale
-        ...(xIsDate ? { type: 'utc' as any } : {})
+        // If axis inferred as date, ensure time scale with concise formatting
+        ...(xIsDate ? { type: 'utc' as any, tickFormat: formatDateTick } : {})
       } as any,
       y: {
         label: options?.y || yColumn,
         domainKey: yColumn,
         grid: true,
         domain: options?.domain?.y,
-        ...(yIsDate ? { type: 'utc' as any } : {})
+        ...(yIsDate ? { type: 'utc' as any, tickFormat: formatDateTick } : {})
       } as any,
       marks: [],
     };
@@ -281,7 +282,7 @@ export function scatterChart(
       grid: true,
       domain: xDomain,
       nice: false,
-      ...(xIsDate ? { type: 'utc' as any } : {})
+      ...(xIsDate ? { type: 'utc' as any, tickFormat: formatDateTick } : {})
     } as any,
     y: {
       label: options?.y || yColumn,
@@ -289,7 +290,7 @@ export function scatterChart(
       grid: true,
       domain: yDomain,
       nice: false,
-      ...(yIsDate ? { type: 'utc' as any } : {})
+      ...(yIsDate ? { type: 'utc' as any, tickFormat: formatDateTick } : {})
     } as any,
     r: { type: 'identity' } as any,
     marks: [Plot.dot(budgeted, dotConfig)],

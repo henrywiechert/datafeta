@@ -7,6 +7,7 @@
 
 import * as duckdb from '@duckdb/duckdb-wasm';
 import { Table as ArrowTable, tableToIPC } from 'apache-arrow';
+import { arrowTableToRows } from './arrowResultAdapter';
 
 // CDN URLs for DuckDB WASM bundles
 const DUCKDB_CDN_BASE = 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.31.0/dist';
@@ -505,16 +506,9 @@ class DuckDBService {
   // Helper: Convert Arrow table to QueryResult
   private arrowTableToResult(table: ArrowTable): QueryResult {
     const columns = table.schema.fields.map(f => f.name);
-    const rows: Record<string, any>[] = [];
-
-    for (let i = 0; i < table.numRows; i++) {
-      const row: Record<string, any> = {};
-      for (const col of columns) {
-        const column = table.getChild(col);
-        row[col] = column?.get(i);
-      }
-      rows.push(row);
-    }
+    // Use the shared Arrow adapter so temporal types (Timestamp/Date) become JS Date objects.
+    // This prevents epoch integers from leaking into chart axes in timeline mode.
+    const rows = arrowTableToRows(table);
 
     return {
       columns,
