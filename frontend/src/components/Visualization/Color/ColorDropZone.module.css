@@ -5,14 +5,26 @@
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
-  background-color: #fafafa;
+  padding: 4px 6px;
 }
 
 .chipCell {
   min-width: 0;
+}
+
+.placeholder {
+  display: flex;
+  align-items: center;
+  min-height: 22px;
+  color: #1976d2;
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 0 4px;
+}
+
+.iconPlaceholder {
+  width: 28px;
+  height: 28px;
 }
 
 

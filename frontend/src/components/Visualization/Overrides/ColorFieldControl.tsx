@@ -1,9 +1,7 @@
 import React from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box } from '@mui/material';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
-import ManualColorSelector from '../Color/ManualColorSelector';
-import ColorSchemeSelector from '../Color/ColorSchemeSelector';
-import ColorBiasControl from '../Color/ColorBiasControl';
+import ColorPalettePopover from '../Color/ColorPalettePopover';
 import { Field } from '../../../types';
 import FieldChip from '../FieldChip';
 import { parseDragData } from './overrideUtils';
@@ -49,11 +47,25 @@ const ColorFieldControl: React.FC<ColorFieldControlProps> = ({
       borderRadius: '4px',
       backgroundColor: '#fafafa'
     }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-        <Typography variant="caption" sx={{ minWidth: 50, fontSize: '0.7rem', fontWeight: 500 }}>
-          Color
-        </Typography>
-        <Box sx={{ flex: 1, minWidth: 60 }}>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: 'auto minmax(0, 1fr)',
+          alignItems: 'center',
+          gap: 0.5,
+        }}
+      >
+        <ColorPalettePopover
+          fieldFlavour={field ? field.flavour : null}
+          currentSchemeId={colorScheme}
+          onSchemeChange={onSchemeChange}
+          colorBias={colorBias}
+          onBiasChange={onBiasChange}
+          manualColor={manualColor}
+          onManualColorChange={onColorChange}
+        />
+
+        <Box sx={{ minWidth: 0 }}>
           <PropertyDropZone
             hasContent={field !== null}
             emptyMessage="Drag field"
@@ -82,26 +94,8 @@ const ColorFieldControl: React.FC<ColorFieldControlProps> = ({
             )}
           </PropertyDropZone>
         </Box>
-        {field && (
-          <ColorSchemeSelector
-            currentSchemeId={colorScheme}
-            fieldFlavour={field.flavour}
-            onSchemeChange={onSchemeChange}
-          />
-        )}
-        {!field && (
-          <ManualColorSelector
-            value={manualColor}
-            onChange={onColorChange}
-          />
-        )}
+
       </Box>
-      {field && field.flavour === 'continuous' && (
-        <ColorBiasControl
-          colorBias={colorBias}
-          onChange={onBiasChange}
-        />
-      )}
     </Box>
   );
 };
