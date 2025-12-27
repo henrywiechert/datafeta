@@ -1,6 +1,8 @@
-import { Field } from '../../../types';
+import type { Field, DragSource as GlobalDragSource } from '../../../types';
 
-export type DragSource = 'AVAILABLE_FIELDS' | 'X_AXIS' | 'Y_AXIS';
+// Re-export DragSource for local consumers (chipStyles, etc.), but keep it aligned
+// with the global DragSource union.
+export type DragSource = GlobalDragSource;
 
 export interface FieldChipProps {
   field: Field;

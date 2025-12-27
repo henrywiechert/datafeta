@@ -7,15 +7,27 @@ import { DragSource } from './types';
 import ColumnCastingDialog from './ColumnCastingDialog';
 import DateTimePartMenu from '../../DateTime/DateTimePartMenu';
 import { isSyntheticField } from '../../../utils/syntheticFields';
+import { FieldMenuConfig } from './fieldMenuConfig';
 
 interface FieldMenuItemsProps {
   field: Field;
   source: DragSource;
   onUpdate: (updates: Partial<Field>) => void;
   selectedFields?: Field[]; // For bulk editing
+  menuConfig: FieldMenuConfig;
+  onRemoveFromZone?: (fieldIds: string[]) => void;
+  onRequestClose?: () => void;
 }
 
-const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate, selectedFields = [] }) => {
+const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
+  field,
+  source,
+  onUpdate,
+  selectedFields = [],
+  menuConfig,
+  onRemoveFromZone,
+  onRequestClose,
+}) => {
   const [castingDialogOpen, setCastingDialogOpen] = useState(false);
   
   // Check if we're in bulk edit mode
@@ -30,7 +42,7 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
   const hasCasting = field.castType !== undefined;
   // Allow casting for any field - user can configure it regardless of type
   // Backend will handle the casting attempt
-  const canCastField = !isInAxisDropZone; // Only in available fields panel, not on axes
+  const canCastField = !isInAxisDropZone && menuConfig.allowCasting;
   
   // Check if field is synthetic (MeasureNames/MeasureValues)
   const isSynthetic = isSyntheticField(field);
@@ -78,36 +90,44 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
         </>
       )}
       
-      <div 
-        className={`${menuStyles.menuItem} ${!canChangeType ? menuStyles.disabled : ''}`}
-        onClick={canChangeType ? () => onUpdate({ type: 'dimension' }) : undefined}
-      >
-        Dimension {!isBulkEdit && field.type === 'dimension' && '✔'}
-      </div>
-      <div 
-        className={`${menuStyles.menuItem} ${!allCanBeMeasure || !canChangeType ? menuStyles.disabled : ''}`} 
-        onClick={allCanBeMeasure && canChangeType ? () => onUpdate({ type: 'measure' }) : undefined}
-      >
-        Measure {!isBulkEdit && field.type === 'measure' && '✔'}
-      </div>
-      
-      <div className={menuStyles.separator} />
+      {menuConfig.allowTypeChange && (
+        <>
+          <div 
+            className={`${menuStyles.menuItem} ${!canChangeType ? menuStyles.disabled : ''}`}
+            onClick={canChangeType ? () => onUpdate({ type: 'dimension' }) : undefined}
+          >
+            Dimension {!isBulkEdit && field.type === 'dimension' && '✔'}
+          </div>
+          <div 
+            className={`${menuStyles.menuItem} ${!allCanBeMeasure || !canChangeType ? menuStyles.disabled : ''}`} 
+            onClick={allCanBeMeasure && canChangeType ? () => onUpdate({ type: 'measure' }) : undefined}
+          >
+            Measure {!isBulkEdit && field.type === 'measure' && '✔'}
+          </div>
+          
+          <div className={menuStyles.separator} />
+        </>
+      )}
 
-      <div 
-        className={`${menuStyles.menuItem} ${!canChangeFlavour ? menuStyles.disabled : ''}`}
-        onClick={canChangeFlavour ? () => onUpdate({ flavour: 'discrete' }) : undefined}
-      >
-        Discrete {!isBulkEdit && field.flavour === 'discrete' && '✔'}
-      </div>
-      <div 
-        className={`${menuStyles.menuItem} ${!allCanBeContinuous || !canChangeFlavour ? menuStyles.disabled : ''}`}
-        onClick={allCanBeContinuous && canChangeFlavour ? () => onUpdate({ flavour: 'continuous' }) : undefined}
-      >
-        Continuous {!isBulkEdit && field.flavour === 'continuous' && '✔'}
-      </div>
+      {menuConfig.allowFlavourChange && (
+        <>
+          <div 
+            className={`${menuStyles.menuItem} ${!canChangeFlavour ? menuStyles.disabled : ''}`}
+            onClick={canChangeFlavour ? () => onUpdate({ flavour: 'discrete' }) : undefined}
+          >
+            Discrete {!isBulkEdit && field.flavour === 'discrete' && '✔'}
+          </div>
+          <div 
+            className={`${menuStyles.menuItem} ${!allCanBeContinuous || !canChangeFlavour ? menuStyles.disabled : ''}`}
+            onClick={allCanBeContinuous && canChangeFlavour ? () => onUpdate({ flavour: 'continuous' }) : undefined}
+          >
+            Continuous {!isBulkEdit && field.flavour === 'continuous' && '✔'}
+          </div>
+        </>
+      )}
       
       {/* Only show data type selection when field is in available fields panel */}
-      {!isInAxisDropZone && (
+      {!isInAxisDropZone && menuConfig.allowDataTypeChange && (
         <>
           <div className={menuStyles.separator} />
 
@@ -129,7 +149,7 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
       )}
       
       {/* DateTime Part Selection - shown for datetime fields */}
-      {isDateTime && (
+      {isDateTime && menuConfig.allowDateTimePart && (
         <DateTimePartMenu field={field} onUpdate={onUpdate} />
       )}
 
@@ -146,16 +166,16 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
         </>
       )}
       
-      {allAreMeasures && availableAggregations.length > 0 && <div className={menuStyles.separator} />}
+      {menuConfig.allowAggregationChange && allAreMeasures && availableAggregations.length > 0 && <div className={menuStyles.separator} />}
 
-      {allAreMeasures && availableAggregations.map(agg => (
+      {menuConfig.allowAggregationChange && allAreMeasures && availableAggregations.map(agg => (
         <div key={agg} className={menuStyles.menuItem} onClick={() => onUpdate({ aggregation: agg })}>
           {agg} {!isBulkEdit && field.aggregation === agg && '✔'}
         </div>
       ))}
 
       {/* Bar Sort Order - shown for measures on axes */}
-      {allAreMeasures && isInAxisDropZone && (
+      {menuConfig.allowBarSortOrder && allAreMeasures && isInAxisDropZone && (
         <>
           <div className={menuStyles.separator} />
           <SubMenu label="Bar Sort Order">
@@ -169,6 +189,23 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({ field, source, onUpdate
               Descending ↓ {!isBulkEdit && field.barSortOrder === 'desc' && '✔'}
             </div>
           </SubMenu>
+        </>
+      )}
+
+      {/* Remove from zone (drag-only UI still; this is a contextual removal action) */}
+      {menuConfig.allowRemoveFromZone && onRemoveFromZone && (
+        <>
+          <div className={menuStyles.separator} />
+          <div
+            className={menuStyles.menuItem}
+            onClick={() => {
+              const ids = selectedFields.length > 0 ? selectedFields.map(f => f.id) : [field.id];
+              onRemoveFromZone(ids);
+              onRequestClose?.();
+            }}
+          >
+            Remove from this zone
+          </div>
         </>
       )}
 

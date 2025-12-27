@@ -101,6 +101,10 @@ const VisualizationPageContent = () => {
         handleMoveFieldBetweenAxes,
         handleFilterDrop,
         handleRemoveFromFilter,
+        handleRemoveFromColor,
+        handleRemoveFromSize,
+        handleRemoveFromLabel,
+        handleRemoveFromTooltip,
     } = useDragDrop(availableFields);    // Undo/Redo handlers
     const handleUndo = React.useCallback(() => {
         const previousState = undo();
@@ -325,6 +329,11 @@ const VisualizationPageContent = () => {
                                     onFieldUpdate={handleFieldUpdate}
                                     onRemoveFromAxis={handleRemoveFromAxis}
                                     onRemoveMultipleFromAxis={handleRemoveMultipleFromAxis}
+                                    onRemoveFromFilter={(ids) => ids.forEach(handleRemoveFromFilter)}
+                                    onRemoveFromColor={handleRemoveFromColor}
+                                    onRemoveFromSize={handleRemoveFromSize}
+                                    onRemoveFromLabel={(ids) => ids.forEach(handleRemoveFromLabel)}
+                                    onRemoveFromTooltip={(ids) => ids.forEach(handleRemoveFromTooltip)}
                                     connectionType={connectionDetails?.type || ''}
                                     selectedDatabase={selectedDatabase}
                                     selectedTable={selectedTable}

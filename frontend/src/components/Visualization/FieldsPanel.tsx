@@ -17,6 +17,11 @@ interface FieldsPanelProps {
   onFieldUpdate: (fields: Field | Field[]) => void;
   onRemoveFromAxis: (fieldId: string) => void;
   onRemoveMultipleFromAxis?: (fieldIds: string[]) => void;
+  onRemoveFromFilter?: (fieldIds: string[]) => void;
+  onRemoveFromColor?: () => void;
+  onRemoveFromSize?: () => void;
+  onRemoveFromLabel?: (fieldIds: string[]) => void;
+  onRemoveFromTooltip?: (fieldIds: string[]) => void;
   // New props for metadata selection
   connectionType: string;
   selectedDatabase: string;
@@ -51,6 +56,11 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   onFieldUpdate,
   onRemoveFromAxis,
   onRemoveMultipleFromAxis,
+  onRemoveFromFilter,
+  onRemoveFromColor,
+  onRemoveFromSize,
+  onRemoveFromLabel,
+  onRemoveFromTooltip,
   // New props for metadata selection
   connectionType,
   selectedDatabase,
@@ -88,7 +98,15 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
     handleDragOver,
     handleDragLeave,
     handleDrop
-  } = useFieldsPanelDrag(onRemoveFromAxis, onRemoveMultipleFromAxis);
+  } = useFieldsPanelDrag(
+    onRemoveFromAxis,
+    onRemoveMultipleFromAxis,
+    onRemoveFromFilter,
+    onRemoveFromColor,
+    onRemoveFromSize,
+    onRemoveFromLabel,
+    onRemoveFromTooltip
+  );
   
   // Handle keyboard shortcuts
   useEffect(() => {

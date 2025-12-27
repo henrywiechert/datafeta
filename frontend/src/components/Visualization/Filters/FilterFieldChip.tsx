@@ -1,8 +1,7 @@
 import React, { useState, useCallback } from 'react';
-import { Chip, Box, IconButton, Collapse, Tooltip, ToggleButton } from '@mui/material';
+import { Box, IconButton, Collapse, Tooltip, ToggleButton } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import CloseIcon from '@mui/icons-material/Close';
 import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import { Field, FilterConfig, FilterMetadata } from '../../../types';
@@ -11,6 +10,8 @@ import ContinuousFilterControl from './ContinuousFilterControl';
 import { DateTimeRangeFilter } from '../../DateTime';
 import { filterTierManager } from '../../../services/filterTierManager';
 import styles from './FilterFieldChip.module.css';
+import FieldChip from '../FieldChip';
+import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 
 interface FilterFieldChipProps {
   field: Field;
@@ -30,6 +31,7 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
   onRefetchValues,
 }) => {
   const [expanded, setExpanded] = useState(false);
+  const { dispatch } = useVisualizationContext();
   
   // Track if this filter is a "base" filter (changes require backend re-query)
   // Default: base (locked), can toggle to refinement (local filter only)
@@ -202,15 +204,8 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
   };
 
   // Determine the chip class name based on field flavour
-  const getChipClassName = () => {
-    const baseClass = styles.chip;
-    if (field.flavour === 'discrete') {
-      return `${baseClass} ${styles.discrete}`;
-    } else if (field.flavour === 'continuous') {
-      return `${baseClass} ${styles.continuous}`;
-    }
-    return baseClass;
-  };
+  // Note: styling is now handled by unified FieldChip; keep FilterFieldChip.module.css
+  // for container/expand UI only.
 
   return (
     <Box className={styles.container}>
@@ -245,12 +240,15 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
             {isBaseFilter ? <LockIcon sx={{ fontSize: 14 }} /> : <LockOpenIcon sx={{ fontSize: 14 }} />}
           </ToggleButton>
         </Tooltip>
-        <Chip
-          label={getSummaryText()}
-          size="small"
-          onDelete={onRemove}
-          deleteIcon={<CloseIcon />}
-          className={getChipClassName()}
+        <FieldChip
+          field={field}
+          source="FILTER_ZONE"
+          displayNameOverride={getSummaryText()}
+          onUpdate={(updated) => {
+            const f = Array.isArray(updated) ? updated[0] : updated;
+            dispatch({ type: 'UPDATE_FIELD', payload: f });
+          }}
+          onRemoveFromZone={() => onRemove()}
         />
         <IconButton
           size="small"

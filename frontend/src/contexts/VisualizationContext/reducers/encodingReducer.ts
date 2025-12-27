@@ -8,7 +8,9 @@ export function encodingReducer(state: VisualizationState, action: Visualization
   switch (action.type) {
     // Color encoding
     case 'SET_COLOR_FIELD': {
-      if (state.colorField?.id === action.payload?.id) return state;
+      // Important: don't short-circuit on id equality.
+      // We often update the same field instance (same id) via context-menu edits (type/flavour/agg/etc.).
+      if (state.colorField === action.payload) return state;
       return { ...state, colorField: action.payload, queryVersion: state.queryVersion + 1 };
     }
     case 'SET_COLOR_SCHEME':
@@ -24,7 +26,8 @@ export function encodingReducer(state: VisualizationState, action: Visualization
     
     // Size encoding
     case 'SET_SIZE_FIELD':
-      if (state.sizeField?.id === action.payload?.id) return state;
+      // Same rationale as SET_COLOR_FIELD: allow updates for same-id fields when properties change.
+      if (state.sizeField === action.payload) return state;
       return { ...state, sizeField: action.payload, queryVersion: state.queryVersion + 1 };
     case 'SET_SIZE_RANGE':
       return { ...state, sizeRange: action.payload };
