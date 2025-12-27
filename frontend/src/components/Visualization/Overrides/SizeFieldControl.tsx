@@ -1,27 +1,10 @@
 import React from 'react';
-import { Box, Typography, Chip, styled } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import { Box, Typography } from '@mui/material';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import SizeRangeControl from '../Size/SizeRangeControl';
 import { Field } from '../../../types';
-import { getFieldDisplayName } from '../../../utils/fieldUtils';
-import { getChipStyles, parseDragData } from './overrideUtils';
-
-const TruncatedChip = styled(Chip)({
-  minWidth: 0,
-  display: 'inline-flex',
-  alignItems: 'center',
-  '& .MuiChip-label': {
-    flexGrow: 1,
-    textAlign: 'left',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  '& .MuiChip-deleteIcon': {
-    flexShrink: 0,
-  },
-});
+import FieldChip from '../FieldChip';
+import { parseDragData } from './overrideUtils';
 
 interface SizeFieldControlProps {
   field: Field | null;
@@ -80,18 +63,14 @@ const SizeFieldControl: React.FC<SizeFieldControlProps> = ({
                   width: '100%',
                 }}
               >
-                <TruncatedChip
-                  label={getFieldDisplayName(field)}
-                  title={getFieldDisplayName(field)}
-                  onDelete={onRemove}
-                  deleteIcon={<CloseIcon />}
-                  size="small"
-                  sx={{
-                    flex: 1,
-                    height: 26,
-                    fontSize: '0.75rem',
-                    ...getChipStyles(field),
+                <FieldChip
+                  field={field}
+                  source="SIZE_ZONE"
+                  onUpdate={(updated) => {
+                    const f = Array.isArray(updated) ? updated[0] : updated;
+                    onDrop(f);
                   }}
+                  onRemoveFromZone={() => onRemove()}
                 />
               </Box>
             )}

@@ -8,7 +8,12 @@ import { useSelectionStore } from '../stores/selectionStore';
  */
 export function useFieldsPanelDrag(
   onRemoveFromAxis: (fieldId: string) => void,
-  onRemoveMultipleFromAxis?: (fieldIds: string[]) => void
+  onRemoveMultipleFromAxis?: (fieldIds: string[]) => void,
+  onRemoveFromFilter?: (fieldIds: string[]) => void,
+  onRemoveFromColor?: () => void,
+  onRemoveFromSize?: () => void,
+  onRemoveFromLabel?: (fieldIds: string[]) => void,
+  onRemoveFromTooltip?: (fieldIds: string[]) => void
 ) {
   const [isDragOver, setIsDragOver] = useState(false);
   
@@ -20,11 +25,11 @@ export function useFieldsPanelDrag(
     e.dataTransfer.dropEffect = 'move';
     
     try {
-      // Only show visual feedback for axis fields
+      // Show visual feedback for any removable source (everything except AVAILABLE_FIELDS)
       const dataString = e.dataTransfer.getData('application/json');
       if (dataString) {
         const data = JSON.parse(dataString);
-        if (data.source === 'X_AXIS' || data.source === 'Y_AXIS') {
+        if (data.source && data.source !== 'AVAILABLE_FIELDS') {
           setIsDragOver(true);
         }
       }
@@ -61,20 +66,33 @@ export function useFieldsPanelDrag(
         fields = [data.field];
       }
       
-      // Only remove if dragging from an axis (not from available fields)
-      if ((source === 'X_AXIS' || source === 'Y_AXIS') && fields && fields.length > 0) {
+      if (!source || source === 'AVAILABLE_FIELDS' || !fields || fields.length === 0) {
+        return;
+      }
+
+      const fieldIds = fields.map((f: any) => f.id);
+
+      if (source === 'X_AXIS' || source === 'Y_AXIS') {
         // Use batch removal for multiple fields to avoid race conditions
-        if (fields.length > 1 && onRemoveMultipleFromAxis) {
-          const fieldIds = fields.map((f: any) => f.id);
+        if (fieldIds.length > 1 && onRemoveMultipleFromAxis) {
           onRemoveMultipleFromAxis(fieldIds);
         } else {
-          // Single field removal
-          fields.forEach((f: any) => onRemoveFromAxis(f.id));
+          fieldIds.forEach(onRemoveFromAxis);
         }
-        
-        // Clear selection after successful removal
-        clearSelection();
+      } else if (source === 'FILTER_ZONE') {
+        onRemoveFromFilter?.(fieldIds);
+      } else if (source === 'COLOR_ZONE') {
+        onRemoveFromColor?.();
+      } else if (source === 'SIZE_ZONE') {
+        onRemoveFromSize?.();
+      } else if (source === 'LABEL_ZONE') {
+        onRemoveFromLabel?.(fieldIds);
+      } else if (source === 'TOOLTIP_ZONE') {
+        onRemoveFromTooltip?.(fieldIds);
       }
+
+      // Clear selection after successful removal
+      clearSelection();
     } catch (error) {
       console.error('Error processing drop event:', error);
     }

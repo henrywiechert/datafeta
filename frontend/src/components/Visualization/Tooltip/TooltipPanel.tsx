@@ -3,11 +3,14 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Field, DragSource } from '../../../types';
 import { PropertySection } from '../Properties';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
-import { Box, Typography, Chip } from '@mui/material';
+import { Box, Typography } from '@mui/material';
+import FieldChip from '../FieldChip';
+import { useDragDrop } from '../../../hooks/useDragDrop';
 
 const TooltipPanel: React.FC = () => {
   const { state, dispatch } = useVisualizationContext();
   const { tooltipFields } = state;
+  const { handleRemoveFromTooltip: removeFromTooltip } = useDragDrop();
 
   const handleTooltipDrop = (field: Field, source: DragSource) => {
     // Don't add if already present
@@ -18,7 +21,7 @@ const TooltipPanel: React.FC = () => {
   };
 
   const handleRemoveFromTooltip = (fieldId: string) => {
-    dispatch({ type: 'REMOVE_TOOLTIP_FIELD', payload: fieldId });
+    removeFromTooltip(fieldId);
   };
 
   return (
@@ -66,11 +69,17 @@ const TooltipPanel: React.FC = () => {
         )}
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
           {tooltipFields.map(f => (
-            <Chip
+            <FieldChip
               key={f.id}
-              size="small"
-              label={f.columnName}
-              onDelete={() => handleRemoveFromTooltip(f.id)}
+              field={f}
+              source="TOOLTIP_ZONE"
+              onUpdate={(updated) => {
+                const field = Array.isArray(updated) ? updated[0] : updated;
+                dispatch({ type: 'UPDATE_FIELD', payload: field });
+              }}
+              onRemoveFromZone={(ids) => {
+                ids.forEach((id) => handleRemoveFromTooltip(id));
+              }}
             />
           ))}
         </Box>

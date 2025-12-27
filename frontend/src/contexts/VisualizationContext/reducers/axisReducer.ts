@@ -103,16 +103,53 @@ export function axisReducer(state: VisualizationState, action: VisualizationActi
         return f;
       });
 
+      const colorChanged = !!(state.colorField && state.colorField.id === updated.id);
+      const sizeChanged = !!(state.sizeField && state.sizeField.id === updated.id);
+
+      let labelsChanged = false;
+      const newLabels = state.labelFields.map((f) => {
+        if (f.id === updated.id) {
+          labelsChanged = true;
+          return updated;
+        }
+        return f;
+      });
+
+      let tooltipChanged = false;
+      const newTooltip = state.tooltipFields.map((f) => {
+        if (f.id === updated.id) {
+          tooltipChanged = true;
+          return updated;
+        }
+        return f;
+      });
+
+      let filterChanged = false;
+      const newFilters = state.filterFields.map((f) => {
+        if (f.id === updated.id) {
+          filterChanged = true;
+          return updated;
+        }
+        return f;
+      });
+
       const bumped = xChanged || yChanged || 
-        (state.colorField && state.colorField.id === updated.id) || 
-        (state.sizeField && state.sizeField.id === updated.id) || 
-        state.labelFields.some(f => f.id === updated.id);
+        colorChanged ||
+        sizeChanged ||
+        labelsChanged ||
+        tooltipChanged ||
+        filterChanged;
       
       return {
         ...state,
         xAxisFields: xChanged ? newX : state.xAxisFields,
         yAxisFields: yChanged ? newY : state.yAxisFields,
         availableFields: availChanged ? newAvail : state.availableFields,
+        colorField: colorChanged ? updated : state.colorField,
+        sizeField: sizeChanged ? updated : state.sizeField,
+        labelFields: labelsChanged ? newLabels : state.labelFields,
+        tooltipFields: tooltipChanged ? newTooltip : state.tooltipFields,
+        filterFields: filterChanged ? newFilters : state.filterFields,
         queryVersion: bumped ? state.queryVersion + 1 : state.queryVersion,
       };
     }

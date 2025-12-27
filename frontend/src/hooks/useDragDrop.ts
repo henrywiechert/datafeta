@@ -397,6 +397,13 @@ export function useDragDrop(availableFields?: Field[]) {
     dispatch({ type: 'REMOVE_LABEL_FIELD', payload: fieldId });
   }, [dispatch, recordAction, getUndoableSnapshot]);
 
+  const handleRemoveFromTooltip = useCallback((fieldId: string) => {
+    // Record current state for undo
+    recordAction(getUndoableSnapshot());
+
+    dispatch({ type: 'REMOVE_TOOLTIP_FIELD', payload: fieldId });
+  }, [dispatch, recordAction, getUndoableSnapshot]);
+
   /**
    * Atomically move a field between axes without triggering double query
    */
@@ -424,5 +431,6 @@ export function useDragDrop(availableFields?: Field[]) {
     handleRemoveFromSize,
     handleLabelDrop,
     handleRemoveFromLabel,
+    handleRemoveFromTooltip,
   };
 }

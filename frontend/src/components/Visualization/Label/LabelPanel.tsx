@@ -6,6 +6,7 @@ import { useVisualizationContext } from '../../../contexts/VisualizationContext'
 import { useDragDrop } from '../../../hooks/useDragDrop';
 import { Box, Switch, Tooltip, Typography, IconButton, Chip } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
+import FieldChip from '../FieldChip';
 
 interface LabelPanelProps {
   projectedPointCount?: number; // optional precomputed count for warning logic
@@ -96,11 +97,17 @@ const LabelPanel: React.FC<LabelPanelProps> = ({ projectedPointCount }) => {
         )}
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
           {labelFields.map(f => (
-            <Chip
+            <FieldChip
               key={f.id}
-              size="small"
-              label={f.columnName === '__current_measure__' ? 'Measure Value' : f.columnName}
-              onDelete={() => handleRemoveFromLabel(f.id)}
+              field={f}
+              source="LABEL_ZONE"
+              onUpdate={(updated) => {
+                const field = Array.isArray(updated) ? updated[0] : updated;
+                dispatch({ type: 'UPDATE_FIELD', payload: field });
+              }}
+              onRemoveFromZone={(ids) => {
+                ids.forEach((id) => handleRemoveFromLabel(id));
+              }}
             />
           ))}
         </Box>
