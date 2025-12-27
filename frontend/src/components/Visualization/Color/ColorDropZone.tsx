@@ -3,18 +3,23 @@ import { Box } from '@mui/material';
 import { Field, DragSource } from '../../../types';
 import { PropertyDropZone } from '../Properties';
 import FieldChip from '../FieldChip';
+import ColorSchemeSelector from './ColorSchemeSelector';
 import styles from './ColorDropZone.module.css';
 
 interface ColorDropZoneProps {
   colorField: Field | null;
   onDrop: (field: Field, source: DragSource) => void;
   onRemove: (fieldIds: string[]) => void;
+  colorSchemeId?: string;
+  onSchemeChange?: (schemeId: string) => void;
 }
 
 const ColorDropZone: React.FC<ColorDropZoneProps> = ({
   colorField,
   onDrop,
   onRemove,
+  colorSchemeId,
+  onSchemeChange,
 }) => {
   const handleDrop = (e: React.DragEvent) => {
     try {
@@ -48,16 +53,26 @@ const ColorDropZone: React.FC<ColorDropZoneProps> = ({
       onDrop={handleDrop}
     >
       {colorField && (
-        <Box className={styles.chipContainer}>
-          <FieldChip
-            field={colorField}
-            source="COLOR_ZONE"
-            onUpdate={(updated) => {
-              const f = Array.isArray(updated) ? updated[0] : updated;
-              onDrop(f, 'COLOR_ZONE');
-            }}
-            onRemoveFromZone={(fieldIds) => onRemove(fieldIds)}
-          />
+        <Box className={styles.row}>
+          {onSchemeChange && colorSchemeId && (
+            <ColorSchemeSelector
+              variant="icon"
+              currentSchemeId={colorSchemeId}
+              fieldFlavour={colorField.flavour}
+              onSchemeChange={onSchemeChange}
+            />
+          )}
+          <Box className={styles.chipCell}>
+            <FieldChip
+              field={colorField}
+              source="COLOR_ZONE"
+              onUpdate={(updated) => {
+                const f = Array.isArray(updated) ? updated[0] : updated;
+                onDrop(f, 'COLOR_ZONE');
+              }}
+              onRemoveFromZone={(fieldIds) => onRemove(fieldIds)}
+            />
+          </Box>
         </Box>
       )}
     </PropertyDropZone>

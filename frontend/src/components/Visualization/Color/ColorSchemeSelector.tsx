@@ -7,6 +7,7 @@ import {
   Typography,
   Divider,
   Tooltip,
+  IconButton,
 } from '@mui/material';
 import PaletteIcon from '@mui/icons-material/Palette';
 import CheckIcon from '@mui/icons-material/Check';
@@ -22,12 +23,14 @@ interface ColorSchemeSelectorProps {
   currentSchemeId: string;
   fieldFlavour: 'discrete' | 'continuous' | null;
   onSchemeChange: (schemeId: string) => void;
+  variant?: 'text' | 'icon';
 }
 
 const ColorSchemeSelector: React.FC<ColorSchemeSelectorProps> = ({
   currentSchemeId,
   fieldFlavour,
   onSchemeChange,
+  variant = 'text',
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
@@ -84,23 +87,38 @@ const ColorSchemeSelector: React.FC<ColorSchemeSelectorProps> = ({
   return (
     <>
       <Tooltip title="Change color scheme">
-        <Button
-          size="small"
-          onClick={handleClick}
-          startIcon={<PaletteIcon fontSize="small" />}
-          sx={{
-            fontSize: '12px',
-            padding: '2px 8px',
-            textTransform: 'none',
-            minWidth: 'auto',
-            color: '#1976d2',
-            '&:hover': {
-              backgroundColor: 'rgba(25, 118, 210, 0.04)',
-            },
-          }}
-        >
-          Scheme
-        </Button>
+        {variant === 'icon' ? (
+          <IconButton
+            size="small"
+            onClick={handleClick}
+            sx={{
+              width: 28,
+              height: 28,
+              color: '#1976d2',
+              '&:hover': { backgroundColor: 'rgba(25, 118, 210, 0.04)' },
+            }}
+          >
+            <PaletteIcon fontSize="small" />
+          </IconButton>
+        ) : (
+          <Button
+            size="small"
+            onClick={handleClick}
+            startIcon={<PaletteIcon fontSize="small" />}
+            sx={{
+              fontSize: '12px',
+              padding: '2px 8px',
+              textTransform: 'none',
+              minWidth: 'auto',
+              color: '#1976d2',
+              '&:hover': {
+                backgroundColor: 'rgba(25, 118, 210, 0.04)',
+              },
+            }}
+          >
+            Scheme
+          </Button>
+        )}
       </Tooltip>
 
       <Menu
