@@ -115,7 +115,7 @@ const FieldOverridesPanel: React.FC = () => {
             colorFieldId: field.id,
             colorField: field
           })}
-          onRemove={() => handleUpdateOverride(targetField.id, { 
+          onRemove={(_fieldIds) => handleUpdateOverride(targetField.id, { 
             colorFieldId: null, 
             colorField: null 
           })}
@@ -138,7 +138,7 @@ const FieldOverridesPanel: React.FC = () => {
             sizeFieldId: field.id,
             sizeField: field
           })}
-          onRemove={() => handleUpdateOverride(targetField.id, { 
+          onRemove={(_fieldIds) => handleUpdateOverride(targetField.id, { 
             sizeFieldId: null, 
             sizeField: null 
           })}
@@ -207,7 +207,7 @@ const FieldOverridesPanel: React.FC = () => {
             clearColorOverridesForAllFields();
             dispatch({ type: 'SET_COLOR_FIELD', payload: field });
           }}
-          onRemove={() => {
+          onRemove={(_fieldIds) => {
             recordAction(getUndoableSnapshot());
             clearColorOverridesForAllFields();
             dispatch({ type: 'SET_COLOR_FIELD', payload: null });
@@ -238,7 +238,7 @@ const FieldOverridesPanel: React.FC = () => {
             clearSizeOverridesForAllFields();
             dispatch({ type: 'SET_SIZE_FIELD', payload: field });
           }}
-          onRemove={() => {
+          onRemove={(_fieldIds) => {
             recordAction(getUndoableSnapshot());
             clearSizeOverridesForAllFields();
             dispatch({ type: 'SET_SIZE_FIELD', payload: null });

@@ -18,8 +18,8 @@ interface FieldsPanelProps {
   onRemoveFromAxis: (fieldId: string) => void;
   onRemoveMultipleFromAxis?: (fieldIds: string[]) => void;
   onRemoveFromFilter?: (fieldIds: string[]) => void;
-  onRemoveFromColor?: () => void;
-  onRemoveFromSize?: () => void;
+  onRemoveFromColor?: (fieldIds: string[]) => void;
+  onRemoveFromSize?: (fieldIds: string[]) => void;
   onRemoveFromLabel?: (fieldIds: string[]) => void;
   onRemoveFromTooltip?: (fieldIds: string[]) => void;
   // New props for metadata selection

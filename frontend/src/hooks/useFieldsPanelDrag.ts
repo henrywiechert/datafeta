@@ -10,8 +10,8 @@ export function useFieldsPanelDrag(
   onRemoveFromAxis: (fieldId: string) => void,
   onRemoveMultipleFromAxis?: (fieldIds: string[]) => void,
   onRemoveFromFilter?: (fieldIds: string[]) => void,
-  onRemoveFromColor?: () => void,
-  onRemoveFromSize?: () => void,
+  onRemoveFromColor?: (fieldIds: string[]) => void,
+  onRemoveFromSize?: (fieldIds: string[]) => void,
   onRemoveFromLabel?: (fieldIds: string[]) => void,
   onRemoveFromTooltip?: (fieldIds: string[]) => void
 ) {
@@ -82,9 +82,9 @@ export function useFieldsPanelDrag(
       } else if (source === 'FILTER_ZONE') {
         onRemoveFromFilter?.(fieldIds);
       } else if (source === 'COLOR_ZONE') {
-        onRemoveFromColor?.();
+        onRemoveFromColor?.(fieldIds);
       } else if (source === 'SIZE_ZONE') {
-        onRemoveFromSize?.();
+        onRemoveFromSize?.(fieldIds);
       } else if (source === 'LABEL_ZONE') {
         onRemoveFromLabel?.(fieldIds);
       } else if (source === 'TOOLTIP_ZONE') {

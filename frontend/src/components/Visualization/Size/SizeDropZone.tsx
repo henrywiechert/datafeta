@@ -7,7 +7,7 @@ import FieldChip from '../FieldChip';
 interface SizeDropZoneProps {
   sizeField: Field | null;
   onDrop: (field: Field, source: DragSource) => void;
-  onRemove: () => void;
+  onRemove: (fieldIds: string[]) => void;
 }
 
 const SizeDropZone: React.FC<SizeDropZoneProps> = ({
@@ -55,7 +55,7 @@ const SizeDropZone: React.FC<SizeDropZoneProps> = ({
               const f = Array.isArray(updated) ? updated[0] : updated;
               onDrop(f, 'SIZE_ZONE');
             }}
-            onRemoveFromZone={() => onRemove()}
+            onRemoveFromZone={(fieldIds) => onRemove(fieldIds)}
           />
         </Box>
       )}
