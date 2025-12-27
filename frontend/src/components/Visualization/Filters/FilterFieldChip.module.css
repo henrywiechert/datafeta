@@ -8,10 +8,15 @@
 }
 
 .chipContainer {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   padding: 4px 8px;
   gap: 4px;
+}
+
+.chipCell {
+  min-width: 0;
 }
 
 .chip {

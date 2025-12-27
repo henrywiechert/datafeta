@@ -39,6 +39,8 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
   dragCount,
   displayNameOverride
 }) => {
+  const isAvailableFields = source === 'AVAILABLE_FIELDS';
+  const isAxis = source === 'X_AXIS' || source === 'Y_AXIS';
   // Create a stable key for field properties to minimize re-renders
   const fieldPropertiesKey = useMemo(() => 
     `${field.columnName}|${field.aggregation || ''}|${field.flavour}|${field.dataType}|${field.dateTimePart || ''}|${field.dateTimeMode || ''}|${field.barSortOrder || ''}`,
@@ -150,11 +152,12 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
       onDragStart={handleWrapperDragStart}
       onDragEnd={handleWrapperDragEnd}
       style={{ 
-        display: source === 'AVAILABLE_FIELDS' ? 'flex' : 'inline-flex',
-        width: source === 'AVAILABLE_FIELDS' ? '100%' : 'auto',
+        display: isAxis ? 'inline-flex' : 'flex',
+        width: isAxis ? 'auto' : '100%',
         maxWidth: '100%',
         alignItems: 'center',
-        minHeight: source === 'AVAILABLE_FIELDS' ? '20px' : 'auto', // Match chip height
+        minWidth: 0,
+        minHeight: isAvailableFields ? '20px' : 'auto', // Match chip height
         position: 'relative',
       }}
     >
@@ -234,8 +237,9 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
             onDragStart={handleWrapperDragStart}
             onDragEnd={handleWrapperDragEnd}
             style={{ 
-              display: source === 'AVAILABLE_FIELDS' ? 'flex' : 'inline-flex',
-              width: source === 'AVAILABLE_FIELDS' ? '100%' : 'auto',
+              display: isAxis ? 'inline-flex' : 'flex',
+              width: isAxis ? 'auto' : '100%',
+              minWidth: 0,
             }}
           >
             <Chip {...chipProps} />

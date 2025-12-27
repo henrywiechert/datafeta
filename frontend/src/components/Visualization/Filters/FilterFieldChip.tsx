@@ -240,16 +240,18 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
             {isBaseFilter ? <LockIcon sx={{ fontSize: 14 }} /> : <LockOpenIcon sx={{ fontSize: 14 }} />}
           </ToggleButton>
         </Tooltip>
-        <FieldChip
-          field={field}
-          source="FILTER_ZONE"
-          displayNameOverride={getSummaryText()}
-          onUpdate={(updated) => {
-            const f = Array.isArray(updated) ? updated[0] : updated;
-            dispatch({ type: 'UPDATE_FIELD', payload: f });
-          }}
-          onRemoveFromZone={() => onRemove()}
-        />
+        <Box className={styles.chipCell}>
+          <FieldChip
+            field={field}
+            source="FILTER_ZONE"
+            displayNameOverride={getSummaryText()}
+            onUpdate={(updated) => {
+              const f = Array.isArray(updated) ? updated[0] : updated;
+              dispatch({ type: 'UPDATE_FIELD', payload: f });
+            }}
+            onRemoveFromZone={() => onRemove()}
+          />
+        </Box>
         <IconButton
           size="small"
           onClick={handleToggleExpand}

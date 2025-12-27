@@ -369,50 +369,46 @@ const VisualizationPageContent = () => {
                         maxSize={30}
                         collapsible
                         collapsedSize={0}
+                        // Allow true collapse-to-zero. When expanded, clamp to 140px so controls don't get forced offscreen.
+                        style={{ minWidth: middlePanelCollapsed ? 0 : 140 }}
                         onCollapse={() => setMiddlePanelCollapsed(true)}
                         onExpand={() => setMiddlePanelCollapsed(false)}
                     >
-                        {middlePanelCollapsed ? (
-                            <CollapsedPanelStrip 
-                                label="Properties" 
-                                onExpand={toggleMiddlePanel}
-                                tooltipPlacement="right"
-                            />
-                        ) : (
-                            <Box sx={{ 
-                                height: '100%', 
-                                display: 'flex', 
-                                flexDirection: 'column',
-                                overflow: 'auto',
-                                backgroundColor: '#fafafa',
-                            }}>
-                                <FilterPanel
-                                    filterFields={state.filterFields}
-                                    filterConfigurations={state.filterConfigurations}
-                                    filterMetadata={state.filterMetadata}
-                                    onDrop={handleFilterDrop}
-                                    onRemove={handleRemoveFromFilter}
-                                    onConfigChange={(fieldId, config) => {
-                                        dispatch({ 
-                                            type: 'SET_FILTER_CONFIGURATION', 
-                                            payload: { fieldId, config }
-                                        });
-                                    }}
-                                    onApplyFilters={handleApplyFilters}
-                                    onRefetchValues={refetchFilterValues}
-                                />
-                                <LabelPanel />
-                                <TooltipPanel />
-                                <FieldOverridesPanel />
-                                {state.colorField && (
-                                    <LegendPanel
-                                        colorField={state.colorField}
-                                        queryResult={state.queryResult}
-                                        colorScheme={state.colorScheme}
-                                        colorBias={state.colorBias}
-                                    />
-                                )}
-                            </Box>
+                        {middlePanelCollapsed ? null : (
+                          <Box sx={{ 
+                              height: '100%', 
+                              display: 'flex', 
+                              flexDirection: 'column',
+                              overflow: 'auto',
+                              backgroundColor: '#fafafa',
+                          }}>
+                              <FilterPanel
+                                  filterFields={state.filterFields}
+                                  filterConfigurations={state.filterConfigurations}
+                                  filterMetadata={state.filterMetadata}
+                                  onDrop={handleFilterDrop}
+                                  onRemove={handleRemoveFromFilter}
+                                  onConfigChange={(fieldId, config) => {
+                                      dispatch({ 
+                                          type: 'SET_FILTER_CONFIGURATION', 
+                                          payload: { fieldId, config }
+                                      });
+                                  }}
+                                  onApplyFilters={handleApplyFilters}
+                                  onRefetchValues={refetchFilterValues}
+                              />
+                              <LabelPanel />
+                              <TooltipPanel />
+                              <FieldOverridesPanel />
+                              {state.colorField && (
+                                  <LegendPanel
+                                      colorField={state.colorField}
+                                      queryResult={state.queryResult}
+                                      colorScheme={state.colorScheme}
+                                      colorBias={state.colorBias}
+                                  />
+                              )}
+                          </Box>
                         )}
                     </Panel>
 
