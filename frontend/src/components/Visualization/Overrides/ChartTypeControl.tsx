@@ -1,5 +1,6 @@
 import React from 'react';
-import { Box, Typography, ToggleButtonGroup, ToggleButton, Tooltip } from '@mui/material';
+import { Box, IconButton, ToggleButtonGroup, ToggleButton, Tooltip } from '@mui/material';
+import InsertChartOutlinedIcon from '@mui/icons-material/InsertChartOutlined';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import ScatterPlotIcon from '@mui/icons-material/ScatterPlot';
 import BarChartIcon from '@mui/icons-material/BarChart';
@@ -39,9 +40,10 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
       backgroundColor: '#fafafa'
     }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        <Typography variant="caption" sx={{ minWidth: 50, fontSize: '0.7rem', fontWeight: 500 }}>
-          Chart
-        </Typography>
+        {/* Dense icon-only label (no click behavior yet) */}
+        <IconButton size="small" sx={{ width: 28, height: 28 }} onClick={() => {}}>
+          <InsertChartOutlinedIcon sx={{ fontSize: 18 }} />
+        </IconButton>
         <ToggleButtonGroup
           value={value}
           exclusive
