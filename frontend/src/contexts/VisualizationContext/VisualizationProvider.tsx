@@ -40,12 +40,59 @@ interface VisualizationProviderProps {
   initialState?: Partial<VisualizationState>;
 }
 
+function normalizeFilterConfigKeys(
+  filterFields: Field[] | undefined,
+  filterConfigurations: Record<string, FilterConfig> | undefined
+): Record<string, FilterConfig> {
+  if (!filterFields || filterFields.length === 0) return filterConfigurations || {};
+  if (!filterConfigurations) return {};
+
+  const byId = new Map(filterFields.map((f) => [f.id, f]));
+  const byColumn = new Map(filterFields.map((f) => [f.columnName, f]));
+
+  const normalized: Record<string, FilterConfig> = {};
+
+  for (const [key, cfg] of Object.entries(filterConfigurations)) {
+    // Already keyed by fieldId and consistent
+    const direct = byId.get(key) ?? byId.get(cfg.fieldId);
+    if (direct) {
+      normalized[direct.id] = { ...cfg, fieldId: direct.id, columnName: direct.columnName };
+      continue;
+    }
+
+    // Legacy / mixed cases: keyed by columnName, or config.fieldId stored as columnName
+    const byCol =
+      byColumn.get(key) ??
+      byColumn.get(cfg.columnName) ??
+      byColumn.get(cfg.fieldId);
+
+    if (byCol) {
+      normalized[byCol.id] = { ...cfg, fieldId: byCol.id, columnName: byCol.columnName };
+      continue;
+    }
+
+    // Fallback: keep entry as-is (still useful for query builder which uses Object.values)
+    normalized[key] = cfg;
+  }
+
+  return normalized;
+}
+
 export function VisualizationProvider({ children, initialState: initialStateProp }: VisualizationProviderProps) {
   // Merge the default initial state with any provided initial state
   const mergedInitialState = React.useMemo(() => {
-    return {
+    const merged = {
       ...initialState,
       ...initialStateProp,
+    };
+
+    // Normalize saved filter config maps (some older snapshots were keyed by columnName instead of fieldId).
+    // The query layer uses Object.values(filterConfigurations) so charts can still render correctly,
+    // but the UI expects filterConfigurations[field.id].
+    return {
+      ...merged,
+      filterConfigurations: normalizeFilterConfigKeys(merged.filterFields, merged.filterConfigurations),
+      appliedFilterConfigurations: normalizeFilterConfigKeys(merged.filterFields, merged.appliedFilterConfigurations),
     };
   }, [initialStateProp]);
 

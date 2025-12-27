@@ -120,34 +120,56 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const filteredValuesWithRegex = filteredValues; // alias for readability
 
-  // Create a Set for O(1) lookup performance instead of O(n) with .includes()
-  // This is critical for performance with large lists (e.g., 500+ items)
-  const selectedValuesSet = useMemo(() => new Set(selectedValues), [selectedValues]);
+  // ---- Selection matching ----
+  // After loading a saved config, selectedValues may be numbers while availableValues
+  // come back as strings (or vice versa), depending on backend/driver. Strict equality
+  // would fail and nothing would appear checked even though the filter is active.
+  const valueKey = useCallback((v: any) => {
+    if (v === null || v === undefined) return '__NULL__';
+    return String(v);
+  }, []);
+
+  const selectionPrefersNumber = useMemo(
+    () => selectedValues.some((v) => typeof v === 'number'),
+    [selectedValues]
+  );
+
+  const normalizeValueForSelection = useCallback((v: any) => {
+    if (v === null || v === undefined) return v;
+    if (selectionPrefersNumber && typeof v === 'string') {
+      const n = Number(v);
+      if (!Number.isNaN(n) && Number.isFinite(n)) return n;
+    }
+    return v;
+  }, [selectionPrefersNumber]);
+
+  // O(1) lookup by canonical key (stringified)
+  const selectedKeysSet = useMemo(
+    () => new Set(selectedValues.map(valueKey)),
+    [selectedValues, valueKey]
+  );
 
   // Memoize the toggle handler to prevent unnecessary re-renders of child components
   const handleToggle = useCallback((value: any) => {
-    const newSelected = [...selectedValues];
+    const key = valueKey(value);
+    const normalizedValue = normalizeValueForSelection(value);
 
-    if (selectedValuesSet.has(value)) {
-      // Remove from selection
-      const index = newSelected.indexOf(value);
-      newSelected.splice(index, 1);
+    if (selectedKeysSet.has(key)) {
+      // Remove all entries that match by key (handles "1" vs 1, etc.)
+      onChange(selectedValues.filter((v) => valueKey(v) !== key));
     } else {
-      // Add to selection
-      newSelected.push(value);
+      onChange([...selectedValues, normalizedValue]);
     }
-
-    onChange(newSelected);
-  }, [selectedValues, selectedValuesSet, onChange]);
+  }, [selectedValues, selectedKeysSet, onChange, valueKey, normalizeValueForSelection]);
 
   const handleSelectAll = () => {
-    onChange([...filteredValuesWithRegex]);
+    onChange(filteredValuesWithRegex.map(normalizeValueForSelection));
   };
 
   const handleDeselectAll = () => {
     // Remove all filtered values from selection
-    const filteredSet = new Set(filteredValuesWithRegex);
-    const newSelected = selectedValues.filter(v => !filteredSet.has(v));
+    const filteredKeySet = new Set(filteredValuesWithRegex.map(valueKey));
+    const newSelected = selectedValues.filter((v) => !filteredKeySet.has(valueKey(v)));
     onChange(newSelected);
   };
   
@@ -290,8 +312,8 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
         {filteredValuesWithRegex.map((value, index) => {
           // Display null/undefined values as "(null)"
           const valueStr = value === null || value === undefined ? '(null)' : String(value);
-          // Use Set for O(1) lookup instead of Array.includes() for O(n) lookup
-          const isChecked = selectedValuesSet.has(value);
+          // O(1) lookup by key to handle saved-state type differences ("1" vs 1)
+          const isChecked = selectedKeysSet.has(valueKey(value));
           
           return (
             <CheckboxItem
