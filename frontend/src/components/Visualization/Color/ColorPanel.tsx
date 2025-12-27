@@ -13,7 +13,7 @@ interface ColorPanelProps {
   colorBias?: number;
   manualColor?: string;
   onDrop: (field: Field, source: DragSource) => void;
-  onRemove: () => void;
+  onRemove: (fieldIds: string[]) => void;
   onSchemeChange?: (schemeId: string) => void;
   onBiasChange?: (bias: number) => void;
   onManualColorChange?: (color: string) => void;

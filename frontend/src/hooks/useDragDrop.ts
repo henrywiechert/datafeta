@@ -312,8 +312,9 @@ export function useDragDrop(availableFields?: Field[]) {
 
   /**
    * Remove the field from the color zone
+   * @param _fieldIds - Unused; included for signature consistency with other zones
    */
-  const handleRemoveFromColor = useCallback(() => {
+  const handleRemoveFromColor = useCallback((_fieldIds: string[]) => {
     // Record current state for undo
     recordAction(getUndoableSnapshot());
     
@@ -353,8 +354,9 @@ export function useDragDrop(availableFields?: Field[]) {
 
   /**
    * Remove the field from the size zone
+   * @param _fieldIds - Unused; included for signature consistency with other zones
    */
-  const handleRemoveFromSize = useCallback(() => {
+  const handleRemoveFromSize = useCallback((_fieldIds: string[]) => {
     // Record current state for undo
     recordAction(getUndoableSnapshot());
     
