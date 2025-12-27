@@ -14,7 +14,7 @@ interface ColorFieldControlProps {
   colorBias: number;
   manualColor: string;
   onDrop: (field: Field) => void;
-  onRemove: () => void;
+  onRemove: (fieldIds: string[]) => void;
   onSchemeChange: (schemeId: string) => void;
   onColorChange: (color: string) => void;
   onBiasChange: (bias: number) => void;
@@ -76,7 +76,7 @@ const ColorFieldControl: React.FC<ColorFieldControlProps> = ({
                     const f = Array.isArray(updated) ? updated[0] : updated;
                     onDrop(f);
                   }}
-                  onRemoveFromZone={() => onRemove()}
+                  onRemoveFromZone={(fieldIds) => onRemove(fieldIds)}
                 />
               </Box>
             )}

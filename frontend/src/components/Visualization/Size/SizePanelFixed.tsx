@@ -10,7 +10,7 @@ interface SizePanelProps {
   sizeRange: [number, number];
   manualSize: number;
   onDrop: (field: Field, source: DragSource) => void;
-  onRemove: () => void;
+  onRemove: (fieldIds: string[]) => void;
   onSizeRangeChange: (range: [number, number]) => void;
   onManualSizeChange: (size: number) => void;
 }

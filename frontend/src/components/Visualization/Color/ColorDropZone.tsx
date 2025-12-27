@@ -8,7 +8,7 @@ import styles from './ColorDropZone.module.css';
 interface ColorDropZoneProps {
   colorField: Field | null;
   onDrop: (field: Field, source: DragSource) => void;
-  onRemove: () => void;
+  onRemove: (fieldIds: string[]) => void;
 }
 
 const ColorDropZone: React.FC<ColorDropZoneProps> = ({
@@ -56,7 +56,7 @@ const ColorDropZone: React.FC<ColorDropZoneProps> = ({
               const f = Array.isArray(updated) ? updated[0] : updated;
               onDrop(f, 'COLOR_ZONE');
             }}
-            onRemoveFromZone={() => onRemove()}
+            onRemoveFromZone={(fieldIds) => onRemove(fieldIds)}
           />
         </Box>
       )}

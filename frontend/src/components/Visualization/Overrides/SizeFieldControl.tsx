@@ -11,7 +11,7 @@ interface SizeFieldControlProps {
   sizeRange: [number, number];
   manualSize: number;
   onDrop: (field: Field) => void;
-  onRemove: () => void;
+  onRemove: (fieldIds: string[]) => void;
   onSizeRangeChange: (range: [number, number]) => void;
   onManualSizeChange: (size: number) => void;
 }
@@ -70,7 +70,7 @@ const SizeFieldControl: React.FC<SizeFieldControlProps> = ({
                     const f = Array.isArray(updated) ? updated[0] : updated;
                     onDrop(f);
                   }}
-                  onRemoveFromZone={() => onRemove()}
+                  onRemoveFromZone={(fieldIds) => onRemove(fieldIds)}
                 />
               </Box>
             )}
