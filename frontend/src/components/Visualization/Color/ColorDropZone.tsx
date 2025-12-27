@@ -3,7 +3,7 @@ import { Box } from '@mui/material';
 import { Field, DragSource } from '../../../types';
 import { PropertyDropZone } from '../Properties';
 import FieldChip from '../FieldChip';
-import ColorSchemeSelector from './ColorSchemeSelector';
+import ColorPalettePopover from './ColorPalettePopover';
 import styles from './ColorDropZone.module.css';
 
 interface ColorDropZoneProps {
@@ -12,6 +12,10 @@ interface ColorDropZoneProps {
   onRemove: (fieldIds: string[]) => void;
   colorSchemeId?: string;
   onSchemeChange?: (schemeId: string) => void;
+  manualColor?: string;
+  onManualColorChange?: (color: string) => void;
+  colorBias?: number;
+  onBiasChange?: (bias: number) => void;
 }
 
 const ColorDropZone: React.FC<ColorDropZoneProps> = ({
@@ -20,6 +24,10 @@ const ColorDropZone: React.FC<ColorDropZoneProps> = ({
   onRemove,
   colorSchemeId,
   onSchemeChange,
+  manualColor,
+  onManualColorChange,
+  colorBias,
+  onBiasChange,
 }) => {
   const handleDrop = (e: React.DragEvent) => {
     try {
@@ -48,21 +56,25 @@ const ColorDropZone: React.FC<ColorDropZoneProps> = ({
 
   return (
     <PropertyDropZone
-      hasContent={colorField !== null}
-      emptyMessage="Drag a field here to color by"
+      // Always render the row (so the palette icon is always visible).
+      // We render the empty message ourselves inside the chip cell.
+      hasContent={true}
+      emptyMessage=""
       onDrop={handleDrop}
     >
-      {colorField && (
-        <Box className={styles.row}>
-          {onSchemeChange && colorSchemeId && (
-            <ColorSchemeSelector
-              variant="icon"
-              currentSchemeId={colorSchemeId}
-              fieldFlavour={colorField.flavour}
-              onSchemeChange={onSchemeChange}
-            />
-          )}
-          <Box className={styles.chipCell}>
+      <Box className={styles.row}>
+        <ColorPalettePopover
+          fieldFlavour={colorField ? colorField.flavour : null}
+          currentSchemeId={colorSchemeId}
+          onSchemeChange={onSchemeChange}
+          colorBias={colorBias}
+          onBiasChange={onBiasChange}
+          manualColor={manualColor}
+          onManualColorChange={onManualColorChange}
+        />
+
+        <Box className={styles.chipCell}>
+          {colorField ? (
             <FieldChip
               field={colorField}
               source="COLOR_ZONE"
@@ -72,9 +84,11 @@ const ColorDropZone: React.FC<ColorDropZoneProps> = ({
               }}
               onRemoveFromZone={(fieldIds) => onRemove(fieldIds)}
             />
-          </Box>
+          ) : (
+            <Box className={styles.placeholder}>Drag a field here to color by</Box>
+          )}
         </Box>
-      )}
+      </Box>
     </PropertyDropZone>
   );
 };

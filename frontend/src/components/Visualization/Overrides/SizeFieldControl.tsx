@@ -1,5 +1,6 @@
-import React from 'react';
-import { Box, Typography } from '@mui/material';
+import React, { useState } from 'react';
+import { Box, IconButton, Popover } from '@mui/material';
+import PhotoSizeSelectLargeIcon from '@mui/icons-material/PhotoSizeSelectLarge';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import SizeRangeControl from '../Size/SizeRangeControl';
 import { Field } from '../../../types';
@@ -25,6 +26,18 @@ const SizeFieldControl: React.FC<SizeFieldControlProps> = ({
   onSizeRangeChange,
   onManualSizeChange,
 }) => {
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+
+  const handleOpenPopover = (e: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(e.currentTarget);
+  };
+
+  const handleClosePopover = () => {
+    setAnchorEl(null);
+  };
+
+  const popoverOpen = Boolean(anchorEl);
+
   const handleDrop = (e: React.DragEvent) => {
     const { field: droppedField } = parseDragData(e);
     if (droppedField) {
@@ -43,11 +56,19 @@ const SizeFieldControl: React.FC<SizeFieldControlProps> = ({
       borderRadius: '4px',
       backgroundColor: '#fafafa'
     }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        <Typography variant="caption" sx={{ minWidth: 50, fontSize: '0.7rem', fontWeight: 500 }}>
-          Size
-        </Typography>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: 'auto minmax(0, 1fr)',
+          alignItems: 'center',
+          gap: 0.5,
+        }}
+      >
+        {/* Size icon opens the size slider popover */}
+        <IconButton size="small" sx={{ width: 28, height: 28 }} onClick={handleOpenPopover}>
+          <PhotoSizeSelectLargeIcon sx={{ fontSize: 18 }} />
+        </IconButton>
+        <Box sx={{ minWidth: 0 }}>
           <PropertyDropZone
             hasContent={field !== null}
             emptyMessage="Drag field"
@@ -77,13 +98,23 @@ const SizeFieldControl: React.FC<SizeFieldControlProps> = ({
           </PropertyDropZone>
         </Box>
       </Box>
-      <SizeRangeControl
-        sizeField={field}
-        sizeRange={sizeRange}
-        manualSize={manualSize}
-        onSizeRangeChange={onSizeRangeChange}
-        onManualSizeChange={onManualSizeChange}
-      />
+
+      <Popover
+        open={popoverOpen}
+        anchorEl={anchorEl}
+        onClose={handleClosePopover}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        PaperProps={{ sx: { p: 1, width: 320 } }}
+      >
+        <SizeRangeControl
+          sizeField={field}
+          sizeRange={sizeRange}
+          manualSize={manualSize}
+          onSizeRangeChange={onSizeRangeChange}
+          onManualSizeChange={onManualSizeChange}
+        />
+      </Popover>
     </Box>
   );
 };

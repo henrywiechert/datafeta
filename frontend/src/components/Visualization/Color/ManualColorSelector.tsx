@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Button, Menu, Box, Tooltip } from '@mui/material';
+import { Button, Menu, Box, Tooltip, IconButton } from '@mui/material';
 import PaletteIcon from '@mui/icons-material/Palette';
 
 interface ManualColorSelectorProps {
   value: string;
   onChange: (color: string) => void;
+  variant?: 'text' | 'icon';
 }
 
 // A small set of predefined brand / utility colors
@@ -21,7 +22,7 @@ const PREDEFINED_COLORS: string[] = [
   '#bab0ab'
 ];
 
-const ManualColorSelector: React.FC<ManualColorSelectorProps> = ({ value, onChange }) => {
+const ManualColorSelector: React.FC<ManualColorSelectorProps> = ({ value, onChange, variant = 'text' }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
@@ -41,23 +42,38 @@ const ManualColorSelector: React.FC<ManualColorSelectorProps> = ({ value, onChan
   return (
     <>
       <Tooltip title="Pick a fixed color">
-        <Button
-          size="small"
-          onClick={handleClick}
-          startIcon={<PaletteIcon fontSize="small" sx={{ color: value }} />}
-          sx={{
-            fontSize: '12px',
-            padding: '2px 8px',
-            textTransform: 'none',
-            minWidth: 'auto',
-            color: '#1976d2',
-            '&:hover': {
-              backgroundColor: 'rgba(25, 118, 210, 0.04)',
-            },
-          }}
-        >
-          Color
-        </Button>
+        {variant === 'icon' ? (
+          <IconButton
+            size="small"
+            onClick={handleClick}
+            sx={{
+              width: 28,
+              height: 28,
+              color: '#1976d2',
+              '&:hover': { backgroundColor: 'rgba(25, 118, 210, 0.04)' },
+            }}
+          >
+            <PaletteIcon fontSize="small" sx={{ color: value }} />
+          </IconButton>
+        ) : (
+          <Button
+            size="small"
+            onClick={handleClick}
+            startIcon={<PaletteIcon fontSize="small" sx={{ color: value }} />}
+            sx={{
+              fontSize: '12px',
+              padding: '2px 8px',
+              textTransform: 'none',
+              minWidth: 'auto',
+              color: '#1976d2',
+              '&:hover': {
+                backgroundColor: 'rgba(25, 118, 210, 0.04)',
+              },
+            }}
+          >
+            Color
+          </Button>
+        )}
       </Tooltip>
 
       <Menu
