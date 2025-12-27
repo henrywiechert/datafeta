@@ -3,7 +3,6 @@ import PaletteIcon from '@mui/icons-material/Palette';
 import { Field, DragSource } from '../../../types';
 import { PropertySection } from '../Properties';
 import ColorDropZone from './ColorDropZone';
-import ColorSchemeSelector from './ColorSchemeSelector';
 import ColorBiasControl from './ColorBiasControl';
 import ManualColorSelector from './ManualColorSelector';
 
@@ -37,26 +36,17 @@ const ColorPanel: React.FC<ColorPanelProps> = ({
       defaultExpanded={true}
       storageKey="colorPanel.expanded"
       headerActions={
-        colorField && onSchemeChange ? (
-          <ColorSchemeSelector
-            currentSchemeId={colorScheme}
-            fieldFlavour={colorField.flavour}
-            onSchemeChange={onSchemeChange}
-          />
-        ) : (
-          onManualColorChange && (
-            <ManualColorSelector
-              value={manualColor}
-              onChange={onManualColorChange}
-            />
-          )
-        )
+        !colorField && onManualColorChange ? (
+          <ManualColorSelector value={manualColor} onChange={onManualColorChange} />
+        ) : null
       }
     >
       <ColorDropZone
         colorField={colorField}
         onDrop={onDrop}
         onRemove={onRemove}
+        colorSchemeId={colorScheme}
+        onSchemeChange={onSchemeChange}
       />
       {colorField && colorField.flavour === 'continuous' && onBiasChange && (
         <ColorBiasControl

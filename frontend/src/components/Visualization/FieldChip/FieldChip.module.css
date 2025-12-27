@@ -50,14 +50,11 @@
     will-change: auto; /* Don't persist layers unnecessarily */
 }
 
-/* Framed style for axis drop zones */
+/* Framed style for drop zones (axes + properties) */
 .chip.framed {
     border-radius: 16px;
     border: 1px solid #ccc;
-    /* Fixed width for axis chips */
-    width: 120px;
-    max-width: 120px;
-    min-width: 80px;
+    /* Let container decide sizing (axes override via .axis) */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -65,6 +62,13 @@
     align-items: center;
     justify-content: flex-start;
     vertical-align: middle;
+}
+
+/* Axis chips keep a fixed width so axes stay tidy */
+.axis {
+    width: 240px;
+    max-width: 240px;
+    min-width: 160px;
 }
 
 .chip.framed.discrete {
