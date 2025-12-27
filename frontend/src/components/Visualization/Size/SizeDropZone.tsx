@@ -1,10 +1,8 @@
 import React from 'react';
-import { Chip, Box } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import { Box } from '@mui/material';
 import { Field, DragSource } from '../../../types';
 import { PropertyDropZone } from '../Properties';
-import { getFieldDisplayName } from '../../../utils/fieldUtils';
-// import styles from './SizeDropZone.module.css';
+import FieldChip from '../FieldChip';
 
 interface SizeDropZoneProps {
   sizeField: Field | null;
@@ -42,24 +40,6 @@ const SizeDropZone: React.FC<SizeDropZoneProps> = ({
     }
   };
 
-  // Get chip styling based on field flavour
-  const getChipStyles = () => {
-    if (!sizeField) return {};
-    
-    if (sizeField.flavour === 'discrete') {
-      return {
-        backgroundColor: '#e3f2fd',
-        border: '1px solid #1976d2',
-      };
-    } else if (sizeField.flavour === 'continuous') {
-      return {
-        backgroundColor: '#e8f5e8',
-        border: '1px solid #388e3c',
-      };
-    }
-    return {};
-  };
-
   return (
     <PropertyDropZone
       hasContent={sizeField !== null}
@@ -67,35 +47,15 @@ const SizeDropZone: React.FC<SizeDropZoneProps> = ({
       onDrop={handleDrop}
     >
       {sizeField && (
-        <Box sx={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: '4px 8px',
-          border: '1px solid #e0e0e0',
-          borderRadius: '4px',
-          backgroundColor: '#fafafa'
-        }}>
-          <Chip
-            label={getFieldDisplayName(sizeField)}
-            onDelete={onRemove}
-            deleteIcon={<CloseIcon />}
-            size="small"
-            sx={{
-              ...getChipStyles(),
-              flex: 1,
-              justifyContent: 'space-between',
-              maxWidth: '100%',
-              '& .MuiChip-label': {
-                fontSize: '12px',
-                fontWeight: 500,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              },
-              '&:hover': {
-                backgroundColor: '#f5f5f5',
-              }
+        <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+          <FieldChip
+            field={sizeField}
+            source="SIZE_ZONE"
+            onUpdate={(updated) => {
+              const f = Array.isArray(updated) ? updated[0] : updated;
+              onDrop(f, 'SIZE_ZONE');
             }}
+            onRemoveFromZone={() => onRemove()}
           />
         </Box>
       )}

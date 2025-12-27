@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { FieldChipProps } from './types';
 import ChipWithTooltip from './ChipWithTooltip';
 import FieldContextMenu from './FieldContextMenu';
@@ -6,6 +6,7 @@ import { useSelectionStore } from '../../../stores/selectionStore';
 import { useIsFieldSelected } from '../../../stores/useFieldSelected';
 import { useDragHandlers } from './useDragHandlers';
 import { useFieldSelection } from './useFieldSelection';
+import { FieldMenuConfig, getDefaultFieldMenuConfig } from './fieldMenuConfig';
 
 /**
  * FieldChip Component
@@ -26,7 +27,13 @@ import { useFieldSelection } from './useFieldSelection';
  * - Uses Zustand selectors for granular re-renders
  * - Only re-renders when THIS field's selection status changes
  */
-const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index, allFields }) => {
+const FieldChip: React.FC<
+  FieldChipProps & {
+    menuConfig?: FieldMenuConfig;
+    onRemoveFromZone?: (fieldIds: string[]) => void;
+    displayNameOverride?: string;
+  }
+> = ({ field, source, onUpdate, index, allFields, menuConfig, onRemoveFromZone, displayNameOverride }) => {
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
   
   // Granular subscription - only re-renders when THIS field's selection changes
@@ -70,6 +77,11 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index, a
   const selectedFieldsForMenu = menuPosition 
     ? getSelectedFieldsForSource(source).map((sf: any) => sf.field) 
     : [];
+
+  const effectiveMenuConfig = useMemo(
+    () => menuConfig ?? getDefaultFieldMenuConfig(source),
+    [menuConfig, source]
+  );
   
   return (
     <>
@@ -78,6 +90,7 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index, a
         source={source}
         isDragging={isDragging}
         isSelected={isSelected}
+        displayNameOverride={displayNameOverride}
         onClick={handleClick}
         onMouseDown={handleMouseDown}
         onContextMenu={handleContextMenu}
@@ -95,6 +108,8 @@ const FieldChip: React.FC<FieldChipProps> = ({ field, source, onUpdate, index, a
         menuPosition={menuPosition}
         onCloseMenu={handleCloseMenu}
         selectedFields={selectedFieldsForMenu}
+        menuConfig={effectiveMenuConfig}
+        onRemoveFromZone={onRemoveFromZone}
       />
     </>
   );

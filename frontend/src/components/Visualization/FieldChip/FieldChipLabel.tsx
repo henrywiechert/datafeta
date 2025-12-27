@@ -7,11 +7,12 @@ import { getFieldDisplayName } from '../../../utils/fieldUtils';
 interface FieldChipLabelProps {
   field: Field;
   source: DragSource;
+  displayNameOverride?: string;
 }
 
 const FieldChipLabel = forwardRef<HTMLSpanElement, FieldChipLabelProps>(
-  ({ field, source }, ref) => {
-    const fieldName = getFieldDisplayName(field);
+  ({ field, source, displayNameOverride }, ref) => {
+    const fieldName = displayNameOverride ?? getFieldDisplayName(field);
     const aggregationText = field.aggregation ? ` (${field.aggregation})` : '';
     const flavourText = ` [${field.flavour}]`;
     const dataTypeText = ` (${field.dataType})`;
@@ -47,8 +48,8 @@ const FieldChipLabel = forwardRef<HTMLSpanElement, FieldChipLabelProps>(
         {fieldName}
         {aggregationText}
         {sortIndicator}
-        {source !== 'AVAILABLE_FIELDS' && flavourText}
-        {source !== 'AVAILABLE_FIELDS' && dataTypeText}
+        {isOnAxis && flavourText}
+        {isOnAxis && dataTypeText}
       </span>
     );
   }
@@ -66,6 +67,7 @@ export default React.memo(FieldChipLabel, (prevProps, nextProps) => {
     prevProps.field.type === nextProps.field.type &&
     prevProps.field.barSortOrder === nextProps.field.barSortOrder &&
     prevProps.source === nextProps.source &&
+    prevProps.displayNameOverride === nextProps.displayNameOverride &&
     // @ts-ignore - is_virtual is not in Field type but we check it
     (prevProps.field as any).is_virtual === (nextProps.field as any).is_virtual
   );

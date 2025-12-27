@@ -1,9 +1,8 @@
 import React from 'react';
-import { Chip, Box } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import { Box } from '@mui/material';
 import { Field, DragSource } from '../../../types';
 import { PropertyDropZone } from '../Properties';
-import { getFieldDisplayName } from '../../../utils/fieldUtils';
+import FieldChip from '../FieldChip';
 import styles from './ColorDropZone.module.css';
 
 interface ColorDropZoneProps {
@@ -42,24 +41,6 @@ const ColorDropZone: React.FC<ColorDropZoneProps> = ({
     }
   };
 
-  // Get chip styling based on field flavour
-  const getChipStyles = () => {
-    if (!colorField) return {};
-    
-    if (colorField.flavour === 'discrete') {
-      return {
-        backgroundColor: '#e3f2fd',
-        border: '1px solid #1976d2',
-      };
-    } else if (colorField.flavour === 'continuous') {
-      return {
-        backgroundColor: '#e8f5e8',
-        border: '1px solid #388e3c',
-      };
-    }
-    return {};
-  };
-
   return (
     <PropertyDropZone
       hasContent={colorField !== null}
@@ -68,19 +49,14 @@ const ColorDropZone: React.FC<ColorDropZoneProps> = ({
     >
       {colorField && (
         <Box className={styles.chipContainer}>
-          <Chip
-            label={getFieldDisplayName(colorField)}
-            onDelete={onRemove}
-            deleteIcon={<CloseIcon />}
-            size="small"
-            className={styles.chip}
-            sx={{
-              ...getChipStyles(),
-              '& .MuiChip-label': {
-                fontSize: '12px',
-                fontWeight: 500,
-              },
+          <FieldChip
+            field={colorField}
+            source="COLOR_ZONE"
+            onUpdate={(updated) => {
+              const f = Array.isArray(updated) ? updated[0] : updated;
+              onDrop(f, 'COLOR_ZONE');
             }}
+            onRemoveFromZone={() => onRemove()}
           />
         </Box>
       )}

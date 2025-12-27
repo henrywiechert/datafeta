@@ -22,6 +22,7 @@ interface ChipWithTooltipProps {
   isSelected?: boolean;
   isInvalidOnAxis?: boolean;
   dragCount?: number; // Number of fields being dragged (for visual feedback)
+  displayNameOverride?: string;
 }
 
 const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
@@ -35,7 +36,8 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
   isDragging,
   isSelected = false,
   isInvalidOnAxis = false,
-  dragCount
+  dragCount,
+  displayNameOverride
 }) => {
   // Create a stable key for field properties to minimize re-renders
   const fieldPropertiesKey = useMemo(() => 
@@ -69,8 +71,9 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
       ref={chipLabelRef}
       field={field}
       source={source}
+      displayNameOverride={displayNameOverride}
     />
-  ), [field, source]);
+  ), [field, source, displayNameOverride]);
 
   // Chip props
   const chipProps = useMemo(() => {
@@ -262,7 +265,8 @@ export default React.memo(ChipWithTooltip, (prevProps, nextProps) => {
     prevProps.isDragging === nextProps.isDragging &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isInvalidOnAxis === nextProps.isInvalidOnAxis &&
-    prevProps.dragCount === nextProps.dragCount
+    prevProps.dragCount === nextProps.dragCount &&
+    prevProps.displayNameOverride === nextProps.displayNameOverride
     // Note: onContextMenu, onDragStart, onDragEnd, onClick are wrapped in useCallback in parent
   );
 });

@@ -4,6 +4,7 @@ import { applyFieldUpdateRules } from './utils';
 import { DragSource } from './types';
 import ContextMenu from '../ContextMenu';
 import FieldMenuItems from './FieldMenuItems';
+import { FieldMenuConfig } from './fieldMenuConfig';
 
 interface FieldContextMenuProps {
   field: Field;
@@ -12,6 +13,8 @@ interface FieldContextMenuProps {
   menuPosition: { x: number; y: number } | null;
   onCloseMenu: () => void;
   selectedFields?: Field[]; // For bulk editing
+  menuConfig: FieldMenuConfig;
+  onRemoveFromZone?: (fieldIds: string[]) => void;
 }
 
 const FieldContextMenu: React.FC<FieldContextMenuProps> = ({ 
@@ -20,7 +23,9 @@ const FieldContextMenu: React.FC<FieldContextMenuProps> = ({
   onUpdate, 
   menuPosition, 
   onCloseMenu,
-  selectedFields = []
+  selectedFields = [],
+  menuConfig,
+  onRemoveFromZone,
 }) => {
   const handleUpdate = useCallback((updates: Partial<Field>) => {
     // Always work with an array - single field is just an array of length 1
@@ -52,6 +57,9 @@ const FieldContextMenu: React.FC<FieldContextMenuProps> = ({
         source={source}
         onUpdate={handleUpdate}
         selectedFields={selectedFields}
+        menuConfig={menuConfig}
+        onRemoveFromZone={onRemoveFromZone}
+        onRequestClose={onCloseMenu}
       />
     </ContextMenu>
   );

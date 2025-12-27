@@ -1,26 +1,9 @@
 import React from 'react';
-import { Box, Typography, Chip, ToggleButton, ToggleButtonGroup, Switch, styled } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import { Box, Typography, ToggleButton, ToggleButtonGroup, Switch } from '@mui/material';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import { Field, DataLabelMode } from '../../../types';
-import { getFieldDisplayName } from '../../../utils/fieldUtils';
-import { getChipStyles, parseDragData } from './overrideUtils';
-
-const TruncatedChip = styled(Chip)({
-  minWidth: 0,
-  display: 'inline-flex',
-  alignItems: 'center',
-  '& .MuiChip-label': {
-    flexGrow: 1,
-    textAlign: 'left',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  '& .MuiChip-deleteIcon': {
-    flexShrink: 0,
-  },
-});
+import FieldChip from '../FieldChip';
+import { parseDragData } from './overrideUtils';
 
 const LABEL_MODE_OPTIONS: { value: DataLabelMode; label: string }[] = [
   { value: 'inherit', label: 'Inherit' },
@@ -101,22 +84,18 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
                 }}
               >
                 {labelFields.map((field: Field) => {
-                  const labelText = getFieldDisplayName(field);
                   return (
-                    <TruncatedChip
+                    <FieldChip
                       key={field.id}
-                      label={labelText}
-                      title={labelText}
-                      onDelete={() => onLabelRemove(field.id)}
-                      deleteIcon={<CloseIcon />}
-                      size="small"
-                      sx={{
-                        height: 26,
-                        fontSize: '0.75rem',
-                        ...(labelFields.length === 1
-                          ? { flex: 1 }
-                          : { maxWidth: 140 }),
-                        ...getChipStyles(field),
+                      field={field}
+                      source="LABEL_ZONE"
+                      onUpdate={(updated) => {
+                        const f = Array.isArray(updated) ? updated[0] : updated;
+                        // For override label fields, update by re-dropping (replacement semantics handled upstream)
+                        onLabelDrop(f);
+                      }}
+                      onRemoveFromZone={(ids) => {
+                        ids.forEach((id) => onLabelRemove(id));
                       }}
                     />
                   );
