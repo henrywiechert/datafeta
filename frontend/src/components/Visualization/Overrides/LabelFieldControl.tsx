@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, IconButton, Popover, SvgIcon, ToggleButton, ToggleButtonGroup, Switch, Typography } from '@mui/material';
+import { Box, IconButton, Popover, SvgIcon, ToggleButton, ToggleButtonGroup, Switch, Typography, Tooltip } from '@mui/material';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import { Field, DataLabelMode } from '../../../types';
 import FieldChip from '../FieldChip';
@@ -71,15 +71,7 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
   };
 
   return (
-    <Box sx={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      gap: 0.5,
-      p: 0.75,
-      border: '1px solid #d0d0d0',
-      borderRadius: '4px',
-      backgroundColor: '#fafafa'
-    }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
       <Box
         sx={{
           display: 'grid',
@@ -89,18 +81,21 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
         }}
       >
         {/* Icon opens popover for enable/disable (and future options) */}
-        <IconButton
-          size="small"
-          sx={{ width: 28, height: 28 }}
-          onClick={(e) => setAnchorEl(e.currentTarget)}
-        >
-          <TextInSquareIcon fontSize="small" />
-        </IconButton>
+        <Tooltip title="Labels" placement="top" arrow enterDelay={500} leaveDelay={100}>
+          <IconButton
+            size="small"
+            sx={{ width: 28, height: 28 }}
+            onClick={(e) => setAnchorEl(e.currentTarget)}
+          >
+            <TextInSquareIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
 
         <Box sx={{ minWidth: 0 }}>
           <PropertyDropZone
             hasContent={labelFields.length > 0}
             emptyMessage="Drag fields"
+            variant="plain"
             onDrop={handleDrop}
           >
             {labelFields.length > 0 && (
@@ -111,10 +106,7 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
                   gap: 0.5,
                   minWidth: 0,
                   width: '100%',
-                  // Keep dense even with many labels
-                  maxHeight: 48,
-                  overflowY: 'auto',
-                  overflowX: 'hidden',
+                  alignItems: 'center',
                 }}
               >
                 {labelFields.map((field: Field) => {
@@ -148,47 +140,55 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
         PaperProps={{ sx: { p: 1, width: 260 } }}
       >
-        {showLabelsEnabled && onLabelsEnabledChange ? (
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-            <Typography variant="body2">Show labels</Typography>
-            <Switch
-              size="small"
-              checked={labelsEnabled}
-              onChange={(e) => onLabelsEnabledChange(e.target.checked)}
-            />
-          </Box>
-        ) : (
-          <Typography variant="caption" sx={{ color: '#666' }}>
-            Label options (coming soon)
-          </Typography>
-        )}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {showLabelsEnabled && onLabelsEnabledChange && (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+              <Typography variant="body2">Show labels</Typography>
+              <Switch
+                size="small"
+                checked={labelsEnabled}
+                onChange={(e) => onLabelsEnabledChange(e.target.checked)}
+              />
+            </Box>
+          )}
+
+          {showDataLabelMode && onDataLabelModeChange && (
+            <Box>
+              <Typography variant="body2" sx={{ mb: 0.5 }}>
+                Mode
+              </Typography>
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={dataLabelMode}
+                onChange={handleLabelModeChange}
+                sx={{
+                  height: 26,
+                  '& .MuiToggleButton-root': {
+                    py: 0.25,
+                    px: 1,
+                    fontSize: '0.7rem',
+                    textTransform: 'none',
+                  },
+                }}
+              >
+                {LABEL_MODE_OPTIONS.map((opt) => (
+                  <ToggleButton key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+            </Box>
+          )}
+
+          {!showLabelsEnabled && !showDataLabelMode && (
+            <Typography variant="caption" sx={{ color: '#666' }}>
+              Label options (coming soon)
+            </Typography>
+          )}
+        </Box>
       </Popover>
 
-      {showDataLabelMode && onDataLabelModeChange && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pl: 6.5 }}>
-          <ToggleButtonGroup
-            exclusive
-            size="small"
-            value={dataLabelMode}
-            onChange={handleLabelModeChange}
-            sx={{ 
-              height: 24,
-              '& .MuiToggleButton-root': { 
-                py: 0.25, 
-                px: 1,
-                fontSize: '0.7rem',
-                textTransform: 'none'
-              }
-            }}
-          >
-            {LABEL_MODE_OPTIONS.map((opt) => (
-              <ToggleButton key={opt.value} value={opt.value}>
-                {opt.label}
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
-        </Box>
-      )}
     </Box>
   );
 };

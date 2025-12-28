@@ -9,6 +9,9 @@ export interface PropertyDropZoneProps {
   /** Message to display when empty */
   emptyMessage: string;
   
+  /** Visual variant for styling */
+  variant?: 'default' | 'plain';
+
   /** Content to display when filled */
   children?: React.ReactNode;
   
@@ -25,6 +28,7 @@ export interface PropertyDropZoneProps {
 export const PropertyDropZone: React.FC<PropertyDropZoneProps> = ({
   hasContent,
   emptyMessage,
+  variant = 'default',
   children,
   onDragOver,
   onDragLeave,
@@ -55,7 +59,7 @@ export const PropertyDropZone: React.FC<PropertyDropZoneProps> = ({
 
   return (
     <Box
-      className={`${styles.dropZone} ${hasContent ? styles.hasContent : ''} ${
+      className={`${styles.dropZone} ${variant === 'plain' ? styles.plain : ''} ${hasContent ? styles.hasContent : ''} ${
         isOver ? styles.dragOver : ''
       }`}
       onDragOver={handleDragOver}

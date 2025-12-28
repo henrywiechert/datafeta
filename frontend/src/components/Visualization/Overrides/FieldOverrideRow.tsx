@@ -28,9 +28,14 @@ const FieldOverrideRow: React.FC<FieldOverrideRowProps> = ({
   return (
     <Box
       sx={{
-        borderBottom: '1px solid #e0e0e0',
-        mb: 0.5,
+        // Subtle frame only when expanded (helps scan/understand the open "card")
+        border: isExpanded ? '1px solid rgba(0,0,0,0.18)' : undefined,
+        borderBottom: isExpanded ? undefined : '1px solid #e0e0e0',
+        borderRadius: isExpanded ? 2 : 0,
+        overflow: isExpanded ? 'hidden' : 'visible',
+        mb: isExpanded ? 0.75 : 0.5,
         backgroundColor: isExpanded ? '#fafafa' : 'transparent',
+        boxShadow: isExpanded ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
       }}
     >
       <Box

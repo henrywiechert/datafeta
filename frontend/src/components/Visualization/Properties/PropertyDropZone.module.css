@@ -39,3 +39,37 @@
   width: 100%;
   min-width: 0;
 }
+
+/* Plain variant for dense override controls: no frame/background */
+.plain {
+  border: none;
+  background-color: transparent;
+  padding: 0;
+  min-height: 22px;
+  min-width: 0;
+}
+
+.plain.hasContent {
+  border: none;
+  background-color: transparent;
+  padding: 0;
+}
+
+.plain.dragOver {
+  border: none;
+  background-color: rgba(25, 118, 210, 0.08);
+}
+
+.plain .emptyMessage {
+  justify-content: flex-start;
+  color: rgba(0, 0, 0, 0.5);
+  font-weight: 400;
+  min-height: 22px;
+}
+
+.plain .content {
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  min-height: 22px;
+}

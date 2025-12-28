@@ -82,7 +82,7 @@ const FieldOverridesPanel: React.FC = () => {
         field: t.field as Field,
       }));
       return [
-        { id: '__all__', label: 'All', axis: undefined as 'x' | 'y' | undefined, field: undefined as unknown as Field },
+        { id: '__all__', label: '', axis: undefined as 'x' | 'y' | undefined, field: undefined as unknown as Field },
         ...fieldRows,
       ];
     },
@@ -102,7 +102,18 @@ const FieldOverridesPanel: React.FC = () => {
     const effectiveManualSize = override.manualSize ?? manualSize ?? 10;
 
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          // Visible separation between sections without boxy cards
+          '& > * + *': {
+            borderTop: '1px solid rgba(0,0,0,0.18)',
+            pt: 0.75,
+            mt: 0.75,
+          },
+        }}
+      >
         <ChartTypeControl
           chartType={override.chartType}
           onChange={(chartType) => handleUpdateOverride(targetField.id, { chartType })}
@@ -189,7 +200,21 @@ const FieldOverridesPanel: React.FC = () => {
     const effectiveColorBias = colorBias ?? 0;
 
     return (
-      <Box sx={{ p: 0.75, pt: 0.5, pb: 0.5, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+      <Box
+        sx={{
+          p: 0.75,
+          pt: 0.5,
+          pb: 0.5,
+          display: 'flex',
+          flexDirection: 'column',
+          // Visible separation between sections without boxy cards
+          '& > * + *': {
+            borderTop: '1px solid rgba(0,0,0,0.18)',
+            pt: 0.75,
+            mt: 0.75,
+          },
+        }}
+      >
         <ChartTypeControl
           chartType={globalChartType ?? undefined}
           onChange={(chartType) => {

@@ -17,7 +17,6 @@ import {
   sequentialSchemes,
   divergingSchemes,
 } from '../../../config/colorSchemes';
-import styles from './ColorSchemeSelector.module.css';
 
 interface ColorPalettePopoverProps {
   /** When fieldFlavour is null, the palette acts as a manual color picker */
@@ -83,9 +82,24 @@ const ColorPalettePopover: React.FC<ColorPalettePopoverProps> = ({
     return [];
   }, [fieldFlavour]);
 
+  const paperSx = useMemo(() => {
+    const isManualOnly = fieldFlavour === null;
+    return {
+      p: 0.5,
+      // Manual picker should be compact; schemes need more room.
+      width: isManualOnly ? 'fit-content' : 280,
+      maxWidth: 'calc(100vw - 16px)',
+      borderRadius: 1,
+    } as const;
+  }, [fieldFlavour]);
+
   return (
     <>
-      <Tooltip title={fieldFlavour ? 'Change color scheme' : 'Pick a fixed color'}>
+      <Tooltip
+        title={fieldFlavour ? 'Change color scheme' : 'Pick a fixed color'}
+        enterDelay={500}
+        leaveDelay={100}
+      >
         <IconButton
           size="small"
           onClick={handleOpen}
@@ -104,21 +118,26 @@ const ColorPalettePopover: React.FC<ColorPalettePopoverProps> = ({
         open={open}
         anchorEl={anchorEl}
         onClose={handleClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-        PaperProps={{ sx: { p: 1, width: 320 } }}
+        // Open "inward" (to the left) so it doesn't run off the right edge of the panel
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        PaperProps={{
+          sx: paperSx,
+        }}
       >
         {/* No field: manual color picker */}
         {fieldFlavour === null ? (
-          <Box sx={{ p: 0.5 }}>
-            <Typography variant="caption" sx={{ display: 'block', mb: 0.75, fontWeight: 600, color: '#666' }}>
+          <Box sx={{ p: 0.25 }}>
+            <Typography variant="caption" sx={{ display: 'block', mb: 0.5, fontWeight: 600, color: '#666' }}>
               Color
             </Typography>
             <Box
               sx={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(5, 1fr)',
+                // Use fixed-size columns so spacing is controlled by `gap` (avoid huge 1fr cell spacing)
+                gridTemplateColumns: 'repeat(5, 28px)',
                 gap: '6px',
+                justifyContent: 'start',
               }}
             >
               {PREDEFINED_COLORS.map((c) => (
@@ -150,9 +169,18 @@ const ColorPalettePopover: React.FC<ColorPalettePopoverProps> = ({
             {/* Scheme chooser */}
             {schemeGroups.map((group, groupIdx) => (
               <Box key={group.label}>
-                {groupIdx > 0 && <Divider sx={{ my: 1 }} />}
-                <Box className={styles.groupHeader}>
-                  <Typography variant="caption" className={styles.groupLabel}>
+                {groupIdx > 0 && <Divider sx={{ my: 0.5 }} />}
+                <Box sx={{ px: 1, py: 0.5, backgroundColor: '#f5f5f5' }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontWeight: 600,
+                      color: '#666',
+                      textTransform: 'uppercase',
+                      fontSize: '10px',
+                      letterSpacing: '0.5px',
+                    }}
+                  >
                     {group.label}
                   </Typography>
                 </Box>
@@ -164,20 +192,35 @@ const ColorPalettePopover: React.FC<ColorPalettePopoverProps> = ({
                       // Keep popover open; user might also adjust bias.
                     }}
                     selected={scheme.id === currentSchemeId}
-                    className={styles.menuItem}
                     disabled={!onSchemeChange}
+                    sx={{
+                      py: 0.5,
+                      px: 1,
+                      '&.Mui-selected': {
+                        backgroundColor: 'rgba(25,118,210,0.08)',
+                      },
+                    }}
                   >
-                    <Box className={styles.schemeOption}>
-                      <Box className={styles.schemeInfo}>
-                        <Box className={styles.schemeName}>
+                    <Box sx={{ width: '100%' }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', fontSize: 12, fontWeight: 500, color: '#212121' }}>
                           {scheme.name}
                           {scheme.id === currentSchemeId && (
                             <CheckIcon fontSize="small" sx={{ ml: 0.5, color: '#1976d2' }} />
                           )}
                         </Box>
-                        <Box className={styles.swatches}>
+                        <Box sx={{ display: 'flex', gap: '2px' }}>
                           {scheme.colors.slice(0, 8).map((color, idx) => (
-                            <Box key={idx} className={styles.swatch} sx={{ backgroundColor: color }} />
+                            <Box
+                              key={idx}
+                              sx={{
+                                width: 16,
+                                height: 10,
+                                borderRadius: 2,
+                                backgroundColor: color,
+                                border: '1px solid rgba(0, 0, 0, 0.1)',
+                              }}
+                            />
                           ))}
                         </Box>
                       </Box>
@@ -190,7 +233,7 @@ const ColorPalettePopover: React.FC<ColorPalettePopoverProps> = ({
             {/* Bias (only for continuous) */}
             {fieldFlavour === 'continuous' && typeof colorBias === 'number' && onBiasChange && (
               <>
-                <Divider sx={{ my: 1 }} />
+                <Divider sx={{ my: 0.5 }} />
                 <Typography variant="caption" sx={{ display: 'block', px: 1, pb: 0.25, fontWeight: 600, color: '#666' }}>
                   Bias
                 </Typography>
