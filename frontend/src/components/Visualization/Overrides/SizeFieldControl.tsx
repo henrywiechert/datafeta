@@ -1,11 +1,17 @@
 import React, { useState } from 'react';
-import { Box, IconButton, Popover } from '@mui/material';
-import PhotoSizeSelectLargeIcon from '@mui/icons-material/PhotoSizeSelectLarge';
+import { Box, IconButton, Popover, SvgIcon } from '@mui/material';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import SizeRangeControl from '../Size/SizeRangeControl';
 import { Field } from '../../../types';
 import FieldChip from '../FieldChip';
 import { parseDragData } from './overrideUtils';
+
+const TableauSizeIcon: React.FC<{ fontSize?: 'inherit' | 'small' | 'medium' | 'large' }> = ({ fontSize }) => (
+  <SvgIcon fontSize={fontSize} viewBox="0 0 24 24">
+    <circle cx="10" cy="13" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
+    <circle cx="15.5" cy="10" r="6" fill="none" stroke="currentColor" strokeWidth="1.8" opacity="0.9" />
+  </SvgIcon>
+);
 
 interface SizeFieldControlProps {
   field: Field | null;
@@ -66,7 +72,7 @@ const SizeFieldControl: React.FC<SizeFieldControlProps> = ({
       >
         {/* Size icon opens the size slider popover */}
         <IconButton size="small" sx={{ width: 28, height: 28 }} onClick={handleOpenPopover}>
-          <PhotoSizeSelectLargeIcon sx={{ fontSize: 18 }} />
+          <TableauSizeIcon fontSize="small" />
         </IconButton>
         <Box sx={{ minWidth: 0 }}>
           <PropertyDropZone
