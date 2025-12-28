@@ -10,6 +10,7 @@ import { useFieldOverrides } from './useFieldOverrides';
 import ColorFieldControl from './ColorFieldControl';
 import SizeFieldControl from './SizeFieldControl';
 import LabelFieldControl from './LabelFieldControl';
+import TooltipFieldControl from './TooltipFieldControl';
 import ChartTypeControl from './ChartTypeControl';
 import FieldOverrideRow from './FieldOverrideRow';
 
@@ -32,6 +33,7 @@ const FieldOverridesPanel: React.FC = () => {
     manualSize,
     labelFields,
     labelsEnabled,
+    tooltipFields,
     globalChartType,
     measureValuesSourceFields,
   } = state as any;
@@ -275,6 +277,24 @@ const FieldOverridesPanel: React.FC = () => {
           onLabelsEnabledChange={(enabled) => {
             recordAction(getUndoableSnapshot());
             dispatch({ type: 'SET_LABELS_ENABLED', payload: enabled });
+          }}
+        />
+
+        <TooltipFieldControl
+          tooltipFields={(tooltipFields as Field[]) || []}
+          onTooltipDrop={(field, _source) => {
+            recordAction(getUndoableSnapshot());
+            const current = (tooltipFields as Field[]) || [];
+            if (current.some((f) => f.columnName === field.columnName)) return;
+            dispatch({ type: 'ADD_TOOLTIP_FIELD', payload: field });
+          }}
+          onTooltipRemove={(fieldId) => {
+            recordAction(getUndoableSnapshot());
+            dispatch({ type: 'REMOVE_TOOLTIP_FIELD', payload: fieldId });
+          }}
+          onUpdateField={(field) => {
+            recordAction(getUndoableSnapshot());
+            dispatch({ type: 'UPDATE_FIELD', payload: field });
           }}
         />
       </Box>
