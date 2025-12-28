@@ -1,10 +1,23 @@
 import React, { useState } from 'react';
-import { Box, IconButton, Popover, ToggleButton, ToggleButtonGroup, Switch, Typography } from '@mui/material';
-import LabelOutlinedIcon from '@mui/icons-material/LabelOutlined';
+import { Box, IconButton, Popover, SvgIcon, ToggleButton, ToggleButtonGroup, Switch, Typography } from '@mui/material';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import { Field, DataLabelMode } from '../../../types';
 import FieldChip from '../FieldChip';
 import { parseDragData } from './overrideUtils';
+
+const TextInSquareIcon: React.FC<{ fontSize?: 'inherit' | 'small' | 'medium' | 'large' }> = ({ fontSize }) => (
+  <SvgIcon fontSize={fontSize} viewBox="0 0 24 24">
+    <rect x="4.5" y="4.5" width="15" height="15" rx="2" ry="2" fill="none" stroke="currentColor" strokeWidth="1.8" />
+    {/* Simple "T" glyph */}
+    <path
+      d="M8 9h8M12 9v8"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+    />
+  </SvgIcon>
+);
 
 const LABEL_MODE_OPTIONS: { value: DataLabelMode; label: string }[] = [
   { value: 'inherit', label: 'Inherit' },
@@ -81,7 +94,7 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
           sx={{ width: 28, height: 28 }}
           onClick={(e) => setAnchorEl(e.currentTarget)}
         >
-          <LabelOutlinedIcon sx={{ fontSize: 18 }} />
+          <TextInSquareIcon fontSize="small" />
         </IconButton>
 
         <Box sx={{ minWidth: 0 }}>
