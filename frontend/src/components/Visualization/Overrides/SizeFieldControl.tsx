@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, IconButton, Popover, SvgIcon } from '@mui/material';
+import { Box, IconButton, Popover, SvgIcon, Tooltip } from '@mui/material';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import SizeRangeControl from '../Size/SizeRangeControl';
 import { Field } from '../../../types';
@@ -52,16 +52,7 @@ const SizeFieldControl: React.FC<SizeFieldControlProps> = ({
   };
 
   return (
-    <Box sx={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      gap: 0.5, 
-      mb: 0,
-      p: 0.75,
-      border: '1px solid #d0d0d0',
-      borderRadius: '4px',
-      backgroundColor: '#fafafa'
-    }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
       <Box
         sx={{
           display: 'grid',
@@ -71,13 +62,16 @@ const SizeFieldControl: React.FC<SizeFieldControlProps> = ({
         }}
       >
         {/* Size icon opens the size slider popover */}
-        <IconButton size="small" sx={{ width: 28, height: 28 }} onClick={handleOpenPopover}>
-          <TableauSizeIcon fontSize="small" />
-        </IconButton>
+        <Tooltip title="Size" placement="top" arrow enterDelay={500} leaveDelay={100}>
+          <IconButton size="small" sx={{ width: 28, height: 28 }} onClick={handleOpenPopover}>
+            <TableauSizeIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
         <Box sx={{ minWidth: 0 }}>
           <PropertyDropZone
             hasContent={field !== null}
             emptyMessage="Drag field"
+            variant="plain"
             onDrop={handleDrop}
           >
             {field && (
