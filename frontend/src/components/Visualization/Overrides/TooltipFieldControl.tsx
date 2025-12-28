@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, IconButton, SvgIcon } from '@mui/material';
+import { Box, IconButton, SvgIcon, Tooltip } from '@mui/material';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import { DragSource, Field } from '../../../types';
 import FieldChip from '../FieldChip';
@@ -63,17 +63,7 @@ const TooltipFieldControl: React.FC<TooltipFieldControlProps> = ({
   };
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 0.5,
-        p: 0.75,
-        border: '1px solid #d0d0d0',
-        borderRadius: '4px',
-        backgroundColor: '#fafafa',
-      }}
-    >
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
       <Box
         sx={{
           display: 'grid',
@@ -82,14 +72,17 @@ const TooltipFieldControl: React.FC<TooltipFieldControlProps> = ({
           gap: 0.5,
         }}
       >
-        <IconButton size="small" sx={{ width: 28, height: 28 }} onClick={() => {}}>
-          <TooltipIcon fontSize="small" />
-        </IconButton>
+        <Tooltip title="Tooltip" placement="top" arrow enterDelay={500} leaveDelay={100}>
+          <IconButton size="small" sx={{ width: 28, height: 28 }} onClick={() => {}}>
+            <TooltipIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
 
         <Box sx={{ minWidth: 0 }}>
           <PropertyDropZone
             hasContent={tooltipFields.length > 0}
             emptyMessage="Drag fields"
+            variant="plain"
             onDrop={handleDrop}
           >
             {tooltipFields.length > 0 && (
@@ -100,6 +93,7 @@ const TooltipFieldControl: React.FC<TooltipFieldControlProps> = ({
                   gap: 0.5,
                   minWidth: 0,
                   width: '100%',
+                  alignItems: 'center',
                 }}
               >
                 {tooltipFields.map((field) => (

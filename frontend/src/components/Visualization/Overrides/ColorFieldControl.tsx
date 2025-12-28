@@ -37,16 +37,7 @@ const ColorFieldControl: React.FC<ColorFieldControlProps> = ({
   };
 
   return (
-    <Box sx={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      gap: 0.5, 
-      mb: 0,
-      p: 0.75,
-      border: '1px solid #d0d0d0',
-      borderRadius: '4px',
-      backgroundColor: '#fafafa'
-    }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
       <Box
         sx={{
           display: 'grid',
@@ -69,6 +60,7 @@ const ColorFieldControl: React.FC<ColorFieldControlProps> = ({
           <PropertyDropZone
             hasContent={field !== null}
             emptyMessage="Drag field"
+            variant="plain"
             onDrop={handleDrop}
           >
             {field && (

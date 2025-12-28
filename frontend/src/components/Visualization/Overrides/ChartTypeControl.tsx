@@ -29,21 +29,34 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
   const value = chartType ?? 'auto';
 
   return (
-    <Box sx={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      gap: 0.5, 
-      mb: 0,
-      p: 0.75,
-      border: '1px solid #d0d0d0',
-      borderRadius: '4px',
-      backgroundColor: '#fafafa'
-    }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        {/* Dense icon-only label (no click behavior yet) */}
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: 'auto minmax(0, 1fr)',
+        alignItems: 'center',
+        gap: 0.5,
+      }}
+    >
+      {/* Dense icon-only label (no click behavior yet) - OUTSIDE the framed selector */}
+      <Tooltip title="Chart type" placement="top" arrow enterDelay={500} leaveDelay={100}>
         <IconButton size="small" sx={{ width: 28, height: 28 }} onClick={() => {}}>
           <InsertChartOutlinedIcon sx={{ fontSize: 18 }} />
         </IconButton>
+      </Tooltip>
+
+      {/* Framed selector */}
+      <Box
+        sx={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          border: '1px solid rgba(0, 0, 0, 0.18)',
+          borderRadius: '4px',
+          backgroundColor: 'rgba(255,255,255,0.6)',
+          overflow: 'hidden',
+          width: 'fit-content',
+          maxWidth: '100%',
+        }}
+      >
         <ToggleButtonGroup
           value={value}
           exclusive
@@ -54,7 +67,11 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
               padding: '2px 6px',
               minWidth: 28,
               height: 24,
-              border: '1px solid rgba(0, 0, 0, 0.12)',
+              border: 'none',
+              borderRadius: 0,
+              '& + .MuiToggleButton-root': {
+                borderLeft: '1px solid rgba(0, 0, 0, 0.12)',
+              },
               '&.Mui-selected': {
                 backgroundColor: 'primary.main',
                 color: 'white',
