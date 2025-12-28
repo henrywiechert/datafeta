@@ -1,5 +1,6 @@
-import React from 'react';
-import { Box, Typography, ToggleButton, ToggleButtonGroup, Switch } from '@mui/material';
+import React, { useState } from 'react';
+import { Box, IconButton, Popover, ToggleButton, ToggleButtonGroup, Switch, Typography } from '@mui/material';
+import LabelOutlinedIcon from '@mui/icons-material/LabelOutlined';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import { Field, DataLabelMode } from '../../../types';
 import FieldChip from '../FieldChip';
@@ -40,6 +41,9 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
   onDataLabelModeChange,
   onLabelsEnabledChange,
 }) => {
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const popoverOpen = Boolean(anchorEl);
+
   const handleDrop = (e: React.DragEvent) => {
     const { field: droppedField } = parseDragData(e);
     if (droppedField) {
@@ -63,11 +67,24 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
       borderRadius: '4px',
       backgroundColor: '#fafafa'
     }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-        <Typography variant="caption" sx={{ minWidth: 50, fontSize: '0.7rem', fontWeight: 500 }}>
-          Label
-        </Typography>
-        <Box sx={{ flex: 1, minWidth: 60 }}>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: 'auto minmax(0, 1fr)',
+          alignItems: 'center',
+          gap: 0.5,
+        }}
+      >
+        {/* Icon opens popover for enable/disable (and future options) */}
+        <IconButton
+          size="small"
+          sx={{ width: 28, height: 28 }}
+          onClick={(e) => setAnchorEl(e.currentTarget)}
+        >
+          <LabelOutlinedIcon sx={{ fontSize: 18 }} />
+        </IconButton>
+
+        <Box sx={{ minWidth: 0 }}>
           <PropertyDropZone
             hasContent={labelFields.length > 0}
             emptyMessage="Drag fields"
@@ -81,6 +98,10 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
                   gap: 0.5,
                   minWidth: 0,
                   width: '100%',
+                  // Keep dense even with many labels
+                  maxHeight: 48,
+                  overflowY: 'auto',
+                  overflowX: 'hidden',
                 }}
               >
                 {labelFields.map((field: Field) => {
@@ -104,15 +125,32 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
             )}
           </PropertyDropZone>
         </Box>
-        {showLabelsEnabled && onLabelsEnabledChange && (
-          <Switch
-            size="small"
-            checked={labelsEnabled}
-            onChange={(e) => onLabelsEnabledChange(e.target.checked)}
-            sx={{ ml: 0.5 }}
-          />
-        )}
       </Box>
+
+      <Popover
+        open={popoverOpen}
+        anchorEl={anchorEl}
+        onClose={() => setAnchorEl(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        PaperProps={{ sx: { p: 1, width: 260 } }}
+      >
+        {showLabelsEnabled && onLabelsEnabledChange ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+            <Typography variant="body2">Show labels</Typography>
+            <Switch
+              size="small"
+              checked={labelsEnabled}
+              onChange={(e) => onLabelsEnabledChange(e.target.checked)}
+            />
+          </Box>
+        ) : (
+          <Typography variant="caption" sx={{ color: '#666' }}>
+            Label options (coming soon)
+          </Typography>
+        )}
+      </Popover>
+
       {showDataLabelMode && onDataLabelModeChange && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pl: 6.5 }}>
           <ToggleButtonGroup
