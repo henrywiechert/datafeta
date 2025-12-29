@@ -1,8 +1,9 @@
 import React from 'react';
-import { Box, Button, CircularProgress, TextField, Typography } from '@mui/material';
+import { Box, CircularProgress, IconButton, TextField, Tooltip, Typography } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import AddIcon from '@mui/icons-material/Add';
 import styles from './TableAddPicker.module.css';
+import compactStyles from './CompactAutocomplete.module.css';
 
 type UnionTableRef = { database: string; table_name: string };
 
@@ -86,65 +87,67 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
         variant="subtitle2"
         fontWeight="bold"
         align="left"
-        fontSize="0.85rem"
-        gutterBottom
-        sx={{ marginBottom: 0.2 }}
+        fontSize="0.8rem"
+        sx={{ marginBottom: 0 }}
       >
         Add Table
       </Typography>
 
-      <Box className={styles.row}>
-        <Typography variant="subtitle2" className={styles.label}>
-          DB
-        </Typography>
+      {/* DB row */}
+      <div className={styles.grid}>
+        <span className={styles.label}>DB</span>
         <Autocomplete
           disablePortal
-          size="small"
           value={stagedDatabase || null}
           options={dbOptions}
           onChange={handleDatabaseChange}
           disabled={dbOptions.length === 0}
-          disableClearable={false}
-          autoHighlight
           isOptionEqualToValue={(option, optionValue) => option === optionValue}
-          sx={{ flexGrow: 1, '& .MuiInputBase-input': { fontSize: '0.8rem', padding: '4px 8px' } }}
-          ListboxProps={{ style: { maxHeight: 240 } }}
+          sx={{
+            // Targets the internal border element specifically
+            "& .MuiOutlinedInput-notchedOutline": {
+              border: "none", 
+            },
+            // Also remove the border when the input is focused
+            "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+              border: "none",
+            },
+            // Add your own single border to the root container if needed
+            border: "1px solid rgba(0, 0, 0, 0.23)",
+            borderRadius: "4px"
+          }}
+                  className={compactStyles.compact}
+          ListboxProps={{ className: 'compactListbox' }}
           renderInput={(params) => (
             <TextField
               {...params}
+              variant="outlined"
               placeholder="Search DB"
               size="small"
-              InputProps={{
-                ...params.InputProps,
-                endAdornment: <>{params.InputProps.endAdornment}</>,
-              }}
             />
           )}
           noOptionsText="No matches"
         />
-      </Box>
+        {/* Spacer to keep grid aligned with Table row */}
+        <span className={styles.spacer} />
+      </div>
 
-      <Box className={styles.row}>
-        <Typography variant="subtitle2" className={styles.label}>
-          Table
-        </Typography>
+      {/* Table row */}
+      <div className={styles.grid}>
+        <span className={styles.label}>Table</span>
         <Autocomplete
           disablePortal
-          size="small"
           value={stagedTable || null}
           options={filteredTableOptions}
           onChange={handleTableChange}
           disabled={!stagedDatabase}
-          disableClearable={false}
-          autoHighlight
           isOptionEqualToValue={(option, optionValue) => option === optionValue}
-          sx={{ flexGrow: 1, '& .MuiInputBase-input': { fontSize: '0.8rem', padding: '4px 8px' } }}
-          ListboxProps={{ style: { maxHeight: 240 } }}
+          className={compactStyles.compact}
+          ListboxProps={{ className: 'compactListbox' }}
           renderInput={(params) => (
             <TextField
               {...params}
               placeholder={stagedDatabase ? 'Search Table' : 'Select DB first'}
-              size="small"
               InputProps={{
                 ...params.InputProps,
                 endAdornment: (
@@ -158,23 +161,22 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
           )}
           noOptionsText={isLoadingTables ? 'Loading…' : 'No matches'}
         />
-      </Box>
-
-      <Box className={styles.actions}>
-        <Button
-          size="small"
-          variant="contained"
-          onClick={handleAdd}
-          disabled={!canAdd}
-          startIcon={<AddIcon />}
-        >
-          Add
-        </Button>
-      </Box>
+        <Tooltip title={canAdd ? 'Add table' : 'Select DB and table'} placement="right">
+          <span>
+            <IconButton
+              size="small"
+              onClick={handleAdd}
+              disabled={!canAdd}
+              className={styles.addButton}
+              aria-label="Add table"
+            >
+              <AddIcon />
+            </IconButton>
+          </span>
+        </Tooltip>
+      </div>
     </Box>
   );
 };
 
 export default TableAddPicker;
-
-
