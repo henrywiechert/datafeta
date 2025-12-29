@@ -6,6 +6,7 @@ import JoinTableSelector from './JoinTableSelector';
 import TableAddPicker from './TableAddPicker';
 import SelectedTablesList from './SelectedTablesList';
 import styles from './CompactMetadataSelector.module.css';
+import compactStyles from './CompactAutocomplete.module.css';
 
 type FilterableSelectProps = {
   label: string;
@@ -38,7 +39,18 @@ const FilterableSelect: React.FC<FilterableSelectProps> = ({
       <Typography
         variant="subtitle2"
         className={styles.categoryTitle}
-        sx={{ fontWeight: 'normal', minWidth: '40px', paddingRight: '0px' }}
+        sx={{ 
+          fontWeight: 500, 
+          fontSize: '0.7rem', 
+          minWidth: '36px', 
+          textAlign: 'right', 
+          paddingRight: '2px', 
+          color: 'rgba(0,0,0,0.55)',
+          display: 'flex',
+          alignItems: 'center',
+          height: '26px',
+          lineHeight: 1
+        }}
       >
         {label}
       </Typography>
@@ -52,11 +64,8 @@ const FilterableSelect: React.FC<FilterableSelectProps> = ({
         disableClearable={!allowEmpty}
         autoHighlight
         isOptionEqualToValue={(option, optionValue) => option === optionValue}
-        sx={{
-          flexGrow: 1,
-          '& .MuiInputBase-input': { fontSize: '0.8rem', padding: '4px 8px' },
-        }}
-        ListboxProps={{ style: { maxHeight: 240 } }}
+        className={compactStyles.compact}
+        ListboxProps={{ className: 'compactListbox' }}
         renderInput={(params) => (
           <TextField
             {...params}
