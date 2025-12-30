@@ -400,15 +400,23 @@ class UnionQueryBuilder:
             outer_sql = f"SELECT {', '.join(select_parts)} FROM (\n{union_sql}\n) AS union_result"
             self._logger.info("Applied outer aggregation for measure-only UNION query to get overall min/max/sum")
         elif needs_distinct and distinct_columns:
-            # Include source tracking columns in the SELECT even with DISTINCT
-            # They're excluded from the DISTINCT list but must be in the result
-            all_columns = distinct_columns + [
-                f"{quote_char}_source_database{quote_char}",
-                f"{quote_char}_source_table{quote_char}"
-            ]
-            columns_list = ", ".join(all_columns)
-            outer_sql = f"SELECT DISTINCT {columns_list} FROM (\n{union_sql}\n) AS union_result"
-            self._logger.info("Applied DISTINCT to filter value query in UNION mode (including source columns)")
+            # For fetch_filter_values queries, we want unique values across all tables
+            # so we should NOT include source tracking columns (they cause duplicates)
+            # For regular dimension-only queries, we include source columns for identification
+            if query_desc.fetch_filter_values:
+                columns_list = ", ".join(distinct_columns)
+                outer_sql = f"SELECT DISTINCT {columns_list} FROM (\n{union_sql}\n) AS union_result"
+                self._logger.info("Applied DISTINCT to filter value query in UNION mode (unique across all tables)")
+            else:
+                # Include source tracking columns in the SELECT even with DISTINCT
+                # They're excluded from the DISTINCT list but must be in the result
+                all_columns = distinct_columns + [
+                    f"{quote_char}_source_database{quote_char}",
+                    f"{quote_char}_source_table{quote_char}"
+                ]
+                columns_list = ", ".join(all_columns)
+                outer_sql = f"SELECT DISTINCT {columns_list} FROM (\n{union_sql}\n) AS union_result"
+                self._logger.info("Applied DISTINCT to dimension-only UNION query (including source columns)")
         else:
             outer_sql = f"SELECT * FROM (\n{union_sql}\n) AS union_result"
 
@@ -683,8 +691,12 @@ class UnionQueryBuilder:
         distinct_columns: List[str] = []
         if needs_distinct:
             for dim in query_desc.dimensions:
-                # Skip source tracking columns in distinct list
+                # For filter value queries, include source tracking columns when they ARE the dimension
+                # For other queries, skip them to avoid affecting DISTINCT on real data columns
                 if dim.field in ("_source_database", "_source_table"):
+                    if query_desc.fetch_filter_values:
+                        # Include source tracking column - we want unique values for the filter dropdown
+                        distinct_columns.append(f"{quote_char}{dim.field}{quote_char}")
                     continue
                 if dim.date_part and dim.date_mode:
                     col_name = f"{dim.field}_{dim.date_part}_{dim.date_mode}"
