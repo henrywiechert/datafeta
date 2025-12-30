@@ -46,10 +46,10 @@ export const applyFieldUpdateRules = (field: Field, updates: Partial<Field>): Fi
     newField.flavour = 'discrete';
   }
 
-  // Enforce constraint: datetime fields can only be measures
-  if (newField.dataType === 'datetime' && updates.type === 'measure') {
-    // Don't allow the change, keep it as dimension
-    return null;
+  // When datetime field becomes a measure, set appropriate default aggregation
+  if (newField.dataType === 'datetime' && updates.type === 'measure' && field.type === 'dimension') {
+    // Default to 'max' for datetime measures (latest timestamp)
+    newField.aggregation = 'max';
   }
 
   // If changing to string data type, force flavour to discrete
@@ -62,11 +62,8 @@ export const applyFieldUpdateRules = (field: Field, updates: Partial<Field>): Fi
     newField.flavour = 'discrete'; // Force it to remain discrete
   }
 
-  // If changing to datetime data type, force type to dimension
-  if (updates.dataType === 'datetime') {
-    newField.type = 'dimension';
-    delete newField.aggregation; // Remove any aggregation since it's now a dimension
-  }
+  // Datetime fields default to dimension, but can be changed to measure
+  // (No forced conversion - allow user to choose)
 
   // When changing from datetime to non-datetime dataType, clear datetime part info
   if (updates.dataType !== undefined && updates.dataType !== 'datetime') {
