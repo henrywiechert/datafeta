@@ -1,9 +1,33 @@
 import React from 'react';
-import { Box, CircularProgress, IconButton, TextField, Tooltip, Typography } from '@mui/material';
+import { Box, CircularProgress, IconButton, TextField, Tooltip, Typography, SxProps, Theme } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import AddIcon from '@mui/icons-material/Add';
 import styles from './TableAddPicker.module.css';
-import compactStyles from './CompactAutocomplete.module.css';
+
+// Shared styles for compact Autocomplete dropdowns
+const autocompleteListboxSx = {
+  padding: '2px 0',
+  '& .MuiAutocomplete-option': {
+    fontSize: '0.9rem',
+    padding: '1px 8px',
+    lineHeight: 1.2,
+  },
+};
+
+const autocompleteSx: SxProps<Theme> = {
+  '& .MuiInputBase-root': {
+    fontSize: '0.9rem',
+    height: 30,
+  },
+  '& .MuiOutlinedInput-input': {
+    padding: '4px 4px !important',
+    border: 'grey solid 1px',
+  },
+  '& .MuiOutlinedInput-notchedOutline': {
+    padding: '0 0px',   // key fix
+    visibility: 'hidden',
+  },
+};
 
 type UnionTableRef = { database: string; table_name: string };
 
@@ -83,19 +107,8 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
 
   return (
     <Box className={styles.container}>
-      <Typography
-        variant="subtitle2"
-        fontWeight="bold"
-        align="left"
-        fontSize="0.8rem"
-        sx={{ marginBottom: 0 }}
-      >
-        Add Table
-      </Typography>
-
       {/* DB row */}
       <div className={styles.grid}>
-        <span className={styles.label}>DB</span>
         <Autocomplete
           disablePortal
           value={stagedDatabase || null}
@@ -103,29 +116,13 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
           onChange={handleDatabaseChange}
           disabled={dbOptions.length === 0}
           isOptionEqualToValue={(option, optionValue) => option === optionValue}
-          sx={{
-            // Targets the internal border element specifically
-            "& .MuiOutlinedInput-notchedOutline": {
-              border: "none", 
-            },
-            // Also remove the border when the input is focused
-            "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-              border: "none",
-            },
-            // Add your own single border to the root container if needed
-            border: "1px solid rgba(0, 0, 0, 0.23)",
-            borderRadius: "4px"
-          }}
-                  className={compactStyles.compact}
-          ListboxProps={{ className: 'compactListbox' }}
           renderInput={(params) => (
             <TextField
               {...params}
-              variant="outlined"
-              placeholder="Search DB"
-              size="small"
             />
           )}
+          ListboxProps={{ sx: autocompleteListboxSx }}
+          sx={autocompleteSx}
           noOptionsText="No matches"
         />
         {/* Spacer to keep grid aligned with Table row */}
@@ -134,7 +131,6 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
 
       {/* Table row */}
       <div className={styles.grid}>
-        <span className={styles.label}>Table</span>
         <Autocomplete
           disablePortal
           value={stagedTable || null}
@@ -142,8 +138,6 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
           onChange={handleTableChange}
           disabled={!stagedDatabase}
           isOptionEqualToValue={(option, optionValue) => option === optionValue}
-          className={compactStyles.compact}
-          ListboxProps={{ className: 'compactListbox' }}
           renderInput={(params) => (
             <TextField
               {...params}
@@ -159,6 +153,8 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
               }}
             />
           )}
+          ListboxProps={{ sx: autocompleteListboxSx }}
+          sx={autocompleteSx}
           noOptionsText={isLoadingTables ? 'Loading…' : 'No matches'}
         />
         <Tooltip title={canAdd ? 'Add table' : 'Select DB and table'} placement="right">
