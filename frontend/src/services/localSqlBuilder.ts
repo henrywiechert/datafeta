@@ -201,11 +201,48 @@ export function buildAggregateSql(args: {
 
 export function applyPointBudgetSql(
   baseSql: string,
-  budget: { stratifyField?: string; maxRows: number; minPerStratum?: number }
+  budget: { 
+    stratifyField?: string; 
+    maxRows: number; 
+    minPerStratum?: number;
+    strategy?: 'none' | 'random' | 'stratified' | 'preserve_extremes';
+    preserveFields?: string[];
+  }
 ): string {
-  const { stratifyField, maxRows, minPerStratum = 0 } = budget;
+  const { stratifyField, maxRows, minPerStratum = 0, strategy, preserveFields } = budget;
   if (!baseSql) return baseSql;
 
+  // Handle preserve_extremes strategy for scatter plots
+  if (strategy === 'preserve_extremes' && preserveFields && preserveFields.length > 0) {
+    // Build extreme selects for each field (MIN and MAX)
+    const extremeSelects = preserveFields.flatMap(field => {
+      const qf = quoteIdent(field);
+      return [
+        `SELECT * FROM base WHERE ${qf} = (SELECT MIN(${qf}) FROM base)`,
+        `SELECT * FROM base WHERE ${qf} = (SELECT MAX(${qf}) FROM base)`,
+      ];
+    });
+    const extremesUnion = extremeSelects.join('\nUNION ALL\n');
+    const reservedForExtremes = preserveFields.length * 2;
+    const sampleLimit = Math.max(1, maxRows - reservedForExtremes);
+
+    return `
+WITH base AS (
+  ${baseSql}
+),
+extremes AS (
+${extremesUnion}
+),
+sample AS (
+  SELECT * FROM base ORDER BY random() LIMIT ${sampleLimit}
+)
+SELECT * FROM extremes
+UNION ALL
+SELECT * FROM sample
+    `.trim();
+  }
+
+  // Stratified sampling with discrete color/category field
   if (stratifyField) {
     const strat = quoteIdent(stratifyField);
     return `
@@ -225,6 +262,7 @@ WHERE rn <= greatest(${minPerStratum}, cast(${maxRows} * cat_cnt / total_cnt as 
     `.trim();
   }
 
+  // Fallback: random sampling
   return `SELECT * FROM (${baseSql}) AS base ORDER BY random() LIMIT ${maxRows}`;
 }
 

@@ -16,9 +16,12 @@ import { logSqlQuery } from '../devtools/queryLog';
 
 export interface PointBudgetOptions {
   isPointChart: boolean;
+  isScatter?: boolean;
   stratifyField?: string;
   maxPoints: number;
   minPerStratum: number;
+  strategy?: 'none' | 'random' | 'stratified' | 'preserve_extremes';
+  preserveFields?: string[];
 }
 
 export interface QueryExecutionOrchestratorInput {
@@ -187,6 +190,8 @@ class QueryExecutionOrchestrator {
             stratifyField: pointBudget.stratifyField || undefined,
             maxRows: pointBudget.maxPoints,
             minPerStratum: pointBudget.minPerStratum,
+            strategy: pointBudget.strategy,
+            preserveFields: pointBudget.preserveFields,
           });
         }
 
