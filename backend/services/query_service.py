@@ -599,6 +599,57 @@ SELECT * FROM (
 WHERE rn <= {target_expr}
 """.strip()
 
+        if strategy == "preserve_extremes":
+            # Preserve min/max rows for stable axis scales in scatter plots
+            # Identify which fields to preserve extremes for
+            preserve_fields = budget.preserve_fields
+            if not preserve_fields:
+                # Auto-detect: use continuous dimensions
+                preserve_fields = [
+                    d.field for d in query_desc.dimensions
+                    if d.flavour == 'continuous'
+                ]
+            
+            if not preserve_fields:
+                # No fields to preserve, fall back to random
+                logger.info("preserve_extremes: no continuous fields found, falling back to random")
+                strategy = "random"
+            else:
+                rand_func = "rand()" if db_type == "clickhouse" else "random()"
+                
+                # Build CTE-based query that preserves extremes
+                # For each field, get rows with MIN and MAX values
+                extreme_selects = []
+                for field in preserve_fields:
+                    qf = f"{quote_char}{field}{quote_char}"
+                    # Get rows with MIN value
+                    extreme_selects.append(
+                        f"SELECT * FROM base WHERE {qf} = (SELECT MIN({qf}) FROM base)"
+                    )
+                    # Get rows with MAX value
+                    extreme_selects.append(
+                        f"SELECT * FROM base WHERE {qf} = (SELECT MAX({qf}) FROM base)"
+                    )
+                
+                extremes_union = "\nUNION ALL\n".join(extreme_selects)
+                
+                # Reserve rows for extremes (2 per field: min and max)
+                reserved_for_extremes = len(preserve_fields) * 2
+                sample_limit = max(1, max_rows - reserved_for_extremes)
+                
+                return f"""WITH base AS (
+{base_sql}
+),
+extremes AS (
+{extremes_union}
+),
+sample AS (
+SELECT * FROM base ORDER BY {rand_func} LIMIT {sample_limit}
+)
+SELECT * FROM extremes
+UNION ALL
+SELECT * FROM sample""".strip()
+
         # Fallback: random global sample to max_rows
         rand_func = "rand" if db_type == "clickhouse" else "random"
         return f'SELECT * FROM (\n{base_sql}\n) AS base\nORDER BY {rand_func}()\nLIMIT {max_rows}'

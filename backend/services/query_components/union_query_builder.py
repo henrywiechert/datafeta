@@ -47,6 +47,85 @@ class UnionQueryBuilder:
             self._logger.warning(f"Could not fetch columns for {database}.{table_name}: {e}. Assuming all fields exist.")
             return set()  # Empty set means "don't filter" (assume all exist)
 
+    def _apply_result_budget(
+        self,
+        sql: str,
+        query_desc: QueryDescription,
+        *,
+        db_type: str,
+        quote_char: str,
+    ) -> str:
+        """
+        Apply result budget / sampling to the final UNION SQL.
+        
+        Supports strategies:
+        - 'none': No sampling
+        - 'random': Random sampling with ORDER BY rand() LIMIT n
+        - 'stratified': Proportional sampling across categories
+        - 'preserve_extremes': Include min/max rows for stable axis scales
+        """
+        budget = getattr(query_desc, "result_budget", None)
+        if not budget:
+            return sql
+        if not getattr(budget, "max_rows", None) or budget.strategy == "none":
+            return sql
+
+        # Only apply to "raw" queries (no measures = dimension-only scatter/tick plots)
+        if query_desc.measures:
+            return sql
+
+        max_rows = int(budget.max_rows)
+        strategy = budget.strategy
+        base_sql = sql.strip().rstrip(";")
+
+        if strategy == "preserve_extremes":
+            # Preserve min/max rows for stable axis scales in scatter plots
+            preserve_fields = budget.preserve_fields
+            if not preserve_fields:
+                # Auto-detect: use continuous dimensions
+                preserve_fields = [
+                    d.field for d in query_desc.dimensions
+                    if d.flavour == 'continuous'
+                ]
+
+            if not preserve_fields:
+                self._logger.info("preserve_extremes: no continuous fields found, falling back to random")
+                strategy = "random"
+            else:
+                rand_func = "rand()" if db_type == "clickhouse" else "random()"
+
+                # Build CTE-based query that preserves extremes
+                extreme_selects = []
+                for field in preserve_fields:
+                    qf = f"{quote_char}{field}{quote_char}"
+                    extreme_selects.append(
+                        f"SELECT * FROM base WHERE {qf} = (SELECT MIN({qf}) FROM base)"
+                    )
+                    extreme_selects.append(
+                        f"SELECT * FROM base WHERE {qf} = (SELECT MAX({qf}) FROM base)"
+                    )
+
+                extremes_union = "\nUNION ALL\n".join(extreme_selects)
+                reserved_for_extremes = len(preserve_fields) * 2
+                sample_limit = max(1, max_rows - reserved_for_extremes)
+
+                return f"""WITH base AS (
+{base_sql}
+),
+extremes AS (
+{extremes_union}
+),
+sample AS (
+SELECT * FROM base ORDER BY {rand_func} LIMIT {sample_limit}
+)
+SELECT * FROM extremes
+UNION ALL
+SELECT * FROM sample""".strip()
+
+        # Fallback: random global sample to max_rows
+        rand_func = "rand" if db_type == "clickhouse" else "random"
+        return f'SELECT * FROM (\n{base_sql}\n) AS base\nORDER BY {rand_func}()\nLIMIT {max_rows}'
+
     def _parse_table_references(
         self, 
         query_desc: QueryDescription
@@ -495,6 +574,8 @@ class UnionQueryBuilder:
             single_table_desc.target_table = table_name
             single_table_desc.target_database = database
             single_table_desc.virtual_table = None
+            # Don't apply result_budget to sub-queries - it will be applied to the final UNION SQL
+            single_table_desc.result_budget = None
             
             # Filter to only dimensions that exist in this table
             existing_dimensions = []
@@ -736,6 +817,11 @@ class UnionQueryBuilder:
             )
         else:
             final_sql = union_sql
+
+        # Apply result budget to the final UNION SQL (not to individual sub-queries)
+        final_sql = self._apply_result_budget(
+            final_sql, query_desc, db_type=db_type, quote_char=quote_char
+        )
 
         self._logger.info("Generated UNION ALL query: %s...", final_sql[:200])
         return final_sql, []
