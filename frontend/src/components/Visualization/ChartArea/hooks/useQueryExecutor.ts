@@ -141,6 +141,7 @@ export const useQueryExecutor = ({
                   strategy: pointBudget.strategy,
                   stratify_field: pointBudget.stratifyField,
                   min_per_stratum: pointBudget.minPerStratum,
+                  preserve_fields: pointBudget.preserveFields,
                 },
               } as QueryDescription)
             : queryDesc;
@@ -230,9 +231,12 @@ export const useQueryExecutor = ({
               refinementFilterConfigs,
               pointBudget: {
                 isPointChart: classification.isPointChart,
+                isScatter: classification.isScatter,
                 stratifyField: pointBudget.stratifyField,
                 maxPoints: pointBudget.maxPoints,
                 minPerStratum: pointBudget.minPerStratum,
+                strategy: pointBudget.strategy,
+                preserveFields: pointBudget.preserveFields,
               },
               signal: queryAbortControllerRef.current.signal,
             });
