@@ -35,7 +35,9 @@ export interface PointBudgetConfig {
   /** Field to stratify by (for preserving distribution) */
   stratifyField?: string;
   /** Sampling strategy */
-  strategy: 'none' | 'random' | 'stratified';
+  strategy: 'none' | 'random' | 'stratified' | 'preserve_extremes';
+  /** Fields to preserve min/max for (used with preserve_extremes strategy) */
+  preserveFields?: string[];
 }
 
 /**
@@ -166,7 +168,7 @@ export function computePointBudget(
     };
   }
 
-  const { hasDiscreteColor } = classification;
+  const { hasDiscreteColor, isScatter } = classification;
 
   const maxPoints = hasDiscreteColor
     ? BUDGET_DEFAULTS.MAX_POINTS_WITH_DISCRETE_COLOR
@@ -177,6 +179,23 @@ export function computePointBudget(
     : BUDGET_DEFAULTS.MIN_PER_STRATUM_WITHOUT_DISCRETE_COLOR;
 
   const stratifyField = findStratifyField(queryDesc, colorField, hasDiscreteColor);
+
+  // For scatter plots (continuous on both axes), use preserve_extremes
+  // to maintain stable axis scales across refreshes
+  if (isScatter) {
+    // Get continuous dimension fields to preserve extremes for
+    const preserveFields = queryDesc.dimensions
+      ?.filter(d => d.flavour === 'continuous')
+      .map(d => d.field) || [];
+    
+    return {
+      maxPoints,
+      minPerStratum,
+      stratifyField,
+      strategy: 'preserve_extremes',
+      preserveFields,
+    };
+  }
 
   return {
     maxPoints,
@@ -213,6 +232,7 @@ export function applyPointBudgetToQuery(
       strategy: budget.strategy,
       stratify_field: budget.stratifyField,
       min_per_stratum: budget.minPerStratum,
+      preserve_fields: budget.preserveFields,
     },
   } as QueryDescription;
 }

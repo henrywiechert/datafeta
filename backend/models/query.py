@@ -105,11 +105,21 @@ class ResultBudget(BaseModel):
     
     Used primarily to avoid rendering failures (e.g. scatter with too many points).
     Backend treats this as best-effort and may fall back depending on DB support.
+    
+    Strategies:
+    - 'none': No sampling applied
+    - 'random': Random sampling with ORDER BY rand() LIMIT n
+    - 'stratified': Proportional sampling across categories (stratify_field)
+    - 'preserve_extremes': Random sampling that guarantees min/max rows are included
+                          for stable axis scales in scatter plots
     """
     max_rows: int = Field(..., ge=1)
-    strategy: Literal['none', 'random', 'stratified'] = 'none'
+    strategy: Literal['none', 'random', 'stratified', 'preserve_extremes'] = 'none'
     stratify_field: Optional[str] = None
     min_per_stratum: Optional[int] = Field(None, ge=0)
+    # Fields to preserve extremes for (used with preserve_extremes strategy)
+    # If not specified, will auto-detect continuous dimensions
+    preserve_fields: Optional[List[str]] = None
 
 class QueryDescription(BaseModel):
     target_table: str

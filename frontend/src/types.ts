@@ -214,11 +214,17 @@ export interface ResultBudget {
     // Max number of rows/points to return for this query (best-effort).
     max_rows: number;
     // Reduction strategy to apply when over budget.
-    strategy: 'none' | 'random' | 'stratified';
+    // - 'none': No sampling
+    // - 'random': Random sampling with ORDER BY rand() LIMIT n
+    // - 'stratified': Proportional sampling across categories
+    // - 'preserve_extremes': Random sampling that guarantees min/max rows for stable axis scales
+    strategy: 'none' | 'random' | 'stratified' | 'preserve_extremes';
     // For stratified sampling: column name to stratify by (typically discrete color field)
     stratify_field?: string;
     // Minimum rows per stratum (helps preserve small categories)
     min_per_stratum?: number;
+    // For preserve_extremes: fields to preserve min/max for (auto-detects continuous dims if not specified)
+    preserve_fields?: string[];
 }
 
 export interface QueryResultColumn {
