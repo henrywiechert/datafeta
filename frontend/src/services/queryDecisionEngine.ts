@@ -19,7 +19,7 @@ import { columnCacheManager } from './columnCacheManager';
 import { filterTierManager } from './filterTierManager';
 
 // Default threshold: 100,000 rows (local OK up to this; above prefer backend)
-const DEFAULT_SIZE_THRESHOLD = 1_000_000;
+const DEFAULT_SIZE_THRESHOLD = 5_000_000;
 
 export type QueryStrategy = 'raw_columns' | 'pre_aggregated' | 'cache_hit';
 
