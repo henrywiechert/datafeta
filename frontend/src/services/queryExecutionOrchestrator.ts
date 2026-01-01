@@ -142,7 +142,7 @@ class QueryExecutionOrchestrator {
       signal,
     } = input;
 
-    // If DuckDB isn't ready, fall back to Arrow endpoint (caller can fall back to JSON).
+    // If DuckDB isn't ready, fall back to Arrow endpoint.
     if (!duckdbService.isReady) {
       const res = await apiService.executeQueryArrow(viewQueryDesc, signal);
       return { result: res };

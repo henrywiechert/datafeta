@@ -257,10 +257,10 @@ export const useQueryExecutor = ({
               }
               console.log('🧠 Query decision:', decision.strategy, '-', decision.reason);
             }
-          } catch (arrowError: any) {
-            // Fallback to JSON if Arrow endpoint fails
-            console.warn('⚠️ Arrow transport failed, falling back to JSON:', arrowError.message);
-            result = await apiService.executeQuery(queryDescExec, queryAbortControllerRef.current.signal);
+          } catch (orchestratorError: any) {
+            // Fallback to backend Arrow endpoint if orchestrator/local execution fails
+            console.warn('⚠️ Local execution failed, falling back to backend:', orchestratorError.message);
+            result = await apiService.executeQueryArrow(queryDescExec, queryAbortControllerRef.current.signal);
           }
         }
 
