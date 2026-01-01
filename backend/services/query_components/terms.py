@@ -20,7 +20,7 @@ class ExtractTerm(Term):
 
         if hasattr(self, "alias") and self.alias:
             quote_char = kwargs.get("quote_char", '"')
-            sql = f"{sql} {quote_char}{self.alias}{quote_char}"
+            sql = f"{sql} AS {quote_char}{self.alias}{quote_char}"
 
         return sql
 
@@ -71,7 +71,7 @@ class CastField(Term):
 
         if hasattr(self, "alias") and self.alias:
             quote_char = kwargs.get("quote_char", '"')
-            sql = f"{sql} {quote_char}{self.alias}{quote_char}"
+            sql = f"{sql} AS {quote_char}{self.alias}{quote_char}"
 
         return sql
 
@@ -103,7 +103,7 @@ class CustomFunction(Term):
 
         if hasattr(self, "alias") and self.alias:
             quote_char = kwargs.get("quote_char", '"')
-            sql = f"{sql} {quote_char}{self.alias}{quote_char}"
+            sql = f"{sql} AS {quote_char}{self.alias}{quote_char}"
 
         return sql
 
