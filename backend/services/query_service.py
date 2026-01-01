@@ -23,6 +23,14 @@ from backend.services.query_components.terms import (
     QuotedField,
     UnquotedField,
 )
+from backend.services.query_components.cast_field_applier import (
+    get_field_with_cast,
+    apply_cast_if_configured,
+)
+from backend.services.query_components.optimization_context_builder import (
+    OptimizationContextBuilder,
+)
+from backend.services.query_components.result_budget_applier import apply_result_budget
 from backend.services.query_components.filter_builder import FilterBuilder
 from backend.services.query_components.sampling_limits_builder import (
     SamplingAndLimitsBuilder,
@@ -57,20 +65,8 @@ AGGREGATION_MAP = {
 class QueryService:
 
     def _get_field_with_cast(self, table: Any, field_name: str, column_casts: Optional[Dict[str, Dict[str, str]]] = None) -> Any:
-        """
-        Get a field reference, applying CAST if configured for this column.
-        
-        Args:
-            table: PyPika Table object
-            field_name: Name of the field
-            column_casts: Dictionary mapping column names to {cast_type, replacement_pattern}
-                         Example: {'Revenue': {'cast_type': 'DOUBLE', 'replacement_pattern': ','}}
-        
-        Returns:
-            PyPika Field object or CastField object
-        """
-        field = table[field_name]
-        return self._apply_cast_if_configured(field_name, field, column_casts)
+        """Get a field reference, applying CAST if configured. Delegates to cast_field_applier."""
+        return get_field_with_cast(table, field_name, column_casts)
 
     def _apply_cast_if_configured(
         self,
@@ -78,20 +74,8 @@ class QueryService:
         field_term: Any,
         column_casts: Optional[Dict[str, Dict[str, str]]]
     ) -> Any:
-        """Apply CastField wrapper when a cast configuration exists for the field."""
-        if not column_casts:
-            return field_term
-
-        cast_config = column_casts.get(field_identifier)
-        if not cast_config:
-            return field_term
-
-        cast_type = cast_config.get('cast_type')
-        if not cast_type:
-            return field_term
-
-        replacement_pattern = cast_config.get('replacement_pattern')
-        return CastField(field_term, cast_type, replacement_pattern)
+        """Apply CastField wrapper when configured. Delegates to cast_field_applier."""
+        return apply_cast_if_configured(field_identifier, field_term, column_casts)
 
     def _build_table_context(
         self,
@@ -109,34 +93,9 @@ class QueryService:
         optimizer: Optional[Any],
         with_optimization: bool
     ) -> OptimizationContext:
-        """Create optimization plan and derivative configs when available."""
-        rounding_config: Dict[str, Any] = {}
-        binning_config: Dict[str, Any] = {}
-        optimization_plan = None
-        use_category_dedup = False
-
-        if with_optimization and optimizer:
-            try:
-                optimization_plan = optimizer.create_plan(query_desc)
-                for strategy in optimization_plan.strategies:
-                    if hasattr(strategy, 'prepare_rounding_config'):
-                        rounding_config = strategy.prepare_rounding_config(query_desc)
-                        logger.info(f"Rounding config prepared: {rounding_config}")
-                    if hasattr(strategy, 'prepare_binning_config'):
-                        binning_config = strategy.prepare_binning_config(query_desc)
-                        logger.info(f"Binning config prepared: {binning_config}")
-                    if strategy.__class__.__name__ == 'CategoryDeduplicationStrategy':
-                        use_category_dedup = True
-                        logger.info("Category deduplication will be applied")
-            except Exception as exc:
-                logger.warning(f"Failed to create optimization plan early: {exc}")
-
-        return OptimizationContext(
-            plan=optimization_plan,
-            rounding_config=rounding_config,
-            binning_config=binning_config,
-            use_category_dedup=use_category_dedup,
-        )
+        """Create optimization plan and derivative configs. Delegates to OptimizationContextBuilder."""
+        builder = OptimizationContextBuilder(logger=logger)
+        return builder.build(query_desc, optimizer, with_optimization)
 
     def _build_select_clause(
         self,
@@ -516,7 +475,9 @@ class QueryService:
         # This is applied after the pypika query is compiled. We wrap SQL with an outer
         # sampling query when the frontend requests a result_budget (e.g. oversize scatter).
         try:
-            sql_string = self._apply_result_budget(sql_string, query_desc, db_type=db_type, quote_char=quote_char)
+            sql_string = apply_result_budget(
+                sql_string, query_desc, db_type=db_type, quote_char=quote_char, logger=logger
+            )
         except Exception as exc:  # pragma: no cover
             logger.warning("Result budget wrapper failed, continuing without reduction: %s", exc, exc_info=True)
         
@@ -528,132 +489,6 @@ class QueryService:
         }
         
         return sql_string, extended_metadata
-
-    def _apply_result_budget(self, sql: str, query_desc: QueryDescription, *, db_type: str, quote_char: str) -> str:
-        budget = getattr(query_desc, "result_budget", None)
-        if not budget:
-            return sql
-        if not getattr(budget, "max_rows", None) or budget.strategy == "none":
-            return sql
-
-        # Only apply to "raw" queries.
-        # Aggregated queries already reduce via GROUP BY and should not be randomly sampled here.
-        if query_desc.measures:
-            return sql
-
-        # If the frontend explicitly provided a budget, apply it for any non-aggregated query.
-        # Do NOT depend on axis metadata here: during UI interactions we can temporarily miss axis info,
-        # which would cause inconsistent "first drag" behavior.
-
-        max_rows = int(budget.max_rows)
-        strategy = budget.strategy
-        stratify_field = budget.stratify_field
-        min_per = int(budget.min_per_stratum or 0)
-
-        # Normalize the base query as a subquery
-        base_sql = sql.strip().rstrip(";")
-
-        if strategy == "stratified" and stratify_field:
-            # Defensive: only stratify if the stratify field is actually projected by the base query.
-            # In UNION / multi-table scenarios a table-qualified stratify field (e.g. `dlFdSchedData.laMode`)
-            # may be absent from some per-table queries or from DISTINCT-reduced queries, which would make
-            # the window PARTITION BY fail with "Missing columns".
-            #
-            # Heuristic: require the quoted field to appear in the SELECT clause (before FROM).
-            import re
-
-            qf = f"{quote_char}{stratify_field}{quote_char}"
-            from_match = re.search(r"\bFROM\b", base_sql, re.IGNORECASE)
-            select_region = base_sql[: from_match.start()] if from_match else base_sql
-            if qf not in select_region:
-                logger.warning(
-                    "Result budget stratified sampling requested, but stratify field %s not present in SELECT; "
-                    "falling back to random sampling.",
-                    stratify_field,
-                )
-                strategy = "random"
-            else:
-                # Best-effort stratified sampling with window functions.
-                # This is designed to preserve proportions across discrete categories.
-                #
-                # ClickHouse uses rand(); DuckDB uses random().
-                rand_func = "rand()" if db_type == "clickhouse" else "random()"
-                # ClickHouse supports greatest(); DuckDB supports greatest().
-                # Use integer truncation for target rows per stratum.
-                if db_type == "clickhouse":
-                    target_expr = f"greatest({min_per}, intDiv({max_rows} * cat_cnt, total_cnt))"
-                else:
-                    target_expr = f"greatest({min_per}, cast({max_rows} * cat_cnt / total_cnt as integer))"
-
-                return f"""
-SELECT * FROM (
-  SELECT
-    base.*,
-    row_number() OVER (PARTITION BY {qf} ORDER BY {rand_func}) AS rn,
-    count(*) OVER (PARTITION BY {qf}) AS cat_cnt,
-    count(*) OVER () AS total_cnt
-  FROM (
-    {base_sql}
-  ) AS base
-) AS sampled
-WHERE rn <= {target_expr}
-""".strip()
-
-        if strategy == "preserve_extremes":
-            # Preserve min/max rows for stable axis scales in scatter plots
-            # Identify which fields to preserve extremes for
-            preserve_fields = budget.preserve_fields
-            if not preserve_fields:
-                # Auto-detect: use continuous dimensions
-                preserve_fields = [
-                    d.field for d in query_desc.dimensions
-                    if d.flavour == 'continuous'
-                ]
-            
-            if not preserve_fields:
-                # No fields to preserve, fall back to random
-                logger.info("preserve_extremes: no continuous fields found, falling back to random")
-                strategy = "random"
-            else:
-                rand_func = "rand()" if db_type == "clickhouse" else "random()"
-                
-                # Build CTE-based query that preserves extremes
-                # For each field, get ONE row with MIN and MAX values
-                # LIMIT 1 is critical: many rows may share the same min/max value
-                extreme_selects = []
-                for field in preserve_fields:
-                    qf = f"{quote_char}{field}{quote_char}"
-                    # Get ONE row with MIN value
-                    extreme_selects.append(
-                        f"SELECT * FROM base WHERE {qf} = (SELECT MIN({qf}) FROM base) LIMIT 1"
-                    )
-                    # Get ONE row with MAX value
-                    extreme_selects.append(
-                        f"SELECT * FROM base WHERE {qf} = (SELECT MAX({qf}) FROM base) LIMIT 1"
-                    )
-                
-                extremes_union = "\nUNION ALL\n".join(extreme_selects)
-                
-                # Reserve rows for extremes (2 per field: min and max)
-                reserved_for_extremes = len(preserve_fields) * 2
-                sample_limit = max(1, max_rows - reserved_for_extremes)
-                
-                return f"""WITH base AS (
-{base_sql}
-),
-extremes AS (
-{extremes_union}
-),
-sample AS (
-SELECT * FROM base ORDER BY {rand_func} LIMIT {sample_limit}
-)
-SELECT * FROM extremes
-UNION ALL
-SELECT * FROM sample""".strip()
-
-        # Fallback: random global sample to max_rows
-        rand_func = "rand" if db_type == "clickhouse" else "random"
-        return f'SELECT * FROM (\n{base_sql}\n) AS base\nORDER BY {rand_func}()\nLIMIT {max_rows}'
 
     # Potential future methods:
     # def translate_to_pandas(self, query_desc: QueryDescription, connector: Any) -> Any:
