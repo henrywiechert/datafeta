@@ -40,6 +40,7 @@ export {
   buildSelectSql,
   buildAggregateSql,
   applyPointBudgetSql,
+  applyLineBudgetSql,
 } from './localSqlBuilder';
 
 // Arrow adapters/utilities

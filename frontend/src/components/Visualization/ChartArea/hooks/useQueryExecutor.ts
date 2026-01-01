@@ -133,7 +133,12 @@ export const useQueryExecutor = ({
           const pointBudget = computePointBudget(classification, queryDesc, colorField);
 
           // Apply point budget to query if needed
-          const queryDescExec: QueryDescription = classification.isPointChart
+          // Only attach result_budget when maxPoints is finite (Infinity means no backend sampling needed)
+          const shouldAttachBudget = classification.isPointChart && 
+            pointBudget.maxPoints !== Infinity && 
+            Number.isFinite(pointBudget.maxPoints);
+          
+          const queryDescExec: QueryDescription = shouldAttachBudget
             ? ({
                 ...queryDesc,
                 result_budget: {
@@ -237,6 +242,8 @@ export const useQueryExecutor = ({
                 minPerStratum: pointBudget.minPerStratum,
                 strategy: pointBudget.strategy,
                 preserveFields: pointBudget.preserveFields,
+                lineBudgetMaxRows: pointBudget.lineBudgetMaxRows,
+                continuousFields: pointBudget.continuousFields,
               },
               signal: queryAbortControllerRef.current.signal,
             });

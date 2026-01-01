@@ -22,6 +22,10 @@ export interface ChartClassification {
   isRawPointChart: boolean;
   /** Whether the color field is discrete (affects budget) */
   hasDiscreteColor: boolean;
+  /** Line chart: has measures with continuous X dimension */
+  isLineChart: boolean;
+  /** The continuous X dimension field (for line budget) */
+  continuousXField?: string;
 }
 
 /**
@@ -38,6 +42,10 @@ export interface PointBudgetConfig {
   strategy: 'none' | 'random' | 'stratified' | 'preserve_extremes';
   /** Fields to preserve min/max for (used with preserve_extremes strategy) */
   preserveFields?: string[];
+  /** For line charts: max rows for aggregated result */
+  lineBudgetMaxRows?: number;
+  /** For line charts: all continuous fields (X dimension + Y measures) to preserve extremes for */
+  continuousFields?: string[];
 }
 
 /**
@@ -101,12 +109,30 @@ export function classifyChartType(
 
   const hasDiscreteColor = !!colorField && colorField.flavour === 'discrete';
 
+  // Line chart: has measures with dimension(s)
+  // This produces many data points that may need optimization
+  // Priority order:
+  // 1. Explicit axis='x' + continuous
+  // 2. Any continuous dimension (implicit X)
+  // 3. First dimension (even if discrete - can still have many unique values)
+  const continuousXDim = 
+    dims.find(d => d.axis === 'x' && d.flavour === 'continuous') ||
+    dims.find(d => d.flavour === 'continuous') ||
+    (dims.length > 0 ? dims[0] : undefined);  // Fallback to first dimension
+  
+  // Apply line budget whenever we have measures + dimensions
+  // The result can still have many rows even with discrete dimensions
+  const isLineChart = hasMeasures && dims.length > 0;
+  const continuousXField = continuousXDim?.field;
+
   return {
     isPointChart,
     isScatter,
     isTickStrip,
     isRawPointChart,
     hasDiscreteColor,
+    isLineChart,
+    continuousXField,
   };
 }
 
@@ -160,6 +186,31 @@ export function computePointBudget(
   queryDesc: QueryDescription,
   colorField?: Field | null
 ): PointBudgetConfig {
+  // For line charts (aggregated with continuous X), apply line budget
+  // to limit result rows while preserving min/max for stable axis scales
+  // Collect all continuous fields: X dimension + Y measures (for the full cartesian grid)
+  if (classification.isLineChart && classification.continuousXField) {
+    const continuousFields: string[] = [classification.continuousXField];
+    
+    // Add measure fields (Y axis) to preserve their extremes too
+    // Use the alias which matches what the SQL builder produces
+    if (queryDesc.measures) {
+      for (const m of queryDesc.measures) {
+        if (m.alias) {
+          continuousFields.push(m.alias);
+        }
+      }
+    }
+    
+    return {
+      maxPoints: Infinity,  // Not a point chart
+      minPerStratum: 0,
+      strategy: 'none',
+      lineBudgetMaxRows: BUDGET_DEFAULTS.MAX_POINTS_WITHOUT_DISCRETE_COLOR,
+      continuousFields,
+    };
+  }
+
   if (!classification.isPointChart) {
     return {
       maxPoints: Infinity,

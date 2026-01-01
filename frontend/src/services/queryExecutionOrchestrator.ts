@@ -6,6 +6,7 @@ import { filterTierManager } from './filterTierManager';
 import { queryDecisionEngine, QueryDecision } from './queryDecisionEngine';
 import {
   applyPointBudgetSql,
+  applyLineBudgetSql,
   buildAggregateSql,
   buildDuckDbDateTimePartSelectItem,
   buildSelectSql,
@@ -22,6 +23,10 @@ export interface PointBudgetOptions {
   minPerStratum: number;
   strategy?: 'none' | 'random' | 'stratified' | 'preserve_extremes';
   preserveFields?: string[];
+  // For aggregated line charts: limit result rows with preserved min/max
+  lineBudgetMaxRows?: number;
+  // All continuous fields (X dimension + Y measures) to preserve extremes for
+  continuousFields?: string[];
 }
 
 export interface QueryExecutionOrchestratorInput {
@@ -193,6 +198,12 @@ class QueryExecutionOrchestrator {
             strategy: pointBudget.strategy,
             preserveFields: pointBudget.preserveFields,
           });
+        } else if (pointBudget.lineBudgetMaxRows && pointBudget.continuousFields?.length && localSql) {
+          // Apply line budget for aggregated queries with continuous fields
+          localSql = applyLineBudgetSql(localSql, {
+            maxRows: pointBudget.lineBudgetMaxRows,
+            continuousFields: pointBudget.continuousFields,
+          });
         }
 
         logSqlQuery({
@@ -257,12 +268,28 @@ class QueryExecutionOrchestrator {
         const refinementWhere = filterTierManager.buildRefinementWhereClause(refinementFilterConfigs);
         const dimSelectItems = this._buildLocalDimensionSelectItems(viewQueryDesc.dimensions as any);
 
-        const localAggSql = buildAggregateSql({
+        let localAggSql = buildAggregateSql({
           tableName: cacheTableName,
           dimensionSelectItems: dimSelectItems,
           measures: (viewQueryDesc.measures || []) as any,
           whereClause: refinementWhere || undefined,
         });
+
+        // Apply point/line budget for local aggregation (same as cache_hit path)
+        if (pointBudget.isPointChart && localAggSql) {
+          localAggSql = applyPointBudgetSql(localAggSql, {
+            stratifyField: pointBudget.stratifyField || undefined,
+            maxRows: pointBudget.maxPoints,
+            minPerStratum: pointBudget.minPerStratum,
+            strategy: pointBudget.strategy,
+            preserveFields: pointBudget.preserveFields,
+          });
+        } else if (pointBudget.lineBudgetMaxRows && pointBudget.continuousFields?.length && localAggSql) {
+          localAggSql = applyLineBudgetSql(localAggSql, {
+            maxRows: pointBudget.lineBudgetMaxRows,
+            continuousFields: pointBudget.continuousFields,
+          });
+        }
 
         logSqlQuery({
           origin: 'local',
