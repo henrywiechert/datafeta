@@ -618,17 +618,18 @@ WHERE rn <= {target_expr}
                 rand_func = "rand()" if db_type == "clickhouse" else "random()"
                 
                 # Build CTE-based query that preserves extremes
-                # For each field, get rows with MIN and MAX values
+                # For each field, get ONE row with MIN and MAX values
+                # LIMIT 1 is critical: many rows may share the same min/max value
                 extreme_selects = []
                 for field in preserve_fields:
                     qf = f"{quote_char}{field}{quote_char}"
-                    # Get rows with MIN value
+                    # Get ONE row with MIN value
                     extreme_selects.append(
-                        f"SELECT * FROM base WHERE {qf} = (SELECT MIN({qf}) FROM base)"
+                        f"SELECT * FROM base WHERE {qf} = (SELECT MIN({qf}) FROM base) LIMIT 1"
                     )
-                    # Get rows with MAX value
+                    # Get ONE row with MAX value
                     extreme_selects.append(
-                        f"SELECT * FROM base WHERE {qf} = (SELECT MAX({qf}) FROM base)"
+                        f"SELECT * FROM base WHERE {qf} = (SELECT MAX({qf}) FROM base) LIMIT 1"
                     )
                 
                 extremes_union = "\nUNION ALL\n".join(extreme_selects)

@@ -199,6 +199,57 @@ export function buildAggregateSql(args: {
   return sql;
 }
 
+/**
+ * Apply line chart budget for aggregated queries with too many result rows.
+ * Uses random sampling with preserved min/max for stable axis scales.
+ * 
+ * Preserves extremes for ALL continuous fields (X dimension + Y measures)
+ * to ensure stable bounds on the entire cartesian grid.
+ * 
+ * Unlike point budget (which samples before aggregation), this samples
+ * the aggregated result while preserving the line shape endpoints.
+ */
+export function applyLineBudgetSql(
+  baseSql: string,
+  budget: {
+    maxRows: number;
+    continuousFields?: string[];  // All continuous fields to preserve extremes for
+  }
+): string {
+  const { maxRows, continuousFields } = budget;
+  if (!baseSql || !continuousFields?.length) return baseSql;
+  
+  // Build extreme selects for each continuous field (MIN and MAX)
+  // LIMIT 1 is critical: many rows may share the same min/max value
+  const extremeSelects = continuousFields.flatMap(field => {
+    const qf = quoteIdent(field);
+    return [
+      `SELECT * FROM base WHERE ${qf} = (SELECT MIN(${qf}) FROM base) LIMIT 1`,
+      `SELECT * FROM base WHERE ${qf} = (SELECT MAX(${qf}) FROM base) LIMIT 1`,
+    ];
+  });
+  const extremesUnion = extremeSelects.join('\nUNION ALL\n');
+  
+  // Reserve rows for extremes (2 per field: min and max)
+  const reservedForExtremes = continuousFields.length * 2;
+  const sampleLimit = Math.max(1, maxRows - reservedForExtremes);
+
+  return `
+WITH base AS (
+  ${baseSql}
+),
+extremes AS (
+${extremesUnion}
+),
+sample AS (
+  SELECT * FROM base ORDER BY random() LIMIT ${sampleLimit}
+)
+SELECT * FROM extremes
+UNION ALL
+SELECT * FROM sample
+  `.trim();
+}
+
 export function applyPointBudgetSql(
   baseSql: string,
   budget: { 
@@ -215,11 +266,12 @@ export function applyPointBudgetSql(
   // Handle preserve_extremes strategy for scatter plots
   if (strategy === 'preserve_extremes' && preserveFields && preserveFields.length > 0) {
     // Build extreme selects for each field (MIN and MAX)
+    // LIMIT 1 is critical: many rows may share the same min/max value
     const extremeSelects = preserveFields.flatMap(field => {
       const qf = quoteIdent(field);
       return [
-        `SELECT * FROM base WHERE ${qf} = (SELECT MIN(${qf}) FROM base)`,
-        `SELECT * FROM base WHERE ${qf} = (SELECT MAX(${qf}) FROM base)`,
+        `SELECT * FROM base WHERE ${qf} = (SELECT MIN(${qf}) FROM base) LIMIT 1`,
+        `SELECT * FROM base WHERE ${qf} = (SELECT MAX(${qf}) FROM base) LIMIT 1`,
       ];
     });
     const extremesUnion = extremeSelects.join('\nUNION ALL\n');
