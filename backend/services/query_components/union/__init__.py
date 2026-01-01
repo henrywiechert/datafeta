@@ -1,0 +1,5 @@
+"""Union query building components for UNION virtual tables."""
+
+from backend.services.query_components.union.union_query_builder import UnionQueryBuilder
+
+__all__ = ["UnionQueryBuilder"]
