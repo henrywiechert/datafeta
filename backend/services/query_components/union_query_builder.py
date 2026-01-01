@@ -209,16 +209,69 @@ SELECT * FROM sample""".strip()
         
         return expressions
 
+    def _map_output_type_to_clickhouse(self, output_type: str) -> str:
+        """
+        Map virtual column output types to ClickHouse Nullable types.
+        
+        Args:
+            output_type: The output type from VirtualColumnDefinition (e.g., 'DOUBLE', 'INTEGER', 'VARCHAR')
+            
+        Returns:
+            ClickHouse-compatible Nullable type string
+        """
+        type_upper = output_type.upper()
+        # Map common type names to ClickHouse types
+        type_mapping = {
+            'DOUBLE': 'Float64',
+            'FLOAT': 'Float64',
+            'FLOAT64': 'Float64',
+            'REAL': 'Float64',
+            'INTEGER': 'Int64',
+            'INT': 'Int64',
+            'INT64': 'Int64',
+            'BIGINT': 'Int64',
+            'SMALLINT': 'Int32',
+            'INT32': 'Int32',
+            'VARCHAR': 'String',
+            'STRING': 'String',
+            'TEXT': 'String',
+            'BOOLEAN': 'UInt8',
+            'BOOL': 'UInt8',
+        }
+        return type_mapping.get(type_upper, type_upper)
+
     def _build_null_column(
         self, 
         field_key: str, 
         is_measure: bool, 
         db_type: str, 
-        quote_char: str
+        quote_char: str,
+        output_type: Optional[str] = None
     ) -> str:
-        """Build NULL column expression with appropriate casting."""
-        if is_measure and db_type == 'clickhouse':
-            return f"CAST(NULL AS Nullable(Float64)) AS {quote_char}{field_key}{quote_char}"
+        """
+        Build NULL column expression with appropriate casting.
+        
+        Args:
+            field_key: The column alias/key
+            is_measure: Whether this is a measure column
+            db_type: Database type (e.g., 'clickhouse')
+            quote_char: Quote character for identifiers
+            output_type: Optional type hint for casting (e.g., from virtual column definition)
+            
+        Returns:
+            SQL expression for NULL column with proper casting
+        """
+        if db_type == 'clickhouse':
+            # For ClickHouse, we must cast NULL to avoid 'Nothing' type errors in Arrow format
+            if output_type:
+                ch_type = self._map_output_type_to_clickhouse(output_type)
+                return f"CAST(NULL AS Nullable({ch_type})) AS {quote_char}{field_key}{quote_char}"
+            elif is_measure:
+                return f"CAST(NULL AS Nullable(Float64)) AS {quote_char}{field_key}{quote_char}"
+            else:
+                # Default for non-measure columns without type hint: use String for safety
+                # String is the most flexible type for dimensions
+                return f"CAST(NULL AS Nullable(String)) AS {quote_char}{field_key}{quote_char}"
         return f"NULL AS {quote_char}{field_key}{quote_char}"
 
     def _build_source_filter_where_clauses(
@@ -289,6 +342,7 @@ SELECT * FROM sample""".strip()
         missing_measure_keys: List[Tuple[str, Measure]],
         db_type: str,
         quote_char: str,
+        virtual_columns: Optional[List] = None,
     ) -> str:
         """
         Build a query with only NULL values when all requested fields are missing.
@@ -300,6 +354,7 @@ SELECT * FROM sample""".strip()
             missing_measure_keys: List of (field_key, measure) tuples that are missing
             db_type: Database type (e.g., 'clickhouse')
             quote_char: Quote character to use
+            virtual_columns: Optional list of VirtualColumnDefinition objects for type hints
             
         Returns:
             SQL query string with NULL values
@@ -309,18 +364,22 @@ SELECT * FROM sample""".strip()
         else:
             table_reference = f"{quote_char}{table_name}{quote_char}"
         
+        # Build a lookup map for virtual column output types
+        vc_type_map: Dict[str, Optional[str]] = {}
+        if virtual_columns:
+            for vc in virtual_columns:
+                vc_type_map[vc.name] = getattr(vc, 'output_type', None)
+        
         select_items = []
         
-        # Add NULL for all dimensions (in order)
+        # Add NULL for all dimensions (in order) - use virtual column type hints when available
         for field_key in missing_dimension_keys:
-            select_items.append(f"NULL AS {quote_char}{field_key}{quote_char}")
+            output_type = vc_type_map.get(field_key)
+            select_items.append(self._build_null_column(field_key, False, db_type, quote_char, output_type))
         
         # Add NULL for all measures (in order)
         for field_key, measure in missing_measure_keys:
-            if db_type == 'clickhouse':
-                select_items.append(f"CAST(NULL AS Nullable(Float64)) AS {quote_char}{field_key}{quote_char}")
-            else:
-                select_items.append(f"NULL AS {quote_char}{field_key}{quote_char}")
+            select_items.append(self._build_null_column(field_key, True, db_type, quote_char))
         
         # Determine query type:
         # - If any dimensions: return 0 rows (dimensions without values don't make sense)
@@ -343,6 +402,8 @@ SELECT * FROM sample""".strip()
         table_name: str,
         db_type: str,
         quote_char: str,
+        virtual_columns: Optional[List] = None,
+        vc_source_map: Optional[Dict[str, List[str]]] = None,
     ) -> str:
         """
         Rebuild the SELECT clause to include all fields in correct order, with NULLs for missing fields.
@@ -355,10 +416,21 @@ SELECT * FROM sample""".strip()
             table_name: Table name (for logging)
             db_type: Database type (e.g., 'clickhouse')
             quote_char: Quote character to use
+            virtual_columns: Optional list of VirtualColumnDefinition objects for type hints
+            vc_source_map: Map of virtual column name -> source field names
             
         Returns:
             Rebuilt SQL with all fields in correct order
         """
+        # Build a lookup map for virtual column output types
+        vc_type_map: Dict[str, Optional[str]] = {}
+        if virtual_columns:
+            for vc in virtual_columns:
+                vc_type_map[vc.name] = getattr(vc, 'output_type', None)
+        
+        # Use provided vc_source_map or empty dict
+        vc_source_map = vc_source_map or {}
+        
         if "FROM" not in single_sql:
             return single_sql
         
@@ -379,7 +451,19 @@ SELECT * FROM sample""".strip()
         
         # Add dimensions in order
         for field_key, dim in all_dimension_fields:
-            if not table_columns or dim.field in table_columns:
+            # Check if this is a virtual column
+            is_virtual = dim.field in vc_source_map
+            
+            # Determine if field can be computed for this table
+            field_available = False
+            if is_virtual:
+                # Virtual column: check if source fields exist
+                field_available = self._can_compute_virtual_column(dim.field, vc_source_map, table_columns)
+            else:
+                # Physical column: check if column exists
+                field_available = not table_columns or dim.field in table_columns
+            
+            if field_available:
                 # Field exists - use the expression from generated SQL (preserves optimizations)
                 if field_key in existing_expressions:
                     expr = existing_expressions[field_key]
@@ -391,8 +475,9 @@ SELECT * FROM sample""".strip()
                     # the top-level FROM may not expose the raw base field ("utc"), but it does expose the alias.
                     select_items.append(f"{quote_char}{field_key}{quote_char} AS {quote_char}{field_key}{quote_char}")
             else:
-                # Field missing - NULL
-                select_items.append(self._build_null_column(field_key, False, db_type, quote_char))
+                # Field missing - NULL (use virtual column output_type if available)
+                output_type = vc_type_map.get(dim.field)
+                select_items.append(self._build_null_column(field_key, False, db_type, quote_char, output_type))
         
         # Add measures in order
         for field_key, measure in all_measure_fields:
@@ -522,6 +607,85 @@ SELECT * FROM sample""".strip()
 
         return outer_sql
 
+    def _get_virtual_column_source_fields(
+        self,
+        virtual_columns: Optional[List],
+    ) -> Dict[str, List[str]]:
+        """
+        Extract source field names for each virtual column.
+        
+        This is used to determine if a virtual column can be computed
+        from the columns available in a specific table.
+        
+        Args:
+            virtual_columns: List of VirtualColumnDefinition objects
+            
+        Returns:
+            Dictionary mapping virtual column name -> list of source field names
+        """
+        if not virtual_columns:
+            return {}
+        
+        vc_source_map: Dict[str, List[str]] = {}
+        for vc in virtual_columns:
+            # Extract field references from expression using regex
+            # Pattern matches identifiers: word or word.word
+            expression = vc.expression
+            pattern = r'\b([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)?)\b'
+            matches = re.findall(pattern, expression)
+            
+            # Filter out SQL keywords and function names
+            sql_keywords = {
+                'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'AND', 'OR', 'NOT',
+                'IS', 'NULL', 'TRUE', 'FALSE', 'IN', 'BETWEEN', 'LIKE',
+                'ASC', 'DESC', 'AS', 'FROM', 'WHERE', 'GROUP', 'ORDER', 'BY',
+            }
+            function_names = {
+                'ROUND', 'ABS', 'COALESCE', 'CONCAT', 'UPPER', 'LOWER',
+                'LENGTH', 'SUBSTRING', 'CAST', 'SUM', 'AVG', 'COUNT', 
+                'MIN', 'MAX', 'FLOOR', 'CEIL', 'SQRT', 'POW', 'MOD', 'SPLIT', 'INT'
+            }
+            
+            source_fields = []
+            for match in matches:
+                if match.upper() not in sql_keywords and match.upper() not in function_names:
+                    if match not in source_fields:
+                        source_fields.append(match)
+            
+            vc_source_map[vc.name] = source_fields
+            self._logger.debug(f"Virtual column '{vc.name}' depends on fields: {source_fields}")
+        
+        return vc_source_map
+    
+    def _can_compute_virtual_column(
+        self,
+        vc_name: str,
+        vc_source_map: Dict[str, List[str]],
+        table_columns: Set[str],
+    ) -> bool:
+        """
+        Check if a virtual column can be computed from available table columns.
+        
+        Args:
+            vc_name: Name of the virtual column
+            vc_source_map: Map of virtual column name -> source fields
+            table_columns: Set of columns available in the table
+            
+        Returns:
+            True if all source fields exist in the table
+        """
+        if not table_columns:
+            # No column info available - assume it can be computed (backward compatibility)
+            return True
+        
+        source_fields = vc_source_map.get(vc_name, [])
+        if not source_fields:
+            # No source fields identified - assume it can't be computed
+            return False
+        
+        # Check if ALL source fields exist in the table
+        return all(field in table_columns for field in source_fields)
+
     def translate(
         self,
         query_desc: QueryDescription,
@@ -546,6 +710,9 @@ SELECT * FROM sample""".strip()
             (db, table): self._get_table_columns(db, table) 
             for db, table in table_refs
         }
+        
+        # Build map of virtual column source fields for determining availability per-table
+        vc_source_map = self._get_virtual_column_source_fields(query_desc.virtual_columns)
         
         # Build ordered field lists
         all_dimension_fields, all_measure_fields = self._build_field_lists(query_desc)
@@ -579,10 +746,23 @@ SELECT * FROM sample""".strip()
             single_table_desc.result_budget = None
             
             # Filter to only dimensions that exist in this table
+            # For virtual columns, check if source fields exist (not the virtual column name itself)
             existing_dimensions = []
             missing_dimension_keys = []
             for field_key, dim in all_dimension_fields:
-                if not table_columns or dim.field in table_columns:
+                # Check if this is a virtual column
+                is_virtual = dim.field in vc_source_map
+                
+                if is_virtual:
+                    # For virtual columns, check if source fields exist in table
+                    if self._can_compute_virtual_column(dim.field, vc_source_map, table_columns):
+                        existing_dimensions.append(dim)
+                        self._logger.debug(f"Virtual column '{dim.field}' can be computed for table {table_name}")
+                    else:
+                        missing_dimension_keys.append(field_key)
+                        self._logger.debug(f"Virtual column '{dim.field}' cannot be computed for table {table_name} - missing source fields")
+                elif not table_columns or dim.field in table_columns:
+                    # Physical column: exists if in table_columns
                     existing_dimensions.append(dim)
                 else:
                     missing_dimension_keys.append(field_key)
@@ -635,6 +815,7 @@ SELECT * FROM sample""".strip()
                             all_measure_fields,
                             db_type,
                             quote_char,
+                            virtual_columns=query_desc.virtual_columns,
                         )
                     # For measure-only queries, return a single "empty-set" row.
                     # COUNT(*) over an empty set should be 0; other aggregations can be NULL.
@@ -670,7 +851,9 @@ SELECT * FROM sample""".strip()
                     # Rebuild it to include full column order + source tracking.
                     single_sql = self._rebuild_select_with_nulls(
                         single_sql, all_dimension_fields, all_measure_fields,
-                        table_columns, table_name, db_type, quote_char
+                        table_columns, table_name, db_type, quote_char,
+                        virtual_columns=query_desc.virtual_columns,
+                        vc_source_map=vc_source_map
                     )
 
                     # Add source tracking columns to the query
@@ -699,7 +882,8 @@ SELECT * FROM sample""".strip()
             # Check if ALL fields are missing from this table
             if table_columns and not existing_dimensions and not existing_measures:
                 single_sql = self._build_null_only_query(
-                    database, table_name, missing_dimension_keys, missing_measure_keys, db_type, quote_char
+                    database, table_name, missing_dimension_keys, missing_measure_keys, db_type, quote_char,
+                    virtual_columns=query_desc.virtual_columns
                 )
             else:
                 # Generate SQL for fields that exist in this table
@@ -715,7 +899,9 @@ SELECT * FROM sample""".strip()
                 # Rebuild SELECT clause to include all fields in correct order, with NULLs for missing
                 single_sql = self._rebuild_select_with_nulls(
                     single_sql, all_dimension_fields, all_measure_fields,
-                    table_columns, table_name, db_type, quote_char
+                    table_columns, table_name, db_type, quote_char,
+                    virtual_columns=query_desc.virtual_columns,
+                    vc_source_map=vc_source_map
                 )
 
             # Add source tracking columns to the query
