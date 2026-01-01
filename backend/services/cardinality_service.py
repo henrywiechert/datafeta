@@ -228,6 +228,23 @@ class CardinalityService:
         # Generate SQL with appropriate quote character
         quote_char = '`' if self.conn_details.type == 'clickhouse' else '"'
         sql = count_query.get_sql(quote_char=quote_char)
+        
+        # For ClickHouse VIEWs that use SELECT a.* patterns, the column reference
+        # may fail with "Missing columns" error. Wrap the query with a subquery
+        # that forces column expansion first: SELECT COUNT(DISTINCT field) FROM (SELECT * FROM view) sub
+        # We do this proactively for ClickHouse to avoid the error.
+        if self.conn_details.type == 'clickhouse' and database and not (virtual_table and virtual_table.joined_tables):
+            # Build a safer query that wraps the table in a subquery
+            # This handles VIEWs that use SELECT a.* expansion
+            field_quoted = f'{quote_char}{field}{quote_char}'
+            table_ref = f'{quote_char}{database}{quote_char}.{quote_char}{table}{quote_char}'
+            sql = f'SELECT COUNT(DISTINCT {field_quoted}) AS "count" FROM (SELECT * FROM {table_ref}) AS _sub'
+            
+            # Re-apply regex filter if provided (simplified version)
+            if regex_pattern:
+                like_pattern = regex_pattern.replace("'", "''")
+                sql = f'{sql} WHERE {field_quoted} LIKE \'%{like_pattern}%\''
+        
         logger.info(f"Executing distinct count query: {sql}")
         
         return sql
@@ -279,6 +296,19 @@ class CardinalityService:
             logger.warning("No rows returned from count query")
             return 0
             
+        except QueryExecutionError as e:
+            # Check for ClickHouse "Missing columns" error which can happen with VIEWs
+            # that use SELECT a.* expansion - the column exists but ClickHouse can't
+            # resolve it through the subquery alias.
+            error_str = str(e)
+            if "Missing columns" in error_str and "UNKNOWN_IDENTIFIER" in error_str:
+                logger.warning(
+                    f"Column resolution failed for '{field}' - likely a VIEW with * expansion. "
+                    f"Returning -1 to indicate unknown cardinality. Error: {error_str}"
+                )
+                return -1  # Signal unknown cardinality
+            logger.exception(f"Error executing distinct count query: {sql}")
+            raise
         except Exception as e:
             logger.exception(f"Error executing distinct count query: {sql}")
             raise QueryExecutionError(f"Failed to count distinct values: {str(e)}")
