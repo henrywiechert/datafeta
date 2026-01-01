@@ -115,11 +115,14 @@ export function classifyChartType(
   // The result can still have many rows even with discrete dimensions
   const isLineChart = hasMeasures && dims.length > 0;
   
-  // Collect ALL continuous dimensions for min/max preservation
-  // These determine axis scales in the cartesian grid (both X and Y axes)
+  // Collect continuous dimensions for min/max preservation (axis scale stability).
+  // IMPORTANT: 
+  // 1. Use OUTPUT column names (datetime parts produce aliased columns)
+  // 2. Exclude datetime dimensions with date_mode='distinct' - those produce
+  //    discrete integers (day 1-31, hour 0-23), not continuous values
   const continuousDimFields = dims
-    .filter(d => d.flavour === 'continuous')
-    .map(d => d.field);
+    .filter(d => d.flavour === 'continuous' && d.date_mode !== 'distinct')
+    .map(d => getDimensionOutputName(d));
 
   return {
     isPointChart,
@@ -182,20 +185,52 @@ export function computePointBudget(
   queryDesc: QueryDescription,
   colorField?: Field | null
 ): PointBudgetConfig {
+  const { hasDiscreteColor, isScatter, isPointChart, isLineChart, continuousDimFields } = classification;
+
+  // IMPORTANT: Check scatter plots FIRST, before line charts.
+  // A scatter plot with aggregated measures (e.g., SUM for size encoding) has both
+  // isScatter=true AND isLineChart=true, but it's still a point chart that needs
+  // point budget limiting, not line budget.
+  if (isScatter) {
+    const maxPoints = hasDiscreteColor
+      ? BUDGET_DEFAULTS.MAX_POINTS_WITH_DISCRETE_COLOR
+      : BUDGET_DEFAULTS.MAX_POINTS_WITHOUT_DISCRETE_COLOR;
+
+    const minPerStratum = hasDiscreteColor
+      ? BUDGET_DEFAULTS.MIN_PER_STRATUM_WITH_DISCRETE_COLOR
+      : BUDGET_DEFAULTS.MIN_PER_STRATUM_WITHOUT_DISCRETE_COLOR;
+
+    const stratifyField = findStratifyField(queryDesc, colorField, hasDiscreteColor);
+
+    // Get continuous dimension fields to preserve extremes for
+    // Use OUTPUT column names and exclude date_mode='distinct' (discrete integers)
+    const preserveFields = queryDesc.dimensions
+      ?.filter(d => d.flavour === 'continuous' && d.date_mode !== 'distinct')
+      .map(d => getDimensionOutputName(d)) || [];
+
+    return {
+      maxPoints,
+      minPerStratum,
+      stratifyField,
+      strategy: 'preserve_extremes',
+      preserveFields,
+    };
+  }
+
   // For line charts (aggregated with dimensions), apply line budget
   // to limit result rows while preserving min/max for stable axis scales
   // Only preserve extremes for continuous dimensions (both X and Y axes in cartesian grid)
-  if (classification.isLineChart && classification.continuousDimFields.length > 0) {
+  if (isLineChart && continuousDimFields.length > 0) {
     return {
       maxPoints: Infinity,  // Not a point chart
       minPerStratum: 0,
       strategy: 'none',
       lineBudgetMaxRows: BUDGET_DEFAULTS.MAX_POINTS_WITHOUT_DISCRETE_COLOR,
-      continuousFields: classification.continuousDimFields,
+      continuousFields: continuousDimFields,
     };
   }
 
-  if (!classification.isPointChart) {
+  if (!isPointChart) {
     return {
       maxPoints: Infinity,
       minPerStratum: 0,
@@ -203,7 +238,7 @@ export function computePointBudget(
     };
   }
 
-  const { hasDiscreteColor, isScatter } = classification;
+  // Remaining point charts (tick strip, raw point chart, etc.)
 
   const maxPoints = hasDiscreteColor
     ? BUDGET_DEFAULTS.MAX_POINTS_WITH_DISCRETE_COLOR
@@ -214,23 +249,6 @@ export function computePointBudget(
     : BUDGET_DEFAULTS.MIN_PER_STRATUM_WITHOUT_DISCRETE_COLOR;
 
   const stratifyField = findStratifyField(queryDesc, colorField, hasDiscreteColor);
-
-  // For scatter plots (continuous on both axes), use preserve_extremes
-  // to maintain stable axis scales across refreshes
-  if (isScatter) {
-    // Get continuous dimension fields to preserve extremes for
-    const preserveFields = queryDesc.dimensions
-      ?.filter(d => d.flavour === 'continuous')
-      .map(d => d.field) || [];
-    
-    return {
-      maxPoints,
-      minPerStratum,
-      stratifyField,
-      strategy: 'preserve_extremes',
-      preserveFields,
-    };
-  }
 
   return {
     maxPoints,
