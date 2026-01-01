@@ -31,7 +31,7 @@ from backend.services.query_components.optimization_applier import OptimizationA
 from backend.services.query_components.grouping_ordering_builder import (
     GroupingOrderingBuilder,
 )
-from backend.services.query_components.union_query_builder import UnionQueryBuilder
+from backend.services.query_components.union import UnionQueryBuilder
 from backend.services.query_components.virtual_column_builder import (
     VirtualColumnExpressionBuilder,
 )
