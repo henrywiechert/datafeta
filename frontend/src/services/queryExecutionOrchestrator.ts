@@ -25,7 +25,7 @@ export interface PointBudgetOptions {
   preserveFields?: string[];
   // For aggregated line charts: limit result rows with preserved min/max
   lineBudgetMaxRows?: number;
-  // All continuous fields (X dimension + Y measures) to preserve extremes for
+  // All continuous dimension fields to preserve extremes for (axis scale stability)
   continuousFields?: string[];
 }
 
