@@ -249,34 +249,39 @@ export function applyLineBudgetSql(
   const { maxRows, continuousFields } = budget;
   if (!baseSql || !continuousFields?.length) return baseSql;
   
-  // Build extreme selects for each continuous field (MIN and MAX)
-  // LIMIT 1 is critical: many rows may share the same min/max value
-  const extremeSelects = continuousFields.flatMap(field => {
+  // Build separate CTEs for each extreme (ORDER BY + LIMIT 1 approach)
+  // This avoids UNION ALL inside a CTE which causes DuckDB WASM issues
+  const extremeCtes: string[] = [];
+  const extremeNames: string[] = [];
+  
+  continuousFields.forEach((field, idx) => {
     const qf = quoteIdent(field);
-    return [
-      `SELECT * FROM base WHERE ${qf} = (SELECT MIN(${qf}) FROM base) LIMIT 1`,
-      `SELECT * FROM base WHERE ${qf} = (SELECT MAX(${qf}) FROM base) LIMIT 1`,
-    ];
+    const minName = `min_${idx}`;
+    const maxName = `max_${idx}`;
+    extremeNames.push(minName, maxName);
+    extremeCtes.push(`${minName} AS (SELECT * FROM base ORDER BY ${qf} ASC LIMIT 1)`);
+    extremeCtes.push(`${maxName} AS (SELECT * FROM base ORDER BY ${qf} DESC LIMIT 1)`);
   });
-  const extremesUnion = extremeSelects.join('\nUNION ALL\n');
   
   // Reserve rows for extremes (2 per field: min and max)
   const reservedForExtremes = continuousFields.length * 2;
   const sampleLimit = Math.max(1, maxRows - reservedForExtremes);
 
+  // Build final UNION ALL at query level (not inside CTE)
+  const finalSelects = [
+    ...extremeNames.map(name => `SELECT * FROM ${name}`),
+    'SELECT * FROM sample'
+  ];
+
   return `
 WITH base AS (
   ${baseSql}
 ),
-extremes AS (
-${extremesUnion}
-),
+${extremeCtes.join(',\n')},
 sample AS (
   SELECT * FROM base ORDER BY random() LIMIT ${sampleLimit}
 )
-SELECT * FROM extremes
-UNION ALL
-SELECT * FROM sample
+${finalSelects.join('\nUNION ALL\n')}
   `.trim();
 }
 
@@ -295,32 +300,38 @@ export function applyPointBudgetSql(
 
   // Handle preserve_extremes strategy for scatter plots
   if (strategy === 'preserve_extremes' && preserveFields && preserveFields.length > 0) {
-    // Build extreme selects for each field (MIN and MAX)
-    // LIMIT 1 is critical: many rows may share the same min/max value
-    const extremeSelects = preserveFields.flatMap(field => {
+    // Build separate CTEs for each extreme (ORDER BY + LIMIT 1 approach)
+    // This avoids UNION ALL inside a CTE which causes DuckDB WASM issues
+    const extremeCtes: string[] = [];
+    const extremeNames: string[] = [];
+    
+    preserveFields.forEach((field, idx) => {
       const qf = quoteIdent(field);
-      return [
-        `SELECT * FROM base WHERE ${qf} = (SELECT MIN(${qf}) FROM base) LIMIT 1`,
-        `SELECT * FROM base WHERE ${qf} = (SELECT MAX(${qf}) FROM base) LIMIT 1`,
-      ];
+      const minName = `min_${idx}`;
+      const maxName = `max_${idx}`;
+      extremeNames.push(minName, maxName);
+      extremeCtes.push(`${minName} AS (SELECT * FROM base ORDER BY ${qf} ASC LIMIT 1)`);
+      extremeCtes.push(`${maxName} AS (SELECT * FROM base ORDER BY ${qf} DESC LIMIT 1)`);
     });
-    const extremesUnion = extremeSelects.join('\nUNION ALL\n');
+    
     const reservedForExtremes = preserveFields.length * 2;
     const sampleLimit = Math.max(1, maxRows - reservedForExtremes);
+
+    // Build final UNION ALL at query level (not inside CTE)
+    const finalSelects = [
+      ...extremeNames.map(name => `SELECT * FROM ${name}`),
+      'SELECT * FROM sample'
+    ];
 
     return `
 WITH base AS (
   ${baseSql}
 ),
-extremes AS (
-${extremesUnion}
-),
+${extremeCtes.join(',\n')},
 sample AS (
   SELECT * FROM base ORDER BY random() LIMIT ${sampleLimit}
 )
-SELECT * FROM extremes
-UNION ALL
-SELECT * FROM sample
+${finalSelects.join('\nUNION ALL\n')}
     `.trim();
   }
 
