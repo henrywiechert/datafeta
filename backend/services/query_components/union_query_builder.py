@@ -95,14 +95,15 @@ class UnionQueryBuilder:
                 rand_func = "rand()" if db_type == "clickhouse" else "random()"
 
                 # Build CTE-based query that preserves extremes
+                # LIMIT 1 is critical: many rows may share the same min/max value
                 extreme_selects = []
                 for field in preserve_fields:
                     qf = f"{quote_char}{field}{quote_char}"
                     extreme_selects.append(
-                        f"SELECT * FROM base WHERE {qf} = (SELECT MIN({qf}) FROM base)"
+                        f"SELECT * FROM base WHERE {qf} = (SELECT MIN({qf}) FROM base) LIMIT 1"
                     )
                     extreme_selects.append(
-                        f"SELECT * FROM base WHERE {qf} = (SELECT MAX({qf}) FROM base)"
+                        f"SELECT * FROM base WHERE {qf} = (SELECT MAX({qf}) FROM base) LIMIT 1"
                     )
 
                 extremes_union = "\nUNION ALL\n".join(extreme_selects)
