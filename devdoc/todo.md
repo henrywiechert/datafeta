@@ -94,14 +94,18 @@ Done
 
 Better progress dialog
 Rendering, SQL query
+Works relatively well now.
 
 Query Optimization improvements. Still cases where everything hangs, because to many data points are rendered.
+Works relatively well now. Query optimization doc added.
 
 Sheet switch destroys something
 Table lost
+Done
 
 Size not correctly applied when faceting is active.
 In facets (by measure) where size field is always 0, the size looks larger, than in facets where some points have 0.4
+I think size is only respected within facets. Not sure here yet.
 
 No tick strip when using DateTime as continous field only.
 
@@ -110,6 +114,7 @@ Shape encoding (circle, square, triangle, cross, diamond)
 Ordinal type
 // What Polaris suggests:
 type DataType = 'nominal' | 'ordinal' | 'quantitative';
+Is that really needed ?
 
 Hierarchical/chained filters -> 2 chained time filter.
 
@@ -118,6 +123,7 @@ Drill Down (Year->Month->Day ...)
 Zoom via UI
 
 Expose Filters to ChartArea UI
+??
 
 Geographical Maps
 
@@ -133,3 +139,20 @@ Category reorder by drag/drop
 Manually Color assigmnets for discrete colors
 
 Arrow columnar storage
+Done
+
+DateTime filter for multiple tables (different spans)
+- consider filter in "All Time" detection
+
+Consistent Naming for aggregates in all panels and tooltip
+
+Tighter DateTime filter config layout
+
+Tighter layout for Virtual columns
+
+Gantt Charts
+
+Filter by Selection (provide list of discrete categories involved)
+
+Filter facet by right click into facet (select involved dimensions)
+

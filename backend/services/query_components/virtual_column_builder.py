@@ -112,6 +112,7 @@ class VirtualColumnExpressionBuilder:
         self.default_table = default_table
         self.virtual_column_map: Dict[str, Term] = {}
         self._registered_names: Set[str] = set()
+        self._source_fields_map: Dict[str, List[str]] = {}  # Maps vc name -> source field names
         self.db_type = self._normalize_db_type(db_type)
     
     def register_virtual_column(
@@ -142,6 +143,9 @@ class VirtualColumnExpressionBuilder:
         logger.debug(f"Registering virtual column '{name}' with expression: {expression}")
         
         try:
+            # Extract source field names before parsing (for UNION queries to check availability)
+            source_fields = self._extract_column_references(expression)
+            
             # Parse expression into Pypika Term
             pypika_term = self._parse_expression(expression)
             
@@ -149,11 +153,12 @@ class VirtualColumnExpressionBuilder:
             if output_type:
                 pypika_term = Cast(pypika_term, output_type)
             
-            # Store in map
+            # Store in maps
             self.virtual_column_map[name] = pypika_term
             self._registered_names.add(name)
+            self._source_fields_map[name] = source_fields
             
-            logger.debug(f"Successfully registered virtual column '{name}'")
+            logger.debug(f"Successfully registered virtual column '{name}' with source fields: {source_fields}")
             return pypika_term
             
         except Exception as e:
@@ -175,6 +180,21 @@ class VirtualColumnExpressionBuilder:
     def is_virtual_column(self, name: str) -> bool:
         """Check if a column name is a registered virtual column."""
         return name in self._registered_names
+    
+    def get_source_fields(self, name: str) -> List[str]:
+        """
+        Get the list of source field names that a virtual column depends on.
+        
+        This is used by UNION query builder to determine if a virtual column
+        can be computed from the columns available in a specific table.
+        
+        Args:
+            name: Name of the virtual column
+            
+        Returns:
+            List of source field names, or empty list if not a virtual column
+        """
+        return self._source_fields_map.get(name, [])
     
     def _parse_expression(self, expression: str) -> Term:
         """
