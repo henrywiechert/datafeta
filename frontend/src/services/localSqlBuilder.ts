@@ -1,16 +1,37 @@
+/**
+ * Configuration for local SQL builder.
+ * Set useSimpleExpressions=true for clean data sources (ClickHouse, etc.)
+ * where defensive type checking is unnecessary.
+ */
+export const localSqlConfig = {
+  /** 
+   * When true, skip defensive type checking and string parsing.
+   * Use this for clean data sources like ClickHouse where columns are properly typed.
+   * When false, use defensive expressions for dirty CSV-style data.
+   */
+  useSimpleExpressions: true,  // Default to simple - the defensive mode was causing DuckDB WASM crashes
+};
+
 export function quoteIdent(name: string): string {
   // DuckDB uses standard SQL identifier quoting via double quotes.
   return `"${String(name).replace(/"/g, '""')}"`;
 }
 
 /**
- * Build a robust DuckDB timestamp expression for a column that might be typed as
- * TIMESTAMP/DATE already or might be a string.
+ * Build a DuckDB timestamp expression for a column.
  *
- * We prefer not to throw: if parsing fails, return NULL (TRY_CAST).
+ * In simple mode: just use the column directly (trust the types)
+ * In defensive mode: handle various input formats (CSV-style dirty data)
  */
 export function buildDuckDbTimestampExpr(colName: string): string {
   const col = quoteIdent(colName);
+  
+  // Simple mode: trust the data types
+  if (localSqlConfig.useSimpleExpressions) {
+    return col;
+  }
+
+  // Defensive mode for dirty data:
   // DuckDB typeof() returns strings like 'TIMESTAMP', 'DATE', 'VARCHAR', ...
   // Treat DATE/TIMESTAMP* as safe; otherwise try-cast from string-like columns.
   //
@@ -98,11 +119,20 @@ export function buildDuckDbDateTimePartExpr(args: {
 }
 
 /**
- * DuckDB can end up with VARCHAR columns when upstream types are ambiguous.
- * For local aggregations, be defensive: strip embedded quote characters and TRY_CAST to DOUBLE.
+ * Build a numeric expression for aggregation.
+ * 
+ * When useSimpleExpressions is true: just use the column directly
+ * When false: defensive mode with type checking and string parsing for dirty data
  */
 export function buildNumericExpr(colName: string): string {
   const col = quoteIdent(colName);
+  
+  // Simple mode: trust the data types, just use column directly
+  if (localSqlConfig.useSimpleExpressions) {
+    return col;
+  }
+
+  // Defensive mode for dirty data (CSV imports, mixed types)
   // Goal:
   // - If the cached DuckDB column is already numeric, DON'T do expensive string parsing.
   // - If it's string-like, parse common numeric string formats.
