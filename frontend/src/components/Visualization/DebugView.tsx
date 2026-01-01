@@ -391,6 +391,7 @@ const DuckDBCacheInfo: React.FC = () => {
                   backgroundColor: '#e3f2fd',
                   border: '1px solid #90caf9',
                   borderRadius: '4px',
+                  color: '#333',
                 }}
               >
                 🧪 COUNT(*)
@@ -404,6 +405,7 @@ const DuckDBCacheInfo: React.FC = () => {
                   backgroundColor: '#e8f5e9',
                   border: '1px solid #a5d6a7',
                   borderRadius: '4px',
+                  color: '#333',
                 }}
               >
                 🧪 DISTINCT
@@ -417,6 +419,7 @@ const DuckDBCacheInfo: React.FC = () => {
                   backgroundColor: '#fff3e0',
                   border: '1px solid #ffcc80',
                   borderRadius: '4px',
+                  color: '#333',
                 }}
               >
                 🔬 Stats
@@ -430,6 +433,7 @@ const DuckDBCacheInfo: React.FC = () => {
                   backgroundColor: '#fce4ec',
                   border: '1px solid #f48fb1',
                   borderRadius: '4px',
+                  color: '#333',
                 }}
               >
                 📋 Sample Rows
@@ -501,6 +505,7 @@ const DuckDBCacheInfo: React.FC = () => {
                   backgroundColor: '#eee',
                   border: '1px solid #ccc',
                   borderRadius: '3px',
+                  color: '#333',
                 }}
               >
                 Clear Result
@@ -524,6 +529,7 @@ const DuckDBCacheInfo: React.FC = () => {
                       backgroundColor: '#eee',
                       border: '1px solid #ccc',
                       borderRadius: '3px',
+                      color: '#333',
                     }}
                   >
                     Clear
@@ -537,6 +543,7 @@ const DuckDBCacheInfo: React.FC = () => {
                       backgroundColor: '#e3f2fd',
                       border: '1px solid #90caf9',
                       borderRadius: '3px',
+                      color: '#333',
                     }}
                   >
                     {showAllLocalQueries ? 'Show last 10' : 'Show all'}
