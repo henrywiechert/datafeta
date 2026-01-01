@@ -10,7 +10,7 @@ import { Table as ArrowTable, tableToIPC } from 'apache-arrow';
 import { arrowTableToRows } from './arrowResultAdapter';
 
 // CDN URLs for DuckDB WASM bundles
-const DUCKDB_CDN_BASE = 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.31.0/dist';
+const DUCKDB_CDN_BASE = 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.32.0/dist';
 
 /**
  * Create a same-origin worker from a cross-origin script URL.

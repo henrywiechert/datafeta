@@ -216,8 +216,8 @@ export async function buildUnpivotedQuery({
     });
   }
 
-  // Execute query
-  const result = await apiService.executeQuery(queryDesc, signal);
+  // Execute query using Arrow transport for efficiency
+  const result = await apiService.executeQueryArrow(queryDesc, signal);
   
   // Transform result: convert measure columns into MeasureNames/MeasureValues rows
   return transformMeasuresToRows(result, measureFields, allFields);
