@@ -45,10 +45,13 @@ def apply_result_budget(
     if not getattr(budget, "max_rows", None) or budget.strategy == "none":
         return sql
 
-    # Only apply to "raw" queries (no measures = dimension-only scatter/tick plots)
-    # Aggregated queries already reduce via GROUP BY and should not be randomly sampled.
-    if query_desc.measures:
-        return sql
+    # Result budget can be applied to both raw (dimension-only) and aggregated queries.
+    # While aggregated queries often reduce data via GROUP BY, fine-grained grouping
+    # (e.g., millisecond timestamps + multiple dimensions) can still produce millions of rows.
+    # The frontend explicitly requests a budget when it expects many results, so we honor it.
+    #
+    # Note: For aggregated queries, random sampling may affect totals, but this is acceptable
+    # for visualization purposes where we need to limit rendering to a reasonable row count.
 
     max_rows = int(budget.max_rows)
     strategy = budget.strategy
