@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from backend.models.query import Dimension, Filter, Measure, QueryDescription
 
-from backend.services.query_components.union.result_budget_applier import apply_result_budget
+from backend.services.query_components.result_budget_applier import apply_result_budget
 from backend.services.query_components.union.source_filter_builder import (
     build_source_filter_where_clauses,
     build_source_only_query,
