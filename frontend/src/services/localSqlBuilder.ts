@@ -247,7 +247,8 @@ export function applyLineBudgetSql(
   }
 ): string {
   const { maxRows, continuousFields } = budget;
-  if (!baseSql || !continuousFields?.length) return baseSql;
+  // Skip if no SQL, no continuous fields, or maxRows is infinite
+  if (!baseSql || !continuousFields?.length || !Number.isFinite(maxRows)) return baseSql;
   
   // Build separate CTEs for each extreme (ORDER BY + LIMIT 1 approach)
   // This avoids UNION ALL inside a CTE which causes DuckDB WASM issues
@@ -297,6 +298,11 @@ export function applyPointBudgetSql(
 ): string {
   const { stratifyField, maxRows, minPerStratum = 0, strategy, preserveFields } = budget;
   if (!baseSql) return baseSql;
+
+  // Skip budget application if strategy is 'none' or maxRows is infinite
+  if (strategy === 'none' || !Number.isFinite(maxRows)) {
+    return baseSql;
+  }
 
   // Handle preserve_extremes strategy for scatter plots
   if (strategy === 'preserve_extremes' && preserveFields && preserveFields.length > 0) {
