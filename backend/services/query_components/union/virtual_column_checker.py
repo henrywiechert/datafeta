@@ -83,11 +83,11 @@ def can_compute_virtual_column(
     if not table_columns:
         # No column info available - assume it can be computed (backward compatibility)
         return True
-    
+
     source_fields = vc_source_map.get(vc_name, [])
     if not source_fields:
-        # No source fields identified - assume it can't be computed
-        return False
-    
+        # Constant/fieldless virtual columns are computable everywhere
+        return True
+
     # Check if ALL source fields exist in the table
     return all(field in table_columns for field in source_fields)
