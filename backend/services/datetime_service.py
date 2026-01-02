@@ -193,6 +193,16 @@ class DateTimeService:
                 dow = ExtractTerm('DOW', field_utc)
                 return ((dow + 6) % 7) + 1
 
+            # Handle sub-second parts: EXTRACT(MILLISECOND ...) in DuckDB/Postgres returns
+            # total ms including seconds (0-59999), so we need modulo to get just the part.
+            if date_part == 'millisecond':
+                return ExtractTerm('MILLISECOND', field_utc) % 1000
+            if date_part == 'microsecond':
+                return ExtractTerm('MICROSECOND', field_utc) % 1000000
+            if date_part == 'nanosecond':
+                # Note: Most SQL engines don't support nanosecond extraction natively
+                return ExtractTerm('NANOSECOND', field_utc) % 1000000000
+
             extract_part = cls.SQL_DATE_PART_MAP.get(date_part, date_part.upper())
             return ExtractTerm(extract_part, field_utc)
     
