@@ -8,7 +8,7 @@ import { buildBarOptions, resolveMeasureAlias } from '../chartTypes/barCore';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
-import { formatDateTick } from '../utils/dateFormatUtils';
+import { formatDateTick, normalizeCategoryDomain, normalizeDataForBandScale } from '../utils/dateFormatUtils';
 
 /**
  * Label configuration for bar cell generator.
@@ -58,9 +58,16 @@ export function createBarCellGenerator(
       f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
     );
     
-    const categories = sharedCategoryDomain && sharedCategoryDomain.length > 0 
+    // Normalize categories: convert Date objects to formatted strings for band scale compatibility
+    // Observable Plot band scales don't handle Date objects correctly, causing mismatched bars
+    const rawCategories = sharedCategoryDomain && sharedCategoryDomain.length > 0 
       ? sharedCategoryDomain 
       : [' '];
+    const categories = normalizeCategoryDomain(rawCategories);
+    
+    // Also normalize the cell data's category column to match
+    const categoryColumnName = categoryField ? getFieldColumnName(categoryField) : undefined;
+    const normalizedCellData = normalizeDataForBandScale(cellData, categoryColumnName);
     
     // Calculate base dimensions based on category count
     const baseRowHeight = categoryAxis === 'y' 
@@ -75,7 +82,6 @@ export function createBarCellGenerator(
     const baseRowsPerFacet = barOrientation === 'barY' ? Math.max(MIN_SERIES_PANES, seriesFields.length) : 1;
     
     const plots: PositionedPlot[] = [];
-    const categoryColumnName = categoryField ? getFieldColumnName(categoryField) : undefined;
     const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
     
     // Create a subplot per series
@@ -87,7 +93,7 @@ export function createBarCellGenerator(
       
       if (isMeasure) {
         options = buildMeasureBarOptions(
-          cellData,
+          normalizedCellData,
           f,
           barOrientation,
           categoryColumnName,
@@ -104,7 +110,7 @@ export function createBarCellGenerator(
       } else {
         // Tick strip for continuous dimension
         options = buildTickStripOptions(
-          cellData,
+          normalizedCellData,
           f,
           barOrientation,
           categoryColumnName,
