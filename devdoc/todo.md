@@ -156,3 +156,6 @@ Filter by Selection (provide list of discrete categories involved)
 
 Filter facet by right click into facet (select involved dimensions)
 
+Un-share domain for dimensions at faceting.
+Autoscale min..max
+

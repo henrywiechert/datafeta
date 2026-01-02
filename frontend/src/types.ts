@@ -495,6 +495,8 @@ export interface VisualizationStateSnapshot {
   sizeField: Field | null;
   sizeRange: [number, number];
   manualSize: number;
+  /** Axis domain sharing controls (shared vs independent per axis). */
+  independentDomains?: { x: boolean; y: boolean };
   /**
    * Per-field chart overrides keyed by Field.id.
    * Persisted with sheets and saved configurations.

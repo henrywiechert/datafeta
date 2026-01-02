@@ -44,6 +44,7 @@ const ChartArea: React.FC = () => {
     fieldOverrides,
     globalChartType,
     measureValuesSourceFields,
+    independentDomains,
   } = state as any;
   const { selectedTable, selectedDatabase, virtualTable } = dataSource;
   
@@ -129,6 +130,7 @@ const ChartArea: React.FC = () => {
     queryVersion, // Pass queryVersion to detect UNION/JOIN changes
     startOperation,
     completeOperation,
+    independentDomains,
     labelFields,
     labelsEnabled,
     labelSamplingStrategy,
@@ -199,6 +201,11 @@ const ChartArea: React.FC = () => {
       completeRedo(currentState);
     }
   }, [redo, completeRedo, dispatch, getUndoableSnapshot]);
+
+  const handleIndependentXAxisToggle = useCallback((independent: boolean) => {
+    recordAction(getUndoableSnapshot());
+    dispatch({ type: 'SET_INDEPENDENT_DOMAIN', payload: { axis: 'x', independent } });
+  }, [dispatch, getUndoableSnapshot, recordAction]);
 
   const debugData = {
     queryDescription,
@@ -289,6 +296,8 @@ const ChartArea: React.FC = () => {
           onUndo={handleUndo}
           onRedo={handleRedo}
           onResetWorkspace={resetWorkspace}
+          independentXAxis={!!independentDomains?.x}
+          onToggleIndependentXAxis={handleIndependentXAxisToggle}
         />
         
         <DebugPanel

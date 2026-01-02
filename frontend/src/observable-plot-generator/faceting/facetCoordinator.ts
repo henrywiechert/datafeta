@@ -64,7 +64,7 @@ export interface FacetCoordinatorConfig {
  */
 export function coordinateFacetedGrid(config: FacetCoordinatorConfig): PlotResult {
   const { context, plan, cellGenerator, categoryField, sharedCategoryDomain } = config;
-  const { xFields, yFields, queryResult, colorField } = context;
+  const { xFields, yFields, queryResult, colorField, independentDomains } = context;
   const { rowFacetFields, colFacetFields } = plan;
 
   // Compute facet levels and combinations
@@ -89,10 +89,42 @@ export function coordinateFacetedGrid(config: FacetCoordinatorConfig): PlotResul
     context.fieldOverrides
   );
 
+  // Optional: compute per-column shared domains for independent X across columns
+  const perColumnSharedDomains = independentDomains?.x
+    ? safeColCombos.map((colCombo) => {
+        const colRows = filterRowsByFacets(queryResult.rows, [], [], colFacetFields, colCombo);
+        // Fallback to global shared domains if column has no rows
+        if (!colRows || colRows.length === 0) return sharedDomains;
+        const domainsForColumn = computeSharedDomainsForFaceting(
+          colRows,
+          xFields,
+          yFields,
+          colorField,
+          categoryField || undefined,
+          [...rowFacetFields, ...colFacetFields],
+          context.colorScheme,
+          context.colorBias,
+          context.measureValuesSourceFields,
+          context.fieldOverrides
+        );
+
+        if (categoryField && sharedCategoryDomain) {
+          const categoryColumnName = getFieldColumnName(categoryField);
+          domainsForColumn.categorical[categoryColumnName] = sharedCategoryDomain;
+        }
+
+        return domainsForColumn;
+      })
+    : null;
+
+  const effectiveSharedDomains = independentDomains?.x
+    ? filterSharedDomainsForIndependentX(sharedDomains, xFields)
+    : sharedDomains;
+
   // Override categorical domain if explicitly provided
   if (categoryField && sharedCategoryDomain) {
     const categoryColumnName = getFieldColumnName(categoryField);
-    sharedDomains.categorical[categoryColumnName] = sharedCategoryDomain;
+    effectiveSharedDomains.categorical[categoryColumnName] = sharedCategoryDomain;
   }
 
   // Generate one sample cell to determine base layout dimensions
@@ -103,7 +135,8 @@ export function coordinateFacetedGrid(config: FacetCoordinatorConfig): PlotResul
     colFacetFields,
     safeColCombos[0]
   );
-  const sampleResult = cellGenerator(sampleRows, context, sharedDomains, { row: 0, col: 0 });
+  const sampleDomains = perColumnSharedDomains?.[0] || effectiveSharedDomains;
+  const sampleResult = cellGenerator(sampleRows, context, sampleDomains, { row: 0, col: 0 });
   const baseCols = sampleResult.columns;
   const baseRows = sampleResult.rows;
 
@@ -119,7 +152,8 @@ export function coordinateFacetedGrid(config: FacetCoordinatorConfig): PlotResul
         safeColCombos[c]
       );
       
-      const cellResult = cellGenerator(cellData, context, sharedDomains, { row: r, col: c });
+      const columnDomains = perColumnSharedDomains?.[c] || effectiveSharedDomains;
+      const cellResult = cellGenerator(cellData, context, columnDomains, { row: r, col: c });
       
       // Offset plots to their correct grid position
       cellResult.plots.forEach((p) => {
@@ -158,8 +192,27 @@ export function coordinateFacetedGrid(config: FacetCoordinatorConfig): PlotResul
   return {
     library: 'observable-plot',
     plots: allPlots,
-    sharedDomains: { byMeasure: sharedDomains.measure as any },
+    sharedDomains: { byMeasure: effectiveSharedDomains.measure as any },
     layout: gridLayout,
     facetLabels,
+  };
+}
+
+function filterSharedDomainsForIndependentX(shared: SharedDomains, xFields: Field[]): SharedDomains {
+  if (!xFields?.length) return shared;
+  const xLabels = new Set(xFields.map((f) => getFieldColumnName(f)));
+
+  const filteredMeasure = Object.fromEntries(
+    Object.entries(shared.measure || {}).filter(([key]) => !xLabels.has(key))
+  ) as Record<string, [number, number]>;
+
+  const filteredNumeric = Object.fromEntries(
+    Object.entries(shared.numeric || {}).filter(([key]) => !xLabels.has(key))
+  ) as Record<string, [number, number] | [Date, Date]>;
+
+  return {
+    ...shared,
+    measure: filteredMeasure,
+    numeric: filteredNumeric,
   };
 }
