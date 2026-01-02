@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, IconButton, SvgIcon, Tooltip } from '@mui/material';
+import { v4 as uuidv4 } from 'uuid';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import { DragSource, Field } from '../../../types';
 import FieldChip from '../FieldChip';
@@ -55,7 +56,12 @@ const TooltipFieldControl: React.FC<TooltipFieldControlProps> = ({
       }
 
       if (fields && fields.length > 0) {
-        fields.forEach((f: Field) => onTooltipDrop(f, source));
+        fields.forEach((f: Field) => {
+          // Create an independent copy with a new ID when dropping from AVAILABLE_FIELDS or axes
+          const isFromZone = source === 'TOOLTIP_ZONE';
+          const fieldToSet = isFromZone ? f : { ...f, id: uuidv4() };
+          onTooltipDrop(fieldToSet, source);
+        });
       }
     } catch (err) {
       console.warn('Failed to parse dropped field for tooltip override control', err);

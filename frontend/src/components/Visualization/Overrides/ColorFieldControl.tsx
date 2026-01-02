@@ -1,8 +1,9 @@
 import React from 'react';
 import { Box } from '@mui/material';
+import { v4 as uuidv4 } from 'uuid';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import ColorPalettePopover from '../Color/ColorPalettePopover';
-import { Field } from '../../../types';
+import { Field, DragSource } from '../../../types';
 import FieldChip from '../FieldChip';
 import { parseDragData } from './overrideUtils';
 
@@ -30,9 +31,13 @@ const ColorFieldControl: React.FC<ColorFieldControlProps> = ({
   onBiasChange,
 }) => {
   const handleDrop = (e: React.DragEvent) => {
-    const { field: droppedField } = parseDragData(e);
+    const { field: droppedField, source } = parseDragData(e);
     if (droppedField) {
-      onDrop(droppedField);
+      // Create an independent copy with a new ID when dropping from AVAILABLE_FIELDS or axes
+      // This ensures the colorField is independent from the source field
+      const isFromZone = source === 'COLOR_ZONE';
+      const fieldToSet = isFromZone ? droppedField : { ...droppedField, id: uuidv4() };
+      onDrop(fieldToSet);
     }
   };
 

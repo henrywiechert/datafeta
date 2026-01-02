@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Box, IconButton, Popover, SvgIcon, ToggleButton, ToggleButtonGroup, Switch, Typography, Tooltip } from '@mui/material';
+import { v4 as uuidv4 } from 'uuid';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import { Field, DataLabelMode } from '../../../types';
 import FieldChip from '../FieldChip';
@@ -58,9 +59,12 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
   const popoverOpen = Boolean(anchorEl);
 
   const handleDrop = (e: React.DragEvent) => {
-    const { field: droppedField } = parseDragData(e);
+    const { field: droppedField, source } = parseDragData(e);
     if (droppedField) {
-      onLabelDrop(droppedField);
+      // Create an independent copy with a new ID when dropping from AVAILABLE_FIELDS or axes
+      const isFromZone = source === 'LABEL_ZONE';
+      const fieldToSet = isFromZone ? droppedField : { ...droppedField, id: uuidv4() };
+      onLabelDrop(fieldToSet);
     }
   };
 
