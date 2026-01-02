@@ -12,6 +12,7 @@ from pypika.terms import Function
 
 from backend.exceptions import QueryGenerationError
 from backend.services.query_components.terms import ExtractTerm
+from backend.services import datetime_semantics as semantics
 
 
 class DateTimeService:
@@ -73,32 +74,10 @@ class DateTimeService:
     }
     
     # SQL DISTINCT MODE: EXTRACT parts
-    SQL_DATE_PART_MAP: Dict[str, str] = {
-        'year': 'YEAR',
-        'month': 'MONTH',
-        'day': 'DAY',
-        'weekday': 'DOW',
-        'hour': 'HOUR',
-        'minute': 'MINUTE',
-        'second': 'SECOND',
-        'millisecond': 'MILLISECOND',
-        'microsecond': 'MICROSECOND',
-        'nanosecond': 'NANOSECOND',
-    }
+    SQL_DATE_PART_MAP: Dict[str, str] = semantics.DISTINCT_EXTRACT_PART
     
     # SQL TIMELINE MODE: date_trunc units
-    SQL_TIMELINE_UNIT_MAP: Dict[str, str] = {
-        'year': 'year',
-        'month': 'month',
-        'day': 'day',
-        'weekday': 'day',  # Group by day for weekday timeline
-        'hour': 'hour',
-        'minute': 'minute',
-        'second': 'second',
-        'millisecond': 'millisecond',
-        'microsecond': 'microsecond',
-        'nanosecond': 'nanosecond',
-    }
+    SQL_TIMELINE_UNIT_MAP: Dict[str, str] = semantics.TIMELINE_UNITS
     
     @classmethod
     def get_datetime_part_expression(
@@ -195,13 +174,9 @@ class DateTimeService:
 
             # Handle sub-second parts: EXTRACT(MILLISECOND ...) in DuckDB/Postgres returns
             # total ms including seconds (0-59999), so we need modulo to get just the part.
-            if date_part == 'millisecond':
-                return ExtractTerm('MILLISECOND', field_utc) % 1000
-            if date_part == 'microsecond':
-                return ExtractTerm('MICROSECOND', field_utc) % 1000000
-            if date_part == 'nanosecond':
-                # Note: Most SQL engines don't support nanosecond extraction natively
-                return ExtractTerm('NANOSECOND', field_utc) % 1000000000
+            modulo = semantics.get_modulo(date_part)
+            if modulo:
+                return ExtractTerm(cls.SQL_DATE_PART_MAP.get(date_part, date_part.upper()), field_utc) % modulo
 
             extract_part = cls.SQL_DATE_PART_MAP.get(date_part, date_part.upper())
             return ExtractTerm(extract_part, field_utc)

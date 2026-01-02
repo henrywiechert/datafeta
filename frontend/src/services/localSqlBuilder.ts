@@ -1,3 +1,10 @@
+import {
+  buildDateTimeAlias,
+  getDistinctExtractPart,
+  getTimelineUnit,
+  getModuloForPart,
+} from '../datetime/datetimeSemantics';
+
 /**
  * Configuration for local SQL builder.
  * Set useSimpleExpressions=true for clean data sources (ClickHouse, etc.)
@@ -84,7 +91,7 @@ export function buildDuckDbDateTimePartSelectItem(args: {
   dateMode: string;
 }): SelectItem {
   const { field, datePart, dateMode } = args;
-  const alias = `${field}_${datePart}_${dateMode}`;
+  const alias = buildDateTimeAlias(field, datePart as any, dateMode as any);
   const ts = buildDuckDbTimestampExpr(field);
 
   // We interpret timestamps as UTC in local DuckDB. Most cached timestamps are timezone-naive
@@ -93,7 +100,7 @@ export function buildDuckDbDateTimePartSelectItem(args: {
 
   if (dateMode === 'timeline') {
     // Special-case weekday timeline: treat as day-binning (same as backend)
-    const unit = datePart === 'weekday' ? 'day' : datePart;
+    const unit = getTimelineUnit(datePart as any);
     return { kind: 'expr', expr: `date_trunc('${unit}', ${utcTs})`, alias };
   }
 
@@ -106,15 +113,15 @@ export function buildDuckDbDateTimePartSelectItem(args: {
 
   // Sub-second parts: EXTRACT(MILLISECOND/MICROSECOND) in DuckDB includes the seconds
   // component (e.g., 56.789s returns 56789 for MILLISECOND). Apply modulo to get just the part.
-  if (datePart === 'millisecond') {
-    return { kind: 'expr', expr: `CAST(EXTRACT(MILLISECOND FROM ${utcTs}) AS INTEGER) % 1000`, alias };
-  }
-  if (datePart === 'microsecond') {
-    return { kind: 'expr', expr: `CAST(EXTRACT(MICROSECOND FROM ${utcTs}) AS BIGINT) % 1000000`, alias };
+  const modulo = getModuloForPart(datePart as any);
+  if (modulo) {
+    const extractPart = getDistinctExtractPart(datePart as any);
+    const castType = datePart === 'millisecond' ? 'INTEGER' : 'BIGINT';
+    return { kind: 'expr', expr: `CAST(EXTRACT(${extractPart} FROM ${utcTs}) AS ${castType}) % ${modulo}`, alias };
   }
 
   // Distinct mode for supported parts
-  return { kind: 'expr', expr: `EXTRACT(${datePart.toUpperCase()} FROM ${utcTs})`, alias };
+  return { kind: 'expr', expr: `EXTRACT(${getDistinctExtractPart(datePart as any)} FROM ${utcTs})`, alias };
 }
 
 export function buildDuckDbDateTimePartExpr(args: {
