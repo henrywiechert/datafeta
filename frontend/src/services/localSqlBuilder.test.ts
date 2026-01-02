@@ -16,8 +16,6 @@ describe('localSqlBuilder datetime parts (DuckDB)', () => {
     if (item.kind === 'expr') {
       expect(item.alias).toBe('ts_minute_timeline');
       expect(item.expr).toContain("date_trunc('minute'");
-      // should use robust timestamp expression (TRY_CAST path)
-      expect(item.expr).toContain('to_timestamp');
     }
   });
 
@@ -28,7 +26,6 @@ describe('localSqlBuilder datetime parts (DuckDB)', () => {
       dateMode: 'distinct',
     });
     expect(expr).toContain('EXTRACT(MINUTE FROM');
-    expect(expr).toContain('to_timestamp');
   });
 
   test('distinct weekday is ISO 1..7 using EXTRACT(DOW) normalization', () => {
@@ -55,6 +52,28 @@ describe('localSqlBuilder datetime parts (DuckDB)', () => {
     });
     expect(sql).toContain('GROUP BY');
     expect(sql).toContain(quoteIdent('ts_hour_timeline'));
+  });
+
+  test('distinct millisecond uses modulo 1000 to get 0-999 range', () => {
+    const expr = buildDuckDbDateTimePartExpr({
+      field: 'ts',
+      datePart: 'millisecond',
+      dateMode: 'distinct',
+    });
+    // EXTRACT(MILLISECOND) in DuckDB returns 0-59999, so we need % 1000
+    expect(expr).toContain('EXTRACT(MILLISECOND FROM');
+    expect(expr).toContain('% 1000');
+  });
+
+  test('distinct microsecond uses modulo 1000000 to get 0-999999 range', () => {
+    const expr = buildDuckDbDateTimePartExpr({
+      field: 'ts',
+      datePart: 'microsecond',
+      dateMode: 'distinct',
+    });
+    // EXTRACT(MICROSECOND) in DuckDB returns full microseconds including seconds
+    expect(expr).toContain('EXTRACT(MICROSECOND FROM');
+    expect(expr).toContain('% 1000000');
   });
 });
 

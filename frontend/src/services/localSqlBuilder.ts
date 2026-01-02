@@ -104,6 +104,15 @@ export function buildDuckDbDateTimePartSelectItem(args: {
     return { kind: 'expr', expr: iso, alias };
   }
 
+  // Sub-second parts: EXTRACT(MILLISECOND/MICROSECOND) in DuckDB includes the seconds
+  // component (e.g., 56.789s returns 56789 for MILLISECOND). Apply modulo to get just the part.
+  if (datePart === 'millisecond') {
+    return { kind: 'expr', expr: `CAST(EXTRACT(MILLISECOND FROM ${utcTs}) AS INTEGER) % 1000`, alias };
+  }
+  if (datePart === 'microsecond') {
+    return { kind: 'expr', expr: `CAST(EXTRACT(MICROSECOND FROM ${utcTs}) AS BIGINT) % 1000000`, alias };
+  }
+
   // Distinct mode for supported parts
   return { kind: 'expr', expr: `EXTRACT(${datePart.toUpperCase()} FROM ${utcTs})`, alias };
 }
