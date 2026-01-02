@@ -33,6 +33,7 @@ function createEmptyVisualizationState(): VisualizationStateSnapshot {
     sizeField: null,
     sizeRange: [4, 20],
     manualSize: 10,
+    independentDomains: { x: false, y: false },
     tooltipFields: [],
     fieldOverrides: {},
   };

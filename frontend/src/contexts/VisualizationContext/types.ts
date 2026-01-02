@@ -45,6 +45,8 @@ export interface VisualizationState {
   labelSampleEvery: number;
   // Tooltip configuration state
   tooltipFields: Field[];
+  // Axis domain sharing controls
+  independentDomains: { x: boolean; y: boolean };
   // Per-operation timing
   operationStartTimes: Record<LoadingOperationType, number | null>;
   activeOperations: LoadingOperationType[];
@@ -122,6 +124,8 @@ export type VisualizationAction =
   | { type: 'SET_TOOLTIP_FIELDS'; payload: Field[] }
   | { type: 'ADD_TOOLTIP_FIELD'; payload: Field }
   | { type: 'REMOVE_TOOLTIP_FIELD'; payload: string }
+  // Axis domain sharing actions
+  | { type: 'SET_INDEPENDENT_DOMAIN'; payload: { axis: 'x' | 'y'; independent: boolean } }
   // Virtual column actions
   | { type: 'SET_VIRTUAL_COLUMNS'; payload: VirtualColumnDefinition[] }
   | { type: 'ADD_VIRTUAL_COLUMN'; payload: VirtualColumnDefinition }
@@ -147,6 +151,7 @@ export type VisualizationAction =
       sizeField: Field | null;
       sizeRange: [number, number];
       manualSize: number;
+      independentDomains?: { x: boolean; y: boolean };
       virtualColumns: VirtualColumnDefinition[];
       virtualColumnFieldPreferences: Record<string, { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }>;
       fieldOverrides: Record<string, FieldOverrideState>;

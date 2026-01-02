@@ -157,6 +157,18 @@ export function axisReducer(state: VisualizationState, action: VisualizationActi
       return { ...state, queryResult: action.payload, queryError: null };
     case 'SET_QUERY_ERROR':
       return { ...state, queryResult: null, queryError: action.payload };
+    case 'SET_INDEPENDENT_DOMAIN': {
+      const { axis, independent } = action.payload;
+      const current = state.independentDomains?.[axis];
+      if (current === independent) return state;
+      return {
+        ...state,
+        independentDomains: {
+          ...state.independentDomains,
+          [axis]: independent,
+        },
+      };
+    }
     case 'RESET_STATE':
       return initialState;
     case 'TABLE_JOINS_UNIONS_MODIFIED':

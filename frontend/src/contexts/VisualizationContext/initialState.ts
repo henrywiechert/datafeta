@@ -41,6 +41,8 @@ export const initialState: VisualizationState = {
   labelSampleEvery: 1,
   // Tooltip configuration defaults
   tooltipFields: [],
+  // Axis domain sharing defaults
+  independentDomains: { x: false, y: false },
   // Per-operation timing defaults
   operationStartTimes: { query: null, rendering: null, metadata: null },
   activeOperations: [],

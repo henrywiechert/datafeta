@@ -25,6 +25,7 @@ export interface VisualizationContextType {
     sizeField: Field | null;
     sizeRange: [number, number];
     manualSize: number;
+    independentDomains: { x: boolean; y: boolean };
     tooltipFields: Field[];
     virtualColumns: VirtualColumnDefinition[];
     fieldOverrides: Record<string, FieldOverrideState>;
@@ -194,6 +195,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       sizeField: state.sizeField,
       sizeRange: state.sizeRange,
       manualSize: state.manualSize,
+      independentDomains: state.independentDomains,
       tooltipFields: state.tooltipFields,
       virtualColumns: state.virtualColumns,
       virtualColumnFieldPreferences: state.virtualColumnFieldPreferences,
