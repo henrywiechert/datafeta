@@ -29,6 +29,7 @@ interface UseChartGenerationProps {
   fieldOverrides?: Record<string, FieldOverrideState>;
   globalChartType?: UserChartType | null;
   measureValuesSourceFields?: Field[];
+  independentDomains?: { x?: boolean; y?: boolean };
 }
 
 interface UseChartGenerationReturn {
@@ -63,6 +64,7 @@ export const useChartGeneration = ({
   fieldOverrides = {},
   globalChartType,
   measureValuesSourceFields = [],
+  independentDomains,
 }: UseChartGenerationProps): UseChartGenerationReturn => {
   const [spec, setSpec] = useState<PlotResult | null>(null);
   const [chartInfo, setChartInfo] = useState<any | null>(null);
@@ -120,6 +122,7 @@ export const useChartGeneration = ({
         fieldOverrideTargets: overrideTargets,
         globalChartType,
         measureValuesSourceFields,
+        independentDomains,
       });
       
       const plotCount = plotResult.plots?.length || 0;
@@ -156,7 +159,7 @@ export const useChartGeneration = ({
       // On error, complete the operation immediately since no rendering will happen
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, useTableView, startOperation, completeOperation, queryResult, queryVersion, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, tooltipFields, fieldOverrides, globalChartType, measureValuesSourceFields]);
+  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, useTableView, startOperation, completeOperation, queryResult, queryVersion, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, tooltipFields, fieldOverrides, globalChartType, measureValuesSourceFields, independentDomains]);
 
   const cancelGeneration = useCallback(() => {
     // No-op since Observable Plot generation is synchronous

@@ -19,6 +19,7 @@ export function undoRedoReducer(state: VisualizationState, action: Visualization
         sizeField: action.payload.sizeField,
         sizeRange: action.payload.sizeRange,
         manualSize: action.payload.manualSize,
+        independentDomains: action.payload.independentDomains ?? state.independentDomains,
         virtualColumns: action.payload.virtualColumns,
         virtualColumnFieldPreferences: action.payload.virtualColumnFieldPreferences || {},
         fieldOverrides: action.payload.fieldOverrides || {},

@@ -51,6 +51,8 @@ export interface ChartGenerationContext {
     measure?: Record<string, [number, number]>;
     numeric?: Record<string, [number, number] | [Date, Date]>;
   };
+  /** Axis domain sharing controls propagated from UI. */
+  independentDomains?: { x?: boolean; y?: boolean };
   /**
    * Source measures contributing to MeasureValues synthetic field.
    * Used for applying per-measure overrides when rendering unpivoted data.

@@ -6,6 +6,8 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import LinkIcon from '@mui/icons-material/Link';
+import LinkOffIcon from '@mui/icons-material/LinkOff';
 import QueryStatusIndicator from './QueryStatusIndicator';
 import DatasetStatus from './DatasetStatus';
 
@@ -26,6 +28,8 @@ interface ChartControlsProps {
   onUndo?: () => void;
   onRedo?: () => void;
   onResetWorkspace?: () => void;
+  independentXAxis: boolean;
+  onToggleIndependentXAxis: (independent: boolean) => void;
 }
 
 const ChartControls: React.FC<ChartControlsProps> = ({
@@ -40,6 +44,8 @@ const ChartControls: React.FC<ChartControlsProps> = ({
   onUndo,
   onRedo,
   onResetWorkspace,
+  independentXAxis,
+  onToggleIndependentXAxis,
 }) => {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
 
@@ -67,7 +73,6 @@ const ChartControls: React.FC<ChartControlsProps> = ({
       borderTop: isDebugOpen ? '1px solid #e0e0e0' : 'none',
       flexShrink: 0
     }}>
-      {/* Left side - Fullscreen and Swap Axis buttons */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         {DevSqlViewerControl && (
           <Suspense fallback={null}>
@@ -75,42 +80,38 @@ const ChartControls: React.FC<ChartControlsProps> = ({
           </Suspense>
         )}
         {isFullscreenSupported && onToggleFullscreen && (
-          <>
-            <Tooltip title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}>
-              <IconButton 
-                onClick={onToggleFullscreen}
-                size="small"
-                color={isFullscreen ? 'primary' : 'default'}
-                sx={{ 
-                  backgroundColor: isFullscreen ? 'primary.50' : 'transparent',
-                  '&:hover': {
-                    backgroundColor: isFullscreen ? 'primary.100' : 'action.hover',
-                  }
-                }}
-              >
-                {isFullscreen ? <FullscreenExitIcon fontSize="small" /> : <FullscreenIcon fontSize="small" />}
-              </IconButton>
-            </Tooltip>
-          </>
+          <Tooltip title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}>
+            <IconButton 
+              onClick={onToggleFullscreen}
+              size="small"
+              color={isFullscreen ? 'primary' : 'default'}
+              sx={{ 
+                backgroundColor: isFullscreen ? 'primary.50' : 'transparent',
+                '&:hover': {
+                  backgroundColor: isFullscreen ? 'primary.100' : 'action.hover',
+                }
+              }}
+            >
+              {isFullscreen ? <FullscreenExitIcon fontSize="small" /> : <FullscreenIcon fontSize="small" />}
+            </IconButton>
+          </Tooltip>
         )}
         
         {onSwapAxis && (
-          <>
-            <Tooltip title="Swap X/Y Axes">
-              <IconButton 
-                onClick={onSwapAxis}
-                size="small"
-                color="default"
-                sx={{ 
-                  '&:hover': {
-                    backgroundColor: 'action.hover',
-                  }
-                }}
-              >
-                <SwapHorizIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </>
+          <Tooltip title="Swap X/Y Axes">
+            <IconButton 
+              onClick={onSwapAxis}
+              size="small"
+              color="default"
+              sx={{ 
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                }
+              }}
+            >
+              <SwapHorizIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         )}
         
         {onUndo && (
@@ -152,6 +153,24 @@ const ChartControls: React.FC<ChartControlsProps> = ({
             </span>
           </Tooltip>
         )}
+
+        <Tooltip title={independentXAxis ? 'Independent X per facet' : 'Shared X across facets'}>
+          <span>
+            <IconButton
+              size="small"
+              onClick={() => onToggleIndependentXAxis(!independentXAxis)}
+              sx={{
+                color: independentXAxis ? 'primary.main' : 'text.secondary',
+                backgroundColor: independentXAxis ? 'primary.50' : 'transparent',
+                '&:hover': {
+                  backgroundColor: independentXAxis ? 'primary.100' : 'action.hover',
+                }
+              }}
+            >
+              {independentXAxis ? <LinkOffIcon fontSize="small" /> : <LinkIcon fontSize="small" />}
+            </IconButton>
+          </span>
+        </Tooltip>
 
         {onResetWorkspace && (
           <Tooltip title="Reset Workspace">
