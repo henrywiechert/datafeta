@@ -293,7 +293,10 @@ class UnionQueryBuilder:
             for field_key, measure in all_measure_fields:
                 # COUNT(*) is valid for any table; it does not require a column named "*".
                 is_star_count = measure.aggregation == "count" and measure.field == "*"
-                if not table_columns or measure.field in table_columns or is_star_count:
+                is_virtual = measure.field in vc_source_map
+                if is_virtual and can_compute_virtual_column(measure.field, vc_source_map, table_columns):
+                    existing_measures.append(measure)
+                elif not table_columns or measure.field in table_columns or is_star_count:
                     existing_measures.append(measure)
                 else:
                     missing_measure_keys.append((field_key, measure))
