@@ -13,11 +13,21 @@ interface XAxesProps {
 }
 
 function buildXAxisOptions(label: string | undefined, domain: any, gutterPx: number, type?: string, padding?: number) {
+  // If the plot spec explicitly says 'band', respect that - it's a categorical axis
+  // regardless of whether the values look like dates
+  const isCategorical = type === 'band';
+  
+  // Only treat as continuous date range if NOT explicitly band type
   const first = Array.isArray(domain) ? domain[0] : undefined;
   const isDateString = typeof first === 'string' && /^\d{4}-\d{2}-\d{2}/.test(first);
-  const isDateRange = Array.isArray(domain) && domain.length === 2 && 
+  const isDateRange = !isCategorical && Array.isArray(domain) && domain.length === 2 && 
     ((first instanceof Date || domain[1] instanceof Date) || isDateString);
-  const isCategorical = type === 'band' || (Array.isArray(domain) && domain.length > 0 && typeof domain[0] !== 'number' && !isDateRange);
+  
+  // For categorical band scales with many items (like timeline timestamps), 
+  // limit the number of ticks to avoid overcrowding
+  const domainLength = Array.isArray(domain) ? domain.length : 0;
+  const maxTicksForBand = isCategorical && domainLength > 10 ? Math.min(20, Math.ceil(domainLength / 2)) : undefined;
+  
   return {
     frame: null,
     height: Math.max(16, gutterPx),
@@ -30,10 +40,11 @@ function buildXAxisOptions(label: string | undefined, domain: any, gutterPx: num
     x: { 
       label: '', 
       domain: domain ?? [0, 1], 
-      type: isDateRange ? 'utc' : (isCategorical ? 'band' : undefined),
+      type: isCategorical ? 'band' : (isDateRange ? 'utc' : undefined),
       labelArrow: null,
       nice: false,  // Match internal plot axis configuration for exact alignment
       ...(padding !== undefined && isCategorical ? { padding } : {}),  // Match internal band padding for bar positioning
+      ...(maxTicksForBand ? { ticks: maxTicksForBand } : {}),  // Limit ticks for large categorical domains
     }, 
     marks: [Plot.axisX()],
   } as any;

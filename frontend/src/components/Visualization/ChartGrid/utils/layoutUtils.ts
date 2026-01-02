@@ -56,6 +56,8 @@ export function computeDynamicXAxisGutterPx(spec: PlotResult, columns: number): 
       // Approx vertical component of rotated labels at 45deg
       const rotatedVertical = Math.ceil(longestPx * Math.SQRT1_2) + 8; // 0.707 + padding
       height = Math.max(30, 14 + rotatedVertical); // base tick + labels
+      // Cap maximum height to prevent excessive space for long date/time strings
+      height = Math.min(height, 80);
     } else {
       // numeric or time, modest ticks
       height = 30;

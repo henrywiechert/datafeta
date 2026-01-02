@@ -16,11 +16,16 @@ interface YAxesProps {
  * Build axis-only plot options for external gutters.
  */
 function buildYAxisOptions(domain: any, gutterPx: number, type?: string, padding?: number) {
+  // If the plot spec explicitly says 'band', respect that - it's a categorical axis
+  // regardless of whether the values look like dates
+  const isCategorical = type === 'band';
+  
+  // Only treat as continuous date range if NOT explicitly band type
   const first = Array.isArray(domain) ? domain[0] : undefined;
   const isDateString = typeof first === 'string' && /^\d{4}-\d{2}-\d{2}/.test(first);
-  const isDateRange = Array.isArray(domain) && domain.length === 2 && 
+  const isDateRange = !isCategorical && Array.isArray(domain) && domain.length === 2 && 
     ((first instanceof Date || domain[1] instanceof Date) || isDateString);
-  const isCategorical = type === 'band' || (Array.isArray(domain) && domain.length > 0 && typeof domain[0] !== 'number' && !isDateRange);
+    
   return {
     frame: null,
     marginLeft: Math.max(12, gutterPx - 2),
@@ -32,7 +37,7 @@ function buildYAxisOptions(domain: any, gutterPx: number, type?: string, padding
     y: { 
       label: '', 
       domain: domain ?? [0, 1], 
-      type: isDateRange ? 'utc' : (isCategorical ? 'band' : undefined),
+      type: isCategorical ? 'band' : (isDateRange ? 'utc' : undefined),
       labelArrow: null,
       nice: false,  // Match internal plot axis configuration for exact alignment
       ...(padding !== undefined && isCategorical ? { padding } : {}),  // Match internal band padding for bar positioning
