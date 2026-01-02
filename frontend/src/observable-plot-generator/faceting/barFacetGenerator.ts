@@ -8,7 +8,9 @@ import { buildBarOptions, resolveMeasureAlias } from '../chartTypes/barCore';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
-import { formatDateTick, normalizeCategoryDomain, normalizeDataForBandScale } from '../utils/dateFormatUtils';
+import { formatDateTick } from '../utils/dateFormatUtils';
+import { normalizeCategoryForChart } from '../../datetime/chartDateTimeNormalizer';
+import { warnIfNonUtc } from '../../datetime/utcWarnings';
 
 /**
  * Label configuration for bar cell generator.
@@ -63,11 +65,17 @@ export function createBarCellGenerator(
     const rawCategories = sharedCategoryDomain && sharedCategoryDomain.length > 0 
       ? sharedCategoryDomain 
       : [' '];
-    const categories = normalizeCategoryDomain(rawCategories);
-    
-    // Also normalize the cell data's category column to match
     const categoryColumnName = categoryField ? getFieldColumnName(categoryField) : undefined;
-    const normalizedCellData = normalizeDataForBandScale(cellData, categoryColumnName);
+    const bandNorm = normalizeCategoryForChart({ domain: rawCategories, rows: cellData, categoryColumn: categoryColumnName });
+    if (bandNorm.hasDateLike) {
+      warnIfNonUtc(rawCategories, 'Category domain contains offsetful datetimes');
+      if (categoryColumnName) {
+        const colVals = cellData.map((r) => r?.[categoryColumnName]).filter((v) => v !== undefined && v !== null);
+        warnIfNonUtc(colVals, 'Category data contains offsetful datetimes');
+      }
+    }
+    const categories = bandNorm.domain || [' '];
+    const normalizedCellData = bandNorm.rows;
     
     // Calculate base dimensions based on category count
     const baseRowHeight = categoryAxis === 'y' 
