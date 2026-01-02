@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Box, IconButton, Popover, SvgIcon, Tooltip } from '@mui/material';
+import { v4 as uuidv4 } from 'uuid';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import SizeRangeControl from '../Size/SizeRangeControl';
 import { Field } from '../../../types';
@@ -45,9 +46,13 @@ const SizeFieldControl: React.FC<SizeFieldControlProps> = ({
   const popoverOpen = Boolean(anchorEl);
 
   const handleDrop = (e: React.DragEvent) => {
-    const { field: droppedField } = parseDragData(e);
+    const { field: droppedField, source } = parseDragData(e);
     if (droppedField) {
-      onDrop(droppedField);
+      // Create an independent copy with a new ID when dropping from AVAILABLE_FIELDS or axes
+      // This ensures the sizeField is independent from the source field
+      const isFromZone = source === 'SIZE_ZONE';
+      const fieldToSet = isFromZone ? droppedField : { ...droppedField, id: uuidv4() };
+      onDrop(fieldToSet);
     }
   };
 
