@@ -32,11 +32,11 @@ class TestCardinalityService:
         self.mock_connector = Mock()
         self.clickhouse_details = ConnectionDetails(type="clickhouse", host="localhost")
         self.csv_details = ConnectionDetails(type="csv", file_path="/tmp/test.csv")
-        self.duckdb_details = ConnectionDetails(type="duckdb", file_path=":memory:")
+        self.default_db = "test_db"
     
     def test_get_distinct_count_basic(self):
         """Should execute count query and return count."""
-        service = CardinalityService(self.mock_connector, self.duckdb_details)
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
         
         # Mock fetch_data to return count result
         self.mock_connector.fetch_data.return_value = (
@@ -47,7 +47,7 @@ class TestCardinalityService:
         count = service.get_distinct_count(
             field="category",
             table="products",
-            database=None
+            database=self.default_db
         )
         
         assert count == 42
@@ -82,15 +82,39 @@ class TestCardinalityService:
         )
         
         assert count == 100
+
+    def test_clickhouse_wrapper_preserves_datetime_expression(self):
+        """Should keep datetime-part extraction when using ClickHouse VIEW wrapper."""
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
+
+        self.mock_connector.fetch_data.return_value = (
+            ["count"],
+            [[60]],
+        )
+
+        count = service.get_distinct_count(
+            field="utc",
+            table="events_view",
+            database="analytics",
+            datetime_part="minute",
+            datetime_mode="extract",
+        )
+
+        assert count == 60
+        sql = self.mock_connector.fetch_data.call_args[0][0]
+        assert "COUNT(DISTINCT `_expr`)" in sql
+        assert "toMinute" in sql or "toSecond" in sql
+        assert "FROM (SELECT" in sql and "AS `_expr`" in sql
     
     def test_get_distinct_count_source_table_with_unions(self):
         """Should count source tables for _source_table virtual column."""
-        service = CardinalityService(self.mock_connector, self.duckdb_details)
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
         
         count = service.get_distinct_count(
             field="_source_table",
             table="main_table",
-            union_tables="table2,table3,table4"
+            union_tables="table2,table3,table4",
+            database=self.default_db,
         )
         
         # Primary table (1) + 3 union tables = 4
@@ -100,12 +124,13 @@ class TestCardinalityService:
     
     def test_get_distinct_count_source_table_no_unions(self):
         """Should handle _source_table without union tables."""
-        service = CardinalityService(self.mock_connector, self.csv_details)
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
         
         count = service.get_distinct_count(
             field="_source_table",
             table="single_table",
-            union_tables=None
+            union_tables=None,
+            database=self.default_db,
         )
         
         assert count == 1
@@ -113,7 +138,7 @@ class TestCardinalityService:
     
     def test_get_distinct_count_with_regex_pattern(self):
         """Should apply regex filter in query."""
-        service = CardinalityService(self.mock_connector, self.duckdb_details)
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
         
         self.mock_connector.fetch_data.return_value = (
             ["count"],
@@ -123,7 +148,8 @@ class TestCardinalityService:
         count = service.get_distinct_count(
             field="name",
             table="users",
-            regex_pattern="John"
+            regex_pattern="John",
+            database=self.default_db,
         )
         
         assert count == 25
@@ -135,7 +161,7 @@ class TestCardinalityService:
     
     def test_get_distinct_count_with_datetime_part(self):
         """Should extract datetime part before counting."""
-        service = CardinalityService(self.mock_connector, self.duckdb_details)
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
         
         self.mock_connector.fetch_data.return_value = (
             ["count"],
@@ -146,7 +172,8 @@ class TestCardinalityService:
             field="created_at",
             table="events",
             datetime_part="month",
-            datetime_mode="extract"
+            datetime_mode="extract",
+            database=self.default_db,
         )
         
         assert count == 12
@@ -157,7 +184,7 @@ class TestCardinalityService:
     
     def test_get_distinct_count_dict_result(self):
         """Should extract count from dict-based result."""
-        service = CardinalityService(self.mock_connector, self.csv_details)
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
         
         # Some connectors return dicts
         self.mock_connector.fetch_data.return_value = (
@@ -167,14 +194,15 @@ class TestCardinalityService:
         
         count = service.get_distinct_count(
             field="color",
-            table="products"
+            table="products",
+            database=self.default_db,
         )
         
         assert count == 99
     
     def test_get_distinct_count_tuple_result(self):
         """Should extract count from tuple-based result."""
-        service = CardinalityService(self.mock_connector, self.duckdb_details)
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
         
         self.mock_connector.fetch_data.return_value = (
             ["count"],
@@ -183,7 +211,8 @@ class TestCardinalityService:
         
         count = service.get_distinct_count(
             field="region",
-            table="sales"
+            table="sales",
+            database=self.default_db,
         )
         
         assert count == 88
@@ -201,14 +230,14 @@ class TestCardinalityService:
         count = service.get_distinct_count(
             field="category",
             table="items",
-            database="test_db"
+            database=self.default_db
         )
         
         assert count == 50
     
     def test_get_distinct_count_no_rows_returns_zero(self):
         """Should return 0 when query returns no rows."""
-        service = CardinalityService(self.mock_connector, self.csv_details)
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
         
         self.mock_connector.fetch_data.return_value = (
             ["count"],
@@ -217,28 +246,30 @@ class TestCardinalityService:
         
         count = service.get_distinct_count(
             field="empty_field",
-            table="empty_table"
+            table="empty_table",
+            database=self.default_db,
         )
         
         assert count == 0
     
     def test_get_distinct_count_query_execution_error(self):
         """Should raise QueryExecutionError when query fails."""
-        service = CardinalityService(self.mock_connector, self.duckdb_details)
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
         
         self.mock_connector.fetch_data.side_effect = Exception("Database error")
         
         with pytest.raises(QueryExecutionError) as exc_info:
             service.get_distinct_count(
                 field="bad_field",
-                table="bad_table"
+                table="bad_table",
+                database=self.default_db,
             )
         
         assert "Failed to count distinct values" in str(exc_info.value.detail)
     
     def test_get_distinct_count_with_datetime_and_regex(self):
         """Should combine datetime extraction with regex filtering."""
-        service = CardinalityService(self.mock_connector, self.duckdb_details)
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
         
         self.mock_connector.fetch_data.return_value = (
             ["count"],
@@ -250,7 +281,8 @@ class TestCardinalityService:
             table="logs",
             datetime_part="hour",
             datetime_mode="extract",
-            regex_pattern="2024"
+            regex_pattern="2024",
+            database=self.default_db,
         )
         
         assert count == 5

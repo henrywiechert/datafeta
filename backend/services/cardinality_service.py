@@ -230,20 +230,21 @@ class CardinalityService:
         sql = count_query.get_sql(quote_char=quote_char)
         
         # For ClickHouse VIEWs that use SELECT a.* patterns, the column reference
-        # may fail with "Missing columns" error. Wrap the query with a subquery
-        # that forces column expansion first: SELECT COUNT(DISTINCT field) FROM (SELECT * FROM view) sub
-        # We do this proactively for ClickHouse to avoid the error.
+        # may fail with "Missing columns" error. We wrap in a subquery to force
+        # column expansion, but we must preserve any computed expression (e.g.,
+        # datetime part extraction or virtual columns) instead of falling back
+        # to the raw field name.
         if self.conn_details.type == 'clickhouse' and database and not (virtual_table and virtual_table.joined_tables):
-            # Build a safer query that wraps the table in a subquery
-            # This handles VIEWs that use SELECT a.* expansion
-            field_quoted = f'{quote_char}{field}{quote_char}'
             table_ref = f'{quote_char}{database}{quote_char}.{quote_char}{table}{quote_char}'
-            sql = f'SELECT COUNT(DISTINCT {field_quoted}) AS "count" FROM (SELECT * FROM {table_ref}) AS _sub'
+            expr_sql = field_expr.get_sql(quote_char=quote_char)
+            expr_alias = f"{quote_char}_expr{quote_char}"
+            subquery = f'(SELECT {expr_sql} AS {expr_alias} FROM {table_ref}) AS _sub'
+            sql = f'SELECT COUNT(DISTINCT {expr_alias}) AS "count" FROM {subquery}'
             
-            # Re-apply regex filter if provided (simplified version)
+            # Re-apply regex filter against the projected expression
             if regex_pattern:
                 like_pattern = regex_pattern.replace("'", "''")
-                sql = f'{sql} WHERE {field_quoted} LIKE \'%{like_pattern}%\''
+                sql = f"{sql} WHERE toString({expr_alias}) LIKE '%{like_pattern}%'"
         
         logger.info(f"Executing distinct count query: {sql}")
         
