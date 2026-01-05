@@ -31,6 +31,7 @@ type LabelConfig = {
  */
 interface ChartContext {
   sharedMeasureDomains?: Domains;
+  sharedCategoricalDomains?: Record<string, any[]>;
   colorField?: Field;
   sizeField?: Field;
   sizeRange?: [number, number];
@@ -200,9 +201,17 @@ function createBar(
 function handleScatter(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.PlotOptions {
   const { xCol, yCol } = resolveXYColumns(xf, yf);
   
-  // Apply shared domains only for measures; dimensions use local domains
-  const xDomain = xf.type === 'measure' ? ctx.sharedMeasureDomains?.[xCol] : undefined;
-  const yDomain = yf.type === 'measure' ? ctx.sharedMeasureDomains?.[yCol] : undefined;
+  // Apply shared domains: measures use numeric domains, discrete dimensions use categorical domains
+  const xDomain = xf.type === 'measure' 
+    ? ctx.sharedMeasureDomains?.[xCol] 
+    : (xf.type === 'dimension' && xf.flavour === 'discrete' 
+        ? ctx.sharedCategoricalDomains?.[xCol] 
+        : ctx.sharedMeasureDomains?.[xCol]);
+  const yDomain = yf.type === 'measure' 
+    ? ctx.sharedMeasureDomains?.[yCol] 
+    : (yf.type === 'dimension' && yf.flavour === 'discrete' 
+        ? ctx.sharedCategoricalDomains?.[yCol] 
+        : ctx.sharedMeasureDomains?.[yCol]);
   const domainOptions = {
     x: xCol, 
     y: yCol,
@@ -515,11 +524,13 @@ export function generatePairChartOptions(
   manualColor?: string,
   labelCfg?: LabelConfig,
   tooltipFields?: Field[],
-  facetFields?: Field[]
+  facetFields?: Field[],
+  sharedCategoricalDomains?: Record<string, any[]>
 ): Plot.PlotOptions {
   // Bundle context for cleaner parameter passing
   const ctx: ChartContext = {
     sharedMeasureDomains,
+    sharedCategoricalDomains,
     colorField,
     sizeField,
     sizeRange,

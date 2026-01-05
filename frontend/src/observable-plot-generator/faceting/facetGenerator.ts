@@ -2,19 +2,16 @@ import * as Plot from '@observablehq/plot';
 import { BAR_STEP_PX, BAND_PADDING } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getFieldColumnName } from '../helpers/fields';
-import { ChartGenerationContext, PlotResult, CategoryAxisDescriptor } from '../types';
+import { ChartGenerationContext, PlotResult, CartesianPlotsConfig } from '../types';
 import { uniqueValuesForField } from './facetUtils';
 import { FacetPlan } from './facetPlanner';
-import { baseGeneratePlot, buildLabelCfg } from '../observablePlotGenerator';
-import { 
-  applySharedDomains, 
-  applyIntrinsicSizeFromCategoryDomain,
-  SharedDomains
-} from './facetDomains';
-import { coordinateFacetedGrid, CellGenerator } from './facetCoordinator';
+import { buildLabelCfg } from '../observablePlotGenerator';
+import { SharedDomains } from './facetDomains';
+import { coordinateFacetedGrid, CellGenerator, CellResult, FacetCellContext } from './facetCoordinator';
 import { resolveMeasureAlias, computeBandPaddingFromSizeField, sortCategoriesByValue } from '../chartTypes/barCore';
 import { isMeasureValuesField, combineMeasureValuesOverrides } from '../../utils/syntheticFields';
 import { createBarCellGenerator } from './barFacetGenerator';
+import { generateCartesianPlots } from '../grid/coreGridGenerator';
 
 /**
  * Chart-specific configuration derived from context and facet plan.
@@ -176,183 +173,81 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
     });
   }
   
-  // GENERIC PATH: Use coordinator with default cell generator
-  // This is the new, cleaner architecture using the strategy pattern
+  // GENERIC PATH (scatter, line, etc.): Use coordinator with direct cartesian cell generator
+  // This path is simpler than bar because there's no category axis complexity.
+  // All discrete dimensions are used for faceting, continuous dimensions/measures go on X/Y axes.
   
-  // Create a cell generator that uses buildBaseSpecForDataSubset
-  const defaultCellGenerator: CellGenerator = (cellData, cellContext, sharedDomains, facetPosition, facetCellContext) => {
+  const labelCfg = buildLabelCfg(context);
+  
+  // Build candidates: only continuous dimensions and measures (discrete already used for faceting)
+  const xCandidates = xFields.filter(f => 
+    f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
+  );
+  const yCandidates = yFields.filter(f => 
+    f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
+  );
+  
+  // Create a cell generator that directly calls generateCartesianPlots
+  const cartesianCellGenerator: CellGenerator = (
+    cellData: any[],
+    cellContext: ChartGenerationContext,
+    sharedDomains: SharedDomains,
+    _facetPosition: { row: number; col: number },
+    facetCellContext?: FacetCellContext
+  ): CellResult => {
     // Combine row and column facet fields for tooltip display
-    const allFacetFields = facetCellContext 
+    const facetFields = facetCellContext 
       ? [...facetCellContext.rowFacetFields, ...facetCellContext.colFacetFields]
       : [];
     
-    // Create a modified context with filtered data and global shared domains
-    const localContext: ChartGenerationContext = {
-      ...cellContext,
-      queryResult: { ...cellContext.queryResult, rows: cellData },
-      // Pass shared domains so Cartesian grid generation uses them instead of computing from cell data
-      sharedDomainsOverride: {
-        measure: sharedDomains.measure,
-        numeric: sharedDomains.numeric,
+    // Build config for generateCartesianPlots
+    const config: CartesianPlotsConfig = {
+      data: cellData,
+      xCandidates,
+      yCandidates,
+      sharedDomains,
+      encoding: {
+        color: { 
+          field: colorField, 
+          scheme: context.colorScheme, 
+          bias: context.colorBias, 
+          manual: effectiveManualColor 
+        },
+        size: { 
+          field: sizeField, 
+          range: context.sizeRange, 
+          manual: effectiveManualSize 
+        },
       },
-      // Pass facet fields for tooltip context
-      facetFields: allFacetFields,
+      labels: labelCfg,
+      tooltipFields: context.tooltipFields,
+      facetFields,
+      fieldOverrides: context.fieldOverrides,
+      fieldOverrideTargets: context.fieldOverrideTargets,
+      allFields: [...xFields, ...yFields, ...(colorField ? [colorField] : []), ...(sizeField ? [sizeField] : [])],
+      globalChartType: context.globalChartType,
+      measureValuesSourceFields: context.measureValuesSourceFields,
     };
     
-    const baseSpec = buildBaseSpecForDataSubset(
-      localContext,
-      categoryAxis,
-      categoryField?.id || null,
-      cellData,
-      sharedDomains,
-      effectiveRowFacetFields,
-      effectiveColFacetFields,
-      sharedCategoryDomain || undefined,
-    );
+    const plots = generateCartesianPlots(config);
     
-    return baseSpec;
+    return {
+      plots: plots.map(p => ({
+        id: p.id,
+        title: p.title,
+        options: p.options,
+        position: p.position,
+      })),
+      columns: xCandidates.length || 1,
+      rows: yCandidates.length || 1,
+    };
   };
   
-  // Use the coordinator for chart-type-agnostic faceting
+  // Use the coordinator for faceting
   return coordinateFacetedGrid({
     context,
     plan: { rowFacetFields: effectiveRowFacetFields, colFacetFields: effectiveColFacetFields },
-    cellGenerator: defaultCellGenerator,
-    categoryField,
-    sharedCategoryDomain: sharedCategoryDomain || undefined,
+    cellGenerator: cartesianCellGenerator,
   });
 }
-
-  type BaseSpec = {
-    plots: Array<{ id: string; title: string; options: Plot.PlotOptions; position: { row: number; col: number } }>;
-    columns: number;
-    rows: number;
-    columnSizes?: Array<number | 'fr'>;
-    rowSizes?: Array<number | 'fr'>;
-  };
-  
-  function buildBaseSpecForDataSubset(
-    context: ChartGenerationContext,
-    categoryAxis: 'x' | 'y' | null,
-    excludedCategoryFieldId: string | null,
-    subsetRows: Array<Record<string, any>>,
-    sharedDomains: SharedDomains,
-    rowFacetFields?: Field[] | Field | null,
-    colFacetFields?: Field[] | Field | null,
-    sharedCategoryDomain?: any[]
-  ): BaseSpec {
-    const { queryResult, xFields, yFields } = context;
-  
-    // Filter out discrete fields that are used for faceting (not category axis)
-    const colFacetIds = Array.isArray(colFacetFields) ? colFacetFields.map((f) => f.id) : (colFacetFields ? [colFacetFields.id] : []);
-    const rowFacetIds = Array.isArray(rowFacetFields) ? rowFacetFields.map((f) => f.id) : (rowFacetFields ? [rowFacetFields.id] : []);
-    let localXFields = xFields.filter(f => f.id !== excludedCategoryFieldId && !colFacetIds.includes(f.id));
-    let localYFields = yFields.filter(f => f.id !== excludedCategoryFieldId && !rowFacetIds.includes(f.id));
-    
-    // Do not inject a pseudo dimension; instead provide a category axis descriptor to the base generator
-    let categoryAxisDescriptor: CategoryAxisDescriptor | undefined;
-    if (categoryAxis && excludedCategoryFieldId) {
-      const axisOriginal = categoryAxis === 'x' ? xFields : yFields;
-      const catField = axisOriginal.find((f) => f.id === excludedCategoryFieldId);
-      if (catField) {
-        const colName = getFieldColumnName(catField);
-        categoryAxisDescriptor = {
-          axis: categoryAxis,
-          columnName: colName,
-          domain: sharedCategoryDomain,
-        };
-      }
-    }
-  
-    const localContext: ChartGenerationContext = {
-      ...context,
-      xFields: localXFields,
-      yFields: localYFields,
-      queryResult: { ...queryResult, rows: subsetRows },
-      categoryAxisDescriptor,
-      // Preserve facetFields from the parent context for tooltip display
-      facetFields: context.facetFields,
-    };
-  
-    const baseResult = baseGeneratePlot(localContext);
-  
-    // Apply shared domains using centralized utility
-    const applyDomainsFn = (opts: Plot.PlotOptions) => {
-      // First apply standard shared domains (measure, numeric, color, categorical)
-      let next = applySharedDomains(opts, sharedDomains);
-      
-      // Apply categorical domain override if provided explicitly
-      if (sharedCategoryDomain && Array.isArray(sharedCategoryDomain)) {
-        if ((next as any)?.x?.type === 'band') {
-          next.x = { ...(next.x as any), domain: sharedCategoryDomain as any } as any;
-        }
-        if ((next as any)?.y?.type === 'band') {
-          next.y = { ...(next.y as any), domain: sharedCategoryDomain as any } as any;
-        }
-      }
-      
-      // Apply intrinsic size adjustments for category domains
-      next = applyIntrinsicSizeFromCategoryDomain(
-        next, 
-        categoryAxis, 
-        sharedCategoryDomain, 
-        BAR_STEP_PX
-      );
-      
-      // No bar-specific coercion here; bar domains are handled centrally in barCore.
-      return next;
-    };
-    
-    if (baseResult.options) {
-      baseResult.options = applyDomainsFn(baseResult.options);
-    }
-    if (baseResult.plots) {
-      baseResult.plots = baseResult.plots.map((p) => ({ ...p, options: applyDomainsFn(p.options) }));
-    }
-  
-    // Normalize to BaseSpec
-    if (baseResult.plots && baseResult.plots.length > 0) {
-      const cols = baseResult.layout?.columns || 1;
-      const rows = baseResult.layout?.rows || 1;
-      const plots = baseResult.plots.map((p, i) => ({
-        id: p.id || `p-${i}`,
-        title: p.title,
-        options: p.options,
-        position: p.position || { row: 0, col: i },
-      }));
-      // Prefer explicit layout sizes from the child result when present
-      let baseColumnSizes = baseResult.layout?.columnSizes as Array<number | 'fr'> | undefined;
-      let baseRowSizes = baseResult.layout?.rowSizes as Array<number | 'fr'> | undefined;
-      // Derive sizes from plot options if not provided
-      if (!baseColumnSizes) {
-        baseColumnSizes = Array.from({ length: cols }, (_, c) => {
-          const sample = plots.find((p) => p.position.col === c);
-          const w = (sample?.options as any)?.width;
-          return typeof w === 'number' ? w : 'fr';
-        });
-      }
-      if (!baseRowSizes) {
-        baseRowSizes = Array.from({ length: rows }, (_, r) => {
-          const sample = plots.find((p) => p.position.row === r);
-          const h = (sample?.options as any)?.height;
-          return typeof h === 'number' ? h : 'fr';
-        });
-      }
-      return { plots, columns: cols, rows, columnSizes: baseColumnSizes, rowSizes: baseRowSizes };
-    }
-  
-    // Single options → single plot
-    if (baseResult.options) {
-      return {
-        plots: [{ id: 'p-0', title: '', options: baseResult.options, position: { row: 0, col: 0 } }],
-        columns: 1,
-        rows: 1,
-        columnSizes: (baseResult.options as any)?.width ? [((baseResult.options as any).width as number)] : ['fr'],
-        rowSizes: (baseResult.options as any)?.height ? [((baseResult.options as any).height as number)] : ['fr'],
-      };
-    }
-  
-    // Fallback empty
-    return { plots: [], columns: 1, rows: 1 };
-  }
 
