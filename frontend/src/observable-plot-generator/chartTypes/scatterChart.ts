@@ -108,6 +108,7 @@ export function scatterChart(
   manualSize?: number
   , labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
   , tooltipFields?: Field[]
+  , facetFields?: Field[]
 ): Plot.PlotOptions {
   // Detect axis value kinds by sampling up to first 20 non-null values
   const sampleValues = (column: string) => (Array.isArray(data) ? data.map(r => r?.[column]).filter(v => v !== null && v !== undefined) : []);
@@ -117,14 +118,22 @@ export function scatterChart(
   const xIsDate = xSamples.some(isDateLike);
   const yIsDate = ySamples.some(isDateLike);
   const isNumeric = (v: any) => typeof v === 'number' && Number.isFinite(v);
-  const isValid = (col: string, isDateAxis: boolean, val: any) => {
+  const isString = (v: any) => typeof v === 'string';
+  
+  // Detect if axis is discrete (all string values that aren't dates)
+  const xIsDiscrete = xSamples.length > 0 && xSamples.every(v => isString(v) && !isDateLike(v));
+  const yIsDiscrete = ySamples.length > 0 && ySamples.every(v => isString(v) && !isDateLike(v));
+  
+  const isValid = (col: string, isDateAxis: boolean, isDiscreteAxis: boolean, val: any) => {
+    if (val === null || val === undefined) return false;
     if (isDateAxis) return isDateLike(val);
+    if (isDiscreteAxis) return isString(val);
     return isNumeric(val);
   };
 
   // Build cleaned & normalized data: convert date-like strings to Date objects so Plot time scale works
   const clean: any[] = Array.isArray(data)
-    ? data.filter(d => isValid(xColumn, xIsDate, d?.[xColumn]) && isValid(yColumn, yIsDate, d?.[yColumn]))
+    ? data.filter(d => isValid(xColumn, xIsDate, xIsDiscrete, d?.[xColumn]) && isValid(yColumn, yIsDate, yIsDiscrete, d?.[yColumn]))
         .map(d => {
           if (!xIsDate && !yIsDate) return d; // no normalization needed
           const copy: any = { ...d };
@@ -233,8 +242,9 @@ export function scatterChart(
   
   // Calculate domains: use shared domains if provided (for faceting/grids), otherwise calculate from local data.
   // Numeric padding uses DOMAIN_PAD_RATIO; date padding expands by ratio of range.
-  let xDomain: [number, number] | [Date, Date] | undefined;
-  let yDomain: [number, number] | [Date, Date] | undefined;
+  // For discrete axes, collect unique values for band scale domain.
+  let xDomain: [number, number] | [Date, Date] | string[] | undefined;
+  let yDomain: [number, number] | [Date, Date] | string[] | undefined;
 
   const buildNumericDomain = (values: number[]): [number, number] => {
     const min = Math.min(...values);
@@ -254,6 +264,9 @@ export function scatterChart(
 
   if (options?.domain?.x) {
     xDomain = options.domain.x;
+  } else if (xIsDiscrete) {
+    // For discrete axes, collect unique values
+    xDomain = Array.from(new Set(clean.map(d => d[xColumn] as string)));
   } else {
     if (xIsDate) {
       const values = clean.map(d => d[xColumn] as Date);
@@ -265,6 +278,9 @@ export function scatterChart(
   }
   if (options?.domain?.y) {
     yDomain = options.domain.y;
+  } else if (yIsDiscrete) {
+    // For discrete axes, collect unique values
+    yDomain = Array.from(new Set(clean.map(d => d[yColumn] as string)));
   } else {
     if (yIsDate) {
       const values = clean.map(d => d[yColumn] as Date);
@@ -282,7 +298,8 @@ export function scatterChart(
       grid: true,
       domain: xDomain,
       nice: false,
-      ...(xIsDate ? { type: 'utc' as any, tickFormat: formatDateTick } : {})
+      ...(xIsDate ? { type: 'utc' as any, tickFormat: formatDateTick } : {}),
+      ...(xIsDiscrete ? { type: 'band' as any, padding: 0.5 } : {})
     } as any,
     y: {
       label: options?.y || yColumn,
@@ -290,7 +307,8 @@ export function scatterChart(
       grid: true,
       domain: yDomain,
       nice: false,
-      ...(yIsDate ? { type: 'utc' as any, tickFormat: formatDateTick } : {})
+      ...(yIsDate ? { type: 'utc' as any, tickFormat: formatDateTick } : {}),
+      ...(yIsDiscrete ? { type: 'band' as any, padding: 0.5 } : {})
     } as any,
     r: { type: 'identity' } as any,
     marks: [Plot.dot(budgeted, dotConfig)],
@@ -346,7 +364,9 @@ export function scatterChart(
       ],
       colorField,
       sizeField,
-      tooltipFields
+      tooltipFields,
+      undefined, // No excludeColumns
+      facetFields
     )
   };
   

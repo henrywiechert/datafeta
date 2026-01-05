@@ -29,6 +29,11 @@ export interface BarBuildParams {
    * When provided and no colorColumn is set, bars will use this as their fill.
    */
   manualColor?: string;
+  /**
+   * Optional facet fields to display in tooltips for context.
+   * These are shown at the top of the tooltip when the chart is part of a faceted grid.
+   */
+  facetFields?: Field[];
 }
 
 export const ORIENTATION = {
@@ -241,6 +246,7 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     valueDomainOverride,
     tooltipFields = [],
     manualColor,
+    facetFields,
   } = params;
 
   const O = ORIENTATION[orientation];
@@ -387,7 +393,9 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
         ? { columnName: colorColumn, type: 'dimension' } as Field
         : undefined,
       undefined, // No size field in bar charts
-      tooltipFields.length > 0 ? tooltipFields : undefined
+      tooltipFields.length > 0 ? tooltipFields : undefined,
+      undefined, // No excludeColumns
+      facetFields
     )
   };
 

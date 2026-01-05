@@ -40,6 +40,8 @@ interface ChartContext {
   manualColor?: string;
   labelCfg?: LabelConfig;
   tooltipFields?: Field[];
+  /** Facet fields to display in tooltips for context (from faceted charts) */
+  facetFields?: Field[];
 }
 
 /**
@@ -124,7 +126,7 @@ function scatterForDimOnly(
     data, col, col, { x: col, y: col },
     ctx.colorField, undefined, ctx.colorBias, ctx.manualColor,
     ctx.sizeField, ctx.sizeRange, ctx.manualSize,
-    undefined, ctx.tooltipFields
+    undefined, ctx.tooltipFields, ctx.facetFields
   );
 }
 
@@ -217,7 +219,7 @@ function handleScatter(data: any[], xf: Field, yf: Field, ctx: ChartContext): Pl
       single, xCol, yCol, domainOptions,
       ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
       ctx.sizeField, ctx.sizeRange, ctx.manualSize,
-      ctx.labelCfg, ctx.tooltipFields
+      ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
     );
   }
   
@@ -225,7 +227,7 @@ function handleScatter(data: any[], xf: Field, yf: Field, ctx: ChartContext): Pl
     data, xCol, yCol, domainOptions,
     ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
     ctx.sizeField, ctx.sizeRange, ctx.manualSize,
-    ctx.labelCfg, ctx.tooltipFields
+    ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
   );
 }
 
@@ -243,7 +245,7 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       { x: xDomain, y: yDomain },
       ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
       ctx.sizeField, ctx.sizeRange, ctx.manualSize,
-      ctx.labelCfg, ctx.tooltipFields
+      ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
     );
   }
   
@@ -258,7 +260,7 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       { x: xDomain, y: yDomain },
       ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
       ctx.sizeField, ctx.sizeRange, ctx.manualSize,
-      ctx.labelCfg, ctx.tooltipFields
+      ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
     );
   }
   
@@ -268,7 +270,7 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
     data, xCol, yCol, { x: xCol, y: yCol },
     ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
     ctx.sizeField, ctx.sizeRange, ctx.manualSize,
-    ctx.labelCfg, ctx.tooltipFields
+    ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
   );
 }
 
@@ -286,7 +288,7 @@ function handleBarX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       data, xCol, yCol, { x: xCol, y: yCol },
       ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
       ctx.sizeField, ctx.sizeRange, ctx.manualSize,
-      ctx.labelCfg, ctx.tooltipFields
+      ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
     );
   }
   
@@ -316,7 +318,7 @@ function handleBarY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       data, xCol, yCol, { x: xCol, y: yCol },
       ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
       ctx.sizeField, ctx.sizeRange, ctx.manualSize,
-      ctx.labelCfg, ctx.tooltipFields
+      ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
     );
   }
   
@@ -395,7 +397,7 @@ function handleTickX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
     data, xCol, yCol, { x: xCol, y: yCol },
     ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
     ctx.sizeField, ctx.sizeRange, ctx.manualSize,
-    ctx.labelCfg, ctx.tooltipFields
+    ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
   );
 }
 
@@ -462,7 +464,7 @@ function handleTickY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
     data, xCol, yCol, { x: xCol, y: yCol },
     ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
     ctx.sizeField, ctx.sizeRange, ctx.manualSize,
-    ctx.labelCfg, ctx.tooltipFields
+    ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
   );
 }
 
@@ -512,7 +514,8 @@ export function generatePairChartOptions(
   colorBias?: number,
   manualColor?: string,
   labelCfg?: LabelConfig,
-  tooltipFields?: Field[]
+  tooltipFields?: Field[],
+  facetFields?: Field[]
 ): Plot.PlotOptions {
   // Bundle context for cleaner parameter passing
   const ctx: ChartContext = {
@@ -526,6 +529,7 @@ export function generatePairChartOptions(
     manualColor,
     labelCfg,
     tooltipFields,
+    facetFields,
   };
 
   if (!xField && !yField) {

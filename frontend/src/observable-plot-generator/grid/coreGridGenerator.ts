@@ -110,7 +110,8 @@ export function generateCartesianPlots(
   allFields?: Field[],
   tooltipFields?: Field[],
   globalChartType?: UserChartType | null,
-  measureValuesSourceFields?: Field[]
+  measureValuesSourceFields?: Field[],
+  facetFields?: Field[]
 ): CartesianPlot[] {
   const plots: CartesianPlot[] = [];
 
@@ -316,7 +317,8 @@ export function generateCartesianPlots(
             
             return effectiveLabelCfg;
           })(),
-          tooltipFields
+          tooltipFields,
+          facetFields
         );
       }
 

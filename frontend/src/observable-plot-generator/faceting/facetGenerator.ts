@@ -180,7 +180,12 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
   // This is the new, cleaner architecture using the strategy pattern
   
   // Create a cell generator that uses buildBaseSpecForDataSubset
-  const defaultCellGenerator: CellGenerator = (cellData, cellContext, sharedDomains, facetPosition) => {
+  const defaultCellGenerator: CellGenerator = (cellData, cellContext, sharedDomains, facetPosition, facetCellContext) => {
+    // Combine row and column facet fields for tooltip display
+    const allFacetFields = facetCellContext 
+      ? [...facetCellContext.rowFacetFields, ...facetCellContext.colFacetFields]
+      : [];
+    
     // Create a modified context with filtered data and global shared domains
     const localContext: ChartGenerationContext = {
       ...cellContext,
@@ -190,6 +195,8 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
         measure: sharedDomains.measure,
         numeric: sharedDomains.numeric,
       },
+      // Pass facet fields for tooltip context
+      facetFields: allFacetFields,
     };
     
     const baseSpec = buildBaseSpecForDataSubset(
@@ -263,6 +270,8 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       yFields: localYFields,
       queryResult: { ...queryResult, rows: subsetRows },
       categoryAxisDescriptor,
+      // Preserve facetFields from the parent context for tooltip display
+      facetFields: context.facetFields,
     };
   
     const baseResult = baseGeneratePlot(localContext);
