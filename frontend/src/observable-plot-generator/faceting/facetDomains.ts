@@ -1,18 +1,12 @@
 import * as Plot from '@observablehq/plot';
 import { Field, FieldOverrideState } from '../../types';
+import { SharedDomains } from '../types';
 import { computeSharedMeasureDomains } from '../domains/measureDomains';
 import { computeSharedNumericDomains, computeSharedCategoricalDomains } from '../domains/numericDomains';
 import { ColorScaleInfo, deriveColorScaleInfo, applyMeasureNameColorOverrides } from '../utils/colorSchemeUtils';
 
-/**
- * Consolidated domain information for faceted charts
- */
-export interface SharedDomains {
-  measure: Record<string, [number, number]>;
-  numeric: Record<string, [number, number] | [Date, Date]>;
-  categorical: Record<string, any[]>;
-  colorScale?: ColorScaleInfo | null;
-}
+// Re-export SharedDomains for backward compatibility
+export type { SharedDomains };
 
 /**
  * Compute all shared domains needed for faceting.

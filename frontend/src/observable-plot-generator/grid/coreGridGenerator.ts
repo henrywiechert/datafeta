@@ -4,7 +4,7 @@ import { Field } from '../../types';
 import { ChartTypeOverrides, mapUserChartTypeToCellChartType } from '../helpers/chartTypeResolver';
 import { computeSharedNumericDomains } from '../domains/numericDomains';
 import { computeSharedMeasureDomains } from '../domains/measureDomains';
-import { ChartGenerationContext, PlotResult } from '../types';
+import { ChartGenerationContext, PlotResult, CartesianPlotsConfig, LabelConfig } from '../types';
 import { FieldOverrideState, UserChartType } from '../../types';
 import { FieldOverrideTarget } from '../utils/fieldOverrides';
 import { FieldAnalysis } from '../analysis/fieldAnalysis';
@@ -40,27 +40,28 @@ export function generateCartesianGrid(
   const sharedMeasureDomains = computeSharedMeasureDomains(data, xCandidates, yCandidates, colorField);
 
   const labelCfg = buildLabelCfg(context);
-  const plots = generateCartesianPlots(
+  const plots = generateCartesianPlots({
     data,
     xCandidates,
     yCandidates,
-    sharedMeasureDomains,
+    sharedDomains: {
+      measure: sharedMeasureDomains,
+      numeric: {},
+      categorical: {},
+    },
+    encoding: {
+      color: { field: colorField, scheme: colorScheme, bias: colorBias, manual: context.manualColor },
+      size: { field: sizeField, range: sizeRange, manual: manualSize },
+    },
+    labels: labelCfg,
+    tooltipFields: context.tooltipFields,
     overrides,
-    colorField,
-    colorScheme,
-    colorBias,
-    sizeField,
-    sizeRange,
-    manualSize,
-    context.manualColor,
-    labelCfg,
-    context.fieldOverrides,
-    context.fieldOverrideTargets,
-    [...xCandidates, ...yCandidates, ...(colorField ? [colorField] : []), ...(sizeField ? [sizeField] : [])],
-    context.tooltipFields,
-    context.globalChartType,
-    context.measureValuesSourceFields
-  );
+    fieldOverrides: context.fieldOverrides,
+    fieldOverrideTargets: context.fieldOverrideTargets,
+    allFields: [...xCandidates, ...yCandidates, ...(colorField ? [colorField] : []), ...(sizeField ? [sizeField] : [])],
+    globalChartType: context.globalChartType,
+    measureValuesSourceFields: context.measureValuesSourceFields,
+  });
 
   // Derive per-column width and per-row height from plots' options when available
   const columnSizes: Array<number | 'fr'> = Array.from({ length: xCandidates.length }, (_, c) => {
@@ -89,30 +90,38 @@ export function generateCartesianGrid(
 }
 
 /**
- * Build plot specs for all X×Y candidate pairs. Shared measure domains are provided by caller.
+ * Build plot specs for all X×Y candidate pairs using a structured config object.
  */
-export function generateCartesianPlots(
-  data: any[],
-  xCandidates: Field[],
-  yCandidates: Field[],
-  sharedMeasureDomains: Record<string, [number, number] | [Date, Date]>,
-  overrides?: ChartTypeOverrides,
-  colorField?: Field,
-  colorScheme?: string,
-  colorBias?: number,
-  sizeField?: Field,
-  sizeRange?: [number, number],
-  manualSize?: number,
-  manualColor?: string,
-  labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number },
-  fieldOverrides?: Record<string, FieldOverrideState>,
-  fieldOverrideTargets?: FieldOverrideTarget[],
-  allFields?: Field[],
-  tooltipFields?: Field[],
-  globalChartType?: UserChartType | null,
-  measureValuesSourceFields?: Field[],
-  facetFields?: Field[]
-): CartesianPlot[] {
+export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianPlot[] {
+  const {
+    data,
+    xCandidates,
+    yCandidates,
+    sharedDomains,
+    encoding,
+    labels: labelCfg,
+    tooltipFields,
+    facetFields,
+    overrides,
+    fieldOverrides,
+    fieldOverrideTargets,
+    allFields,
+    globalChartType,
+    measureValuesSourceFields,
+  } = config;
+
+  // Extract encoding options
+  const colorField = encoding?.color?.field;
+  const colorScheme = encoding?.color?.scheme;
+  const colorBias = encoding?.color?.bias;
+  const manualColor = encoding?.color?.manual;
+  const sizeField = encoding?.size?.field;
+  const sizeRange = encoding?.size?.range;
+  const manualSize = encoding?.size?.manual;
+
+  // Combine measure and numeric domains
+  const sharedMeasureDomains = sharedDomains.measure;
+
   const plots: CartesianPlot[] = [];
 
   // Compute shared numeric domains for both measures and continuous dimensions
@@ -362,7 +371,7 @@ function buildCellTitle(xField: Field, yField: Field): string {
   return `${yLabel} vs ${xLabel}`;
 }
 
-function buildLabelCfg(context: ChartGenerationContext) {
+function buildLabelCfg(context: ChartGenerationContext): LabelConfig | undefined {
   const {
     labelFields = [],
     labelsEnabled = false,

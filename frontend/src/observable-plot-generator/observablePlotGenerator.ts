@@ -1,5 +1,5 @@
 import * as Plot from '@observablehq/plot';
-import { ChartGenerationContext, PlotResult } from './types';
+import { ChartGenerationContext, PlotResult, LabelConfig } from './types';
 import { barUnified } from './chartTypes/barUnified';
 import { generateChartOptions as genChartOptionsRule } from './rules/chartRules';
 import { Field } from '../types';
@@ -47,30 +47,30 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
     const sharedMeasureDomains = context.sharedDomainsOverride?.measure 
       || computeSharedMeasureDomains(queryResult.rows, xCandidates as any[], yCandidates as any[], colorField);
     const sharedNumericDomains = context.sharedDomainsOverride?.numeric || {};
-    const combinedDomains = { ...sharedNumericDomains, ...sharedMeasureDomains };
     
-    const plots = generateCartesianPlots(
-      queryResult.rows,
+    const plots = generateCartesianPlots({
+      data: queryResult.rows,
       xCandidates,
       yCandidates,
-      combinedDomains,
+      sharedDomains: {
+        measure: sharedMeasureDomains,
+        numeric: sharedNumericDomains,
+        categorical: {},
+      },
+      encoding: {
+        color: { field: colorField, scheme: colorScheme, bias: context.colorBias, manual: context.manualColor },
+        size: { field: sizeField, range: sizeRange, manual: manualSize },
+      },
+      labels: labelCfg,
+      tooltipFields: context.tooltipFields,
+      facetFields: context.facetFields,
       overrides,
-      colorField,
-      colorScheme,
-      context.colorBias,
-      sizeField,
-      sizeRange,
-      manualSize,
-      context.manualColor,
-      labelCfg,
-      context.fieldOverrides,
-      context.fieldOverrideTargets,
-      [...xFields, ...yFields, ...(colorField ? [colorField] : []), ...(sizeField ? [sizeField] : [])],
-      context.tooltipFields,
-      context.globalChartType,
-      context.measureValuesSourceFields,
-      context.facetFields
-    );
+      fieldOverrides: context.fieldOverrides,
+      fieldOverrideTargets: context.fieldOverrideTargets,
+      allFields: [...xFields, ...yFields, ...(colorField ? [colorField] : []), ...(sizeField ? [sizeField] : [])],
+      globalChartType: context.globalChartType,
+      measureValuesSourceFields: context.measureValuesSourceFields,
+    });
 
     // Determine column/row sizes from plots
     const columnSizes: Array<number | 'fr'> = Array.from({ length: xCandidates.length }, (_, c) => {
@@ -238,7 +238,7 @@ function createMessageChart(message: string): PlotResult {
 }
 
 // Helper to construct unified label configuration object for chart builders
-export function buildLabelCfg(context: ChartGenerationContext) {
+export function buildLabelCfg(context: ChartGenerationContext): LabelConfig | undefined {
   const {
     labelFields = [],
     labelsEnabled = false,
