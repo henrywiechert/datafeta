@@ -420,7 +420,9 @@ async function generateSinglePlotLocal(
         }
         return effectiveLabelCfg;
       })(),
-      tooltipFields
+      tooltipFields,
+      undefined, // facetFields
+      undefined  // sharedCategoricalDomains - not used in local query context
     );
   }
 

@@ -97,7 +97,7 @@ export function scatterChart(
   data: any[],
   xColumn: string,
   yColumn: string,
-  options?: { x?: string; y?: string; domain?: { x?: [number, number] | [Date, Date]; y?: [number, number] | [Date, Date] } },
+  options?: { x?: string; y?: string; domain?: { x?: [number, number] | [Date, Date] | any[]; y?: [number, number] | [Date, Date] | any[] } },
   colorField?: Field,
   colorScheme?: string,
   colorBias?: number,

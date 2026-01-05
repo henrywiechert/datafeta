@@ -124,12 +124,17 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
 
   const plots: CartesianPlot[] = [];
 
-  // Compute shared numeric domains for both measures and continuous dimensions
-  // (this unifies scales across the whole matrix when the same field appears).
-  const sharedNumeric = computeSharedNumericDomains(data, xCandidates as any[], yCandidates as any[]);
+  // Use provided numeric domains if available (from faceting), otherwise compute from local data
+  // This ensures scales are shared across facets
+  const sharedNumeric = (sharedDomains.numeric && Object.keys(sharedDomains.numeric).length > 0)
+    ? sharedDomains.numeric
+    : computeSharedNumericDomains(data, xCandidates as any[], yCandidates as any[]);
 
   // Compute a shared color domain across the entire grid when a color field is present
-  let sharedColorScale = colorField ? deriveColorScaleInfo(data, colorField, colorScheme, colorBias) : null;
+  // Use provided color scale if available (from faceting), otherwise compute from local data
+  let sharedColorScale = sharedDomains.colorScale !== undefined
+    ? sharedDomains.colorScale
+    : (colorField ? deriveColorScaleInfo(data, colorField, colorScheme, colorBias) : null);
   
   // Apply per-measure color overrides if color field is MeasureNames
   sharedColorScale = applyMeasureNameColorOverrides(
@@ -327,7 +332,8 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
             return effectiveLabelCfg;
           })(),
           tooltipFields,
-          facetFields
+          facetFields,
+          sharedDomains.categorical
         );
       }
 
