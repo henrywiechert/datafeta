@@ -3,7 +3,7 @@ import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING, MIN_BAND_TRACKS, MIN_SE
 import { Field } from '../../types';
 import { getFieldColumnName } from '../helpers/fields';
 import { SharedDomains } from './facetDomains';
-import { CellGenerator, CellResult, PositionedPlot } from './facetCoordinator';
+import { CellGenerator, CellResult, PositionedPlot, FacetCellContext } from './facetCoordinator';
 import { buildBarOptions, resolveMeasureAlias } from '../chartTypes/barCore';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
@@ -54,7 +54,12 @@ export function createBarCellGenerator(
   manualColor?: string,
   tooltipFields?: Field[]
 ): CellGenerator {
-  return (cellData, cellContext, sharedDomains, facetPosition): CellResult => {
+  return (cellData, cellContext, sharedDomains, facetPosition, facetCellContext): CellResult => {
+    // Combine row and column facet fields for tooltip display
+    const allFacetFields = facetCellContext 
+      ? [...facetCellContext.rowFacetFields, ...facetCellContext.colFacetFields]
+      : [];
+    
     const orientedFields = barOrientation === 'barX' ? xFields : yFields;
     const seriesFields = orientedFields.filter((f) => 
       f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
@@ -112,7 +117,8 @@ export function createBarCellGenerator(
           bandPadding,
           labelCfg,
           manualColor,
-          tooltipFields
+          tooltipFields,
+          allFacetFields
         );
         title = resolveMeasureAlias(f);
       } else {
@@ -128,7 +134,8 @@ export function createBarCellGenerator(
           sharedDomains,
           bandPadding,
           manualColor,
-          cellContext.tooltipFields
+          cellContext.tooltipFields,
+          allFacetFields
         );
         title = getResultColumnName(f);
       }
@@ -168,7 +175,8 @@ function buildMeasureBarOptions(
   bandPadding: number | undefined,
   labelCfg: BarLabelConfig | undefined,
   manualColor: string | undefined,
-  tooltipFields: Field[] | undefined
+  tooltipFields: Field[] | undefined,
+  facetFields?: Field[]
 ): Plot.PlotOptions {
   const measureName = resolveMeasureAlias(measureField);
   const valueDomain = (sharedDomains.measure as any)[measureName] || [0, 1];
@@ -199,6 +207,7 @@ function buildMeasureBarOptions(
     tooltipFields: tooltipFields,
     // When there's no color field, use the global/manual bar color for fill
     manualColor: colorField ? undefined : manualColor,
+    facetFields: facetFields,
   });
   
   // Add labels if configured
@@ -284,7 +293,8 @@ function buildTickStripOptions(
   sharedDomains: SharedDomains,
   bandPadding: number | undefined,
   manualColor: string | undefined,
-  tooltipFields: Field[] | undefined
+  tooltipFields: Field[] | undefined,
+  facetFields?: Field[]
 ): Plot.PlotOptions {
   const dimCol = getResultColumnName(dimensionField);
   
@@ -347,7 +357,7 @@ function buildTickStripOptions(
   }
   
   // Add custom tooltip configuration
-  addTickStripTooltip(options, cellData, dimCol, categoryColumnName, colorField, tooltipFields);
+  addTickStripTooltip(options, cellData, dimCol, categoryColumnName, colorField, tooltipFields, facetFields);
   
   return options;
 }
@@ -413,7 +423,8 @@ function addTickStripTooltip(
   dimCol: string,
   categoryColumnName: string | undefined,
   colorField: Field | null | undefined,
-  tooltipFields: Field[] | undefined
+  tooltipFields: Field[] | undefined,
+  facetFields?: Field[]
 ): void {
   const mainFields: { label: string; column: string }[] = [{ label: dimCol, column: dimCol }];
   if (categoryColumnName) {
@@ -426,7 +437,9 @@ function addTickStripTooltip(
       mainFields,
       colorField || undefined,
       undefined, // No size field for tick strips
-      tooltipFields
+      tooltipFields,
+      undefined, // No excludeColumns
+      facetFields
     )
   };
 }

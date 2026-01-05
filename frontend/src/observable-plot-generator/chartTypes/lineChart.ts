@@ -49,6 +49,8 @@ export interface LineBuildParams {
     sampleEvery: number;
   };
   tooltipFields?: Field[];
+  /** Facet fields to display in tooltips for context (from faceted charts) */
+  facetFields?: Field[];
 }
 
 type LineBudget = {
@@ -271,6 +273,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     manualSize,
     labelCfg,
     tooltipFields,
+    facetFields,
   } = params;
 
   const O = LINE_ORIENTATION[orientation];
@@ -480,7 +483,9 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
       ],
       colorField,
       sizeField,
-      tooltipFields
+      tooltipFields,
+      undefined, // No excludeColumns
+      facetFields
     )
   };
   
@@ -507,7 +512,8 @@ export function lineChart(
   sizeRange?: [number, number],
   manualSize?: number,
   labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number },
-  tooltipFields?: Field[]
+  tooltipFields?: Field[],
+  facetFields?: Field[]
 ): Plot.PlotOptions {
   return buildLineOptions({
     data,
@@ -525,6 +531,7 @@ export function lineChart(
     manualSize,
     labelCfg,
     tooltipFields,
+    facetFields,
   });
 }
 
@@ -546,7 +553,8 @@ export function verticalLineChart(
   sizeRange?: [number, number],
   manualSize?: number,
   labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number },
-  tooltipFields?: Field[]
+  tooltipFields?: Field[],
+  facetFields?: Field[]
 ): Plot.PlotOptions {
   return buildLineOptions({
     data,
@@ -564,5 +572,6 @@ export function verticalLineChart(
     manualSize,
     labelCfg,
     tooltipFields,
+    facetFields,
   });
 }

@@ -58,6 +58,11 @@ export interface ChartGenerationContext {
    * Used for applying per-measure overrides when rendering unpivoted data.
    */
   measureValuesSourceFields?: Field[];
+  /**
+   * Facet fields to display in tooltips for context.
+   * These are the discrete dimensions used for faceting, shown at the top of tooltips.
+   */
+  facetFields?: Field[];
 }
 
 export interface PlotResult {
