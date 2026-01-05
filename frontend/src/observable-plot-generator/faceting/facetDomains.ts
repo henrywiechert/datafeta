@@ -41,9 +41,15 @@ export function computeSharedDomainsForFaceting(
   // Compute shared numeric domains (for continuous dimensions and measures)
   const numericDomains = computeSharedNumericDomains(data, xFields as any[], yFields as any[]);
 
-  // Compute categorical domains
-  const categoricalDomains = categoryField 
-    ? computeSharedCategoricalDomains(data, [categoryField])
+  // Compute categorical domains for ALL discrete dimensions (xFields, yFields, and categoryField)
+  // This ensures shared X/Y domain across facets for discrete dimensions
+  const discreteFields = [
+    ...xFields.filter((f: any) => f.type === 'dimension' && f.flavour === 'discrete'),
+    ...yFields.filter((f: any) => f.type === 'dimension' && f.flavour === 'discrete'),
+    ...(categoryField ? [categoryField] : [])
+  ];
+  const categoricalDomains = discreteFields.length > 0
+    ? computeSharedCategoricalDomains(data, discreteFields)
     : {};
 
   // Compute shared color domain
