@@ -1,11 +1,63 @@
 import { Field, QueryResult, FieldOverrideState, UserChartType } from '../types';
 import { FieldOverrideTarget } from './utils/fieldOverrides';
+import { ColorScaleInfo } from './utils/colorSchemeUtils';
+import { ChartTypeOverrides } from './helpers/chartTypeResolver';
 import * as Plot from '@observablehq/plot';
 
 export interface CategoryAxisDescriptor {
   axis: 'x' | 'y';
   columnName: string;
   domain?: any[];
+}
+
+/**
+ * Shared domain information for consistent scales across charts.
+ * This consolidates domain types previously passed separately.
+ */
+export interface SharedDomains {
+  /** Measure domains keyed by column name (includes 0 with headroom) */
+  measure: Record<string, [number, number]>;
+  /** Numeric domains for continuous dimensions (without 0 inclusion) */
+  numeric: Record<string, [number, number] | [Date, Date]>;
+  /** Categorical domains for discrete fields */
+  categorical: Record<string, any[]>;
+  /** Pre-computed color scale info */
+  colorScale?: ColorScaleInfo | null;
+}
+
+/**
+ * Label configuration for data labels on charts
+ */
+export interface LabelConfig {
+  labelFields: Field[];
+  labelsEnabled: boolean;
+  samplingStrategy: 'auto' | 'all' | 'sample';
+  samplingThreshold: number;
+  sampleEvery: number;
+}
+
+/**
+ * Configuration for generating cartesian plot grids.
+ * Replaces positional parameters with a structured config object.
+ */
+export interface CartesianPlotsConfig {
+  data: any[];
+  xCandidates: Field[];
+  yCandidates: Field[];
+  sharedDomains: SharedDomains;
+  encoding?: {
+    color?: { field?: Field; scheme?: string; bias?: number; manual?: string };
+    size?: { field?: Field; range?: [number, number]; manual?: number };
+  };
+  labels?: LabelConfig;
+  tooltipFields?: Field[];
+  facetFields?: Field[];
+  overrides?: ChartTypeOverrides;
+  fieldOverrides?: Record<string, FieldOverrideState>;
+  fieldOverrideTargets?: FieldOverrideTarget[];
+  allFields?: Field[];
+  globalChartType?: UserChartType | null;
+  measureValuesSourceFields?: Field[];
 }
 
 export interface ChartGenerationContext {
@@ -51,6 +103,11 @@ export interface ChartGenerationContext {
     measure?: Record<string, [number, number]>;
     numeric?: Record<string, [number, number] | [Date, Date]>;
   };
+  /**
+   * Consolidated shared domains for chart generation.
+   * When set, overrides separate domain computations.
+   */
+  sharedDomains?: SharedDomains;
   /** Axis domain sharing controls propagated from UI. */
   independentDomains?: { x?: boolean; y?: boolean };
   /**
