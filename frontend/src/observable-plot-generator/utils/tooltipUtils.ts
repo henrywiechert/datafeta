@@ -1,6 +1,7 @@
 import { TooltipField } from '../../components/Visualization/CustomTooltip/CustomTooltip';
 import { Field } from '../../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
+import { getFieldColumnName } from '../helpers/fields';
 
 /**
  * Format a value for tooltip display with appropriate precision and formatting
@@ -19,17 +20,41 @@ export function formatTooltipValue(val: any): string {
 
 /**
  * Create tooltip field configuration for chart types
+ * 
+ * @param mainFields - Primary fields to show (e.g., X, Y, dimension)
+ * @param colorField - Optional color encoding field
+ * @param sizeField - Optional size encoding field
+ * @param tooltipFields - Additional user-selected tooltip fields
+ * @param excludeColumns - Columns to exclude from tooltip
+ * @param facetFields - Fields used for faceting (shown at top of tooltip for context)
  */
 export function createTooltipFieldsGetter(
   mainFields: { label: string; column: string }[],
   colorField?: Field,
   sizeField?: Field,
   tooltipFields?: Field[],
-  excludeColumns?: string[]
+  excludeColumns?: string[],
+  facetFields?: Field[]
 ): (d: any) => TooltipField[] {
   return (d: any): TooltipField[] => {
     const fields: TooltipField[] = [];
     const exclude = new Set(excludeColumns || []);
+    
+    // Add facet fields first (at top for context)
+    if (facetFields && facetFields.length > 0) {
+      facetFields.forEach((f) => {
+        const colName = getFieldColumnName(f);
+        if (!exclude.has(colName)) {
+          const value = d[colName];
+          fields.push({
+            label: f.columnName,
+            value: value,
+            formattedValue: formatTooltipValue(value),
+          });
+          exclude.add(colName);
+        }
+      });
+    }
     
     // Add main fields (e.g., X, Y, dimension, etc.)
     mainFields.forEach(({ label, column }) => {
