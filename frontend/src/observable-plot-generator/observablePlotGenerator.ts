@@ -3,7 +3,7 @@ import { ChartGenerationContext, PlotResult, LabelConfig } from './types';
 import { barUnified } from './chartTypes/barUnified';
 import { generateChartOptions as genChartOptionsRule } from './rules/chartRules';
 import { Field } from '../types';
-import { computeSharedMeasureDomains } from './domains/measureDomains';
+import { computeSharedDomainsFromContext, buildLabelConfig } from './utils/configBuilder';
 import { analyzeFields } from './analysis/fieldAnalysis';
 import { ChartTypeOverrides } from './helpers/chartTypeResolver';
 import { planFacets } from './faceting/facetPlanner';
@@ -43,20 +43,17 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
 
   // ALWAYS build a cartesian grid when we have candidates on both axes (including 1x1)
   if (xCandidates.length > 0 && yCandidates.length > 0) {
-    // Use provided shared domains if available (from faceting), otherwise compute from local data
-    const sharedMeasureDomains = context.sharedDomainsOverride?.measure 
-      || computeSharedMeasureDomains(queryResult.rows, xCandidates as any[], yCandidates as any[], colorField);
-    const sharedNumericDomains = context.sharedDomainsOverride?.numeric || {};
-    
+    // Use the unified domain computation function
+    const sharedDomains = computeSharedDomainsFromContext(context, {
+      xFields: xCandidates,
+      yFields: yCandidates,
+    });
+
     const plots = generateCartesianPlots({
       data: queryResult.rows,
       xCandidates,
       yCandidates,
-      sharedDomains: {
-        measure: sharedMeasureDomains,
-        numeric: sharedNumericDomains,
-        categorical: {},
-      },
+      sharedDomains,
       encoding: {
         color: { field: colorField, scheme: colorScheme, bias: context.colorBias, manual: context.manualColor },
         size: { field: sizeField, range: sizeRange, manual: manualSize },
@@ -87,7 +84,7 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
     return {
       library: 'observable-plot',
       plots,
-      sharedDomains: { byMeasure: sharedMeasureDomains as any },
+      sharedDomains: { byMeasure: sharedDomains.measure as any },
       layout: {
         type: 'grid',
         columns: xCandidates.length,

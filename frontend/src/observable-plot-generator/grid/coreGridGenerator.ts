@@ -2,8 +2,7 @@ import * as Plot from '@observablehq/plot';
 import { generatePairChartOptions } from '../chartTypes/cellCharts';
 import { Field } from '../../types';
 import { ChartTypeOverrides, mapUserChartTypeToCellChartType } from '../helpers/chartTypeResolver';
-import { computeSharedNumericDomains } from '../domains/numericDomains';
-import { computeSharedMeasureDomains } from '../domains/measureDomains';
+import { computeSharedDomainsFromContext, buildLabelConfig } from '../utils/configBuilder';
 import { ChartGenerationContext, PlotResult, CartesianPlotsConfig, LabelConfig } from '../types';
 import { FieldOverrideState, UserChartType } from '../../types';
 import { FieldOverrideTarget } from '../utils/fieldOverrides';
@@ -36,19 +35,18 @@ export function generateCartesianGrid(
   const { queryResult, colorField, colorScheme, colorBias, sizeField, sizeRange, manualSize } = context;
   const data = queryResult.rows;
 
-  // Compute shared domains for any measures used in the grid
-  const sharedMeasureDomains = computeSharedMeasureDomains(data, xCandidates, yCandidates, colorField);
+  // Compute shared domains using the unified function
+  const sharedDomains = computeSharedDomainsFromContext(context, {
+    xFields: xCandidates,
+    yFields: yCandidates,
+  });
 
   const labelCfg = buildLabelCfg(context);
   const plots = generateCartesianPlots({
     data,
     xCandidates,
     yCandidates,
-    sharedDomains: {
-      measure: sharedMeasureDomains,
-      numeric: {},
-      categorical: {},
-    },
+    sharedDomains,
     encoding: {
       color: { field: colorField, scheme: colorScheme, bias: colorBias, manual: context.manualColor },
       size: { field: sizeField, range: sizeRange, manual: manualSize },
@@ -78,7 +76,7 @@ export function generateCartesianGrid(
   return {
     library: 'observable-plot',
     plots,
-    sharedDomains: { byMeasure: sharedMeasureDomains as any },
+    sharedDomains: { byMeasure: sharedDomains.measure as any },
     layout: {
       type: 'grid',
       columns: xCandidates.length,
@@ -124,11 +122,8 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
 
   const plots: CartesianPlot[] = [];
 
-  // Use provided numeric domains if available (from faceting), otherwise compute from local data
-  // This ensures scales are shared across facets
-  const sharedNumeric = (sharedDomains.numeric && Object.keys(sharedDomains.numeric).length > 0)
-    ? sharedDomains.numeric
-    : computeSharedNumericDomains(data, xCandidates as any[], yCandidates as any[]);
+  // Use provided numeric domains if available (from faceting), otherwise use those from sharedDomains
+  const sharedNumeric = sharedDomains.numeric;
 
   // Compute a shared color domain across the entire grid when a color field is present
   // Use provided color scale if available (from faceting), otherwise compute from local data
