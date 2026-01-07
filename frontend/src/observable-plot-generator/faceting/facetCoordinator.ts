@@ -129,12 +129,47 @@ export function coordinateFacetedGrid(config: FacetCoordinatorConfig): PlotResul
           domainsForColumn.categorical[categoryColumnName] = sharedCategoryDomain;
         }
 
+        // CRITICAL: Preserve the global color scale to ensure consistent colors across facets
+        // The color scale should always be computed from the full dataset, not per-column
+        domainsForColumn.colorScale = sharedDomains.colorScale;
+
         return domainsForColumn;
       })
     : null;
 
-  const effectiveSharedDomains = independentDomains?.x
-    ? filterSharedDomainsForIndependentX(sharedDomains, xFields)
+  // Optional: compute per-row shared domains for independent Y across rows
+  const perRowSharedDomains = independentDomains?.y
+    ? safeRowCombos.map((rowCombo) => {
+        const rowRows = filterRowsByFacets(queryResult.rows, rowFacetFields, rowCombo, [], []);
+        // Fallback to global shared domains if row has no data
+        if (!rowRows || rowRows.length === 0) return sharedDomains;
+        const domainsForRow = computeSharedDomainsForFaceting(
+          rowRows,
+          xFields,
+          yFields,
+          colorField,
+          categoryField || undefined,
+          [...rowFacetFields, ...colFacetFields],
+          context.colorScheme,
+          context.colorBias,
+          context.measureValuesSourceFields,
+          context.fieldOverrides
+        );
+
+        if (categoryField && sharedCategoryDomain) {
+          const categoryColumnName = getFieldColumnName(categoryField);
+          domainsForRow.categorical[categoryColumnName] = sharedCategoryDomain;
+        }
+
+        // CRITICAL: Preserve the global color scale to ensure consistent colors across facets
+        domainsForRow.colorScale = sharedDomains.colorScale;
+
+        return domainsForRow;
+      })
+    : null;
+
+  const effectiveSharedDomains = independentDomains?.x || independentDomains?.y
+    ? filterSharedDomainsForIndependentAxes(sharedDomains, xFields, yFields, independentDomains)
     : sharedDomains;
 
   // Override categorical domain if explicitly provided
@@ -151,7 +186,21 @@ export function coordinateFacetedGrid(config: FacetCoordinatorConfig): PlotResul
     colFacetFields,
     safeColCombos[0]
   );
-  const sampleDomains = perColumnSharedDomains?.[0] || effectiveSharedDomains;
+  // Use sample domains that incorporate both column and row independent domains if applicable
+  let sampleDomains = effectiveSharedDomains;
+  if (perColumnSharedDomains?.[0]) {
+    sampleDomains = { ...sampleDomains, ...perColumnSharedDomains[0] };
+  }
+  if (perRowSharedDomains?.[0]) {
+    // Merge Y-specific domains
+    const yLabels = new Set(yFields.map((f) => getFieldColumnName(f)));
+    for (const key of Object.keys(perRowSharedDomains[0].measure || {})) {
+      if (yLabels.has(key)) {
+        sampleDomains.measure[key] = perRowSharedDomains[0].measure[key];
+      }
+    }
+  }
+  sampleDomains.colorScale = sharedDomains.colorScale;
   const sampleResult = cellGenerator(sampleRows, context, sampleDomains, { row: 0, col: 0 });
   const baseCols = sampleResult.columns;
   const baseRows = sampleResult.rows;
@@ -168,7 +217,43 @@ export function coordinateFacetedGrid(config: FacetCoordinatorConfig): PlotResul
         safeColCombos[c]
       );
       
-      const columnDomains = perColumnSharedDomains?.[c] || effectiveSharedDomains;
+      // Merge per-column (X) and per-row (Y) domains as applicable
+      // Start with effective shared domains, then overlay independent axis domains
+      let cellDomains = effectiveSharedDomains;
+      if (perColumnSharedDomains?.[c]) {
+        cellDomains = { ...cellDomains, ...perColumnSharedDomains[c] };
+        // Preserve Y domains from effective (they should remain shared across columns)
+        if (!independentDomains?.y) {
+          // Keep Y-related measure/numeric domains from effectiveSharedDomains
+          const yLabels = new Set(yFields.map((f) => getFieldColumnName(f)));
+          for (const key of Object.keys(effectiveSharedDomains.measure || {})) {
+            if (yLabels.has(key)) {
+              cellDomains.measure[key] = effectiveSharedDomains.measure[key];
+            }
+          }
+          for (const key of Object.keys(effectiveSharedDomains.numeric || {})) {
+            if (yLabels.has(key)) {
+              cellDomains.numeric[key] = effectiveSharedDomains.numeric[key];
+            }
+          }
+        }
+      }
+      if (perRowSharedDomains?.[r]) {
+        // Overlay Y-specific domains from the row
+        const yLabels = new Set(yFields.map((f) => getFieldColumnName(f)));
+        for (const key of Object.keys(perRowSharedDomains[r].measure || {})) {
+          if (yLabels.has(key)) {
+            cellDomains.measure[key] = perRowSharedDomains[r].measure[key];
+          }
+        }
+        for (const key of Object.keys(perRowSharedDomains[r].numeric || {})) {
+          if (yLabels.has(key)) {
+            cellDomains.numeric[key] = perRowSharedDomains[r].numeric[key];
+          }
+        }
+      }
+      // Always preserve global color scale
+      cellDomains.colorScale = sharedDomains.colorScale;
       
       // Build facet cell context for tooltip generation
       const facetCellContext: FacetCellContext = {
@@ -178,7 +263,7 @@ export function coordinateFacetedGrid(config: FacetCoordinatorConfig): PlotResul
         colValues: safeColCombos[c],
       };
       
-      const cellResult = cellGenerator(cellData, context, columnDomains, { row: r, col: c }, facetCellContext);
+      const cellResult = cellGenerator(cellData, context, cellDomains, { row: r, col: c }, facetCellContext);
       
       // Offset plots to their correct grid position
       cellResult.plots.forEach((p) => {
@@ -223,21 +308,39 @@ export function coordinateFacetedGrid(config: FacetCoordinatorConfig): PlotResul
   };
 }
 
-function filterSharedDomainsForIndependentX(shared: SharedDomains, xFields: Field[]): SharedDomains {
-  if (!xFields?.length) return shared;
-  const xLabels = new Set(xFields.map((f) => getFieldColumnName(f)));
+/**
+ * Filter shared domains based on independent axis settings.
+ * When an axis is independent, its domains should not be globally shared.
+ */
+function filterSharedDomainsForIndependentAxes(
+  shared: SharedDomains, 
+  xFields: Field[], 
+  yFields: Field[],
+  independentDomains?: { x?: boolean; y?: boolean }
+): SharedDomains {
+  const xLabels = independentDomains?.x 
+    ? xFields.map((f) => getFieldColumnName(f))
+    : [];
+  const yLabels = independentDomains?.y 
+    ? yFields.map((f) => getFieldColumnName(f))
+    : [];
+  
+  const labelsToFilter = new Set([...xLabels, ...yLabels]);
+  if (labelsToFilter.size === 0) return shared;
 
   const filteredMeasure = Object.fromEntries(
-    Object.entries(shared.measure || {}).filter(([key]) => !xLabels.has(key))
+    Object.entries(shared.measure || {}).filter(([key]) => !labelsToFilter.has(key))
   ) as Record<string, [number, number]>;
 
   const filteredNumeric = Object.fromEntries(
-    Object.entries(shared.numeric || {}).filter(([key]) => !xLabels.has(key))
+    Object.entries(shared.numeric || {}).filter(([key]) => !labelsToFilter.has(key))
   ) as Record<string, [number, number] | [Date, Date]>;
 
   return {
     ...shared,
     measure: filteredMeasure,
     numeric: filteredNumeric,
+    // Always preserve color scale - it should be global
+    colorScale: shared.colorScale,
   };
 }
