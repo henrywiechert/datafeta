@@ -21,7 +21,6 @@ import { hasAnyMeasureOverrides, generateMeasureValuesMultiMarkPlot } from '../c
 import { chartQueryService, ChartQueryOptions } from '../../services/chartQueryService';
 import { CartesianPlot } from './coreGridGenerator';
 import { getFieldOutputColumnName } from '../../utils/fieldColumnName';
-import { buildLabelConfig } from '../utils/configBuilder';
 
 export interface LocalQueryGridOptions {
   /** Cache key (table name) in DuckDB WASM */
@@ -61,7 +60,7 @@ export async function generateCartesianGridLocal(
   const { colorField, colorScheme, colorBias, sizeField, sizeRange, manualSize } = context;
 
   // Build label configuration
-  const labelCfg = buildLabelConfig(context);
+  const labelCfg = buildLabelCfg(context);
 
   // Generate plots with per-chart local queries
   const plots = await generateCartesianPlotsLocal(
@@ -486,5 +485,21 @@ function buildCellTitle(xField: Field, yField: Field): string {
   return `${yLabel} vs ${xLabel}`;
 }
 
-// buildLabelConfig moved to utils/configBuilder.ts
+function buildLabelCfg(context: ChartGenerationContext) {
+  const {
+    labelFields = [],
+    labelsEnabled = false,
+    labelSamplingStrategy = 'auto',
+    labelSamplingThreshold = 300,
+    labelSampleEvery = 1,
+  } = context as any;
+  if (!labelsEnabled && (labelFields?.length || 0) === 0) return undefined;
+  return {
+    labelFields,
+    labelsEnabled,
+    samplingStrategy: labelSamplingStrategy,
+    samplingThreshold: labelSamplingThreshold,
+    sampleEvery: labelSampleEvery,
+  };
+}
 
