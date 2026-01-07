@@ -30,6 +30,8 @@ interface ChartControlsProps {
   onResetWorkspace?: () => void;
   independentXAxis: boolean;
   onToggleIndependentXAxis: (independent: boolean) => void;
+  independentYAxis: boolean;
+  onToggleIndependentYAxis: (independent: boolean) => void;
 }
 
 const ChartControls: React.FC<ChartControlsProps> = ({
@@ -46,6 +48,8 @@ const ChartControls: React.FC<ChartControlsProps> = ({
   onResetWorkspace,
   independentXAxis,
   onToggleIndependentXAxis,
+  independentYAxis,
+  onToggleIndependentYAxis,
 }) => {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
 
@@ -154,7 +158,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
           </Tooltip>
         )}
 
-        <Tooltip title={independentXAxis ? 'Independent X per facet' : 'Shared X across facets'}>
+        <Tooltip title={independentXAxis ? 'Independent X per facet (click to share)' : 'Shared X across facets (click to separate)'}>
           <span>
             <IconButton
               size="small"
@@ -164,10 +168,38 @@ const ChartControls: React.FC<ChartControlsProps> = ({
                 backgroundColor: independentXAxis ? 'primary.50' : 'transparent',
                 '&:hover': {
                   backgroundColor: independentXAxis ? 'primary.100' : 'action.hover',
-                }
+                },
+                fontSize: '0.7rem',
+                minWidth: 32,
               }}
             >
-              {independentXAxis ? <LinkOffIcon fontSize="small" /> : <LinkIcon fontSize="small" />}
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
+                {independentXAxis ? <LinkOffIcon sx={{ fontSize: 16 }} /> : <LinkIcon sx={{ fontSize: 16 }} />}
+                <Box component="span" sx={{ fontSize: '0.6rem', mt: -0.3 }}>X</Box>
+              </Box>
+            </IconButton>
+          </span>
+        </Tooltip>
+
+        <Tooltip title={independentYAxis ? 'Independent Y per facet (click to share)' : 'Shared Y across facets (click to separate)'}>
+          <span>
+            <IconButton
+              size="small"
+              onClick={() => onToggleIndependentYAxis(!independentYAxis)}
+              sx={{
+                color: independentYAxis ? 'primary.main' : 'text.secondary',
+                backgroundColor: independentYAxis ? 'primary.50' : 'transparent',
+                '&:hover': {
+                  backgroundColor: independentYAxis ? 'primary.100' : 'action.hover',
+                },
+                fontSize: '0.7rem',
+                minWidth: 32,
+              }}
+            >
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
+                {independentYAxis ? <LinkOffIcon sx={{ fontSize: 16 }} /> : <LinkIcon sx={{ fontSize: 16 }} />}
+                <Box component="span" sx={{ fontSize: '0.6rem', mt: -0.3 }}>Y</Box>
+              </Box>
             </IconButton>
           </span>
         </Tooltip>
