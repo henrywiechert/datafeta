@@ -129,27 +129,46 @@ class CardinalityService:
         virtual_columns: Optional[list] = None,
         virtual_table: Optional[object] = None
     ) -> str:
-        """Build the COUNT(DISTINCT) SQL query."""
+        """Build the COUNT(DISTINCT) SQL query.
+        
+        For JOINed tables: We query the specific source table directly, not the JOIN.
+        This ensures we get ALL distinct values from that table, not just the ones
+        that match the JOIN condition. The field name tells us which table to query
+        (e.g., "races.status" means query the "races" table).
+        """
         # Import here to avoid circular dependency
         from backend.services.query_components.virtual_column_builder import VirtualColumnExpressionBuilder
-        from backend.services.query_components.table_context_builder import TableContextBuilder
         
-        # Build the table reference and handle JOINs if virtual_table is provided
-        if virtual_table and virtual_table.joined_tables:
-            # Use TableContextBuilder to create proper JOIN query
-            builder = TableContextBuilder()
-            # Create a minimal QueryDescription-like object for the builder
-            class MinimalQueryDesc:
-                def __init__(self, primary_table, virtual_table):
-                    self.target_table = primary_table
-                    self.target_database = database
-                    self.virtual_table = virtual_table
-            
-            query_desc = MinimalQueryDesc(table, virtual_table)
-            context = builder.build(query_desc, self.conn_details.type, table)
-            count_query = context.query
-            db_table = context.primary_table
-            table_map = context.table_map
+        has_joined_tables = virtual_table and virtual_table.joined_tables and len(virtual_table.joined_tables) > 0
+        
+        # For JOINed tables with qualified field names, query the source table directly
+        # This gets ALL distinct values, not just those matching the JOIN condition
+        if has_joined_tables and '.' in field:
+            parts = field.split('.', 1)
+            if len(parts) == 2:
+                source_table_name = parts[0]
+                source_column_name = parts[1]
+                
+                # Query the source table directly
+                if self.conn_details.type == 'clickhouse' and database:
+                    db_table = Table(source_table_name, schema=database)
+                else:
+                    db_table = Table(source_table_name)
+                
+                count_query = Query.from_(db_table)
+                table_map = {source_table_name: db_table}
+                # Update field to just the column name since we're querying the source table directly
+                field = source_column_name
+                
+                logger.info(f"Cardinality query: Using source table '{source_table_name}' directly for field '{source_column_name}' (bypassing JOIN)")
+            else:
+                # Fallback if parsing failed
+                if self.conn_details.type == 'clickhouse' and database:
+                    db_table = Table(table, schema=database)
+                else:
+                    db_table = Table(table)
+                count_query = Query.from_(db_table)
+                table_map = {table: db_table}
         elif self.conn_details.type == 'clickhouse' and database:
             db_table = Table(table, schema=database)
             count_query = Query.from_(db_table)
@@ -184,17 +203,9 @@ class CardinalityService:
             logger.debug(f"Using virtual column expression for cardinality count: {field}")
         elif datetime_part and datetime_mode:
             # For datetime parts, extract the part first using DateTimeService
-            # Handle qualified field names (e.g., "races.date") ONLY if we have joined tables
-            # Otherwise, the dot is part of the column name itself (e.g., "table.column" as a literal column name)
-            has_joined_tables = virtual_table and virtual_table.joined_tables and len(virtual_table.joined_tables) > 0
-            if '.' in field and has_joined_tables:
-                parts = field.split('.', 1)
-                if len(parts) == 2 and parts[0] in table_map:
-                    base_field = table_map[parts[0]][parts[1]]
-                else:
-                    base_field = db_table[field]
-            else:
-                base_field = db_table[field]
+            # Note: At this point, 'field' is already the column name (not table-qualified)
+            # because we extracted the source table earlier for joined table cases
+            base_field = db_table[field]
             
             field_expr = DateTimeService.get_datetime_part_expression(
                 base_field, 
@@ -203,20 +214,9 @@ class CardinalityService:
                 self.conn_details.type
             )
         else:
-            # Handle qualified field names (e.g., "races.date") ONLY if we have joined tables
-            # Otherwise, the dot is part of the column name itself (e.g., "table.column" as a literal column name)
-            has_joined_tables = virtual_table and virtual_table.joined_tables and len(virtual_table.joined_tables) > 0
-            if '.' in field and has_joined_tables:
-                parts = field.split('.', 1)
-                if len(parts) == 2 and parts[0] in table_map:
-                    field_expr = table_map[parts[0]][parts[1]]
-                else:
-                    # Field has a dot but the table prefix isn't in our table_map - treat as literal column name
-                    field_expr = db_table[field]
-            else:
-                # No joined tables, so treat the entire field name as a literal column name
-                # This handles column names that contain dots (e.g., "tablename.columnname")
-                field_expr = db_table[field]
+            # Use the field directly - it's already the column name
+            # (table prefix was handled above when extracting source table)
+            field_expr = db_table[field]
         
         # Build count query using custom CountDistinct
         count_expr = CountDistinct(field_expr)

@@ -8,7 +8,7 @@ from pypika.functions import Avg, Coalesce, Count, Max, Min, Sum
 from pypika.terms import Function
 
 from backend.exceptions import QueryGenerationError
-from backend.models.query import Filter, Measure, OrderBy, QueryDescription
+from backend.models.query import Dimension, Filter, Measure, OrderBy, QueryDescription
 from backend.services.datetime_service import DateTimeService
 from backend.services.query_components.contexts import (
     OptimizationContext,
@@ -375,6 +375,72 @@ class QueryService:
                 with_optimization=with_optimization,
                 optimizer=optimizer,
             )
+
+        # For filter value queries with JOINed tables, query the source table directly
+        # This ensures we get ALL distinct values, not just those matching the JOIN condition
+        if (query_desc.fetch_filter_values and 
+            query_desc.virtual_table and 
+            query_desc.virtual_table.joined_tables and
+            query_desc.dimensions and len(query_desc.dimensions) == 1):
+            
+            dim = query_desc.dimensions[0]
+            field_name = dim.field
+            
+            # Check if field is qualified (e.g., "races.status")
+            if '.' in field_name:
+                parts = field_name.split('.', 1)
+                if len(parts) == 2:
+                    source_table_name, column_name = parts
+                    
+                    # Create a simplified query desc for the source table directly
+                    logger.info(
+                        f"Filter value query: Using source table '{source_table_name}' directly "
+                        f"for field '{column_name}' (bypassing JOIN to get ALL distinct values)"
+                    )
+                    
+                    # Create a new dimension with just the column name
+                    from backend.models.query import Dimension
+                    simplified_dim = Dimension(
+                        field=column_name,
+                        flavour=dim.flavour,
+                        axis=dim.axis,
+                        date_part=dim.date_part,
+                        date_mode=dim.date_mode,
+                    )
+                    
+                    # Create a copy of query_desc without the virtual_table (for single table query)
+                    # We need to query the source table directly
+                    simplified_query_desc = QueryDescription(
+                        target_table=source_table_name,
+                        target_database=query_desc.target_database,
+                        dimensions=[simplified_dim],
+                        measures=query_desc.measures,
+                        filters=query_desc.filters,  # Keep filters but they may need adjustment
+                        orderBy=query_desc.orderBy,
+                        limit=query_desc.limit,
+                        offset=query_desc.offset,
+                        optimization_hints=query_desc.optimization_hints,
+                        column_casts=query_desc.column_casts,
+                        label_fields=query_desc.label_fields,
+                        virtual_table=None,  # No JOIN - query single table
+                        virtual_columns=query_desc.virtual_columns,
+                        result_budget=query_desc.result_budget,
+                        force_raw_rows=query_desc.force_raw_rows,
+                        fetch_filter_values=query_desc.fetch_filter_values,
+                        distinct_value_regex=query_desc.distinct_value_regex,
+                        use_random_sample=query_desc.use_random_sample,
+                    )
+                    
+                    # Recursively call translate_to_sql with the simplified query
+                    return self.translate_to_sql(
+                        simplified_query_desc,
+                        source_table_name,
+                        db_type=db_type,
+                        with_sampling=with_sampling,
+                        with_optimization=with_optimization,
+                        optimizer=optimizer,
+                        connector=connector,
+                    )
 
         table_context = self._build_table_context(query_desc, db_type, table_name)
         q = table_context.query
