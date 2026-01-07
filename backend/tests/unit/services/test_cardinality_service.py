@@ -291,3 +291,78 @@ class TestCardinalityService:
         sql = call_args[0][0]
         assert "LIKE" in sql
         assert ("EXTRACT" in sql or "toHour" in sql)
+
+    def test_get_distinct_count_joined_tables_queries_source_directly(self):
+        """Should query source table directly for joined tables (bypassing JOIN).
+        
+        When we have joined tables, filter values should return ALL distinct values
+        from the source table, not just those matching the JOIN condition.
+        """
+        from backend.models.data_source import VirtualTableDefinition, TableJoinDefinition
+        
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
+        
+        self.mock_connector.fetch_data.return_value = (
+            ["count"],
+            [[150]]  # All distinct values from races table
+        )
+        
+        # Create a virtual table with a JOIN
+        virtual_table = VirtualTableDefinition(
+            primary_table="results",
+            mode="join",
+            joined_tables=[
+                TableJoinDefinition(
+                    table_name="races",
+                    join_type="LEFT",
+                    on_conditions=["results.raceId = races.raceId"]
+                )
+            ],
+            union_tables=[]
+        )
+        
+        # Query for races.status - should query races table directly
+        count = service.get_distinct_count(
+            field="races.status",  # Qualified field name
+            table="results",  # Primary table
+            database="f1_db",
+            virtual_table=virtual_table
+        )
+        
+        assert count == 150
+        # Verify the SQL queries the races table directly, not a JOIN
+        call_args = self.mock_connector.fetch_data.call_args
+        sql = call_args[0][0]
+        # Should NOT contain JOIN
+        assert "JOIN" not in sql
+        # Should query races table directly
+        assert "`f1_db`.`races`" in sql
+        # Should count the status column
+        assert "status" in sql
+
+    def test_get_distinct_count_non_joined_table_with_dots_in_column_name(self):
+        """Should handle column names containing dots when NOT joined.
+        
+        Some databases have column names like 'tablename.columnname' as literals.
+        Without joined tables, these should be treated as literal column names.
+        """
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
+        
+        self.mock_connector.fetch_data.return_value = (
+            ["count"],
+            [[42]]
+        )
+        
+        # No virtual_table = no joins
+        count = service.get_distinct_count(
+            field="table.column",  # Literal column name with dot
+            table="my_table",
+            database="test_db",
+            virtual_table=None  # No joins
+        )
+        
+        assert count == 42
+        call_args = self.mock_connector.fetch_data.call_args
+        sql = call_args[0][0]
+        # Should treat "table.column" as a single column name
+        assert "`table.column`" in sql or '"table.column"' in sql
