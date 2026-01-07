@@ -184,8 +184,10 @@ class CardinalityService:
             logger.debug(f"Using virtual column expression for cardinality count: {field}")
         elif datetime_part and datetime_mode:
             # For datetime parts, extract the part first using DateTimeService
-            # Handle qualified field names (e.g., "races.date")
-            if '.' in field:
+            # Handle qualified field names (e.g., "races.date") ONLY if we have joined tables
+            # Otherwise, the dot is part of the column name itself (e.g., "table.column" as a literal column name)
+            has_joined_tables = virtual_table and virtual_table.joined_tables and len(virtual_table.joined_tables) > 0
+            if '.' in field and has_joined_tables:
                 parts = field.split('.', 1)
                 if len(parts) == 2 and parts[0] in table_map:
                     base_field = table_map[parts[0]][parts[1]]
@@ -201,14 +203,19 @@ class CardinalityService:
                 self.conn_details.type
             )
         else:
-            # Handle qualified field names (e.g., "races.date")
-            if '.' in field:
+            # Handle qualified field names (e.g., "races.date") ONLY if we have joined tables
+            # Otherwise, the dot is part of the column name itself (e.g., "table.column" as a literal column name)
+            has_joined_tables = virtual_table and virtual_table.joined_tables and len(virtual_table.joined_tables) > 0
+            if '.' in field and has_joined_tables:
                 parts = field.split('.', 1)
                 if len(parts) == 2 and parts[0] in table_map:
                     field_expr = table_map[parts[0]][parts[1]]
                 else:
+                    # Field has a dot but the table prefix isn't in our table_map - treat as literal column name
                     field_expr = db_table[field]
             else:
+                # No joined tables, so treat the entire field name as a literal column name
+                # This handles column names that contain dots (e.g., "tablename.columnname")
                 field_expr = db_table[field]
         
         # Build count query using custom CountDistinct
