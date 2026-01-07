@@ -11,7 +11,6 @@ import { FieldAnalysis } from '../analysis/fieldAnalysis';
 import { deriveColorScaleInfo, applyMeasureNameColorOverrides } from '../utils/colorSchemeUtils';
 import { isMeasureValuesField, combineMeasureValuesOverrides } from '../../utils/syntheticFields';
 import { hasAnyMeasureOverrides, generateMeasureValuesMultiMarkPlot } from '../chartTypes/measureValuesMultiMark';
-import { buildLabelConfig } from '../utils/configBuilder';
 
 export type CartesianPlot = {
   id: string;
@@ -40,7 +39,7 @@ export function generateCartesianGrid(
   // Compute shared domains for any measures used in the grid
   const sharedMeasureDomains = computeSharedMeasureDomains(data, xCandidates, yCandidates, colorField);
 
-  const labelCfg = buildLabelConfig(context);
+  const labelCfg = buildLabelCfg(context);
   const plots = generateCartesianPlots({
     data,
     xCandidates,
@@ -378,4 +377,20 @@ function buildCellTitle(xField: Field, yField: Field): string {
   return `${yLabel} vs ${xLabel}`;
 }
 
-// buildLabelConfig moved to utils/configBuilder.ts
+function buildLabelCfg(context: ChartGenerationContext): LabelConfig | undefined {
+  const {
+    labelFields = [],
+    labelsEnabled = false,
+    labelSamplingStrategy = 'auto',
+    labelSamplingThreshold = 300,
+    labelSampleEvery = 1,
+  } = context as any;
+  if (!labelsEnabled && (labelFields?.length || 0) === 0) return undefined;
+  return {
+    labelFields,
+    labelsEnabled,
+    samplingStrategy: labelSamplingStrategy,
+    samplingThreshold: labelSamplingThreshold,
+    sampleEvery: labelSampleEvery,
+  };
+}
