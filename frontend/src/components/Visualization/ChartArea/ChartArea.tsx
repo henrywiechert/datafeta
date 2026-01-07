@@ -207,6 +207,11 @@ const ChartArea: React.FC = () => {
     dispatch({ type: 'SET_INDEPENDENT_DOMAIN', payload: { axis: 'x', independent } });
   }, [dispatch, getUndoableSnapshot, recordAction]);
 
+  const handleIndependentYAxisToggle = useCallback((independent: boolean) => {
+    recordAction(getUndoableSnapshot());
+    dispatch({ type: 'SET_INDEPENDENT_DOMAIN', payload: { axis: 'y', independent } });
+  }, [dispatch, getUndoableSnapshot, recordAction]);
+
   const debugData = {
     queryDescription,
     queryResult,
@@ -298,6 +303,8 @@ const ChartArea: React.FC = () => {
           onResetWorkspace={resetWorkspace}
           independentXAxis={!!independentDomains?.x}
           onToggleIndependentXAxis={handleIndependentXAxisToggle}
+          independentYAxis={!!independentDomains?.y}
+          onToggleIndependentYAxis={handleIndependentYAxisToggle}
         />
         
         <DebugPanel
