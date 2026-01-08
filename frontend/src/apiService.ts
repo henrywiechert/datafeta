@@ -17,6 +17,7 @@ import {
 } from './types';
 import { arrowTableToRows } from './services/arrowResultAdapter';
 import { logSqlQuery } from './devtools/queryLog';
+import { getTabId } from './utils/tabSession';
 
 // Derive API base: Prefer explicit env var (REACT_APP_API_BASE, e.g. "/api/v1"), else fall back to
 // same-origin relative path (when frontend served by backend) and append /data segment used by router.
@@ -45,8 +46,17 @@ async function fetchWithErrorHandling(
   options: RequestInit = {}, 
   signal?: AbortSignal
 ): Promise<Response> {
+  // Merge existing headers with the tab ID header
+  const existingHeaders = options.headers instanceof Headers 
+    ? Object.fromEntries(options.headers.entries())
+    : (options.headers || {});
+  
   const fetchOptions: RequestInit = {
     ...options,
+    headers: {
+      ...existingHeaders,
+      'X-Tab-Id': getTabId(), // Include tab ID for per-tab session isolation
+    },
     signal: signal || (options.signal),
     credentials: 'include', // Include cookies in all requests
   };
@@ -284,6 +294,7 @@ export const apiService = {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'X-Tab-Id': getTabId(), // Include tab ID for per-tab session isolation
             },
             body: JSON.stringify(queryDesc),
             signal: requestSignal,
@@ -383,6 +394,7 @@ export const apiService = {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'X-Tab-Id': getTabId(), // Include tab ID for per-tab session isolation
             },
             body: JSON.stringify(queryDesc),
             signal: requestSignal,
