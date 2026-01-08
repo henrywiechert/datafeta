@@ -5,6 +5,10 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { ConnectionProvider } from './contexts/ConnectionContext';
 import { VisualizationProvider } from './contexts/VisualizationContext';
+import { initializeTabSession } from './utils/tabSession';
+
+// Initialize tab-level session management (generates tab ID, sets up cleanup)
+initializeTabSession();
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement

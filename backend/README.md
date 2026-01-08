@@ -105,19 +105,39 @@ backend/
 
 ### Session Management
 
-The backend supports multiple concurrent users through **session-based state isolation**:
+The backend supports multiple concurrent users through **session-based state isolation** with **per-tab separation**:
 
 - **Session Identification**: Cookie-based (`session_id` cookie, httponly)
-- **State Storage**: In-memory dictionary [`session_storage: Dict[str, ConnectionStateManager]`](dependencies.py#L48)
-- **Per-Session State**: Each session has its own:
+- **Tab Identification**: Header-based (`X-Tab-Id` header, sent by frontend)
+- **Composite Key**: State is keyed by `session_id:tab_id` allowing multiple independent sessions per browser
+- **State Storage**: In-memory dictionary [`session_storage: Dict[str, ConnectionStateManager]`](dependencies.py)
+- **Per-Session State**: Each session (per tab) has its own:
   - Active connector instance
   - Connection details
   - CSV temporary file path (session-scoped upload directory)
   - Async lock for connect/disconnect serialization
+  - Creation and last-access timestamps
 
 **Implementation** ([`dependencies.py`](dependencies.py)):
-- [`get_state_manager`](dependencies.py#L58): Creates new session if missing, sets cookie, returns session-specific `ConnectionStateManager`
-- [`ConnectionStateManager`](dependencies.py#L17): Holds per-session connection state with async lock
+- `get_state_manager`: Creates new session if missing, uses composite key `session_id:tab_id`
+- `ConnectionStateManager`: Holds per-session connection state with async lock and timestamps
+- `list_active_sessions()`: Debug utility to enumerate all active sessions
+- `remove_session()`: Clean up a specific tab session
+
+### Tab Session Lifecycle
+
+1. **Tab Opens**: Frontend generates UUID stored in `sessionStorage`, sent as `X-Tab-Id` header
+2. **Tab Active**: All API requests include `X-Tab-Id` header for tab-specific state
+3. **Tab Closes**: Frontend sends `navigator.sendBeacon()` to `/disconnect-beacon` endpoint
+4. **Cleanup**: Backend removes tab-specific session state
+
+### Debug Endpoint
+
+**GET `/api/v1/data/debug/sessions`** - Lists all active sessions with metadata:
+- Session ID and Tab ID
+- Connection status and type
+- CSV temp file paths
+- Creation and last access timestamps
 
 **File Upload Isolation**: CSV uploads stored in `{upload_root_dir}/{session_id}/` directories via [`_get_session_upload_dir`](services/connection_service.py#L69), cleaned up on disconnect via [`disconnect`](services/connection_service.py#L313).
 
@@ -127,7 +147,7 @@ The backend supports multiple concurrent users through **session-based state iso
 
 ### Connection Management
 
-**POST [`/api/v1/data/connect`](routers/data.py#L53)** (multipart/form-data)
+**POST [`/api/v1/data/connect`](routers/connection.py)** (multipart/form-data)
 - CSV: Upload file + connection details JSON
 - ClickHouse: Connection details JSON only
 - Handler: [`connect_to_datasource`](routers/data.py#L54) → [`ConnectionService.connect_multipart`](services/connection_service.py#L156)
