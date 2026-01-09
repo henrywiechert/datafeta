@@ -1,4 +1,4 @@
-import { Field, Database, Table, QueryResult, FilterConfig, FilterMetadata, VirtualColumnDefinition, FieldOverrideState, UserChartType, QueryOptimizationSettings } from '../../types';
+import { Field, Database, Table, QueryResult, FilterConfig, FilterMetadata, FieldOverrideState, UserChartType, QueryOptimizationSettings } from '../../types';
 
 // Define loading operation types
 export type LoadingOperationType = 'query' | 'rendering' | 'metadata';
@@ -54,9 +54,6 @@ export interface VisualizationState {
   operationStartTimes: Record<LoadingOperationType, number | null>;
   activeOperations: LoadingOperationType[];
   modalPrimaryOperation: LoadingOperationType | null;
-  // Virtual columns
-  virtualColumns: VirtualColumnDefinition[];
-  virtualColumnFieldPreferences: Record<string, { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }>;
   // Per-field chart overrides
   fieldOverrides: Record<string, FieldOverrideState>;
   // Global chart type override
@@ -130,12 +127,6 @@ export type VisualizationAction =
   | { type: 'REMOVE_TOOLTIP_FIELD'; payload: string }
   // Axis domain sharing actions
   | { type: 'SET_INDEPENDENT_DOMAIN'; payload: { axis: 'x' | 'y'; independent: boolean } }
-  // Virtual column actions
-  | { type: 'SET_VIRTUAL_COLUMNS'; payload: VirtualColumnDefinition[] }
-  | { type: 'ADD_VIRTUAL_COLUMN'; payload: VirtualColumnDefinition }
-  | { type: 'UPDATE_VIRTUAL_COLUMN'; payload: { index: number; column: VirtualColumnDefinition } }
-  | { type: 'REMOVE_VIRTUAL_COLUMN'; payload: number }
-  | { type: 'UPDATE_VIRTUAL_COLUMN_FIELD_PREFERENCE'; payload: { columnName: string; preference: { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string } } }
   // Per-field chart override actions
   | { type: 'SET_FIELD_OVERRIDES'; payload: Record<string, FieldOverrideState> }
   | { type: 'UPDATE_FIELD_OVERRIDE'; payload: { fieldId: string; override: Partial<FieldOverrideState> } }
@@ -160,8 +151,6 @@ export type VisualizationAction =
       manualSize: number;
       bandThicknessScale?: number;
       independentDomains?: { x: boolean; y: boolean };
-      virtualColumns: VirtualColumnDefinition[];
-      virtualColumnFieldPreferences: Record<string, { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }>;
       fieldOverrides: Record<string, FieldOverrideState>;
       globalChartType?: UserChartType | null;
     } }

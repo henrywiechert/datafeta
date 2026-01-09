@@ -5,7 +5,9 @@ interface UseVirtualColumnsParams {
     availableFields: Field[];
     virtualColumns: VirtualColumnDefinition[];
     virtualColumnFieldPreferences: Record<string, { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }>;
-    dispatch: React.Dispatch<any>;
+    addVirtualColumn: (column: VirtualColumnDefinition) => void;
+    updateVirtualColumn: (index: number, column: VirtualColumnDefinition) => void;
+    removeVirtualColumn: (index: number) => void;
 }
 
 export interface UseVirtualColumnsReturn {
@@ -19,7 +21,9 @@ export function useVirtualColumns({
     availableFields,
     virtualColumns,
     virtualColumnFieldPreferences,
-    dispatch
+    addVirtualColumn,
+    updateVirtualColumn,
+    removeVirtualColumn,
 }: UseVirtualColumnsParams): UseVirtualColumnsReturn {
     
     // --- Merge virtual columns into available fields ---
@@ -82,16 +86,16 @@ export function useVirtualColumns({
     // --- Virtual Column Handlers ---
     
     const handleAddVirtualColumn = useCallback((column: VirtualColumnDefinition) => {
-        dispatch({ type: 'ADD_VIRTUAL_COLUMN', payload: column });
-    }, [dispatch]);
+        addVirtualColumn(column);
+    }, [addVirtualColumn]);
 
     const handleUpdateVirtualColumn = useCallback((index: number, column: VirtualColumnDefinition) => {
-        dispatch({ type: 'UPDATE_VIRTUAL_COLUMN', payload: { index, column } });
-    }, [dispatch]);
+        updateVirtualColumn(index, column);
+    }, [updateVirtualColumn]);
 
     const handleRemoveVirtualColumn = useCallback((index: number) => {
-        dispatch({ type: 'REMOVE_VIRTUAL_COLUMN', payload: index });
-    }, [dispatch]);
+        removeVirtualColumn(index);
+    }, [removeVirtualColumn]);
 
     return {
         availableFieldsWithVirtual,
