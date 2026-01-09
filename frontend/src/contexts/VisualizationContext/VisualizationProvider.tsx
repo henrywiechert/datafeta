@@ -1,5 +1,5 @@
 import React, { createContext, useReducer, ReactNode, useRef, useCallback } from 'react';
-import { Field, FilterConfig, VirtualColumnDefinition, FieldOverrideState } from '../../types';
+import { Field, FilterConfig, VisualizationStateSnapshot } from '../../types';
 import { getTimeoutForOperation } from '../../config/loadingConfig';
 import { VisualizationState, VisualizationAction, LoadingOperationType } from './types';
 import { initialState } from './initialState';
@@ -13,23 +13,7 @@ export interface VisualizationContextType {
   completeOperation: (operationType: LoadingOperationType) => void;
   cancelOperation: () => void;
   timeoutRefs: React.MutableRefObject<{ [key: string]: NodeJS.Timeout | null }>;
-  getUndoableSnapshot: () => {
-    xAxisFields: Field[];
-    yAxisFields: Field[];
-    filterFields: Field[];
-    filterConfigurations: Record<string, FilterConfig>;
-    appliedFilterConfigurations: Record<string, FilterConfig>;
-    colorField: Field | null;
-    colorScheme: string;
-    colorBias: number;
-    sizeField: Field | null;
-    sizeRange: [number, number];
-    manualSize: number;
-    independentDomains: { x: boolean; y: boolean };
-    tooltipFields: Field[];
-    virtualColumns: VirtualColumnDefinition[];
-    fieldOverrides: Record<string, FieldOverrideState>;
-  };
+  getUndoableSnapshot: () => VisualizationStateSnapshot;
 }
 
 // Create context
@@ -202,8 +186,6 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       bandThicknessScale: state.bandThicknessScale,
       independentDomains: state.independentDomains,
       tooltipFields: state.tooltipFields,
-      virtualColumns: state.virtualColumns,
-      virtualColumnFieldPreferences: state.virtualColumnFieldPreferences,
       fieldOverrides: state.fieldOverrides,
     };
   }, [
@@ -221,8 +203,6 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     state.bandThicknessScale,
     state.independentDomains,
     state.tooltipFields,
-    state.virtualColumns,
-    state.virtualColumnFieldPreferences,
     state.fieldOverrides,
   ]);
 

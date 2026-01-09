@@ -3,7 +3,6 @@ import { axisReducer } from './axisReducer';
 import { loadingReducer } from './loadingReducer';
 import { filterReducer } from './filterReducer';
 import { encodingReducer } from './encodingReducer';
-import { virtualColumnReducer } from './virtualColumnReducer';
 import { overridesReducer } from './overridesReducer';
 import { undoRedoReducer } from './undoRedoReducer';
 import { optimizationReducer } from './optimizationReducer';
@@ -19,7 +18,6 @@ export function visualizationReducer(state: VisualizationState, action: Visualiz
     loadingReducer,
     filterReducer,
     encodingReducer,
-    virtualColumnReducer,
     overridesReducer,
     undoRedoReducer,
     optimizationReducer,
