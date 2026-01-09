@@ -115,8 +115,6 @@ const VisualizationPageContent = () => {
                 type: 'RESTORE_UNDOABLE_STATE',
                 payload: {
                     ...previousState,
-                    virtualColumns: previousState.virtualColumns || [],
-                    virtualColumnFieldPreferences: previousState.virtualColumnFieldPreferences || {},
                     fieldOverrides: previousState.fieldOverrides || {},
                 }
             });
@@ -137,8 +135,6 @@ const VisualizationPageContent = () => {
                 type: 'RESTORE_UNDOABLE_STATE',
                 payload: {
                     ...nextState,
-                    virtualColumns: nextState.virtualColumns || [],
-                    virtualColumnFieldPreferences: nextState.virtualColumnFieldPreferences || {},
                     fieldOverrides: nextState.fieldOverrides || {},
                 }
             });

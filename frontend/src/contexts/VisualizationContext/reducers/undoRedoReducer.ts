@@ -20,8 +20,6 @@ export function undoRedoReducer(state: VisualizationState, action: Visualization
         sizeRange: action.payload.sizeRange,
         manualSize: action.payload.manualSize,
         independentDomains: action.payload.independentDomains ?? state.independentDomains,
-        virtualColumns: action.payload.virtualColumns,
-        virtualColumnFieldPreferences: action.payload.virtualColumnFieldPreferences || {},
         fieldOverrides: action.payload.fieldOverrides || {},
         globalChartType: action.payload.globalChartType ?? null,
         queryVersion: state.queryVersion + 1,
