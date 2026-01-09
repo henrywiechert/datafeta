@@ -47,9 +47,6 @@ export const initialState: VisualizationState = {
   operationStartTimes: { query: null, rendering: null, metadata: null },
   activeOperations: [],
   modalPrimaryOperation: null,
-  // Virtual columns defaults
-  virtualColumns: [],
-  virtualColumnFieldPreferences: {},
   // Per-field overrides default
   fieldOverrides: {},
   // Global chart type default (null = auto-detect)

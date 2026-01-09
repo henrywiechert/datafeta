@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
 import { useSheetContext } from '../contexts/SheetContext';
@@ -25,7 +25,11 @@ export function useVisualizationState() {
         setMetadataError,
         setSuggestedJoinableTables,
         setSuggestedUnionableTables,
-        setVirtualTable
+        setVirtualTable,
+        addVirtualColumn,
+        updateVirtualColumn,
+        removeVirtualColumn,
+        setVirtualColumnFieldPreference,
     } = dataSourceContext;
 
     // Data source setters for sub-hooks
@@ -43,17 +47,19 @@ export function useVisualizationState() {
     };
 
     // Initialize sub-hooks
-    const virtualColumns = useVirtualColumns({
+    const virtualColumnHelpers = useVirtualColumns({
         availableFields: dataSource.availableFields,
-        virtualColumns: state.virtualColumns,
-        virtualColumnFieldPreferences: state.virtualColumnFieldPreferences,
-        dispatch
+        virtualColumns: dataSource.virtualColumns,
+        virtualColumnFieldPreferences: dataSource.virtualColumnFieldPreferences,
+        addVirtualColumn,
+        updateVirtualColumn,
+        removeVirtualColumn,
     });
 
     const fieldOperations = useFieldOperations({
         xAxisFields: state.xAxisFields,
         yAxisFields: state.yAxisFields,
-        availableFieldsWithVirtual: virtualColumns.availableFieldsWithVirtual,
+        availableFieldsWithVirtual: virtualColumnHelpers.availableFieldsWithVirtual,
         availableFields: dataSource.availableFields,
         dispatch,
         dataSourceSetters: {
@@ -61,7 +67,8 @@ export function useVisualizationState() {
             setSelectedTable,
             setTables,
             setAvailableFields
-        }
+        },
+        setVirtualColumnPreference: setVirtualColumnFieldPreference,
     });
 
     const metadataOps = useMetadataOperations({
@@ -77,7 +84,7 @@ export function useVisualizationState() {
         filterFields: state.filterFields,
         filterMetadata: state.filterMetadata,
         filterConfigurations: state.filterConfigurations,
-        virtualColumns: state.virtualColumns,
+        virtualColumns: dataSource.virtualColumns,
         virtualTable: dataSource.virtualTable || undefined,
         selectedTable: dataSource.selectedTable,
         selectedDatabase: dataSource.selectedDatabase,
@@ -107,8 +114,6 @@ export function useVisualizationState() {
             independentDomains: state.independentDomains,
             tooltipFields: state.tooltipFields,
             fieldOverrides: state.fieldOverrides,
-            virtualColumns: state.virtualColumns,
-            virtualColumnFieldPreferences: state.virtualColumnFieldPreferences,
         });
     }, [
         state.xAxisFields,
@@ -125,10 +130,23 @@ export function useVisualizationState() {
         state.independentDomains,
         state.tooltipFields,
         state.fieldOverrides,
-        state.virtualColumns,
-        state.virtualColumnFieldPreferences,
         updateActiveSheetState,
     ]);
+
+    const lastVirtualColumnsSignature = useRef<string | null>(null);
+    useEffect(() => {
+        const signature = JSON.stringify(
+            (dataSource.virtualColumns || []).map(vc => `${vc.name}::${vc.expression}::${vc.output_type}`)
+        );
+        if (lastVirtualColumnsSignature.current === null) {
+            lastVirtualColumnsSignature.current = signature;
+            return;
+        }
+        if (lastVirtualColumnsSignature.current !== signature) {
+            lastVirtualColumnsSignature.current = signature;
+            dispatch({ type: 'FORCE_QUERY_REFRESH' });
+        }
+    }, [dataSource.virtualColumns, dispatch]);
 
 
     // --- Return all state and handlers ---
@@ -147,13 +165,13 @@ export function useVisualizationState() {
         joinedTables: dataSource.joinedTables,
         suggestedJoinableTables: dataSource.suggestedJoinableTables,
         virtualTable: dataSource.virtualTable,
-        virtualColumns: state.virtualColumns,
+        virtualColumns: dataSource.virtualColumns,
         
         // From virtualColumns hook
-        availableFields: virtualColumns.availableFieldsWithVirtual,
-        handleAddVirtualColumn: virtualColumns.handleAddVirtualColumn,
-        handleUpdateVirtualColumn: virtualColumns.handleUpdateVirtualColumn,
-        handleRemoveVirtualColumn: virtualColumns.handleRemoveVirtualColumn,
+        availableFields: virtualColumnHelpers.availableFieldsWithVirtual,
+        handleAddVirtualColumn: virtualColumnHelpers.handleAddVirtualColumn,
+        handleUpdateVirtualColumn: virtualColumnHelpers.handleUpdateVirtualColumn,
+        handleRemoveVirtualColumn: virtualColumnHelpers.handleRemoveVirtualColumn,
         
         // From fieldOperations hook
         handleFieldUpdate: fieldOperations.handleFieldUpdate,
