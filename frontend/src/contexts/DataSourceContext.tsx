@@ -1,5 +1,11 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Database, Table, Field, VirtualTableDefinition } from '../types';
+import { Database, Table, Field, VirtualTableDefinition, VirtualColumnDefinition } from '../types';
+
+type VirtualColumnPreference = {
+  type?: 'dimension' | 'measure';
+  flavour?: 'discrete' | 'continuous';
+  aggregation?: string;
+};
 
 // Define the state interface for data source (shared across all sheets)
 interface DataSourceState {
@@ -19,6 +25,9 @@ interface DataSourceState {
   suggestedUnionableTables: string[];  // DEPRECATED: Kept for backward compatibility
   // Virtual table definition
   virtualTable: VirtualTableDefinition | null;  // Current virtual table definition
+  // Virtual columns (session scoped)
+  virtualColumns: VirtualColumnDefinition[];
+  virtualColumnFieldPreferences: Record<string, VirtualColumnPreference>;
 }
 
 // Context interface
@@ -40,6 +49,11 @@ interface DataSourceContextType {
   toggleJoinedTable: (tableName: string) => void;
   addUnionTable: (database: string, tableName: string) => void;
   removeUnionTable: (database: string, tableName: string) => void;
+  setVirtualColumns: (columns: VirtualColumnDefinition[]) => void;
+  addVirtualColumn: (column: VirtualColumnDefinition) => void;
+  updateVirtualColumn: (index: number, column: VirtualColumnDefinition) => void;
+  removeVirtualColumn: (index: number) => void;
+  setVirtualColumnFieldPreference: (columnName: string, preference: VirtualColumnPreference) => void;
 }
 
 const DataSourceContext = createContext<DataSourceContextType | undefined>(undefined);
@@ -60,6 +74,8 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     unionTables: [],
     suggestedUnionableTables: [],
     virtualTable: null,
+    virtualColumns: [],
+    virtualColumnFieldPreferences: {},
   });
 
   const setSelectedDatabase = (database: string) => {
@@ -167,6 +183,62 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const setVirtualColumns = (columns: VirtualColumnDefinition[]) => {
+    setDataSource(prev => ({
+      ...prev,
+      virtualColumns: columns,
+    }));
+  };
+
+  const addVirtualColumn = (column: VirtualColumnDefinition) => {
+    setDataSource(prev => ({
+      ...prev,
+      virtualColumns: [...prev.virtualColumns, column],
+    }));
+  };
+
+  const updateVirtualColumn = (index: number, column: VirtualColumnDefinition) => {
+    setDataSource(prev => {
+      if (index < 0 || index >= prev.virtualColumns.length) return prev;
+      const next = [...prev.virtualColumns];
+      next[index] = column;
+      return {
+        ...prev,
+        virtualColumns: next,
+      };
+    });
+  };
+
+  const removeVirtualColumn = (index: number) => {
+    setDataSource(prev => {
+      if (index < 0 || index >= prev.virtualColumns.length) return prev;
+      const removed = prev.virtualColumns[index];
+      const nextPrefs = { ...prev.virtualColumnFieldPreferences };
+      if (removed?.name) {
+        delete nextPrefs[removed.name];
+      }
+      return {
+        ...prev,
+        virtualColumns: prev.virtualColumns.filter((_, i) => i !== index),
+        virtualColumnFieldPreferences: nextPrefs,
+      };
+    });
+  };
+
+  const setVirtualColumnFieldPreference = (columnName: string, preference: VirtualColumnPreference) => {
+    if (!columnName) return;
+    setDataSource(prev => ({
+      ...prev,
+      virtualColumnFieldPreferences: {
+        ...prev.virtualColumnFieldPreferences,
+        [columnName]: {
+          ...prev.virtualColumnFieldPreferences[columnName],
+          ...preference,
+        },
+      },
+    }));
+  };
+
   return (
     <DataSourceContext.Provider
       value={{
@@ -187,6 +259,11 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
         toggleJoinedTable,
         addUnionTable,
         removeUnionTable,
+        setVirtualColumns,
+        addVirtualColumn,
+        updateVirtualColumn,
+        removeVirtualColumn,
+        setVirtualColumnFieldPreference,
       }}
     >
       {children}

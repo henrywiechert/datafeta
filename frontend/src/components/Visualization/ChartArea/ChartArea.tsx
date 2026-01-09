@@ -41,13 +41,12 @@ const ChartArea: React.FC = () => {
     labelSamplingThreshold,
     labelSampleEvery,
     tooltipFields,
-    virtualColumns,
     fieldOverrides,
     globalChartType,
     measureValuesSourceFields,
     independentDomains,
   } = state as any;
-  const { selectedTable, selectedDatabase, virtualTable } = dataSource;
+  const { selectedTable, selectedDatabase, virtualTable, virtualColumns } = dataSource;
   
   // Ref for the fullscreen target element
   const chartWrapperRef = useRef<HTMLDivElement>(null);
@@ -177,8 +176,6 @@ const ChartArea: React.FC = () => {
         type: 'RESTORE_UNDOABLE_STATE',
         payload: {
           ...previousState,
-          virtualColumns: previousState.virtualColumns || [],
-          virtualColumnFieldPreferences: previousState.virtualColumnFieldPreferences || {},
           fieldOverrides: previousState.fieldOverrides || {},
         }
       });
@@ -199,8 +196,6 @@ const ChartArea: React.FC = () => {
         type: 'RESTORE_UNDOABLE_STATE',
         payload: {
           ...nextState,
-          virtualColumns: nextState.virtualColumns || [],
-          virtualColumnFieldPreferences: nextState.virtualColumnFieldPreferences || {},
           fieldOverrides: nextState.fieldOverrides || {},
         }
       });
