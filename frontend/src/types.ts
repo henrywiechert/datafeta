@@ -357,6 +357,10 @@ export interface Field {
   syntheticType?: 'MeasureNames' | 'MeasureValues'; // Type of synthetic field
   isTypeChangeable?: boolean; // Whether type can be changed (false for synthetic fields)
   isFlavourChangeable?: boolean; // Whether flavour can be changed (false for synthetic fields)
+  // Virtual column flag (copied from Column when creating Field)
+  is_virtual?: boolean; // True if this field comes from a virtual/calculated column
+  // Validation flag (set upstream when field no longer exists in schema)
+  isInvalid?: boolean; // True if field is invalid (e.g., column removed from table)
 }
 
 // --- Filter Types --- //

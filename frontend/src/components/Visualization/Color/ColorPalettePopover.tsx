@@ -16,6 +16,7 @@ import {
   categoricalSchemes,
   sequentialSchemes,
   divergingSchemes,
+  PREDEFINED_COLORS,
 } from '../../../config/colorSchemes';
 
 interface ColorPalettePopoverProps {
@@ -34,20 +35,6 @@ interface ColorPalettePopoverProps {
   manualColor?: string;
   onManualColorChange?: (color: string) => void;
 }
-
-// A small set of predefined brand / utility colors (duplicated from ManualColorSelector for now)
-const PREDEFINED_COLORS: string[] = [
-  '#4e79a7',
-  '#f28e2c',
-  '#e15759',
-  '#76b7b2',
-  '#59a14f',
-  '#edc949',
-  '#af7aa1',
-  '#ff9da7',
-  '#9c755f',
-  '#bab0ab',
-];
 
 const ColorPalettePopover: React.FC<ColorPalettePopoverProps> = ({
   fieldFlavour,

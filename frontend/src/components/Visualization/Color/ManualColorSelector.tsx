@@ -1,26 +1,13 @@
 import React, { useState } from 'react';
 import { Button, Menu, Box, Tooltip, IconButton } from '@mui/material';
 import PaletteIcon from '@mui/icons-material/Palette';
+import { PREDEFINED_COLORS } from '../../../config/colorSchemes';
 
 interface ManualColorSelectorProps {
   value: string;
   onChange: (color: string) => void;
   variant?: 'text' | 'icon';
 }
-
-// A small set of predefined brand / utility colors
-const PREDEFINED_COLORS: string[] = [
-  '#4e79a7',
-  '#f28e2c',
-  '#e15759',
-  '#76b7b2',
-  '#59a14f',
-  '#edc949',
-  '#af7aa1',
-  '#ff9da7',
-  '#9c755f',
-  '#bab0ab'
-];
 
 const ManualColorSelector: React.FC<ManualColorSelectorProps> = ({ value, onChange, variant = 'text' }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);

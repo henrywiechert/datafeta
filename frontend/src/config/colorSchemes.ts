@@ -203,3 +203,6 @@ export const getSchemesByType = (type: ColorSchemeType): ColorScheme[] => {
 export const DEFAULT_CATEGORICAL_SCHEME = 'tableau10';
 export const DEFAULT_SEQUENTIAL_SCHEME = 'blues';
 export const DEFAULT_DIVERGING_SCHEME = 'rdbu';
+
+// Predefined quick-pick colors (Tableau 10)
+export const PREDEFINED_COLORS: string[] = categoricalSchemes[0].colors;

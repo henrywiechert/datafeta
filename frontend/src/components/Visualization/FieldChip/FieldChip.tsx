@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { FieldChipProps } from './types';
 import ChipWithTooltip from './ChipWithTooltip';
 import FieldContextMenu from './FieldContextMenu';
-import { useSelectionStore } from '../../../stores/selectionStore';
+import { useSelectionStore, SelectionStore, SelectedField } from '../../../stores/selectionStore';
 import { useIsFieldSelected } from '../../../stores/useFieldSelected';
 import { useDragHandlers } from './useDragHandlers';
 import { useFieldSelection } from './useFieldSelection';
@@ -40,8 +40,8 @@ const FieldChip: React.FC<
   const isSelected = useIsFieldSelected(field.id, source);
   
   // Get stable action references (never cause re-renders)
-  const getSelectedFieldsForSource = useSelectionStore((s: any) => s.getSelectedFieldsForSource);
-  const getSelectedCount = useSelectionStore((s: any) => s.getSelectedCount);
+  const getSelectedFieldsForSource = useSelectionStore((s: SelectionStore) => s.getSelectedFieldsForSource);
+  const getSelectedCount = useSelectionStore((s: SelectionStore) => s.getSelectedCount);
 
   // Use custom hooks for cleaner separation of concerns
   const { isDragging, handleDragStart, handleDragEnd } = useDragHandlers({
@@ -75,7 +75,7 @@ const FieldChip: React.FC<
   
   // selectedFields for context menu - only fetched when menu opens
   const selectedFieldsForMenu = menuPosition 
-    ? getSelectedFieldsForSource(source).map((sf: any) => sf.field) 
+    ? getSelectedFieldsForSource(source).map((sf: SelectedField) => sf.field) 
     : [];
 
   const effectiveMenuConfig = useMemo(
@@ -97,8 +97,8 @@ const FieldChip: React.FC<
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         dragCount={dragCount}
-        // Mark invalid only when on axes and the field has been flagged upstream via field.meta
-        isInvalidOnAxis={(source === 'X_AXIS' || source === 'Y_AXIS') && (field as any).isInvalid === true}
+        // Mark invalid only when on axes and the field has been flagged upstream
+        isInvalidOnAxis={(source === 'X_AXIS' || source === 'Y_AXIS') && field.isInvalid === true}
       />
       
       <FieldContextMenu
