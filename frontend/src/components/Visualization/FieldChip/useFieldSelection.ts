@@ -47,35 +47,21 @@ export const useFieldSelection = ({
     const isCtrlOrCmd = e.ctrlKey || e.metaKey;
     const isShift = e.shiftKey;
 
-    console.log('[useFieldSelection] handleMouseDown:', {
-      fieldName: field.columnName,
-      isShift,
-      isCtrlOrCmd,
-      isSelected: currentIsSelected,
-      selectionCount: store.selectedFields.length,
-      hasAnchor: !!store.anchorFieldId,
-      source
-    });
-
     if (isShift && store.anchorFieldId && allFields) {
       // Shift+click: Select range from anchor to this field
-      console.log('[useFieldSelection] Shift-click: calling selectRange');
       e.preventDefault();
       e.stopPropagation();
       store.selectRange(store.anchorFieldId, field.id, source, allFields);
     } else if (isCtrlOrCmd) {
       // Ctrl/Cmd+click: Toggle selection
-      console.log('[useFieldSelection] Ctrl/Cmd-click: calling toggleSelection');
       e.preventDefault();
       e.stopPropagation();
       store.toggleSelection(field.id, source, field);
     } else if (currentIsSelected && store.selectedFields.length > 1) {
       // Field is already selected as part of multi-selection
       // Preserve selection for multi-field drag
-      console.log('[useFieldSelection] Already selected in multi-selection: preserving selection for drag');
     } else {
       // Regular mousedown: Select this field
-      console.log('[useFieldSelection] Regular mousedown: calling selectSingle');
       store.selectSingle(field.id, source, field);
     }
   }, [field, source, allFields]);

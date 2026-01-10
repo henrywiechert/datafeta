@@ -214,9 +214,8 @@ interface FieldMenuConfig {
 | Continuous | Green chip, `#` symbol |
 | Virtual Column | `ƒ` symbol instead of `#` |
 | Selected | Darker background + border highlight |
+| Invalid on Axis | Red background + border (field no longer in schema after table switch) |
 | Measure with Sort | Arrow indicator (↑ or ↓) |
-
-> **Note:** CSS for "invalid on axis" (red styling) exists but is currently unused — nothing sets `field.isInvalid = true`.
 
 **Chip width varies by zone:**
 - `AVAILABLE_FIELDS`: Full width (100%)
