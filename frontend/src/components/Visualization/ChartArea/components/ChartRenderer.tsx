@@ -25,8 +25,6 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
   queryResult,
   xAxisFields,
   yAxisFields,
-  isDebugOpen,
-  debugHeight,
   onPlotRenderComplete,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
