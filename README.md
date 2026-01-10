@@ -1,23 +1,24 @@
-# Data Slicer - Data Analysis Platform
+# Data Slicer - Data Analysis Platform (OLAP in Browser)
 
-A modern data analysis platform that provides intuitive visualization and querying capabilities for multiple data sources including databases and files.
+A modern data analysis platform that provides intuitive visualization and querying capabilities for multiple data sources including databases and files. It implements many aspects of the openly available [Polaris Formalism](https://graphics.stanford.edu/projects/polaris), later commercially productized as [Tableau (Salesforce)](https://www.tableau.com).
 
 ## Overview
 
 Data Slicer is a full-stack data analysis platform consisting of:
 
 - **Frontend**: React-based web application providing interactive data visualization and exploration
-- **Backend**: FastAPI-based REST API supporting multiple data source connectors and query execution
+- **Backend**: FastAPI-based REST API supporting multiple data source connectors and query execution and optimization for large datasets
 
 ## Key Features
 
 ### Data Source Support
 - **Database Connectivity**: Connect to various databases through configurable connectors
-- **File Support**: Upload and analyze CSV files using integrated DuckDB engine
+- **File Support**: Upload and analyze CSV files using integrated DuckDB engine in backend
 - **Query Generation**: Dynamic SQL query generation with pypika notation
+- **Efficient Caching**: In-Browser [DuckDB WASM](https://duckdb.org/docs/stable/clients/wasm/overview) based column caching for best UX
 
 ### Visualization Capabilities
-- **Interactive Charts**: Dynamic chart generation using Observable Plot
+- **Interactive Charts**: Dynamic chart generation using [Observable Plot](https://observablehq.com/plot)
 - **Multi-Chart Faceting**: Sophisticated faceting system for multi-dimensional data exploration
 - **Field Classification**: Intelligent field type detection and classification system
 - **Responsive Design**: Mobile-friendly interface with adaptive layouts
