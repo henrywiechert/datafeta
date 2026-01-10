@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Field } from '../../../types';
+import { Field, ColumnCastConfig } from '../../../types';
 import menuStyles from '../ContextMenu.module.css';
 import SubMenu from '../SubMenu';
 import { canBeContinuous, canBeMeasure, getFieldAggregations } from './utils';
@@ -54,7 +54,7 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
   const allCanBeContinuous = isBulkEdit ? selectedFields.every(f => canBeContinuous(f)) : isFieldContinuous;
   const allAreMeasures = isBulkEdit ? selectedFields.every(f => f.type === 'measure') : isMeasure;
 
-  const handleCastingConfirm = (config: any) => {
+  const handleCastingConfirm = (config: ColumnCastConfig | null) => {
     if (config === null) {
       // Remove casting
       onUpdate({ castType: undefined, castReplacement: undefined });

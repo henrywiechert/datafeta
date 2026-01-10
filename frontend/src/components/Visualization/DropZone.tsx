@@ -364,8 +364,8 @@ const DropZone: React.FC<DropZoneProps> = ({
         <div style={DROPZONE_STYLES.fieldsWrapper}>
           {fields.map((field, index) => {
             // Determine if this field exists in current availableFields (by columnName)
-            // We don't have availableFields here; rely on a marker set upstream on field.isInvalid
-            const isInvalid = (field as any).isInvalid === true;
+            // Marker is set upstream in useMetadataOperations when table changes
+            const isInvalid = field.isInvalid === true;
             // Check if this is the boundary between discrete and continuous fields
             const isDiscreteToContinuousBoundary = 
               index > 0 && 

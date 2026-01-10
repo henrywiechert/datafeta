@@ -18,8 +18,7 @@ const FieldChipLabel = forwardRef<HTMLSpanElement, FieldChipLabelProps>(
     const dataTypeText = ` (${field.dataType})`;
     
     // Check if this is a virtual column
-    // @ts-ignore - is_virtual is not in Field type yet but we set it in availableFieldsWithVirtual
-    const isVirtual = (field as any).is_virtual;
+    const isVirtual = field.is_virtual;
     
     // Add sort indicator for measures on axes with active sorting
     const isOnAxis = source === 'X_AXIS' || source === 'Y_AXIS';
@@ -68,7 +67,6 @@ export default React.memo(FieldChipLabel, (prevProps, nextProps) => {
     prevProps.field.barSortOrder === nextProps.field.barSortOrder &&
     prevProps.source === nextProps.source &&
     prevProps.displayNameOverride === nextProps.displayNameOverride &&
-    // @ts-ignore - is_virtual is not in Field type but we check it
-    (prevProps.field as any).is_virtual === (nextProps.field as any).is_virtual
+    prevProps.field.is_virtual === nextProps.field.is_virtual
   );
 });

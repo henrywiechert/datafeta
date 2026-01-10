@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { Field } from '../../../types';
 import { DragSource } from './types';
-import { useSelectionStore } from '../../../stores/selectionStore';
+import { useSelectionStore, SelectedField } from '../../../stores/selectionStore';
 import { createDragImageWithBadge, setDragImage, createDragPayload } from './dragImageUtils';
 
 interface UseDragHandlersProps {
@@ -49,14 +49,6 @@ export const useDragHandlers = ({
     const store = useSelectionStore.getState();
     const currentIsSelected = store.isSelected(field.id, source);
     
-    console.log('[useDragHandlers] handleDragStart:', {
-      fieldName: field.columnName,
-      source,
-      isSelected: currentIsSelected,
-      selectionCount: store.selectedFields.length,
-      selectedForThisSource: store.getSelectedFieldsForSource(source).length
-    });
-    
     // Unified drag payload structure: always use arrays
     let fields: Field[];
     let indices: number[];
@@ -64,12 +56,8 @@ export const useDragHandlers = ({
     if (currentIsSelected && store.selectedFields.length > 1) {
       // Multi-field drag: drag all selected fields from this source
       const selectedForSource = store.getSelectedFieldsForSource(source);
-      console.log('[useDragHandlers] Multi-field drag:', {
-        count: selectedForSource.length,
-        fields: selectedForSource.map((sf: any) => sf.field.columnName)
-      });
-      fields = selectedForSource.map((sf: any) => sf.field);
-      indices = selectedForSource.map((sf: any) => {
+      fields = selectedForSource.map((sf: SelectedField) => sf.field);
+      indices = selectedForSource.map((sf: SelectedField) => {
         if (allFields) {
           return allFields.findIndex(f => f.id === sf.fieldId);
         }
@@ -77,7 +65,6 @@ export const useDragHandlers = ({
       });
     } else {
       // Single field drag: wrap in array
-      console.log('[useDragHandlers] Single field drag');
       fields = [fieldRef.current];
       indices = indexRef.current !== undefined ? [indexRef.current] : [-1];
     }

@@ -171,8 +171,8 @@ export function useMetadataOperations({
 
             // Mark axis fields that are not present in new schema as invalid
             const availableNames = new Set(fields.map(f => f.columnName));
-            const patchedX = xAxisFields.map(f => ({ ...f, isInvalid: !availableNames.has(f.columnName) } as any));
-            const patchedY = yAxisFields.map(f => ({ ...f, isInvalid: !availableNames.has(f.columnName) } as any));
+            const patchedX = xAxisFields.map(f => ({ ...f, isInvalid: !availableNames.has(f.columnName) }));
+            const patchedY = yAxisFields.map(f => ({ ...f, isInvalid: !availableNames.has(f.columnName) }));
             dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
             dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
             
@@ -342,8 +342,8 @@ export function useMetadataOperations({
 
             // Mark axis fields that are not present in new schema as invalid
             const availableNames = new Set(fields.map(f => f.columnName));
-            const patchedX = xAxisFields.map(f => ({ ...f, isInvalid: !availableNames.has(f.columnName) } as any));
-            const patchedY = yAxisFields.map(f => ({ ...f, isInvalid: !availableNames.has(f.columnName) } as any));
+            const patchedX = xAxisFields.map(f => ({ ...f, isInvalid: !availableNames.has(f.columnName) }));
+            const patchedY = yAxisFields.map(f => ({ ...f, isInvalid: !availableNames.has(f.columnName) }));
             dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
             dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
             
