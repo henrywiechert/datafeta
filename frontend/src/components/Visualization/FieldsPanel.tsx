@@ -1,6 +1,5 @@
 import React, { useMemo, useEffect, useRef, useCallback } from 'react';
-import { Typography, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { Typography } from '@mui/material';
 import FieldsSearch from './FieldsSearch';
 import FieldCategory from './FieldCategory';
 import CompactMetadataSelector from './CompactMetadataSelector';
@@ -176,40 +175,6 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
         onLoadTablesForDatabase={onLoadTablesForDatabase}
       />
       
-      {/* Virtual Columns Manager */}
-      {onAddVirtualColumn && onUpdateVirtualColumn && onRemoveVirtualColumn && (
-        <Accordion 
-          defaultExpanded={false}
-          sx={{ 
-            boxShadow: 'none',
-            '&:before': { display: 'none' },
-            borderTop: '1px solid #e0e0e0'
-          }}
-        >
-          <AccordionSummary 
-            expandIcon={<ExpandMoreIcon />}
-            sx={{ 
-              minHeight: 40,
-              '&.Mui-expanded': { minHeight: 40 },
-              '& .MuiAccordionSummary-content': { margin: '8px 0' }
-            }}
-          >
-            <Typography variant="subtitle2" fontWeight="bold" fontSize="0.85rem">
-              Virtual Columns
-            </Typography>
-          </AccordionSummary>
-          <AccordionDetails sx={{ p: 1, maxHeight: 300, overflow: 'auto' }}>
-            <VirtualColumnManager
-              virtualColumns={virtualColumns}
-              availableColumns={availableFields.map(f => f.columnName)}
-              onAdd={onAddVirtualColumn}
-              onEdit={onUpdateVirtualColumn}
-              onDelete={onRemoveVirtualColumn}
-            />
-          </AccordionDetails>
-        </Accordion>
-      )}
-      
       {/* Fields search below metadata */}
       <div className={styles.header}>
         <Typography
@@ -229,6 +194,17 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
+        {/* Virtual Columns at the top of Fields */}
+        {onAddVirtualColumn && onUpdateVirtualColumn && onRemoveVirtualColumn && (
+          <VirtualColumnManager
+            virtualColumns={virtualColumns}
+            availableColumns={availableFields.map(f => f.columnName)}
+            onAdd={onAddVirtualColumn}
+            onEdit={onUpdateVirtualColumn}
+            onDelete={onRemoveVirtualColumn}
+          />
+        )}
+        
         {/* Use FieldCategory component to eliminate duplication */}
         <FieldCategory 
           title="Dimensions"
