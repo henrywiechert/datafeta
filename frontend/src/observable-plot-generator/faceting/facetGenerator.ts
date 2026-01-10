@@ -2,11 +2,11 @@ import * as Plot from '@observablehq/plot';
 import { BAR_STEP_PX, BAND_PADDING } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getFieldColumnName } from '../helpers/fields';
-import { ChartGenerationContext, PlotResult, CartesianPlotsConfig } from '../types';
+import { ChartGenerationContext, PlotResult } from '../types';
 import { uniqueValuesForField } from './facetUtils';
 import { FacetPlan } from './facetPlanner';
-import { buildLabelCfg } from '../observablePlotGenerator';
 import { SharedDomains } from './facetDomains';
+import { buildLabelConfig, buildCartesianPlotsConfig } from '../utils/configBuilder';
 import { coordinateFacetedGrid, CellGenerator, CellResult, FacetCellContext } from './facetCoordinator';
 import { resolveMeasureAlias, computeBandPaddingFromSizeField, sortCategoriesByValue } from '../chartTypes/barCore';
 import { isMeasureValuesField, combineMeasureValuesOverrides } from '../../utils/syntheticFields';
@@ -126,7 +126,7 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
     }) ?? BAND_PADDING;
     
     // Get label configuration
-    const labelCfg = buildLabelCfg(context);
+    const labelCfg = buildLabelConfig(context);
     
     // Check if any measure has sorting enabled and apply it globally (across all facets)
     let sortedCategoryDomain = sharedCategoryDomain || [];
@@ -177,8 +177,6 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
   // This path is simpler than bar because there's no category axis complexity.
   // All discrete dimensions are used for faceting, continuous dimensions/measures go on X/Y axes.
   
-  const labelCfg = buildLabelCfg(context);
-  
   // Build candidates: only continuous dimensions and measures (discrete already used for faceting)
   const xCandidates = xFields.filter(f => 
     f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
@@ -200,34 +198,16 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       ? [...facetCellContext.rowFacetFields, ...facetCellContext.colFacetFields]
       : [];
     
-    // Build config for generateCartesianPlots
-    const config: CartesianPlotsConfig = {
+    // Build config using the factory function - much cleaner!
+    const config = buildCartesianPlotsConfig(context, {
       data: cellData,
+      sharedDomains,
       xCandidates,
       yCandidates,
-      sharedDomains,
-      encoding: {
-        color: { 
-          field: colorField, 
-          scheme: context.colorScheme, 
-          bias: context.colorBias, 
-          manual: effectiveManualColor 
-        },
-        size: { 
-          field: sizeField, 
-          range: context.sizeRange, 
-          manual: effectiveManualSize 
-        },
-      },
-      labels: labelCfg,
-      tooltipFields: context.tooltipFields,
       facetFields,
-      fieldOverrides: context.fieldOverrides,
-      fieldOverrideTargets: context.fieldOverrideTargets,
-      allFields: [...xFields, ...yFields, ...(colorField ? [colorField] : []), ...(sizeField ? [sizeField] : [])],
-      globalChartType: context.globalChartType,
-      measureValuesSourceFields: context.measureValuesSourceFields,
-    };
+      manualColorOverride: effectiveManualColor,
+      manualSizeOverride: effectiveManualSize,
+    });
     
     const plots = generateCartesianPlots(config);
     

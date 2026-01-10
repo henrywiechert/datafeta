@@ -41,7 +41,7 @@ export function generateCartesianGrid(
     yFields: yCandidates,
   });
 
-  const labelCfg = buildLabelCfg(context);
+  const labelCfg = buildLabelConfig(context);
   const plots = generateCartesianPlots({
     data,
     xCandidates,
@@ -372,20 +372,4 @@ function buildCellTitle(xField: Field, yField: Field): string {
   return `${yLabel} vs ${xLabel}`;
 }
 
-function buildLabelCfg(context: ChartGenerationContext): LabelConfig | undefined {
-  const {
-    labelFields = [],
-    labelsEnabled = false,
-    labelSamplingStrategy = 'auto',
-    labelSamplingThreshold = 300,
-    labelSampleEvery = 1,
-  } = context as any;
-  if (!labelsEnabled && (labelFields?.length || 0) === 0) return undefined;
-  return {
-    labelFields,
-    labelsEnabled,
-    samplingStrategy: labelSamplingStrategy,
-    samplingThreshold: labelSamplingThreshold,
-    sampleEvery: labelSampleEvery,
-  };
-}
+// buildLabelConfig moved to utils/configBuilder.ts
