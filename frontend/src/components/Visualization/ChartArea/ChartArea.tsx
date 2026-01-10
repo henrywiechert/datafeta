@@ -7,6 +7,7 @@ import { useUndoRedo } from '../../../hooks/useUndoRedo';
 import { useRenderingCoordinator } from '../../../hooks/useRenderingCoordinator';
 import { useChartGeneration, useQueryExecution, useDataProcessing, useDebugView, useFullscreen } from './hooks';
 import { ChartRenderer, ChartControls, DebugPanel } from './components';
+import FacetLimitDialog from '../FacetLimitDialog';
 
 /**
  * Simplified ChartArea component that orchestrates the extracted hooks and components
@@ -115,7 +116,14 @@ const ChartArea: React.FC = () => {
   });
 
   // Use the extracted chart generation hook
-  const { spec, chartInfo, renderingError } = useChartGeneration({
+  const { 
+    spec, 
+    chartInfo, 
+    renderingError,
+    facetLimitWarning,
+    onFacetLimitProceed,
+    onFacetLimitCancel,
+  } = useChartGeneration({
     xAxisFields,
     yAxisFields,
     colorField,
@@ -315,6 +323,14 @@ const ChartArea: React.FC = () => {
           debugData={debugData}
         />
       </div>
+
+      {/* Facet Limit Warning Dialog */}
+      <FacetLimitDialog
+        open={facetLimitWarning !== null}
+        validationResult={facetLimitWarning}
+        onProceed={onFacetLimitProceed}
+        onCancel={onFacetLimitCancel}
+      />
     </div>
   );
 };
