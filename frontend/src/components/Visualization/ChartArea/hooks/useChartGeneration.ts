@@ -1,9 +1,11 @@
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { generatePlot } from '../../../../observable-plot-generator/observablePlotGenerator';
-import { PlotResult } from '../../../../observable-plot-generator/types';
+import { PlotResult, ChartGenerationContext } from '../../../../observable-plot-generator/types';
 import { Field, FieldOverrideState, UserChartType } from '../../../../types';
 import { computeOverrideTargets } from '../../../../observable-plot-generator/utils/fieldOverrides';
 import { logOperationTiming } from '../utils';
+import { planFacets } from '../../../../observable-plot-generator/faceting/facetPlanner';
+import { validateFacetCounts, FacetValidationResult } from '../../../../observable-plot-generator/faceting/facetValidation';
 
 interface UseChartGenerationProps {
   xAxisFields: any[];
@@ -38,6 +40,12 @@ interface UseChartGenerationReturn {
   renderingError: string | null;
   generateChartSpec: () => Promise<void>;
   cancelGeneration: () => void;
+  /** Warning state when facet count exceeds limit */
+  facetLimitWarning: FacetValidationResult | null;
+  /** Called when user chooses to proceed despite facet limit warning */
+  onFacetLimitProceed: () => void;
+  /** Called when user cancels (does not proceed with rendering) */
+  onFacetLimitCancel: () => void;
 }
 
 export const useChartGeneration = ({
@@ -69,6 +77,91 @@ export const useChartGeneration = ({
   const [spec, setSpec] = useState<PlotResult | null>(null);
   const [chartInfo, setChartInfo] = useState<any | null>(null);
   const [renderingError, setRenderingError] = useState<string | null>(null);
+  const [facetLimitWarning, setFacetLimitWarning] = useState<FacetValidationResult | null>(null);
+  
+  // Store pending generation context for when user proceeds after warning
+  const pendingGenerationRef = useRef<{
+    context: ChartGenerationContext;
+    overrideTargets: any;
+    startTime: number;
+  } | null>(null);
+
+  /**
+   * Core chart generation logic, extracted to be called both initially and after user proceeds.
+   */
+  const doGenerateChart = useCallback(async (
+    context: ChartGenerationContext,
+    overrideTargets: any,
+    startTime: number
+  ) => {
+    const plotResult = generatePlot(context);
+    
+    const plotCount = plotResult.plots?.length || 0;
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[useChartGeneration] Generated spec with', plotCount, 'plots');
+    }
+    
+    // For large numbers of plots, the synchronous DOM rendering will block
+    // the main thread for seconds. Yield to the event loop BEFORE setting
+    // the spec to give the modal a chance to appear.
+    if (plotCount > 100) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useChartGeneration] Large plot count detected, yielding to show modal');
+      }
+      // Yield to event loop to let modal appear
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+    
+    setSpec(plotResult);
+    setChartInfo({ chartType: 'observable-plot' });
+    setRenderingError(null);
+    
+    logOperationTiming('Chart spec generation', startTime, { mode: 'observable-plot' });
+  }, []);
+
+  /**
+   * Called when user chooses to proceed despite facet limit warning.
+   */
+  const onFacetLimitProceed = useCallback(async () => {
+    const pending = pendingGenerationRef.current;
+    if (!pending) {
+      setFacetLimitWarning(null);
+      return;
+    }
+
+    setFacetLimitWarning(null);
+    
+    try {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useChartGeneration] User proceeded despite facet limit warning');
+      }
+      startOperation('rendering', true);
+      
+      // Yield to let UI update
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
+      await doGenerateChart(pending.context, pending.overrideTargets, pending.startTime);
+    } catch (error: any) {
+      console.error('Observable Plot generation failed:', error);
+      setRenderingError(`Chart generation failed: ${error.message || 'Unknown error'}`);
+      setSpec(null);
+      setChartInfo(null);
+      completeOperation('rendering');
+    } finally {
+      pendingGenerationRef.current = null;
+    }
+  }, [doGenerateChart, startOperation, completeOperation]);
+
+  /**
+   * Called when user cancels after seeing the facet limit warning.
+   */
+  const onFacetLimitCancel = useCallback(() => {
+    setFacetLimitWarning(null);
+    pendingGenerationRef.current = null;
+    // Don't generate a chart, leave the current state
+    // The user chose not to proceed
+  }, []);
+
   const generateChartSpec = useCallback(async () => {
     const startTime = Date.now();
     
@@ -76,6 +169,7 @@ export const useChartGeneration = ({
       setSpec(null);
       setChartInfo(null);
       setRenderingError(null);
+      setFacetLimitWarning(null);
       return;
     }
 
@@ -85,15 +179,7 @@ export const useChartGeneration = ({
     }
 
     try {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[useChartGeneration] Starting rendering operation');
-      }
-      startOperation('rendering', true);
       setRenderingError(null);
-
-      // CRITICAL: Yield to event loop BEFORE starting heavy synchronous work
-      // This allows the modal timeout to fire and display the modal
-      await new Promise(resolve => setTimeout(resolve, 0));
 
       const overrideTargets = computeOverrideTargets(
         xAxisFields as Field[],
@@ -101,7 +187,8 @@ export const useChartGeneration = ({
         measureValuesSourceFields
       );
 
-      const plotResult = generatePlot({
+      // Build the chart generation context
+      const context: ChartGenerationContext = {
         xFields: xAxisFields,
         yFields: yAxisFields,
         colorField: colorField || undefined,
@@ -123,29 +210,39 @@ export const useChartGeneration = ({
         globalChartType,
         measureValuesSourceFields,
         independentDomains,
-      });
-      
-      const plotCount = plotResult.plots?.length || 0;
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[useChartGeneration] Generated spec with', plotCount, 'plots');
-      }
-      
-      // For large numbers of plots, the synchronous DOM rendering will block
-      // the main thread for seconds. Yield to the event loop BEFORE setting
-      // the spec to give the modal a chance to appear.
-      if (plotCount > 100) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[useChartGeneration] Large plot count detected, yielding to show modal');
+      };
+
+      // Check if faceting would be applied and validate facet counts
+      const facetPlan = planFacets(context);
+      if (facetPlan && (facetPlan.rowFacetFields.length > 0 || facetPlan.colFacetFields.length > 0)) {
+        const validation = validateFacetCounts(context, facetPlan);
+        
+        if (!validation.isValid) {
+          // Store context for potential proceed
+          pendingGenerationRef.current = { context, overrideTargets, startTime };
+          setFacetLimitWarning(validation);
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[useChartGeneration] Facet limit exceeded:', validation);
+          }
+          // Don't proceed - wait for user decision
+          return;
         }
-        // Yield to event loop to let modal appear
-        await new Promise(resolve => setTimeout(resolve, 0));
       }
-      
-      setSpec(plotResult);
-      setChartInfo({ chartType: 'observable-plot' });
-      setRenderingError(null);
-      
-      logOperationTiming('Chart spec generation', startTime, { mode: 'observable-plot' });
+
+      // Clear any previous warning
+      setFacetLimitWarning(null);
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useChartGeneration] Starting rendering operation');
+      }
+      startOperation('rendering', true);
+
+      // CRITICAL: Yield to event loop BEFORE starting heavy synchronous work
+      // This allows the modal timeout to fire and display the modal
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      await doGenerateChart(context, overrideTargets, startTime);
       
       // NOTE: We don't complete the rendering operation here anymore.
       // The actual DOM rendering happens later, and ChartArea will coordinate
@@ -159,7 +256,7 @@ export const useChartGeneration = ({
       // On error, complete the operation immediately since no rendering will happen
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, useTableView, startOperation, completeOperation, queryResult, queryVersion, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, tooltipFields, fieldOverrides, globalChartType, measureValuesSourceFields, independentDomains]);
+  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, useTableView, startOperation, completeOperation, queryResult, queryVersion, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, tooltipFields, fieldOverrides, globalChartType, measureValuesSourceFields, independentDomains, doGenerateChart]);
 
   const cancelGeneration = useCallback(() => {
     // No-op since Observable Plot generation is synchronous
@@ -176,5 +273,8 @@ export const useChartGeneration = ({
     renderingError,
     generateChartSpec,
     cancelGeneration,
+    facetLimitWarning,
+    onFacetLimitProceed,
+    onFacetLimitCancel,
   };
 };
