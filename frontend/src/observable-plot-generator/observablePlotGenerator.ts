@@ -1,5 +1,5 @@
 import * as Plot from '@observablehq/plot';
-import { ChartGenerationContext, PlotResult, LabelConfig } from './types';
+import { ChartGenerationContext, PlotResult } from './types';
 import { barUnified } from './chartTypes/barUnified';
 import { generateChartOptions as genChartOptionsRule } from './rules/chartRules';
 import { Field } from '../types';
@@ -7,9 +7,12 @@ import { computeSharedDomainsFromContext, buildLabelConfig } from './utils/confi
 import { analyzeFields } from './analysis/fieldAnalysis';
 import { ChartTypeOverrides } from './helpers/chartTypeResolver';
 import { planFacets } from './faceting/facetPlanner';
-import { getResultColumnName, normalizeTimelineData } from '../utils/fieldUtils';
+import { normalizeTimelineData } from '../utils/fieldUtils';
 import { generateCartesianPlots } from './grid/coreGridGenerator';
 import { generateFacetedGrid } from './faceting/facetGenerator';
+
+// Re-export buildLabelConfig as buildLabelCfg for backward compatibility
+export { buildLabelConfig as buildLabelCfg } from './utils/configBuilder';
 
 /**
  * Core chart generation logic (internal function).
@@ -39,7 +42,7 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
     f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
   );
 
-  const labelCfg = buildLabelCfg(context);
+  const labelCfg = buildLabelConfig(context);
 
   // ALWAYS build a cartesian grid when we have candidates on both axes (including 1x1)
   if (xCandidates.length > 0 && yCandidates.length > 0) {
@@ -234,61 +237,4 @@ function createMessageChart(message: string): PlotResult {
   };
 }
 
-// Helper to construct unified label configuration object for chart builders
-export function buildLabelCfg(context: ChartGenerationContext): LabelConfig | undefined {
-  const {
-    labelFields = [],
-    labelsEnabled = false,
-    labelSamplingStrategy = 'auto',
-    labelSamplingThreshold = 300,
-    labelSampleEvery = 1,
-    queryResult,
-  } = context as any;
-
-  if (!labelsEnabled && (labelFields?.length || 0) === 0) {
-    return undefined;
-  }
-
-  // Adapt measure label field columnNames to aggregated aliases present in result rows.
-  // If a label field is a measure with aggregation, backend returns column as AGG(col).
-  // If measure has no aggregation but other aggregated measures forced a default (e.g., color/size), we still may see SUM(col).
-  const adaptedLabelFields = labelFields.map((f: Field) => {
-    if (f.type === 'measure') {
-      // If explicit aggregation present, use its result alias.
-      if (f.aggregation) {
-        return { ...f, columnName: getResultColumnName(f), originalColumnName: f.columnName } as any;
-      }
-      // If no aggregation, check if result rows carry a SUM alias for this column (implicit default applied elsewhere).
-      const implicitAlias = `SUM(${f.columnName})`;
-      if (queryResult?.rows?.length && Object.prototype.hasOwnProperty.call(queryResult.rows[0], implicitAlias)) {
-        return { ...f, columnName: implicitAlias, originalColumnName: f.columnName } as any;
-      }
-      // Fall back to original name.
-      return { ...f };
-    }
-    // For datetime part dimensions, getResultColumnName already returns alias; but we don't mutate dim names here.
-    return f;
-  });
-
-  // Include fields that specifically force labels on, even if not part of global labelFields.
-  if (queryResult?.rows?.length) {
-    const firstRowKeys = Object.keys(queryResult.rows[0] || {});
-    console.log(
-      '[LabelCfg] Adapted label fields:',
-      adaptedLabelFields.map((f: any) => ({
-        columnName: f.columnName,
-        original: f.originalColumnName,
-      })),
-      'First row keys:',
-      firstRowKeys
-    );
-  }
-
-  return {
-    labelFields: adaptedLabelFields,
-    labelsEnabled,
-    samplingStrategy: labelSamplingStrategy,
-    samplingThreshold: labelSamplingThreshold,
-    sampleEvery: labelSampleEvery,
-  };
-}
+// buildLabelConfig is now in utils/configBuilder.ts and re-exported above for backward compatibility
