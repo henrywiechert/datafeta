@@ -1,5 +1,5 @@
 import * as Plot from '@observablehq/plot';
-import { ChartGenerationContext, PlotResult } from '../types';
+import { ChartGenerationContext, PlotResult, LabelConfig } from '../types';
 import { FieldAnalysis } from '../analysis/fieldAnalysis';
 import { barUnified } from '../chartTypes/barUnified';
 import { tickStrip } from '../chartTypes/tickStrip';
@@ -15,17 +15,6 @@ interface SizeOptions {
   intrinsicHeight?: number | 'fr';
   minWidth?: number;
   minHeight?: number;
-}
-
-/**
- * Configuration for chart labels.
- */
-export interface LabelConfig {
-  labelFields: Field[];
-  labelsEnabled: boolean;
-  samplingStrategy: 'auto' | 'all' | 'sample';
-  samplingThreshold: number;
-  sampleEvery: number;
 }
 
 /**
