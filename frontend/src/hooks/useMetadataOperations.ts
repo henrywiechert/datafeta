@@ -524,7 +524,6 @@ export function useMetadataOperations({
         
         // Dispatch whenever virtualTable changes (including to/from null)
         if (prevVirtualTableRef.current !== dataSource.virtualTable) {
-            console.log('📋 virtualTable updated, dispatching TABLE_JOINS_UNIONS_MODIFIED:', dataSource.virtualTable);
             prevVirtualTableRef.current = dataSource.virtualTable;
             dispatch({ type: 'TABLE_JOINS_UNIONS_MODIFIED' });
         }

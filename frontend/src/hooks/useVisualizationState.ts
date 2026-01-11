@@ -177,9 +177,8 @@ export function useVisualizationState() {
         handleFieldUpdate: fieldOperations.handleFieldUpdate,
         handleDatabaseSelect: fieldOperations.handleDatabaseSelect,
         handleTableSelect: fieldOperations.handleTableSelect,
-        handleRemoveFromAxis: fieldOperations.handleRemoveFromAxis,
-        handleDropFromAvailableFields: fieldOperations.handleDropFromAvailableFields,
-        handleReorderFields: fieldOperations.handleReorderFields,
+        // Note: handleRemoveFromAxis, handleDropFromAvailableFields, handleReorderFields
+        // are intentionally NOT exposed here - use useDragDrop instead for undo/redo support
         
         // From metadataOps hook
         fetchSuggestedJoins: metadataOps.fetchSuggestedJoins,
