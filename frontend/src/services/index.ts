@@ -20,14 +20,6 @@ export type { FilterTier, FilterTierConfig, TieredFilter } from './filterTierMan
 export { queryDecisionEngine, QueryDecisionEngine } from './queryDecisionEngine';
 export type { QueryStrategy, QueryDecision, QueryDecisionInput } from './queryDecisionEngine';
 
-// Chart Query Service - per-chart local queries
-export { chartQueryService, ChartQueryService } from './chartQueryService';
-export type { 
-  ChartQueryOptions, 
-  ChartQueryResult, 
-  RoundingPrecision,
-} from './chartQueryService';
-
 // Query Execution Orchestrator - centralizes local/remote execution
 export { queryExecutionOrchestrator, QueryExecutionOrchestrator } from './queryExecutionOrchestrator';
 export type { QueryExecutionOrchestratorInput, OrchestratedQueryResult, PointBudgetOptions } from './queryExecutionOrchestrator';
