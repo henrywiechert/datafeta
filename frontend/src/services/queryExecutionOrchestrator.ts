@@ -176,10 +176,12 @@ class QueryExecutionOrchestrator {
 
         let localSql = '';
         if (!viewQueryDesc.measures || viewQueryDesc.measures.length === 0) {
+          // Dimension-only query: use DISTINCT to avoid returning all raw rows
           localSql = buildSelectSql({
             tableName: cacheTableName,
             selectItems: dimSelectItems,
             whereClause: refinementWhere || undefined,
+            distinct: true,
           });
         } else {
           localSql = buildAggregateSql({
