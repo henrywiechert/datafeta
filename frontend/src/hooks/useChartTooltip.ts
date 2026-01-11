@@ -31,8 +31,6 @@ export function useChartTooltip() {
     fields: TooltipField[],
     colorHex?: string
   ) => {
-    console.log('[useChartTooltip] showTooltip called:', { x, y, fieldsCount: fields.length, fields });
-    
     // Clear any existing auto-hide timeout
     if (autoHideTimeoutRef.current) {
       clearTimeout(autoHideTimeoutRef.current);
@@ -48,14 +46,11 @@ export function useChartTooltip() {
     
     // Set auto-hide timeout as safety fallback
     autoHideTimeoutRef.current = setTimeout(() => {
-      console.log('[useChartTooltip] Auto-hiding tooltip after timeout');
       setTooltip(prev => ({ ...prev, visible: false }));
     }, AUTO_HIDE_DELAY);
   }, []);
 
   const hideTooltip = useCallback(() => {
-    // console.log('[useChartTooltip] hideTooltip called');
-    
     // Clear auto-hide timeout
     if (autoHideTimeoutRef.current) {
       clearTimeout(autoHideTimeoutRef.current);
