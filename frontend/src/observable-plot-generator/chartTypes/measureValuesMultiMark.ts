@@ -41,8 +41,6 @@ export function hasAnyMeasureOverrides(
   return false;
 }
 
-// Backward compatibility alias
-export const hasHeterogeneousChartTypes = hasAnyMeasureOverrides;
 
 /**
  * Get the chart type for a specific measure, falling back to default.

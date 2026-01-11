@@ -113,32 +113,6 @@ export interface BandPaddingOptions {
   manualSize?: number; // User-defined manual size (used when no size field, 1-50 range)
 }
 
-/**
- * Get the actual value range of a size field from the data.
- * Returns [min, max] of the aggregated size field values, or undefined if no valid values.
- */
-export function getSizeFieldValueRange(rows: any[], sizeField?: Field): [number, number] | undefined {
-  if (!sizeField || rows.length === 0) return undefined;
-  
-  const col = getResultColumnName({ ...sizeField, aggregation: sizeField.aggregation || 'sum' } as any);
-  const values = rows.map(r => r[col]).filter(v => typeof v === 'number' && isFinite(v)) as number[];
-  
-  if (values.length === 0) return undefined;
-  
-  values.sort((a, b) => a - b);
-  const min = values[0];
-  const max = values[values.length - 1];
-  
-  // If all values are the same, return a small range to avoid slider issues
-  if (min === max) {
-    if (min === 0) return [0, 1];
-    const padding = Math.abs(min) * 0.1; // 10% padding
-    return [min - padding, min + padding];
-  }
-  
-  return [min, max];
-}
-
 export function computeBandPaddingFromSizeField(rows: any[], sizeField?: Field, opts: BandPaddingOptions = {}): number | undefined {
   const { stat = 'median', minPadding = 0, maxPadding = 0.95, defaultPadding = BAND_PADDING, manualSize } = opts;
   
