@@ -20,30 +20,10 @@ export interface ColorScaleInfo {
 }
 
 /**
- * Get color configuration for Observable Plot from our color scheme ID
- * Returns either a range of colors or a scheme name that Observable Plot understands
+ * Get just the color array for a scheme.
+ * Used internally by deriveColorScaleInfo.
  */
-export function getPlotColorConfig(colorSchemeId?: string): { range?: string[]; scheme?: string } {
-  if (!colorSchemeId) {
-    colorSchemeId = DEFAULT_CATEGORICAL_SCHEME;
-  }
-
-  const scheme = getSchemeById(colorSchemeId);
-  
-  if (!scheme) {
-    // Fallback to Observable Plot's built-in scheme
-    return { scheme: 'Tableau10' };
-  }
-
-  // Return our custom color array as a range
-  // Observable Plot will use these colors directly
-  return { range: scheme.colors };
-}
-
-/**
- * Get just the color array for a scheme
- */
-export function getColorRange(colorSchemeId?: string): string[] {
+function getColorRange(colorSchemeId?: string): string[] {
   if (!colorSchemeId) {
     colorSchemeId = DEFAULT_CATEGORICAL_SCHEME;
   }

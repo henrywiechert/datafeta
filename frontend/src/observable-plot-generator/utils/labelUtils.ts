@@ -16,7 +16,7 @@ export interface LabelRenderConfig {
   isStacked?: boolean; // whether bars are stacked (no category but has color)
 }
 
-export const HARD_CAP = 5000;
+const HARD_CAP = 5000;
 
 /**
  * Decide whether labels should render and return sampled data subset if needed.

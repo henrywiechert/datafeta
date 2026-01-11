@@ -107,38 +107,3 @@ export function createSizeScale(
     };
   }
 }
-
-/**
- * Gets the appropriate size configuration for Observable Plot marks
- */
-export function getPlotSizeConfig(
-  data: any[],
-  sizeField: Field | null,
-  sizeRange: [number, number],
-  manualSize: number
-): { sizeValue?: string | number; sizeChannel?: any } {
-  if (!sizeField) {
-    return { sizeValue: manualSize };
-  }
-
-  const sizeScale = createSizeScale(data, sizeField, sizeRange, manualSize);
-  const columnName = getResultColumnName(sizeField);
-
-  if (sizeField.flavour === 'discrete') {
-    // For discrete fields, we need to create a mapping function
-    return {
-      sizeChannel: {
-        value: (d: any) => sizeScale.getSizeForValue(d[columnName]),
-        label: columnName,
-      }
-    };
-  } else {
-    // For continuous fields, we can use Observable Plot's built-in scaling
-    return {
-      sizeChannel: {
-        value: columnName,
-        range: sizeRange,
-      }
-    };
-  }
-}
