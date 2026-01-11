@@ -106,5 +106,3 @@ const SelectedTablesList: React.FC<SelectedTablesListProps> = ({
 };
 
 export default SelectedTablesList;
-
-

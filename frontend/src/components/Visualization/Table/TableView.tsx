@@ -197,4 +197,4 @@ const TableView: React.FC<TableViewProps> = ({ columns, rows, xFields, yFields }
   );
 };
 
-export default TableView; 
+export default TableView;

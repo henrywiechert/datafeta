@@ -1,7 +1,7 @@
 import React, { useRef, useMemo } from 'react';
 import { Box } from '@mui/material';
 import ChartGrid from '../../ChartGrid/ChartGrid';
-import TableViewLazy from '../../TableViewLazy';
+import TableViewLazy from '../../Table/TableViewLazy';
 import BarSortControl from './BarSortControl';
 import { PlotResult } from '../../../../observable-plot-generator/types';
 import { TableData } from '../types';
