@@ -208,13 +208,15 @@ export function buildSelectSql(args: {
   columns?: string[];
   selectItems?: SelectItem[];
   whereClause?: string;
+  distinct?: boolean;
 }): string {
   const items: SelectItem[] =
     args.selectItems && args.selectItems.length > 0
       ? args.selectItems
       : (args.columns || []).map((c) => ({ kind: 'column', column: c }));
   const selectCols = items.map(buildSelectItemSql).join(', ');
-  let sql = `SELECT ${selectCols} FROM ${quoteIdent(args.tableName)}`;
+  const distinctKeyword = args.distinct ? 'DISTINCT ' : '';
+  let sql = `SELECT ${distinctKeyword}${selectCols} FROM ${quoteIdent(args.tableName)}`;
   if (args.whereClause) sql += ` WHERE ${args.whereClause}`;
   return sql;
 }
