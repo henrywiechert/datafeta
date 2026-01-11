@@ -2,6 +2,77 @@ import { Field } from '../../types';
 import { getFieldColumnName } from '../helpers/fields';
 
 /**
+ * Result of bar/tick strip detection.
+ * Used by both facet generation and validation.
+ */
+export interface BarChartDetectionResult {
+  /** Whether this is a bar or tick strip chart */
+  isBarOrTickStrip: boolean;
+  /** Bar orientation: barX (horizontal) or barY (vertical) */
+  barOrientation: 'barX' | 'barY' | null;
+  /** Which axis has the categories (opposite to bar direction) */
+  categoryAxis: 'x' | 'y' | null;
+  /** The field used for categories on the category axis, if any */
+  categoryField: Field | null;
+}
+
+/**
+ * Detect if the field configuration represents a bar chart or tick strip.
+ * 
+ * Bar/tick strip detection logic:
+ * - One axis has measure(s) or continuous dimension(s)
+ * - Other axis has discrete dimension(s) for categories
+ * 
+ * This is shared between facetGenerator and facetValidation to ensure
+ * consistent behavior when determining which field is used for categories
+ * vs which are used for faceting.
+ */
+export function detectBarChartConfiguration(
+  xFields: Field[],
+  yFields: Field[]
+): BarChartDetectionResult {
+  // Check if this is a bar/tick strip scenario
+  const xMeasure = xFields.find((f) => f.type === 'measure');
+  const yMeasure = yFields.find((f) => f.type === 'measure');
+  const xContinuousDim = xFields.find((f) => f.type === 'dimension' && f.flavour === 'continuous');
+  const yContinuousDim = yFields.find((f) => f.type === 'dimension' && f.flavour === 'continuous');
+
+  // Detect bar/tick strip orientation: continuous field on one axis, discrete on other
+  let barOrientation: 'barX' | 'barY' | null = null;
+  if ((xMeasure || xContinuousDim) && !yMeasure && !yContinuousDim) {
+    barOrientation = 'barX';
+  } else if ((yMeasure || yContinuousDim) && !xMeasure && !xContinuousDim) {
+    barOrientation = 'barY';
+  }
+
+  if (!barOrientation) {
+    return {
+      isBarOrTickStrip: false,
+      barOrientation: null,
+      categoryAxis: null,
+      categoryField: null,
+    };
+  }
+
+  // Category axis is opposite to bar orientation
+  const categoryAxis = barOrientation === 'barX' ? 'y' : 'x';
+  const axisFields = categoryAxis === 'x' ? xFields : yFields;
+  const discreteFields = axisFields.filter((f) => f.flavour === 'discrete');
+
+  // The last discrete field on the category axis is used for categories
+  const categoryField = discreteFields.length > 0
+    ? discreteFields[discreteFields.length - 1]
+    : null;
+
+  return {
+    isBarOrTickStrip: true,
+    barOrientation,
+    categoryAxis,
+    categoryField,
+  };
+}
+
+/**
  * Compare two values for equality, handling Date objects by timestamp.
  */
 function valuesEqual(a: any, b: any): boolean {

@@ -1,4 +1,3 @@
-import * as Plot from '@observablehq/plot';
 import { Field } from '../../types';
 import { getFieldColumnName } from '../helpers/fields';
 
@@ -97,30 +96,6 @@ export function computeFacetLabels(
       rows: computeLevelSpans(rowFields, baseRows, rowValuesLevels),
     },
   };
-}
-
-/**
- * Derive column and row sizes from plot options.
- * Extracted from multiple places in facetGenerator.
- */
-export function deriveCellSizes(
-  plots: Array<{ options: Plot.PlotOptions; position: { row: number; col: number } }>,
-  columns: number,
-  rows: number
-): { columnSizes: Array<number | 'fr'>; rowSizes: Array<number | 'fr'> } {
-  const columnSizes: Array<number | 'fr'> = Array.from({ length: columns }, (_, c) => {
-    const sample = plots.find((p) => p.position.col === c);
-    const w = (sample?.options as any)?.width;
-    return typeof w === 'number' ? w : 'fr';
-  });
-  
-  const rowSizes: Array<number | 'fr'> = Array.from({ length: rows }, (_, r) => {
-    const sample = plots.find((p) => p.position.row === r);
-    const h = (sample?.options as any)?.height;
-    return typeof h === 'number' ? h : 'fr';
-  });
-  
-  return { columnSizes, rowSizes };
 }
 
 /**
