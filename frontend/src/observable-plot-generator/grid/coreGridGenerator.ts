@@ -2,11 +2,8 @@ import * as Plot from '@observablehq/plot';
 import { generatePairChartOptions } from '../chartTypes/cellCharts';
 import { Field } from '../../types';
 import { ChartTypeOverrides, mapUserChartTypeToCellChartType } from '../helpers/chartTypeResolver';
-import { computeSharedDomainsFromContext, buildLabelConfig } from '../utils/configBuilder';
-import { ChartGenerationContext, PlotResult, CartesianPlotsConfig, LabelConfig } from '../types';
+import { CartesianPlotsConfig } from '../types';
 import { FieldOverrideState, UserChartType } from '../../types';
-import { FieldOverrideTarget } from '../utils/fieldOverrides';
-import { FieldAnalysis } from '../analysis/fieldAnalysis';
 import { deriveColorScaleInfo, applyMeasureNameColorOverrides } from '../utils/colorSchemeUtils';
 import { isMeasureValuesField, combineMeasureValuesOverrides } from '../../utils/syntheticFields';
 import { hasAnyMeasureOverrides, generateMeasureValuesMultiMarkPlot } from '../chartTypes/measureValuesMultiMark';
@@ -17,75 +14,6 @@ export type CartesianPlot = {
   options: Plot.PlotOptions;
   position: { row: number; col: number };
 };
-
-/**
- * Build a cartesian pairing grid between xCandidates and yCandidates.
- * - If both are measures → scatter by their measure columns
- * - If one is measure and other is dimension → line chart
- * - If both are dimensions → scatter
- * Uses CSS grid with positions. For now, non-bar charts use 'fr' sizing.
- */
-export function generateCartesianGrid(
-  context: ChartGenerationContext,
-  analysis: FieldAnalysis,
-  xCandidates: Field[],
-  yCandidates: Field[],
-  overrides?: ChartTypeOverrides
-): PlotResult {
-  const { queryResult, colorField, colorScheme, colorBias, sizeField, sizeRange, manualSize } = context;
-  const data = queryResult.rows;
-
-  // Compute shared domains using the unified function
-  const sharedDomains = computeSharedDomainsFromContext(context, {
-    xFields: xCandidates,
-    yFields: yCandidates,
-  });
-
-  const labelCfg = buildLabelConfig(context);
-  const plots = generateCartesianPlots({
-    data,
-    xCandidates,
-    yCandidates,
-    sharedDomains,
-    encoding: {
-      color: { field: colorField, scheme: colorScheme, bias: colorBias, manual: context.manualColor },
-      size: { field: sizeField, range: sizeRange, manual: manualSize },
-    },
-    labels: labelCfg,
-    tooltipFields: context.tooltipFields,
-    overrides,
-    fieldOverrides: context.fieldOverrides,
-    fieldOverrideTargets: context.fieldOverrideTargets,
-    allFields: [...xCandidates, ...yCandidates, ...(colorField ? [colorField] : []), ...(sizeField ? [sizeField] : [])],
-    globalChartType: context.globalChartType,
-    measureValuesSourceFields: context.measureValuesSourceFields,
-  });
-
-  // Derive per-column width and per-row height from plots' options when available
-  const columnSizes: Array<number | 'fr'> = Array.from({ length: xCandidates.length }, (_, c) => {
-    const sample = plots.find((p) => p.position.col === c);
-    const w = (sample as any)?.options?.width;
-    return typeof w === 'number' ? w : 'fr';
-  });
-  const rowSizes: Array<number | 'fr'> = Array.from({ length: yCandidates.length }, (_, r) => {
-    const sample = plots.find((p) => p.position.row === r);
-    const h = (sample as any)?.options?.height;
-    return typeof h === 'number' ? h : 'fr';
-  });
-
-  return {
-    library: 'observable-plot',
-    plots,
-    sharedDomains: { byMeasure: sharedDomains.measure as any },
-    layout: {
-      type: 'grid',
-      columns: xCandidates.length,
-      rows: yCandidates.length,
-      columnSizes,
-      rowSizes,
-    },
-  };
-}
 
 /**
  * Build plot specs for all X×Y candidate pairs using a structured config object.
