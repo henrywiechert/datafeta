@@ -1,8 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Typography, Box } from '@mui/material';
 import { List } from 'react-window';
-import FieldChip from './FieldChip/index';
-import { Field } from '../../types';
+import FieldChip from '../FieldChip/index';
+import { Field } from '../../../types';
 import styles from './FieldsPanel.module.css';
 
 interface FieldCategoryProps {

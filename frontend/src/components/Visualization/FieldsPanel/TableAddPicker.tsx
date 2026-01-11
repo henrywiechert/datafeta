@@ -1,8 +1,7 @@
 import React from 'react';
-import { Box, CircularProgress, IconButton, TextField, Tooltip, Typography, SxProps, Theme } from '@mui/material';
+import { Box, CircularProgress, IconButton, TextField, Tooltip, SxProps, Theme } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import AddIcon from '@mui/icons-material/Add';
-import styles from './TableAddPicker.module.css';
 
 // Shared styles for compact Autocomplete dropdowns
 const autocompleteListboxSx = {
@@ -106,9 +105,9 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
   };
 
   return (
-    <Box className={styles.container}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
       {/* DB row */}
-      <div className={styles.grid}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 32px', gap: 0.5, alignItems: 'center' }}>
         <Autocomplete
           disablePortal
           value={stagedDatabase || null}
@@ -126,11 +125,11 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
           noOptionsText="No matches"
         />
         {/* Spacer to keep grid aligned with Table row */}
-        <span className={styles.spacer} />
-      </div>
+        <span />
+      </Box>
 
       {/* Table row */}
-      <div className={styles.grid}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 32px', gap: 0.5, alignItems: 'center' }}>
         <Autocomplete
           disablePortal
           value={stagedTable || null}
@@ -163,14 +162,14 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
               size="small"
               onClick={handleAdd}
               disabled={!canAdd}
-              className={styles.addButton}
+              sx={{ width: 28, height: 28 }}
               aria-label="Add table"
             >
               <AddIcon />
             </IconButton>
           </span>
         </Tooltip>
-      </div>
+      </Box>
     </Box>
   );
 };

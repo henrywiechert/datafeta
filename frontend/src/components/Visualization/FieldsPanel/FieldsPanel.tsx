@@ -3,11 +3,11 @@ import { Typography } from '@mui/material';
 import FieldsSearch from './FieldsSearch';
 import FieldCategory from './FieldCategory';
 import CompactMetadataSelector from './CompactMetadataSelector';
-import VirtualColumnManager from '../VirtualColumns/VirtualColumnManager';
-import { Field, Database, Table, VirtualColumnDefinition } from '../../types';
-import { useFieldsPanelDrag } from '../../hooks/useFieldsPanelDrag';
+import VirtualColumnManager from '../../VirtualColumns/VirtualColumnManager';
+import { Field, Database, Table, VirtualColumnDefinition } from '../../../types';
+import { useFieldsPanelDrag } from '../../../hooks/useFieldsPanelDrag';
 import styles from './FieldsPanel.module.css';
-import { useSelectionStore } from '../../stores/selectionStore';
+import { useSelectionStore } from '../../../stores/selectionStore';
 
 interface FieldsPanelProps {
   availableFields: Field[];
