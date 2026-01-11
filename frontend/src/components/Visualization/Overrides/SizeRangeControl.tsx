@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Slider, Typography, FormControl } from '@mui/material';
 import { Field } from '../../../types';
-// import styles from './SizeRangeControl.module.css';
 
 interface SizeRangeControlProps {
   sizeField: Field | null;
