@@ -1,5 +1,6 @@
 import * as Plot from '@observablehq/plot';
 import { Field } from '../../types';
+import { LabelConfig } from '../types';
 import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { getFieldColumnName } from '../helpers/fields';
@@ -13,17 +14,6 @@ import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 // ---------- Types -----------------------------------------------------------
 
 type Domains = Record<string, [number, number] | [Date, Date]> | undefined;
-
-/**
- * Label configuration for chart generation.
- */
-type LabelConfig = {
-  labelFields: Field[];
-  labelsEnabled: boolean;
-  samplingStrategy: 'auto' | 'all' | 'sample';
-  samplingThreshold: number;
-  sampleEvery: number;
-};
 
 /**
  * Context object bundling common chart generation parameters.

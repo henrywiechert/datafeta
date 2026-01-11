@@ -1,6 +1,7 @@
 import * as Plot from '@observablehq/plot';
 import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING, MIN_BAND_TRACKS, MIN_SERIES_PANES } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
+import { LabelConfig } from '../types';
 import { getFieldColumnName } from '../helpers/fields';
 import { SharedDomains } from './facetDomains';
 import { CellGenerator, CellResult, PositionedPlot, FacetCellContext } from './facetCoordinator';
@@ -11,17 +12,6 @@ import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 import { formatDateTick } from '../utils/dateFormatUtils';
 import { normalizeCategoryForChart } from '../../datetime/chartDateTimeNormalizer';
 import { warnIfNonUtc } from '../../datetime/utcWarnings';
-
-/**
- * Label configuration for bar cell generator.
- */
-export interface BarLabelConfig {
-  labelFields: any[];
-  labelsEnabled: boolean;
-  samplingStrategy: 'auto' | 'all' | 'sample';
-  samplingThreshold: number;
-  sampleEvery: number;
-}
 
 /**
  * Create a cell generator for multi-measure bar charts and tick strips.
@@ -50,7 +40,7 @@ export function createBarCellGenerator(
   sharedCategoryDomain: any[],
   colorField?: Field | null,
   bandPadding?: number,
-  labelCfg?: BarLabelConfig,
+  labelCfg?: LabelConfig,
   manualColor?: string,
   tooltipFields?: Field[]
 ): CellGenerator {
@@ -173,7 +163,7 @@ function buildMeasureBarOptions(
   colorColumnName: string | undefined,
   sharedDomains: SharedDomains,
   bandPadding: number | undefined,
-  labelCfg: BarLabelConfig | undefined,
+  labelCfg: LabelConfig | undefined,
   manualColor: string | undefined,
   tooltipFields: Field[] | undefined,
   facetFields?: Field[]
@@ -225,7 +215,7 @@ function addBarLabels(
   barOrientation: 'barX' | 'barY',
   categoryColumnName: string | undefined,
   colorColumnName: string | undefined,
-  labelCfg: BarLabelConfig
+  labelCfg: LabelConfig
 ): void {
   let labelData = cellData;
   const orientation = barOrientation === 'barX' ? 'horizontal' : 'vertical';
