@@ -3,7 +3,7 @@ import { BAR_STEP_PX, BAND_PADDING } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getFieldColumnName } from '../helpers/fields';
 import { ChartGenerationContext, PlotResult } from '../types';
-import { uniqueValuesForField } from './facetUtils';
+import { uniqueValuesForField, detectBarChartConfiguration } from './facetUtils';
 import { FacetPlan } from './facetPlanner';
 import { SharedDomains } from './facetDomains';
 import { buildLabelConfig, buildCartesianPlotsConfig } from '../utils/configBuilder';
@@ -28,7 +28,7 @@ interface ChartConfig {
 
 /**
  * Determine chart-specific configuration from context.
- * This function encapsulates the logic that was previously in facetPlanner.
+ * Uses shared bar detection logic to ensure consistency with validation.
  */
 function deriveChartConfig(
   context: ChartGenerationContext,
@@ -37,34 +37,15 @@ function deriveChartConfig(
   const { xFields, yFields, queryResult } = context;
   const { rowFacetFields, colFacetFields } = plan;
 
-  // Check if this is a bar/tick strip scenario (measure or continuous dimension on one axis only)
-  const xMeasure = xFields.find((f) => f.type === 'measure');
-  const yMeasure = yFields.find((f) => f.type === 'measure');
-  const xContinuousDim = xFields.find((f) => f.type === 'dimension' && f.flavour === 'continuous');
-  const yContinuousDim = yFields.find((f) => f.type === 'dimension' && f.flavour === 'continuous');
+  // Use shared detection logic for bar/tick strip charts
+  const detection = detectBarChartConfiguration(xFields, yFields);
+  const { barOrientation, categoryAxis, categoryField } = detection;
 
-  // Detect bar/tick strip orientation: continuous field on one axis, discrete on other
-  // This handles both measures (bars) and continuous dimensions (tick strips)
-  let barOrientation: 'barX' | 'barY' | null = null;
-  if ((xMeasure || xContinuousDim) && !yMeasure && !yContinuousDim) {
-    barOrientation = 'barX';
-  } else if ((yMeasure || yContinuousDim) && !xMeasure && !xContinuousDim) {
-    barOrientation = 'barY';
-  }
-  
-  let categoryAxis: 'x' | 'y' | null = barOrientation === 'barX' ? 'y' : (barOrientation === 'barY' ? 'x' : null);
-
-  let categoryField: Field | null = null;
   let sharedCategoryDomain: any[] | null = null;
 
-  // If we have a category axis, find the appropriate discrete field to use
+  // If we have a category axis, compute the shared domain
   if (categoryAxis) {
-    const axisFields = categoryAxis === 'x' ? xFields : yFields;
-    const discreteFields = axisFields.filter((f) => f.flavour === 'discrete');
-    
-    // Use the last discrete field on the category axis
-    if (discreteFields.length > 0) {
-      categoryField = discreteFields[discreteFields.length - 1];
+    if (categoryField) {
       sharedCategoryDomain = uniqueValuesForField(queryResult.rows, categoryField);
     } else {
       // Fallback single category when none present

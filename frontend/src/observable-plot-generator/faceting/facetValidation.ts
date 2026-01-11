@@ -8,7 +8,7 @@
 import { Field } from '../../types';
 import { ChartGenerationContext } from '../types';
 import { FacetPlan } from './facetPlanner';
-import { uniqueValuesForField } from './facetUtils';
+import { uniqueValuesForField, detectBarChartConfiguration } from './facetUtils';
 
 /**
  * Maximum number of facets allowed in a single direction (rows or columns)
@@ -39,41 +39,10 @@ export interface FacetValidationResult {
  * 
  * In bar/tick strip scenarios, one discrete dimension is used for the category axis
  * (e.g., the bars' categories) and should not count toward faceting.
- * 
- * This replicates the logic from facetGenerator.deriveChartConfig.
  */
 function getCategoryFieldId(context: ChartGenerationContext): string | null {
-  const { xFields, yFields } = context;
-
-  // Check if this is a bar/tick strip scenario
-  const xMeasure = xFields.find((f) => f.type === 'measure');
-  const yMeasure = yFields.find((f) => f.type === 'measure');
-  const xContinuousDim = xFields.find((f) => f.type === 'dimension' && f.flavour === 'continuous');
-  const yContinuousDim = yFields.find((f) => f.type === 'dimension' && f.flavour === 'continuous');
-
-  // Detect bar/tick strip orientation
-  let barOrientation: 'barX' | 'barY' | null = null;
-  if ((xMeasure || xContinuousDim) && !yMeasure && !yContinuousDim) {
-    barOrientation = 'barX';
-  } else if ((yMeasure || yContinuousDim) && !xMeasure && !xContinuousDim) {
-    barOrientation = 'barY';
-  }
-
-  if (!barOrientation) {
-    return null;
-  }
-
-  // Category axis is opposite to bar orientation
-  const categoryAxis = barOrientation === 'barX' ? 'y' : 'x';
-  const axisFields = categoryAxis === 'x' ? xFields : yFields;
-  const discreteFields = axisFields.filter((f) => f.flavour === 'discrete');
-
-  // The last discrete field on the category axis is used for categories
-  if (discreteFields.length > 0) {
-    return discreteFields[discreteFields.length - 1].id;
-  }
-
-  return null;
+  const detection = detectBarChartConfiguration(context.xFields, context.yFields);
+  return detection.categoryField?.id ?? null;
 }
 
 /**
