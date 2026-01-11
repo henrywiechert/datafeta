@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useLayoutEffect } from 'react';
-import styles from '../ChartArea.module.css';
+import styles from './ChartArea.module.css';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { useDataSource } from '../../../contexts/DataSourceContext';
 import { useSheetContext } from '../../../contexts/SheetContext';

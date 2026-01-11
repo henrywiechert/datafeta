@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, CircularProgress, Typography, TextField } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
-import { Database, Table, Field } from '../../types';
+import { Database, Table, Field } from '../../../types';
 import JoinTableSelector from './JoinTableSelector';
 import TableAddPicker from './TableAddPicker';
 import SelectedTablesList from './SelectedTablesList';
