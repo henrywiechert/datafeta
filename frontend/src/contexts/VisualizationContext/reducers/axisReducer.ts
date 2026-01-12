@@ -10,20 +10,24 @@ export function axisReducer(state: VisualizationState, action: VisualizationActi
   switch (action.type) {
     case 'SET_X_AXIS_FIELDS': {
       if (sameFieldArray(state.xAxisFields, action.payload)) return state;
-      const isRemovalOnly = action.payload.every(f => state.xAxisFields.some(existing => existing.id === f.id));
-      return { 
-        ...state, 
-        xAxisFields: action.payload, 
-        queryVersion: isRemovalOnly ? state.queryVersion : state.queryVersion + 1 
+      const isReorderOnly =
+        action.payload.length === state.xAxisFields.length &&
+        action.payload.every((f) => state.xAxisFields.some((existing) => existing.id === f.id));
+      return {
+        ...state,
+        xAxisFields: action.payload,
+        queryVersion: isReorderOnly ? state.queryVersion : state.queryVersion + 1,
       };
     }
     case 'SET_Y_AXIS_FIELDS': {
       if (sameFieldArray(state.yAxisFields, action.payload)) return state;
-      const isRemovalOnly = action.payload.every(f => state.yAxisFields.some(existing => existing.id === f.id));
-      return { 
-        ...state, 
-        yAxisFields: action.payload, 
-        queryVersion: isRemovalOnly ? state.queryVersion : state.queryVersion + 1 
+      const isReorderOnly =
+        action.payload.length === state.yAxisFields.length &&
+        action.payload.every((f) => state.yAxisFields.some((existing) => existing.id === f.id));
+      return {
+        ...state,
+        yAxisFields: action.payload,
+        queryVersion: isReorderOnly ? state.queryVersion : state.queryVersion + 1,
       };
     }
     case 'SWAP_AXIS_FIELDS':
