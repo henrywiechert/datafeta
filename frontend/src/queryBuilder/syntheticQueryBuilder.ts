@@ -14,7 +14,7 @@ import { apiService } from '../apiService';
 /**
  * Detect if synthetic fields (MeasureNames or MeasureValues) are being used
  */
-export function detectSyntheticFieldUsage(fields: Field[]): {
+function detectSyntheticFieldUsage(fields: Field[]): {
   hasMeasureNames: boolean;
   hasMeasureValues: boolean;
   measureNamesField?: Field;
@@ -209,11 +209,6 @@ export async function buildUnpivotedQuery({
   // Attach optimization hints if provided
   if (optimizationHints) {
     queryDesc.optimization_hints = optimizationHints;
-    console.log('✅ Attached optimization hints to unpivot query:', {
-      field_hints_count: optimizationHints.field_hints?.length || 0,
-      enable_global_distinct: optimizationHints.enable_global_distinct,
-      optimization_level: optimizationHints.optimization_level
-    });
   }
 
   // Execute query using Arrow transport for efficiency
