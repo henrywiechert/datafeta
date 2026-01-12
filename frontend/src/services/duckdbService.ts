@@ -280,6 +280,9 @@ class DuckDBService {
       
       this.registeredTables.add(name);
       console.log(`📊 Registered Arrow table "${name}" with ${table.numRows} rows (native Arrow IPC)`);
+
+      // Widen unsigned ints to BIGINT to avoid overflow in aggregates
+      await this.widenUnsignedIntegerColumns(name);
     } catch (nativeError) {
       // Fallback to JSON-based insertion for edge cases
       console.warn(`⚠️ Native Arrow insertion failed, using fallback:`, nativeError);
@@ -330,6 +333,9 @@ class DuckDBService {
 
     this.registeredTables.add(name);
     console.log(`📊 Registered Arrow table "${name}" with ${table.numRows} rows (fallback)`);
+
+    // Widen unsigned ints to BIGINT to avoid overflow in aggregates
+    await this.widenUnsignedIntegerColumns(name);
   }
 
   /**
@@ -424,6 +430,9 @@ class DuckDBService {
 
     this.registeredTables.add(name);
     console.log(`📊 Registered table "${name}" with ${rows.length} rows`);
+
+    // Widen unsigned ints to BIGINT to avoid overflow in aggregates
+    await this.widenUnsignedIntegerColumns(name);
   }
 
   /**
@@ -515,6 +524,28 @@ class DuckDBService {
       rows,
       rowCount: table.numRows,
     };
+  }
+
+  // Helper: Promote unsigned integer columns to BIGINT to prevent SUM overflow
+  private async widenUnsignedIntegerColumns(name: string): Promise<void> {
+    try {
+      const schema = await this.getTableSchema(name);
+      const unsignedCols = schema.filter((c) => typeof c.type === 'string' && /u(integer|smallint|tinyint|bigint)/i.test(c.type));
+
+      for (const col of unsignedCols) {
+        try {
+          await this.conn!.query(`ALTER TABLE "${name}" ALTER COLUMN "${col.column}" TYPE BIGINT`);
+        } catch (err) {
+          console.warn(`⚠️ Failed to widen column ${col.column} on ${name}:`, err);
+        }
+      }
+
+      if (unsignedCols.length) {
+        console.log(`🔎 Widened ${unsignedCols.length} unsigned columns to BIGINT on table "${name}"`);
+      }
+    } catch (err) {
+      console.warn(`⚠️ Unable to inspect/widen unsigned columns for table "${name}":`, err);
+    }
   }
 
   // Helper: Infer SQL type from JavaScript value
