@@ -2,7 +2,108 @@
 
 UI components for creating and managing computed/calculated columns using SQL expressions. Virtual columns are evaluated server-side and appear as regular fields in the visualization.
 
-## Architecture
+## Concept: How Virtual Columns Work
+
+Virtual columns are **computed columns** that don't exist in the source table. They're defined by a SQL expression and evaluated **server-side** as part of the query.
+
+### The Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  1. USER DEFINES                                                    │
+│                                                                     │
+│  VirtualColumnDefinition {                                          │
+│    name: "profit_margin",                                          │
+│    expression: "(revenue - cost) / revenue * 100",                 │
+│    output_type: "numeric"                                          │
+│  }                                                                  │
+└─────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  2. FRONTEND SENDS TO BACKEND                                       │
+│                                                                     │
+│  QueryDescription {                                                 │
+│    target_table: "sales",                                          │
+│    dimensions: [...],                                              │
+│    measures: [...],                                                │
+│    virtual_columns: [                         ← Attached here      │
+│      { name: "profit_margin",                                      │
+│        expression: "(revenue - cost) / revenue * 100" }            │
+│    ]                                                                │
+│  }                                                                  │
+└─────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  3. BACKEND GENERATES SQL (conceptually)                            │
+│                                                                     │
+│  SELECT                                                             │
+│    category,                                                       │
+│    (revenue - cost) / revenue * 100 AS profit_margin,  ← Injected  │
+│    SUM(revenue) AS "SUM(revenue)"                                  │
+│  FROM sales                                                         │
+│  GROUP BY category, profit_margin                                  │
+└─────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  4. FRONTEND TREATS AS REGULAR FIELD                                │
+│                                                                     │
+│  Field {                                                            │
+│    id: "virtual_0",                                                │
+│    columnName: "profit_margin",                                    │
+│    is_virtual: true,            ← Marked as virtual                │
+│    type: "dimension",           ← Inferred from output_type        │
+│    flavour: "continuous"                                           │
+│  }                                                                  │
+│                                                                     │
+│  → User can drag to axes, filter, color by, etc.                   │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Points
+
+1. **Expression only sent, not evaluated client-side**: The frontend passes the raw expression string; the backend does all the SQL evaluation.
+
+2. **Appears as regular field**: The `useVirtualColumns` hook converts `VirtualColumnDefinition[]` into `Field[]` objects that merge into `availableFields`.
+
+3. **Query-time injection**: Every query that uses fields includes `virtual_columns` in the `QueryDescription` so the backend can construct the computed column.
+
+4. **Field preferences preserved**: Users can set type/flavour preferences for virtual columns (e.g., treat profit_margin as a measure instead of dimension).
+
+### Example Usage
+
+```typescript
+// User creates virtual column in UI
+virtualColumns: [
+  { name: "profit_margin", expression: "(revenue - cost) / revenue * 100" }
+]
+
+// User drags "profit_margin" to Y-axis
+// Query builder produces:
+{
+  target_table: "sales",
+  dimensions: [{ field: "category" }],
+  measures: [{ field: "revenue", aggregation: "sum" }],
+  virtual_columns: [
+    { name: "profit_margin", expression: "(revenue - cost) / revenue * 100" }
+  ]
+}
+
+// Backend returns data with "profit_margin" column computed
+```
+
+### Why Server-Side Evaluation?
+
+| Approach | Pros | Cons |
+|----------|------|------|
+| **Server-side (current)** | Full SQL power, handles NULLs, works with aggregations | Requires backend support |
+| Client-side JS | No backend changes | Limited to simple expressions, memory-heavy |
+
+The server-side approach enables complex expressions like `CASE WHEN`, window functions, and proper NULL handling that would be difficult to implement client-side.
+
+## UI Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
