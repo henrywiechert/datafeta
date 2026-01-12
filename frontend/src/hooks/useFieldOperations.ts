@@ -16,7 +16,6 @@ interface UseFieldOperationsParams {
     availableFields: Field[];
     dispatch: React.Dispatch<any>;
     dataSourceSetters: DataSourceSetters;
-    setVirtualColumnPreference: (columnName: string, preference: { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }) => void;
 }
 
 export interface UseFieldOperationsReturn {
@@ -43,8 +42,7 @@ export function useFieldOperations({
     availableFieldsWithVirtual,
     availableFields,
     dispatch,
-    dataSourceSetters,
-    setVirtualColumnPreference,
+    dataSourceSetters
 }: UseFieldOperationsParams): UseFieldOperationsReturn {
 
     // === REFS FOR STABLE CALLBACKS ===
@@ -150,10 +148,16 @@ export function useFieldOperations({
         
         // Update virtual column preferences
         virtualFields.forEach(field => {
-            setVirtualColumnPreference(field.columnName, {
-                type: field.type,
-                flavour: field.flavour,
-                aggregation: field.aggregation,
+            dispatch({
+                type: 'UPDATE_VIRTUAL_COLUMN_FIELD_PREFERENCE',
+                payload: {
+                    columnName: field.columnName,
+                    preference: {
+                        type: field.type,
+                        flavour: field.flavour,
+                        aggregation: field.aggregation,
+                    },
+                },
             });
         });
         
@@ -187,10 +191,16 @@ export function useFieldOperations({
             const isVirtual = field.is_virtual === true;
             
             if (isVirtual) {
-                setVirtualColumnPreference(field.columnName, {
-                    type: field.type,
-                    flavour: field.flavour,
-                    aggregation: field.aggregation,
+                dispatch({
+                    type: 'UPDATE_VIRTUAL_COLUMN_FIELD_PREFERENCE',
+                    payload: {
+                        columnName: field.columnName,
+                        preference: {
+                            type: field.type,
+                            flavour: field.flavour,
+                            aggregation: field.aggregation,
+                        },
+                    },
                 });
             } else {
                 const updatedAvailableFields = currentAvailableFields.map((f) => 
