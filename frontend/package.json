@@ -21,6 +21,7 @@
     "ag-grid-community": "^34.0.0",
     "ag-grid-react": "^34.0.0",
     "apache-arrow": "^21.1.0",
+    "playwright": "^1.57.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-resizable-panels": "^2.0.22",
