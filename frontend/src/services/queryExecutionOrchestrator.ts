@@ -1,6 +1,6 @@
 import { apiService } from '../apiService';
 import { QueryDescription } from '../types';
-import { duckdbService } from './duckdbService';
+import { duckdbService, DuckDBService } from './duckdbService';
 import { columnCacheManager } from './columnCacheManager';
 import { filterTierManager } from './filterTierManager';
 import { queryDecisionEngine, QueryDecision } from './queryDecisionEngine';
@@ -56,6 +56,14 @@ export interface OrchestratedQueryResult {
   decision?: QueryDecision;
 }
 
+interface QueryExecutionOrchestratorDependencies {
+  apiService: typeof apiService;
+  duckdbService: DuckDBService;
+  columnCacheManager: typeof columnCacheManager;
+  filterTierManager: typeof filterTierManager;
+  queryDecisionEngine: typeof queryDecisionEngine;
+}
+
 /**
  * Central orchestrator that encapsulates:
  * - query decision (cache hit vs fetch)
@@ -66,6 +74,18 @@ export interface OrchestratedQueryResult {
  * UI hooks should call this and keep only dispatch/validation logic locally.
  */
 class QueryExecutionOrchestrator {
+  private deps: QueryExecutionOrchestratorDependencies;
+
+  constructor(deps?: Partial<QueryExecutionOrchestratorDependencies>) {
+    this.deps = {
+      apiService: deps?.apiService || apiService,
+      duckdbService: deps?.duckdbService || duckdbService,
+      columnCacheManager: deps?.columnCacheManager || columnCacheManager,
+      filterTierManager: deps?.filterTierManager || filterTierManager,
+      queryDecisionEngine: deps?.queryDecisionEngine || queryDecisionEngine,
+    };
+  }
+
   private _getDimOutputName(d: any): string {
     return d?.date_part && d?.date_mode ? `${d.field}_${d.date_part}_${d.date_mode}` : d.field;
   }
@@ -143,15 +163,15 @@ class QueryExecutionOrchestrator {
     } = input;
 
     // If DuckDB isn't ready, fall back to Arrow endpoint.
-    if (!duckdbService.isReady) {
-      const res = await apiService.executeQueryArrow(viewQueryDesc, signal);
+    if (!this.deps.duckdbService.isReady) {
+      const res = await this.deps.apiService.executeQueryArrow(viewQueryDesc, signal);
       return { result: res };
     }
 
     // For local execution, cache requirements are based on *base* columns, not derived datetime-part aliases.
     const cacheRequiredColumns = this._getCacheRequiredColumns(viewQueryDesc);
 
-    const decision = await queryDecisionEngine.decide({
+    const decision = await this.deps.queryDecisionEngine.decide({
       sourceTable: selectedTable,
       sourceDatabase: selectedDatabase || undefined,
       requiredColumns: cacheRequiredColumns,
@@ -164,14 +184,14 @@ class QueryExecutionOrchestrator {
 
     // Cache-hit: query locally (refinement filters only).
     if (decision.strategy === 'cache_hit' && !decision.requiresBackendQuery) {
-      const cacheTableName = columnCacheManager.getCacheTableName(
+      const cacheTableName = this.deps.columnCacheManager.getCacheTableName(
         selectedTable,
         selectedDatabase || undefined,
         decision.baseFilterHash
       );
 
       if (cacheTableName) {
-        const refinementWhere = filterTierManager.buildRefinementWhereClause(refinementFilterConfigs);
+        const refinementWhere = this.deps.filterTierManager.buildRefinementWhereClause(refinementFilterConfigs);
         const dimSelectItems = this._buildLocalDimensionSelectItems(viewQueryDesc.dimensions as any);
 
         let localSql = '';
@@ -220,7 +240,7 @@ class QueryExecutionOrchestrator {
           },
         });
 
-        const localResult = await duckdbService.query(localSql);
+        const localResult = await this.deps.duckdbService.query(localSql);
         return {
           decision,
           result: {
@@ -240,12 +260,12 @@ class QueryExecutionOrchestrator {
     // Backend query required:
     // - For raw_columns we fetch a raw slice (base filters only), cache it, and locally aggregate if needed.
     // - For pre_aggregated we just return backend Arrow->rows result.
-    const arrowResult = await apiService.executeQueryArrowRaw(fetchQueryDesc, signal);
+    const arrowResult = await this.deps.apiService.executeQueryArrowRaw(fetchQueryDesc, signal);
 
     // Cache only when we are building/refreshing a local raw slice (below threshold).
     if (decision.strategy === 'raw_columns' && arrowResult.arrowTable && arrowResult.arrowTable.numRows > 0) {
       try {
-        await columnCacheManager.cacheColumns(
+        await this.deps.columnCacheManager.cacheColumns(
           selectedTable,
           selectedDatabase || undefined,
           decision.baseFilterHash,
@@ -253,7 +273,7 @@ class QueryExecutionOrchestrator {
         );
 
         // Update base filters after successful cache
-        filterTierManager.updateBaseFilters(filterConfigurations, selectedTable, selectedDatabase || undefined);
+        this.deps.filterTierManager.updateBaseFilters(filterConfigurations, selectedTable, selectedDatabase || undefined);
       } catch (cacheError) {
         console.warn('⚠️ Failed to cache in DuckDB:', cacheError);
       }
@@ -261,13 +281,13 @@ class QueryExecutionOrchestrator {
 
     // If the current view needs aggregation and we fetched a raw slice, compute locally.
     if (decision.strategy === 'raw_columns' && requiresAggregation) {
-      const cacheTableName = columnCacheManager.getCacheTableName(
+      const cacheTableName = this.deps.columnCacheManager.getCacheTableName(
         selectedTable,
         selectedDatabase || undefined,
         decision.baseFilterHash
       );
       if (cacheTableName) {
-        const refinementWhere = filterTierManager.buildRefinementWhereClause(refinementFilterConfigs);
+        const refinementWhere = this.deps.filterTierManager.buildRefinementWhereClause(refinementFilterConfigs);
         const dimSelectItems = this._buildLocalDimensionSelectItems(viewQueryDesc.dimensions as any);
 
         let localAggSql = buildAggregateSql({
@@ -305,7 +325,7 @@ class QueryExecutionOrchestrator {
           },
         });
 
-        const localAgg = await duckdbService.query(localAggSql);
+        const localAgg = await this.deps.duckdbService.query(localAggSql);
         return {
           decision,
           result: {
