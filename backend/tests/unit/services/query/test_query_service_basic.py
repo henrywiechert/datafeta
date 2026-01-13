@@ -156,7 +156,8 @@ def test_date_part_dimension_uses_extract_alias(query_service: QueryService) -> 
         with_optimization=False,
     )
 
-    assert "EXTRACT(YEAR FROM \"sale_date\")" in sql
+    # DuckDB EXTRACT should include timezone wrapper for UTC normalization
+    assert "EXTRACT(YEAR FROM timezone('UTC'," in sql
     assert "\"sale_date_year_distinct\"" in sql
 
 

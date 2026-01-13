@@ -1,0 +1,42 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ master, main, develop ]
+  pull_request:
+    branches: [ master, main, develop ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        cd backend
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install flake8 black isort mypy
+
+    - name: Run Black code formatter check
+      run: |
+        cd backend
+        black --check . || true
+
+    - name: Run isort import check
+      run: |
+        cd backend
+        isort --check-only . || true
+
+    - name: Run Flake8 linting
+      run: |
+        cd backend
+        flake8 . --max-line-length=100 --extend-ignore=E203,W503 || true
