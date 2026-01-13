@@ -47,8 +47,8 @@ class TestValidationService:
         )
     
     def test_require_database_for_clickhouse_with_duckdb(self):
-        """Should not raise for DuckDB connections (database optional)."""
-        conn_details = ConnectionDetails(type="duckdb", file_path=":memory:")
+        """Should not raise for CSV connections (DuckDB) - database optional."""
+        conn_details = ConnectionDetails(type="csv", csv_has_header=True)
         
         # Should not raise even without database
         ValidationService.require_database_for_clickhouse(
