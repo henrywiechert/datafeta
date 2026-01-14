@@ -190,7 +190,14 @@ async def query_execution_exception_handler(request: Request, exc: QueryExecutio
         content={"detail": exc.detail},
     )
 
-# Add more specific handlers if needed (e.g., for InvalidInputError)
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception):
+    # Catch all unhandled exceptions
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "An unexpected error occurred."},
+    )
 
-# TODO: Add error handling middleware
+# Add more specific handlers if needed (e.g., for InvalidInputError)
 # TODO: Add CORS middleware if frontend is served from a different origin - DONE
