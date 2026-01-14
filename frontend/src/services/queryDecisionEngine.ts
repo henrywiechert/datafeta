@@ -92,6 +92,15 @@ class QueryDecisionEngine {
   
   /**
    * Make a query decision based on current state
+   * 
+   * Decision flow:
+   * 1. If base filter changed → invalidate cache, probe row count, decide strategy
+   * 2. If all columns cached → return cache_hit (local query)
+   * 3. Otherwise → probe row count, decide strategy based on size
+   * 
+   * Strategy selection (based on row count):
+   * - rowCount ≤ threshold → 'raw_columns' (fetch raw data for local caching)
+   * - rowCount > threshold → 'pre_aggregated' (let backend aggregate)
    */
   async decide(input: QueryDecisionInput): Promise<QueryDecision> {
     const {
@@ -99,40 +108,27 @@ class QueryDecisionEngine {
       sourceDatabase,
       requiredColumns,
       filterConfigurations,
-      requiresAggregation,
-      dimensions = [],
       virtualTable,
       virtualColumns,
       sizeThreshold = this.sizeThreshold,
     } = input;
     
     // Step 1: Determine filter tier state
-    const baseFilterHash = filterTierManager.getBaseFilterHash(sourceTable, sourceDatabase);
+    let baseFilterHash = filterTierManager.getBaseFilterHash(sourceTable, sourceDatabase);
     const refinementFilters = filterTierManager.getRefinementFilters(filterConfigurations);
     const hasBaseFilterChanged = filterTierManager.hasBaseFilterChanged(filterConfigurations, sourceTable, sourceDatabase);
     
-    // Step 2: Check if base filters changed - forces backend query
+    // Step 2: Handle base filter change - invalidate cache and update state
     if (hasBaseFilterChanged) {
-      // Clear column cache for this table (base filter changed)
       await columnCacheManager.invalidateForTable(sourceTable, sourceDatabase);
       filterTierManager.updateBaseFilters(filterConfigurations, sourceTable, sourceDatabase);
-      
-      return {
-        strategy: 'raw_columns',
-        columnsToFetch: requiredColumns,
-        requiresBackendQuery: true,
-        baseFilterHash: filterTierManager.getBaseFilterHash(sourceTable, sourceDatabase),
-        refinementFilters,
-        reason: 'Base filter changed - cache invalidated',
-      };
+      baseFilterHash = filterTierManager.getBaseFilterHash(sourceTable, sourceDatabase);
     }
     
-    // Step 3: Check cache for required columns
-    const cachedColumns = columnCacheManager.getCachedColumns(
-      sourceTable,
-      sourceDatabase,
-      baseFilterHash
-    );
+    // Step 3: Check cache for required columns (only useful if filter didn't change)
+    const cachedColumns = hasBaseFilterChanged 
+      ? [] 
+      : columnCacheManager.getCachedColumns(sourceTable, sourceDatabase, baseFilterHash);
     
     const missingColumns = requiredColumns.filter(col => !cachedColumns.includes(col));
     
@@ -148,47 +144,58 @@ class QueryDecisionEngine {
       };
     }
     
-    // Step 4: Need to fetch missing columns - determine strategy
-    // Probe row count to decide raw vs aggregated
+    // Step 4: Need to fetch from backend - probe row count to decide strategy
     const rowCount = await this.probeRowCount(sourceTable, sourceDatabase, filterConfigurations, virtualTable, virtualColumns);
     
-    // Step 5: Decide strategy based on size
+    // Step 5: Decide strategy based on dataset size
+    return this.buildStrategyDecision({
+      rowCount,
+      sizeThreshold,
+      columnsToFetch: hasBaseFilterChanged ? requiredColumns : missingColumns,
+      cachedColumns: hasBaseFilterChanged ? undefined : cachedColumns,
+      baseFilterHash,
+      refinementFilters,
+      baseFilterChanged: hasBaseFilterChanged,
+    });
+  }
+  
+  /**
+   * Build the strategy decision based on row count vs threshold
+   */
+  private buildStrategyDecision(params: {
+    rowCount: number;
+    sizeThreshold: number;
+    columnsToFetch: string[];
+    cachedColumns?: string[];
+    baseFilterHash: string;
+    refinementFilters: Record<string, any>;
+    baseFilterChanged: boolean;
+  }): QueryDecision {
+    const { rowCount, sizeThreshold, columnsToFetch, cachedColumns, baseFilterHash, refinementFilters, baseFilterChanged } = params;
+    const prefix = baseFilterChanged ? 'Base filter changed - ' : '';
+    
     if (rowCount <= sizeThreshold) {
-      // Small dataset - fetch raw columns
       return {
         strategy: 'raw_columns',
-        columnsToFetch: missingColumns,
+        columnsToFetch,
         cachedColumns,
         estimatedRowCount: rowCount,
         requiresBackendQuery: true,
         baseFilterHash,
         refinementFilters,
-        reason: `Row count (${rowCount.toLocaleString()}) below threshold (${sizeThreshold.toLocaleString()}) - fetching raw columns`,
+        reason: `${prefix}Row count (${rowCount.toLocaleString()}) below threshold (${sizeThreshold.toLocaleString()}) - fetching raw columns`,
       };
     } else {
-      // Large dataset - need pre-aggregation
-      if (requiresAggregation && dimensions.length > 0) {
-        return {
-          strategy: 'pre_aggregated',
-          columnsToFetch: requiredColumns, // For pre-agg, fetch all (including measures)
-          estimatedRowCount: rowCount,
-          requiresBackendQuery: true,
-          baseFilterHash,
-          refinementFilters,
-          reason: `Row count (${rowCount.toLocaleString()}) exceeds threshold (${sizeThreshold.toLocaleString()}) - fetching pre-aggregated`,
-        };
-      } else {
-        // No aggregation needed but large dataset - go remote (do not attempt to cache raw slice).
-        return {
-          strategy: 'pre_aggregated',
-          columnsToFetch: requiredColumns,
-          estimatedRowCount: rowCount,
-          requiresBackendQuery: true,
-          baseFilterHash,
-          refinementFilters,
-          reason: `Large dataset (${rowCount.toLocaleString()} rows) without aggregation - remote query with reduction/budget`,
-        };
-      }
+      return {
+        strategy: 'pre_aggregated',
+        columnsToFetch,
+        cachedColumns,
+        estimatedRowCount: rowCount,
+        requiresBackendQuery: true,
+        baseFilterHash,
+        refinementFilters,
+        reason: `${prefix}Row count (${rowCount.toLocaleString()}) exceeds threshold (${sizeThreshold.toLocaleString()}) - fetching pre-aggregated`,
+      };
     }
   }
   
