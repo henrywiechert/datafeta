@@ -18,7 +18,8 @@ const DUCKDB_CDN_BASE = 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.32.0
  */
 async function createWorkerFromUrl(url: string): Promise<Worker> {
   const response = await fetch(url);
-  if (!response.ok) {
+  // Type assertion for robustness in tests
+  if (!(response as Response).ok) {
     throw new Error(`Failed to fetch worker script: ${response.status}`);
   }
   const blob = await response.blob();

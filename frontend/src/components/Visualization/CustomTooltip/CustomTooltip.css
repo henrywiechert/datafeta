@@ -3,6 +3,7 @@
   position: fixed;
   pointer-events: none;
   z-index: 999999;
+  text-align: left;
   
   /* Styling matching existing .plot-tip */
   background: rgba(20, 20, 20, 0.95);
@@ -123,6 +124,7 @@
 .custom-tooltip__value {
   font-weight: normal;
   color: #e0e0e0;
+  text-align: left;
   word-wrap: break-word;
   overflow-wrap: break-word;
   word-break: break-word;
