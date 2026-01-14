@@ -103,18 +103,58 @@ export function deriveColorScaleInfo(
 
   if (field.flavour !== 'continuous') {
     const seen = new Set<any>();
-    const orderedValues: any[] = [];
+    const uniqueValues: any[] = [];
     for (const row of data) {
       const value = row?.[columnName];
       const key = value instanceof Date ? value.valueOf() : value;
       if (!seen.has(key)) {
         seen.add(key);
-        orderedValues.push(value);
+        uniqueValues.push(value);
       }
     }
+    
+    // Helper to parse numeric strings
+    const parseNumeric = (v: any): number | null => {
+      if (typeof v === 'number') return v;
+      if (typeof v === 'string') {
+        const trimmed = v.trim();
+        if (trimmed === '') return null;
+        const num = Number(trimmed);
+        return Number.isFinite(num) ? num : null;
+      }
+      return null;
+    };
+    
+    // Sort categories for stable color assignment across queries
+    // Numbers/numeric strings: ascending numeric order
+    // Strings: natural sort (handles "item2" vs "item10")
+    // Dates: chronological
+    // Mixed/null: nulls last, then by type
+    uniqueValues.sort((a, b) => {
+      // Handle nulls - push to end
+      if (a == null && b == null) return 0;
+      if (a == null) return 1;
+      if (b == null) return -1;
+      // Dates
+      if (a instanceof Date && b instanceof Date) {
+        return a.getTime() - b.getTime();
+      }
+      // Try numeric comparison (works for numbers and numeric strings like "1", "2", "10")
+      const numA = parseNumeric(a);
+      const numB = parseNumeric(b);
+      if (numA !== null && numB !== null) {
+        return numA - numB;
+      }
+      // Strings: use natural sort (numeric-aware collation)
+      if (typeof a === 'string' && typeof b === 'string') {
+        return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+      }
+      // Mixed types: convert to string with natural sort
+      return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+    });
     return {
       kind: 'categorical',
-      domain: orderedValues,
+      domain: uniqueValues,
       range,
     };
   }
