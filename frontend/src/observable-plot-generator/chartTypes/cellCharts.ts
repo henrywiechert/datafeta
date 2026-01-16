@@ -203,13 +203,14 @@ function handleScatter(data: any[], xf: Field, yf: Field, ctx: ChartContext): Pl
         ? ctx.sharedCategoricalDomains?.[yCol] 
         : ctx.sharedMeasureDomains?.[yCol]);
   const domainOptions = {
-    x: xCol, 
-    y: yCol,
-    ...(xDomain || yDomain ? { domain: { x: xDomain, y: yDomain } } : {})
+    x: getFieldDisplayName(xf),
+    y: getFieldDisplayName(yf),
+    ...(xDomain || yDomain ? { domain: { x: xDomain, y: yDomain } } : {}),
   };
+  const hasDiscreteColor = ctx.colorField?.flavour === 'discrete';
   
   // Special-case: measure vs measure should be a single dot (global aggregate)
-  if (xf.type === 'measure' && yf.type === 'measure') {
+  if (xf.type === 'measure' && yf.type === 'measure' && !hasDiscreteColor) {
     const single = [{
       [xCol]: aggregateValues(data, xCol, (xf as any).aggregation),
       [yCol]: aggregateValues(data, yCol, (yf as any).aggregation)
