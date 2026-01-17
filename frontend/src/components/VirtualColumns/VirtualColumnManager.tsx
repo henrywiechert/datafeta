@@ -9,6 +9,7 @@ import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import { VirtualColumnDefinition } from '../../types';
 import VirtualColumnEditor from './VirtualColumnEditor';
+import styles from '../Visualization/FieldsPanel/FieldsPanel.module.css';
 
 interface VirtualColumnManagerProps {
   virtualColumns: VirtualColumnDefinition[];
@@ -63,16 +64,10 @@ const VirtualColumnManager: React.FC<VirtualColumnManagerProps> = ({
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+    <Box className={styles.fieldCategory}>
       {/* Header with Add button */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 0.5, position: 'relative' }}>
-        <Typography 
-          variant="subtitle2"
-          sx={{ 
-            fontWeight: 'bold',
-            color: 'rgba(0, 0, 0, 0.6)',
-          }}
-        >
+        <Typography variant="subtitle2" className={styles.categoryTitle}>
           Virtual Columns
         </Typography>
         <IconButton 
@@ -83,60 +78,67 @@ const VirtualColumnManager: React.FC<VirtualColumnManagerProps> = ({
           <AddIcon fontSize="small" />
         </IconButton>
       </Box>
+      <Box className={styles.fieldsContainer}>
+        {virtualColumns.length === 0 && (
+          <Typography variant="body2" className={styles.emptyMessage}>
+            No virtual columns available
+          </Typography>
+        )}
 
-      {/* Compact list */}
-      {virtualColumns.map((column, index) => (
-        <Box
-          key={index}
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 0.5,
-            py: 0.25,
-            px: 0.5,
-            borderRadius: 0.5,
-            bgcolor: 'action.hover',
-            cursor: 'pointer',
-            '&:hover': { bgcolor: 'action.selected' },
-            '&:hover .delete-btn': { opacity: 1 },
-          }}
-          onClick={() => handleEdit(index)}
-        >
-          <Tooltip title={`${column.expression}${column.description ? ` — ${column.description}` : ''}`}>
-            <Typography
-              variant="caption"
-              sx={{
-                flex: 1,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                textAlign: 'left',
-              }}
-            >
-              <strong>{column.name}</strong>
-              <Typography
-                component="span"
-                variant="caption"
-                color="text.secondary"
-                sx={{ ml: 0.5, fontFamily: 'monospace', fontSize: '0.7rem' }}
-              >
-                {truncateExpression(column.expression)}
-              </Typography>
-            </Typography>
-          </Tooltip>
-          <IconButton
-            className="delete-btn"
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(index);
+        {/* Compact list */}
+        {virtualColumns.map((column, index) => (
+          <Box
+            key={index}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              py: 0.25,
+              px: 0.5,
+              borderRadius: 0.5,
+              bgcolor: 'action.hover',
+              cursor: 'pointer',
+              '&:hover': { bgcolor: 'action.selected' },
+              '&:hover .delete-btn': { opacity: 1 },
             }}
-            sx={{ p: 0.25, opacity: 0, transition: 'opacity 0.15s' }}
+            onClick={() => handleEdit(index)}
           >
-            <CloseIcon sx={{ fontSize: 14 }} />
-          </IconButton>
-        </Box>
-      ))}
+            <Tooltip title={`${column.expression}${column.description ? ` — ${column.description}` : ''}`}>
+              <Typography
+                variant="caption"
+                sx={{
+                  flex: 1,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  textAlign: 'left',
+                }}
+              >
+                <strong>{column.name}</strong>
+                <Typography
+                  component="span"
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ ml: 0.5, fontFamily: 'monospace', fontSize: '0.7rem' }}
+                >
+                  {truncateExpression(column.expression)}
+                </Typography>
+              </Typography>
+            </Tooltip>
+            <IconButton
+              className="delete-btn"
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(index);
+              }}
+              sx={{ p: 0.25, opacity: 0, transition: 'opacity 0.15s' }}
+            >
+              <CloseIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+          </Box>
+        ))}
+      </Box>
 
       {/* Editor Dialog */}
       {editorOpen && (
