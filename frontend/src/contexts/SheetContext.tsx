@@ -36,6 +36,15 @@ function createEmptyVisualizationState(): VisualizationStateSnapshot {
     independentDomains: { x: false, y: false },
     tooltipFields: [],
     fieldOverrides: {},
+    optimizationSettings: {
+      forceRemote: false,
+      sizeThreshold: 5_000_000,
+      maxPointsSingle: 50_000,
+      maxPointsFaceted: 50_000,
+      maxPointsWithDiscreteColor: 20_000,
+      minPerStratumWithDiscreteColor: 200,
+      lineBudgetMaxRows: 50_000,
+    },
   };
 }
 

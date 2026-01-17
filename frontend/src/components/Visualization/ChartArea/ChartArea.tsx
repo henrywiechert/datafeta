@@ -48,6 +48,7 @@ const ChartArea: React.FC = () => {
     globalChartType,
     measureValuesSourceFields,
     independentDomains,
+    optimizationSettings,
   } = state as any;
   const { selectedTable, selectedDatabase, virtualTable } = dataSource;
   
@@ -115,6 +116,7 @@ const ChartArea: React.FC = () => {
     additionalColorFields,
     additionalSizeFields,
     additionalLabelFields,
+    optimizationSettings,
   });
 
   // Use the extracted chart generation hook
@@ -317,6 +319,11 @@ const ChartArea: React.FC = () => {
           onToggleIndependentXAxis={handleIndependentXAxisToggle}
           independentYAxis={!!independentDomains?.y}
           onToggleIndependentYAxis={handleIndependentYAxisToggle}
+          optimizationSettings={optimizationSettings}
+          onUpdateOptimizationSettings={(settings) => {
+            dispatch({ type: 'SET_QUERY_OPTIMIZATION_SETTINGS', payload: settings });
+            dispatch({ type: 'FORCE_QUERY_REFRESH' });
+          }}
         />
         
         <DebugPanel

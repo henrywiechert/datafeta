@@ -13,7 +13,7 @@
 
 import { useRef, useEffect } from 'react';
 import { useVisualizationContext } from '../../../../contexts/VisualizationContext';
-import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition } from '../../../../types';
+import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition, QueryOptimizationSettings } from '../../../../types';
 import { useConnection } from '../../../../contexts/ConnectionContext';
 import { requiresUnpivoting } from '../../../../queryBuilder/syntheticQueryBuilder';
 import { useDataSource } from '../../../../contexts/DataSourceContext';
@@ -38,6 +38,7 @@ export interface UseQueryExecutionProps {
   additionalColorFields?: Field[];
   additionalSizeFields?: Field[];
   additionalLabelFields?: Field[];
+  optimizationSettings?: QueryOptimizationSettings;
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
   dispatch: (action: any) => void;
@@ -89,6 +90,7 @@ export const useQueryExecution = ({
   additionalColorFields = [],
   additionalSizeFields = [],
   additionalLabelFields = [],
+  optimizationSettings,
   startOperation,
   completeOperation,
   dispatch,
@@ -140,6 +142,7 @@ export const useQueryExecution = ({
     availableFields: dataSource.availableFields,
     measureGroupMeasures: dataSource.measureGroupFields.map(field => field.columnName),
     optimizationHints,
+    optimizationSettings,
     dispatch,
     startOperation,
     completeOperation,

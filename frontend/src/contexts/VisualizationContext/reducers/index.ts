@@ -6,6 +6,7 @@ import { encodingReducer } from './encodingReducer';
 import { virtualColumnReducer } from './virtualColumnReducer';
 import { overridesReducer } from './overridesReducer';
 import { undoRedoReducer } from './undoRedoReducer';
+import { optimizationReducer } from './optimizationReducer';
 
 /**
  * Combined reducer that delegates to domain-specific reducers.
@@ -21,6 +22,7 @@ export function visualizationReducer(state: VisualizationState, action: Visualiz
     virtualColumnReducer,
     overridesReducer,
     undoRedoReducer,
+    optimizationReducer,
   ];
 
   for (const reducer of reducers) {

@@ -329,6 +329,16 @@ export type Flavour = 'discrete' | 'continuous';
 export type DataType = 'string' | 'integer' | 'float' | 'datetime';
 export type DateTimePart = 'year' | 'month' | 'day' | 'weekday' | 'hour' | 'minute' | 'second' | 'millisecond' | 'microsecond' | 'nanosecond';
 export type DateTimeMode = 'distinct' | 'timeline';
+
+export interface QueryOptimizationSettings {
+  forceRemote: boolean;
+  sizeThreshold: number;
+  maxPointsSingle: number;
+  maxPointsFaceted: number;
+  maxPointsWithDiscreteColor: number;
+  minPerStratumWithDiscreteColor: number;
+  lineBudgetMaxRows: number;
+}
 export type DragSource =
   | 'X_AXIS'
   | 'Y_AXIS'
@@ -516,6 +526,7 @@ export interface VisualizationStateSnapshot {
   virtualColumns?: VirtualColumnDefinition[]; // Virtual/calculated columns
   virtualColumnFieldPreferences?: Record<string, { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }>; // Field preferences for virtual columns
   tooltipFields?: Field[]; // Fields to show in tooltips only (do not affect chart visualization)
+  optimizationSettings?: QueryOptimizationSettings;
 }
 
 // Sheet represents a single visualization configuration

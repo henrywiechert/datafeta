@@ -1,5 +1,5 @@
-import React, { Suspense, useState } from 'react';
-import { Box, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button } from '@mui/material';
+import React, { Suspense, useEffect, useState } from 'react';
+import { Box, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, TextField, Switch, FormControlLabel, Divider } from '@mui/material';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
@@ -8,8 +8,10 @@ import RedoIcon from '@mui/icons-material/Redo';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import LinkIcon from '@mui/icons-material/Link';
 import LinkOffIcon from '@mui/icons-material/LinkOff';
+import SettingsIcon from '@mui/icons-material/Settings';
 import QueryStatusIndicator from './QueryStatusIndicator';
 import DatasetStatus from './DatasetStatus';
+import { QueryOptimizationSettings } from '../../../../types';
 
 const DevSqlViewerControl =
   process.env.NODE_ENV !== 'production'
@@ -32,6 +34,8 @@ interface ChartControlsProps {
   onToggleIndependentXAxis: (independent: boolean) => void;
   independentYAxis: boolean;
   onToggleIndependentYAxis: (independent: boolean) => void;
+  optimizationSettings: QueryOptimizationSettings;
+  onUpdateOptimizationSettings: (settings: QueryOptimizationSettings) => void;
 }
 
 const ChartControls: React.FC<ChartControlsProps> = ({
@@ -50,8 +54,18 @@ const ChartControls: React.FC<ChartControlsProps> = ({
   onToggleIndependentXAxis,
   independentYAxis,
   onToggleIndependentYAxis,
+  optimizationSettings,
+  onUpdateOptimizationSettings,
 }) => {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [draftSettings, setDraftSettings] = useState<QueryOptimizationSettings>(optimizationSettings);
+
+  useEffect(() => {
+    if (settingsDialogOpen) {
+      setDraftSettings(optimizationSettings);
+    }
+  }, [settingsDialogOpen, optimizationSettings]);
 
   const handleResetClick = () => {
     setResetDialogOpen(true);
@@ -64,6 +78,22 @@ const ChartControls: React.FC<ChartControlsProps> = ({
 
   const handleResetCancel = () => {
     setResetDialogOpen(false);
+  };
+
+  const handleSettingsSave = () => {
+    onUpdateOptimizationSettings(draftSettings);
+    setSettingsDialogOpen(false);
+  };
+
+  const handleSettingsClose = () => {
+    setSettingsDialogOpen(false);
+  };
+
+  const updateNumberSetting = (key: keyof QueryOptimizationSettings, value: string) => {
+    const parsed = Number(value);
+    if (!Number.isNaN(parsed)) {
+      setDraftSettings((prev) => ({ ...prev, [key]: parsed }));
+    }
   };
 
   return (
@@ -157,6 +187,21 @@ const ChartControls: React.FC<ChartControlsProps> = ({
             </span>
           </Tooltip>
         )}
+
+        <Tooltip title="Query optimization settings">
+          <IconButton
+            onClick={() => setSettingsDialogOpen(true)}
+            size="small"
+            sx={{
+              color: 'text.secondary',
+              '&:hover': {
+                backgroundColor: 'action.hover',
+              },
+            }}
+          >
+            <SettingsIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
 
         <Tooltip title={independentXAxis ? 'Independent X per facet (click to share)' : 'Shared X across facets (click to separate)'}>
           <span>
@@ -252,6 +297,96 @@ const ChartControls: React.FC<ChartControlsProps> = ({
           </Button>
           <Button onClick={handleResetConfirm} color="warning" variant="contained">
             Reset
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={settingsDialogOpen}
+        onClose={handleSettingsClose}
+        aria-labelledby="optimization-settings-title"
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle id="optimization-settings-title">
+          Query Optimization Settings
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={draftSettings.forceRemote}
+                onChange={(e) =>
+                  setDraftSettings((prev) => ({ ...prev, forceRemote: e.target.checked }))
+                }
+              />
+            }
+            label="Force remote query (skip DuckDB cache)"
+          />
+
+          <TextField
+            label="Large dataset threshold (rows)"
+            type="number"
+            value={draftSettings.sizeThreshold}
+            onChange={(e) => updateNumberSetting('sizeThreshold', e.target.value)}
+            inputProps={{ min: 0 }}
+            size="small"
+            helperText="Above this row count, prefer backend aggregation."
+          />
+
+          <Divider />
+
+          <TextField
+            label="Max points (single chart)"
+            type="number"
+            value={draftSettings.maxPointsSingle}
+            onChange={(e) => updateNumberSetting('maxPointsSingle', e.target.value)}
+            inputProps={{ min: 0 }}
+            size="small"
+          />
+
+          <TextField
+            label="Max points (faceted charts)"
+            type="number"
+            value={draftSettings.maxPointsFaceted}
+            onChange={(e) => updateNumberSetting('maxPointsFaceted', e.target.value)}
+            inputProps={{ min: 0 }}
+            size="small"
+          />
+
+          <TextField
+            label="Max points (discrete color cap)"
+            type="number"
+            value={draftSettings.maxPointsWithDiscreteColor}
+            onChange={(e) => updateNumberSetting('maxPointsWithDiscreteColor', e.target.value)}
+            inputProps={{ min: 0 }}
+            size="small"
+            helperText="Applied when color field is discrete."
+          />
+
+          <TextField
+            label="Min per stratum (discrete color)"
+            type="number"
+            value={draftSettings.minPerStratumWithDiscreteColor}
+            onChange={(e) => updateNumberSetting('minPerStratumWithDiscreteColor', e.target.value)}
+            inputProps={{ min: 0 }}
+            size="small"
+          />
+
+          <TextField
+            label="Line chart max rows"
+            type="number"
+            value={draftSettings.lineBudgetMaxRows}
+            onChange={(e) => updateNumberSetting('lineBudgetMaxRows', e.target.value)}
+            inputProps={{ min: 0 }}
+            size="small"
+            helperText="Limits aggregated line results for dense series."
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleSettingsClose}>Cancel</Button>
+          <Button variant="contained" onClick={handleSettingsSave}>
+            Apply
           </Button>
         </DialogActions>
       </Dialog>
