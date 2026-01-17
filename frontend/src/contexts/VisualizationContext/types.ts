@@ -1,4 +1,4 @@
-import { Field, Database, Table, QueryResult, FilterConfig, FilterMetadata, VirtualColumnDefinition, FieldOverrideState, UserChartType } from '../../types';
+import { Field, Database, Table, QueryResult, FilterConfig, FilterMetadata, VirtualColumnDefinition, FieldOverrideState, UserChartType, QueryOptimizationSettings } from '../../types';
 
 // Define loading operation types
 export type LoadingOperationType = 'query' | 'rendering' | 'metadata';
@@ -45,6 +45,8 @@ export interface VisualizationState {
   labelSampleEvery: number;
   // Tooltip configuration state
   tooltipFields: Field[];
+  // Query optimization settings
+  optimizationSettings: QueryOptimizationSettings;
   // Axis domain sharing controls
   independentDomains: { x: boolean; y: boolean };
   // Per-operation timing
@@ -138,6 +140,9 @@ export type VisualizationAction =
   | { type: 'CLEAR_FIELD_OVERRIDE'; payload: { fieldId: string } }
   // Global chart type action
   | { type: 'SET_GLOBAL_CHART_TYPE'; payload: UserChartType | null }
+  // Query optimization settings
+  | { type: 'SET_QUERY_OPTIMIZATION_SETTINGS'; payload: QueryOptimizationSettings }
+  | { type: 'UPDATE_QUERY_OPTIMIZATION_SETTINGS'; payload: Partial<QueryOptimizationSettings> }
   // Undo/Redo actions
   | { type: 'RESTORE_UNDOABLE_STATE'; payload: {
       xAxisFields: Field[];
