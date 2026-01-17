@@ -1,17 +1,19 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import CategoryIcon from '@mui/icons-material/Category';
 import { v4 as uuidv4 } from 'uuid';
-import { PropertySection, PropertyDropZone } from '../Properties';
+import { PropertySection } from '../Properties';
 import { useDataSource } from '../../../contexts/DataSourceContext';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { Field } from '../../../types';
 import { isMeasureNamesField, isMeasureValuesField } from '../../../utils/syntheticFields';
 import FieldChip from '../FieldChip';
+import filterDropZoneStyles from '../Filters/FilterDropZone.module.css';
 
 const MeasureGroupsPanel: React.FC = () => {
   const { dataSource, setMeasureGroupFields, removeMeasureFromGroup, clearMeasureGroup } = useDataSource();
   const { dispatch } = useVisualizationContext();
+  const [isOver, setIsOver] = useState(false);
 
   const { measureGroupFields, availableFields } = dataSource;
 
@@ -97,6 +99,18 @@ const MeasureGroupsPanel: React.FC = () => {
     dispatch({ type: 'FORCE_QUERY_REFRESH' });
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsOver(false);
+  };
+
   return (
     <PropertySection
       title="Measure Group"
@@ -104,23 +118,29 @@ const MeasureGroupsPanel: React.FC = () => {
       defaultExpanded={false}
       storageKey="measureGroupPanel.expanded"
       headerActions={
-        <Button size="small" onClick={handleClear} disabled={measureGroupFields.length === 0}>
-          Clear
-        </Button>
+        measureGroupFields.length > 0 ? (
+          <Button size="small" onClick={handleClear} sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: '0.75rem' }}>
+            Clear
+          </Button>
+        ) : null
       }
     >
-      <PropertyDropZone
-        hasContent={true}
-        emptyMessage=""
-        onDrop={handleDrop}
+      <Box
+        className={`${filterDropZoneStyles.dropZone} ${isOver ? filterDropZoneStyles.isOver : ''}`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => {
+          setIsOver(false);
+          handleDrop(e);
+        }}
       >
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0.5 }}>
-          {orderedMeasureFields.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">
-              Drag measures here to define MeasureNames/MeasureValues
-            </Typography>
-          ) : (
-            orderedMeasureFields.map((field) => (
+        {orderedMeasureFields.length === 0 ? (
+          <Typography variant="body2" className={filterDropZoneStyles.placeholder}>
+            Measures
+          </Typography>
+        ) : (
+          <Box className={filterDropZoneStyles.fieldsList}>
+            {orderedMeasureFields.map((field) => (
               <FieldChip
                 key={field.id}
                 field={field}
@@ -132,15 +152,10 @@ const MeasureGroupsPanel: React.FC = () => {
                   dispatch({ type: 'FORCE_QUERY_REFRESH' });
                 }}
               />
-            ))
-          )}
-        </Box>
-      </PropertyDropZone>
-      <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
-        {measureGroupFields.length === 0
-          ? 'No measures selected'
-          : `${measureGroupFields.length} measure${measureGroupFields.length === 1 ? '' : 's'} selected`}
-      </Typography>
+            ))}
+          </Box>
+        )}
+      </Box>
     </PropertySection>
   );
 };
