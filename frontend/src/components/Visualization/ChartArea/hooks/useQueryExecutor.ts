@@ -42,6 +42,7 @@ export interface UseQueryExecutorProps {
   virtualTable: VirtualTableDefinition | null;
   virtualColumns: VirtualColumnDefinition[];
   availableFields: Field[];
+  measureGroupMeasures?: string[];
   optimizationHints: OptimizationHints | null;
   dispatch: (action: any) => void;
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
@@ -76,6 +77,7 @@ export const useQueryExecutor = ({
   virtualTable,
   virtualColumns,
   availableFields,
+  measureGroupMeasures,
   optimizationHints,
   dispatch,
   startOperation,
@@ -122,6 +124,7 @@ export const useQueryExecutor = ({
             virtualTable,
             virtualColumns,
             optimizationHints,
+            measureGroupMeasureNames: measureGroupMeasures,
             signal: queryAbortControllerRef.current.signal,
           });
         } else {
@@ -331,6 +334,7 @@ export const useQueryExecutor = ({
       xAxisFields,
       yAxisFields,
       availableFields,
+      measureGroupMeasures,
       filterConfigurations,
       appliedFilterConfigurations,
       labelFields,

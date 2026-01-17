@@ -15,6 +15,7 @@ import ChartPanel from '../components/Visualization/ChartPanel';
 import FilterPanel from '../components/Visualization/Filters/FilterPanel';
 import LegendPanel from '../components/Visualization/Legend/LegendPanel';
 import FieldOverridesPanel from '../components/Visualization/Overrides/FieldOverridesPanel';
+import MeasureGroupsPanel from '../components/Visualization/MeasureGroups';
 import LoadingModal from '../components/LoadingModal';
 import CollapsedPanelStrip from '../components/Layout/CollapsedPanelStrip';
 import PanelResizeHandleWithToggle from '../components/Layout/PanelResizeHandleWithToggle';
@@ -395,6 +396,7 @@ const VisualizationPageContent = () => {
                                   onApplyFilters={handleApplyFilters}
                                   onRefetchValues={refetchFilterValues}
                               />
+                              <MeasureGroupsPanel />
                               <FieldOverridesPanel />
                               {state.colorField && (
                                   <LegendPanel

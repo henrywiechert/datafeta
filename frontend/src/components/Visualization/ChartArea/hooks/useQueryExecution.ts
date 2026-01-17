@@ -17,7 +17,7 @@ import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, Vir
 import { useConnection } from '../../../../contexts/ConnectionContext';
 import { requiresUnpivoting } from '../../../../queryBuilder/syntheticQueryBuilder';
 import { useDataSource } from '../../../../contexts/DataSourceContext';
-import { getMeasureFieldsForUnpivot, MEASURE_NAMES_FIELD } from '../../../../utils/syntheticFields';
+import { getMeasureFieldsForUnpivot } from '../../../../utils/syntheticFields';
 import { duckdbService } from '../../../../services/duckdbService';
 import { QueryDecision } from '../../../../services/queryDecisionEngine';
 import { useQueryBuilder } from './useQueryBuilder';
@@ -138,6 +138,7 @@ export const useQueryExecution = ({
     virtualTable,
     virtualColumns,
     availableFields: dataSource.availableFields,
+    measureGroupMeasures: dataSource.measureGroupMeasures,
     optimizationHints,
     dispatch,
     startOperation,
@@ -167,18 +168,9 @@ export const useQueryExecution = ({
     lastExecutedVersionRef.current = queryVersion;
 
     if (needsUnpivot) {
-      // Compute source measures (respecting MeasureNames filter if present)
-      const measureNamesFilterEntry = Object.entries(vizState.appliedFilterConfigurations).find(
-        ([, config]) => config.columnName === MEASURE_NAMES_FIELD
-      );
-      const measureNamesFilterValues =
-        measureNamesFilterEntry && measureNamesFilterEntry[1].type === 'discrete'
-          ? (measureNamesFilterEntry[1] as any).selectedValues as string[]
-          : undefined;
-
       const sourceMeasures = getMeasureFieldsForUnpivot(
         dataSource.availableFields,
-        measureNamesFilterValues
+        dataSource.measureGroupMeasures
       );
       dispatch({ type: 'SET_MEASURE_VALUES_SOURCE_FIELDS', payload: sourceMeasures });
 

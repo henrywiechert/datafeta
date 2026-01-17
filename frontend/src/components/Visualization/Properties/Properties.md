@@ -164,6 +164,7 @@ Drag Over:                Has Content:
 | `LabelFieldControl` | `PropertyDropZone` |
 | `TooltipFieldControl` | `PropertyDropZone` |
 | `ColorDropZone` | `PropertyDropZone` |
+| `MeasureGroupsPanel` | `PropertySection` |
 
 ---
 
@@ -226,3 +227,14 @@ const handleDragOver = (e: React.DragEvent) => {
 3. **Responsive**: Proper overflow handling with `min-width: 0`
 4. **Accessible**: Keyboard-friendly, clear visual states
 5. **Persistent**: User preferences remembered via localStorage
+
+---
+
+## Measure Group Panel
+
+Measure Group provides a single drop zone that defines which measures participate in the
+synthetic `MeasureNames` / `MeasureValues` fields. Default is empty.
+
+**Smoke checks:**
+- Drag measures into the group and verify `MeasureValues` uses only those measures.
+- Clear the group and confirm synthetic fields disappear from available fields.

@@ -25,7 +25,8 @@ export function useVisualizationState() {
         setMetadataError,
         setSuggestedJoinableTables,
         setSuggestedUnionableTables,
-        setVirtualTable
+        setVirtualTable,
+        setMeasureGroupMeasures
     } = dataSourceContext;
 
     // Data source setters for sub-hooks
@@ -39,7 +40,8 @@ export function useVisualizationState() {
         setMetadataError,
         setSuggestedJoinableTables,
         setSuggestedUnionableTables,
-        setVirtualTable
+        setVirtualTable,
+        setMeasureGroupMeasures
     };
 
     // Initialize sub-hooks
@@ -83,8 +85,7 @@ export function useVisualizationState() {
         selectedDatabase: dataSource.selectedDatabase,
         unionTables: dataSource.unionTables,
         connectionDetails,
-        dispatch,
-        availableFields: dataSource.availableFields
+        dispatch
     });
 
     // Sync visualization state changes back to the active sheet
