@@ -143,28 +143,29 @@ export async function buildUnpivotedQuery({
   
   // Add all measure fields with the aggregation from MeasureValues
   const aggregation = measureValuesField?.aggregation || 'sum';
-  for (const measureField of measureFields) {
-    fieldsForQuery.push({
+  const measureFieldsForUnpivot = measureFields.map((measureField) => ({
+    ...measureField,
+    aggregation: aggregation,
+  }));
+  for (const measureField of measureFieldsForUnpivot) {
+    fieldsForQuery.push(measureField);
+  }
+
+  const fieldKeySet = new Set(fieldsForQuery.map((field) => getResultColumnName(field)));
+
+  // Add other non-synthetic measures (including those explicitly placed on axes)
+  const otherMeasureFields = allFields.filter(
+    field => field.type === 'measure' && !isSyntheticField(field)
+  );
+  for (const measureField of otherMeasureFields) {
+    const measureWithAgg = {
       ...measureField,
-      aggregation: aggregation,
-    });
-  }
-  
-  // If colorField or sizeField are measures (not in measureFields), add them too
-  if (colorField && colorField.type === 'measure' && !isSyntheticField(colorField)) {
-    if (!measureFields.some(m => m.columnName === colorField.columnName)) {
-      fieldsForQuery.push({
-        ...colorField,
-        aggregation: colorField.aggregation || 'sum',
-      });
-    }
-  }
-  if (sizeField && sizeField.type === 'measure' && !isSyntheticField(sizeField)) {
-    if (!measureFields.some(m => m.columnName === sizeField.columnName)) {
-      fieldsForQuery.push({
-        ...sizeField,
-        aggregation: sizeField.aggregation || 'sum',
-      });
+      aggregation: measureField.aggregation || 'sum',
+    };
+    const key = getResultColumnName(measureWithAgg);
+    if (!fieldKeySet.has(key)) {
+      fieldsForQuery.push(measureWithAgg);
+      fieldKeySet.add(key);
     }
   }
 
@@ -212,7 +213,22 @@ export async function buildUnpivotedQuery({
   const result = await apiService.executeQueryArrow(queryDesc, signal);
   
   // Transform result: convert measure columns into MeasureNames/MeasureValues rows
-  return transformMeasuresToRows(result, measureFields, allFields);
+  const axisMeasureFields = [...xFields, ...yFields].filter(
+    field => field.type === 'measure' && !isSyntheticField(field)
+  );
+  const axisMeasureColumnNames = new Set(
+    axisMeasureFields.map((field) => getResultColumnName({
+      ...field,
+      aggregation: field.aggregation || 'sum',
+    }))
+  );
+
+  return transformMeasuresToRows(
+    result,
+    measureFieldsForUnpivot,
+    allFields,
+    axisMeasureColumnNames
+  );
 }
 
 /**
@@ -228,7 +244,8 @@ export async function buildUnpivotedQuery({
 function transformMeasuresToRows(
   result: QueryResult,
   measureFields: Field[],
-  originalFields: Field[]
+  originalFields: Field[],
+  axisMeasureColumnNames: Set<string>
 ): QueryResult {
   const transformedRows: any[] = [];
   
@@ -253,13 +270,10 @@ function transformMeasuresToRows(
   const measureValuesColumnName = `${aggregation.toUpperCase()}(${MEASURE_VALUES_FIELD})`;
   
   // Get measure column names (with aggregation aliases)
-  const measureColumnNames = measureFields.map(f => {
-    // Find the result column name for this measure
-    const col = result.columns.find(c => {
-      // Match by base name (handles SUM(field), AVG(field), etc.)
-      return c.name.includes(f.columnName);
-    });
-    return col ? col.name : f.columnName;
+  const measureColumnNames = measureFields.map((field) => {
+    const expected = getResultColumnName(field);
+    const col = result.columns.find(c => c.name === expected);
+    return col ? col.name : expected;
   });
 
   // Transform each row
@@ -284,12 +298,17 @@ function transformMeasuresToRows(
       }
       
       // Copy other measure values (measures that aren't being unpivoted, like colorField/sizeField)
+      // For axis measures, only copy once per original row to avoid duplication.
+      const isPrimaryRow = i === 0;
       for (const measureField of otherMeasureFields) {
-        // Only copy if this measure is NOT one being unpivoted
-        if (!unpivotedMeasureNames.has(measureField.columnName)) {
-          const measureColumnName = getResultColumnName(measureField);
-          newRow[measureColumnName] = row[measureColumnName];
+        const measureColumnName = getResultColumnName({
+          ...measureField,
+          aggregation: measureField.aggregation || 'sum',
+        });
+        if (axisMeasureColumnNames.has(measureColumnName) && !isPrimaryRow) {
+          continue;
         }
+        newRow[measureColumnName] = row[measureColumnName];
       }
 
       // Add synthetic columns with proper names
@@ -312,14 +331,20 @@ function transformMeasuresToRows(
     }
   }
   
-  // Add other measure columns (that aren't being unpivoted)
+  // Add other measure columns (including explicitly placed measures)
+  const addedColumns = new Set(newColumns.map(col => col.name));
   for (const measureField of otherMeasureFields) {
-    if (!unpivotedMeasureNames.has(measureField.columnName)) {
-      const measureColumnName = getResultColumnName(measureField);
-      const origCol = result.columns.find(c => c.name === measureColumnName);
-      if (origCol) {
-        newColumns.push(origCol);
-      }
+    const measureColumnName = getResultColumnName({
+      ...measureField,
+      aggregation: measureField.aggregation || 'sum',
+    });
+    if (addedColumns.has(measureColumnName)) {
+      continue;
+    }
+    const origCol = result.columns.find(c => c.name === measureColumnName);
+    if (origCol) {
+      newColumns.push(origCol);
+      addedColumns.add(measureColumnName);
     }
   }
   
