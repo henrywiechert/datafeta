@@ -8,7 +8,7 @@
 
 import { useMemo } from 'react';
 import { buildQuery } from '../../../../queryBuilder/queryBuilder';
-import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition } from '../../../../types';
+import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition, QueryOptimizationSettings } from '../../../../types';
 import { generateOptimizationHintsFromFields } from '../../../../services/optimizationHintGenerator';
 
 export interface UseQueryBuilderProps {
@@ -28,6 +28,7 @@ export interface UseQueryBuilderProps {
   additionalLabelFields: Field[];
   /** Connection type (e.g., 'clickhouse', 'csv') - used for validation */
   connectionType?: string;
+  optimizationSettings?: QueryOptimizationSettings;
 }
 
 export interface UseQueryBuilderReturn {
@@ -89,6 +90,7 @@ export const useQueryBuilder = ({
   additionalSizeFields,
   additionalLabelFields,
   connectionType,
+  optimizationSettings,
 }: UseQueryBuilderProps): UseQueryBuilderReturn => {
   
   // Generate optimization hints based on field configuration
@@ -112,6 +114,16 @@ export const useQueryBuilder = ({
         colorField,
         sizeField,
         userPreference: 'auto',
+        roundingSettings: optimizationSettings
+          ? {
+              enabled: optimizationSettings.enableRounding,
+              thresholds: {
+                light: optimizationSettings.roundingThresholdLight,
+                balanced: optimizationSettings.roundingThresholdBalanced,
+                aggressive: optimizationSettings.roundingThresholdAggressive,
+              },
+            }
+          : undefined,
       });
 
       console.log('✅ Generated hints:', {
@@ -125,7 +137,7 @@ export const useQueryBuilder = ({
       console.error('❌ Failed to generate optimization hints:', error);
       return null;
     }
-  }, [xAxisFields, yAxisFields, colorField, sizeField]);
+  }, [xAxisFields, yAxisFields, colorField, sizeField, optimizationSettings]);
 
   // Build the query description from field configuration
   const queryDescription = useMemo((): QueryDescription | null => {

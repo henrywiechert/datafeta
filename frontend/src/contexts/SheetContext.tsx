@@ -44,6 +44,10 @@ function createEmptyVisualizationState(): VisualizationStateSnapshot {
       maxPointsWithDiscreteColor: 20_000,
       minPerStratumWithDiscreteColor: 200,
       lineBudgetMaxRows: 50_000,
+      enableRounding: true,
+      roundingThresholdLight: 1000,
+      roundingThresholdBalanced: 500,
+      roundingThresholdAggressive: 200,
     },
   };
 }

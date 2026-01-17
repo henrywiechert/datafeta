@@ -402,6 +402,53 @@ const ChartControls: React.FC<ChartControlsProps> = ({
             size="small"
             helperText="Limits aggregated line results for dense series."
           />
+
+          <Divider />
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={draftSettings.enableRounding}
+                onChange={(e) =>
+                  setDraftSettings((prev) => ({ ...prev, enableRounding: e.target.checked }))
+                }
+              />
+            }
+            label="Enable adaptive rounding"
+          />
+
+          <TextField
+            label="Rounding threshold (light)"
+            type="number"
+            value={draftSettings.roundingThresholdLight}
+            onChange={(e) => updateNumberSetting('roundingThresholdLight', e.target.value)}
+            inputProps={{ min: 0 }}
+            size="small"
+            disabled={!draftSettings.enableRounding}
+            helperText="Applies when auto optimization chooses light."
+          />
+
+          <TextField
+            label="Rounding threshold (balanced)"
+            type="number"
+            value={draftSettings.roundingThresholdBalanced}
+            onChange={(e) => updateNumberSetting('roundingThresholdBalanced', e.target.value)}
+            inputProps={{ min: 0 }}
+            size="small"
+            disabled={!draftSettings.enableRounding}
+            helperText="Applies when auto optimization chooses balanced."
+          />
+
+          <TextField
+            label="Rounding threshold (aggressive)"
+            type="number"
+            value={draftSettings.roundingThresholdAggressive}
+            onChange={(e) => updateNumberSetting('roundingThresholdAggressive', e.target.value)}
+            inputProps={{ min: 0 }}
+            size="small"
+            disabled={!draftSettings.enableRounding}
+            helperText="Applies when auto optimization chooses aggressive."
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={handleSettingsClose}>Cancel</Button>
