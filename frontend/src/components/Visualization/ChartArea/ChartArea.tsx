@@ -7,6 +7,8 @@ import { useUndoRedo } from '../../../hooks/useUndoRedo';
 import { useRenderingCoordinator } from '../../../hooks/useRenderingCoordinator';
 import { useChartGeneration, useQueryExecution, useDataProcessing, useDebugView, useFullscreen } from './hooks';
 import { ChartRenderer, ChartControls, DebugPanel } from './components';
+import LegendPanel from '../Legend/LegendPanel';
+import LegendStack from '../Legend/LegendStack';
 import FacetLimitDialog from '../FacetLimitDialog';
 
 /**
@@ -279,6 +281,8 @@ const ChartArea: React.FC = () => {
     renderingCoordinator.markPlotRendered(plotId);
   }, [renderingCoordinator]);
 
+  const showLegend = Boolean(colorField && queryResult?.rows?.length);
+
   return (
     <div className={styles.container}>
       <div 
@@ -323,6 +327,16 @@ const ChartArea: React.FC = () => {
           debugData={debugData}
         />
       </div>
+      {showLegend && (
+        <LegendStack>
+          <LegendPanel
+            colorField={colorField}
+            queryResult={queryResult}
+            colorScheme={colorScheme}
+            colorBias={colorBias}
+          />
+        </LegendStack>
+      )}
 
       {/* Facet Limit Warning Dialog */}
       <FacetLimitDialog
