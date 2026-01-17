@@ -36,7 +36,7 @@ const VisualizationPageContent = () => {
     const {
         xAxisFields,
         yAxisFields,
-        availableFields,
+        availableFields: dataSourceAvailableFields,
         databases,
         tables,
         selectedDatabase,
@@ -104,7 +104,7 @@ const VisualizationPageContent = () => {
         handleRemoveFromSize,
         handleRemoveFromLabel,
         handleRemoveFromTooltip,
-    } = useDragDrop(availableFields);    // Undo/Redo handlers
+    } = useDragDrop(dataSourceAvailableFields);    // Undo/Redo handlers
     const handleUndo = React.useCallback(() => {
         const previousState = undo();
         if (previousState) {
@@ -182,7 +182,8 @@ const VisualizationPageContent = () => {
         suggestedJoinableTables, 
         joinedTables,
         unionTables,
-        tablesCache
+        tablesCache,
+        measureGroupFields
     } = dataSourceContext.dataSource;
     const {
         toggleJoinedTable: toggleJoinedTableBase,
@@ -190,6 +191,7 @@ const VisualizationPageContent = () => {
         removeUnionTable: removeUnionTableBase,
         setTablesForDatabase,
         setMetadataError,
+        setMeasureGroupFields
     } = dataSourceContext;
     const { state: sheetState } = useSheetContext();
     
@@ -210,6 +212,16 @@ const VisualizationPageContent = () => {
     const removeUnionTable = React.useCallback((database: string, tableName: string) => {
         removeUnionTableBase(database, tableName);
     }, [removeUnionTableBase]);
+
+    const handleRemoveFromMeasureGroup = React.useCallback((fieldIds: string[]) => {
+        if (fieldIds.length === 0) return;
+        const idSet = new Set(fieldIds);
+        const remaining = measureGroupFields.filter((field) => !idSet.has(field.id));
+        if (remaining.length !== measureGroupFields.length) {
+            setMeasureGroupFields(remaining);
+            dispatch({ type: 'FORCE_QUERY_REFRESH' });
+        }
+    }, [measureGroupFields, setMeasureGroupFields, dispatch]);
     
     // Handler to load tables for a specific database (for cross-database union)
     const handleLoadTablesForDatabase = React.useCallback(async (database: string) => {
@@ -322,7 +334,7 @@ const VisualizationPageContent = () => {
                             />
                         ) : (
                             <FieldsPanel
-                                    availableFields={availableFields}
+                                    availableFields={dataSourceAvailableFields}
                                     fieldsSearch={fieldsSearch}
                                     onFieldsSearchChange={setFieldsSearch}
                                     onFieldUpdate={handleFieldUpdate}
@@ -333,6 +345,7 @@ const VisualizationPageContent = () => {
                                     onRemoveFromSize={handleRemoveFromSize}
                                     onRemoveFromLabel={(ids) => ids.forEach(handleRemoveFromLabel)}
                                     onRemoveFromTooltip={(ids) => ids.forEach(handleRemoveFromTooltip)}
+                                    onRemoveFromMeasureGroup={handleRemoveFromMeasureGroup}
                                     connectionType={connectionDetails?.type || ''}
                                     selectedDatabase={selectedDatabase}
                                     selectedTable={selectedTable}
@@ -396,7 +409,6 @@ const VisualizationPageContent = () => {
                                   onApplyFilters={handleApplyFilters}
                                   onRefetchValues={refetchFilterValues}
                               />
-                              <MeasureGroupsPanel />
                               <FieldOverridesPanel />
                               {state.colorField && (
                                   <LegendPanel
@@ -406,6 +418,7 @@ const VisualizationPageContent = () => {
                                       colorBias={state.colorBias}
                                   />
                               )}
+                              <MeasureGroupsPanel />
                           </Box>
                         )}
                     </Panel>

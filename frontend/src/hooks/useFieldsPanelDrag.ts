@@ -13,7 +13,8 @@ export function useFieldsPanelDrag(
   onRemoveFromColor?: (fieldIds: string[]) => void,
   onRemoveFromSize?: (fieldIds: string[]) => void,
   onRemoveFromLabel?: (fieldIds: string[]) => void,
-  onRemoveFromTooltip?: (fieldIds: string[]) => void
+  onRemoveFromTooltip?: (fieldIds: string[]) => void,
+  onRemoveFromMeasureGroup?: (fieldIds: string[]) => void
 ) {
   const [isDragOver, setIsDragOver] = useState(false);
   
@@ -89,6 +90,8 @@ export function useFieldsPanelDrag(
         onRemoveFromLabel?.(fieldIds);
       } else if (source === 'TOOLTIP_ZONE') {
         onRemoveFromTooltip?.(fieldIds);
+      } else if (source === 'MEASURE_GROUP') {
+        onRemoveFromMeasureGroup?.(fieldIds);
       }
 
       // Clear selection after successful removal

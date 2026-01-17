@@ -106,6 +106,30 @@ export function useDragDrop(availableFields?: Field[]) {
       return;
     }
     
+    if (source === 'MEASURE_GROUP') {
+      // Use the dragged field copies directly
+      const fieldCopies = fieldsToAdd.map(f => ({ ...f, id: uuidv4() }));
+      
+      if (fieldCopies.length === 0) return;
+      
+      // Add to target axis at the specified index or at the end
+      const targetFields = targetAxis === 'x' ? [...currentXFields] : [...currentYFields];
+      
+      if (index !== undefined) {
+        targetFields.splice(index, 0, ...fieldCopies);
+      } else {
+        targetFields.push(...fieldCopies);
+      }
+      
+      // Update the target axis
+      dispatch({ 
+        type: targetAxis === 'x' ? 'SET_X_AXIS_FIELDS' : 'SET_Y_AXIS_FIELDS',
+        payload: targetFields
+      });
+      
+      return;
+    }
+    
     // Handle drops between axes
     const sourceAxis = source === 'X_AXIS' ? 'x' : 'y';
     

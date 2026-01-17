@@ -14,7 +14,7 @@ interface DataSourceState {
     selectedTable: string;
     availableFields: Field[];
     isLoadingMetadata: boolean;
-    measureGroupMeasures: string[];
+    measureGroupFields: Field[];
     joinedTables: string[];
     unionTables: Array<{database: string, table_name: string}>;
     virtualTable: any | null;
@@ -30,7 +30,7 @@ interface DataSourceSetters {
     setSuggestedJoinableTables: (tables: string[]) => void;
     setSuggestedUnionableTables: (tables: string[]) => void;
     setVirtualTable: (table: any) => void;
-    setMeasureGroupMeasures: (measures: string[]) => void;
+    setMeasureGroupFields: (fields: Field[]) => void;
 }
 
 interface UseMetadataOperationsParams {
@@ -166,18 +166,18 @@ export function useMetadataOperations({
                 };
             });
             
-            const measureNames = fields
-                .filter(field => field.type === 'measure')
-                .map(field => field.columnName);
-            const measureNameSet = new Set(measureNames);
-            const existingMeasures = dataSource.measureGroupMeasures || [];
-            const nextMeasures = existingMeasures.length > 0
-                ? existingMeasures.filter(measure => measureNameSet.has(measure))
-                : [];
+            const measureNameSet = new Set(
+                fields.filter(field => field.type === 'measure').map(field => field.columnName)
+            );
+            const nextMeasureGroupFields = (dataSource.measureGroupFields || [])
+                .filter((field) => measureNameSet.has(field.columnName));
 
-            const syntheticFields = generateSyntheticFieldsForGroup(fields, nextMeasures);
+            const syntheticFields = generateSyntheticFieldsForGroup(
+                fields,
+                nextMeasureGroupFields.map(field => field.columnName)
+            );
 
-            dataSourceSetters.setMeasureGroupMeasures(nextMeasures);
+            dataSourceSetters.setMeasureGroupFields(nextMeasureGroupFields);
             dataSourceSetters.setAvailableFields([...fields, ...syntheticFields]);
 
             // Mark axis fields that are not present in new schema as invalid
@@ -204,7 +204,7 @@ export function useMetadataOperations({
     }, [
         dataSource.selectedTable,
         dataSource.selectedDatabase,
-        dataSource.measureGroupMeasures,
+        dataSource.measureGroupFields,
         xAxisFields,
         yAxisFields,
         connectionDetails?.type,
@@ -302,18 +302,18 @@ export function useMetadataOperations({
                     };
                 });
                 
-                const measureNames = fields
-                    .filter(field => field.type === 'measure')
-                    .map(field => field.columnName);
-                const measureNameSet = new Set(measureNames);
-                const existingMeasures = dataSource.measureGroupMeasures || [];
-                const nextMeasures = existingMeasures.length > 0
-                    ? existingMeasures.filter(measure => measureNameSet.has(measure))
-                    : [];
+                const measureNameSet = new Set(
+                    fields.filter(field => field.type === 'measure').map(field => field.columnName)
+                );
+                const nextMeasureGroupFields = (dataSource.measureGroupFields || [])
+                    .filter((field) => measureNameSet.has(field.columnName));
 
-                const syntheticFields = generateSyntheticFieldsForGroup(fields, nextMeasures);
+                const syntheticFields = generateSyntheticFieldsForGroup(
+                    fields,
+                    nextMeasureGroupFields.map(field => field.columnName)
+                );
 
-                dataSourceSetters.setMeasureGroupMeasures(nextMeasures);
+                dataSourceSetters.setMeasureGroupFields(nextMeasureGroupFields);
                 dataSourceSetters.setAvailableFields([...fields, ...syntheticFields]);
                 dataSourceSetters.setVirtualTable(response.virtual_table);
                 dataSourceSetters.setIsLoadingMetadata(false);
@@ -363,18 +363,18 @@ export function useMetadataOperations({
                 };
             });
             
-            const measureNames = fields
-                .filter(field => field.type === 'measure')
-                .map(field => field.columnName);
-            const measureNameSet = new Set(measureNames);
-            const existingMeasures = dataSource.measureGroupMeasures || [];
-            const nextMeasures = existingMeasures.length > 0
-                ? existingMeasures.filter(measure => measureNameSet.has(measure))
-                : [];
+            const measureNameSet = new Set(
+                fields.filter(field => field.type === 'measure').map(field => field.columnName)
+            );
+            const nextMeasureGroupFields = (dataSource.measureGroupFields || [])
+                .filter((field) => measureNameSet.has(field.columnName));
 
-            const syntheticFields = generateSyntheticFieldsForGroup(fields, nextMeasures);
+            const syntheticFields = generateSyntheticFieldsForGroup(
+                fields,
+                nextMeasureGroupFields.map(field => field.columnName)
+            );
 
-            dataSourceSetters.setMeasureGroupMeasures(nextMeasures);
+            dataSourceSetters.setMeasureGroupFields(nextMeasureGroupFields);
             dataSourceSetters.setAvailableFields([...fields, ...syntheticFields]);
             dataSourceSetters.setVirtualTable(response.virtual_table);
 
@@ -401,7 +401,7 @@ export function useMetadataOperations({
         dataSource.selectedDatabase, 
         dataSource.joinedTables,
         dataSource.unionTables,
-        dataSource.measureGroupMeasures,
+        dataSource.measureGroupFields,
         xAxisFields, 
         yAxisFields, 
         connectionDetails?.type, 
