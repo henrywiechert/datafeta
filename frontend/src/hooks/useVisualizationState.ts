@@ -26,7 +26,7 @@ export function useVisualizationState() {
         setSuggestedJoinableTables,
         setSuggestedUnionableTables,
         setVirtualTable,
-        setMeasureGroupMeasures
+        setMeasureGroupFields
     } = dataSourceContext;
 
     // Data source setters for sub-hooks
@@ -41,7 +41,7 @@ export function useVisualizationState() {
         setSuggestedJoinableTables,
         setSuggestedUnionableTables,
         setVirtualTable,
-        setMeasureGroupMeasures
+        setMeasureGroupFields
     };
 
     // Initialize sub-hooks
