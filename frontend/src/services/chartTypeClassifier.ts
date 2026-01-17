@@ -5,7 +5,7 @@
  * for query optimization. Extracted from useQueryExecution for testability.
  */
 
-import { QueryDescription, Field } from '../types';
+import { QueryDescription, Field, QueryOptimizationSettings } from '../types';
 import { getResultColumnName } from '../utils/fieldUtils';
 
 /**
@@ -183,9 +183,24 @@ export function findStratifyField(
 export function computePointBudget(
   classification: ChartClassification,
   queryDesc: QueryDescription,
-  colorField?: Field | null
+  colorField?: Field | null,
+  optimizationSettings?: QueryOptimizationSettings
 ): PointBudgetConfig {
   const { hasDiscreteColor, isScatter, isPointChart, isLineChart, continuousDimFields } = classification;
+  const dims = queryDesc.dimensions || [];
+  const discreteAxisDims = dims.filter(
+    (d: any) => d.axis && (d.flavour === 'discrete' || (d.date_part && d.date_mode))
+  );
+  const isFacetedCandidate =
+    discreteAxisDims.length > 1 ||
+    (discreteAxisDims.some((d) => d.axis === 'x') && discreteAxisDims.some((d) => d.axis === 'y'));
+
+  const baseMaxPoints = optimizationSettings
+    ? (isFacetedCandidate ? optimizationSettings.maxPointsFaceted : optimizationSettings.maxPointsSingle)
+    : BUDGET_DEFAULTS.MAX_POINTS_WITHOUT_DISCRETE_COLOR;
+  const discreteColorCap = optimizationSettings?.maxPointsWithDiscreteColor ?? BUDGET_DEFAULTS.MAX_POINTS_WITH_DISCRETE_COLOR;
+  const minPerStratumDiscrete = optimizationSettings?.minPerStratumWithDiscreteColor ?? BUDGET_DEFAULTS.MIN_PER_STRATUM_WITH_DISCRETE_COLOR;
+  const lineBudgetMaxRows = optimizationSettings?.lineBudgetMaxRows ?? BUDGET_DEFAULTS.MAX_POINTS_WITHOUT_DISCRETE_COLOR;
 
   // IMPORTANT: Check scatter plots FIRST, before line charts.
   // A scatter plot with aggregated measures (e.g., SUM for size encoding) has both
@@ -193,11 +208,11 @@ export function computePointBudget(
   // point budget limiting, not line budget.
   if (isScatter) {
     const maxPoints = hasDiscreteColor
-      ? BUDGET_DEFAULTS.MAX_POINTS_WITH_DISCRETE_COLOR
-      : BUDGET_DEFAULTS.MAX_POINTS_WITHOUT_DISCRETE_COLOR;
+      ? Math.min(baseMaxPoints, discreteColorCap)
+      : baseMaxPoints;
 
     const minPerStratum = hasDiscreteColor
-      ? BUDGET_DEFAULTS.MIN_PER_STRATUM_WITH_DISCRETE_COLOR
+      ? minPerStratumDiscrete
       : BUDGET_DEFAULTS.MIN_PER_STRATUM_WITHOUT_DISCRETE_COLOR;
 
     const stratifyField = findStratifyField(queryDesc, colorField, hasDiscreteColor);
@@ -225,7 +240,7 @@ export function computePointBudget(
       maxPoints: Infinity,  // Not a point chart
       minPerStratum: 0,
       strategy: 'none',
-      lineBudgetMaxRows: BUDGET_DEFAULTS.MAX_POINTS_WITHOUT_DISCRETE_COLOR,
+      lineBudgetMaxRows,
       continuousFields: continuousDimFields,
     };
   }
@@ -241,11 +256,11 @@ export function computePointBudget(
   // Remaining point charts (tick strip, raw point chart, etc.)
 
   const maxPoints = hasDiscreteColor
-    ? BUDGET_DEFAULTS.MAX_POINTS_WITH_DISCRETE_COLOR
-    : BUDGET_DEFAULTS.MAX_POINTS_WITHOUT_DISCRETE_COLOR;
+    ? Math.min(baseMaxPoints, discreteColorCap)
+    : baseMaxPoints;
 
   const minPerStratum = hasDiscreteColor
-    ? BUDGET_DEFAULTS.MIN_PER_STRATUM_WITH_DISCRETE_COLOR
+    ? minPerStratumDiscrete
     : BUDGET_DEFAULTS.MIN_PER_STRATUM_WITHOUT_DISCRETE_COLOR;
 
   const stratifyField = findStratifyField(queryDesc, colorField, hasDiscreteColor);

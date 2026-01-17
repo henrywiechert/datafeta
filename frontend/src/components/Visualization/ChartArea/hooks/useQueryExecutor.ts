@@ -12,11 +12,11 @@
  * Extracted from useQueryExecution for separation of concerns.
  */
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { apiService } from '../../../../apiService';
 import { buildRawQuery } from '../../../../queryBuilder/queryBuilder';
 import { buildUnpivotedQuery } from '../../../../queryBuilder/syntheticQueryBuilder';
-import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition } from '../../../../types';
+import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition, QueryOptimizationSettings } from '../../../../types';
 import { logOperationTiming } from '../utils';
 import { validateAndCleanData, remapCastExpressionColumns } from '../utils/dataValidation';
 import { duckdbService } from '../../../../services/duckdbService';
@@ -44,6 +44,7 @@ export interface UseQueryExecutorProps {
   availableFields: Field[];
   measureGroupMeasures?: string[];
   optimizationHints: OptimizationHints | null;
+  optimizationSettings?: QueryOptimizationSettings;
   dispatch: (action: any) => void;
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
@@ -79,6 +80,7 @@ export const useQueryExecutor = ({
   availableFields,
   measureGroupMeasures,
   optimizationHints,
+  optimizationSettings,
   dispatch,
   startOperation,
   completeOperation,
@@ -86,6 +88,12 @@ export const useQueryExecutor = ({
   const queryAbortControllerRef = useRef<AbortController | null>(null);
   const queryInProgressRef = useRef<boolean>(false);
   const lastQueryDecisionRef = useRef<QueryDecision | null>(null);
+
+  useEffect(() => {
+    if (optimizationSettings?.sizeThreshold !== undefined) {
+      queryDecisionEngine.setSizeThreshold(optimizationSettings.sizeThreshold);
+    }
+  }, [optimizationSettings?.sizeThreshold]);
 
   const executeQuery = useCallback(
     async (queryDesc: QueryDescription, useUnpivot: boolean = false) => {
@@ -133,7 +141,7 @@ export const useQueryExecutor = ({
 
           // Classify chart type and compute point budget
           const classification = classifyChartType(queryDesc, colorField);
-          const pointBudget = computePointBudget(classification, queryDesc, colorField);
+          const pointBudget = computePointBudget(classification, queryDesc, colorField, optimizationSettings);
 
           // Apply point budget to query if needed
           // Only attach result_budget when maxPoints is finite (Infinity means no backend sampling needed)
@@ -169,6 +177,15 @@ export const useQueryExecutor = ({
           const dimensions = queryDescExec.dimensions?.map(d => d.field) || [];
 
           try {
+            if (optimizationSettings?.forceRemote) {
+              result = await apiService.executeQueryArrow(queryDescExec, queryAbortControllerRef.current.signal);
+              lastQueryDecisionRef.current = {
+                strategy: 'pre_aggregated',
+                requiresBackendQuery: true,
+                reason: 'Forced remote query (DuckDB cache disabled)',
+              };
+              console.log('🧠 Query decision: pre_aggregated - Forced remote query (DuckDB cache disabled)');
+            } else {
             // Split filters: base define cache slice; refinement applied locally
             const baseFilterConfigs = filterTierManager.getBaseFiltersOnly(filterConfigurations);
             const refinementFilterConfigs = filterTierManager.getRefinementFilters(filterConfigurations);
@@ -186,6 +203,7 @@ export const useQueryExecutor = ({
                 dimensions,
                 virtualTable: queryDescExec.virtual_table,
                 virtualColumns: queryDescExec.virtual_columns,
+                sizeThreshold: optimizationSettings?.sizeThreshold,
               });
 
               if (decisionPreview.strategy === 'raw_columns') {
@@ -259,6 +277,7 @@ export const useQueryExecutor = ({
                 (decision as any).resultBudget = (queryDescExec as any).result_budget;
               }
               console.log('🧠 Query decision:', decision.strategy, '-', decision.reason);
+            }
             }
           } catch (orchestratorError: any) {
             // Fallback to backend Arrow endpoint if orchestrator/local execution fails
@@ -344,6 +363,7 @@ export const useQueryExecutor = ({
       selectedTable,
       selectedDatabase,
       optimizationHints,
+      optimizationSettings,
     ]
   );
 
