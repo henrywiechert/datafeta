@@ -6,6 +6,7 @@ import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import LinkIcon from '@mui/icons-material/Link';
 import LinkOffIcon from '@mui/icons-material/LinkOff';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -36,6 +37,7 @@ interface ChartControlsProps {
   onToggleIndependentYAxis: (independent: boolean) => void;
   optimizationSettings: QueryOptimizationSettings;
   onUpdateOptimizationSettings: (settings: QueryOptimizationSettings) => void;
+  onForceRefresh?: () => void;
 }
 
 const ChartControls: React.FC<ChartControlsProps> = ({
@@ -56,6 +58,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
   onToggleIndependentYAxis,
   optimizationSettings,
   onUpdateOptimizationSettings,
+  onForceRefresh,
 }) => {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
@@ -185,6 +188,23 @@ const ChartControls: React.FC<ChartControlsProps> = ({
                 <RedoIcon fontSize="small" />
               </IconButton>
             </span>
+          </Tooltip>
+        )}
+
+        {onForceRefresh && (
+          <Tooltip title="Refresh data (invalidate cache)">
+            <IconButton
+              onClick={onForceRefresh}
+              size="small"
+              sx={{
+                color: 'text.secondary',
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                },
+              }}
+            >
+              <RefreshIcon fontSize="small" />
+            </IconButton>
           </Tooltip>
         )}
 

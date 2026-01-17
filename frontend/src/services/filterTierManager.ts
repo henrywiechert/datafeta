@@ -318,6 +318,16 @@ class FilterTierManager {
     this.lastContextKey = '_default::_unknown';
     console.log('🔄 Filter tier manager reset');
   }
+
+  /**
+   * Reset base filter state for a specific table context.
+   */
+  resetBaseFilterState(sourceTable?: string, sourceDatabase?: string): void {
+    const state = this.getStateFor(sourceTable, sourceDatabase);
+    state.hash = '';
+    state.configs = {};
+    console.log(`🔄 Base filter state reset (${this.lastContextKey})`);
+  }
   
   /**
    * Get statistics for debugging
