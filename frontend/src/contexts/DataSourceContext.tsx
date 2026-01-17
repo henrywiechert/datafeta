@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { Database, Table, Field, VirtualTableDefinition } from '../types';
+import { generateSyntheticFieldsForGroup } from '../utils/syntheticFields';
 
 // Define the state interface for data source (shared across all sheets)
 interface DataSourceState {
@@ -11,6 +12,8 @@ interface DataSourceState {
   tablesCache: Record<string, Table[]>;  // Cache of tables by database name (for cross-database union)
   isLoadingMetadata: boolean;
   metadataError: string | null;
+  // Single measure group (global)
+  measureGroupMeasures: string[];
   // Multi-table support - JOIN mode
   joinedTables: string[];  // List of additional tables joined to primary table
   suggestedJoinableTables: string[];  // Tables that can be joined
@@ -32,6 +35,10 @@ interface DataSourceContextType {
   setTablesForDatabase: (database: string, tables: Table[]) => void;
   setIsLoadingMetadata: (loading: boolean) => void;
   setMetadataError: (error: string | null) => void;
+  setMeasureGroupMeasures: (measures: string[]) => void;
+  addMeasureToGroup: (measure: string) => void;
+  removeMeasureFromGroup: (measure: string) => void;
+  clearMeasureGroup: () => void;
   setJoinedTables: (tables: string[]) => void;
   setSuggestedJoinableTables: (tables: string[]) => void;
   setUnionTables: (tables: Array<{database: string, table_name: string}>) => void;
@@ -55,12 +62,27 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     tablesCache: {},
     isLoadingMetadata: false,
     metadataError: null,
+    measureGroupMeasures: [],
     joinedTables: [],
     suggestedJoinableTables: [],
     unionTables: [],
     suggestedUnionableTables: [],
     virtualTable: null,
   });
+
+  const getBaseFields = (fields: Field[]) => fields.filter(field => !field.isSynthetic);
+
+  const rebuildAvailableFieldsForGroup = (
+    fields: Field[],
+    measureGroupMeasures: string[]
+  ) => {
+    const baseFields = getBaseFields(fields);
+    if (baseFields.length === 0) {
+      return fields;
+    }
+    const syntheticFields = generateSyntheticFieldsForGroup(baseFields, measureGroupMeasures);
+    return [...baseFields, ...syntheticFields];
+  };
 
   const setSelectedDatabase = (database: string) => {
     setDataSource(prev => ({ ...prev, selectedDatabase: database }));
@@ -111,6 +133,50 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
 
   const setMetadataError = (error: string | null) => {
     setDataSource(prev => ({ ...prev, metadataError: error }));
+  };
+
+  const setMeasureGroupMeasures = (measures: string[]) => {
+    setDataSource(prev => ({
+      ...prev,
+      measureGroupMeasures: measures,
+      availableFields: rebuildAvailableFieldsForGroup(
+        prev.availableFields,
+        measures
+      ),
+    }));
+  };
+
+  const addMeasureToGroup = (measure: string) => {
+    setDataSource(prev => {
+      if (prev.measureGroupMeasures.includes(measure)) {
+        return prev;
+      }
+      const nextMeasures = [...prev.measureGroupMeasures, measure];
+      return {
+        ...prev,
+        measureGroupMeasures: nextMeasures,
+        availableFields: rebuildAvailableFieldsForGroup(prev.availableFields, nextMeasures),
+      };
+    });
+  };
+
+  const removeMeasureFromGroup = (measure: string) => {
+    setDataSource(prev => {
+      const nextMeasures = prev.measureGroupMeasures.filter(item => item !== measure);
+      return {
+        ...prev,
+        measureGroupMeasures: nextMeasures,
+        availableFields: rebuildAvailableFieldsForGroup(prev.availableFields, nextMeasures),
+      };
+    });
+  };
+
+  const clearMeasureGroup = () => {
+    setDataSource(prev => ({
+      ...prev,
+      measureGroupMeasures: [],
+      availableFields: rebuildAvailableFieldsForGroup(prev.availableFields, []),
+    }));
   };
 
   const setJoinedTables = (tables: string[]) => {
@@ -179,6 +245,10 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
         setTablesForDatabase,
         setIsLoadingMetadata,
         setMetadataError,
+        setMeasureGroupMeasures,
+        addMeasureToGroup,
+        removeMeasureFromGroup,
+        clearMeasureGroup,
         setJoinedTables,
         setSuggestedJoinableTables,
         setUnionTables,

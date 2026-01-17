@@ -6,6 +6,7 @@ import { Field, FieldOverrideState } from '../types';
  */
 export const MEASURE_NAMES_FIELD = 'MeasureNames';
 export const MEASURE_VALUES_FIELD = 'MeasureValues';
+export const DEFAULT_MEASURE_GROUP_ID = '__all_measures__';
 
 /**
  * Check if a field is synthetic (MeasureNames or MeasureValues)
@@ -41,14 +42,14 @@ export function canGenerateSyntheticFields(availableFields: Field[]): boolean {
  */
 export function getMeasureFieldsForUnpivot(
   availableFields: Field[],
-  measureNamesFilter?: string[]
+  measureNames?: string[]
 ): Field[] {
   const measures = availableFields.filter(
     field => field.type === 'measure' && !field.isSynthetic
   );
 
-  if (measureNamesFilter && measureNamesFilter.length > 0) {
-    return measures.filter(measure => measureNamesFilter.includes(measure.columnName));
+  if (measureNames) {
+    return measures.filter(measure => measureNames.includes(measure.columnName));
   }
 
   return measures;
@@ -58,11 +59,20 @@ export function getMeasureFieldsForUnpivot(
  * Generate synthetic MeasureNames and MeasureValues fields
  * Returns an array with both fields if measures exist, otherwise empty array
  */
-export function generateSyntheticFields(availableFields: Field[]): Field[] {
-  if (!canGenerateSyntheticFields(availableFields)) {
+export function generateSyntheticFieldsForGroup(
+  baseFields: Field[],
+  measureNames?: string[]
+): Field[] {
+  const hasMeasures = canGenerateSyntheticFields(baseFields);
+  if (!hasMeasures) {
     return [];
   }
 
+  if (!measureNames || measureNames.length === 0) {
+    return [];
+  }
+
+  const syntheticGroupId = DEFAULT_MEASURE_GROUP_ID;
   const syntheticFields: Field[] = [];
 
   // Create MeasureNames field (discrete dimension)
@@ -74,6 +84,7 @@ export function generateSyntheticFields(availableFields: Field[]): Field[] {
     dataType: 'string',
     isSynthetic: true,
     syntheticType: 'MeasureNames',
+    syntheticGroupId,
     isTypeChangeable: false,
     isFlavourChangeable: false,
   };
@@ -88,6 +99,7 @@ export function generateSyntheticFields(availableFields: Field[]): Field[] {
     aggregation: 'sum', // Default aggregation
     isSynthetic: true,
     syntheticType: 'MeasureValues',
+    syntheticGroupId,
     isTypeChangeable: false,
     isFlavourChangeable: false,
   };
@@ -95,6 +107,12 @@ export function generateSyntheticFields(availableFields: Field[]): Field[] {
   syntheticFields.push(measureNamesField, measureValuesField);
 
   return syntheticFields;
+}
+
+// Backwards-compatible helper (uses all measures in a default group).
+export function generateSyntheticFields(availableFields: Field[]): Field[] {
+  const measureNames = getMeasureNames(availableFields);
+  return generateSyntheticFieldsForGroup(availableFields, measureNames);
 }
 
 /**

@@ -1,6 +1,7 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Field, DragSource } from '../types';
+import { isMeasureNamesField, isMeasureValuesField } from '../utils/syntheticFields';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
 import { useDataSource } from '../contexts/DataSourceContext';
 import { DEFAULT_CATEGORICAL_SCHEME, DEFAULT_SEQUENTIAL_SCHEME } from '../config/colorSchemes';
@@ -238,6 +239,9 @@ export function useDragDrop(availableFields?: Field[]) {
       // Find the field in available fields (includes virtual columns)
       const sourceField = currentFieldsToUse.find(f => f.id === field.id);
       if (!sourceField) return;
+      if (isMeasureNamesField(sourceField) || isMeasureValuesField(sourceField)) {
+        return;
+      }
       
       // Create an independent copy of the field with a new ID
       const fieldCopy = { ...sourceField, id: uuidv4() };
@@ -248,6 +252,9 @@ export function useDragDrop(availableFields?: Field[]) {
         payload: [...currentFilterFields, fieldCopy]
       });
     } else if (source === 'X_AXIS' || source === 'Y_AXIS') {
+      if (isMeasureNamesField(field) || isMeasureValuesField(field)) {
+        return;
+      }
       // Copy field from axis to filters (keep it on the axis too)
       const fieldCopy = { ...field, id: uuidv4() };
       dispatch({ 
