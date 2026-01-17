@@ -54,6 +54,7 @@ export async function buildUnpivotedQuery({
   virtualTable = null,
   virtualColumns = [],
   optimizationHints = undefined,
+  measureGroupMeasureNames,
   signal,
 }: {
   xFields: Field[];
@@ -70,6 +71,7 @@ export async function buildUnpivotedQuery({
   virtualTable?: VirtualTableDefinition | null;
   virtualColumns?: VirtualColumnDefinition[];
   optimizationHints?: any;
+  measureGroupMeasureNames?: string[];
   signal?: AbortSignal;
 }): Promise<QueryResult> {
   // Detect synthetic field usage - include all fields that should be in the query
@@ -88,21 +90,16 @@ export async function buildUnpivotedQuery({
     throw new Error('Neither MeasureValues nor MeasureNames field found in query fields');
   }
 
-  // Get MeasureNames filter if it exists and collect field IDs to remove from filters
-  let measureNamesFilter: string[] | undefined;
+  // Track synthetic filter IDs to remove from query filters (defensive)
   let measureNamesFieldId: string | undefined;
   let measureValuesFieldId: string | undefined;
   
-  // Find MeasureNames filter and field ID
+  // Find MeasureNames filter and field ID (should no longer be used for selection)
   const measureNamesFilterEntry = Object.entries(appliedFilterConfigurations).find(
     ([fieldId, config]) => config.columnName === MEASURE_NAMES_FIELD
   );
   if (measureNamesFilterEntry) {
-    const [fieldId, config] = measureNamesFilterEntry;
-    measureNamesFieldId = fieldId;
-    if (config.type === 'discrete') {
-      measureNamesFilter = config.selectedValues;
-    }
+    measureNamesFieldId = measureNamesFilterEntry[0];
   }
   
   // Find MeasureValues field ID (in case it's filtered, though it shouldn't be)
@@ -114,7 +111,7 @@ export async function buildUnpivotedQuery({
   }
 
   // Get actual measure fields to include
-  const measureFields = getMeasureFieldsForUnpivot(availableFields, measureNamesFilter);
+  const measureFields = getMeasureFieldsForUnpivot(availableFields, measureGroupMeasureNames);
 
   if (measureFields.length === 0) {
     // No measures - return empty result

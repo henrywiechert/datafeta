@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { Field, FilterMetadata, VirtualColumnDefinition, VirtualTableDefinition } from '../types';
 import { apiService } from '../apiService';
-import { isMeasureNamesField, getMeasureNames } from '../utils/syntheticFields';
+import { isMeasureNamesField } from '../utils/syntheticFields';
 
 interface ConnectionDetails {
     type: 'clickhouse' | 'csv' | 'kaggle';
@@ -18,7 +18,6 @@ interface UseFilterMetadataParams {
     unionTables: Array<{database: string, table_name: string}>;
     connectionDetails: ConnectionDetails | null;
     dispatch: React.Dispatch<any>;
-    availableFields: Field[]; // Needed for synthetic fields (MeasureNames)
 }
 
 export interface UseFilterMetadataReturn {
@@ -36,8 +35,7 @@ export function useFilterMetadata({
     selectedDatabase,
     unionTables,
     connectionDetails,
-    dispatch,
-    availableFields
+    dispatch
 }: UseFilterMetadataParams): UseFilterMetadataReturn {
 
     // Convert new union table format to legacy format for API calls
@@ -68,42 +66,14 @@ export function useFilterMetadata({
     const fetchFilterMetadata = useCallback(async (field: Field) => {
         if (!selectedTable) return;
         
-        // Handle synthetic MeasureNames field specially
+        // MeasureNames is no longer used as a filter selector.
         if (isMeasureNamesField(field)) {
-            const measureNames = getMeasureNames(availableFields);
-            
-            const metadata: FilterMetadata = {
-                fieldId: field.id,
-                columnName: field.columnName,
-                type: 'discrete',
-                loading: false,
-                availableValues: measureNames,
-                totalCount: measureNames.length,
-                originalTotalCount: measureNames.length,
-            };
-
             dispatch({
-                type: 'SET_FILTER_METADATA',
-                payload: { fieldId: field.id, metadata }
+                type: 'SET_FILTER_FIELDS',
+                payload: filterFields.filter(f => f.id !== field.id)
             });
-
-            // Initialize filter configuration with all measures selected
-            if (!filterConfigurations[field.id]) {
-                dispatch({
-                    type: 'SET_FILTER_CONFIGURATION',
-                    payload: {
-                        fieldId: field.id,
-                        config: {
-                            fieldId: field.id,
-                            columnName: field.columnName,
-                            type: 'discrete',
-                            selectedValues: measureNames,
-                        }
-                    }
-                });
-            }
-            
-            return; // Done with synthetic field handling
+            dispatch({ type: 'REMOVE_FILTER_CONFIGURATION', payload: field.id });
+            return;
         }
         
         const dbParam = connectionDetails?.type === 'clickhouse' ? selectedDatabase : undefined;
@@ -353,7 +323,7 @@ export function useFilterMetadata({
                 payload: { fieldId: field.id, metadata: errorMetadata }
             });
         }
-    }, [selectedTable, selectedDatabase, unionTables, connectionDetails?.type, dispatch, virtualColumns, filterConfigurations, availableFields, unionTablesForApi]);
+    }, [selectedTable, selectedDatabase, unionTables, connectionDetails?.type, dispatch, virtualColumns, filterConfigurations, unionTablesForApi]);
 
     // Refetch filter values with a regex pattern (for large discrete filters)
     const refetchFilterValues = useCallback(async (fieldId: string, regexPattern?: string) => {

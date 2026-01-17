@@ -355,6 +355,7 @@ export interface Field {
   // Synthetic field properties (MeasureNames/MeasureValues)
   isSynthetic?: boolean; // Flag for synthetic fields
   syntheticType?: 'MeasureNames' | 'MeasureValues'; // Type of synthetic field
+  syntheticGroupId?: string; // Measure group ID for synthetic fields
   isTypeChangeable?: boolean; // Whether type can be changed (false for synthetic fields)
   isFlavourChangeable?: boolean; // Whether flavour can be changed (false for synthetic fields)
   // Virtual column flag (copied from Column when creating Field)
