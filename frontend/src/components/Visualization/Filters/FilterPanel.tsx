@@ -60,19 +60,15 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
       defaultExpanded={true}
       storageKey="filterPanel.expanded"
       headerActions={
-        <Button
-          variant="contained"
-          size="small"
-          onClick={handleApply}
-          disabled={!hasActiveFilters}
-          sx={{
-            fontSize: '12px',
-            padding: '4px 10px',
-            textTransform: 'none',
-          }}
-        >
-          Apply
-        </Button>
+        hasActiveFilters ? (
+          <Button
+            size="small"
+            onClick={handleApply}
+            sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: '0.75rem' }}
+          >
+            Apply
+          </Button>
+        ) : null
       }
     >
       <FilterDropZone
