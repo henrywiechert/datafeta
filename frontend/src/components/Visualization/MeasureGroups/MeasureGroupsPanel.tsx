@@ -1,17 +1,19 @@
 import React, { useMemo } from 'react';
-import { Box, Button, Chip, Typography } from '@mui/material';
+import { Box, Button, Typography } from '@mui/material';
 import CategoryIcon from '@mui/icons-material/Category';
+import { v4 as uuidv4 } from 'uuid';
 import { PropertySection, PropertyDropZone } from '../Properties';
 import { useDataSource } from '../../../contexts/DataSourceContext';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { Field } from '../../../types';
 import { isMeasureNamesField, isMeasureValuesField } from '../../../utils/syntheticFields';
+import FieldChip from '../FieldChip';
 
 const MeasureGroupsPanel: React.FC = () => {
-  const { dataSource, setMeasureGroupMeasures } = useDataSource();
+  const { dataSource, setMeasureGroupFields, removeMeasureFromGroup, clearMeasureGroup } = useDataSource();
   const { dispatch } = useVisualizationContext();
 
-  const { measureGroupMeasures, availableFields } = dataSource;
+  const { measureGroupFields, availableFields } = dataSource;
 
   const measureFields = useMemo(
     () => availableFields.filter((field) => field.type === 'measure' && !field.isSynthetic),
@@ -23,6 +25,20 @@ const MeasureGroupsPanel: React.FC = () => {
     measureFields.forEach((field) => map.set(field.columnName, field));
     return map;
   }, [measureFields]);
+
+  const orderedMeasureFields = useMemo(() => measureGroupFields, [measureGroupFields]);
+
+  const handleFieldUpdate = (updated: Field | Field[]) => {
+    const updatedFields = Array.isArray(updated) ? updated : [updated];
+    const updatedMap = new Map(updatedFields.map((field) => [field.id, field]));
+    const nextFields = measureGroupFields.map((field) =>
+      updatedMap.has(field.id) ? updatedMap.get(field.id)! : field
+    );
+    if (nextFields.some((field, index) => field !== measureGroupFields[index])) {
+      setMeasureGroupFields(nextFields);
+      dispatch({ type: 'FORCE_QUERY_REFRESH' });
+    }
+  };
 
   const handleDrop = (e: React.DragEvent) => {
     try {
@@ -38,7 +54,8 @@ const MeasureGroupsPanel: React.FC = () => {
         return;
       }
 
-      const nextMeasures = new Set(measureGroupMeasures);
+      const existingNames = new Set(measureGroupFields.map((field) => field.columnName));
+      const nextFields = [...measureGroupFields];
       let didChange = false;
 
       fields.forEach((field) => {
@@ -52,14 +69,19 @@ const MeasureGroupsPanel: React.FC = () => {
         if (!sourceField) {
           return;
         }
-        if (!nextMeasures.has(sourceField.columnName)) {
-          nextMeasures.add(sourceField.columnName);
+        if (!existingNames.has(sourceField.columnName)) {
+          nextFields.push({
+            ...sourceField,
+            id: uuidv4(),
+            axis: undefined,
+          });
+          existingNames.add(sourceField.columnName);
           didChange = true;
         }
       });
 
       if (didChange) {
-        setMeasureGroupMeasures(Array.from(nextMeasures));
+        setMeasureGroupFields(nextFields);
         dispatch({ type: 'FORCE_QUERY_REFRESH' });
       }
     } catch (error) {
@@ -67,20 +89,11 @@ const MeasureGroupsPanel: React.FC = () => {
     }
   };
 
-  const handleRemove = (measure: string) => {
-    const nextMeasures = measureGroupMeasures.filter((item) => item !== measure);
-    if (nextMeasures.length === measureGroupMeasures.length) {
-      return;
-    }
-    setMeasureGroupMeasures(nextMeasures);
-    dispatch({ type: 'FORCE_QUERY_REFRESH' });
-  };
-
   const handleClear = () => {
-    if (measureGroupMeasures.length === 0) {
+    if (measureGroupFields.length === 0) {
       return;
     }
-    setMeasureGroupMeasures([]);
+    clearMeasureGroup();
     dispatch({ type: 'FORCE_QUERY_REFRESH' });
   };
 
@@ -91,7 +104,7 @@ const MeasureGroupsPanel: React.FC = () => {
       defaultExpanded={false}
       storageKey="measureGroupPanel.expanded"
       headerActions={
-        <Button size="small" onClick={handleClear} disabled={measureGroupMeasures.length === 0}>
+        <Button size="small" onClick={handleClear} disabled={measureGroupFields.length === 0}>
           Clear
         </Button>
       }
@@ -101,28 +114,32 @@ const MeasureGroupsPanel: React.FC = () => {
         emptyMessage=""
         onDrop={handleDrop}
       >
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-          {measureGroupMeasures.length === 0 ? (
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0.5 }}>
+          {orderedMeasureFields.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
               Drag measures here to define MeasureNames/MeasureValues
             </Typography>
           ) : (
-            measureGroupMeasures.map((measure) => (
-              <Chip
-                key={measure}
-                label={measure}
-                onDelete={() => handleRemove(measure)}
-                size="small"
-                variant="outlined"
+            orderedMeasureFields.map((field) => (
+              <FieldChip
+                key={field.id}
+                field={field}
+                source="MEASURE_GROUP"
+                onUpdate={handleFieldUpdate}
+                allFields={orderedMeasureFields}
+                onRemoveFromZone={(fieldIds) => {
+                  removeMeasureFromGroup(fieldIds);
+                  dispatch({ type: 'FORCE_QUERY_REFRESH' });
+                }}
               />
             ))
           )}
         </Box>
       </PropertyDropZone>
       <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
-        {measureGroupMeasures.length === 0
+        {measureGroupFields.length === 0
           ? 'No measures selected'
-          : `${measureGroupMeasures.length} measure${measureGroupMeasures.length === 1 ? '' : 's'} selected`}
+          : `${measureGroupFields.length} measure${measureGroupFields.length === 1 ? '' : 's'} selected`}
       </Typography>
     </PropertySection>
   );

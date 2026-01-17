@@ -138,7 +138,7 @@ export const useQueryExecution = ({
     virtualTable,
     virtualColumns,
     availableFields: dataSource.availableFields,
-    measureGroupMeasures: dataSource.measureGroupMeasures,
+    measureGroupMeasures: dataSource.measureGroupFields.map(field => field.columnName),
     optimizationHints,
     dispatch,
     startOperation,
@@ -170,7 +170,7 @@ export const useQueryExecution = ({
     if (needsUnpivot) {
       const sourceMeasures = getMeasureFieldsForUnpivot(
         dataSource.availableFields,
-        dataSource.measureGroupMeasures
+        dataSource.measureGroupFields.map(field => field.columnName)
       );
       dispatch({ type: 'SET_MEASURE_VALUES_SOURCE_FIELDS', payload: sourceMeasures });
 

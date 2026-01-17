@@ -337,7 +337,8 @@ export type DragSource =
   | 'COLOR_ZONE'
   | 'SIZE_ZONE'
   | 'LABEL_ZONE'
-  | 'TOOLTIP_ZONE';
+  | 'TOOLTIP_ZONE'
+  | 'MEASURE_GROUP';
 
 export interface Field {
   id: string; // A unique ID for each chip instance

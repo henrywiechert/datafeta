@@ -12,8 +12,8 @@ interface DataSourceState {
   tablesCache: Record<string, Table[]>;  // Cache of tables by database name (for cross-database union)
   isLoadingMetadata: boolean;
   metadataError: string | null;
-  // Single measure group (global)
-  measureGroupMeasures: string[];
+  // Single measure group (global) with independent field copies
+  measureGroupFields: Field[];
   // Multi-table support - JOIN mode
   joinedTables: string[];  // List of additional tables joined to primary table
   suggestedJoinableTables: string[];  // Tables that can be joined
@@ -35,9 +35,9 @@ interface DataSourceContextType {
   setTablesForDatabase: (database: string, tables: Table[]) => void;
   setIsLoadingMetadata: (loading: boolean) => void;
   setMetadataError: (error: string | null) => void;
-  setMeasureGroupMeasures: (measures: string[]) => void;
-  addMeasureToGroup: (measure: string) => void;
-  removeMeasureFromGroup: (measure: string) => void;
+  setMeasureGroupFields: (fields: Field[]) => void;
+  addMeasureToGroup: (field: Field) => void;
+  removeMeasureFromGroup: (fieldIds: string[]) => void;
   clearMeasureGroup: () => void;
   setJoinedTables: (tables: string[]) => void;
   setSuggestedJoinableTables: (tables: string[]) => void;
@@ -62,7 +62,7 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     tablesCache: {},
     isLoadingMetadata: false,
     metadataError: null,
-    measureGroupMeasures: [],
+    measureGroupFields: [],
     joinedTables: [],
     suggestedJoinableTables: [],
     unionTables: [],
@@ -74,13 +74,14 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
 
   const rebuildAvailableFieldsForGroup = (
     fields: Field[],
-    measureGroupMeasures: string[]
+    measureGroupFields: Field[]
   ) => {
     const baseFields = getBaseFields(fields);
     if (baseFields.length === 0) {
       return fields;
     }
-    const syntheticFields = generateSyntheticFieldsForGroup(baseFields, measureGroupMeasures);
+    const measureNames = measureGroupFields.map(field => field.columnName);
+    const syntheticFields = generateSyntheticFieldsForGroup(baseFields, measureNames);
     return [...baseFields, ...syntheticFields];
   };
 
@@ -135,38 +136,39 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     setDataSource(prev => ({ ...prev, metadataError: error }));
   };
 
-  const setMeasureGroupMeasures = (measures: string[]) => {
+  const setMeasureGroupFields = (fields: Field[]) => {
     setDataSource(prev => ({
       ...prev,
-      measureGroupMeasures: measures,
+      measureGroupFields: fields,
       availableFields: rebuildAvailableFieldsForGroup(
         prev.availableFields,
-        measures
+        fields
       ),
     }));
   };
 
-  const addMeasureToGroup = (measure: string) => {
+  const addMeasureToGroup = (field: Field) => {
     setDataSource(prev => {
-      if (prev.measureGroupMeasures.includes(measure)) {
+      if (prev.measureGroupFields.some(item => item.columnName === field.columnName)) {
         return prev;
       }
-      const nextMeasures = [...prev.measureGroupMeasures, measure];
+      const nextFields = [...prev.measureGroupFields, field];
       return {
         ...prev,
-        measureGroupMeasures: nextMeasures,
-        availableFields: rebuildAvailableFieldsForGroup(prev.availableFields, nextMeasures),
+        measureGroupFields: nextFields,
+        availableFields: rebuildAvailableFieldsForGroup(prev.availableFields, nextFields),
       };
     });
   };
 
-  const removeMeasureFromGroup = (measure: string) => {
+  const removeMeasureFromGroup = (fieldIds: string[]) => {
     setDataSource(prev => {
-      const nextMeasures = prev.measureGroupMeasures.filter(item => item !== measure);
+      const idSet = new Set(fieldIds);
+      const nextFields = prev.measureGroupFields.filter(item => !idSet.has(item.id));
       return {
         ...prev,
-        measureGroupMeasures: nextMeasures,
-        availableFields: rebuildAvailableFieldsForGroup(prev.availableFields, nextMeasures),
+        measureGroupFields: nextFields,
+        availableFields: rebuildAvailableFieldsForGroup(prev.availableFields, nextFields),
       };
     });
   };
@@ -174,7 +176,7 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
   const clearMeasureGroup = () => {
     setDataSource(prev => ({
       ...prev,
-      measureGroupMeasures: [],
+      measureGroupFields: [],
       availableFields: rebuildAvailableFieldsForGroup(prev.availableFields, []),
     }));
   };
@@ -245,7 +247,7 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
         setTablesForDatabase,
         setIsLoadingMetadata,
         setMetadataError,
-        setMeasureGroupMeasures,
+        setMeasureGroupFields,
         addMeasureToGroup,
         removeMeasureFromGroup,
         clearMeasureGroup,
