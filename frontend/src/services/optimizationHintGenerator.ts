@@ -22,6 +22,13 @@ const ROUNDING_THRESHOLDS: Record<'light' | 'balanced' | 'aggressive', number> =
     aggressive: 200
 };
 
+type RoundingThresholds = Record<'light' | 'balanced' | 'aggressive', number>;
+
+export interface RoundingSettingsOverride {
+    enabled?: boolean;
+    thresholds?: Partial<RoundingThresholds>;
+}
+
 /**
  * Generate optimization hint for a single field based on its characteristics.
  * 
@@ -31,7 +38,9 @@ const ROUNDING_THRESHOLDS: Record<'light' | 'balanced' | 'aggressive', number> =
  */
 function generateFieldOptimizationHint(
     field: Field,
-    optimizationLevel: 'light' | 'balanced' | 'aggressive'
+    optimizationLevel: 'light' | 'balanced' | 'aggressive',
+    roundingEnabled: boolean,
+    roundingThresholds: RoundingThresholds
 ): FieldOptimizationHint {
     const hint: FieldOptimizationHint = {
         field: field.columnName,
@@ -40,17 +49,21 @@ function generateFieldOptimizationHint(
         reason: ''
     };
     
+    if (!roundingEnabled) {
+        return hint;
+    }
+
     // Continuous dimensions benefit from rounding (removes duplicate coordinates in scatter plots, etc.)
     if (field.type === 'dimension' && field.flavour === 'continuous') {
         hint.enable_rounding = true;
-        hint.rounding_threshold = ROUNDING_THRESHOLDS[optimizationLevel];
+        hint.rounding_threshold = roundingThresholds[optimizationLevel];
         hint.reason = 'continuous_dimension';
     }
     
     // DateTime timeline dimensions need binning/rounding for temporal bucketing
     if (field.dateTimeMode === 'timeline') {
         hint.enable_rounding = true;
-        hint.rounding_threshold = ROUNDING_THRESHOLDS[optimizationLevel];
+        hint.rounding_threshold = roundingThresholds[optimizationLevel];
         hint.reason = 'datetime_timeline';
     }
     
@@ -121,11 +134,13 @@ export function generateOptimizationHints(options: {
     dimensions: Dimension[];
     measures: Measure[];
     userPreference?: OptimizationPreference;
+    roundingSettings?: RoundingSettingsOverride;
 }): OptimizationHints {
     const {
         dimensions = [],
         measures = [],
-        userPreference = 'auto'
+        userPreference = 'auto',
+        roundingSettings
     } = options;
     
     // Handle user preference override
@@ -145,6 +160,17 @@ export function generateOptimizationHints(options: {
     // Apply user preference
     const optimizationLevel: 'light' | 'balanced' | 'aggressive' = 
         userPreference === 'auto' ? recommendedLevel : userPreference as any;
+
+    const roundingThresholds = Object.keys(ROUNDING_THRESHOLDS).reduce((acc, level) => {
+        const key = level as keyof RoundingThresholds;
+        const override = roundingSettings?.thresholds?.[key];
+        acc[key] = Number.isFinite(override) && (override as number) >= 0
+            ? (override as number)
+            : ROUNDING_THRESHOLDS[key];
+        return acc;
+    }, {} as RoundingThresholds);
+
+    const roundingEnabled = roundingSettings?.enabled ?? true;
     
     // Generate field-level hints for all dimensions
     // (Measures don't currently need field-level optimization hints)
@@ -162,7 +188,9 @@ export function generateOptimizationHints(options: {
                 dateTimeMode: dim.date_mode,
                 dateTimePart: dim.date_part
             } as Field,
-            optimizationLevel
+            optimizationLevel,
+            roundingEnabled,
+            roundingThresholds
         );
         
         console.log(`  Field '${dim.field}': rounding=${hint.enable_rounding}, sampling=${hint.enable_sampling}, reason=${hint.reason}`);
@@ -207,8 +235,9 @@ export function generateOptimizationHintsFromFields(options: {
     colorField?: Field | null;
     sizeField?: Field | null;
     userPreference?: OptimizationPreference;
+    roundingSettings?: RoundingSettingsOverride;
 }): OptimizationHints {
-    const { xAxisFields, yAxisFields, colorField, sizeField, userPreference } = options;
+    const { xAxisFields, yAxisFields, colorField, sizeField, userPreference, roundingSettings } = options;
     
     // Collect all unique fields
     const allFields: Field[] = [
@@ -250,7 +279,8 @@ export function generateOptimizationHintsFromFields(options: {
     return generateOptimizationHints({
         dimensions,
         measures,
-        userPreference
+        userPreference,
+        roundingSettings
     });
 }
 

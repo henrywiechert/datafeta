@@ -85,6 +85,10 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     const merged = {
       ...initialState,
       ...initialStateProp,
+      optimizationSettings: {
+        ...initialState.optimizationSettings,
+        ...(initialStateProp?.optimizationSettings || {}),
+      },
     };
 
     // Normalize saved filter config maps (some older snapshots were keyed by columnName instead of fieldId).

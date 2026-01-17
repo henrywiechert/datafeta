@@ -338,6 +338,10 @@ export interface QueryOptimizationSettings {
   maxPointsWithDiscreteColor: number;
   minPerStratumWithDiscreteColor: number;
   lineBudgetMaxRows: number;
+  enableRounding: boolean;
+  roundingThresholdLight: number;
+  roundingThresholdBalanced: number;
+  roundingThresholdAggressive: number;
 }
 export type DragSource =
   | 'X_AXIS'

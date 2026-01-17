@@ -123,6 +123,7 @@ export const useQueryExecution = ({
     additionalSizeFields,
     additionalLabelFields,
     connectionType: connectionDetails?.type,
+    optimizationSettings,
   });
 
   // Get query executor
