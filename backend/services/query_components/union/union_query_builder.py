@@ -466,7 +466,10 @@ class UnionQueryBuilder:
         # 2. For dimension-only queries (no measures) to avoid duplicate combinations in UNION
         has_dimensions = bool(all_dimension_fields)
         has_measures = bool(all_measure_fields)
-        needs_distinct = query_desc.fetch_filter_values is True or (has_dimensions and not has_measures)
+        is_force_raw = bool(getattr(query_desc, "force_raw_rows", False))
+        needs_distinct = (not is_force_raw) and (
+            query_desc.fetch_filter_values is True or (has_dimensions and not has_measures)
+        )
         
         # Check if we have source tracking dimensions (_source_database, _source_table)
         has_source_dimensions = any(
@@ -483,6 +486,7 @@ class UnionQueryBuilder:
             and not has_dimensions 
             and not has_source_dimensions
             and not bool(query_desc.orderBy)
+            and not is_force_raw
         )
         
         distinct_columns: List[str] = []
