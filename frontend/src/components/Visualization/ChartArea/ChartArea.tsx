@@ -5,6 +5,8 @@ import { useDataSource } from '../../../contexts/DataSourceContext';
 import { useSheetContext } from '../../../contexts/SheetContext';
 import { useUndoRedo } from '../../../hooks/useUndoRedo';
 import { useRenderingCoordinator } from '../../../hooks/useRenderingCoordinator';
+import { columnCacheManager } from '../../../services/columnCacheManager';
+import { filterTierManager } from '../../../services/filterTierManager';
 import { useChartGeneration, useQueryExecution, useDataProcessing, useDebugView, useFullscreen } from './hooks';
 import { ChartRenderer, ChartControls, DebugPanel } from './components';
 import LegendPanel from '../Legend/LegendPanel';
@@ -224,6 +226,15 @@ const ChartArea: React.FC = () => {
     dispatch({ type: 'SET_INDEPENDENT_DOMAIN', payload: { axis: 'y', independent } });
   }, [dispatch, getUndoableSnapshot, recordAction]);
 
+  const handleForceRefresh = useCallback(async () => {
+    if (!selectedTable) {
+      return;
+    }
+    await columnCacheManager.invalidateForTable(selectedTable, selectedDatabase || undefined);
+    filterTierManager.resetBaseFilterState(selectedTable, selectedDatabase || undefined);
+    dispatch({ type: 'FORCE_QUERY_REFRESH' });
+  }, [dispatch, selectedDatabase, selectedTable]);
+
   const debugData = {
     queryDescription,
     queryResult,
@@ -324,6 +335,7 @@ const ChartArea: React.FC = () => {
             dispatch({ type: 'SET_QUERY_OPTIMIZATION_SETTINGS', payload: settings });
             dispatch({ type: 'FORCE_QUERY_REFRESH' });
           }}
+          onForceRefresh={handleForceRefresh}
         />
         
         <DebugPanel
