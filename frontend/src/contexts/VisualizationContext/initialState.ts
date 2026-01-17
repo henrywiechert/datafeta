@@ -50,6 +50,10 @@ export const initialState: VisualizationState = {
     maxPointsWithDiscreteColor: 20_000,
     minPerStratumWithDiscreteColor: 200,
     lineBudgetMaxRows: 50_000,
+    enableRounding: true,
+    roundingThresholdLight: 1000,
+    roundingThresholdBalanced: 500,
+    roundingThresholdAggressive: 200,
   },
   // Axis domain sharing defaults
   independentDomains: { x: false, y: false },
