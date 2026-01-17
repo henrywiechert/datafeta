@@ -13,7 +13,6 @@ import { useUndoRedo } from '../hooks/useUndoRedo';
 import FieldsPanel from '../components/Visualization/FieldsPanel';
 import ChartPanel from '../components/Visualization/ChartPanel';
 import FilterPanel from '../components/Visualization/Filters/FilterPanel';
-import LegendPanel from '../components/Visualization/Legend/LegendPanel';
 import FieldOverridesPanel from '../components/Visualization/Overrides/FieldOverridesPanel';
 import MeasureGroupsPanel from '../components/Visualization/MeasureGroups';
 import LoadingModal from '../components/LoadingModal';
@@ -410,14 +409,6 @@ const VisualizationPageContent = () => {
                                   onRefetchValues={refetchFilterValues}
                               />
                               <FieldOverridesPanel />
-                              {state.colorField && (
-                                  <LegendPanel
-                                      colorField={state.colorField}
-                                      queryResult={state.queryResult}
-                                      colorScheme={state.colorScheme}
-                                      colorBias={state.colorBias}
-                                  />
-                              )}
                               <MeasureGroupsPanel />
                           </Box>
                         )}

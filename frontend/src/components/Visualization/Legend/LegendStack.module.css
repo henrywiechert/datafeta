@@ -1,0 +1,37 @@
+.stackContainer {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  margin-left: 8px;
+  background-color: #fafafa;
+  border-left: 1px solid #e0e0e0;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.stackContent {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.resizeHandle {
+  position: absolute;
+  top: 0;
+  left: -4px;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  background-color: transparent;
+}
+
+.resizeHandle:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
+.resizeHandleActive {
+  background-color: rgba(0, 0, 0, 0.12);
+}
