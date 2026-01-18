@@ -397,5 +397,17 @@ export function ganttChart(
     tooltipFields
   );
 
+  // Set the category axis dimension based on category count
+  // This ensures consistent sizing similar to bar/tick-strip charts
+  // Timeline axis uses 'fr' (not set here), category axis uses fixed size per category
+  const categoryAxisSize = Math.max(BAR_STEP_PX, categoryCount * BAR_STEP_PX);
+  if (orientation === 'x') {
+    // Horizontal Gantt: category axis is Y, so set height
+    opts.height = categoryAxisSize;
+  } else {
+    // Vertical Gantt: category axis is X, so set width
+    opts.width = categoryAxisSize;
+  }
+
   return { options: opts, intrinsicSize };
 }
