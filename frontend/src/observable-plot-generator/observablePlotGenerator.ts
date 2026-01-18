@@ -1,5 +1,5 @@
 import * as Plot from '@observablehq/plot';
-import { ChartGenerationContext, PlotResult } from './types';
+import { ChartGenerationContext, PlotResult, LabelConfig } from './types';
 import { barUnified } from './chartTypes/barUnified';
 import { generateChartOptions as genChartOptionsRule } from './rules/chartRules';
 import { Field } from '../types';
@@ -7,12 +7,114 @@ import { computeSharedDomainsFromContext, buildLabelConfig } from './utils/confi
 import { analyzeFields } from './analysis/fieldAnalysis';
 import { ChartTypeOverrides } from './helpers/chartTypeResolver';
 import { planFacets } from './faceting/facetPlanner';
-import { normalizeTimelineData } from '../utils/fieldUtils';
+import { normalizeTimelineData, getResultColumnName, getFieldDisplayName } from '../utils/fieldUtils';
 import { generateCartesianPlots } from './grid/coreGridGenerator';
 import { generateFacetedGrid } from './faceting/facetGenerator';
+import { ganttChart } from './chartTypes/ganttChart';
 
 // Re-export buildLabelConfig as buildLabelCfg for backward compatibility
 export { buildLabelConfig as buildLabelCfg } from './utils/configBuilder';
+
+/**
+ * Create a simple message chart (as 1x1 grid)
+ */
+function createMessageChart(message: string): PlotResult {
+  return {
+    library: 'observable-plot',
+    plots: [{
+      id: 'message',
+      title: '',
+      options: {
+        marks: [
+          Plot.text([message], {
+            frameAnchor: "middle",
+            fontSize: 14,
+            fill: "gray"
+          })
+        ]
+      },
+      position: { row: 0, col: 0 }
+    }],
+    layout: {
+      type: 'grid',
+      columns: 1,
+      rows: 1,
+      columnSizes: ['fr'],
+      rowSizes: ['fr']
+    }
+  };
+}
+
+/**
+ * Helper to generate a single-axis Gantt chart (no category dimension).
+ * Creates a 1x1 grid with a Gantt chart using a synthetic single category.
+ */
+function generateSingleAxisGantt(
+  context: ChartGenerationContext,
+  timelineCandidates: Field[],
+  orientation: 'x' | 'y',
+  _labelCfg?: LabelConfig,
+  _overrides?: ChartTypeOverrides
+): PlotResult {
+  const { queryResult, sizeField } = context;
+  const data = queryResult.rows;
+  
+  // Use the first continuous field as the timeline
+  const timelineField = timelineCandidates.find(f => f.flavour === 'continuous');
+  if (!timelineField) {
+    // Fallback - shouldn't happen given the guard in caller
+    return createMessageChart('No continuous field for Gantt timeline.');
+  }
+  
+  const startColumn = getResultColumnName(timelineField);
+  const startLabel = getFieldDisplayName(timelineField);
+  
+  // Get duration from size field if present
+  const durationColumn = sizeField ? getResultColumnName(sizeField) : undefined;
+  const durationLabel = sizeField ? getFieldDisplayName(sizeField) : undefined;
+  
+  // Resolve column names (handle aggregation aliases)
+  const resolvedStartColumn = data.length > 0 && Object.prototype.hasOwnProperty.call(data[0], startColumn) 
+    ? startColumn 
+    : timelineField.columnName;
+  const resolvedDurationColumn = durationColumn && data.length > 0 
+    ? (Object.prototype.hasOwnProperty.call(data[0], durationColumn) ? durationColumn : sizeField?.columnName)
+    : undefined;
+  
+  // Call ganttChart with positional arguments
+  // ganttChart(context, orientation, startColumn, durationColumn?, categoryColumn?, labels?, sharedDomains?, zoomLevel?)
+  const result = ganttChart(
+    context,
+    orientation,
+    resolvedStartColumn,
+    resolvedDurationColumn,
+    undefined, // No category - ganttChart will use () => ' '
+    { start: startLabel, duration: durationLabel, category: undefined },
+    undefined, // No shared domains for single-axis
+    1.0 // Default zoom level
+  );
+  
+  // Determine intrinsic sizing based on orientation
+  const columnSize = orientation === 'x' ? result.intrinsicSize : ('fr' as const);
+  const rowSize = orientation === 'y' ? result.intrinsicSize : ('fr' as const);
+  
+  return {
+    library: 'observable-plot',
+    plots: [{
+      id: 'gantt-single',
+      title: startLabel,
+      options: result.options,
+      position: { row: 0, col: 0 }
+    }],
+    layout: {
+      type: 'grid',
+      columns: 1,
+      rows: 1,
+      columnSizes: [columnSize],
+      rowSizes: [rowSize],
+    }
+  };
+}
 
 /**
  * Core chart generation logic (internal function).
@@ -35,14 +137,40 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
 
   // Build candidate lists for cartesian pairing, preserving the original field order
   // Only include continuous dimensions and measures (discrete dimensions are handled by faceting)
+  // EXCEPTION: For Gantt charts, include discrete dimensions as category axis (similar to bar charts)
+  const isGanttSelected = context.globalChartType === 'gantt';
+  
   const xCandidates: Field[] = xFields.filter((f: Field) => 
-    f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
+    f.type === 'measure' || 
+    (f.type === 'dimension' && f.flavour === 'continuous') ||
+    (isGanttSelected && f.type === 'dimension' && f.flavour === 'discrete')
   );
   const yCandidates: Field[] = yFields.filter((f: Field) => 
-    f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
+    f.type === 'measure' || 
+    (f.type === 'dimension' && f.flavour === 'continuous') ||
+    (isGanttSelected && f.type === 'dimension' && f.flavour === 'discrete')
   );
 
   const labelCfg = buildLabelConfig(context);
+
+  // Special case: Gantt chart with only timeline axis (no category dimension)
+  // Create a synthetic single-row Gantt by routing through the cartesian grid with a placeholder Y
+  if (isGanttSelected && xCandidates.length > 0 && yCandidates.length === 0) {
+    // Check if X has a continuous dimension (timeline)
+    const hasTimelineOnX = xCandidates.some(f => f.flavour === 'continuous');
+    if (hasTimelineOnX) {
+      // Route to Gantt handler directly via generateCartesianPlots with empty yCandidates handling
+      // The ganttChart handler supports no category (uses () => ' ')
+      return generateSingleAxisGantt(context, xCandidates, 'x', labelCfg, overrides);
+    }
+  }
+  // Vertical Gantt with only Y timeline (no X category)
+  if (isGanttSelected && yCandidates.length > 0 && xCandidates.length === 0) {
+    const hasTimelineOnY = yCandidates.some(f => f.flavour === 'continuous');
+    if (hasTimelineOnY) {
+      return generateSingleAxisGantt(context, yCandidates, 'y', labelCfg, overrides);
+    }
+  }
 
   // ALWAYS build a cartesian grid when we have candidates on both axes (including 1x1)
   if (xCandidates.length > 0 && yCandidates.length > 0) {
@@ -172,11 +300,35 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
 
   try {
     // Check if faceting is applicable
+    // EXCEPTION: For Gantt charts, don't facet the first discrete dimension - it becomes the category axis
     const facetPlan = planFacets(effectiveContext);
+    const isGanttSelected = effectiveContext.globalChartType === 'gantt';
+    
+    // Adjust facet plan for Gantt: reserve one discrete dimension for category axis
+    let adjustedFacetPlan = facetPlan;
+    if (isGanttSelected && facetPlan) {
+      // Determine which axis has the continuous field (timeline)
+      const xHasContinuous = xFields.some(f => f.flavour === 'continuous');
+      const yHasContinuous = yFields.some(f => f.flavour === 'continuous');
+      
+      if (xHasContinuous && !yHasContinuous && facetPlan.rowFacetFields.length > 0) {
+        // Horizontal Gantt: first Y discrete becomes category, rest are facets
+        adjustedFacetPlan = {
+          ...facetPlan,
+          rowFacetFields: facetPlan.rowFacetFields.slice(1), // Remove first for category axis
+        };
+      } else if (yHasContinuous && !xHasContinuous && facetPlan.colFacetFields.length > 0) {
+        // Vertical Gantt: first X discrete becomes category, rest are facets
+        adjustedFacetPlan = {
+          ...facetPlan,
+          colFacetFields: facetPlan.colFacetFields.slice(1), // Remove first for category axis
+        };
+      }
+    }
     
     // Only engage faceting when there are discrete fields that should become facets
-    if (facetPlan && ((facetPlan.rowFacetFields?.length || 0) > 0 || (facetPlan.colFacetFields?.length || 0) > 0)) {
-      return generateFacetedGrid(effectiveContext, facetPlan);
+    if (adjustedFacetPlan && ((adjustedFacetPlan.rowFacetFields?.length || 0) > 0 || (adjustedFacetPlan.colFacetFields?.length || 0) > 0)) {
+      return generateFacetedGrid(effectiveContext, adjustedFacetPlan);
     }
 
     // Delegate to core chart generation logic
@@ -206,35 +358,5 @@ export function baseGeneratePlot(context: ChartGenerationContext, overrides?: Ch
  * Includes 0 and adds 10% headroom at the top, similar to bar charts.
  */
 // moved to domains/measureDomains.ts
-
-/**
- * Create a simple message chart (as 1x1 grid)
- */
-function createMessageChart(message: string): PlotResult {
-  return {
-    library: 'observable-plot',
-    plots: [{
-      id: 'message',
-      title: '',
-      options: {
-        marks: [
-          Plot.text([message], {
-            frameAnchor: "middle",
-            fontSize: 14,
-            fill: "gray"
-          })
-        ]
-      },
-      position: { row: 0, col: 0 }
-    }],
-    layout: {
-      type: 'grid',
-      columns: 1,
-      rows: 1,
-      columnSizes: ['fr'],
-      rowSizes: ['fr']
-    }
-  };
-}
 
 // buildLabelConfig is now in utils/configBuilder.ts and re-exported above for backward compatibility
