@@ -22,6 +22,11 @@ interface SizeFieldControlProps {
   onRemove: (fieldIds: string[]) => void;
   onSizeRangeChange: (range: [number, number]) => void;
   onManualSizeChange: (size: number) => void;
+  /** 
+   * When true, always show single slider for thickness control regardless of field.
+   * Used for tick-strip and gantt charts where sizeField doesn't map to visual size.
+   */
+  forceSingleSlider?: boolean;
 }
 
 const SizeFieldControl: React.FC<SizeFieldControlProps> = ({
@@ -32,6 +37,7 @@ const SizeFieldControl: React.FC<SizeFieldControlProps> = ({
   onRemove,
   onSizeRangeChange,
   onManualSizeChange,
+  forceSingleSlider = false,
 }) => {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 
@@ -118,6 +124,7 @@ const SizeFieldControl: React.FC<SizeFieldControlProps> = ({
           manualSize={manualSize}
           onSizeRangeChange={onSizeRangeChange}
           onManualSizeChange={onManualSizeChange}
+          forceSingleSlider={forceSingleSlider}
         />
       </Popover>
     </Box>

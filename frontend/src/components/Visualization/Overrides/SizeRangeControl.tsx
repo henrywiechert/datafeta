@@ -8,6 +8,11 @@ interface SizeRangeControlProps {
   manualSize: number;
   onSizeRangeChange: (range: [number, number]) => void;
   onManualSizeChange: (size: number) => void;
+  /** 
+   * When true, always show single slider for thickness control regardless of sizeField.
+   * Used for tick-strip and gantt charts where sizeField doesn't map to visual size.
+   */
+  forceSingleSlider?: boolean;
 }
 
 const SizeRangeControl: React.FC<SizeRangeControlProps> = ({
@@ -16,6 +21,7 @@ const SizeRangeControl: React.FC<SizeRangeControlProps> = ({
   manualSize,
   onSizeRangeChange,
   onManualSizeChange,
+  forceSingleSlider = false,
 }) => {
   // Local state for visual feedback during dragging
   const [localSizeRange, setLocalSizeRange] = useState<[number, number]>(sizeRange);
@@ -61,7 +67,7 @@ const SizeRangeControl: React.FC<SizeRangeControlProps> = ({
       borderRadius: '4px',
       backgroundColor: '#f9f9f9'
     }}>
-      {sizeField ? (
+      {sizeField && !forceSingleSlider ? (
         <FormControl fullWidth>
           <Typography variant="body2" sx={{ 
             fontSize: '0.7rem',
@@ -84,6 +90,14 @@ const SizeRangeControl: React.FC<SizeRangeControlProps> = ({
         </FormControl>
       ) : (
         <FormControl fullWidth>
+          <Typography variant="body2" sx={{ 
+            fontSize: '0.7rem',
+            fontWeight: 500,
+            marginBottom: '2px',
+            color: '#424242'
+          }}>
+            Thickness
+          </Typography>
           <Slider
             value={localManualSize}
             onChange={handleManualSizeChange}
