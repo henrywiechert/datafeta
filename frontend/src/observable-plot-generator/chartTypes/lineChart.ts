@@ -4,7 +4,7 @@ import { Field } from '../../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
-import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
+import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 import { formatDateTick } from '../utils/dateFormatUtils';
 
@@ -447,7 +447,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
       chartType: O.chartType
     };
     const prepared = prepareLabelData(labelConfig);
-    const labelMark = createLabelMark(prepared, labelConfig, xColumn, yColumn);
+    const labelMark = createLegacyLabelMark(prepared, labelConfig, xColumn, yColumn);
     if (labelMark) {
       (plotOptions.marks = plotOptions.marks || []).push(labelMark as any);
     }
