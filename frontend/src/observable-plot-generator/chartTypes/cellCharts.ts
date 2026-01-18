@@ -531,7 +531,9 @@ function handleGanttX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plo
       duration: ctx.sizeField ? getFieldDisplayName(ctx.sizeField) : undefined,
       category: categoryField ? getFieldDisplayName(categoryField) : undefined,
     },
-    ctx.sharedMeasureDomains
+    ctx.sharedMeasureDomains,
+    1.0, // zoomLevel
+    ctx.labelCfg // label configuration
   );
   
   return result.options;
@@ -569,7 +571,9 @@ function handleGanttY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plo
       duration: ctx.sizeField ? getFieldDisplayName(ctx.sizeField) : undefined,
       category: categoryField ? getFieldDisplayName(categoryField) : undefined,
     },
-    ctx.sharedMeasureDomains
+    ctx.sharedMeasureDomains,
+    1.0, // zoomLevel
+    ctx.labelCfg // label configuration
   );
   
   return result.options;
