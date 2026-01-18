@@ -473,10 +473,12 @@ export function ganttChart(
     }
   }
 
+  const thicknessScale = context.bandThicknessScale ?? 1;
+
   // Set the category axis dimension based on category count
   // This ensures consistent sizing similar to bar/tick-strip charts
   // Timeline axis uses 'fr' (not set here), category axis uses fixed size per category
-  const categoryAxisSize = Math.max(BAR_STEP_PX, categoryCount * BAR_STEP_PX);
+  const categoryAxisSize = Math.max(BAR_STEP_PX, categoryCount * BAR_STEP_PX) * thicknessScale;
   if (orientation === 'x') {
     // Horizontal Gantt: category axis is Y, so set height
     opts.height = categoryAxisSize;

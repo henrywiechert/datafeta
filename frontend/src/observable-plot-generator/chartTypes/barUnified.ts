@@ -255,11 +255,15 @@ export function barUnified(
   // Combine bar plots and tick strip plots
   const allPlots = [...plots, ...tickStripPlots];
 
+  const thicknessScale = context.bandThicknessScale ?? 1;
+
   // Always return a grid-style PlotResult (even for a single plot) so that
   // the renderer uses the unified left-side label/axis layout.
   const categoryCount = hasCategories && categories ? categories.length : 1;
-  const intrinsicSize = Math.max(BAR_STEP_PX, categoryCount * BAR_STEP_PX);
-  const minSize = Math.max(MIN_BAR_STEP_PX, categoryCount * MIN_BAR_STEP_PX);
+  const baseIntrinsicSize = Math.max(BAR_STEP_PX, categoryCount * BAR_STEP_PX);
+  const baseMinSize = Math.max(MIN_BAR_STEP_PX, categoryCount * MIN_BAR_STEP_PX);
+  const intrinsicSize = Math.max(1, baseIntrinsicSize * thicknessScale);
+  const minSize = Math.max(1, baseMinSize * thicknessScale);
   
   const columnSizes = orientation === 'horizontal'
     ? Array.from({ length: allPlots.length }, () => 'fr' as const)

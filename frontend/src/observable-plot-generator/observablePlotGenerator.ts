@@ -98,7 +98,8 @@ function generateSingleAxisGantt(
   // Sizing for single-axis Gantt:
   // - Timeline direction: use 'fr' to fill available space (user can scroll if needed via future zoom)
   // - Category direction: use a fixed reasonable size for single-row (not 'fr' which would make bars too thick)
-  const SINGLE_ROW_HEIGHT = 60; // Reasonable height for a single-row Gantt
+  const thicknessScale = context.bandThicknessScale ?? 1;
+  const SINGLE_ROW_HEIGHT = 60 * thicknessScale; // Scaled height for a single-row Gantt
   const columnSize: number | 'fr' = orientation === 'x' ? 'fr' : SINGLE_ROW_HEIGHT;
   const rowSize: number | 'fr' = orientation === 'y' ? 'fr' : SINGLE_ROW_HEIGHT;
   
@@ -202,6 +203,7 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
       allFields: [...xFields, ...yFields, ...(colorField ? [colorField] : []), ...(sizeField ? [sizeField] : [])],
       globalChartType: context.globalChartType,
       measureValuesSourceFields: context.measureValuesSourceFields,
+      bandThicknessScale: context.bandThicknessScale,
     });
 
     // Determine column/row sizes from plots

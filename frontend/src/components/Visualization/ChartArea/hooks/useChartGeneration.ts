@@ -17,6 +17,7 @@ interface UseChartGenerationProps {
   sizeField: Field | null;
   sizeRange: [number, number];
   manualSize: number;
+  bandThicknessScale: number;
   useTableView: boolean;
   queryResult: any; // Add queryResult here
   queryVersion?: number; // Add queryVersion to detect union/join changes
@@ -58,6 +59,7 @@ export const useChartGeneration = ({
   sizeField,
   sizeRange,
   manualSize,
+  bandThicknessScale,
   useTableView,
   queryResult, // Destructure here
   queryVersion, // Destructure queryVersion
@@ -198,6 +200,7 @@ export const useChartGeneration = ({
         sizeField: sizeField || undefined,
         sizeRange,
         manualSize,
+        bandThicknessScale,
         queryResult,
         labelFields,
         labelsEnabled,
@@ -256,7 +259,7 @@ export const useChartGeneration = ({
       // On error, complete the operation immediately since no rendering will happen
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, useTableView, startOperation, completeOperation, queryResult, queryVersion, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, tooltipFields, fieldOverrides, globalChartType, measureValuesSourceFields, independentDomains, doGenerateChart]);
+  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, bandThicknessScale, useTableView, startOperation, completeOperation, queryResult, queryVersion, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, tooltipFields, fieldOverrides, globalChartType, measureValuesSourceFields, independentDomains, doGenerateChart]);
 
   const cancelGeneration = useCallback(() => {
     // No-op since Observable Plot generation is synchronous
