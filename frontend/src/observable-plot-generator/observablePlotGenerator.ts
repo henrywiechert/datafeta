@@ -142,18 +142,23 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
 
   // Build candidate lists for cartesian pairing, preserving the original field order
   // Only include continuous dimensions and measures (discrete dimensions are handled by faceting)
-  // EXCEPTION: For Gantt charts, include discrete dimensions as category axis (similar to bar charts)
+  // EXCEPTION: For Gantt charts, include discrete dimensions only on the category axis
   const isGanttSelected = context.globalChartType === 'gantt';
+  const xHasContinuous = xFields.some((f) => f.flavour === 'continuous');
+  const yHasContinuous = yFields.some((f) => f.flavour === 'continuous');
+  const ganttCategoryAxis: 'x' | 'y' | null = isGanttSelected
+    ? (xHasContinuous && !yHasContinuous ? 'y' : (!xHasContinuous && yHasContinuous ? 'x' : 'y'))
+    : null;
   
   const xCandidates: Field[] = xFields.filter((f: Field) => 
     f.type === 'measure' || 
     (f.type === 'dimension' && f.flavour === 'continuous') ||
-    (isGanttSelected && f.type === 'dimension' && f.flavour === 'discrete')
+    (ganttCategoryAxis === 'x' && f.type === 'dimension' && f.flavour === 'discrete')
   );
   const yCandidates: Field[] = yFields.filter((f: Field) => 
     f.type === 'measure' || 
     (f.type === 'dimension' && f.flavour === 'continuous') ||
-    (isGanttSelected && f.type === 'dimension' && f.flavour === 'discrete')
+    (ganttCategoryAxis === 'y' && f.type === 'dimension' && f.flavour === 'discrete')
   );
 
   const labelCfg = buildLabelConfig(context);

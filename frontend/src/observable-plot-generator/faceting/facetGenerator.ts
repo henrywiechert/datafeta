@@ -99,7 +99,8 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
     } = chartConfig;
     
   // BAR path: Use coordinator with bar cell generator
-  if (barOrientation && categoryAxis) {
+  // Skip this path when Gantt is explicitly selected
+  if (context.globalChartType !== 'gantt' && barOrientation && categoryAxis) {
     // Compute global band padding from size field if provided (applied to all facets)
     // Use effective manual size which may come from combined MeasureValues overrides
     const globalBandPadding = computeBandPaddingFromSizeField(context.queryResult.rows, sizeField, {
@@ -159,11 +160,22 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
   // All discrete dimensions are used for faceting, continuous dimensions/measures go on X/Y axes.
   
   // Build candidates: only continuous dimensions and measures (discrete already used for faceting)
+  // EXCEPTION: For Gantt charts, include discrete dimensions only on the category axis
+  const isGanttSelected = context.globalChartType === 'gantt';
+  const xHasContinuous = xFields.some(f => f.flavour === 'continuous');
+  const yHasContinuous = yFields.some(f => f.flavour === 'continuous');
+  const ganttCategoryAxis: 'x' | 'y' | null = isGanttSelected
+    ? (xHasContinuous && !yHasContinuous ? 'y' : (!xHasContinuous && yHasContinuous ? 'x' : 'y'))
+    : null;
   const xCandidates = xFields.filter(f => 
-    f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
+    f.type === 'measure' || 
+    (f.type === 'dimension' && f.flavour === 'continuous') ||
+    (ganttCategoryAxis === 'x' && f.type === 'dimension' && f.flavour === 'discrete')
   );
   const yCandidates = yFields.filter(f => 
-    f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
+    f.type === 'measure' || 
+    (f.type === 'dimension' && f.flavour === 'continuous') ||
+    (ganttCategoryAxis === 'y' && f.type === 'dimension' && f.flavour === 'discrete')
   );
   
   // Create a cell generator that directly calls generateCartesianPlots
