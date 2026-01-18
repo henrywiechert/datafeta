@@ -6,6 +6,7 @@ import ScatterPlotIcon from '@mui/icons-material/ScatterPlot';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import LinearScaleIcon from '@mui/icons-material/LinearScale';
 import AutoModeIcon from '@mui/icons-material/AutoMode';
+import ViewTimelineIcon from '@mui/icons-material/ViewTimeline';
 import { UserChartType } from '../../../types';
 
 interface ChartTypeControlProps {
@@ -105,6 +106,11 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
           <ToggleButton value="bar" aria-label="bar chart">
             <Tooltip title="Bar chart" placement="top">
               <BarChartIcon sx={{ fontSize: 16 }} />
+            </Tooltip>
+          </ToggleButton>
+          <ToggleButton value="gantt" aria-label="gantt chart">
+            <Tooltip title="Gantt chart (interval)" placement="top">
+              <ViewTimelineIcon sx={{ fontSize: 16 }} />
             </Tooltip>
           </ToggleButton>
         </ToggleButtonGroup>

@@ -43,4 +43,11 @@ export const MAX_CELL_WIDTH_PX = 5000;
 export const MIN_CELL_HEIGHT_PX = 50;
 export const MAX_CELL_HEIGHT_PX = 5000;
 
+// Gantt chart constants
+// Base pixels per data unit for intrinsic width calculation
+// Future zoom will multiply this value (zoomLevel * GANTT_UNIT_PX)
+export const GANTT_UNIT_PX = 10;
+export const MIN_GANTT_WIDTH_PX = 200;
+export const MAX_GANTT_WIDTH_PX = 10000;
+
 
