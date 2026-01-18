@@ -40,13 +40,14 @@ This directory contains chart generators for Observable Plot. Each chart type is
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `cellCharts.ts` | 577 | Central pair-wise chart dispatcher with registry pattern |
+| `cellCharts.ts` | ~650 | Central pair-wise chart dispatcher with registry pattern |
 | `barCore.ts` | 385 | Core bar chart building utilities |
 | `barUnified.ts` | 350 | Multi-measure bar/tick-strip chart builder |
 | `barChart.ts` | 14 | Thin wrapper around `barUnified` for API compatibility |
 | `scatterChart.ts` | 377 | Scatter plot generator with stratified sampling |
 | `lineChart.ts` | 578 | Line chart generator with bin-aggregation |
 | `tickStrip.ts` | 346 | Tick strip (1D distribution) generator |
+| `ganttChart.ts` | ~350 | Gantt/interval chart generator with intrinsic sizing |
 | `measureValuesMultiMark.ts` | 453 | Multi-mark generator for MeasureValues with per-measure overrides |
 | `barChart.test.ts` | 214 | Test suite for bar chart functionality |
 
@@ -71,6 +72,8 @@ const CHART_HANDLERS: Record<CellChartType, ChartHandler> = {
   tickX: handleTickX,
   tickY: handleTickY,
   dot: handleDot,
+  ganttX: handleGanttX,
+  ganttY: handleGanttY,
 };
 ```
 
@@ -160,6 +163,38 @@ Line chart generator with bin-aggregation for performance.
 - Works with continuous dimensions or measures
 - Optional category dimension for banded layout
 - Band padding controlled by size field or manual size
+
+---
+
+### ganttChart.ts
+
+Gantt/interval chart for visualizing ranges with start and duration values.
+
+**Key Exports:**
+- `ganttChart()` — Generates Gantt chart PlotOptions with intrinsic sizing
+- `computeGanttIntrinsicSize()` — Calculate intrinsic width/height based on data range
+
+**Features:**
+- Uses Observable Plot's `barX`/`barY` with `x1`/`x2` (or `y1`/`y2`) channels for interval rendering
+- **Size field semantics**: Unlike other charts, size field represents task DURATION, not visual thickness
+- Band padding (bar thickness) controlled by manualSize only
+- Intrinsic sizing: Chart width calculated from data range × pixels-per-unit
+- Supports optional zoom level parameter for future zoom/pan controls
+- Handles edge cases: negative durations (clamped to 0), zero durations (thin lines), null/undefined (fallback)
+- Domain computation includes both start and end values (start + duration)
+
+**Orientation:**
+- `ganttX`: Horizontal Gantt (most common) — start on X-axis, categories on Y-axis
+- `ganttY`: Vertical Gantt — start on Y-axis, categories on X-axis
+
+**Configuration Constants (chartLayoutConfig.ts):**
+- `GANTT_UNIT_PX`: Base pixels per data unit (default: 10)
+- `MIN_GANTT_WIDTH_PX`: Minimum intrinsic width (default: 200)
+- `MAX_GANTT_WIDTH_PX`: Maximum intrinsic width (default: 10000)
+
+**Future Enhancements (Architecture-Ready):**
+- DateTime support (currently numeric-only)
+- Zoom/pan controls via `zoomLevel` parameter
 
 ---
 
