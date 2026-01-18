@@ -12,11 +12,13 @@ import { UserChartType } from '../../../types';
 interface ChartTypeControlProps {
   chartType: UserChartType | undefined;
   onChange: (chartType: UserChartType | undefined) => void;
+  autoSelectedType?: UserChartType;
 }
 
 const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
   chartType,
   onChange,
+  autoSelectedType,
 }) => {
   const handleChange = (_event: React.MouseEvent<HTMLElement>, newValue: string | null) => {
     if (newValue === 'auto' || newValue === null) {
@@ -28,6 +30,14 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
 
   // Current value: 'auto' when undefined, otherwise the chart type
   const value = chartType ?? 'auto';
+  const isAuto = value === 'auto';
+
+  const getAutoHighlightSx = (buttonValue: UserChartType) =>
+    isAuto && autoSelectedType === buttonValue
+      ? {
+          boxShadow: 'inset 0 0 0 2px rgba(25, 118, 210, 0.9)',
+        }
+      : undefined;
 
   return (
     <Box
@@ -88,27 +98,27 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
               <AutoModeIcon sx={{ fontSize: 16 }} />
             </Tooltip>
           </ToggleButton>
-          <ToggleButton value="line" aria-label="line chart">
+          <ToggleButton value="line" aria-label="line chart" sx={getAutoHighlightSx('line')}>
             <Tooltip title="Line chart" placement="top">
               <ShowChartIcon sx={{ fontSize: 16 }} />
             </Tooltip>
           </ToggleButton>
-          <ToggleButton value="scatter" aria-label="scatter plot">
+          <ToggleButton value="scatter" aria-label="scatter plot" sx={getAutoHighlightSx('scatter')}>
             <Tooltip title="Scatter / Dot plot" placement="top">
               <ScatterPlotIcon sx={{ fontSize: 16 }} />
             </Tooltip>
           </ToggleButton>
-          <ToggleButton value="tick" aria-label="tick strip">
+          <ToggleButton value="tick" aria-label="tick strip" sx={getAutoHighlightSx('tick')}>
             <Tooltip title="Tick strip" placement="top">
               <LinearScaleIcon sx={{ fontSize: 16 }} />
             </Tooltip>
           </ToggleButton>
-          <ToggleButton value="bar" aria-label="bar chart">
+          <ToggleButton value="bar" aria-label="bar chart" sx={getAutoHighlightSx('bar')}>
             <Tooltip title="Bar chart" placement="top">
               <BarChartIcon sx={{ fontSize: 16 }} />
             </Tooltip>
           </ToggleButton>
-          <ToggleButton value="gantt" aria-label="gantt chart">
+          <ToggleButton value="gantt" aria-label="gantt chart" sx={getAutoHighlightSx('gantt')}>
             <Tooltip title="Gantt chart (interval)" placement="top">
               <ViewTimelineIcon sx={{ fontSize: 16 }} />
             </Tooltip>
