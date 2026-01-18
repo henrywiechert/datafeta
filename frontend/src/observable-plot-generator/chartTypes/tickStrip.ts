@@ -122,6 +122,7 @@ function buildPlotOptions(
   categoryLabel: string | undefined,
   axisDomain: [number, number] | [Date, Date] | undefined,
   bandPadding: number,
+  thicknessScale: number,
   tickConfig: any,
   hoverDotConfig: any,
   colorScale: any,
@@ -137,14 +138,12 @@ function buildPlotOptions(
         : Array.from(new Set(data.map((row: any) => row[categoryDimensionColumn]))))
     : undefined;
   const categoryCount = categories?.length || 1;
+  const categoryAxisSize = Math.max(BAR_STEP_PX, categoryCount * BAR_STEP_PX) * thicknessScale;
   
   let opts: Plot.PlotOptions;
   
-  // NOTE: We intentionally do NOT set explicit height/width here.
-  // The intrinsic size is communicated via rowSizes/columnSizes in PlotResult.layout,
-  // which sets the CSS grid cell size. ObservablePlot then renders to fit the container.
-  // This allows resize handles to work - when user resizes, the container changes,
-  // and Observable Plot re-renders proportionally (band scale naturally scales).
+  // NOTE: We intentionally do NOT set explicit height/width here in the default case,
+  // but we do apply a scaled category-axis size to mimic facet-resize behavior when desired.
   
   if (orientation === 'x') {
     const markType = Plot.tickX;
@@ -166,6 +165,7 @@ function buildPlotOptions(
       // Size handled by layout system, not here - enables resize handles
       marks: [markType(data, tickConfig), Plot.dot(data, hoverDotConfig)],
     };
+    opts.height = categoryAxisSize;
   } else {
     const markType = Plot.tickY;
     opts = {
@@ -186,6 +186,7 @@ function buildPlotOptions(
       // Size handled by layout system, not here - enables resize handles
       marks: [markType(data, tickConfig), Plot.dot(data, hoverDotConfig)],
     };
+    opts.width = categoryAxisSize;
   }
   
   applyColorScale(opts, colorScale);
@@ -210,7 +211,7 @@ export function tickStrip(
   labels?: { dimension?: string; category?: string },
   sharedDomains?: Domains
 ): Plot.PlotOptions {
-  const { queryResult, colorField, colorScheme, colorBias, sizeField, manualSize, manualColor, tooltipFields } = context;
+  const { queryResult, colorField, colorScheme, colorBias, sizeField, manualSize, manualColor, tooltipFields, bandThicknessScale } = context;
   const data = queryResult.rows;
   const colorInfo = colorField ? deriveColorScaleInfo(data, colorField, colorScheme, colorBias) : null;
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
@@ -325,6 +326,8 @@ export function tickStrip(
   // Create hover dot configuration for better tooltip detection
   const hoverDotConfig = createHoverDotConfig(orientation, dimensionColumn, categoryDimensionColumn);
   
+  const thicknessScale = bandThicknessScale ?? 1;
+
   // Build and return plot options
   return buildPlotOptions(
     orientation,
@@ -335,6 +338,7 @@ export function tickStrip(
     categoryLabel,
     axisDomain,
     bandPadding,
+    thicknessScale,
     tickConfig,
     hoverDotConfig,
     colorScale,

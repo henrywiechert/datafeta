@@ -34,6 +34,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
     allFields,
     globalChartType,
     measureValuesSourceFields,
+    bandThicknessScale,
   } = config;
 
   // Extract encoding options
@@ -44,6 +45,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
   const sizeField = encoding?.size?.field;
   const sizeRange = encoding?.size?.range;
   const manualSize = encoding?.size?.manual;
+  const thicknessScale = bandThicknessScale;
 
   // Combine measure and numeric domains
   const sharedMeasureDomains = sharedDomains.measure;
@@ -226,6 +228,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
           cellSizeField || undefined,
           cellSizeRange,
           cellManualSize,
+          thicknessScale,
           cellColorScheme,
           cellColorBias,
           cellManualColor,

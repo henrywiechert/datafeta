@@ -58,6 +58,7 @@ export interface CartesianPlotsConfig {
   allFields?: Field[];
   globalChartType?: UserChartType | null;
   measureValuesSourceFields?: Field[];
+  bandThicknessScale?: number;
 }
 
 export interface ChartGenerationContext {
@@ -70,6 +71,7 @@ export interface ChartGenerationContext {
   sizeField?: Field;
   sizeRange?: [number, number];
   manualSize?: number;
+  bandThicknessScale?: number;
   facetField?: Field;
   categoryAxisDescriptor?: CategoryAxisDescriptor;
   queryResult: QueryResult;

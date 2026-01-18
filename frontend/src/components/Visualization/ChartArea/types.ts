@@ -53,6 +53,8 @@ export interface ChartRendererProps {
 export interface ChartControlsProps {
   isDebugOpen: boolean;
   onToggleDebug: () => void;
+  bandThicknessScale?: number;
+  onBandThicknessScaleChange?: (scale: number) => void;
 }
 
 export interface DebugPanelProps {

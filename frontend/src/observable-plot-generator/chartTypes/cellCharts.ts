@@ -27,6 +27,7 @@ interface ChartContext {
   sizeField?: Field;
   sizeRange?: [number, number];
   manualSize?: number;
+  bandThicknessScale?: number;
   colorScheme?: string;
   colorBias?: number;
   manualColor?: string;
@@ -519,6 +520,7 @@ function handleGanttX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plo
       colorScheme: ctx.colorScheme,
       colorBias: ctx.colorBias,
       manualSize: ctx.manualSize,
+      bandThicknessScale: ctx.bandThicknessScale,
       manualColor: ctx.manualColor,
       tooltipFields: ctx.tooltipFields,
     },
@@ -559,6 +561,7 @@ function handleGanttY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plo
       colorScheme: ctx.colorScheme,
       colorBias: ctx.colorBias,
       manualSize: ctx.manualSize,
+      bandThicknessScale: ctx.bandThicknessScale,
       manualColor: ctx.manualColor,
       tooltipFields: ctx.tooltipFields,
     },
@@ -613,6 +616,7 @@ export function generatePairChartOptions(
   sizeField?: Field,
   sizeRange?: [number, number],
   manualSize?: number,
+  bandThicknessScale?: number,
   colorScheme?: string,
   colorBias?: number,
   manualColor?: string,
@@ -629,6 +633,7 @@ export function generatePairChartOptions(
     sizeField,
     sizeRange,
     manualSize,
+    bandThicknessScale,
     colorScheme,
     colorBias,
     manualColor,

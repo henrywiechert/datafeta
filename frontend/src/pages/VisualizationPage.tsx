@@ -118,13 +118,14 @@ const VisualizationPageContent = () => {
                     virtualColumns: previousState.virtualColumns || [],
                     virtualColumnFieldPreferences: previousState.virtualColumnFieldPreferences || {},
                     fieldOverrides: previousState.fieldOverrides || {},
+                    bandThicknessScale: previousState.bandThicknessScale ?? state.bandThicknessScale,
                 }
             });
             
             // Complete the undo operation
             completeUndo(currentState);
         }
-    }, [undo, completeUndo, dispatch, getUndoableSnapshot]);
+    }, [undo, completeUndo, dispatch, getUndoableSnapshot, state.bandThicknessScale]);
 
     const handleRedo = React.useCallback(() => {
         const nextState = redo();
@@ -140,13 +141,14 @@ const VisualizationPageContent = () => {
                     virtualColumns: nextState.virtualColumns || [],
                     virtualColumnFieldPreferences: nextState.virtualColumnFieldPreferences || {},
                     fieldOverrides: nextState.fieldOverrides || {},
+                    bandThicknessScale: nextState.bandThicknessScale ?? state.bandThicknessScale,
                 }
             });
             
             // Complete the redo operation
             completeRedo(currentState);
         }
-    }, [redo, completeRedo, dispatch, getUndoableSnapshot]);
+    }, [redo, completeRedo, dispatch, getUndoableSnapshot, state.bandThicknessScale]);
 
     // Simplified axis-specific handlers that use the generic handler
     const handleXAxisDrop = (field: Field | Field[], source: DragSource, index?: number) => {
