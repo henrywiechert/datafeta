@@ -10,10 +10,11 @@ export interface LabelRenderConfig {
   samplingStrategy: 'auto' | 'all' | 'sample';
   samplingThreshold: number;
   sampleEvery: number;
-  chartType: 'scatter' | 'line' | 'verticalLine' | 'bar';
-  orientation?: 'vertical' | 'horizontal'; // for bar charts
+  chartType: 'scatter' | 'line' | 'verticalLine' | 'bar' | 'gantt';
+  orientation?: 'vertical' | 'horizontal'; // for bar and gantt charts
   colorColumn?: string; // for stacked bar labels
   isStacked?: boolean; // whether bars are stacked (no category but has color)
+  durationColumn?: string; // for gantt charts - the duration/size value
 }
 
 const HARD_CAP = 5000;
@@ -26,15 +27,15 @@ export function prepareLabelData(cfg: LabelRenderConfig): { shouldRender: boolea
   if (!cfg.labelsEnabled) return { shouldRender: false, data: [] };
   if (total === 0) return { shouldRender: false, data: [] };
 
-  // Auto suppression above threshold, with sampling for scatter and bar charts
+  // Auto suppression above threshold, with sampling for scatter, bar, and gantt charts
   if (cfg.samplingStrategy === 'auto' && total > cfg.samplingThreshold) {
     if (cfg.chartType === 'scatter') {
       const every = Math.max(1, Math.ceil(total / cfg.samplingThreshold));
       const sampled = cfg.data.filter((_, i) => i % every === 0);
       return { shouldRender: true, data: sampled };
     }
-    // For bar charts, sample labels when there are too many categories
-    if (cfg.chartType === 'bar') {
+    // For bar and gantt charts, sample labels when there are too many items
+    if (cfg.chartType === 'bar' || cfg.chartType === 'gantt') {
       const every = Math.max(1, Math.ceil(total / cfg.samplingThreshold));
       const sampled = cfg.data.filter((_, i) => i % every === 0);
       return { shouldRender: true, data: sampled };
@@ -69,6 +70,14 @@ export function buildLabelString(d: any, cfg: LabelRenderConfig): string {
         return `${formatValue(d[cfg.xColumn])}`;
       }
       return `${formatValue(d[cfg.yColumn])}`;
+    }
+    if (cfg.chartType === 'gantt') {
+      // Gantt charts default to showing duration (size field value)
+      if (cfg.durationColumn && d[cfg.durationColumn] !== undefined) {
+        return `${formatValue(d[cfg.durationColumn])}`;
+      }
+      // Fallback: no duration to show
+      return '';
     }
     // line & verticalLine default: y value
     return `${formatValue(d[cfg.yColumn])}`;
@@ -156,6 +165,54 @@ export function createLabelMark(prepared: { shouldRender: boolean; data: any[] }
         y: yCol,
       }));
     }
+  }
+  
+  // Gantt chart labels - positioned in the middle of each bar
+  if (cfg.chartType === 'gantt') {
+    const base: any = {
+      text: (d: any) => buildLabelString(d, cfg),
+      fontSize: 10,
+      lineHeight: 1.1,
+      fill: 'black',
+      textAnchor: 'middle',
+      pointerEvents: 'none',
+      stroke: 'white',
+      strokeWidth: 3,
+    };
+    
+    if (cfg.orientation === 'horizontal') {
+      // Horizontal Gantt: x is timeline (start column), y is category
+      // Position label at midpoint of bar (x1 + x2) / 2
+      base.x = xCol; // Will be overridden by accessor
+      base.y = yCol;
+      // Compute midpoint of bar for x position
+      if (cfg.durationColumn) {
+        base.x = (d: any) => {
+          const start = d[xCol];
+          const duration = d[cfg.durationColumn!];
+          if (typeof start === 'number' && typeof duration === 'number') {
+            return start + duration / 2;
+          }
+          return start;
+        };
+      }
+    } else {
+      // Vertical Gantt: y is timeline (start column), x is category
+      base.x = xCol;
+      base.y = yCol; // Will be overridden by accessor
+      if (cfg.durationColumn) {
+        base.y = (d: any) => {
+          const start = d[yCol];
+          const duration = d[cfg.durationColumn!];
+          if (typeof start === 'number' && typeof duration === 'number') {
+            return start + duration / 2;
+          }
+          return start;
+        };
+      }
+    }
+    
+    return Plot.text(prepared.data, base);
   }
   
   // Regular (non-stacked) labels

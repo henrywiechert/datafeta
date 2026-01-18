@@ -53,7 +53,7 @@ function generateSingleAxisGantt(
   context: ChartGenerationContext,
   timelineCandidates: Field[],
   orientation: 'x' | 'y',
-  _labelCfg?: LabelConfig,
+  labelCfg?: LabelConfig,
   _overrides?: ChartTypeOverrides
 ): PlotResult {
   const { queryResult, sizeField } = context;
@@ -82,7 +82,7 @@ function generateSingleAxisGantt(
     : undefined;
   
   // Call ganttChart with positional arguments
-  // ganttChart(context, orientation, startColumn, durationColumn?, categoryColumn?, labels?, sharedDomains?, zoomLevel?)
+  // ganttChart(context, orientation, startColumn, durationColumn?, categoryColumn?, labels?, sharedDomains?, zoomLevel?, labelCfg?)
   const result = ganttChart(
     context,
     orientation,
@@ -91,7 +91,8 @@ function generateSingleAxisGantt(
     undefined, // No category - ganttChart will use () => ' '
     { start: startLabel, duration: durationLabel, category: undefined },
     undefined, // No shared domains for single-axis
-    1.0 // Default zoom level
+    1.0, // Default zoom level
+    labelCfg // Pass label configuration
   );
   
   // Sizing for single-axis Gantt:
