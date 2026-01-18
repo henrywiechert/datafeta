@@ -452,7 +452,7 @@ export type FilterMetadata = DiscreteFilterMetadata | ContinuousFilterMetadata |
 
 // Per-field chart override configuration (color, size, labels, chart type)
 export type DataLabelMode = 'inherit' | 'on' | 'off';
-export type UserChartType = 'line' | 'scatter' | 'tick' | 'bar';
+export type UserChartType = 'line' | 'scatter' | 'tick' | 'bar' | 'gantt';
 
 export interface FieldOverrideState {
   // Color overrides

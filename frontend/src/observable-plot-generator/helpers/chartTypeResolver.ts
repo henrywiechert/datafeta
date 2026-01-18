@@ -1,7 +1,7 @@
 import { Field, UserChartType } from '../../types';
 
 // Cell-level chart types for a pair of fields
-export type CellChartType = 'scatter' | 'line' | 'barX' | 'barY' | 'tickX' | 'tickY' | 'dot';
+export type CellChartType = 'scatter' | 'line' | 'barX' | 'barY' | 'tickX' | 'tickY' | 'dot' | 'ganttX' | 'ganttY';
 
 export type ChartTypeOverrides = {
   // Global fallback for all pairs when not overridden by field
@@ -124,6 +124,14 @@ export function mapUserChartTypeToCellChartType(
     
     case 'line':
       return 'line';
+    
+    case 'gantt':
+      // Gantt orientation: ganttX = horizontal (start on X axis), ganttY = vertical (start on Y axis)
+      // Typically horizontal Gantt (ganttX) is most common
+      if (fieldAxis === 'x') {
+        return 'ganttX';
+      }
+      return 'ganttY';
     
     default:
       // Fallback to auto-detection

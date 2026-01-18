@@ -7,6 +7,7 @@ import { getFieldColumnName } from '../helpers/fields';
 import { lineChart, verticalLineChart } from './lineChart';
 import { scatterChart } from './scatterChart';
 import { tickStrip } from './tickStrip';
+import { ganttChart } from './ganttChart';
 import { CellChartType, ChartTypeOverrides, resolveChartTypeForPair } from '../helpers/chartTypeResolver';
 import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField, sortCategoriesByValue, Orientation } from './barCore';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
@@ -478,6 +479,102 @@ function handleDot(data: any[], xf: Field, yf: Field, _ctx: ChartContext): Plot.
   };
 }
 
+/**
+ * Resolve the actual column name in data, handling aggregation aliases.
+ * The query may return raw column name or aggregated alias (e.g., "dur" vs "SUM(dur)").
+ */
+function resolveColumnInData(data: any[], field: Field): string {
+  const rawName = field.columnName;
+  const aggName = getResultColumnName(field);
+  
+  // Check if aggregated alias exists in data first (preferred)
+  if (data.length > 0 && Object.prototype.hasOwnProperty.call(data[0], aggName)) {
+    return aggName;
+  }
+  // Fall back to raw column name
+  if (data.length > 0 && Object.prototype.hasOwnProperty.call(data[0], rawName)) {
+    return rawName;
+  }
+  // Default to aggregated name (let it fail gracefully downstream)
+  return aggName;
+}
+
+function handleGanttX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.PlotOptions {
+  // Horizontal Gantt: continuous dimension on X (start), discrete dimension on Y (categories)
+  // Size field is used for duration, not thickness
+  const startField = xf.flavour === 'continuous' ? xf : (yf.flavour === 'continuous' ? yf : xf);
+  const categoryField = yf.type === 'dimension' && yf.flavour === 'discrete' ? yf : 
+                        (xf.type === 'dimension' && xf.flavour === 'discrete' ? xf : null);
+  
+  const startColumn = resolveColumnInData(data, startField);
+  const durationColumn = ctx.sizeField ? resolveColumnInData(data, ctx.sizeField) : undefined;
+  const categoryColumn = categoryField ? resolveColumnInData(data, categoryField) : undefined;
+  
+  const result = ganttChart(
+    {
+      xFields: [],
+      yFields: [],
+      queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any,
+      colorField: ctx.colorField,
+      colorScheme: ctx.colorScheme,
+      colorBias: ctx.colorBias,
+      manualSize: ctx.manualSize,
+      manualColor: ctx.manualColor,
+      tooltipFields: ctx.tooltipFields,
+    },
+    'x',
+    startColumn,
+    durationColumn,
+    categoryColumn,
+    {
+      start: getFieldDisplayName(startField),
+      duration: ctx.sizeField ? getFieldDisplayName(ctx.sizeField) : undefined,
+      category: categoryField ? getFieldDisplayName(categoryField) : undefined,
+    },
+    ctx.sharedMeasureDomains
+  );
+  
+  return result.options;
+}
+
+function handleGanttY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.PlotOptions {
+  // Vertical Gantt: continuous dimension on Y (start), discrete dimension on X (categories)
+  // Size field is used for duration, not thickness
+  const startField = yf.flavour === 'continuous' ? yf : (xf.flavour === 'continuous' ? xf : yf);
+  const categoryField = xf.type === 'dimension' && xf.flavour === 'discrete' ? xf :
+                        (yf.type === 'dimension' && yf.flavour === 'discrete' ? yf : null);
+  
+  const startColumn = resolveColumnInData(data, startField);
+  const durationColumn = ctx.sizeField ? resolveColumnInData(data, ctx.sizeField) : undefined;
+  const categoryColumn = categoryField ? resolveColumnInData(data, categoryField) : undefined;
+  
+  const result = ganttChart(
+    {
+      xFields: [],
+      yFields: [],
+      queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any,
+      colorField: ctx.colorField,
+      colorScheme: ctx.colorScheme,
+      colorBias: ctx.colorBias,
+      manualSize: ctx.manualSize,
+      manualColor: ctx.manualColor,
+      tooltipFields: ctx.tooltipFields,
+    },
+    'y',
+    startColumn,
+    durationColumn,
+    categoryColumn,
+    {
+      start: getFieldDisplayName(startField),
+      duration: ctx.sizeField ? getFieldDisplayName(ctx.sizeField) : undefined,
+      category: categoryField ? getFieldDisplayName(categoryField) : undefined,
+    },
+    ctx.sharedMeasureDomains
+  );
+  
+  return result.options;
+}
+
 // ---------- Chart Type Registry ---------------------------------------------
 
 /**
@@ -492,6 +589,8 @@ const CHART_HANDLERS: Record<CellChartType, ChartHandler> = {
   tickX: handleTickX,
   tickY: handleTickY,
   dot: handleDot,
+  ganttX: handleGanttX,
+  ganttY: handleGanttY,
 };
 
 // ---------- Public API ------------------------------------------------------
