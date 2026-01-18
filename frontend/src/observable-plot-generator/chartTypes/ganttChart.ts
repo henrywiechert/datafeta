@@ -13,7 +13,13 @@ import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { computeBandPaddingFromSizeField } from './barCore';
 import { Field } from '../../types';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
-import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
+import { 
+  prepareLabelData, 
+  createLabelMark, 
+  buildLabelStringFromFields, 
+  formatValue,
+  LabelSamplingConfig 
+} from '../utils/labelUtils';
 
 type Domains = Record<string, [number, number] | [Date, Date] | any[]> | undefined;
 
@@ -402,28 +408,68 @@ export function ganttChart(
 
   // Add data labels if enabled
   if (labelCfg && labelCfg.labelsEnabled) {
-    const labelConfig: LabelRenderConfig = {
+    // Prepare label data with sampling
+    const samplingConfig: LabelSamplingConfig = {
       data,
-      xColumn: orientation === 'x' ? startColumn : (categoryColumn || '__single_category'),
-      yColumn: orientation === 'x' ? (categoryColumn || '__single_category') : startColumn,
-      labelFields: labelCfg.labelFields,
       labelsEnabled: labelCfg.labelsEnabled,
       samplingStrategy: labelCfg.samplingStrategy,
       samplingThreshold: labelCfg.samplingThreshold,
       sampleEvery: labelCfg.sampleEvery,
-      chartType: 'gantt',
-      orientation: orientation === 'x' ? 'horizontal' : 'vertical',
-      durationColumn,
+      supportsSampling: true, // Gantt supports sampling
     };
-    const prepared = prepareLabelData(labelConfig);
-    const labelMark = createLabelMark(
-      prepared, 
-      labelConfig, 
-      labelConfig.xColumn, 
-      labelConfig.yColumn
-    );
-    if (labelMark) {
-      (opts.marks = opts.marks || []).push(labelMark as any);
+    const prepared = prepareLabelData(samplingConfig);
+    
+    if (prepared.shouldRender) {
+      // Gantt-specific label text builder
+      const getText = (d: any): string => {
+        // First try explicit label fields
+        const fromFields = buildLabelStringFromFields(d, labelCfg.labelFields);
+        if (fromFields.length > 0) {
+          return fromFields;
+        }
+        // Default: show duration value
+        if (durationColumn && d[durationColumn] !== undefined) {
+          return formatValue(d[durationColumn]);
+        }
+        return '';
+      };
+      
+      // Gantt-specific label positioning: center of each bar
+      const isHorizontal = orientation === 'x';
+      const categoryCol = categoryColumn || '__single_category';
+      
+      const labelMark = createLabelMark({
+        data: prepared.data,
+        getText,
+        // Position at midpoint of bar
+        x: isHorizontal
+          ? (durationColumn
+              ? (d: any) => {
+                  const start = d[startColumn];
+                  const duration = d[durationColumn];
+                  return typeof start === 'number' && typeof duration === 'number'
+                    ? start + duration / 2
+                    : start;
+                }
+              : startColumn)
+          : categoryCol,
+        y: isHorizontal
+          ? categoryCol
+          : (durationColumn
+              ? (d: any) => {
+                  const start = d[startColumn];
+                  const duration = d[durationColumn];
+                  return typeof start === 'number' && typeof duration === 'number'
+                    ? start + duration / 2
+                    : start;
+                }
+              : startColumn),
+        withHalo: true,
+      });
+      
+      if (labelMark) {
+        (opts.marks = opts.marks || []).push(labelMark as any);
+      }
     }
   }
 

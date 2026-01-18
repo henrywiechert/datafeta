@@ -5,7 +5,7 @@ import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { BAR_STEP_PX, MIN_BAR_STEP_PX, BAND_PADDING } from '../../config/chartLayoutConfig';
 // Label utilities
-import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
+import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 // Tick strip for continuous dimensions
 import { tickStrip } from './tickStrip';
 import { isMeasureValuesField, combineMeasureValuesOverrides } from '../../utils/syntheticFields';
@@ -220,7 +220,7 @@ export function barUnified(
       }
       const prepared = prepareLabelData(labelConfig);
       
-      const mark = createLabelMark(prepared, labelConfig, labelConfig.xColumn, labelConfig.yColumn);
+      const mark = createLegacyLabelMark(prepared, labelConfig, labelConfig.xColumn, labelConfig.yColumn);
       if (mark) {
         (options.marks = options.marks || []).push(mark as any);
       }
