@@ -149,16 +149,21 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
   const ganttCategoryAxis: 'x' | 'y' | null = isGanttSelected
     ? (xHasContinuous && !yHasContinuous ? 'y' : (!xHasContinuous && yHasContinuous ? 'x' : 'y'))
     : null;
+  const ganttCategoryFieldId = ganttCategoryAxis === 'x'
+    ? [...xFields].reverse().find((f) => f.type === 'dimension' && f.flavour === 'discrete')?.id
+    : ganttCategoryAxis === 'y'
+      ? [...yFields].reverse().find((f) => f.type === 'dimension' && f.flavour === 'discrete')?.id
+      : undefined;
   
   const xCandidates: Field[] = xFields.filter((f: Field) => 
     f.type === 'measure' || 
     (f.type === 'dimension' && f.flavour === 'continuous') ||
-    (ganttCategoryAxis === 'x' && f.type === 'dimension' && f.flavour === 'discrete')
+    (ganttCategoryAxis === 'x' && f.id === ganttCategoryFieldId)
   );
   const yCandidates: Field[] = yFields.filter((f: Field) => 
     f.type === 'measure' || 
     (f.type === 'dimension' && f.flavour === 'continuous') ||
-    (ganttCategoryAxis === 'y' && f.type === 'dimension' && f.flavour === 'discrete')
+    (ganttCategoryAxis === 'y' && f.id === ganttCategoryFieldId)
   );
 
   const labelCfg = buildLabelConfig(context);
@@ -323,16 +328,16 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
       const yHasContinuous = yFields.some(f => f.flavour === 'continuous');
       
       if (xHasContinuous && !yHasContinuous && facetPlan.rowFacetFields.length > 0) {
-        // Horizontal Gantt: first Y discrete becomes category, rest are facets
+        // Horizontal Gantt: last Y discrete becomes category, rest are facets
         adjustedFacetPlan = {
           ...facetPlan,
-          rowFacetFields: facetPlan.rowFacetFields.slice(1), // Remove first for category axis
+          rowFacetFields: facetPlan.rowFacetFields.slice(0, -1), // Remove last for category axis
         };
       } else if (yHasContinuous && !xHasContinuous && facetPlan.colFacetFields.length > 0) {
-        // Vertical Gantt: first X discrete becomes category, rest are facets
+        // Vertical Gantt: last X discrete becomes category, rest are facets
         adjustedFacetPlan = {
           ...facetPlan,
-          colFacetFields: facetPlan.colFacetFields.slice(1), // Remove first for category axis
+          colFacetFields: facetPlan.colFacetFields.slice(0, -1), // Remove last for category axis
         };
       }
     }
