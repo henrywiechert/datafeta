@@ -167,15 +167,20 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
   const ganttCategoryAxis: 'x' | 'y' | null = isGanttSelected
     ? (xHasContinuous && !yHasContinuous ? 'y' : (!xHasContinuous && yHasContinuous ? 'x' : 'y'))
     : null;
+  const ganttCategoryFieldId = ganttCategoryAxis === 'x'
+    ? [...xFields].reverse().find((f) => f.type === 'dimension' && f.flavour === 'discrete')?.id
+    : ganttCategoryAxis === 'y'
+      ? [...yFields].reverse().find((f) => f.type === 'dimension' && f.flavour === 'discrete')?.id
+      : undefined;
   const xCandidates = xFields.filter(f => 
     f.type === 'measure' || 
     (f.type === 'dimension' && f.flavour === 'continuous') ||
-    (ganttCategoryAxis === 'x' && f.type === 'dimension' && f.flavour === 'discrete')
+    (ganttCategoryAxis === 'x' && f.id === ganttCategoryFieldId)
   );
   const yCandidates = yFields.filter(f => 
     f.type === 'measure' || 
     (f.type === 'dimension' && f.flavour === 'continuous') ||
-    (ganttCategoryAxis === 'y' && f.type === 'dimension' && f.flavour === 'discrete')
+    (ganttCategoryAxis === 'y' && f.id === ganttCategoryFieldId)
   );
   
   // Create a cell generator that directly calls generateCartesianPlots
