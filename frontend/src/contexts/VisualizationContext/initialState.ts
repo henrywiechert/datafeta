@@ -33,6 +33,7 @@ export const initialState: VisualizationState = {
   sizeField: null,
   sizeRange: [4, 20],
   manualSize: 10,
+  bandThicknessScale: 1.0,
   // Label configuration defaults
   labelFields: [],
   labelsEnabled: false,

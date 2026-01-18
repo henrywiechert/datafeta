@@ -72,12 +72,13 @@ export function createBarCellGenerator(
     const categories = bandNorm.domain || [' '];
     const normalizedCellData = bandNorm.rows;
     
-    // Calculate base dimensions based on category count
+    // Calculate base dimensions based on category count (scaled for band thickness)
+    const thicknessScale = cellContext.bandThicknessScale ?? 1;
     const baseRowHeight = categoryAxis === 'y' 
-      ? Math.max(BAR_STEP_PX * MIN_BAND_TRACKS, categories.length * BAR_STEP_PX) 
+      ? Math.max(BAR_STEP_PX * MIN_BAND_TRACKS, categories.length * BAR_STEP_PX) * thicknessScale
       : 'fr';
     const baseColWidth = categoryAxis === 'x' 
-      ? Math.max(BAR_STEP_PX * MIN_BAND_TRACKS, categories.length * BAR_STEP_PX) 
+      ? Math.max(BAR_STEP_PX * MIN_BAND_TRACKS, categories.length * BAR_STEP_PX) * thicknessScale
       : 'fr';
     
     // Calculate grid dimensions for multi-series layouts

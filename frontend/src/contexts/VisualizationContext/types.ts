@@ -37,6 +37,7 @@ export interface VisualizationState {
   sizeField: Field | null;
   sizeRange: [number, number];
   manualSize: number;
+  bandThicknessScale: number;
   // Label configuration state
   labelFields: Field[];
   labelsEnabled: boolean;
@@ -113,6 +114,7 @@ export type VisualizationAction =
   | { type: 'SET_SIZE_FIELD'; payload: Field | null }
   | { type: 'SET_SIZE_RANGE'; payload: [number, number] }
   | { type: 'SET_MANUAL_SIZE'; payload: number }
+  | { type: 'SET_BAND_THICKNESS_SCALE'; payload: number }
   | { type: 'REMOVE_SIZE_FIELD' }
   // Label actions
   | { type: 'SET_LABEL_FIELDS'; payload: Field[] }
@@ -156,6 +158,7 @@ export type VisualizationAction =
       sizeField: Field | null;
       sizeRange: [number, number];
       manualSize: number;
+      bandThicknessScale?: number;
       independentDomains?: { x: boolean; y: boolean };
       virtualColumns: VirtualColumnDefinition[];
       virtualColumnFieldPreferences: Record<string, { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }>;

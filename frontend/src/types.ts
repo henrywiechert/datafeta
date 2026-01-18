@@ -515,6 +515,7 @@ export interface VisualizationStateSnapshot {
   sizeField: Field | null;
   sizeRange: [number, number];
   manualSize: number;
+  bandThicknessScale?: number;
   /** Axis domain sharing controls (shared vs independent per axis). */
   independentDomains?: { x: boolean; y: boolean };
   /**

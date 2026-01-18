@@ -192,5 +192,6 @@ export function buildCartesianPlotsConfig(
     allFields,
     globalChartType: context.globalChartType,
     measureValuesSourceFields: context.measureValuesSourceFields,
+    bandThicknessScale: context.bandThicknessScale,
   };
 }

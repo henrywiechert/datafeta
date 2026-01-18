@@ -35,6 +35,7 @@ const ChartArea: React.FC = () => {
     sizeField,
     sizeRange,
     manualSize,
+    bandThicknessScale,
     queryResult,
     queryError,
     queryVersion,
@@ -139,6 +140,7 @@ const ChartArea: React.FC = () => {
     sizeField,
     sizeRange,
     manualSize,
+    bandThicknessScale,
     useTableView,
     queryResult, // Pass queryResult here
     queryVersion, // Pass queryVersion to detect UNION/JOIN changes
@@ -186,13 +188,14 @@ const ChartArea: React.FC = () => {
           virtualColumns: previousState.virtualColumns || [],
           virtualColumnFieldPreferences: previousState.virtualColumnFieldPreferences || {},
           fieldOverrides: previousState.fieldOverrides || {},
+          bandThicknessScale: previousState.bandThicknessScale ?? state.bandThicknessScale,
         }
       });
       
       // Complete the undo operation
       completeUndo(currentState);
     }
-  }, [undo, completeUndo, dispatch, getUndoableSnapshot]);
+  }, [undo, completeUndo, dispatch, getUndoableSnapshot, state.bandThicknessScale]);
 
   const handleRedo = useCallback(() => {
     const nextState = redo();
@@ -208,13 +211,14 @@ const ChartArea: React.FC = () => {
           virtualColumns: nextState.virtualColumns || [],
           virtualColumnFieldPreferences: nextState.virtualColumnFieldPreferences || {},
           fieldOverrides: nextState.fieldOverrides || {},
+          bandThicknessScale: nextState.bandThicknessScale ?? state.bandThicknessScale,
         }
       });
       
       // Complete the redo operation
       completeRedo(currentState);
     }
-  }, [redo, completeRedo, dispatch, getUndoableSnapshot]);
+  }, [redo, completeRedo, dispatch, getUndoableSnapshot, state.bandThicknessScale]);
 
   const handleIndependentXAxisToggle = useCallback((independent: boolean) => {
     recordAction(getUndoableSnapshot());
@@ -336,6 +340,11 @@ const ChartArea: React.FC = () => {
             dispatch({ type: 'FORCE_QUERY_REFRESH' });
           }}
           onForceRefresh={handleForceRefresh}
+          bandThicknessScale={bandThicknessScale}
+          onBandThicknessScaleChange={(scale) => {
+            recordAction(getUndoableSnapshot());
+            dispatch({ type: 'SET_BAND_THICKNESS_SCALE', payload: scale });
+          }}
         />
         
         <DebugPanel

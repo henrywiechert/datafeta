@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useState } from 'react';
-import { Box, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, TextField, Switch, FormControlLabel, Divider } from '@mui/material';
+import { Box, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, TextField, Switch, FormControlLabel, Divider, Popover, Slider, Typography } from '@mui/material';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
@@ -10,6 +10,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import LinkIcon from '@mui/icons-material/Link';
 import LinkOffIcon from '@mui/icons-material/LinkOff';
 import SettingsIcon from '@mui/icons-material/Settings';
+import HeightIcon from '@mui/icons-material/Height';
 import QueryStatusIndicator from './QueryStatusIndicator';
 import DatasetStatus from './DatasetStatus';
 import { QueryOptimizationSettings } from '../../../../types';
@@ -38,6 +39,8 @@ interface ChartControlsProps {
   optimizationSettings: QueryOptimizationSettings;
   onUpdateOptimizationSettings: (settings: QueryOptimizationSettings) => void;
   onForceRefresh?: () => void;
+  bandThicknessScale: number;
+  onBandThicknessScaleChange: (scale: number) => void;
 }
 
 const ChartControls: React.FC<ChartControlsProps> = ({
@@ -59,16 +62,26 @@ const ChartControls: React.FC<ChartControlsProps> = ({
   optimizationSettings,
   onUpdateOptimizationSettings,
   onForceRefresh,
+  bandThicknessScale,
+  onBandThicknessScaleChange,
 }) => {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [draftSettings, setDraftSettings] = useState<QueryOptimizationSettings>(optimizationSettings);
+  const [bandAnchorEl, setBandAnchorEl] = useState<HTMLElement | null>(null);
+  const [draftBandScale, setDraftBandScale] = useState<number>(bandThicknessScale);
 
   useEffect(() => {
     if (settingsDialogOpen) {
       setDraftSettings(optimizationSettings);
     }
   }, [settingsDialogOpen, optimizationSettings]);
+
+  useEffect(() => {
+    if (bandAnchorEl) {
+      setDraftBandScale(bandThicknessScale);
+    }
+  }, [bandAnchorEl, bandThicknessScale]);
 
   const handleResetClick = () => {
     setResetDialogOpen(true);
@@ -96,6 +109,26 @@ const ChartControls: React.FC<ChartControlsProps> = ({
     const parsed = Number(value);
     if (!Number.isNaN(parsed)) {
       setDraftSettings((prev) => ({ ...prev, [key]: parsed }));
+    }
+  };
+
+  const handleBandControlOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setBandAnchorEl(event.currentTarget);
+  };
+
+  const handleBandControlClose = () => {
+    setBandAnchorEl(null);
+  };
+
+  const handleBandScaleChange = (_event: Event | React.SyntheticEvent, newValue: number | number[]) => {
+    if (typeof newValue === 'number') {
+      setDraftBandScale(newValue);
+    }
+  };
+
+  const handleBandScaleCommitted = (_event: Event | React.SyntheticEvent, newValue: number | number[]) => {
+    if (typeof newValue === 'number') {
+      onBandThicknessScaleChange(newValue);
     }
   };
 
@@ -208,6 +241,21 @@ const ChartControls: React.FC<ChartControlsProps> = ({
           </Tooltip>
         )}
 
+        <Tooltip title="Band thickness (bar/tick/gantt)">
+          <IconButton
+            onClick={handleBandControlOpen}
+            size="small"
+            sx={{
+              color: 'text.secondary',
+              '&:hover': {
+                backgroundColor: 'action.hover',
+              },
+            }}
+          >
+            <HeightIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+
         <Tooltip title="Query optimization settings">
           <IconButton
             onClick={() => setSettingsDialogOpen(true)}
@@ -294,6 +342,31 @@ const ChartControls: React.FC<ChartControlsProps> = ({
         <DatasetStatus />
         <QueryStatusIndicator onClick={onToggleDebug} />
       </Box>
+
+      <Popover
+        open={Boolean(bandAnchorEl)}
+        anchorEl={bandAnchorEl}
+        onClose={handleBandControlClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        PaperProps={{ sx: { p: 1, width: 220 } }}
+      >
+        <Box sx={{ px: 0.5 }}>
+          <Typography variant="body2" sx={{ fontSize: '0.75rem', color: 'text.secondary', mb: 0.5 }}>
+            Band thickness
+          </Typography>
+          <Slider
+            value={draftBandScale}
+            onChange={handleBandScaleChange}
+            onChangeCommitted={handleBandScaleCommitted}
+            valueLabelDisplay="auto"
+            min={0.1}
+            max={3}
+            step={0.1}
+            size="small"
+          />
+        </Box>
+      </Popover>
 
       {/* Reset Workspace Confirmation Dialog */}
       <Dialog

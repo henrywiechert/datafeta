@@ -33,6 +33,8 @@ export function encodingReducer(state: VisualizationState, action: Visualization
       return { ...state, sizeRange: action.payload };
     case 'SET_MANUAL_SIZE':
       return { ...state, manualSize: action.payload };
+    case 'SET_BAND_THICKNESS_SCALE':
+      return { ...state, bandThicknessScale: action.payload };
     case 'REMOVE_SIZE_FIELD':
       if (!state.sizeField) return state;
       return { ...state, sizeField: null, queryVersion: state.queryVersion + 1 };
