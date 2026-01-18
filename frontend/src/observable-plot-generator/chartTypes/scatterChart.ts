@@ -5,7 +5,7 @@ import { getResultColumnName } from '../../utils/fieldUtils';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
 // Label utilities
-import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils';
+import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../utils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 import { formatDateTick } from '../utils/dateFormatUtils';
 
@@ -328,7 +328,7 @@ export function scatterChart(
       chartType: 'scatter'
     };
     const prepared = prepareLabelData(labelConfig);
-    const labelMark = createLabelMark(prepared, labelConfig, xColumn, yColumn);
+    const labelMark = createLegacyLabelMark(prepared, labelConfig, xColumn, yColumn);
     if (labelMark) {
       (plotOptions.marks = plotOptions.marks || []).push(labelMark as any);
     }

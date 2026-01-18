@@ -7,7 +7,7 @@ import { SharedDomains } from './facetDomains';
 import { CellGenerator, CellResult, PositionedPlot, FacetCellContext } from './facetCoordinator';
 import { buildBarOptions, resolveMeasureAlias } from '../chartTypes/barCore';
 import { getResultColumnName } from '../../utils/fieldUtils';
-import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
+import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 import { formatDateTick } from '../utils/dateFormatUtils';
 import { normalizeCategoryForChart } from '../../datetime/chartDateTimeNormalizer';
@@ -264,7 +264,7 @@ function addBarLabels(
   };
   
   const prepared = prepareLabelData(labelConfig);
-  const mark = createLabelMark(prepared, labelConfig, labelConfig.xColumn, labelConfig.yColumn);
+  const mark = createLegacyLabelMark(prepared, labelConfig, labelConfig.xColumn, labelConfig.yColumn);
   if (mark) {
     (options.marks = options.marks || []).push(mark as any);
   }
