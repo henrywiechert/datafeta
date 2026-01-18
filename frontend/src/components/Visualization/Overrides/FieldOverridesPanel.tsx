@@ -161,6 +161,7 @@ const FieldOverridesPanel: React.FC = () => {
           onManualSizeChange={(size) => handleUpdateOverride(targetField.id, { 
             manualSize: size 
           })}
+          forceSingleSlider={globalChartType === 'tick' || globalChartType === 'gantt'}
         />
 
         <LabelFieldControl
@@ -278,6 +279,7 @@ const FieldOverridesPanel: React.FC = () => {
             recordAction(getUndoableSnapshot());
             dispatch({ type: 'SET_MANUAL_SIZE', payload: size });
           }}
+          forceSingleSlider={globalChartType === 'tick' || globalChartType === 'gantt'}
         />
 
         <LabelFieldControl

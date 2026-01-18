@@ -238,8 +238,9 @@ export function tickStrip(
 
   // Compute band padding for category axes (like bar charts)
   // This controls the "thickness" of tick marks along the category axis
-  // The padding value changes with manualSize: larger size → smaller padding → thicker tick marks
-  const bandPadding = computeBandPaddingFromSizeField(data, sizeField, { manualSize }) ?? BAND_PADDING;
+  // For tick-strip, we IGNORE the sizeField and only use manualSize slider for thickness control
+  // (sizeField semantics don't apply to tick marks - they're points, not sized by data)
+  const bandPadding = computeBandPaddingFromSizeField(data, undefined, { manualSize }) ?? BAND_PADDING;
 
   // Guard against invalid values; accept numbers or dates (Date objects or parseable strings)
   const isNumericOrDate = (v: any) =>
