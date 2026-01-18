@@ -528,6 +528,11 @@ export interface VisualizationStateSnapshot {
    * null = auto-detect chart type based on field types.
    */
   globalChartType?: UserChartType | null;
+  /**
+   * Selected chart type for persistence/export.
+   * 'auto' indicates auto-detection; otherwise the user-selected chart type.
+   */
+  selectedChartType?: UserChartType | 'auto';
   virtualColumns?: VirtualColumnDefinition[]; // Virtual/calculated columns
   virtualColumnFieldPreferences?: Record<string, { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }>; // Field preferences for virtual columns
   tooltipFields?: Field[]; // Fields to show in tooltips only (do not affect chart visualization)

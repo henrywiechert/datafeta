@@ -3,7 +3,8 @@ import {
   SavedConnectionMetadata, 
   ConnectionDetails,
   Sheet,
-  TableJoinDefinition
+  TableJoinDefinition,
+  UserChartType
 } from '../types';
 import { ClickHouseOverrides } from '../components/ConnectionRestoreDialog';
 
@@ -89,11 +90,19 @@ export function exportConfiguration(
   unionTables?: Array<{database: string, table_name: string}>,
   joinedTables?: TableJoinDefinition[]
 ): SavedConfiguration {
+  const normalizedSheets = sheets.map((sheet) => ({
+    ...sheet,
+    visualizationState: {
+      ...sheet.visualizationState,
+      selectedChartType: (sheet.visualizationState.globalChartType ?? 'auto') as UserChartType | 'auto',
+    },
+  }));
+
   const config: SavedConfiguration = {
     version: CURRENT_VERSION,
     exportedAt: new Date().toISOString(),
     appName: APP_NAME,
-    sheets,
+    sheets: normalizedSheets,
     activeSheetId,
     nextSheetNumber,
   };
