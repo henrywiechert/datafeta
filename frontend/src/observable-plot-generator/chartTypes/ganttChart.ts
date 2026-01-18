@@ -13,6 +13,7 @@ import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { computeBandPaddingFromSizeField } from './barCore';
 import { Field } from '../../types';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
+import { createLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 
 type Domains = Record<string, [number, number] | [Date, Date] | any[]> | undefined;
 
@@ -226,6 +227,7 @@ export interface GanttChartResult {
  * @param labels - Optional axis labels
  * @param sharedDomains - Optional shared domains for consistent scales across facets
  * @param zoomLevel - Optional zoom level multiplier for intrinsic size (default 1.0)
+ * @param labelCfg - Optional label configuration for data labels on bars
  */
 export function ganttChart(
   context: ChartGenerationContext,
@@ -235,7 +237,8 @@ export function ganttChart(
   categoryColumn?: string,
   labels?: { start?: string; duration?: string; category?: string },
   sharedDomains?: Domains,
-  zoomLevel: number = 1.0
+  zoomLevel: number = 1.0,
+  labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
 ): GanttChartResult {
   const { queryResult, colorField, colorScheme, colorBias, manualSize, manualColor, tooltipFields } = context;
   const data = queryResult.rows;
@@ -396,6 +399,33 @@ export function ganttChart(
     colorField,
     tooltipFields
   );
+
+  // Add data labels if enabled
+  if (labelCfg && labelCfg.labelsEnabled) {
+    const labelConfig: LabelRenderConfig = {
+      data,
+      xColumn: orientation === 'x' ? startColumn : (categoryColumn || '__single_category'),
+      yColumn: orientation === 'x' ? (categoryColumn || '__single_category') : startColumn,
+      labelFields: labelCfg.labelFields,
+      labelsEnabled: labelCfg.labelsEnabled,
+      samplingStrategy: labelCfg.samplingStrategy,
+      samplingThreshold: labelCfg.samplingThreshold,
+      sampleEvery: labelCfg.sampleEvery,
+      chartType: 'gantt',
+      orientation: orientation === 'x' ? 'horizontal' : 'vertical',
+      durationColumn,
+    };
+    const prepared = prepareLabelData(labelConfig);
+    const labelMark = createLabelMark(
+      prepared, 
+      labelConfig, 
+      labelConfig.xColumn, 
+      labelConfig.yColumn
+    );
+    if (labelMark) {
+      (opts.marks = opts.marks || []).push(labelMark as any);
+    }
+  }
 
   // Set the category axis dimension based on category count
   // This ensures consistent sizing similar to bar/tick-strip charts
