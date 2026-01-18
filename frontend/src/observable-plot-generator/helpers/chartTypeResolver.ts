@@ -126,12 +126,22 @@ export function mapUserChartTypeToCellChartType(
       return 'line';
     
     case 'gantt':
-      // Gantt orientation: ganttX = horizontal (start on X axis), ganttY = vertical (start on Y axis)
-      // Typically horizontal Gantt (ganttX) is most common
-      if (fieldAxis === 'x') {
+      // Gantt orientation: ganttX = horizontal (timeline on X axis), ganttY = vertical (timeline on Y axis)
+      // Determine by which field is continuous (the timeline axis)
+      // Unlike other charts, Gantt doesn't care about fieldAxis - it cares about which field is continuous
+      const xIsContinuous = xField.flavour === 'continuous';
+      const yIsContinuous = yField.flavour === 'continuous';
+      
+      // If X is continuous and Y is discrete (or both continuous), prefer ganttX (horizontal)
+      if (xIsContinuous && !yIsContinuous) {
         return 'ganttX';
       }
-      return 'ganttY';
+      // If Y is continuous and X is discrete, use ganttY (vertical)
+      if (yIsContinuous && !xIsContinuous) {
+        return 'ganttY';
+      }
+      // Both continuous or both discrete - default to horizontal (ganttX)
+      return 'ganttX';
     
     default:
       // Fallback to auto-detection
