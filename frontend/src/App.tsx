@@ -28,7 +28,18 @@ function AppContent() {
   const isVisualizationPage = location.pathname.startsWith('/visualize');
   
   const { state, setActiveSheet, addSheet, renameSheet, duplicateSheet, removeSheet, resetWorkspace, dispatch: sheetDispatch } = useSheetContext();
-  const { dataSource, setSelectedDatabase, setSelectedTable, setDatabases, setTables, setAvailableFields, setUnionTables, setVirtualTable } = useDataSource();
+  const {
+    dataSource,
+    setSelectedDatabase,
+    setSelectedTable,
+    setDatabases,
+    setTables,
+    setAvailableFields,
+    setUnionTables,
+    setVirtualTable,
+    setVirtualColumns,
+    setVirtualColumnFieldPreferences,
+  } = useDataSource();
   const { connectionDetails, connect, disconnect, isConnected } = useConnection();
   
   const [contextMenu, setContextMenu] = useState<{
@@ -163,7 +174,9 @@ function AppContent() {
         dataSource.selectedDatabase,
         dataSource.selectedTable,
         dataSource.unionTables,
-        dataSource.virtualTable?.joined_tables
+        dataSource.virtualTable?.joined_tables,
+        dataSource.virtualColumns,
+        dataSource.virtualColumnFieldPreferences
       );
       await saveConfigFile(config);
     } catch (error) {
@@ -301,6 +314,16 @@ function AppContent() {
             if (config.dataSource!.selectedTable) {
               setSelectedTable(config.dataSource!.selectedTable);
             }
+            if (config.dataSource!.virtualColumns) {
+              setVirtualColumns(config.dataSource!.virtualColumns);
+            } else {
+              setVirtualColumns([]);
+            }
+            if (config.dataSource!.virtualColumnFieldPreferences) {
+              setVirtualColumnFieldPreferences(config.dataSource!.virtualColumnFieldPreferences);
+            } else {
+              setVirtualColumnFieldPreferences({});
+            }
             // Restore union tables if present
             if (config.dataSource!.unionTables && config.dataSource!.unionTables.length > 0) {
               setUnionTables(config.dataSource!.unionTables);
@@ -317,6 +340,10 @@ function AppContent() {
             }
           }, 0);
         });
+      }
+      if (config.dataSource && connectionType === 'csv') {
+        setVirtualColumns(config.dataSource.virtualColumns ?? []);
+        setVirtualColumnFieldPreferences(config.dataSource.virtualColumnFieldPreferences ?? {});
       }
       // For CSV: Don't restore anything - let the natural useEffect flow handle it
       // The fetchTables will auto-detect and select the single table

@@ -603,6 +603,8 @@ export interface SavedDataSourceSelection {
   fullTableName: string; // Combined db.table or just table for CSV (e.g., "mydb.orders" or "sales.csv")
   unionTables?: Array<{database: string, table_name: string}>; // Tables combined with UNION ALL
   joinedTables?: TableJoinDefinition[]; // Tables joined with the primary table
+  virtualColumns?: VirtualColumnDefinition[]; // Session-scoped virtual columns
+  virtualColumnFieldPreferences?: Record<string, { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }>; // Field preferences for virtual columns
 }
 
 /**
