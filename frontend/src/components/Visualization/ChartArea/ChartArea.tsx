@@ -22,7 +22,7 @@ import FacetLimitDialog from '../FacetLimitDialog';
 const ChartArea: React.FC = () => {
   const { state, dispatch, startOperation, completeOperation, getUndoableSnapshot } = useVisualizationContext();
   const { recordAction, undo, completeUndo, redo, completeRedo, canUndo, canRedo } = useUndoRedo();
-  const { dataSource } = useDataSource();
+  const { dataSource, clearMeasureGroup } = useDataSource();
   const { resetWorkspace } = useSheetContext();
   const renderingCoordinator = useRenderingCoordinator();
   const {
@@ -163,6 +163,11 @@ const ChartArea: React.FC = () => {
   
   // Use the fullscreen hook
   const { isFullscreen, toggleFullscreen, isSupported: isFullscreenSupported } = useFullscreen(fullscreenWrapperRef);
+
+  const handleResetWorkspace = useCallback(() => {
+    clearMeasureGroup();
+    resetWorkspace();
+  }, [clearMeasureGroup, resetWorkspace]);
 
   // Handle swapping X and Y axes
   const handleSwapAxis = useCallback(() => {
@@ -330,7 +335,7 @@ const ChartArea: React.FC = () => {
             canRedo={canRedo}
             onUndo={handleUndo}
             onRedo={handleRedo}
-            onResetWorkspace={resetWorkspace}
+            onResetWorkspace={handleResetWorkspace}
             independentXAxis={!!independentDomains?.x}
             onToggleIndependentXAxis={handleIndependentXAxisToggle}
             independentYAxis={!!independentDomains?.y}
