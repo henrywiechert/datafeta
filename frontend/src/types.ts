@@ -605,6 +605,7 @@ export interface SavedDataSourceSelection {
   joinedTables?: TableJoinDefinition[]; // Tables joined with the primary table
   virtualColumns?: VirtualColumnDefinition[]; // Session-scoped virtual columns
   virtualColumnFieldPreferences?: Record<string, { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }>; // Field preferences for virtual columns
+  measureGroupFields?: Field[]; // Fields included in the measure group
 }
 
 /**
