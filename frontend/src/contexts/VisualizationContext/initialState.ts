@@ -69,5 +69,7 @@ export const initialState: VisualizationState = {
   queryVersion: 0,
   // MeasureNames/MeasureValues source tracking defaults
   measureValuesSourceFields: [],
+  // Measure group fields (per-sheet scope)
+  measureGroupFields: [],
 };
 

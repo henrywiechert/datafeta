@@ -41,19 +41,18 @@ function AppContent() {
     setVirtualTable,
     setVirtualColumns,
     setVirtualColumnFieldPreferences,
-    setMeasureGroupFields,
   } = useDataSource();
   const { connectionDetails, connect, disconnect, isConnected } = useConnection();
   
   // Track data source version for sheet render cache invalidation
   // When any of these change, all sheet caches become invalid
+  // Note: measureGroupFields is now per-sheet, so it doesn't invalidate other sheets' caches
   useDataSourceVersionSync({
     selectedDatabase: dataSource.selectedDatabase,
     selectedTable: dataSource.selectedTable,
     virtualColumnsLength: dataSource.virtualColumns?.length ?? 0,
     joinedTablesLength: dataSource.joinedTables?.length ?? 0,
     unionTablesLength: dataSource.unionTables?.length ?? 0,
-    measureGroupFieldsLength: dataSource.measureGroupFields?.length ?? 0,
   });
   
   // Invalidate all sheet caches on disconnect
@@ -187,6 +186,8 @@ function AppContent() {
   // Save/Load Configuration Handlers
   const handleSaveConfiguration = async () => {
     try {
+      // Note: measureGroupFields is now per-sheet (stored in each sheet's visualizationState)
+      // so it's automatically saved via state.sheets
       const config = exportConfiguration(
         state.sheets,
         state.activeSheetId,
@@ -197,8 +198,7 @@ function AppContent() {
         dataSource.unionTables,
         dataSource.virtualTable?.joined_tables,
         dataSource.virtualColumns,
-        dataSource.virtualColumnFieldPreferences,
-        dataSource.measureGroupFields
+        dataSource.virtualColumnFieldPreferences
       );
       await saveConfigFile(config);
     } catch (error) {
@@ -360,20 +360,14 @@ function AppContent() {
                 union_tables: [],
               });
             }
-            // Restore measure group fields if present
-            if (config.dataSource!.measureGroupFields && config.dataSource!.measureGroupFields.length > 0) {
-              setMeasureGroupFields(config.dataSource!.measureGroupFields);
-            }
+            // Note: measureGroupFields is now per-sheet, restored via sheet state above
           }, 0);
         });
       }
       if (config.dataSource && connectionType === 'csv') {
         setVirtualColumns(config.dataSource.virtualColumns ?? []);
         setVirtualColumnFieldPreferences(config.dataSource.virtualColumnFieldPreferences ?? {});
-        // Restore measure group fields for CSV as well
-        if (config.dataSource.measureGroupFields && config.dataSource.measureGroupFields.length > 0) {
-          setMeasureGroupFields(config.dataSource.measureGroupFields);
-        }
+        // Note: measureGroupFields is now per-sheet, restored via sheet state above
       }
       // For CSV: Don't restore anything - let the natural useEffect flow handle it
       // The fetchTables will auto-detect and select the single table

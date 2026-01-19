@@ -22,6 +22,7 @@ interface QueryAffectingConfig {
   sizeField: Field | null;
   labelFields?: Field[];
   tooltipFields?: Field[];
+  measureGroupFields?: Field[]; // Per-sheet measure group
 }
 
 /**
@@ -139,6 +140,7 @@ export function computeQueryConfigHash(config: QueryAffectingConfig): string {
     fieldToHashKey(config.sizeField),
     fieldsToHashKey(config.labelFields || []),
     fieldsToHashKey(config.tooltipFields || []),
+    fieldsToHashKey(config.measureGroupFields || []),
   ];
   
   // Simple hash: join and create a short fingerprint
@@ -160,6 +162,7 @@ export function computeChartConfigHash(config: ChartAffectingConfig): string {
     fieldToHashKey(config.sizeField),
     fieldsToHashKey(config.labelFields || []),
     fieldsToHashKey(config.tooltipFields || []),
+    fieldsToHashKey(config.measureGroupFields || []),
   ];
   
   // Add chart-specific parts

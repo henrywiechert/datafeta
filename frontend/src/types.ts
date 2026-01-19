@@ -537,6 +537,7 @@ export interface VisualizationStateSnapshot {
   virtualColumnFieldPreferences?: Record<string, { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }>; // Field preferences for virtual columns
   tooltipFields?: Field[]; // Fields to show in tooltips only (do not affect chart visualization)
   optimizationSettings?: QueryOptimizationSettings;
+  measureGroupFields?: Field[]; // Measure group fields (per-sheet)
 }
 
 // Sheet represents a single visualization configuration
