@@ -34,6 +34,8 @@ function createEmptyVisualizationState(): VisualizationStateSnapshot {
     sizeRange: [4, 20],
     manualSize: 10,
     bandThicknessScale: 1.0,
+    globalChartType: null,
+    selectedChartType: 'auto',
     independentDomains: { x: false, y: false },
     tooltipFields: [],
     fieldOverrides: {},

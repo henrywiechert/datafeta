@@ -111,6 +111,8 @@ export function useVisualizationState() {
             fieldOverrides: state.fieldOverrides,
             virtualColumns: state.virtualColumns,
             virtualColumnFieldPreferences: state.virtualColumnFieldPreferences,
+            globalChartType: state.globalChartType,
+            selectedChartType: state.globalChartType ?? 'auto',
             optimizationSettings: state.optimizationSettings,
         });
     }, [
@@ -131,6 +133,7 @@ export function useVisualizationState() {
         state.fieldOverrides,
         state.virtualColumns,
         state.virtualColumnFieldPreferences,
+        state.globalChartType,
         state.optimizationSettings,
         updateActiveSheetState,
     ]);

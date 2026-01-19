@@ -6,6 +6,8 @@ import { useVisualizationContext } from '../../../contexts/VisualizationContext'
 import { useUndoRedo } from '../../../contexts/UndoRedoContext';
 import { Field } from '../../../types';
 import { computeOverrideTargets } from '../../../observable-plot-generator/utils/fieldOverrides';
+import { detectDefaultChartTypeForPair, CellChartType } from '../../../observable-plot-generator/helpers/chartTypeResolver';
+import { analyzeFields } from '../../../observable-plot-generator/analysis/fieldAnalysis';
 import { useFieldOverrides } from './useFieldOverrides';
 import ColorFieldControl from './ColorFieldControl';
 import SizeFieldControl from './SizeFieldControl';
@@ -88,6 +90,39 @@ const FieldOverridesPanel: React.FC = () => {
     },
     [targets]
   );
+
+  const autoSelectedType = useMemo(() => {
+    if (globalChartType) return undefined;
+    const xFields = xAxisFields as Field[];
+    const yFields = yAxisFields as Field[];
+    if (!xFields?.length && !yFields?.length) return undefined;
+
+    const analysis = analyzeFields(xFields, yFields);
+    const xCandidates = xFields.filter(
+      (f) => f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
+    );
+    const yCandidates = yFields.filter(
+      (f) => f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
+    );
+
+    if (xCandidates.length > 0 && yCandidates.length > 0) {
+      const cellType: CellChartType = detectDefaultChartTypeForPair(xCandidates[0], yCandidates[0]);
+      if (cellType === 'barX' || cellType === 'barY') return 'bar';
+      if (cellType === 'tickX' || cellType === 'tickY') return 'tick';
+      if (cellType === 'dot') return 'scatter';
+      if (cellType === 'ganttX' || cellType === 'ganttY') return 'gantt';
+      if (cellType === 'scatter' || cellType === 'line') return cellType;
+      return undefined;
+    }
+
+    const xHasContinuousDim = analysis.xDimensions.some((d) => d.flavour === 'continuous');
+    const yHasContinuousDim = analysis.yDimensions.some((d) => d.flavour === 'continuous');
+    const hasMeasures = analysis.hasMeasure;
+
+    if (!hasMeasures && (xHasContinuousDim || yHasContinuousDim)) return 'tick';
+    if (hasMeasures) return 'bar';
+    return 'scatter';
+  }, [globalChartType, xAxisFields, yAxisFields]);
 
   // Per-field override rendering
   const renderFieldControls = (targetField: Field) => {
@@ -223,6 +258,7 @@ const FieldOverridesPanel: React.FC = () => {
             clearChartTypeOverridesForAllFields();
             dispatch({ type: 'SET_GLOBAL_CHART_TYPE', payload: chartType ?? null });
           }}
+          autoSelectedType={autoSelectedType}
         />
 
         <ColorFieldControl
