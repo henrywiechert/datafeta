@@ -1,10 +1,11 @@
-import React, { useRef, useCallback, useLayoutEffect } from 'react';
+import React, { useRef, useCallback, useLayoutEffect, useMemo } from 'react';
 import styles from './ChartArea.module.css';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { useDataSource } from '../../../contexts/DataSourceContext';
 import { useSheetContext } from '../../../contexts/SheetContext';
 import { useUndoRedo } from '../../../hooks/useUndoRedo';
 import { useRenderingCoordinator } from '../../../hooks/useRenderingCoordinator';
+import { useSheetCacheSave } from '../../../hooks/useSheetCacheCoordinator';
 import { columnCacheManager } from '../../../services/columnCacheManager';
 import { filterTierManager } from '../../../services/filterTierManager';
 import { useChartGeneration, useQueryExecution, useDataProcessing, useDebugView, useFullscreen } from './hooks';
@@ -92,6 +93,39 @@ const ChartArea: React.FC = () => {
     return fields;
   }, [fieldOverrides]);
 
+  // Get active sheet ID for cache coordination
+  const { activeSheet } = useSheetContext();
+  const sheetId = activeSheet?.id;
+
+  // Memoize cache config to avoid unnecessary recomputation
+  const cacheConfig = useMemo(() => ({
+    xAxisFields,
+    yAxisFields,
+    appliedFilterConfigurations,
+    colorField,
+    sizeField,
+    labelFields,
+    tooltipFields,
+    colorScheme,
+    colorBias,
+    manualColor,
+    sizeRange,
+    manualSize,
+    bandThicknessScale,
+    fieldOverrides,
+    globalChartType,
+    independentDomains,
+    labelsEnabled,
+    labelSamplingStrategy,
+    labelSamplingThreshold,
+    labelSampleEvery,
+  }), [
+    xAxisFields, yAxisFields, appliedFilterConfigurations, colorField, sizeField,
+    labelFields, tooltipFields, colorScheme, colorBias, manualColor, sizeRange,
+    manualSize, bandThicknessScale, fieldOverrides, globalChartType, independentDomains,
+    labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery,
+  ]);
+
   // Use the extracted data processing hook
   const { useTableView, tableData } = useDataProcessing({
     xAxisFields,
@@ -156,6 +190,17 @@ const ChartArea: React.FC = () => {
     globalChartType,
     measureValuesSourceFields,
   });
+
+  // Save to sheet render cache on unmount (sheet switch)
+  // This captures the current queryResult and chartSpec for instant restore
+  const specRef = useRef(spec);
+  specRef.current = spec;
+  
+  useSheetCacheSave(sheetId, useCallback(() => ({
+    queryResult,
+    chartSpec: specRef.current,
+    config: cacheConfig,
+  }), [queryResult, cacheConfig]));
 
   // Use the extracted debug view hook
   const { isDebugOpen, debugHeight, maxDebugHeight, toggleDebugView, handleDebugResize } = useDebugView();

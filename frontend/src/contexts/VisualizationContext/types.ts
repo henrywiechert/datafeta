@@ -159,7 +159,9 @@ export type VisualizationAction =
   // Query refresh action (used after metadata loads to trigger query execution)
   | { type: 'FORCE_QUERY_REFRESH' }
   // MeasureNames/MeasureValues source tracking actions
-  | { type: 'SET_MEASURE_VALUES_SOURCE_FIELDS'; payload: Field[] };
+  | { type: 'SET_MEASURE_VALUES_SOURCE_FIELDS'; payload: Field[] }
+  // Cache restore action (used when switching sheets with cached data)
+  | { type: 'RESTORE_CACHED_QUERY_RESULT'; payload: QueryResult };
 
 // Helper type for reducer functions
 export type ReducerFn = (state: VisualizationState, action: VisualizationAction) => VisualizationState;

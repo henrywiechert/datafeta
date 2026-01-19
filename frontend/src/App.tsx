@@ -6,6 +6,8 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { SheetProvider, useSheetContext } from './contexts/SheetContext';
 import { DataSourceProvider, useDataSource } from './contexts/DataSourceContext';
 import { useConnection } from './contexts/ConnectionContext';
+import { useDataSourceVersionSync } from './hooks/useSheetRenderCache';
+import { sheetRenderCacheStore } from './stores';
 import SaveLoadMenu from './components/SaveLoadMenu';
 import ConnectionRestoreDialog, { ClickHouseOverrides } from './components/ConnectionRestoreDialog';
 import VersionDisplay from './components/VersionDisplay';
@@ -41,6 +43,24 @@ function AppContent() {
     setVirtualColumnFieldPreferences,
   } = useDataSource();
   const { connectionDetails, connect, disconnect, isConnected } = useConnection();
+  
+  // Track data source version for sheet render cache invalidation
+  // When any of these change, all sheet caches become invalid
+  useDataSourceVersionSync({
+    selectedDatabase: dataSource.selectedDatabase,
+    selectedTable: dataSource.selectedTable,
+    virtualColumnsLength: dataSource.virtualColumns?.length ?? 0,
+    joinedTablesLength: dataSource.joinedTables?.length ?? 0,
+    unionTablesLength: dataSource.unionTables?.length ?? 0,
+    measureGroupFieldsLength: dataSource.measureGroupFields?.length ?? 0,
+  });
+  
+  // Invalidate all sheet caches on disconnect
+  useEffect(() => {
+    if (!isConnected) {
+      sheetRenderCacheStore.invalidateAll();
+    }
+  }, [isConnected]);
   
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
