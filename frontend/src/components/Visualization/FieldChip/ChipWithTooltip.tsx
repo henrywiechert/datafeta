@@ -75,7 +75,7 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
       source={source}
       displayNameOverride={displayNameOverride}
     />
-  ), [field, source, displayNameOverride]);
+  ), [field, source, displayNameOverride, chipLabelRef]);
 
   // Chip props
   const chipProps = useMemo(() => {

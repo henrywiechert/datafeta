@@ -1,10 +1,9 @@
-import { QueryExecutionOrchestrator, QueryExecutionOrchestratorInput, OrchestratedQueryResult } from './queryExecutionOrchestrator';
+import { QueryExecutionOrchestrator, QueryExecutionOrchestratorInput } from './queryExecutionOrchestrator';
 import { apiService } from '../apiService';
 import { duckdbService } from './duckdbService';
 import { columnCacheManager } from './columnCacheManager';
 import { filterTierManager } from './filterTierManager';
 import { queryDecisionEngine, QueryDecision } from './queryDecisionEngine';
-import { QueryDescription } from '../types';
 
 // Mock Worker for JSDOM
 class Worker {

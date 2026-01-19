@@ -3,7 +3,7 @@ import { generatePairChartOptions } from '../chartTypes/cellCharts';
 import { Field } from '../../types';
 import { ChartTypeOverrides, mapUserChartTypeToCellChartType } from '../helpers/chartTypeResolver';
 import { CartesianPlotsConfig } from '../types';
-import { FieldOverrideState, UserChartType } from '../../types';
+import { FieldOverrideState } from '../../types';
 import { deriveColorScaleInfo, applyMeasureNameColorOverrides } from '../utils/colorSchemeUtils';
 import { isMeasureValuesField, combineMeasureValuesOverrides } from '../../utils/syntheticFields';
 import { hasAnyMeasureOverrides, generateMeasureValuesMultiMarkPlot } from '../chartTypes/measureValuesMultiMark';

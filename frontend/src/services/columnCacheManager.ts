@@ -288,7 +288,7 @@ class ColumnCacheManager {
     const keysToDelete: string[] = [];
     const prefix = this.generateCacheKeyPrefix(sourceTable, sourceDatabase);
     
-    for (const [cacheKey, _columnMap] of Array.from(this.cacheIndex.entries())) {
+    for (const [cacheKey] of Array.from(this.cacheIndex.entries())) {
       // Cache key format: {db}__{table}__{filterHash}
       if (cacheKey.startsWith(prefix)) {
         keysToDelete.push(cacheKey);

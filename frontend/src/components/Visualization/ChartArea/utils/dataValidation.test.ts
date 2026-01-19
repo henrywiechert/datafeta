@@ -65,7 +65,7 @@ describe('Data Validation', () => {
     });
   });
 
-  test('should convert quoted numeric strings (e.g. \"123\") to numbers', () => {
+  test('should convert quoted numeric strings to numbers', () => {
     const mockResult = {
       rows: [
         { category: 'A', 'SUM(amount)': '"150235288461"' },
@@ -79,7 +79,7 @@ describe('Data Validation', () => {
     expect(cleanedResult.rows[0]['SUM(amount)']).toBe(150235288461);
   });
 
-  test('should convert escaped-quoted numeric strings (e.g. \\\\\"123\\\\\") to numbers', () => {
+  test('should convert escaped-quoted numeric strings to numbers', () => {
     const mockResult = {
       rows: [
         { category: 'A', 'SUM(amount)': '\\"150235288461\\"' },

@@ -13,10 +13,11 @@ describe('localSqlBuilder datetime parts (DuckDB)', () => {
       dateMode: 'timeline',
     });
     expect(item.kind).toBe('expr');
-    if (item.kind === 'expr') {
-      expect(item.alias).toBe('ts_minute_timeline');
-      expect(item.expr).toContain("date_trunc('minute'");
+    if (item.kind !== 'expr') {
+      throw new Error('Expected expr kind');
     }
+    expect(item.alias).toBe('ts_minute_timeline');
+    expect(item.expr).toContain("date_trunc('minute'");
   });
 
   test('distinct minute uses EXTRACT(MINUTE FROM <ts>)', () => {

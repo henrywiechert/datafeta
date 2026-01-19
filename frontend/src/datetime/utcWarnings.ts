@@ -10,7 +10,6 @@ const OFFSET_RE = /[+-]\d{2}:?\d{2}$|Z$/i;
 export function detectNonUtcDateLike(value: any): boolean {
   if (value instanceof Date) {
     // Date objects don't carry timezone, but if toString shows offset, warn.
-    const iso = value.toISOString();
     return false; // We treat Date as UTC-parsed already.
   }
   if (typeof value === 'string') {

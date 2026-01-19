@@ -66,6 +66,7 @@ export default function SqlQueryViewerDialog(props: { open: boolean; onClose: ()
   useEffect(() => subscribeSqlLog(() => setVersion((v) => v + 1)), []);
 
   const allEntries = useMemo(() => {
+    void version;
     // Newest first in the list.
     return [...getSqlLogEntries()].reverse();
   }, [version]);
@@ -99,7 +100,7 @@ export default function SqlQueryViewerDialog(props: { open: boolean; onClose: ()
     if (selected?.origin === 'local' && selected.sql) {
       setScratchSql(selected.sql);
     }
-  }, [open, selected?.id]); // intentionally only when selection changes
+  }, [open, selected?.id, selected?.origin, selected?.sql]);
 
   const originChip = (origin: 'remote' | 'local') => {
     return (

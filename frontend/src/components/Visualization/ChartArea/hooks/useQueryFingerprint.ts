@@ -19,24 +19,22 @@ interface FingerprintParams {
 
 // Produce a stable, normalized fingerprint string representing all query-relevant inputs.
 // Order-independent lists are sorted to prevent spurious changes due to reordering.
-export function useQueryFingerprint(params: FingerprintParams): string {
+export function useQueryFingerprint({
+  selectedTable,
+  selectedDatabase,
+  xAxisFields,
+  yAxisFields,
+  colorField,
+  sizeField,
+  labelFields,
+  filterConfigurations,
+  virtualTablePrimary,
+  virtualColumns,
+  additionalColorFields,
+  additionalSizeFields,
+  additionalLabelFields,
+}: FingerprintParams): string {
   return useMemo(() => {
-    const {
-      selectedTable,
-      selectedDatabase,
-      xAxisFields,
-      yAxisFields,
-      colorField,
-      sizeField,
-      labelFields,
-      filterConfigurations,
-      virtualTablePrimary,
-      virtualColumns,
-      additionalColorFields,
-      additionalSizeFields,
-      additionalLabelFields,
-    } = params;
-
     const fieldSig = (f: Field) => [f.id, f.columnName, f.type, f.aggregation || '', f.dateTimePart || '', f.dateTimeMode || ''].join('|');
 
     // Axis fields: order matters for query builder, keep original order
@@ -91,18 +89,18 @@ export function useQueryFingerprint(params: FingerprintParams): string {
 
     return parts.join('||');
   }, [
-    params.selectedDatabase,
-    params.selectedTable,
-    params.virtualTablePrimary,
-    params.xAxisFields,
-    params.yAxisFields,
-    params.colorField,
-    params.sizeField,
-    params.labelFields,
-    params.filterConfigurations,
-    params.virtualColumns,
-    params.additionalColorFields,
-    params.additionalSizeFields,
-    params.additionalLabelFields,
+    selectedDatabase,
+    selectedTable,
+    virtualTablePrimary,
+    xAxisFields,
+    yAxisFields,
+    colorField,
+    sizeField,
+    labelFields,
+    filterConfigurations,
+    virtualColumns,
+    additionalColorFields,
+    additionalSizeFields,
+    additionalLabelFields,
   ]);
 }
