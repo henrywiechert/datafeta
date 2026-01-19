@@ -56,7 +56,7 @@ const ChartArea: React.FC = () => {
   const { selectedTable, selectedDatabase, virtualTable } = dataSource;
   
   // Ref for the fullscreen target element
-  const chartWrapperRef = useRef<HTMLDivElement>(null);
+  const fullscreenWrapperRef = useRef<HTMLDivElement>(null);
 
   // Collect additional color/size fields from field overrides
   const additionalColorFields = React.useMemo(() => {
@@ -162,7 +162,7 @@ const ChartArea: React.FC = () => {
   const { isDebugOpen, debugHeight, maxDebugHeight, toggleDebugView, handleDebugResize } = useDebugView();
   
   // Use the fullscreen hook
-  const { isFullscreen, toggleFullscreen, isSupported: isFullscreenSupported } = useFullscreen(chartWrapperRef);
+  const { isFullscreen, toggleFullscreen, isSupported: isFullscreenSupported } = useFullscreen(fullscreenWrapperRef);
 
   // Handle swapping X and Y axes
   const handleSwapAxis = useCallback(() => {
@@ -302,69 +302,71 @@ const ChartArea: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      <div 
-        ref={chartWrapperRef}
-        className={`${styles.chartWrapper} ${isFullscreen ? styles.fullscreen : ''}`}
+      <div
+        ref={fullscreenWrapperRef}
+        className={`${styles.fullscreenWrapper} ${isFullscreen ? styles.fullscreen : ''}`}
       >
-        <ChartRenderer
-          useTableView={useTableView}
-          tableData={tableData}
-          spec={spec}
-          queryResult={queryResult}
-          xAxisFields={xAxisFields}
-          yAxisFields={yAxisFields}
-          isDebugOpen={isDebugOpen}
-          debugHeight={debugHeight}
-          onPlotRenderComplete={handlePlotRenderComplete}
-        />
-        
-        <ChartControls
-          isDebugOpen={isDebugOpen}
-          onToggleDebug={toggleDebugView}
-          isFullscreen={isFullscreen}
-          onToggleFullscreen={toggleFullscreen}
-          isFullscreenSupported={isFullscreenSupported}
-          onSwapAxis={handleSwapAxis}
-          canUndo={canUndo}
-          canRedo={canRedo}
-          onUndo={handleUndo}
-          onRedo={handleRedo}
-          onResetWorkspace={resetWorkspace}
-          independentXAxis={!!independentDomains?.x}
-          onToggleIndependentXAxis={handleIndependentXAxisToggle}
-          independentYAxis={!!independentDomains?.y}
-          onToggleIndependentYAxis={handleIndependentYAxisToggle}
-          optimizationSettings={optimizationSettings}
-          onUpdateOptimizationSettings={(settings) => {
-            dispatch({ type: 'SET_QUERY_OPTIMIZATION_SETTINGS', payload: settings });
-            dispatch({ type: 'FORCE_QUERY_REFRESH' });
-          }}
-          onForceRefresh={handleForceRefresh}
-          bandThicknessScale={bandThicknessScale}
-          onBandThicknessScaleChange={(scale) => {
-            recordAction(getUndoableSnapshot());
-            dispatch({ type: 'SET_BAND_THICKNESS_SCALE', payload: scale });
-          }}
-        />
-        
-        <DebugPanel
-          isDebugOpen={isDebugOpen}
-          debugHeight={debugHeight}
-          maxDebugHeight={maxDebugHeight}
-          onDebugResize={handleDebugResize}
-          debugData={debugData}
-        />
-      </div>
-      {showLegend && (
-        <LegendStack>
-          <LegendPanel
-            colorField={colorField}
+        <div className={styles.chartWrapper}>
+          <ChartRenderer
+            useTableView={useTableView}
+            tableData={tableData}
+            spec={spec}
             queryResult={queryResult}
-            colorScheme={colorScheme}
-            colorBias={colorBias}
+            xAxisFields={xAxisFields}
+            yAxisFields={yAxisFields}
+            isDebugOpen={isDebugOpen}
+            debugHeight={debugHeight}
+            onPlotRenderComplete={handlePlotRenderComplete}
           />
-        </LegendStack>
-      )}
+          
+          <ChartControls
+            isDebugOpen={isDebugOpen}
+            onToggleDebug={toggleDebugView}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={toggleFullscreen}
+            isFullscreenSupported={isFullscreenSupported}
+            onSwapAxis={handleSwapAxis}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+            onResetWorkspace={resetWorkspace}
+            independentXAxis={!!independentDomains?.x}
+            onToggleIndependentXAxis={handleIndependentXAxisToggle}
+            independentYAxis={!!independentDomains?.y}
+            onToggleIndependentYAxis={handleIndependentYAxisToggle}
+            optimizationSettings={optimizationSettings}
+            onUpdateOptimizationSettings={(settings) => {
+              dispatch({ type: 'SET_QUERY_OPTIMIZATION_SETTINGS', payload: settings });
+              dispatch({ type: 'FORCE_QUERY_REFRESH' });
+            }}
+            onForceRefresh={handleForceRefresh}
+            bandThicknessScale={bandThicknessScale}
+            onBandThicknessScaleChange={(scale) => {
+              recordAction(getUndoableSnapshot());
+              dispatch({ type: 'SET_BAND_THICKNESS_SCALE', payload: scale });
+            }}
+          />
+          
+          <DebugPanel
+            isDebugOpen={isDebugOpen}
+            debugHeight={debugHeight}
+            maxDebugHeight={maxDebugHeight}
+            onDebugResize={handleDebugResize}
+            debugData={debugData}
+          />
+        </div>
+        {showLegend && (
+          <LegendStack>
+            <LegendPanel
+              colorField={colorField}
+              queryResult={queryResult}
+              colorScheme={colorScheme}
+              colorBias={colorBias}
+            />
+          </LegendStack>
+        )}
+      </div>
 
       {/* Facet Limit Warning Dialog */}
       <FacetLimitDialog
