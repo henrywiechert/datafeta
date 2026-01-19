@@ -3,6 +3,7 @@ import {
   SavedConnectionMetadata, 
   ConnectionDetails,
   Sheet,
+  Field,
   TableJoinDefinition,
   UserChartType,
   VirtualColumnDefinition
@@ -96,7 +97,8 @@ export function exportConfiguration(
   unionTables?: Array<{database: string, table_name: string}>,
   joinedTables?: TableJoinDefinition[],
   virtualColumns?: VirtualColumnDefinition[],
-  virtualColumnFieldPreferences?: VirtualColumnFieldPreferences
+  virtualColumnFieldPreferences?: VirtualColumnFieldPreferences,
+  measureGroupFields?: Field[]
 ): SavedConfiguration {
   const normalizedSheets = sheets.map((sheet) => ({
     ...sheet,
@@ -150,6 +152,11 @@ export function exportConfiguration(
 
     if (virtualColumnFieldPreferences && Object.keys(virtualColumnFieldPreferences).length > 0) {
       config.dataSource.virtualColumnFieldPreferences = virtualColumnFieldPreferences;
+    }
+
+    // Add measure group fields if present
+    if (measureGroupFields && measureGroupFields.length > 0) {
+      config.dataSource.measureGroupFields = measureGroupFields;
     }
   }
 

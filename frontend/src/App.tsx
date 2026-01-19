@@ -41,6 +41,7 @@ function AppContent() {
     setVirtualTable,
     setVirtualColumns,
     setVirtualColumnFieldPreferences,
+    setMeasureGroupFields,
   } = useDataSource();
   const { connectionDetails, connect, disconnect, isConnected } = useConnection();
   
@@ -196,7 +197,8 @@ function AppContent() {
         dataSource.unionTables,
         dataSource.virtualTable?.joined_tables,
         dataSource.virtualColumns,
-        dataSource.virtualColumnFieldPreferences
+        dataSource.virtualColumnFieldPreferences,
+        dataSource.measureGroupFields
       );
       await saveConfigFile(config);
     } catch (error) {
@@ -358,12 +360,20 @@ function AppContent() {
                 union_tables: [],
               });
             }
+            // Restore measure group fields if present
+            if (config.dataSource!.measureGroupFields && config.dataSource!.measureGroupFields.length > 0) {
+              setMeasureGroupFields(config.dataSource!.measureGroupFields);
+            }
           }, 0);
         });
       }
       if (config.dataSource && connectionType === 'csv') {
         setVirtualColumns(config.dataSource.virtualColumns ?? []);
         setVirtualColumnFieldPreferences(config.dataSource.virtualColumnFieldPreferences ?? {});
+        // Restore measure group fields for CSV as well
+        if (config.dataSource.measureGroupFields && config.dataSource.measureGroupFields.length > 0) {
+          setMeasureGroupFields(config.dataSource.measureGroupFields);
+        }
       }
       // For CSV: Don't restore anything - let the natural useEffect flow handle it
       // The fetchTables will auto-detect and select the single table
