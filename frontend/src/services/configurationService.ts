@@ -4,12 +4,18 @@ import {
   ConnectionDetails,
   Sheet,
   TableJoinDefinition,
-  UserChartType
+  UserChartType,
+  VirtualColumnDefinition
 } from '../types';
 import { ClickHouseOverrides } from '../components/ConnectionRestoreDialog';
 
 const CURRENT_VERSION = '1.0.0';
 const APP_NAME = 'data-slicer';
+
+type VirtualColumnFieldPreferences = Record<
+  string,
+  { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }
+>;
 
 // Type definitions for File System Access API
 interface FileSystemFileHandle {
@@ -88,7 +94,9 @@ export function exportConfiguration(
   selectedDatabase: string,
   selectedTable: string,
   unionTables?: Array<{database: string, table_name: string}>,
-  joinedTables?: TableJoinDefinition[]
+  joinedTables?: TableJoinDefinition[],
+  virtualColumns?: VirtualColumnDefinition[],
+  virtualColumnFieldPreferences?: VirtualColumnFieldPreferences
 ): SavedConfiguration {
   const normalizedSheets = sheets.map((sheet) => ({
     ...sheet,
@@ -134,6 +142,14 @@ export function exportConfiguration(
     // Add joined tables if present
     if (joinedTables && joinedTables.length > 0) {
       config.dataSource.joinedTables = joinedTables;
+    }
+
+    if (virtualColumns && virtualColumns.length > 0) {
+      config.dataSource.virtualColumns = virtualColumns;
+    }
+
+    if (virtualColumnFieldPreferences && Object.keys(virtualColumnFieldPreferences).length > 0) {
+      config.dataSource.virtualColumnFieldPreferences = virtualColumnFieldPreferences;
     }
   }
 
