@@ -4,7 +4,6 @@ import {
   IconButton, 
   Tooltip, 
   Divider,
-  ButtonGroup,
   Button
 } from '@mui/material';
 import ViewSidebarIcon from '@mui/icons-material/ViewSidebar';

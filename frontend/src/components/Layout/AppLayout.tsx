@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Drawer, Toolbar, AppBar, Typography } from '@mui/material';
+import { Box, Drawer, Typography } from '@mui/material';
 import { useLayout } from '../../contexts/LayoutContext';
 import ResizeHandle from './ResizeHandle';
 

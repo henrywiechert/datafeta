@@ -3,7 +3,7 @@ import { Box } from '@mui/material';
 import { v4 as uuidv4 } from 'uuid';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import ColorPalettePopover from '../Color/ColorPalettePopover';
-import { Field, DragSource } from '../../../types';
+import { Field } from '../../../types';
 import FieldChip from '../FieldChip';
 import { parseDragData } from './overrideUtils';
 

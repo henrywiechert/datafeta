@@ -258,9 +258,6 @@ function transformMeasuresToRows(
   const dimensionFields = fieldsToKeep.filter(f => f.type === 'dimension');
   const otherMeasureFields = fieldsToKeep.filter(f => f.type === 'measure');
   
-  // Get measure names being unpivoted
-  const unpivotedMeasureNames = new Set(measureFields.map(f => f.columnName));
-  
   // Find the MeasureValues field to get its aggregation
   const measureValuesField = originalFields.find(f => isMeasureValuesField(f));
   const aggregation = measureValuesField?.aggregation || 'sum';

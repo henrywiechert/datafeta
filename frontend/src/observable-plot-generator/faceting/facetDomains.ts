@@ -2,7 +2,7 @@ import { Field, FieldOverrideState } from '../../types';
 import { SharedDomains } from '../types';
 import { computeSharedMeasureDomains } from '../domains/measureDomains';
 import { computeSharedNumericDomains, computeSharedCategoricalDomains } from '../domains/numericDomains';
-import { ColorScaleInfo, deriveColorScaleInfo, applyMeasureNameColorOverrides } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo, applyMeasureNameColorOverrides } from '../utils/colorSchemeUtils';
 
 // Re-export SharedDomains for backward compatibility
 export type { SharedDomains };

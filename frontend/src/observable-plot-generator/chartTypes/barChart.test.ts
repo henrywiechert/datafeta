@@ -1,3 +1,6 @@
+import { barChart } from './barChart';
+import { ChartGenerationContext } from '../types';
+
 // Mock observable plot ESM for Jest (simplified marks sufficient for domain tests)
 jest.mock('@observablehq/plot', () => ({
   barX: (data: any[], opts: any) => ({ type: 'barX', data, opts }),
@@ -7,10 +10,6 @@ jest.mock('@observablehq/plot', () => ({
   text: (data: any[], opts: any) => ({ type: 'text', data, opts }),
   dot: (data: any[], opts: any) => ({ type: 'dot', data, opts }),
 }));
-
-import { barChart } from './barChart';
-import { ChartGenerationContext } from '../types';
-import { BAR_STEP_PX } from '../../config/chartLayoutConfig';
 
 // Minimal mock Field objects
 function dim(columnName: string): any {

@@ -165,6 +165,7 @@ export const useChartGeneration = ({
   }, []);
 
   const generateChartSpec = useCallback(async () => {
+    void queryVersion; // Ensure chart regeneration tracks query version changes.
     const startTime = Date.now();
     
     if ((xAxisFields.length === 0 && yAxisFields.length === 0) || useTableView) {

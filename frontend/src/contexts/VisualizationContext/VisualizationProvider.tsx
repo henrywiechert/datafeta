@@ -219,6 +219,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     state.sizeRange,
     state.manualSize,
     state.bandThicknessScale,
+    state.independentDomains,
     state.tooltipFields,
     state.virtualColumns,
     state.virtualColumnFieldPreferences,
