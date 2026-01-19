@@ -427,6 +427,14 @@ export function useMetadataOperations({
             return;
         }
         
+        // Skip if DataSourceContext already has metadata loaded (e.g., sheet switch remount)
+        // The DataSourceContext persists across sheet switches, so if we have fields loaded,
+        // we don't need to re-fetch them just because VisualizationProvider remounted
+        if (dataSource.selectedTable && dataSource.availableFields.length > 0) {
+            connectionInitializedRef.current = connectionId;
+            return;
+        }
+        
         connectionInitializedRef.current = connectionId;
         
         // Clear existing metadata and fetch new data when connection changes

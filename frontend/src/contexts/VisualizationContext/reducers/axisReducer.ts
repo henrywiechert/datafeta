@@ -161,6 +161,10 @@ export function axisReducer(state: VisualizationState, action: VisualizationActi
       return { ...state, queryResult: action.payload, queryError: null };
     case 'SET_QUERY_ERROR':
       return { ...state, queryResult: null, queryError: action.payload };
+    case 'RESTORE_CACHED_QUERY_RESULT':
+      // Restore cached query result without incrementing queryVersion
+      // This prevents re-querying when the cache is valid
+      return { ...state, queryResult: action.payload, queryError: null };
     case 'SET_INDEPENDENT_DOMAIN': {
       const { axis, independent } = action.payload;
       const current = state.independentDomains?.[axis];
