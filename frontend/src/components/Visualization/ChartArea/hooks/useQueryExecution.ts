@@ -6,6 +6,7 @@
  * - Initialize DuckDB WASM on mount
  * - Coordinate version tracking and execution triggers
  * - Handle unpivot detection
+ * - Check sheet render cache before executing queries
  * 
  * Query building is delegated to useQueryBuilder.
  * Query execution is delegated to useQueryExecutor.
@@ -13,6 +14,7 @@
 
 import { useRef, useEffect } from 'react';
 import { useVisualizationContext } from '../../../../contexts/VisualizationContext';
+import { useSheetContext } from '../../../../contexts/SheetContext';
 import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition, QueryOptimizationSettings } from '../../../../types';
 import { useConnection } from '../../../../contexts/ConnectionContext';
 import { requiresUnpivoting } from '../../../../queryBuilder/syntheticQueryBuilder';
@@ -22,6 +24,8 @@ import { duckdbService } from '../../../../services/duckdbService';
 import { QueryDecision } from '../../../../services/queryDecisionEngine';
 import { useQueryBuilder } from './useQueryBuilder';
 import { useQueryExecutor } from './useQueryExecutor';
+import { sheetRenderCacheStore } from '../../../../stores';
+import { computeFullConfigHash } from '../../../../utils/sheetConfigHash';
 
 export interface UseQueryExecutionProps {
   selectedTable: string | null;
@@ -98,13 +102,64 @@ export const useQueryExecution = ({
   const { connectionDetails } = useConnection();
   const { dataSource } = useDataSource();
   const { state: vizState } = useVisualizationContext();
+  const { activeSheet } = useSheetContext();
 
   // Track query version for deduplication
   const queryVersion: number = vizState.queryVersion;
   const lastExecutedVersionRef = useRef<number | null>(null);
+  
+  // Track if we restored from cache on mount
+  const cacheRestoredRef = useRef(false);
+  const mountCheckedRef = useRef(false);
 
   // Initialize DuckDB WASM
   useDuckDBInit();
+
+  // Check for cached data on mount (before first query)
+  useEffect(() => {
+    if (mountCheckedRef.current) return;
+    mountCheckedRef.current = true;
+    
+    const sheetId = activeSheet?.id;
+    if (!sheetId) return;
+    
+    // Compute config hash for current state
+    const configHash = computeFullConfigHash({
+      xAxisFields,
+      yAxisFields,
+      appliedFilterConfigurations: vizState.appliedFilterConfigurations,
+      colorField,
+      sizeField,
+      labelFields,
+      tooltipFields,
+      // Note: We only check query-affecting config for cache validation
+    });
+    
+    const cached = sheetRenderCacheStore.getCache(sheetId, configHash);
+    
+    if (cached) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useQueryExecution] 🎯 Cache hit on mount! Restoring queryResult', {
+          sheetId,
+          rowCount: cached.queryResult.rows?.length ?? 0,
+        });
+      }
+      
+      // Mark that we restored from cache
+      cacheRestoredRef.current = true;
+      
+      // Restore the cached query result
+      dispatch({ type: 'RESTORE_CACHED_QUERY_RESULT', payload: cached.queryResult });
+      
+      // Set last executed version to current to prevent immediate re-query
+      lastExecutedVersionRef.current = queryVersion;
+    } else {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useQueryExecution] Cache miss on mount - will execute query');
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   // Build query description and optimization hints
   const { queryDescription, optimizationHints } = useQueryBuilder({
