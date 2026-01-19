@@ -186,6 +186,7 @@ export function useSheetRenderCache({
 /**
  * Hook to listen for data source changes and increment version.
  * Should be used at the app level (e.g., in DataSourceProvider or App).
+ * Note: measureGroupFields is now per-sheet, so it doesn't trigger global invalidation.
  */
 export function useDataSourceVersionSync(deps: {
   selectedDatabase: string;
@@ -193,7 +194,6 @@ export function useDataSourceVersionSync(deps: {
   virtualColumnsLength: number;
   joinedTablesLength: number;
   unionTablesLength: number;
-  measureGroupFieldsLength: number;
 }) {
   const prevDepsRef = useRef(deps);
   const incrementDataSourceVersion = useSheetRenderCacheStore(
@@ -207,8 +207,7 @@ export function useDataSourceVersionSync(deps: {
       prev.selectedTable !== deps.selectedTable ||
       prev.virtualColumnsLength !== deps.virtualColumnsLength ||
       prev.joinedTablesLength !== deps.joinedTablesLength ||
-      prev.unionTablesLength !== deps.unionTablesLength ||
-      prev.measureGroupFieldsLength !== deps.measureGroupFieldsLength;
+      prev.unionTablesLength !== deps.unionTablesLength;
 
     if (changed) {
       if (process.env.NODE_ENV === 'development') {

@@ -52,6 +52,7 @@ function createEmptyVisualizationState(): VisualizationStateSnapshot {
       roundingThresholdBalanced: 500,
       roundingThresholdAggressive: 200,
     },
+    measureGroupFields: [],
   };
 }
 

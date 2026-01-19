@@ -61,6 +61,8 @@ export interface VisualizationState {
   queryVersion: number;
   // MeasureNames/MeasureValues source tracking
   measureValuesSourceFields: Field[];
+  // Measure group fields (per-sheet scope)
+  measureGroupFields: Field[];
 }
 
 // Define action types
@@ -160,6 +162,11 @@ export type VisualizationAction =
   | { type: 'FORCE_QUERY_REFRESH' }
   // MeasureNames/MeasureValues source tracking actions
   | { type: 'SET_MEASURE_VALUES_SOURCE_FIELDS'; payload: Field[] }
+  // Measure group actions (per-sheet scope)
+  | { type: 'SET_MEASURE_GROUP_FIELDS'; payload: Field[] }
+  | { type: 'ADD_MEASURE_TO_GROUP'; payload: Field }
+  | { type: 'REMOVE_MEASURES_FROM_GROUP'; payload: string[] }
+  | { type: 'CLEAR_MEASURE_GROUP' }
   // Cache restore action (used when switching sheets with cached data)
   | { type: 'RESTORE_CACHED_QUERY_RESULT'; payload: QueryResult };
 

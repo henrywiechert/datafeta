@@ -23,7 +23,7 @@ import FacetLimitDialog from '../FacetLimitDialog';
 const ChartArea: React.FC = () => {
   const { state, dispatch, startOperation, completeOperation, getUndoableSnapshot } = useVisualizationContext();
   const { recordAction, undo, completeUndo, redo, completeRedo, canUndo, canRedo } = useUndoRedo();
-  const { dataSource, clearMeasureGroup } = useDataSource();
+  const { dataSource } = useDataSource();
   const { resetWorkspace } = useSheetContext();
   const renderingCoordinator = useRenderingCoordinator();
   const {
@@ -50,6 +50,7 @@ const ChartArea: React.FC = () => {
     fieldOverrides,
     globalChartType,
     measureValuesSourceFields,
+    measureGroupFields,
     independentDomains,
     optimizationSettings,
   } = state as any;
@@ -106,6 +107,7 @@ const ChartArea: React.FC = () => {
     sizeField,
     labelFields,
     tooltipFields,
+    measureGroupFields,
     colorScheme,
     colorBias,
     manualColor,
@@ -121,7 +123,7 @@ const ChartArea: React.FC = () => {
     labelSampleEvery,
   }), [
     xAxisFields, yAxisFields, appliedFilterConfigurations, colorField, sizeField,
-    labelFields, tooltipFields, colorScheme, colorBias, manualColor, sizeRange,
+    labelFields, tooltipFields, measureGroupFields, colorScheme, colorBias, manualColor, sizeRange,
     manualSize, bandThicknessScale, fieldOverrides, globalChartType, independentDomains,
     labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery,
   ]);
@@ -209,9 +211,10 @@ const ChartArea: React.FC = () => {
   const { isFullscreen, toggleFullscreen, isSupported: isFullscreenSupported } = useFullscreen(fullscreenWrapperRef);
 
   const handleResetWorkspace = useCallback(() => {
-    clearMeasureGroup();
+    // Clear measure group via VisualizationContext (per-sheet)
+    dispatch({ type: 'CLEAR_MEASURE_GROUP' });
     resetWorkspace();
-  }, [clearMeasureGroup, resetWorkspace]);
+  }, [dispatch, resetWorkspace]);
 
   // Handle swapping X and Y axes
   const handleSwapAxis = useCallback(() => {

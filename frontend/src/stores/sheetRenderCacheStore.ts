@@ -78,8 +78,9 @@ interface SheetRenderCacheActions {
    * - selectedDatabase/selectedTable changes
    * - virtualColumns added/updated/removed
    * - joinedTables/unionTables changes
-   * - measureGroupFields changes
    * - Connection changes
+   * 
+   * Note: measureGroupFields is now per-sheet, so it doesn't trigger global invalidation.
    */
   incrementDataSourceVersion: () => void;
 
