@@ -166,7 +166,7 @@ export function useFieldOperations({
                 dataSourceSetters.setAvailableFields(updatedAvailableFields);
             }
         }
-    }, [dispatch, dataSourceSetters]); // Stable deps only - state read from refs
+    }, [dispatch, dataSourceSetters, setVirtualColumnPreference]); // Stable deps only - state read from refs
 
     const handleFieldUpdate = useCallback((updatedField: Field | Field[]) => {
         // Read current state from refs for stable callback
@@ -204,7 +204,7 @@ export function useFieldOperations({
             // Multiple fields - use batch update logic
             batchUpdateFields(fieldsToUpdate);
         }
-    }, [dispatch, dataSourceSetters, batchUpdateFields]); // Stable deps only - state read from refs
+    }, [dispatch, dataSourceSetters, setVirtualColumnPreference, batchUpdateFields]); // Stable deps only - state read from refs
 
     const handleReorderFields = useCallback((axis: 'x' | 'y', fromIndex: number, toIndex: number) => {
         // Read current state from refs for stable callback

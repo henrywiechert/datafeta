@@ -61,6 +61,7 @@ interface DataSourceContextType {
   updateVirtualColumn: (index: number, column: VirtualColumnDefinition) => void;
   removeVirtualColumn: (index: number) => void;
   setVirtualColumnFieldPreference: (columnName: string, preference: VirtualColumnPreference) => void;
+  setVirtualColumnFieldPreferences: (preferences: Record<string, VirtualColumnPreference>) => void;
 }
 
 const DataSourceContext = createContext<DataSourceContextType | undefined>(undefined);
@@ -307,6 +308,13 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const setVirtualColumnFieldPreferences = (preferences: Record<string, VirtualColumnPreference>) => {
+    setDataSource(prev => ({
+      ...prev,
+      virtualColumnFieldPreferences: preferences || {},
+    }));
+  };
+
   return (
     <DataSourceContext.Provider
       value={{
@@ -336,6 +344,7 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
         updateVirtualColumn,
         removeVirtualColumn,
         setVirtualColumnFieldPreference,
+        setVirtualColumnFieldPreferences,
       }}
     >
       {children}
