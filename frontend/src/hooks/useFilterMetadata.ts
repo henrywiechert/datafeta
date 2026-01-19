@@ -323,7 +323,7 @@ export function useFilterMetadata({
                 payload: { fieldId: field.id, metadata: errorMetadata }
             });
         }
-    }, [selectedTable, selectedDatabase, unionTables, connectionDetails?.type, dispatch, virtualColumns, filterConfigurations, unionTablesForApi, filterFields, virtualTable]);
+    }, [selectedTable, selectedDatabase, connectionDetails?.type, dispatch, virtualColumns, filterConfigurations, unionTablesForApi, filterFields, virtualTable]);
 
     // Refetch filter values with a regex pattern (for large discrete filters)
     const refetchFilterValues = useCallback(async (fieldId: string, regexPattern?: string) => {
@@ -510,7 +510,7 @@ export function useFilterMetadata({
                 payload: { fieldId, metadata: errorMetadata }
             });
         }
-    }, [filterFields, filterMetadata, selectedTable, selectedDatabase, unionTables, connectionDetails?.type, dispatch, virtualColumns, unionTablesForApi, virtualTable]);
+    }, [filterFields, filterMetadata, selectedTable, selectedDatabase, connectionDetails?.type, dispatch, virtualColumns, unionTablesForApi, virtualTable]);
 
     // Fetch filter metadata when new filter fields are added
     // Also re-fetch when the selected table/database changes to handle config loading scenarios
