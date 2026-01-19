@@ -5,7 +5,6 @@ import { LabelConfig } from '../types';
 import { getFieldColumnName } from '../helpers/fields';
 import { SharedDomains } from './facetDomains';
 import { CellGenerator, CellResult, PositionedPlot } from './facetCoordinator';
-import type { FacetCellContext } from './facetCoordinator';
 import { buildBarOptions, resolveMeasureAlias } from '../chartTypes/barCore';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
