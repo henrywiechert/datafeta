@@ -263,7 +263,7 @@ class FilterTierManager {
       return `'${String(v).replace(/'/g, "''")}'`;
     };
     
-    for (const [_key, config] of Object.entries(refinementFilters)) {
+    for (const config of Object.values(refinementFilters)) {
       const columnName = config.columnName;
       
       if (!columnName) continue;

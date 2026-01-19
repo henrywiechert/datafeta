@@ -22,7 +22,6 @@ export function useRenderingCoordinator() {
    * Mark a plot as rendered
    */
   const markPlotRendered = useCallback((plotId: string) => {
-    const wasTracking = pendingPlotsRef.current.has(plotId);
     pendingPlotsRef.current.delete(plotId);
     
     // Avoid per-plot logging: with large faceted grids this can freeze the UI.

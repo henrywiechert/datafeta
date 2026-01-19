@@ -3,7 +3,6 @@ import { ChartGenerationContext } from '../types';
 import { 
   BAR_STEP_PX, 
   DEFAULT_CHART_COLOR, 
-  BAND_PADDING,
   GANTT_UNIT_PX,
   MIN_GANTT_WIDTH_PX,
   MAX_GANTT_WIDTH_PX

@@ -225,7 +225,6 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
 
   const O = ORIENTATION[orientation];
   const categories = categoriesDomain || deriveCategories(data, categoryColumn);
-  const size = categories.length * BAR_STEP_PX;
 
   // Compute domain, accounting for stacking when there's no category but there is color
   let domain: [number, number];

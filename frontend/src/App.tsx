@@ -78,7 +78,7 @@ function AppContent() {
         resetWorkspace();
       }
     }
-  }, []); // Empty deps - only run on mount
+  }, [isConnected, resetWorkspace]);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: string) => {
     if (newValue === 'datasources') {

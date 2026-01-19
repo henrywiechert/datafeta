@@ -88,7 +88,7 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
     } finally {
       setIsLoading(false);
     }
-  }, [dispatch]);
+  }, [dispatch, isConnected]);
 
   const disconnect = useCallback(async () => {
     setIsLoading(true);

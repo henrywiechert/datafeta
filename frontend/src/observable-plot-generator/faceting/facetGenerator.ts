@@ -1,5 +1,4 @@
-import * as Plot from '@observablehq/plot';
-import { BAR_STEP_PX, BAND_PADDING } from '../../config/chartLayoutConfig';
+import { BAND_PADDING } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getFieldColumnName } from '../helpers/fields';
 import { ChartGenerationContext, PlotResult } from '../types';
