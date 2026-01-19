@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Tooltip, Typography } from '@mui/material';
 import { Field, QueryResult } from '../../../types';
 import { getFieldDisplayName } from '../../../utils/fieldUtils';
 import { deriveColorScaleInfo } from '../../../observable-plot-generator/utils/colorSchemeUtils';
@@ -93,9 +93,11 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
                 className={styles.colorSwatch}
                 sx={{ backgroundColor: item.color }}
               />
-              <Typography className={styles.legendLabel}>
-                {item.label}
-              </Typography>
+              <Tooltip title={item.label} placement="right" arrow enterDelay={800}>
+                <Typography className={styles.legendLabel}>
+                  {item.label}
+                </Typography>
+              </Tooltip>
             </Box>
           ))
         )}
