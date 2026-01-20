@@ -11,11 +11,13 @@ import FieldChip from '../FieldChip';
 import filterDropZoneStyles from '../Filters/FilterDropZone.module.css';
 
 const MeasureGroupsPanel: React.FC = () => {
-  const { dataSource, setMeasureGroupFields, removeMeasureFromGroup, clearMeasureGroup } = useDataSource();
-  const { dispatch } = useVisualizationContext();
+  const { dataSource } = useDataSource();
+  const { state, dispatch } = useVisualizationContext();
   const [isOver, setIsOver] = useState(false);
 
-  const { measureGroupFields, availableFields } = dataSource;
+  // measureGroupFields now comes from VisualizationContext (per-sheet scope)
+  const measureGroupFields = state.measureGroupFields;
+  const { availableFields } = dataSource;
 
   const measureFields = useMemo(
     () => availableFields.filter((field) => field.type === 'measure' && !field.isSynthetic),
@@ -37,8 +39,7 @@ const MeasureGroupsPanel: React.FC = () => {
       updatedMap.has(field.id) ? updatedMap.get(field.id)! : field
     );
     if (nextFields.some((field, index) => field !== measureGroupFields[index])) {
-      setMeasureGroupFields(nextFields);
-      dispatch({ type: 'FORCE_QUERY_REFRESH' });
+      dispatch({ type: 'SET_MEASURE_GROUP_FIELDS', payload: nextFields });
     }
   };
 
@@ -83,8 +84,7 @@ const MeasureGroupsPanel: React.FC = () => {
       });
 
       if (didChange) {
-        setMeasureGroupFields(nextFields);
-        dispatch({ type: 'FORCE_QUERY_REFRESH' });
+        dispatch({ type: 'SET_MEASURE_GROUP_FIELDS', payload: nextFields });
       }
     } catch (error) {
       console.error('Error parsing drag data:', error);
@@ -95,8 +95,7 @@ const MeasureGroupsPanel: React.FC = () => {
     if (measureGroupFields.length === 0) {
       return;
     }
-    clearMeasureGroup();
-    dispatch({ type: 'FORCE_QUERY_REFRESH' });
+    dispatch({ type: 'CLEAR_MEASURE_GROUP' });
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -148,8 +147,7 @@ const MeasureGroupsPanel: React.FC = () => {
                 onUpdate={handleFieldUpdate}
                 allFields={orderedMeasureFields}
                 onRemoveFromZone={(fieldIds) => {
-                  removeMeasureFromGroup(fieldIds);
-                  dispatch({ type: 'FORCE_QUERY_REFRESH' });
+                  dispatch({ type: 'REMOVE_MEASURES_FROM_GROUP', payload: fieldIds });
                 }}
               />
             ))}

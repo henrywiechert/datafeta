@@ -14,7 +14,7 @@ interface DataSourceState {
     selectedTable: string;
     availableFields: Field[];
     isLoadingMetadata: boolean;
-    measureGroupFields: Field[];
+    // measureGroupFields removed - now per-sheet in VisualizationContext
     joinedTables: string[];
     unionTables: Array<{database: string, table_name: string}>;
     virtualTable: any | null;
@@ -39,6 +39,7 @@ interface UseMetadataOperationsParams {
     dataSourceSetters: DataSourceSetters;
     xAxisFields: Field[];
     yAxisFields: Field[];
+    measureGroupFields: Field[]; // Now from VisualizationContext
     dispatch: React.Dispatch<any>;
 }
 
@@ -57,6 +58,7 @@ export function useMetadataOperations({
     dataSourceSetters,
     xAxisFields,
     yAxisFields,
+    measureGroupFields,
     dispatch
 }: UseMetadataOperationsParams): UseMetadataOperationsReturn {
 
@@ -169,7 +171,7 @@ export function useMetadataOperations({
             const measureNameSet = new Set(
                 fields.filter(field => field.type === 'measure').map(field => field.columnName)
             );
-            const nextMeasureGroupFields = (dataSource.measureGroupFields || [])
+            const nextMeasureGroupFields = (measureGroupFields || [])
                 .filter((field) => measureNameSet.has(field.columnName));
 
             const syntheticFields = generateSyntheticFieldsForGroup(
@@ -177,7 +179,8 @@ export function useMetadataOperations({
                 nextMeasureGroupFields.map(field => field.columnName)
             );
 
-            dataSourceSetters.setMeasureGroupFields(nextMeasureGroupFields);
+            // Update measure group via VisualizationContext dispatch
+            dispatch({ type: 'SET_MEASURE_GROUP_FIELDS', payload: nextMeasureGroupFields });
             dataSourceSetters.setAvailableFields([...fields, ...syntheticFields]);
 
             // Mark axis fields that are not present in new schema as invalid
@@ -204,7 +207,7 @@ export function useMetadataOperations({
     }, [
         dataSource.selectedTable,
         dataSource.selectedDatabase,
-        dataSource.measureGroupFields,
+        measureGroupFields,
         xAxisFields,
         yAxisFields,
         connectionDetails?.type,
@@ -305,7 +308,7 @@ export function useMetadataOperations({
                 const measureNameSet = new Set(
                     fields.filter(field => field.type === 'measure').map(field => field.columnName)
                 );
-                const nextMeasureGroupFields = (dataSource.measureGroupFields || [])
+                const nextMeasureGroupFields = (measureGroupFields || [])
                     .filter((field) => measureNameSet.has(field.columnName));
 
                 const syntheticFields = generateSyntheticFieldsForGroup(
@@ -313,7 +316,8 @@ export function useMetadataOperations({
                     nextMeasureGroupFields.map(field => field.columnName)
                 );
 
-                dataSourceSetters.setMeasureGroupFields(nextMeasureGroupFields);
+                // Update measure group via VisualizationContext dispatch
+                dispatch({ type: 'SET_MEASURE_GROUP_FIELDS', payload: nextMeasureGroupFields });
                 dataSourceSetters.setAvailableFields([...fields, ...syntheticFields]);
                 dataSourceSetters.setVirtualTable(response.virtual_table);
                 dataSourceSetters.setIsLoadingMetadata(false);
@@ -366,7 +370,7 @@ export function useMetadataOperations({
             const measureNameSet = new Set(
                 fields.filter(field => field.type === 'measure').map(field => field.columnName)
             );
-            const nextMeasureGroupFields = (dataSource.measureGroupFields || [])
+            const nextMeasureGroupFields = (measureGroupFields || [])
                 .filter((field) => measureNameSet.has(field.columnName));
 
             const syntheticFields = generateSyntheticFieldsForGroup(
@@ -374,7 +378,8 @@ export function useMetadataOperations({
                 nextMeasureGroupFields.map(field => field.columnName)
             );
 
-            dataSourceSetters.setMeasureGroupFields(nextMeasureGroupFields);
+            // Update measure group via VisualizationContext dispatch
+            dispatch({ type: 'SET_MEASURE_GROUP_FIELDS', payload: nextMeasureGroupFields });
             dataSourceSetters.setAvailableFields([...fields, ...syntheticFields]);
             dataSourceSetters.setVirtualTable(response.virtual_table);
 
@@ -401,7 +406,7 @@ export function useMetadataOperations({
         dataSource.selectedDatabase, 
         dataSource.joinedTables,
         dataSource.unionTables,
-        dataSource.measureGroupFields,
+        measureGroupFields,
         xAxisFields, 
         yAxisFields, 
         connectionDetails?.type, 

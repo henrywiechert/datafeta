@@ -50,14 +50,16 @@ These changes increment `dataSourceVersion`, invalidating all cached entries:
 - `virtualColumns` added/updated/removed
 - `joinedTables` changes
 - `unionTables` changes
-- `measureGroupFields` changes
 - Connection disconnect
+
+Note: `measureGroupFields` is now per-sheet (stored in VisualizationContext), so it only affects that specific sheet's cache.
 
 ### Per-Sheet Invalidation
 
 Cache for a specific sheet becomes invalid when its `configHash` no longer matches:
 
 - Axis fields changed (xAxisFields, yAxisFields)
+- Measure group fields changed (measureGroupFields)
 - Applied filters changed
 - Color/size field changed
 - Label/tooltip fields changed

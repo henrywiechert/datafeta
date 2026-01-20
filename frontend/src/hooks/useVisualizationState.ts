@@ -79,6 +79,7 @@ export function useVisualizationState() {
         dataSourceSetters,
         xAxisFields: state.xAxisFields,
         yAxisFields: state.yAxisFields,
+        measureGroupFields: state.measureGroupFields,
         dispatch
     });
 
@@ -119,6 +120,7 @@ export function useVisualizationState() {
             globalChartType: state.globalChartType,
             selectedChartType: state.globalChartType ?? 'auto',
             optimizationSettings: state.optimizationSettings,
+            measureGroupFields: state.measureGroupFields,
         });
     }, [
         state.xAxisFields,
@@ -138,6 +140,7 @@ export function useVisualizationState() {
         state.fieldOverrides,
         state.globalChartType,
         state.optimizationSettings,
+        state.measureGroupFields,
         updateActiveSheetState,
     ]);
 
