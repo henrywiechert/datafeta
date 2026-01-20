@@ -58,6 +58,7 @@ export function getMeasureFieldsForUnpivot(
 /**
  * Generate synthetic MeasureNames and MeasureValues fields
  * Returns an array with both fields if measures exist, otherwise empty array
+ * When measureNames is empty or undefined, generates synthetic fields using ALL measures
  */
 export function generateSyntheticFieldsForGroup(
   baseFields: Field[],
@@ -68,7 +69,13 @@ export function generateSyntheticFieldsForGroup(
     return [];
   }
 
-  if (!measureNames || measureNames.length === 0) {
+  // When no specific measures are provided, use ALL measures
+  // This ensures MeasureNames/MeasureValues are always available in the field list
+  const effectiveMeasureNames = (!measureNames || measureNames.length === 0)
+    ? getMeasureNames(baseFields)
+    : measureNames;
+
+  if (effectiveMeasureNames.length === 0) {
     return [];
   }
 

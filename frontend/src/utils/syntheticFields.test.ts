@@ -27,6 +27,26 @@ describe('syntheticFields', () => {
     expect(synthetic[1].syntheticType).toBe('MeasureValues');
   });
 
+  it('generates synthetic fields using all measures when no group specified', () => {
+    const baseFields = [
+      buildField({ id: 'm1', columnName: 'Revenue', type: 'measure' }),
+      buildField({ id: 'm2', columnName: 'Profit', type: 'measure' }),
+      buildField({ id: 'd1', columnName: 'Region', type: 'dimension', flavour: 'discrete' }),
+    ];
+
+    // When measureNames is undefined or empty, should still generate synthetic fields
+    const syntheticUndefined = generateSyntheticFieldsForGroup(baseFields, undefined);
+    const syntheticEmpty = generateSyntheticFieldsForGroup(baseFields, []);
+
+    expect(syntheticUndefined).toHaveLength(2);
+    expect(syntheticUndefined[0].syntheticType).toBe('MeasureNames');
+    expect(syntheticUndefined[1].syntheticType).toBe('MeasureValues');
+
+    expect(syntheticEmpty).toHaveLength(2);
+    expect(syntheticEmpty[0].syntheticType).toBe('MeasureNames');
+    expect(syntheticEmpty[1].syntheticType).toBe('MeasureValues');
+  });
+
   it('filters unpivot measures by group selection', () => {
     const fields = [
       buildField({ id: 'm1', columnName: 'Revenue', type: 'measure' }),
