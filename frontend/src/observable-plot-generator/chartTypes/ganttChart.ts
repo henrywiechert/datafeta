@@ -1,5 +1,5 @@
 import * as Plot from '@observablehq/plot';
-import { ChartGenerationContext } from '../types';
+import { ChartGenerationContext, GanttZoomRange } from '../types';
 import { 
   BAR_STEP_PX, 
   DEFAULT_CHART_COLOR, 
@@ -141,6 +141,95 @@ function computeGanttDomain(
 }
 
 /**
+ * Filter data to only include rows that overlap with the zoom range.
+ * A row overlaps if its interval [start, end] intersects [zoomMin, zoomMax].
+ */
+function filterDataForZoomRange(
+  data: any[],
+  startColumn: string,
+  durationColumn: string | undefined,
+  zoomRange: GanttZoomRange
+): any[] {
+  const { min: zoomMin, max: zoomMax } = zoomRange;
+  
+  return data.filter((row) => {
+    const start = row[startColumn];
+    if (typeof start !== 'number' || !Number.isFinite(start)) {
+      return false;
+    }
+    
+    const duration = durationColumn ? row[durationColumn] : 0;
+    const end = computeEndValue(start, duration, 0);
+    
+    // Check if interval [start, end] overlaps [zoomMin, zoomMax]
+    // Overlaps if: start < zoomMax && end > zoomMin
+    return start < zoomMax && end > zoomMin;
+  });
+}
+
+/**
+ * Create a clamped x2/y2 accessor that clamps bar endpoints to zoom range.
+ * This prevents bars from extending beyond the visible zoom area.
+ */
+function createClampedEndAccessor(
+  startColumn: string,
+  durationColumn: string | undefined,
+  zoomRange: GanttZoomRange | null
+): (d: any) => number {
+  return (d: any) => {
+    const start = d[startColumn];
+    const duration = durationColumn ? d[durationColumn] : 0;
+    const end = computeEndValue(start, duration, 0);
+    
+    if (zoomRange) {
+      // Clamp end value to zoom range
+      return Math.min(Math.max(end, zoomRange.min), zoomRange.max);
+    }
+    return end;
+  };
+}
+
+/**
+ * Create a clamped x1/y1 accessor that clamps bar start to zoom range.
+ */
+function createClampedStartAccessor(
+  startColumn: string,
+  zoomRange: GanttZoomRange | null
+): ((d: any) => number) | string {
+  if (!zoomRange) {
+    return startColumn;
+  }
+  
+  return (d: any) => {
+    const start = d[startColumn];
+    if (typeof start !== 'number' || !Number.isFinite(start)) {
+      return start;
+    }
+    // Clamp start value to zoom range
+    return Math.max(start, zoomRange.min);
+  };
+}
+
+/**
+ * Compute intrinsic size for Gantt chart when zoom is active.
+ * Uses the zoom range instead of data range.
+ */
+function computeGanttIntrinsicSizeFromZoom(
+  zoomRange: GanttZoomRange
+): number {
+  const dataRange = zoomRange.max - zoomRange.min;
+  
+  if (dataRange <= 0) {
+    return MIN_GANTT_WIDTH_PX;
+  }
+  
+  const intrinsicSize = dataRange * GANTT_UNIT_PX;
+  
+  // Don't apply MAX_GANTT_WIDTH_PX when zoomed - allow the chart to grow
+  return Math.max(MIN_GANTT_WIDTH_PX, intrinsicSize);
+}
+
+/**
  * Compute intrinsic width for Gantt chart based on data range.
  * Designed for future zoom support - accepts optional zoomLevel parameter.
  */
@@ -245,11 +334,20 @@ export function ganttChart(
   zoomLevel: number = 1.0,
   labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
 ): GanttChartResult {
-  const { queryResult, colorField, colorScheme, colorBias, manualSize, manualColor, tooltipFields } = context;
-  const data = queryResult.rows;
+  const { queryResult, colorField, colorScheme, colorBias, manualSize, manualColor, tooltipFields, ganttZoomRange: zoomRangeRaw } = context;
+  const rawData = queryResult.rows;
   
-  // Color configuration
-  const colorInfo = colorField ? deriveColorScaleInfo(data, colorField, colorScheme, colorBias) : null;
+  // Normalize undefined to null for cleaner type handling
+  const ganttZoomRange: GanttZoomRange | null = zoomRangeRaw ?? null;
+  
+  // If zoom is active, filter data to only rows overlapping the zoom range
+  // and use zoom range as the domain. Otherwise use full data.
+  const data = ganttZoomRange 
+    ? filterDataForZoomRange(rawData, startColumn, durationColumn, ganttZoomRange)
+    : rawData;
+  
+  // Color configuration (use rawData for color domain computation to maintain consistency)
+  const colorInfo = colorField ? deriveColorScaleInfo(rawData, colorField, colorScheme, colorBias) : null;
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
   const fillValue = colorField && colorInfo
     ? (colorInfo.kind === 'continuous' && colorInfo.accessor
@@ -280,21 +378,27 @@ export function ganttChart(
   // Default to middle-thick bars (manualSize ~25 equivalent, padding ~0.1)
   const DEFAULT_GANTT_PADDING = 0.1; // Thicker bars by default
   const bandPadding = manualSize !== undefined
-    ? computeBandPaddingFromSizeField(data, undefined, { manualSize })!
+    ? computeBandPaddingFromSizeField(rawData, undefined, { manualSize })!
     : DEFAULT_GANTT_PADDING;
 
-  // Get or compute categories
+  // Get or compute categories from FULL data (rawData) to ensure all categories
+  // remain visible even when zoomed to a range where some categories have no events
   const categories = categoryColumn 
-    ? (sharedDomains?.[categoryColumn] as any[] ?? Array.from(new Set(data.map((row: any) => row[categoryColumn]))))
+    ? (sharedDomains?.[categoryColumn] as any[] ?? Array.from(new Set(rawData.map((row: any) => row[categoryColumn]))))
     : [' '];
   const categoryCount = categories.length;
 
   // Compute domain for the continuous axis (start + duration)
+  // If zoom is active, use zoom range as domain; otherwise compute from data
   const sharedStartDomain = sharedDomains?.[startColumn] as [number, number] | undefined;
-  const axisDomain = computeGanttDomain(data, startColumn, durationColumn, sharedStartDomain);
+  const axisDomain: [number, number] | undefined = ganttZoomRange
+    ? [ganttZoomRange.min, ganttZoomRange.max]
+    : computeGanttDomain(data, startColumn, durationColumn, sharedStartDomain);
   
-  // Compute intrinsic size based on data range
-  const intrinsicSize = computeGanttIntrinsicSize(axisDomain, zoomLevel);
+  // Compute intrinsic size based on zoom range or data range
+  const intrinsicSize = ganttZoomRange
+    ? computeGanttIntrinsicSizeFromZoom(ganttZoomRange)
+    : computeGanttIntrinsicSize(axisDomain, zoomLevel);
 
   // Labels
   const startLabel = labels?.start || startColumn;
@@ -302,6 +406,8 @@ export function ganttChart(
   const categoryLabel = labels?.category || categoryColumn;
 
   // Guard against empty/invalid data
+  // Note: When zoomed, data may be filtered to only rows in the zoom range
+  // hasValidData refers to whether we have data to render marks for
   const hasValidData = Array.isArray(data) && data.some((row) => {
     const start = row[startColumn];
     return typeof start === 'number' && Number.isFinite(start);
@@ -309,30 +415,40 @@ export function ganttChart(
 
   if (!hasValidData) {
     // Render empty axes for consistency
+    // When zoomed, use the zoom range as the axis domain and maintain intrinsic size
+    // This ensures facets without data in the zoom range still show proper axes
     const emptyOpts: Plot.PlotOptions = orientation === 'x'
       ? {
-          x: { label: startLabel, grid: true } as any,
+          x: { 
+            label: startLabel, 
+            grid: true,
+            ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {})
+          } as any,
           y: { label: categoryLabel || ' ', domain: categories as any, type: 'band' as any, padding: bandPadding as any },
           marks: [],
         }
       : {
-          y: { label: startLabel, grid: true } as any,
+          y: { 
+            label: startLabel, 
+            grid: true,
+            ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {})
+          } as any,
           x: { label: categoryLabel || ' ', domain: categories as any, type: 'band' as any, padding: bandPadding as any },
           marks: [],
         };
-    return { options: emptyOpts, intrinsicSize: MIN_GANTT_WIDTH_PX };
+    // Use computed intrinsicSize (accounts for zoom range) instead of MIN_GANTT_WIDTH_PX
+    return { options: emptyOpts, intrinsicSize };
   }
 
   // Build bar mark configuration using x1/x2 (or y1/y2) for intervals
+  // When zoom is active, clamp bar endpoints to zoom boundaries
   let opts: Plot.PlotOptions;
 
   if (orientation === 'x') {
     // Horizontal Gantt: bars extend along X axis
     const barConfig: any = {
-      x1: startColumn,
-      x2: durationColumn 
-        ? (d: any) => computeEndValue(d[startColumn], d[durationColumn], 0)
-        : (d: any) => d[startColumn], // Zero-width if no duration
+      x1: createClampedStartAccessor(startColumn, ganttZoomRange),
+      x2: createClampedEndAccessor(startColumn, durationColumn, ganttZoomRange),
       y: categoryColumn || (() => ' '),
       fill: fillValue,
     };
@@ -359,10 +475,8 @@ export function ganttChart(
   } else {
     // Vertical Gantt: bars extend along Y axis
     const barConfig: any = {
-      y1: startColumn,
-      y2: durationColumn 
-        ? (d: any) => computeEndValue(d[startColumn], d[durationColumn], 0)
-        : (d: any) => d[startColumn], // Zero-width if no duration
+      y1: createClampedStartAccessor(startColumn, ganttZoomRange),
+      y2: createClampedEndAccessor(startColumn, durationColumn, ganttZoomRange),
       x: categoryColumn || (() => ' '),
       fill: fillValue,
     };

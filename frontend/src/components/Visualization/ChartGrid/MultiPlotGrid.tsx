@@ -75,7 +75,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
     topHeaderHeight,
   } = layoutCalcs;
 
-  const { scrollOffsets, onWheelCapture } = scrollSync;
+  const { scrollOffsets, onWheelCapture, isKeyboardNavActive } = scrollSync;
   const { hasOverrides, handleReset } = cellSizeOverrides;
   const { containerRef, hScrollRef, vScrollRef, plotsTranslateRef, plotGridRef } = refs;
 
@@ -345,6 +345,13 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           Reset Grid Size
         </button>
       )}
+
+      {/* Keyboard navigation hint for Gantt charts */}
+      <div 
+        className={`${styles.keyboardNavHint} ${isKeyboardNavActive ? styles.visible : ''}`}
+      >
+        <kbd>W</kbd>/<kbd>S</kbd> Zoom &nbsp; <kbd>A</kbd>/<kbd>D</kbd> Pan &nbsp; <kbd>R</kbd> Reset
+      </div>
     </div>
   );
 };

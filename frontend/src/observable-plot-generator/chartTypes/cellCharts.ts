@@ -1,6 +1,6 @@
 import * as Plot from '@observablehq/plot';
 import { Field } from '../../types';
-import { LabelConfig } from '../types';
+import { LabelConfig, GanttZoomRange } from '../types';
 import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { getFieldColumnName } from '../helpers/fields';
@@ -35,6 +35,8 @@ interface ChartContext {
   tooltipFields?: Field[];
   /** Facet fields to display in tooltips for context (from faceted charts) */
   facetFields?: Field[];
+  /** Gantt chart zoom range - when active, filters and clamps bars to this range */
+  ganttZoomRange?: GanttZoomRange | null;
 }
 
 /**
@@ -511,6 +513,15 @@ function handleGanttX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plo
   const durationColumn = ctx.sizeField ? resolveColumnInData(data, ctx.sizeField) : undefined;
   const categoryColumn = categoryField ? resolveColumnInData(data, categoryField) : undefined;
   
+  // Merge measure and categorical domains for ganttChart
+  // The category domain ensures all categories appear even when facet has no data in zoom range
+  const mergedDomains = {
+    ...ctx.sharedMeasureDomains,
+    ...(categoryColumn && ctx.sharedCategoricalDomains?.[categoryColumn] 
+      ? { [categoryColumn]: ctx.sharedCategoricalDomains[categoryColumn] } 
+      : {}),
+  };
+  
   const result = ganttChart(
     {
       xFields: [],
@@ -523,6 +534,7 @@ function handleGanttX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plo
       bandThicknessScale: ctx.bandThicknessScale,
       manualColor: ctx.manualColor,
       tooltipFields: ctx.tooltipFields,
+      ganttZoomRange: ctx.ganttZoomRange,
     },
     'x',
     startColumn,
@@ -533,7 +545,7 @@ function handleGanttX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plo
       duration: ctx.sizeField ? getFieldDisplayName(ctx.sizeField) : undefined,
       category: categoryField ? getFieldDisplayName(categoryField) : undefined,
     },
-    ctx.sharedMeasureDomains,
+    mergedDomains,
     1.0, // zoomLevel
     ctx.labelCfg // label configuration
   );
@@ -552,6 +564,15 @@ function handleGanttY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plo
   const durationColumn = ctx.sizeField ? resolveColumnInData(data, ctx.sizeField) : undefined;
   const categoryColumn = categoryField ? resolveColumnInData(data, categoryField) : undefined;
   
+  // Merge measure and categorical domains for ganttChart
+  // The category domain ensures all categories appear even when facet has no data in zoom range
+  const mergedDomains = {
+    ...ctx.sharedMeasureDomains,
+    ...(categoryColumn && ctx.sharedCategoricalDomains?.[categoryColumn] 
+      ? { [categoryColumn]: ctx.sharedCategoricalDomains[categoryColumn] } 
+      : {}),
+  };
+  
   const result = ganttChart(
     {
       xFields: [],
@@ -564,6 +585,7 @@ function handleGanttY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plo
       bandThicknessScale: ctx.bandThicknessScale,
       manualColor: ctx.manualColor,
       tooltipFields: ctx.tooltipFields,
+      ganttZoomRange: ctx.ganttZoomRange,
     },
     'y',
     startColumn,
@@ -574,7 +596,7 @@ function handleGanttY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plo
       duration: ctx.sizeField ? getFieldDisplayName(ctx.sizeField) : undefined,
       category: categoryField ? getFieldDisplayName(categoryField) : undefined,
     },
-    ctx.sharedMeasureDomains,
+    mergedDomains,
     1.0, // zoomLevel
     ctx.labelCfg // label configuration
   );
@@ -623,7 +645,8 @@ export function generatePairChartOptions(
   labelCfg?: LabelConfig,
   tooltipFields?: Field[],
   facetFields?: Field[],
-  sharedCategoricalDomains?: Record<string, any[]>
+  sharedCategoricalDomains?: Record<string, any[]>,
+  ganttZoomRange?: GanttZoomRange | null
 ): Plot.PlotOptions {
   // Bundle context for cleaner parameter passing
   const ctx: ChartContext = {
@@ -640,6 +663,7 @@ export function generatePairChartOptions(
     labelCfg,
     tooltipFields,
     facetFields,
+    ganttZoomRange,
   };
 
   if (!xField && !yField) {

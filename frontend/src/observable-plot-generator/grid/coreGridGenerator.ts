@@ -35,6 +35,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
     globalChartType,
     measureValuesSourceFields,
     bandThicknessScale,
+    ganttZoomRange,
   } = config;
 
   // Extract encoding options
@@ -259,7 +260,8 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
           })(),
           tooltipFields,
           facetFields,
-          sharedDomains.categorical
+          sharedDomains.categorical,
+          ganttZoomRange
         );
       }
 

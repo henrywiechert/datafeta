@@ -193,5 +193,6 @@ export function buildCartesianPlotsConfig(
     globalChartType: context.globalChartType,
     measureValuesSourceFields: context.measureValuesSourceFields,
     bandThicknessScale: context.bandThicknessScale,
+    ganttZoomRange: context.ganttZoomRange,
   };
 }
