@@ -63,6 +63,8 @@ export interface VisualizationState {
   measureValuesSourceFields: Field[];
   // Measure group fields (per-sheet scope)
   measureGroupFields: Field[];
+  // Gantt chart zoom range (null = full data range)
+  ganttZoomRange: { min: number; max: number } | null;
 }
 
 // Define action types
@@ -168,7 +170,9 @@ export type VisualizationAction =
   | { type: 'REMOVE_MEASURES_FROM_GROUP'; payload: string[] }
   | { type: 'CLEAR_MEASURE_GROUP' }
   // Cache restore action (used when switching sheets with cached data)
-  | { type: 'RESTORE_CACHED_QUERY_RESULT'; payload: QueryResult };
+  | { type: 'RESTORE_CACHED_QUERY_RESULT'; payload: QueryResult }
+  // Gantt chart zoom actions
+  | { type: 'SET_GANTT_ZOOM_RANGE'; payload: { min: number; max: number } | null };
 
 // Helper type for reducer functions
 export type ReducerFn = (state: VisualizationState, action: VisualizationAction) => VisualizationState;

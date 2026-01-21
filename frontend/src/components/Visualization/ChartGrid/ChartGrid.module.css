@@ -183,3 +183,36 @@
 .horizontalScrollLayer::-webkit-scrollbar-corner {
     background: #f1f1f1;
 }
+
+/* Keyboard navigation hint for Gantt charts */
+.keyboardNavHint {
+    position: absolute;
+    bottom: 36px; /* Above the scrollbar */
+    right: 20px;
+    background: rgba(0, 0, 0, 0.75);
+    color: white;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    z-index: 100;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease-out;
+    white-space: nowrap;
+}
+
+.keyboardNavHint.visible {
+    opacity: 1;
+}
+
+.keyboardNavHint kbd {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+    padding: 1px 4px;
+    margin: 0 2px;
+    font-family: monospace;
+    font-size: 10px;
+}

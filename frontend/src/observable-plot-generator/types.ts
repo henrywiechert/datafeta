@@ -4,6 +4,12 @@ import { ColorScaleInfo } from './utils/colorSchemeUtils';
 import { ChartTypeOverrides } from './helpers/chartTypeResolver';
 import * as Plot from '@observablehq/plot';
 
+/** Gantt zoom range representing the visible data range on the timeline axis */
+export interface GanttZoomRange {
+  min: number;
+  max: number;
+}
+
 export interface CategoryAxisDescriptor {
   axis: 'x' | 'y';
   columnName: string;
@@ -59,6 +65,7 @@ export interface CartesianPlotsConfig {
   globalChartType?: UserChartType | null;
   measureValuesSourceFields?: Field[];
   bandThicknessScale?: number;
+  ganttZoomRange?: GanttZoomRange | null;
 }
 
 export interface ChartGenerationContext {
@@ -122,6 +129,11 @@ export interface ChartGenerationContext {
    * These are the discrete dimensions used for faceting, shown at the top of tooltips.
    */
   facetFields?: Field[];
+  /**
+   * Gantt chart zoom range (null = full data range).
+   * When set, the Gantt chart will display only this portion of the timeline axis.
+   */
+  ganttZoomRange?: GanttZoomRange | null;
 }
 
 export interface PlotResult {

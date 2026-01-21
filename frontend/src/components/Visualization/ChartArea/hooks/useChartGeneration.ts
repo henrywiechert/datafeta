@@ -1,11 +1,14 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { generatePlot } from '../../../../observable-plot-generator/observablePlotGenerator';
-import { PlotResult, ChartGenerationContext } from '../../../../observable-plot-generator/types';
+import { PlotResult, ChartGenerationContext, GanttZoomRange } from '../../../../observable-plot-generator/types';
 import { Field, FieldOverrideState, UserChartType } from '../../../../types';
 import { computeOverrideTargets } from '../../../../observable-plot-generator/utils/fieldOverrides';
 import { logOperationTiming } from '../utils';
 import { planFacets } from '../../../../observable-plot-generator/faceting/facetPlanner';
 import { validateFacetCounts, FacetValidationResult } from '../../../../observable-plot-generator/faceting/facetValidation';
+
+/** Debounce delay for zoom-triggered regeneration (ms) */
+const ZOOM_REGEN_DEBOUNCE_MS = 150;
 
 interface UseChartGenerationProps {
   xAxisFields: any[];
@@ -33,6 +36,7 @@ interface UseChartGenerationProps {
   globalChartType?: UserChartType | null;
   measureValuesSourceFields?: Field[];
   independentDomains?: { x?: boolean; y?: boolean };
+  ganttZoomRange?: GanttZoomRange | null;
 }
 
 interface UseChartGenerationReturn {
@@ -75,6 +79,7 @@ export const useChartGeneration = ({
   globalChartType,
   measureValuesSourceFields = [],
   independentDomains,
+  ganttZoomRange,
 }: UseChartGenerationProps): UseChartGenerationReturn => {
   const [spec, setSpec] = useState<PlotResult | null>(null);
   const [chartInfo, setChartInfo] = useState<any | null>(null);
@@ -87,6 +92,14 @@ export const useChartGeneration = ({
     overrideTargets: any;
     startTime: number;
   } | null>(null);
+
+  // Use ref for ganttZoomRange to avoid triggering full spec regeneration on every zoom change
+  // This is a performance optimization: zoom changes are frequent during keyboard navigation
+  const ganttZoomRangeRef = useRef(ganttZoomRange);
+  const zoomRegenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  // Track the last zoom range that was used in spec generation
+  const lastGeneratedZoomRef = useRef<GanttZoomRange | null | undefined>(undefined);
 
   /**
    * Core chart generation logic, extracted to be called both initially and after user proceeds.
@@ -191,6 +204,7 @@ export const useChartGeneration = ({
       );
 
       // Build the chart generation context
+      // NOTE: Use ref for ganttZoomRange to avoid frequent regeneration during zoom
       const context: ChartGenerationContext = {
         xFields: xAxisFields,
         yFields: yAxisFields,
@@ -214,7 +228,11 @@ export const useChartGeneration = ({
         globalChartType,
         measureValuesSourceFields,
         independentDomains,
+        ganttZoomRange: ganttZoomRangeRef.current,
       };
+      
+      // Track which zoom range we generated with
+      lastGeneratedZoomRef.current = ganttZoomRangeRef.current;
 
       // Check if faceting would be applied and validate facet counts
       const facetPlan = planFacets(context);
@@ -266,10 +284,59 @@ export const useChartGeneration = ({
     // No-op since Observable Plot generation is synchronous
   }, []);
 
-  // Effect to handle chart specification generation
+  // Effect to handle chart specification generation (non-zoom changes)
   useEffect(() => {
     generateChartSpec();
   }, [generateChartSpec]);
+
+  // Separate effect for zoom changes: debounce to avoid regenerating on every key press
+  // This effect only runs when ganttZoomRange changes, and debounces the regeneration
+  useEffect(() => {
+    // Update the ref immediately so new generations use latest value
+    ganttZoomRangeRef.current = ganttZoomRange;
+    
+    // Check if zoom has actually changed from what was last generated
+    const lastZoom = lastGeneratedZoomRef.current;
+    const currentZoom = ganttZoomRange;
+    
+    // Determine if zoom changed
+    let zoomChanged = false;
+    if (currentZoom !== lastZoom) {
+      if (currentZoom === null || currentZoom === undefined) {
+        // Zoom was reset to null
+        zoomChanged = lastZoom !== null && lastZoom !== undefined;
+      } else if (lastZoom === null || lastZoom === undefined) {
+        // Zoom was set from null
+        zoomChanged = true;
+      } else {
+        // Both are defined, compare values
+        zoomChanged = currentZoom.min !== lastZoom.min || currentZoom.max !== lastZoom.max;
+      }
+    }
+    
+    if (!zoomChanged) {
+      return;
+    }
+    
+    // Clear any pending zoom regeneration
+    if (zoomRegenTimerRef.current) {
+      clearTimeout(zoomRegenTimerRef.current);
+    }
+    
+    // Debounce the regeneration
+    zoomRegenTimerRef.current = setTimeout(() => {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[useChartGeneration] Debounced zoom regeneration triggered');
+      }
+      generateChartSpec();
+    }, ZOOM_REGEN_DEBOUNCE_MS);
+    
+    return () => {
+      if (zoomRegenTimerRef.current) {
+        clearTimeout(zoomRegenTimerRef.current);
+      }
+    };
+  }, [ganttZoomRange, generateChartSpec]);
 
   return {
     spec,

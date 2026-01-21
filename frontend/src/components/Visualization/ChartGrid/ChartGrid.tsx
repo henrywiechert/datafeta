@@ -11,10 +11,24 @@ import { useScrollSync } from './hooks/useScrollSync';
 import { useChartGridLayout } from './hooks/useChartGridLayout';
 import { MultiPlotGrid } from './MultiPlotGrid';
 
+/** Gantt zoom range representing the visible data range on the timeline axis */
+export interface GanttZoomRange {
+  min: number;
+  max: number;
+}
+
 interface ChartGridProps {
   spec: PlotResult | null;
   data: QueryResult | null;
   onPlotRenderComplete?: (plotId: string) => void;
+  /** Whether the current chart is a Gantt chart (enables WASD keyboard navigation) */
+  isGanttChart?: boolean;
+  /** Current Gantt zoom range (null = full data range) */
+  ganttZoomRange?: GanttZoomRange | null;
+  /** Callback when zoom range changes via WASD keys */
+  onGanttZoomRangeChange?: (range: GanttZoomRange | null) => void;
+  /** Full data range for Gantt chart (needed for zoom calculations) */
+  ganttFullDataRange?: GanttZoomRange | null;
 }
 
 /**
@@ -35,7 +49,15 @@ interface ChartGridProps {
  * when faceting changes due to filter updates. This ensures React keeps showing
  * the old chart until the new spec is fully ready.
  */
-const ChartGrid: React.FC<ChartGridProps> = ({ spec, data, onPlotRenderComplete }) => {
+const ChartGrid: React.FC<ChartGridProps> = ({
+  spec,
+  data,
+  onPlotRenderComplete,
+  isGanttChart = false,
+  ganttZoomRange = null,
+  onGanttZoomRangeChange,
+  ganttFullDataRange = null,
+}) => {
   // Refs for DOM elements
   const containerRef = useRef<HTMLDivElement>(null);
   const hScrollRef = useRef<HTMLDivElement>(null);
@@ -77,7 +99,11 @@ const ChartGrid: React.FC<ChartGridProps> = ({ spec, data, onPlotRenderComplete 
     vScrollRef,
     plotsTranslateRef,
     containerRef,
-    usesGridLayout
+    usesGridLayout,
+    isGanttChart,
+    ganttZoomRange,
+    onGanttZoomRangeChange,
+    ganttFullDataRange
   );
   const layoutCalcs = useChartGridLayout(
     activeSpec,
@@ -141,5 +167,11 @@ export default React.memo(ChartGrid, (prevProps, nextProps) => {
   // Only re-render if spec or data actually changes
   // Use shallow comparison for spec and data references
   // Note: The useDeferredValue inside handles transition smoothly
-  return prevProps.spec === nextProps.spec && prevProps.data === nextProps.data;
+  return (
+    prevProps.spec === nextProps.spec &&
+    prevProps.data === nextProps.data &&
+    prevProps.isGanttChart === nextProps.isGanttChart &&
+    prevProps.ganttZoomRange === nextProps.ganttZoomRange &&
+    prevProps.ganttFullDataRange === nextProps.ganttFullDataRange
+  );
 });
