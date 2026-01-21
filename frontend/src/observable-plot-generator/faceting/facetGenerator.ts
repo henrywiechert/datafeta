@@ -1,4 +1,4 @@
-import { BAND_PADDING } from '../../config/chartLayoutConfig';
+import { BAND_PADDING, BAR_STEP_PX, MIN_BAND_TRACKS } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getFieldColumnName } from '../helpers/fields';
 import { ChartGenerationContext, PlotResult } from '../types';
@@ -208,6 +208,38 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
     
     const plots = generateCartesianPlots(config);
     
+    // For Gantt charts, compute proper row/column sizes based on category count
+    // This ensures facets maintain consistent height even when empty (no data in zoom range)
+    // Note: Timeline axis uses 'fr' to fill available space - zoom is handled by domain, not by size
+    let rowSizes: Array<number | 'fr'> | undefined;
+    let columnSizes: Array<number | 'fr'> | undefined;
+    
+    if (isGanttSelected && ganttCategoryAxis) {
+      // Get the Gantt category field
+      const ganttCategoryField = ganttCategoryAxis === 'y'
+        ? yCandidates.find(f => f.type === 'dimension' && f.flavour === 'discrete')
+        : xCandidates.find(f => f.type === 'dimension' && f.flavour === 'discrete');
+      
+      if (ganttCategoryField) {
+        const categoryColumnName = getFieldColumnName(ganttCategoryField);
+        // Use shared categorical domain (from FULL data) to ensure consistent sizing across all facets
+        const categories = sharedDomains.categorical?.[categoryColumnName] || [];
+        const categoryCount = Math.max(MIN_BAND_TRACKS, categories.length);
+        const thicknessScale = cellContext.bandThicknessScale ?? 1;
+        const categoryAxisSize = categoryCount * BAR_STEP_PX * thicknessScale;
+        
+        if (ganttCategoryAxis === 'y') {
+          // Horizontal Gantt: categories on Y axis, so set row height
+          // Timeline axis (X) uses 'fr' - zoom is handled by the domain, not physical size
+          rowSizes = Array.from({ length: yCandidates.length || 1 }, () => categoryAxisSize);
+        } else {
+          // Vertical Gantt: categories on X axis, so set column width
+          // Timeline axis (Y) uses 'fr' - zoom is handled by the domain, not physical size
+          columnSizes = Array.from({ length: xCandidates.length || 1 }, () => categoryAxisSize);
+        }
+      }
+    }
+    
     return {
       plots: plots.map(p => ({
         id: p.id,
@@ -217,14 +249,30 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       })),
       columns: xCandidates.length || 1,
       rows: yCandidates.length || 1,
+      columnSizes,
+      rowSizes,
     };
   };
+  
+  // For Gantt charts, identify the category field for shared domain computation
+  const ganttCategoryField = isGanttSelected && ganttCategoryAxis
+    ? (ganttCategoryAxis === 'y'
+        ? yCandidates.find(f => f.type === 'dimension' && f.flavour === 'discrete')
+        : xCandidates.find(f => f.type === 'dimension' && f.flavour === 'discrete'))
+    : null;
+  
+  // Compute shared category domain for Gantt from FULL dataset (all facets)
+  const ganttSharedCategoryDomain = ganttCategoryField
+    ? uniqueValuesForField(context.queryResult.rows, ganttCategoryField)
+    : undefined;
   
   // Use the coordinator for faceting
   return coordinateFacetedGrid({
     context,
     plan: { rowFacetFields: effectiveRowFacetFields, colFacetFields: effectiveColFacetFields },
     cellGenerator: cartesianCellGenerator,
+    categoryField: ganttCategoryField || undefined,
+    sharedCategoryDomain: ganttSharedCategoryDomain,
   });
 }
 

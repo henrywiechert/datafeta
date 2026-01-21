@@ -214,6 +214,7 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
       globalChartType: context.globalChartType,
       measureValuesSourceFields: context.measureValuesSourceFields,
       bandThicknessScale: context.bandThicknessScale,
+      ganttZoomRange: context.ganttZoomRange,
     });
 
     // Determine column/row sizes from plots

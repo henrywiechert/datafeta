@@ -1,6 +1,6 @@
 import React, { useRef, useMemo } from 'react';
 import { Box } from '@mui/material';
-import ChartGrid from '../../ChartGrid/ChartGrid';
+import ChartGrid, { GanttZoomRange } from '../../ChartGrid/ChartGrid';
 import TableViewLazy from '../../Table/TableViewLazy';
 import BarSortControl from './BarSortControl';
 import { PlotResult } from '../../../../observable-plot-generator/types';
@@ -16,6 +16,14 @@ interface ChartRendererProps {
   isDebugOpen: boolean;
   debugHeight: number;
   onPlotRenderComplete?: (plotId: string) => void;
+  /** Whether the current chart is a Gantt chart */
+  isGanttChart?: boolean;
+  /** Current Gantt zoom range (null = full data range) */
+  ganttZoomRange?: GanttZoomRange | null;
+  /** Callback when Gantt zoom range changes */
+  onGanttZoomRangeChange?: (range: GanttZoomRange | null) => void;
+  /** Full data range for Gantt chart (for zoom calculations) */
+  ganttFullDataRange?: GanttZoomRange | null;
 }
 
 const ChartRenderer: React.FC<ChartRendererProps> = ({
@@ -26,6 +34,10 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
   xAxisFields,
   yAxisFields,
   onPlotRenderComplete,
+  isGanttChart = false,
+  ganttZoomRange,
+  onGanttZoomRangeChange,
+  ganttFullDataRange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   // NOTE: We intentionally do NOT dispatch global window resize events here.
@@ -49,9 +61,13 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
         spec={spec} 
         data={queryResult}
         onPlotRenderComplete={onPlotRenderComplete}
+        isGanttChart={isGanttChart}
+        ganttZoomRange={ganttZoomRange}
+        onGanttZoomRangeChange={onGanttZoomRangeChange}
+        ganttFullDataRange={ganttFullDataRange}
       />
     );
-  }, [useTableView, tableData, spec, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete]);
+  }, [useTableView, tableData, spec, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete, isGanttChart, ganttZoomRange, onGanttZoomRangeChange, ganttFullDataRange]);
 
   return (
     <Box 
@@ -87,6 +103,9 @@ export default React.memo(ChartRenderer, (prevProps, nextProps) => {
     prevProps.yAxisFields === nextProps.yAxisFields &&
     prevProps.isDebugOpen === nextProps.isDebugOpen &&
     prevProps.debugHeight === nextProps.debugHeight &&
-    prevProps.onPlotRenderComplete === nextProps.onPlotRenderComplete
+    prevProps.onPlotRenderComplete === nextProps.onPlotRenderComplete &&
+    prevProps.isGanttChart === nextProps.isGanttChart &&
+    prevProps.ganttZoomRange === nextProps.ganttZoomRange &&
+    prevProps.ganttFullDataRange === nextProps.ganttFullDataRange
   );
 }); 

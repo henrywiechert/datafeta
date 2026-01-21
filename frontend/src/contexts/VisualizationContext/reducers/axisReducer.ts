@@ -185,6 +185,10 @@ export function axisReducer(state: VisualizationState, action: VisualizationActi
       // Used after metadata loads to ensure query execution is triggered
       // (e.g., when loading a snapshot with pre-populated axis fields)
       return { ...state, queryVersion: state.queryVersion + 1 };
+    case 'SET_GANTT_ZOOM_RANGE':
+      // Update Gantt zoom range without triggering re-query
+      // (zoom is purely a visual operation on existing data)
+      return { ...state, ganttZoomRange: action.payload };
     default:
       return null; // Not handled by this reducer
   }

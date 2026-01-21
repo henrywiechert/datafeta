@@ -71,5 +71,7 @@ export const initialState: VisualizationState = {
   measureValuesSourceFields: [],
   // Measure group fields (per-sheet scope)
   measureGroupFields: [],
+  // Gantt chart zoom range (null = full data range)
+  ganttZoomRange: null,
 };
 

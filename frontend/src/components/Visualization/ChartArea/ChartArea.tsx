@@ -53,6 +53,7 @@ const ChartArea: React.FC = () => {
     measureGroupFields,
     independentDomains,
     optimizationSettings,
+    ganttZoomRange,
   } = state as any;
   const { selectedTable, selectedDatabase, virtualTable, virtualColumns } = dataSource;
   
@@ -97,6 +98,68 @@ const ChartArea: React.FC = () => {
   // Get active sheet ID for cache coordination
   const { activeSheet } = useSheetContext();
   const sheetId = activeSheet?.id;
+
+  // Determine if current chart is a Gantt chart
+  const isGanttChart = globalChartType === 'gantt';
+
+  // Compute full data range for Gantt chart zoom calculations
+  // This extracts min/max from the start field (first continuous dimension on X for horizontal Gantt)
+  const ganttFullDataRange = useMemo(() => {
+    if (!isGanttChart || !queryResult?.rows?.length) {
+      return null;
+    }
+    
+    // Find the start field - for horizontal Gantt, it's a continuous dimension on X axis
+    const startField = xAxisFields.find((f: any) => 
+      f.type === 'dimension' && f.flavour === 'continuous'
+    );
+    
+    if (!startField) {
+      return null;
+    }
+    
+    // Get the column name (handle aliasing)
+    const columnName = startField.columnName || startField.name;
+    
+    // Compute min/max from data
+    let min = Infinity;
+    let max = -Infinity;
+    
+    // Also consider duration (size field) for computing max extent
+    const durationField = sizeField;
+    const durationColumn = durationField?.columnName || durationField?.name;
+    
+    for (const row of queryResult.rows) {
+      const startValue = row[columnName];
+      if (typeof startValue === 'number' && Number.isFinite(startValue)) {
+        if (startValue < min) min = startValue;
+        
+        // Compute end value (start + duration) for max
+        const duration = durationColumn ? row[durationColumn] : 0;
+        const endValue = typeof duration === 'number' && Number.isFinite(duration) && duration > 0
+          ? startValue + duration
+          : startValue;
+        
+        if (endValue > max) max = endValue;
+        if (startValue > max) max = startValue;
+      }
+    }
+    
+    if (min === Infinity || max === -Infinity) {
+      return null;
+    }
+    
+    // Add small padding (5%)
+    const range = max - min;
+    const padding = range * 0.05;
+    
+    return { min: min - padding, max: max + padding };
+  }, [isGanttChart, queryResult, xAxisFields, sizeField]);
+
+  // Handler for Gantt zoom range changes
+  const handleGanttZoomRangeChange = useCallback((range: { min: number; max: number } | null) => {
+    dispatch({ type: 'SET_GANTT_ZOOM_RANGE', payload: range });
+  }, [dispatch]);
 
   // Memoize cache config to avoid unnecessary recomputation
   const cacheConfig = useMemo(() => ({
@@ -191,6 +254,7 @@ const ChartArea: React.FC = () => {
     fieldOverrides,
     globalChartType,
     measureValuesSourceFields,
+    ganttZoomRange,
   });
 
   // Save to sheet render cache on unmount (sheet switch)
@@ -365,6 +429,10 @@ const ChartArea: React.FC = () => {
             isDebugOpen={isDebugOpen}
             debugHeight={debugHeight}
             onPlotRenderComplete={handlePlotRenderComplete}
+            isGanttChart={isGanttChart}
+            ganttZoomRange={ganttZoomRange}
+            onGanttZoomRangeChange={handleGanttZoomRangeChange}
+            ganttFullDataRange={ganttFullDataRange}
           />
           
           <ChartControls
