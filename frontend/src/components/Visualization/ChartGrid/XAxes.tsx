@@ -1,8 +1,12 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import * as Plot from '@observablehq/plot';
 import ObservablePlot from '../ObservablePlot';
 import { PlotResult } from '../../../observable-plot-generator/types';
 import { GRID_DIVIDER_COLOR } from '../../../config/chartLayoutConfig';
+import AxisLabel from './AxisLabel';
+import AxisLabelStylePopover from './AxisLabelStylePopover';
+import { useVisualizationContext } from '../../../contexts/VisualizationContext';
+import { XAxisLabelStyle } from '../../../contexts/VisualizationContext/types';
 
 interface XAxesProps {
   spec: PlotResult;
@@ -57,6 +61,25 @@ const XAxes: React.FC<XAxesProps> = ({
   totalContentWidthPx,
   dynamicXAxisPx,
 }) => {
+  // Get axis label styles from context
+  const { state, dispatch } = useVisualizationContext();
+  const { axisLabelStyles } = state;
+
+  // Popover state for X-axis label styling
+  const [xLabelPopoverAnchor, setXLabelPopoverAnchor] = useState<HTMLElement | null>(null);
+
+  const handleXLabelClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    setXLabelPopoverAnchor(event.currentTarget);
+  }, []);
+
+  const handleXLabelPopoverClose = useCallback(() => {
+    setXLabelPopoverAnchor(null);
+  }, []);
+
+  const handleXLabelStyleChange = useCallback((updates: Partial<XAxisLabelStyle>) => {
+    dispatch({ type: 'SET_X_AXIS_LABEL_STYLE', payload: updates });
+  }, [dispatch]);
+
   return (
     <>
       {/* Bottom X scales */}
@@ -112,22 +135,17 @@ const XAxes: React.FC<XAxesProps> = ({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: '10px',
-                      fontWeight: 'bold',
                       padding: '2px',
                       textAlign: 'center',
+                      minHeight: '20px',
                     }}
                   >
-                    <div
-                      style={{
-                        wordBreak: 'break-word',
-                        overflowWrap: 'break-word',
-                        maxWidth: '100%',
-                        lineHeight: '1.2',
-                      }}
-                    >
-                      {xLabel || ''}
-                    </div>
+                    <AxisLabel
+                      label={xLabel || ''}
+                      axis="x"
+                      style={axisLabelStyles.xAxis}
+                      onClick={handleXLabelClick}
+                    />
                   </div>
                 );
               })}
@@ -136,6 +154,15 @@ const XAxes: React.FC<XAxesProps> = ({
         })()}
         
       </div>
+
+      {/* X-axis label style popover */}
+      <AxisLabelStylePopover
+        anchorEl={xLabelPopoverAnchor}
+        onClose={handleXLabelPopoverClose}
+        axis="x"
+        style={axisLabelStyles.xAxis}
+        onChange={handleXLabelStyleChange}
+      />
     </>
   );
 };

@@ -3,6 +3,23 @@ import { Field, Database, Table, QueryResult, FilterConfig, FilterMetadata, Fiel
 // Define loading operation types
 export type LoadingOperationType = 'query' | 'rendering' | 'metadata';
 
+// Axis label styling types
+export interface XAxisLabelStyle {
+  fontSize: number;  // 8-16, default 10
+  orientation: 'horizontal' | 'vertical' | 'angled';  // default 'horizontal'
+}
+
+export interface YAxisLabelStyle {
+  fontSize: number;  // 8-16, default 10
+  orientation: 'horizontal' | 'vertical';  // default 'vertical'
+  widthPx: number | null;  // null = auto-calculate, or manual override
+}
+
+export interface AxisLabelStyles {
+  xAxis: XAxisLabelStyle;
+  yAxis: YAxisLabelStyle;
+}
+
 // Define the state interface
 export interface VisualizationState {
   xAxisFields: Field[];
@@ -65,6 +82,8 @@ export interface VisualizationState {
   measureGroupFields: Field[];
   // Gantt chart zoom range (null = full data range)
   ganttZoomRange: { min: number; max: number } | null;
+  // Axis label styling
+  axisLabelStyles: AxisLabelStyles;
 }
 
 // Define action types
@@ -172,7 +191,10 @@ export type VisualizationAction =
   // Cache restore action (used when switching sheets with cached data)
   | { type: 'RESTORE_CACHED_QUERY_RESULT'; payload: QueryResult }
   // Gantt chart zoom actions
-  | { type: 'SET_GANTT_ZOOM_RANGE'; payload: { min: number; max: number } | null };
+  | { type: 'SET_GANTT_ZOOM_RANGE'; payload: { min: number; max: number } | null }
+  // Axis label styling actions
+  | { type: 'SET_X_AXIS_LABEL_STYLE'; payload: Partial<XAxisLabelStyle> }
+  | { type: 'SET_Y_AXIS_LABEL_STYLE'; payload: Partial<YAxisLabelStyle> };
 
 // Helper type for reducer functions
 export type ReducerFn = (state: VisualizationState, action: VisualizationAction) => VisualizationState;

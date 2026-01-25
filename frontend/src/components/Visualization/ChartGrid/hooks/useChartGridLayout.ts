@@ -1,6 +1,7 @@
 import { useMemo, RefObject } from 'react';
 import { PlotResult } from '../../../../observable-plot-generator/types';
 import { MIN_GRID_COLUMN_PX, MIN_GRID_ROW_PX, NAMES_BAND_LEFT_PX, VALUES_BAND_LEFT_PX, VALUES_BAND_TOP_PX } from '../../../../config/chartLayoutConfig';
+import { YAxisLabelStyle } from '../../../../contexts/VisualizationContext/types';
 import {
   computeDynamicYAxisGutterPx,
   computeDynamicXAxisGutterPx,
@@ -43,7 +44,8 @@ export function useChartGridLayout(
   userCellWidth: number | null,
   userCellHeight: number | null,
   rowHeightPx: number,
-  vScrollRef: RefObject<HTMLDivElement>
+  vScrollRef: RefObject<HTMLDivElement>,
+  yAxisLabelStyle?: YAxisLabelStyle
 ): LayoutCalculations | null {
   return useMemo(() => {
     if (!spec || !spec.plots || spec.plots.length === 0) {
@@ -115,7 +117,7 @@ export function useChartGridLayout(
     // Dynamic gutters
     const dynamicYAxisPx = computeDynamicYAxisGutterPx(spec, rows);
     const dynamicXAxisPx = computeDynamicXAxisGutterPx(spec, columns);
-    const yLabelColPx = computeDynamicYLabelColPx(spec, calculatedRowHeightPx);
+    const yLabelColPx = computeDynamicYLabelColPx(spec, calculatedRowHeightPx, yAxisLabelStyle);
     const leftFixedWidthPx = leftLabelsPx + yLabelColPx + dynamicYAxisPx;
     const topHeaderHeight = colLevels.length > 0 ? 20 + (colLevels.length * VALUES_BAND_TOP_PX) : 0;
 
@@ -155,5 +157,6 @@ export function useChartGridLayout(
     userCellHeight,
     rowHeightPx,
     vScrollRef,
+    yAxisLabelStyle,
   ]);
 }
