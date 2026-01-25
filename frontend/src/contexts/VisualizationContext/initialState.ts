@@ -73,5 +73,17 @@ export const initialState: VisualizationState = {
   measureGroupFields: [],
   // Gantt chart zoom range (null = full data range)
   ganttZoomRange: null,
+  // Axis label styling defaults
+  axisLabelStyles: {
+    xAxis: {
+      fontSize: 10,
+      orientation: 'horizontal',
+    },
+    yAxis: {
+      fontSize: 10,
+      orientation: 'vertical',
+      widthPx: null,
+    },
+  },
 };
 

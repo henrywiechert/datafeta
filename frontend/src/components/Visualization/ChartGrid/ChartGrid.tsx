@@ -10,6 +10,7 @@ import { useContainerDimensions } from './hooks/useContainerDimensions';
 import { useScrollSync } from './hooks/useScrollSync';
 import { useChartGridLayout } from './hooks/useChartGridLayout';
 import { MultiPlotGrid } from './MultiPlotGrid';
+import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 
 /** Gantt zoom range representing the visible data range on the timeline axis */
 export interface GanttZoomRange {
@@ -65,6 +66,10 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   const plotsTranslateRef = useRef<HTMLDivElement>(null);
   const plotGridRef = useRef<HTMLDivElement>(null);
 
+  // Get axis label styles from context
+  const { state } = useVisualizationContext();
+  const { axisLabelStyles } = state;
+
   // Use deferred value to prevent intermediate renders during faceting transitions.
   // When spec changes (e.g., filter changes faceting from 30 rows to 3 rows),
   // React will keep showing the old chart while preparing the new one.
@@ -110,7 +115,8 @@ const ChartGrid: React.FC<ChartGridProps> = ({
     cellSizeOverrides.userCellWidth,
     cellSizeOverrides.userCellHeight,
     rowHeightPx,
-    vScrollRef
+    vScrollRef,
+    axisLabelStyles.yAxis
   );
 
   // Sync state with calculated height (for ResizeObserver to use as baseline)

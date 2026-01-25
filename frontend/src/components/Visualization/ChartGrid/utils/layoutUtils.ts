@@ -1,5 +1,6 @@
 import { PlotResult } from '../../../../observable-plot-generator/types';
 import { MIN_GRID_ROW_PX } from '../../../../config/chartLayoutConfig';
+import { YAxisLabelStyle } from '../../../../contexts/VisualizationContext/types';
 
 const TEXT_PX_PER_CHAR = 6; // conservative estimate for 12-14px font
 const MIN_Y_AXIS_GUTTER_PX = 28;
@@ -67,32 +68,76 @@ export function computeDynamicXAxisGutterPx(spec: PlotResult, columns: number): 
   return maxHeight;
 }
 
+/** Default Y-axis label style for backwards compatibility */
+const DEFAULT_Y_AXIS_LABEL_STYLE: YAxisLabelStyle = {
+  fontSize: 10,
+  orientation: 'vertical',
+  widthPx: null,
+};
+
+/** Minimum width for Y-axis label column */
+const MIN_Y_LABEL_COL_PX = 16;
+
 /**
- * Calculate dynamic Y-label column width based on label length and available row height
+ * Calculate dynamic Y-label column width based on label length and available row height.
+ * Supports configurable orientation and manual width override.
+ * 
+ * @param spec - Plot result containing layout and plots
+ * @param rowHeightPx - Available row height in pixels
+ * @param labelStyle - Optional Y-axis label style configuration
  */
-export function computeDynamicYLabelColPx(spec: PlotResult, rowHeightPx: number): number {
+export function computeDynamicYLabelColPx(
+  spec: PlotResult,
+  rowHeightPx: number,
+  labelStyle?: YAxisLabelStyle
+): number {
+  const style = labelStyle || DEFAULT_Y_AXIS_LABEL_STYLE;
+  
+  // If manual width override is set, use it directly
+  if (style.widthPx !== null) {
+    return style.widthPx;
+  }
+  
   const rows = spec.layout?.rows || 1;
   const plots = spec.plots || [];
-  let maxLabelWidth = 16; // Default width
+  let maxLabelWidth = MIN_Y_LABEL_COL_PX;
 
-  const FONT_SIZE_PX = 10;
+  const fontSize = style.fontSize;
   const LINE_HEIGHT = 1.2;
-  const CHAR_HEIGHT_PX = FONT_SIZE_PX; // Approximate height of a character
+  const CHAR_WIDTH_RATIO = 0.6; // Approximate character width relative to font size
 
   for (let r = 0; r < rows; r++) {
     const sample = plots.find((p) => p.position?.row === r);
     const yOpts: any = (sample as any)?.options?.y || {};
     const yLabel = yOpts?.label as string | undefined;
 
-    if (yLabel && rowHeightPx > 0) {
-      const charsPerColumn = Math.max(1, Math.floor(rowHeightPx / CHAR_HEIGHT_PX));
-      const requiredColumns = Math.ceil(yLabel.length / charsPerColumn);
-      const requiredWidth = requiredColumns * FONT_SIZE_PX * LINE_HEIGHT;
+    if (yLabel && yLabel.length > 0) {
+      let requiredWidth: number;
+      
+      if (style.orientation === 'horizontal') {
+        // Horizontal text: width based on text length
+        const charWidth = fontSize * CHAR_WIDTH_RATIO;
+        requiredWidth = yLabel.length * charWidth + 8; // Add padding
+      } else {
+        // Vertical text: width based on how many text columns we need
+        // to fit the text within the row height
+        if (rowHeightPx > 0) {
+          const charHeight = fontSize;
+          const charsPerColumn = Math.max(1, Math.floor(rowHeightPx / charHeight));
+          const requiredColumns = Math.ceil(yLabel.length / charsPerColumn);
+          requiredWidth = requiredColumns * fontSize * LINE_HEIGHT;
+        } else {
+          // Fallback if row height not available
+          requiredWidth = fontSize * LINE_HEIGHT;
+        }
+      }
+      
       if (requiredWidth > maxLabelWidth) {
         maxLabelWidth = requiredWidth;
       }
     }
   }
+  
   return Math.ceil(maxLabelWidth);
 }
 

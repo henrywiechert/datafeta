@@ -95,6 +95,24 @@ export function encodingReducer(state: VisualizationState, action: Visualization
       return { ...state, measureValuesSourceFields: action.payload };
     }
     
+    // Axis label styling
+    case 'SET_X_AXIS_LABEL_STYLE':
+      return {
+        ...state,
+        axisLabelStyles: {
+          ...state.axisLabelStyles,
+          xAxis: { ...state.axisLabelStyles.xAxis, ...action.payload },
+        },
+      };
+    case 'SET_Y_AXIS_LABEL_STYLE':
+      return {
+        ...state,
+        axisLabelStyles: {
+          ...state.axisLabelStyles,
+          yAxis: { ...state.axisLabelStyles.yAxis, ...action.payload },
+        },
+      };
+    
     default:
       return null; // Not handled by this reducer
   }

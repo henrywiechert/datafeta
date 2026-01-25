@@ -1,4 +1,4 @@
-import React, { RefObject } from 'react';
+import React, { RefObject, useState, useCallback } from 'react';
 import { PlotResult } from '../../../observable-plot-generator/types';
 import { GRID_DIVIDER_COLOR, MIN_GRID_ROW_PX } from '../../../config/chartLayoutConfig';
 import { LayoutCalculations } from './hooks/useChartGridLayout';
@@ -10,6 +10,10 @@ import XAxes from './XAxes';
 import YAxes from './YAxes';
 import { TopFacetLabels, LeftFacetLabels } from './FacetLabels';
 import GridResizeOverlay from './GridResizeOverlay';
+import AxisLabel from './AxisLabel';
+import AxisLabelStylePopover from './AxisLabelStylePopover';
+import { useVisualizationContext } from '../../../contexts/VisualizationContext';
+import { XAxisLabelStyle, YAxisLabelStyle } from '../../../contexts/VisualizationContext/types';
 import styles from './ChartGrid.module.css';
 
 interface MultiPlotGridProps {
@@ -78,6 +82,25 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
   const { scrollOffsets, onWheelCapture, isKeyboardNavActive } = scrollSync;
   const { hasOverrides, handleReset } = cellSizeOverrides;
   const { containerRef, hScrollRef, vScrollRef, plotsTranslateRef, plotGridRef } = refs;
+
+  // Get axis label styles from context
+  const { state, dispatch } = useVisualizationContext();
+  const { axisLabelStyles } = state;
+
+  // Popover state for Y-axis label styling
+  const [yLabelPopoverAnchor, setYLabelPopoverAnchor] = useState<HTMLElement | null>(null);
+
+  const handleYLabelClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    setYLabelPopoverAnchor(event.currentTarget);
+  }, []);
+
+  const handleYLabelPopoverClose = useCallback(() => {
+    setYLabelPopoverAnchor(null);
+  }, []);
+
+  const handleYLabelStyleChange = useCallback((updates: Partial<YAxisLabelStyle>) => {
+    dispatch({ type: 'SET_Y_AXIS_LABEL_STYLE', payload: updates });
+  }, [dispatch]);
 
   return (
     <div
@@ -205,7 +228,6 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
                 const sample = (spec.plots || []).find((p) => p.position?.row === r);
                 const yOpts: any = (sample as any)?.options?.y || {};
                 const yLabel = yOpts?.label as string | undefined;
-                const useVertical = true;
                 return (
                   <div
                     key={`y-label-${r}`}
@@ -220,20 +242,12 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
                       borderBottom: `1px solid ${GRID_DIVIDER_COLOR}`,
                     }}
                   >
-                    <div
-                      style={{
-                        writingMode: useVertical ? 'vertical-rl' : 'horizontal-tb',
-                        transform: useVertical ? 'rotate(180deg)' : 'none',
-                        textAlign: 'center',
-                        fontSize: '10px',
-                        fontWeight: 'bold',
-                        wordBreak: 'break-word',
-                        overflowWrap: 'break-word',
-                        lineHeight: '1.2',
-                      }}
-                    >
-                      {yLabel || ''}
-                    </div>
+                    <AxisLabel
+                      label={yLabel || ''}
+                      axis="y"
+                      style={axisLabelStyles.yAxis}
+                      onClick={handleYLabelClick}
+                    />
                   </div>
                 );
               })}
@@ -352,6 +366,15 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
       >
         <kbd>W</kbd>/<kbd>S</kbd> Zoom &nbsp; <kbd>A</kbd>/<kbd>D</kbd> Pan &nbsp; <kbd>R</kbd> Reset
       </div>
+
+      {/* Y-axis label style popover */}
+      <AxisLabelStylePopover
+        anchorEl={yLabelPopoverAnchor}
+        onClose={handleYLabelPopoverClose}
+        axis="y"
+        style={axisLabelStyles.yAxis}
+        onChange={handleYLabelStyleChange}
+      />
     </div>
   );
 };
