@@ -265,25 +265,27 @@ class CardinalityService:
         datetime_part: Optional[str],
         datetime_mode: Optional[str]
     ) -> Query:
-        """Apply LIKE pattern filter to the count query."""
+        """Apply LIKE pattern filter to the count query.
+        
+        Always cast to string before LIKE comparison to support both
+        string and numeric columns. LIKE only works on string types in SQL.
+        """
+        from backend.services.query_components.terms import CustomFunction
+        
         # Convert to LIKE pattern: %pattern%
         like_pattern = f"%{regex_pattern}%"
         
-        if datetime_part and datetime_mode:
-            # For datetime parts, apply LIKE to the extracted expression
-            # Need to cast to string for LIKE comparison
-            if self.conn_details.type == 'clickhouse':
-                count_query = count_query.where(
-                    Cast(field_expr, 'String').like(like_pattern)
-                )
-            else:
-                # DuckDB
-                count_query = count_query.where(
-                    Cast(field_expr, 'VARCHAR').like(like_pattern)
-                )
+        # Always cast to string for LIKE comparison - this works for both
+        # string columns (no-op cast) and numeric columns (converts to string)
+        if self.conn_details.type == 'clickhouse':
+            # ClickHouse uses toString() function
+            string_expr = CustomFunction('toString', [field_expr])
+            count_query = count_query.where(string_expr.like(like_pattern))
         else:
-            # Regular field - apply LIKE directly
-            count_query = count_query.where(field_expr.like(like_pattern))
+            # DuckDB uses CAST(..., 'VARCHAR')
+            count_query = count_query.where(
+                Cast(field_expr, 'VARCHAR').like(like_pattern)
+            )
         
         return count_query
     
