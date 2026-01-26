@@ -1,7 +1,7 @@
 import { useMemo, RefObject } from 'react';
 import { PlotResult } from '../../../../observable-plot-generator/types';
 import { MIN_GRID_COLUMN_PX, MIN_GRID_ROW_PX, NAMES_BAND_LEFT_PX, VALUES_BAND_LEFT_PX, VALUES_BAND_TOP_PX } from '../../../../config/chartLayoutConfig';
-import { YAxisLabelStyle } from '../../../../contexts/VisualizationContext/types';
+import { YAxisLabelStyle, FacetLabelStyles } from '../../../../contexts/VisualizationContext/types';
 import {
   computeDynamicYAxisGutterPx,
   computeDynamicXAxisGutterPx,
@@ -33,6 +33,10 @@ export interface LayoutCalculations {
   yLabelColPx: number;
   leftFixedWidthPx: number;
   topHeaderHeight: number;
+  // Facet dimension overrides (for styling)
+  facetLeftHeaderPx: number;
+  facetLeftValuesPx: number;
+  facetTopValuesPx: number;
 }
 
 /**
@@ -45,7 +49,8 @@ export function useChartGridLayout(
   userCellHeight: number | null,
   rowHeightPx: number,
   vScrollRef: RefObject<HTMLDivElement>,
-  yAxisLabelStyle?: YAxisLabelStyle
+  yAxisLabelStyle?: YAxisLabelStyle,
+  facetLabelStyles?: FacetLabelStyles
 ): LayoutCalculations | null {
   return useMemo(() => {
     if (!spec || !spec.plots || spec.plots.length === 0) {
@@ -112,14 +117,20 @@ export function useChartGridLayout(
     const baseCols = spec.facetLabels?.spans?.baseCols || 1;
     const baseRows = spec.facetLabels?.spans?.baseRows || 1;
     const yLevelsCount = rowLevels.length;
-    const leftLabelsPx = hasRowFacets ? NAMES_BAND_LEFT_PX + VALUES_BAND_LEFT_PX * yLevelsCount : 0;
+    
+    // Facet dimensions - use style overrides or fall back to constants
+    const facetLeftHeaderPx = facetLabelStyles?.leftHeader.widthPx ?? NAMES_BAND_LEFT_PX;
+    const facetLeftValuesPx = facetLabelStyles?.leftValues.widthPx ?? VALUES_BAND_LEFT_PX;
+    const facetTopValuesPx = facetLabelStyles?.topValues.heightPx ?? VALUES_BAND_TOP_PX;
+    
+    const leftLabelsPx = hasRowFacets ? facetLeftHeaderPx + facetLeftValuesPx * yLevelsCount : 0;
 
     // Dynamic gutters
     const dynamicYAxisPx = computeDynamicYAxisGutterPx(spec, rows);
     const dynamicXAxisPx = computeDynamicXAxisGutterPx(spec, columns);
     const yLabelColPx = computeDynamicYLabelColPx(spec, calculatedRowHeightPx, yAxisLabelStyle);
     const leftFixedWidthPx = leftLabelsPx + yLabelColPx + dynamicYAxisPx;
-    const topHeaderHeight = colLevels.length > 0 ? 20 + (colLevels.length * VALUES_BAND_TOP_PX) : 0;
+    const topHeaderHeight = colLevels.length > 0 ? 20 + (colLevels.length * facetTopValuesPx) : 0;
 
     if (process.env.NODE_ENV === 'development') {
       console.log('[ChartGrid] Layout calculations recomputed:', {
@@ -150,6 +161,9 @@ export function useChartGridLayout(
       yLabelColPx,
       leftFixedWidthPx,
       topHeaderHeight,
+      facetLeftHeaderPx,
+      facetLeftValuesPx,
+      facetTopValuesPx,
     };
   }, [
     spec,
@@ -158,5 +172,6 @@ export function useChartGridLayout(
     rowHeightPx,
     vScrollRef,
     yAxisLabelStyle,
+    facetLabelStyles,
   ]);
 }
