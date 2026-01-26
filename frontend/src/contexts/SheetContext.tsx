@@ -53,6 +53,38 @@ function createEmptyVisualizationState(): VisualizationStateSnapshot {
       roundingThresholdAggressive: 200,
     },
     measureGroupFields: [],
+    axisLabelStyles: {
+      xAxis: {
+        fontSize: 10,
+        orientation: 'horizontal',
+      },
+      yAxis: {
+        fontSize: 10,
+        orientation: 'vertical',
+        widthPx: null,
+      },
+    },
+    facetLabelStyles: {
+      topHeader: {
+        fontSize: 12,
+        orientation: 'horizontal',
+      },
+      topValues: {
+        fontSize: 10,
+        orientation: 'horizontal',
+        heightPx: null,
+      },
+      leftHeader: {
+        fontSize: 12,
+        orientation: 'vertical',
+        widthPx: null,
+      },
+      leftValues: {
+        fontSize: 10,
+        orientation: 'vertical',
+        widthPx: null,
+      },
+    },
   };
 }
 

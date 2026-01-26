@@ -23,6 +23,8 @@ export function undoRedoReducer(state: VisualizationState, action: Visualization
         independentDomains: action.payload.independentDomains ?? state.independentDomains,
         fieldOverrides: action.payload.fieldOverrides || {},
         globalChartType: action.payload.globalChartType ?? null,
+        axisLabelStyles: action.payload.axisLabelStyles ?? state.axisLabelStyles,
+        facetLabelStyles: action.payload.facetLabelStyles ?? state.facetLabelStyles,
         queryVersion: state.queryVersion + 1,
       };
     default:

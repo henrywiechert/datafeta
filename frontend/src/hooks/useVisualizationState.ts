@@ -121,6 +121,8 @@ export function useVisualizationState() {
             selectedChartType: state.globalChartType ?? 'auto',
             optimizationSettings: state.optimizationSettings,
             measureGroupFields: state.measureGroupFields,
+            axisLabelStyles: state.axisLabelStyles,
+            facetLabelStyles: state.facetLabelStyles,
         });
     }, [
         state.xAxisFields,
@@ -141,6 +143,8 @@ export function useVisualizationState() {
         state.globalChartType,
         state.optimizationSettings,
         state.measureGroupFields,
+        state.axisLabelStyles,
+        state.facetLabelStyles,
         updateActiveSheetState,
     ]);
 
