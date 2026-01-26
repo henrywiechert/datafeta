@@ -179,6 +179,11 @@ class FilterBuilder:
         primary_table: Any,
         db_type: str,
     ) -> Criterion:
+        """Build a LIKE filter for distinct value queries.
+        
+        Always cast to string before LIKE comparison to support both
+        string and numeric columns. LIKE only works on string types in SQL.
+        """
         dim = query_desc.dimensions[0]
 
         if dim.date_part and dim.date_mode:
@@ -188,16 +193,22 @@ class FilterBuilder:
             field_expr = DateTimeService.get_datetime_part_expression(
                 field_term, dim.date_part, dim.date_mode, db_type
             )
-            cast_type = "String" if db_type == "clickhouse" else "VARCHAR"
-            field_expr = Cast(field_expr, cast_type)
         else:
             field_expr = self._get_field_with_cast(
                 primary_table, dim.field, query_desc.column_casts
             )
 
+        # Cast to string for LIKE - works for both string (no-op) and numeric columns
+        if db_type == "clickhouse":
+            # ClickHouse uses toString() function
+            string_expr = CustomFunction('toString', [field_expr])
+        else:
+            # DuckDB uses CAST(..., 'VARCHAR')
+            string_expr = Cast(field_expr, 'VARCHAR')
+
         like_pattern = f"%{query_desc.distinct_value_regex}%"
         logger.info("Applied LIKE filter for distinct values: %s", like_pattern)
-        return field_expr.like(like_pattern)
+        return string_expr.like(like_pattern)
 
     def _wrap_datetime_value_if_needed(
         self,
