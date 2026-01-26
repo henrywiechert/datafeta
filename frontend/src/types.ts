@@ -498,6 +498,48 @@ export interface FieldOverrideState {
   chartType?: UserChartType;
 }
 
+// --- Axis/Facet Label Styling Types (snapshot-safe) --- //
+
+export interface XAxisLabelStyle {
+  fontSize: number;
+  orientation: 'horizontal' | 'vertical' | 'angled';
+}
+
+export interface YAxisLabelStyle {
+  fontSize: number;
+  orientation: 'horizontal' | 'vertical';
+  widthPx: number | null;
+}
+
+export interface AxisLabelStyles {
+  xAxis: XAxisLabelStyle;
+  yAxis: YAxisLabelStyle;
+}
+
+export interface FacetHeaderLabelStyle {
+  fontSize: number;
+  orientation: 'horizontal' | 'vertical';
+}
+
+export interface FacetTopValuesLabelStyle {
+  fontSize: number;
+  orientation: 'horizontal' | 'vertical' | 'angled';
+  heightPx: number | null;
+}
+
+export interface FacetLeftValuesLabelStyle {
+  fontSize: number;
+  orientation: 'horizontal' | 'vertical';
+  widthPx: number | null;
+}
+
+export interface FacetLabelStyles {
+  topHeader: FacetHeaderLabelStyle;
+  topValues: FacetTopValuesLabelStyle;
+  leftHeader: FacetHeaderLabelStyle & { widthPx: number | null };
+  leftValues: FacetLeftValuesLabelStyle;
+}
+
 // Snapshot of visualization state for persistence in sheets
 // Note: These fields are NOT included because they are shared across all sheets:
 // - selectedDatabase, selectedTable (data source selection)
@@ -538,6 +580,8 @@ export interface VisualizationStateSnapshot {
   tooltipFields?: Field[]; // Fields to show in tooltips only (do not affect chart visualization)
   optimizationSettings?: QueryOptimizationSettings;
   measureGroupFields?: Field[]; // Measure group fields (per-sheet)
+  axisLabelStyles?: AxisLabelStyles;
+  facetLabelStyles?: FacetLabelStyles;
 }
 
 // Sheet represents a single visualization configuration
