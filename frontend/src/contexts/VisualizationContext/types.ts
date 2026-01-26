@@ -203,6 +203,8 @@ export type VisualizationAction =
       independentDomains?: { x: boolean; y: boolean };
       fieldOverrides: Record<string, FieldOverrideState>;
       globalChartType?: UserChartType | null;
+      axisLabelStyles?: AxisLabelStyles;
+      facetLabelStyles?: FacetLabelStyles;
     } }
   // Multi-table actions
   | { type: 'TABLE_JOINS_UNIONS_MODIFIED' }

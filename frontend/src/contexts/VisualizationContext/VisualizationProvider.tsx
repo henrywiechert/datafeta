@@ -187,6 +187,8 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       independentDomains: state.independentDomains,
       tooltipFields: state.tooltipFields,
       fieldOverrides: state.fieldOverrides,
+      axisLabelStyles: state.axisLabelStyles,
+      facetLabelStyles: state.facetLabelStyles,
     };
   }, [
     state.xAxisFields,
@@ -204,6 +206,8 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     state.independentDomains,
     state.tooltipFields,
     state.fieldOverrides,
+    state.axisLabelStyles,
+    state.facetLabelStyles,
   ]);
 
   return (
