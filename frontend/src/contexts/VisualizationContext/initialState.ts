@@ -85,5 +85,27 @@ export const initialState: VisualizationState = {
       widthPx: null,
     },
   },
+  // Facet label styling defaults
+  facetLabelStyles: {
+    topHeader: {
+      fontSize: 12,
+      orientation: 'horizontal',
+    },
+    topValues: {
+      fontSize: 10,
+      orientation: 'horizontal',
+      heightPx: null,
+    },
+    leftHeader: {
+      fontSize: 12,
+      orientation: 'vertical',
+      widthPx: null,
+    },
+    leftValues: {
+      fontSize: 10,
+      orientation: 'vertical',
+      widthPx: null,
+    },
+  },
 };
 

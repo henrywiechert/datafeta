@@ -167,3 +167,6 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 ## [] Hierarchical colors
 - discrete color as primary grouping
 - continous color per group
+
+## [] Discrete Filter for Many elements
+- rnti SQL like search does not work
