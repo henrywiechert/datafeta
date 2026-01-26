@@ -113,6 +113,40 @@ export function encodingReducer(state: VisualizationState, action: Visualization
         },
       };
     
+    // Facet label styling
+    case 'SET_FACET_TOP_HEADER_STYLE':
+      return {
+        ...state,
+        facetLabelStyles: {
+          ...state.facetLabelStyles,
+          topHeader: { ...state.facetLabelStyles.topHeader, ...action.payload },
+        },
+      };
+    case 'SET_FACET_TOP_VALUES_STYLE':
+      return {
+        ...state,
+        facetLabelStyles: {
+          ...state.facetLabelStyles,
+          topValues: { ...state.facetLabelStyles.topValues, ...action.payload },
+        },
+      };
+    case 'SET_FACET_LEFT_HEADER_STYLE':
+      return {
+        ...state,
+        facetLabelStyles: {
+          ...state.facetLabelStyles,
+          leftHeader: { ...state.facetLabelStyles.leftHeader, ...action.payload },
+        },
+      };
+    case 'SET_FACET_LEFT_VALUES_STYLE':
+      return {
+        ...state,
+        facetLabelStyles: {
+          ...state.facetLabelStyles,
+          leftValues: { ...state.facetLabelStyles.leftValues, ...action.payload },
+        },
+      };
+    
     default:
       return null; // Not handled by this reducer
   }

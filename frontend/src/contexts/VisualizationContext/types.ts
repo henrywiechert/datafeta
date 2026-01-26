@@ -20,6 +20,31 @@ export interface AxisLabelStyles {
   yAxis: YAxisLabelStyle;
 }
 
+// Facet label styling types
+export interface FacetHeaderLabelStyle {
+  fontSize: number;  // 8-26, default 12
+  orientation: 'horizontal' | 'vertical';
+}
+
+export interface FacetTopValuesLabelStyle {
+  fontSize: number;  // 8-26, default 10
+  orientation: 'horizontal' | 'vertical' | 'angled';
+  heightPx: number | null;  // null = auto (VALUES_BAND_TOP_PX), or manual override
+}
+
+export interface FacetLeftValuesLabelStyle {
+  fontSize: number;  // 8-26, default 10
+  orientation: 'horizontal' | 'vertical';
+  widthPx: number | null;  // null = auto (VALUES_BAND_LEFT_PX), or manual override
+}
+
+export interface FacetLabelStyles {
+  topHeader: FacetHeaderLabelStyle;
+  topValues: FacetTopValuesLabelStyle;
+  leftHeader: FacetHeaderLabelStyle & { widthPx: number | null };
+  leftValues: FacetLeftValuesLabelStyle;
+}
+
 // Define the state interface
 export interface VisualizationState {
   xAxisFields: Field[];
@@ -84,6 +109,8 @@ export interface VisualizationState {
   ganttZoomRange: { min: number; max: number } | null;
   // Axis label styling
   axisLabelStyles: AxisLabelStyles;
+  // Facet label styling
+  facetLabelStyles: FacetLabelStyles;
 }
 
 // Define action types
@@ -194,7 +221,12 @@ export type VisualizationAction =
   | { type: 'SET_GANTT_ZOOM_RANGE'; payload: { min: number; max: number } | null }
   // Axis label styling actions
   | { type: 'SET_X_AXIS_LABEL_STYLE'; payload: Partial<XAxisLabelStyle> }
-  | { type: 'SET_Y_AXIS_LABEL_STYLE'; payload: Partial<YAxisLabelStyle> };
+  | { type: 'SET_Y_AXIS_LABEL_STYLE'; payload: Partial<YAxisLabelStyle> }
+  // Facet label styling actions
+  | { type: 'SET_FACET_TOP_HEADER_STYLE'; payload: Partial<FacetHeaderLabelStyle> }
+  | { type: 'SET_FACET_TOP_VALUES_STYLE'; payload: Partial<FacetTopValuesLabelStyle> }
+  | { type: 'SET_FACET_LEFT_HEADER_STYLE'; payload: Partial<FacetHeaderLabelStyle & { widthPx: number | null }> }
+  | { type: 'SET_FACET_LEFT_VALUES_STYLE'; payload: Partial<FacetLeftValuesLabelStyle> };
 
 // Helper type for reducer functions
 export type ReducerFn = (state: VisualizationState, action: VisualizationAction) => VisualizationState;

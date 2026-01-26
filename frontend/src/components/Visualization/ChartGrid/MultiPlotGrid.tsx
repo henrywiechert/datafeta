@@ -77,6 +77,9 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
     yLabelColPx,
     leftFixedWidthPx,
     topHeaderHeight,
+    facetLeftHeaderPx,
+    facetLeftValuesPx,
+    facetTopValuesPx,
   } = layoutCalcs;
 
   const { scrollOffsets, onWheelCapture, isKeyboardNavActive } = scrollSync;
@@ -149,7 +152,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           }}
         >
           {/* Top facet headers (if present) */}
-          <TopFacetLabels spec={spec} plotTemplateColumns={plotTemplateColumns} baseCols={baseCols} />
+          <TopFacetLabels spec={spec} plotTemplateColumns={plotTemplateColumns} baseCols={baseCols} facetTopValuesPx={facetTopValuesPx} />
 
           {/* ======================================================
               LAYER 3: PLOT GRID (inside this PlotArea component)
@@ -221,7 +224,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
               }}
             >
               {/* Left facet labels area */}
-              <LeftFacetLabels spec={spec} plotRowsSpec={plotRowsSpec} baseRows={baseRows} />
+              <LeftFacetLabels spec={spec} plotRowsSpec={plotRowsSpec} baseRows={baseRows} facetLeftHeaderPx={facetLeftHeaderPx} facetLeftValuesPx={facetLeftValuesPx} />
 
               {/* Y-axis vertical labels column */}
               {Array.from({ length: rows }).map((_, r) => {

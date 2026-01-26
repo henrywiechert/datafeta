@@ -66,9 +66,9 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   const plotsTranslateRef = useRef<HTMLDivElement>(null);
   const plotGridRef = useRef<HTMLDivElement>(null);
 
-  // Get axis label styles from context
+  // Get label styles from context
   const { state } = useVisualizationContext();
-  const { axisLabelStyles } = state;
+  const { axisLabelStyles, facetLabelStyles } = state;
 
   // Use deferred value to prevent intermediate renders during faceting transitions.
   // When spec changes (e.g., filter changes faceting from 30 rows to 3 rows),
@@ -116,7 +116,8 @@ const ChartGrid: React.FC<ChartGridProps> = ({
     cellSizeOverrides.userCellHeight,
     rowHeightPx,
     vScrollRef,
-    axisLabelStyles.yAxis
+    axisLabelStyles.yAxis,
+    facetLabelStyles
   );
 
   // Sync state with calculated height (for ResizeObserver to use as baseline)
