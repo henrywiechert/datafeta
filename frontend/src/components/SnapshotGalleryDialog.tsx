@@ -26,13 +26,14 @@ import SaveIcon from '@mui/icons-material/Save';
 import SaveAsIcon from '@mui/icons-material/SaveAs';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
+import LinkIcon from '@mui/icons-material/Link';
 import { SnapshotMetadata, SavedConfiguration } from '../types';
 import { apiService } from '../apiService';
 
 interface SnapshotGalleryDialogProps {
   open: boolean;
   onClose: () => void;
-  onLoad: (configuration: SavedConfiguration) => void;
+  onLoad: (configuration: SavedConfiguration, snapshotId?: string) => void;
   getCurrentConfiguration: () => SavedConfiguration;
 }
 
@@ -114,11 +115,27 @@ export default function SnapshotGalleryDialog({
 
     try {
       const snapshot = await apiService.loadSnapshot(snapshotId);
-      onLoad(snapshot.configuration as SavedConfiguration);
+      onLoad(snapshot.configuration as SavedConfiguration, snapshotId);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load snapshot');
       setIsLoading(false);
+    }
+  };
+
+  const handleCopyLink = async (snapshotId: string) => {
+    try {
+      const url = new URL(window.location.href);
+      url.search = ''; // Clear existing params
+      url.searchParams.set('snapshot', snapshotId);
+      await navigator.clipboard.writeText(url.toString());
+      setSuccessMessage('Link copied to clipboard');
+    } catch (err) {
+      // Fallback for browsers without clipboard API
+      const url = new URL(window.location.href);
+      url.search = '';
+      url.searchParams.set('snapshot', snapshotId);
+      setSuccessMessage(`Link: ${url.toString()}`);
     }
   };
 
@@ -349,6 +366,15 @@ export default function SnapshotGalleryDialog({
                             color="primary"
                           >
                             <FolderOpenIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Copy shareable link">
+                          <IconButton
+                            edge="end"
+                            onClick={() => handleCopyLink(snapshot.id)}
+                            sx={{ ml: 1 }}
+                          >
+                            <LinkIcon />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Overwrite with current">
