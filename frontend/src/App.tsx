@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { Tabs, Tab, Box, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
@@ -28,6 +28,7 @@ const VisualizationPage = lazy(() => import('./pages/VisualizationPage'));
 function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isDataSourcePage = location.pathname === '/';
   const isVisualizationPage = location.pathname.startsWith('/visualize');
   
@@ -85,6 +86,36 @@ function AppContent() {
   
   // State for snapshot gallery
   const [showSnapshotGallery, setShowSnapshotGallery] = useState(false);
+  
+  // State for tracking loaded snapshot (for URL sharing)
+  const [loadedSnapshotId, setLoadedSnapshotId] = useState<string | null>(null);
+
+  // Load snapshot from URL parameter on mount
+  const snapshotLoadedRef = React.useRef(false);
+  useEffect(() => {
+    const snapshotId = searchParams.get('snapshot');
+    if (snapshotId && !snapshotLoadedRef.current) {
+      snapshotLoadedRef.current = true;
+      console.log('Loading snapshot from URL:', snapshotId);
+      
+      // Load the snapshot asynchronously
+      (async () => {
+        try {
+          const snapshot = await apiService.loadSnapshot(snapshotId);
+          if (snapshot.configuration) {
+            setLoadedSnapshotId(snapshotId);
+            handleLoadConfiguration(snapshot.configuration);
+          }
+        } catch (err) {
+          console.error('Failed to load snapshot from URL:', err);
+          alert('Failed to load shared configuration: ' + (err instanceof Error ? err.message : 'Snapshot not found'));
+          // Clear the invalid snapshot parameter
+          setSearchParams({});
+        }
+      })();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   // Warn user before accidental page reload when connected
   useEffect(() => {
@@ -231,7 +262,12 @@ function AppContent() {
   };
 
   // Handle loading from snapshot gallery
-  const handleLoadFromGallery = (config: SavedConfiguration) => {
+  const handleLoadFromGallery = (config: SavedConfiguration, snapshotId?: string) => {
+    if (snapshotId) {
+      setLoadedSnapshotId(snapshotId);
+      // Update URL with snapshot ID for sharing
+      setSearchParams({ snapshot: snapshotId });
+    }
     handleLoadConfiguration(config);
   };
 
