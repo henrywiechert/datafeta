@@ -10,6 +10,7 @@ import { useDataSourceVersionSync } from './hooks/useSheetRenderCache';
 import { sheetRenderCacheStore } from './stores';
 import SaveLoadMenu from './components/SaveLoadMenu';
 import ConnectionRestoreDialog, { ClickHouseOverrides } from './components/ConnectionRestoreDialog';
+import SnapshotGalleryDialog from './components/SnapshotGalleryDialog';
 import VersionDisplay from './components/VersionDisplay';
 import { 
   exportConfiguration, 
@@ -17,6 +18,7 @@ import {
   validateConfiguration,
   reconstructConnectionDetails 
 } from './services/configurationService';
+import { apiService } from './apiService';
 import { SavedConfiguration, SavedConnectionMetadata } from './types';
 import './App.css';
 
@@ -80,6 +82,9 @@ function AppContent() {
   const [pendingConfig, setPendingConfig] = useState<SavedConfiguration | null>(null);
   const [showConnectionRestore, setShowConnectionRestore] = useState(false);
   const [connectionMetadata, setConnectionMetadata] = useState<SavedConnectionMetadata | null>(null);
+  
+  // State for snapshot gallery
+  const [showSnapshotGallery, setShowSnapshotGallery] = useState(false);
 
   // Warn user before accidental page reload when connected
   useEffect(() => {
@@ -183,28 +188,51 @@ function AppContent() {
     handleCloseContextMenu();
   };
 
+  // Helper to get current configuration
+  const getCurrentConfiguration = (): SavedConfiguration => {
+    return exportConfiguration(
+      state.sheets,
+      state.activeSheetId,
+      state.nextSheetNumber,
+      connectionDetails,
+      dataSource.selectedDatabase,
+      dataSource.selectedTable,
+      dataSource.unionTables,
+      dataSource.virtualTable?.joined_tables,
+      dataSource.virtualColumns,
+      dataSource.virtualColumnFieldPreferences
+    );
+  };
+
   // Save/Load Configuration Handlers
   const handleSaveConfiguration = async () => {
     try {
       // Note: measureGroupFields is now per-sheet (stored in each sheet's visualizationState)
       // so it's automatically saved via state.sheets
-      const config = exportConfiguration(
-        state.sheets,
-        state.activeSheetId,
-        state.nextSheetNumber,
-        connectionDetails,
-        dataSource.selectedDatabase,
-        dataSource.selectedTable,
-        dataSource.unionTables,
-        dataSource.virtualTable?.joined_tables,
-        dataSource.virtualColumns,
-        dataSource.virtualColumnFieldPreferences
-      );
+      const config = getCurrentConfiguration();
       await saveConfigFile(config);
     } catch (error) {
       console.error('Failed to save configuration:', error);
       alert('Failed to save configuration: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
+  };
+
+  // Quick save to server with auto-generated name
+  const handleQuickSave = async () => {
+    try {
+      const config = getCurrentConfiguration();
+      const timestamp = new Date().toLocaleString();
+      const name = `Snapshot ${timestamp}`;
+      await apiService.saveSnapshot(name, config);
+    } catch (error) {
+      console.error('Failed to quick save:', error);
+      alert('Failed to save to server: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  };
+
+  // Handle loading from snapshot gallery
+  const handleLoadFromGallery = (config: SavedConfiguration) => {
+    handleLoadConfiguration(config);
   };
 
   const handleLoadConfiguration = async (rawConfig: any) => {
@@ -465,6 +493,8 @@ function AppContent() {
           <SaveLoadMenu
             onSave={handleSaveConfiguration}
             onLoad={handleLoadConfiguration}
+            onOpenGallery={() => setShowSnapshotGallery(true)}
+            onQuickSave={handleQuickSave}
           />
           <VersionDisplay />
         </Box>
@@ -538,6 +568,14 @@ function AppContent() {
         onConnect={handleConnectionRestore}
         onCancel={handleConnectionRestoreCancel}
         onSkip={handleConnectionRestoreSkip}
+      />
+
+      {/* Snapshot Gallery Dialog */}
+      <SnapshotGalleryDialog
+        open={showSnapshotGallery}
+        onClose={() => setShowSnapshotGallery(false)}
+        onLoad={handleLoadFromGallery}
+        getCurrentConfiguration={getCurrentConfiguration}
       />
     </div>
   );
