@@ -173,31 +173,34 @@ def _apply_preserve_extremes(
 
     rand_func = "rand()" if db_type == "clickhouse" else "random()"
 
-    # Build CTE-based query that preserves extremes
-    # LIMIT 1 is critical: many rows may share the same min/max value
-    extreme_selects = []
-    for field in preserve_fields:
+    # Build separate CTEs for each extreme (ORDER BY + LIMIT 1 approach)
+    # This avoids UNION ALL inside a CTE which causes DuckDB parser errors
+    extreme_ctes = []
+    extreme_names = []
+    
+    for idx, field in enumerate(preserve_fields):
         qf = f"{quote_char}{field}{quote_char}"
-        extreme_selects.append(
-            f"SELECT * FROM base WHERE {qf} = (SELECT MIN({qf}) FROM base) LIMIT 1"
-        )
-        extreme_selects.append(
-            f"SELECT * FROM base WHERE {qf} = (SELECT MAX({qf}) FROM base) LIMIT 1"
-        )
+        min_name = f"min_{idx}"
+        max_name = f"max_{idx}"
+        extreme_names.extend([min_name, max_name])
+        extreme_ctes.append(f"{min_name} AS (SELECT * FROM base ORDER BY {qf} ASC LIMIT 1)")
+        extreme_ctes.append(f"{max_name} AS (SELECT * FROM base ORDER BY {qf} DESC LIMIT 1)")
 
-    extremes_union = "\nUNION ALL\n".join(extreme_selects)
     reserved_for_extremes = len(preserve_fields) * 2
     sample_limit = max(1, max_rows - reserved_for_extremes)
+
+    # Build final UNION ALL at query level (not inside CTE)
+    final_selects = [f"SELECT * FROM {name}" for name in extreme_names]
+    final_selects.append("SELECT * FROM sample")
+
+    extreme_ctes_str = ",\n".join(extreme_ctes)
+    final_union = "\nUNION ALL\n".join(final_selects)
 
     return f"""WITH base AS (
 {base_sql}
 ),
-extremes AS (
-{extremes_union}
-),
+{extreme_ctes_str},
 sample AS (
 SELECT * FROM base ORDER BY {rand_func} LIMIT {sample_limit}
 )
-SELECT * FROM extremes
-UNION ALL
-SELECT * FROM sample""".strip()
+{final_union}""".strip()
