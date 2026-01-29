@@ -417,7 +417,7 @@ function AppContent() {
       <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
         <Suspense fallback={null}>
           <Routes>
-            <Route path="/" element={<DataSourceSelectionPage onLoadConfiguration={handleLoadConfiguration} />} />
+            <Route path="/" element={<DataSourceSelectionPage onLoadConfiguration={handleLoadConfiguration} onOpenGallery={() => setShowSnapshotGallery(true)} />} />
             <Route path="/visualize" element={<VisualizationPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

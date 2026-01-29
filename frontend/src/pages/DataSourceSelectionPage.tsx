@@ -22,9 +22,10 @@ import styles from './DataSourceSelectionPage.module.css';
 
 interface DataSourceSelectionPageProps {
   onLoadConfiguration: (config: any) => Promise<void>;
+  onOpenGallery?: () => void;
 }
 
-function DataSourceSelectionPage({ onLoadConfiguration }: DataSourceSelectionPageProps) {
+function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSourceSelectionPageProps) {
   const {
     isConnected,
     isLoading,
@@ -103,8 +104,18 @@ function DataSourceSelectionPage({ onLoadConfiguration }: DataSourceSelectionPag
       <div className={styles.card}>
         <h3 className={styles.sectionTitle}>Connect to a Data Source</h3>
 
-        {/* Load Configuration Button */}
+        {/* Load Configuration Buttons */}
         <div className={styles.loadConfigSection}>
+          {onOpenGallery && (
+            <button
+              className={styles.loadButton}
+              onClick={onOpenGallery}
+              disabled={formDisabled}
+              type="button"
+            >
+              Saved Configurations...
+            </button>
+          )}
           <input
             ref={fileInputRef}
             type="file"
@@ -120,7 +131,7 @@ function DataSourceSelectionPage({ onLoadConfiguration }: DataSourceSelectionPag
               disabled={formDisabled}
               type="button"
             >
-              Load Configuration
+              Import from File...
             </button>
           </label>
         </div>

@@ -23,6 +23,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import SaveIcon from '@mui/icons-material/Save';
+import SaveAsIcon from '@mui/icons-material/SaveAs';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import { SnapshotMetadata, SavedConfiguration } from '../types';
@@ -56,6 +57,9 @@ export default function SnapshotGalleryDialog({
   
   // Delete confirmation
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  
+  // Overwrite confirmation
+  const [overwritingId, setOverwritingId] = useState<string | null>(null);
 
   const loadSnapshots = useCallback(async () => {
     setIsLoading(true);
@@ -76,6 +80,7 @@ export default function SnapshotGalleryDialog({
       setNewSnapshotName('');
       setEditingId(null);
       setDeletingId(null);
+      setOverwritingId(null);
       setSuccessMessage(null);
     }
   }, [open, loadSnapshots]);
@@ -128,6 +133,21 @@ export default function SnapshotGalleryDialog({
       await loadSnapshots();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete snapshot');
+    }
+  };
+
+  const handleOverwrite = async (snapshotId: string) => {
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const configuration = getCurrentConfiguration();
+      await apiService.overwriteSnapshot(snapshotId, configuration);
+      setOverwritingId(null);
+      setSuccessMessage('Snapshot updated');
+      await loadSnapshots();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update snapshot');
     }
   };
 
@@ -292,6 +312,27 @@ export default function SnapshotGalleryDialog({
                         Cancel
                       </Button>
                     </Box>
+                  ) : overwritingId === snapshot.id ? (
+                    // Overwrite confirmation mode
+                    <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', gap: 1 }}>
+                      <Typography variant="body2" sx={{ flex: 1 }}>
+                        Overwrite "{snapshot.name}" with current config?
+                      </Typography>
+                      <Button
+                        size="small"
+                        color="primary"
+                        variant="contained"
+                        onClick={() => handleOverwrite(snapshot.id)}
+                      >
+                        Overwrite
+                      </Button>
+                      <Button
+                        size="small"
+                        onClick={() => setOverwritingId(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </Box>
                   ) : (
                     // Normal display mode
                     <>
@@ -308,6 +349,16 @@ export default function SnapshotGalleryDialog({
                             color="primary"
                           >
                             <FolderOpenIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Overwrite with current">
+                          <IconButton
+                            edge="end"
+                            onClick={() => setOverwritingId(snapshot.id)}
+                            sx={{ ml: 1 }}
+                            color="secondary"
+                          >
+                            <SaveAsIcon />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Rename">
