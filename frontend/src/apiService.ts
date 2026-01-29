@@ -938,6 +938,26 @@ export const apiService = {
         return response.json();
     },
 
+    /**
+     * Overwrite a snapshot's configuration (keeping the same name).
+     */
+    async overwriteSnapshot(
+        snapshotId: string,
+        configuration: any,
+        signal?: AbortSignal
+    ): Promise<{ id: string; name: string; createdAt: string; updatedAt: string }> {
+        const response = await fetchWithErrorHandling(
+            `${apiBasePrefix}/snapshots/${encodeURIComponent(snapshotId)}`,
+            {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ configuration }),
+            },
+            signal
+        );
+        return response.json();
+    },
+
     // --- Kaggle-Specific Methods --- //
 
     async searchKaggleDatasets(username: string, apiKey: string, searchQuery: string): Promise<KaggleSearchResponse> {
