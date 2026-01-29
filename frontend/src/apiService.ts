@@ -845,6 +845,99 @@ export const apiService = {
         return result.count || 0;
     },
 
+    // --- Snapshot Storage Methods --- //
+
+    /**
+     * List all saved snapshots.
+     * Returns metadata only (id, name, timestamps) for display in a gallery.
+     */
+    async listSnapshots(signal?: AbortSignal): Promise<Array<{
+        id: string;
+        name: string;
+        createdAt: string;
+        updatedAt: string;
+    }>> {
+        const response = await fetchWithErrorHandling(
+            `${apiBasePrefix}/snapshots`,
+            {},
+            signal
+        );
+        return response.json();
+    },
+
+    /**
+     * Save a new snapshot with the given name and configuration.
+     */
+    async saveSnapshot(
+        name: string,
+        configuration: any,
+        signal?: AbortSignal
+    ): Promise<{ id: string; name: string; createdAt: string; updatedAt: string }> {
+        const response = await fetchWithErrorHandling(
+            `${apiBasePrefix}/snapshots`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, configuration }),
+            },
+            signal
+        );
+        return response.json();
+    },
+
+    /**
+     * Load a specific snapshot by ID.
+     * Returns the full snapshot data including configuration.
+     */
+    async loadSnapshot(
+        snapshotId: string,
+        signal?: AbortSignal
+    ): Promise<{
+        id: string;
+        name: string;
+        createdAt: string;
+        updatedAt: string;
+        configuration: any;
+    }> {
+        const response = await fetchWithErrorHandling(
+            `${apiBasePrefix}/snapshots/${encodeURIComponent(snapshotId)}`,
+            {},
+            signal
+        );
+        return response.json();
+    },
+
+    /**
+     * Delete a snapshot by ID.
+     */
+    async deleteSnapshot(snapshotId: string, signal?: AbortSignal): Promise<void> {
+        await fetchWithErrorHandling(
+            `${apiBasePrefix}/snapshots/${encodeURIComponent(snapshotId)}`,
+            { method: 'DELETE' },
+            signal
+        );
+    },
+
+    /**
+     * Rename a snapshot.
+     */
+    async renameSnapshot(
+        snapshotId: string,
+        newName: string,
+        signal?: AbortSignal
+    ): Promise<{ id: string; name: string; createdAt: string; updatedAt: string }> {
+        const response = await fetchWithErrorHandling(
+            `${apiBasePrefix}/snapshots/${encodeURIComponent(snapshotId)}`,
+            {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newName }),
+            },
+            signal
+        );
+        return response.json();
+    },
+
     // --- Kaggle-Specific Methods --- //
 
     async searchKaggleDatasets(username: string, apiKey: string, searchQuery: string): Promise<KaggleSearchResponse> {

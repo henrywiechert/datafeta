@@ -8,8 +8,12 @@ services:
       - PORT=8000
       - PYTHONUNBUFFERED=1
       - REACT_APP_API_BASE=/api/v1
+      - SNAPSHOT_STORAGE_DIR=/app/data/snapshots
     ports:
       - "8000:8000"
+    volumes:
+      # Persistent storage for saved snapshots/configurations
+      - ./data/snapshots:/app/data/snapshots
     # For development you might want to mount source code:
     # volumes:
     #   - ./backend:/app/backend

@@ -666,3 +666,13 @@ export interface SavedConfiguration {
   activeSheetId?: string; // Which sheet was active
   nextSheetNumber: number; // For continuing sheet numbering
 }
+
+/**
+ * Metadata for a server-stored snapshot (returned from list/save operations)
+ */
+export interface SnapshotMetadata {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
