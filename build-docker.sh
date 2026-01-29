@@ -22,7 +22,7 @@ echo
 
 # Build Docker image
 echo "2. Building Docker image..."
-docker build -t data-slicer:latest .
+docker build --no-cache -t data-slicer:latest .
 
 echo
 echo "=== Build Complete ==="

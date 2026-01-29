@@ -41,4 +41,5 @@ ENV PORT=8000 \
 EXPOSE 8000
 
 # Default command (can be overridden in docker-compose)
-CMD ["python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# --h11-max-incomplete-event-size increases max HTTP header size (default 16KB, set to 128KB)
+CMD ["python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--h11-max-incomplete-event-size", "131072"]
