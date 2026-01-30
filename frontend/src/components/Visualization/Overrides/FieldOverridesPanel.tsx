@@ -9,6 +9,7 @@ import { computeOverrideTargets } from '../../../observable-plot-generator/utils
 import { detectDefaultChartTypeForPair, CellChartType } from '../../../observable-plot-generator/helpers/chartTypeResolver';
 import { analyzeFields } from '../../../observable-plot-generator/analysis/fieldAnalysis';
 import { SIZE_DEFAULTS_BY_CHART_TYPE, SIZE_DEFAULT_FALLBACK } from '../../../config/chartLayoutConfig';
+import { DEFAULT_MANUAL_COLOR, DEFAULT_CATEGORICAL_SCHEME, DEFAULT_SEQUENTIAL_SCHEME, categoricalSchemes } from '../../../config/colorSchemes';
 import { useFieldOverrides } from './useFieldOverrides';
 import ColorFieldControl from './ColorFieldControl';
 import SizeFieldControl from './SizeFieldControl';
@@ -151,7 +152,7 @@ const FieldOverridesPanel: React.FC = () => {
     const resolvedColorField = resolveColorField(override);
     const resolvedSizeField = resolveSizeField(override);
 
-    const effectiveManualColor = override.manualColor || manualColor || '#4e79a7';
+    const effectiveManualColor = override.manualColor || manualColor || DEFAULT_MANUAL_COLOR;
     const effectiveColorScheme = override.colorScheme || colorScheme || 'tableau10';
     const effectiveColorBias = override.colorBias ?? colorBias ?? 0;
     const effectiveSizeRange: [number, number] = override.sizeRange || sizeRange || [4, 20];
@@ -180,10 +181,17 @@ const FieldOverridesPanel: React.FC = () => {
           colorScheme={effectiveColorScheme}
           colorBias={effectiveColorBias}
           manualColor={effectiveManualColor}
-          onDrop={(field) => handleUpdateOverride(targetField.id, { 
-            colorFieldId: field.id,
-            colorField: field
-          })}
+          onDrop={(field) => {
+            // Auto-select appropriate color scheme based on field flavour
+            const isCategoricalScheme = categoricalSchemes.some(s => s.id === effectiveColorScheme);
+            const updates: any = { colorFieldId: field.id, colorField: field };
+            if (field.flavour === 'continuous' && isCategoricalScheme) {
+              updates.colorScheme = DEFAULT_SEQUENTIAL_SCHEME;
+            } else if (field.flavour === 'discrete' && !isCategoricalScheme) {
+              updates.colorScheme = DEFAULT_CATEGORICAL_SCHEME;
+            }
+            handleUpdateOverride(targetField.id, updates);
+          }}
           onRemove={(_fieldIds) => handleUpdateOverride(targetField.id, { 
             colorFieldId: null, 
             colorField: null 
@@ -252,7 +260,7 @@ const FieldOverridesPanel: React.FC = () => {
     const resolvedGlobalColorField = colorField as Field | null;
     const resolvedGlobalSizeField = sizeField as Field | null;
 
-    const effectiveManualColor = manualColor || '#4e79a7';
+    const effectiveManualColor = manualColor || DEFAULT_MANUAL_COLOR;
     const effectiveColorScheme = colorScheme || 'tableau10';
     const effectiveColorBias = colorBias ?? 0;
 
@@ -299,6 +307,16 @@ const FieldOverridesPanel: React.FC = () => {
             recordAction(getUndoableSnapshot());
             clearColorOverridesForAllFields();
             dispatch({ type: 'SET_COLOR_FIELD', payload: field });
+            
+            // Auto-select appropriate color scheme based on field flavour
+            const isCategoricalScheme = categoricalSchemes.some(s => s.id === effectiveColorScheme);
+            if (field.flavour === 'continuous' && isCategoricalScheme) {
+              // Switching to continuous field but have categorical scheme - use sequential default
+              dispatch({ type: 'SET_COLOR_SCHEME', payload: DEFAULT_SEQUENTIAL_SCHEME });
+            } else if (field.flavour === 'discrete' && !isCategoricalScheme) {
+              // Switching to discrete field but have sequential/diverging scheme - use categorical default
+              dispatch({ type: 'SET_COLOR_SCHEME', payload: DEFAULT_CATEGORICAL_SCHEME });
+            }
           }}
           onRemove={(_fieldIds) => {
             recordAction(getUndoableSnapshot());

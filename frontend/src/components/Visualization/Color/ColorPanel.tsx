@@ -2,6 +2,7 @@ import React from 'react';
 import PaletteIcon from '@mui/icons-material/Palette';
 import { Field, DragSource } from '../../../types';
 import { PropertySection } from '../Properties';
+import { DEFAULT_MANUAL_COLOR } from '../../../config/colorSchemes';
 import ColorDropZone from './ColorDropZone';
 
 interface ColorPanelProps {
@@ -20,7 +21,7 @@ const ColorPanel: React.FC<ColorPanelProps> = ({
   colorField,
   colorScheme = 'tableau10',
   colorBias = 0,
-  manualColor = '#1976d2',
+  manualColor = DEFAULT_MANUAL_COLOR,
   onDrop,
   onRemove,
   onSchemeChange,
