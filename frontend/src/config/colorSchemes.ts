@@ -206,3 +206,6 @@ export const DEFAULT_DIVERGING_SCHEME = 'rdbu';
 
 // Predefined quick-pick colors (Tableau 10)
 export const PREDEFINED_COLORS: string[] = categoricalSchemes[0].colors;
+
+// Default manual color (first color from predefined colors)
+export const DEFAULT_MANUAL_COLOR = PREDEFINED_COLORS[0]; // '#4e79a7'
