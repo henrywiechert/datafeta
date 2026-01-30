@@ -123,20 +123,52 @@ export default function SnapshotGalleryDialog({
     }
   };
 
-  const handleCopyLink = async (snapshotId: string) => {
-    try {
-      const url = new URL(window.location.href);
-      url.search = ''; // Clear existing params
-      url.searchParams.set('snapshot', snapshotId);
-      await navigator.clipboard.writeText(url.toString());
-      setSuccessMessage('Link copied to clipboard');
-    } catch (err) {
-      // Fallback for browsers without clipboard API
-      const url = new URL(window.location.href);
-      url.search = '';
-      url.searchParams.set('snapshot', snapshotId);
-      setSuccessMessage(`Link: ${url.toString()}`);
+  const handleCopyLink = (snapshotId: string) => {
+    // Always use root path for shareable links (not /visualize)
+    const url = new URL(window.location.origin);
+    url.searchParams.set('snapshot', snapshotId);
+    const linkText = url.toString();
+    
+    // Try modern clipboard API first
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(linkText).then(() => {
+        setSuccessMessage('Link copied to clipboard');
+      }).catch(() => {
+        fallbackCopyToClipboard(linkText);
+      });
+    } else {
+      // Fallback for non-secure contexts (HTTP)
+      fallbackCopyToClipboard(linkText);
     }
+  };
+
+  const fallbackCopyToClipboard = (text: string) => {
+    // Create a temporary textarea element
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    
+    // Avoid scrolling to bottom
+    textArea.style.top = '0';
+    textArea.style.left = '0';
+    textArea.style.position = 'fixed';
+    textArea.style.opacity = '0';
+    
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+      const successful = document.execCommand('copy');
+      if (successful) {
+        setSuccessMessage('Link copied to clipboard');
+      } else {
+        setSuccessMessage(`Link: ${text}`);
+      }
+    } catch (err) {
+      setSuccessMessage(`Link: ${text}`);
+    }
+    
+    document.body.removeChild(textArea);
   };
 
   const handleDelete = async (snapshotId: string) => {
