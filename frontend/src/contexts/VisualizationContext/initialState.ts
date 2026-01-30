@@ -1,5 +1,6 @@
 import { VisualizationState } from './types';
 import { SIZE_DEFAULT_FALLBACK } from '../../config/chartLayoutConfig';
+import { DEFAULT_MANUAL_COLOR } from '../../config/colorSchemes';
 
 export const initialState: VisualizationState = {
   xAxisFields: [],
@@ -29,7 +30,7 @@ export const initialState: VisualizationState = {
   colorField: null,
   colorScheme: 'tableau10',
   colorBias: 0,
-  manualColor: '#1976d2',
+  manualColor: DEFAULT_MANUAL_COLOR,
   // Size encoding state
   sizeField: null,
   sizeRange: [4, 20],
