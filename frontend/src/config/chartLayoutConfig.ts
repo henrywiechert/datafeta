@@ -50,4 +50,15 @@ export const GANTT_UNIT_PX = 10;
 export const MIN_GANTT_WIDTH_PX = 200;
 export const MAX_GANTT_WIDTH_PX = 10000;
 
+// Chart-specific default sizes for manualSize (1-50 range)
+// These values represent "reasonable" defaults for each chart type
+export const SIZE_DEFAULTS_BY_CHART_TYPE: Record<string, number> = {
+  scatter: 5,   // 5px dot radius
+  line: 2,      // 2px stroke width
+  bar: 40,      // Low band padding (thick bars)
+  tick: 40,     // Low band padding (thick marks)
+  gantt: 40,    // Low band padding (thick task bars)
+};
 
+// Default for auto-detected or unknown chart types
+export const SIZE_DEFAULT_FALLBACK = 10;

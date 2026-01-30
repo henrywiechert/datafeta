@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Box } from '@mui/material';
 import TuneIcon from '@mui/icons-material/Tune';
 import { PropertySection } from '../Properties';
@@ -8,6 +8,7 @@ import { Field } from '../../../types';
 import { computeOverrideTargets } from '../../../observable-plot-generator/utils/fieldOverrides';
 import { detectDefaultChartTypeForPair, CellChartType } from '../../../observable-plot-generator/helpers/chartTypeResolver';
 import { analyzeFields } from '../../../observable-plot-generator/analysis/fieldAnalysis';
+import { SIZE_DEFAULTS_BY_CHART_TYPE, SIZE_DEFAULT_FALLBACK } from '../../../config/chartLayoutConfig';
 import { useFieldOverrides } from './useFieldOverrides';
 import ColorFieldControl from './ColorFieldControl';
 import SizeFieldControl from './SizeFieldControl';
@@ -123,6 +124,26 @@ const FieldOverridesPanel: React.FC = () => {
     if (hasMeasures) return 'bar';
     return 'scatter';
   }, [globalChartType, xAxisFields, yAxisFields]);
+
+  // Track previous auto-selected type to detect changes
+  const prevAutoSelectedTypeRef = useRef<string | undefined>(autoSelectedType);
+  
+  // Update manualSize when auto-detected chart type changes (only in auto-detect mode)
+  useEffect(() => {
+    // Only react when in auto-detect mode (globalChartType is null)
+    if (globalChartType !== null) {
+      prevAutoSelectedTypeRef.current = autoSelectedType;
+      return;
+    }
+    
+    // Check if auto-selected type actually changed
+    if (prevAutoSelectedTypeRef.current !== autoSelectedType && autoSelectedType !== undefined) {
+      const newDefaultSize = SIZE_DEFAULTS_BY_CHART_TYPE[autoSelectedType] ?? SIZE_DEFAULT_FALLBACK;
+      dispatch({ type: 'SET_MANUAL_SIZE', payload: newDefaultSize });
+    }
+    
+    prevAutoSelectedTypeRef.current = autoSelectedType;
+  }, [autoSelectedType, globalChartType, dispatch]);
 
   // Per-field override rendering
   const renderFieldControls = (targetField: Field) => {
@@ -257,6 +278,14 @@ const FieldOverridesPanel: React.FC = () => {
             recordAction(getUndoableSnapshot());
             clearChartTypeOverridesForAllFields();
             dispatch({ type: 'SET_GLOBAL_CHART_TYPE', payload: chartType ?? null });
+            
+            // Set chart-appropriate default size
+            // When switching to auto-detect (chartType is null/undefined), use autoSelectedType
+            const effectiveChartType = chartType ?? autoSelectedType;
+            const newDefaultSize = effectiveChartType 
+              ? (SIZE_DEFAULTS_BY_CHART_TYPE[effectiveChartType] ?? SIZE_DEFAULT_FALLBACK)
+              : SIZE_DEFAULT_FALLBACK;
+            dispatch({ type: 'SET_MANUAL_SIZE', payload: newDefaultSize });
           }}
           autoSelectedType={autoSelectedType}
         />
