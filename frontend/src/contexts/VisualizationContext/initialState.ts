@@ -1,4 +1,5 @@
 import { VisualizationState } from './types';
+import { SIZE_DEFAULT_FALLBACK } from '../../config/chartLayoutConfig';
 
 export const initialState: VisualizationState = {
   xAxisFields: [],
@@ -32,7 +33,7 @@ export const initialState: VisualizationState = {
   // Size encoding state
   sizeField: null,
   sizeRange: [4, 20],
-  manualSize: 10,
+  manualSize: SIZE_DEFAULT_FALLBACK,
   bandThicknessScale: 1.0,
   // Label configuration defaults
   labelFields: [],
