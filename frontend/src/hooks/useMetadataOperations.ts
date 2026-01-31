@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { Field, DataType } from '../types';
+import { Field, DataType, VirtualColumnDefinition } from '../types';
 import { apiService } from '../apiService';
 import { generateSyntheticFieldsForGroup } from '../utils/syntheticFields';
+import { buildValidColumnNames, validateAxisFields, markAllAxisFieldsInvalid } from '../utils/axisFieldValidation';
 
 interface ConnectionDetails {
     type: 'clickhouse' | 'csv' | 'kaggle';
@@ -40,6 +41,7 @@ interface UseMetadataOperationsParams {
     xAxisFields: Field[];
     yAxisFields: Field[];
     measureGroupFields: Field[]; // Now from VisualizationContext
+    virtualColumns: VirtualColumnDefinition[]; // For axis field validation
     dispatch: React.Dispatch<any>;
 }
 
@@ -59,6 +61,7 @@ export function useMetadataOperations({
     xAxisFields,
     yAxisFields,
     measureGroupFields,
+    virtualColumns,
     dispatch
 }: UseMetadataOperationsParams): UseMetadataOperationsReturn {
 
@@ -184,9 +187,9 @@ export function useMetadataOperations({
             dataSourceSetters.setAvailableFields([...fields, ...syntheticFields]);
 
             // Mark axis fields that are not present in new schema as invalid
-            const availableNames = new Set(fields.map(f => f.columnName));
-            const patchedX = xAxisFields.map(f => ({ ...f, isInvalid: !availableNames.has(f.columnName) }));
-            const patchedY = yAxisFields.map(f => ({ ...f, isInvalid: !availableNames.has(f.columnName) }));
+            // Include both real columns AND virtual columns in the valid names
+            const validNames = buildValidColumnNames(fields, virtualColumns);
+            const { patchedX, patchedY } = validateAxisFields(xAxisFields, yAxisFields, validNames);
             dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
             dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
             
@@ -210,6 +213,7 @@ export function useMetadataOperations({
         measureGroupFields,
         xAxisFields,
         yAxisFields,
+        virtualColumns,
         connectionDetails?.type,
         dataSourceSetters,
         dispatch
@@ -320,6 +324,14 @@ export function useMetadataOperations({
                 dispatch({ type: 'SET_MEASURE_GROUP_FIELDS', payload: nextMeasureGroupFields });
                 dataSourceSetters.setAvailableFields([...fields, ...syntheticFields]);
                 dataSourceSetters.setVirtualTable(response.virtual_table);
+                
+                // Mark axis fields that are not present in new schema as invalid
+                // Include both real columns AND virtual columns in the valid names
+                const validNames = buildValidColumnNames(fields, virtualColumns);
+                const { patchedX, patchedY } = validateAxisFields(xAxisFields, yAxisFields, validNames);
+                dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
+                dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
+                
                 dataSourceSetters.setIsLoadingMetadata(false);
                 
                 // Don't dispatch here - let the useEffect below handle it after virtualTable is set
@@ -384,9 +396,9 @@ export function useMetadataOperations({
             dataSourceSetters.setVirtualTable(response.virtual_table);
 
             // Mark axis fields that are not present in new schema as invalid
-            const availableNames = new Set(fields.map(f => f.columnName));
-            const patchedX = xAxisFields.map(f => ({ ...f, isInvalid: !availableNames.has(f.columnName) }));
-            const patchedY = yAxisFields.map(f => ({ ...f, isInvalid: !availableNames.has(f.columnName) }));
+            // Include both real columns AND virtual columns in the valid names
+            const validNames = buildValidColumnNames(fields, virtualColumns);
+            const { patchedX, patchedY } = validateAxisFields(xAxisFields, yAxisFields, validNames);
             dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
             dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
             
@@ -409,6 +421,7 @@ export function useMetadataOperations({
         measureGroupFields,
         xAxisFields, 
         yAxisFields, 
+        virtualColumns,
         connectionDetails?.type, 
         dataSourceSetters,
         dispatch,
@@ -581,6 +594,23 @@ export function useMetadataOperations({
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dataSource.virtualTable]);
+
+    // Mark all axis fields as invalid when table is cleared
+    // This handles the case when user removes the table while fields are still on axes
+    const prevSelectedTableRef = useRef<string>(dataSource.selectedTable);
+    useEffect(() => {
+        const prevTable = prevSelectedTableRef.current;
+        const currentTable = dataSource.selectedTable;
+        prevSelectedTableRef.current = currentTable;
+        
+        // Only act when table changes from non-empty to empty
+        // AND there are fields on the axes that need to be marked invalid
+        if (prevTable && !currentTable && (xAxisFields.length > 0 || yAxisFields.length > 0)) {
+            const { patchedX, patchedY } = markAllAxisFieldsInvalid(xAxisFields, yAxisFields);
+            dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
+            dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
+        }
+    }, [dataSource.selectedTable, xAxisFields, yAxisFields, dispatch]);
 
     return {
         fetchDatabases,
