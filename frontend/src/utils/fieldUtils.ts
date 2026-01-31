@@ -1,9 +1,10 @@
-import { Field, Aggregation } from '../types';
+import { Field, Aggregation, DataType, Column } from '../types';
 import { 
   getResultColumnNameForDateTime,
   getFieldDisplayNameWithDateTime,
   getDateTimePartTooltip as getDateTimeTooltip 
 } from './datetimeUtils';
+import { generateSyntheticFieldsForGroup } from './syntheticFields';
 
 const DISCRETE_AGGREGATIONS: Aggregation[] = ['min', 'max', 'count', 'count_distinct'];
 
@@ -183,4 +184,144 @@ export function getFieldDisplayName(field: Field): string {
  */
 export function getDateTimePartTooltip(field: Field): string | undefined {
   return getDateTimeTooltip(field);
-} 
+}
+
+// =============================================================================
+// Column-to-Field Conversion Utilities
+// =============================================================================
+
+/**
+ * Map backend data type strings to our DataType enum.
+ * Handles various database-specific type names (ClickHouse, DuckDB, etc.)
+ */
+export function mapBackendDataType(backendType: string): DataType {
+    const lowerType = backendType.toLowerCase();
+    
+    if (lowerType.includes('string') || lowerType.includes('varchar') || lowerType.includes('text') || lowerType.includes('char')) {
+        return 'string';
+    } else if (lowerType.includes('int') || lowerType.includes('bigint') || lowerType.includes('smallint')) {
+        return 'integer';
+    } else if (lowerType.includes('float') || lowerType.includes('double') || lowerType.includes('decimal') || lowerType.includes('numeric')) {
+        return 'float';
+    } else if (lowerType.includes('date') || lowerType.includes('time') || lowerType.includes('timestamp')) {
+        return 'datetime';
+    } else {
+        // Default fallback
+        return 'string';
+    }
+}
+
+/**
+ * Determine default field properties based on data type.
+ */
+function getDefaultFieldProperties(dataType: DataType): {
+    type: 'dimension' | 'measure';
+    flavour: 'discrete' | 'continuous';
+    aggregation: 'sum' | 'avg' | 'min' | 'max' | 'count' | 'count_distinct' | undefined;
+} {
+    if (dataType === 'string' || dataType === 'datetime') {
+        return {
+            type: 'dimension',
+            flavour: 'discrete',
+            aggregation: undefined, // Dimensions don't have aggregation
+        };
+    } else if (dataType === 'integer' || dataType === 'float') {
+        return {
+            type: 'measure',
+            flavour: 'continuous',
+            aggregation: 'sum', // Default aggregation for measures
+        };
+    } else {
+        // Fallback
+        return {
+            type: 'dimension',
+            flavour: 'discrete',
+            aggregation: undefined,
+        };
+    }
+}
+
+/**
+ * Options for creating a Field from a Column.
+ */
+export interface CreateFieldOptions {
+    /** Include tableName in the field (for multi-table support) */
+    includeTableName?: boolean;
+}
+
+/**
+ * Create a Field object from a backend Column.
+ * Centralizes the column-to-field conversion logic.
+ */
+export function createFieldFromColumn(col: Column, options: CreateFieldOptions = {}): Field {
+    const dataType = mapBackendDataType(col.data_type);
+    const { type, flavour, aggregation } = getDefaultFieldProperties(dataType);
+    
+    const field: Field = {
+        id: `field-${col.name}`,
+        columnName: col.name,
+        type,
+        flavour,
+        dataType,
+        aggregation,
+    };
+    
+    // Optionally include table name (for UNION mode with _source_table)
+    if (options.includeTableName && col.table_name) {
+        (field as any).tableName = col.table_name;
+    }
+    
+    return field;
+}
+
+/**
+ * Convert an array of backend columns to Field objects.
+ */
+export function columnsToFields(columns: Column[], options: CreateFieldOptions = {}): Field[] {
+    return columns.map(col => createFieldFromColumn(col, options));
+}
+
+/**
+ * Result of processing columns into a complete field set.
+ */
+export interface ProcessedFieldsResult {
+    /** All fields (real + synthetic) */
+    allFields: Field[];
+    /** Filtered measure group fields (only those that exist in the new schema) */
+    nextMeasureGroupFields: Field[];
+}
+
+/**
+ * Process columns into a complete field set with measure group filtering and synthetic fields.
+ * This encapsulates the common pattern used after fetching columns.
+ * 
+ * @param columns - Raw columns from backend
+ * @param measureGroupFields - Current measure group fields (to be filtered)
+ * @param options - Field creation options
+ */
+export function processColumnsResponse(
+    columns: Column[],
+    measureGroupFields: Field[],
+    options: CreateFieldOptions = {}
+): ProcessedFieldsResult {
+    // Convert columns to fields
+    const fields = columnsToFields(columns, options);
+    
+    // Filter measure group to only include fields that exist in new schema
+    const measureNameSet = new Set(
+        fields.filter(field => field.type === 'measure').map(field => field.columnName)
+    );
+    const nextMeasureGroupFields = (measureGroupFields || [])
+        .filter((field) => measureNameSet.has(field.columnName));
+    
+    // Generate synthetic fields for measure values/names
+    const syntheticFields = generateSyntheticFieldsForGroup(
+        fields,
+        nextMeasureGroupFields.map(field => field.columnName)
+    );
+    
+    return {
+        allFields: [...fields, ...syntheticFields],
+        nextMeasureGroupFields,
+    };
+}
