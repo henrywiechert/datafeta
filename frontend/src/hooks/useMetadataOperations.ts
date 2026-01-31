@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { Field, DataType, VirtualColumnDefinition } from '../types';
+import { Field, VirtualColumnDefinition } from '../types';
 import { apiService } from '../apiService';
-import { generateSyntheticFieldsForGroup } from '../utils/syntheticFields';
 import { buildValidColumnNames, validateAxisFields, markAllAxisFieldsInvalid } from '../utils/axisFieldValidation';
+import { processColumnsResponse } from '../utils/fieldUtils';
 
 interface ConnectionDetails {
     type: 'clickhouse' | 'csv' | 'kaggle';
@@ -65,24 +65,6 @@ export function useMetadataOperations({
     dispatch
 }: UseMetadataOperationsParams): UseMetadataOperationsReturn {
 
-    // Helper function to map backend data types to our DataType enum
-    const mapBackendDataType = (backendType: string): DataType => {
-        const lowerType = backendType.toLowerCase();
-        
-        if (lowerType.includes('string') || lowerType.includes('varchar') || lowerType.includes('text') || lowerType.includes('char')) {
-            return 'string';
-        } else if (lowerType.includes('int') || lowerType.includes('bigint') || lowerType.includes('smallint')) {
-            return 'integer';
-        } else if (lowerType.includes('float') || lowerType.includes('double') || lowerType.includes('decimal') || lowerType.includes('numeric')) {
-            return 'float';
-        } else if (lowerType.includes('date') || lowerType.includes('time') || lowerType.includes('timestamp')) {
-            return 'datetime';
-        } else {
-            // Default fallback
-            return 'string';
-        }
-    };
-
     const fetchDatabases = useCallback(async () => {
         dataSourceSetters.setIsLoadingMetadata(true);
         dataSourceSetters.setMetadataError(null);
@@ -138,57 +120,20 @@ export function useMetadataOperations({
         try {
             const dbParam = connectionDetails?.type === 'clickhouse' ? dataSource.selectedDatabase : undefined;
             const response = await apiService.listColumns(dataSource.selectedTable, dbParam);
-            const fields: Field[] = response.columns.map(col => {
-                const dataType = mapBackendDataType(col.data_type);
-                
-                // Set default type and flavour based on data type
-                let type: 'dimension' | 'measure';
-                let flavour: 'discrete' | 'continuous';
-                let aggregation: 'sum' | 'avg' | 'min' | 'max' | 'count' | 'count_distinct' | undefined;
-                
-                if (dataType === 'string' || dataType === 'datetime') {
-                    type = 'dimension';
-                    flavour = 'discrete';
-                    aggregation = undefined; // Dimensions don't have aggregation
-                } else if (dataType === 'integer' || dataType === 'float') {
-                    type = 'measure';
-                    flavour = 'continuous';
-                    aggregation = 'sum'; // Default aggregation for measures
-                } else {
-                    // Fallback
-                    type = 'dimension';
-                    flavour = 'discrete';
-                    aggregation = undefined;
-                }
-                
-                return {
-                    id: `field-${col.name}`,
-                    columnName: col.name,
-                    type: type,
-                    flavour: flavour,
-                    dataType: dataType,
-                    aggregation: aggregation,
-                };
-            });
             
-            const measureNameSet = new Set(
-                fields.filter(field => field.type === 'measure').map(field => field.columnName)
-            );
-            const nextMeasureGroupFields = (measureGroupFields || [])
-                .filter((field) => measureNameSet.has(field.columnName));
-
-            const syntheticFields = generateSyntheticFieldsForGroup(
-                fields,
-                nextMeasureGroupFields.map(field => field.columnName)
+            // Process columns into fields with synthetic fields
+            const { allFields, nextMeasureGroupFields } = processColumnsResponse(
+                response.columns,
+                measureGroupFields
             );
 
-            // Update measure group via VisualizationContext dispatch
+            // Update state
             dispatch({ type: 'SET_MEASURE_GROUP_FIELDS', payload: nextMeasureGroupFields });
-            dataSourceSetters.setAvailableFields([...fields, ...syntheticFields]);
+            dataSourceSetters.setAvailableFields(allFields);
 
             // Mark axis fields that are not present in new schema as invalid
             // Include both real columns AND virtual columns in the valid names
-            const validNames = buildValidColumnNames(fields, virtualColumns);
+            const validNames = buildValidColumnNames(allFields, virtualColumns);
             const { patchedX, patchedY } = validateAxisFields(xAxisFields, yAxisFields, validNames);
             dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
             dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
@@ -275,59 +220,20 @@ export function useMetadataOperations({
                     false // Don't auto-detect
                 );
                 
-                // Convert columns to Field objects (includes _source_table)
-                const fields: Field[] = response.columns.map(col => {
-                    const dataType = mapBackendDataType(col.data_type);
-                    
-                    let type: 'dimension' | 'measure';
-                    let flavour: 'discrete' | 'continuous';
-                    let aggregation: 'sum' | 'avg' | 'min' | 'max' | 'count' | 'count_distinct' | undefined;
-                    
-                    if (dataType === 'string' || dataType === 'datetime') {
-                        type = 'dimension';
-                        flavour = 'discrete';
-                        aggregation = undefined;
-                    } else if (dataType === 'integer' || dataType === 'float') {
-                        type = 'measure';
-                        flavour = 'continuous';
-                        aggregation = 'sum';
-                    } else {
-                        type = 'dimension';
-                        flavour = 'discrete';
-                        aggregation = undefined;
-                    }
-                    
-                    return {
-                        id: `field-${col.name}`,
-                        columnName: col.name,
-                        type: type,
-                        flavour: flavour,
-                        dataType: dataType,
-                        tableName: col.table_name || undefined,
-                        aggregation: aggregation,
-                        axis: undefined
-                    };
-                });
-                
-                const measureNameSet = new Set(
-                    fields.filter(field => field.type === 'measure').map(field => field.columnName)
-                );
-                const nextMeasureGroupFields = (measureGroupFields || [])
-                    .filter((field) => measureNameSet.has(field.columnName));
-
-                const syntheticFields = generateSyntheticFieldsForGroup(
-                    fields,
-                    nextMeasureGroupFields.map(field => field.columnName)
+                // Process columns into fields (include tableName for UNION mode)
+                const { allFields, nextMeasureGroupFields } = processColumnsResponse(
+                    response.columns,
+                    measureGroupFields,
+                    { includeTableName: true }
                 );
 
-                // Update measure group via VisualizationContext dispatch
+                // Update state
                 dispatch({ type: 'SET_MEASURE_GROUP_FIELDS', payload: nextMeasureGroupFields });
-                dataSourceSetters.setAvailableFields([...fields, ...syntheticFields]);
+                dataSourceSetters.setAvailableFields(allFields);
                 dataSourceSetters.setVirtualTable(response.virtual_table);
                 
                 // Mark axis fields that are not present in new schema as invalid
-                // Include both real columns AND virtual columns in the valid names
-                const validNames = buildValidColumnNames(fields, virtualColumns);
+                const validNames = buildValidColumnNames(allFields, virtualColumns);
                 const { patchedX, patchedY } = validateAxisFields(xAxisFields, yAxisFields, validNames);
                 dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
                 dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
@@ -347,57 +253,19 @@ export function useMetadataOperations({
                 false // Don't auto-detect, use explicitly selected tables
             );
             
-            // Convert merged columns to Field objects
-            const fields: Field[] = response.columns.map(col => {
-                const dataType = mapBackendDataType(col.data_type);
-                
-                let type: 'dimension' | 'measure';
-                let flavour: 'discrete' | 'continuous';
-                let aggregation: 'sum' | 'avg' | 'min' | 'max' | 'count' | 'count_distinct' | undefined;
-                
-                if (dataType === 'string' || dataType === 'datetime') {
-                    type = 'dimension';
-                    flavour = 'discrete';
-                    aggregation = undefined;
-                } else if (dataType === 'integer' || dataType === 'float') {
-                    type = 'measure';
-                    flavour = 'continuous';
-                    aggregation = 'sum';
-                } else {
-                    type = 'dimension';
-                    flavour = 'discrete';
-                    aggregation = undefined;
-                }
-                
-                return {
-                    id: `field-${col.name}`,
-                    columnName: col.name, // Includes table prefix like 'customers.name'
-                    type: type,
-                    flavour: flavour,
-                    dataType: dataType,
-                    aggregation: aggregation,
-                };
-            });
-            
-            const measureNameSet = new Set(
-                fields.filter(field => field.type === 'measure').map(field => field.columnName)
-            );
-            const nextMeasureGroupFields = (measureGroupFields || [])
-                .filter((field) => measureNameSet.has(field.columnName));
-
-            const syntheticFields = generateSyntheticFieldsForGroup(
-                fields,
-                nextMeasureGroupFields.map(field => field.columnName)
+            // Process columns into fields
+            const { allFields, nextMeasureGroupFields } = processColumnsResponse(
+                response.columns,
+                measureGroupFields
             );
 
-            // Update measure group via VisualizationContext dispatch
+            // Update state
             dispatch({ type: 'SET_MEASURE_GROUP_FIELDS', payload: nextMeasureGroupFields });
-            dataSourceSetters.setAvailableFields([...fields, ...syntheticFields]);
+            dataSourceSetters.setAvailableFields(allFields);
             dataSourceSetters.setVirtualTable(response.virtual_table);
 
             // Mark axis fields that are not present in new schema as invalid
-            // Include both real columns AND virtual columns in the valid names
-            const validNames = buildValidColumnNames(fields, virtualColumns);
+            const validNames = buildValidColumnNames(allFields, virtualColumns);
             const { patchedX, patchedY } = validateAxisFields(xAxisFields, yAxisFields, validNames);
             dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
             dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
