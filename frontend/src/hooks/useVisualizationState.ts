@@ -80,6 +80,7 @@ export function useVisualizationState() {
         xAxisFields: state.xAxisFields,
         yAxisFields: state.yAxisFields,
         measureGroupFields: state.measureGroupFields,
+        virtualColumns: dataSource.virtualColumns,
         dispatch
     });
 
