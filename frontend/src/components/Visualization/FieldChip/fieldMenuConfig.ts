@@ -24,6 +24,9 @@ export interface FieldMenuConfig {
 
   /** Allow DateTime part menu */
   allowDateTimePart: boolean;
+
+  /** Allow creating binned fields (histogram support) - only in available fields panel */
+  allowCreateBins: boolean;
 }
 
 /**
@@ -35,9 +38,10 @@ export interface FieldMenuConfig {
  */
 export function getDefaultFieldMenuConfig(source: DragSource): FieldMenuConfig {
   const isAxis = source === 'X_AXIS' || source === 'Y_AXIS';
+  const isAvailableFields = source === 'AVAILABLE_FIELDS';
 
   return {
-    allowRemoveFromZone: source !== 'AVAILABLE_FIELDS',
+    allowRemoveFromZone: !isAvailableFields,
     allowTypeChange: true,
     allowFlavourChange: true,
     allowDataTypeChange: !isAxis,
@@ -45,6 +49,7 @@ export function getDefaultFieldMenuConfig(source: DragSource): FieldMenuConfig {
     allowAggregationChange: true,
     allowBarSortOrder: isAxis,
     allowDateTimePart: true,
+    allowCreateBins: isAvailableFields,
   };
 }
 

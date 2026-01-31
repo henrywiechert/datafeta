@@ -47,9 +47,9 @@ def get_virtual_column_source_fields(
     vc_source_map: Dict[str, List[str]] = {}
     for vc in virtual_columns:
         # Extract field references from expression using regex
-        # Pattern matches identifiers: word or word.word
+        # Pattern matches identifiers: word or word.word.word... (any number of dot-separated parts)
         expression = vc.expression
-        pattern = r'\b([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)?)\b'
+        pattern = r'\b([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\b'
         matches = re.findall(pattern, expression)
         
         source_fields = []

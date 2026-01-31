@@ -2,6 +2,10 @@
 
 UI components for creating and managing computed/calculated columns using SQL expressions. Virtual columns are evaluated server-side and appear as regular fields in the visualization.
 
+**Includes**: 
+- **Virtual Column Editor**: Create custom SQL expressions (arithmetic, conditionals, etc.)
+- **Binned Fields**: Create histogram bins from numeric fields (Tableau-style binning)
+
 ## Concept: How Virtual Columns Work
 
 Virtual columns are **computed columns** that don't exist in the source table. They're defined by a SQL expression and evaluated **server-side** as part of the query.
@@ -151,6 +155,7 @@ The server-side approach enables complex expressions like `CASE WHEN`, window fu
 |------|---------|-------|
 | `VirtualColumnManager.tsx` | List view + add/edit/delete UI | 157 |
 | `VirtualColumnEditor.tsx` | Full editor dialog | 323 |
+| `BinConfigDialog.tsx` | Bin configuration dialog for histograms | ~280 |
 
 ## Type Definition
 
@@ -268,3 +273,139 @@ Blocked keywords:
 - **Controlled state**: Editor resets when `open` prop changes
 - **Cursor positioning**: Column insertion places cursor after inserted text
 - **Monospace fonts**: Expression fields use monospace for SQL readability
+
+---
+
+## Binned Fields (Histogram Support)
+
+Binned fields are a special type of virtual column that groups continuous values into discrete bins. This enables histogram visualizations when combined with a COUNT aggregation.
+
+### Concept
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  USER FLOW                                                          │
+│                                                                     │
+│  1. Right-click numeric field (e.g., "Revenue") in Fields Panel    │
+│  2. Select "Create Bins..." from context menu                      │
+│  3. Configure bin width in dialog (auto-suggested based on data)   │
+│  4. New discrete dimension "Revenue (bin)" appears in Fields Panel │
+│  5. Drag to X-axis + add COUNT measure → histogram visualization   │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### How Binning Works
+
+Binned fields use SQL's FLOOR function to group values:
+
+```sql
+-- For bin width of 100:
+FLOOR("Revenue" / 100) * 100
+
+-- Example: Revenue = 523 → bin = 500
+-- Example: Revenue = 99  → bin = 0
+-- Example: Revenue = 1234 → bin = 1200
+```
+
+### Type Definition
+
+```typescript
+// Binned field configuration (stored with VirtualColumnDefinition)
+interface BinnedFieldDefinition {
+  name: string;              // "Revenue (bin)"
+  sourceField: string;       // "Revenue"
+  binWidth: number;          // 100
+}
+
+// VirtualColumnDefinition extended:
+interface VirtualColumnDefinition {
+  name: string;
+  expression: string;        // "FLOOR(\"Revenue\" / 100) * 100"
+  output_type?: 'numeric' | 'text' | 'datetime';
+  description?: string;
+  binConfig?: BinnedFieldDefinition;  // Present for binned fields
+}
+```
+
+### Field Classification
+
+Binned fields are always classified as:
+- **type**: `dimension` (grouping field, not aggregated)
+- **flavour**: `discrete` (each bin is a distinct category)
+- **is_virtual**: `true`
+
+This ensures proper chart type selection (bar chart instead of line chart).
+
+### Bin Width Suggestion
+
+The dialog suggests a bin width using Sturges' rule:
+
+```typescript
+// Sturges' rule: k = ceil(log2(n) + 1)
+const binCount = Math.ceil(Math.log2(rowCount) + 1);
+const rawWidth = (max - min) / binCount;
+const suggestedWidth = roundToNiceNumber(rawWidth);
+// Result: 1, 2, 5, 10, 20, 50, 100, etc.
+```
+
+### UI Components
+
+| Component | Purpose |
+|-----------|---------|
+| `BinConfigDialog.tsx` | Modal for configuring bin width/count |
+| Field context menu | "Create Bins..." option for numeric fields |
+| `binningUtils.ts` | Helper functions for bin expression generation |
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `BinConfigDialog.tsx` | Bin configuration dialog |
+| `src/utils/binningUtils.ts` | Expression generation, auto-suggestion |
+| `FieldMenuItems.tsx` | Context menu integration |
+| `useVirtualColumns.ts` | Handles binConfig for field classification |
+
+### Example Usage
+
+```typescript
+// User creates bins for Revenue with width 100
+// Result stored in virtualColumns:
+{
+  name: "Revenue (bin)",
+  expression: 'FLOOR("Revenue" / 100) * 100',
+  output_type: "numeric",
+  description: "Bins of Revenue with width 100",
+  binConfig: {
+    name: "Revenue (bin)",
+    sourceField: "Revenue",
+    binWidth: 100
+  }
+}
+
+// User drags "Revenue (bin)" to X-axis and adds COUNT measure
+// Query builder produces:
+{
+  target_table: "sales",
+  dimensions: [{ field: "Revenue (bin)", flavour: "discrete" }],
+  measures: [{ field: "*", aggregation: "count", alias: "COUNT(*)" }],
+  virtual_columns: [
+    { name: "Revenue (bin)", expression: 'FLOOR("Revenue" / 100) * 100' }
+  ]
+}
+
+// Result: Histogram showing distribution of Revenue values
+```
+
+### Bin Mode Options
+
+The dialog supports two modes:
+- **Bin Width**: Directly specify the width of each bin (e.g., 100)
+- **Bin Count**: Specify number of bins, width is calculated
+
+### Preview Information
+
+The dialog shows:
+- Data range (min – max)
+- Row count
+- Resulting number of bins
+- Example bin labels (e.g., "0–100, 100–200, 200–300, ...")

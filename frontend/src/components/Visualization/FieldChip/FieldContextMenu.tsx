@@ -15,6 +15,7 @@ interface FieldContextMenuProps {
   selectedFields?: Field[]; // For bulk editing
   menuConfig: FieldMenuConfig;
   onRemoveFromZone?: (fieldIds: string[]) => void;
+  onCreateBins?: (field: Field) => void; // Callback for "Create Bins..." action
 }
 
 const FieldContextMenu: React.FC<FieldContextMenuProps> = ({ 
@@ -26,6 +27,7 @@ const FieldContextMenu: React.FC<FieldContextMenuProps> = ({
   selectedFields = [],
   menuConfig,
   onRemoveFromZone,
+  onCreateBins,
 }) => {
   const handleUpdate = useCallback((updates: Partial<Field>) => {
     // Always work with an array - single field is just an array of length 1
@@ -60,6 +62,7 @@ const FieldContextMenu: React.FC<FieldContextMenuProps> = ({
         menuConfig={menuConfig}
         onRemoveFromZone={onRemoveFromZone}
         onRequestClose={onCloseMenu}
+        onCreateBins={onCreateBins}
       />
     </ContextMenu>
   );

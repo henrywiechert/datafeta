@@ -11,4 +11,5 @@ export interface FieldChipProps {
   index?: number;
   isInvalidOnAxis?: boolean;
   allFields?: Field[]; // For range selection
+  onCreateBins?: (field: Field) => void; // Callback for "Create Bins..." action
 }

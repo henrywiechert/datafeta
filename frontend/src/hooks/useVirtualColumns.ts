@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { Field, DataType, VirtualColumnDefinition } from '../types';
+import { isBinnedField } from '../utils/binningUtils';
 
 interface UseVirtualColumnsParams {
     availableFields: Field[];
@@ -29,9 +30,15 @@ export function useVirtualColumns({
     // --- Merge virtual columns into available fields ---
     const availableFieldsWithVirtual = useMemo(() => {
         const virtualFields: Field[] = virtualColumns.map((vc, index) => {
+            // Check if this is a binned field
+            const isBinned = isBinnedField(vc);
+            
             // Map output type to data type
             let dataType: DataType;
-            if (vc.output_type === 'numeric') {
+            if (isBinned) {
+                // Binned fields are always numeric (result of FLOOR arithmetic)
+                dataType = 'float';
+            } else if (vc.output_type === 'numeric') {
                 dataType = 'float'; // Use float for numeric virtual columns
             } else if (vc.output_type === 'datetime') {
                 dataType = 'datetime';
@@ -47,7 +54,12 @@ export function useVirtualColumns({
             let flavour: 'discrete' | 'continuous';
             let aggregation: 'sum' | 'avg' | 'min' | 'max' | 'count' | 'count_distinct' | undefined;
             
-            if (preferences) {
+            if (isBinned) {
+                // Binned fields are ALWAYS discrete dimensions (this is the core histogram concept)
+                type = 'dimension';
+                flavour = 'discrete';
+                aggregation = undefined;
+            } else if (preferences) {
                 // Use stored preferences if available
                 type = preferences.type || 'dimension';
                 flavour = preferences.flavour || 'discrete';

@@ -1,13 +1,15 @@
-import React, { useMemo, useEffect, useRef, useCallback } from 'react';
+import React, { useMemo, useEffect, useRef, useCallback, useState } from 'react';
 import { Typography } from '@mui/material';
 import FieldsSearch from './FieldsSearch';
 import FieldCategory from './FieldCategory';
 import CompactMetadataSelector from './CompactMetadataSelector';
 import VirtualColumnManager from '../../VirtualColumns/VirtualColumnManager';
+import BinConfigDialog, { FieldStats } from '../../VirtualColumns/BinConfigDialog';
 import { Field, Database, Table, VirtualColumnDefinition } from '../../../types';
 import { useFieldsPanelDrag } from '../../../hooks/useFieldsPanelDrag';
 import styles from './FieldsPanel.module.css';
 import { useSelectionStore } from '../../../stores/selectionStore';
+import { fetchFieldStats } from '../../../apiService';
 
 interface FieldsPanelProps {
   availableFields: Field[];
@@ -90,6 +92,11 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   
+  // State for bin config dialog
+  const [binDialogOpen, setBinDialogOpen] = useState(false);
+  const [binDialogField, setBinDialogField] = useState<Field | null>(null);
+  const [binDialogStats, setBinDialogStats] = useState<FieldStats | null>(null);
+  
   // Get clearSelection action (stable reference, never causes re-render)
   const clearSelection = useSelectionStore((s: any) => s.clearSelection);
   
@@ -131,6 +138,43 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
       clearSelection();
     }
   }, [clearSelection]);
+
+  // Handle "Create Bins..." menu action
+  const handleCreateBins = useCallback(async (field: Field) => {
+    setBinDialogField(field);
+    setBinDialogStats(null);
+    setBinDialogOpen(true);
+    
+    // Fetch field statistics for the dialog
+    try {
+      const stats = await fetchFieldStats(
+        selectedTable,
+        field.columnName,
+        selectedDatabase || undefined
+      );
+      setBinDialogStats(stats);
+    } catch (error) {
+      console.error('Failed to fetch field stats for binning:', error);
+      // Dialog will show loading state; user can still manually enter bin width
+    }
+  }, [selectedTable, selectedDatabase]);
+
+  // Handle saving binned field
+  const handleSaveBinnedField = useCallback((virtualColumn: VirtualColumnDefinition) => {
+    if (onAddVirtualColumn) {
+      onAddVirtualColumn(virtualColumn);
+    }
+    setBinDialogOpen(false);
+    setBinDialogField(null);
+    setBinDialogStats(null);
+  }, [onAddVirtualColumn]);
+
+  // Handle canceling bin dialog
+  const handleCancelBinDialog = useCallback(() => {
+    setBinDialogOpen(false);
+    setBinDialogField(null);
+    setBinDialogStats(null);
+  }, []);
 
   // Create filter function that works with search term
   const filterBySearch = useMemo(() => (field: Field) => (
@@ -213,14 +257,31 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
           title="Dimensions"
           fields={filteredDimensions}
           onUpdate={onFieldUpdate}
+          onCreateBins={onAddVirtualColumn ? handleCreateBins : undefined}
         />
         
         <FieldCategory 
           title="Measures"
           fields={filteredMeasures}
           onUpdate={onFieldUpdate}
+          onCreateBins={onAddVirtualColumn ? handleCreateBins : undefined}
         />
       </div>
+      
+      {/* Bin Config Dialog */}
+      {binDialogField && (
+        <BinConfigDialog
+          open={binDialogOpen}
+          sourceField={binDialogField.columnName}
+          fieldStats={binDialogStats}
+          existingNames={[
+            ...availableFields.map(f => f.columnName),
+            ...virtualColumns.map(vc => vc.name),
+          ]}
+          onSave={handleSaveBinnedField}
+          onCancel={handleCancelBinDialog}
+        />
+      )}
     </div>
   );
 };

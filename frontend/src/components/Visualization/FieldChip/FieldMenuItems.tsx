@@ -17,6 +17,7 @@ interface FieldMenuItemsProps {
   menuConfig: FieldMenuConfig;
   onRemoveFromZone?: (fieldIds: string[]) => void;
   onRequestClose?: () => void;
+  onCreateBins?: (field: Field) => void; // Callback for "Create Bins..." action
 }
 
 const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
@@ -27,6 +28,7 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
   menuConfig,
   onRemoveFromZone,
   onRequestClose,
+  onCreateBins,
 }) => {
   const [castingDialogOpen, setCastingDialogOpen] = useState(false);
   
@@ -40,6 +42,9 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
   const isInAxisDropZone = source === 'X_AXIS' || source === 'Y_AXIS';
   const isDateTime = field.dataType === 'datetime';
   const hasCasting = field.castType !== undefined;
+  // Binning is available for numeric fields (integer or float) that are not virtual/binned
+  const isNumeric = field.dataType === 'integer' || field.dataType === 'float';
+  const canCreateBins = isNumeric && !field.is_virtual && menuConfig.allowCreateBins && onCreateBins;
   // Allow casting for any field - user can configure it regardless of type
   // Backend will handle the casting attempt
   const canCastField = !isInAxisDropZone && menuConfig.allowCasting;
@@ -162,6 +167,22 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
             onClick={() => setCastingDialogOpen(true)}
           >
             Configure Casting {hasCasting && '✔'}
+          </div>
+        </>
+      )}
+
+      {/* Create Bins - shown for numeric fields in available fields panel */}
+      {canCreateBins && !isBulkEdit && (
+        <>
+          <div className={menuStyles.separator} />
+          <div 
+            className={menuStyles.menuItem}
+            onClick={() => {
+              onCreateBins(field);
+              onRequestClose?.();
+            }}
+          >
+            Create Bins...
           </div>
         </>
       )}
