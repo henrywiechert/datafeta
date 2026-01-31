@@ -24,6 +24,18 @@ class Round(Function):
         super(Round, self).__init__('ROUND', term, precision) if precision is not None else super(Round, self).__init__('ROUND', term)
 
 
+class Floor(Function):
+    """FLOOR function for rounding down to nearest integer."""
+    def __init__(self, term):
+        super(Floor, self).__init__('FLOOR', term)
+
+
+class Ceil(Function):
+    """CEIL function for rounding up to nearest integer."""
+    def __init__(self, term):
+        super(Ceil, self).__init__('CEIL', term)
+
+
 class Int(Cast):
     """INT function for converting values to integers (uses BIGINT for large values)."""
     def __init__(self, term):
@@ -358,16 +370,17 @@ class VirtualColumnExpressionBuilder:
         Supports:
         - Simple names: column_name
         - Qualified names: table.column_name
+        - Multi-dot names: table.nested.column_name (for column names containing dots)
         
         Args:
             expression: SQL expression
             
         Returns:
-            List of column names (including qualified names)
+            List of column names (including qualified/dotted names)
         """
-        # Pattern for identifiers: word or word.word
-        # Matches: column_name, table.column_name
-        pattern = r'\b([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)?)\b'
+        # Pattern for identifiers: word or word.word.word... (any number of dot-separated parts)
+        # Matches: column_name, table.column_name, table.nested.column_name
+        pattern = r'\b([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\b'
         
         matches = re.findall(pattern, expression)
         
@@ -415,6 +428,8 @@ class VirtualColumnExpressionBuilder:
         # Add allowed functions
         namespace.update({
             'ROUND': Round,
+            'FLOOR': Floor,
+            'CEIL': Ceil,
             'ABS': Abs,
             'COALESCE': Coalesce,
             'CONCAT': Concat,
@@ -439,9 +454,11 @@ class VirtualColumnExpressionBuilder:
         
         Supports qualified names: table.column
         
-        IMPORTANT: Only treats as qualified (table.column) if the prefix is a known table name.
-        Otherwise, the entire field_name (including dots) is treated as a column name.
-        This allows columns like 'measurement.temp' to work correctly.
+        IMPORTANT: Only treats as qualified (table.column) if the prefix is a known table name
+        AND it's NOT the default table. If the prefix matches the default table, we treat the
+        entire field_name as a column name because:
+        1. Columns in the default table don't need qualification
+        2. The dot is likely part of the column name itself (e.g., 'table.column_name' as a column)
         
         Args:
             field_name: Column name, optionally qualified
@@ -453,16 +470,20 @@ class VirtualColumnExpressionBuilder:
             # Check if this is actually a table-qualified reference
             table_name, column_name = field_name.split('.', 1)
             
-            # Only split if the prefix is a known table name
-            if table_name in self.table_map:
-                # Qualified name: table.column
+            # Get the default table name for comparison
+            default_table_name = getattr(self.default_table, '_table_name', None)
+            
+            # Only split if the prefix is a known table name AND it's not the default table
+            # If prefix matches default table, the dot is likely part of the column name
+            if table_name in self.table_map and table_name != default_table_name:
+                # Qualified name: table.column (referencing a different table)
                 logger.debug(f"Field '{field_name}' recognized as qualified: table '{table_name}', column '{column_name}'")
                 table = self.table_map[table_name]
                 return table[column_name]
             else:
-                # Not a table prefix - treat entire name as column name
-                # This handles columns like 'measurement.temp' where the dot is part of the column name
-                logger.debug(f"Field '{field_name}' prefix '{table_name}' not a known table, treating as full column name")
+                # Either not a table prefix, or prefix matches default table
+                # Treat entire name as column name (dot is part of column name)
+                logger.debug(f"Field '{field_name}' treated as full column name (prefix '{table_name}' is default table or unknown)")
                 return self.default_table[field_name]
         else:
             # Unqualified name: column

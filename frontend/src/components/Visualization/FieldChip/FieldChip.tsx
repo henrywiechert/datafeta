@@ -33,7 +33,7 @@ const FieldChip: React.FC<
     onRemoveFromZone?: (fieldIds: string[]) => void;
     displayNameOverride?: string;
   }
-> = ({ field, source, onUpdate, index, allFields, menuConfig, onRemoveFromZone, displayNameOverride }) => {
+> = ({ field, source, onUpdate, index, allFields, menuConfig, onRemoveFromZone, displayNameOverride, onCreateBins }) => {
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
   
   // Granular subscription - only re-renders when THIS field's selection changes
@@ -110,6 +110,7 @@ const FieldChip: React.FC<
         selectedFields={selectedFieldsForMenu}
         menuConfig={effectiveMenuConfig}
         onRemoveFromZone={onRemoveFromZone}
+        onCreateBins={onCreateBins}
       />
     </>
   );

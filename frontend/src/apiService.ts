@@ -984,5 +984,75 @@ export const apiService = {
             })
         });
         return response.json();
+    },
+
+    /**
+     * Get field statistics (min, max, row count) for binning.
+     * Used by the bin configuration dialog to suggest bin widths.
+     * 
+     * @param table - Table name
+     * @param field - Field name
+     * @param database - Database name (optional, required for ClickHouse)
+     * @param signal - Optional AbortSignal for cancellation
+     * @returns Object with min, max, and rowCount
+     */
+    async getFieldStats(
+        table: string,
+        field: string,
+        database?: string,
+        signal?: AbortSignal
+    ): Promise<{ min: number; max: number; rowCount: number }> {
+        const abortController = signal ? null : createAbortController();
+        const requestSignal = signal || abortController?.signal;
+
+        // Build a query to get min, max, and count values
+        const queryDesc: any = {
+            target_table: table,
+            target_database: database,
+            dimensions: [],
+            measures: [
+                { field, aggregation: 'min' as const, alias: 'min_value' },
+                { field, aggregation: 'max' as const, alias: 'max_value' },
+                { field, aggregation: 'count' as const, alias: 'row_count' },
+            ],
+        };
+
+        const response = await fetchWithErrorHandling(`${API_BASE_URL}/query`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(queryDesc),
+        }, requestSignal);
+
+        const result: QueryResult = await response.json();
+        
+        if (result.error) {
+            throw new Error(result.error);
+        }
+
+        // Extract values from the result
+        if (result.rows.length > 0) {
+            return {
+                min: result.rows[0].min_value,
+                max: result.rows[0].max_value,
+                rowCount: result.rows[0].row_count,
+            };
+        }
+
+        throw new Error('No data available for field statistics');
     }
-}; 
+};
+
+/**
+ * Standalone export for fetching field statistics (used by binning dialog).
+ * Convenience function that wraps apiService.getFieldStats.
+ */
+export async function fetchFieldStats(
+    table: string,
+    field: string,
+    database?: string,
+    signal?: AbortSignal
+): Promise<{ min: number; max: number; rowCount: number }> {
+    return apiService.getFieldStats(table, field, database, signal);
+} 

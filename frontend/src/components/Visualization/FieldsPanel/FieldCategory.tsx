@@ -9,6 +9,7 @@ interface FieldCategoryProps {
   title: string;
   fields: Field[];
   onUpdate: (fields: Field | Field[]) => void;
+  onCreateBins?: (field: Field) => void;
 }
 
 // Use virtualization if more than this many fields
@@ -27,7 +28,7 @@ const ROW_BASE_STYLE = {
   // contain removed to prevent z-index stacking issues with context menus
 };
 
-const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate }) => {
+const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate, onCreateBins }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerHeight, setContainerHeight] = useState(600);
   
@@ -90,6 +91,7 @@ const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate }
           onUpdate={onUpdate}
           source="AVAILABLE_FIELDS"
           allFields={fields}
+          onCreateBins={onCreateBins}
         />
       </div>
     );
@@ -137,6 +139,7 @@ const FieldCategory: React.FC<FieldCategoryProps> = ({ title, fields, onUpdate }
             onUpdate={onUpdate}
             source="AVAILABLE_FIELDS"
             allFields={fields}
+            onCreateBins={onCreateBins}
           />
         ))}
         {fields.length === 0 && (
