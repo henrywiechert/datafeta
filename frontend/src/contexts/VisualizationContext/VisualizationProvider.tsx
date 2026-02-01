@@ -108,7 +108,8 @@ export function VisualizationProvider({ children, initialState: initialStateProp
         dispatch({ type: 'SET_LOADING_RENDERING', payload: true });
         break;
       case 'metadata':
-        dispatch({ type: 'SET_LOADING_METADATA', payload: true });
+        // Note: Metadata loading state is now managed by DataSourceContext
+        // The 'metadata' operation type is kept for modal/timeout handling
         break;
     }
 

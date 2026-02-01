@@ -236,19 +236,18 @@ export function useFieldOperations({
         dataSourceSetters.setSelectedTable('');
         dataSourceSetters.setTables([]);
         dataSourceSetters.setAvailableFields([]);
-        // Dispatch to VisualizationContext to increment queryVersion
-        dispatch({ type: 'SET_SELECTED_DATABASE', payload: dbName });
-        dispatch({ type: 'SET_SELECTED_TABLE', payload: '' });
-    }, [dataSourceSetters, dispatch]);
+        // Note: Metadata is now managed by DataSourceContext
+        // Query refresh will be triggered when a table is selected and columns are fetched
+    }, [dataSourceSetters]);
 
     const handleTableSelect = useCallback((tableName: string) => {
         dataSourceSetters.setSelectedTable(tableName);
         // Clear existing fields when table changes
         dataSourceSetters.setAvailableFields([]);
-        // Dispatch to VisualizationContext to increment queryVersion
-        dispatch({ type: 'SET_SELECTED_TABLE', payload: tableName });
-        // Fetch suggested joins for the new table (will be called after table is set)
-        // The useEffect below will trigger fetchSuggestedJoins
+        // Trigger query refresh when table changes
+        // This ensures queries re-run even if axis fields are already set from a previous table
+        dispatch({ type: 'FORCE_QUERY_REFRESH' });
+        // Note: Fetch suggested joins will be triggered by useMetadataOperations effect
     }, [dataSourceSetters, dispatch]);
 
     return {
