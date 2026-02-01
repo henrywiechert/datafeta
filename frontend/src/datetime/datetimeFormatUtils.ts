@@ -311,4 +311,3 @@ export function roundToMillisecond(dateTimeString: string): string {
   const components = parseISODateTime(date.toISOString());
   return components ? formatISODateTime(components) : dateTimeString;
 }
-

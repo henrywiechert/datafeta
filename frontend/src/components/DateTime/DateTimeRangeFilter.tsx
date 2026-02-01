@@ -23,8 +23,8 @@ import {
   validateMilliseconds,
   formatDateTimeForDisplay,
   DateTimeComponents,
-} from '../../utils/datetimeFormatUtils';
-import { getPresetsForField } from '../../utils/datetimePresets';
+} from '../../datetime';
+import { getPresetsForField } from '../../datetime';
 import styles from './DateTimeRangeFilter.module.css';
 
 interface DateTimeRangeFilterProps {

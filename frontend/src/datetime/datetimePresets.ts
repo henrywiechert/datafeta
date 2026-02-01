@@ -297,4 +297,3 @@ export function getPresetsForField(dateTimePart?: string): DateTimePreset[] {
       return FULL_DATETIME_PRESETS;
   }
 }
-
