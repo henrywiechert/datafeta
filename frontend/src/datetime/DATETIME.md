@@ -2,6 +2,21 @@
 
 Centralized datetime handling for SQL generation, chart rendering, and data normalization.
 
+## Directory Structure Convention
+
+DateTime-related code is organized in two locations:
+
+| Location | Purpose | Naming |
+|----------|---------|--------|
+| `src/datetime/` | Core datetime logic (semantics, value models, normalization) | lowercase (module-style) |
+| `src/components/DateTime/` | UI components (filter controls, range pickers, menus) | PascalCase (component-style) |
+| `src/utils/datetime*.ts` | General datetime utilities (formatting, presets) | lowercase (utility-style) |
+
+This separation follows React conventions:
+- **Logic modules** use lowercase directory names
+- **UI components** use PascalCase directory names
+- **Utility functions** live in `utils/` with descriptive prefixes
+
 ## Architecture Overview
 
 ```
