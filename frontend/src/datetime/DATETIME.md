@@ -2,20 +2,33 @@
 
 Centralized datetime handling for SQL generation, chart rendering, and data normalization.
 
-## Directory Structure Convention
+## Directory Structure
 
-DateTime-related code is organized in two locations:
+All datetime logic is consolidated in `src/datetime/`:
 
-| Location | Purpose | Naming |
-|----------|---------|--------|
-| `src/datetime/` | Core datetime logic (semantics, value models, normalization) | lowercase (module-style) |
-| `src/components/DateTime/` | UI components (filter controls, range pickers, menus) | PascalCase (component-style) |
-| `src/utils/datetime*.ts` | General datetime utilities (formatting, presets) | lowercase (utility-style) |
+| File | Purpose |
+|------|---------|
+| `datetimeSemantics.ts` | Core datetime part/mode definitions, SQL mappings, UTC contract |
+| `dateTimeValueModel.ts` | Value detection and band scale normalization for charts |
+| `datetimeUtils.ts` | Field-level utilities (display names, validation, tooltips) |
+| `datetimePresets.ts` | Filter presets (Last 7 Days, This Month, etc.) |
+| `datetimeFormatUtils.ts` | Parsing and formatting with millisecond precision |
+| `utcWarnings.ts` | Non-UTC timezone detection and warnings |
+| `index.ts` | Barrel export for all datetime functionality |
 
-This separation follows React conventions:
-- **Logic modules** use lowercase directory names
-- **UI components** use PascalCase directory names
-- **Utility functions** live in `utils/` with descriptive prefixes
+**UI Components** live in `src/components/DateTime/`:
+- `DateTimeFilterControl.tsx` - Filter control for datetime fields
+- `DateTimeRangeFilter.tsx` - Range picker with presets and millisecond precision
+- `DateTimePartMenu.tsx` - Part/mode selection menu
+
+**Imports:**
+```typescript
+// Preferred: import from datetime module
+import { DATETIME_PARTS, formatISODateTime, getPresetsForField } from '../datetime';
+
+// Also works: import from utils (re-exports for backward compatibility)
+import { DATETIME_PARTS } from '../utils';
+```
 
 ## Architecture Overview
 

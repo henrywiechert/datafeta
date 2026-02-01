@@ -16,7 +16,7 @@ export * from './axisFieldValidation';
 // Binning utilities
 export * from './binningUtils';
 
-// DateTime utilities
+// DateTime utilities - re-exported from datetime/ module for backward compatibility
 // Note: getDateTimePartTooltip is duplicated in fieldUtils - exclude it here to avoid conflict
 export {
   DATETIME_PARTS,
@@ -35,9 +35,30 @@ export {
   formatDateForDisplay,
   extractDatePart,
   areDateTimeConfigsEqual,
-} from './datetimeUtils';
-export * from './datetimePresets';
-export * from './datetimeFormatUtils';
+} from '../datetime';
+// Presets and formatting re-exports
+export type { DateTimePreset } from '../datetime';
+export {
+  FULL_DATETIME_PRESETS,
+  TIMELINE_HOUR_PRESETS,
+  TIMELINE_DAY_PRESETS,
+  TIMELINE_MONTH_PRESETS,
+  TIMELINE_YEAR_PRESETS,
+  getPresetsForField,
+} from '../datetime';
+export type { DateTimeComponents } from '../datetime';
+export {
+  parseISODateTime,
+  parseUTCToLocal,
+  formatLocalToUTC,
+  formatISODateTime,
+  getCurrentDateTime,
+  formatDateTimeForDisplay,
+  validateMilliseconds,
+  adjustDateTime,
+  getStartOf,
+  roundToMillisecond,
+} from '../datetime';
 
 // Table and view utilities
 export * from './tableViewUtils';

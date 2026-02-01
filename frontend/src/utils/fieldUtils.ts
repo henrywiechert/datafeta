@@ -3,7 +3,7 @@ import {
   getResultColumnNameForDateTime,
   getFieldDisplayNameWithDateTime,
   getDateTimePartTooltip as getDateTimeTooltip 
-} from './datetimeUtils';
+} from '../datetime';
 import { generateSyntheticFieldsForGroup } from './syntheticFields';
 
 const DISCRETE_AGGREGATIONS: Aggregation[] = ['min', 'max', 'count', 'count_distinct'];
