@@ -95,8 +95,8 @@ export function useMetadataOperations({
             dataSourceSetters.setTables(response.tables || []);
             if ((connectionDetails?.type === 'csv' || connectionDetails?.type === 'kaggle') && response.tables?.length === 1) {
                 dataSourceSetters.setSelectedTable(response.tables[0].name);
-                // Dispatch to VisualizationContext to increment queryVersion for CSV/Kaggle auto-selection
-                dispatch({ type: 'SET_SELECTED_TABLE', payload: response.tables[0].name });
+                // Note: Query refresh is triggered by the effect that watches selectedTable
+                // and availableFields changes in the snapshot loading effect below
             }
         } catch (err: any) { 
             if (err.message === 'Request was cancelled') {
@@ -109,7 +109,7 @@ export function useMetadataOperations({
         finally { 
             dataSourceSetters.setIsLoadingMetadata(false);
         }
-    }, [connectionDetails?.type, dataSourceSetters, dispatch]);
+    }, [connectionDetails?.type, dataSourceSetters]);
 
     const fetchColumns = useCallback(async () => {
         if (!dataSource.selectedTable) return;
@@ -326,7 +326,7 @@ export function useMetadataOperations({
         // Clear existing metadata and fetch new data when connection changes
         // This ensures we get fresh data after reconnecting to a different server
         if (connectionDetails.type === 'clickhouse') {
-            // Clear old metadata first
+            // Clear old metadata first via DataSourceContext setters
             dataSourceSetters.setDatabases([]);
             dataSourceSetters.setTables([]);
             dataSourceSetters.setAvailableFields([]);
@@ -334,8 +334,8 @@ export function useMetadataOperations({
             if (!dataSource.selectedTable) {
                 dataSourceSetters.setSelectedTable('');
             }
-            // Clear selected database via dispatch
-            dispatch({ type: 'SET_SELECTED_DATABASE', payload: '' });
+            // Note: selectedDatabase is now managed via DataSourceContext setters
+            // The UI component that allows database selection will call setSelectedDatabase
             // Fetch new databases
             if (!dataSource.isLoadingMetadata) {
                 dataSourceSetters.setMetadataError(null);

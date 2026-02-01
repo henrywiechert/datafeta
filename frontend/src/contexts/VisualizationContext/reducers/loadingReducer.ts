@@ -52,11 +52,11 @@ export function loadingReducer(state: VisualizationState, action: VisualizationA
       };
     }
     case 'CANCEL_OPERATION':
+      // Note: isLoadingMetadata is now in DataSourceContext, not here
       return {
         ...state,
         isLoadingQuery: false,
         isLoadingRendering: false,
-        isLoadingMetadata: false,
         showLoadingModal: false,
         loadingOperationType: null,
         loadingStartTime: null,
@@ -75,7 +75,8 @@ export function loadingReducer(state: VisualizationState, action: VisualizationA
           updatedState.isLoadingRendering = false;
           break;
         case 'metadata':
-          updatedState.isLoadingMetadata = false;
+          // Note: isLoadingMetadata is now in DataSourceContext, not here
+          // The 'metadata' operation type is kept for modal/timeout handling
           break;
       }
       
@@ -110,7 +111,9 @@ export function loadingReducer(state: VisualizationState, action: VisualizationA
         updatedState.modalPrimaryOperation = longest;
       }
       
-      if (!updatedState.isLoadingQuery && !updatedState.isLoadingRendering && !updatedState.isLoadingMetadata) {
+      // Check if all tracked loading states are complete
+      // Note: isLoadingMetadata is now in DataSourceContext, not here
+      if (!updatedState.isLoadingQuery && !updatedState.isLoadingRendering) {
         updatedState.showLoadingModal = false;
         updatedState.loadingOperationType = null;
         updatedState.loadingStartTime = null;

@@ -1,4 +1,4 @@
-import { Field, Database, Table, QueryResult, FilterConfig, FilterMetadata, FieldOverrideState, UserChartType, QueryOptimizationSettings } from '../../types';
+import { Field, QueryResult, FilterConfig, FilterMetadata, FieldOverrideState, UserChartType, QueryOptimizationSettings } from '../../types';
 
 // Define loading operation types
 export type LoadingOperationType = 'query' | 'rendering' | 'metadata';
@@ -46,16 +46,11 @@ export interface FacetLabelStyles {
 }
 
 // Define the state interface
+// Note: Metadata (databases, tables, selectedDatabase, selectedTable, availableFields,
+// isLoadingMetadata, metadataError) is stored in DataSourceContext, not here.
 export interface VisualizationState {
   xAxisFields: Field[];
   yAxisFields: Field[];
-  availableFields: Field[];
-  databases: Database[];
-  tables: Table[];
-  selectedDatabase: string;
-  selectedTable: string;
-  isLoadingMetadata: boolean;
-  metadataError: string | null;
   queryResult: QueryResult | null;
   queryError: string | null;
   // Loading states
@@ -104,6 +99,8 @@ export interface VisualizationState {
   // MeasureNames/MeasureValues source tracking
   measureValuesSourceFields: Field[];
   // Measure group fields (per-sheet scope)
+  // Note: DataSourceContext also has measureGroupFields for session-scoped synthetic
+  // field generation. See DataSourceContext.tsx for details on this duplication.
   measureGroupFields: Field[];
   // Gantt chart zoom range (null = full data range)
   ganttZoomRange: { min: number; max: number } | null;
@@ -114,23 +111,21 @@ export interface VisualizationState {
 }
 
 // Define action types
+// Note: Metadata actions (SET_AVAILABLE_FIELDS, SET_DATABASES, SET_TABLES, SET_SELECTED_DATABASE,
+// SET_SELECTED_TABLE, SET_LOADING_METADATA, SET_METADATA_ERROR) have been removed.
+// Metadata is now managed exclusively by DataSourceContext.
 export type VisualizationAction =
   // Axis actions
   | { type: 'SET_X_AXIS_FIELDS'; payload: Field[] }
   | { type: 'SET_Y_AXIS_FIELDS'; payload: Field[] }
   | { type: 'SWAP_AXIS_FIELDS' }
   | { type: 'MOVE_FIELD_BETWEEN_AXES'; payload: { fieldId: string; fromAxis: 'x' | 'y'; toAxis: 'x' | 'y'; insertIndex?: number } }
-  | { type: 'SET_AVAILABLE_FIELDS'; payload: Field[] }
-  | { type: 'SET_DATABASES'; payload: Database[] }
-  | { type: 'SET_TABLES'; payload: Table[] }
-  | { type: 'SET_SELECTED_DATABASE'; payload: string }
-  | { type: 'SET_SELECTED_TABLE'; payload: string }
-  | { type: 'SET_LOADING_METADATA'; payload: boolean }
-  | { type: 'SET_METADATA_ERROR'; payload: string | null }
   | { type: 'UPDATE_FIELD'; payload: Field }
   | { type: 'SET_QUERY_RESULT'; payload: QueryResult | null }
   | { type: 'SET_QUERY_ERROR'; payload: string | null }
   | { type: 'RESET_STATE' }
+  // Reset query state only (used on connection change without clearing visualization config)
+  | { type: 'RESET_QUERY_STATE' }
   // Loading actions
   | { type: 'SET_LOADING_QUERY'; payload: boolean }
   | { type: 'SET_LOADING_RENDERING'; payload: boolean }

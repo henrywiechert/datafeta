@@ -4,7 +4,7 @@ import { Tabs, Tab, Box, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitl
 import AddIcon from '@mui/icons-material/Add';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { SheetProvider, useSheetContext } from './contexts/SheetContext';
-import { DataSourceProvider, useDataSource } from './contexts/DataSourceContext';
+import { useDataSource } from './contexts/DataSourceContext';
 import { useConnection } from './contexts/ConnectionContext';
 import { useDataSourceVersionSync } from './hooks/useSheetRenderCache';
 import { sheetRenderCacheStore } from './stores';
@@ -618,13 +618,13 @@ function AppContent() {
 }
 
 function App() {
+  // Note: DataSourceProvider is now at the root level in index.tsx
+  // This ensures ConnectionContext can access DataSourceContext
   return (
     <Router>
-      <DataSourceProvider>
-        <SheetProvider>
-          <AppContent />
-        </SheetProvider>
-      </DataSourceProvider>
+      <SheetProvider>
+        <AppContent />
+      </SheetProvider>
     </Router>
   );
 }
