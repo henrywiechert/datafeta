@@ -253,3 +253,17 @@ await apiService.getDistinctValues(..., controller.signal);
 | `useMetadataOperations` | - | `listDatabases`, `listTables`, `listColumns`, `getMergedColumns` |
 | `useFilterMetadata` | - | `getDistinctValues`, `getFieldRange`, `getDateTimeRange` |
 | `useConnectionForm` | - | `searchKaggleDatasets`, `listKaggleFiles` |
+
+---
+
+## Importing Hooks
+
+All hooks are exported from `index.ts` for convenient imports:
+
+```typescript
+// Individual import
+import { useVisualizationState } from './hooks/useVisualizationState';
+
+// Barrel import (preferred)
+import { useVisualizationState, useDragDrop, useMetadata } from './hooks';
+```
