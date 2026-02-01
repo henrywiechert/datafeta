@@ -12,118 +12,12 @@ import { CellChartType, ChartTypeOverrides, resolveChartTypeForPair } from '../h
 import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField, sortCategoriesByValue, Orientation } from './barCore';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 
-// ---------- Types -----------------------------------------------------------
+// Types and helpers extracted to separate files
+import { Domains, ChartContext, ChartHandler } from './cellChartTypes';
+import { aggregateValues, resolveXYColumns, messageOptions, scatterForDimOnly, resolveColumnInData } from './cellChartHelpers';
 
-type Domains = Record<string, [number, number] | [Date, Date]> | undefined;
-
-/**
- * Context object bundling common chart generation parameters.
- * Reduces parameter passing overhead across handler functions.
- */
-interface ChartContext {
-  sharedMeasureDomains?: Domains;
-  sharedCategoricalDomains?: Record<string, any[]>;
-  colorField?: Field;
-  sizeField?: Field;
-  sizeRange?: [number, number];
-  manualSize?: number;
-  bandThicknessScale?: number;
-  colorScheme?: string;
-  colorBias?: number;
-  manualColor?: string;
-  labelCfg?: LabelConfig;
-  tooltipFields?: Field[];
-  /** Facet fields to display in tooltips for context (from faceted charts) */
-  facetFields?: Field[];
-  /** Gantt chart zoom range - when active, filters and clamps bars to this range */
-  ganttZoomRange?: GanttZoomRange | null;
-}
-
-/**
- * Handler function signature for chart type rendering.
- */
-type ChartHandler = (
-  data: any[],
-  xf: Field,
-  yf: Field,
-  ctx: ChartContext
-) => Plot.PlotOptions;
-
-// ---------- Helpers ---------------------------------------------------------
-
-/**
- * Aggregate numeric values from data using the specified aggregation function.
- * Handles sum, count, count_distinct, min, max, avg.
- */
-function aggregateValues(
-  data: any[],
-  column: string,
-  aggregation?: string
-): number {
-  const values = (Array.isArray(data) ? data : [])
-    .map((d) => d?.[column])
-    .filter((v) => typeof v === 'number' && Number.isFinite(v)) as number[];
-  
-  if (values.length === 0) return 0;
-  
-  const agg = (aggregation || 'sum').toLowerCase();
-  switch (agg) {
-    case 'sum':
-      return values.reduce((s, v) => s + v, 0);
-    case 'count':
-    case 'count_distinct':
-      // COUNT aliases are already counts per group; sum them
-      return values.reduce((s, v) => s + v, 0);
-    case 'min':
-      return Math.min(...values);
-    case 'max':
-      return Math.max(...values);
-    case 'avg':
-      // Fallback to simple mean across groups (not weighted)
-      return values.reduce((s, v) => s + v, 0) / values.length;
-    default:
-      return values.reduce((s, v) => s + v, 0);
-  }
-}
-
-/**
- * Resolve column names for X and Y fields, handling measure aggregation aliases.
- */
-function resolveXYColumns(xf: Field, yf: Field): { xCol: string; yCol: string } {
-  const xCol = xf.type === 'measure'
-    ? getResultColumnName({ ...xf, aggregation: xf.aggregation || 'sum' } as any)
-    : getResultColumnName(xf);
-  const yCol = yf.type === 'measure'
-    ? getResultColumnName({ ...yf, aggregation: yf.aggregation || 'sum' } as any)
-    : getResultColumnName(yf);
-  return { xCol, yCol };
-}
-
-/**
- * Create a message-only plot (for error/empty states).
- */
-function messageOptions(text: string): Plot.PlotOptions {
-  return {
-    marks: [Plot.text([text], { frameAnchor: 'middle', fontSize: 12, fill: 'gray' })],
-  };
-}
-
-/**
- * Fallback scatter for dimension-only case.
- */
-function scatterForDimOnly(
-  data: any[],
-  dim: Field,
-  ctx: ChartContext
-): Plot.PlotOptions {
-  const col = dim.columnName;
-  return scatterChart(
-    data, col, col, { x: col, y: col },
-    ctx.colorField, undefined, ctx.colorBias, ctx.manualColor,
-    ctx.sizeField, ctx.sizeRange, ctx.manualSize,
-    undefined, ctx.tooltipFields, ctx.facetFields
-  );
-}
+// Re-export types for external consumers
+export type { Domains, ChartContext, ChartHandler } from './cellChartTypes';
 
 // ---------- Unified Bar Creation --------------------------------------------
 
@@ -480,26 +374,6 @@ function handleDot(data: any[], xf: Field, yf: Field, _ctx: ChartContext): Plot.
     y: { label: yCol },
     marks: [Plot.dot(data, { x: xCol, y: yCol, fill: DEFAULT_CHART_COLOR, r: 2 })],
   };
-}
-
-/**
- * Resolve the actual column name in data, handling aggregation aliases.
- * The query may return raw column name or aggregated alias (e.g., "dur" vs "SUM(dur)").
- */
-function resolveColumnInData(data: any[], field: Field): string {
-  const rawName = field.columnName;
-  const aggName = getResultColumnName(field);
-  
-  // Check if aggregated alias exists in data first (preferred)
-  if (data.length > 0 && Object.prototype.hasOwnProperty.call(data[0], aggName)) {
-    return aggName;
-  }
-  // Fall back to raw column name
-  if (data.length > 0 && Object.prototype.hasOwnProperty.call(data[0], rawName)) {
-    return rawName;
-  }
-  // Default to aggregated name (let it fail gracefully downstream)
-  return aggName;
 }
 
 function handleGanttX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.PlotOptions {

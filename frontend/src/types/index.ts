@@ -1,0 +1,111 @@
+/**
+ * Types Index
+ * 
+ * Centralized exports for all type definitions.
+ * Import from here for convenience: import { Field, QueryResult } from '../types';
+ */
+
+// Database and metadata types
+export type { Database, Table, Column } from './database';
+
+// Virtual column types
+export type { BinnedFieldDefinition, VirtualColumnDefinition } from './virtualColumn';
+
+// Multi-table support types
+export type {
+  ForeignKeyRelationship,
+  TableJoinDefinition,
+  UnionTableDefinition,
+  VirtualTableDefinition,
+  TableRelationshipsResponse,
+  SuggestedJoinsResponse,
+  SuggestedUnionsResponse,
+  MergedColumnsResponse,
+} from './multiTable';
+
+// Kaggle types
+export type {
+  KaggleDataset,
+  KaggleFile,
+  KaggleSearchResponse,
+  KaggleFilesResponse,
+} from './kaggle';
+
+// Connection types
+export type {
+  ConnectionDetails,
+  DatabaseListResponse,
+  TableListResponse,
+  ColumnListResponse,
+} from './connection';
+
+// Field types
+export type {
+  FieldType,
+  Aggregation,
+  Flavour,
+  DataType,
+  DateTimePart,
+  DateTimeMode,
+  DragSource,
+  Field,
+  DataLabelMode,
+  UserChartType,
+  FieldOverrideState,
+  QueryOptimizationSettings,
+} from './field';
+
+// Query types
+export type {
+  ColumnCastConfig,
+  ColumnCasts,
+  Measure,
+  Filter,
+  OrderBy,
+  Dimension,
+  ResultBudget,
+  QueryDescription,
+  QueryResultColumn,
+  QueryResult,
+  FieldOptimizationHint,
+  OptimizationHints,
+  OptimizationOverride,
+  ResultDimensions,
+  OptimizationMetadata,
+} from './query';
+
+// Filter types
+export type {
+  FilterType,
+  DiscreteFilterConfig,
+  ContinuousFilterConfig,
+  DateTimeFilterConfig,
+  FilterConfig,
+  DiscreteFilterMetadata,
+  ContinuousFilterMetadata,
+  DateTimeFilterMetadata,
+  FilterMetadata,
+} from './filter';
+
+// Sheet types
+export type {
+  XAxisLabelStyle,
+  YAxisLabelStyle,
+  AxisLabelStyles,
+  FacetHeaderLabelStyle,
+  FacetTopValuesLabelStyle,
+  FacetLeftValuesLabelStyle,
+  FacetLabelStyles,
+  VisualizationStateSnapshot,
+  Sheet,
+  SheetManagerState,
+  SheetAction,
+} from './sheet';
+
+// Saved configuration types
+export type {
+  SavedConnectionMetadata,
+  SavedDataSourceSelection,
+  SavedConfiguration,
+  SnapshotMetadata,
+} from './savedConfig';
