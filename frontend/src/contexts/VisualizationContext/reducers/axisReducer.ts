@@ -3,8 +3,8 @@ import { sameFieldArray } from './utils';
 import { initialState } from '../initialState';
 
 /**
- * Handles axis-related actions: X/Y fields, available fields, databases, tables,
- * field updates, query results, and state reset.
+ * Handles axis-related actions: X/Y fields, field updates, query results, and state reset.
+ * Note: Metadata (databases, tables, availableFields) is now managed by DataSourceContext.
  */
 export function axisReducer(state: VisualizationState, action: VisualizationAction): VisualizationState | null {
   switch (action.type) {
@@ -61,22 +61,9 @@ export function axisReducer(state: VisualizationState, action: VisualizationActi
         yAxisFields: fromAxis === 'y' ? newSourceFields : toAxis === 'y' ? newTargetFields : state.yAxisFields
       };
     }
-    case 'SET_AVAILABLE_FIELDS':
-      return { ...state, availableFields: action.payload };
-    case 'SET_DATABASES':
-      return { ...state, databases: action.payload };
-    case 'SET_TABLES':
-      return { ...state, tables: action.payload };
-    case 'SET_SELECTED_DATABASE':
-      if (state.selectedDatabase === action.payload) return state;
-      return { ...state, selectedDatabase: action.payload, queryVersion: state.queryVersion + 1 };
-    case 'SET_SELECTED_TABLE':
-      if (state.selectedTable === action.payload) return state;
-      return { ...state, selectedTable: action.payload, queryVersion: state.queryVersion + 1 };
-    case 'SET_LOADING_METADATA':
-      return { ...state, isLoadingMetadata: action.payload };
-    case 'SET_METADATA_ERROR':
-      return { ...state, metadataError: action.payload };
+    // Note: Metadata actions (SET_AVAILABLE_FIELDS, SET_DATABASES, SET_TABLES, SET_SELECTED_DATABASE,
+    // SET_SELECTED_TABLE, SET_LOADING_METADATA, SET_METADATA_ERROR) have been removed.
+    // Metadata is now managed exclusively by DataSourceContext.
     case 'UPDATE_FIELD': {
       const updated = action.payload;
 
@@ -98,14 +85,7 @@ export function axisReducer(state: VisualizationState, action: VisualizationActi
         return f;
       });
 
-      let availChanged = false;
-      const newAvail = state.availableFields.map((f) => {
-        if (f.id === updated.id) {
-          availChanged = true;
-          return updated;
-        }
-        return f;
-      });
+      // Note: availableFields is now in DataSourceContext, not updated here
 
       const colorChanged = !!(state.colorField && state.colorField.id === updated.id);
       const sizeChanged = !!(state.sizeField && state.sizeField.id === updated.id);
@@ -148,7 +128,6 @@ export function axisReducer(state: VisualizationState, action: VisualizationActi
         ...state,
         xAxisFields: xChanged ? newX : state.xAxisFields,
         yAxisFields: yChanged ? newY : state.yAxisFields,
-        availableFields: availChanged ? newAvail : state.availableFields,
         colorField: colorChanged ? updated : state.colorField,
         sizeField: sizeChanged ? updated : state.sizeField,
         labelFields: labelsChanged ? newLabels : state.labelFields,
@@ -179,6 +158,10 @@ export function axisReducer(state: VisualizationState, action: VisualizationActi
     }
     case 'RESET_STATE':
       return initialState;
+    case 'RESET_QUERY_STATE':
+      // Clear only query results without touching visualization config (axis fields, filters, etc.)
+      // Used on connection change to free memory without losing user's visualization setup
+      return { ...state, queryResult: null, queryError: null };
     case 'TABLE_JOINS_UNIONS_MODIFIED':
       return { ...state, queryVersion: state.queryVersion + 1 };
     case 'FORCE_QUERY_REFRESH':

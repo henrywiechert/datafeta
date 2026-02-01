@@ -18,7 +18,14 @@ interface DataSourceState {
   tablesCache: Record<string, Table[]>;  // Cache of tables by database name (for cross-database union)
   isLoadingMetadata: boolean;
   metadataError: string | null;
-  // Single measure group (global) with independent field copies
+  // Measure group fields (session-scoped for synthetic field generation)
+  // Note: VisualizationContext also has measureGroupFields for per-sheet scope.
+  // The DataSourceContext version is used to rebuild availableFields with synthetic
+  // MeasureNames/MeasureValues fields. This duplication exists because:
+  // - availableFields is session-scoped (shared across sheets)
+  // - But users may want different measure groups per sheet
+  // Future improvement: Unify this by making synthetic field generation dynamic
+  // based on the active sheet's measure group selection.
   measureGroupFields: Field[];
   // Multi-table support - JOIN mode
   joinedTables: string[];  // List of additional tables joined to primary table
@@ -62,6 +69,8 @@ interface DataSourceContextType {
   removeVirtualColumn: (index: number) => void;
   setVirtualColumnFieldPreference: (columnName: string, preference: VirtualColumnPreference) => void;
   setVirtualColumnFieldPreferences: (preferences: Record<string, VirtualColumnPreference>) => void;
+  // Reset all metadata state (used on connect/disconnect)
+  resetMetadata: () => void;
 }
 
 const DataSourceContext = createContext<DataSourceContextType | undefined>(undefined);
@@ -315,6 +324,29 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  // Reset all metadata state - used when connecting/disconnecting from data source
+  const resetMetadata = () => {
+    setDataSource(prev => ({
+      ...prev,
+      databases: [],
+      tables: [],
+      tablesCache: {},
+      selectedDatabase: '',
+      selectedTable: '',
+      availableFields: [],
+      isLoadingMetadata: false,
+      metadataError: null,
+      measureGroupFields: [],
+      joinedTables: [],
+      suggestedJoinableTables: [],
+      unionTables: [],
+      suggestedUnionableTables: [],
+      virtualTable: null,
+      // Note: virtualColumns and virtualColumnFieldPreferences are intentionally preserved
+      // as they may be reused across connections
+    }));
+  };
+
   return (
     <DataSourceContext.Provider
       value={{
@@ -345,6 +377,7 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
         removeVirtualColumn,
         setVirtualColumnFieldPreference,
         setVirtualColumnFieldPreferences,
+        resetMetadata,
       }}
     >
       {children}

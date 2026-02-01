@@ -2,16 +2,11 @@ import { VisualizationState } from './types';
 import { SIZE_DEFAULT_FALLBACK } from '../../config/chartLayoutConfig';
 import { DEFAULT_MANUAL_COLOR } from '../../config/colorSchemes';
 
+// Note: Metadata (databases, tables, selectedDatabase, selectedTable, availableFields,
+// isLoadingMetadata, metadataError) is now stored in DataSourceContext, not here.
 export const initialState: VisualizationState = {
   xAxisFields: [],
   yAxisFields: [],
-  availableFields: [],
-  databases: [],
-  tables: [],
-  selectedDatabase: '',
-  selectedTable: '',
-  isLoadingMetadata: false,
-  metadataError: null,
   queryResult: null,
   queryError: null,
   // Loading states

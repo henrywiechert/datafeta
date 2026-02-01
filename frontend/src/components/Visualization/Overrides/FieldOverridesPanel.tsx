@@ -3,6 +3,7 @@ import { Box } from '@mui/material';
 import TuneIcon from '@mui/icons-material/Tune';
 import { PropertySection } from '../Properties';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
+import { useDataSource } from '../../../contexts/DataSourceContext';
 import { useUndoRedo } from '../../../contexts/UndoRedoContext';
 import { Field } from '../../../types';
 import { computeOverrideTargets } from '../../../observable-plot-generator/utils/fieldOverrides';
@@ -20,12 +21,15 @@ import FieldOverrideRow from './FieldOverrideRow';
 
 const FieldOverridesPanel: React.FC = () => {
   const { state, dispatch, getUndoableSnapshot } = useVisualizationContext();
+  const { dataSource } = useDataSource();
   const { recordAction } = useUndoRedo();
+
+  // Get availableFields from DataSourceContext (session-scoped)
+  const { availableFields } = dataSource;
 
   const {
     xAxisFields,
     yAxisFields,
-    availableFields,
     filterFields,
     fieldOverrides,
     colorField,

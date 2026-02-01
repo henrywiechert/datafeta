@@ -1,6 +1,7 @@
 import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
 import { ConnectionDetails } from '../types'; // Assuming types are defined in ../types
 import { apiService } from '../apiService';
+import { useDataSource } from './DataSourceContext';
 import { useVisualizationContext } from './VisualizationContext';
 
 interface ConnectionState {
@@ -25,6 +26,7 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [connectionDetails, setConnectionDetails] = useState<ConnectionDetails | null>(null);
+  const { resetMetadata } = useDataSource();
   const { dispatch } = useVisualizationContext();
 
   const connect = useCallback(async (details: ConnectionDetails, file?: File) => {
@@ -50,15 +52,11 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
       setConnectionDetails(details); // Store successful connection details
       setIsConnected(true);
       setError(null);
-      // Reset metadata to trigger refresh without touching axis fields
-      dispatch({ type: 'SET_DATABASES', payload: [] });
-      dispatch({ type: 'SET_TABLES', payload: [] });
-      dispatch({ type: 'SET_AVAILABLE_FIELDS', payload: [] });
-      dispatch({ type: 'SET_SELECTED_DATABASE', payload: '' });
-      dispatch({ type: 'SET_SELECTED_TABLE', payload: '' });
-      // Clear query results to free memory
-      dispatch({ type: 'SET_QUERY_RESULT', payload: null });
-      dispatch({ type: 'SET_QUERY_ERROR', payload: null });
+      // Reset metadata in DataSourceContext to trigger refresh
+      // This clears databases, tables, availableFields, selectedDatabase, selectedTable
+      resetMetadata();
+      // Clear query results to free memory (still in VisualizationContext)
+      dispatch({ type: 'RESET_QUERY_STATE' });
       // Don't navigate here
     } catch (err: any) {
         let errorMessage = 'Connection failed';
@@ -88,7 +86,7 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
     } finally {
       setIsLoading(false);
     }
-  }, [dispatch, isConnected]);
+  }, [dispatch, resetMetadata, isConnected]);
 
   const disconnect = useCallback(async () => {
     setIsLoading(true);
@@ -104,19 +102,15 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
       setIsConnected(false);
       setConnectionDetails(null);
       
-      // Clear all visualization state to free memory - don't use RESET_STATE as it clears axis fields too
-      // Just clear metadata and query results
-      dispatch({ type: 'SET_DATABASES', payload: [] });
-      dispatch({ type: 'SET_TABLES', payload: [] });
-      dispatch({ type: 'SET_AVAILABLE_FIELDS', payload: [] });
-      dispatch({ type: 'SET_SELECTED_DATABASE', payload: '' });
-      dispatch({ type: 'SET_SELECTED_TABLE', payload: '' });
-      dispatch({ type: 'SET_QUERY_RESULT', payload: null });
-      dispatch({ type: 'SET_QUERY_ERROR', payload: null });
+      // Reset metadata in DataSourceContext
+      // This clears databases, tables, availableFields, selectedDatabase, selectedTable
+      resetMetadata();
+      // Clear query results to free memory (still in VisualizationContext)
+      dispatch({ type: 'RESET_QUERY_STATE' });
       
       setIsLoading(false);
     }
-  }, [dispatch]);
+  }, [dispatch, resetMetadata]);
 
   const value = {
     isConnected,
