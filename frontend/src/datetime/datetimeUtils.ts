@@ -6,30 +6,10 @@
  */
 
 import { DateTimePart, DateTimeMode, Field } from '../types';
-
-/**
- * All supported datetime parts
- */
-export const DATETIME_PARTS: readonly DateTimePart[] = [
-  'year',
-  'month', 
-  'day',
-  'weekday',
-  'hour',
-  'minute',
-  'second',
-  'millisecond',
-  'microsecond',
-  'nanosecond',
-] as const;
-
-/**
- * All supported datetime modes
- */
-export const DATETIME_MODES: readonly DateTimeMode[] = [
-  'distinct',
-  'timeline',
-] as const;
+// Re-export from datetimeSemantics for backward compatibility
+// Note: DATETIME_PARTS and DATETIME_MODES are defined in datetimeSemantics.ts
+import { DATETIME_PARTS, DATETIME_MODES } from './datetimeSemantics';
+export { DATETIME_PARTS, DATETIME_MODES };
 
 /**
  * Check if a field is a datetime field
@@ -196,4 +176,3 @@ export function areDateTimeConfigsEqual(
     field1.dateTimeMode === field2.dateTimeMode
   );
 }
-
