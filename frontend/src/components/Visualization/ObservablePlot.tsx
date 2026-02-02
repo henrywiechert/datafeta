@@ -186,9 +186,9 @@ function addTooltipListeners(
   hideTooltip: () => void,
   updatePosition: (x: number, y: number) => void
 ): () => void {
-  // Find all interactive marks (circles, rects, paths with fill)
+  // Find all interactive marks (circles, rects, paths with fill, lines)
   // Observable Plot typically uses these elements for data visualization
-  const marks = plot.querySelectorAll('circle, rect, path[fill]:not([fill="none"])');
+  const marks = plot.querySelectorAll('circle, rect, path[fill]:not([fill="none"]), line');
   const cleanupFunctions: Array<() => void> = [];
   
   // Helper to check if a color value is "visible" (not transparent/none)
@@ -267,6 +267,46 @@ function addTooltipListeners(
     return color;
   };
 
+  // Helper to find corresponding line element for a hover dot (for tick strips)
+  const findCorrespondingLine = (circle: Element): Element | null => {
+    const cx = circle.getAttribute('cx');
+    const cy = circle.getAttribute('cy');
+    if (!cx || !cy) return null;
+    
+    const svgRoot = circle.closest('svg');
+    if (!svgRoot) return null;
+    
+    // Find a line element that passes through the circle's center point
+    const lines = Array.from(svgRoot.querySelectorAll('line'));
+    for (const line of lines) {
+      const x1 = line.getAttribute('x1');
+      const y1 = line.getAttribute('y1');
+      const x2 = line.getAttribute('x2');
+      const y2 = line.getAttribute('y2');
+      
+      // Check if circle center is on or very near the line
+      // For tick marks, either x1===x2 (vertical) or y1===y2 (horizontal)
+      const isOnLine = (
+        // Vertical line: check if cx matches and cy is between y1 and y2
+        (x1 === x2 && x1 === cx) ||
+        // Horizontal line: check if cy matches and cx is between x1 and x2
+        (y1 === y2 && y1 === cy)
+      );
+      
+      if (isOnLine) {
+        // Also check that the line has a visible stroke (it's the actual tick, not another invisible element)
+        const stroke = line.getAttribute('stroke');
+        if (stroke && stroke !== 'transparent' && stroke !== 'none') {
+          return line;
+        }
+      }
+    }
+    return null;
+  };
+  
+  // Track which element is actually highlighted (may differ from hovered element)
+  let highlightedElement: Element | null = null;
+
   marks.forEach((mark, index) => {
     // Observable Plot stores data on elements via __data__ property
     const element = mark as any;
@@ -304,8 +344,26 @@ function addTooltipListeners(
           }
           
           showTooltip(mouseEvent.clientX, mouseEvent.clientY, fields, colorHex);
+          
+          // Determine which element to highlight
+          // If this is a transparent circle (hover dot for tick strips), highlight the line instead
+          let elementToHighlight: Element = mark;
+          if (mark.tagName.toLowerCase() === 'circle') {
+            const fill = mark.getAttribute('fill');
+            const stroke = mark.getAttribute('stroke');
+            const isTransparent = (fill === 'transparent' || fill === 'none' || !fill) &&
+                                  (stroke === 'transparent' || stroke === 'none' || !stroke);
+            if (isTransparent) {
+              const correspondingLine = findCorrespondingLine(mark);
+              if (correspondingLine) {
+                elementToHighlight = correspondingLine;
+              }
+            }
+          }
+          
           // Add highlight class AFTER computing color to avoid style interference
-          mark.classList.add('chart-mark--highlighted');
+          elementToHighlight.classList.add('chart-mark--highlighted');
+          highlightedElement = elementToHighlight;
         } catch (error) {
           console.warn('[CustomTooltip] Error generating tooltip fields:', error);
         }
@@ -320,7 +378,12 @@ function addTooltipListeners(
     };
 
     const handleMouseLeave = () => {
-      // Remove highlight class when mouse leaves
+      // Remove highlight class from the element that was actually highlighted
+      if (highlightedElement) {
+        highlightedElement.classList.remove('chart-mark--highlighted');
+        highlightedElement = null;
+      }
+      // Also remove from the mark itself in case it was highlighted directly
       mark.classList.remove('chart-mark--highlighted');
       
       hideTooltip();
@@ -336,6 +399,11 @@ function addTooltipListeners(
       mark.removeEventListener('mousemove', handleMouseMove);
       mark.removeEventListener('mouseleave', handleMouseLeave);
       mark.classList.remove('chart-mark--highlighted');
+      // Also clean up any separately highlighted element (like lines for tick strips)
+      if (highlightedElement) {
+        highlightedElement.classList.remove('chart-mark--highlighted');
+        highlightedElement = null;
+      }
     });
   });
   

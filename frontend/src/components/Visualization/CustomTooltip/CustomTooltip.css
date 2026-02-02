@@ -141,11 +141,19 @@
 
 /* Highlight hovered chart marks */
 .chart-mark--highlighted {
-  /* Highlight without changing visual size */
-  filter: brightness(1.8);
-  transition: filter 0.15s ease-out;
+  /* Subtle highlight without changing visual size */
+  filter: brightness(1.1);
+  transition: filter 0.15s ease-out, stroke 0.15s ease-out, stroke-width 0.15s ease-out;
   cursor: pointer;
-  /* Minimal stroke enhancement */
-  stroke-width: 1;
+  /* Dark frame around the hovered element */
+  stroke: rgba(0, 0, 0, 0.6);
+  stroke-width: 1.5px;
+}
+
+/* Stronger highlight for tick strip lines (they're thin so need more emphasis) */
+line.chart-mark--highlighted {
+  filter: brightness(0.7);
+  stroke: rgba(0, 0, 0, 0.9);
+  stroke-width: 3px;
 }
 
