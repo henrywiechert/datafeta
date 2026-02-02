@@ -6,6 +6,7 @@ import { computeOverrideTargets } from '../../../../observable-plot-generator/ut
 import { logOperationTiming } from '../utils';
 import { planFacets } from '../../../../observable-plot-generator/faceting/facetPlanner';
 import { validateFacetCounts, FacetValidationResult } from '../../../../observable-plot-generator/faceting/facetValidation';
+import { useFieldAliasLookup } from '../../../../hooks/useFieldDisplayName';
 
 /** Debounce delay for zoom-triggered regeneration (ms) */
 const ZOOM_REGEN_DEBOUNCE_MS = 150;
@@ -85,6 +86,9 @@ export const useChartGeneration = ({
   const [chartInfo, setChartInfo] = useState<any | null>(null);
   const [renderingError, setRenderingError] = useState<string | null>(null);
   const [facetLimitWarning, setFacetLimitWarning] = useState<FacetValidationResult | null>(null);
+  
+  // Get field alias lookup for chart labels
+  const fieldAliasLookup = useFieldAliasLookup();
   
   // Store pending generation context for when user proceeds after warning
   const pendingGenerationRef = useRef<{
@@ -229,6 +233,7 @@ export const useChartGeneration = ({
         measureValuesSourceFields,
         independentDomains,
         ganttZoomRange: ganttZoomRangeRef.current,
+        fieldAliasLookup,
       };
       
       // Track which zoom range we generated with
@@ -278,7 +283,7 @@ export const useChartGeneration = ({
       // On error, complete the operation immediately since no rendering will happen
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, bandThicknessScale, useTableView, startOperation, completeOperation, queryResult, queryVersion, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, tooltipFields, fieldOverrides, globalChartType, measureValuesSourceFields, independentDomains, doGenerateChart]);
+  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, bandThicknessScale, useTableView, startOperation, completeOperation, queryResult, queryVersion, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, tooltipFields, fieldOverrides, globalChartType, measureValuesSourceFields, independentDomains, doGenerateChart, fieldAliasLookup]);
 
   const cancelGeneration = useCallback(() => {
     // No-op since Observable Plot generation is synchronous

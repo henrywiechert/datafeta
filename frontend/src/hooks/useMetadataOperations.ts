@@ -19,6 +19,7 @@ interface DataSourceState {
     joinedTables: string[];
     unionTables: Array<{database: string, table_name: string}>;
     virtualTable: any | null;
+    fieldDisplayAliases: Record<string, string>;
 }
 
 interface DataSourceSetters {
@@ -124,7 +125,8 @@ export function useMetadataOperations({
             // Process columns into fields with synthetic fields
             const { allFields, nextMeasureGroupFields } = processColumnsResponse(
                 response.columns,
-                measureGroupFields
+                measureGroupFields,
+                { fieldDisplayAliases: dataSource.fieldDisplayAliases }
             );
 
             // Update state

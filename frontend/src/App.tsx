@@ -44,6 +44,7 @@ function AppContent() {
     setVirtualTable,
     setVirtualColumns,
     setVirtualColumnFieldPreferences,
+    setFieldAlias,
   } = useDataSource();
   const { connectionDetails, connect, disconnect, isConnected } = useConnection();
   
@@ -231,7 +232,8 @@ function AppContent() {
       dataSource.unionTables,
       dataSource.virtualTable?.joined_tables,
       dataSource.virtualColumns,
-      dataSource.virtualColumnFieldPreferences
+      dataSource.virtualColumnFieldPreferences,
+      dataSource.fieldDisplayAliases
     );
   };
 
@@ -409,6 +411,13 @@ function AppContent() {
               setVirtualColumnFieldPreferences(config.dataSource!.virtualColumnFieldPreferences);
             } else {
               setVirtualColumnFieldPreferences({});
+            }
+            // Restore field display aliases if present
+            if (config.dataSource!.fieldDisplayAliases) {
+              // Set aliases one by one using the context method
+              Object.entries(config.dataSource!.fieldDisplayAliases).forEach(([columnName, alias]) => {
+                setFieldAlias(columnName, alias);
+              });
             }
             // Restore union tables if present
             if (config.dataSource!.unionTables && config.dataSource!.unionTables.length > 0) {

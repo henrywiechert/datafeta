@@ -5,9 +5,11 @@ import SubMenu from '../SubMenu';
 import { canBeContinuous, canBeMeasure, getFieldAggregations } from './utils';
 import { DragSource } from './types';
 import ColumnCastingDialog from './ColumnCastingDialog';
+import { FieldAliasDialog } from './FieldAliasDialog';
 import DateTimePartMenu from '../../DateTime/DateTimePartMenu';
 import { isSyntheticField } from '../../../utils/syntheticFields';
 import { FieldMenuConfig } from './fieldMenuConfig';
+import { useDataSource } from '../../../contexts/DataSourceContext';
 
 interface FieldMenuItemsProps {
   field: Field;
@@ -31,6 +33,8 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
   onCreateBins,
 }) => {
   const [castingDialogOpen, setCastingDialogOpen] = useState(false);
+  const [aliasDialogOpen, setAliasDialogOpen] = useState(false);
+  const { setFieldAlias } = useDataSource();
   
   // Check if we're in bulk edit mode
   const isBulkEdit = selectedFields.length > 1;
@@ -71,6 +75,14 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
       });
     }
     setCastingDialogOpen(false);
+  };
+
+  const handleAliasConfirm = (alias: string | undefined) => {
+    // Update the alias in the data source context only
+    // The alias lookup happens at render time, so we don't need to update individual field objects
+    setFieldAlias(field.columnName, alias);
+    setAliasDialogOpen(false);
+    onRequestClose?.();
   };
 
   return (
@@ -171,6 +183,19 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
         </>
       )}
 
+      {/* Rename Field - shown for non-synthetic, non-virtual fields in single selection mode */}
+      {!isBulkEdit && !isSynthetic && !field.is_virtual && (
+        <>
+          <div className={menuStyles.separator} />
+          <div 
+            className={menuStyles.menuItem}
+            onClick={() => setAliasDialogOpen(true)}
+          >
+            Rename Field {field.displayAlias && '✔'}
+          </div>
+        </>
+      )}
+
       {/* Create Bins - shown for numeric fields in available fields panel */}
       {canCreateBins && !isBulkEdit && (
         <>
@@ -241,6 +266,13 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
         }
         onConfirm={handleCastingConfirm}
         onCancel={() => setCastingDialogOpen(false)}
+      />
+
+      <FieldAliasDialog
+        open={aliasDialogOpen}
+        field={field}
+        onConfirm={handleAliasConfirm}
+        onCancel={() => setAliasDialogOpen(false)}
       />
     </>
   );

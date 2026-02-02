@@ -1,5 +1,6 @@
 import { Field } from '../../types';
 import { getFieldColumnName } from '../helpers/fields';
+import { getFieldDisplayName } from '../../utils/fieldUtils';
 
 /**
  * Grid layout configuration for faceted charts
@@ -75,13 +76,13 @@ export function computeFacetLabels(
   return {
     rowsLevels: rowFields.length > 0 
       ? rowFields.map((f, i) => ({ 
-          fieldLabel: getFieldColumnName(f), 
+          fieldLabel: getFieldDisplayName(f), 
           values: rowValuesLevels[i] 
         })) 
       : undefined,
     colsLevels: colFields.length > 0 
       ? colFields.map((f, i) => ({ 
-          fieldLabel: getFieldColumnName(f), 
+          fieldLabel: getFieldDisplayName(f), 
           values: colValuesLevels[i] 
         })) 
       : undefined,
