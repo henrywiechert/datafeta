@@ -14,6 +14,7 @@ export { useMetadata } from './useMetadata';
 export { useMetadataOperations } from './useMetadataOperations';
 export { useFilterMetadata } from './useFilterMetadata';
 export { useVirtualColumns } from './useVirtualColumns';
+export { useGlobalFilters } from './useGlobalFilters';
 
 // Drag and drop hooks
 export { useDragDrop } from './useDragDrop';

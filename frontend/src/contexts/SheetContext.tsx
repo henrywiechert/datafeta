@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Sheet, SheetManagerState, SheetAction, VisualizationStateSnapshot } from '../types';
+import { Sheet, SheetManagerState, SheetAction, VisualizationStateSnapshot, Field, FilterConfig } from '../types';
 
 const STORAGE_KEY = 'data-slicer-sheets';
 
@@ -225,6 +225,75 @@ function sheetReducer(state: SheetManagerState, action: SheetAction): SheetManag
       };
     }
 
+    case 'ADD_FILTER_TO_ALL_SHEETS': {
+      // Add a filter field and config to ALL sheets (used when unmarking a global filter)
+      const { field, config } = action.payload;
+      return {
+        ...state,
+        sheets: state.sheets.map(sheet => {
+          // Skip if this sheet already has the filter field
+          const hasField = sheet.visualizationState.filterFields.some(f => f.id === field.id);
+          if (hasField) {
+            // Just update the config
+            return {
+              ...sheet,
+              visualizationState: {
+                ...sheet.visualizationState,
+                filterConfigurations: {
+                  ...sheet.visualizationState.filterConfigurations,
+                  [field.id]: { ...config, scope: 'sheet' as const },
+                },
+                appliedFilterConfigurations: {
+                  ...sheet.visualizationState.appliedFilterConfigurations,
+                  [field.id]: { ...config, scope: 'sheet' as const },
+                },
+              },
+              lastModified: Date.now(),
+            };
+          }
+          // Add the field and config
+          return {
+            ...sheet,
+            visualizationState: {
+              ...sheet.visualizationState,
+              filterFields: [...sheet.visualizationState.filterFields, field],
+              filterConfigurations: {
+                ...sheet.visualizationState.filterConfigurations,
+                [field.id]: { ...config, scope: 'sheet' as const },
+              },
+              appliedFilterConfigurations: {
+                ...sheet.visualizationState.appliedFilterConfigurations,
+                [field.id]: { ...config, scope: 'sheet' as const },
+              },
+            },
+            lastModified: Date.now(),
+          };
+        }),
+      };
+    }
+
+    case 'REMOVE_FILTER_FROM_ALL_SHEETS': {
+      // Remove a filter field from ALL sheets (used when marking a filter as global)
+      const { fieldId } = action.payload;
+      return {
+        ...state,
+        sheets: state.sheets.map(sheet => {
+          const { [fieldId]: _removedConfig, ...remainingConfigs } = sheet.visualizationState.filterConfigurations;
+          const { [fieldId]: _removedApplied, ...remainingApplied } = sheet.visualizationState.appliedFilterConfigurations;
+          return {
+            ...sheet,
+            visualizationState: {
+              ...sheet.visualizationState,
+              filterFields: sheet.visualizationState.filterFields.filter(f => f.id !== fieldId),
+              filterConfigurations: remainingConfigs,
+              appliedFilterConfigurations: remainingApplied,
+            },
+            lastModified: Date.now(),
+          };
+        }),
+      };
+    }
+
     default:
       return state;
   }
@@ -242,6 +311,9 @@ interface SheetContextType {
   updateActiveSheetState: (state: Partial<VisualizationStateSnapshot>) => void;
   duplicateSheet: (id: string) => void;
   resetWorkspace: () => void;
+  // Global filter operations
+  addFilterToAllSheets: (field: Field, config: FilterConfig) => void;
+  removeFilterFromAllSheets: (fieldId: string) => void;
 }
 
 const SheetContext = createContext<SheetContextType | undefined>(undefined);
@@ -312,6 +384,15 @@ export function SheetProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'RESET_WORKSPACE' });
   }, []);
 
+  // Global filter operations
+  const addFilterToAllSheets = useCallback((field: Field, config: FilterConfig) => {
+    dispatch({ type: 'ADD_FILTER_TO_ALL_SHEETS', payload: { field, config } });
+  }, []);
+
+  const removeFilterFromAllSheets = useCallback((fieldId: string) => {
+    dispatch({ type: 'REMOVE_FILTER_FROM_ALL_SHEETS', payload: { fieldId } });
+  }, []);
+
   return (
     <SheetContext.Provider
       value={{
@@ -325,6 +406,8 @@ export function SheetProvider({ children }: { children: React.ReactNode }) {
         updateActiveSheetState,
         duplicateSheet,
         resetWorkspace,
+        addFilterToAllSheets,
+        removeFilterFromAllSheets,
       }}
     >
       {children}

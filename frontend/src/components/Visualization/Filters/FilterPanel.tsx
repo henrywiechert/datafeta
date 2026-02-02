@@ -14,6 +14,11 @@ interface FilterPanelProps {
   onConfigChange: (fieldId: string, config: FilterConfig) => void;
   onApplyFilters: () => void;
   onRefetchValues: (fieldId: string, regexPattern?: string) => Promise<void>;
+  // Global filter operations
+  onMarkAsGlobal?: (fieldId: string) => void;
+  onUnmarkGlobal?: (fieldId: string) => void;
+  /** Set of field IDs that are in global (session) scope */
+  globalFilterIds?: Set<string>;
 }
 
 const FilterPanel: React.FC<FilterPanelProps> = ({
@@ -25,6 +30,9 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   onConfigChange,
   onApplyFilters,
   onRefetchValues,
+  onMarkAsGlobal,
+  onUnmarkGlobal,
+  globalFilterIds,
 }) => {
   // Keep local state for pending filter changes - only update Context on Apply
   const [localConfigurations, setLocalConfigurations] = useState(filterConfigurations);
@@ -79,6 +87,9 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
         onRemove={onRemove}
         onConfigChange={handleLocalConfigChange}
         onRefetchValues={onRefetchValues}
+        onMarkAsGlobal={onMarkAsGlobal}
+        onUnmarkGlobal={onUnmarkGlobal}
+        globalFilterIds={globalFilterIds}
       />
     </PropertySection>
   );

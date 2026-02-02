@@ -7,6 +7,9 @@ import { DateTimePart, DateTimeMode } from './field';
 
 export type FilterType = 'discrete' | 'continuous' | 'datetime';
 
+// Filter scope: sheet (per-sheet, persisted) or session (global, ephemeral)
+export type FilterScope = 'sheet' | 'session';
+
 // Base filter configuration
 interface BaseFilterConfig {
   fieldId: string;
@@ -14,6 +17,8 @@ interface BaseFilterConfig {
   type: FilterType;
   dateTimePart?: DateTimePart;
   dateTimeMode?: DateTimeMode;
+  // Scope of the filter - 'sheet' (default) or 'session' (global, ephemeral)
+  scope?: FilterScope;
 }
 
 // Discrete filter: user selects from available values

@@ -5,11 +5,16 @@
  * - Base filters: Changes trigger backend re-query and cache invalidation
  * - Refinement filters: Applied locally via DuckDB WASM WHERE clause
  * 
+ * Tier selection is now AUTOMATIC based on cache state:
+ * - If a column is already cached in DuckDB, it's a refinement filter (instant)
+ * - If a column is not cached, it's a base filter (requires backend fetch)
+ * 
  * This enables efficient local filtering without re-fetching data from backend
  * while still supporting complex filter scenarios.
  */
 
 import { buildDuckDbDateTimePartExpr } from './localSqlBuilder';
+import { columnCacheManager } from './columnCacheManager';
 
 export type FilterTier = 'base' | 'refinement';
 
@@ -26,8 +31,17 @@ export interface TieredFilter {
   config: any; // The actual filter configuration
 }
 
+export interface CacheContext {
+  sourceTable: string;
+  sourceDatabase?: string;
+  baseFilterHash?: string;
+}
+
 class FilterTierManager {
   // Set of column names that are treated as base filters
+  // NOTE: This is now deprecated for manual tier selection. 
+  // Tier is determined automatically based on cache state.
+  // Kept for backward compatibility during transition.
   private baseFilterColumns: Set<string> = new Set();
   
   /**
@@ -56,7 +70,7 @@ class FilterTierManager {
   
   /**
    * Configure which columns are treated as base filters
-   * 
+   * @deprecated Use automatic tier selection via determineFilterTier() instead
    * @param columns - Column names to treat as base filters
    */
   setBaseFilterColumns(columns: string[]): void {
@@ -66,6 +80,7 @@ class FilterTierManager {
   
   /**
    * Add a column as a base filter
+   * @deprecated Use automatic tier selection via determineFilterTier() instead
    */
   addBaseFilterColumn(columnName: string): void {
     this.baseFilterColumns.add(columnName);
@@ -74,6 +89,7 @@ class FilterTierManager {
   
   /**
    * Remove a column from base filters (becomes refinement)
+   * @deprecated Use automatic tier selection via determineFilterTier() instead
    */
   removeBaseFilterColumn(columnName: string): void {
     this.baseFilterColumns.delete(columnName);
@@ -81,9 +97,47 @@ class FilterTierManager {
   }
   
   /**
-   * Check if a column is a base filter
+   * Determine the appropriate filter tier based on cache state.
+   * 
+   * Logic:
+   * - If the column is cached in DuckDB for the current context → refinement (instant local filter)
+   * - If not cached → base (requires backend fetch, will be cached after)
+   * 
+   * @param columnName - The column to check
+   * @param cacheContext - The current table/filter context
+   * @returns 'refinement' if column is cached, 'base' otherwise
    */
-  isBaseFilter(columnName: string): boolean {
+  determineFilterTier(columnName: string, cacheContext?: CacheContext): FilterTier {
+    if (!cacheContext?.sourceTable) {
+      // No context - fall back to base to ensure data is fetched
+      return 'base';
+    }
+    
+    const cachedColumns = columnCacheManager.getCachedColumns(
+      cacheContext.sourceTable,
+      cacheContext.sourceDatabase,
+      cacheContext.baseFilterHash
+    );
+    
+    const isCached = cachedColumns.includes(columnName);
+    const tier = isCached ? 'refinement' : 'base';
+    
+    console.log(`🎯 Filter tier for "${columnName}": ${tier} (cached: ${isCached}, context: ${cacheContext.sourceTable})`);
+    
+    return tier;
+  }
+  
+  /**
+   * Check if a column is a base filter
+   * Now uses automatic tier detection based on cache state when context is provided.
+   */
+  isBaseFilter(columnName: string, cacheContext?: CacheContext): boolean {
+    // If cache context is provided, use automatic detection
+    if (cacheContext?.sourceTable) {
+      return this.determineFilterTier(columnName, cacheContext) === 'base';
+    }
+    
+    // Legacy fallback: check manual set
     // If no base filters are explicitly set, treat all filters as base by default
     // This maintains backward compatibility
     if (this.baseFilterColumns.size === 0) {
@@ -95,8 +149,8 @@ class FilterTierManager {
   /**
    * Get the tier of a filter
    */
-  getFilterTier(columnName: string): FilterTier {
-    return this.isBaseFilter(columnName) ? 'base' : 'refinement';
+  getFilterTier(columnName: string, cacheContext?: CacheContext): FilterTier {
+    return this.isBaseFilter(columnName, cacheContext) ? 'base' : 'refinement';
   }
   
   /**
@@ -108,8 +162,12 @@ class FilterTierManager {
   
   /**
    * Categorize all filters into base and refinement
+   * Uses automatic tier detection based on cache state when cacheContext is provided.
    */
-  categorizeFilters(filterConfigurations: Record<string, any>): {
+  categorizeFilters(
+    filterConfigurations: Record<string, any>,
+    cacheContext?: CacheContext
+  ): {
     baseFilters: Record<string, any>;
     refinementFilters: Record<string, any>;
   } {
@@ -119,7 +177,7 @@ class FilterTierManager {
     for (const [key, config] of Object.entries(filterConfigurations)) {
       const columnName = config.columnName || key;
       
-      if (this.isBaseFilter(columnName)) {
+      if (this.isBaseFilter(columnName, cacheContext)) {
         baseFilters[key] = config;
       } else {
         refinementFilters[key] = config;
@@ -132,15 +190,21 @@ class FilterTierManager {
   /**
    * Get only the base filters from a filter configuration
    */
-  getBaseFiltersOnly(filterConfigurations: Record<string, any>): Record<string, any> {
-    return this.categorizeFilters(filterConfigurations).baseFilters;
+  getBaseFiltersOnly(
+    filterConfigurations: Record<string, any>,
+    cacheContext?: CacheContext
+  ): Record<string, any> {
+    return this.categorizeFilters(filterConfigurations, cacheContext).baseFilters;
   }
   
   /**
    * Get only the refinement filters from a filter configuration
    */
-  getRefinementFilters(filterConfigurations: Record<string, any>): Record<string, any> {
-    return this.categorizeFilters(filterConfigurations).refinementFilters;
+  getRefinementFilters(
+    filterConfigurations: Record<string, any>,
+    cacheContext?: CacheContext
+  ): Record<string, any> {
+    return this.categorizeFilters(filterConfigurations, cacheContext).refinementFilters;
   }
   
   /**

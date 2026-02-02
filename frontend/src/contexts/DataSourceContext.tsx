@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { generateSyntheticFieldsForGroup } from '../utils/syntheticFields';
-import { Database, Table, Field, VirtualTableDefinition, VirtualColumnDefinition } from '../types';
+import { Database, Table, Field, VirtualTableDefinition, VirtualColumnDefinition, FilterConfig, FilterMetadata } from '../types';
 
 type VirtualColumnPreference = {
   type?: 'dimension' | 'measure';
@@ -40,6 +40,11 @@ interface DataSourceState {
   virtualColumnFieldPreferences: Record<string, VirtualColumnPreference>;
   // Field display aliases (columnName -> user-defined display name)
   fieldDisplayAliases: Record<string, string>;
+  // Session-scoped filters (ephemeral, not persisted)
+  sessionFilterFields: Field[];
+  sessionFilterConfigurations: Record<string, FilterConfig>;
+  sessionAppliedFilterConfigurations: Record<string, FilterConfig>;
+  sessionFilterMetadata: Record<string, FilterMetadata>;
 }
 
 // Context interface
@@ -73,6 +78,15 @@ interface DataSourceContextType {
   setVirtualColumnFieldPreferences: (preferences: Record<string, VirtualColumnPreference>) => void;
   setFieldAlias: (columnName: string, alias: string | undefined) => void;
   clearAllFieldAliases: () => void;
+  // Session-scoped filters
+  setSessionFilterFields: (fields: Field[]) => void;
+  addSessionFilterField: (field: Field) => void;
+  removeSessionFilterField: (fieldId: string) => void;
+  setSessionFilterConfiguration: (fieldId: string, config: FilterConfig) => void;
+  removeSessionFilterConfiguration: (fieldId: string) => void;
+  applySessionFilters: () => void;
+  setSessionFilterMetadata: (fieldId: string, metadata: FilterMetadata) => void;
+  clearSessionFilters: () => void;
   // Reset all metadata state (used on connect/disconnect)
   resetMetadata: () => void;
 }
@@ -99,6 +113,10 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     virtualColumns: [],
     virtualColumnFieldPreferences: {},
     fieldDisplayAliases: {},
+    sessionFilterFields: [],
+    sessionFilterConfigurations: {},
+    sessionAppliedFilterConfigurations: {},
+    sessionFilterMetadata: {},
   });
 
   const getBaseFields = (fields: Field[]) => fields.filter(field => !field.isSynthetic);
@@ -329,6 +347,86 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  // Session filter methods
+  const setSessionFilterFields = (fields: Field[]) => {
+    setDataSource(prev => ({ ...prev, sessionFilterFields: fields }));
+  };
+
+  const addSessionFilterField = (field: Field) => {
+    setDataSource(prev => {
+      // Prevent duplicates
+      if (prev.sessionFilterFields.some(f => f.id === field.id)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        sessionFilterFields: [...prev.sessionFilterFields, field],
+      };
+    });
+  };
+
+  const removeSessionFilterField = (fieldId: string) => {
+    setDataSource(prev => {
+      const { [fieldId]: _removedConfig, ...remainingConfigs } = prev.sessionFilterConfigurations;
+      const { [fieldId]: _removedApplied, ...remainingApplied } = prev.sessionAppliedFilterConfigurations;
+      const { [fieldId]: _removedMeta, ...remainingMeta } = prev.sessionFilterMetadata;
+      return {
+        ...prev,
+        sessionFilterFields: prev.sessionFilterFields.filter(f => f.id !== fieldId),
+        sessionFilterConfigurations: remainingConfigs,
+        sessionAppliedFilterConfigurations: remainingApplied,
+        sessionFilterMetadata: remainingMeta,
+      };
+    });
+  };
+
+  const setSessionFilterConfiguration = (fieldId: string, config: FilterConfig) => {
+    setDataSource(prev => ({
+      ...prev,
+      sessionFilterConfigurations: {
+        ...prev.sessionFilterConfigurations,
+        [fieldId]: { ...config, scope: 'session' as const },
+      },
+    }));
+  };
+
+  const removeSessionFilterConfiguration = (fieldId: string) => {
+    setDataSource(prev => {
+      const { [fieldId]: _removed, ...remaining } = prev.sessionFilterConfigurations;
+      return {
+        ...prev,
+        sessionFilterConfigurations: remaining,
+      };
+    });
+  };
+
+  const applySessionFilters = () => {
+    setDataSource(prev => ({
+      ...prev,
+      sessionAppliedFilterConfigurations: { ...prev.sessionFilterConfigurations },
+    }));
+  };
+
+  const setSessionFilterMetadata = (fieldId: string, metadata: FilterMetadata) => {
+    setDataSource(prev => ({
+      ...prev,
+      sessionFilterMetadata: {
+        ...prev.sessionFilterMetadata,
+        [fieldId]: metadata,
+      },
+    }));
+  };
+
+  const clearSessionFilters = () => {
+    setDataSource(prev => ({
+      ...prev,
+      sessionFilterFields: [],
+      sessionFilterConfigurations: {},
+      sessionAppliedFilterConfigurations: {},
+      sessionFilterMetadata: {},
+    }));
+  };
+
   // Reset all metadata state - used when connecting/disconnecting from data source
   const resetMetadata = () => {
     setDataSource(prev => ({
@@ -347,6 +445,11 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
       unionTables: [],
       suggestedUnionableTables: [],
       virtualTable: null,
+      // Clear session filters on disconnect
+      sessionFilterFields: [],
+      sessionFilterConfigurations: {},
+      sessionAppliedFilterConfigurations: {},
+      sessionFilterMetadata: {},
       // Note: virtualColumns and virtualColumnFieldPreferences are intentionally preserved
       // as they may be reused across connections
     }));
@@ -412,6 +515,14 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
         setVirtualColumnFieldPreferences,
         setFieldAlias,
         clearAllFieldAliases,
+        setSessionFilterFields,
+        addSessionFilterField,
+        removeSessionFilterField,
+        setSessionFilterConfiguration,
+        removeSessionFilterConfiguration,
+        applySessionFilters,
+        setSessionFilterMetadata,
+        clearSessionFilters,
         resetMetadata,
       }}
     >

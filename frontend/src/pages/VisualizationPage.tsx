@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useMemo } from 'react';
 import { Box } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { Panel, PanelGroup, ImperativePanelHandle } from "react-resizable-panels";
@@ -10,6 +10,7 @@ import { useDragDrop } from '../hooks/useDragDrop';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useDataSource } from '../contexts/DataSourceContext';
 import { useUndoRedo } from '../hooks/useUndoRedo';
+import { useGlobalFilters } from '../hooks/useGlobalFilters';
 import FieldsPanel from '../components/Visualization/FieldsPanel';
 import ChartPanel from '../components/Visualization/ChartPanel';
 import FilterPanel from '../components/Visualization/Filters/FilterPanel';
@@ -98,7 +99,7 @@ const VisualizationPageContent = () => {
         handleReorderFields,
         handleMoveFieldBetweenAxes,
         handleFilterDrop,
-        handleRemoveFromFilter,
+        handleRemoveFromFilter: handleRemoveLocalFilter,
         handleRemoveFromColor,
         handleRemoveFromSize,
         handleRemoveFromLabel,
@@ -155,15 +156,6 @@ const VisualizationPageContent = () => {
         handleAxisDrop('y', field, source, index);
     };
 
-    // Handle applying filters
-    const handleApplyFilters = React.useCallback(() => {
-        // Record current state for undo
-        recordAction(getUndoableSnapshot());
-        
-        // Apply the current filter configurations to the query
-        dispatch({ type: 'APPLY_FILTERS' });
-    }, [dispatch, recordAction, getUndoableSnapshot]);
-
     // Handle cancellation of long-running operations
     const handleCancelOperation = React.useCallback(() => {
         // Cancel API requests
@@ -182,6 +174,40 @@ const VisualizationPageContent = () => {
         tablesCache,
         measureGroupFields
     } = dataSourceContext.dataSource;
+    
+    // Global filters hook for session-scoped filters
+    const {
+        isGlobalFilter,
+        markFilterAsGlobal,
+        unmarkGlobalFilter,
+        removeGlobalFilter,
+        getMergedFilterFields,
+        getMergedFilterConfigurations,
+        getMergedFilterMetadata,
+        sessionFilterFields,
+    } = useGlobalFilters();
+    
+    // Wrapper for filter removal that routes to the correct context based on scope
+    const handleRemoveFromFilter = React.useCallback((fieldId: string) => {
+        if (isGlobalFilter(fieldId)) {
+            // Global filter: remove from DataSourceContext (removes from all sheets)
+            removeGlobalFilter(fieldId);
+        } else {
+            // Local filter: remove from current sheet's VisualizationContext
+            handleRemoveLocalFilter(fieldId);
+        }
+    }, [isGlobalFilter, removeGlobalFilter, handleRemoveLocalFilter]);
+    
+    // Merge session (global) and local filters for display
+    const mergedFilterFields = useMemo(() => getMergedFilterFields(), [getMergedFilterFields]);
+    const mergedFilterConfigurations = useMemo(() => getMergedFilterConfigurations(), [getMergedFilterConfigurations]);
+    const mergedFilterMetadata = useMemo(() => getMergedFilterMetadata(), [getMergedFilterMetadata]);
+    
+    // Set of global filter IDs for quick lookup
+    const globalFilterIds = useMemo(
+        () => new Set(sessionFilterFields.map(f => f.id)),
+        [sessionFilterFields]
+    );
     const {
         toggleJoinedTable: toggleJoinedTableBase,
         addUnionTable: addUnionTableBase,
@@ -191,6 +217,18 @@ const VisualizationPageContent = () => {
         setMeasureGroupFields
     } = dataSourceContext;
     const { state: sheetState } = useSheetContext();
+
+    // Handle applying filters (both local and session filters)
+    const handleApplyFilters = React.useCallback(() => {
+        // Record current state for undo
+        recordAction(getUndoableSnapshot());
+        
+        // Apply the current filter configurations to the query
+        dispatch({ type: 'APPLY_FILTERS' });
+        
+        // Also apply session (global) filters
+        dataSourceContext.applySessionFilters();
+    }, [dispatch, recordAction, getUndoableSnapshot, dataSourceContext]);
     
     // Wrap joined table toggle
     // Note: fetchMergedColumns will trigger automatically via useEffect in useMetadataOperations
@@ -392,19 +430,27 @@ const VisualizationPageContent = () => {
                               backgroundColor: '#fafafa',
                           }}>
                               <FilterPanel
-                                  filterFields={state.filterFields}
-                                  filterConfigurations={state.filterConfigurations}
-                                  filterMetadata={state.filterMetadata}
+                                  filterFields={mergedFilterFields}
+                                  filterConfigurations={mergedFilterConfigurations}
+                                  filterMetadata={mergedFilterMetadata}
                                   onDrop={handleFilterDrop}
                                   onRemove={handleRemoveFromFilter}
                                   onConfigChange={(fieldId, config) => {
-                                      dispatch({ 
-                                          type: 'SET_FILTER_CONFIGURATION', 
-                                          payload: { fieldId, config }
-                                      });
+                                      // Route config changes to the appropriate context
+                                      if (isGlobalFilter(fieldId)) {
+                                          dataSourceContext.setSessionFilterConfiguration(fieldId, config);
+                                      } else {
+                                          dispatch({ 
+                                              type: 'SET_FILTER_CONFIGURATION', 
+                                              payload: { fieldId, config }
+                                          });
+                                      }
                                   }}
                                   onApplyFilters={handleApplyFilters}
                                   onRefetchValues={refetchFilterValues}
+                                  onMarkAsGlobal={markFilterAsGlobal}
+                                  onUnmarkGlobal={unmarkGlobalFilter}
+                                  globalFilterIds={globalFilterIds}
                               />
                               <FieldOverridesPanel />
                               <MeasureGroupsPanel />
