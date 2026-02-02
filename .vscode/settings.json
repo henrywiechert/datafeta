@@ -12,5 +12,8 @@
     "files.exclude": {
         "**/__pycache__": true
     },
-    "peacock.remoteColor": "#832561"
+    "peacock.remoteColor": "#832561",
+    "chat.tools.terminal.autoApprove": {
+        "npx tsc": true
+    }
 }
