@@ -2,13 +2,12 @@ import React, { useState, useCallback } from 'react';
 import { Box, IconButton, Collapse, Tooltip, ToggleButton } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import LockIcon from '@mui/icons-material/Lock';
-import LockOpenIcon from '@mui/icons-material/LockOpen';
-import { Field, FilterConfig, FilterMetadata } from '../../../types';
+import PublicIcon from '@mui/icons-material/Public';
+import DescriptionIcon from '@mui/icons-material/Description';
+import { Field, FilterConfig, FilterMetadata, FilterScope } from '../../../types';
 import DiscreteFilterControl from './DiscreteFilterControl';
 import ContinuousFilterControl from './ContinuousFilterControl';
 import { DateTimeRangeFilter } from '../../DateTime';
-import { filterTierManager } from '../../../services/filterTierManager';
 import styles from './FilterFieldChip.module.css';
 import FieldChip from '../FieldChip';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
@@ -20,6 +19,9 @@ interface FilterFieldChipProps {
   onConfigChange: (config: FilterConfig) => void;
   onRemove: () => void;
   onRefetchValues: (regexPattern?: string) => Promise<void>;
+  // New: scope-related props
+  filterScope?: FilterScope;
+  onScopeChange?: (newScope: FilterScope) => void;
 }
 
 const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
@@ -29,31 +31,25 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
   onConfigChange,
   onRemove,
   onRefetchValues,
+  filterScope = 'sheet',
+  onScopeChange,
 }) => {
   const [expanded, setExpanded] = useState(false);
   const { dispatch } = useVisualizationContext();
   
-  // Track if this filter is a "base" filter (changes require backend re-query)
-  // Default: base (locked), can toggle to refinement (local filter only)
-  const [isBaseFilter, setIsBaseFilter] = useState(() => 
-    filterTierManager.isBaseFilter(field.columnName)
-  );
+  // Track filter scope: 'sheet' (per-sheet, persisted) or 'session' (global, ephemeral)
+  const isSessionScope = filterScope === 'session';
 
   const handleToggleExpand = () => {
     setExpanded(!expanded);
   };
   
-  const handleToggleFilterTier = () => {
-    const newIsBase = !isBaseFilter;
-    setIsBaseFilter(newIsBase);
-    
-    if (newIsBase) {
-      filterTierManager.addBaseFilterColumn(field.columnName);
-    } else {
-      filterTierManager.removeBaseFilterColumn(field.columnName);
+  const handleToggleScope = () => {
+    if (onScopeChange) {
+      const newScope: FilterScope = isSessionScope ? 'sheet' : 'session';
+      onScopeChange(newScope);
+      console.log(`🔧 Filter "${field.columnName}" scope changed to ${newScope}`);
     }
-    
-    console.log(`🔧 Filter "${field.columnName}" is now ${newIsBase ? 'BASE' : 'REFINEMENT'}`);
   };
 
   // Memoize these handlers to keep callbacks stable for child components (CheckboxItem memoization)
@@ -211,17 +207,18 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
     <Box className={styles.container}>
       <Box className={styles.chipContainer}>
         <Tooltip 
-          title={isBaseFilter 
-            ? "Base filter (changes re-fetch from backend)" 
-            : "Refinement filter (applied locally, instant)"}
+          title={isSessionScope 
+            ? "Session filter (applies to all sheets, not saved)" 
+            : "Sheet filter (applies to this sheet only, saved)"}
           placement="top"
           arrow
         >
           <ToggleButton
-            value="base"
-            selected={isBaseFilter}
-            onChange={handleToggleFilterTier}
+            value="session"
+            selected={isSessionScope}
+            onChange={handleToggleScope}
             size="small"
+            disabled={!onScopeChange}
             sx={{
               padding: '2px',
               minWidth: '24px',
@@ -229,15 +226,15 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
               marginRight: '4px',
               border: 'none',
               '&.Mui-selected': {
-                backgroundColor: 'primary.light',
-                color: 'primary.contrastText',
+                backgroundColor: 'secondary.light',
+                color: 'secondary.contrastText',
                 '&:hover': {
-                  backgroundColor: 'primary.main',
+                  backgroundColor: 'secondary.main',
                 },
               },
             }}
           >
-            {isBaseFilter ? <LockIcon sx={{ fontSize: 14 }} /> : <LockOpenIcon sx={{ fontSize: 14 }} />}
+            {isSessionScope ? <PublicIcon sx={{ fontSize: 14 }} /> : <DescriptionIcon sx={{ fontSize: 14 }} />}
           </ToggleButton>
         </Tooltip>
         <Box className={styles.chipCell}>

@@ -77,6 +77,7 @@ export type {
 // Filter types
 export type {
   FilterType,
+  FilterScope,
   DiscreteFilterConfig,
   ContinuousFilterConfig,
   DateTimeFilterConfig,

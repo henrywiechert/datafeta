@@ -101,4 +101,6 @@ export type SheetAction =
   | { type: 'UPDATE_SHEET_STATE'; payload: { id: string; state: Partial<VisualizationStateSnapshot> } }
   | { type: 'DUPLICATE_SHEET'; payload: string }
   | { type: 'LOAD_SHEETS'; payload: Sheet[] }
-  | { type: 'RESET_WORKSPACE' };
+  | { type: 'RESET_WORKSPACE' }
+  | { type: 'ADD_FILTER_TO_ALL_SHEETS'; payload: { field: Field; config: FilterConfig } }
+  | { type: 'REMOVE_FILTER_FROM_ALL_SHEETS'; payload: { fieldId: string } };

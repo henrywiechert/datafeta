@@ -55,7 +55,14 @@ const ChartArea: React.FC = () => {
     optimizationSettings,
     ganttZoomRange,
   } = state as any;
-  const { selectedTable, selectedDatabase, virtualTable, virtualColumns } = dataSource;
+  const { selectedTable, selectedDatabase, virtualTable, virtualColumns, sessionAppliedFilterConfigurations } = dataSource;
+  
+  // Merge session (global) and local applied filter configurations for query execution
+  // Session filters take precedence as they represent the "global" state
+  const effectiveFilterConfigurations = useMemo(() => ({
+    ...appliedFilterConfigurations,
+    ...sessionAppliedFilterConfigurations,
+  }), [appliedFilterConfigurations, sessionAppliedFilterConfigurations]);
   
   // Ref for the fullscreen target element
   const fullscreenWrapperRef = useRef<HTMLDivElement>(null);
@@ -165,7 +172,7 @@ const ChartArea: React.FC = () => {
   const cacheConfig = useMemo(() => ({
     xAxisFields,
     yAxisFields,
-    appliedFilterConfigurations,
+    appliedFilterConfigurations: effectiveFilterConfigurations,
     colorField,
     sizeField,
     labelFields,
@@ -185,7 +192,7 @@ const ChartArea: React.FC = () => {
     labelSamplingThreshold,
     labelSampleEvery,
   }), [
-    xAxisFields, yAxisFields, appliedFilterConfigurations, colorField, sizeField,
+    xAxisFields, yAxisFields, effectiveFilterConfigurations, colorField, sizeField,
     labelFields, tooltipFields, measureGroupFields, colorScheme, colorBias, manualColor, sizeRange,
     manualSize, bandThicknessScale, fieldOverrides, globalChartType, independentDomains,
     labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery,
@@ -206,7 +213,7 @@ const ChartArea: React.FC = () => {
     yAxisFields,
     colorField,
     sizeField,
-    filterConfigurations: appliedFilterConfigurations,
+    filterConfigurations: effectiveFilterConfigurations,
     labelFields,
     tooltipFields,
     virtualTable,
