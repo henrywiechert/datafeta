@@ -33,7 +33,7 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
   onCreateBins,
 }) => {
   const [castingDialogOpen, setCastingDialogOpen] = useState(false);
-  const [aliasDialogOpen, setAliasDialogOpen] = useState(false);
+  const [aliasPopoverAnchor, setAliasPopoverAnchor] = useState<HTMLElement | null>(null);
   const { setFieldAlias } = useDataSource();
   
   // Check if we're in bulk edit mode
@@ -81,7 +81,7 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
     // Update the alias in the data source context only
     // The alias lookup happens at render time, so we don't need to update individual field objects
     setFieldAlias(field.columnName, alias);
-    setAliasDialogOpen(false);
+    setAliasPopoverAnchor(null);
     onRequestClose?.();
   };
 
@@ -189,7 +189,7 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
           <div className={menuStyles.separator} />
           <div 
             className={menuStyles.menuItem}
-            onClick={() => setAliasDialogOpen(true)}
+            onClick={(e) => setAliasPopoverAnchor(e.currentTarget)}
           >
             Rename Field {field.displayAlias && '✔'}
           </div>
@@ -269,10 +269,10 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
       />
 
       <FieldAliasDialog
-        open={aliasDialogOpen}
+        anchorEl={aliasPopoverAnchor}
         field={field}
         onConfirm={handleAliasConfirm}
-        onCancel={() => setAliasDialogOpen(false)}
+        onClose={() => setAliasPopoverAnchor(null)}
       />
     </>
   );

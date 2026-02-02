@@ -81,6 +81,10 @@ function createBar(
     valueDomainOverride: useStackedDomain ? undefined : valueDomain,
     tooltipFields: ctx.tooltipFields,
     manualColor: ctx.colorField ? undefined : ctx.manualColor,
+    labels: {
+      measure: getFieldDisplayName(measure),
+      category: categoryDimension ? getFieldDisplayName(categoryDimension) : undefined,
+    },
   });
 }
 
@@ -139,7 +143,7 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
     const yDomain = ctx.sharedMeasureDomains?.[yCol];
     return verticalLineChart(
       data, xCol, yCol,
-      { x: xCol, y: getFieldDisplayName(yf) },
+      { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
       { x: xDomain, y: yDomain },
       ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
       ctx.sizeField, ctx.sizeRange, ctx.manualSize,
@@ -154,7 +158,7 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
     const yDomain = ctx.sharedMeasureDomains?.[yCol];
     return lineChart(
       data, xCol, yCol,
-      { x: getFieldDisplayName(xf), y: yCol },
+      { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
       { x: xDomain, y: yDomain },
       ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
       ctx.sizeField, ctx.sizeRange, ctx.manualSize,
@@ -165,7 +169,7 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
   // Fallback: both measures or both dimensions → scatter
   const { xCol, yCol } = resolveXYColumns(xf, yf);
   return scatterChart(
-    data, xCol, yCol, { x: xCol, y: yCol },
+    data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
     ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
     ctx.sizeField, ctx.sizeRange, ctx.manualSize,
     ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
@@ -183,7 +187,7 @@ function handleBarX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
     // Neither is a measure: fallback to scatter
     const { xCol, yCol } = resolveXYColumns(xf, yf);
     return scatterChart(
-      data, xCol, yCol, { x: xCol, y: yCol },
+      data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
       ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
       ctx.sizeField, ctx.sizeRange, ctx.manualSize,
       ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
@@ -213,7 +217,7 @@ function handleBarY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
     // Neither is a measure: fallback to scatter
     const { xCol, yCol } = resolveXYColumns(xf, yf);
     return scatterChart(
-      data, xCol, yCol, { x: xCol, y: yCol },
+      data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
       ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
       ctx.sizeField, ctx.sizeRange, ctx.manualSize,
       ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
@@ -258,7 +262,7 @@ function handleTickX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
       'x',
       xCol,
       category ? getResultColumnName(category) : undefined,
-      undefined,
+      { dimension: getFieldDisplayName(xContinuous), category: category ? getFieldDisplayName(category) : undefined },
       ctx.sharedMeasureDomains
     );
   }
@@ -284,7 +288,7 @@ function handleTickX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
       'y',
       yCol,
       xCategory ? getResultColumnName(xCategory) : undefined,
-      undefined,
+      { dimension: getFieldDisplayName(yf), category: xCategory ? getFieldDisplayName(xCategory) : undefined },
       ctx.sharedMeasureDomains
     );
   }
@@ -292,7 +296,7 @@ function handleTickX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
   // Both discrete - fallback to scatter
   const { xCol, yCol } = resolveXYColumns(xf, yf);
   return scatterChart(
-    data, xCol, yCol, { x: xCol, y: yCol },
+    data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
     ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
     ctx.sizeField, ctx.sizeRange, ctx.manualSize,
     ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
@@ -325,7 +329,7 @@ function handleTickY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
       'y',
       yCol,
       category ? getResultColumnName(category) : undefined,
-      undefined,
+      { dimension: getFieldDisplayName(yContinuous), category: category ? getFieldDisplayName(category) : undefined },
       ctx.sharedMeasureDomains
     );
   }
@@ -351,7 +355,7 @@ function handleTickY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
       'x',
       xCol,
       yCategory ? getResultColumnName(yCategory) : undefined,
-      undefined,
+      { dimension: getFieldDisplayName(xf), category: yCategory ? getFieldDisplayName(yCategory) : undefined },
       ctx.sharedMeasureDomains
     );
   }
@@ -359,7 +363,7 @@ function handleTickY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
   // Both discrete - fallback to scatter
   const { xCol, yCol } = resolveXYColumns(xf, yf);
   return scatterChart(
-    data, xCol, yCol, { x: xCol, y: yCol },
+    data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
     ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
     ctx.sizeField, ctx.sizeRange, ctx.manualSize,
     ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
@@ -370,8 +374,8 @@ function handleDot(data: any[], xf: Field, yf: Field, _ctx: ChartContext): Plot.
   const xCol = xf.columnName;
   const yCol = yf.columnName;
   return {
-    x: { label: xCol },
-    y: { label: yCol },
+    x: { label: getFieldDisplayName(xf) },
+    y: { label: getFieldDisplayName(yf) },
     marks: [Plot.dot(data, { x: xCol, y: yCol, fill: DEFAULT_CHART_COLOR, r: 2 })],
   };
 }
