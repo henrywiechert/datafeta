@@ -1,6 +1,6 @@
 import { TooltipField } from '../../components/Visualization/CustomTooltip/CustomTooltip';
 import { Field } from '../../types';
-import { getResultColumnName } from '../../utils/fieldUtils';
+import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { getFieldColumnName } from '../helpers/fields';
 
 /**
@@ -47,7 +47,7 @@ export function createTooltipFieldsGetter(
         if (!exclude.has(colName)) {
           const value = d[colName];
           fields.push({
-            label: f.columnName,
+            label: getFieldDisplayName(f),
             value: value,
             formattedValue: formatTooltipValue(value),
           });
@@ -73,7 +73,7 @@ export function createTooltipFieldsGetter(
       const colorColumnName = getResultColumnName(colorField);
       if (!exclude.has(colorColumnName)) {
         fields.push({ 
-          label: colorField.columnName, 
+          label: getFieldDisplayName(colorField), 
           value: d[colorColumnName],
           formattedValue: formatTooltipValue(d[colorColumnName])
         });
@@ -86,7 +86,7 @@ export function createTooltipFieldsGetter(
       const sizeColumnName = getResultColumnName(sizeField);
       if (!exclude.has(sizeColumnName)) {
         fields.push({ 
-          label: sizeField.columnName, 
+          label: getFieldDisplayName(sizeField), 
           value: d[sizeColumnName],
           formattedValue: formatTooltipValue(d[sizeColumnName])
         });
@@ -100,7 +100,7 @@ export function createTooltipFieldsGetter(
         const colName = getResultColumnName(tf);
         if (colName && !exclude.has(colName)) {
           fields.push({ 
-            label: tf.columnName, 
+            label: getFieldDisplayName(tf), 
             value: d[colName],
             formattedValue: formatTooltipValue(d[colName])
           });

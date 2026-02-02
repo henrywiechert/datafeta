@@ -46,6 +46,9 @@ export interface Field {
   is_virtual?: boolean; // True if this field comes from a virtual/calculated column
   // Validation flag (set upstream when field no longer exists in schema)
   isInvalid?: boolean; // True if field is invalid (e.g., column removed from table)
+  
+  // Display alias (user-defined friendly name for UI display only - does not affect SQL queries)
+  displayAlias?: string; // Optional custom display name
 }
 
 // Per-field chart override configuration

@@ -47,6 +47,7 @@ export interface SavedDataSourceSelection {
   virtualColumns?: VirtualColumnDefinition[];
   virtualColumnFieldPreferences?: Record<string, { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }>;
   measureGroupFields?: Field[];
+  fieldDisplayAliases?: Record<string, string>;
 }
 
 /**

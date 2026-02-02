@@ -171,10 +171,11 @@ export function getResultColumnName(field: Field): string {
 /**
  * Gets the display name for a field, including datetime part information if present.
  * @param field The field.
+ * @param aliasLookup Optional map from columnName to display alias.
  * @returns A formatted display name.
  */
-export function getFieldDisplayName(field: Field): string {
-  return getFieldDisplayNameWithDateTime(field);
+export function getFieldDisplayName(field: Field, aliasLookup?: Record<string, string>): string {
+  return getFieldDisplayNameWithDateTime(field, aliasLookup);
 }
 
 /**
@@ -247,6 +248,8 @@ function getDefaultFieldProperties(dataType: DataType): {
 export interface CreateFieldOptions {
     /** Include tableName in the field (for multi-table support) */
     includeTableName?: boolean;
+    /** Map of column names to display aliases */
+    fieldDisplayAliases?: Record<string, string>;
 }
 
 /**
@@ -265,6 +268,11 @@ export function createFieldFromColumn(col: Column, options: CreateFieldOptions =
         dataType,
         aggregation,
     };
+    
+    // Apply display alias if provided
+    if (options.fieldDisplayAliases && options.fieldDisplayAliases[col.name]) {
+        field.displayAlias = options.fieldDisplayAliases[col.name];
+    }
     
     // Optionally include table name (for UNION mode with _source_table)
     if (options.includeTableName && col.table_name) {

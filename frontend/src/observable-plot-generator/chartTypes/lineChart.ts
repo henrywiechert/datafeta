@@ -1,7 +1,7 @@
 import * as Plot from '@observablehq/plot';
 import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
-import { getResultColumnName } from '../../utils/fieldUtils';
+import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
 import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
@@ -347,7 +347,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
 
   if (colorField && colorInfo) {
-    dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
+    dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: getFieldDisplayName(colorField) };
 
     if (colorInfo.kind === 'continuous') {
       // Apply bias transformation to continuous values
@@ -394,7 +394,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     const sizeScale = createSizeScale(budgetedSorted, sizeField, sizeRange, manualSize || 2);
     const sizeColumnName = getResultColumnName(sizeField);
     lineConfig.strokeWidth = (d: any) => sizeScale.getSizeForValue(d[sizeColumnName]);
-    dotConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
+    dotConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: getFieldDisplayName(sizeField) };
   } else {
     lineConfig.strokeWidth = manualSize || 2;
   }
@@ -460,14 +460,14 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
         domain: colorInfo.domain as [number, number],
         range: colorInfo.range,
         clamp: true,
-        label: colorField.columnName,
+        label: getFieldDisplayName(colorField),
       } as any;
     } else {
       plotOptions.color = {
         type: 'ordinal' as any,
         domain: colorInfo.domain as any[],
         range: colorInfo.range,
-        label: colorField.columnName,
+        label: getFieldDisplayName(colorField),
       } as any;
     }
   }

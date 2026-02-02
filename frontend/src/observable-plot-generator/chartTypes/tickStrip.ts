@@ -1,7 +1,7 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext } from '../types';
 import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING } from '../../config/chartLayoutConfig';
-import { getResultColumnName } from '../../utils/fieldUtils';
+import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { computeBandPaddingFromSizeField } from './barCore';
 import { Field } from '../../types';
@@ -227,13 +227,13 @@ export function tickStrip(
             domain: colorInfo.domain as [number, number],
             range: colorInfo.range,
             clamp: true,
-            label: colorField.columnName,
+            label: getFieldDisplayName(colorField),
           } as any
         : {
             type: 'ordinal' as any,
             domain: colorInfo.domain as any[],
             range: colorInfo.range,
-            label: colorField.columnName,
+            label: getFieldDisplayName(colorField),
           } as any)
     : undefined;
 

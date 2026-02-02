@@ -1,7 +1,7 @@
 import * as Plot from '@observablehq/plot';
 import { DEFAULT_CHART_COLOR, DOMAIN_PAD_RATIO } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
-import { getResultColumnName } from '../../utils/fieldUtils';
+import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
 // Label utilities
@@ -187,7 +187,7 @@ export function scatterChart(
   const colorInfo = colorField ? deriveColorScaleInfo(budgeted, colorField, colorScheme, colorBias) : null;
   if (colorField && colorInfo) {
     const colorColumnName = getResultColumnName(colorField);
-    dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: colorField.columnName };
+    dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: getFieldDisplayName(colorField) };
 
     if (colorInfo.kind === 'continuous') {
       // Apply bias transformation to continuous values
@@ -232,7 +232,7 @@ export function scatterChart(
     }
     // Provide a direct radius in pixels so we add an identity scale at plot level
     dotConfig.r = (d: any) => sizeScale.getSizeForValue(d[sizeColumnName]);
-    dotConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: sizeField.columnName };
+    dotConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: getFieldDisplayName(sizeField) };
   } else {
     dotConfig.r = manualSize || 4;
   }
@@ -341,14 +341,14 @@ export function scatterChart(
         domain: colorInfo.domain as [number, number],
         range: colorInfo.range,
         clamp: true,
-        label: colorField.columnName,
+        label: getFieldDisplayName(colorField),
       } as any;
     } else {
       plotOptions.color = {
         type: 'ordinal' as any,
         domain: colorInfo.domain as any[],
         range: colorInfo.range,
-        label: colorField.columnName,
+        label: getFieldDisplayName(colorField),
       } as any;
     }
   }

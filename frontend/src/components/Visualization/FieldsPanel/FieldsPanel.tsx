@@ -179,6 +179,7 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   // Create filter function that works with search term
   const filterBySearch = useMemo(() => (field: Field) => (
     field.columnName.toLowerCase().includes(fieldsSearch.toLowerCase()) ||
+    (field.displayAlias && field.displayAlias.toLowerCase().includes(fieldsSearch.toLowerCase())) ||
     (field.aggregation && field.aggregation.toLowerCase().includes(fieldsSearch.toLowerCase())) ||
     (field.dataType && field.dataType.toLowerCase().includes(fieldsSearch.toLowerCase()))
   ), [fieldsSearch]);

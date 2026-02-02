@@ -33,10 +33,15 @@ export function getDateTimePartDisplayName(part: DateTimePart): string {
 }
 
 /**
- * Get the display name for a field including datetime part information
+ * Get the display name for a field including datetime part information.
+ * 
+ * @param field The field to get display name for
+ * @param aliasLookup Optional map from columnName to display alias. If provided, this takes
+ *                    precedence over field.displayAlias for looking up aliases.
  */
-export function getFieldDisplayNameWithDateTime(field: Field): string {
-  const baseName = field.columnName;
+export function getFieldDisplayNameWithDateTime(field: Field, aliasLookup?: Record<string, string>): string {
+  // Look up alias: first from aliasLookup map (if provided), then from field.displayAlias, finally use columnName
+  const baseName = aliasLookup?.[field.columnName] ?? field.displayAlias ?? field.columnName;
   
   if (field.dateTimePart && field.dateTimeMode) {
     const partName = getDateTimePartDisplayName(field.dateTimePart);

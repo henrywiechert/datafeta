@@ -2,7 +2,7 @@ import React, { forwardRef } from 'react';
 import { Field } from '../../../types';
 import styles from './FieldChipLabel.module.css';
 import { DragSource } from './types';
-import { getFieldDisplayName } from '../../../utils/fieldUtils';
+import { useFieldDisplayName } from '../../../hooks/useFieldDisplayName';
 
 interface FieldChipLabelProps {
   field: Field;
@@ -12,7 +12,9 @@ interface FieldChipLabelProps {
 
 const FieldChipLabel = forwardRef<HTMLSpanElement, FieldChipLabelProps>(
   ({ field, source, displayNameOverride }, ref) => {
-    const fieldName = displayNameOverride ?? getFieldDisplayName(field);
+    // Get alias-aware display name function from context
+    const getDisplayName = useFieldDisplayName();
+    const fieldName = displayNameOverride ?? getDisplayName(field);
     const aggregationText = field.aggregation ? ` (${field.aggregation})` : '';
     const flavourText = ` [${field.flavour}]`;
     const dataTypeText = ` (${field.dataType})`;
@@ -56,17 +58,8 @@ const FieldChipLabel = forwardRef<HTMLSpanElement, FieldChipLabelProps>(
 
 FieldChipLabel.displayName = 'FieldChipLabel';
 
-// Memoize to prevent unnecessary re-renders
-export default React.memo(FieldChipLabel, (prevProps, nextProps) => {
-  return (
-    prevProps.field.columnName === nextProps.field.columnName &&
-    prevProps.field.aggregation === nextProps.field.aggregation &&
-    prevProps.field.flavour === nextProps.field.flavour &&
-    prevProps.field.dataType === nextProps.field.dataType &&
-    prevProps.field.type === nextProps.field.type &&
-    prevProps.field.barSortOrder === nextProps.field.barSortOrder &&
-    prevProps.source === nextProps.source &&
-    prevProps.displayNameOverride === nextProps.displayNameOverride &&
-    prevProps.field.is_virtual === nextProps.field.is_virtual
-  );
-});
+// Note: We intentionally do NOT memoize this component because it uses
+// useFieldDisplayName hook which reads from context. The alias lookup
+// can change independently of props, so memoization based only on props
+// would prevent updates when aliases change.
+export default FieldChipLabel;

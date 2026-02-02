@@ -134,6 +134,11 @@ export interface ChartGenerationContext {
    * When set, the Gantt chart will display only this portion of the timeline axis.
    */
   ganttZoomRange?: GanttZoomRange | null;
+  /**
+   * Field display alias lookup map (columnName → displayAlias).
+   * Used to show user-defined aliases in chart labels, legends, and tooltips.
+   */
+  fieldAliasLookup?: Record<string, string>;
 }
 
 export interface PlotResult {
