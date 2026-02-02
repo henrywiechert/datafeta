@@ -2,7 +2,7 @@ import { ChartGenerationContext, PlotResult } from '../types';
 import { getFieldColumnName } from '../helpers/fields';
 import { resolveMeasureAlias, buildBarOptions, computeBandPaddingFromSizeField, sortCategoriesByValue } from './barCore';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
-import { getResultColumnName } from '../../utils/fieldUtils';
+import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { BAR_STEP_PX, MIN_BAR_STEP_PX, BAND_PADDING } from '../../config/chartLayoutConfig';
 // Label utilities
 import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
@@ -137,6 +137,14 @@ export function barUnified(
       tooltipFields: tooltipFields,
       // When there's no color field, use the global/effective manualColor as the bar fill
       manualColor: colorField ? undefined : effectiveManualColor,
+      labels: {
+        measure: getFieldDisplayName(measure),
+        category: hasCategories && categoryDims.length === 1 
+          ? getFieldDisplayName(categoryDims[0]) 
+          : hasCategories 
+            ? categoryDims.map((d: any) => getFieldDisplayName(d)).join(' • ')
+            : undefined,
+      },
     });
 
     // --- Label integration -------------------------------------------------
@@ -239,14 +247,18 @@ export function barUnified(
     const dimCol = getFieldColumnName(dim);
     const axis = orientation === 'horizontal' ? 'x' : 'y';
     const tickOptions = tickStrip(context, axis, dimCol, categoryColumn, {
-      dimension: dim.columnName,
-      category: categoryColumn
+      dimension: getFieldDisplayName(dim),
+      category: hasCategories && categoryDims.length === 1 
+        ? getFieldDisplayName(categoryDims[0]) 
+        : hasCategories 
+          ? categoryDims.map((d: any) => getFieldDisplayName(d)).join(' • ')
+          : undefined
     }, sharedDomains);
     
     const plotIdx = measures.length + idx;
     return {
       id: `${orientation === 'vertical' ? 'y' : 'x'}-dim-${idx}`,
-      title: dim.columnName,
+      title: getFieldDisplayName(dim),
       options: tickOptions,
       position: orientation === 'vertical' ? { row: plotIdx, col: 0 } : { row: 0, col: plotIdx }
     };

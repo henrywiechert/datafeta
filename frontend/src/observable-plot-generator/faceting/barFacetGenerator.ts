@@ -6,7 +6,7 @@ import { getFieldColumnName } from '../helpers/fields';
 import { SharedDomains } from './facetDomains';
 import { CellGenerator, CellResult, PositionedPlot } from './facetCoordinator';
 import { buildBarOptions, resolveMeasureAlias } from '../chartTypes/barCore';
-import { getResultColumnName } from '../../utils/fieldUtils';
+import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 import { formatDateTick } from '../utils/dateFormatUtils';
@@ -109,7 +109,8 @@ export function createBarCellGenerator(
           labelCfg,
           manualColor,
           tooltipFields,
-          allFacetFields
+          allFacetFields,
+          categoryField
         );
         title = resolveMeasureAlias(f);
       } else {
@@ -126,7 +127,8 @@ export function createBarCellGenerator(
           bandPadding,
           manualColor,
           cellContext.tooltipFields,
-          allFacetFields
+          allFacetFields,
+          categoryField
         );
         title = getResultColumnName(f);
       }
@@ -167,7 +169,8 @@ function buildMeasureBarOptions(
   labelCfg: LabelConfig | undefined,
   manualColor: string | undefined,
   tooltipFields: Field[] | undefined,
-  facetFields?: Field[]
+  facetFields?: Field[],
+  categoryField?: Field | null
 ): Plot.PlotOptions {
   const measureName = resolveMeasureAlias(measureField);
   const valueDomain = (sharedDomains.measure as any)[measureName] || [0, 1];
@@ -199,6 +202,10 @@ function buildMeasureBarOptions(
     // When there's no color field, use the global/manual bar color for fill
     manualColor: colorField ? undefined : manualColor,
     facetFields: facetFields,
+    labels: {
+      measure: getFieldDisplayName(measureField),
+      category: categoryField ? getFieldDisplayName(categoryField) : undefined,
+    },
   });
   
   // Add labels if configured
@@ -285,9 +292,12 @@ function buildTickStripOptions(
   bandPadding: number | undefined,
   manualColor: string | undefined,
   tooltipFields: Field[] | undefined,
-  facetFields?: Field[]
+  facetFields?: Field[],
+  categoryField?: Field | null
 ): Plot.PlotOptions {
   const dimCol = getResultColumnName(dimensionField);
+  const dimensionLabel = getFieldDisplayName(dimensionField);
+  const categoryLabel = categoryField ? getFieldDisplayName(categoryField) : (categoryColumnName || ' ');
   
   // Use shared domain from sharedDomains.numeric for consistent scales across facets
   // Fall back to computing from cell data only if no shared domain exists
@@ -312,15 +322,15 @@ function buildTickStripOptions(
     options = {
       x: axisDomain 
         ? {
-            label: dimCol,
+            label: dimensionLabel,
             domainKey: dimCol,
             domain: axisDomain,
             nice: false,
             grid: true,
             ...(isTimeDomain ? { type: 'utc' as any, tickFormat: formatDateTick } : {}),
           } as any
-        : { label: dimCol, domainKey: dimCol, grid: true } as any,
-      y: { label: categoryColumnName || ' ', type: 'band', domain: categories, padding: bandPadding } as any,
+        : { label: dimensionLabel, domainKey: dimCol, grid: true } as any,
+      y: { label: categoryLabel, type: 'band', domain: categories, padding: bandPadding } as any,
       marks: [Plot.tickX(cellData, tickConfig), Plot.dot(cellData, hoverDotConfig)]
     };
   } else {
@@ -329,15 +339,15 @@ function buildTickStripOptions(
     options = {
       y: axisDomain 
         ? {
-            label: dimCol,
+            label: dimensionLabel,
             domainKey: dimCol,
             domain: axisDomain,
             nice: false,
             grid: true,
             ...(isTimeDomain ? { type: 'utc' as any, tickFormat: formatDateTick } : {}),
           } as any
-        : { label: dimCol, domainKey: dimCol, grid: true } as any,
-      x: { label: categoryColumnName || ' ', type: 'band', domain: categories, padding: bandPadding } as any,
+        : { label: dimensionLabel, domainKey: dimCol, grid: true } as any,
+      x: { label: categoryLabel, type: 'band', domain: categories, padding: bandPadding } as any,
       marks: [Plot.tickY(cellData, tickConfig), Plot.dot(cellData, hoverDotConfig)]
     };
   }
