@@ -16,6 +16,27 @@ import { ganttChart } from './chartTypes/ganttChart';
 export { buildLabelConfig as buildLabelCfg } from './utils/configBuilder';
 
 /**
+ * Enrich a field with its display alias from the alias lookup map.
+ * Returns a new field object if an alias exists, otherwise returns the original field.
+ */
+function enrichFieldWithAlias(field: Field | undefined, aliasLookup?: Record<string, string>): Field | undefined {
+  if (!field || !aliasLookup) return field;
+  const alias = aliasLookup[field.columnName];
+  if (alias && alias !== field.displayAlias) {
+    return { ...field, displayAlias: alias };
+  }
+  return field;
+}
+
+/**
+ * Enrich an array of fields with their display aliases from the alias lookup map.
+ */
+function enrichFieldsWithAliases(fields: Field[], aliasLookup?: Record<string, string>): Field[] {
+  if (!aliasLookup || Object.keys(aliasLookup).length === 0) return fields;
+  return fields.map(f => enrichFieldWithAlias(f, aliasLookup) as Field);
+}
+
+/**
  * Create a simple message chart (as 1x1 grid)
  */
 function createMessageChart(message: string): PlotResult {
@@ -56,7 +77,7 @@ function generateSingleAxisGantt(
   labelCfg?: LabelConfig,
   _overrides?: ChartTypeOverrides
 ): PlotResult {
-  const { queryResult, sizeField } = context;
+  const { queryResult, sizeField, fieldAliasLookup } = context;
   const data = queryResult.rows;
   
   // Use the first continuous field as the timeline
@@ -67,11 +88,11 @@ function generateSingleAxisGantt(
   }
   
   const startColumn = getResultColumnName(timelineField);
-  const startLabel = getFieldDisplayName(timelineField);
+  const startLabel = getFieldDisplayName(timelineField, fieldAliasLookup);
   
   // Get duration from size field if present
   const durationColumn = sizeField ? getResultColumnName(sizeField) : undefined;
-  const durationLabel = sizeField ? getFieldDisplayName(sizeField) : undefined;
+  const durationLabel = sizeField ? getFieldDisplayName(sizeField, fieldAliasLookup) : undefined;
   
   // Resolve column names (handle aggregation aliases)
   const resolvedStartColumn = data.length > 0 && Object.prototype.hasOwnProperty.call(data[0], startColumn) 
@@ -283,7 +304,7 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
  * @returns PlotResult with plots array and grid layout
  */
 export function generatePlot(context: ChartGenerationContext, overrides?: ChartTypeOverrides): PlotResult {
-  const { xFields, yFields, queryResult, colorField, manualColor, sizeField } = context;
+  const { xFields, yFields, queryResult, colorField, manualColor, sizeField, fieldAliasLookup } = context;
 
   // Validate inputs
   if (xFields.length === 0 && yFields.length === 0) {
@@ -294,13 +315,29 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
     return createMessageChart('No data available.');
   }
 
+  // Enrich all fields with their display aliases from the lookup map
+  // This ensures aliases are available throughout the chart generation pipeline
+  const enrichedXFields = enrichFieldsWithAliases(xFields, fieldAliasLookup);
+  const enrichedYFields = enrichFieldsWithAliases(yFields, fieldAliasLookup);
+  const enrichedColorField = enrichFieldWithAlias(colorField, fieldAliasLookup);
+  const enrichedSizeField = enrichFieldWithAlias(sizeField, fieldAliasLookup);
+  const enrichedTooltipFields = context.tooltipFields 
+    ? enrichFieldsWithAliases(context.tooltipFields, fieldAliasLookup) 
+    : undefined;
+  const enrichedLabelFields = context.labelFields
+    ? enrichFieldsWithAliases(context.labelFields, fieldAliasLookup)
+    : undefined;
+  const enrichedFacetFields = context.facetFields
+    ? enrichFieldsWithAliases(context.facetFields, fieldAliasLookup)
+    : undefined;
+
   // Normalize timeline datetime fields: convert epoch numbers → Date objects
   // so Observable Plot uses time scales (with proper date formatting) instead of linear numeric scales.
   const allFields: Field[] = [
-    ...xFields,
-    ...yFields,
-    ...(colorField ? [colorField] : []),
-    ...(sizeField ? [sizeField] : []),
+    ...enrichedXFields,
+    ...enrichedYFields,
+    ...(enrichedColorField ? [enrichedColorField] : []),
+    ...(enrichedSizeField ? [enrichedSizeField] : []),
   ];
   const normalizedRows = normalizeTimelineData(queryResult.rows, allFields);
   const normalizedQueryResult = normalizedRows !== queryResult.rows
@@ -308,10 +345,17 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
     : queryResult;
 
   // Apply default color if no color field present
+  // Use enriched fields throughout the context
   const effectiveContext: ChartGenerationContext = {
     ...context,
+    xFields: enrichedXFields,
+    yFields: enrichedYFields,
     queryResult: normalizedQueryResult,
-    colorField,
+    colorField: enrichedColorField,
+    sizeField: enrichedSizeField,
+    tooltipFields: enrichedTooltipFields,
+    labelFields: enrichedLabelFields,
+    facetFields: enrichedFacetFields,
     manualColor,
   };
 

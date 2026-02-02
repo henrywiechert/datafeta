@@ -6,7 +6,7 @@ import { tickStrip } from '../chartTypes/tickStrip';
 import { lineChart } from '../chartTypes/lineChart';
 import { scatterChart } from '../chartTypes/scatterChart';
 import { barChart } from '../chartTypes/barChart';
-import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
+import { getResultColumnName, getFieldDisplayName as getFieldDisplayNameUtil } from '../../utils/fieldUtils';
 import { BAR_STEP_PX, MIN_BAR_STEP_PX } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 
@@ -114,8 +114,13 @@ export function generateChartOptions(
   context: ChartGenerationContext,
   labelCfg?: LabelConfig
 ): PlotResult {
-  const { queryResult, colorField, colorScheme, sizeField, sizeRange, manualSize, tooltipFields } = context;
+  const { queryResult, colorField, colorScheme, sizeField, sizeRange, manualSize, tooltipFields, fieldAliasLookup } = context;
   const data = queryResult.rows;
+  
+  // Helper to get display name with alias lookup from context
+  // Note: Fields should already be enriched with displayAlias at the generatePlot level,
+  // but we keep the lookup as a fallback for any fields that might have been missed.
+  const getDisplayName = (field: Field) => getFieldDisplayNameUtil(field, fieldAliasLookup);
 
   const xDims = analysis.xDimensions || [];
   const yDims = analysis.yDimensions || [];
@@ -172,7 +177,7 @@ export function generateChartOptions(
       ? [
           {
             id: 'dim-tick',
-            title: dim.columnName,
+            title: getDisplayName(dim),
             options: tickOptions,
             position: { row: 0, col: 0 },
           },
@@ -186,7 +191,7 @@ export function generateChartOptions(
       : [
           {
             id: 'dim-tick',
-            title: dim.columnName,
+            title: getDisplayName(dim),
             options: tickOptions,
             position: { row: 0, col: 0 },
           },
@@ -216,7 +221,7 @@ export function generateChartOptions(
   }
 
   if (analysis.hasXMeasure && !analysis.hasYMeasure && yContinuousDims.length > 0) {
-    const yDim = yContinuousDims[0];
+    const yDim = yDims[0];
     const yDimCol = getResultColumnName(yDim);
     const xMeasure = analysis.xMeasures[0];
     const xMeasureWithAgg = { ...xMeasure, aggregation: xMeasure.aggregation || 'sum' } as Field;
@@ -226,7 +231,7 @@ export function generateChartOptions(
         data,
         yDimCol,
         xMeasureCol,
-        { x: getFieldDisplayName(yDim), y: xMeasureCol },
+        { x: getDisplayName(yDim), y: getDisplayName(xMeasureWithAgg) },
         undefined,
         colorField,
         colorScheme,
@@ -239,7 +244,7 @@ export function generateChartOptions(
         tooltipFields
       ),
       'line-chart',
-      `${yDim.columnName} vs ${xMeasure.columnName}`
+      `${getDisplayName(yDim)} vs ${getDisplayName(xMeasure)}`
     );
   }
   if (analysis.hasYMeasure && !analysis.hasXMeasure && xContinuousDims.length > 0) {
@@ -253,7 +258,7 @@ export function generateChartOptions(
         data,
         xDimCol,
         yMeasureCol,
-        { x: getFieldDisplayName(xDim), y: yMeasureCol },
+        { x: getDisplayName(xDim), y: getDisplayName(yMeasureWithAgg) },
         undefined,
         colorField,
         colorScheme,
@@ -266,7 +271,7 @@ export function generateChartOptions(
         tooltipFields
       ),
       'line-chart',
-      `${xDim.columnName} vs ${yMeasure.columnName}`
+      `${getDisplayName(xDim)} vs ${getDisplayName(yMeasure)}`
     );
   }
 
@@ -305,12 +310,12 @@ export function generateChartOptions(
       return wrapTickStripAs1x1Grid(
         context,
         tickStrip(context, 'x', xDimCol, categoryCol, { 
-          dimension: getFieldDisplayName(xDim), 
+          dimension: getDisplayName(xDim), 
           category: categoryCol 
         }),
         'x',
         'tick-strip-x-categorized',
-        `${xDim.columnName} by ${yDim.columnName}`,
+        `${getDisplayName(xDim)} by ${getDisplayName(yDim)}`,
         categoryCol
       );
     }
@@ -325,12 +330,12 @@ export function generateChartOptions(
       return wrapTickStripAs1x1Grid(
         context,
         tickStrip(context, 'y', yDimCol, categoryCol, { 
-          dimension: getFieldDisplayName(yDim), 
+          dimension: getDisplayName(yDim), 
           category: categoryCol 
         }),
         'y',
         'tick-strip-y-categorized',
-        `${yDim.columnName} by ${xDim.columnName}`,
+        `${getDisplayName(yDim)} by ${getDisplayName(xDim)}`,
         categoryCol
       );
     }
@@ -343,7 +348,7 @@ export function generateChartOptions(
           data,
           xDimCol,
           yDimCol,
-          { x: xDimCol, y: yDimCol },
+          { x: getDisplayName(xContinuousDims[0]), y: getDisplayName(yContinuousDims[0]) },
           colorField,
           colorScheme,
           context.colorBias,
@@ -355,7 +360,7 @@ export function generateChartOptions(
           tooltipFields
         ),
         'scatter',
-        `${xContinuousDims[0].columnName} vs ${yContinuousDims[0].columnName}`
+        `${getDisplayName(xContinuousDims[0])} vs ${getDisplayName(yContinuousDims[0])}`
       );
     }
     // Both discrete → simple dot plot (categorical scatter)
@@ -368,8 +373,8 @@ export function generateChartOptions(
         fill: 'steelblue',
         r: 2,
         channels: {
-          [xCat]: { value: xCat, label: xCat },
-          [yCat]: { value: yCat, label: yCat },
+          [xCat]: { value: xCat, label: getDisplayName(xDiscreteDims[0]) },
+          [yCat]: { value: yCat, label: getDisplayName(yDiscreteDims[0]) },
         }
       };
       
@@ -379,7 +384,7 @@ export function generateChartOptions(
         dotConfig.fill = colorColumnName;
         dotConfig.channels = {
           ...dotConfig.channels,
-          [colorField.columnName]: { value: colorColumnName, label: colorField.columnName }
+          [colorField.columnName]: { value: colorColumnName, label: getDisplayName(colorField) }
         };
       }
       
@@ -387,7 +392,7 @@ export function generateChartOptions(
         const sizeColumnName = getResultColumnName(sizeField);
         dotConfig.channels = {
           ...dotConfig.channels,
-          [sizeField.columnName]: { value: sizeColumnName, label: sizeField.columnName }
+          [sizeField.columnName]: { value: sizeColumnName, label: getDisplayName(sizeField) }
         };
         // Note: size scaling for discrete charts not implemented yet
       }
@@ -403,15 +408,15 @@ export function generateChartOptions(
       
       return wrapAs1x1Grid(
         {
-          x: { label: xCat },
-          y: { label: yCat },
+          x: { label: getDisplayName(xDiscreteDims[0]) },
+          y: { label: getDisplayName(yDiscreteDims[0]) },
           marks: [Plot.dot(data, {
             ...dotConfig,
             tip: { pointer: 'x', preferredAnchor: 'top-right', format: tipFormat }
           })],
         },
         'dot-plot',
-        `${xDiscreteDims[0].columnName} vs ${yDiscreteDims[0].columnName}`
+        `${getDisplayName(xDiscreteDims[0])} vs ${getDisplayName(yDiscreteDims[0])}`
       );
     }
   }
@@ -429,7 +434,7 @@ export function generateChartOptions(
         data,
         yDimCol,
         xMeasureCol,
-        { x: getFieldDisplayName(yDim), y: xMeasureCol },
+        { x: getDisplayName(yDim), y: getDisplayName(xMeasureWithAgg) },
         undefined,
         colorField,
         colorScheme,
@@ -442,7 +447,7 @@ export function generateChartOptions(
         tooltipFields
       ),
       'line-chart',
-      `${yDim.columnName} vs ${xMeasure.columnName}`
+      `${getDisplayName(yDim)} vs ${getDisplayName(xMeasure)}`
     );
   }
   if (hasMeasureOnlyY) {
@@ -456,7 +461,7 @@ export function generateChartOptions(
         data,
         xDimCol,
         yMeasureCol,
-        { x: getFieldDisplayName(xDim), y: yMeasureCol },
+        { x: getDisplayName(xDim), y: getDisplayName(yMeasureWithAgg) },
         undefined,
         colorField,
         colorScheme,
@@ -469,7 +474,7 @@ export function generateChartOptions(
         tooltipFields
       ),
       'line-chart',
-      `${xDim.columnName} vs ${yMeasure.columnName}`
+      `${getDisplayName(xDim)} vs ${getDisplayName(yMeasure)}`
     );
   }
 
@@ -478,14 +483,14 @@ export function generateChartOptions(
   if (multiXDim) {
     const plots = analysis.xDimensions.map((dim, i: number) => {
       const dimCol = getResultColumnName(dim);
-      return { id: `x-dim-${i}`, title: dim.columnName, position: { row: 0, col: i }, options: tickStrip(context, 'x', dimCol) };
+      return { id: `x-dim-${i}`, title: getDisplayName(dim), position: { row: 0, col: i }, options: tickStrip(context, 'x', dimCol) };
     });
     return { library: 'observable-plot', plots, layout: { type: 'grid', columns: plots.length, rows: 1, columnSizes: Array.from({ length: plots.length }, () => 'fr' as const), rowSizes: ['fr'] } };
   }
   if (multiYDim) {
     const plots = analysis.yDimensions.map((dim, i: number) => {
       const dimCol = getResultColumnName(dim);
-      return { id: `y-dim-${i}`, title: dim.columnName, position: { row: i, col: 0 }, options: tickStrip(context, 'y', dimCol) };
+      return { id: `y-dim-${i}`, title: getDisplayName(dim), position: { row: i, col: 0 }, options: tickStrip(context, 'y', dimCol) };
     });
     return { library: 'observable-plot', plots, layout: { type: 'grid', columns: 1, rows: plots.length, columnSizes: ['fr'], rowSizes: Array.from({ length: plots.length }, () => 'fr' as const) } };
   }

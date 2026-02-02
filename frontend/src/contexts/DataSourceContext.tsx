@@ -38,6 +38,8 @@ interface DataSourceState {
   // Virtual columns (session scoped)
   virtualColumns: VirtualColumnDefinition[];
   virtualColumnFieldPreferences: Record<string, VirtualColumnPreference>;
+  // Field display aliases (columnName -> user-defined display name)
+  fieldDisplayAliases: Record<string, string>;
 }
 
 // Context interface
@@ -69,6 +71,8 @@ interface DataSourceContextType {
   removeVirtualColumn: (index: number) => void;
   setVirtualColumnFieldPreference: (columnName: string, preference: VirtualColumnPreference) => void;
   setVirtualColumnFieldPreferences: (preferences: Record<string, VirtualColumnPreference>) => void;
+  setFieldAlias: (columnName: string, alias: string | undefined) => void;
+  clearAllFieldAliases: () => void;
   // Reset all metadata state (used on connect/disconnect)
   resetMetadata: () => void;
 }
@@ -94,6 +98,7 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     virtualTable: null,
     virtualColumns: [],
     virtualColumnFieldPreferences: {},
+    fieldDisplayAliases: {},
   });
 
   const getBaseFields = (fields: Field[]) => fields.filter(field => !field.isSynthetic);
@@ -347,6 +352,34 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  // Set or clear display alias for a field (by column name)
+  // Aliases are looked up at render time, so we only need to update the map
+  const setFieldAlias = (columnName: string, alias: string | undefined) => {
+    setDataSource(prev => {
+      if (!alias) {
+        // Clear alias
+        const { [columnName]: _, ...rest } = prev.fieldDisplayAliases;
+        return { ...prev, fieldDisplayAliases: rest };
+      }
+      // Set alias
+      return {
+        ...prev,
+        fieldDisplayAliases: {
+          ...prev.fieldDisplayAliases,
+          [columnName]: alias,
+        },
+      };
+    });
+  };
+
+  // Clear all field aliases
+  const clearAllFieldAliases = () => {
+    setDataSource(prev => ({
+      ...prev,
+      fieldDisplayAliases: {},
+    }));
+  };
+
   return (
     <DataSourceContext.Provider
       value={{
@@ -377,6 +410,8 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
         removeVirtualColumn,
         setVirtualColumnFieldPreference,
         setVirtualColumnFieldPreferences,
+        setFieldAlias,
+        clearAllFieldAliases,
         resetMetadata,
       }}
     >

@@ -42,6 +42,7 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
   const isAvailableFields = source === 'AVAILABLE_FIELDS';
   const isAxis = source === 'X_AXIS' || source === 'Y_AXIS';
   // Create a stable key for field properties to minimize re-renders
+  // Note: displayAlias is NOT included here because it's looked up from context at render time
   const fieldPropertiesKey = useMemo(() => 
     `${field.columnName}|${field.aggregation || ''}|${field.flavour}|${field.dataType}|${field.dateTimePart || ''}|${field.dateTimeMode || ''}|${field.barSortOrder || ''}`,
     [field.columnName, field.aggregation, field.flavour, field.dataType, field.dateTimePart, field.dateTimeMode, field.barSortOrder]
@@ -254,6 +255,8 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
 
 // Memoize to prevent unnecessary re-renders
 // Only re-render if key props actually change
+// Note: displayAlias is NOT compared here because aliases are looked up from context
+// by the FieldChipLabel child component, which will re-render independently when context changes
 export default React.memo(ChipWithTooltip, (prevProps, nextProps) => {
   // Compare field properties that affect rendering
   return (

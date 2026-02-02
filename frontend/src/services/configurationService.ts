@@ -97,7 +97,8 @@ export function exportConfiguration(
   unionTables?: Array<{database: string, table_name: string}>,
   joinedTables?: TableJoinDefinition[],
   virtualColumns?: VirtualColumnDefinition[],
-  virtualColumnFieldPreferences?: VirtualColumnFieldPreferences
+  virtualColumnFieldPreferences?: VirtualColumnFieldPreferences,
+  fieldDisplayAliases?: Record<string, string>
 ): SavedConfiguration {
   const normalizedSheets = sheets.map((sheet) => ({
     ...sheet,
@@ -151,6 +152,10 @@ export function exportConfiguration(
 
     if (virtualColumnFieldPreferences && Object.keys(virtualColumnFieldPreferences).length > 0) {
       config.dataSource.virtualColumnFieldPreferences = virtualColumnFieldPreferences;
+    }
+    
+    if (fieldDisplayAliases && Object.keys(fieldDisplayAliases).length > 0) {
+      config.dataSource.fieldDisplayAliases = fieldDisplayAliases;
     }
     // Note: measureGroupFields is now per-sheet (stored in each sheet's visualizationState)
   }

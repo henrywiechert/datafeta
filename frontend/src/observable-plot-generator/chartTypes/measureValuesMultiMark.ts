@@ -9,7 +9,7 @@
 import * as Plot from '@observablehq/plot';
 import { Field, FieldOverrideState, UserChartType } from '../../types';
 import { MEASURE_NAMES_FIELD } from '../../utils/syntheticFields';
-import { getResultColumnName } from '../../utils/fieldUtils';
+import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { ColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 
@@ -297,7 +297,7 @@ export function generateMeasureValuesMultiMarkPlot(config: MultiMarkConfig): Plo
     tooltipChannels = {};
     for (const field of tooltipFields) {
       const colName = getResultColumnName(field);
-      tooltipChannels[field.columnName] = { value: colName, label: field.columnName };
+      tooltipChannels[field.columnName] = { value: colName, label: getFieldDisplayName(field) };
     }
   }
 
@@ -366,13 +366,13 @@ export function generateMeasureValuesMultiMarkPlot(config: MultiMarkConfig): Plo
   // Explicitly set type to ensure proper scaling for mixed chart types
   // Use consistent settings to avoid different padding between chart types
   const xAxisConfig: any = {
-    label: categoryField.columnName,
+    label: getFieldDisplayName(categoryField),
     grid: true,
     type: 'linear',  // Force linear scale for numeric X axis
   };
   
   const yAxisConfig: any = {
-    label: measureValuesField.columnName,
+    label: getFieldDisplayName(measureValuesField),
     grid: true,
     type: 'linear',  // Force linear scale for numeric Y axis
     // Don't use 'nice' - we'll set the domain explicitly from sharedDomains
@@ -428,13 +428,13 @@ export function generateMeasureValuesMultiMarkPlot(config: MultiMarkConfig): Plo
     
     (plotOptions as any).color = {
       ...colorConfig,
-      label: colorField?.columnName,
+      label: colorField ? getFieldDisplayName(colorField) : undefined,
     };
   }
 
   // Add custom tooltip configuration (same system as other chart types)
-  const xLabel = categoryField.columnName;
-  const yLabel = measureValuesField.columnName;
+  const xLabel = getFieldDisplayName(categoryField);
+  const yLabel = getFieldDisplayName(measureValuesField);
   (plotOptions as any).__customTooltip = {
     enabled: true,
     data: data,
