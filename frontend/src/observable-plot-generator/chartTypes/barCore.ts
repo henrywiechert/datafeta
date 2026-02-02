@@ -34,6 +34,11 @@ export interface BarBuildParams {
    * These are shown at the top of the tooltip when the chart is part of a faceted grid.
    */
   facetFields?: Field[];
+  /**
+   * Optional display labels for measure and category axes.
+   * If not provided, measureName and categoryColumn are used as labels.
+   */
+  labels?: { measure?: string; category?: string };
 }
 
 export const ORIENTATION = {
@@ -221,7 +226,12 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     tooltipFields = [],
     manualColor,
     facetFields,
+    labels,
   } = params;
+
+  // Use provided labels or fall back to column names
+  const measureLabel = labels?.measure ?? measureName;
+  const categoryLabel = labels?.category ?? categoryColumn;
 
   const O = ORIENTATION[orientation];
   const categories = categoriesDomain || deriveCategories(data, categoryColumn);
@@ -260,11 +270,11 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
   const channels: any = {};
   
   // Add measure to channels with its label
-  channels[measureName] = { value: measureName, label: measureName };
+  channels[measureName] = { value: measureName, label: measureLabel };
   
   // Add category to channels if present
   if (categoryColumn) {
-    channels[categoryColumn] = { value: categoryColumn, label: categoryColumn };
+    channels[categoryColumn] = { value: categoryColumn, label: categoryLabel };
   }
   
   // Add color field to channels when present (avoid duplicate)
@@ -299,7 +309,7 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
   const barMark = O.bar(data, baseConfig);
 
   const axisCategory = {
-    label: categoryColumn || ' ',
+    label: categoryLabel || ' ',
     domain: categories as any,
     type: 'band' as any,
     padding: bandPadding as any,
@@ -308,7 +318,7 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     // The suppressAxes function ensures margins are 0, so bands will fill available space
   };
   const axisMeasure = {
-    label: measureName,
+    label: measureLabel,
     grid: true,  // Keep grid on measure axis (stable, won't shift with band padding)
     domain: domain as any,
     nice: false
@@ -349,11 +359,11 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
 
   // Add custom tooltip configuration
   const mainFields: { label: string; column: string }[] = [
-    { label: measureName, column: measureName }
+    { label: measureLabel, column: measureName }
   ];
   
   if (categoryColumn) {
-    mainFields.push({ label: categoryColumn, column: categoryColumn });
+    mainFields.push({ label: categoryLabel || categoryColumn, column: categoryColumn });
   }
   
   // Pass tooltipFields directly to createTooltipFieldsGetter (color is read directly from DOM)
