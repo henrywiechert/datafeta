@@ -117,6 +117,9 @@ export function generateChartOptions(
   const { queryResult, colorField, colorScheme, sizeField, sizeRange, manualSize, tooltipFields, fieldAliasLookup } = context;
   const data = queryResult.rows;
   
+  console.log('[generateChartOptions] Entry - colorField:', colorField?.columnName, 'flavour:', colorField?.flavour,
+    'data rows:', data?.length);
+  
   // Helper to get display name with alias lookup from context
   // Note: Fields should already be enriched with displayAlias at the generatePlot level,
   // but we keep the lookup as a fallback for any fields that might have been missed.

@@ -567,7 +567,6 @@ export function generatePairChartOptions(
   const xf = xField!;
   const yf = yField!;
   const selected: CellChartType = resolveChartTypeForPair(xf, yf, overrides);
-  
   const handler = CHART_HANDLERS[selected];
   if (!handler) {
     return messageOptions('Unsupported combination');

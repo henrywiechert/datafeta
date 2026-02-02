@@ -110,7 +110,7 @@ export function scatterChart(
   , tooltipFields?: Field[]
   , facetFields?: Field[]
 ): Plot.PlotOptions {
-  // Detect axis value kinds by sampling up to first 20 non-null values
+  // Detect axis value kindsby sampling up to first 20 non-null values
   const sampleValues = (column: string) => (Array.isArray(data) ? data.map(r => r?.[column]).filter(v => v !== null && v !== undefined) : []);
   const xSamples = sampleValues(xColumn);
   const ySamples = sampleValues(yColumn);
@@ -168,9 +168,35 @@ export function scatterChart(
   // Result budget / safeguard: avoid rendering pathological numbers of points.
   // Prefer stratified sampling when discrete color is present.
   const budget = computeScatterBudget(clean, colorField);
-  const budgeted = budget.stratifyBy
+  let budgeted = budget.stratifyBy
     ? stratifiedSampleRows(clean, budget.stratifyBy, budget.maxPoints, budget.minPerStratum)
     : (clean.length > budget.maxPoints ? clean.sort(() => Math.random() - 0.5).slice(0, budget.maxPoints) : clean);
+
+  // Sort data by color field to ensure consistent z-ordering of overlapping dots.
+  // This ensures the same category is always rendered on top, regardless of query result order.
+  // Points are sorted in ascending order by color value, so the "last" category alphabetically
+  // will be rendered on top.
+  // Note: We sort for ALL color fields (not just discrete) to ensure consistent rendering.
+  if (colorField) {
+    const colorColumnName = getResultColumnName(colorField);
+    budgeted = [...budgeted].sort((a, b) => {
+      const valA = a?.[colorColumnName];
+      const valB = b?.[colorColumnName];
+      // Handle nulls - render them first (underneath other categories)
+      if (valA == null && valB == null) return 0;
+      if (valA == null) return -1;
+      if (valB == null) return 1;
+      // Use localeCompare for strings, numeric comparison for numbers
+      if (typeof valA === 'string' && typeof valB === 'string') {
+        return valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
+      }
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        return valA - valB;
+      }
+      // Fallback: string comparison
+      return String(valA).localeCompare(String(valB), undefined, { numeric: true, sensitivity: 'base' });
+    });
+  }
 
   const xLabel = options?.x || xColumn;
   const yLabel = options?.y || yColumn;
