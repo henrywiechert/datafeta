@@ -438,6 +438,17 @@ export function useDragDrop(availableFields?: Field[]) {
   }, [dispatch, recordAction, getUndoableSnapshot]);
 
   /**
+   * Remove the field from the background zone
+   * @param _fieldIds - Unused; included for signature consistency with other zones
+   */
+  const handleRemoveFromBackground = useCallback((_fieldIds: string[]) => {
+    // Record current state for undo
+    recordAction(getUndoableSnapshot());
+    
+    dispatch({ type: 'REMOVE_FACET_BACKGROUND_FIELD' });
+  }, [dispatch, recordAction, getUndoableSnapshot]);
+
+  /**
    * Atomically move a field between axes without triggering double query
    */
   const handleMoveFieldBetweenAxes = useCallback((fieldId: string, fromAxis: 'x' | 'y', toAxis: 'x' | 'y', insertIndex?: number) => {
@@ -465,5 +476,6 @@ export function useDragDrop(availableFields?: Field[]) {
     handleLabelDrop,
     handleRemoveFromLabel,
     handleRemoveFromTooltip,
+    handleRemoveFromBackground,
   };
 }
