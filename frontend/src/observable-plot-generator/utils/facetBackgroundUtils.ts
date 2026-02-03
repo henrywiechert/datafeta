@@ -37,6 +37,9 @@ function getUniqueValues(data: any[], field: Field): any[] {
 /**
  * Build a color map for all unique values of the background field across the entire dataset.
  * This ensures consistent colors across all facets.
+ * 
+ * IMPORTANT: Values are sorted to ensure consistent color assignment that matches the legend.
+ * Numeric values are sorted numerically, others are sorted alphabetically.
  */
 export function buildBackgroundColorMap(
   allData: any[],
@@ -47,8 +50,20 @@ export function buildBackgroundColorMap(
   const scheme = getSchemeById(schemeId) || categoricalSchemes[0];
   const colors = scheme.colors;
   
-  // Get all unique values across the entire dataset for consistent ordering
+  // Get all unique values across the entire dataset
   const uniqueValues = getUniqueValues(allData, backgroundField);
+  
+  // Sort values for consistent ordering (must match BackgroundLegendPanel sorting)
+  try {
+    const allNumeric = uniqueValues.every(v => typeof v === 'number' && !Number.isNaN(v));
+    if (allNumeric) {
+      uniqueValues.sort((a, b) => a - b);
+    } else {
+      uniqueValues.sort((a, b) => (String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0));
+    }
+  } catch {
+    // ignore sort errors
+  }
   
   // Map each value to a color
   uniqueValues.forEach((value, index) => {
