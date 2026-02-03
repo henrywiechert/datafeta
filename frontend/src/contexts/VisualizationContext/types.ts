@@ -70,6 +70,10 @@ export interface VisualizationState {
   colorScheme: string;
   colorBias: number;
   manualColor: string;
+  // Facet background encoding state
+  facetBackgroundField: Field | null;
+  facetBackgroundScheme: string;
+  facetBackgroundOpacity: number;
   // Size encoding state
   sizeField: Field | null;
   sizeRange: [number, number];
@@ -152,6 +156,11 @@ export type VisualizationAction =
   | { type: 'SET_COLOR_BIAS'; payload: number }
   | { type: 'SET_MANUAL_COLOR'; payload: string }
   | { type: 'REMOVE_COLOR_FIELD' }
+  // Facet background encoding actions
+  | { type: 'SET_FACET_BACKGROUND_FIELD'; payload: Field | null }
+  | { type: 'SET_FACET_BACKGROUND_SCHEME'; payload: string }
+  | { type: 'SET_FACET_BACKGROUND_OPACITY'; payload: number }
+  | { type: 'REMOVE_FACET_BACKGROUND_FIELD' }
   // Size encoding actions
   | { type: 'SET_SIZE_FIELD'; payload: Field | null }
   | { type: 'SET_SIZE_RANGE'; payload: [number, number] }
@@ -200,6 +209,9 @@ export type VisualizationAction =
       globalChartType?: UserChartType | null;
       axisLabelStyles?: AxisLabelStyles;
       facetLabelStyles?: FacetLabelStyles;
+      facetBackgroundField?: Field | null;
+      facetBackgroundScheme?: string;
+      facetBackgroundOpacity?: number;
     } }
   // Multi-table actions
   | { type: 'TABLE_JOINS_UNIONS_MODIFIED' }

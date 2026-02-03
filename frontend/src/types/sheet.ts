@@ -75,6 +75,10 @@ export interface VisualizationStateSnapshot {
   measureGroupFields?: Field[];
   axisLabelStyles?: AxisLabelStyles;
   facetLabelStyles?: FacetLabelStyles;
+  // Facet background encoding
+  facetBackgroundField?: Field | null;
+  facetBackgroundScheme?: string;
+  facetBackgroundOpacity?: number;
 }
 
 // --- Sheet Types --- //

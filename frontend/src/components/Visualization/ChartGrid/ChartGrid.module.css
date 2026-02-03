@@ -94,6 +94,7 @@
     flex-direction: column;
     background: white;
     overflow: visible; /* Remove individual scrollbars */
+    position: relative; /* For positioning facet background indicators */
 }
 
 /* Remove per-plot title for gapless layout */

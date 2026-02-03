@@ -1,6 +1,8 @@
 import React from 'react';
 import * as Plot from '@observablehq/plot';
-import { PlotResult } from '../../../observable-plot-generator/types';
+import { Tooltip } from '@mui/material';
+import DoNotDisturbAltIcon from '@mui/icons-material/DoNotDisturbAlt';
+import { PlotResult, FacetBackgroundInfo } from '../../../observable-plot-generator/types';
 import ObservablePlot from '../ObservablePlot';
 import styles from './ChartGrid.module.css';
 import { GRID_DIVIDER_COLOR } from '../../../config/chartLayoutConfig';
@@ -78,16 +80,23 @@ const PlotArea: React.FC<PlotAreaProps> = ({
           willChange: 'transform',
         }}
       >
-        {(spec.plots || []).map((plot: { id: string, position?: { row: number, col: number }, options: Plot.PlotOptions }, index: number) => {
+        {(spec.plots || []).map((plot: { id: string, position?: { row: number, col: number }, options: Plot.PlotOptions, facetBackground?: FacetBackgroundInfo }, index: number) => {
           // Use plot.id as base key
           const key = plot.id || String(index);
           const pos = plot.position;
+          const facetBg = plot.facetBackground;
+          
+          // Build grid item style with optional background color
           const gridItemStyle: React.CSSProperties | undefined = pos
             ? {
                 gridColumn: pos.col + 1,
                 gridRow: pos.row + 1,
                 borderRight: `1px solid ${GRID_DIVIDER_COLOR}`,
                 borderBottom: `1px solid ${GRID_DIVIDER_COLOR}`,
+                // Apply facet background if uniform (not mixed)
+                ...(facetBg?.backgroundColor && !facetBg.isMixed ? {
+                  backgroundColor: facetBg.backgroundColor,
+                } : {}),
               }
             : undefined;
           const opts = suppressAxes(plot.options, true, true);
@@ -96,6 +105,22 @@ const PlotArea: React.FC<PlotAreaProps> = ({
           // The key prop isn't officially on ObservablePlot but React uses it for reconciliation
           return (
             <div key={key} className={styles.plotWrapper} style={gridItemStyle}>
+              {/* Show mixed indicator if facet has mixed values */}
+              {facetBg?.isMixed && (
+                <Tooltip title="Mixed values in background field" placement="top" arrow>
+                  <DoNotDisturbAltIcon
+                    sx={{
+                      position: 'absolute',
+                      top: 2,
+                      right: 2,
+                      width: 14,
+                      height: 14,
+                      color: 'rgba(0, 0, 0, 0.25)',
+                      zIndex: 1,
+                    }}
+                  />
+                </Tooltip>
+              )}
               <div className={styles.observablePlotContainer}>
                 <ObservablePlot 
                   key={key} 

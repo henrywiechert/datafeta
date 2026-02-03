@@ -26,6 +26,10 @@ export const initialState: VisualizationState = {
   colorScheme: 'tableau10',
   colorBias: 0,
   manualColor: DEFAULT_MANUAL_COLOR,
+  // Facet background encoding state
+  facetBackgroundField: null,
+  facetBackgroundScheme: 'tableau10',
+  facetBackgroundOpacity: 0.12,
   // Size encoding state
   sizeField: null,
   sizeRange: [4, 20],

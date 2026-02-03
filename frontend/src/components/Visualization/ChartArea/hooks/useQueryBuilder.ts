@@ -18,6 +18,7 @@ export interface UseQueryBuilderProps {
   yAxisFields: Field[];
   colorField: Field | null;
   sizeField: Field | null;
+  facetBackgroundField?: Field | null;
   filterConfigurations: Record<string, any>;
   labelFields: Field[];
   tooltipFields: Field[];
@@ -81,6 +82,7 @@ export const useQueryBuilder = ({
   yAxisFields,
   colorField,
   sizeField,
+  facetBackgroundField,
   filterConfigurations,
   labelFields,
   tooltipFields,
@@ -184,6 +186,14 @@ export const useQueryBuilder = ({
       allFields.push(sizeEntry);
     }
 
+    // Include facetBackgroundField - it's always a discrete dimension, no aggregation needed
+    if (facetBackgroundField) {
+      // Only add if not already present (might be on an axis)
+      if (!allFields.some(f => f.columnName === facetBackgroundField.columnName)) {
+        allFields.push(facetBackgroundField);
+      }
+    }
+
     // Include additional color fields from per-field overrides
     for (const addlColorField of additionalColorFields) {
       if (!allFields.some(f => f.id === addlColorField.id)) {
@@ -280,6 +290,7 @@ export const useQueryBuilder = ({
     yAxisFields,
     colorField,
     sizeField,
+    facetBackgroundField,
     filterConfigurations,
     labelFields,
     tooltipFields,
