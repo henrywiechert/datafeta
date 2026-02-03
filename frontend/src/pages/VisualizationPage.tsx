@@ -104,6 +104,7 @@ const VisualizationPageContent = () => {
         handleRemoveFromSize,
         handleRemoveFromLabel,
         handleRemoveFromTooltip,
+        handleRemoveFromBackground,
     } = useDragDrop(dataSourceAvailableFields);    // Undo/Redo handlers
     const handleUndo = React.useCallback(() => {
         const previousState = undo();
@@ -381,6 +382,7 @@ const VisualizationPageContent = () => {
                                     onRemoveFromLabel={(ids) => ids.forEach(handleRemoveFromLabel)}
                                     onRemoveFromTooltip={(ids) => ids.forEach(handleRemoveFromTooltip)}
                                     onRemoveFromMeasureGroup={handleRemoveFromMeasureGroup}
+                                    onRemoveFromBackground={handleRemoveFromBackground}
                                     connectionType={connectionDetails?.type || ''}
                                     selectedDatabase={selectedDatabase}
                                     selectedTable={selectedTable}
