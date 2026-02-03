@@ -13,6 +13,7 @@ import { SIZE_DEFAULTS_BY_CHART_TYPE, SIZE_DEFAULT_FALLBACK } from '../../../con
 import { DEFAULT_MANUAL_COLOR, DEFAULT_CATEGORICAL_SCHEME, DEFAULT_SEQUENTIAL_SCHEME, categoricalSchemes } from '../../../config/colorSchemes';
 import { useFieldOverrides } from './useFieldOverrides';
 import ColorFieldControl from './ColorFieldControl';
+import BackgroundFieldControl from './BackgroundFieldControl';
 import SizeFieldControl from './SizeFieldControl';
 import LabelFieldControl from './LabelFieldControl';
 import TooltipFieldControl from './TooltipFieldControl';
@@ -44,6 +45,9 @@ const FieldOverridesPanel: React.FC = () => {
     tooltipFields,
     globalChartType,
     measureValuesSourceFields,
+    facetBackgroundField,
+    facetBackgroundScheme,
+    facetBackgroundOpacity,
   } = state as any;
 
   const [expandedId, setExpandedId] = useState<string | null>('__all__');
@@ -341,6 +345,28 @@ const FieldOverridesPanel: React.FC = () => {
             recordAction(getUndoableSnapshot());
             clearColorOverridesForAllFields();
             dispatch({ type: 'SET_COLOR_BIAS', payload: bias });
+          }}
+        />
+
+        <BackgroundFieldControl
+          field={facetBackgroundField as Field | null}
+          colorScheme={facetBackgroundScheme || 'tableau10'}
+          opacity={facetBackgroundOpacity ?? 0.12}
+          onDrop={(field) => {
+            recordAction(getUndoableSnapshot());
+            dispatch({ type: 'SET_FACET_BACKGROUND_FIELD', payload: field });
+          }}
+          onRemove={(_fieldIds) => {
+            recordAction(getUndoableSnapshot());
+            dispatch({ type: 'SET_FACET_BACKGROUND_FIELD', payload: null });
+          }}
+          onSchemeChange={(schemeId) => {
+            recordAction(getUndoableSnapshot());
+            dispatch({ type: 'SET_FACET_BACKGROUND_SCHEME', payload: schemeId });
+          }}
+          onOpacityChange={(opacity) => {
+            recordAction(getUndoableSnapshot());
+            dispatch({ type: 'SET_FACET_BACKGROUND_OPACITY', payload: opacity });
           }}
         />
 

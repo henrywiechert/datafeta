@@ -38,6 +38,10 @@ interface UseChartGenerationProps {
   measureValuesSourceFields?: Field[];
   independentDomains?: { x?: boolean; y?: boolean };
   ganttZoomRange?: GanttZoomRange | null;
+  // Facet background encoding
+  facetBackgroundField?: Field | null;
+  facetBackgroundScheme?: string;
+  facetBackgroundOpacity?: number;
 }
 
 interface UseChartGenerationReturn {
@@ -81,6 +85,9 @@ export const useChartGeneration = ({
   measureValuesSourceFields = [],
   independentDomains,
   ganttZoomRange,
+  facetBackgroundField,
+  facetBackgroundScheme,
+  facetBackgroundOpacity,
 }: UseChartGenerationProps): UseChartGenerationReturn => {
   const [spec, setSpec] = useState<PlotResult | null>(null);
   const [chartInfo, setChartInfo] = useState<any | null>(null);
@@ -234,6 +241,10 @@ export const useChartGeneration = ({
         independentDomains,
         ganttZoomRange: ganttZoomRangeRef.current,
         fieldAliasLookup,
+        // Facet background encoding
+        facetBackgroundField: facetBackgroundField || undefined,
+        facetBackgroundScheme,
+        facetBackgroundOpacity,
       };
       
       // Track which zoom range we generated with
@@ -283,7 +294,7 @@ export const useChartGeneration = ({
       // On error, complete the operation immediately since no rendering will happen
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, bandThicknessScale, useTableView, startOperation, completeOperation, queryResult, queryVersion, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, tooltipFields, fieldOverrides, globalChartType, measureValuesSourceFields, independentDomains, doGenerateChart, fieldAliasLookup]);
+  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, bandThicknessScale, useTableView, startOperation, completeOperation, queryResult, queryVersion, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, tooltipFields, fieldOverrides, globalChartType, measureValuesSourceFields, independentDomains, doGenerateChart, fieldAliasLookup, facetBackgroundField, facetBackgroundScheme, facetBackgroundOpacity]);
 
   const cancelGeneration = useCallback(() => {
     // No-op since Observable Plot generation is synchronous

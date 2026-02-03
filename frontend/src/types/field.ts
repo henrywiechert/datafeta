@@ -18,6 +18,7 @@ export type DragSource =
   | 'AVAILABLE_FIELDS'
   | 'FILTER_ZONE'
   | 'COLOR_ZONE'
+  | 'BACKGROUND_ZONE'
   | 'SIZE_ZONE'
   | 'LABEL_ZONE'
   | 'TOOLTIP_ZONE'

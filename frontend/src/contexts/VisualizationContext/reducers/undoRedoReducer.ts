@@ -25,6 +25,9 @@ export function undoRedoReducer(state: VisualizationState, action: Visualization
         globalChartType: action.payload.globalChartType ?? null,
         axisLabelStyles: action.payload.axisLabelStyles ?? state.axisLabelStyles,
         facetLabelStyles: action.payload.facetLabelStyles ?? state.facetLabelStyles,
+        facetBackgroundField: action.payload.facetBackgroundField ?? state.facetBackgroundField,
+        facetBackgroundScheme: action.payload.facetBackgroundScheme ?? state.facetBackgroundScheme,
+        facetBackgroundOpacity: action.payload.facetBackgroundOpacity ?? state.facetBackgroundOpacity,
         queryVersion: state.queryVersion + 1,
       };
     default:

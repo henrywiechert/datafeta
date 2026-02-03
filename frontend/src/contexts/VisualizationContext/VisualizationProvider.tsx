@@ -190,6 +190,9 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       fieldOverrides: state.fieldOverrides,
       axisLabelStyles: state.axisLabelStyles,
       facetLabelStyles: state.facetLabelStyles,
+      facetBackgroundField: state.facetBackgroundField,
+      facetBackgroundScheme: state.facetBackgroundScheme,
+      facetBackgroundOpacity: state.facetBackgroundOpacity,
     };
   }, [
     state.xAxisFields,
@@ -209,6 +212,9 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     state.fieldOverrides,
     state.axisLabelStyles,
     state.facetLabelStyles,
+    state.facetBackgroundField,
+    state.facetBackgroundScheme,
+    state.facetBackgroundOpacity,
   ]);
 
   return (

@@ -34,6 +34,7 @@ export interface UseQueryExecutionProps {
   yAxisFields: Field[];
   colorField: Field | null;
   sizeField?: Field | null;
+  facetBackgroundField?: Field | null;
   filterConfigurations: Record<string, any>;
   labelFields?: Field[];
   tooltipFields?: Field[];
@@ -86,6 +87,7 @@ export const useQueryExecution = ({
   yAxisFields,
   colorField,
   sizeField = null,
+  facetBackgroundField = null,
   filterConfigurations,
   labelFields = [],
   tooltipFields = [],
@@ -169,6 +171,7 @@ export const useQueryExecution = ({
     yAxisFields,
     colorField,
     sizeField,
+    facetBackgroundField,
     filterConfigurations,
     labelFields,
     tooltipFields,

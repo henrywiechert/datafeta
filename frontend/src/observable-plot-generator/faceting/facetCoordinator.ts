@@ -1,11 +1,12 @@
 import * as Plot from '@observablehq/plot';
 import { Field } from '../../types';
-import { ChartGenerationContext, PlotResult } from '../types';
+import { ChartGenerationContext, PlotResult, FacetBackgroundInfo } from '../types';
 import { FacetPlan } from './facetPlanner';
 import { buildFacetCombos, filterRowsByFacets, uniqueValuesForField } from './facetUtils';
 import { computeSharedDomainsForFaceting, SharedDomains } from './facetDomains';
 import { computeGridLayout, computeFacetLabels } from './facetGrid';
 import { getFieldColumnName } from '../helpers/fields';
+import { computeAllFacetBackgrounds } from '../utils/facetBackgroundUtils';
 
 /**
  * A single plot specification with position
@@ -15,6 +16,8 @@ export interface PositionedPlot {
   title: string;
   options: Plot.PlotOptions;
   position: { row: number; col: number };
+  /** Optional facet background info for this cell */
+  facetBackground?: FacetBackgroundInfo;
 }
 
 /**
@@ -74,6 +77,7 @@ export interface FacetCoordinatorConfig {
  * - Computing shared domains
  * - Looping through facets
  * - Filtering data per facet
+ * - Computing facet backgrounds (if configured)
  * - Assembling the grid
  * 
  * Chart-type-specific rendering is delegated to the cellGenerator strategy.
@@ -82,6 +86,17 @@ export function coordinateFacetedGrid(config: FacetCoordinatorConfig): PlotResul
   const { context, plan, cellGenerator, categoryField, sharedCategoryDomain } = config;
   const { xFields, yFields, queryResult, colorField, independentDomains } = context;
   const { rowFacetFields, colFacetFields } = plan;
+  
+  // Set up facet background computation if configured
+  const { facetBackgroundField, facetBackgroundScheme, facetBackgroundOpacity } = context;
+  const backgroundHelper = facetBackgroundField 
+    ? computeAllFacetBackgrounds(
+        queryResult.rows,
+        facetBackgroundField,
+        facetBackgroundScheme || 'tableau10',
+        facetBackgroundOpacity ?? 0.12
+      )
+    : null;
 
   // Compute facet levels and combinations
   const rowValuesLevels = rowFacetFields.map((f) => uniqueValuesForField(queryResult.rows, f));
@@ -265,6 +280,11 @@ export function coordinateFacetedGrid(config: FacetCoordinatorConfig): PlotResul
       
       const cellResult = cellGenerator(cellData, context, cellDomains, { row: r, col: c }, facetCellContext);
       
+      // Compute facet background for this cell if configured
+      const facetBackground = backgroundHelper 
+        ? backgroundHelper.getBackgroundForData(cellData)
+        : undefined;
+      
       // Offset plots to their correct grid position
       cellResult.plots.forEach((p) => {
         allPlots.push({
@@ -274,6 +294,11 @@ export function coordinateFacetedGrid(config: FacetCoordinatorConfig): PlotResul
             row: r * baseRows + p.position.row,
             col: c * baseCols + p.position.col,
           },
+          // Include facet background info if computed
+          facetBackground: facetBackground ? {
+            backgroundColor: facetBackground.backgroundColor,
+            isMixed: facetBackground.isMixed,
+          } : undefined,
         });
       });
     }
