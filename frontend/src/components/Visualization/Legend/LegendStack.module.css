@@ -16,7 +16,27 @@
   flex-direction: column;
   min-height: 0;
   height: 100%;
-  overflow: hidden;
+  /* Allow overall stack to scroll if all sections together exceed height */
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar for the stack */
+.stackContent::-webkit-scrollbar {
+  width: 8px;
+}
+
+.stackContent::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.stackContent::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 4px;
+}
+
+.stackContent::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
 }
 
 .resizeHandle {

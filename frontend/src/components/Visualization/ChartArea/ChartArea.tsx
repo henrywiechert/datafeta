@@ -11,6 +11,7 @@ import { filterTierManager } from '../../../services/filterTierManager';
 import { useChartGeneration, useQueryExecution, useDataProcessing, useDebugView, useFullscreen } from './hooks';
 import { ChartRenderer, ChartControls, DebugPanel } from './components';
 import LegendPanel from '../Legend/LegendPanel';
+import BackgroundLegendPanel from '../Legend/BackgroundLegendPanel';
 import LegendStack from '../Legend/LegendStack';
 import FacetLimitDialog from '../FacetLimitDialog';
 
@@ -54,6 +55,9 @@ const ChartArea: React.FC = () => {
     independentDomains,
     optimizationSettings,
     ganttZoomRange,
+    facetBackgroundField,
+    facetBackgroundScheme,
+    facetBackgroundOpacity,
   } = state as any;
   const { selectedTable, selectedDatabase, virtualTable, virtualColumns, sessionAppliedFilterConfigurations } = dataSource;
   
@@ -213,6 +217,7 @@ const ChartArea: React.FC = () => {
     yAxisFields,
     colorField,
     sizeField,
+    facetBackgroundField,
     filterConfigurations: effectiveFilterConfigurations,
     labelFields,
     tooltipFields,
@@ -262,6 +267,9 @@ const ChartArea: React.FC = () => {
     globalChartType,
     measureValuesSourceFields,
     ganttZoomRange,
+    facetBackgroundField,
+    facetBackgroundScheme,
+    facetBackgroundOpacity,
   });
 
   // Save to sheet render cache on unmount (sheet switch)
@@ -417,7 +425,9 @@ const ChartArea: React.FC = () => {
     renderingCoordinator.markPlotRendered(plotId);
   }, [renderingCoordinator]);
 
-  const showLegend = Boolean(colorField && queryResult?.rows?.length);
+  const showColorLegend = Boolean(colorField && queryResult?.rows?.length);
+  const showBackgroundLegend = Boolean(facetBackgroundField && queryResult?.rows?.length);
+  const showLegend = showColorLegend || showBackgroundLegend;
 
   return (
     <div className={styles.container}>
@@ -481,12 +491,22 @@ const ChartArea: React.FC = () => {
         </div>
         {showLegend && (
           <LegendStack>
-            <LegendPanel
-              colorField={colorField}
-              queryResult={queryResult}
-              colorScheme={colorScheme}
-              colorBias={colorBias}
-            />
+            {showColorLegend && (
+              <LegendPanel
+                colorField={colorField}
+                queryResult={queryResult}
+                colorScheme={colorScheme}
+                colorBias={colorBias}
+              />
+            )}
+            {showBackgroundLegend && (
+              <BackgroundLegendPanel
+                backgroundField={facetBackgroundField}
+                queryResult={queryResult}
+                colorScheme={facetBackgroundScheme}
+                opacity={facetBackgroundOpacity}
+              />
+            )}
           </LegendStack>
         )}
       </div>

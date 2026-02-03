@@ -24,6 +24,21 @@ export function encodingReducer(state: VisualizationState, action: Visualization
       return { ...state, colorField: null, queryVersion: state.queryVersion + 1 };
     }
     
+    // Facet background encoding
+    case 'SET_FACET_BACKGROUND_FIELD':
+      // Allow updates for same-id fields when properties change (same rationale as color/size)
+      if (state.facetBackgroundField === action.payload) return state;
+      // Increment queryVersion to trigger a new query with this field included
+      return { ...state, facetBackgroundField: action.payload, queryVersion: state.queryVersion + 1 };
+    case 'SET_FACET_BACKGROUND_SCHEME':
+      return { ...state, facetBackgroundScheme: action.payload };
+    case 'SET_FACET_BACKGROUND_OPACITY':
+      return { ...state, facetBackgroundOpacity: action.payload };
+    case 'REMOVE_FACET_BACKGROUND_FIELD':
+      if (!state.facetBackgroundField) return state;
+      // Increment queryVersion since we may no longer need this field in the query
+      return { ...state, facetBackgroundField: null, queryVersion: state.queryVersion + 1 };
+    
     // Size encoding
     case 'SET_SIZE_FIELD':
       // Same rationale as SET_COLOR_FIELD: allow updates for same-id fields when properties change.

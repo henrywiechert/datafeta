@@ -79,6 +79,10 @@ export interface ChartGenerationContext {
   sizeRange?: [number, number];
   manualSize?: number;
   bandThicknessScale?: number;
+  // Facet background encoding
+  facetBackgroundField?: Field;
+  facetBackgroundScheme?: string;
+  facetBackgroundOpacity?: number;
   facetField?: Field;
   categoryAxisDescriptor?: CategoryAxisDescriptor;
   queryResult: QueryResult;
@@ -141,6 +145,16 @@ export interface ChartGenerationContext {
   fieldAliasLookup?: Record<string, string>;
 }
 
+/**
+ * Facet background info for a single plot cell
+ */
+export interface FacetBackgroundInfo {
+  /** CSS background color with opacity applied, or null if not applicable */
+  backgroundColor: string | null;
+  /** Whether this facet has mixed values (multiple categories in the background field) */
+  isMixed: boolean;
+}
+
 export interface PlotResult {
   library: 'observable-plot';
   /**
@@ -157,6 +171,8 @@ export interface PlotResult {
     title: string;
     options: Plot.PlotOptions;
     position: { row: number; col: number; };
+    /** Optional facet background info for this cell */
+    facetBackground?: FacetBackgroundInfo;
   }>;
   sharedDomains?: {
     x?: any;
