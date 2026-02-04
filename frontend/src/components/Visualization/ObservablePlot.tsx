@@ -188,7 +188,33 @@ function addTooltipListeners(
 ): () => void {
   // Find all interactive marks (circles, rects, paths with fill, lines)
   // Observable Plot typically uses these elements for data visualization
-  const marks = plot.querySelectorAll('circle, rect, path[fill]:not([fill="none"]), line');
+  // 
+  // IMPORTANT: We must exclude grid lines and axis tick marks which don't represent data.
+  // Observable Plot uses aria-label attributes on group elements:
+  // - Grid lines are inside groups with aria-label containing "grid" (e.g., "x-grid", "y-grid")
+  // - Axis tick marks are inside groups with aria-label containing "axis" (e.g., "y-axis tick")
+  const allElements = plot.querySelectorAll('circle, rect, path[fill]:not([fill="none"]), line');
+  
+  // Filter out elements that are part of grid or axis decorations
+  const marks = Array.from(allElements).filter(el => {
+    // For line elements, check if they're inside a grid or axis group
+    if (el.tagName.toLowerCase() === 'line') {
+      // Walk up the DOM tree to check parent group aria-labels
+      let parent = el.parentElement;
+      while (parent && parent !== plot) {
+        const ariaLabel = parent.getAttribute('aria-label');
+        if (ariaLabel) {
+          const labelLower = ariaLabel.toLowerCase();
+          // Exclude grid lines and axis tick marks
+          if (labelLower.includes('grid') || labelLower.includes('axis')) {
+            return false;
+          }
+        }
+        parent = parent.parentElement;
+      }
+    }
+    return true;
+  });
   const cleanupFunctions: Array<() => void> = [];
   
   // Helper to check if a color value is "visible" (not transparent/none)
