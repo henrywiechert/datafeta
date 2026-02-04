@@ -59,6 +59,7 @@ export function useGlobalFilters(): UseGlobalFiltersReturn {
     addSessionFilterField,
     removeSessionFilterField,
     setSessionFilterConfiguration,
+    setAndApplySessionFilterConfiguration,
     setSessionFilterMetadata,
     applySessionFilters,
   } = useDataSource();
@@ -90,16 +91,16 @@ export function useGlobalFilters(): UseGlobalFiltersReturn {
     
     // 1. Add to DataSourceContext (session scope)
     addSessionFilterField(field);
-    if (config) {
-      setSessionFilterConfiguration(fieldId, config);
-    }
     if (metadata) {
       setSessionFilterMetadata(fieldId, metadata);
     }
     
-    // Apply the session filter if the local filter was applied
-    if (appliedConfig) {
-      applySessionFilters();
+    // Set and apply the session filter configuration atomically.
+    // Use appliedConfig if available (the filter was applied), otherwise use config.
+    // This ensures the filter takes effect immediately when marked as global.
+    const configToApply = appliedConfig || config;
+    if (configToApply) {
+      setAndApplySessionFilterConfiguration(fieldId, configToApply);
     }
     
     // 2. Remove from ALL sheets (including current)
@@ -118,9 +119,8 @@ export function useGlobalFilters(): UseGlobalFiltersReturn {
     state.appliedFilterConfigurations,
     state.filterMetadata,
     addSessionFilterField,
-    setSessionFilterConfiguration,
+    setAndApplySessionFilterConfiguration,
     setSessionFilterMetadata,
-    applySessionFilters,
     removeFilterFromAllSheets,
     dispatch,
   ]);
@@ -159,6 +159,12 @@ export function useGlobalFilters(): UseGlobalFiltersReturn {
       payload: { fieldId, config: { ...filterConfig, scope: 'sheet' } } 
     });
     
+    // Also apply the filter so it takes effect immediately.
+    // This is important because the session filter was previously applied,
+    // and we need to maintain that applied state when converting to local.
+    // Without this, toggling global→local→global loses the applied state.
+    dispatch({ type: 'APPLY_FILTERS' });
+    
     // 3. Remove from DataSourceContext (session scope)
     removeSessionFilterField(fieldId);
     
@@ -166,6 +172,7 @@ export function useGlobalFilters(): UseGlobalFiltersReturn {
   }, [
     dataSource.sessionFilterFields,
     dataSource.sessionFilterConfigurations,
+    state.filterFields,
     addFilterToAllSheets,
     removeSessionFilterField,
     dispatch,
