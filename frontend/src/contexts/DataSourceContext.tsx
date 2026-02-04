@@ -83,6 +83,7 @@ interface DataSourceContextType {
   addSessionFilterField: (field: Field) => void;
   removeSessionFilterField: (fieldId: string) => void;
   setSessionFilterConfiguration: (fieldId: string, config: FilterConfig) => void;
+  setAndApplySessionFilterConfiguration: (fieldId: string, config: FilterConfig) => void;
   removeSessionFilterConfiguration: (fieldId: string) => void;
   applySessionFilters: () => void;
   setSessionFilterMetadata: (fieldId: string, metadata: FilterMetadata) => void;
@@ -390,6 +391,23 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  // Set session filter configuration AND apply it in a single atomic update.
+  // This prevents race conditions when marking filters as global.
+  const setAndApplySessionFilterConfiguration = (fieldId: string, config: FilterConfig) => {
+    const sessionConfig = { ...config, scope: 'session' as const };
+    setDataSource(prev => ({
+      ...prev,
+      sessionFilterConfigurations: {
+        ...prev.sessionFilterConfigurations,
+        [fieldId]: sessionConfig,
+      },
+      sessionAppliedFilterConfigurations: {
+        ...prev.sessionAppliedFilterConfigurations,
+        [fieldId]: sessionConfig,
+      },
+    }));
+  };
+
   const removeSessionFilterConfiguration = (fieldId: string) => {
     setDataSource(prev => {
       const { [fieldId]: _removed, ...remaining } = prev.sessionFilterConfigurations;
@@ -519,6 +537,7 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
         addSessionFilterField,
         removeSessionFilterField,
         setSessionFilterConfiguration,
+        setAndApplySessionFilterConfiguration,
         removeSessionFilterConfiguration,
         applySessionFilters,
         setSessionFilterMetadata,
