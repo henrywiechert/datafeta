@@ -3,6 +3,7 @@ import { Field } from '../../../types';
 import { DragSource } from './types';
 import { useSelectionStore, SelectedField } from '../../../stores/selectionStore';
 import { createDragImageWithBadge, setDragImage, createDragPayload } from './dragImageUtils';
+import { setDragData, clearDragData } from '../../../utils/dragDataStore';
 
 interface UseDragHandlersProps {
   field: Field;
@@ -74,8 +75,17 @@ export const useDragHandlers = ({
     const dragImageWrapper = createDragImageWithBadge(chipElement, fields.length);
     setDragImage(e, dragImageWrapper);
     
-    // Set drag data
-    e.dataTransfer.setData('application/json', createDragPayload(fields, sourceRef.current, indices));
+    // Primary channel: store drag data in memory (immune to browser dataTransfer bugs)
+    setDragData({ fields, source: sourceRef.current, indices });
+    
+    // Secondary channel: also set on dataTransfer for any external consumers
+    const payload = createDragPayload(fields, sourceRef.current, indices);
+    try {
+      e.dataTransfer.setData('application/json', payload);
+    } catch {
+      // Some browsers may reject application/json after extended usage
+      try { e.dataTransfer.setData('text/plain', payload); } catch { /* ignore */ }
+    }
     e.dataTransfer.effectAllowed = 'copyMove';
     
     // Clear selection after starting drag
@@ -84,6 +94,7 @@ export const useDragHandlers = ({
 
   const handleDragEnd = useCallback(() => {
     setIsDragging(false);
+    clearDragData();
   }, []);
 
   return {

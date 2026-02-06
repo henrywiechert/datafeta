@@ -1,5 +1,6 @@
 import { useState, DragEvent } from 'react';
 import { useSelectionStore } from '../stores/selectionStore';
+import { getDragData, readDragPayload } from '../utils/dragDataStore';
 
 /**
  * Custom hook to handle drag and drop operations in the fields panel
@@ -28,12 +29,9 @@ export function useFieldsPanelDrag(
     
     try {
       // Show visual feedback for any removable source (everything except AVAILABLE_FIELDS)
-      const dataString = e.dataTransfer.getData('application/json');
-      if (dataString) {
-        const data = JSON.parse(dataString);
-        if (data.source && data.source !== 'AVAILABLE_FIELDS') {
-          setIsDragOver(true);
-        }
+      const payload = getDragData();
+      if (payload && payload.source && payload.source !== 'AVAILABLE_FIELDS') {
+        setIsDragOver(true);
       }
     } catch (error) {
       // Ignore parsing errors during drag over
@@ -57,16 +55,11 @@ export function useFieldsPanelDrag(
     setIsDragOver(false);
     
     try {
-      const data = JSON.parse(e.dataTransfer.getData('application/json'));
+      const data = readDragPayload(e.dataTransfer);
+      if (!data) return;
       
-      // Handle unified payload format (always arrays) and legacy format
-      let fields = data.fields;
+      const fields = data.fields;
       const source = data.source;
-      
-      // Backward compatibility: normalize legacy single-field format
-      if (!fields && data.field) {
-        fields = [data.field];
-      }
       
       if (!source || source === 'AVAILABLE_FIELDS' || !fields || fields.length === 0) {
         return;

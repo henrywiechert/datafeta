@@ -1,4 +1,5 @@
 import { Field, DragSource } from '../../../types';
+import { readDragPayload } from '../../../utils/dragDataStore';
 
 /**
  * Returns chip styling based on field flavour (discrete vs continuous)
@@ -22,27 +23,9 @@ export const getChipStyles = (field: Field) => {
  * Safely parses drag event data and returns the field and source if present
  */
 export const parseDragData = (e: React.DragEvent): { field: Field | null; source: DragSource | null } => {
-  try {
-    const fieldData = e.dataTransfer.getData('application/json');
-    if (fieldData) {
-      const parsedData = JSON.parse(fieldData);
-      
-      // Handle unified payload format (always arrays) and legacy format
-      let fields = parsedData.fields;
-      const source = parsedData.source as DragSource | undefined;
-      
-      // Backward compatibility: normalize legacy single-field format
-      if (!fields && parsedData.field) {
-        fields = [parsedData.field];
-      }
-      
-      // For overrides, only take the first field (single field only)
-      if (fields && fields.length > 0) {
-        return { field: fields[0], source: source || null };
-      }
-    }
-  } catch (error) {
-    console.error('Error parsing drag data:', error);
+  const payload = readDragPayload(e.nativeEvent.dataTransfer ?? undefined);
+  if (payload && payload.fields.length > 0) {
+    return { field: payload.fields[0], source: (payload.source as DragSource) || null };
   }
   return { field: null, source: null };
 };
