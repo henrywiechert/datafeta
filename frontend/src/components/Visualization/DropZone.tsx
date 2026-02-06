@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Field } from '../../types';
 import FieldChip, { DragSource } from './FieldChip';
 import { useSelectionStore } from '../../stores/selectionStore';
+import { readDragPayload } from '../../utils/dragDataStore';
 import styles from './DropZone.module.css';
 
 // Style constants
@@ -54,29 +55,13 @@ const DROPZONE_STYLES = {
 // Returns unified structure with arrays for fields and indices
 // Legacy single-field payloads are normalized to arrays
 function parseDragData(dataTransfer: DataTransfer): { fields: Field[]; source: DragSource; indices: number[] } | null {
-  try {
-    const dragData = dataTransfer.getData('application/json');
-    if (dragData) {
-      const parsed = JSON.parse(dragData);
-      
-      // Normalize legacy single-field format to array format
-      if (parsed.field && !parsed.fields) {
-        return {
-          fields: [parsed.field],
-          source: parsed.source,
-          indices: parsed.index !== undefined ? [parsed.index] : [-1],
-        };
-      }
-      
-      // Return unified format (already arrays)
-      return {
-        fields: parsed.fields || [],
-        source: parsed.source,
-        indices: parsed.indices || [],
-      };
-    }
-  } catch (error) {
-    console.error('Error parsing drag data:', error);
+  const payload = readDragPayload(dataTransfer);
+  if (payload) {
+    return {
+      fields: payload.fields,
+      source: payload.source as DragSource,
+      indices: payload.indices,
+    };
   }
   return null;
 }
