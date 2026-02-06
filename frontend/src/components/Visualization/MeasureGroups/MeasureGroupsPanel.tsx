@@ -7,6 +7,7 @@ import { useDataSource } from '../../../contexts/DataSourceContext';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { Field } from '../../../types';
 import { isMeasureNamesField, isMeasureValuesField } from '../../../utils/syntheticFields';
+import { readDragPayload } from '../../../utils/dragDataStore';
 import FieldChip from '../FieldChip';
 import filterDropZoneStyles from '../Filters/FilterDropZone.module.css';
 
@@ -45,14 +46,10 @@ const MeasureGroupsPanel: React.FC = () => {
 
   const handleDrop = (e: React.DragEvent) => {
     try {
-      const data = e.dataTransfer.getData('application/json');
-      if (!data) return;
-      const parsed = JSON.parse(data);
+      const parsed = readDragPayload(e.nativeEvent.dataTransfer ?? undefined);
+      if (!parsed) return;
       let fields: Field[] = parsed.fields;
 
-      if (!fields && parsed.field) {
-        fields = [parsed.field];
-      }
       if (!fields || fields.length === 0) {
         return;
       }

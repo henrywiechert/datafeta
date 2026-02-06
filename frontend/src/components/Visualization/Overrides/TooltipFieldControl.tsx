@@ -3,6 +3,7 @@ import { Box, IconButton, SvgIcon, Tooltip } from '@mui/material';
 import { v4 as uuidv4 } from 'uuid';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import { DragSource, Field } from '../../../types';
+import { readDragPayload } from '../../../utils/dragDataStore';
 import FieldChip from '../FieldChip';
 
 const TooltipIcon: React.FC<{ fontSize?: 'inherit' | 'small' | 'medium' | 'large' }> = ({ fontSize }) => (
@@ -40,20 +41,11 @@ const TooltipFieldControl: React.FC<TooltipFieldControlProps> = ({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     try {
-      const payload = e.dataTransfer.getData('application/json');
-      if (!payload) return;
-      const parsed = JSON.parse(payload);
+      const parsed = readDragPayload(e.nativeEvent.dataTransfer ?? undefined);
+      if (!parsed) return;
 
-      // Handle unified payload format (always arrays) and legacy format
-      let fields = parsed.fields;
-      const source: DragSource = parsed.source || 'AVAILABLE_FIELDS';
-
-      if (!fields && parsed.field) {
-        fields = [parsed.field];
-      } else if (!fields && !parsed.field) {
-        // Very old format: just the field object
-        fields = [parsed];
-      }
+      const fields = parsed.fields;
+      const source: DragSource = (parsed.source as DragSource) || 'AVAILABLE_FIELDS';
 
       if (fields && fields.length > 0) {
         fields.forEach((f: Field) => {

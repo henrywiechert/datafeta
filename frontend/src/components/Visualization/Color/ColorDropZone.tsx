@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box } from '@mui/material';
 import { Field, DragSource } from '../../../types';
+import { readDragPayload } from '../../../utils/dragDataStore';
 import { PropertyDropZone } from '../Properties';
 import FieldChip from '../FieldChip';
 import ColorPalettePopover from './ColorPalettePopover';
@@ -31,18 +32,10 @@ const ColorDropZone: React.FC<ColorDropZoneProps> = ({
 }) => {
   const handleDrop = (e: React.DragEvent) => {
     try {
-      const fieldData = e.dataTransfer.getData('application/json');
-      if (fieldData) {
-        const parsedData = JSON.parse(fieldData);
-        
-        // Handle unified payload format (always arrays) and legacy format
-        let fields = parsedData.fields;
+      const parsedData = readDragPayload(e.nativeEvent.dataTransfer ?? undefined);
+      if (parsedData) {
+        const fields = parsedData.fields;
         const source = parsedData.source;
-        
-        // Backward compatibility: normalize legacy single-field format
-        if (!fields && parsedData.field) {
-          fields = [parsedData.field];
-        }
         
         // For color zone, only take the first field (single field only)
         if (fields && fields.length > 0) {

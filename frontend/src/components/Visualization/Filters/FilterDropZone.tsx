@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Typography } from '@mui/material';
 import { Field, DragSource, FilterConfig, FilterMetadata, FilterScope } from '../../../types';
+import { readDragPayload } from '../../../utils/dragDataStore';
 import FilterFieldChip from './FilterFieldChip';
 import styles from './FilterDropZone.module.css';
 
@@ -48,16 +49,11 @@ const FilterDropZone: React.FC<FilterDropZoneProps> = ({
     setIsOver(false);
 
     try {
-      const data = JSON.parse(e.dataTransfer.getData('application/json'));
+      const data = readDragPayload(e.nativeEvent.dataTransfer ?? undefined);
+      if (!data) return;
       
-      // Handle unified payload format (always arrays) and legacy format
-      let fieldsToAdd = data.fields;
+      const fieldsToAdd = data.fields;
       const source = data.source;
-      
-      // Backward compatibility: normalize legacy single-field format
-      if (!fieldsToAdd && data.field) {
-        fieldsToAdd = [data.field];
-      }
       
       if (!fieldsToAdd || fieldsToAdd.length === 0) {
         return;
