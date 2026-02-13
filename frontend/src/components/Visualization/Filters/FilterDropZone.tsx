@@ -53,7 +53,7 @@ const FilterDropZone: React.FC<FilterDropZoneProps> = ({
       if (!data) return;
       
       const fieldsToAdd = data.fields;
-      const source = data.source;
+      const source = data.source as DragSource;
       
       if (!fieldsToAdd || fieldsToAdd.length === 0) {
         return;
