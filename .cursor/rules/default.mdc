@@ -1,0 +1,30 @@
+---
+description: Default assistant behavior for this project
+alwaysApply: true
+---
+
+# Project Assistant Defaults
+
+## Communication
+- Be concise and practical.
+- Ask clarifying questions only when requirements are ambiguous.
+- Prefer actionable steps over long explanations.
+
+## Coding Style
+- Preserve existing project conventions and naming patterns.
+- Make minimal, focused changes that solve the requested task.
+- Avoid introducing new dependencies unless clearly justified.
+
+## Safety
+- Do not modify unrelated files.
+- Never expose secrets or credentials in code or logs.
+- Call out risky changes and assumptions explicitly.
+- Never create commits unless the user explicitly asks for a commit.
+
+## Validation
+- Execute tests in the backend only.
+- Generate or update backend tests when needed to maintain reasonable coverage for changed behavior.
+- If execution is not possible, provide exact verification steps.
+
+## Documentation
+- After larger changes, keep documentation up to date and consistent with the implemented behavior.
