@@ -46,12 +46,23 @@ const VisualizationPageContent = () => {
         handleFieldUpdate,
         handleDatabaseSelect,
         handleTableSelect,
+        refreshMetadata,
         refetchFilterValues,
         virtualColumns,
         handleAddVirtualColumn,
         handleUpdateVirtualColumn,
         handleRemoveVirtualColumn
     } = useVisualizationState();
+
+    // FieldsPanel is memoized and intentionally ignores callback prop changes.
+    // Keep a stable refresh handler that always points to the latest implementation.
+    const refreshMetadataRef = React.useRef(refreshMetadata);
+    React.useEffect(() => {
+        refreshMetadataRef.current = refreshMetadata;
+    }, [refreshMetadata]);
+    const handleRefreshMetadata = React.useCallback(() => {
+        return refreshMetadataRef.current();
+    }, []);
 
     // Access the enhanced context with loading states and cancellation
     const { state, dispatch, cancelOperation, getUndoableSnapshot } = useVisualizationContext();
@@ -392,6 +403,7 @@ const VisualizationPageContent = () => {
                                     metadataError={metadataError}
                                     onDatabaseSelect={handleDatabaseSelect}
                                     onTableSelect={handleTableSelect}
+                                    onRefreshMetadata={handleRefreshMetadata}
                                     suggestedJoinableTables={suggestedJoinableTables}
                                     joinedTables={joinedTables}
                                     onToggleJoinedTable={toggleJoinedTable}

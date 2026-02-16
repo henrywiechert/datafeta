@@ -199,6 +199,7 @@ export function useVisualizationState() {
         // From metadataOps hook
         fetchSuggestedJoins: metadataOps.fetchSuggestedJoins,
         fetchMergedColumns: metadataOps.fetchMergedColumns,
+        refreshMetadata: metadataOps.refreshMetadata,
         
         // From filterMetadata hook
         refetchFilterValues: filterMetadata.refetchFilterValues,
