@@ -47,12 +47,13 @@ interface UseMetadataOperationsParams {
 }
 
 export interface UseMetadataOperationsReturn {
-    fetchDatabases: () => Promise<void>;
-    fetchTables: (databaseName: string) => Promise<void>;
+    fetchDatabases: () => Promise<any[]>;
+    fetchTables: (databaseName: string) => Promise<any[]>;
     fetchColumns: () => Promise<void>;
     fetchSuggestedJoins: () => Promise<void>;
     fetchSuggestedUnions: () => Promise<void>;
     fetchMergedColumns: () => Promise<void>;
+    refreshMetadata: () => Promise<void>;
 }
 
 export function useMetadataOperations({
@@ -66,12 +67,14 @@ export function useMetadataOperations({
     dispatch
 }: UseMetadataOperationsParams): UseMetadataOperationsReturn {
 
-    const fetchDatabases = useCallback(async () => {
+    const fetchDatabases = useCallback(async (): Promise<any[]> => {
         dataSourceSetters.setIsLoadingMetadata(true);
         dataSourceSetters.setMetadataError(null);
         try {
             const response = await apiService.listDatabases();
-            dataSourceSetters.setDatabases(response.databases || []);
+            const databases = response.databases || [];
+            dataSourceSetters.setDatabases(databases);
+            return databases;
         } catch (err: any) { 
             if (err.message === 'Request was cancelled') {
                 // Request was cancelled, don't set error
@@ -79,26 +82,29 @@ export function useMetadataOperations({
             } else {
                 dataSourceSetters.setMetadataError(err.message);
             }
+            return [];
         }
         finally { 
             dataSourceSetters.setIsLoadingMetadata(false);
         }
     }, [dataSourceSetters]);
 
-    const fetchTables = useCallback(async (databaseName: string) => {
+    const fetchTables = useCallback(async (databaseName: string): Promise<any[]> => {
         const targetDatabase = databaseName;
-        if (connectionDetails?.type === 'clickhouse' && !targetDatabase) return;
+        if (connectionDetails?.type === 'clickhouse' && !targetDatabase) return [];
         
         dataSourceSetters.setIsLoadingMetadata(true);
         dataSourceSetters.setMetadataError(null);
         try {
             const response = await apiService.listTables(targetDatabase);
-            dataSourceSetters.setTables(response.tables || []);
-            if ((connectionDetails?.type === 'csv' || connectionDetails?.type === 'kaggle') && response.tables?.length === 1) {
-                dataSourceSetters.setSelectedTable(response.tables[0].name);
+            const tables = response.tables || [];
+            dataSourceSetters.setTables(tables);
+            if ((connectionDetails?.type === 'csv' || connectionDetails?.type === 'kaggle') && tables.length === 1) {
+                dataSourceSetters.setSelectedTable(tables[0].name);
                 // Note: Query refresh is triggered by the effect that watches selectedTable
                 // and availableFields changes in the snapshot loading effect below
             }
+            return tables;
         } catch (err: any) { 
             if (err.message === 'Request was cancelled') {
                 // Request was cancelled, don't set error
@@ -106,6 +112,7 @@ export function useMetadataOperations({
             } else {
                 dataSourceSetters.setMetadataError(err.message);
             }
+            return [];
         }
         finally { 
             dataSourceSetters.setIsLoadingMetadata(false);
@@ -295,6 +302,46 @@ export function useMetadataOperations({
         connectionDetails?.type, 
         dataSourceSetters,
         dispatch,
+        fetchColumns
+    ]);
+
+    const isManualRefreshRunningRef = useRef(false);
+    const refreshMetadata = useCallback(async () => {
+        if (isManualRefreshRunningRef.current) return;
+        isManualRefreshRunningRef.current = true;
+
+        try {
+            // 1) Refresh top-level metadata lists.
+            if (connectionDetails?.type === 'clickhouse') {
+                await fetchDatabases();
+            }
+
+            const refreshedTables = await fetchTables(dataSource.selectedDatabase || '');
+
+            // 2) Refresh selected table metadata when selection still exists.
+            const selectedTable = dataSource.selectedTable;
+            const selectedTableStillExists = !!selectedTable
+                && refreshedTables.some((table: any) => table?.name === selectedTable);
+
+            if (!selectedTableStillExists) return;
+
+            if (dataSource.joinedTables.length > 0 || dataSource.unionTables.length > 0) {
+                await fetchMergedColumns();
+            } else {
+                await fetchColumns();
+            }
+        } finally {
+            isManualRefreshRunningRef.current = false;
+        }
+    }, [
+        connectionDetails?.type,
+        dataSource.selectedDatabase,
+        dataSource.selectedTable,
+        dataSource.joinedTables.length,
+        dataSource.unionTables.length,
+        fetchDatabases,
+        fetchTables,
+        fetchMergedColumns,
         fetchColumns
     ]);
 
@@ -489,6 +536,7 @@ export function useMetadataOperations({
         fetchSuggestedJoins,
         fetchSuggestedUnions,
         fetchMergedColumns,
+        refreshMetadata,
     };
 }
 

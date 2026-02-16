@@ -35,6 +35,7 @@ interface FieldsPanelProps {
   metadataError: string | null;
   onDatabaseSelect: (database: string) => void;
   onTableSelect: (table: string) => void;
+  onRefreshMetadata?: () => void;
   // Multi-table join props
   suggestedJoinableTables?: string[];
   joinedTables?: string[];
@@ -76,6 +77,7 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   metadataError,
   onDatabaseSelect,
   onTableSelect,
+  onRefreshMetadata,
   // Multi-table join props
   suggestedJoinableTables,
   joinedTables,
@@ -215,6 +217,7 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
         metadataError={metadataError}
         onDatabaseSelect={onDatabaseSelect}
         onTableSelect={onTableSelect}
+        onRefreshMetadata={onRefreshMetadata}
         availableFields={availableFields}
         suggestedJoinableTables={suggestedJoinableTables}
         joinedTables={joinedTables}

@@ -1,6 +1,7 @@
 import React from 'react';
-import { Box, CircularProgress, Typography, TextField } from '@mui/material';
+import { Box, CircularProgress, Typography, TextField, IconButton, Tooltip } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import { Database, Table, Field } from '../../../types';
 import JoinTableSelector from './JoinTableSelector';
 import TableAddPicker from './TableAddPicker';
@@ -98,6 +99,7 @@ interface CompactMetadataSelectorProps {
   metadataError: string | null;
   onDatabaseSelect: (database: string) => void;
   onTableSelect: (table: string) => void;
+  onRefreshMetadata?: () => void;
   availableFields?: Field[]; // Add the availableFields property
   // Multi-table support - JOIN mode
   suggestedJoinableTables?: string[];
@@ -121,6 +123,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
   metadataError,
   onDatabaseSelect,
   onTableSelect,
+  onRefreshMetadata,
   availableFields = [],
   suggestedJoinableTables = [],
   joinedTables = [],
@@ -162,16 +165,31 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
 
   return (
     <div className={styles.metadataSelector}>
-      <Typography 
-        variant="subtitle2"
-        fontWeight="bold"
-        align="left"
-        fontSize="0.85rem"
-        gutterBottom
-        sx={{ marginBottom: 0.2 }}
-      >
-        Data Source
-      </Typography>
+      <Box className={styles.headerRow}>
+        <Typography 
+          variant="subtitle2"
+          fontWeight="bold"
+          align="left"
+          fontSize="0.85rem"
+          gutterBottom
+          sx={{ marginBottom: 0.2 }}
+        >
+          Data Source
+        </Typography>
+        <Tooltip title="Refresh metadata" placement="left">
+          <span>
+            <IconButton
+              size="small"
+              aria-label="Refresh metadata"
+              onClick={onRefreshMetadata}
+              disabled={isLoadingMetadata}
+              sx={{ width: 20, height: 20 }}
+            >
+              <RefreshIcon fontSize="inherit" />
+            </IconButton>
+          </span>
+        </Tooltip>
+      </Box>
       {connectionType === 'clickhouse' ? (
         <>
           <TableAddPicker
