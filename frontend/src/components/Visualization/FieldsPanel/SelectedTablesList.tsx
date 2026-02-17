@@ -55,7 +55,7 @@ const SelectedTablesList: React.FC<SelectedTablesListProps> = ({
                 <Box className={styles.primaryRow}>
                   <Chip label="Primary" size="small" color="primary" className={styles.roleChip} />
                   <span className={styles.tableName}>
-                    {primaryDatabase}.{primaryTable}
+                    {primaryDatabase ? `${primaryDatabase}.${primaryTable}` : primaryTable}
                   </span>
                 </Box>
               }
@@ -75,14 +75,15 @@ const SelectedTablesList: React.FC<SelectedTablesListProps> = ({
         )}
 
         {unionTables.map((t) => {
-          const key = `${t.database}.${t.table_name}`;
+          const displayName = t.database ? `${t.database}.${t.table_name}` : t.table_name;
+          const key = `${t.database}:${t.table_name}`;
           return (
             <ListItem key={key} divider className={styles.listItem}>
               <ListItemText
                 primary={
                   <Box className={styles.primaryRow}>
                     <Chip label="UNION" size="small" variant="outlined" className={styles.roleChip} />
-                    <span className={styles.tableName}>{key}</span>
+                    <span className={styles.tableName}>{displayName}</span>
                   </Box>
                 }
                 secondary={<span className={styles.metaPlaceholder}>Rows: — • Cols: —</span>}
