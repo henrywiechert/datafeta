@@ -418,7 +418,7 @@ class ConnectionService:
             self.state_manager.set_state(
                 connector=connector,
                 details=effective_connection_details,
-                csv_temp_path=None,
+                temp_paths=None,
             )
 
             return {"message": f"Successfully connected to {connection_details.type} source."}
