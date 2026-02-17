@@ -20,7 +20,8 @@ class ConnectionStateManager:
     def __init__(self):
         self.current_connector: Optional[BaseConnector] = None
         self.current_connection_details: Optional[ConnectionDetails] = None
-        self.current_csv_temp_path: Optional[str] = None
+        # Support multiple temp files (CSV and/or Parquet)
+        self.current_temp_paths: List[str] = []
         # Per-session async lock to serialize connect/disconnect
         self.lock: asyncio.Lock = asyncio.Lock()
         # Track when this session was created and last accessed
@@ -31,17 +32,21 @@ class ConnectionStateManager:
         self,
         connector: Optional[BaseConnector],
         details: Optional[ConnectionDetails],
-        csv_temp_path: Optional[str] = None
+        temp_paths: Optional[List[str]] = None
     ):
         self.current_connector = connector
         self.current_connection_details = details
-        self.current_csv_temp_path = csv_temp_path if details and details.type == 'csv' else None
+        # Store temp paths for file-based connections (CSV/Parquet)
+        if details and details.type == 'csv' and temp_paths:
+            self.current_temp_paths = temp_paths
+        else:
+            self.current_temp_paths = []
         self.last_accessed_at = datetime.now(timezone.utc)
 
     def clear_state(self):
         self.current_connector = None
         self.current_connection_details = None
-        self.current_csv_temp_path = None
+        self.current_temp_paths = []
         self.last_accessed_at = datetime.now(timezone.utc)
 
     def touch(self):
@@ -89,7 +94,8 @@ def list_active_sessions() -> List[dict]:
                 'tab_id': tab_id,
                 'has_connector': manager.current_connector is not None,
                 'connection_type': manager.current_connection_details.type if manager.current_connection_details else None,
-                'csv_temp_path': manager.current_csv_temp_path,
+                'temp_paths': manager.current_temp_paths,
+                'file_count': len(manager.current_temp_paths),
                 'created_at': manager.created_at.isoformat(),
                 'last_accessed_at': manager.last_accessed_at.isoformat(),
             })

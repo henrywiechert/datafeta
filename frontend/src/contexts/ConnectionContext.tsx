@@ -10,7 +10,7 @@ interface ConnectionState {
   error: string | null;
   message: string | null;
   connectionDetails: ConnectionDetails | null; // Store details of the active connection
-  connect: (details: ConnectionDetails, file?: File) => Promise<void>;
+  connect: (details: ConnectionDetails, files?: File[]) => Promise<void>;
   disconnect: () => Promise<void>;
 }
 
@@ -29,7 +29,7 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
   const { resetMetadata } = useDataSource();
   const { dispatch } = useVisualizationContext();
 
-  const connect = useCallback(async (details: ConnectionDetails, file?: File) => {
+  const connect = useCallback(async (details: ConnectionDetails, files?: File[]) => {
     // If already connected, disconnect first to clean up resources
     if (isConnected) {
       try {
@@ -47,8 +47,13 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
     setIsConnected(false);
 
     try {
-      const response = await apiService.connect(details, file);
-      setMessage(`${response.message}${response.file_path ? ` (Server Path: ${response.file_path})` : ''}`);
+      const response = await apiService.connect(details, files);
+      // Build message - handle both single file_path (legacy) and file_paths (multi-file)
+      let pathInfo = '';
+      if (response.file_paths && response.file_paths.length > 0) {
+        pathInfo = ` (${response.file_paths.length} file(s) uploaded)`;
+      }
+      setMessage(`${response.message}${pathInfo}`);
       setConnectionDetails(details); // Store successful connection details
       setIsConnected(true);
       setError(null);

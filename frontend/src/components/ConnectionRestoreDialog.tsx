@@ -29,7 +29,7 @@ interface ConnectionRestoreDialogProps {
   connectionMetadata: SavedConnectionMetadata | null;
   onConnect: (
     password: string,
-    file?: File,
+    files?: File[],
     kaggleUsername?: string,
     kaggleApiKey?: string,
     clickHouseOverrides?: ClickHouseOverrides
@@ -119,9 +119,10 @@ export default function ConnectionRestoreDialog({
           }
         : undefined;
 
+      // Pass file as array for multi-file API compatibility
       await onConnect(
         password,
-        file || undefined,
+        file ? [file] : undefined,
         kaggleUsername || undefined,
         kaggleApiKey || undefined,
         clickHouseOverrides
@@ -245,10 +246,10 @@ export default function ConnectionRestoreDialog({
                 fullWidth
                 disabled={isConnecting}
               >
-                {file ? `Selected: ${file.name}` : 'Select CSV File'}
+                {file ? `Selected: ${file.name}` : 'Select Data File (CSV/Parquet)'}
                 <input
                   type="file"
-                  accept=".csv"
+                  accept=".csv,.parquet"
                   hidden
                   onChange={handleFileChange}
                 />

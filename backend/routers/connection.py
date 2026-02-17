@@ -1,7 +1,7 @@
 """API router for connection management operations."""
 
 import logging
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Body, Depends, File, Form, Request, UploadFile
 from pydantic import BaseModel
@@ -33,14 +33,30 @@ class BeaconDisconnectRequest(BaseModel):
 @router.post("/connect")
 async def connect_to_datasource(
     connection_details_json: str = Form(...),
-    uploaded_file: Optional[UploadFile] = File(None),
+    uploaded_files: List[UploadFile] = File(default=[]),
     state_manager: ConnectionStateManager = Depends(get_state_manager),
     session_id: str = Depends(get_session_id),
     request: Request = None
 ):
-    """Connect to a specified data source. For CSV, upload the file."""
+    """
+    Connect to a specified data source.
+    
+    For file-based sources (CSV/Parquet), upload one or more files.
+    Each file becomes a separate queryable table.
+    
+    Supported file types:
+    - CSV (.csv) - with configurable delimiter, header, date formats
+    - Parquet (.parquet) - schema is automatically detected from file
+    
+    Args:
+        connection_details_json: JSON string with connection type and options
+        uploaded_files: List of files to upload (for 'csv' connection type)
+        
+    Returns:
+        Success message and list of file paths
+    """
     service = ConnectionService(state_manager=state_manager, request=request)
-    return await service.connect_multipart(connection_details_json, uploaded_file, session_id)
+    return await service.connect_multipart(connection_details_json, uploaded_files, session_id)
 
 
 @router.post("/connect/json")
@@ -107,17 +123,20 @@ async def disconnect_beacon(
                 except Exception as e:
                     logger.warning(f"Error disconnecting connector during beacon cleanup: {e}")
             
-            # Clean up CSV temp files if any
-            if manager.current_csv_temp_path:
-                import os
-                import shutil
-                try:
-                    if os.path.isfile(manager.current_csv_temp_path):
-                        os.remove(manager.current_csv_temp_path)
-                    elif os.path.isdir(manager.current_csv_temp_path):
-                        shutil.rmtree(manager.current_csv_temp_path)
-                except Exception as e:
-                    logger.warning(f"Error cleaning up CSV temp path during beacon cleanup: {e}")
+            # Clean up all temp files (supports multi-file uploads)
+            import os
+            import shutil
+            for temp_path in manager.current_temp_paths:
+                if temp_path:
+                    try:
+                        if os.path.isfile(temp_path):
+                            os.remove(temp_path)
+                            logger.debug(f"Deleted temp file during beacon cleanup: {temp_path}")
+                        elif os.path.isdir(temp_path):
+                            shutil.rmtree(temp_path)
+                            logger.debug(f"Deleted temp directory during beacon cleanup: {temp_path}")
+                    except Exception as e:
+                        logger.warning(f"Error cleaning up temp path during beacon cleanup: {e}")
             
             # Remove from storage
             del session_storage[composite_key]
