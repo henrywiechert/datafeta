@@ -313,7 +313,7 @@ function AppContent() {
 
   const handleConnectionRestore = async (
     password: string,
-    file?: File,
+    files?: File[],
     kaggleUsername?: string,
     kaggleApiKey?: string,
     clickHouseOverrides?: ClickHouseOverrides
@@ -330,8 +330,8 @@ function AppContent() {
         clickHouseOverrides
       );
       
-      // Attempt to connect
-      await connect(details, file);
+      // Attempt to connect (pass files array for multi-file support)
+      await connect(details, files);
       
       // If connection successful, restore the rest of the configuration
       setShowConnectionRestore(false);

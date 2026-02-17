@@ -231,6 +231,28 @@
   margin-top: 4px;
 }
 
+.fileList {
+  margin-top: 6px;
+  max-height: 120px;
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 4px 0;
+}
+
+.fileListItem {
+  font-size: 0.75rem;
+  color: #555;
+  padding: 2px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fileListItem:not(:last-child) {
+  border-bottom: 1px solid #f0f0f0;
+}
+
 .csvConfigSection {
   margin-top: 16px;
   padding-top: 16px;

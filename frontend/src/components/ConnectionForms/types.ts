@@ -8,10 +8,10 @@ import { KaggleDataset, KaggleFile } from '../../types';
 // Connection type union
 export type ConnectionType = 'csv' | 'clickhouse' | 'kaggle';
 
-// CSV form state
+// File form state (supports CSV and Parquet files)
 export interface CsvFormState {
-  selectedFile: File | null;
-  filePath: string;
+  selectedFiles: File[];  // Multiple files supported
+  fileNames: string[];    // Display names for selected files
   delimiter: string;
   hasHeader: boolean;
   decimalSeparator: string;
@@ -54,8 +54,8 @@ export interface ValidationResult {
 
 // Default values for form state initialization
 export const DEFAULT_CSV_STATE: CsvFormState = {
-  selectedFile: null,
-  filePath: '',
+  selectedFiles: [],
+  fileNames: [],
   delimiter: ',',
   hasHeader: true,
   decimalSeparator: '.',

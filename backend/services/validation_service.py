@@ -61,7 +61,10 @@ class ValidationService:
         conn_details: ConnectionDetails
     ) -> None:
         """
-        Validate that the query target table matches the connected CSV table.
+        Validate that the query target table matches one of the connected file tables.
+        
+        Supports both single-file (legacy _table_name) and multi-file (_files list)
+        connectors.
         
         Args:
             target_table: The target table from query description
@@ -69,9 +72,20 @@ class ValidationService:
             conn_details: Current connection details
             
         Raises:
-            InvalidInputError: If CSV connection and table names don't match
+            InvalidInputError: If CSV connection and table name not found in connected files
         """
         if conn_details.type == 'csv':
+            # New multi-file connector: check against _files list
+            files = getattr(connector, '_files', None)
+            if files is not None:
+                known_tables = {f.table_name for f in files}
+                if target_table not in known_tables:
+                    raise InvalidInputError(
+                        f"Query target table '{target_table}' does not match any "
+                        f"connected file table. Available: {sorted(known_tables)}."
+                    )
+                return
+            # Legacy single-file fallback: check against _table_name
             expected_table = getattr(connector, '_table_name', None)
             if not expected_table or target_table != expected_table:
                 raise InvalidInputError(

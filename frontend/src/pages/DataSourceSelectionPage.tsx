@@ -57,7 +57,9 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
 
     const details = form.buildConnectionDetails();
     try {
-      await connect(details, form.csvState.selectedFile ?? undefined);
+      // Pass array of files for file-based connections
+      const files = form.csvState.selectedFiles.length > 0 ? form.csvState.selectedFiles : undefined;
+      await connect(details, files);
     } catch (err) {
       console.error('Connect API call failed:', err);
     }
@@ -145,7 +147,7 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
             onChange={(e) => form.setConnectionType(e.target.value as ConnectionType)}
             disabled={formDisabled}
           >
-            <option value="csv">CSV File</option>
+            <option value="csv">File (CSV, Parquet)</option>
             <option value="clickhouse">ClickHouse</option>
             <option value="kaggle">Kaggle Dataset</option>
           </select>

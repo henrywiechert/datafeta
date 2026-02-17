@@ -1,11 +1,11 @@
-"""Connection lifecycle service: handles connect/disconnect and CSV file management."""
+"""Connection lifecycle service: handles connect/disconnect and file management."""
 
 import os
 import shutil
 import tempfile
 import csv
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 from fastapi import Request, UploadFile, status
 from pydantic import ValidationError
@@ -28,14 +28,29 @@ from backend.dependencies import ConnectionStateManager
 logger = logging.getLogger(__name__)
 
 
-MAX_CSV_UPLOAD_BYTES = 64 * 1024 * 1024  # 64 MiB
+MAX_FILE_UPLOAD_BYTES = 64 * 1024 * 1024  # 64 MiB per file
 CSV_SNIFF_BYTES = 16384
+
+# Supported file extensions
+ALLOWED_FILE_EXTENSIONS = {'.csv', '.parquet'}
+
+# MIME types for CSV files
 ALLOWED_CSV_MIME_TYPES = {
     "text/csv",
     "application/csv",
     "application/vnd.ms-excel",
     "text/plain",
 }
+
+# MIME types for Parquet files
+ALLOWED_PARQUET_MIME_TYPES = {
+    "application/octet-stream",
+    "application/x-parquet",
+    "application/vnd.apache.parquet",
+}
+
+# Combined allowed MIME types
+ALLOWED_FILE_MIME_TYPES = ALLOWED_CSV_MIME_TYPES | ALLOWED_PARQUET_MIME_TYPES
 
 
 class ConnectorRegistry:
@@ -120,6 +135,33 @@ class ConnectionService:
         await run_in_threadpool(_validate)
 
     @staticmethod
+    async def _validate_parquet_file(path: str) -> None:
+        """Validate that a file is a valid Parquet file."""
+        def _validate():
+            if not os.path.exists(path):
+                raise FileProcessingError("Temporary file missing during validation.")
+            # Check file size (should not be empty)
+            if os.path.getsize(path) == 0:
+                raise InvalidInputError("Uploaded Parquet file is empty.")
+            # Check Parquet magic bytes: "PAR1" at start and end of file
+            with open(path, "rb") as f:
+                header = f.read(4)
+                if header != b'PAR1':
+                    raise InvalidInputError("Uploaded file does not appear to be valid Parquet (missing PAR1 header).")
+                # Check footer magic bytes
+                f.seek(-4, 2)  # Seek to 4 bytes before end
+                footer = f.read(4)
+                if footer != b'PAR1':
+                    raise InvalidInputError("Uploaded file does not appear to be valid Parquet (missing PAR1 footer).")
+        await run_in_threadpool(_validate)
+
+    @staticmethod
+    def _get_file_extension(filename: str) -> str:
+        """Get the lowercase file extension from a filename."""
+        _, ext = os.path.splitext(filename)
+        return ext.lower()
+
+    @staticmethod
     def _get_connector(connection_details: ConnectionDetails, state_manager: ConnectionStateManager) -> BaseConnector:
         # Lazy init a module-level registry
         global _CONNECTOR_REGISTRY
@@ -139,33 +181,52 @@ class ConnectionService:
     async def _clear_previous_state(self, session_id: str) -> None:
         if self.state_manager.current_connector:
             await run_in_threadpool(self.state_manager.current_connector.disconnect)
-        if self.state_manager.current_csv_temp_path and os.path.exists(self.state_manager.current_csv_temp_path):
-            try:
-                upload_root_dir = self._get_upload_root_dir()
-                if self._is_path_within_directory(self.state_manager.current_csv_temp_path, upload_root_dir):
-                    os.remove(self.state_manager.current_csv_temp_path)
-                else:
-                    logger.warning(
-                        f"Refusing to delete file outside upload root during clear: {self.state_manager.current_csv_temp_path}"
-                    )
-            except OSError:
-                logger.error(
-                    f"Error cleaning up previous temp file {self.state_manager.current_csv_temp_path}",
-                    exc_info=True,
-                )
+        
+        # Clean up all temp files (supports multi-file uploads)
+        temp_paths = self.state_manager.current_temp_paths or []
+        if temp_paths:
+            upload_root_dir = self._get_upload_root_dir()
+            for temp_path in temp_paths:
+                if temp_path and os.path.exists(temp_path):
+                    try:
+                        if self._is_path_within_directory(temp_path, upload_root_dir):
+                            os.remove(temp_path)
+                            logger.debug(f"Deleted temp file during clear: {temp_path}")
+                        else:
+                            logger.warning(
+                                f"Refusing to delete file outside upload root during clear: {temp_path}"
+                            )
+                    except OSError:
+                        logger.error(
+                            f"Error cleaning up previous temp file {temp_path}",
+                            exc_info=True,
+                        )
         self.state_manager.clear_state()
 
     # ----- Public API -----
     async def connect_multipart(
         self,
         connection_details_json: str,
-        uploaded_file: Optional[UploadFile],
+        uploaded_files: List[UploadFile],
         session_id: str,
     ) -> Dict[str, Any]:
+        """
+        Connect to file-based data sources (CSV, Parquet).
+        
+        Supports single or multiple file uploads. Each file becomes a separate table.
+        
+        Args:
+            connection_details_json: JSON string with connection configuration
+            uploaded_files: List of uploaded files (CSV and/or Parquet)
+            session_id: Session identifier for file isolation
+            
+        Returns:
+            Dict with success message and file paths
+        """
         async with self.state_manager.lock:
             await self._clear_previous_state(session_id)
 
-        temp_file_path: Optional[str] = None
+        temp_file_paths: List[str] = []
         connector: Optional[BaseConnector] = None
         try:
             try:
@@ -180,45 +241,82 @@ class ConnectionService:
             effective_connection_details = connection_details.copy(deep=True)
 
             if connection_details.type == "csv":
-                if not uploaded_file:
-                    raise InvalidInputError("A CSV file upload is required for type 'csv'")
-                if not uploaded_file.filename or not uploaded_file.filename.lower().endswith('.csv'):
-                    raise InvalidInputError("Invalid file type or missing filename. Only CSV files are allowed.")
-                if uploaded_file.content_type not in ALLOWED_CSV_MIME_TYPES:
-                    raise InvalidInputError(
-                        detail=f"Unsupported content type: {uploaded_file.content_type}",
-                        status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-                    )
+                if not uploaded_files:
+                    raise InvalidInputError("At least one file upload is required for type 'csv'")
+                
+                session_upload_dir = self._get_session_upload_dir(session_id)
+                file_infos: List[Dict[str, str]] = []
+                
                 try:
-                    session_upload_dir = self._get_session_upload_dir(session_id)
-                    fd, temp_file_path = tempfile.mkstemp(suffix=".csv", dir=session_upload_dir)
-                    os.close(fd)
-                    try:
-                        await self._save_uploaded_file_with_limit(uploaded_file, temp_file_path, MAX_CSV_UPLOAD_BYTES)
-                    except InvalidInputError:
-                        if temp_file_path and os.path.exists(temp_file_path):
-                            os.remove(temp_file_path)
-                        raise
-                    await self._validate_csv_file(temp_file_path)
-                    connect_args['file_path'] = temp_file_path
-                    # Pass original filename for table naming
-                    connect_args['original_filename'] = uploaded_file.filename
-                    # Pass CSV configuration options to the connector
-                    if connection_details.csv_delimiter is not None:
-                        connect_args['csv_delimiter'] = connection_details.csv_delimiter
-                    if connection_details.csv_has_header is not None:
-                        connect_args['csv_has_header'] = connection_details.csv_has_header
-                    if connection_details.csv_decimal_separator is not None:
-                        connect_args['csv_decimal_separator'] = connection_details.csv_decimal_separator
-                    if connection_details.csv_thousands_separator is not None:
-                        connect_args['csv_thousands_separator'] = connection_details.csv_thousands_separator
-                    if connection_details.csv_date_format is not None:
-                        connect_args['csv_date_format'] = connection_details.csv_date_format
-                    if connection_details.csv_timestamp_format is not None:
-                        connect_args['csv_timestamp_format'] = connection_details.csv_timestamp_format
+                    for uploaded_file in uploaded_files:
+                        # Validate filename and extension
+                        if not uploaded_file.filename:
+                            raise InvalidInputError("Missing filename for uploaded file.")
+                        
+                        file_ext = self._get_file_extension(uploaded_file.filename)
+                        if file_ext not in ALLOWED_FILE_EXTENSIONS:
+                            raise InvalidInputError(
+                                f"Invalid file type: {file_ext}. Allowed: {', '.join(ALLOWED_FILE_EXTENSIONS)}"
+                            )
+                        
+                        # Validate MIME type
+                        if uploaded_file.content_type not in ALLOWED_FILE_MIME_TYPES:
+                            raise InvalidInputError(
+                                detail=f"Unsupported content type: {uploaded_file.content_type}",
+                                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                            )
+                        
+                        # Save file to temp location
+                        fd, temp_file_path = tempfile.mkstemp(suffix=file_ext, dir=session_upload_dir)
+                        os.close(fd)
+                        temp_file_paths.append(temp_file_path)
+                        
+                        try:
+                            await self._save_uploaded_file_with_limit(
+                                uploaded_file, temp_file_path, MAX_FILE_UPLOAD_BYTES
+                            )
+                        except InvalidInputError:
+                            # Remove the file we just created if save failed
+                            if os.path.exists(temp_file_path):
+                                os.remove(temp_file_path)
+                                temp_file_paths.remove(temp_file_path)
+                            raise
+                        
+                        # Validate file based on type
+                        if file_ext == '.csv':
+                            await self._validate_csv_file(temp_file_path)
+                        elif file_ext == '.parquet':
+                            await self._validate_parquet_file(temp_file_path)
+                        
+                        file_infos.append({
+                            "file_path": temp_file_path,
+                            "original_filename": uploaded_file.filename,
+                        })
+                        
+                        logger.info(f"Saved uploaded file: {uploaded_file.filename} -> {temp_file_path}")
+                        
                 finally:
-                    if uploaded_file:
+                    # Close all uploaded files
+                    for uploaded_file in uploaded_files:
                         await uploaded_file.close()
+                
+                # Build connect args with multi-file support
+                connect_args['file_paths'] = file_infos
+                
+                # Pass CSV configuration options (applied to all CSV files)
+                if connection_details.csv_delimiter is not None:
+                    connect_args['csv_delimiter'] = connection_details.csv_delimiter
+                if connection_details.csv_has_header is not None:
+                    connect_args['csv_has_header'] = connection_details.csv_has_header
+                if connection_details.csv_decimal_separator is not None:
+                    connect_args['csv_decimal_separator'] = connection_details.csv_decimal_separator
+                if connection_details.csv_thousands_separator is not None:
+                    connect_args['csv_thousands_separator'] = connection_details.csv_thousands_separator
+                if connection_details.csv_date_format is not None:
+                    connect_args['csv_date_format'] = connection_details.csv_date_format
+                if connection_details.csv_timestamp_format is not None:
+                    connect_args['csv_timestamp_format'] = connection_details.csv_timestamp_format
+                    
             elif connection_details.type == "clickhouse":
                 if connection_details.connection_string:
                     connect_args['connection_string'] = connection_details.connection_string
@@ -242,19 +340,26 @@ class ConnectionService:
             self.state_manager.set_state(
                 connector=connector,
                 details=effective_connection_details,
-                csv_temp_path=temp_file_path,
+                temp_paths=temp_file_paths,
             )
 
-            return {"message": f"Successfully connected to {connection_details.type} source.", "file_path": temp_file_path}
+            return {
+                "message": f"Successfully connected to {connection_details.type} source with {len(temp_file_paths)} file(s).",
+                "file_paths": temp_file_paths,
+            }
 
         except (InvalidInputError, FileProcessingError, DataSourceConnectionError) as e:
-            if temp_file_path and os.path.exists(temp_file_path):
-                os.remove(temp_file_path)
+            # Clean up all temp files on error
+            for path in temp_file_paths:
+                if path and os.path.exists(path):
+                    os.remove(path)
             self.state_manager.clear_state()
             raise e
         except Exception:
-            if temp_file_path and os.path.exists(temp_file_path):
-                os.remove(temp_file_path)
+            # Clean up all temp files on error
+            for path in temp_file_paths:
+                if path and os.path.exists(path):
+                    os.remove(path)
             self.state_manager.clear_state()
             logger.exception("Unexpected error during connect (multipart)")
             raise AppException("An unexpected server error occurred during connection.")
@@ -326,7 +431,7 @@ class ConnectionService:
             raise AppException("An unexpected server error occurred during connection.")
 
     async def disconnect(self, session_id: str) -> Dict[str, Any]:
-        file_to_delete = self.state_manager.current_csv_temp_path
+        files_to_delete = self.state_manager.current_temp_paths or []
         session_upload_dir = None
         try:
             upload_root_dir = self._get_upload_root_dir()
@@ -340,15 +445,22 @@ class ConnectionService:
 
             self.state_manager.clear_state()
 
-            if file_to_delete and os.path.exists(file_to_delete):
-                try:
-                    if session_upload_dir and self._is_path_within_directory(file_to_delete, session_upload_dir):
-                        os.remove(file_to_delete)
-                        logger.info(f"Deleted temp file: {file_to_delete}")
-                    else:
-                        logger.warning(f"Refusing to delete file outside session temp dir: {file_to_delete}")
-                except OSError:
-                    logger.error(f"Error deleting temp file {file_to_delete}", exc_info=True)
+            # Delete all temp files
+            deleted_count = 0
+            for file_to_delete in files_to_delete:
+                if file_to_delete and os.path.exists(file_to_delete):
+                    try:
+                        if session_upload_dir and self._is_path_within_directory(file_to_delete, session_upload_dir):
+                            os.remove(file_to_delete)
+                            deleted_count += 1
+                            logger.debug(f"Deleted temp file: {file_to_delete}")
+                        else:
+                            logger.warning(f"Refusing to delete file outside session temp dir: {file_to_delete}")
+                    except OSError:
+                        logger.error(f"Error deleting temp file {file_to_delete}", exc_info=True)
+            
+            if deleted_count > 0:
+                logger.info(f"Deleted {deleted_count} temp file(s) during disconnect")
 
         return {"message": "Successfully disconnected."}
 
