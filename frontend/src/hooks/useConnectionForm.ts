@@ -121,8 +121,8 @@ export interface UseConnectionFormReturn {
   selectKaggleDataset: (ref: string) => Promise<void>;
   loadKaggleFilesManual: () => Promise<void>;
 
-  // File handling
-  handleFileChange: (file: File | null) => void;
+  // File handling (supports multiple files)
+  handleFileChange: (files: File[] | null) => void;
 
   // Sync with existing connection
   syncFromConnectionDetails: (details: ConnectionDetails) => void;
@@ -152,12 +152,15 @@ export function useConnectionForm(): UseConnectionFormReturn {
     dispatch({ type: 'UPDATE_KAGGLE', payload: updates });
   }, []);
 
-  // File handling for CSV
-  const handleFileChange = useCallback((file: File | null) => {
-    if (file) {
-      updateCsvState({ selectedFile: file, filePath: file.name });
+  // File handling for CSV/Parquet (supports multiple files)
+  const handleFileChange = useCallback((files: File[] | null) => {
+    if (files && files.length > 0) {
+      updateCsvState({
+        selectedFiles: files,
+        fileNames: files.map((f) => f.name),
+      });
     } else {
-      updateCsvState({ selectedFile: null, filePath: '' });
+      updateCsvState({ selectedFiles: [], fileNames: [] });
     }
   }, [updateCsvState]);
 
@@ -166,8 +169,8 @@ export function useConnectionForm(): UseConnectionFormReturn {
     const { connectionType, csv, clickHouse, kaggle } = state;
 
     if (connectionType === 'csv') {
-      if (!csv.selectedFile) {
-        return { isValid: false, errorMessage: 'CSV File is required. Please select a file.' };
+      if (!csv.selectedFiles || csv.selectedFiles.length === 0) {
+        return { isValid: false, errorMessage: 'At least one file is required. Please select CSV or Parquet file(s).' };
       }
       return { isValid: true, errorMessage: null };
     }

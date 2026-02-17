@@ -4,6 +4,7 @@ import duckdb
 import os
 import re
 from typing import List, Dict, Any, Tuple, Optional, TYPE_CHECKING
+from dataclasses import dataclass
 
 import pyarrow as pa
 
@@ -17,13 +18,23 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
+@dataclass
+class FileInfo:
+    """Information about an uploaded file."""
+    file_path: str
+    table_name: str
+    file_type: str  # 'csv' or 'parquet'
+    csv_config: Dict[str, Any]  # Only used for CSV files
+
+
 class FileConnector(BaseConnector):
-    """Connector for querying files (CSV, JSON, etc.) using DuckDB."""
+    """Connector for querying files (CSV, Parquet) using DuckDB."""
     def __init__(self, state_manager: "ConnectionStateManager"):
-        self.file_path: Optional[str] = None
-        self._table_name: Optional[str] = None
-        self._file_type: Optional[str] = None
-        self._csv_config: Dict[str, Any] = {}
+        # Support for multiple files - each becomes a table
+        self._files: List[FileInfo] = []
+        # Global CSV config (applied to all CSV files)
+        self._global_csv_config: Dict[str, Any] = {}
         # The state_manager is no longer needed here, but we'll leave it
         # in the signature to avoid breaking the router dependency for now.
         # It can be cleaned up in a future refactor.
@@ -65,47 +76,115 @@ class FileConnector(BaseConnector):
         return name
 
     def connect(self, connection_details: Dict[str, Any]) -> None:
-        self.file_path = connection_details.get("file_path")
-        if not self.file_path or not os.path.exists(self.file_path):
-            raise DataSourceConnectionError(f"Temporary file not found or inaccessible at {self.file_path}")
-
-        _, file_ext = os.path.splitext(self.file_path)
-        file_ext = file_ext.lower()
-        if file_ext == '.csv':
-            self._file_type = 'csv'
-            # Store CSV configuration from connection details
-            self._csv_config = {
-                'delimiter': connection_details.get('csv_delimiter', ','),
-                'header': connection_details.get('csv_has_header', True),
-                'decimal_separator': connection_details.get('csv_decimal_separator', '.'),
-                'thousands_separator': connection_details.get('csv_thousands_separator', ''),
-                'date_format': connection_details.get('csv_date_format', '%Y-%m-%d'),
-                'timestamp_format': connection_details.get('csv_timestamp_format', '%Y-%m-%d %H:%M:%S'),
-            }
-        else:
-             raise InvalidInputError(f"Unsupported file type: {file_ext}")
-
-        # Use original filename if provided, otherwise fall back to temp file name
-        original_filename = connection_details.get('original_filename')
-        if original_filename:
-            self._table_name = self._sanitize_table_name(original_filename)
-        else:
-            # Fall back to temp file basename (for backwards compatibility)
-            self._table_name = os.path.splitext(os.path.basename(self.file_path))[0]
+        """
+        Connect to one or more files.
         
-        logger.info(f"FileConnector 'connected' to {self._file_type} file: {self.file_path} (table name: {self._table_name})")
+        Supports two formats in connection_details:
+        1. Legacy single-file format:
+           - file_path: str
+           - original_filename: str (optional)
+        2. Multi-file format:
+           - file_paths: List[Dict] with keys: file_path, original_filename
+        
+        CSV configuration is applied globally to all CSV files.
+        """
+        # Clear any previous files
+        self._files = []
+        
+        # Store global CSV configuration
+        self._global_csv_config = {
+            'delimiter': connection_details.get('csv_delimiter', ','),
+            'header': connection_details.get('csv_has_header', True),
+            'decimal_separator': connection_details.get('csv_decimal_separator', '.'),
+            'thousands_separator': connection_details.get('csv_thousands_separator', ''),
+            'date_format': connection_details.get('csv_date_format', '%Y-%m-%d'),
+            'timestamp_format': connection_details.get('csv_timestamp_format', '%Y-%m-%d %H:%M:%S'),
+        }
+        
+        # Check for multi-file format first
+        file_paths = connection_details.get("file_paths")
+        if file_paths:
+            # Multi-file format: List of {file_path, original_filename}
+            for file_info in file_paths:
+                file_path = file_info.get("file_path")
+                original_filename = file_info.get("original_filename")
+                self._add_file(file_path, original_filename)
+        else:
+            # Legacy single-file format
+            file_path = connection_details.get("file_path")
+            original_filename = connection_details.get('original_filename')
+            self._add_file(file_path, original_filename)
+        
+        if not self._files:
+            raise DataSourceConnectionError("No valid files provided for connection")
+        
+        table_names = [f.table_name for f in self._files]
+        file_types = list(set(f.file_type for f in self._files))
+        logger.info(f"FileConnector connected to {len(self._files)} file(s): {table_names} (types: {file_types})")
+    
+    def _add_file(self, file_path: Optional[str], original_filename: Optional[str]) -> None:
+        """Add a file to the connector."""
+        if not file_path or not os.path.exists(file_path):
+            raise DataSourceConnectionError(f"File not found or inaccessible at {file_path}")
+        
+        _, file_ext = os.path.splitext(file_path)
+        file_ext = file_ext.lower()
+        
+        if file_ext == '.csv':
+            file_type = 'csv'
+        elif file_ext == '.parquet':
+            file_type = 'parquet'
+        else:
+            raise InvalidInputError(f"Unsupported file type: {file_ext}. Supported: .csv, .parquet")
+        
+        # Determine table name
+        if original_filename:
+            table_name = self._sanitize_table_name(original_filename)
+        else:
+            table_name = os.path.splitext(os.path.basename(file_path))[0]
+        
+        # Ensure unique table names by appending suffix if needed
+        table_name = self._ensure_unique_table_name(table_name)
+        
+        self._files.append(FileInfo(
+            file_path=file_path,
+            table_name=table_name,
+            file_type=file_type,
+            csv_config=self._global_csv_config.copy() if file_type == 'csv' else {},
+        ))
+    
+    def _ensure_unique_table_name(self, table_name: str) -> str:
+        """Ensure the table name is unique by appending a suffix if needed."""
+        existing_names = {f.table_name for f in self._files}
+        if table_name not in existing_names:
+            return table_name
+        
+        # Append numeric suffix
+        counter = 2
+        while f"{table_name}_{counter}" in existing_names:
+            counter += 1
+        return f"{table_name}_{counter}"
+    
+    def _get_file_by_table(self, table_name: str) -> Optional[FileInfo]:
+        """Get file info by table name."""
+        for f in self._files:
+            if f.table_name == table_name:
+                return f
+        return None
 
     def disconnect(self) -> None:
-        logger.info(f"FileConnector disconnected signal received for file: {self.file_path}")
-        self.file_path = None
+        table_names = [f.table_name for f in self._files]
+        logger.info(f"FileConnector disconnected signal received for files: {table_names}")
+        self._files = []
 
-    def _build_csv_reader_sql(self) -> str:
+    def _build_csv_reader_sql(self, file_info: FileInfo) -> str:
         """Build DuckDB read_csv_auto SQL function call with proper parameter escaping."""
         # Build parameters for read_csv_auto function
         params = []
+        csv_config = file_info.csv_config
         
         # Delimiter
-        delimiter = self._csv_config.get('delimiter', ',')
+        delimiter = csv_config.get('delimiter', ',')
         if delimiter == '\\t':
             delimiter = '\t'
         # Escape single quotes in delimiter
@@ -113,11 +192,11 @@ class FileConnector(BaseConnector):
         params.append(f"delim='{delimiter_escaped}'")
         
         # Header
-        header = self._csv_config.get('header', True)
+        header = csv_config.get('header', True)
         params.append(f"header={str(header).lower()}")
         
         # Decimal separator
-        decimal_sep = self._csv_config.get('decimal_separator', '.')
+        decimal_sep = csv_config.get('decimal_separator', '.')
         decimal_escaped = decimal_sep.replace("'", "''")
         params.append(f"decimal_separator='{decimal_escaped}'")
         
@@ -130,8 +209,8 @@ class FileConnector(BaseConnector):
         # For now, we store the config for potential future use but don't pass it to DuckDB
         
         # Date and timestamp formats - escape any single quotes
-        date_fmt = self._csv_config.get('date_format', '%Y-%m-%d')
-        timestamp_fmt = self._csv_config.get('timestamp_format', '%Y-%m-%d %H:%M:%S')
+        date_fmt = csv_config.get('date_format', '%Y-%m-%d')
+        timestamp_fmt = csv_config.get('timestamp_format', '%Y-%m-%d %H:%M:%S')
         
         date_fmt_escaped = date_fmt.replace("'", "''")
         timestamp_fmt_escaped = timestamp_fmt.replace("'", "''")
@@ -144,33 +223,48 @@ class FileConnector(BaseConnector):
         
         # Build the complete function call
         params_str = ', '.join(params)
-        return f"read_csv_auto('{self.file_path}', {params_str}, nullstr=['', 'NULL', 'null', 'NaN', 'nan', 'N/A', 'n/a', 'NA'])"
+        return f"read_csv_auto('{file_info.file_path}', {params_str}, nullstr=['', 'NULL', 'null', 'NaN', 'nan', 'N/A', 'n/a', 'NA'])"
+
+    def _build_parquet_reader_sql(self, file_info: FileInfo) -> str:
+        """Build DuckDB read_parquet SQL function call."""
+        return f"read_parquet('{file_info.file_path}')"
+
+    def _build_file_reader_sql(self, file_info: FileInfo) -> str:
+        """Build the appropriate DuckDB reader SQL based on file type."""
+        if file_info.file_type == 'csv':
+            return self._build_csv_reader_sql(file_info)
+        elif file_info.file_type == 'parquet':
+            return self._build_parquet_reader_sql(file_info)
+        else:
+            raise InvalidInputError(f"Unsupported file type: {file_info.file_type}")
 
     def list_databases(self) -> List[Database]:
         return []
 
     def list_tables(self, database: str = None) -> List[Table]:
-        if self._table_name:
-            return [Table(name=self._table_name)]
-        return []
+        """Return all uploaded files as tables."""
+        return [Table(name=f.table_name) for f in self._files]
 
     def list_columns(self, database: str = None, table: str = None) -> List[Column]:
-        if not self.file_path:
-            raise DataSourceConnectionError("Not connected (file path is missing).")
-        if table != self._table_name:
-            raise InvalidInputError(f"Requested table '{table}' does not match connected file '{self._table_name}'")
+        if not self._files:
+            raise DataSourceConnectionError("Not connected (no files loaded).")
+        
+        file_info = self._get_file_by_table(table)
+        if not file_info:
+            available_tables = [f.table_name for f in self._files]
+            raise InvalidInputError(f"Table '{table}' not found. Available tables: {available_tables}")
 
         con = None
         try:
             # Create a new connection for this request
             con = duckdb.connect(database=':memory:', read_only=False)
-            safe_view_name = f'"{self._table_name}"'
+            safe_view_name = f'"{file_info.table_name}"'
             
-            # Build CSV reader SQL with proper escaping
-            csv_reader_sql = self._build_csv_reader_sql()
+            # Build file reader SQL based on file type
+            reader_sql = self._build_file_reader_sql(file_info)
             
-            # Create a view from the CSV
-            create_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {csv_reader_sql};"
+            # Create a view from the file
+            create_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {reader_sql};"
             logger.debug(f"Creating view with SQL: {create_view_sql}")
             con.execute(create_view_sql)
 
@@ -189,32 +283,36 @@ class FileConnector(BaseConnector):
                 columns.append(col)
             return columns
         except Exception as e:
-            logger.exception(f"Error describing view {self._table_name} with DuckDB")
-            raise DataSourceConnectionError(f"Failed to list columns from file view {self._table_name}: {e}")
+            logger.exception(f"Error describing view {file_info.table_name} with DuckDB")
+            raise DataSourceConnectionError(f"Failed to list columns from file view {file_info.table_name}: {e}")
         finally:
             if con:
                 con.close()
 
+    def _create_all_views(self, con: duckdb.DuckDBPyConnection) -> None:
+        """Create views for all uploaded files in the given DuckDB connection."""
+        for file_info in self._files:
+            safe_view_name = f'"{file_info.table_name}"'
+            reader_sql = self._build_file_reader_sql(file_info)
+            create_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {reader_sql};"
+            logger.debug(f"Creating view with SQL: {create_view_sql}")
+            con.execute(create_view_sql)
+
     def fetch_data(self, query: str) -> Tuple[List[Dict[str, str]], List[Dict[str, Any]]]:
-        if not self.file_path or not self._table_name:
-            raise DataSourceConnectionError("Not connected to a file.")
+        if not self._files:
+            raise DataSourceConnectionError("Not connected to any files.")
 
         con = None
         try:
             # Create a new connection for this request
             con = duckdb.connect(database=':memory:', read_only=False)
-            safe_view_name = f'"{self._table_name}"'
             
-            # Build CSV reader SQL with proper escaping
-            csv_reader_sql = self._build_csv_reader_sql()
-            
-            # Create a view from the CSV
-            create_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {csv_reader_sql};"
-            logger.debug(f"Creating view with SQL: {create_view_sql}")
-            con.execute(create_view_sql)
+            # Create views for all files so query can reference any table
+            self._create_all_views(con)
 
-            # Execute query against the view
-            logger.debug(f"Executing query against view `{self._table_name}`: {query}")
+            # Execute query
+            table_names = [f.table_name for f in self._files]
+            logger.debug(f"Executing query against views {table_names}: {query}")
             result_relation = con.execute(query)
             arrow_table = result_relation.fetch_arrow_table()
             
@@ -232,8 +330,9 @@ class FileConnector(BaseConnector):
             return columns, rows
 
         except Exception as e:
-            logger.exception(f"Error executing query on file view {self._table_name}")
-            raise QueryExecutionError(f"Failed to execute query on {self._file_type} file: {e}")
+            logger.exception(f"Error executing query on file views")
+            file_types = list(set(f.file_type for f in self._files))
+            raise QueryExecutionError(f"Failed to execute query on {file_types} file(s): {e}")
         finally:
             if con:
                 con.close()
@@ -251,25 +350,20 @@ class FileConnector(BaseConnector):
         Returns:
             PyArrow Table containing the query results.
         """
-        if not self.file_path or not self._table_name:
-            raise DataSourceConnectionError("Not connected to a file.")
+        if not self._files:
+            raise DataSourceConnectionError("Not connected to any files.")
 
         con = None
         try:
             # Create a new connection for this request
             con = duckdb.connect(database=':memory:', read_only=False)
-            safe_view_name = f'"{self._table_name}"'
             
-            # Build CSV reader SQL with proper escaping
-            csv_reader_sql = self._build_csv_reader_sql()
-            
-            # Create a view from the CSV
-            create_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {csv_reader_sql};"
-            logger.debug(f"Creating view with SQL: {create_view_sql}")
-            con.execute(create_view_sql)
+            # Create views for all files so query can reference any table
+            self._create_all_views(con)
 
-            # Execute query against the view and get Arrow table directly
-            logger.debug(f"Executing Arrow query against view `{self._table_name}`: {query}")
+            # Execute query and get Arrow table directly
+            table_names = [f.table_name for f in self._files]
+            logger.debug(f"Executing Arrow query against views {table_names}: {query}")
             result_relation = con.execute(query)
             arrow_table = result_relation.fetch_arrow_table()
             
@@ -277,8 +371,9 @@ class FileConnector(BaseConnector):
             return arrow_table
 
         except Exception as e:
-            logger.exception(f"Error executing Arrow query on file view {self._table_name}")
-            raise QueryExecutionError(f"Failed to execute Arrow query on {self._file_type} file: {e}")
+            logger.exception(f"Error executing Arrow query on file views")
+            file_types = list(set(f.file_type for f in self._files))
+            raise QueryExecutionError(f"Failed to execute Arrow query on {file_types} file(s): {e}")
         finally:
             if con:
                 con.close()

@@ -1,15 +1,16 @@
 /**
  * CsvConnectionForm - File upload with advanced CSV configuration options.
+ * Supports both CSV and Parquet files, with multi-file upload capability.
  */
 
-import React, { ChangeEvent } from 'react';
+import React, { ChangeEvent, useMemo } from 'react';
 import { CsvFormState } from './types';
 import styles from '../../pages/DataSourceSelectionPage.module.css';
 
 interface CsvConnectionFormProps {
   state: CsvFormState;
   onUpdate: (updates: Partial<CsvFormState>) => void;
-  onFileChange: (file: File | null) => void;
+  onFileChange: (files: File[] | null) => void;
   disabled: boolean;
 }
 
@@ -20,30 +21,63 @@ export function CsvConnectionForm({
   disabled,
 }: CsvConnectionFormProps) {
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      onFileChange(event.target.files[0]);
+    if (event.target.files && event.target.files.length > 0) {
+      // Convert FileList to array
+      onFileChange(Array.from(event.target.files));
     } else {
       onFileChange(null);
     }
   };
 
+  // Check if any CSV files are selected (to show CSV-specific options)
+  const hasCsvFiles = useMemo(() => {
+    return state.selectedFiles.some((file) => file.name.toLowerCase().endsWith('.csv'));
+  }, [state.selectedFiles]);
+
+  // Format file summary
+  const fileSummary = useMemo(() => {
+    const count = state.selectedFiles.length;
+    if (count === 0) return null;
+    if (count === 1) return state.fileNames[0];
+    
+    const csvCount = state.selectedFiles.filter((f) => f.name.toLowerCase().endsWith('.csv')).length;
+    const parquetCount = count - csvCount;
+    
+    const parts = [];
+    if (csvCount > 0) parts.push(`${csvCount} CSV`);
+    if (parquetCount > 0) parts.push(`${parquetCount} Parquet`);
+    
+    return `${count} files (${parts.join(', ')})`;
+  }, [state.selectedFiles, state.fileNames]);
+
   return (
     <div className={styles.formGroup}>
       <div className={styles.fileUpload}>
-        <label className={styles.label}>CSV File</label>
+        <label className={styles.label}>Data Files (CSV or Parquet)</label>
         <input
           type="file"
-          accept=".csv"
+          accept=".csv,.parquet"
+          multiple
           onChange={handleFileChange}
           disabled={disabled}
           className={styles.input}
         />
-        {state.filePath && (
-          <div className={styles.selectedFile}>Selected: {state.filePath}</div>
+        {fileSummary && (
+          <div className={styles.selectedFile}>Selected: {fileSummary}</div>
+        )}
+        {state.fileNames.length > 1 && (
+          <div className={styles.fileList}>
+            {state.fileNames.map((name, idx) => (
+              <div key={idx} className={styles.fileListItem}>
+                {name}
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
-      {/* CSV Configuration Options */}
+      {/* CSV Configuration Options - only shown when CSV files are selected */}
+      {hasCsvFiles && (
       <div className={styles.csvConfigSection}>
         <button
           type="button"
@@ -150,6 +184,7 @@ export function CsvConnectionForm({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
