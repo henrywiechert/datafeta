@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, CircularProgress, Typography, TextField, IconButton, Tooltip } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import AddIcon from '@mui/icons-material/Add';
 import { Database, Table, Field } from '../../../types';
 import JoinTableSelector from './JoinTableSelector';
 import TableAddPicker from './TableAddPicker';
@@ -163,6 +164,32 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
     onTableSelect('');
   }, [onTableSelect]);
 
+  // CSV multi-table: available tables for UNION (excludes primary and already-added)
+  const csvUnionableOptions = React.useMemo(() => {
+    if (connectionType !== 'csv') return [];
+    return tableOptions.filter(
+      (t) =>
+        t !== selectedTable &&
+        !unionTables.some((ut) => ut.table_name === t)
+    );
+  }, [connectionType, tableOptions, selectedTable, unionTables]);
+
+  const [csvStagedTable, setCsvStagedTable] = React.useState('');
+
+  // Reset staged table when primary changes
+  React.useEffect(() => {
+    setCsvStagedTable('');
+  }, [selectedTable]);
+
+  const handleCsvAdd = React.useCallback(() => {
+    if (!csvStagedTable) return;
+    if (onAddUnionTable) onAddUnionTable('', csvStagedTable);
+    setCsvStagedTable('');
+  }, [csvStagedTable, onAddUnionTable]);
+
+  // Whether to show the CSV UNION picker (multiple tables available)
+  const showCsvUnionPicker = connectionType === 'csv' && tables.length > 1 && !!selectedTable;
+
   return (
     <div className={styles.metadataSelector}>
       <Box className={styles.headerRow}>
@@ -190,6 +217,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
           </span>
         </Tooltip>
       </Box>
+
       {connectionType === 'clickhouse' ? (
         <>
           <TableAddPicker
@@ -211,16 +239,87 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
           />
         </>
       ) : (
-        <FilterableSelect
-          label="Table"
-          placeholder="Search Table"
-          options={tableOptions}
-          value={selectedTable}
-          onChange={onTableSelect}
-          loading={isLoadingMetadata}
-          disabled={tables.length === 0}
-          allowEmpty
-        />
+        <>
+          {/* Primary table selector (CSV, Kaggle, …) */}
+          <FilterableSelect
+            label="Table"
+            placeholder="Search Table"
+            options={tableOptions}
+            value={selectedTable}
+            onChange={onTableSelect}
+            loading={isLoadingMetadata}
+            disabled={tables.length === 0}
+            allowEmpty
+          />
+
+          {/* CSV UNION picker — shown when multiple uploaded files are available */}
+          {showCsvUnionPicker && (
+            <>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 32px', gap: 0.5, alignItems: 'center', mt: 0.5 }}>
+                <Autocomplete
+                  disablePortal
+                  size="small"
+                  value={csvStagedTable || null}
+                  options={csvUnionableOptions}
+                  onChange={(_, v) => setCsvStagedTable(v ?? '')}
+                  isOptionEqualToValue={(o, v) => o === v}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder="Add table (UNION)"
+                      size="small"
+                      InputProps={{
+                        ...params.InputProps,
+                        endAdornment: (
+                          <>
+                            {isLoadingMetadata ? <CircularProgress color="inherit" size={12} /> : null}
+                            {params.InputProps.endAdornment}
+                          </>
+                        ),
+                      }}
+                    />
+                  )}
+                  sx={{
+                    '& .MuiInputBase-root': { fontSize: '0.9rem', height: 30 },
+                    '& .MuiOutlinedInput-input': { padding: '4px 4px !important' },
+                    '& .MuiOutlinedInput-notchedOutline': { padding: '0 0px', visibility: 'hidden' },
+                  }}
+                  ListboxProps={{
+                    sx: {
+                      padding: '2px 0',
+                      '& .MuiAutocomplete-option': { fontSize: '0.9rem', padding: '1px 8px', lineHeight: 1.2 },
+                    },
+                  }}
+                  noOptionsText="No more tables"
+                />
+                <Tooltip title={csvStagedTable ? 'Add as UNION ALL' : 'Select a table first'} placement="right">
+                  <span>
+                    <IconButton
+                      size="small"
+                      onClick={handleCsvAdd}
+                      disabled={!csvStagedTable}
+                      sx={{ width: 28, height: 28 }}
+                      aria-label="Add table as UNION ALL"
+                    >
+                      <AddIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Box>
+
+              {/* Show selected tables list when there are union tables */}
+              {(unionTables.length > 0) && (
+                <SelectedTablesList
+                  primaryDatabase=""
+                  primaryTable={selectedTable}
+                  unionTables={unionTables}
+                  onRemovePrimary={handleRemovePrimary}
+                  onRemoveUnionTable={(db, t) => onRemoveUnionTable?.(db, t)}
+                />
+              )}
+            </>
+          )}
+        </>
       )}
       
       {/* Show joinable tables selector (for ClickHouse and Kaggle) */}
