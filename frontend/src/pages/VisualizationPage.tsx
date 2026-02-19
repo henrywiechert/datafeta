@@ -184,7 +184,10 @@ const VisualizationPageContent = () => {
         joinedTables,
         unionTables,
         tablesCache,
-        measureGroupFields
+        measureGroupFields,
+        loadedPartitions,
+        isLoadingPartition,
+        hivePartitionFiles,
     } = dataSourceContext.dataSource;
     
     // Global filters hook for session-scoped filters
@@ -255,6 +258,11 @@ const VisualizationPageContent = () => {
     const addUnionTable = React.useCallback((database: string, tableName: string) => {
         addUnionTableBase(database, tableName);
     }, [addUnionTableBase]);
+
+    // Handle Hive Parquet partition loading
+    const handleLoadPartition = React.useCallback(async (partitionName: string, setAsPrimary: boolean = true) => {
+        await dataSourceContext.loadHivePartition(partitionName, setAsPrimary);
+    }, [dataSourceContext]);
     
     const removeUnionTable = React.useCallback((database: string, tableName: string) => {
         removeUnionTableBase(database, tableName);
@@ -412,6 +420,9 @@ const VisualizationPageContent = () => {
                                     onRemoveUnionTable={removeUnionTable}
                                     tablesCache={tablesCache}
                                     onLoadTablesForDatabase={handleLoadTablesForDatabase}
+                                    loadedPartitions={loadedPartitions}
+                                    isLoadingPartition={isLoadingPartition}
+                                    onLoadPartition={handleLoadPartition}
                             virtualColumns={virtualColumns}
                             onAddVirtualColumn={handleAddVirtualColumn}
                             onUpdateVirtualColumn={handleUpdateVirtualColumn}

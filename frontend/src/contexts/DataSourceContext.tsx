@@ -1,6 +1,9 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import { generateSyntheticFieldsForGroup } from '../utils/syntheticFields';
+import { mapBackendDataType } from '../utils/fieldUtils';
 import { Database, Table, Field, VirtualTableDefinition, VirtualColumnDefinition, FilterConfig, FilterMetadata } from '../types';
+import { apiService } from '../apiService';
 
 type VirtualColumnPreference = {
   type?: 'dimension' | 'measure';
@@ -45,6 +48,11 @@ interface DataSourceState {
   sessionFilterConfigurations: Record<string, FilterConfig>;
   sessionAppliedFilterConfigurations: Record<string, FilterConfig>;
   sessionFilterMetadata: Record<string, FilterMetadata>;
+  // Hive Parquet partition management
+  hivePartitionFiles: Map<string, File[]>;  // partition name -> files to upload
+  loadedPartitions: Set<string>;  // partitions that have been uploaded to backend
+  isLoadingPartition: boolean;
+  partitionLoadError: string | null;
 }
 
 // Context interface
@@ -88,6 +96,11 @@ interface DataSourceContextType {
   applySessionFilters: () => void;
   setSessionFilterMetadata: (fieldId: string, metadata: FilterMetadata) => void;
   clearSessionFilters: () => void;
+  // Hive Parquet partition management
+  setHivePartitionFiles: (partitionFiles: Map<string, File[]>) => void;
+  loadHivePartition: (partitionName: string, setAsPrimary?: boolean) => Promise<Field[]>;
+  isPartitionLoaded: (partitionName: string) => boolean;
+  clearHivePartitionState: () => void;
   // Reset all metadata state (used on connect/disconnect)
   resetMetadata: () => void;
 }
@@ -118,6 +131,10 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     sessionFilterConfigurations: {},
     sessionAppliedFilterConfigurations: {},
     sessionFilterMetadata: {},
+    hivePartitionFiles: new Map(),
+    loadedPartitions: new Set(),
+    isLoadingPartition: false,
+    partitionLoadError: null,
   });
 
   const getBaseFields = (fields: Field[]) => fields.filter(field => !field.isSynthetic);
@@ -445,6 +462,106 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  // Hive Parquet partition management
+  const setHivePartitionFiles = (partitionFiles: Map<string, File[]>) => {
+    setDataSource(prev => ({
+      ...prev,
+      hivePartitionFiles: partitionFiles,
+    }));
+  };
+
+  const loadHivePartition = useCallback(async (partitionName: string, setAsPrimary: boolean = true): Promise<Field[]> => {
+    // Check if already loaded
+    if (dataSource.loadedPartitions.has(partitionName)) {
+      return [];
+    }
+
+    // Get files for this partition
+    const files = dataSource.hivePartitionFiles.get(partitionName);
+    if (!files || files.length === 0) {
+      throw new Error(`No files found for partition '${partitionName}'`);
+    }
+
+    // Use flushSync to ensure loading state renders before async upload starts
+    // Without this, React 18's automatic batching might batch the true/false updates together
+    console.log('[loadHivePartition] Setting isLoadingPartition = true');
+    flushSync(() => {
+      setDataSource(prev => ({
+        ...prev,
+        isLoadingPartition: true,
+        partitionLoadError: null,
+      }));
+    });
+
+    try {
+      console.log('[loadHivePartition] Starting API call...');
+      const response = await apiService.loadPartition(partitionName, files);
+      console.log('[loadHivePartition] API call completed');
+      
+      // Convert response columns to Field objects
+      const fields: Field[] = response.columns.map((col: { name: string; data_type: string; is_datetime: boolean }) => {
+        const dataType = mapBackendDataType(col.data_type);
+        const isNumeric = dataType === 'integer' || dataType === 'float';
+        return {
+          id: `${partitionName}.${col.name}`,
+          columnName: col.name,
+          dataType,
+          type: col.is_datetime ? 'dimension' : (isNumeric ? 'measure' : 'dimension'),
+          flavour: isNumeric ? 'continuous' : 'discrete',
+          tableName: partitionName,
+        };
+      });
+
+      setDataSource(prev => {
+        const newLoadedPartitions = new Set(prev.loadedPartitions);
+        newLoadedPartitions.add(partitionName);
+        
+        if (setAsPrimary) {
+          // Set as primary table
+          return {
+            ...prev,
+            loadedPartitions: newLoadedPartitions,
+            isLoadingPartition: false,
+            selectedTable: partitionName,
+            availableFields: fields,
+          };
+        } else {
+          // Add as UNION table (don't change primary)
+          const newUnionTables = [...prev.unionTables, { database: '', table_name: partitionName }];
+          return {
+            ...prev,
+            loadedPartitions: newLoadedPartitions,
+            isLoadingPartition: false,
+            unionTables: newUnionTables,
+          };
+        }
+      });
+
+      return fields;
+    } catch (err: any) {
+      setDataSource(prev => ({
+        ...prev,
+        isLoadingPartition: false,
+        partitionLoadError: err.message || 'Failed to load partition',
+      }));
+      throw err;
+    }
+  }, [dataSource.loadedPartitions, dataSource.hivePartitionFiles]);
+
+  const isPartitionLoaded = useCallback((partitionName: string): boolean => {
+    return dataSource.loadedPartitions.has(partitionName);
+  }, [dataSource.loadedPartitions]);
+
+  const clearHivePartitionState = () => {
+    setDataSource(prev => ({
+      ...prev,
+      hivePartitionFiles: new Map(),
+      loadedPartitions: new Set(),
+      isLoadingPartition: false,
+      partitionLoadError: null,
+    }));
+  };
+
   // Reset all metadata state - used when connecting/disconnecting from data source
   const resetMetadata = () => {
     setDataSource(prev => ({
@@ -468,6 +585,11 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
       sessionFilterConfigurations: {},
       sessionAppliedFilterConfigurations: {},
       sessionFilterMetadata: {},
+      // Clear Hive Parquet state
+      hivePartitionFiles: new Map(),
+      loadedPartitions: new Set(),
+      isLoadingPartition: false,
+      partitionLoadError: null,
       // Note: virtualColumns and virtualColumnFieldPreferences are intentionally preserved
       // as they may be reused across connections
     }));
@@ -542,6 +664,10 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
         applySessionFilters,
         setSessionFilterMetadata,
         clearSessionFilters,
+        setHivePartitionFiles,
+        loadHivePartition,
+        isPartitionLoaded,
+        clearHivePartitionState,
         resetMetadata,
       }}
     >

@@ -9,4 +9,5 @@ export * from './types';
 export { CsvConnectionForm } from './CsvConnectionForm';
 export { ClickHouseConnectionForm } from './ClickHouseConnectionForm';
 export { KaggleConnectionForm } from './KaggleConnectionForm';
+export { HiveParquetConnectionForm } from './HiveParquetConnectionForm';
 

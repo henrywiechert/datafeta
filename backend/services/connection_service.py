@@ -16,6 +16,7 @@ from backend.connectors.file_connector import FileConnector
 from backend.connectors.file_handlers import FILE_HANDLER_REGISTRY
 from backend.connectors.clickhouse_connector import ClickHouseConnector
 from backend.connectors.kaggle_connector import KaggleConnector
+from backend.connectors.hive_parquet_connector import HiveParquetConnector
 from backend.exceptions import (
     AppException,
     InvalidInputError,
@@ -134,6 +135,8 @@ class ConnectionService:
             registry.register("clickhouse", lambda sm: ClickHouseConnector())
             # Kaggle connector requires state_manager for session file management
             registry.register("kaggle", lambda sm: KaggleConnector(state_manager=sm))
+            # Hive Parquet connector for partitioned datasets
+            registry.register("hive_parquet", lambda sm: HiveParquetConnector(state_manager=sm))
             _CONNECTOR_REGISTRY = registry
         return registry.create(connection_details.type, state_manager)
 
@@ -386,6 +389,166 @@ class ConnectionService:
             self.state_manager.clear_state()
             logger.exception("Unexpected error during connect (json)")
             raise AppException("An unexpected server error occurred during connection.")
+
+    async def connect_hive(
+        self,
+        connection_details: ConnectionDetails,
+        session_id: str,
+    ) -> Dict[str, Any]:
+        """
+        Phase 1: Connect to Hive-partitioned Parquet dataset.
+        
+        Parses the file structure to identify partitions without uploading files.
+        
+        Args:
+            connection_details: Must include type='hive_parquet' and hive_file_structure
+            session_id: Session identifier
+            
+        Returns:
+            Dict with partition_column and list of tables (partition values)
+        """
+        async with self.state_manager.lock:
+            await self._clear_previous_state(session_id)
+
+        connector: Optional[BaseConnector] = None
+        try:
+            if connection_details.type != "hive_parquet":
+                raise InvalidInputError(
+                    "connect_hive endpoint requires type='hive_parquet'",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+            
+            if not connection_details.hive_file_structure:
+                raise InvalidInputError("hive_file_structure is required for Hive Parquet connection")
+
+            connect_args = {
+                "hive_file_structure": connection_details.hive_file_structure,
+            }
+
+            connector = self._get_connector(connection_details, self.state_manager)
+            await run_in_threadpool(connector.connect, connect_args)
+
+            self.state_manager.set_state(
+                connector=connector,
+                details=connection_details,
+                temp_paths=[],  # No files uploaded yet
+            )
+
+            # Return partition info for the frontend
+            tables = connector.list_tables()
+            return {
+                "message": f"Connected to Hive Parquet dataset with {len(tables)} partition(s).",
+                "partition_column": connector.partition_column,
+                "tables": [t.name for t in tables],
+            }
+
+        except (InvalidInputError, DataSourceConnectionError) as e:
+            self.state_manager.clear_state()
+            raise e
+        except Exception:
+            self.state_manager.clear_state()
+            logger.exception("Unexpected error during Hive Parquet connect")
+            raise AppException("An unexpected server error occurred during connection.")
+
+    async def load_hive_partition(
+        self,
+        partition_name: str,
+        uploaded_files: List[UploadFile],
+        session_id: str,
+    ) -> Dict[str, Any]:
+        """
+        Phase 2: Upload files for a specific Hive partition.
+        
+        Args:
+            partition_name: The partition value (e.g., "us", "eu")
+            uploaded_files: Parquet files belonging to this partition
+            session_id: Session identifier
+            
+        Returns:
+            Dict with columns list for the partition
+        """
+        connector = self.state_manager.current_connector
+        if not connector:
+            raise DataSourceConnectionError("Not connected to any data source")
+        
+        if not isinstance(connector, HiveParquetConnector):
+            raise InvalidInputError("load_hive_partition requires a Hive Parquet connection")
+
+        if not uploaded_files:
+            raise InvalidInputError("At least one parquet file is required")
+
+        session_upload_dir = self._get_session_upload_dir(session_id)
+        temp_file_paths: List[str] = []
+
+        try:
+            for uploaded_file in uploaded_files:
+                if not uploaded_file.filename:
+                    raise InvalidInputError("Missing filename for uploaded file.")
+                
+                file_ext = self._get_file_extension(uploaded_file.filename)
+                if file_ext != '.parquet':
+                    raise InvalidInputError(
+                        f"Only parquet files are allowed for Hive partitions. Got: {file_ext}"
+                    )
+                
+                # Save file to temp location
+                fd, temp_file_path = tempfile.mkstemp(suffix=file_ext, dir=session_upload_dir)
+                os.close(fd)
+                temp_file_paths.append(temp_file_path)
+                
+                try:
+                    await self._save_uploaded_file_with_limit(
+                        uploaded_file, temp_file_path, MAX_FILE_UPLOAD_BYTES
+                    )
+                except InvalidInputError:
+                    if os.path.exists(temp_file_path):
+                        os.remove(temp_file_path)
+                        temp_file_paths.remove(temp_file_path)
+                    raise
+                
+                # Validate parquet file
+                handler = FILE_HANDLER_REGISTRY['.parquet']({})
+                await run_in_threadpool(handler.validate, temp_file_path)
+                
+                logger.info(f"Saved partition file: {uploaded_file.filename} -> {temp_file_path}")
+
+            # Close all uploaded files
+            for uploaded_file in uploaded_files:
+                await uploaded_file.close()
+
+            # Register files with the connector
+            await run_in_threadpool(connector.load_partition, partition_name, temp_file_paths)
+
+            # Update temp paths in state manager
+            existing_paths = self.state_manager.current_temp_paths or []
+            self.state_manager.set_state(
+                connector=connector,
+                details=self.state_manager.current_connection_details,
+                temp_paths=existing_paths + temp_file_paths,
+            )
+
+            # Get columns for the loaded partition
+            columns = await run_in_threadpool(connector.list_columns, None, partition_name)
+
+            return {
+                "message": f"Loaded partition '{partition_name}' with {len(temp_file_paths)} file(s).",
+                "partition_name": partition_name,
+                "columns": [{"name": c.name, "data_type": c.data_type, "is_datetime": c.is_datetime} for c in columns],
+            }
+
+        except (InvalidInputError, DataSourceConnectionError) as e:
+            # Clean up temp files on error
+            for path in temp_file_paths:
+                if path and os.path.exists(path):
+                    os.remove(path)
+            raise e
+        except Exception:
+            # Clean up temp files on error
+            for path in temp_file_paths:
+                if path and os.path.exists(path):
+                    os.remove(path)
+            logger.exception("Unexpected error during partition load")
+            raise AppException("An unexpected server error occurred during partition load.")
 
     async def disconnect(self, session_id: str) -> Dict[str, Any]:
         files_to_delete = self.state_manager.current_temp_paths or []

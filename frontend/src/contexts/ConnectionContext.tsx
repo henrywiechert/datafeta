@@ -47,13 +47,25 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
     setIsConnected(false);
 
     try {
-      const response = await apiService.connect(details, files);
-      // Build message - handle both single file_path (legacy) and file_paths (multi-file)
-      let pathInfo = '';
-      if (response.file_paths && response.file_paths.length > 0) {
-        pathInfo = ` (${response.file_paths.length} file(s) uploaded)`;
+      let response;
+      
+      if (details.type === 'hive_parquet') {
+        // Use Hive Parquet-specific connection endpoint
+        if (!details.hive_file_structure || details.hive_file_structure.length === 0) {
+          throw new Error('hive_file_structure is required for Hive Parquet connection');
+        }
+        response = await apiService.connectHive(details.hive_file_structure);
+        setMessage(`${response.message} (Partition column: ${response.partition_column})`);
+      } else {
+        response = await apiService.connect(details, files);
+        // Build message - handle both single file_path (legacy) and file_paths (multi-file)
+        let pathInfo = '';
+        if (response.file_paths && response.file_paths.length > 0) {
+          pathInfo = ` (${response.file_paths.length} file(s) uploaded)`;
+        }
+        setMessage(`${response.message}${pathInfo}`);
       }
-      setMessage(`${response.message}${pathInfo}`);
+      
       setConnectionDetails(details); // Store successful connection details
       setIsConnected(true);
       setError(null);

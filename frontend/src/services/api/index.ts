@@ -28,6 +28,8 @@ export const apiService = {
   // Connection operations
   connect: connectionApi.connect,
   disconnect: connectionApi.disconnect,
+  connectHive: connectionApi.connectHive,
+  loadPartition: connectionApi.loadPartition,
 
   // Metadata operations
   listDatabases: metadataApi.listDatabases,

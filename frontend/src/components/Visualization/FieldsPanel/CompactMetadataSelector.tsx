@@ -112,6 +112,10 @@ interface CompactMetadataSelectorProps {
   onRemoveUnionTable?: (database: string, tableName: string) => void;
   tablesCache?: Record<string, Table[]>;  // Cache of tables by database
   onLoadTablesForDatabase?: (database: string) => void;  // Load tables for a specific database
+  // Hive Parquet partition loading
+  loadedPartitions?: Set<string>;  // Partitions that have been loaded
+  isLoadingPartition?: boolean;
+  onLoadPartition?: (partitionName: string, setAsPrimary?: boolean) => Promise<void>;
 }
 
 const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
@@ -134,6 +138,9 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
   onRemoveUnionTable,
   tablesCache = {},
   onLoadTablesForDatabase,
+  loadedPartitions = new Set(),
+  isLoadingPartition = false,
+  onLoadPartition,
 }) => {
   const databaseOptions = React.useMemo(
     () => databases.map((db) => db.name).sort(),
@@ -164,15 +171,17 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
     onTableSelect('');
   }, [onTableSelect]);
 
-  // CSV multi-table: available tables for UNION (excludes primary and already-added)
+  // CSV/Hive Parquet multi-table: available tables for UNION (excludes primary and already-added)
   const csvUnionableOptions = React.useMemo(() => {
-    if (connectionType !== 'csv') return [];
+    if (connectionType !== 'csv' && connectionType !== 'hive_parquet') return [];
     return tableOptions.filter(
       (t) =>
         t !== selectedTable &&
-        !unionTables.some((ut) => ut.table_name === t)
+        !unionTables.some((ut) => ut.table_name === t) &&
+        // For hive_parquet, only show loaded partitions as unionable
+        (connectionType !== 'hive_parquet' || loadedPartitions.has(t))
     );
-  }, [connectionType, tableOptions, selectedTable, unionTables]);
+  }, [connectionType, tableOptions, selectedTable, unionTables, loadedPartitions]);
 
   const [csvStagedTable, setCsvStagedTable] = React.useState('');
 
@@ -187,8 +196,73 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
     setCsvStagedTable('');
   }, [csvStagedTable, onAddUnionTable]);
 
-  // Whether to show the CSV UNION picker (multiple tables available)
-  const showCsvUnionPicker = connectionType === 'csv' && tables.length > 1 && !!selectedTable;
+  // Whether to show the UNION picker (multiple tables available)
+  // For CSV: when multiple files are uploaded
+  // For Hive Parquet: when multiple partitions are loaded
+  const showUnionPicker = (
+    (connectionType === 'csv' && tables.length > 1 && !!selectedTable) ||
+    (connectionType === 'hive_parquet' && loadedPartitions.size > 1 && !!selectedTable)
+  );
+
+  // Handle table selection for Hive Parquet (triggers partition loading)
+  // Option A UX: If primary exists, subsequent selections ADD as UNION instead of replacing
+  const handleHiveTableSelect = React.useCallback(async (table: string) => {
+    if (!table) {
+      onTableSelect('');
+      return;
+    }
+    
+    // Check if we already have a primary table selected
+    const hasPrimary = !!selectedTable;
+    
+    // Don't add if it's the same as primary or already in union tables
+    if (hasPrimary && (table === selectedTable || unionTables.some(ut => ut.table_name === table))) {
+      return;
+    }
+    
+    // If partition not loaded yet, trigger loading
+    if (!loadedPartitions.has(table) && onLoadPartition) {
+      try {
+        // setAsPrimary = true only if no primary exists yet
+        await onLoadPartition(table, !hasPrimary);
+        return;
+      } catch (err) {
+        console.error('Failed to load partition:', err);
+        return;
+      }
+    }
+    
+    // Partition already loaded
+    if (hasPrimary) {
+      // Add as UNION table
+      if (onAddUnionTable) {
+        onAddUnionTable('', table);
+      }
+    } else {
+      // Set as primary
+      onTableSelect(table);
+    }
+  }, [loadedPartitions, onLoadPartition, onTableSelect, selectedTable, unionTables, onAddUnionTable]);
+
+  // Determine the actual table select handler based on connection type
+  const effectiveTableSelect = connectionType === 'hive_parquet' ? handleHiveTableSelect : onTableSelect;
+
+  // Format table options with loading indicator for Hive Parquet
+  const formattedTableOptions = React.useMemo(() => {
+    if (connectionType !== 'hive_parquet') {
+      return tableOptions;
+    }
+    // For Hive Parquet, show which partitions are loaded
+    return tableOptions.map(table => {
+      const isLoaded = loadedPartitions.has(table);
+      return isLoaded ? `${table} ✓` : table;
+    });
+  }, [connectionType, tableOptions, loadedPartitions]);
+
+  // Get the actual value for display (strip the checkmark if present)
+  const displaySelectedTable = connectionType === 'hive_parquet' && selectedTable && loadedPartitions.has(selectedTable)
+    ? `${selectedTable} ✓`
+    : selectedTable;
 
   return (
     <div className={styles.metadataSelector}>
@@ -240,20 +314,69 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
         </>
       ) : (
         <>
-          {/* Primary table selector (CSV, Kaggle, …) */}
+          {/* Primary table selector (CSV, Kaggle, Hive Parquet, …) */}
+          {/* For Hive Parquet: once primary is set, this becomes "Add Partition" selector */}
           <FilterableSelect
-            label="Table"
-            placeholder="Search Table"
-            options={tableOptions}
-            value={selectedTable}
-            onChange={onTableSelect}
-            loading={isLoadingMetadata}
-            disabled={tables.length === 0}
+            label={connectionType === 'hive_parquet' 
+              ? (selectedTable ? 'Add' : 'Partition') 
+              : 'Table'}
+            placeholder={connectionType === 'hive_parquet' 
+              ? (selectedTable ? 'Add partition (UNION)' : 'Select Partition') 
+              : 'Search Table'}
+            options={connectionType === 'hive_parquet' 
+              ? tableOptions.filter(t => t !== selectedTable && !unionTables.some(ut => ut.table_name === t))
+              : tableOptions}
+            value={connectionType === 'hive_parquet' && selectedTable ? '' : selectedTable}
+            onChange={(value) => {
+              // Strip checkmark indicator if present (for Hive Parquet)
+              const cleanValue = value.replace(' ✓', '');
+              effectiveTableSelect(cleanValue);
+            }}
+            loading={isLoadingMetadata || isLoadingPartition}
+            disabled={tables.length === 0 || isLoadingPartition}
             allowEmpty
           />
+          
+          {/* Debug: always show loading state for Hive Parquet */}
+          {connectionType === 'hive_parquet' && (
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              [Debug] isLoadingPartition: {String(isLoadingPartition)}
+            </Typography>
+          )}
+          
+          {/* Show prominent loading indicator for Hive Parquet partition upload */}
+          {connectionType === 'hive_parquet' && isLoadingPartition && (
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 1, 
+              mt: 1, 
+              p: 1, 
+              bgcolor: 'action.hover',
+              borderRadius: 1,
+              border: '1px solid',
+              borderColor: 'divider'
+            }}>
+              <CircularProgress size={16} />
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                Uploading partition files...
+              </Typography>
+            </Box>
+          )}
 
-          {/* CSV UNION picker — shown when multiple uploaded files are available */}
-          {showCsvUnionPicker && (
+          {/* Show selected tables list for Hive Parquet when primary is set */}
+          {connectionType === 'hive_parquet' && selectedTable && (
+            <SelectedTablesList
+              primaryDatabase=""
+              primaryTable={selectedTable}
+              unionTables={unionTables}
+              onRemovePrimary={handleRemovePrimary}
+              onRemoveUnionTable={(db, t) => onRemoveUnionTable?.(db, t)}
+            />
+          )}
+
+          {/* UNION picker for CSV only — Hive Parquet uses the main dropdown for adding */}
+          {connectionType === 'csv' && showUnionPicker && (
             <>
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 32px', gap: 0.5, alignItems: 'center', mt: 0.5 }}>
                 <Autocomplete

@@ -123,7 +123,7 @@ class DataSource(BaseModel):
     # Removed connection details from here to avoid duplication with ConnectionDetails
 
 class ConnectionDetails(BaseModel):
-    type: Literal['csv', 'clickhouse', 'kaggle']
+    type: Literal['csv', 'clickhouse', 'kaggle', 'hive_parquet']
     connection_string: Optional[str] = None
     # file_path: Optional[str] = None # Managed internally by backend for uploads
 
@@ -150,6 +150,9 @@ class ConnectionDetails(BaseModel):
     kaggle_api_key: Optional[str] = None  # Kaggle API key for authentication
     kaggle_dataset: Optional[str] = None  # Dataset reference in format "owner/dataset-name"
     kaggle_csv_files: Optional[List[str]] = None  # Pre-fetched list of CSV files to avoid 403 errors
+    
+    # Optional fields for Hive-partitioned Parquet connection
+    hive_file_structure: Optional[List[str]] = None  # Relative file paths from folder picker
 
 class DataSourceListResponse(BaseModel):
     data_sources: List[DataSource]
@@ -176,4 +179,4 @@ class SuggestedUnionsResponse(BaseModel):
     """Response containing tables with matching schemas that can be combined with UNION ALL."""
     primary_table: str
     suggested_tables: List[str]  # Tables with identical schema
-    schema_hash: Optional[str] = None  # Hash of the schema for validation 
+    schema_hash: Optional[str] = None  # Hash of the schema for validation
