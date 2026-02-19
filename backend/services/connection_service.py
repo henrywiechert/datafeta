@@ -3,7 +3,6 @@
 import os
 import shutil
 import tempfile
-import csv
 import logging
 from typing import Optional, Dict, Any, List
 
@@ -14,6 +13,7 @@ from starlette.concurrency import run_in_threadpool
 from backend.models.data_source import ConnectionDetails
 from backend.connectors.base import BaseConnector
 from backend.connectors.file_connector import FileConnector
+from backend.connectors.file_handlers import FILE_HANDLER_REGISTRY
 from backend.connectors.clickhouse_connector import ClickHouseConnector
 from backend.connectors.kaggle_connector import KaggleConnector
 from backend.exceptions import (
@@ -29,7 +29,6 @@ logger = logging.getLogger(__name__)
 
 
 MAX_FILE_UPLOAD_BYTES = 64 * 1024 * 1024  # 64 MiB per file
-CSV_SNIFF_BYTES = 16384
 
 # Supported file extensions
 ALLOWED_FILE_EXTENSIONS = {'.csv', '.parquet'}
@@ -114,46 +113,6 @@ class ConnectionService:
                         )
                     buffer.write(chunk)
         await run_in_threadpool(_copy_limited)
-
-    @staticmethod
-    async def _validate_csv_file(path: str) -> None:
-        def _validate():
-            if not os.path.exists(path):
-                raise FileProcessingError("Temporary file missing during validation.")
-            with open(path, "rb") as f:
-                sample_bytes = f.read(CSV_SNIFF_BYTES)
-            sample = sample_bytes.decode("utf-8", errors="ignore")
-            if not sample or not sample.strip():
-                raise InvalidInputError("Uploaded CSV file is empty or unreadable.")
-            try:
-                csv.Sniffer().sniff(sample)
-            except csv.Error:
-                try:
-                    next(csv.reader(sample.splitlines()))
-                except Exception:
-                    raise InvalidInputError("Uploaded file does not appear to be valid CSV.")
-        await run_in_threadpool(_validate)
-
-    @staticmethod
-    async def _validate_parquet_file(path: str) -> None:
-        """Validate that a file is a valid Parquet file."""
-        def _validate():
-            if not os.path.exists(path):
-                raise FileProcessingError("Temporary file missing during validation.")
-            # Check file size (should not be empty)
-            if os.path.getsize(path) == 0:
-                raise InvalidInputError("Uploaded Parquet file is empty.")
-            # Check Parquet magic bytes: "PAR1" at start and end of file
-            with open(path, "rb") as f:
-                header = f.read(4)
-                if header != b'PAR1':
-                    raise InvalidInputError("Uploaded file does not appear to be valid Parquet (missing PAR1 header).")
-                # Check footer magic bytes
-                f.seek(-4, 2)  # Seek to 4 bytes before end
-                footer = f.read(4)
-                if footer != b'PAR1':
-                    raise InvalidInputError("Uploaded file does not appear to be valid Parquet (missing PAR1 footer).")
-        await run_in_threadpool(_validate)
 
     @staticmethod
     def _get_file_extension(filename: str) -> str:
@@ -282,11 +241,9 @@ class ConnectionService:
                                 temp_file_paths.remove(temp_file_path)
                             raise
                         
-                        # Validate file based on type
-                        if file_ext == '.csv':
-                            await self._validate_csv_file(temp_file_path)
-                        elif file_ext == '.parquet':
-                            await self._validate_parquet_file(temp_file_path)
+                        # Validate file using the appropriate format handler
+                        handler = FILE_HANDLER_REGISTRY[file_ext]({})
+                        await run_in_threadpool(handler.validate, temp_file_path)
                         
                         file_infos.append({
                             "file_path": temp_file_path,
