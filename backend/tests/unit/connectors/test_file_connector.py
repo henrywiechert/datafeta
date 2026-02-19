@@ -8,6 +8,7 @@ import pyarrow.parquet as pq
 from unittest.mock import Mock
 
 from backend.connectors.file_connector import FileConnector, FileInfo
+from backend.connectors.file_handlers import CsvFileHandler, ParquetFileHandler
 from backend.exceptions import DataSourceConnectionError, InvalidInputError
 
 
@@ -19,7 +20,6 @@ class TestFileConnectorInit:
         state_manager = Mock()
         connector = FileConnector(state_manager=state_manager)
         assert connector._files == []
-        assert connector._global_csv_config == {}
 
 
 class TestSanitizeTableName:
@@ -76,7 +76,7 @@ class TestCsvConnect:
         })
 
         assert len(connector._files) == 1
-        assert connector._files[0].file_type == "csv"
+        assert connector._files[0].handler.file_type == "csv"
         assert connector._files[0].table_name == "test"
 
     def test_connect_with_csv_config(self, tmp_path):
@@ -94,8 +94,9 @@ class TestCsvConnect:
             "csv_decimal_separator": ",",
         })
 
-        assert connector._files[0].csv_config["delimiter"] == ";"
-        assert connector._files[0].csv_config["decimal_separator"] == ","
+        assert isinstance(connector._files[0].handler, CsvFileHandler)
+        assert connector._files[0].handler.config["delimiter"] == ";"
+        assert connector._files[0].handler.config["decimal_separator"] == ","
 
 
 class TestParquetConnect:
@@ -117,11 +118,11 @@ class TestParquetConnect:
         })
 
         assert len(connector._files) == 1
-        assert connector._files[0].file_type == "parquet"
+        assert connector._files[0].handler.file_type == "parquet"
         assert connector._files[0].table_name == "test"
 
-    def test_parquet_no_csv_config(self, tmp_path):
-        """Test that Parquet files don't have CSV config."""
+    def test_parquet_uses_parquet_handler(self, tmp_path):
+        """Test that Parquet files use ParquetFileHandler."""
         parquet_path = tmp_path / "test.parquet"
         table = pa.table({"col1": [1, 2]})
         pq.write_table(table, parquet_path)
@@ -134,7 +135,7 @@ class TestParquetConnect:
             "original_filename": "test.parquet",
         })
 
-        assert connector._files[0].csv_config == {}
+        assert isinstance(connector._files[0].handler, ParquetFileHandler)
 
 
 class TestMultiFileConnect:
@@ -183,7 +184,7 @@ class TestMultiFileConnect:
         })
 
         assert len(connector._files) == 2
-        file_types = [f.file_type for f in connector._files]
+        file_types = [f.handler.file_type for f in connector._files]
         assert "csv" in file_types
         assert "parquet" in file_types
 
