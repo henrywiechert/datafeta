@@ -6,7 +6,7 @@
 import { KaggleDataset, KaggleFile } from '../../types';
 
 // Connection type union
-export type ConnectionType = 'csv' | 'clickhouse' | 'kaggle';
+export type ConnectionType = 'csv' | 'clickhouse' | 'kaggle' | 'hive_parquet';
 
 // File form state (supports CSV and Parquet files)
 export interface CsvFormState {
@@ -44,6 +44,16 @@ export interface KaggleFormState {
   searchError: string;
   manualMode: boolean;
   manualDataset: string;
+}
+
+// Hive Parquet form state
+export interface HiveParquetFormState {
+  selectedFolder: File[] | null;     // All File objects from folder picker
+  fileStructure: string[];           // Relative paths for backend
+  partitionColumn: string | null;    // Detected from backend response
+  availablePartitions: string[];     // Tables returned by backend
+  partitionFiles: Map<string, File[]>; // partition -> files (for lazy upload)
+  error: string | null;              // Error message if any
 }
 
 // Validation result
@@ -88,12 +98,22 @@ export const DEFAULT_KAGGLE_STATE: KaggleFormState = {
   manualDataset: '',
 };
 
+export const DEFAULT_HIVE_PARQUET_STATE: HiveParquetFormState = {
+  selectedFolder: null,
+  fileStructure: [],
+  partitionColumn: null,
+  availablePartitions: [],
+  partitionFiles: new Map(),
+  error: null,
+};
+
 // Combined form state for useReducer
 export interface ConnectionFormState {
   connectionType: ConnectionType;
   csv: CsvFormState;
   clickHouse: ClickHouseFormState;
   kaggle: KaggleFormState;
+  hiveParquet: HiveParquetFormState;
 }
 
 // Action types for useReducer
@@ -102,8 +122,10 @@ export type ConnectionFormAction =
   | { type: 'UPDATE_CSV'; payload: Partial<CsvFormState> }
   | { type: 'UPDATE_CLICKHOUSE'; payload: Partial<ClickHouseFormState> }
   | { type: 'UPDATE_KAGGLE'; payload: Partial<KaggleFormState> }
+  | { type: 'UPDATE_HIVE_PARQUET'; payload: Partial<HiveParquetFormState> }
   | { type: 'RESET_CSV' }
   | { type: 'RESET_CLICKHOUSE' }
   | { type: 'RESET_KAGGLE' }
+  | { type: 'RESET_HIVE_PARQUET' }
   | { type: 'SYNC_FROM_CONNECTION'; payload: { type: ConnectionType; details: any } };
 

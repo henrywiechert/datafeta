@@ -9,12 +9,14 @@
 
 import React, { useEffect, useRef, ChangeEvent } from 'react';
 import { useConnection } from '../contexts/ConnectionContext';
+import { useDataSource } from '../contexts/DataSourceContext';
 import { Link } from 'react-router-dom';
 import { useConnectionForm } from '../hooks/useConnectionForm';
 import {
   CsvConnectionForm,
   ClickHouseConnectionForm,
   KaggleConnectionForm,
+  HiveParquetConnectionForm,
   ConnectionType,
 } from '../components/ConnectionForms';
 import { readFileAsText } from '../services/configurationService';
@@ -37,6 +39,7 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
   } = useConnection();
 
   const form = useConnectionForm();
+  const { setHivePartitionFiles } = useDataSource();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync form state when reconnecting (e.g., page refresh while connected)
@@ -60,6 +63,11 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
       // Pass array of files for file-based connections
       const files = form.csvState.selectedFiles.length > 0 ? form.csvState.selectedFiles : undefined;
       await connect(details, files);
+      
+      // For Hive Parquet connections, copy partition files to DataSourceContext for lazy loading
+      if (details.type === 'hive_parquet' && form.hiveParquetState.partitionFiles.size > 0) {
+        setHivePartitionFiles(form.hiveParquetState.partitionFiles);
+      }
     } catch (err) {
       console.error('Connect API call failed:', err);
     }
@@ -148,6 +156,7 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
             disabled={formDisabled}
           >
             <option value="csv">File (CSV, Parquet)</option>
+            <option value="hive_parquet">Hive Parquet (Partitioned)</option>
             <option value="clickhouse">ClickHouse</option>
             <option value="kaggle">Kaggle Dataset</option>
           </select>
@@ -179,6 +188,17 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
             onSelectDataset={form.selectKaggleDataset}
             onLoadManual={form.loadKaggleFilesManual}
             disabled={formDisabled}
+          />
+        )}
+
+        {form.connectionType === 'hive_parquet' && (
+          <HiveParquetConnectionForm
+            state={form.hiveParquetState}
+            onUpdate={form.updateHiveParquetState}
+            onFolderSelect={form.handleHiveFolderSelect}
+            disabled={formDisabled}
+            isConnecting={isLoading}
+            isConnected={isConnected}
           />
         )}
 

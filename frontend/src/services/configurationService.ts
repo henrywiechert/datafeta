@@ -207,8 +207,8 @@ export function validateConfiguration(config: any): SavedConfiguration {
 
   // Validate connection metadata if present
   if (config.connection) {
-    if (!config.connection.type || !['csv', 'clickhouse', 'kaggle'].includes(config.connection.type)) {
-      throw new Error('Invalid configuration: connection.type must be "csv", "clickhouse", or "kaggle"');
+    if (!config.connection.type || !['csv', 'clickhouse', 'kaggle', 'hive_parquet'].includes(config.connection.type)) {
+      throw new Error('Invalid configuration: connection.type must be "csv", "clickhouse", "kaggle", or "hive_parquet"');
     }
   }
 

@@ -69,4 +69,75 @@ export const connectionApi = {
 
     return response.json();
   },
+
+  /**
+   * Connect to a Hive-partitioned Parquet dataset (Phase 1)
+   * 
+   * Sends only the file structure (paths) to the backend.
+   * Backend parses the partition structure and returns available partitions.
+   * 
+   * @param fileStructure - Array of relative file paths from folder picker
+   * @param signal - Optional AbortSignal for request cancellation
+   * @returns Object with partition_column and list of tables (partitions)
+   */
+  async connectHive(
+    fileStructure: string[],
+    signal?: AbortSignal
+  ): Promise<{ 
+    message: string; 
+    partition_column: string; 
+    tables: string[];
+  }> {
+    const abortController = signal ? null : createAbortController();
+    const requestSignal = signal || abortController?.signal;
+
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/connect-hive`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'hive_parquet',
+        hive_file_structure: fileStructure,
+      }),
+    }, requestSignal);
+
+    return response.json();
+  },
+
+  /**
+   * Load files for a specific Hive partition (Phase 2)
+   * 
+   * Called when user selects a partition (table) in the UI.
+   * Uploads the parquet files for that partition and returns the schema.
+   * 
+   * @param partitionName - The partition value (e.g., "us", "eu")
+   * @param files - Parquet files belonging to this partition
+   * @param signal - Optional AbortSignal for request cancellation
+   * @returns Object with columns list for the partition
+   */
+  async loadPartition(
+    partitionName: string,
+    files: File[],
+    signal?: AbortSignal
+  ): Promise<{
+    message: string;
+    partition_name: string;
+    columns: Array<{ name: string; data_type: string; is_datetime: boolean }>;
+  }> {
+    const abortController = signal ? null : createAbortController();
+    const requestSignal = signal || abortController?.signal;
+
+    const formData = new FormData();
+    formData.append('partition_name', partitionName);
+    
+    files.forEach((file) => {
+      formData.append('uploaded_files', file, file.name);
+    });
+
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/load-partition`, {
+      method: 'POST',
+      body: formData,
+    }, requestSignal);
+
+    return response.json();
+  },
 };

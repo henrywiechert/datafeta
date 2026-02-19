@@ -71,6 +71,55 @@ async def connect_to_datasource_json(
     return await service.connect_json(connection_details, session_id)
 
 
+@router.post("/connect-hive")
+async def connect_hive_parquet(
+    connection_details: ConnectionDetails = Body(...),
+    state_manager: ConnectionStateManager = Depends(get_state_manager),
+    session_id: str = Depends(get_session_id),
+    request: Request = None
+):
+    """
+    Phase 1: Connect to a Hive-partitioned Parquet dataset.
+    
+    Receives the file structure (list of relative paths) from the frontend
+    without actual file uploads. Parses the partition structure and returns
+    available partitions as tables.
+    
+    Args:
+        connection_details: Must include type='hive_parquet' and hive_file_structure
+        
+    Returns:
+        Dict with partition_column and list of tables (partition values)
+    """
+    service = ConnectionService(state_manager=state_manager, request=request)
+    return await service.connect_hive(connection_details, session_id)
+
+
+@router.post("/load-partition")
+async def load_partition(
+    partition_name: str = Form(...),
+    uploaded_files: List[UploadFile] = File(...),
+    state_manager: ConnectionStateManager = Depends(get_state_manager),
+    session_id: str = Depends(get_session_id),
+    request: Request = None
+):
+    """
+    Phase 2: Upload files for a specific Hive partition.
+    
+    Called when the user selects a partition (table) in the UI.
+    Uploads the parquet files for that partition and returns the schema.
+    
+    Args:
+        partition_name: The partition value (e.g., "us", "eu")
+        uploaded_files: Parquet files belonging to this partition
+        
+    Returns:
+        Dict with columns list for the partition
+    """
+    service = ConnectionService(state_manager=state_manager, request=request)
+    return await service.load_hive_partition(partition_name, uploaded_files, session_id)
+
+
 @router.post("/disconnect")
 async def disconnect_datasource(
     state_manager: ConnectionStateManager = Depends(get_state_manager),

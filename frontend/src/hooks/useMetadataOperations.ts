@@ -5,7 +5,7 @@ import { buildValidColumnNames, validateAxisFields, markAllAxisFieldsInvalid } f
 import { processColumnsResponse } from '../utils/fieldUtils';
 
 interface ConnectionDetails {
-    type: 'clickhouse' | 'csv' | 'kaggle';
+    type: 'clickhouse' | 'csv' | 'kaggle' | 'hive_parquet';
 }
 
 interface DataSourceState {

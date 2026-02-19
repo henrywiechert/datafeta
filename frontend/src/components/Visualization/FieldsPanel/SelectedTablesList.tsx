@@ -29,7 +29,8 @@ const SelectedTablesList: React.FC<SelectedTablesListProps> = ({
   onRemovePrimary,
   onRemoveUnionTable,
 }) => {
-  const hasPrimary = !!primaryDatabase && !!primaryTable;
+  // For CSV and Hive Parquet, primaryDatabase is empty but primaryTable is set
+  const hasPrimary = !!primaryTable;
   const hasAny = hasPrimary || unionTables.length > 0;
 
   if (!hasAny) return null;
