@@ -306,6 +306,73 @@
   gap: 12px;
 }
 
+/* Hive Parquet styles */
+.helpText {
+  font-size: 0.8rem;
+  color: #666;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.helpText code {
+  background: #f5f5f5;
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-family: monospace;
+  font-size: 0.75rem;
+}
+
+.fileInfo {
+  font-size: 0.8rem;
+  color: #555;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: #f5f5f5;
+  border-radius: 4px;
+}
+
+.partitionInfo {
+  font-size: 0.8rem;
+  color: #555;
+  margin-top: 8px;
+}
+
+.partitionList {
+  margin-top: 12px;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  border: 1px solid #e9ecef;
+}
+
+.partitionListHeader {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #555;
+  margin-bottom: 8px;
+}
+
+.partitionListItems {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.partitionTag {
+  font-size: 0.75rem;
+  background: #e3f2fd;
+  color: #1565c0;
+  padding: 2px 8px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.partitionMore {
+  font-size: 0.75rem;
+  color: #888;
+  font-style: italic;
+}
+
 /* Responsive design for smaller screens */
 @media (max-width: 600px) {
   .container {

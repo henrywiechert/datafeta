@@ -8,7 +8,7 @@ import { ColumnCasts } from './query';
 
 // Request body for /connect endpoint
 export interface ConnectionDetails {
-  type: 'csv' | 'clickhouse' | 'kaggle';
+  type: 'csv' | 'clickhouse' | 'kaggle' | 'hive_parquet';
   file_path?: string;
   connection_string?: string;
   host?: string;
@@ -30,6 +30,8 @@ export interface ConnectionDetails {
   kaggle_api_key?: string;
   kaggle_dataset?: string;
   kaggle_csv_files?: string[];
+  // Hive Parquet configuration options
+  hive_file_structure?: string[];
 }
 
 // Response types for list endpoints

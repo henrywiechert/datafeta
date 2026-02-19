@@ -15,10 +15,12 @@ import {
   CsvFormState,
   ClickHouseFormState,
   KaggleFormState,
+  HiveParquetFormState,
   ValidationResult,
   DEFAULT_CSV_STATE,
   DEFAULT_CLICKHOUSE_STATE,
   DEFAULT_KAGGLE_STATE,
+  DEFAULT_HIVE_PARQUET_STATE,
 } from '../components/ConnectionForms/types';
 
 // Initial state
@@ -27,6 +29,7 @@ const initialState: ConnectionFormState = {
   csv: DEFAULT_CSV_STATE,
   clickHouse: DEFAULT_CLICKHOUSE_STATE,
   kaggle: DEFAULT_KAGGLE_STATE,
+  hiveParquet: DEFAULT_HIVE_PARQUET_STATE,
 };
 
 // Reducer function
@@ -47,6 +50,9 @@ function connectionFormReducer(
     case 'UPDATE_KAGGLE':
       return { ...state, kaggle: { ...state.kaggle, ...action.payload } };
 
+    case 'UPDATE_HIVE_PARQUET':
+      return { ...state, hiveParquet: { ...state.hiveParquet, ...action.payload } };
+
     case 'RESET_CSV':
       return { ...state, csv: DEFAULT_CSV_STATE };
 
@@ -55,6 +61,9 @@ function connectionFormReducer(
 
     case 'RESET_KAGGLE':
       return { ...state, kaggle: DEFAULT_KAGGLE_STATE };
+
+    case 'RESET_HIVE_PARQUET':
+      return { ...state, hiveParquet: DEFAULT_HIVE_PARQUET_STATE };
 
     case 'SYNC_FROM_CONNECTION': {
       const { type, details } = action.payload;
@@ -86,6 +95,11 @@ function connectionFormReducer(
           apiKey: details.kaggle_api_key || '',
           selectedDataset: details.kaggle_dataset || '',
         };
+      } else if (type === 'hive_parquet') {
+        newState.hiveParquet = {
+          ...DEFAULT_HIVE_PARQUET_STATE,
+          fileStructure: details.hive_file_structure || [],
+        };
       }
 
       return newState;
@@ -106,11 +120,13 @@ export interface UseConnectionFormReturn {
   csvState: CsvFormState;
   clickHouseState: ClickHouseFormState;
   kaggleState: KaggleFormState;
+  hiveParquetState: HiveParquetFormState;
 
   // Per-type state setters (grouped updates)
   updateCsvState: (updates: Partial<CsvFormState>) => void;
   updateClickHouseState: (updates: Partial<ClickHouseFormState>) => void;
   updateKaggleState: (updates: Partial<KaggleFormState>) => void;
+  updateHiveParquetState: (updates: Partial<HiveParquetFormState>) => void;
 
   // Validation and building
   validateForm: () => ValidationResult;
@@ -123,6 +139,7 @@ export interface UseConnectionFormReturn {
 
   // File handling (supports multiple files)
   handleFileChange: (files: File[] | null) => void;
+  handleHiveFolderSelect: (files: File[] | null) => void;
 
   // Sync with existing connection
   syncFromConnectionDetails: (details: ConnectionDetails) => void;
@@ -152,6 +169,10 @@ export function useConnectionForm(): UseConnectionFormReturn {
     dispatch({ type: 'UPDATE_KAGGLE', payload: updates });
   }, []);
 
+  const updateHiveParquetState = useCallback((updates: Partial<HiveParquetFormState>) => {
+    dispatch({ type: 'UPDATE_HIVE_PARQUET', payload: updates });
+  }, []);
+
   // File handling for CSV/Parquet (supports multiple files)
   const handleFileChange = useCallback((files: File[] | null) => {
     if (files && files.length > 0) {
@@ -164,13 +185,35 @@ export function useConnectionForm(): UseConnectionFormReturn {
     }
   }, [updateCsvState]);
 
+  // File handling for Hive Parquet folder selection
+  const handleHiveFolderSelect = useCallback((files: File[] | null) => {
+    if (files && files.length > 0) {
+      updateHiveParquetState({
+        selectedFolder: files,
+      });
+    } else {
+      updateHiveParquetState({
+        selectedFolder: null,
+        fileStructure: [],
+        partitionFiles: new Map(),
+      });
+    }
+  }, [updateHiveParquetState]);
+
   // Validation
   const validateForm = useCallback((): ValidationResult => {
-    const { connectionType, csv, clickHouse, kaggle } = state;
+    const { connectionType, csv, clickHouse, kaggle, hiveParquet } = state;
 
     if (connectionType === 'csv') {
       if (!csv.selectedFiles || csv.selectedFiles.length === 0) {
         return { isValid: false, errorMessage: 'At least one file is required. Please select CSV or Parquet file(s).' };
+      }
+      return { isValid: true, errorMessage: null };
+    }
+
+    if (connectionType === 'hive_parquet') {
+      if (!hiveParquet.fileStructure || hiveParquet.fileStructure.length === 0) {
+        return { isValid: false, errorMessage: 'Please select a folder containing Hive-partitioned Parquet files.' };
       }
       return { isValid: true, errorMessage: null };
     }
@@ -200,7 +243,7 @@ export function useConnectionForm(): UseConnectionFormReturn {
 
   // Build ConnectionDetails from current state
   const buildConnectionDetails = useCallback((): ConnectionDetails => {
-    const { connectionType, csv, clickHouse, kaggle } = state;
+    const { connectionType, csv, clickHouse, kaggle, hiveParquet } = state;
 
     const details: ConnectionDetails = { type: connectionType };
 
@@ -211,6 +254,8 @@ export function useConnectionForm(): UseConnectionFormReturn {
       details.csv_thousands_separator = csv.thousandsSeparator;
       details.csv_date_format = csv.dateFormat;
       details.csv_timestamp_format = csv.timestampFormat;
+    } else if (connectionType === 'hive_parquet') {
+      details.hive_file_structure = hiveParquet.fileStructure;
     } else if (connectionType === 'kaggle') {
       details.kaggle_username = kaggle.username;
       details.kaggle_api_key = kaggle.apiKey;
@@ -346,15 +391,18 @@ export function useConnectionForm(): UseConnectionFormReturn {
     csvState: state.csv,
     clickHouseState: state.clickHouse,
     kaggleState: state.kaggle,
+    hiveParquetState: state.hiveParquet,
     updateCsvState,
     updateClickHouseState,
     updateKaggleState,
+    updateHiveParquetState,
     validateForm,
     buildConnectionDetails,
     searchKaggleDatasets,
     selectKaggleDataset,
     loadKaggleFilesManual,
     handleFileChange,
+    handleHiveFolderSelect,
     syncFromConnectionDetails,
   };
 }

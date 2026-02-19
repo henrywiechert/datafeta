@@ -46,6 +46,10 @@ interface FieldsPanelProps {
   onRemoveUnionTable?: (database: string, tableName: string) => void;
   tablesCache?: Record<string, Table[]>;
   onLoadTablesForDatabase?: (database: string) => void;
+  // Hive Parquet partition loading
+  loadedPartitions?: Set<string>;
+  isLoadingPartition?: boolean;
+  onLoadPartition?: (partitionName: string, setAsPrimary?: boolean) => Promise<void>;
   // Virtual columns props
   virtualColumns?: VirtualColumnDefinition[];
   onAddVirtualColumn?: (column: VirtualColumnDefinition) => void;
@@ -88,6 +92,10 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   onRemoveUnionTable,
   tablesCache,
   onLoadTablesForDatabase,
+  // Hive Parquet partition loading
+  loadedPartitions,
+  isLoadingPartition,
+  onLoadPartition,
   // Virtual columns props
   virtualColumns = [],
   onAddVirtualColumn,
@@ -227,6 +235,9 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
         onRemoveUnionTable={onRemoveUnionTable}
         tablesCache={tablesCache}
         onLoadTablesForDatabase={onLoadTablesForDatabase}
+        loadedPartitions={loadedPartitions}
+        isLoadingPartition={isLoadingPartition}
+        onLoadPartition={onLoadPartition}
       />
       
       {/* Fields search below metadata */}
@@ -314,7 +325,10 @@ export default React.memo(FieldsPanel, (prevProps, nextProps) => {
     prevProps.joinedTables === nextProps.joinedTables &&
     prevProps.unionTables === nextProps.unionTables &&
     prevProps.tablesCache === nextProps.tablesCache &&
-    prevProps.virtualColumns === nextProps.virtualColumns
+    prevProps.virtualColumns === nextProps.virtualColumns &&
+    // Hive Parquet partition loading props
+    prevProps.loadedPartitions === nextProps.loadedPartitions &&
+    prevProps.isLoadingPartition === nextProps.isLoadingPartition
     // Callbacks NOT compared - they are now stable (see useDragDrop.ts, useFieldOperations.ts)
   );
 });
