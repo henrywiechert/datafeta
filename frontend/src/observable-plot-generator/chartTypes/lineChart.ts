@@ -1,5 +1,5 @@
 import * as Plot from '@observablehq/plot';
-import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
+import { DEFAULT_CHART_COLOR, DOMAIN_PAD_RATIO } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
@@ -251,6 +251,36 @@ function compareByColumn(column: string) {
   };
 }
 
+// ---------- Domain helpers ---------------------------------------------------
+
+/**
+ * Recompute the dependent-axis domain from the (possibly bin-aggregated) data.
+ * This ensures the Y-axis scale matches the actually-plotted values rather than
+ * the pre-binning raw data, which can have a much wider range (especially with AVG).
+ */
+function recomputeDependentDomain(
+  rows: any[],
+  dependentColumn: string
+): [number, number] | undefined {
+  let min = Infinity;
+  let max = -Infinity;
+  for (const row of rows) {
+    const v = row[dependentColumn];
+    if (typeof v !== 'number' || !Number.isFinite(v)) continue;
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
+  if (min === Infinity || max === -Infinity) return undefined;
+  if (min === max) {
+    // Avoid zero-span domain
+    const pad = min === 0 ? 1 : Math.abs(min) * DOMAIN_PAD_RATIO;
+    return [min - pad, max + pad];
+  }
+  const span = max - min;
+  const pad = span * DOMAIN_PAD_RATIO;
+  return [min - pad, max + pad];
+}
+
 // ---------- Core Builder ----------------------------------------------------
 
 /**
@@ -325,6 +355,20 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     }
     const chartLabel = orientation === 'horizontal' ? 'Line' : 'Vertical line';
     console.warn(`⚠️ ${chartLabel} bin-aggregate applied: ${cleanSorted.length} → ${budgetedSorted.length} points (axisKind=${axisKind})`);
+  }
+
+  // After bin-aggregation the dependent-axis range may be much narrower than
+  // the caller-supplied domain (which was computed from the un-binned data).
+  // Recompute to match the actually-plotted values.
+  let effectiveDomain = domain;
+  if (budgetedSorted !== cleanSorted && budgetedSorted.length > 0) {
+    const recomputed = recomputeDependentDomain(budgetedSorted, dependentColumn);
+    if (recomputed) {
+      effectiveDomain = {
+        ...domain,
+        [O.dependentAxis]: recomputed,
+      };
+    }
   }
 
   // Dots are expensive at scale; cap dot density separately
@@ -409,22 +453,22 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     strokeWidth: 0,
   };
 
-  const xIsTime = axisKind === 'time' || (domain?.x?.[0] instanceof Date);
-  const yIsTime = domain?.y?.[0] instanceof Date;
+  const xIsTime = axisKind === 'time' || (effectiveDomain?.x?.[0] instanceof Date);
+  const yIsTime = effectiveDomain?.y?.[0] instanceof Date;
 
   const plotOptions: Plot.PlotOptions = {
     x: {
       label: labels?.x || xColumn,
       domainKey: xColumn,
       grid: true,
-      domain: domain?.x,
+      domain: effectiveDomain?.x,
       ...(xIsTime ? { type: 'utc' as any, tickFormat: formatDateTick } : {}),
     } as any,
     y: {
       label: labels?.y || yColumn,
       domainKey: yColumn,
       grid: true,
-      domain: domain?.y,
+      domain: effectiveDomain?.y,
       ...(yIsTime ? { type: 'utc' as any, tickFormat: formatDateTick } : {}),
     } as any,
     marks: [
