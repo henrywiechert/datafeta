@@ -112,6 +112,8 @@ export interface VisualizationState {
   axisLabelStyles: AxisLabelStyles;
   // Facet label styling
   facetLabelStyles: FacetLabelStyles;
+  // Chart area caption (markdown)
+  chartCaption: string;
 }
 
 // Define action types
@@ -235,7 +237,9 @@ export type VisualizationAction =
   | { type: 'SET_FACET_TOP_HEADER_STYLE'; payload: Partial<FacetHeaderLabelStyle> }
   | { type: 'SET_FACET_TOP_VALUES_STYLE'; payload: Partial<FacetTopValuesLabelStyle> }
   | { type: 'SET_FACET_LEFT_HEADER_STYLE'; payload: Partial<FacetHeaderLabelStyle & { widthPx: number | null }> }
-  | { type: 'SET_FACET_LEFT_VALUES_STYLE'; payload: Partial<FacetLeftValuesLabelStyle> };
+  | { type: 'SET_FACET_LEFT_VALUES_STYLE'; payload: Partial<FacetLeftValuesLabelStyle> }
+  // Chart caption action
+  | { type: 'SET_CHART_CAPTION'; payload: string };
 
 // Helper type for reducer functions
 export type ReducerFn = (state: VisualizationState, action: VisualizationAction) => VisualizationState;

@@ -124,6 +124,7 @@ export function useVisualizationState() {
             measureGroupFields: state.measureGroupFields,
             axisLabelStyles: state.axisLabelStyles,
             facetLabelStyles: state.facetLabelStyles,
+            chartCaption: state.chartCaption,
         });
     }, [
         state.xAxisFields,
@@ -146,6 +147,7 @@ export function useVisualizationState() {
         state.measureGroupFields,
         state.axisLabelStyles,
         state.facetLabelStyles,
+        state.chartCaption,
         updateActiveSheetState,
     ]);
 

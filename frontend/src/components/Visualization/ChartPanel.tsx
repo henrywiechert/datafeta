@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useCallback } from 'react';
 import { Box } from '@mui/material';
 import DropZone from './DropZone';
 import ChartArea from './ChartArea';
+import ChartCaption from './ChartCaption';
 import { Field, DragSource } from '../../types';
 import { useSelectionStore } from '../../stores/selectionStore';
 
@@ -90,9 +91,10 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
         height: '1px', 
         backgroundColor: '#e0e0e0', 
         width: '100%', 
-        mb: 2,
+        mb: 1,
         mt: 1
       }} />
+      <ChartCaption />
       <Box sx={{ flex: 1, minHeight: 0 }}>
         <ChartArea />
       </Box>
