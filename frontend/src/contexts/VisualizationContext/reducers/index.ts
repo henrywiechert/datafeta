@@ -7,6 +7,7 @@ import { overridesReducer } from './overridesReducer';
 import { undoRedoReducer } from './undoRedoReducer';
 import { optimizationReducer } from './optimizationReducer';
 import { measureGroupReducer } from './measureGroupReducer';
+import { captionReducer } from './captionReducer';
 
 /**
  * Combined reducer that delegates to domain-specific reducers.
@@ -23,6 +24,7 @@ export function visualizationReducer(state: VisualizationState, action: Visualiz
     undoRedoReducer,
     optimizationReducer,
     measureGroupReducer,
+    captionReducer,
   ];
 
   for (const reducer of reducers) {
