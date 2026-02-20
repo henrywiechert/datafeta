@@ -79,6 +79,8 @@ export interface VisualizationStateSnapshot {
   facetBackgroundField?: Field | null;
   facetBackgroundScheme?: string;
   facetBackgroundOpacity?: number;
+  // Chart area caption (markdown)
+  chartCaption?: string;
 }
 
 // --- Sheet Types --- //

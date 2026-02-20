@@ -85,6 +85,7 @@ function createEmptyVisualizationState(): VisualizationStateSnapshot {
         widthPx: null,
       },
     },
+    chartCaption: '# Chart Title',
   };
 }
 
