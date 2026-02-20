@@ -96,7 +96,7 @@ const ChartCaption: React.FC = () => {
         maxWidth="sm"
         PaperProps={{ sx: { borderRadius: 2 } }}
       >
-        <DialogTitle sx={{ pb: 1 }}>Edit Caption</DialogTitle>
+        <DialogTitle sx={{ pb: 1 }}>Edit Caption (Markdown format)</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           <TextField
             autoFocus
