@@ -15,6 +15,7 @@ from backend.services.connection_service import (
     MAX_FILE_UPLOAD_BYTES,
     ConnectionService,
 )
+from backend.connectors.file_handlers.parquet_handler import ParquetFileHandler
 
 
 def run_async(coro):
@@ -78,7 +79,7 @@ class TestParquetValidation:
         pq.write_table(table, parquet_path)
 
         # Should not raise
-        run_async(ConnectionService._validate_parquet_file(str(parquet_path)))
+        ParquetFileHandler().validate(str(parquet_path))
 
     def test_empty_parquet_fails_validation(self, tmp_path):
         """Test that empty files fail validation."""
@@ -88,7 +89,7 @@ class TestParquetValidation:
         empty_path.write_bytes(b'')
 
         with pytest.raises(InvalidInputError) as exc_info:
-            run_async(ConnectionService._validate_parquet_file(str(empty_path)))
+            ParquetFileHandler().validate(str(empty_path))
         
         assert "empty" in str(exc_info.value).lower()
 
@@ -100,7 +101,7 @@ class TestParquetValidation:
         invalid_path.write_bytes(b'NOT_PARQUET_CONTENT_HERE')
 
         with pytest.raises(InvalidInputError) as exc_info:
-            run_async(ConnectionService._validate_parquet_file(str(invalid_path)))
+            ParquetFileHandler().validate(str(invalid_path))
         
         assert "PAR1" in str(exc_info.value)
 
@@ -109,7 +110,7 @@ class TestParquetValidation:
         from backend.exceptions import FileProcessingError
         
         with pytest.raises(FileProcessingError):
-            run_async(ConnectionService._validate_parquet_file(str(tmp_path / "nonexistent.parquet")))
+            ParquetFileHandler().validate(str(tmp_path / "nonexistent.parquet"))
 
 
 class TestFileExtensionHelper:
