@@ -10,6 +10,13 @@ alwaysApply: true
 - Ask clarifying questions only when requirements are ambiguous.
 - Prefer actionable steps over long explanations.
 
+## Architecture
+- don't break existing architecture
+- in case a change tends to touch too many files or is scattered in general, consider refactoring steps beforehand (ask the user)
+
+## Git actions
+- don't commit or push, that's my part
+
 ## Coding Style
 - Preserve existing project conventions and naming patterns.
 - Make minimal, focused changes that solve the requested task.
