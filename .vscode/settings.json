@@ -14,7 +14,8 @@
     },
     "peacock.remoteColor": "#832561",
     "chat.tools.terminal.autoApprove": {
-        "npx tsc": true
+        "npx tsc": true,
+        "npx react-scripts": true
     },
     "workbench.colorCustomizations": {
         "activityBar.activeBackground": "#ab307e",
