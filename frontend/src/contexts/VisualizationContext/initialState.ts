@@ -109,6 +109,6 @@ export const initialState: VisualizationState = {
     },
   },
   // Chart area caption
-  chartCaption: '# Chart Title',
+  chartCaption: '## Chart Title',
 };
 
