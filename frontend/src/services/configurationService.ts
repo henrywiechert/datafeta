@@ -40,11 +40,21 @@ interface WindowWithFileSystem extends Window {
 }
 
 /**
+ * Info about loaded hive partitions, used when saving snapshots.
+ */
+export interface HivePartitionInfo {
+  loadedPartitions: string[];
+  primaryPartition: string;
+  unionPartitions: string[];
+}
+
+/**
  * Creates a SavedConnectionMetadata object from ConnectionDetails,
  * stripping out sensitive information like passwords.
  */
 export function sanitizeConnectionDetails(
-  details: ConnectionDetails | null
+  details: ConnectionDetails | null,
+  hivePartitionInfo?: HivePartitionInfo
 ): SavedConnectionMetadata | undefined {
   if (!details) return undefined;
 
@@ -73,6 +83,14 @@ export function sanitizeConnectionDetails(
     if (details.kaggle_dataset) sanitized.kaggle_dataset = details.kaggle_dataset;
     if (details.kaggle_csv_files) sanitized.kaggle_csv_files = details.kaggle_csv_files;
     // Explicitly DO NOT include kaggle_username or kaggle_api_key
+  } else if (details.type === 'hive_parquet') {
+    // Hive Parquet configuration
+    if (details.hive_file_structure) sanitized.hive_file_structure = details.hive_file_structure;
+    if (hivePartitionInfo) {
+      sanitized.hive_loaded_partitions = hivePartitionInfo.loadedPartitions;
+      sanitized.hive_primary_partition = hivePartitionInfo.primaryPartition;
+      sanitized.hive_union_partitions = hivePartitionInfo.unionPartitions;
+    }
   }
 
   // Column casting configuration
@@ -98,7 +116,8 @@ export function exportConfiguration(
   joinedTables?: TableJoinDefinition[],
   virtualColumns?: VirtualColumnDefinition[],
   virtualColumnFieldPreferences?: VirtualColumnFieldPreferences,
-  fieldDisplayAliases?: Record<string, string>
+  fieldDisplayAliases?: Record<string, string>,
+  hivePartitionInfo?: HivePartitionInfo
 ): SavedConfiguration {
   const normalizedSheets = sheets.map((sheet) => ({
     ...sheet,
@@ -118,7 +137,7 @@ export function exportConfiguration(
   };
 
   // Add connection metadata if available (sanitized)
-  const sanitizedConnection = sanitizeConnectionDetails(connectionDetails);
+  const sanitizedConnection = sanitizeConnectionDetails(connectionDetails, hivePartitionInfo);
   if (sanitizedConnection) {
     config.connection = sanitizedConnection;
   }
@@ -379,6 +398,9 @@ export function reconstructConnectionDetails(
     if (metadata.kaggle_csv_files) details.kaggle_csv_files = metadata.kaggle_csv_files;
     if (kaggleUsername) details.kaggle_username = kaggleUsername;
     if (kaggleApiKey) details.kaggle_api_key = kaggleApiKey;
+  } else if (metadata.type === 'hive_parquet') {
+    // Hive Parquet configuration
+    if (metadata.hive_file_structure) details.hive_file_structure = metadata.hive_file_structure;
   }
 
   // Column casting configuration
