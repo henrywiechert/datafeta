@@ -29,7 +29,7 @@ from backend.dependencies import ConnectionStateManager
 logger = logging.getLogger(__name__)
 
 
-MAX_FILE_UPLOAD_BYTES = 64 * 1024 * 1024  # 64 MiB per file
+MAX_FILE_UPLOAD_BYTES = 1024 * 1024 * 1024  # 1 GB per file
 
 # Supported file extensions
 ALLOWED_FILE_EXTENSIONS = {'.csv', '.parquet'}
