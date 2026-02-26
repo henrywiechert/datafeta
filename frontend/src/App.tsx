@@ -45,6 +45,7 @@ function AppContent() {
     setVirtualColumns,
     setVirtualColumnFieldPreferences,
     setFieldAlias,
+    loadHivePartition,
   } = useDataSource();
   const { connectionDetails, connect, disconnect, isConnected } = useConnection();
   
@@ -222,6 +223,13 @@ function AppContent() {
 
   // Helper to get current configuration
   const getCurrentConfiguration = (): SavedConfiguration => {
+    // Build hive partition info if connected to a hive_parquet source
+    const hivePartitionInfo = connectionDetails?.type === 'hive_parquet' ? {
+      loadedPartitions: Array.from(dataSource.loadedPartitions),
+      primaryPartition: dataSource.selectedTable,
+      unionPartitions: dataSource.unionTables.map(t => t.table_name),
+    } : undefined;
+
     return exportConfiguration(
       state.sheets,
       state.activeSheetId,
@@ -233,7 +241,8 @@ function AppContent() {
       dataSource.virtualTable?.joined_tables,
       dataSource.virtualColumns,
       dataSource.virtualColumnFieldPreferences,
-      dataSource.fieldDisplayAliases
+      dataSource.fieldDisplayAliases,
+      hivePartitionInfo
     );
   };
 
@@ -316,30 +325,71 @@ function AppContent() {
     files?: File[],
     kaggleUsername?: string,
     kaggleApiKey?: string,
-    clickHouseOverrides?: ClickHouseOverrides
+    clickHouseOverrides?: ClickHouseOverrides,
+    hivePartitionFiles?: Map<string, File[]>,
+    hiveFileStructure?: string[]
   ) => {
     if (!connectionMetadata || !pendingConfig) return;
 
     try {
-      // Reconstruct connection details with password, Kaggle credentials, or ClickHouse overrides
-      const details = reconstructConnectionDetails(
-        connectionMetadata,
-        password,
-        kaggleUsername,
-        kaggleApiKey,
-        clickHouseOverrides
-      );
-      
-      // Attempt to connect (pass files array for multi-file support)
-      await connect(details, files);
-      
-      // If connection successful, restore the rest of the configuration
-      setShowConnectionRestore(false);
-      restoreConfigurationState(pendingConfig);
-      
-      // Navigate to visualization page if not already there
-      if (!isVisualizationPage) {
-        navigate('/visualize');
+      if (connectionMetadata.type === 'hive_parquet') {
+        // Hive Parquet: two-phase connection restore
+        // Use the fresh file structure from the folder picker (paths may differ from saved snapshot)
+        const details = reconstructConnectionDetails(connectionMetadata);
+        if (hiveFileStructure && hiveFileStructure.length > 0) {
+          details.hive_file_structure = hiveFileStructure;
+        }
+        await connect(details); // Phase 1: connect with hive_file_structure
+
+        // Phase 2: Load partitions with user-provided files
+        if (hivePartitionFiles && connectionMetadata.hive_loaded_partitions) {
+          const primaryPartition = connectionMetadata.hive_primary_partition;
+          const unionPartitions = connectionMetadata.hive_union_partitions || [];
+
+          // Load primary partition first
+          if (primaryPartition) {
+            const primaryFiles = hivePartitionFiles.get(primaryPartition);
+            if (primaryFiles && primaryFiles.length > 0) {
+              await loadHivePartition(primaryPartition, true, primaryFiles);
+            }
+          }
+
+          // Load union partitions
+          for (const unionPartition of unionPartitions) {
+            const unionFiles = hivePartitionFiles.get(unionPartition);
+            if (unionFiles && unionFiles.length > 0) {
+              await loadHivePartition(unionPartition, false, unionFiles);
+            }
+          }
+        }
+
+        setShowConnectionRestore(false);
+        restoreConfigurationState(pendingConfig);
+
+        if (!isVisualizationPage) {
+          navigate('/visualize');
+        }
+      } else {
+        // Existing flow for CSV, ClickHouse, Kaggle
+        const details = reconstructConnectionDetails(
+          connectionMetadata,
+          password,
+          kaggleUsername,
+          kaggleApiKey,
+          clickHouseOverrides
+        );
+
+        // Attempt to connect (pass files array for multi-file support)
+        await connect(details, files);
+
+        // If connection successful, restore the rest of the configuration
+        setShowConnectionRestore(false);
+        restoreConfigurationState(pendingConfig);
+
+        // Navigate to visualization page if not already there
+        if (!isVisualizationPage) {
+          navigate('/visualize');
+        }
       }
     } catch (error) {
       // Error is handled by the ConnectionRestoreDialog
@@ -382,8 +432,8 @@ function AppContent() {
       // connectionDetails state might not be updated yet (React batches state updates)
       const connectionType = config.connection?.type;
       
-      if (config.dataSource && connectionType !== 'csv') {
-        // For ClickHouse: restore database and table selection
+      if (config.dataSource && connectionType !== 'csv' && connectionType !== 'hive_parquet') {
+        // For ClickHouse/Kaggle: restore database and table selection
         // Use requestAnimationFrame to wait for next render cycle
         requestAnimationFrame(() => {
           setTimeout(() => {
@@ -444,6 +494,18 @@ function AppContent() {
       }
       // For CSV: Don't restore anything - let the natural useEffect flow handle it
       // The fetchTables will auto-detect and select the single table
+
+      if (config.dataSource && connectionType === 'hive_parquet') {
+        // For Hive Parquet: partition loading in handleConnectionRestore already set
+        // selectedTable, availableFields, and unionTables. Just restore virtual columns/preferences.
+        setVirtualColumns(config.dataSource.virtualColumns ?? []);
+        setVirtualColumnFieldPreferences(config.dataSource.virtualColumnFieldPreferences ?? {});
+        if (config.dataSource.fieldDisplayAliases) {
+          Object.entries(config.dataSource.fieldDisplayAliases).forEach(([columnName, alias]) => {
+            setFieldAlias(columnName, alias);
+          });
+        }
+      }
       
       setPendingConfig(null);
       setConnectionMetadata(null);

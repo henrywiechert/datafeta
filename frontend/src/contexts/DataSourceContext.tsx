@@ -98,7 +98,7 @@ interface DataSourceContextType {
   clearSessionFilters: () => void;
   // Hive Parquet partition management
   setHivePartitionFiles: (partitionFiles: Map<string, File[]>) => void;
-  loadHivePartition: (partitionName: string, setAsPrimary?: boolean) => Promise<Field[]>;
+  loadHivePartition: (partitionName: string, setAsPrimary?: boolean, filesOverride?: File[]) => Promise<Field[]>;
   isPartitionLoaded: (partitionName: string) => boolean;
   clearHivePartitionState: () => void;
   // Reset all metadata state (used on connect/disconnect)
@@ -470,14 +470,14 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     }));
   };
 
-  const loadHivePartition = useCallback(async (partitionName: string, setAsPrimary: boolean = true): Promise<Field[]> => {
+  const loadHivePartition = useCallback(async (partitionName: string, setAsPrimary: boolean = true, filesOverride?: File[]): Promise<Field[]> => {
     // Check if already loaded
     if (dataSource.loadedPartitions.has(partitionName)) {
       return [];
     }
 
-    // Get files for this partition
-    const files = dataSource.hivePartitionFiles.get(partitionName);
+    // Get files for this partition (use filesOverride when restoring from snapshot)
+    const files = filesOverride ?? dataSource.hivePartitionFiles.get(partitionName);
     if (!files || files.length === 0) {
       throw new Error(`No files found for partition '${partitionName}'`);
     }
