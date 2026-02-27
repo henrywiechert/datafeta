@@ -45,7 +45,7 @@ const ChartCaption: React.FC = () => {
           cursor: 'default',
           userSelect: 'none',
           textAlign: 'left',
-          fontSize: '0.60rem',
+          fontSize: '0.68rem',
           borderRadius: 1,
           transition: 'background-color 0.15s',
           '&:hover': {
@@ -61,14 +61,24 @@ const ChartCaption: React.FC = () => {
           },
           '& ul, & ol': {
             margin: '2px 0',
-            paddingLeft: 20,
+            marginLeft: 1,
+            paddingLeft: '1.1em',
+            paddingInlineStart: '1.1em',
+          },
+          '& ul ul, & ul ol, & ol ul, & ol ol': {
+            margin: 0,
+            paddingLeft: '1em',
+            paddingInlineStart: '1em',
+          },
+          '& li': {
+            margin: 0,
           },
           '& code': {
             fontFamily: 'monospace',
             backgroundColor: 'action.hover',
             borderRadius: '3px',
             padding: '1px 3px',
-            fontSize: '0.85em',
+            fontSize: '1em',
           },
           '& pre': {
             backgroundColor: 'action.hover',
