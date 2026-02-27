@@ -378,6 +378,8 @@ class QueryService:
 
         # For filter value queries with JOINed tables, query the source table directly
         # This ensures we get ALL distinct values, not just those matching the JOIN condition
+        # IMPORTANT: Only split on '.' if the prefix is a known table name.
+        # Column names can legitimately contain dots (e.g., 'tableName.colName' as a literal).
         if (query_desc.fetch_filter_values and 
             query_desc.virtual_table and 
             query_desc.virtual_table.joined_tables and
@@ -390,57 +392,73 @@ class QueryService:
             if '.' in field_name:
                 parts = field_name.split('.', 1)
                 if len(parts) == 2:
-                    source_table_name, column_name = parts
+                    potential_table_name, remaining = parts
                     
-                    # Create a simplified query desc for the source table directly
-                    logger.info(
-                        f"Filter value query: Using source table '{source_table_name}' directly "
-                        f"for field '{column_name}' (bypassing JOIN to get ALL distinct values)"
-                    )
+                    # Validate prefix against known table names
+                    known_tables = {query_desc.virtual_table.primary_table}
+                    for jt in query_desc.virtual_table.joined_tables:
+                        known_tables.add(jt.table_name)
                     
-                    # Create a new dimension with just the column name
-                    from backend.models.query import Dimension
-                    simplified_dim = Dimension(
-                        field=column_name,
-                        flavour=dim.flavour,
-                        axis=dim.axis,
-                        date_part=dim.date_part,
-                        date_mode=dim.date_mode,
-                    )
+                    if potential_table_name in known_tables:
+                        source_table_name = potential_table_name
+                        column_name = remaining
                     
-                    # Create a copy of query_desc without the virtual_table (for single table query)
-                    # We need to query the source table directly
-                    simplified_query_desc = QueryDescription(
-                        target_table=source_table_name,
-                        target_database=query_desc.target_database,
-                        dimensions=[simplified_dim],
-                        measures=query_desc.measures,
-                        filters=query_desc.filters,  # Keep filters but they may need adjustment
-                        orderBy=query_desc.orderBy,
-                        limit=query_desc.limit,
-                        offset=query_desc.offset,
-                        optimization_hints=query_desc.optimization_hints,
-                        column_casts=query_desc.column_casts,
-                        label_fields=query_desc.label_fields,
-                        virtual_table=None,  # No JOIN - query single table
-                        virtual_columns=query_desc.virtual_columns,
-                        result_budget=query_desc.result_budget,
-                        force_raw_rows=query_desc.force_raw_rows,
-                        fetch_filter_values=query_desc.fetch_filter_values,
-                        distinct_value_regex=query_desc.distinct_value_regex,
-                        use_random_sample=query_desc.use_random_sample,
-                    )
-                    
-                    # Recursively call translate_to_sql with the simplified query
-                    return self.translate_to_sql(
-                        simplified_query_desc,
-                        source_table_name,
-                        db_type=db_type,
-                        with_sampling=with_sampling,
-                        with_optimization=with_optimization,
-                        optimizer=optimizer,
-                        connector=connector,
-                    )
+                        # Create a simplified query desc for the source table directly
+                        logger.info(
+                            f"Filter value query: Using source table '{source_table_name}' directly "
+                            f"for field '{column_name}' (bypassing JOIN to get ALL distinct values)"
+                        )
+                        
+                        # Create a new dimension with just the column name
+                        from backend.models.query import Dimension
+                        simplified_dim = Dimension(
+                            field=column_name,
+                            flavour=dim.flavour,
+                            axis=dim.axis,
+                            date_part=dim.date_part,
+                            date_mode=dim.date_mode,
+                        )
+                        
+                        # Create a copy of query_desc without the virtual_table (for single table query)
+                        # We need to query the source table directly
+                        simplified_query_desc = QueryDescription(
+                            target_table=source_table_name,
+                            target_database=query_desc.target_database,
+                            dimensions=[simplified_dim],
+                            measures=query_desc.measures,
+                            filters=query_desc.filters,  # Keep filters but they may need adjustment
+                            orderBy=query_desc.orderBy,
+                            limit=query_desc.limit,
+                            offset=query_desc.offset,
+                            optimization_hints=query_desc.optimization_hints,
+                            column_casts=query_desc.column_casts,
+                            label_fields=query_desc.label_fields,
+                            virtual_table=None,  # No JOIN - query single table
+                            virtual_columns=query_desc.virtual_columns,
+                            result_budget=query_desc.result_budget,
+                            force_raw_rows=query_desc.force_raw_rows,
+                            fetch_filter_values=query_desc.fetch_filter_values,
+                            distinct_value_regex=query_desc.distinct_value_regex,
+                            use_random_sample=query_desc.use_random_sample,
+                        )
+                        
+                        # Recursively call translate_to_sql with the simplified query
+                        return self.translate_to_sql(
+                            simplified_query_desc,
+                            source_table_name,
+                            db_type=db_type,
+                            with_sampling=with_sampling,
+                            with_optimization=with_optimization,
+                            optimizer=optimizer,
+                            connector=connector,
+                        )
+                    else:
+                        # Prefix doesn't match a known table — the dot is part of the column name
+                        logger.info(
+                            f"Filter value query: Field '{field_name}' has dot but prefix "
+                            f"'{potential_table_name}' is not a known table ({known_tables}). "
+                            f"Treating full name as column name."
+                        )
 
         table_context = self._build_table_context(query_desc, db_type, table_name)
         q = table_context.query

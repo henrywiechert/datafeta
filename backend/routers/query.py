@@ -135,6 +135,7 @@ def get_distinct_count(
     datetime_part = request_data.get('dateTimePart')
     datetime_mode = request_data.get('dateTimeMode')
     union_tables = request_data.get('unionTables')
+    source_table = request_data.get('sourceTable')  # Explicit source table (for multi-table JOIN support)
     
     # Parse virtual columns if provided
     virtual_columns = None
@@ -149,6 +150,12 @@ def get_distinct_count(
     if 'virtualTable' in request_data and request_data['virtualTable']:
         virtual_table = VirtualTableDefinition.parse_obj(request_data['virtualTable'])
     
+    import logging
+    _logger = logging.getLogger(__name__)
+    _logger.info(f"distinct-count: field={field!r}, table={table!r}, sourceTable={source_table!r}, virtualTable present={'virtualTable' in request_data}")
+    if virtual_table:
+        _logger.info(f"distinct-count: parsed virtual_table: primary={virtual_table.primary_table}, joined_tables={[jt.table_name for jt in virtual_table.joined_tables]}, mode={virtual_table.mode}")
+    
     service = CardinalityService(connector, conn_details)
     count = service.get_distinct_count(
         field=field,
@@ -159,7 +166,8 @@ def get_distinct_count(
         datetime_mode=datetime_mode,
         union_tables=union_tables,
         virtual_columns=virtual_columns,
-        virtual_table=virtual_table
+        virtual_table=virtual_table,
+        source_table=source_table
     )
     
     return {"count": count}

@@ -133,7 +133,8 @@ export function useFilterMetadata({
                     unionTablesForApi,  // Pass union tables for _source_table handling
                     virtualColumns,  // Pass virtual columns for expression support
                     virtualTable,  // Pass virtual table for JOIN support
-                    abortController.signal  // Pass the abort signal
+                    abortController.signal,  // Pass the abort signal
+                    field.sourceTable  // Pass source table for multi-table support
                 );
                 
                 let values: any[];
@@ -366,7 +367,8 @@ export function useFilterMetadata({
                 unionTablesForApi,  // Pass union tables for _source_table handling
                 virtualColumns,  // Pass virtual columns for expression support
                 virtualTable,  // Pass virtual table for JOIN support
-                abortController.signal  // Pass the abort signal
+                abortController.signal,  // Pass the abort signal
+                field.sourceTable  // Pass source table for multi-table support
             );
             
             let values: any[];

@@ -48,6 +48,10 @@ export interface Field {
   // Validation flag (set upstream when field no longer exists in schema)
   isInvalid?: boolean; // True if field is invalid (e.g., column removed from table)
   
+  // Source table name (which physical table this column comes from)
+  // Set from Column.table_name in multi-table (JOIN) mode
+  sourceTable?: string;
+  
   // Display alias (user-defined friendly name for UI display only - does not affect SQL queries)
   displayAlias?: string; // Optional custom display name
 }

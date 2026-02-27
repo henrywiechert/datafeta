@@ -45,14 +45,15 @@ class CardinalityService:
         datetime_mode: Optional[str] = None,
         union_tables: Optional[str] = None,
         virtual_columns: Optional[list] = None,
-        virtual_table: Optional[object] = None
+        virtual_table: Optional[object] = None,
+        source_table: Optional[str] = None
     ) -> int:
         """
         Get count of distinct values for a field.
         
         Args:
             field: Field name to count
-            table: Table name
+            table: Table name (primary table)
             database: Database name (required for ClickHouse)
             regex_pattern: Optional LIKE pattern filter
             datetime_part: Optional datetime part extraction (year, month, etc.)
@@ -60,6 +61,8 @@ class CardinalityService:
             union_tables: Comma-separated list of union table names
             virtual_columns: Optional list of VirtualColumnDefinition objects
             virtual_table: Optional VirtualTableDefinition for JOIN support
+            source_table: Optional explicit source table name (from Column.table_name).
+                          When provided, overrides table-prefix parsing from the field name.
             
         Returns:
             Distinct count as integer
@@ -82,7 +85,8 @@ class CardinalityService:
             datetime_part=datetime_part,
             datetime_mode=datetime_mode,
             virtual_columns=virtual_columns,
-            virtual_table=virtual_table
+            virtual_table=virtual_table,
+            source_table=source_table
         )
         
         return self._execute_count_query(sql, field)
@@ -127,48 +131,168 @@ class CardinalityService:
         datetime_part: Optional[str],
         datetime_mode: Optional[str],
         virtual_columns: Optional[list] = None,
-        virtual_table: Optional[object] = None
+        virtual_table: Optional[object] = None,
+        source_table: Optional[str] = None
     ) -> str:
         """Build the COUNT(DISTINCT) SQL query.
         
         For JOINed tables: We query the specific source table directly, not the JOIN.
         This ensures we get ALL distinct values from that table, not just the ones
-        that match the JOIN condition. The field name tells us which table to query
-        (e.g., "races.status" means query the "races" table).
+        that match the JOIN condition.
+        
+        Source table resolution priority:
+        1. Explicit source_table parameter (from Column.table_name, passed by frontend)
+        2. Virtual table + field prefix matching (legacy fallback)
+        3. Default to primary table
+        
+        IMPORTANT: Column names can legitimately contain dots (e.g., 'tableName.colName'
+        is a single column name in some databases). We must NOT split on dots blindly.
         """
         # Import here to avoid circular dependency
         from backend.services.query_components.virtual_column_builder import VirtualColumnExpressionBuilder
         
         has_joined_tables = virtual_table and virtual_table.joined_tables and len(virtual_table.joined_tables) > 0
+        has_union_tables = virtual_table and virtual_table.mode == 'union' and virtual_table.union_tables and len(virtual_table.union_tables) > 0
+
+        def _normalize_table_name(table_ref: Optional[str]) -> Optional[str]:
+            """Return bare table name from either 'table' or 'database/table' references."""
+            if not table_ref:
+                return table_ref
+            if '/' in table_ref:
+                parts = table_ref.split('/', 1)
+                return parts[1] if len(parts) == 2 else table_ref
+            return table_ref
         
-        # For JOINed tables with qualified field names, query the source table directly
-        # This gets ALL distinct values, not just those matching the JOIN condition
-        if has_joined_tables and '.' in field:
+        # Track whether we resolved a source table from a JOIN (for ClickHouse subquery wrapping)
+        resolved_from_join = False
+        resolved_table_name = table  # Default to the function parameter (primary table)
+        
+        # Build set of known table names from virtual table definition (for safe prefix checks)
+        known_tables = set()
+        if virtual_table:
+            known_tables.add(_normalize_table_name(virtual_table.primary_table))
+            for jt in virtual_table.joined_tables:
+                known_tables.add(_normalize_table_name(jt.table_name))
+            for ut in virtual_table.union_tables:
+                known_tables.add(_normalize_table_name(ut.table_name))
+            known_tables.discard(None)
+
+        # --- Source table resolution ---
+        # Priority 1: Explicit source_table from Column.table_name (most reliable)
+        if source_table and source_table != table:
+            # The field name from the merge service is prefixed: "sourceTable.actualColumnName"
+            # Strip the table prefix to get the real DB column name
+            prefix = source_table + '.'
+            if field.startswith(prefix):
+                field = field[len(prefix):]
+            
+            if self.conn_details.type == 'clickhouse' and database:
+                db_table = Table(source_table, schema=database)
+            else:
+                db_table = Table(source_table)
+            
+            count_query = Query.from_(db_table)
+            table_map = {source_table: db_table}
+            resolved_from_join = True
+            resolved_table_name = source_table
+            
+            logger.info(f"Cardinality query: Using explicit source table '{source_table}' for field '{field}' (from Column.table_name)")
+        
+        # Priority 2: Virtual table + field prefix matching (legacy/fallback)
+        elif has_joined_tables and '.' in field:
             parts = field.split('.', 1)
             if len(parts) == 2:
-                source_table_name = parts[0]
-                source_column_name = parts[1]
+                potential_table_name = parts[0]
+                remaining = parts[1]
                 
-                # Query the source table directly
-                if self.conn_details.type == 'clickhouse' and database:
-                    db_table = Table(source_table_name, schema=database)
+                if potential_table_name in known_tables:
+                    source_table_name = potential_table_name
+                    source_column_name = remaining
+                    
+                    # Query the source table directly
+                    if self.conn_details.type == 'clickhouse' and database:
+                        db_table = Table(source_table_name, schema=database)
+                    else:
+                        db_table = Table(source_table_name)
+                    
+                    count_query = Query.from_(db_table)
+                    table_map = {source_table_name: db_table}
+                    field = source_column_name
+                    resolved_from_join = True
+                    resolved_table_name = source_table_name
+                    
+                    logger.info(f"Cardinality query: Using source table '{source_table_name}' directly for field '{source_column_name}' (bypassing JOIN, from field prefix)")
                 else:
-                    db_table = Table(source_table_name)
-                
-                count_query = Query.from_(db_table)
-                table_map = {source_table_name: db_table}
-                # Update field to just the column name since we're querying the source table directly
-                field = source_column_name
-                
-                logger.info(f"Cardinality query: Using source table '{source_table_name}' directly for field '{source_column_name}' (bypassing JOIN)")
+                    # Prefix doesn't match any known table — the dot is part of the column name
+                    logger.info(
+                        f"Cardinality query: Field '{field}' has dot but prefix '{potential_table_name}' "
+                        f"is not a known table ({known_tables}). Treating full name as column name."
+                    )
+                    if self.conn_details.type == 'clickhouse' and database:
+                        db_table = Table(table, schema=database)
+                    else:
+                        db_table = Table(table)
+                    count_query = Query.from_(db_table)
+                    table_map = {table: db_table}
             else:
-                # Fallback if parsing failed
                 if self.conn_details.type == 'clickhouse' and database:
                     db_table = Table(table, schema=database)
                 else:
                     db_table = Table(table)
                 count_query = Query.from_(db_table)
                 table_map = {table: db_table}
+
+        # Priority 2b: UNION mode + dotted field where prefix matches a known table.
+        # In this case, the dotted value may be a *literal* column name (e.g.
+        # 'dlPreSchedData.raState'), so we switch source table but DO NOT split field.
+        elif has_union_tables and '.' in field:
+            parts = field.split('.', 1)
+            if len(parts) == 2:
+                potential_table_name = parts[0]
+
+                if potential_table_name in known_tables:
+                    source_table_name = potential_table_name
+                    if self.conn_details.type == 'clickhouse' and database:
+                        db_table = Table(source_table_name, schema=database)
+                    else:
+                        db_table = Table(source_table_name)
+
+                    count_query = Query.from_(db_table)
+                    table_map = {source_table_name: db_table}
+                    resolved_from_join = True
+                    resolved_table_name = source_table_name
+
+                    logger.info(
+                        f"Cardinality query: UNION mode resolved source table '{source_table_name}' "
+                        f"for dotted field '{field}' without splitting column name"
+                    )
+                else:
+                    if self.conn_details.type == 'clickhouse' and database:
+                        db_table = Table(table, schema=database)
+                    else:
+                        db_table = Table(table)
+                    count_query = Query.from_(db_table)
+                    table_map = {table: db_table}
+            else:
+                if self.conn_details.type == 'clickhouse' and database:
+                    db_table = Table(table, schema=database)
+                else:
+                    db_table = Table(table)
+                count_query = Query.from_(db_table)
+                table_map = {table: db_table}
+        
+        # Priority 3: source_table matches the primary table — just strip the prefix
+        elif source_table and source_table == table and field.startswith(source_table + '.'):
+            field = field[len(source_table) + 1:]
+            if self.conn_details.type == 'clickhouse' and database:
+                db_table = Table(table, schema=database)
+            else:
+                db_table = Table(table)
+            count_query = Query.from_(db_table)
+            table_map = {table: db_table}
+            logger.info(f"Cardinality query: Stripped primary table prefix from field, using '{field}' from '{table}'")
+        
+        # Default: use primary table as-is
         elif self.conn_details.type == 'clickhouse' and database:
             db_table = Table(table, schema=database)
             count_query = Query.from_(db_table)
@@ -241,17 +365,21 @@ class CardinalityService:
         # column expansion, but we must preserve any computed expression (e.g.,
         # datetime part extraction or virtual columns) instead of falling back
         # to the raw field name.
-        if self.conn_details.type == 'clickhouse' and database and not (virtual_table and virtual_table.joined_tables):
-            table_ref = f'{quote_char}{database}{quote_char}.{quote_char}{table}{quote_char}'
-            expr_sql = field_expr.get_sql(quote_char=quote_char)
-            expr_alias = f"{quote_char}_expr{quote_char}"
-            subquery = f'(SELECT {expr_sql} AS {expr_alias} FROM {table_ref}) AS _sub'
-            sql = f'SELECT COUNT(DISTINCT {expr_alias}) AS "count" FROM {subquery}'
-            
-            # Re-apply regex filter against the projected expression
-            if regex_pattern:
-                like_pattern = regex_pattern.replace("'", "''")
-                sql = f"{sql} WHERE toString({expr_alias}) LIKE '%{like_pattern}%'"
+        # Also apply when we resolved a specific source table from a JOIN (the
+        # resolved table might also be a VIEW that needs subquery wrapping).
+        if self.conn_details.type == 'clickhouse' and database:
+            should_wrap = not (virtual_table and virtual_table.joined_tables) or resolved_from_join
+            if should_wrap:
+                table_ref = f'{quote_char}{database}{quote_char}.{quote_char}{resolved_table_name}{quote_char}'
+                expr_sql = field_expr.get_sql(quote_char=quote_char)
+                expr_alias = f"{quote_char}_expr{quote_char}"
+                subquery = f'(SELECT {expr_sql} AS {expr_alias} FROM {table_ref}) AS _sub'
+                sql = f'SELECT COUNT(DISTINCT {expr_alias}) AS "count" FROM {subquery}'
+                
+                # Re-apply regex filter against the projected expression
+                if regex_pattern:
+                    like_pattern = regex_pattern.replace("'", "''")
+                    sql = f"{sql} WHERE toString({expr_alias}) LIKE '%{like_pattern}%'"
         
         logger.info(f"Executing distinct count query: {sql}")
         

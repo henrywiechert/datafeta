@@ -274,7 +274,14 @@ export function createFieldFromColumn(col: Column, options: CreateFieldOptions =
         field.displayAlias = options.fieldDisplayAliases[col.name];
     }
     
-    // Optionally include table name (for UNION mode with _source_table)
+    // Always set source table when available (for multi-table JOIN/UNION support)
+    // This tells the backend which physical table this column belongs to,
+    // which is essential when column names contain dots (e.g., 'tableName.colName')
+    if (col.table_name) {
+        field.sourceTable = col.table_name;
+    }
+    
+    // Optionally include table name (legacy UNION mode support)
     if (options.includeTableName && col.table_name) {
         (field as any).tableName = col.table_name;
     }
