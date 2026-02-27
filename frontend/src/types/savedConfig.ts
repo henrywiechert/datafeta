@@ -31,6 +31,11 @@ export interface SavedConnectionMetadata {
   // Kaggle-specific fields (NO API key)
   kaggle_dataset?: string;
   kaggle_csv_files?: string[];
+  // Hive Parquet-specific fields
+  hive_file_structure?: string[];
+  hive_loaded_partitions?: string[];
+  hive_primary_partition?: string;
+  hive_union_partitions?: string[];
   // Column casting configuration
   column_casts?: ColumnCasts;
 }

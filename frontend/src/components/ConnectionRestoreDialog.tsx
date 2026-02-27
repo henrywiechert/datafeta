@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -11,6 +11,8 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { SavedConnectionMetadata } from '../types';
 
 /**
@@ -32,7 +34,9 @@ interface ConnectionRestoreDialogProps {
     files?: File[],
     kaggleUsername?: string,
     kaggleApiKey?: string,
-    clickHouseOverrides?: ClickHouseOverrides
+    clickHouseOverrides?: ClickHouseOverrides,
+    hivePartitionFiles?: Map<string, File[]>,
+    hiveFileStructure?: string[]
   ) => Promise<void>;
   onCancel: () => void;
   onSkip: () => void;
@@ -58,6 +62,11 @@ export default function ConnectionRestoreDialog({
   const [user, setUser] = useState('');
   const [database, setDatabase] = useState('');
 
+  // Hive Parquet partition files (auto-populated from folder selection)
+  const [hivePartitionFiles, setHivePartitionFilesLocal] = useState<Map<string, File[]>>(new Map());
+  const [hiveFolderName, setHiveFolderName] = useState<string | null>(null);
+  const [hiveFileStructure, setHiveFileStructure] = useState<string[]>([]);
+
   useEffect(() => {
     if (open && connectionMetadata) {
       setPassword('');
@@ -66,6 +75,9 @@ export default function ConnectionRestoreDialog({
       setKaggleApiKey('');
       setError(null);
       setIsConnecting(false);
+      setHivePartitionFilesLocal(new Map());
+      setHiveFolderName(null);
+      setHiveFileStructure([]);
 
       // Initialize ClickHouse fields from metadata
       if (connectionMetadata.type === 'clickhouse') {
@@ -77,11 +89,19 @@ export default function ConnectionRestoreDialog({
     }
   }, [open, connectionMetadata]);
 
-  if (!connectionMetadata) return null;
+  const isClickHouse = connectionMetadata?.type === 'clickhouse';
+  const isCsv = connectionMetadata?.type === 'csv';
+  const isKaggle = connectionMetadata?.type === 'kaggle';
+  const isHiveParquet = connectionMetadata?.type === 'hive_parquet';
 
-  const isClickHouse = connectionMetadata.type === 'clickhouse';
-  const isCsv = connectionMetadata.type === 'csv';
-  const isKaggle = connectionMetadata.type === 'kaggle';
+  const hivePartitionsToRestore = connectionMetadata?.hive_loaded_partitions || [];
+  const allHivePartitionsHaveFiles = useMemo(() => {
+    if (!isHiveParquet) return true;
+    return hivePartitionsToRestore.length > 0 &&
+      hivePartitionsToRestore.every(p => (hivePartitionFiles.get(p)?.length ?? 0) > 0);
+  }, [isHiveParquet, hivePartitionsToRestore, hivePartitionFiles]);
+
+  if (!connectionMetadata) return null;
 
   const handleConnect = async () => {
     setIsConnecting(true);
@@ -109,6 +129,23 @@ export default function ConnectionRestoreDialog({
         return;
       }
 
+      // For Hive Parquet, validate all partitions have files
+      if (isHiveParquet) {
+        if (hivePartitionFiles.size === 0) {
+          setError('Please select the dataset folder');
+          setIsConnecting(false);
+          return;
+        }
+        const missingPartitions = hivePartitionsToRestore.filter(
+          p => !(hivePartitionFiles.get(p)?.length)
+        );
+        if (missingPartitions.length > 0) {
+          setError(`The selected folder is missing partitions: ${missingPartitions.join(', ')}`);
+          setIsConnecting(false);
+          return;
+        }
+      }
+
       // Build ClickHouse overrides if applicable
       const clickHouseOverrides: ClickHouseOverrides | undefined = isClickHouse
         ? {
@@ -125,7 +162,9 @@ export default function ConnectionRestoreDialog({
         file ? [file] : undefined,
         kaggleUsername || undefined,
         kaggleApiKey || undefined,
-        clickHouseOverrides
+        clickHouseOverrides,
+        isHiveParquet ? hivePartitionFiles : undefined,
+        isHiveParquet ? hiveFileStructure : undefined
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Connection failed');
@@ -137,6 +176,62 @@ export default function ConnectionRestoreDialog({
     if (event.target.files && event.target.files[0]) {
       setFile(event.target.files[0]);
     }
+  };
+
+  const handleHiveFileChange = (partitionName: string, event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files.length > 0) {
+      setHivePartitionFilesLocal(prev => {
+        const newMap = new Map(prev);
+        newMap.set(partitionName, Array.from(event.target.files!));
+        return newMap;
+      });
+    }
+  };
+
+  /**
+   * Handle folder selection for Hive Parquet restore.
+   * Parses the folder, groups files by partition, and auto-matches to saved partitions.
+   */
+  const handleHiveFolderChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files || event.target.files.length === 0) return;
+
+    const files = Array.from(event.target.files);
+    const parquetFiles = files.filter(f => f.name.toLowerCase().endsWith('.parquet'));
+
+    if (parquetFiles.length === 0) {
+      setError('No parquet files found in the selected folder');
+      setHivePartitionFilesLocal(new Map());
+      setHiveFolderName(null);
+      setHiveFileStructure([]);
+      return;
+    }
+
+    // Extract relative paths (for Phase 1 connect)
+    const fileStructure = parquetFiles.map(f => f.webkitRelativePath);
+
+    // Get folder name from first file
+    const firstPath = fileStructure[0];
+    const folderName = firstPath ? firstPath.split('/')[0] : null;
+
+    // Group files by partition value using the same pattern as HiveParquetConnectionForm
+    const partitionPattern = /^[^/]+\/([^=]+)=([^/]+)\//;
+    const partitionFiles = new Map<string, File[]>();
+
+    for (const file of parquetFiles) {
+      const match = file.webkitRelativePath.match(partitionPattern);
+      if (match) {
+        const partitionValue = match[2];
+        if (!partitionFiles.has(partitionValue)) {
+          partitionFiles.set(partitionValue, []);
+        }
+        partitionFiles.get(partitionValue)!.push(file);
+      }
+    }
+
+    setHivePartitionFilesLocal(partitionFiles);
+    setHiveFolderName(folderName);
+    setHiveFileStructure(fileStructure);
+    setError(null);
   };
 
   return (
@@ -303,6 +398,75 @@ export default function ConnectionRestoreDialog({
             </>
           )}
 
+          {isHiveParquet && (
+            <>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Hive Parquet Connection
+              </Typography>
+              <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                <Typography variant="body2">
+                  <strong>Partitions to restore:</strong> {hivePartitionsToRestore.join(', ') || 'None'}
+                </Typography>
+                {connectionMetadata.hive_primary_partition && (
+                  <Typography variant="body2">
+                    <strong>Primary partition:</strong> {connectionMetadata.hive_primary_partition}
+                  </Typography>
+                )}
+                {connectionMetadata.hive_union_partitions && connectionMetadata.hive_union_partitions.length > 0 && (
+                  <Typography variant="body2">
+                    <strong>Union partitions:</strong> {connectionMetadata.hive_union_partitions.join(', ')}
+                  </Typography>
+                )}
+              </Box>
+
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Select the root folder containing the Hive-partitioned Parquet files:
+              </Typography>
+
+              <Button
+                variant="outlined"
+                component="label"
+                fullWidth
+                disabled={isConnecting}
+                color={hiveFolderName ? 'success' : 'primary'}
+              >
+                {hiveFolderName
+                  ? `Folder: ${hiveFolderName} (${hiveFileStructure.length} parquet files)`
+                  : 'Select Dataset Folder'}
+                <input
+                  type="file"
+                  /* @ts-expect-error - webkitdirectory is not in React's HTMLInputElement type */
+                  webkitdirectory=""
+                  directory=""
+                  hidden
+                  onChange={handleHiveFolderChange}
+                />
+              </Button>
+
+              {hiveFolderName && hivePartitionsToRestore.length > 0 && (
+                <Box sx={{ mt: 1.5 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                    Partition match status:
+                  </Typography>
+                  {hivePartitionsToRestore.map((partition) => {
+                    const files = hivePartitionFiles.get(partition);
+                    const matched = files && files.length > 0;
+                    return (
+                      <Box key={partition} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 1, mb: 0.25 }}>
+                        {matched
+                          ? <CheckCircleIcon sx={{ fontSize: 16, color: 'success.main' }} />
+                          : <ErrorOutlineIcon sx={{ fontSize: 16, color: 'error.main' }} />}
+                        <Typography variant="body2" color={matched ? 'text.primary' : 'error.main'}>
+                          {partition}{matched ? ` (${files!.length} file${files!.length > 1 ? 's' : ''})` : ' — not found'}
+                        </Typography>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              )}
+            </>
+          )}
+
           {error && (
             <Alert severity="error" sx={{ mt: 2 }}>
               {error}
@@ -320,7 +484,7 @@ export default function ConnectionRestoreDialog({
         <Button
           onClick={handleConnect}
           variant="contained"
-          disabled={isConnecting || (isCsv && !file) || (isKaggle && (!kaggleUsername || !kaggleApiKey))}
+          disabled={isConnecting || (isCsv && !file) || (isKaggle && (!kaggleUsername || !kaggleApiKey)) || (isHiveParquet && !allHivePartitionsHaveFiles)}
           startIcon={isConnecting ? <CircularProgress size={20} /> : null}
         >
           {isConnecting ? 'Connecting...' : 'Connect'}
