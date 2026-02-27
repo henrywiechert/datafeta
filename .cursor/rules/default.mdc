@@ -35,3 +35,9 @@ alwaysApply: true
 
 ## Documentation
 - After larger changes, keep documentation up to date and consistent with the implemented behavior.
+
+## Architecture
+### Data Sources
+- Clickhouse: Beware -> Column names in tables can have a '.' in the name.
+  Some column names repeat the table name: Column name is "<table_name>.<name>"
+  This is important!
