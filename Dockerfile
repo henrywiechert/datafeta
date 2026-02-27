@@ -35,11 +35,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 WORKDIR /app
 
 # Environment
-ENV PORT=8000 \
+ENV PORT=8001 \
     LOG_LEVEL=info
 
 EXPOSE 8000
 
 # Default command (can be overridden in docker-compose)
 # --h11-max-incomplete-event-size increases max HTTP header size (default 16KB, set to 128KB)
-CMD ["python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--h11-max-incomplete-event-size", "131072"]
+CMD ["python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8001", "--h11-max-incomplete-event-size", "131072"]
