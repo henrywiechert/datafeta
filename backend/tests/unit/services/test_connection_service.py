@@ -64,9 +64,9 @@ class TestMimeTypeConstants:
 class TestFileSizeLimit:
     """Tests for file size limit."""
 
-    def test_max_file_size_is_64mb(self):
-        """Test that max file size is 64 MiB."""
-        assert MAX_FILE_UPLOAD_BYTES == 64 * 1024 * 1024
+    def test_max_file_size_is_1gb(self):
+        """Test that max file size is 1 GiB."""
+        assert MAX_FILE_UPLOAD_BYTES == 1024 * 1024 * 1024
 
 
 class TestParquetValidation:
