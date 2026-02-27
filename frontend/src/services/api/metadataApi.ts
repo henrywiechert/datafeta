@@ -247,7 +247,8 @@ export const metadataApi = {
     unionTables?: string[],
     virtualColumns?: VirtualColumnDefinition[],
     virtualTable?: VirtualTableDefinition,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    sourceTable?: string
   ): Promise<number> {
     const abortController = signal ? null : createAbortController();
     const requestSignal = signal || abortController?.signal;
@@ -278,6 +279,9 @@ export const metadataApi = {
     }
     if (virtualTable) {
       requestBody.virtualTable = virtualTable;
+    }
+    if (sourceTable) {
+      requestBody.sourceTable = sourceTable;
     }
     
     const response = await fetchWithErrorHandling(

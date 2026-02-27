@@ -366,3 +366,279 @@ class TestCardinalityService:
         sql = call_args[0][0]
         # Should treat "table.column" as a single column name
         assert "`table.column`" in sql or '"table.column"' in sql
+
+    def test_get_distinct_count_dotted_column_not_matching_any_table(self):
+        """Should NOT split column name on dot when prefix doesn't match a known table.
+        
+        Column names like 'dlPreSchedData.raState' where 'dlPreSchedData' is NOT a joined
+        table should be treated as literal column names, not as table.column references.
+        """
+        from backend.models.data_source import VirtualTableDefinition, TableJoinDefinition
+        
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
+        
+        self.mock_connector.fetch_data.return_value = (
+            ["count"],
+            [[77]]
+        )
+        
+        # Create virtual table — 'unknownPrefix' is NOT a known table
+        virtual_table = VirtualTableDefinition(
+            primary_table="primary_tbl",
+            mode="join",
+            joined_tables=[
+                TableJoinDefinition(
+                    table_name="joined_tbl",
+                    join_type="LEFT",
+                    on_conditions=["primary_tbl.id = joined_tbl.id"]
+                )
+            ],
+            union_tables=[]
+        )
+        
+        # Field with a dot prefix that does NOT match any table in the virtual table
+        count = service.get_distinct_count(
+            field="unknownPrefix.raState",
+            table="primary_tbl",
+            database="test_db",
+            virtual_table=virtual_table
+        )
+        
+        assert count == 77
+        call_args = self.mock_connector.fetch_data.call_args
+        sql = call_args[0][0]
+        # Should query the primary table, NOT 'unknownPrefix'
+        assert "`test_db`.`primary_tbl`" in sql
+        # Should treat full name as column (not split)
+        assert "`unknownPrefix.raState`" in sql
+        # Should NOT contain 'unknownPrefix' as a table reference
+        assert "FROM" in sql
+        assert "unknownPrefix`" not in sql.split("FROM")[1].split("SELECT")[0] if "unknownPrefix`" in sql else True
+
+    def test_get_distinct_count_dotted_column_matching_table_name_is_split(self):
+        """Should split column name when prefix matches a known joined table.
+        
+        When the prefix before the dot IS a known table name (from virtual_table),
+        this is the merge service's table prefix and should be split normally.
+        """
+        from backend.models.data_source import VirtualTableDefinition, TableJoinDefinition
+        
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
+        
+        self.mock_connector.fetch_data.return_value = (
+            ["count"],
+            [[200]]
+        )
+        
+        virtual_table = VirtualTableDefinition(
+            primary_table="preambleData",
+            mode="join",
+            joined_tables=[
+                TableJoinDefinition(
+                    table_name="dlPreSchedData",
+                    join_type="LEFT",
+                    on_conditions=["preambleData.id = dlPreSchedData.id"]
+                ),
+                TableJoinDefinition(
+                    table_name="thirdTable",
+                    join_type="LEFT",
+                    on_conditions=["preambleData.id = thirdTable.id"]
+                )
+            ],
+            union_tables=[]
+        )
+        
+        # Field prefixed with a KNOWN table name — should split
+        count = service.get_distinct_count(
+            field="thirdTable.raState",
+            table="preambleData",
+            database="test_db",
+            virtual_table=virtual_table
+        )
+        
+        assert count == 200
+        call_args = self.mock_connector.fetch_data.call_args
+        sql = call_args[0][0]
+        # Should query thirdTable directly (not preambleData)
+        assert "`test_db`.`thirdTable`" in sql
+        # Should use just 'raState' as column (prefix was the table name)
+        assert "`raState`" in sql
+        # Should NOT join
+        assert "JOIN" not in sql
+
+    def test_get_distinct_count_double_dotted_column_from_join(self):
+        """Should correctly handle columns with dots when table prefix is added by merge service.
+        
+        When a DB column is 'dlPreSchedData.raState' (with dot) and it lives in table
+        'thirdTable', the merge service creates 'thirdTable.dlPreSchedData.raState'.
+        The first split should give table='thirdTable', column='dlPreSchedData.raState'.
+        """
+        from backend.models.data_source import VirtualTableDefinition, TableJoinDefinition
+        
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
+        
+        self.mock_connector.fetch_data.return_value = (
+            ["count"],
+            [[33]]
+        )
+        
+        virtual_table = VirtualTableDefinition(
+            primary_table="preambleData",
+            mode="join",
+            joined_tables=[
+                TableJoinDefinition(
+                    table_name="dlPreSchedData",
+                    join_type="LEFT",
+                    on_conditions=["preambleData.id = dlPreSchedData.id"]
+                ),
+                TableJoinDefinition(
+                    table_name="thirdTable",
+                    join_type="LEFT",
+                    on_conditions=["preambleData.id = thirdTable.id"]
+                )
+            ],
+            union_tables=[]
+        )
+        
+        # Field: merge service prefix 'thirdTable' + DB column 'dlPreSchedData.raState'
+        count = service.get_distinct_count(
+            field="thirdTable.dlPreSchedData.raState",
+            table="preambleData",
+            database="test_db",
+            virtual_table=virtual_table
+        )
+        
+        assert count == 33
+        call_args = self.mock_connector.fetch_data.call_args
+        sql = call_args[0][0]
+        # Should query thirdTable (first prefix is the table name)
+        assert "`test_db`.`thirdTable`" in sql
+        # Should use 'dlPreSchedData.raState' as the column name (backtick-quoted with dot)
+        assert "`dlPreSchedData.raState`" in sql
+
+    def test_get_distinct_count_explicit_source_table(self):
+        """Should use explicit source_table parameter to determine the correct table.
+        
+        When source_table is provided (from Column.table_name), it should be used
+        directly instead of trying to parse the field name by splitting on dots.
+        This is the most reliable method for multi-table JOIN support.
+        """
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
+        
+        self.mock_connector.fetch_data.return_value = (
+            ["count"],
+            [[55]]
+        )
+        
+        # source_table tells us the field belongs to 'dlPreSchedData'
+        # Field name is 'dlPreSchedData.dlPreSchedData.raState' (merge service prefix + dotted column)
+        # No virtual_table needed — source_table is the reliable source of truth
+        count = service.get_distinct_count(
+            field="dlPreSchedData.dlPreSchedData.raState",
+            table="preambleData",  # primary table
+            database="test_db",
+            source_table="dlPreSchedData"
+        )
+        
+        assert count == 55
+        call_args = self.mock_connector.fetch_data.call_args
+        sql = call_args[0][0]
+        # Should query dlPreSchedData (from source_table), NOT preambleData
+        assert "`test_db`.`dlPreSchedData`" in sql
+        # Should strip the table prefix and use the actual column name
+        assert "`dlPreSchedData.raState`" in sql
+        # Should NOT contain preambleData
+        assert "preambleData" not in sql
+
+    def test_get_distinct_count_explicit_source_table_simple_column(self):
+        """Should handle source_table with non-dotted column names."""
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
+        
+        self.mock_connector.fetch_data.return_value = (
+            ["count"],
+            [[88]]
+        )
+        
+        # Field: 'races.status' where 'races' is both the source table and the prefix
+        count = service.get_distinct_count(
+            field="races.status",
+            table="results",  # primary table
+            database="f1_db",
+            source_table="races"
+        )
+        
+        assert count == 88
+        call_args = self.mock_connector.fetch_data.call_args
+        sql = call_args[0][0]
+        # Should query races table
+        assert "`f1_db`.`races`" in sql
+        # Should use just 'status' (prefix stripped)
+        assert "`status`" in sql
+        # Should NOT query results
+        assert "results" not in sql
+
+    def test_get_distinct_count_source_table_same_as_primary(self):
+        """When source_table matches the primary table, strip prefix and query primary."""
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
+        
+        self.mock_connector.fetch_data.return_value = (
+            ["count"],
+            [[100]]
+        )
+        
+        # Field from the primary table itself — prefix matches primary
+        count = service.get_distinct_count(
+            field="preambleData.someColumn",
+            table="preambleData",
+            database="test_db",
+            source_table="preambleData"
+        )
+        
+        assert count == 100
+        call_args = self.mock_connector.fetch_data.call_args
+        sql = call_args[0][0]
+        # Should query preambleData
+        assert "`test_db`.`preambleData`" in sql
+        # Should strip prefix and use 'someColumn'
+        assert "`someColumn`" in sql
+
+    def test_get_distinct_count_union_mode_dotted_literal_uses_matching_table(self):
+        """UNION mode: dotted literal columns should resolve source table without splitting.
+
+        Real-world case: field name can be literally 'dlPreSchedData.raState' and live in
+        table 'dlPreSchedData'. We must query that table directly and keep the full column name.
+        """
+        from backend.models.data_source import VirtualTableDefinition, UnionTableDefinition
+
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
+
+        self.mock_connector.fetch_data.return_value = (
+            ["count"],
+            [[123]]
+        )
+
+        virtual_table = VirtualTableDefinition(
+            primary_table="preambleData",
+            mode="union",
+            joined_tables=[],
+            union_tables=[
+                UnionTableDefinition(table_name="dlPreSchedData", database="test_db"),
+                UnionTableDefinition(table_name="thirdTable", database="test_db"),
+            ]
+        )
+
+        count = service.get_distinct_count(
+            field="dlPreSchedData.raState",
+            table="preambleData",
+            database="test_db",
+            virtual_table=virtual_table,
+            source_table=None,
+        )
+
+        assert count == 123
+        sql = self.mock_connector.fetch_data.call_args[0][0]
+        # Should query the matching union table, not the primary table
+        assert "`test_db`.`dlPreSchedData`" in sql
+        assert "`test_db`.`preambleData`" not in sql
+        # Must keep literal dotted column name intact
+        assert "`dlPreSchedData.raState`" in sql
