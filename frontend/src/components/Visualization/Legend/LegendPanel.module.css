@@ -93,6 +93,28 @@
   align-items: center;
   gap: 8px;
   flex-shrink: 0; /* Don't shrink items */
+  padding: 1px 4px;
+  border-radius: 3px;
+  /* Prevent text selection while clicking legend items */
+  user-select: none;
+}
+
+/* Interactive variant — applied when onFilterAction is provided (discrete color) */
+.legendItemInteractive {
+  cursor: pointer;
+}
+
+.legendItemInteractive:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+/* Selected state — visible highlight for chosen items */
+.legendItemSelected {
+  background-color: rgba(25, 118, 210, 0.10);
+}
+
+.legendItemSelected:hover {
+  background-color: rgba(25, 118, 210, 0.16);
 }
 
 .colorSwatch {

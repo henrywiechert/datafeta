@@ -1,16 +1,35 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Box, Tooltip, Typography } from '@mui/material';
 import { Field, QueryResult } from '../../../types';
 import { getFieldDisplayName } from '../../../utils/fieldUtils';
 import { deriveColorScaleInfo } from '../../../observable-plot-generator/utils/colorSchemeUtils';
 import { DEFAULT_CATEGORICAL_SCHEME } from '../../../config/colorSchemes';
+import ContextMenu from '../ContextMenu';
+import menuStyles from '../ContextMenu.module.css';
 import styles from './LegendPanel.module.css';
+
+/** Action the user can perform on the selected legend items. */
+export type LegendFilterAction = 'keep' | 'exclude';
 
 interface LegendPanelProps {
   colorField: Field | null;
   queryResult: QueryResult | null;
   colorScheme?: string;
   colorBias?: number;
+  /**
+   * When provided the discrete legend items become interactive:
+   *  - Left-click selects / Ctrl+click multi-selects.
+   *  - Right-click on a selected item opens a "Keep only / Exclude" menu.
+   *
+   * `values` contains the **raw domain values** (not display strings) for the
+   * selected items.  `allDomainValues` is the full categorical domain so the
+   * caller can compute the inverse set for "Exclude".
+   */
+  onFilterAction?: (
+    action: LegendFilterAction,
+    values: any[],
+    allDomainValues: any[],
+  ) => void;
 }
 
 const LegendPanel: React.FC<LegendPanelProps> = ({
@@ -18,7 +37,9 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
   queryResult,
   colorScheme = DEFAULT_CATEGORICAL_SCHEME,
   colorBias = 0,
+  onFilterAction,
 }) => {
+  // ── Colour scale derivation ──────────────────────────────────────────
   const colorScale = useMemo(() => {
     if (!colorField || !queryResult?.rows) {
       return null;
@@ -39,17 +60,23 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
     return String(value);
   };
 
+  /** Raw domain values from the colour scale (categorical only). */
+  const domainValues = useMemo(() => {
+    if (!colorScale || colorScale.kind !== 'categorical') return [] as any[];
+    return Array.isArray(colorScale.domain) ? colorScale.domain : [];
+  }, [colorScale]);
+
   const discreteItems = useMemo(() => {
-    if (!colorField || !colorScale || colorScale.kind !== 'categorical') {
-      return [] as Array<{ label: string; color: string }>;
+    if (!colorField || domainValues.length === 0 || !colorScale) {
+      return [] as Array<{ label: string; color: string; value: any }>;
     }
-    const domain = Array.isArray(colorScale.domain) ? colorScale.domain : [];
     const range = colorScale.range;
-    return domain.map((value, index) => ({
+    return domainValues.map((value, index) => ({
       label: formatValue(value),
       color: range[index % range.length],
+      value,
     }));
-  }, [colorField, colorScale]);
+  }, [colorField, colorScale, domainValues]);
 
   const continuousLegend = useMemo(() => {
     if (!colorField || !colorScale || colorScale.kind !== 'continuous' || colorScale.range.length === 0) {
@@ -59,13 +86,77 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
     const gradient = `linear-gradient(to right, ${colorScale.range.join(', ')})`;
     const minLabel = formatValue(colorScale.rawMin ?? domain[0]);
     const maxLabel = formatValue(colorScale.rawMax ?? domain[1]);
-    return {
-      gradient,
-      minLabel,
-      maxLabel,
-    };
+    return { gradient, minLabel, maxLabel };
   }, [colorField, colorScale]);
 
+  // ── Selection state (only active when onFilterAction is provided) ────
+  const isInteractive = Boolean(onFilterAction && discreteItems.length > 0);
+
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+  const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
+
+  /** Standard multi-select: click = single select, Ctrl/Cmd+click = toggle. */
+  const handleItemClick = useCallback((e: React.MouseEvent, index: number) => {
+    if (!isInteractive) return;
+    const isMulti = e.ctrlKey || e.metaKey;
+    setSelectedIndices(prev => {
+      if (isMulti) {
+        const next = new Set(prev);
+        if (next.has(index)) {
+          next.delete(index);
+        } else {
+          next.add(index);
+        }
+        return next;
+      }
+      // Plain click — select only this one
+      return new Set([index]);
+    });
+    // Close any open menu on plain click
+    if (!e.ctrlKey && !e.metaKey) {
+      setMenuPosition(null);
+    }
+  }, [isInteractive]);
+
+  /** Right-click on a (selected) item opens the context menu. */
+  const handleItemContextMenu = useCallback((e: React.MouseEvent, index: number) => {
+    if (!isInteractive) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    // If the right-clicked item is not selected, make it the sole selection
+    setSelectedIndices(prev => {
+      if (prev.has(index)) return prev;
+      return new Set([index]);
+    });
+
+    setMenuPosition({ x: e.clientX, y: e.clientY });
+  }, [isInteractive]);
+
+  const closeMenu = useCallback(() => {
+    setMenuPosition(null);
+  }, []);
+
+  /** Gather raw domain values at selected indices. */
+  const selectedValues = useMemo(() => {
+    return Array.from(selectedIndices)
+      .sort((a, b) => a - b)
+      .map(i => domainValues[i]);
+  }, [selectedIndices, domainValues]);
+
+  const handleKeepOnly = useCallback(() => {
+    onFilterAction?.('keep', selectedValues, domainValues);
+    setMenuPosition(null);
+    setSelectedIndices(new Set());
+  }, [onFilterAction, selectedValues, domainValues]);
+
+  const handleExclude = useCallback(() => {
+    onFilterAction?.('exclude', selectedValues, domainValues);
+    setMenuPosition(null);
+    setSelectedIndices(new Set());
+  }, [onFilterAction, selectedValues, domainValues]);
+
+  // ── Render ───────────────────────────────────────────────────────────
   if (!colorField || (!discreteItems.length && !continuousLegend)) {
     return null;
   }
@@ -87,21 +178,47 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
             </Box>
           </Box>
         ) : (
-          discreteItems.map((item, index) => (
-            <Box key={`${item.label}-${index}`} className={styles.legendItem}>
+          discreteItems.map((item, index) => {
+            const isSelected = selectedIndices.has(index);
+            const itemClasses = [
+              styles.legendItem,
+              isInteractive ? styles.legendItemInteractive : '',
+              isSelected ? styles.legendItemSelected : '',
+            ].filter(Boolean).join(' ');
+
+            return (
               <Box
-                className={styles.colorSwatch}
-                sx={{ backgroundColor: item.color }}
-              />
-              <Tooltip title={item.label} placement="right" arrow enterDelay={800}>
-                <Typography className={styles.legendLabel}>
-                  {item.label}
-                </Typography>
-              </Tooltip>
-            </Box>
-          ))
+                key={`${item.label}-${index}`}
+                className={itemClasses}
+                onClick={(e) => handleItemClick(e, index)}
+                onContextMenu={(e) => handleItemContextMenu(e, index)}
+              >
+                <Box
+                  className={styles.colorSwatch}
+                  sx={{ backgroundColor: item.color }}
+                />
+                <Tooltip title={item.label} placement="right" arrow enterDelay={800}>
+                  <Typography className={styles.legendLabel}>
+                    {item.label}
+                  </Typography>
+                </Tooltip>
+              </Box>
+            );
+          })
         )}
       </Box>
+
+      {/* Context menu for "Keep only" / "Exclude" */}
+      {menuPosition && selectedIndices.size > 0 && (
+        <ContextMenu position={menuPosition} onClose={closeMenu}>
+          <div className={menuStyles.menuItem} onClick={handleKeepOnly}>
+            Keep only
+          </div>
+          <div className={menuStyles.menuItem} onClick={handleExclude}>
+            Exclude
+          </div>
+        </ContextMenu>
+      )}
     </Box>
   );
 };
