@@ -157,3 +157,75 @@ line.chart-mark--highlighted {
   stroke-width: 3px;
 }
 
+/* ---------------------------------------------------------------------------
+   Pinned tooltip overrides
+   --------------------------------------------------------------------------- */
+
+/* Enable pointer events so buttons inside are clickable */
+.custom-tooltip--pinned {
+  pointer-events: auto;
+  animation: none; /* No entrance animation on pin */
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+
+/* Close button – top-right corner of pinned tooltip */
+.custom-tooltip__close {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  padding: 2px;
+  line-height: 0;
+  border-radius: 3px;
+  transition: color 0.12s, background 0.12s;
+}
+
+.custom-tooltip__close:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Ensure row wraps to accommodate action buttons */
+.custom-tooltip--pinned .custom-tooltip__row {
+  padding-right: 20px; /* Leave room for close button on first row */
+}
+
+/* Inline filter action icons container */
+.custom-tooltip__actions {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 6px;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+/* Individual action button */
+.custom-tooltip__action-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  padding: 1px 2px;
+  line-height: 0;
+  transition: color 0.12s, background 0.12s, border-color 0.12s;
+}
+
+.custom-tooltip__action-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.custom-tooltip__action-btn--keep:hover {
+  color: #66bb6a; /* Green tint for "keep" */
+}
+
+.custom-tooltip__action-btn--exclude:hover {
+  color: #ef5350; /* Red tint for "exclude" */
+}
+

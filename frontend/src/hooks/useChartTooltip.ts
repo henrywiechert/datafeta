@@ -1,8 +1,9 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { TooltipField } from '../components/Visualization/CustomTooltip/CustomTooltip';
+import { TooltipField } from '../types';
 
 interface TooltipState {
   visible: boolean;
+  pinned: boolean;
   x: number;
   y: number;
   fields: TooltipField[];
@@ -11,19 +12,28 @@ interface TooltipState {
 
 /**
  * Hook for managing custom chart tooltip state.
- * Provides show, hide, and update methods for tooltip management.
- * Includes auto-hide timeout as safety fallback.
+ * Provides show, hide, pin/unpin, and update methods for tooltip management.
+ * Includes auto-hide timeout as safety fallback (disabled while pinned).
  */
 export function useChartTooltip() {
   const [tooltip, setTooltip] = useState<TooltipState>({
     visible: false,
+    pinned: false,
     x: 0,
     y: 0,
     fields: [],
   });
   
   const autoHideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pinnedRef = useRef(false); // mirror for use in imperative DOM listeners
   const AUTO_HIDE_DELAY = 10000; // 10 seconds - safety timeout
+
+  const clearAutoHide = useCallback(() => {
+    if (autoHideTimeoutRef.current) {
+      clearTimeout(autoHideTimeoutRef.current);
+      autoHideTimeoutRef.current = null;
+    }
+  }, []);
 
   const showTooltip = useCallback((
     x: number,
@@ -32,12 +42,14 @@ export function useChartTooltip() {
     colorHex?: string
   ) => {
     // Clear any existing auto-hide timeout
-    if (autoHideTimeoutRef.current) {
-      clearTimeout(autoHideTimeoutRef.current);
-    }
+    clearAutoHide();
+    
+    // If currently pinned, unpin first (supports clicking a different mark)
+    pinnedRef.current = false;
     
     setTooltip({
       visible: true,
+      pinned: false,
       x,
       y,
       fields,
@@ -46,38 +58,55 @@ export function useChartTooltip() {
     
     // Set auto-hide timeout as safety fallback
     autoHideTimeoutRef.current = setTimeout(() => {
-      setTooltip(prev => ({ ...prev, visible: false }));
+      // Don't auto-hide if the tooltip has been pinned since
+      if (!pinnedRef.current) {
+        setTooltip(prev => prev.pinned ? prev : { ...prev, visible: false });
+      }
     }, AUTO_HIDE_DELAY);
-  }, []);
+  }, [clearAutoHide]);
+
+  /** Pin the tooltip in place — disables auto-hide and position tracking. */
+  const pinTooltip = useCallback(() => {
+    clearAutoHide();
+    pinnedRef.current = true;
+    setTooltip(prev => prev.visible ? { ...prev, pinned: true } : prev);
+  }, [clearAutoHide]);
+
+  /** Unpin and hide the tooltip. */
+  const unpinTooltip = useCallback(() => {
+    clearAutoHide();
+    pinnedRef.current = false;
+    setTooltip(prev => ({ ...prev, visible: false, pinned: false }));
+  }, [clearAutoHide]);
 
   const hideTooltip = useCallback(() => {
-    // Clear auto-hide timeout
-    if (autoHideTimeoutRef.current) {
-      clearTimeout(autoHideTimeoutRef.current);
-      autoHideTimeoutRef.current = null;
-    }
-    
-    setTooltip(prev => ({ ...prev, visible: false }));
-  }, []);
+    // If pinned, ignore hide requests (use unpinTooltip to force-hide)
+    if (pinnedRef.current) return;
+    clearAutoHide();
+    setTooltip(prev => prev.pinned ? prev : { ...prev, visible: false });
+  }, [clearAutoHide]);
 
   const updatePosition = useCallback((x: number, y: number) => {
-    setTooltip(prev => prev.visible ? { ...prev, x, y } : prev);
+    // Don't move a pinned tooltip
+    setTooltip(prev => (prev.visible && !prev.pinned) ? { ...prev, x, y } : prev);
   }, []);
   
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
-      if (autoHideTimeoutRef.current) {
-        clearTimeout(autoHideTimeoutRef.current);
-      }
+      clearAutoHide();
     };
-  }, []);
+  }, [clearAutoHide]);
 
   return {
     tooltip,
     showTooltip,
     hideTooltip,
     updatePosition,
+    pinTooltip,
+    unpinTooltip,
+    /** Ref-based pinned state for imperative DOM event handlers */
+    pinnedRef,
   };
 }
 

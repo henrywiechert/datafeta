@@ -224,6 +224,59 @@ const ChartArea: React.FC = () => {
     [colorField, state.filterFields, state.filterConfigurations, dispatch, recordAction, getUndoableSnapshot],
   );
 
+  // ---------------------------------------------------------------------------
+  // Tooltip → filter action
+  // ---------------------------------------------------------------------------
+  const handleTooltipFilterAction = useCallback(
+    (action: 'keep' | 'exclude', field: import('../../../types').TooltipField) => {
+      const sourceField = field.sourceField;
+      if (!sourceField || field.rawValue == null) return;
+
+      // Record undo snapshot before mutating filter state
+      recordAction(getUndoableSnapshot());
+
+      let keepValues: any[];
+
+      if (action === 'keep') {
+        keepValues = [field.rawValue];
+      } else {
+        // Exclude: collect all unique values for the column from query results, then remove clicked value
+        const allValues = queryResult?.rows
+          ? Array.from(new Set(queryResult.rows.map((row: any) => row[sourceField.columnName])))
+          : [];
+        const excludeStr = String(field.rawValue);
+        keepValues = allValues.filter(v => String(v) !== excludeStr);
+      }
+
+      // Check if a filter already exists for this column
+      const existingFilter = state.filterFields.find(
+        (f: any) => f.columnName === sourceField.columnName,
+      );
+
+      if (
+        existingFilter &&
+        state.filterConfigurations[existingFilter.id]?.type === 'discrete'
+      ) {
+        updateExistingDiscreteFilter(
+          existingFilter.id,
+          existingFilter.columnName,
+          keepValues,
+          dispatch,
+          existingFilter.dateTimePart,
+          existingFilter.dateTimeMode,
+        );
+      } else {
+        addFieldAsDiscreteFilter(
+          sourceField,
+          keepValues,
+          state.filterFields,
+          dispatch,
+        );
+      }
+    },
+    [queryResult, state.filterFields, state.filterConfigurations, dispatch, recordAction, getUndoableSnapshot],
+  );
+
   // Memoize cache config to avoid unnecessary recomputation
   const cacheConfig = useMemo(() => ({
     xAxisFields,
@@ -324,10 +377,30 @@ const ChartArea: React.FC = () => {
     facetBackgroundOpacity,
   });
 
+  // Inject tooltip filter callback into each plot's __customTooltip config.
+  // This avoids threading the callback through 6 component layers.
+  const specWithTooltipAction = useMemo(() => {
+    if (!spec?.plots) return spec;
+    return {
+      ...spec,
+      plots: spec.plots.map((p: any) => {
+        const ct = p.options?.__customTooltip;
+        if (!ct?.enabled) return p;
+        return {
+          ...p,
+          options: {
+            ...p.options,
+            __customTooltip: { ...ct, onFilterAction: handleTooltipFilterAction },
+          },
+        };
+      }),
+    };
+  }, [spec, handleTooltipFilterAction]);
+
   // Save to sheet render cache on unmount (sheet switch)
   // This captures the current queryResult and chartSpec for instant restore
-  const specRef = useRef(spec);
-  specRef.current = spec;
+  const specRef = useRef(specWithTooltipAction);
+  specRef.current = specWithTooltipAction;
   
   useSheetCacheSave(sheetId, useCallback(() => ({
     queryResult,
@@ -491,7 +564,7 @@ const ChartArea: React.FC = () => {
           <ChartRenderer
             useTableView={useTableView}
             tableData={tableData}
-            spec={spec}
+            spec={specWithTooltipAction}
             queryResult={queryResult}
             xAxisFields={xAxisFields}
             yAxisFields={yAxisFields}
