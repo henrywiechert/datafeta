@@ -9,6 +9,8 @@ import { useSheetCacheSave } from '../../../hooks/useSheetCacheCoordinator';
 import { columnCacheManager } from '../../../services/columnCacheManager';
 import { filterTierManager } from '../../../services/filterTierManager';
 import { addFieldAsDiscreteFilter, updateExistingDiscreteFilter } from '../../../utils/filterActions';
+import { getResultColumnName } from '../../../utils/fieldUtils';
+import type { DateTimePart } from '../../../types';
 import { useChartGeneration, useQueryExecution, useDataProcessing, useDebugView, useFullscreen } from './hooks';
 import { ChartRenderer, ChartControls, DebugPanel } from './components';
 import LegendPanel from '../Legend/LegendPanel';
@@ -16,6 +18,19 @@ import type { LegendFilterAction } from '../Legend/LegendPanel';
 import BackgroundLegendPanel from '../Legend/BackgroundLegendPanel';
 import LegendStack from '../Legend/LegendStack';
 import FacetLimitDialog from '../FacetLimitDialog';
+
+/** Convert an epoch-like number to a Date using magnitude heuristics (s/ms/µs/ns). */
+function epochToDate(num: number): Date | null {
+  if (!Number.isFinite(num)) return null;
+  const abs = Math.abs(num);
+  let ms: number;
+  if (abs >= 1e18)      ms = num / 1_000_000;   // nanoseconds
+  else if (abs >= 1e15) ms = num / 1000;         // microseconds
+  else if (abs >= 1e12) ms = num;                // milliseconds
+  else                  ms = num * 1000;         // seconds
+  const d = new Date(ms);
+  return Number.isFinite(d.getTime()) ? d : null;
+}
 
 /**
  * Simplified ChartArea component that orchestrates the extracted hooks and components
@@ -227,6 +242,57 @@ const ChartArea: React.FC = () => {
   // ---------------------------------------------------------------------------
   // Tooltip → filter action
   // ---------------------------------------------------------------------------
+
+  /**
+   * Convert a value (potentially a Date, epoch number, BigInt, or ISO string
+   * from timeline mode) to the integer that the backend's DISTINCT extraction
+   * function expects (e.g. toDayOfMonth → 14).
+   * Returns the value unchanged when no conversion is applicable.
+   *
+   * Note: queryResult.rows contains raw values (epochs / BigInts) because
+   * normalizeTimelineData only runs inside chart generation on a copy.
+   * The tooltip's rawValue, however, may already be a Date object.
+   */
+  const toDatePartInteger = useCallback((val: any, part: DateTimePart): any => {
+    // Already a small integer from distinct mode (e.g. day 1-31, hour 0-23)
+    if (typeof val === 'number' && Number.isInteger(val) && val >= 0 && val <= 9999) {
+      return val;
+    }
+
+    // Convert to Date using the same epoch heuristic as normalizeTimelineData
+    let d: Date | null = null;
+    if (val instanceof Date) {
+      d = val;
+    } else if (typeof val === 'bigint') {
+      // BigInt from Arrow — convert to number then apply epoch heuristic
+      const num = Number(val);
+      if (Number.isFinite(num)) d = epochToDate(num);
+    } else if (typeof val === 'number' && Number.isFinite(val)) {
+      d = epochToDate(val);
+    } else if (typeof val === 'string') {
+      const parsed = Date.parse(val);
+      if (!isNaN(parsed)) d = new Date(parsed);
+    }
+
+    if (!d || isNaN(d.getTime())) return val;
+
+    switch (part) {
+      case 'year': return d.getUTCFullYear();
+      case 'month': return d.getUTCMonth() + 1;        // 1-12
+      case 'day': return d.getUTCDate();                // 1-31
+      case 'weekday': {
+        // ISO weekday: Mon=1 … Sun=7 (matches ClickHouse toDayOfWeek)
+        const jsDay = d.getUTCDay(); // 0=Sun
+        return jsDay === 0 ? 7 : jsDay;
+      }
+      case 'hour': return d.getUTCHours();
+      case 'minute': return d.getUTCMinutes();
+      case 'second': return d.getUTCSeconds();
+      case 'millisecond': return d.getUTCMilliseconds();
+      default: return val;
+    }
+  }, []);
+
   const handleTooltipFilterAction = useCallback(
     (action: 'keep' | 'exclude', field: import('../../../types').TooltipField) => {
       const sourceField = field.sourceField;
@@ -235,23 +301,41 @@ const ChartArea: React.FC = () => {
       // Record undo snapshot before mutating filter state
       recordAction(getUndoableSnapshot());
 
-      let keepValues: any[];
-
-      if (action === 'keep') {
-        keepValues = [field.rawValue];
-      } else {
-        // Exclude: collect all unique values for the column from query results, then remove clicked value
-        const allValues = queryResult?.rows
-          ? Array.from(new Set(queryResult.rows.map((row: any) => row[sourceField.columnName])))
-          : [];
-        const excludeStr = String(field.rawValue);
-        keepValues = allValues.filter(v => String(v) !== excludeStr);
-      }
-
-      // Check if a filter already exists for this column
+      // Determine which dateTimePart/Mode the filter will use.
+      // If an existing filter already exists (e.g. from the filter panel), respect its mode.
       const existingFilter = state.filterFields.find(
         (f: any) => f.columnName === sourceField.columnName,
       );
+      const filterDateTimePart = existingFilter?.dateTimePart ?? sourceField.dateTimePart;
+      const filterDateTimeMode = existingFilter?.dateTimeMode ?? sourceField.dateTimeMode;
+
+      // For discrete filters on datetime fields the backend uses extraction
+      // functions that return integers (e.g. toDayOfMonth → 1-31).
+      // Timeline-mode values are Date objects that must be converted to the
+      // matching integer part so the IN clause types are consistent.
+      // We always force 'distinct' mode on the filter to keep things correct.
+      const needsPartExtraction = !!filterDateTimePart;
+      const effectiveDateTimeMode = needsPartExtraction ? 'distinct' as const : filterDateTimeMode;
+
+      /** Normalise a single value if datetime extraction is required. */
+      const normalise = (v: any): any =>
+        needsPartExtraction ? toDatePartInteger(v, filterDateTimePart!) : v;
+
+      let keepValues: any[];
+
+      if (action === 'keep') {
+        keepValues = [normalise(field.rawValue)];
+      } else {
+        // Exclude: collect all unique values for the column from query results, then remove clicked value.
+        // Use getResultColumnName to handle aliased columns (e.g. datetime binned fields:
+        // sourceField.columnName is 'time' but the result column is 'time_day_distinct').
+        const resultColName = getResultColumnName(sourceField);
+        const allValues = queryResult?.rows
+          ? Array.from(new Set(queryResult.rows.map((row: any) => normalise(row[resultColName]))))
+          : [];
+        const excludeStr = String(normalise(field.rawValue));
+        keepValues = allValues.filter(v => String(v) !== excludeStr);
+      }
 
       if (
         existingFilter &&
@@ -262,19 +346,23 @@ const ChartArea: React.FC = () => {
           existingFilter.columnName,
           keepValues,
           dispatch,
-          existingFilter.dateTimePart,
-          existingFilter.dateTimeMode,
+          filterDateTimePart,
+          effectiveDateTimeMode,
         );
       } else {
+        // Clone sourceField but override dateTimeMode to 'distinct' when needed
+        const fieldForFilter = needsPartExtraction
+          ? { ...sourceField, dateTimeMode: 'distinct' as const }
+          : sourceField;
         addFieldAsDiscreteFilter(
-          sourceField,
+          fieldForFilter,
           keepValues,
           state.filterFields,
           dispatch,
         );
       }
     },
-    [queryResult, state.filterFields, state.filterConfigurations, dispatch, recordAction, getUndoableSnapshot],
+    [queryResult, state.filterFields, state.filterConfigurations, dispatch, recordAction, getUndoableSnapshot, toDatePartInteger],
   );
 
   // Memoize cache config to avoid unnecessary recomputation
