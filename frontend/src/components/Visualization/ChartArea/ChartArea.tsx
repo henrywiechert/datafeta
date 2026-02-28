@@ -8,9 +8,11 @@ import { useRenderingCoordinator } from '../../../hooks/useRenderingCoordinator'
 import { useSheetCacheSave } from '../../../hooks/useSheetCacheCoordinator';
 import { columnCacheManager } from '../../../services/columnCacheManager';
 import { filterTierManager } from '../../../services/filterTierManager';
+import { addFieldAsDiscreteFilter, updateExistingDiscreteFilter } from '../../../utils/filterActions';
 import { useChartGeneration, useQueryExecution, useDataProcessing, useDebugView, useFullscreen } from './hooks';
 import { ChartRenderer, ChartControls, DebugPanel } from './components';
 import LegendPanel from '../Legend/LegendPanel';
+import type { LegendFilterAction } from '../Legend/LegendPanel';
 import BackgroundLegendPanel from '../Legend/BackgroundLegendPanel';
 import LegendStack from '../Legend/LegendStack';
 import FacetLimitDialog from '../FacetLimitDialog';
@@ -171,6 +173,56 @@ const ChartArea: React.FC = () => {
   const handleGanttZoomRangeChange = useCallback((range: { min: number; max: number } | null) => {
     dispatch({ type: 'SET_GANTT_ZOOM_RANGE', payload: range });
   }, [dispatch]);
+
+  // ── Legend → Filter bridge ───────────────────────────────────────────
+  // Handles "Keep only" and "Exclude" actions from discrete colour legend.
+  const handleLegendFilterAction = useCallback(
+    (action: LegendFilterAction, values: any[], allDomainValues: any[]) => {
+      if (!colorField) return;
+
+      // Record undo snapshot before mutating filter state
+      recordAction(getUndoableSnapshot());
+
+      // Determine which values the filter should keep
+      const keepValues =
+        action === 'keep'
+          ? values
+          : allDomainValues.filter(v => {
+              // Use string comparison to handle type differences ("1" vs 1)
+              const valStr = String(v);
+              return !values.some(sv => String(sv) === valStr);
+            });
+
+      // Check if a filter already exists for this column
+      const existingFilter = state.filterFields.find(
+        (f: any) => f.columnName === colorField.columnName,
+      );
+
+      if (
+        existingFilter &&
+        state.filterConfigurations[existingFilter.id]?.type === 'discrete'
+      ) {
+        // Update existing discrete filter
+        updateExistingDiscreteFilter(
+          existingFilter.id,
+          existingFilter.columnName,
+          keepValues,
+          dispatch,
+          existingFilter.dateTimePart,
+          existingFilter.dateTimeMode,
+        );
+      } else {
+        // Create a new discrete filter (metadata will be auto-fetched)
+        addFieldAsDiscreteFilter(
+          colorField,
+          keepValues,
+          state.filterFields,
+          dispatch,
+        );
+      }
+    },
+    [colorField, state.filterFields, state.filterConfigurations, dispatch, recordAction, getUndoableSnapshot],
+  );
 
   // Memoize cache config to avoid unnecessary recomputation
   const cacheConfig = useMemo(() => ({
@@ -497,6 +549,11 @@ const ChartArea: React.FC = () => {
                 queryResult={queryResult}
                 colorScheme={colorScheme}
                 colorBias={colorBias}
+                onFilterAction={
+                  colorField?.flavour === 'discrete'
+                    ? handleLegendFilterAction
+                    : undefined
+                }
               />
             )}
             {showBackgroundLegend && (

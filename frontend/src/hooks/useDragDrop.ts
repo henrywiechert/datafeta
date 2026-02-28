@@ -2,6 +2,7 @@ import { useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Field, DragSource } from '../types';
 import { isMeasureNamesField, isMeasureValuesField } from '../utils/syntheticFields';
+import { addFieldAsDiscreteFilter } from '../utils/filterActions';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
 import { useDataSource } from '../contexts/DataSourceContext';
 import { DEFAULT_CATEGORICAL_SCHEME, DEFAULT_SEQUENTIAL_SCHEME } from '../config/colorSchemes';
@@ -258,34 +259,26 @@ export function useDragDrop(availableFields?: Field[]) {
     const currentFieldsToUse = fieldsToUseRef.current;
     const currentFilterFields = filterFieldsRef.current;
     
-    // Handle drops from available fields or axes
+    // Resolve the source field depending on where it came from
+    let sourceField: Field | undefined;
     if (source === 'AVAILABLE_FIELDS') {
-      // Find the field in available fields (includes virtual columns)
-      const sourceField = currentFieldsToUse.find(f => f.id === field.id);
+      sourceField = currentFieldsToUse.find(f => f.id === field.id);
       if (!sourceField) return;
-      if (isMeasureNamesField(sourceField) || isMeasureValuesField(sourceField)) {
-        return;
-      }
-      
-      // Create an independent copy of the field with a new ID
-      const fieldCopy = { ...sourceField, id: uuidv4() };
-      
-      // Add to filter fields
-      dispatch({ 
-        type: 'SET_FILTER_FIELDS', 
-        payload: [...currentFilterFields, fieldCopy]
-      });
+      if (isMeasureNamesField(sourceField) || isMeasureValuesField(sourceField)) return;
     } else if (source === 'X_AXIS' || source === 'Y_AXIS') {
-      if (isMeasureNamesField(field) || isMeasureValuesField(field)) {
-        return;
-      }
-      // Copy field from axis to filters (keep it on the axis too)
-      const fieldCopy = { ...field, id: uuidv4() };
-      dispatch({ 
-        type: 'SET_FILTER_FIELDS', 
-        payload: [...currentFilterFields, fieldCopy]
-      });
+      if (isMeasureNamesField(field) || isMeasureValuesField(field)) return;
+      sourceField = field;
     }
+    if (!sourceField) return;
+
+    // Delegate to the shared utility (creates a copy with new UUID).
+    // selectedValues is left empty — useFilterMetadata will auto-initialise
+    // the config because no pre-seeded config exists for the new field id.
+    const fieldCopy = { ...sourceField, id: uuidv4() };
+    dispatch({
+      type: 'SET_FILTER_FIELDS',
+      payload: [...currentFilterFields, fieldCopy],
+    });
   }, [dispatch, recordAction, getUndoableSnapshot]); // Stable deps only - state read from refs
 
   /**
