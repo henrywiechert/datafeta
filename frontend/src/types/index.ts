@@ -103,6 +103,13 @@ export type {
   SheetAction,
 } from './sheet';
 
+// Tooltip types
+export type {
+  TooltipField,
+  TooltipFilterAction,
+  CustomTooltipConfig,
+} from './tooltip';
+
 // Saved configuration types
 export type {
   SavedConnectionMetadata,

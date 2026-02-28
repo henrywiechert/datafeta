@@ -440,8 +440,8 @@ export function generateMeasureValuesMultiMarkPlot(config: MultiMarkConfig): Plo
     data: data,
     getFields: createTooltipFieldsGetter(
       [
-        { label: xLabel, column: categoryColumn },
-        { label: yLabel, column: measureValuesColumn }
+        { label: xLabel, column: categoryColumn, sourceField: categoryField },
+        { label: yLabel, column: measureValuesColumn, sourceField: measureValuesField }
       ],
       colorField,
       undefined, // sizeField not applicable here
