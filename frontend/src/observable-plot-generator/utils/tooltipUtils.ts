@@ -1,5 +1,4 @@
-import { TooltipField } from '../../components/Visualization/CustomTooltip/CustomTooltip';
-import { Field } from '../../types';
+import { TooltipField, Field } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { getFieldColumnName } from '../helpers/fields';
 
@@ -21,7 +20,9 @@ export function formatTooltipValue(val: any): string {
 /**
  * Create tooltip field configuration for chart types
  * 
- * @param mainFields - Primary fields to show (e.g., X, Y, dimension)
+ * @param mainFields - Primary fields to show (e.g., X, Y, dimension).
+ *   Each entry may optionally carry the originating `sourceField` so that
+ *   downstream consumers (e.g. filter-from-tooltip) have full metadata.
  * @param colorField - Optional color encoding field
  * @param sizeField - Optional size encoding field
  * @param tooltipFields - Additional user-selected tooltip fields
@@ -29,7 +30,7 @@ export function formatTooltipValue(val: any): string {
  * @param facetFields - Fields used for faceting (shown at top of tooltip for context)
  */
 export function createTooltipFieldsGetter(
-  mainFields: { label: string; column: string }[],
+  mainFields: { label: string; column: string; sourceField?: Field }[],
   colorField?: Field,
   sizeField?: Field,
   tooltipFields?: Field[],
@@ -50,6 +51,8 @@ export function createTooltipFieldsGetter(
             label: getFieldDisplayName(f),
             value: value,
             formattedValue: formatTooltipValue(value),
+            sourceField: f,
+            rawValue: value,
           });
           exclude.add(colName);
         }
@@ -57,13 +60,15 @@ export function createTooltipFieldsGetter(
     }
     
     // Add main fields (e.g., X, Y, dimension, etc.)
-    mainFields.forEach(({ label, column }) => {
+    mainFields.forEach(({ label, column, sourceField }) => {
       if (!exclude.has(column)) {
         const value = d[column];
         fields.push({ 
           label, 
           value: value,
-          formattedValue: formatTooltipValue(value)
+          formattedValue: formatTooltipValue(value),
+          sourceField,
+          rawValue: value,
         });
       }
     });
@@ -72,10 +77,13 @@ export function createTooltipFieldsGetter(
     if (colorField) {
       const colorColumnName = getResultColumnName(colorField);
       if (!exclude.has(colorColumnName)) {
+        const value = d[colorColumnName];
         fields.push({ 
           label: getFieldDisplayName(colorField), 
-          value: d[colorColumnName],
-          formattedValue: formatTooltipValue(d[colorColumnName])
+          value: value,
+          formattedValue: formatTooltipValue(value),
+          sourceField: colorField,
+          rawValue: value,
         });
         exclude.add(colorColumnName);
       }
@@ -85,10 +93,13 @@ export function createTooltipFieldsGetter(
     if (sizeField) {
       const sizeColumnName = getResultColumnName(sizeField);
       if (!exclude.has(sizeColumnName)) {
+        const value = d[sizeColumnName];
         fields.push({ 
           label: getFieldDisplayName(sizeField), 
-          value: d[sizeColumnName],
-          formattedValue: formatTooltipValue(d[sizeColumnName])
+          value: value,
+          formattedValue: formatTooltipValue(value),
+          sourceField: sizeField,
+          rawValue: value,
         });
         exclude.add(sizeColumnName);
       }
@@ -99,10 +110,13 @@ export function createTooltipFieldsGetter(
       tooltipFields.forEach(tf => {
         const colName = getResultColumnName(tf);
         if (colName && !exclude.has(colName)) {
+          const value = d[colName];
           fields.push({ 
             label: getFieldDisplayName(tf), 
-            value: d[colName],
-            formattedValue: formatTooltipValue(d[colName])
+            value: value,
+            formattedValue: formatTooltipValue(value),
+            sourceField: tf,
+            rawValue: value,
           });
         }
       });
