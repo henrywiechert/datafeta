@@ -109,6 +109,9 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
 
   return (
     <div className={styles.container}>
+      <div className={styles.appNameBar}>
+        <span className={styles.appName}>DataSlicer</span>
+      </div>
       <h2 className={styles.pageTitle}>Data Source Selection</h2>
 
       <div className={styles.card}>
