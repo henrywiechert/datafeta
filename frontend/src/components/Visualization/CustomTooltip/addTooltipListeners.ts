@@ -200,65 +200,80 @@ export function addTooltipListeners(
     // Observable Plot stores data on elements via __data__ property
     const element = mark as any;
     
-    const handleMouseEnter = (e: Event) => {
-      const mouseEvent = e as MouseEvent;
-      
+    /**
+     * Extract data from a mark, show tooltip, and highlight the element.
+     * Shared between mouseenter and click handlers to avoid duplication.
+     */
+    const showMarkTooltip = (mouseEvent: MouseEvent) => {
       // Try multiple ways to get data:
       // 1. From __data__ property (D3 style)
       // 2. From our data array if provided
       let data = element.__data__;
       
       if (!data && config.data && config.data.length > 0) {
-        // Fallback: use data array index if available
-        // This assumes marks are in same order as data
         if (index < config.data.length) {
           data = config.data[index];
         }
       }
       
-      // If __data__ is a number (index), it might be storing the index instead of actual data
       if (typeof data === 'number' && config.data && data < config.data.length) {
         data = config.data[data];
       }
       
-      if (data) {
-        try {
-          const fields = config.getFields(data);
-          
-          // PRIMARY: Read color directly from the SVG element - this is what's actually rendered
-          // and is always correct. Do this BEFORE adding highlight class.
-          let colorHex: string | undefined = undefined;
-          if (mark instanceof Element) {
-            colorHex = resolveColorFromElement(mark);
-          }
-          
-          showTooltip(mouseEvent.clientX, mouseEvent.clientY, fields, colorHex);
-          
-          // Determine which element to highlight
-          // If this is a transparent circle (hover dot for tick strips), highlight the line instead
-          let elementToHighlight: Element = mark;
-          if (mark.tagName.toLowerCase() === 'circle') {
-            const fill = mark.getAttribute('fill');
-            const stroke = mark.getAttribute('stroke');
-            const isTransparent = (fill === 'transparent' || fill === 'none' || !fill) &&
-                                  (stroke === 'transparent' || stroke === 'none' || !stroke);
-            if (isTransparent) {
-              const correspondingLine = findCorrespondingLine(mark);
-              if (correspondingLine) {
-                elementToHighlight = correspondingLine;
-              }
+      if (!data) {
+        console.warn('[CustomTooltip] No data found for mark:', { index, element, available: config.data?.length });
+        return;
+      }
+      
+      try {
+        const fields = config.getFields(data);
+        
+        // PRIMARY: Read color directly from the SVG element - this is what's actually rendered
+        // and is always correct. Do this BEFORE adding highlight class.
+        let colorHex: string | undefined = undefined;
+        if (mark instanceof Element) {
+          colorHex = resolveColorFromElement(mark);
+        }
+        
+        showTooltip(mouseEvent.clientX, mouseEvent.clientY, fields, colorHex);
+        
+        // Determine which element to highlight
+        // If this is a transparent circle (hover dot for tick strips), highlight the line instead
+        let elementToHighlight: Element = mark;
+        if (mark.tagName.toLowerCase() === 'circle') {
+          const fill = mark.getAttribute('fill');
+          const stroke = mark.getAttribute('stroke');
+          const isTransparent = (fill === 'transparent' || fill === 'none' || !fill) &&
+                                (stroke === 'transparent' || stroke === 'none' || !stroke);
+          if (isTransparent) {
+            const correspondingLine = findCorrespondingLine(mark);
+            if (correspondingLine) {
+              elementToHighlight = correspondingLine;
             }
           }
-          
-          // Add highlight class AFTER computing color to avoid style interference
-          elementToHighlight.classList.add('chart-mark--highlighted');
-          highlightedElement = elementToHighlight;
-        } catch (error) {
-          console.warn('[CustomTooltip] Error generating tooltip fields:', error);
         }
-      } else {
-        console.warn('[CustomTooltip] No data found for mark:', { index, element, available: config.data?.length });
+        
+        // Add highlight class AFTER computing color to avoid style interference
+        elementToHighlight.classList.add('chart-mark--highlighted');
+        highlightedElement = elementToHighlight;
+      } catch (error) {
+        console.warn('[CustomTooltip] Error generating tooltip fields:', error);
       }
+    };
+
+    /** Remove highlight from the currently highlighted element. */
+    const clearHighlight = () => {
+      if (highlightedElement) {
+        highlightedElement.classList.remove('chart-mark--highlighted');
+        highlightedElement = null;
+      }
+      mark.classList.remove('chart-mark--highlighted');
+    };
+
+    const handleMouseEnter = (e: Event) => {
+      // Don't replace a pinned tooltip on hover — the user must click to switch marks
+      if (pinnedRef?.current) return;
+      showMarkTooltip(e as MouseEvent);
     };
 
     const handleMouseMove = (e: Event) => {
@@ -271,20 +286,22 @@ export function addTooltipListeners(
     const handleMouseLeave = () => {
       // Don't dismiss when tooltip is pinned
       if (pinnedRef?.current) return;
-      // Remove highlight class from the element that was actually highlighted
-      if (highlightedElement) {
-        highlightedElement.classList.remove('chart-mark--highlighted');
-        highlightedElement = null;
-      }
-      // Also remove from the mark itself in case it was highlighted directly
-      mark.classList.remove('chart-mark--highlighted');
-      
+      clearHighlight();
       hideTooltip();
     };
 
     const handleClick = (e: Event) => {
       if (!pinTooltip) return;
       e.stopPropagation(); // Prevent document click handler from immediately hiding
+      
+      // If already pinned (e.g. on a different mark), switch to this mark:
+      // unpin first, clear old highlight, then show + pin the new one
+      if (pinnedRef?.current) {
+        unpinTooltip?.();
+        clearHighlight();
+        showMarkTooltip(e as MouseEvent);
+      }
+      
       pinTooltip();
     };
 
