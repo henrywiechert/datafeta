@@ -139,7 +139,10 @@ export function axisReducer(state: VisualizationState, action: VisualizationActi
     case 'SET_QUERY_RESULT':
       return { ...state, queryResult: action.payload, queryError: null };
     case 'SET_QUERY_ERROR':
-      return { ...state, queryResult: null, queryError: action.payload };
+      // Preserve the last successful query result while updating the error state.
+      // This avoids transient chart/legend unmounts during query start where
+      // SET_QUERY_ERROR is used with a null payload to clear prior errors.
+      return { ...state, queryError: action.payload };
     case 'RESTORE_CACHED_QUERY_RESULT':
       // Restore cached query result without incrementing queryVersion
       // This prevents re-querying when the cache is valid
