@@ -11,7 +11,6 @@ import { sheetRenderCacheStore } from './stores';
 import SaveLoadMenu from './components/SaveLoadMenu';
 import ConnectionRestoreDialog, { ClickHouseOverrides } from './components/ConnectionRestoreDialog';
 import SnapshotGalleryDialog from './components/SnapshotGalleryDialog';
-import VersionDisplay from './components/VersionDisplay';
 import { 
   exportConfiguration, 
   saveConfigFile, 
@@ -603,7 +602,6 @@ function AppContent() {
             onOpenGallery={() => setShowSnapshotGallery(true)}
             onQuickSave={handleQuickSave}
           />
-          <VersionDisplay />
         </Box>
       </Box>
 
