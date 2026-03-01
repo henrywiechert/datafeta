@@ -44,9 +44,6 @@ export function useChartTooltip() {
     // Clear any existing auto-hide timeout
     clearAutoHide();
     
-    // If currently pinned, unpin first (supports clicking a different mark)
-    pinnedRef.current = false;
-    
     setTooltip({
       visible: true,
       pinned: false,
