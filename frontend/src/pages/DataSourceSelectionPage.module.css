@@ -15,6 +15,26 @@
   text-align: center;
 }
 
+.appNameBar {
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 8px;
+}
+
+.appName {
+  display: inline-block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 4px 10px;
+  letter-spacing: 0.02em;
+}
+
 .card {
   background: #ffffff;
   border-radius: 8px;

@@ -19,6 +19,8 @@ import MeasureGroupsPanel from '../components/Visualization/MeasureGroups';
 import LoadingModal from '../components/LoadingModal';
 import CollapsedPanelStrip from '../components/Layout/CollapsedPanelStrip';
 import PanelResizeHandleWithToggle from '../components/Layout/PanelResizeHandleWithToggle';
+import AppInfoDisplay from '../components/AppInfoDisplay';
+import DataSlicerIcon from '../components/icons/DataSlicerIcon';
 import { apiService } from '../apiService';
 
 import { Field, DragSource } from '../types';
@@ -388,7 +390,38 @@ const VisualizationPageContent = () => {
                                 tooltipPlacement="right"
                             />
                         ) : (
-                            <FieldsPanel
+                            <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                                <Box
+                                    sx={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        px: 1.5,
+                                        py: 0.5,
+                                        borderBottom: 1,
+                                        borderColor: 'divider',
+                                        backgroundColor: '#e3f2fd',
+                                        flexShrink: 0,
+                                    }}
+                                >
+                                    <Box
+                                        sx={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 0.75,
+                                            fontSize: '0.9rem',
+                                            fontWeight: 700,
+                                            letterSpacing: '0.02em',
+                                            color: 'text.primary',
+                                        }}
+                                    >
+                                        <DataSlicerIcon sx={{ fontSize: '1.6rem' }} />
+                                        DataSlicer
+                                    </Box>
+                                    <AppInfoDisplay />
+                                </Box>
+                                <Box sx={{ flex: 1, minHeight: 0 }}>
+                                    <FieldsPanel
                                     availableFields={dataSourceAvailableFields}
                                     fieldsSearch={fieldsSearch}
                                     onFieldsSearchChange={setFieldsSearch}
@@ -423,11 +456,13 @@ const VisualizationPageContent = () => {
                                     loadedPartitions={loadedPartitions}
                                     isLoadingPartition={isLoadingPartition}
                                     onLoadPartition={handleLoadPartition}
-                            virtualColumns={virtualColumns}
-                            onAddVirtualColumn={handleAddVirtualColumn}
-                            onUpdateVirtualColumn={handleUpdateVirtualColumn}
-                            onRemoveVirtualColumn={handleRemoveVirtualColumn}
-                        />
+                                    virtualColumns={virtualColumns}
+                                    onAddVirtualColumn={handleAddVirtualColumn}
+                                    onUpdateVirtualColumn={handleUpdateVirtualColumn}
+                                    onRemoveVirtualColumn={handleRemoveVirtualColumn}
+                                />
+                                </Box>
+                            </Box>
                         )}
                     </Panel>
 
