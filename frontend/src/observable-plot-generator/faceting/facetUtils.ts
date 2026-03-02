@@ -1,6 +1,17 @@
 import { Field } from '../../types';
 import { getFieldColumnName } from '../helpers/fields';
 
+function parseNumericCategory(value: any): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 /**
  * Result of bar/tick strip detection.
  * Used by both facet generation and validation.
@@ -154,13 +165,13 @@ export function uniqueValuesForField(rows: any[], field: Field): any[] {
   // Smart sorting: dates by timestamp, numbers numerically, others as strings
   try {
     const allDates = values.every(v => v instanceof Date);
-    const allNumeric = values.every(v => typeof v === 'number' && !Number.isNaN(v));
+    const allNumeric = values.every(v => parseNumericCategory(v) !== null);
     if (allDates) {
       values.sort((a, b) => a.getTime() - b.getTime());
     } else if (allNumeric) {
-      values.sort((a, b) => a - b);
+      values.sort((a, b) => (parseNumericCategory(a) ?? 0) - (parseNumericCategory(b) ?? 0));
     } else {
-      values.sort((a, b) => (String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0));
+      values.sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }));
     }
   } catch (e) {
     // ignore sort errors for complex types

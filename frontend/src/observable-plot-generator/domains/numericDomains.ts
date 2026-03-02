@@ -1,6 +1,17 @@
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { DOMAIN_PAD_RATIO } from '../../config/chartLayoutConfig';
 
+function parseNumericCategory(value: any): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 /**
  * Compute shared numeric domains (min..max with 0 baseline when applicable) for
  * both measures and continuous dimensions across provided candidates.
@@ -105,13 +116,13 @@ export function computeSharedCategoricalDomains(data: any[], fields: any[]): Rec
     try {
       // Smart sorting: dates by timestamp, numbers numerically, others as strings
       const allDates = values.every(v => v instanceof Date);
-      const allNumeric = values.every(v => typeof v === 'number' && !Number.isNaN(v));
+      const allNumeric = values.every(v => parseNumericCategory(v) !== null);
       if (allDates) {
         values.sort((a, b) => a.getTime() - b.getTime());
       } else if (allNumeric) {
-        values.sort((a, b) => a - b);
+        values.sort((a, b) => (parseNumericCategory(a) ?? 0) - (parseNumericCategory(b) ?? 0));
       } else {
-        values.sort((a, b) => (String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0));
+        values.sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }));
       }
     } catch {}
     domains[col] = values;

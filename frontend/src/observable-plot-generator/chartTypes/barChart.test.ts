@@ -84,6 +84,28 @@ describe('barChart refactored implementation', () => {
     // Width/height are controlled by the grid layout sizing; options may omit explicit height.
   });
 
+  test('numeric-string categories are ordered numerically for bins', () => {
+    const ctx: ChartGenerationContext = {
+      queryResult: {
+        rows: [
+          { bin: '100', 'SUM(value)': 3 },
+          { bin: '2', 'SUM(value)': 1 },
+          { bin: '50', 'SUM(value)': 2 }
+        ],
+        columns: [],
+        row_count: 3
+      } as any,
+      xFields: [dim('bin')],
+      yFields: [meas('value', 'sum')],
+      colorField: undefined,
+      sizeField: undefined,
+      colorScheme: undefined
+    };
+
+    const opts = barChart(ctx);
+    expect(opts.x?.domain).toEqual(['2', '50', '100']);
+  });
+
   test('domain starts at zero and pads positive max', () => {
     const ctx: ChartGenerationContext = {
       queryResult: {
