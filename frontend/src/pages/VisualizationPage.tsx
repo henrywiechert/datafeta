@@ -405,6 +405,9 @@ const VisualizationPageContent = () => {
                                     }}
                                 >
                                     <Box
+                                        component="a"
+                                        href="/"
+                                        onClick={(e: React.MouseEvent) => { e.preventDefault(); window.location.href = '/'; }}
                                         sx={{
                                             display: 'flex',
                                             alignItems: 'center',
@@ -413,7 +416,11 @@ const VisualizationPageContent = () => {
                                             fontWeight: 700,
                                             letterSpacing: '0.02em',
                                             color: 'text.primary',
+                                            textDecoration: 'none',
+                                            cursor: 'pointer',
+                                            '&:hover': { opacity: 0.8 },
                                         }}
+                                        title="Back to Data Source Selection"
                                     >
                                         <DataSlicerIcon sx={{ fontSize: '1.6rem' }} />
                                         DataSlicer
