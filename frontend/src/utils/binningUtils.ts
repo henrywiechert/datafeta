@@ -20,8 +20,10 @@ import { BinnedFieldDefinition, VirtualColumnDefinition } from '../types';
  * // Returns: 'FLOOR(Revenue / 100) * 100'
  */
 export function generateBinExpression(sourceField: string, binWidth: number): string {
-  // Field name without quotes - backend's virtual column builder handles field references
-  return `FLOOR(${sourceField} / ${binWidth}) * ${binWidth}`;
+  // Quote field names so columns with spaces/special chars are always valid.
+  // Use SQL-style double quotes and escape embedded double quotes by doubling them.
+  const escapedField = sourceField.replace(/"/g, '""');
+  return `FLOOR("${escapedField}" / ${binWidth}) * ${binWidth}`;
 }
 
 /**

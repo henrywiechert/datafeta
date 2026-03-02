@@ -1,6 +1,6 @@
 """Builder for virtual column expressions using Pypika."""
 
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 import re
 import logging
 
@@ -231,6 +231,7 @@ class VirtualColumnExpressionBuilder:
         expression = self._convert_sql_case_to_pypika(expression)
         
         # Extract column references
+        quoted_column_refs = self._extract_quoted_column_references(expression)
         column_refs = self._extract_column_references(expression)
         logger.debug(f"Extracted column references from '{expression}': {column_refs}")
         
@@ -246,12 +247,20 @@ class VirtualColumnExpressionBuilder:
         namespace = self._build_safe_namespace(column_refs)
         
         # Replace qualified names (table.column) with safe identifiers (table__column)
-        # This allows eval to work with our namespace mapping
+        # This allows eval to work with our namespace mapping.
+        #
+        # Also replace quoted identifiers (e.g. "SA Avg nr nonGBR RRC conn UEs")
+        # with temporary safe identifiers to support fields containing spaces.
         eval_expression = expression
         for col_ref in column_refs:
             if '.' in col_ref:
                 safe_name = col_ref.replace('.', '__')
                 eval_expression = eval_expression.replace(col_ref, safe_name)
+
+        for index, (quoted_literal, column_name) in enumerate(quoted_column_refs):
+            safe_name = f"_qcol_{index}"
+            eval_expression = eval_expression.replace(quoted_literal, safe_name)
+            namespace[safe_name] = self._get_field_reference(column_name)
         
         logger.debug(f"Eval expression: '{eval_expression}', namespace keys: {list(namespace.keys())}")
         
@@ -378,11 +387,15 @@ class VirtualColumnExpressionBuilder:
         Returns:
             List of column names (including qualified/dotted names)
         """
+        # Remove quoted identifiers before matching bare identifiers, so words inside
+        # quoted column names (e.g. "Network Throughput") are not split into tokens.
+        expression_without_quoted = re.sub(r'"[^"\\]*(?:\\.[^"\\]*)*"|`[^`]+`', ' ', expression)
+
         # Pattern for identifiers: word or word.word.word... (any number of dot-separated parts)
         # Matches: column_name, table.column_name, table.nested.column_name
         pattern = r'\b([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\b'
         
-        matches = re.findall(pattern, expression)
+        matches = re.findall(pattern, expression_without_quoted)
         
         # Filter out SQL keywords and function names
         sql_keywords = {
@@ -404,8 +417,35 @@ class VirtualColumnExpressionBuilder:
             if match.upper() not in sql_keywords and match.upper() not in function_names:
                 if match not in columns:  # Avoid duplicates
                     columns.append(match)
+
+        # Add quoted identifiers (double quotes / backticks) as column references.
+        for _, column_name in self._extract_quoted_column_references(expression):
+            if column_name not in columns:
+                columns.append(column_name)
         
         return columns
+
+    @staticmethod
+    def _extract_quoted_column_references(expression: str) -> List[Tuple[str, str]]:
+        """Extract quoted column identifiers.
+
+        Supports both double-quoted and backtick-quoted identifiers:
+        - "My Column"
+        - `My Column`
+
+        Returns a list of tuples in expression order:
+        (original_quoted_literal, unquoted_column_name)
+        """
+        pattern = r'("([^"\\]*(?:\\.[^"\\]*)*)")|(`([^`]+)`)' 
+        refs: List[Tuple[str, str]] = []
+        for match in re.finditer(pattern, expression):
+            quoted_literal = match.group(0)
+            double_quoted_name = match.group(2)
+            backtick_quoted_name = match.group(4)
+            column_name = double_quoted_name if double_quoted_name is not None else backtick_quoted_name
+            if column_name is not None:
+                refs.append((quoted_literal, column_name))
+        return refs
     
     def _build_safe_namespace(self, column_refs: List[str]) -> Dict[str, Any]:
         """
