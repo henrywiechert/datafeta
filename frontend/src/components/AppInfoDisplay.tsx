@@ -86,7 +86,7 @@ const AppInfoDisplay: React.FC = () => {
                 implemented with 99.9% AI generated code.
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
-                This single page we-app provides in-browser OLAP data slicing and dicing capabilities, with a focus on intuitive drag-and-drop interactions and a clean user interface.
+                This single page app (SPA) provides in-browser OLAP experience, data slicing and dicing capabilities, with a focus on intuitive drag-and-drop interactions and a clean user interface.
                 The app implements parts of the{' '}
                 <Link
                   href="https://graphics.stanford.edu/papers/polaris/polaris.pdf"
