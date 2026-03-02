@@ -72,7 +72,9 @@ export function barUnified(
     ? (row: any) => categoryDims.map((d: any) => row[getFieldColumnName(d)]).join(' • ')
     : undefined;
   const categories = hasCategories
-    ? Array.from(new Set(data.map(categoryAccessor as any))) as string[]
+    ? (Array.from(new Set(data.map(categoryAccessor as any))) as any[]).sort((a, b) =>
+        String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' })
+      )
     : undefined;
   const categoryColumn = hasCategories ? '__category' : undefined;
 

@@ -7,6 +7,29 @@ import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 
 export type Orientation = 'vertical' | 'horizontal';
 
+function toNumericCategory(value: any): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function compareCategoryValues(a: any, b: any): number {
+  const numA = toNumericCategory(a);
+  const numB = toNumericCategory(b);
+  if (numA !== null && numB !== null) {
+    return numA - numB;
+  }
+  if (a instanceof Date && b instanceof Date) {
+    return a.getTime() - b.getTime();
+  }
+  return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+}
+
 interface ComputeDomainOpts {
   zeroBaseline?: boolean; // force start at 0
   padRatio?: number;      // headroom ratio, default 0.05
@@ -158,13 +181,19 @@ export function computeBandPaddingFromSizeField(rows: any[], sizeField?: Field, 
 }
 
 // ---------- Categories & Aggregation ---------------------------------------
-export function deriveCategories(data: any[], categoryColumn?: string): string[] {
+export function deriveCategories(data: any[], categoryColumn?: string): any[] {
   if (!categoryColumn) return [' '];
-  return Array.from(new Set(data.map(r => r[categoryColumn])));
+  const categories = Array.from(new Set(data.map(r => r[categoryColumn])));
+  try {
+    categories.sort(compareCategoryValues);
+  } catch {
+    // Keep insertion order if comparison fails for complex values.
+  }
+  return categories;
 }
 
-export function aggregateByCategory(data: any[], categoryColumn: string, measureName: string): Array<{ cat: string; value: number }> {
-  const totals = new Map<string, number>();
+export function aggregateByCategory(data: any[], categoryColumn: string, measureName: string): Array<{ cat: any; value: number }> {
+  const totals = new Map<any, number>();
   for (const r of data) {
     const cat = r[categoryColumn];
     const v = r[measureName];
@@ -185,12 +214,12 @@ export function aggregateByCategory(data: any[], categoryColumn: string, measure
  * @returns Sorted array of categories
  */
 export function sortCategoriesByValue(
-  categories: string[],
+  categories: any[],
   data: any[],
   categoryColumn: string,
   measureName: string,
   sortOrder: 'asc' | 'desc' | 'none' | undefined
-): string[] {
+): any[] {
   if (!sortOrder || sortOrder === 'none') {
     return categories;
   }
