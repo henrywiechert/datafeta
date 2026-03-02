@@ -382,7 +382,11 @@ export function scatterChart(
   // Add custom tooltip configuration (color is read directly from DOM)
   (plotOptions as any).__customTooltip = {
     enabled: true,
-    data: clean,
+    // IMPORTANT: tooltip mark-index fallback must match rendered mark order.
+    // Scatter renders `budgeted` (sampled + color-sorted), not `clean`.
+    // Using `clean` here can produce incorrect tooltip rows when mark elements
+    // expose numeric/indexed data (common in transformed marks).
+    data: budgeted,
     getFields: createTooltipFieldsGetter(
       [
         { label: xLabel, column: xColumn },
