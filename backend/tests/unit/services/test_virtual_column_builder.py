@@ -176,6 +176,30 @@ class TestVirtualColumnExpressionBuilder:
         assert 'UPPER' in sql
         assert 'name' in sql
 
+    def test_floor_with_double_quoted_column_name_with_spaces(self):
+        """Quoted identifiers with spaces should parse in arithmetic expressions."""
+        vc = VirtualColumnDefinition(
+            name='throughput_bin',
+            expression='FLOOR("SA Avg nr nonGBR RRC conn UEs" / 50) * 50',
+        )
+
+        term = self.builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='"')
+        assert 'FLOOR' in sql
+        assert 'SA Avg nr nonGBR RRC conn UEs' in sql
+
+    def test_floor_with_backtick_quoted_column_name_with_spaces(self):
+        """Backtick-quoted identifiers should also be accepted."""
+        vc = VirtualColumnDefinition(
+            name='throughput_bin_bt',
+            expression='FLOOR(`SA Avg nr nonGBR RRC conn UEs` / 50) * 50',
+        )
+
+        term = self.builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='"')
+        assert 'FLOOR' in sql
+        assert 'SA Avg nr nonGBR RRC conn UEs' in sql
+
     def test_split_function_clickhouse_positive_index(self):
         """SPLIT should extract the requested part for ClickHouse dialect."""
         builder = VirtualColumnExpressionBuilder(self.table_map, self.table, db_type='clickhouse')
