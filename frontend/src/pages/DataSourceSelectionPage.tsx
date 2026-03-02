@@ -20,6 +20,7 @@ import {
   ConnectionType,
 } from '../components/ConnectionForms';
 import { readFileAsText } from '../services/configurationService';
+import DataSlicerIcon from '../components/icons/DataSlicerIcon';
 import styles from './DataSourceSelectionPage.module.css';
 
 interface DataSourceSelectionPageProps {
@@ -109,10 +110,16 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
 
   return (
     <div className={styles.container}>
-      <div className={styles.appNameBar}>
-        <span className={styles.appName}>DataSlicer</span>
-      </div>
-      <h2 className={styles.pageTitle}>Data Source Selection</h2>
+      <a
+        href="/"
+        onClick={(e) => { e.preventDefault(); window.location.href = '/'; }}
+        className={styles.pageTitle}
+        style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+        title="Reload Data Source Selection"
+      >
+        <DataSlicerIcon style={{ fontSize: '2rem' }} />
+        DataSlicer
+      </a>
 
       <div className={styles.card}>
         <h3 className={styles.sectionTitle}>Connect to a Data Source</h3>
@@ -144,7 +151,7 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
               disabled={formDisabled}
               type="button"
             >
-              Import from File...
+              Import Config from File...
             </button>
           </label>
         </div>
