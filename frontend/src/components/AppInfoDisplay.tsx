@@ -7,9 +7,11 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  IconButton,
   Link,
   Typography,
 } from '@mui/material';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import DataSlicerIcon from './icons/DataSlicerIcon';
 
 interface VersionInfo {
@@ -50,18 +52,14 @@ const AppInfoDisplay: React.FC = () => {
 
   return (
     <>
-      <Button
+      <IconButton
         size="small"
-        variant="outlined"
         onClick={() => setOpen(true)}
-        sx={{
-          textTransform: 'none',
-          minWidth: 88,
-          height: 28,
-        }}
+        title="App Info"
+        sx={{ color: 'text.secondary' }}
       >
-        App Info
-      </Button>
+        <InfoOutlinedIcon fontSize="small" />
+      </IconButton>
 
       <Dialog
         open={open}
