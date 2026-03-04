@@ -7,6 +7,7 @@ DateTime Parts Handling:
 - Both integer and string types are natively JSON serializable and require no conversion
 """
 
+import math
 from decimal import Decimal
 from typing import Any, Dict, List
 
@@ -27,15 +28,22 @@ def _unwrap_quoted_string(s: str) -> str:
 def convert_decimal_to_float(value: Any) -> Any:
     """
     Convert Decimal types to float for JSON serialization compatibility.
+    NaN and Inf float values are converted to None (JSON null) because they
+    are not valid JSON and would otherwise be serialized as the bare token
+    `NaN` / `Infinity`, which breaks JSON parsers.
     
     Args:
-        value: Any value that might be a Decimal
+        value: Any value that might be a Decimal or non-finite float
         
     Returns:
-        The value converted to float if it was a Decimal, otherwise unchanged
+        The value converted to float if it was a Decimal, None if NaN/Inf,
+        otherwise unchanged
     """
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
     if isinstance(value, Decimal):
-        return float(value)
+        f = float(value)
+        return None if not math.isfinite(f) else f
     # Normalize suspicious numeric strings that arrive double-quoted (common with some CH types/expressions)
     if isinstance(value, str):
         s = _unwrap_quoted_string(value)
