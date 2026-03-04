@@ -7,6 +7,7 @@ from urllib.parse import urlparse, parse_qs
 import socket
 
 import pyarrow as pa
+import pyarrow.compute as pc
 import clickhouse_connect
 from clickhouse_connect.driver.client import Client
 
@@ -428,6 +429,52 @@ class ClickHouseConnector(BaseConnector):
             logger.exception(f"Error executing ClickHouse query (details above)")
             raise QueryExecutionError(str(e))
 
+    @staticmethod
+    def _sanitize_arrow_table(table: pa.Table) -> pa.Table:
+        """
+        Replace NaN and Inf float values with null in an Arrow table.
+
+        ClickHouse allows IEEE 754 NaN/Inf in Float32/Float64 columns. These are
+        not representable in JSON (the standard JSON spec has no NaN/Infinity
+        literals), and they cause confusing display artefacts on the frontend.
+        Converting them to Arrow null (which maps to JSON null / JS null) is the
+        correct semantic: the value is unknown/undefined rather than a spurious
+        number.
+
+        Important: ClickHouse marks float columns as non-nullable in the Arrow
+        schema. We must update the field to nullable=True when we introduce nulls;
+        otherwise PyArrow drops the validity bitmap on table construction and the
+        NaN bits come back.
+        """
+        new_columns = []
+        new_fields = list(table.schema)
+        changed = False
+
+        for i in range(table.num_columns):
+            col = table.column(i)
+            if pa.types.is_floating(col.type):
+                # Flatten ChunkedArray so compute functions work element-wise
+                flat = col.combine_chunks() if isinstance(col, pa.ChunkedArray) else col
+                bad_mask = pc.or_(pc.is_nan(flat), pc.is_inf(flat))
+                if pc.any(bad_mask).as_py():
+                    null_scalar = pa.scalar(None, type=flat.type)
+                    flat = pc.if_else(bad_mask, null_scalar, flat)
+                    # Schema must declare the column nullable, otherwise the
+                    # validity bitmap is stripped when building the new table.
+                    new_fields[i] = new_fields[i].with_nullable(True)
+                    col = flat
+                    changed = True
+            new_columns.append(col)
+
+        if not changed:
+            return table
+
+        new_schema = pa.schema(new_fields, metadata=table.schema.metadata)
+        return pa.table(
+            {new_fields[i].name: new_columns[i] for i in range(len(new_columns))},
+            schema=new_schema,
+        )
+
     def fetch_data_arrow(self, query: str) -> pa.Table:
         """
         Executes a SQL query on ClickHouse and returns data as an Apache Arrow Table.
@@ -438,7 +485,9 @@ class ClickHouseConnector(BaseConnector):
             query: The executable query string (SQL).
 
         Returns:
-            PyArrow Table containing the query results.
+            PyArrow Table containing the query results. NaN/Inf floats are
+            replaced with null so the payload is always valid for JSON transport
+            and unambiguous for downstream consumers.
         """
         if not self.client:
             raise DataSourceConnectionError("Not connected to ClickHouse.")
@@ -450,6 +499,7 @@ class ClickHouseConnector(BaseConnector):
                 # clickhouse-connect returns a PyArrow Table directly
                 arrow_table = self.client.query_arrow(query)
             
+            arrow_table = self._sanitize_arrow_table(arrow_table)
             logger.info(f"Arrow query returning {arrow_table.num_rows} rows, {arrow_table.num_columns} columns.")
             return arrow_table
             
