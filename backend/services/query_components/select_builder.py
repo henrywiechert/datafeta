@@ -12,7 +12,7 @@ from backend.exceptions import QueryGenerationError
 from backend.models.query import QueryDescription
 from backend.services.datetime_service import DateTimeService
 from backend.services.query_components.contexts import SelectClauseResult
-from backend.services.query_components.terms import CastField
+from backend.services.query_components.terms import CastField, CustomFunction
 
 logger = logging.getLogger(__name__)
 
@@ -184,7 +184,15 @@ class SelectClauseBuilder:
 
                 agg_term = agg_func_builder(field_term)
 
-                if db_type != "clickhouse" and measure.aggregation in ["avg", "sum"]:
+                if db_type == "clickhouse" and measure.aggregation in ["sum", "avg"]:
+                    # ClickHouse propagates NaN/Inf through SUM/AVG, producing a NaN
+                    # result even when only a single row has a bad value.
+                    # sumIf/avgIf with isFinite() skips those rows the same way NULL
+                    # values are already skipped by standard SQL aggregates.
+                    nan_safe_func = "sumIf" if measure.aggregation == "sum" else "avgIf"
+                    is_finite = CustomFunction("isFinite", [field_term])
+                    agg_term = CustomFunction(nan_safe_func, [field_term, is_finite])
+                elif db_type != "clickhouse" and measure.aggregation in ["avg", "sum"]:
                     from pypika.functions import Coalesce
 
                     agg_term = Coalesce(agg_term, 0)

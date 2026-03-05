@@ -70,8 +70,11 @@ export function normalizeArrowValue(value: any, fieldType?: DataType, fieldName?
     return Number.isSafeInteger(Number(value)) ? Number(value) : value.toString();
   }
   
-  // Primitive types pass through
+  // Primitive types pass through, but sanitize non-finite floats to null
   if (typeof value !== 'object') {
+    if (typeof value === 'number' && !Number.isFinite(value)) {
+      return null;
+    }
     return value;
   }
   
@@ -126,7 +129,7 @@ export function normalizeArrowValue(value: any, fieldType?: DataType, fieldName?
         return Number.isSafeInteger(Number(primitive)) ? Number(primitive) : primitive.toString();
       }
       if (typeof primitive === 'number') {
-        return primitive;
+        return Number.isFinite(primitive) ? primitive : null;
       }
     }
     
