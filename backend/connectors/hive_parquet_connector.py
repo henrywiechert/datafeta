@@ -86,13 +86,17 @@ class HiveParquetConnector(BaseConnector):
         """Extract partition column and values from file paths.
         
         Expects paths like:
-            - region=us/file1.parquet
-            - region=eu/file2.parquet
+            - root_folder/region=us/file1.parquet
+            - root_folder/region=eu/file2.parquet
+        
+        The root folder is stripped to find the partition pattern.
         
         Returns:
             Tuple of (partition_column, list_of_partition_values)
         """
-        partition_pattern = re.compile(r'^([^=]+)=([^/]+)/')
+        # Pattern to match partition format: column=value/
+        # Can appear after the root folder: root/column=value/ or at the start: column=value/
+        partition_pattern = re.compile(r'([^/=]+)=([^/]+)/')
         partition_values = defaultdict(set)
 
         for path in paths:
@@ -100,7 +104,13 @@ class HiveParquetConnector(BaseConnector):
             if not normalized.lower().endswith('.parquet'):
                 continue
 
-            match = partition_pattern.match(normalized)
+            # Strip the root folder (first path segment) to avoid matching root=folder patterns
+            parts = normalized.split('/', 1)
+            if len(parts) < 2:
+                continue
+            path_without_root = parts[1]
+
+            match = partition_pattern.search(path_without_root)
             if match:
                 col_name = match.group(1)
                 col_value = match.group(2)
