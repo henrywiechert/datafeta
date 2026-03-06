@@ -34,9 +34,9 @@ class TestParseStructure:
         connector = HiveParquetConnector(state_manager=state_manager)
         
         file_structure = [
-            "region=us/file1.parquet",
-            "region=us/file2.parquet",
-            "region=eu/file1.parquet",
+            "dataset/region=us/file1.parquet",
+            "dataset/region=us/file2.parquet",
+            "dataset/region=eu/file1.parquet",
         ]
         
         col, partitions = connector._parse_structure(file_structure)
@@ -49,8 +49,8 @@ class TestParseStructure:
         connector = HiveParquetConnector(state_manager=state_manager)
         
         file_structure = [
-            "region=us\\file1.parquet",
-            "region=eu\\file1.parquet",
+            "dataset\\region=us\\file1.parquet",
+            "dataset\\region=eu\\file1.parquet",
         ]
         
         col, partitions = connector._parse_structure(file_structure)
@@ -63,10 +63,10 @@ class TestParseStructure:
         connector = HiveParquetConnector(state_manager=state_manager)
         
         file_structure = [
-            "region=us/file1.parquet",
-            "region=us/readme.txt",
-            "region=eu/file1.parquet",
-            "region=eu/metadata.json",
+            "dataset/region=us/file1.parquet",
+            "dataset/region=us/readme.txt",
+            "dataset/region=eu/file1.parquet",
+            "dataset/region=eu/metadata.json",
         ]
         
         col, partitions = connector._parse_structure(file_structure)
@@ -88,13 +88,42 @@ class TestParseStructure:
         connector = HiveParquetConnector(state_manager=state_manager)
         
         file_structure = [
-            "file1.parquet",
-            "subdir/file2.parquet",
+            "dataset/file1.parquet",
+            "dataset/subdir/file2.parquet",
         ]
         
         col, partitions = connector._parse_structure(file_structure)
         assert col is None
         assert partitions == []
+
+    def test_parse_with_root_folder_containing_equals(self):
+        """Test parsing when root folder name contains '=' character."""
+        state_manager = Mock()
+        connector = HiveParquetConnector(state_manager=state_manager)
+        
+        file_structure = [
+            "data=X/type=A/file1.parquet",
+            "data=X/type=A/file2.parquet",
+            "data=X/type=B/file1.parquet",
+        ]
+        
+        col, partitions = connector._parse_structure(file_structure)
+        assert col == "type", f"Expected 'type' but got '{col}'"
+        assert sorted(partitions) == ["A", "B"], f"Expected ['A', 'B'] but got {partitions}"
+
+    def test_parse_with_normal_root_folder(self):
+        """Test parsing with typical root folder structure."""
+        state_manager = Mock()
+        connector = HiveParquetConnector(state_manager=state_manager)
+        
+        file_structure = [
+            "data/type=A/file1.parquet",
+            "data/type=B/file1.parquet",
+        ]
+        
+        col, partitions = connector._parse_structure(file_structure)
+        assert col == "type"
+        assert sorted(partitions) == ["A", "B"]
 
 
 class TestConnect:
@@ -107,8 +136,8 @@ class TestConnect:
         
         connector.connect({
             "hive_file_structure": [
-                "country=usa/data.parquet",
-                "country=canada/data.parquet",
+                "dataset/country=usa/data.parquet",
+                "dataset/country=canada/data.parquet",
             ]
         })
         
@@ -130,7 +159,7 @@ class TestConnect:
         
         with pytest.raises(InvalidInputError, match="Could not detect partition"):
             connector.connect({
-                "hive_file_structure": ["file.parquet"]
+                "hive_file_structure": ["dataset/file.parquet"]
             })
 
 
@@ -144,8 +173,8 @@ class TestListTables:
         
         connector.connect({
             "hive_file_structure": [
-                "year=2023/data.parquet",
-                "year=2024/data.parquet",
+                "dataset/year=2023/data.parquet",
+                "dataset/year=2024/data.parquet",
             ]
         })
         
@@ -168,7 +197,7 @@ class TestLoadPartition:
         connector = HiveParquetConnector(state_manager=state_manager)
         
         connector.connect({
-            "hive_file_structure": ["region=us/test.parquet"]
+            "hive_file_structure": ["dataset/region=us/test.parquet"]
         })
         
         connector.load_partition("us", [str(parquet_path)])
@@ -186,7 +215,7 @@ class TestLoadPartition:
         connector = HiveParquetConnector(state_manager=state_manager)
         
         connector.connect({
-            "hive_file_structure": ["region=us/test.parquet"]
+            "hive_file_structure": ["dataset/region=us/test.parquet"]
         })
         
         with pytest.raises(InvalidInputError, match="Unknown partition"):
@@ -198,7 +227,7 @@ class TestLoadPartition:
         connector = HiveParquetConnector(state_manager=state_manager)
         
         connector.connect({
-            "hive_file_structure": ["region=us/test.parquet"]
+            "hive_file_structure": ["dataset/region=us/test.parquet"]
         })
         
         with pytest.raises(DataSourceConnectionError, match="not found"):
@@ -222,7 +251,7 @@ class TestListColumns:
         connector = HiveParquetConnector(state_manager=state_manager)
         
         connector.connect({
-            "hive_file_structure": ["region=us/test.parquet"]
+            "hive_file_structure": ["dataset/region=us/test.parquet"]
         })
         connector.load_partition("us", [str(parquet_path)])
         
@@ -239,7 +268,7 @@ class TestListColumns:
         connector = HiveParquetConnector(state_manager=state_manager)
         
         connector.connect({
-            "hive_file_structure": ["region=us/test.parquet"]
+            "hive_file_structure": ["dataset/region=us/test.parquet"]
         })
         
         with pytest.raises(PartitionNotLoadedError):
@@ -259,7 +288,7 @@ class TestFetchData:
         connector = HiveParquetConnector(state_manager=state_manager)
         
         connector.connect({
-            "hive_file_structure": ["region=us/test.parquet"]
+            "hive_file_structure": ["dataset/region=us/test.parquet"]
         })
         connector.load_partition("us", [str(parquet_path)])
         
@@ -282,8 +311,8 @@ class TestFetchData:
         
         connector.connect({
             "hive_file_structure": [
-                "region=us/file1.parquet",
-                "region=us/file2.parquet",
+                "dataset/region=us/file1.parquet",
+                "dataset/region=us/file2.parquet",
             ]
         })
         connector.load_partition("us", [str(parquet1), str(parquet2)])
@@ -299,7 +328,7 @@ class TestFetchData:
         connector = HiveParquetConnector(state_manager=state_manager)
         
         connector.connect({
-            "hive_file_structure": ["region=us/test.parquet"]
+            "hive_file_structure": ["dataset/region=us/test.parquet"]
         })
         
         with pytest.raises(DataSourceConnectionError, match="No partitions loaded"):
@@ -318,8 +347,8 @@ class TestFetchData:
         
         connector.connect({
             "hive_file_structure": [
-                "region=us/data.parquet",
-                "region=eu/data.parquet",
+                "dataset/region=us/data.parquet",
+                "dataset/region=eu/data.parquet",
             ]
         })
         connector.load_partition("us", [str(parquet_us)])
@@ -351,7 +380,7 @@ class TestFetchDataArrow:
         connector = HiveParquetConnector(state_manager=state_manager)
         
         connector.connect({
-            "hive_file_structure": ["region=us/test.parquet"]
+            "hive_file_structure": ["dataset/region=us/test.parquet"]
         })
         connector.load_partition("us", [str(parquet_path)])
         
@@ -375,7 +404,7 @@ class TestDisconnect:
         connector = HiveParquetConnector(state_manager=state_manager)
         
         connector.connect({
-            "hive_file_structure": ["region=us/test.parquet"]
+            "hive_file_structure": ["dataset/region=us/test.parquet"]
         })
         connector.load_partition("us", [str(parquet_path)])
         
