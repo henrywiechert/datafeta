@@ -114,6 +114,36 @@ export const connectionApi = {
    * @param signal - Optional AbortSignal for request cancellation
    * @returns Object with columns list for the partition
    */
+  /**
+   * Add more CSV/Parquet files to an existing file-based connection.
+   *
+   * Each file becomes a new queryable table in the active session.
+   * The connection must already be established.
+   *
+   * @param files - Files to append to the current connection
+   * @param signal - Optional AbortSignal for request cancellation
+   * @returns Object with list of added table names
+   */
+  async addFiles(
+    files: File[],
+    signal?: AbortSignal,
+  ): Promise<{ message: string; added_tables: string[] }> {
+    const abortController = signal ? null : createAbortController();
+    const requestSignal = signal || abortController?.signal;
+
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append('uploaded_files', file, file.name);
+    });
+
+    const response = await fetchWithErrorHandling(`${API_BASE_URL}/add-files`, {
+      method: 'POST',
+      body: formData,
+    }, requestSignal);
+
+    return response.json();
+  },
+
   async loadPartition(
     partitionName: string,
     files: File[],

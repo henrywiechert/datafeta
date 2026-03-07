@@ -50,6 +50,8 @@ interface FieldsPanelProps {
   loadedPartitions?: Set<string>;
   isLoadingPartition?: boolean;
   onLoadPartition?: (partitionName: string, setAsPrimary?: boolean) => Promise<void>;
+  // Add files to existing CSV/Parquet connection
+  onAddFiles?: (files: File[]) => Promise<void>;
   // Virtual columns props
   virtualColumns?: VirtualColumnDefinition[];
   onAddVirtualColumn?: (column: VirtualColumnDefinition) => void;
@@ -96,6 +98,8 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   loadedPartitions,
   isLoadingPartition,
   onLoadPartition,
+  // Add files to existing CSV/Parquet connection
+  onAddFiles,
   // Virtual columns props
   virtualColumns = [],
   onAddVirtualColumn,
@@ -238,6 +242,7 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
         loadedPartitions={loadedPartitions}
         isLoadingPartition={isLoadingPartition}
         onLoadPartition={onLoadPartition}
+        onAddFiles={onAddFiles}
       />
       
       {/* Fields search below metadata */}

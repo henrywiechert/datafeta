@@ -134,6 +134,15 @@ class FileConnector(BaseConnector):
             handler=handler,
         ))
 
+    def add_file(self, file_path: str, original_filename: str, csv_config: Dict[str, Any]) -> str:
+        """
+        Add a single file to an already-connected connector.
+
+        Returns the table name assigned to the new file.
+        """
+        self._add_file(file_path, original_filename, csv_config)
+        return self._files[-1].table_name
+
     def _ensure_unique_table_name(self, table_name: str) -> str:
         """Ensure the table name is unique by appending a suffix if needed."""
         existing_names = {f.table_name for f in self._files}

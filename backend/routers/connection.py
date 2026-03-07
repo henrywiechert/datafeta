@@ -120,6 +120,29 @@ async def load_partition(
     return await service.load_hive_partition(partition_name, uploaded_files, session_id)
 
 
+@router.post("/add-files")
+async def add_files_to_connection(
+    uploaded_files: List[UploadFile] = File(...),
+    state_manager: ConnectionStateManager = Depends(get_state_manager),
+    session_id: str = Depends(get_session_id),
+    request: Request = None,
+):
+    """
+    Add more CSV/Parquet files to an existing file-based connection.
+
+    Each uploaded file becomes a new queryable table in the active session.
+    The connection must already be established via POST /connect.
+
+    Args:
+        uploaded_files: One or more CSV or Parquet files to add
+
+    Returns:
+        Dict with added_tables list (sanitized table names)
+    """
+    service = ConnectionService(state_manager=state_manager, request=request)
+    return await service.add_files(uploaded_files, session_id)
+
+
 @router.post("/disconnect")
 async def disconnect_datasource(
     state_manager: ConnectionStateManager = Depends(get_state_manager),
