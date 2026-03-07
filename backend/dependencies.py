@@ -49,6 +49,11 @@ class ConnectionStateManager:
         self.current_temp_paths = []
         self.last_accessed_at = datetime.now(timezone.utc)
 
+    def append_temp_paths(self, paths: List[str]) -> None:
+        """Append new temp file paths to the current list (used when adding files to an existing session)."""
+        self.current_temp_paths = (self.current_temp_paths or []) + paths
+        self.last_accessed_at = datetime.now(timezone.utc)
+
     def touch(self):
         """Update last accessed timestamp."""
         self.last_accessed_at = datetime.now(timezone.utc)

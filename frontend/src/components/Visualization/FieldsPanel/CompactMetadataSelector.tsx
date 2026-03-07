@@ -3,6 +3,7 @@ import { Box, CircularProgress, Typography, TextField, IconButton, Tooltip } fro
 import Autocomplete from '@mui/material/Autocomplete';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AddIcon from '@mui/icons-material/Add';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { Database, Table, Field } from '../../../types';
 import JoinTableSelector from './JoinTableSelector';
 import TableAddPicker from './TableAddPicker';
@@ -116,6 +117,8 @@ interface CompactMetadataSelectorProps {
   loadedPartitions?: Set<string>;  // Partitions that have been loaded
   isLoadingPartition?: boolean;
   onLoadPartition?: (partitionName: string, setAsPrimary?: boolean) => Promise<void>;
+  // Add files to existing CSV/Parquet connection
+  onAddFiles?: (files: File[]) => Promise<void>;
 }
 
 const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
@@ -141,7 +144,9 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
   loadedPartitions = new Set(),
   isLoadingPartition = false,
   onLoadPartition,
+  onAddFiles,
 }) => {
+  const addFilesInputRef = React.useRef<HTMLInputElement>(null);
   const databaseOptions = React.useMemo(
     () => databases.map((db) => db.name).sort(),
     [databases]
@@ -277,19 +282,53 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
         >
           Data Source
         </Typography>
-        <Tooltip title="Refresh metadata" placement="left">
-          <span>
-            <IconButton
-              size="small"
-              aria-label="Refresh metadata"
-              onClick={onRefreshMetadata}
-              disabled={isLoadingMetadata}
-              sx={{ width: 20, height: 20 }}
-            >
-              <RefreshIcon fontSize="inherit" />
-            </IconButton>
-          </span>
-        </Tooltip>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+          {connectionType === 'csv' && onAddFiles && (
+            <>
+              <input
+                ref={addFilesInputRef}
+                type="file"
+                accept=".csv,.parquet"
+                multiple
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const files = e.target.files ? Array.from(e.target.files) : [];
+                  if (files.length > 0) {
+                    onAddFiles(files);
+                  }
+                  // Reset so the same file can be re-selected if needed
+                  e.target.value = '';
+                }}
+              />
+              <Tooltip title="Add more files to this connection" placement="left">
+                <span>
+                  <IconButton
+                    size="small"
+                    aria-label="Add more files"
+                    onClick={() => addFilesInputRef.current?.click()}
+                    disabled={isLoadingMetadata}
+                    sx={{ width: 20, height: 20 }}
+                  >
+                    <UploadFileIcon fontSize="inherit" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </>
+          )}
+          <Tooltip title="Refresh metadata" placement="left">
+            <span>
+              <IconButton
+                size="small"
+                aria-label="Refresh metadata"
+                onClick={onRefreshMetadata}
+                disabled={isLoadingMetadata}
+                sx={{ width: 20, height: 20 }}
+              >
+                <RefreshIcon fontSize="inherit" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Box>
       </Box>
 
       {connectionType === 'clickhouse' ? (

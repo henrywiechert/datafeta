@@ -121,6 +121,47 @@ class ConnectionService:
         _, ext = os.path.splitext(filename)
         return ext.lower()
 
+    async def _save_and_validate_uploaded_file(
+        self,
+        uploaded_file: UploadFile,
+        session_upload_dir: str,
+    ) -> str:
+        """
+        Validate, save, and content-check a single uploaded file.
+
+        Returns the temp file path on success. Cleans up the temp file and
+        re-raises on any validation or I/O error.
+        """
+        if not uploaded_file.filename:
+            raise InvalidInputError("Missing filename for uploaded file.")
+
+        file_ext = self._get_file_extension(uploaded_file.filename)
+        if file_ext not in ALLOWED_FILE_EXTENSIONS:
+            raise InvalidInputError(
+                f"Invalid file type: {file_ext}. Allowed: {', '.join(sorted(ALLOWED_FILE_EXTENSIONS))}"
+            )
+
+        if uploaded_file.content_type not in ALLOWED_FILE_MIME_TYPES:
+            raise InvalidInputError(
+                detail=f"Unsupported content type: {uploaded_file.content_type}",
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            )
+
+        fd, temp_file_path = tempfile.mkstemp(suffix=file_ext, dir=session_upload_dir)
+        os.close(fd)
+
+        try:
+            await self._save_uploaded_file_with_limit(uploaded_file, temp_file_path, MAX_FILE_UPLOAD_BYTES)
+            handler = FILE_HANDLER_REGISTRY[file_ext]({})
+            await run_in_threadpool(handler.validate, temp_file_path)
+        except Exception:
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
+            raise
+
+        logger.info(f"Saved uploaded file: {uploaded_file.filename} -> {temp_file_path}")
+        return temp_file_path
+
     @staticmethod
     def _get_connector(connection_details: ConnectionDetails, state_manager: ConnectionStateManager) -> BaseConnector:
         # Lazy init a module-level registry
@@ -211,50 +252,14 @@ class ConnectionService:
                 
                 try:
                     for uploaded_file in uploaded_files:
-                        # Validate filename and extension
-                        if not uploaded_file.filename:
-                            raise InvalidInputError("Missing filename for uploaded file.")
-                        
-                        file_ext = self._get_file_extension(uploaded_file.filename)
-                        if file_ext not in ALLOWED_FILE_EXTENSIONS:
-                            raise InvalidInputError(
-                                f"Invalid file type: {file_ext}. Allowed: {', '.join(ALLOWED_FILE_EXTENSIONS)}"
-                            )
-                        
-                        # Validate MIME type
-                        if uploaded_file.content_type not in ALLOWED_FILE_MIME_TYPES:
-                            raise InvalidInputError(
-                                detail=f"Unsupported content type: {uploaded_file.content_type}",
-                                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-                            )
-                        
-                        # Save file to temp location
-                        fd, temp_file_path = tempfile.mkstemp(suffix=file_ext, dir=session_upload_dir)
-                        os.close(fd)
+                        temp_file_path = await self._save_and_validate_uploaded_file(
+                            uploaded_file, session_upload_dir
+                        )
                         temp_file_paths.append(temp_file_path)
-                        
-                        try:
-                            await self._save_uploaded_file_with_limit(
-                                uploaded_file, temp_file_path, MAX_FILE_UPLOAD_BYTES
-                            )
-                        except InvalidInputError:
-                            # Remove the file we just created if save failed
-                            if os.path.exists(temp_file_path):
-                                os.remove(temp_file_path)
-                                temp_file_paths.remove(temp_file_path)
-                            raise
-                        
-                        # Validate file using the appropriate format handler
-                        handler = FILE_HANDLER_REGISTRY[file_ext]({})
-                        await run_in_threadpool(handler.validate, temp_file_path)
-                        
                         file_infos.append({
                             "file_path": temp_file_path,
                             "original_filename": uploaded_file.filename,
                         })
-                        
-                        logger.info(f"Saved uploaded file: {uploaded_file.filename} -> {temp_file_path}")
-                        
                 finally:
                     # Close all uploaded files
                     for uploaded_file in uploaded_files:
@@ -549,6 +554,83 @@ class ConnectionService:
                     os.remove(path)
             logger.exception("Unexpected error during partition load")
             raise AppException("An unexpected server error occurred during partition load.")
+
+    async def add_files(
+        self,
+        uploaded_files: List[UploadFile],
+        session_id: str,
+    ) -> Dict[str, Any]:
+        """
+        Add more files to an existing CSV/Parquet connection.
+
+        Each uploaded file becomes a new table in the active FileConnector.
+        The session's tracked temp paths are extended so disconnect cleans them up.
+
+        Args:
+            uploaded_files: Files to append to the current connection
+            session_id: Session identifier for file isolation
+
+        Returns:
+            Dict with added_tables list
+        """
+        async with self.state_manager.lock:
+            connector = self.state_manager.current_connector
+            if not connector:
+                raise InvalidInputError("Not connected to any data source.")
+
+            if not isinstance(connector, FileConnector):
+                raise InvalidInputError("Adding files is only supported for CSV/Parquet connections.")
+
+            if not uploaded_files:
+                raise InvalidInputError("At least one file is required.")
+
+            details = self.state_manager.current_connection_details
+            csv_config = {
+                'delimiter': details.csv_delimiter or ',',
+                'header': details.csv_has_header if details.csv_has_header is not None else True,
+                'decimal_separator': details.csv_decimal_separator or '.',
+                'thousands_separator': details.csv_thousands_separator or '',
+                'date_format': details.csv_date_format or '%Y-%m-%d',
+                'timestamp_format': details.csv_timestamp_format or '%Y-%m-%d %H:%M:%S',
+            }
+
+            session_upload_dir = self._get_session_upload_dir(session_id)
+            temp_file_paths: List[str] = []
+            added_tables: List[str] = []
+
+            try:
+                for uploaded_file in uploaded_files:
+                    temp_file_path = await self._save_and_validate_uploaded_file(
+                        uploaded_file, session_upload_dir
+                    )
+                    temp_file_paths.append(temp_file_path)
+                    table_name = await run_in_threadpool(
+                        connector.add_file, temp_file_path, uploaded_file.filename, csv_config
+                    )
+                    added_tables.append(table_name)
+                    logger.info(f"Added file to session: {uploaded_file.filename} -> table '{table_name}'")
+
+                for uploaded_file in uploaded_files:
+                    await uploaded_file.close()
+
+                self.state_manager.append_temp_paths(temp_file_paths)
+
+                return {
+                    "message": f"Added {len(added_tables)} file(s) to the current connection.",
+                    "added_tables": added_tables,
+                }
+
+            except (InvalidInputError, DataSourceConnectionError) as e:
+                for path in temp_file_paths:
+                    if path and os.path.exists(path):
+                        os.remove(path)
+                raise e
+            except Exception:
+                for path in temp_file_paths:
+                    if path and os.path.exists(path):
+                        os.remove(path)
+                logger.exception("Unexpected error during add_files")
+                raise AppException("An unexpected server error occurred while adding files.")
 
     async def disconnect(self, session_id: str) -> Dict[str, Any]:
         files_to_delete = self.state_manager.current_temp_paths or []

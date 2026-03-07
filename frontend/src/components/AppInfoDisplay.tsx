@@ -80,7 +80,7 @@ const AppInfoDisplay: React.FC = () => {
                 App Description
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Data Slicer started in summer 2025 as a not-so-serious vibe-coding fun project and is 
+                Data Slicer started in summer 2025 as a not-so-serious vibe-coded fun project and is 
                 implemented with 99.9% AI generated code.
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>

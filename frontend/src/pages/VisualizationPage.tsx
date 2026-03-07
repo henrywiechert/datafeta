@@ -66,6 +66,12 @@ const VisualizationPageContent = () => {
         return refreshMetadataRef.current();
     }, []);
 
+    // Add more files to the existing CSV/Parquet connection, then refresh table list.
+    const handleAddFiles = React.useCallback(async (files: File[]) => {
+        await apiService.addFiles(files);
+        await refreshMetadataRef.current();
+    }, []);
+
     // Access the enhanced context with loading states and cancellation
     const { state, dispatch, cancelOperation, getUndoableSnapshot } = useVisualizationContext();
     const { recordAction, undo, completeUndo, redo, completeRedo, clearHistory } = useUndoRedo();
@@ -463,6 +469,7 @@ const VisualizationPageContent = () => {
                                     loadedPartitions={loadedPartitions}
                                     isLoadingPartition={isLoadingPartition}
                                     onLoadPartition={handleLoadPartition}
+                                    onAddFiles={handleAddFiles}
                                     virtualColumns={virtualColumns}
                                     onAddVirtualColumn={handleAddVirtualColumn}
                                     onUpdateVirtualColumn={handleUpdateVirtualColumn}
