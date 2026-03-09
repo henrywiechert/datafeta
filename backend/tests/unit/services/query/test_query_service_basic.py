@@ -80,22 +80,38 @@ def test_metadata_structure_present_without_optimizer(query_service: QueryServic
 
 
 def test_measure_query_groups_by_dimension(query_service: QueryService) -> None:
-    """Aggregated queries should include SUM expressions and corresponding GROUP BY clauses."""
+    """Aggregated queries should include SUM expressions and corresponding GROUP BY clauses.
+
+    For ClickHouse, SUM is rendered as sumIf(field, isFinite(field)) to avoid NaN/Inf
+    propagation. For other databases, a standard SUM() is used.
+    """
     description = _make_base_description(
         dimensions=[Dimension(field="category", flavour="discrete")],
         measures=[Measure(field="revenue", aggregation="sum", alias="total_revenue")],
     )
 
-    sql, _ = query_service.translate_to_sql(
+    sql_ch, _ = query_service.translate_to_sql(
         query_desc=description,
         table_name="sales",
         db_type="clickhouse",
         with_optimization=False,
     )
 
-    assert "SUM(" in sql
-    assert "GROUP BY" in sql
-    assert "`category`" in sql
+    # ClickHouse uses NaN-safe sumIf instead of plain SUM
+    assert "sumIf(" in sql_ch
+    assert "isFinite(" in sql_ch
+    assert "GROUP BY" in sql_ch
+    assert "`category`" in sql_ch
+
+    sql_duck, _ = query_service.translate_to_sql(
+        query_desc=description,
+        table_name="sales",
+        db_type="duckdb",
+        with_optimization=False,
+    )
+
+    assert "SUM(" in sql_duck
+    assert "GROUP BY" in sql_duck
 
 
 def test_filters_render_in_where_clause(query_service: QueryService) -> None:
