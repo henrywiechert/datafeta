@@ -33,7 +33,7 @@ export interface TooltipField {
 }
 
 /** Action type for tooltip-initiated filtering */
-export type TooltipFilterAction = 'keep' | 'exclude';
+export type TooltipFilterAction = 'keep' | 'exclude' | 'filter-visible';
 
 /**
  * Configuration for custom tooltip behaviour on a chart.

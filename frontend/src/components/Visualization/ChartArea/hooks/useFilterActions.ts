@@ -84,9 +84,11 @@ export function useFilterActions({
 
   // ── Tooltip → Filter bridge ──────────────────────────────────────────
   const handleTooltipFilterAction = useCallback(
-    (action: 'keep' | 'exclude', field: import('../../../../types').TooltipField) => {
+    (action: 'keep' | 'exclude' | 'filter-visible', field: import('../../../../types').TooltipField) => {
       const sourceField = field.sourceField;
-      if (!sourceField || field.rawValue == null) return;
+      if (!sourceField) return;
+      // 'keep' and 'exclude' require a concrete rawValue; 'filter-visible' does not
+      if (action !== 'filter-visible' && field.rawValue == null) return;
 
       recordAction(getUndoableSnapshot());
 
@@ -109,7 +111,14 @@ export function useFilterActions({
 
       let keepValues: any[];
 
-      if (action === 'keep') {
+      if (action === 'filter-visible') {
+        const resultColName = getResultColumnName(sourceField);
+        keepValues = queryResult?.rows
+          ? Array.from(
+              new Set(queryResult.rows.map((row: any) => normalise(row[resultColName]))),
+            )
+          : [];
+      } else if (action === 'keep') {
         keepValues = [normalise(field.rawValue)];
       } else {
         const resultColName = getResultColumnName(sourceField);
