@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Tooltip, Typography } from '@mui/material';
 import { Field, QueryResult } from '../../../types';
 import { getFieldDisplayName } from '../../../utils/fieldUtils';
@@ -30,6 +30,16 @@ interface LegendPanelProps {
     values: any[],
     allDomainValues: any[],
   ) => void;
+  /**
+   * Fired whenever the set of selected (highlighted) legend colours changes.
+   * Receives an array of hex colour strings, or `null` when nothing is selected.
+   */
+  onHighlightChange?: (colors: string[] | null) => void;
+  /**
+   * Imperative handle the parent can use to clear the legend selection from
+   * outside (e.g. on Escape key).  Assign `.current` once on mount.
+   */
+  clearSelectionRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 const LegendPanel: React.FC<LegendPanelProps> = ({
@@ -38,6 +48,8 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
   colorScheme = DEFAULT_CATEGORICAL_SCHEME,
   colorBias = 0,
   onFilterAction,
+  onHighlightChange,
+  clearSelectionRef,
 }) => {
   // ── Colour scale derivation ──────────────────────────────────────────
   const colorScale = useMemo(() => {
@@ -89,8 +101,10 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
     return { gradient, minLabel, maxLabel };
   }, [colorField, colorScale]);
 
-  // ── Selection state (only active when onFilterAction is provided) ────
-  const isInteractive = Boolean(onFilterAction && discreteItems.length > 0);
+  // ── Selection state ─────────────────────────────────────────────────
+  const isInteractive = Boolean(
+    (onFilterAction || onHighlightChange) && discreteItems.length > 0,
+  );
 
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
@@ -109,7 +123,10 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
         }
         return next;
       }
-      // Plain click — select only this one
+      // Plain click — toggle off if already the sole selection
+      if (prev.size === 1 && prev.has(index)) {
+        return new Set<number>();
+      }
       return new Set([index]);
     });
     // Close any open menu on plain click
@@ -155,6 +172,30 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
     setMenuPosition(null);
     setSelectedIndices(new Set());
   }, [onFilterAction, selectedValues, domainValues]);
+
+  // ── Highlight change notification ─────────────────────────────────────
+  useEffect(() => {
+    if (!onHighlightChange) return;
+    if (selectedIndices.size === 0) {
+      onHighlightChange(null);
+    } else {
+      const colors = Array.from(selectedIndices)
+        .sort((a, b) => a - b)
+        .map((i) => discreteItems[i]?.color)
+        .filter(Boolean);
+      onHighlightChange(colors.length > 0 ? colors : null);
+    }
+  }, [selectedIndices, discreteItems, onHighlightChange]);
+
+  // ── Imperative clear handle for parent ────────────────────────────────
+  useEffect(() => {
+    if (!clearSelectionRef) return;
+    clearSelectionRef.current = () => {
+      setSelectedIndices(new Set());
+      setMenuPosition(null);
+    };
+    return () => { clearSelectionRef.current = null; };
+  }, [clearSelectionRef]);
 
   // ── Render ───────────────────────────────────────────────────────────
   if (!colorField || (!discreteItems.length && !continuousLegend)) {

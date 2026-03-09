@@ -13,4 +13,5 @@ export * from './useAdditionalFields';
 export * from './useGanttZoom';
 export * from './useFilterActions';
 export * from './useChartActions';
-export * from './useRenderingTracking'; 
+export * from './useRenderingTracking';
+export * from './useSeriesHighlight'; 
