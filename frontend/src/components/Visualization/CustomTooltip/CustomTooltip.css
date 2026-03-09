@@ -229,3 +229,7 @@ line.chart-mark--highlighted {
   color: #ef5350; /* Red tint for "exclude" */
 }
 
+.custom-tooltip__action-btn--filter-visible:hover {
+  color: #42a5f5; /* Blue tint for "filter visible" */
+}
+

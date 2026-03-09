@@ -30,6 +30,16 @@ const ExcludeIcon: React.FC = () => (
   </svg>
 );
 
+/** Inline SVG icon for "filter visible" (funnel with list) – 14×14 */
+const FilterVisibleIcon: React.FC = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z" />
+    <rect x="17" y="14" width="5" height="1.5" rx="0.5" />
+    <rect x="17" y="17" width="5" height="1.5" rx="0.5" />
+    <rect x="17" y="20" width="5" height="1.5" rx="0.5" />
+  </svg>
+);
+
 /** Inline SVG close icon – 16×16 */
 const CloseIconSvg: React.FC = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -170,6 +180,13 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
                 onClick={() => onFilterAction!('exclude', field)}
               >
                 <ExcludeIcon />
+              </button>
+              <button
+                className="custom-tooltip__action-btn custom-tooltip__action-btn--filter-visible"
+                title="Filter to all visible values"
+                onClick={() => onFilterAction!('filter-visible', field)}
+              >
+                <FilterVisibleIcon />
               </button>
             </span>
           )}
