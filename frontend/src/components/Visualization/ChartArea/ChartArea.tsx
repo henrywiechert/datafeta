@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useMemo } from 'react';
+import React, { useRef, useCallback, useMemo, useState, useEffect } from 'react';
 import styles from './ChartArea.module.css';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { useDataSource } from '../../../contexts/DataSourceContext';
@@ -18,6 +18,7 @@ import { useGanttZoom } from './hooks/useGanttZoom';
 import { useFilterActions } from './hooks/useFilterActions';
 import { useChartActions } from './hooks/useChartActions';
 import { useRenderingTracking } from './hooks/useRenderingTracking';
+import { useSeriesHighlight } from './hooks/useSeriesHighlight';
 import { ChartRenderer, ChartControls, DebugPanel } from './components';
 import LegendPanel from '../Legend/LegendPanel';
 import BackgroundLegendPanel from '../Legend/BackgroundLegendPanel';
@@ -201,6 +202,22 @@ const ChartArea: React.FC = () => {
   const { isDebugOpen, debugHeight, maxDebugHeight, toggleDebugView, handleDebugResize } = useDebugView();
   const { isFullscreen, toggleFullscreen, isSupported: isFullscreenSupported } = useFullscreen(fullscreenWrapperRef);
 
+  // -- Series highlight (legend click → dim non-matching marks) ----------------
+  const [highlightedSeriesColors, setHighlightedSeriesColors] = useState<string[] | null>(null);
+  const clearLegendSelectionRef = useRef<(() => void) | null>(null);
+
+  const clearSeriesHighlight = useCallback(() => {
+    setHighlightedSeriesColors(null);
+    clearLegendSelectionRef.current?.();
+  }, []);
+
+  // Reset highlight when the color field changes to avoid stale state
+  useEffect(() => {
+    clearSeriesHighlight();
+  }, [colorField, clearSeriesHighlight]);
+
+  useSeriesHighlight(fullscreenWrapperRef, highlightedSeriesColors, clearSeriesHighlight);
+
   // -- Sheet cache -------------------------------------------------------------
   const cacheConfig = useMemo(
     () => ({
@@ -332,6 +349,10 @@ const ChartArea: React.FC = () => {
                 onFilterAction={
                   colorField?.flavour === 'discrete' ? handleLegendFilterAction : undefined
                 }
+                onHighlightChange={
+                  colorField?.flavour === 'discrete' ? setHighlightedSeriesColors : undefined
+                }
+                clearSelectionRef={clearLegendSelectionRef}
               />
             )}
             {showBackgroundLegend && (
