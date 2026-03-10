@@ -30,6 +30,28 @@ CLICKHOUSE_TYPE_MAPPING = {
 }
 
 
+def extract_base_clickhouse_type(ch_type: str) -> str:
+    """
+    Strip Nullable(...) and LowCardinality(...) wrappers from a ClickHouse type
+    to get the base type suitable for CAST(NULL AS Nullable(<base>)).
+
+    Examples:
+        'Float64' → 'Float64'
+        'Nullable(Float64)' → 'Float64'
+        'LowCardinality(String)' → 'String'
+        'LowCardinality(Nullable(String))' → 'String'
+    """
+    result = ch_type.strip()
+    changed = True
+    while changed:
+        changed = False
+        for prefix in ('Nullable(', 'LowCardinality('):
+            if result.startswith(prefix) and result.endswith(')'):
+                result = result[len(prefix):-1].strip()
+                changed = True
+    return result
+
+
 def map_output_type_to_clickhouse(output_type: str) -> str:
     """
     Map virtual column output types to ClickHouse Nullable types.
@@ -50,6 +72,7 @@ def build_null_column(
     db_type: str, 
     quote_char: str,
     output_type: Optional[str] = None,
+    column_type: Optional[str] = None,
 ) -> str:
     """
     Build NULL column expression with appropriate casting.
@@ -60,6 +83,8 @@ def build_null_column(
         db_type: Database type (e.g., 'clickhouse')
         quote_char: Quote character for identifiers
         output_type: Optional type hint for casting (e.g., from virtual column definition)
+        column_type: Optional actual DB column type (e.g., 'Float64', 'Nullable(Int32)').
+                     Used to match the real column type in UNION ALL schema alignment.
         
     Returns:
         SQL expression for NULL column with proper casting
@@ -71,9 +96,10 @@ def build_null_column(
             return f"CAST(NULL AS Nullable({ch_type})) AS {quote_char}{field_key}{quote_char}"
         elif is_measure:
             return f"CAST(NULL AS Nullable(Float64)) AS {quote_char}{field_key}{quote_char}"
+        elif column_type:
+            base_type = extract_base_clickhouse_type(column_type)
+            return f"CAST(NULL AS Nullable({base_type})) AS {quote_char}{field_key}{quote_char}"
         else:
-            # Default for non-measure columns without type hint: use String for safety
-            # String is the most flexible type for dimensions
             return f"CAST(NULL AS Nullable(String)) AS {quote_char}{field_key}{quote_char}"
     return f"NULL AS {quote_char}{field_key}{quote_char}"
 
@@ -86,6 +112,7 @@ def build_null_only_query(
     db_type: str,
     quote_char: str,
     virtual_columns: Optional[List] = None,
+    column_types: Optional[Dict[str, str]] = None,
     logger: Optional[logging.Logger] = None,
 ) -> str:
     """
@@ -99,12 +126,14 @@ def build_null_only_query(
         db_type: Database type (e.g., 'clickhouse')
         quote_char: Quote character to use
         virtual_columns: Optional list of VirtualColumnDefinition objects for type hints
+        column_types: Optional mapping of column name → DB data type from other tables
         logger: Optional logger instance
         
     Returns:
         SQL query string with NULL values
     """
     logger = logger or logging.getLogger(__name__)
+    column_types = column_types or {}
     
     if database:
         table_reference = f"{quote_char}{database}{quote_char}.{quote_char}{table_name}{quote_char}"
@@ -119,10 +148,12 @@ def build_null_only_query(
     
     select_items = []
     
-    # Add NULL for all dimensions (in order) - use virtual column type hints when available
+    # Add NULL for all dimensions (in order) - use virtual column type hints when available,
+    # then fall back to actual column types from other tables in the UNION
     for field_key in missing_dimension_keys:
         output_type = vc_type_map.get(field_key)
-        select_items.append(build_null_column(field_key, False, db_type, quote_char, output_type))
+        col_type = column_types.get(field_key)
+        select_items.append(build_null_column(field_key, False, db_type, quote_char, output_type, column_type=col_type))
     
     # Add NULL for all measures (in order)
     for field_key, measure in missing_measure_keys:
@@ -197,6 +228,7 @@ def rebuild_select_with_nulls(
     virtual_columns: Optional[List] = None,
     vc_source_map: Optional[Dict[str, List[str]]] = None,
     can_compute_virtual_column_fn: Optional[callable] = None,
+    column_types: Optional[Dict[str, str]] = None,
     logger: Optional[logging.Logger] = None,
 ) -> str:
     """
@@ -213,12 +245,14 @@ def rebuild_select_with_nulls(
         virtual_columns: Optional list of VirtualColumnDefinition objects for type hints
         vc_source_map: Map of virtual column name -> source field names
         can_compute_virtual_column_fn: Function to check if virtual column can be computed
+        column_types: Optional mapping of column name → DB data type from other tables
         logger: Optional logger instance
         
     Returns:
         Rebuilt SQL with all fields in correct order
     """
     logger = logger or logging.getLogger(__name__)
+    column_types = column_types or {}
     
     # Build a lookup map for virtual column output types
     vc_type_map: Dict[str, Optional[str]] = {}
@@ -292,9 +326,11 @@ def rebuild_select_with_nulls(
             
             select_items.append(f"{expr} AS {quote_char}{field_key}{quote_char}")
         else:
-            # Field missing - NULL (use virtual column output_type if available)
+            # Field missing - NULL (use virtual column output_type if available,
+            # then fall back to actual column types from other tables in the UNION)
             output_type = vc_type_map.get(dim.field)
-            select_items.append(build_null_column(field_key, False, db_type, quote_char, output_type))
+            col_type = column_types.get(field_key)
+            select_items.append(build_null_column(field_key, False, db_type, quote_char, output_type, column_type=col_type))
     for field_key, measure in all_measure_fields:
         # COUNT(*) is valid for any table; it does not require a physical column named "*".
         is_star_count = measure.aggregation == "count" and measure.field == "*"

@@ -37,29 +37,29 @@ class UnionQueryBuilder:
         self._connector = connector
         self._logger = logger or logging.getLogger(__name__)
 
-    def _get_table_columns(self, database: str, table_name: str) -> Set[str]:
+    def _get_table_columns(self, database: str, table_name: str) -> Dict[str, str]:
         """
-        Get the set of column names for a specific table.
+        Get a mapping of column names to their data types for a specific table.
         
         Args:
             database: Database name
             table_name: Table name
             
         Returns:
-            Set of column names that exist in the table
+            Dict mapping column name → data type.  Empty dict means
+            "no column info available" (assume all columns exist).
         """
         if not self._connector:
-            # If no connector available, assume all columns exist (backward compatibility)
-            return set()
+            return {}
         
         try:
             columns = self._connector.list_columns(database, table_name)
-            column_names = {col.name for col in columns}
-            self._logger.debug(f"Table {database}.{table_name} has {len(column_names)} columns")
-            return column_names
+            column_map = {col.name: col.data_type for col in columns}
+            self._logger.debug(f"Table {database}.{table_name} has {len(column_map)} columns")
+            return column_map
         except Exception as e:
             self._logger.warning(f"Could not fetch columns for {database}.{table_name}: {e}. Assuming all fields exist.")
-            return set()  # Empty set means "don't filter" (assume all exist)
+            return {}
 
     def _parse_table_references(
         self, 
@@ -225,11 +225,19 @@ class UnionQueryBuilder:
         self._logger.info("Building UNION ALL query for tables: %s", 
                          [f"{db}.{tbl}" if db else tbl for db, tbl in table_refs])
 
-        # Fetch column information for all tables
-        table_columns_map = {
+        # Fetch column information for all tables (name → data_type)
+        table_columns_map: Dict[Tuple[str, str], Dict[str, str]] = {
             (db, table): self._get_table_columns(db, table) 
             for db, table in table_refs
         }
+        
+        # Build a merged column type map across all tables so that NULL placeholders
+        # for missing columns use the correct type from sibling tables.
+        merged_column_types: Dict[str, str] = {}
+        for col_map in table_columns_map.values():
+            for col_name, col_type in col_map.items():
+                if col_name not in merged_column_types:
+                    merged_column_types[col_name] = col_type
         
         # Build map of virtual column source fields for determining availability per-table
         vc_source_map = get_virtual_column_source_fields(query_desc.virtual_columns, self._logger)
@@ -239,7 +247,7 @@ class UnionQueryBuilder:
 
         union_queries: List[str] = []
         for database, table_name in table_refs:
-            table_columns = table_columns_map.get((database, table_name), set())
+            table_columns = table_columns_map.get((database, table_name), {})
             
             # Check for source tracking dimensions
             has_source_db_dim = any(d.field == "_source_database" for d in query_desc.dimensions)
@@ -339,6 +347,7 @@ class UnionQueryBuilder:
                             db_type,
                             quote_char,
                             virtual_columns=query_desc.virtual_columns,
+                            column_types=merged_column_types,
                             logger=self._logger,
                         )
                     # For measure-only queries, return a single "empty-set" row.
@@ -379,6 +388,7 @@ class UnionQueryBuilder:
                         virtual_columns=query_desc.virtual_columns,
                         vc_source_map=vc_source_map,
                         can_compute_virtual_column_fn=can_compute_virtual_column,
+                        column_types=merged_column_types,
                         logger=self._logger,
                     )
 
@@ -410,6 +420,7 @@ class UnionQueryBuilder:
                 single_sql = build_null_only_query(
                     database, table_name, missing_dimension_keys, missing_measure_keys, db_type, quote_char,
                     virtual_columns=query_desc.virtual_columns,
+                    column_types=merged_column_types,
                     logger=self._logger,
                 )
             else:
@@ -430,6 +441,7 @@ class UnionQueryBuilder:
                     virtual_columns=query_desc.virtual_columns,
                     vc_source_map=vc_source_map,
                     can_compute_virtual_column_fn=can_compute_virtual_column,
+                    column_types=merged_column_types,
                     logger=self._logger,
                 )
 
