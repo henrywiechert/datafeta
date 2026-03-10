@@ -10,6 +10,7 @@ import { useContainerDimensions } from './hooks/useContainerDimensions';
 import { useScrollSync } from './hooks/useScrollSync';
 import { useChartGridLayout } from './hooks/useChartGridLayout';
 import { MultiPlotGrid } from './MultiPlotGrid';
+import { PlotBrushEvent } from './PlotArea';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 
 /** Gantt zoom range representing the visible data range on the timeline axis */
@@ -30,6 +31,8 @@ interface ChartGridProps {
   onGanttZoomRangeChange?: (range: GanttZoomRange | null) => void;
   /** Full data range for Gantt chart (needed for zoom calculations) */
   ganttFullDataRange?: GanttZoomRange | null;
+  brushDisabled?: boolean;
+  onBrushEnd?: (event: PlotBrushEvent) => void;
 }
 
 /**
@@ -58,6 +61,8 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   ganttZoomRange = null,
   onGanttZoomRangeChange,
   ganttFullDataRange = null,
+  brushDisabled,
+  onBrushEnd,
 }) => {
   // Refs for DOM elements
   const containerRef = useRef<HTMLDivElement>(null);
@@ -157,6 +162,8 @@ const ChartGrid: React.FC<ChartGridProps> = ({
         }}
         onPlotRenderComplete={onPlotRenderComplete}
         isTransitioning={isTransitioning}
+        brushDisabled={brushDisabled}
+        onBrushEnd={onBrushEnd}
       />
     );
   }
@@ -179,6 +186,7 @@ export default React.memo(ChartGrid, (prevProps, nextProps) => {
     prevProps.data === nextProps.data &&
     prevProps.isGanttChart === nextProps.isGanttChart &&
     prevProps.ganttZoomRange === nextProps.ganttZoomRange &&
-    prevProps.ganttFullDataRange === nextProps.ganttFullDataRange
+    prevProps.ganttFullDataRange === nextProps.ganttFullDataRange &&
+    prevProps.brushDisabled === nextProps.brushDisabled
   );
 });

@@ -11,6 +11,7 @@ import LinkIcon from '@mui/icons-material/Link';
 import LinkOffIcon from '@mui/icons-material/LinkOff';
 import SettingsIcon from '@mui/icons-material/Settings';
 import HeightIcon from '@mui/icons-material/Height';
+import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import QueryStatusIndicator from './QueryStatusIndicator';
 import DatasetStatus from './DatasetStatus';
 import { QueryOptimizationSettings } from '../../../../types';
@@ -41,6 +42,8 @@ interface ChartControlsProps {
   onForceRefresh?: () => void;
   bandThicknessScale: number;
   onBandThicknessScaleChange: (scale: number) => void;
+  onZoomOut?: () => void;
+  hasActiveZoomFilters?: boolean;
 }
 
 const ChartControls: React.FC<ChartControlsProps> = ({
@@ -64,6 +67,8 @@ const ChartControls: React.FC<ChartControlsProps> = ({
   onForceRefresh,
   bandThicknessScale,
   onBandThicknessScaleChange,
+  onZoomOut,
+  hasActiveZoomFilters = false,
 }) => {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
@@ -219,6 +224,26 @@ const ChartControls: React.FC<ChartControlsProps> = ({
                 }}
               >
                 <RedoIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
+
+        {onZoomOut && (
+          <Tooltip title="Zoom out (2x)">
+            <span>
+              <IconButton
+                onClick={onZoomOut}
+                size="small"
+                disabled={!hasActiveZoomFilters}
+                sx={{
+                  color: hasActiveZoomFilters ? 'primary.main' : 'action.disabled',
+                  '&:hover': {
+                    backgroundColor: hasActiveZoomFilters ? 'action.hover' : 'transparent',
+                  },
+                }}
+              >
+                <ZoomOutIcon fontSize="small" />
               </IconButton>
             </span>
           </Tooltip>

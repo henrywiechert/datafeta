@@ -19,6 +19,8 @@ interface BaseFilterConfig {
   dateTimeMode?: DateTimeMode;
   // Scope of the filter - 'sheet' (default) or 'session' (global, ephemeral)
   scope?: FilterScope;
+  // Whether this filter was created by the chart zoom brush
+  isZoomFilter?: boolean;
 }
 
 // Discrete filter: user selects from available values

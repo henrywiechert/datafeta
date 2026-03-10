@@ -1,11 +1,20 @@
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
 import * as Plot from '@observablehq/plot';
 import { Tooltip } from '@mui/material';
 import DoNotDisturbAltIcon from '@mui/icons-material/DoNotDisturbAlt';
 import { PlotResult, FacetBackgroundInfo } from '../../../observable-plot-generator/types';
+import { Field } from '../../../types';
 import ObservablePlot from '../ObservablePlot';
+import BrushOverlay, { BrushResult } from './BrushOverlay';
 import styles from './ChartGrid.module.css';
 import { GRID_DIVIDER_COLOR } from '../../../config/chartLayoutConfig';
+
+export interface PlotBrushEvent {
+  brush: BrushResult;
+  plotElement: SVGSVGElement | HTMLElement;
+  xField?: Field;
+  yField?: Field;
+}
 
 interface PlotAreaProps {
   spec: PlotResult;
@@ -14,6 +23,8 @@ interface PlotAreaProps {
   plotRowsSpec: string;
   totalContentWidthPx: number;
   onPlotRenderComplete?: (plotId: string) => void;
+  brushDisabled?: boolean;
+  onBrushEnd?: (event: PlotBrushEvent) => void;
 }
 
 /**
@@ -60,9 +71,16 @@ const PlotArea: React.FC<PlotAreaProps> = ({
   plotRowsSpec,
   totalContentWidthPx,
   onPlotRenderComplete,
+  brushDisabled,
+  onBrushEnd,
 }) => {
-  // Debug logging disabled for performance with large faceted grids
-  
+  // Store rendered plot elements per cell so the brush can access scales
+  const plotElementsRef = useRef<Record<string, SVGSVGElement | HTMLElement>>({});
+
+  const handlePlotReady = useCallback((plotId: string, element: SVGSVGElement | HTMLElement) => {
+    plotElementsRef.current[plotId] = element;
+  }, []);
+
   return (
     <div style={{ gridColumn: 1, gridRow: spec.facetLabels ? 2 : 1, overflow: 'hidden', position: 'relative' }}>
       <div
@@ -80,32 +98,32 @@ const PlotArea: React.FC<PlotAreaProps> = ({
           willChange: 'transform',
         }}
       >
-        {(spec.plots || []).map((plot: { id: string, position?: { row: number, col: number }, options: Plot.PlotOptions, facetBackground?: FacetBackgroundInfo }, index: number) => {
-          // Use plot.id as base key
+        {(spec.plots || []).map((plot: { id: string, position?: { row: number, col: number }, options: Plot.PlotOptions, facetBackground?: FacetBackgroundInfo, xField?: Field, yField?: Field }, index: number) => {
           const key = plot.id || String(index);
           const pos = plot.position;
           const facetBg = plot.facetBackground;
           
-          // Build grid item style with optional background color
           const gridItemStyle: React.CSSProperties | undefined = pos
             ? {
                 gridColumn: pos.col + 1,
                 gridRow: pos.row + 1,
                 borderRight: `1px solid ${GRID_DIVIDER_COLOR}`,
                 borderBottom: `1px solid ${GRID_DIVIDER_COLOR}`,
-                // Apply facet background if uniform (not mixed)
                 ...(facetBg?.backgroundColor && !facetBg.isMixed ? {
                   backgroundColor: facetBg.backgroundColor,
                 } : {}),
               }
             : undefined;
           const opts = suppressAxes(plot.options, true, true);
+
+          const handleCellBrushEnd = (brush: BrushResult) => {
+            const el = plotElementsRef.current[plot.id];
+            if (!el || !onBrushEnd) return;
+            onBrushEnd({ brush, plotElement: el, xField: plot.xField, yField: plot.yField });
+          };
           
-          // CRITICAL: Pass key directly to ObservablePlot to force re-mount on data changes
-          // The key prop isn't officially on ObservablePlot but React uses it for reconciliation
           return (
             <div key={key} className={styles.plotWrapper} style={gridItemStyle}>
-              {/* Show mixed indicator if facet has mixed values */}
               {facetBg?.isMixed && (
                 <Tooltip title="Mixed values in background field" placement="top" arrow>
                   <DoNotDisturbAltIcon
@@ -121,14 +139,17 @@ const PlotArea: React.FC<PlotAreaProps> = ({
                   />
                 </Tooltip>
               )}
-              <div className={styles.observablePlotContainer}>
-                <ObservablePlot 
-                  key={key} 
-                  options={opts} 
-                  plotId={plot.id}
-                  onRenderComplete={onPlotRenderComplete}
-                />
-              </div>
+              <BrushOverlay disabled={brushDisabled} onBrushEnd={handleCellBrushEnd}>
+                <div className={styles.observablePlotContainer}>
+                  <ObservablePlot 
+                    key={key} 
+                    options={opts} 
+                    plotId={plot.id}
+                    onRenderComplete={onPlotRenderComplete}
+                    onPlotReady={(el) => handlePlotReady(plot.id, el)}
+                  />
+                </div>
+              </BrushOverlay>
             </div>
           );
         })}

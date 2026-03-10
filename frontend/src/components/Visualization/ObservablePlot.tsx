@@ -12,9 +12,10 @@ interface ObservablePlotProps {
   };
   plotId?: string; // Unique ID for tracking rendering
   onRenderComplete?: (plotId: string) => void; // Callback when rendering is done
+  onPlotReady?: (plot: SVGSVGElement | HTMLElement) => void;
 }
 
-const ObservablePlot: React.FC<ObservablePlotProps> = ({ options, plotId, onRenderComplete }) => {
+const ObservablePlot: React.FC<ObservablePlotProps> = ({ options, plotId, onRenderComplete, onPlotReady }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [portalTarget, setPortalTarget] = useState<HTMLElement>(document.body);
@@ -108,7 +109,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options, plotId, onRend
         // This is a single synchronous operation that's faster for the browser to process
         containerRef.current.replaceChildren(plot);
 
-        // Success - no log needed to reduce console spam
+        onPlotReady?.(plot);
 
         // Add custom tooltip event listeners if configured
         const customTooltipConfig = options.__customTooltip;
@@ -151,7 +152,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options, plotId, onRend
       cleanupFunctionsRef.current.forEach(cleanup => cleanup());
       cleanupFunctionsRef.current = [];
     };
-  }, [options, dimensions, showTooltip, hideTooltip, updatePosition, pinTooltip, unpinTooltip, pinnedRef, onRenderComplete, plotId]);
+  }, [options, dimensions, showTooltip, hideTooltip, updatePosition, pinTooltip, unpinTooltip, pinnedRef, onRenderComplete, plotId, onPlotReady]);
 
   return (
     <>

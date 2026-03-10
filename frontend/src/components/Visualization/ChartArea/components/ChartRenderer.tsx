@@ -1,6 +1,7 @@
 import React, { useRef, useMemo } from 'react';
 import { Box } from '@mui/material';
 import ChartGrid, { GanttZoomRange } from '../../ChartGrid/ChartGrid';
+import { PlotBrushEvent } from '../../ChartGrid/PlotArea';
 import TableViewLazy from '../../Table/TableViewLazy';
 import BarSortControl from './BarSortControl';
 import { PlotResult } from '../../../../observable-plot-generator/types';
@@ -24,6 +25,8 @@ interface ChartRendererProps {
   onGanttZoomRangeChange?: (range: GanttZoomRange | null) => void;
   /** Full data range for Gantt chart (for zoom calculations) */
   ganttFullDataRange?: GanttZoomRange | null;
+  brushDisabled?: boolean;
+  onBrushEnd?: (event: PlotBrushEvent) => void;
 }
 
 const ChartRenderer: React.FC<ChartRendererProps> = ({
@@ -38,6 +41,8 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
   ganttZoomRange,
   onGanttZoomRangeChange,
   ganttFullDataRange,
+  brushDisabled,
+  onBrushEnd,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   // NOTE: We intentionally do NOT dispatch global window resize events here.
@@ -65,9 +70,11 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
         ganttZoomRange={ganttZoomRange}
         onGanttZoomRangeChange={onGanttZoomRangeChange}
         ganttFullDataRange={ganttFullDataRange}
+        brushDisabled={brushDisabled}
+        onBrushEnd={onBrushEnd}
       />
     );
-  }, [useTableView, tableData, spec, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete, isGanttChart, ganttZoomRange, onGanttZoomRangeChange, ganttFullDataRange]);
+  }, [useTableView, tableData, spec, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete, isGanttChart, ganttZoomRange, onGanttZoomRangeChange, ganttFullDataRange, brushDisabled, onBrushEnd]);
 
   return (
     <Box 
@@ -106,6 +113,7 @@ export default React.memo(ChartRenderer, (prevProps, nextProps) => {
     prevProps.onPlotRenderComplete === nextProps.onPlotRenderComplete &&
     prevProps.isGanttChart === nextProps.isGanttChart &&
     prevProps.ganttZoomRange === nextProps.ganttZoomRange &&
-    prevProps.ganttFullDataRange === nextProps.ganttFullDataRange
+    prevProps.ganttFullDataRange === nextProps.ganttFullDataRange &&
+    prevProps.brushDisabled === nextProps.brushDisabled
   );
 }); 

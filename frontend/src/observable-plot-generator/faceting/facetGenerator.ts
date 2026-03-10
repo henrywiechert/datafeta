@@ -246,6 +246,8 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
         title: p.title,
         options: p.options,
         position: p.position,
+        xField: p.xField,
+        yField: p.yField,
       })),
       columns: xCandidates.length || 1,
       rows: yCandidates.length || 1,

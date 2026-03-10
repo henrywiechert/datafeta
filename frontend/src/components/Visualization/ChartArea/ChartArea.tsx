@@ -17,6 +17,7 @@ import { useAdditionalFields } from './hooks/useAdditionalFields';
 import { useGanttZoom } from './hooks/useGanttZoom';
 import { useFilterActions } from './hooks/useFilterActions';
 import { useChartActions } from './hooks/useChartActions';
+import { useBrushZoom } from './hooks/useBrushZoom';
 import { useRenderingTracking } from './hooks/useRenderingTracking';
 import { useSeriesHighlight } from './hooks/useSeriesHighlight';
 import { ChartRenderer, ChartControls, DebugPanel } from './components';
@@ -191,6 +192,16 @@ const ChartArea: React.FC = () => {
     selectedDatabase,
   });
 
+  const { brushDisabled, handleBrushEnd, handleZoomOut, hasActiveZoomFilters } = useBrushZoom({
+    dispatch,
+    filterFields: state.filterFields,
+    appliedFilterConfigurations,
+    filterMetadata: state.filterMetadata,
+    recordAction,
+    getUndoableSnapshot,
+    independentDomains,
+  });
+
   const { handlePlotRenderComplete } = useRenderingTracking({
     spec,
     useTableView,
@@ -298,6 +309,8 @@ const ChartArea: React.FC = () => {
             ganttZoomRange={ganttZoomRange}
             onGanttZoomRangeChange={handleGanttZoomRangeChange}
             ganttFullDataRange={ganttFullDataRange}
+            brushDisabled={brushDisabled}
+            onBrushEnd={handleBrushEnd}
           />
 
           <ChartControls
@@ -327,6 +340,8 @@ const ChartArea: React.FC = () => {
               recordAction(getUndoableSnapshot());
               dispatch({ type: 'SET_BAND_THICKNESS_SCALE', payload: scale });
             }}
+            onZoomOut={handleZoomOut}
+            hasActiveZoomFilters={hasActiveZoomFilters}
           />
 
           <DebugPanel
