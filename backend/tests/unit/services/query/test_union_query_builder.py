@@ -1,5 +1,8 @@
-from backend.models.data_source import VirtualTableDefinition, UnionTableDefinition
-from backend.models.query import Dimension, QueryDescription
+from unittest.mock import MagicMock
+
+from backend.models.data_source import VirtualColumnDefinition, VirtualTableDefinition, UnionTableDefinition
+from backend.models.query import Dimension, Filter, Measure, QueryDescription
+from backend.connectors.base import Column
 from backend.services.query_service import QueryService
 
 
@@ -154,3 +157,50 @@ def test_union_query_with_qualified_table_names():
     assert "'sales_2024'" in query_sql  # _source_table for union table
     assert "'analytics'" in query_sql  # _source_database for primary table
     assert "'sales_2023'" in query_sql  # _source_table for primary table
+
+
+def test_virtual_column_filter_does_not_cause_where_1_eq_0():
+    """A filter on a computable virtual column must not skip the table with WHERE 1=0."""
+    mock_connector = MagicMock()
+
+    def list_columns_side_effect(database, table):
+        return [
+            Column(name="slot", data_type="Int32"),
+            Column(name="sfn", data_type="Int32"),
+            Column(name="hfnTickCount", data_type="Int64"),
+            Column(name="value", data_type="Float64"),
+        ]
+
+    mock_connector.list_columns.side_effect = list_columns_side_effect
+    mock_connector.estimate_table_size.return_value = 100
+
+    query_description = QueryDescription(
+        target_table="ulLaPhr",
+        target_database="mydb",
+        measures=[Measure(field="cslot", aggregation="min", alias="min_value"),
+                  Measure(field="cslot", aggregation="max", alias="max_value")],
+        filters=[Filter(field="cslot", operator=">=", value=0)],
+        virtual_columns=[
+            VirtualColumnDefinition(
+                name="cslot",
+                expression="slot+sfn*20+hfnTickCount*1024*20",
+                output_type="DOUBLE",
+            )
+        ],
+        virtual_table=VirtualTableDefinition(
+            primary_table="ulLaPhr",
+            mode="union",
+            union_tables=[UnionTableDefinition(table_name="dlFdSchedData")],
+        ),
+    )
+
+    query_sql, _ = QueryService().translate_to_sql(
+        query_description,
+        table_name="ulLaPhr",
+        db_type="clickhouse",
+        with_optimization=False,
+        connector=mock_connector,
+    )
+
+    assert "WHERE 1=0" not in query_sql
+    assert "UNION ALL" in query_sql

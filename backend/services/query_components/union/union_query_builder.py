@@ -327,6 +327,7 @@ class UnionQueryBuilder:
                 missing_filter_fields = [
                     f.field for f in single_table_desc.filters
                     if f.field not in table_columns
+                    and not (f.field in vc_source_map and can_compute_virtual_column(f.field, vc_source_map, table_columns))
                 ]
                 if missing_filter_fields:
                     self._logger.info(
