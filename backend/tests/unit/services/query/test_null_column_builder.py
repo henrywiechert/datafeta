@@ -2,7 +2,7 @@
 
 import pytest
 
-from backend.models.query import Dimension
+from backend.models.query import Dimension, Measure
 from backend.services.query_components.union.null_column_builder import (
     build_null_column,
     build_null_only_query,
@@ -13,6 +13,10 @@ from backend.services.query_components.union.null_column_builder import (
 
 def _dim(field: str, flavour: str = "discrete") -> Dimension:
     return Dimension(field=field, flavour=flavour)
+
+
+def _measure(field: str, aggregation: str = "min", alias: str = "") -> Measure:
+    return Measure(field=field, aggregation=aggregation, alias=alias or f"{aggregation}_{field}")
 
 
 class TestRebuildSelectWithNulls_NullCastOverride:
@@ -102,6 +106,82 @@ class TestRebuildSelectWithNulls_NullCastOverride:
         assert "CAST(NULL" in result
         # rnti should be a direct column reference
         assert "`rnti` AS `rnti`" in result
+
+    def test_virtual_column_measure_uses_expression_when_computable(self):
+        """Measures on virtual columns must use the generated expression, not NULL."""
+        sql = (
+            "SELECT "
+            "MIN(CAST(`slot`+`sfn`*20+`hfnTickCount`*1024*20 AS NUMERIC)) `min_value`,"
+            "MAX(CAST(`slot`+`sfn`*20+`hfnTickCount`*1024*20 AS NUMERIC)) `max_value` "
+            "FROM `mydb`.`ulLaPhr`"
+        )
+
+        all_measure_fields = [
+            ("min_value", _measure("cslot", "min", "min_value")),
+            ("max_value", _measure("cslot", "max", "max_value")),
+        ]
+
+        vc_source_map = {"cslot": ["hfnTickCount", "sfn", "slot"]}
+
+        def can_compute(field, src_map, cols):
+            return all(s in cols for s in src_map.get(field, []))
+
+        table_columns = {"slot", "sfn", "hfnTickCount", "otherCol"}
+
+        result = rebuild_select_with_nulls(
+            single_sql=sql,
+            all_dimension_fields=[],
+            all_measure_fields=all_measure_fields,
+            table_columns=table_columns,
+            table_name="ulLaPhr",
+            db_type="clickhouse",
+            quote_char="`",
+            vc_source_map=vc_source_map,
+            can_compute_virtual_column_fn=can_compute,
+        )
+
+        assert "CAST(NULL" not in result
+        assert "`min_value`" in result
+        assert "`max_value`" in result
+        assert "MIN(" in result
+        assert "MAX(" in result
+
+    def test_virtual_column_measure_gets_null_when_not_computable(self):
+        """Measures on virtual columns must get NULL when source fields are missing."""
+        sql = (
+            "SELECT "
+            "CAST(NULL AS Nullable(Float64)) AS `min_value`,"
+            "CAST(NULL AS Nullable(Float64)) AS `max_value` "
+            "FROM `mydb`.`someTable` LIMIT 1"
+        )
+
+        all_measure_fields = [
+            ("min_value", _measure("cslot", "min", "min_value")),
+            ("max_value", _measure("cslot", "max", "max_value")),
+        ]
+
+        vc_source_map = {"cslot": ["hfnTickCount", "sfn", "slot"]}
+
+        def can_compute(field, src_map, cols):
+            return all(s in cols for s in src_map.get(field, []))
+
+        # Table does NOT have the source fields for cslot
+        table_columns = {"otherCol", "anotherCol"}
+
+        result = rebuild_select_with_nulls(
+            single_sql=sql,
+            all_dimension_fields=[],
+            all_measure_fields=all_measure_fields,
+            table_columns=table_columns,
+            table_name="someTable",
+            db_type="clickhouse",
+            quote_char="`",
+            vc_source_map=vc_source_map,
+            can_compute_virtual_column_fn=can_compute,
+        )
+
+        assert "CAST(NULL AS Nullable(Float64)) AS `min_value`" in result
+        assert "CAST(NULL AS Nullable(Float64)) AS `max_value`" in result
 
     def test_normal_expressions_are_not_affected(self):
         """When the input SQL has real expressions (not NULLs), they are preserved."""

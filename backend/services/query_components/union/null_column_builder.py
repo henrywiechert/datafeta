@@ -332,25 +332,33 @@ def rebuild_select_with_nulls(
             col_type = column_types.get(field_key)
             select_items.append(build_null_column(field_key, False, db_type, quote_char, output_type, column_type=col_type))
     for field_key, measure in all_measure_fields:
-        # COUNT(*) is valid for any table; it does not require a physical column named "*".
         is_star_count = measure.aggregation == "count" and measure.field == "*"
-        if not table_columns or measure.field in table_columns or is_star_count:
-            # Field exists - use expression from generated SQL
+        is_virtual = measure.field in vc_source_map
+
+        measure_available = False
+        if is_star_count:
+            measure_available = True
+        elif not table_columns:
+            measure_available = True
+        elif is_virtual:
+            if can_compute_virtual_column_fn:
+                measure_available = can_compute_virtual_column_fn(measure.field, vc_source_map, table_columns)
+            else:
+                measure_available = True
+        else:
+            measure_available = measure.field in table_columns
+
+        if measure_available:
             if field_key in existing_expressions:
                 expr = existing_expressions[field_key]
             else:
-                # Fallback: select the (already-aliased) output column name.
-                # The single-table SQL is expected to have produced a column with this alias,
-                # even if it is nested inside sampling/budget wrappers.
                 expr = f"{quote_char}{field_key}{quote_char}"
             
-            # Add type cast for ClickHouse
             if db_type == 'clickhouse':
                 select_items.append(f"CAST({expr} AS Nullable(Float64)) AS {quote_char}{field_key}{quote_char}")
             else:
                 select_items.append(f"{expr} AS {quote_char}{field_key}{quote_char}")
         else:
-            # Field missing - NULL
             select_items.append(build_null_column(field_key, True, db_type, quote_char))
     
     # Rebuild the complete SQL with ordered SELECT

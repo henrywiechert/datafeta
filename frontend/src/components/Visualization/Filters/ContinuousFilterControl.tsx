@@ -102,6 +102,16 @@ const ContinuousFilterControl: React.FC<ContinuousFilterControlProps> = ({
     );
   }
 
+  if (metadata.min == null || metadata.max == null) {
+    return (
+      <Box className={styles.container}>
+        <Typography variant="caption" color="textSecondary">
+          No range data available for this filter.
+        </Typography>
+      </Box>
+    );
+  }
+
   const range = metadata.max - metadata.min;
   const step = range > 100 ? Math.pow(10, Math.floor(Math.log10(range)) - 1) : range / 100;
 
