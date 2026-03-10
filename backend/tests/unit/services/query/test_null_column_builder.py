@@ -4,6 +4,9 @@ import pytest
 
 from backend.models.query import Dimension
 from backend.services.query_components.union.null_column_builder import (
+    build_null_column,
+    build_null_only_query,
+    extract_base_clickhouse_type,
     rebuild_select_with_nulls,
 )
 
@@ -129,3 +132,92 @@ class TestRebuildSelectWithNulls_NullCastOverride:
         assert "`lcrId` AS `lcrId`" in result
         assert "`rnti` AS `rnti`" in result
         assert "CAST(NULL" not in result
+
+    def test_missing_column_uses_type_from_column_types(self):
+        """Missing columns should use the actual DB type from column_types rather than defaulting to String."""
+        null_sql = (
+            "SELECT "
+            "CAST(NULL AS Nullable(String)) AS `rrmPhrScaled` "
+            "FROM `mydb`.`dlFdSchedData` WHERE 1=0"
+        )
+
+        all_dimension_fields = [
+            ("rrmPhrScaled", _dim("rrmPhrScaled", "continuous")),
+        ]
+
+        # dlFdSchedData does NOT have the column
+        table_columns = {"otherCol"}
+
+        result = rebuild_select_with_nulls(
+            single_sql=null_sql,
+            all_dimension_fields=all_dimension_fields,
+            all_measure_fields=[],
+            table_columns=table_columns,
+            table_name="dlFdSchedData",
+            db_type="clickhouse",
+            quote_char="`",
+            column_types={"rrmPhrScaled": "Float64"},
+        )
+
+        assert "Nullable(Float64)" in result
+        assert "Nullable(String)" not in result
+
+
+class TestExtractBaseClickhouseType:
+    def test_plain_type(self):
+        assert extract_base_clickhouse_type("Float64") == "Float64"
+
+    def test_nullable_wrapper(self):
+        assert extract_base_clickhouse_type("Nullable(Float64)") == "Float64"
+
+    def test_low_cardinality_wrapper(self):
+        assert extract_base_clickhouse_type("LowCardinality(String)") == "String"
+
+    def test_nested_wrappers(self):
+        assert extract_base_clickhouse_type("LowCardinality(Nullable(String))") == "String"
+
+    def test_int32(self):
+        assert extract_base_clickhouse_type("Nullable(Int32)") == "Int32"
+
+
+class TestBuildNullColumnWithColumnType:
+    """build_null_column should prefer column_type over String default for dimensions."""
+
+    def test_uses_column_type_for_numeric_dimension(self):
+        result = build_null_column("rrmPhrScaled", False, "clickhouse", "`", column_type="Float64")
+        assert "Nullable(Float64)" in result
+        assert "Nullable(String)" not in result
+
+    def test_uses_column_type_nullable_stripped(self):
+        result = build_null_column("myCol", False, "clickhouse", "`", column_type="Nullable(Int32)")
+        assert "Nullable(Int32)" in result
+        assert "Nullable(String)" not in result
+
+    def test_output_type_takes_precedence_over_column_type(self):
+        result = build_null_column("vc", False, "clickhouse", "`", output_type="DOUBLE", column_type="String")
+        assert "Nullable(Float64)" in result
+
+    def test_defaults_to_string_without_column_type(self):
+        result = build_null_column("myDim", False, "clickhouse", "`")
+        assert "Nullable(String)" in result
+
+    def test_measure_ignores_column_type(self):
+        result = build_null_column("myMeasure", True, "clickhouse", "`", column_type="String")
+        assert "Nullable(Float64)" in result
+
+
+class TestBuildNullOnlyQueryWithColumnTypes:
+    """build_null_only_query should pass column_types through to build_null_column."""
+
+    def test_numeric_dimension_gets_correct_type(self):
+        result = build_null_only_query(
+            database="mydb",
+            table_name="dlFdSchedData",
+            missing_dimension_keys=["rrmPhrScaled"],
+            missing_measure_keys=[],
+            db_type="clickhouse",
+            quote_char="`",
+            column_types={"rrmPhrScaled": "Float64"},
+        )
+        assert "Nullable(Float64)" in result
+        assert "Nullable(String)" not in result
