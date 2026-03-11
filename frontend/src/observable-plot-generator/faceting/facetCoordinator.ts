@@ -18,6 +18,10 @@ export interface PositionedPlot {
   position: { row: number; col: number };
   /** Optional facet background info for this cell */
   facetBackground?: FacetBackgroundInfo;
+  /** X-axis field for this cell (used by brush zoom) */
+  xField?: Field;
+  /** Y-axis field for this cell (used by brush zoom) */
+  yField?: Field;
 }
 
 /**

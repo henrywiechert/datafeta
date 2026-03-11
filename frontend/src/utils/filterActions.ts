@@ -7,7 +7,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import { Field, DiscreteFilterConfig } from '../types';
+import { Field, DiscreteFilterConfig, ContinuousFilterConfig } from '../types';
 import { VisualizationAction } from '../contexts/VisualizationContext';
 
 // Re-export for convenience so callers don't need an extra import
@@ -89,4 +89,116 @@ export function updateExistingDiscreteFilter(
   });
 
   dispatch({ type: 'APPLY_FILTERS' });
+}
+
+/**
+ * Create a new continuous (min/max) filter from an axis field and immediately
+ * configure + apply it. Used by the chart zoom brush.
+ *
+ * @returns The newly created filter Field (with its new id)
+ */
+export function addFieldAsContinuousFilter(
+  sourceField: Field,
+  min: number,
+  max: number,
+  currentFilterFields: Field[],
+  dispatch: Dispatch,
+): Field {
+  const filterField: Field = {
+    ...sourceField,
+    id: uuidv4(),
+    flavour: 'continuous',
+  };
+
+  dispatch({
+    type: 'SET_FILTER_FIELDS',
+    payload: [...currentFilterFields, filterField],
+  });
+
+  const config: ContinuousFilterConfig = {
+    fieldId: filterField.id,
+    columnName: filterField.columnName,
+    type: 'continuous',
+    min,
+    max,
+    isZoomFilter: true,
+  };
+
+  dispatch({
+    type: 'SET_FILTER_CONFIGURATION',
+    payload: { fieldId: filterField.id, config },
+  });
+
+  dispatch({ type: 'APPLY_FILTERS' });
+
+  return filterField;
+}
+
+/**
+ * Update an existing continuous filter's range and auto-apply.
+ * Used by the chart zoom brush when narrowing an existing zoom, or by zoom-out.
+ */
+export function updateExistingContinuousFilter(
+  existingFilterFieldId: string,
+  columnName: string,
+  min: number,
+  max: number,
+  dispatch: Dispatch,
+): void {
+  const config: ContinuousFilterConfig = {
+    fieldId: existingFilterFieldId,
+    columnName,
+    type: 'continuous',
+    min,
+    max,
+    isZoomFilter: true,
+  };
+
+  dispatch({
+    type: 'SET_FILTER_CONFIGURATION',
+    payload: { fieldId: existingFilterFieldId, config },
+  });
+
+  dispatch({ type: 'APPLY_FILTERS' });
+}
+
+/**
+ * Create a new discrete zoom filter from an axis field (band/categorical axis)
+ * and immediately configure + apply it. Used by the chart zoom brush.
+ *
+ * @returns The newly created filter Field (with its new id)
+ */
+export function addFieldAsDiscreteZoomFilter(
+  sourceField: Field,
+  selectedValues: any[],
+  currentFilterFields: Field[],
+  dispatch: Dispatch,
+): Field {
+  const filterField: Field = {
+    ...sourceField,
+    id: uuidv4(),
+    flavour: 'discrete',
+  };
+
+  dispatch({
+    type: 'SET_FILTER_FIELDS',
+    payload: [...currentFilterFields, filterField],
+  });
+
+  const config: DiscreteFilterConfig = {
+    fieldId: filterField.id,
+    columnName: filterField.columnName,
+    type: 'discrete',
+    selectedValues,
+    isZoomFilter: true,
+  };
+
+  dispatch({
+    type: 'SET_FILTER_CONFIGURATION',
+    payload: { fieldId: filterField.id, config },
+  });
+
+  dispatch({ type: 'APPLY_FILTERS' });
+
+  return filterField;
 }

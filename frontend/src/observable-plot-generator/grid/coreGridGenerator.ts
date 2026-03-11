@@ -13,6 +13,8 @@ export type CartesianPlot = {
   title: string;
   options: Plot.PlotOptions;
   position: { row: number; col: number };
+  xField?: Field;
+  yField?: Field;
 };
 
 /**
@@ -292,7 +294,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
         };
       }
       const title = buildCellTitle(xField, yField);
-      plots.push({ id: `cell-${r}-${c}`, title, options, position: { row: r, col: c } });
+      plots.push({ id: `cell-${r}-${c}`, title, options, position: { row: r, col: c }, xField, yField });
     }
   }
 

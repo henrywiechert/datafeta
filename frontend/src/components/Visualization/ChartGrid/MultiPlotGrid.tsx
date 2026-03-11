@@ -5,7 +5,7 @@ import { LayoutCalculations } from './hooks/useChartGridLayout';
 import { ScrollSyncState } from './hooks/useScrollSync';
 import { Dimensions } from './hooks/useContainerDimensions';
 import { CellSizeOverrides } from './hooks/useCellSizeOverrides';
-import PlotArea from './PlotArea';
+import PlotArea, { PlotBrushEvent } from './PlotArea';
 import XAxes from './XAxes';
 import YAxes from './YAxes';
 import { TopFacetLabels, LeftFacetLabels } from './FacetLabels';
@@ -13,7 +13,7 @@ import GridResizeOverlay from './GridResizeOverlay';
 import AxisLabel from './AxisLabel';
 import AxisLabelStylePopover from './AxisLabelStylePopover';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
-import { XAxisLabelStyle, YAxisLabelStyle } from '../../../contexts/VisualizationContext/types';
+import { YAxisLabelStyle } from '../../../contexts/VisualizationContext/types';
 import styles from './ChartGrid.module.css';
 
 interface MultiPlotGridProps {
@@ -32,6 +32,8 @@ interface MultiPlotGridProps {
   onPlotRenderComplete?: (plotId: string) => void;
   /** True when we're showing stale content during a deferred transition */
   isTransitioning?: boolean;
+  brushDisabled?: boolean;
+  onBrushEnd?: (event: PlotBrushEvent) => void;
 }
 
 /**
@@ -60,6 +62,8 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
   refs,
   onPlotRenderComplete,
   isTransitioning = false,
+  brushDisabled,
+  onBrushEnd,
 }) => {
   const {
     columns,
@@ -165,6 +169,8 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
             plotRowsSpec={plotRowsSpec}
             totalContentWidthPx={totalContentWidthPx}
             onPlotRenderComplete={onPlotRenderComplete}
+            brushDisabled={brushDisabled}
+            onBrushEnd={onBrushEnd}
           />
 
           <XAxes

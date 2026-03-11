@@ -173,6 +173,10 @@ export interface PlotResult {
     position: { row: number; col: number; };
     /** Optional facet background info for this cell */
     facetBackground?: FacetBackgroundInfo;
+    /** X-axis field for this cell (used by brush zoom to identify filter target) */
+    xField?: Field;
+    /** Y-axis field for this cell (used by brush zoom to identify filter target) */
+    yField?: Field;
   }>;
   sharedDomains?: {
     x?: any;

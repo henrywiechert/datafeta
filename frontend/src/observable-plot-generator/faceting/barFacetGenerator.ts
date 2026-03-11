@@ -141,6 +141,8 @@ export function createBarCellGenerator(
           row: barOrientation === 'barY' ? s : 0,
           col: barOrientation === 'barX' ? s : 0,
         },
+        xField: barOrientation === 'barX' ? f : (categoryField ?? undefined),
+        yField: barOrientation === 'barY' ? f : (categoryField ?? undefined),
       });
     }
     
