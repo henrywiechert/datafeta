@@ -25,6 +25,7 @@ import LegendPanel from '../Legend/LegendPanel';
 import BackgroundLegendPanel from '../Legend/BackgroundLegendPanel';
 import LegendStack from '../Legend/LegendStack';
 import FacetLimitDialog from '../FacetLimitDialog';
+import { getResultColumnName } from '../../../utils/fieldUtils';
 
 /**
  * ChartArea - thin orchestrator that delegates to specialised hooks.
@@ -214,11 +215,12 @@ const ChartArea: React.FC = () => {
   const { isFullscreen, toggleFullscreen, isSupported: isFullscreenSupported } = useFullscreen(fullscreenWrapperRef);
 
   // -- Series highlight (legend click → dim non-matching marks) ----------------
-  const [highlightedSeriesColors, setHighlightedSeriesColors] = useState<string[] | null>(null);
+  const [highlightedCategoryValues, setHighlightedCategoryValues] = useState<any[] | null>(null);
   const clearLegendSelectionRef = useRef<(() => void) | null>(null);
+  const colorColumnName = colorField ? getResultColumnName(colorField) : null;
 
   const clearSeriesHighlight = useCallback(() => {
-    setHighlightedSeriesColors(null);
+    setHighlightedCategoryValues(null);
     clearLegendSelectionRef.current?.();
   }, []);
 
@@ -227,7 +229,7 @@ const ChartArea: React.FC = () => {
     clearSeriesHighlight();
   }, [colorField, clearSeriesHighlight]);
 
-  useSeriesHighlight(fullscreenWrapperRef, highlightedSeriesColors, clearSeriesHighlight);
+  useSeriesHighlight(fullscreenWrapperRef, highlightedCategoryValues, colorColumnName, clearSeriesHighlight);
 
   // -- Sheet cache -------------------------------------------------------------
   const cacheConfig = useMemo(
@@ -365,7 +367,7 @@ const ChartArea: React.FC = () => {
                   colorField?.flavour === 'discrete' ? handleLegendFilterAction : undefined
                 }
                 onHighlightChange={
-                  colorField?.flavour === 'discrete' ? setHighlightedSeriesColors : undefined
+                  colorField?.flavour === 'discrete' ? setHighlightedCategoryValues : undefined
                 }
                 clearSelectionRef={clearLegendSelectionRef}
               />

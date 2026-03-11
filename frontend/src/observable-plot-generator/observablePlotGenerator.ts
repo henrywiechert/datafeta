@@ -387,13 +387,29 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
       }
     }
     
+    let result: PlotResult;
+
     // Only engage faceting when there are discrete fields that should become facets
     if (adjustedFacetPlan && ((adjustedFacetPlan.rowFacetFields?.length || 0) > 0 || (adjustedFacetPlan.colFacetFields?.length || 0) > 0)) {
-      return generateFacetedGrid(effectiveContext, adjustedFacetPlan);
+      result = generateFacetedGrid(effectiveContext, adjustedFacetPlan);
+    } else {
+      // Delegate to core chart generation logic
+      result = generatePlotCore(effectiveContext, overrides);
     }
 
-    // Delegate to core chart generation logic
-    return generatePlotCore(effectiveContext, overrides);
+    // Inject the color category field name into each plot's options so
+    // ObservablePlot can stamp per-element `data-cat` attributes after
+    // rendering.  This enables the series-highlight hook to match by
+    // category value instead of fill colour (which breaks when the
+    // palette wraps and multiple categories share the same colour).
+    if (effectiveContext.colorField?.flavour === 'discrete') {
+      const colorCatField = getResultColumnName(effectiveContext.colorField);
+      for (const plot of result.plots) {
+        (plot.options as any).__colorCategoryField = colorCatField;
+      }
+    }
+
+    return result;
 
   } catch (error) {
     console.error('Chart generation failed:', error);

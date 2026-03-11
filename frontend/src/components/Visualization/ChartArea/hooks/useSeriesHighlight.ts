@@ -1,34 +1,35 @@
 import { useEffect, useRef, RefObject } from 'react';
+import { encodeCatValue } from '../../stampColorCategories';
 
 // ---------------------------------------------------------------------------
-// Color normalisation (only called for the handful of legend colors)
-// ---------------------------------------------------------------------------
-
-const HEX6_RE = /^#[0-9a-f]{6}$/;
-const HEX3_RE = /^#[0-9a-f]{3}$/;
-
-function normalizeColor(css: string): string | null {
-  const v = css.trim().toLowerCase();
-  if (!v || v === 'none' || v === 'transparent') return null;
-  if (HEX6_RE.test(v)) return v;
-  if (HEX3_RE.test(v)) return `#${v[1]}${v[1]}${v[2]}${v[2]}${v[3]}${v[3]}`;
-  return null;
-}
-
-// ---------------------------------------------------------------------------
-// CSS generation
+// Attribute-based highlight strategy
+//
+// SVG mark elements are stamped with `data-cat` attributes at render time
+// (see stampColorCategories.ts).  This hook builds a CSS sheet that dims all
+// data marks except those whose `data-cat` value matches a selected category.
+//
+// Matching by category value (not fill colour) is critical because the
+// palette wraps when there are more categories than colours, so multiple
+// categories can share the same colour.
 // ---------------------------------------------------------------------------
 
 const HL_ATTR = 'data-series-hl';
 const HL_SEL = `[${HL_ATTR}]`;
 
-/**
- * Build a stylesheet that dims all data marks except those whose fill/stroke
- * matches one of the highlighted colors.  The browser's CSS engine handles
- * all the per-element matching — no JavaScript iteration required.
- */
-function buildHighlightCSS(colors: string[]): string {
-  // 1. Dim every fill/stroke-bearing mark inside the container
+// ---------------------------------------------------------------------------
+// CSS generation
+// ---------------------------------------------------------------------------
+
+/** Escape a string for use inside a CSS `[attr="…"]` value. */
+function cssEscapeAttrValue(s: string): string {
+  // Escape backslashes, double-quotes, and control characters
+  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/[\x00-\x1f]/g, (ch) => {
+    return '\\' + ch.charCodeAt(0).toString(16) + ' ';
+  });
+}
+
+function buildHighlightCSS(values: any[]): string {
+  // 1. Dim every data mark inside the container
   const dimSelectors = [
     `${HL_SEL} svg circle[fill]`,
     `${HL_SEL} svg rect[fill]`,
@@ -37,15 +38,15 @@ function buildHighlightCSS(colors: string[]): string {
     `${HL_SEL} svg line[stroke]:not([stroke="none"])`,
   ];
 
-  // 2. Restore the highlighted series to full opacity
+  // 2. Restore marks that match one of the selected category values
   const restoreSelectors: string[] = [];
-  for (const c of colors) {
+  for (const v of values) {
+    const encoded = cssEscapeAttrValue(encodeCatValue(v));
     restoreSelectors.push(
-      `${HL_SEL} svg circle[fill="${c}"]`,
-      `${HL_SEL} svg rect[fill="${c}"]`,
-      `${HL_SEL} svg path[fill="${c}"]`,
-      `${HL_SEL} svg path[stroke="${c}"]`,
-      `${HL_SEL} svg line[stroke="${c}"]`,
+      `${HL_SEL} svg circle[data-cat="${encoded}"]`,
+      `${HL_SEL} svg rect[data-cat="${encoded}"]`,
+      `${HL_SEL} svg path[data-cat="${encoded}"]`,
+      `${HL_SEL} svg line[data-cat="${encoded}"]`,
     );
   }
 
@@ -64,12 +65,18 @@ function buildHighlightCSS(colors: string[]): string {
     `${HL_SEL} svg [aria-label*="frame" i] *`,
   ];
 
-  return [
-    `${dimSelectors.join(',\n')} {\n  opacity: 0.12;\n}`,
-    `${hoverSelectors.join(',\n')} {\n  opacity: 0.35;\n}`,
-    `${restoreSelectors.join(',\n')} {\n  opacity: 1 !important;\n}`,
-    `${protectSelectors.join(',\n')} {\n  opacity: 1 !important;\n}`,
-  ].join('\n');
+  const rules: string[] = [
+    `${dimSelectors.join(',\n')} {\n  opacity: 0.04;\n}`,
+    `${hoverSelectors.join(',\n')} {\n  opacity: 0.18;\n}`,
+  ];
+
+  if (restoreSelectors.length > 0) {
+    rules.push(`${restoreSelectors.join(',\n')} {\n  opacity: 1 !important;\n}`);
+  }
+
+  rules.push(`${protectSelectors.join(',\n')} {\n  opacity: 1 !important;\n}`);
+
+  return rules.join('\n');
 }
 
 // ---------------------------------------------------------------------------
@@ -77,20 +84,21 @@ function buildHighlightCSS(colors: string[]): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Dim chart marks whose colour does not match the highlighted set.
+ * Dim chart marks whose category value does not match the highlighted set.
  *
- * Instead of iterating over every SVG element in JavaScript, this injects a
- * single `<style>` sheet and sets one data-attribute on the container.  The
- * browser's native CSS engine handles all per-element matching, which is
- * orders of magnitude faster than JS DOM manipulation on large faceted grids.
+ * The heavy lifting is done at render time by `stampColorCategories` which
+ * writes `data-cat` attributes on SVG elements.  This hook only needs to
+ * inject a CSS stylesheet that targets those attributes — no JavaScript
+ * iteration over DOM elements is required at highlight time.
  */
 export function useSeriesHighlight(
   containerRef: RefObject<HTMLDivElement | null>,
-  highlightedColors: string[] | null,
+  highlightedValues: any[] | null,
+  colorFieldName: string | null,
   onClear?: () => void,
 ): void {
   const styleElRef = useRef<HTMLStyleElement | null>(null);
-  const active = !!(highlightedColors && highlightedColors.length > 0);
+  const active = !!(highlightedValues && highlightedValues.length > 0 && colorFieldName);
 
   // --- Apply / clear the highlight stylesheet ----------------------------
   useEffect(() => {
@@ -103,16 +111,6 @@ export function useSeriesHighlight(
       return;
     }
 
-    const colors = highlightedColors!
-      .map(normalizeColor)
-      .filter((c): c is string => c !== null);
-
-    if (colors.length === 0) {
-      container.removeAttribute(HL_ATTR);
-      if (styleElRef.current) styleElRef.current.textContent = '';
-      return;
-    }
-
     // Lazily create the <style> element once
     if (!styleElRef.current) {
       styleElRef.current = document.createElement('style');
@@ -120,9 +118,9 @@ export function useSeriesHighlight(
       document.head.appendChild(styleElRef.current);
     }
 
-    styleElRef.current.textContent = buildHighlightCSS(colors);
+    styleElRef.current.textContent = buildHighlightCSS(highlightedValues!);
     container.setAttribute(HL_ATTR, '');
-  }, [containerRef, highlightedColors, active]);
+  }, [containerRef, highlightedValues, colorFieldName, active]);
 
   // --- Remove <style> on unmount -----------------------------------------
   useEffect(() => {

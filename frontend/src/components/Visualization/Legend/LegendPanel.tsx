@@ -31,10 +31,11 @@ interface LegendPanelProps {
     allDomainValues: any[],
   ) => void;
   /**
-   * Fired whenever the set of selected (highlighted) legend colours changes.
-   * Receives an array of hex colour strings, or `null` when nothing is selected.
+   * Fired whenever the set of selected (highlighted) legend categories changes.
+   * Receives the raw domain values for the selected items, or `null` when
+   * nothing is selected.
    */
-  onHighlightChange?: (colors: string[] | null) => void;
+  onHighlightChange?: (values: any[] | null) => void;
   /**
    * Imperative handle the parent can use to clear the legend selection from
    * outside (e.g. on Escape key).  Assign `.current` once on mount.
@@ -179,11 +180,10 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
     if (selectedIndices.size === 0) {
       onHighlightChange(null);
     } else {
-      const colors = Array.from(selectedIndices)
+      const values = Array.from(selectedIndices)
         .sort((a, b) => a - b)
-        .map((i) => discreteItems[i]?.color)
-        .filter(Boolean);
-      onHighlightChange(colors.length > 0 ? colors : null);
+        .map((i) => discreteItems[i]?.value);
+      onHighlightChange(values.length > 0 ? values : null);
     }
   }, [selectedIndices, discreteItems, onHighlightChange]);
 
