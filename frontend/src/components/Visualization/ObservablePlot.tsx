@@ -5,6 +5,7 @@ import { CustomTooltip } from './CustomTooltip/CustomTooltip';
 import { useChartTooltip } from '../../hooks/useChartTooltip';
 import { CustomTooltipConfig } from '../../types';
 import { addTooltipListeners } from './CustomTooltip/addTooltipListeners';
+import { stampColorCategories } from './stampColorCategories';
 
 interface ObservablePlotProps {
   options: Plot.PlotOptions & {
@@ -110,6 +111,10 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options, plotId, onRend
         containerRef.current.replaceChildren(plot);
 
         onPlotReady?.(plot);
+
+        // Stamp data-cat attributes on mark elements for highlight matching.
+        // Uses the same __data__ → datum resolution as the tooltip system.
+        stampColorCategories(plot, options);
 
         // Add custom tooltip event listeners if configured
         const customTooltipConfig = options.__customTooltip;
