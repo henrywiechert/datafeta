@@ -10,7 +10,13 @@
  * the same colour.
  */
 
-const MARK_SELECTOR = 'circle, rect, path[fill]:not([fill="none"]), line';
+const MARK_SELECTOR = [
+  'circle',
+  'rect',
+  'path[fill]:not([fill="none"])',
+  'path[stroke]:not([stroke="none"])',
+  'line',
+].join(', ');
 
 function isInsideGridOrAxis(el: Element, root: Element): boolean {
   let parent = el.parentElement;
@@ -49,8 +55,17 @@ export function stampColorCategories(
 
     let datum = (el as any).__data__;
 
-    // Observable Plot v0.6.x stores indices; resolve via data array
-    if (typeof datum === 'number' && data && datum < data.length) {
+    // Observable Plot v0.6.x data binding varies by mark type:
+    //  - dot/bar marks: a single index (number) into the data array
+    //  - line/area marks: an array of indices (one path per series)
+    if (Array.isArray(datum)) {
+      const firstIdx = datum[0];
+      if (typeof firstIdx === 'number' && data && firstIdx < data.length) {
+        datum = data[firstIdx];
+      } else {
+        continue;
+      }
+    } else if (typeof datum === 'number' && data && datum < data.length) {
       datum = data[datum];
     }
     if (datum == null || typeof datum !== 'object') continue;
