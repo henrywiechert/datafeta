@@ -170,3 +170,15 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 
 ## [] Discrete Filter for Many elements
 - rnti SQL like search does not work
+
+## [] Gantt chart width ends with start of last event
+- should be start + size + margin
+
+## [] Explicit removal of zoom filter does not trigger query
+- should trigger
+
+## [] Todo across sheets
+- remember todo per sheet, also when sheet changes
+
+## [] Zoom: remember zoom across sheets (zoom is global config?)
+- Use case: Zoom in, change sheet, switch back, Undo should now revert zoom action
