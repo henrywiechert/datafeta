@@ -74,7 +74,7 @@ const VisualizationPageContent = () => {
 
     // Access the enhanced context with loading states and cancellation
     const { state, dispatch, cancelOperation, getUndoableSnapshot } = useVisualizationContext();
-    const { recordAction, undo, completeUndo, redo, completeRedo, clearHistory } = useUndoRedo();
+    const { recordAction, undo, completeUndo, redo, completeRedo } = useUndoRedo();
     
     const { 
         showLoadingModal, 
@@ -315,11 +315,6 @@ const VisualizationPageContent = () => {
             setMetadataError(message);
         }
     }, [tablesCache, setTablesForDatabase, setMetadataError]);
-
-    // Clear undo history when switching sheets
-    React.useEffect(() => {
-        clearHistory();
-    }, [sheetState.activeSheetId, clearHistory]);
 
     // Keyboard shortcuts for undo/redo and panel toggles
     React.useEffect(() => {
@@ -566,20 +561,20 @@ const VisualizationPageContent = () => {
 };
 
 // Main component - wraps content with VisualizationProvider and UndoRedoProvider
+// UndoRedoProvider lives outside the keyed subtree so undo/redo stacks survive sheet switches.
 // SheetProvider is now at App level
 const VisualizationPage = () => {
     const { activeSheet } = useSheetContext();
 
-    // Use the sheet ID as key to force remount when switching sheets
     return (
-        <VisualizationProvider 
-            key={activeSheet?.id} 
-            initialState={activeSheet?.visualizationState}
-        >
-            <UndoRedoProvider>
+        <UndoRedoProvider sheetId={activeSheet?.id || ''}>
+            <VisualizationProvider 
+                key={activeSheet?.id} 
+                initialState={activeSheet?.visualizationState}
+            >
                 <VisualizationPageContent />
-            </UndoRedoProvider>
-        </VisualizationProvider>
+            </VisualizationProvider>
+        </UndoRedoProvider>
     );
 };
 
