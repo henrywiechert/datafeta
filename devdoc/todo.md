@@ -182,3 +182,6 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 
 ## [] Zoom: remember zoom across sheets (zoom is global config?)
 - Use case: Zoom in, change sheet, switch back, Undo should now revert zoom action
+
+## [] Remember UI split across sheet changes
+- Also store this in snapshot
