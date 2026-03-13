@@ -4,6 +4,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import PublicIcon from '@mui/icons-material/Public';
 import DescriptionIcon from '@mui/icons-material/Description';
+import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import { Field, FilterConfig, FilterMetadata, FilterScope } from '../../../types';
 import DiscreteFilterControl from './DiscreteFilterControl';
 import ContinuousFilterControl from './ContinuousFilterControl';
@@ -37,8 +38,8 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
   const [expanded, setExpanded] = useState(false);
   const { dispatch } = useVisualizationContext();
   
-  // Track filter scope: 'sheet' (per-sheet, persisted) or 'session' (global, ephemeral)
   const isSessionScope = filterScope === 'session';
+  const isZoomFilter = !!filterConfig?.isZoomFilter;
 
   const handleToggleExpand = () => {
     setExpanded(!expanded);
@@ -203,16 +204,22 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
   // Note: styling is now handled by unified FieldChip; keep FilterFieldChip.module.css
   // for container/expand UI only.
 
+  const scopeTooltip = isZoomFilter
+    ? (isSessionScope
+        ? "Zoom filter – session scope (applies to all sheets)"
+        : "Zoom filter – sheet scope (applies to this sheet only)")
+    : (isSessionScope
+        ? "Session filter (applies to all sheets)"
+        : "Sheet filter (applies to this sheet only)");
+
+  const scopeIcon = isZoomFilter
+    ? <ZoomInIcon sx={{ fontSize: 14 }} />
+    : (isSessionScope ? <PublicIcon sx={{ fontSize: 14 }} /> : <DescriptionIcon sx={{ fontSize: 14 }} />);
+
   return (
     <Box className={styles.container}>
       <Box className={styles.chipContainer}>
-        <Tooltip 
-          title={isSessionScope 
-            ? "Session filter (applies to all sheets)" 
-            : "Sheet filter (applies to this sheet only)"}
-          placement="top"
-          arrow
-        >
+        <Tooltip title={scopeTooltip} placement="top" arrow>
           <ToggleButton
             value="session"
             selected={isSessionScope}
@@ -234,7 +241,7 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
               },
             }}
           >
-            {isSessionScope ? <PublicIcon sx={{ fontSize: 14 }} /> : <DescriptionIcon sx={{ fontSize: 14 }} />}
+            {scopeIcon}
           </ToggleButton>
         </Tooltip>
         <Box className={styles.chipCell}>

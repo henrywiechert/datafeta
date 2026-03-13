@@ -193,7 +193,7 @@ const ChartArea: React.FC = () => {
     selectedDatabase,
   });
 
-  const { brushDisabled, handleBrushEnd, handleZoomOut, hasActiveZoomFilters } = useBrushZoom({
+  const { brushDisabled, handleBrushEnd, handleZoomOut, handleZoomReset, hasActiveZoomFilters } = useBrushZoom({
     dispatch,
     filterFields: state.filterFields,
     appliedFilterConfigurations,
@@ -343,6 +343,7 @@ const ChartArea: React.FC = () => {
               dispatch({ type: 'SET_BAND_THICKNESS_SCALE', payload: scale });
             }}
             onZoomOut={handleZoomOut}
+            onZoomReset={handleZoomReset}
             hasActiveZoomFilters={hasActiveZoomFilters}
           />
 

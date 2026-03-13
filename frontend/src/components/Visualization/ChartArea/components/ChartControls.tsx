@@ -12,6 +12,7 @@ import LinkOffIcon from '@mui/icons-material/LinkOff';
 import SettingsIcon from '@mui/icons-material/Settings';
 import HeightIcon from '@mui/icons-material/Height';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
+import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 import QueryStatusIndicator from './QueryStatusIndicator';
 import DatasetStatus from './DatasetStatus';
 import { QueryOptimizationSettings } from '../../../../types';
@@ -43,6 +44,7 @@ interface ChartControlsProps {
   bandThicknessScale: number;
   onBandThicknessScaleChange: (scale: number) => void;
   onZoomOut?: () => void;
+  onZoomReset?: () => void;
   hasActiveZoomFilters?: boolean;
 }
 
@@ -68,6 +70,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
   bandThicknessScale,
   onBandThicknessScaleChange,
   onZoomOut,
+  onZoomReset,
   hasActiveZoomFilters = false,
 }) => {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
@@ -244,6 +247,26 @@ const ChartControls: React.FC<ChartControlsProps> = ({
                 }}
               >
                 <ZoomOutIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
+
+        {onZoomReset && (
+          <Tooltip title="Reset zoom">
+            <span>
+              <IconButton
+                onClick={onZoomReset}
+                size="small"
+                disabled={!hasActiveZoomFilters}
+                sx={{
+                  color: hasActiveZoomFilters ? 'primary.main' : 'action.disabled',
+                  '&:hover': {
+                    backgroundColor: hasActiveZoomFilters ? 'action.hover' : 'transparent',
+                  },
+                }}
+              >
+                <CenterFocusStrongIcon fontSize="small" />
               </IconButton>
             </span>
           </Tooltip>
