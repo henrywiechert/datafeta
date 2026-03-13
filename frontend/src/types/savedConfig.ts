@@ -7,6 +7,7 @@ import { ColumnCasts } from './query';
 import { TableJoinDefinition } from './multiTable';
 import { VirtualColumnDefinition } from './virtualColumn';
 import { Field } from './field';
+import { FilterConfig } from './filter';
 import { Sheet } from './sheet';
 
 /**
@@ -56,6 +57,14 @@ export interface SavedDataSourceSelection {
 }
 
 /**
+ * Session (global) filters that apply across all sheets.
+ */
+export interface SavedSessionFilters {
+  fields: Field[];
+  configurations: Record<string, FilterConfig>;
+}
+
+/**
  * Complete saved configuration
  */
 export interface SavedConfiguration {
@@ -67,6 +76,7 @@ export interface SavedConfiguration {
   sheets: Sheet[];
   activeSheetId?: string;
   nextSheetNumber: number;
+  sessionFilters?: SavedSessionFilters;
 }
 
 /**
