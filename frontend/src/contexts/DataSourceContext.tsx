@@ -43,7 +43,7 @@ interface DataSourceState {
   virtualColumnFieldPreferences: Record<string, VirtualColumnPreference>;
   // Field display aliases (columnName -> user-defined display name)
   fieldDisplayAliases: Record<string, string>;
-  // Session-scoped filters (ephemeral, not persisted)
+  // Session-scoped (global) filters that apply across all sheets
   sessionFilterFields: Field[];
   sessionFilterConfigurations: Record<string, FilterConfig>;
   sessionAppliedFilterConfigurations: Record<string, FilterConfig>;
@@ -96,6 +96,7 @@ interface DataSourceContextType {
   applySessionFilters: () => void;
   setSessionFilterMetadata: (fieldId: string, metadata: FilterMetadata) => void;
   clearSessionFilters: () => void;
+  restoreSessionFilters: (fields: Field[], configurations: Record<string, FilterConfig>) => void;
   // Hive Parquet partition management
   setHivePartitionFiles: (partitionFiles: Map<string, File[]>) => void;
   loadHivePartition: (partitionName: string, setAsPrimary?: boolean, filesOverride?: File[]) => Promise<Field[]>;
@@ -462,6 +463,16 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const restoreSessionFilters = (fields: Field[], configurations: Record<string, FilterConfig>) => {
+    setDataSource(prev => ({
+      ...prev,
+      sessionFilterFields: fields,
+      sessionFilterConfigurations: configurations,
+      sessionAppliedFilterConfigurations: configurations,
+      sessionFilterMetadata: {},
+    }));
+  };
+
   // Hive Parquet partition management
   const setHivePartitionFiles = (partitionFiles: Map<string, File[]>) => {
     setDataSource(prev => ({
@@ -664,6 +675,7 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
         applySessionFilters,
         setSessionFilterMetadata,
         clearSessionFilters,
+        restoreSessionFilters,
         setHivePartitionFiles,
         loadHivePartition,
         isPartitionLoaded,

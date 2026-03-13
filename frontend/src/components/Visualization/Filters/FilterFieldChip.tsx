@@ -208,8 +208,8 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
       <Box className={styles.chipContainer}>
         <Tooltip 
           title={isSessionScope 
-            ? "Session filter (applies to all sheets, not saved)" 
-            : "Sheet filter (applies to this sheet only, saved)"}
+            ? "Session filter (applies to all sheets)" 
+            : "Sheet filter (applies to this sheet only)"}
           placement="top"
           arrow
         >

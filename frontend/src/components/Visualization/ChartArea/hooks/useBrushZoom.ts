@@ -6,6 +6,7 @@ import {
   invertQuantitative,
   invertBand,
   isBandScale,
+  isTemporalScale,
   ScaleDescriptor,
 } from '../../../../utils/scaleInversion';
 import {
@@ -13,6 +14,8 @@ import {
   updateExistingContinuousFilter,
   addFieldAsDiscreteZoomFilter,
   updateExistingDiscreteFilter,
+  addFieldAsDateTimeZoomFilter,
+  updateExistingDateTimeFilter,
   Dispatch,
 } from '../../../../utils/filterActions';
 
@@ -87,6 +90,34 @@ export function useBrushZoom({
             dispatch as React.Dispatch<VisualizationAction>,
           );
         }
+      } else if (isTemporalScale(scale)) {
+        const v1 = invertQuantitative(brush.startPx, scale);
+        const v2 = invertQuantitative(brush.endPx, scale);
+        const minMs = Math.min(v1, v2);
+        const maxMs = Math.max(v1, v2);
+        if (maxMs - minMs <= 0) return;
+
+        const startDate = new Date(minMs).toISOString();
+        const endDate = new Date(maxMs).toISOString();
+
+        const existing = findExistingZoomFilter(field.columnName);
+        if (existing) {
+          updateExistingDateTimeFilter(
+            existing.fieldId,
+            field.columnName,
+            startDate,
+            endDate,
+            dispatch as React.Dispatch<VisualizationAction>,
+          );
+        } else {
+          addFieldAsDateTimeZoomFilter(
+            field,
+            startDate,
+            endDate,
+            filterFields,
+            dispatch as React.Dispatch<VisualizationAction>,
+          );
+        }
       } else {
         const v1 = invertQuantitative(brush.startPx, scale);
         const v2 = invertQuantitative(brush.endPx, scale);
@@ -144,6 +175,29 @@ export function useBrushZoom({
           cfg.columnName,
           newMin,
           newMax,
+          dispatch as React.Dispatch<VisualizationAction>,
+        );
+      } else if (cfg.type === 'datetime' && cfg.startDate != null && cfg.endDate != null) {
+        const startMs = new Date(cfg.startDate).getTime();
+        const endMs = new Date(cfg.endDate).getTime();
+        const mid = (startMs + endMs) / 2;
+        const halfSpan = (endMs - startMs) / 2;
+        let newStartMs = mid - halfSpan * 2;
+        let newEndMs = mid + halfSpan * 2;
+
+        const meta = filterMetadata[fieldId];
+        if (meta && meta.type === 'datetime') {
+          const metaMinMs = new Date(meta.min).getTime();
+          const metaMaxMs = new Date(meta.max).getTime();
+          newStartMs = Math.max(newStartMs, metaMinMs);
+          newEndMs = Math.min(newEndMs, metaMaxMs);
+        }
+
+        updateExistingDateTimeFilter(
+          fieldId,
+          cfg.columnName,
+          new Date(newStartMs).toISOString(),
+          new Date(newEndMs).toISOString(),
           dispatch as React.Dispatch<VisualizationAction>,
         );
       } else if (cfg.type === 'discrete') {

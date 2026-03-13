@@ -1,7 +1,10 @@
 import { 
   SavedConfiguration, 
   SavedConnectionMetadata, 
+  SavedSessionFilters,
   ConnectionDetails,
+  Field,
+  FilterConfig,
   Sheet,
   TableJoinDefinition,
   UserChartType,
@@ -117,7 +120,9 @@ export function exportConfiguration(
   virtualColumns?: VirtualColumnDefinition[],
   virtualColumnFieldPreferences?: VirtualColumnFieldPreferences,
   fieldDisplayAliases?: Record<string, string>,
-  hivePartitionInfo?: HivePartitionInfo
+  hivePartitionInfo?: HivePartitionInfo,
+  sessionFilterFields?: Field[],
+  sessionFilterConfigurations?: Record<string, FilterConfig>,
 ): SavedConfiguration {
   const normalizedSheets = sheets.map((sheet) => ({
     ...sheet,
@@ -177,6 +182,13 @@ export function exportConfiguration(
       config.dataSource.fieldDisplayAliases = fieldDisplayAliases;
     }
     // Note: measureGroupFields is now per-sheet (stored in each sheet's visualizationState)
+  }
+
+  if (sessionFilterFields && sessionFilterFields.length > 0 && sessionFilterConfigurations) {
+    config.sessionFilters = {
+      fields: sessionFilterFields,
+      configurations: sessionFilterConfigurations,
+    };
   }
 
   return config;

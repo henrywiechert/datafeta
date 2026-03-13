@@ -7,7 +7,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import { Field, DiscreteFilterConfig, ContinuousFilterConfig } from '../types';
+import { Field, DiscreteFilterConfig, ContinuousFilterConfig, DateTimeFilterConfig } from '../types';
 import { VisualizationAction } from '../contexts/VisualizationContext';
 
 // Re-export for convenience so callers don't need an extra import
@@ -201,4 +201,75 @@ export function addFieldAsDiscreteZoomFilter(
   dispatch({ type: 'APPLY_FILTERS' });
 
   return filterField;
+}
+
+/**
+ * Create a new DateTime zoom filter from an axis field and immediately
+ * configure + apply it. Used by the chart zoom brush for temporal axes.
+ *
+ * @returns The newly created filter Field (with its new id)
+ */
+export function addFieldAsDateTimeZoomFilter(
+  sourceField: Field,
+  startDate: string,
+  endDate: string,
+  currentFilterFields: Field[],
+  dispatch: Dispatch,
+): Field {
+  const filterField: Field = {
+    ...sourceField,
+    id: uuidv4(),
+    flavour: 'continuous',
+  };
+
+  dispatch({
+    type: 'SET_FILTER_FIELDS',
+    payload: [...currentFilterFields, filterField],
+  });
+
+  const config: DateTimeFilterConfig = {
+    fieldId: filterField.id,
+    columnName: filterField.columnName,
+    type: 'datetime',
+    startDate,
+    endDate,
+    isZoomFilter: true,
+  };
+
+  dispatch({
+    type: 'SET_FILTER_CONFIGURATION',
+    payload: { fieldId: filterField.id, config },
+  });
+
+  dispatch({ type: 'APPLY_FILTERS' });
+
+  return filterField;
+}
+
+/**
+ * Update an existing DateTime filter's date range and auto-apply.
+ * Used by the chart zoom brush when narrowing an existing zoom, or by zoom-out.
+ */
+export function updateExistingDateTimeFilter(
+  existingFilterFieldId: string,
+  columnName: string,
+  startDate: string,
+  endDate: string,
+  dispatch: Dispatch,
+): void {
+  const config: DateTimeFilterConfig = {
+    fieldId: existingFilterFieldId,
+    columnName,
+    type: 'datetime',
+    startDate,
+    endDate,
+    isZoomFilter: true,
+  };
+
+  dispatch({
+    type: 'SET_FILTER_CONFIGURATION',
+    payload: { fieldId: existingFilterFieldId, config },
+  });
+
+  dispatch({ type: 'APPLY_FILTERS' });
 }

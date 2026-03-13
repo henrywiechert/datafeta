@@ -45,6 +45,7 @@ function AppContent() {
     setVirtualColumnFieldPreferences,
     setFieldAlias,
     loadHivePartition,
+    restoreSessionFilters,
   } = useDataSource();
   const { connectionDetails, connect, disconnect, isConnected } = useConnection();
   
@@ -241,7 +242,9 @@ function AppContent() {
       dataSource.virtualColumns,
       dataSource.virtualColumnFieldPreferences,
       dataSource.fieldDisplayAliases,
-      hivePartitionInfo
+      hivePartitionInfo,
+      dataSource.sessionFilterFields,
+      dataSource.sessionAppliedFilterConfigurations,
     );
   };
 
@@ -417,6 +420,11 @@ function AppContent() {
       // Restore active sheet if specified
       if (config.activeSheetId) {
         setActiveSheet(config.activeSheetId);
+      }
+
+      // Restore session (global) filters if present
+      if (config.sessionFilters && config.sessionFilters.fields.length > 0) {
+        restoreSessionFilters(config.sessionFilters.fields, config.sessionFilters.configurations);
       }
       
       // Navigate to visualization page first if we have sheets

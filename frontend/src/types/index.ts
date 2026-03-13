@@ -114,6 +114,7 @@ export type {
 export type {
   SavedConnectionMetadata,
   SavedDataSourceSelection,
+  SavedSessionFilters,
   SavedConfiguration,
   SnapshotMetadata,
 } from './savedConfig';

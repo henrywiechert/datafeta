@@ -19,11 +19,24 @@ export interface ScaleDescriptor {
 }
 
 /**
+ * Coerce a domain endpoint to a plain number.
+ * Handles Date objects (via getTime()) and other types (via Number()).
+ */
+function domainToNumber(val: any): number {
+  if (val instanceof Date) return val.getTime();
+  return Number(val);
+}
+
+/**
  * Invert a single pixel position to a data value on a quantitative
  * (linear, sqrt, log, etc.) scale. Falls back to linear interpolation.
+ *
+ * For temporal scales (utc / time) whose domain contains Date objects,
+ * the return value is the epoch-millisecond timestamp.
  */
 export function invertQuantitative(pixelPos: number, scale: ScaleDescriptor): number {
-  const [d0, d1] = scale.domain as [number, number];
+  const d0 = domainToNumber(scale.domain![0]);
+  const d1 = domainToNumber(scale.domain![1]);
   const [r0, r1] = scale.range as [number, number];
   if (r1 === r0) return d0;
 
@@ -42,8 +55,15 @@ export function invertQuantitative(pixelPos: number, scale: ScaleDescriptor): nu
     return sqrtVal * sqrtVal;
   }
 
-  // Linear (default)
+  // Linear / temporal (default)
   return d0 + t * (d1 - d0);
+}
+
+/**
+ * Returns true if the scale descriptor represents a temporal (UTC / time) scale.
+ */
+export function isTemporalScale(scale: ScaleDescriptor): boolean {
+  return scale.type === 'utc' || scale.type === 'time';
 }
 
 /**
