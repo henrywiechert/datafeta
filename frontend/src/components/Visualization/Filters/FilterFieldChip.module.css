@@ -7,6 +7,7 @@
   background-color: #fafafa;
 }
 
+
 .chipContainer {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

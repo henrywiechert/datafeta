@@ -234,6 +234,21 @@ export function useBrushZoom({
     }
   }, [appliedFilterConfigurations, filterMetadata, dispatch, recordAction, getUndoableSnapshot]);
 
+  const handleZoomReset = useCallback(() => {
+    const zoomFieldIds = Object.entries(appliedFilterConfigurations)
+      .filter(([, cfg]) => cfg.isZoomFilter)
+      .map(([fieldId]) => fieldId);
+    if (zoomFieldIds.length === 0) return;
+
+    recordAction(getUndoableSnapshot());
+
+    const remainingFields = filterFields.filter((f) => !zoomFieldIds.includes(f.id));
+    dispatch({ type: 'SET_FILTER_FIELDS', payload: remainingFields } as VisualizationAction);
+    for (const fieldId of zoomFieldIds) {
+      dispatch({ type: 'REMOVE_FILTER_CONFIGURATION', payload: fieldId } as VisualizationAction);
+    }
+  }, [appliedFilterConfigurations, filterFields, dispatch, recordAction, getUndoableSnapshot]);
+
   const hasActiveZoomFilters = useMemo(
     () => Object.values(appliedFilterConfigurations).some((cfg) => cfg.isZoomFilter),
     [appliedFilterConfigurations],
@@ -243,6 +258,7 @@ export function useBrushZoom({
     brushDisabled,
     handleBrushEnd,
     handleZoomOut,
+    handleZoomReset,
     hasActiveZoomFilters,
   };
 }
