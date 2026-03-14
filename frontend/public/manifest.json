@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "Data Slicer",
+  "name": "Data Slicer - Data Analysis Platform (OLAP in Browser)",
   "icons": [
     {
       "src": "favicon.ico",
