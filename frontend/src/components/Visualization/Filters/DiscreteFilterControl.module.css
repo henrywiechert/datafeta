@@ -45,6 +45,13 @@
   padding: 0;
 }
 
+.sectionDivider {
+  height: 1px;
+  background: #d0d0d0;
+  margin: 3px 8px;
+  flex-shrink: 0;
+}
+
 .checkboxItem {
   margin: 0;
   padding: 2px 4px;
