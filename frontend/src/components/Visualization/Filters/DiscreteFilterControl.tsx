@@ -56,70 +56,6 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
   const [regexError, setRegexError] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // Sort and filter available values based on list filter term (client-side)
-  const filteredValues = useMemo(() => {
-    // First, filter based on list filter term (plain or regex)
-    let values = metadata.availableValues;
-    const term = listFilterTerm.trim();
-    setRegexError(null);
-    if (term) {
-      if (useRegex) {
-        try {
-          const re = new RegExp(term);
-          values = values.filter(value => {
-            // Handle null/undefined values
-            const displayValue = value === null || value === undefined ? '(null)' : String(value);
-            return re.test(displayValue);
-          });
-        } catch (e: any) {
-          // invalid regex → don't filter further, surface error
-          setRegexError(e?.message || 'Invalid regex');
-        }
-      } else {
-        const lowerSearch = term.toLowerCase();
-        values = values.filter(value => {
-          // Handle null/undefined values
-          const displayValue = value === null || value === undefined ? '(null)' : String(value);
-          return displayValue.toLowerCase().includes(lowerSearch);
-        });
-      }
-    }
-    
-    // Then sort: numeric if all values are numeric (excluding nulls), otherwise alphabetic
-    const sortedValues = [...values];
-    
-    // Check if all non-null values are numeric
-    const nonNullValues = sortedValues.filter(v => v !== null && v !== undefined);
-    const allNumeric = nonNullValues.length > 0 && nonNullValues.every(v => {
-      const num = Number(v);
-      return !isNaN(num) && isFinite(num);
-    });
-    
-    if (allNumeric) {
-      // Numeric sort - put nulls at the end
-      sortedValues.sort((a, b) => {
-        if (a === null || a === undefined) return 1;
-        if (b === null || b === undefined) return -1;
-        return Number(a) - Number(b);
-      });
-    } else {
-      // Alphabetic sort - put nulls at the end
-      sortedValues.sort((a, b) => {
-        if (a === null || a === undefined) return 1;
-        if (b === null || b === undefined) return -1;
-        const strA = String(a);
-        const strB = String(b);
-        return strA.localeCompare(strB);
-      });
-    }
-    
-    return sortedValues;
-  }, [metadata.availableValues, listFilterTerm, useRegex]);
-
-  // Also recompute when regex mode toggles to keep list in sync
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const filteredValuesWithRegex = filteredValues; // alias for readability
-
   // ---- Selection matching ----
   // After loading a saved config, selectedValues may be numbers while availableValues
   // come back as strings (or vice versa), depending on backend/driver. Strict equality
@@ -149,6 +85,79 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
     [selectedValues, valueKey]
   );
 
+  // Sort helper: numeric if all non-null values are numeric, otherwise alphabetic
+  const sortValues = useCallback((values: any[]) => {
+    const sorted = [...values];
+    const nonNull = sorted.filter(v => v !== null && v !== undefined);
+    const allNumeric = nonNull.length > 0 && nonNull.every(v => {
+      const num = Number(v);
+      return !isNaN(num) && isFinite(num);
+    });
+    if (allNumeric) {
+      sorted.sort((a, b) => {
+        if (a === null || a === undefined) return 1;
+        if (b === null || b === undefined) return -1;
+        return Number(a) - Number(b);
+      });
+    } else {
+      sorted.sort((a, b) => {
+        if (a === null || a === undefined) return 1;
+        if (b === null || b === undefined) return -1;
+        return String(a).localeCompare(String(b));
+      });
+    }
+    return sorted;
+  }, []);
+
+  // Partition into selected (always visible) and unselected (filtered by search),
+  // then sort each group independently.
+  const { pinnedValues, unpinnedValues } = useMemo(() => {
+    const selected: any[] = [];
+    const unselected: any[] = [];
+    for (const value of metadata.availableValues) {
+      if (selectedKeysSet.has(valueKey(value))) {
+        selected.push(value);
+      } else {
+        unselected.push(value);
+      }
+    }
+
+    // Apply search filter only to unselected values
+    let filteredUnselected = unselected;
+    const term = listFilterTerm.trim();
+    setRegexError(null);
+    if (term) {
+      if (useRegex) {
+        try {
+          const re = new RegExp(term);
+          filteredUnselected = unselected.filter(value => {
+            const displayValue = value === null || value === undefined ? '(null)' : String(value);
+            return re.test(displayValue);
+          });
+        } catch (e: any) {
+          setRegexError(e?.message || 'Invalid regex');
+        }
+      } else {
+        const lowerSearch = term.toLowerCase();
+        filteredUnselected = unselected.filter(value => {
+          const displayValue = value === null || value === undefined ? '(null)' : String(value);
+          return displayValue.toLowerCase().includes(lowerSearch);
+        });
+      }
+    }
+
+    return {
+      pinnedValues: sortValues(selected),
+      unpinnedValues: sortValues(filteredUnselected),
+    };
+  }, [metadata.availableValues, selectedKeysSet, valueKey, listFilterTerm, useRegex, sortValues]);
+
+  // Combined list for Select All / Deselect All operations
+  const allVisibleValues = useMemo(
+    () => [...pinnedValues, ...unpinnedValues],
+    [pinnedValues, unpinnedValues]
+  );
+
   // Memoize the toggle handler to prevent unnecessary re-renders of child components
   const handleToggle = useCallback((value: any) => {
     const key = valueKey(value);
@@ -163,13 +172,12 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
   }, [selectedValues, selectedKeysSet, onChange, valueKey, normalizeValueForSelection]);
 
   const handleSelectAll = () => {
-    onChange(filteredValuesWithRegex.map(normalizeValueForSelection));
+    onChange(allVisibleValues.map(normalizeValueForSelection));
   };
 
   const handleDeselectAll = () => {
-    // Remove all filtered values from selection
-    const filteredKeySet = new Set(filteredValuesWithRegex.map(valueKey));
-    const newSelected = selectedValues.filter((v) => !filteredKeySet.has(valueKey(v)));
+    const visibleKeySet = new Set(allVisibleValues.map(valueKey));
+    const newSelected = selectedValues.filter((v) => !visibleKeySet.has(valueKey(v)));
     onChange(newSelected);
   };
   
@@ -307,17 +315,30 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
         </Button>
       </Box>
 
-      {/* Checkbox list */}
+      {/* Checkbox list: selected values pinned on top */}
       <Box className={styles.checkboxList}>
-        {filteredValuesWithRegex.map((value, index) => {
-          // Display null/undefined values as "(null)"
+        {pinnedValues.map((value, index) => {
           const valueStr = value === null || value === undefined ? '(null)' : String(value);
-          // O(1) lookup by key to handle saved-state type differences ("1" vs 1)
           const isChecked = selectedKeysSet.has(valueKey(value));
-          
           return (
             <CheckboxItem
-              key={`${valueStr}-${index}`}
+              key={`pinned-${valueStr}-${index}`}
+              value={value}
+              valueStr={valueStr}
+              isChecked={isChecked}
+              onToggle={handleToggle}
+            />
+          );
+        })}
+        {pinnedValues.length > 0 && unpinnedValues.length > 0 && (
+          <div className={styles.sectionDivider} />
+        )}
+        {unpinnedValues.map((value, index) => {
+          const valueStr = value === null || value === undefined ? '(null)' : String(value);
+          const isChecked = selectedKeysSet.has(valueKey(value));
+          return (
+            <CheckboxItem
+              key={`unpinned-${valueStr}-${index}`}
               value={value}
               valueStr={valueStr}
               isChecked={isChecked}
