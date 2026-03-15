@@ -1,5 +1,6 @@
 import React from 'react';
-import { TextField, Box } from '@mui/material';
+import { TextField, Box, IconButton, InputAdornment } from '@mui/material';
+import { Close as CloseIcon } from '@mui/icons-material';
 
 interface FieldsSearchProps {
   value: string;
@@ -19,6 +20,18 @@ const FieldsSearch: React.FC<FieldsSearchProps> = ({ value, onChange }) => {
         inputProps={{ 'aria-label': 'Search fields', style: { fontSize: '12px', padding: '1px 3px' } }}
         InputProps={{
           disableUnderline: true,
+          endAdornment: value ? (
+            <InputAdornment position="end" sx={{ mr: -0.5 }}>
+              <IconButton
+                size="small"
+                onClick={() => onChange('')}
+                aria-label="Clear search"
+                sx={{ p: 0.25, '& .MuiSvgIcon-root': { fontSize: 18 } }}
+              >
+                <CloseIcon fontSize="inherit" />
+              </IconButton>
+            </InputAdornment>
+          ) : null,
           sx: {
             fontSize: '10px',
             height: 28,
