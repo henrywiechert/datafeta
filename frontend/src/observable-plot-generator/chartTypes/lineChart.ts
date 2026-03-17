@@ -357,18 +357,19 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     console.warn(`⚠️ ${chartLabel} bin-aggregate applied: ${cleanSorted.length} → ${budgetedSorted.length} points (axisKind=${axisKind})`);
   }
 
-  // After bin-aggregation the dependent-axis range may be much narrower than
-  // the caller-supplied domain (which was computed from the un-binned data).
-  // Recompute to match the actually-plotted values.
+  // Always compute the dependent-axis domain from the actually-plotted data.
+  // The caller-supplied domain (from computeSharedMeasureDomains) may use
+  // bar-chart stacking logic that inflates the range far beyond any individual
+  // value — wrong for line charts. For faceted grids the coordinator will
+  // harmonize per-cell domains into a shared scale afterwards.
+  const plotData = budgetedSorted.length > 0 ? budgetedSorted : cleanSorted;
+  const recomputedDependent = recomputeDependentDomain(plotData, dependentColumn);
   let effectiveDomain = domain;
-  if (budgetedSorted !== cleanSorted && budgetedSorted.length > 0) {
-    const recomputed = recomputeDependentDomain(budgetedSorted, dependentColumn);
-    if (recomputed) {
-      effectiveDomain = {
-        ...domain,
-        [O.dependentAxis]: recomputed,
-      };
-    }
+  if (recomputedDependent) {
+    effectiveDomain = {
+      ...domain,
+      [O.dependentAxis]: recomputedDependent,
+    };
   }
 
   // Dots are expensive at scale; cap dot density separately
@@ -532,8 +533,63 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
       facetFields
     )
   };
+
+  // Metadata for facet-grid harmonization: the coordinator merges per-cell
+  // domains so all facets share the same scale (see harmonizeLineChartDomains).
+  if (recomputedDependent) {
+    (plotOptions as any).__lineChartDomainInfo = {
+      axis: O.dependentAxis,
+      column: dependentColumn,
+      domain: recomputedDependent,
+    };
+  }
   
   return plotOptions;
+}
+
+// ---------- Facet harmonization ----------------------------------------------
+
+/**
+ * Harmonize line chart dependent-axis domains across multiple plots so faceted
+ * grids share the same scale. Collects per-cell recomputed domains (attached
+ * by buildLineOptions as __lineChartDomainInfo) and replaces them with the
+ * union across all cells grouped by axis + column.
+ *
+ * Safe to call on mixed plot arrays — non-line-chart plots are ignored.
+ */
+export function harmonizeLineChartDomains(
+  plots: Array<{ options: Plot.PlotOptions }>
+): void {
+  type Entry = { options: any; domain: [number, number] };
+  const groups = new Map<string, Entry[]>();
+
+  for (const plot of plots) {
+    const info = (plot.options as any)?.__lineChartDomainInfo;
+    if (!info?.domain) continue;
+    const key = `${info.axis}:${info.column}`;
+    let group = groups.get(key);
+    if (!group) {
+      group = [];
+      groups.set(key, group);
+    }
+    group.push({ options: plot.options, domain: info.domain });
+  }
+
+  groups.forEach((group) => {
+    if (group.length <= 1) return;
+
+    const sharedMin = Math.min(...group.map((g: Entry) => g.domain[0]));
+    const sharedMax = Math.max(...group.map((g: Entry) => g.domain[1]));
+    const shared: [number, number] = [sharedMin, sharedMax];
+
+    for (const { options } of group) {
+      const info = options.__lineChartDomainInfo;
+      if (options[info.axis]) {
+        options[info.axis].domain = shared;
+      }
+      info.domain = shared;
+    }
+  });
 }
 
 // ---------- Public API (thin wrappers) --------------------------------------
