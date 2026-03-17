@@ -1,6 +1,5 @@
-import { buildLineOptions, LineBuildParams } from './lineChart';
+import { buildLineOptions, LineBuildParams, harmonizeLineChartDomains } from './lineChart';
 
-// Mock observable plot ESM for Jest
 jest.mock('@observablehq/plot', () => ({
   line: (data: any[], opts: any) => ({ type: 'line', data, opts }),
   dot: (data: any[], opts: any) => ({ type: 'dot', data, opts }),
@@ -30,7 +29,7 @@ function generateRows(
   return rows;
 }
 
-describe('buildLineOptions – domain recomputation after bin-aggregation', () => {
+describe('buildLineOptions – dependent-axis domain always recomputed from data', () => {
   const makeParams = (data: any[], domain?: LineBuildParams['domain']): LineBuildParams => ({
     data,
     xColumn: 'x',
@@ -41,39 +40,34 @@ describe('buildLineOptions – domain recomputation after bin-aggregation', () =
   });
 
   test('recomputes Y domain when bin-aggregation fires (horizontal)', () => {
-    // 2000 rows with Y around 50–100, plus one extreme outlier at 10 000
     const data = generateRows(1999, 75, 25, [{ x: 9999, y: 10_000 }]);
-    // Caller-supplied domain reflects the raw data range (including outlier)
     const rawDomain: LineBuildParams['domain'] = { y: [0, 10_500] };
 
     const opts = buildLineOptions(makeParams(data, rawDomain));
     const yDomain = (opts.y as any)?.domain as [number, number];
 
-    // Should be recomputed from the bin-averaged data, NOT the raw [0, 10500]
     expect(yDomain).toBeDefined();
-    // The recomputed domain should differ from the caller-supplied domain
     expect(yDomain).not.toEqual([0, 10_500]);
-    // Lower bound should reflect actual data minimum (around 50 with padding)
     expect(yDomain[0]).toBeLessThan(55);
-    // Upper bound should be based on actual binned max, not the raw 10500 ceiling
-    // (the outlier bin still exists but the domain is data-derived, not caller-imposed)
-    expect(yDomain[1]).toBeLessThanOrEqual(10_000 * 1.06); // max + padding
+    expect(yDomain[1]).toBeLessThanOrEqual(10_000 * 1.06);
   });
 
-  test('preserves caller domain when no binning is needed', () => {
-    // 500 rows (below the 1000 budget) – no binning occurs
+  test('recomputes Y domain even when no binning is needed', () => {
+    // 500 rows (below the 1000 budget) – no binning, but domain is still
+    // recomputed from the actual data values (Y ∈ [50, 100]).
     const data = generateRows(500, 75, 25);
-    const callerDomain: LineBuildParams['domain'] = { y: [0, 200] };
+    const inflatedDomain: LineBuildParams['domain'] = { y: [0, 400_000] };
 
-    const opts = buildLineOptions(makeParams(data, callerDomain));
-    const yDomain = (opts.y as any)?.domain;
+    const opts = buildLineOptions(makeParams(data, inflatedDomain));
+    const yDomain = (opts.y as any)?.domain as [number, number];
 
-    // Domain should be the original caller-supplied domain
-    expect(yDomain).toEqual([0, 200]);
+    // Should be much tighter than the caller-supplied [0, 400_000]
+    expect(yDomain).toBeDefined();
+    expect(yDomain[0]).toBeLessThan(55);
+    expect(yDomain[1]).toBeLessThanOrEqual(110);
   });
 
   test('recomputes X domain for vertical orientation (dependent axis is X)', () => {
-    // 2000 rows; for vertical orientation the dependent axis is X
     const data: any[] = [];
     for (let i = 0; i < 1999; i++) {
       data.push({ x: 75 + (i % 2 === 0 ? 25 : -25), 'AVG(y)': i });
@@ -92,31 +86,25 @@ describe('buildLineOptions – domain recomputation after bin-aggregation', () =
 
     const xDomain = (opts.x as any)?.domain as [number, number];
     expect(xDomain).toBeDefined();
-    // The recomputed domain should differ from the caller-supplied [0, 10500]
     expect(xDomain).not.toEqual([0, 10_500]);
-    // Lower bound should reflect actual binned data minimum (around 50)
     expect(xDomain[0]).toBeLessThan(55);
-    // Y domain (independent axis for vertical) should be preserved from caller
+    // Y domain (independent axis for vertical) is not recomputed
     const yDomain = (opts.y as any)?.domain;
-    // Y domain was not supplied, so Observable Plot auto-derives it (undefined)
     expect(yDomain).toBeUndefined();
   });
 
   test('works when no caller domain is provided', () => {
-    // 2000 rows, no domain passed (undefined)
     const data = generateRows(2000, 75, 25);
 
     const opts = buildLineOptions(makeParams(data, undefined));
     const yDomain = (opts.y as any)?.domain as [number, number];
 
-    // Should still recompute a domain for the bin-averaged data
     expect(yDomain).toBeDefined();
     expect(yDomain[0]).toBeGreaterThanOrEqual(40);
     expect(yDomain[1]).toBeLessThanOrEqual(120);
   });
 
   test('handles constant Y values after binning', () => {
-    // All Y values identical → domain should have non-zero span
     const data: any[] = [];
     for (let i = 0; i < 2000; i++) {
       data.push({ x: i, 'AVG(y)': 42 });
@@ -128,5 +116,111 @@ describe('buildLineOptions – domain recomputation after bin-aggregation', () =
     expect(yDomain).toBeDefined();
     expect(yDomain[0]).toBeLessThan(42);
     expect(yDomain[1]).toBeGreaterThan(42);
+  });
+
+  test('attaches __lineChartDomainInfo metadata', () => {
+    const data = generateRows(500, 75, 25);
+    const opts = buildLineOptions(makeParams(data, undefined));
+    const info = (opts as any).__lineChartDomainInfo;
+
+    expect(info).toBeDefined();
+    expect(info.axis).toBe('y');
+    expect(info.column).toBe('AVG(y)');
+    expect(info.domain).toBeDefined();
+    expect(info.domain[0]).toBeLessThan(55);
+    expect(info.domain[1]).toBeLessThanOrEqual(110);
+  });
+
+  test('also recomputes for faceted charts (coordinator harmonizes later)', () => {
+    // Even with facetFields, buildLineOptions recomputes from local data.
+    // harmonizeLineChartDomains (called by the coordinator) merges per-cell
+    // domains into a shared scale afterwards.
+    const data = generateRows(500, 75, 25);
+    const inflatedDomain: LineBuildParams['domain'] = { y: [0, 400_000] };
+
+    const opts = buildLineOptions({
+      ...makeParams(data, inflatedDomain),
+      facetFields: [{ id: 'f1', columnName: 'category', type: 'dimension', flavour: 'discrete' } as any],
+    });
+    const yDomain = (opts.y as any)?.domain as [number, number];
+
+    // Not the inflated domain — recomputed from actual data
+    expect(yDomain).toBeDefined();
+    expect(yDomain[1]).toBeLessThan(200);
+  });
+});
+
+describe('harmonizeLineChartDomains', () => {
+  function makeMockPlot(axis: 'x' | 'y', column: string, domain: [number, number]) {
+    return {
+      options: {
+        [axis]: { label: column, domain },
+        __lineChartDomainInfo: { axis, column, domain },
+      } as any,
+    };
+  }
+
+  test('merges Y domains across multiple facet plots', () => {
+    const plots = [
+      makeMockPlot('y', 'AVG(y)', [10, 100]),
+      makeMockPlot('y', 'AVG(y)', [5, 200]),
+      makeMockPlot('y', 'AVG(y)', [20, 150]),
+    ];
+
+    harmonizeLineChartDomains(plots);
+
+    // All plots should share the widest domain
+    for (const p of plots) {
+      expect((p.options.y as any).domain).toEqual([5, 200]);
+    }
+  });
+
+  test('merges X domains for vertical line charts', () => {
+    const plots = [
+      makeMockPlot('x', 'AVG(x)', [0, 50]),
+      makeMockPlot('x', 'AVG(x)', [-10, 80]),
+    ];
+
+    harmonizeLineChartDomains(plots);
+
+    for (const p of plots) {
+      expect((p.options.x as any).domain).toEqual([-10, 80]);
+    }
+  });
+
+  test('leaves single-plot groups unchanged', () => {
+    const plots = [makeMockPlot('y', 'AVG(y)', [10, 100])];
+
+    harmonizeLineChartDomains(plots);
+
+    expect((plots[0].options.y as any).domain).toEqual([10, 100]);
+  });
+
+  test('ignores plots without __lineChartDomainInfo', () => {
+    const linePlot = makeMockPlot('y', 'AVG(y)', [10, 100]);
+    const scatterPlot = { options: { y: { label: 'Y', domain: [0, 500] } } as any };
+
+    harmonizeLineChartDomains([linePlot, scatterPlot]);
+
+    // Line plot keeps its own domain (only 1 in its group)
+    expect((linePlot.options.y as any).domain).toEqual([10, 100]);
+    // Scatter plot is untouched
+    expect((scatterPlot.options.y as any).domain).toEqual([0, 500]);
+  });
+
+  test('handles separate groups for different columns', () => {
+    const plots = [
+      makeMockPlot('y', 'AVG(a)', [10, 100]),
+      makeMockPlot('y', 'AVG(a)', [5, 200]),
+      makeMockPlot('y', 'AVG(b)', [0, 50]),
+      makeMockPlot('y', 'AVG(b)', [0, 30]),
+    ];
+
+    harmonizeLineChartDomains(plots);
+
+    expect((plots[0].options.y as any).domain).toEqual([5, 200]);
+    expect((plots[1].options.y as any).domain).toEqual([5, 200]);
+    expect((plots[2].options.y as any).domain).toEqual([0, 50]);
+    expect((plots[3].options.y as any).domain).toEqual([0, 50]);
   });
 });

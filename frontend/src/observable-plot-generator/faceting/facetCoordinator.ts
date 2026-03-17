@@ -7,6 +7,7 @@ import { computeSharedDomainsForFaceting, SharedDomains } from './facetDomains';
 import { computeGridLayout, computeFacetLabels } from './facetGrid';
 import { getFieldColumnName } from '../helpers/fields';
 import { computeAllFacetBackgrounds } from '../utils/facetBackgroundUtils';
+import { harmonizeLineChartDomains } from '../chartTypes/lineChart';
 
 /**
  * A single plot specification with position
@@ -307,6 +308,10 @@ export function coordinateFacetedGrid(config: FacetCoordinatorConfig): PlotResul
       });
     }
   }
+
+  // Line charts compute their dependent-axis domain from per-cell data which
+  // may differ across facets. Harmonize so all facets share the same scale.
+  harmonizeLineChartDomains(allPlots);
 
   // Compute final grid layout
   const gridLayout = computeGridLayout(
