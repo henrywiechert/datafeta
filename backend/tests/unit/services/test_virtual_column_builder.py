@@ -188,6 +188,18 @@ class TestVirtualColumnExpressionBuilder:
         assert 'FLOOR' in sql
         assert 'SA Avg nr nonGBR RRC conn UEs' in sql
 
+    def test_floor_with_double_quoted_column_name_with_dots(self):
+        """Quoted identifiers containing dots should parse correctly in arithmetic."""
+        vc = VirtualColumnDefinition(
+            name='slotProcessingTime_bin',
+            expression='FLOOR("dlLoadControlData.measurementInfo.slotProcessingTimeAvg" / 50000) * 50000',
+        )
+
+        term = self.builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='"')
+        assert 'FLOOR' in sql
+        assert 'dlLoadControlData.measurementInfo.slotProcessingTimeAvg' in sql
+
     def test_floor_with_backtick_quoted_column_name_with_spaces(self):
         """Backtick-quoted identifiers should also be accepted."""
         vc = VirtualColumnDefinition(
