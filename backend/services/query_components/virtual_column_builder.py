@@ -252,15 +252,19 @@ class VirtualColumnExpressionBuilder:
         # Also replace quoted identifiers (e.g. "SA Avg nr nonGBR RRC conn UEs")
         # with temporary safe identifiers to support fields containing spaces.
         eval_expression = expression
-        for col_ref in column_refs:
-            if '.' in col_ref:
-                safe_name = col_ref.replace('.', '__')
-                eval_expression = eval_expression.replace(col_ref, safe_name)
 
+        # Replace quoted identifiers first so the dot-replacement pass below
+        # does not corrupt the content inside quotes (which would prevent the
+        # quoted-literal match from succeeding).
         for index, (quoted_literal, column_name) in enumerate(quoted_column_refs):
             safe_name = f"_qcol_{index}"
             eval_expression = eval_expression.replace(quoted_literal, safe_name)
             namespace[safe_name] = self._get_field_reference(column_name)
+
+        for col_ref in column_refs:
+            if '.' in col_ref:
+                safe_name = col_ref.replace('.', '__')
+                eval_expression = eval_expression.replace(col_ref, safe_name)
         
         logger.debug(f"Eval expression: '{eval_expression}', namespace keys: {list(namespace.keys())}")
         
