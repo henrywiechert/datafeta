@@ -114,6 +114,7 @@ export const useQueryExecutor = ({
         dispatch({ type: 'SET_QUERY_ERROR', payload: null });
 
         let result;
+        let samplingBudget: { maxPoints: number; shouldAttachBudget: boolean; lineBudgetMaxRows?: number; hasContinuousFields: boolean } | null = null;
 
         if (useUnpivot) {
           // Execute unpivot query (multiple queries merged)
@@ -161,6 +162,13 @@ export const useQueryExecutor = ({
                 },
               } as QueryDescription)
             : queryDesc;
+
+          samplingBudget = {
+            maxPoints: pointBudget.maxPoints,
+            shouldAttachBudget,
+            lineBudgetMaxRows: pointBudget.lineBudgetMaxRows,
+            hasContinuousFields: (pointBudget.continuousFields?.length ?? 0) > 0,
+          };
 
           // Columns required for local caching/execution
           const requiredColumns: string[] = [
@@ -316,6 +324,24 @@ export const useQueryExecutor = ({
           // Remap and clean the result
           const remappedResult = remapCastExpressionColumns(result, allFieldsForRemapping);
           const cleanedResult = validateAndCleanData(remappedResult);
+
+          if (samplingBudget) {
+            const { maxPoints, shouldAttachBudget: budgetAttached, lineBudgetMaxRows, hasContinuousFields } = samplingBudget;
+            if (
+              budgetAttached &&
+              Number.isFinite(maxPoints) &&
+              cleanedResult.row_count >= maxPoints
+            ) {
+              cleanedResult.sampled = { limit: maxPoints, type: 'point' };
+            } else if (
+              lineBudgetMaxRows &&
+              hasContinuousFields &&
+              cleanedResult.row_count >= lineBudgetMaxRows
+            ) {
+              cleanedResult.sampled = { limit: lineBudgetMaxRows, type: 'line' };
+            }
+          }
+
           dispatch({ type: 'SET_QUERY_RESULT', payload: cleanedResult });
 
           // Warn if data was too large

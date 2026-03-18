@@ -1,23 +1,26 @@
 import React from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, Tooltip } from '@mui/material';
 import { useVisualizationContext } from '../../../../contexts/VisualizationContext';
 
 /**
  * Status field displaying dataset dimensions (cols x rows).
- * Prepared to hold more information in the future.
+ * Shows a sampling indicator pill when the result was capped by a budget.
  */
 const DatasetStatus: React.FC = () => {
   const { state } = useVisualizationContext();
   const { queryResult } = state as any;
 
-  // Calculate cols and rows
   const cols = queryResult?.columns?.length ?? 0;
   const rows = queryResult?.row_count ?? 0;
+  const sampled = queryResult?.sampled;
 
-  // Don't show anything if there's no query result yet
   if (!queryResult) {
     return null;
   }
+
+  const samplingTooltip = sampled
+    ? `Result downsampled to ${sampled.limit.toLocaleString()} rows`
+    : 'Not sampled';
 
   return (
     <Box
@@ -25,6 +28,7 @@ const DatasetStatus: React.FC = () => {
         display: 'flex',
         alignItems: 'center',
         mr: 1,
+        gap: 0.75,
       }}
     >
       <Typography
@@ -32,11 +36,36 @@ const DatasetStatus: React.FC = () => {
         sx={{
           color: 'text.secondary',
           fontWeight: 500,
-          fontSize: '0.75rem',
+          fontSize: '0.8rem',
         }}
       >
         {rows.toLocaleString()} × {cols}
       </Typography>
+      <Tooltip title={samplingTooltip} arrow placement="bottom">
+        <Typography
+          component="span"
+          variant="caption"
+          sx={{
+            width: 20,
+            height: 20,
+            borderRadius: '50%',
+            fontWeight: 700,
+            fontSize: '0.7rem',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            lineHeight: 1,
+            bgcolor: sampled ? 'warning.main' : 'transparent',
+            color: sampled ? 'common.white' : 'text.disabled',
+            border: sampled ? 'none' : '1.5px solid',
+            borderColor: sampled ? undefined : 'action.disabled',
+            transition: 'background-color 0.2s, color 0.2s',
+            cursor: 'default',
+          }}
+        >
+          S
+        </Typography>
+      </Tooltip>
     </Box>
   );
 };
