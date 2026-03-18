@@ -82,6 +82,13 @@ export interface QueryResultColumn {
   type: string;
 }
 
+export interface SamplingInfo {
+  /** The budget limit that was applied */
+  limit: number;
+  /** Whether this was a point budget or line budget */
+  type: 'point' | 'line';
+}
+
 export interface QueryResult {
   columns: QueryResultColumn[];
   rows: { [key: string]: any }[];
@@ -95,6 +102,8 @@ export interface QueryResult {
   optimization_override?: OptimizationOverride | null;
   result_dimensions?: ResultDimensions;
   label_fields?: string[];
+  /** Present when the result was capped by a sampling budget */
+  sampled?: SamplingInfo;
 }
 
 // --- Optimization Types --- //
