@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import re
 import tempfile
 import uuid
 from datetime import datetime, timezone
@@ -16,6 +17,40 @@ logger = logging.getLogger(__name__)
 # Default storage directory (can be overridden via environment variable)
 DEFAULT_SNAPSHOT_DIR = "/app/data/snapshots"
 
+MAX_FOLDER_DEPTH = 5
+MAX_FOLDER_SEGMENT_LENGTH = 64
+_VALID_SEGMENT_RE = re.compile(r"^[^/\\.<>:\"'|?*\x00-\x1f]+$")
+
+
+def validate_folder(folder: str) -> str:
+    """Validate and normalise a folder path. Returns the cleaned path."""
+    if not folder:
+        return ""
+
+    folder = folder.strip().strip("/")
+    if not folder:
+        return ""
+
+    segments = folder.split("/")
+    if len(segments) > MAX_FOLDER_DEPTH:
+        raise InvalidInputError(
+            f"Folder path exceeds maximum depth of {MAX_FOLDER_DEPTH}"
+        )
+    for seg in segments:
+        seg = seg.strip()
+        if not seg or seg in (".", ".."):
+            raise InvalidInputError(f"Invalid folder segment: '{seg}'")
+        if len(seg) > MAX_FOLDER_SEGMENT_LENGTH:
+            raise InvalidInputError(
+                f"Folder segment exceeds {MAX_FOLDER_SEGMENT_LENGTH} characters"
+            )
+        if not _VALID_SEGMENT_RE.match(seg):
+            raise InvalidInputError(
+                f"Folder segment contains invalid characters: '{seg}'"
+            )
+
+    return "/".join(s.strip() for s in segments)
+
 
 class SnapshotMetadata:
     """Metadata for a saved snapshot."""
@@ -26,16 +61,19 @@ class SnapshotMetadata:
         name: str,
         created_at: str,
         updated_at: str,
+        folder: str = "",
     ):
         self.id = id
         self.name = name
         self.created_at = created_at
         self.updated_at = updated_at
+        self.folder = folder
     
     def to_dict(self) -> Dict[str, str]:
         return {
             "id": self.id,
             "name": self.name,
+            "folder": self.folder,
             "createdAt": self.created_at,
             "updatedAt": self.updated_at,
         }
@@ -126,6 +164,7 @@ class SnapshotService:
                     name=data.get("name", "Untitled"),
                     created_at=data.get("createdAt", ""),
                     updated_at=data.get("updatedAt", ""),
+                    folder=data.get("folder", ""),
                 ))
             except Exception as e:
                 logger.warning(f"Failed to read snapshot file {path}: {e}")
@@ -140,6 +179,7 @@ class SnapshotService:
         name: str,
         configuration: Dict[str, Any],
         snapshot_id: Optional[str] = None,
+        folder: Optional[str] = None,
     ) -> SnapshotMetadata:
         """
         Save a new snapshot or overwrite an existing one.
@@ -148,6 +188,8 @@ class SnapshotService:
             name: Human-readable name for the snapshot.
             configuration: The SavedConfiguration data to store.
             snapshot_id: Optional ID to overwrite. If None, creates new snapshot.
+            folder: Optional folder path (e.g. "Sales/Reports"). Defaults to ""
+                    (root) for new snapshots or preserves existing folder on overwrite.
             
         Returns:
             Metadata of the saved snapshot.
@@ -157,17 +199,21 @@ class SnapshotService:
         now = datetime.now(timezone.utc).isoformat()
         
         if snapshot_id:
-            # Update existing snapshot
             existing = self._read_snapshot_file(snapshot_id)
             created_at = existing.get("createdAt", now)
+            resolved_folder = (
+                validate_folder(folder) if folder is not None
+                else existing.get("folder", "")
+            )
         else:
-            # Create new snapshot
             snapshot_id = str(uuid.uuid4())
             created_at = now
+            resolved_folder = validate_folder(folder) if folder else ""
         
         data = {
             "id": snapshot_id,
             "name": name.strip() or "Untitled",
+            "folder": resolved_folder,
             "createdAt": created_at,
             "updatedAt": now,
             "configuration": configuration,
@@ -180,6 +226,7 @@ class SnapshotService:
             name=data["name"],
             created_at=created_at,
             updated_at=now,
+            folder=resolved_folder,
         )
     
     def get_snapshot(self, snapshot_id: str) -> Dict[str, Any]:
@@ -257,4 +304,77 @@ class SnapshotService:
             name=data["name"],
             created_at=data.get("createdAt", ""),
             updated_at=now,
+            folder=data.get("folder", ""),
         )
+
+    def move_snapshot(self, snapshot_id: str, folder: str) -> SnapshotMetadata:
+        """
+        Move a snapshot to a different folder.
+        
+        Args:
+            snapshot_id: The snapshot ID.
+            folder: Target folder path (empty string for root).
+            
+        Returns:
+            Updated metadata.
+        """
+        self.ensure_storage_dir()
+        resolved_folder = validate_folder(folder)
+        data = self._read_snapshot_file(snapshot_id)
+
+        now = datetime.now(timezone.utc).isoformat()
+        data["folder"] = resolved_folder
+        data["updatedAt"] = now
+
+        self._write_snapshot_file(snapshot_id, data)
+
+        return SnapshotMetadata(
+            id=snapshot_id,
+            name=data.get("name", "Untitled"),
+            created_at=data.get("createdAt", ""),
+            updated_at=now,
+            folder=resolved_folder,
+        )
+
+    def rename_folder(self, old_path: str, new_path: str) -> int:
+        """
+        Rename a folder, updating all snapshots whose folder starts with old_path.
+        
+        Args:
+            old_path: Current folder path.
+            new_path: New folder path.
+            
+        Returns:
+            Number of snapshots updated.
+        """
+        self.ensure_storage_dir()
+        old_path = validate_folder(old_path)
+        new_path = validate_folder(new_path)
+
+        if not old_path:
+            raise InvalidInputError("Cannot rename root folder")
+        if not new_path:
+            raise InvalidInputError("New folder path cannot be empty")
+        if old_path == new_path:
+            return 0
+
+        updated_count = 0
+        now = datetime.now(timezone.utc).isoformat()
+
+        for path in self.storage_dir.glob("*.json"):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+
+                current_folder = data.get("folder", "")
+                if current_folder == old_path or current_folder.startswith(old_path + "/"):
+                    data["folder"] = new_path + current_folder[len(old_path):]
+                    data["updatedAt"] = now
+                    snapshot_id = data.get("id", path.stem)
+                    self._write_snapshot_file(snapshot_id, data)
+                    updated_count += 1
+            except Exception as e:
+                logger.warning(f"Failed to process snapshot file {path} during folder rename: {e}")
+                continue
+
+        return updated_count

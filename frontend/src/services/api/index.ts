@@ -59,6 +59,8 @@ export const apiService = {
   deleteSnapshot: snapshotApi.deleteSnapshot,
   renameSnapshot: snapshotApi.renameSnapshot,
   overwriteSnapshot: snapshotApi.overwriteSnapshot,
+  moveSnapshot: snapshotApi.moveSnapshot,
+  renameFolder: snapshotApi.renameFolder,
 
   // Kaggle operations
   searchKaggleDatasets: kaggleApi.searchKaggleDatasets,

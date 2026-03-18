@@ -8,21 +8,26 @@
  * - Delete snapshots
  * - Rename snapshots
  * - Overwrite snapshots
+ * - Move snapshots between folders
+ * - Rename folders
  */
 
 import { fetchWithErrorHandling, API_BASE_PREFIX } from './apiClient';
 
+interface SnapshotMeta {
+  id: string;
+  name: string;
+  folder: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export const snapshotApi = {
   /**
    * List all saved snapshots.
-   * Returns metadata only (id, name, timestamps) for display in a gallery.
+   * Returns metadata only (id, name, folder, timestamps) for display in a gallery.
    */
-  async listSnapshots(signal?: AbortSignal): Promise<Array<{
-    id: string;
-    name: string;
-    createdAt: string;
-    updatedAt: string;
-  }>> {
+  async listSnapshots(signal?: AbortSignal): Promise<SnapshotMeta[]> {
     const response = await fetchWithErrorHandling(
       `${API_BASE_PREFIX}/snapshots`,
       {},
@@ -37,14 +42,15 @@ export const snapshotApi = {
   async saveSnapshot(
     name: string,
     configuration: any,
+    folder?: string,
     signal?: AbortSignal
-  ): Promise<{ id: string; name: string; createdAt: string; updatedAt: string }> {
+  ): Promise<SnapshotMeta> {
     const response = await fetchWithErrorHandling(
       `${API_BASE_PREFIX}/snapshots`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, configuration }),
+        body: JSON.stringify({ name, configuration, folder: folder ?? '' }),
       },
       signal
     );
@@ -58,13 +64,7 @@ export const snapshotApi = {
   async loadSnapshot(
     snapshotId: string,
     signal?: AbortSignal
-  ): Promise<{
-    id: string;
-    name: string;
-    createdAt: string;
-    updatedAt: string;
-    configuration: any;
-  }> {
+  ): Promise<SnapshotMeta & { configuration: any }> {
     const response = await fetchWithErrorHandling(
       `${API_BASE_PREFIX}/snapshots/${encodeURIComponent(snapshotId)}`,
       {},
@@ -91,7 +91,7 @@ export const snapshotApi = {
     snapshotId: string,
     newName: string,
     signal?: AbortSignal
-  ): Promise<{ id: string; name: string; createdAt: string; updatedAt: string }> {
+  ): Promise<SnapshotMeta> {
     const response = await fetchWithErrorHandling(
       `${API_BASE_PREFIX}/snapshots/${encodeURIComponent(snapshotId)}`,
       {
@@ -111,13 +111,53 @@ export const snapshotApi = {
     snapshotId: string,
     configuration: any,
     signal?: AbortSignal
-  ): Promise<{ id: string; name: string; createdAt: string; updatedAt: string }> {
+  ): Promise<SnapshotMeta> {
     const response = await fetchWithErrorHandling(
       `${API_BASE_PREFIX}/snapshots/${encodeURIComponent(snapshotId)}`,
       {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ configuration }),
+      },
+      signal
+    );
+    return response.json();
+  },
+
+  /**
+   * Move a snapshot to a different folder.
+   */
+  async moveSnapshot(
+    snapshotId: string,
+    folder: string,
+    signal?: AbortSignal
+  ): Promise<SnapshotMeta> {
+    const response = await fetchWithErrorHandling(
+      `${API_BASE_PREFIX}/snapshots/${encodeURIComponent(snapshotId)}/move`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder }),
+      },
+      signal
+    );
+    return response.json();
+  },
+
+  /**
+   * Rename a folder, updating all snapshots within it.
+   */
+  async renameFolder(
+    oldPath: string,
+    newPath: string,
+    signal?: AbortSignal
+  ): Promise<{ updatedCount: number; oldPath: string; newPath: string }> {
+    const response = await fetchWithErrorHandling(
+      `${API_BASE_PREFIX}/snapshots/rename-folder`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oldPath, newPath }),
       },
       signal
     );
