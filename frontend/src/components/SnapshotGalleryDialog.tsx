@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -27,6 +27,8 @@ import SaveAsIcon from '@mui/icons-material/SaveAs';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import LinkIcon from '@mui/icons-material/Link';
+import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
 import { SnapshotMetadata, SavedConfiguration } from '../types';
 import { apiService } from '../apiService';
 
@@ -62,6 +64,15 @@ export default function SnapshotGalleryDialog({
   // Overwrite confirmation
   const [overwritingId, setOverwritingId] = useState<string | null>(null);
 
+  // Search
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredSnapshots = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return snapshots;
+    return snapshots.filter((s) => s.name.toLowerCase().includes(q));
+  }, [snapshots, searchQuery]);
+
   const loadSnapshots = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -83,6 +94,7 @@ export default function SnapshotGalleryDialog({
       setDeletingId(null);
       setOverwritingId(null);
       setSuccessMessage(null);
+      setSearchQuery('');
     }
   }, [open, loadSnapshots]);
 
@@ -293,9 +305,34 @@ export default function SnapshotGalleryDialog({
           )}
 
           {/* Snapshots List */}
-          <Typography variant="subtitle2" sx={{ mb: 1 }}>
-            Saved Snapshots
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <Typography variant="subtitle2" sx={{ flexShrink: 0 }}>
+              Saved Snapshots
+            </Typography>
+            {snapshots.length > 0 && (
+              <TextField
+                size="small"
+                fullWidth
+                placeholder="Search snapshots..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" color="action" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: searchQuery ? (
+                    <InputAdornment position="end">
+                      <IconButton size="small" onClick={() => setSearchQuery('')} edge="end">
+                        <ClearIcon fontSize="small" />
+                      </IconButton>
+                    </InputAdornment>
+                  ) : null,
+                }}
+              />
+            )}
+          </Box>
 
           {isLoading && snapshots.length === 0 ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -305,9 +342,13 @@ export default function SnapshotGalleryDialog({
             <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
               No saved snapshots yet. Save your first configuration above.
             </Typography>
+          ) : filteredSnapshots.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+              No snapshots matching "{searchQuery}"
+            </Typography>
           ) : (
             <List sx={{ maxHeight: 300, overflow: 'auto' }}>
-              {snapshots.map((snapshot) => (
+              {filteredSnapshots.map((snapshot) => (
                 <ListItem
                   key={snapshot.id}
                   sx={{
