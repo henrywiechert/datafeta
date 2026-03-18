@@ -85,6 +85,7 @@ export interface SavedConfiguration {
 export interface SnapshotMetadata {
   id: string;
   name: string;
+  folder: string;
   createdAt: string;
   updatedAt: string;
 }
