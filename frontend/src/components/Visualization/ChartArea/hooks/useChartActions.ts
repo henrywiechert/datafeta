@@ -16,6 +16,7 @@ interface UseChartActionsProps {
   redo: () => any;
   completeRedo: (state: any) => void;
   resetWorkspace: () => void;
+  clearSessionFilters: () => void;
   bandThicknessScale: number;
   selectedTable: string | null;
   selectedDatabase: string | null;
@@ -30,14 +31,16 @@ export function useChartActions({
   redo,
   completeRedo,
   resetWorkspace,
+  clearSessionFilters,
   bandThicknessScale,
   selectedTable,
   selectedDatabase,
 }: UseChartActionsProps) {
   const handleResetWorkspace = useCallback(() => {
     dispatch({ type: 'CLEAR_MEASURE_GROUP' });
+    clearSessionFilters();
     resetWorkspace();
-  }, [dispatch, resetWorkspace]);
+  }, [dispatch, clearSessionFilters, resetWorkspace]);
 
   const handleSwapAxis = useCallback(() => {
     recordAction(getUndoableSnapshot());
