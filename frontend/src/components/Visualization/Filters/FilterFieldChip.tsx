@@ -55,15 +55,30 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
 
   // Memoize these handlers to keep callbacks stable for child components (CheckboxItem memoization)
   const handleDiscreteChange = useCallback((values: any[]) => {
+    // Compute excludedValues for query optimization (NOT IN when shorter than IN)
+    let excludedValues: any[] | undefined;
+    let totalAvailableCount: number | undefined;
+    if (filterMetadata && filterMetadata.type === 'discrete' && !filterMetadata.isPartial) {
+      const available = filterMetadata.availableValues;
+      totalAvailableCount = available.length;
+      const selectedKeySet = new Set(values.map(v => v === null || v === undefined ? '__NULL__' : String(v)));
+      const excluded = available.filter(v => !selectedKeySet.has(v === null || v === undefined ? '__NULL__' : String(v)));
+      // Only store excludedValues when it would actually be shorter
+      if (excluded.length > 0 && excluded.length < values.length) {
+        excludedValues = excluded;
+      }
+    }
     onConfigChange({
       fieldId: field.id,
       columnName: field.columnName,
       type: 'discrete',
       selectedValues: values,
+      excludedValues,
+      totalAvailableCount,
       dateTimePart: field.dateTimePart,
       dateTimeMode: field.dateTimeMode,
     });
-  }, [field.id, field.columnName, field.dateTimePart, field.dateTimeMode, onConfigChange]);
+  }, [field.id, field.columnName, field.dateTimePart, field.dateTimeMode, onConfigChange, filterMetadata]);
 
   const handleContinuousChange = useCallback((newMin: number | null, newMax: number | null) => {
     onConfigChange({

@@ -27,6 +27,10 @@ interface BaseFilterConfig {
 export interface DiscreteFilterConfig extends BaseFilterConfig {
   type: 'discrete';
   selectedValues: any[];
+  // Optimization: when excluding fewer values than including, store the exclusion list
+  // so the query builder can use NOT IN instead of IN for a smaller query payload.
+  excludedValues?: any[];
+  totalAvailableCount?: number;
 }
 
 // Continuous filter: user sets min/max range

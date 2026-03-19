@@ -344,9 +344,28 @@ class FilterTierManager {
       
       // Handle different filter types
       if (config.type === 'discrete') {
-        // Discrete filter: IN clause
+        // Discrete filter: use NOT IN when excludedValues is available and shorter
         const selectedValues = config.selectedValues || [];
-        if (selectedValues.length > 0) {
+        const excludedValues = config.excludedValues;
+        const useExclusion = excludedValues
+          && config.totalAvailableCount
+          && excludedValues.length > 0
+          && excludedValues.length < selectedValues.length;
+
+        if (useExclusion) {
+          const quotedExcluded = excludedValues.map(quoteValue);
+          const hasNullExcluded = excludedValues.some((v: any) => v === null || v === undefined);
+          if (hasNullExcluded) {
+            const nonNullExcluded = quotedExcluded.filter((v: string) => v !== 'NULL');
+            if (nonNullExcluded.length > 0) {
+              conditions.push(`(${columnExpr} NOT IN (${nonNullExcluded.join(', ')}) AND ${columnExpr} IS NOT NULL)`);
+            } else {
+              conditions.push(`${columnExpr} IS NOT NULL`);
+            }
+          } else {
+            conditions.push(`${columnExpr} NOT IN (${quotedExcluded.join(', ')})`);
+          }
+        } else if (selectedValues.length > 0) {
           const quotedValues = selectedValues.map(quoteValue);
           conditions.push(`${columnExpr} IN (${quotedValues.join(', ')})`);
         }
