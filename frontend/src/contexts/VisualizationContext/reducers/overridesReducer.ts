@@ -46,6 +46,8 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
     }
     case 'SET_GLOBAL_CHART_TYPE':
       return { ...state, globalChartType: action.payload };
+    case 'SET_SHOW_TABLE_ROWS':
+      return { ...state, showTableRows: action.payload, queryVersion: state.queryVersion + 1 };
     default:
       return null; // Not handled by this reducer
   }

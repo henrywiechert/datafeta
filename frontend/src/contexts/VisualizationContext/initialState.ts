@@ -67,6 +67,8 @@ export const initialState: VisualizationState = {
   fieldOverrides: {},
   // Global chart type default (null = auto-detect)
   globalChartType: null,
+  // Table rows view mode default
+  showTableRows: false,
   queryVersion: 0,
   // MeasureNames/MeasureValues source tracking defaults
   measureValuesSourceFields: [],

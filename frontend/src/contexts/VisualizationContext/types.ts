@@ -99,6 +99,8 @@ export interface VisualizationState {
   fieldOverrides: Record<string, FieldOverrideState>;
   // Global chart type override
   globalChartType: UserChartType | null;
+  // Table rows view mode (raw data table)
+  showTableRows: boolean;
   queryVersion: number;
   // MeasureNames/MeasureValues source tracking
   measureValuesSourceFields: Field[];
@@ -189,6 +191,8 @@ export type VisualizationAction =
   | { type: 'CLEAR_FIELD_OVERRIDE'; payload: { fieldId: string } }
   // Global chart type action
   | { type: 'SET_GLOBAL_CHART_TYPE'; payload: UserChartType | null }
+  // Table rows view mode action
+  | { type: 'SET_SHOW_TABLE_ROWS'; payload: boolean }
   // Query optimization settings
   | { type: 'SET_QUERY_OPTIMIZATION_SETTINGS'; payload: QueryOptimizationSettings }
   | { type: 'UPDATE_QUERY_OPTIMIZATION_SETTINGS'; payload: Partial<QueryOptimizationSettings> }
@@ -214,6 +218,7 @@ export type VisualizationAction =
       facetBackgroundField?: Field | null;
       facetBackgroundScheme?: string;
       facetBackgroundOpacity?: number;
+      showTableRows?: boolean;
     } }
   // Multi-table actions
   | { type: 'TABLE_JOINS_UNIONS_MODIFIED' }

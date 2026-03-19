@@ -3,9 +3,13 @@ import { Box } from '@mui/material';
 import ChartGrid, { GanttZoomRange } from '../../ChartGrid/ChartGrid';
 import { PlotBrushEvent } from '../../ChartGrid/PlotArea';
 import TableViewLazy from '../../Table/TableViewLazy';
+import TableViewRowsLazy from '../../Table/TableViewRowsLazy';
+import TableRowsPagination from '../../Table/TableRowsPagination';
 import BarSortControl from './BarSortControl';
 import { PlotResult } from '../../../../observable-plot-generator/types';
 import { TableData } from '../types';
+import { TableRowsSortModel } from '../hooks/useTableRowsQuery';
+import { QueryResultColumn } from '../../../../types';
 
 interface ChartRendererProps {
   useTableView: boolean;
@@ -27,6 +31,21 @@ interface ChartRendererProps {
   ganttFullDataRange?: GanttZoomRange | null;
   brushDisabled?: boolean;
   onBrushEnd?: (event: PlotBrushEvent) => void;
+  /** Table rows view mode */
+  showTableRows?: boolean;
+  tableRowsData?: {
+    rows: Record<string, any>[];
+    columns: QueryResultColumn[];
+    totalRows: number;
+    page: number;
+    pageSize: number;
+    setPage: (page: number) => void;
+    setPageSize: (size: number) => void;
+    sortModel: TableRowsSortModel | null;
+    setSortModel: (sort: TableRowsSortModel | null) => void;
+    loading: boolean;
+    error: string | null;
+  };
 }
 
 const ChartRenderer: React.FC<ChartRendererProps> = ({
@@ -43,14 +62,43 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
   ganttFullDataRange,
   brushDisabled,
   onBrushEnd,
+  showTableRows = false,
+  tableRowsData,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   // NOTE: We intentionally do NOT dispatch global window resize events here.
   // With large faceted grids, this forces every ObservablePlot instance to re-render,
   // creating multi-second UI stalls. Each plot already has a ResizeObserver.
 
-  // Memoize content to prevent re-rendering when unrelated props change
+  // Memoize table rows content separately so chart-only prop changes don't re-create it
+  const tableRowsContent = useMemo(() => {
+    if (!showTableRows || !tableRowsData) return null;
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <Box sx={{ flex: 1, minHeight: 0 }}>
+          <TableViewRowsLazy
+            rows={tableRowsData.rows}
+            columns={tableRowsData.columns}
+            sortModel={tableRowsData.sortModel}
+            onSortChanged={tableRowsData.setSortModel}
+            loading={tableRowsData.loading}
+          />
+        </Box>
+        <TableRowsPagination
+          page={tableRowsData.page}
+          pageSize={tableRowsData.pageSize}
+          totalRows={tableRowsData.totalRows}
+          onPageChange={tableRowsData.setPage}
+          onPageSizeChange={tableRowsData.setPageSize}
+          loading={tableRowsData.loading}
+        />
+      </Box>
+    );
+  }, [showTableRows, tableRowsData]);
+
+  // Memoize chart/table content separately so table rows mode is unaffected by chart changes
   const content = useMemo(() => {
+    if (tableRowsContent) return tableRowsContent;
     if (useTableView) {
       return (
         <TableViewLazy 
@@ -74,7 +122,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
         onBrushEnd={onBrushEnd}
       />
     );
-  }, [useTableView, tableData, spec, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete, isGanttChart, ganttZoomRange, onGanttZoomRangeChange, ganttFullDataRange, brushDisabled, onBrushEnd]);
+  }, [tableRowsContent, useTableView, tableData, spec, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete, isGanttChart, ganttZoomRange, onGanttZoomRangeChange, ganttFullDataRange, brushDisabled, onBrushEnd]);
 
   return (
     <Box 
@@ -89,7 +137,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
       }}
     >
       {content}
-      {!useTableView && (
+      {!useTableView && !showTableRows && (
         <BarSortControl 
           xFields={xAxisFields} 
           yFields={yAxisFields}
@@ -114,6 +162,8 @@ export default React.memo(ChartRenderer, (prevProps, nextProps) => {
     prevProps.isGanttChart === nextProps.isGanttChart &&
     prevProps.ganttZoomRange === nextProps.ganttZoomRange &&
     prevProps.ganttFullDataRange === nextProps.ganttFullDataRange &&
-    prevProps.brushDisabled === nextProps.brushDisabled
+    prevProps.brushDisabled === nextProps.brushDisabled &&
+    prevProps.showTableRows === nextProps.showTableRows &&
+    prevProps.tableRowsData === nextProps.tableRowsData
   );
 }); 

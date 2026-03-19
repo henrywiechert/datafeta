@@ -67,6 +67,7 @@ export interface VisualizationStateSnapshot {
   independentDomains?: { x: boolean; y: boolean };
   fieldOverrides?: Record<string, FieldOverrideState>;
   globalChartType?: UserChartType | null;
+  showTableRows?: boolean;
   selectedChartType?: UserChartType | 'auto';
   virtualColumns?: VirtualColumnDefinition[];
   virtualColumnFieldPreferences?: Record<string, { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }>;
