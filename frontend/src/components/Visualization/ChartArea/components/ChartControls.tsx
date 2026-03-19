@@ -13,6 +13,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import HeightIcon from '@mui/icons-material/Height';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
+import TableRowsIcon from '@mui/icons-material/TableRows';
 import QueryStatusIndicator from './QueryStatusIndicator';
 import DatasetStatus from './DatasetStatus';
 import { QueryOptimizationSettings } from '../../../../types';
@@ -46,6 +47,8 @@ interface ChartControlsProps {
   onZoomOut?: () => void;
   onZoomReset?: () => void;
   hasActiveZoomFilters?: boolean;
+  showTableRows?: boolean;
+  onToggleTableRows?: (show: boolean) => void;
 }
 
 const ChartControls: React.FC<ChartControlsProps> = ({
@@ -72,6 +75,8 @@ const ChartControls: React.FC<ChartControlsProps> = ({
   onZoomOut,
   onZoomReset,
   hasActiveZoomFilters = false,
+  showTableRows = false,
+  onToggleTableRows,
 }) => {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
@@ -174,8 +179,26 @@ const ChartControls: React.FC<ChartControlsProps> = ({
             </IconButton>
           </Tooltip>
         )}
+
+        {onToggleTableRows && (
+          <Tooltip title={showTableRows ? 'Show Chart' : 'Show Data Table'}>
+            <IconButton
+              onClick={() => onToggleTableRows(!showTableRows)}
+              size="small"
+              color={showTableRows ? 'primary' : 'default'}
+              sx={{
+                backgroundColor: showTableRows ? 'primary.50' : 'transparent',
+                '&:hover': {
+                  backgroundColor: showTableRows ? 'primary.100' : 'action.hover',
+                }
+              }}
+            >
+              <TableRowsIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
         
-        {onSwapAxis && (
+        {onSwapAxis && !showTableRows && (
           <Tooltip title="Swap X/Y Axes">
             <IconButton 
               onClick={onSwapAxis}
@@ -232,7 +255,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
           </Tooltip>
         )}
 
-        {onZoomOut && (
+        {onZoomOut && !showTableRows && (
           <Tooltip title="Zoom out (2x)">
             <span>
               <IconButton
@@ -252,7 +275,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
           </Tooltip>
         )}
 
-        {onZoomReset && (
+        {onZoomReset && !showTableRows && (
           <Tooltip title="Reset zoom">
             <span>
               <IconButton
@@ -289,20 +312,22 @@ const ChartControls: React.FC<ChartControlsProps> = ({
           </Tooltip>
         )}
 
-        <Tooltip title="Band thickness (bar/tick/gantt)">
-          <IconButton
-            onClick={handleBandControlOpen}
-            size="small"
-            sx={{
-              color: 'text.secondary',
-              '&:hover': {
-                backgroundColor: 'action.hover',
-              },
-            }}
-          >
-            <HeightIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        {!showTableRows && (
+          <Tooltip title="Band thickness (bar/tick/gantt)">
+            <IconButton
+              onClick={handleBandControlOpen}
+              size="small"
+              sx={{
+                color: 'text.secondary',
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                },
+              }}
+            >
+              <HeightIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
 
         <Tooltip title="Query optimization settings">
           <IconButton
@@ -319,6 +344,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
           </IconButton>
         </Tooltip>
 
+        {!showTableRows && (
         <Tooltip title={independentXAxis ? 'Independent X per facet (click to share)' : 'Shared X across facets (click to separate)'}>
           <span>
             <IconButton
@@ -341,7 +367,9 @@ const ChartControls: React.FC<ChartControlsProps> = ({
             </IconButton>
           </span>
         </Tooltip>
+        )}
 
+        {!showTableRows && (
         <Tooltip title={independentYAxis ? 'Independent Y per facet (click to share)' : 'Shared Y across facets (click to separate)'}>
           <span>
             <IconButton
@@ -364,6 +392,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
             </IconButton>
           </span>
         </Tooltip>
+        )}
 
         {onResetWorkspace && (
           <Tooltip title="Reset Workspace">

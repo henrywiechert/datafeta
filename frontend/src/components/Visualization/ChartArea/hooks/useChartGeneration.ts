@@ -23,6 +23,7 @@ interface UseChartGenerationProps {
   manualSize: number;
   bandThicknessScale: number;
   useTableView: boolean;
+  showTableRows?: boolean;
   queryResult: any; // Add queryResult here
   queryVersion?: number; // Add queryVersion to detect union/join changes
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
@@ -70,6 +71,7 @@ export const useChartGeneration = ({
   manualSize,
   bandThicknessScale,
   useTableView,
+  showTableRows = false,
   queryResult, // Destructure here
   queryVersion, // Destructure queryVersion
   startOperation,
@@ -192,7 +194,7 @@ export const useChartGeneration = ({
     void queryVersion; // Ensure chart regeneration tracks query version changes.
     const startTime = Date.now();
     
-    if ((xAxisFields.length === 0 && yAxisFields.length === 0) || useTableView) {
+    if ((xAxisFields.length === 0 && yAxisFields.length === 0) || useTableView || showTableRows) {
       setSpec(null);
       setChartInfo(null);
       setRenderingError(null);
@@ -294,7 +296,7 @@ export const useChartGeneration = ({
       // On error, complete the operation immediately since no rendering will happen
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, bandThicknessScale, useTableView, startOperation, completeOperation, queryResult, queryVersion, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, tooltipFields, fieldOverrides, globalChartType, measureValuesSourceFields, independentDomains, doGenerateChart, fieldAliasLookup, facetBackgroundField, facetBackgroundScheme, facetBackgroundOpacity]);
+  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, bandThicknessScale, useTableView, showTableRows, startOperation, completeOperation, queryResult, queryVersion, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, tooltipFields, fieldOverrides, globalChartType, measureValuesSourceFields, independentDomains, doGenerateChart, fieldAliasLookup, facetBackgroundField, facetBackgroundScheme, facetBackgroundOpacity]);
 
   const cancelGeneration = useCallback(() => {
     // No-op since Observable Plot generation is synchronous

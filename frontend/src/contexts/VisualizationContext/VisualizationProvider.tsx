@@ -193,6 +193,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       facetBackgroundField: state.facetBackgroundField,
       facetBackgroundScheme: state.facetBackgroundScheme,
       facetBackgroundOpacity: state.facetBackgroundOpacity,
+      showTableRows: state.showTableRows,
     };
   }, [
     state.xAxisFields,
@@ -215,6 +216,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     state.facetBackgroundField,
     state.facetBackgroundScheme,
     state.facetBackgroundOpacity,
+    state.showTableRows,
   ]);
 
   return (

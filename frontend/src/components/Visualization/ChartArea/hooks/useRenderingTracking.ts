@@ -12,6 +12,7 @@ import type { LoadingOperationType } from '../../../../contexts/VisualizationCon
 interface UseRenderingTrackingProps {
   spec: any;
   useTableView: boolean;
+  showTableRows?: boolean;
   renderingCoordinator: {
     cancelRenderingBatch: () => void;
     startRenderingBatch: (plotIds: string[], onComplete: () => void) => void;
@@ -24,12 +25,13 @@ interface UseRenderingTrackingProps {
 export function useRenderingTracking({
   spec,
   useTableView,
+  showTableRows = false,
   renderingCoordinator,
   completeOperation,
   isLoadingRendering,
 }: UseRenderingTrackingProps) {
   useLayoutEffect(() => {
-    if (useTableView) {
+    if (useTableView || showTableRows) {
       // In table view no chart rendering happens – cancel any pending batch
       renderingCoordinator.cancelRenderingBatch();
       return;
@@ -56,7 +58,7 @@ export function useRenderingTracking({
       }
       completeOperation('rendering');
     }
-  }, [spec, useTableView, renderingCoordinator, completeOperation, isLoadingRendering]);
+  }, [spec, useTableView, showTableRows, renderingCoordinator, completeOperation, isLoadingRendering]);
 
   const handlePlotRenderComplete = useCallback(
     (plotId: string) => {

@@ -15,3 +15,4 @@ export * from './useFilterActions';
 export * from './useChartActions';
 export * from './useRenderingTracking';
 export * from './useSeriesHighlight'; 
+export * from './useTableRowsQuery';

@@ -12,6 +12,7 @@ import {
   useDataProcessing,
   useDebugView,
   useFullscreen,
+  useTableRowsQuery,
 } from './hooks';
 import { useAdditionalFields } from './hooks/useAdditionalFields';
 import { useGanttZoom } from './hooks/useGanttZoom';
@@ -76,6 +77,7 @@ const ChartArea: React.FC = () => {
     facetBackgroundField,
     facetBackgroundScheme,
     facetBackgroundOpacity,
+    showTableRows,
   } = state as any;
 
   const { selectedTable, selectedDatabase, virtualTable, virtualColumns, sessionAppliedFilterConfigurations } =
@@ -96,6 +98,22 @@ const ChartArea: React.FC = () => {
     useAdditionalFields(fieldOverrides);
 
   const { useTableView, tableData } = useDataProcessing({ xAxisFields, yAxisFields, queryResult });
+
+  // Table rows view: raw paginated data query
+  const tableRowsData = useTableRowsQuery({
+    enabled: showTableRows,
+    selectedTable,
+    selectedDatabase,
+    xAxisFields,
+    yAxisFields,
+    colorField,
+    sizeField,
+    labelFields,
+    tooltipFields,
+    filterConfigurations: effectiveFilterConfigurations,
+    virtualTable,
+    virtualColumns,
+  });
 
   const { queryDescription, optimizationHints, lastQueryDecision } = useQueryExecution({
     selectedTable,
@@ -132,6 +150,7 @@ const ChartArea: React.FC = () => {
       manualSize,
       bandThicknessScale,
       useTableView,
+      showTableRows,
       queryResult,
       queryVersion,
       startOperation,
@@ -207,6 +226,7 @@ const ChartArea: React.FC = () => {
   const { handlePlotRenderComplete } = useRenderingTracking({
     spec,
     useTableView,
+    showTableRows,
     renderingCoordinator,
     completeOperation,
     isLoadingRendering: state.isLoadingRendering,
@@ -314,6 +334,8 @@ const ChartArea: React.FC = () => {
             ganttFullDataRange={ganttFullDataRange}
             brushDisabled={brushDisabled}
             onBrushEnd={handleBrushEnd}
+            showTableRows={showTableRows}
+            tableRowsData={showTableRows ? tableRowsData : undefined}
           />
 
           <ChartControls
@@ -346,6 +368,11 @@ const ChartArea: React.FC = () => {
             onZoomOut={handleZoomOut}
             onZoomReset={handleZoomReset}
             hasActiveZoomFilters={hasActiveZoomFilters}
+            showTableRows={showTableRows}
+            onToggleTableRows={(show) => {
+              recordAction(getUndoableSnapshot());
+              dispatch({ type: 'SET_SHOW_TABLE_ROWS', payload: show });
+            }}
           />
 
           <DebugPanel

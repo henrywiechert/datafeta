@@ -28,6 +28,7 @@ export function undoRedoReducer(state: VisualizationState, action: Visualization
         facetBackgroundField: action.payload.facetBackgroundField ?? state.facetBackgroundField,
         facetBackgroundScheme: action.payload.facetBackgroundScheme ?? state.facetBackgroundScheme,
         facetBackgroundOpacity: action.payload.facetBackgroundOpacity ?? state.facetBackgroundOpacity,
+        showTableRows: action.payload.showTableRows ?? state.showTableRows,
         queryVersion: state.queryVersion + 1,
       };
     default:
