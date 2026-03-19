@@ -40,7 +40,7 @@ const ChartArea: React.FC = () => {
   const { state, dispatch, startOperation, completeOperation, getUndoableSnapshot } =
     useVisualizationContext();
   const { recordAction, undo, completeUndo, redo, completeRedo, canUndo, canRedo } = useUndoRedo();
-  const { dataSource } = useDataSource();
+  const { dataSource, clearSessionFilters } = useDataSource();
   const { resetWorkspace, activeSheet } = useSheetContext();
   const renderingCoordinator = useRenderingCoordinator();
 
@@ -188,6 +188,7 @@ const ChartArea: React.FC = () => {
     redo,
     completeRedo,
     resetWorkspace,
+    clearSessionFilters,
     bandThicknessScale,
     selectedTable,
     selectedDatabase,
