@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
 import { useSheetContext } from '../contexts/SheetContext';
@@ -31,6 +31,7 @@ export function useVisualizationState() {
         updateVirtualColumn,
         removeVirtualColumn,
         setVirtualColumnFieldPreference,
+        setSessionFilterMetadata,
     } = dataSourceContext;
 
     // Data source setters for sub-hooks
@@ -84,10 +85,27 @@ export function useVisualizationState() {
         dispatch
     });
 
+    // Merge sheet + session filter state so useFilterMetadata auto-fetches
+    // metadata for session-scoped filters (e.g. restored from snapshots with no metadata).
+    const allFilterFields = useMemo(() => [
+        ...dataSource.sessionFilterFields,
+        ...state.filterFields,
+    ], [dataSource.sessionFilterFields, state.filterFields]);
+
+    const allFilterMetadata = useMemo(() => ({
+        ...state.filterMetadata,
+        ...dataSource.sessionFilterMetadata,
+    }), [state.filterMetadata, dataSource.sessionFilterMetadata]);
+
+    const allFilterConfigurations = useMemo(() => ({
+        ...state.filterConfigurations,
+        ...dataSource.sessionFilterConfigurations,
+    }), [state.filterConfigurations, dataSource.sessionFilterConfigurations]);
+
     const filterMetadata = useFilterMetadata({
-        filterFields: state.filterFields,
-        filterMetadata: state.filterMetadata,
-        filterConfigurations: state.filterConfigurations,
+        filterFields: allFilterFields,
+        filterMetadata: allFilterMetadata,
+        filterConfigurations: allFilterConfigurations,
         virtualColumns: dataSource.virtualColumns,
         virtualTable: dataSource.virtualTable || undefined,
         selectedTable: dataSource.selectedTable,
@@ -96,6 +114,19 @@ export function useVisualizationState() {
         connectionDetails,
         dispatch
     });
+
+    // Persist fetched metadata for session filters into DataSourceContext
+    // so it survives sheet switches (vis state is reset per sheet).
+    useEffect(() => {
+        dataSource.sessionFilterFields.forEach(field => {
+            const visMeta = state.filterMetadata[field.id];
+            const sessionMeta = dataSource.sessionFilterMetadata[field.id];
+            if (visMeta && !visMeta.loading && !visMeta.error &&
+                (!sessionMeta || sessionMeta.loading)) {
+                setSessionFilterMetadata(field.id, visMeta);
+            }
+        });
+    }, [dataSource.sessionFilterFields, dataSource.sessionFilterMetadata, state.filterMetadata, setSessionFilterMetadata]);
 
     // Sync visualization state changes back to the active sheet
     // Note: We do NOT sync these because they are shared across all sheets:

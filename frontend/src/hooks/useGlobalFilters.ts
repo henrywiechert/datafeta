@@ -218,23 +218,16 @@ export function useGlobalFilters(): UseGlobalFiltersReturn {
     };
   }, [dataSource.sessionFilterFields, dataSource.sessionFilterConfigurations, state.filterConfigurations]);
   
-  // Get merged filter metadata
+  // Get merged filter metadata.
+  // Vis state may contain metadata for session filters (fetched by useFilterMetadata
+  // when session fields are fed into it). Session metadata takes precedence when present
+  // (e.g. explicitly set via markFilterAsGlobal).
   const getMergedFilterMetadata = useCallback((): Record<string, FilterMetadata> => {
-    const globalIds = new Set(dataSource.sessionFilterFields.map(f => f.id));
-    const localMeta: Record<string, FilterMetadata> = {};
-    
-    // Add local metadata that isn't global
-    for (const [id, meta] of Object.entries(state.filterMetadata)) {
-      if (!globalIds.has(id)) {
-        localMeta[id] = meta;
-      }
-    }
-    
     return {
-      ...localMeta,
+      ...state.filterMetadata,
       ...dataSource.sessionFilterMetadata,
     };
-  }, [dataSource.sessionFilterFields, dataSource.sessionFilterMetadata, state.filterMetadata]);
+  }, [dataSource.sessionFilterMetadata, state.filterMetadata]);
   
   return {
     isGlobalFilter,
