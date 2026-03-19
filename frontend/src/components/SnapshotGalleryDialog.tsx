@@ -24,6 +24,7 @@ import {
   MenuItem,
   Menu,
   Autocomplete,
+  Popover,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -169,6 +170,10 @@ export default function SnapshotGalleryDialog({
   const [movingId, setMovingId] = useState<string | null>(null);
   const [moveNewFolderInput, setMoveNewFolderInput] = useState<string | null>(null);
 
+  // Share link (show for manual copy)
+  const [shareLinkAnchorEl, setShareLinkAnchorEl] = useState<null | HTMLElement>(null);
+  const [shareLinkSnapshotId, setShareLinkSnapshotId] = useState<string | null>(null);
+
   // Inline "new folder" creation
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -220,6 +225,8 @@ export default function SnapshotGalleryDialog({
       setMoveNewFolderInput(null);
       setCreatingFolder(false);
       setNewFolderName('');
+      setShareLinkAnchorEl(null);
+      setShareLinkSnapshotId(null);
     }
   }, [open, loadSnapshots]);
 
@@ -271,36 +278,23 @@ export default function SnapshotGalleryDialog({
     }
   };
 
-  const handleCopyLink = (snapshotId: string) => {
-    const url = new URL(window.location.origin);
-    url.searchParams.set('snapshot', snapshotId);
-    const linkText = url.toString();
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(linkText).then(
-        () => setSuccessMessage('Link copied to clipboard'),
-        () => fallbackCopyToClipboard(linkText),
-      );
-    } else {
-      fallbackCopyToClipboard(linkText);
-    }
+  const handleShowShareLink = (event: React.MouseEvent<HTMLElement>, snapshotId: string) => {
+    setShareLinkAnchorEl(event.currentTarget);
+    setShareLinkSnapshotId(snapshotId);
   };
 
-  const fallbackCopyToClipboard = (text: string) => {
-    const textArea = document.createElement('textarea');
-    textArea.value = text;
-    textArea.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    try {
-      document.execCommand('copy')
-        ? setSuccessMessage('Link copied to clipboard')
-        : setSuccessMessage(`Link: ${text}`);
-    } catch {
-      setSuccessMessage(`Link: ${text}`);
-    }
-    document.body.removeChild(textArea);
+  const handleCloseShareLink = () => {
+    setShareLinkAnchorEl(null);
+    setShareLinkSnapshotId(null);
   };
+
+  const shareLinkUrl = shareLinkSnapshotId
+    ? (() => {
+        const url = new URL(window.location.origin);
+        url.searchParams.set('snapshot', shareLinkSnapshotId);
+        return url.toString();
+      })()
+    : '';
 
   const handleDelete = async (snapshotId: string) => {
     setError(null);
@@ -528,8 +522,8 @@ export default function SnapshotGalleryDialog({
             <Tooltip title="Load">
               <IconButton edge="end" onClick={() => handleLoad(snapshot.id)} color="primary"><FolderOpenIcon /></IconButton>
             </Tooltip>
-            <Tooltip title="Copy shareable link">
-              <IconButton edge="end" onClick={() => handleCopyLink(snapshot.id)} sx={{ ml: 0.5 }}><LinkIcon /></IconButton>
+            <Tooltip title="Show shareable link">
+              <IconButton edge="end" onClick={(e) => handleShowShareLink(e, snapshot.id)} sx={{ ml: 0.5 }}><LinkIcon /></IconButton>
             </Tooltip>
             <Tooltip title="Move to folder">
               <IconButton edge="end" onClick={(e) => handleOpenMove(e, snapshot.id)} sx={{ ml: 0.5 }}><DriveFileMoveIcon /></IconButton>
@@ -810,6 +804,29 @@ export default function SnapshotGalleryDialog({
             </MenuItem>
           )}
         </Menu>
+
+        {/* Share link popover */}
+        <Popover
+          open={Boolean(shareLinkAnchorEl)}
+          anchorEl={shareLinkAnchorEl}
+          onClose={handleCloseShareLink}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        >
+          <Box sx={{ p: 2, minWidth: 320 }}>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+              Shareable link (select and copy)
+            </Typography>
+            <TextField
+              size="small"
+              fullWidth
+              value={shareLinkUrl}
+              InputProps={{ readOnly: true }}
+              onFocus={(e) => e.target.select()}
+              sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem' } }}
+            />
+          </Box>
+        </Popover>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Close</Button>
