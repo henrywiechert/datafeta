@@ -364,6 +364,32 @@ def test_parse_field_reference_with_join_prefix(query_service: QueryService) -> 
     assert field == context.table_map['orders']['total']
 
 
+def test_count_with_dotted_field_counts_column_not_literal(query_service: QueryService) -> None:
+    """COUNT on a dotted column name must count the column, not a string literal.
+
+    Previously, COUNT('dlFdSchedData.tbSize') counted a constant (always non-NULL),
+    making it equivalent to COUNT(*). This caused NULL-group rows to get inflated
+    counts that dominated bar chart domains.
+    """
+    description = _make_base_description(
+        dimensions=[Dimension(field="dlFdSchedData.tbSize", flavour="discrete")],
+        measures=[Measure(field="dlFdSchedData.tbSize", aggregation="count",
+                         alias="COUNT(dlFdSchedData.tbSize)")],
+    )
+
+    sql, _ = query_service.translate_to_sql(
+        query_desc=description,
+        table_name="metrics",
+        db_type="clickhouse",
+        with_optimization=False,
+    )
+
+    # Must NOT contain a string literal inside COUNT
+    assert "COUNT('dlFdSchedData.tbSize')" not in sql
+    # Should use backtick-quoted column reference (not a string literal)
+    assert "COUNT(`dlFdSchedData.tbSize`)" in sql
+
+
 def test_in_filter_with_null_includes_is_null_branch(query_service: QueryService) -> None:
     """IN filters containing NULL should expand to include an OR IS NULL criterion."""
     description = _make_base_description(

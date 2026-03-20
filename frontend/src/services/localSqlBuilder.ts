@@ -194,7 +194,10 @@ export function buildMeasureExpr(m: MeasureLike): string {
   const fn = (m.aggregation || 'sum').toLowerCase();
   const alias = quoteIdent(m.alias);
 
-  if (fn === 'count') return `COUNT(*) AS ${alias}`;
+  if (fn === 'count') {
+    if (!m.field || m.field === '*') return `COUNT(*) AS ${alias}`;
+    return `COUNT(${quoteIdent(m.field)}) AS ${alias}`;
+  }
   if (fn === 'count_distinct') return `COUNT(DISTINCT ${quoteIdent(m.field)}) AS ${alias}`;
   if (fn === 'min') return `MIN(${buildNumericExpr(m.field)}) AS ${alias}`;
   if (fn === 'max') return `MAX(${buildNumericExpr(m.field)}) AS ${alias}`;
