@@ -35,9 +35,26 @@ export const convertFilterConfigsToFilters = (
 
   Object.values(filterConfigs).forEach(config => {
     if (config.type === 'discrete') {
-      // For discrete filters, use 'in' operator with selected values
-      // The backend will handle NULL values specially (converting to OR with IS NULL)
-      if (config.selectedValues.length > 0) {
+      // For discrete filters, use 'in' or 'not in' depending on which list is shorter.
+      // When excludedValues is available and shorter, use 'not in' to reduce query payload.
+      // The backend handles NULL values specially for both operators.
+      const useExclusion = config.excludedValues
+        && config.totalAvailableCount
+        && config.excludedValues.length > 0
+        && config.excludedValues.length < config.selectedValues.length;
+
+      if (useExclusion) {
+        const filter: Filter = {
+          field: config.columnName,
+          operator: 'not in',
+          value: config.excludedValues!,
+        };
+        if (config.dateTimePart && config.dateTimeMode) {
+          filter.date_part = config.dateTimePart;
+          filter.date_mode = config.dateTimeMode;
+        }
+        filters.push(filter);
+      } else if (config.selectedValues.length > 0) {
         const filter: Filter = {
           field: config.columnName,
           operator: 'in',
