@@ -25,16 +25,12 @@ export function formatDateTick(date: Date | number | string): string {
     return `${year}-${month}-${day}`;
   }
 
-  // Show date and time
+  // Show date and time (always include seconds for consistent formatting,
+  // since these values may also serve as filter keys sent to the backend)
   const hh = String(hours).padStart(2, '0');
   const mm = String(minutes).padStart(2, '0');
-  
-  // If seconds are non-zero, include them
-  if (seconds !== 0) {
-    const ss = String(seconds).padStart(2, '0');
-    return `${year}-${month}-${day} ${hh}:${mm}:${ss}`;
-  }
+  const ss = String(seconds).padStart(2, '0');
 
-  return `${year}-${month}-${day} ${hh}:${mm}`;
+  return `${year}-${month}-${day} ${hh}:${mm}:${ss}`;
 }
 

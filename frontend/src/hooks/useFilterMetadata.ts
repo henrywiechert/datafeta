@@ -91,12 +91,12 @@ export function useFilterMetadata({
         // Determine filter type based on field characteristics
         const getFilterType = (): 'discrete' | 'continuous' | 'datetime' => {
             if (field.dataType === 'datetime') {
-                // Distinct datetime parts → discrete filter (e.g., select hours 8, 9, 14, 15)
-                if (field.dateTimePart && field.dateTimeMode === 'distinct') {
+                // Datetime parts with discrete flavour or distinct mode → discrete filter
+                if (field.dateTimePart &&
+                    (field.dateTimeMode === 'distinct' || field.flavour === 'discrete')) {
                     return 'discrete';
                 }
-                // Full datetime OR timeline parts → datetime range filter
-                // Timeline parts use range filtering because they can have thousands of values
+                // Full datetime OR continuous timeline parts → datetime range filter
                 return 'datetime';
             }
             return field.flavour === 'discrete' ? 'discrete' : 'continuous';

@@ -81,6 +81,8 @@ export function useBrushZoom({
             field.columnName,
             selectedValues,
             dispatch as React.Dispatch<VisualizationAction>,
+            field.dateTimePart,
+            field.dateTimeMode,
           );
         } else {
           addFieldAsDiscreteZoomFilter(
