@@ -60,9 +60,15 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
   // After loading a saved config, selectedValues may be numbers while availableValues
   // come back as strings (or vice versa), depending on backend/driver. Strict equality
   // would fail and nothing would appear checked even though the filter is active.
+  // Datetime values may also differ in separator ('T' vs space) between API and chart domain.
   const valueKey = useCallback((v: any) => {
     if (v === null || v === undefined) return '__NULL__';
-    return String(v);
+    const s = String(v);
+    // Normalize ISO datetime separator: "2024-01-15T14:30:00" → "2024-01-15 14:30:00"
+    if (s.length >= 19 && s[10] === 'T' && s[4] === '-' && s[13] === ':') {
+      return s.replace('T', ' ');
+    }
+    return s;
   }, []);
 
   const selectionPrefersNumber = useMemo(

@@ -191,6 +191,8 @@ export function addFieldAsDiscreteZoomFilter(
     type: 'discrete',
     selectedValues,
     isZoomFilter: true,
+    dateTimePart: sourceField.dateTimePart,
+    dateTimeMode: sourceField.dateTimeMode,
   };
 
   dispatch({
