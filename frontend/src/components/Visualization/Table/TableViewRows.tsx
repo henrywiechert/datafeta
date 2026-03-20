@@ -1,6 +1,13 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState, useRef } from 'react';
 import { AgGridReact } from 'ag-grid-react';
-import { ColDef, ModuleRegistry, AllCommunityModule, SortChangedEvent } from 'ag-grid-community';
+import {
+  ColDef,
+  ModuleRegistry,
+  AllCommunityModule,
+  SortChangedEvent,
+  CellContextMenuEvent,
+  GridApi,
+} from 'ag-grid-community';
 import { Box, Typography } from '@mui/material';
 
 import 'ag-grid-community/styles/ag-grid.css';
@@ -8,8 +15,18 @@ import 'ag-grid-community/styles/ag-theme-material.css';
 
 import { TableRowsSortModel } from '../ChartArea/hooks/useTableRowsQuery';
 import { QueryResultColumn } from '../../../types';
+import ContextMenu from '../ContextMenu';
+import menuStyles from '../ContextMenu.module.css';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
+
+/** Payload emitted by the table context menu filter action. */
+export interface TableCellFilterAction {
+  action: 'keep' | 'exclude';
+  columnName: string;
+  /** One or more raw values (multi-row selection supported). */
+  values: any[];
+}
 
 interface TableViewRowsProps {
   rows: Record<string, any>[];
@@ -17,9 +34,34 @@ interface TableViewRowsProps {
   sortModel: TableRowsSortModel | null;
   onSortChanged: (sort: TableRowsSortModel | null) => void;
   loading: boolean;
+  /** Callback for context-menu filter actions (keep only / exclude). */
+  onCellFilterAction?: (action: TableCellFilterAction) => void;
 }
 
-const TableViewRows: React.FC<TableViewRowsProps> = ({ rows, columns, sortModel, onSortChanged, loading }) => {
+/** Truncate a display value for the context menu label. */
+const truncate = (v: any, maxLen = 24): string => {
+  const s = v === null || v === undefined ? 'null' : String(v);
+  return s.length > maxLen ? s.slice(0, maxLen) + '…' : s;
+};
+
+const TableViewRows: React.FC<TableViewRowsProps> = ({
+  rows,
+  columns,
+  sortModel,
+  onSortChanged,
+  loading,
+  onCellFilterAction,
+}) => {
+  const gridApiRef = useRef<GridApi | null>(null);
+
+  // Context menu state
+  const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
+  const [menuContext, setMenuContext] = useState<{
+    columnName: string;
+    values: any[];
+    displayLabel: string;
+  } | null>(null);
+
   const columnDefs: ColDef[] = useMemo(() => {
     return columns.map((col) => ({
       field: col.name,
@@ -51,6 +93,58 @@ const TableViewRows: React.FC<TableViewRowsProps> = ({ rows, columns, sortModel,
     [onSortChanged],
   );
 
+  // Right-click handler: gather selected row values and show context menu
+  const handleCellContextMenu = useCallback(
+    (event: CellContextMenuEvent) => {
+      const browserEvent = event.event as MouseEvent | undefined;
+      if (!browserEvent || !onCellFilterAction) return;
+      browserEvent.preventDefault();
+
+      const colId = event.column?.getColId();
+      if (!colId) return;
+
+      const api = event.api;
+      const selectedRows = api.getSelectedRows();
+
+      // If 2+ rows are selected, use values from all selected rows for this column
+      // Otherwise, use the single right-clicked cell value
+      let values: any[];
+      let displayLabel: string;
+
+      if (selectedRows.length >= 2) {
+        values = Array.from(new Set(selectedRows.map((r) => r[colId])));
+        displayLabel = `${values.length} selected values`;
+      } else {
+        const cellValue = event.data?.[colId];
+        values = [cellValue];
+        displayLabel = truncate(cellValue);
+      }
+
+      setMenuContext({ columnName: colId, values, displayLabel });
+      setMenuPosition({ x: browserEvent.clientX, y: browserEvent.clientY });
+    },
+    [onCellFilterAction],
+  );
+
+  const closeMenu = useCallback(() => {
+    setMenuPosition(null);
+    setMenuContext(null);
+  }, []);
+
+  const handleKeepOnly = useCallback(() => {
+    if (menuContext && onCellFilterAction) {
+      onCellFilterAction({ action: 'keep', columnName: menuContext.columnName, values: menuContext.values });
+    }
+    closeMenu();
+  }, [menuContext, onCellFilterAction, closeMenu]);
+
+  const handleExclude = useCallback(() => {
+    if (menuContext && onCellFilterAction) {
+      onCellFilterAction({ action: 'exclude', columnName: menuContext.columnName, values: menuContext.values });
+    }
+    closeMenu();
+  }, [menuContext, onCellFilterAction, closeMenu]);
+
   if (columns.length === 0 && !loading) {
     return (
       <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -77,15 +171,30 @@ const TableViewRows: React.FC<TableViewRowsProps> = ({ rows, columns, sortModel,
         pagination={false}
         animateRows={false}
         rowSelection="multiple"
-        suppressRowClickSelection={true}
+        suppressRowClickSelection={false}
         domLayout="normal"
         loading={loading}
         onGridReady={(params) => {
+          gridApiRef.current = params.api;
           params.api.sizeColumnsToFit();
         }}
         onSortChanged={handleSortChanged}
+        onCellContextMenu={handleCellContextMenu}
         suppressHorizontalScroll={false}
+        preventDefaultOnContextMenu={true}
       />
+
+      {/* Context menu for "Keep only" / "Exclude" */}
+      {menuPosition && menuContext && (
+        <ContextMenu position={menuPosition} onClose={closeMenu}>
+          <div className={menuStyles.menuItem} onClick={handleKeepOnly}>
+            Keep only {menuContext.displayLabel}
+          </div>
+          <div className={menuStyles.menuItem} onClick={handleExclude}>
+            Exclude {menuContext.displayLabel}
+          </div>
+        </ContextMenu>
+      )}
     </div>
   );
 };

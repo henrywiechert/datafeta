@@ -10,6 +10,7 @@ import { PlotResult } from '../../../../observable-plot-generator/types';
 import { TableData } from '../types';
 import { TableRowsSortModel } from '../hooks/useTableRowsQuery';
 import { QueryResultColumn } from '../../../../types';
+import type { TableCellFilterAction } from '../../Table/TableViewRows';
 
 interface ChartRendererProps {
   useTableView: boolean;
@@ -46,6 +47,8 @@ interface ChartRendererProps {
     loading: boolean;
     error: string | null;
   };
+  /** Callback for context-menu filter actions on table rows. */
+  onTableCellFilterAction?: (action: TableCellFilterAction) => void;
 }
 
 const ChartRenderer: React.FC<ChartRendererProps> = ({
@@ -64,6 +67,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
   onBrushEnd,
   showTableRows = false,
   tableRowsData,
+  onTableCellFilterAction,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   // NOTE: We intentionally do NOT dispatch global window resize events here.
@@ -82,6 +86,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
             sortModel={tableRowsData.sortModel}
             onSortChanged={tableRowsData.setSortModel}
             loading={tableRowsData.loading}
+            onCellFilterAction={onTableCellFilterAction}
           />
         </Box>
         <TableRowsPagination
@@ -94,7 +99,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
         />
       </Box>
     );
-  }, [showTableRows, tableRowsData]);
+  }, [showTableRows, tableRowsData, onTableCellFilterAction]);
 
   // Memoize chart/table content separately so table rows mode is unaffected by chart changes
   const content = useMemo(() => {
@@ -164,6 +169,7 @@ export default React.memo(ChartRenderer, (prevProps, nextProps) => {
     prevProps.ganttFullDataRange === nextProps.ganttFullDataRange &&
     prevProps.brushDisabled === nextProps.brushDisabled &&
     prevProps.showTableRows === nextProps.showTableRows &&
-    prevProps.tableRowsData === nextProps.tableRowsData
+    prevProps.tableRowsData === nextProps.tableRowsData &&
+    prevProps.onTableCellFilterAction === nextProps.onTableCellFilterAction
   );
 }); 

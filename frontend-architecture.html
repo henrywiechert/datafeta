@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Slicer – Frontend Architecture (Flow)</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f6fa;
+    --surface: #ffffff;
+    --surface2: #ffffff;
+    --border: #d0d5e0;
+    --accent: #2563eb;
+    --accent2: #d97706;
+    --accent3: #16a34a;
+    --accent4: #9333ea;
+    --accent5: #db2777;
+    --accent6: #0891b2;
+    --text: #1e293b;
+    --text-dim: #64748b;
+    --text-bright: #0f172a;
+    --line: #94a3b8;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family:'DM Sans',sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    overflow-x:auto;
+  }
+  .header { text-align:center; padding:36px 20px 14px; }
+  .header h1 { font-size:26px; font-weight:700; color:var(--text-bright); letter-spacing:-0.5px; }
+  .header p { font-size:13px; color:var(--text-dim); margin-top:6px; font-family:'JetBrains Mono',monospace; }
+  .legend { display:flex; justify-content:center; gap:22px; padding:10px 20px 24px; flex-wrap:wrap; }
+  .legend-item { display:flex; align-items:center; gap:7px; font-size:12px; color:var(--text-dim); }
+  .legend-dot { width:10px; height:10px; border-radius:3px; }
+  .diagram { width:100%; max-width:1400px; margin:0 auto; padding:0 20px 50px; }
+  svg { display:block; margin:0 auto; }
+  .tooltip {
+    position:fixed; background:var(--surface2); border:1px solid var(--border);
+    border-radius:8px; padding:12px 16px; font-size:13px; line-height:1.55;
+    color:var(--text); max-width:360px; pointer-events:none; opacity:0;
+    transition:opacity 0.12s; z-index:100; box-shadow:0 8px 32px rgba(0,0,0,0.12);
+  }
+  .tooltip.visible { opacity:1; }
+  .tooltip strong { color:var(--text-bright); display:block; margin-bottom:4px; }
+  .tooltip code {
+    font-family:'JetBrains Mono',monospace; font-size:11px;
+    background:var(--bg); padding:1px 5px; border-radius:3px;
+    color:var(--accent); border:1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Data Slicer &mdash; Frontend Architecture</h1>
+  <p>React 18 &middot; TypeScript &middot; MUI &middot; Observable Plot &middot; Zustand &middot; DuckDB WASM</p>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div> Entry &amp; Routing</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent5)"></div> State (Contexts &amp; Stores)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent3)"></div> Pages &amp; Layout</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent6)"></div> Hooks</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent4)"></div> Components</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent2)"></div> Services &amp; API</div>
+</div>
+
+<div class="diagram">
+  <svg id="arch" width="1360" height="1220" viewBox="0 0 1360 1220"></svg>
+</div>
+
+<div class="tooltip" id="tip"></div>
+
+<script>
+const NS='http://www.w3.org/2000/svg';
+const svg=document.getElementById('arch');
+const tip=document.getElementById('tip');
+
+const C={
+  accent:'#2563eb', accent2:'#d97706', accent3:'#16a34a',
+  accent4:'#9333ea', accent5:'#db2777', accent6:'#0891b2',
+  surface:'#ffffff', border:'#d0d5e0', text:'#1e293b',
+  dim:'#64748b', line:'#94a3b8', bg:'#f5f6fa',
+};
+
+// Shadow filter
+const defs=document.createElementNS(NS,'defs');
+const filter=document.createElementNS(NS,'filter');
+filter.setAttribute('id','shadow'); filter.setAttribute('x','-4%'); filter.setAttribute('y','-4%');
+filter.setAttribute('width','110%'); filter.setAttribute('height','120%');
+const feDrop=document.createElementNS(NS,'feDropShadow');
+feDrop.setAttribute('dx','0'); feDrop.setAttribute('dy','2');
+feDrop.setAttribute('stdDeviation','3'); feDrop.setAttribute('flood-color','rgba(0,0,0,0.08)');
+filter.appendChild(feDrop); defs.appendChild(filter); svg.appendChild(defs);
+
+const nodes=[
+  // Row 0 – Entry
+  {id:'index', x:520, y:16, w:220, h:48, label:'index.tsx (Entry)', color:C.accent,
+   desc:'React entry point. Mounts provider tree: DataSourceProvider → VisualizationProvider → ConnectionProvider → App.'},
+
+  // Row 1 – Providers
+  {id:'ctx_ds',   x:30,  y:108, w:190, h:44, label:'DataSourceContext', color:C.accent5,
+   desc:'DB/table/field selection, virtual columns, session filters, Hive partitions. Shared across all sheets.'},
+  {id:'ctx_conn', x:240, y:108, w:180, h:44, label:'ConnectionContext', color:C.accent5,
+   desc:'Connection lifecycle: connect, disconnect, connection details. Wraps ConnectionService API calls.'},
+  {id:'ctx_sheet',x:440, y:108, w:170, h:44, label:'SheetContext', color:C.accent5,
+   desc:'Multi-sheet workspace. Active sheet, CRUD on sheets, sheet switching.'},
+  {id:'ctx_viz',  x:630, y:108, w:190, h:44, label:'VisualizationContext', color:C.accent5,
+   desc:'Per-sheet viz state: axes, filters, encodings, query result, loading, chart type. Remounts per sheet.'},
+  {id:'ctx_undo', x:840, y:108, w:170, h:44, label:'UndoRedoContext', color:C.accent5,
+   desc:'Per-sheet undo/redo stacks. Tracks visualization state changes.'},
+  {id:'z_cache',  x:1030,y:108, w:200, h:44, label:'sheetRenderCache (Z)', color:C.accent5,
+   desc:'Zustand store. Caches queryResult + chartSpec per sheet for fast tab switching.'},
+
+  // Row 2 – App & Router
+  {id:'app',    x:480, y:200, w:200, h:48, label:'App.tsx (Router)', color:C.accent,
+   desc:'BrowserRouter, tab management, save/load menu, snapshot gallery. Routes to DataSourceSelectionPage or VisualizationPage.'},
+  {id:'z_sel',  x:1030,y:200, w:200, h:44, label:'selectionStore (Z)', color:C.accent5,
+   desc:'Zustand store. Multi-select for fields: shift-click, range select.'},
+
+  // Row 3 – Pages
+  {id:'pg_ds',  x:120, y:300, w:260, h:48, label:'DataSourceSelectionPage', color:C.accent3,
+   desc:'Connection selection page. Shows connection forms (CSV, ClickHouse, Kaggle, Hive Parquet), connect/disconnect, config load.'},
+  {id:'pg_viz', x:520, y:300, w:240, h:48, label:'VisualizationPage', color:C.accent3,
+   desc:'Main workspace. Resizable panels: FieldsPanel, ChartPanel, FilterPanel, Overrides. Per-sheet providers.'},
+  {id:'layout', x:880, y:300, w:200, h:48, label:'AppLayout', color:C.accent3,
+   desc:'Resizable panel layout using react-resizable-panels. CollapsedPanelStrip for hidden panels.'},
+
+  // Row 4 – Connection Forms
+  {id:'f_csv',  x:15,  y:400, w:155, h:42, label:'CsvConnection', color:C.accent4,
+   desc:'File upload form for CSV/Parquet. Handles multipart upload, file validation.'},
+  {id:'f_ch',   x:185, y:400, w:175, h:42, label:'ClickHouseConnection', color:C.accent4,
+   desc:'ClickHouse connection form: host, port, database, user/pass.'},
+  {id:'f_kag',  x:375, y:400, w:170, h:42, label:'KaggleConnection', color:C.accent4,
+   desc:'Kaggle dataset search and import form.'},
+  {id:'f_hive', x:560, y:400, w:185, h:42, label:'HiveParquetConnection', color:C.accent4,
+   desc:'Two-phase Hive Parquet connection: path entry → partition selection.'},
+
+  // Row 4b – Viz Panels
+  {id:'fields', x:15,  y:470, w:165, h:42, label:'FieldsPanel', color:C.accent4,
+   desc:'Left sidebar. Field search, table list, field categories, drag-to-axis. Uses FieldChip, CompactMetadataSelector.'},
+  {id:'chart',  x:195, y:470, w:165, h:42, label:'ChartArea', color:C.accent4,
+   desc:'Central chart viewport. ChartRenderer, ChartControls, DebugPanel, QueryStatusIndicator.'},
+  {id:'filter', x:375, y:470, w:155, h:42, label:'FilterPanel', color:C.accent4,
+   desc:'Filter sidebar. FilterFieldChip, DiscreteFilterControl, ContinuousFilterControl, FilterDropZone.'},
+  {id:'overrides',x:545,y:470, w:185, h:42, label:'FieldOverridesPanel', color:C.accent4,
+   desc:'Chart type control, color field, size field, encoding overrides per field.'},
+  {id:'color',  x:745, y:470, w:155, h:42, label:'ColorPanel', color:C.accent4,
+   desc:'Color encoding: ColorDropZone, ColorSchemeSelector, ManualColorSelector.'},
+  {id:'legend', x:915, y:470, w:155, h:42, label:'LegendPanel', color:C.accent4,
+   desc:'Chart legend rendering. LegendStack, BackgroundLegendPanel.'},
+  {id:'table',  x:1085,y:470, w:155, h:42, label:'TableView', color:C.accent4,
+   desc:'AG Grid data table with lazy loading (react-window).'},
+
+  // Row 5 – Chart internals
+  {id:'renderer',x:80,  y:560, w:180, h:42, label:'ChartRenderer', color:C.accent4,
+   desc:'Renders Observable Plot output. Manages DOM mounting, resizing, accessibility.'},
+  {id:'grid',    x:280, y:560, w:170, h:42, label:'MultiPlotGrid', color:C.accent4,
+   desc:'Grid layout for faceted/multi-plot charts. PlotArea, BrushOverlay, XAxes, YAxes, FacetLabels.'},
+  {id:'vcol',    x:470, y:560, w:195, h:42, label:'VirtualColumnManager', color:C.accent4,
+   desc:'Create/edit virtual columns and binning. BinConfigDialog for numeric binning.'},
+  {id:'saveload',x:685, y:560, w:175, h:42, label:'SaveLoadMenu', color:C.accent4,
+   desc:'Export/import configurations, snapshot gallery, connection restore dialog.'},
+
+  // Row 6 – Hooks
+  {id:'h_vizst', x:15,  y:660, w:195, h:42, label:'useVisualizationState', color:C.accent6,
+   desc:'Aggregates DataSource + Visualization + metadata into a single unified state for components.'},
+  {id:'h_drag',  x:225, y:660, w:155, h:42, label:'useDragDrop', color:C.accent6,
+   desc:'Axis/filter/color/size drag-and-drop logic. Field assignment to encoding channels.'},
+  {id:'h_qexec', x:395, y:660, w:175, h:42, label:'useQueryExecution', color:C.accent6,
+   desc:'Coordinates query build → execution → result. Triggers on viz state changes.'},
+  {id:'h_qbuild',x:585, y:660, w:165, h:42, label:'useQueryBuilder', color:C.accent6,
+   desc:'Builds QueryDescription from axes, filters, encodings, virtual columns.'},
+  {id:'h_meta',  x:765, y:660, w:195, h:42, label:'useMetadataOperations', color:C.accent6,
+   desc:'Fetch databases, tables, columns from backend. Populates DataSourceContext.'},
+  {id:'h_gfilt', x:975, y:660, w:170, h:42, label:'useGlobalFilters', color:C.accent6,
+   desc:'Session-level vs sheet-level filter management.'},
+  {id:'h_undo',  x:1160,y:660, w:155, h:42, label:'useUndoRedo', color:C.accent6,
+   desc:'Undo/redo hook. Tracks viz state snapshots per sheet.'},
+
+  // Row 7 – Query & Chart generation
+  {id:'qbuilder',x:80,  y:760, w:200, h:44, label:'queryBuilder/', color:C.accent2,
+   desc:'Query building module. Converts visualization state (axes, filters, measures) into QueryDescription for the backend.'},
+  {id:'plotgen', x:310, y:760, w:250, h:44, label:'observable-plot-generator/', color:C.accent2,
+   desc:'Chart generation on top of @observablehq/plot. Chart types, faceting, grid layout, color schemes, tooltips, labels.'},
+  {id:'optHint', x:590, y:760, w:230, h:44, label:'optimizationHintGenerator', color:C.accent2,
+   desc:'Generates optimization hints for the backend query optimizer based on field types and query structure.'},
+  {id:'config',  x:850, y:760, w:170, h:44, label:'configurationService', color:C.accent2,
+   desc:'Export/import full app configuration. Validation, connection reconstruction, snapshot serialization.'},
+
+  // Row 8 – Services / API
+  {id:'api_conn',x:15,  y:870, w:170, h:44, label:'connectionApi', color:C.accent2,
+   desc:'connect, disconnect, connectHive, loadPartition, addFiles. Multipart and JSON endpoints.'},
+  {id:'api_meta',x:200, y:870, w:165, h:44, label:'metadataApi', color:C.accent2,
+   desc:'listDatabases, listTables, listColumns, getFieldStats, getDistinctValues.'},
+  {id:'api_q',   x:380, y:870, w:165, h:44, label:'queryApi', color:C.accent2,
+   desc:'executeQuery (JSON), executeQueryArrow (Arrow IPC), executeQueryArrowRaw.'},
+  {id:'api_snap',x:560, y:870, w:160, h:44, label:'snapshotApi', color:C.accent2,
+   desc:'listSnapshots, saveSnapshot, loadSnapshot, deleteSnapshot.'},
+  {id:'api_kag', x:735, y:870, w:155, h:44, label:'kaggleApi', color:C.accent2,
+   desc:'searchKaggleDatasets, listKaggleFiles.'},
+  {id:'api_client',x:905,y:870, w:175, h:44, label:'apiClient', color:C.accent2,
+   desc:'Base HTTP client. API_BASE URL, AbortController for cancellation, X-Tab-Id header.'},
+
+  // Row 9 – Local execution
+  {id:'orch',    x:120, y:970, w:250, h:44, label:'queryExecutionOrchestrator', color:C.accent2,
+   desc:'Orchestrates local (DuckDB WASM) vs remote (backend) query execution.'},
+  {id:'decision',x:400, y:970, w:210, h:44, label:'queryDecisionEngine', color:C.accent2,
+   desc:'Decides whether to execute locally or remotely based on data size, query complexity, caching.'},
+  {id:'localsql', x:640,y:970, w:185, h:44, label:'localSqlBuilder', color:C.accent2,
+   desc:'Builds SQL for local DuckDB WASM execution.'},
+  {id:'duckdb',  x:855, y:970, w:180, h:44, label:'duckdbService', color:C.accent2,
+   desc:'DuckDB WASM for local caching and query execution. In-browser SQL engine.'},
+  {id:'arrow',   x:1065,y:970, w:190, h:44, label:'arrowResultAdapter', color:C.accent2,
+   desc:'Converts Apache Arrow IPC results to row-based data for rendering.'},
+
+  // Shared infra
+  {id:'types',   x:1170,y:108, w:150, h:44, label:'types/', color:C.accent5,
+   desc:'Shared TypeScript types: Field, QueryDescription, Filter, Connection, Sheet, VirtualColumn, etc.'},
+  {id:'utils',   x:1170,y:200, w:150, h:44, label:'utils/', color:C.accent5,
+   desc:'fieldUtils, filterActions, syntheticFields, sheetConfigHash, binningUtils, scaleInversion, dragDataStore, tabSession.'},
+  {id:'cfg',     x:1170,y:292, w:150, h:44, label:'config/', color:C.accent5,
+   desc:'colorSchemes (categorical, sequential, diverging), loadingConfig (modal timeouts).'},
+];
+
+const edges=[
+  // entry → providers
+  ['index','ctx_ds'],['index','ctx_conn'],['index','ctx_viz'],
+  // entry → app
+  ['index','app'],
+  // app → pages
+  ['app','pg_ds'],['app','pg_viz'],['app','layout'],
+  // contexts → pages
+  ['ctx_ds','pg_ds'],['ctx_conn','pg_ds'],['ctx_sheet','pg_viz'],['ctx_viz','pg_viz'],
+  // pages → connection forms
+  ['pg_ds','f_csv'],['pg_ds','f_ch'],['pg_ds','f_kag'],['pg_ds','f_hive'],
+  // pages → viz panels
+  ['pg_viz','fields'],['pg_viz','chart'],['pg_viz','filter'],['pg_viz','overrides'],['pg_viz','color'],['pg_viz','legend'],['pg_viz','table'],
+  // chart internals
+  ['chart','renderer'],['chart','grid'],
+  // viz panels → hooks
+  ['fields','h_vizst'],['fields','h_drag'],
+  ['chart','h_qexec'],['chart','h_qbuild'],
+  ['filter','h_gfilt'],
+  ['pg_viz','h_undo'],['pg_viz','h_meta'],
+  // hooks → query/chart gen
+  ['h_qbuild','qbuilder'],['h_qexec','plotgen'],['h_qexec','optHint'],
+  // hooks → api
+  ['h_qexec','api_q'],['h_meta','api_meta'],
+  // connection forms → api
+  ['f_csv','api_conn'],['f_ch','api_conn'],['f_kag','api_kag'],['f_hive','api_conn'],
+  // api → client
+  ['api_conn','api_client'],['api_meta','api_client'],['api_q','api_client'],['api_snap','api_client'],['api_kag','api_client'],
+  // query orchestration
+  ['h_qexec','orch'],['orch','decision'],['orch','api_q'],
+  ['decision','localsql'],['localsql','duckdb'],
+  ['api_q','arrow'],
+  // cache
+  ['h_qexec','z_cache'],
+  // saveload
+  ['saveload','api_snap'],['saveload','config'],
+];
+
+function el(tag,attrs){
+  const e=document.createElementNS(NS,tag);
+  for(const[k,v]of Object.entries(attrs))e.setAttribute(k,v);
+  return e;
+}
+
+function drawEdge(a,b){
+  const n1=nodes.find(n=>n.id===a), n2=nodes.find(n=>n.id===b);
+  if(!n1||!n2)return;
+  const x1=n1.x+n1.w/2, y1=n1.y+n1.h;
+  const x2=n2.x+n2.w/2, y2=n2.y;
+  const my=(y1+y2)/2;
+  svg.appendChild(el('path',{
+    d:`M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`,
+    fill:'none', stroke:C.line, 'stroke-width':'1.5',
+    'stroke-dasharray':'5,3', opacity:'0.8',
+    class:`edge e-${a} e-${b}`,
+  }));
+}
+
+function drawNode(n){
+  const g=el('g',{class:'node','data-id':n.id,style:'cursor:pointer'});
+  const glow=el('rect',{x:n.x-3,y:n.y-3,width:n.w+6,height:n.h+6,rx:13,fill:n.color,opacity:'0',class:'glow'});
+  g.appendChild(glow);
+  g.appendChild(el('rect',{x:n.x,y:n.y,width:n.w,height:n.h,rx:10,fill:C.surface,stroke:n.color,'stroke-width':'1.6',filter:'url(#shadow)'}));
+  g.appendChild(el('rect',{x:n.x,y:n.y,width:4,height:n.h,rx:2,fill:n.color}));
+  const txt=el('text',{x:n.x+n.w/2,y:n.y+n.h/2+1,fill:C.text,'font-size':'12.5','font-family':"'DM Sans',sans-serif",'font-weight':'500','text-anchor':'middle','dominant-baseline':'middle'});
+  txt.textContent=n.label;
+  g.appendChild(txt);
+  g.addEventListener('mouseenter',e=>{glow.setAttribute('opacity','0.14');highlightEdges(n.id,true);showTip(e,n);});
+  g.addEventListener('mousemove',e=>moveTip(e));
+  g.addEventListener('mouseleave',()=>{glow.setAttribute('opacity','0');highlightEdges(n.id,false);hideTip();});
+  svg.appendChild(g);
+}
+
+function highlightEdges(id,on){
+  svg.querySelectorAll(`.e-${id}`).forEach(p=>{
+    p.setAttribute('opacity',on?'1':'0.8');
+    p.setAttribute('stroke-width',on?'2.5':'1.5');
+    p.setAttribute('stroke',on?C.accent:C.line);
+  });
+}
+
+function drawSectionLabel(x,y,text){
+  const t=el('text',{x,y,fill:C.dim,'font-size':'11','font-family':"'JetBrains Mono',monospace",'font-weight':'500','text-anchor':'end',opacity:'0.7'});
+  t.textContent=text;
+  svg.appendChild(t);
+}
+
+// Separators
+[90,188,280,385,540,640,740,855,955,1050].forEach(y=>{
+  svg.appendChild(el('line',{x1:10,y1:y,x2:1350,y2:y,stroke:C.border,'stroke-width':'0.8','stroke-dasharray':'2,4',opacity:'0.6'}));
+});
+
+edges.forEach(([a,b])=>drawEdge(a,b));
+nodes.forEach(n=>drawNode(n));
+
+// Section labels (after nodes)
+drawSectionLabel(1345,30,'ENTRY POINT');
+drawSectionLabel(1345,122,'STATE (CONTEXTS + STORES)');
+drawSectionLabel(1345,218,'APP / ROUTER');
+drawSectionLabel(1345,318,'PAGES');
+drawSectionLabel(1345,420,'CONNECTION FORMS');
+drawSectionLabel(1345,490,'VISUALIZATION PANELS');
+drawSectionLabel(1345,575,'CHART INTERNALS');
+drawSectionLabel(1345,675,'HOOKS');
+drawSectionLabel(1345,775,'QUERY & CHART GEN');
+drawSectionLabel(1345,885,'API SERVICES');
+drawSectionLabel(1345,985,'LOCAL EXECUTION');
+
+// Data flow footer
+const fG=el('g',{});
+fG.appendChild(el('rect',{x:15,y:1060,width:1330,height:70,rx:10,fill:'#eef1f8',stroke:C.border,'stroke-width':'1'}));
+const ft1=el('text',{x:680,y:1082,fill:C.dim,'font-size':'12','font-family':"'JetBrains Mono',monospace",'font-weight':'400','text-anchor':'middle'});
+ft1.textContent='QUERY FLOW:  UI Panel → useQueryBuilder → QueryDescription → queryApi.executeQuery → Backend → QueryResult → observablePlotGenerator → ChartRenderer';
+fG.appendChild(ft1);
+const ft2=el('text',{x:680,y:1100,fill:C.dim,'font-size':'11','font-family':"'JetBrains Mono',monospace",'font-weight':'400','text-anchor':'middle',opacity:'0.7'});
+ft2.textContent='LOCAL PATH:  useQueryExecution → queryExecutionOrchestrator → queryDecisionEngine → localSqlBuilder → DuckDB WASM → arrowResultAdapter';
+fG.appendChild(ft2);
+const ft3=el('text',{x:680,y:1118,fill:C.dim,'font-size':'11','font-family':"'JetBrains Mono',monospace",'font-weight':'400','text-anchor':'middle',opacity:'0.7'});
+ft3.textContent='CONNECT FLOW:  ConnectionForm → connectionApi.connect → Backend → DataSourceContext.setTables → metadataApi → FieldsPanel';
+fG.appendChild(ft3);
+svg.appendChild(fG);
+</script>
+</body>
+</html>

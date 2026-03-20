@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Slicer – Backend Block Diagram</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #f0f2f7;
+    color: #1e293b;
+    min-height: 100vh;
+    padding: 32px 24px 48px;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 24px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 13px;
+    color: #64748b;
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 28px;
+  }
+
+  .canvas {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* ── Group blocks ── */
+  .group {
+    background: #ffffff;
+    border: 1.5px solid #d0d5e0;
+    border-radius: 12px;
+    padding: 16px 18px 14px;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  }
+  .group-label {
+    position: absolute;
+    top: -10px;
+    left: 18px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 1px 10px;
+    border-radius: 4px;
+    color: #fff;
+  }
+  .group-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 4px;
+  }
+
+  /* ── Individual blocks ── */
+  .block {
+    border: 1.5px solid;
+    border-radius: 8px;
+    padding: 10px 14px;
+    min-width: 150px;
+    max-width: 220px;
+    flex: 1 1 150px;
+    cursor: default;
+    transition: box-shadow 0.12s, transform 0.12s;
+    position: relative;
+  }
+  .block:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+  }
+  .block-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 3px;
+  }
+  .block-file {
+    font-size: 10.5px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #64748b;
+    word-break: break-all;
+  }
+  .block-desc {
+    font-size: 11.5px;
+    color: #475569;
+    margin-top: 5px;
+    line-height: 1.45;
+    display: none;
+  }
+  .block:hover .block-desc { display: block; }
+  .block:hover { max-width: 340px; }
+
+  /* color themes */
+  .t-blue  { border-color: #2563eb; background: #eff6ff; }
+  .t-green { border-color: #16a34a; background: #f0fdf4; }
+  .t-purple{ border-color: #9333ea; background: #faf5ff; }
+  .t-amber { border-color: #d97706; background: #fffbeb; }
+  .t-pink  { border-color: #db2777; background: #fdf2f8; }
+  .t-slate { border-color: #64748b; background: #f8fafc; }
+
+  .lbl-blue   { background: #2563eb; }
+  .lbl-green  { background: #16a34a; }
+  .lbl-purple { background: #9333ea; }
+  .lbl-amber  { background: #d97706; }
+  .lbl-pink   { background: #db2777; }
+  .lbl-slate  { background: #64748b; }
+
+  /* ── Nested group ── */
+  .subgroup {
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+    padding: 12px 14px 10px;
+    position: relative;
+    flex: 1 1 100%;
+  }
+  .subgroup-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 8px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .subgroup .group-items { margin-top: 0; }
+
+  /* ── Arrow connectors between groups ── */
+  .arrow-row {
+    display: flex;
+    justify-content: center;
+    padding: 2px 0;
+  }
+  .arrow-row svg { display: block; }
+
+  /* ── Data flow footer ── */
+  .flow-bar {
+    background: #ffffff;
+    border: 1.5px solid #d0d5e0;
+    border-radius: 10px;
+    padding: 14px 20px;
+    margin-top: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  }
+  .flow-bar p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    color: #64748b;
+    text-align: center;
+    line-height: 1.7;
+  }
+  .flow-bar strong { color: #0f172a; }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #64748b;
+  }
+  .legend-dot {
+    width: 10px; height: 10px; border-radius: 3px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Data Slicer &mdash; Backend Block Diagram</h1>
+<p class="subtitle">FastAPI &middot; ClickHouse &middot; DuckDB &middot; PyPika</p>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#2563eb"></div> API Layer</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#db2777"></div> Infrastructure</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#16a34a"></div> Services</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#9333ea"></div> Query Pipeline</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#d97706"></div> Data Connectors</div>
+</div>
+
+<div class="canvas">
+
+  <!-- ═══ ENTRY POINT ═══ -->
+  <div class="group">
+    <span class="group-label lbl-blue">Entry Point</span>
+    <div class="group-items">
+      <div class="block t-blue" style="flex:0 1 220px">
+        <div class="block-name">main.py</div>
+        <div class="block-file">FastAPI app</div>
+        <div class="block-desc">Registers routers, CORS middleware, exception handlers, startup/shutdown lifecycle. Serves static frontend if present.</div>
+      </div>
+      <div class="block t-pink" style="flex:0 1 280px">
+        <div class="block-name">dependencies.py</div>
+        <div class="block-file">ConnectionStateManager</div>
+        <div class="block-desc">Per-session state keyed by session_id:tab_id. Provides get_state_manager, get_active_connector, get_connection_details as FastAPI dependencies.</div>
+      </div>
+      <div class="block t-pink" style="flex:0 1 180px">
+        <div class="block-name">exceptions.py</div>
+        <div class="block-file">Error handling</div>
+        <div class="block-desc">AppException, DataSourceConnectionError, QueryExecutionError. Mapped to HTTP status codes by main.py handlers.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- arrow -->
+  <div class="arrow-row">
+    <svg width="40" height="24"><path d="M20,0 L20,16 M14,11 L20,18 L26,11" stroke="#94a3b8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </div>
+
+  <!-- ═══ API ROUTERS ═══ -->
+  <div class="group">
+    <span class="group-label lbl-blue">API Routers &nbsp;/api/v1/data</span>
+    <div class="group-items">
+      <div class="block t-blue">
+        <div class="block-name">connection</div>
+        <div class="block-file">POST /connect, /disconnect</div>
+        <div class="block-desc">Connect/disconnect. File uploads (multipart), JSON connect, Hive Parquet two-phase flow, add-files.</div>
+      </div>
+      <div class="block t-blue">
+        <div class="block-name">metadata</div>
+        <div class="block-file">GET /databases, /tables, /columns</div>
+        <div class="block-desc">List databases, tables, and columns from the active connector.</div>
+      </div>
+      <div class="block t-blue">
+        <div class="block-name">query</div>
+        <div class="block-file">POST /query, /query-arrow</div>
+        <div class="block-desc">Execute queries (JSON or Arrow IPC), row count, distinct count.</div>
+      </div>
+      <div class="block t-blue">
+        <div class="block-name">relationships</div>
+        <div class="block-file">GET /table-relationships</div>
+        <div class="block-desc">Foreign key detection, suggested joins, merged columns for multi-table queries.</div>
+      </div>
+      <div class="block t-blue">
+        <div class="block-name">snapshot</div>
+        <div class="block-file">GET/POST /snapshots</div>
+        <div class="block-desc">Snapshot CRUD &ndash; save/load query configurations to file-based JSON storage.</div>
+      </div>
+      <div class="block t-blue">
+        <div class="block-name">kaggle</div>
+        <div class="block-file">GET /kaggle/search</div>
+        <div class="block-desc">Search Kaggle datasets, list files for import.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- arrow -->
+  <div class="arrow-row">
+    <svg width="40" height="24"><path d="M20,0 L20,16 M14,11 L20,18 L26,11" stroke="#94a3b8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </div>
+
+  <!-- ═══ SERVICES ═══ -->
+  <div class="group">
+    <span class="group-label lbl-green">Services</span>
+    <div class="group-items">
+      <div class="block t-green">
+        <div class="block-name">ConnectionService</div>
+        <div class="block-file">services/connection_service.py</div>
+        <div class="block-desc">Orchestrates connect/disconnect. Parses ConnectionDetails, saves uploads, creates connector via ConnectorRegistry, sets session state.</div>
+      </div>
+      <div class="block t-green">
+        <div class="block-name">ValidationService</div>
+        <div class="block-file">services/validation_service.py</div>
+        <div class="block-desc">Validates ClickHouse DB existence, CSV table names, and query fields before execution.</div>
+      </div>
+      <div class="block t-green">
+        <div class="block-name">TableMergeService</div>
+        <div class="block-file">services/table_merge_service.py</div>
+        <div class="block-desc">Builds virtual tables from suggested joins. Detects foreign keys, computes merged columns.</div>
+      </div>
+      <div class="block t-green">
+        <div class="block-name">SnapshotService</div>
+        <div class="block-file">services/snapshot_service.py</div>
+        <div class="block-desc">File-based JSON snapshot storage. CRUD operations on saved query configurations.</div>
+      </div>
+      <div class="block t-green">
+        <div class="block-name">KaggleSearchService</div>
+        <div class="block-file">services/kaggle_search_service.py</div>
+        <div class="block-desc">Wraps Kaggle API &ndash; search datasets, list files, trigger download for import.</div>
+      </div>
+      <div class="block t-green">
+        <div class="block-name">CardinalityService</div>
+        <div class="block-file">services/cardinality_service.py</div>
+        <div class="block-desc">Computes distinct counts for columns. Used by UI for filter dropdowns and optimization hints.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- arrow -->
+  <div class="arrow-row">
+    <svg width="40" height="24"><path d="M20,0 L20,16 M14,11 L20,18 L26,11" stroke="#94a3b8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </div>
+
+  <!-- ═══ QUERY PIPELINE ═══ -->
+  <div class="group">
+    <span class="group-label lbl-purple">Query Pipeline</span>
+    <div class="group-items">
+
+      <!-- top-level orchestration -->
+      <div class="block t-purple" style="flex:0 1 250px">
+        <div class="block-name">QueryExecutionService</div>
+        <div class="block-file">Orchestrator</div>
+        <div class="block-desc">parse &rarr; validate &rarr; translate &rarr; execute &rarr; build result. Central query pipeline coordinator.</div>
+      </div>
+      <div class="block t-purple" style="flex:0 1 220px">
+        <div class="block-name">QueryService</div>
+        <div class="block-file">SQL Generation (PyPika)</div>
+        <div class="block-desc">Translates QueryDescription &rarr; SQL via PyPika. Coordinates all query component builders.</div>
+      </div>
+      <div class="block t-purple" style="flex:0 1 200px">
+        <div class="block-name">QueryResultBuilder</div>
+        <div class="block-file">Result formatting</div>
+        <div class="block-desc">Transforms raw connector output (columns + rows) into QueryResult with metadata, types, JS-safe numbers.</div>
+      </div>
+      <div class="block t-purple" style="flex:0 1 200px">
+        <div class="block-name">DateTimeService</div>
+        <div class="block-file">Date/time handling</div>
+        <div class="block-desc">Datetime extraction and truncation per DB engine (ClickHouse vs DuckDB). EXTRACT / DATE_TRUNC.</div>
+      </div>
+      <div class="block t-purple" style="flex:0 1 220px">
+        <div class="block-name">FilterConversionService</div>
+        <div class="block-file">Filter translation</div>
+        <div class="block-desc">Converts frontend filter configuration (UI format) into internal Filter objects for SQL generation.</div>
+      </div>
+
+      <!-- subgroup: query components -->
+      <div class="subgroup">
+        <div class="subgroup-label">Query Components &nbsp;(services/query_components/)</div>
+        <div class="group-items">
+          <div class="block t-purple">
+            <div class="block-name">TableContextBuilder</div>
+            <div class="block-desc">PyPika table context &ndash; JOINs, UNIONs, virtual tables, aliases.</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">SelectClauseBuilder</div>
+            <div class="block-desc">SELECT clause: dimensions, measures (SUM, AVG, COUNT&hellip;), virtual columns.</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">FilterBuilder</div>
+            <div class="block-desc">WHERE clause. Operators: eq, ne, gt, lt, in, between, like, is_null.</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">GroupingOrderingBuilder</div>
+            <div class="block-desc">GROUP BY and ORDER BY generation. Dimension grouping, multi-column ordering.</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">OptimizationApplier</div>
+            <div class="block-desc">Applies optimization strategies: adaptive rounding, category dedup, datetime binning.</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">ResultBudgetApplier</div>
+            <div class="block-desc">Sampling &amp; LIMIT for result budgets. TABLESAMPLE (CH), row limits (DuckDB).</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">VirtualColumnBuilder</div>
+            <div class="block-desc">Virtual column expressions for computed fields.</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">UnionQueryBuilder</div>
+            <div class="block-desc">UNION query construction with null columns, source filters, virtual column checks.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- subgroup: optimization engine -->
+      <div class="subgroup">
+        <div class="subgroup-label">Optimization Engine &nbsp;(services/optimization/)</div>
+        <div class="group-items">
+          <div class="block t-purple">
+            <div class="block-name">QueryOptimizer</div>
+            <div class="block-desc">Coordinates: config &rarr; detect small tables &rarr; plan strategies &rarr; estimate cardinality &rarr; select best plan.</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">StrategyPlanner</div>
+            <div class="block-desc">Builds strategies from hints or query structure. Adaptive rounding, category dedup, datetime binning.</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">SmallTableDetector</div>
+            <div class="block-desc">Checks row count vs threshold. Skips optimization for small tables.</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">OptimizerConfig</div>
+            <div class="block-desc">Configuration from env vars: thresholds, cache settings, strategy toggles.</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">ClickHouseEstimator</div>
+            <div class="block-desc">system.parts + uniqExact for cardinality estimation.</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">DuckDBEstimator</div>
+            <div class="block-desc">approx_count_distinct for cardinality estimation.</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">BasicEstimator</div>
+            <div class="block-desc">Fallback estimator when engine-specific estimators aren't available.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- arrow -->
+  <div class="arrow-row">
+    <svg width="40" height="24"><path d="M20,0 L20,16 M14,11 L20,18 L26,11" stroke="#94a3b8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </div>
+
+  <!-- ═══ CONNECTORS ═══ -->
+  <div class="group">
+    <span class="group-label lbl-amber">Data Connectors</span>
+    <div class="group-items">
+      <div class="block t-amber" style="flex:0 1 260px">
+        <div class="block-name">ConnectorRegistry</div>
+        <div class="block-file">connectors/registry.py</div>
+        <div class="block-desc">Factory mapping connection type strings to connector classes. create(type) &rarr; BaseConnector subclass.</div>
+      </div>
+      <div class="block t-slate" style="flex:0 1 240px">
+        <div class="block-name">BaseConnector (ABC)</div>
+        <div class="block-file">connectors/base.py</div>
+        <div class="block-desc">Abstract interface: connect, disconnect, list_databases, list_tables, list_columns, fetch_data, fetch_data_arrow.</div>
+      </div>
+    </div>
+
+    <!-- subgroup: concrete connectors -->
+    <div class="subgroup" style="margin-top: 10px;">
+      <div class="subgroup-label">Concrete Connectors &nbsp;(implement BaseConnector)</div>
+      <div class="group-items">
+        <div class="block t-amber">
+          <div class="block-name">ClickHouseConnector</div>
+          <div class="block-file">clickhouse-connect</div>
+          <div class="block-desc">HTTP client with thread-safe lock. Detects foreign keys via system tables. Supports Arrow output.</div>
+        </div>
+        <div class="block t-amber">
+          <div class="block-name">FileConnector</div>
+          <div class="block-file">DuckDB (in-memory)</div>
+          <div class="block-desc">CSV/Parquet via DuckDB. File handlers for validation and schema inference. Per-session temp files.</div>
+        </div>
+        <div class="block t-amber">
+          <div class="block-name">KaggleConnector</div>
+          <div class="block-file">Kaggle API + DuckDB</div>
+          <div class="block-desc">Downloads Kaggle datasets, then loads into DuckDB. Extends FileConnector pattern.</div>
+        </div>
+        <div class="block t-amber">
+          <div class="block-name">HiveParquetConnector</div>
+          <div class="block-file">DuckDB (partitioned)</div>
+          <div class="block-desc">Two-phase: (1) connect to discover partitions, (2) load selected partition. DuckDB backend.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- subgroup: file handlers -->
+    <div class="subgroup" style="margin-top: 10px;">
+      <div class="subgroup-label">File Handlers &nbsp;(connectors/file_handlers/)</div>
+      <div class="group-items">
+        <div class="block t-amber" style="min-width:120px; max-width:170px">
+          <div class="block-name">CsvFileHandler</div>
+          <div class="block-desc">CSV validation and schema inference.</div>
+        </div>
+        <div class="block t-amber" style="min-width:120px; max-width:170px">
+          <div class="block-name">ParquetFileHandler</div>
+          <div class="block-desc">Parquet validation and schema inference.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SHARED INFRASTRUCTURE ═══ -->
+  <div class="group" style="margin-top: 6px;">
+    <span class="group-label lbl-pink">Shared Infrastructure</span>
+    <div class="group-items">
+      <div class="block t-pink">
+        <div class="block-name">Models (Pydantic)</div>
+        <div class="block-file">models/</div>
+        <div class="block-desc">QueryDescription, QueryResult, ConnectionDetails, DataSource, Column, Filter, Measure, Dimension, and more.</div>
+      </div>
+      <div class="block t-pink">
+        <div class="block-name">Utils</div>
+        <div class="block-file">utils/type_conversion.py</div>
+        <div class="block-desc">Decimal&rarr;float, NaN/Inf&rarr;None, JS-safe integer checks. Used by QueryResultBuilder.</div>
+      </div>
+      <div class="block t-pink">
+        <div class="block-name">Exceptions</div>
+        <div class="block-file">exceptions.py</div>
+        <div class="block-desc">AppException, DataSourceConnectionError, QueryExecutionError. Mapped to HTTP codes by main.py.</div>
+      </div>
+      <div class="block t-pink">
+        <div class="block-name">CORS Middleware</div>
+        <div class="block-file">via main.py</div>
+        <div class="block-desc">CORSMiddleware configured from CORS_ALLOW_ORIGINS env var.</div>
+      </div>
+      <div class="block t-pink">
+        <div class="block-name">Config / Env</div>
+        <div class="block-file">Environment variables</div>
+        <div class="block-desc">LOG_LEVEL, CORS_ALLOW_ORIGINS, SNAPSHOT_STORAGE_DIR, OPTIMIZER_* thresholds and cache settings.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ DATA FLOW ═══ -->
+  <div class="flow-bar">
+    <p>
+      <strong>Query flow:</strong> POST /query &rarr; Router &rarr; QueryExecutionService &rarr; validate &rarr; QueryService (SQL) &rarr; Connector.fetch_data &rarr; QueryResultBuilder &rarr; JSON
+    </p>
+    <p>
+      <strong>Connect flow:</strong> POST /connect &rarr; Router &rarr; ConnectionService &rarr; ConnectorRegistry.create(type) &rarr; connector.connect() &rarr; StateManager.set_state()
+    </p>
+  </div>
+
+</div>
+</body>
+</html>

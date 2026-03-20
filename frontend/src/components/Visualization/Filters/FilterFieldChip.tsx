@@ -192,6 +192,14 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
     if (!filterConfig) return field.columnName;
 
     if (filterConfig.type === 'discrete') {
+      // Pure exclusion mode: selectedValues empty but excludedValues set
+      if (
+        filterConfig.selectedValues.length === 0
+        && filterConfig.excludedValues
+        && filterConfig.excludedValues.length > 0
+      ) {
+        return `${field.columnName} (excluding ${filterConfig.excludedValues.length})`;
+      }
       const count = filterConfig.selectedValues.length;
       return `${field.columnName} (${count} selected)`;
     }

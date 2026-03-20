@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Slicer – Frontend Block Diagram</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'DM Sans',sans-serif;background:#f0f2f7;color:#1e293b;min-height:100vh;padding:32px 24px 48px;}
+  h1{text-align:center;font-size:24px;font-weight:700;color:#0f172a;margin-bottom:4px;}
+  .subtitle{text-align:center;font-size:13px;color:#64748b;font-family:'JetBrains Mono',monospace;margin-bottom:28px;}
+  .canvas{max-width:1300px;margin:0 auto;display:flex;flex-direction:column;gap:14px;}
+  .group{background:#fff;border:1.5px solid #d0d5e0;border-radius:12px;padding:16px 18px 14px;position:relative;box-shadow:0 2px 8px rgba(0,0,0,0.04);}
+  .group-label{position:absolute;top:-10px;left:18px;font-size:10.5px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;font-family:'JetBrains Mono',monospace;padding:1px 10px;border-radius:4px;color:#fff;}
+  .group-items{display:flex;flex-wrap:wrap;gap:10px;margin-top:4px;}
+  .block{border:1.5px solid;border-radius:8px;padding:10px 14px;min-width:145px;max-width:220px;flex:1 1 145px;cursor:default;transition:box-shadow .12s,transform .12s;position:relative;}
+  .block:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.1);max-width:360px;}
+  .block-name{font-size:13px;font-weight:600;color:#0f172a;margin-bottom:3px;}
+  .block-file{font-size:10.5px;font-family:'JetBrains Mono',monospace;color:#64748b;word-break:break-all;}
+  .block-desc{font-size:11.5px;color:#475569;margin-top:5px;line-height:1.45;display:none;}
+  .block:hover .block-desc{display:block;}
+  .t-blue{border-color:#2563eb;background:#eff6ff;}
+  .t-green{border-color:#16a34a;background:#f0fdf4;}
+  .t-purple{border-color:#9333ea;background:#faf5ff;}
+  .t-amber{border-color:#d97706;background:#fffbeb;}
+  .t-pink{border-color:#db2777;background:#fdf2f8;}
+  .t-cyan{border-color:#0891b2;background:#ecfeff;}
+  .t-slate{border-color:#64748b;background:#f8fafc;}
+  .lbl-blue{background:#2563eb;}.lbl-green{background:#16a34a;}.lbl-purple{background:#9333ea;}.lbl-amber{background:#d97706;}.lbl-pink{background:#db2777;}.lbl-cyan{background:#0891b2;}.lbl-slate{background:#64748b;}
+  .subgroup{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:8px;padding:12px 14px 10px;position:relative;flex:1 1 100%;}
+  .subgroup-label{font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:#94a3b8;margin-bottom:8px;font-family:'JetBrains Mono',monospace;}
+  .subgroup .group-items{margin-top:0;}
+  .arrow-row{display:flex;justify-content:center;padding:2px 0;}
+  .flow-bar{background:#fff;border:1.5px solid #d0d5e0;border-radius:10px;padding:14px 20px;margin-top:8px;box-shadow:0 2px 8px rgba(0,0,0,0.04);}
+  .flow-bar p{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:#64748b;text-align:center;line-height:1.7;}
+  .flow-bar strong{color:#0f172a;}
+  .legend{display:flex;justify-content:center;gap:20px;flex-wrap:wrap;margin-bottom:20px;}
+  .legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:#64748b;}
+  .legend-dot{width:10px;height:10px;border-radius:3px;}
+</style>
+</head>
+<body>
+
+<h1>Data Slicer &mdash; Frontend Block Diagram</h1>
+<p class="subtitle">React 18 &middot; TypeScript &middot; MUI &middot; Observable Plot &middot; Zustand &middot; DuckDB WASM</p>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#2563eb"></div> Entry &amp; Routing</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#db2777"></div> State Management</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#16a34a"></div> Pages &amp; Layout</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#0891b2"></div> Hooks</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#9333ea"></div> Components</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#d97706"></div> Services &amp; API</div>
+</div>
+
+<div class="canvas">
+
+  <!-- ═══ ENTRY & ROUTING ═══ -->
+  <div class="group">
+    <span class="group-label lbl-blue">Entry &amp; Routing</span>
+    <div class="group-items">
+      <div class="block t-blue" style="flex:0 1 200px">
+        <div class="block-name">index.tsx</div>
+        <div class="block-file">React entry point</div>
+        <div class="block-desc">Mounts provider tree: DataSourceProvider &rarr; VisualizationProvider &rarr; ConnectionProvider &rarr; App.</div>
+      </div>
+      <div class="block t-blue" style="flex:0 1 240px">
+        <div class="block-name">App.tsx</div>
+        <div class="block-file">BrowserRouter, SheetProvider</div>
+        <div class="block-desc">Tab management, save/load menu, snapshot gallery. Routes: <code>/</code> &rarr; DataSourceSelectionPage, <code>/visualize</code> &rarr; VisualizationPage.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-row"><svg width="40" height="24"><path d="M20,0 L20,16 M14,11 L20,18 L26,11" stroke="#94a3b8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+
+  <!-- ═══ STATE MANAGEMENT ═══ -->
+  <div class="group">
+    <span class="group-label lbl-pink">State Management</span>
+    <div class="group-items">
+
+      <div class="subgroup">
+        <div class="subgroup-label">React Contexts (shared across app)</div>
+        <div class="group-items">
+          <div class="block t-pink">
+            <div class="block-name">DataSourceContext</div>
+            <div class="block-file">contexts/DataSourceContext</div>
+            <div class="block-desc">DB/table/field selection, virtual columns, session filters, Hive partitions. Shared across all sheets.</div>
+          </div>
+          <div class="block t-pink">
+            <div class="block-name">ConnectionContext</div>
+            <div class="block-file">contexts/ConnectionContext</div>
+            <div class="block-desc">Connection lifecycle: connect, disconnect, connection details. Wraps API calls.</div>
+          </div>
+          <div class="block t-pink">
+            <div class="block-name">SheetContext</div>
+            <div class="block-file">contexts/SheetContext</div>
+            <div class="block-desc">Multi-sheet workspace. Active sheet, CRUD on sheets, sheet switching.</div>
+          </div>
+          <div class="block t-pink">
+            <div class="block-name">VisualizationContext</div>
+            <div class="block-file">contexts/VisualizationContext</div>
+            <div class="block-desc">Per-sheet viz state: axes, filters, encodings, query result, loading, chart type. Remounts on sheet switch.</div>
+          </div>
+          <div class="block t-pink">
+            <div class="block-name">UndoRedoContext</div>
+            <div class="block-file">contexts/UndoRedoContext</div>
+            <div class="block-desc">Per-sheet undo/redo stacks. Tracks visualization state changes.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="subgroup">
+        <div class="subgroup-label">Zustand Stores (external state)</div>
+        <div class="group-items">
+          <div class="block t-pink">
+            <div class="block-name">sheetRenderCacheStore</div>
+            <div class="block-file">stores/sheetRenderCacheStore</div>
+            <div class="block-desc">Caches queryResult + chartSpec per sheet for fast tab switching without re-querying.</div>
+          </div>
+          <div class="block t-pink">
+            <div class="block-name">selectionStore</div>
+            <div class="block-file">stores/selectionStore</div>
+            <div class="block-desc">Multi-select for fields: shift-click, range select in the fields panel.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="arrow-row"><svg width="40" height="24"><path d="M20,0 L20,16 M14,11 L20,18 L26,11" stroke="#94a3b8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+
+  <!-- ═══ PAGES & LAYOUT ═══ -->
+  <div class="group">
+    <span class="group-label lbl-green">Pages &amp; Layout</span>
+    <div class="group-items">
+      <div class="block t-green" style="flex:0 1 280px">
+        <div class="block-name">DataSourceSelectionPage</div>
+        <div class="block-file">pages/DataSourceSelectionPage</div>
+        <div class="block-desc">Connection selection. Shows connection forms (CSV, ClickHouse, Kaggle, Hive Parquet), connect/disconnect, config load.</div>
+      </div>
+      <div class="block t-green" style="flex:0 1 280px">
+        <div class="block-name">VisualizationPage</div>
+        <div class="block-file">pages/VisualizationPage</div>
+        <div class="block-desc">Main workspace. Wraps per-sheet VisualizationProvider + UndoRedoProvider. Contains resizable panel layout.</div>
+      </div>
+      <div class="block t-green" style="flex:0 1 220px">
+        <div class="block-name">AppLayout</div>
+        <div class="block-file">components/Layout/</div>
+        <div class="block-desc">Resizable panels via react-resizable-panels. PanelResizeHandleWithToggle, CollapsedPanelStrip.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-row"><svg width="40" height="24"><path d="M20,0 L20,16 M14,11 L20,18 L26,11" stroke="#94a3b8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+
+  <!-- ═══ COMPONENTS ═══ -->
+  <div class="group">
+    <span class="group-label lbl-purple">UI Components</span>
+    <div class="group-items">
+
+      <div class="subgroup">
+        <div class="subgroup-label">Connection Forms</div>
+        <div class="group-items">
+          <div class="block t-purple"><div class="block-name">CsvConnectionForm</div><div class="block-desc">File upload for CSV/Parquet. Multipart upload, file validation.</div></div>
+          <div class="block t-purple"><div class="block-name">ClickHouseConnectionForm</div><div class="block-desc">Host, port, database, user/password form.</div></div>
+          <div class="block t-purple"><div class="block-name">KaggleConnectionForm</div><div class="block-desc">Kaggle dataset search and import.</div></div>
+          <div class="block t-purple"><div class="block-name">HiveParquetConnectionForm</div><div class="block-desc">Two-phase: path entry &rarr; partition selection.</div></div>
+        </div>
+      </div>
+
+      <div class="subgroup">
+        <div class="subgroup-label">Visualization Panels</div>
+        <div class="group-items">
+          <div class="block t-purple">
+            <div class="block-name">FieldsPanel</div>
+            <div class="block-desc">Left sidebar: field search, table list, field categories, drag-to-axis. FieldChip, CompactMetadataSelector.</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">ChartArea</div>
+            <div class="block-desc">Central chart viewport. ChartRenderer, ChartControls, DebugPanel, QueryStatusIndicator.</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">FilterPanel</div>
+            <div class="block-desc">Filter sidebar. FilterFieldChip, DiscreteFilter, ContinuousFilter, FilterDropZone.</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">FieldOverridesPanel</div>
+            <div class="block-desc">Chart type, color field, size field, encoding overrides per field.</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">ColorPanel</div>
+            <div class="block-desc">Color encoding: ColorDropZone, ColorSchemeSelector, ManualColorSelector.</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">LegendPanel</div>
+            <div class="block-desc">Chart legend. LegendStack, BackgroundLegendPanel.</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">TableView</div>
+            <div class="block-desc">AG Grid data table with react-window lazy loading.</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">MeasureGroupsPanel</div>
+            <div class="block-desc">Measure groups management for multi-measure charts.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="subgroup">
+        <div class="subgroup-label">Chart Rendering</div>
+        <div class="group-items">
+          <div class="block t-purple">
+            <div class="block-name">ChartRenderer</div>
+            <div class="block-desc">Renders Observable Plot output. DOM mounting, resizing, accessibility.</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">MultiPlotGrid</div>
+            <div class="block-desc">Faceted/multi-plot grid layout. PlotArea, BrushOverlay, XAxes, YAxes, FacetLabels.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="subgroup">
+        <div class="subgroup-label">Other Components</div>
+        <div class="group-items">
+          <div class="block t-purple">
+            <div class="block-name">VirtualColumnManager</div>
+            <div class="block-desc">Create/edit virtual columns and binning. BinConfigDialog.</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">SaveLoadMenu</div>
+            <div class="block-desc">Export/import configs, snapshot gallery, connection restore.</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">DateTimeRangeFilter</div>
+            <div class="block-desc">DateTime range picker, DateTimePartMenu for date part extraction.</div>
+          </div>
+          <div class="block t-purple">
+            <div class="block-name">FieldChip</div>
+            <div class="block-desc">Draggable field tag. FieldChipLabel, FieldContextMenu, FieldAliasDialog.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="arrow-row"><svg width="40" height="24"><path d="M20,0 L20,16 M14,11 L20,18 L26,11" stroke="#94a3b8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+
+  <!-- ═══ HOOKS ═══ -->
+  <div class="group">
+    <span class="group-label lbl-cyan">Custom Hooks</span>
+    <div class="group-items">
+      <div class="block t-cyan">
+        <div class="block-name">useVisualizationState</div>
+        <div class="block-desc">Aggregates DataSource + Visualization + metadata into a single unified state.</div>
+      </div>
+      <div class="block t-cyan">
+        <div class="block-name">useDragDrop</div>
+        <div class="block-desc">Axis/filter/color/size drag-and-drop. Field assignment to encoding channels.</div>
+      </div>
+      <div class="block t-cyan">
+        <div class="block-name">useQueryExecution</div>
+        <div class="block-desc">Coordinates query build &rarr; execution &rarr; result. Triggers on viz state changes.</div>
+      </div>
+      <div class="block t-cyan">
+        <div class="block-name">useQueryBuilder</div>
+        <div class="block-desc">Builds QueryDescription from axes, filters, encodings, virtual columns.</div>
+      </div>
+      <div class="block t-cyan">
+        <div class="block-name">useMetadataOperations</div>
+        <div class="block-desc">Fetch databases, tables, columns from backend. Populates DataSourceContext.</div>
+      </div>
+      <div class="block t-cyan">
+        <div class="block-name">useGlobalFilters</div>
+        <div class="block-desc">Session-level vs sheet-level filter management.</div>
+      </div>
+      <div class="block t-cyan">
+        <div class="block-name">useUndoRedo</div>
+        <div class="block-desc">Undo/redo hook. Tracks viz state snapshots per sheet.</div>
+      </div>
+      <div class="block t-cyan">
+        <div class="block-name">useConnectionForm</div>
+        <div class="block-desc">Connection form state management for all connection types.</div>
+      </div>
+      <div class="block t-cyan">
+        <div class="block-name">useRenderingCoordinator</div>
+        <div class="block-desc">Tracks plot rendering lifecycle for loading states.</div>
+      </div>
+      <div class="block t-cyan">
+        <div class="block-name">useSheetRenderCache</div>
+        <div class="block-desc">Sync data source version for cache invalidation on sheet switch.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-row"><svg width="40" height="24"><path d="M20,0 L20,16 M14,11 L20,18 L26,11" stroke="#94a3b8" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+
+  <!-- ═══ SERVICES & API ═══ -->
+  <div class="group">
+    <span class="group-label lbl-amber">Services &amp; API</span>
+    <div class="group-items">
+
+      <div class="subgroup">
+        <div class="subgroup-label">API Layer (services/api/)</div>
+        <div class="group-items">
+          <div class="block t-amber">
+            <div class="block-name">apiClient</div>
+            <div class="block-desc">Base HTTP client. API_BASE URL, AbortController for cancellation, X-Tab-Id header.</div>
+          </div>
+          <div class="block t-amber">
+            <div class="block-name">connectionApi</div>
+            <div class="block-desc">connect, disconnect, connectHive, loadPartition, addFiles.</div>
+          </div>
+          <div class="block t-amber">
+            <div class="block-name">metadataApi</div>
+            <div class="block-desc">listDatabases, listTables, listColumns, getFieldStats, getDistinctValues.</div>
+          </div>
+          <div class="block t-amber">
+            <div class="block-name">queryApi</div>
+            <div class="block-desc">executeQuery (JSON), executeQueryArrow (Arrow IPC), executeQueryArrowRaw.</div>
+          </div>
+          <div class="block t-amber">
+            <div class="block-name">snapshotApi</div>
+            <div class="block-desc">listSnapshots, saveSnapshot, loadSnapshot, deleteSnapshot.</div>
+          </div>
+          <div class="block t-amber">
+            <div class="block-name">kaggleApi</div>
+            <div class="block-desc">searchKaggleDatasets, listKaggleFiles.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="subgroup">
+        <div class="subgroup-label">Query &amp; Chart Generation</div>
+        <div class="group-items">
+          <div class="block t-amber" style="flex:0 1 250px">
+            <div class="block-name">queryBuilder/</div>
+            <div class="block-desc">Converts visualization state (axes, filters, measures) into QueryDescription for the backend.</div>
+          </div>
+          <div class="block t-amber" style="flex:0 1 280px">
+            <div class="block-name">observable-plot-generator/</div>
+            <div class="block-desc">Chart generation on @observablehq/plot. Chart types (line, bar, scatter, cell, gantt, tick), faceting, grid, colors, tooltips.</div>
+          </div>
+          <div class="block t-amber" style="flex:0 1 250px">
+            <div class="block-name">optimizationHintGenerator</div>
+            <div class="block-desc">Generates optimization hints for backend query optimizer based on field types and query structure.</div>
+          </div>
+          <div class="block t-amber" style="flex:0 1 220px">
+            <div class="block-name">configurationService</div>
+            <div class="block-desc">Export/import full app config. Validation, connection reconstruction, snapshot serialization.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="subgroup">
+        <div class="subgroup-label">Local Execution (DuckDB WASM)</div>
+        <div class="group-items">
+          <div class="block t-amber">
+            <div class="block-name">queryExecutionOrchestrator</div>
+            <div class="block-desc">Orchestrates local (DuckDB WASM) vs remote (backend) query execution.</div>
+          </div>
+          <div class="block t-amber">
+            <div class="block-name">queryDecisionEngine</div>
+            <div class="block-desc">Decides local vs remote based on data size, query complexity, caching.</div>
+          </div>
+          <div class="block t-amber">
+            <div class="block-name">localSqlBuilder</div>
+            <div class="block-desc">Builds SQL for local DuckDB WASM execution.</div>
+          </div>
+          <div class="block t-amber">
+            <div class="block-name">duckdbService</div>
+            <div class="block-desc">DuckDB WASM for local caching and query. In-browser SQL engine.</div>
+          </div>
+          <div class="block t-amber">
+            <div class="block-name">arrowResultAdapter</div>
+            <div class="block-desc">Converts Apache Arrow IPC results to row-based data for rendering.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══ SHARED INFRASTRUCTURE ═══ -->
+  <div class="group" style="margin-top:6px;">
+    <span class="group-label lbl-slate">Shared Infrastructure</span>
+    <div class="group-items">
+      <div class="block t-slate">
+        <div class="block-name">types/</div>
+        <div class="block-file">TypeScript types</div>
+        <div class="block-desc">Field, QueryDescription, QueryResult, Filter, Connection, Sheet, VirtualColumn, SavedConfig, Kaggle, Tooltip, etc.</div>
+      </div>
+      <div class="block t-slate">
+        <div class="block-name">utils/</div>
+        <div class="block-file">Helpers</div>
+        <div class="block-desc">fieldUtils, filterActions, syntheticFields, sheetConfigHash, binningUtils, scaleInversion, dragDataStore, tabSession.</div>
+      </div>
+      <div class="block t-slate">
+        <div class="block-name">config/</div>
+        <div class="block-file">App configuration</div>
+        <div class="block-desc">colorSchemes (categorical, sequential, diverging), loadingConfig (modal timeouts).</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ DATA FLOW ═══ -->
+  <div class="flow-bar">
+    <p><strong>Query flow:</strong> UI Panel &rarr; useQueryBuilder &rarr; QueryDescription &rarr; queryApi.executeQuery &rarr; Backend &rarr; QueryResult &rarr; observablePlotGenerator &rarr; ChartRenderer</p>
+    <p><strong>Local path:</strong> useQueryExecution &rarr; queryExecutionOrchestrator &rarr; queryDecisionEngine &rarr; localSqlBuilder &rarr; DuckDB WASM &rarr; arrowResultAdapter</p>
+    <p><strong>Connect flow:</strong> ConnectionForm &rarr; connectionApi.connect &rarr; Backend &rarr; DataSourceContext.setTables &rarr; metadataApi &rarr; FieldsPanel</p>
+  </div>
+
+</div>
+</body>
+</html>

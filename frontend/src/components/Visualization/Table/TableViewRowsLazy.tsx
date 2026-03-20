@@ -2,6 +2,7 @@ import React, { lazy, Suspense } from 'react';
 import { Box, Skeleton } from '@mui/material';
 import { TableRowsSortModel } from '../ChartArea/hooks/useTableRowsQuery';
 import { QueryResultColumn } from '../../../types';
+import type { TableCellFilterAction } from './TableViewRows';
 
 const TableViewRows = lazy(() => import('./TableViewRows'));
 
@@ -11,6 +12,7 @@ interface TableViewRowsLazyProps {
   sortModel: TableRowsSortModel | null;
   onSortChanged: (sort: TableRowsSortModel | null) => void;
   loading: boolean;
+  onCellFilterAction?: (action: TableCellFilterAction) => void;
 }
 
 const TableViewRowsSkeleton = () => (

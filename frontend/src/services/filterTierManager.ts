@@ -344,13 +344,16 @@ class FilterTierManager {
       
       // Handle different filter types
       if (config.type === 'discrete') {
-        // Discrete filter: use NOT IN when excludedValues is available and shorter
+        // Discrete filter: use NOT IN when excludedValues is available and shorter,
+        // or when in pure exclusion mode (selectedValues empty, excludedValues set).
         const selectedValues = config.selectedValues || [];
         const excludedValues = config.excludedValues;
         const useExclusion = excludedValues
-          && config.totalAvailableCount
           && excludedValues.length > 0
-          && excludedValues.length < selectedValues.length;
+          && (
+            selectedValues.length === 0
+            || (config.totalAvailableCount && excludedValues.length < selectedValues.length)
+          );
 
         if (useExclusion) {
           const quotedExcluded = excludedValues.map(quoteValue);
