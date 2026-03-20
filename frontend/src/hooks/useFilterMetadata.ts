@@ -211,6 +211,34 @@ export function useFilterMetadata({
                             }
                         }
                     });
+                } else {
+                    // Reconcile pure-exclusion configs: when selectedValues is empty
+                    // but excludedValues is set (e.g. from table context menu "Exclude"),
+                    // compute selectedValues = allAvailable - excluded now that metadata arrived.
+                    const existing = filterConfigurations[field.id];
+                    if (
+                        existing.type === 'discrete'
+                        && existing.selectedValues.length === 0
+                        && existing.excludedValues
+                        && existing.excludedValues.length > 0
+                    ) {
+                        const excludeSet = new Set(existing.excludedValues.map((v: any) => v === null || v === undefined ? '__NULL__' : String(v)));
+                        const reconciledSelected = values.filter(
+                            (v: any) => !excludeSet.has(v === null || v === undefined ? '__NULL__' : String(v))
+                        );
+                        dispatch({
+                            type: 'SET_FILTER_CONFIGURATION',
+                            payload: {
+                                fieldId: field.id,
+                                config: {
+                                    ...existing,
+                                    selectedValues: reconciledSelected,
+                                    totalAvailableCount: values.length,
+                                },
+                            },
+                        });
+                        dispatch({ type: 'APPLY_FILTERS' });
+                    }
                 }
             } else if (filterType === 'continuous') {
                 const range = await apiService.getFieldRange(

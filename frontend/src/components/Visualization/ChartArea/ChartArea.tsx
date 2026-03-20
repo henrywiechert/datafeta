@@ -17,6 +17,7 @@ import {
 import { useAdditionalFields } from './hooks/useAdditionalFields';
 import { useGanttZoom } from './hooks/useGanttZoom';
 import { useFilterActions } from './hooks/useFilterActions';
+import { useTableRowsFilterActions } from './hooks/useTableRowsFilterActions';
 import { useChartActions } from './hooks/useChartActions';
 import { useBrushZoom } from './hooks/useBrushZoom';
 import { useRenderingTracking } from './hooks/useRenderingTracking';
@@ -182,6 +183,20 @@ const ChartArea: React.FC = () => {
     spec,
   });
 
+  const { handleTableCellFilterAction } = useTableRowsFilterActions({
+    xAxisFields,
+    yAxisFields,
+    colorField,
+    sizeField,
+    labelFields,
+    tooltipFields,
+    filterFields: state.filterFields,
+    filterConfigurations: state.filterConfigurations,
+    dispatch,
+    recordAction,
+    getUndoableSnapshot,
+  });
+
   const { ganttFullDataRange, handleGanttZoomRangeChange } = useGanttZoom({
     isGanttChart,
     queryResult,
@@ -336,6 +351,7 @@ const ChartArea: React.FC = () => {
             onBrushEnd={handleBrushEnd}
             showTableRows={showTableRows}
             tableRowsData={showTableRows ? tableRowsData : undefined}
+            onTableCellFilterAction={handleTableCellFilterAction}
           />
 
           <ChartControls

@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data Slicer – Frontend Architecture v2</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#f5f6fa; --surface:#ffffff; --border:#d0d5e0;
+    --text:#1e293b; --dim:#64748b; --bright:#0f172a; --line:#94a3b8;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:auto;}
+  .header{text-align:center;padding:32px 20px 10px;}
+  .header h1{font-size:25px;font-weight:700;color:var(--bright);letter-spacing:-.5px;}
+  .header p{font-size:13px;color:var(--dim);margin-top:5px;font-family:'JetBrains Mono',monospace;}
+  .legend{display:flex;justify-content:center;gap:20px;padding:8px 20px 20px;flex-wrap:wrap;}
+  .legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim);}
+  .legend-dot{width:10px;height:10px;border-radius:3px;}
+  .diagram{max-width:1420px;margin:0 auto;padding:0 16px 40px;}
+  svg{display:block;margin:0 auto;}
+  .tooltip{position:fixed;background:#fff;border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:13px;line-height:1.5;color:var(--text);max-width:350px;pointer-events:none;opacity:0;transition:opacity .12s;z-index:100;box-shadow:0 8px 28px rgba(0,0,0,0.12);}
+  .tooltip.visible{opacity:1;}
+  .tooltip strong{color:var(--bright);display:block;margin-bottom:3px;}
+  .tooltip code{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--bg);padding:1px 5px;border-radius:3px;color:#2563eb;border:1px solid var(--border);}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Data Slicer &mdash; Frontend Architecture</h1>
+  <p>React 18 &middot; TypeScript &middot; MUI &middot; Observable Plot &middot; Zustand &middot; DuckDB WASM</p>
+</div>
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#2563eb"></div> Entry &amp; State</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#16a34a"></div> Pages &amp; Panels</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#0891b2"></div> Hooks</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#9333ea"></div> Query &amp; Chart</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#d97706"></div> API &amp; Services</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#64748b"></div> Shared</div>
+</div>
+<div class="diagram">
+  <svg id="arch" width="1380" height="980" viewBox="0 0 1380 980"></svg>
+</div>
+<div class="tooltip" id="tip"></div>
+
+<script>
+const NS='http://www.w3.org/2000/svg';
+const svg=document.getElementById('arch');
+const tip=document.getElementById('tip');
+
+const C={
+  blue:'#2563eb', green:'#16a34a', cyan:'#0891b2',
+  purple:'#9333ea', amber:'#d97706', slate:'#64748b',
+  surface:'#ffffff', border:'#d0d5e0', text:'#1e293b',
+  dim:'#64748b', line:'#94a3b8', bg:'#f5f6fa',
+};
+
+// Shadow filter
+const defs=document.createElementNS(NS,'defs');
+const f=document.createElementNS(NS,'filter');
+f.id='shadow'; f.setAttribute('x','-4%'); f.setAttribute('y','-4%');
+f.setAttribute('width','110%'); f.setAttribute('height','120%');
+const fd=document.createElementNS(NS,'feDropShadow');
+fd.setAttribute('dx','0'); fd.setAttribute('dy','2'); fd.setAttribute('stdDeviation','3');
+fd.setAttribute('flood-color','rgba(0,0,0,0.07)');
+f.appendChild(fd); defs.appendChild(f); svg.appendChild(defs);
+
+/*
+ * LAYOUT: 3 swim-lanes (Connection | Visualization+Query | Support)
+ * Components placed near what they connect to → short edges.
+ */
+const nodes=[
+
+  // ──── TOP: Entry ────
+  {id:'index', x:560, y:12, w:220, h:46, color:C.blue, label:'index.tsx (Entry)',
+   desc:'React entry. Provider tree: DataSourceProvider → VisualizationProvider → ConnectionProvider → App.'},
+  {id:'app',   x:560, y:80, w:220, h:46, color:C.blue, label:'App.tsx (Router)',
+   desc:'BrowserRouter, SheetProvider, tab management, save/load. Routes: / → DataSourceSelectionPage, /visualize → VisualizationPage.'},
+
+  // ──── LEFT LANE: Connection flow ────
+  {id:'ctx_conn', x:30,  y:165, w:175, h:42, color:C.blue, label:'ConnectionContext',
+   desc:'Connection lifecycle: connect, disconnect, connection details. Wraps connectionApi calls.'},
+  {id:'ctx_ds',   x:225, y:165, w:180, h:42, color:C.blue, label:'DataSourceContext',
+   desc:'DB/table/field selection, virtual columns, session filters, Hive partitions. Shared across all sheets.'},
+
+  {id:'pg_ds', x:80, y:240, w:270, h:46, color:C.green, label:'DataSourceSelectionPage',
+   desc:'Connection selection page. Shows forms, connect/disconnect, config import.'},
+
+  {id:'f_csv',  x:20,  y:320, w:155, h:40, color:C.green, label:'CsvConnectionForm',
+   desc:'File upload for CSV/Parquet. Multipart upload, file validation.'},
+  {id:'f_ch',   x:190, y:320, w:185, h:40, color:C.green, label:'ClickHouseForm',
+   desc:'ClickHouse connection: host, port, database, user/pass.'},
+  {id:'f_kag',  x:20,  y:380, w:155, h:40, color:C.green, label:'KaggleForm',
+   desc:'Kaggle dataset search and import form.'},
+  {id:'f_hive', x:190, y:380, w:185, h:40, color:C.green, label:'HiveParquetForm',
+   desc:'Two-phase Hive Parquet: path → partition selection.'},
+
+  {id:'api_conn', x:30,  y:452, w:160, h:42, color:C.amber, label:'connectionApi',
+   desc:'connect, disconnect, connectHive, loadPartition, addFiles.'},
+  {id:'api_kag',  x:210, y:452, w:150, h:42, color:C.amber, label:'kaggleApi',
+   desc:'searchKaggleDatasets, listKaggleFiles.'},
+
+  {id:'h_connform', x:80, y:525, w:190, h:40, color:C.cyan, label:'useConnectionForm',
+   desc:'Connection form state management for all types.'},
+
+  // ──── CENTER LANE: Visualization & Query flow ────
+  {id:'ctx_sheet', x:440, y:165, w:165, h:42, color:C.blue, label:'SheetContext',
+   desc:'Multi-sheet workspace. Active sheet, CRUD, sheet switching.'},
+  {id:'ctx_viz',   x:625, y:165, w:190, h:42, color:C.blue, label:'VisualizationContext',
+   desc:'Per-sheet viz state: axes, filters, encodings, query result, chart type. Remounts on sheet switch.'},
+
+  {id:'pg_viz', x:500, y:240, w:240, h:46, color:C.green, label:'VisualizationPage',
+   desc:'Main workspace. Per-sheet VisualizationProvider + UndoRedoProvider. Resizable panel layout.'},
+
+  {id:'fields', x:440, y:320, w:150, h:40, color:C.green, label:'FieldsPanel',
+   desc:'Left sidebar: field search, table list, field categories, drag-to-axis.'},
+  {id:'chart',  x:605, y:320, w:150, h:40, color:C.green, label:'ChartArea',
+   desc:'Central chart viewport. ChartRenderer, ChartControls, DebugPanel.'},
+  {id:'filt',   x:770, y:320, w:140, h:40, color:C.green, label:'FilterPanel',
+   desc:'Filter sidebar. DiscreteFilter, ContinuousFilter, FilterDropZone.'},
+
+  {id:'h_viz',  x:440, y:395, w:178, h:40, color:C.cyan, label:'useVisualizationState',
+   desc:'Aggregates DataSource + Visualization + metadata into unified state.'},
+  {id:'h_drag', x:632, y:395, w:138, h:40, color:C.cyan, label:'useDragDrop',
+   desc:'Axis/filter/color/size drag-and-drop. Field assignment to channels.'},
+  {id:'h_qexec',x:440, y:462, w:172, h:40, color:C.cyan, label:'useQueryExecution',
+   desc:'Coordinates query build → execution → result. Triggers on viz state changes.'},
+  {id:'h_qbuild',x:630,y:462, w:165, h:40, color:C.cyan, label:'useQueryBuilder',
+   desc:'Builds QueryDescription from axes, filters, encodings, virtual columns.'},
+
+  {id:'qbuilder', x:440, y:535, w:175, h:42, color:C.purple, label:'queryBuilder/',
+   desc:'Converts viz state (axes, filters, measures) into QueryDescription for backend.'},
+  {id:'optHint',  x:632, y:535, w:195, h:42, color:C.purple, label:'optimizationHints',
+   desc:'Generates optimization hints for backend based on field types and query structure.'},
+
+  {id:'api_q',   x:440, y:610, w:155, h:42, color:C.amber, label:'queryApi',
+   desc:'executeQuery (JSON), executeQueryArrow (Arrow IPC), executeQueryArrowRaw.'},
+  {id:'plotgen', x:625, y:610, w:210, h:42, color:C.purple, label:'observable-plot-gen/',
+   desc:'Chart generation: line, bar, scatter, cell, gantt, tick. Faceting, grid, colors, tooltips.'},
+
+  {id:'renderer',x:625, y:685, w:170, h:42, color:C.purple, label:'ChartRenderer',
+   desc:'Renders Observable Plot output. DOM mounting, resizing. MultiPlotGrid for facets.'},
+
+  // Local execution sub-flow (below queryApi)
+  {id:'orch',    x:420, y:685, w:180, h:42, color:C.amber, label:'queryOrchestrator',
+   desc:'Orchestrates local (DuckDB WASM) vs remote (backend) query execution.'},
+  {id:'decision',x:420, y:755, w:180, h:42, color:C.amber, label:'queryDecisionEngine',
+   desc:'Decides local vs remote: data size, query complexity, cache state.'},
+  {id:'localsql',x:420, y:825, w:160, h:42, color:C.amber, label:'localSqlBuilder',
+   desc:'Builds SQL for local DuckDB WASM execution.'},
+  {id:'duckdb',  x:600, y:825, w:165, h:42, color:C.amber, label:'duckdbService',
+   desc:'DuckDB WASM: in-browser SQL engine for local caching and query.'},
+  {id:'arrow',   x:600, y:755, w:175, h:42, color:C.amber, label:'arrowResultAdapter',
+   desc:'Converts Apache Arrow IPC to row-based data for rendering.'},
+
+  // ──── RIGHT LANE: Support panels, extra hooks, shared ────
+  {id:'ctx_undo', x:850, y:165, w:170, h:42, color:C.blue, label:'UndoRedoContext',
+   desc:'Per-sheet undo/redo stacks. Tracks visualization state changes.'},
+  {id:'z_cache',  x:1040,y:165, w:190, h:42, color:C.blue, label:'sheetRenderCache (Z)',
+   desc:'Zustand store. Caches queryResult + chartSpec per sheet for fast tab switching.'},
+
+  {id:'layout',   x:1040,y:240, w:175, h:42, color:C.green, label:'AppLayout',
+   desc:'Resizable panels via react-resizable-panels. Toggle handles, collapsed strips.'},
+
+  {id:'overrides',x:930, y:320, w:165, h:40, color:C.green, label:'FieldOverridesPanel',
+   desc:'Chart type, color field, size field, encoding overrides per field.'},
+  {id:'color',    x:1110,y:320, w:145, h:40, color:C.green, label:'ColorPanel',
+   desc:'ColorDropZone, ColorSchemeSelector, ManualColorSelector.'},
+  {id:'legend',   x:930, y:380, w:145, h:40, color:C.green, label:'LegendPanel',
+   desc:'Chart legend. LegendStack, BackgroundLegendPanel.'},
+  {id:'tableview',x:1090,y:380, w:140, h:40, color:C.green, label:'TableView',
+   desc:'AG Grid data table with react-window lazy loading.'},
+  {id:'vcol',     x:930, y:440, w:185, h:40, color:C.green, label:'VirtualColumnManager',
+   desc:'Create/edit virtual columns and binning. BinConfigDialog.'},
+  {id:'saveload', x:1130,y:440, w:155, h:40, color:C.green, label:'SaveLoadMenu',
+   desc:'Export/import configs, snapshot gallery, connection restore dialog.'},
+
+  {id:'h_gfilt',  x:930, y:515, w:165, h:40, color:C.cyan, label:'useGlobalFilters',
+   desc:'Session-level vs sheet-level filter management.'},
+  {id:'h_undo',   x:1110,y:515, w:150, h:40, color:C.cyan, label:'useUndoRedo',
+   desc:'Undo/redo hook. Tracks viz state snapshots per sheet.'},
+  {id:'h_meta',   x:930, y:580, w:185, h:40, color:C.cyan, label:'useMetadataOperations',
+   desc:'Fetch databases, tables, columns. Populates DataSourceContext.'},
+  {id:'h_rcache', x:1130,y:580, w:180, h:40, color:C.cyan, label:'useSheetRenderCache',
+   desc:'Sync data source version for cache invalidation on sheet switch.'},
+
+  {id:'api_meta', x:930, y:650, w:160, h:42, color:C.amber, label:'metadataApi',
+   desc:'listDatabases, listTables, listColumns, getFieldStats, getDistinctValues.'},
+  {id:'api_snap', x:1110,y:650, w:155, h:42, color:C.amber, label:'snapshotApi',
+   desc:'listSnapshots, saveSnapshot, loadSnapshot, deleteSnapshot.'},
+  {id:'configsvc',x:1020,y:720, w:185, h:42, color:C.amber, label:'configurationService',
+   desc:'Export/import full app config. Validation, connection reconstruction.'},
+
+  // Shared infra (bottom-right)
+  {id:'api_client',x:930, y:800, w:160, h:42, color:C.amber, label:'apiClient',
+   desc:'Base HTTP client. API_BASE URL, AbortController, X-Tab-Id header. All APIs use this.'},
+  {id:'types',    x:1110,y:800, w:130, h:42, color:C.slate, label:'types/',
+   desc:'Field, QueryDescription, QueryResult, Filter, Connection, Sheet, VirtualColumn, etc.'},
+  {id:'utils',    x:930, y:870, w:130, h:42, color:C.slate, label:'utils/',
+   desc:'fieldUtils, filterActions, syntheticFields, sheetConfigHash, binningUtils, tabSession.'},
+  {id:'config',   x:1080,y:870, w:130, h:42, color:C.slate, label:'config/',
+   desc:'colorSchemes (categorical, sequential, diverging), loadingConfig.'},
+
+  // Z selection store
+  {id:'z_sel', x:1250, y:165, w:115, h:42, color:C.blue, label:'selectionStore',
+   desc:'Zustand. Multi-select for fields: shift-click, range select.'},
+];
+
+const edges=[
+  // Entry
+  ['index','app'],
+
+  // App → pages
+  ['app','pg_ds'],['app','pg_viz'],['app','layout'],
+
+  // App → contexts
+  ['index','ctx_conn'],['index','ctx_ds'],['index','ctx_viz'],['index','ctx_sheet'],
+
+  // LEFT LANE: connection flow
+  ['ctx_conn','pg_ds'],['ctx_ds','pg_ds'],
+  ['pg_ds','f_csv'],['pg_ds','f_ch'],['pg_ds','f_kag'],['pg_ds','f_hive'],
+  ['f_csv','api_conn'],['f_ch','api_conn'],['f_hive','api_conn'],
+  ['f_kag','api_kag'],
+  ['pg_ds','h_connform'],
+  ['api_conn','api_client'],['api_kag','api_client'],
+
+  // CENTER LANE: viz & query flow
+  ['ctx_sheet','pg_viz'],['ctx_viz','pg_viz'],
+  ['pg_viz','fields'],['pg_viz','chart'],['pg_viz','filt'],
+  ['fields','h_viz'],['fields','h_drag'],
+  ['chart','h_qexec'],
+  ['h_qexec','h_qbuild'],
+  ['h_qbuild','qbuilder'],['h_qbuild','optHint'],
+  ['h_qexec','api_q'],['h_qexec','orch'],['h_qexec','z_cache'],
+  ['h_qexec','plotgen'],
+  ['plotgen','renderer'],
+  ['api_q','api_client'],
+  ['api_q','arrow'],
+
+  // Local execution
+  ['orch','decision'],['orch','api_q'],
+  ['decision','localsql'],
+  ['localsql','duckdb'],
+
+  // RIGHT LANE: support
+  ['pg_viz','overrides'],['pg_viz','color'],['pg_viz','legend'],['pg_viz','tableview'],
+  ['filt','h_gfilt'],
+  ['ctx_undo','h_undo'],
+  ['h_meta','api_meta'],['h_meta','ctx_ds'],
+  ['h_rcache','z_cache'],
+  ['saveload','api_snap'],['saveload','configsvc'],
+  ['api_meta','api_client'],['api_snap','api_client'],
+];
+
+function el(tag,attrs){
+  const e=document.createElementNS(NS,tag);
+  for(const[k,v]of Object.entries(attrs))e.setAttribute(k,v);
+  return e;
+}
+
+function drawEdge(a,b){
+  const n1=nodes.find(n=>n.id===a), n2=nodes.find(n=>n.id===b);
+  if(!n1||!n2)return;
+  const x1=n1.x+n1.w/2, y1=n1.y+n1.h, x2=n2.x+n2.w/2, y2=n2.y;
+  const dy=y2-y1;
+  const my=y1+dy*0.5;
+  svg.appendChild(el('path',{
+    d:`M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`,
+    fill:'none', stroke:C.line, 'stroke-width':'1.4',
+    'stroke-dasharray':'5,3', opacity:'0.75',
+    class:`edge e-${a} e-${b}`,
+  }));
+}
+
+function drawNode(n){
+  const g=el('g',{class:'node','data-id':n.id,style:'cursor:pointer'});
+  const glow=el('rect',{x:n.x-3,y:n.y-3,width:n.w+6,height:n.h+6,rx:12,fill:n.color,opacity:'0',class:'glow'});
+  g.appendChild(glow);
+  g.appendChild(el('rect',{x:n.x,y:n.y,width:n.w,height:n.h,rx:9,fill:C.surface,stroke:n.color,'stroke-width':'1.5',filter:'url(#shadow)'}));
+  g.appendChild(el('rect',{x:n.x,y:n.y,width:4,height:n.h,rx:2,fill:n.color}));
+  const t=el('text',{x:n.x+n.w/2,y:n.y+n.h/2+1,fill:C.text,'font-size':'12','font-family':"'DM Sans',sans-serif",'font-weight':'500','text-anchor':'middle','dominant-baseline':'middle'});
+  t.textContent=n.label;
+  g.appendChild(t);
+  g.addEventListener('mouseenter',e=>{glow.setAttribute('opacity','0.14');hl(n.id,true);showTip(e,n);});
+  g.addEventListener('mousemove',e=>moveTip(e));
+  g.addEventListener('mouseleave',()=>{glow.setAttribute('opacity','0');hl(n.id,false);hideTip();});
+  svg.appendChild(g);
+}
+
+function hl(id,on){
+  svg.querySelectorAll(`.e-${id}`).forEach(p=>{
+    p.setAttribute('opacity',on?'1':'0.75');
+    p.setAttribute('stroke-width',on?'2.4':'1.4');
+    p.setAttribute('stroke',on?C.blue:C.line);
+  });
+}
+
+// Swim-lane backgrounds
+function drawLane(x,y,w,h,label){
+  svg.appendChild(el('rect',{x,y,width:w,height:h,rx:14,fill:'#ebeef5',opacity:'0.5'}));
+  const t=el('text',{x:x+w/2,y:y+16,fill:C.dim,'font-size':'10','font-family':"'JetBrains Mono',monospace",'font-weight':'600','text-anchor':'middle','letter-spacing':'1',opacity:'0.6'});
+  t.textContent=label;
+  svg.appendChild(t);
+}
+
+drawLane(10, 148, 400, 435, 'CONNECTION FLOW');
+drawLane(425,148, 420, 740, 'VISUALIZATION & QUERY FLOW');
+drawLane(860,148, 520, 540, 'SUPPORT & SIDE PANELS');
+drawLane(860,700, 520, 230, 'SHARED INFRASTRUCTURE');
+
+edges.forEach(([a,b])=>drawEdge(a,b));
+nodes.forEach(n=>drawNode(n));
+
+// Flow summary
+const fg=el('g',{});
+fg.appendChild(el('rect',{x:10,y:920,width:1360,height:50,rx:10,fill:'#eef1f8',stroke:C.border,'stroke-width':'1'}));
+const ft=el('text',{x:690,y:940,fill:C.dim,'font-size':'12','font-family':"'JetBrains Mono',monospace",'text-anchor':'middle'});
+ft.textContent='QUERY:  ChartArea → useQueryExecution → useQueryBuilder → queryBuilder → queryApi → Backend → plotGenerator → ChartRenderer';
+fg.appendChild(ft);
+const ft2=el('text',{x:690,y:958,fill:C.dim,'font-size':'11','font-family':"'JetBrains Mono',monospace",'text-anchor':'middle',opacity:'0.65'});
+ft2.textContent='LOCAL:  queryOrchestrator → queryDecisionEngine → localSqlBuilder → DuckDB WASM    |    CONNECT:  Form → connectionApi → Backend → DataSourceContext';
+fg.appendChild(ft2);
+svg.appendChild(fg);
+
+// Tooltip
+function showTip(e,n){tip.innerHTML=`<strong>${n.label}</strong>${n.desc}`;tip.classList.add('visible');moveTip(e);}
+function moveTip(e){let x=e.clientX+14,y=e.clientY+14;if(x+360>window.innerWidth)x=e.clientX-370;if(y+180>window.innerHeight)y=e.clientY-190;tip.style.left=x+'px';tip.style.top=y+'px';}
+function hideTip(){tip.classList.remove('visible');}
+</script>
+</body>
+</html>
