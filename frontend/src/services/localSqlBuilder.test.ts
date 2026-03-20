@@ -2,6 +2,7 @@ import {
   buildAggregateSql,
   buildDuckDbDateTimePartExpr,
   buildDuckDbDateTimePartSelectItem,
+  buildMeasureExpr,
   quoteIdent,
 } from './localSqlBuilder';
 
@@ -75,6 +76,46 @@ describe('localSqlBuilder datetime parts (DuckDB)', () => {
     // EXTRACT(MICROSECOND) in DuckDB returns full microseconds including seconds
     expect(expr).toContain('EXTRACT(MICROSECOND FROM');
     expect(expr).toContain('% 1000000');
+  });
+});
+
+describe('buildMeasureExpr', () => {
+  test('COUNT on a named field uses COUNT(field), not COUNT(*)', () => {
+    const sql = buildMeasureExpr({
+      field: 'dlFdSchedData.tbSize',
+      aggregation: 'count',
+      alias: 'COUNT(dlFdSchedData.tbSize)',
+    });
+    expect(sql).toBe('COUNT("dlFdSchedData.tbSize") AS "COUNT(dlFdSchedData.tbSize)"');
+  });
+
+  test('COUNT with wildcard field uses COUNT(*)', () => {
+    const sql = buildMeasureExpr({ field: '*', aggregation: 'count', alias: 'COUNT(*)' });
+    expect(sql).toBe('COUNT(*) AS "COUNT(*)"');
+  });
+
+  test('COUNT with empty field falls back to COUNT(*)', () => {
+    const sql = buildMeasureExpr({ field: '', aggregation: 'count', alias: 'count_all' });
+    expect(sql).toBe('COUNT(*) AS "count_all"');
+  });
+
+  test('SUM uses numeric expression', () => {
+    const sql = buildMeasureExpr({
+      field: 'value',
+      aggregation: 'sum',
+      alias: 'SUM(value)',
+    });
+    expect(sql).toContain('SUM(');
+    expect(sql).toContain('AS "SUM(value)"');
+  });
+
+  test('COUNT_DISTINCT quotes the field', () => {
+    const sql = buildMeasureExpr({
+      field: 'dlFdSchedData.tbSize',
+      aggregation: 'count_distinct',
+      alias: 'COUNT_DISTINCT(dlFdSchedData.tbSize)',
+    });
+    expect(sql).toBe('COUNT(DISTINCT "dlFdSchedData.tbSize") AS "COUNT_DISTINCT(dlFdSchedData.tbSize)"');
   });
 });
 
