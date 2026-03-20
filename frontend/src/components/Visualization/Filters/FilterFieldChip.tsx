@@ -102,11 +102,11 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
 
   // Determine filter type based on field characteristics
   const getFilterType = (): 'discrete' | 'continuous' | 'datetime' => {
-    // If it's a datetime field WITH a part specified, treat as discrete
-    if (field.dataType === 'datetime' && field.dateTimePart && field.dateTimeMode) {
+    // Distinct datetime parts → discrete filter (e.g., select hours 8, 9, 14, 15)
+    if (field.dataType === 'datetime' && field.dateTimePart && field.dateTimeMode === 'distinct') {
       return 'discrete';
     }
-    // If it's a full datetime field (no part), treat as datetime
+    // Full datetime OR timeline parts → datetime range filter
     if (field.dataType === 'datetime') {
       return 'datetime';
     }

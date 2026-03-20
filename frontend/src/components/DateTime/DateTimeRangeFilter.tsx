@@ -64,6 +64,32 @@ const DateTimeRangeFilter: React.FC<DateTimeRangeFilterProps> = ({
   // Get appropriate presets for this field type
   const presets = getPresetsForField(dateTimePart);
   
+  // Sync internal state when external props change (e.g., zoom filter, undo/redo)
+  // Intentionally omit startComponents/endComponents from deps to avoid feedback loops
+  useEffect(() => {
+    const incoming = parseISODateTime(startDateTime);
+    if (incoming) {
+      setStartComponents(prev =>
+        prev.date === incoming.date && prev.time === incoming.time && prev.milliseconds === incoming.milliseconds
+          ? prev
+          : incoming
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDateTime]);
+
+  useEffect(() => {
+    const incoming = parseISODateTime(endDateTime);
+    if (incoming) {
+      setEndComponents(prev =>
+        prev.date === incoming.date && prev.time === incoming.time && prev.milliseconds === incoming.milliseconds
+          ? prev
+          : incoming
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [endDateTime]);
+
   // Update parent when components change
   useEffect(() => {
     if (startComponents.date && endComponents.date) {
