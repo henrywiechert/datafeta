@@ -185,6 +185,12 @@ class DuckDBService {
     
     // Disable progress bar (not needed for our use case)
     await this.conn.query(`SET enable_progress_bar = false`);
+
+    // Force UTC timezone so cached timestamps stay consistent with the backend.
+    // Without this, DuckDB WASM defaults to the browser's local timezone and
+    // silently shifts Arrow TIMESTAMP values during insertion, causing filters
+    // generated from chart brush zoom to be offset from the actual data.
+    await this.conn.query(`SET timezone = 'UTC'`);
     
     console.log('🦆 DuckDB WASM ready!');
   }
