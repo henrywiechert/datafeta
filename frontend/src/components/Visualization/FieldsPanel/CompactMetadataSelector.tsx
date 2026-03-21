@@ -347,8 +347,11 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
             primaryDatabase={selectedDatabase}
             primaryTable={selectedTable}
             unionTables={unionTables}
+            joinedTables={joinedTables}
+            availableFields={availableFields}
             onRemovePrimary={handleRemovePrimary}
             onRemoveUnionTable={(db, t) => onRemoveUnionTable?.(db, t)}
+            onRemoveJoinedTable={onToggleJoinedTable}
           />
         </>
       ) : (
@@ -409,8 +412,11 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
               primaryDatabase=""
               primaryTable={selectedTable}
               unionTables={unionTables}
+              joinedTables={joinedTables}
+              availableFields={availableFields}
               onRemovePrimary={handleRemovePrimary}
               onRemoveUnionTable={(db, t) => onRemoveUnionTable?.(db, t)}
+              onRemoveJoinedTable={onToggleJoinedTable}
             />
           )}
 
@@ -475,8 +481,11 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
                   primaryDatabase=""
                   primaryTable={selectedTable}
                   unionTables={unionTables}
+                  joinedTables={joinedTables}
+                  availableFields={availableFields}
                   onRemovePrimary={handleRemovePrimary}
                   onRemoveUnionTable={(db, t) => onRemoveUnionTable?.(db, t)}
+                  onRemoveJoinedTable={onToggleJoinedTable}
                 />
               )}
             </>
