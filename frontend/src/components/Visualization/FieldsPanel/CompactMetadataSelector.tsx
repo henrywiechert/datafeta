@@ -9,7 +9,11 @@ import JoinTableSelector from './JoinTableSelector';
 import TableAddPicker from './TableAddPicker';
 import SelectedTablesList from './SelectedTablesList';
 import styles from './CompactMetadataSelector.module.css';
-import compactStyles from './CompactAutocomplete.module.css';
+import {
+  compactAutocompleteClassName,
+  compactAutocompleteListboxProps,
+  sourcePickerFieldLabelSx,
+} from './sourcePickerShared';
 
 type FilterableSelectProps = {
   label: string;
@@ -39,54 +43,41 @@ const FilterableSelect: React.FC<FilterableSelectProps> = ({
 
   return (
     <Box className={styles.field}>
-      <Typography
-        variant="subtitle2"
-        className={styles.categoryTitle}
-        sx={{ 
-          fontWeight: 500, 
-          fontSize: '0.7rem', 
-          minWidth: '36px', 
-          textAlign: 'right', 
-          paddingRight: '2px', 
-          color: 'rgba(0,0,0,0.55)',
-          display: 'flex',
-          alignItems: 'center',
-          height: '26px',
-          lineHeight: 1
-        }}
-      >
+      <Typography variant="subtitle2" sx={sourcePickerFieldLabelSx}>
         {label}
       </Typography>
-      <Autocomplete
-        disablePortal
-        size="small"
-        value={value || null}
-        options={options}
-        onChange={handleChange}
-        disabled={disabled}
-        disableClearable={!allowEmpty}
-        autoHighlight
-        isOptionEqualToValue={(option, optionValue) => option === optionValue}
-        className={compactStyles.compact}
-        ListboxProps={{ className: 'compactListbox' }}
-        renderInput={(params) => (
-          <TextField
-            {...params}
-            placeholder={placeholder}
-            size="small"
-            InputProps={{
-              ...params.InputProps,
-              endAdornment: (
-                <>
-                  {loading ? <CircularProgress color="inherit" size={12} /> : null}
-                  {params.InputProps.endAdornment}
-                </>
-              ),
-            }}
-          />
-        )}
-        noOptionsText="No matches"
-      />
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Autocomplete
+          disablePortal
+          size="small"
+          value={value || null}
+          options={options}
+          onChange={handleChange}
+          disabled={disabled}
+          disableClearable={!allowEmpty}
+          autoHighlight
+          isOptionEqualToValue={(option, optionValue) => option === optionValue}
+          className={compactAutocompleteClassName}
+          ListboxProps={compactAutocompleteListboxProps}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              placeholder={placeholder}
+              size="small"
+              InputProps={{
+                ...params.InputProps,
+                endAdornment: (
+                  <>
+                    {loading ? <CircularProgress color="inherit" size={12} /> : null}
+                    {params.InputProps.endAdornment}
+                  </>
+                ),
+              }}
+            />
+          )}
+          noOptionsText="No matches"
+        />
+      </Box>
     </Box>
   );
 };
@@ -252,23 +243,6 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
   // Determine the actual table select handler based on connection type
   const effectiveTableSelect = connectionType === 'hive_parquet' ? handleHiveTableSelect : onTableSelect;
 
-  // Format table options with loading indicator for Hive Parquet
-  const formattedTableOptions = React.useMemo(() => {
-    if (connectionType !== 'hive_parquet') {
-      return tableOptions;
-    }
-    // For Hive Parquet, show which partitions are loaded
-    return tableOptions.map(table => {
-      const isLoaded = loadedPartitions.has(table);
-      return isLoaded ? `${table} ✓` : table;
-    });
-  }, [connectionType, tableOptions, loadedPartitions]);
-
-  // Get the actual value for display (strip the checkmark if present)
-  const displaySelectedTable = connectionType === 'hive_parquet' && selectedTable && loadedPartitions.has(selectedTable)
-    ? `${selectedTable} ✓`
-    : selectedTable;
-
   return (
     <div className={styles.metadataSelector}>
       <Box className={styles.headerRow}>
@@ -378,30 +352,25 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
             disabled={tables.length === 0 || isLoadingPartition}
             allowEmpty
           />
-          
-          {/* Debug: always show loading state for Hive Parquet */}
-          {connectionType === 'hive_parquet' && (
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              [Debug] isLoadingPartition: {String(isLoadingPartition)}
-            </Typography>
-          )}
-          
-          {/* Show prominent loading indicator for Hive Parquet partition upload */}
+
           {connectionType === 'hive_parquet' && isLoadingPartition && (
-            <Box sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: 1, 
-              mt: 1, 
-              p: 1, 
-              bgcolor: 'action.hover',
-              borderRadius: 1,
-              border: '1px solid',
-              borderColor: 'divider'
-            }}>
-              <CircularProgress size={16} />
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                Uploading partition files...
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.75,
+                mt: 0.5,
+                py: 0.5,
+                px: 0.75,
+                bgcolor: 'action.hover',
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: 'divider',
+              }}
+            >
+              <CircularProgress size={14} />
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                Uploading partition files…
               </Typography>
             </Box>
           )}
@@ -423,56 +392,55 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
           {/* UNION picker for CSV only — Hive Parquet uses the main dropdown for adding */}
           {connectionType === 'csv' && showUnionPicker && (
             <>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 32px', gap: 0.5, alignItems: 'center', mt: 0.5 }}>
-                <Autocomplete
-                  disablePortal
-                  size="small"
-                  value={csvStagedTable || null}
-                  options={csvUnionableOptions}
-                  onChange={(_, v) => setCsvStagedTable(v ?? '')}
-                  isOptionEqualToValue={(o, v) => o === v}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      placeholder="Add table (UNION)"
+              <Box className={styles.field} sx={{ mt: 0.25 }}>
+                <Typography variant="subtitle2" sx={sourcePickerFieldLabelSx}>
+                  Union
+                </Typography>
+                <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Autocomplete
+                      disablePortal
                       size="small"
-                      InputProps={{
-                        ...params.InputProps,
-                        endAdornment: (
-                          <>
-                            {isLoadingMetadata ? <CircularProgress color="inherit" size={12} /> : null}
-                            {params.InputProps.endAdornment}
-                          </>
-                        ),
-                      }}
+                      value={csvStagedTable || null}
+                      options={csvUnionableOptions}
+                      onChange={(_, v) => setCsvStagedTable(v ?? '')}
+                      autoHighlight
+                      isOptionEqualToValue={(o, v) => o === v}
+                      className={compactAutocompleteClassName}
+                      ListboxProps={compactAutocompleteListboxProps}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          placeholder="Add table (UNION ALL)"
+                          size="small"
+                          InputProps={{
+                            ...params.InputProps,
+                            endAdornment: (
+                              <>
+                                {isLoadingMetadata ? <CircularProgress color="inherit" size={12} /> : null}
+                                {params.InputProps.endAdornment}
+                              </>
+                            ),
+                          }}
+                        />
+                      )}
+                      noOptionsText="No more tables"
                     />
-                  )}
-                  sx={{
-                    '& .MuiInputBase-root': { fontSize: '0.9rem', height: 30 },
-                    '& .MuiOutlinedInput-input': { padding: '4px 4px !important' },
-                    '& .MuiOutlinedInput-notchedOutline': { padding: '0 0px', visibility: 'hidden' },
-                  }}
-                  ListboxProps={{
-                    sx: {
-                      padding: '2px 0',
-                      '& .MuiAutocomplete-option': { fontSize: '0.9rem', padding: '1px 8px', lineHeight: 1.2 },
-                    },
-                  }}
-                  noOptionsText="No more tables"
-                />
-                <Tooltip title={csvStagedTable ? 'Add as UNION ALL' : 'Select a table first'} placement="right">
-                  <span>
-                    <IconButton
-                      size="small"
-                      onClick={handleCsvAdd}
-                      disabled={!csvStagedTable}
-                      sx={{ width: 28, height: 28 }}
-                      aria-label="Add table as UNION ALL"
-                    >
-                      <AddIcon />
-                    </IconButton>
-                  </span>
-                </Tooltip>
+                  </Box>
+                  <Tooltip title={csvStagedTable ? 'Add as UNION ALL' : 'Select a table first'} placement="right">
+                    <span>
+                      <IconButton
+                        size="small"
+                        onClick={handleCsvAdd}
+                        disabled={!csvStagedTable}
+                        sx={{ width: 26, height: 26, p: 0.25 }}
+                        aria-label="Add table as UNION ALL"
+                      >
+                        <AddIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </Box>
               </Box>
 
               {/* Show selected tables list when there are union tables */}

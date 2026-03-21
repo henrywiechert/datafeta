@@ -19,19 +19,39 @@
   height: 26px;
   padding: 0 26px 0 8px !important;
   font-size: 0.72rem;
+  /* Stretch so the <input> fills the inner box; vertical balance is done with input padding */
   display: flex;
-  align-items: center;
+  align-items: stretch;
   margin: 0;
   box-sizing: border-box;
 }
 
-/* The actual input element */
-.compact :global(.MuiOutlinedInput-input) {
-  padding: 0 !important;
-  font-size: 0.72rem;
+/*
+ * Kill the browser / UA "inner" box on the actual <input>. MUI draws the real
+ * border on the fieldset (.MuiOutlinedInput-notchedOutline); without this reset,
+ * many engines still paint a second inset frame only around the text area
+ * (not under the popup arrow), which reads as a double border.
+ */
+.compact :global(.MuiOutlinedInput-input),
+.compact :global(.MuiAutocomplete-input),
+.compact :global(.MuiInputBase-input) {
+  /*
+   * Native text fields draw glyphs high in the line box; a taller top padding
+   * than bottom optically centers value + placeholder in the 26px outlined field.
+   */
+  padding: 6px 0 2px 0 !important;
+  font-size: 0.72rem !important;
   height: 100% !important;
-  display: flex;
-  align-items: center;
+  min-height: 0 !important;
+  line-height: normal !important;
+  display: block;
+  box-sizing: border-box;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background-color: transparent;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 /* End adornment (dropdown arrow, clear button) - position absolutely */
