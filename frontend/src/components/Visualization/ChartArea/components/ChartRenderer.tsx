@@ -111,6 +111,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
           rows={tableData.rows} 
           xFields={xAxisFields}
           yFields={yAxisFields}
+          queryColumns={queryResult?.columns}
         />
       );
     }

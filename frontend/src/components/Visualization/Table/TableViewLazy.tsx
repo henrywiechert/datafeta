@@ -1,5 +1,6 @@
 import React, { lazy, Suspense } from 'react';
 import { Box, Skeleton } from '@mui/material';
+import { QueryResultColumn } from '../../../types';
 
 // Lazy load the entire TableView component (which includes AG-Grid)
 const TableView = lazy(() => import('./TableView'));
@@ -9,6 +10,7 @@ interface TableViewLazyProps {
   rows: any[];
   xFields: any[];
   yFields: any[];
+  queryColumns?: QueryResultColumn[];
 }
 
 /**

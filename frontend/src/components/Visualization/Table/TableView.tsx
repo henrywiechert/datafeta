@@ -3,6 +3,8 @@ import { AgGridReact } from 'ag-grid-react';
 import { ColDef, ModuleRegistry, AllCommunityModule, ICellRendererParams } from 'ag-grid-community';
 import { Box, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
+import { QueryResultColumn } from '../../../types';
+import { isDatetimeType, isHighPrecisionDatetime, formatDatetimeValue, buildDatetimeMapFromFields } from './dateTimeFormatting';
 
 // Import AG Grid CSS
 import 'ag-grid-community/styles/ag-grid.css';
@@ -70,7 +72,7 @@ const HierarchicalCellRenderer = (params: ICellRendererParams) => {
     return '';
   }
   
-  const value = params.value;
+  const displayValue = params.valueFormatted ?? params.value;
   const rowSpan = params.data[`${fieldName}_rowSpan`] || 1;
   
   return (
@@ -83,7 +85,7 @@ const HierarchicalCellRenderer = (params: ICellRendererParams) => {
         backgroundColor: rowSpan > 1 ? 'rgba(0, 0, 0, 0.02)' : 'transparent'
       }}
     >
-      {value}
+      {displayValue}
     </div>
   );
 };
@@ -93,31 +95,66 @@ interface TableViewProps {
   rows: any[];
   xFields: any[];
   yFields: any[];
+  queryColumns?: QueryResultColumn[];
 }
 
-const TableView: React.FC<TableViewProps> = ({ columns, rows, xFields, yFields }) => {
+const TableView: React.FC<TableViewProps> = ({ columns, rows, xFields, yFields, queryColumns }) => {
+  // Build a map from column name → highPrecision using the raw backend types.
+  // Falls back to field-based detection when column types are unavailable
+  // (e.g. local DuckDB execution returns type: 'unknown').
+  const datetimeColumnsMap = useMemo(() => {
+    const map = new Map<string, boolean>();
+
+    // Primary: use query result column types
+    if (queryColumns) {
+      for (const qc of queryColumns) {
+        if (isDatetimeType(qc.type)) {
+          map.set(qc.name, isHighPrecisionDatetime(qc.type));
+        }
+      }
+    }
+
+    // Fallback: use field dataType when query columns lack type info
+    if (map.size === 0) {
+      const allFields = [...(xFields || []), ...(yFields || [])];
+      const fieldMap = buildDatetimeMapFromFields(allFields);
+      fieldMap.forEach((hiPrec, name) => map.set(name, hiPrec));
+    }
+
+    return map;
+  }, [queryColumns, xFields, yFields]);
+
   // Convert columns to AG Grid format
   const columnDefs: ColDef[] = useMemo(() => {
-    return columns.map((col) => ({
-      field: col.field,
-      headerName: col.headerName,
-      width: col.width || 120,
-      sortable: true,
-      filter: 'agTextColumnFilter' as any,
-      resizable: true,
-      pinned: col.pinned || undefined,
-      cellStyle: col.cellStyle || { textAlign: 'left' as const },
-      // Use valueGetter to handle field names with dots (which AG Grid interprets as nested paths)
-      valueGetter: (params: any) => params.data?.[col.field],
-      valueFormatter: (params: any) => (params.value === null || params.value === undefined) ? '' : String(params.value),
-      // Add row spanning support
-      rowSpan: col.rowSpan,
-      cellRenderer: col.cellRenderer === 'agGroupCellRenderer' ? HierarchicalCellRenderer : undefined,
-      cellClassRules: col.cellClassRules || {},
-      // Add hierarchical sorting support
-      comparator: col.comparator,
-    }));
-  }, [columns]);
+    return columns.map((col) => {
+      const highPrecision = datetimeColumnsMap.get(col.field);
+      const isDt = highPrecision !== undefined;
+      const hiPrec = highPrecision === true;
+      return {
+        field: col.field,
+        headerName: col.headerName,
+        width: col.width || 120,
+        sortable: true,
+        filter: 'agTextColumnFilter' as any,
+        resizable: true,
+        pinned: col.pinned || undefined,
+        cellStyle: col.cellStyle || { textAlign: 'left' as const },
+        valueGetter: (params: any) => params.data?.[col.field],
+        valueFormatter: (params: any) => {
+          if (params.value === null || params.value === undefined) return '';
+          if (isDt) {
+            const formatted = formatDatetimeValue(params.value, hiPrec);
+            if (formatted !== null) return formatted;
+          }
+          return String(params.value);
+        },
+        rowSpan: col.rowSpan,
+        cellRenderer: col.cellRenderer === 'agGroupCellRenderer' ? HierarchicalCellRenderer : undefined,
+        cellClassRules: col.cellClassRules || {},
+        comparator: col.comparator,
+      };
+    });
+  }, [columns, datetimeColumnsMap]);
 
   // Fields that participate in hierarchical grouping (have rowSpan)
   const groupingFieldNames = useMemo(() => {
