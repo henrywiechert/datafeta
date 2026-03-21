@@ -147,7 +147,8 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       { x: xDomain, y: yDomain },
       ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
       ctx.sizeField, ctx.sizeRange, ctx.manualSize,
-      ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
+      ctx.labelCfg, ctx.tooltipFields, ctx.facetFields,
+      xf, yf
     );
   }
   
@@ -162,7 +163,8 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       { x: xDomain, y: yDomain },
       ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
       ctx.sizeField, ctx.sizeRange, ctx.manualSize,
-      ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
+      ctx.labelCfg, ctx.tooltipFields, ctx.facetFields,
+      xf, yf
     );
   }
   

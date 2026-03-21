@@ -3,6 +3,34 @@ import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils
 import { getFieldColumnName } from '../helpers/fields';
 
 /**
+ * Build a tooltip-specific label for a field.
+ * For measures with an aggregation, appends the aggregation: "myVar(sum)".
+ * For dimensions or fields without aggregation, returns the plain display name.
+ */
+function tooltipLabel(field: Field, aliasLookup?: Record<string, string>): string {
+  const base = getFieldDisplayName(field, aliasLookup);
+  if (field.type === 'measure' && field.aggregation) {
+    return `${base}(${field.aggregation})`;
+  }
+  return base;
+}
+
+/**
+ * Enhance a pre-computed label with aggregation info from a sourceField.
+ * When the sourceField is a measure with an aggregation and the label doesn't
+ * already contain the aggregation suffix, the suffix is appended.
+ */
+function enrichLabelWithAggregation(label: string, sourceField?: Field): string {
+  if (sourceField?.type === 'measure' && sourceField.aggregation) {
+    const suffix = `(${sourceField.aggregation})`;
+    if (!label.endsWith(suffix)) {
+      return `${label}${suffix}`;
+    }
+  }
+  return label;
+}
+
+/**
  * Format a value for tooltip display with appropriate precision and formatting
  */
 export function formatTooltipValue(val: any): string {
@@ -64,7 +92,7 @@ export function createTooltipFieldsGetter(
       if (!exclude.has(column)) {
         const value = d[column];
         fields.push({ 
-          label, 
+          label: enrichLabelWithAggregation(label, sourceField), 
           value: value,
           formattedValue: formatTooltipValue(value),
           sourceField,
@@ -79,7 +107,7 @@ export function createTooltipFieldsGetter(
       if (!exclude.has(colorColumnName)) {
         const value = d[colorColumnName];
         fields.push({ 
-          label: getFieldDisplayName(colorField), 
+          label: tooltipLabel(colorField), 
           value: value,
           formattedValue: formatTooltipValue(value),
           sourceField: colorField,
@@ -95,7 +123,7 @@ export function createTooltipFieldsGetter(
       if (!exclude.has(sizeColumnName)) {
         const value = d[sizeColumnName];
         fields.push({ 
-          label: getFieldDisplayName(sizeField), 
+          label: tooltipLabel(sizeField), 
           value: value,
           formattedValue: formatTooltipValue(value),
           sourceField: sizeField,
@@ -112,7 +140,7 @@ export function createTooltipFieldsGetter(
         if (colName && !exclude.has(colName)) {
           const value = d[colName];
           fields.push({ 
-            label: getFieldDisplayName(tf), 
+            label: tooltipLabel(tf), 
             value: value,
             formattedValue: formatTooltipValue(value),
             sourceField: tf,

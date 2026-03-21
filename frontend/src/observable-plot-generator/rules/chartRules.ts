@@ -244,7 +244,10 @@ export function generateChartOptions(
         sizeRange,
         manualSize,
         labelCfg,
-        tooltipFields
+        tooltipFields,
+        undefined, // facetFields
+        yDim,
+        xMeasureWithAgg,
       ),
       'line-chart',
       `${getDisplayName(yDim)} vs ${getDisplayName(xMeasure)}`
@@ -271,7 +274,10 @@ export function generateChartOptions(
         sizeRange,
         manualSize,
         labelCfg,
-        tooltipFields
+        tooltipFields,
+        undefined, // facetFields
+        xDim,
+        yMeasureWithAgg,
       ),
       'line-chart',
       `${getDisplayName(xDim)} vs ${getDisplayName(yMeasure)}`
@@ -449,7 +455,10 @@ export function generateChartOptions(
         sizeRange,
         manualSize,
         labelCfg,
-        tooltipFields
+        tooltipFields,
+        undefined, // facetFields
+        yDim,
+        xMeasureWithAgg,
       ),
       'line-chart',
       `${getDisplayName(yDim)} vs ${getDisplayName(xMeasure)}`
@@ -476,7 +485,10 @@ export function generateChartOptions(
         sizeRange,
         manualSize,
         labelCfg,
-        tooltipFields
+        tooltipFields,
+        undefined, // facetFields
+        xDim,
+        yMeasureWithAgg,
       ),
       'line-chart',
       `${getDisplayName(xDim)} vs ${getDisplayName(yMeasure)}`

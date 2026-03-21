@@ -204,6 +204,7 @@ function buildMeasureBarOptions(
     // When there's no color field, use the global/manual bar color for fill
     manualColor: colorField ? undefined : manualColor,
     facetFields: facetFields,
+    measureField: measureField,
     labels: {
       measure: getFieldDisplayName(measureField),
       category: categoryField ? getFieldDisplayName(categoryField) : undefined,

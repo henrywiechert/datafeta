@@ -51,6 +51,9 @@ export interface LineBuildParams {
   tooltipFields?: Field[];
   /** Facet fields to display in tooltips for context (from faceted charts) */
   facetFields?: Field[];
+  /** Original x/y Field objects, used to enrich tooltip labels with aggregation info. */
+  xField?: Field;
+  yField?: Field;
 }
 
 type LineBudget = {
@@ -304,6 +307,8 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     labelCfg,
     tooltipFields,
     facetFields,
+    xField,
+    yField,
   } = params;
 
   const O = LINE_ORIENTATION[orientation];
@@ -523,8 +528,8 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     data: budgetedSorted,
     getFields: createTooltipFieldsGetter(
       [
-        { label: xLabel, column: xColumn },
-        { label: yLabel, column: yColumn }
+        { label: xLabel, column: xColumn, sourceField: xField },
+        { label: yLabel, column: yColumn, sourceField: yField }
       ],
       colorField,
       sizeField,
@@ -613,7 +618,9 @@ export function lineChart(
   manualSize?: number,
   labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number },
   tooltipFields?: Field[],
-  facetFields?: Field[]
+  facetFields?: Field[],
+  xField?: Field,
+  yField?: Field,
 ): Plot.PlotOptions {
   return buildLineOptions({
     data,
@@ -632,6 +639,8 @@ export function lineChart(
     labelCfg,
     tooltipFields,
     facetFields,
+    xField,
+    yField,
   });
 }
 
@@ -654,7 +663,9 @@ export function verticalLineChart(
   manualSize?: number,
   labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number },
   tooltipFields?: Field[],
-  facetFields?: Field[]
+  facetFields?: Field[],
+  xField?: Field,
+  yField?: Field,
 ): Plot.PlotOptions {
   return buildLineOptions({
     data,
@@ -673,5 +684,7 @@ export function verticalLineChart(
     labelCfg,
     tooltipFields,
     facetFields,
+    xField,
+    yField,
   });
 }

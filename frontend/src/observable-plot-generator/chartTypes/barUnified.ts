@@ -139,6 +139,7 @@ export function barUnified(
       tooltipFields: tooltipFields,
       // When there's no color field, use the global/effective manualColor as the bar fill
       manualColor: colorField ? undefined : effectiveManualColor,
+      measureField: measure,
       labels: {
         measure: getFieldDisplayName(measure),
         category: hasCategories && categoryDims.length === 1 
