@@ -153,15 +153,99 @@ export function normalizeArrowValue(value: any, fieldType?: DataType, fieldName?
   return value;
 }
 
+/**
+ * Try to extract the raw 64-bit epoch value from a Timestamp Arrow vector
+ * for a single row, preserving sub-millisecond precision that vector.get()
+ * discards.  Returns undefined when extraction isn't possible (caller should
+ * fall back to vector.get()).
+ */
+function tryGetRawTimestamp(vector: any, rowIndex: number): number | null | undefined {
+  try {
+    const chunks: any[] = vector.data;
+    if (!Array.isArray(chunks)) return undefined;
+
+    let offset = 0;
+    for (const chunk of chunks) {
+      const len: number = chunk.length;
+      if (rowIndex < offset + len) {
+        const localIdx = rowIndex - offset;
+        const dataOffset: number = chunk.offset || 0;
+
+        // Null check via bitmap (skip when bitmap is absent, empty, or
+        // the column reports zero nulls — an empty Uint8Array is truthy
+        // but reading bitmap[0] yields undefined which falsely triggers null)
+        const nullBitmap = chunk.nullBitmap;
+        if (nullBitmap && nullBitmap.length > 0 && (chunk.nullCount == null || chunk.nullCount > 0)) {
+          const bitIdx = dataOffset + localIdx;
+          const byteIdx = bitIdx >> 3;
+          if (byteIdx < nullBitmap.length && (nullBitmap[byteIdx] & (1 << (bitIdx & 7))) === 0) {
+            return null;
+          }
+        }
+
+        const values = chunk.values;
+        const idx = dataOffset + localIdx;
+
+        if (values instanceof BigInt64Array) {
+          return Number(values[idx]);
+        }
+        if (values instanceof Int32Array) {
+          const lo = values[idx * 2] >>> 0;
+          const hi = values[idx * 2 + 1];
+          return hi * 0x100000000 + lo;
+        }
+        // Unknown buffer type — give up
+        return undefined;
+      }
+      offset += len;
+    }
+  } catch {
+    // Silently fall back
+  }
+  return undefined;
+}
+
 export function arrowTableToRows(table: ArrowTable): Record<string, any>[] {
-  const rows: Record<string, any>[] = [];
   const fields = table.schema.fields;
 
+  // Identify Timestamp columns for raw extraction (preserves µs/ns precision).
+  const timestampFields = new Set<string>();
+  for (const field of fields) {
+    if ((field.type as any).typeId === Type.Timestamp) {
+      timestampFields.add(field.name);
+    }
+  }
+
+  // Log once per Timestamp column so we can diagnose precision issues.
+  if (timestampFields.size > 0 && table.numRows > 0) {
+    timestampFields.forEach((tsName) => {
+      const vec = table.getChild(tsName);
+      if (vec) {
+        const getVal = vec.get(0);
+        const rawVal = tryGetRawTimestamp(vec, 0);
+        console.log(
+          `⏱ Timestamp column "${tsName}": get(0)=${getVal} (${typeof getVal}), raw=${rawVal} (${typeof rawVal})`,
+        );
+      }
+    });
+  }
+
+  const rows: Record<string, any>[] = [];
   for (let i = 0; i < table.numRows; i++) {
     const row: Record<string, any> = {};
     for (const field of fields) {
       const col = field.name;
-      row[col] = normalizeArrowValue(table.getChild(col)?.get(i), field.type, col);
+      if (timestampFields.has(col)) {
+        const vec = table.getChild(col);
+        const raw = vec ? tryGetRawTimestamp(vec, i) : undefined;
+        if (raw !== undefined) {
+          row[col] = raw;
+        } else {
+          row[col] = normalizeArrowValue(vec?.get(i), field.type, col);
+        }
+      } else {
+        row[col] = normalizeArrowValue(table.getChild(col)?.get(i), field.type, col);
+      }
     }
     rows.push(row);
   }

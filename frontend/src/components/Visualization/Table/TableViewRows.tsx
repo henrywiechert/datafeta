@@ -21,21 +21,55 @@ import menuStyles from '../ContextMenu.module.css';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
-/** Convert an epoch-like number to a Date using magnitude heuristics (s/ms/us/ns). */
-function epochToDate(num: number): Date | null {
+/**
+ * Detect the epoch unit from magnitude and return { ms (for Date), microsFraction (0–999999) }.
+ * Handles seconds, milliseconds, microseconds, and nanoseconds.
+ */
+function epochToComponents(num: number): { ms: number; microsFraction: number } | null {
   if (!Number.isFinite(num)) return null;
   const abs = Math.abs(num);
   let ms: number;
-  if (abs >= 1e18)      ms = num / 1_000_000;   // nanoseconds
-  else if (abs >= 1e15) ms = num / 1000;         // microseconds
-  else if (abs >= 1e12) ms = num;                // milliseconds
-  else                  ms = num * 1000;         // seconds
+  let microsFraction: number;
+  if (abs >= 1e18) {
+    // nanoseconds → µs fraction = (ns / 1000) % 1_000_000
+    ms = num / 1_000_000;
+    microsFraction = Math.abs(Math.trunc(num / 1000) % 1_000_000);
+  } else if (abs >= 1e15) {
+    // microseconds → µs fraction = value % 1_000_000
+    ms = num / 1000;
+    microsFraction = Math.abs(Math.trunc(num) % 1_000_000);
+  } else if (abs >= 1e12) {
+    // milliseconds — may carry sub-ms precision as a fractional part
+    // (apache-arrow returns epoch-ms floats like 1762955629225.794 for µs data)
+    ms = num;
+    const msInSecond = Math.abs(Math.trunc(num) % 1000);
+    const subMsFraction = Math.abs(num) % 1;
+    microsFraction = msInSecond * 1000 + Math.round(subMsFraction * 1000);
+  } else {
+    // seconds → no sub-second data
+    ms = num * 1000;
+    microsFraction = 0;
+  }
   const d = new Date(ms);
-  return Number.isFinite(d.getTime()) ? d : null;
+  return Number.isFinite(d.getTime()) ? { ms, microsFraction } : null;
 }
 
-function formatDate(d: Date, withMicroseconds: boolean): string {
-  if (!withMicroseconds) return d.toLocaleString();
+function epochToDate(num: number): Date | null {
+  const c = epochToComponents(num);
+  return c ? new Date(c.ms) : null;
+}
+
+function formatEpochHighPrecision(num: number): string | null {
+  const c = epochToComponents(num);
+  if (!c) return null;
+  const d = new Date(c.ms);
+  if (!Number.isFinite(d.getTime())) return null;
+  const frac = c.microsFraction.toString().padStart(6, '0');
+  return `${d.toLocaleString()}.${frac}`;
+}
+
+function formatDate(d: Date, highPrecision: boolean): string {
+  if (!highPrecision) return d.toLocaleString();
   const ms = d.getMilliseconds().toString().padStart(3, '0');
   return `${d.toLocaleString()}.${ms}000`;
 }
@@ -113,11 +147,15 @@ const TableViewRows: React.FC<TableViewRowsProps> = ({
         valueFormatter: (params: any) => {
           if (params.value === null || params.value === undefined) return '';
           if (isDatetime) {
-            if (params.value instanceof Date) return formatDate(params.value, withMs);
             if (typeof params.value === 'bigint' || typeof params.value === 'number') {
+              if (withMs) {
+                const s = formatEpochHighPrecision(Number(params.value));
+                if (s) return s;
+              }
               const d = epochToDate(Number(params.value));
-              if (d) return formatDate(d, withMs);
+              if (d) return d.toLocaleString();
             }
+            if (params.value instanceof Date) return formatDate(params.value, withMs);
             if (typeof params.value === 'string') {
               const parsed = new Date(params.value);
               if (!isNaN(parsed.getTime())) return formatDate(parsed, withMs);
