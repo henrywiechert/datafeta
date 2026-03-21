@@ -1,32 +1,12 @@
 import React from 'react';
-import { Box, CircularProgress, IconButton, TextField, Tooltip, SxProps, Theme } from '@mui/material';
+import { Box, CircularProgress, IconButton, TextField, Tooltip, Typography } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import AddIcon from '@mui/icons-material/Add';
-
-// Shared styles for compact Autocomplete dropdowns
-const autocompleteListboxSx = {
-  padding: '2px 0',
-  '& .MuiAutocomplete-option': {
-    fontSize: '0.9rem',
-    padding: '1px 8px',
-    lineHeight: 1.2,
-  },
-};
-
-const autocompleteSx: SxProps<Theme> = {
-  '& .MuiInputBase-root': {
-    fontSize: '0.9rem',
-    height: 30,
-  },
-  '& .MuiOutlinedInput-input': {
-    padding: '4px 4px !important',
-    border: 'grey solid 1px',
-  },
-  '& .MuiOutlinedInput-notchedOutline': {
-    padding: '0 0px',   // key fix
-    visibility: 'hidden',
-  },
-};
+import {
+  compactAutocompleteClassName,
+  compactAutocompleteListboxProps,
+  sourcePickerFieldLabelSx,
+} from './sourcePickerShared';
 
 type UnionTableRef = { database: string; table_name: string };
 
@@ -46,6 +26,8 @@ interface TableAddPickerProps {
 
   onAdd: (payload: AddTablePayload) => void;
 }
+
+const actionColumnSx = { width: 32, flexShrink: 0, display: 'flex', justifyContent: 'center' } as const;
 
 const TableAddPicker: React.FC<TableAddPickerProps> = ({
   databases,
@@ -106,69 +88,81 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-      {/* DB row */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 32px', gap: 0.5, alignItems: 'center' }}>
-        <Autocomplete
-          disablePortal
-          value={stagedDatabase || null}
-          options={dbOptions}
-          onChange={handleDatabaseChange}
-          disabled={dbOptions.length === 0}
-          isOptionEqualToValue={(option, optionValue) => option === optionValue}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-            />
-          )}
-          ListboxProps={{ sx: autocompleteListboxSx }}
-          sx={autocompleteSx}
-          noOptionsText="No matches"
-        />
-        {/* Spacer to keep grid aligned with Table row */}
-        <span />
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Typography variant="subtitle2" sx={sourcePickerFieldLabelSx}>
+          DB
+        </Typography>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Autocomplete
+            disablePortal
+            size="small"
+            value={stagedDatabase || null}
+            options={dbOptions}
+            onChange={handleDatabaseChange}
+            disabled={dbOptions.length === 0}
+            autoHighlight
+            isOptionEqualToValue={(option, optionValue) => option === optionValue}
+            className={compactAutocompleteClassName}
+            ListboxProps={compactAutocompleteListboxProps}
+            renderInput={(params) => (
+              <TextField {...params} placeholder="Database" size="small" />
+            )}
+            noOptionsText="No matches"
+          />
+        </Box>
+        <Box sx={actionColumnSx} aria-hidden />
       </Box>
 
-      {/* Table row */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 32px', gap: 0.5, alignItems: 'center' }}>
-        <Autocomplete
-          disablePortal
-          value={stagedTable || null}
-          options={filteredTableOptions}
-          onChange={handleTableChange}
-          disabled={!stagedDatabase}
-          isOptionEqualToValue={(option, optionValue) => option === optionValue}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              placeholder={stagedDatabase ? 'Search Table' : 'Select DB first'}
-              InputProps={{
-                ...params.InputProps,
-                endAdornment: (
-                  <>
-                    {isLoadingTables ? <CircularProgress color="inherit" size={12} /> : null}
-                    {params.InputProps.endAdornment}
-                  </>
-                ),
-              }}
-            />
-          )}
-          ListboxProps={{ sx: autocompleteListboxSx }}
-          sx={autocompleteSx}
-          noOptionsText={isLoadingTables ? 'Loading…' : 'No matches'}
-        />
-        <Tooltip title={canAdd ? 'Add table' : 'Select DB and table'} placement="right">
-          <span>
-            <IconButton
-              size="small"
-              onClick={handleAdd}
-              disabled={!canAdd}
-              sx={{ width: 28, height: 28 }}
-              aria-label="Add table"
-            >
-              <AddIcon />
-            </IconButton>
-          </span>
-        </Tooltip>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Typography variant="subtitle2" sx={sourcePickerFieldLabelSx}>
+          Table
+        </Typography>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Autocomplete
+            disablePortal
+            size="small"
+            value={stagedTable || null}
+            options={filteredTableOptions}
+            onChange={handleTableChange}
+            disabled={!stagedDatabase}
+            autoHighlight
+            isOptionEqualToValue={(option, optionValue) => option === optionValue}
+            className={compactAutocompleteClassName}
+            ListboxProps={compactAutocompleteListboxProps}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                placeholder={stagedDatabase ? 'Search table' : 'Select DB first'}
+                size="small"
+                InputProps={{
+                  ...params.InputProps,
+                  endAdornment: (
+                    <>
+                      {isLoadingTables ? <CircularProgress color="inherit" size={12} /> : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
+                }}
+              />
+            )}
+            noOptionsText={isLoadingTables ? 'Loading…' : 'No matches'}
+          />
+        </Box>
+        <Box sx={actionColumnSx}>
+          <Tooltip title={canAdd ? 'Add table' : 'Select DB and table'} placement="right">
+            <span>
+              <IconButton
+                size="small"
+                onClick={handleAdd}
+                disabled={!canAdd}
+                sx={{ width: 26, height: 26, p: 0.25 }}
+                aria-label="Add table"
+              >
+                <AddIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Box>
       </Box>
     </Box>
   );
