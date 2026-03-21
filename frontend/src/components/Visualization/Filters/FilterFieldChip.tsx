@@ -77,8 +77,9 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
       totalAvailableCount,
       dateTimePart: field.dateTimePart,
       dateTimeMode: field.dateTimeMode,
+      isZoomFilter: filterConfig?.isZoomFilter,
     });
-  }, [field.id, field.columnName, field.dateTimePart, field.dateTimeMode, onConfigChange, filterMetadata]);
+  }, [field.id, field.columnName, field.dateTimePart, field.dateTimeMode, onConfigChange, filterMetadata, filterConfig?.isZoomFilter]);
 
   const handleContinuousChange = useCallback((newMin: number | null, newMax: number | null) => {
     onConfigChange({
@@ -87,8 +88,9 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
       type: 'continuous',
       min: newMin,
       max: newMax,
+      isZoomFilter: filterConfig?.isZoomFilter,
     });
-  }, [field.id, field.columnName, onConfigChange]);
+  }, [field.id, field.columnName, onConfigChange, filterConfig?.isZoomFilter]);
 
   const handleDateTimeChange = useCallback((startDate: string | null, endDate: string | null) => {
     onConfigChange({
@@ -97,8 +99,9 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
       type: 'datetime',
       startDate,
       endDate,
+      isZoomFilter: filterConfig?.isZoomFilter,
     });
-  }, [field.id, field.columnName, onConfigChange]);
+  }, [field.id, field.columnName, onConfigChange, filterConfig?.isZoomFilter]);
 
   // Determine filter type based on field characteristics
   const getFilterType = (): 'discrete' | 'continuous' | 'datetime' => {
