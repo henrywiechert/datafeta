@@ -86,15 +86,18 @@ export function parseUTCToLocal(utcDateTimeString: string | null): DateTimeCompo
       return null;
     }
     
-    // Convert to local timezone
-    const localDate = utcDate.toISOString().substring(0, 10); // YYYY-MM-DD
+    // Convert to local timezone — all components must use local getters
+    // (toISOString() returns UTC date, which is wrong when crossing midnight)
+    const year = utcDate.getFullYear();
+    const month = String(utcDate.getMonth() + 1).padStart(2, '0');
+    const day = String(utcDate.getDate()).padStart(2, '0');
     const hours = String(utcDate.getHours()).padStart(2, '0');
     const minutes = String(utcDate.getMinutes()).padStart(2, '0');
     const seconds = String(utcDate.getSeconds()).padStart(2, '0');
     const ms = String(utcDate.getMilliseconds()).padStart(3, '0');
     
     return {
-      date: localDate,
+      date: `${year}-${month}-${day}`,
       time: `${hours}:${minutes}:${seconds}`,
       milliseconds: ms,
     };

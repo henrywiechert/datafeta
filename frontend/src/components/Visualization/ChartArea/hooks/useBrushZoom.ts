@@ -18,6 +18,36 @@ import {
   updateExistingDateTimeFilter,
   Dispatch,
 } from '../../../../utils/filterActions';
+import { formatISODateTime } from '../../../../datetime/datetimeFormatUtils';
+
+/**
+ * Format epoch ms to a filter-friendly ISO string using UTC components.
+ *
+ * The chart scale (type: 'utc') displays UTC hours. We must produce
+ * literal digits that match exactly, then append 'Z' so ClickHouse's
+ * parseDateTime64BestEffort interprets them as UTC.  Using Date.toISOString()
+ * achieves the same result in the UTC-only path but breaks when the epoch
+ * was silently shifted (e.g. by a non-UTC DuckDB WASM session).  Building
+ * the string from explicit UTC getters makes intent clear and avoids
+ * accidental double-conversion.
+ */
+function epochMsToFilterISO(ms: number): string {
+  const d = new Date(ms);
+  return formatISODateTime({
+    date: `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`,
+    time: `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}:${String(d.getUTCSeconds()).padStart(2, '0')}`,
+    milliseconds: String(d.getUTCMilliseconds()).padStart(3, '0'),
+  });
+}
+
+/**
+ * Parse a filter ISO string (with Z suffix) back to epoch ms,
+ * treating the literal digits as UTC — matching how epochMsToFilterISO
+ * produced them.
+ */
+function filterISOToEpochMs(iso: string): number {
+  return new Date(iso).getTime();
+}
 
 interface UseBrushZoomParams {
   dispatch: Dispatch;
@@ -99,8 +129,8 @@ export function useBrushZoom({
         const maxMs = Math.max(v1, v2);
         if (maxMs - minMs <= 0) return;
 
-        const startDate = new Date(minMs).toISOString();
-        const endDate = new Date(maxMs).toISOString();
+        const startDate = epochMsToFilterISO(minMs);
+        const endDate = epochMsToFilterISO(maxMs);
 
         const existing = findExistingZoomFilter(field.columnName);
         if (existing) {
@@ -180,8 +210,8 @@ export function useBrushZoom({
           dispatch as React.Dispatch<VisualizationAction>,
         );
       } else if (cfg.type === 'datetime' && cfg.startDate != null && cfg.endDate != null) {
-        const startMs = new Date(cfg.startDate).getTime();
-        const endMs = new Date(cfg.endDate).getTime();
+        const startMs = filterISOToEpochMs(cfg.startDate);
+        const endMs = filterISOToEpochMs(cfg.endDate);
         const mid = (startMs + endMs) / 2;
         const halfSpan = (endMs - startMs) / 2;
         let newStartMs = mid - halfSpan * 2;
@@ -189,8 +219,8 @@ export function useBrushZoom({
 
         const meta = filterMetadata[fieldId];
         if (meta && meta.type === 'datetime') {
-          const metaMinMs = new Date(meta.min).getTime();
-          const metaMaxMs = new Date(meta.max).getTime();
+          const metaMinMs = filterISOToEpochMs(meta.min);
+          const metaMaxMs = filterISOToEpochMs(meta.max);
           newStartMs = Math.max(newStartMs, metaMinMs);
           newEndMs = Math.min(newEndMs, metaMaxMs);
         }
@@ -198,8 +228,8 @@ export function useBrushZoom({
         updateExistingDateTimeFilter(
           fieldId,
           cfg.columnName,
-          new Date(newStartMs).toISOString(),
-          new Date(newEndMs).toISOString(),
+          epochMsToFilterISO(newStartMs),
+          epochMsToFilterISO(newEndMs),
           dispatch as React.Dispatch<VisualizationAction>,
         );
       } else if (cfg.type === 'discrete') {
