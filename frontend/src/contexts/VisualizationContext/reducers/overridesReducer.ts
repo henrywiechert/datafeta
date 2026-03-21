@@ -44,10 +44,18 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
         queryVersion: affectsQuery ? state.queryVersion + 1 : state.queryVersion,
       };
     }
-    case 'SET_GLOBAL_CHART_TYPE':
-      return { ...state, globalChartType: action.payload };
     case 'SET_SHOW_TABLE_ROWS':
       return { ...state, showTableRows: action.payload, queryVersion: state.queryVersion + 1 };
+    case 'SET_GLOBAL_CHART_TYPE': {
+      const prev = state.globalChartType;
+      const next = action.payload;
+      const cdfChanged = (prev === 'cdf') !== (next === 'cdf');
+      return {
+        ...state,
+        globalChartType: next,
+        queryVersion: cdfChanged ? state.queryVersion + 1 : state.queryVersion,
+      };
+    }
     default:
       return null; // Not handled by this reducer
   }

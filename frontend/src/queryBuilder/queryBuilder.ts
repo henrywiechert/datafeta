@@ -1,5 +1,6 @@
-import { Field, QueryDescription, Measure, OrderBy, Filter, FilterConfig, ColumnCasts, ColumnCastConfig, VirtualTableDefinition } from '../types';
+import { Field, QueryDescription, Measure, OrderBy, Filter, FilterConfig, ColumnCasts, ColumnCastConfig, CdfField, VirtualTableDefinition, UserChartType } from '../types';
 import { getResultColumnName } from '../utils/fieldUtils';
+import { isCdfAllowed } from '../utils/cdfUtils';
 
 /**
  * Extracts column casting configuration from fields
@@ -358,8 +359,85 @@ export const getQueryTypeFromFields = (fields: Field[]): 'raw' | 'aggregated' =>
 };
 
 /**
+ * Builds a CDF query. Instead of GROUP BY aggregation the backend uses
+ * quantile breakpoints to compute cumulative distribution for each measure
+ * on the X-axis.  An optional discrete color field produces PARTITION BY.
+ */
+export const buildCdfQuery = ({
+  xAxisFields,
+  yAxisFields,
+  colorField,
+  selectedTable,
+  selectedDatabase,
+  filterConfigurations = {},
+  virtualTable = null,
+  virtualColumns = [],
+}: {
+  xAxisFields: Field[];
+  yAxisFields: Field[];
+  colorField?: Field | null;
+  selectedTable: string;
+  selectedDatabase?: string;
+  filterConfigurations?: Record<string, FilterConfig>;
+  virtualTable?: VirtualTableDefinition | null;
+  virtualColumns?: import('../types').VirtualColumnDefinition[];
+}): QueryDescription | null => {
+  if (!selectedTable) return null;
+
+  const cdfMeasures = xAxisFields.filter(
+    f => f.type === 'measure' && f.flavour === 'continuous',
+  );
+  if (cdfMeasures.length === 0) return null;
+
+  const seen = new Set<string>();
+  const cdf_fields: CdfField[] = [];
+  for (const m of cdfMeasures) {
+    if (seen.has(m.columnName)) continue;
+    seen.add(m.columnName);
+    cdf_fields.push({ field: m.columnName, alias: `${m.columnName}__cdf` });
+  }
+
+  // Collect all discrete dimension columns that should appear as GROUP BY
+  // in the CDF query: color field + Y-axis discrete dimensions (faceting).
+  const partitionFieldNames = new Set<string>();
+  if (colorField && colorField.type === 'dimension' && colorField.flavour === 'discrete') {
+    partitionFieldNames.add(colorField.columnName);
+  }
+  for (const f of yAxisFields) {
+    if (f.type === 'dimension' && f.flavour === 'discrete') {
+      partitionFieldNames.add(f.columnName);
+    }
+  }
+  const cdf_partition_fields = partitionFieldNames.size > 0
+    ? Array.from(partitionFieldNames)
+    : undefined;
+
+  const filters = convertFilterConfigsToFilters(filterConfigurations);
+
+  const allCastFields = [...xAxisFields, ...yAxisFields, ...(colorField ? [colorField] : [])];
+  const columnCasts = extractColumnCasts(allCastFields);
+
+  return {
+    target_table: selectedTable,
+    target_database: selectedDatabase,
+    dimensions: [],
+    measures: [],
+    filters: filters.length > 0 ? filters : undefined,
+    column_casts: columnCasts,
+    virtual_table: virtualTable || undefined,
+    virtual_columns: virtualColumns.length > 0 ? virtualColumns : undefined,
+    query_mode: 'cdf',
+    cdf_fields,
+    cdf_partition_fields,
+  };
+};
+
+/**
  * Builds the appropriate query based on user's field configuration.
  * This replaces the chart-strategy-driven query building.
+ *
+ * When globalChartType is 'cdf' and the field configuration qualifies,
+ * a CDF query is emitted instead of a standard aggregated/raw query.
  */
 export const buildQuery = ({
   fields,
@@ -370,6 +448,10 @@ export const buildQuery = ({
   tooltipFields = [],
   virtualTable = null,
   virtualColumns = [],
+  globalChartType,
+  xAxisFields,
+  yAxisFields,
+  colorField,
 }: {
   fields: Field[];
   selectedTable: string;
@@ -379,7 +461,29 @@ export const buildQuery = ({
   tooltipFields?: Field[];
   virtualTable?: VirtualTableDefinition | null;
   virtualColumns?: import('../types').VirtualColumnDefinition[];
+  globalChartType?: UserChartType;
+  xAxisFields?: Field[];
+  yAxisFields?: Field[];
+  colorField?: Field | null;
 }): QueryDescription | null => {
+
+  if (
+    globalChartType === 'cdf' &&
+    xAxisFields && yAxisFields &&
+    isCdfAllowed(xAxisFields, yAxisFields)
+  ) {
+    return buildCdfQuery({
+      xAxisFields,
+      yAxisFields,
+      colorField,
+      selectedTable,
+      selectedDatabase,
+      filterConfigurations,
+      virtualTable,
+      virtualColumns,
+    });
+  }
+
   const queryType = getQueryTypeFromFields(fields);
   
   if (queryType === 'aggregated') {

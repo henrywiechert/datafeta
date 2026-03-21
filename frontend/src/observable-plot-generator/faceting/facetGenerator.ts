@@ -11,6 +11,9 @@ import { resolveMeasureAlias, computeBandPaddingFromSizeField, sortCategoriesByV
 import { isMeasureValuesField, combineMeasureValuesOverrides } from '../../utils/syntheticFields';
 import { createBarCellGenerator } from './barFacetGenerator';
 import { generateCartesianPlots } from '../grid/coreGridGenerator';
+import { buildCdfOptions } from '../chartTypes/cdfChart';
+import { getFieldDisplayName } from '../../utils/fieldUtils';
+import { planFacets } from './facetPlanner';
 
 /**
  * Chart-specific configuration derived from context and facet plan.
@@ -276,5 +279,109 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
     categoryField: ganttCategoryField || undefined,
     sharedCategoryDomain: ganttSharedCategoryDomain,
   });
+}
+
+/**
+ * Create a CellGenerator that produces CDF charts for each continuous measure
+ * on the X-axis.  Each measure becomes a column in a single-row grid.
+ */
+function createCdfCellGenerator(
+  context: ChartGenerationContext,
+): CellGenerator {
+  const cdfMeasures = context.xFields.filter(
+    f => f.type === 'measure' && f.flavour === 'continuous',
+  );
+
+  return (
+    cellData: any[],
+    _cellContext: ChartGenerationContext,
+    _sharedDomains: SharedDomains,
+    _facetPosition: { row: number; col: number },
+    facetCellContext?: FacetCellContext,
+  ): CellResult => {
+    const facetFields = facetCellContext
+      ? [...facetCellContext.rowFacetFields, ...facetCellContext.colFacetFields]
+      : [];
+
+    const plots = cdfMeasures.map((measure, idx) => ({
+      id: `cdf-${measure.columnName}`,
+      title: getFieldDisplayName(measure, context.fieldAliasLookup),
+      options: buildCdfOptions({
+        data: cellData,
+        valueColumn: measure.columnName,
+        valueLabel: getFieldDisplayName(measure, context.fieldAliasLookup),
+        colorField: context.colorField || undefined,
+        colorScheme: context.colorScheme,
+        colorBias: context.colorBias,
+        manualColor: context.manualColor,
+        manualSize: context.manualSize,
+        tooltipFields: context.tooltipFields,
+        facetFields,
+      }),
+      position: { row: 0, col: idx },
+    }));
+
+    return {
+      plots,
+      columns: cdfMeasures.length,
+      rows: 1,
+    };
+  };
+}
+
+/**
+ * Generate CDF chart(s), optionally faceted by discrete dimensions.
+ * Integrates into the standard faceting pipeline via a CDF CellGenerator.
+ */
+export function generateCdfGrid(context: ChartGenerationContext): PlotResult {
+  const { xFields, yFields } = context;
+
+  const cdfMeasures = xFields.filter(
+    f => f.type === 'measure' && f.flavour === 'continuous',
+  );
+
+  if (cdfMeasures.length === 0) {
+    return {
+      library: 'observable-plot',
+      plots: [],
+      layout: { type: 'grid', columns: 1, rows: 1, columnSizes: ['fr'], rowSizes: ['fr'] },
+    };
+  }
+
+  const cellGen = createCdfCellGenerator(context);
+
+  // Determine faceting from discrete dimensions on either axis
+  const facetPlan = planFacets(context);
+  const hasFacets = facetPlan &&
+    ((facetPlan.rowFacetFields?.length || 0) > 0 ||
+     (facetPlan.colFacetFields?.length || 0) > 0);
+
+  if (hasFacets && facetPlan) {
+    return coordinateFacetedGrid({
+      context,
+      plan: facetPlan,
+      cellGenerator: cellGen,
+    });
+  }
+
+  // No faceting — run the cell generator directly on the full dataset
+  const result = cellGen(
+    context.queryResult.rows,
+    context,
+    { measure: {}, numeric: {}, categorical: {} },
+    { row: 0, col: 0 },
+  );
+
+  return {
+    library: 'observable-plot',
+    plots: result.plots,
+    layout: {
+      type: 'grid',
+      columns: result.columns,
+      rows: 1,
+      columnSizes: Array(result.columns).fill('fr' as const),
+      rowSizes: ['fr' as const],
+    },
+  };
 }
 

@@ -121,6 +121,12 @@ class ResultBudget(BaseModel):
     # If not specified, will auto-detect continuous dimensions
     preserve_fields: Optional[List[str]] = None
 
+class CdfField(BaseModel):
+    """A column for which cume_dist() should be computed."""
+    field: str       # source column name
+    alias: str       # output alias for the CDF value (e.g., "revenue__cdf")
+
+
 class QueryDescription(BaseModel):
     target_table: str
     target_database: Optional[str] = None # Required for database sources like ClickHouse
@@ -131,6 +137,14 @@ class QueryDescription(BaseModel):
     orderBy: List[OrderBy] = []
     limit: Optional[int] = None
     offset: Optional[int] = None
+
+    # CDF (cumulative distribution function) query mode.
+    # When set to 'cdf', the backend uses quantile-breakpoint queries instead
+    # of GROUP BY aggregation.  cdf_fields lists the columns to compute CDF for;
+    # cdf_partition_fields lists discrete columns for GROUP BY (color + faceting).
+    query_mode: Optional[Literal['standard', 'cdf']] = None
+    cdf_fields: Optional[List[CdfField]] = None
+    cdf_partition_fields: Optional[List[str]] = None
     
     # NEW: Optimization hints from frontend
     optimization_hints: Optional[OptimizationHints] = None

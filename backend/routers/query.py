@@ -217,16 +217,23 @@ def execute_query_arrow(
     
     logger.info(f"Returning Arrow IPC response: {len(arrow_bytes)} bytes, {arrow_table.num_rows} rows, {arrow_table.num_columns} columns")
     
-    # Base64 encode SQL to safely include in headers
+    headers = {
+        "X-Arrow-Row-Count": str(arrow_table.num_rows),
+        "X-Arrow-Column-Count": str(arrow_table.num_columns),
+    }
+
+    # Include SQL in header only when it fits safely within typical proxy
+    # limits (Node.js CRA dev-proxy caps total headers at 16 KB).
+    MAX_SQL_HEADER_BYTES = 8192
     sql_b64 = base64.b64encode(sql_query.encode('utf-8')).decode('ascii')
-    
+    if len(sql_b64) <= MAX_SQL_HEADER_BYTES:
+        headers["X-Query-Sql-Base64"] = sql_b64
+    else:
+        logger.debug("SQL too large for header (%d bytes b64), omitting X-Query-Sql-Base64", len(sql_b64))
+
     return Response(
         content=arrow_bytes,
         media_type="application/vnd.apache.arrow.stream",
-        headers={
-            "X-Arrow-Row-Count": str(arrow_table.num_rows),
-            "X-Arrow-Column-Count": str(arrow_table.num_columns),
-            "X-Query-Sql-Base64": sql_b64,
-        }
+        headers=headers,
     )
 

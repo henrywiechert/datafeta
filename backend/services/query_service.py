@@ -47,6 +47,7 @@ from backend.services.query_components.field_reference_parser import (
     FieldReferenceParser,
 )
 from backend.services.query_components.distinct_applier import DistinctApplier
+from backend.services.query_components.cdf_query_builder import build_cdf_sql
 
 logger = logging.getLogger(__name__)
 
@@ -328,6 +329,63 @@ class QueryService:
         # No periods - simple column name
         return default_table[field_name]
 
+    def _translate_cdf_query(
+        self,
+        query_desc: QueryDescription,
+        table_name: str,
+        db_type: str,
+        quote_char: str,
+    ) -> Tuple[str, Any]:
+        """Build a CDF query using quantile breakpoints.
+
+        Reuses the standard table-context and filter pipelines, then delegates
+        the actual SQL construction to :func:`build_cdf_sql`.
+        """
+        table_context = self._build_table_context(query_desc, db_type, table_name)
+        t = table_context.primary_table
+
+        # Build WHERE clause via the standard filter pipeline
+        vc_builder = None
+        if query_desc.virtual_columns:
+            vc_builder = VirtualColumnExpressionBuilder(
+                table_map=table_context.table_map,
+                default_table=table_context.default_table,
+                db_type=db_type,
+            )
+            for vc in query_desc.virtual_columns:
+                vc_builder.register_virtual_column(vc)
+
+        criteria = self._build_filter_criteria(
+            query_desc,
+            table_context.table_map,
+            table_context.default_table,
+            db_type,
+            t,
+            vc_builder,
+        )
+
+        filter_fragment = ""
+        if criteria:
+            from pypika import Criterion as _Crit
+            combined = _Crit.all(criteria)
+            filter_fragment = f"WHERE {combined.get_sql(quote_char=quote_char)}"
+
+        # Build FROM clause (handles JOINs if present)
+        from_clause = f"FROM {quote_char}{query_desc.target_table}{quote_char}"
+        if query_desc.target_database:
+            from_clause = f"FROM {quote_char}{query_desc.target_database}{quote_char}.{quote_char}{query_desc.target_table}{quote_char}"
+
+        sql = build_cdf_sql(
+            query_desc,
+            db_type,
+            quote_char,
+            filter_sql_fragment=filter_fragment,
+            from_clause=from_clause,
+        )
+
+        logger.info("CDF query (%s): %s", db_type, sql)
+        return sql, {'optimizations': [], 'hints_used': None, 'override': None}
+
     def translate_to_sql(
         self, 
         query_desc: QueryDescription, 
@@ -374,6 +432,12 @@ class QueryService:
                 with_sampling=with_sampling,
                 with_optimization=with_optimization,
                 optimizer=optimizer,
+            )
+
+        # Handle CDF (cumulative distribution function) query mode
+        if query_desc.query_mode == 'cdf' and query_desc.cdf_fields:
+            return self._translate_cdf_query(
+                query_desc, table_name, db_type, quote_char,
             )
 
         # For filter value queries with JOINed tables, query the source table directly

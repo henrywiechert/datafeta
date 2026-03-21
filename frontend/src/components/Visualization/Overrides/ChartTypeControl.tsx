@@ -7,7 +7,20 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 import LinearScaleIcon from '@mui/icons-material/LinearScale';
 import AutoModeIcon from '@mui/icons-material/AutoMode';
 import ViewTimelineIcon from '@mui/icons-material/ViewTimeline';
+import SvgIcon, { SvgIconProps } from '@mui/material/SvgIcon';
 import { UserChartType } from '../../../types';
+
+const CdfIcon: React.FC<SvgIconProps> = (props) => (
+  <SvgIcon {...props} viewBox="0 0 24 24">
+    <path
+      d="M3 20 C 6 20, 8 20, 10 16 S 14 4, 16 4 C 18 4, 20 4, 21 4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+    />
+  </SvgIcon>
+);
 
 interface ChartTypeControlProps {
   chartType: UserChartType | undefined;
@@ -119,8 +132,13 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
             </Tooltip>
           </ToggleButton>
           <ToggleButton value="gantt" aria-label="gantt chart" sx={getAutoHighlightSx('gantt')}>
-            <Tooltip title="Gantt chart (interval)" placement="top">
+            <Tooltip title={<>Gantt chart<br/>Start on <b>X</b>, length on <b>Size</b></>} placement="top">
               <ViewTimelineIcon sx={{ fontSize: 16 }} />
+            </Tooltip>
+          </ToggleButton>
+          <ToggleButton value="cdf" aria-label="CDF chart" sx={getAutoHighlightSx('cdf')}>
+            <Tooltip title={<>CDF (cumulative distribution function)<br/>Needs a Measure on <b>X</b></>} placement="top">
+              <span style={{ display: 'inline-flex' }}><CdfIcon sx={{ fontSize: 16 }} /></span>
             </Tooltip>
           </ToggleButton>
         </ToggleButtonGroup>

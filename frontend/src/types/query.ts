@@ -55,6 +55,13 @@ export interface ResultBudget {
   preserve_fields?: string[];
 }
 
+// --- CDF (Cumulative Distribution Function) Types --- //
+
+export interface CdfField {
+  field: string;   // source column name
+  alias: string;   // output alias for the cdf value (e.g., "revenue__cdf")
+}
+
 // --- Query Description --- //
 
 export interface QueryDescription {
@@ -73,6 +80,9 @@ export interface QueryDescription {
   virtual_columns?: VirtualColumnDefinition[];
   result_budget?: ResultBudget;
   force_raw_rows?: boolean;
+  query_mode?: 'standard' | 'cdf';
+  cdf_fields?: CdfField[];
+  cdf_partition_fields?: string[];
 }
 
 // --- Query Result Types --- //
