@@ -206,6 +206,9 @@ export function useFilterMetadata({
                                 columnName: field.columnName,
                                 type: 'discrete',
                                 selectedValues: values,
+                                // When the distinct list is complete, tag cardinality so query
+                                // building can omit IN (...) when all values remain selected.
+                                totalAvailableCount: isPartial ? undefined : values.length,
                                 dateTimePart: field.dateTimePart,
                                 dateTimeMode: field.dateTimeMode,
                             }

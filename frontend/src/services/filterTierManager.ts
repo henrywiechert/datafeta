@@ -348,12 +348,25 @@ class FilterTierManager {
         // or when in pure exclusion mode (selectedValues empty, excludedValues set).
         const selectedValues = config.selectedValues || [];
         const excludedValues = config.excludedValues;
+        const selectedLen = selectedValues.length;
         const useExclusion = excludedValues
           && excludedValues.length > 0
           && (
-            selectedValues.length === 0
-            || (config.totalAvailableCount && excludedValues.length < selectedValues.length)
+            selectedLen === 0
+            || (config.totalAvailableCount && excludedValues.length < selectedLen)
           );
+
+        if (!useExclusion && selectedLen === 0) {
+          continue;
+        }
+        if (
+          !useExclusion
+          && config.totalAvailableCount != null
+          && config.totalAvailableCount > 0
+          && selectedLen === config.totalAvailableCount
+        ) {
+          continue;
+        }
 
         if (useExclusion) {
           const quotedExcluded = excludedValues.map(quoteValue);
@@ -368,7 +381,7 @@ class FilterTierManager {
           } else {
             conditions.push(`${columnExpr} NOT IN (${quotedExcluded.join(', ')})`);
           }
-        } else if (selectedValues.length > 0) {
+        } else if (selectedLen > 0) {
           const quotedValues = selectedValues.map(quoteValue);
           conditions.push(`${columnExpr} IN (${quotedValues.join(', ')})`);
         }

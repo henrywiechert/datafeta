@@ -40,12 +40,27 @@ export const convertFilterConfigsToFilters = (
       // The backend handles NULL values specially for both operators.
       // Pure exclusion mode: when selectedValues is empty but excludedValues is set
       // (e.g. from table context menu "Exclude"), always use 'not in'.
+      const selectedLen = config.selectedValues.length;
       const useExclusion = config.excludedValues
         && config.excludedValues.length > 0
         && (
-          config.selectedValues.length === 0
-          || (config.totalAvailableCount && config.excludedValues.length < config.selectedValues.length)
+          selectedLen === 0
+          || (config.totalAvailableCount && config.excludedValues.length < selectedLen)
         );
+
+      // No effective restriction: empty selection (without exclusion) or all values selected
+      // when we know the full cardinality (totalAvailableCount from a non-partial value list).
+      if (!useExclusion && selectedLen === 0) {
+        return;
+      }
+      if (
+        !useExclusion
+        && config.totalAvailableCount != null
+        && config.totalAvailableCount > 0
+        && selectedLen === config.totalAvailableCount
+      ) {
+        return;
+      }
 
       if (useExclusion) {
         const filter: Filter = {
@@ -58,7 +73,7 @@ export const convertFilterConfigsToFilters = (
           filter.date_mode = config.dateTimeMode;
         }
         filters.push(filter);
-      } else if (config.selectedValues.length > 0) {
+      } else if (selectedLen > 0) {
         const filter: Filter = {
           field: config.columnName,
           operator: 'in',
