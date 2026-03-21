@@ -15,70 +15,11 @@ import 'ag-grid-community/styles/ag-theme-material.css';
 
 import { TableRowsSortModel } from '../ChartArea/hooks/useTableRowsQuery';
 import { QueryResultColumn } from '../../../types';
-import { mapBackendDataType } from '../../../utils/fieldUtils';
+import { isDatetimeType, isHighPrecisionDatetime, formatDatetimeValue } from './dateTimeFormatting';
 import ContextMenu from '../ContextMenu';
 import menuStyles from '../ContextMenu.module.css';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
-
-/**
- * Detect the epoch unit from magnitude and return { ms (for Date), microsFraction (0–999999) }.
- * Handles seconds, milliseconds, microseconds, and nanoseconds.
- */
-function epochToComponents(num: number): { ms: number; microsFraction: number } | null {
-  if (!Number.isFinite(num)) return null;
-  const abs = Math.abs(num);
-  let ms: number;
-  let microsFraction: number;
-  if (abs >= 1e18) {
-    // nanoseconds → µs fraction = (ns / 1000) % 1_000_000
-    ms = num / 1_000_000;
-    microsFraction = Math.abs(Math.trunc(num / 1000) % 1_000_000);
-  } else if (abs >= 1e15) {
-    // microseconds → µs fraction = value % 1_000_000
-    ms = num / 1000;
-    microsFraction = Math.abs(Math.trunc(num) % 1_000_000);
-  } else if (abs >= 1e12) {
-    // milliseconds — may carry sub-ms precision as a fractional part
-    // (apache-arrow returns epoch-ms floats like 1762955629225.794 for µs data)
-    ms = num;
-    const msInSecond = Math.abs(Math.trunc(num) % 1000);
-    const subMsFraction = Math.abs(num) % 1;
-    microsFraction = msInSecond * 1000 + Math.round(subMsFraction * 1000);
-  } else {
-    // seconds → no sub-second data
-    ms = num * 1000;
-    microsFraction = 0;
-  }
-  const d = new Date(ms);
-  return Number.isFinite(d.getTime()) ? { ms, microsFraction } : null;
-}
-
-function epochToDate(num: number): Date | null {
-  const c = epochToComponents(num);
-  return c ? new Date(c.ms) : null;
-}
-
-function formatEpochHighPrecision(num: number): string | null {
-  const c = epochToComponents(num);
-  if (!c) return null;
-  const d = new Date(c.ms);
-  if (!Number.isFinite(d.getTime())) return null;
-  const frac = c.microsFraction.toString().padStart(6, '0');
-  return `${d.toLocaleString()}.${frac}`;
-}
-
-function formatDate(d: Date, highPrecision: boolean): string {
-  if (!highPrecision) return d.toLocaleString();
-  const ms = d.getMilliseconds().toString().padStart(3, '0');
-  return `${d.toLocaleString()}.${ms}000`;
-}
-
-/** True when the backend column type has sub-second precision (DateTime64, Timestamp(p), etc.). */
-function isHighPrecisionDatetime(colType: string): boolean {
-  const lower = colType.toLowerCase();
-  return lower.includes('datetime64') || lower.includes('timestamp');
-}
 
 /** Payload emitted by the table context menu filter action. */
 export interface TableCellFilterAction {
@@ -125,7 +66,7 @@ const TableViewRows: React.FC<TableViewRowsProps> = ({
   const datetimeColumnsMap = useMemo(() => {
     const map = new Map<string, boolean>();
     for (const col of columns) {
-      if (mapBackendDataType(col.type) === 'datetime') {
+      if (isDatetimeType(col.type)) {
         map.set(col.name, isHighPrecisionDatetime(col.type));
       }
     }
@@ -135,8 +76,8 @@ const TableViewRows: React.FC<TableViewRowsProps> = ({
   const columnDefs: ColDef[] = useMemo(() => {
     return columns.map((col) => {
       const highPrecision = datetimeColumnsMap.get(col.name);
-      const isDatetime = highPrecision !== undefined;
-      const withMs = highPrecision === true;
+      const isDt = highPrecision !== undefined;
+      const hiPrec = highPrecision === true;
       return {
         field: col.name,
         headerName: col.name,
@@ -146,20 +87,9 @@ const TableViewRows: React.FC<TableViewRowsProps> = ({
         valueGetter: (params: any) => params.data?.[col.name],
         valueFormatter: (params: any) => {
           if (params.value === null || params.value === undefined) return '';
-          if (isDatetime) {
-            if (typeof params.value === 'bigint' || typeof params.value === 'number') {
-              if (withMs) {
-                const s = formatEpochHighPrecision(Number(params.value));
-                if (s) return s;
-              }
-              const d = epochToDate(Number(params.value));
-              if (d) return d.toLocaleString();
-            }
-            if (params.value instanceof Date) return formatDate(params.value, withMs);
-            if (typeof params.value === 'string') {
-              const parsed = new Date(params.value);
-              if (!isNaN(parsed.getTime())) return formatDate(parsed, withMs);
-            }
+          if (isDt) {
+            const formatted = formatDatetimeValue(params.value, hiPrec);
+            if (formatted !== null) return formatted;
             return String(params.value);
           }
           if (typeof params.value === 'number') return params.value.toLocaleString();
