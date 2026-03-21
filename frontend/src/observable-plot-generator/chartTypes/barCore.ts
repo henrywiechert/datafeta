@@ -62,6 +62,10 @@ export interface BarBuildParams {
    * If not provided, measureName and categoryColumn are used as labels.
    */
   labels?: { measure?: string; category?: string };
+  /**
+   * The original measure Field, used to enrich tooltip labels with aggregation info.
+   */
+  measureField?: Field;
 }
 
 export const ORIENTATION = {
@@ -256,6 +260,7 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     manualColor,
     facetFields,
     labels,
+    measureField,
   } = params;
 
   // Use provided labels or fall back to column names
@@ -387,8 +392,8 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
   }
 
   // Add custom tooltip configuration
-  const mainFields: { label: string; column: string }[] = [
-    { label: measureLabel, column: measureName }
+  const mainFields: { label: string; column: string; sourceField?: Field }[] = [
+    { label: measureLabel, column: measureName, sourceField: measureField }
   ];
   
   if (categoryColumn) {
