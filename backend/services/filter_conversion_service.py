@@ -70,14 +70,47 @@ class FilterConversionService:
             
             if filter_type == 'discrete':
                 selected = cfg.get('selectedValues') or []
-                if selected:
+                excluded = cfg.get('excludedValues') or []
+                total_available = cfg.get('totalAvailableCount')
+                selected_len = len(selected)
+
+                use_exclusion = (
+                    excluded
+                    and (
+                        selected_len == 0
+                        or (
+                            total_available is not None
+                            and len(excluded) < selected_len
+                        )
+                    )
+                )
+
+                if use_exclusion:
+                    query_filters.append(
+                        QueryFilter(
+                            field=field,
+                            operator='not in',
+                            value=excluded,
+                            date_part=date_part,
+                            date_mode=date_mode,
+                        )
+                    )
+                elif selected_len == 0:
+                    pass
+                elif (
+                    total_available is not None
+                    and total_available > 0
+                    and selected_len == total_available
+                ):
+                    pass
+                else:
                     query_filters.append(
                         QueryFilter(
                             field=field,
                             operator='in',
                             value=selected,
                             date_part=date_part,
-                            date_mode=date_mode
+                            date_mode=date_mode,
                         )
                     )
             
