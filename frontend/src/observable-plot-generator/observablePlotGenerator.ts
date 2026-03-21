@@ -6,10 +6,11 @@ import { Field } from '../types';
 import { computeSharedDomainsFromContext, buildLabelConfig } from './utils/configBuilder';
 import { analyzeFields } from './analysis/fieldAnalysis';
 import { ChartTypeOverrides } from './helpers/chartTypeResolver';
+import { isCdfAllowed } from '../utils/cdfUtils';
 import { planFacets } from './faceting/facetPlanner';
 import { normalizeTimelineData, getResultColumnName, getFieldDisplayName } from '../utils/fieldUtils';
 import { generateCartesianPlots } from './grid/coreGridGenerator';
-import { generateFacetedGrid } from './faceting/facetGenerator';
+import { generateFacetedGrid, generateCdfGrid } from './faceting/facetGenerator';
 import { ganttChart } from './chartTypes/ganttChart';
 
 // Re-export buildLabelConfig as buildLabelCfg for backward compatibility
@@ -160,6 +161,14 @@ function generateSingleAxisGantt(
 function generatePlotCore(context: ChartGenerationContext, overrides?: ChartTypeOverrides): PlotResult {
   const { xFields, yFields, queryResult, colorField, colorScheme, sizeField, sizeRange, manualSize } = context;
   const analysis = analyzeFields(xFields, yFields);
+
+  // If CDF was selected but the guard failed (shouldn't reach here normally,
+  // since generatePlot handles CDF before calling generatePlotCore), clear it
+  // so downstream logic uses auto-detect instead of trying to render a CDF
+  // cell chart with non-CDF data.
+  if (context.globalChartType === 'cdf') {
+    context = { ...context, globalChartType: null };
+  }
 
   // Build candidate lists for cartesian pairing, preserving the original field order
   // Only include continuous dimensions and measures (discrete dimensions are handled by faceting)
@@ -360,6 +369,16 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
   };
 
   try {
+    // ── CDF mode ────────────────────────────────────────────────────────
+    // Handled before the standard facet/core split so that CDF charts
+    // integrate with faceting via their own CellGenerator.
+    if (
+      effectiveContext.globalChartType === 'cdf' &&
+      isCdfAllowed(effectiveContext.xFields, effectiveContext.yFields)
+    ) {
+      return generateCdfGrid(effectiveContext);
+    }
+
     // Check if faceting is applicable
     // EXCEPTION: For Gantt charts, don't facet the first discrete dimension - it becomes the category axis
     const facetPlan = planFacets(effectiveContext);

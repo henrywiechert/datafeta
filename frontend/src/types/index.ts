@@ -64,6 +64,7 @@ export type {
   OrderBy,
   Dimension,
   ResultBudget,
+  CdfField,
   QueryDescription,
   QueryResultColumn,
   QueryResult,

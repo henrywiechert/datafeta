@@ -8,7 +8,7 @@
 
 import { useMemo } from 'react';
 import { buildQuery } from '../../../../queryBuilder/queryBuilder';
-import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition, QueryOptimizationSettings } from '../../../../types';
+import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition, QueryOptimizationSettings, UserChartType } from '../../../../types';
 import { generateOptimizationHintsFromFields } from '../../../../services/optimizationHintGenerator';
 
 export interface UseQueryBuilderProps {
@@ -30,6 +30,8 @@ export interface UseQueryBuilderProps {
   /** Connection type (e.g., 'clickhouse', 'csv') - used for validation */
   connectionType?: string;
   optimizationSettings?: QueryOptimizationSettings;
+  /** Global chart type — used to detect CDF query mode */
+  globalChartType?: UserChartType;
 }
 
 export interface UseQueryBuilderReturn {
@@ -93,6 +95,7 @@ export const useQueryBuilder = ({
   additionalLabelFields,
   connectionType,
   optimizationSettings,
+  globalChartType,
 }: UseQueryBuilderProps): UseQueryBuilderReturn => {
   
   // Generate optimization hints based on field configuration
@@ -251,6 +254,10 @@ export const useQueryBuilder = ({
       tooltipFields,
       virtualTable,
       virtualColumns,
+      globalChartType,
+      xAxisFields,
+      yAxisFields,
+      colorField,
     });
 
     if (queryDesc) {
@@ -301,6 +308,7 @@ export const useQueryBuilder = ({
     additionalSizeFields,
     additionalLabelFields,
     connectionType,
+    globalChartType,
   ]);
 
   return {

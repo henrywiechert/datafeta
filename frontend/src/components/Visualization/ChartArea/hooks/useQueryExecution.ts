@@ -182,6 +182,7 @@ export const useQueryExecution = ({
     additionalLabelFields,
     connectionType: connectionDetails?.type,
     optimizationSettings,
+    globalChartType: vizState.globalChartType ?? undefined,
   });
 
   // Get query executor

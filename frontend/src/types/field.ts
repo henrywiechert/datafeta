@@ -58,7 +58,7 @@ export interface Field {
 
 // Per-field chart override configuration
 export type DataLabelMode = 'inherit' | 'on' | 'off';
-export type UserChartType = 'line' | 'scatter' | 'tick' | 'bar' | 'gantt';
+export type UserChartType = 'line' | 'scatter' | 'tick' | 'bar' | 'gantt' | 'cdf';
 
 export interface FieldOverrideState {
   // Color overrides

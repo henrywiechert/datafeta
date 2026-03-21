@@ -206,6 +206,128 @@ class UnionQueryBuilder:
 
         return outer_sql
 
+    # ── CDF + UNION path ─────────────────────────────────────────────────────
+
+    def _translate_cdf_union(
+        self,
+        query_desc: QueryDescription,
+        table_refs: List[Tuple[str, str]],
+        *,
+        db_type: str,
+        quote_char: str,
+        with_sampling: bool,
+        with_optimization: bool,
+        optimizer: Optional[object],
+    ) -> Tuple[str, List[Dict]]:
+        """Handle CDF queries across UNION ALL tables.
+
+        CDF queries bypass the standard dimension/measure pipeline and build
+        their own SELECT (quantile breakpoints).  The normal UNION alignment
+        logic (rebuild_select_with_nulls) cannot be applied, so we translate
+        each sub-table independently and stitch the results together.
+        """
+        union_queries: List[str] = []
+
+        for database, table_name in table_refs:
+            if hasattr(query_desc, "model_copy"):
+                single_desc = query_desc.model_copy(deep=True)
+            else:  # pragma: no cover
+                single_desc = query_desc.copy(deep=True)
+
+            single_desc.target_table = table_name
+            single_desc.target_database = database
+            single_desc.virtual_table = None
+            single_desc.result_budget = None
+            single_desc.filters = [
+                f for f in single_desc.filters
+                if f.field not in ("_source_database", "_source_table")
+            ]
+            single_desc.orderBy = []
+            single_desc.limit = None
+            single_desc.offset = None
+
+            # _source_database / _source_table are synthetic columns injected
+            # by the union wrapper — they don't exist in source tables.  Strip
+            # them from partition fields so the per-table CDF query doesn't try
+            # to SELECT / GROUP BY a non-existent column.
+            if single_desc.cdf_partition_fields:
+                single_desc.cdf_partition_fields = [
+                    pf for pf in single_desc.cdf_partition_fields
+                    if pf not in ("_source_database", "_source_table")
+                ]
+
+            single_sql, _ = self._translate_single_table(
+                single_desc,
+                table_name,
+                db_type,
+                with_sampling=with_sampling,
+                with_optimization=with_optimization,
+                optimizer=optimizer,
+            )
+
+            if "FROM" in single_sql:
+                select_part, from_part = single_sql.split("FROM", 1)
+                select_part = select_part.rstrip()
+                if select_part.endswith(","):
+                    select_part = select_part[:-1]
+                modified_sql = (
+                    f"{select_part}, "
+                    f"'{database}' AS {quote_char}_source_database{quote_char}, "
+                    f"'{table_name}' AS {quote_char}_source_table{quote_char} "
+                    f"FROM{from_part}"
+                )
+                union_queries.append(f"({modified_sql})")
+            else:
+                union_queries.append(f"({single_sql})")
+
+        if not union_queries:
+            return "SELECT 1 WHERE 1=0", []
+
+        union_sql = "\nUNION ALL\n".join(union_queries)
+
+        # Outer query for source filters, ORDER BY, LIMIT
+        source_db_filters = [f for f in query_desc.filters if f.field == "_source_database"]
+        source_table_filters = [f for f in query_desc.filters if f.field == "_source_table"]
+        needs_outer = (
+            bool(query_desc.orderBy)
+            or query_desc.limit is not None
+            or query_desc.offset is not None
+            or bool(source_db_filters)
+            or bool(source_table_filters)
+        )
+
+        if needs_outer:
+            final_sql = f"SELECT * FROM (\n{union_sql}\n) AS union_result"
+
+            where_clauses: List[str] = []
+            where_clauses.extend(build_source_filter_where_clauses(source_db_filters, quote_char))
+            where_clauses.extend(build_source_filter_where_clauses(source_table_filters, quote_char))
+            if where_clauses:
+                final_sql += f"\nWHERE {' AND '.join(where_clauses)}"
+
+            if query_desc.orderBy:
+                order_fragments = []
+                for order in query_desc.orderBy:
+                    direction = "DESC" if order.direction == "desc" else "ASC"
+                    order_fragments.append(f"{quote_char}{order.field}{quote_char} {direction}")
+                final_sql += f"\nORDER BY {', '.join(order_fragments)}"
+
+            if query_desc.limit is not None:
+                final_sql += f"\nLIMIT {query_desc.limit}"
+                if query_desc.offset:
+                    final_sql += f" OFFSET {query_desc.offset}"
+        else:
+            final_sql = union_sql
+
+        final_sql = apply_result_budget(
+            final_sql, query_desc, db_type=db_type, quote_char=quote_char, logger=self._logger
+        )
+
+        self._logger.info("Generated CDF UNION ALL query: %s...", final_sql[:200])
+        return final_sql, []
+
+    # ── Main entry point ─────────────────────────────────────────────────────
+
     def translate(
         self,
         query_desc: QueryDescription,
@@ -224,6 +346,19 @@ class UnionQueryBuilder:
         table_refs = self._parse_table_references(query_desc)
         self._logger.info("Building UNION ALL query for tables: %s", 
                          [f"{db}.{tbl}" if db else tbl for db, tbl in table_refs])
+
+        # CDF queries use their own SELECT construction (quantile breakpoints);
+        # the standard dimension/measure alignment does not apply.
+        if query_desc.query_mode == "cdf" and query_desc.cdf_fields:
+            return self._translate_cdf_union(
+                query_desc,
+                table_refs,
+                db_type=db_type,
+                quote_char=quote_char,
+                with_sampling=with_sampling,
+                with_optimization=with_optimization,
+                optimizer=optimizer,
+            )
 
         # Fetch column information for all tables (name → data_type)
         table_columns_map: Dict[Tuple[str, str], Dict[str, str]] = {

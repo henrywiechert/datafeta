@@ -8,6 +8,7 @@ import { lineChart, verticalLineChart } from './lineChart';
 import { scatterChart } from './scatterChart';
 import { tickStrip } from './tickStrip';
 import { ganttChart } from './ganttChart';
+import { buildCdfOptions, CDF_SUFFIX } from './cdfChart';
 import { CellChartType, ChartTypeOverrides, resolveChartTypeForPair } from '../helpers/chartTypeResolver';
 import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField, sortCategoriesByValue, Orientation } from './barCore';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
@@ -484,6 +485,22 @@ function handleGanttY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plo
   return result.options;
 }
 
+function handleCdf(data: any[], _xf: Field, yf: Field, ctx: ChartContext): Plot.PlotOptions {
+  const valueColumn = yf.columnName;
+  return buildCdfOptions({
+    data,
+    valueColumn,
+    valueLabel: getFieldDisplayName(yf),
+    colorField: ctx.colorField,
+    colorScheme: ctx.colorScheme,
+    colorBias: ctx.colorBias,
+    manualColor: ctx.manualColor,
+    manualSize: ctx.manualSize,
+    tooltipFields: ctx.tooltipFields,
+    facetFields: ctx.facetFields,
+  });
+}
+
 // ---------- Chart Type Registry ---------------------------------------------
 
 /**
@@ -500,6 +517,7 @@ const CHART_HANDLERS: Record<CellChartType, ChartHandler> = {
   dot: handleDot,
   ganttX: handleGanttX,
   ganttY: handleGanttY,
+  cdf: handleCdf,
 };
 
 // ---------- Public API ------------------------------------------------------
