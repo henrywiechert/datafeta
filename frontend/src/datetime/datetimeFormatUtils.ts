@@ -136,11 +136,12 @@ export function formatLocalToUTC(components: DateTimeComponents): string {
 /**
  * Format components into datetime string with milliseconds
  * 
- * Uses database-compatible format (no 'T' or 'Z') for ClickHouse/SQL compatibility.
- * Format: "2024-01-15 14:30:00.123"
+ * Uses ISO 8601 format: "2024-01-15T14:30:00.123Z"
+ * The trailing 'Z' is critical for ClickHouse's parseDateTime64BestEffort()
+ * to interpret the timestamp as UTC rather than server-local time.
  * 
  * @param components Date, time, and milliseconds components
- * @returns Datetime string like "2024-01-15 14:30:00.123"
+ * @returns Datetime string like "2024-01-15T14:30:00.123Z"
  */
 export function formatISODateTime(components: DateTimeComponents): string {
   const { date, time, milliseconds } = components;
@@ -148,9 +149,7 @@ export function formatISODateTime(components: DateTimeComponents): string {
   // Validate and pad milliseconds
   const ms = milliseconds.padStart(3, '0').substring(0, 3);
   
-  // Use space instead of 'T' and no 'Z' for database compatibility
-  // ClickHouse and most SQL databases prefer: "YYYY-MM-DD HH:mm:ss.sss"
-  return `${date} ${time}.${ms}`;
+  return `${date}T${time}.${ms}Z`;
 }
 
 /**
