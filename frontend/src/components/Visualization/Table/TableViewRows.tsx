@@ -15,10 +15,36 @@ import 'ag-grid-community/styles/ag-theme-material.css';
 
 import { TableRowsSortModel } from '../ChartArea/hooks/useTableRowsQuery';
 import { QueryResultColumn } from '../../../types';
+import { mapBackendDataType } from '../../../utils/fieldUtils';
 import ContextMenu from '../ContextMenu';
 import menuStyles from '../ContextMenu.module.css';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
+
+/** Convert an epoch-like number to a Date using magnitude heuristics (s/ms/us/ns). */
+function epochToDate(num: number): Date | null {
+  if (!Number.isFinite(num)) return null;
+  const abs = Math.abs(num);
+  let ms: number;
+  if (abs >= 1e18)      ms = num / 1_000_000;   // nanoseconds
+  else if (abs >= 1e15) ms = num / 1000;         // microseconds
+  else if (abs >= 1e12) ms = num;                // milliseconds
+  else                  ms = num * 1000;         // seconds
+  const d = new Date(ms);
+  return Number.isFinite(d.getTime()) ? d : null;
+}
+
+function formatDate(d: Date, withMicroseconds: boolean): string {
+  if (!withMicroseconds) return d.toLocaleString();
+  const ms = d.getMilliseconds().toString().padStart(3, '0');
+  return `${d.toLocaleString()}.${ms}000`;
+}
+
+/** True when the backend column type has sub-second precision (DateTime64, Timestamp(p), etc.). */
+function isHighPrecisionDatetime(colType: string): boolean {
+  const lower = colType.toLowerCase();
+  return lower.includes('datetime64') || lower.includes('timestamp');
+}
 
 /** Payload emitted by the table context menu filter action. */
 export interface TableCellFilterAction {
@@ -62,23 +88,49 @@ const TableViewRows: React.FC<TableViewRowsProps> = ({
     displayLabel: string;
   } | null>(null);
 
-  const columnDefs: ColDef[] = useMemo(() => {
-    return columns.map((col) => ({
-      field: col.name,
-      headerName: col.name,
-      sortable: true,
-      resizable: true,
-      minWidth: 80,
-      // Handle field names with dots (AG Grid interprets as nested paths)
-      valueGetter: (params: any) => params.data?.[col.name],
-      valueFormatter: (params: any) => {
-        if (params.value === null || params.value === undefined) return '';
-        if (typeof params.value === 'number') return params.value.toLocaleString();
-        if (params.value instanceof Date) return params.value.toLocaleString();
-        return String(params.value);
-      },
-    }));
+  const datetimeColumnsMap = useMemo(() => {
+    const map = new Map<string, boolean>();
+    for (const col of columns) {
+      if (mapBackendDataType(col.type) === 'datetime') {
+        map.set(col.name, isHighPrecisionDatetime(col.type));
+      }
+    }
+    return map;
   }, [columns]);
+
+  const columnDefs: ColDef[] = useMemo(() => {
+    return columns.map((col) => {
+      const highPrecision = datetimeColumnsMap.get(col.name);
+      const isDatetime = highPrecision !== undefined;
+      const withMs = highPrecision === true;
+      return {
+        field: col.name,
+        headerName: col.name,
+        sortable: true,
+        resizable: true,
+        minWidth: 80,
+        valueGetter: (params: any) => params.data?.[col.name],
+        valueFormatter: (params: any) => {
+          if (params.value === null || params.value === undefined) return '';
+          if (isDatetime) {
+            if (params.value instanceof Date) return formatDate(params.value, withMs);
+            if (typeof params.value === 'bigint' || typeof params.value === 'number') {
+              const d = epochToDate(Number(params.value));
+              if (d) return formatDate(d, withMs);
+            }
+            if (typeof params.value === 'string') {
+              const parsed = new Date(params.value);
+              if (!isNaN(parsed.getTime())) return formatDate(parsed, withMs);
+            }
+            return String(params.value);
+          }
+          if (typeof params.value === 'number') return params.value.toLocaleString();
+          if (params.value instanceof Date) return params.value.toLocaleString();
+          return String(params.value);
+        },
+      };
+    });
+  }, [columns, datetimeColumnsMap]);
 
   const handleSortChanged = useCallback(
     (event: SortChangedEvent) => {
