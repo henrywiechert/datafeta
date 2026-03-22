@@ -37,6 +37,11 @@ export interface OrderBy {
   direction?: 'asc' | 'desc';
 }
 
+export interface TableRowsSortModel {
+  field: string;
+  direction: 'asc' | 'desc';
+}
+
 export interface Dimension {
   field: string;
   flavour: Flavour;

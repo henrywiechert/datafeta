@@ -16,7 +16,7 @@ import {
   updateExistingDiscreteFilter,
 } from '../../../../utils/filterActions';
 import { getResultColumnName } from '../../../../utils/fieldUtils';
-import type { Field, FilterConfig, DiscreteFilterConfig } from '../../../../types';
+import type { Field, DiscreteFilterConfig } from '../../../../types';
 import type { TableCellFilterAction } from '../../Table/TableViewRows';
 
 interface UseTableRowsFilterActionsProps {
