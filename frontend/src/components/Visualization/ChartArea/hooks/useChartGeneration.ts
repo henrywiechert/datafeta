@@ -301,7 +301,7 @@ export const useChartGeneration = ({
       // On error, complete the operation immediately since no rendering will happen
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, bandThicknessScale, useTableView, showTableRows, startOperation, completeOperation, queryResult, queryVersion, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, tooltipFields, fieldOverrides, globalChartType, measureValuesSourceFields, independentDomains, doGenerateChart, fieldAliasLookup, facetBackgroundField, facetBackgroundScheme, facetBackgroundOpacity]);
+  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, bandThicknessScale, useTableView, showTableRows, startOperation, completeOperation, queryResult, queryVersion, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, tooltipFields, fieldOverrides, globalChartType, measureValuesSourceFields, independentDomains, doGenerateChart, fieldAliasLookup, facetBackgroundField, facetBackgroundScheme, facetBackgroundOpacity, overlays]);
 
   const cancelGeneration = useCallback(() => {
     // No-op since Observable Plot generation is synchronous
