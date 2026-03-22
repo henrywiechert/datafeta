@@ -4,16 +4,46 @@ import InsertChartOutlinedIcon from '@mui/icons-material/InsertChartOutlined';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import ScatterPlotIcon from '@mui/icons-material/ScatterPlot';
 import BarChartIcon from '@mui/icons-material/BarChart';
-import LinearScaleIcon from '@mui/icons-material/LinearScale';
 import AutoModeIcon from '@mui/icons-material/AutoMode';
-import ViewTimelineIcon from '@mui/icons-material/ViewTimeline';
 import SvgIcon, { SvgIconProps } from '@mui/material/SvgIcon';
 import { UserChartType } from '../../../types';
+
+const TickStripIcon: React.FC<SvgIconProps> = (props) => (
+  <SvgIcon {...props} viewBox="0 0 24 24">
+    {/* Row 1: dense left, loose right */}
+    <line x1="2"  y1="4" x2="2"  y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="6"  y1="4" x2="6"  y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="8"  y1="4" x2="8"  y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="10" y1="4" x2="10" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="15" y1="4" x2="15" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="20" y1="4" x2="20" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    {/* Row 2: loose left, dense right (mirror) */}
+    <line x1="4"  y1="15" x2="4"  y2="20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="9"  y1="15" x2="9"  y2="20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="14" y1="15" x2="14" y2="20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="16" y1="15" x2="16" y2="20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="18" y1="15" x2="18" y2="20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="20" y1="15" x2="20" y2="20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="22" y1="15" x2="22" y2="20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+  </SvgIcon>
+);
+
+const GanttIcon: React.FC<SvgIconProps> = (props) => (
+  <SvgIcon {...props} viewBox="0 0 24 24">
+    {/* Lane 1: two bars with a gap in the middle */}
+    <rect x="2"  y="4"  width="8"  height="4" rx="1" fill="currentColor" />
+    <rect x="14" y="4"  width="8"  height="4" rx="1" fill="currentColor" />
+    {/* Lane 2: ~2/3 width, left aligned */}
+    <rect x="2"  y="10" width="13" height="4" rx="1" fill="currentColor" />
+    {/* Lane 3: ~2/3 width, right aligned */}
+    <rect x="9"  y="16" width="13" height="4" rx="1" fill="currentColor" />
+  </SvgIcon>
+);
 
 const CdfIcon: React.FC<SvgIconProps> = (props) => (
   <SvgIcon {...props} viewBox="0 0 24 24">
     <path
-      d="M3 20 C 6 20, 8 20, 10 16 S 14 4, 16 4 C 18 4, 20 4, 21 4"
+      d="M3 20 C 6 20, 8 20, 10 16 S 14 4, 17 4 C 18 4, 20 4, 21 4"
       fill="none"
       stroke="currentColor"
       strokeWidth="2.5"
@@ -112,28 +142,28 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
             </Tooltip>
           </ToggleButton>
           <ToggleButton value="line" aria-label="line chart" sx={getAutoHighlightSx('line')}>
-            <Tooltip title="Line chart" placement="top">
+            <Tooltip title={<>Line Chart<br/>Dimension on <b>X</b> and Measure on <b>Y</b></>} placement="top">
               <ShowChartIcon sx={{ fontSize: 16 }} />
             </Tooltip>
           </ToggleButton>
           <ToggleButton value="scatter" aria-label="scatter plot" sx={getAutoHighlightSx('scatter')}>
-            <Tooltip title="Scatter / Dot plot" placement="top">
+            <Tooltip title={<>Scatter Chart<br/>Dimensions on <b>X</b> and <b>Y</b></>} placement="top">
               <ScatterPlotIcon sx={{ fontSize: 16 }} />
             </Tooltip>
           </ToggleButton>
           <ToggleButton value="tick" aria-label="tick strip" sx={getAutoHighlightSx('tick')}>
-            <Tooltip title="Tick strip" placement="top">
-              <LinearScaleIcon sx={{ fontSize: 16 }} />
+            <Tooltip title={<>Tick Strip<br/>Dimension on <b>X</b> <u>or</u> <b>Y</b></>} placement="top">
+              <span style={{ display: 'inline-flex' }}><TickStripIcon sx={{ fontSize: 16 }} /></span>
             </Tooltip>
           </ToggleButton>
-          <ToggleButton value="bar" aria-label="bar chart" sx={getAutoHighlightSx('bar')}>
-            <Tooltip title="Bar chart" placement="top">
+            <ToggleButton value="bar" aria-label="bar chart" sx={getAutoHighlightSx('bar')}>
+            <Tooltip title={<>Bar chart<br/>Category on <b>X</b>, Measure on <b>Y</b></>} placement="top">
               <BarChartIcon sx={{ fontSize: 16 }} />
             </Tooltip>
           </ToggleButton>
           <ToggleButton value="gantt" aria-label="gantt chart" sx={getAutoHighlightSx('gantt')}>
             <Tooltip title={<>Gantt chart<br/>Start on <b>X</b>, length on <b>Size</b></>} placement="top">
-              <ViewTimelineIcon sx={{ fontSize: 16 }} />
+              <span style={{ display: 'inline-flex' }}><GanttIcon sx={{ fontSize: 16 }} /></span>
             </Tooltip>
           </ToggleButton>
           <ToggleButton value="cdf" aria-label="CDF chart" sx={getAutoHighlightSx('cdf')}>
