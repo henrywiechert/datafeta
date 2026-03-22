@@ -29,6 +29,7 @@ export function undoRedoReducer(state: VisualizationState, action: Visualization
         facetBackgroundScheme: action.payload.facetBackgroundScheme ?? state.facetBackgroundScheme,
         facetBackgroundOpacity: action.payload.facetBackgroundOpacity ?? state.facetBackgroundOpacity,
         showTableRows: action.payload.showTableRows ?? state.showTableRows,
+        overlays: action.payload.overlays ?? state.overlays,
         queryVersion: state.queryVersion + 1,
       };
     default:

@@ -1,4 +1,5 @@
 import { Field, QueryResult, FieldOverrideState, UserChartType } from '../types';
+import { OverlayConfig } from './overlays/types';
 import { FieldOverrideTarget } from './utils/fieldOverrides';
 import { ColorScaleInfo } from './utils/colorSchemeUtils';
 import { ChartTypeOverrides } from './helpers/chartTypeResolver';
@@ -66,6 +67,8 @@ export interface CartesianPlotsConfig {
   measureValuesSourceFields?: Field[];
   bandThicknessScale?: number;
   ganttZoomRange?: GanttZoomRange | null;
+  /** Statistical overlay configurations */
+  overlays?: OverlayConfig[];
 }
 
 export interface ChartGenerationContext {
@@ -143,6 +146,8 @@ export interface ChartGenerationContext {
    * Used to show user-defined aliases in chart labels, legends, and tooltips.
    */
   fieldAliasLookup?: Record<string, string>;
+  /** Statistical overlay configurations (regression, moving average, Bollinger bands) */
+  overlays?: OverlayConfig[];
 }
 
 /**

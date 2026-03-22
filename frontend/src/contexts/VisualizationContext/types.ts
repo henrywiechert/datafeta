@@ -1,4 +1,5 @@
 import { Field, QueryResult, FilterConfig, FilterMetadata, FieldOverrideState, UserChartType, QueryOptimizationSettings } from '../../types';
+import { OverlayConfig, OverlayType, OverlayParams } from '../../observable-plot-generator/overlays/types';
 
 // Define loading operation types
 export type LoadingOperationType = 'query' | 'rendering' | 'metadata';
@@ -116,6 +117,8 @@ export interface VisualizationState {
   facetLabelStyles: FacetLabelStyles;
   // Chart area caption (markdown)
   chartCaption: string;
+  // Statistical overlays (regression, moving average, Bollinger bands)
+  overlays: OverlayConfig[];
 }
 
 // Define action types
@@ -219,6 +222,7 @@ export type VisualizationAction =
       facetBackgroundScheme?: string;
       facetBackgroundOpacity?: number;
       showTableRows?: boolean;
+      overlays?: OverlayConfig[];
     } }
   // Multi-table actions
   | { type: 'TABLE_JOINS_UNIONS_MODIFIED' }
@@ -244,7 +248,11 @@ export type VisualizationAction =
   | { type: 'SET_FACET_LEFT_HEADER_STYLE'; payload: Partial<FacetHeaderLabelStyle & { widthPx: number | null }> }
   | { type: 'SET_FACET_LEFT_VALUES_STYLE'; payload: Partial<FacetLeftValuesLabelStyle> }
   // Chart caption action
-  | { type: 'SET_CHART_CAPTION'; payload: string };
+  | { type: 'SET_CHART_CAPTION'; payload: string }
+  // Overlay actions
+  | { type: 'SET_OVERLAYS'; payload: OverlayConfig[] }
+  | { type: 'TOGGLE_OVERLAY'; payload: { type: OverlayType; enabled: boolean } }
+  | { type: 'UPDATE_OVERLAY_PARAMS'; payload: { type: OverlayType; params: Partial<OverlayParams> } };
 
 // Helper type for reducer functions
 export type ReducerFn = (state: VisualizationState, action: VisualizationAction) => VisualizationState;

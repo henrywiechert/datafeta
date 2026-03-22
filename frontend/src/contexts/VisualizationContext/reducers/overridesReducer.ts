@@ -56,6 +56,25 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
         queryVersion: cdfChanged ? state.queryVersion + 1 : state.queryVersion,
       };
     }
+    // --- Overlay actions (visual-only, no query version bump) ---
+    case 'SET_OVERLAYS':
+      return { ...state, overlays: action.payload };
+    case 'TOGGLE_OVERLAY':
+      return {
+        ...state,
+        overlays: (state.overlays || []).map(o =>
+          o.type === action.payload.type ? { ...o, enabled: action.payload.enabled } : o
+        ),
+      };
+    case 'UPDATE_OVERLAY_PARAMS':
+      return {
+        ...state,
+        overlays: (state.overlays || []).map(o =>
+          o.type === action.payload.type
+            ? { ...o, params: { ...o.params, ...action.payload.params } }
+            : o
+        ),
+      };
     default:
       return null; // Not handled by this reducer
   }

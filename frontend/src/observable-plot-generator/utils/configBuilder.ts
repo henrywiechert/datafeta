@@ -194,5 +194,6 @@ export function buildCartesianPlotsConfig(
     measureValuesSourceFields: context.measureValuesSourceFields,
     bandThicknessScale: context.bandThicknessScale,
     ganttZoomRange: context.ganttZoomRange,
+    overlays: context.overlays,
   };
 }

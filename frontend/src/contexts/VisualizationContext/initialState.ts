@@ -1,6 +1,7 @@
 import { VisualizationState } from './types';
 import { SIZE_DEFAULT_FALLBACK } from '../../config/chartLayoutConfig';
 import { DEFAULT_MANUAL_COLOR } from '../../config/colorSchemes';
+import { DEFAULT_OVERLAYS } from '../../observable-plot-generator/overlays/types';
 
 // Note: Metadata (databases, tables, selectedDatabase, selectedTable, availableFields,
 // isLoadingMetadata, metadataError) is now stored in DataSourceContext, not here.
@@ -112,5 +113,7 @@ export const initialState: VisualizationState = {
   },
   // Chart area caption
   chartCaption: '## Chart Title',
+  // Statistical overlays (all start disabled)
+  overlays: DEFAULT_OVERLAYS,
 };
 

@@ -79,6 +79,7 @@ const ChartArea: React.FC = () => {
     facetBackgroundScheme,
     facetBackgroundOpacity,
     showTableRows,
+    overlays,
   } = state;
 
   const { selectedTable, selectedDatabase, virtualTable, virtualColumns, sessionAppliedFilterConfigurations } =
@@ -167,6 +168,7 @@ const ChartArea: React.FC = () => {
       facetBackgroundField,
       facetBackgroundScheme,
       facetBackgroundOpacity,
+      overlays,
     });
 
   const { handleLegendFilterAction, specWithTooltipAction } = useFilterActions({

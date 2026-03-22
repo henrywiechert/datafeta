@@ -82,6 +82,8 @@ export interface VisualizationStateSnapshot {
   facetBackgroundOpacity?: number;
   // Chart area caption (markdown)
   chartCaption?: string;
+  // Statistical overlays
+  overlays?: import('../observable-plot-generator/overlays/types').OverlayConfig[];
 }
 
 // --- Sheet Types --- //
