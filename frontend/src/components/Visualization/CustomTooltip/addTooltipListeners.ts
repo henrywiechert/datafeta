@@ -171,23 +171,24 @@ export function addTooltipListeners(
   // - Axis tick marks are inside groups with aria-label containing "axis" (e.g., "y-axis tick")
   const allElements = plot.querySelectorAll('circle, rect, path[fill]:not([fill="none"]), line');
   
-  // Filter out elements that are part of grid or axis decorations
+  // Filter out elements that are part of grid, axis decorations, or overlay marks
   const marks = Array.from(allElements).filter(el => {
-    // For line elements, check if they're inside a grid or axis group
-    if (el.tagName.toLowerCase() === 'line') {
-      // Walk up the DOM tree to check parent group aria-labels
-      let parent = el.parentElement;
-      while (parent && parent !== plot) {
-        const ariaLabel = parent.getAttribute('aria-label');
-        if (ariaLabel) {
-          const labelLower = ariaLabel.toLowerCase();
-          // Exclude grid lines and axis tick marks
-          if (labelLower.includes('grid') || labelLower.includes('axis')) {
-            return false;
-          }
-        }
-        parent = parent.parentElement;
+    // Walk up the DOM tree to check parent group aria-labels and classes
+    let parent = el.parentElement;
+    while (parent && parent !== plot) {
+      // Exclude overlay marks (linear regression, moving average) — they have no data
+      if (parent.classList.contains('overlay-no-tooltip')) {
+        return false;
       }
+      const ariaLabel = parent.getAttribute('aria-label');
+      if (ariaLabel) {
+        const labelLower = ariaLabel.toLowerCase();
+        // Exclude grid lines and axis tick marks
+        if (labelLower.includes('grid') || labelLower.includes('axis')) {
+          return false;
+        }
+      }
+      parent = parent.parentElement;
     }
     return true;
   });

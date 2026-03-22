@@ -28,6 +28,9 @@ export interface OverlayParams {
   color?: string;           // Override stroke/fill color
   opacity?: number;         // Band fill opacity (default 0.15)
   strokeWidth?: number;     // Line thickness (default 1.5)
+  // Linear regression behaviour
+  perGroup?: boolean;       // Fit one line per discrete-color group (default false)
+  showCI?: boolean;         // Show confidence interval band (default true)
 }
 
 // --- Per-overlay configuration -----------------------------------------------
@@ -41,7 +44,7 @@ export interface OverlayConfig {
 // --- Default overlay configs (all start disabled) ----------------------------
 
 export const DEFAULT_OVERLAYS: OverlayConfig[] = [
-  { type: 'linearRegression', enabled: false, params: { ci: 0.95, color: '#e15759', strokeWidth: 1.5 } },
+  { type: 'linearRegression', enabled: false, params: { ci: 0.95, color: '#e15759', strokeWidth: 1.5, perGroup: false, showCI: true } },
   { type: 'movingAverage',    enabled: false, params: { windowSize: 20, reduce: 'mean', anchor: 'middle', color: '#4e79a7', strokeWidth: 2 } },
 ];
 

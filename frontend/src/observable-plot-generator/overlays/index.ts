@@ -23,6 +23,7 @@ type OverlayBuilder = (
   yCol: string,
   params: OverlayParams,
   orientation: 'x' | 'y',
+  colorColumn?: string,
 ) => Plot.Markish;
 
 const BUILDERS: Record<OverlayType, OverlayBuilder> = {
@@ -43,6 +44,8 @@ export interface OverlayMeta {
   chartType: UserChartType;
   /** Which axis carries the dependent (value) variable */
   orientation: 'x' | 'y';
+  /** Column name of the active discrete color field (enables per-group regression) */
+  colorColumn?: string;
 }
 
 /**
@@ -78,7 +81,7 @@ export function applyOverlays(
     if (!builder) continue;
 
     extraMarks.push(
-      builder(sorted, meta.xColumn, meta.yColumn, overlay.params, meta.orientation),
+      builder(sorted, meta.xColumn, meta.yColumn, overlay.params, meta.orientation, meta.colorColumn),
     );
   }
 

@@ -13,24 +13,30 @@ export function buildLinearRegression(
   xCol: string,
   yCol: string,
   params: OverlayParams,
-  orientation: 'x' | 'y'
+  orientation: 'x' | 'y',
+  colorColumn?: string,
 ): Plot.Markish {
   const ci = params.ci ?? 0.95;
   const color = params.color ?? '#e15759';
   const fillOpacity = params.opacity ?? 0.1;
   const strokeWidth = params.strokeWidth ?? 1.5;
+  const perGroup = params.perGroup ?? false;
+  const showCI = params.showCI ?? true;
 
   const markFn = orientation === 'y'
     ? Plot.linearRegressionY
     : Plot.linearRegressionX;
 
+  const useGroupColor = perGroup && !!colorColumn;
+
   return markFn(data, {
     x: xCol,
     y: yCol,
-    ci,
-    stroke: color,
-    fill: color,
-    fillOpacity,
+    ci: showCI ? ci : 0,
+    stroke: useGroupColor ? colorColumn : color,
+    fill: useGroupColor ? colorColumn : color,
+    fillOpacity: showCI ? fillOpacity : 0,
     strokeWidth,
-  });
+    className: 'overlay-no-tooltip',
+  } as any);
 }

@@ -46,38 +46,66 @@ const InlineColorPicker: React.FC<{ value: string; onChange: (c: string) => void
 const RegressionControls: React.FC<{
   params: OverlayParams;
   onUpdate: (p: Partial<OverlayParams>) => void;
-}> = ({ params, onUpdate }) => (
-  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <Typography variant="caption" sx={{ minWidth: 18 }}>CI</Typography>
-      <Slider
-        size="small"
-        min={0.8}
-        max={0.99}
-        step={0.01}
-        value={params.ci ?? 0.95}
-        onChange={(_, v) => onUpdate({ ci: v as number })}
-        valueLabelDisplay="auto"
-        valueLabelFormat={v => `${Math.round(v * 100)}%`}
-        sx={{ flex: 1, minWidth: 60 }}
-      />
-      <InlineColorPicker value={params.color ?? '#e15759'} onChange={c => onUpdate({ color: c })} />
+  hasDiscreteColor?: boolean;
+}> = ({ params, onUpdate, hasDiscreteColor }) => {
+  const showCI = params.showCI ?? true;
+  const perGroup = params.perGroup ?? false;
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+      {/* CI toggle + slider + color (color hidden when per-group) */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography variant="caption" sx={{ minWidth: 18 }}>CI</Typography>
+        <Switch
+          size="small"
+          checked={showCI}
+          onChange={(_, v) => onUpdate({ showCI: v })}
+          sx={{ flexShrink: 0 }}
+        />
+        {showCI && (
+          <Slider
+            size="small"
+            min={0.8}
+            max={0.99}
+            step={0.01}
+            value={params.ci ?? 0.95}
+            onChange={(_, v) => onUpdate({ ci: v as number })}
+            valueLabelDisplay="auto"
+            valueLabelFormat={v => `${Math.round(v * 100)}%`}
+            sx={{ flex: 1, minWidth: 60 }}
+          />
+        )}
+        {!perGroup && (
+          <InlineColorPicker value={params.color ?? '#e15759'} onChange={c => onUpdate({ color: c })} />
+        )}
+      </Box>
+      {/* Line thickness */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography variant="caption" sx={{ minWidth: 18 }}>Px</Typography>
+        <Slider
+          size="small"
+          min={0.5}
+          max={5}
+          step={0.5}
+          value={params.strokeWidth ?? 1.5}
+          onChange={(_, v) => onUpdate({ strokeWidth: v as number })}
+          valueLabelDisplay="auto"
+          sx={{ flex: 1, minWidth: 60 }}
+        />
+      </Box>
+      {/* Per group — only shown when a discrete color field is active */}
+      {hasDiscreteColor && (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography variant="caption">Per group</Typography>
+          <Switch
+            size="small"
+            checked={perGroup}
+            onChange={(_, v) => onUpdate({ perGroup: v })}
+          />
+        </Box>
+      )}
     </Box>
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <Typography variant="caption" sx={{ minWidth: 18 }}>Px</Typography>
-      <Slider
-        size="small"
-        min={0.5}
-        max={5}
-        step={0.5}
-        value={params.strokeWidth ?? 1.5}
-        onChange={(_, v) => onUpdate({ strokeWidth: v as number })}
-        valueLabelDisplay="auto"
-        sx={{ flex: 1, minWidth: 60 }}
-      />
-    </Box>
-  </Box>
-);
+  );
+};
 
 const MovingAverageControls: React.FC<{
   params: OverlayParams;
@@ -143,7 +171,7 @@ const MovingAverageControls: React.FC<{
   );
 };
 
-const OVERLAY_CONTROLS: Record<OverlayType, React.FC<{ params: OverlayParams; onUpdate: (p: Partial<OverlayParams>) => void }>> = {
+const OVERLAY_CONTROLS: Record<OverlayType, React.FC<{ params: OverlayParams; onUpdate: (p: Partial<OverlayParams>) => void; hasDiscreteColor?: boolean }>> = {
   linearRegression: RegressionControls,
   movingAverage: MovingAverageControls,
 };
@@ -160,7 +188,7 @@ const OverlaysSection: React.FC = () => {
   const { state, dispatch, getUndoableSnapshot } = useVisualizationContext();
   const { recordAction } = useUndoRedo();
 
-  const { globalChartType, overlays: overlayConfigs, xAxisFields, yAxisFields } = state;
+  const { globalChartType, overlays: overlayConfigs, xAxisFields, yAxisFields, colorField } = state;
   const overlays: OverlayConfig[] = overlayConfigs ?? DEFAULT_OVERLAYS;
 
   // Resolve effective chart type: user-selected or auto-detected
@@ -208,6 +236,8 @@ const OverlaysSection: React.FC = () => {
   // Build lookup from config array
   const byType: Record<string, OverlayConfig> = {};
   for (const o of overlays) byType[o.type] = o;
+
+  const hasDiscreteColor = !!(colorField && (colorField as Field).flavour === 'discrete');
 
   const handleToggle = (type: OverlayType, enabled: boolean) => {
     recordAction(getUndoableSnapshot());
@@ -289,7 +319,7 @@ const OverlaysSection: React.FC = () => {
               {/* Controls: directly inside the card, visible when enabled */}
               {enabled && (
                 <Box sx={{ px: 0.75, pb: 0.75, pt: 0 }}>
-                  <Controls params={params} onUpdate={p => handleUpdateParams(meta.type, p)} />
+                  <Controls params={params} onUpdate={p => handleUpdateParams(meta.type, p)} hasDiscreteColor={hasDiscreteColor} />
                 </Box>
               )}
             </Box>
