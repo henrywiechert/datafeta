@@ -15,6 +15,7 @@ import FieldsPanel from '../components/Visualization/FieldsPanel';
 import ChartPanel from '../components/Visualization/ChartPanel';
 import FilterPanel from '../components/Visualization/Filters/FilterPanel';
 import FieldOverridesPanel from '../components/Visualization/Overrides/FieldOverridesPanel';
+import OverlaysSection from '../components/Visualization/Overrides/OverlaysSection';
 import MeasureGroupsPanel from '../components/Visualization/MeasureGroups';
 import LoadingModal from '../components/LoadingModal';
 import CollapsedPanelStrip from '../components/Layout/CollapsedPanelStrip';
@@ -522,6 +523,7 @@ const VisualizationPageContent = () => {
                                   globalFilterIds={globalFilterIds}
                               />
                               <FieldOverridesPanel />
+                              <OverlaysSection />
                               <MeasureGroupsPanel />
                           </Box>
                         )}

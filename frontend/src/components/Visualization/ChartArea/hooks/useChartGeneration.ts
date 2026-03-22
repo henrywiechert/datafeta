@@ -1,6 +1,7 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { generatePlot } from '../../../../observable-plot-generator/observablePlotGenerator';
 import { PlotResult, ChartGenerationContext, GanttZoomRange } from '../../../../observable-plot-generator/types';
+import { OverlayConfig } from '../../../../observable-plot-generator/overlays/types';
 import { Field, FieldOverrideState, UserChartType } from '../../../../types';
 import { computeOverrideTargets } from '../../../../observable-plot-generator/utils/fieldOverrides';
 import { logOperationTiming } from '../utils';
@@ -43,6 +44,8 @@ interface UseChartGenerationProps {
   facetBackgroundField?: Field | null;
   facetBackgroundScheme?: string;
   facetBackgroundOpacity?: number;
+  // Statistical overlays
+  overlays?: OverlayConfig[];
 }
 
 interface UseChartGenerationReturn {
@@ -90,6 +93,7 @@ export const useChartGeneration = ({
   facetBackgroundField,
   facetBackgroundScheme,
   facetBackgroundOpacity,
+  overlays,
 }: UseChartGenerationProps): UseChartGenerationReturn => {
   const [spec, setSpec] = useState<PlotResult | null>(null);
   const [chartInfo, setChartInfo] = useState<any | null>(null);
@@ -247,6 +251,7 @@ export const useChartGeneration = ({
         facetBackgroundField: facetBackgroundField || undefined,
         facetBackgroundScheme,
         facetBackgroundOpacity,
+        overlays,
       };
       
       // Track which zoom range we generated with

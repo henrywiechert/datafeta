@@ -1,12 +1,15 @@
 import * as Plot from '@observablehq/plot';
 import { generatePairChartOptions } from '../chartTypes/cellCharts';
 import { Field } from '../../types';
-import { ChartTypeOverrides, mapUserChartTypeToCellChartType } from '../helpers/chartTypeResolver';
+import { ChartTypeOverrides, mapUserChartTypeToCellChartType, resolveChartTypeForPair } from '../helpers/chartTypeResolver';
+import { getFieldColumnName } from '../helpers/fields';
 import { CartesianPlotsConfig } from '../types';
 import { FieldOverrideState } from '../../types';
 import { deriveColorScaleInfo, applyMeasureNameColorOverrides } from '../utils/colorSchemeUtils';
 import { isMeasureValuesField, combineMeasureValuesOverrides } from '../../utils/syntheticFields';
 import { hasAnyMeasureOverrides, generateMeasureValuesMultiMarkPlot } from '../chartTypes/measureValuesMultiMark';
+import { applyOverlays } from '../overlays';
+import { cellChartTypeToUserType } from '../overlays/types';
 
 export type CartesianPlot = {
   id: string;
@@ -38,6 +41,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
     measureValuesSourceFields,
     bandThicknessScale,
     ganttZoomRange,
+    overlays: overlayConfigs,
   } = config;
 
   // Extract encoding options
@@ -265,6 +269,21 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
           sharedDomains.categorical,
           ganttZoomRange
         );
+      }
+
+      // Apply statistical overlays (regression, moving average, Bollinger bands)
+      if (overlayConfigs?.length) {
+        const resolvedCellType = resolveChartTypeForPair(xField, yField, cellChartTypeOverrides);
+        const userChartType = cellChartTypeToUserType(resolvedCellType);
+        // Determine orientation: dependent (value) axis — Y for most charts, X for barX/tickX/ganttX
+        const depAxis: 'x' | 'y' = (resolvedCellType === 'barX' || resolvedCellType === 'tickX' || resolvedCellType === 'ganttX') ? 'x' : 'y';
+        options = applyOverlays(options, overlayConfigs, {
+          data,
+          xColumn: getFieldColumnName(xField),
+          yColumn: getFieldColumnName(yField),
+          chartType: userChartType,
+          orientation: depAxis,
+        });
       }
 
       // Apply shared color domain to keep color mapping consistent across the grid
