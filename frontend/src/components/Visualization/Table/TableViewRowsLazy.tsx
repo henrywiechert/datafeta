@@ -1,6 +1,6 @@
 import React, { lazy, Suspense } from 'react';
 import { Box, Skeleton } from '@mui/material';
-import { TableRowsSortModel } from '../ChartArea/hooks/useTableRowsQuery';
+import { TableRowsSortModel } from '../../../types';
 import { QueryResultColumn } from '../../../types';
 import type { TableCellFilterAction } from './TableViewRows';
 

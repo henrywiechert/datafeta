@@ -14,10 +14,8 @@ import { metadataApi } from '../../../../services/api/metadataApi';
 import { convertFilterConfigsToFilters, extractColumnCasts } from '../../../../queryBuilder/queryBuilder';
 import { getResultColumnName } from '../../../../utils/fieldUtils';
 
-export interface TableRowsSortModel {
-  field: string;
-  direction: 'asc' | 'desc';
-}
+import type { TableRowsSortModel } from '../../../../types';
+export type { TableRowsSortModel } from '../../../../types';
 
 export interface UseTableRowsQueryProps {
   enabled: boolean;

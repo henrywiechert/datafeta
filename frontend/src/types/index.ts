@@ -73,6 +73,7 @@ export type {
   OptimizationOverride,
   ResultDimensions,
   OptimizationMetadata,
+  TableRowsSortModel,
 } from './query';
 
 // Filter types

@@ -8,7 +8,7 @@ import TableRowsPagination from '../../Table/TableRowsPagination';
 import BarSortControl from './BarSortControl';
 import { PlotResult } from '../../../../observable-plot-generator/types';
 import { TableData } from '../types';
-import { TableRowsSortModel } from '../hooks/useTableRowsQuery';
+import { TableRowsSortModel } from '../../../../types';
 import { QueryResultColumn } from '../../../../types';
 import type { TableCellFilterAction } from '../../Table/TableViewRows';
 

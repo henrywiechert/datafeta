@@ -13,7 +13,7 @@ import { Box, Typography } from '@mui/material';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-material.css';
 
-import { TableRowsSortModel } from '../ChartArea/hooks/useTableRowsQuery';
+import { TableRowsSortModel } from '../../../types';
 import { QueryResultColumn } from '../../../types';
 import { isDatetimeType, isHighPrecisionDatetime, formatDatetimeValue } from './dateTimeFormatting';
 import ContextMenu from '../ContextMenu';
