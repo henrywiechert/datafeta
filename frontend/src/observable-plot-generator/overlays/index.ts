@@ -14,7 +14,6 @@ import { UserChartType } from '../../types';
 import { OverlayConfig, OverlayType, OverlayParams, OVERLAY_META } from './types';
 import { buildLinearRegression } from './linearRegression';
 import { buildMovingAverage } from './movingAverage';
-import { buildBollingerBands } from './bollingerBands';
 
 // --- Builder registry -------------------------------------------------------
 
@@ -29,7 +28,6 @@ type OverlayBuilder = (
 const BUILDERS: Record<OverlayType, OverlayBuilder> = {
   linearRegression: buildLinearRegression,
   movingAverage: buildMovingAverage,
-  bollingerBands: buildBollingerBands,
 };
 
 // Build applicability lookup from OVERLAY_META
@@ -61,8 +59,8 @@ export function applyOverlays(
 
   const extraMarks: Plot.Markish[] = [];
 
-  // Pre-sort data by the independent axis so rolling-window transforms
-  // (moving average, Bollinger) produce a smooth left-to-right line.
+  // Pre-sort data by the independent axis so the moving average
+  // transform produces a smooth left-to-right line.
   const sortCol = meta.orientation === 'y' ? meta.xColumn : meta.yColumn;
   const sorted = [...meta.data].sort((a, b) => {
     const va = a[sortCol], vb = b[sortCol];

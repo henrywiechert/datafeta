@@ -1,7 +1,7 @@
 /**
  * Overlay Types
  *
- * Types for statistical overlay marks (regression, moving average, Bollinger bands).
+ * Types for statistical overlay marks (regression, moving average).
  * Overlays are add-on marks appended to existing chart PlotOptions — they never
  * modify the primary chart handler logic.
  */
@@ -11,7 +11,7 @@ import { CellChartType } from '../helpers/chartTypeResolver';
 
 // --- Overlay type identifiers ------------------------------------------------
 
-export type OverlayType = 'linearRegression' | 'movingAverage' | 'bollingerBands';
+export type OverlayType = 'linearRegression' | 'movingAverage';
 
 // --- Per-overlay parameters (union bag — each builder picks what it needs) ----
 
@@ -24,12 +24,10 @@ export interface OverlayParams {
   reduce?: string;          // 'mean' | 'median' | 'sum' | 'min' | 'max' (default 'mean')
   anchor?: 'start' | 'middle' | 'end';  // Window anchor (default 'middle')
 
-  // Bollinger-specific
-  bandWidth?: number;       // k — standard deviations (default 2)
-
   // Visual styling
   color?: string;           // Override stroke/fill color
   opacity?: number;         // Band fill opacity (default 0.15)
+  strokeWidth?: number;     // Line thickness (default 1.5)
 }
 
 // --- Per-overlay configuration -----------------------------------------------
@@ -43,9 +41,8 @@ export interface OverlayConfig {
 // --- Default overlay configs (all start disabled) ----------------------------
 
 export const DEFAULT_OVERLAYS: OverlayConfig[] = [
-  { type: 'linearRegression', enabled: false, params: { ci: 0.95, color: '#e15759' } },
-  { type: 'movingAverage',    enabled: false, params: { windowSize: 20, reduce: 'mean', anchor: 'middle', color: '#4e79a7' } },
-  { type: 'bollingerBands',   enabled: false, params: { windowSize: 20, bandWidth: 2, opacity: 0.15, color: '#59a14f' } },
+  { type: 'linearRegression', enabled: false, params: { ci: 0.95, color: '#e15759', strokeWidth: 1.5 } },
+  { type: 'movingAverage',    enabled: false, params: { windowSize: 20, reduce: 'mean', anchor: 'middle', color: '#4e79a7', strokeWidth: 2 } },
 ];
 
 // --- Overlay metadata (for UI + registry) ------------------------------------
@@ -66,11 +63,6 @@ export const OVERLAY_META: readonly OverlayMeta[] = [
   {
     type: 'movingAverage',
     label: 'Moving Average',
-    applicableTo: new Set<UserChartType>(['line']),
-  },
-  {
-    type: 'bollingerBands',
-    label: 'Bollinger Bands',
     applicableTo: new Set<UserChartType>(['line']),
   },
 ] as const;

@@ -18,6 +18,7 @@ export function buildLinearRegression(
   const ci = params.ci ?? 0.95;
   const color = params.color ?? '#e15759';
   const fillOpacity = params.opacity ?? 0.1;
+  const strokeWidth = params.strokeWidth ?? 1.5;
 
   const markFn = orientation === 'y'
     ? Plot.linearRegressionY
@@ -30,5 +31,6 @@ export function buildLinearRegression(
     stroke: color,
     fill: color,
     fillOpacity,
+    strokeWidth,
   });
 }
