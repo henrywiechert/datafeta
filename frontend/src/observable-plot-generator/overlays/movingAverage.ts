@@ -19,6 +19,7 @@ export function buildMovingAverage(
   const reduce = params.reduce ?? 'mean';
   const anchor = params.anchor ?? 'middle';
   const color = params.color ?? '#4e79a7';
+  const strokeWidth = params.strokeWidth ?? 2;
 
   const windowOpts = { k, reduce: reduce as Plot.WindowReducer, anchor };
 
@@ -27,13 +28,13 @@ export function buildMovingAverage(
       x: xCol,
       y: yCol,
       stroke: color,
-      strokeWidth: 2,
+      strokeWidth,
     }));
   }
   return Plot.lineX(data, Plot.windowX(windowOpts, {
     x: xCol,
     y: yCol,
     stroke: color,
-    strokeWidth: 2,
+    strokeWidth,
   }));
 }
