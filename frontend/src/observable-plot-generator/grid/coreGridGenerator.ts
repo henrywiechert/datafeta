@@ -283,6 +283,9 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
           yColumn: getFieldColumnName(yField),
           chartType: userChartType,
           orientation: depAxis,
+          colorColumn: (cellColorField && cellColorField.flavour === 'discrete')
+            ? getFieldColumnName(cellColorField)
+            : undefined,
         });
       }
 

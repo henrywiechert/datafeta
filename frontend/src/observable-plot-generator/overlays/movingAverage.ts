@@ -29,6 +29,7 @@ export function buildMovingAverage(
       y: yCol,
       stroke: color,
       strokeWidth,
+      className: 'overlay-no-tooltip',
     }));
   }
   return Plot.lineX(data, Plot.windowX(windowOpts, {
@@ -36,5 +37,6 @@ export function buildMovingAverage(
     y: yCol,
     stroke: color,
     strokeWidth,
+    className: 'overlay-no-tooltip',
   }));
 }
