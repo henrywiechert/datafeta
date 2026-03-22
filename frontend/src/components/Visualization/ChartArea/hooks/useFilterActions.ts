@@ -8,6 +8,7 @@
  */
 
 import { useCallback, useMemo } from 'react';
+import { useVisualizationContext } from '../../../../contexts/VisualizationContext';
 import { toDatePartInteger } from '../utils/dateTimeConversion';
 import { addFieldAsDiscreteFilter, updateExistingDiscreteFilter } from '../../../../utils/filterActions';
 import { getResultColumnName } from '../../../../utils/fieldUtils';
@@ -15,11 +16,6 @@ import type { DateTimePart } from '../../../../types';
 import type { LegendFilterAction } from '../../Legend/LegendPanel';
 
 interface UseFilterActionsProps {
-  colorField: any;
-  filterFields: any[];
-  filterConfigurations: Record<string, any>;
-  queryResult: any;
-  dispatch: (action: any) => void;
   recordAction: (snapshot: any) => void;
   getUndoableSnapshot: () => any;
   /** Chart spec produced by useChartGeneration – used for tooltip callback injection. */
@@ -27,15 +23,12 @@ interface UseFilterActionsProps {
 }
 
 export function useFilterActions({
-  colorField,
-  filterFields,
-  filterConfigurations,
-  queryResult,
-  dispatch,
   recordAction,
   getUndoableSnapshot,
   spec,
 }: UseFilterActionsProps) {
+  const { state, dispatch } = useVisualizationContext();
+  const { colorField, filterFields, filterConfigurations, queryResult } = state;
   // ── Legend → Filter bridge ───────────────────────────────────────────
   const handleLegendFilterAction = useCallback(
     (action: LegendFilterAction, values: any[], allDomainValues: any[]) => {

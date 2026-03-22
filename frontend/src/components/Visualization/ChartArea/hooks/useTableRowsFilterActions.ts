@@ -10,6 +10,7 @@
  */
 
 import { useCallback, useMemo } from 'react';
+import { useVisualizationContext } from '../../../../contexts/VisualizationContext';
 import {
   addFieldAsDiscreteFilter,
   updateExistingDiscreteFilter,
@@ -19,32 +20,16 @@ import type { Field, FilterConfig, DiscreteFilterConfig } from '../../../../type
 import type { TableCellFilterAction } from '../../Table/TableViewRows';
 
 interface UseTableRowsFilterActionsProps {
-  xAxisFields: Field[];
-  yAxisFields: Field[];
-  colorField: Field | null;
-  sizeField: Field | null;
-  labelFields: Field[];
-  tooltipFields: Field[];
-  filterFields: Field[];
-  filterConfigurations: Record<string, FilterConfig>;
-  dispatch: (action: any) => void;
   recordAction: (snapshot: any) => void;
   getUndoableSnapshot: () => any;
 }
 
 export function useTableRowsFilterActions({
-  xAxisFields,
-  yAxisFields,
-  colorField,
-  sizeField,
-  labelFields,
-  tooltipFields,
-  filterFields,
-  filterConfigurations,
-  dispatch,
   recordAction,
   getUndoableSnapshot,
 }: UseTableRowsFilterActionsProps) {
+  const { state, dispatch } = useVisualizationContext();
+  const { xAxisFields, yAxisFields, colorField, sizeField, labelFields, tooltipFields, filterFields, filterConfigurations } = state;
   // Collect all encoding-channel fields (mirrors collectAllFields in useTableRowsQuery)
   const allFields = useMemo(() => {
     const seen = new Set<string>();
