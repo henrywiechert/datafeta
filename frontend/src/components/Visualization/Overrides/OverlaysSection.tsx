@@ -8,7 +8,7 @@
  * Self-contained: reads and dispatches to VisualizationContext directly.
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Box, Checkbox, FormControlLabel, Slider, Select, MenuItem, Typography, TextField, Collapse } from '@mui/material';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import { PropertySection } from '../Properties';
@@ -21,7 +21,9 @@ import {
   OVERLAY_META,
   DEFAULT_OVERLAYS,
 } from '../../../observable-plot-generator/overlays/types';
-import { UserChartType } from '../../../types';
+import { UserChartType, Field } from '../../../types';
+import { detectDefaultChartTypeForPair, CellChartType } from '../../../observable-plot-generator/helpers/chartTypeResolver';
+import { analyzeFields } from '../../../observable-plot-generator/analysis/fieldAnalysis';
 
 // --- Color picker (tiny inline swatch + native input) -----------------------
 
@@ -137,9 +139,42 @@ const OverlaysSection: React.FC = () => {
   const { state, dispatch, getUndoableSnapshot } = useVisualizationContext();
   const { recordAction } = useUndoRedo();
 
-  const { globalChartType, overlays: overlayConfigs } = state;
+  const { globalChartType, overlays: overlayConfigs, xAxisFields, yAxisFields } = state;
   const overlays: OverlayConfig[] = overlayConfigs ?? DEFAULT_OVERLAYS;
-  const chartType: UserChartType | undefined = globalChartType ?? undefined;
+
+  // Resolve effective chart type: user-selected or auto-detected
+  const chartType: UserChartType | undefined = useMemo(() => {
+    if (globalChartType) return globalChartType;
+    const xFields = xAxisFields as Field[];
+    const yFields = yAxisFields as Field[];
+    if (!xFields?.length && !yFields?.length) return undefined;
+
+    const xCandidates = xFields.filter(
+      (f) => f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous'),
+    );
+    const yCandidates = yFields.filter(
+      (f) => f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous'),
+    );
+
+    if (xCandidates.length > 0 && yCandidates.length > 0) {
+      const cellType: CellChartType = detectDefaultChartTypeForPair(xCandidates[0], yCandidates[0]);
+      if (cellType === 'barX' || cellType === 'barY') return 'bar';
+      if (cellType === 'tickX' || cellType === 'tickY') return 'tick';
+      if (cellType === 'dot') return 'scatter';
+      if (cellType === 'ganttX' || cellType === 'ganttY') return 'gantt';
+      if (cellType === 'scatter' || cellType === 'line') return cellType;
+      return undefined;
+    }
+
+    const analysis = analyzeFields(xFields, yFields);
+    const xHasContinuousDim = analysis.xDimensions.some((d) => d.flavour === 'continuous');
+    const yHasContinuousDim = analysis.yDimensions.some((d) => d.flavour === 'continuous');
+    const hasMeasures = analysis.hasMeasure;
+
+    if (!hasMeasures && (xHasContinuousDim || yHasContinuousDim)) return 'tick';
+    if (hasMeasures) return 'bar';
+    return 'scatter';
+  }, [globalChartType, xAxisFields, yAxisFields]);
 
   // Determine which overlays apply to the current chart type
   const applicableMeta = OVERLAY_META.filter(
