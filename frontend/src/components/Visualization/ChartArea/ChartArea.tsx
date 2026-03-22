@@ -79,7 +79,7 @@ const ChartArea: React.FC = () => {
     facetBackgroundScheme,
     facetBackgroundOpacity,
     showTableRows,
-  } = state as any;
+  } = state;
 
   const { selectedTable, selectedDatabase, virtualTable, virtualColumns, sessionAppliedFilterConfigurations } =
     dataSource;
@@ -129,9 +129,6 @@ const ChartArea: React.FC = () => {
     tooltipFields,
     virtualTable,
     virtualColumns,
-    startOperation,
-    completeOperation,
-    dispatch,
     additionalColorFields,
     additionalSizeFields,
     additionalLabelFields,
@@ -173,26 +170,12 @@ const ChartArea: React.FC = () => {
     });
 
   const { handleLegendFilterAction, specWithTooltipAction } = useFilterActions({
-    colorField,
-    filterFields: state.filterFields,
-    filterConfigurations: state.filterConfigurations,
-    queryResult,
-    dispatch,
     recordAction,
     getUndoableSnapshot,
     spec,
   });
 
   const { handleTableCellFilterAction } = useTableRowsFilterActions({
-    xAxisFields,
-    yAxisFields,
-    colorField,
-    sizeField,
-    labelFields,
-    tooltipFields,
-    filterFields: state.filterFields,
-    filterConfigurations: state.filterConfigurations,
-    dispatch,
     recordAction,
     getUndoableSnapshot,
   });

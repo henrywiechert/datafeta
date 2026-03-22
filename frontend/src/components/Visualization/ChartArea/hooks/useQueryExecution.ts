@@ -44,9 +44,6 @@ export interface UseQueryExecutionProps {
   additionalSizeFields?: Field[];
   additionalLabelFields?: Field[];
   optimizationSettings?: QueryOptimizationSettings;
-  startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
-  completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
-  dispatch: (action: any) => void;
 }
 
 export interface UseQueryExecutionReturn {
@@ -97,13 +94,10 @@ export const useQueryExecution = ({
   additionalSizeFields = [],
   additionalLabelFields = [],
   optimizationSettings,
-  startOperation,
-  completeOperation,
-  dispatch,
 }: UseQueryExecutionProps): UseQueryExecutionReturn => {
   const { connectionDetails } = useConnection();
   const { dataSource } = useDataSource();
-  const { state: vizState } = useVisualizationContext();
+  const { state: vizState, dispatch, startOperation, completeOperation } = useVisualizationContext();
   const { activeSheet } = useSheetContext();
 
   // Track query version for deduplication
