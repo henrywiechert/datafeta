@@ -45,7 +45,7 @@ export interface OverlayConfig {
 
 export const DEFAULT_OVERLAYS: OverlayConfig[] = [
   { type: 'linearRegression', enabled: false, params: { ci: 0.95, color: '#e15759', strokeWidth: 1.5, perGroup: false, showCI: true } },
-  { type: 'movingAverage',    enabled: false, params: { windowSize: 20, reduce: 'mean', anchor: 'middle', color: '#4e79a7', strokeWidth: 2 } },
+  { type: 'movingAverage',    enabled: false, params: { windowSize: 20, reduce: 'mean', anchor: 'middle', color: '#4e79a7', strokeWidth: 2, perGroup: false } },
 ];
 
 // --- Overlay metadata (for UI + registry) ------------------------------------

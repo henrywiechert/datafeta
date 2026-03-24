@@ -110,9 +110,11 @@ const RegressionControls: React.FC<{
 const MovingAverageControls: React.FC<{
   params: OverlayParams;
   onUpdate: (p: Partial<OverlayParams>) => void;
-}> = ({ params, onUpdate }) => {
+  hasDiscreteColor?: boolean;
+}> = ({ params, onUpdate, hasDiscreteColor }) => {
   const committed = params.windowSize ?? 20;
   const [raw, setRaw] = useState(String(committed));
+  const perGroup = params.perGroup ?? false;
 
   // Keep local text in sync if the committed value changes externally
   useEffect(() => { setRaw(String(committed)); }, [committed]);
@@ -152,7 +154,9 @@ const MovingAverageControls: React.FC<{
         <MenuItem value="min">Min</MenuItem>
         <MenuItem value="max">Max</MenuItem>
       </Select>
-      <InlineColorPicker value={params.color ?? '#4e79a7'} onChange={c => onUpdate({ color: c })} />
+      {!perGroup && (
+        <InlineColorPicker value={params.color ?? '#4e79a7'} onChange={c => onUpdate({ color: c })} />
+      )}
     </Box>
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
       <Typography variant="caption" sx={{ minWidth: 18 }}>Px</Typography>
@@ -167,6 +171,17 @@ const MovingAverageControls: React.FC<{
         sx={{ flex: 1, minWidth: 60 }}
       />
     </Box>
+    {/* Per group — only shown when a discrete color field is active */}
+    {hasDiscreteColor && (
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant="caption">Per group</Typography>
+        <Switch
+          size="small"
+          checked={perGroup}
+          onChange={(_, v) => onUpdate({ perGroup: v })}
+        />
+      </Box>
+    )}
   </Box>
   );
 };
