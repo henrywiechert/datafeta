@@ -66,6 +66,8 @@ export interface VisualizationState {
   filterConfigurations: Record<string, FilterConfig>;
   filterMetadata: Record<string, FilterMetadata>;
   appliedFilterConfigurations: Record<string, FilterConfig>;
+  // Filter IDs that are temporarily disabled on this sheet (config preserved)
+  disabledFilterIds: string[];
   // Color encoding state
   colorField: Field | null;
   colorScheme: string;
@@ -157,6 +159,7 @@ export type VisualizationAction =
   | { type: 'SET_FILTER_METADATA'; payload: { fieldId: string; metadata: FilterMetadata } }
   | { type: 'REMOVE_FILTER_CONFIGURATION'; payload: string }
   | { type: 'APPLY_FILTERS' }
+  | { type: 'TOGGLE_FILTER_DISABLED'; payload: string }
   // Color encoding actions
   | { type: 'SET_COLOR_FIELD'; payload: Field | null }
   | { type: 'SET_COLOR_SCHEME'; payload: string }

@@ -1,10 +1,11 @@
 import React, { useState, useCallback } from 'react';
-import { Box, IconButton, Collapse, Tooltip, ToggleButton } from '@mui/material';
+import { Box, IconButton, Collapse, Tooltip, ToggleButton, Menu, MenuItem, Divider } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import PublicIcon from '@mui/icons-material/Public';
 import DescriptionIcon from '@mui/icons-material/Description';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { Field, FilterConfig, FilterMetadata, FilterScope } from '../../../types';
 import DiscreteFilterControl from './DiscreteFilterControl';
 import ContinuousFilterControl from './ContinuousFilterControl';
@@ -23,6 +24,9 @@ interface FilterFieldChipProps {
   // New: scope-related props
   filterScope?: FilterScope;
   onScopeChange?: (newScope: FilterScope) => void;
+  // Disabled state
+  isDisabled?: boolean;
+  onToggleDisabled?: () => void;
 }
 
 const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
@@ -34,8 +38,11 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
   onRefetchValues,
   filterScope = 'sheet',
   onScopeChange,
+  isDisabled = false,
+  onToggleDisabled,
 }) => {
   const [expanded, setExpanded] = useState(false);
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
   const { dispatch } = useVisualizationContext();
   
   const isSessionScope = filterScope === 'session';
@@ -43,6 +50,25 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
 
   const handleToggleExpand = () => {
     setExpanded(!expanded);
+  };
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    setMenuAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setMenuAnchorEl(null);
+  };
+
+  const handleToggleDisabled = () => {
+    handleMenuClose();
+    if (onToggleDisabled) onToggleDisabled();
+  };
+
+  const handleRemoveFromMenu = () => {
+    handleMenuClose();
+    onRemove();
   };
   
   const handleToggleScope = () => {
@@ -244,7 +270,7 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
     : (isSessionScope ? <PublicIcon sx={{ fontSize: 14 }} /> : <DescriptionIcon sx={{ fontSize: 14 }} />);
 
   return (
-    <Box className={styles.container}>
+    <Box className={`${styles.container}${isDisabled ? ` ${styles.disabled}` : ''}`}>
       <Box className={styles.chipContainer}>
         <Tooltip title={scopeTooltip} placement="top" arrow>
           <ToggleButton
@@ -271,7 +297,7 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
             {scopeIcon}
           </ToggleButton>
         </Tooltip>
-        <Box className={styles.chipCell}>
+        <Box className={`${styles.chipCell}${isDisabled ? ` ${styles.chipCellDisabled}` : ''}`}>
           <FieldChip
             field={field}
             source="FILTER_ZONE"
@@ -283,6 +309,15 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
             onRemoveFromZone={() => onRemove()}
           />
         </Box>
+        <Tooltip title="Filter options" placement="top" arrow>
+          <IconButton
+            size="small"
+            onClick={handleMenuOpen}
+            className={styles.menuButton}
+          >
+            <MoreVertIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+        </Tooltip>
         <IconButton
           size="small"
           onClick={handleToggleExpand}
@@ -291,6 +326,23 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
           {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
         </IconButton>
       </Box>
+
+      <Menu
+        anchorEl={menuAnchorEl}
+        open={Boolean(menuAnchorEl)}
+        onClose={handleMenuClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        slotProps={{ paper: { sx: { minWidth: 180 } } }}
+      >
+        <MenuItem onClick={handleToggleDisabled} disabled={!onToggleDisabled}>
+          {isDisabled ? 'Enable on this sheet' : 'Disable on this sheet'}
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={handleRemoveFromMenu} sx={{ color: 'error.main' }}>
+          Remove
+        </MenuItem>
+      </Menu>
 
       <Collapse in={expanded}>
         <Box className={styles.controlContainer}>

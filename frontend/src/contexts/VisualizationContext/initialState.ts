@@ -22,6 +22,7 @@ export const initialState: VisualizationState = {
   filterConfigurations: {},
   filterMetadata: {},
   appliedFilterConfigurations: {},
+  disabledFilterIds: [],
   // Color encoding state
   colorField: null,
   colorScheme: 'tableau10',

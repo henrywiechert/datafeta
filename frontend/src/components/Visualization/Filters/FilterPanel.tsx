@@ -19,6 +19,9 @@ interface FilterPanelProps {
   onUnmarkGlobal?: (fieldId: string) => void;
   /** Set of field IDs that are in global (session) scope */
   globalFilterIds?: Set<string>;
+  /** Set of field IDs that are disabled on this sheet */
+  disabledFilterIds?: Set<string>;
+  onToggleFilterDisabled?: (fieldId: string) => void;
 }
 
 const FilterPanel: React.FC<FilterPanelProps> = ({
@@ -33,6 +36,8 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   onMarkAsGlobal,
   onUnmarkGlobal,
   globalFilterIds,
+  disabledFilterIds,
+  onToggleFilterDisabled,
 }) => {
   // Keep local state for pending filter changes - only update Context on Apply
   const [localConfigurations, setLocalConfigurations] = useState(filterConfigurations);
@@ -90,6 +95,8 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
         onMarkAsGlobal={onMarkAsGlobal}
         onUnmarkGlobal={onUnmarkGlobal}
         globalFilterIds={globalFilterIds}
+        disabledFilterIds={disabledFilterIds}
+        onToggleFilterDisabled={onToggleFilterDisabled}
       />
     </PropertySection>
   );

@@ -35,6 +35,7 @@ export function filterReducer(state: VisualizationState, action: VisualizationAc
         filterConfigurations: newConfigs,
         filterMetadata: newMetadata,
         appliedFilterConfigurations: newApplied,
+        disabledFilterIds: (state.disabledFilterIds ?? []).filter(id => id !== action.payload),
         queryVersion: state.queryVersion + 1,
       };
     }
@@ -44,6 +45,13 @@ export function filterReducer(state: VisualizationState, action: VisualizationAc
         appliedFilterConfigurations: { ...state.filterConfigurations },
         queryVersion: state.queryVersion + 1,
       };
+    case 'TOGGLE_FILTER_DISABLED': {
+      const id = action.payload;
+      const current = state.disabledFilterIds ?? [];
+      const isDisabled = current.includes(id);
+      const next = isDisabled ? current.filter(x => x !== id) : [...current, id];
+      return { ...state, disabledFilterIds: next, queryVersion: state.queryVersion + 1 };
+    }
     default:
       return null; // Not handled by this reducer
   }

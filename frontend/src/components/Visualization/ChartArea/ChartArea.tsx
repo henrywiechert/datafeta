@@ -80,16 +80,22 @@ const ChartArea: React.FC = () => {
     facetBackgroundOpacity,
     showTableRows,
     overlays,
+    disabledFilterIds,
   } = state;
 
   const { selectedTable, selectedDatabase, virtualTable, virtualColumns, sessionAppliedFilterConfigurations } =
     dataSource;
 
   // -- Derived values ----------------------------------------------------------
-  const effectiveFilterConfigurations = useMemo(
-    () => ({ ...appliedFilterConfigurations, ...sessionAppliedFilterConfigurations }),
-    [appliedFilterConfigurations, sessionAppliedFilterConfigurations],
-  );
+  const effectiveFilterConfigurations = useMemo(() => {
+    const merged = { ...appliedFilterConfigurations, ...sessionAppliedFilterConfigurations };
+    if (disabledFilterIds && disabledFilterIds.length > 0) {
+      const result = { ...merged };
+      disabledFilterIds.forEach(id => delete result[id]);
+      return result;
+    }
+    return merged;
+  }, [appliedFilterConfigurations, sessionAppliedFilterConfigurations, disabledFilterIds]);
 
   const fullscreenWrapperRef = useRef<HTMLDivElement>(null);
   const sheetId = activeSheet?.id;
