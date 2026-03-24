@@ -84,6 +84,8 @@ export interface VisualizationStateSnapshot {
   chartCaption?: string;
   // Statistical overlays
   overlays?: import('../observable-plot-generator/overlays/types').OverlayConfig[];
+  // Filter IDs that are temporarily disabled on this sheet (config preserved)
+  disabledFilterIds?: string[];
 }
 
 // --- Sheet Types --- //

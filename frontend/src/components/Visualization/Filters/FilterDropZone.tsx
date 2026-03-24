@@ -18,6 +18,9 @@ interface FilterDropZoneProps {
   onUnmarkGlobal?: (fieldId: string) => void;
   /** Set of field IDs that are in global (session) scope */
   globalFilterIds?: Set<string>;
+  /** Set of field IDs that are disabled on this sheet */
+  disabledFilterIds?: Set<string>;
+  onToggleFilterDisabled?: (fieldId: string) => void;
 }
 
 const FilterDropZone: React.FC<FilterDropZoneProps> = ({
@@ -31,6 +34,8 @@ const FilterDropZone: React.FC<FilterDropZoneProps> = ({
   onMarkAsGlobal,
   onUnmarkGlobal,
   globalFilterIds,
+  disabledFilterIds,
+  onToggleFilterDisabled,
 }) => {
   const [isOver, setIsOver] = useState(false);
 
@@ -123,6 +128,8 @@ const FilterDropZone: React.FC<FilterDropZoneProps> = ({
               onRefetchValues={(regexPattern) => onRefetchValues(field.id, regexPattern)}
               filterScope={getFilterScope(field.id)}
               onScopeChange={isScopeChangeEnabled ? (newScope) => handleScopeChange(field.id, newScope) : undefined}
+              isDisabled={disabledFilterIds?.has(field.id) ?? false}
+              onToggleDisabled={onToggleFilterDisabled ? () => onToggleFilterDisabled(field.id) : undefined}
             />
           ))}
         </Box>

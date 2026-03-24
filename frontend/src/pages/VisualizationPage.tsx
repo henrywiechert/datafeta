@@ -82,7 +82,17 @@ const VisualizationPageContent = () => {
         loadingOperationType, 
         loadingStartTime, 
         canCancelOperation,
+        disabledFilterIds,
     } = state;
+
+    const disabledFilterIdsSet = React.useMemo(
+        () => new Set(disabledFilterIds ?? []),
+        [disabledFilterIds]
+    );
+
+    const handleToggleFilterDisabled = React.useCallback((fieldId: string) => {
+        dispatch({ type: 'TOGGLE_FILTER_DISABLED', payload: fieldId });
+    }, [dispatch]);
 
     // Panel refs for imperative control
     const leftPanelRef = useRef<ImperativePanelHandle>(null);
@@ -521,6 +531,8 @@ const VisualizationPageContent = () => {
                                   onMarkAsGlobal={markFilterAsGlobal}
                                   onUnmarkGlobal={unmarkGlobalFilter}
                                   globalFilterIds={globalFilterIds}
+                                  disabledFilterIds={disabledFilterIdsSet}
+                                  onToggleFilterDisabled={handleToggleFilterDisabled}
                               />
                               <FieldOverridesPanel />
                               <OverlaysSection />
