@@ -13,21 +13,25 @@ export function buildMovingAverage(
   xCol: string,
   yCol: string,
   params: OverlayParams,
-  orientation: 'x' | 'y'
+  orientation: 'x' | 'y',
+  colorColumn?: string,
 ): Plot.Markish {
   const k = params.windowSize ?? 20;
   const reduce = params.reduce ?? 'mean';
   const anchor = params.anchor ?? 'middle';
   const color = params.color ?? '#4e79a7';
   const strokeWidth = params.strokeWidth ?? 2;
+  const perGroup = params.perGroup ?? false;
 
   const windowOpts = { k, reduce: reduce as Plot.WindowReducer, anchor };
+  const useGroupColor = perGroup && !!colorColumn;
 
   if (orientation === 'y') {
     return Plot.lineY(data, Plot.windowY(windowOpts, {
       x: xCol,
       y: yCol,
-      stroke: color,
+      stroke: useGroupColor ? colorColumn : color,
+      ...(useGroupColor ? { z: colorColumn } : {}),
       strokeWidth,
       className: 'overlay-no-tooltip',
     }));
@@ -35,7 +39,8 @@ export function buildMovingAverage(
   return Plot.lineX(data, Plot.windowX(windowOpts, {
     x: xCol,
     y: yCol,
-    stroke: color,
+    stroke: useGroupColor ? colorColumn : color,
+    ...(useGroupColor ? { z: colorColumn } : {}),
     strokeWidth,
     className: 'overlay-no-tooltip',
   }));
