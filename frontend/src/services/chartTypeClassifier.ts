@@ -232,15 +232,16 @@ export function computePointBudget(
     };
   }
 
-  // For line charts (aggregated with dimensions), apply line budget
-  // to limit result rows while preserving min/max for stable axis scales
-  // Only preserve extremes for continuous dimensions (both X and Y axes in cartesian grid)
-  if (isLineChart && continuousDimFields.length > 0) {
+  // For line charts (aggregated with dimensions), apply line budget to limit result rows.
+  // Preserve min/max for continuous dimensions when present (stable axis scales);
+  // fall back to plain random sampling when all dimensions are discrete/categorical.
+  if (isLineChart) {
     return {
       maxPoints: Infinity,  // Not a point chart
       minPerStratum: 0,
       strategy: 'none',
       lineBudgetMaxRows,
+      // May be empty for discrete-only line charts; applyLineBudgetSql handles that case
       continuousFields: continuousDimFields,
     };
   }

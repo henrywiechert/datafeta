@@ -268,8 +268,12 @@ export function applyLineBudgetSql(
   }
 ): string {
   const { maxRows, continuousFields } = budget;
-  // Skip if no SQL, no continuous fields, or maxRows is infinite
-  if (!baseSql || !continuousFields?.length || !Number.isFinite(maxRows)) return baseSql;
+  if (!baseSql || !Number.isFinite(maxRows)) return baseSql;
+
+  // No continuous fields (e.g. discrete-only line chart): plain random sampling
+  if (!continuousFields?.length) {
+    return `SELECT * FROM (\n  ${baseSql}\n) AS base ORDER BY random() LIMIT ${maxRows}`;
+  }
   
   // Build separate CTEs for each extreme (ORDER BY + LIMIT 1 approach)
   // This avoids UNION ALL inside a CTE which causes DuckDB WASM issues

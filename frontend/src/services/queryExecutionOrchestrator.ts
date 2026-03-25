@@ -218,8 +218,8 @@ class QueryExecutionOrchestrator {
             strategy: pointBudget.strategy,
             preserveFields: pointBudget.preserveFields,
           });
-        } else if (pointBudget.lineBudgetMaxRows && pointBudget.continuousFields?.length && localSql) {
-          // Apply line budget for aggregated queries with continuous fields
+        } else if (pointBudget.lineBudgetMaxRows && localSql) {
+          // Apply line budget for aggregated queries; continuousFields may be empty (discrete-only)
           localSql = applyLineBudgetSql(localSql, {
             maxRows: pointBudget.lineBudgetMaxRows,
             continuousFields: pointBudget.continuousFields,
@@ -304,7 +304,8 @@ class QueryExecutionOrchestrator {
             strategy: pointBudget.strategy,
             preserveFields: pointBudget.preserveFields,
           });
-        } else if (pointBudget.lineBudgetMaxRows && pointBudget.continuousFields?.length && localAggSql) {
+        } else if (pointBudget.lineBudgetMaxRows && localAggSql) {
+          // Apply line budget for aggregated queries; continuousFields may be empty (discrete-only)
           localAggSql = applyLineBudgetSql(localAggSql, {
             maxRows: pointBudget.lineBudgetMaxRows,
             continuousFields: pointBudget.continuousFields,

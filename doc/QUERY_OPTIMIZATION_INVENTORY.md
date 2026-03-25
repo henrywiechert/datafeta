@@ -23,7 +23,7 @@ This document provides a comprehensive inventory of all query optimization techn
 | **13** | Filter Tiers (Base/Refinement) | Frontend: `filterTierManager.ts` | Both | Routing | Manual (lock icon) | Route base filters to backend, refinement to local |
 | **14** | Local Adaptive Rounding | Frontend: `chartQueryService.ts` | DuckDB WASM | Local | Auto | Per-chart rounding based on local cardinality |
 | **15** | Local Point Budget | Frontend: `localSqlBuilder.ts` | DuckDB WASM | Local | Auto | Random/stratified sampling with preserved extremes |
-| **16** | Local Line Budget | Frontend: `localSqlBuilder.ts` | DuckDB WASM | Local | Auto | Sample aggregated line results preserving min/max |
+| **16** | Local Line Budget | Frontend: `localSqlBuilder.ts` | DuckDB WASM | Local | Auto | Sample aggregated line results; preserves min/max for continuous dims, plain random for discrete-only |
 | **17** | Line Auto-Aggregation | Frontend: `lineChart.ts` | N/A (in-memory) | Render | Auto | Bin-aggregate dense line series to avoid hairball |
 | **18** | Frontend Optimization Hints | Frontend: `optimizationHintGenerator.ts` | → Backend | Hints | Auto | Generate field-level hints for backend |
 
@@ -144,7 +144,8 @@ type QueryStrategy = 'raw_columns' | 'pre_aggregated' | 'cache_hit';
 | **Point Budget (Random)** | `localSqlBuilder.ts` | Scatter/tick strip | `ORDER BY random() LIMIT maxPoints` |
 | **Point Budget (Stratified)** | `localSqlBuilder.ts` | Scatter with color | Per-stratum sampling with `row_number() OVER PARTITION` |
 | **Point Budget (Preserve Extremes)** | `localSqlBuilder.ts` | Scatter | Keep min/max points for each continuous field |
-| **Line Budget** | `localSqlBuilder.ts` | Dense aggregated lines | Random sample with preserved min/max |
+| **Line Budget (Preserve Extremes)** | `localSqlBuilder.ts` | Dense aggregated lines with continuous dim | Random sample with preserved min/max per continuous field |
+| **Line Budget (Random)** | `localSqlBuilder.ts` | Dense aggregated lines with discrete-only dims | Plain `ORDER BY random() LIMIT` when no continuous axis |
 | **DateTime Part Extraction** | `localSqlBuilder.ts` | Datetime dimensions | `EXTRACT()` / `date_trunc()` computed locally |
 
 #### Local Rounding Thresholds
