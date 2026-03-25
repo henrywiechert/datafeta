@@ -114,7 +114,7 @@ export const useQueryExecutor = ({
         dispatch({ type: 'SET_QUERY_ERROR', payload: null });
 
         let result;
-        let samplingBudget: { maxPoints: number; shouldAttachBudget: boolean; lineBudgetMaxRows?: number; hasContinuousFields: boolean } | null = null;
+        let samplingBudget: { maxPoints: number; shouldAttachBudget: boolean; lineBudgetMaxRows?: number } | null = null;
 
         if (useUnpivot) {
           // Execute unpivot query (multiple queries merged)
@@ -149,6 +149,13 @@ export const useQueryExecutor = ({
           const shouldAttachBudget = classification.isPointChart && 
             pointBudget.maxPoints !== Infinity && 
             Number.isFinite(pointBudget.maxPoints);
+
+          // For line charts, also send a result_budget so the backend limits pre-aggregated results.
+          // This covers the forceRemote path and the pre_aggregated strategy (large tables).
+          const shouldAttachLineBudget = classification.isLineChart &&
+            !classification.isScatter &&
+            pointBudget.lineBudgetMaxRows != null &&
+            Number.isFinite(pointBudget.lineBudgetMaxRows);
           
           const queryDescExec: QueryDescription = shouldAttachBudget
             ? ({
@@ -161,13 +168,22 @@ export const useQueryExecutor = ({
                   preserve_fields: pointBudget.preserveFields,
                 },
               } as QueryDescription)
-            : queryDesc;
+            : shouldAttachLineBudget
+              ? ({
+                  ...queryDesc,
+                  result_budget: {
+                    max_rows: pointBudget.lineBudgetMaxRows!,
+                    // Preserve extremes for continuous dims (stable axis scales), else plain random
+                    strategy: (pointBudget.continuousFields?.length ?? 0) > 0 ? 'preserve_extremes' : 'random',
+                    preserve_fields: pointBudget.continuousFields?.length ? pointBudget.continuousFields : undefined,
+                  },
+                } as QueryDescription)
+              : queryDesc;
 
           samplingBudget = {
             maxPoints: pointBudget.maxPoints,
             shouldAttachBudget,
             lineBudgetMaxRows: pointBudget.lineBudgetMaxRows,
-            hasContinuousFields: (pointBudget.continuousFields?.length ?? 0) > 0,
           };
 
           // Columns required for local caching/execution
@@ -243,7 +259,10 @@ export const useQueryExecutor = ({
 
                 if (rawSlice) {
                   rawSlice.force_raw_rows = true;
-                  if ((queryDescExec as any).result_budget) {
+                  // Only copy point-chart budget to the raw slice (limits rows fetched+cached).
+                  // Line-chart budget must NOT be applied here: we need the full raw data so
+                  // the local aggregation is correct; the line budget is applied after aggregation.
+                  if ((queryDescExec as any).result_budget && shouldAttachBudget) {
                     (rawSlice as any).result_budget = (queryDescExec as any).result_budget;
                   }
                   backendQueryDesc = rawSlice;
@@ -326,7 +345,7 @@ export const useQueryExecutor = ({
           const cleanedResult = validateAndCleanData(remappedResult);
 
           if (samplingBudget) {
-            const { maxPoints, shouldAttachBudget: budgetAttached, lineBudgetMaxRows, hasContinuousFields } = samplingBudget;
+            const { maxPoints, shouldAttachBudget: budgetAttached, lineBudgetMaxRows } = samplingBudget;
             if (
               budgetAttached &&
               Number.isFinite(maxPoints) &&
@@ -335,7 +354,6 @@ export const useQueryExecutor = ({
               cleanedResult.sampled = { limit: maxPoints, type: 'point' };
             } else if (
               lineBudgetMaxRows &&
-              hasContinuousFields &&
               cleanedResult.row_count >= lineBudgetMaxRows
             ) {
               cleanedResult.sampled = { limit: lineBudgetMaxRows, type: 'line' };
