@@ -34,6 +34,7 @@ interface MultiPlotGridProps {
   isTransitioning?: boolean;
   brushDisabled?: boolean;
   onBrushEnd?: (event: PlotBrushEvent) => void;
+  onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
 }
 
 /**
@@ -64,6 +65,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
   isTransitioning = false,
   brushDisabled,
   onBrushEnd,
+  onCellContextMenu,
 }) => {
   const {
     columns,
@@ -171,6 +173,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
             onPlotRenderComplete={onPlotRenderComplete}
             brushDisabled={brushDisabled}
             onBrushEnd={onBrushEnd}
+            onCellContextMenu={onCellContextMenu}
           />
 
           <XAxes

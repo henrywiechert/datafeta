@@ -25,6 +25,7 @@ interface PlotAreaProps {
   onPlotRenderComplete?: (plotId: string) => void;
   brushDisabled?: boolean;
   onBrushEnd?: (event: PlotBrushEvent) => void;
+  onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
 }
 
 /**
@@ -73,6 +74,7 @@ const PlotArea: React.FC<PlotAreaProps> = ({
   onPlotRenderComplete,
   brushDisabled,
   onBrushEnd,
+  onCellContextMenu,
 }) => {
   // Store rendered plot elements per cell so the brush can access scales
   const plotElementsRef = useRef<Record<string, SVGSVGElement | HTMLElement>>({});
@@ -122,8 +124,13 @@ const PlotArea: React.FC<PlotAreaProps> = ({
             onBrushEnd({ brush, plotElement: el, xField: plot.xField, yField: plot.yField });
           };
           
+          const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
+            e.preventDefault();
+            onCellContextMenu?.(plot.id, e.clientX, e.clientY);
+          };
+
           return (
-            <div key={key} className={styles.plotWrapper} style={gridItemStyle}>
+            <div key={key} className={styles.plotWrapper} style={gridItemStyle} onContextMenu={handleContextMenu}>
               {facetBg?.isMixed && (
                 <Tooltip title="Mixed values in background field" placement="top" arrow>
                   <DoNotDisturbAltIcon
