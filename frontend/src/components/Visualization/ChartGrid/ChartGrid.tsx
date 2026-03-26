@@ -1,7 +1,9 @@
-import React, { useEffect, useRef, useDeferredValue } from 'react';
+import React, { useEffect, useRef, useDeferredValue, useState, useCallback } from 'react';
+import { Menu, MenuItem } from '@mui/material';
 
 import { QueryResult } from '../../../types';
 import { PlotResult } from '../../../observable-plot-generator/types';
+import FacetZoomDialog from './FacetZoomDialog';
 import styles from './ChartGrid.module.css';
 import { useCellSizeOverrides } from './hooks/useCellSizeOverrides';
 import { useStabilization } from './hooks/useStabilization';
@@ -125,6 +127,24 @@ const ChartGrid: React.FC<ChartGridProps> = ({
     facetLabelStyles
   );
 
+  // Facet zoom state (must be before any conditional returns — Rules of Hooks)
+  const [contextMenu, setContextMenu] = useState<{ plotId: string; x: number; y: number } | null>(null);
+  const [zoomedPlotId, setZoomedPlotId] = useState<string | null>(null);
+
+  const handleCellContextMenu = useCallback((plotId: string, clientX: number, clientY: number) => {
+    setContextMenu({ plotId, x: clientX, y: clientY });
+  }, []);
+
+  const handleZoomOpen = useCallback(() => {
+    if (contextMenu) {
+      setZoomedPlotId(contextMenu.plotId);
+    }
+    setContextMenu(null);
+  }, [contextMenu]);
+
+  const handleMenuClose = useCallback(() => setContextMenu(null), []);
+  const handleZoomClose = useCallback(() => setZoomedPlotId(null), []);
+
   // Sync state with calculated height (for ResizeObserver to use as baseline)
   useEffect(() => {
     if (layoutCalcs && layoutCalcs.calculatedRowHeightPx !== rowHeightPx) {
@@ -147,24 +167,38 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   // Handle multi-plot scenarios (grid / horizontal / vertical)
   if (layoutCalcs) {
     return (
-      <MultiPlotGrid
-        spec={activeSpec}
-        layoutCalcs={layoutCalcs}
-        scrollSync={scrollSync}
-        containerDimensions={containerDimensions}
-        cellSizeOverrides={cellSizeOverrides}
-        refs={{
-          containerRef,
-          hScrollRef,
-          vScrollRef,
-          plotsTranslateRef,
-          plotGridRef,
-        }}
-        onPlotRenderComplete={onPlotRenderComplete}
-        isTransitioning={isTransitioning}
-        brushDisabled={brushDisabled}
-        onBrushEnd={onBrushEnd}
-      />
+      <>
+        <MultiPlotGrid
+          spec={activeSpec}
+          layoutCalcs={layoutCalcs}
+          scrollSync={scrollSync}
+          containerDimensions={containerDimensions}
+          cellSizeOverrides={cellSizeOverrides}
+          refs={{
+            containerRef,
+            hScrollRef,
+            vScrollRef,
+            plotsTranslateRef,
+            plotGridRef,
+          }}
+          onPlotRenderComplete={onPlotRenderComplete}
+          isTransitioning={isTransitioning}
+          brushDisabled={brushDisabled}
+          onBrushEnd={onBrushEnd}
+          onCellContextMenu={handleCellContextMenu}
+        />
+        <Menu
+          open={contextMenu !== null}
+          onClose={handleMenuClose}
+          anchorReference="anchorPosition"
+          anchorPosition={contextMenu ? { top: contextMenu.y, left: contextMenu.x } : undefined}
+        >
+          <MenuItem onClick={handleZoomOpen}>Zoom facet</MenuItem>
+        </Menu>
+        {zoomedPlotId !== null && (
+          <FacetZoomDialog spec={activeSpec} plotId={zoomedPlotId} onClose={handleZoomClose} />
+        )}
+      </>
     );
   }
 
