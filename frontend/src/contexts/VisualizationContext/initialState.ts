@@ -47,14 +47,14 @@ export const initialState: VisualizationState = {
   tooltipFields: [],
   // Query optimization settings
   optimizationSettings: {
-    forceRemote: false,
+    forceRemote: true,
     sizeThreshold: 5_000_000,
     maxPointsSingle: 50_000,
     maxPointsFaceted: 50_000,
     maxPointsWithDiscreteColor: 20_000,
     minPerStratumWithDiscreteColor: 200,
     lineBudgetMaxRows: 50_000,
-    enableRounding: true,
+    enableRounding: false,
     roundingThresholdLight: 1000,
     roundingThresholdBalanced: 500,
     roundingThresholdAggressive: 200,
