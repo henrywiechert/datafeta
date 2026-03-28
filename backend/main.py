@@ -133,6 +133,12 @@ def startup_event():
         # Non-fatal: continue startup even if snapshots aren't available
 
 FRONTEND_BUILD_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "static"))
+DOCS_BUILD_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "site"))
+
+# If MkDocs docs have been built, serve them at /help (must be mounted before the SPA catch-all at /)
+if os.path.isdir(DOCS_BUILD_DIR):
+    logger.info(f"Serving user manual from: {DOCS_BUILD_DIR}")
+    app.mount("/help", StaticFiles(directory=DOCS_BUILD_DIR, html=True), name="docs")
 
 # If a frontend build has been copied into backend/static (e.g. via Docker multi-stage build) serve it
 if os.path.isdir(FRONTEND_BUILD_DIR):

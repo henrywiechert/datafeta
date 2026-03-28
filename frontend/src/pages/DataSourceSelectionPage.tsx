@@ -110,16 +110,27 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
 
   return (
     <div className={styles.container}>
-      <a
-        href="/"
-        onClick={(e) => { e.preventDefault(); window.location.href = '/'; }}
-        className={styles.pageTitle}
-        style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-        title="Reload Data Source Selection"
-      >
-        <DataSlicerIcon style={{ fontSize: '2rem' }} />
-        DataSlicer
-      </a>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
+        <a
+          href="/"
+          onClick={(e) => { e.preventDefault(); window.location.href = '/'; }}
+          className={styles.pageTitle}
+          style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', margin: 0 }}
+          title="Reload Data Source Selection"
+        >
+          <DataSlicerIcon style={{ fontSize: '2rem' }} />
+          DataSlicer
+        </a>
+        <a
+          href="/help/"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Open User Manual"
+          style={{ color: '#666', display: 'flex', alignItems: 'center', lineHeight: 1 }}
+        >
+          <span style={{ fontSize: '1.3rem' }}>?</span>
+        </a>
+      </div>
 
       <div className={styles.card}>
         <h3 className={styles.sectionTitle}>Connect to a Data Source</h3>

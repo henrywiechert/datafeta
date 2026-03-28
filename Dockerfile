@@ -11,6 +11,17 @@ COPY frontend/ ./
 # Build without running prebuild script (version.json already generated before Docker build)
 RUN npx react-scripts build
 
+# ===== Docs build stage =====
+FROM python:3.11-slim AS docs-build
+WORKDIR /app
+
+COPY docs-requirements.txt ./
+RUN pip install --no-cache-dir -r docs-requirements.txt
+
+COPY mkdocs.yml ./
+COPY docs/ ./docs/
+RUN mkdocs build --strict
+
 # ===== Backend build stage =====
 FROM python:3.11-slim AS backend
 WORKDIR /app
@@ -25,6 +36,9 @@ COPY backend/ ./backend/
 
 # Copy frontend build into backend/static so FastAPI can serve it
 COPY --from=frontend-build /app/frontend/build ./backend/static
+
+# Copy docs build so FastAPI can serve the user manual at /help
+COPY --from=docs-build /app/site ./site
 
 # Install Python dependencies
 WORKDIR /app/backend
