@@ -1,19 +1,22 @@
 version: '3.9'
 services:
   app:
-    build: .
-    container_name: data-slicer-app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: data-slicer:${APP_VERSION:-latest}
+    container_name: ${CONTAINER_NAME:-data-slicer-app}
     environment:
       - LOG_LEVEL=info
-      - PORT=8000
+      - PORT=8000  # internal container port, always safe — host port is HOST_PORT
       - PYTHONUNBUFFERED=1
       - REACT_APP_API_BASE=/api/v1
       - SNAPSHOT_STORAGE_DIR=/app/data/snapshots
     ports:
-      - "8000:8001"
+      - "${HOST_PORT:-8100}:8000"
     volumes:
       # Persistent storage for saved snapshots/configurations
-      - ./data/snapshots:/app/data/snapshots
+      - ${SNAPSHOT_DIR:-./data/snapshots}:/app/data/snapshots
     # For development you might want to mount source code:
     # volumes:
     #   - ./backend:/app/backend
