@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useMemo } from 'react';
-import { Box } from '@mui/material';
+import { Box, IconButton, Tooltip } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { Panel, PanelGroup, ImperativePanelHandle } from "react-resizable-panels";
 import { useVisualizationState } from '../hooks/useVisualizationState';
@@ -22,6 +22,7 @@ import CollapsedPanelStrip from '../components/Layout/CollapsedPanelStrip';
 import PanelResizeHandleWithToggle from '../components/Layout/PanelResizeHandleWithToggle';
 import AppInfoDisplay from '../components/AppInfoDisplay';
 import DataSlicerIcon from '../components/icons/DataSlicerIcon';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import { apiService } from '../apiService';
 
 import { Field, DragSource } from '../types';
@@ -437,6 +438,15 @@ const VisualizationPageContent = () => {
                                         <DataSlicerIcon sx={{ fontSize: '1.6rem' }} />
                                         DataSlicer
                                     </Box>
+                                    <Tooltip title="Open User Manual">
+                                        <IconButton
+                                            size="small"
+                                            onClick={() => window.open('/help/', '_blank', 'noopener,noreferrer')}
+                                            sx={{ color: 'text.secondary' }}
+                                        >
+                                            <HelpOutlineIcon fontSize="small" />
+                                        </IconButton>
+                                    </Tooltip>
                                     <AppInfoDisplay />
                                 </Box>
                                 <Box sx={{ flex: 1, minHeight: 0 }}>

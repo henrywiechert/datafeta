@@ -1,0 +1,45 @@
+site_name: DataSlicer User Manual
+site_description: End-user documentation for DataSlicer
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  palette:
+    primary: indigo
+    accent: indigo
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Connecting to Data: getting-started/connecting-data.md
+    - Your First Chart: getting-started/first-chart.md
+  - Building Charts:
+    - Field Types: building-charts/field-types.md
+    - Chart Types: building-charts/chart-types.md
+    - Customization: building-charts/chart-customization.md
+    - Faceting: building-charts/faceting.md
+    - Measure Groups: building-charts/measure-groups.md
+  - Filtering:
+    - Discrete Filters: filtering/discrete-filters.md
+    - Continuous Filters: filtering/continuous-filters.md
+    - DateTime Filters: filtering/datetime-filters.md
+    - Global Filters: filtering/global-filters.md
+  - Advanced:
+    - Virtual Columns: advanced/virtual-columns.md
+    - Joins & Unions: advanced/joins.md
+    - Multi-Sheet Workspaces: advanced/multi-sheet.md
+  - Saving & Sharing:
+    - Snapshots: saving-sharing/snapshots.md
+    - Export & Import: saving-sharing/export-import.md
+    - URL Sharing: saving-sharing/url-sharing.md
+  - Reference:
+    - Keyboard Shortcuts: reference/keyboard-shortcuts.md
+    - Data Sources: reference/data-sources.md
