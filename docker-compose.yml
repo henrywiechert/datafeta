@@ -10,7 +10,7 @@ services:
       - REACT_APP_API_BASE=/api/v1
       - SNAPSHOT_STORAGE_DIR=/app/data/snapshots
     ports:
-      - "8000:8000"
+      - "8000:8001"
     volumes:
       # Persistent storage for saved snapshots/configurations
       - ./data/snapshots:/app/data/snapshots

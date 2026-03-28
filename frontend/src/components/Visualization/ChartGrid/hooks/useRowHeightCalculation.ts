@@ -9,7 +9,8 @@ export function useRowHeightCalculation(
   vScrollRef: RefObject<HTMLDivElement>,
   rowsForSizing: number,
   containerRef: RefObject<HTMLDivElement>,
-  pendingRowHeightRef: MutableRefObject<number | null>
+  pendingRowHeightRef: MutableRefObject<number | null>,
+  isStabilizing: boolean
 ): number {
   const [rowHeightPx, setRowHeightPx] = useState<number>(MIN_GRID_ROW_PX);
 
@@ -101,9 +102,10 @@ export function useRowHeightCalculation(
     };
   }, [rowsForSizing, vScrollRef, containerRef, pendingRowHeightRef]); // Only rowsForSizing, not spec - avoids teardown on every spec change
 
-  // Apply any pending height updates after stabilization completes
+  // Apply any pending height updates after stabilization completes.
+  // Triggered by isStabilizing going from true → false.
   useEffect(() => {
-    if (pendingRowHeightRef.current !== null) {
+    if (!isStabilizing && pendingRowHeightRef.current !== null) {
       const pendingHeight = pendingRowHeightRef.current;
       pendingRowHeightRef.current = null;
       if (process.env.NODE_ENV === 'development') {
@@ -111,7 +113,7 @@ export function useRowHeightCalculation(
       }
       setRowHeightPx((prev) => (prev === pendingHeight ? prev : pendingHeight));
     }
-  }, [pendingRowHeightRef]);
+  }, [isStabilizing, pendingRowHeightRef]);
 
   return rowHeightPx;
 }
