@@ -103,7 +103,8 @@ const ChartGrid: React.FC<ChartGridProps> = ({
     vScrollRef,
     rowsForSizing,
     containerRef,
-    stabilization.pendingRowHeightRef
+    stabilization.pendingRowHeightRef,
+    stabilization.isStabilizing
   );
   const containerDimensions = useContainerDimensions(containerRef);
   const scrollSync = useScrollSync(

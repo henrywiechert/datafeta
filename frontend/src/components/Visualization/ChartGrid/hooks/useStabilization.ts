@@ -18,9 +18,20 @@ export function useStabilization(
   const [isStabilizing, setIsStabilizing] = useState(false);
   const stabilizationTimeoutRef = useRef<number | null>(null);
   const pendingRowHeightRef = useRef<number | null>(null);
+  // Track whether we've rendered a spec before — skip stabilization on the
+  // very first spec to avoid blocking the initial row-height calculation.
+  const hasRenderedSpecRef = useRef(false);
 
   // Stabilization effect: Freeze dimension updates briefly when spec changes
   useEffect(() => {
+    // On the initial transition from no-spec to spec, skip stabilization.
+    // There's no previous chart to protect from flicker, and blocking the
+    // first height calculation causes the chart to render at MIN_GRID_ROW_PX.
+    if (!hasRenderedSpecRef.current) {
+      hasRenderedSpecRef.current = true;
+      return;
+    }
+
     // Clear any existing stabilization timeout
     if (stabilizationTimeoutRef.current !== null) {
       clearTimeout(stabilizationTimeoutRef.current);
