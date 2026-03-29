@@ -98,12 +98,33 @@ API base path (as used by the frontend) is `/api/v1`.
 
 ### 2. Docker Compose
 
+The `docker-compose.yml` supports multiple environments via env files. Two env files are provided:
+
+- `env.stable` — production/stable deployment (port 8100, `./data/snapshots`)
+- `env.testing` — testing deployment (port 8101, `./data/snapshots-testing`)
+
 ```bash
-# Generate version files first
-./build-docker.sh
-# Or use docker-compose after version files are generated
-docker compose up --build
+# Build and run (stable)
+docker compose --env-file env.stable up --build
+
+# Build and run (testing)
+docker compose --env-file env.testing up --build
+
+# Run without rebuilding
+docker compose --env-file env.stable up
+docker compose --env-file env.testing up
 ```
+
+The env files control these compose-level variables:
+
+| Variable | stable | testing |
+|---|---|---|
+| `APP_VERSION` | e.g. `1.0.0` | e.g. `dev` |
+| `CONTAINER_NAME` | `data-slicer-stable` | `data-slicer-testing` |
+| `HOST_PORT` | `8100` | `8101` |
+| `SNAPSHOT_DIR` | `./data/snapshots` | `./data/snapshots-testing` |
+
+You can also run both environments simultaneously since they use different container names and host ports.
 
 ### 3. Separate Frontend Hosting + Backend API
 
