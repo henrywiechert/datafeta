@@ -66,12 +66,13 @@ type LineBudget = {
 
 function computeLineBudget(hasDiscreteColor: boolean): LineBudget {
   // Lines (and dots) can stack overflow when we render hundreds of thousands of points.
-  // Keep this conservative; the goal is visual fidelity, not exact point-for-point rendering.
+  // Dots are heavier than line segments so they get a separate (lower) cap.
   return {
-    // Keep line points under a conservative cap; dots are capped separately (see maxDots).
     maxPoints: hasDiscreteColor ? 1_000 : 1_000,
     minPerSeries: hasDiscreteColor ? 200 : 0,
-    maxDots: hasDiscreteColor ? 1_000 : 1_000,
+    // 5_000 lets typical multi-series datasets (e.g. 200 countries × 25 years)
+    // show every dot while still protecting against stack overflows.
+    maxDots: hasDiscreteColor ? 5_000 : 2_000,
   };
 }
 
@@ -377,8 +378,37 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     };
   }
 
-  // Dots are expensive at scale; cap dot density separately
-  const dotData = sampleEvery(budgetedSorted, budget.maxDots);
+  // Dots are expensive at scale; cap dot density separately.
+  // When there is a discrete color field (multiple series), sample per-series so
+  // that the stride is independent of backend row order — otherwise a global
+  // stride can skip entire countries or pick different rows on each re-query.
+  // Use the actual total dot count to decide whether sampling is needed at all;
+  // if the data already fits within the budget, show every point.
+  let dotData: any[];
+  if (hasDiscreteColor && colorColumnNamePre) {
+    if (budgetedSorted.length <= budget.maxDots) {
+      // All points fit within budget — no need to sample
+      dotData = budgetedSorted;
+    } else {
+      const seriesGroups = new Map<any, any[]>();
+      for (const r of budgetedSorted) {
+        const k = r?.[colorColumnNamePre];
+        const arr = seriesGroups.get(k) || [];
+        arr.push(r);
+        seriesGroups.set(k, arr);
+      }
+      const numSeries = seriesGroups.size || 1;
+      const perSeriesMax = Math.max(2, Math.floor(budget.maxDots / numSeries));
+      const perSeriesResult: any[] = [];
+      for (const [, arr] of Array.from(seriesGroups.entries())) {
+        const arrSorted = arr.slice().sort(compareByColumn(independentColumn));
+        perSeriesResult.push(...sampleEvery(arrSorted, perSeriesMax));
+      }
+      dotData = perSeriesResult;
+    }
+  } else {
+    dotData = sampleEvery(budgetedSorted, budget.maxDots);
+  }
 
   const xLabel = labels?.x || xColumn;
   const yLabel = labels?.y || yColumn;
@@ -449,7 +479,10 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     lineConfig.strokeWidth = manualSize || 2;
   }
   
-  // Add invisible larger dots for better hover detection
+  // Add invisible larger dots for better hover detection.
+  // Include the same z/stroke grouping as the visible dots so that Observable
+  // Plot's pointer selection stays within the correct series when multiple
+  // series overlap at the same x position.
   const hoverDotConfig: any = {
     x: xColumn,
     y: yColumn,
@@ -457,6 +490,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     fill: 'transparent',
     stroke: 'transparent',
     strokeWidth: 0,
+    ...(colorColumnName ? { z: colorColumnName } : {}),
   };
 
   const xIsTime = axisKind === 'time' || (effectiveDomain?.x?.[0] instanceof Date);
@@ -522,10 +556,13 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     }
   }
   
-  // Add custom tooltip configuration
+  // Add custom tooltip configuration.
+  // Use dotData (not budgetedSorted) because Observable Plot stores numeric
+  // indices into the data array passed to Plot.dot() in __data__. The tooltip
+  // resolver looks up config.data[index], so it must match the dots' data source.
   (plotOptions as any).__customTooltip = {
     enabled: true,
-    data: budgetedSorted,
+    data: dotData,
     getFields: createTooltipFieldsGetter(
       [
         { label: xLabel, column: xColumn, sourceField: xField },
