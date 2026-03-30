@@ -438,16 +438,18 @@ const VisualizationPageContent = () => {
                                         <DataSlicerIcon sx={{ fontSize: '1.6rem' }} />
                                         DataSlicer
                                     </Box>
-                                    <Tooltip title="Open User Manual">
-                                        <IconButton
-                                            size="small"
-                                            onClick={() => window.open('/help/', '_blank', 'noopener,noreferrer')}
-                                            sx={{ color: 'text.secondary' }}
-                                        >
-                                            <HelpOutlineIcon fontSize="small" />
-                                        </IconButton>
-                                    </Tooltip>
-                                    <AppInfoDisplay />
+                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                        <Tooltip title="Open User Manual">
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => window.open('/help/', '_blank', 'noopener,noreferrer')}
+                                                sx={{ color: 'text.secondary' }}
+                                            >
+                                                <HelpOutlineIcon fontSize="small" />
+                                            </IconButton>
+                                        </Tooltip>
+                                        <AppInfoDisplay />
+                                    </Box>
                                 </Box>
                                 <Box sx={{ flex: 1, minHeight: 0 }}>
                                     <FieldsPanel
