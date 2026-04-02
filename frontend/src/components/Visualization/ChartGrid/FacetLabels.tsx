@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { renderWithBreaks } from './utils/labelUtils';
 import {
   Popover,
   Box,
@@ -302,7 +303,7 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
                 ...headerOrientationStyles,
               }}
             >
-              {label}
+              {renderWithBreaks(label)}
             </div>
           ))}
         </div>
@@ -486,7 +487,7 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
               ...headerOrientationStyles,
             }}
           >
-            {label}
+            {renderWithBreaks(label)}
           </div>
         ))}
       </div>
