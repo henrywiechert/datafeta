@@ -1,5 +1,6 @@
 import React from 'react';
 import { XAxisLabelStyle, YAxisLabelStyle } from '../../../contexts/VisualizationContext/types';
+import { renderWithBreaks } from './utils/labelUtils';
 
 export interface AxisLabelProps {
   /** The label text to display */
@@ -71,8 +72,8 @@ const AxisLabel: React.FC<AxisLabelProps> = ({ label, axis, style, onClick }) =>
           textAlign,
           fontSize: `${fontSize}px`,
           fontWeight: 'bold',
-          wordBreak: 'break-word',
-          overflowWrap: 'break-word',
+          wordBreak: 'normal',
+          overflowWrap: 'anywhere',
           lineHeight: '1.2',
           maxWidth: axis === 'x' && orientation === 'horizontal' ? '100%' : undefined,
           overflow: 'hidden',
@@ -80,7 +81,7 @@ const AxisLabel: React.FC<AxisLabelProps> = ({ label, axis, style, onClick }) =>
           whiteSpace: orientation === 'horizontal' && axis === 'x' ? 'nowrap' : 'normal',
         }}
       >
-        {label}
+        {renderWithBreaks(label)}
       </div>
     </div>
   );
