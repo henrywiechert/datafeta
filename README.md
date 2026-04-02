@@ -100,29 +100,30 @@ API base path (as used by the frontend) is `/api/v1`.
 
 The `docker-compose.yml` supports multiple environments via env files. Two env files are provided:
 
-- `env.stable` — production/stable deployment (port 8100, `./data/snapshots`)
-- `env.testing` — testing deployment (port 8101, `./data/snapshots-testing`)
+- `.env.stable` — production/stable deployment (port 8087, `../data-slicer-data/snapshots/`)
+- `.env.testing` — testing deployment (port 8089, `./data/snapshots-testing`)
 
 ```bash
 # Build and run (stable)
-docker compose --env-file env.stable up --build
+docker compose --env-file .env.stable up --build
 
 # Build and run (testing)
-docker compose --env-file env.testing up --build
+docker compose --env-file .env.testing up --build
 
 # Run without rebuilding
-docker compose --env-file env.stable up
-docker compose --env-file env.testing up
+docker compose --env-file .env.stable up
+docker compose --env-file .env.testing up
 ```
 
 The env files control these compose-level variables:
 
 | Variable | stable | testing |
 |---|---|---|
-| `APP_VERSION` | e.g. `1.0.0` | e.g. `dev` |
+| `COMPOSE_PROJECT_NAME` | `data-slicer-stable` | `data-slicer-testing` |
+| `APP_VERSION` | `stable` | `testing` |
 | `CONTAINER_NAME` | `data-slicer-stable` | `data-slicer-testing` |
-| `HOST_PORT` | `8100` | `8101` |
-| `SNAPSHOT_DIR` | `./data/snapshots` | `./data/snapshots-testing` |
+| `HOST_PORT` | `8087` | `8089` |
+| `SNAPSHOT_DIR` | `../data-slicer-data/snapshots/` | `./data/snapshots-testing` |
 
 You can also run both environments simultaneously since they use different container names and host ports.
 
