@@ -41,3 +41,4 @@ alwaysApply: true
 - Clickhouse: Beware -> Column names in tables can have a '.' in the name.
   Some column names repeat the table name: Column name is "<table_name>.<name>"
   This is important!
+- Don't duplicate existing code. Look around.

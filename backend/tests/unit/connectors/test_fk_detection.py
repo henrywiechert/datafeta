@@ -25,9 +25,9 @@ class TestDetectForeignKeysByNamingConvention:
         rels = detect_foreign_keys_by_naming_convention(table_columns)
         assert len(rels) == 1
         assert rels[0].from_table == 'orders'
-        assert rels[0].from_column == 'customer_id'
+        assert rels[0].from_columns == ['customer_id']
         assert rels[0].to_table == 'customers'
-        assert rels[0].to_column == 'id'
+        assert rels[0].to_columns == ['id']
         assert rels[0].relationship_type == 'many_to_one'
 
     def test_camel_case_id(self):
@@ -50,7 +50,7 @@ class TestDetectForeignKeysByNamingConvention:
         }
         rels = detect_foreign_keys_by_naming_convention(table_columns)
         assert len(rels) == 2
-        rel_dict = {(r.from_table, r.from_column): (r.to_table, r.to_column) for r in rels}
+        rel_dict = {(r.from_table, r.from_columns[0]): (r.to_table, r.to_columns[0]) for r in rels}
         assert ('orders', 'CustomerId') in rel_dict
         assert ('orders', 'ProductId') in rel_dict
         assert rel_dict[('orders', 'CustomerId')] == ('customers', 'id')
@@ -72,7 +72,7 @@ class TestDetectForeignKeysByNamingConvention:
         }
         rels = detect_foreign_keys_by_naming_convention(table_columns)
         assert len(rels) == 1
-        assert rels[0].from_column == 'user_id'
+        assert rels[0].from_columns == ['user_id']
         assert rels[0].to_table == 'users'
 
     def test_plural_es_suffix(self):
@@ -106,7 +106,7 @@ class TestDetectForeignKeysByNamingConvention:
         }
         rels = detect_foreign_keys_by_naming_convention(table_columns)
         assert len(rels) == 1
-        assert rels[0].to_column == 'constructorId'
+        assert rels[0].to_columns == ['constructorId']
 
     def test_pk_column_underscore_id(self):
         """Target table has _id as PK."""
@@ -121,7 +121,7 @@ class TestDetectForeignKeysByNamingConvention:
         }
         rels = detect_foreign_keys_by_naming_convention(table_columns)
         assert len(rels) == 1
-        assert rels[0].to_column == '_id'
+        assert rels[0].to_columns == ['_id']
 
     # -- multiple relationships ------------------------------------------------
 
@@ -145,7 +145,7 @@ class TestDetectForeignKeysByNamingConvention:
             ],
         }
         rels = detect_foreign_keys_by_naming_convention(table_columns)
-        rel_dict = {(r.from_table, r.from_column): (r.to_table, r.to_column) for r in rels}
+        rel_dict = {(r.from_table, r.from_columns[0]): (r.to_table, r.to_columns[0]) for r in rels}
         assert ('orders', 'customer_id') in rel_dict
         assert ('order_items', 'order_id') in rel_dict
         assert ('order_items', 'product_id') in rel_dict

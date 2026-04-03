@@ -54,9 +54,9 @@ class TestKaggleFKDetection:
             # Verify results
             assert len(relationships) == 1
             assert relationships[0].from_table == 'orders'
-            assert relationships[0].from_column == 'customer_id'
+            assert relationships[0].from_columns == ['customer_id']
             assert relationships[0].to_table == 'customers'
-            assert relationships[0].to_column == 'id'
+            assert relationships[0].to_columns == ['id']
             assert relationships[0].relationship_type == 'many_to_one'
     
     def test_detect_foreign_keys_multiple_relationships(self, kaggle_connector):
@@ -107,7 +107,7 @@ class TestKaggleFKDetection:
             assert len(relationships) == 3
             
             # Check specific relationships
-            rel_dict = {(r.from_table, r.from_column): (r.to_table, r.to_column) for r in relationships}
+            rel_dict = {(r.from_table, r.from_columns[0]): (r.to_table, r.to_columns[0]) for r in relationships}
             assert ('orders', 'customer_id') in rel_dict
             assert ('order_items', 'order_id') in rel_dict
             assert ('order_items', 'product_id') in rel_dict
@@ -206,7 +206,7 @@ class TestKaggleFKDetection:
             assert len(relationships) == 1
             
             assert relationships[0].from_table == 'posts'
-            assert relationships[0].from_column == 'user_id'
+            assert relationships[0].from_columns == ['user_id']
             assert relationships[0].to_table == 'users'
     
     def test_detect_foreign_keys_capital_id_suffix(self, kaggle_connector):
@@ -249,7 +249,7 @@ class TestKaggleFKDetection:
             # Should detect both relationships
             assert len(relationships) == 2
             
-            rel_dict = {(r.from_table, r.from_column): (r.to_table, r.to_column) for r in relationships}
+            rel_dict = {(r.from_table, r.from_columns[0]): (r.to_table, r.to_columns[0]) for r in relationships}
             assert ('orders', 'CustomerId') in rel_dict
             assert ('orders', 'ProductId') in rel_dict
             

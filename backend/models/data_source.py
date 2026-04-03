@@ -23,11 +23,14 @@ class Column(BaseModel):
 # --- Multi-Table Support Models --- #
 
 class ForeignKeyRelationship(BaseModel):
-    """Represents a foreign key relationship between two tables."""
+    """Represents a foreign key relationship between two tables.
+
+    Supports composite keys via multi-element lists in from_columns / to_columns.
+    """
     from_table: str
-    from_column: str
+    from_columns: List[str]
     to_table: str
-    to_column: str
+    to_columns: List[str]
     relationship_type: Literal['one_to_one', 'one_to_many', 'many_to_one', 'many_to_many'] = 'one_to_many'
 
 class TableJoinDefinition(BaseModel):
