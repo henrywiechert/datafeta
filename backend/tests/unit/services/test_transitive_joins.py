@@ -22,25 +22,25 @@ def test_get_suggested_tables_with_transitive_relationships():
         # sprint_results -> constructors
         ForeignKeyRelationship(
             from_table='sprint_results',
-            from_column='constructorId',
+            from_columns=['constructorId'],
             to_table='constructors',
-            to_column='constructorId',
+            to_columns=['constructorId'],
             relationship_type='many_to_one'
         ),
         # sprint_results -> drivers
         ForeignKeyRelationship(
             from_table='sprint_results',
-            from_column='driverId',
+            from_columns=['driverId'],
             to_table='drivers',
-            to_column='driverId',
+            to_columns=['driverId'],
             relationship_type='many_to_one'
         ),
         # sprint_results -> races
         ForeignKeyRelationship(
             from_table='sprint_results',
-            from_column='raceId',
+            from_columns=['raceId'],
             to_table='races',
-            to_column='raceId',
+            to_columns=['raceId'],
             relationship_type='many_to_one'
         ),
     ]
@@ -72,9 +72,9 @@ def test_get_suggested_tables_excludes_already_joined():
     mock_connector.detect_foreign_keys.return_value = [
         ForeignKeyRelationship(
             from_table='orders',
-            from_column='customer_id',
+            from_columns=['customer_id'],
             to_table='customers',
-            to_column='id',
+            to_columns=['id'],
             relationship_type='many_to_one'
         ),
     ]

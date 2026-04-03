@@ -145,9 +145,9 @@ def detect_foreign_keys_by_naming_convention(
 
                     relationships.append(ForeignKeyRelationship(
                         from_table=from_table,
-                        from_column=col.name,
+                        from_columns=[col.name],
                         to_table=to_table,
-                        to_column=to_col_name,
+                        to_columns=[to_col_name],
                         relationship_type='many_to_one',
                     ))
                     logger.info(
