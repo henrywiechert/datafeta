@@ -18,9 +18,9 @@ class TestTableRelationshipsEndpoint:
         mock_connector.detect_foreign_keys.return_value = [
             ForeignKeyRelationship(
                 from_table='orders',
-                from_column='user_id',
+                from_columns=['user_id'],
                 to_table='users',
-                to_column='id',
+                to_columns=['id'],
                 relationship_type='many_to_one'
             ),
         ]
@@ -38,23 +38,23 @@ class TestTableRelationshipsEndpoint:
         mock_connector.detect_foreign_keys.return_value = [
             ForeignKeyRelationship(
                 from_table='orders',
-                from_column='user_id',
+                from_columns=['user_id'],
                 to_table='users',
-                to_column='id',
+                to_columns=['id'],
                 relationship_type='many_to_one'
             ),
             ForeignKeyRelationship(
                 from_table='orders',
-                from_column='product_id',
+                from_columns=['product_id'],
                 to_table='products',
-                to_column='id',
+                to_columns=['id'],
                 relationship_type='many_to_one'
             ),
             ForeignKeyRelationship(
                 from_table='order_items',
-                from_column='order_id',
+                from_columns=['order_id'],
                 to_table='orders',
-                to_column='id',
+                to_columns=['id'],
                 relationship_type='many_to_one'
             ),
         ]
@@ -81,23 +81,23 @@ class TestTableRelationshipsEndpoint:
         mock_connector.detect_foreign_keys.return_value = [
             ForeignKeyRelationship(
                 from_table='t1',
-                from_column='c1',
+                from_columns=['c1'],
                 to_table='t2',
-                to_column='c2',
+                to_columns=['c2'],
                 relationship_type='one_to_one'
             ),
             ForeignKeyRelationship(
                 from_table='t3',
-                from_column='c3',
+                from_columns=['c3'],
                 to_table='t4',
-                to_column='c4',
+                to_columns=['c4'],
                 relationship_type='one_to_many'
             ),
             ForeignKeyRelationship(
                 from_table='t5',
-                from_column='c5',
+                from_columns=['c5'],
                 to_table='t6',
-                to_column='c6',
+                to_columns=['c6'],
                 relationship_type='many_to_many'
             ),
         ]
@@ -378,9 +378,9 @@ class TestRelationshipsIntegration:
         mock_connector.detect_foreign_keys.return_value = [
             ForeignKeyRelationship(
                 from_table='orders',
-                from_column='user_id',
+                from_columns=['user_id'],
                 to_table='users',
-                to_column='id',
+                to_columns=['id'],
                 relationship_type='many_to_one'
             ),
         ]

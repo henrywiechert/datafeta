@@ -137,33 +137,39 @@ class TableContextBuilder:
         
         Parses the ON condition and applies the appropriate JOIN type.
         """
-        condition = join_def.on_conditions[0]
-        parts = condition.split('=')
-        
-        if len(parts) != 2:
+        # Build a combined join condition from all on_conditions (supports composite keys)
+        combined_condition = None
+        for condition in join_def.on_conditions:
+            parts = condition.split('=')
+
+            if len(parts) != 2:
+                continue
+
+            # Split only on first dot to handle column names that contain dots
+            left_part = parts[0].strip().split('.', 1)
+            right_part = parts[1].strip().split('.', 1)
+
+            if len(left_part) != 2 or len(right_part) != 2:
+                continue
+
+            left_table_name, left_col = left_part
+            right_table_name, right_col = right_part
+
+            left_table_obj = table_map.get(left_table_name, primary_table)
+            right_table_obj = table_map.get(right_table_name, join_table)
+
+            cond = left_table_obj[left_col] == right_table_obj[right_col]
+            combined_condition = cond if combined_condition is None else (combined_condition & cond)
+
+        if combined_condition is None:
             return query
-        
-        # Split only on first dot to handle column names that contain dots
-        left_part = parts[0].strip().split('.', 1)
-        right_part = parts[1].strip().split('.', 1)
-        
-        if len(left_part) != 2 or len(right_part) != 2:
-            return query
-        
-        left_table_name, left_col = left_part
-        right_table_name, right_col = right_part
-        
-        left_table_obj = table_map.get(left_table_name, primary_table)
-        right_table_obj = table_map.get(right_table_name, join_table)
-        
-        join_condition = left_table_obj[left_col] == right_table_obj[right_col]
-        
+
         # Apply appropriate JOIN type
         if join_def.join_type == 'LEFT':
-            return query.left_join(join_table).on(join_condition)
+            return query.left_join(join_table).on(combined_condition)
         elif join_def.join_type == 'RIGHT':
-            return query.right_join(join_table).on(join_condition)
+            return query.right_join(join_table).on(combined_condition)
         elif join_def.join_type == 'FULL':
-            return query.full_outer_join(join_table).on(join_condition)
+            return query.full_outer_join(join_table).on(combined_condition)
         else:  # INNER join is default
-            return query.inner_join(join_table).on(join_condition)
+            return query.inner_join(join_table).on(combined_condition)

@@ -63,7 +63,10 @@ class TableMergeService:
                         join_def = TableJoinDefinition(
                             table_name=target_table,
                             join_type='LEFT',  # Default to LEFT JOIN to preserve all primary records
-                            on_conditions=[f"{check_table}.{rel.from_column} = {target_table}.{rel.to_column}"],
+                            on_conditions=[
+                                f"{check_table}.{fc} = {target_table}.{tc}"
+                                for fc, tc in zip(rel.from_columns, rel.to_columns)
+                            ],
                             alias=None
                         )
                         break
@@ -76,7 +79,10 @@ class TableMergeService:
                         join_def = TableJoinDefinition(
                             table_name=source_table,
                             join_type='LEFT',
-                            on_conditions=[f"{check_table}.{rel.to_column} = {source_table}.{rel.from_column}"],
+                            on_conditions=[
+                                f"{check_table}.{tc} = {source_table}.{fc}"
+                                for fc, tc in zip(rel.from_columns, rel.to_columns)
+                            ],
                             alias=None
                         )
                         break

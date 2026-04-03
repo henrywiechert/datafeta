@@ -5,9 +5,9 @@
 
 export interface ForeignKeyRelationship {
   from_table: string;
-  from_column: string;
+  from_columns: string[];
   to_table: string;
-  to_column: string;
+  to_columns: string[];
   relationship_type: 'one_to_one' | 'one_to_many' | 'many_to_one' | 'many_to_many';
 }
 
