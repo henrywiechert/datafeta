@@ -8,9 +8,10 @@ from dataclasses import dataclass
 
 import pyarrow as pa
 
-from backend.models.data_source import Database, Table, Column
+from backend.models.data_source import Database, Table, Column, ForeignKeyRelationship
 from .base import BaseConnector
 from .file_handlers import BaseFileHandler, FILE_HANDLER_REGISTRY
+from .fk_detection import detect_foreign_keys_by_naming_convention
 from backend.exceptions import DataSourceConnectionError, InvalidInputError, QueryExecutionError
 from backend.utils.type_conversion import process_query_result_data
 
@@ -167,6 +168,24 @@ class FileConnector(BaseConnector):
 
     def list_databases(self) -> List[Database]:
         return []
+
+    def detect_foreign_keys(self, database: str = None) -> List[ForeignKeyRelationship]:
+        """Detect FK relationships across uploaded files using naming conventions."""
+        if not self._files:
+            return []
+        try:
+            tables = self.list_tables(database)
+            table_columns = {}
+            for table in tables:
+                try:
+                    table_columns[table.name] = self.list_columns(database, table.name)
+                except Exception as e:
+                    logger.warning(f"Could not list columns for {table.name}: {e}")
+                    continue
+            return detect_foreign_keys_by_naming_convention(table_columns)
+        except Exception as e:
+            logger.warning(f"Error detecting foreign keys in file connector: {e}")
+            return []
 
     def list_tables(self, database: str = None) -> List[Table]:
         """Return all uploaded files as tables."""
