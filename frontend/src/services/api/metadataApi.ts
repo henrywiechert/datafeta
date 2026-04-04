@@ -19,7 +19,8 @@ import {
   MergedColumnsResponse,
   VirtualColumnDefinition,
   VirtualTableDefinition,
-  QueryResult
+  QueryResult,
+  ForeignKeyRelationship
 } from '../../types';
 import { fetchWithErrorHandling, API_BASE_URL, createAbortController, buildUrl } from './apiClient';
 
@@ -77,9 +78,26 @@ export const metadataApi = {
   async getSuggestedJoins(
     database: string, 
     primaryTable: string, 
-    joinedTables?: string[], 
+    joinedTables?: string[],
+    customRelationships?: ForeignKeyRelationship[] | null,
     signal?: AbortSignal
   ): Promise<SuggestedJoinsResponse> {
+    // Use POST when custom relationships are provided (non-null)
+    if (customRelationships !== undefined && customRelationships !== null) {
+      const url = buildUrl('/suggested-joins', { database });
+      const response = await fetchWithErrorHandling(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          primary_table: primaryTable,
+          joined_tables: joinedTables && joinedTables.length > 0 ? joinedTables : null,
+          custom_relationships: customRelationships,
+        }),
+      }, signal);
+      return response.json();
+    }
+
+    // Fallback to GET for auto-detect
     const base = API_BASE_URL.startsWith('http') ? API_BASE_URL : `${window.location.origin}${API_BASE_URL}`;
     const url = new URL(`${base}/suggested-joins`);
     url.searchParams.append('database', database);
@@ -116,8 +134,17 @@ export const metadataApi = {
     joinedTables?: string[],
     unionTables?: Array<{database: string, table_name: string}> | string[],
     autoDetect: boolean = true,
+    customRelationships?: ForeignKeyRelationship[] | null,
     signal?: AbortSignal
   ): Promise<MergedColumnsResponse> {
+    const body: Record<string, any> = {
+      joined_tables: joinedTables || null,
+      union_tables: unionTables || null,
+      auto_detect: autoDetect,
+    };
+    if (customRelationships !== undefined && customRelationships !== null) {
+      body.custom_relationships = customRelationships;
+    }
     const response = await fetchWithErrorHandling(
       `${API_BASE_URL}/merged-columns?database=${database}&primary_table=${primaryTable}`, 
       {
@@ -125,11 +152,7 @@ export const metadataApi = {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          joined_tables: joinedTables || null,
-          union_tables: unionTables || null,  // Can be new format or legacy format
-          auto_detect: autoDetect
-        }),
+        body: JSON.stringify(body),
       }, 
       signal
     );

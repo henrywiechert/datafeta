@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, ReactNode, useCallback } fr
 import { flushSync } from 'react-dom';
 import { generateSyntheticFieldsForGroup } from '../utils/syntheticFields';
 import { mapBackendDataType } from '../utils/fieldUtils';
-import { Database, Table, Field, VirtualTableDefinition, VirtualColumnDefinition, FilterConfig, FilterMetadata } from '../types';
+import { Database, Table, Field, VirtualTableDefinition, VirtualColumnDefinition, FilterConfig, FilterMetadata, ForeignKeyRelationship } from '../types';
 import { apiService } from '../apiService';
 
 type VirtualColumnPreference = {
@@ -48,6 +48,8 @@ interface DataSourceState {
   sessionFilterConfigurations: Record<string, FilterConfig>;
   sessionAppliedFilterConfigurations: Record<string, FilterConfig>;
   sessionFilterMetadata: Record<string, FilterMetadata>;
+  // Manual FK relationships (null = auto-detect, array = manual override)
+  customRelationships: ForeignKeyRelationship[] | null;
   // Hive Parquet partition management
   hivePartitionFiles: Map<string, File[]>;  // partition name -> files to upload
   loadedPartitions: Set<string>;  // partitions that have been uploaded to backend
@@ -86,6 +88,8 @@ interface DataSourceContextType {
   setVirtualColumnFieldPreferences: (preferences: Record<string, VirtualColumnPreference>) => void;
   setFieldAlias: (columnName: string, alias: string | undefined) => void;
   clearAllFieldAliases: () => void;
+  // Manual FK relationships
+  setCustomRelationships: (relationships: ForeignKeyRelationship[] | null) => void;
   // Session-scoped filters
   setSessionFilterFields: (fields: Field[]) => void;
   addSessionFilterField: (field: Field) => void;
@@ -128,6 +132,7 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     virtualColumns: [],
     virtualColumnFieldPreferences: {},
     fieldDisplayAliases: {},
+    customRelationships: null,
     sessionFilterFields: [],
     sessionFilterConfigurations: {},
     sessionAppliedFilterConfigurations: {},
@@ -167,6 +172,7 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
       unionTables: [],
       suggestedUnionableTables: [],
       virtualTable: null,
+      customRelationships: null,
     }));
   };
 
@@ -591,6 +597,7 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
       unionTables: [],
       suggestedUnionableTables: [],
       virtualTable: null,
+      customRelationships: null,
       // Clear session filters on disconnect
       sessionFilterFields: [],
       sessionFilterConfigurations: {},
@@ -634,6 +641,14 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  // Set custom FK relationships (null = auto-detect, array = manual)
+  const setCustomRelationships = (relationships: ForeignKeyRelationship[] | null) => {
+    setDataSource(prev => ({
+      ...prev,
+      customRelationships: relationships,
+    }));
+  };
+
   return (
     <DataSourceContext.Provider
       value={{
@@ -666,6 +681,7 @@ export function DataSourceProvider({ children }: { children: ReactNode }) {
         setVirtualColumnFieldPreferences,
         setFieldAlias,
         clearAllFieldAliases,
+        setCustomRelationships,
         setSessionFilterFields,
         addSessionFilterField,
         removeSessionFilterField,
