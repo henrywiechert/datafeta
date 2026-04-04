@@ -16,6 +16,8 @@ export interface TableJoinDefinition {
   join_type: 'INNER' | 'LEFT' | 'RIGHT' | 'FULL';
   on_conditions: string[];
   alias?: string;
+  enforce_unique_keys?: boolean;
+  dedup_key_columns?: string[];
 }
 
 export interface UnionTableDefinition {

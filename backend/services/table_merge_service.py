@@ -66,6 +66,11 @@ class TableMergeService:
                     target_table = rel.to_table
                     # Don't suggest joining to ourselves or already-joined tables
                     if target_table not in tables_to_check:
+                        # Determine if the target (to) side should be deduplicated.
+                        # many_to_one means many rows in from_table map to one in to_table,
+                        # so to_table keys should already be unique — enforce it.
+                        # one_to_one: both sides should be unique — enforce on target.
+                        enforce = rel.relationship_type in ('one_to_one', 'many_to_one')
                         join_def = TableJoinDefinition(
                             table_name=target_table,
                             join_type='LEFT',  # Default to LEFT JOIN to preserve all primary records
@@ -73,7 +78,9 @@ class TableMergeService:
                                 f"{check_table}.{fc} = {target_table}.{tc}"
                                 for fc, tc in zip(rel.from_columns, rel.to_columns)
                             ],
-                            alias=None
+                            alias=None,
+                            enforce_unique_keys=enforce,
+                            dedup_key_columns=list(rel.to_columns) if enforce else None
                         )
                         break
                 
@@ -82,6 +89,11 @@ class TableMergeService:
                     source_table = rel.from_table
                     # Don't suggest joining to ourselves or already-joined tables
                     if source_table not in tables_to_check:
+                        # The source (from) side is being joined in.
+                        # one_to_many: one row in from_table maps to many in to_table,
+                        # so from_table keys should be unique — enforce it.
+                        # one_to_one: both sides unique — enforce on source.
+                        enforce = rel.relationship_type in ('one_to_one', 'one_to_many')
                         join_def = TableJoinDefinition(
                             table_name=source_table,
                             join_type='LEFT',
@@ -89,7 +101,9 @@ class TableMergeService:
                                 f"{check_table}.{tc} = {source_table}.{fc}"
                                 for fc, tc in zip(rel.from_columns, rel.to_columns)
                             ],
-                            alias=None
+                            alias=None,
+                            enforce_unique_keys=enforce,
+                            dedup_key_columns=list(rel.from_columns) if enforce else None
                         )
                         break
             
