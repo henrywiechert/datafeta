@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { Field, VirtualColumnDefinition } from '../types';
+import { Field, VirtualColumnDefinition, ForeignKeyRelationship } from '../types';
 import { apiService } from '../apiService';
 import { buildValidColumnNames, validateAxisFields, markAllAxisFieldsInvalid } from '../utils/axisFieldValidation';
 import { processColumnsResponse } from '../utils/fieldUtils';
@@ -20,6 +20,7 @@ interface DataSourceState {
     unionTables: Array<{database: string, table_name: string}>;
     virtualTable: any | null;
     fieldDisplayAliases: Record<string, string>;
+    customRelationships: ForeignKeyRelationship[] | null;
 }
 
 interface DataSourceSetters {
@@ -187,14 +188,15 @@ export function useMetadataOperations({
             const response = await apiService.getSuggestedJoins(
                 database,
                 dataSource.selectedTable,
-                dataSource.joinedTables  // Pass already-joined tables for transitive relationships
+                dataSource.joinedTables,  // Pass already-joined tables for transitive relationships
+                dataSource.customRelationships  // Pass custom relationships if defined
             );
             dataSourceSetters.setSuggestedJoinableTables(response.suggested_tables || []);
         } catch (err: any) {
             console.warn('Could not fetch suggested joins:', err.message);
             dataSourceSetters.setSuggestedJoinableTables([]);
         }
-    }, [dataSource.selectedTable, dataSource.selectedDatabase, dataSource.joinedTables, connectionDetails?.type, dataSourceSetters]);
+    }, [dataSource.selectedTable, dataSource.selectedDatabase, dataSource.joinedTables, dataSource.customRelationships, connectionDetails?.type, dataSourceSetters]);
 
     // DEPRECATED: Auto-suggestion removed in favor of manual cross-database table selection
     // Kept as no-op for backward compatibility
@@ -259,7 +261,8 @@ export function useMetadataOperations({
                 dataSource.selectedTable,
                 dataSource.joinedTables,
                 undefined, // No union tables
-                false // Don't auto-detect, use explicitly selected tables
+                false, // Don't auto-detect, use explicitly selected tables
+                dataSource.customRelationships  // Pass custom relationships if defined
             );
             
             // Process columns into fields
@@ -295,6 +298,7 @@ export function useMetadataOperations({
         dataSource.selectedDatabase, 
         dataSource.joinedTables,
         dataSource.unionTables,
+        dataSource.customRelationships,
         measureGroupFields,
         xAxisFields, 
         yAxisFields, 
@@ -432,12 +436,13 @@ export function useMetadataOperations({
 
     // Fetch suggested joins when table is selected or joined tables change (for ClickHouse and Kaggle)
     // This enables transitive relationships: when you join table B, you can then see tables that join to B
+    // Also re-fetches when customRelationships change (manual FK mode)
     useEffect(() => {
         if (dataSource.selectedTable && (connectionDetails?.type === 'clickhouse' || connectionDetails?.type === 'kaggle')) {
             fetchSuggestedJoins();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dataSource.selectedTable, dataSource.selectedDatabase, dataSource.joinedTables, connectionDetails?.type]);
+    }, [dataSource.selectedTable, dataSource.selectedDatabase, dataSource.joinedTables, dataSource.customRelationships, connectionDetails?.type]);
 
     // Fetch suggested unions when table is selected
     useEffect(() => {
@@ -447,13 +452,13 @@ export function useMetadataOperations({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dataSource.selectedTable, dataSource.selectedDatabase, connectionDetails?.type]);
 
-    // Fetch merged columns when joined or union tables change
+    // Fetch merged columns when joined or union tables change, or custom relationships change
     useEffect(() => {
         if (dataSource.selectedTable) {
             fetchMergedColumns();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dataSource.selectedTable, dataSource.joinedTables, dataSource.unionTables]);
+    }, [dataSource.selectedTable, dataSource.joinedTables, dataSource.unionTables, dataSource.customRelationships]);
 
     // --- Effect to handle snapshot loading with pre-populated axis fields ---
     // When VisualizationProvider mounts with initialState containing axis fields,

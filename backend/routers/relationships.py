@@ -13,6 +13,7 @@ from backend.dependencies import (
 from backend.exceptions import DataSourceConnectionError
 from backend.models.data_source import (
     ConnectionDetails,
+    ForeignKeyRelationship,
     MergedColumnsResponse,
     TableRelationshipsResponse,
 )
@@ -53,6 +54,7 @@ def get_suggested_joins(
     """
     Get suggested tables that can be joined to a primary table or already-joined tables.
     Returns list of table names with detected relationships.
+    Uses heuristic FK detection. For manual FK mappings, use POST /suggested-joins instead.
     
     Args:
         database: Database name
@@ -74,6 +76,45 @@ def get_suggested_joins(
             already_joined=joined_table_list
         )
         logger.info(f"Found {len(suggested_tables)} joinable tables for '{primary_table}' (with {len(joined_table_list)} already joined)")
+        return {
+            "primary_table": primary_table,
+            "suggested_tables": suggested_tables
+        }
+    except Exception as e:
+        logger.error(f"Error getting suggested joins: {e}")
+        raise DataSourceConnectionError(f"Failed to get suggested joins: {e}")
+
+
+@router.post("/suggested-joins")
+def post_suggested_joins(
+    database: str,
+    primary_table: str = Body(...),
+    joined_tables: Optional[List[str]] = Body(None),
+    custom_relationships: Optional[List[ForeignKeyRelationship]] = Body(None),
+    connector: BaseConnector = Depends(get_active_connector),
+    conn_details: ConnectionDetails = Depends(get_connection_details)
+):
+    """
+    Get suggested tables that can be joined to a primary table or already-joined tables.
+    Accepts custom FK relationships to bypass heuristic detection.
+    
+    Args:
+        database: Database name (query param)
+        primary_table: Primary table name
+        joined_tables: Optional list of already-joined table names
+        custom_relationships: Optional explicit FK relationships.
+                            When provided (even if empty []), bypasses heuristic detection.
+    """
+    try:
+        merge_service = TableMergeService(connector)
+        
+        suggested_tables = merge_service.get_suggested_tables(
+            database, 
+            primary_table,
+            already_joined=joined_tables or [],
+            relationships=custom_relationships
+        )
+        logger.info(f"Found {len(suggested_tables)} joinable tables for '{primary_table}' (custom_relationships={'yes' if custom_relationships is not None else 'no'})")
         return {
             "primary_table": primary_table,
             "suggested_tables": suggested_tables
@@ -110,6 +151,7 @@ def get_merged_columns(
     joined_tables: Optional[List[str]] = Body(None),
     union_tables: Optional[List] = Body(None),
     auto_detect: bool = Body(True),
+    custom_relationships: Optional[List[ForeignKeyRelationship]] = Body(None),
     connector: BaseConnector = Depends(get_active_connector),
     conn_details: ConnectionDetails = Depends(get_connection_details)
 ):
@@ -128,6 +170,8 @@ def get_merged_columns(
                      Format: [{"database": "db1", "table_name": "orders"}, ...]
                      Legacy format: ["table1", "table2"] (uses default database)
         auto_detect: Whether to auto-detect joins (default: True, for JOIN mode only)
+        custom_relationships: Optional explicit FK relationships for JOIN mode.
+                            When provided (even if empty []), bypasses heuristic detection.
     
     Returns:
         MergedColumnsResponse with columns and virtual table definition
@@ -139,7 +183,8 @@ def get_merged_columns(
             primary_table=primary_table,
             joined_tables=joined_tables,
             union_tables=union_tables,
-            auto_detect=auto_detect
+            auto_detect=auto_detect,
+            custom_relationships=custom_relationships
         )
     except Exception as e:
         logger.error(f"Error creating merged columns: {e}")

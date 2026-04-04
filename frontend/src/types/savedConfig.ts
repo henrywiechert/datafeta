@@ -4,7 +4,7 @@
  */
 
 import { ColumnCasts } from './query';
-import { TableJoinDefinition } from './multiTable';
+import { TableJoinDefinition, ForeignKeyRelationship } from './multiTable';
 import { VirtualColumnDefinition } from './virtualColumn';
 import { Field } from './field';
 import { FilterConfig } from './filter';
@@ -54,6 +54,7 @@ export interface SavedDataSourceSelection {
   virtualColumnFieldPreferences?: Record<string, { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }>;
   measureGroupFields?: Field[];
   fieldDisplayAliases?: Record<string, string>;
+  customRelationships?: ForeignKeyRelationship[];
 }
 
 /**

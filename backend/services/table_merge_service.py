@@ -25,7 +25,8 @@ class TableMergeService:
         self, 
         database: str, 
         primary_table: str,
-        already_joined: Optional[List[str]] = None
+        already_joined: Optional[List[str]] = None,
+        relationships: Optional[List[ForeignKeyRelationship]] = None
     ) -> List[TableJoinDefinition]:
         """
         Suggest potential joins for a primary table based on detected foreign keys.
@@ -35,12 +36,17 @@ class TableMergeService:
             database: Database name
             primary_table: The primary table to find joins for
             already_joined: List of tables already joined (for transitive relationship detection)
+            relationships: Optional explicit list of FK relationships to use.
+                          When provided (even if empty), bypasses heuristic detection.
             
         Returns:
             List of suggested join definitions
         """
-        # Detect all foreign key relationships in the database
-        all_relationships = self.connector.detect_foreign_keys(database)
+        # Use explicit relationships if provided, otherwise detect via heuristics
+        all_relationships = (
+            relationships if relationships is not None
+            else self.connector.detect_foreign_keys(database)
+        )
         
         suggested_joins = []
         
@@ -100,7 +106,8 @@ class TableMergeService:
         database: str,
         primary_table: str,
         joined_tables: Optional[List[str]] = None,
-        auto_detect: bool = True
+        auto_detect: bool = True,
+        relationships: Optional[List[ForeignKeyRelationship]] = None
     ) -> VirtualTableDefinition:
         """
         Create a virtual table definition with automatic join detection.
@@ -110,6 +117,8 @@ class TableMergeService:
             primary_table: The primary/main table
             joined_tables: Optional list of table names to join (if None and auto_detect=True, auto-suggest)
             auto_detect: Whether to automatically detect and add joins
+            relationships: Optional explicit list of FK relationships to use.
+                          When provided (even if empty), bypasses heuristic detection.
             
         Returns:
             VirtualTableDefinition with join specifications
@@ -128,7 +137,7 @@ class TableMergeService:
                 # Process tables in order, building up the join graph
                 while remaining_tables:
                     # Get suggestions based on what we've processed so far
-                    suggested_joins = self.suggest_joins(database, primary_table, already_joined=processed_tables)
+                    suggested_joins = self.suggest_joins(database, primary_table, already_joined=processed_tables, relationships=relationships)
                     
                     # Find which remaining tables are in the suggestions
                     found_in_round = []
@@ -147,7 +156,7 @@ class TableMergeService:
                 joins = all_join_defs
             elif auto_detect:
                 # Use all suggested joins
-                joins = self.suggest_joins(database, primary_table, already_joined=None)
+                joins = self.suggest_joins(database, primary_table, already_joined=None, relationships=relationships)
         
         virtual_table = VirtualTableDefinition(
             primary_table=primary_table,
@@ -285,7 +294,8 @@ class TableMergeService:
         self,
         database: str,
         primary_table: str,
-        already_joined: Optional[List[str]] = None
+        already_joined: Optional[List[str]] = None,
+        relationships: Optional[List[ForeignKeyRelationship]] = None
     ) -> List[str]:
         """
         Get list of tables that can be joined to the primary table or already-joined tables.
@@ -297,14 +307,19 @@ class TableMergeService:
             database: Database name
             primary_table: Primary table name
             already_joined: List of tables already joined (to find additional joinable tables)
+            relationships: Optional explicit list of FK relationships to use.
+                          When provided (even if empty), bypasses heuristic detection.
             
         Returns:
             List of table names that have detected relationships (excluding already joined)
         """
         already_joined = already_joined or []
         
-        # Get all relationships in the database
-        all_relationships = self.connector.detect_foreign_keys(database)
+        # Use explicit relationships if provided, otherwise detect via heuristics
+        all_relationships = (
+            relationships if relationships is not None
+            else self.connector.detect_foreign_keys(database)
+        )
         
         # Tables to check for relationships (primary + already joined)
         tables_to_check = {primary_table} | set(already_joined)
@@ -397,7 +412,8 @@ class TableMergeService:
         primary_table: str,
         joined_tables: Optional[List[str]] = None,
         union_tables: Optional[List] = None,
-        auto_detect: bool = True
+        auto_detect: bool = True,
+        custom_relationships: Optional[List[ForeignKeyRelationship]] = None
     ) -> MergedColumnsResponse:
         """
         Get a merged column list from multiple tables with automatic virtual table creation.
@@ -433,7 +449,8 @@ class TableMergeService:
                 database=database,
                 primary_table=primary_table,
                 joined_tables=joined_tables,
-                auto_detect=auto_detect
+                auto_detect=auto_detect,
+                relationships=custom_relationships
             )
         
         # Get merged columns

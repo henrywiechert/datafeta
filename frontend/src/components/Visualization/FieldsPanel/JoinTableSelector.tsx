@@ -11,6 +11,9 @@ import AddLinkIcon from '@mui/icons-material/AddLink';
 import LinkOffIcon from '@mui/icons-material/LinkOff';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import TuneIcon from '@mui/icons-material/Tune';
+import { useDataSource } from '../../../contexts/DataSourceContext';
+import RelationshipEditor from './RelationshipEditor';
 import styles from './JoinTableSelector.module.css';
 
 interface JoinTableSelectorProps {
@@ -27,10 +30,19 @@ const JoinTableSelector: React.FC<JoinTableSelectorProps> = ({
   onToggleJoin,
 }) => {
   const [expanded, setExpanded] = React.useState(false);
+  const [editorOpen, setEditorOpen] = React.useState(false);
+  const { dataSource, setCustomRelationships } = useDataSource();
 
-  if (suggestedJoinableTables.length === 0) {
-    return null; // No joinable tables to show
-  }
+  // Build the list of all table names for the editor
+  const allTableNames = React.useMemo(() => {
+    const tableSet = new Set<string>();
+    tableSet.add(primaryTable);
+    suggestedJoinableTables.forEach(t => tableSet.add(t));
+    joinedTables.forEach(t => tableSet.add(t));
+    // Also include tables from the tables list in context
+    dataSource.tables.forEach(t => tableSet.add(t.name));
+    return Array.from(tableSet).sort();
+  }, [primaryTable, suggestedJoinableTables, joinedTables, dataSource.tables]);
 
   return (
     <Box className={styles.container}>
@@ -41,14 +53,29 @@ const JoinTableSelector: React.FC<JoinTableSelectorProps> = ({
           fontSize="0.85rem"
         >
           Related Tables
+          {dataSource.customRelationships !== null && (
+            <Typography component="span" variant="caption" color="primary" sx={{ ml: 0.5 }}>
+              (manual)
+            </Typography>
+          )}
         </Typography>
-        <IconButton 
-          size="small" 
-          onClick={() => setExpanded(!expanded)}
-          className={styles.expandButton}
-        >
-          {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-        </IconButton>
+        <Box>
+          <Tooltip title="Manage relationships" arrow>
+            <IconButton
+              size="small"
+              onClick={() => setEditorOpen(true)}
+            >
+              <TuneIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <IconButton 
+            size="small" 
+            onClick={() => setExpanded(!expanded)}
+            className={styles.expandButton}
+          >
+            {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+          </IconButton>
+        </Box>
       </Box>
 
             <Collapse in={expanded}>
@@ -84,6 +111,15 @@ const JoinTableSelector: React.FC<JoinTableSelectorProps> = ({
           </Box>
         )}
       </Collapse>
+
+      <RelationshipEditor
+        open={editorOpen}
+        onClose={() => setEditorOpen(false)}
+        database={dataSource.selectedDatabase}
+        tables={allTableNames}
+        customRelationships={dataSource.customRelationships}
+        onSave={setCustomRelationships}
+      />
     </Box>
   );
 };

@@ -44,6 +44,7 @@ function AppContent() {
     setVirtualColumns,
     setVirtualColumnFieldPreferences,
     setFieldAlias,
+    setCustomRelationships,
     loadHivePartition,
     restoreSessionFilters,
   } = useDataSource();
@@ -245,6 +246,7 @@ function AppContent() {
       hivePartitionInfo,
       dataSource.sessionFilterFields,
       dataSource.sessionAppliedFilterConfigurations,
+      dataSource.customRelationships,
     );
   };
 
@@ -489,6 +491,10 @@ function AppContent() {
                 joined_tables: config.dataSource!.joinedTables,
                 union_tables: [],
               });
+            }
+            // Restore custom relationships if present (manual FK mode)
+            if (config.dataSource!.customRelationships) {
+              setCustomRelationships(config.dataSource!.customRelationships);
             }
             // Note: measureGroupFields is now per-sheet, restored via sheet state above
           }, 0);
