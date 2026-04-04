@@ -1,7 +1,7 @@
 """Service for calculating cardinality (distinct counts) of fields."""
 
 import logging
-from typing import Optional
+from typing import List, Optional
 
 from pypika import Query, Table
 from pypika.terms import Term
@@ -417,6 +417,78 @@ class CardinalityService:
         
         return count_query
     
+    def check_composite_key_uniqueness(
+        self,
+        table: str,
+        columns: List[str],
+        database: Optional[str] = None
+    ) -> dict:
+        """Check whether a set of columns forms a unique key in a table.
+
+        Args:
+            table: Table name
+            columns: List of column names that form the composite key
+            database: Database name (required for ClickHouse)
+
+        Returns:
+            Dict with total_rows, unique_keys, is_unique, duplicate_rows
+        """
+        ValidationService.require_database_for_clickhouse(
+            database, self.conn_details, "checking key uniqueness"
+        )
+
+        quote_char = '`' if self.conn_details.type == 'clickhouse' else '"'
+
+        def q(name: str) -> str:
+            return quote_char + name + quote_char
+
+        if self.conn_details.type == 'clickhouse' and database:
+            table_ref = f'{q(database)}.{q(table)}'
+            key_cols = ','.join(q(c) for c in columns)
+            # ClickHouse: use uniqExact(tuple(...)) for exact distinct count
+            tuple_args = ','.join(q(c) for c in columns)
+            sql = (
+                f'SELECT count() AS total_rows, '
+                f'uniqExact(tuple({tuple_args})) AS unique_keys '
+                f'FROM {table_ref}'
+            )
+        else:
+            # DuckDB / generic SQL
+            table_ref = q(table)
+            key_cols = ','.join(q(c) for c in columns)
+            sql = (
+                f'SELECT count(*) AS total_rows, '
+                f'count(DISTINCT ({key_cols})) AS unique_keys '
+                f'FROM {table_ref}'
+            )
+
+        logger.info(f"Checking composite key uniqueness: {sql}")
+
+        try:
+            col_names, rows = self.connector.fetch_data(sql)
+            if rows and len(rows) > 0:
+                row = rows[0]
+                if isinstance(row, dict):
+                    total = int(row.get('total_rows', 0))
+                    unique = int(row.get('unique_keys', 0))
+                elif isinstance(row, (list, tuple)):
+                    total = int(row[0])
+                    unique = int(row[1])
+                else:
+                    total, unique = 0, 0
+            else:
+                total, unique = 0, 0
+
+            return {
+                "total_rows": total,
+                "unique_keys": unique,
+                "is_unique": total == unique,
+                "duplicate_rows": total - unique
+            }
+        except Exception as e:
+            logger.error(f"Error checking composite key uniqueness: {e}")
+            raise QueryExecutionError(f"Failed to check key uniqueness: {e}")
+
     def _execute_count_query(self, sql: str, field: str) -> int:
         """Execute the count query and extract the result."""
         try:

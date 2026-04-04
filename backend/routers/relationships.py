@@ -18,6 +18,7 @@ from backend.models.data_source import (
     TableRelationshipsResponse,
 )
 from backend.services.table_merge_service import TableMergeService
+from backend.services.cardinality_service import CardinalityService
 
 logger = logging.getLogger(__name__)
 
@@ -189,4 +190,29 @@ def get_merged_columns(
     except Exception as e:
         logger.error(f"Error creating merged columns: {e}")
         raise DataSourceConnectionError(f"Failed to create merged columns: {e}")
+
+
+@router.post("/check-key-uniqueness")
+def check_key_uniqueness(
+    database: str,
+    table: str = Body(...),
+    columns: List[str] = Body(...),
+    connector: BaseConnector = Depends(get_active_connector),
+    conn_details: ConnectionDetails = Depends(get_connection_details)
+):
+    """
+    Check whether a set of columns forms a unique key in a table.
+
+    Returns total_rows, unique_keys, is_unique, and duplicate_rows.
+    """
+    try:
+        service = CardinalityService(connector, conn_details)
+        return service.check_composite_key_uniqueness(
+            table=table,
+            columns=columns,
+            database=database
+        )
+    except Exception as e:
+        logger.error(f"Error checking key uniqueness: {e}")
+        raise DataSourceConnectionError(f"Failed to check key uniqueness: {e}")
 

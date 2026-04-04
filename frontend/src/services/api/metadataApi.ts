@@ -551,6 +551,24 @@ export const metadataApi = {
 
     throw new Error('No data available for field statistics');
   },
+
+  /**
+   * Check whether a set of columns forms a unique key in a table
+   */
+  async checkKeyUniqueness(
+    database: string,
+    table: string,
+    columns: string[],
+    signal?: AbortSignal
+  ): Promise<{ total_rows: number; unique_keys: number; is_unique: boolean; duplicate_rows: number }> {
+    const url = buildUrl('/check-key-uniqueness', { database });
+    const response = await fetchWithErrorHandling(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ table, columns }),
+    }, signal);
+    return response.json();
+  },
 };
 
 /**
