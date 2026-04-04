@@ -62,7 +62,8 @@ class TestTableMergeServiceVirtual:
             database="shop_db",
             primary_table="orders",
             joined_tables=["customers"],
-            auto_detect=False
+            auto_detect=False,
+            relationships=None
         )
         
         self.service.get_merged_columns.assert_called_once()
@@ -165,7 +166,8 @@ class TestTableMergeServiceVirtual:
             database="shop_db",
             primary_table="products",
             joined_tables=None,
-            auto_detect=True
+            auto_detect=True,
+            relationships=None
         )
     
     def test_get_merged_columns_with_virtual_default_join_mode(self):

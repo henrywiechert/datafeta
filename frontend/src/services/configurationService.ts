@@ -8,7 +8,8 @@ import {
   Sheet,
   TableJoinDefinition,
   UserChartType,
-  VirtualColumnDefinition
+  VirtualColumnDefinition,
+  ForeignKeyRelationship
 } from '../types';
 import { ClickHouseOverrides } from '../components/ConnectionRestoreDialog';
 
@@ -123,6 +124,7 @@ export function exportConfiguration(
   hivePartitionInfo?: HivePartitionInfo,
   sessionFilterFields?: Field[],
   sessionFilterConfigurations?: Record<string, FilterConfig>,
+  customRelationships?: ForeignKeyRelationship[] | null,
 ): SavedConfiguration {
   const normalizedSheets = sheets.map((sheet) => ({
     ...sheet,
@@ -180,6 +182,11 @@ export function exportConfiguration(
     
     if (fieldDisplayAliases && Object.keys(fieldDisplayAliases).length > 0) {
       config.dataSource.fieldDisplayAliases = fieldDisplayAliases;
+    }
+
+    // Add custom relationships if in manual mode (non-null array, including empty)
+    if (customRelationships !== undefined && customRelationships !== null) {
+      config.dataSource.customRelationships = customRelationships;
     }
     // Note: measureGroupFields is now per-sheet (stored in each sheet's visualizationState)
   }
