@@ -1,12 +1,48 @@
 """Builder for creating table context from query descriptions."""
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 from pypika import Query, Table
 
 from backend.models.query import QueryDescription
 from backend.services.query_components.contexts import TableContext
 from backend.exceptions import QueryGenerationError
+
+
+class DedupWrappedTable(Table):
+    """A PyPika Table subclass that renders as a dedup subquery.
+
+    When used in a JOIN, produces SQL like:
+        (SELECT * FROM "table" WHERE (key_cols) IN (
+            SELECT key_cols FROM "table" GROUP BY key_cols HAVING count()=1
+        )) "table"
+
+    This filters out rows with duplicate key combinations, enforcing
+    uniqueness on the join key columns.
+    """
+
+    def __init__(self, table_name: str, key_columns: List[str], schema=None):
+        super().__init__(table_name, schema=schema)
+        self._key_columns = key_columns
+        self._original_schema = schema
+
+    def get_sql(self, **kwargs):
+        # Build the fully-qualified original table reference
+        if self._original_schema:
+            original_ref = '"' + self._original_schema + '"."' + self._table_name + '"'
+        else:
+            original_ref = '"' + self._table_name + '"'
+
+        # Build quoted key column list
+        key_cols = ','.join('"' + c + '"' for c in self._key_columns)
+
+        return (
+            '(SELECT * FROM ' + original_ref
+            + ' WHERE (' + key_cols + ') IN ('
+            + 'SELECT ' + key_cols + ' FROM ' + original_ref
+            + ' GROUP BY ' + key_cols + ' HAVING count()=1'
+            + ')) "' + self._table_name + '"'
+        )
 
 
 class TableContextBuilder:
@@ -55,6 +91,29 @@ class TableContextBuilder:
             query_desc.target_database
         )
         
+        # Check if primary table needs dedup (one_to_one relationships require
+        # both sides to have unique keys — collect primary-side key columns)
+        primary_dedup_columns: List[str] = []
+        for join_def in query_desc.virtual_table.joined_tables:
+            if join_def.enforce_unique_keys and join_def.dedup_key_columns:
+                # Extract the primary table's columns from on_conditions
+                for condition in join_def.on_conditions:
+                    parts = condition.split('=')
+                    if len(parts) != 2:
+                        continue
+                    left_part = parts[0].strip().split('.', 1)
+                    if len(left_part) == 2 and left_part[0] == primary_table_name:
+                        col = left_part[1]
+                        if col not in primary_dedup_columns:
+                            primary_dedup_columns.append(col)
+
+        if primary_dedup_columns:
+            primary_table = DedupWrappedTable(
+                primary_table_name,
+                primary_dedup_columns,
+                schema=query_desc.target_database if db_type == 'clickhouse' else None
+            )
+
         table_map[primary_table_name] = primary_table
         query = Query.from_(primary_table)
         
@@ -65,6 +124,15 @@ class TableContextBuilder:
                 db_type,
                 query_desc.target_database
             )
+
+            # Wrap in dedup subquery if enforcement is active
+            if join_def.enforce_unique_keys and join_def.dedup_key_columns:
+                join_table = DedupWrappedTable(
+                    join_def.table_name,
+                    join_def.dedup_key_columns,
+                    schema=query_desc.target_database if db_type == 'clickhouse' else None
+                )
+
             table_map[join_def.table_name] = join_table
             
             # Apply JOIN with conditions

@@ -39,6 +39,8 @@ class TableJoinDefinition(BaseModel):
     join_type: Literal['INNER', 'LEFT', 'RIGHT', 'FULL'] = 'LEFT'
     on_conditions: List[str]  # e.g., ["primary.id = joined.primary_id"]
     alias: Optional[str] = None  # Optional table alias
+    enforce_unique_keys: bool = False  # When True, wrap joined table in dedup subquery
+    dedup_key_columns: Optional[List[str]] = None  # Key columns to deduplicate on
 
 class UnionTableDefinition(BaseModel):
     """Defines a table to be combined with UNION ALL (flexible schema with NULL fill)."""

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -19,11 +19,15 @@ import {
   Alert,
   OutlinedInput,
   SelectChangeEvent,
+  Tooltip,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { ForeignKeyRelationship } from '../../../types';
 import { apiService } from '../../../apiService';
+import { metadataApi } from '../../../services/api/metadataApi';
 
 interface RelationshipEditorProps {
   open: boolean;
@@ -223,6 +227,7 @@ const RelationshipEditor: React.FC<RelationshipEditorProps> = ({
                 relationship={rel}
                 index={index}
                 tables={tables}
+                database={database}
                 columnsCache={columnsCache}
                 loadingColumns={loadingColumns}
                 onTableChange={handleTableChange}
@@ -261,6 +266,7 @@ interface RelationshipRowProps {
   relationship: ForeignKeyRelationship;
   index: number;
   tables: string[];
+  database: string;
   columnsCache: Record<string, ColumnInfo[]>;
   loadingColumns: string | null;
   onTableChange: (index: number, field: 'from_table' | 'to_table', value: string) => void;
@@ -274,6 +280,7 @@ const RelationshipRow: React.FC<RelationshipRowProps> = ({
   relationship,
   index,
   tables,
+  database,
   columnsCache,
   loadingColumns,
   onTableChange,
@@ -284,6 +291,62 @@ const RelationshipRow: React.FC<RelationshipRowProps> = ({
 }) => {
   const fromColumns = columnsCache[relationship.from_table] || [];
   const toColumns = columnsCache[relationship.to_table] || [];
+
+  // Cardinality check state
+  const [uniquenessResult, setUniquenessResult] = useState<{
+    table: string;
+    is_unique: boolean;
+    duplicate_rows: number;
+  } | null>(null);
+  const [checkingUniqueness, setCheckingUniqueness] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Determine which side should be unique based on relationship_type
+  const getUniqueSide = useCallback((): { table: string; columns: string[] } | null => {
+    const { relationship_type, from_table, from_columns, to_table, to_columns } = relationship;
+    if (relationship_type === 'many_to_one' && to_table && to_columns.length > 0) {
+      return { table: to_table, columns: to_columns };
+    }
+    if (relationship_type === 'one_to_many' && from_table && from_columns.length > 0) {
+      return { table: from_table, columns: from_columns };
+    }
+    if (relationship_type === 'one_to_one') {
+      // Check to_table side (both should be unique; check one)
+      if (to_table && to_columns.length > 0) {
+        return { table: to_table, columns: to_columns };
+      }
+    }
+    return null;
+  }, [relationship]);
+
+  // Run cardinality check with debounce
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setUniquenessResult(null);
+
+    const side = getUniqueSide();
+    if (!side || !database) return;
+
+    debounceRef.current = setTimeout(async () => {
+      setCheckingUniqueness(true);
+      try {
+        const result = await metadataApi.checkKeyUniqueness(database, side.table, side.columns);
+        setUniquenessResult({
+          table: side.table,
+          is_unique: result.is_unique,
+          duplicate_rows: result.duplicate_rows,
+        });
+      } catch (err) {
+        console.warn('Cardinality check failed:', err);
+      } finally {
+        setCheckingUniqueness(false);
+      }
+    }, 500);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [database, getUniqueSide]);
 
   return (
     <Box sx={{ mb: 2, p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
@@ -401,6 +464,36 @@ const RelationshipRow: React.FC<RelationshipRowProps> = ({
           ))}
         </Select>
       </FormControl>
+
+      {/* Cardinality uniqueness badge */}
+      {uniquenessResult && (
+        <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          {uniquenessResult.is_unique ? (
+            <Tooltip title={`Keys in "${uniquenessResult.table}" are unique — no duplicate rows will be filtered`}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <CheckCircleOutlineIcon fontSize="small" color="success" />
+                <Typography variant="caption" color="success.main">
+                  Keys unique in {uniquenessResult.table}
+                </Typography>
+              </Box>
+            </Tooltip>
+          ) : (
+            <Tooltip title={`${uniquenessResult.duplicate_rows} duplicate-key rows in "${uniquenessResult.table}" will be excluded from join results`}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <WarningAmberIcon fontSize="small" color="warning" />
+                <Typography variant="caption" color="warning.main">
+                  {uniquenessResult.duplicate_rows} duplicate rows in {uniquenessResult.table} will be filtered
+                </Typography>
+              </Box>
+            </Tooltip>
+          )}
+        </Box>
+      )}
+      {checkingUniqueness && (
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+          Checking key uniqueness…
+        </Typography>
+      )}
     </Box>
   );
 };
