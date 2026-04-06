@@ -417,6 +417,10 @@ export function useMetadataOperations({
         if (dataSource.selectedTable && !dataSource.isLoadingMetadata) {
             // Only fetch if we don't have fields or if the fields list was just cleared (user changed table)
             if (dataSource.availableFields.length === 0) {
+                // Skip when joined or union tables are present — fetchMergedColumns handles those
+                if (dataSource.joinedTables.length > 0 || dataSource.unionTables.length > 0) {
+                    return;
+                }
                 fetchColumns();
             }
         }
