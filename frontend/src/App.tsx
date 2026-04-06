@@ -41,6 +41,7 @@ function AppContent() {
     setAvailableFields,
     setUnionTables,
     setVirtualTable,
+    setJoinedTables,
     setVirtualColumns,
     setVirtualColumnFieldPreferences,
     setFieldAlias,
@@ -484,6 +485,9 @@ function AppContent() {
             }
             // Restore joined tables if present
             if (config.dataSource!.joinedTables && config.dataSource!.joinedTables.length > 0) {
+              // Restore joinedTables string[] so useEffect sees them as joined
+              const joinedTableNames = config.dataSource!.joinedTables.map(jt => jt.table_name);
+              setJoinedTables(joinedTableNames);
               // Recreate the virtual table with join mode
               setVirtualTable({
                 primary_table: config.dataSource!.selectedTable,
