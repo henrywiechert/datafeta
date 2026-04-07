@@ -1,5 +1,5 @@
-import React, { Suspense, useEffect, useState } from 'react';
-import { Box, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, TextField, Switch, FormControlLabel, Divider, Popover, Slider, Typography } from '@mui/material';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
+import { Box, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, TextField, Switch, FormControlLabel, Divider, Popover, Slider, Typography, Menu, MenuItem, ListItemIcon, ListItemText } from '@mui/material';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
@@ -14,6 +14,7 @@ import HeightIcon from '@mui/icons-material/Height';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 import TableRowsIcon from '@mui/icons-material/TableRows';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import QueryStatusIndicator from './QueryStatusIndicator';
 import DatasetStatus from './DatasetStatus';
 import { QueryOptimizationSettings } from '../../../../types';
@@ -78,10 +79,14 @@ const ChartControls: React.FC<ChartControlsProps> = ({
   showTableRows = false,
   onToggleTableRows,
 }) => {
+  const controlsRef = useRef<HTMLDivElement | null>(null);
+  const [controlsWidth, setControlsWidth] = useState<number>(Infinity);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [draftSettings, setDraftSettings] = useState<QueryOptimizationSettings>(optimizationSettings);
   const [bandAnchorEl, setBandAnchorEl] = useState<HTMLElement | null>(null);
+  const [overflowAnchorEl, setOverflowAnchorEl] = useState<HTMLElement | null>(null);
+  const moreButtonRef = useRef<HTMLButtonElement | null>(null);
   const [draftBandScale, setDraftBandScale] = useState<number>(bandThicknessScale);
 
   useEffect(() => {
@@ -95,6 +100,17 @@ const ChartControls: React.FC<ChartControlsProps> = ({
       setDraftBandScale(bandThicknessScale);
     }
   }, [bandAnchorEl, bandThicknessScale]);
+
+  useEffect(() => {
+    if (!controlsRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      setControlsWidth(entry.contentRect.width);
+    });
+    observer.observe(controlsRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   const handleResetClick = () => {
     setResetDialogOpen(true);
@@ -133,6 +149,14 @@ const ChartControls: React.FC<ChartControlsProps> = ({
     setBandAnchorEl(null);
   };
 
+  const handleOverflowOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setOverflowAnchorEl(event.currentTarget);
+  };
+
+  const handleOverflowClose = () => {
+    setOverflowAnchorEl(null);
+  };
+
   const handleBandScaleChange = (_event: Event | React.SyntheticEvent, newValue: number | number[]) => {
     if (typeof newValue === 'number') {
       setDraftBandScale(newValue);
@@ -145,19 +169,85 @@ const ChartControls: React.FC<ChartControlsProps> = ({
     }
   };
 
+  const openBandFromOverflow = () => {
+    handleOverflowClose();
+    if (moreButtonRef.current) {
+      setBandAnchorEl(moreButtonRef.current);
+    }
+  };
+
+  const openSettingsFromOverflow = () => {
+    handleOverflowClose();
+    setSettingsDialogOpen(true);
+  };
+
+  const handleResetFromOverflow = () => {
+    handleOverflowClose();
+    handleResetClick();
+  };
+
+  // Responsive tiers based on actual controls container width:
+  // - wide: full controls
+  // - medium: hide low-priority controls into More
+  // - tight: keep only pinned controls visible + More
+  const isTightControls = controlsWidth < 400;
+  const isMediumControls = controlsWidth < 700;
+
+  const hideLowPriorityInline = isMediumControls;
+  const hideTier2Inline = isTightControls;
+
+  const showInlineDevSql = !hideLowPriorityInline;
+  const showInlineTableToggle = !hideTier2Inline;
+  const showInlineSwap = !hideTier2Inline && !showTableRows;
+  const showInlineZoomOut = !hideTier2Inline && !showTableRows;
+  const showInlineZoomReset = !hideTier2Inline && !showTableRows;
+  const showInlineRefresh = !hideLowPriorityInline;
+  const showInlineBand = !hideLowPriorityInline && !showTableRows;
+  const showInlineSettings = !hideLowPriorityInline;
+  const showInlineIndependentX = !hideLowPriorityInline && !showTableRows;
+  const showInlineIndependentY = !hideLowPriorityInline && !showTableRows;
+  const showInlineReset = !hideLowPriorityInline;
+
+  const showOverflowTableToggle = hideTier2Inline;
+  const showOverflowSwap = hideTier2Inline && !showTableRows;
+  const showOverflowZoomOut = hideTier2Inline && !showTableRows;
+  const showOverflowZoomReset = hideTier2Inline && !showTableRows;
+  const showOverflowRefresh = hideLowPriorityInline;
+  const showOverflowBand = hideLowPriorityInline && !showTableRows;
+  const showOverflowSettings = hideLowPriorityInline;
+  const showOverflowIndependentX = hideLowPriorityInline && !showTableRows;
+  const showOverflowIndependentY = hideLowPriorityInline && !showTableRows;
+  const showOverflowReset = hideLowPriorityInline;
+  const hasOverflowActions = Boolean(
+    showOverflowTableToggle ||
+    showOverflowSwap ||
+    showOverflowZoomOut ||
+    showOverflowZoomReset ||
+    showOverflowRefresh ||
+    showOverflowBand ||
+    showOverflowSettings ||
+    showOverflowIndependentX ||
+    showOverflowIndependentY ||
+    showOverflowReset
+  );
+
   return (
-    <Box sx={{ 
+    <Box
+      ref={controlsRef}
+      sx={{ 
       display: 'flex', 
       alignItems: 'center', 
       justifyContent: 'space-between',
+      gap: 1,
       pt: 0.5,
       pb: 0.5,
       px: 1,
       borderTop: isDebugOpen ? '1px solid #e0e0e0' : 'none',
       flexShrink: 0
-    }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        {DevSqlViewerControl && (
+    }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1, overflow: 'hidden' }}>
+        {showInlineDevSql && DevSqlViewerControl && (
           <Suspense fallback={null}>
             <DevSqlViewerControl />
           </Suspense>
@@ -180,7 +270,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
           </Tooltip>
         )}
 
-        {onToggleTableRows && (
+        {showInlineTableToggle && onToggleTableRows && (
           <Tooltip title={showTableRows ? 'Show Chart' : 'Show Data Table'}>
             <IconButton
               onClick={() => onToggleTableRows(!showTableRows)}
@@ -198,7 +288,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
           </Tooltip>
         )}
         
-        {onSwapAxis && !showTableRows && (
+        {showInlineSwap && onSwapAxis && (
           <Tooltip title="Swap X/Y Axes">
             <IconButton 
               onClick={onSwapAxis}
@@ -255,7 +345,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
           </Tooltip>
         )}
 
-        {onZoomOut && !showTableRows && (
+        {showInlineZoomOut && onZoomOut && (
           <Tooltip title="Zoom out (2x)">
             <span>
               <IconButton
@@ -275,7 +365,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
           </Tooltip>
         )}
 
-        {onZoomReset && !showTableRows && (
+        {showInlineZoomReset && onZoomReset && (
           <Tooltip title="Reset zoom">
             <span>
               <IconButton
@@ -295,7 +385,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
           </Tooltip>
         )}
 
-        {onForceRefresh && (
+        {showInlineRefresh && onForceRefresh && (
           <Tooltip title="Refresh data (invalidate cache)">
             <IconButton
               onClick={onForceRefresh}
@@ -312,7 +402,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
           </Tooltip>
         )}
 
-        {!showTableRows && (
+        {showInlineBand && (
           <Tooltip title="Band thickness (bar/tick/gantt)">
             <IconButton
               onClick={handleBandControlOpen}
@@ -329,6 +419,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
           </Tooltip>
         )}
 
+        {showInlineSettings && (
         <Tooltip title="Query optimization settings">
           <IconButton
             onClick={() => setSettingsDialogOpen(true)}
@@ -343,8 +434,9 @@ const ChartControls: React.FC<ChartControlsProps> = ({
             <SettingsIcon fontSize="small" />
           </IconButton>
         </Tooltip>
+        )}
 
-        {!showTableRows && (
+        {showInlineIndependentX && (
         <Tooltip title={independentXAxis ? 'Independent X per facet (click to share)' : 'Shared X across facets (click to separate)'}>
           <span>
             <IconButton
@@ -369,7 +461,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
         </Tooltip>
         )}
 
-        {!showTableRows && (
+        {showInlineIndependentY && (
         <Tooltip title={independentYAxis ? 'Independent Y per facet (click to share)' : 'Shared Y across facets (click to separate)'}>
           <span>
             <IconButton
@@ -394,7 +486,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
         </Tooltip>
         )}
 
-        {onResetWorkspace && (
+        {showInlineReset && onResetWorkspace && (
           <Tooltip title="Reset Workspace">
             <IconButton 
               onClick={handleResetClick}
@@ -412,13 +504,113 @@ const ChartControls: React.FC<ChartControlsProps> = ({
             </IconButton>
           </Tooltip>
         )}
+
+        {hasOverflowActions && (
+          <Tooltip title="More actions">
+            <IconButton
+              ref={moreButtonRef}
+              size="small"
+              onClick={handleOverflowOpen}
+              aria-haspopup="menu"
+              aria-controls={Boolean(overflowAnchorEl) ? 'chart-controls-overflow-menu' : undefined}
+              aria-expanded={Boolean(overflowAnchorEl) ? 'true' : undefined}
+            >
+              <MoreVertIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
 
       {/* Right side - Dataset status and Query button */}
-      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
         <DatasetStatus />
         <QueryStatusIndicator onClick={onToggleDebug} />
       </Box>
+
+      <Menu
+        id="chart-controls-overflow-menu"
+        anchorEl={overflowAnchorEl}
+        open={Boolean(overflowAnchorEl)}
+        onClose={handleOverflowClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+      >
+        {showOverflowTableToggle && onToggleTableRows && (
+          <MenuItem
+            onClick={() => {
+              onToggleTableRows(!showTableRows);
+              handleOverflowClose();
+            }}
+          >
+            <ListItemIcon><TableRowsIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>{showTableRows ? 'Show chart' : 'Show data table'}</ListItemText>
+          </MenuItem>
+        )}
+
+        {showOverflowSwap && onSwapAxis && (
+          <MenuItem onClick={() => { onSwapAxis(); handleOverflowClose(); }}>
+            <ListItemIcon><SwapHorizIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Swap X/Y axes</ListItemText>
+          </MenuItem>
+        )}
+
+        {showOverflowZoomOut && onZoomOut && (
+          <MenuItem disabled={!hasActiveZoomFilters} onClick={() => { onZoomOut(); handleOverflowClose(); }}>
+            <ListItemIcon><ZoomOutIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Zoom out</ListItemText>
+          </MenuItem>
+        )}
+
+        {showOverflowZoomReset && onZoomReset && (
+          <MenuItem disabled={!hasActiveZoomFilters} onClick={() => { onZoomReset(); handleOverflowClose(); }}>
+            <ListItemIcon><CenterFocusStrongIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Reset zoom</ListItemText>
+          </MenuItem>
+        )}
+
+        {showOverflowRefresh && onForceRefresh && (
+          <MenuItem onClick={() => { onForceRefresh(); handleOverflowClose(); }}>
+            <ListItemIcon><RefreshIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Refresh data</ListItemText>
+          </MenuItem>
+        )}
+
+        {showOverflowBand && (
+          <MenuItem onClick={openBandFromOverflow}>
+            <ListItemIcon><HeightIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Band thickness</ListItemText>
+          </MenuItem>
+        )}
+
+        {showOverflowSettings && (
+        <MenuItem onClick={openSettingsFromOverflow}>
+          <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>Query optimization settings</ListItemText>
+        </MenuItem>
+        )}
+
+        {showOverflowIndependentX && (
+          <MenuItem onClick={() => { onToggleIndependentXAxis(!independentXAxis); handleOverflowClose(); }}>
+            <ListItemIcon>{independentXAxis ? <LinkOffIcon fontSize="small" /> : <LinkIcon fontSize="small" />}</ListItemIcon>
+            <ListItemText>{independentXAxis ? 'Independent X: on' : 'Independent X: off'}</ListItemText>
+          </MenuItem>
+        )}
+
+        {showOverflowIndependentY && (
+          <MenuItem onClick={() => { onToggleIndependentYAxis(!independentYAxis); handleOverflowClose(); }}>
+            <ListItemIcon>{independentYAxis ? <LinkOffIcon fontSize="small" /> : <LinkIcon fontSize="small" />}</ListItemIcon>
+            <ListItemText>{independentYAxis ? 'Independent Y: on' : 'Independent Y: off'}</ListItemText>
+          </MenuItem>
+        )}
+
+        {showOverflowReset && onResetWorkspace && (
+          <MenuItem onClick={handleResetFromOverflow}>
+            <ListItemIcon><RestartAltIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Reset workspace</ListItemText>
+          </MenuItem>
+        )}
+
+      </Menu>
 
       <Popover
         open={Boolean(bandAnchorEl)}

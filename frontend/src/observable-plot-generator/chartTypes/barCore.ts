@@ -269,6 +269,9 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
 
   const O = ORIENTATION[orientation];
   const categories = categoriesDomain || deriveCategories(data, categoryColumn);
+  const categoricalColorOrder = colorScale?.kind === 'categorical'
+    ? new Map((colorScale.domain as any[]).map((value, idx) => [value, idx]))
+    : null;
 
   // Compute domain, accounting for stacking when there's no category but there is color
   let domain: [number, number];
@@ -334,13 +337,32 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     channels: channels
   };
 
-  // When there's no category but there is color, enable stacking with z channel
-  if (!categoryColumn && colorColumn) {
+  // Enforce deterministic stack ordering whenever a color field is used.
+  if (colorColumn) {
     baseConfig.z = colorColumn;
-    baseConfig.order = colorColumn;
+    baseConfig.order = (d: any) => {
+      const value = d?.[colorColumn];
+      const indexed = categoricalColorOrder?.get(value);
+      if (typeof indexed === 'number') return indexed;
+      return String(value ?? '');
+    };
   }
 
-  const barMark = O.bar(data, baseConfig);
+  // Keep mark input order stable across categories and color groups.
+  const markData = colorColumn
+    ? [...data].sort((a, b) => {
+        if (categoryColumn) {
+          const categoryDiff = compareCategoryValues(a?.[categoryColumn], b?.[categoryColumn]);
+          if (categoryDiff !== 0) return categoryDiff;
+        }
+        const aOrder = baseConfig.order(a);
+        const bOrder = baseConfig.order(b);
+        if (typeof aOrder === 'number' && typeof bOrder === 'number') return aOrder - bOrder;
+        return String(aOrder).localeCompare(String(bOrder), undefined, { numeric: true, sensitivity: 'base' });
+      })
+    : data;
+
+  const barMark = O.bar(markData, baseConfig);
 
   const axisCategory = {
     label: categoryLabel || ' ',
@@ -403,7 +425,7 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
   // Pass tooltipFields directly to createTooltipFieldsGetter (color is read directly from DOM)
   (plot as any).__customTooltip = {
     enabled: true,
-    data: data,
+    data: markData,
     getFields: createTooltipFieldsGetter(
       mainFields,
       colorColumn && colorColumn !== categoryColumn && colorColumn !== measureName
