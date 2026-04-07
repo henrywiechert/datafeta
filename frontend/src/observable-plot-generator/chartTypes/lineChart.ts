@@ -585,6 +585,11 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
       domain: recomputedDependent,
     };
   }
+
+  // Series highlight stamping should resolve category values for line paths too.
+  // Line marks bind against budgetedSorted, while tooltip lookup uses dotData.
+  // Provide the line dataset explicitly for stampColorCategories.
+  (plotOptions as any).__seriesHighlightData = budgetedSorted;
   
   return plotOptions;
 }
