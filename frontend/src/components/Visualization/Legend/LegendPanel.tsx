@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Tooltip, Typography } from '@mui/material';
 import { Field, QueryResult } from '../../../types';
-import { getFieldDisplayName } from '../../../utils/fieldUtils';
+import { getFieldDisplayName, normalizeTimelineData } from '../../../utils/fieldUtils';
 import { deriveColorScaleInfo } from '../../../observable-plot-generator/utils/colorSchemeUtils';
 import { DEFAULT_CATEGORICAL_SCHEME } from '../../../config/colorSchemes';
 import ContextMenu from '../ContextMenu';
@@ -52,13 +52,18 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
   onHighlightChange,
   clearSelectionRef,
 }) => {
+  const legendRows = useMemo(() => {
+    if (!colorField || !queryResult?.rows) return queryResult?.rows ?? [];
+    return normalizeTimelineData(queryResult.rows, [colorField]);
+  }, [colorField, queryResult]);
+
   // ── Colour scale derivation ──────────────────────────────────────────
   const colorScale = useMemo(() => {
-    if (!colorField || !queryResult?.rows) {
+    if (!colorField || !legendRows) {
       return null;
     }
-    return deriveColorScaleInfo(queryResult.rows, colorField, colorScheme, colorBias);
-  }, [colorField, colorScheme, colorBias, queryResult]);
+    return deriveColorScaleInfo(legendRows, colorField, colorScheme, colorBias);
+  }, [colorField, colorScheme, colorBias, legendRows]);
 
   const formatValue = (value: any): string => {
     if (value === null || value === undefined) return 'NULL';
