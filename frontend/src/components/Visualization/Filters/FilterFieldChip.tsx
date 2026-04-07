@@ -125,9 +125,11 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
       type: 'datetime',
       startDate,
       endDate,
+      dateTimePart: field.dateTimePart,
+      dateTimeMode: field.dateTimeMode,
       isZoomFilter: filterConfig?.isZoomFilter,
     });
-  }, [field.id, field.columnName, onConfigChange, filterConfig?.isZoomFilter]);
+  }, [field.id, field.columnName, field.dateTimePart, field.dateTimeMode, onConfigChange, filterConfig?.isZoomFilter]);
 
   // Determine filter type based on field characteristics
   const getFilterType = (): 'discrete' | 'continuous' | 'datetime' => {

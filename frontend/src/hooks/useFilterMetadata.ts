@@ -25,6 +25,29 @@ export interface UseFilterMetadataReturn {
     refetchFilterValues: (fieldId: string, regexPattern?: string) => Promise<void>;
 }
 
+const resolveFilterType = (field: Field): 'discrete' | 'continuous' | 'datetime' => {
+    if (field.dataType === 'datetime') {
+        // Datetime parts with discrete flavour or distinct mode -> discrete filter
+        if (field.dateTimePart &&
+            (field.dateTimeMode === 'distinct' || field.flavour === 'discrete')) {
+            return 'discrete';
+        }
+        // Full datetime OR continuous timeline parts -> datetime range filter
+        return 'datetime';
+    }
+    return field.flavour === 'discrete' ? 'discrete' : 'continuous';
+};
+
+const getFilterFieldSignature = (field: Field): string => {
+    return [
+        field.columnName,
+        field.dataType,
+        field.flavour,
+        field.dateTimePart || '',
+        field.dateTimeMode || '',
+    ].join('|');
+};
+
 export function useFilterMetadata({
     filterFields,
     filterMetadata,
@@ -37,7 +60,6 @@ export function useFilterMetadata({
     connectionDetails,
     dispatch
 }: UseFilterMetadataParams): UseFilterMetadataReturn {
-
     // Convert new union table format to legacy format for API calls
     // API expects string[] that will be joined with commas
     // Use '/' separator instead of '.' to avoid conflicts with column names that contain dots
@@ -49,6 +71,8 @@ export function useFilterMetadata({
     
     // Track previous union tables to detect actual changes (not just reference changes)
     const prevUnionTablesRef = useRef<string>('');
+    // Track field signatures to refetch metadata when field semantics change in-place.
+    const filterFieldSignaturesRef = useRef<Map<string, string>>(new Map());
 
     // Cleanup: abort all pending filter metadata fetches on unmount
     useEffect(() => {
@@ -88,21 +112,7 @@ export function useFilterMetadata({
         const abortController = new AbortController();
         filterMetadataAbortControllers.current.set(field.id, abortController);
 
-        // Determine filter type based on field characteristics
-        const getFilterType = (): 'discrete' | 'continuous' | 'datetime' => {
-            if (field.dataType === 'datetime') {
-                // Datetime parts with discrete flavour or distinct mode → discrete filter
-                if (field.dateTimePart &&
-                    (field.dateTimeMode === 'distinct' || field.flavour === 'discrete')) {
-                    return 'discrete';
-                }
-                // Full datetime OR continuous timeline parts → datetime range filter
-                return 'datetime';
-            }
-            return field.flavour === 'discrete' ? 'discrete' : 'continuous';
-        };
-
-        const filterType = getFilterType();
+        const filterType = resolveFilterType(field);
 
         // Set loading state
         const loadingMetadata: FilterMetadata = {
@@ -194,9 +204,14 @@ export function useFilterMetadata({
                     payload: { fieldId: field.id, metadata }
                 });
 
-                // Initialize filter configuration with all fetched values selected
-                // BUT only if a configuration doesn't already exist (e.g., from loaded JSON)
-                if (!filterConfigurations[field.id]) {
+                // Initialize/reset configuration when missing or no longer compatible
+                const existing = filterConfigurations[field.id];
+                if (
+                    !existing ||
+                    existing.type !== 'discrete' ||
+                    existing.dateTimePart !== field.dateTimePart ||
+                    existing.dateTimeMode !== field.dateTimeMode
+                ) {
                     dispatch({
                         type: 'SET_FILTER_CONFIGURATION',
                         payload: {
@@ -218,7 +233,6 @@ export function useFilterMetadata({
                     // Reconcile pure-exclusion configs: when selectedValues is empty
                     // but excludedValues is set (e.g. from table context menu "Exclude"),
                     // compute selectedValues = allAvailable - excluded now that metadata arrived.
-                    const existing = filterConfigurations[field.id];
                     if (
                         existing.type === 'discrete'
                         && existing.selectedValues.length === 0
@@ -267,9 +281,9 @@ export function useFilterMetadata({
                     payload: { fieldId: field.id, metadata }
                 });
 
-                // Initialize filter configuration with full range
-                // BUT only if a configuration doesn't already exist (e.g., from loaded JSON)
-                if (!filterConfigurations[field.id]) {
+                // Initialize/reset configuration when missing or no longer compatible
+                const existing = filterConfigurations[field.id];
+                if (!existing || existing.type !== 'continuous') {
                     dispatch({
                         type: 'SET_FILTER_CONFIGURATION',
                         payload: {
@@ -308,9 +322,14 @@ export function useFilterMetadata({
                     payload: { fieldId: field.id, metadata }
                 });
 
-                // Initialize filter configuration with full range
-                // BUT only if a configuration doesn't already exist (e.g., from loaded JSON)
-                if (!filterConfigurations[field.id]) {
+                // Initialize/reset configuration when missing or no longer compatible
+                const existing = filterConfigurations[field.id];
+                if (
+                    !existing ||
+                    existing.type !== 'datetime' ||
+                    existing.dateTimePart !== field.dateTimePart ||
+                    existing.dateTimeMode !== field.dateTimeMode
+                ) {
                     dispatch({
                         type: 'SET_FILTER_CONFIGURATION',
                         payload: {
@@ -321,6 +340,8 @@ export function useFilterMetadata({
                                 type: 'datetime',
                                 startDate: range.min,
                                 endDate: range.max,
+                                dateTimePart: field.dateTimePart,
+                                dateTimeMode: field.dateTimeMode,
                             }
                         }
                     });
@@ -548,9 +569,28 @@ export function useFilterMetadata({
     // Fetch filter metadata when new filter fields are added
     // Also re-fetch when the selected table/database changes to handle config loading scenarios
     useEffect(() => {
+        const activeFieldIds = new Set(filterFields.map((f) => f.id));
+        filterFieldSignaturesRef.current.forEach((_sig, fieldId) => {
+            if (!activeFieldIds.has(fieldId)) {
+                filterFieldSignaturesRef.current.delete(fieldId);
+            }
+        });
+
         filterFields.forEach(field => {
-            // Only fetch if metadata doesn't exist for this field
-            if (!filterMetadata[field.id]) {
+            const metadata = filterMetadata[field.id];
+            const expectedType = resolveFilterType(field);
+            const currentSignature = getFilterFieldSignature(field);
+            const previousSignature = filterFieldSignaturesRef.current.get(field.id);
+
+            const needsRefetch = (
+                !metadata ||
+                metadata.type !== expectedType ||
+                metadata.columnName !== field.columnName ||
+                previousSignature !== currentSignature
+            );
+
+            if (needsRefetch) {
+                filterFieldSignaturesRef.current.set(field.id, currentSignature);
                 fetchFilterMetadata(field);
             }
         });
