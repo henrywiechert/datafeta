@@ -34,8 +34,9 @@ function isInsideGridOrAxis(el: Element, root: Element): boolean {
 }
 
 export function encodeCatValue(v: any): string {
-  if (v == null) return '\x00null';
-  if (v instanceof Date) return '\x00d' + v.valueOf();
+  // Keep encoded values CSS-selector-safe (no control chars).
+  if (v == null) return '__NULL__';
+  if (v instanceof Date) return `__DATE__:${v.valueOf()}`;
   return String(v);
 }
 
@@ -44,7 +45,8 @@ export function stampColorCategories(
   options: any,
 ): void {
   const fieldName: string | undefined = options.__colorCategoryField;
-  const data: any[] | undefined = options.__customTooltip?.data;
+  const data: any[] | undefined =
+    options.__seriesHighlightData || options.__customTooltip?.data;
   if (!fieldName) return;
 
   const allElements = plot.querySelectorAll(MARK_SELECTOR);
@@ -62,6 +64,9 @@ export function stampColorCategories(
       const firstIdx = datum[0];
       if (typeof firstIdx === 'number' && data && firstIdx < data.length) {
         datum = data[firstIdx];
+      } else if (firstIdx && typeof firstIdx === 'object') {
+        // Some marks bind an array of row objects instead of row indices.
+        datum = firstIdx;
       } else {
         continue;
       }
