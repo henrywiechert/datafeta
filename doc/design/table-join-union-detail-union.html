@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Join / Union Detail - UNION</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 14px; margin-top: 12px; overflow-x: auto; }
+    h1 { margin: 0 0 8px; }
+    p { color: #334155; margin: 0 0 8px; }
+    svg { width: 100%; min-width: 920px; height: auto; display: block; }
+    .box { rx: 12; ry: 12; stroke: #64748b; stroke-width: 1.2; }
+    .label { font-size: 14px; font-weight: 700; }
+    .small { font-size: 12px; fill: #334155; }
+    .arrow { stroke: #64748b; stroke-width: 1.4; fill: none; marker-end: url(#a); }
+    .top a { color: #1d4ed8; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top"><a href="table-join-union-architecture.html">← Back to high-level view</a></div>
+    <h1>Detail: UNION Path</h1>
+    <p>Union mode creates per-table SQL, aligns schema, and combines with `UNION ALL`.</p>
+
+    <div class="card">
+      <svg viewBox="0 0 980 260" role="img" aria-label="UNION mid-level flow">
+        <defs>
+          <marker id="a" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"></polygon>
+          </marker>
+        </defs>
+        <rect class="box" x="20" y="50" width="250" height="140" fill="#dcfce7"></rect>
+        <text x="35" y="80" class="label">Parse union sources</text>
+        <text x="35" y="102" class="small">primary + union tables</text>
+        <text x="35" y="118" class="small">cross-db references allowed</text>
+        <text x="35" y="134" class="small">fetch table column maps</text>
+
+        <path class="arrow" d="M270 120 L350 120"></path>
+
+        <rect class="box" x="350" y="50" width="300" height="140" fill="#dcfce7"></rect>
+        <text x="365" y="80" class="label">Per-table translation loop</text>
+        <text x="365" y="102" class="small">translate single table query</text>
+        <text x="365" y="118" class="small">NULL-fill missing fields</text>
+        <text x="365" y="134" class="small">add `_source_database/_source_table`</text>
+
+        <path class="arrow" d="M650 120 L730 120"></path>
+
+        <rect class="box" x="730" y="50" width="230" height="140" fill="#fef3c7"></rect>
+        <text x="745" y="80" class="label">Final UNION query</text>
+        <text x="745" y="102" class="small">`UNION ALL` compose</text>
+        <text x="745" y="118" class="small">optional outer DISTINCT/ORDER</text>
+        <text x="745" y="134" class="small">execute and return</text>
+      </svg>
+    </div>
+
+    <div class="card">
+      <p><strong>Low-level notes</strong></p>
+      <p>- Core component: `UnionQueryBuilder`</p>
+      <p>- Handles schema mismatch by injecting typed NULL placeholders</p>
+      <p>- Keeps source provenance via `_source_database` and `_source_table`</p>
+    </div>
+  </div>
+</body>
+</html>
