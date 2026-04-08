@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Join / Union Detail - Execution</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 14px; margin-top: 12px; overflow-x: auto; }
+    h1 { margin: 0 0 8px; }
+    p { color: #334155; margin: 0 0 8px; }
+    svg { width: 100%; min-width: 920px; height: auto; display: block; }
+    .box { rx: 12; ry: 12; stroke: #64748b; stroke-width: 1.2; }
+    .label { font-size: 14px; font-weight: 700; }
+    .small { font-size: 12px; fill: #334155; }
+    .arrow { stroke: #64748b; stroke-width: 1.4; fill: none; marker-end: url(#a); }
+    .top a { color: #1d4ed8; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top"><a href="table-join-union-architecture.html">← Back to high-level view</a></div>
+    <h1>Detail: SQL Execution</h1>
+    <p>JOIN/UNION SQL converges here and is executed by the active connector.</p>
+
+    <div class="card">
+      <svg viewBox="0 0 980 220" role="img" aria-label="Execution mid-level flow">
+        <defs>
+          <marker id="a" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"></polygon>
+          </marker>
+        </defs>
+        <rect class="box" x="20" y="50" width="260" height="110" fill="#fef3c7"></rect>
+        <text x="35" y="80" class="label">Input SQL</text>
+        <text x="35" y="102" class="small">JOIN SQL or UNION SQL</text>
+        <text x="35" y="118" class="small">with filters/order/limits</text>
+
+        <path class="arrow" d="M280 105 L360 105"></path>
+
+        <rect class="box" x="360" y="50" width="260" height="110" fill="#fef3c7"></rect>
+        <text x="375" y="80" class="label">Connector execution</text>
+        <text x="375" y="102" class="small">ClickHouse or DuckDB</text>
+        <text x="375" y="118" class="small">fetch columns + rows</text>
+
+        <path class="arrow" d="M620 105 L700 105"></path>
+
+        <rect class="box" x="700" y="50" width="260" height="110" fill="#dbeafe"></rect>
+        <text x="715" y="80" class="label">Frontend consumption</text>
+        <text x="715" y="102" class="small">JSON or Arrow response</text>
+        <text x="715" y="118" class="small">chart render + state update</text>
+      </svg>
+    </div>
+
+    <div class="card">
+      <p><strong>Low-level notes</strong></p>
+      <p>- Query route can return JSON (`/query`) or Arrow stream (`/query-arrow`)</p>
+      <p>- Frontend orchestrator may cache/aggregate locally in DuckDB</p>
+      <p>- Final output is rows/columns used by chart components</p>
+    </div>
+  </div>
+</body>
+</html>
