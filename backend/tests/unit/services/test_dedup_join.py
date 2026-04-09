@@ -11,6 +11,7 @@ from unittest.mock import Mock, patch
 
 from pypika import Query, Table
 
+from backend.dialects import get_dialect
 from backend.models.data_source import (
     ForeignKeyRelationship,
     TableJoinDefinition,
@@ -234,7 +235,8 @@ class TestTableContextBuilderDedup:
         """When enforce_unique_keys=True, joined table appears as dedup subquery."""
         qd = self._build_query_desc(enforce=True)
         builder = TableContextBuilder()
-        ctx = builder.build(qd, db_type='duckdb', fallback_table_name='orders')
+        dialect = get_dialect('duckdb')
+        ctx = builder.build(qd, dialect, fallback_table_name='orders')
 
         sql = ctx.query.select(ctx.primary_table.star).get_sql()
         assert 'HAVING count()=1' in sql
@@ -244,7 +246,8 @@ class TestTableContextBuilderDedup:
         """When enforce_unique_keys=False, normal JOIN without dedup."""
         qd = self._build_query_desc(enforce=False)
         builder = TableContextBuilder()
-        ctx = builder.build(qd, db_type='duckdb', fallback_table_name='orders')
+        dialect = get_dialect('duckdb')
+        ctx = builder.build(qd, dialect, fallback_table_name='orders')
 
         sql = ctx.query.select(ctx.primary_table.star).get_sql()
         assert 'HAVING count()' not in sql

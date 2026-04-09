@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional
 
 from pypika import Criterion
 from pypika.functions import Cast
@@ -12,6 +12,9 @@ from backend.exceptions import QueryGenerationError
 from backend.models.query import QueryDescription
 from backend.services.datetime_service import DateTimeService
 from backend.services.query_components.terms import CustomFunction
+
+if TYPE_CHECKING:
+    from backend.dialects import SqlDialect
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +55,7 @@ class FilterBuilder:
         query_desc: QueryDescription,
         table_map: Dict[str, Any],
         default_table: Any,
-        db_type: str,
+        dialect: "SqlDialect",
         primary_table: Any,
     ) -> List[Criterion]:
         criteria: List[Criterion] = []
@@ -70,7 +73,7 @@ class FilterBuilder:
                 definition,
                 table_map=table_map,
                 default_table=default_table,
-                db_type=db_type,
+                dialect=dialect,
                 column_casts=query_desc.column_casts,
             )
             value = definition.value
@@ -86,18 +89,13 @@ class FilterBuilder:
                     )
                 )
             else:
-                # Wrap datetime values for ClickHouse
-                wrapped_value = self._wrap_datetime_value_if_needed(
-                    value, db_type, definition.operator
-                )
+                wrapped_value = self._wrap_datetime_value_if_needed(value, dialect)
                 criteria.append(operator_func(field, wrapped_value))
 
         # Automatic NULL filtering for continuous dimensions
         if query_desc.dimensions:
             for dim in query_desc.dimensions:
                 if dim.flavour == "continuous":
-                    # Use parse_field_reference to handle joined table fields correctly
-                    # (e.g., "races.date" should resolve to races table, not primary table)
                     dim_field = self._parse_field_reference(dim.field)
                     dim_field = self._apply_cast_if_configured(
                         dim.field, dim_field, query_desc.column_casts
@@ -106,9 +104,7 @@ class FilterBuilder:
 
         if query_desc.distinct_value_regex and query_desc.dimensions:
             criteria.append(
-                self._build_distinct_regex_filter(
-                    query_desc, primary_table, db_type
-                )
+                self._build_distinct_regex_filter(query_desc, primary_table, dialect)
             )
 
         return criteria
@@ -119,7 +115,7 @@ class FilterBuilder:
         *,
         table_map: Dict[str, Any],
         default_table: Any,
-        db_type: str,
+        dialect: "SqlDialect",
         column_casts: Optional[Dict[str, Dict[str, str]]],
     ) -> Any:
         if definition.date_part and definition.date_mode:
@@ -127,8 +123,9 @@ class FilterBuilder:
             field_term = self._apply_cast_if_configured(
                 definition.field, field_term, column_casts
             )
+            # DateTimeService still uses db_type string (will be migrated separately)
             return DateTimeService.get_datetime_part_expression(
-                field_term, definition.date_part, definition.date_mode, db_type
+                field_term, definition.date_part, definition.date_mode, dialect.name
             )
 
         field = self._parse_field_reference(definition.field)
@@ -177,7 +174,7 @@ class FilterBuilder:
         self,
         query_desc: QueryDescription,
         primary_table: Any,
-        db_type: str,
+        dialect: "SqlDialect",
     ) -> Criterion:
         """Build a LIKE filter for distinct value queries.
         
@@ -191,48 +188,38 @@ class FilterBuilder:
                 primary_table, dim.field, query_desc.column_casts
             )
             field_expr = DateTimeService.get_datetime_part_expression(
-                field_term, dim.date_part, dim.date_mode, db_type
+                field_term, dim.date_part, dim.date_mode, dialect.name
             )
         else:
             field_expr = self._get_field_with_cast(
                 primary_table, dim.field, query_desc.column_casts
             )
 
-        # Cast to string for LIKE - works for both string (no-op) and numeric columns
-        if db_type == "clickhouse":
-            # ClickHouse uses toString() function
+        # Cast to string for LIKE - use dialect-specific conversion
+        if dialect.name == "clickhouse":
             string_expr = CustomFunction('toString', [field_expr])
         else:
-            # DuckDB uses CAST(..., 'VARCHAR')
             string_expr = Cast(field_expr, 'VARCHAR')
 
         like_pattern = f"%{query_desc.distinct_value_regex}%"
         logger.info("Applied LIKE filter for distinct values: %s", like_pattern)
         return string_expr.like(like_pattern)
 
-    def _wrap_datetime_value_if_needed(
-        self,
-        value: Any,
-        db_type: str,
-        operator: str,
-    ) -> Any:
+    def _wrap_datetime_value_if_needed(self, value: Any, dialect: "SqlDialect") -> Any:
         """
-        Wrap datetime string values for ClickHouse when needed.
+        Wrap datetime string values for databases that need it (e.g., ClickHouse).
         
         ClickHouse requires explicit conversion for DateTime64 comparisons.
-        This wraps datetime strings with parseDateTime64BestEffort() for ClickHouse.
         """
-        # Only apply for ClickHouse and comparison operators
-        if db_type != "clickhouse":
-            return value
+        is_datetime = isinstance(value, str) and self._is_datetime_string(value)
+        wrapped = dialect.wrap_datetime_comparison(value, is_datetime)
         
-        # Check if value is a datetime string with milliseconds
-        if isinstance(value, str) and self._is_datetime_string(value):
+        # The dialect returns raw string for ClickHouse, convert to CustomFunction
+        if wrapped != value and dialect.name == "clickhouse" and is_datetime:
             logger.debug(
                 "Wrapping datetime value '%s' with parseDateTime64BestEffort for ClickHouse",
                 value
             )
-            # Use parseDateTime64BestEffort which handles various formats
             return CustomFunction("parseDateTime64BestEffort", [value, 3])
         
         return value

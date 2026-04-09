@@ -319,9 +319,9 @@ class UnionQueryBuilder:
         else:
             final_sql = union_sql
 
-        final_sql = apply_result_budget(
-            final_sql, query_desc, db_type=db_type, quote_char=quote_char, logger=self._logger
-        )
+        from backend.dialects import get_dialect
+        dialect = get_dialect(db_type)
+        final_sql = apply_result_budget(final_sql, query_desc, dialect=dialect, logger=self._logger)
 
         self._logger.info("Generated CDF UNION ALL query: %s...", final_sql[:200])
         return final_sql, []
@@ -687,9 +687,9 @@ class UnionQueryBuilder:
             final_sql = union_sql
 
         # Apply result budget to the final UNION SQL (not to individual sub-queries)
-        final_sql = apply_result_budget(
-            final_sql, query_desc, db_type=db_type, quote_char=quote_char, logger=self._logger
-        )
+        from backend.dialects import get_dialect
+        dialect = get_dialect(db_type)
+        final_sql = apply_result_budget(final_sql, query_desc, dialect=dialect, logger=self._logger)
 
         self._logger.info("Generated UNION ALL query: %s...", final_sql[:200])
         return final_sql, []

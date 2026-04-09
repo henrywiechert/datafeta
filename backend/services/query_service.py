@@ -85,8 +85,10 @@ class QueryService:
         fallback_table_name: Optional[str]
     ) -> TableContext:
         """Create initial PyPika query and table context for the provided description."""
+        from backend.dialects import get_dialect
+        dialect = get_dialect(db_type)
         builder = TableContextBuilder()
-        return builder.build(query_desc, db_type, fallback_table_name)
+        return builder.build(query_desc, dialect, fallback_table_name)
 
     def _build_optimization_context(
         self,
@@ -110,8 +112,9 @@ class QueryService:
         vc_builder: Optional[VirtualColumnExpressionBuilder] = None,
     ) -> SelectClauseResult:
         """Assemble SELECT fields and related alias/grouping metadata."""
+        from backend.dialects import get_dialect
+        dialect = get_dialect(db_type)
         
-        # Create field reference parser that handles virtual columns
         field_parser = FieldReferenceParser(
             table_map=table_map,
             default_table=default_table,
@@ -121,14 +124,14 @@ class QueryService:
         builder = SelectClauseBuilder(
             parse_field_reference=field_parser.parse,
             apply_cast_if_configured=self._apply_cast_if_configured,
-            vc_builder=vc_builder,  # Pass vc_builder for aliasing logic
+            vc_builder=vc_builder,
         )
 
         return builder.build(
             query_desc=query_desc,
             table_map=table_map,
             default_table=default_table,
-            db_type=db_type,
+            dialect=dialect,
             rounding_config=rounding_config,
             binning_config=binning_config,
             use_category_dedup=use_category_dedup,
@@ -145,8 +148,9 @@ class QueryService:
         vc_builder: Optional[VirtualColumnExpressionBuilder] = None,
     ) -> List[Criterion]:
         """Translate filters, automatic null guards, and regex sampling into Criterion list."""
+        from backend.dialects import get_dialect
+        dialect = get_dialect(db_type)
         
-        # Create field reference parser that handles virtual columns
         field_parser = FieldReferenceParser(
             table_map=table_map,
             default_table=default_table,
@@ -163,7 +167,7 @@ class QueryService:
             query_desc=query_desc,
             table_map=table_map,
             default_table=default_table,
-            db_type=db_type,
+            dialect=dialect,
             primary_table=primary_table,
         )
 
@@ -252,11 +256,13 @@ class QueryService:
         with_sampling: bool
     ) -> Query:
         """Delegate sampling and limit logic to SamplingAndLimitsBuilder."""
+        from backend.dialects import get_dialect
+        dialect = get_dialect(db_type)
         builder = SamplingAndLimitsBuilder(logger=logger)
         return builder.apply(
             query=query,
             query_desc=query_desc,
-            db_type=db_type,
+            dialect=dialect,
             primary_table=primary_table,
             with_sampling=with_sampling,
         )
@@ -623,9 +629,9 @@ class QueryService:
         # This is applied after the pypika query is compiled. We wrap SQL with an outer
         # sampling query when the frontend requests a result_budget (e.g. oversize scatter).
         try:
-            sql_string = apply_result_budget(
-                sql_string, query_desc, db_type=db_type, quote_char=quote_char, logger=logger
-            )
+            from backend.dialects import get_dialect
+            dialect = get_dialect(db_type)
+            sql_string = apply_result_budget(sql_string, query_desc, dialect=dialect, logger=logger)
         except Exception as exc:  # pragma: no cover
             logger.warning("Result budget wrapper failed, continuing without reduction: %s", exc, exc_info=True)
         
