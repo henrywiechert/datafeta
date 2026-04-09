@@ -19,6 +19,7 @@ from backend.dependencies import (
 )
 from backend.models.data_source import ConnectionDetails
 from backend.services.connection_service import ConnectionService
+from backend.connectors.registry import get_connector_registry
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,35 @@ router = APIRouter()
 class BeaconDisconnectRequest(BaseModel):
     """Request body for the disconnect beacon endpoint."""
     tab_id: str
+
+
+class ConnectorSpecResponse(BaseModel):
+    id: str
+    display_name: str
+    capabilities: dict
+    config_schema: dict
+
+
+@router.get("/connectors")
+def list_connectors() -> dict:
+    """List available connector types and their config schemas."""
+    registry = get_connector_registry()
+    specs = []
+    for connector_id, spec in sorted(registry.list_specs().items()):
+        specs.append(
+            ConnectorSpecResponse(
+                id=spec.id,
+                display_name=spec.display_name,
+                capabilities={
+                    "supports_json_connect": spec.capabilities.supports_json_connect,
+                    "supports_multipart_connect": spec.capabilities.supports_multipart_connect,
+                    "supports_databases": spec.capabilities.supports_databases,
+                    "supports_arrow": spec.capabilities.supports_arrow,
+                },
+                config_schema=spec.config_model.model_json_schema(),
+            ).model_dump()
+        )
+    return {"connectors": specs}
 
 
 @router.post("/connect")
