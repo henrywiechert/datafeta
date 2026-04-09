@@ -5,6 +5,7 @@ from typing import Optional
 
 from backend.models.data_source import ConnectionDetails
 from backend.exceptions import InvalidInputError
+from backend.dialects import get_dialect
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +30,10 @@ class ValidationService:
         Raises:
             InvalidInputError: If ClickHouse connection and database is missing
         """
-        if conn_details.type == "clickhouse" and not database:
+        dialect = get_dialect(conn_details.type)
+        if dialect.requires_database and not database:
             raise InvalidInputError(
-                f"'database' parameter is required for ClickHouse connections when performing {operation}."
+                f"'database' parameter is required for {dialect.name} connections when performing {operation}."
             )
     
     @staticmethod
@@ -49,9 +51,10 @@ class ValidationService:
         Raises:
             InvalidInputError: If ClickHouse connection and target_database is missing
         """
-        if conn_details.type == "clickhouse" and not query_desc.target_database:
+        dialect = get_dialect(conn_details.type)
+        if dialect.requires_database and not query_desc.target_database:
             raise InvalidInputError(
-                "target_database must be provided in the query description for ClickHouse."
+                f"target_database must be provided in the query description for {dialect.name}."
             )
     
     @staticmethod
