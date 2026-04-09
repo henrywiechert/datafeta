@@ -219,6 +219,14 @@ class ConnectionService:
             effective_connection_details = connection_details.copy(deep=True)
 
             if connection_details.type == "csv":
+                try:
+                    cfg = spec.config_model.model_validate(connection_details.model_dump())
+                except Exception as e:
+                    raise InvalidInputError(
+                        f"Invalid connection details for type '{connection_details.type}': {e}",
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    )
+
                 if not uploaded_files:
                     raise InvalidInputError("At least one file upload is required for type 'csv'")
                 
@@ -244,18 +252,7 @@ class ConnectionService:
                 connect_args['file_paths'] = file_infos
                 
                 # Pass CSV configuration options (applied to all CSV files)
-                if connection_details.csv_delimiter is not None:
-                    connect_args['csv_delimiter'] = connection_details.csv_delimiter
-                if connection_details.csv_has_header is not None:
-                    connect_args['csv_has_header'] = connection_details.csv_has_header
-                if connection_details.csv_decimal_separator is not None:
-                    connect_args['csv_decimal_separator'] = connection_details.csv_decimal_separator
-                if connection_details.csv_thousands_separator is not None:
-                    connect_args['csv_thousands_separator'] = connection_details.csv_thousands_separator
-                if connection_details.csv_date_format is not None:
-                    connect_args['csv_date_format'] = connection_details.csv_date_format
-                if connection_details.csv_timestamp_format is not None:
-                    connect_args['csv_timestamp_format'] = connection_details.csv_timestamp_format
+                connect_args.update(cfg.model_dump(exclude_none=True))
             else:
                 # Other multipart-capable connectors should declare support explicitly.
                 raise InvalidInputError(

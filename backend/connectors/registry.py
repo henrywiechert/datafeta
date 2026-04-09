@@ -57,6 +57,10 @@ class CsvConfig(BaseModel):
     # CSV connections require multipart upload (files); JSON connect is not supported.
     csv_delimiter: Optional[str] = ","
     csv_has_header: Optional[bool] = True
+    csv_decimal_separator: Optional[str] = "."
+    csv_thousands_separator: Optional[str] = ""
+    csv_date_format: Optional[str] = "%Y-%m-%d"
+    csv_timestamp_format: Optional[str] = "%Y-%m-%d %H:%M:%S"
 
 
 class ConnectorRegistry:
@@ -74,6 +78,9 @@ class ConnectorRegistry:
 
     def create(self, connector_id: str, state_manager: ConnectionStateManager) -> BaseConnector:
         return self.get_spec(connector_id).factory(state_manager)
+
+    def list_specs(self) -> Dict[str, ConnectorSpec]:
+        return dict(self._specs)
 
 
 _REGISTRY: Optional[ConnectorRegistry] = None
