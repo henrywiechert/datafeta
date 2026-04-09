@@ -47,16 +47,12 @@ class TestConnectEndpointLogic:
             assert uploaded_file.content_type == 'text/csv'
 
     def test_connection_details_validation(self):
-        """Test that invalid connection details are rejected."""
+        """ConnectionDetails.type is a plain string; validation happens in registry/service."""
         invalid_details = {
             'type': 'invalid_type',  # Invalid type
         }
-        
-        try:
-            ConnectionDetails(**invalid_details)
-            assert False, "Should reject invalid type"
-        except Exception:
-            pass  # Expected
+        details = ConnectionDetails(**invalid_details)
+        assert details.type == "invalid_type"
 
     def test_clickhouse_connection_details(self):
         """Test ClickHouse-specific connection details."""

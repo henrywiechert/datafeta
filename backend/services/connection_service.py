@@ -207,6 +207,14 @@ class ConnectionService:
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 )
 
+            registry = get_connector_registry()
+            spec = registry.get_spec(connection_details.type)
+            if not spec.capabilities.supports_multipart_connect:
+                raise InvalidInputError(
+                    f"{connection_details.type} connections do not support multipart upload.",
+                    status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                )
+
             connect_args: Dict[str, Any] = {}
             effective_connection_details = connection_details.copy(deep=True)
 
@@ -248,23 +256,12 @@ class ConnectionService:
                     connect_args['csv_date_format'] = connection_details.csv_date_format
                 if connection_details.csv_timestamp_format is not None:
                     connect_args['csv_timestamp_format'] = connection_details.csv_timestamp_format
-                    
-            elif connection_details.type == "clickhouse":
-                if connection_details.connection_string:
-                    connect_args['connection_string'] = connection_details.connection_string
-                elif connection_details.host:
-                    ch_args = {
-                        "host": connection_details.host,
-                        "port": connection_details.port,
-                        "user": connection_details.user,
-                        "password": connection_details.password,
-                        "database": connection_details.database,
-                    }
-                    connect_args = {k: v for k, v in ch_args.items() if v is not None}
-                else:
-                    raise InvalidInputError("Either connection_string or host must be provided for ClickHouse")
             else:
-                raise InvalidInputError(f"Unsupported data source type: {connection_details.type}")
+                # Other multipart-capable connectors should declare support explicitly.
+                raise InvalidInputError(
+                    f"Multipart connect is not implemented for type '{connection_details.type}'.",
+                    status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                )
 
             connector = self._get_connector(effective_connection_details, self.state_manager)
             await run_in_threadpool(connector.connect, connect_args)
@@ -384,18 +381,26 @@ class ConnectionService:
 
         connector: Optional[BaseConnector] = None
         try:
-            if connection_details.type != "hive_parquet":
+            registry = get_connector_registry()
+            spec = registry.get_spec(connection_details.type)
+            if spec.id != "hive_parquet":
                 raise InvalidInputError(
                     "connect_hive endpoint requires type='hive_parquet'",
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
-            
-            if not connection_details.hive_file_structure:
-                raise InvalidInputError("hive_file_structure is required for Hive Parquet connection")
 
-            connect_args = {
-                "hive_file_structure": connection_details.hive_file_structure,
-            }
+            try:
+                cfg = spec.config_model.model_validate(connection_details.model_dump())
+            except Exception as e:
+                raise InvalidInputError(
+                    f"Invalid connection details for type '{connection_details.type}': {e}",
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                )
+
+            if not spec.build_connect_args:
+                raise RuntimeError("Hive parquet spec must provide build_connect_args")
+
+            connect_args = spec.build_connect_args(cfg, self.state_manager, self.request, session_id)
 
             connector = self._get_connector(connection_details, self.state_manager)
             await run_in_threadpool(connector.connect, connect_args)
