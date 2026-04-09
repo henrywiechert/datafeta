@@ -7,6 +7,7 @@ import re
 from typing import Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from backend.dialects import SqlDialect
     from backend.models.query import Dimension, Measure
 
 
@@ -69,8 +70,7 @@ def map_output_type_to_clickhouse(output_type: str) -> str:
 def build_null_column(
     field_key: str, 
     is_measure: bool, 
-    db_type: str, 
-    quote_char: str,
+    dialect: "SqlDialect",
     output_type: Optional[str] = None,
     column_type: Optional[str] = None,
 ) -> str:
@@ -80,8 +80,7 @@ def build_null_column(
     Args:
         field_key: The column alias/key
         is_measure: Whether this is a measure column
-        db_type: Database type (e.g., 'clickhouse')
-        quote_char: Quote character for identifiers
+        dialect: SQL dialect for database-specific syntax
         output_type: Optional type hint for casting (e.g., from virtual column definition)
         column_type: Optional actual DB column type (e.g., 'Float64', 'Nullable(Int32)').
                      Used to match the real column type in UNION ALL schema alignment.
@@ -89,19 +88,12 @@ def build_null_column(
     Returns:
         SQL expression for NULL column with proper casting
     """
-    if db_type == 'clickhouse':
-        # For ClickHouse, we must cast NULL to avoid 'Nothing' type errors in Arrow format
-        if output_type:
-            ch_type = map_output_type_to_clickhouse(output_type)
-            return f"CAST(NULL AS Nullable({ch_type})) AS {quote_char}{field_key}{quote_char}"
-        elif is_measure:
-            return f"CAST(NULL AS Nullable(Float64)) AS {quote_char}{field_key}{quote_char}"
-        elif column_type:
-            base_type = extract_base_clickhouse_type(column_type)
-            return f"CAST(NULL AS Nullable({base_type})) AS {quote_char}{field_key}{quote_char}"
-        else:
-            return f"CAST(NULL AS Nullable(String)) AS {quote_char}{field_key}{quote_char}"
-    return f"NULL AS {quote_char}{field_key}{quote_char}"
+    return dialect.cast_null_expr(
+        alias=field_key,
+        type_hint=output_type,
+        is_measure=is_measure,
+        column_type=column_type,
+    )
 
 
 def build_null_only_query(
@@ -109,8 +101,7 @@ def build_null_only_query(
     table_name: str,
     missing_dimension_keys: List[str],
     missing_measure_keys: List[Tuple[str, "Measure"]],
-    db_type: str,
-    quote_char: str,
+    dialect: "SqlDialect",
     virtual_columns: Optional[List] = None,
     column_types: Optional[Dict[str, str]] = None,
     logger: Optional[logging.Logger] = None,
@@ -123,8 +114,7 @@ def build_null_only_query(
         table_name: Table name
         missing_dimension_keys: List of dimension field keys that are missing
         missing_measure_keys: List of (field_key, measure) tuples that are missing
-        db_type: Database type (e.g., 'clickhouse')
-        quote_char: Quote character to use
+        dialect: SQL dialect for database-specific syntax
         virtual_columns: Optional list of VirtualColumnDefinition objects for type hints
         column_types: Optional mapping of column name → DB data type from other tables
         logger: Optional logger instance
@@ -134,6 +124,7 @@ def build_null_only_query(
     """
     logger = logger or logging.getLogger(__name__)
     column_types = column_types or {}
+    quote_char = dialect.quote_char
     
     if database:
         table_reference = f"{quote_char}{database}{quote_char}.{quote_char}{table_name}{quote_char}"
@@ -153,11 +144,13 @@ def build_null_only_query(
     for field_key in missing_dimension_keys:
         output_type = vc_type_map.get(field_key)
         col_type = column_types.get(field_key)
-        select_items.append(build_null_column(field_key, False, db_type, quote_char, output_type, column_type=col_type))
+        select_items.append(
+            build_null_column(field_key, False, dialect, output_type, column_type=col_type)
+        )
     
     # Add NULL for all measures (in order)
     for field_key, measure in missing_measure_keys:
-        select_items.append(build_null_column(field_key, True, db_type, quote_char))
+        select_items.append(build_null_column(field_key, True, dialect))
     
     # Determine query type:
     # - If any dimensions: return 0 rows (dimensions without values don't make sense)
@@ -223,8 +216,7 @@ def rebuild_select_with_nulls(
     all_measure_fields: List[Tuple[str, "Measure"]],
     table_columns: Set[str],
     table_name: str,
-    db_type: str,
-    quote_char: str,
+    dialect: "SqlDialect",
     virtual_columns: Optional[List] = None,
     vc_source_map: Optional[Dict[str, List[str]]] = None,
     can_compute_virtual_column_fn: Optional[callable] = None,
@@ -240,8 +232,7 @@ def rebuild_select_with_nulls(
         all_measure_fields: All measure fields requested
         table_columns: Set of columns that exist in this table
         table_name: Table name (for logging)
-        db_type: Database type (e.g., 'clickhouse')
-        quote_char: Quote character to use
+        dialect: SQL dialect for database-specific syntax
         virtual_columns: Optional list of VirtualColumnDefinition objects for type hints
         vc_source_map: Map of virtual column name -> source field names
         can_compute_virtual_column_fn: Function to check if virtual column can be computed
@@ -253,6 +244,7 @@ def rebuild_select_with_nulls(
     """
     logger = logger or logging.getLogger(__name__)
     column_types = column_types or {}
+    quote_char = dialect.quote_char
     
     # Build a lookup map for virtual column output types
     vc_type_map: Dict[str, Optional[str]] = {}
@@ -330,7 +322,9 @@ def rebuild_select_with_nulls(
             # then fall back to actual column types from other tables in the UNION)
             output_type = vc_type_map.get(dim.field)
             col_type = column_types.get(field_key)
-            select_items.append(build_null_column(field_key, False, db_type, quote_char, output_type, column_type=col_type))
+            select_items.append(
+                build_null_column(field_key, False, dialect, output_type, column_type=col_type)
+            )
     for field_key, measure in all_measure_fields:
         is_star_count = measure.aggregation == "count" and measure.field == "*"
         is_virtual = measure.field in vc_source_map
@@ -354,12 +348,14 @@ def rebuild_select_with_nulls(
             else:
                 expr = f"{quote_char}{field_key}{quote_char}"
             
-            if db_type == 'clickhouse':
-                select_items.append(f"CAST({expr} AS Nullable(Float64)) AS {quote_char}{field_key}{quote_char}")
+            if dialect.name == 'clickhouse':
+                select_items.append(
+                    f"CAST({expr} AS Nullable(Float64)) AS {quote_char}{field_key}{quote_char}"
+                )
             else:
                 select_items.append(f"{expr} AS {quote_char}{field_key}{quote_char}")
         else:
-            select_items.append(build_null_column(field_key, True, db_type, quote_char))
+            select_items.append(build_null_column(field_key, True, dialect))
     
     # Rebuild the complete SQL with ordered SELECT
     rebuilt_sql = f"SELECT {', '.join(select_items)} FROM{from_and_rest}"

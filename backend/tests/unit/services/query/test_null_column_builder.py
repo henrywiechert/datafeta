@@ -2,6 +2,7 @@
 
 import pytest
 
+from backend.dialects import get_dialect
 from backend.models.query import Dimension, Measure
 from backend.services.query_components.union.null_column_builder import (
     build_null_column,
@@ -56,8 +57,7 @@ class TestRebuildSelectWithNulls_NullCastOverride:
             all_measure_fields=[],
             table_columns=table_columns,
             table_name="msg2RarPayload",
-            db_type="clickhouse",
-            quote_char="`",
+            dialect=get_dialect("clickhouse"),
         )
 
         # lcrId and rnti should be direct column references, not NULL casts
@@ -96,8 +96,7 @@ class TestRebuildSelectWithNulls_NullCastOverride:
             all_measure_fields=[],
             table_columns=table_columns,
             table_name="msg2RarPayload",
-            db_type="clickhouse",
-            quote_char="`",
+            dialect=get_dialect("clickhouse"),
             vc_source_map=vc_source_map,
             can_compute_virtual_column_fn=can_compute,
         )
@@ -134,8 +133,7 @@ class TestRebuildSelectWithNulls_NullCastOverride:
             all_measure_fields=all_measure_fields,
             table_columns=table_columns,
             table_name="ulLaPhr",
-            db_type="clickhouse",
-            quote_char="`",
+            dialect=get_dialect("clickhouse"),
             vc_source_map=vc_source_map,
             can_compute_virtual_column_fn=can_compute,
         )
@@ -174,8 +172,7 @@ class TestRebuildSelectWithNulls_NullCastOverride:
             all_measure_fields=all_measure_fields,
             table_columns=table_columns,
             table_name="someTable",
-            db_type="clickhouse",
-            quote_char="`",
+            dialect=get_dialect("clickhouse"),
             vc_source_map=vc_source_map,
             can_compute_virtual_column_fn=can_compute,
         )
@@ -205,8 +202,7 @@ class TestRebuildSelectWithNulls_NullCastOverride:
             all_measure_fields=[],
             table_columns=table_columns,
             table_name="preambleData",
-            db_type="clickhouse",
-            quote_char="`",
+            dialect=get_dialect("clickhouse"),
         )
 
         assert "`lcrId` AS `lcrId`" in result
@@ -234,8 +230,7 @@ class TestRebuildSelectWithNulls_NullCastOverride:
             all_measure_fields=[],
             table_columns=table_columns,
             table_name="dlFdSchedData",
-            db_type="clickhouse",
-            quote_char="`",
+            dialect=get_dialect("clickhouse"),
             column_types={"rrmPhrScaled": "Float64"},
         )
 
@@ -264,25 +259,37 @@ class TestBuildNullColumnWithColumnType:
     """build_null_column should prefer column_type over String default for dimensions."""
 
     def test_uses_column_type_for_numeric_dimension(self):
-        result = build_null_column("rrmPhrScaled", False, "clickhouse", "`", column_type="Float64")
+        result = build_null_column(
+            "rrmPhrScaled", False, get_dialect("clickhouse"), column_type="Float64"
+        )
         assert "Nullable(Float64)" in result
         assert "Nullable(String)" not in result
 
     def test_uses_column_type_nullable_stripped(self):
-        result = build_null_column("myCol", False, "clickhouse", "`", column_type="Nullable(Int32)")
+        result = build_null_column(
+            "myCol", False, get_dialect("clickhouse"), column_type="Nullable(Int32)"
+        )
         assert "Nullable(Int32)" in result
         assert "Nullable(String)" not in result
 
     def test_output_type_takes_precedence_over_column_type(self):
-        result = build_null_column("vc", False, "clickhouse", "`", output_type="DOUBLE", column_type="String")
+        result = build_null_column(
+            "vc",
+            False,
+            get_dialect("clickhouse"),
+            output_type="DOUBLE",
+            column_type="String",
+        )
         assert "Nullable(Float64)" in result
 
     def test_defaults_to_string_without_column_type(self):
-        result = build_null_column("myDim", False, "clickhouse", "`")
+        result = build_null_column("myDim", False, get_dialect("clickhouse"))
         assert "Nullable(String)" in result
 
     def test_measure_ignores_column_type(self):
-        result = build_null_column("myMeasure", True, "clickhouse", "`", column_type="String")
+        result = build_null_column(
+            "myMeasure", True, get_dialect("clickhouse"), column_type="String"
+        )
         assert "Nullable(Float64)" in result
 
 
@@ -295,8 +302,7 @@ class TestBuildNullOnlyQueryWithColumnTypes:
             table_name="dlFdSchedData",
             missing_dimension_keys=["rrmPhrScaled"],
             missing_measure_keys=[],
-            db_type="clickhouse",
-            quote_char="`",
+            dialect=get_dialect("clickhouse"),
             column_types={"rrmPhrScaled": "Float64"},
         )
         assert "Nullable(Float64)" in result
