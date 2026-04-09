@@ -10,6 +10,7 @@ from pypika.functions import Cast
 from backend.connectors.base import BaseConnector
 from backend.models.data_source import ConnectionDetails
 from backend.exceptions import QueryExecutionError, InvalidInputError
+from backend.dialects import get_dialect
 from backend.services.validation_service import ValidationService
 from backend.services.datetime_service import DateTimeService
 
@@ -34,6 +35,11 @@ class CardinalityService:
     def __init__(self, connector: BaseConnector, conn_details: ConnectionDetails):
         self.connector = connector
         self.conn_details = conn_details
+        connector_dialect = getattr(connector, "sql_dialect", None) if connector else None
+        if connector_dialect and isinstance(getattr(connector_dialect, "quote_char", None), str):
+            self._dialect = connector_dialect
+        else:
+            self._dialect = get_dialect(conn_details.type)
     
     def get_distinct_count(
         self,
@@ -186,7 +192,7 @@ class CardinalityService:
             if field.startswith(prefix):
                 field = field[len(prefix):]
             
-            if self.conn_details.type == 'clickhouse' and database:
+            if self._dialect.supports_schema_prefix and database:
                 db_table = Table(source_table, schema=database)
             else:
                 db_table = Table(source_table)
@@ -210,7 +216,7 @@ class CardinalityService:
                     source_column_name = remaining
                     
                     # Query the source table directly
-                    if self.conn_details.type == 'clickhouse' and database:
+                    if self._dialect.supports_schema_prefix and database:
                         db_table = Table(source_table_name, schema=database)
                     else:
                         db_table = Table(source_table_name)
@@ -228,14 +234,14 @@ class CardinalityService:
                         f"Cardinality query: Field '{field}' has dot but prefix '{potential_table_name}' "
                         f"is not a known table ({known_tables}). Treating full name as column name."
                     )
-                    if self.conn_details.type == 'clickhouse' and database:
+                    if self._dialect.supports_schema_prefix and database:
                         db_table = Table(table, schema=database)
                     else:
                         db_table = Table(table)
                     count_query = Query.from_(db_table)
                     table_map = {table: db_table}
             else:
-                if self.conn_details.type == 'clickhouse' and database:
+                if self._dialect.supports_schema_prefix and database:
                     db_table = Table(table, schema=database)
                 else:
                     db_table = Table(table)
@@ -252,7 +258,7 @@ class CardinalityService:
 
                 if potential_table_name in known_tables:
                     source_table_name = potential_table_name
-                    if self.conn_details.type == 'clickhouse' and database:
+                    if self._dialect.supports_schema_prefix and database:
                         db_table = Table(source_table_name, schema=database)
                     else:
                         db_table = Table(source_table_name)
@@ -267,14 +273,14 @@ class CardinalityService:
                         f"for dotted field '{field}' without splitting column name"
                     )
                 else:
-                    if self.conn_details.type == 'clickhouse' and database:
+                    if self._dialect.supports_schema_prefix and database:
                         db_table = Table(table, schema=database)
                     else:
                         db_table = Table(table)
                     count_query = Query.from_(db_table)
                     table_map = {table: db_table}
             else:
-                if self.conn_details.type == 'clickhouse' and database:
+                if self._dialect.supports_schema_prefix and database:
                     db_table = Table(table, schema=database)
                 else:
                     db_table = Table(table)
@@ -284,7 +290,7 @@ class CardinalityService:
         # Priority 3: source_table matches the primary table — just strip the prefix
         elif source_table and source_table == table and field.startswith(source_table + '.'):
             field = field[len(source_table) + 1:]
-            if self.conn_details.type == 'clickhouse' and database:
+            if self._dialect.supports_schema_prefix and database:
                 db_table = Table(table, schema=database)
             else:
                 db_table = Table(table)
@@ -293,7 +299,7 @@ class CardinalityService:
             logger.info(f"Cardinality query: Stripped primary table prefix from field, using '{field}' from '{table}'")
         
         # Default: use primary table as-is
-        elif self.conn_details.type == 'clickhouse' and database:
+        elif self._dialect.supports_schema_prefix and database:
             db_table = Table(table, schema=database)
             count_query = Query.from_(db_table)
             table_map = {table: db_table}
@@ -335,7 +341,7 @@ class CardinalityService:
                 base_field, 
                 datetime_part, 
                 datetime_mode, 
-                self.conn_details.type
+                self._dialect
             )
         else:
             # Use the field directly - it's already the column name
@@ -357,7 +363,7 @@ class CardinalityService:
             )
         
         # Generate SQL with appropriate quote character
-        quote_char = '`' if self.conn_details.type == 'clickhouse' else '"'
+        quote_char = self._dialect.quote_char
         sql = count_query.get_sql(quote_char=quote_char)
         
         # For ClickHouse VIEWs that use SELECT a.* patterns, the column reference
@@ -367,7 +373,7 @@ class CardinalityService:
         # to the raw field name.
         # Also apply when we resolved a specific source table from a JOIN (the
         # resolved table might also be a VIEW that needs subquery wrapping).
-        if self.conn_details.type == 'clickhouse' and database:
+        if self._dialect.name == 'clickhouse' and database:
             should_wrap = not (virtual_table and virtual_table.joined_tables) or resolved_from_join
             if should_wrap:
                 table_ref = f'{quote_char}{database}{quote_char}.{quote_char}{resolved_table_name}{quote_char}'
@@ -405,7 +411,7 @@ class CardinalityService:
         
         # Always cast to string for LIKE comparison - this works for both
         # string columns (no-op cast) and numeric columns (converts to string)
-        if self.conn_details.type == 'clickhouse':
+        if self._dialect.name == 'clickhouse':
             # ClickHouse uses toString() function
             string_expr = CustomFunction('toString', [field_expr])
             count_query = count_query.where(string_expr.like(like_pattern))
@@ -437,12 +443,12 @@ class CardinalityService:
             database, self.conn_details, "checking key uniqueness"
         )
 
-        quote_char = '`' if self.conn_details.type == 'clickhouse' else '"'
+        quote_char = self._dialect.quote_char
 
         def q(name: str) -> str:
             return quote_char + name + quote_char
 
-        if self.conn_details.type == 'clickhouse' and database:
+        if self._dialect.name == 'clickhouse' and database:
             table_ref = f'{q(database)}.{q(table)}'
             key_cols = ','.join(q(c) for c in columns)
             # ClickHouse: use uniqExact(tuple(...)) for exact distinct count
