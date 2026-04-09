@@ -128,7 +128,9 @@ class DataSource(BaseModel):
     # Removed connection details from here to avoid duplication with ConnectionDetails
 
 class ConnectionDetails(BaseModel):
-    type: Literal['csv', 'clickhouse', 'kaggle', 'hive_parquet']
+    # NOTE: intentionally a plain string to enable plugin connectors without
+    # modifying core models. Validation is enforced by the connector registry.
+    type: str
     connection_string: Optional[str] = None
     # file_path: Optional[str] = None # Managed internally by backend for uploads
 
