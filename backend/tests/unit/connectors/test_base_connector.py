@@ -6,11 +6,18 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Tuple
 
 from backend.connectors.base import BaseConnector
+from backend.dialects import SqlDialect, DuckDbDialect
 from backend.models.data_source import Database, Table, Column
+
+_test_dialect = DuckDbDialect()
 
 
 class ConcreteConnector(BaseConnector):
     """Concrete implementation for testing abstract methods."""
+
+    @property
+    def sql_dialect(self) -> SqlDialect:
+        return _test_dialect
     
     def __init__(self):
         self.connected = False

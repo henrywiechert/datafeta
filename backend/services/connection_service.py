@@ -24,6 +24,7 @@ from backend.exceptions import (
     FileProcessingError,
 )
 from backend.dependencies import ConnectionStateManager
+from backend.utils.logging_utils import redact_sensitive
 
 
 logger = logging.getLogger(__name__)
@@ -361,7 +362,7 @@ class ConnectionService:
                         "database": connection_details.database,
                     }
                     connect_args = {k: v for k, v in ch_args.items() if v is not None}
-                    logger.info(f"ClickHouse connect_args: {connect_args}")
+                    logger.info(f"ClickHouse connect_args: {redact_sensitive(connect_args)}")
                 else:
                     raise InvalidInputError("Either connection_string or host must be provided for ClickHouse")
             elif connection_details.type == "kaggle":

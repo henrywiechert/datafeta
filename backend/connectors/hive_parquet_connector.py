@@ -9,6 +9,7 @@ from collections import defaultdict
 import pyarrow as pa
 
 from backend.models.data_source import Database, Table, Column
+from backend.dialects import SqlDialect, DuckDbDialect
 from .base import BaseConnector
 from backend.exceptions import DataSourceConnectionError, InvalidInputError, QueryExecutionError
 
@@ -16,6 +17,8 @@ if TYPE_CHECKING:
     from backend.dependencies import ConnectionStateManager
 
 logger = logging.getLogger(__name__)
+
+_duckdb_dialect = DuckDbDialect()
 
 
 class PartitionNotLoadedError(InvalidInputError):
@@ -45,6 +48,10 @@ class HiveParquetConnector(BaseConnector):
         - partition_column = "region"
         - available_partitions = ["us", "eu"]
     """
+
+    @property
+    def sql_dialect(self) -> SqlDialect:
+        return _duckdb_dialect
 
     def __init__(self, state_manager: "ConnectionStateManager"):
         self._partition_column: Optional[str] = None

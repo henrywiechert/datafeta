@@ -9,6 +9,7 @@ from dataclasses import dataclass
 import pyarrow as pa
 
 from backend.models.data_source import Database, Table, Column, ForeignKeyRelationship
+from backend.dialects import SqlDialect, DuckDbDialect
 from .base import BaseConnector
 from .file_handlers import BaseFileHandler, FILE_HANDLER_REGISTRY
 from .fk_detection import detect_foreign_keys_by_naming_convention
@@ -19,6 +20,8 @@ if TYPE_CHECKING:
     from backend.dependencies import ConnectionStateManager
 
 logger = logging.getLogger(__name__)
+
+_duckdb_dialect = DuckDbDialect()
 
 
 @dataclass
@@ -31,6 +34,11 @@ class FileInfo:
 
 class FileConnector(BaseConnector):
     """Connector for querying files (CSV, Parquet) using DuckDB."""
+
+    @property
+    def sql_dialect(self) -> SqlDialect:
+        return _duckdb_dialect
+
     def __init__(self, state_manager: "ConnectionStateManager"):
         # Support for multiple files - each becomes a table
         self._files: List[FileInfo] = []
