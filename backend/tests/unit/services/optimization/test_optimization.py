@@ -18,7 +18,7 @@ def _make_query(dimensions: list[Dimension], *, hints: OptimizationHints | None 
 
 def _make_optimizer(config: OptimizerConfig) -> QueryOptimizer:
     connector = Mock()
-    connector.__class__.__name__ = "ClickHouseConnector"
+    connector.sql_dialect.name = "clickhouse"
     optimizer = QueryOptimizer(connector=connector, config=config)
     optimizer._strategy_planner._dedup_planner._logger = Mock()
     optimizer._strategy_planner._rounding_planner._logger = Mock()

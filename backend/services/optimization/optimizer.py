@@ -65,12 +65,13 @@ class QueryOptimizer:
     ):
         self.connector = connector
         self.config = config or OptimizerConfig()
-        
-        connector_class = connector.__class__.__name__ if connector else ''
-        if 'clickhouse' in connector_class.lower():
-            self.db_type = 'clickhouse'
-        elif 'duckdb' in connector_class.lower() or 'file' in connector_class.lower():
-            self.db_type = 'duckdb'
+
+        # Prefer connector-declared dialect over class-name sniffing.
+        if connector:
+            try:
+                self.db_type = connector.sql_dialect.name
+            except Exception:  # pragma: no cover (defensive)
+                self.db_type = 'generic'
         else:
             self.db_type = 'generic'
         
@@ -93,18 +94,15 @@ class QueryOptimizer:
         """Create appropriate estimator for database type."""
         if not self.connector:
             return None
-        
-        # Detect connector type and create appropriate estimator
-        connector_class = self.connector.__class__.__name__
-        
-        if 'clickhouse' in connector_class.lower():
+
+        if self.db_type == 'clickhouse':
             logger.info("Using ClickHouseEstimator for cardinality estimation")
             return ClickHouseEstimator(self.connector)
-        elif 'duckdb' in connector_class.lower() or 'file' in connector_class.lower():
-            # FileConnector uses DuckDB internally
+        elif self.db_type == 'duckdb':
             logger.info("Using DuckDBEstimator for cardinality estimation")
             return DuckDBEstimator(self.connector)
         else:
+            connector_class = self.connector.__class__.__name__
             logger.info(f"Using BasicEstimator for {connector_class}")
             return BasicEstimator(self.connector)
     
