@@ -1,12 +1,15 @@
 """Builder for creating table context from query descriptions."""
 
-from typing import Dict, Any, Optional, List
+from typing import TYPE_CHECKING, Dict, Any, Optional, List
 
 from pypika import Query, Table
 
 from backend.models.query import QueryDescription
 from backend.services.query_components.contexts import TableContext
 from backend.exceptions import QueryGenerationError
+
+if TYPE_CHECKING:
+    from backend.dialects import SqlDialect
 
 
 class DedupWrappedTable(Table):
@@ -54,14 +57,14 @@ class TableContextBuilder:
     def build(
         self,
         query_desc: QueryDescription,
-        db_type: str,
+        dialect: "SqlDialect",
         fallback_table_name: Optional[str]
     ) -> TableContext:
         """Create initial PyPika query and table context for the provided description.
         
         Args:
             query_desc: The query description containing table and join information
-            db_type: Database type ('clickhouse', 'duckdb', etc.)
+            dialect: SQL dialect for database-specific syntax
             fallback_table_name: Fallback table name if not specified in query_desc
             
         Returns:
@@ -71,14 +74,14 @@ class TableContextBuilder:
             QueryGenerationError: If target table is not specified for single table queries
         """
         if query_desc.virtual_table:
-            return self._build_multi_table_context(query_desc, db_type)
+            return self._build_multi_table_context(query_desc, dialect)
         else:
-            return self._build_single_table_context(query_desc, db_type, fallback_table_name)
+            return self._build_single_table_context(query_desc, dialect, fallback_table_name)
 
     def _build_multi_table_context(
         self,
         query_desc: QueryDescription,
-        db_type: str
+        dialect: "SqlDialect"
     ) -> TableContext:
         """Build table context for multi-table queries with JOINs."""
         table_map: Dict[str, Any] = {}
@@ -87,7 +90,7 @@ class TableContextBuilder:
         primary_table_name = query_desc.virtual_table.primary_table
         primary_table = self._create_table(
             primary_table_name,
-            db_type,
+            dialect,
             query_desc.target_database
         )
         
@@ -96,7 +99,6 @@ class TableContextBuilder:
         primary_dedup_columns: List[str] = []
         for join_def in query_desc.virtual_table.joined_tables:
             if join_def.enforce_unique_keys and join_def.dedup_key_columns:
-                # Extract the primary table's columns from on_conditions
                 for condition in join_def.on_conditions:
                     parts = condition.split('=')
                     if len(parts) != 2:
@@ -108,10 +110,11 @@ class TableContextBuilder:
                             primary_dedup_columns.append(col)
 
         if primary_dedup_columns:
+            schema = query_desc.target_database if dialect.supports_schema_prefix else None
             primary_table = DedupWrappedTable(
                 primary_table_name,
                 primary_dedup_columns,
-                schema=query_desc.target_database if db_type == 'clickhouse' else None
+                schema=schema
             )
 
         table_map[primary_table_name] = primary_table
@@ -121,16 +124,17 @@ class TableContextBuilder:
         for join_def in query_desc.virtual_table.joined_tables:
             join_table = self._create_table(
                 join_def.table_name,
-                db_type,
+                dialect,
                 query_desc.target_database
             )
 
             # Wrap in dedup subquery if enforcement is active
             if join_def.enforce_unique_keys and join_def.dedup_key_columns:
+                schema = query_desc.target_database if dialect.supports_schema_prefix else None
                 join_table = DedupWrappedTable(
                     join_def.table_name,
                     join_def.dedup_key_columns,
-                    schema=query_desc.target_database if db_type == 'clickhouse' else None
+                    schema=schema
                 )
 
             table_map[join_def.table_name] = join_table
@@ -156,7 +160,7 @@ class TableContextBuilder:
     def _build_single_table_context(
         self,
         query_desc: QueryDescription,
-        db_type: str,
+        dialect: "SqlDialect",
         fallback_table_name: Optional[str]
     ) -> TableContext:
         """Build table context for single-table queries."""
@@ -168,7 +172,7 @@ class TableContextBuilder:
         
         table = self._create_table(
             target_table_name,
-            db_type,
+            dialect,
             query_desc.target_database
         )
         
@@ -185,11 +189,11 @@ class TableContextBuilder:
     def _create_table(
         self,
         table_name: str,
-        db_type: str,
+        dialect: "SqlDialect",
         database: Optional[str]
     ) -> Table:
-        """Create a PyPika Table with optional schema for ClickHouse."""
-        if db_type == 'clickhouse' and database:
+        """Create a PyPika Table with optional schema prefix."""
+        if dialect.supports_schema_prefix and database:
             return Table(table_name, schema=database)
         return Table(table_name)
 

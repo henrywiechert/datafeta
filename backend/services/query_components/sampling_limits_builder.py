@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pypika import Query
 from pypika.terms import Function
 
 from backend.exceptions import QueryGenerationError
 from backend.models.query import QueryDescription
+
+if TYPE_CHECKING:
+    from backend.dialects import SqlDialect
 
 
 class SamplingAndLimitsBuilder:
@@ -22,7 +25,7 @@ class SamplingAndLimitsBuilder:
         self,
         query: Query,
         query_desc: QueryDescription,
-        db_type: str,
+        dialect: "SqlDialect",
         primary_table: Any,
         with_sampling: bool,
     ) -> Query:
@@ -42,12 +45,11 @@ class SamplingAndLimitsBuilder:
             if dimension.flavour == "continuous":
                 query = query.where(primary_table[dimension.field].notnull())
 
-            if db_type == "clickhouse":
-                query = query.orderby(Function("rand")).limit(5000)
+            if dialect.name == "clickhouse":
+                query = query.orderby(Function(dialect.random_func_name())).limit(5000)
 
         if query_desc.use_random_sample:
-            random_func = "rand" if db_type == "clickhouse" else "random"
-            query = query.orderby(Function(random_func))
+            query = query.orderby(Function(dialect.random_func_name()))
             self._logger.info("Applied random sampling for distinct value query")
 
         if query_desc.limit is not None:

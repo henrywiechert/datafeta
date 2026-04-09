@@ -1,6 +1,7 @@
 """Unit tests for TableContextBuilder."""
 
 import pytest
+from backend.dialects import get_dialect
 from backend.services.query_components.table_context_builder import TableContextBuilder
 from backend.models.query import QueryDescription
 from backend.models.data_source import VirtualTableDefinition, TableJoinDefinition
@@ -14,8 +15,9 @@ class TestTableContextBuilder:
         """Single table query without database schema should create simple table."""
         builder = TableContextBuilder()
         desc = QueryDescription(target_table="sales")
+        dialect = get_dialect("duckdb")
         
-        ctx = builder.build(desc, "duckdb", None)
+        ctx = builder.build(desc, dialect, None)
         
         assert ctx.primary_table.get_table_name() == "sales"
         assert ctx.default_table.get_table_name() == "sales"
@@ -29,8 +31,9 @@ class TestTableContextBuilder:
             target_table="sales",
             target_database="analytics"
         )
+        dialect = get_dialect("clickhouse")
         
-        ctx = builder.build(desc, "clickhouse", None)
+        ctx = builder.build(desc, dialect, None)
         
         assert ctx.primary_table.get_table_name() == "sales"
         # Check schema is present in SQL representation
@@ -41,8 +44,9 @@ class TestTableContextBuilder:
         """Should use explicit target_table from QueryDescription."""
         builder = TableContextBuilder()
         desc = QueryDescription(target_table="explicit_table")
+        dialect = get_dialect("duckdb")
         
-        ctx = builder.build(desc, "duckdb", "fallback_table")
+        ctx = builder.build(desc, dialect, "fallback_table")
         
         # Should use explicit_table, not fallback
         assert ctx.primary_table.get_table_name() == "explicit_table"
@@ -62,8 +66,8 @@ class TestTableContextBuilder:
                 ]
             )
         )
-        
-        ctx = builder.build(desc, "duckdb", None)
+        dialect = get_dialect("duckdb")
+        ctx = builder.build(desc, dialect, None)
         
         assert ctx.primary_table.get_table_name() == "orders"
         assert "orders" in ctx.table_map
@@ -84,8 +88,8 @@ class TestTableContextBuilder:
                 ]
             )
         )
-        
-        ctx = builder.build(desc, "duckdb", None)
+        dialect = get_dialect("duckdb")
+        ctx = builder.build(desc, dialect, None)
         
         assert "orders" in ctx.table_map
         assert "customers" in ctx.table_map
@@ -107,8 +111,8 @@ class TestTableContextBuilder:
                 ]
             )
         )
-        
-        ctx = builder.build(desc, "duckdb", None)
+        dialect = get_dialect("duckdb")
+        ctx = builder.build(desc, dialect, None)
         
         # Verify the query object has the join configured
         assert len(ctx.query._joins) == 1
@@ -128,8 +132,8 @@ class TestTableContextBuilder:
                 ]
             )
         )
-        
-        ctx = builder.build(desc, "duckdb", None)
+        dialect = get_dialect("duckdb")
+        ctx = builder.build(desc, dialect, None)
         
         # Verify the query object has the join configured
         assert len(ctx.query._joins) == 1
@@ -153,7 +157,8 @@ class TestTableContextBuilder:
             )
         )
         
-        ctx = builder.build(desc, "clickhouse", None)
+        dialect = get_dialect("clickhouse")
+        ctx = builder.build(desc, dialect, None)
         
         # Check schema is present in table representations
         assert "analytics" in str(ctx.primary_table)
@@ -178,8 +183,8 @@ class TestTableContextBuilder:
                 ]
             )
         )
-        
-        ctx = builder.build(desc, "duckdb", None)
+        dialect = get_dialect("duckdb")
+        ctx = builder.build(desc, dialect, None)
         
         assert "orders" in ctx.table_map
         assert "customers" in ctx.table_map
@@ -200,8 +205,8 @@ class TestTableContextBuilder:
                 ]
             )
         )
-        
-        ctx = builder.build(desc, "duckdb", None)
+        dialect = get_dialect("duckdb")
+        ctx = builder.build(desc, dialect, None)
         
         assert "events" in ctx.table_map
         assert "users" in ctx.table_map
@@ -227,8 +232,8 @@ class TestTableContextBuilder:
                 ]
             )
         )
-        
-        ctx = builder.build(desc, "duckdb", None)
+        dialect = get_dialect("duckdb")
+        ctx = builder.build(desc, dialect, None)
         
         assert len(ctx.table_map) == 3
         assert all(table in ctx.table_map for table in ["orders", "customers", "products"])
@@ -247,8 +252,8 @@ class TestTableContextBuilder:
                 ]
             )
         )
-        
-        ctx = builder.build(desc, "duckdb", None)
+        dialect = get_dialect("duckdb")
+        ctx = builder.build(desc, dialect, None)
         
         assert ctx.default_table.get_table_name() == ctx.primary_table.get_table_name()
         assert ctx.default_table.get_table_name() == "orders"

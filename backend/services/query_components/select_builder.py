@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Dict, Optional, Set
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Set
 
 from pypika.functions import Count
 from pypika.terms import Function
@@ -13,6 +13,9 @@ from backend.models.query import QueryDescription
 from backend.services.datetime_service import DateTimeService
 from backend.services.query_components.contexts import SelectClauseResult
 from backend.services.query_components.terms import CastField, CustomFunction
+
+if TYPE_CHECKING:
+    from backend.dialects import SqlDialect
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +38,7 @@ class SelectClauseBuilder:
         query_desc: QueryDescription,
         table_map: Dict[str, Any],
         default_table: Any,
-        db_type: str,
+        dialect: "SqlDialect",
         rounding_config: Dict[str, Any],
         binning_config: Dict[str, Any],
         use_category_dedup: bool,
@@ -100,7 +103,7 @@ class SelectClauseBuilder:
                     from backend.services.optimization.strategies.adaptive_rounding import RoundingHelper
 
                     precision = rounding_config[dim.field]
-                    rounded_expr = RoundingHelper.create_round_expression(field_term, precision, db_type)
+                    rounded_expr = RoundingHelper.create_round_expression(field_term, precision, dialect.name)
                     if use_category_dedup:
                         groupby_field_info_for_dedup.append((dim.field, precision))
                     field_term = rounded_expr.as_(dim.field)
@@ -122,7 +125,7 @@ class SelectClauseBuilder:
                                 dim.field,
                             )
                         else:
-                            agg_func_name = "any" if db_type == "clickhouse" else "first"
+                            agg_func_name = dialect.first_value_agg_name()
                             field_term = Function(agg_func_name, field_term).as_(dim.field)
                             all_aliases.add(dim.field)
                             logger.debug(
@@ -134,7 +137,7 @@ class SelectClauseBuilder:
                 # Apply aliasing logic - virtual columns and casts need aliases for ORDER BY
                 if dim.date_part and dim.date_mode:
                     field_term = DateTimeService.get_datetime_part_expression(
-                        field_term, dim.date_part, dim.date_mode, db_type
+                        field_term, dim.date_part, dim.date_mode, dialect.name
                     )
                     alias = f"{dim.field}_{dim.date_part}_{dim.date_mode}"
                     field_term = field_term.as_(alias)
@@ -165,7 +168,7 @@ class SelectClauseBuilder:
 
                 # Special-case COUNT(*) / ClickHouse count() so we don't generate count(`*`)
                 if measure.aggregation == "count" and measure.field == "*":
-                    if db_type == "clickhouse":
+                    if dialect.name == "clickhouse":
                         agg_term = Function("count")
                     else:
                         agg_term = Count("*")
@@ -179,17 +182,12 @@ class SelectClauseBuilder:
                 )
                 agg_term = agg_func_builder(field_term)
 
-                if db_type == "clickhouse" and measure.aggregation in ["sum", "avg"]:
-                    # ClickHouse propagates NaN/Inf through SUM/AVG, producing a NaN
-                    # result even when only a single row has a bad value.
-                    # sumIf/avgIf with isFinite() skips those rows the same way NULL
-                    # values are already skipped by standard SQL aggregates.
+                if dialect.needs_nan_safe_aggregation() and measure.aggregation in ["sum", "avg"]:
                     nan_safe_func = "sumIf" if measure.aggregation == "sum" else "avgIf"
                     is_finite = CustomFunction("isFinite", [field_term])
                     agg_term = CustomFunction(nan_safe_func, [field_term, is_finite])
-                elif db_type != "clickhouse" and measure.aggregation in ["avg", "sum"]:
+                elif not dialect.needs_nan_safe_aggregation() and measure.aggregation in ["avg", "sum"]:
                     from pypika.functions import Coalesce
-
                     agg_term = Coalesce(agg_term, 0)
 
                 select_fields.append(agg_term.as_(measure.alias))
