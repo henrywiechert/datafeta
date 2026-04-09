@@ -36,8 +36,8 @@ class ConnectionStateManager:
     ):
         self.current_connector = connector
         self.current_connection_details = details
-        # Store temp paths for file-based connections (CSV/Parquet)
-        if details and details.type == 'csv' and temp_paths:
+        # Store temp paths for any file-backed connector (csv, hive_parquet, etc.)
+        if temp_paths:
             self.current_temp_paths = temp_paths
         else:
             self.current_temp_paths = []

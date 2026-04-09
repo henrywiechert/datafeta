@@ -7,22 +7,28 @@ from typing import List, Dict, Any, Tuple, Optional, TYPE_CHECKING
 import duckdb
 
 from backend.models.data_source import Database, Table, Column, ForeignKeyRelationship
+from backend.dialects import SqlDialect, DuckDbDialect
 from .base import BaseConnector
 from .fk_detection import detect_foreign_keys_by_naming_convention
 from backend.exceptions import DataSourceConnectionError, InvalidInputError, QueryExecutionError
 from backend.utils.type_conversion import process_query_result_data
 
-# Import only for type checking to prevent circular import
 if TYPE_CHECKING:
     from kaggle.api.kaggle_api_extended import KaggleApi
     from backend.dependencies import ConnectionStateManager
 
 logger = logging.getLogger(__name__)
 
+_duckdb_dialect = DuckDbDialect()
+
 
 class KaggleConnector(BaseConnector):
     """Connector for querying public Kaggle datasets using DuckDB."""
-    
+
+    @property
+    def sql_dialect(self) -> SqlDialect:
+        return _duckdb_dialect
+
     def __init__(self, state_manager: "ConnectionStateManager"):
         self.state_manager = state_manager
         self.api: Optional[KaggleApi] = None

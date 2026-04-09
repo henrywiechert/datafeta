@@ -174,3 +174,85 @@ class TestTempPathsTracking:
             cleaned.append(path)
 
         assert len(cleaned) == len(temp_paths)
+
+
+class TestConnectionStateManagerTempPaths:
+    """Tests for ConnectionStateManager temp_paths persistence."""
+
+    def test_set_state_persists_temp_paths_for_csv(self):
+        """Test that temp_paths are stored for CSV connections."""
+        from backend.dependencies import ConnectionStateManager
+        from backend.models.data_source import ConnectionDetails
+
+        manager = ConnectionStateManager()
+        details = ConnectionDetails(type='csv')
+        temp_paths = ['/tmp/file1.csv', '/tmp/file2.csv']
+
+        manager.set_state(connector=None, details=details, temp_paths=temp_paths)
+
+        assert manager.current_temp_paths == temp_paths
+
+    def test_set_state_persists_temp_paths_for_hive_parquet(self):
+        """Test that temp_paths are stored for hive_parquet connections."""
+        from backend.dependencies import ConnectionStateManager
+        from backend.models.data_source import ConnectionDetails
+
+        manager = ConnectionStateManager()
+        details = ConnectionDetails(type='hive_parquet')
+        temp_paths = ['/tmp/partition1.parquet', '/tmp/partition2.parquet']
+
+        manager.set_state(connector=None, details=details, temp_paths=temp_paths)
+
+        assert manager.current_temp_paths == temp_paths
+
+    def test_set_state_empty_when_no_temp_paths(self):
+        """Test that temp_paths is empty when not provided."""
+        from backend.dependencies import ConnectionStateManager
+        from backend.models.data_source import ConnectionDetails
+
+        manager = ConnectionStateManager()
+        details = ConnectionDetails(type='clickhouse', host='localhost')
+
+        manager.set_state(connector=None, details=details, temp_paths=None)
+
+        assert manager.current_temp_paths == []
+
+    def test_set_state_empty_list_when_empty_list_provided(self):
+        """Test that empty list is preserved when provided."""
+        from backend.dependencies import ConnectionStateManager
+        from backend.models.data_source import ConnectionDetails
+
+        manager = ConnectionStateManager()
+        details = ConnectionDetails(type='csv')
+
+        manager.set_state(connector=None, details=details, temp_paths=[])
+
+        assert manager.current_temp_paths == []
+
+    def test_clear_state_clears_temp_paths(self):
+        """Test that clear_state resets temp_paths."""
+        from backend.dependencies import ConnectionStateManager
+        from backend.models.data_source import ConnectionDetails
+
+        manager = ConnectionStateManager()
+        details = ConnectionDetails(type='csv')
+        temp_paths = ['/tmp/file1.csv']
+
+        manager.set_state(connector=None, details=details, temp_paths=temp_paths)
+        assert manager.current_temp_paths == temp_paths
+
+        manager.clear_state()
+        assert manager.current_temp_paths == []
+
+    def test_append_temp_paths(self):
+        """Test that append_temp_paths adds to existing paths."""
+        from backend.dependencies import ConnectionStateManager
+        from backend.models.data_source import ConnectionDetails
+
+        manager = ConnectionStateManager()
+        details = ConnectionDetails(type='csv')
+
+        manager.set_state(connector=None, details=details, temp_paths=['/tmp/file1.csv'])
+        manager.append_temp_paths(['/tmp/file2.csv', '/tmp/file3.csv'])
+
+        assert manager.current_temp_paths == ['/tmp/file1.csv', '/tmp/file2.csv', '/tmp/file3.csv']

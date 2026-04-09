@@ -1,12 +1,35 @@
 """Base class for data source connectors."""
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Tuple
+from typing import TYPE_CHECKING, List, Dict, Any, Tuple
 
 import pyarrow as pa
 
 from backend.models.data_source import Database, Table, Column, ForeignKeyRelationship
 
+if TYPE_CHECKING:
+    from backend.dialects import SqlDialect
+
+
 class BaseConnector(ABC):
+    """
+    Abstract base class for all data source connectors.
+    
+    Connectors provide a unified interface for interacting with different
+    data sources (databases, files, APIs). Each connector must implement
+    the core methods for connection management, metadata discovery, and
+    query execution.
+    """
+
+    @property
+    @abstractmethod
+    def sql_dialect(self) -> "SqlDialect":
+        """
+        Return the SQL dialect for this connector.
+        
+        The dialect encapsulates database-specific SQL syntax and functions,
+        enabling query services to generate correct SQL without scattered
+        conditional logic.
+        """
 
     @abstractmethod
     def connect(self, connection_details: Dict[str, Any]) -> None:

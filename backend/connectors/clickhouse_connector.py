@@ -4,7 +4,6 @@ from typing import List, Dict, Any, Tuple
 import threading
 from typing import Optional
 from urllib.parse import urlparse, parse_qs
-import socket
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -12,20 +11,27 @@ import clickhouse_connect
 from clickhouse_connect.driver.client import Client
 
 from backend.models.data_source import Database, Table, Column, ForeignKeyRelationship
+from backend.dialects import SqlDialect, ClickHouseDialect
 from .base import BaseConnector
 from .fk_detection import detect_foreign_keys_by_naming_convention
 from backend.exceptions import DataSourceConnectionError, QueryExecutionError, InvalidInputError
 from backend.utils.type_conversion import process_query_result_data
+from backend.utils.logging_utils import redact_sensitive
 
-# Get logger for this module
 logger = logging.getLogger(__name__)
+
+_clickhouse_dialect = ClickHouseDialect()
+
 
 class ClickHouseConnector(BaseConnector):
     def __init__(self):
         self.client: Client = None
         self.connection_details: Dict[str, Any] = None
-        # Serialize access to the client to avoid concurrent queries in the same session
         self._client_lock: threading.Lock = threading.Lock()
+
+    @property
+    def sql_dialect(self) -> SqlDialect:
+        return _clickhouse_dialect
 
     def _get_current_database_from_client(self) -> Optional[str]:
         """Attempt to read current database name from the server via a simple query."""
@@ -74,16 +80,12 @@ class ClickHouseConnector(BaseConnector):
 
     def connect(self, connection_details: Dict[str, Any]) -> None:
         self.connection_details = connection_details
-        logger.info(f"ClickHouse connector received connection_details: {connection_details}")
-        
-        # Set global socket timeout to handle firewall blocking scenarios
-        old_timeout = socket.getdefaulttimeout()
-        socket.setdefaulttimeout(5)
+        logger.info(f"ClickHouse connector received connection_details: {redact_sensitive(connection_details)}")
         
         try:
             # Handle both connection string and individual parameters
             if 'connection_string' in self.connection_details:
-                logger.info(f"Using connection string: {self.connection_details['connection_string']}")
+                logger.info("Using connection string (redacted)")
                 self.client = clickhouse_connect.get_client(
                     dsn=self.connection_details['connection_string'],
                     connect_timeout=5,
@@ -94,7 +96,7 @@ class ClickHouseConnector(BaseConnector):
                 conn_params.setdefault('port', 8123)
                 conn_params.setdefault('connect_timeout', 5)
                 conn_params.setdefault('send_receive_timeout', 30)
-                logger.info(f"Using connection params (with defaults applied): {conn_params}")
+                logger.info(f"Using connection params: {redact_sensitive(conn_params)}")
                 self.client = clickhouse_connect.get_client(**conn_params)
             
             # Test connection
@@ -103,8 +105,6 @@ class ClickHouseConnector(BaseConnector):
         except Exception as e:
             self.client = None
             raise DataSourceConnectionError(f"Failed to connect: {e}")
-        finally:
-            socket.setdefaulttimeout(old_timeout)
 
     def disconnect(self) -> None:
         with self._client_lock:
