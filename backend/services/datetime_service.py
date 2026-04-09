@@ -7,12 +7,15 @@ This module provides centralized datetime functionality including:
 - Support for ClickHouse, DuckDB, PostgreSQL, and other SQL databases
 """
 
-from typing import Any, Dict, Callable
+from typing import TYPE_CHECKING, Any, Dict, Callable, Union
 from pypika.terms import Function
 
 from backend.exceptions import QueryGenerationError
 from backend.services.query_components.terms import ExtractTerm
 from backend.services import datetime_semantics as semantics
+
+if TYPE_CHECKING:
+    from backend.dialects import SqlDialect
 
 
 class DateTimeService:
@@ -85,7 +88,7 @@ class DateTimeService:
         field_term: Any,
         date_part: str,
         date_mode: str,
-        db_type: str
+        db_type: Union[str, "SqlDialect"],
     ) -> Any:
         """
         Generate database-specific SQL expression for datetime operations.
@@ -116,10 +119,13 @@ class DateTimeService:
             >>> get_datetime_part_expression(field, 'hour', 'timeline', 'duckdb')
             >>> # Generates: date_trunc('hour', field) → "2024-01-15 14:00:00"
         """
-        if db_type == 'clickhouse':
+        # Migration-friendly: accept either a db_type string or a SqlDialect.
+        normalized = db_type.name if hasattr(db_type, "name") else str(db_type)
+
+        if normalized == 'clickhouse':
             return cls._get_clickhouse_expression(field_term, date_part, date_mode)
         else:
-            return cls._get_sql_expression(field_term, date_part, date_mode, db_type)
+            return cls._get_sql_expression(field_term, date_part, date_mode, normalized)
     
     @classmethod
     def _get_clickhouse_expression(
