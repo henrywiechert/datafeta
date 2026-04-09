@@ -338,6 +338,9 @@ class UnionQueryBuilder:
         with_optimization: bool,
         optimizer: Optional[object],
     ) -> Tuple[str, List[Dict]]:
+        from backend.dialects import get_dialect
+        dialect = get_dialect(db_type)
+
         virtual_table = query_desc.virtual_table
         if not virtual_table or virtual_table.mode != "union":
             raise ValueError("Query description must have virtual_table in union mode")
@@ -480,8 +483,7 @@ class UnionQueryBuilder:
                             table_name,
                             dim_keys,
                             all_measure_fields,
-                            db_type,
-                            quote_char,
+                            dialect,
                             virtual_columns=query_desc.virtual_columns,
                             column_types=merged_column_types,
                             logger=self._logger,
@@ -500,7 +502,7 @@ class UnionQueryBuilder:
                                 else:
                                     select_items.append(f"0 AS {quote_char}{field_key}{quote_char}")
                             else:
-                                select_items.append(build_null_column(field_key, True, db_type, quote_char))
+                                select_items.append(build_null_column(field_key, True, dialect))
 
                         # Include source tracking columns so outer filters (e.g. _source_database IN (...))
                         # remain valid.
@@ -520,7 +522,7 @@ class UnionQueryBuilder:
                     # Rebuild it to include full column order + source tracking.
                     single_sql = rebuild_select_with_nulls(
                         single_sql, all_dimension_fields, all_measure_fields,
-                        table_columns, table_name, db_type, quote_char,
+                        table_columns, table_name, dialect,
                         virtual_columns=query_desc.virtual_columns,
                         vc_source_map=vc_source_map,
                         can_compute_virtual_column_fn=can_compute_virtual_column,
@@ -554,7 +556,7 @@ class UnionQueryBuilder:
             # Check if ALL fields are missing from this table
             if table_columns and not existing_dimensions and not existing_measures:
                 single_sql = build_null_only_query(
-                    database, table_name, missing_dimension_keys, missing_measure_keys, db_type, quote_char,
+                    database, table_name, missing_dimension_keys, missing_measure_keys, dialect,
                     virtual_columns=query_desc.virtual_columns,
                     column_types=merged_column_types,
                     logger=self._logger,
@@ -573,7 +575,7 @@ class UnionQueryBuilder:
                 # Rebuild SELECT clause to include all fields in correct order, with NULLs for missing
                 single_sql = rebuild_select_with_nulls(
                     single_sql, all_dimension_fields, all_measure_fields,
-                    table_columns, table_name, db_type, quote_char,
+                    table_columns, table_name, dialect,
                     virtual_columns=query_desc.virtual_columns,
                     vc_source_map=vc_source_map,
                     can_compute_virtual_column_fn=can_compute_virtual_column,
