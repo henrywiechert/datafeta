@@ -12,11 +12,8 @@ from starlette.concurrency import run_in_threadpool
 
 from backend.models.data_source import ConnectionDetails
 from backend.connectors.base import BaseConnector
-from backend.connectors.file_connector import FileConnector
 from backend.connectors.file_handlers import FILE_HANDLER_REGISTRY
-from backend.connectors.clickhouse_connector import ClickHouseConnector
-from backend.connectors.kaggle_connector import KaggleConnector
-from backend.connectors.hive_parquet_connector import HiveParquetConnector
+from backend.connectors.registry import get_connector_registry
 from backend.exceptions import (
     AppException,
     InvalidInputError,
@@ -52,23 +49,6 @@ ALLOWED_PARQUET_MIME_TYPES = {
 
 # Combined allowed MIME types
 ALLOWED_FILE_MIME_TYPES = ALLOWED_CSV_MIME_TYPES | ALLOWED_PARQUET_MIME_TYPES
-
-
-class ConnectorRegistry:
-    """Registry for connector constructors by type key."""
-    def __init__(self):
-        self._builders: Dict[str, Any] = {}
-
-    def register(self, key: str, builder: Any) -> None:
-        self._builders[key] = builder
-
-    def create(self, key: str, state_manager: ConnectionStateManager) -> BaseConnector:
-        if key not in self._builders:
-            raise InvalidInputError(
-                f"Unsupported data source type for connector factory: {key}",
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            )
-        return self._builders[key](state_manager)
 
 
 class ConnectionService:
@@ -165,21 +145,7 @@ class ConnectionService:
 
     @staticmethod
     def _get_connector(connection_details: ConnectionDetails, state_manager: ConnectionStateManager) -> BaseConnector:
-        # Lazy init a module-level registry
-        global _CONNECTOR_REGISTRY
-        try:
-            registry = _CONNECTOR_REGISTRY
-        except NameError:
-            registry = ConnectorRegistry()
-            # For csv we need FileConnector which requires state_manager
-            registry.register("csv", lambda sm: FileConnector(state_manager=sm))
-            # ClickHouse connector ignores state_manager
-            registry.register("clickhouse", lambda sm: ClickHouseConnector())
-            # Kaggle connector requires state_manager for session file management
-            registry.register("kaggle", lambda sm: KaggleConnector(state_manager=sm))
-            # Hive Parquet connector for partitioned datasets
-            registry.register("hive_parquet", lambda sm: HiveParquetConnector(state_manager=sm))
-            _CONNECTOR_REGISTRY = registry
+        registry = get_connector_registry()
         return registry.create(connection_details.type, state_manager)
 
     async def _clear_previous_state(self, session_id: str) -> None:
@@ -340,43 +306,43 @@ class ConnectionService:
 
         connector: Optional[BaseConnector] = None
         try:
-            if connection_details.type == "csv":
+            registry = get_connector_registry()
+            spec = registry.get_spec(connection_details.type)
+
+            if not spec.capabilities.supports_json_connect:
                 raise InvalidInputError(
-                    "CSV connections require multipart upload. Use /api/v1/data/connect with form-data.",
+                    f"{connection_details.type} connections require multipart upload. "
+                    f"Use /api/v1/data/connect with form-data.",
                     status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
                 )
 
             connect_args: Dict[str, Any] = {}
             effective_connection_details = connection_details.copy(deep=True)
 
-            if connection_details.type == "clickhouse":
-                logger.info(f"ClickHouse connection details: host={connection_details.host}, port={connection_details.port}")
-                if connection_details.connection_string:
-                    connect_args['connection_string'] = connection_details.connection_string
-                elif connection_details.host:
-                    ch_args = {
-                        "host": connection_details.host,
-                        "port": connection_details.port,
-                        "user": connection_details.user,
-                        "password": connection_details.password,
-                        "database": connection_details.database,
-                    }
-                    connect_args = {k: v for k, v in ch_args.items() if v is not None}
-                    logger.info(f"ClickHouse connect_args: {redact_sensitive(connect_args)}")
-                else:
-                    raise InvalidInputError("Either connection_string or host must be provided for ClickHouse")
-            elif connection_details.type == "kaggle":
-                logger.info(f"Kaggle connection for dataset: {connection_details.kaggle_dataset}")
-                # Create session-specific download directory
+            # Validate config via connector spec model
+            try:
+                cfg = spec.config_model.model_validate(connection_details.model_dump())
+            except Exception as e:
+                raise InvalidInputError(
+                    f"Invalid connection details for type '{connection_details.type}': {e}",
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                )
+
+            if connection_details.type == "kaggle":
                 session_dir = self._get_session_upload_dir(session_id)
-                connect_args = {
-                    "kaggle_username": connection_details.kaggle_username,
-                    "kaggle_api_key": connection_details.kaggle_api_key,
-                    "kaggle_dataset": connection_details.kaggle_dataset,
-                    "kaggle_csv_files": connection_details.kaggle_csv_files,
-                    "download_dir": session_dir,
-                }
+                connect_args = cfg.model_dump(exclude_none=True)
+                connect_args["download_dir"] = session_dir
                 logger.info(f"Kaggle connect_args prepared for dataset: {connection_details.kaggle_dataset}")
+            elif spec.build_connect_args:
+                connect_args = spec.build_connect_args(cfg, self.state_manager, self.request, session_id)
+            else:
+                connect_args = cfg.model_dump(exclude_none=True)
+
+            if connection_details.type == "clickhouse":
+                logger.info(
+                    f"ClickHouse connection details: host={connection_details.host}, port={connection_details.port}"
+                )
+                logger.info(f"ClickHouse connect_args: {redact_sensitive(connect_args)}")
 
             connector = self._get_connector(effective_connection_details, self.state_manager)
             await run_in_threadpool(connector.connect, connect_args)
