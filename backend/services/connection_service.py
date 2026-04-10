@@ -415,10 +415,11 @@ class ConnectionService:
             Dict with columns list for the partition
         """
         connector = self.state_manager.current_connector
+        details = self.state_manager.current_connection_details
         if not connector:
             raise DataSourceConnectionError("Not connected to any data source")
-        
-        if not isinstance(connector, HiveParquetConnector):
+
+        if not details or details.type != "hive_parquet":
             raise InvalidInputError("load_hive_partition requires a Hive Parquet connection")
 
         if not uploaded_files:
@@ -520,13 +521,23 @@ class ConnectionService:
             if not connector:
                 raise InvalidInputError("Not connected to any data source.")
 
-            if not isinstance(connector, FileConnector):
-                raise InvalidInputError("Adding files is only supported for CSV/Parquet connections.")
-
             if not uploaded_files:
                 raise InvalidInputError("At least one file is required.")
 
             details = self.state_manager.current_connection_details
+            if not details:
+                raise InvalidInputError("Missing active connection details.")
+
+            spec = get_connector_registry().get_spec(details.type)
+            if not spec.capabilities.supports_incremental_file_add:
+                raise InvalidInputError(
+                    f"Adding files is not supported for connection type '{details.type}'."
+                )
+
+            if not hasattr(connector, "add_file"):
+                raise InvalidInputError(
+                    f"Active connector for type '{details.type}' does not support file appends."
+                )
             csv_config = {
                 'delimiter': details.csv_delimiter or ',',
                 'header': details.csv_has_header if details.csv_has_header is not None else True,
