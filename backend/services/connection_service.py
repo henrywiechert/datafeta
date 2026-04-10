@@ -322,21 +322,16 @@ class ConnectionService:
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 )
 
-            if connection_details.type == "kaggle":
-                session_dir = self._get_session_upload_dir(session_id)
-                connect_args = cfg.model_dump(exclude_none=True)
-                connect_args["download_dir"] = session_dir
-                logger.info(f"Kaggle connect_args prepared for dataset: {connection_details.kaggle_dataset}")
-            elif spec.build_connect_args:
+            if spec.build_connect_args:
                 connect_args = spec.build_connect_args(cfg, self.state_manager, self.request, session_id)
             else:
                 connect_args = cfg.model_dump(exclude_none=True)
 
-            if connection_details.type == "clickhouse":
-                logger.info(
-                    f"ClickHouse connection details: host={connection_details.host}, port={connection_details.port}"
-                )
-                logger.info(f"ClickHouse connect_args: {redact_sensitive(connect_args)}")
+            logger.info(
+                "Prepared connect args for connector type '%s': %s",
+                connection_details.type,
+                redact_sensitive(connect_args),
+            )
 
             connector = self._get_connector(effective_connection_details, self.state_manager)
             await run_in_threadpool(connector.connect, connect_args)
@@ -634,5 +629,4 @@ class ConnectionService:
                 logger.info(f"Deleted {deleted_count} temp file(s) during disconnect")
 
         return {"message": "Successfully disconnected."}
-
 

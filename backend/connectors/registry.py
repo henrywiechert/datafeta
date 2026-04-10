@@ -9,6 +9,7 @@ The registry is the single source of truth for:
 from __future__ import annotations
 
 import logging
+import os
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field, model_validator
@@ -61,6 +62,20 @@ class CsvConfig(BaseModel):
     csv_thousands_separator: Optional[str] = ""
     csv_date_format: Optional[str] = "%Y-%m-%d"
     csv_timestamp_format: Optional[str] = "%Y-%m-%d %H:%M:%S"
+
+
+def _build_kaggle_connect_args(cfg: BaseModel, _sm, request, session_id: str) -> dict:
+    if request is None:
+        raise ValueError("Request is required to resolve upload_root_dir for Kaggle connector")
+    upload_root_dir = getattr(request.app.state, "upload_root_dir", None)
+    if not upload_root_dir:
+        raise ValueError("Upload root directory is not initialized")
+    session_dir = os.path.join(upload_root_dir, session_id)
+    os.makedirs(session_dir, exist_ok=True)
+    return {
+        **cfg.model_dump(exclude_none=True),
+        "download_dir": session_dir,
+    }
 
 
 class ConnectorRegistry:
@@ -143,9 +158,7 @@ def get_connector_registry() -> ConnectorRegistry:
             ),
             config_model=KaggleConfig,
             factory=lambda sm: KaggleConnector(state_manager=sm),
-            # build_connect_args is handled by ConnectionService because it needs
-            # a session-scoped download_dir.
-            build_connect_args=None,
+            build_connect_args=_build_kaggle_connect_args,
         )
     )
 
@@ -168,4 +181,3 @@ def get_connector_registry() -> ConnectorRegistry:
 
     _REGISTRY = registry
     return registry
-
