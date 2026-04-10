@@ -215,50 +215,28 @@ class ConnectionService:
                     status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
                 )
 
-            connect_args: Dict[str, Any] = {}
+            connect_args: Dict[str, Any]
             effective_connection_details = connection_details.copy(deep=True)
 
-            if connection_details.type == "csv":
-                try:
-                    cfg = spec.config_model.model_validate(connection_details.model_dump())
-                except Exception as e:
-                    raise InvalidInputError(
-                        f"Invalid connection details for type '{connection_details.type}': {e}",
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    )
+            try:
+                cfg = spec.config_model.model_validate(connection_details.model_dump())
+            except Exception as e:
+                raise InvalidInputError(
+                    f"Invalid connection details for type '{connection_details.type}': {e}",
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                )
 
-                if not uploaded_files:
-                    raise InvalidInputError("At least one file upload is required for type 'csv'")
-                
-                session_upload_dir = self._get_session_upload_dir(session_id)
-                file_infos: List[Dict[str, str]] = []
-                
-                try:
-                    for uploaded_file in uploaded_files:
-                        temp_file_path = await self._save_and_validate_uploaded_file(
-                            uploaded_file, session_upload_dir
-                        )
-                        temp_file_paths.append(temp_file_path)
-                        file_infos.append({
-                            "file_path": temp_file_path,
-                            "original_filename": uploaded_file.filename,
-                        })
-                finally:
-                    # Close all uploaded files
-                    for uploaded_file in uploaded_files:
-                        await uploaded_file.close()
-                
-                # Build connect args with multi-file support
-                connect_args['file_paths'] = file_infos
-                
-                # Pass CSV configuration options (applied to all CSV files)
-                connect_args.update(cfg.model_dump(exclude_none=True))
-            else:
-                # Other multipart-capable connectors should declare support explicitly.
+            if not spec.build_multipart_connect_args:
                 raise InvalidInputError(
                     f"Multipart connect is not implemented for type '{connection_details.type}'.",
                     status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
                 )
+            connect_args, temp_file_paths = await spec.build_multipart_connect_args(
+                self,
+                cfg,
+                uploaded_files,
+                session_id,
+            )
 
             connector = self._get_connector(effective_connection_details, self.state_manager)
             await run_in_threadpool(connector.connect, connect_args)
@@ -629,4 +607,3 @@ class ConnectionService:
                 logger.info(f"Deleted {deleted_count} temp file(s) during disconnect")
 
         return {"message": "Successfully disconnected."}
-

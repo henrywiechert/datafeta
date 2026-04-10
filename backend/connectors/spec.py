@@ -10,7 +10,7 @@ This module defines the minimal metadata needed to treat connectors as plugins:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Optional, Type
+from typing import Any, Awaitable, Callable, List, Optional, Tuple, Type
 
 from pydantic import BaseModel
 
@@ -31,6 +31,7 @@ class ConnectorCapabilities:
 
 ConnectArgsBuilder = Callable[[BaseModel, ConnectionStateManager, Any, str], dict]
 ConnectorFactory = Callable[[ConnectionStateManager], BaseConnector]
+MultipartConnectArgsBuilder = Callable[[Any, BaseModel, List[Any], str], Awaitable[Tuple[dict, List[str]]]]
 
 
 @dataclass(frozen=True)
@@ -44,4 +45,4 @@ class ConnectorSpec:
     config_model: Type[BaseModel]
     factory: ConnectorFactory
     build_connect_args: Optional[ConnectArgsBuilder] = None
-
+    build_multipart_connect_args: Optional[MultipartConnectArgsBuilder] = None
