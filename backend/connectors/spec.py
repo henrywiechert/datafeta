@@ -27,6 +27,7 @@ class ConnectorCapabilities:
     supports_multipart_connect: bool = False
     supports_databases: bool = False
     supports_arrow: bool = False
+    supports_incremental_file_add: bool = False
 
 
 ConnectArgsBuilder = Callable[[BaseModel, ConnectionStateManager, Any, str], dict]

@@ -166,6 +166,7 @@ def get_connector_registry() -> ConnectorRegistry:
                 supports_multipart_connect=True,
                 supports_databases=False,
                 supports_arrow=True,
+                supports_incremental_file_add=True,
             ),
             config_model=CsvConfig,
             factory=lambda sm: FileConnector(state_manager=sm),
