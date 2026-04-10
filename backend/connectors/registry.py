@@ -78,6 +78,34 @@ def _build_kaggle_connect_args(cfg: BaseModel, _sm, request, session_id: str) ->
     }
 
 
+async def _build_csv_multipart_connect_args(service, cfg: BaseModel, uploaded_files, session_id: str):
+    if not uploaded_files:
+        raise InvalidInputError("At least one file upload is required for type 'csv'")
+
+    session_upload_dir = service._get_session_upload_dir(session_id)
+    temp_file_paths: List[str] = []
+    file_infos: List[Dict[str, str]] = []
+
+    try:
+        for uploaded_file in uploaded_files:
+            temp_file_path = await service._save_and_validate_uploaded_file(uploaded_file, session_upload_dir)
+            temp_file_paths.append(temp_file_path)
+            file_infos.append(
+                {
+                    "file_path": temp_file_path,
+                    "original_filename": uploaded_file.filename,
+                }
+            )
+    finally:
+        for uploaded_file in uploaded_files:
+            await uploaded_file.close()
+
+    return {
+        "file_paths": file_infos,
+        **cfg.model_dump(exclude_none=True),
+    }, temp_file_paths
+
+
 class ConnectorRegistry:
     def __init__(self) -> None:
         self._specs: Dict[str, ConnectorSpec] = {}
@@ -142,6 +170,7 @@ def get_connector_registry() -> ConnectorRegistry:
             config_model=CsvConfig,
             factory=lambda sm: FileConnector(state_manager=sm),
             build_connect_args=None,
+            build_multipart_connect_args=_build_csv_multipart_connect_args,
         )
     )
 
