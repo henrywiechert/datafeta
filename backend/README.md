@@ -256,7 +256,16 @@ All connectors implement [`BaseConnector`](connectors/base.py):
 - In-memory DuckDB connections per query
 - Automatic schema detection via `DESCRIBE`
 
-**Connector Registry**: [`ConnectorRegistry`](services/connection_service.py#L40) factory pattern in [`ConnectionService._get_connector`](services/connection_service.py#L122) for connector creation, registered by type (`csv`, `clickhouse`).
+### Connector plugin architecture
+
+- **Central registry**: [`ConnectorRegistry`](connectors/registry.py) is the plugin entrypoint and source of truth for supported connector IDs.
+- **Plugin spec contract**: [`ConnectorSpec`](connectors/spec.py) defines connector metadata:
+  - SQL dialect
+  - capability flags (`supports_json_connect`, `supports_multipart_connect`, `supports_incremental_file_add`, etc.)
+  - config model for validation
+  - connector factory and optional connect-args builders
+- **Service orchestration**: [`ConnectionService`](services/connection_service.py) resolves specs via [`get_connector_registry`](connectors/registry.py), validates config with each spec's model, and gates behavior by capabilities.
+- **API discovery**: `GET /api/v1/data/connectors` exposes connector capabilities and config schemas for frontend-driven connection UX.
 
 ## Error Handling
 
@@ -292,4 +301,3 @@ All connectors implement [`BaseConnector`](connectors/base.py):
 - **Unit Tests**: [`tests/unit/`](tests/unit/) - Service and component tests
 - **Integration Tests**: [`tests/integration/`](tests/integration/) - End-to-end query optimization tests
 - **Contract Tests**: [`tests/contract/`](tests/contract/) - API contract validation
-
