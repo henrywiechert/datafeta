@@ -5,6 +5,7 @@ from unittest.mock import Mock, MagicMock, patch, AsyncMock
 from pydantic import BaseModel
 
 from backend.models.data_source import ConnectionDetails
+from backend.routers.connection import list_connectors
 
 
 class TestConnectEndpointLogic:
@@ -81,6 +82,23 @@ class TestConnectEndpointLogic:
         assert details.type == 'csv'
         assert details.csv_has_header == True
         assert details.csv_delimiter == ','
+
+
+class TestConnectorsEndpointContract:
+    """Tests for GET /connectors response contract."""
+
+    def test_list_connectors_returns_capabilities_and_schema(self):
+        payload = list_connectors()
+
+        assert "connectors" in payload
+        assert isinstance(payload["connectors"], list)
+        assert len(payload["connectors"]) > 0
+
+        csv_spec = next(c for c in payload["connectors"] if c["id"] == "csv")
+        assert "capabilities" in csv_spec
+        assert "config_schema" in csv_spec
+        assert csv_spec["capabilities"]["supports_multipart_connect"] is True
+        assert csv_spec["capabilities"]["supports_json_connect"] is False
 
 
 class TestDisconnectEndpointLogic:
