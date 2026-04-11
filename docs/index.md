@@ -37,3 +37,8 @@
 | [Advanced](advanced/virtual-columns.md) | Computed fields, joins, multi-sheet workspaces |
 | [Saving & Sharing](saving-sharing/snapshots.md) | Snapshots, import/export, URL sharing |
 | [Reference](reference/keyboard-shortcuts.md) | Keyboard shortcuts, connector details |
+
+## Architecture diagrams
+
+- [Backend architecture overview](reference/backend-architecture-overview.html)
+- [Backend data source + plugin architecture](reference/backend-data-source-architecture.html)
