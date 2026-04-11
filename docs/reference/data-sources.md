@@ -4,6 +4,14 @@ Connector-specific notes and configuration options.
 
 ---
 
+## Architecture diagram
+
+Open the backend data source + plugin architecture diagram:
+
+- [`backend-data-source-architecture.html`](backend-data-source-architecture.html)
+
+---
+
 ## CSV Files
 
 | Option | Default | Notes |
