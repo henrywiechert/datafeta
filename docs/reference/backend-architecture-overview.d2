@@ -1,0 +1,177 @@
+## Backend Architecture Overview
+## Request ingress → runtime orchestration → processing & execution → data sources
+
+direction: down
+
+# ─── Lane 1: API Ingress ─────────────────────────────────────────────────────
+
+api_ingress: API Ingress {
+  direction: right
+  style.stroke: "#5aaeff"
+  style.fill: "#d0e8ff"
+
+  client: Client / Frontend {
+    width: 240
+    height: 130
+    tooltip: "HTTP JSON + multipart/form-data\n/api/v1/data/*\nsession_id cookie · X-Tab-Id\nReact frontend"
+  }
+
+  fastapi: FastAPI Application {
+    width: 240
+    height: 130
+    tooltip: "backend/main.py\nCORS · global exception handler\nrouter mounting · app state\nupload_root_dir · session store"
+  }
+
+  routers: Routers {
+    width: 240
+    height: 130
+    tooltip: "backend/routers/*.py\nconnection · query · metadata\nrequest/response validation\nPydantic models in / out"
+  }
+
+  client -> fastapi
+  fastapi -> routers
+}
+
+# ─── Lane 2: Runtime Orchestration ───────────────────────────────────────────
+
+orchestration: Runtime Orchestration {
+  direction: right
+  style.stroke: "#4dd9a0"
+  style.fill: "#d0f5e8"
+
+  deps: Dependencies + Session {
+    width: 275
+    height: 175
+    tooltip: "backend/dependencies.py\nConnectionStateManager\nsession_id : tab_id isolation\nget_active_connector()\nget_connection_details()\nper-request FastAPI injection\nin-memory session store"
+  }
+
+  service: Service Layer {
+    width: 275
+    height: 175
+    link: "./backend-service-layer.svg"
+    tooltip: "backend/services/*.py\nConnectionService\nQueryService + builders\nValidation · Cardinality check\nTableMerge · ResultBuilder\nmultipart file lifecycle\nspec-driven connector routing"
+  }
+
+  models: Models + Contracts + Errors {
+    width: 275
+    height: 175
+    tooltip: "models/* · exceptions.py\nConnectionDetails\nQueryDescription\nAppException hierarchy\nHTTP status code mapping\nshared between routers + services\nPydantic base models + validators"
+  }
+
+  deps -> service
+  service -> models
+}
+
+# ─── Lane 3: Processing & Execution ──────────────────────────────────────────
+
+processing: Processing & Execution {
+  direction: right
+  style.stroke: "#38d4d4"
+  style.fill: "#d0f5f5"
+
+  query_pipeline: Query Generation Pipeline {
+    width: 275
+    height: 165
+      link: "./backend-query-generation-pipeline.svg"
+    tooltip: "query_service + query_components/\nselect · filter · group · order\nsampling · limits\ndialect-aware SQL output via connector.sql_dialect\nreturns SQL string to Service"
+  }
+
+  optimization: Optimization Subsystem {
+    width: 275
+    height: 165
+    link: "./backend-optimization-subsystem.svg"
+    tooltip: "services/optimization/*\nstrategy planner + estimators\nrounding · binning · dedup\nClickHouse / DuckDB estimators\nresult-size aware decisions\ncardinality estimation via connector"
+  }
+
+  query_pipeline -> optimization
+}
+
+# ─── Data Source Subsystem (spans lanes 2 + 3) ───────────────────────────────
+
+data_source: Data Source Subsystem {
+  direction: down
+  style.stroke: "#ffc84a"
+  style.fill: "#fff3cc"
+
+  registry: ConnectorRegistry {
+    width: 300
+    tooltip: "connectors/registry.py\nlookup + validation by type string\nConnectorSpec + Capabilities\nbuild_connect_args hook\nbuild_multipart_connect_args hook\nsupports_incremental_file_add flag"
+  }
+
+  connectors: Connector Implementations {
+    direction: right
+    clickhouse: ClickHouseConnector
+    file: "FileConnector (CSV / Parquet)"
+    kaggle: KaggleConnector
+    hive: HiveParquetConnector
+  }
+
+  dialects: SQL Dialect Abstraction {
+    direction: right
+    ch_dialect: ClickHouseDialect
+    duckdb_dialect: DuckDbDialect
+  }
+
+  external: External Stores {
+    direction: right
+    ch_store: ClickHouse
+    csv_store: "CSV uploads"
+    kaggle_store: "Kaggle datasets"
+    hive_store: "Hive Parquet"
+  }
+
+  registry -> connectors
+  connectors -> dialects
+  connectors -> external
+}
+
+# ─── Lane 4: Cross-Cutting Concerns ──────────────────────────────────────────
+
+cross_cutting: Cross-Cutting Concerns {
+  style.stroke: "#b87eff"
+  style.fill: "#ead0ff"
+
+  logging: Structured logging
+  validation: Input validation
+  file_lc: Temp-file lifecycle
+  session_iso: Session isolation
+  exc_handling: Global exception handling
+  testing: "Unit + integration test suites"
+}
+
+# ─── Inter-lane arrows ────────────────────────────────────────────────────────
+
+# C: Routers → Dependencies (injects via Depends)
+api_ingress.routers -> orchestration.deps: injects via Depends
+
+# D: Routers → Service (calls)
+api_ingress.routers -> orchestration.service: calls
+
+# E already inside orchestration (deps -> service)
+
+# H: Service → Query generation pipeline
+orchestration.service -> processing.query_pipeline
+
+# I: Service → DataSource (executes via connector)
+orchestration.service -> data_source.registry: "executes via connector"
+
+# K: Optimization → DataSource (estimators)
+processing.optimization -> data_source.registry: estimators
+
+# Cross-cutting dashed risers (touches all layers)
+cross_cutting -> api_ingress: "" {
+  style.stroke-dash: 3
+  style.stroke-width: 1
+}
+cross_cutting -> orchestration: "" {
+  style.stroke-dash: 3
+  style.stroke-width: 1
+}
+cross_cutting -> processing: "" {
+  style.stroke-dash: 3
+  style.stroke-width: 1
+}
+cross_cutting -> data_source: "" {
+  style.stroke-dash: 3
+  style.stroke-width: 1
+}

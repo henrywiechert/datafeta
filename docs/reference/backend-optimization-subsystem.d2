@@ -1,0 +1,100 @@
+## Optimization Subsystem (Detailed)
+## QueryOptimizer planning and strategy application flow
+
+direction: right
+
+entry: Entry Points {
+  query_exec: QueryExecutionService.translate_query
+  query_desc: QueryDescription
+  connector: BaseConnector
+  config: OptimizerConfig.from_env()
+}
+
+optimizer: QueryOptimizer {
+  style.stroke: "#38d4d4"
+  style.fill: "#d0f5f5"
+
+  init: Initialization {
+    db_type: db_type from connector.sql_dialect.name
+    estimator_factory: _create_estimator()
+  }
+
+  planner_core: Strategy Planning Core {
+    small_table_detector: SmallTableDetector
+    strategy_planner: StrategyPlanner
+  }
+
+  create_plan: create_plan(query_desc)
+  plan_obj: OptimizationPlan
+}
+
+estimators: Estimators {
+  style.stroke: "#38d4d4"
+  style.fill: "#d0f5f5"
+
+  clickhouse_estimator: ClickHouseEstimator
+  duckdb_estimator: DuckDBEstimator
+  basic_estimator: BasicEstimator
+}
+
+strategy_planner_detail: StrategyPlanner {
+  style.stroke: "#38d4d4"
+  style.fill: "#d0f5f5"
+
+  from_hints: create_from_hints
+  from_structure: create_from_query_structure
+
+  child_planners: Child planners {
+    dedup_planner: DedupStrategyPlanner
+    rounding_planner: AdaptiveRoundingPlanner
+  }
+}
+
+strategies: Strategy Types {
+  style.stroke: "#38d4d4"
+  style.fill: "#d0f5f5"
+
+  distinct_pairs: DistinctPairStrategy
+  adaptive_rounding: AdaptiveRoundingStrategy
+  datetime_binning: DateTimeBinningStrategy
+  category_dedup: CategoryDeduplicationStrategy
+}
+
+outcomes: Outcomes {
+  style.stroke: "#4dd9a0"
+  style.fill: "#d0f5e8"
+
+  skip_override: "OptimizationOverride(skip_all_optimizations=true)"
+  optimized_sql: "Optimized Query object"
+  metadata: "optimizations_applied / hints_used / override"
+}
+
+entry.query_exec -> optimizer
+entry.query_desc -> optimizer.create_plan
+entry.connector -> optimizer.init
+entry.config -> optimizer
+
+optimizer.planner_core.small_table_detector -> outcomes.skip_override: if table_too_small
+optimizer.planner_core.strategy_planner -> strategy_planner_detail
+
+optimizer.create_plan -> strategy_planner_detail.from_hints: if optimization_hints provided
+optimizer.create_plan -> strategy_planner_detail.from_structure: fallback
+
+strategy_planner_detail.child_planners.dedup_planner -> strategies.distinct_pairs
+strategy_planner_detail.child_planners.rounding_planner -> strategies.adaptive_rounding
+strategy_planner_detail.child_planners.rounding_planner -> strategies.datetime_binning
+strategy_planner_detail.child_planners.dedup_planner -> strategies.category_dedup
+
+strategy_planner_detail -> optimizer.plan_obj: list of strategies
+optimizer.plan_obj -> outcomes.optimized_sql: apply(query, query_desc, table)
+optimizer.plan_obj -> outcomes.metadata: get_metadata_summary
+
+back_overview: "Back to architecture overview" {
+  shape: page
+  link: "./backend-architecture-overview.svg"
+}
+
+back_pipeline: "Go to query pipeline detail" {
+  shape: page
+  link: "./backend-query-generation-pipeline.svg"
+}
