@@ -94,7 +94,10 @@ export default function ConnectionRestoreDialog({
   const isKaggle = connectionMetadata?.type === 'kaggle';
   const isHiveParquet = connectionMetadata?.type === 'hive_parquet';
 
-  const hivePartitionsToRestore = connectionMetadata?.hive_loaded_partitions || [];
+  const hivePartitionsToRestore = useMemo(
+    () => connectionMetadata?.hive_loaded_partitions || [],
+    [connectionMetadata?.hive_loaded_partitions]
+  );
   const allHivePartitionsHaveFiles = useMemo(() => {
     if (!isHiveParquet) return true;
     return hivePartitionsToRestore.length > 0 &&
@@ -175,16 +178,6 @@ export default function ConnectionRestoreDialog({
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       setFile(event.target.files[0]);
-    }
-  };
-
-  const handleHiveFileChange = (partitionName: string, event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files.length > 0) {
-      setHivePartitionFilesLocal(prev => {
-        const newMap = new Map(prev);
-        newMap.set(partitionName, Array.from(event.target.files!));
-        return newMap;
-      });
     }
   };
 

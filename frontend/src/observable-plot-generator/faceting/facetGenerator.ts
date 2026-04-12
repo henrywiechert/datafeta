@@ -334,7 +334,7 @@ function createCdfCellGenerator(
  * Integrates into the standard faceting pipeline via a CDF CellGenerator.
  */
 export function generateCdfGrid(context: ChartGenerationContext): PlotResult {
-  const { xFields, yFields } = context;
+  const { xFields } = context;
 
   const cdfMeasures = xFields.filter(
     f => f.type === 'measure' && f.flavour === 'continuous',

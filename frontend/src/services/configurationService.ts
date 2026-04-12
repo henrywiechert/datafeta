@@ -1,7 +1,6 @@
 import { 
   SavedConfiguration, 
   SavedConnectionMetadata, 
-  SavedSessionFilters,
   ConnectionDetails,
   Field,
   FilterConfig,

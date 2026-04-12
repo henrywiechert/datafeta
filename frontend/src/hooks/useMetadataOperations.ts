@@ -165,6 +165,7 @@ export function useMetadataOperations({
     }, [
         dataSource.selectedTable,
         dataSource.selectedDatabase,
+        dataSource.fieldDisplayAliases,
         measureGroupFields,
         xAxisFields,
         yAxisFields,

@@ -8,7 +8,7 @@ import { lineChart, verticalLineChart } from './lineChart';
 import { scatterChart } from './scatterChart';
 import { tickStrip } from './tickStrip';
 import { ganttChart } from './ganttChart';
-import { buildCdfOptions, CDF_SUFFIX } from './cdfChart';
+import { buildCdfOptions } from './cdfChart';
 import { CellChartType, ChartTypeOverrides, resolveChartTypeForPair } from '../helpers/chartTypeResolver';
 import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField, sortCategoriesByValue, Orientation } from './barCore';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';

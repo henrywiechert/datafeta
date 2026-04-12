@@ -92,7 +92,7 @@ function AppContent() {
   const [showSnapshotGallery, setShowSnapshotGallery] = useState(false);
   
   // State for tracking loaded snapshot (for URL sharing)
-  const [loadedSnapshotId, setLoadedSnapshotId] = useState<string | null>(null);
+  const [, setLoadedSnapshotId] = useState<string | null>(null);
 
   // Load snapshot from URL parameter on mount
   const snapshotLoadedRef = React.useRef(false);
