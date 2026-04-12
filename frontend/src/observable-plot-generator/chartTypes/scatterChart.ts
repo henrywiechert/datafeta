@@ -106,6 +106,7 @@ export function scatterChart(
   sizeField?: Field,
   sizeRange?: [number, number],
   manualSize?: number
+  , sizeScaleData?: any[]
   , labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
   , tooltipFields?: Field[]
   , facetFields?: Field[]
@@ -247,7 +248,8 @@ export function scatterChart(
 
   // Apply size configuration
   if (sizeField && sizeRange) {
-    const sizeScale = createSizeScale(clean, sizeField, sizeRange, manualSize || 4);
+    const sizeScaleSource = Array.isArray(sizeScaleData) && sizeScaleData.length > 0 ? sizeScaleData : clean;
+    const sizeScale = createSizeScale(sizeScaleSource, sizeField, sizeRange, manualSize || 4);
     // Determine actual column name (handle implicit SUM aggregation alias like sizeUtils does)
     let sizeColumnName = getResultColumnName(sizeField);
     if (sizeField.type === 'measure' && !sizeField.aggregation) {

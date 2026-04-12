@@ -136,6 +136,8 @@ export interface CartesianConfigOptions {
   manualColorOverride?: string;
   /** Override manual size */
   manualSizeOverride?: number;
+  /** Optional dataset used to compute size scale domains (defaults to full query result rows) */
+  sizeScaleDataOverride?: any[];
 }
 
 /**
@@ -154,6 +156,7 @@ export function buildCartesianPlotsConfig(
     facetFields = [],
     manualColorOverride,
     manualSizeOverride,
+    sizeScaleDataOverride,
   } = options;
 
   const labelCfg = buildLabelConfig(context);
@@ -182,6 +185,7 @@ export function buildCartesianPlotsConfig(
         field: context.sizeField,
         range: context.sizeRange,
         manual: manualSizeOverride ?? context.manualSize,
+        scaleData: sizeScaleDataOverride ?? context.queryResult.rows,
       },
     },
     labels: labelCfg,

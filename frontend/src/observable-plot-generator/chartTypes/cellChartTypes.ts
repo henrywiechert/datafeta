@@ -23,6 +23,8 @@ export interface ChartContext {
   sizeField?: Field;
   sizeRange?: [number, number];
   manualSize?: number;
+  /** Dataset used to derive size-scale domain (use full result set for consistent facet sizing) */
+  sizeScaleData?: any[];
   bandThicknessScale?: number;
   colorScheme?: string;
   colorBias?: number;

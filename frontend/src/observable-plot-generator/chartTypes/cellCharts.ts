@@ -121,7 +121,7 @@ function handleScatter(data: any[], xf: Field, yf: Field, ctx: ChartContext): Pl
     return scatterChart(
       single, xCol, yCol, domainOptions,
       ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
-      ctx.sizeField, ctx.sizeRange, ctx.manualSize,
+      ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
       ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
     );
   }
@@ -129,7 +129,7 @@ function handleScatter(data: any[], xf: Field, yf: Field, ctx: ChartContext): Pl
   return scatterChart(
     data, xCol, yCol, domainOptions,
     ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
-    ctx.sizeField, ctx.sizeRange, ctx.manualSize,
+    ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
     ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
   );
 }
@@ -174,7 +174,7 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
   return scatterChart(
     data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
     ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
-    ctx.sizeField, ctx.sizeRange, ctx.manualSize,
+    ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
     ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
   );
 }
@@ -192,7 +192,7 @@ function handleBarX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
     return scatterChart(
       data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
       ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
-      ctx.sizeField, ctx.sizeRange, ctx.manualSize,
+      ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
       ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
     );
   }
@@ -222,7 +222,7 @@ function handleBarY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
     return scatterChart(
       data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
       ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
-      ctx.sizeField, ctx.sizeRange, ctx.manualSize,
+      ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
       ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
     );
   }
@@ -301,7 +301,7 @@ function handleTickX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
   return scatterChart(
     data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
     ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
-    ctx.sizeField, ctx.sizeRange, ctx.manualSize,
+    ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
     ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
   );
 }
@@ -368,7 +368,7 @@ function handleTickY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
   return scatterChart(
     data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
     ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
-    ctx.sizeField, ctx.sizeRange, ctx.manualSize,
+    ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
     ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
   );
 }
@@ -536,6 +536,7 @@ export function generatePairChartOptions(
   sizeField?: Field,
   sizeRange?: [number, number],
   manualSize?: number,
+  sizeScaleData?: any[],
   bandThicknessScale?: number,
   colorScheme?: string,
   colorBias?: number,
@@ -554,6 +555,7 @@ export function generatePairChartOptions(
     sizeField,
     sizeRange,
     manualSize,
+    sizeScaleData,
     bandThicknessScale,
     colorScheme,
     colorBias,
