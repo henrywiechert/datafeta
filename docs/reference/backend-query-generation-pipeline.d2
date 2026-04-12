@@ -1,0 +1,110 @@
+## Query Generation Pipeline (Detailed)
+## QueryDescription -> SQL translation in QueryService
+
+direction: right
+
+inputs: Inputs {
+  query_description: QueryDescription
+  db_type: db_type (clickhouse/duckdb/...)
+  table_name: target_table fallback
+  optimizer: QueryOptimizer (optional)
+  connector: Connector (optional)
+}
+
+pipeline: QueryService.translate_to_sql {
+  style.stroke: "#38d4d4"
+  style.fill: "#d0f5f5"
+
+  table_context: TableContextBuilder {
+    tooltip: "Build primary/default table + table map (including virtual join/union context)"
+  }
+
+  optimization_context: OptimizationContextBuilder {
+    tooltip: "Build optimization plan and optimization metadata context"
+  }
+
+  select_clause: SelectClauseBuilder {
+    tooltip: "Resolve dimensions/measures + aliases + expressions"
+  }
+
+  filters: FilterBuilder {
+    tooltip: "Convert filters to dialect-aware criterion terms"
+  }
+
+  optimizations: OptimizationApplier {
+    tooltip: "Apply plan: dedup/binning/rounding and related metadata"
+  }
+
+  group_order: GroupingOrderingBuilder {
+    tooltip: "Apply GROUP BY and ORDER BY"
+  }
+
+  distinct: DistinctApplier {
+    tooltip: "Apply DISTINCT logic when requested"
+  }
+
+  budget: ResultBudgetApplier {
+    tooltip: "Apply frontend-provided max row budget strategies"
+  }
+
+  sampling_limits: SamplingAndLimitsBuilder {
+    tooltip: "Apply random/sample strategy and limit/offset"
+  }
+
+  cdf_mode: CDF Query Path {
+    tooltip: "If query_mode=cdf, build CDF SQL via build_cdf_sql"
+  }
+
+  union_mode: UnionQueryBuilder {
+    tooltip: "Build union SQL for virtual table union mode"
+  }
+}
+
+outputs: Outputs {
+  sql: SQL string
+  metadata: optimization metadata
+}
+
+dialects: Dialects {
+  get_dialect: get_dialect(db_type)
+  clickhouse: ClickHouseDialect
+  duckdb: DuckDbDialect
+}
+
+components: Query Components {
+  terms: terms.py (QuotedField/UnquotedField/CastField/ExtractTerm)
+  vc_builder: VirtualColumnExpressionBuilder
+  parser: FieldReferenceParser
+}
+
+inputs.query_description -> pipeline.table_context
+inputs.db_type -> dialects.get_dialect
+pipeline.table_context -> pipeline.select_clause
+pipeline.table_context -> pipeline.filters
+pipeline.optimization_context -> pipeline.optimizations
+pipeline.select_clause -> pipeline.group_order
+pipeline.filters -> pipeline.group_order
+pipeline.group_order -> pipeline.distinct
+pipeline.distinct -> pipeline.budget
+pipeline.budget -> pipeline.sampling_limits
+pipeline.sampling_limits -> outputs.sql
+pipeline.optimizations -> outputs.metadata
+
+dialects.get_dialect -> pipeline.table_context
+dialects.get_dialect -> pipeline.select_clause
+dialects.get_dialect -> pipeline.filters
+dialects.get_dialect -> pipeline.sampling_limits
+
+components.terms -> pipeline.select_clause
+components.vc_builder -> pipeline.select_clause
+components.vc_builder -> pipeline.filters
+components.parser -> pipeline.select_clause
+components.parser -> pipeline.filters
+
+pipeline.cdf_mode -> outputs.sql
+pipeline.union_mode -> outputs.sql
+
+back: "Back to architecture overview" {
+  shape: page
+  link: "./backend-architecture-overview.svg"
+}
