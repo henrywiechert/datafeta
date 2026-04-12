@@ -54,7 +54,7 @@ export interface CartesianPlotsConfig {
   sharedDomains: SharedDomains;
   encoding?: {
     color?: { field?: Field; scheme?: string; bias?: number; manual?: string };
-    size?: { field?: Field; range?: [number, number]; manual?: number };
+    size?: { field?: Field; range?: [number, number]; manual?: number; scaleData?: any[] };
   };
   labels?: LabelConfig;
   tooltipFields?: Field[];

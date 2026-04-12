@@ -232,7 +232,7 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
       sharedDomains,
       encoding: {
         color: { field: colorField, scheme: colorScheme, bias: context.colorBias, manual: context.manualColor },
-        size: { field: sizeField, range: sizeRange, manual: manualSize },
+        size: { field: sizeField, range: sizeRange, manual: manualSize, scaleData: queryResult.rows },
       },
       labels: labelCfg,
       tooltipFields: context.tooltipFields,

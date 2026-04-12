@@ -367,6 +367,7 @@ export function generateChartOptions(
           sizeField,
           sizeRange,
           manualSize,
+          undefined,
           labelCfg,
           tooltipFields
         ),
