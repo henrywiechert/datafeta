@@ -207,7 +207,6 @@ const VisualizationPageContent = () => {
         measureGroupFields,
         loadedPartitions,
         isLoadingPartition,
-        hivePartitionFiles,
     } = dataSourceContext.dataSource;
     
     // Global filters hook for session-scoped filters
@@ -251,8 +250,6 @@ const VisualizationPageContent = () => {
         setMetadataError,
         setMeasureGroupFields
     } = dataSourceContext;
-    const { state: sheetState } = useSheetContext();
-
     // Handle applying filters (both local and session filters)
     const handleApplyFilters = React.useCallback(() => {
         // Record current state for undo

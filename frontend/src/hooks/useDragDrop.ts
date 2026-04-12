@@ -2,7 +2,6 @@ import { useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Field, DragSource } from '../types';
 import { isMeasureNamesField, isMeasureValuesField } from '../utils/syntheticFields';
-import { addFieldAsDiscreteFilter } from '../utils/filterActions';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
 import { useDataSource } from '../contexts/DataSourceContext';
 import { DEFAULT_CATEGORICAL_SCHEME, DEFAULT_SEQUENTIAL_SCHEME } from '../config/colorSchemes';

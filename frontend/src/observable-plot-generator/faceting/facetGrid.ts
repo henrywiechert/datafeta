@@ -1,5 +1,4 @@
 import { Field } from '../../types';
-import { getFieldColumnName } from '../helpers/fields';
 import { getFieldDisplayName } from '../../utils/fieldUtils';
 
 /**

@@ -11,7 +11,7 @@
  */
 
 import { connectionApi } from './connectionApi';
-import { metadataApi, fetchFieldStats } from './metadataApi';
+import { metadataApi } from './metadataApi';
 import { queryApi } from './queryApi';
 import { snapshotApi } from './snapshotApi';
 import { kaggleApi } from './kaggleApi';

@@ -22,10 +22,15 @@ const HL_SEL = `[${HL_ATTR}]`;
 
 /** Escape a string for use inside a CSS `[attr="…"]` value. */
 function cssEscapeAttrValue(s: string): string {
-  // Escape backslashes, double-quotes, and control characters
-  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/[\x00-\x1f]/g, (ch) => {
-    return '\\' + ch.charCodeAt(0).toString(16) + ' ';
-  });
+  // Escape backslashes/double-quotes, then escape ASCII control chars by codepoint.
+  const escaped = s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  let out = '';
+  for (let i = 0; i < escaped.length; i += 1) {
+    const ch = escaped[i];
+    const code = ch.charCodeAt(0);
+    out += code <= 0x1f ? `\\${code.toString(16)} ` : ch;
+  }
+  return out;
 }
 
 function buildHighlightCSS(values: any[]): string {
@@ -124,8 +129,9 @@ export function useSeriesHighlight(
 
   // --- Remove <style> on unmount -----------------------------------------
   useEffect(() => {
+    const container = containerRef.current;
     return () => {
-      containerRef.current?.removeAttribute(HL_ATTR);
+      container?.removeAttribute(HL_ATTR);
       if (styleElRef.current) {
         styleElRef.current.remove();
         styleElRef.current = null;

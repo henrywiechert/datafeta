@@ -58,10 +58,8 @@ export function useGlobalFilters(): UseGlobalFiltersReturn {
     dataSource,
     addSessionFilterField,
     removeSessionFilterField,
-    setSessionFilterConfiguration,
     setAndApplySessionFilterConfiguration,
     setSessionFilterMetadata,
-    applySessionFilters,
   } = useDataSource();
   
   const { 
