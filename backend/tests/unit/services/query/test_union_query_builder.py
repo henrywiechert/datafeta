@@ -204,3 +204,147 @@ def test_virtual_column_filter_does_not_cause_where_1_eq_0():
 
     assert "WHERE 1=0" not in query_sql
     assert "UNION ALL" in query_sql
+
+
+def test_null_filter_on_field_missing_from_primary_table_skips_primary():
+    """Filtering non-null on a field absent from the primary table must skip that table entirely.
+
+    Scenario mirrors the real-world bug: union of ulPuschReceiveRespPsData (primary,
+    has no dtx column and no matching measures) + ulPucchReceiveRespPsData (secondary,
+    has dtx + rxPower).  A "not null" filter on dtx causes missing_filter_fields on
+    the primary table.  Before the fix the builder emitted a WHERE 1=0 placeholder that
+    referenced a datetime-part alias (utc_second_timeline) which ClickHouse cannot
+    resolve inside a view, raising UNKNOWN_IDENTIFIER.  After the fix the primary table
+    is skipped entirely so only one branch appears in the output.
+    """
+    mock_connector = MagicMock()
+
+    def list_columns_side_effect(database, table):
+        if table == "ulPuschReceiveRespPsData":
+            # Primary table - has utc and lcrId but NOT dtx, NOT rxPower
+            return [
+                Column(name="utc", data_type="DateTime64(6)"),
+                Column(name="lcrId", data_type="Int32"),
+            ]
+        else:
+            # Secondary table - has all requested columns
+            return [
+                Column(name="ulPucchReceiveRespPsData.dtx", data_type="String"),
+                Column(name="utc", data_type="DateTime64(6)"),
+                Column(name="lcrId", data_type="Int32"),
+                Column(name="ulPucchReceiveRespPsData.rxPower", data_type="Float64"),
+            ]
+
+    mock_connector.list_columns.side_effect = list_columns_side_effect
+    mock_connector.estimate_table_size.return_value = 100
+
+    query_description = QueryDescription(
+        target_table="ulPuschReceiveRespPsData",
+        target_database="mydb",
+        dimensions=[
+            Dimension(field="ulPucchReceiveRespPsData.dtx", flavour="discrete"),
+            Dimension(field="utc", flavour="continuous", date_part="second", date_mode="timeline"),
+            Dimension(field="lcrId", flavour="discrete"),
+        ],
+        measures=[
+            Measure(
+                field="ulPucchReceiveRespPsData.rxPower",
+                aggregation="sum",
+                alias="SUM(ulPucchReceiveRespPsData.rxPower)",
+            )
+        ],
+        filters=[
+            Filter(field="ulPucchReceiveRespPsData.dtx", operator="is not null", value=None),
+        ],
+        virtual_table=VirtualTableDefinition(
+            primary_table="ulPuschReceiveRespPsData",
+            mode="union",
+            union_tables=[UnionTableDefinition(table_name="ulPucchReceiveRespPsData")],
+        ),
+    )
+
+    query_sql, _ = QueryService().translate_to_sql(
+        query_description,
+        table_name="ulPuschReceiveRespPsData",
+        db_type="clickhouse",
+        with_optimization=False,
+        connector=mock_connector,
+    )
+
+    # Primary table contributes nothing (missing measure + filter field absent) - no WHERE 1=0
+    assert "WHERE 1=0" not in query_sql
+    # Only the secondary table branch appears - primary table name not in FROM clause
+    assert "ulPuschReceiveRespPsData" not in query_sql.split("FROM")[1]
+    # Datetime-part alias must not appear as a bare column reference inside a WHERE 1=0 branch
+    assert "utc_second_timeline AS `utc_second_timeline`" in query_sql or \
+           "utc_second_timeline" in query_sql
+
+
+def test_null_filter_on_field_missing_from_primary_table_dimension_only():
+    """Same scenario but dimension-only (continuous Y, no measures) — must not produce NO_COMMON_TYPE.
+
+    When filtering IS NOT NULL on a field absent from the primary table and there are
+    no measures (e.g. continuous dimension on Y axis), the old code generated:
+        CAST(NULL AS Nullable(String)) AS `utc_second_timeline`
+    for the WHERE 1=0 placeholder.  ClickHouse then tried to unify String with
+    DateTime64 from the secondary branch and raised NO_COMMON_TYPE.
+    The fix: skip the primary table entirely – it contributes no rows anyway.
+    """
+    mock_connector = MagicMock()
+
+    def list_columns_side_effect(database, table):
+        if table == "ulPuschReceiveRespPsData":
+            # Primary table - has utc and lcrId but NOT crc, NOT rxPower
+            return [
+                Column(name="utc", data_type="DateTime64(6)"),
+                Column(name="lcrId", data_type="Int32"),
+            ]
+        else:
+            # Secondary table - has all requested columns
+            return [
+                Column(name="ulPucchReceiveRespPsData.crc", data_type="String"),
+                Column(name="utc", data_type="DateTime64(6)"),
+                Column(name="ulPucchReceiveRespPsData.rxPower", data_type="Float32"),
+                Column(name="lcrId", data_type="Int32"),
+            ]
+
+    mock_connector.list_columns.side_effect = list_columns_side_effect
+    mock_connector.estimate_table_size.return_value = 100
+
+    # Dimension-only query (continuous rxPower on Y, no measure aggregation)
+    query_description = QueryDescription(
+        target_table="ulPuschReceiveRespPsData",
+        target_database="mydb",
+        dimensions=[
+            Dimension(field="ulPucchReceiveRespPsData.crc", flavour="discrete"),
+            Dimension(field="utc", flavour="continuous", date_part="second", date_mode="timeline"),
+            Dimension(field="ulPucchReceiveRespPsData.rxPower", flavour="continuous"),
+            Dimension(field="lcrId", flavour="discrete"),
+        ],
+        measures=[],
+        filters=[
+            Filter(field="ulPucchReceiveRespPsData.crc", operator="is not null", value=None),
+        ],
+        virtual_table=VirtualTableDefinition(
+            primary_table="ulPuschReceiveRespPsData",
+            mode="union",
+            union_tables=[UnionTableDefinition(table_name="ulPucchReceiveRespPsData")],
+        ),
+    )
+
+    query_sql, _ = QueryService().translate_to_sql(
+        query_description,
+        table_name="ulPuschReceiveRespPsData",
+        db_type="clickhouse",
+        with_optimization=False,
+        connector=mock_connector,
+    )
+
+    # Primary table skipped entirely - no WHERE 1=0 placeholder, no type mismatch
+    assert "WHERE 1=0" not in query_sql
+    # No CAST(NULL AS Nullable(String)) for utc_second_timeline (the DateTime column)
+    assert "Nullable(String)) AS `utc_second_timeline`" not in query_sql
+    # Only the secondary table contributes
+    assert "`ulPuschReceiveRespPsData`" not in query_sql
+    # Secondary table's datetime expression is present
+    assert "utc_second_timeline" in query_sql

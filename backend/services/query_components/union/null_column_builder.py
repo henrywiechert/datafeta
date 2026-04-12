@@ -302,7 +302,7 @@ def rebuild_select_with_nulls(
                 # ClickHouse resolves the real column type and avoids NO_COMMON_TYPE
                 # errors in UNION ALL.  We only do this for physical columns; virtual
                 # columns don't have a physical column to reference.
-                if not is_virtual and expr.strip().upper().startswith("CAST(NULL"):
+                if not is_virtual and expr.strip().upper().startswith("CAST(NULL") and field_key == dim.field:
                     logger.debug(
                         "Replacing NULL-cast expression for available physical column '%s' "
                         "in table %s with direct column reference",
