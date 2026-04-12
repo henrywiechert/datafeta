@@ -100,9 +100,13 @@ export const useQueryExecution = ({
   const { state: vizState, dispatch, startOperation, completeOperation } = useVisualizationContext();
   const { activeSheet } = useSheetContext();
 
-  // Track query version for deduplication
+  // Track query version for deduplication.
+  // Initialize to the CURRENT queryVersion (not null) so that snapshot-restored sheets
+  // (which start with queryVersion = N > 0) don't fire immediately on mount before the
+  // UNION virtual table is set up.  Explicit increments (FORCE_QUERY_REFRESH,
+  // TABLE_JOINS_UNIONS_MODIFIED) will still trigger execution.
   const queryVersion: number = vizState.queryVersion;
-  const lastExecutedVersionRef = useRef<number | null>(null);
+  const lastExecutedVersionRef = useRef<number>(queryVersion);
   
   // Track if we restored from cache on mount
   const cacheRestoredRef = useRef(false);
