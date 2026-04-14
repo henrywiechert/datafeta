@@ -3,7 +3,7 @@ import logging
 import os
 import re
 import duckdb
-from typing import List, Dict, Any, Tuple, Optional, TYPE_CHECKING
+from typing import List, Dict, Any, Tuple, Optional
 from collections import defaultdict
 
 import pyarrow as pa
@@ -12,9 +12,6 @@ from backend.models.data_source import Database, Table, Column
 from backend.dialects import SqlDialect, DuckDbDialect
 from .base import BaseConnector
 from backend.exceptions import DataSourceConnectionError, InvalidInputError, QueryExecutionError
-
-if TYPE_CHECKING:
-    from backend.session_state import ConnectionStateManager
 
 logger = logging.getLogger(__name__)
 
@@ -53,11 +50,10 @@ class HiveParquetConnector(BaseConnector):
     def sql_dialect(self) -> SqlDialect:
         return _duckdb_dialect
 
-    def __init__(self, state_manager: "ConnectionStateManager"):
+    def __init__(self):
         self._partition_column: Optional[str] = None
         self._available_partitions: List[str] = []
         self._loaded_partitions: Dict[str, List[str]] = {}  # partition_name -> [file_paths]
-        self.state_manager = state_manager
 
     def connect(self, connection_details: Dict[str, Any]) -> None:
         """Phase 1: Parse file structure and extract partition information.

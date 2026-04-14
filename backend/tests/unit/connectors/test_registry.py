@@ -20,5 +20,5 @@ class TestConnectorRegistrySpecs:
             kaggle_dataset="owner/dataset",
         )
         request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(upload_root_dir=str(tmp_path))))
-        connect_args = spec.build_connect_args(cfg, None, request, "session-1")
+        connect_args = spec.build_connect_args(cfg, request, "session-1")
         assert connect_args["download_dir"] == str(tmp_path / "session-1")

@@ -19,7 +19,6 @@ from backend.connectors.clickhouse_connector import ClickHouseConnector
 from backend.connectors.file_connector import FileConnector
 from backend.connectors.hive_parquet_connector import HiveParquetConnector
 from backend.connectors.kaggle_connector import KaggleConnector
-from backend.session_state import ConnectionStateManager
 from backend.dialects import ClickHouseDialect, DuckDbDialect
 from backend.exceptions import InvalidInputError
 
@@ -64,7 +63,7 @@ class CsvConfig(BaseModel):
     csv_timestamp_format: Optional[str] = "%Y-%m-%d %H:%M:%S"
 
 
-def _build_kaggle_connect_args(cfg: BaseModel, _sm, request, session_id: str) -> dict:
+def _build_kaggle_connect_args(cfg: BaseModel, request, session_id: str) -> dict:
     if request is None:
         raise ValueError("Request is required to resolve upload_root_dir for Kaggle connector")
     upload_root_dir = getattr(request.app.state, "upload_root_dir", None)
@@ -119,8 +118,8 @@ class ConnectorRegistry:
             raise InvalidInputError(f"Unsupported data source type: {connector_id}")
         return spec
 
-    def create(self, connector_id: str, state_manager: ConnectionStateManager) -> BaseConnector:
-        return self.get_spec(connector_id).factory(state_manager)
+    def create(self, connector_id: str) -> BaseConnector:
+        return self.get_spec(connector_id).factory()
 
     def list_specs(self) -> Dict[str, ConnectorSpec]:
         return dict(self._specs)
@@ -151,8 +150,8 @@ def get_connector_registry() -> ConnectorRegistry:
                 supports_arrow=True,
             ),
             config_model=ClickHouseConfig,
-            factory=lambda _sm: ClickHouseConnector(),
-            build_connect_args=lambda cfg, _sm, _request, _session_id: cfg.model_dump(exclude_none=True),
+            factory=ClickHouseConnector,
+            build_connect_args=lambda cfg, _request, _session_id: cfg.model_dump(exclude_none=True),
         )
     )
 
@@ -169,7 +168,7 @@ def get_connector_registry() -> ConnectorRegistry:
                 supports_incremental_file_add=True,
             ),
             config_model=CsvConfig,
-            factory=lambda sm: FileConnector(state_manager=sm),
+            factory=FileConnector,
             build_connect_args=None,
             build_multipart_connect_args=_build_csv_multipart_connect_args,
         )
@@ -187,7 +186,7 @@ def get_connector_registry() -> ConnectorRegistry:
                 supports_arrow=True,
             ),
             config_model=KaggleConfig,
-            factory=lambda sm: KaggleConnector(state_manager=sm),
+            factory=KaggleConnector,
             build_connect_args=_build_kaggle_connect_args,
         )
     )
@@ -204,8 +203,8 @@ def get_connector_registry() -> ConnectorRegistry:
                 supports_arrow=True,
             ),
             config_model=HiveParquetConfig,
-            factory=lambda sm: HiveParquetConnector(state_manager=sm),
-            build_connect_args=lambda cfg, _sm, _request, _session_id: cfg.model_dump(exclude_none=True),
+            factory=HiveParquetConnector,
+            build_connect_args=lambda cfg, _request, _session_id: cfg.model_dump(exclude_none=True),
         )
     )
 

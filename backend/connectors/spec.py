@@ -16,7 +16,6 @@ from pydantic import BaseModel
 
 from backend.connectors.base import BaseConnector
 from backend.dialects import SqlDialect
-from backend.session_state import ConnectionStateManager
 
 
 @dataclass(frozen=True)
@@ -30,8 +29,8 @@ class ConnectorCapabilities:
     supports_incremental_file_add: bool = False
 
 
-ConnectArgsBuilder = Callable[[BaseModel, ConnectionStateManager, Any, str], dict]
-ConnectorFactory = Callable[[ConnectionStateManager], BaseConnector]
+ConnectArgsBuilder = Callable[[BaseModel, Any, str], dict]
+ConnectorFactory = Callable[[], BaseConnector]
 MultipartConnectArgsBuilder = Callable[[Any, BaseModel, List[Any], str], Awaitable[Tuple[dict, List[str]]]]
 
 

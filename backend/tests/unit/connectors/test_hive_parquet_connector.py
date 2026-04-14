@@ -4,7 +4,6 @@ import os
 import pytest
 import pyarrow as pa
 import pyarrow.parquet as pq
-from unittest.mock import Mock
 
 from backend.connectors.hive_parquet_connector import (
     HiveParquetConnector,
@@ -18,8 +17,7 @@ class TestHiveParquetConnectorInit:
 
     def test_init_creates_empty_state(self):
         """Test that HiveParquetConnector initializes with empty state."""
-        state_manager = Mock()
-        connector = HiveParquetConnector(state_manager=state_manager)
+        connector = HiveParquetConnector()
         assert connector._partition_column is None
         assert connector._available_partitions == []
         assert connector._loaded_partitions == {}
@@ -30,8 +28,7 @@ class TestParseStructure:
 
     def test_parse_single_partition_column(self):
         """Test parsing structure with single partition column."""
-        state_manager = Mock()
-        connector = HiveParquetConnector(state_manager=state_manager)
+        connector = HiveParquetConnector()
         
         file_structure = [
             "dataset/region=us/file1.parquet",
@@ -45,8 +42,7 @@ class TestParseStructure:
 
     def test_parse_windows_paths(self):
         """Test parsing Windows-style paths."""
-        state_manager = Mock()
-        connector = HiveParquetConnector(state_manager=state_manager)
+        connector = HiveParquetConnector()
         
         file_structure = [
             "dataset\\region=us\\file1.parquet",
@@ -59,8 +55,7 @@ class TestParseStructure:
 
     def test_parse_ignores_non_parquet_files(self):
         """Test that non-parquet files are ignored."""
-        state_manager = Mock()
-        connector = HiveParquetConnector(state_manager=state_manager)
+        connector = HiveParquetConnector()
         
         file_structure = [
             "dataset/region=us/file1.parquet",
@@ -75,8 +70,7 @@ class TestParseStructure:
 
     def test_parse_empty_structure_returns_none(self):
         """Test that empty structure returns None column."""
-        state_manager = Mock()
-        connector = HiveParquetConnector(state_manager=state_manager)
+        connector = HiveParquetConnector()
         
         col, partitions = connector._parse_structure([])
         assert col is None
@@ -84,8 +78,7 @@ class TestParseStructure:
 
     def test_parse_no_partition_structure_returns_none(self):
         """Test that non-partitioned structure returns None column."""
-        state_manager = Mock()
-        connector = HiveParquetConnector(state_manager=state_manager)
+        connector = HiveParquetConnector()
         
         file_structure = [
             "dataset/file1.parquet",
@@ -98,8 +91,7 @@ class TestParseStructure:
 
     def test_parse_with_root_folder_containing_equals(self):
         """Test parsing when root folder name contains '=' character."""
-        state_manager = Mock()
-        connector = HiveParquetConnector(state_manager=state_manager)
+        connector = HiveParquetConnector()
         
         file_structure = [
             "data=X/type=A/file1.parquet",
@@ -113,8 +105,7 @@ class TestParseStructure:
 
     def test_parse_with_normal_root_folder(self):
         """Test parsing with typical root folder structure."""
-        state_manager = Mock()
-        connector = HiveParquetConnector(state_manager=state_manager)
+        connector = HiveParquetConnector()
         
         file_structure = [
             "data/type=A/file1.parquet",
@@ -131,8 +122,7 @@ class TestConnect:
 
     def test_connect_parses_structure(self):
         """Test that connect parses file structure correctly."""
-        state_manager = Mock()
-        connector = HiveParquetConnector(state_manager=state_manager)
+        connector = HiveParquetConnector()
         
         connector.connect({
             "hive_file_structure": [
@@ -146,16 +136,14 @@ class TestConnect:
 
     def test_connect_raises_on_empty_structure(self):
         """Test that connect raises error on empty structure."""
-        state_manager = Mock()
-        connector = HiveParquetConnector(state_manager=state_manager)
+        connector = HiveParquetConnector()
         
         with pytest.raises(InvalidInputError, match="No file structure"):
             connector.connect({"hive_file_structure": []})
 
     def test_connect_raises_on_no_partitions(self):
         """Test that connect raises error when no partitions detected."""
-        state_manager = Mock()
-        connector = HiveParquetConnector(state_manager=state_manager)
+        connector = HiveParquetConnector()
         
         with pytest.raises(InvalidInputError, match="Could not detect partition"):
             connector.connect({
@@ -168,8 +156,7 @@ class TestListTables:
 
     def test_list_tables_returns_partitions(self):
         """Test that list_tables returns all available partitions."""
-        state_manager = Mock()
-        connector = HiveParquetConnector(state_manager=state_manager)
+        connector = HiveParquetConnector()
         
         connector.connect({
             "hive_file_structure": [
@@ -193,8 +180,7 @@ class TestLoadPartition:
         table = pa.table({"col1": [1, 2, 3]})
         pq.write_table(table, parquet_path)
         
-        state_manager = Mock()
-        connector = HiveParquetConnector(state_manager=state_manager)
+        connector = HiveParquetConnector()
         
         connector.connect({
             "hive_file_structure": ["dataset/region=us/test.parquet"]
@@ -211,8 +197,7 @@ class TestLoadPartition:
         table = pa.table({"col1": [1, 2, 3]})
         pq.write_table(table, parquet_path)
         
-        state_manager = Mock()
-        connector = HiveParquetConnector(state_manager=state_manager)
+        connector = HiveParquetConnector()
         
         connector.connect({
             "hive_file_structure": ["dataset/region=us/test.parquet"]
@@ -223,8 +208,7 @@ class TestLoadPartition:
 
     def test_load_partition_raises_on_missing_file(self):
         """Test that load_partition raises error for missing file."""
-        state_manager = Mock()
-        connector = HiveParquetConnector(state_manager=state_manager)
+        connector = HiveParquetConnector()
         
         connector.connect({
             "hive_file_structure": ["dataset/region=us/test.parquet"]
@@ -247,8 +231,7 @@ class TestListColumns:
         })
         pq.write_table(table, parquet_path)
         
-        state_manager = Mock()
-        connector = HiveParquetConnector(state_manager=state_manager)
+        connector = HiveParquetConnector()
         
         connector.connect({
             "hive_file_structure": ["dataset/region=us/test.parquet"]
@@ -264,8 +247,7 @@ class TestListColumns:
 
     def test_list_columns_raises_on_unloaded_partition(self):
         """Test that list_columns raises error for unloaded partition."""
-        state_manager = Mock()
-        connector = HiveParquetConnector(state_manager=state_manager)
+        connector = HiveParquetConnector()
         
         connector.connect({
             "hive_file_structure": ["dataset/region=us/test.parquet"]
@@ -284,8 +266,7 @@ class TestFetchData:
         table = pa.table({"id": [1, 2, 3], "value": [100, 200, 300]})
         pq.write_table(table, parquet_path)
         
-        state_manager = Mock()
-        connector = HiveParquetConnector(state_manager=state_manager)
+        connector = HiveParquetConnector()
         
         connector.connect({
             "hive_file_structure": ["dataset/region=us/test.parquet"]
@@ -306,8 +287,7 @@ class TestFetchData:
         pq.write_table(pa.table({"id": [1, 2]}), parquet1)
         pq.write_table(pa.table({"id": [3, 4]}), parquet2)
         
-        state_manager = Mock()
-        connector = HiveParquetConnector(state_manager=state_manager)
+        connector = HiveParquetConnector()
         
         connector.connect({
             "hive_file_structure": [
@@ -324,8 +304,7 @@ class TestFetchData:
 
     def test_fetch_data_raises_when_no_partitions_loaded(self):
         """Test that fetch_data raises error when no partitions loaded."""
-        state_manager = Mock()
-        connector = HiveParquetConnector(state_manager=state_manager)
+        connector = HiveParquetConnector()
         
         connector.connect({
             "hive_file_structure": ["dataset/region=us/test.parquet"]
@@ -342,8 +321,7 @@ class TestFetchData:
         pq.write_table(pa.table({"id": [1, 2], "region": ["us", "us"]}), parquet_us)
         pq.write_table(pa.table({"id": [3, 4], "region": ["eu", "eu"]}), parquet_eu)
         
-        state_manager = Mock()
-        connector = HiveParquetConnector(state_manager=state_manager)
+        connector = HiveParquetConnector()
         
         connector.connect({
             "hive_file_structure": [
@@ -376,8 +354,7 @@ class TestFetchDataArrow:
         table = pa.table({"id": [1, 2], "value": [100, 200]})
         pq.write_table(table, parquet_path)
         
-        state_manager = Mock()
-        connector = HiveParquetConnector(state_manager=state_manager)
+        connector = HiveParquetConnector()
         
         connector.connect({
             "hive_file_structure": ["dataset/region=us/test.parquet"]
@@ -400,8 +377,7 @@ class TestDisconnect:
         table = pa.table({"col1": [1, 2, 3]})
         pq.write_table(table, parquet_path)
         
-        state_manager = Mock()
-        connector = HiveParquetConnector(state_manager=state_manager)
+        connector = HiveParquetConnector()
         
         connector.connect({
             "hive_file_structure": ["dataset/region=us/test.parquet"]

@@ -3,7 +3,7 @@ import logging
 import duckdb
 import os
 import re
-from typing import List, Dict, Any, Tuple, Optional, TYPE_CHECKING
+from typing import List, Dict, Any, Tuple, Optional
 from dataclasses import dataclass
 
 import pyarrow as pa
@@ -15,9 +15,6 @@ from .file_handlers import BaseFileHandler, FILE_HANDLER_REGISTRY
 from .fk_detection import detect_foreign_keys_by_naming_convention
 from backend.exceptions import DataSourceConnectionError, InvalidInputError, QueryExecutionError
 from backend.utils.type_conversion import process_query_result_data
-
-if TYPE_CHECKING:
-    from backend.session_state import ConnectionStateManager
 
 logger = logging.getLogger(__name__)
 
@@ -39,13 +36,9 @@ class FileConnector(BaseConnector):
     def sql_dialect(self) -> SqlDialect:
         return _duckdb_dialect
 
-    def __init__(self, state_manager: "ConnectionStateManager"):
+    def __init__(self):
         # Support for multiple files - each becomes a table
         self._files: List[FileInfo] = []
-        # The state_manager is no longer needed here, but we'll leave it
-        # in the signature to avoid breaking the router dependency for now.
-        # It can be cleaned up in a future refactor.
-        self.state_manager = state_manager
 
     def _sanitize_table_name(self, filename: str) -> str:
         """

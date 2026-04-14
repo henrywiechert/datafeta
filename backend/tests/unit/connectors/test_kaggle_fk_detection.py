@@ -1,23 +1,17 @@
 """Unit tests for Kaggle connector FK detection."""
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch
 from backend.connectors.kaggle_connector import KaggleConnector
-from backend.models.data_source import Column, Table, ForeignKeyRelationship
-from backend.session_state import ConnectionStateManager
+from backend.models.data_source import Column, Table
 
 
 class TestKaggleFKDetection:
     """Test FK detection in Kaggle connector."""
-    
+
     @pytest.fixture
-    def mock_state_manager(self):
-        """Create a mock state manager."""
-        return Mock(spec=ConnectionStateManager)
-    
-    @pytest.fixture
-    def kaggle_connector(self, mock_state_manager):
+    def kaggle_connector(self):
         """Create a Kaggle connector instance."""
-        return KaggleConnector(mock_state_manager)
+        return KaggleConnector()
     
     def test_detect_foreign_keys_basic(self, kaggle_connector):
         """Test basic FK detection with customer_id -> customers.id pattern."""
