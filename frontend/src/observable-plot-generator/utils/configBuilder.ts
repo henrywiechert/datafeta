@@ -167,6 +167,7 @@ export function buildCartesianPlotsConfig(
     ...yCandidates,
     ...(context.colorField ? [context.colorField] : []),
     ...(context.sizeField ? [context.sizeField] : []),
+    ...(context.shapeField ? [context.shapeField] : []),
   ];
 
   return {
@@ -186,6 +187,9 @@ export function buildCartesianPlotsConfig(
         range: context.sizeRange,
         manual: manualSizeOverride ?? context.manualSize,
         scaleData: sizeScaleDataOverride ?? context.queryResult.rows,
+      },
+      shape: {
+        field: context.shapeField,
       },
     },
     labels: labelCfg,

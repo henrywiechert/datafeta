@@ -15,6 +15,7 @@ import { useFieldOverrides } from './useFieldOverrides';
 import ColorFieldControl from './ColorFieldControl';
 import BackgroundFieldControl from './BackgroundFieldControl';
 import SizeFieldControl from './SizeFieldControl';
+import ShapeFieldControl from './ShapeFieldControl';
 import LabelFieldControl from './LabelFieldControl';
 import TooltipFieldControl from './TooltipFieldControl';
 import ChartTypeControl from './ChartTypeControl';
@@ -393,6 +394,18 @@ const FieldOverridesPanel: React.FC = () => {
             dispatch({ type: 'SET_MANUAL_SIZE', payload: size });
           }}
           forceSingleSlider={globalChartType === 'tick' || globalChartType === 'gantt'}
+        />
+
+        <ShapeFieldControl
+          field={(state as any).shapeField || null}
+          onDrop={(field) => {
+            recordAction(getUndoableSnapshot());
+            dispatch({ type: 'SET_SHAPE_FIELD', payload: field });
+          }}
+          onRemove={(_fieldIds) => {
+            recordAction(getUndoableSnapshot());
+            dispatch({ type: 'REMOVE_SHAPE_FIELD' });
+          }}
         />
 
         <LabelFieldControl

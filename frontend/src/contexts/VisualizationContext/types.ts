@@ -82,6 +82,8 @@ export interface VisualizationState {
   sizeRange: [number, number];
   manualSize: number;
   bandThicknessScale: number;
+  // Shape encoding state (scatter only, discrete only)
+  shapeField: Field | null;
   // Label configuration state
   labelFields: Field[];
   labelsEnabled: boolean;
@@ -177,6 +179,9 @@ export type VisualizationAction =
   | { type: 'SET_MANUAL_SIZE'; payload: number }
   | { type: 'SET_BAND_THICKNESS_SCALE'; payload: number }
   | { type: 'REMOVE_SIZE_FIELD' }
+  // Shape encoding actions (scatter only, discrete only)
+  | { type: 'SET_SHAPE_FIELD'; payload: Field | null }
+  | { type: 'REMOVE_SHAPE_FIELD' }
   // Label actions
   | { type: 'SET_LABEL_FIELDS'; payload: Field[] }
   | { type: 'ADD_LABEL_FIELD'; payload: Field }
@@ -226,6 +231,7 @@ export type VisualizationAction =
       facetBackgroundOpacity?: number;
       showTableRows?: boolean;
       overlays?: OverlayConfig[];
+      shapeField?: Field | null;
     } }
   // Multi-table actions
   | { type: 'TABLE_JOINS_UNIONS_MODIFIED' }

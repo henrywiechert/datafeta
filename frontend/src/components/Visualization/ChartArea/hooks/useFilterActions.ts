@@ -29,6 +29,7 @@ export function useFilterActions({
 }: UseFilterActionsProps) {
   const { state, dispatch } = useVisualizationContext();
   const { colorField, filterFields, filterConfigurations, queryResult } = state;
+  const shapeField = (state as any).shapeField ?? null;
   // ── Legend → Filter bridge ───────────────────────────────────────────
   const handleLegendFilterAction = useCallback(
     (action: LegendFilterAction, values: any[], allDomainValues: any[]) => {
@@ -73,6 +74,49 @@ export function useFilterActions({
       }
     },
     [colorField, filterFields, filterConfigurations, dispatch, recordAction, getUndoableSnapshot],
+  );
+
+  // ── Shape Legend → Filter bridge ─────────────────────────────────────
+  const handleShapeLegendFilterAction = useCallback(
+    (action: LegendFilterAction, values: any[], allDomainValues: any[]) => {
+      if (!shapeField) return;
+
+      recordAction(getUndoableSnapshot());
+
+      const keepValues =
+        action === 'keep'
+          ? values
+          : allDomainValues.filter(v => {
+              const valStr = String(v);
+              return !values.some(sv => String(sv) === valStr);
+            });
+
+      const existingFilter = filterFields.find(
+        (f: any) => f.columnName === shapeField.columnName,
+      );
+
+      if (
+        existingFilter &&
+        filterConfigurations[existingFilter.id]?.type === 'discrete'
+      ) {
+        updateExistingDiscreteFilter(
+          existingFilter.id,
+          existingFilter.columnName,
+          keepValues,
+          dispatch,
+          existingFilter.dateTimePart,
+          existingFilter.dateTimeMode,
+        );
+      } else {
+        addFieldAsDiscreteFilter(
+          shapeField,
+          keepValues,
+          filterFields,
+          dispatch,
+        );
+      }
+    },
+    [shapeField, filterFields, filterConfigurations, dispatch, recordAction, getUndoableSnapshot],
   );
 
   // ── Tooltip → Filter bridge ──────────────────────────────────────────
@@ -170,5 +214,5 @@ export function useFilterActions({
     };
   }, [spec, handleTooltipFilterAction]);
 
-  return { handleLegendFilterAction, specWithTooltipAction };
+  return { handleLegendFilterAction, handleShapeLegendFilterAction, specWithTooltipAction };
 }

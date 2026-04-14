@@ -82,6 +82,8 @@ export interface VisualizationStateSnapshot {
   facetBackgroundOpacity?: number;
   // Chart area caption (markdown)
   chartCaption?: string;
+  // Shape encoding (scatter only, discrete only)
+  shapeField?: Field | null;
   // Statistical overlays
   overlays?: import('../observable-plot-generator/overlays/types').OverlayConfig[];
   // Filter IDs that are temporarily disabled on this sheet (config preserved)

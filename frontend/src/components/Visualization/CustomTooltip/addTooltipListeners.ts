@@ -169,7 +169,9 @@ export function addTooltipListeners(
   // Observable Plot uses aria-label attributes on group elements:
   // - Grid lines are inside groups with aria-label containing "grid" (e.g., "x-grid", "y-grid")
   // - Axis tick marks are inside groups with aria-label containing "axis" (e.g., "y-axis tick")
-  const allElements = plot.querySelectorAll('circle, rect, path[fill]:not([fill="none"]), line');
+  const allElements = plot.querySelectorAll(
+    'circle, rect, path[fill]:not([fill="none"]), path[stroke]:not([stroke="none"]):not([stroke="transparent"]), line'
+  );
   
   // Filter out elements that are part of grid, axis decorations, or overlay marks
   const marks = Array.from(allElements).filter(el => {

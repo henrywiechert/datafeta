@@ -54,6 +54,14 @@ export function encodingReducer(state: VisualizationState, action: Visualization
       if (!state.sizeField) return state;
       return { ...state, sizeField: null, queryVersion: state.queryVersion + 1 };
     
+    // Shape encoding (scatter only, discrete only)
+    case 'SET_SHAPE_FIELD':
+      if (state.shapeField === action.payload) return state;
+      return { ...state, shapeField: action.payload, queryVersion: state.queryVersion + 1 };
+    case 'REMOVE_SHAPE_FIELD':
+      if (!state.shapeField) return state;
+      return { ...state, shapeField: null, queryVersion: state.queryVersion + 1 };
+    
     // Label encoding
     case 'SET_LABEL_FIELDS': {
       if (sameFieldArray(state.labelFields, action.payload)) return state;

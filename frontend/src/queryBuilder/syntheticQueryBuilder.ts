@@ -51,6 +51,7 @@ export async function buildUnpivotedQuery({
   tooltipFields = [],
   colorField = null,
   sizeField = null,
+  shapeField = null,
   virtualTable = null,
   virtualColumns = [],
   optimizationHints = undefined,
@@ -68,6 +69,7 @@ export async function buildUnpivotedQuery({
   tooltipFields?: Field[];
   colorField?: Field | null;
   sizeField?: Field | null;
+  shapeField?: Field | null;
   virtualTable?: VirtualTableDefinition | null;
   virtualColumns?: VirtualColumnDefinition[];
   optimizationHints?: any;
@@ -83,6 +85,9 @@ export async function buildUnpivotedQuery({
   }
   if (sizeField && !isSyntheticField(sizeField)) {
     allFields.push(sizeField);
+  }
+  if (shapeField && !isSyntheticField(shapeField)) {
+    allFields.push(shapeField);
   }
   const { hasMeasureNames, hasMeasureValues, measureValuesField } = detectSyntheticFieldUsage(allFields);
 

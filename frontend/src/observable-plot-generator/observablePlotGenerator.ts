@@ -233,6 +233,7 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
       encoding: {
         color: { field: colorField, scheme: colorScheme, bias: context.colorBias, manual: context.manualColor },
         size: { field: sizeField, range: sizeRange, manual: manualSize, scaleData: queryResult.rows },
+        shape: { field: context.shapeField },
       },
       labels: labelCfg,
       tooltipFields: context.tooltipFields,
@@ -240,7 +241,7 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
       overrides,
       fieldOverrides: context.fieldOverrides,
       fieldOverrideTargets: context.fieldOverrideTargets,
-      allFields: [...xFields, ...yFields, ...(colorField ? [colorField] : []), ...(sizeField ? [sizeField] : [])],
+      allFields: [...xFields, ...yFields, ...(colorField ? [colorField] : []), ...(sizeField ? [sizeField] : []), ...(context.shapeField ? [context.shapeField] : [])],
       globalChartType: context.globalChartType,
       measureValuesSourceFields: context.measureValuesSourceFields,
       bandThicknessScale: context.bandThicknessScale,
@@ -348,6 +349,7 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
     ...enrichedYFields,
     ...(enrichedColorField ? [enrichedColorField] : []),
     ...(enrichedSizeField ? [enrichedSizeField] : []),
+    ...(context.shapeField ? [context.shapeField] : []),
   ];
   const normalizedRows = normalizeTimelineData(queryResult.rows, allFields);
   const normalizedQueryResult = normalizedRows !== queryResult.rows
