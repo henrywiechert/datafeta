@@ -104,9 +104,10 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 - Table lost
 - Still virtual columns are sheet specific, they should be per session
 
-## [] Size not correctly applied when faceting is active.
+## [DONE] Size not correctly applied when faceting is active.
 - In facets (by measure) where size field is always 0, the size looks larger, than in facets where some points have 0.4
 - I think size is only respected within facets. Not sure here yet.
+- Fixed (d4e7b4f3e1cd552d90beeccfc517a6e796fc5ed9)
 
 ## [DONE] No tick strip when using DateTime as continous field only.
 
