@@ -144,9 +144,9 @@ class ConnectionService:
         return temp_file_path
 
     @staticmethod
-    def _get_connector(connection_details: ConnectionDetails, state_manager: ConnectionStateManager) -> BaseConnector:
+    def _get_connector(connection_details: ConnectionDetails) -> BaseConnector:
         registry = get_connector_registry()
-        return registry.create(connection_details.type, state_manager)
+        return registry.create(connection_details.type)
 
     async def _clear_previous_state(self, session_id: str) -> None:
         if self.state_manager.current_connector:
@@ -238,7 +238,7 @@ class ConnectionService:
                 session_id,
             )
 
-            connector = self._get_connector(effective_connection_details, self.state_manager)
+            connector = self._get_connector(effective_connection_details)
             await run_in_threadpool(connector.connect, connect_args)
 
             self.state_manager.set_state(
@@ -301,7 +301,7 @@ class ConnectionService:
                 )
 
             if spec.build_connect_args:
-                connect_args = spec.build_connect_args(cfg, self.state_manager, self.request, session_id)
+                connect_args = spec.build_connect_args(cfg, self.request, session_id)
             else:
                 connect_args = cfg.model_dump(exclude_none=True)
 
@@ -311,7 +311,7 @@ class ConnectionService:
                 redact_sensitive(connect_args),
             )
 
-            connector = self._get_connector(effective_connection_details, self.state_manager)
+            connector = self._get_connector(effective_connection_details)
             await run_in_threadpool(connector.connect, connect_args)
 
             self.state_manager.set_state(
@@ -370,9 +370,9 @@ class ConnectionService:
             if not spec.build_connect_args:
                 raise RuntimeError("Hive parquet spec must provide build_connect_args")
 
-            connect_args = spec.build_connect_args(cfg, self.state_manager, self.request, session_id)
+            connect_args = spec.build_connect_args(cfg, self.request, session_id)
 
-            connector = self._get_connector(connection_details, self.state_manager)
+            connector = self._get_connector(connection_details)
             await run_in_threadpool(connector.connect, connect_args)
 
             self.state_manager.set_state(

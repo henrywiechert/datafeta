@@ -5,7 +5,6 @@ import pytest
 import tempfile
 import pyarrow as pa
 import pyarrow.parquet as pq
-from unittest.mock import Mock
 
 from backend.connectors.file_connector import FileConnector, FileInfo
 from backend.connectors.file_handlers import CsvFileHandler, ParquetFileHandler
@@ -17,8 +16,7 @@ class TestFileConnectorInit:
 
     def test_init_creates_empty_file_list(self):
         """Test that FileConnector initializes with empty file list."""
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         assert connector._files == []
 
 
@@ -27,33 +25,28 @@ class TestSanitizeTableName:
 
     def test_sanitize_removes_extension(self):
         """Test that file extension is removed."""
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         assert connector._sanitize_table_name("data.csv") == "data"
         assert connector._sanitize_table_name("data.parquet") == "data"
 
     def test_sanitize_handles_spaces(self):
         """Test that spaces are replaced with underscores."""
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         assert connector._sanitize_table_name("my data file.csv") == "my_data_file"
 
     def test_sanitize_handles_special_chars(self):
         """Test that special characters are replaced."""
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         assert connector._sanitize_table_name("data-2024@v1.csv") == "data_2024_v1"
 
     def test_sanitize_handles_leading_numbers(self):
         """Test that leading numbers get prefix."""
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         assert connector._sanitize_table_name("2024_data.csv") == "table_2024_data"
 
     def test_sanitize_empty_name(self):
         """Test that names that sanitize to empty get default value."""
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         # A name made of only special characters reduces to empty after sanitization
         assert connector._sanitize_table_name("---.csv") == "uploaded_file"
 
@@ -67,8 +60,7 @@ class TestCsvConnect:
         csv_path = tmp_path / "test.csv"
         csv_path.write_text("col1,col2\n1,2\n3,4")
 
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         
         connector.connect({
             "file_path": str(csv_path),
@@ -84,8 +76,7 @@ class TestCsvConnect:
         csv_path = tmp_path / "test.csv"
         csv_path.write_text("col1;col2\n1,5;2,5")
 
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         
         connector.connect({
             "file_path": str(csv_path),
@@ -109,8 +100,7 @@ class TestParquetConnect:
         table = pa.table({"col1": [1, 2, 3], "col2": ["a", "b", "c"]})
         pq.write_table(table, parquet_path)
 
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         
         connector.connect({
             "file_path": str(parquet_path),
@@ -127,8 +117,7 @@ class TestParquetConnect:
         table = pa.table({"col1": [1, 2]})
         pq.write_table(table, parquet_path)
 
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         
         connector.connect({
             "file_path": str(parquet_path),
@@ -149,8 +138,7 @@ class TestMultiFileConnect:
         csv1.write_text("col1,col2\n1,2")
         csv2.write_text("col1,col2\n3,4")
 
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         
         connector.connect({
             "file_paths": [
@@ -173,8 +161,7 @@ class TestMultiFileConnect:
         table = pa.table({"col1": [1, 2]})
         pq.write_table(table, parquet_path)
 
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         
         connector.connect({
             "file_paths": [
@@ -197,8 +184,7 @@ class TestMultiFileConnect:
         csv1.write_text("col1,col2\n1,2")
         csv2.write_text("col1,col2\n3,4")
 
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         
         connector.connect({
             "file_paths": [
@@ -224,8 +210,7 @@ class TestListTables:
         csv1.write_text("col1\n1")
         csv2.write_text("col1\n2")
 
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         
         connector.connect({
             "file_paths": [
@@ -249,8 +234,7 @@ class TestListColumns:
         csv_path = tmp_path / "test.csv"
         csv_path.write_text("name,age,active\nAlice,30,true")
 
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         
         connector.connect({
             "file_path": str(csv_path),
@@ -273,8 +257,7 @@ class TestListColumns:
         })
         pq.write_table(table, parquet_path)
 
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         
         connector.connect({
             "file_path": str(parquet_path),
@@ -292,8 +275,7 @@ class TestListColumns:
         csv_path = tmp_path / "test.csv"
         csv_path.write_text("col1\n1")
 
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         
         connector.connect({
             "file_path": str(csv_path),
@@ -312,8 +294,7 @@ class TestFetchData:
         csv_path = tmp_path / "test.csv"
         csv_path.write_text("id,value\n1,100\n2,200")
 
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         
         connector.connect({
             "file_path": str(csv_path),
@@ -331,8 +312,7 @@ class TestFetchData:
         table = pa.table({"id": [1, 2], "value": [100, 200]})
         pq.write_table(table, parquet_path)
 
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         
         connector.connect({
             "file_path": str(parquet_path),
@@ -350,8 +330,7 @@ class TestFetchData:
         table = pa.table({"id": [1, 2, 3], "value": [100, 200, 300]})
         pq.write_table(table, parquet_path)
 
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         
         connector.connect({
             "file_path": str(parquet_path),
@@ -369,8 +348,7 @@ class TestFetchData:
         csv1.write_text("user_id,name\n1,Alice\n2,Bob")
         csv2.write_text("order_id,user_id,amount\n100,1,50\n101,2,75")
 
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         
         connector.connect({
             "file_paths": [
@@ -398,8 +376,7 @@ class TestFetchDataArrow:
         table = pa.table({"id": [1, 2], "value": [100, 200]})
         pq.write_table(table, parquet_path)
 
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         
         connector.connect({
             "file_path": str(parquet_path),
@@ -420,8 +397,7 @@ class TestDisconnect:
         csv_path = tmp_path / "test.csv"
         csv_path.write_text("col1\n1")
 
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         
         connector.connect({
             "file_path": str(csv_path),
@@ -440,8 +416,7 @@ class TestErrorHandling:
 
     def test_connect_missing_file_raises(self):
         """Test that connecting to non-existent file raises error."""
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         
         with pytest.raises(DataSourceConnectionError):
             connector.connect({
@@ -454,8 +429,7 @@ class TestErrorHandling:
         json_path = tmp_path / "data.json"
         json_path.write_text('{"key": "value"}')
 
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         
         with pytest.raises(InvalidInputError):
             connector.connect({
@@ -465,8 +439,7 @@ class TestErrorHandling:
 
     def test_fetch_data_no_files_raises(self):
         """Test that fetching data without files raises error."""
-        state_manager = Mock()
-        connector = FileConnector(state_manager=state_manager)
+        connector = FileConnector()
         
         with pytest.raises(DataSourceConnectionError):
             connector.fetch_data('SELECT * FROM "test"')

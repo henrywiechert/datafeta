@@ -15,7 +15,6 @@ from backend.utils.type_conversion import process_query_result_data
 
 if TYPE_CHECKING:
     from kaggle.api.kaggle_api_extended import KaggleApi
-    from backend.session_state import ConnectionStateManager
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +28,7 @@ class KaggleConnector(BaseConnector):
     def sql_dialect(self) -> SqlDialect:
         return _duckdb_dialect
 
-    def __init__(self, state_manager: "ConnectionStateManager"):
-        self.state_manager = state_manager
+    def __init__(self):
         self.api: Optional[KaggleApi] = None
         self.username: Optional[str] = None
         self.api_key: Optional[str] = None
