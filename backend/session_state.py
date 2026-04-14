@@ -2,6 +2,8 @@
 
 import asyncio
 import logging
+import os
+import shutil
 import threading
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Dict, List, Optional
@@ -111,3 +113,43 @@ def remove_session(composite_key: str) -> bool:
             logger.info("Removed session: %s", composite_key)
             return True
         return False
+
+
+def cleanup_session(composite_key: str) -> bool:
+    """Disconnect and remove a tracked session and its temp paths."""
+    with _session_storage_lock:
+        manager = session_storage.get(composite_key)
+        if not manager:
+            return False
+
+        if manager.current_connector:
+            try:
+                manager.current_connector.disconnect()
+            except Exception as exc:
+                logger.warning(
+                    "Error disconnecting connector during session cleanup: %s",
+                    exc,
+                )
+
+        for temp_path in manager.current_temp_paths:
+            if not temp_path:
+                continue
+            try:
+                if os.path.isfile(temp_path):
+                    os.remove(temp_path)
+                    logger.debug("Deleted temp file during session cleanup: %s", temp_path)
+                elif os.path.isdir(temp_path):
+                    shutil.rmtree(temp_path)
+                    logger.debug(
+                        "Deleted temp directory during session cleanup: %s",
+                        temp_path,
+                    )
+            except Exception as exc:
+                logger.warning(
+                    "Error cleaning up temp path during session cleanup: %s",
+                    exc,
+                )
+
+        del session_storage[composite_key]
+        logger.info("Session cleanup completed: %s", composite_key)
+        return True

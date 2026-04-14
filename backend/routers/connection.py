@@ -12,12 +12,11 @@ from backend.dependencies import (
     get_composite_key,
 )
 from backend.session_state import (
+    cleanup_session,
     ConnectionStateManager,
-    _session_storage_lock,
     get_composite_session_key,
     list_active_sessions,
     remove_session,
-    session_storage,
 )
 from backend.models.data_source import ConnectionDetails
 from backend.services.connection_service import ConnectionService
@@ -215,38 +214,10 @@ async def disconnect_beacon(
         return {"message": "No session cookie found", "cleaned_up": False}
     
     composite_key = get_composite_session_key(session_id, tab_id)
-    
-    with _session_storage_lock:
-        if composite_key in session_storage:
-            manager = session_storage[composite_key]
-            
-            # Clean up the connection
-            if manager.current_connector:
-                try:
-                    manager.current_connector.disconnect()
-                except Exception as e:
-                    logger.warning(f"Error disconnecting connector during beacon cleanup: {e}")
-            
-            # Clean up all temp files (supports multi-file uploads)
-            import os
-            import shutil
-            for temp_path in manager.current_temp_paths:
-                if temp_path:
-                    try:
-                        if os.path.isfile(temp_path):
-                            os.remove(temp_path)
-                            logger.debug(f"Deleted temp file during beacon cleanup: {temp_path}")
-                        elif os.path.isdir(temp_path):
-                            shutil.rmtree(temp_path)
-                            logger.debug(f"Deleted temp directory during beacon cleanup: {temp_path}")
-                    except Exception as e:
-                        logger.warning(f"Error cleaning up temp path during beacon cleanup: {e}")
-            
-            # Remove from storage
-            del session_storage[composite_key]
-            logger.info(f"Beacon cleanup completed for session: {composite_key}")
-            return {"message": "Session cleaned up", "cleaned_up": True}
-    
+
+    if cleanup_session(composite_key):
+        return {"message": "Session cleaned up", "cleaned_up": True}
+
     logger.debug(f"Beacon cleanup: session not found for key {composite_key}")
     return {"message": "Session not found", "cleaned_up": False}
 
