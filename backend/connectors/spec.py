@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 from backend.connectors.base import BaseConnector
 from backend.dialects import SqlDialect
-from backend.dependencies import ConnectionStateManager
+from backend.session_state import ConnectionStateManager
 
 
 @dataclass(frozen=True)

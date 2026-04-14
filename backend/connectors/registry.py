@@ -19,7 +19,7 @@ from backend.connectors.clickhouse_connector import ClickHouseConnector
 from backend.connectors.file_connector import FileConnector
 from backend.connectors.hive_parquet_connector import HiveParquetConnector
 from backend.connectors.kaggle_connector import KaggleConnector
-from backend.dependencies import ConnectionStateManager
+from backend.session_state import ConnectionStateManager
 from backend.dialects import ClickHouseDialect, DuckDbDialect
 from backend.exceptions import InvalidInputError
 

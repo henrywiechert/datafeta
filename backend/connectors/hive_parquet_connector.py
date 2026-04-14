@@ -14,7 +14,7 @@ from .base import BaseConnector
 from backend.exceptions import DataSourceConnectionError, InvalidInputError, QueryExecutionError
 
 if TYPE_CHECKING:
-    from backend.dependencies import ConnectionStateManager
+    from backend.session_state import ConnectionStateManager
 
 logger = logging.getLogger(__name__)
 

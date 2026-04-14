@@ -181,7 +181,7 @@ class TestConnectionStateManagerTempPaths:
 
     def test_set_state_persists_temp_paths_for_csv(self):
         """Test that temp_paths are stored for CSV connections."""
-        from backend.dependencies import ConnectionStateManager
+        from backend.session_state import ConnectionStateManager
         from backend.models.data_source import ConnectionDetails
 
         manager = ConnectionStateManager()
@@ -194,7 +194,7 @@ class TestConnectionStateManagerTempPaths:
 
     def test_set_state_persists_temp_paths_for_hive_parquet(self):
         """Test that temp_paths are stored for hive_parquet connections."""
-        from backend.dependencies import ConnectionStateManager
+        from backend.session_state import ConnectionStateManager
         from backend.models.data_source import ConnectionDetails
 
         manager = ConnectionStateManager()
@@ -207,7 +207,7 @@ class TestConnectionStateManagerTempPaths:
 
     def test_set_state_empty_when_no_temp_paths(self):
         """Test that temp_paths is empty when not provided."""
-        from backend.dependencies import ConnectionStateManager
+        from backend.session_state import ConnectionStateManager
         from backend.models.data_source import ConnectionDetails
 
         manager = ConnectionStateManager()
@@ -219,7 +219,7 @@ class TestConnectionStateManagerTempPaths:
 
     def test_set_state_empty_list_when_empty_list_provided(self):
         """Test that empty list is preserved when provided."""
-        from backend.dependencies import ConnectionStateManager
+        from backend.session_state import ConnectionStateManager
         from backend.models.data_source import ConnectionDetails
 
         manager = ConnectionStateManager()
@@ -231,7 +231,7 @@ class TestConnectionStateManagerTempPaths:
 
     def test_clear_state_clears_temp_paths(self):
         """Test that clear_state resets temp_paths."""
-        from backend.dependencies import ConnectionStateManager
+        from backend.session_state import ConnectionStateManager
         from backend.models.data_source import ConnectionDetails
 
         manager = ConnectionStateManager()
@@ -246,7 +246,7 @@ class TestConnectionStateManagerTempPaths:
 
     def test_append_temp_paths(self):
         """Test that append_temp_paths adds to existing paths."""
-        from backend.dependencies import ConnectionStateManager
+        from backend.session_state import ConnectionStateManager
         from backend.models.data_source import ConnectionDetails
 
         manager = ConnectionStateManager()
