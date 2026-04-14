@@ -20,6 +20,7 @@ interface QueryAffectingConfig {
   appliedFilterConfigurations: Record<string, FilterConfig>;
   colorField: Field | null;
   sizeField: Field | null;
+  shapeField?: Field | null;
   labelFields?: Field[];
   tooltipFields?: Field[];
   measureGroupFields?: Field[]; // Per-sheet measure group
@@ -138,6 +139,7 @@ export function computeQueryConfigHash(config: QueryAffectingConfig): string {
     filtersToHashKey(config.appliedFilterConfigurations),
     fieldToHashKey(config.colorField),
     fieldToHashKey(config.sizeField),
+    fieldToHashKey(config.shapeField || null),
     fieldsToHashKey(config.labelFields || []),
     fieldsToHashKey(config.tooltipFields || []),
     fieldsToHashKey(config.measureGroupFields || []),
@@ -160,6 +162,7 @@ export function computeChartConfigHash(config: ChartAffectingConfig): string {
     filtersToHashKey(config.appliedFilterConfigurations),
     fieldToHashKey(config.colorField),
     fieldToHashKey(config.sizeField),
+    fieldToHashKey(config.shapeField || null),
     fieldsToHashKey(config.labelFields || []),
     fieldsToHashKey(config.tooltipFields || []),
     fieldsToHashKey(config.measureGroupFields || []),

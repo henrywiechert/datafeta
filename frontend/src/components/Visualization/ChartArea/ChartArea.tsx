@@ -25,6 +25,7 @@ import { useSeriesHighlight } from './hooks/useSeriesHighlight';
 import { ChartRenderer, ChartControls, DebugPanel } from './components';
 import LegendPanel from '../Legend/LegendPanel';
 import BackgroundLegendPanel from '../Legend/BackgroundLegendPanel';
+import ShapeLegendPanel from '../Legend/ShapeLegendPanel';
 import LegendStack from '../Legend/LegendStack';
 import FacetLimitDialog from '../FacetLimitDialog';
 import { getResultColumnName } from '../../../utils/fieldUtils';
@@ -83,6 +84,8 @@ const ChartArea: React.FC = () => {
     disabledFilterIds,
   } = state;
 
+  const shapeField = (state as any).shapeField ?? null;
+
   const { selectedTable, selectedDatabase, virtualTable, virtualColumns, sessionAppliedFilterConfigurations } =
     dataSource;
 
@@ -130,6 +133,7 @@ const ChartArea: React.FC = () => {
     yAxisFields,
     colorField,
     sizeField,
+    shapeField,
     facetBackgroundField,
     filterConfigurations: effectiveFilterConfigurations,
     labelFields,
@@ -175,9 +179,10 @@ const ChartArea: React.FC = () => {
       facetBackgroundScheme,
       facetBackgroundOpacity,
       overlays,
+      shapeField,
     });
 
-  const { handleLegendFilterAction, specWithTooltipAction } = useFilterActions({
+  const { handleLegendFilterAction, handleShapeLegendFilterAction, specWithTooltipAction } = useFilterActions({
     recordAction,
     getUndoableSnapshot,
     spec,
@@ -314,7 +319,8 @@ const ChartArea: React.FC = () => {
 
   const showColorLegend = Boolean(colorField && queryResult?.rows?.length);
   const showBackgroundLegend = Boolean(facetBackgroundField && queryResult?.rows?.length);
-  const showLegend = showColorLegend || showBackgroundLegend;
+  const showShapeLegend = Boolean(shapeField && queryResult?.rows?.length);
+  const showLegend = showColorLegend || showBackgroundLegend || showShapeLegend;
 
   // -- Render ------------------------------------------------------------------
   return (
@@ -414,6 +420,13 @@ const ChartArea: React.FC = () => {
                 queryResult={queryResult}
                 colorScheme={facetBackgroundScheme}
                 opacity={facetBackgroundOpacity}
+              />
+            )}
+            {showShapeLegend && (
+              <ShapeLegendPanel
+                shapeField={shapeField}
+                queryResult={queryResult}
+                onFilterAction={handleShapeLegendFilterAction}
               />
             )}
           </LegendStack>

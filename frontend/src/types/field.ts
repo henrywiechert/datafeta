@@ -20,6 +20,7 @@ export type DragSource =
   | 'COLOR_ZONE'
   | 'BACKGROUND_ZONE'
   | 'SIZE_ZONE'
+  | 'SHAPE_ZONE'
   | 'LABEL_ZONE'
   | 'TOOLTIP_ZONE'
   | 'MEASURE_GROUP';

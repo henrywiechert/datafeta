@@ -7,6 +7,7 @@ import { createSizeScale } from '../utils/sizeUtils';
 // Label utilities
 import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../utils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
+import { deriveShapeScaleInfo, getSymbolForValue } from '../utils/shapeUtils';
 import { formatDateTick } from '../utils/dateFormatUtils';
 
 type ScatterResultBudget = {
@@ -110,6 +111,7 @@ export function scatterChart(
   , labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
   , tooltipFields?: Field[]
   , facetFields?: Field[]
+  , shapeField?: Field
 ): Plot.PlotOptions {
   // Detect axis value kindsby sampling up to first 20 non-null values
   const sampleValues = (column: string) => (Array.isArray(data) ? data.map(r => r?.[column]).filter(v => v !== null && v !== undefined) : []);
@@ -264,6 +266,18 @@ export function scatterChart(
   } else {
     dotConfig.r = manualSize || 4;
   }
+
+  // Apply shape configuration
+  if (shapeField) {
+    const shapeColumnName = getResultColumnName(shapeField);
+    const shapeInfo = deriveShapeScaleInfo(budgeted, shapeField);
+    dotConfig.symbol = (d: any) => getSymbolForValue(d[shapeColumnName], shapeInfo);
+    dotConfig.channels[shapeField.columnName] = { value: shapeColumnName, label: getFieldDisplayName(shapeField) };
+    // Hollow style: move color from fill → stroke so the symbol outline is visible
+    dotConfig.stroke = dotConfig.fill;
+    dotConfig.fill = 'none';
+    dotConfig.strokeWidth = 1.5;
+  }
   
   // Disable built-in Observable Plot tooltip (we'll use custom tooltips)
   // dotConfig.tip is not set, which disables the default tooltip
@@ -398,10 +412,29 @@ export function scatterChart(
       sizeField,
       tooltipFields,
       undefined, // No excludeColumns
-      facetFields
+      facetFields,
+      shapeField
     )
   };
-  
+
+  // When shape encoding is active the dots render as <path fill="none"> symbols.
+  // SVG only fires pointer events on the 1.5px stroke outline, making the interior
+  // impossible to hover. Add a layer of transparent circles (same position & radius)
+  // so the full dot area becomes a hover target. Observable Plot binds __data__ to
+  // each element, so the tooltip data lookup works regardless of mark order.
+  if (shapeField) {
+    const hoverR = typeof dotConfig.r === 'function' ? (manualSize || 6) : (dotConfig.r || 6);
+    (plotOptions.marks as any[]).push(
+      Plot.dot(budgeted, {
+        x: xColumn,
+        y: yColumn,
+        r: hoverR,
+        fill: 'transparent',
+        stroke: 'transparent',
+      })
+    );
+  }
+
   return plotOptions;
 }
 

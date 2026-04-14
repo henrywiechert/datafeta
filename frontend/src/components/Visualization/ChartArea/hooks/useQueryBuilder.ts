@@ -18,6 +18,7 @@ export interface UseQueryBuilderProps {
   yAxisFields: Field[];
   colorField: Field | null;
   sizeField: Field | null;
+  shapeField?: Field | null;
   facetBackgroundField?: Field | null;
   filterConfigurations: Record<string, any>;
   labelFields: Field[];
@@ -84,6 +85,7 @@ export const useQueryBuilder = ({
   yAxisFields,
   colorField,
   sizeField,
+  shapeField,
   facetBackgroundField,
   filterConfigurations,
   labelFields,
@@ -187,6 +189,14 @@ export const useQueryBuilder = ({
     if (sizeField) {
       const sizeEntry = normalizeFieldWithDefaultAgg(sizeField, true, axisFields);
       allFields.push(sizeEntry);
+    }
+
+    // Include shapeField - assign default aggregation if needed
+    if (shapeField) {
+      const shapeEntry = normalizeFieldWithDefaultAgg(shapeField, true, axisFields);
+      if (!allFields.some(f => f.columnName === shapeEntry.columnName)) {
+        allFields.push(shapeEntry);
+      }
     }
 
     // Include facetBackgroundField - it's always a discrete dimension, no aggregation needed
@@ -297,6 +307,7 @@ export const useQueryBuilder = ({
     yAxisFields,
     colorField,
     sizeField,
+    shapeField,
     facetBackgroundField,
     filterConfigurations,
     labelFields,

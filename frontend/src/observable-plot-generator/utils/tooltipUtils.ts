@@ -63,7 +63,8 @@ export function createTooltipFieldsGetter(
   sizeField?: Field,
   tooltipFields?: Field[],
   excludeColumns?: string[],
-  facetFields?: Field[]
+  facetFields?: Field[],
+  shapeField?: Field
 ): (d: any) => TooltipField[] {
   return (d: any): TooltipField[] => {
     const fields: TooltipField[] = [];
@@ -130,6 +131,22 @@ export function createTooltipFieldsGetter(
           rawValue: value,
         });
         exclude.add(sizeColumnName);
+      }
+    }
+
+    // Add shape field if present
+    if (shapeField) {
+      const shapeColumnName = getResultColumnName(shapeField);
+      if (!exclude.has(shapeColumnName)) {
+        const value = d[shapeColumnName];
+        fields.push({
+          label: tooltipLabel(shapeField),
+          value: value,
+          formattedValue: formatTooltipValue(value),
+          sourceField: shapeField,
+          rawValue: value,
+        });
+        exclude.add(shapeColumnName);
       }
     }
     

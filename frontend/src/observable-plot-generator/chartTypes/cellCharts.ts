@@ -122,7 +122,7 @@ function handleScatter(data: any[], xf: Field, yf: Field, ctx: ChartContext): Pl
       single, xCol, yCol, domainOptions,
       ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
       ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
-      ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
+      ctx.labelCfg, ctx.tooltipFields, ctx.facetFields, ctx.shapeField
     );
   }
   
@@ -130,7 +130,7 @@ function handleScatter(data: any[], xf: Field, yf: Field, ctx: ChartContext): Pl
     data, xCol, yCol, domainOptions,
     ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
     ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
-    ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
+    ctx.labelCfg, ctx.tooltipFields, ctx.facetFields, ctx.shapeField
   );
 }
 
@@ -545,7 +545,8 @@ export function generatePairChartOptions(
   tooltipFields?: Field[],
   facetFields?: Field[],
   sharedCategoricalDomains?: Record<string, any[]>,
-  ganttZoomRange?: GanttZoomRange | null
+  ganttZoomRange?: GanttZoomRange | null,
+  shapeField?: Field
 ): Plot.PlotOptions {
   // Bundle context for cleaner parameter passing
   const ctx: ChartContext = {
@@ -564,6 +565,7 @@ export function generatePairChartOptions(
     tooltipFields,
     facetFields,
     ganttZoomRange,
+    shapeField,
   };
 
   if (!xField && !yField) {

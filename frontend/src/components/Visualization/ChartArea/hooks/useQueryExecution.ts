@@ -34,6 +34,7 @@ export interface UseQueryExecutionProps {
   yAxisFields: Field[];
   colorField: Field | null;
   sizeField?: Field | null;
+  shapeField?: Field | null;
   facetBackgroundField?: Field | null;
   filterConfigurations: Record<string, any>;
   labelFields?: Field[];
@@ -84,6 +85,7 @@ export const useQueryExecution = ({
   yAxisFields,
   colorField,
   sizeField = null,
+  shapeField = null,
   facetBackgroundField = null,
   filterConfigurations,
   labelFields = [],
@@ -130,6 +132,7 @@ export const useQueryExecution = ({
       appliedFilterConfigurations: vizState.appliedFilterConfigurations,
       colorField,
       sizeField,
+      shapeField,
       labelFields,
       tooltipFields,
       // Note: We only check query-affecting config for cache validation
@@ -169,6 +172,7 @@ export const useQueryExecution = ({
     yAxisFields,
     colorField,
     sizeField,
+    shapeField,
     facetBackgroundField,
     filterConfigurations,
     labelFields,

@@ -35,6 +35,8 @@ export interface ChartContext {
   facetFields?: Field[];
   /** Gantt chart zoom range - when active, filters and clamps bars to this range */
   ganttZoomRange?: GanttZoomRange | null;
+  /** Shape encoding field (scatter only, discrete only) */
+  shapeField?: Field;
 }
 
 /**

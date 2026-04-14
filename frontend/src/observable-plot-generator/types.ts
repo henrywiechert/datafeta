@@ -55,6 +55,7 @@ export interface CartesianPlotsConfig {
   encoding?: {
     color?: { field?: Field; scheme?: string; bias?: number; manual?: string };
     size?: { field?: Field; range?: [number, number]; manual?: number; scaleData?: any[] };
+    shape?: { field?: Field };
   };
   labels?: LabelConfig;
   tooltipFields?: Field[];
@@ -82,6 +83,8 @@ export interface ChartGenerationContext {
   sizeRange?: [number, number];
   manualSize?: number;
   bandThicknessScale?: number;
+  // Shape encoding (scatter only, discrete only)
+  shapeField?: Field;
   // Facet background encoding
   facetBackgroundField?: Field;
   facetBackgroundScheme?: string;

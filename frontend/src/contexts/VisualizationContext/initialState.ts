@@ -37,6 +37,8 @@ export const initialState: VisualizationState = {
   sizeRange: [4, 20],
   manualSize: SIZE_DEFAULT_FALLBACK,
   bandThicknessScale: 1.0,
+  // Shape encoding state (scatter only, discrete only)
+  shapeField: null,
   // Label configuration defaults
   labelFields: [],
   labelsEnabled: false,

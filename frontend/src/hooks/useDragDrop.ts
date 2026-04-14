@@ -386,6 +386,42 @@ export function useDragDrop(availableFields?: Field[]) {
     dispatch({ type: 'REMOVE_SIZE_FIELD' });
   }, [dispatch, recordAction, getUndoableSnapshot]);
 
+  /**
+   * Handle drops on the shape zone (replaces existing field, discrete only)
+   */
+  const handleShapeDrop = useCallback((field: Field, source: DragSource) => {
+    // Record current state for undo
+    recordAction(getUndoableSnapshot());
+
+    // Read current state from refs for stable callback
+    const currentFieldsToUse = fieldsToUseRef.current;
+
+    let fieldToSet: Field;
+
+    if (source === 'AVAILABLE_FIELDS') {
+      const sourceField = currentFieldsToUse.find(f => f.id === field.id);
+      if (!sourceField) return;
+      fieldToSet = { ...sourceField, id: uuidv4() };
+    } else if (source === 'SHAPE_ZONE') {
+      fieldToSet = field;
+    } else {
+      fieldToSet = { ...field, id: uuidv4() };
+    }
+
+    dispatch({ type: 'SET_SHAPE_FIELD', payload: fieldToSet });
+  }, [dispatch, recordAction, getUndoableSnapshot]);
+
+  /**
+   * Remove the field from the shape zone
+   * @param _fieldIds - Unused; included for signature consistency with other zones
+   */
+  const handleRemoveFromShape = useCallback((_fieldIds: string[]) => {
+    // Record current state for undo
+    recordAction(getUndoableSnapshot());
+
+    dispatch({ type: 'REMOVE_SHAPE_FIELD' });
+  }, [dispatch, recordAction, getUndoableSnapshot]);
+
   // Label drop: similar to color/size but supports multiple fields (set semantics by columnName)
   const handleLabelDrop = useCallback((field: Field, source: DragSource) => {
     // Record current state for undo
@@ -465,6 +501,8 @@ export function useDragDrop(availableFields?: Field[]) {
     handleRemoveFromColor,
     handleSizeDrop,
     handleRemoveFromSize,
+    handleShapeDrop,
+    handleRemoveFromShape,
     handleLabelDrop,
     handleRemoveFromLabel,
     handleRemoveFromTooltip,

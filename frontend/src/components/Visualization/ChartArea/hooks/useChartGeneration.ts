@@ -46,6 +46,8 @@ interface UseChartGenerationProps {
   facetBackgroundOpacity?: number;
   // Statistical overlays
   overlays?: OverlayConfig[];
+  // Shape encoding (scatter only, discrete only)
+  shapeField?: Field | null;
 }
 
 interface UseChartGenerationReturn {
@@ -94,6 +96,7 @@ export const useChartGeneration = ({
   facetBackgroundScheme,
   facetBackgroundOpacity,
   overlays,
+  shapeField,
 }: UseChartGenerationProps): UseChartGenerationReturn => {
   const [spec, setSpec] = useState<PlotResult | null>(null);
   const [chartInfo, setChartInfo] = useState<any | null>(null);
@@ -252,6 +255,8 @@ export const useChartGeneration = ({
         facetBackgroundScheme,
         facetBackgroundOpacity,
         overlays,
+        // Shape encoding
+        shapeField: shapeField || undefined,
       };
       
       // Track which zoom range we generated with

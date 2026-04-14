@@ -195,6 +195,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       facetBackgroundOpacity: state.facetBackgroundOpacity,
       showTableRows: state.showTableRows,
       overlays: state.overlays,
+      shapeField: state.shapeField,
     };
   }, [
     state.xAxisFields,
@@ -219,6 +220,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     state.facetBackgroundOpacity,
     state.showTableRows,
     state.overlays,
+    state.shapeField,
   ]);
 
   return (

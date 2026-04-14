@@ -25,6 +25,7 @@ interface FieldsPanelProps {
   onRemoveFromTooltip?: (fieldIds: string[]) => void;
   onRemoveFromMeasureGroup?: (fieldIds: string[]) => void;
   onRemoveFromBackground?: (fieldIds: string[]) => void;
+  onRemoveFromShape?: (fieldIds: string[]) => void;
   // New props for metadata selection
   connectionType: string;
   selectedDatabase: string;
@@ -73,6 +74,7 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   onRemoveFromTooltip,
   onRemoveFromMeasureGroup,
   onRemoveFromBackground,
+  onRemoveFromShape,
   // New props for metadata selection
   connectionType,
   selectedDatabase,
@@ -131,7 +133,8 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
     onRemoveFromLabel,
     onRemoveFromTooltip,
     onRemoveFromMeasureGroup,
-    onRemoveFromBackground
+    onRemoveFromBackground,
+    onRemoveFromShape
   );
   
   // Handle keyboard shortcuts
