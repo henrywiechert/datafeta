@@ -1,123 +1,23 @@
-"""FastAPI dependencies for managing application state (like current connection)."""
+"""FastAPI dependency helpers for resolving session-scoped backend state."""
 
-from typing import Optional, Dict, List
-from fastapi import status, Depends, Request, Response, Header
-import asyncio
-import threading
-import duckdb
 import logging
 import uuid
-from datetime import datetime, timezone
+from typing import Optional
+
+from fastapi import Depends, Header, Request, Response, status
 
 from backend.connectors.base import BaseConnector
-from backend.models.data_source import ConnectionDetails
 from backend.exceptions import InvalidInputError
+from backend.models.data_source import ConnectionDetails
+from backend.session_state import (
+    ConnectionStateManager,
+    _session_storage_lock,
+    get_composite_session_key,
+    session_storage,
+)
 
-# --- Simple State Manager Class --- #
 
-class ConnectionStateManager:
-    """Simple class to hold the current connection state."""
-    def __init__(self):
-        self.current_connector: Optional[BaseConnector] = None
-        self.current_connection_details: Optional[ConnectionDetails] = None
-        # Support multiple temp files (CSV and/or Parquet)
-        self.current_temp_paths: List[str] = []
-        # Per-session async lock to serialize connect/disconnect
-        self.lock: asyncio.Lock = asyncio.Lock()
-        # Track when this session was created and last accessed
-        self.created_at: datetime = datetime.now(timezone.utc)
-        self.last_accessed_at: datetime = datetime.now(timezone.utc)
-
-    def set_state(
-        self,
-        connector: Optional[BaseConnector],
-        details: Optional[ConnectionDetails],
-        temp_paths: Optional[List[str]] = None
-    ):
-        self.current_connector = connector
-        self.current_connection_details = details
-        # Store temp paths for any file-backed connector (csv, hive_parquet, etc.)
-        if temp_paths:
-            self.current_temp_paths = temp_paths
-        else:
-            self.current_temp_paths = []
-        self.last_accessed_at = datetime.now(timezone.utc)
-
-    def clear_state(self):
-        self.current_connector = None
-        self.current_connection_details = None
-        self.current_temp_paths = []
-        self.last_accessed_at = datetime.now(timezone.utc)
-
-    def append_temp_paths(self, paths: List[str]) -> None:
-        """Append new temp file paths to the current list (used when adding files to an existing session)."""
-        self.current_temp_paths = (self.current_temp_paths or []) + paths
-        self.last_accessed_at = datetime.now(timezone.utc)
-
-    def touch(self):
-        """Update last accessed timestamp."""
-        self.last_accessed_at = datetime.now(timezone.utc)
-
-# Add logger for dependencies module
 logger = logging.getLogger(__name__)
-
-# --- Session-Based State Management --- #
-# This dictionary will store state for each session, identified by a composite key (session_id:tab_id).
-# In a production environment, you might replace this with a more robust
-# storage solution like Redis, especially if you have multiple server instances.
-session_storage: Dict[str, ConnectionStateManager] = {}
-# Global lock to guard session_storage mutations in multi-threaded servers
-_session_storage_lock = threading.Lock()
-
-
-def get_composite_session_key(session_id: str, tab_id: Optional[str]) -> str:
-    """
-    Generate a composite key for session storage.
-    If tab_id is provided, creates a tab-specific session.
-    If not, falls back to session-only key for backward compatibility.
-    """
-    if tab_id:
-        return f"{session_id}:{tab_id}"
-    return session_id
-
-
-def list_active_sessions() -> List[dict]:
-    """
-    Return information about all active sessions for debugging purposes.
-    """
-    with _session_storage_lock:
-        sessions = []
-        for key, manager in session_storage.items():
-            # Parse the composite key
-            parts = key.split(':', 1)
-            session_id = parts[0]
-            tab_id = parts[1] if len(parts) > 1 else None
-            
-            sessions.append({
-                'composite_key': key,
-                'session_id': session_id,
-                'tab_id': tab_id,
-                'has_connector': manager.current_connector is not None,
-                'connection_type': manager.current_connection_details.type if manager.current_connection_details else None,
-                'temp_paths': manager.current_temp_paths,
-                'file_count': len(manager.current_temp_paths),
-                'created_at': manager.created_at.isoformat(),
-                'last_accessed_at': manager.last_accessed_at.isoformat(),
-            })
-        return sessions
-
-
-def remove_session(composite_key: str) -> bool:
-    """
-    Remove a session from storage by its composite key.
-    Returns True if the session was found and removed, False otherwise.
-    """
-    with _session_storage_lock:
-        if composite_key in session_storage:
-            del session_storage[composite_key]
-            logger.info(f"Removed session: {composite_key}")
-            return True
-        return False
 
 
 # --- Dependency Functions --- #
@@ -159,11 +59,11 @@ async def get_state_manager(
             # Double-check after acquiring lock
             if composite_key not in session_storage:
                 session_storage[composite_key] = ConnectionStateManager()
-                logger.info(f"New tab session created: {composite_key}")
+                logger.info("New tab session created: %s", composite_key)
     else:
         # Update last accessed time
         session_storage[composite_key].touch()
-        logger.debug(f"Using existing tab session: {composite_key}")
+        logger.debug("Using existing tab session: %s", composite_key)
 
     # Attach identifiers to the request state for other dependencies
     request.state.session_id = session_id

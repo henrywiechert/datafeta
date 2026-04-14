@@ -20,7 +20,7 @@ from backend.exceptions import (
     DataSourceConnectionError,
     FileProcessingError,
 )
-from backend.dependencies import ConnectionStateManager
+from backend.session_state import ConnectionStateManager
 from backend.utils.logging_utils import redact_sensitive
 
 

@@ -7,15 +7,17 @@ from fastapi import APIRouter, Body, Depends, File, Form, Request, UploadFile
 from pydantic import BaseModel
 
 from backend.dependencies import (
-    ConnectionStateManager,
     get_session_id,
     get_state_manager,
     get_composite_key,
+)
+from backend.session_state import (
+    ConnectionStateManager,
+    _session_storage_lock,
+    get_composite_session_key,
     list_active_sessions,
     remove_session,
-    get_composite_session_key,
     session_storage,
-    _session_storage_lock,
 )
 from backend.models.data_source import ConnectionDetails
 from backend.services.connection_service import ConnectionService

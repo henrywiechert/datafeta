@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import asyncio
 import pytest
 
-from backend.dependencies import ConnectionStateManager
+from backend.session_state import ConnectionStateManager
 from backend.exceptions import InvalidInputError
 from backend.models.data_source import ConnectionDetails
 from backend.services.connection_service import ConnectionService

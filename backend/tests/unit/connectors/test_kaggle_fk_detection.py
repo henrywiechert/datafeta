@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 from backend.connectors.kaggle_connector import KaggleConnector
 from backend.models.data_source import Column, Table, ForeignKeyRelationship
-from backend.dependencies import ConnectionStateManager
+from backend.session_state import ConnectionStateManager
 
 
 class TestKaggleFKDetection:
