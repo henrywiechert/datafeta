@@ -27,6 +27,7 @@ import {
   classifyChartType,
   computePointBudget,
 } from '../../../../services/chartTypeClassifier';
+import { createQueryAffectingConfig, createRawQueryFieldsForCache } from '../../../../utils/queryAffectingConfig';
 
 export interface UseQueryExecutorProps {
   selectedTable: string | null;
@@ -36,6 +37,7 @@ export interface UseQueryExecutorProps {
   colorField: Field | null;
   sizeField: Field | null;
   shapeField?: Field | null;
+  facetBackgroundField?: Field | null;
   filterConfigurations: Record<string, any>;
   appliedFilterConfigurations: Record<string, any>;
   labelFields: Field[];
@@ -73,6 +75,7 @@ export const useQueryExecutor = ({
   colorField,
   sizeField,
   shapeField = null,
+  facetBackgroundField = null,
   filterConfigurations,
   appliedFilterConfigurations,
   labelFields,
@@ -235,20 +238,19 @@ export const useQueryExecutor = ({
 
               if (decisionPreview.strategy === 'raw_columns') {
                 // Build raw fields for caching - strip aggregations and datetime parts
-                const rawFields = [
-                  ...(xAxisFields || []),
-                  ...(yAxisFields || []),
-                  ...(colorField ? [colorField] : []),
-                  ...(sizeField ? [sizeField] : []),
-                  ...(shapeField ? [shapeField] : []),
-                  ...(labelFields || []),
-                  ...(tooltipFields || []),
-                ].map((f: any) => ({
-                  ...f,
-                  aggregation: undefined,
-                  dateTimePart: undefined,
-                  dateTimeMode: undefined,
-                }));
+                const rawFields = createRawQueryFieldsForCache(
+                  createQueryAffectingConfig({
+                    xAxisFields,
+                    yAxisFields,
+                    appliedFilterConfigurations,
+                    colorField,
+                    sizeField,
+                    shapeField,
+                    facetBackgroundField,
+                    labelFields,
+                    tooltipFields,
+                  })
+                );
 
                 const rawSlice = buildRawQuery({
                   fields: rawFields as any,

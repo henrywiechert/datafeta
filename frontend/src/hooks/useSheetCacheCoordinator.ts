@@ -11,32 +11,11 @@
 import { useEffect, useRef } from 'react';
 import { sheetRenderCacheStore } from '../stores';
 import { computeFullConfigHash } from '../utils/sheetConfigHash';
-import { QueryResult, Field, FilterConfig, FieldOverrideState, UserChartType } from '../types';
+import { QueryResult } from '../types';
 import { PlotResult } from '../observable-plot-generator/types';
+import { ChartAffectingConfig } from '../utils/queryAffectingConfig';
 
-interface SheetCacheConfig {
-  xAxisFields: Field[];
-  yAxisFields: Field[];
-  appliedFilterConfigurations: Record<string, FilterConfig>;
-  colorField: Field | null;
-  sizeField: Field | null;
-  shapeField?: Field | null;
-  labelFields?: Field[];
-  tooltipFields?: Field[];
-  colorScheme?: string;
-  colorBias?: number;
-  manualColor?: string;
-  sizeRange?: [number, number];
-  manualSize?: number;
-  bandThicknessScale?: number;
-  fieldOverrides?: Record<string, FieldOverrideState>;
-  globalChartType?: UserChartType | null;
-  independentDomains?: { x?: boolean; y?: boolean };
-  labelsEnabled?: boolean;
-  labelSamplingStrategy?: string;
-  labelSamplingThreshold?: number;
-  labelSampleEvery?: number;
-}
+type SheetCacheConfig = ChartAffectingConfig;
 
 interface CurrentState {
   queryResult: QueryResult | null;

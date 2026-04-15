@@ -49,7 +49,8 @@ const FieldOverridesPanel: React.FC = () => {
     facetBackgroundField,
     facetBackgroundScheme,
     facetBackgroundOpacity,
-  } = state as any;
+    shapeField,
+  } = state;
 
   const [expandedId, setExpandedId] = useState<string | null>('__all__');
 
@@ -137,6 +138,26 @@ const FieldOverridesPanel: React.FC = () => {
 
   // Track previous auto-selected type to detect changes
   const prevAutoSelectedTypeRef = useRef<string | undefined>(autoSelectedType);
+
+  const recordUndoSnapshot = React.useCallback(() => {
+    recordAction(getUndoableSnapshot());
+  }, [recordAction, getUndoableSnapshot]);
+
+  const applyGlobalActions = React.useCallback((
+    actions: any[],
+    options?: { clearOverrides?: () => void },
+  ) => {
+    recordUndoSnapshot();
+    options?.clearOverrides?.();
+    actions.forEach(action => dispatch(action));
+  }, [recordUndoSnapshot, dispatch]);
+
+  const applyGlobalAction = React.useCallback((
+    action: any,
+    options?: { clearOverrides?: () => void },
+  ) => {
+    applyGlobalActions([action], options);
+  }, [applyGlobalActions]);
   
   // Update manualSize when auto-detected chart type changes (only in auto-detect mode)
   useEffect(() => {
@@ -292,17 +313,20 @@ const FieldOverridesPanel: React.FC = () => {
         <ChartTypeControl
           chartType={globalChartType ?? undefined}
           onChange={(chartType) => {
-            recordAction(getUndoableSnapshot());
-            clearChartTypeOverridesForAllFields();
-            dispatch({ type: 'SET_GLOBAL_CHART_TYPE', payload: chartType ?? null });
-            
             // Set chart-appropriate default size
             // When switching to auto-detect (chartType is null/undefined), use autoSelectedType
             const effectiveChartType = chartType ?? autoSelectedType;
             const newDefaultSize = effectiveChartType 
               ? (SIZE_DEFAULTS_BY_CHART_TYPE[effectiveChartType] ?? SIZE_DEFAULT_FALLBACK)
               : SIZE_DEFAULT_FALLBACK;
-            dispatch({ type: 'SET_MANUAL_SIZE', payload: newDefaultSize });
+
+            applyGlobalActions(
+              [
+                { type: 'SET_GLOBAL_CHART_TYPE', payload: chartType ?? null },
+                { type: 'SET_MANUAL_SIZE', payload: newDefaultSize },
+              ],
+              { clearOverrides: clearChartTypeOverridesForAllFields },
+            );
           }}
           autoSelectedType={autoSelectedType}
         />
@@ -313,39 +337,42 @@ const FieldOverridesPanel: React.FC = () => {
           colorBias={effectiveColorBias}
           manualColor={effectiveManualColor}
           onDrop={(field) => {
-            recordAction(getUndoableSnapshot());
-            clearColorOverridesForAllFields();
-            dispatch({ type: 'SET_COLOR_FIELD', payload: field });
-            
             // Auto-select appropriate color scheme based on field flavour
             const isCategoricalScheme = categoricalSchemes.some(s => s.id === effectiveColorScheme);
+            const actions: any[] = [{ type: 'SET_COLOR_FIELD', payload: field }];
             if (field.flavour === 'continuous' && isCategoricalScheme) {
               // Switching to continuous field but have categorical scheme - use sequential default
-              dispatch({ type: 'SET_COLOR_SCHEME', payload: DEFAULT_SEQUENTIAL_SCHEME });
+              actions.push({ type: 'SET_COLOR_SCHEME', payload: DEFAULT_SEQUENTIAL_SCHEME });
             } else if (field.flavour === 'discrete' && !isCategoricalScheme) {
               // Switching to discrete field but have sequential/diverging scheme - use categorical default
-              dispatch({ type: 'SET_COLOR_SCHEME', payload: DEFAULT_CATEGORICAL_SCHEME });
+              actions.push({ type: 'SET_COLOR_SCHEME', payload: DEFAULT_CATEGORICAL_SCHEME });
             }
+
+            applyGlobalActions(actions, { clearOverrides: clearColorOverridesForAllFields });
           }}
           onRemove={(_fieldIds) => {
-            recordAction(getUndoableSnapshot());
-            clearColorOverridesForAllFields();
-            dispatch({ type: 'SET_COLOR_FIELD', payload: null });
+            applyGlobalAction(
+              { type: 'SET_COLOR_FIELD', payload: null },
+              { clearOverrides: clearColorOverridesForAllFields },
+            );
           }}
           onSchemeChange={(schemeId) => {
-            recordAction(getUndoableSnapshot());
-            clearColorOverridesForAllFields();
-            dispatch({ type: 'SET_COLOR_SCHEME', payload: schemeId });
+            applyGlobalAction(
+              { type: 'SET_COLOR_SCHEME', payload: schemeId },
+              { clearOverrides: clearColorOverridesForAllFields },
+            );
           }}
           onColorChange={(color) => {
-            recordAction(getUndoableSnapshot());
-            clearColorOverridesForAllFields();
-            dispatch({ type: 'SET_MANUAL_COLOR', payload: color });
+            applyGlobalAction(
+              { type: 'SET_MANUAL_COLOR', payload: color },
+              { clearOverrides: clearColorOverridesForAllFields },
+            );
           }}
           onBiasChange={(bias) => {
-            recordAction(getUndoableSnapshot());
-            clearColorOverridesForAllFields();
-            dispatch({ type: 'SET_COLOR_BIAS', payload: bias });
+            applyGlobalAction(
+              { type: 'SET_COLOR_BIAS', payload: bias },
+              { clearOverrides: clearColorOverridesForAllFields },
+            );
           }}
         />
 
@@ -354,20 +381,16 @@ const FieldOverridesPanel: React.FC = () => {
           colorScheme={facetBackgroundScheme || 'tableau10'}
           opacity={facetBackgroundOpacity ?? 0.12}
           onDrop={(field) => {
-            recordAction(getUndoableSnapshot());
-            dispatch({ type: 'SET_FACET_BACKGROUND_FIELD', payload: field });
+            applyGlobalAction({ type: 'SET_FACET_BACKGROUND_FIELD', payload: field });
           }}
           onRemove={(_fieldIds) => {
-            recordAction(getUndoableSnapshot());
-            dispatch({ type: 'SET_FACET_BACKGROUND_FIELD', payload: null });
+            applyGlobalAction({ type: 'SET_FACET_BACKGROUND_FIELD', payload: null });
           }}
           onSchemeChange={(schemeId) => {
-            recordAction(getUndoableSnapshot());
-            dispatch({ type: 'SET_FACET_BACKGROUND_SCHEME', payload: schemeId });
+            applyGlobalAction({ type: 'SET_FACET_BACKGROUND_SCHEME', payload: schemeId });
           }}
           onOpacityChange={(opacity) => {
-            recordAction(getUndoableSnapshot());
-            dispatch({ type: 'SET_FACET_BACKGROUND_OPACITY', payload: opacity });
+            applyGlobalAction({ type: 'SET_FACET_BACKGROUND_OPACITY', payload: opacity });
           }}
         />
 
@@ -376,35 +399,33 @@ const FieldOverridesPanel: React.FC = () => {
           sizeRange={sizeRange}
           manualSize={manualSize}
           onDrop={(field) => {
-            recordAction(getUndoableSnapshot());
-            clearSizeOverridesForAllFields();
-            dispatch({ type: 'SET_SIZE_FIELD', payload: field });
+            applyGlobalAction(
+              { type: 'SET_SIZE_FIELD', payload: field },
+              { clearOverrides: clearSizeOverridesForAllFields },
+            );
           }}
           onRemove={(_fieldIds) => {
-            recordAction(getUndoableSnapshot());
-            clearSizeOverridesForAllFields();
-            dispatch({ type: 'SET_SIZE_FIELD', payload: null });
+            applyGlobalAction(
+              { type: 'SET_SIZE_FIELD', payload: null },
+              { clearOverrides: clearSizeOverridesForAllFields },
+            );
           }}
           onSizeRangeChange={(range) => {
-            recordAction(getUndoableSnapshot());
-            dispatch({ type: 'SET_SIZE_RANGE', payload: range });
+            applyGlobalAction({ type: 'SET_SIZE_RANGE', payload: range });
           }}
           onManualSizeChange={(size) => {
-            recordAction(getUndoableSnapshot());
-            dispatch({ type: 'SET_MANUAL_SIZE', payload: size });
+            applyGlobalAction({ type: 'SET_MANUAL_SIZE', payload: size });
           }}
           forceSingleSlider={globalChartType === 'tick' || globalChartType === 'gantt'}
         />
 
         <ShapeFieldControl
-          field={(state as any).shapeField || null}
+          field={shapeField}
           onDrop={(field) => {
-            recordAction(getUndoableSnapshot());
-            dispatch({ type: 'SET_SHAPE_FIELD', payload: field });
+            applyGlobalAction({ type: 'SET_SHAPE_FIELD', payload: field });
           }}
           onRemove={(_fieldIds) => {
-            recordAction(getUndoableSnapshot());
-            dispatch({ type: 'REMOVE_SHAPE_FIELD' });
+            applyGlobalAction({ type: 'REMOVE_SHAPE_FIELD' });
           }}
         />
 
@@ -413,41 +434,39 @@ const FieldOverridesPanel: React.FC = () => {
           showLabelsEnabled={true}
           labelsEnabled={labelsEnabled}
           onLabelDrop={(field) => {
-            recordAction(getUndoableSnapshot());
-            clearLabelOverridesForAllFields();
             const currentLabelFields = labelFields as Field[] || [];
             if (!currentLabelFields.some((f: Field) => f.id === field.id)) {
-              dispatch({ type: 'SET_LABEL_FIELDS', payload: [...currentLabelFields, field] });
+              applyGlobalAction(
+                { type: 'SET_LABEL_FIELDS', payload: [...currentLabelFields, field] },
+                { clearOverrides: clearLabelOverridesForAllFields },
+              );
             }
           }}
           onLabelRemove={(fieldId) => {
-            recordAction(getUndoableSnapshot());
-            clearLabelOverridesForAllFields();
             const currentLabelFields = labelFields as Field[] || [];
             const updatedLabelFields = currentLabelFields.filter((f: Field) => f.id !== fieldId);
-            dispatch({ type: 'SET_LABEL_FIELDS', payload: updatedLabelFields });
+            applyGlobalAction(
+              { type: 'SET_LABEL_FIELDS', payload: updatedLabelFields },
+              { clearOverrides: clearLabelOverridesForAllFields },
+            );
           }}
           onLabelsEnabledChange={(enabled) => {
-            recordAction(getUndoableSnapshot());
-            dispatch({ type: 'SET_LABELS_ENABLED', payload: enabled });
+            applyGlobalAction({ type: 'SET_LABELS_ENABLED', payload: enabled });
           }}
         />
 
         <TooltipFieldControl
           tooltipFields={(tooltipFields as Field[]) || []}
           onTooltipDrop={(field, _source) => {
-            recordAction(getUndoableSnapshot());
             const current = (tooltipFields as Field[]) || [];
             if (current.some((f) => f.columnName === field.columnName)) return;
-            dispatch({ type: 'ADD_TOOLTIP_FIELD', payload: field });
+            applyGlobalAction({ type: 'ADD_TOOLTIP_FIELD', payload: field });
           }}
           onTooltipRemove={(fieldId) => {
-            recordAction(getUndoableSnapshot());
-            dispatch({ type: 'REMOVE_TOOLTIP_FIELD', payload: fieldId });
+            applyGlobalAction({ type: 'REMOVE_TOOLTIP_FIELD', payload: fieldId });
           }}
           onUpdateField={(field) => {
-            recordAction(getUndoableSnapshot());
-            dispatch({ type: 'UPDATE_FIELD', payload: field });
+            applyGlobalAction({ type: 'UPDATE_FIELD', payload: field });
           }}
         />
       </Box>

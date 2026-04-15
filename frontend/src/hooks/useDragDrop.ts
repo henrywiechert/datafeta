@@ -6,6 +6,7 @@ import { useVisualizationContext } from '../contexts/VisualizationContext';
 import { useDataSource } from '../contexts/DataSourceContext';
 import { DEFAULT_CATEGORICAL_SCHEME, DEFAULT_SEQUENTIAL_SCHEME } from '../config/colorSchemes';
 import { useUndoRedo } from './useUndoRedo';
+import { resolveSingleEncodingDropField } from '../utils/singleEncodingZone';
 
 /**
  * Custom hook for handling drag and drop operations in the visualization
@@ -307,22 +308,13 @@ export function useDragDrop(availableFields?: Field[]) {
     const currentFieldsToUse = fieldsToUseRef.current;
     const currentColorField = colorFieldRef.current;
     
-    let fieldToSet: Field;
-    
-    if (source === 'AVAILABLE_FIELDS') {
-      // Find the field in available fields (includes virtual columns)
-      const sourceField = currentFieldsToUse.find(f => f.id === field.id);
-      if (!sourceField) return;
-      
-      // Create an independent copy of the field with a new ID
-      fieldToSet = { ...sourceField, id: uuidv4() };
-    } else if (source === 'COLOR_ZONE') {
-      // Update from color zone itself (e.g., aggregation change)
-      fieldToSet = field;
-    } else {
-      // Copy from axis (keep it on the axis too)
-      fieldToSet = { ...field, id: uuidv4() };
-    }
+    const fieldToSet = resolveSingleEncodingDropField({
+      field,
+      source,
+      zoneSource: 'COLOR_ZONE',
+      availableFields: currentFieldsToUse,
+    });
+    if (!fieldToSet) return;
     
     // Replace the existing color field with the new one
     dispatch({ type: 'SET_COLOR_FIELD', payload: fieldToSet });
@@ -354,22 +346,13 @@ export function useDragDrop(availableFields?: Field[]) {
     // Read current state from refs for stable callback
     const currentFieldsToUse = fieldsToUseRef.current;
     
-    let fieldToSet: Field;
-    
-    if (source === 'AVAILABLE_FIELDS') {
-      // Find the field in available fields (includes virtual columns)
-      const sourceField = currentFieldsToUse.find(f => f.id === field.id);
-      if (!sourceField) return;
-      
-      // Create an independent copy of the field with a new ID
-      fieldToSet = { ...sourceField, id: uuidv4() };
-    } else if (source === 'SIZE_ZONE') {
-      // Update from size zone itself (e.g., aggregation change)
-      fieldToSet = field;
-    } else {
-      // Copy from axis (keep it on the axis too)
-      fieldToSet = { ...field, id: uuidv4() };
-    }
+    const fieldToSet = resolveSingleEncodingDropField({
+      field,
+      source,
+      zoneSource: 'SIZE_ZONE',
+      availableFields: currentFieldsToUse,
+    });
+    if (!fieldToSet) return;
     
     // Replace the existing size field with the new one
     dispatch({ type: 'SET_SIZE_FIELD', payload: fieldToSet });
@@ -396,17 +379,14 @@ export function useDragDrop(availableFields?: Field[]) {
     // Read current state from refs for stable callback
     const currentFieldsToUse = fieldsToUseRef.current;
 
-    let fieldToSet: Field;
-
-    if (source === 'AVAILABLE_FIELDS') {
-      const sourceField = currentFieldsToUse.find(f => f.id === field.id);
-      if (!sourceField) return;
-      fieldToSet = { ...sourceField, id: uuidv4() };
-    } else if (source === 'SHAPE_ZONE') {
-      fieldToSet = field;
-    } else {
-      fieldToSet = { ...field, id: uuidv4() };
-    }
+    const fieldToSet = resolveSingleEncodingDropField({
+      field,
+      source,
+      zoneSource: 'SHAPE_ZONE',
+      availableFields: currentFieldsToUse,
+      requiredFlavour: 'discrete',
+    });
+    if (!fieldToSet) return;
 
     dispatch({ type: 'SET_SHAPE_FIELD', payload: fieldToSet });
   }, [dispatch, recordAction, getUndoableSnapshot]);

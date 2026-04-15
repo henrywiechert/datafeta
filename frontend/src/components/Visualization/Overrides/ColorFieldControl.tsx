@@ -6,6 +6,7 @@ import ColorPalettePopover from '../Color/ColorPalettePopover';
 import { Field } from '../../../types';
 import FieldChip from '../FieldChip';
 import { parseDragData } from './overrideUtils';
+import { resolveSingleEncodingDropField } from '../../../utils/singleEncodingZone';
 
 interface ColorFieldControlProps {
   field: Field | null;
@@ -33,10 +34,12 @@ const ColorFieldControl: React.FC<ColorFieldControlProps> = ({
   const handleDrop = (e: React.DragEvent) => {
     const { field: droppedField, source } = parseDragData(e);
     if (droppedField) {
-      // Create an independent copy with a new ID when dropping from AVAILABLE_FIELDS or axes
-      // This ensures the colorField is independent from the source field
-      const isFromZone = source === 'COLOR_ZONE';
-      const fieldToSet = isFromZone ? droppedField : { ...droppedField, id: uuidv4() };
+      const fieldToSet = resolveSingleEncodingDropField({
+        field: droppedField,
+        source,
+        zoneSource: 'COLOR_ZONE',
+      });
+      if (!fieldToSet) return;
       onDrop(fieldToSet);
     }
   };

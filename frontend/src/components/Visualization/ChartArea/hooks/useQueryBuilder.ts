@@ -10,6 +10,7 @@ import { useMemo } from 'react';
 import { buildQuery } from '../../../../queryBuilder/queryBuilder';
 import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition, QueryOptimizationSettings, UserChartType } from '../../../../types';
 import { generateOptimizationHintsFromFields } from '../../../../services/optimizationHintGenerator';
+import { createQueryAffectingConfig, getQueryAffectingSingleFields } from '../../../../utils/queryAffectingConfig';
 
 export interface UseQueryBuilderProps {
   selectedTable: string | null;
@@ -150,9 +151,21 @@ export const useQueryBuilder = ({
   const queryDescription = useMemo((): QueryDescription | null => {
     console.log('🔧 currentQueryDescription recalculating with virtualTable:', virtualTable);
 
+    const queryAffectingConfig = createQueryAffectingConfig({
+      xAxisFields,
+      yAxisFields,
+      appliedFilterConfigurations: filterConfigurations,
+      colorField,
+      sizeField,
+      shapeField,
+      facetBackgroundField,
+      labelFields,
+      tooltipFields,
+    });
+
     // Tag fields with their axis for query optimization
-    const taggedXFields = xAxisFields.map(f => ({ ...f, axis: 'x' as const }));
-    const taggedYFields = yAxisFields.map(f => ({ ...f, axis: 'y' as const }));
+    const taggedXFields = queryAffectingConfig.xAxisFields.map(f => ({ ...f, axis: 'x' as const }));
+    const taggedYFields = queryAffectingConfig.yAxisFields.map(f => ({ ...f, axis: 'y' as const }));
 
     // If measures are present on exactly one axis, the intent is an aggregated chart.
     // Ensure axis-measures have a default aggregation.
@@ -177,34 +190,28 @@ export const useQueryBuilder = ({
       : taggedYFields;
 
     const allFields: Field[] = [...normalizedXFields, ...normalizedYFields];
-    const axisFields = [...xAxisFields, ...yAxisFields];
+    const axisFields = [
+      ...queryAffectingConfig.xAxisFields,
+      ...queryAffectingConfig.yAxisFields,
+    ];
 
-    // Include colorField - assign default aggregation if needed
-    if (colorField) {
-      const colorEntry = normalizeFieldWithDefaultAgg(colorField, true, axisFields);
-      allFields.push(colorEntry);
-    }
-
-    // Include sizeField - assign default aggregation if needed
-    if (sizeField) {
-      const sizeEntry = normalizeFieldWithDefaultAgg(sizeField, true, axisFields);
-      allFields.push(sizeEntry);
-    }
-
-    // Include shapeField - assign default aggregation if needed
-    if (shapeField) {
-      const shapeEntry = normalizeFieldWithDefaultAgg(shapeField, true, axisFields);
-      if (!allFields.some(f => f.columnName === shapeEntry.columnName)) {
-        allFields.push(shapeEntry);
+    for (const { key, field } of getQueryAffectingSingleFields(queryAffectingConfig)) {
+      if (key === 'facetBackgroundField') {
+        if (!allFields.some(f => f.columnName === field.columnName)) {
+          allFields.push(field);
+        }
+        continue;
       }
-    }
 
-    // Include facetBackgroundField - it's always a discrete dimension, no aggregation needed
-    if (facetBackgroundField) {
-      // Only add if not already present (might be on an axis)
-      if (!allFields.some(f => f.columnName === facetBackgroundField.columnName)) {
-        allFields.push(facetBackgroundField);
+      const entry = normalizeFieldWithDefaultAgg(field, true, axisFields);
+      if (key === 'shapeField') {
+        if (!allFields.some(f => f.columnName === entry.columnName)) {
+          allFields.push(entry);
+        }
+        continue;
       }
+
+      allFields.push(entry);
     }
 
     // Include additional color fields from per-field overrides

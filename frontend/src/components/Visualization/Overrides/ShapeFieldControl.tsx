@@ -1,10 +1,10 @@
 import React from 'react';
 import { Box, SvgIcon, Tooltip } from '@mui/material';
-import { v4 as uuidv4 } from 'uuid';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import { Field } from '../../../types';
 import FieldChip from '../FieldChip';
 import { parseDragData } from './overrideUtils';
+import { resolveSingleEncodingDropField } from '../../../utils/singleEncodingZone';
 
 /** Tableau-style shape icon: a circle surrounded by a diamond outline. */
 const TableauShapeIcon: React.FC<{ fontSize?: 'inherit' | 'small' | 'medium' | 'large' }> = ({ fontSize }) => (
@@ -30,14 +30,16 @@ const ShapeFieldControl: React.FC<ShapeFieldControlProps> = ({ field, onDrop, on
     const { field: droppedField, source } = parseDragData(e);
     if (!droppedField) return;
 
-    // Shape encoding only supports discrete fields
-    if (droppedField.flavour !== 'discrete') {
+    const fieldToSet = resolveSingleEncodingDropField({
+      field: droppedField,
+      source,
+      zoneSource: 'SHAPE_ZONE',
+      requiredFlavour: 'discrete',
+    });
+    if (!fieldToSet) {
       console.warn('Shape field must be discrete (categorical). Continuous fields are not supported.');
       return;
     }
-
-    const isFromZone = source === 'SHAPE_ZONE';
-    const fieldToSet = isFromZone ? droppedField : { ...droppedField, id: uuidv4() };
     onDrop(fieldToSet);
   };
 
