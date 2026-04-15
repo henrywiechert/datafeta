@@ -114,8 +114,8 @@ const ShapeLegendPanel: React.FC<ShapeLegendPanelProps> = ({
 
   const items = useMemo(() => scaleInfo?.legendEntries ?? [], [scaleInfo]);
 
-  /** Raw domain values (excluding the "Other" sentinel). */
-  const domainValues = useMemo(() => scaleInfo?.domain ?? [], [scaleInfo]);
+  /** Raw domain values, including values represented by the Other bucket. */
+  const allDomainValues = useMemo(() => scaleInfo?.allValues ?? [], [scaleInfo]);
 
   const isInteractive = Boolean((onFilterAction || onHighlightChange) && items.length > 0);
 
@@ -147,25 +147,30 @@ const ShapeLegendPanel: React.FC<ShapeLegendPanelProps> = ({
 
   const closeMenu = useCallback(() => setMenuPosition(null), []);
 
-  /** Selected raw values (exclude the "Other" sentinel from filter logic). */
+  /** Selected raw values, expanding the Other bucket to the values it represents. */
   const selectedValues = useMemo(() => {
     return Array.from(selectedIndices)
       .sort((a, b) => a - b)
-      .map(i => items[i]?.value)
-      .filter(v => v !== 'Other');
-  }, [selectedIndices, items]);
+      .flatMap(i => {
+        const itemValue = items[i]?.value;
+        if (itemValue === 'Other') {
+          return scaleInfo?.otherValues ?? [];
+        }
+        return itemValue === undefined ? [] : [itemValue];
+      });
+  }, [selectedIndices, items, scaleInfo]);
 
   const handleKeepOnly = useCallback(() => {
-    onFilterAction?.('keep', selectedValues, domainValues);
+    onFilterAction?.('keep', selectedValues, allDomainValues);
     setMenuPosition(null);
     setSelectedIndices(new Set());
-  }, [onFilterAction, selectedValues, domainValues]);
+  }, [onFilterAction, selectedValues, allDomainValues]);
 
   const handleExclude = useCallback(() => {
-    onFilterAction?.('exclude', selectedValues, domainValues);
+    onFilterAction?.('exclude', selectedValues, allDomainValues);
     setMenuPosition(null);
     setSelectedIndices(new Set());
-  }, [onFilterAction, selectedValues, domainValues]);
+  }, [onFilterAction, selectedValues, allDomainValues]);
 
   useEffect(() => {
     if (!onHighlightChange) return;
@@ -174,11 +179,16 @@ const ShapeLegendPanel: React.FC<ShapeLegendPanelProps> = ({
     } else {
       const values = Array.from(selectedIndices)
         .sort((a, b) => a - b)
-        .map(i => items[i]?.value)
-        .filter(v => v !== 'Other');
+        .flatMap(i => {
+          const itemValue = items[i]?.value;
+          if (itemValue === 'Other') {
+            return scaleInfo?.otherValues ?? [];
+          }
+          return itemValue === undefined ? [] : [itemValue];
+        });
       onHighlightChange(values.length > 0 ? values : null);
     }
-  }, [selectedIndices, items, onHighlightChange]);
+  }, [selectedIndices, items, onHighlightChange, scaleInfo]);
 
   useEffect(() => {
     if (!clearSelectionRef) return;

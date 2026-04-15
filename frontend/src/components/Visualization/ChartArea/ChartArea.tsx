@@ -271,6 +271,7 @@ const ChartArea: React.FC = () => {
       appliedFilterConfigurations: effectiveFilterConfigurations,
       colorField,
       sizeField,
+      shapeField,
       labelFields,
       tooltipFields,
       measureGroupFields,
@@ -289,7 +290,7 @@ const ChartArea: React.FC = () => {
       labelSampleEvery,
     }),
     [
-      xAxisFields, yAxisFields, effectiveFilterConfigurations, colorField, sizeField,
+      xAxisFields, yAxisFields, effectiveFilterConfigurations, colorField, sizeField, shapeField,
       labelFields, tooltipFields, measureGroupFields, colorScheme, colorBias, manualColor,
       sizeRange, manualSize, bandThicknessScale, fieldOverrides, globalChartType,
       independentDomains, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold,

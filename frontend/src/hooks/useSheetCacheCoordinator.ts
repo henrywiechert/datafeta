@@ -20,6 +20,7 @@ interface SheetCacheConfig {
   appliedFilterConfigurations: Record<string, FilterConfig>;
   colorField: Field | null;
   sizeField: Field | null;
+  shapeField?: Field | null;
   labelFields?: Field[];
   tooltipFields?: Field[];
   colorScheme?: string;

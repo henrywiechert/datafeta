@@ -270,7 +270,7 @@ export function scatterChart(
   // Apply shape configuration
   if (shapeField) {
     const shapeColumnName = getResultColumnName(shapeField);
-    const shapeInfo = deriveShapeScaleInfo(budgeted, shapeField);
+    const shapeInfo = deriveShapeScaleInfo(clean, shapeField);
     dotConfig.symbol = (d: any) => getSymbolForValue(d[shapeColumnName], shapeInfo);
     dotConfig.channels[shapeField.columnName] = { value: shapeColumnName, label: getFieldDisplayName(shapeField) };
     // Hollow style: move color from fill → stroke so the symbol outline is visible

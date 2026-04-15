@@ -195,6 +195,7 @@ export const useQueryExecution = ({
     yAxisFields,
     colorField,
     sizeField,
+    shapeField,
     filterConfigurations,
     appliedFilterConfigurations: vizState.appliedFilterConfigurations,
     labelFields,
