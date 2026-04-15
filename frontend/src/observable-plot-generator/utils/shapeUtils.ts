@@ -30,6 +30,10 @@ export const SHAPE_OTHER_LABEL = 'Other';
 export interface ShapeScaleInfo {
   /** Ordered top-N domain values (excluding Other). */
   domain: any[];
+  /** All raw domain values, including null when present. */
+  allValues: any[];
+  /** Raw values represented by the Other bucket, including null when present. */
+  otherValues: any[];
   /** Mapping from raw value (stringified) to Observable Plot symbol name. */
   symbolMap: Record<string, string>;
   /** Symbol to use for values outside the top-N domain (and nulls). */
@@ -79,6 +83,14 @@ export function deriveShapeScaleInfo(
   // Take top-N
   const topEntries = sorted.slice(0, topN);
   const domain = topEntries.map(([val]) => val);
+  const allValues = [
+    ...sorted.map(([val]) => val),
+    ...(nullCount > 0 ? [null] : []),
+  ];
+  const otherValues = [
+    ...sorted.slice(topN).map(([val]) => val),
+    ...(nullCount > 0 ? [null] : []),
+  ];
 
   // Build symbol map
   const symbolMap: Record<string, string> = {};
@@ -105,6 +117,8 @@ export function deriveShapeScaleInfo(
 
   return {
     domain,
+    allValues,
+    otherValues,
     symbolMap,
     otherSymbol: SHAPE_OTHER_SYMBOL,
     hasOther,

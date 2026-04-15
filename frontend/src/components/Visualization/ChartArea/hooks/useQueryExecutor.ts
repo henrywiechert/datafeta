@@ -35,6 +35,7 @@ export interface UseQueryExecutorProps {
   yAxisFields: Field[];
   colorField: Field | null;
   sizeField: Field | null;
+  shapeField?: Field | null;
   filterConfigurations: Record<string, any>;
   appliedFilterConfigurations: Record<string, any>;
   labelFields: Field[];
@@ -71,6 +72,7 @@ export const useQueryExecutor = ({
   yAxisFields,
   colorField,
   sizeField,
+  shapeField = null,
   filterConfigurations,
   appliedFilterConfigurations,
   labelFields,
@@ -130,6 +132,7 @@ export const useQueryExecutor = ({
             tooltipFields,
             colorField,
             sizeField,
+            shapeField,
             virtualTable,
             virtualColumns,
             optimizationHints,
@@ -237,6 +240,7 @@ export const useQueryExecutor = ({
                   ...(yAxisFields || []),
                   ...(colorField ? [colorField] : []),
                   ...(sizeField ? [sizeField] : []),
+                  ...(shapeField ? [shapeField] : []),
                   ...(labelFields || []),
                   ...(tooltipFields || []),
                 ].map((f: any) => ({
