@@ -6,6 +6,7 @@ import SizeRangeControl from './SizeRangeControl';
 import { Field } from '../../../types';
 import FieldChip from '../FieldChip';
 import { parseDragData } from './overrideUtils';
+import { resolveSingleEncodingDropField } from '../../../utils/singleEncodingZone';
 
 const TableauSizeIcon: React.FC<{ fontSize?: 'inherit' | 'small' | 'medium' | 'large' }> = ({ fontSize }) => (
   <SvgIcon fontSize={fontSize} viewBox="0 0 24 24">
@@ -54,10 +55,12 @@ const SizeFieldControl: React.FC<SizeFieldControlProps> = ({
   const handleDrop = (e: React.DragEvent) => {
     const { field: droppedField, source } = parseDragData(e);
     if (droppedField) {
-      // Create an independent copy with a new ID when dropping from AVAILABLE_FIELDS or axes
-      // This ensures the sizeField is independent from the source field
-      const isFromZone = source === 'SIZE_ZONE';
-      const fieldToSet = isFromZone ? droppedField : { ...droppedField, id: uuidv4() };
+      const fieldToSet = resolveSingleEncodingDropField({
+        field: droppedField,
+        source,
+        zoneSource: 'SIZE_ZONE',
+      });
+      if (!fieldToSet) return;
       onDrop(fieldToSet);
     }
   };

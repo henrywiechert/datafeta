@@ -26,6 +26,7 @@ import { useQueryBuilder } from './useQueryBuilder';
 import { useQueryExecutor } from './useQueryExecutor';
 import { sheetRenderCacheStore } from '../../../../stores';
 import { computeFullConfigHash } from '../../../../utils/sheetConfigHash';
+import { createQueryAffectingConfig } from '../../../../utils/queryAffectingConfig';
 
 export interface UseQueryExecutionProps {
   selectedTable: string | null;
@@ -127,14 +128,18 @@ export const useQueryExecution = ({
     
     // Compute config hash for current state
     const configHash = computeFullConfigHash({
-      xAxisFields,
-      yAxisFields,
-      appliedFilterConfigurations: vizState.appliedFilterConfigurations,
-      colorField,
-      sizeField,
-      shapeField,
-      labelFields,
-      tooltipFields,
+      ...createQueryAffectingConfig({
+        xAxisFields,
+        yAxisFields,
+        appliedFilterConfigurations: vizState.appliedFilterConfigurations,
+        colorField,
+        sizeField,
+        shapeField,
+        facetBackgroundField,
+        labelFields,
+        tooltipFields,
+        measureGroupFields: vizState.measureGroupFields,
+      }),
       // Note: We only check query-affecting config for cache validation
     });
     
@@ -196,6 +201,7 @@ export const useQueryExecution = ({
     colorField,
     sizeField,
     shapeField,
+    facetBackgroundField,
     filterConfigurations,
     appliedFilterConfigurations: vizState.appliedFilterConfigurations,
     labelFields,

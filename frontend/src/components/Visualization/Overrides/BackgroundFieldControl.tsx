@@ -11,12 +11,12 @@ import {
 } from '@mui/material';
 import GridViewIcon from '@mui/icons-material/GridView';
 import CheckIcon from '@mui/icons-material/Check';
-import { v4 as uuidv4 } from 'uuid';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import { Field } from '../../../types';
 import FieldChip from '../FieldChip';
 import { parseDragData } from './overrideUtils';
 import { categoricalSchemes, getSchemeById } from '../../../config/colorSchemes';
+import { resolveSingleEncodingDropField } from '../../../utils/singleEncodingZone';
 
 interface BackgroundFieldControlProps {
   field: Field | null;
@@ -51,14 +51,16 @@ const BackgroundFieldControl: React.FC<BackgroundFieldControlProps> = ({
   const handleDrop = (e: React.DragEvent) => {
     const { field: droppedField, source } = parseDragData(e);
     if (droppedField) {
-      // Only allow discrete fields for facet background
-      if (droppedField.flavour !== 'discrete') {
+      const fieldToSet = resolveSingleEncodingDropField({
+        field: droppedField,
+        source,
+        zoneSource: 'BACKGROUND_ZONE',
+        requiredFlavour: 'discrete',
+      });
+      if (!fieldToSet) {
         console.warn('Background field must be discrete (categorical). Continuous fields are not supported.');
         return;
       }
-      // Create an independent copy with a new ID when dropping from AVAILABLE_FIELDS or axes
-      const isFromZone = source === 'BACKGROUND_ZONE';
-      const fieldToSet = isFromZone ? droppedField : { ...droppedField, id: uuidv4() };
       onDrop(fieldToSet);
     }
   };

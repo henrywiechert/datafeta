@@ -8,43 +8,8 @@
  * Shared state changes are tracked via dataSourceVersion.
  */
 
-import { Field, FilterConfig, FieldOverrideState, UserChartType } from '../types';
-
-/**
- * Configuration that affects query results.
- * Changes to these require re-querying.
- */
-interface QueryAffectingConfig {
-  xAxisFields: Field[];
-  yAxisFields: Field[];
-  appliedFilterConfigurations: Record<string, FilterConfig>;
-  colorField: Field | null;
-  sizeField: Field | null;
-  shapeField?: Field | null;
-  labelFields?: Field[];
-  tooltipFields?: Field[];
-  measureGroupFields?: Field[]; // Per-sheet measure group
-}
-
-/**
- * Configuration that affects chart generation but not query.
- * Changes to these require re-generating spec but can reuse queryResult.
- */
-interface ChartAffectingConfig extends QueryAffectingConfig {
-  colorScheme?: string;
-  colorBias?: number;
-  manualColor?: string;
-  sizeRange?: [number, number];
-  manualSize?: number;
-  bandThicknessScale?: number;
-  fieldOverrides?: Record<string, FieldOverrideState>;
-  globalChartType?: UserChartType | null;
-  independentDomains?: { x?: boolean; y?: boolean };
-  labelsEnabled?: boolean;
-  labelSamplingStrategy?: string;
-  labelSamplingThreshold?: number;
-  labelSampleEvery?: number;
-}
+import { Field, FilterConfig, FieldOverrideState } from '../types';
+import { ChartAffectingConfig, QueryAffectingConfig } from './queryAffectingConfig';
 
 /**
  * Extract stable identity from a field for hashing.
@@ -140,6 +105,7 @@ export function computeQueryConfigHash(config: QueryAffectingConfig): string {
     fieldToHashKey(config.colorField),
     fieldToHashKey(config.sizeField),
     fieldToHashKey(config.shapeField || null),
+    fieldToHashKey(config.facetBackgroundField || null),
     fieldsToHashKey(config.labelFields || []),
     fieldsToHashKey(config.tooltipFields || []),
     fieldsToHashKey(config.measureGroupFields || []),
@@ -163,6 +129,7 @@ export function computeChartConfigHash(config: ChartAffectingConfig): string {
     fieldToHashKey(config.colorField),
     fieldToHashKey(config.sizeField),
     fieldToHashKey(config.shapeField || null),
+    fieldToHashKey(config.facetBackgroundField || null),
     fieldsToHashKey(config.labelFields || []),
     fieldsToHashKey(config.tooltipFields || []),
     fieldsToHashKey(config.measureGroupFields || []),

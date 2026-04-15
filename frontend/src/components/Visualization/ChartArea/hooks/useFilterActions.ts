@@ -12,7 +12,7 @@ import { useVisualizationContext } from '../../../../contexts/VisualizationConte
 import { toDatePartInteger } from '../utils/dateTimeConversion';
 import { addFieldAsDiscreteFilter, updateExistingDiscreteFilter } from '../../../../utils/filterActions';
 import { getResultColumnName } from '../../../../utils/fieldUtils';
-import type { DateTimePart } from '../../../../types';
+import type { DateTimePart, Field } from '../../../../types';
 import type { LegendFilterAction } from '../../Legend/LegendPanel';
 
 interface UseFilterActionsProps {
@@ -28,17 +28,14 @@ export function useFilterActions({
   spec,
 }: UseFilterActionsProps) {
   const { state, dispatch } = useVisualizationContext();
-  const { colorField, filterFields, filterConfigurations, queryResult } = state;
-  const shapeField = (state as any).shapeField ?? null;
-  // ── Legend → Filter bridge ───────────────────────────────────────────
-  const handleLegendFilterAction = useCallback(
-    (action: LegendFilterAction, values: any[], allDomainValues: any[]) => {
-      if (!colorField) return;
+  const { colorField, filterFields, filterConfigurations, queryResult, shapeField } = state;
 
-      // Record undo snapshot before mutating filter state
+  const applyDiscreteLegendFilterAction = useCallback(
+    (field: Field | null, action: LegendFilterAction, values: any[], allDomainValues: any[]) => {
+      if (!field) return;
+
       recordAction(getUndoableSnapshot());
 
-      // Determine which values the filter should keep
       const keepValues =
         action === 'keep'
           ? values
@@ -47,9 +44,8 @@ export function useFilterActions({
               return !values.some(sv => String(sv) === valStr);
             });
 
-      // Check if a filter already exists for this column
       const existingFilter = filterFields.find(
-        (f: any) => f.columnName === colorField.columnName,
+        (filterField: Field) => filterField.columnName === field.columnName,
       );
 
       if (
@@ -64,59 +60,33 @@ export function useFilterActions({
           existingFilter.dateTimePart,
           existingFilter.dateTimeMode,
         );
-      } else {
-        addFieldAsDiscreteFilter(
-          colorField,
-          keepValues,
-          filterFields,
-          dispatch,
-        );
+        return;
       }
+
+      addFieldAsDiscreteFilter(
+        field,
+        keepValues,
+        filterFields,
+        dispatch,
+      );
     },
-    [colorField, filterFields, filterConfigurations, dispatch, recordAction, getUndoableSnapshot],
+    [filterFields, filterConfigurations, dispatch, recordAction, getUndoableSnapshot],
+  );
+
+  // ── Legend → Filter bridge ───────────────────────────────────────────
+  const handleLegendFilterAction = useCallback(
+    (action: LegendFilterAction, values: any[], allDomainValues: any[]) => {
+      applyDiscreteLegendFilterAction(colorField, action, values, allDomainValues);
+    },
+    [applyDiscreteLegendFilterAction, colorField],
   );
 
   // ── Shape Legend → Filter bridge ─────────────────────────────────────
   const handleShapeLegendFilterAction = useCallback(
     (action: LegendFilterAction, values: any[], allDomainValues: any[]) => {
-      if (!shapeField) return;
-
-      recordAction(getUndoableSnapshot());
-
-      const keepValues =
-        action === 'keep'
-          ? values
-          : allDomainValues.filter(v => {
-              const valStr = String(v);
-              return !values.some(sv => String(sv) === valStr);
-            });
-
-      const existingFilter = filterFields.find(
-        (f: any) => f.columnName === shapeField.columnName,
-      );
-
-      if (
-        existingFilter &&
-        filterConfigurations[existingFilter.id]?.type === 'discrete'
-      ) {
-        updateExistingDiscreteFilter(
-          existingFilter.id,
-          existingFilter.columnName,
-          keepValues,
-          dispatch,
-          existingFilter.dateTimePart,
-          existingFilter.dateTimeMode,
-        );
-      } else {
-        addFieldAsDiscreteFilter(
-          shapeField,
-          keepValues,
-          filterFields,
-          dispatch,
-        );
-      }
+      applyDiscreteLegendFilterAction(shapeField, action, values, allDomainValues);
     },
-    [shapeField, filterFields, filterConfigurations, dispatch, recordAction, getUndoableSnapshot],
+    [applyDiscreteLegendFilterAction, shapeField],
   );
 
   // ── Tooltip → Filter bridge ──────────────────────────────────────────

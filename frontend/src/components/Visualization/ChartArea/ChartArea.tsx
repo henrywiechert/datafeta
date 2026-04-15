@@ -29,6 +29,7 @@ import ShapeLegendPanel from '../Legend/ShapeLegendPanel';
 import LegendStack from '../Legend/LegendStack';
 import FacetLimitDialog from '../FacetLimitDialog';
 import { getResultColumnName } from '../../../utils/fieldUtils';
+import { createChartAffectingConfig } from '../../../utils/queryAffectingConfig';
 
 /**
  * ChartArea - thin orchestrator that delegates to specialised hooks.
@@ -82,9 +83,8 @@ const ChartArea: React.FC = () => {
     showTableRows,
     overlays,
     disabledFilterIds,
+    shapeField,
   } = state;
-
-  const shapeField = (state as any).shapeField ?? null;
 
   const { selectedTable, selectedDatabase, virtualTable, virtualColumns, sessionAppliedFilterConfigurations } =
     dataSource;
@@ -265,13 +265,14 @@ const ChartArea: React.FC = () => {
 
   // -- Sheet cache -------------------------------------------------------------
   const cacheConfig = useMemo(
-    () => ({
+    () => createChartAffectingConfig({
       xAxisFields,
       yAxisFields,
       appliedFilterConfigurations: effectiveFilterConfigurations,
       colorField,
       sizeField,
       shapeField,
+      facetBackgroundField,
       labelFields,
       tooltipFields,
       measureGroupFields,
@@ -291,7 +292,7 @@ const ChartArea: React.FC = () => {
     }),
     [
       xAxisFields, yAxisFields, effectiveFilterConfigurations, colorField, sizeField, shapeField,
-      labelFields, tooltipFields, measureGroupFields, colorScheme, colorBias, manualColor,
+      facetBackgroundField, labelFields, tooltipFields, measureGroupFields, colorScheme, colorBias, manualColor,
       sizeRange, manualSize, bandThicknessScale, fieldOverrides, globalChartType,
       independentDomains, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold,
       labelSampleEvery,
