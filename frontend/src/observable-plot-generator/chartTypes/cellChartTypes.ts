@@ -37,6 +37,8 @@ export interface ChartContext {
   ganttZoomRange?: GanttZoomRange | null;
   /** Shape encoding field (scatter only, discrete only) */
   shapeField?: Field;
+  /** Manual single-shape fallback when no shape field is assigned */
+  manualShape?: string;
 }
 
 /**

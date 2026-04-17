@@ -60,6 +60,7 @@ export interface VisualizationStateSnapshot {
   colorField: Field | null;
   colorScheme: string;
   colorBias: number;
+  manualColor?: string;
   sizeField: Field | null;
   sizeRange: [number, number];
   manualSize: number;
@@ -84,6 +85,7 @@ export interface VisualizationStateSnapshot {
   chartCaption?: string;
   // Shape encoding (scatter only, discrete only)
   shapeField?: Field | null;
+  manualShape?: string;
   // Statistical overlays
   overlays?: import('../observable-plot-generator/overlays/types').OverlayConfig[];
   // Filter IDs that are temporarily disabled on this sheet (config preserved)

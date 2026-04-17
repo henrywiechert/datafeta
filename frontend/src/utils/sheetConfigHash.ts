@@ -142,6 +142,7 @@ export function computeChartConfigHash(config: ChartAffectingConfig): string {
     String(config.colorScheme || ''),
     String(config.colorBias ?? 0),
     String(config.manualColor || ''),
+    String(config.manualShape || ''),
     JSON.stringify(config.sizeRange || []),
     String(config.manualSize ?? 0),
     String(config.bandThicknessScale ?? 1),

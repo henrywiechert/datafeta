@@ -58,6 +58,8 @@ export function encodingReducer(state: VisualizationState, action: Visualization
     case 'SET_SHAPE_FIELD':
       if (state.shapeField === action.payload) return state;
       return { ...state, shapeField: action.payload, queryVersion: state.queryVersion + 1 };
+    case 'SET_MANUAL_SHAPE':
+      return { ...state, manualShape: action.payload };
     case 'REMOVE_SHAPE_FIELD':
       if (!state.shapeField) return state;
       return { ...state, shapeField: null, queryVersion: state.queryVersion + 1 };

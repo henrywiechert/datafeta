@@ -369,7 +369,10 @@ export function generateChartOptions(
           manualSize,
           undefined,
           labelCfg,
-          tooltipFields
+          tooltipFields,
+          undefined,
+          context.shapeField,
+          context.manualShape
         ),
         'scatter',
         `${getDisplayName(xContinuousDims[0])} vs ${getDisplayName(yContinuousDims[0])}`

@@ -233,7 +233,7 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
       encoding: {
         color: { field: colorField, scheme: colorScheme, bias: context.colorBias, manual: context.manualColor },
         size: { field: sizeField, range: sizeRange, manual: manualSize, scaleData: queryResult.rows },
-        shape: { field: context.shapeField },
+        shape: { field: context.shapeField, manual: context.manualShape },
       },
       labels: labelCfg,
       tooltipFields: context.tooltipFields,

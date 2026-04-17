@@ -50,6 +50,7 @@ const FieldOverridesPanel: React.FC = () => {
     facetBackgroundScheme,
     facetBackgroundOpacity,
     shapeField,
+    manualShape,
   } = state;
 
   const [expandedId, setExpandedId] = useState<string | null>('__all__');
@@ -421,8 +422,12 @@ const FieldOverridesPanel: React.FC = () => {
 
         <ShapeFieldControl
           field={shapeField}
+          manualShape={manualShape}
           onDrop={(field) => {
             applyGlobalAction({ type: 'SET_SHAPE_FIELD', payload: field });
+          }}
+          onManualShapeChange={(shape) => {
+            applyGlobalAction({ type: 'SET_MANUAL_SHAPE', payload: shape });
           }}
           onRemove={(_fieldIds) => {
             applyGlobalAction({ type: 'REMOVE_SHAPE_FIELD' });

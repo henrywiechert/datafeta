@@ -190,6 +190,7 @@ export function buildCartesianPlotsConfig(
       },
       shape: {
         field: context.shapeField,
+        manual: context.manualShape,
       },
     },
     labels: labelCfg,

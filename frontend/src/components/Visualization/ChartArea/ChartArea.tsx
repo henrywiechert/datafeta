@@ -84,6 +84,7 @@ const ChartArea: React.FC = () => {
     overlays,
     disabledFilterIds,
     shapeField,
+    manualShape,
   } = state;
 
   const { selectedTable, selectedDatabase, virtualTable, virtualColumns, sessionAppliedFilterConfigurations } =
@@ -180,6 +181,7 @@ const ChartArea: React.FC = () => {
       facetBackgroundOpacity,
       overlays,
       shapeField,
+      manualShape,
     });
 
   const { handleLegendFilterAction, handleShapeLegendFilterAction, specWithTooltipAction } = useFilterActions({
@@ -279,6 +281,7 @@ const ChartArea: React.FC = () => {
       colorScheme,
       colorBias,
       manualColor,
+      manualShape,
       sizeRange,
       manualSize,
       bandThicknessScale,
@@ -293,6 +296,7 @@ const ChartArea: React.FC = () => {
     [
       xAxisFields, yAxisFields, effectiveFilterConfigurations, colorField, sizeField, shapeField,
       facetBackgroundField, labelFields, tooltipFields, measureGroupFields, colorScheme, colorBias, manualColor,
+      manualShape,
       sizeRange, manualSize, bandThicknessScale, fieldOverrides, globalChartType,
       independentDomains, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold,
       labelSampleEvery,
