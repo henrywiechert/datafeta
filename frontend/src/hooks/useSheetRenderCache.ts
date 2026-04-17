@@ -26,11 +26,13 @@ interface SheetConfig {
   appliedFilterConfigurations: Record<string, FilterConfig>;
   colorField: Field | null;
   sizeField: Field | null;
+  shapeField?: Field | null;
   labelFields?: Field[];
   tooltipFields?: Field[];
   colorScheme?: string;
   colorBias?: number;
   manualColor?: string;
+  manualShape?: string;
   sizeRange?: [number, number];
   manualSize?: number;
   bandThicknessScale?: number;

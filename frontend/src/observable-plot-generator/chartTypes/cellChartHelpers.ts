@@ -79,7 +79,7 @@ export function scatterForDimOnly(
     data, col, col, { x: col, y: col },
     ctx.colorField, undefined, ctx.colorBias, ctx.manualColor,
     ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
-    undefined, ctx.tooltipFields, ctx.facetFields
+    undefined, ctx.tooltipFields, ctx.facetFields, undefined, ctx.manualShape
   );
 }
 

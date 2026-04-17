@@ -181,6 +181,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       colorField: state.colorField,
       colorScheme: state.colorScheme,
       colorBias: state.colorBias,
+      manualColor: state.manualColor,
       sizeField: state.sizeField,
       sizeRange: state.sizeRange,
       manualSize: state.manualSize,
@@ -196,6 +197,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       showTableRows: state.showTableRows,
       overlays: state.overlays,
       shapeField: state.shapeField,
+      manualShape: state.manualShape,
     };
   }, [
     state.xAxisFields,
@@ -206,6 +208,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     state.colorField,
     state.colorScheme,
     state.colorBias,
+    state.manualColor,
     state.sizeField,
     state.sizeRange,
     state.manualSize,
@@ -221,6 +224,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     state.showTableRows,
     state.overlays,
     state.shapeField,
+    state.manualShape,
   ]);
 
   return (

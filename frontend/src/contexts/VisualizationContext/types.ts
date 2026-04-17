@@ -84,6 +84,7 @@ export interface VisualizationState {
   bandThicknessScale: number;
   // Shape encoding state (scatter only, discrete only)
   shapeField: Field | null;
+  manualShape: string;
   // Label configuration state
   labelFields: Field[];
   labelsEnabled: boolean;
@@ -181,6 +182,7 @@ export type VisualizationAction =
   | { type: 'REMOVE_SIZE_FIELD' }
   // Shape encoding actions (scatter only, discrete only)
   | { type: 'SET_SHAPE_FIELD'; payload: Field | null }
+  | { type: 'SET_MANUAL_SHAPE'; payload: string }
   | { type: 'REMOVE_SHAPE_FIELD' }
   // Label actions
   | { type: 'SET_LABEL_FIELDS'; payload: Field[] }
@@ -232,6 +234,8 @@ export type VisualizationAction =
       showTableRows?: boolean;
       overlays?: OverlayConfig[];
       shapeField?: Field | null;
+      manualColor?: string;
+      manualShape?: string;
     } }
   // Multi-table actions
   | { type: 'TABLE_JOINS_UNIONS_MODIFIED' }

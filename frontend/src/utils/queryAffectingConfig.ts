@@ -17,6 +17,7 @@ export interface ChartAffectingConfig extends QueryAffectingConfig {
   colorScheme?: string;
   colorBias?: number;
   manualColor?: string;
+  manualShape?: string;
   sizeRange?: [number, number];
   manualSize?: number;
   bandThicknessScale?: number;
@@ -56,6 +57,7 @@ export function createChartAffectingConfig(config: ChartAffectingConfig): ChartA
     colorScheme: config.colorScheme,
     colorBias: config.colorBias,
     manualColor: config.manualColor,
+    manualShape: config.manualShape,
     sizeRange: config.sizeRange,
     manualSize: config.manualSize,
     bandThicknessScale: config.bandThicknessScale,

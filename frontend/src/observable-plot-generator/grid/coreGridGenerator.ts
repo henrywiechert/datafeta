@@ -54,6 +54,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
   const manualSize = encoding?.size?.manual;
   const sizeScaleData = encoding?.size?.scaleData;
   const shapeField = encoding?.shape?.field;
+  const manualShape = encoding?.shape?.manual;
   const thicknessScale = bandThicknessScale;
 
   // Combine measure and numeric domains
@@ -271,7 +272,8 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
           facetFields,
           sharedDomains.categorical,
           ganttZoomRange,
-          shapeField
+          shapeField,
+          manualShape
         );
       }
 

@@ -1,6 +1,7 @@
 import { VisualizationState } from './types';
 import { SIZE_DEFAULT_FALLBACK } from '../../config/chartLayoutConfig';
 import { DEFAULT_MANUAL_COLOR } from '../../config/colorSchemes';
+import { DEFAULT_MANUAL_SHAPE } from '../../observable-plot-generator/utils/shapeUtils';
 import { DEFAULT_OVERLAYS } from '../../observable-plot-generator/overlays/types';
 
 // Note: Metadata (databases, tables, selectedDatabase, selectedTable, availableFields,
@@ -39,6 +40,7 @@ export const initialState: VisualizationState = {
   bandThicknessScale: 1.0,
   // Shape encoding state (scatter only, discrete only)
   shapeField: null,
+  manualShape: DEFAULT_MANUAL_SHAPE,
   // Label configuration defaults
   labelFields: [],
   labelsEnabled: false,

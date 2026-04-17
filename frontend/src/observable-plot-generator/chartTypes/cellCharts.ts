@@ -122,7 +122,7 @@ function handleScatter(data: any[], xf: Field, yf: Field, ctx: ChartContext): Pl
       single, xCol, yCol, domainOptions,
       ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
       ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
-      ctx.labelCfg, ctx.tooltipFields, ctx.facetFields, ctx.shapeField
+      ctx.labelCfg, ctx.tooltipFields, ctx.facetFields, ctx.shapeField, ctx.manualShape
     );
   }
   
@@ -130,7 +130,7 @@ function handleScatter(data: any[], xf: Field, yf: Field, ctx: ChartContext): Pl
     data, xCol, yCol, domainOptions,
     ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
     ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
-    ctx.labelCfg, ctx.tooltipFields, ctx.facetFields, ctx.shapeField
+    ctx.labelCfg, ctx.tooltipFields, ctx.facetFields, ctx.shapeField, ctx.manualShape
   );
 }
 
@@ -175,7 +175,7 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
     data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
     ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
     ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
-    ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
+    ctx.labelCfg, ctx.tooltipFields, ctx.facetFields, undefined, ctx.manualShape
   );
 }
 
@@ -193,7 +193,7 @@ function handleBarX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
       ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
       ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
-      ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
+      ctx.labelCfg, ctx.tooltipFields, ctx.facetFields, undefined, ctx.manualShape
     );
   }
   
@@ -223,7 +223,7 @@ function handleBarY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
       ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
       ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
-      ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
+      ctx.labelCfg, ctx.tooltipFields, ctx.facetFields, undefined, ctx.manualShape
     );
   }
   
@@ -302,7 +302,7 @@ function handleTickX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
     data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
     ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
     ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
-    ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
+    ctx.labelCfg, ctx.tooltipFields, ctx.facetFields, undefined, ctx.manualShape
   );
 }
 
@@ -369,7 +369,7 @@ function handleTickY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
     data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
     ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
     ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
-    ctx.labelCfg, ctx.tooltipFields, ctx.facetFields
+    ctx.labelCfg, ctx.tooltipFields, ctx.facetFields, undefined, ctx.manualShape
   );
 }
 
@@ -546,7 +546,8 @@ export function generatePairChartOptions(
   facetFields?: Field[],
   sharedCategoricalDomains?: Record<string, any[]>,
   ganttZoomRange?: GanttZoomRange | null,
-  shapeField?: Field
+  shapeField?: Field,
+  manualShape?: string
 ): Plot.PlotOptions {
   // Bundle context for cleaner parameter passing
   const ctx: ChartContext = {
@@ -566,6 +567,7 @@ export function generatePairChartOptions(
     facetFields,
     ganttZoomRange,
     shapeField,
+    manualShape,
   };
 
   if (!xField && !yField) {

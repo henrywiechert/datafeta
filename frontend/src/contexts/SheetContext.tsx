@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Sheet, SheetManagerState, SheetAction, VisualizationStateSnapshot, Field, FilterConfig } from '../types';
+import { DEFAULT_MANUAL_COLOR } from '../config/colorSchemes';
+import { DEFAULT_MANUAL_SHAPE } from '../observable-plot-generator/utils/shapeUtils';
 
 const STORAGE_KEY = 'data-slicer-sheets';
 
@@ -30,9 +32,12 @@ function createEmptyVisualizationState(): VisualizationStateSnapshot {
     colorField: null,
     colorScheme: 'tableau10',
     colorBias: 0,
+    manualColor: DEFAULT_MANUAL_COLOR,
     sizeField: null,
     sizeRange: [4, 20],
     manualSize: 10,
+    shapeField: null,
+    manualShape: DEFAULT_MANUAL_SHAPE,
     bandThicknessScale: 1.0,
     globalChartType: null,
     selectedChartType: 'auto',

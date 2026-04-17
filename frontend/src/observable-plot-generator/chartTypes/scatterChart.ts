@@ -7,7 +7,13 @@ import { createSizeScale } from '../utils/sizeUtils';
 // Label utilities
 import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../utils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
-import { deriveShapeScaleInfo, getSymbolForValue } from '../utils/shapeUtils';
+import {
+  DEFAULT_MANUAL_SHAPE,
+  deriveShapeScaleInfo,
+  getSymbolForValue,
+  MANUAL_SHAPE_SYMBOLS,
+  ShapeSymbolName,
+} from '../utils/shapeUtils';
 import { formatDateTick } from '../utils/dateFormatUtils';
 
 type ScatterResultBudget = {
@@ -112,6 +118,7 @@ export function scatterChart(
   , tooltipFields?: Field[]
   , facetFields?: Field[]
   , shapeField?: Field
+  , manualShape?: string
 ): Plot.PlotOptions {
   // Detect axis value kindsby sampling up to first 20 non-null values
   const sampleValues = (column: string) => (Array.isArray(data) ? data.map(r => r?.[column]).filter(v => v !== null && v !== undefined) : []);
@@ -203,6 +210,11 @@ export function scatterChart(
 
   const xLabel = options?.x || xColumn;
   const yLabel = options?.y || yColumn;
+  const effectiveManualShape = (MANUAL_SHAPE_SYMBOLS.includes((manualShape || DEFAULT_MANUAL_SHAPE) as ShapeSymbolName)
+    ? (manualShape || DEFAULT_MANUAL_SHAPE)
+    : DEFAULT_MANUAL_SHAPE) as ShapeSymbolName;
+  const hasManualShapeOverride = effectiveManualShape !== DEFAULT_MANUAL_SHAPE;
+  const isManualDot = effectiveManualShape === 'dot';
   const dotConfig: any = {
     x: { value: xColumn, label: xLabel },
     y: { value: yColumn, label: yLabel },
@@ -277,6 +289,13 @@ export function scatterChart(
     dotConfig.stroke = dotConfig.fill;
     dotConfig.fill = 'none';
     dotConfig.strokeWidth = 1.5;
+  } else if (hasManualShapeOverride) {
+    dotConfig.symbol = isManualDot ? 'circle' : effectiveManualShape;
+    if (!isManualDot) {
+      dotConfig.stroke = dotConfig.fill;
+      dotConfig.fill = 'none';
+      dotConfig.strokeWidth = 1.5;
+    }
   }
   
   // Disable built-in Observable Plot tooltip (we'll use custom tooltips)
@@ -422,7 +441,7 @@ export function scatterChart(
   // impossible to hover. Add a layer of transparent circles (same position & radius)
   // so the full dot area becomes a hover target. Observable Plot binds __data__ to
   // each element, so the tooltip data lookup works regardless of mark order.
-  if (shapeField) {
+  if (shapeField || hasManualShapeOverride) {
     const hoverR = typeof dotConfig.r === 'function' ? (manualSize || 6) : (dotConfig.r || 6);
     (plotOptions.marks as any[]).push(
       Plot.dot(budgeted, {

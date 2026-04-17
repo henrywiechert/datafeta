@@ -18,6 +18,18 @@ export const SHAPE_SYMBOLS: string[] = [
 /** Symbol reserved for the "Other" bucket (top-N overflow and nulls). */
 export const SHAPE_OTHER_SYMBOL = 'asterisk';
 
+/** All symbols available for manual single-shape selection. */
+export const MANUAL_SHAPE_SYMBOLS = [
+  'dot',
+  ...SHAPE_SYMBOLS,
+  SHAPE_OTHER_SYMBOL,
+] as const;
+
+export type ShapeSymbolName = typeof MANUAL_SHAPE_SYMBOLS[number];
+
+/** Default manual shape when no shape field is assigned. */
+export const DEFAULT_MANUAL_SHAPE: ShapeSymbolName = 'dot';
+
 /** Maximum number of distinct categories before bucketing into "Other". */
 export const SHAPE_TOP_N = 7;
 

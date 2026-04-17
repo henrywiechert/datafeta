@@ -48,6 +48,7 @@ interface UseChartGenerationProps {
   overlays?: OverlayConfig[];
   // Shape encoding (scatter only, discrete only)
   shapeField?: Field | null;
+  manualShape?: string;
 }
 
 interface UseChartGenerationReturn {
@@ -97,6 +98,7 @@ export const useChartGeneration = ({
   facetBackgroundOpacity,
   overlays,
   shapeField,
+  manualShape,
 }: UseChartGenerationProps): UseChartGenerationReturn => {
   const [spec, setSpec] = useState<PlotResult | null>(null);
   const [chartInfo, setChartInfo] = useState<any | null>(null);
@@ -257,6 +259,7 @@ export const useChartGeneration = ({
         overlays,
         // Shape encoding
         shapeField: shapeField || undefined,
+        manualShape,
       };
       
       // Track which zoom range we generated with
@@ -306,7 +309,7 @@ export const useChartGeneration = ({
       // On error, complete the operation immediately since no rendering will happen
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, bandThicknessScale, useTableView, showTableRows, startOperation, completeOperation, queryResult, queryVersion, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, tooltipFields, fieldOverrides, globalChartType, measureValuesSourceFields, independentDomains, doGenerateChart, fieldAliasLookup, facetBackgroundField, facetBackgroundScheme, facetBackgroundOpacity, overlays]);
+  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, bandThicknessScale, useTableView, showTableRows, startOperation, completeOperation, queryResult, queryVersion, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, tooltipFields, fieldOverrides, globalChartType, measureValuesSourceFields, independentDomains, doGenerateChart, fieldAliasLookup, facetBackgroundField, facetBackgroundScheme, facetBackgroundOpacity, overlays, shapeField, manualShape]);
 
   const cancelGeneration = useCallback(() => {
     // No-op since Observable Plot generation is synchronous

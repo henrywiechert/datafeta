@@ -16,6 +16,7 @@ export function undoRedoReducer(state: VisualizationState, action: Visualization
         colorField: action.payload.colorField,
         colorScheme: action.payload.colorScheme,
         colorBias: action.payload.colorBias,
+        manualColor: action.payload.manualColor ?? state.manualColor,
         sizeField: action.payload.sizeField,
         sizeRange: action.payload.sizeRange,
         manualSize: action.payload.manualSize,
@@ -31,6 +32,7 @@ export function undoRedoReducer(state: VisualizationState, action: Visualization
         showTableRows: action.payload.showTableRows ?? state.showTableRows,
         overlays: action.payload.overlays ?? state.overlays,
         shapeField: action.payload.shapeField !== undefined ? action.payload.shapeField : state.shapeField,
+        manualShape: action.payload.manualShape ?? state.manualShape,
         queryVersion: state.queryVersion + 1,
       };
     default:
