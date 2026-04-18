@@ -18,17 +18,31 @@ export const SHAPE_SYMBOLS: string[] = [
 /** Symbol reserved for the "Other" bucket (top-N overflow and nulls). */
 export const SHAPE_OTHER_SYMBOL = 'asterisk';
 
+/** Manual option representing plain filled dots (no shape encoding). */
+export const MANUAL_NO_SHAPE = 'none';
+
 /** All symbols available for manual single-shape selection. */
-export const MANUAL_SHAPE_SYMBOLS = [
-  'dot',
-  ...SHAPE_SYMBOLS,
-  SHAPE_OTHER_SYMBOL,
+export const MANUAL_SHAPE_SYMBOLS = [...SHAPE_SYMBOLS] as const;
+
+export type ShapeSymbolName = typeof SHAPE_SYMBOLS[number] | typeof SHAPE_OTHER_SYMBOL;
+export type ManualShapeOption = typeof MANUAL_NO_SHAPE | typeof MANUAL_SHAPE_SYMBOLS[number];
+
+/** Manual palette options in UI order. */
+export const MANUAL_SHAPE_OPTIONS = [
+  MANUAL_NO_SHAPE,
+  ...MANUAL_SHAPE_SYMBOLS,
 ] as const;
 
-export type ShapeSymbolName = typeof MANUAL_SHAPE_SYMBOLS[number];
-
 /** Default manual shape when no shape field is assigned. */
-export const DEFAULT_MANUAL_SHAPE: ShapeSymbolName = 'dot';
+export const DEFAULT_MANUAL_SHAPE: ManualShapeOption = MANUAL_NO_SHAPE;
+
+export function isManualShapeOption(value: string | null | undefined): value is ManualShapeOption {
+  return value === MANUAL_NO_SHAPE || MANUAL_SHAPE_SYMBOLS.includes(value as typeof MANUAL_SHAPE_SYMBOLS[number]);
+}
+
+export function resolveManualShapeOption(value: string | null | undefined): ManualShapeOption {
+  return isManualShapeOption(value) ? value : DEFAULT_MANUAL_SHAPE;
+}
 
 /** Maximum number of distinct categories before bucketing into "Other". */
 export const SHAPE_TOP_N = 7;
@@ -120,9 +134,10 @@ export function deriveShapeScaleInfo(
   }));
 
   if (hasOther) {
+    const onlyNullInOther = otherValues.length > 0 && otherValues.every(val => val === null || val === undefined);
     legendEntries.push({
       value: SHAPE_OTHER_LABEL,
-      label: SHAPE_OTHER_LABEL,
+      label: onlyNullInOther ? 'NULL' : SHAPE_OTHER_LABEL,
       symbol: SHAPE_OTHER_SYMBOL,
     });
   }

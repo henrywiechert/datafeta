@@ -11,8 +11,8 @@ import {
   DEFAULT_MANUAL_SHAPE,
   deriveShapeScaleInfo,
   getSymbolForValue,
-  MANUAL_SHAPE_SYMBOLS,
-  ShapeSymbolName,
+  MANUAL_NO_SHAPE,
+  resolveManualShapeOption,
 } from '../utils/shapeUtils';
 import { formatDateTick } from '../utils/dateFormatUtils';
 
@@ -210,11 +210,8 @@ export function scatterChart(
 
   const xLabel = options?.x || xColumn;
   const yLabel = options?.y || yColumn;
-  const effectiveManualShape = (MANUAL_SHAPE_SYMBOLS.includes((manualShape || DEFAULT_MANUAL_SHAPE) as ShapeSymbolName)
-    ? (manualShape || DEFAULT_MANUAL_SHAPE)
-    : DEFAULT_MANUAL_SHAPE) as ShapeSymbolName;
-  const hasManualShapeOverride = effectiveManualShape !== DEFAULT_MANUAL_SHAPE;
-  const isManualDot = effectiveManualShape === 'dot';
+  const effectiveManualShape = resolveManualShapeOption(manualShape || DEFAULT_MANUAL_SHAPE);
+  const hasManualShapeOverride = effectiveManualShape !== MANUAL_NO_SHAPE;
   const dotConfig: any = {
     x: { value: xColumn, label: xLabel },
     y: { value: yColumn, label: yLabel },
@@ -290,12 +287,10 @@ export function scatterChart(
     dotConfig.fill = 'none';
     dotConfig.strokeWidth = 1.5;
   } else if (hasManualShapeOverride) {
-    dotConfig.symbol = isManualDot ? 'circle' : effectiveManualShape;
-    if (!isManualDot) {
-      dotConfig.stroke = dotConfig.fill;
-      dotConfig.fill = 'none';
-      dotConfig.strokeWidth = 1.5;
-    }
+    dotConfig.symbol = effectiveManualShape;
+    dotConfig.stroke = dotConfig.fill;
+    dotConfig.fill = 'none';
+    dotConfig.strokeWidth = 1.5;
   }
   
   // Disable built-in Observable Plot tooltip (we'll use custom tooltips)
