@@ -301,16 +301,16 @@ export function generateChartOptions(
     );
   }
 
-  const singleXDim = analysis.hasXDimension && xContinuousDims.length === 1 && yDims.length === 0;
-  const singleYDim = analysis.hasYDimension && yContinuousDims.length === 1 && xDims.length === 0;
+  const singleXDim = analysis.hasXDimension && xContinuousDims.length === 1 && yDims.length === 0 && !analysis.hasMeasure;
+  const singleYDim = analysis.hasYDimension && yContinuousDims.length === 1 && xDims.length === 0 && !analysis.hasMeasure;
   if (singleXDim) {
     // Use the continuous dimension, not analysis.xDimensions[0] which may include discrete dims
     const dim = xContinuousDims[0];
     const dimCol = getResultColumnName(dim);
-    // If opposite axis has discrete dimension(s), treat them as categories (mirroring bar chart behavior)
-    // Check categoryAxisDescriptor first (from faceting), then fall back to finding in yDims
-    const categoryField = yDiscreteDims.slice(-1)[0];
+    // Prefer same-axis discrete dimensions as categories, then opposite-axis/faceted descriptors.
+    const categoryField = xDiscreteDims.slice(-1)[0] || yDiscreteDims.slice(-1)[0];
     const category = (context.categoryAxisDescriptor?.axis === 'y' ? context.categoryAxisDescriptor.columnName : null)
+      || (context.categoryAxisDescriptor?.axis === 'x' ? context.categoryAxisDescriptor.columnName : null)
       || categoryField?.columnName;
     return wrapTickStripAs1x1Grid(context, buildDistributionOptions(context, 'x', dimCol, category, { dimension: getDisplayName(dim), category: categoryField ? getDisplayName(categoryField) : undefined }), 'x', context.distributionVariant === 'box-plot' ? 'box-plot-x' : 'tick-strip-x', dimCol, category);
   }
@@ -318,9 +318,10 @@ export function generateChartOptions(
     // Use the continuous dimension, not analysis.yDimensions[0] which may include discrete dims
     const dim = yContinuousDims[0];
     const dimCol = getResultColumnName(dim);
-    // Check categoryAxisDescriptor first (from faceting), then fall back to finding in xDims
-    const categoryField = xDiscreteDims.slice(-1)[0];
+    // Prefer same-axis discrete dimensions as categories, then opposite-axis/faceted descriptors.
+    const categoryField = yDiscreteDims.slice(-1)[0] || xDiscreteDims.slice(-1)[0];
     const category = (context.categoryAxisDescriptor?.axis === 'x' ? context.categoryAxisDescriptor.columnName : null)
+      || (context.categoryAxisDescriptor?.axis === 'y' ? context.categoryAxisDescriptor.columnName : null)
       || categoryField?.columnName;
     return wrapTickStripAs1x1Grid(context, buildDistributionOptions(context, 'y', dimCol, category, { dimension: getDisplayName(dim), category: categoryField ? getDisplayName(categoryField) : undefined }), 'y', context.distributionVariant === 'box-plot' ? 'box-plot-y' : 'tick-strip-y', dimCol, category);
   }
@@ -521,14 +522,24 @@ export function generateChartOptions(
   if (multiXDim) {
     const plots = analysis.xDimensions.map((dim, i: number) => {
       const dimCol = getResultColumnName(dim);
-      return { id: `x-dim-${i}`, title: getDisplayName(dim), position: { row: 0, col: i }, options: tickStrip(context, 'x', dimCol, undefined, { dimension: getDisplayName(dim) }) };
+      return {
+        id: `x-dim-${i}`,
+        title: getDisplayName(dim),
+        position: { row: 0, col: i },
+        options: buildDistributionOptions(context, 'x', dimCol, undefined, { dimension: getDisplayName(dim) })
+      };
     });
     return { library: 'observable-plot', plots, layout: { type: 'grid', columns: plots.length, rows: 1, columnSizes: Array.from({ length: plots.length }, () => 'fr' as const), rowSizes: ['fr'] } };
   }
   if (multiYDim) {
     const plots = analysis.yDimensions.map((dim, i: number) => {
       const dimCol = getResultColumnName(dim);
-      return { id: `y-dim-${i}`, title: getDisplayName(dim), position: { row: i, col: 0 }, options: tickStrip(context, 'y', dimCol, undefined, { dimension: getDisplayName(dim) }) };
+      return {
+        id: `y-dim-${i}`,
+        title: getDisplayName(dim),
+        position: { row: i, col: 0 },
+        options: buildDistributionOptions(context, 'y', dimCol, undefined, { dimension: getDisplayName(dim) })
+      };
     });
     return { library: 'observable-plot', plots, layout: { type: 'grid', columns: 1, rows: plots.length, columnSizes: ['fr'], rowSizes: Array.from({ length: plots.length }, () => 'fr' as const) } };
   }

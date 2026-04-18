@@ -113,13 +113,22 @@ export function mapUserChartTypeToCellChartType(
       }
       return 'barY';
     
-    case 'tick':
+    case 'tick': {
       // Distribution orientation matches the axis of the continuous dimension.
       // The concrete variant decides whether we render a tick strip or a box plot.
+      const xIsContinuous = xField.flavour === 'continuous';
+      const yIsContinuous = yField.flavour === 'continuous';
+      if (xIsContinuous && !yIsContinuous) {
+        return distributionVariant === 'box-plot' ? 'boxX' : 'tickX';
+      }
+      if (yIsContinuous && !xIsContinuous) {
+        return distributionVariant === 'box-plot' ? 'boxY' : 'tickY';
+      }
       if (fieldAxis === 'x') {
         return distributionVariant === 'box-plot' ? 'boxX' : 'tickX';
       }
       return distributionVariant === 'box-plot' ? 'boxY' : 'tickY';
+    }
     
     case 'scatter':
       return 'scatter';
@@ -130,7 +139,7 @@ export function mapUserChartTypeToCellChartType(
     case 'cdf':
       return 'cdf';
     
-    case 'gantt':
+    case 'gantt': {
       // Gantt orientation: ganttX = horizontal (timeline on X axis), ganttY = vertical (timeline on Y axis)
       // Determine by which field is continuous (the timeline axis)
       // Unlike other charts, Gantt doesn't care about fieldAxis - it cares about which field is continuous
@@ -147,6 +156,7 @@ export function mapUserChartTypeToCellChartType(
       }
       // Both continuous or both discrete - default to horizontal (ganttX)
       return 'ganttX';
+    }
     
     default:
       // Fallback to auto-detection
