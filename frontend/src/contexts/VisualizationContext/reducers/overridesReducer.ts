@@ -56,6 +56,16 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
         queryVersion: cdfChanged ? state.queryVersion + 1 : state.queryVersion,
       };
     }
+    case 'SET_DISTRIBUTION_VARIANT':
+      return {
+        ...state,
+        distributionVariant: action.payload,
+      };
+    case 'SET_BOX_PLOT_REFERENCE_LINE_MODE':
+      return {
+        ...state,
+        boxPlotReferenceLineMode: action.payload,
+      };
     // --- Overlay actions (visual-only, no query version bump) ---
     case 'SET_OVERLAYS':
       return { ...state, overlays: action.payload };

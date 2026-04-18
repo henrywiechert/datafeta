@@ -38,6 +38,8 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
     fieldOverrideTargets,
     allFields,
     globalChartType,
+    distributionVariant = 'tick-strip',
+    boxPlotReferenceLineMode = 'none',
     measureValuesSourceFields,
     bandThicknessScale,
     ganttZoomRange,
@@ -141,7 +143,8 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
           cellOverride.chartType,
           overrideAxis,
           xField,
-          yField
+          yField,
+          distributionVariant
         );
         cellChartTypeOverrides = {
           ...overrides,
@@ -157,7 +160,8 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
           globalChartType,
           xField.type === 'measure' ? 'x' : 'y',
           xField,
-          yField
+          yField,
+          distributionVariant
         );
         cellChartTypeOverrides = {
           ...overrides,
@@ -273,7 +277,9 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
           sharedDomains.categorical,
           ganttZoomRange,
           shapeField,
-          manualShape
+          manualShape,
+          distributionVariant,
+          boxPlotReferenceLineMode
         );
       }
 
@@ -282,7 +288,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
         const resolvedCellType = resolveChartTypeForPair(xField, yField, cellChartTypeOverrides);
         const userChartType = cellChartTypeToUserType(resolvedCellType);
         // Determine orientation: dependent (value) axis — Y for most charts, X for barX/tickX/ganttX
-        const depAxis: 'x' | 'y' = (resolvedCellType === 'barX' || resolvedCellType === 'tickX' || resolvedCellType === 'ganttX') ? 'x' : 'y';
+        const depAxis: 'x' | 'y' = (resolvedCellType === 'barX' || resolvedCellType === 'tickX' || resolvedCellType === 'boxX' || resolvedCellType === 'ganttX') ? 'x' : 'y';
         options = applyOverlays(options, overlayConfigs, {
           data,
           xColumn: getFieldColumnName(xField),

@@ -3,7 +3,7 @@
  * Multi-sheet workspace and visualization state
  */
 
-import { Field, FieldOverrideState, UserChartType, QueryOptimizationSettings } from './field';
+import { Field, FieldOverrideState, UserChartType, QueryOptimizationSettings, DistributionVariant, BoxPlotReferenceLineMode } from './field';
 import { FilterConfig } from './filter';
 import { VirtualColumnDefinition } from './virtualColumn';
 
@@ -68,6 +68,8 @@ export interface VisualizationStateSnapshot {
   independentDomains?: { x: boolean; y: boolean };
   fieldOverrides?: Record<string, FieldOverrideState>;
   globalChartType?: UserChartType | null;
+  distributionVariant?: DistributionVariant;
+  boxPlotReferenceLineMode?: BoxPlotReferenceLineMode;
   showTableRows?: boolean;
   selectedChartType?: UserChartType | 'auto';
   virtualColumns?: VirtualColumnDefinition[];

@@ -4,7 +4,7 @@
  */
 
 import * as Plot from '@observablehq/plot';
-import { Field } from '../../types';
+import { BoxPlotReferenceLineMode, DistributionVariant, Field } from '../../types';
 import { LabelConfig, GanttZoomRange } from '../types';
 
 /**
@@ -39,6 +39,10 @@ export interface ChartContext {
   shapeField?: Field;
   /** Manual single-shape fallback when no shape field is assigned */
   manualShape?: string;
+  /** Variant for the distribution chart family when rendering tick charts. */
+  distributionVariant?: DistributionVariant;
+  /** Optional reference line mode for the box-plot distribution variant. */
+  boxPlotReferenceLineMode?: BoxPlotReferenceLineMode;
 }
 
 /**
