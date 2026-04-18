@@ -1,8 +1,9 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext } from '../types';
-import { BAR_STEP_PX, DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
+import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING } from '../../config/chartLayoutConfig';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { getFieldDisplayName, getResultColumnName } from '../../utils/fieldUtils';
+import { computeBandPaddingFromSizeField } from './barCore';
 
 function getMedianValue(values: Array<number | Date>): number | Date | null {
   if (values.length === 0) return null;
@@ -49,6 +50,8 @@ export function boxPlot(
   axisDomain?: [number, number] | [Date, Date],
 ): Plot.PlotOptions {
   const data = context.queryResult.rows;
+  const thicknessScale = context.bandThicknessScale ?? 1;
+  const bandPadding = computeBandPaddingFromSizeField(data, undefined, { manualSize: context.manualSize }) ?? BAND_PADDING;
   const colorColumnName = context.colorField ? getResultColumnName(context.colorField) : undefined;
   const usesCategoryColor = Boolean(
     categoryColumn &&
@@ -65,7 +68,7 @@ export function boxPlot(
         : Array.from(new Set(data.map((row) => row[categoryColumn]))))
     : undefined;
   const categoryCount = Math.max(1, categories?.length ?? 1);
-  const categoryAxisSize = Math.max(BAR_STEP_PX, categoryCount * BAR_STEP_PX);
+  const categoryAxisSize = Math.max(BAR_STEP_PX, categoryCount * BAR_STEP_PX) * thicknessScale;
   const strokeColor = context.manualColor || DEFAULT_CHART_COLOR;
   const fillColor = context.manualColor || DEFAULT_CHART_COLOR;
   const colorScale = usesCategoryColor && colorInfo
@@ -103,6 +106,7 @@ export function boxPlot(
               label: labels?.category,
               domain: categories as any,
               type: 'band' as any,
+              padding: bandPadding as any,
             },
           }
         : {}),
@@ -135,6 +139,7 @@ export function boxPlot(
             label: labels?.category,
             domain: categories as any,
             type: 'band' as any,
+            padding: bandPadding as any,
           },
         }
       : {}),
