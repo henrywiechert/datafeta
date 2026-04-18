@@ -1,6 +1,6 @@
 import React, { useRef, useCallback, useMemo, useState, useEffect } from 'react';
 import styles from './ChartArea.module.css';
-import { useVisualizationContext } from '../../../contexts/VisualizationContext';
+import { useVisualizationContext, useChannels } from '../../../contexts/VisualizationContext';
 import { useDataSource } from '../../../contexts/DataSourceContext';
 import { useSheetContext } from '../../../contexts/SheetContext';
 import { useUndoRedo } from '../../../hooks/useUndoRedo';
@@ -47,6 +47,7 @@ const ChartArea: React.FC = () => {
   const { dataSource, clearSessionFilters } = useDataSource();
   const { resetWorkspace, activeSheet } = useSheetContext();
   const renderingCoordinator = useRenderingCoordinator();
+  const channels = useChannels();
 
   // -- State destructuring -----------------------------------------------------
   const {
@@ -132,13 +133,8 @@ const ChartArea: React.FC = () => {
     selectedDatabase,
     xAxisFields,
     yAxisFields,
-    colorField,
-    sizeField,
-    shapeField,
-    facetBackgroundField,
+    channels,
     filterConfigurations: effectiveFilterConfigurations,
-    labelFields,
-    tooltipFields,
     virtualTable,
     virtualColumns,
     additionalColorFields,
@@ -151,14 +147,7 @@ const ChartArea: React.FC = () => {
     useChartGeneration({
       xAxisFields,
       yAxisFields,
-      colorField,
-      colorScheme,
-      colorBias,
-      manualColor,
-      sizeField,
-      sizeRange,
-      manualSize,
-      bandThicknessScale,
+      channels,
       useTableView,
       showTableRows,
       queryResult,
@@ -166,22 +155,11 @@ const ChartArea: React.FC = () => {
       startOperation,
       completeOperation,
       independentDomains,
-      labelFields,
-      labelsEnabled,
-      labelSamplingStrategy,
-      labelSamplingThreshold,
-      labelSampleEvery,
-      tooltipFields,
       fieldOverrides,
       globalChartType,
       measureValuesSourceFields,
       ganttZoomRange,
-      facetBackgroundField,
-      facetBackgroundScheme,
-      facetBackgroundOpacity,
       overlays,
-      shapeField,
-      manualShape,
     });
 
   const { handleLegendFilterAction, handleShapeLegendFilterAction, specWithTooltipAction } = useFilterActions({

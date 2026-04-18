@@ -55,6 +55,17 @@ export type {
   QueryOptimizationSettings,
 } from './field';
 
+// Visual encoding channel types
+export type {
+  ColorChannel,
+  SizeChannel,
+  ShapeChannel,
+  LabelChannel,
+  TooltipChannel,
+  FacetBackgroundChannel,
+  Channels,
+} from './channels';
+
 // Query types
 export type {
   ColumnCastConfig,
