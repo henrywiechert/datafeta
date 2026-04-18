@@ -1,11 +1,13 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext } from '../types';
 import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING } from '../../config/chartLayoutConfig';
-import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
+import { ColorScaleInfo, deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { getFieldDisplayName, getResultColumnName } from '../../utils/fieldUtils';
 import { computeBandPaddingFromSizeField } from './barCore';
 import { createTooltipFieldsGetter, formatTooltipValue } from '../utils/tooltipUtils';
 import { Field, TooltipField } from '../../types';
+
+const BOX_PLOT_COLOR_COLUMN = '__box_plot_color';
 
 type SummaryRow = {
   [key: string]: any;
@@ -32,8 +34,14 @@ function toTooltipValue(sampleValue: number | Date, numericValue: number): numbe
   return sampleValue instanceof Date ? new Date(numericValue) : numericValue;
 }
 
-function buildSummaryRows(data: any[], valueColumn: string, categoryColumn?: string): SummaryRow[] {
+function buildSummaryRows(
+  data: any[],
+  valueColumn: string,
+  categoryColumn?: string,
+  colorColumn?: string,
+): SummaryRow[] {
   const grouped = new Map<any, Array<number | Date>>();
+  const groupColors = new Map<any, Set<any>>();
 
   for (const row of data) {
     const value = row[valueColumn];
@@ -53,6 +61,12 @@ function buildSummaryRows(data: any[], valueColumn: string, categoryColumn?: str
       grouped.set(categoryValue, []);
     }
     grouped.get(categoryValue)!.push(parsedValue);
+    if (colorColumn) {
+      if (!groupColors.has(categoryValue)) {
+        groupColors.set(categoryValue, new Set<any>());
+      }
+      groupColors.get(categoryValue)!.add(row[colorColumn]);
+    }
   }
 
   return Array.from(grouped.entries()).map(([categoryValue, values]) => {
@@ -71,8 +85,55 @@ function buildSummaryRows(data: any[], valueColumn: string, categoryColumn?: str
     if (categoryColumn) {
       summary[categoryColumn] = categoryValue;
     }
+    if (colorColumn) {
+      const colors = Array.from(groupColors.get(categoryValue) || []);
+      if (colors.length === 1) {
+        summary[colorColumn] = colors[0];
+      }
+    }
     return summary;
   });
+}
+
+function buildColorizedBoxData(
+  data: any[],
+  categoryColumn: string | undefined,
+  colorColumn: string | undefined,
+): { data: any[]; colorColumnName?: string } {
+  if (!colorColumn) {
+    return { data };
+  }
+
+  const groupColors = new Map<any, Set<any>>();
+  for (const row of data) {
+    const key = categoryColumn ? row[categoryColumn] : ' ';
+    if (!groupColors.has(key)) {
+      groupColors.set(key, new Set<any>());
+    }
+    groupColors.get(key)!.add(row[colorColumn]);
+  }
+
+  const colorByGroup = new Map<any, any>();
+  groupColors.forEach((values, key) => {
+    if (values.size === 1) {
+      colorByGroup.set(key, Array.from(values)[0]);
+    }
+  });
+
+  if (colorByGroup.size === 0) {
+    return { data };
+  }
+
+  return {
+    data: data.map((row) => {
+      const key = categoryColumn ? row[categoryColumn] : ' ';
+      return {
+        ...row,
+        [BOX_PLOT_COLOR_COLUMN]: colorByGroup.get(key),
+      };
+    }),
+    colorColumnName: BOX_PLOT_COLOR_COLUMN,
+  };
 }
 
 function resolveFieldByColumn(context: ChartGenerationContext, columnName?: string): Field | undefined {
@@ -92,6 +153,7 @@ function createBoxTooltipFieldsGetter(
   valueLabel: string,
   categoryColumn?: string,
   categoryLabel?: string,
+  colorColumn?: string,
 ): (row: SummaryRow) => TooltipField[] {
   const valueField = resolveFieldByColumn(context, valueColumn);
   const categoryField = resolveFieldByColumn(context, categoryColumn);
@@ -99,7 +161,7 @@ function createBoxTooltipFieldsGetter(
     categoryColumn && categoryLabel
       ? [{ label: categoryLabel, column: categoryColumn, sourceField: categoryField }]
       : [],
-    undefined,
+    colorColumn ? context.colorField : undefined,
     undefined,
     undefined,
   );
@@ -153,42 +215,6 @@ function createBoxTooltipFieldsGetter(
   };
 }
 
-function getMedianValue(values: Array<number | Date>): number | Date | null {
-  if (values.length === 0) return null;
-
-  const numericValues = values
-    .map((value) => value instanceof Date ? value.getTime() : value)
-    .sort((left, right) => left - right);
-
-  const middleIndex = Math.floor(numericValues.length / 2);
-  const median = numericValues.length % 2 === 0
-    ? (numericValues[middleIndex - 1] + numericValues[middleIndex]) / 2
-    : numericValues[middleIndex];
-
-  return values[0] instanceof Date ? new Date(median) : median;
-}
-
-function collectContinuousValues(data: any[], valueColumn: string): Array<number | Date> {
-  return data.reduce<Array<number | Date>>((values, row) => {
-    const value = row[valueColumn];
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      values.push(value);
-      return values;
-    }
-    if (value instanceof Date) {
-      values.push(value);
-      return values;
-    }
-    if (typeof value === 'string') {
-      const parsed = Date.parse(value);
-      if (!Number.isNaN(parsed)) {
-        values.push(new Date(parsed));
-      }
-    }
-    return values;
-  }, []);
-}
-
 export function boxPlot(
   context: ChartGenerationContext,
   orientation: 'x' | 'y',
@@ -196,19 +222,20 @@ export function boxPlot(
   categoryColumn?: string,
   labels?: { dimension?: string; category?: string },
   axisDomain?: [number, number] | [Date, Date],
+  sharedColorScale?: ColorScaleInfo | null,
 ): Plot.PlotOptions {
-  const data = context.queryResult.rows;
+  const rawData = context.queryResult.rows;
   const thicknessScale = context.bandThicknessScale ?? 1;
-  const bandPadding = computeBandPaddingFromSizeField(data, undefined, { manualSize: context.manualSize }) ?? BAND_PADDING;
-  const colorColumnName = context.colorField ? getResultColumnName(context.colorField) : undefined;
-  const usesCategoryColor = Boolean(
-    categoryColumn &&
-    colorColumnName &&
-    context.colorField?.flavour === 'discrete' &&
-    colorColumnName === categoryColumn
-  );
-  const colorInfo = usesCategoryColor && context.colorField
-    ? deriveColorScaleInfo(data, context.colorField, context.colorScheme, context.colorBias)
+  const bandPadding = computeBandPaddingFromSizeField(rawData, undefined, { manualSize: context.manualSize }) ?? BAND_PADDING;
+  const sourceColorColumnName = context.colorField ? getResultColumnName(context.colorField) : undefined;
+  const usesDiscreteColor = Boolean(sourceColorColumnName && context.colorField?.flavour === 'discrete');
+  const colorized = usesDiscreteColor
+    ? buildColorizedBoxData(rawData, categoryColumn, sourceColorColumnName)
+    : { data: rawData, colorColumnName: undefined as string | undefined };
+  const data = colorized.data;
+  const resolvedColorColumnName = colorized.colorColumnName;
+  const colorInfo = usesDiscreteColor && context.colorField
+    ? (sharedColorScale || deriveColorScaleInfo(rawData, context.colorField, context.colorScheme, context.colorBias))
     : null;
   const categories = categoryColumn
     ? (context.categoryAxisDescriptor?.domain && Array.isArray(context.categoryAxisDescriptor.domain)
@@ -219,7 +246,7 @@ export function boxPlot(
   const categoryAxisSize = Math.max(BAR_STEP_PX, categoryCount * BAR_STEP_PX) * thicknessScale;
   const strokeColor = context.manualColor || DEFAULT_CHART_COLOR;
   const fillColor = context.manualColor || DEFAULT_CHART_COLOR;
-  const colorScale = usesCategoryColor && colorInfo
+  const colorScale = resolvedColorColumnName && colorInfo
     ? (colorInfo.kind === 'continuous'
         ? {
             type: 'linear',
@@ -235,20 +262,17 @@ export function boxPlot(
             label: getFieldDisplayName(context.colorField!),
           } as any)
     : undefined;
-
-  const referenceValue = context.boxPlotReferenceLineMode === 'global-median'
-    ? getMedianValue(collectContinuousValues(data, valueColumn))
-    : null;
-  const summaryRows = buildSummaryRows(data, valueColumn, categoryColumn);
+  const summaryRows = buildSummaryRows(data, valueColumn, categoryColumn, sourceColorColumnName);
   const tooltipGetter = createBoxTooltipFieldsGetter(
     context,
     valueColumn,
     labels?.dimension || valueColumn,
     categoryColumn,
     labels?.category,
+    sourceColorColumnName,
   );
   const interactionDomain = axisDomain || (() => {
-    const values = collectContinuousValues(data, valueColumn);
+    const values = summaryRows.flatMap((row) => [row.min, row.max]);
     if (values.length === 0) return undefined;
     const numericValues = values.map((value) => value instanceof Date ? value.getTime() : value);
     const min = Math.min(...numericValues);
@@ -285,9 +309,9 @@ export function boxPlot(
         Plot.boxX(data, {
           x: valueColumn,
           y: categoryColumn || (() => ' '),
-          fill: usesCategoryColor ? colorColumnName! : fillColor,
+          fill: resolvedColorColumnName || fillColor,
           fillOpacity: 0.22,
-          stroke: usesCategoryColor ? colorColumnName! : strokeColor,
+          stroke: resolvedColorColumnName || strokeColor,
         }),
         ...(interactionDomain
           ? [Plot.rectX(summaryRows, {
@@ -298,9 +322,6 @@ export function boxPlot(
               fillOpacity: 0,
               stroke: 'transparent',
             })]
-          : []),
-        ...(referenceValue !== null
-          ? [Plot.ruleX([referenceValue], { stroke: '#e15759', strokeDasharray: '4,2', strokeWidth: 1.5 })]
           : []),
       ],
       height: categoryAxisSize,
@@ -341,9 +362,9 @@ export function boxPlot(
       Plot.boxY(data, {
         y: valueColumn,
         x: categoryColumn || (() => ' '),
-        fill: usesCategoryColor ? colorColumnName! : fillColor,
+        fill: resolvedColorColumnName || fillColor,
         fillOpacity: 0.22,
-        stroke: usesCategoryColor ? colorColumnName! : strokeColor,
+        stroke: resolvedColorColumnName || strokeColor,
       }),
       ...(interactionDomain
         ? [Plot.rectY(summaryRows, {
@@ -354,9 +375,6 @@ export function boxPlot(
             fillOpacity: 0,
             stroke: 'transparent',
           })]
-        : []),
-      ...(referenceValue !== null
-        ? [Plot.ruleY([referenceValue], { stroke: '#e15759', strokeDasharray: '4,2', strokeWidth: 1.5 })]
         : []),
     ],
     width: categoryAxisSize,

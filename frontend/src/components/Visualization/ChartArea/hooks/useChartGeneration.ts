@@ -2,7 +2,7 @@ import { useCallback, useState, useEffect, useRef } from 'react';
 import { generatePlot } from '../../../../observable-plot-generator/observablePlotGenerator';
 import { PlotResult, ChartGenerationContext, GanttZoomRange } from '../../../../observable-plot-generator/types';
 import { OverlayConfig } from '../../../../observable-plot-generator/overlays/types';
-import { Field, FieldOverrideState, UserChartType, Channels, DistributionVariant, BoxPlotReferenceLineMode } from '../../../../types';
+import { Field, FieldOverrideState, UserChartType, Channels, DistributionVariant } from '../../../../types';
 import { computeOverrideTargets } from '../../../../observable-plot-generator/utils/fieldOverrides';
 import { logOperationTiming } from '../utils';
 import { planFacets } from '../../../../observable-plot-generator/faceting/facetPlanner';
@@ -25,7 +25,6 @@ interface UseChartGenerationProps {
   fieldOverrides?: Record<string, FieldOverrideState>;
   globalChartType?: UserChartType | null;
   distributionVariant?: DistributionVariant;
-  boxPlotReferenceLineMode?: BoxPlotReferenceLineMode;
   measureValuesSourceFields?: Field[];
   independentDomains?: { x?: boolean; y?: boolean };
   ganttZoomRange?: GanttZoomRange | null;
@@ -59,7 +58,6 @@ export const useChartGeneration = ({
   fieldOverrides = {},
   globalChartType,
   distributionVariant = 'tick-strip',
-  boxPlotReferenceLineMode = 'none',
   measureValuesSourceFields = [],
   independentDomains,
   ganttZoomRange,
@@ -221,7 +219,6 @@ export const useChartGeneration = ({
         fieldOverrideTargets: overrideTargets,
         globalChartType,
         distributionVariant,
-        boxPlotReferenceLineMode,
         measureValuesSourceFields,
         independentDomains,
         ganttZoomRange: ganttZoomRangeRef.current,
@@ -283,7 +280,7 @@ export const useChartGeneration = ({
       // On error, complete the operation immediately since no rendering will happen
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, channels, useTableView, showTableRows, startOperation, completeOperation, queryResult, queryVersion, fieldOverrides, globalChartType, distributionVariant, boxPlotReferenceLineMode, measureValuesSourceFields, independentDomains, doGenerateChart, fieldAliasLookup, overlays]);
+  }, [xAxisFields, yAxisFields, channels, useTableView, showTableRows, startOperation, completeOperation, queryResult, queryVersion, fieldOverrides, globalChartType, distributionVariant, measureValuesSourceFields, independentDomains, doGenerateChart, fieldAliasLookup, overlays]);
 
   const cancelGeneration = useCallback(() => {
     // No-op since Observable Plot generation is synchronous

@@ -1,4 +1,4 @@
-import { Field, FilterConfig, FieldOverrideState, UserChartType, DistributionVariant, BoxPlotReferenceLineMode } from '../types';
+import { Field, FilterConfig, FieldOverrideState, UserChartType, DistributionVariant } from '../types';
 
 export interface QueryAffectingConfig {
   xAxisFields: Field[];
@@ -24,7 +24,6 @@ export interface ChartAffectingConfig extends QueryAffectingConfig {
   fieldOverrides?: Record<string, FieldOverrideState>;
   globalChartType?: UserChartType | null;
   distributionVariant?: DistributionVariant;
-  boxPlotReferenceLineMode?: BoxPlotReferenceLineMode;
   independentDomains?: { x?: boolean; y?: boolean };
   labelsEnabled?: boolean;
   labelSamplingStrategy?: string;
@@ -66,7 +65,6 @@ export function createChartAffectingConfig(config: ChartAffectingConfig): ChartA
     fieldOverrides: config.fieldOverrides,
     globalChartType: config.globalChartType,
     distributionVariant: config.distributionVariant,
-    boxPlotReferenceLineMode: config.boxPlotReferenceLineMode,
     independentDomains: config.independentDomains,
     labelsEnabled: config.labelsEnabled,
     labelSamplingStrategy: config.labelSamplingStrategy,

@@ -74,7 +74,6 @@ export const initialState: VisualizationState = {
   // Global chart type default (null = auto-detect)
   globalChartType: null,
   distributionVariant: 'tick-strip',
-  boxPlotReferenceLineMode: 'none',
   // Table rows view mode default
   showTableRows: false,
   queryVersion: 0,

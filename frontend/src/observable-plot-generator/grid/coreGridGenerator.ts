@@ -39,7 +39,6 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
     allFields,
     globalChartType,
     distributionVariant = 'tick-strip',
-    boxPlotReferenceLineMode = 'none',
     measureValuesSourceFields,
     bandThicknessScale,
     ganttZoomRange,
@@ -278,8 +277,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
           ganttZoomRange,
           shapeField,
           manualShape,
-          distributionVariant,
-          boxPlotReferenceLineMode
+          distributionVariant
         );
       }
 

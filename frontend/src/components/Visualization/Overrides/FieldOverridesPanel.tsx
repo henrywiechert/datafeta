@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Box, FormControl, InputLabel, MenuItem, Select } from '@mui/material';
+import { Box } from '@mui/material';
 import TuneIcon from '@mui/icons-material/Tune';
 import { PropertySection } from '../Properties';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
@@ -46,7 +46,6 @@ const FieldOverridesPanel: React.FC = () => {
     tooltipFields,
     globalChartType,
     distributionVariant,
-    boxPlotReferenceLineMode,
     measureValuesSourceFields,
     facetBackgroundField,
     facetBackgroundScheme,
@@ -293,7 +292,6 @@ const FieldOverridesPanel: React.FC = () => {
     const resolvedGlobalColorField = colorField as Field | null;
     const resolvedGlobalSizeField = sizeField as Field | null;
     const effectiveDistributionMode = globalChartType === 'tick' || (!globalChartType && autoSelectedType === 'tick');
-    const showBoxPlotReferenceLineControl = effectiveDistributionMode && distributionVariant === 'box-plot';
 
     const effectiveManualColor = manualColor || DEFAULT_MANUAL_COLOR;
     const effectiveColorScheme = colorScheme || 'tableau10';
@@ -339,26 +337,6 @@ const FieldOverridesPanel: React.FC = () => {
             applyGlobalAction({ type: 'SET_DISTRIBUTION_VARIANT', payload: variant });
           }}
         />
-
-        {showBoxPlotReferenceLineControl && (
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel id="box-plot-reference-line-label">Reference line</InputLabel>
-            <Select
-              labelId="box-plot-reference-line-label"
-              value={boxPlotReferenceLineMode}
-              label="Reference line"
-              onChange={(event) => {
-                applyGlobalAction({
-                  type: 'SET_BOX_PLOT_REFERENCE_LINE_MODE',
-                  payload: event.target.value as any,
-                });
-              }}
-            >
-              <MenuItem value="none">None</MenuItem>
-              <MenuItem value="global-median">Global median</MenuItem>
-            </Select>
-          </FormControl>
-        )}
 
         <ColorFieldControl
           field={resolvedGlobalColorField}

@@ -205,6 +205,7 @@ function buildBoxPlotOptions(
       category: categoryLabel,
     },
     axisDomain,
+    sharedDomains.colorScale,
   );
 }
 
