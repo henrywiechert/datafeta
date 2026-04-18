@@ -53,24 +53,10 @@ const ChartArea: React.FC = () => {
   const {
     xAxisFields,
     yAxisFields,
-    colorField,
-    colorScheme,
-    colorBias,
-    manualColor,
-    sizeField,
-    sizeRange,
-    manualSize,
-    bandThicknessScale,
     queryResult,
     queryError,
     queryVersion,
     appliedFilterConfigurations,
-    labelFields,
-    labelsEnabled,
-    labelSamplingStrategy,
-    labelSamplingThreshold,
-    labelSampleEvery,
-    tooltipFields,
     fieldOverrides,
     globalChartType,
     measureValuesSourceFields,
@@ -78,14 +64,9 @@ const ChartArea: React.FC = () => {
     independentDomains,
     optimizationSettings,
     ganttZoomRange,
-    facetBackgroundField,
-    facetBackgroundScheme,
-    facetBackgroundOpacity,
     showTableRows,
     overlays,
     disabledFilterIds,
-    shapeField,
-    manualShape,
   } = state;
 
   const { selectedTable, selectedDatabase, virtualTable, virtualColumns, sessionAppliedFilterConfigurations } =
@@ -119,10 +100,10 @@ const ChartArea: React.FC = () => {
     selectedDatabase,
     xAxisFields,
     yAxisFields,
-    colorField,
-    sizeField,
-    labelFields,
-    tooltipFields,
+    colorField: channels.color.field,
+    sizeField: channels.size.field,
+    labelFields: channels.label.fields,
+    tooltipFields: channels.tooltip.fields,
     filterConfigurations: effectiveFilterConfigurations,
     virtualTable,
     virtualColumns,
@@ -177,7 +158,7 @@ const ChartArea: React.FC = () => {
     isGanttChart,
     queryResult,
     xAxisFields,
-    sizeField,
+    sizeField: channels.size.field,
     dispatch,
   });
 
@@ -199,7 +180,7 @@ const ChartArea: React.FC = () => {
     completeRedo,
     resetWorkspace,
     clearSessionFilters,
-    bandThicknessScale,
+    bandThicknessScale: channels.size.bandThicknessScale,
     selectedTable,
     selectedDatabase,
   });
@@ -229,7 +210,7 @@ const ChartArea: React.FC = () => {
   // -- Series highlight (legend click → dim non-matching marks) ----------------
   const [highlightedCategoryValues, setHighlightedCategoryValues] = useState<any[] | null>(null);
   const clearLegendSelectionRef = useRef<(() => void) | null>(null);
-  const colorColumnName = colorField ? getResultColumnName(colorField) : null;
+  const colorColumnName = channels.color.field ? getResultColumnName(channels.color.field) : null;
 
   const clearSeriesHighlight = useCallback(() => {
     setHighlightedCategoryValues(null);
@@ -239,7 +220,7 @@ const ChartArea: React.FC = () => {
   // Reset highlight when the color field changes to avoid stale state
   useEffect(() => {
     clearSeriesHighlight();
-  }, [colorField, clearSeriesHighlight]);
+  }, [channels.color.field, clearSeriesHighlight]);
 
   useSeriesHighlight(fullscreenWrapperRef, highlightedCategoryValues, colorColumnName, clearSeriesHighlight);
 
@@ -249,35 +230,31 @@ const ChartArea: React.FC = () => {
       xAxisFields,
       yAxisFields,
       appliedFilterConfigurations: effectiveFilterConfigurations,
-      colorField,
-      sizeField,
-      shapeField,
-      facetBackgroundField,
-      labelFields,
-      tooltipFields,
+      colorField: channels.color.field,
+      sizeField: channels.size.field,
+      shapeField: channels.shape.field,
+      facetBackgroundField: channels.facetBackground.field,
+      labelFields: channels.label.fields,
+      tooltipFields: channels.tooltip.fields,
       measureGroupFields,
-      colorScheme,
-      colorBias,
-      manualColor,
-      manualShape,
-      sizeRange,
-      manualSize,
-      bandThicknessScale,
+      colorScheme: channels.color.scheme,
+      colorBias: channels.color.bias,
+      manualColor: channels.color.manual,
+      manualShape: channels.shape.manual,
+      sizeRange: channels.size.range,
+      manualSize: channels.size.manual,
+      bandThicknessScale: channels.size.bandThicknessScale,
       fieldOverrides,
       globalChartType,
       independentDomains,
-      labelsEnabled,
-      labelSamplingStrategy,
-      labelSamplingThreshold,
-      labelSampleEvery,
+      labelsEnabled: channels.label.enabled,
+      labelSamplingStrategy: channels.label.samplingStrategy,
+      labelSamplingThreshold: channels.label.samplingThreshold,
+      labelSampleEvery: channels.label.sampleEvery,
     }),
     [
-      xAxisFields, yAxisFields, effectiveFilterConfigurations, colorField, sizeField, shapeField,
-      facetBackgroundField, labelFields, tooltipFields, measureGroupFields, colorScheme, colorBias, manualColor,
-      manualShape,
-      sizeRange, manualSize, bandThicknessScale, fieldOverrides, globalChartType,
-      independentDomains, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold,
-      labelSampleEvery,
+      xAxisFields, yAxisFields, effectiveFilterConfigurations, channels,
+      measureGroupFields, fieldOverrides, globalChartType, independentDomains,
     ],
   );
 
@@ -301,9 +278,9 @@ const ChartArea: React.FC = () => {
     lastQueryDecision,
   };
 
-  const showColorLegend = Boolean(colorField && queryResult?.rows?.length);
-  const showBackgroundLegend = Boolean(facetBackgroundField && queryResult?.rows?.length);
-  const showShapeLegend = Boolean(shapeField && queryResult?.rows?.length);
+  const showColorLegend = Boolean(channels.color.field && queryResult?.rows?.length);
+  const showBackgroundLegend = Boolean(channels.facetBackground.field && queryResult?.rows?.length);
+  const showShapeLegend = Boolean(channels.shape.field && queryResult?.rows?.length);
   const showLegend = showColorLegend || showBackgroundLegend || showShapeLegend;
 
   // -- Render ------------------------------------------------------------------
@@ -357,7 +334,7 @@ const ChartArea: React.FC = () => {
               dispatch({ type: 'FORCE_QUERY_REFRESH' });
             }}
             onForceRefresh={handleForceRefresh}
-            bandThicknessScale={bandThicknessScale}
+            bandThicknessScale={channels.size.bandThicknessScale}
             onBandThicknessScaleChange={(scale) => {
               recordAction(getUndoableSnapshot());
               dispatch({ type: 'SET_BAND_THICKNESS_SCALE', payload: scale });
@@ -385,30 +362,30 @@ const ChartArea: React.FC = () => {
           <LegendStack>
             {showColorLegend && (
               <LegendPanel
-                colorField={colorField}
+                colorField={channels.color.field}
                 queryResult={queryResult}
-                colorScheme={colorScheme}
-                colorBias={colorBias}
+                colorScheme={channels.color.scheme}
+                colorBias={channels.color.bias}
                 onFilterAction={
-                  colorField?.flavour === 'discrete' ? handleLegendFilterAction : undefined
+                  channels.color.field?.flavour === 'discrete' ? handleLegendFilterAction : undefined
                 }
                 onHighlightChange={
-                  colorField?.flavour === 'discrete' ? setHighlightedCategoryValues : undefined
+                  channels.color.field?.flavour === 'discrete' ? setHighlightedCategoryValues : undefined
                 }
                 clearSelectionRef={clearLegendSelectionRef}
               />
             )}
             {showBackgroundLegend && (
               <BackgroundLegendPanel
-                backgroundField={facetBackgroundField}
+                backgroundField={channels.facetBackground.field}
                 queryResult={queryResult}
-                colorScheme={facetBackgroundScheme}
-                opacity={facetBackgroundOpacity}
+                colorScheme={channels.facetBackground.scheme}
+                opacity={channels.facetBackground.opacity}
               />
             )}
             {showShapeLegend && (
               <ShapeLegendPanel
-                shapeField={shapeField}
+                shapeField={channels.shape.field}
                 queryResult={queryResult}
                 onFilterAction={handleShapeLegendFilterAction}
               />
