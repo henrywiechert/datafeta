@@ -7,6 +7,7 @@ import { getFieldColumnName } from '../helpers/fields';
 import { lineChart, verticalLineChart } from './lineChart';
 import { scatterChart } from './scatterChart';
 import { tickStrip } from './tickStrip';
+import { boxPlot } from './boxPlot';
 import { ganttChart } from './ganttChart';
 import { buildCdfOptions } from './cdfChart';
 import { CellChartType, ChartTypeOverrides, resolveChartTypeForPair } from '../helpers/chartTypeResolver';
@@ -373,6 +374,74 @@ function handleTickY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
   );
 }
 
+function handleBoxX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.PlotOptions {
+  const xContinuous = xf.flavour === 'continuous' ? xf : (yf.flavour === 'continuous' ? yf : null);
+  const category = yf.type === 'dimension' && yf.flavour === 'discrete' ? yf : null;
+
+  if (!xContinuous) {
+    return handleTickX(data, xf, yf, ctx);
+  }
+
+  const xCol = xContinuous.type === 'measure'
+    ? getResultColumnName({ ...xContinuous, aggregation: xContinuous.aggregation || 'sum' } as any)
+    : getResultColumnName(xContinuous);
+
+  return boxPlot(
+    {
+      xFields: [],
+      yFields: [],
+      queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any,
+      manualColor: ctx.manualColor,
+      categoryAxisDescriptor: category
+        ? { axis: 'y', columnName: getResultColumnName(category), domain: ctx.sharedCategoricalDomains?.[getResultColumnName(category)] }
+        : undefined,
+      boxPlotReferenceLineMode: ctx.boxPlotReferenceLineMode,
+    },
+    'x',
+    xCol,
+    category ? getResultColumnName(category) : undefined,
+    {
+      dimension: getFieldDisplayName(xContinuous),
+      category: category ? getFieldDisplayName(category) : undefined,
+    },
+    ctx.sharedMeasureDomains?.[xCol] as [number, number] | [Date, Date] | undefined,
+  );
+}
+
+function handleBoxY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.PlotOptions {
+  const yContinuous = yf.flavour === 'continuous' ? yf : (xf.flavour === 'continuous' ? xf : null);
+  const category = xf.type === 'dimension' && xf.flavour === 'discrete' ? xf : null;
+
+  if (!yContinuous) {
+    return handleTickY(data, xf, yf, ctx);
+  }
+
+  const yCol = yContinuous.type === 'measure'
+    ? getResultColumnName({ ...yContinuous, aggregation: yContinuous.aggregation || 'sum' } as any)
+    : getResultColumnName(yContinuous);
+
+  return boxPlot(
+    {
+      xFields: [],
+      yFields: [],
+      queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any,
+      manualColor: ctx.manualColor,
+      categoryAxisDescriptor: category
+        ? { axis: 'x', columnName: getResultColumnName(category), domain: ctx.sharedCategoricalDomains?.[getResultColumnName(category)] }
+        : undefined,
+      boxPlotReferenceLineMode: ctx.boxPlotReferenceLineMode,
+    },
+    'y',
+    yCol,
+    category ? getResultColumnName(category) : undefined,
+    {
+      dimension: getFieldDisplayName(yContinuous),
+      category: category ? getFieldDisplayName(category) : undefined,
+    },
+    ctx.sharedMeasureDomains?.[yCol] as [number, number] | [Date, Date] | undefined,
+  );
+}
+
 function handleDot(data: any[], xf: Field, yf: Field, _ctx: ChartContext): Plot.PlotOptions {
   const xCol = xf.columnName;
   const yCol = yf.columnName;
@@ -514,6 +583,8 @@ const CHART_HANDLERS: Record<CellChartType, ChartHandler> = {
   barY: handleBarY,
   tickX: handleTickX,
   tickY: handleTickY,
+  boxX: handleBoxX,
+  boxY: handleBoxY,
   dot: handleDot,
   ganttX: handleGanttX,
   ganttY: handleGanttY,
@@ -547,7 +618,9 @@ export function generatePairChartOptions(
   sharedCategoricalDomains?: Record<string, any[]>,
   ganttZoomRange?: GanttZoomRange | null,
   shapeField?: Field,
-  manualShape?: string
+  manualShape?: string,
+  distributionVariant?: import('../../types').DistributionVariant,
+  boxPlotReferenceLineMode?: import('../../types').BoxPlotReferenceLineMode,
 ): Plot.PlotOptions {
   // Bundle context for cleaner parameter passing
   const ctx: ChartContext = {
@@ -568,6 +641,8 @@ export function generatePairChartOptions(
     ganttZoomRange,
     shapeField,
     manualShape,
+    distributionVariant,
+    boxPlotReferenceLineMode,
   };
 
   if (!xField && !yField) {

@@ -47,6 +47,8 @@ export type {
   DataType,
   DateTimePart,
   DateTimeMode,
+  DistributionVariant,
+  BoxPlotReferenceLineMode,
   DragSource,
   Field,
   DataLabelMode,

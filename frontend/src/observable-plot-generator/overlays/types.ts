@@ -76,7 +76,7 @@ export const OVERLAY_META: readonly OverlayMeta[] = [
 export function cellChartTypeToUserType(ct: CellChartType): UserChartType {
   switch (ct) {
     case 'barX': case 'barY': return 'bar';
-    case 'tickX': case 'tickY': return 'tick';
+    case 'tickX': case 'tickY': case 'boxX': case 'boxY': return 'tick';
     case 'ganttX': case 'ganttY': return 'gantt';
     case 'dot': return 'scatter';
     default: return ct as UserChartType; // 'line' | 'scatter' | 'cdf'

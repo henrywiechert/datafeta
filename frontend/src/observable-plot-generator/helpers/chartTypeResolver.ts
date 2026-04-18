@@ -1,8 +1,8 @@
-import { Field, UserChartType } from '../../types';
+import { DistributionVariant, Field, UserChartType } from '../../types';
 export { isCdfAllowed } from '../../utils/cdfUtils';
 
 // Cell-level chart types for a pair of fields
-export type CellChartType = 'scatter' | 'line' | 'barX' | 'barY' | 'tickX' | 'tickY' | 'dot' | 'ganttX' | 'ganttY' | 'cdf';
+export type CellChartType = 'scatter' | 'line' | 'barX' | 'barY' | 'tickX' | 'tickY' | 'boxX' | 'boxY' | 'dot' | 'ganttX' | 'ganttY' | 'cdf';
 
 export type ChartTypeOverrides = {
   // Global fallback for all pairs when not overridden by field
@@ -100,7 +100,8 @@ export function mapUserChartTypeToCellChartType(
   userType: UserChartType,
   fieldAxis: 'x' | 'y',
   xField: Field,
-  yField: Field
+  yField: Field,
+  distributionVariant: DistributionVariant = 'tick-strip'
 ): CellChartType {
   switch (userType) {
     case 'bar':
@@ -113,12 +114,12 @@ export function mapUserChartTypeToCellChartType(
       return 'barY';
     
     case 'tick':
-      // Tick orientation matches the axis of the continuous dimension
-      // tickX = ticks along X axis, tickY = ticks along Y axis
+      // Distribution orientation matches the axis of the continuous dimension.
+      // The concrete variant decides whether we render a tick strip or a box plot.
       if (fieldAxis === 'x') {
-        return 'tickX';
+        return distributionVariant === 'box-plot' ? 'boxX' : 'tickX';
       }
-      return 'tickY';
+      return distributionVariant === 'box-plot' ? 'boxY' : 'tickY';
     
     case 'scatter':
       return 'scatter';

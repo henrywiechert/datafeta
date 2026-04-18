@@ -1,4 +1,4 @@
-import { Field, QueryResult, FieldOverrideState, UserChartType } from '../types';
+import { Field, QueryResult, FieldOverrideState, UserChartType, DistributionVariant, BoxPlotReferenceLineMode } from '../types';
 import { OverlayConfig } from './overlays/types';
 import { FieldOverrideTarget } from './utils/fieldOverrides';
 import { ColorScaleInfo } from './utils/colorSchemeUtils';
@@ -65,6 +65,8 @@ export interface CartesianPlotsConfig {
   fieldOverrideTargets?: FieldOverrideTarget[];
   allFields?: Field[];
   globalChartType?: UserChartType | null;
+  distributionVariant?: DistributionVariant;
+  boxPlotReferenceLineMode?: BoxPlotReferenceLineMode;
   measureValuesSourceFields?: Field[];
   bandThicknessScale?: number;
   ganttZoomRange?: GanttZoomRange | null;
@@ -110,6 +112,10 @@ export interface ChartGenerationContext {
    * Global chart type override (applies to all charts when no per-field override is set).
    */
   globalChartType?: UserChartType | null;
+  /** Variant for the distribution chart family when globalChartType is 'tick'. */
+  distributionVariant?: DistributionVariant;
+  /** Optional reference line for box-plot distribution variant. */
+  boxPlotReferenceLineMode?: BoxPlotReferenceLineMode;
   /**
    * Computed list of fields that are eligible for per-field overrides,
    * based on axis placement and continuous field counts.

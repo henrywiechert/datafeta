@@ -243,6 +243,8 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
       fieldOverrideTargets: context.fieldOverrideTargets,
       allFields: [...xFields, ...yFields, ...(colorField ? [colorField] : []), ...(sizeField ? [sizeField] : []), ...(context.shapeField ? [context.shapeField] : [])],
       globalChartType: context.globalChartType,
+      distributionVariant: context.distributionVariant,
+      boxPlotReferenceLineMode: context.boxPlotReferenceLineMode,
       measureValuesSourceFields: context.measureValuesSourceFields,
       bandThicknessScale: context.bandThicknessScale,
       ganttZoomRange: context.ganttZoomRange,
@@ -369,6 +371,8 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
     labelFields: enrichedLabelFields,
     facetFields: enrichedFacetFields,
     manualColor,
+    distributionVariant: context.distributionVariant,
+    boxPlotReferenceLineMode: context.boxPlotReferenceLineMode,
   };
 
   try {

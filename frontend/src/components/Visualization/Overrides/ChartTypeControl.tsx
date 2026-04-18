@@ -1,12 +1,13 @@
 import React from 'react';
-import { Box, IconButton, ToggleButtonGroup, ToggleButton, Tooltip } from '@mui/material';
+import { Box, IconButton, Menu, MenuItem, ToggleButtonGroup, ToggleButton, Tooltip } from '@mui/material';
 import InsertChartOutlinedIcon from '@mui/icons-material/InsertChartOutlined';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import ScatterPlotIcon from '@mui/icons-material/ScatterPlot';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import AutoModeIcon from '@mui/icons-material/AutoMode';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import SvgIcon, { SvgIconProps } from '@mui/material/SvgIcon';
-import { UserChartType } from '../../../types';
+import { DistributionVariant, UserChartType } from '../../../types';
 
 const TickStripIcon: React.FC<SvgIconProps> = (props) => (
   <SvgIcon {...props} viewBox="0 0 24 24">
@@ -52,17 +53,34 @@ const CdfIcon: React.FC<SvgIconProps> = (props) => (
   </SvgIcon>
 );
 
+const BoxPlotIcon: React.FC<SvgIconProps> = (props) => (
+  <SvgIcon {...props} viewBox="0 0 24 24">
+    <line x1="4" y1="12" x2="8" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <rect x="8" y="8" width="8" height="8" fill="none" stroke="currentColor" strokeWidth="1.5" rx="1" />
+    <line x1="12" y1="8" x2="12" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="16" y1="12" x2="20" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="6" y1="10" x2="6" y2="14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <line x1="18" y1="10" x2="18" y2="14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+  </SvgIcon>
+);
+
 interface ChartTypeControlProps {
   chartType: UserChartType | undefined;
   onChange: (chartType: UserChartType | undefined) => void;
   autoSelectedType?: UserChartType;
+  distributionVariant?: DistributionVariant;
+  onDistributionVariantChange?: (variant: DistributionVariant) => void;
 }
 
 const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
   chartType,
   onChange,
   autoSelectedType,
+  distributionVariant = 'tick-strip',
+  onDistributionVariantChange,
 }) => {
+  const [distributionMenuAnchor, setDistributionMenuAnchor] = React.useState<HTMLElement | null>(null);
+
   const handleChange = (_event: React.MouseEvent<HTMLElement>, newValue: string | null) => {
     if (newValue === 'auto' || newValue === null) {
       onChange(undefined);
@@ -74,6 +92,22 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
   // Current value: 'auto' when undefined, otherwise the chart type
   const value = chartType ?? 'auto';
   const isAuto = value === 'auto';
+  const effectiveDistributionSelected = value === 'tick' || (isAuto && autoSelectedType === 'tick');
+
+  const openDistributionMenu = (event: React.MouseEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setDistributionMenuAnchor(event.currentTarget);
+  };
+
+  const closeDistributionMenu = () => {
+    setDistributionMenuAnchor(null);
+  };
+
+  const handleDistributionVariantSelect = (variant: DistributionVariant) => {
+    onDistributionVariantChange?.(variant);
+    closeDistributionMenu();
+  };
 
   const getAutoHighlightSx = (buttonValue: UserChartType) =>
     isAuto && autoSelectedType === buttonValue
@@ -151,9 +185,30 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
               <ScatterPlotIcon sx={{ fontSize: 16 }} />
             </Tooltip>
           </ToggleButton>
-          <ToggleButton value="tick" aria-label="tick strip" sx={getAutoHighlightSx('tick')}>
-            <Tooltip title={<>Tick Strip<br/>Dimension on <b>X</b> <u>or</u> <b>Y</b></>} placement="top">
-              <span style={{ display: 'inline-flex' }}><TickStripIcon sx={{ fontSize: 16 }} /></span>
+          <ToggleButton value="tick" aria-label="distribution chart" sx={getAutoHighlightSx('tick')}>
+            <Tooltip title={<>Distribution<br/>Tick-Strip or Box-Plot for a continuous dimension</>} placement="top">
+              <span style={{ display: 'inline-flex', alignItems: 'center', position: 'relative' }}>
+                {distributionVariant === 'box-plot'
+                  ? <BoxPlotIcon sx={{ fontSize: 16 }} />
+                  : <TickStripIcon sx={{ fontSize: 16 }} />}
+                {onDistributionVariantChange && (
+                  <span
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }}
+                    onClick={openDistributionMenu}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      marginLeft: 1,
+                      opacity: effectiveDistributionSelected ? 0.95 : 0.7,
+                    }}
+                  >
+                    <ArrowDropDownIcon sx={{ fontSize: 12 }} />
+                  </span>
+                )}
+              </span>
             </Tooltip>
           </ToggleButton>
             <ToggleButton value="bar" aria-label="bar chart" sx={getAutoHighlightSx('bar')}>
@@ -172,6 +227,27 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
             </Tooltip>
           </ToggleButton>
         </ToggleButtonGroup>
+        <Menu
+          anchorEl={distributionMenuAnchor}
+          open={Boolean(distributionMenuAnchor)}
+          onClose={closeDistributionMenu}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+          MenuListProps={{ dense: true, 'aria-label': 'Distribution variants' }}
+        >
+          <MenuItem
+            selected={distributionVariant === 'tick-strip'}
+            onClick={() => handleDistributionVariantSelect('tick-strip')}
+          >
+            Tick-Strip
+          </MenuItem>
+          <MenuItem
+            selected={distributionVariant === 'box-plot'}
+            onClick={() => handleDistributionVariantSelect('box-plot')}
+          >
+            Box-Plot
+          </MenuItem>
+        </Menu>
       </Box>
     </Box>
   );

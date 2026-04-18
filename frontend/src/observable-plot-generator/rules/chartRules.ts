@@ -2,6 +2,7 @@ import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext, PlotResult, LabelConfig } from '../types';
 import { FieldAnalysis } from '../analysis/fieldAnalysis';
 import { barUnified } from '../chartTypes/barUnified';
+import { boxPlot } from '../chartTypes/boxPlot';
 import { tickStrip } from '../chartTypes/tickStrip';
 import { lineChart } from '../chartTypes/lineChart';
 import { scatterChart } from '../chartTypes/scatterChart';
@@ -83,6 +84,20 @@ function wrapTickStripAs1x1Grid(
   return wrapAs1x1Grid(options, id, title, sizeOptions);
 }
 
+function buildDistributionOptions(
+  context: ChartGenerationContext,
+  orientation: 'x' | 'y',
+  dimensionColumn: string,
+  categoryColumn: string | undefined,
+  labels: { dimension?: string; category?: string }
+): Plot.PlotOptions {
+  if (context.distributionVariant === 'box-plot') {
+    return boxPlot(context, orientation, dimensionColumn, categoryColumn, labels);
+  }
+
+  return tickStrip(context, orientation, dimensionColumn, categoryColumn, labels);
+}
+
 /**
  * Determines if the field configuration qualifies for a bar chart.
  * Bar chart: continuous measures on exactly one axis AND the other axis has no continuous fields.
@@ -158,10 +173,12 @@ export function generateChartOptions(
     const measure = onX ? xContinuousMeasures[0] : yContinuousMeasures[0];
 
     const dimCol = getResultColumnName(dim);
-    const tickOptions = tickStrip(
+    const tickOptions = buildDistributionOptions(
       context,
       onX ? 'x' : 'y',
-      dimCol
+      dimCol,
+      undefined,
+      { dimension: getDisplayName(dim) }
     );
 
     // Build a minimal bar context that isolates the continuous measure on its axis
@@ -295,7 +312,7 @@ export function generateChartOptions(
     const categoryField = yDiscreteDims.slice(-1)[0];
     const category = (context.categoryAxisDescriptor?.axis === 'y' ? context.categoryAxisDescriptor.columnName : null)
       || categoryField?.columnName;
-    return wrapTickStripAs1x1Grid(context, tickStrip(context, 'x', dimCol, category, { dimension: getDisplayName(dim), category: categoryField ? getDisplayName(categoryField) : undefined }), 'x', 'tick-strip-x', dimCol, category);
+    return wrapTickStripAs1x1Grid(context, buildDistributionOptions(context, 'x', dimCol, category, { dimension: getDisplayName(dim), category: categoryField ? getDisplayName(categoryField) : undefined }), 'x', context.distributionVariant === 'box-plot' ? 'box-plot-x' : 'tick-strip-x', dimCol, category);
   }
   if (singleYDim) {
     // Use the continuous dimension, not analysis.yDimensions[0] which may include discrete dims
@@ -305,7 +322,7 @@ export function generateChartOptions(
     const categoryField = xDiscreteDims.slice(-1)[0];
     const category = (context.categoryAxisDescriptor?.axis === 'x' ? context.categoryAxisDescriptor.columnName : null)
       || categoryField?.columnName;
-    return wrapTickStripAs1x1Grid(context, tickStrip(context, 'y', dimCol, category, { dimension: getDisplayName(dim), category: categoryField ? getDisplayName(categoryField) : undefined }), 'y', 'tick-strip-y', dimCol, category);
+    return wrapTickStripAs1x1Grid(context, buildDistributionOptions(context, 'y', dimCol, category, { dimension: getDisplayName(dim), category: categoryField ? getDisplayName(categoryField) : undefined }), 'y', context.distributionVariant === 'box-plot' ? 'box-plot-y' : 'tick-strip-y', dimCol, category);
   }
 
   const bothDims = analysis.hasXDimension && analysis.hasYDimension && analysis.xDimensions.length > 0 && analysis.yDimensions.length > 0;
@@ -320,12 +337,12 @@ export function generateChartOptions(
         || getResultColumnName(yDim);
       return wrapTickStripAs1x1Grid(
         context,
-        tickStrip(context, 'x', xDimCol, categoryCol, { 
+        buildDistributionOptions(context, 'x', xDimCol, categoryCol, { 
           dimension: getDisplayName(xDim), 
           category: getDisplayName(yDim) 
         }),
         'x',
-        'tick-strip-x-categorized',
+        context.distributionVariant === 'box-plot' ? 'box-plot-x-categorized' : 'tick-strip-x-categorized',
         `${getDisplayName(xDim)} by ${getDisplayName(yDim)}`,
         categoryCol
       );
@@ -340,12 +357,12 @@ export function generateChartOptions(
         || getResultColumnName(xDim);
       return wrapTickStripAs1x1Grid(
         context,
-        tickStrip(context, 'y', yDimCol, categoryCol, { 
+        buildDistributionOptions(context, 'y', yDimCol, categoryCol, { 
           dimension: getDisplayName(yDim), 
           category: getDisplayName(xDim) 
         }),
         'y',
-        'tick-strip-y-categorized',
+        context.distributionVariant === 'box-plot' ? 'box-plot-y-categorized' : 'tick-strip-y-categorized',
         `${getDisplayName(yDim)} by ${getDisplayName(xDim)}`,
         categoryCol
       );

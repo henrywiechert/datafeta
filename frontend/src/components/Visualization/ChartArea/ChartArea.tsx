@@ -59,6 +59,8 @@ const ChartArea: React.FC = () => {
     appliedFilterConfigurations,
     fieldOverrides,
     globalChartType,
+    distributionVariant,
+    boxPlotReferenceLineMode,
     measureValuesSourceFields,
     measureGroupFields,
     independentDomains,
@@ -138,6 +140,8 @@ const ChartArea: React.FC = () => {
       independentDomains,
       fieldOverrides,
       globalChartType,
+      distributionVariant,
+      boxPlotReferenceLineMode,
       measureValuesSourceFields,
       ganttZoomRange,
       overlays,
@@ -246,6 +250,8 @@ const ChartArea: React.FC = () => {
       bandThicknessScale: channels.size.bandThicknessScale,
       fieldOverrides,
       globalChartType,
+      distributionVariant,
+      boxPlotReferenceLineMode,
       independentDomains,
       labelsEnabled: channels.label.enabled,
       labelSamplingStrategy: channels.label.samplingStrategy,
@@ -254,7 +260,7 @@ const ChartArea: React.FC = () => {
     }),
     [
       xAxisFields, yAxisFields, effectiveFilterConfigurations, channels,
-      measureGroupFields, fieldOverrides, globalChartType, independentDomains,
+      measureGroupFields, fieldOverrides, globalChartType, distributionVariant, boxPlotReferenceLineMode, independentDomains,
     ],
   );
 

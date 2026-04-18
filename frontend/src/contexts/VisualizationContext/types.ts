@@ -1,4 +1,4 @@
-import { Field, QueryResult, FilterConfig, FilterMetadata, FieldOverrideState, UserChartType, QueryOptimizationSettings } from '../../types';
+import { Field, QueryResult, FilterConfig, FilterMetadata, FieldOverrideState, UserChartType, QueryOptimizationSettings, DistributionVariant, BoxPlotReferenceLineMode } from '../../types';
 import { OverlayConfig, OverlayType, OverlayParams } from '../../observable-plot-generator/overlays/types';
 
 // Define loading operation types
@@ -105,6 +105,10 @@ export interface VisualizationState {
   fieldOverrides: Record<string, FieldOverrideState>;
   // Global chart type override
   globalChartType: UserChartType | null;
+  // Variant for distribution charts (top-level chart type remains 'tick')
+  distributionVariant: DistributionVariant;
+  // Optional reference line for box-plot distribution variant
+  boxPlotReferenceLineMode: BoxPlotReferenceLineMode;
   // Table rows view mode (raw data table)
   showTableRows: boolean;
   queryVersion: number;
@@ -204,6 +208,8 @@ export type VisualizationAction =
   | { type: 'CLEAR_FIELD_OVERRIDE'; payload: { fieldId: string } }
   // Global chart type action
   | { type: 'SET_GLOBAL_CHART_TYPE'; payload: UserChartType | null }
+  | { type: 'SET_DISTRIBUTION_VARIANT'; payload: DistributionVariant }
+  | { type: 'SET_BOX_PLOT_REFERENCE_LINE_MODE'; payload: BoxPlotReferenceLineMode }
   // Table rows view mode action
   | { type: 'SET_SHOW_TABLE_ROWS'; payload: boolean }
   // Query optimization settings
@@ -226,6 +232,8 @@ export type VisualizationAction =
       independentDomains?: { x: boolean; y: boolean };
       fieldOverrides: Record<string, FieldOverrideState>;
       globalChartType?: UserChartType | null;
+      distributionVariant?: DistributionVariant;
+      boxPlotReferenceLineMode?: BoxPlotReferenceLineMode;
       axisLabelStyles?: AxisLabelStyles;
       facetLabelStyles?: FacetLabelStyles;
       facetBackgroundField?: Field | null;

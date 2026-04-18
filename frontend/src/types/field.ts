@@ -11,6 +11,8 @@ export type Flavour = 'discrete' | 'continuous';
 export type DataType = 'string' | 'integer' | 'float' | 'datetime';
 export type DateTimePart = 'year' | 'month' | 'day' | 'weekday' | 'hour' | 'minute' | 'second' | 'millisecond' | 'microsecond' | 'nanosecond';
 export type DateTimeMode = 'distinct' | 'timeline';
+export type DistributionVariant = 'tick-strip' | 'box-plot';
+export type BoxPlotReferenceLineMode = 'none' | 'global-median';
 
 export type DragSource =
   | 'X_AXIS'
