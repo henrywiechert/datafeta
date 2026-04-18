@@ -395,7 +395,6 @@ function handleBoxX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       categoryAxisDescriptor: category
         ? { axis: 'y', columnName: getResultColumnName(category), domain: ctx.sharedCategoricalDomains?.[getResultColumnName(category)] }
         : undefined,
-      boxPlotReferenceLineMode: ctx.boxPlotReferenceLineMode,
     },
     'x',
     xCol,
@@ -429,7 +428,6 @@ function handleBoxY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       categoryAxisDescriptor: category
         ? { axis: 'x', columnName: getResultColumnName(category), domain: ctx.sharedCategoricalDomains?.[getResultColumnName(category)] }
         : undefined,
-      boxPlotReferenceLineMode: ctx.boxPlotReferenceLineMode,
     },
     'y',
     yCol,
@@ -620,7 +618,6 @@ export function generatePairChartOptions(
   shapeField?: Field,
   manualShape?: string,
   distributionVariant?: import('../../types').DistributionVariant,
-  boxPlotReferenceLineMode?: import('../../types').BoxPlotReferenceLineMode,
 ): Plot.PlotOptions {
   // Bundle context for cleaner parameter passing
   const ctx: ChartContext = {
@@ -642,7 +639,6 @@ export function generatePairChartOptions(
     shapeField,
     manualShape,
     distributionVariant,
-    boxPlotReferenceLineMode,
   };
 
   if (!xField && !yField) {

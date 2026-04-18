@@ -25,7 +25,6 @@ export function undoRedoReducer(state: VisualizationState, action: Visualization
         fieldOverrides: action.payload.fieldOverrides || {},
         globalChartType: action.payload.globalChartType ?? null,
         distributionVariant: action.payload.distributionVariant ?? state.distributionVariant,
-        boxPlotReferenceLineMode: action.payload.boxPlotReferenceLineMode ?? state.boxPlotReferenceLineMode,
         axisLabelStyles: action.payload.axisLabelStyles ?? state.axisLabelStyles,
         facetLabelStyles: action.payload.facetLabelStyles ?? state.facetLabelStyles,
         facetBackgroundField: action.payload.facetBackgroundField ?? state.facetBackgroundField,
