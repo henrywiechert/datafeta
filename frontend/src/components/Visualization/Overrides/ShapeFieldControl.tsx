@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, IconButton, Popover, SvgIcon, Tooltip, Typography } from '@mui/material';
+import { Box, IconButton, Popover, Tooltip, Typography } from '@mui/material';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import { Field } from '../../../types';
 import FieldChip from '../FieldChip';
@@ -7,92 +7,18 @@ import { parseDragData } from './overrideUtils';
 import { resolveSingleEncodingDropField } from '../../../utils/singleEncodingZone';
 import {
   DEFAULT_MANUAL_SHAPE,
-  MANUAL_SHAPE_SYMBOLS,
-  ShapeSymbolName,
+  MANUAL_NO_SHAPE,
+  MANUAL_SHAPE_OPTIONS,
+  ManualShapeOption,
+  resolveManualShapeOption,
 } from '../../../observable-plot-generator/utils/shapeUtils';
-
-/** Tableau-style shape icon: a circle surrounded by a diamond outline. */
-const TableauShapeIcon: React.FC<{ fontSize?: 'inherit' | 'small' | 'medium' | 'large' }> = ({ fontSize }) => (
-  <SvgIcon fontSize={fontSize} viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="3.5" fill="currentColor" />
-    <path
-      d="M12 2 L22 12 L12 22 L2 12 Z"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-    />
-  </SvgIcon>
-);
-
-const ShapeSymbolIcon: React.FC<{
-  symbol: ShapeSymbolName;
-  fontSize?: 'inherit' | 'small' | 'medium' | 'large';
-}> = ({ symbol, fontSize = 'small' }) => {
-  switch (symbol) {
-    case 'dot':
-      return (
-        <SvgIcon fontSize={fontSize} viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="4.25" fill="currentColor" />
-        </SvgIcon>
-      );
-    case 'circle':
-      return (
-        <SvgIcon fontSize={fontSize} viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" strokeWidth="1.8" />
-        </SvgIcon>
-      );
-    case 'square':
-      return (
-        <SvgIcon fontSize={fontSize} viewBox="0 0 24 24">
-          <rect x="7" y="7" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.8" />
-        </SvgIcon>
-      );
-    case 'diamond':
-      return (
-        <SvgIcon fontSize={fontSize} viewBox="0 0 24 24">
-          <path d="M12 5 L19 12 L12 19 L5 12 Z" fill="none" stroke="currentColor" strokeWidth="1.8" />
-        </SvgIcon>
-      );
-    case 'triangle':
-      return (
-        <SvgIcon fontSize={fontSize} viewBox="0 0 24 24">
-          <path d="M12 5 L19 18 L5 18 Z" fill="none" stroke="currentColor" strokeWidth="1.8" />
-        </SvgIcon>
-      );
-    case 'star':
-      return (
-        <SvgIcon fontSize={fontSize} viewBox="0 0 24 24">
-          <path d="M12 4.5 L14.2 9.1 L19.3 9.8 L15.6 13.4 L16.5 18.5 L12 16.1 L7.5 18.5 L8.4 13.4 L4.7 9.8 L9.8 9.1 Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-        </SvgIcon>
-      );
-    case 'cross':
-      return (
-        <SvgIcon fontSize={fontSize} viewBox="0 0 24 24">
-          <path d="M10 5 H14 V10 H19 V14 H14 V19 H10 V14 H5 V10 H10 Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="miter" />
-        </SvgIcon>
-      );
-    case 'wye':
-      return (
-        <SvgIcon fontSize={fontSize} viewBox="0 0 24 24">
-          <path d="M11 12.5 L6.7 8.2 L8.2 6.7 L12 10.5 L15.8 6.7 L17.3 8.2 L13 12.5 V18 H11 Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
-        </SvgIcon>
-      );
-    case 'asterisk':
-      return (
-        <SvgIcon fontSize={fontSize} viewBox="0 0 24 24">
-          <path d="M11 4 H13 V10.1 L18.3 7.1 L19.3 8.9 L14 12 L19.3 15.1 L18.3 16.9 L13 13.9 V20 H11 V13.9 L5.7 16.9 L4.7 15.1 L10 12 L4.7 8.9 L5.7 7.1 L11 10.1 Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
-        </SvgIcon>
-      );
-    default:
-      return <TableauShapeIcon fontSize={fontSize} />;
-  }
-};
+import ShapeSymbolPreview from '../ShapeSymbolPreview';
 
 interface ShapeFieldControlProps {
   field: Field | null;
   manualShape?: string;
   onDrop: (field: Field) => void;
-  onManualShapeChange: (shape: ShapeSymbolName) => void;
+  onManualShapeChange: (shape: ManualShapeOption) => void;
   onRemove: (fieldIds: string[]) => void;
 }
 
@@ -105,9 +31,7 @@ const ShapeFieldControl: React.FC<ShapeFieldControlProps> = ({
 }) => {
   const [anchorEl, setAnchorEl] = React.useState<HTMLElement | null>(null);
   const pickerOpen = Boolean(anchorEl);
-  const effectiveManualShape = (MANUAL_SHAPE_SYMBOLS.includes(manualShape as ShapeSymbolName)
-    ? manualShape
-    : DEFAULT_MANUAL_SHAPE) as ShapeSymbolName;
+  const effectiveManualShape = resolveManualShapeOption(manualShape);
 
   const handleDrop = (e: React.DragEvent) => {
     const { field: droppedField, source } = parseDragData(e);
@@ -147,7 +71,7 @@ const ShapeFieldControl: React.FC<ShapeFieldControlProps> = ({
       >
         <>
           <Tooltip
-            title={field ? 'Shape is driven by the assigned field' : 'Pick a fixed shape'}
+            title={field ? 'Shape is driven by the assigned field' : 'Pick a fixed shape or no shape'}
             placement="top"
             arrow
             enterDelay={500}
@@ -164,7 +88,7 @@ const ShapeFieldControl: React.FC<ShapeFieldControlProps> = ({
                   color: field ? 'text.disabled' : 'text.secondary',
                 }}
               >
-                <ShapeSymbolIcon symbol={effectiveManualShape} fontSize="small" />
+                <ShapeSymbolPreview symbol={effectiveManualShape} fontSize="small" />
               </IconButton>
             </span>
           </Tooltip>
@@ -195,11 +119,13 @@ const ShapeFieldControl: React.FC<ShapeFieldControlProps> = ({
                 justifyContent: 'start',
               }}
             >
-              {MANUAL_SHAPE_SYMBOLS.map((symbol) => {
+              {MANUAL_SHAPE_OPTIONS.map((symbol) => {
                 const selected = symbol === effectiveManualShape;
+                const title = symbol === MANUAL_NO_SHAPE ? 'No shape' : `${symbol[0].toUpperCase()}${symbol.slice(1)}`;
                 return (
                   <Box
                     key={symbol}
+                    title={title}
                     onClick={() => {
                       onManualShapeChange(symbol);
                       handleClosePicker();
@@ -221,7 +147,7 @@ const ShapeFieldControl: React.FC<ShapeFieldControlProps> = ({
                       transition: 'all 0.15s ease',
                     }}
                   >
-                    <ShapeSymbolIcon symbol={symbol} fontSize="small" />
+                    <ShapeSymbolPreview symbol={symbol} fontSize="small" />
                   </Box>
                 );
               })}

@@ -6,6 +6,7 @@ import { deriveShapeScaleInfo, ShapeScaleInfo } from '../../../observable-plot-g
 import ContextMenu from '../ContextMenu';
 import menuStyles from '../ContextMenu.module.css';
 import styles from './LegendPanel.module.css';
+import ShapeSymbolPreview from '../ShapeSymbolPreview';
 
 export type LegendFilterAction = 'keep' | 'exclude';
 
@@ -16,89 +17,6 @@ interface ShapeLegendPanelProps {
   onHighlightChange?: (values: any[] | null) => void;
   clearSelectionRef?: React.MutableRefObject<(() => void) | null>;
 }
-
-/** SVG preview of an Observable Plot symbol. */
-const SymbolPreview: React.FC<{ symbol: string }> = ({ symbol }) => {
-  const size = 12;
-  const half = size / 2;
-
-  const shapePath = (): JSX.Element => {
-    switch (symbol) {
-      case 'circle':
-        return <circle cx={half} cy={half} r={4} />;
-      case 'square':
-        return <rect x={2} y={2} width={8} height={8} />;
-      case 'diamond':
-        return <polygon points={`${half},1 ${size - 1},${half} ${half},${size - 1} 1,${half}`} />;
-      case 'triangle':
-        return <polygon points={`${half},1 ${size - 1},${size - 1} 1,${size - 1}`} />;
-      case 'star': {
-        // 5-pointed star
-        const pts: string[] = [];
-        for (let i = 0; i < 10; i++) {
-          const angle = (Math.PI * i) / 5 - Math.PI / 2;
-          const r = i % 2 === 0 ? 5 : 2.5;
-          pts.push(`${half + r * Math.cos(angle)},${half + r * Math.sin(angle)}`);
-        }
-        return <polygon points={pts.join(' ')} />;
-      }
-      case 'cross':
-        return (
-          <path d={`M${half - 1.5},1 h3 v${half - 2.5} h${half - 2.5} v3 h${-(half - 2.5)} v${half - 2.5} h-3 v${-(half - 2.5)} h${-(half - 2.5)} v-3 h${half - 2.5} Z`} />
-        );
-      case 'wye': {
-        // Y shape
-        const r = 4;
-        const pts: string[] = [];
-        for (let i = 0; i < 3; i++) {
-          const a = (Math.PI * 2 * i) / 3 - Math.PI / 2;
-          pts.push(`${half + r * Math.cos(a)},${half + r * Math.sin(a)}`);
-        }
-        return (
-          <g>
-            {pts.map((p, i) => {
-              const [x, y] = p.split(',').map(Number);
-              return <line key={i} x1={half} y1={half} x2={x} y2={y} strokeWidth="2.5" />
-            })}
-            <circle cx={half} cy={half} r={1.5} fill="currentColor" stroke="none" />
-          </g>
-        );
-      }
-      case 'asterisk': {
-        // 6-spoke asterisk
-        const spokes: JSX.Element[] = [];
-        for (let i = 0; i < 6; i++) {
-          const a = (Math.PI * i) / 6;
-          const r2 = 4.5;
-          spokes.push(
-            <line
-              key={i}
-              x1={half - r2 * Math.cos(a)}
-              y1={half - r2 * Math.sin(a)}
-              x2={half + r2 * Math.cos(a)}
-              y2={half + r2 * Math.sin(a)}
-              strokeWidth="1.8"
-            />
-          );
-        }
-        return <g>{spokes}</g>;
-      }
-      default:
-        return <circle cx={half} cy={half} r={4} />;
-    }
-  };
-
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox={`0 0 ${size} ${size}`}
-      style={{ flexShrink: 0, fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, overflow: 'visible' }}
-    >
-      {shapePath()}
-    </svg>
-  );
-};
 
 const ShapeLegendPanel: React.FC<ShapeLegendPanelProps> = ({
   shapeField,
@@ -225,7 +143,7 @@ const ShapeLegendPanel: React.FC<ShapeLegendPanelProps> = ({
               onContextMenu={(e) => handleItemContextMenu(e, index)}
             >
               <Box sx={{ color: 'text.primary', lineHeight: 0, flexShrink: 0 }}>
-                <SymbolPreview symbol={item.symbol} />
+                <ShapeSymbolPreview symbol={item.symbol} fontSize="small" />
               </Box>
               <Tooltip title={item.label} placement="right" arrow enterDelay={800}>
                 <Typography className={styles.legendLabel}>{item.label}</Typography>
