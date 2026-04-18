@@ -15,7 +15,7 @@
 import { useRef, useEffect } from 'react';
 import { useVisualizationContext } from '../../../../contexts/VisualizationContext';
 import { useSheetContext } from '../../../../contexts/SheetContext';
-import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition, QueryOptimizationSettings } from '../../../../types';
+import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition, QueryOptimizationSettings, Channels } from '../../../../types';
 import { useConnection } from '../../../../contexts/ConnectionContext';
 import { requiresUnpivoting } from '../../../../queryBuilder/syntheticQueryBuilder';
 import { useDataSource } from '../../../../contexts/DataSourceContext';
@@ -33,13 +33,8 @@ export interface UseQueryExecutionProps {
   selectedDatabase: string | null;
   xAxisFields: Field[];
   yAxisFields: Field[];
-  colorField: Field | null;
-  sizeField?: Field | null;
-  shapeField?: Field | null;
-  facetBackgroundField?: Field | null;
+  channels: Channels;
   filterConfigurations: Record<string, any>;
-  labelFields?: Field[];
-  tooltipFields?: Field[];
   virtualTable?: VirtualTableDefinition | null;
   virtualColumns?: VirtualColumnDefinition[];
   additionalColorFields?: Field[];
@@ -84,13 +79,8 @@ export const useQueryExecution = ({
   selectedDatabase,
   xAxisFields,
   yAxisFields,
-  colorField,
-  sizeField = null,
-  shapeField = null,
-  facetBackgroundField = null,
+  channels,
   filterConfigurations,
-  labelFields = [],
-  tooltipFields = [],
   virtualTable = null,
   virtualColumns = [],
   additionalColorFields = [],
@@ -98,6 +88,13 @@ export const useQueryExecution = ({
   additionalLabelFields = [],
   optimizationSettings,
 }: UseQueryExecutionProps): UseQueryExecutionReturn => {
+  const colorField = channels.color.field;
+  const sizeField = channels.size.field;
+  const shapeField = channels.shape.field;
+  const facetBackgroundField = channels.facetBackground.field;
+  const labelFields = channels.label.fields;
+  const tooltipFields = channels.tooltip.fields;
+
   const { connectionDetails } = useConnection();
   const { dataSource } = useDataSource();
   const { state: vizState, dispatch, startOperation, completeOperation } = useVisualizationContext();

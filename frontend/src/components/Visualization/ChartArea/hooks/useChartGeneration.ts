@@ -2,7 +2,7 @@ import { useCallback, useState, useEffect, useRef } from 'react';
 import { generatePlot } from '../../../../observable-plot-generator/observablePlotGenerator';
 import { PlotResult, ChartGenerationContext, GanttZoomRange } from '../../../../observable-plot-generator/types';
 import { OverlayConfig } from '../../../../observable-plot-generator/overlays/types';
-import { Field, FieldOverrideState, UserChartType } from '../../../../types';
+import { Field, FieldOverrideState, UserChartType, Channels } from '../../../../types';
 import { computeOverrideTargets } from '../../../../observable-plot-generator/utils/fieldOverrides';
 import { logOperationTiming } from '../utils';
 import { planFacets } from '../../../../observable-plot-generator/faceting/facetPlanner';
@@ -15,40 +15,19 @@ const ZOOM_REGEN_DEBOUNCE_MS = 150;
 interface UseChartGenerationProps {
   xAxisFields: any[];
   yAxisFields: any[];
-  colorField: Field | null;
-  colorScheme?: string;
-  colorBias?: number;
-  manualColor?: string;
-  sizeField: Field | null;
-  sizeRange: [number, number];
-  manualSize: number;
-  bandThicknessScale: number;
+  channels: Channels;
   useTableView: boolean;
   showTableRows?: boolean;
   queryResult: any; // Add queryResult here
   queryVersion?: number; // Add queryVersion to detect union/join changes
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
-  labelFields?: Field[];
-  labelsEnabled?: boolean;
-  labelSamplingStrategy?: 'auto' | 'all' | 'sample';
-  labelSamplingThreshold?: number;
-  labelSampleEvery?: number;
-  tooltipFields?: Field[];
   fieldOverrides?: Record<string, FieldOverrideState>;
   globalChartType?: UserChartType | null;
   measureValuesSourceFields?: Field[];
   independentDomains?: { x?: boolean; y?: boolean };
   ganttZoomRange?: GanttZoomRange | null;
-  // Facet background encoding
-  facetBackgroundField?: Field | null;
-  facetBackgroundScheme?: string;
-  facetBackgroundOpacity?: number;
-  // Statistical overlays
   overlays?: OverlayConfig[];
-  // Shape encoding (scatter only, discrete only)
-  shapeField?: Field | null;
-  manualShape?: string;
 }
 
 interface UseChartGenerationReturn {
@@ -68,38 +47,27 @@ interface UseChartGenerationReturn {
 export const useChartGeneration = ({
   xAxisFields,
   yAxisFields,
-  colorField,
-  colorScheme,
-  colorBias = 0,
-  manualColor,
-  sizeField,
-  sizeRange,
-  manualSize,
-  bandThicknessScale,
+  channels,
   useTableView,
   showTableRows = false,
   queryResult, // Destructure here
   queryVersion, // Destructure queryVersion
   startOperation,
   completeOperation,
-  labelFields = [],
-  labelsEnabled = false,
-  labelSamplingStrategy = 'auto',
-  labelSamplingThreshold = 300,
-  labelSampleEvery = 1,
-  tooltipFields = [],
   fieldOverrides = {},
   globalChartType,
   measureValuesSourceFields = [],
   independentDomains,
   ganttZoomRange,
-  facetBackgroundField,
-  facetBackgroundScheme,
-  facetBackgroundOpacity,
   overlays,
-  shapeField,
-  manualShape,
 }: UseChartGenerationProps): UseChartGenerationReturn => {
+  const { field: colorField, scheme: colorScheme = 'tableau10', bias: colorBias = 0, manual: manualColor } = channels.color;
+  const { field: sizeField, range: sizeRange, manual: manualSize, bandThicknessScale } = channels.size;
+  const { field: shapeField, manual: manualShape } = channels.shape;
+  const { fields: labelFields, enabled: labelsEnabled, samplingStrategy: labelSamplingStrategy, samplingThreshold: labelSamplingThreshold, sampleEvery: labelSampleEvery } = channels.label;
+  const { fields: tooltipFields } = channels.tooltip;
+  const { field: facetBackgroundField, scheme: facetBackgroundScheme, opacity: facetBackgroundOpacity } = channels.facetBackground;
+
   const [spec, setSpec] = useState<PlotResult | null>(null);
   const [chartInfo, setChartInfo] = useState<any | null>(null);
   const [renderingError, setRenderingError] = useState<string | null>(null);
@@ -309,7 +277,7 @@ export const useChartGeneration = ({
       // On error, complete the operation immediately since no rendering will happen
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, colorField, colorScheme, colorBias, manualColor, sizeField, sizeRange, manualSize, bandThicknessScale, useTableView, showTableRows, startOperation, completeOperation, queryResult, queryVersion, labelFields, labelsEnabled, labelSamplingStrategy, labelSamplingThreshold, labelSampleEvery, tooltipFields, fieldOverrides, globalChartType, measureValuesSourceFields, independentDomains, doGenerateChart, fieldAliasLookup, facetBackgroundField, facetBackgroundScheme, facetBackgroundOpacity, overlays, shapeField, manualShape]);
+  }, [xAxisFields, yAxisFields, channels, useTableView, showTableRows, startOperation, completeOperation, queryResult, queryVersion, fieldOverrides, globalChartType, measureValuesSourceFields, independentDomains, doGenerateChart, fieldAliasLookup, overlays]);
 
   const cancelGeneration = useCallback(() => {
     // No-op since Observable Plot generation is synchronous
