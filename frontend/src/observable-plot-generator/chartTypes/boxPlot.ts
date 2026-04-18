@@ -1,6 +1,8 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext } from '../types';
 import { BAR_STEP_PX, DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
+import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
+import { getFieldDisplayName, getResultColumnName } from '../../utils/fieldUtils';
 
 function getMedianValue(values: Array<number | Date>): number | Date | null {
   if (values.length === 0) return null;
@@ -47,6 +49,16 @@ export function boxPlot(
   axisDomain?: [number, number] | [Date, Date],
 ): Plot.PlotOptions {
   const data = context.queryResult.rows;
+  const colorColumnName = context.colorField ? getResultColumnName(context.colorField) : undefined;
+  const usesCategoryColor = Boolean(
+    categoryColumn &&
+    colorColumnName &&
+    context.colorField?.flavour === 'discrete' &&
+    colorColumnName === categoryColumn
+  );
+  const colorInfo = usesCategoryColor && context.colorField
+    ? deriveColorScaleInfo(data, context.colorField, context.colorScheme, context.colorBias)
+    : null;
   const categories = categoryColumn
     ? (context.categoryAxisDescriptor?.domain && Array.isArray(context.categoryAxisDescriptor.domain)
         ? context.categoryAxisDescriptor.domain
@@ -56,6 +68,22 @@ export function boxPlot(
   const categoryAxisSize = Math.max(BAR_STEP_PX, categoryCount * BAR_STEP_PX);
   const strokeColor = context.manualColor || DEFAULT_CHART_COLOR;
   const fillColor = context.manualColor || DEFAULT_CHART_COLOR;
+  const colorScale = usesCategoryColor && colorInfo
+    ? (colorInfo.kind === 'continuous'
+        ? {
+            type: 'linear',
+            domain: colorInfo.domain as [number, number],
+            range: colorInfo.range,
+            clamp: true,
+            label: getFieldDisplayName(context.colorField!),
+          } as any
+        : {
+            type: 'ordinal' as any,
+            domain: colorInfo.domain as any[],
+            range: colorInfo.range,
+            label: getFieldDisplayName(context.colorField!),
+          } as any)
+    : undefined;
 
   const referenceValue = context.boxPlotReferenceLineMode === 'global-median'
     ? getMedianValue(collectContinuousValues(data, valueColumn))
@@ -63,6 +91,7 @@ export function boxPlot(
 
   if (orientation === 'x') {
     return {
+      ...(colorScale ? { color: colorScale } : {}),
       x: {
         label: labels?.dimension || valueColumn,
         grid: true,
@@ -81,9 +110,9 @@ export function boxPlot(
         Plot.boxX(data, {
           x: valueColumn,
           ...(categoryColumn ? { y: categoryColumn } : {}),
-          fill: fillColor,
+          fill: usesCategoryColor ? colorColumnName! : fillColor,
           fillOpacity: 0.22,
-          stroke: strokeColor,
+          stroke: usesCategoryColor ? colorColumnName! : strokeColor,
         }),
         ...(referenceValue !== null
           ? [Plot.ruleX([referenceValue], { stroke: '#e15759', strokeDasharray: '4,2', strokeWidth: 1.5 })]
@@ -94,6 +123,7 @@ export function boxPlot(
   }
 
   return {
+    ...(colorScale ? { color: colorScale } : {}),
     y: {
       label: labels?.dimension || valueColumn,
       grid: true,
@@ -112,9 +142,9 @@ export function boxPlot(
       Plot.boxY(data, {
         y: valueColumn,
         ...(categoryColumn ? { x: categoryColumn } : {}),
-        fill: fillColor,
+        fill: usesCategoryColor ? colorColumnName! : fillColor,
         fillOpacity: 0.22,
-        stroke: strokeColor,
+        stroke: usesCategoryColor ? colorColumnName! : strokeColor,
       }),
       ...(referenceValue !== null
         ? [Plot.ruleY([referenceValue], { stroke: '#e15759', strokeDasharray: '4,2', strokeWidth: 1.5 })]

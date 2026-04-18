@@ -12,6 +12,7 @@ import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 import { formatDateTick } from '../utils/dateFormatUtils';
 import { normalizeCategoryForChart } from '../../datetime/chartDateTimeNormalizer';
 import { warnIfNonUtc } from '../../datetime/utcWarnings';
+import { boxPlot } from '../chartTypes/boxPlot';
 
 /**
  * Create a cell generator for multi-measure bar charts and tick strips.
@@ -114,22 +115,34 @@ export function createBarCellGenerator(
         );
         title = resolveMeasureAlias(f);
       } else {
-        // Tick strip for continuous dimension
-        options = buildTickStripOptions(
-          normalizedCellData,
-          f,
-          barOrientation,
-          categoryColumnName,
-          categories,
-          colorField,
-          colorColumnName,
-          sharedDomains,
-          bandPadding,
-          manualColor,
-          cellContext.tooltipFields,
-          allFacetFields,
-          categoryField
-        );
+        const useBoxPlot = cellContext.distributionVariant === 'box-plot';
+        options = useBoxPlot
+          ? buildBoxPlotOptions(
+              normalizedCellData,
+              f,
+              barOrientation,
+              categoryAxis,
+              categoryColumnName,
+              categories,
+              sharedDomains,
+              cellContext,
+              categoryField,
+            )
+          : buildTickStripOptions(
+              normalizedCellData,
+              f,
+              barOrientation,
+              categoryColumnName,
+              categories,
+              colorField,
+              colorColumnName,
+              sharedDomains,
+              bandPadding,
+              manualColor,
+              cellContext.tooltipFields,
+              allFacetFields,
+              categoryField
+            );
         title = getResultColumnName(f);
       }
       
@@ -154,6 +167,45 @@ export function createBarCellGenerator(
       rowSizes: Array.from({ length: baseRowsPerFacet }, () => baseRowHeight as any),
     };
   };
+}
+
+function buildBoxPlotOptions(
+  cellData: any[],
+  dimensionField: Field,
+  barOrientation: 'barX' | 'barY',
+  categoryAxis: 'x' | 'y',
+  categoryColumnName: string | undefined,
+  categories: any[],
+  sharedDomains: SharedDomains,
+  cellContext: any,
+  categoryField?: Field | null,
+): Plot.PlotOptions {
+  const dimCol = getResultColumnName(dimensionField);
+  const dimensionLabel = getFieldDisplayName(dimensionField);
+  const categoryLabel = categoryField ? getFieldDisplayName(categoryField) : (categoryColumnName || ' ');
+  const axisDomain = sharedDomains.numeric?.[dimCol] as [number, number] | [Date, Date] | undefined;
+
+  return boxPlot(
+    {
+      ...cellContext,
+      queryResult: { columns: [], rows: cellData, row_count: cellData.length } as any,
+      categoryAxisDescriptor: categoryColumnName
+        ? {
+            axis: categoryAxis,
+            columnName: categoryColumnName,
+            domain: categories,
+          }
+        : undefined,
+    },
+    barOrientation === 'barX' ? 'x' : 'y',
+    dimCol,
+    categoryColumnName,
+    {
+      dimension: dimensionLabel,
+      category: categoryLabel,
+    },
+    axisDomain,
+  );
 }
 
 // ---------- Measure Bar Chart Builder ---------------------------------------

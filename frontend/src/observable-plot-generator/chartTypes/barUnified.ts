@@ -8,6 +8,7 @@ import { BAR_STEP_PX, MIN_BAR_STEP_PX, BAND_PADDING } from '../../config/chartLa
 import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 // Tick strip for continuous dimensions
 import { tickStrip } from './tickStrip';
+import { boxPlot } from './boxPlot';
 import { isMeasureValuesField, combineMeasureValuesOverrides } from '../../utils/syntheticFields';
 
 /**
@@ -249,14 +250,17 @@ export function barUnified(
   const tickStripPlots = continuousDims.map((dim, idx) => {
     const dimCol = getFieldColumnName(dim);
     const axis = orientation === 'horizontal' ? 'x' : 'y';
-    const tickOptions = tickStrip(context, axis, dimCol, categoryColumn, {
+    const distributionLabels = {
       dimension: getFieldDisplayName(dim),
       category: hasCategories && categoryDims.length === 1 
         ? getFieldDisplayName(categoryDims[0]) 
         : hasCategories 
           ? categoryDims.map((d: any) => getFieldDisplayName(d)).join(' • ')
           : undefined
-    }, sharedDomains);
+    };
+    const tickOptions = context.distributionVariant === 'box-plot'
+      ? boxPlot(context, axis, dimCol, categoryColumn, distributionLabels, sharedDomains?.[dimCol])
+      : tickStrip(context, axis, dimCol, categoryColumn, distributionLabels, sharedDomains);
     
     const plotIdx = measures.length + idx;
     return {

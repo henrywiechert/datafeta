@@ -667,7 +667,10 @@ export function generatePairChartOptions(
   // Both fields present - use registry dispatch
   const xf = xField!;
   const yf = yField!;
-  const selected: CellChartType = resolveChartTypeForPair(xf, yf, overrides);
+  const resolved: CellChartType = resolveChartTypeForPair(xf, yf, overrides);
+  const selected: CellChartType = distributionVariant === 'box-plot'
+    ? (resolved === 'tickX' ? 'boxX' : resolved === 'tickY' ? 'boxY' : resolved)
+    : resolved;
   const handler = CHART_HANDLERS[selected];
   if (!handler) {
     return messageOptions('Unsupported combination');
