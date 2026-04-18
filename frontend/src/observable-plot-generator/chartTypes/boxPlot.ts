@@ -4,6 +4,154 @@ import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING } from '../../config/cha
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { getFieldDisplayName, getResultColumnName } from '../../utils/fieldUtils';
 import { computeBandPaddingFromSizeField } from './barCore';
+import { createTooltipFieldsGetter, formatTooltipValue } from '../utils/tooltipUtils';
+import { Field, TooltipField } from '../../types';
+
+type SummaryRow = {
+  [key: string]: any;
+  count: number;
+  min: number | Date;
+  q1: number | Date;
+  median: number | Date;
+  q3: number | Date;
+  max: number | Date;
+};
+
+function quantile(sortedValues: number[], percentile: number): number {
+  if (sortedValues.length === 0) return NaN;
+  if (sortedValues.length === 1) return sortedValues[0];
+  const position = (sortedValues.length - 1) * percentile;
+  const lowerIndex = Math.floor(position);
+  const upperIndex = Math.ceil(position);
+  if (lowerIndex === upperIndex) return sortedValues[lowerIndex];
+  const weight = position - lowerIndex;
+  return sortedValues[lowerIndex] * (1 - weight) + sortedValues[upperIndex] * weight;
+}
+
+function toTooltipValue(sampleValue: number | Date, numericValue: number): number | Date {
+  return sampleValue instanceof Date ? new Date(numericValue) : numericValue;
+}
+
+function buildSummaryRows(data: any[], valueColumn: string, categoryColumn?: string): SummaryRow[] {
+  const grouped = new Map<any, Array<number | Date>>();
+
+  for (const row of data) {
+    const value = row[valueColumn];
+    let parsedValue: number | Date | null = null;
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      parsedValue = value;
+    } else if (value instanceof Date) {
+      parsedValue = value;
+    } else if (typeof value === 'string') {
+      const parsed = Date.parse(value);
+      if (!Number.isNaN(parsed)) parsedValue = new Date(parsed);
+    }
+    if (parsedValue == null) continue;
+
+    const categoryValue = categoryColumn ? row[categoryColumn] : ' ';
+    if (!grouped.has(categoryValue)) {
+      grouped.set(categoryValue, []);
+    }
+    grouped.get(categoryValue)!.push(parsedValue);
+  }
+
+  return Array.from(grouped.entries()).map(([categoryValue, values]) => {
+    const numericValues = values
+      .map((value) => value instanceof Date ? value.getTime() : value)
+      .sort((left, right) => left - right);
+    const sample = values[0];
+    const summary: SummaryRow = {
+      count: numericValues.length,
+      min: toTooltipValue(sample, numericValues[0]),
+      q1: toTooltipValue(sample, quantile(numericValues, 0.25)),
+      median: toTooltipValue(sample, quantile(numericValues, 0.5)),
+      q3: toTooltipValue(sample, quantile(numericValues, 0.75)),
+      max: toTooltipValue(sample, numericValues[numericValues.length - 1]),
+    };
+    if (categoryColumn) {
+      summary[categoryColumn] = categoryValue;
+    }
+    return summary;
+  });
+}
+
+function resolveFieldByColumn(context: ChartGenerationContext, columnName?: string): Field | undefined {
+  if (!columnName) return undefined;
+  const candidates = [
+    ...context.xFields,
+    ...context.yFields,
+    ...(context.colorField ? [context.colorField] : []),
+    ...(context.tooltipFields || []),
+  ];
+  return candidates.find((field) => getResultColumnName(field) === columnName || field.columnName === columnName);
+}
+
+function createBoxTooltipFieldsGetter(
+  context: ChartGenerationContext,
+  valueColumn: string,
+  valueLabel: string,
+  categoryColumn?: string,
+  categoryLabel?: string,
+): (row: SummaryRow) => TooltipField[] {
+  const valueField = resolveFieldByColumn(context, valueColumn);
+  const categoryField = resolveFieldByColumn(context, categoryColumn);
+  const tooltipFieldsGetter = createTooltipFieldsGetter(
+    categoryColumn && categoryLabel
+      ? [{ label: categoryLabel, column: categoryColumn, sourceField: categoryField }]
+      : [],
+    undefined,
+    undefined,
+    undefined,
+  );
+
+  return (row: SummaryRow) => {
+    const fields = tooltipFieldsGetter(row);
+    fields.push(
+      {
+        label: `${valueLabel} min`,
+        value: formatTooltipValue(row.min),
+        formattedValue: formatTooltipValue(row.min),
+        sourceField: valueField,
+        rawValue: row.min,
+      },
+      {
+        label: `${valueLabel} Q1`,
+        value: formatTooltipValue(row.q1),
+        formattedValue: formatTooltipValue(row.q1),
+        sourceField: valueField,
+        rawValue: row.q1,
+      },
+      {
+        label: `${valueLabel} median`,
+        value: formatTooltipValue(row.median),
+        formattedValue: formatTooltipValue(row.median),
+        sourceField: valueField,
+        rawValue: row.median,
+      },
+      {
+        label: `${valueLabel} Q3`,
+        value: formatTooltipValue(row.q3),
+        formattedValue: formatTooltipValue(row.q3),
+        sourceField: valueField,
+        rawValue: row.q3,
+      },
+      {
+        label: `${valueLabel} max`,
+        value: formatTooltipValue(row.max),
+        formattedValue: formatTooltipValue(row.max),
+        sourceField: valueField,
+        rawValue: row.max,
+      },
+      {
+        label: 'Count',
+        value: row.count,
+        formattedValue: formatTooltipValue(row.count),
+        rawValue: row.count,
+      }
+    );
+    return fields;
+  };
+}
 
 function getMedianValue(values: Array<number | Date>): number | Date | null {
   if (values.length === 0) return null;
@@ -91,9 +239,25 @@ export function boxPlot(
   const referenceValue = context.boxPlotReferenceLineMode === 'global-median'
     ? getMedianValue(collectContinuousValues(data, valueColumn))
     : null;
+  const summaryRows = buildSummaryRows(data, valueColumn, categoryColumn);
+  const tooltipGetter = createBoxTooltipFieldsGetter(
+    context,
+    valueColumn,
+    labels?.dimension || valueColumn,
+    categoryColumn,
+    labels?.category,
+  );
+  const interactionDomain = axisDomain || (() => {
+    const values = collectContinuousValues(data, valueColumn);
+    if (values.length === 0) return undefined;
+    const numericValues = values.map((value) => value instanceof Date ? value.getTime() : value);
+    const min = Math.min(...numericValues);
+    const max = Math.max(...numericValues);
+    return values[0] instanceof Date ? [new Date(min), new Date(max)] as [Date, Date] : [min, max] as [number, number];
+  })();
 
   if (orientation === 'x') {
-    return {
+    const options: Plot.PlotOptions = {
       ...(colorScale ? { color: colorScale } : {}),
       x: {
         label: labels?.dimension || valueColumn,
@@ -109,24 +273,47 @@ export function boxPlot(
               padding: bandPadding as any,
             },
           }
-        : {}),
+        : {
+            y: {
+              label: ' ',
+              domain: [' '] as any,
+              type: 'band' as any,
+              padding: bandPadding as any,
+            },
+          }),
       marks: [
         Plot.boxX(data, {
           x: valueColumn,
-          ...(categoryColumn ? { y: categoryColumn } : {}),
+          y: categoryColumn || (() => ' '),
           fill: usesCategoryColor ? colorColumnName! : fillColor,
           fillOpacity: 0.22,
           stroke: usesCategoryColor ? colorColumnName! : strokeColor,
         }),
+        ...(interactionDomain
+          ? [Plot.rectX(summaryRows, {
+              x1: interactionDomain[0] as any,
+              x2: interactionDomain[1] as any,
+              y: categoryColumn || (() => ' '),
+              fill: 'transparent',
+              fillOpacity: 0,
+              stroke: 'transparent',
+            })]
+          : []),
         ...(referenceValue !== null
           ? [Plot.ruleX([referenceValue], { stroke: '#e15759', strokeDasharray: '4,2', strokeWidth: 1.5 })]
           : []),
       ],
       height: categoryAxisSize,
     };
+    (options as any).__customTooltip = {
+      enabled: true,
+      data: summaryRows,
+      getFields: tooltipGetter,
+    };
+    return options;
   }
 
-  return {
+  const options: Plot.PlotOptions = {
     ...(colorScale ? { color: colorScale } : {}),
     y: {
       label: labels?.dimension || valueColumn,
@@ -142,19 +329,42 @@ export function boxPlot(
             padding: bandPadding as any,
           },
         }
-      : {}),
+      : {
+          x: {
+            label: ' ',
+            domain: [' '] as any,
+            type: 'band' as any,
+            padding: bandPadding as any,
+          },
+        }),
     marks: [
       Plot.boxY(data, {
         y: valueColumn,
-        ...(categoryColumn ? { x: categoryColumn } : {}),
+        x: categoryColumn || (() => ' '),
         fill: usesCategoryColor ? colorColumnName! : fillColor,
         fillOpacity: 0.22,
         stroke: usesCategoryColor ? colorColumnName! : strokeColor,
       }),
+      ...(interactionDomain
+        ? [Plot.rectY(summaryRows, {
+            y1: interactionDomain[0] as any,
+            y2: interactionDomain[1] as any,
+            x: categoryColumn || (() => ' '),
+            fill: 'transparent',
+            fillOpacity: 0,
+            stroke: 'transparent',
+          })]
+        : []),
       ...(referenceValue !== null
         ? [Plot.ruleY([referenceValue], { stroke: '#e15759', strokeDasharray: '4,2', strokeWidth: 1.5 })]
         : []),
     ],
     width: categoryAxisSize,
   };
+  (options as any).__customTooltip = {
+    enabled: true,
+    data: summaryRows,
+    getFields: tooltipGetter,
+  };
+  return options;
 }
