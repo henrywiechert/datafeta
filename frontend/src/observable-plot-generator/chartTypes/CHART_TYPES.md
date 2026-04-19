@@ -15,41 +15,47 @@ This directory contains chart generators for Observable Plot. Each chart type is
 │                        cellCharts.ts                                │
 │  Central hub for pair-wise chart generation                         │
 │  Uses CHART_HANDLERS registry for type dispatch                     │
+│  Types: cellChartTypes.ts  Helpers: cellChartHelpers.ts             │
 └───────────────────────────────┬─────────────────────────────────────┘
                                 │
-        ┌───────────┬───────────┼───────────┬───────────┐
-        ▼           ▼           ▼           ▼           ▼
-┌─────────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────────────┐
-│scatterChart │ │lineChart│ │ barCore │ │tickStrip│ │measureValues    │
-│             │ │         │ │         │ │         │ │MultiMark        │
-└─────────────┘ └─────────┘ └────┬────┘ └─────────┘ └─────────────────┘
-                                 │
-                                 ▼
-                          ┌───────────┐
-                          │barUnified │
-                          └─────┬─────┘
-                                │
-                                ▼
-                          ┌───────────┐
-                          │ barChart  │
-                          │ (wrapper) │
-                          └───────────┘
+    ┌─────────┬─────────┬───────┼────────┬─────────┬────────┐
+    ▼         ▼         ▼       ▼        ▼         ▼        ▼
+┌────────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────────────────┐
+│scatter │ │ line │ │barCo-│ │ tick │ │ box  │ │ cdf  │ │measureValues     │
+│Chart   │ │Chart │ │re    │ │Strip │ │Plot  │ │Chart │ │MultiMark         │
+└────────┘ └──────┘ └──┬───┘ └──────┘ └──────┘ └──────┘ └──────────────────┘
+                        │
+                        ▼
+                 ┌───────────┐
+                 │barUnified │
+                 └─────┬─────┘
+                       │
+                       ▼
+                 ┌───────────┐
+                 │ barChart  │
+                 │ (wrapper) │
+                 └───────────┘
 ```
 
 ## Module Inventory
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `cellCharts.ts` | ~650 | Central pair-wise chart dispatcher with registry pattern |
-| `barCore.ts` | 385 | Core bar chart building utilities |
-| `barUnified.ts` | 350 | Multi-measure bar/tick-strip chart builder |
-| `barChart.ts` | 14 | Thin wrapper around `barUnified` for API compatibility |
-| `scatterChart.ts` | 377 | Scatter plot generator with stratified sampling |
-| `lineChart.ts` | 578 | Line chart generator with bin-aggregation |
-| `tickStrip.ts` | 346 | Tick strip (1D distribution) generator |
-| `ganttChart.ts` | ~350 | Gantt/interval chart generator with intrinsic sizing |
+| `cellCharts.ts` | 676 | Central pair-wise chart dispatcher with registry pattern |
+| `cellChartTypes.ts` | 54 | Shared type definitions (`Domains`, `ChartContext`, `ChartHandler`) |
+| `cellChartHelpers.ts` | 104 | Utility functions used by cell chart handlers |
+| `barCore.ts` | 448 | Core bar chart building utilities |
+| `barUnified.ts` | 372 | Multi-measure bar/tick-strip chart builder |
+| `barChart.ts` | 13 | Thin wrapper around `barUnified` for API compatibility |
+| `scatterChart.ts` | 455 | Scatter plot generator with stratified sampling |
+| `lineChart.ts` | 732 | Line chart generator with bin-aggregation |
+| `tickStrip.ts` | 350 | Tick strip (1D distribution) generator |
+| `boxPlot.ts` | 388 | Box plot generator with client-side summary statistics |
+| `cdfChart.ts` | 198 | CDF curve generator (pre-computed CDF columns) |
+| `ganttChart.ts` | 604 | Gantt/interval chart generator with intrinsic sizing |
 | `measureValuesMultiMark.ts` | 453 | Multi-mark generator for MeasureValues with per-measure overrides |
-| `barChart.test.ts` | 214 | Test suite for bar chart functionality |
+| `barChart.test.ts` | 234 | Test suite for bar chart functionality |
+| `lineChart.test.ts` | 226 | Test suite for line chart functionality |
 
 ---
 
@@ -71,9 +77,12 @@ const CHART_HANDLERS: Record<CellChartType, ChartHandler> = {
   barY: handleBarY,
   tickX: handleTickX,
   tickY: handleTickY,
+  boxX: handleBoxX,
+  boxY: handleBoxY,
   dot: handleDot,
   ganttX: handleGanttX,
   ganttY: handleGanttY,
+  cdf: handleCdf,
 };
 ```
 
@@ -195,6 +204,78 @@ Gantt/interval chart for visualizing ranges with start and duration values.
 **Future Enhancements (Architecture-Ready):**
 - DateTime support (currently numeric-only)
 - Zoom/pan controls via `zoomLevel` parameter
+
+---
+
+### boxPlot.ts
+
+Box plot generator with client-side summary statistics computation.
+
+**Key Export:**
+- `boxPlot()` — Generates `Plot.PlotOptions` for a horizontal (`boxX`) or vertical (`boxY`) box plot
+
+**Signature:**
+```typescript
+boxPlot(
+  context: ChartGenerationContext,
+  orientation: 'x' | 'y',
+  valueColumn: string,
+  categoryColumn?: string,
+  labels?: { dimension?: string; category?: string },
+  axisDomain?: [number, number] | [Date, Date],
+  sharedColorScale?: ColorScaleInfo | null,
+): Plot.PlotOptions
+```
+
+**Features:**
+- **Client-side aggregation**: Groups raw rows into `SummaryRow` objects (min, Q1, median, Q3, max, count) via `buildSummaryRows()`. No server-side pre-aggregation required.
+- **Date support**: Parses ISO strings into `Date`; interpolates quantiles numerically then converts back to `Date`.
+- **Discrete color**: `buildColorizedBoxData()` maps color field values onto category groups when a single color is consistent per category. Adds a synthetic `__box_plot_color` column.
+- **Hover interaction**: Transparent `rectX`/`rectY` overlay keyed to `summaryRows` provides tooltip data (summary stats + count) without raw-row enumeration.
+- **Category axis sizing**: Computed from `BAR_STEP_PX × categoryCount × bandThicknessScale`.
+- **Band padding**: Delegated to `computeBandPaddingFromSizeField()` (respects `manualSize`; no size field semantics).
+- **Orientation**: `'x'` → horizontal `Plot.boxX`; `'y'` → vertical `Plot.boxY`.
+
+---
+
+### cdfChart.ts
+
+CDF (Cumulative Distribution Function) curve generator. Expects pre-computed CDF columns from the backend query.
+
+**Key Exports:**
+- `buildCdfOptions()` — Returns `Plot.PlotOptions` for a CDF line + hover dot chart
+- `CDF_SUFFIX` — Column naming convention: `"__cdf"` (e.g., `revenue__cdf`)
+
+**Features:**
+- Validates that CDF columns are present; renders a friendly waiting message when the CDF query is still in flight (stale data from previous result).
+- Explicit X domain computed from data to prevent Observable Plot defaulting to `[0, 1]`.
+- Supports multi-curve CDFs via a discrete `colorField` (uses `stroke`/`z` partitioning).
+- Invisible hover dots (r=6, transparent) for tooltip detection.
+- Filters out non-finite rows before rendering.
+
+---
+
+### cellChartTypes.ts
+
+Shared type definitions extracted from `cellCharts.ts` to avoid circular imports.
+
+**Key Exports:**
+- `Domains` — `Record<string, [number, number] | [Date, Date]> | undefined` for shared measure scales
+- `ChartContext` — Bundle of common chart generation parameters (color, size, labels, zoom, etc.)
+- `ChartHandler` — `(data, xf, yf, ctx) => Plot.PlotOptions` function signature
+
+---
+
+### cellChartHelpers.ts
+
+Utility functions used by `cellCharts.ts` handlers, extracted to keep handler code readable.
+
+**Key Exports:**
+- `aggregateValues()` — Numeric aggregation (sum/count/min/max/avg) across data rows
+- `resolveXYColumns()` — Resolve result column names for X/Y fields, handling measure aliases
+- `messageOptions()` — Create a message-only `PlotOptions` for error/empty states
+- `scatterForDimOnly()` — Fallback scatter when only dimensions are present
+- `resolveColumnInData()` — Find a column that exists in the actual data rows
 
 ---
 
