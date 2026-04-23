@@ -5,7 +5,7 @@
  * for query optimization. Extracted from useQueryExecution for testability.
  */
 
-import { QueryDescription, Field, QueryOptimizationSettings } from '../types';
+import { QueryDescription, Field, QueryOptimizationSettings, DistributionVariant } from '../types';
 import { getResultColumnName } from '../utils/fieldUtils';
 
 /**
@@ -83,16 +83,21 @@ export function getDimensionOutputName(dim: {
  */
 export function classifyChartType(
   queryDesc: QueryDescription,
-  colorField?: Field | null
+  colorField?: Field | null,
+  distributionVariant: DistributionVariant = 'tick-strip'
 ): ChartClassification {
   const hasMeasures = (queryDesc.measures?.length ?? 0) > 0;
   const dims = queryDesc.dimensions || [];
 
-  // Tick strip: exactly 1 continuous dimension, no measures
-  const isTickStrip =
+  // Distribution chart: exactly 1 continuous dimension, no measures.
+  // Box plots are built from the same raw row set and need the same
+  // result-budget / sampled indicator behavior as tick strips.
+  const isSingleContinuousDistribution =
     !hasMeasures &&
     dims.length === 1 &&
     (dims[0] as any)?.flavour === 'continuous';
+  const isTickStrip = isSingleContinuousDistribution && distributionVariant === 'tick-strip';
+  const isBoxPlot = isSingleContinuousDistribution && distributionVariant === 'box-plot';
 
   // True scatter: continuous dimension on both x AND y axes.
   // Note: can still include measures (e.g. continuous color/size).
@@ -105,7 +110,7 @@ export function classifyChartType(
   const isRawPointChart = !hasMeasures && dims.length >= 2;
 
   // Any of the above means we're rendering individual points
-  const isPointChart = isTickStrip || isScatter || isRawPointChart;
+  const isPointChart = isTickStrip || isBoxPlot || isScatter || isRawPointChart;
 
   const hasDiscreteColor = !!colorField && colorField.flavour === 'discrete';
 
@@ -284,9 +289,10 @@ export function computePointBudget(
  */
 export function applyPointBudgetToQuery(
   queryDesc: QueryDescription,
-  colorField?: Field | null
+  colorField?: Field | null,
+  distributionVariant: DistributionVariant = 'tick-strip'
 ): QueryDescription {
-  const classification = classifyChartType(queryDesc, colorField);
+  const classification = classifyChartType(queryDesc, colorField, distributionVariant);
   
   if (!classification.isPointChart) {
     return queryDesc;

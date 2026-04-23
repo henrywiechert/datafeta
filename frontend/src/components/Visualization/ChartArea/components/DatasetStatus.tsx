@@ -19,7 +19,9 @@ const DatasetStatus: React.FC = () => {
   }
 
   const samplingTooltip = sampled
-    ? `Result downsampled to ${sampled.limit.toLocaleString()} rows`
+    ? sampled.type === 'line'
+      ? `Result limited by a line budget (max ${sampled.limit.toLocaleString()} rows)`
+      : `Result limited by a point budget (max ${sampled.limit.toLocaleString()} rows)`
     : 'Not sampled';
 
   return (
