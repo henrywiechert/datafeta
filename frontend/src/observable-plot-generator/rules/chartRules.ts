@@ -73,8 +73,9 @@ function wrapTickStripAs1x1Grid(
     categoryCount = Math.max(1, uniqueCategories.size);
   }
   
-  const intrinsicSize = Math.max(BAR_STEP_PX, categoryCount * BAR_STEP_PX);
-  const minSize = Math.max(MIN_BAR_STEP_PX, categoryCount * MIN_BAR_STEP_PX);
+  const thicknessScale = context.bandThicknessScale ?? 1;
+  const intrinsicSize = Math.max(BAR_STEP_PX, categoryCount * BAR_STEP_PX) * thicknessScale;
+  const minSize = Math.max(MIN_BAR_STEP_PX, categoryCount * MIN_BAR_STEP_PX) * thicknessScale;
   
   // For x-orientation (tickX), height is fixed; for y-orientation (tickY), width is fixed
   const sizeOptions: SizeOptions = orientation === 'x'
