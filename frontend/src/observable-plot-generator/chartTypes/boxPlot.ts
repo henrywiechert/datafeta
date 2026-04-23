@@ -271,7 +271,7 @@ export function boxPlot(
     labels?.category,
     sourceColorColumnName,
   );
-  const interactionDomain = axisDomain || (() => {
+  const valueDomain = axisDomain || (() => {
     const values = summaryRows.flatMap((row) => [row.min, row.max]);
     if (values.length === 0) return undefined;
     const numericValues = values.map((value) => value instanceof Date ? value.getTime() : value);
@@ -286,7 +286,8 @@ export function boxPlot(
       x: {
         label: labels?.dimension || valueColumn,
         grid: true,
-        ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}),
+        domainKey: valueColumn,
+        ...(valueDomain ? { domain: valueDomain as any, nice: false as any } : {}),
       } as any,
       ...(categoryColumn
         ? {
@@ -313,10 +314,10 @@ export function boxPlot(
           fillOpacity: 0.22,
           stroke: resolvedColorColumnName || strokeColor,
         }),
-        ...(interactionDomain
+        ...(valueDomain
           ? [Plot.rectX(summaryRows, {
-              x1: interactionDomain[0] as any,
-              x2: interactionDomain[1] as any,
+              x1: valueDomain[0] as any,
+              x2: valueDomain[1] as any,
               y: categoryColumn || (() => ' '),
               fill: 'transparent',
               fillOpacity: 0,
@@ -339,7 +340,8 @@ export function boxPlot(
     y: {
       label: labels?.dimension || valueColumn,
       grid: true,
-      ...(axisDomain ? { domain: axisDomain as any, nice: false as any } : {}),
+      domainKey: valueColumn,
+      ...(valueDomain ? { domain: valueDomain as any, nice: false as any } : {}),
     } as any,
     ...(categoryColumn
       ? {
@@ -366,10 +368,10 @@ export function boxPlot(
         fillOpacity: 0.22,
         stroke: resolvedColorColumnName || strokeColor,
       }),
-      ...(interactionDomain
+      ...(valueDomain
         ? [Plot.rectY(summaryRows, {
-            y1: interactionDomain[0] as any,
-            y2: interactionDomain[1] as any,
+            y1: valueDomain[0] as any,
+            y2: valueDomain[1] as any,
             x: categoryColumn || (() => ' '),
             fill: 'transparent',
             fillOpacity: 0,
