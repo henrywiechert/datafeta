@@ -12,6 +12,30 @@ function parseNumericCategory(value: any): number | null {
   return null;
 }
 
+function parseNumericValue(value: any): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function parseDateValue(value: any): number | null {
+  if (value instanceof Date) {
+    const ts = value.getTime();
+    return Number.isFinite(ts) ? ts : null;
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    const d = new Date(value);
+    const ts = d.getTime();
+    return Number.isFinite(ts) ? ts : null;
+  }
+  return null;
+}
+
 /**
  * Compute shared numeric domains (min..max with 0 baseline when applicable) for
  * both measures and continuous dimensions across provided candidates.
@@ -49,16 +73,20 @@ export function computeSharedNumericDomains(
     const field = fieldMap[label];
     // Frontend fields use camelCase: dateTimeMode ('timeline' | 'distinct')
     const isTimeline = field?.dateTimeMode === 'timeline' || field?.date_mode === 'timeline';
+    const minSummaryLabel = `${label}__min`;
+    const maxSummaryLabel = `${label}__max`;
     if (isTimeline) {
       // IMPORTANT: avoid Math.min(...hugeArray) / Math.max(...hugeArray) which can stack overflow.
       let minTs = Infinity;
       let maxTs = -Infinity;
       for (const row of data) {
-        const d = new Date(row[label]);
-        const ts = d.getTime();
-        if (!Number.isFinite(ts)) continue;
-        if (ts < minTs) minTs = ts;
-        if (ts > maxTs) maxTs = ts;
+        const candidateValues = [row[label], row[minSummaryLabel], row[maxSummaryLabel]];
+        for (const candidate of candidateValues) {
+          const ts = parseDateValue(candidate);
+          if (ts == null) continue;
+          if (ts < minTs) minTs = ts;
+          if (ts > maxTs) maxTs = ts;
+        }
       }
       if (minTs === Infinity || maxTs === -Infinity) continue;
       const rangeMs = maxTs - minTs;
@@ -71,10 +99,13 @@ export function computeSharedNumericDomains(
       let min = Infinity;
       let max = -Infinity;
       for (const row of data) {
-        const v = row[label];
-        if (typeof v !== 'number' || Number.isNaN(v)) continue;
-        if (v < min) min = v;
-        if (v > max) max = v;
+        const candidateValues = [row[label], row[minSummaryLabel], row[maxSummaryLabel]];
+        for (const candidate of candidateValues) {
+          const v = parseNumericValue(candidate);
+          if (v == null) continue;
+          if (v < min) min = v;
+          if (v > max) max = v;
+        }
       }
       if (min === Infinity || max === -Infinity) continue;
       const span = max - min;
