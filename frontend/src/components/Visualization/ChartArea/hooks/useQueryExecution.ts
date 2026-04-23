@@ -209,6 +209,7 @@ export const useQueryExecution = ({
     measureGroupMeasures: vizState.measureGroupFields.map(field => field.columnName),
     optimizationHints,
     optimizationSettings,
+    distributionVariant: vizState.distributionVariant,
     dispatch,
     startOperation,
     completeOperation,

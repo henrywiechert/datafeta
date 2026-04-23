@@ -16,7 +16,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { apiService } from '../../../../apiService';
 import { buildRawQuery } from '../../../../queryBuilder/queryBuilder';
 import { buildUnpivotedQuery } from '../../../../queryBuilder/syntheticQueryBuilder';
-import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition, QueryOptimizationSettings } from '../../../../types';
+import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition, QueryOptimizationSettings, DistributionVariant } from '../../../../types';
 import { logOperationTiming } from '../utils';
 import { validateAndCleanData, remapCastExpressionColumns } from '../utils/dataValidation';
 import { duckdbService } from '../../../../services/duckdbService';
@@ -48,6 +48,7 @@ export interface UseQueryExecutorProps {
   measureGroupMeasures?: string[];
   optimizationHints: OptimizationHints | null;
   optimizationSettings?: QueryOptimizationSettings;
+  distributionVariant?: DistributionVariant;
   dispatch: (action: any) => void;
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
@@ -86,6 +87,7 @@ export const useQueryExecutor = ({
   measureGroupMeasures,
   optimizationHints,
   optimizationSettings,
+  distributionVariant = 'tick-strip',
   dispatch,
   startOperation,
   completeOperation,
@@ -147,7 +149,7 @@ export const useQueryExecutor = ({
           console.log('🚀 Executing query with Arrow transport, virtualTable:', queryDesc.virtual_table);
 
           // Classify chart type and compute point budget
-          const classification = classifyChartType(queryDesc, colorField);
+          const classification = classifyChartType(queryDesc, colorField, distributionVariant);
           const pointBudget = computePointBudget(classification, queryDesc, colorField, optimizationSettings);
 
           // Apply point budget to query if needed
@@ -352,16 +354,13 @@ export const useQueryExecutor = ({
 
           if (samplingBudget) {
             const { maxPoints, shouldAttachBudget: budgetAttached, lineBudgetMaxRows } = samplingBudget;
-            if (
-              budgetAttached &&
-              Number.isFinite(maxPoints) &&
-              cleanedResult.row_count >= maxPoints
-            ) {
+            // Treat an attached result budget as "sampled/budgeted" for the UI badge.
+            // For stratified/preserve-extremes queries the returned row count can be
+            // below the nominal cap even when sampling was definitely applied, so a
+            // simple row_count >= limit check misses real capped-result cases.
+            if (budgetAttached && Number.isFinite(maxPoints)) {
               cleanedResult.sampled = { limit: maxPoints, type: 'point' };
-            } else if (
-              lineBudgetMaxRows &&
-              cleanedResult.row_count >= lineBudgetMaxRows
-            ) {
+            } else if (lineBudgetMaxRows && Number.isFinite(lineBudgetMaxRows)) {
               cleanedResult.sampled = { limit: lineBudgetMaxRows, type: 'line' };
             }
           }
