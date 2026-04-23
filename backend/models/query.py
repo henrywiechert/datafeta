@@ -127,6 +127,14 @@ class CdfField(BaseModel):
     alias: str       # output alias for the CDF value (e.g., "revenue__cdf")
 
 
+class BoxPlotField(BaseModel):
+    """A continuous field for which box-plot summary statistics should be computed."""
+    field: str
+    alias: str
+    date_part: Optional[Literal['year', 'month', 'day', 'weekday', 'hour', 'minute', 'second', 'millisecond', 'microsecond', 'nanosecond']] = None
+    date_mode: Optional[Literal['distinct', 'timeline']] = None
+
+
 class QueryDescription(BaseModel):
     target_table: str
     target_database: Optional[str] = None # Required for database sources like ClickHouse
@@ -142,9 +150,12 @@ class QueryDescription(BaseModel):
     # When set to 'cdf', the backend uses quantile-breakpoint queries instead
     # of GROUP BY aggregation.  cdf_fields lists the columns to compute CDF for;
     # cdf_partition_fields lists discrete columns for GROUP BY (color + faceting).
-    query_mode: Optional[Literal['standard', 'cdf']] = None
+    # Box-plot mode uses grouped summary statistics instead of raw rows.
+    query_mode: Optional[Literal['standard', 'cdf', 'box_plot']] = None
     cdf_fields: Optional[List[CdfField]] = None
     cdf_partition_fields: Optional[List[str]] = None
+    box_plot_fields: Optional[List[BoxPlotField]] = None
+    box_plot_color_field: Optional[str] = None
     
     # NEW: Optimization hints from frontend
     optimization_hints: Optional[OptimizationHints] = None

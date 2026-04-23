@@ -67,6 +67,13 @@ export interface CdfField {
   alias: string;   // output alias for the cdf value (e.g., "revenue__cdf")
 }
 
+export interface BoxPlotField {
+  field: string;   // source column name
+  alias: string;   // output alias for the summarized value field
+  date_part?: DateTimePart;
+  date_mode?: DateTimeMode;
+}
+
 // --- Query Description --- //
 
 export interface QueryDescription {
@@ -85,9 +92,11 @@ export interface QueryDescription {
   virtual_columns?: VirtualColumnDefinition[];
   result_budget?: ResultBudget;
   force_raw_rows?: boolean;
-  query_mode?: 'standard' | 'cdf';
+  query_mode?: 'standard' | 'cdf' | 'box_plot';
   cdf_fields?: CdfField[];
   cdf_partition_fields?: string[];
+  box_plot_fields?: BoxPlotField[];
+  box_plot_color_field?: string;
 }
 
 // --- Query Result Types --- //

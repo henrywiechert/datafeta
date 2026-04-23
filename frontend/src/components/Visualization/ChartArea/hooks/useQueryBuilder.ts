@@ -8,7 +8,7 @@
 
 import { useMemo } from 'react';
 import { buildQuery } from '../../../../queryBuilder/queryBuilder';
-import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition, QueryOptimizationSettings, UserChartType } from '../../../../types';
+import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition, QueryOptimizationSettings, UserChartType, DistributionVariant } from '../../../../types';
 import { generateOptimizationHintsFromFields } from '../../../../services/optimizationHintGenerator';
 import { createQueryAffectingConfig, getQueryAffectingSingleFields } from '../../../../utils/queryAffectingConfig';
 
@@ -34,6 +34,7 @@ export interface UseQueryBuilderProps {
   optimizationSettings?: QueryOptimizationSettings;
   /** Global chart type — used to detect CDF query mode */
   globalChartType?: UserChartType;
+  distributionVariant?: DistributionVariant;
 }
 
 export interface UseQueryBuilderReturn {
@@ -99,6 +100,7 @@ export const useQueryBuilder = ({
   connectionType,
   optimizationSettings,
   globalChartType,
+  distributionVariant = 'tick-strip',
 }: UseQueryBuilderProps): UseQueryBuilderReturn => {
   
   // Generate optimization hints based on field configuration
@@ -275,6 +277,7 @@ export const useQueryBuilder = ({
       xAxisFields,
       yAxisFields,
       colorField,
+      distributionVariant,
     });
 
     if (queryDesc) {
@@ -327,6 +330,7 @@ export const useQueryBuilder = ({
     additionalLabelFields,
     connectionType,
     globalChartType,
+    distributionVariant,
   ]);
 
   return {
