@@ -187,6 +187,7 @@ export const useQueryExecution = ({
     connectionType: connectionDetails?.type,
     optimizationSettings,
     globalChartType: vizState.globalChartType ?? undefined,
+    distributionVariant: vizState.distributionVariant,
   });
 
   // Get query executor

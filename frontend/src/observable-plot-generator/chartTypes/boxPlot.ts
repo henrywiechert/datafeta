@@ -8,6 +8,9 @@ import { createTooltipFieldsGetter, formatTooltipValue } from '../utils/tooltipU
 import { Field, TooltipField } from '../../types';
 
 const BOX_PLOT_COLOR_COLUMN = '__box_plot_color';
+const BOX_PLOT_COLOR_MIN_COLUMN = '__box_plot_color_min';
+const BOX_PLOT_COLOR_MAX_COLUMN = '__box_plot_color_max';
+const BOX_PLOT_COLOR_DISTINCT_COUNT_COLUMN = '__box_plot_color_distinct_count';
 
 type SummaryRow = {
   [key: string]: any;
@@ -18,6 +21,8 @@ type SummaryRow = {
   q3: number | Date;
   max: number | Date;
 };
+
+type SummaryStat = 'count' | 'min' | 'q1' | 'median' | 'q3' | 'max';
 
 function quantile(sortedValues: number[], percentile: number): number {
   if (sortedValues.length === 0) return NaN;
@@ -34,7 +39,36 @@ function toTooltipValue(sampleValue: number | Date, numericValue: number): numbe
   return sampleValue instanceof Date ? new Date(numericValue) : numericValue;
 }
 
-function buildSummaryRows(
+function parseContinuousValue(value: any): number | Date | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (value instanceof Date) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value);
+    if (!Number.isNaN(parsed)) {
+      return new Date(parsed);
+    }
+  }
+  return null;
+}
+
+function summaryColumnName(valueColumn: string, stat: SummaryStat): string {
+  return `${valueColumn}__${stat}`;
+}
+
+function hasServerSummaryRows(data: any[], valueColumn: string): boolean {
+  const q1Column = summaryColumnName(valueColumn, 'q1');
+  const medianColumn = summaryColumnName(valueColumn, 'median');
+  return data.some((row) =>
+    Object.prototype.hasOwnProperty.call(row, q1Column) &&
+    Object.prototype.hasOwnProperty.call(row, medianColumn)
+  );
+}
+
+function buildSummaryRowsFromRawData(
   data: any[],
   valueColumn: string,
   categoryColumn?: string,
@@ -45,15 +79,7 @@ function buildSummaryRows(
 
   for (const row of data) {
     const value = row[valueColumn];
-    let parsedValue: number | Date | null = null;
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      parsedValue = value;
-    } else if (value instanceof Date) {
-      parsedValue = value;
-    } else if (typeof value === 'string') {
-      const parsed = Date.parse(value);
-      if (!Number.isNaN(parsed)) parsedValue = new Date(parsed);
-    }
+    const parsedValue = parseContinuousValue(value);
     if (parsedValue == null) continue;
 
     const categoryValue = categoryColumn ? row[categoryColumn] : ' ';
@@ -95,7 +121,53 @@ function buildSummaryRows(
   });
 }
 
-function buildColorizedBoxData(
+function buildSummaryRowsFromServerData(
+  data: any[],
+  valueColumn: string,
+  categoryColumn?: string,
+  colorColumn?: string,
+): SummaryRow[] {
+  return data.flatMap((row) => {
+    const min = parseContinuousValue(row[summaryColumnName(valueColumn, 'min')]);
+    const q1 = parseContinuousValue(row[summaryColumnName(valueColumn, 'q1')]);
+    const median = parseContinuousValue(row[summaryColumnName(valueColumn, 'median')]);
+    const q3 = parseContinuousValue(row[summaryColumnName(valueColumn, 'q3')]);
+    const max = parseContinuousValue(row[summaryColumnName(valueColumn, 'max')]);
+    const countValue = row[summaryColumnName(valueColumn, 'count')];
+    const count = typeof countValue === 'number' ? countValue : Number(countValue);
+    if (min == null || q1 == null || median == null || q3 == null || max == null || !Number.isFinite(count)) {
+      return [];
+    }
+
+    const summary: SummaryRow = {
+      ...row,
+      count,
+      min,
+      q1,
+      median,
+      q3,
+      max,
+    };
+
+    if (categoryColumn && !Object.prototype.hasOwnProperty.call(summary, categoryColumn)) {
+      summary[categoryColumn] = row[categoryColumn];
+    }
+
+    if (colorColumn) {
+      const distinctCountRaw = row[BOX_PLOT_COLOR_DISTINCT_COUNT_COLUMN];
+      const distinctCount = typeof distinctCountRaw === 'number' ? distinctCountRaw : Number(distinctCountRaw);
+      const colorMin = row[BOX_PLOT_COLOR_MIN_COLUMN];
+      const colorMax = row[BOX_PLOT_COLOR_MAX_COLUMN];
+      if (Number.isFinite(distinctCount) && distinctCount === 1 && colorMin === colorMax) {
+        summary[colorColumn] = colorMin;
+      }
+    }
+
+    return [summary];
+  });
+}
+
+function buildColorizedRawBoxData(
   data: any[],
   categoryColumn: string | undefined,
   colorColumn: string | undefined,
@@ -230,17 +302,23 @@ export function boxPlot(
   const sourceColorColumnName = context.colorField ? getResultColumnName(context.colorField) : undefined;
   const usesDiscreteColor = Boolean(sourceColorColumnName && context.colorField?.flavour === 'discrete');
   const colorized = usesDiscreteColor
-    ? buildColorizedBoxData(rawData, categoryColumn, sourceColorColumnName)
+    ? buildColorizedRawBoxData(rawData, categoryColumn, sourceColorColumnName)
     : { data: rawData, colorColumnName: undefined as string | undefined };
-  const data = colorized.data;
-  const resolvedColorColumnName = colorized.colorColumnName;
+  const isServerSummaryData = hasServerSummaryRows(rawData, valueColumn);
+  const summaryRows = isServerSummaryData
+    ? buildSummaryRowsFromServerData(rawData, valueColumn, categoryColumn, sourceColorColumnName)
+    : buildSummaryRowsFromRawData(colorized.data, valueColumn, categoryColumn, sourceColorColumnName);
+  const data = isServerSummaryData ? summaryRows : colorized.data;
+  const resolvedColorColumnName = usesDiscreteColor
+    ? (isServerSummaryData ? sourceColorColumnName : colorized.colorColumnName)
+    : undefined;
   const colorInfo = usesDiscreteColor && context.colorField
-    ? (sharedColorScale || deriveColorScaleInfo(rawData, context.colorField, context.colorScheme, context.colorBias))
+    ? (sharedColorScale || deriveColorScaleInfo(summaryRows, context.colorField, context.colorScheme, context.colorBias))
     : null;
   const categories = categoryColumn
     ? (context.categoryAxisDescriptor?.domain && Array.isArray(context.categoryAxisDescriptor.domain)
         ? context.categoryAxisDescriptor.domain
-        : Array.from(new Set(data.map((row) => row[categoryColumn]))))
+        : Array.from(new Set(summaryRows.map((row) => row[categoryColumn]))))
     : undefined;
   const categoryCount = Math.max(1, categories?.length ?? 1);
   const categoryAxisSize = Math.max(BAR_STEP_PX, categoryCount * BAR_STEP_PX) * thicknessScale;
@@ -262,7 +340,6 @@ export function boxPlot(
             label: getFieldDisplayName(context.colorField!),
           } as any)
     : undefined;
-  const summaryRows = buildSummaryRows(data, valueColumn, categoryColumn, sourceColorColumnName);
   const tooltipGetter = createBoxTooltipFieldsGetter(
     context,
     valueColumn,
@@ -307,12 +384,39 @@ export function boxPlot(
             },
           }),
       marks: [
-        Plot.boxX(data, {
-          x: valueColumn,
+        Plot.ruleY(summaryRows, {
+          y: categoryColumn || (() => ' '),
+          x1: 'min',
+          x2: 'max',
+          stroke: resolvedColorColumnName || strokeColor,
+          strokeWidth: 1.25,
+        }),
+        Plot.rectX(summaryRows, {
+          x1: 'q1',
+          x2: 'q3',
           y: categoryColumn || (() => ' '),
           fill: resolvedColorColumnName || fillColor,
           fillOpacity: 0.22,
           stroke: resolvedColorColumnName || strokeColor,
+          strokeWidth: 1,
+        }),
+        Plot.tickX(summaryRows, {
+          x: 'min',
+          y: categoryColumn || (() => ' '),
+          stroke: resolvedColorColumnName || strokeColor,
+          strokeWidth: 1,
+        }),
+        Plot.tickX(summaryRows, {
+          x: 'max',
+          y: categoryColumn || (() => ' '),
+          stroke: resolvedColorColumnName || strokeColor,
+          strokeWidth: 1,
+        }),
+        Plot.tickX(summaryRows, {
+          x: 'median',
+          y: categoryColumn || (() => ' '),
+          stroke: resolvedColorColumnName || strokeColor,
+          strokeWidth: 2,
         }),
         ...(valueDomain
           ? [Plot.rectX(summaryRows, {
@@ -361,12 +465,39 @@ export function boxPlot(
           },
         }),
     marks: [
-      Plot.boxY(data, {
-        y: valueColumn,
+      Plot.ruleX(summaryRows, {
+        x: categoryColumn || (() => ' '),
+        y1: 'min',
+        y2: 'max',
+        stroke: resolvedColorColumnName || strokeColor,
+        strokeWidth: 1.25,
+      }),
+      Plot.rectY(summaryRows, {
+        y1: 'q1',
+        y2: 'q3',
         x: categoryColumn || (() => ' '),
         fill: resolvedColorColumnName || fillColor,
         fillOpacity: 0.22,
         stroke: resolvedColorColumnName || strokeColor,
+        strokeWidth: 1,
+      }),
+      Plot.tickY(summaryRows, {
+        y: 'min',
+        x: categoryColumn || (() => ' '),
+        stroke: resolvedColorColumnName || strokeColor,
+        strokeWidth: 1,
+      }),
+      Plot.tickY(summaryRows, {
+        y: 'max',
+        x: categoryColumn || (() => ' '),
+        stroke: resolvedColorColumnName || strokeColor,
+        strokeWidth: 1,
+      }),
+      Plot.tickY(summaryRows, {
+        y: 'median',
+        x: categoryColumn || (() => ' '),
+        stroke: resolvedColorColumnName || strokeColor,
+        strokeWidth: 2,
       }),
       ...(valueDomain
         ? [Plot.rectY(summaryRows, {

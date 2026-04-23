@@ -326,6 +326,113 @@ class UnionQueryBuilder:
         self._logger.info("Generated CDF UNION ALL query: %s...", final_sql[:200])
         return final_sql, []
 
+    def _translate_box_plot_union(
+        self,
+        query_desc: QueryDescription,
+        table_refs: List[Tuple[str, str]],
+        *,
+        db_type: str,
+        quote_char: str,
+        with_sampling: bool,
+        with_optimization: bool,
+        optimizer: Optional[object],
+    ) -> Tuple[str, List[Dict]]:
+        """Handle box-plot summary queries across UNION ALL tables."""
+        union_queries: List[str] = []
+
+        for database, table_name in table_refs:
+            if hasattr(query_desc, "model_copy"):
+                single_desc = query_desc.model_copy(deep=True)
+            else:  # pragma: no cover
+                single_desc = query_desc.copy(deep=True)
+
+            single_desc.target_table = table_name
+            single_desc.target_database = database
+            single_desc.virtual_table = None
+            single_desc.result_budget = None
+            single_desc.filters = [
+                f for f in single_desc.filters
+                if f.field not in ("_source_database", "_source_table")
+            ]
+            single_desc.orderBy = []
+            single_desc.limit = None
+            single_desc.offset = None
+            single_desc.dimensions = [
+                dim for dim in single_desc.dimensions
+                if dim.field not in ("_source_database", "_source_table")
+            ]
+            if single_desc.box_plot_color_field in ("_source_database", "_source_table"):
+                single_desc.box_plot_color_field = None
+
+            single_sql, _ = self._translate_single_table(
+                single_desc,
+                table_name,
+                db_type,
+                with_sampling=with_sampling,
+                with_optimization=with_optimization,
+                optimizer=optimizer,
+            )
+
+            if "FROM" in single_sql:
+                select_part, from_part = single_sql.split("FROM", 1)
+                select_part = select_part.rstrip()
+                if select_part.endswith(","):
+                    select_part = select_part[:-1]
+                modified_sql = (
+                    f"{select_part}, "
+                    f"'{database}' AS {quote_char}_source_database{quote_char}, "
+                    f"'{table_name}' AS {quote_char}_source_table{quote_char} "
+                    f"FROM{from_part}"
+                )
+                union_queries.append(f"({modified_sql})")
+            else:
+                union_queries.append(f"({single_sql})")
+
+        if not union_queries:
+            return "SELECT 1 WHERE 1=0", []
+
+        union_sql = "\nUNION ALL\n".join(union_queries)
+
+        source_db_filters = [f for f in query_desc.filters if f.field == "_source_database"]
+        source_table_filters = [f for f in query_desc.filters if f.field == "_source_table"]
+        needs_outer = (
+            bool(query_desc.orderBy)
+            or query_desc.limit is not None
+            or query_desc.offset is not None
+            or bool(source_db_filters)
+            or bool(source_table_filters)
+        )
+
+        if needs_outer:
+            final_sql = f"SELECT * FROM (\n{union_sql}\n) AS union_result"
+
+            where_clauses: List[str] = []
+            where_clauses.extend(build_source_filter_where_clauses(source_db_filters, quote_char))
+            where_clauses.extend(build_source_filter_where_clauses(source_table_filters, quote_char))
+            if where_clauses:
+                final_sql += f"\nWHERE {' AND '.join(where_clauses)}"
+
+            if query_desc.orderBy:
+                order_fragments = []
+                for order in query_desc.orderBy:
+                    direction = "DESC" if order.direction == "desc" else "ASC"
+                    order_fragments.append(f"{quote_char}{order.field}{quote_char} {direction}")
+                final_sql += f"\nORDER BY {', '.join(order_fragments)}"
+
+            if query_desc.limit is not None:
+                final_sql += f"\nLIMIT {query_desc.limit}"
+                if query_desc.offset:
+                    final_sql += f" OFFSET {query_desc.offset}"
+        else:
+            final_sql = union_sql
+
+        from backend.dialects import get_dialect
+        dialect = get_dialect(db_type)
+        final_sql = apply_result_budget(final_sql, query_desc, dialect=dialect, logger=self._logger)
+
+        self._logger.info("Generated box-plot UNION ALL query: %s...", final_sql[:200])
+        return final_sql, []
+
     # ── Main entry point ─────────────────────────────────────────────────────
 
     def translate(
@@ -354,6 +461,17 @@ class UnionQueryBuilder:
         # the standard dimension/measure alignment does not apply.
         if query_desc.query_mode == "cdf" and query_desc.cdf_fields:
             return self._translate_cdf_union(
+                query_desc,
+                table_refs,
+                db_type=db_type,
+                quote_char=quote_char,
+                with_sampling=with_sampling,
+                with_optimization=with_optimization,
+                optimizer=optimizer,
+            )
+
+        if query_desc.query_mode == "box_plot" and query_desc.box_plot_fields:
+            return self._translate_box_plot_union(
                 query_desc,
                 table_refs,
                 db_type=db_type,

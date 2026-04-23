@@ -1,4 +1,4 @@
-import { Field, QueryDescription, Measure, OrderBy, Filter, FilterConfig, ColumnCasts, ColumnCastConfig, CdfField, VirtualTableDefinition, UserChartType } from '../types';
+import { Field, QueryDescription, Measure, OrderBy, Filter, FilterConfig, ColumnCasts, ColumnCastConfig, CdfField, BoxPlotField, VirtualTableDefinition, UserChartType, DistributionVariant } from '../types';
 import { getResultColumnName } from '../utils/fieldUtils';
 import { isCdfAllowed } from '../utils/cdfUtils';
 
@@ -432,6 +432,109 @@ export const buildCdfQuery = ({
   };
 };
 
+function qualifiesForBoxPlotSummaryQuery(xAxisFields: Field[], yAxisFields: Field[]): boolean {
+  const axisFields = [...xAxisFields, ...yAxisFields];
+  if (axisFields.some((field) => field.type === 'measure')) {
+    return false;
+  }
+
+  const xContinuous = xAxisFields.filter((field) => field.type === 'dimension' && field.flavour === 'continuous');
+  const yContinuous = yAxisFields.filter((field) => field.type === 'dimension' && field.flavour === 'continuous');
+
+  return (xContinuous.length > 0) !== (yContinuous.length > 0);
+}
+
+export const buildBoxPlotQuery = ({
+  xAxisFields,
+  yAxisFields,
+  colorField,
+  selectedTable,
+  selectedDatabase,
+  filterConfigurations = {},
+  virtualTable = null,
+  virtualColumns = [],
+}: {
+  xAxisFields: Field[];
+  yAxisFields: Field[];
+  colorField?: Field | null;
+  selectedTable: string;
+  selectedDatabase?: string;
+  filterConfigurations?: Record<string, FilterConfig>;
+  virtualTable?: VirtualTableDefinition | null;
+  virtualColumns?: import('../types').VirtualColumnDefinition[];
+}): QueryDescription | null => {
+  if (!selectedTable || !qualifiesForBoxPlotSummaryQuery(xAxisFields, yAxisFields)) {
+    return null;
+  }
+
+  const activeAxisFields = xAxisFields.some((field) => field.type === 'dimension' && field.flavour === 'continuous')
+    ? xAxisFields
+    : yAxisFields;
+  const valueFields = activeAxisFields.filter(
+    (field) => field.type === 'dimension' && field.flavour === 'continuous'
+  );
+  if (valueFields.length === 0) {
+    return null;
+  }
+
+  const discreteGroupFields = [...xAxisFields, ...yAxisFields].filter(
+    (field) => field.type === 'dimension' && field.flavour === 'discrete'
+  );
+
+  const uniqueDimensions = new Map<string, Field>();
+  for (const field of discreteGroupFields) {
+    const key = getResultColumnName(field);
+    if (!uniqueDimensions.has(key)) {
+      uniqueDimensions.set(key, field);
+    }
+  }
+
+  const dimensions = Array.from(uniqueDimensions.values()).map((field) => ({
+    field: field.columnName,
+    flavour: field.flavour,
+    axis: field.axis,
+    date_part: field.dateTimePart,
+    date_mode: field.dateTimeMode,
+  }));
+
+  const boxPlotFields = valueFields.reduce<BoxPlotField[]>((acc, field) => {
+    const alias = getResultColumnName(field);
+    if (!acc.some((entry) => entry.alias === alias)) {
+      acc.push({
+        field: field.columnName,
+        alias,
+        date_part: field.dateTimePart,
+        date_mode: field.dateTimeMode,
+      });
+    }
+    return acc;
+  }, []);
+
+  const filters = convertFilterConfigsToFilters(filterConfigurations);
+  const allCastFields = [...xAxisFields, ...yAxisFields, ...(colorField ? [colorField] : [])];
+  const columnCasts = extractColumnCasts(allCastFields);
+  const orderBy: OrderBy[] = dimensions.map((dim) => ({
+    field: dim.date_part && dim.date_mode ? `${dim.field}_${dim.date_part}_${dim.date_mode}` : dim.field,
+  }));
+
+  return {
+    target_table: selectedTable,
+    target_database: selectedDatabase,
+    dimensions: dimensions.length > 0 ? dimensions : undefined,
+    measures: [],
+    filters: filters.length > 0 ? filters : undefined,
+    orderBy: orderBy.length > 0 ? orderBy : undefined,
+    column_casts: columnCasts,
+    virtual_table: virtualTable || undefined,
+    virtual_columns: virtualColumns.length > 0 ? virtualColumns : undefined,
+    query_mode: 'box_plot',
+    box_plot_fields: boxPlotFields,
+    box_plot_color_field: colorField?.type === 'dimension' && colorField.flavour === 'discrete'
+      ? colorField.columnName
+      : undefined,
+  };
+};
+
 /**
  * Builds the appropriate query based on user's field configuration.
  * This replaces the chart-strategy-driven query building.
@@ -452,6 +555,7 @@ export const buildQuery = ({
   xAxisFields,
   yAxisFields,
   colorField,
+  distributionVariant,
 }: {
   fields: Field[];
   selectedTable: string;
@@ -465,6 +569,7 @@ export const buildQuery = ({
   xAxisFields?: Field[];
   yAxisFields?: Field[];
   colorField?: Field | null;
+  distributionVariant?: DistributionVariant;
 }): QueryDescription | null => {
 
   if (
@@ -473,6 +578,23 @@ export const buildQuery = ({
     isCdfAllowed(xAxisFields, yAxisFields)
   ) {
     return buildCdfQuery({
+      xAxisFields,
+      yAxisFields,
+      colorField,
+      selectedTable,
+      selectedDatabase,
+      filterConfigurations,
+      virtualTable,
+      virtualColumns,
+    });
+  }
+
+  if (
+    distributionVariant === 'box-plot' &&
+    xAxisFields && yAxisFields &&
+    qualifiesForBoxPlotSummaryQuery(xAxisFields, yAxisFields)
+  ) {
+    return buildBoxPlotQuery({
       xAxisFields,
       yAxisFields,
       colorField,

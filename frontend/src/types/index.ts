@@ -77,6 +77,7 @@ export type {
   Dimension,
   ResultBudget,
   CdfField,
+  BoxPlotField,
   QueryDescription,
   QueryResultColumn,
   QueryResult,

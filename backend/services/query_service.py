@@ -48,6 +48,7 @@ from backend.services.query_components.field_reference_parser import (
 )
 from backend.services.query_components.distinct_applier import DistinctApplier
 from backend.services.query_components.cdf_query_builder import build_cdf_sql
+from backend.services.query_components.box_plot_query_builder import build_box_plot_sql
 
 logger = logging.getLogger(__name__)
 
@@ -392,6 +393,109 @@ class QueryService:
         logger.info("CDF query (%s): %s", db_type, sql)
         return sql, {'optimizations': [], 'hints_used': None, 'override': None}
 
+    def _build_specialized_from_clause(
+        self,
+        base_query: Query,
+        quote_char: str,
+    ) -> str:
+        """Compile the FROM/JOIN portion from an existing PyPika query."""
+        sql = base_query.select("*").get_sql(quote_char=quote_char)
+        marker = " FROM "
+        from_idx = sql.upper().find(marker)
+        if from_idx == -1:
+            raise QueryGenerationError(f"Unable to derive FROM clause from query: {sql}")
+        return sql[from_idx + 1:]
+
+    def _translate_box_plot_query(
+        self,
+        query_desc: QueryDescription,
+        table_name: str,
+        db_type: str,
+        quote_char: str,
+    ) -> Tuple[str, Any]:
+        """Build a grouped box-plot summary query."""
+        table_context = self._build_table_context(query_desc, db_type, table_name)
+        t = table_context.primary_table
+
+        vc_builder = None
+        if query_desc.virtual_columns:
+            vc_builder = VirtualColumnExpressionBuilder(
+                table_map=table_context.table_map,
+                default_table=table_context.default_table,
+                db_type=db_type,
+            )
+            for vc in query_desc.virtual_columns:
+                vc_builder.register_virtual_column(vc)
+
+        criteria = self._build_filter_criteria(
+            query_desc,
+            table_context.table_map,
+            table_context.default_table,
+            db_type,
+            t,
+            vc_builder,
+        )
+
+        filter_fragment = ""
+        if criteria:
+            from pypika import Criterion as _Crit
+            combined = _Crit.all(criteria)
+            filter_fragment = f"WHERE {combined.get_sql(quote_char=quote_char)}"
+
+        from_clause = self._build_specialized_from_clause(table_context.query, quote_char)
+
+        field_parser = FieldReferenceParser(
+            table_map=table_context.table_map,
+            default_table=table_context.default_table,
+            vc_builder=vc_builder,
+        )
+
+        group_fields: list[tuple[str, str]] = []
+        for dim in query_desc.dimensions or []:
+            field_term = field_parser.parse(dim.field)
+            field_term = self._apply_cast_if_configured(dim.field, field_term, query_desc.column_casts)
+            alias = dim.field
+            if dim.date_part and dim.date_mode:
+                field_term = DateTimeService.get_datetime_part_expression(
+                    field_term, dim.date_part, dim.date_mode, db_type
+                )
+                alias = f"{dim.field}_{dim.date_part}_{dim.date_mode}"
+            group_fields.append((field_term.get_sql(quote_char=quote_char), alias))
+
+        value_fields: list[tuple[str, str]] = []
+        for box_field in query_desc.box_plot_fields or []:
+            field_term = field_parser.parse(box_field.field)
+            field_term = self._apply_cast_if_configured(box_field.field, field_term, query_desc.column_casts)
+            if box_field.date_part and box_field.date_mode:
+                field_term = DateTimeService.get_datetime_part_expression(
+                    field_term, box_field.date_part, box_field.date_mode, db_type
+                )
+            value_fields.append((field_term.get_sql(quote_char=quote_char), box_field.alias))
+
+        color_field_sql = None
+        if query_desc.box_plot_color_field:
+            color_term = field_parser.parse(query_desc.box_plot_color_field)
+            color_term = self._apply_cast_if_configured(
+                query_desc.box_plot_color_field,
+                color_term,
+                query_desc.column_casts,
+            )
+            color_field_sql = color_term.get_sql(quote_char=quote_char)
+
+        sql = build_box_plot_sql(
+            query_desc,
+            db_type,
+            quote_char,
+            group_fields,
+            value_fields,
+            filter_sql_fragment=filter_fragment,
+            from_clause=from_clause,
+            color_field_sql=color_field_sql,
+        )
+
+        logger.info("Box-plot summary query (%s): %s", db_type, sql)
+        return sql, {'optimizations': [], 'hints_used': None, 'override': None}
+
     def translate_to_sql(
         self, 
         query_desc: QueryDescription, 
@@ -443,6 +547,12 @@ class QueryService:
         # Handle CDF (cumulative distribution function) query mode
         if query_desc.query_mode == 'cdf' and query_desc.cdf_fields:
             return self._translate_cdf_query(
+                query_desc, table_name, db_type, quote_char,
+            )
+
+        # Handle grouped box-plot summary query mode
+        if query_desc.query_mode == 'box_plot' and query_desc.box_plot_fields:
+            return self._translate_box_plot_query(
                 query_desc, table_name, db_type, quote_char,
             )
 

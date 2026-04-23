@@ -194,6 +194,10 @@ export const useQueryExecutor = ({
             lineBudgetMaxRows: pointBudget.lineBudgetMaxRows,
           };
 
+          const isSpecializedQueryMode = Boolean(
+            queryDescExec.query_mode && queryDescExec.query_mode !== 'standard'
+          );
+
           // Columns required for local caching/execution
           const requiredColumns: string[] = [
             ...(queryDescExec.dimensions?.map(d => d.field) || []),
@@ -209,14 +213,21 @@ export const useQueryExecutor = ({
           const dimensions = queryDescExec.dimensions?.map(d => d.field) || [];
 
           try {
-            if (optimizationSettings?.forceRemote) {
+            if (optimizationSettings?.forceRemote || isSpecializedQueryMode) {
               result = await apiService.executeQueryArrow(queryDescExec, queryAbortControllerRef.current.signal);
               lastQueryDecisionRef.current = {
                 strategy: 'pre_aggregated',
                 requiresBackendQuery: true,
-                reason: 'Forced remote query (DuckDB cache disabled)',
+                reason: optimizationSettings?.forceRemote
+                  ? 'Forced remote query (DuckDB cache disabled)'
+                  : `Specialized query mode (${queryDescExec.query_mode})`,
               };
-              console.log('🧠 Query decision: pre_aggregated - Forced remote query (DuckDB cache disabled)');
+              console.log(
+                '🧠 Query decision: pre_aggregated -',
+                optimizationSettings?.forceRemote
+                  ? 'Forced remote query (DuckDB cache disabled)'
+                  : `Specialized query mode (${queryDescExec.query_mode})`
+              );
             } else {
             // Split filters: base define cache slice; refinement applied locally
             const baseFilterConfigs = filterTierManager.getBaseFiltersOnly(filterConfigurations);

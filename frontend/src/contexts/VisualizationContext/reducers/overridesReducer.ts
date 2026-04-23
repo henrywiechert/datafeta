@@ -56,11 +56,14 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
         queryVersion: cdfChanged ? state.queryVersion + 1 : state.queryVersion,
       };
     }
-    case 'SET_DISTRIBUTION_VARIANT':
+    case 'SET_DISTRIBUTION_VARIANT': {
+      const variantChanged = state.distributionVariant !== action.payload;
       return {
         ...state,
         distributionVariant: action.payload,
+        queryVersion: variantChanged ? state.queryVersion + 1 : state.queryVersion,
       };
+    }
     // --- Overlay actions (visual-only, no query version bump) ---
     case 'SET_OVERLAYS':
       return { ...state, overlays: action.payload };

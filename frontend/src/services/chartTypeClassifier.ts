@@ -89,6 +89,18 @@ export function classifyChartType(
   const hasMeasures = (queryDesc.measures?.length ?? 0) > 0;
   const dims = queryDesc.dimensions || [];
 
+  if (queryDesc.query_mode === 'box_plot' && (queryDesc.box_plot_fields?.length ?? 0) > 0) {
+    return {
+      isPointChart: false,
+      isScatter: false,
+      isTickStrip: false,
+      isRawPointChart: false,
+      hasDiscreteColor: !!colorField && colorField.flavour === 'discrete',
+      isLineChart: false,
+      continuousDimFields: [],
+    };
+  }
+
   // Distribution chart: exactly 1 continuous dimension, no measures.
   // Box plots are built from the same raw row set and need the same
   // result-budget / sampled indicator behavior as tick strips.
