@@ -103,44 +103,93 @@ function resolveColorFromElement(el: Element): string | undefined {
 // Tick-strip line matching
 // ---------------------------------------------------------------------------
 
+const SVG_MATCH_EPSILON = 0.75;
+
+function parseSvgNumber(value: string | null): number | null {
+  if (value == null) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function nearlyEqual(a: number, b: number, epsilon = SVG_MATCH_EPSILON): boolean {
+  return Math.abs(a - b) <= epsilon;
+}
+
+function isWithinRange(value: number, start: number, end: number, epsilon = SVG_MATCH_EPSILON): boolean {
+  const min = Math.min(start, end) - epsilon;
+  const max = Math.max(start, end) + epsilon;
+  return value >= min && value <= max;
+}
+
+function isInsideGridAxisOrFrame(el: Element, root: Element): boolean {
+  let parent = el.parentElement;
+  while (parent && parent !== root) {
+    const ariaLabel = parent.getAttribute('aria-label');
+    if (ariaLabel) {
+      const lower = ariaLabel.toLowerCase();
+      if (lower.includes('grid') || lower.includes('axis') || lower.includes('frame')) {
+        return true;
+      }
+    }
+    parent = parent.parentElement;
+  }
+  return false;
+}
+
+function hasVisibleStroke(el: Element): boolean {
+  const stroke = el.getAttribute('stroke');
+  if (isVisibleColor(stroke)) return true;
+  return isVisibleColor(getComputedStyle(el).getPropertyValue('stroke'));
+}
+
 /**
  * For transparent hover-dot circles (tick strips), find the corresponding
  * visible line element that passes through the same point.
  */
 function findCorrespondingLine(circle: Element): Element | null {
-  const cx = circle.getAttribute('cx');
-  const cy = circle.getAttribute('cy');
-  if (!cx || !cy) return null;
+  const cx = parseSvgNumber(circle.getAttribute('cx'));
+  const cy = parseSvgNumber(circle.getAttribute('cy'));
+  if (cx == null || cy == null) return null;
   
   const svgRoot = circle.closest('svg');
   if (!svgRoot) return null;
   
-  // Find a line element that passes through the circle's center point
+  let bestMatch: Element | null = null;
+  let bestLength = Number.POSITIVE_INFINITY;
+
+  // Find the shortest visible non-decoration line whose segment covers the hover point.
   const lines = Array.from(svgRoot.querySelectorAll('line'));
   for (const line of lines) {
-    const x1 = line.getAttribute('x1');
-    const y1 = line.getAttribute('y1');
-    const x2 = line.getAttribute('x2');
-    const y2 = line.getAttribute('y2');
-    
-    // Check if circle center is on or very near the line
-    // For tick marks, either x1===x2 (vertical) or y1===y2 (horizontal)
+    if (isInsideGridAxisOrFrame(line, svgRoot)) continue;
+    if (!hasVisibleStroke(line)) continue;
+
+    const x1 = parseSvgNumber(line.getAttribute('x1'));
+    const y1 = parseSvgNumber(line.getAttribute('y1'));
+    const x2 = parseSvgNumber(line.getAttribute('x2'));
+    const y2 = parseSvgNumber(line.getAttribute('y2'));
+    if (x1 == null || y1 == null || x2 == null || y2 == null) continue;
+
+    const isVertical = nearlyEqual(x1, x2);
+    const isHorizontal = nearlyEqual(y1, y2);
+
     const isOnLine = (
-      // Vertical line: check if cx matches and cy is between y1 and y2
-      (x1 === x2 && x1 === cx) ||
-      // Horizontal line: check if cy matches and cx is between x1 and x2
-      (y1 === y2 && y1 === cy)
+      (isVertical && nearlyEqual(cx, x1) && isWithinRange(cy, y1, y2)) ||
+      (isHorizontal && nearlyEqual(cy, y1) && isWithinRange(cx, x1, x2))
     );
-    
-    if (isOnLine) {
-      // Also check that the line has a visible stroke (it's the actual tick, not another invisible element)
-      const stroke = line.getAttribute('stroke');
-      if (stroke && stroke !== 'transparent' && stroke !== 'none') {
-        return line;
-      }
+    if (!isOnLine) continue;
+
+    const lineLength = isVertical
+      ? Math.abs(y2 - y1)
+      : isHorizontal
+        ? Math.abs(x2 - x1)
+        : Math.hypot(x2 - x1, y2 - y1);
+
+    if (lineLength < bestLength) {
+      bestLength = lineLength;
+      bestMatch = line;
     }
   }
-  return null;
+  return bestMatch;
 }
 
 // ---------------------------------------------------------------------------
