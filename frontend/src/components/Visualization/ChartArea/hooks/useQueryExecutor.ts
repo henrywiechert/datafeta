@@ -365,13 +365,12 @@ export const useQueryExecutor = ({
 
           if (samplingBudget) {
             const { maxPoints, shouldAttachBudget: budgetAttached, lineBudgetMaxRows } = samplingBudget;
-            // Treat an attached result budget as "sampled/budgeted" for the UI badge.
-            // For stratified/preserve-extremes queries the returned row count can be
-            // below the nominal cap even when sampling was definitely applied, so a
-            // simple row_count >= limit check misses real capped-result cases.
-            if (budgetAttached && Number.isFinite(maxPoints)) {
+            // Only show the sampling badge when the raw result actually hit the cap.
+            // Using the pre-clean row count avoids false negatives when validation
+            // drops a few rows after a capped query has already been applied.
+            if (budgetAttached && Number.isFinite(maxPoints) && result.row_count >= maxPoints) {
               cleanedResult.sampled = { limit: maxPoints, type: 'point' };
-            } else if (lineBudgetMaxRows && Number.isFinite(lineBudgetMaxRows)) {
+            } else if (lineBudgetMaxRows && Number.isFinite(lineBudgetMaxRows) && result.row_count >= lineBudgetMaxRows) {
               cleanedResult.sampled = { limit: lineBudgetMaxRows, type: 'line' };
             }
           }
