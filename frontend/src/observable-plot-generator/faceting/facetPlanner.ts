@@ -1,5 +1,6 @@
 import { Field } from '../../types';
 import { ChartGenerationContext } from '../types';
+import { buildRenderPlan, buildViewSpec, ViewSpec } from '../../viewPlanner';
 
 /**
  * Simplified facet plan - only specifies which fields create facets.
@@ -8,6 +9,21 @@ import { ChartGenerationContext } from '../types';
 export interface FacetPlan {
   rowFacetFields: Field[];
   colFacetFields: Field[];
+}
+
+export function planFacetsFromViewSpec(viewSpec: ViewSpec): FacetPlan | null {
+  const renderPlan = buildRenderPlan(viewSpec);
+  const rowFacetFields = renderPlan.panePartition.rows;
+  const colFacetFields = renderPlan.panePartition.columns;
+
+  if (rowFacetFields.length === 0 && colFacetFields.length === 0) {
+    return null;
+  }
+
+  return {
+    rowFacetFields,
+    colFacetFields,
+  };
 }
 
 /**
@@ -22,34 +38,22 @@ export interface FacetPlan {
  * @returns A FacetPlan if faceting should be applied, otherwise null.
  */
 export function planFacets(context: ChartGenerationContext): FacetPlan | null {
-  const { xFields, yFields } = context;
+  const viewSpec = buildViewSpec({
+    xAxisFields: context.xFields,
+    yAxisFields: context.yFields,
+    colorField: context.colorField || null,
+    sizeField: context.sizeField || null,
+    shapeField: context.shapeField || null,
+    facetBackgroundField: context.facetBackgroundField || null,
+    labelFields: context.labelFields || [],
+    tooltipFields: context.tooltipFields || [],
+    measureValuesSourceFields: context.measureValuesSourceFields || [],
+    fieldOverrides: context.fieldOverrides || {},
+    globalChartType: context.globalChartType,
+    distributionVariant: context.distributionVariant,
+    independentDomains: context.independentDomains,
+  });
 
-  // Get all discrete dimensions
-  const xDiscrete = xFields.filter((f) => f.flavour === 'discrete');
-  const yDiscrete = yFields.filter((f) => f.flavour === 'discrete');
-  
-  // No discrete dimensions → no faceting
-  if (xDiscrete.length === 0 && yDiscrete.length === 0) {
-    return null;
-  }
-
-  // Strategy: Use discrete dimensions as facets, except possibly one for category encoding
-  // The generator will decide if one should be reserved for category axis
-  
-  // Simple rule: X discrete → column facets, Y discrete → row facets
-  // The generator can adjust this by removing one field for category encoding if needed
-  const rowFacetFields = yDiscrete;
-  const colFacetFields = xDiscrete;
-
-  // Only return a plan if there are actually fields to facet
-  // (The generator will decide if some should be used for encoding instead)
-  if (rowFacetFields.length === 0 && colFacetFields.length === 0) {
-    return null;
-  }
-
-  return {
-    rowFacetFields,
-    colFacetFields,
-  };
+  return planFacetsFromViewSpec(viewSpec);
 }
 
