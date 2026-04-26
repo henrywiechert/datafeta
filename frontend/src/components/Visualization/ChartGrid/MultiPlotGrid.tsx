@@ -1,6 +1,12 @@
 import React, { RefObject, useState, useCallback } from 'react';
 import { PlotResult } from '../../../observable-plot-generator/types';
-import { GRID_DIVIDER_COLOR, MIN_GRID_ROW_PX } from '../../../config/chartLayoutConfig';
+import {
+  GRID_DIVIDER_COLOR,
+  HORIZONTAL_SCROLLBAR_GUTTER_PX,
+  MIN_GRID_ROW_PX,
+  VERTICAL_SCROLLBAR_GUTTER_PX,
+  X_LABEL_ROW_PX,
+} from '../../../config/chartLayoutConfig';
 import { LayoutCalculations } from './hooks/useChartGridLayout';
 import { ScrollSyncState } from './hooks/useScrollSync';
 import { Dimensions } from './hooks/useContainerDimensions';
@@ -14,6 +20,7 @@ import AxisLabel from './AxisLabel';
 import AxisLabelStylePopover from './AxisLabelStylePopover';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { YAxisLabelStyle } from '../../../contexts/VisualizationContext/types';
+import { buildPlotGridSizingStyle } from './utils/layoutUtils';
 import styles from './ChartGrid.module.css';
 
 interface MultiPlotGridProps {
@@ -137,7 +144,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           position: 'absolute',
           top: 0,
           left: leftFixedWidthPx,
-          right: 14, // Leave space for vertical scrollbar (14px wide)
+          right: VERTICAL_SCROLLBAR_GUTTER_PX,
           bottom: 0,
           overflowX: 'scroll',
           overflowY: 'hidden',
@@ -198,7 +205,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           top: spec.facetLabels ? topHeaderHeight : 0,
           left: 0,
           right: 0,
-          bottom: dynamicXAxisPx + 20 + 16, // X_LABEL_ROW_PX (20) + scrollbar
+          bottom: dynamicXAxisPx + X_LABEL_ROW_PX + HORIZONTAL_SCROLLBAR_GUTTER_PX,
           overflowY: 'scroll',
           overflowX: 'hidden',
           zIndex: 2,
@@ -279,10 +286,12 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
             <div
               ref={plotGridRef}
               style={{
-                display: 'grid',
-                gridTemplateColumns: plotTemplateColumns,
-                gridTemplateRows: plotRowsSpec,
-                minWidth: `${totalContentWidthPx}px`,
+                ...buildPlotGridSizingStyle({
+                  plotTemplateColumns,
+                  plotRowsSpec,
+                  totalContentWidthPx,
+                  columnSizes: spec.layout?.columnSizes,
+                }),
                 opacity: 0,
                 pointerEvents: 'none',
               }}
@@ -330,6 +339,8 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           horizontalScrollOffset={scrollOffsets.horizontal}
           verticalScrollOffset={scrollOffsets.vertical}
           plotGridRef={plotGridRef}
+          previewColumnResize={cellSizeOverrides.previewColumnResize}
+          previewRowResize={cellSizeOverrides.previewRowResize}
           onColumnResize={cellSizeOverrides.handleColumnResize}
           onRowResize={cellSizeOverrides.handleRowResize}
         />

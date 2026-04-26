@@ -36,6 +36,8 @@ export interface CellResult {
   rows: number;
   columnSizes?: Array<number | 'fr'>;
   rowSizes?: Array<number | 'fr'>;
+  minColumnSizes?: number[];
+  minRowSizes?: number[];
 }
 
 /**
@@ -124,7 +126,9 @@ export function coordinateFacetedGrid(config: FacetCoordinatorConfig): PlotResul
     facetSpace.safeRowCombos.length,
     facetSpace.safeColCombos.length,
     sampleResult.columnSizes,
-    sampleResult.rowSizes
+    sampleResult.rowSizes,
+    sampleResult.minColumnSizes,
+    sampleResult.minRowSizes
   );
 
   // Compute facet labels

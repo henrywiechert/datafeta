@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import * as Plot from '@observablehq/plot';
 import ObservablePlot from '../ObservablePlot';
 import { PlotResult } from '../../../observable-plot-generator/types';
-import { GRID_DIVIDER_COLOR } from '../../../config/chartLayoutConfig';
+import { GRID_DIVIDER_COLOR, X_LABEL_ROW_PX } from '../../../config/chartLayoutConfig';
 import AxisLabel from './AxisLabel';
 import AxisLabelStylePopover from './AxisLabelStylePopover';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
@@ -137,7 +137,7 @@ const XAxes: React.FC<XAxesProps> = ({
                       justifyContent: 'center',
                       padding: '2px',
                       textAlign: 'center',
-                      minHeight: '20px',
+                      minHeight: `${X_LABEL_ROW_PX}px`,
                     }}
                   >
                     <AxisLabel

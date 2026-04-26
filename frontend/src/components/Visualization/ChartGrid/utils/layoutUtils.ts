@@ -1,6 +1,7 @@
 import { PlotResult } from '../../../../observable-plot-generator/types';
 import { MIN_GRID_ROW_PX } from '../../../../config/chartLayoutConfig';
 import { YAxisLabelStyle } from '../../../../contexts/VisualizationContext/types';
+import type { CSSProperties } from 'react';
 
 const TEXT_PX_PER_CHAR = 6; // conservative estimate for 12-14px font
 const MIN_Y_AXIS_GUTTER_PX = 28;
@@ -254,4 +255,27 @@ export function getActualRowHeights(
   calculatedRowHeightPx: number
 ): number[] {
   return rowSizes.map((h) => (typeof h === 'number' ? h : calculatedRowHeightPx));
+}
+
+export interface PlotGridSizingStyleConfig {
+  plotTemplateColumns: string;
+  plotRowsSpec: string;
+  totalContentWidthPx: number;
+  columnSizes: Array<number | 'fr'> | undefined;
+}
+
+/**
+ * Shared CSS Grid sizing for the visible plot grid and its hidden sizing mirror.
+ * Keeping this centralized prevents resize measurement drift between the two.
+ */
+export function buildPlotGridSizingStyle(config: PlotGridSizingStyleConfig): CSSProperties {
+  const hasFlexibleColumns = !config.columnSizes || config.columnSizes.some((c) => typeof c !== 'number');
+
+  return {
+    display: 'grid',
+    gridTemplateColumns: config.plotTemplateColumns,
+    gridTemplateRows: config.plotRowsSpec,
+    minWidth: `${config.totalContentWidthPx}px`,
+    width: hasFlexibleColumns ? '100%' : `${config.totalContentWidthPx}px`,
+  };
 }

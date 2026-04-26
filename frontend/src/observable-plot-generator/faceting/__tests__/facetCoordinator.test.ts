@@ -138,6 +138,8 @@ describe('coordinateFacetedGrid', () => {
       rows: 1,
       columnSizes: [120, 140],
       rowSizes: [80],
+      minColumnSizes: [60, 70],
+      minRowSizes: [50],
       plots: [
         { id: 'left', title: 'Left', position: { row: 0, col: 0 }, options: {} },
         { id: 'right', title: 'Right', position: { row: 0, col: 1 }, options: {} },
@@ -154,6 +156,8 @@ describe('coordinateFacetedGrid', () => {
     expect(result.layout.rows).toBe(2);
     expect(result.layout.columnSizes).toEqual([120, 140, 120, 140]);
     expect(result.layout.rowSizes).toEqual([80, 80]);
+    expect(result.layout.minColumnSizes).toEqual([60, 70, 60, 70]);
+    expect(result.layout.minRowSizes).toEqual([50, 50]);
     expect(result.plots.map((plot) => plot.position)).toEqual([
       { row: 0, col: 0 },
       { row: 0, col: 1 },

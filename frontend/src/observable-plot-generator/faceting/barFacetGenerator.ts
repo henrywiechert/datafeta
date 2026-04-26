@@ -1,5 +1,5 @@
 import * as Plot from '@observablehq/plot';
-import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING, MIN_BAND_TRACKS, MIN_SERIES_PANES } from '../../config/chartLayoutConfig';
+import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING, MIN_BAND_TRACKS, MIN_SERIES_PANES, MIN_BAR_STEP_PX } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { LabelConfig } from '../types';
 import { getFieldColumnName } from '../helpers/fields';
@@ -81,6 +81,7 @@ export function createBarCellGenerator(
     const baseColWidth = categoryAxis === 'x' 
       ? Math.max(BAR_STEP_PX * MIN_BAND_TRACKS, categories.length * BAR_STEP_PX) * thicknessScale
       : 'fr';
+    const minBandSize = Math.max(MIN_BAR_STEP_PX * MIN_BAND_TRACKS, categories.length * MIN_BAR_STEP_PX) * thicknessScale;
     
     // Calculate grid dimensions for multi-series layouts
     const baseColsPerFacet = barOrientation === 'barX' ? Math.max(MIN_SERIES_PANES, seriesFields.length) : 1;
@@ -165,6 +166,12 @@ export function createBarCellGenerator(
       rows: baseRowsPerFacet,
       columnSizes: Array.from({ length: baseColsPerFacet }, () => baseColWidth as any),
       rowSizes: Array.from({ length: baseRowsPerFacet }, () => baseRowHeight as any),
+      minColumnSizes: categoryAxis === 'x'
+        ? Array.from({ length: baseColsPerFacet }, () => minBandSize)
+        : undefined,
+      minRowSizes: categoryAxis === 'y'
+        ? Array.from({ length: baseRowsPerFacet }, () => minBandSize)
+        : undefined,
     };
   };
 }

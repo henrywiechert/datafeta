@@ -30,7 +30,9 @@ export const GRID_DIVIDER_COLOR = '#99a795';
 export const NAMES_BAND_LEFT_PX = 20;
 export const VALUES_BAND_LEFT_PX = 20;
 export const VALUES_BAND_TOP_PX = 20;
-export const X_LABEL_ROW_PX = 16;
+export const X_LABEL_ROW_PX = 20;
+export const VERTICAL_SCROLLBAR_GUTTER_PX = 14;
+export const HORIZONTAL_SCROLLBAR_GUTTER_PX = 16;
 
 // Resize handle constants (for future dynamic resize feature)
 export const RESIZE_HANDLE_WIDTH = 2;
