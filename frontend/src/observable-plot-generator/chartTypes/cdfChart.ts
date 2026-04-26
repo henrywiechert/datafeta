@@ -2,7 +2,7 @@ import * as Plot from '@observablehq/plot';
 import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
-import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
+import { ColorScaleInfo, deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 
 /**
@@ -27,6 +27,8 @@ export interface CdfBuildParams {
   manualSize?: number;
   tooltipFields?: Field[];
   facetFields?: Field[];
+  /** Optional global color scale, used to keep colors stable across facet-local data. */
+  colorScaleInfo?: ColorScaleInfo | null;
 }
 
 /**
@@ -48,6 +50,7 @@ export function buildCdfOptions(params: CdfBuildParams): Plot.PlotOptions {
     manualSize,
     tooltipFields,
     facetFields,
+    colorScaleInfo,
   } = params;
 
   const cdfColumn = `${valueColumn}${CDF_SUFFIX}`;
@@ -112,7 +115,7 @@ export function buildCdfOptions(params: CdfBuildParams): Plot.PlotOptions {
     ? getResultColumnName(colorField)
     : undefined;
   const colorInfo = colorField
-    ? deriveColorScaleInfo(clean, colorField, colorScheme, colorBias)
+    ? colorScaleInfo || deriveColorScaleInfo(clean, colorField, colorScheme, colorBias)
     : null;
 
   if (colorField && colorInfo && colorColumnName) {
