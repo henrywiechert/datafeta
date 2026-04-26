@@ -295,6 +295,34 @@ describe('golden ViewSpec / QueryDescription / RenderPlan semantics', () => {
     }));
   });
 
+  it('keeps a continuous dimension and COUNT measure for the same source column', () => {
+    const score = continuousDimension('score');
+    const scoreCount = measure('score', { aggregation: 'count' });
+
+    expect(buildGolden({
+      xAxisFields: [score],
+      yAxisFields: [scoreCount],
+      colorField: null,
+      sizeField: null,
+    })).toEqual(expect.objectContaining({
+      view: expect.objectContaining({
+        grain: 'grouped',
+        queryMode: 'aggregated',
+        inPaneX: ['score'],
+        inPaneY: ['score'],
+      }),
+      query: expect.objectContaining({
+        dimensions: [
+          { field: 'score', flavour: 'continuous', axis: 'x', date_part: undefined, date_mode: undefined },
+        ],
+        measures: [
+          { field: 'score', aggregation: 'count', alias: 'COUNT(score)' },
+        ],
+        orderBy: ['score'],
+      }),
+    }));
+  });
+
   it('keeps Measure Groups as mark families while documenting the synthetic query boundary', () => {
     const month = field('month');
     const measureNames = field('MeasureNames', {
