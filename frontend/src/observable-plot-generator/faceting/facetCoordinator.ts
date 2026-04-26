@@ -9,6 +9,7 @@ import { harmonizeLineChartDomains } from '../chartTypes/lineChart';
 import { buildFacetSpace } from './facetSpace';
 import { buildFacetDomainContext } from './facetDomainContext';
 import { generateFacetCells, generateSampleCellLayout } from './facetCells';
+import { FacetDataIndex } from './facetDataIndex';
 
 /**
  * A single plot specification with position
@@ -96,13 +97,15 @@ export function coordinateFacetedGrid(config: FacetCoordinatorConfig): PlotResul
   // Set up facet background computation if configured
   const backgroundHelper = buildBackgroundHelper(context);
   const facetSpace = buildFacetSpace(queryResult.rows, rowFacetFields, colFacetFields);
-  const domainContext = buildFacetDomainContext(config, facetSpace);
-  const sampleLayout = generateSampleCellLayout(context, plan, facetSpace, domainContext, cellGenerator);
+  const dataIndex = new FacetDataIndex(queryResult.rows, rowFacetFields, colFacetFields);
+  const domainContext = buildFacetDomainContext(config, facetSpace, dataIndex);
+  const sampleLayout = generateSampleCellLayout(context, facetSpace, dataIndex, domainContext, cellGenerator);
   const { baseCols, baseRows, result: sampleResult } = sampleLayout;
   const allPlots = generateFacetCells({
     context,
     plan,
     facetSpace,
+    dataIndex,
     domainContext,
     cellGenerator,
     backgroundHelper,

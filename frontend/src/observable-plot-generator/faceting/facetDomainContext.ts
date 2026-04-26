@@ -2,7 +2,7 @@ import { Field } from '../../types';
 import { ChartGenerationContext } from '../types';
 import { getFieldColumnName } from '../helpers/fields';
 import { computeSharedDomainsForFaceting, SharedDomains } from './facetDomains';
-import { filterRowsByFacets } from './facetUtils';
+import type { FacetDataIndex } from './facetDataIndex';
 import type { FacetSpace } from './facetSpace';
 import type { FacetCoordinatorConfig } from './facetCoordinator';
 
@@ -15,7 +15,8 @@ export interface FacetDomainContext {
 
 export function buildFacetDomainContext(
   config: FacetCoordinatorConfig,
-  facetSpace: FacetSpace
+  facetSpace: FacetSpace,
+  dataIndex: FacetDataIndex
 ): FacetDomainContext {
   const { context, plan, categoryField, sharedCategoryDomain } = config;
   const { xFields, yFields, queryResult, colorField, independentDomains } = context;
@@ -37,7 +38,7 @@ export function buildFacetDomainContext(
 
   const perColumnSharedDomains = independentDomains?.x
     ? facetSpace.safeColCombos.map((colCombo) => {
-        const colRows = filterRowsByFacets(queryResult.rows, [], [], colFacetFields, colCombo);
+        const colRows = dataIndex.getColumnRows(colCombo);
         const columnDomains = colRows.length > 0
           ? computeSharedDomainsForFaceting(
               colRows,
@@ -62,7 +63,7 @@ export function buildFacetDomainContext(
 
   const perRowSharedDomains = independentDomains?.y
     ? facetSpace.safeRowCombos.map((rowCombo) => {
-        const rowRows = filterRowsByFacets(queryResult.rows, rowFacetFields, rowCombo, [], []);
+        const rowRows = dataIndex.getRowRows(rowCombo);
         const rowDomains = rowRows.length > 0
           ? computeSharedDomainsForFaceting(
               rowRows,
