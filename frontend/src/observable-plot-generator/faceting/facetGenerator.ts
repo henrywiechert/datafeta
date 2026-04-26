@@ -317,6 +317,7 @@ function createCdfCellGenerator(
         manualSize: context.manualSize,
         tooltipFields: context.tooltipFields,
         facetFields,
+        colorScaleInfo: _sharedDomains.colorScale,
       }),
       position: { row: 0, col: idx },
     }));
