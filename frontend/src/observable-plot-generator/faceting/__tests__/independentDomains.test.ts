@@ -2,6 +2,35 @@ import { generatePlot } from '../../observablePlotGenerator';
 import { ChartGenerationContext } from '../../types';
 import { Field } from '../../../types';
 
+jest.mock('@observablehq/plot', () => {
+  const mark = (type: string) => (data: any, opts: any) => ({ type, data, opts });
+  const passthrough = (_opts: any, config: any) => config;
+  return {
+    areaY: mark('areaY'),
+    barX: mark('barX'),
+    barY: mark('barY'),
+    dot: mark('dot'),
+    line: mark('line'),
+    lineX: mark('lineX'),
+    lineY: mark('lineY'),
+    rectX: mark('rectX'),
+    rectY: mark('rectY'),
+    ruleX: mark('ruleX'),
+    ruleY: mark('ruleY'),
+    text: mark('text'),
+    textX: mark('textX'),
+    textY: mark('textY'),
+    tickX: mark('tickX'),
+    tickY: mark('tickY'),
+    stackX: (opts: any) => opts,
+    stackY: (opts: any) => opts,
+    windowX: passthrough,
+    windowY: passthrough,
+    linearRegressionX: mark('linearRegressionX'),
+    linearRegressionY: mark('linearRegressionY'),
+  };
+});
+
 type DomainString = string;
 
 const timeField: Field = {
