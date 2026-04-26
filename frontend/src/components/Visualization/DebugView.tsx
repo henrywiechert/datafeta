@@ -866,6 +866,9 @@ const ViewSpecInspector: React.FC<{
             <div key={index} style={{ marginTop: '6px', padding: '6px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
               <div>Can share pane: {group.compatibility.canSharePane ? 'yes' : 'no'}</div>
               <div>Uses MeasureValues: {group.usesSyntheticMeasureValues ? 'yes' : 'no'}</div>
+              <div>Value axis: {group.valueAxis ? group.valueAxis.toUpperCase() : 'none'}</div>
+              <div>Comparison axis: {group.comparisonAxis ? group.comparisonAxis.toUpperCase() : 'none'}</div>
+              <div>Domain policy: comparison {group.domainPolicy.comparison}, value {group.domainPolicy.value}</div>
               <div>Members: {group.members.map((member) => {
                 const parts = [member.field.columnName];
                 if (member.aggregation) parts.push(member.aggregation);
