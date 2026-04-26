@@ -27,6 +27,7 @@ import { useQueryExecutor } from './useQueryExecutor';
 import { sheetRenderCacheStore } from '../../../../stores';
 import { computeFullConfigHash } from '../../../../utils/sheetConfigHash';
 import { createQueryAffectingConfig } from '../../../../utils/queryAffectingConfig';
+import { ViewSpec } from '../../../../viewPlanner';
 
 export interface UseQueryExecutionProps {
   selectedTable: string | null;
@@ -46,6 +47,8 @@ export interface UseQueryExecutionProps {
 export interface UseQueryExecutionReturn {
   queryDescription: QueryDescription | null;
   optimizationHints: OptimizationHints | null;
+  /** Canonical internal description of the planned view. */
+  viewSpec: ViewSpec | null;
   /** Last query decision from the decision engine */
   lastQueryDecision: QueryDecision | null;
 }
@@ -167,7 +170,7 @@ export const useQueryExecution = ({
   }, []); // Only run once on mount
 
   // Build query description and optimization hints
-  const { queryDescription, optimizationHints } = useQueryBuilder({
+  const { queryDescription, optimizationHints, viewSpec } = useQueryBuilder({
     selectedTable,
     selectedDatabase,
     xAxisFields,
@@ -273,6 +276,7 @@ export const useQueryExecution = ({
   return {
     queryDescription,
     optimizationHints,
+    viewSpec,
     lastQueryDecision,
   };
 };

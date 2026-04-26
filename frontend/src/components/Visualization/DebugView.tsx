@@ -7,6 +7,7 @@ import { duckdbService, QueryLogEntry } from '../../services/duckdbService';
 import { columnCacheManager, CachedColumnInfo, ColumnCacheStats } from '../../services/columnCacheManager';
 import { filterTierManager } from '../../services/filterTierManager';
 import { queryDecisionEngine, QueryDecision } from '../../services/queryDecisionEngine';
+import { ViewSpec } from '../../viewPlanner';
 
 export interface DebugData {
   queryDescription: QueryDescription | null;
@@ -16,6 +17,8 @@ export interface DebugData {
   chartInfo?: any;
   renderingError?: string | null;
   optimizationHints?: OptimizationHints | null;
+  /** Canonical internal view description from the view planner. */
+  viewSpec?: ViewSpec | null;
   /** Last query decision from the decision engine */
   lastQueryDecision?: QueryDecision | null;
 }
@@ -809,6 +812,82 @@ const CacheStrategyInfo: React.FC<{ lastQueryDecision?: QueryDecision | null }> 
   );
 };
 
+const summarizeFields = (fields: Array<{ columnName: string; aggregation?: string }>): string => {
+  if (fields.length === 0) return 'none';
+  return fields.map((field) => field.aggregation
+    ? `${field.columnName} (${field.aggregation})`
+    : field.columnName
+  ).join(', ');
+};
+
+const ViewSpecInspector: React.FC<{
+  viewSpec?: ViewSpec | null;
+  safeStringify: (obj: any, indent?: number) => string;
+}> = ({ viewSpec, safeStringify }) => {
+  if (!viewSpec) {
+    return <p style={{ fontSize: '12px', color: '#777' }}>No ViewSpec available yet.</p>;
+  }
+
+  return (
+    <div style={{ fontSize: '12px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '4px 12px', marginBottom: '12px' }}>
+        <strong>Grain</strong>
+        <span>{viewSpec.grain}</span>
+
+        <strong>Query mode</strong>
+        <span>{viewSpec.queryMode}</span>
+
+        <strong>Pane rows</strong>
+        <span>{summarizeFields(viewSpec.panePartition.rows)}</span>
+
+        <strong>Pane columns</strong>
+        <span>{summarizeFields(viewSpec.panePartition.columns)}</span>
+
+        <strong>In-pane X</strong>
+        <span>{summarizeFields(viewSpec.inPaneAxes.x)}</span>
+
+        <strong>In-pane Y</strong>
+        <span>{summarizeFields(viewSpec.inPaneAxes.y)}</span>
+
+        <strong>Domain policy</strong>
+        <span>x: {viewSpec.domainPolicy.x}, y: {viewSpec.domainPolicy.y}</span>
+
+        <strong>Selections</strong>
+        <span>{viewSpec.selections.length}</span>
+
+        <strong>Query fields</strong>
+        <span>{summarizeFields(viewSpec.queryFields)}</span>
+      </div>
+
+      {viewSpec.measureGroups.length > 0 && (
+        <div style={{ marginBottom: '12px' }}>
+          <strong>Measure Groups</strong>
+          {viewSpec.measureGroups.map((group, index) => (
+            <div key={index} style={{ marginTop: '6px', padding: '6px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
+              <div>Can share pane: {group.compatibility.canSharePane ? 'yes' : 'no'}</div>
+              <div>Uses MeasureValues: {group.usesSyntheticMeasureValues ? 'yes' : 'no'}</div>
+              <div>Members: {group.members.map((member) => {
+                const parts = [member.field.columnName];
+                if (member.aggregation) parts.push(member.aggregation);
+                if (member.markType) parts.push(member.markType);
+                return parts.join(' / ');
+              }).join(', ') || 'none'}</div>
+              {group.compatibility.reasons.length > 0 && (
+                <div>Compatibility notes: {group.compatibility.reasons.join('; ')}</div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <details>
+        <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Raw ViewSpec JSON</summary>
+        <pre>{safeStringify(viewSpec)}</pre>
+      </details>
+    </div>
+  );
+};
+
 const DebugView: React.FC<DebugViewProps> = ({
   debugData
 }) => {
@@ -820,6 +899,7 @@ const DebugView: React.FC<DebugViewProps> = ({
     chartInfo,
     renderingError,
     optimizationHints,
+    viewSpec,
     lastQueryDecision,
   } = debugData;
   const hasError = queryError || renderingError;
@@ -879,6 +959,11 @@ const DebugView: React.FC<DebugViewProps> = ({
             <CollapsibleSection title="Query Description (JSON)" defaultExpanded={true}>
               <pre>{safeStringify(queryDescription)}</pre>
             </CollapsibleSection>
+            {process.env.NODE_ENV === 'development' && (
+              <CollapsibleSection title="ViewSpec Inspector" defaultExpanded={true}>
+                <ViewSpecInspector viewSpec={viewSpec} safeStringify={safeStringify} />
+              </CollapsibleSection>
+            )}
             {queryResult?.query_sql && (
               <CollapsibleSection title="Generated SQL" defaultExpanded={true}>
                 <pre>{queryResult.query_sql}</pre>
@@ -930,6 +1015,11 @@ const DebugView: React.FC<DebugViewProps> = ({
             <CollapsibleSection title="Query Description (JSON)">
               <pre>{safeStringify(queryDescription)}</pre>
             </CollapsibleSection>
+            {process.env.NODE_ENV === 'development' && (
+              <CollapsibleSection title="ViewSpec Inspector" defaultExpanded={true}>
+                <ViewSpecInspector viewSpec={viewSpec} safeStringify={safeStringify} />
+              </CollapsibleSection>
+            )}
             <CollapsibleSection title="Generated SQL" defaultExpanded={true}>
               <pre>{queryResult.query_sql || 'No SQL available'}</pre>
             </CollapsibleSection>
