@@ -110,7 +110,7 @@ const ChartArea: React.FC = () => {
     virtualColumns,
   });
 
-  const { queryDescription, optimizationHints, lastQueryDecision } = useQueryExecution({
+  const { queryDescription, optimizationHints, viewSpec, lastQueryDecision } = useQueryExecution({
     selectedTable,
     selectedDatabase,
     xAxisFields,
@@ -278,6 +278,7 @@ const ChartArea: React.FC = () => {
     chartInfo,
     renderingError,
     optimizationHints,
+    viewSpec,
     lastQueryDecision,
   };
 
