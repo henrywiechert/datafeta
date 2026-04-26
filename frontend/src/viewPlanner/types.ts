@@ -50,6 +50,7 @@ export interface DomainPolicySpec {
 
 export interface MarkFamilyMemberSpec {
   field: Field;
+  valueAxis: 'x' | 'y' | null;
   aggregation?: Field['aggregation'];
   markType?: UserChartType;
   manualColor?: string;
@@ -59,14 +60,36 @@ export interface MarkFamilyMemberSpec {
   domainPolicy?: DomainPolicyMode;
 }
 
+export type MarkFamilyCompatibilitySeverity = 'error' | 'warning';
+
+export interface MarkFamilyCompatibilityIssue {
+  code:
+    | 'measure_values_missing'
+    | 'too_few_measures'
+    | 'non_measure_member'
+    | 'non_continuous_member'
+    | 'unsupported_mark_type'
+    | 'independent_comparison_domain';
+  severity: MarkFamilyCompatibilitySeverity;
+  message: string;
+}
+
 export interface MeasureGroupSpec {
   kind: 'measureGroup';
   fields: Field[];
   members: MarkFamilyMemberSpec[];
   usesSyntheticMeasureValues: boolean;
+  valueAxis: 'x' | 'y' | null;
+  comparisonAxis: 'x' | 'y' | null;
+  comparisonFields: Field[];
+  domainPolicy: {
+    comparison: DomainPolicyMode;
+    value: DomainPolicyMode;
+  };
   compatibility: {
     canSharePane: boolean;
     reasons: string[];
+    issues: MarkFamilyCompatibilityIssue[];
   };
 }
 

@@ -75,11 +75,21 @@ function summarizeView(viewSpec: ReturnType<typeof buildViewSpec>) {
     measureGroups: viewSpec.measureGroups.map((group) => ({
       canSharePane: group.compatibility.canSharePane,
       usesSyntheticMeasureValues: group.usesSyntheticMeasureValues,
+      valueAxis: group.valueAxis,
+      comparisonAxis: group.comparisonAxis,
+      comparisonFields: names(group.comparisonFields),
+      domainPolicy: group.domainPolicy,
+      issues: group.compatibility.issues.map((issue) => ({
+        code: issue.code,
+        severity: issue.severity,
+      })),
       members: group.members.map((member) => ({
         field: member.field.columnName,
+        valueAxis: member.valueAxis,
         aggregation: member.aggregation,
         markType: member.markType,
         manualColor: member.manualColor,
+        domainPolicy: member.domainPolicy,
       })),
     })),
   };
@@ -325,9 +335,17 @@ describe('golden ViewSpec / QueryDescription / RenderPlan semantics', () => {
         measureGroups: [{
           canSharePane: true,
           usesSyntheticMeasureValues: true,
+          valueAxis: 'y',
+          comparisonAxis: 'x',
+          comparisonFields: ['month', 'MeasureNames'],
+          domainPolicy: {
+            comparison: 'shared',
+            value: 'measureGroupShared',
+          },
+          issues: [],
           members: [
-            { field: 'revenue', aggregation: 'sum', markType: undefined, manualColor: undefined },
-            { field: 'cost', aggregation: 'sum', markType: 'line', manualColor: '#123456' },
+            { field: 'revenue', valueAxis: 'y', aggregation: 'sum', markType: undefined, manualColor: undefined, domainPolicy: 'measureGroupShared' },
+            { field: 'cost', valueAxis: 'y', aggregation: 'sum', markType: 'line', manualColor: '#123456', domainPolicy: 'measureGroupShared' },
           ],
         }],
       }),

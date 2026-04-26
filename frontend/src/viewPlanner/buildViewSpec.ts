@@ -5,6 +5,7 @@ import { Field } from '../types';
 import {
   BuildViewSpecInput,
   DomainPolicyMode,
+  MarkFamilyCompatibilityIssue,
   MarkFamilyMemberSpec,
   MeasureGroupSpec,
   RenderPlan,
@@ -178,6 +179,75 @@ function deriveDomainPolicy(input: BuildViewSpecInput, hasMeasureGroup: boolean)
   };
 }
 
+const SUPPORTED_MEASURE_GROUP_MARK_TYPES = new Set(['bar', 'line', 'scatter', 'tick']);
+
+function getMeasureValuesAxis(input: BuildViewSpecInput): 'x' | 'y' | null {
+  const onX = input.xAxisFields.some(isMeasureValuesField);
+  const onY = input.yAxisFields.some(isMeasureValuesField);
+  if (onX === onY) return null;
+  return onX ? 'x' : 'y';
+}
+
+function buildMeasureGroupCompatibility(args: {
+  input: BuildViewSpecInput;
+  members: MarkFamilyMemberSpec[];
+  valueAxis: 'x' | 'y' | null;
+  comparisonAxis: 'x' | 'y' | null;
+}): MarkFamilyCompatibilityIssue[] {
+  const { input, members, valueAxis, comparisonAxis } = args;
+  const issues: MarkFamilyCompatibilityIssue[] = [];
+
+  if (!valueAxis) {
+    issues.push({
+      code: 'measure_values_missing',
+      severity: 'error',
+      message: 'MeasureValues must be placed on exactly one positional axis for a Measure Group mark family.',
+    });
+  }
+
+  if (members.length < 2) {
+    issues.push({
+      code: 'too_few_measures',
+      severity: 'warning',
+      message: 'A Measure Group mark family is most useful with at least two source measures.',
+    });
+  }
+
+  for (const member of members) {
+    if (member.field.type !== 'measure') {
+      issues.push({
+        code: 'non_measure_member',
+        severity: 'error',
+        message: `${member.field.columnName} is not a measure.`,
+      });
+    }
+    if (member.field.flavour !== 'continuous') {
+      issues.push({
+        code: 'non_continuous_member',
+        severity: 'error',
+        message: `${member.field.columnName} is not continuous.`,
+      });
+    }
+    if (member.markType && !SUPPORTED_MEASURE_GROUP_MARK_TYPES.has(member.markType)) {
+      issues.push({
+        code: 'unsupported_mark_type',
+        severity: 'error',
+        message: `${member.field.columnName} uses unsupported Measure Group mark type "${member.markType}".`,
+      });
+    }
+  }
+
+  if (comparisonAxis && input.independentDomains?.[comparisonAxis]) {
+    issues.push({
+      code: 'independent_comparison_domain',
+      severity: 'error',
+      message: `Measure Group comparison axis ${comparisonAxis.toUpperCase()} must use a shared domain.`,
+    });
+  }
+
+  return issues;
+}
+
 function buildMeasureGroupSpec(input: BuildViewSpecInput): MeasureGroupSpec[] {
   const fields = dedupeFieldsById(input.measureGroupFields || []);
   const sourceFields = input.measureValuesSourceFields?.length
@@ -188,30 +258,59 @@ function buildMeasureGroupSpec(input: BuildViewSpecInput): MeasureGroupSpec[] {
     return [];
   }
 
+  const valueAxis = getMeasureValuesAxis(input);
+  const comparisonAxis = valueAxis === 'x' ? 'y' : valueAxis === 'y' ? 'x' : null;
+  const comparisonFields = comparisonAxis === 'x'
+    ? input.xAxisFields.filter((field) => !isMeasureValuesField(field))
+    : comparisonAxis === 'y'
+      ? input.yAxisFields.filter((field) => !isMeasureValuesField(field))
+      : [];
+  const valueDomainPolicy: DomainPolicyMode = valueAxis && input.independentDomains?.[valueAxis]
+    ? 'independent'
+    : 'measureGroupShared';
+  const comparisonDomainPolicy: DomainPolicyMode = comparisonAxis && input.independentDomains?.[comparisonAxis]
+    ? 'independent'
+    : 'shared';
+
   const members: MarkFamilyMemberSpec[] = sourceFields.map((field) => {
     const override = input.fieldOverrides?.[field.id];
     return {
       field,
+      valueAxis,
       aggregation: field.aggregation || 'sum',
       markType: override?.chartType,
       manualColor: override?.manualColor,
       colorField: override?.colorField,
       sizeField: override?.sizeField,
       labelFields: override?.labelFields,
-      domainPolicy: 'measureGroupShared',
+      domainPolicy: valueDomainPolicy,
     };
   });
 
-  const incompatibleMembers = members.filter((member) => member.field.flavour !== 'continuous');
+  const issues = buildMeasureGroupCompatibility({
+    input,
+    members,
+    valueAxis,
+    comparisonAxis,
+  });
+  const errorIssues = issues.filter((issue) => issue.severity === 'error');
 
   return [{
     kind: 'measureGroup',
     fields,
     members,
     usesSyntheticMeasureValues: [...input.xAxisFields, ...input.yAxisFields].some(isMeasureValuesField),
+    valueAxis,
+    comparisonAxis,
+    comparisonFields,
+    domainPolicy: {
+      comparison: comparisonDomainPolicy,
+      value: valueDomainPolicy,
+    },
     compatibility: {
-      canSharePane: incompatibleMembers.length === 0,
-      reasons: incompatibleMembers.map((member) => `${member.field.columnName} is not continuous`),
+      canSharePane: errorIssues.length === 0,
+      reasons: issues.map((issue) => issue.message),
+      issues,
     },
   }];
 }

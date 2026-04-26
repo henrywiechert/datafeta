@@ -82,10 +82,15 @@ describe('buildViewSpec', () => {
     expect({
       grain: spec.grain,
       domainPolicy: spec.domainPolicy,
+      groupDomainPolicy: spec.measureGroups[0].domainPolicy,
+      valueAxis: spec.measureGroups[0].valueAxis,
+      comparisonAxis: spec.measureGroups[0].comparisonAxis,
       memberSummary: spec.measureGroups[0].members.map((member) => ({
         columnName: member.field.columnName,
         markType: member.markType,
         manualColor: member.manualColor,
+        valueAxis: member.valueAxis,
+        domainPolicy: member.domainPolicy,
       })),
       canSharePane: spec.measureGroups[0].compatibility.canSharePane,
     }).toEqual({
@@ -94,12 +99,84 @@ describe('buildViewSpec', () => {
         x: 'measureGroupShared',
         y: 'measureGroupShared',
       },
+      groupDomainPolicy: {
+        comparison: 'shared',
+        value: 'measureGroupShared',
+      },
+      valueAxis: 'y',
+      comparisonAxis: 'x',
       memberSummary: [
-        { columnName: 'revenue', manualColor: undefined, markType: undefined },
-        { columnName: 'cost', manualColor: '#123456', markType: 'line' },
+        { columnName: 'revenue', manualColor: undefined, markType: undefined, valueAxis: 'y', domainPolicy: 'measureGroupShared' },
+        { columnName: 'cost', manualColor: '#123456', markType: 'line', valueAxis: 'y', domainPolicy: 'measureGroupShared' },
       ],
       canSharePane: true,
     });
+  });
+
+  it('rejects Measure Groups with an independent comparison domain', () => {
+    const month = field('month');
+    const measureValues = field('MeasureValues', {
+      type: 'measure',
+      flavour: 'continuous',
+      dataType: 'float',
+      aggregation: 'sum',
+      isSynthetic: true,
+      syntheticType: 'MeasureValues',
+    });
+    const revenue = field('revenue', { type: 'measure', flavour: 'continuous', dataType: 'float' });
+    const cost = field('cost', { type: 'measure', flavour: 'continuous', dataType: 'float' });
+
+    const spec = buildViewSpec({
+      xAxisFields: [month],
+      yAxisFields: [measureValues],
+      colorField: null,
+      sizeField: null,
+      measureGroupFields: [revenue, cost],
+      measureValuesSourceFields: [revenue, cost],
+      independentDomains: { x: true },
+    });
+
+    expect(spec.measureGroups[0].compatibility).toEqual(expect.objectContaining({
+      canSharePane: false,
+      issues: [expect.objectContaining({
+        code: 'independent_comparison_domain',
+        severity: 'error',
+      })],
+    }));
+  });
+
+  it('rejects unsupported Measure Group mark types', () => {
+    const month = field('month');
+    const measureValues = field('MeasureValues', {
+      type: 'measure',
+      flavour: 'continuous',
+      dataType: 'float',
+      aggregation: 'sum',
+      isSynthetic: true,
+      syntheticType: 'MeasureValues',
+    });
+    const revenue = field('revenue', { type: 'measure', flavour: 'continuous', dataType: 'float' });
+    const target = field('target', { type: 'measure', flavour: 'continuous', dataType: 'float' });
+
+    const spec = buildViewSpec({
+      xAxisFields: [month],
+      yAxisFields: [measureValues],
+      colorField: null,
+      sizeField: null,
+      measureGroupFields: [revenue, target],
+      measureValuesSourceFields: [revenue, target],
+      fieldOverrides: {
+        [target.id]: { chartType: 'gantt' },
+      },
+    });
+
+    expect(spec.measureGroups[0].compatibility).toEqual(expect.objectContaining({
+      canSharePane: false,
+      issues: [expect.objectContaining({
+        code: 'unsupported_mark_type',
+        severity: 'error',
+      })],
+    }));
   });
 
   it('keeps brush zoom selections separate from filters', () => {
