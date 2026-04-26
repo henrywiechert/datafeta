@@ -137,6 +137,7 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
         sx={{
           display: 'inline-flex',
           alignItems: 'center',
+          minWidth: 0,
           border: '1px solid rgba(0, 0, 0, 0.18)',
           borderRadius: '4px',
           backgroundColor: 'rgba(255,255,255,0.6)',
@@ -151,15 +152,14 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
           onChange={handleChange}
           size="small"
           sx={{
+            flexWrap: 'wrap',
+            maxWidth: '100%',
             '& .MuiToggleButton-root': {
               padding: '2px 6px',
               minWidth: 28,
               height: 24,
-              border: 'none',
+              border: '1px solid rgba(0, 0, 0, 0.14)',
               borderRadius: 0,
-              '& + .MuiToggleButton-root': {
-                borderLeft: '1px solid rgba(0, 0, 0, 0.12)',
-              },
               '&.Mui-selected': {
                 backgroundColor: 'primary.main',
                 color: 'white',
