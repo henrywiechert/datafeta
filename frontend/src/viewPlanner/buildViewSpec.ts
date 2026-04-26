@@ -1,6 +1,7 @@
 import { isCdfAllowed } from '../utils/cdfUtils';
 import { isMeasureNamesField, isMeasureValuesField } from '../utils/syntheticFields';
 import { getQueryTypeFromFields } from '../queryBuilder/queryBuilder';
+import { getResultColumnName } from '../utils/fieldUtils';
 import { Field } from '../types';
 import {
   BuildViewSpecInput,
@@ -58,9 +59,7 @@ function dedupeFieldsByOutputIdentity(fields: Field[]): Field[] {
   const seen = new Set<string>();
   for (const field of fields) {
     const key = [
-      field.columnName,
-      field.dateTimePart || '',
-      field.dateTimeMode || '',
+      getResultColumnName(field),
       field.sourceTable || '',
       field.syntheticType || '',
     ].join('|');
