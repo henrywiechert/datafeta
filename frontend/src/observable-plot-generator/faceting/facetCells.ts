@@ -1,6 +1,6 @@
 import { ChartGenerationContext } from '../types';
-import { filterRowsByFacets } from './facetUtils';
 import { buildCellDomains, buildSampleDomains } from './facetDomainContext';
+import type { FacetDataIndex } from './facetDataIndex';
 import type { FacetDomainContext } from './facetDomainContext';
 import type { FacetPlan } from './facetPlanner';
 import type { FacetSpace } from './facetSpace';
@@ -23,6 +23,7 @@ export interface FacetCellGenerationConfig {
   context: ChartGenerationContext;
   plan: FacetPlan;
   facetSpace: FacetSpace;
+  dataIndex: FacetDataIndex;
   domainContext: FacetDomainContext;
   cellGenerator: CellGenerator;
   backgroundHelper: FacetBackgroundHelper | null;
@@ -32,16 +33,13 @@ export interface FacetCellGenerationConfig {
 
 export function generateSampleCellLayout(
   context: ChartGenerationContext,
-  plan: FacetPlan,
   facetSpace: FacetSpace,
+  dataIndex: FacetDataIndex,
   domainContext: FacetDomainContext,
   cellGenerator: CellGenerator
 ): SampleLayout {
-  const sampleRows = filterRowsByFacets(
-    context.queryResult.rows,
-    plan.rowFacetFields,
+  const sampleRows = dataIndex.getCellRows(
     facetSpace.safeRowCombos[0],
-    plan.colFacetFields,
     facetSpace.safeColCombos[0]
   );
   const sampleDomains = buildSampleDomains(context, domainContext);
@@ -59,6 +57,7 @@ export function generateFacetCells(config: FacetCellGenerationConfig): Positione
     context,
     plan,
     facetSpace,
+    dataIndex,
     domainContext,
     cellGenerator,
     backgroundHelper,
@@ -72,11 +71,8 @@ export function generateFacetCells(config: FacetCellGenerationConfig): Positione
     for (let c = 0; c < facetSpace.safeColCombos.length; c++) {
       const rowValues = facetSpace.safeRowCombos[r];
       const colValues = facetSpace.safeColCombos[c];
-      const cellData = filterRowsByFacets(
-        context.queryResult.rows,
-        rowFacetFields,
+      const cellData = dataIndex.getCellRows(
         rowValues,
-        colFacetFields,
         colValues
       );
       const cellDomains = buildCellDomains(context, domainContext, r, c);
