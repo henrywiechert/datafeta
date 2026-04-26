@@ -8,6 +8,7 @@ import ObservablePlot from '../ObservablePlot';
 import BrushOverlay, { BrushResult } from './BrushOverlay';
 import styles from './ChartGrid.module.css';
 import { GRID_DIVIDER_COLOR } from '../../../config/chartLayoutConfig';
+import { buildPlotGridSizingStyle } from './utils/layoutUtils';
 
 export interface PlotBrushEvent {
   brush: BrushResult;
@@ -88,15 +89,12 @@ const PlotArea: React.FC<PlotAreaProps> = ({
       <div
         ref={plotsTranslateRef}
         style={{
-          display: 'grid',
-          gridTemplateColumns: plotTemplateColumns,
-          gridTemplateRows: plotRowsSpec,
-          minWidth: `${totalContentWidthPx}px`,
-          width: (() => {
-            const sizes = (spec.layout as any)?.columnSizes as Array<number | 'fr'> | undefined;
-            const hasFlexible = !sizes || sizes.some((c) => typeof c !== 'number');
-            return hasFlexible ? '100%' : `${totalContentWidthPx}px`;
-          })(),
+          ...buildPlotGridSizingStyle({
+            plotTemplateColumns,
+            plotRowsSpec,
+            totalContentWidthPx,
+            columnSizes: spec.layout?.columnSizes,
+          }),
           willChange: 'transform',
         }}
       >

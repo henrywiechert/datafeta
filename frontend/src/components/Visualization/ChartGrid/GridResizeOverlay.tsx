@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import GridResizeHandle from './GridResizeHandle';
 import VirtualResizeLine from './VirtualResizeLine';
+import { UniformResizeIntent } from './utils/uniformCellSizing';
 
 interface GridResizeOverlayProps {
   // Grid dimensions
@@ -29,8 +30,10 @@ interface GridResizeOverlayProps {
   plotGridRef: React.RefObject<HTMLDivElement>;
   
   // Resize callbacks
-  onColumnResize?: (newWidth: number) => void;
-  onRowResize?: (newWidth: number) => void;
+  previewColumnResize?: (intent: UniformResizeIntent) => number;
+  previewRowResize?: (intent: UniformResizeIntent) => number;
+  onColumnResize?: (intent: UniformResizeIntent) => void;
+  onRowResize?: (intent: UniformResizeIntent) => void;
 }
 
 /**
@@ -140,6 +143,12 @@ function parseGridTemplate(template: string, totalSize: number, count: number): 
   return positions;
 }
 
+function getTrackSize(positions: number[], endGridlineIndex: number): number {
+  return endGridlineIndex > 0
+    ? positions[endGridlineIndex] - positions[endGridlineIndex - 1]
+    : positions[0];
+}
+
 /**
  * GridResizeOverlay - Manages all resize handles for the grid
  * 
@@ -156,9 +165,11 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
   topHeaderHeight,
   containerWidth,
   containerHeight,
-   horizontalScrollOffset,
-   verticalScrollOffset,
+  horizontalScrollOffset,
+  verticalScrollOffset,
   plotGridRef,
+  previewColumnResize,
+  previewRowResize,
   onColumnResize,
   onRowResize,
 }) => {
@@ -234,7 +245,7 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
     return parseGridTemplate(rowTemplate, plotAreaHeight, rows);
   }, [measuredRowPositions, rowTemplate, containerHeight, topHeaderHeight, bottomFixedHeight, rows]);
 
-  // Column resize handlers (all columns get the same width)
+  // Column resize handlers report the dragged track; the parent owns uniform sizing policy.
   const handleColumnResizeStart = (index: number) => {
     // Column handles live in the bottom X-axis area, which scrolls horizontally.
     // Subtract the current horizontal scroll so the handle stays aligned with the
@@ -258,15 +269,13 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
     
     if (!onColumnResize) return;
     
-    // Calculate new width based on delta
-    // We're using uniform sizing, so any gridline resize changes ALL column widths
-    const currentWidth = index > 0 ? columnPositions[index] - columnPositions[index - 1] : columnPositions[0];
-    const newWidth = currentWidth + delta;
-    
-    onColumnResize(newWidth);
+    onColumnResize({
+      currentSize: getTrackSize(columnPositions, index),
+      delta,
+    });
   };
 
-  // Row resize handlers (all rows get the same height)
+  // Row resize handlers report the dragged track; the parent owns uniform sizing policy.
   const handleRowResizeStart = (index: number) => {
     // Row handles live in the left Y-axis area, which scrolls vertically.
     // Subtract the current vertical scroll so the handle stays aligned with the
@@ -290,11 +299,10 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
     
     if (!onRowResize) return;
     
-    // Calculate new height based on delta
-    const currentHeight = index > 0 ? rowPositions[index] - rowPositions[index - 1] : rowPositions[0];
-    const newHeight = currentHeight + delta;
-    
-    onRowResize(newHeight);
+    onRowResize({
+      currentSize: getTrackSize(rowPositions, index),
+      delta,
+    });
   };
 
   // Calculate virtual line position and size
@@ -302,34 +310,29 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
     if (!dragState) return null;
 
     const { orientation, index, startPosition, currentDelta } = dragState;
-    const newPosition = startPosition + currentDelta;
 
     if (orientation === 'vertical') {
-      // Column resize
-      const currentWidth = index > 0 
-        ? columnPositions[index] - columnPositions[index - 1] 
-        : columnPositions[0];
-      const newWidth = currentWidth + currentDelta;
+      const currentSize = getTrackSize(columnPositions, index);
+      const intent = { currentSize, delta: currentDelta };
+      const previewSize = previewColumnResize ? previewColumnResize(intent) : currentSize + currentDelta;
       
       return {
         orientation,
-        position: newPosition,
-        size: Math.max(50, newWidth), // Show constrained size
+        position: startPosition + (previewSize - currentSize),
+        size: previewSize,
       };
     } else {
-      // Row resize
-      const currentHeight = index > 0 
-        ? rowPositions[index] - rowPositions[index - 1] 
-        : rowPositions[0];
-      const newHeight = currentHeight + currentDelta;
+      const currentSize = getTrackSize(rowPositions, index);
+      const intent = { currentSize, delta: currentDelta };
+      const previewSize = previewRowResize ? previewRowResize(intent) : currentSize + currentDelta;
       
       return {
         orientation,
-        position: newPosition,
-        size: Math.max(50, newHeight), // Show constrained size
+        position: startPosition + (previewSize - currentSize),
+        size: previewSize,
       };
     }
-  }, [dragState, columnPositions, rowPositions]);
+  }, [dragState, columnPositions, rowPositions, previewColumnResize, previewRowResize]);
 
   return (
     <>

@@ -10,6 +10,8 @@ export interface GridLayout {
   rows: number;
   columnSizes: Array<number | 'fr'>;
   rowSizes: Array<number | 'fr'>;
+  minColumnSizes?: number[];
+  minRowSizes?: number[];
 }
 
 /**
@@ -37,19 +39,18 @@ export function computeGridLayout(
   numRowFacets: number,
   numColFacets: number,
   baseColumnSizes?: Array<number | 'fr'>,
-  baseRowSizes?: Array<number | 'fr'>
+  baseRowSizes?: Array<number | 'fr'>,
+  baseMinColumnSizes?: number[],
+  baseMinRowSizes?: number[]
 ): GridLayout {
   const columns = baseCols * numColFacets;
   const rows = baseRows * numRowFacets;
   
   // Replicate base sizes across facets
-  const columnSizes = baseColumnSizes && baseColumnSizes.length > 0
-    ? Array.from({ length: columns }, (_, idx) => baseColumnSizes[idx % baseColumnSizes.length])
-    : Array.from({ length: columns }, () => 'fr' as const);
-    
-  const rowSizes = baseRowSizes && baseRowSizes.length > 0
-    ? Array.from({ length: rows }, (_, idx) => baseRowSizes[idx % baseRowSizes.length])
-    : Array.from({ length: rows }, () => 'fr' as const);
+  const columnSizes = tileTrackSizes(baseColumnSizes, columns, 'fr' as const);
+  const rowSizes = tileTrackSizes(baseRowSizes, rows, 'fr' as const);
+  const minColumnSizes = tileOptionalSizes(baseMinColumnSizes, columns);
+  const minRowSizes = tileOptionalSizes(baseMinRowSizes, rows);
   
   return {
     type: 'grid',
@@ -57,7 +58,21 @@ export function computeGridLayout(
     rows,
     columnSizes,
     rowSizes,
+    ...(minColumnSizes ? { minColumnSizes } : {}),
+    ...(minRowSizes ? { minRowSizes } : {}),
   };
+}
+
+function tileTrackSizes<T extends number | 'fr'>(baseSizes: T[] | undefined, count: number, fallback: T): T[] {
+  return baseSizes && baseSizes.length > 0
+    ? Array.from({ length: count }, (_, idx) => baseSizes[idx % baseSizes.length])
+    : Array.from({ length: count }, () => fallback);
+}
+
+function tileOptionalSizes(baseSizes: number[] | undefined, count: number): number[] | undefined {
+  return baseSizes && baseSizes.length > 0
+    ? Array.from({ length: count }, (_, idx) => baseSizes[idx % baseSizes.length])
+    : undefined;
 }
 
 /**
