@@ -38,6 +38,10 @@ export function planFacetsFromViewSpec(viewSpec: ViewSpec): FacetPlan | null {
  * @returns A FacetPlan if faceting should be applied, otherwise null.
  */
 export function planFacets(context: ChartGenerationContext): FacetPlan | null {
+  if (context.viewSpec) {
+    return planFacetsFromViewSpec(context.viewSpec);
+  }
+
   const viewSpec = buildViewSpec({
     xAxisFields: context.xFields,
     yAxisFields: context.yFields,

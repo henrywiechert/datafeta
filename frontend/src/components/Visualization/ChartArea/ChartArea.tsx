@@ -30,6 +30,7 @@ import LegendStack from '../Legend/LegendStack';
 import FacetLimitDialog from '../FacetLimitDialog';
 import { getResultColumnName } from '../../../utils/fieldUtils';
 import { createChartAffectingConfig } from '../../../utils/queryAffectingConfig';
+import { buildEffectiveFilterConfigurations } from '../../../utils/effectiveFilters';
 
 /**
  * ChartArea - thin orchestrator that delegates to specialised hooks.
@@ -74,15 +75,14 @@ const ChartArea: React.FC = () => {
     dataSource;
 
   // -- Derived values ----------------------------------------------------------
-  const effectiveFilterConfigurations = useMemo(() => {
-    const merged = { ...appliedFilterConfigurations, ...sessionAppliedFilterConfigurations };
-    if (disabledFilterIds && disabledFilterIds.length > 0) {
-      const result = { ...merged };
-      disabledFilterIds.forEach(id => delete result[id]);
-      return result;
-    }
-    return merged;
-  }, [appliedFilterConfigurations, sessionAppliedFilterConfigurations, disabledFilterIds]);
+  const effectiveFilterConfigurations = useMemo(
+    () => buildEffectiveFilterConfigurations({
+      localConfigurations: appliedFilterConfigurations,
+      sessionConfigurations: sessionAppliedFilterConfigurations,
+      disabledFilterIds,
+    }),
+    [appliedFilterConfigurations, sessionAppliedFilterConfigurations, disabledFilterIds]
+  );
 
   const fullscreenWrapperRef = useRef<HTMLDivElement>(null);
   const sheetId = activeSheet?.id;
@@ -143,6 +143,7 @@ const ChartArea: React.FC = () => {
       measureValuesSourceFields,
       ganttZoomRange,
       overlays,
+      viewSpec,
     });
 
   const { handleLegendFilterAction, handleShapeLegendFilterAction, specWithTooltipAction } = useFilterActions({

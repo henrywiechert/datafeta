@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useRef, useState } from 'react';
-import { Box, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, TextField, Switch, FormControlLabel, Divider, Popover, Slider, Typography, Menu, MenuItem, ListItemIcon, ListItemText } from '@mui/material';
+import { Box, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Popover, Slider, Typography, Menu, MenuItem, ListItemIcon, ListItemText } from '@mui/material';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
@@ -18,6 +18,8 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import QueryStatusIndicator from './QueryStatusIndicator';
 import DatasetStatus from './DatasetStatus';
 import { QueryOptimizationSettings } from '../../../../types';
+import OptimizationSettingsDialog from './OptimizationSettingsDialog';
+import { resolveChartControlsVisibility } from './chartControlsLayout';
 
 const DevSqlViewerControl =
   process.env.NODE_ENV !== 'production'
@@ -134,13 +136,6 @@ const ChartControls: React.FC<ChartControlsProps> = ({
     setSettingsDialogOpen(false);
   };
 
-  const updateNumberSetting = (key: keyof QueryOptimizationSettings, value: string) => {
-    const parsed = Number(value);
-    if (!Number.isNaN(parsed)) {
-      setDraftSettings((prev) => ({ ...prev, [key]: parsed }));
-    }
-  };
-
   const handleBandControlOpen = (event: React.MouseEvent<HTMLElement>) => {
     setBandAnchorEl(event.currentTarget);
   };
@@ -186,50 +181,30 @@ const ChartControls: React.FC<ChartControlsProps> = ({
     handleResetClick();
   };
 
-  // Responsive tiers based on actual controls container width:
-  // - wide: full controls
-  // - medium: hide low-priority controls into More
-  // - tight: keep only pinned controls visible + More
-  const isTightControls = controlsWidth < 400;
-  const isMediumControls = controlsWidth < 700;
-
-  const hideLowPriorityInline = isMediumControls;
-  const hideTier2Inline = isTightControls;
-
-  const showInlineDevSql = !hideLowPriorityInline;
-  const showInlineTableToggle = !hideTier2Inline;
-  const showInlineSwap = !hideTier2Inline && !showTableRows;
-  const showInlineZoomOut = !hideTier2Inline && !showTableRows;
-  const showInlineZoomReset = !hideTier2Inline && !showTableRows;
-  const showInlineRefresh = !hideLowPriorityInline;
-  const showInlineBand = !hideLowPriorityInline && !showTableRows;
-  const showInlineSettings = !hideLowPriorityInline;
-  const showInlineIndependentX = !hideLowPriorityInline && !showTableRows;
-  const showInlineIndependentY = !hideLowPriorityInline && !showTableRows;
-  const showInlineReset = !hideLowPriorityInline;
-
-  const showOverflowTableToggle = hideTier2Inline;
-  const showOverflowSwap = hideTier2Inline && !showTableRows;
-  const showOverflowZoomOut = hideTier2Inline && !showTableRows;
-  const showOverflowZoomReset = hideTier2Inline && !showTableRows;
-  const showOverflowRefresh = hideLowPriorityInline;
-  const showOverflowBand = hideLowPriorityInline && !showTableRows;
-  const showOverflowSettings = hideLowPriorityInline;
-  const showOverflowIndependentX = hideLowPriorityInline && !showTableRows;
-  const showOverflowIndependentY = hideLowPriorityInline && !showTableRows;
-  const showOverflowReset = hideLowPriorityInline;
-  const hasOverflowActions = Boolean(
-    showOverflowTableToggle ||
-    showOverflowSwap ||
-    showOverflowZoomOut ||
-    showOverflowZoomReset ||
-    showOverflowRefresh ||
-    showOverflowBand ||
-    showOverflowSettings ||
-    showOverflowIndependentX ||
-    showOverflowIndependentY ||
-    showOverflowReset
-  );
+  const {
+    showInlineDevSql,
+    showInlineTableToggle,
+    showInlineSwap,
+    showInlineZoomOut,
+    showInlineZoomReset,
+    showInlineRefresh,
+    showInlineBand,
+    showInlineSettings,
+    showInlineIndependentX,
+    showInlineIndependentY,
+    showInlineReset,
+    showOverflowTableToggle,
+    showOverflowSwap,
+    showOverflowZoomOut,
+    showOverflowZoomReset,
+    showOverflowRefresh,
+    showOverflowBand,
+    showOverflowSettings,
+    showOverflowIndependentX,
+    showOverflowIndependentY,
+    showOverflowReset,
+    hasOverflowActions,
+  } = resolveChartControlsVisibility(controlsWidth, showTableRows);
 
   return (
     <Box
@@ -663,142 +638,13 @@ const ChartControls: React.FC<ChartControlsProps> = ({
         </DialogActions>
       </Dialog>
 
-      <Dialog
+      <OptimizationSettingsDialog
         open={settingsDialogOpen}
-        onClose={handleSettingsClose}
-        aria-labelledby="optimization-settings-title"
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle id="optimization-settings-title">
-          Query Optimization Settings
-        </DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={draftSettings.forceRemote}
-                onChange={(e) =>
-                  setDraftSettings((prev) => ({ ...prev, forceRemote: e.target.checked }))
-                }
-              />
-            }
-            label="Force remote query (skip DuckDB cache)"
-          />
-
-          <TextField
-            label="Large dataset threshold (rows)"
-            type="number"
-            value={draftSettings.sizeThreshold}
-            onChange={(e) => updateNumberSetting('sizeThreshold', e.target.value)}
-            inputProps={{ min: 0 }}
-            size="small"
-            helperText="Above this row count, prefer backend aggregation."
-          />
-
-          <Divider />
-
-          <TextField
-            label="Max points (single chart)"
-            type="number"
-            value={draftSettings.maxPointsSingle}
-            onChange={(e) => updateNumberSetting('maxPointsSingle', e.target.value)}
-            inputProps={{ min: 0 }}
-            size="small"
-          />
-
-          <TextField
-            label="Max points (faceted charts)"
-            type="number"
-            value={draftSettings.maxPointsFaceted}
-            onChange={(e) => updateNumberSetting('maxPointsFaceted', e.target.value)}
-            inputProps={{ min: 0 }}
-            size="small"
-          />
-
-          <TextField
-            label="Max points (discrete color cap)"
-            type="number"
-            value={draftSettings.maxPointsWithDiscreteColor}
-            onChange={(e) => updateNumberSetting('maxPointsWithDiscreteColor', e.target.value)}
-            inputProps={{ min: 0 }}
-            size="small"
-            helperText="Applied when color field is discrete."
-          />
-
-          <TextField
-            label="Min per stratum (discrete color)"
-            type="number"
-            value={draftSettings.minPerStratumWithDiscreteColor}
-            onChange={(e) => updateNumberSetting('minPerStratumWithDiscreteColor', e.target.value)}
-            inputProps={{ min: 0 }}
-            size="small"
-          />
-
-          <TextField
-            label="Line chart max rows"
-            type="number"
-            value={draftSettings.lineBudgetMaxRows}
-            onChange={(e) => updateNumberSetting('lineBudgetMaxRows', e.target.value)}
-            inputProps={{ min: 0 }}
-            size="small"
-            helperText="Limits aggregated line results for dense series."
-          />
-
-          <Divider />
-
-          <FormControlLabel
-            control={
-              <Switch
-                checked={draftSettings.enableRounding}
-                onChange={(e) =>
-                  setDraftSettings((prev) => ({ ...prev, enableRounding: e.target.checked }))
-                }
-              />
-            }
-            label="Enable adaptive rounding"
-          />
-
-          <TextField
-            label="Rounding threshold (light)"
-            type="number"
-            value={draftSettings.roundingThresholdLight}
-            onChange={(e) => updateNumberSetting('roundingThresholdLight', e.target.value)}
-            inputProps={{ min: 0 }}
-            size="small"
-            disabled={!draftSettings.enableRounding}
-            helperText="Applies when auto optimization chooses light."
-          />
-
-          <TextField
-            label="Rounding threshold (balanced)"
-            type="number"
-            value={draftSettings.roundingThresholdBalanced}
-            onChange={(e) => updateNumberSetting('roundingThresholdBalanced', e.target.value)}
-            inputProps={{ min: 0 }}
-            size="small"
-            disabled={!draftSettings.enableRounding}
-            helperText="Applies when auto optimization chooses balanced."
-          />
-
-          <TextField
-            label="Rounding threshold (aggressive)"
-            type="number"
-            value={draftSettings.roundingThresholdAggressive}
-            onChange={(e) => updateNumberSetting('roundingThresholdAggressive', e.target.value)}
-            inputProps={{ min: 0 }}
-            size="small"
-            disabled={!draftSettings.enableRounding}
-            helperText="Applies when auto optimization chooses aggressive."
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleSettingsClose}>Cancel</Button>
-          <Button variant="contained" onClick={handleSettingsSave}>
-            Apply
-          </Button>
-        </DialogActions>
-      </Dialog>
+        settings={draftSettings}
+        onSettingsChange={setDraftSettings}
+        onCancel={handleSettingsClose}
+        onApply={handleSettingsSave}
+      />
     </Box>
   );
 };

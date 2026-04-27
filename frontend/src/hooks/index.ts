@@ -1,7 +1,12 @@
 /**
  * Hooks - Custom React hooks for the Data Slicer frontend
  *
- * This module provides centralized exports for all custom hooks.
+ * Legacy aggregate export kept for compatibility.
+ *
+ * Import convention: new code should import hooks from their concrete files
+ * (for example `../hooks/useGlobalFilters`) so cross-feature dependencies stay
+ * visible in the import graph. Do not add new exports here unless a caller
+ * already depends on this aggregate module.
  */
 
 // Visualization state hooks

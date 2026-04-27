@@ -5,21 +5,33 @@ This document provides a high-level overview of the React contexts used in Data 
 ## Context Hierarchy
 
 ```
-App.tsx
+index.tsx
 │
-├── SheetProvider                    ← Multi-sheet workspace management
+├── DataSourceProvider                  ← Session-scoped metadata and table selection
 │   │
-│   └── ConnectionProvider           ← Database connection state
+│   └── VisualizationProvider           ← Root visualization instance used by connection reset logic
 │       │
-│       └── DataSourceProvider       ← Database/table/field selection (shared)
+│       └── ConnectionProvider          ← Database connection state
+│           │                             (depends on DataSourceContext and VisualizationContext)
 │           │
-│           └── VisualizationProvider ← Per-sheet chart configuration
-│               │                       (remounts on sheet switch)
+│           └── App.tsx
 │               │
-│               ├── UndoRedoProvider  ← Undo/redo history (per sheet)
-│               │
-│               └── LayoutProvider    ← Panel visibility/sizing
+│               └── SheetProvider       ← Multi-sheet workspace management
+│                   │
+│                   └── VisualizationPage.tsx
+│                       │
+│                       └── VisualizationProvider key={activeSheet.id}
+│                           │             ← Per-sheet chart configuration
+│                           │                (remounts on sheet switch)
+│                           └── UndoRedoProvider
 ```
+
+`VisualizationProvider` appears at two levels. The root provider exists because
+`ConnectionProvider` currently dispatches `RESET_QUERY_STATE` on connect and
+disconnect. The keyed provider inside `VisualizationPage.tsx` is the per-sheet
+state boundary used for axes, filters, encodings, query results, and rendering
+state. If the connection reset boundary is decoupled in the future, the root
+provider can be revisited.
 
 ## Context Overview
 
@@ -28,7 +40,7 @@ App.tsx
 | `SheetContext` | App-wide | localStorage | Multi-sheet workspace tabs |
 | `ConnectionContext` | App-wide | None | Database connection lifecycle |
 | `DataSourceContext` | App-wide | None | DB/table selection, available fields |
-| `VisualizationContext` | Per-sheet | Via SheetContext | Chart axes, filters, encodings |
+| `VisualizationContext` | Root + per-sheet | Via SheetContext for per-sheet instance | Chart axes, filters, encodings, query/render state |
 | `UndoRedoContext` | Per-sheet | Memory only | Action history for undo/redo |
 | `LayoutContext` | App-wide | localStorage | Panel collapse/resize state |
 
@@ -66,9 +78,13 @@ Manages backend connection lifecycle:
 - Connect to ClickHouse, CSV, or Kaggle data sources
 - Track connection status, loading, errors
 - Store connection details (host, port, type)
-- On connect/disconnect: resets metadata in VisualizationContext
+- On connect/disconnect: resets shared metadata and clears query state
 
-**Dependency:** Uses `useVisualizationContext().dispatch` to clear metadata on connection changes.
+**Current dependency:** Uses `useDataSource().resetMetadata()` and
+`useVisualizationContext().dispatch({ type: 'RESET_QUERY_STATE' })` to clear
+query results on connection changes. This is the only reason the root
+`VisualizationProvider` wraps `ConnectionProvider`; per-sheet visualization
+state still lives inside `VisualizationPage.tsx`.
 
 ---
 
@@ -158,14 +174,13 @@ Field selection for drag operations is managed by a Zustand store (`stores/selec
 ## Interaction Patterns
 
 ### Connection → Visualization
-When connection changes, `ConnectionContext` dispatches to `VisualizationContext` to clear metadata:
+When connection changes, `ConnectionContext` resets shared data source metadata
+and dispatches to `VisualizationContext` to clear query results:
 ```
 connect() / disconnect()
     ↓
-dispatch({ type: 'SET_DATABASES', payload: [] })
-dispatch({ type: 'SET_TABLES', payload: [] })
-dispatch({ type: 'SET_AVAILABLE_FIELDS', payload: [] })
-dispatch({ type: 'SET_QUERY_RESULT', payload: null })
+resetMetadata()
+dispatch({ type: 'RESET_QUERY_STATE' })
 ```
 
 ### Sheet ↔ Visualization
@@ -219,7 +234,7 @@ completeUndo(currentState) ← Move to redo stack
 │  │(worksheets) │    │(db connect)  │    │   (Zustand)             │ │
 │  └──────┬──────┘    └──────┬───────┘    └─────────────────────────┘ │
 │         │                  │                                         │
-│         │    Resets metadata on connect/disconnect                   │
+│         │    Resets metadata and query state on connect/disconnect   │
 │         │                  │                                         │
 │         ▼                  ▼                                         │
 │  ┌─────────────────────────────────────────┐                        │

@@ -8,6 +8,7 @@ import { logOperationTiming } from '../utils';
 import { planFacets } from '../../../../observable-plot-generator/faceting/facetPlanner';
 import { validateFacetCounts, FacetValidationResult } from '../../../../observable-plot-generator/faceting/facetValidation';
 import { useFieldAliasLookup } from '../../../../hooks/useFieldDisplayName';
+import { ViewSpec } from '../../../../viewPlanner';
 
 /** Debounce delay for zoom-triggered regeneration (ms) */
 const ZOOM_REGEN_DEBOUNCE_MS = 150;
@@ -29,6 +30,7 @@ interface UseChartGenerationProps {
   independentDomains?: { x?: boolean; y?: boolean };
   ganttZoomRange?: GanttZoomRange | null;
   overlays?: OverlayConfig[];
+  viewSpec?: ViewSpec | null;
 }
 
 interface UseChartGenerationReturn {
@@ -62,6 +64,7 @@ export const useChartGeneration = ({
   independentDomains,
   ganttZoomRange,
   overlays,
+  viewSpec,
 }: UseChartGenerationProps): UseChartGenerationReturn => {
   const { field: colorField, scheme: colorScheme = 'tableau10', bias: colorBias = 0, manual: manualColor } = channels.color;
   const { field: sizeField, range: sizeRange, manual: manualSize, bandThicknessScale } = channels.size;
@@ -228,6 +231,7 @@ export const useChartGeneration = ({
         facetBackgroundScheme,
         facetBackgroundOpacity,
         overlays,
+        viewSpec,
         // Shape encoding
         shapeField: shapeField || undefined,
         manualShape,
@@ -280,7 +284,7 @@ export const useChartGeneration = ({
       // On error, complete the operation immediately since no rendering will happen
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, channels, useTableView, showTableRows, startOperation, completeOperation, queryResult, queryVersion, fieldOverrides, globalChartType, distributionVariant, measureValuesSourceFields, independentDomains, doGenerateChart, fieldAliasLookup, overlays]);
+  }, [xAxisFields, yAxisFields, channels, useTableView, showTableRows, startOperation, completeOperation, queryResult, queryVersion, fieldOverrides, globalChartType, distributionVariant, measureValuesSourceFields, independentDomains, doGenerateChart, fieldAliasLookup, overlays, viewSpec]);
 
   const cancelGeneration = useCallback(() => {
     // No-op since Observable Plot generation is synchronous

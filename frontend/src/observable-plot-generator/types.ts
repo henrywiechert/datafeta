@@ -3,6 +3,7 @@ import { OverlayConfig } from './overlays/types';
 import { FieldOverrideTarget } from './utils/fieldOverrides';
 import { ColorScaleInfo } from './utils/colorSchemeUtils';
 import { ChartTypeOverrides } from './helpers/chartTypeResolver';
+import type { ViewSpec } from '../viewPlanner/types';
 import * as Plot from '@observablehq/plot';
 
 /** Gantt zoom range representing the visible data range on the timeline axis */
@@ -155,6 +156,8 @@ export interface ChartGenerationContext {
   fieldAliasLookup?: Record<string, string>;
   /** Statistical overlay configurations (regression, moving average, Bollinger bands) */
   overlays?: OverlayConfig[];
+  /** Canonical semantic view plan, shared with query planning when available. */
+  viewSpec?: ViewSpec | null;
 }
 
 /**

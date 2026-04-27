@@ -7,6 +7,11 @@ import { useVirtualColumns } from './useVirtualColumns';
 import { useFieldOperations } from './useFieldOperations';
 import { useMetadataOperations } from './useMetadataOperations';
 import { useFilterMetadata } from './useFilterMetadata';
+import {
+    mergeFilterConfigurations,
+    mergeFilterFields,
+    mergeFilterMetadata,
+} from '../utils/effectiveFilters';
 
 
 export function useVisualizationState() {
@@ -87,20 +92,20 @@ export function useVisualizationState() {
 
     // Merge sheet + session filter state so useFilterMetadata auto-fetches
     // metadata for session-scoped filters (e.g. restored from snapshots with no metadata).
-    const allFilterFields = useMemo(() => [
-        ...dataSource.sessionFilterFields,
-        ...state.filterFields,
-    ], [dataSource.sessionFilterFields, state.filterFields]);
+    const allFilterFields = useMemo(
+        () => mergeFilterFields(dataSource.sessionFilterFields, state.filterFields),
+        [dataSource.sessionFilterFields, state.filterFields]
+    );
 
-    const allFilterMetadata = useMemo(() => ({
-        ...state.filterMetadata,
-        ...dataSource.sessionFilterMetadata,
-    }), [state.filterMetadata, dataSource.sessionFilterMetadata]);
+    const allFilterMetadata = useMemo(
+        () => mergeFilterMetadata(state.filterMetadata, dataSource.sessionFilterMetadata),
+        [state.filterMetadata, dataSource.sessionFilterMetadata]
+    );
 
-    const allFilterConfigurations = useMemo(() => ({
-        ...state.filterConfigurations,
-        ...dataSource.sessionFilterConfigurations,
-    }), [state.filterConfigurations, dataSource.sessionFilterConfigurations]);
+    const allFilterConfigurations = useMemo(
+        () => mergeFilterConfigurations(state.filterConfigurations, dataSource.sessionFilterConfigurations),
+        [state.filterConfigurations, dataSource.sessionFilterConfigurations]
+    );
 
     const filterMetadata = useFilterMetadata({
         filterFields: allFilterFields,
