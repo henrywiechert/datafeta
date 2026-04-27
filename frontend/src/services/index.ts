@@ -1,7 +1,11 @@
 /**
  * Services Index
  * 
- * Export all service modules for easy importing.
+ * Legacy aggregate export kept for compatibility.
+ *
+ * Import convention: new code should import service singletons/helpers from
+ * their concrete modules (for example `services/queryExecutionOrchestrator`)
+ * so cache, API, and local-execution dependencies remain explicit.
  */
 
 // DuckDB WASM Service - local SQL engine

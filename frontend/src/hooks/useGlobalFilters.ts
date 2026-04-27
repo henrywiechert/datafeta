@@ -17,6 +17,11 @@ import { useDataSource } from '../contexts/DataSourceContext';
 import { useSheetContext } from '../contexts/SheetContext';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
 import { Field, FilterConfig, FilterMetadata } from '../types';
+import {
+  mergeFilterConfigurations,
+  mergeFilterFields,
+  mergeFilterMetadata,
+} from '../utils/effectiveFilters';
 
 export interface UseGlobalFiltersReturn {
   /** Check if a filter field is in global (session) scope */
@@ -193,38 +198,20 @@ export function useGlobalFilters(): UseGlobalFiltersReturn {
   
   // Get merged filter fields (global first, then local, deduplicated)
   const getMergedFilterFields = useCallback((): Field[] => {
-    const globalIds = new Set(dataSource.sessionFilterFields.map(f => f.id));
-    const localFilters = state.filterFields.filter(f => !globalIds.has(f.id));
-    return [...dataSource.sessionFilterFields, ...localFilters];
+    return mergeFilterFields(dataSource.sessionFilterFields, state.filterFields);
   }, [dataSource.sessionFilterFields, state.filterFields]);
   
   // Get merged filter configurations (global configs take precedence for global filters)
   const getMergedFilterConfigurations = useCallback((): Record<string, FilterConfig> => {
-    const globalIds = new Set(dataSource.sessionFilterFields.map(f => f.id));
-    const localConfigs: Record<string, FilterConfig> = {};
-    
-    // Add local configs that aren't global
-    for (const [id, config] of Object.entries(state.filterConfigurations)) {
-      if (!globalIds.has(id)) {
-        localConfigs[id] = config;
-      }
-    }
-    
-    return {
-      ...localConfigs,
-      ...dataSource.sessionFilterConfigurations,
-    };
-  }, [dataSource.sessionFilterFields, dataSource.sessionFilterConfigurations, state.filterConfigurations]);
+    return mergeFilterConfigurations(state.filterConfigurations, dataSource.sessionFilterConfigurations);
+  }, [dataSource.sessionFilterConfigurations, state.filterConfigurations]);
   
   // Get merged filter metadata.
   // Vis state may contain metadata for session filters (fetched by useFilterMetadata
   // when session fields are fed into it). Session metadata takes precedence when present
   // (e.g. explicitly set via markFilterAsGlobal).
   const getMergedFilterMetadata = useCallback((): Record<string, FilterMetadata> => {
-    return {
-      ...state.filterMetadata,
-      ...dataSource.sessionFilterMetadata,
-    };
+    return mergeFilterMetadata(state.filterMetadata, dataSource.sessionFilterMetadata);
   }, [dataSource.sessionFilterMetadata, state.filterMetadata]);
   
   return {

@@ -43,66 +43,18 @@ import DriveFileMoveIcon from '@mui/icons-material/DriveFileMove';
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
 import { SnapshotMetadata, SavedConfiguration } from '../types';
 import { apiService } from '../apiService';
+import {
+  FolderNode,
+  buildSnapshotShareUrl,
+  buildSnapshotTree,
+  collectAllFolderPaths,
+  countSnapshotsInFolder,
+  expandFolderPath,
+  formatSnapshotDate,
+  isFolderEmpty,
+} from './SnapshotGalleryDialog/snapshotGalleryUtils';
 
-// ---------------------------------------------------------------------------
-// Tree helpers
-// ---------------------------------------------------------------------------
-
-interface FolderNode {
-  name: string;
-  path: string;
-  children: FolderNode[];
-  snapshots: SnapshotMetadata[];
-}
-
-function buildTree(snapshots: SnapshotMetadata[]): FolderNode {
-  const root: FolderNode = { name: '', path: '', children: [], snapshots: [] };
-
-  for (const snap of snapshots) {
-    const folder = snap.folder || '';
-    if (!folder) {
-      root.snapshots.push(snap);
-      continue;
-    }
-    const segments = folder.split('/');
-    let node = root;
-    let pathSoFar = '';
-    for (const seg of segments) {
-      pathSoFar = pathSoFar ? `${pathSoFar}/${seg}` : seg;
-      let child = node.children.find((c) => c.name === seg);
-      if (!child) {
-        child = { name: seg, path: pathSoFar, children: [], snapshots: [] };
-        node.children.push(child);
-      }
-      node = child;
-    }
-    node.snapshots.push(snap);
-  }
-
-  const sortNode = (n: FolderNode) => {
-    n.children.sort((a, b) => a.name.localeCompare(b.name));
-    n.children.forEach(sortNode);
-  };
-  sortNode(root);
-  return root;
-}
-
-function collectAllFolderPaths(node: FolderNode): string[] {
-  const paths: string[] = [];
-  const walk = (n: FolderNode) => {
-    if (n.path) paths.push(n.path);
-    n.children.forEach(walk);
-  };
-  walk(node);
-  return paths.sort();
-}
-
-function isFolderEmpty(node: FolderNode): boolean {
-  return node.snapshots.length === 0 && node.children.every(isFolderEmpty);
-}
-
-// ---------------------------------------------------------------------------
-// Search highlight helper
+// Search highlight helper (kept local because it returns JSX)
 // ---------------------------------------------------------------------------
 
 function highlightMatch(text: string, query: string): React.ReactNode {
@@ -190,8 +142,8 @@ export default function SnapshotGalleryDialog({
     );
   }, [snapshots, searchQuery]);
 
-  const tree = useMemo(() => buildTree(filteredSnapshots), [filteredSnapshots]);
-  const allFolderPaths = useMemo(() => collectAllFolderPaths(buildTree(snapshots)), [snapshots]);
+  const tree = useMemo(() => buildSnapshotTree(filteredSnapshots), [filteredSnapshots]);
+  const allFolderPaths = useMemo(() => collectAllFolderPaths(buildSnapshotTree(snapshots)), [snapshots]);
   const isSearching = searchQuery.trim().length > 0;
 
   // ---- Data loading ----
@@ -248,12 +200,7 @@ export default function SnapshotGalleryDialog({
       if (saveFolder) {
         setExpandedFolders((prev) => {
           const next = new Set(prev);
-          const parts = saveFolder.split('/');
-          let p = '';
-          for (const seg of parts) {
-            p = p ? `${p}/${seg}` : seg;
-            next.add(p);
-          }
+          expandFolderPath(saveFolder).forEach((path) => next.add(path));
           return next;
         });
       }
@@ -288,13 +235,7 @@ export default function SnapshotGalleryDialog({
     setShareLinkSnapshotId(null);
   };
 
-  const shareLinkUrl = shareLinkSnapshotId
-    ? (() => {
-        const url = new URL(window.location.origin);
-        url.searchParams.set('snapshot', shareLinkSnapshotId);
-        return url.toString();
-      })()
-    : '';
+  const shareLinkUrl = shareLinkSnapshotId ? buildSnapshotShareUrl(shareLinkSnapshotId) : '';
 
   const handleDelete = async (snapshotId: string) => {
     setError(null);
@@ -444,12 +385,7 @@ export default function SnapshotGalleryDialog({
       if (folder) {
         setExpandedFolders((prev) => {
           const next = new Set(prev);
-          const parts = folder.split('/');
-          let p = '';
-          for (const seg of parts) {
-            p = p ? `${p}/${seg}` : seg;
-            next.add(p);
-          }
+          expandFolderPath(folder).forEach((path) => next.add(path));
           return next;
         });
       }
@@ -459,10 +395,6 @@ export default function SnapshotGalleryDialog({
     } finally {
       handleCloseMove();
     }
-  };
-
-  const formatDate = (isoString: string) => {
-    try { return new Date(isoString).toLocaleString(); } catch { return isoString; }
   };
 
   // ---- Render helpers ----
@@ -513,8 +445,8 @@ export default function SnapshotGalleryDialog({
             primary={isSearching ? highlightMatch(snapshot.name, searchQuery.trim()) : snapshot.name}
             secondary={
               showFolder
-                ? `${snapshot.folder || 'Root'} · ${formatDate(snapshot.updatedAt)}`
-                : `Last updated: ${formatDate(snapshot.updatedAt)}`
+                ? `${snapshot.folder || 'Root'} · ${formatSnapshotDate(snapshot.updatedAt)}`
+                : `Last updated: ${formatSnapshotDate(snapshot.updatedAt)}`
             }
             sx={{ pr: 2 }}
           />
@@ -547,9 +479,7 @@ export default function SnapshotGalleryDialog({
     const isExpanded = expandedFolders.has(node.path);
     const isRenaming = renamingFolderPath === node.path;
     const empty = isFolderEmpty(node);
-    const snapshotCount = snapshots.filter(
-      (s) => s.folder === node.path || s.folder.startsWith(node.path + '/')
-    ).length;
+    const snapshotCount = countSnapshotsInFolder(snapshots, node.path);
 
     return (
       <React.Fragment key={node.path}>

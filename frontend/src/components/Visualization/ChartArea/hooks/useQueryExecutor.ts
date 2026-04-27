@@ -18,15 +18,19 @@ import { buildRawQuery } from '../../../../queryBuilder/queryBuilder';
 import { buildUnpivotedQuery } from '../../../../queryBuilder/syntheticQueryBuilder';
 import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition, QueryOptimizationSettings, DistributionVariant } from '../../../../types';
 import { logOperationTiming } from '../utils';
-import { validateAndCleanData, remapCastExpressionColumns } from '../utils/dataValidation';
 import { duckdbService } from '../../../../services/duckdbService';
 import { queryDecisionEngine, QueryDecision } from '../../../../services/queryDecisionEngine';
 import { filterTierManager } from '../../../../services/filterTierManager';
 import { queryExecutionOrchestrator } from '../../../../services/queryExecutionOrchestrator';
 import {
-  classifyChartType,
-  computePointBudget,
-} from '../../../../services/chartTypeClassifier';
+  buildFieldsForResultRemapping,
+  getQueryDimensions,
+  getRequiredColumns,
+  postProcessQueryResult,
+  prepareBudgetedQuery,
+  queryRequiresAggregation,
+  SamplingBudget,
+} from './queryExecutorPlan';
 import { createQueryAffectingConfig, createRawQueryFieldsForCache } from '../../../../utils/queryAffectingConfig';
 
 export interface UseQueryExecutorProps {
@@ -121,7 +125,7 @@ export const useQueryExecutor = ({
         dispatch({ type: 'SET_QUERY_ERROR', payload: null });
 
         let result;
-        let samplingBudget: { maxPoints: number; shouldAttachBudget: boolean; lineBudgetMaxRows?: number } | null = null;
+        let samplingBudget: SamplingBudget | null = null;
 
         if (useUnpivot) {
           // Execute unpivot query (multiple queries merged)
@@ -148,69 +152,27 @@ export const useQueryExecutor = ({
           // Execute normal query - use Query Decision Engine when DuckDB is ready
           console.log('🚀 Executing query with Arrow transport, virtualTable:', queryDesc.virtual_table);
 
-          // Classify chart type and compute point budget
-          const classification = classifyChartType(queryDesc, colorField, distributionVariant);
-          const pointBudget = computePointBudget(classification, queryDesc, colorField, optimizationSettings);
-
-          // Apply point budget to query if needed
-          // Only attach result_budget when maxPoints is finite (Infinity means no backend sampling needed)
-          const shouldAttachBudget = classification.isPointChart && 
-            pointBudget.maxPoints !== Infinity && 
-            Number.isFinite(pointBudget.maxPoints);
-
-          // For line charts, also send a result_budget so the backend limits pre-aggregated results.
-          // This covers the forceRemote path and the pre_aggregated strategy (large tables).
-          const shouldAttachLineBudget = classification.isLineChart &&
-            !classification.isScatter &&
-            pointBudget.lineBudgetMaxRows != null &&
-            Number.isFinite(pointBudget.lineBudgetMaxRows);
-          
-          const queryDescExec: QueryDescription = shouldAttachBudget
-            ? ({
-                ...queryDesc,
-                result_budget: {
-                  max_rows: pointBudget.maxPoints,
-                  strategy: pointBudget.strategy,
-                  stratify_field: pointBudget.stratifyField,
-                  min_per_stratum: pointBudget.minPerStratum,
-                  preserve_fields: pointBudget.preserveFields,
-                },
-              } as QueryDescription)
-            : shouldAttachLineBudget
-              ? ({
-                  ...queryDesc,
-                  result_budget: {
-                    max_rows: pointBudget.lineBudgetMaxRows!,
-                    // Preserve extremes for continuous dims (stable axis scales), else plain random
-                    strategy: (pointBudget.continuousFields?.length ?? 0) > 0 ? 'preserve_extremes' : 'random',
-                    preserve_fields: pointBudget.continuousFields?.length ? pointBudget.continuousFields : undefined,
-                  },
-                } as QueryDescription)
-              : queryDesc;
-
-          samplingBudget = {
-            maxPoints: pointBudget.maxPoints,
-            shouldAttachBudget,
-            lineBudgetMaxRows: pointBudget.lineBudgetMaxRows,
-          };
+          const preparedQuery = prepareBudgetedQuery({
+            queryDesc,
+            colorField,
+            distributionVariant,
+            optimizationSettings,
+          });
+          const { classification, pointBudget, queryDescExec, shouldAttachBudget } = preparedQuery;
+          samplingBudget = preparedQuery.samplingBudget;
 
           const isSpecializedQueryMode = Boolean(
             queryDescExec.query_mode && queryDescExec.query_mode !== 'standard'
           );
 
           // Columns required for local caching/execution
-          const requiredColumns: string[] = [
-            ...(queryDescExec.dimensions?.map(d => d.field) || []),
-            ...(queryDescExec.measures?.map(m => m.field) || []),
-          ];
+          const requiredColumns = getRequiredColumns(queryDescExec);
 
           // Determine if we have aggregations
-          const requiresAggregation =
-            (queryDescExec.measures?.length ?? 0) > 0 &&
-            queryDescExec.measures!.some(m => m.aggregation);
+          const requiresAggregation = queryRequiresAggregation(queryDescExec);
 
           // Get dimensions for potential pre-aggregation
-          const dimensions = queryDescExec.dimensions?.map(d => d.field) || [];
+          const dimensions = getQueryDimensions(queryDescExec);
 
           try {
             if (optimizationSettings?.forceRemote || isSpecializedQueryMode) {
@@ -342,15 +304,17 @@ export const useQueryExecutor = ({
         if (result.error) {
           dispatch({ type: 'SET_QUERY_ERROR', payload: result.error });
         } else {
-          // Build fields list for remapping
-          const allFieldsForRemapping = [...xAxisFields, ...yAxisFields];
-          if (colorField) allFieldsForRemapping.push(colorField);
-          if (sizeField) allFieldsForRemapping.push(sizeField);
+          const fieldsForRemapping = buildFieldsForResultRemapping({
+            xAxisFields,
+            yAxisFields,
+            colorField,
+            sizeField,
+          });
 
           console.log('📊 Query result:', {
             columns: result.columns?.map((c: any) => c.name || c),
             firstRow: result.rows?.[0],
-            allFields: allFieldsForRemapping.map((f: any) => ({
+            allFields: fieldsForRemapping.map((f: any) => ({
               columnName: f.columnName,
               type: f.type,
               aggregation: f.aggregation,
@@ -359,21 +323,11 @@ export const useQueryExecutor = ({
             })),
           });
 
-          // Remap and clean the result
-          const remappedResult = remapCastExpressionColumns(result, allFieldsForRemapping);
-          const cleanedResult = validateAndCleanData(remappedResult);
-
-          if (samplingBudget) {
-            const { maxPoints, shouldAttachBudget: budgetAttached, lineBudgetMaxRows } = samplingBudget;
-            // Only show the sampling badge when the raw result actually hit the cap.
-            // Using the pre-clean row count avoids false negatives when validation
-            // drops a few rows after a capped query has already been applied.
-            if (budgetAttached && Number.isFinite(maxPoints) && result.row_count >= maxPoints) {
-              cleanedResult.sampled = { limit: maxPoints, type: 'point' };
-            } else if (lineBudgetMaxRows && Number.isFinite(lineBudgetMaxRows) && result.row_count >= lineBudgetMaxRows) {
-              cleanedResult.sampled = { limit: lineBudgetMaxRows, type: 'line' };
-            }
-          }
+          const cleanedResult = postProcessQueryResult({
+            result,
+            fieldsForRemapping,
+            samplingBudget,
+          });
 
           dispatch({ type: 'SET_QUERY_RESULT', payload: cleanedResult });
 
@@ -423,6 +377,7 @@ export const useQueryExecutor = ({
       selectedDatabase,
       optimizationHints,
       optimizationSettings,
+      distributionVariant,
     ]
   );
 

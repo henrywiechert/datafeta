@@ -131,7 +131,7 @@ export const useQueryExecution = ({
       ...createQueryAffectingConfig({
         xAxisFields,
         yAxisFields,
-        appliedFilterConfigurations: vizState.appliedFilterConfigurations,
+        appliedFilterConfigurations: filterConfigurations,
         colorField,
         sizeField,
         shapeField,
@@ -208,7 +208,7 @@ export const useQueryExecution = ({
     shapeField,
     facetBackgroundField,
     filterConfigurations,
-    appliedFilterConfigurations: vizState.appliedFilterConfigurations,
+    appliedFilterConfigurations: filterConfigurations,
     labelFields,
     tooltipFields,
     virtualTable,
