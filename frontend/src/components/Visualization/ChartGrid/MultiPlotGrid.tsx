@@ -98,6 +98,13 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
   const { scrollOffsets, onWheelCapture, isKeyboardNavActive } = scrollSync;
   const { hasOverrides, handleReset } = cellSizeOverrides;
   const { containerRef, hScrollRef, vScrollRef, plotsTranslateRef, plotGridRef } = refs;
+  const hideExternalAxes = (spec.plots || []).length > 0 && (spec.plots || []).every((plot: any) =>
+    plot.renderer === 'pie-svg' || plot.options?.__hideExternalAxes
+  );
+  const rowResizeHandleLength = hideExternalAxes ? Math.max(1, containerDimensions.width) : undefined;
+  const columnResizeHandleLength = hideExternalAxes
+    ? Math.max(1, containerDimensions.height - topHeaderHeight)
+    : undefined;
 
   // Get axis label styles from context
   const { state, dispatch } = useVisualizationContext();
@@ -183,13 +190,15 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
             onCellContextMenu={onCellContextMenu}
           />
 
-          <XAxes
-            spec={spec}
-            columns={columns}
-            plotTemplateColumns={plotTemplateColumns}
-            totalContentWidthPx={totalContentWidthPx}
-            dynamicXAxisPx={dynamicXAxisPx}
-          />
+          {!hideExternalAxes && (
+            <XAxes
+              spec={spec}
+              columns={columns}
+              plotTemplateColumns={plotTemplateColumns}
+              totalContentWidthPx={totalContentWidthPx}
+              dynamicXAxisPx={dynamicXAxisPx}
+            />
+          )}
         </div>
       </div>
 
@@ -271,13 +280,15 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
                 );
               })}
 
-              <YAxes
-                spec={spec}
-                rows={rows}
-                dynamicYAxisPx={dynamicYAxisPx}
-                rowHeights={actualRowHeights}
-                hasRowFacets={hasRowFacets}
-              />
+          {!hideExternalAxes && (
+            <YAxes
+              spec={spec}
+              rows={rows}
+              dynamicYAxisPx={dynamicYAxisPx}
+              rowHeights={actualRowHeights}
+              hasRowFacets={hasRowFacets}
+            />
+          )}
             </div>
           </div>
 
@@ -334,6 +345,8 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           leftFixedWidth={leftFixedWidthPx}
           bottomFixedHeight={dynamicXAxisPx}
           topHeaderHeight={topHeaderHeight}
+          rowHandleLength={rowResizeHandleLength}
+          columnHandleLength={columnResizeHandleLength}
           containerWidth={containerDimensions.width}
           containerHeight={containerDimensions.height}
           horizontalScrollOffset={scrollOffsets.horizontal}

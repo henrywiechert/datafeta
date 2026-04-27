@@ -1,6 +1,6 @@
 import * as Plot from '@observablehq/plot';
 import { Field } from '../../types';
-import { ChartGenerationContext, PlotResult, FacetBackgroundInfo } from '../types';
+import { ChartGenerationContext, PlotResult, FacetBackgroundInfo, PiePlotSpec } from '../types';
 import { FacetPlan } from './facetPlanner';
 import { SharedDomains } from './facetDomains';
 import { computeGridLayout, computeFacetLabels } from './facetGrid';
@@ -18,6 +18,8 @@ export interface PositionedPlot {
   id: string;
   title: string;
   options: Plot.PlotOptions;
+  renderer?: 'observable-plot' | 'pie-svg';
+  pieSpec?: PiePlotSpec;
   position: { row: number; col: number };
   /** Optional facet background info for this cell */
   facetBackground?: FacetBackgroundInfo;

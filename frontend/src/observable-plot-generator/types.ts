@@ -1,4 +1,4 @@
-import { Field, QueryResult, FieldOverrideState, UserChartType, DistributionVariant } from '../types';
+import { Field, QueryResult, FieldOverrideState, UserChartType, DistributionVariant, TooltipField } from '../types';
 import { OverlayConfig } from './overlays/types';
 import { FieldOverrideTarget } from './utils/fieldOverrides';
 import { ColorScaleInfo } from './utils/colorSchemeUtils';
@@ -170,6 +170,26 @@ export interface FacetBackgroundInfo {
   isMixed: boolean;
 }
 
+export interface PieSliceSpec {
+  id: string;
+  label: string;
+  rawValue: any;
+  value: number;
+  percentage: number;
+  color: string;
+  labelLines: string[];
+  tooltipFields: TooltipField[];
+}
+
+export interface PiePlotSpec {
+  slices: PieSliceSpec[];
+  total: number;
+  measureLabel: string;
+  colorLabel: string;
+  radiusScale: number;
+  emptyMessage?: string;
+}
+
 export interface PlotResult {
   library: 'observable-plot';
   /**
@@ -185,6 +205,8 @@ export interface PlotResult {
     id: string;
     title: string;
     options: Plot.PlotOptions;
+    renderer?: 'observable-plot' | 'pie-svg';
+    pieSpec?: PiePlotSpec;
     position: { row: number; col: number; };
     /** Optional facet background info for this cell */
     facetBackground?: FacetBackgroundInfo;

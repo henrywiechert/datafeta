@@ -568,6 +568,10 @@ function handleCdf(data: any[], _xf: Field, yf: Field, ctx: ChartContext): Plot.
   });
 }
 
+function handlePieMessage(): Plot.PlotOptions {
+  return messageOptions('Pie charts are available as a global chart type.');
+}
+
 // ---------- Chart Type Registry ---------------------------------------------
 
 /**
@@ -587,6 +591,7 @@ const CHART_HANDLERS: Record<CellChartType, ChartHandler> = {
   ganttX: handleGanttX,
   ganttY: handleGanttY,
   cdf: handleCdf,
+  pie: handlePieMessage,
 };
 
 // ---------- Public API ------------------------------------------------------

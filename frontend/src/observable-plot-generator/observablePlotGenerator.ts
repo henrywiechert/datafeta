@@ -12,6 +12,7 @@ import { normalizeTimelineData, getResultColumnName, getFieldDisplayName } from 
 import { generateCartesianPlots } from './grid/coreGridGenerator';
 import { generateFacetedGrid, generateCdfGrid } from './faceting/facetGenerator';
 import { ganttChart } from './chartTypes/ganttChart';
+import { generatePieGrid } from './chartTypes/pieChart';
 
 // Re-export buildLabelConfig as buildLabelCfg for backward compatibility
 export { buildLabelConfig as buildLabelCfg } from './utils/configBuilder';
@@ -359,7 +360,7 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
 
   // Apply default color if no color field present
   // Use enriched fields throughout the context
-  const effectiveContext: ChartGenerationContext = {
+  let effectiveContext: ChartGenerationContext = {
     ...context,
     xFields: enrichedXFields,
     yFields: enrichedYFields,
@@ -382,6 +383,16 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
       isCdfAllowed(effectiveContext.xFields, effectiveContext.yFields)
     ) {
       return generateCdfGrid(effectiveContext);
+    }
+
+    if (effectiveContext.globalChartType === 'pie') {
+      const hasXMeasure = effectiveContext.xFields.some((field) => field.type === 'measure');
+      const hasYMeasure = effectiveContext.yFields.some((field) => field.type === 'measure');
+      if (hasXMeasure && hasYMeasure) {
+        effectiveContext = { ...effectiveContext, globalChartType: null };
+      } else {
+        return generatePieGrid(effectiveContext);
+      }
     }
 
     // Check if faceting is applicable

@@ -218,6 +218,7 @@ export const useQueryExecution = ({
     optimizationHints,
     optimizationSettings,
     distributionVariant: vizState.distributionVariant,
+    globalChartType: vizState.globalChartType,
     dispatch,
     startOperation,
     completeOperation,

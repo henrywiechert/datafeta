@@ -16,6 +16,8 @@ interface GridResizeOverlayProps {
   leftFixedWidth: number; // Y-axis area width
   bottomFixedHeight: number; // X-axis area height
   topHeaderHeight: number; // Top facet labels height
+  rowHandleLength?: number;
+  columnHandleLength?: number;
   
   // Container dimensions
   containerWidth: number;
@@ -163,6 +165,8 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
   leftFixedWidth,
   bottomFixedHeight,
   topHeaderHeight,
+  rowHandleLength,
+  columnHandleLength,
   containerWidth,
   containerHeight,
   horizontalScrollOffset,
@@ -347,7 +351,7 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
             orientation="vertical"
             // Adjust for horizontal scroll so the handle tracks the visible gridline.
             position={leftFixedWidth + xPos - horizontalScrollOffset}
-            length={bottomFixedHeight} // Only extends through X-axis area
+            length={columnHandleLength ?? bottomFixedHeight} // Usually X-axis area; axisless charts use plot area.
             isInAxisArea={true}
             onResizeStart={() => handleColumnResizeStart(index)}
             onResizeMove={(delta) => handleColumnResizeMove(delta, index)}
@@ -368,7 +372,7 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
             orientation="horizontal"
             // Adjust for vertical scroll so the handle tracks the visible gridline.
             position={topHeaderHeight + yPos - verticalScrollOffset}
-            length={leftFixedWidth} // Only extends through Y-axis area
+            length={rowHandleLength ?? leftFixedWidth} // Usually Y-axis area; axisless charts use plot area.
             isInAxisArea={true}
             onResizeStart={() => handleRowResizeStart(index)}
             onResizeMove={(delta) => handleRowResizeMove(delta, index)}
