@@ -1,16 +1,29 @@
-import { Field } from '../types';
+import { Field, UserChartType } from '../types';
 import { FieldClassifier } from './fieldClassification';
 import { getResultColumnName } from './fieldUtils';
 
 /**
- * Determines if a table view should be used instead of a chart
+ * Determines if the legacy AG Grid table view should be used instead of a chart
  * based on the field configuration.
+ *
+ * The new `'table-refactor'` chart type renders all-discrete grids itself via
+ * `GridResultModel`, so when the user has explicitly picked it we step aside
+ * and let the chart pipeline handle the layout.
  */
-export function shouldUseTableView(xFields: Field[], yFields: Field[]): boolean {
+export function shouldUseTableView(
+  xFields: Field[],
+  yFields: Field[],
+  globalChartType?: UserChartType | null,
+): boolean {
+  // Explicit table-refactor selection bypasses the legacy AG Grid path.
+  if (globalChartType === 'table-refactor') {
+    return false;
+  }
+
   if (xFields.length === 0 && yFields.length === 0) {
     return false; // No fields, no table
   }
-  
+
   // Use table view if no continuous fields are present
   const classification = FieldClassifier.classifyFields(xFields, yFields);
   return !classification.hasContinuousData();

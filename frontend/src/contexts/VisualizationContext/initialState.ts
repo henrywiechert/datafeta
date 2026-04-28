@@ -74,6 +74,8 @@ export const initialState: VisualizationState = {
   // Global chart type default (null = auto-detect)
   globalChartType: null,
   distributionVariant: 'tick-strip',
+  // Default cell mode for the 'table-refactor' chart type
+  tableCellMode: 'auto',
   // Table rows view mode default
   showTableRows: false,
   queryVersion: 0,

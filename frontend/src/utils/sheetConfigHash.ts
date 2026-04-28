@@ -149,6 +149,7 @@ export function computeChartConfigHash(config: ChartAffectingConfig): string {
     overridesToHashKey(config.fieldOverrides),
     String(config.globalChartType || 'null'),
     String(config.distributionVariant || 'tick-strip'),
+    String(config.tableCellMode || 'auto'),
     JSON.stringify(config.independentDomains || {}),
     String(config.labelsEnabled ?? false),
     String(config.labelSamplingStrategy || ''),

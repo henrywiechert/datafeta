@@ -1,4 +1,4 @@
-import { Field, QueryResult, FieldOverrideState, UserChartType, DistributionVariant, TooltipField } from '../types';
+import { Field, QueryResult, FieldOverrideState, UserChartType, DistributionVariant, TableCellMode, TooltipField } from '../types';
 import { OverlayConfig } from './overlays/types';
 import { FieldOverrideTarget } from './utils/fieldOverrides';
 import { ColorScaleInfo } from './utils/colorSchemeUtils';
@@ -114,6 +114,8 @@ export interface ChartGenerationContext {
   globalChartType?: UserChartType | null;
   /** Variant for the distribution chart family when globalChartType is 'tick'. */
   distributionVariant?: DistributionVariant;
+  /** Cell rendering mode when globalChartType is 'table-refactor'. */
+  tableCellMode?: TableCellMode;
   /**
    * Computed list of fields that are eligible for per-field overrides,
    * based on axis placement and continuous field counts.

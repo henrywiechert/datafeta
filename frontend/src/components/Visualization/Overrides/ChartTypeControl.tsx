@@ -5,10 +5,11 @@ import ShowChartIcon from '@mui/icons-material/ShowChart';
 import ScatterPlotIcon from '@mui/icons-material/ScatterPlot';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import PieChartIcon from '@mui/icons-material/PieChart';
+import TableChartIcon from '@mui/icons-material/TableChart';
 import AutoModeIcon from '@mui/icons-material/AutoMode';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import SvgIcon, { SvgIconProps } from '@mui/material/SvgIcon';
-import { DistributionVariant, UserChartType } from '../../../types';
+import { DistributionVariant, TableCellMode, UserChartType } from '../../../types';
 
 const TickStripIcon: React.FC<SvgIconProps> = (props) => (
   <SvgIcon {...props} viewBox="0 0 24 24">
@@ -71,6 +72,10 @@ interface ChartTypeControlProps {
   autoSelectedType?: UserChartType;
   distributionVariant?: DistributionVariant;
   onDistributionVariantChange?: (variant: DistributionVariant) => void;
+  /** Cell rendering mode for the 'table-refactor' chart type. */
+  tableCellMode?: TableCellMode;
+  /** Called when the user picks a different cell mode from the table popover. */
+  onTableCellModeChange?: (mode: TableCellMode) => void;
 }
 
 const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
@@ -79,8 +84,11 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
   autoSelectedType,
   distributionVariant = 'tick-strip',
   onDistributionVariantChange,
+  tableCellMode = 'auto',
+  onTableCellModeChange,
 }) => {
   const [distributionMenuAnchor, setDistributionMenuAnchor] = React.useState<HTMLElement | null>(null);
+  const [tableModeMenuAnchor, setTableModeMenuAnchor] = React.useState<HTMLElement | null>(null);
 
   const handleChange = (_event: React.MouseEvent<HTMLElement>, newValue: string | null) => {
     if (newValue === 'auto' || newValue === null) {
@@ -94,6 +102,7 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
   const value = chartType ?? 'auto';
   const isAuto = value === 'auto';
   const effectiveDistributionSelected = value === 'tick' || (isAuto && autoSelectedType === 'tick');
+  const effectiveTableSelected = value === 'table-refactor' || (isAuto && autoSelectedType === 'table-refactor');
 
   const openDistributionMenu = (event: React.MouseEvent<HTMLElement>) => {
     event.preventDefault();
@@ -108,6 +117,21 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
   const handleDistributionVariantSelect = (variant: DistributionVariant) => {
     onDistributionVariantChange?.(variant);
     closeDistributionMenu();
+  };
+
+  const openTableModeMenu = (event: React.MouseEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setTableModeMenuAnchor(event.currentTarget);
+  };
+
+  const closeTableModeMenu = () => {
+    setTableModeMenuAnchor(null);
+  };
+
+  const handleTableCellModeSelect = (mode: TableCellMode) => {
+    onTableCellModeChange?.(mode);
+    closeTableModeMenu();
   };
 
   const getAutoHighlightSx = (buttonValue: UserChartType) =>
@@ -232,6 +256,39 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
               <span style={{ display: 'inline-flex' }}><CdfIcon sx={{ fontSize: 16 }} /></span>
             </Tooltip>
           </ToggleButton>
+          <ToggleButton value="table-refactor" aria-label="table" sx={getAutoHighlightSx('table-refactor')}>
+            <Tooltip
+              title={(
+                <>
+                  Table<br/>
+                  Discrete dimensions on <b>X</b>/<b>Y</b> form a Tableau-style grid.<br/>
+                  Open the menu to pick <b>Auto</b> / <b>Text</b> / <b>Symbol</b> cells.
+                </>
+              )}
+              placement="top"
+            >
+              <span style={{ display: 'inline-flex', alignItems: 'center', position: 'relative' }}>
+                <TableChartIcon sx={{ fontSize: 16 }} />
+                {onTableCellModeChange && (
+                  <span
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }}
+                    onClick={openTableModeMenu}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      marginLeft: 1,
+                      opacity: effectiveTableSelected ? 0.95 : 0.7,
+                    }}
+                  >
+                    <ArrowDropDownIcon sx={{ fontSize: 12 }} />
+                  </span>
+                )}
+              </span>
+            </Tooltip>
+          </ToggleButton>
         </ToggleButtonGroup>
         <Menu
           anchorEl={distributionMenuAnchor}
@@ -252,6 +309,33 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
             onClick={() => handleDistributionVariantSelect('box-plot')}
           >
             Box-Plot
+          </MenuItem>
+        </Menu>
+        <Menu
+          anchorEl={tableModeMenuAnchor}
+          open={Boolean(tableModeMenuAnchor)}
+          onClose={closeTableModeMenu}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+          MenuListProps={{ dense: true, 'aria-label': 'Table cell modes' }}
+        >
+          <MenuItem
+            selected={tableCellMode === 'auto'}
+            onClick={() => handleTableCellModeSelect('auto')}
+          >
+            Auto
+          </MenuItem>
+          <MenuItem
+            selected={tableCellMode === 'text'}
+            onClick={() => handleTableCellModeSelect('text')}
+          >
+            Text
+          </MenuItem>
+          <MenuItem
+            selected={tableCellMode === 'symbol'}
+            onClick={() => handleTableCellModeSelect('symbol')}
+          >
+            Symbol
           </MenuItem>
         </Menu>
       </Box>

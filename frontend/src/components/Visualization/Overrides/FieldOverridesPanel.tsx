@@ -46,6 +46,7 @@ const FieldOverridesPanel: React.FC = () => {
     tooltipFields,
     globalChartType,
     distributionVariant,
+    tableCellMode,
     measureValuesSourceFields,
     facetBackgroundField,
     facetBackgroundScheme,
@@ -335,6 +336,10 @@ const FieldOverridesPanel: React.FC = () => {
           distributionVariant={distributionVariant}
           onDistributionVariantChange={(variant) => {
             applyGlobalAction({ type: 'SET_DISTRIBUTION_VARIANT', payload: variant });
+          }}
+          tableCellMode={tableCellMode}
+          onTableCellModeChange={(mode) => {
+            applyGlobalAction({ type: 'SET_TABLE_CELL_MODE', payload: mode });
           }}
         />
 

@@ -61,6 +61,7 @@ const ChartArea: React.FC = () => {
     fieldOverrides,
     globalChartType,
     distributionVariant,
+    tableCellMode,
     measureValuesSourceFields,
     measureGroupFields,
     independentDomains,
@@ -92,7 +93,7 @@ const ChartArea: React.FC = () => {
   const { additionalColorFields, additionalSizeFields, additionalLabelFields } =
     useAdditionalFields(fieldOverrides);
 
-  const { useTableView, tableData } = useDataProcessing({ xAxisFields, yAxisFields, queryResult });
+  const { useTableView, tableData } = useDataProcessing({ xAxisFields, yAxisFields, queryResult, globalChartType });
 
   // Table rows view: raw paginated data query
   const tableRowsData = useTableRowsQuery({
@@ -140,6 +141,7 @@ const ChartArea: React.FC = () => {
       fieldOverrides,
       globalChartType,
       distributionVariant,
+      tableCellMode,
       measureValuesSourceFields,
       ganttZoomRange,
       overlays,
@@ -250,6 +252,7 @@ const ChartArea: React.FC = () => {
       fieldOverrides,
       globalChartType,
       distributionVariant,
+      tableCellMode,
       independentDomains,
       labelsEnabled: channels.label.enabled,
       labelSamplingStrategy: channels.label.samplingStrategy,
@@ -258,7 +261,7 @@ const ChartArea: React.FC = () => {
     }),
     [
       xAxisFields, yAxisFields, effectiveFilterConfigurations, channels,
-      measureGroupFields, fieldOverrides, globalChartType, distributionVariant, independentDomains,
+      measureGroupFields, fieldOverrides, globalChartType, distributionVariant, tableCellMode, independentDomains,
     ],
   );
 

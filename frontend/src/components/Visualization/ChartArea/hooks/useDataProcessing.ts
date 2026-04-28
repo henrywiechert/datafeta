@@ -2,11 +2,13 @@ import { useMemo } from 'react';
 import { shouldUseTableView, prepareTableData } from '../../../../utils/tableViewUtils';
 import { validateAndCleanData, logPerformanceWarning } from '../utils';
 import { TableData } from '../types';
+import { UserChartType } from '../../../../types';
 
 interface UseDataProcessingProps {
   xAxisFields: any[];
   yAxisFields: any[];
   queryResult: any;
+  globalChartType?: UserChartType | null;
 }
 
 interface UseDataProcessingReturn {
@@ -20,11 +22,12 @@ export const useDataProcessing = ({
   xAxisFields,
   yAxisFields,
   queryResult,
+  globalChartType,
 }: UseDataProcessingProps): UseDataProcessingReturn => {
   // Determine if we should show table view instead of chart
   const useTableView = useMemo(
-    () => shouldUseTableView(xAxisFields, yAxisFields),
-    [xAxisFields, yAxisFields]
+    () => shouldUseTableView(xAxisFields, yAxisFields, globalChartType),
+    [xAxisFields, yAxisFields, globalChartType]
   );
 
   // Prepare table data if using table view

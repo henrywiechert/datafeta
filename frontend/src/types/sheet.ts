@@ -3,7 +3,7 @@
  * Multi-sheet workspace and visualization state
  */
 
-import { Field, FieldOverrideState, UserChartType, QueryOptimizationSettings, DistributionVariant } from './field';
+import { Field, FieldOverrideState, UserChartType, QueryOptimizationSettings, DistributionVariant, TableCellMode } from './field';
 import { FilterConfig } from './filter';
 import { VirtualColumnDefinition } from './virtualColumn';
 
@@ -69,6 +69,7 @@ export interface VisualizationStateSnapshot {
   fieldOverrides?: Record<string, FieldOverrideState>;
   globalChartType?: UserChartType | null;
   distributionVariant?: DistributionVariant;
+  tableCellMode?: TableCellMode;
   showTableRows?: boolean;
   selectedChartType?: UserChartType | 'auto';
   virtualColumns?: VirtualColumnDefinition[];
