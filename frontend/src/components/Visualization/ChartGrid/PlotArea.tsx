@@ -302,20 +302,25 @@ const TextCell: React.FC<TextCellProps> = ({ cell, onCellContextMenu }) => {
     onCellContextMenu?.(cell.id, e.clientX, e.clientY);
   };
 
+  const rows = cell.content.rows;
+  // Tableau-style: a single text row drops the alias and shows just the value.
+  // 2+ rows prefix every row with its alias so the user can tell them apart.
+  const showAliases = rows.length > 1;
+
   return (
     <div
       className={styles.textCell}
       style={buildBaseCellStyle(cell)}
       onContextMenu={handleContextMenu}
     >
-      {cell.content.rows.map((row, idx) => (
+      {rows.map((row, idx) => (
         <span
           key={`${cell.id}-row-${idx}`}
           className={styles.textRow}
           title={`${row.label}: ${row.value}`}
           style={row.source === 'measure' ? { fontVariantNumeric: 'tabular-nums' } : undefined}
         >
-          {row.value}
+          {showAliases ? `${row.label}: ${row.value}` : row.value}
         </span>
       ))}
     </div>

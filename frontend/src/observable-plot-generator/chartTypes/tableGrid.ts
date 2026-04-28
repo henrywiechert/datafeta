@@ -2,15 +2,20 @@
  * `table-refactor` chart type generator.
  *
  * Builds a Tableau-style table directly as a `GridResultModel` (without going
- * through the legacy `PlotResult` pipeline). PR 6 implements `symbol` mode
- * only; `text` mode and the full `auto` resolution arrive in PR 7.
+ * through the legacy `PlotResult` pipeline).
  *
- * Layout:
- * - Row headers come from the discrete dimensions on the Y axis (in order).
- * - Column headers come from the discrete dimensions on the X axis.
- * - Each cell aggregates the data rows that match its (rowTuple, colTuple)
- *   pair into one or more `MarkSymbolSpec`s. Mixed values produce a
- *   preview-stack rendering in `MarkCell` (see `discreteGridSymbolLayout`).
+ * Cell modes (selected via `tableCellMode` on the generation context):
+ * - `symbol` — every (rowTuple, colTuple) renders one or more deduped symbol
+ *   marks. Mixed values produce a preview stack (see `discreteGridSymbolLayout`).
+ * - `text` — every cell renders stacked rows of formatted text, sourced from
+ *   `labelFields` (Tableau's Label/Text shelf) and aggregated measures on
+ *   `xFields` / `yFields`, in shelf order.
+ * - `auto` — resolves to `text` when at least one measure or label field is
+ *   present, `symbol` otherwise (matches Tableau's "Automatic" mark for
+ *   all-discrete shelves).
+ *
+ * Both modes share the same row/column header construction. Headers come from
+ * the discrete dimensions on the Y/X axes, in declaration order.
  */
 
 import { Field, TableCellMode } from '../../types';
@@ -23,11 +28,13 @@ import {
   GridTrackSize,
   MarkGridCellContent,
   MarkSymbolSpec,
+  TextGridCellContent,
+  TextGridCellRow,
 } from '../gridModel';
 import { ChartGenerationContext } from '../types';
 import { buildFacetSpace } from '../faceting/facetSpace';
 import { getFieldColumnName } from '../helpers/fields';
-import { getFieldDisplayName } from '../../utils/fieldUtils';
+import { getFieldDisplayName, isMeasure } from '../../utils/fieldUtils';
 import { DEFAULT_CHART_COLOR, MIN_NON_PLOT_GRID_ROW_PX } from '../../config/chartLayoutConfig';
 import {
   deriveShapeScaleInfo,
@@ -37,6 +44,7 @@ import {
   ShapeScaleInfo,
 } from '../utils/shapeUtils';
 import { deriveColorScaleInfo, ColorScaleInfo } from '../utils/colorSchemeUtils';
+import { formatTooltipValue } from '../utils/tooltipUtils';
 
 /** Default symbol used when no shape encoding resolves to a specific shape. */
 const DEFAULT_SYMBOL = 'circle';
@@ -50,13 +58,21 @@ const DEFAULT_SYMBOL = 'circle';
 const DEFAULT_MARK_AREA = 200;
 
 /**
- * Resolve `auto` to the concrete cell mode used in PR 6.
- * PR 7 will refine this to `text` when measures or label fields are present.
+ * Resolve `auto` to the concrete cell mode emitted by `generateTableGrid`.
+ *
+ * Rule (matches Tableau's "Automatic" mark for all-discrete shelves):
+ * - `text` if any measure is on X/Y or any label field is configured — measures
+ *   and label fields naturally feed per-cell text content.
+ * - `symbol` otherwise (presence dot, optionally encoded by color/shape/size).
+ *
+ * Explicit selections (`text`, `symbol`) bypass the auto rule.
  */
-export function resolveTableCellMode(_context: ChartGenerationContext, mode: TableCellMode): 'text' | 'symbol' {
+export function resolveTableCellMode(context: ChartGenerationContext, mode: TableCellMode): 'text' | 'symbol' {
   if (mode === 'text') return 'text';
-  // PR 6 default: every non-`text` selection (incl. `auto`) renders symbols.
-  return 'symbol';
+  if (mode === 'symbol') return 'symbol';
+  const hasMeasure = [...(context.xFields ?? []), ...(context.yFields ?? [])].some(isMeasure);
+  const hasLabelField = (context.labelFields ?? []).length > 0;
+  return hasMeasure || hasLabelField ? 'text' : 'symbol';
 }
 
 interface SymbolFingerprint {
@@ -167,6 +183,108 @@ function buildMarkCell(rowIdx: number, colIdx: number, symbols: MarkSymbolSpec[]
   };
 }
 
+function buildTextCell(rowIdx: number, colIdx: number, rows: TextGridCellRow[]): GridCellModel {
+  const content: TextGridCellContent = {
+    kind: 'text',
+    rows,
+  };
+  return {
+    id: `table-cell-${rowIdx}-${colIdx}`,
+    position: { row: rowIdx, col: colIdx },
+    content,
+  };
+}
+
+/**
+ * Discrete dimensions and measures contributing rows to a `kind: 'text'` cell.
+ * Computed once per generation and reused for every cell so the shelf order is
+ * preserved.
+ */
+interface TextRowSource {
+  field: Field;
+  source: 'label' | 'measure';
+  /** Result-set column carrying the per-row value. */
+  column: string;
+  /** Display label (alias-aware). */
+  label: string;
+}
+
+/**
+ * Display label for a measure field in a text cell.
+ *
+ * Uses the user-provided alias when set (from `fieldAliasLookup` or
+ * `displayAlias`); otherwise falls back to the aggregation-prefixed form
+ * (e.g. `SUM(sales)`) so that multiple measures in the same cell remain
+ * distinguishable and align with the backend's result-column names.
+ */
+function buildMeasureLabel(field: Field, aliasLookup?: Record<string, string>): string {
+  const explicitAlias = aliasLookup?.[field.columnName] ?? field.displayAlias;
+  if (explicitAlias) return explicitAlias;
+  if (field.aggregation) {
+    return `${field.aggregation.toUpperCase()}(${field.columnName})`;
+  }
+  return getFieldDisplayName(field, aliasLookup);
+}
+
+/**
+ * Collect the ordered list of fields contributing per-cell text rows.
+ * Sources, in shelf order:
+ *   1. `labelFields` (Tableau "Label" / "Text" shelf)
+ *   2. measures from `xFields` and `yFields` (in declaration order)
+ * Duplicates by result-column are de-duped so a measure that also appears as a
+ * label only renders once.
+ */
+function collectTextRowSources(context: ChartGenerationContext): TextRowSource[] {
+  const seen = new Set<string>();
+  const result: TextRowSource[] = [];
+
+  for (const field of context.labelFields ?? []) {
+    const column = getFieldColumnName(field);
+    if (seen.has(column)) continue;
+    seen.add(column);
+    result.push({
+      field,
+      source: 'label',
+      column,
+      label: getFieldDisplayName(field, context.fieldAliasLookup),
+    });
+  }
+
+  for (const field of [...(context.xFields ?? []), ...(context.yFields ?? [])]) {
+    if (!isMeasure(field)) continue;
+    const column = getFieldColumnName(field);
+    if (seen.has(column)) continue;
+    seen.add(column);
+    result.push({
+      field,
+      source: 'measure',
+      column,
+      label: buildMeasureLabel(field, context.fieldAliasLookup),
+    });
+  }
+
+  return result;
+}
+
+/**
+ * Build the list of text rows for a single cell from one (already aggregated)
+ * data row. Skips sources whose value is missing — the backend may omit them
+ * when the cell is empty for that source.
+ */
+function buildTextRowsFromRow(row: any, sources: TextRowSource[]): TextGridCellRow[] {
+  const rows: TextGridCellRow[] = [];
+  for (const src of sources) {
+    const raw = row?.[src.column];
+    if (raw === undefined || raw === null) continue;
+    rows.push({
+      source: src.source,
+      label: src.label,
+      value: formatTooltipValue(raw),
+    });
+  }
+  return rows;
+}
+
 function buildLayout(rows: number, cols: number): GridLayoutModel {
   const safeCols = Math.max(1, cols);
   const safeRows = Math.max(1, rows);
@@ -182,36 +300,27 @@ function buildLayout(rows: number, cols: number): GridLayoutModel {
   };
 }
 
+function tupleKeyFromValues(values: any[]): string {
+  return values
+    .map((v) => (v instanceof Date ? `D:${v.getTime()}` : String(v)))
+    .join('\x1e');
+}
+
+function bucketKey(rowTupleKey: string, colTupleKey: string): string {
+  return `${rowTupleKey}\x1f${colTupleKey}`;
+}
+
 /**
- * Generate a table grid as a `GridResultModel`.
- *
- * In PR 6 only `symbol` mode is implemented: every non-`text` cell mode
- * (including `auto`) resolves to symbol marks. PR 7 will introduce text mode.
+ * Bucket data rows by (rowTuple, colTuple). Rows whose tuple values are
+ * `undefined` (missing column) are skipped — they cannot map to a cell.
  */
-export function generateTableGrid(context: ChartGenerationContext): GridResultModel {
-  const { xFields, yFields, queryResult } = context;
-  const data = Array.isArray(queryResult?.rows) ? queryResult.rows : [];
-
-  const xHeaderFields = discreteHeaderFields(xFields);
-  const yHeaderFields = discreteHeaderFields(yFields);
-
-  const facetSpace = buildFacetSpace(data, yHeaderFields, xHeaderFields);
-  // safeRowCombos / safeColCombos always have at least [[]] when no fields.
-  const rowTuples = facetSpace.safeRowCombos;
-  const colTuples = facetSpace.safeColCombos;
-
-  // Empty data path: still render the header skeleton so the user sees their
-  // shelf configuration reflected.
-  const colorScale = context.colorField
-    ? deriveColorScaleInfo(data, context.colorField, context.colorScheme, context.colorBias)
-    : null;
-  const shapeScale = context.shapeField && context.shapeField.flavour === 'discrete'
-    ? deriveShapeScaleInfo(data, context.shapeField)
-    : null;
-
-  // Bucket rows by (rowTupleKey, colTupleKey) so each cell only iterates over
-  // its own rows when resolving symbols.
-  const buckets = new Map<string, SymbolFingerprint[]>();
+function bucketRowsByCellTuple<T>(
+  data: any[],
+  yHeaderFields: Field[],
+  xHeaderFields: Field[],
+  project: (row: any) => T,
+): Map<string, T[]> {
+  const buckets = new Map<string, T[]>();
   for (const row of data) {
     const rowTupleParts: string[] = [];
     let rowSkip = false;
@@ -239,39 +348,150 @@ export function generateTableGrid(context: ChartGenerationContext): GridResultMo
     }
     if (colSkip) continue;
 
-    const key = `${rowTupleParts.join('\x1e')}\x1f${colTupleParts.join('\x1e')}`;
+    const key = bucketKey(rowTupleParts.join('\x1e'), colTupleParts.join('\x1e'));
     let bucket = buckets.get(key);
     if (!bucket) {
       bucket = [];
       buckets.set(key, bucket);
     }
-    bucket.push(buildSymbolForRow(row, context, shapeScale, colorScale));
+    bucket.push(project(row));
   }
+  return buckets;
+}
 
-  // Materialize cells in (rowTuple × colTuple) order.
+interface FacetSpaceContext {
+  rowTuples: any[][];
+  colTuples: any[][];
+  xHeaderFields: Field[];
+  yHeaderFields: Field[];
+}
+
+function buildFacetSpaceContext(context: ChartGenerationContext, data: any[]): FacetSpaceContext {
+  const xHeaderFields = discreteHeaderFields(context.xFields);
+  const yHeaderFields = discreteHeaderFields(context.yFields);
+  const facetSpace = buildFacetSpace(data, yHeaderFields, xHeaderFields);
+  return {
+    xHeaderFields,
+    yHeaderFields,
+    rowTuples: facetSpace.safeRowCombos,
+    colTuples: facetSpace.safeColCombos,
+  };
+}
+
+function buildHeadersForFacetSpace(
+  facetCtx: FacetSpaceContext,
+  context: ChartGenerationContext,
+): GridHeaders | undefined {
+  const rowsAxis = buildHeaderAxis(
+    facetCtx.yHeaderFields,
+    facetCtx.rowTuples.filter((t: any[]) => t.length > 0),
+    context,
+  );
+  const colsAxis = buildHeaderAxis(
+    facetCtx.xHeaderFields,
+    facetCtx.colTuples.filter((t: any[]) => t.length > 0),
+    context,
+  );
+  if (!rowsAxis && !colsAxis) return undefined;
+  return { rows: rowsAxis, cols: colsAxis };
+}
+
+/**
+ * Build the cell list for the `symbol` cell mode: every (rowTuple, colTuple)
+ * resolves to either a `mark` cell with one or more deduped symbol specs, or
+ * an `empty` cell when no rows match.
+ */
+function buildSymbolModeCells(
+  facetCtx: FacetSpaceContext,
+  data: any[],
+  context: ChartGenerationContext,
+): GridCellModel[] {
+  const colorScale = context.colorField
+    ? deriveColorScaleInfo(data, context.colorField, context.colorScheme, context.colorBias)
+    : null;
+  const shapeScale = context.shapeField && context.shapeField.flavour === 'discrete'
+    ? deriveShapeScaleInfo(data, context.shapeField)
+    : null;
+
+  const buckets = bucketRowsByCellTuple<SymbolFingerprint>(
+    data,
+    facetCtx.yHeaderFields,
+    facetCtx.xHeaderFields,
+    (row) => buildSymbolForRow(row, context, shapeScale, colorScale),
+  );
+
   const cells: GridCellModel[] = [];
-  for (let r = 0; r < rowTuples.length; r++) {
-    const rowTuple = rowTuples[r];
-    const rowTupleParts = rowTuple.map((v: any) => (v instanceof Date ? `D:${v.getTime()}` : String(v)));
-    for (let c = 0; c < colTuples.length; c++) {
-      const colTuple = colTuples[c];
-      const colTupleParts = colTuple.map((v: any) => (v instanceof Date ? `D:${v.getTime()}` : String(v)));
-      const key = `${rowTupleParts.join('\x1e')}\x1f${colTupleParts.join('\x1e')}`;
-      const symbols = aggregateSymbols(buckets.get(key) ?? []);
+  for (let r = 0; r < facetCtx.rowTuples.length; r++) {
+    const rowTupleKey = tupleKeyFromValues(facetCtx.rowTuples[r]);
+    for (let c = 0; c < facetCtx.colTuples.length; c++) {
+      const colTupleKey = tupleKeyFromValues(facetCtx.colTuples[c]);
+      const symbols = aggregateSymbols(buckets.get(bucketKey(rowTupleKey, colTupleKey)) ?? []);
       cells.push(symbols.length > 0 ? buildMarkCell(r, c, symbols) : buildEmptyCell(r, c));
     }
   }
+  return cells;
+}
 
-  const headers: GridHeaders | undefined = (() => {
-    const rowsAxis = buildHeaderAxis(yHeaderFields, rowTuples.filter((t: any[]) => t.length > 0), context);
-    const colsAxis = buildHeaderAxis(xHeaderFields, colTuples.filter((t: any[]) => t.length > 0), context);
-    if (!rowsAxis && !colsAxis) return undefined;
-    return { rows: rowsAxis, cols: colsAxis };
-  })();
+/**
+ * Build the cell list for the `text` cell mode: every (rowTuple, colTuple)
+ * resolves to a `text` cell containing one row per label/measure source. The
+ * underlying query is already aggregated by the discrete X/Y dimensions, so
+ * each bucket is expected to contain a single representative row; if the
+ * bucket is empty (cell has no data), the cell is rendered as `empty`.
+ */
+function buildTextModeCells(
+  facetCtx: FacetSpaceContext,
+  data: any[],
+  context: ChartGenerationContext,
+): GridCellModel[] {
+  const sources = collectTextRowSources(context);
+
+  const buckets = bucketRowsByCellTuple<any>(
+    data,
+    facetCtx.yHeaderFields,
+    facetCtx.xHeaderFields,
+    (row) => row,
+  );
+
+  const cells: GridCellModel[] = [];
+  for (let r = 0; r < facetCtx.rowTuples.length; r++) {
+    const rowTupleKey = tupleKeyFromValues(facetCtx.rowTuples[r]);
+    for (let c = 0; c < facetCtx.colTuples.length; c++) {
+      const colTupleKey = tupleKeyFromValues(facetCtx.colTuples[c]);
+      const bucket = buckets.get(bucketKey(rowTupleKey, colTupleKey));
+      if (!bucket || bucket.length === 0) {
+        cells.push(buildEmptyCell(r, c));
+        continue;
+      }
+      // Aggregated query produces one row per (rowTuple, colTuple); take it.
+      // For un-aggregated label-only data we still render the first row's
+      // values (good enough for PR 7; PR 8 introduces explicit aggregation).
+      const textRows = buildTextRowsFromRow(bucket[0], sources);
+      cells.push(textRows.length > 0 ? buildTextCell(r, c, textRows) : buildEmptyCell(r, c));
+    }
+  }
+  return cells;
+}
+
+/**
+ * Generate a table grid as a `GridResultModel`.
+ *
+ * Dispatches between `text` and `symbol` cell modes via `resolveTableCellMode`.
+ * Both modes share the same row/column header construction and bucketing
+ * skeleton; only the per-cell content differs.
+ */
+export function generateTableGrid(context: ChartGenerationContext): GridResultModel {
+  const data = Array.isArray(context.queryResult?.rows) ? context.queryResult.rows : [];
+  const facetCtx = buildFacetSpaceContext(context, data);
+  const mode = resolveTableCellMode(context, context.tableCellMode ?? 'auto');
+
+  const cells = mode === 'text'
+    ? buildTextModeCells(facetCtx, data, context)
+    : buildSymbolModeCells(facetCtx, data, context);
 
   return {
     cells,
-    layout: buildLayout(rowTuples.length, colTuples.length),
-    headers,
+    layout: buildLayout(facetCtx.rowTuples.length, facetCtx.colTuples.length),
+    headers: buildHeadersForFacetSpace(facetCtx, context),
   };
 }
