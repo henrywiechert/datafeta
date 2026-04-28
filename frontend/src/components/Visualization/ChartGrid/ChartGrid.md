@@ -97,17 +97,17 @@ The key innovation is separating scrolling concerns into three stacked layers:
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │                    FROM ChartArea                                 │
-│  Props: spec (PlotResult), data, onPlotRenderComplete            │
+│  Props: grid (GridResultModel), data, onPlotRenderComplete       │
 └─────────────────────────────┬────────────────────────────────────┘
                               │
                               ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │                    ChartGrid.tsx                                  │
 │  ┌────────────────────────────────────────────────────────────┐  │
-│  │ useDeferredValue(spec)                                     │  │
+│  │ useDeferredValue(grid)                                     │  │
 │  │  • Prevents intermediate "half-ready" renders              │  │
-│  │  • Shows old chart while new spec is being prepared        │  │
-│  │  • isTransitioning = spec !== deferredSpec                 │  │
+│  │  • Shows old grid while new one is being prepared          │  │
+│  │  • isTransitioning = gridProp !== grid                     │  │
 │  └────────────────────────────────────────────────────────────┘  │
 │                              │                                   │
 │              ┌───────────────┼───────────────┐                   │
@@ -126,7 +126,7 @@ The key innovation is separating scrolling concerns into three stacked layers:
 │                              ▼                                   │
 │  ┌────────────────────────────────────────────────────────────┐  │
 │  │ useChartGridLayout                                         │  │
-│  │  • columns, rows from spec.layout                          │  │
+│  │  • columns, rows from grid.layout                          │  │
 │  │  • plotTemplateColumns (CSS grid-template)                 │  │
 │  │  • plotRowsSpec (row heights)                              │  │
 │  │  • dynamicXAxisPx, dynamicYAxisPx (gutter sizes)           │  │
@@ -194,16 +194,17 @@ The key innovation is separating scrolling concerns into three stacked layers:
 ### **External Connections**
 
 **Props from ChartArea:**
-- `spec: PlotResult` — The generated chart specification with plots array, layout, facetLabels
-- `data: QueryResult` — Raw data (currently unused in ChartGrid, data is embedded in spec)
+- `grid: GridResultModel` — The generated grid result with `cells`, `layout`, and optional `headers`
+- `data: QueryResult` — Raw data (currently unused in ChartGrid, data is embedded in cell options)
 - `onPlotRenderComplete` — Callback to coordinate rendering completion
 
 **Renders:**
-- `ObservablePlot` — The actual Observable Plot renderer (separate component)
+- `ObservablePlot` — The actual Observable Plot renderer (for plot cells)
+- `PieSvgRenderer` — Custom SVG renderer for pie cells
 
 **Imports from:**
 - `chartLayoutConfig` — Constants: `MIN_GRID_ROW_PX`, `MIN_GRID_COLUMN_PX`, `GRID_DIVIDER_COLOR`, gutter sizes
-- `observable-plot-generator/types` — `PlotResult` type
+- `observable-plot-generator/gridModel` — `GridResultModel` type and helpers
 
 ---
 
