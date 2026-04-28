@@ -54,15 +54,19 @@ function dedupeFieldsById(fields: Field[]): Field[] {
   return out;
 }
 
+function getFieldOutputIdentity(field: Field): string {
+  return [
+    getResultColumnName(field),
+    field.sourceTable || '',
+    field.syntheticType || '',
+  ].join('|');
+}
+
 function dedupeFieldsByOutputIdentity(fields: Field[]): Field[] {
   const out: Field[] = [];
   const seen = new Set<string>();
   for (const field of fields) {
-    const key = [
-      getResultColumnName(field),
-      field.sourceTable || '',
-      field.syntheticType || '',
-    ].join('|');
+    const key = getFieldOutputIdentity(field);
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(field);
@@ -115,7 +119,7 @@ export function buildQueryFieldsFromViewInput(input: BuildViewSpecInput): Field[
 
   for (const field of singleFields) {
     const entry = normalizeFieldWithDefaultAgg(field, true, axisFields);
-    if (!allFields.some((candidate) => candidate.columnName === entry.columnName)) {
+    if (!allFields.some((candidate) => getFieldOutputIdentity(candidate) === getFieldOutputIdentity(entry))) {
       allFields.push(entry);
     }
   }
