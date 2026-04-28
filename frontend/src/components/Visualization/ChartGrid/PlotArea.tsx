@@ -15,6 +15,7 @@ import {
   hasColumnHeaders,
   hasFacetHeaders,
   MarkGridCellModel,
+  PieGridCellModel,
   PlotGridCellModel,
   TextGridCellModel,
 } from './gridModel';
@@ -139,6 +140,15 @@ const PlotArea: React.FC<PlotAreaProps> = ({
                   onCellContextMenu={onCellContextMenu}
                 />
               );
+            case 'pie':
+              return (
+                <PieCell
+                  key={key}
+                  cell={cell as PieGridCellModel}
+                  onPlotRenderComplete={onPlotRenderComplete}
+                  onCellContextMenu={onCellContextMenu}
+                />
+              );
             case 'text':
               return (
                 <TextCell
@@ -207,8 +217,6 @@ const PlotCell: React.FC<PlotCellProps> = ({
     onCellContextMenu?.(cell.id, e.clientX, e.clientY);
   };
 
-  const isPie = cell.content.renderer === 'pie-svg' && cell.content.pieSpec;
-
   return (
     <div className={styles.plotWrapper} style={buildBaseCellStyle(cell)} onContextMenu={handleContextMenu}>
       {facetBg?.isMixed && (
@@ -228,24 +236,57 @@ const PlotCell: React.FC<PlotCellProps> = ({
       )}
       <BrushOverlay disabled={brushDisabled} onBrushEnd={handleCellBrushEnd}>
         <div className={styles.observablePlotContainer}>
-          {isPie ? (
-            <PieSvgRenderer
-              pieSpec={cell.content.pieSpec!}
-              tooltipConfig={(cell.content.options as any).__customTooltip}
-              plotId={cell.id}
-              onRenderComplete={onPlotRenderComplete}
-            />
-          ) : (
-            <ObservablePlot
-              key={cell.id}
-              options={opts}
-              plotId={cell.id}
-              onRenderComplete={onPlotRenderComplete}
-              onPlotReady={(el) => onPlotReady(cell.id, el)}
-            />
-          )}
+          <ObservablePlot
+            key={cell.id}
+            options={opts}
+            plotId={cell.id}
+            onRenderComplete={onPlotRenderComplete}
+            onPlotReady={(el) => onPlotReady(cell.id, el)}
+          />
         </div>
       </BrushOverlay>
+    </div>
+  );
+};
+
+interface PieCellProps {
+  cell: PieGridCellModel;
+  onPlotRenderComplete?: (plotId: string) => void;
+  onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
+}
+
+const PieCell: React.FC<PieCellProps> = ({ cell, onPlotRenderComplete, onCellContextMenu }) => {
+  const facetBg = cell.content.facetBackground;
+  const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    onCellContextMenu?.(cell.id, e.clientX, e.clientY);
+  };
+
+  return (
+    <div className={styles.plotWrapper} style={buildBaseCellStyle(cell)} onContextMenu={handleContextMenu}>
+      {facetBg?.isMixed && (
+        <Tooltip title="Mixed values in background field" placement="top" arrow>
+          <DoNotDisturbAltIcon
+            sx={{
+              position: 'absolute',
+              top: 2,
+              right: 2,
+              width: 14,
+              height: 14,
+              color: 'rgba(0, 0, 0, 0.25)',
+              zIndex: 1,
+            }}
+          />
+        </Tooltip>
+      )}
+      <div className={styles.observablePlotContainer}>
+        <PieSvgRenderer
+          pieSpec={cell.content.pieSpec}
+          tooltipConfig={cell.content.tooltipConfig}
+          plotId={cell.id}
+          onRenderComplete={onPlotRenderComplete}
+        />
+      </div>
     </div>
   );
 };

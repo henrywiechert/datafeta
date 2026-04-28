@@ -1,5 +1,5 @@
 import * as Plot from '@observablehq/plot';
-import { Field } from '../../../types';
+import { CustomTooltipConfig, Field } from '../../../types';
 import { FacetBackgroundInfo, PiePlotSpec } from '../../../observable-plot-generator/types';
 
 /**
@@ -53,12 +53,18 @@ export interface PlotGridCellContent {
   kind: 'plot';
   options: Plot.PlotOptions;
   facetBackground?: FacetBackgroundInfo;
-  /**
-   * Temporary passthrough so pie cells continue to dispatch to PieSvgRenderer.
-   * PR 4 will replace this with a dedicated `kind: 'pie'` cell content.
-   */
-  renderer?: 'observable-plot' | 'pie-svg';
-  pieSpec?: PiePlotSpec;
+}
+
+/**
+ * Pie cell rendered by `PieSvgRenderer`. Carries the resolved `PiePlotSpec`
+ * and an optional custom tooltip configuration. Pie cells render without
+ * external axes (see `usesOnlyAxislessRenderers`).
+ */
+export interface PieGridCellContent {
+  kind: 'pie';
+  pieSpec: PiePlotSpec;
+  tooltipConfig?: CustomTooltipConfig;
+  facetBackground?: FacetBackgroundInfo;
 }
 
 /**
@@ -110,6 +116,7 @@ export interface EmptyGridCellContent {
 
 export type GridCellContent =
   | PlotGridCellContent
+  | PieGridCellContent
   | TextGridCellContent
   | MarkGridCellContent
   | EmptyGridCellContent;
@@ -129,6 +136,10 @@ export interface GridCellModel {
 
 export interface PlotGridCellModel extends GridCellModel {
   content: PlotGridCellContent;
+}
+
+export interface PieGridCellModel extends GridCellModel {
+  content: PieGridCellContent;
 }
 
 export interface TextGridCellModel extends GridCellModel {
@@ -196,17 +207,24 @@ export function hasFacetHeaders(grid: GridResultModel | null): boolean {
 }
 
 /**
- * True when every plot cell uses an axis-less renderer (e.g. pie) and no
- * external X/Y axis gutters should be drawn.
+ * True when every cell renders without external X/Y axes (pie cells, or plot
+ * cells flagged via the `__hideExternalAxes` option). Empty/text/mark cells
+ * are also axis-less. Returns false for an empty grid.
  */
 export function usesOnlyAxislessRenderers(grid: GridResultModel | null): boolean {
-  const plotCells = getPlotGridCells(grid);
-  if (plotCells.length === 0) return false;
-  return plotCells.every((cell) => {
-    const content = cell.content;
-    return (
-      content.renderer === 'pie-svg' ||
-      (content.options as any)?.__hideExternalAxes === true
-    );
+  const cells = grid?.cells ?? [];
+  if (cells.length === 0) return false;
+  return cells.every((cell) => {
+    switch (cell.content.kind) {
+      case 'pie':
+      case 'text':
+      case 'mark':
+      case 'empty':
+        return true;
+      case 'plot':
+        return (cell.content.options as any)?.__hideExternalAxes === true;
+      default:
+        return false;
+    }
   });
 }

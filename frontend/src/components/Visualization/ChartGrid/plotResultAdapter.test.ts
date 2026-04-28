@@ -103,30 +103,52 @@ describe('adaptPlotResultToGridModel', () => {
     expect(grid.headers?.rows).toBeUndefined();
   });
 
-  it('threads pie passthrough fields onto the plot cell content', () => {
+  it('translates a pie passthrough plot into a kind: "pie" cell', () => {
+    const pieSpec = {
+      slices: [],
+      total: 0,
+      measureLabel: 'm',
+      colorLabel: 'c',
+      radiusScale: 1,
+    } as any;
+    const tooltipConfig = { enabled: true, getFields: () => [] };
     const result = buildPlotResult({
       plots: [
         {
           id: 'pie',
           title: 'Pie',
-          options: {},
+          options: { __customTooltip: tooltipConfig } as any,
           position: { row: 0, col: 0 },
           renderer: 'pie-svg',
-          pieSpec: {
-            slices: [],
-            total: 0,
-            measureLabel: 'm',
-            colorLabel: 'c',
-            radiusScale: 1,
-          } as any,
+          pieSpec,
         },
       ],
     });
 
     const grid = adaptPlotResultToGridModel(result);
-    const content = grid.cells[0].content as any;
-    expect(content.renderer).toBe('pie-svg');
-    expect(content.pieSpec).toBeDefined();
+    const cell = grid.cells[0];
+    expect(cell.content.kind).toBe('pie');
+    if (cell.content.kind !== 'pie') throw new Error('expected pie cell');
+    expect(cell.content.pieSpec).toBe(pieSpec);
+    expect(cell.content.tooltipConfig).toBe(tooltipConfig);
+    expect(cell.metadata?.title).toBe('Pie');
+  });
+
+  it('still produces a plot cell when renderer is pie-svg but pieSpec is missing', () => {
+    const result = buildPlotResult({
+      plots: [
+        {
+          id: 'pie-malformed',
+          title: 'Malformed',
+          options: {},
+          position: { row: 0, col: 0 },
+          renderer: 'pie-svg',
+        },
+      ],
+    });
+
+    const grid = adaptPlotResultToGridModel(result);
+    expect(grid.cells[0].content.kind).toBe('plot');
   });
 
   it('exposes shared measure domains when present', () => {
