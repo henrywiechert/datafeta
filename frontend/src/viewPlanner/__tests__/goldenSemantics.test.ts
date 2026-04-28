@@ -195,6 +195,44 @@ describe('golden ViewSpec / QueryDescription / RenderPlan semantics', () => {
     });
   });
 
+  it('keeps multiple DateTime encodings from the same source column in grouped line queries', () => {
+    const hour = continuousDimension('created_at', {
+      id: 'created-at-hour',
+      dataType: 'datetime',
+      dateTimePart: 'hour',
+      dateTimeMode: 'distinct',
+    });
+    const day = field('created_at', {
+      id: 'created-at-day',
+      dataType: 'datetime',
+      dateTimePart: 'day',
+      dateTimeMode: 'timeline',
+    });
+    const revenue = measure('revenue', { aggregation: 'avg' });
+
+    expect(buildGolden({
+      xAxisFields: [hour],
+      yAxisFields: [revenue],
+      colorField: day,
+      sizeField: null,
+      globalChartType: 'line',
+    })).toEqual(expect.objectContaining({
+      view: expect.objectContaining({
+        grain: 'grouped',
+        queryMode: 'aggregated',
+        queryFields: ['created_at', 'revenue', 'created_at'],
+      }),
+      query: expect.objectContaining({
+        dimensions: [
+          { field: 'created_at', flavour: 'continuous', axis: 'x', date_part: 'hour', date_mode: 'distinct' },
+          { field: 'created_at', flavour: 'discrete', axis: undefined, date_part: 'day', date_mode: 'timeline' },
+        ],
+        measures: [{ field: 'revenue', aggregation: 'avg', alias: 'AVG(revenue)' }],
+        orderBy: ['created_at_day_timeline', 'created_at_hour_distinct'],
+      }),
+    }));
+  });
+
   it('keeps a CDF view aligned with partition fields from color and implicit facets', () => {
     const revenue = measure('revenue');
     const segment = field('segment');
