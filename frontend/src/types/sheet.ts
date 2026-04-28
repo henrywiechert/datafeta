@@ -70,6 +70,7 @@ export interface VisualizationStateSnapshot {
   globalChartType?: UserChartType | null;
   distributionVariant?: DistributionVariant;
   tableCellMode?: TableCellMode;
+  tablePage?: number;
   showTableRows?: boolean;
   selectedChartType?: UserChartType | 'auto';
   virtualColumns?: VirtualColumnDefinition[];

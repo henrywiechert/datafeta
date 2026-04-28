@@ -117,6 +117,14 @@ export interface ChartGenerationContext {
   /** Cell rendering mode when globalChartType is 'table-refactor'. */
   tableCellMode?: TableCellMode;
   /**
+   * Pager state for the 'table-refactor' chart type.
+   * tablePage is the 0-based current page index over distinct row-tuples.
+   * tablePageSize is the number of row-tuples per page (global user setting).
+   * Both are ignored unless globalChartType === 'table-refactor'.
+   */
+  tablePage?: number;
+  tablePageSize?: number;
+  /**
    * Computed list of fields that are eligible for per-field overrides,
    * based on axis placement and continuous field counts.
    */

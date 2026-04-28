@@ -76,6 +76,8 @@ export const initialState: VisualizationState = {
   distributionVariant: 'tick-strip',
   // Default cell mode for the 'table-refactor' chart type
   tableCellMode: 'auto',
+  // Table-refactor pagination defaults (page size is a global user setting)
+  tablePage: 0,
   // Table rows view mode default
   showTableRows: false,
   queryVersion: 0,
