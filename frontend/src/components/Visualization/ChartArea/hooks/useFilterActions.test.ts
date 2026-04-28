@@ -63,7 +63,7 @@ describe('useFilterActions discrete legend bridge', () => {
     const { result } = renderHook(() => useFilterActions({
       recordAction,
       getUndoableSnapshot,
-      spec: null,
+      grid: null,
     }));
 
     act(() => {
@@ -100,7 +100,7 @@ describe('useFilterActions discrete legend bridge', () => {
     const { result } = renderHook(() => useFilterActions({
       recordAction,
       getUndoableSnapshot,
-      spec: null,
+      grid: null,
     }));
 
     act(() => {
@@ -132,7 +132,7 @@ describe('useFilterActions discrete legend bridge', () => {
     const { result } = renderHook(() => useFilterActions({
       recordAction,
       getUndoableSnapshot,
-      spec: null,
+      grid: null,
     }));
 
     act(() => {
