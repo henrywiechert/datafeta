@@ -1,5 +1,5 @@
 import { PlotResult } from '../../../observable-plot-generator/types';
-import { GridHeaderAxis, GridHeaders, GridResultModel } from './gridModel';
+import { GridCellContent, GridHeaderAxis, GridHeaders, GridResultModel } from './gridModel';
 
 function buildHeaderAxis(
   levels: Array<{ fieldLabel: string; values: any[] }> | undefined,
@@ -41,28 +41,42 @@ function buildHeaders(plotResult: PlotResult): GridHeaders | undefined {
   };
 }
 
+function buildCellContent(plot: PlotResult['plots'][number]): GridCellContent {
+  // Pie cells: the legacy generator marks them with `renderer === 'pie-svg'`
+  // and a populated `pieSpec`. Translate into a dedicated `kind: 'pie'` cell
+  // so downstream components dispatch on the cell kind rather than on the
+  // legacy `renderer` discriminator. The `__customTooltip` option is hoisted
+  // into `tooltipConfig` for `PieSvgRenderer`.
+  if (plot.renderer === 'pie-svg' && plot.pieSpec) {
+    const tooltipConfig = (plot.options as any)?.__customTooltip;
+    return {
+      kind: 'pie',
+      pieSpec: plot.pieSpec,
+      tooltipConfig,
+      facetBackground: plot.facetBackground,
+    };
+  }
+
+  return {
+    kind: 'plot',
+    options: plot.options,
+    facetBackground: plot.facetBackground,
+  };
+}
+
 /**
  * Adapt the legacy `PlotResult` into the canonical `GridResultModel`.
  *
  * Transitional translation: the chart generator continues to produce
  * `PlotResult`, while ChartGrid components consume `GridResultModel`. PR 5
  * will move this boundary into the generator and delete the adapter.
- *
- * Pie cells preserve `renderer` and `pieSpec` as passthroughs on the plot
- * cell content; PR 4 will replace this with `kind: 'pie'` cell content.
  */
 export function adaptPlotResultToGridModel(plotResult: PlotResult): GridResultModel {
   return {
     cells: plotResult.plots.map((plot) => ({
       id: plot.id,
       position: plot.position,
-      content: {
-        kind: 'plot' as const,
-        options: plot.options,
-        facetBackground: plot.facetBackground,
-        renderer: plot.renderer,
-        pieSpec: plot.pieSpec,
-      },
+      content: buildCellContent(plot),
       metadata: {
         title: plot.title,
         xField: plot.xField,

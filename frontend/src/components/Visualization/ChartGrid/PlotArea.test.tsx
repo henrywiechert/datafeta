@@ -64,15 +64,13 @@ describe('PlotArea cell dispatch', () => {
     expect(getByTestId('observable-plot-plot-1')).toBeInTheDocument();
   });
 
-  it('renders PieSvgRenderer when a plot cell carries a pie passthrough', () => {
+  it('renders PieSvgRenderer for pie cells', () => {
     const grid = buildGrid([
       {
         id: 'pie-1',
         position: { row: 0, col: 0 },
         content: {
-          kind: 'plot',
-          options: {},
-          renderer: 'pie-svg',
+          kind: 'pie',
           pieSpec: { slices: [], total: 0, measureLabel: '', colorLabel: '', radiusScale: 1 } as any,
         },
       },
