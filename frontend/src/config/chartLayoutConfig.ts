@@ -34,6 +34,14 @@ export const X_LABEL_ROW_PX = 20;
 export const VERTICAL_SCROLLBAR_GUTTER_PX = 14;
 export const HORIZONTAL_SCROLLBAR_GUTTER_PX = 16;
 
+// Table-refactor (table chart type) layout constants.
+// Compact bands and short rows so a table with many discrete tuples is
+// readable at a glance — closer to a Tableau text-table than to a chart.
+export const MIN_NON_PLOT_GRID_ROW_PX = 28;
+export const TABLE_NAMES_BAND_LEFT_PX = 88;
+export const TABLE_VALUES_BAND_LEFT_PX = 96;
+export const TABLE_VALUES_BAND_TOP_PX = 18;
+
 // Resize handle constants (for future dynamic resize feature)
 export const RESIZE_HANDLE_WIDTH = 2;
 export const RESIZE_HANDLE_COLOR = '#99a795';

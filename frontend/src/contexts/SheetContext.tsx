@@ -41,6 +41,7 @@ function createEmptyVisualizationState(): VisualizationStateSnapshot {
     bandThicknessScale: 1.0,
     globalChartType: null,
     distributionVariant: 'tick-strip',
+    tableCellMode: 'auto',
     selectedChartType: 'auto',
     independentDomains: { x: false, y: false },
     tooltipFields: [],

@@ -61,7 +61,15 @@ export interface Field {
 
 // Per-field chart override configuration
 export type DataLabelMode = 'inherit' | 'on' | 'off';
-export type UserChartType = 'line' | 'scatter' | 'tick' | 'bar' | 'gantt' | 'cdf' | 'pie';
+export type UserChartType = 'line' | 'scatter' | 'tick' | 'bar' | 'gantt' | 'cdf' | 'pie' | 'table-refactor';
+
+/**
+ * Cell rendering mode for the `table-refactor` chart type.
+ * - `auto`: resolves to `text` when label/measure fields are present, else `symbol` (PR 7).
+ * - `text`: renders one stacked text row per measure/label inside each cell (PR 7).
+ * - `symbol`: renders a Tableau-style symbol mark per cell (color/shape/size encoded) (PR 6).
+ */
+export type TableCellMode = 'auto' | 'text' | 'symbol';
 
 export interface FieldOverrideState {
   // Color overrides

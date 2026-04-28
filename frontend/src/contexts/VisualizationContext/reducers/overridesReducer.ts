@@ -65,6 +65,13 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
         queryVersion: variantChanged ? state.queryVersion + 1 : state.queryVersion,
       };
     }
+    case 'SET_TABLE_CELL_MODE': {
+      // Pure rendering toggle: no query refetch needed, so leave queryVersion alone.
+      return {
+        ...state,
+        tableCellMode: action.payload,
+      };
+    }
     // --- Overlay actions (visual-only, no query version bump) ---
     case 'SET_OVERLAYS':
       return { ...state, overlays: action.payload };
