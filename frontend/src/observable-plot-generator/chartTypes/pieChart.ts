@@ -11,6 +11,7 @@ import { coordinateFacetedGrid, CellGenerator, CellResult, FacetCellContext } fr
 
 const PIE_CELL_SIZE = 260;
 const MIN_PIE_CELL_SIZE = 120;
+const ZERO_EPSILON = 1e-12;
 
 function createMessageChart(message: string): PlotResult {
   return {
@@ -105,8 +106,31 @@ function getColorForValue(value: any, colorScale: SharedDomains['colorScale']): 
 function aggregatePositiveValue(rows: any[], column: string): number {
   return rows.reduce((total, row) => {
     const value = toFiniteNumber(row?.[column]);
-    return value !== null && value > 0 ? total + value : total;
+    return value !== null && value > ZERO_EPSILON ? total + value : total;
   }, 0);
+}
+
+function getValueSignMode(rows: any[], column: string): 'positive' | 'negative' | 'mixed' | 'empty' {
+  let hasPositive = false;
+  let hasNegative = false;
+
+  for (const row of rows) {
+    const value = toFiniteNumber(row?.[column]);
+    if (value === null || Math.abs(value) <= ZERO_EPSILON) continue;
+    if (value > 0) hasPositive = true;
+    if (value < 0) hasNegative = true;
+    if (hasPositive && hasNegative) return 'mixed';
+  }
+
+  if (hasPositive) return 'positive';
+  if (hasNegative) return 'negative';
+  return 'empty';
+}
+
+function toPieMagnitude(value: number | null, signMode: 'positive' | 'negative'): number | null {
+  if (value === null || Math.abs(value) <= ZERO_EPSILON) return null;
+  if (signMode === 'negative') return value < 0 ? Math.abs(value) : null;
+  return value > 0 ? value : null;
 }
 
 export function getPieRadiusMetric(rows: any[], context: ChartGenerationContext): number {
@@ -225,12 +249,24 @@ export function buildPiePlotSpec(args: {
   const measureColumn = resolveColumn(rows, measureField);
   const colorColumn = colorField ? resolveColumn(rows, colorField) : undefined;
   const grouped = new Map<string, { rawValue: any; value: number; row: any }>();
+  const signMode = getValueSignMode(rows, measureColumn);
+
+  if (signMode === 'mixed') {
+    return {
+      slices: [],
+      total: 0,
+      measureLabel: getFieldDisplayName(measureField, context.fieldAliasLookup),
+      colorLabel: colorField ? getFieldDisplayName(colorField, context.fieldAliasLookup) : '',
+      radiusScale: 1,
+      emptyMessage: 'Pie charts cannot mix positive and negative values. Use a bar chart for signed measures.',
+    };
+  }
 
   if (colorField && colorColumn) {
     for (const row of rows) {
       const rawValue = row?.[colorColumn];
-      const value = toFiniteNumber(row?.[measureColumn]);
-      if (value === null || value <= 0) continue;
+      const value = toPieMagnitude(toFiniteNumber(row?.[measureColumn]), signMode === 'negative' ? 'negative' : 'positive');
+      if (value === null) continue;
       const key = valueKey(rawValue);
       const existing = grouped.get(key);
       if (existing) {
@@ -240,7 +276,10 @@ export function buildPiePlotSpec(args: {
       }
     }
   } else {
-    const totalValue = aggregatePositiveValue(rows, measureColumn);
+    const totalValue = rows.reduce((total, row) => {
+      const value = toPieMagnitude(toFiniteNumber(row?.[measureColumn]), signMode === 'negative' ? 'negative' : 'positive');
+      return value !== null ? total + value : total;
+    }, 0);
     if (totalValue > 0) {
       grouped.set('__single__', { rawValue: 'Total', value: totalValue, row: rows[0] || {} });
     }
