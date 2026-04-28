@@ -1,9 +1,8 @@
-import React, { useEffect, useMemo, useRef, useDeferredValue, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useDeferredValue, useState, useCallback } from 'react';
 import { Menu, MenuItem } from '@mui/material';
 
 import { QueryResult } from '../../../types';
-import { PlotResult } from '../../../observable-plot-generator/types';
-import { adaptPlotResultToGridModel } from './plotResultAdapter';
+import { GridResultModel } from '../../../observable-plot-generator/gridModel';
 import FacetZoomDialog from './FacetZoomDialog';
 import styles from './ChartGrid.module.css';
 import { useCellSizeOverrides } from './hooks/useCellSizeOverrides';
@@ -23,7 +22,7 @@ export interface GanttZoomRange {
 }
 
 interface ChartGridProps {
-  spec: PlotResult | null;
+  grid: GridResultModel | null;
   data: QueryResult | null;
   onPlotRenderComplete?: (plotId: string) => void;
   /** Whether the current chart is a Gantt chart (enables WASD keyboard navigation) */
@@ -54,14 +53,10 @@ interface ChartGridProps {
  *
  * IMPORTANT: Uses useDeferredValue to prevent intermediate "half-ready" renders
  * when faceting changes due to filter updates. This ensures React keeps showing
- * the old chart until the new spec is fully ready.
- *
- * The legacy `PlotResult` is adapted to a `GridResultModel` here; downstream
- * components consume the grid model. The adapter is transitional and will be
- * removed once `generatePlot` returns the model directly (PR 5).
+ * the old grid until the new one is fully ready.
  */
 const ChartGrid: React.FC<ChartGridProps> = ({
-  spec,
+  grid: gridProp,
   data,
   onPlotRenderComplete,
   isGanttChart = false,
@@ -83,21 +78,13 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   const { axisLabelStyles, facetLabelStyles } = state;
 
   // Use deferred value to prevent intermediate renders during faceting transitions.
-  // When spec changes (e.g., filter changes faceting from 30 rows to 3 rows),
-  // React will keep showing the old chart while preparing the new one.
-  // This eliminates the "animation" effect of partially-ready specifications.
-  const deferredSpec = useDeferredValue(spec);
+  // When the grid changes (e.g., filter changes faceting from 30 rows to 3 rows),
+  // React will keep showing the old grid while preparing the new one.
+  // This eliminates the "animation" effect of partially-ready grids.
+  const grid = useDeferredValue(gridProp);
 
   // Track if we're in a transition (showing stale content)
-  const isTransitioning = spec !== deferredSpec;
-
-  // Adapt the deferred PlotResult into the canonical GridResultModel.
-  // Memoized on the spec reference so all downstream memo comparisons stay
-  // stable when the spec hasn't changed.
-  const grid = useMemo(
-    () => (deferredSpec ? adaptPlotResultToGridModel(deferredSpec) : null),
-    [deferredSpec],
-  );
+  const isTransitioning = gridProp !== grid;
 
   // Note: We use MultiPlotGrid architecture for any number of plots (including single plots)
   // so scroll handlers must be attached whenever we have plots, not just when count > 1
@@ -221,7 +208,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({
 // Memoize to prevent unnecessary re-renders when only unrelated state changes
 export default React.memo(ChartGrid, (prevProps, nextProps) => {
   return (
-    prevProps.spec === nextProps.spec &&
+    prevProps.grid === nextProps.grid &&
     prevProps.data === nextProps.data &&
     prevProps.isGanttChart === nextProps.isGanttChart &&
     prevProps.ganttZoomRange === nextProps.ganttZoomRange &&

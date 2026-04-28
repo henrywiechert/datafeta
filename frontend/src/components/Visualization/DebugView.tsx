@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { QueryDescription, QueryResult, OptimizationHints } from '../../types';
-import { PlotResult } from '../../observable-plot-generator/types';
+import { GridResultModel } from '../../observable-plot-generator/gridModel';
 import styles from './DebugView.module.css';
 import { DebugPanel as NewDebugPanel } from '../DebugPanel';
 import { duckdbService, QueryLogEntry } from '../../services/duckdbService';
@@ -13,7 +13,7 @@ export interface DebugData {
   queryDescription: QueryDescription | null;
   queryResult: QueryResult | null;
   queryError: string | null;
-  spec: PlotResult | null;
+  grid: GridResultModel | null;
   chartInfo?: any;
   renderingError?: string | null;
   optimizationHints?: OptimizationHints | null;
@@ -898,7 +898,7 @@ const DebugView: React.FC<DebugViewProps> = ({
     queryDescription,
     queryResult,
     queryError,
-    spec,
+    grid,
     chartInfo,
     renderingError,
     optimizationHints,
@@ -972,9 +972,9 @@ const DebugView: React.FC<DebugViewProps> = ({
                 <pre>{queryResult.query_sql}</pre>
               </CollapsibleSection>
             )}
-            {spec && (
-              <CollapsibleSection title="Specification">
-                <pre>{safeStringify(spec)}</pre>
+            {grid && (
+              <CollapsibleSection title="Grid Result">
+                <pre>{safeStringify(grid)}</pre>
               </CollapsibleSection>
             )}
             {chartInfo && (
@@ -1026,9 +1026,9 @@ const DebugView: React.FC<DebugViewProps> = ({
             <CollapsibleSection title="Generated SQL" defaultExpanded={true}>
               <pre>{queryResult.query_sql || 'No SQL available'}</pre>
             </CollapsibleSection>
-            {spec && (
-              <CollapsibleSection title="Specification">
-                <pre>{safeStringify(spec)}</pre>
+            {grid && (
+              <CollapsibleSection title="Grid Result">
+                <pre>{safeStringify(grid)}</pre>
               </CollapsibleSection>
             )}
             {chartInfo && (

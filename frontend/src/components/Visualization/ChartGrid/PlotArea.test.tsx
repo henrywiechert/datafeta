@@ -1,7 +1,7 @@
 import React from 'react';
 import { cleanup, render } from '@testing-library/react';
 import PlotArea from './PlotArea';
-import { GridCellModel, GridResultModel } from './gridModel';
+import { GridCellModel, GridResultModel } from '../../../observable-plot-generator/gridModel';
 
 jest.mock('../ObservablePlot', () => ({
   __esModule: true,

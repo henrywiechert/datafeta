@@ -125,7 +125,7 @@ const ChartArea: React.FC = () => {
     optimizationSettings,
   });
 
-  const { spec, chartInfo, renderingError, facetLimitWarning, onFacetLimitProceed, onFacetLimitCancel } =
+  const { grid, chartInfo, renderingError, facetLimitWarning, onFacetLimitProceed, onFacetLimitCancel } =
     useChartGeneration({
       xAxisFields,
       yAxisFields,
@@ -146,10 +146,10 @@ const ChartArea: React.FC = () => {
       viewSpec,
     });
 
-  const { handleLegendFilterAction, handleShapeLegendFilterAction, specWithTooltipAction } = useFilterActions({
+  const { handleLegendFilterAction, handleShapeLegendFilterAction, gridWithTooltipAction } = useFilterActions({
     recordAction,
     getUndoableSnapshot,
-    spec,
+    grid,
   });
 
   const { handleTableCellFilterAction } = useTableRowsFilterActions({
@@ -199,7 +199,7 @@ const ChartArea: React.FC = () => {
   });
 
   const { handlePlotRenderComplete } = useRenderingTracking({
-    spec,
+    grid,
     useTableView,
     showTableRows,
     renderingCoordinator,
@@ -262,12 +262,12 @@ const ChartArea: React.FC = () => {
     ],
   );
 
-  const specRef = useRef(specWithTooltipAction);
-  specRef.current = specWithTooltipAction;
+  const gridRef = useRef(gridWithTooltipAction);
+  gridRef.current = gridWithTooltipAction;
 
   useSheetCacheSave(
     sheetId,
-    useCallback(() => ({ queryResult, chartSpec: specRef.current, config: cacheConfig }), [queryResult, cacheConfig]),
+    useCallback(() => ({ queryResult, chartGrid: gridRef.current, config: cacheConfig }), [queryResult, cacheConfig]),
   );
 
   // -- Debug / legend flags ----------------------------------------------------
@@ -275,7 +275,7 @@ const ChartArea: React.FC = () => {
     queryDescription,
     queryResult,
     queryError,
-    spec,
+    grid,
     chartInfo,
     renderingError,
     optimizationHints,
@@ -299,7 +299,7 @@ const ChartArea: React.FC = () => {
           <ChartRenderer
             useTableView={useTableView}
             tableData={tableData}
-            spec={specWithTooltipAction}
+            grid={gridWithTooltipAction}
             queryResult={queryResult}
             xAxisFields={xAxisFields}
             yAxisFields={yAxisFields}

@@ -4,7 +4,7 @@ import {
   MIN_CELL_HEIGHT_PX,
   MAX_CELL_HEIGHT_PX,
 } from '../../../../config/chartLayoutConfig';
-import { GridLayoutModel } from '../gridModel';
+import { GridLayoutModel } from '../../../../observable-plot-generator/gridModel';
 
 export interface UniformResizeIntent {
   currentSize: number;

@@ -1,7 +1,7 @@
 import React from 'react';
 import * as Plot from '@observablehq/plot';
 import ObservablePlot from '../ObservablePlot';
-import { GridResultModel, getPlotGridCellAtRow } from './gridModel';
+import { GridResultModel, getPlotGridCellAtRow } from '../../../observable-plot-generator/gridModel';
 import { MIN_GRID_ROW_PX, GRID_DIVIDER_COLOR } from '../../../config/chartLayoutConfig';
 
 interface YAxesProps {

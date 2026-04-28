@@ -1,25 +1,25 @@
 /**
  * useSheetCacheCoordinator Hook
- * 
+ *
  * Coordinates sheet render cache at the VisualizationPage level.
  * Handles saving cache before sheet switch and restoring on mount.
- * 
+ *
  * This hook should be used in VisualizationPageContent to capture
- * the current queryResult and chartSpec before unmount.
+ * the current queryResult and chartGrid before unmount.
  */
 
 import { useEffect, useRef } from 'react';
 import { sheetRenderCacheStore } from '../stores';
 import { computeFullConfigHash } from '../utils/sheetConfigHash';
 import { QueryResult } from '../types';
-import { PlotResult } from '../observable-plot-generator/types';
+import { GridResultModel } from '../observable-plot-generator/gridModel';
 import { ChartAffectingConfig } from '../utils/queryAffectingConfig';
 
 type SheetCacheConfig = ChartAffectingConfig;
 
 interface CurrentState {
   queryResult: QueryResult | null;
-  chartSpec: PlotResult | null;
+  chartGrid: GridResultModel | null;
   config: SheetCacheConfig;
 }
 
@@ -55,19 +55,19 @@ export function useSheetCacheSave(
       }
       
       const configHash = computeFullConfigHash(state.config);
-      
+
       if (process.env.NODE_ENV === 'development') {
         console.log('[useSheetCacheSave] Saving cache on unmount for sheet:', currentSheetId, {
           configHash,
-          hasChartSpec: !!state.chartSpec,
+          hasChartGrid: !!state.chartGrid,
           rowCount: state.queryResult.rows?.length ?? 0,
         });
       }
-      
+
       sheetRenderCacheStore.saveCache(
         currentSheetId,
         state.queryResult,
-        state.chartSpec,
+        state.chartGrid,
         configHash
       );
     };
@@ -81,26 +81,26 @@ export function useSheetCacheSave(
 export function useSheetCacheRestore(
   sheetId: string | undefined,
   config: SheetCacheConfig
-): { queryResult: QueryResult; chartSpec: PlotResult | null } | null {
+): { queryResult: QueryResult; chartGrid: GridResultModel | null } | null {
   const configHash = computeFullConfigHash(config);
-  
+
   // Only compute once on mount
-  const cached = useRef<{ queryResult: QueryResult; chartSpec: PlotResult | null } | null>(null);
+  const cached = useRef<{ queryResult: QueryResult; chartGrid: GridResultModel | null } | null>(null);
   const hasChecked = useRef(false);
-  
+
   if (!hasChecked.current && sheetId) {
     hasChecked.current = true;
     const entry = sheetRenderCacheStore.getCache(sheetId, configHash);
     if (entry) {
       cached.current = {
         queryResult: entry.queryResult,
-        chartSpec: entry.chartSpec,
+        chartGrid: entry.chartGrid,
       };
       if (process.env.NODE_ENV === 'development') {
         console.log('[useSheetCacheRestore] Cache hit on mount for sheet:', sheetId, {
           configHash,
           rowCount: entry.queryResult.rows?.length ?? 0,
-          hasChartSpec: !!entry.chartSpec,
+          hasChartGrid: !!entry.chartGrid,
         });
       }
     } else {
@@ -109,43 +109,43 @@ export function useSheetCacheRestore(
       }
     }
   }
-  
+
   return cached.current;
 }
 
 /**
- * Hook to update the cached chart spec when it changes.
+ * Hook to update the cached chart grid when it changes.
  */
-export function useSheetCacheSpecUpdate(
+export function useSheetCacheGridUpdate(
   sheetId: string | undefined,
   queryResult: QueryResult | null,
-  chartSpec: PlotResult | null,
+  chartGrid: GridResultModel | null,
   config: SheetCacheConfig
 ) {
   const configHash = computeFullConfigHash(config);
-  const prevSpecRef = useRef<PlotResult | null>(null);
-  
+  const prevGridRef = useRef<GridResultModel | null>(null);
+
   useEffect(() => {
-    // Only update if spec actually changed and we have a queryResult
-    if (sheetId && queryResult && chartSpec && chartSpec !== prevSpecRef.current) {
-      prevSpecRef.current = chartSpec;
-      
+    // Only update if grid actually changed and we have a queryResult
+    if (sheetId && queryResult && chartGrid && chartGrid !== prevGridRef.current) {
+      prevGridRef.current = chartGrid;
+
       // Check if cache exists for this config
       const existing = sheetRenderCacheStore.getCache(sheetId, configHash);
       if (existing) {
-        // Update spec in existing cache
+        // Update grid in existing cache
         sheetRenderCacheStore.saveCache(
           sheetId,
           existing.queryResult,
-          chartSpec,
+          chartGrid,
           configHash
         );
         if (process.env.NODE_ENV === 'development') {
-          console.log('[useSheetCacheSpecUpdate] Updated cached chart spec for sheet:', sheetId);
+          console.log('[useSheetCacheGridUpdate] Updated cached chart grid for sheet:', sheetId);
         }
       }
     }
-  }, [sheetId, queryResult, chartSpec, configHash]);
+  }, [sheetId, queryResult, chartGrid, configHash]);
 }
 
 /**
@@ -154,40 +154,40 @@ export function useSheetCacheSpecUpdate(
 export function useChartAreaCache(
   sheetId: string | undefined,
   queryResult: QueryResult | null,
-  chartSpec: PlotResult | null,
+  chartGrid: GridResultModel | null,
   config: SheetCacheConfig,
   dispatch: (action: any) => void
 ): {
   /** True if cache was restored on mount */
   wasRestoredFromCache: boolean;
-  /** The restored chart spec, if any */
-  restoredChartSpec: PlotResult | null;
+  /** The restored chart grid, if any */
+  restoredChartGrid: GridResultModel | null;
 } {
   // Try to restore from cache on mount
   const cached = useSheetCacheRestore(sheetId, config);
   const restoredRef = useRef(false);
   const dispatchedRef = useRef(false);
-  
+
   // Dispatch restored queryResult once
   useEffect(() => {
     if (cached && !dispatchedRef.current) {
       dispatchedRef.current = true;
       restoredRef.current = true;
-      
+
       if (process.env.NODE_ENV === 'development') {
         console.log('[useChartAreaCache] Restoring queryResult from cache');
       }
-      
+
       // Dispatch the cached queryResult
       dispatch({ type: 'RESTORE_CACHED_QUERY_RESULT', payload: cached.queryResult });
     }
   }, [cached, dispatch]);
-  
-  // Update cached spec when it changes
-  useSheetCacheSpecUpdate(sheetId, queryResult, chartSpec, config);
-  
+
+  // Update cached grid when it changes
+  useSheetCacheGridUpdate(sheetId, queryResult, chartGrid, config);
+
   return {
     wasRestoredFromCache: restoredRef.current,
-    restoredChartSpec: cached?.chartSpec ?? null,
+    restoredChartGrid: cached?.chartGrid ?? null,
   };
 }

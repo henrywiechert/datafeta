@@ -1,5 +1,5 @@
 import { useMemo, RefObject } from 'react';
-import { GridResultModel } from '../gridModel';
+import { GridResultModel } from '../../../../observable-plot-generator/gridModel';
 import { MIN_GRID_COLUMN_PX, MIN_GRID_ROW_PX, NAMES_BAND_LEFT_PX, VALUES_BAND_LEFT_PX, VALUES_BAND_TOP_PX } from '../../../../config/chartLayoutConfig';
 import { YAxisLabelStyle, FacetLabelStyles } from '../../../../contexts/VisualizationContext/types';
 import {
