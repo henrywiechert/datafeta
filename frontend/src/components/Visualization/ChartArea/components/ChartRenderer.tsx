@@ -49,6 +49,19 @@ interface ChartRendererProps {
   };
   /** Callback for context-menu filter actions on table rows. */
   onTableCellFilterAction?: (action: TableCellFilterAction) => void;
+  /**
+   * Pager data for the 'table-refactor' chart type. When provided, a pager bar
+   * is rendered below the chart grid. `pagination.totalRowTuples` may be 0 to
+   * indicate "no data yet" (the pager renders disabled).
+   */
+  tableRefactorPagerData?: {
+    page: number;
+    pageSize: number;
+    totalRowTuples: number;
+    onPageChange: (page: number) => void;
+    onPageSizeChange: (size: number) => void;
+    loading: boolean;
+  };
 }
 
 const ChartRenderer: React.FC<ChartRendererProps> = ({
@@ -68,6 +81,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
   showTableRows = false,
   tableRowsData,
   onTableCellFilterAction,
+  tableRefactorPagerData,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   // NOTE: We intentionally do NOT dispatch global window resize events here.
@@ -115,7 +129,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
         />
       );
     }
-    return (
+    const chartGridNode = (
       <ChartGrid 
         grid={grid} 
         data={queryResult}
@@ -128,7 +142,23 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
         onBrushEnd={onBrushEnd}
       />
     );
-  }, [tableRowsContent, useTableView, tableData, grid, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete, isGanttChart, ganttZoomRange, onGanttZoomRangeChange, ganttFullDataRange, brushDisabled, onBrushEnd]);
+    if (!tableRefactorPagerData) return chartGridNode;
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          {chartGridNode}
+        </Box>
+        <TableRowsPagination
+          page={tableRefactorPagerData.page}
+          pageSize={tableRefactorPagerData.pageSize}
+          totalRows={tableRefactorPagerData.totalRowTuples}
+          onPageChange={tableRefactorPagerData.onPageChange}
+          onPageSizeChange={tableRefactorPagerData.onPageSizeChange}
+          loading={tableRefactorPagerData.loading}
+        />
+      </Box>
+    );
+  }, [tableRowsContent, useTableView, tableData, grid, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete, isGanttChart, ganttZoomRange, onGanttZoomRangeChange, ganttFullDataRange, brushDisabled, onBrushEnd, tableRefactorPagerData]);
 
   return (
     <Box 
@@ -171,6 +201,7 @@ export default React.memo(ChartRenderer, (prevProps, nextProps) => {
     prevProps.brushDisabled === nextProps.brushDisabled &&
     prevProps.showTableRows === nextProps.showTableRows &&
     prevProps.tableRowsData === nextProps.tableRowsData &&
-    prevProps.onTableCellFilterAction === nextProps.onTableCellFilterAction
+    prevProps.onTableCellFilterAction === nextProps.onTableCellFilterAction &&
+    prevProps.tableRefactorPagerData === nextProps.tableRefactorPagerData
   );
 }); 

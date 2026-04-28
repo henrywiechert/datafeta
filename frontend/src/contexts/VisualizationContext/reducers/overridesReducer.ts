@@ -72,6 +72,16 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
         tableCellMode: action.payload,
       };
     }
+    case 'SET_TABLE_PAGE': {
+      // Pager navigation does not bump queryVersion; the chart pipeline reacts to
+      // the changed page index via cache key + generator slicing.
+      const next = Math.max(0, Math.floor(action.payload));
+      if (next === state.tablePage) return state;
+      return {
+        ...state,
+        tablePage: next,
+      };
+    }
     // --- Overlay actions (visual-only, no query version bump) ---
     case 'SET_OVERLAYS':
       return { ...state, overlays: action.payload };

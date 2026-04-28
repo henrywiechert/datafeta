@@ -380,4 +380,134 @@ describe('generateTableGrid', () => {
       expect(cell.content.rows[0].label).toBe('SUM(sales)');
     });
   });
+
+  describe('pagination (PR 8)', () => {
+    /**
+     * Build a deterministic 5-row / 1-col data set so we can assert which
+     * row-tuples appear on each page.
+     */
+    function buildPagedContext(extra: Partial<ChartGenerationContext> = {}): ChartGenerationContext {
+      const region = dimField('dim-region', 'region');
+      const year = dimField('dim-year', 'year', 'integer');
+      const rows = [
+        { region: 'A', year: 2020 },
+        { region: 'B', year: 2020 },
+        { region: 'C', year: 2020 },
+        { region: 'D', year: 2020 },
+        { region: 'E', year: 2020 },
+      ];
+      return buildContext({
+        xFields: [year],
+        yFields: [region],
+        rows,
+        ...extra,
+      });
+    }
+
+    it('omits pagination metadata when tablePageSize is not set', () => {
+      const grid = generateTableGrid(buildPagedContext());
+      expect(grid.pagination).toBeUndefined();
+      // Unpaged: all 5 row-tuples should be present.
+      expect(grid.layout.rows).toBe(5);
+    });
+
+    it('omits pagination metadata when tablePageSize is zero or negative', () => {
+      const zero = generateTableGrid(buildPagedContext({ tablePageSize: 0, tablePage: 0 }));
+      const negative = generateTableGrid(buildPagedContext({ tablePageSize: -10, tablePage: 0 }));
+      expect(zero.pagination).toBeUndefined();
+      expect(negative.pagination).toBeUndefined();
+      expect(zero.layout.rows).toBe(5);
+      expect(negative.layout.rows).toBe(5);
+    });
+
+    it('slices row-tuples to the first page when tablePage is 0', () => {
+      const grid = generateTableGrid(buildPagedContext({ tablePageSize: 2, tablePage: 0 }));
+      expect(grid.pagination).toEqual({ totalRowTuples: 5, pageSize: 2, page: 0 });
+      expect(grid.layout.rows).toBe(2);
+      expect(grid.headers?.rows?.levels[0].values).toEqual(['A', 'B']);
+      // 2 rows × 1 col = 2 cells.
+      expect(grid.cells).toHaveLength(2);
+    });
+
+    it('slices row-tuples to a middle page', () => {
+      const grid = generateTableGrid(buildPagedContext({ tablePageSize: 2, tablePage: 1 }));
+      expect(grid.pagination).toEqual({ totalRowTuples: 5, pageSize: 2, page: 1 });
+      expect(grid.headers?.rows?.levels[0].values).toEqual(['C', 'D']);
+    });
+
+    it('returns a partial last page when totalRowTuples is not divisible by pageSize', () => {
+      const grid = generateTableGrid(buildPagedContext({ tablePageSize: 2, tablePage: 2 }));
+      expect(grid.pagination).toEqual({ totalRowTuples: 5, pageSize: 2, page: 2 });
+      // Only one row-tuple ('E') remains on page 2.
+      expect(grid.layout.rows).toBe(1);
+      expect(grid.headers?.rows?.levels[0].values).toEqual(['E']);
+    });
+
+    it('clamps an out-of-range page index to the last valid page', () => {
+      const grid = generateTableGrid(buildPagedContext({ tablePageSize: 2, tablePage: 99 }));
+      // 5 row-tuples / pageSize 2 → 3 pages → last valid page index is 2.
+      expect(grid.pagination).toEqual({ totalRowTuples: 5, pageSize: 2, page: 2 });
+      expect(grid.headers?.rows?.levels[0].values).toEqual(['E']);
+    });
+
+    it('treats a negative page index as 0', () => {
+      const grid = generateTableGrid(buildPagedContext({ tablePageSize: 2, tablePage: -3 }));
+      expect(grid.pagination).toEqual({ totalRowTuples: 5, pageSize: 2, page: 0 });
+      expect(grid.headers?.rows?.levels[0].values).toEqual(['A', 'B']);
+    });
+
+    it('reports totalRowTuples even when the page is past the data', () => {
+      const grid = generateTableGrid(buildPagedContext({ tablePageSize: 100, tablePage: 0 }));
+      expect(grid.pagination?.totalRowTuples).toBe(5);
+      // Page size larger than data → all rows on a single page.
+      expect(grid.layout.rows).toBe(5);
+    });
+
+    it('only paginates row-tuples (columns are unaffected)', () => {
+      const region = dimField('dim-region', 'region');
+      const year = dimField('dim-year', 'year', 'integer');
+      const rows = [
+        { region: 'A', year: 2020 }, { region: 'A', year: 2021 },
+        { region: 'B', year: 2020 }, { region: 'B', year: 2021 },
+        { region: 'C', year: 2020 }, { region: 'C', year: 2021 },
+      ];
+      const grid = generateTableGrid(buildContext({
+        xFields: [year],
+        yFields: [region],
+        rows,
+        tablePageSize: 2,
+        tablePage: 0,
+      }));
+      // 2 row-tuples × 2 col-tuples = 4 cells; the col axis is not sliced.
+      expect(grid.layout.rows).toBe(2);
+      expect(grid.layout.columns).toBe(2);
+      expect(grid.cells).toHaveLength(4);
+      expect(grid.headers?.cols?.levels[0].values).toEqual([2020, 2021]);
+    });
+
+    it('preserves pagination semantics for text-mode cells', () => {
+      const region = dimField('dim-region', 'region');
+      const sales = measureField('m-sales', 'sales');
+      const rows = [
+        { region: 'A', 'SUM(sales)': 10 },
+        { region: 'B', 'SUM(sales)': 20 },
+        { region: 'C', 'SUM(sales)': 30 },
+      ];
+      const grid = generateTableGrid(buildContext({
+        yFields: [region],
+        xFields: [sales],
+        rows,
+        tableCellMode: 'text',
+        tablePageSize: 2,
+        tablePage: 1,
+      }));
+      // 2nd page contains only 'C' → 1 row-tuple × 1 col-tuple = 1 cell.
+      expect(grid.pagination).toEqual({ totalRowTuples: 3, pageSize: 2, page: 1 });
+      expect(grid.layout.rows).toBe(1);
+      expect(grid.cells).toHaveLength(1);
+      const cell = grid.cells[0] as TextGridCellModel;
+      expect(cell.content.kind).toBe('text');
+      expect(cell.content.rows[0].value).toBe('30');
+    });
+  });
 });

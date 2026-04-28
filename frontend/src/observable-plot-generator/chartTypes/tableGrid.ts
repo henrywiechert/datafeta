@@ -16,6 +16,14 @@
  *
  * Both modes share the same row/column header construction. Headers come from
  * the discrete dimensions on the Y/X axes, in declaration order.
+ *
+ * Pagination (PR 8): when `tablePageSize` is supplied via the generation
+ * context, the generator pages over the *distinct row-tuples* (i.e. the rows
+ * of the rendered table, not over data rows). The current page is given by
+ * `tablePage` (0-based). The full data set is still buffered locally in this
+ * frontend-side implementation; a future PR can swap the data fetch for true
+ * server-side LIMIT/OFFSET. The page metadata is exposed via
+ * `GridResultModel.pagination` so the pager UI can drive itself off of it.
  */
 
 import { Field, TableCellMode } from '../../types';
@@ -474,24 +482,64 @@ function buildTextModeCells(
 }
 
 /**
+ * Sanitize a raw page-size value. Non-positive / non-finite inputs disable
+ * pagination (returns 0).
+ */
+function sanitizePageSize(raw: number | undefined): number {
+  if (raw === undefined || !Number.isFinite(raw) || raw <= 0) return 0;
+  return Math.floor(raw);
+}
+
+/**
+ * Clamp a page index into [0, lastValidPage]. Falls back to 0 when pagination
+ * is disabled or the input is invalid.
+ */
+function sanitizePage(raw: number | undefined, total: number, pageSize: number): number {
+  if (pageSize <= 0) return 0;
+  const idx = Number.isFinite(raw) && (raw as number) >= 0 ? Math.floor(raw as number) : 0;
+  const lastValid = Math.max(0, Math.ceil(total / pageSize) - 1);
+  return Math.min(idx, lastValid);
+}
+
+/**
  * Generate a table grid as a `GridResultModel`.
  *
  * Dispatches between `text` and `symbol` cell modes via `resolveTableCellMode`.
  * Both modes share the same row/column header construction and bucketing
  * skeleton; only the per-cell content differs.
+ *
+ * When `tablePageSize > 0` is provided in the context, the generator slices
+ * the distinct row-tuples to the requested page window. The full data set is
+ * still bucketed (cells outside the page window are simply not emitted). The
+ * total row-tuple count and effective page index are surfaced via the
+ * `pagination` field on the returned grid for the UI pager.
  */
 export function generateTableGrid(context: ChartGenerationContext): GridResultModel {
   const data = Array.isArray(context.queryResult?.rows) ? context.queryResult.rows : [];
   const facetCtx = buildFacetSpaceContext(context, data);
   const mode = resolveTableCellMode(context, context.tableCellMode ?? 'auto');
 
+  const totalRowTuples = facetCtx.rowTuples.length;
+  const pageSize = sanitizePageSize(context.tablePageSize);
+  const page = sanitizePage(context.tablePage, totalRowTuples, pageSize);
+
+  const pagedFacetCtx: FacetSpaceContext = pageSize > 0
+    ? {
+        ...facetCtx,
+        rowTuples: facetCtx.rowTuples.slice(page * pageSize, (page + 1) * pageSize),
+      }
+    : facetCtx;
+
   const cells = mode === 'text'
-    ? buildTextModeCells(facetCtx, data, context)
-    : buildSymbolModeCells(facetCtx, data, context);
+    ? buildTextModeCells(pagedFacetCtx, data, context)
+    : buildSymbolModeCells(pagedFacetCtx, data, context);
 
   return {
     cells,
-    layout: buildLayout(facetCtx.rowTuples.length, facetCtx.colTuples.length),
-    headers: buildHeadersForFacetSpace(facetCtx, context),
+    layout: buildLayout(pagedFacetCtx.rowTuples.length, pagedFacetCtx.colTuples.length),
+    headers: buildHeadersForFacetSpace(pagedFacetCtx, context),
+    pagination: pageSize > 0
+      ? { totalRowTuples, pageSize, page }
+      : undefined,
   };
 }

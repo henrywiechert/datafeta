@@ -109,6 +109,9 @@ export interface VisualizationState {
   distributionVariant: DistributionVariant;
   // Cell rendering mode for the 'table-refactor' chart type
   tableCellMode: TableCellMode;
+  // Current page index for the 'table-refactor' chart type pager (0-based).
+  // Page size is a global user setting (see useTablePageSize), not per-sheet.
+  tablePage: number;
   // Table rows view mode (raw data table)
   showTableRows: boolean;
   queryVersion: number;
@@ -210,6 +213,8 @@ export type VisualizationAction =
   | { type: 'SET_GLOBAL_CHART_TYPE'; payload: UserChartType | null }
   | { type: 'SET_DISTRIBUTION_VARIANT'; payload: DistributionVariant }
   | { type: 'SET_TABLE_CELL_MODE'; payload: TableCellMode }
+  // Table-refactor pagination
+  | { type: 'SET_TABLE_PAGE'; payload: number }
   // Table rows view mode action
   | { type: 'SET_SHOW_TABLE_ROWS'; payload: boolean }
   // Query optimization settings
@@ -234,6 +239,7 @@ export type VisualizationAction =
       globalChartType?: UserChartType | null;
       distributionVariant?: DistributionVariant;
       tableCellMode?: TableCellMode;
+      tablePage?: number;
       axisLabelStyles?: AxisLabelStyles;
       facetLabelStyles?: FacetLabelStyles;
       facetBackgroundField?: Field | null;

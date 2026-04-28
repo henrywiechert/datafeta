@@ -28,6 +28,10 @@ interface UseChartGenerationProps {
   globalChartType?: UserChartType | null;
   distributionVariant?: DistributionVariant;
   tableCellMode?: TableCellMode;
+  /** 0-based page index for the 'table-refactor' chart type pager. */
+  tablePage?: number;
+  /** Rows-per-page (global user setting) for the 'table-refactor' chart type. */
+  tablePageSize?: number;
   measureValuesSourceFields?: Field[];
   independentDomains?: { x?: boolean; y?: boolean };
   ganttZoomRange?: GanttZoomRange | null;
@@ -63,6 +67,8 @@ export const useChartGeneration = ({
   globalChartType,
   distributionVariant = 'tick-strip',
   tableCellMode = 'auto',
+  tablePage,
+  tablePageSize,
   measureValuesSourceFields = [],
   independentDomains,
   ganttZoomRange,
@@ -226,6 +232,8 @@ export const useChartGeneration = ({
         globalChartType,
         distributionVariant,
         tableCellMode,
+        tablePage,
+        tablePageSize,
         measureValuesSourceFields,
         independentDomains,
         ganttZoomRange: ganttZoomRangeRef.current,
@@ -288,7 +296,7 @@ export const useChartGeneration = ({
       // On error, complete the operation immediately since no rendering will happen
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, channels, useTableView, showTableRows, startOperation, completeOperation, queryResult, queryVersion, fieldOverrides, globalChartType, distributionVariant, tableCellMode, measureValuesSourceFields, independentDomains, doGenerateChart, fieldAliasLookup, overlays, viewSpec]);
+  }, [xAxisFields, yAxisFields, channels, useTableView, showTableRows, startOperation, completeOperation, queryResult, queryVersion, fieldOverrides, globalChartType, distributionVariant, tableCellMode, tablePage, tablePageSize, measureValuesSourceFields, independentDomains, doGenerateChart, fieldAliasLookup, overlays, viewSpec]);
 
   const cancelGeneration = useCallback(() => {
     // No-op since Observable Plot generation is synchronous

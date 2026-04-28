@@ -42,6 +42,7 @@ function createEmptyVisualizationState(): VisualizationStateSnapshot {
     globalChartType: null,
     distributionVariant: 'tick-strip',
     tableCellMode: 'auto',
+    tablePage: 0,
     selectedChartType: 'auto',
     independentDomains: { x: false, y: false },
     tooltipFields: [],

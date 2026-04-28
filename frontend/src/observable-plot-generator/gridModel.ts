@@ -164,6 +164,20 @@ export interface GridResultModel {
    * Not used by ChartGrid itself.
    */
   sharedDomains?: { byMeasure?: Record<string, [number, number]> };
+  /**
+   * Pagination metadata for the 'table-refactor' chart type.
+   * Populated by `generateTableGrid` when a non-zero `tablePageSize` is supplied
+   * via `ChartGenerationContext`. Consumers (e.g. ChartArea pager UI) read this
+   * to drive a pager component. Absent for non-paged chart kinds.
+   */
+  pagination?: {
+    /** Total number of distinct row-tuples in the underlying data set. */
+    totalRowTuples: number;
+    /** Number of row-tuples requested per page (sanitized). */
+    pageSize: number;
+    /** 0-based page index that produced these cells (sanitized). */
+    page: number;
+  };
 }
 
 export function isPlotGridCell(cell: GridCellModel): cell is PlotGridCellModel {
