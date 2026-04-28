@@ -68,11 +68,11 @@ ChartArea/
 │             ▼                                                               │
 │  ┌──────────────────────┐    ┌──────────────────────┐                       │
 │  │ useDataProcessing    │    │ useChartGeneration   │                       │
-│  │  • useTableView      │───▶│  • spec (PlotResult) │ Observable Plot spec  │
-│  │  • tableData         │    │  • facet validation  │                       │
+│  │  • useTableView      │───▶│  • grid (Grid        │ Canonical grid model  │
+│  │  • tableData         │    │     ResultModel)     │                       │
 │  │  • cleanedResult     │    │  • facetLimitWarning │                       │
 │  └──────────────────────┘    └──────────┬───────────┘                       │
-│                                         │ spec                              │
+│                                         │ grid                              │
 │             ┌───────────────────────────┴──────────────┐                    │
 │             ▼                                          ▼                    │
 │  ┌──────────────────────┐              ┌────────────────────────┐           │
@@ -89,7 +89,7 @@ ChartArea/
 │  ChartRenderer       │  ChartControls       │  DebugPanel                   │
 │  ┌────────────────┐  │  • Undo/Redo buttons │  • SQL query display          │
 │  │ if tableView:  │  │  • Swap axes         │  • Query result               │
-│  │  TableViewLazy │  │  • Fullscreen toggle │  • Chart spec                 │
+│  │  TableViewLazy │  │  • Fullscreen toggle │  • Grid result                │
 │  │ else:          │  │  • Debug toggle      │  • Optimization hints         │
 │  │  ChartGrid     │  │  • Independent axis  │                               │
 │  │  BarSortControl│  │    toggles           │                               │
@@ -114,7 +114,7 @@ ChartArea/
 | `useQueryExecutor` | queryDescription, filters, fields, hints | `executeQuery()`, `lastQueryDecision` | `useQueryExecution` |
 | `useQueryExecution` | table, fields, filters, dispatch | `queryDescription`, `optimizationHints`, `lastQueryDecision` | `ChartArea` |
 | `useDataProcessing` | fields, queryResult | `useTableView`, `tableData` | `ChartArea` |
-| `useChartGeneration` | fields, colors, sizes, queryResult, overrides | `spec`, `chartInfo`, `facetLimitWarning` | `ChartArea` |
+| `useChartGeneration` | fields, colors, sizes, queryResult, overrides | `grid`, `chartInfo`, `facetLimitWarning` | `ChartArea` |
 | `useDebugView` | (none) | `isDebugOpen`, `debugHeight`, `toggleDebugView` | `ChartArea` |
 | `useFullscreen` | elementRef | `isFullscreen`, `toggleFullscreen` | `ChartArea` |
 
