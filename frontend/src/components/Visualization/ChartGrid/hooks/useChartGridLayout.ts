@@ -1,5 +1,5 @@
 import { useMemo, RefObject } from 'react';
-import { PlotResult } from '../../../../observable-plot-generator/types';
+import { GridResultModel } from '../gridModel';
 import { MIN_GRID_COLUMN_PX, MIN_GRID_ROW_PX, NAMES_BAND_LEFT_PX, VALUES_BAND_LEFT_PX, VALUES_BAND_TOP_PX } from '../../../../config/chartLayoutConfig';
 import { YAxisLabelStyle, FacetLabelStyles } from '../../../../contexts/VisualizationContext/types';
 import {
@@ -44,7 +44,7 @@ export interface LayoutCalculations {
  * Memoized to prevent cascading re-renders
  */
 export function useChartGridLayout(
-  spec: PlotResult | null,
+  grid: GridResultModel | null,
   userCellWidth: number | null,
   userCellHeight: number | null,
   rowHeightPx: number,
@@ -53,15 +53,15 @@ export function useChartGridLayout(
   facetLabelStyles?: FacetLabelStyles
 ): LayoutCalculations | null {
   return useMemo(() => {
-    if (!spec || !spec.plots || spec.plots.length === 0) {
+    if (!grid || grid.cells.length === 0) {
       return null;
     }
 
-    const layoutType = spec.layout?.type || 'grid';
-    const columns = spec.layout?.columns || 1;
-    const rows = spec.layout?.rows || 1;
-    const columnSizes = spec.layout?.columnSizes;
-    const rowSizes = spec.layout?.rowSizes;
+    const layoutType = grid.layout?.type || 'grid';
+    const columns = grid.layout?.columns || 1;
+    const rows = grid.layout?.rows || 1;
+    const columnSizes = grid.layout?.columnSizes;
+    const rowSizes = grid.layout?.rowSizes;
     const minColumnPx = MIN_GRID_COLUMN_PX;
 
     // CRITICAL: Calculate rowHeightPx synchronously during render
@@ -100,7 +100,7 @@ export function useChartGridLayout(
 
     // Inferred row sizes
     const inferredRowSizes = inferRowSizes(
-      spec,
+      grid,
       rows,
       rowSizes,
       userCellHeight,
@@ -111,24 +111,24 @@ export function useChartGridLayout(
     const actualRowHeights = getActualRowHeights(inferredRowSizes, calculatedRowHeightPx);
 
     // Facet label helpers
-    const colLevels = spec.facetLabels?.colsLevels || [];
-    const rowLevels = spec.facetLabels?.rowsLevels || [];
+    const colLevels = grid.headers?.cols?.levels || [];
+    const rowLevels = grid.headers?.rows?.levels || [];
     const hasRowFacets = rowLevels.length > 0;
-    const baseCols = spec.facetLabels?.spans?.baseCols || 1;
-    const baseRows = spec.facetLabels?.spans?.baseRows || 1;
+    const baseCols = grid.headers?.cols?.baseSpan || 1;
+    const baseRows = grid.headers?.rows?.baseSpan || 1;
     const yLevelsCount = rowLevels.length;
-    
+
     // Facet dimensions - use style overrides or fall back to constants
     const facetLeftHeaderPx = facetLabelStyles?.leftHeader.widthPx ?? NAMES_BAND_LEFT_PX;
     const facetLeftValuesPx = facetLabelStyles?.leftValues.widthPx ?? VALUES_BAND_LEFT_PX;
     const facetTopValuesPx = facetLabelStyles?.topValues.heightPx ?? VALUES_BAND_TOP_PX;
-    
+
     const leftLabelsPx = hasRowFacets ? facetLeftHeaderPx + facetLeftValuesPx * yLevelsCount : 0;
 
     // Dynamic gutters
-    const dynamicYAxisPx = computeDynamicYAxisGutterPx(spec, rows);
-    const dynamicXAxisPx = computeDynamicXAxisGutterPx(spec, columns);
-    const yLabelColPx = computeDynamicYLabelColPx(spec, calculatedRowHeightPx, yAxisLabelStyle);
+    const dynamicYAxisPx = computeDynamicYAxisGutterPx(grid, rows);
+    const dynamicXAxisPx = computeDynamicXAxisGutterPx(grid, columns);
+    const yLabelColPx = computeDynamicYLabelColPx(grid, calculatedRowHeightPx, yAxisLabelStyle);
     const leftFixedWidthPx = leftLabelsPx + yLabelColPx + dynamicYAxisPx;
     const topHeaderHeight = colLevels.length > 0 ? 20 + (colLevels.length * facetTopValuesPx) : 0;
 
@@ -166,7 +166,7 @@ export function useChartGridLayout(
       facetTopValuesPx,
     };
   }, [
-    spec,
+    grid,
     userCellWidth,
     userCellHeight,
     rowHeightPx,

@@ -1,12 +1,18 @@
 import React from 'react';
 import { act, cleanup, render } from '@testing-library/react';
-import { PlotResult } from '../../../../observable-plot-generator/types';
+import { GridLayoutModel, GridResultModel } from '../gridModel';
 import { CellSizeOverrides, useCellSizeOverrides } from './useCellSizeOverrides';
 
-function buildSpec(overrides: Partial<PlotResult['layout']> = {}): PlotResult {
+function buildGrid(overrides: Partial<GridLayoutModel> = {}): GridResultModel {
   return {
-    library: 'observable-plot',
-    plots: [{ id: 'plot', title: 'Plot', options: {}, position: { row: 0, col: 0 } }],
+    cells: [
+      {
+        id: 'plot',
+        position: { row: 0, col: 0 },
+        content: { kind: 'plot', options: {} },
+        metadata: { title: 'Plot' },
+      },
+    ],
     layout: {
       type: 'grid',
       columns: 2,
@@ -21,8 +27,8 @@ function buildSpec(overrides: Partial<PlotResult['layout']> = {}): PlotResult {
 describe('useCellSizeOverrides', () => {
   let latest: CellSizeOverrides;
 
-  const Harness: React.FC<{ spec: PlotResult }> = ({ spec }) => {
-    latest = useCellSizeOverrides(spec);
+  const Harness: React.FC<{ grid: GridResultModel }> = ({ grid }) => {
+    latest = useCellSizeOverrides(grid);
     return null;
   };
 
@@ -31,7 +37,7 @@ describe('useCellSizeOverrides', () => {
   });
 
   it('applies one clamped column and row size from resize intents', () => {
-    render(<Harness spec={buildSpec({ minColumnSizes: [80], minRowSizes: [70] })} />);
+    render(<Harness grid={buildGrid({ minColumnSizes: [80], minRowSizes: [70] })} />);
 
     act(() => latest.handleColumnResize({ currentSize: 120, delta: 44.4 }));
     act(() => latest.handleRowResize({ currentSize: 100, delta: -50 }));
@@ -42,7 +48,7 @@ describe('useCellSizeOverrides', () => {
   });
 
   it('uses the same clamped size for drag previews and committed resizes', () => {
-    render(<Harness spec={buildSpec({ minColumnSizes: [90], minRowSizes: [60] })} />);
+    render(<Harness grid={buildGrid({ minColumnSizes: [90], minRowSizes: [60] })} />);
 
     const columnIntent = { currentSize: 100, delta: -25 };
     const rowIntent = { currentSize: 100, delta: 23.6 };
@@ -58,7 +64,7 @@ describe('useCellSizeOverrides', () => {
   });
 
   it('resets explicit sizes manually and when the generated layout sizing contract changes', () => {
-    const { rerender } = render(<Harness spec={buildSpec()} />);
+    const { rerender } = render(<Harness grid={buildGrid()} />);
 
     act(() => latest.handleColumnResize({ currentSize: 120, delta: 20 }));
     act(() => latest.handleRowResize({ currentSize: 120, delta: 30 }));
@@ -69,7 +75,7 @@ describe('useCellSizeOverrides', () => {
     expect(latest.userCellHeight).toBeNull();
 
     act(() => latest.handleColumnResize({ currentSize: 120, delta: 20 }));
-    rerender(<Harness spec={buildSpec({ minColumnSizes: [100] })} />);
+    rerender(<Harness grid={buildGrid({ minColumnSizes: [100] })} />);
 
     expect(latest.userCellWidth).toBeNull();
     expect(latest.userCellHeight).toBeNull();

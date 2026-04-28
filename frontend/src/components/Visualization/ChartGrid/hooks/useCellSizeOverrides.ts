@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { PlotResult } from '../../../../observable-plot-generator/types';
+import { GridResultModel } from '../gridModel';
 import {
   getUniformCellSizeConstraints,
   resolveUniformColumnSize,
@@ -20,30 +20,30 @@ export interface CellSizeOverrides {
 
 /**
  * Hook for managing user-controlled cell size overrides
- * Resets automatically when spec layout changes
- * 
+ * Resets automatically when grid layout changes
+ *
  * Minimum size is based on layout.minRowSizes/minColumnSizes (e.g., categories * MIN_BAR_STEP_PX)
  * rather than a fixed value, so bar charts with more categories have a larger minimum.
  */
-export function useCellSizeOverrides(spec: PlotResult | null): CellSizeOverrides {
+export function useCellSizeOverrides(grid: GridResultModel | null): CellSizeOverrides {
   const [userCellWidth, setUserCellWidth] = useState<number | null>(null);
   const [userCellHeight, setUserCellHeight] = useState<number | null>(null);
 
   const constraints = useMemo(
-    () => getUniformCellSizeConstraints(spec?.layout),
-    [spec?.layout]
+    () => getUniformCellSizeConstraints(grid?.layout),
+    [grid?.layout]
   );
 
   const layoutSignature = useMemo(
     () => JSON.stringify({
-      columns: spec?.layout?.columns,
-      rows: spec?.layout?.rows,
-      columnSizes: spec?.layout?.columnSizes,
-      rowSizes: spec?.layout?.rowSizes,
-      minColumnSizes: spec?.layout?.minColumnSizes,
-      minRowSizes: spec?.layout?.minRowSizes,
+      columns: grid?.layout?.columns,
+      rows: grid?.layout?.rows,
+      columnSizes: grid?.layout?.columnSizes,
+      rowSizes: grid?.layout?.rowSizes,
+      minColumnSizes: grid?.layout?.minColumnSizes,
+      minRowSizes: grid?.layout?.minRowSizes,
     }),
-    [spec?.layout]
+    [grid?.layout]
   );
 
   // Reset user overrides when the generated grid shape or sizing contract changes.

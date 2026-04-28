@@ -1,16 +1,15 @@
-import { PlotResult } from '../../../../observable-plot-generator/types';
+import {
+  GridResultModel,
+  getPlotGridCellAtCol,
+  getPlotGridCellAtRow,
+  usesOnlyAxislessRenderers,
+} from '../gridModel';
 import { MIN_GRID_ROW_PX } from '../../../../config/chartLayoutConfig';
 import { YAxisLabelStyle } from '../../../../contexts/VisualizationContext/types';
 import type { CSSProperties } from 'react';
 
 const TEXT_PX_PER_CHAR = 6; // conservative estimate for 12-14px font
 const MIN_Y_AXIS_GUTTER_PX = 28;
-
-function usesOnlyAxislessRenderers(spec: PlotResult): boolean {
-  return (spec.plots || []).length > 0 && (spec.plots || []).every((plot: any) =>
-    plot.renderer === 'pie-svg' || plot.options?.__hideExternalAxes
-  );
-}
 
 /**
  * Estimate pixel width of text based on character count
@@ -23,13 +22,12 @@ export function estimateTextPx(text?: string): number {
 /**
  * Calculate dynamic Y-axis gutter width based on label content
  */
-export function computeDynamicYAxisGutterPx(spec: PlotResult, rows: number): number {
-  if (usesOnlyAxislessRenderers(spec)) return 0;
+export function computeDynamicYAxisGutterPx(grid: GridResultModel | null, rows: number): number {
+  if (usesOnlyAxislessRenderers(grid)) return 0;
   let maxWidth = MIN_Y_AXIS_GUTTER_PX;
-  const plots = spec.plots || [];
   for (let r = 0; r < rows; r++) {
-    const sample = plots.find((p) => p.position?.row === r);
-    const yOpts: any = (sample as any)?.options?.y || {};
+    const sample = getPlotGridCellAtRow(grid, r);
+    const yOpts: any = sample?.content.options?.y || {};
     const yType = yOpts?.type;
     const yDomain = yOpts?.domain as any;
     let tickWidth = 0;
@@ -51,13 +49,12 @@ export function computeDynamicYAxisGutterPx(spec: PlotResult, rows: number): num
 /**
  * Calculate dynamic X-axis gutter height based on label content
  */
-export function computeDynamicXAxisGutterPx(spec: PlotResult, columns: number): number {
-  if (usesOnlyAxislessRenderers(spec)) return 0;
+export function computeDynamicXAxisGutterPx(grid: GridResultModel | null, columns: number): number {
+  if (usesOnlyAxislessRenderers(grid)) return 0;
   let maxHeight = 24; // baseline
-  const plots = spec.plots || [];
   for (let c = 0; c < columns; c++) {
-    const sample = plots.find((p) => p.position?.col === c);
-    const xOpts: any = (sample as any)?.options?.x || {};
+    const sample = getPlotGridCellAtCol(grid, c);
+    const xOpts: any = sample?.content.options?.x || {};
     const xType = xOpts?.type;
     const xDomain = xOpts?.domain as any;
     let height = 24;
@@ -90,26 +87,21 @@ const MIN_Y_LABEL_COL_PX = 16;
 /**
  * Calculate dynamic Y-label column width based on label length and available row height.
  * Supports configurable orientation and manual width override.
- * 
- * @param spec - Plot result containing layout and plots
- * @param rowHeightPx - Available row height in pixels
- * @param labelStyle - Optional Y-axis label style configuration
  */
 export function computeDynamicYLabelColPx(
-  spec: PlotResult,
+  grid: GridResultModel | null,
   rowHeightPx: number,
   labelStyle?: YAxisLabelStyle
 ): number {
-  if (usesOnlyAxislessRenderers(spec)) return 0;
+  if (usesOnlyAxislessRenderers(grid)) return 0;
   const style = labelStyle || DEFAULT_Y_AXIS_LABEL_STYLE;
-  
+
   // If manual width override is set, use it directly
   if (style.widthPx !== null) {
     return style.widthPx;
   }
-  
-  const rows = spec.layout?.rows || 1;
-  const plots = spec.plots || [];
+
+  const rows = grid?.layout.rows || 1;
   let maxLabelWidth = MIN_Y_LABEL_COL_PX;
 
   const fontSize = style.fontSize;
@@ -117,37 +109,33 @@ export function computeDynamicYLabelColPx(
   const CHAR_WIDTH_RATIO = 0.6; // Approximate character width relative to font size
 
   for (let r = 0; r < rows; r++) {
-    const sample = plots.find((p) => p.position?.row === r);
-    const yOpts: any = (sample as any)?.options?.y || {};
+    const sample = getPlotGridCellAtRow(grid, r);
+    const yOpts: any = sample?.content.options?.y || {};
     const yLabel = yOpts?.label as string | undefined;
 
     if (yLabel && yLabel.length > 0) {
       let requiredWidth: number;
-      
+
       if (style.orientation === 'horizontal') {
-        // Horizontal text: width based on text length
         const charWidth = fontSize * CHAR_WIDTH_RATIO;
         requiredWidth = yLabel.length * charWidth + 8; // Add padding
       } else {
-        // Vertical text: width based on how many text columns we need
-        // to fit the text within the row height
         if (rowHeightPx > 0) {
           const charHeight = fontSize;
           const charsPerColumn = Math.max(1, Math.floor(rowHeightPx / charHeight));
           const requiredColumns = Math.ceil(yLabel.length / charsPerColumn);
           requiredWidth = requiredColumns * fontSize * LINE_HEIGHT;
         } else {
-          // Fallback if row height not available
           requiredWidth = fontSize * LINE_HEIGHT;
         }
       }
-      
+
       if (requiredWidth > maxLabelWidth) {
         maxLabelWidth = requiredWidth;
       }
     }
   }
-  
+
   return Math.ceil(maxLabelWidth);
 }
 
@@ -174,11 +162,11 @@ export function computeTotalContentWidth(
   if (userCellWidth !== null) {
     return columns * userCellWidth;
   }
-  
+
   if (!columnSizes || columnSizes.length === 0) {
     return columns * minColumnPx;
   }
-  
+
   let sum = 0;
   for (let i = 0; i < Math.min(columns, columnSizes.length); i++) {
     const c = columnSizes[i];
@@ -200,26 +188,26 @@ export function generateColumnTemplate(
   if (userCellWidth !== null) {
     return `repeat(${columns}, ${userCellWidth}px)`;
   }
-  
+
   if (layoutType === 'vertical') {
     return `minmax(${minColumnPx}px, 1fr)`;
   }
-  
+
   if (columnSizes && columnSizes.length > 0) {
     return columnSizes
       .slice(0, columns)
       .map((c) => (typeof c === 'number' ? `${c}px` : `minmax(${minColumnPx}px, 1fr)`))
       .join(' ');
   }
-  
+
   return `repeat(${columns}, minmax(${minColumnPx}px, 1fr))`;
 }
 
 /**
- * Infer row sizes from spec or use calculated height
+ * Infer row sizes from grid cells or use calculated height
  */
 export function inferRowSizes(
-  spec: PlotResult,
+  grid: GridResultModel | null,
   rows: number,
   rowSizes: Array<number | 'fr'> | undefined,
   userCellHeight: number | null,
@@ -228,16 +216,16 @@ export function inferRowSizes(
   if (userCellHeight !== null) {
     return Array(rows).fill(userCellHeight);
   }
-  
+
   const sizes: Array<number | 'fr'> = [];
   for (let r = 0; r < rows; r++) {
-    const sample = spec.plots?.find((p) => p.position?.row === r);
-    const h = (sample as any)?.options?.height;
+    const sample = getPlotGridCellAtRow(grid, r);
+    const h = (sample?.content.options as any)?.height;
     sizes.push(
-      typeof h === 'number' 
-        ? h 
-        : rowSizes && typeof rowSizes[r] === 'number' 
-          ? (rowSizes[r] as number) 
+      typeof h === 'number'
+        ? h
+        : rowSizes && typeof rowSizes[r] === 'number'
+          ? (rowSizes[r] as number)
           : calculatedRowHeightPx
     );
   }

@@ -1,4 +1,4 @@
-import { PlotResult } from '../../../../observable-plot-generator/types';
+import { GridResultModel } from '../gridModel';
 import {
   buildPlotGridSizingStyle,
   computeTotalContentWidth,
@@ -8,13 +8,27 @@ import {
   inferRowSizes,
 } from './layoutUtils';
 
-function buildSpec(overrides: Partial<PlotResult> = {}): PlotResult {
+function buildGrid(overrides: Partial<GridResultModel> = {}): GridResultModel {
   return {
-    library: 'observable-plot',
-    plots: [
-      { id: 'r0', title: 'Row 0', options: {}, position: { row: 0, col: 0 } },
-      { id: 'r1', title: 'Row 1', options: { height: 160 } as any, position: { row: 1, col: 0 } },
-      { id: 'r2', title: 'Row 2', options: {}, position: { row: 2, col: 0 } },
+    cells: [
+      {
+        id: 'r0',
+        position: { row: 0, col: 0 },
+        content: { kind: 'plot', options: {} },
+        metadata: { title: 'Row 0' },
+      },
+      {
+        id: 'r1',
+        position: { row: 1, col: 0 },
+        content: { kind: 'plot', options: { height: 160 } as any },
+        metadata: { title: 'Row 1' },
+      },
+      {
+        id: 'r2',
+        position: { row: 2, col: 0 },
+        content: { kind: 'plot', options: {} },
+        metadata: { title: 'Row 2' },
+      },
     ],
     layout: {
       type: 'grid',
@@ -45,10 +59,10 @@ describe('layoutUtils', () => {
   });
 
   it('infers row sizes from user overrides, plot heights, layout rows, then fallback height', () => {
-    const spec = buildSpec();
+    const grid = buildGrid();
 
-    expect(inferRowSizes(spec, 3, [90, 100, 'fr'], 240, 120)).toEqual([240, 240, 240]);
-    expect(inferRowSizes(spec, 3, [90, 100, 'fr'], null, 120)).toEqual([90, 160, 120]);
+    expect(inferRowSizes(grid, 3, [90, 100, 'fr'], 240, 120)).toEqual([240, 240, 240]);
+    expect(inferRowSizes(grid, 3, [90, 100, 'fr'], null, 120)).toEqual([90, 160, 120]);
   });
 
   it('converts row sizes to CSS rows and actual heights', () => {
