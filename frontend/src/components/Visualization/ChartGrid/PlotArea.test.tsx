@@ -80,10 +80,27 @@ describe('PlotArea cell dispatch', () => {
     expect(getByTestId('pie-svg-pie-1')).toBeInTheDocument();
   });
 
-  it('renders stacked text rows for text cells', () => {
+  it('renders a single text row with the value only (no alias prefix)', () => {
     const grid = buildGrid([
       {
-        id: 'text-1',
+        id: 'text-single',
+        position: { row: 0, col: 0 },
+        content: {
+          kind: 'text',
+          rows: [{ source: 'measure', label: 'Sales', value: '$1,234' }],
+        },
+      },
+    ]);
+
+    const { container, getByText } = renderArea(grid);
+    expect(getByText('$1,234')).toBeInTheDocument();
+    expect(container.querySelectorAll('span').length).toBe(1);
+  });
+
+  it('renders stacked text rows with "alias: value" prefixes when there are multiple rows', () => {
+    const grid = buildGrid([
+      {
+        id: 'text-multi',
         position: { row: 0, col: 0 },
         content: {
           kind: 'text',
@@ -96,8 +113,8 @@ describe('PlotArea cell dispatch', () => {
     ]);
 
     const { container, getByText } = renderArea(grid);
-    expect(getByText('East')).toBeInTheDocument();
-    expect(getByText('$1,234')).toBeInTheDocument();
+    expect(getByText('Region: East')).toBeInTheDocument();
+    expect(getByText('Sales: $1,234')).toBeInTheDocument();
     expect(container.querySelectorAll('span').length).toBe(2);
   });
 
