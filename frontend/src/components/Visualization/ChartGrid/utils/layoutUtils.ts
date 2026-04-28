@@ -3,7 +3,7 @@ import {
   getPlotGridCellAtCol,
   getPlotGridCellAtRow,
   usesOnlyAxislessRenderers,
-} from '../gridModel';
+} from '../../../../observable-plot-generator/gridModel';
 import { MIN_GRID_ROW_PX } from '../../../../config/chartLayoutConfig';
 import { YAxisLabelStyle } from '../../../../contexts/VisualizationContext/types';
 import type { CSSProperties } from 'react';

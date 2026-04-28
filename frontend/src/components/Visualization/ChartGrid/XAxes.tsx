@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import * as Plot from '@observablehq/plot';
 import ObservablePlot from '../ObservablePlot';
-import { GridResultModel, getPlotGridCellAtCol, hasFacetHeaders } from './gridModel';
+import { GridResultModel, getPlotGridCellAtCol, hasFacetHeaders } from '../../../observable-plot-generator/gridModel';
 import { GRID_DIVIDER_COLOR, X_LABEL_ROW_PX } from '../../../config/chartLayoutConfig';
 import AxisLabel from './AxisLabel';
 import AxisLabelStylePopover from './AxisLabelStylePopover';

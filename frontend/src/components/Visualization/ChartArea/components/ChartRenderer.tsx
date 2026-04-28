@@ -6,7 +6,7 @@ import TableViewLazy from '../../Table/TableViewLazy';
 import TableViewRowsLazy from '../../Table/TableViewRowsLazy';
 import TableRowsPagination from '../../Table/TableRowsPagination';
 import BarSortControl from './BarSortControl';
-import { PlotResult } from '../../../../observable-plot-generator/types';
+import { GridResultModel } from '../../../../observable-plot-generator/gridModel';
 import { TableData } from '../types';
 import { TableRowsSortModel } from '../../../../types';
 import { QueryResultColumn } from '../../../../types';
@@ -15,7 +15,7 @@ import type { TableCellFilterAction } from '../../Table/TableViewRows';
 interface ChartRendererProps {
   useTableView: boolean;
   tableData: TableData;
-  spec: PlotResult | null;
+  grid: GridResultModel | null;
   queryResult: any;
   xAxisFields: any[];
   yAxisFields: any[];
@@ -54,7 +54,7 @@ interface ChartRendererProps {
 const ChartRenderer: React.FC<ChartRendererProps> = ({
   useTableView,
   tableData,
-  spec,
+  grid,
   queryResult,
   xAxisFields,
   yAxisFields,
@@ -117,7 +117,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
     }
     return (
       <ChartGrid 
-        spec={spec} 
+        grid={grid} 
         data={queryResult}
         onPlotRenderComplete={onPlotRenderComplete}
         isGanttChart={isGanttChart}
@@ -128,7 +128,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
         onBrushEnd={onBrushEnd}
       />
     );
-  }, [tableRowsContent, useTableView, tableData, spec, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete, isGanttChart, ganttZoomRange, onGanttZoomRangeChange, ganttFullDataRange, brushDisabled, onBrushEnd]);
+  }, [tableRowsContent, useTableView, tableData, grid, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete, isGanttChart, ganttZoomRange, onGanttZoomRangeChange, ganttFullDataRange, brushDisabled, onBrushEnd]);
 
   return (
     <Box 
@@ -158,7 +158,7 @@ export default React.memo(ChartRenderer, (prevProps, nextProps) => {
   return (
     prevProps.useTableView === nextProps.useTableView &&
     prevProps.tableData === nextProps.tableData &&
-    prevProps.spec === nextProps.spec &&
+    prevProps.grid === nextProps.grid &&
     prevProps.queryResult === nextProps.queryResult &&
     prevProps.xAxisFields === nextProps.xAxisFields &&
     prevProps.yAxisFields === nextProps.yAxisFields &&

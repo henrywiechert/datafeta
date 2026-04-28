@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { GridResultModel } from '../gridModel';
+import { GridResultModel } from '../../../../observable-plot-generator/gridModel';
 import {
   getUniformCellSizeConstraints,
   resolveUniformColumnSize,

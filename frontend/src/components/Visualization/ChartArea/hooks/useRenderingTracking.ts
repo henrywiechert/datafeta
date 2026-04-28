@@ -8,9 +8,10 @@
 
 import { useCallback, useLayoutEffect } from 'react';
 import type { LoadingOperationType } from '../../../../contexts/VisualizationContext/types';
+import type { GridResultModel } from '../../../../observable-plot-generator/gridModel';
 
 interface UseRenderingTrackingProps {
-  spec: any;
+  grid: GridResultModel | null;
   useTableView: boolean;
   showTableRows?: boolean;
   renderingCoordinator: {
@@ -23,7 +24,7 @@ interface UseRenderingTrackingProps {
 }
 
 export function useRenderingTracking({
-  spec,
+  grid,
   useTableView,
   showTableRows = false,
   renderingCoordinator,
@@ -37,28 +38,33 @@ export function useRenderingTracking({
       return;
     }
 
-    if (spec && spec.plots && spec.plots.length > 0) {
-      const plotIds = spec.plots.map((plot: any) => plot.id);
+    // Only plot/pie cells render asynchronously and report completion via
+    // `onPlotRenderComplete`; text/mark/empty cells render synchronously and
+    // must not be tracked or the batch would never complete.
+    const renderableIds = grid?.cells
+      ?.filter((cell) => cell.content.kind === 'plot' || cell.content.kind === 'pie')
+      .map((cell) => cell.id) ?? [];
 
+    if (renderableIds.length > 0) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('[ChartArea] Setting up rendering batch for', plotIds.length, 'plots');
+        console.log('[ChartArea] Setting up rendering batch for', renderableIds.length, 'cells');
       }
 
-      renderingCoordinator.startRenderingBatch(plotIds, () => {
+      renderingCoordinator.startRenderingBatch(renderableIds, () => {
         if (isLoadingRendering) {
           if (process.env.NODE_ENV === 'development') {
-            console.log('[ChartArea] All plots rendered, completing rendering operation');
+            console.log('[ChartArea] All cells rendered, completing rendering operation');
           }
           completeOperation('rendering');
         }
       });
-    } else if (spec !== null && isLoadingRendering) {
+    } else if (grid !== null && isLoadingRendering) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('[ChartArea] Spec has no plots, completing rendering immediately');
+        console.log('[ChartArea] Grid has no renderable cells, completing rendering immediately');
       }
       completeOperation('rendering');
     }
-  }, [spec, useTableView, showTableRows, renderingCoordinator, completeOperation, isLoadingRendering]);
+  }, [grid, useTableView, showTableRows, renderingCoordinator, completeOperation, isLoadingRendering]);
 
   const handlePlotRenderComplete = useCallback(
     (plotId: string) => {

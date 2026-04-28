@@ -18,7 +18,7 @@ import {
   PieGridCellModel,
   PlotGridCellModel,
   TextGridCellModel,
-} from './gridModel';
+} from '../../../observable-plot-generator/gridModel';
 import { buildSymbolPreviewLayout, symbolAreaToSideLength } from './utils/discreteGridSymbolLayout';
 
 export interface PlotBrushEvent {

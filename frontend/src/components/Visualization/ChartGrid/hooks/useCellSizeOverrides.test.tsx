@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, cleanup, render } from '@testing-library/react';
-import { GridLayoutModel, GridResultModel } from '../gridModel';
+import { GridLayoutModel, GridResultModel } from '../../../../observable-plot-generator/gridModel';
 import { CellSizeOverrides, useCellSizeOverrides } from './useCellSizeOverrides';
 
 function buildGrid(overrides: Partial<GridLayoutModel> = {}): GridResultModel {

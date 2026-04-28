@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, MutableRefObject, RefObject } from 'react';
-import { GridResultModel } from '../gridModel';
+import { GridResultModel } from '../../../../observable-plot-generator/gridModel';
 
 export interface StabilizationState {
   isStabilizing: boolean;

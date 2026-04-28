@@ -1,4 +1,4 @@
-import { GridResultModel } from '../gridModel';
+import { GridResultModel } from '../../../../observable-plot-generator/gridModel';
 import {
   buildPlotGridSizingStyle,
   computeTotalContentWidth,

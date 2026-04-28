@@ -2,7 +2,7 @@ import React from 'react';
 import { Dialog, DialogTitle, DialogContent, IconButton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import * as Plot from '@observablehq/plot';
-import { GridResultModel, getPlotGridCellById } from './gridModel';
+import { GridResultModel, getPlotGridCellById } from '../../../observable-plot-generator/gridModel';
 import ObservablePlot from '../ObservablePlot';
 
 interface FacetZoomDialogProps {

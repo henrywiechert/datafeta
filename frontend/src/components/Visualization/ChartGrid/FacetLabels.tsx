@@ -11,7 +11,7 @@ import {
   FormControlLabel,
   Switch,
 } from '@mui/material';
-import { GridResultModel } from './gridModel';
+import { GridResultModel } from '../../../observable-plot-generator/gridModel';
 import { GRID_DIVIDER_COLOR } from '../../../config/chartLayoutConfig';
 import { formatDateTick } from '../../../observable-plot-generator/utils/dateFormatUtils';
 import { buildHierarchicalHeaderSegments } from './utils/hierarchicalHeaderUtils';

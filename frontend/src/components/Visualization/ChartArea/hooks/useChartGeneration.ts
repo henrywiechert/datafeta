@@ -1,6 +1,7 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { generatePlot } from '../../../../observable-plot-generator/observablePlotGenerator';
-import { PlotResult, ChartGenerationContext, GanttZoomRange } from '../../../../observable-plot-generator/types';
+import { ChartGenerationContext, GanttZoomRange } from '../../../../observable-plot-generator/types';
+import { GridResultModel } from '../../../../observable-plot-generator/gridModel';
 import { OverlayConfig } from '../../../../observable-plot-generator/overlays/types';
 import { Field, FieldOverrideState, UserChartType, Channels, DistributionVariant } from '../../../../types';
 import { computeOverrideTargets } from '../../../../observable-plot-generator/utils/fieldOverrides';
@@ -34,7 +35,7 @@ interface UseChartGenerationProps {
 }
 
 interface UseChartGenerationReturn {
-  spec: PlotResult | null;
+  grid: GridResultModel | null;
   chartInfo: any | null;
   renderingError: string | null;
   generateChartSpec: () => Promise<void>;
@@ -73,7 +74,7 @@ export const useChartGeneration = ({
   const { fields: tooltipFields } = channels.tooltip;
   const { field: facetBackgroundField, scheme: facetBackgroundScheme, opacity: facetBackgroundOpacity } = channels.facetBackground;
 
-  const [spec, setSpec] = useState<PlotResult | null>(null);
+  const [grid, setGrid] = useState<GridResultModel | null>(null);
   const [chartInfo, setChartInfo] = useState<any | null>(null);
   const [renderingError, setRenderingError] = useState<string | null>(null);
   const [facetLimitWarning, setFacetLimitWarning] = useState<FacetValidationResult | null>(null);
@@ -104,28 +105,28 @@ export const useChartGeneration = ({
     overrideTargets: any,
     startTime: number
   ) => {
-    const plotResult = generatePlot(context);
-    
-    const plotCount = plotResult.plots?.length || 0;
+    const generatedGrid = generatePlot(context);
+
+    const cellCount = generatedGrid.cells?.length || 0;
     if (process.env.NODE_ENV === 'development') {
-      console.log('[useChartGeneration] Generated spec with', plotCount, 'plots');
+      console.log('[useChartGeneration] Generated grid with', cellCount, 'cells');
     }
-    
-    // For large numbers of plots, the synchronous DOM rendering will block
+
+    // For large numbers of cells, the synchronous DOM rendering will block
     // the main thread for seconds. Yield to the event loop BEFORE setting
-    // the spec to give the modal a chance to appear.
-    if (plotCount > 100) {
+    // the grid to give the modal a chance to appear.
+    if (cellCount > 100) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('[useChartGeneration] Large plot count detected, yielding to show modal');
+        console.log('[useChartGeneration] Large cell count detected, yielding to show modal');
       }
       // Yield to event loop to let modal appear
       await new Promise(resolve => setTimeout(resolve, 0));
     }
-    
-    setSpec(plotResult);
+
+    setGrid(generatedGrid);
     setChartInfo({ chartType: 'observable-plot' });
     setRenderingError(null);
-    
+
     logOperationTiming('Chart spec generation', startTime, { mode: 'observable-plot' });
   }, []);
 
@@ -154,7 +155,7 @@ export const useChartGeneration = ({
     } catch (error: any) {
       console.error('Observable Plot generation failed:', error);
       setRenderingError(`Chart generation failed: ${error.message || 'Unknown error'}`);
-      setSpec(null);
+      setGrid(null);
       setChartInfo(null);
       completeOperation('rendering');
     } finally {
@@ -177,7 +178,7 @@ export const useChartGeneration = ({
     const startTime = Date.now();
     
     if ((xAxisFields.length === 0 && yAxisFields.length === 0) || useTableView || showTableRows) {
-      setSpec(null);
+      setGrid(null);
       setChartInfo(null);
       setRenderingError(null);
       setFacetLimitWarning(null);
@@ -279,7 +280,7 @@ export const useChartGeneration = ({
     } catch (error: any) {
       console.error('Observable Plot generation failed:', error);
       setRenderingError(`Chart generation failed: ${error.message || 'Unknown error'}`);
-      setSpec(null);
+      setGrid(null);
       setChartInfo(null);
       // On error, complete the operation immediately since no rendering will happen
       completeOperation('rendering');
@@ -345,7 +346,7 @@ export const useChartGeneration = ({
   }, [ganttZoomRange, generateChartSpec]);
 
   return {
-    spec,
+    grid,
     chartInfo,
     renderingError,
     generateChartSpec,

@@ -4,7 +4,7 @@ import {
   getPlotGridCellAtRow,
   hasFacetHeaders,
   usesOnlyAxislessRenderers,
-} from './gridModel';
+} from '../../../observable-plot-generator/gridModel';
 import {
   GRID_DIVIDER_COLOR,
   HORIZONTAL_SCROLLBAR_GUTTER_PX,
