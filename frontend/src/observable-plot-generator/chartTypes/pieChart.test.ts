@@ -57,10 +57,9 @@ describe('pieChart planning', () => {
         rows: [
           { segment: 'B', 'SUM(value)': 10 },
           { segment: 'A', 'SUM(value)': 30 },
-          { segment: 'B', 'SUM(value)': -5 },
           { segment: 'A', 'SUM(value)': 0 },
         ],
-        row_count: 4,
+        row_count: 3,
       } as any,
     });
 
@@ -73,6 +72,51 @@ describe('pieChart planning', () => {
     expect(spec.total).toBe(40);
     expect(spec.slices.map((slice) => slice.label)).toEqual(['A', 'B']);
     expect(spec.slices.map((slice) => slice.value)).toEqual([30, 10]);
+  });
+
+  test('renders all-negative values by magnitude', () => {
+    const ctx = context({
+      queryResult: {
+        columns: [],
+        rows: [
+          { segment: 'A', 'SUM(value)': -30.5 },
+          { segment: 'B', 'SUM(value)': -5.25 },
+        ],
+        row_count: 2,
+      } as any,
+    });
+
+    const spec = buildPiePlotSpec({
+      rows: ctx.queryResult.rows,
+      context: ctx,
+      sharedDomains: { measure: {}, numeric: {}, categorical: {}, colorScale: null },
+    });
+
+    expect(spec.emptyMessage).toBeUndefined();
+    expect(spec.total).toBeCloseTo(35.75);
+    expect(spec.slices.map((slice) => slice.value)).toEqual([30.5, 5.25]);
+  });
+
+  test('rejects mixed positive and negative measure values', () => {
+    const ctx = context({
+      queryResult: {
+        columns: [],
+        rows: [
+          { segment: 'A', 'SUM(value)': 30 },
+          { segment: 'B', 'SUM(value)': -5 },
+        ],
+        row_count: 2,
+      } as any,
+    });
+
+    const spec = buildPiePlotSpec({
+      rows: ctx.queryResult.rows,
+      context: ctx,
+      sharedDomains: { measure: {}, numeric: {}, categorical: {}, colorScale: null },
+    });
+
+    expect(spec.slices).toEqual([]);
+    expect(spec.emptyMessage).toContain('cannot mix');
   });
 
   test('uses X/Y discrete fields as facets, not slices', () => {
