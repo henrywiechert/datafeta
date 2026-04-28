@@ -11,9 +11,10 @@ import {
   FormControlLabel,
   Switch,
 } from '@mui/material';
-import { PlotResult } from '../../../observable-plot-generator/types';
+import { GridResultModel } from './gridModel';
 import { GRID_DIVIDER_COLOR } from '../../../config/chartLayoutConfig';
 import { formatDateTick } from '../../../observable-plot-generator/utils/dateFormatUtils';
+import { buildHierarchicalHeaderSegments } from './utils/hierarchicalHeaderUtils';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import {
   FacetHeaderLabelStyle,
@@ -29,6 +30,33 @@ function formatFacetValue(val: any): string {
     return formatDateTick(val);
   }
   return String(val);
+}
+
+/**
+ * Fallback span computation used when ordered tuples are absent.
+ * Assumes the full Cartesian product of level values is present.
+ */
+function computeProductSegments(
+  levels: Array<{ values: any[] }>,
+  levelIdx: number,
+  baseSpan: number,
+): Array<{ value: any; startIndex: number; span: number; firstTupleIndex: number }> {
+  const counts = levels.map((l) => l.values.length);
+  const innerProduct = counts.slice(levelIdx + 1).reduce((a, b) => a * b, 1) || 1;
+  const outerProduct = counts.slice(0, levelIdx).reduce((a, b) => a * b, 1) || 1;
+  const span = baseSpan * innerProduct;
+  const groupSpan = span * levels[levelIdx].values.length;
+  const segments: Array<{ value: any; startIndex: number; span: number; firstTupleIndex: number }> = [];
+  for (let r = 0; r < outerProduct; r++) {
+    const groupStart = r * groupSpan;
+    levels[levelIdx].values.forEach((val, i) => {
+      const startTrack = 1 + groupStart + i * span;
+      // firstTupleIndex computed in tuple coordinates (cells / baseSpan)
+      const firstTupleIndex = (groupStart + i * span) / Math.max(1, baseSpan);
+      segments.push({ value: val, startIndex: startTrack, span, firstTupleIndex });
+    });
+  }
+  return segments;
 }
 
 /**
@@ -114,7 +142,6 @@ const FacetStylePopover: React.FC<FacetStylePopoverProps> = ({
           {title}
         </Typography>
 
-        {/* Font Size */}
         <Box>
           <Typography variant="body2" sx={{ mb: 0.5 }}>
             Font Size: {fontSize}px
@@ -134,7 +161,6 @@ const FacetStylePopover: React.FC<FacetStylePopoverProps> = ({
           />
         </Box>
 
-        {/* Orientation */}
         <Box>
           <Typography variant="body2" sx={{ mb: 0.5 }}>
             Orientation
@@ -161,7 +187,6 @@ const FacetStylePopover: React.FC<FacetStylePopoverProps> = ({
           </ToggleButtonGroup>
         </Box>
 
-        {/* Width Control */}
         {showWidthControl && onWidthChange && (
           <Box>
             <FormControlLabel
@@ -192,7 +217,6 @@ const FacetStylePopover: React.FC<FacetStylePopoverProps> = ({
           </Box>
         )}
 
-        {/* Height Control */}
         {showHeightControl && onHeightChange && (
           <Box>
             <FormControlLabel
@@ -232,23 +256,21 @@ const FacetStylePopover: React.FC<FacetStylePopoverProps> = ({
 // ============================================================================
 
 interface TopFacetLabelsProps {
-  spec: PlotResult;
+  grid: GridResultModel;
   plotTemplateColumns: string;
   baseCols: number;
   facetTopValuesPx: number;
 }
 
 const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
-  spec,
+  grid,
   plotTemplateColumns,
   baseCols,
   facetTopValuesPx,
 }) => {
-  // All hooks must be called unconditionally before any early returns
   const { state, dispatch } = useVisualizationContext();
   const { facetLabelStyles } = state;
 
-  // Popover states
   const [headerAnchor, setHeaderAnchor] = useState<HTMLElement | null>(null);
   const [valuesAnchor, setValuesAnchor] = useState<HTMLElement | null>(null);
 
@@ -268,8 +290,7 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
     dispatch({ type: 'SET_FACET_TOP_VALUES_STYLE', payload: updates });
   }, [dispatch]);
 
-  // Early return after all hooks
-  const colLevels = spec.facetLabels?.colsLevels || [];
+  const colLevels = grid.headers?.cols?.levels || [];
   if (colLevels.length === 0) return null;
 
   const headerStyle = facetLabelStyles.topHeader;
@@ -277,13 +298,11 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
   const headerOrientationStyles = getOrientationStyles(headerStyle.orientation, headerStyle.fontSize);
   const valuesOrientationStyles = getOrientationStyles(valuesStyle.orientation, valuesStyle.fontSize);
 
-  // Break apart field labels
-  const fieldLabels = colLevels.map((l: { fieldLabel: string }) => l.fieldLabel);
+  const fieldLabels = colLevels.map((l) => l.fieldLabel);
 
   return (
     <div style={{ gridColumn: 1, gridRow: 1 }}>
       <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns }}>
-        {/* Header row with field names */}
         <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'center', gap: '8px' }}>
           {fieldLabels.map((label, idx) => (
             <div
@@ -308,48 +327,38 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
           ))}
         </div>
 
-        {/* Value cells */}
-        {colLevels.map((level: { values: any[] }, levelIdx: number) => {
-          const counts = colLevels.map((l: { values: any[] }) => l.values.length);
-          const innerProduct = counts.slice(levelIdx + 1).reduce((a: number, b: number) => a * b, 1) || 1;
-          const outerProduct = counts.slice(0, levelIdx).reduce((a: number, b: number) => a * b, 1) || 1;
-          const span = baseCols * innerProduct;
-          const groupSpan = span * level.values.length;
-          const cells: React.ReactNode[] = [];
-          for (let r = 0; r < outerProduct; r++) {
-            const groupStart = r * groupSpan;
-            level.values.forEach((val: any, i: number) => {
-              const startCol = 1 + groupStart + i * span;
-              cells.push(
-                <div
-                  key={`col-level-${levelIdx}-seg-${r}-val-${i}`}
-                  onClick={handleValuesClick}
-                  title={formatFacetValue(val)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    height: `${facetTopValuesPx}px`,
-                    gridColumn: `${startCol} / span ${span}`,
-                    background: 'transparent',
-                    borderBottom: `1px solid ${GRID_DIVIDER_COLOR}`,
-                    borderRight: `1px solid ${GRID_DIVIDER_COLOR}`,
-                    padding: 0,
-                    overflow: 'hidden',
-                    cursor: 'pointer',
-                    ...valuesOrientationStyles,
-                  }}
-                >
-                  {formatFacetValue(val)}
-                </div>
-              );
-            });
-          }
+        {colLevels.map((level, levelIdx) => {
+          const orderedTuples = grid.headers?.cols?.orderedValueTuples;
+          const segments = orderedTuples && orderedTuples.length > 0
+            ? buildHierarchicalHeaderSegments(orderedTuples, levelIdx, baseCols, 1)
+            : computeProductSegments(colLevels, levelIdx, baseCols);
+          const cells = segments.map((seg) => (
+            <div
+              key={`col-level-${levelIdx}-tuple-${seg.firstTupleIndex}`}
+              onClick={handleValuesClick}
+              title={formatFacetValue(seg.value)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: `${facetTopValuesPx}px`,
+                gridColumn: `${seg.startIndex} / span ${seg.span}`,
+                background: 'transparent',
+                borderBottom: `1px solid ${GRID_DIVIDER_COLOR}`,
+                borderRight: `1px solid ${GRID_DIVIDER_COLOR}`,
+                padding: 0,
+                overflow: 'hidden',
+                cursor: 'pointer',
+                ...valuesOrientationStyles,
+              }}
+            >
+              {formatFacetValue(seg.value)}
+            </div>
+          ));
           return <React.Fragment key={`col-level-row-${levelIdx}`}>{cells}</React.Fragment>;
         })}
       </div>
 
-      {/* Header style popover */}
       <FacetStylePopover
         anchorEl={headerAnchor}
         onClose={() => setHeaderAnchor(null)}
@@ -361,7 +370,6 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
         orientationOptions={['horizontal', 'vertical']}
       />
 
-      {/* Values style popover */}
       <FacetStylePopover
         anchorEl={valuesAnchor}
         onClose={() => setValuesAnchor(null)}
@@ -384,8 +392,8 @@ export const TopFacetLabels = React.memo(TopFacetLabelsComponent, (prevProps, ne
     prevProps.plotTemplateColumns === nextProps.plotTemplateColumns &&
     prevProps.baseCols === nextProps.baseCols &&
     prevProps.facetTopValuesPx === nextProps.facetTopValuesPx &&
-    prevProps.spec.facetLabels === nextProps.spec.facetLabels &&
-    prevProps.spec.layout === nextProps.spec.layout
+    prevProps.grid.headers === nextProps.grid.headers &&
+    prevProps.grid.layout === nextProps.grid.layout
   );
 });
 
@@ -394,7 +402,7 @@ export const TopFacetLabels = React.memo(TopFacetLabelsComponent, (prevProps, ne
 // ============================================================================
 
 interface LeftFacetLabelsProps {
-  spec: PlotResult;
+  grid: GridResultModel;
   plotRowsSpec: string;
   baseRows: number;
   facetLeftHeaderPx: number;
@@ -402,17 +410,15 @@ interface LeftFacetLabelsProps {
 }
 
 const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
-  spec,
+  grid,
   plotRowsSpec,
   baseRows,
   facetLeftHeaderPx,
   facetLeftValuesPx,
 }) => {
-  // All hooks must be called unconditionally before any early returns
   const { state, dispatch } = useVisualizationContext();
   const { facetLabelStyles } = state;
 
-  // Popover states
   const [headerAnchor, setHeaderAnchor] = useState<HTMLElement | null>(null);
   const [valuesAnchor, setValuesAnchor] = useState<HTMLElement | null>(null);
 
@@ -432,8 +438,7 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
     dispatch({ type: 'SET_FACET_LEFT_VALUES_STYLE', payload: updates });
   }, [dispatch]);
 
-  // Early return after all hooks
-  const rowLevels = spec.facetLabels?.rowsLevels || [];
+  const rowLevels = grid.headers?.rows?.levels || [];
   if (rowLevels.length === 0) return null;
 
   const yLevelsCount = rowLevels.length;
@@ -442,21 +447,19 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
   const headerOrientationStyles = getOrientationStyles(headerStyle.orientation, headerStyle.fontSize);
   const valuesOrientationStyles = getOrientationStyles(valuesStyle.orientation, valuesStyle.fontSize);
 
-  // Break apart field labels
-  const fieldLabels = rowLevels.map((l: { fieldLabel: string }) => l.fieldLabel);
+  const fieldLabels = rowLevels.map((l) => l.fieldLabel);
 
   return (
     <div
       style={{
         gridColumn: 1,
-        gridRow: '1 / span ' + (spec.layout?.rows || 1),
+        gridRow: '1 / span ' + (grid.layout?.rows || 1),
         display: 'grid',
         gridTemplateColumns: `${facetLeftHeaderPx}px ${new Array(yLevelsCount).fill(`${facetLeftValuesPx}px`).join(' ')}`,
         gridTemplateRows: plotRowsSpec,
         alignItems: 'stretch',
       }}
     >
-      {/* Header column with field names */}
       <div
         style={{
           gridColumn: 1,
@@ -492,55 +495,45 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
         ))}
       </div>
 
-      {/* Value cells */}
-      {rowLevels.map((level: { values: any[] }, levelIdx: number) => {
-        const counts = rowLevels.map((l: { values: any[] }) => l.values.length);
-        const innerProduct = counts.slice(levelIdx + 1).reduce((a: number, b: number) => a * b, 1) || 1;
-        const outerProduct = counts.slice(0, levelIdx).reduce((a: number, b: number) => a * b, 1) || 1;
-        const span = baseRows * innerProduct;
-        const groupSpan = span * level.values.length;
-        const cells: React.ReactNode[] = [];
-        for (let r = 0; r < outerProduct; r++) {
-          const groupStart = r * groupSpan;
-          level.values.forEach((val: any, i: number) => {
-            const startRow = groupStart + i * span + 1;
-            cells.push(
-              <div
-                key={`yval-level-${levelIdx}-rep-${r}-val-${i}`}
-                onClick={handleValuesClick}
-                title={formatFacetValue(val)}
-                style={{
-                  gridColumn: levelIdx + 2,
-                  gridRow: `${startRow} / span ${span}`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRight: levelIdx === rowLevels.length - 1 ? `1px solid ${GRID_DIVIDER_COLOR}` : undefined,
-                  borderLeft: levelIdx > 0 ? `1px solid ${GRID_DIVIDER_COLOR}` : undefined,
-                  borderBottom: `1px solid ${GRID_DIVIDER_COLOR}`,
-                  background: 'transparent',
-                  padding: 0,
-                  overflow: 'hidden',
-                  cursor: 'pointer',
-                }}
-              >
-                <div
-                  style={{
-                    whiteSpace: 'nowrap',
-                    padding: '2px 0',
-                    ...valuesOrientationStyles,
-                  }}
-                >
-                  {formatFacetValue(val)}
-                </div>
-              </div>
-            );
-          });
-        }
+      {rowLevels.map((level, levelIdx) => {
+        const orderedTuples = grid.headers?.rows?.orderedValueTuples;
+        const segments = orderedTuples && orderedTuples.length > 0
+          ? buildHierarchicalHeaderSegments(orderedTuples, levelIdx, baseRows, 1)
+          : computeProductSegments(rowLevels, levelIdx, baseRows);
+        const cells = segments.map((seg) => (
+          <div
+            key={`yval-level-${levelIdx}-tuple-${seg.firstTupleIndex}`}
+            onClick={handleValuesClick}
+            title={formatFacetValue(seg.value)}
+            style={{
+              gridColumn: levelIdx + 2,
+              gridRow: `${seg.startIndex} / span ${seg.span}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRight: levelIdx === rowLevels.length - 1 ? `1px solid ${GRID_DIVIDER_COLOR}` : undefined,
+              borderLeft: levelIdx > 0 ? `1px solid ${GRID_DIVIDER_COLOR}` : undefined,
+              borderBottom: `1px solid ${GRID_DIVIDER_COLOR}`,
+              background: 'transparent',
+              padding: 0,
+              overflow: 'hidden',
+              cursor: 'pointer',
+            }}
+          >
+            <div
+              style={{
+                whiteSpace: 'nowrap',
+                padding: '2px 0',
+                ...valuesOrientationStyles,
+              }}
+            >
+              {formatFacetValue(seg.value)}
+            </div>
+          </div>
+        ));
         return <React.Fragment key={`yval-level-${levelIdx}`}>{cells}</React.Fragment>;
       })}
 
-      {/* Header style popover */}
       <FacetStylePopover
         anchorEl={headerAnchor}
         onClose={() => setHeaderAnchor(null)}
@@ -555,7 +548,6 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
         showWidthControl
       />
 
-      {/* Values style popover */}
       <FacetStylePopover
         anchorEl={valuesAnchor}
         onClose={() => setValuesAnchor(null)}
@@ -579,7 +571,7 @@ export const LeftFacetLabels = React.memo(LeftFacetLabelsComponent, (prevProps, 
     prevProps.baseRows === nextProps.baseRows &&
     prevProps.facetLeftHeaderPx === nextProps.facetLeftHeaderPx &&
     prevProps.facetLeftValuesPx === nextProps.facetLeftValuesPx &&
-    prevProps.spec.facetLabels === nextProps.spec.facetLabels &&
-    prevProps.spec.layout === nextProps.spec.layout
+    prevProps.grid.headers === nextProps.grid.headers &&
+    prevProps.grid.layout === nextProps.grid.layout
   );
 });

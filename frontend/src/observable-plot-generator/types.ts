@@ -244,5 +244,13 @@ export interface PlotResult {
     rowsLevels?: Array<{ fieldLabel: string; values: any[] }>;
     colsLevels?: Array<{ fieldLabel: string; values: any[] }>;
     spans?: { columns: number[]; rows: number[]; baseCols: number; baseRows: number };
+    /**
+     * Ordered tuples of facet values in iteration order, parallel to the
+     * facet field arrays. Used by hierarchical header rendering to compute
+     * accurate spans (including for sparse facet spaces). Optional; when
+     * absent, callers fall back to product-of-levels span math.
+     */
+    rowsOrderedValueTuples?: any[][];
+    colsOrderedValueTuples?: any[][];
   };
 } 
