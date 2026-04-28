@@ -1,8 +1,6 @@
 import React, { useCallback, useRef } from 'react';
-import * as Plot from '@observablehq/plot';
 import { Tooltip } from '@mui/material';
 import DoNotDisturbAltIcon from '@mui/icons-material/DoNotDisturbAlt';
-import { PlotResult, FacetBackgroundInfo, PiePlotSpec } from '../../../observable-plot-generator/types';
 import { Field } from '../../../types';
 import ObservablePlot from '../ObservablePlot';
 import PieSvgRenderer from './renderers/PieSvgRenderer';
@@ -10,6 +8,17 @@ import BrushOverlay, { BrushResult } from './BrushOverlay';
 import styles from './ChartGrid.module.css';
 import { GRID_DIVIDER_COLOR } from '../../../config/chartLayoutConfig';
 import { buildPlotGridSizingStyle } from './utils/layoutUtils';
+import {
+  EmptyGridCellModel,
+  GridCellModel,
+  GridResultModel,
+  hasColumnHeaders,
+  hasFacetHeaders,
+  MarkGridCellModel,
+  PlotGridCellModel,
+  TextGridCellModel,
+} from './gridModel';
+import { buildSymbolPreviewLayout, symbolAreaToSideLength } from './utils/discreteGridSymbolLayout';
 
 export interface PlotBrushEvent {
   brush: BrushResult;
@@ -19,7 +28,7 @@ export interface PlotBrushEvent {
 }
 
 interface PlotAreaProps {
-  spec: PlotResult;
+  grid: GridResultModel;
   plotsTranslateRef: React.RefObject<HTMLDivElement>;
   plotTemplateColumns: string;
   plotRowsSpec: string;
@@ -37,7 +46,6 @@ interface PlotAreaProps {
  */
 function suppressAxes(options: any, hideX: boolean, hideY: boolean) {
   const next = { ...options };
-  // Force all margins and insets to 0 - don't preserve any defaults
   next.marginLeft = 0;
   next.marginRight = 0;
   next.marginTop = 0;
@@ -47,13 +55,12 @@ function suppressAxes(options: any, hideX: boolean, hideY: boolean) {
   next.insetRight = 0;
   next.insetTop = 0;
   next.insetBottom = 0;
-  
+
   if (hideX) {
     next.x = {
       ...(next.x || {}),
       label: '',
       axis: false,
-      // Preserve grid setting from original options (measure axes should have grid, category axes should not)
     };
   }
   if (hideY) {
@@ -61,14 +68,26 @@ function suppressAxes(options: any, hideX: boolean, hideY: boolean) {
       ...(next.y || {}),
       label: '',
       axis: false,
-      // Preserve grid setting from original options (measure axes should have grid, category axes should not)
     };
   }
   return next;
 }
 
+function buildBaseCellStyle(cell: GridCellModel): React.CSSProperties {
+  const facetBg = (cell.content as any).facetBackground;
+  return {
+    gridColumn: cell.position.col + 1,
+    gridRow: cell.position.row + 1,
+    borderRight: `1px solid ${GRID_DIVIDER_COLOR}`,
+    borderBottom: `1px solid ${GRID_DIVIDER_COLOR}`,
+    ...(facetBg?.backgroundColor && !facetBg.isMixed
+      ? { backgroundColor: facetBg.backgroundColor }
+      : {}),
+  };
+}
+
 const PlotArea: React.FC<PlotAreaProps> = ({
-  spec,
+  grid,
   plotsTranslateRef,
   plotTemplateColumns,
   plotRowsSpec,
@@ -85,8 +104,13 @@ const PlotArea: React.FC<PlotAreaProps> = ({
     plotElementsRef.current[plotId] = element;
   }, []);
 
+  const cells = grid.cells;
+  // Mirrors legacy `spec.facetLabels ? 2 : 1` placement: when any facet headers
+  // are present, the plot area sits in row 2 below the header row.
+  const gridRow = hasFacetHeaders(grid) || hasColumnHeaders(grid) ? 2 : 1;
+
   return (
-    <div style={{ gridColumn: 1, gridRow: spec.facetLabels ? 2 : 1, overflow: 'hidden', position: 'relative' }}>
+    <div style={{ gridColumn: 1, gridRow, overflow: 'hidden', position: 'relative' }}>
       <div
         ref={plotsTranslateRef}
         style={{
@@ -94,89 +118,268 @@ const PlotArea: React.FC<PlotAreaProps> = ({
             plotTemplateColumns,
             plotRowsSpec,
             totalContentWidthPx,
-            columnSizes: spec.layout?.columnSizes,
+            columnSizes: grid.layout.columnSizes,
           }),
           willChange: 'transform',
         }}
       >
-        {(spec.plots || []).map((plot: { id: string, position?: { row: number, col: number }, options: Plot.PlotOptions, renderer?: 'observable-plot' | 'pie-svg', pieSpec?: PiePlotSpec, facetBackground?: FacetBackgroundInfo, xField?: Field, yField?: Field }, index: number) => {
-          const key = plot.id || String(index);
-          const pos = plot.position;
-          const facetBg = plot.facetBackground;
-          
-          const gridItemStyle: React.CSSProperties | undefined = pos
-            ? {
-                gridColumn: pos.col + 1,
-                gridRow: pos.row + 1,
-                borderRight: `1px solid ${GRID_DIVIDER_COLOR}`,
-                borderBottom: `1px solid ${GRID_DIVIDER_COLOR}`,
-                ...(facetBg?.backgroundColor && !facetBg.isMixed ? {
-                  backgroundColor: facetBg.backgroundColor,
-                } : {}),
-              }
-            : undefined;
-          const opts = suppressAxes(plot.options, true, true);
-
-          const handleCellBrushEnd = (brush: BrushResult) => {
-            const el = plotElementsRef.current[plot.id];
-            if (!el || !onBrushEnd) return;
-            onBrushEnd({ brush, plotElement: el, xField: plot.xField, yField: plot.yField });
-          };
-          
-          const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
-            e.preventDefault();
-            onCellContextMenu?.(plot.id, e.clientX, e.clientY);
-          };
-
-          return (
-            <div key={key} className={styles.plotWrapper} style={gridItemStyle} onContextMenu={handleContextMenu}>
-              {facetBg?.isMixed && (
-                <Tooltip title="Mixed values in background field" placement="top" arrow>
-                  <DoNotDisturbAltIcon
-                    sx={{
-                      position: 'absolute',
-                      top: 2,
-                      right: 2,
-                      width: 14,
-                      height: 14,
-                      color: 'rgba(0, 0, 0, 0.25)',
-                      zIndex: 1,
-                    }}
-                  />
-                </Tooltip>
-              )}
-              <BrushOverlay disabled={brushDisabled} onBrushEnd={handleCellBrushEnd}>
-                <div className={styles.observablePlotContainer}>
-                  {plot.renderer === 'pie-svg' && plot.pieSpec ? (
-                    <PieSvgRenderer
-                      pieSpec={plot.pieSpec}
-                      tooltipConfig={(plot.options as any).__customTooltip}
-                      plotId={plot.id}
-                      onRenderComplete={onPlotRenderComplete}
-                    />
-                  ) : (
-                    <ObservablePlot
-                      key={key}
-                      options={opts}
-                      plotId={plot.id}
-                      onRenderComplete={onPlotRenderComplete}
-                      onPlotReady={(el) => handlePlotReady(plot.id, el)}
-                    />
-                  )}
-                </div>
-              </BrushOverlay>
-            </div>
-          );
+        {cells.map((cell, index) => {
+          const key = cell.id || String(index);
+          switch (cell.content.kind) {
+            case 'plot':
+              return (
+                <PlotCell
+                  key={key}
+                  cell={cell as PlotGridCellModel}
+                  plotElementsRef={plotElementsRef}
+                  onPlotReady={handlePlotReady}
+                  onPlotRenderComplete={onPlotRenderComplete}
+                  brushDisabled={brushDisabled}
+                  onBrushEnd={onBrushEnd}
+                  onCellContextMenu={onCellContextMenu}
+                />
+              );
+            case 'text':
+              return (
+                <TextCell
+                  key={key}
+                  cell={cell as TextGridCellModel}
+                  onCellContextMenu={onCellContextMenu}
+                />
+              );
+            case 'mark':
+              return (
+                <MarkCell
+                  key={key}
+                  cell={cell as MarkGridCellModel}
+                  onCellContextMenu={onCellContextMenu}
+                />
+              );
+            case 'empty':
+              return (
+                <EmptyCell
+                  key={key}
+                  cell={cell as EmptyGridCellModel}
+                />
+              );
+            default:
+              return null;
+          }
         })}
       </div>
     </div>
   );
 };
 
+interface PlotCellProps {
+  cell: PlotGridCellModel;
+  plotElementsRef: React.MutableRefObject<Record<string, SVGSVGElement | HTMLElement>>;
+  onPlotReady: (plotId: string, element: SVGSVGElement | HTMLElement) => void;
+  onPlotRenderComplete?: (plotId: string) => void;
+  brushDisabled?: boolean;
+  onBrushEnd?: (event: PlotBrushEvent) => void;
+  onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
+}
+
+const PlotCell: React.FC<PlotCellProps> = ({
+  cell,
+  plotElementsRef,
+  onPlotReady,
+  onPlotRenderComplete,
+  brushDisabled,
+  onBrushEnd,
+  onCellContextMenu,
+}) => {
+  const facetBg = cell.content.facetBackground;
+  const xField = cell.metadata?.xField;
+  const yField = cell.metadata?.yField;
+
+  const opts = suppressAxes(cell.content.options, true, true);
+
+  const handleCellBrushEnd = (brush: BrushResult) => {
+    const el = plotElementsRef.current[cell.id];
+    if (!el || !onBrushEnd) return;
+    onBrushEnd({ brush, plotElement: el, xField, yField });
+  };
+
+  const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    onCellContextMenu?.(cell.id, e.clientX, e.clientY);
+  };
+
+  const isPie = cell.content.renderer === 'pie-svg' && cell.content.pieSpec;
+
+  return (
+    <div className={styles.plotWrapper} style={buildBaseCellStyle(cell)} onContextMenu={handleContextMenu}>
+      {facetBg?.isMixed && (
+        <Tooltip title="Mixed values in background field" placement="top" arrow>
+          <DoNotDisturbAltIcon
+            sx={{
+              position: 'absolute',
+              top: 2,
+              right: 2,
+              width: 14,
+              height: 14,
+              color: 'rgba(0, 0, 0, 0.25)',
+              zIndex: 1,
+            }}
+          />
+        </Tooltip>
+      )}
+      <BrushOverlay disabled={brushDisabled} onBrushEnd={handleCellBrushEnd}>
+        <div className={styles.observablePlotContainer}>
+          {isPie ? (
+            <PieSvgRenderer
+              pieSpec={cell.content.pieSpec!}
+              tooltipConfig={(cell.content.options as any).__customTooltip}
+              plotId={cell.id}
+              onRenderComplete={onPlotRenderComplete}
+            />
+          ) : (
+            <ObservablePlot
+              key={cell.id}
+              options={opts}
+              plotId={cell.id}
+              onRenderComplete={onPlotRenderComplete}
+              onPlotReady={(el) => onPlotReady(cell.id, el)}
+            />
+          )}
+        </div>
+      </BrushOverlay>
+    </div>
+  );
+};
+
+interface TextCellProps {
+  cell: TextGridCellModel;
+  onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
+}
+
+const TextCell: React.FC<TextCellProps> = ({ cell, onCellContextMenu }) => {
+  const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    onCellContextMenu?.(cell.id, e.clientX, e.clientY);
+  };
+
+  return (
+    <div
+      className={styles.textCell}
+      style={buildBaseCellStyle(cell)}
+      onContextMenu={handleContextMenu}
+    >
+      {cell.content.rows.map((row, idx) => (
+        <span
+          key={`${cell.id}-row-${idx}`}
+          className={styles.textRow}
+          title={`${row.label}: ${row.value}`}
+          style={row.source === 'measure' ? { fontVariantNumeric: 'tabular-nums' } : undefined}
+        >
+          {row.value}
+        </span>
+      ))}
+    </div>
+  );
+};
+
+interface MarkCellProps {
+  cell: MarkGridCellModel;
+  onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
+}
+
+const MarkCell: React.FC<MarkCellProps> = ({ cell, onCellContextMenu }) => {
+  const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    onCellContextMenu?.(cell.id, e.clientX, e.clientY);
+  };
+
+  const symbols = cell.content.symbols;
+  const placements = buildSymbolPreviewLayout(symbols.length);
+
+  return (
+    <div
+      className={styles.markCell}
+      style={buildBaseCellStyle(cell)}
+      onContextMenu={handleContextMenu}
+    >
+      <svg
+        className={styles.symbolPreviewStack}
+        viewBox="0 0 100 100"
+        preserveAspectRatio="xMidYMid meet"
+        aria-hidden="true"
+      >
+        {placements.map((placement) => {
+          const symbol = symbols[placement.index];
+          const cx = placement.cx * 100;
+          const cy = placement.cy * 100;
+          const side = symbolAreaToSideLength(symbol.size) * placement.scale;
+          return renderSymbolMark(symbol, cx, cy, side, `${cell.id}-symbol-${placement.index}`);
+        })}
+      </svg>
+    </div>
+  );
+};
+
+function renderSymbolMark(
+  symbol: { symbol: string; color: string; opacity?: number },
+  cx: number,
+  cy: number,
+  side: number,
+  key: string,
+): React.ReactNode {
+  const half = side / 2;
+  const fill = symbol.color;
+  const opacity = symbol.opacity ?? 1;
+  const common = { className: styles.symbolMark, fill, opacity, key };
+  switch (symbol.symbol) {
+    case 'square':
+      return (
+        <rect
+          {...common}
+          x={cx - half}
+          y={cy - half}
+          width={side}
+          height={side}
+        />
+      );
+    case 'triangle':
+      return (
+        <polygon
+          {...common}
+          points={`${cx},${cy - half} ${cx + half},${cy + half} ${cx - half},${cy + half}`}
+        />
+      );
+    case 'diamond':
+      return (
+        <polygon
+          {...common}
+          points={`${cx},${cy - half} ${cx + half},${cy} ${cx},${cy + half} ${cx - half},${cy}`}
+        />
+      );
+    case 'cross':
+    case 'plus':
+      return (
+        <g {...common}>
+          <rect x={cx - half} y={cy - side * 0.18} width={side} height={side * 0.36} />
+          <rect x={cx - side * 0.18} y={cy - half} width={side * 0.36} height={side} />
+        </g>
+      );
+    case 'circle':
+    default:
+      return <circle {...common} cx={cx} cy={cy} r={half} />;
+  }
+}
+
+interface EmptyCellProps {
+  cell: EmptyGridCellModel;
+}
+
+const EmptyCell: React.FC<EmptyCellProps> = ({ cell }) => {
+  return <div className={styles.emptyCell} style={buildBaseCellStyle(cell)} />;
+};
+
 // Memoize to prevent re-renders when props haven't changed
 // CONSERVATIVE: Be more lenient to avoid missing updates
 export default React.memo(PlotArea, (prevProps, nextProps) => {
-  // Compare primitive props
   if (
     prevProps.plotTemplateColumns !== nextProps.plotTemplateColumns ||
     prevProps.plotRowsSpec !== nextProps.plotRowsSpec ||
@@ -184,23 +387,18 @@ export default React.memo(PlotArea, (prevProps, nextProps) => {
   ) {
     return false;
   }
-  
-  // Compare spec.plots reference - if different, always re-render
-  // This is conservative but ensures we don't miss updates
-  if (prevProps.spec.plots !== nextProps.spec.plots) {
+
+  if (prevProps.grid.cells !== nextProps.grid.cells) {
     return false;
   }
-  
-  // If facetLabels reference changed, re-render
-  if (prevProps.spec.facetLabels !== nextProps.spec.facetLabels) {
+
+  if (prevProps.grid.headers !== nextProps.grid.headers) {
     return false;
   }
-  
-  // If layout reference changed, re-render
-  if (prevProps.spec.layout !== nextProps.spec.layout) {
+
+  if (prevProps.grid.layout !== nextProps.grid.layout) {
     return false;
   }
-  
-  // All references are stable, skip re-render
+
   return true;
 });
