@@ -1,4 +1,4 @@
-import { Field, QueryDescription, QueryOptimizationSettings, DistributionVariant, QueryResult } from '../../../../types';
+import { Field, QueryDescription, QueryOptimizationSettings, DistributionVariant, QueryResult, UserChartType } from '../../../../types';
 import { classifyChartType, computePointBudget } from '../../../../services/chartTypeClassifier';
 import { validateAndCleanData, remapCastExpressionColumns } from '../utils/dataValidation';
 
@@ -12,18 +12,22 @@ export function prepareBudgetedQuery(args: {
   queryDesc: QueryDescription;
   colorField: Field | null;
   distributionVariant: DistributionVariant;
+  globalChartType?: UserChartType | null;
   optimizationSettings?: QueryOptimizationSettings;
 }) {
-  const { queryDesc, colorField, distributionVariant, optimizationSettings } = args;
+  const { queryDesc, colorField, distributionVariant, globalChartType, optimizationSettings } = args;
   const classification = classifyChartType(queryDesc, colorField, distributionVariant);
-  const pointBudget = computePointBudget(classification, queryDesc, colorField, optimizationSettings);
+  const effectiveClassification = globalChartType === 'pie'
+    ? { ...classification, isLineChart: false, isPointChart: false }
+    : classification;
+  const pointBudget = computePointBudget(effectiveClassification, queryDesc, colorField, optimizationSettings);
 
-  const shouldAttachBudget = classification.isPointChart &&
+  const shouldAttachBudget = effectiveClassification.isPointChart &&
     pointBudget.maxPoints !== Infinity &&
     Number.isFinite(pointBudget.maxPoints);
 
-  const shouldAttachLineBudget = classification.isLineChart &&
-    !classification.isScatter &&
+  const shouldAttachLineBudget = effectiveClassification.isLineChart &&
+    !effectiveClassification.isScatter &&
     pointBudget.lineBudgetMaxRows != null &&
     Number.isFinite(pointBudget.lineBudgetMaxRows);
 
@@ -56,7 +60,7 @@ export function prepareBudgetedQuery(args: {
   };
 
   return {
-    classification,
+    classification: effectiveClassification,
     pointBudget,
     queryDescExec,
     samplingBudget,

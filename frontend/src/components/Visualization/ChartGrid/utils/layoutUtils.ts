@@ -6,6 +6,12 @@ import type { CSSProperties } from 'react';
 const TEXT_PX_PER_CHAR = 6; // conservative estimate for 12-14px font
 const MIN_Y_AXIS_GUTTER_PX = 28;
 
+function usesOnlyAxislessRenderers(spec: PlotResult): boolean {
+  return (spec.plots || []).length > 0 && (spec.plots || []).every((plot: any) =>
+    plot.renderer === 'pie-svg' || plot.options?.__hideExternalAxes
+  );
+}
+
 /**
  * Estimate pixel width of text based on character count
  */
@@ -18,6 +24,7 @@ export function estimateTextPx(text?: string): number {
  * Calculate dynamic Y-axis gutter width based on label content
  */
 export function computeDynamicYAxisGutterPx(spec: PlotResult, rows: number): number {
+  if (usesOnlyAxislessRenderers(spec)) return 0;
   let maxWidth = MIN_Y_AXIS_GUTTER_PX;
   const plots = spec.plots || [];
   for (let r = 0; r < rows; r++) {
@@ -45,6 +52,7 @@ export function computeDynamicYAxisGutterPx(spec: PlotResult, rows: number): num
  * Calculate dynamic X-axis gutter height based on label content
  */
 export function computeDynamicXAxisGutterPx(spec: PlotResult, columns: number): number {
+  if (usesOnlyAxislessRenderers(spec)) return 0;
   let maxHeight = 24; // baseline
   const plots = spec.plots || [];
   for (let c = 0; c < columns; c++) {
@@ -92,6 +100,7 @@ export function computeDynamicYLabelColPx(
   rowHeightPx: number,
   labelStyle?: YAxisLabelStyle
 ): number {
+  if (usesOnlyAxislessRenderers(spec)) return 0;
   const style = labelStyle || DEFAULT_Y_AXIS_LABEL_STYLE;
   
   // If manual width override is set, use it directly

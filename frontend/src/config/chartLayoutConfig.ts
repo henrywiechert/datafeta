@@ -60,6 +60,7 @@ export const SIZE_DEFAULTS_BY_CHART_TYPE: Record<string, number> = {
   bar: 40,      // Low band padding (thick bars)
   tick: 40,     // Low band padding (thick marks)
   gantt: 40,    // Low band padding (thick task bars)
+  pie: 40,      // Large default radius within each cell
 };
 
 // Default for auto-detected or unknown chart types

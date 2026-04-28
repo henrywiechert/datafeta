@@ -127,10 +127,12 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 - now supported (Ctrl-Mouse)
 - based on zoom-filters
 
-## [] Expose Filters to ChartArea UI
+## [DONE] Expose Filters to ChartArea UI
 - done - tooltips support filtering and color legend as well
 
 ## [] Geographical Maps
+
+## [] Pie Charts
 
 ## [] Text as primary Mark -> wordcloud
 - Generally apply the concept of alwayas having a primary mark
@@ -209,3 +211,10 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 
 ## [] Remember UI panel sizing across sheet changes
 - Also store this in snapshot
+
+## [] Regex not stored in snapshot
+- What is meant here ?
+
+## [] Filter aggregations (SUM(field) > x)
+- currently only absolute values are filterable
+- aggregation filter only makes sense in aggregation views

@@ -88,7 +88,9 @@ export function buildQueryFieldsFromViewInput(input: BuildViewSpecInput): Field[
 
   const xHasMeasure = xFields.some((field) => field.type === 'measure');
   const yHasMeasure = yFields.some((field) => field.type === 'measure');
-  const shouldDefaultAxisMeasureAgg = xHasMeasure !== yHasMeasure;
+  const shouldDefaultAxisMeasureAgg = input.globalChartType === 'pie'
+    ? (xHasMeasure || yHasMeasure)
+    : xHasMeasure !== yHasMeasure;
 
   const normalizedXFields = shouldDefaultAxisMeasureAgg && xHasMeasure
     ? xFields.map((field) => field.type === 'measure' && !field.aggregation

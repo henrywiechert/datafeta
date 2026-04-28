@@ -2,7 +2,7 @@ import { DistributionVariant, Field, UserChartType } from '../../types';
 export { isCdfAllowed } from '../../utils/cdfUtils';
 
 // Cell-level chart types for a pair of fields
-export type CellChartType = 'scatter' | 'line' | 'barX' | 'barY' | 'tickX' | 'tickY' | 'boxX' | 'boxY' | 'dot' | 'ganttX' | 'ganttY' | 'cdf';
+export type CellChartType = 'scatter' | 'line' | 'barX' | 'barY' | 'tickX' | 'tickY' | 'boxX' | 'boxY' | 'dot' | 'ganttX' | 'ganttY' | 'cdf' | 'pie';
 
 export type ChartTypeOverrides = {
   // Global fallback for all pairs when not overridden by field
@@ -138,6 +138,9 @@ export function mapUserChartTypeToCellChartType(
 
     case 'cdf':
       return 'cdf';
+
+    case 'pie':
+      return 'pie';
     
     case 'gantt': {
       // Gantt orientation: ganttX = horizontal (timeline on X axis), ganttY = vertical (timeline on Y axis)

@@ -16,7 +16,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { apiService } from '../../../../apiService';
 import { buildRawQuery } from '../../../../queryBuilder/queryBuilder';
 import { buildUnpivotedQuery } from '../../../../queryBuilder/syntheticQueryBuilder';
-import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition, QueryOptimizationSettings, DistributionVariant } from '../../../../types';
+import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition, QueryOptimizationSettings, DistributionVariant, UserChartType } from '../../../../types';
 import { logOperationTiming } from '../utils';
 import { duckdbService } from '../../../../services/duckdbService';
 import { queryDecisionEngine, QueryDecision } from '../../../../services/queryDecisionEngine';
@@ -53,6 +53,7 @@ export interface UseQueryExecutorProps {
   optimizationHints: OptimizationHints | null;
   optimizationSettings?: QueryOptimizationSettings;
   distributionVariant?: DistributionVariant;
+  globalChartType?: UserChartType | null;
   dispatch: (action: any) => void;
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
@@ -92,6 +93,7 @@ export const useQueryExecutor = ({
   optimizationHints,
   optimizationSettings,
   distributionVariant = 'tick-strip',
+  globalChartType,
   dispatch,
   startOperation,
   completeOperation,
@@ -156,6 +158,7 @@ export const useQueryExecutor = ({
             queryDesc,
             colorField,
             distributionVariant,
+            globalChartType,
             optimizationSettings,
           });
           const { classification, pointBudget, queryDescExec, shouldAttachBudget } = preparedQuery;
@@ -378,6 +381,7 @@ export const useQueryExecutor = ({
       optimizationHints,
       optimizationSettings,
       distributionVariant,
+      globalChartType,
     ]
   );
 

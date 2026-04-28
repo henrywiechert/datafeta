@@ -2,9 +2,10 @@ import React, { useCallback, useRef } from 'react';
 import * as Plot from '@observablehq/plot';
 import { Tooltip } from '@mui/material';
 import DoNotDisturbAltIcon from '@mui/icons-material/DoNotDisturbAlt';
-import { PlotResult, FacetBackgroundInfo } from '../../../observable-plot-generator/types';
+import { PlotResult, FacetBackgroundInfo, PiePlotSpec } from '../../../observable-plot-generator/types';
 import { Field } from '../../../types';
 import ObservablePlot from '../ObservablePlot';
+import PieSvgRenderer from './renderers/PieSvgRenderer';
 import BrushOverlay, { BrushResult } from './BrushOverlay';
 import styles from './ChartGrid.module.css';
 import { GRID_DIVIDER_COLOR } from '../../../config/chartLayoutConfig';
@@ -98,7 +99,7 @@ const PlotArea: React.FC<PlotAreaProps> = ({
           willChange: 'transform',
         }}
       >
-        {(spec.plots || []).map((plot: { id: string, position?: { row: number, col: number }, options: Plot.PlotOptions, facetBackground?: FacetBackgroundInfo, xField?: Field, yField?: Field }, index: number) => {
+        {(spec.plots || []).map((plot: { id: string, position?: { row: number, col: number }, options: Plot.PlotOptions, renderer?: 'observable-plot' | 'pie-svg', pieSpec?: PiePlotSpec, facetBackground?: FacetBackgroundInfo, xField?: Field, yField?: Field }, index: number) => {
           const key = plot.id || String(index);
           const pos = plot.position;
           const facetBg = plot.facetBackground;
@@ -146,13 +147,22 @@ const PlotArea: React.FC<PlotAreaProps> = ({
               )}
               <BrushOverlay disabled={brushDisabled} onBrushEnd={handleCellBrushEnd}>
                 <div className={styles.observablePlotContainer}>
-                  <ObservablePlot 
-                    key={key} 
-                    options={opts} 
-                    plotId={plot.id}
-                    onRenderComplete={onPlotRenderComplete}
-                    onPlotReady={(el) => handlePlotReady(plot.id, el)}
-                  />
+                  {plot.renderer === 'pie-svg' && plot.pieSpec ? (
+                    <PieSvgRenderer
+                      pieSpec={plot.pieSpec}
+                      tooltipConfig={(plot.options as any).__customTooltip}
+                      plotId={plot.id}
+                      onRenderComplete={onPlotRenderComplete}
+                    />
+                  ) : (
+                    <ObservablePlot
+                      key={key}
+                      options={opts}
+                      plotId={plot.id}
+                      onRenderComplete={onPlotRenderComplete}
+                      onPlotReady={(el) => handlePlotReady(plot.id, el)}
+                    />
+                  )}
                 </div>
               </BrushOverlay>
             </div>

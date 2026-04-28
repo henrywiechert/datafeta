@@ -50,10 +50,11 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
       const prev = state.globalChartType;
       const next = action.payload;
       const cdfChanged = (prev === 'cdf') !== (next === 'cdf');
+      const pieChanged = (prev === 'pie') !== (next === 'pie');
       return {
         ...state,
         globalChartType: next,
-        queryVersion: cdfChanged ? state.queryVersion + 1 : state.queryVersion,
+        queryVersion: cdfChanged || pieChanged ? state.queryVersion + 1 : state.queryVersion,
       };
     }
     case 'SET_DISTRIBUTION_VARIANT': {

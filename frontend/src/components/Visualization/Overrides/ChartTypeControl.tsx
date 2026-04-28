@@ -4,6 +4,7 @@ import InsertChartOutlinedIcon from '@mui/icons-material/InsertChartOutlined';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import ScatterPlotIcon from '@mui/icons-material/ScatterPlot';
 import BarChartIcon from '@mui/icons-material/BarChart';
+import PieChartIcon from '@mui/icons-material/PieChart';
 import AutoModeIcon from '@mui/icons-material/AutoMode';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import SvgIcon, { SvgIconProps } from '@mui/material/SvgIcon';
@@ -219,6 +220,11 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
           <ToggleButton value="gantt" aria-label="gantt chart" sx={getAutoHighlightSx('gantt')}>
             <Tooltip title={<>Gantt chart<br/>Start on <b>X</b>, length on <b>Size</b></>} placement="top">
               <span style={{ display: 'inline-flex' }}><GanttIcon sx={{ fontSize: 16 }} /></span>
+            </Tooltip>
+          </ToggleButton>
+          <ToggleButton value="pie" aria-label="pie chart" sx={getAutoHighlightSx('pie')}>
+            <Tooltip title={<>Pie chart<br/>Discrete <b>Color</b> defines slices</>} placement="top">
+              <PieChartIcon sx={{ fontSize: 16 }} />
             </Tooltip>
           </ToggleButton>
           <ToggleButton value="cdf" aria-label="CDF chart" sx={getAutoHighlightSx('cdf')}>

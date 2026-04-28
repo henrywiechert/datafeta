@@ -48,6 +48,7 @@ export type {
   DateTimePart,
   DateTimeMode,
   DistributionVariant,
+  PieVariant,
   DragSource,
   Field,
   DataLabelMode,
