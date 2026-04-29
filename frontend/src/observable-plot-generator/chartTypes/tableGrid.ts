@@ -51,7 +51,7 @@ import {
   MANUAL_NO_SHAPE,
   ShapeScaleInfo,
 } from '../utils/shapeUtils';
-import { deriveColorScaleInfo, ColorScaleInfo } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo, ColorScaleInfo, resolveColorForRow } from '../utils/colorSchemeUtils';
 import { createSizeScale, SizeScale } from '../utils/sizeUtils';
 import { formatTooltipValue } from '../utils/tooltipUtils';
 
@@ -164,20 +164,12 @@ function buildSymbolForRow(
     symbol = context.manualShape;
   }
 
-  // Color resolution: discrete colorField → categorical lookup; manual otherwise.
-  let color: string = context.manualColor || DEFAULT_CHART_COLOR;
-  if (context.colorField && colorScale && colorScale.kind === 'categorical') {
-    const colorColumn = getFieldColumnName(context.colorField);
-    const value = row?.[colorColumn];
-    const domain = colorScale.domain as any[];
-    const idx = domain.findIndex((d) => {
-      if (d instanceof Date && value instanceof Date) return d.getTime() === value.getTime();
-      return d === value;
-    });
-    if (idx >= 0 && colorScale.range.length > 0) {
-      color = colorScale.range[idx % colorScale.range.length];
-    }
-  }
+  // Color resolution. Delegates to the shared `resolveColorForRow` helper so
+  // categorical and continuous (e.g. measure on color shelf) scales behave
+  // identically to other chart types — symbol cells were previously only
+  // honouring categorical scales.
+  const fallbackColor = context.manualColor || DEFAULT_CHART_COLOR;
+  const color = resolveColorForRow(row, colorScale, context.colorField, fallbackColor);
 
   // Size resolution. `sizeScale.getSizeForValue` returns a notional radius
   // (consistent with scatter / `r`). When no `sizeField` is set the scale

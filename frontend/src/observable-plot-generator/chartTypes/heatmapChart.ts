@@ -45,6 +45,20 @@ export interface HeatmapOptionsInput {
   colorScheme?: string;
   colorBias?: number;
   manualColor?: string;
+  /**
+   * When provided, switches the heatmap from a band-filling `Plot.cell` to a
+   * `Plot.dot` with `symbol: 'square'` so the size-shelf measure can scale
+   * each square (Tableau-style "size on heatmap"). Without a size field the
+   * cell mark is preferred because it fills its band cleanly.
+   */
+  sizeField?: Field | null;
+  sizeRange?: [number, number];
+  /**
+   * Optional fields whose per-row values are rendered as text labels on each
+   * cell. The first label field's column drives the visible text; further
+   * fields could be supported by stacking marks if needed in the future.
+   */
+  labelFields?: Field[];
   tooltipFields?: Field[];
   facetFields?: Field[];
 }
@@ -58,6 +72,9 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
     colorScheme,
     colorBias,
     manualColor,
+    sizeField,
+    sizeRange,
+    labelFields,
     tooltipFields,
     facetFields,
   } = input;
@@ -108,24 +125,86 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
     [],
     facetFields,
   );
+  const titleFn = (d: any) => {
+    const fields = tooltipGetter(d);
+    return fields.map((f) => `${f.label}: ${f.formattedValue}`).join('\n');
+  };
 
-  const cellOptions: Plot.CellOptions = {
-    x: xCol,
-    y: yCol,
-    ...(fillCol ? { fill: fillCol } : { fill: effectiveManualFill }),
-    inset: 0.5,
-    title: (d: any) => {
-      const fields = tooltipGetter(d);
-      return fields.map((f) => `${f.label}: ${f.formattedValue}`).join('\n');
-    },
-  } as Plot.CellOptions;
+  // Pick the primary mark. With size-shelf encoding we render dots so each
+  // square shrinks/grows with the field; without a size field we keep the
+  // band-filling `Plot.cell` for a denser, cleaner heatmap look.
+  const useDotMark = !!sizeField;
+  const sizeCol = sizeField ? getResultColumnName(sizeField) : undefined;
+
+  const primaryMark = useDotMark
+    ? Plot.dot(data, {
+        x: xCol,
+        y: yCol,
+        symbol: 'square',
+        r: sizeCol,
+        ...(fillCol ? { fill: fillCol } : { fill: effectiveManualFill }),
+        title: titleFn,
+        frameAnchor: 'middle',
+      } as Plot.DotOptions)
+    : Plot.cell(data, {
+        x: xCol,
+        y: yCol,
+        ...(fillCol ? { fill: fillCol } : { fill: effectiveManualFill }),
+        inset: 0.5,
+        title: titleFn,
+      } as Plot.CellOptions);
+
+  // Optional text overlay: render the first label field's value (or, if it's
+  // a measure, its formatted value) inside each cell. A multi-source label
+  // model exists for the table chart type but is overkill here — heatmaps
+  // typically display a single value per cell.
+  const marks: any[] = [primaryMark];
+  const primaryLabelField = labelFields?.[0];
+  if (primaryLabelField) {
+    const labelCol = getResultColumnName(primaryLabelField);
+    marks.push(
+      Plot.text(data, {
+        x: xCol,
+        y: yCol,
+        text: (d: any) => formatHeatmapLabel(d?.[labelCol]),
+        fill: 'currentColor',
+        stroke: 'white',
+        strokeWidth: 3,
+        paintOrder: 'stroke',
+        fontSize: 11,
+        frameAnchor: 'middle',
+      } as Plot.TextOptions),
+    );
+  }
+
+  // Configure r scale when using dots so the user-provided sizeRange actually
+  // controls the visible square size (Plot defaults to a small radius).
+  const rOption: Plot.ScaleOptions | undefined =
+    useDotMark && sizeRange
+      ? { type: 'linear', range: sizeRange }
+      : undefined;
 
   return {
     x: { type: 'band', label: getFieldDisplayName(xField) },
     y: { type: 'band', label: getFieldDisplayName(yField) },
     ...(colorOption ? { color: colorOption } : {}),
-    marks: [Plot.cell(data, cellOptions)],
+    ...(rOption ? { r: rOption } : {}),
+    marks,
   };
+}
+
+/**
+ * Format a value for display as a heatmap cell label.
+ *
+ * Numeric values use `toLocaleString` so large measures get thousands
+ * separators; everything else falls back to `String(...)`. Null / undefined
+ * render as an empty label so empty cells stay visually clean.
+ */
+function formatHeatmapLabel(value: any): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'number' && Number.isFinite(value)) return value.toLocaleString();
+  if (value instanceof Date) return value.toLocaleString();
+  return String(value);
 }
 
 /**
@@ -164,17 +243,21 @@ function createHeatmapMessage(message: string): PlotResult {
 /**
  * Pick the heatmap's X / Y axis fields from the user's shelf configuration.
  *
- * The first field on each axis becomes the band-axis of the heatmap; any
- * remaining discrete dimensions on the same axis become facets stacked around
- * the chart. We don't restrict to discrete dims here because Plot's `band`
- * scale renders any field reasonably, and constraining the input would make
- * the chart silently disappear for borderline configurations.
+ * Tableau convention: the *innermost* field on each shelf (last one on X, last
+ * on Y) drives the chart axes; any *outer* fields ahead of it become row /
+ * column facets stacked around the heatmap. We pick the last field on each
+ * axis here so the user can drag a higher-level dimension to the left of the
+ * heatmap field to wrap the chart in facets.
+ *
+ * We don't restrict to discrete dims because Plot's `band` scale renders any
+ * field reasonably, and constraining the input would make the chart silently
+ * disappear for borderline configurations.
  */
 function pickHeatmapAxisFields(
   context: ChartGenerationContext,
 ): { xField: Field; yField: Field } | null {
-  const xField = context.xFields[0];
-  const yField = context.yFields[0];
+  const xField = context.xFields[context.xFields.length - 1];
+  const yField = context.yFields[context.yFields.length - 1];
   if (!xField || !yField) return null;
   return { xField, yField };
 }
@@ -203,6 +286,9 @@ function createHeatmapCellGenerator(
       colorScheme: context.colorScheme,
       colorBias: context.colorBias,
       manualColor: context.manualColor,
+      sizeField: context.sizeField || null,
+      sizeRange: context.sizeRange,
+      labelFields: context.labelFields,
       tooltipFields: context.tooltipFields,
       facetFields,
     });

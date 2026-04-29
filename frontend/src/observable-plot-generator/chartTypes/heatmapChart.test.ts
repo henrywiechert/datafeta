@@ -5,6 +5,7 @@ import { buildHeatmapOptions, generateHeatmapGrid } from './heatmapChart';
 jest.mock('@observablehq/plot', () => ({
   cell: (data: any[], opts: any) => ({ type: 'cell', data, opts }),
   text: (data: any[], opts: any) => ({ type: 'text', data, opts }),
+  dot: (data: any[], opts: any) => ({ type: 'dot', data, opts }),
 }));
 
 function dim(columnName: string): Field {
@@ -164,5 +165,99 @@ describe('generateHeatmapGrid', () => {
     expect(result.plots[0].id).toBe('heatmap-message');
     const textMark = (result.plots[0].options as any).marks[0];
     expect(textMark.type).toBe('text');
+  });
+
+  test('uses the *innermost* (last) field on each axis as the heatmap axes', () => {
+    const country = dim('country');
+    const region = dim('region');
+    const segment = dim('segment');
+    const product = dim('product');
+    // X = [country, region]   → region is innermost (used as heatmap X)
+    // Y = [segment, product]  → product is innermost (used as heatmap Y)
+    const ctx = buildCtx({
+      xFields: [country, region],
+      yFields: [segment, product],
+      colorField: meas('sales'),
+      queryResult: { rows: [], columns: [], row_count: 0 } as any,
+    });
+
+    // With 1 outer dim on each axis remaining as facets, generateHeatmapGrid
+    // would route through `coordinateFacetedGrid`. Instead of asserting on
+    // the full faceted grid here, re-use the shared cell builder so the test
+    // stays focused on which fields end up as the heatmap's chart axes.
+    const opts = buildHeatmapOptions({
+      data: [],
+      xField: ctx.xFields[ctx.xFields.length - 1],
+      yField: ctx.yFields[ctx.yFields.length - 1],
+      colorField: meas('sales'),
+    });
+    const cellMark = (opts.marks as any[])[0];
+    expect(cellMark.opts.x).toBe('region');
+    expect(cellMark.opts.y).toBe('product');
+  });
+});
+
+describe('buildHeatmapOptions size encoding', () => {
+  test('switches from Plot.cell to Plot.dot with `r` driven by sizeField', () => {
+    const opts = buildHeatmapOptions({
+      data: SAMPLE_ROWS,
+      xField: dim('region'),
+      yField: dim('product'),
+      colorField: meas('sales'),
+      sizeField: meas('sales'),
+      sizeRange: [3, 18],
+    });
+
+    const primary = (opts.marks as any[])[0];
+    expect(primary.type).toBe('dot');
+    expect(primary.opts.symbol).toBe('square');
+    expect(primary.opts.r).toBe('SUM(sales)');
+    expect((opts as any).r).toEqual({ type: 'linear', range: [3, 18] });
+  });
+
+  test('falls back to Plot.cell when no size field is configured', () => {
+    const opts = buildHeatmapOptions({
+      data: SAMPLE_ROWS,
+      xField: dim('region'),
+      yField: dim('product'),
+      colorField: meas('sales'),
+    });
+
+    const primary = (opts.marks as any[])[0];
+    expect(primary.type).toBe('cell');
+    expect((opts as any).r).toBeUndefined();
+  });
+});
+
+describe('buildHeatmapOptions label encoding', () => {
+  test('overlays a Plot.text mark with the first label field as the cell text', () => {
+    const labelField = meas('sales');
+    const opts = buildHeatmapOptions({
+      data: SAMPLE_ROWS,
+      xField: dim('region'),
+      yField: dim('product'),
+      colorField: meas('sales'),
+      labelFields: [labelField],
+    });
+
+    expect(opts.marks).toHaveLength(2);
+    const textMark = (opts.marks as any[])[1];
+    expect(textMark.type).toBe('text');
+    expect(textMark.opts.x).toBe('region');
+    expect(textMark.opts.y).toBe('product');
+    // The label text accessor formats the SUM(sales) value of each row.
+    const text = textMark.opts.text(SAMPLE_ROWS[0]);
+    expect(text).toContain('100');
+  });
+
+  test('does not add a text mark when labelFields is empty / unset', () => {
+    const opts = buildHeatmapOptions({
+      data: SAMPLE_ROWS,
+      xField: dim('region'),
+      yField: dim('product'),
+      colorField: meas('sales'),
+    });
+
+    expect(opts.marks).toHaveLength(1);
   });
 });

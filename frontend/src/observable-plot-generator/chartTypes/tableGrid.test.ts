@@ -282,6 +282,32 @@ describe('generateTableGrid', () => {
       expect(cell.content.symbols[0].size).toBeCloseTo(areaForRadius(8), 0);
     });
 
+    it('encodes a continuous color field (measure on color) to per-cell colors', () => {
+      const region = dimField('dim-region', 'region');
+      const sales = measureField('m-sales', 'sales');
+      const grid = generateTableGrid(buildContext({
+        yFields: [region],
+        colorField: sales,
+        colorScheme: 'tableau10',
+        rows: [
+          { region: 'East', 'SUM(sales)': 100 },
+          { region: 'West', 'SUM(sales)': 1000 },
+        ],
+      }));
+
+      const eastCell = grid.cells.find((c) => c.position.row === 0) as MarkGridCellModel;
+      const westCell = grid.cells.find((c) => c.position.row === 1) as MarkGridCellModel;
+
+      expect(eastCell.content.kind).toBe('mark');
+      expect(westCell.content.kind).toBe('mark');
+      // Continuous color must produce *different* colors for different values
+      // (regression: previously only categorical color scales were honored).
+      expect(eastCell.content.symbols[0].color).not.toBe(westCell.content.symbols[0].color);
+      // Both must be real colors, not the default chart color fallback.
+      expect(eastCell.content.symbols[0].color).not.toBe(DEFAULT_CHART_COLOR);
+      expect(westCell.content.symbols[0].color).not.toBe(DEFAULT_CHART_COLOR);
+    });
+
     it('takes the largest encoded size when multiple rows share a (symbol, color) bucket', () => {
       const region = dimField('dim-region', 'region');
       const sales = measureField('m-sales', 'sales');
