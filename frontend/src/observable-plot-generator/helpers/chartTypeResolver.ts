@@ -2,7 +2,7 @@ import { DistributionVariant, Field, UserChartType } from '../../types';
 export { isCdfAllowed } from '../../utils/cdfUtils';
 
 // Cell-level chart types for a pair of fields
-export type CellChartType = 'scatter' | 'line' | 'barX' | 'barY' | 'tickX' | 'tickY' | 'boxX' | 'boxY' | 'dot' | 'ganttX' | 'ganttY' | 'cdf' | 'pie';
+export type CellChartType = 'scatter' | 'line' | 'barX' | 'barY' | 'tickX' | 'tickY' | 'boxX' | 'boxY' | 'dot' | 'ganttX' | 'ganttY' | 'cdf' | 'pie' | 'heatmap';
 
 export type ChartTypeOverrides = {
   // Global fallback for all pairs when not overridden by field
@@ -141,6 +141,9 @@ export function mapUserChartTypeToCellChartType(
 
     case 'pie':
       return 'pie';
+
+    case 'heatmap':
+      return 'heatmap';
     
     case 'gantt': {
       // Gantt orientation: ganttX = horizontal (timeline on X axis), ganttY = vertical (timeline on Y axis)
@@ -165,5 +168,50 @@ export function mapUserChartTypeToCellChartType(
       // Fallback to auto-detection
       return detectDefaultChartTypeForPair(xField, yField);
   }
+}
+
+/**
+ * Top-level "what should the auto chart be?" rule.
+ *
+ * Returns a `UserChartType` when the field shape matches a known auto-routed
+ * chart, or `null` to fall back to per-pair auto-detection (the existing
+ * behaviour).
+ *
+ * Currently only routes to `'heatmap'`:
+ * - X has exactly 1 discrete dimension
+ * - Y has exactly 1 discrete dimension
+ * - No continuous dimensions on X or Y
+ * - At least 1 measure available on the color shelf (the natural place for the
+ *   heatmap's color encoding)
+ *
+ * Notes:
+ * - This is an auto-detection helper. The user's explicit toggle selection
+ *   (`globalChartType`) always takes precedence over this default.
+ * - `detectDefaultChartTypeForPair` continues to be used for per-cell decisions
+ *   when this returns `null`.
+ */
+export function detectDefaultUserChartType(
+  xFields: Field[] | undefined,
+  yFields: Field[] | undefined,
+  colorField?: Field | null
+): UserChartType | null {
+  const xs = xFields || [];
+  const ys = yFields || [];
+
+  // Heatmap: 1 discrete X dim, 1 discrete Y dim, no continuous dims, measure on color.
+  if (xs.length === 1 && ys.length === 1) {
+    const xf = xs[0];
+    const yf = ys[0];
+    const xIsDiscreteDim =
+      xf?.type === 'dimension' && xf.flavour === 'discrete';
+    const yIsDiscreteDim =
+      yf?.type === 'dimension' && yf.flavour === 'discrete';
+    const colorIsMeasure = !!colorField && colorField.type === 'measure';
+    if (xIsDiscreteDim && yIsDiscreteDim && colorIsMeasure) {
+      return 'heatmap';
+    }
+  }
+
+  return null;
 }
 

@@ -5,6 +5,7 @@ import { GridResultModel } from '../../../../observable-plot-generator/gridModel
 import { OverlayConfig } from '../../../../observable-plot-generator/overlays/types';
 import { Field, FieldOverrideState, UserChartType, Channels, DistributionVariant, TableCellMode } from '../../../../types';
 import { computeOverrideTargets } from '../../../../observable-plot-generator/utils/fieldOverrides';
+import { detectDefaultUserChartType } from '../../../../observable-plot-generator/helpers/chartTypeResolver';
 import { logOperationTiming } from '../utils';
 import { planFacets } from '../../../../observable-plot-generator/faceting/facetPlanner';
 import { validateFacetCounts, FacetValidationResult } from '../../../../observable-plot-generator/faceting/facetValidation';
@@ -207,6 +208,17 @@ export const useChartGeneration = ({
         measureValuesSourceFields
       );
 
+      // Auto-route to a default chart type when the user has not picked one
+      // explicitly. Today this only fires for heatmap (1 discrete X dim + 1
+      // discrete Y dim + measure on color); other shapes fall through to the
+      // existing per-pair detection in `coreGridGenerator`.
+      const effectiveGlobalChartType =
+        globalChartType ?? detectDefaultUserChartType(
+          xAxisFields as Field[],
+          yAxisFields as Field[],
+          colorField || undefined
+        ) ?? null;
+
       // Build the chart generation context
       // NOTE: Use ref for ganttZoomRange to avoid frequent regeneration during zoom
       const context: ChartGenerationContext = {
@@ -229,7 +241,7 @@ export const useChartGeneration = ({
         tooltipFields,
         fieldOverrides,
         fieldOverrideTargets: overrideTargets,
-        globalChartType,
+        globalChartType: effectiveGlobalChartType,
         distributionVariant,
         tableCellMode,
         tablePage,

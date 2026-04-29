@@ -7,7 +7,7 @@ import { useDataSource } from '../../../contexts/DataSourceContext';
 import { useUndoRedo } from '../../../contexts/UndoRedoContext';
 import { Field } from '../../../types';
 import { computeOverrideTargets } from '../../../observable-plot-generator/utils/fieldOverrides';
-import { detectDefaultChartTypeForPair, CellChartType } from '../../../observable-plot-generator/helpers/chartTypeResolver';
+import { detectDefaultChartTypeForPair, detectDefaultUserChartType, CellChartType } from '../../../observable-plot-generator/helpers/chartTypeResolver';
 import { analyzeFields } from '../../../observable-plot-generator/analysis/fieldAnalysis';
 import { SIZE_DEFAULTS_BY_CHART_TYPE, SIZE_DEFAULT_FALLBACK } from '../../../config/chartLayoutConfig';
 import { DEFAULT_MANUAL_COLOR, DEFAULT_CATEGORICAL_SCHEME, DEFAULT_SEQUENTIAL_SCHEME, categoricalSchemes } from '../../../config/colorSchemes';
@@ -112,6 +112,15 @@ const FieldOverridesPanel: React.FC = () => {
     const yFields = yAxisFields as Field[];
     if (!xFields?.length && !yFields?.length) return undefined;
 
+    // Top-level user-chart-type defaults (currently: heatmap on 1×1 discrete dims
+    // with a measure on color). These take precedence over per-pair detection.
+    const userTypeDefault = detectDefaultUserChartType(
+      xFields,
+      yFields,
+      colorField as Field | null
+    );
+    if (userTypeDefault) return userTypeDefault;
+
     const analysis = analyzeFields(xFields, yFields);
     const xCandidates = xFields.filter(
       (f) => f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
@@ -137,7 +146,7 @@ const FieldOverridesPanel: React.FC = () => {
     if (!hasMeasures && (xHasContinuousDim || yHasContinuousDim)) return 'tick';
     if (hasMeasures) return 'bar';
     return 'scatter';
-  }, [globalChartType, xAxisFields, yAxisFields]);
+  }, [globalChartType, xAxisFields, yAxisFields, colorField]);
 
   // Track previous auto-selected type to detect changes
   const prevAutoSelectedTypeRef = useRef<string | undefined>(autoSelectedType);

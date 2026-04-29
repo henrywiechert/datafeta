@@ -6,6 +6,7 @@ import ScatterPlotIcon from '@mui/icons-material/ScatterPlot';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import PieChartIcon from '@mui/icons-material/PieChart';
 import TableChartIcon from '@mui/icons-material/TableChart';
+import GridOnIcon from '@mui/icons-material/GridOn';
 import AutoModeIcon from '@mui/icons-material/AutoMode';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import SvgIcon, { SvgIconProps } from '@mui/material/SvgIcon';
@@ -254,6 +255,19 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
           <ToggleButton value="cdf" aria-label="CDF chart" sx={getAutoHighlightSx('cdf')}>
             <Tooltip title={<>CDF (cumulative distribution function)<br/>Needs a Measure on <b>X</b></>} placement="top">
               <span style={{ display: 'inline-flex' }}><CdfIcon sx={{ fontSize: 16 }} /></span>
+            </Tooltip>
+          </ToggleButton>
+          <ToggleButton value="heatmap" aria-label="heatmap chart" sx={getAutoHighlightSx('heatmap')}>
+            <Tooltip
+              title={(
+                <>
+                  Heatmap<br/>
+                  Discrete dimensions on <b>X</b> and <b>Y</b>, measure on <b>Color</b>.
+                </>
+              )}
+              placement="top"
+            >
+              <GridOnIcon sx={{ fontSize: 16 }} />
             </Tooltip>
           </ToggleButton>
           <ToggleButton value="table-refactor" aria-label="table" sx={getAutoHighlightSx('table-refactor')}>
