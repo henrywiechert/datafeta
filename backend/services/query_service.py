@@ -66,6 +66,31 @@ AGGREGATION_MAP = {
 
 class QueryService:
 
+    def _get_column_types_for_duckdb(
+        self,
+        db_type: str,
+        connector: Optional[Any],
+        table_name: str,
+        target_database: Optional[str],
+    ) -> Optional[Dict[str, str]]:
+        """Fetch column types to enable narrow-int BIGINT promotion in DuckDB virtual columns.
+
+        Returns a mapping of column name -> upper-cased DB data type, or None when
+        the types cannot be determined (non-DuckDB backend, no connector, or any
+        transient error during metadata retrieval).
+        """
+        if db_type not in {'duckdb', 'csv', 'file', 'kaggle', 'hive_parquet'} or connector is None:
+            return None
+        try:
+            cols = connector.list_columns(database=target_database, table=table_name)
+            return {col.name: col.data_type for col in cols}
+        except Exception:
+            logger.debug(
+                "Could not fetch column types for DuckDB virtual column type promotion",
+                exc_info=True,
+            )
+            return None
+
     def _get_field_with_cast(self, table: Any, field_name: str, column_casts: Optional[Dict[str, Dict[str, str]]] = None) -> Any:
         """Get a field reference, applying CAST if configured. Delegates to cast_field_applier."""
         return get_field_with_cast(table, field_name, column_casts)
@@ -342,6 +367,7 @@ class QueryService:
         table_name: str,
         db_type: str,
         quote_char: str,
+        connector: Optional[Any] = None,
     ) -> Tuple[str, Any]:
         """Build a CDF query using quantile breakpoints.
 
@@ -354,10 +380,14 @@ class QueryService:
         # Build WHERE clause via the standard filter pipeline
         vc_builder = None
         if query_desc.virtual_columns:
+            column_types = self._get_column_types_for_duckdb(
+                db_type, connector, table_name, query_desc.target_database
+            )
             vc_builder = VirtualColumnExpressionBuilder(
                 table_map=table_context.table_map,
                 default_table=table_context.default_table,
                 db_type=db_type,
+                column_types=column_types,
             )
             for vc in query_desc.virtual_columns:
                 vc_builder.register_virtual_column(vc)
@@ -412,6 +442,7 @@ class QueryService:
         table_name: str,
         db_type: str,
         quote_char: str,
+        connector: Optional[Any] = None,
     ) -> Tuple[str, Any]:
         """Build a grouped box-plot summary query."""
         table_context = self._build_table_context(query_desc, db_type, table_name)
@@ -419,10 +450,14 @@ class QueryService:
 
         vc_builder = None
         if query_desc.virtual_columns:
+            column_types = self._get_column_types_for_duckdb(
+                db_type, connector, table_name, query_desc.target_database
+            )
             vc_builder = VirtualColumnExpressionBuilder(
                 table_map=table_context.table_map,
                 default_table=table_context.default_table,
                 db_type=db_type,
+                column_types=column_types,
             )
             for vc in query_desc.virtual_columns:
                 vc_builder.register_virtual_column(vc)
@@ -547,13 +582,13 @@ class QueryService:
         # Handle CDF (cumulative distribution function) query mode
         if query_desc.query_mode == 'cdf' and query_desc.cdf_fields:
             return self._translate_cdf_query(
-                query_desc, table_name, db_type, quote_char,
+                query_desc, table_name, db_type, quote_char, connector=connector,
             )
 
         # Handle grouped box-plot summary query mode
         if query_desc.query_mode == 'box_plot' and query_desc.box_plot_fields:
             return self._translate_box_plot_query(
-                query_desc, table_name, db_type, quote_char,
+                query_desc, table_name, db_type, quote_char, connector=connector,
             )
 
         # For filter value queries with JOINed tables, query the source table directly
@@ -649,10 +684,14 @@ class QueryService:
         # NEW: Initialize virtual column builder if virtual columns are defined
         vc_builder = None
         if query_desc.virtual_columns:
+            column_types = self._get_column_types_for_duckdb(
+                db_type, connector, table_name, query_desc.target_database
+            )
             vc_builder = VirtualColumnExpressionBuilder(
                 table_map=table_map,
                 default_table=default_table,
                 db_type=db_type,
+                column_types=column_types,
             )
             
             # Register all virtual columns

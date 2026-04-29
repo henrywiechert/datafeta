@@ -311,10 +311,22 @@ class CardinalityService:
         # Initialize virtual column builder if virtual columns are defined
         vc_builder = None
         if virtual_columns:
+            db_type = self.conn_details.type
+            column_types = None
+            if db_type in {'duckdb', 'csv', 'file', 'kaggle', 'hive_parquet'}:
+                try:
+                    cols = self.connector.list_columns(database=None, table=table)
+                    column_types = {col.name: col.data_type for col in cols}
+                except Exception:
+                    logger.debug(
+                        "Could not fetch column types for DuckDB virtual column type promotion",
+                        exc_info=True,
+                    )
             vc_builder = VirtualColumnExpressionBuilder(
                 table_map=table_map,
                 default_table=db_table,
-                db_type=self.conn_details.type,
+                db_type=db_type,
+                column_types=column_types,
             )
             
             # Register all virtual columns

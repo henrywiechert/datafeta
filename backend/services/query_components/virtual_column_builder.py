@@ -17,6 +17,25 @@ from backend.models.data_source import VirtualColumnDefinition
 logger = logging.getLogger(__name__)
 
 
+# DuckDB integer types narrower than BIGINT that can overflow during arithmetic.
+# These are promoted to BIGINT when referenced in virtual column expressions so
+# that intermediate arithmetic (e.g. uint16 * 20480) does not silently overflow.
+_NARROW_INT_TYPES: frozenset = frozenset({
+    'UINT8', 'UTINYINT',
+    'UINT16', 'USMALLINT',
+    'UINT32', 'UINTEGER',
+    'INT8', 'TINYINT',
+    'INT16', 'SMALLINT',
+    'INT32', 'INTEGER', 'INT',
+})
+
+# Frontend virtual-column editor sends logical output-type hints rather than
+# concrete SQL types.  In particular, DuckDB's bare NUMERIC cast can coerce the
+# result into an unnecessary decimal type, so we avoid casting for the generic
+# "numeric" hint and only apply casts for explicit SQL types.
+_LOGICAL_OUTPUT_TYPES_NO_CAST: frozenset = frozenset({'numeric'})
+
+
 # Custom function classes for functions not directly available in Pypika
 class Round(Function):
     """ROUND function for rounding numeric values."""
@@ -55,7 +74,7 @@ class SplitFunctionTerm(Term):
 
     def _normalized_db_type(self, explicit: Optional[str]) -> str:
         db_type = (explicit or self.db_type or 'clickhouse').lower()
-        if db_type in {'csv', 'file', 'duckdb', 'kaggle'}:
+        if db_type in {'csv', 'file', 'duckdb', 'kaggle', 'hive_parquet'}:
             return 'duckdb'
         return db_type
 
@@ -111,7 +130,8 @@ class VirtualColumnExpressionBuilder:
         self,
         table_map: Dict[str, Any],
         default_table: Any,
-        db_type: str = 'clickhouse'
+        db_type: str = 'clickhouse',
+        column_types: Optional[Dict[str, str]] = None,
     ):
         """
         Initialize the builder.
@@ -119,6 +139,11 @@ class VirtualColumnExpressionBuilder:
         Args:
             table_map: Dictionary mapping table names to Pypika Table objects
             default_table: Default Pypika Table object for unqualified column names
+            db_type: Database type ('clickhouse', 'duckdb', etc.)
+            column_types: Optional mapping of column name -> DB data type.  When
+                provided for DuckDB sources, narrow integer columns (UINT16, INT32,
+                etc.) are automatically promoted to BIGINT to prevent arithmetic
+                overflow in virtual column expressions.
         """
         self.table_map = table_map
         self.default_table = default_table
@@ -126,6 +151,10 @@ class VirtualColumnExpressionBuilder:
         self._registered_names: Set[str] = set()
         self._source_fields_map: Dict[str, List[str]] = {}  # Maps vc name -> source field names
         self.db_type = self._normalize_db_type(db_type)
+        # Normalise to upper-case for reliable look-ups
+        self.column_types: Dict[str, str] = {
+            k: v.upper() for k, v in (column_types or {}).items()
+        }
     
     def register_virtual_column(
         self, 
@@ -162,8 +191,9 @@ class VirtualColumnExpressionBuilder:
             pypika_term = self._parse_expression(expression)
             
             # Apply type cast if specified
-            if output_type:
-                pypika_term = Cast(pypika_term, output_type)
+            resolved_output_type = self._resolve_output_type(output_type)
+            if resolved_output_type:
+                pypika_term = Cast(pypika_term, resolved_output_type)
             
             # Store in maps
             self.virtual_column_map[name] = pypika_term
@@ -523,15 +553,31 @@ class VirtualColumnExpressionBuilder:
                 # Qualified name: table.column (referencing a different table)
                 logger.debug(f"Field '{field_name}' recognized as qualified: table '{table_name}', column '{column_name}'")
                 table = self.table_map[table_name]
-                return table[column_name]
+                field_term = table[column_name]
+                bare_name = column_name
             else:
                 # Either not a table prefix, or prefix matches default table
                 # Treat entire name as column name (dot is part of column name)
                 logger.debug(f"Field '{field_name}' treated as full column name (prefix '{table_name}' is default table or unknown)")
-                return self.default_table[field_name]
+                field_term = self.default_table[field_name]
+                bare_name = field_name
         else:
             # Unqualified name: column
-            return self.default_table[field_name]
+            field_term = self.default_table[field_name]
+            bare_name = field_name
+
+        # For DuckDB, promote narrow integer columns to BIGINT to prevent arithmetic
+        # overflow in virtual column expressions (e.g. UINT16 * 20480 overflows).
+        if self.db_type == 'duckdb' and self.column_types:
+            col_type = self.column_types.get(bare_name) or self.column_types.get(field_name, '')
+            if col_type in _NARROW_INT_TYPES:
+                logger.debug(
+                    f"Promoting column '{field_name}' from {col_type} to BIGINT "
+                    f"for DuckDB virtual column arithmetic"
+                )
+                return Cast(field_term, 'BIGINT')
+
+        return field_term
     
     @staticmethod
     def _create_case_builder():
@@ -547,11 +593,32 @@ class VirtualColumnExpressionBuilder:
         return Case()
 
     @staticmethod
+    def _resolve_output_type(output_type: Optional[str]) -> Optional[str]:
+        """Normalize frontend logical output-type hints to SQL cast types.
+
+        The frontend currently sends logical hints such as ``numeric``. These
+        should not always translate to a literal SQL CAST target. For numeric
+        expressions we preserve the engine's inferred type, which avoids
+        DuckDB-specific coercion to DECIMAL/NUMERIC for integer arithmetic.
+
+        Explicit SQL types such as DOUBLE, INTEGER, or VARCHAR are passed
+        through unchanged.
+        """
+        if not output_type:
+            return None
+
+        normalized = output_type.strip()
+        if normalized.lower() in _LOGICAL_OUTPUT_TYPES_NO_CAST:
+            return None
+
+        return normalized
+
+    @staticmethod
     def _normalize_db_type(db_type: Optional[str]) -> str:
         if not db_type:
             return 'clickhouse'
         normalized = db_type.lower()
-        if normalized in {'csv', 'file', 'duckdb', 'kaggle'}:
+        if normalized in {'csv', 'file', 'duckdb', 'kaggle', 'hive_parquet'}:
             return 'duckdb'
         return normalized
 
