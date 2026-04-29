@@ -16,6 +16,7 @@ import { generateFacetedGrid, generateCdfGrid } from './faceting/facetGenerator'
 import { ganttChart } from './chartTypes/ganttChart';
 import { generatePieGrid } from './chartTypes/pieChart';
 import { generateTableGrid } from './chartTypes/tableGrid';
+import { isTablePresentation } from './chartTypes/chartTypePresentation';
 
 // Re-export buildLabelConfig as buildLabelCfg for backward compatibility
 export { buildLabelConfig as buildLabelCfg } from './utils/configBuilder';
@@ -456,15 +457,16 @@ function generatePlotAsResult(context: ChartGenerationContext, overrides?: Chart
  * `GridResultModel` happens here so downstream consumers only depend on the
  * grid abstraction.
  *
- * The `'table-refactor'` chart type bypasses the legacy pipeline entirely and
- * emits a `GridResultModel` directly via `generateTableGrid`.
+ * Chart types whose presentation is `'table'` (e.g. `'table-refactor'`) bypass
+ * the legacy pipeline entirely and emit a `GridResultModel` directly via their
+ * own generator (`generateTableGrid` for table-refactor today).
  *
  * @param context - Chart generation context with fields, data, and styling
  * @param overrides - Optional chart type overrides for specific fields
  * @returns GridResultModel with cell array, layout and optional headers
  */
 export function generatePlot(context: ChartGenerationContext, overrides?: ChartTypeOverrides): GridResultModel {
-  if (context.globalChartType === 'table-refactor') {
+  if (isTablePresentation(context.globalChartType)) {
     return generateTableGrid(context);
   }
   return buildGridFromPlotResult(generatePlotAsResult(context, overrides));

@@ -205,7 +205,9 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   );
 };
 
-// Memoize to prevent unnecessary re-renders when only unrelated state changes
+// Memoize to prevent unnecessary re-renders when only unrelated state changes.
+// All callback props are useCallback-stable in ChartArea, so referential
+// equality is sufficient.
 export default React.memo(ChartGrid, (prevProps, nextProps) => {
   return (
     prevProps.grid === nextProps.grid &&
@@ -213,6 +215,9 @@ export default React.memo(ChartGrid, (prevProps, nextProps) => {
     prevProps.isGanttChart === nextProps.isGanttChart &&
     prevProps.ganttZoomRange === nextProps.ganttZoomRange &&
     prevProps.ganttFullDataRange === nextProps.ganttFullDataRange &&
-    prevProps.brushDisabled === nextProps.brushDisabled
+    prevProps.brushDisabled === nextProps.brushDisabled &&
+    prevProps.onPlotRenderComplete === nextProps.onPlotRenderComplete &&
+    prevProps.onGanttZoomRangeChange === nextProps.onGanttZoomRangeChange &&
+    prevProps.onBrushEnd === nextProps.onBrushEnd
   );
 });
