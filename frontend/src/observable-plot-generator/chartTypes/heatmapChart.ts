@@ -120,15 +120,11 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
       { label: getFieldDisplayName(yField), column: yCol, sourceField: yField },
     ],
     colorField || undefined,
-    undefined,
+    sizeField || undefined,
     tooltipFields,
     [],
     facetFields,
   );
-  const titleFn = (d: any) => {
-    const fields = tooltipGetter(d);
-    return fields.map((f) => `${f.label}: ${f.formattedValue}`).join('\n');
-  };
 
   // Pick the primary mark. With size-shelf encoding we render dots so each
   // square shrinks/grows with the field; without a size field we keep the
@@ -143,7 +139,6 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
         symbol: 'square',
         r: sizeCol,
         ...(fillCol ? { fill: fillCol } : { fill: effectiveManualFill }),
-        title: titleFn,
         frameAnchor: 'middle',
       } as Plot.DotOptions)
     : Plot.cell(data, {
@@ -151,7 +146,6 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
         y: yCol,
         ...(fillCol ? { fill: fillCol } : { fill: effectiveManualFill }),
         inset: 0.5,
-        title: titleFn,
       } as Plot.CellOptions);
 
   // Optional text overlay: render the first label field's value (or, if it's
@@ -184,13 +178,21 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
       ? { type: 'linear', range: sizeRange }
       : undefined;
 
-  return {
+  const options: Plot.PlotOptions = {
     x: { type: 'band', label: getFieldDisplayName(xField) },
     y: { type: 'band', label: getFieldDisplayName(yField) },
     ...(colorOption ? { color: colorOption } : {}),
     ...(rOption ? { r: rOption } : {}),
     marks,
   };
+
+  (options as any).__customTooltip = {
+    enabled: true,
+    data,
+    getFields: tooltipGetter,
+  };
+
+  return options;
 }
 
 /**
