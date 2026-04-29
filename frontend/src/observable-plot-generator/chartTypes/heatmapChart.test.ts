@@ -98,7 +98,7 @@ describe('buildHeatmapOptions (PR 9)', () => {
     expect(cellMark.opts.fill).toBe('#ff0000');
   });
 
-  test('exposes a tooltip title function that includes the measured value', () => {
+  test('attaches the shared custom tooltip config with x, y, and color fields', () => {
     const opts = buildHeatmapOptions({
       data: SAMPLE_ROWS,
       xField: dim('region'),
@@ -106,14 +106,50 @@ describe('buildHeatmapOptions (PR 9)', () => {
       colorField: meas('sales'),
     });
 
+    const tooltipConfig = (opts as any).__customTooltip;
+    expect(tooltipConfig).toBeDefined();
+    expect(tooltipConfig.enabled).toBe(true);
+    expect(tooltipConfig.data).toBe(SAMPLE_ROWS);
+
+    const fields = tooltipConfig.getFields(SAMPLE_ROWS[0]);
+    expect(fields.map((field: any) => field.label)).toEqual([
+      'region',
+      'product',
+      'sales(sum)',
+    ]);
+    expect(fields.map((field: any) => field.formattedValue)).toEqual([
+      'North',
+      'A',
+      '100',
+    ]);
+
     const cellMark = (opts.marks as any[])[0];
-    expect(typeof cellMark.opts.title).toBe('function');
-    const title = cellMark.opts.title(SAMPLE_ROWS[0]);
-    expect(title).toContain('region');
-    expect(title).toContain('North');
-    expect(title).toContain('product');
-    expect(title).toContain('A');
-    expect(title).toContain('100');
+    expect(cellMark.opts.title).toBeUndefined();
+  });
+
+  test('includes the size field in custom tooltip output for size-encoded heatmaps', () => {
+    const opts = buildHeatmapOptions({
+      data: SAMPLE_ROWS,
+      xField: dim('region'),
+      yField: dim('product'),
+      colorField: meas('sales'),
+      sizeField: meas('sales'),
+      sizeRange: [3, 18],
+    });
+
+    const tooltipConfig = (opts as any).__customTooltip;
+    const fields = tooltipConfig.getFields(SAMPLE_ROWS[1]);
+
+    expect(fields.map((field: any) => field.label)).toEqual([
+      'region',
+      'product',
+      'sales(sum)',
+    ]);
+    expect(fields.map((field: any) => field.formattedValue)).toEqual([
+      'North',
+      'B',
+      '200',
+    ]);
   });
 });
 
