@@ -718,3 +718,155 @@ class TestVirtualColumnExpressionBuilder:
         sql = term.get_sql(quote_char='"')
         assert 'CASE' in sql
 
+    # ========================================================================
+    # DuckDB narrow-integer promotion (BIGINT cast)
+    # ========================================================================
+
+    def test_duckdb_uint16_column_promoted_to_bigint(self):
+        """UINT16 columns must be wrapped in CAST(... AS BIGINT) for DuckDB to prevent overflow."""
+        builder = VirtualColumnExpressionBuilder(
+            self.table_map,
+            self.table,
+            db_type='duckdb',
+            column_types={'price': 'UINT16', 'quantity': 'UINT16'},
+        )
+        vc = VirtualColumnDefinition(
+            name='cslot',
+            expression='price * 20 + quantity * 20 * 1024',
+        )
+        term = builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='"')
+        # Both UINT16 columns must be wrapped in CAST(... AS BIGINT)
+        assert sql.count('CAST') >= 2
+        assert 'BIGINT' in sql
+
+    def test_duckdb_mixed_types_only_narrow_promoted(self):
+        """Only narrow integer columns are promoted; BIGINT and VARCHAR columns are not cast."""
+        builder = VirtualColumnExpressionBuilder(
+            self.table_map,
+            self.table,
+            db_type='duckdb',
+            column_types={'slot': 'UINT16', 'hfn': 'BIGINT'},
+        )
+        vc = VirtualColumnDefinition(
+            name='combined',
+            expression='slot + hfn',
+        )
+        term = builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='"')
+        # slot (UINT16) is promoted, hfn (BIGINT) is not
+        assert 'CAST' in sql
+        assert 'BIGINT' in sql
+        # BIGINT cast appears exactly once (for the narrow column only)
+        assert sql.count('BIGINT') == 1
+
+    def test_duckdb_int32_promoted(self):
+        """INT32/INTEGER columns are promoted to avoid overflow when multiplied."""
+        builder = VirtualColumnExpressionBuilder(
+            self.table_map,
+            self.table,
+            db_type='duckdb',
+            column_types={'value': 'INT32'},
+        )
+        vc = VirtualColumnDefinition(
+            name='large',
+            expression='value * 100000',
+        )
+        term = builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='"')
+        assert 'CAST' in sql
+        assert 'BIGINT' in sql
+
+    def test_clickhouse_no_promotion_even_with_column_types(self):
+        """column_types has no effect on ClickHouse (type promotion is DB-native)."""
+        builder = VirtualColumnExpressionBuilder(
+            self.table_map,
+            self.table,
+            db_type='clickhouse',
+            column_types={'price': 'UINT16'},
+        )
+        vc = VirtualColumnDefinition(
+            name='total',
+            expression='price * 20',
+        )
+        term = builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='`')
+        # No BIGINT cast inserted for ClickHouse
+        assert 'BIGINT' not in sql
+
+    def test_duckdb_no_column_types_no_promotion(self):
+        """Without column_types, behaviour is unchanged (no spurious casts)."""
+        builder = VirtualColumnExpressionBuilder(
+            self.table_map,
+            self.table,
+            db_type='duckdb',
+        )
+        vc = VirtualColumnDefinition(
+            name='total',
+            expression='price * 20',
+        )
+        term = builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='"')
+        assert 'BIGINT' not in sql
+
+    def test_duckdb_hive_overflow_expression(self):
+        """Reproduces the real-world overflow case: slot + sfn*20 + hfnTickCount*20*1024."""
+        table = Table('partition1')
+        builder = VirtualColumnExpressionBuilder(
+            {'partition1': table},
+            table,
+            db_type='hive_parquet',
+            column_types={
+                'slot': 'UINT16',
+                'sfn': 'UINT16',
+                'hfnTickCount': 'UINT16',
+            },
+        )
+        vc = VirtualColumnDefinition(
+            name='cslot',
+            expression='slot + sfn * 20 + hfnTickCount * 20 * 1024',
+        )
+        term = builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='"')
+        # All three UINT16 columns must be cast to BIGINT before arithmetic
+        assert sql.count('BIGINT') == 3
+
+    def test_logical_numeric_output_type_does_not_emit_numeric_cast(self):
+        """Frontend's generic numeric hint should preserve inferred SQL type."""
+        builder = VirtualColumnExpressionBuilder(
+            self.table_map,
+            self.table,
+            db_type='duckdb',
+            column_types={'slot': 'UINT16', 'sfn': 'UINT16', 'hfnTickCount': 'UINT16'},
+        )
+        vc = VirtualColumnDefinition(
+            name='cslot',
+            expression='slot + sfn * 20 + hfnTickCount * 20 * 1024',
+            output_type='numeric',
+        )
+
+        term = builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='"')
+
+        assert 'NUMERIC' not in sql
+        assert 'BIGINT' in sql
+
+    def test_explicit_sql_output_type_still_emits_cast(self):
+        """Explicit SQL output types should continue to be honored."""
+        builder = VirtualColumnExpressionBuilder(
+            self.table_map,
+            self.table,
+            db_type='duckdb',
+        )
+        vc = VirtualColumnDefinition(
+            name='margin',
+            expression='(revenue - cost)',
+            output_type='DOUBLE',
+        )
+
+        term = builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='"')
+
+        assert 'CAST' in sql
+        assert 'DOUBLE' in sql
+
