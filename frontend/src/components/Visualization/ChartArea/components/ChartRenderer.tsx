@@ -183,7 +183,9 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
   );
 };
 
-// Memoize the entire component to prevent re-renders when props haven't changed
+// Memoize the entire component to prevent re-renders when props haven't changed.
+// All callback props are useCallback-stable in ChartArea so referential equality
+// is sufficient for the comparator.
 export default React.memo(ChartRenderer, (prevProps, nextProps) => {
   return (
     prevProps.useTableView === nextProps.useTableView &&
@@ -197,8 +199,10 @@ export default React.memo(ChartRenderer, (prevProps, nextProps) => {
     prevProps.onPlotRenderComplete === nextProps.onPlotRenderComplete &&
     prevProps.isGanttChart === nextProps.isGanttChart &&
     prevProps.ganttZoomRange === nextProps.ganttZoomRange &&
+    prevProps.onGanttZoomRangeChange === nextProps.onGanttZoomRangeChange &&
     prevProps.ganttFullDataRange === nextProps.ganttFullDataRange &&
     prevProps.brushDisabled === nextProps.brushDisabled &&
+    prevProps.onBrushEnd === nextProps.onBrushEnd &&
     prevProps.showTableRows === nextProps.showTableRows &&
     prevProps.tableRowsData === nextProps.tableRowsData &&
     prevProps.onTableCellFilterAction === nextProps.onTableCellFilterAction &&

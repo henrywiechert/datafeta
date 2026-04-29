@@ -32,6 +32,7 @@ import FacetLimitDialog from '../FacetLimitDialog';
 import { getResultColumnName } from '../../../utils/fieldUtils';
 import { createChartAffectingConfig } from '../../../utils/queryAffectingConfig';
 import { buildEffectiveFilterConfigurations } from '../../../utils/effectiveFilters';
+import { isTablePresentation } from '../../../observable-plot-generator/chartTypes/chartTypePresentation';
 
 /**
  * ChartArea - thin orchestrator that delegates to specialised hooks.
@@ -90,9 +91,13 @@ const ChartArea: React.FC = () => {
   const fullscreenWrapperRef = useRef<HTMLDivElement>(null);
   const sheetId = activeSheet?.id;
   const isGanttChart = globalChartType === 'gantt';
-  const isTableRefactor = globalChartType === 'table-refactor';
+  // Whether the chart is rendered with the table presentation (Tableau-style
+  // text/symbol grid). Today only `'table-refactor'` uses this; routing the
+  // check through the registry means future table-presentation chart types
+  // pick up the pager/cache-key behaviour automatically.
+  const isTableMode = isTablePresentation(globalChartType);
 
-  // Global user setting: rows per page for the 'table-refactor' pager.
+  // Global user setting: rows per page for the table-presentation pager.
   // Persisted in localStorage so the choice survives reloads / sheet switches.
   const { pageSize: tablePageSize, setPageSize: setTablePageSize } = useTablePageSize();
 
@@ -150,7 +155,7 @@ const ChartArea: React.FC = () => {
       distributionVariant,
       tableCellMode,
       tablePage,
-      tablePageSize: isTableRefactor ? tablePageSize : undefined,
+      tablePageSize: isTableMode ? tablePageSize : undefined,
       measureValuesSourceFields,
       ganttZoomRange,
       overlays,
@@ -243,13 +248,13 @@ const ChartArea: React.FC = () => {
   // is invalidated (axis/filter/dim changes). Cheap and avoids stale page
   // indices that point past the new totalRowTuples.
   useEffect(() => {
-    if (!isTableRefactor) return;
+    if (!isTableMode) return;
     if (state.tablePage === 0) return;
     dispatch({ type: 'SET_TABLE_PAGE', payload: 0 });
     // We intentionally only react to inputs that change the row-tuple set.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    isTableRefactor,
+    isTableMode,
     xAxisFields,
     yAxisFields,
     effectiveFilterConfigurations,
@@ -277,7 +282,7 @@ const ChartArea: React.FC = () => {
   );
 
   const tableRefactorPagerData = useMemo(() => {
-    if (!isTableRefactor) return undefined;
+    if (!isTableMode) return undefined;
     const pagination = grid?.pagination;
     return {
       page: pagination?.page ?? tablePage ?? 0,
@@ -288,7 +293,7 @@ const ChartArea: React.FC = () => {
       loading: state.isLoadingQuery || state.isLoadingRendering,
     };
   }, [
-    isTableRefactor,
+    isTableMode,
     grid,
     tablePage,
     tablePageSize,
@@ -322,8 +327,8 @@ const ChartArea: React.FC = () => {
       globalChartType,
       distributionVariant,
       tableCellMode,
-      tablePage: isTableRefactor ? tablePage : undefined,
-      tablePageSize: isTableRefactor ? tablePageSize : undefined,
+      tablePage: isTableMode ? tablePage : undefined,
+      tablePageSize: isTableMode ? tablePageSize : undefined,
       independentDomains,
       labelsEnabled: channels.label.enabled,
       labelSamplingStrategy: channels.label.samplingStrategy,
@@ -333,7 +338,7 @@ const ChartArea: React.FC = () => {
     [
       xAxisFields, yAxisFields, effectiveFilterConfigurations, channels,
       measureGroupFields, fieldOverrides, globalChartType, distributionVariant, tableCellMode,
-      isTableRefactor, tablePage, tablePageSize,
+      isTableMode, tablePage, tablePageSize,
       independentDomains,
     ],
   );

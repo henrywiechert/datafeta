@@ -26,91 +26,111 @@ function meas(columnName: string, aggregation: any = 'sum'): Field {
   } as Field;
 }
 
-describe('detectDefaultUserChartType (PR 9)', () => {
-  test('routes to heatmap on 1 discrete X dim, 1 discrete Y dim, measure on color', () => {
-    const result = detectDefaultUserChartType(
-      [dim('region')],
-      [dim('product')],
-      meas('sales')
-    );
-    expect(result).toBe('heatmap');
+describe('detectDefaultUserChartType (PR 10 — consolidated source of truth)', () => {
+  describe('empty inputs', () => {
+    test('returns null when both axes are empty', () => {
+      expect(detectDefaultUserChartType([], [], meas('sales'))).toBeNull();
+      expect(detectDefaultUserChartType(undefined, undefined, meas('sales'))).toBeNull();
+    });
   });
 
-  test('returns null when there is no color field', () => {
-    const result = detectDefaultUserChartType([dim('region')], [dim('product')], null);
-    expect(result).toBeNull();
+  describe('heatmap rule', () => {
+    test('routes to heatmap on 1 discrete X dim, 1 discrete Y dim, measure on color', () => {
+      expect(
+        detectDefaultUserChartType([dim('region')], [dim('product')], meas('sales'))
+      ).toBe('heatmap');
+    });
+
+    test('does NOT route to heatmap when there is no color field (falls through to scatter)', () => {
+      expect(
+        detectDefaultUserChartType([dim('region')], [dim('product')], null)
+      ).toBe('scatter');
+    });
+
+    test('does NOT route to heatmap when color is a dimension (falls through to scatter)', () => {
+      expect(
+        detectDefaultUserChartType([dim('region')], [dim('product')], dim('segment'))
+      ).toBe('scatter');
+    });
+
+    test('does NOT route to heatmap when X has more than one discrete dim', () => {
+      // No continuous candidates on either axis, no measures → scatter fallback.
+      expect(
+        detectDefaultUserChartType(
+          [dim('region'), dim('subregion')],
+          [dim('product')],
+          meas('sales'),
+        )
+      ).toBe('scatter');
+    });
+
+    test('does NOT route to heatmap when X is a continuous dimension (falls through to tick)', () => {
+      expect(
+        detectDefaultUserChartType(
+          [dim('age', 'continuous')],
+          [dim('product')],
+          meas('sales'),
+        )
+      ).toBe('tick');
+    });
   });
 
-  test('returns null when color field is a dimension, not a measure', () => {
-    const result = detectDefaultUserChartType(
-      [dim('region')],
-      [dim('product')],
-      dim('segment')
-    );
-    expect(result).toBeNull();
+  describe('cartesian rule (continuous candidates on both axes → per-pair mapping)', () => {
+    test('measure on X, measure on Y → scatter', () => {
+      expect(
+        detectDefaultUserChartType([meas('a')], [meas('b')], null)
+      ).toBe('scatter');
+    });
+
+    test('measure on X, discrete dim on Y → bar', () => {
+      // discrete dim on Y is not a "continuous candidate", so this falls into
+      // the "single-axis" branch below (hasMeasures → bar).
+      expect(
+        detectDefaultUserChartType([meas('a')], [dim('region')], null)
+      ).toBe('bar');
+    });
+
+    test('measure on X, continuous dim on Y → line', () => {
+      expect(
+        detectDefaultUserChartType([meas('a')], [dim('time', 'continuous')], null)
+      ).toBe('line');
+    });
+
+    test('continuous dim on X, measure on Y → line', () => {
+      expect(
+        detectDefaultUserChartType([dim('time', 'continuous')], [meas('a')], null)
+      ).toBe('line');
+    });
   });
 
-  test('returns null when X has more than one dimension', () => {
-    const result = detectDefaultUserChartType(
-      [dim('region'), dim('subregion')],
-      [dim('product')],
-      meas('sales')
-    );
-    expect(result).toBeNull();
-  });
+  describe('single-axis / dim-only fallbacks', () => {
+    test('measure on X only → bar', () => {
+      expect(
+        detectDefaultUserChartType([meas('sales')], [], null)
+      ).toBe('bar');
+    });
 
-  test('returns null when Y has more than one dimension', () => {
-    const result = detectDefaultUserChartType(
-      [dim('region')],
-      [dim('product'), dim('subproduct')],
-      meas('sales')
-    );
-    expect(result).toBeNull();
-  });
+    test('continuous dim on X only, no measures → tick', () => {
+      expect(
+        detectDefaultUserChartType([dim('time', 'continuous')], [], null)
+      ).toBe('tick');
+    });
 
-  test('returns null when X is a continuous dimension', () => {
-    const result = detectDefaultUserChartType(
-      [dim('age', 'continuous')],
-      [dim('product')],
-      meas('sales')
-    );
-    expect(result).toBeNull();
-  });
+    test('continuous dim on Y only, no measures → tick', () => {
+      expect(
+        detectDefaultUserChartType([], [dim('time', 'continuous')], null)
+      ).toBe('tick');
+    });
 
-  test('returns null when Y is a continuous dimension', () => {
-    const result = detectDefaultUserChartType(
-      [dim('region')],
-      [dim('age', 'continuous')],
-      meas('sales')
-    );
-    expect(result).toBeNull();
-  });
-
-  test('returns null when X is a measure (heatmap requires dim on X)', () => {
-    const result = detectDefaultUserChartType(
-      [meas('sales')],
-      [dim('product')],
-      meas('profit')
-    );
-    expect(result).toBeNull();
-  });
-
-  test('returns null when Y is a measure (heatmap requires dim on Y)', () => {
-    const result = detectDefaultUserChartType(
-      [dim('region')],
-      [meas('sales')],
-      meas('profit')
-    );
-    expect(result).toBeNull();
-  });
-
-  test('returns null on empty fields', () => {
-    expect(detectDefaultUserChartType([], [], meas('sales'))).toBeNull();
-    expect(detectDefaultUserChartType(undefined, undefined, meas('sales'))).toBeNull();
+    test('discrete dim on X only, no measures → scatter', () => {
+      expect(
+        detectDefaultUserChartType([dim('region')], [], null)
+      ).toBe('scatter');
+    });
   });
 });
 
-describe('mapUserChartTypeToCellChartType heatmap mapping (PR 9)', () => {
+describe('mapUserChartTypeToCellChartType heatmap mapping', () => {
   test("maps user 'heatmap' to cell 'heatmap' regardless of axis", () => {
     const xf = dim('region');
     const yf = dim('product');
@@ -119,10 +139,10 @@ describe('mapUserChartTypeToCellChartType heatmap mapping (PR 9)', () => {
   });
 });
 
-describe('per-pair auto-detection sanity (PR 9 — unchanged behaviour)', () => {
+describe('per-pair auto-detection sanity', () => {
   test('falls through to dot for two discrete dims at the pair level', () => {
-    // Heatmap auto-routing happens at the *user* level with color context;
-    // per-pair detection (no color awareness) still returns 'dot' as before.
+    // Per-pair detection (no color awareness) still returns 'dot' as before;
+    // the heatmap rule lives in detectDefaultUserChartType, not here.
     expect(detectDefaultChartTypeForPair(dim('region'), dim('product'))).toBe('dot');
   });
 });

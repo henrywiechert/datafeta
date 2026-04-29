@@ -327,6 +327,62 @@ interface PlotResult {
 }
 ```
 
+### Cell-Kind Extension Model
+
+`GridResultModel.cells[i].content` is a discriminated union (`GridCellContent`),
+not a single shape. Adding a new cell kind is the canonical way to introduce a
+chart that needs custom rendering inside the grid (text tables, symbol grids,
+pie cells, etc.) without touching the rest of the pipeline.
+
+The extension surface has three pieces:
+
+1. **Type** (`gridModel.ts`):
+   ```ts
+   export type GridCellContent =
+     | { kind: 'plot';  options: Plot.PlotOptions; ... }
+     | { kind: 'pie';   pieSpec: PiePlotSpec; ... }
+     | { kind: 'text';  rows: TextGridCellRow[]; ... }
+     | { kind: 'mark';  symbols: MarkSymbolSpec[]; ... }
+     | { kind: 'empty'; ... }
+     // | add a new variant here, e.g. { kind: 'sparkline'; ... }
+   ```
+
+2. **Generator**: a chart-type module under `chartTypes/` that returns a
+   `GridResultModel` whose cells use the new kind. Two patterns are supported:
+   - Standard pipeline: emit `Plot.PlotOptions` from `cellCharts.ts` and let
+     `buildGridFromPlotResult` wrap it as `kind: 'plot'`. This is what bar,
+     line, scatter, heatmap, etc. use.
+   - Direct emission: bypass `PlotResult` entirely and return
+     `GridResultModel` from the chart-type module. `tableGrid.ts` does this for
+     `kind: 'text'` / `kind: 'mark'` cells, and `pieChart.ts` for `kind: 'pie'`
+     when used as the global chart type.
+
+3. **Renderer dispatch** (`ChartGrid/PlotArea.tsx`): a `switch` on `cell.content.kind`
+   selects the right renderer. Adding a new variant means adding a `case`.
+   Renderers live alongside in `ChartGrid/` (e.g. `renderers/PieSvgRenderer.tsx`,
+   inline `TextCell` / `SymbolCell` in `PlotArea.tsx`).
+
+When the new kind needs a different *presentation* (e.g. table-style headers,
+its own pager, no external X/Y axes), also register it in
+`chartTypes/chartTypePresentation.ts`. The presentation registry is the single
+source of truth for "is this chart-type rendered as a table / pie / standard
+chart?" — `ChartArea`, `tableViewUtils`, and `observablePlotGenerator` consult
+it instead of string-matching individual chart-type ids.
+
+### Auto-Detection of the Default Chart Type
+
+`detectDefaultUserChartType(xFields, yFields, colorField)` in
+`helpers/chartTypeResolver.ts` is the single source of truth for "what does
+auto pick?". It is consumed by both:
+
+- `useChartGeneration` (to upgrade `globalChartType: null` to a concrete type
+  before rendering), and
+- `ChartTypeControl` / `FieldOverridesPanel` (to highlight the auto-picked
+  toggle button).
+
+Adding a new auto-route (e.g. a future "wordcloud" rule) means adding a branch
+to that function — every consumer picks it up automatically.
+
 ### Shared: `LabelConfig`
 ```typescript
 interface LabelConfig {

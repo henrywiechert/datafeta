@@ -7,8 +7,7 @@ import { useDataSource } from '../../../contexts/DataSourceContext';
 import { useUndoRedo } from '../../../contexts/UndoRedoContext';
 import { Field } from '../../../types';
 import { computeOverrideTargets } from '../../../observable-plot-generator/utils/fieldOverrides';
-import { detectDefaultChartTypeForPair, detectDefaultUserChartType, CellChartType } from '../../../observable-plot-generator/helpers/chartTypeResolver';
-import { analyzeFields } from '../../../observable-plot-generator/analysis/fieldAnalysis';
+import { detectDefaultUserChartType } from '../../../observable-plot-generator/helpers/chartTypeResolver';
 import { SIZE_DEFAULTS_BY_CHART_TYPE, SIZE_DEFAULT_FALLBACK } from '../../../config/chartLayoutConfig';
 import { DEFAULT_MANUAL_COLOR, DEFAULT_CATEGORICAL_SCHEME, DEFAULT_SEQUENTIAL_SCHEME, categoricalSchemes } from '../../../config/colorSchemes';
 import { useFieldOverrides } from './useFieldOverrides';
@@ -108,44 +107,11 @@ const FieldOverridesPanel: React.FC = () => {
 
   const autoSelectedType = useMemo(() => {
     if (globalChartType) return undefined;
-    const xFields = xAxisFields as Field[];
-    const yFields = yAxisFields as Field[];
-    if (!xFields?.length && !yFields?.length) return undefined;
-
-    // Top-level user-chart-type defaults (currently: heatmap on 1×1 discrete dims
-    // with a measure on color). These take precedence over per-pair detection.
-    const userTypeDefault = detectDefaultUserChartType(
-      xFields,
-      yFields,
-      colorField as Field | null
-    );
-    if (userTypeDefault) return userTypeDefault;
-
-    const analysis = analyzeFields(xFields, yFields);
-    const xCandidates = xFields.filter(
-      (f) => f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
-    );
-    const yCandidates = yFields.filter(
-      (f) => f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
-    );
-
-    if (xCandidates.length > 0 && yCandidates.length > 0) {
-      const cellType: CellChartType = detectDefaultChartTypeForPair(xCandidates[0], yCandidates[0]);
-      if (cellType === 'barX' || cellType === 'barY') return 'bar';
-      if (cellType === 'tickX' || cellType === 'tickY') return 'tick';
-      if (cellType === 'dot') return 'scatter';
-      if (cellType === 'ganttX' || cellType === 'ganttY') return 'gantt';
-      if (cellType === 'scatter' || cellType === 'line') return cellType;
-      return undefined;
-    }
-
-    const xHasContinuousDim = analysis.xDimensions.some((d) => d.flavour === 'continuous');
-    const yHasContinuousDim = analysis.yDimensions.some((d) => d.flavour === 'continuous');
-    const hasMeasures = analysis.hasMeasure;
-
-    if (!hasMeasures && (xHasContinuousDim || yHasContinuousDim)) return 'tick';
-    if (hasMeasures) return 'bar';
-    return 'scatter';
+    return detectDefaultUserChartType(
+      xAxisFields as Field[],
+      yAxisFields as Field[],
+      colorField as Field | null,
+    ) ?? undefined;
   }, [globalChartType, xAxisFields, yAxisFields, colorField]);
 
   // Track previous auto-selected type to detect changes

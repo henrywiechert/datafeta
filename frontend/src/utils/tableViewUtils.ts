@@ -1,22 +1,24 @@
 import { Field, UserChartType } from '../types';
 import { FieldClassifier } from './fieldClassification';
 import { getResultColumnName } from './fieldUtils';
+import { isTablePresentation } from '../observable-plot-generator/chartTypes/chartTypePresentation';
 
 /**
  * Determines if the legacy AG Grid table view should be used instead of a chart
  * based on the field configuration.
  *
- * The new `'table-refactor'` chart type renders all-discrete grids itself via
- * `GridResultModel`, so when the user has explicitly picked it we step aside
- * and let the chart pipeline handle the layout.
+ * Chart types whose presentation is `'table'` (e.g. `'table-refactor'`) render
+ * all-discrete grids themselves via `GridResultModel`, so when the user has
+ * explicitly picked one we step aside and let the chart pipeline handle the
+ * layout.
  */
 export function shouldUseTableView(
   xFields: Field[],
   yFields: Field[],
   globalChartType?: UserChartType | null,
 ): boolean {
-  // Explicit table-refactor selection bypasses the legacy AG Grid path.
-  if (globalChartType === 'table-refactor') {
+  // Explicit table-presentation selection bypasses the legacy AG Grid path.
+  if (isTablePresentation(globalChartType)) {
     return false;
   }
 

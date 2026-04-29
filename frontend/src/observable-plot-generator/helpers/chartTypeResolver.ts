@@ -1,4 +1,5 @@
 import { DistributionVariant, Field, UserChartType } from '../../types';
+import { analyzeFields } from '../analysis/fieldAnalysis';
 export { isCdfAllowed } from '../../utils/cdfUtils';
 
 // Cell-level chart types for a pair of fields
@@ -173,22 +174,27 @@ export function mapUserChartTypeToCellChartType(
 /**
  * Top-level "what should the auto chart be?" rule.
  *
- * Returns a `UserChartType` when the field shape matches a known auto-routed
- * chart, or `null` to fall back to per-pair auto-detection (the existing
- * behaviour).
+ * Single source of truth for auto-detection of a `UserChartType`. Used both by
+ * the chart-generation pipeline (to upgrade `globalChartType: null` to a
+ * concrete type) and by the chart-type toggle UI (to highlight the auto-picked
+ * button).
  *
- * Currently only routes to `'heatmap'`:
- * - X has exactly 1 discrete dimension
- * - Y has exactly 1 discrete dimension
- * - No continuous dimensions on X or Y
- * - At least 1 measure available on the color shelf (the natural place for the
- *   heatmap's color encoding)
+ * Returns `null` when there is no signal (e.g. no fields on either axis); the
+ * caller should treat that as "leave as auto / nothing to highlight".
  *
- * Notes:
- * - This is an auto-detection helper. The user's explicit toggle selection
- *   (`globalChartType`) always takes precedence over this default.
- * - `detectDefaultChartTypeForPair` continues to be used for per-cell decisions
- *   when this returns `null`.
+ * Resolution rules, in order:
+ * 1. Heatmap shape: exactly 1 discrete dim on X, exactly 1 discrete dim on Y,
+ *    no continuous dims, measure on color → `'heatmap'`.
+ * 2. Both axes have at least one continuous candidate (measure or continuous
+ *    dimension) → fall through to `detectDefaultChartTypeForPair` on the first
+ *    candidate of each axis, mapped from `CellChartType` to `UserChartType`.
+ * 3. No measures but has a continuous dimension somewhere → `'tick'`.
+ * 4. Has measures → `'bar'`.
+ * 5. Otherwise → `'scatter'`.
+ *
+ * Note: this is an auto-detection helper. The user's explicit toggle selection
+ * (`globalChartType`) always takes precedence — callers should not invoke this
+ * when `globalChartType` is set.
  */
 export function detectDefaultUserChartType(
   xFields: Field[] | undefined,
@@ -198,7 +204,11 @@ export function detectDefaultUserChartType(
   const xs = xFields || [];
   const ys = yFields || [];
 
-  // Heatmap: 1 discrete X dim, 1 discrete Y dim, no continuous dims, measure on color.
+  if (xs.length === 0 && ys.length === 0) {
+    return null;
+  }
+
+  // 1. Heatmap: 1 discrete X dim, 1 discrete Y dim, measure on color.
   if (xs.length === 1 && ys.length === 1) {
     const xf = xs[0];
     const yf = ys[0];
@@ -212,6 +222,31 @@ export function detectDefaultUserChartType(
     }
   }
 
-  return null;
+  // 2. Cartesian shape: continuous candidates on both axes → defer to per-pair.
+  const xCandidates = xs.filter(
+    (f) => f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
+  );
+  const yCandidates = ys.filter(
+    (f) => f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
+  );
+  if (xCandidates.length > 0 && yCandidates.length > 0) {
+    const cellType = detectDefaultChartTypeForPair(xCandidates[0], yCandidates[0]);
+    if (cellType === 'barX' || cellType === 'barY') return 'bar';
+    if (cellType === 'tickX' || cellType === 'tickY') return 'tick';
+    if (cellType === 'dot') return 'scatter';
+    if (cellType === 'ganttX' || cellType === 'ganttY') return 'gantt';
+    if (cellType === 'scatter' || cellType === 'line') return cellType;
+    return null;
+  }
+
+  // 3-5. Single-axis / dim-only fallbacks (mirrors prior FieldOverridesPanel logic).
+  const analysis = analyzeFields(xs, ys);
+  const xHasContinuousDim = analysis.xDimensions.some((d) => d.flavour === 'continuous');
+  const yHasContinuousDim = analysis.yDimensions.some((d) => d.flavour === 'continuous');
+  const hasMeasures = analysis.hasMeasure;
+
+  if (!hasMeasures && (xHasContinuousDim || yHasContinuousDim)) return 'tick';
+  if (hasMeasures) return 'bar';
+  return 'scatter';
 }
 
