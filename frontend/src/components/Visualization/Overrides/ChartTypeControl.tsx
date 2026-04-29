@@ -67,6 +67,16 @@ const BoxPlotIcon: React.FC<SvgIconProps> = (props) => (
   </SvgIcon>
 );
 
+/**
+ * Visual prefix used in tooltips of chart types still under active development
+ * (currently Table and Heatmap). Keeps the wording consistent across buttons.
+ */
+const ExperimentalBadge: React.FC = () => (
+  <Box component="span" sx={{ color: '#ffb74d', fontWeight: 700 }}>
+    EXPERIMENTAL
+  </Box>
+);
+
 interface ChartTypeControlProps {
   chartType: UserChartType | undefined;
   onChange: (chartType: UserChartType | undefined) => void;
@@ -248,7 +258,16 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
             </Tooltip>
           </ToggleButton>
           <ToggleButton value="pie" aria-label="pie chart" sx={getAutoHighlightSx('pie')}>
-            <Tooltip title={<>Pie chart<br/>Discrete <b>Color</b> defines slices</>} placement="top">
+            <Tooltip
+              title={(
+                <>
+                  <ExperimentalBadge /><br/>
+                  Pie chart<br/>
+                  Discrete <b>Color</b> defines slices
+                </>
+              )}
+              placement="top"
+            >
               <PieChartIcon sx={{ fontSize: 16 }} />
             </Tooltip>
           </ToggleButton>
@@ -261,6 +280,7 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
             <Tooltip
               title={(
                 <>
+                  <ExperimentalBadge /><br/>
                   Heatmap<br/>
                   Discrete dimensions on <b>X</b> and <b>Y</b>, measure on <b>Color</b>.
                 </>
@@ -274,6 +294,7 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
             <Tooltip
               title={(
                 <>
+                  <ExperimentalBadge /><br/>
                   Table<br/>
                   Discrete dimensions on <b>X</b>/<b>Y</b> form a Tableau-style grid.<br/>
                   Open the menu to pick <b>Auto</b> / <b>Text</b> / <b>Symbol</b> cells.

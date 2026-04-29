@@ -224,6 +224,87 @@ describe('generateTableGrid', () => {
     expect(grid.layout.columnSizes).toEqual(['fr']);
   });
 
+  describe('symbol size encoding', () => {
+    // `MarkSymbolSpec.size` is Plot-style symbol area (π · r²), where `r` is
+    // the notional radius the size shelf works in.
+    const areaForRadius = (r: number) => Math.PI * r * r;
+
+    it('uses manualSize as the symbol radius when no size field is configured', () => {
+      const region = dimField('dim-region', 'region');
+      const grid = generateTableGrid(buildContext({
+        yFields: [region],
+        manualSize: 12,
+        rows: [{ region: 'East' }],
+      }));
+
+      const cell = grid.cells[0] as MarkGridCellModel;
+      expect(cell.content.kind).toBe('mark');
+      expect(cell.content.symbols).toHaveLength(1);
+      expect(cell.content.symbols[0].size).toBeCloseTo(areaForRadius(12), 5);
+    });
+
+    it('produces different symbol sizes for cells driven by a continuous size field', () => {
+      const region = dimField('dim-region', 'region');
+      const sales = measureField('m-sales', 'sales');
+      const grid = generateTableGrid(buildContext({
+        yFields: [region],
+        sizeField: sales,
+        sizeRange: [4, 20],
+        manualSize: 8,
+        rows: [
+          { region: 'East', 'SUM(sales)': 100 },
+          { region: 'West', 'SUM(sales)': 1000 },
+        ],
+      }));
+
+      const eastCell = grid.cells.find((c) => c.position.row === 0) as MarkGridCellModel;
+      const westCell = grid.cells.find((c) => c.position.row === 1) as MarkGridCellModel;
+
+      expect(eastCell.content.kind).toBe('mark');
+      expect(westCell.content.kind).toBe('mark');
+      // East has the smaller value, so it must render with the smaller area.
+      expect(eastCell.content.symbols[0].size).toBeLessThan(westCell.content.symbols[0].size);
+      // The size scale should hit the endpoints of `sizeRange`.
+      expect(eastCell.content.symbols[0].size).toBeCloseTo(areaForRadius(4), 5);
+      expect(westCell.content.symbols[0].size).toBeCloseTo(areaForRadius(20), 5);
+    });
+
+    it('falls back to a sensible default radius when manualSize is missing', () => {
+      const region = dimField('dim-region', 'region');
+      const grid = generateTableGrid(buildContext({
+        yFields: [region],
+        rows: [{ region: 'East' }],
+      }));
+
+      const cell = grid.cells[0] as MarkGridCellModel;
+      expect(cell.content.kind).toBe('mark');
+      // Default radius is 8 → ~201 area; matches the legacy DEFAULT_MARK_AREA.
+      expect(cell.content.symbols[0].size).toBeCloseTo(areaForRadius(8), 0);
+    });
+
+    it('takes the largest encoded size when multiple rows share a (symbol, color) bucket', () => {
+      const region = dimField('dim-region', 'region');
+      const sales = measureField('m-sales', 'sales');
+      const grid = generateTableGrid(buildContext({
+        yFields: [region],
+        sizeField: sales,
+        sizeRange: [4, 20],
+        manualSize: 8,
+        // Two rows in the same cell with the same fingerprint but different
+        // sales values. Dedup picks the larger size.
+        rows: [
+          { region: 'East', 'SUM(sales)': 100 },
+          { region: 'East', 'SUM(sales)': 1000 },
+        ],
+      }));
+
+      const cell = grid.cells[0] as MarkGridCellModel;
+      expect(cell.content.kind).toBe('mark');
+      expect(cell.content.symbols).toHaveLength(1);
+      expect(cell.content.symbols[0].size).toBeCloseTo(areaForRadius(20), 5);
+    });
+  });
+
   describe('text mode (PR 7)', () => {
     it("auto-resolves to text when a measure is present and emits one row per cell", () => {
       const region = dimField('dim-region', 'region');

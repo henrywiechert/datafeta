@@ -1,8 +1,10 @@
 import { Field } from '../../types';
-import { buildHeatmapOptions } from './heatmapChart';
+import { ChartGenerationContext } from '../types';
+import { buildHeatmapOptions, generateHeatmapGrid } from './heatmapChart';
 
 jest.mock('@observablehq/plot', () => ({
   cell: (data: any[], opts: any) => ({ type: 'cell', data, opts }),
+  text: (data: any[], opts: any) => ({ type: 'text', data, opts }),
 }));
 
 function dim(columnName: string): Field {
@@ -111,5 +113,56 @@ describe('buildHeatmapOptions (PR 9)', () => {
     expect(title).toContain('product');
     expect(title).toContain('A');
     expect(title).toContain('100');
+  });
+});
+
+describe('generateHeatmapGrid', () => {
+  function buildCtx(overrides: Partial<ChartGenerationContext>): ChartGenerationContext {
+    return {
+      xFields: [],
+      yFields: [],
+      queryResult: { rows: [], columns: [], row_count: 0 } as any,
+      ...overrides,
+    } as ChartGenerationContext;
+  }
+
+  test('renders a single 1×1 heatmap when X and Y each have exactly one discrete dim', () => {
+    const ctx = buildCtx({
+      xFields: [dim('region')],
+      yFields: [dim('product')],
+      colorField: meas('sales'),
+      queryResult: { rows: SAMPLE_ROWS, columns: [], row_count: SAMPLE_ROWS.length } as any,
+    });
+
+    const result = generateHeatmapGrid(ctx);
+
+    expect(result.layout.columns).toBe(1);
+    expect(result.layout.rows).toBe(1);
+    expect(result.plots).toHaveLength(1);
+    expect(result.plots[0].id).toBe('heatmap');
+
+    // The heatmap's plot should be built from the *full* data set, not from a
+    // single (region, product) facet cell — i.e. faceting must be skipped.
+    const cellMark = (result.plots[0].options as any).marks[0];
+    expect(cellMark.type).toBe('cell');
+    expect(cellMark.data).toEqual(SAMPLE_ROWS);
+    expect(cellMark.opts.x).toBe('region');
+    expect(cellMark.opts.y).toBe('product');
+    expect(cellMark.opts.fill).toBe('SUM(sales)');
+  });
+
+  test('returns a guidance message when one of the axes is empty', () => {
+    const ctx = buildCtx({
+      xFields: [dim('region')],
+      yFields: [],
+      queryResult: { rows: SAMPLE_ROWS, columns: [], row_count: SAMPLE_ROWS.length } as any,
+    });
+
+    const result = generateHeatmapGrid(ctx);
+
+    expect(result.plots).toHaveLength(1);
+    expect(result.plots[0].id).toBe('heatmap-message');
+    const textMark = (result.plots[0].options as any).marks[0];
+    expect(textMark.type).toBe('text');
   });
 });
