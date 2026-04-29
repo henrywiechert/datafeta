@@ -15,6 +15,7 @@ import { generateCartesianPlots } from './grid/coreGridGenerator';
 import { generateFacetedGrid, generateCdfGrid } from './faceting/facetGenerator';
 import { ganttChart } from './chartTypes/ganttChart';
 import { generatePieGrid } from './chartTypes/pieChart';
+import { generateHeatmapGrid } from './chartTypes/heatmapChart';
 import { generateTableGrid } from './chartTypes/tableGrid';
 import { isTablePresentation } from './chartTypes/chartTypePresentation';
 
@@ -390,6 +391,14 @@ function generatePlotAsResult(context: ChartGenerationContext, overrides?: Chart
       } else {
         return generatePieGrid(effectiveContext);
       }
+    }
+
+    // ── Heatmap mode ────────────────────────────────────────────────────
+    // Heatmaps consume the first X and first Y field as band axes (rather
+    // than letting them become facets), so they must bypass the default
+    // facet/cell-pair pipeline. Extra discrete dims still become facets.
+    if (effectiveContext.globalChartType === 'heatmap') {
+      return generateHeatmapGrid(effectiveContext);
     }
 
     // Check if faceting is applicable

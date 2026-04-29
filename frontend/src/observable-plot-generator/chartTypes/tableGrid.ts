@@ -52,18 +52,37 @@ import {
   ShapeScaleInfo,
 } from '../utils/shapeUtils';
 import { deriveColorScaleInfo, ColorScaleInfo } from '../utils/colorSchemeUtils';
+import { createSizeScale, SizeScale } from '../utils/sizeUtils';
 import { formatTooltipValue } from '../utils/tooltipUtils';
 
 /** Default symbol used when no shape encoding resolves to a specific shape. */
 const DEFAULT_SYMBOL = 'circle';
 
 /**
- * Default mark area for table-refactor symbol cells.
+ * Default mark area for table-refactor symbol cells when no size encoding is
+ * available (no `sizeField`, no `manualSize`).
  * `MarkCell` interprets `size` as Plot-style symbol area (π · r²).
  * The chosen value renders ~16 viewBox units across (a roughly 16% wide
  * symbol inside a 100×100 cell viewBox).
  */
 const DEFAULT_MARK_AREA = 200;
+
+/**
+ * Default symbol radius (in pixels) when the manual-size slider is not set.
+ * Picked so that `π · DEFAULT_SYMBOL_RADIUS²` ≈ `DEFAULT_MARK_AREA`, i.e. the
+ * "no size encoding" visual matches the previous hard-coded default.
+ */
+const DEFAULT_SYMBOL_RADIUS = 8;
+
+/**
+ * Convert a notional radius (the unit the size shelf works in — same as the
+ * scatter plot's `r` value) into Plot-style symbol area expected by
+ * `MarkSymbolSpec.size`.
+ */
+function radiusToSymbolArea(radius: number): number {
+  if (!Number.isFinite(radius) || radius <= 0) return DEFAULT_MARK_AREA;
+  return Math.PI * radius * radius;
+}
 
 /**
  * Resolve `auto` to the concrete cell mode emitted by `generateTableGrid`.
@@ -86,6 +105,8 @@ export function resolveTableCellMode(context: ChartGenerationContext, mode: Tabl
 interface SymbolFingerprint {
   symbol: string;
   color: string;
+  /** Per-row size in notional radius units (same as scatter's `r`). */
+  radius: number;
 }
 
 function fingerprint(spec: SymbolFingerprint): string {
@@ -132,6 +153,7 @@ function buildSymbolForRow(
   context: ChartGenerationContext,
   shapeScale: ShapeScaleInfo | null,
   colorScale: ColorScaleInfo | null,
+  sizeScale: SizeScale,
 ): SymbolFingerprint {
   // Symbol resolution
   let symbol: string = DEFAULT_SYMBOL;
@@ -157,18 +179,46 @@ function buildSymbolForRow(
     }
   }
 
-  return { symbol, color };
+  // Size resolution. `sizeScale.getSizeForValue` returns a notional radius
+  // (consistent with scatter / `r`). When no `sizeField` is set the scale
+  // returns the manual radius for every value.
+  let radius = DEFAULT_SYMBOL_RADIUS;
+  if (context.sizeField) {
+    const sizeColumn = getFieldColumnName(context.sizeField);
+    const raw = sizeScale.getSizeForValue(row?.[sizeColumn]);
+    if (Number.isFinite(raw) && raw > 0) radius = raw;
+  } else if (Number.isFinite(context.manualSize as number) && (context.manualSize as number) > 0) {
+    radius = context.manualSize as number;
+  }
+
+  return { symbol, color, radius };
 }
 
+/**
+ * De-duplicate symbol specs by (symbol, color) fingerprint. When multiple rows
+ * in the same cell share a fingerprint but differ in encoded size, take the
+ * largest — visually clearer than averaging and keeps the dominant value
+ * visible. The dedup-by-fingerprint matches PR 6 / 7 semantics so that color
+ * and shape variation continues to drive separate mark stacks.
+ */
 function aggregateSymbols(specs: SymbolFingerprint[]): MarkSymbolSpec[] {
-  const seen = new Map<string, MarkSymbolSpec>();
+  const seen = new Map<string, MarkSymbolSpec & { _radius: number }>();
   for (const spec of specs) {
     const key = fingerprint(spec);
-    if (!seen.has(key)) {
-      seen.set(key, { symbol: spec.symbol, color: spec.color, size: DEFAULT_MARK_AREA });
+    const prev = seen.get(key);
+    if (!prev) {
+      seen.set(key, {
+        symbol: spec.symbol,
+        color: spec.color,
+        size: radiusToSymbolArea(spec.radius),
+        _radius: spec.radius,
+      });
+    } else if (spec.radius > prev._radius) {
+      prev.size = radiusToSymbolArea(spec.radius);
+      prev._radius = spec.radius;
     }
   }
-  return Array.from(seen.values());
+  return Array.from(seen.values()).map(({ _radius, ...rest }) => rest);
 }
 
 function buildEmptyCell(rowIdx: number, colIdx: number): GridCellModel {
@@ -420,12 +470,25 @@ function buildSymbolModeCells(
   const shapeScale = context.shapeField && context.shapeField.flavour === 'discrete'
     ? deriveShapeScaleInfo(data, context.shapeField)
     : null;
+  // Build a size scale across the full dataset so that per-cell symbol radii
+  // are comparable across the table (the same value always renders the same
+  // size, regardless of which cell it lands in).
+  const manualRadius =
+    Number.isFinite(context.manualSize as number) && (context.manualSize as number) > 0
+      ? (context.manualSize as number)
+      : DEFAULT_SYMBOL_RADIUS;
+  const sizeScale = createSizeScale(
+    data,
+    context.sizeField ?? null,
+    context.sizeRange ?? [manualRadius, manualRadius],
+    manualRadius,
+  );
 
   const buckets = bucketRowsByCellTuple<SymbolFingerprint>(
     data,
     facetCtx.yHeaderFields,
     facetCtx.xHeaderFields,
-    (row) => buildSymbolForRow(row, context, shapeScale, colorScale),
+    (row) => buildSymbolForRow(row, context, shapeScale, colorScale, sizeScale),
   );
 
   const cells: GridCellModel[] = [];
