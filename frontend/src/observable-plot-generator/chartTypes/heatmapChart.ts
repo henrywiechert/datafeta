@@ -26,7 +26,7 @@ import * as Plot from '@observablehq/plot';
 import { DEFAULT_CHART_COLOR, SIZE_DEFAULTS_BY_CHART_TYPE } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
-import { deriveColorScaleInfo, ColorScaleInfo } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo, ColorScaleInfo, getContrastTextColor, resolveColorForRow } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 import { ChartGenerationContext, PlotResult, SharedDomains } from '../types';
@@ -61,6 +61,7 @@ export interface HeatmapOptionsInput {
    * fields could be supported by stacking marks if needed in the future.
    */
   labelFields?: Field[];
+  labelFontSize?: number;
   tooltipFields?: Field[];
   facetFields?: Field[];
   colorScaleInfo?: ColorScaleInfo | null;
@@ -125,6 +126,7 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
     sizeRange,
     manualSize,
     labelFields,
+    labelFontSize,
     tooltipFields,
     facetFields,
     colorScaleInfo,
@@ -235,16 +237,19 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
   const primaryLabelField = labelFields?.[0];
   if (primaryLabelField) {
     const labelCol = getResultColumnName(primaryLabelField);
+    const getLabelFill = (d: any) => {
+      const backgroundColor = colorField && colorScale
+        ? resolveColorForRow(d, colorScale, colorField, effectiveManualFill)
+        : effectiveManualFill;
+      return getContrastTextColor(backgroundColor);
+    };
     marks.push(
       Plot.text(useScaledRectMark ? sizedHeatmapData : data, {
         x: useScaledRectMark ? HEATMAP_X_INDEX_COL : xCol,
         y: useScaledRectMark ? HEATMAP_Y_INDEX_COL : yCol,
         text: (d: any) => formatHeatmapLabel(d?.[labelCol]),
-        fill: 'currentColor',
-        stroke: 'white',
-        strokeWidth: 3,
-        paintOrder: 'stroke',
-        fontSize: 11,
+        fill: getLabelFill,
+        fontSize: labelFontSize ?? 11,
         frameAnchor: 'middle',
       } as Plot.TextOptions),
     );
@@ -382,6 +387,7 @@ function createHeatmapCellGenerator(
       sizeRange: context.sizeRange,
       manualSize: context.manualSize,
       labelFields: context.labelFields,
+      labelFontSize: context.labelFontSize,
       tooltipFields: context.tooltipFields,
       facetFields,
       colorScaleInfo: sharedDomains.colorScale,

@@ -84,6 +84,7 @@ export function buildLabelConfig(context: ChartGenerationContext): LabelConfig |
     labelSamplingStrategy = 'auto',
     labelSamplingThreshold = 300,
     labelSampleEvery = 1,
+    labelFontSize = 10,
     queryResult,
   } = context as any;
 
@@ -114,6 +115,7 @@ export function buildLabelConfig(context: ChartGenerationContext): LabelConfig |
     samplingStrategy: labelSamplingStrategy,
     samplingThreshold: labelSamplingThreshold,
     sampleEvery: labelSampleEvery,
+    fontSize: labelFontSize,
   };
 }
 

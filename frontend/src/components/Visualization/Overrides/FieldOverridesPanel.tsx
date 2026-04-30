@@ -42,6 +42,7 @@ const FieldOverridesPanel: React.FC = () => {
     manualSize,
     labelFields,
     labelsEnabled,
+    labelFontSize,
     tooltipFields,
     globalChartType,
     distributionVariant,
@@ -239,6 +240,7 @@ const FieldOverridesPanel: React.FC = () => {
         <LabelFieldControl
           labelFields={override.labelFields || []}
           dataLabelMode={override.dataLabelMode}
+          labelFontSize={override.dataLabelFontSize ?? labelFontSize}
           showDataLabelMode={true}
           onLabelDrop={(field) => {
             const currentLabelFields = override.labelFields || [];
@@ -257,6 +259,9 @@ const FieldOverridesPanel: React.FC = () => {
           }}
           onDataLabelModeChange={(mode) => handleUpdateOverride(targetField.id, { 
             dataLabelMode: mode 
+          })}
+          onLabelFontSizeChange={(fontSize) => handleUpdateOverride(targetField.id, {
+            dataLabelFontSize: fontSize,
           })}
         />
       </Box>
@@ -424,6 +429,7 @@ const FieldOverridesPanel: React.FC = () => {
           labelFields={labelFields as Field[] || []}
           showLabelsEnabled={true}
           labelsEnabled={labelsEnabled}
+          labelFontSize={labelFontSize}
           onLabelDrop={(field) => {
             const currentLabelFields = labelFields as Field[] || [];
             if (!currentLabelFields.some((f: Field) => f.id === field.id)) {
@@ -443,6 +449,9 @@ const FieldOverridesPanel: React.FC = () => {
           }}
           onLabelsEnabledChange={(enabled) => {
             applyGlobalAction({ type: 'SET_LABELS_ENABLED', payload: enabled });
+          }}
+          onLabelFontSizeChange={(fontSize) => {
+            applyGlobalAction({ type: 'SET_LABEL_FONT_SIZE', payload: fontSize });
           }}
         />
 

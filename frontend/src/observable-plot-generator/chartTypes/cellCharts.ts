@@ -583,6 +583,8 @@ function handleHeatmap(data: any[], xf: Field, yf: Field, ctx: ChartContext): Pl
     colorBias: ctx.colorBias,
     manualColor: ctx.manualColor,
     manualSize: ctx.manualSize,
+    labelFields: ctx.labelCfg?.labelFields,
+    labelFontSize: ctx.labelCfg?.fontSize,
     tooltipFields: ctx.tooltipFields,
     facetFields: ctx.facetFields,
   });

@@ -91,6 +91,7 @@ export interface VisualizationState {
   labelSamplingStrategy: 'auto' | 'all' | 'sample';
   labelSamplingThreshold: number;
   labelSampleEvery: number;
+  labelFontSize: number;
   // Tooltip configuration state
   tooltipFields: Field[];
   // Query optimization settings
@@ -199,6 +200,7 @@ export type VisualizationAction =
   | { type: 'SET_LABEL_SAMPLING_STRATEGY'; payload: 'auto' | 'all' | 'sample' }
   | { type: 'SET_LABEL_SAMPLING_THRESHOLD'; payload: number }
   | { type: 'SET_LABEL_SAMPLE_EVERY'; payload: number }
+  | { type: 'SET_LABEL_FONT_SIZE'; payload: number }
   // Tooltip actions
   | { type: 'SET_TOOLTIP_FIELDS'; payload: Field[] }
   | { type: 'ADD_TOOLTIP_FIELD'; payload: Field }
@@ -233,6 +235,11 @@ export type VisualizationAction =
       sizeField: Field | null;
       sizeRange: [number, number];
       manualSize: number;
+      labelFields?: Field[];
+      labelsEnabled?: boolean;
+      labelSamplingStrategy?: 'auto' | 'all' | 'sample';
+      labelSamplingThreshold?: number;
+      labelSampleEvery?: number;
       bandThicknessScale?: number;
       independentDomains?: { x: boolean; y: boolean };
       fieldOverrides: Record<string, FieldOverrideState>;
@@ -240,6 +247,7 @@ export type VisualizationAction =
       distributionVariant?: DistributionVariant;
       tableCellMode?: TableCellMode;
       tablePage?: number;
+      labelFontSize?: number;
       axisLabelStyles?: AxisLabelStyles;
       facetLabelStyles?: FacetLabelStyles;
       facetBackgroundField?: Field | null;

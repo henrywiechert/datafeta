@@ -4,6 +4,7 @@ import { Field } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
+import { LabelConfig } from '../types';
 // Label utilities
 import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../utils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
@@ -114,7 +115,7 @@ export function scatterChart(
   sizeRange?: [number, number],
   manualSize?: number
   , sizeScaleData?: any[]
-  , labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
+  , labelCfg?: LabelConfig
   , tooltipFields?: Field[]
   , facetFields?: Field[]
   , shapeField?: Field
@@ -381,6 +382,7 @@ export function scatterChart(
       samplingStrategy: labelCfg.samplingStrategy,
       samplingThreshold: labelCfg.samplingThreshold,
       sampleEvery: labelCfg.sampleEvery,
+      fontSize: labelCfg.fontSize,
       chartType: 'scatter'
     };
     const prepared = prepareLabelData(labelConfig);

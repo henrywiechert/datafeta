@@ -64,6 +64,11 @@ export interface VisualizationStateSnapshot {
   sizeField: Field | null;
   sizeRange: [number, number];
   manualSize: number;
+  labelFields?: Field[];
+  labelsEnabled?: boolean;
+  labelSamplingStrategy?: 'auto' | 'all' | 'sample';
+  labelSamplingThreshold?: number;
+  labelSampleEvery?: number;
   bandThicknessScale?: number;
   independentDomains?: { x: boolean; y: boolean };
   fieldOverrides?: Record<string, FieldOverrideState>;
@@ -89,6 +94,8 @@ export interface VisualizationStateSnapshot {
   // Shape encoding (scatter only, discrete only)
   shapeField?: Field | null;
   manualShape?: string;
+  // Data label styling
+  labelFontSize?: number;
   // Statistical overlays
   overlays?: import('../observable-plot-generator/overlays/types').OverlayConfig[];
   // Filter IDs that are temporarily disabled on this sheet (config preserved)

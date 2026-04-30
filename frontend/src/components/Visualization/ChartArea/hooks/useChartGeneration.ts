@@ -79,7 +79,7 @@ export const useChartGeneration = ({
   const { field: colorField, scheme: colorScheme = 'tableau10', bias: colorBias = 0, manual: manualColor } = channels.color;
   const { field: sizeField, range: sizeRange, manual: manualSize, bandThicknessScale } = channels.size;
   const { field: shapeField, manual: manualShape } = channels.shape;
-  const { fields: labelFields, enabled: labelsEnabled, samplingStrategy: labelSamplingStrategy, samplingThreshold: labelSamplingThreshold, sampleEvery: labelSampleEvery } = channels.label;
+  const { fields: labelFields, enabled: labelsEnabled, samplingStrategy: labelSamplingStrategy, samplingThreshold: labelSamplingThreshold, sampleEvery: labelSampleEvery, fontSize: labelFontSize } = channels.label;
   const { fields: tooltipFields } = channels.tooltip;
   const { field: facetBackgroundField, scheme: facetBackgroundScheme, opacity: facetBackgroundOpacity } = channels.facetBackground;
 
@@ -238,6 +238,7 @@ export const useChartGeneration = ({
         labelSamplingStrategy,
         labelSamplingThreshold,
         labelSampleEvery,
+        labelFontSize,
         tooltipFields,
         fieldOverrides,
         fieldOverrideTargets: overrideTargets,

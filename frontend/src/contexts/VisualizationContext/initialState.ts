@@ -47,6 +47,7 @@ export const initialState: VisualizationState = {
   labelSamplingStrategy: 'auto',
   labelSamplingThreshold: 300,
   labelSampleEvery: 1,
+  labelFontSize: 10,
   // Tooltip configuration defaults
   tooltipFields: [],
   // Query optimization settings

@@ -328,6 +328,7 @@ function addBarLabels(
     samplingStrategy: labelCfg.samplingStrategy,
     samplingThreshold: labelCfg.samplingThreshold,
     sampleEvery: labelCfg.sampleEvery,
+    fontSize: labelCfg.fontSize,
     chartType: 'bar',
     orientation,
     colorColumn: colorColumnName,
