@@ -23,10 +23,11 @@
  *   what the `table-refactor` chart type is for.
  */
 import * as Plot from '@observablehq/plot';
-import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
+import { DEFAULT_CHART_COLOR, SIZE_DEFAULTS_BY_CHART_TYPE } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
+import { createSizeScale } from '../utils/sizeUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 import { ChartGenerationContext, PlotResult, SharedDomains } from '../types';
 import { FacetPlan, planFacets } from '../faceting/facetPlanner';
@@ -53,6 +54,7 @@ export interface HeatmapOptionsInput {
    */
   sizeField?: Field | null;
   sizeRange?: [number, number];
+  manualSize?: number;
   /**
    * Optional fields whose per-row values are rendered as text labels on each
    * cell. The first label field's column drives the visible text; further
@@ -61,6 +63,52 @@ export interface HeatmapOptionsInput {
   labelFields?: Field[];
   tooltipFields?: Field[];
   facetFields?: Field[];
+}
+
+const HEATMAP_X_INDEX_COL = '__heatmapXIndex';
+const HEATMAP_Y_INDEX_COL = '__heatmapYIndex';
+const HEATMAP_SCALE_COL = '__heatmapCellScale';
+
+function domainValueKey(value: any): string {
+  if (value instanceof Date) return `date:${value.getTime()}`;
+  return `${typeof value}:${String(value)}`;
+}
+
+function getOrderedDistinctValues(data: any[], column: string): any[] {
+  const values: any[] = [];
+  const seen = new Set<string>();
+  data.forEach((row) => {
+    const value = row?.[column];
+    const key = domainValueKey(value);
+    if (seen.has(key)) return;
+    seen.add(key);
+    values.push(value);
+  });
+
+  return values.sort((a, b) => {
+    const numA = typeof a === 'number' && Number.isFinite(a)
+      ? a
+      : (typeof a === 'string' && a.trim() !== '' && Number.isFinite(Number(a)) ? Number(a) : null);
+    const numB = typeof b === 'number' && Number.isFinite(b)
+      ? b
+      : (typeof b === 'string' && b.trim() !== '' && Number.isFinite(Number(b)) ? Number(b) : null);
+    if (numA !== null && numB !== null) {
+      return numA - numB;
+    }
+    if (a instanceof Date && b instanceof Date) {
+      return a.getTime() - b.getTime();
+    }
+    return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+  });
+}
+
+function formatHeatmapAxisTick(value: any): string {
+  return formatHeatmapLabel(value);
+}
+
+function normalizeHeatmapCellScale(size: number, fullCellSize: number): number {
+  if (!Number.isFinite(size) || fullCellSize <= 0) return 1;
+  return Math.max(0.05, Math.min(1, size / fullCellSize));
 }
 
 export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOptions {
@@ -74,6 +122,7 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
     manualColor,
     sizeField,
     sizeRange,
+    manualSize,
     labelFields,
     tooltipFields,
     facetFields,
@@ -127,20 +176,48 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
   );
 
   // Pick the primary mark. With size-shelf encoding we render dots so each
-  // square shrinks/grows with the field; without a size field we keep the
-  // band-filling `Plot.cell` for a denser, cleaner heatmap look.
-  const useDotMark = !!sizeField;
+  // square shrinks/grows with the field. We also honor an explicit manual-size
+  // slider change by switching to a fixed-size square-dot heatmap, while the
+  // default heatmap size continues to render band-filling cells.
+  const heatmapDefaultManualSize = SIZE_DEFAULTS_BY_CHART_TYPE.heatmap;
+  const hasManualSizeOverride =
+    Number.isFinite(manualSize as number) &&
+    (manualSize as number) > 0 &&
+    (manualSize as number) !== heatmapDefaultManualSize;
+  const useScaledRectMark = !!sizeField || hasManualSizeOverride;
   const sizeCol = sizeField ? getResultColumnName(sizeField) : undefined;
+  const xDomainValues = getOrderedDistinctValues(data, xCol);
+  const yDomainValues = getOrderedDistinctValues(data, yCol);
+  const xIndexByValue = new Map(xDomainValues.map((value, index) => [domainValueKey(value), index]));
+  const yIndexByValue = new Map(yDomainValues.map((value, index) => [domainValueKey(value), index]));
+  const effectiveSizeRange = sizeRange ?? [4, 20];
+  const sizeScale = createSizeScale(
+    data,
+    sizeField || null,
+    effectiveSizeRange,
+    manualSize ?? heatmapDefaultManualSize,
+  );
+  const sizedHeatmapData = data.map((row) => {
+    const scaledSize = sizeField
+      ? sizeScale.getSizeForValue(row?.[sizeCol as string])
+      : (manualSize ?? heatmapDefaultManualSize);
+    return {
+      ...row,
+      [HEATMAP_X_INDEX_COL]: xIndexByValue.get(domainValueKey(row?.[xCol])) ?? 0,
+      [HEATMAP_Y_INDEX_COL]: yIndexByValue.get(domainValueKey(row?.[yCol])) ?? 0,
+      [HEATMAP_SCALE_COL]: normalizeHeatmapCellScale(scaledSize, heatmapDefaultManualSize),
+    };
+  });
 
-  const primaryMark = useDotMark
-    ? Plot.dot(data, {
-        x: xCol,
-        y: yCol,
-        symbol: 'square',
-        r: sizeCol,
+  const primaryMark = useScaledRectMark
+    ? Plot.rect(sizedHeatmapData, {
+        x1: (d: any) => d[HEATMAP_X_INDEX_COL] - d[HEATMAP_SCALE_COL] / 2,
+        x2: (d: any) => d[HEATMAP_X_INDEX_COL] + d[HEATMAP_SCALE_COL] / 2,
+        y1: (d: any) => d[HEATMAP_Y_INDEX_COL] - d[HEATMAP_SCALE_COL] / 2,
+        y2: (d: any) => d[HEATMAP_Y_INDEX_COL] + d[HEATMAP_SCALE_COL] / 2,
         ...(fillCol ? { fill: fillCol } : { fill: effectiveManualFill }),
-        frameAnchor: 'middle',
-      } as Plot.DotOptions)
+        inset: 0,
+      } as Plot.RectOptions)
     : Plot.cell(data, {
         x: xCol,
         y: yCol,
@@ -157,9 +234,9 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
   if (primaryLabelField) {
     const labelCol = getResultColumnName(primaryLabelField);
     marks.push(
-      Plot.text(data, {
-        x: xCol,
-        y: yCol,
+      Plot.text(useScaledRectMark ? sizedHeatmapData : data, {
+        x: useScaledRectMark ? HEATMAP_X_INDEX_COL : xCol,
+        y: useScaledRectMark ? HEATMAP_Y_INDEX_COL : yCol,
         text: (d: any) => formatHeatmapLabel(d?.[labelCol]),
         fill: 'currentColor',
         stroke: 'white',
@@ -171,18 +248,29 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
     );
   }
 
-  // Configure r scale when using dots so the user-provided sizeRange actually
-  // controls the visible square size (Plot defaults to a small radius).
-  const rOption: Plot.ScaleOptions | undefined =
-    useDotMark && sizeRange
-      ? { type: 'linear', range: sizeRange }
-      : undefined;
+  const xTickPositions = xDomainValues.map((_, index) => index);
+  const yTickPositions = yDomainValues.map((_, index) => index);
 
   const options: Plot.PlotOptions = {
-    x: { type: 'band', label: getFieldDisplayName(xField) },
-    y: { type: 'band', label: getFieldDisplayName(yField) },
+    x: useScaledRectMark
+      ? {
+          type: 'linear',
+          label: getFieldDisplayName(xField),
+          domain: [-0.5, Math.max(0.5, xDomainValues.length - 0.5)],
+          ticks: xTickPositions,
+          tickFormat: (value: any) => formatHeatmapAxisTick(xDomainValues[Math.round(Number(value))]),
+        }
+      : { type: 'band', label: getFieldDisplayName(xField) },
+    y: useScaledRectMark
+      ? {
+          type: 'linear',
+          label: getFieldDisplayName(yField),
+          domain: [-0.5, Math.max(0.5, yDomainValues.length - 0.5)],
+          ticks: yTickPositions,
+          tickFormat: (value: any) => formatHeatmapAxisTick(yDomainValues[Math.round(Number(value))]),
+        }
+      : { type: 'band', label: getFieldDisplayName(yField) },
     ...(colorOption ? { color: colorOption } : {}),
-    ...(rOption ? { r: rOption } : {}),
     marks,
   };
 
@@ -290,6 +378,7 @@ function createHeatmapCellGenerator(
       manualColor: context.manualColor,
       sizeField: context.sizeField || null,
       sizeRange: context.sizeRange,
+      manualSize: context.manualSize,
       labelFields: context.labelFields,
       tooltipFields: context.tooltipFields,
       facetFields,
