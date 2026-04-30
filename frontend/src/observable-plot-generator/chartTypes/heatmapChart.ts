@@ -26,7 +26,7 @@ import * as Plot from '@observablehq/plot';
 import { DEFAULT_CHART_COLOR, SIZE_DEFAULTS_BY_CHART_TYPE } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
-import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo, ColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 import { ChartGenerationContext, PlotResult, SharedDomains } from '../types';
@@ -63,6 +63,7 @@ export interface HeatmapOptionsInput {
   labelFields?: Field[];
   tooltipFields?: Field[];
   facetFields?: Field[];
+  colorScaleInfo?: ColorScaleInfo | null;
 }
 
 const HEATMAP_X_INDEX_COL = '__heatmapXIndex';
@@ -126,6 +127,7 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
     labelFields,
     tooltipFields,
     facetFields,
+    colorScaleInfo,
   } = input;
 
   const xCol = getResultColumnName(xField);
@@ -133,7 +135,7 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
   const fillCol = colorField ? getResultColumnName(colorField) : undefined;
 
   const colorScale = colorField
-    ? deriveColorScaleInfo(data, colorField, colorScheme, colorBias)
+    ? (colorScaleInfo ?? deriveColorScaleInfo(data, colorField, colorScheme, colorBias))
     : null;
 
   // Build the color scale config for Plot. For continuous (typical for
@@ -360,7 +362,7 @@ function createHeatmapCellGenerator(
   return (
     cellData: any[],
     _cellContext: ChartGenerationContext,
-    _sharedDomains: SharedDomains,
+    sharedDomains: SharedDomains,
     _facetPosition: { row: number; col: number },
     facetCellContext?: FacetCellContext,
   ): CellResult => {
@@ -382,6 +384,7 @@ function createHeatmapCellGenerator(
       labelFields: context.labelFields,
       tooltipFields: context.tooltipFields,
       facetFields,
+      colorScaleInfo: sharedDomains.colorScale,
     });
 
     return {
