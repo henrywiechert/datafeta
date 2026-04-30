@@ -42,6 +42,7 @@ export interface LabelConfig {
   samplingStrategy: 'auto' | 'all' | 'sample';
   samplingThreshold: number;
   sampleEvery: number;
+  fontSize: number;
 }
 
 /**
@@ -101,6 +102,7 @@ export interface ChartGenerationContext {
   labelSamplingStrategy?: 'auto' | 'all' | 'sample';
   labelSamplingThreshold?: number;
   labelSampleEvery?: number;
+  labelFontSize?: number;
   // --- Tooltip configuration (optional) ------------------------------------
   tooltipFields?: Field[];
   /**

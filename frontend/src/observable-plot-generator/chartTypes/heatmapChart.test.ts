@@ -381,6 +381,42 @@ describe('buildHeatmapOptions label encoding', () => {
     expect(text).toContain('100');
   });
 
+  test('uses the configured label font size for heatmap text labels', () => {
+    const opts = buildHeatmapOptions({
+      data: SAMPLE_ROWS,
+      xField: dim('region'),
+      yField: dim('product'),
+      colorField: meas('sales'),
+      labelFields: [meas('sales')],
+      labelFontSize: 18,
+    });
+
+    const textMark = (opts.marks as any[])[1];
+    expect(textMark.opts.fontSize).toBe(18);
+  });
+
+  test('chooses white label text on dark heatmap cells and black on light cells', () => {
+    const darkOpts = buildHeatmapOptions({
+      data: SAMPLE_ROWS,
+      xField: dim('region'),
+      yField: dim('product'),
+      manualColor: '#111111',
+      labelFields: [meas('sales')],
+    });
+    const darkTextMark = (darkOpts.marks as any[])[1];
+    expect(darkTextMark.opts.fill(SAMPLE_ROWS[0])).toBe('white');
+
+    const lightOpts = buildHeatmapOptions({
+      data: SAMPLE_ROWS,
+      xField: dim('region'),
+      yField: dim('product'),
+      manualColor: '#f2f2f2',
+      labelFields: [meas('sales')],
+    });
+    const lightTextMark = (lightOpts.marks as any[])[1];
+    expect(lightTextMark.opts.fill(SAMPLE_ROWS[0])).toBe('black');
+  });
+
   test('does not add a text mark when labelFields is empty / unset', () => {
     const opts = buildHeatmapOptions({
       data: SAMPLE_ROWS,

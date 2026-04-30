@@ -288,6 +288,38 @@ export function resolveColorForRow(
   return interpolateColors(scale.range[lower], scale.range[upper], frac);
 }
 
+function parseHexColor(color: string): { r: number; g: number; b: number } | null {
+  const normalized = color.trim().replace('#', '');
+  if (normalized.length === 3) {
+    const [r, g, b] = normalized.split('');
+    return {
+      r: parseInt(`${r}${r}`, 16),
+      g: parseInt(`${g}${g}`, 16),
+      b: parseInt(`${b}${b}`, 16),
+    };
+  }
+  if (normalized.length !== 6) return null;
+
+  return {
+    r: parseInt(normalized.slice(0, 2), 16),
+    g: parseInt(normalized.slice(2, 4), 16),
+    b: parseInt(normalized.slice(4, 6), 16),
+  };
+}
+
+export function getContrastTextColor(backgroundColor: string, fallback: 'black' | 'white' = 'black'): 'black' | 'white' {
+  const rgb = parseHexColor(backgroundColor);
+  if (!rgb) return fallback;
+
+  const channels = [rgb.r, rgb.g, rgb.b].map((value) => {
+    const scaled = value / 255;
+    return scaled <= 0.03928 ? scaled / 12.92 : ((scaled + 0.055) / 1.055) ** 2.4;
+  });
+  const luminance = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+
+  return luminance > 0.179 ? 'black' : 'white';
+}
+
 /**
  * Simple RGB color interpolation between two hex colors
  */

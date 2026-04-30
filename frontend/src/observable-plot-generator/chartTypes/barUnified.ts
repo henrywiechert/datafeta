@@ -1,4 +1,4 @@
-import { ChartGenerationContext, PlotResult } from '../types';
+import { ChartGenerationContext, LabelConfig, PlotResult } from '../types';
 import { getFieldColumnName } from '../helpers/fields';
 import { resolveMeasureAlias, buildBarOptions, computeBandPaddingFromSizeField, sortCategoriesByValue } from './barCore';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
@@ -26,7 +26,7 @@ import { isMeasureValuesField, combineMeasureValuesOverrides } from '../../utils
  */
 export function barUnified(
   context: ChartGenerationContext,
-  labelCfg?: { labelFields: any[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
+  labelCfg?: LabelConfig
 ): PlotResult {
   const { queryResult, xFields, yFields, colorField, colorScheme, manualColor, sizeField, manualSize, tooltipFields, fieldOverrides, measureValuesSourceFields } = context;
   const data = queryResult.rows;
@@ -215,6 +215,7 @@ export function barUnified(
         samplingStrategy: labelCfg.samplingStrategy,
         samplingThreshold: labelCfg.samplingThreshold,
         sampleEvery: labelCfg.sampleEvery,
+        fontSize: labelCfg.fontSize,
         chartType: 'bar',
         orientation,
         colorColumn: colorColumn,

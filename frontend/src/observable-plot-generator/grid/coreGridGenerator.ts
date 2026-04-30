@@ -263,6 +263,13 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
                 labelFields: cellOverride.labelFields,
               };
             }
+
+            if (typeof cellOverride?.dataLabelFontSize === 'number') {
+              effectiveLabelCfg = {
+                ...effectiveLabelCfg,
+                fontSize: cellOverride.dataLabelFontSize,
+              };
+            }
             
             // If dataLabelMode is 'on', force enable labels
             if (cellOverride?.dataLabelMode === 'on') {

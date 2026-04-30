@@ -88,6 +88,7 @@ export interface FieldOverrideState {
   // Label overrides
   displayLabel?: string;
   dataLabelMode?: DataLabelMode;
+  dataLabelFontSize?: number;
   labelFields?: Field[];
 
   // Chart type override
