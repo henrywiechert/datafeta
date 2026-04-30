@@ -232,6 +232,34 @@ describe('generateHeatmapGrid', () => {
     expect(cellMark.opts.x).toBe('region');
     expect(cellMark.opts.y).toBe('product');
   });
+
+  test('shares one continuous color domain across heatmap facets', () => {
+    const country = dim('country');
+    const region = dim('region');
+    const product = dim('product');
+    const rows = [
+      { country: 'US', region: 'North', product: 'A', 'SUM(sales)': 10 },
+      { country: 'US', region: 'South', product: 'A', 'SUM(sales)': 20 },
+      { country: 'CA', region: 'North', product: 'A', 'SUM(sales)': 100 },
+      { country: 'CA', region: 'South', product: 'A', 'SUM(sales)': 200 },
+    ];
+
+    const ctx = buildCtx({
+      xFields: [country, region],
+      yFields: [product],
+      colorField: meas('sales'),
+      queryResult: { rows, columns: [], row_count: rows.length } as any,
+    });
+
+    const result = generateHeatmapGrid(ctx);
+    expect(result.plots).toHaveLength(2);
+
+    const domains = result.plots.map((plot) => (plot.options.color as any)?.domain);
+    expect(domains).toEqual([
+      [10, 200],
+      [10, 200],
+    ]);
+  });
 });
 
 describe('buildHeatmapOptions size encoding', () => {
