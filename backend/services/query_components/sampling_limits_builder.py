@@ -36,6 +36,7 @@ class SamplingAndLimitsBuilder:
             with_sampling
             and is_raw_query
             and is_single_dimension
+            and not query_desc.fetch_filter_values
             and query_desc.limit is None
             and not query_desc.orderBy
             and not query_desc.filters
