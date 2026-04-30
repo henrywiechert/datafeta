@@ -16,7 +16,15 @@ interface XAxesProps {
   dynamicXAxisPx: number;
 }
 
-function buildXAxisOptions(label: string | undefined, domain: any, gutterPx: number, type?: string, padding?: number) {
+function buildXAxisOptions(
+  label: string | undefined,
+  domain: any,
+  gutterPx: number,
+  type?: string,
+  padding?: number,
+  ticks?: any,
+  tickFormat?: any,
+) {
   // If the cell options explicitly say 'band', respect that — it's a categorical
   // axis regardless of whether the values look like dates.
   const isCategorical = type === 'band';
@@ -47,6 +55,8 @@ function buildXAxisOptions(label: string | undefined, domain: any, gutterPx: num
       labelArrow: null,
       nice: false,
       ...(padding !== undefined && isCategorical ? { padding } : {}),
+      ...(ticks !== undefined ? { ticks } : {}),
+      ...(tickFormat !== undefined ? { tickFormat } : {}),
       ...(maxTicksForBand ? { ticks: maxTicksForBand } : {}),
     },
     marks: [Plot.axisX()],
@@ -93,6 +103,8 @@ const XAxes: React.FC<XAxesProps> = ({
             const xDomain = (sample?.content.options as any)?.x?.domain;
             const xType = (sample?.content.options as any)?.x?.type;
             const xPadding = (sample?.content.options as any)?.x?.padding;
+            const xTicks = (sample?.content.options as any)?.x?.ticks;
+            const xTickFormat = (sample?.content.options as any)?.x?.tickFormat;
             const xRotate = xType === 'band' ? -45 : 0;
             return (
               <div
@@ -103,7 +115,7 @@ const XAxes: React.FC<XAxesProps> = ({
                   borderTop: `1px solid ${GRID_DIVIDER_COLOR}`,
                 }}
               >
-                <ObservablePlot options={{ ...buildXAxisOptions(xLabel, xDomain, dynamicXAxisPx, xType, xPadding), marks: [Plot.axisX({ tickRotate: xRotate as any })] as any }} />
+                <ObservablePlot options={{ ...buildXAxisOptions(xLabel, xDomain, dynamicXAxisPx, xType, xPadding, xTicks, xTickFormat), marks: [Plot.axisX({ tickRotate: xRotate as any, ...(xTicks !== undefined ? { ticks: xTicks } : {}), ...(xTickFormat !== undefined ? { tickFormat: xTickFormat } : {}) })] as any }} />
               </div>
             );
           })}

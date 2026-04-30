@@ -4,6 +4,7 @@ import { buildHeatmapOptions, generateHeatmapGrid } from './heatmapChart';
 
 jest.mock('@observablehq/plot', () => ({
   cell: (data: any[], opts: any) => ({ type: 'cell', data, opts }),
+  rect: (data: any[], opts: any) => ({ type: 'rect', data, opts }),
   text: (data: any[], opts: any) => ({ type: 'text', data, opts }),
   dot: (data: any[], opts: any) => ({ type: 'dot', data, opts }),
 }));
@@ -234,7 +235,7 @@ describe('generateHeatmapGrid', () => {
 });
 
 describe('buildHeatmapOptions size encoding', () => {
-  test('switches from Plot.cell to Plot.dot with `r` driven by sizeField', () => {
+  test('switches from Plot.cell to Plot.rect with proportional extents driven by sizeField', () => {
     const opts = buildHeatmapOptions({
       data: SAMPLE_ROWS,
       xField: dim('region'),
@@ -245,10 +246,17 @@ describe('buildHeatmapOptions size encoding', () => {
     });
 
     const primary = (opts.marks as any[])[0];
-    expect(primary.type).toBe('dot');
-    expect(primary.opts.symbol).toBe('square');
-    expect(primary.opts.r).toBe('SUM(sales)');
-    expect((opts as any).r).toEqual({ type: 'linear', range: [3, 18] });
+    expect(primary.type).toBe('rect');
+    expect((opts.x as any).type).toBe('linear');
+    expect((opts.y as any).type).toBe('linear');
+    expect((opts.x as any).ticks).toEqual([0, 1]);
+    expect((opts.x as any).tickFormat(0)).toBe('North');
+    expect((opts.y as any).tickFormat(1)).toBe('B');
+
+    const width = primary.opts.x2(primary.data[0]) - primary.opts.x1(primary.data[0]);
+    const height = primary.opts.y2(primary.data[0]) - primary.opts.y1(primary.data[0]);
+    expect(width).toBeCloseTo(height, 5);
+    expect(width).toBeLessThan(1);
   });
 
   test('falls back to Plot.cell when no size field is configured', () => {
@@ -257,11 +265,70 @@ describe('buildHeatmapOptions size encoding', () => {
       xField: dim('region'),
       yField: dim('product'),
       colorField: meas('sales'),
+      manualSize: 40,
     });
 
     const primary = (opts.marks as any[])[0];
     expect(primary.type).toBe('cell');
     expect((opts as any).r).toBeUndefined();
+  });
+
+  test('uses manualSize as a fixed square radius when no size field is configured', () => {
+    const opts = buildHeatmapOptions({
+      data: SAMPLE_ROWS,
+      xField: dim('region'),
+      yField: dim('product'),
+      colorField: meas('sales'),
+      manualSize: 12,
+    });
+
+    const primary = (opts.marks as any[])[0];
+    expect(primary.type).toBe('rect');
+    const width = primary.opts.x2(primary.data[0]) - primary.opts.x1(primary.data[0]);
+    const height = primary.opts.y2(primary.data[0]) - primary.opts.y1(primary.data[0]);
+    expect(width).toBeCloseTo(0.3, 5);
+    expect(height).toBeCloseTo(0.3, 5);
+  });
+
+  test('closes the residual gap at max manual size by using zero inset', () => {
+    const opts = buildHeatmapOptions({
+      data: SAMPLE_ROWS,
+      xField: dim('region'),
+      yField: dim('product'),
+      colorField: meas('sales'),
+      manualSize: 50,
+    });
+
+    const primary = (opts.marks as any[])[0];
+    expect(primary.type).toBe('rect');
+    expect(primary.opts.inset).toBe(0);
+
+    const width = primary.opts.x2(primary.data[0]) - primary.opts.x1(primary.data[0]);
+    const height = primary.opts.y2(primary.data[0]) - primary.opts.y1(primary.data[0]);
+    expect(width).toBe(1);
+    expect(height).toBe(1);
+  });
+
+  test('sorts indexed heatmap axes deterministically instead of preserving row encounter order', () => {
+    const opts = buildHeatmapOptions({
+      data: [
+        { region: 'South', product: 'B', 'SUM(sales)': 1 },
+        { region: 'North', product: 'A', 'SUM(sales)': 2 },
+        { region: 'South', product: 'A', 'SUM(sales)': 3 },
+        { region: 'North', product: 'B', 'SUM(sales)': 4 },
+      ],
+      xField: dim('region'),
+      yField: dim('product'),
+      colorField: meas('sales'),
+      manualSize: 12,
+    });
+
+    expect((opts.x as any).ticks).toEqual([0, 1]);
+    expect((opts.y as any).ticks).toEqual([0, 1]);
+    expect((opts.x as any).tickFormat(0)).toBe('North');
+    expect((opts.x as any).tickFormat(1)).toBe('South');
+    expect((opts.y as any).tickFormat(0)).toBe('A');
+    expect((opts.y as any).tickFormat(1)).toBe('B');
   });
 });
 

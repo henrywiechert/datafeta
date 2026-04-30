@@ -15,7 +15,14 @@ interface YAxesProps {
 /**
  * Build axis-only plot options for external gutters.
  */
-function buildYAxisOptions(domain: any, gutterPx: number, type?: string, padding?: number) {
+function buildYAxisOptions(
+  domain: any,
+  gutterPx: number,
+  type?: string,
+  padding?: number,
+  ticks?: any,
+  tickFormat?: any,
+) {
   const isCategorical = type === 'band';
 
   const first = Array.isArray(domain) ? domain[0] : undefined;
@@ -38,6 +45,8 @@ function buildYAxisOptions(domain: any, gutterPx: number, type?: string, padding
       labelArrow: null,
       nice: false,
       ...(padding !== undefined && isCategorical ? { padding } : {}),
+      ...(ticks !== undefined ? { ticks } : {}),
+      ...(tickFormat !== undefined ? { tickFormat } : {}),
     },
     marks: [Plot.axisY()],
   } as any;
@@ -52,6 +61,8 @@ const YAxes: React.FC<YAxesProps> = ({ grid, rows, dynamicYAxisPx, rowHeights, h
         const yDomain = (sample?.content.options as any)?.y?.domain;
         const yType = (sample?.content.options as any)?.y?.type;
         const yPadding = (sample?.content.options as any)?.y?.padding;
+        const yTicks = (sample?.content.options as any)?.y?.ticks;
+        const yTickFormat = (sample?.content.options as any)?.y?.tickFormat;
         const trackHeightPx = Math.max(1, rowHeights[r] ?? MIN_GRID_ROW_PX);
         return (
           <div
@@ -62,7 +73,7 @@ const YAxes: React.FC<YAxesProps> = ({ grid, rows, dynamicYAxisPx, rowHeights, h
               borderBottom: r < rows - 1 ? `1px solid ${GRID_DIVIDER_COLOR}` : undefined,
             }}
           >
-            <ObservablePlot options={{ ...buildYAxisOptions(yDomain, dynamicYAxisPx, yType, yPadding), height: trackHeightPx }} />
+            <ObservablePlot options={{ ...buildYAxisOptions(yDomain, dynamicYAxisPx, yType, yPadding, yTicks, yTickFormat), height: trackHeightPx, marks: [Plot.axisY({ ...(yTicks !== undefined ? { ticks: yTicks } : {}), ...(yTickFormat !== undefined ? { tickFormat: yTickFormat } : {}) })] as any }} />
           </div>
         );
       })}
