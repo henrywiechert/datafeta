@@ -42,6 +42,12 @@ export const TABLE_NAMES_BAND_LEFT_PX = 88;
 export const TABLE_VALUES_BAND_LEFT_PX = 96;
 export const TABLE_VALUES_BAND_TOP_PX = 18;
 
+// Heatmap layout constants.
+// Reset-to-auto should size a facet from its cell counts rather than from the
+// generic facet floor, while manual resize can still shrink below that default.
+export const HEATMAP_DEFAULT_CELL_SIZE_PX = 14;
+export const HEATMAP_MIN_CELL_SIZE_PX = 1;
+
 // Resize handle constants (for future dynamic resize feature)
 export const RESIZE_HANDLE_WIDTH = 2;
 export const RESIZE_HANDLE_COLOR = '#99a795';

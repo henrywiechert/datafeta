@@ -1,4 +1,12 @@
 import { Field } from '../../types';
+import {
+  HEATMAP_DEFAULT_CELL_SIZE_PX,
+  HEATMAP_MIN_CELL_SIZE_PX,
+  MIN_CELL_HEIGHT_PX,
+  MIN_CELL_WIDTH_PX,
+  MIN_GRID_COLUMN_PX,
+  MIN_GRID_ROW_PX,
+} from '../../config/chartLayoutConfig';
 import { ChartGenerationContext } from '../types';
 import { buildHeatmapOptions, generateHeatmapGrid } from './heatmapChart';
 
@@ -178,6 +186,18 @@ describe('generateHeatmapGrid', () => {
     expect(result.layout.rows).toBe(1);
     expect(result.plots).toHaveLength(1);
     expect(result.plots[0].id).toBe('heatmap');
+    expect(result.layout.columnSizes).toEqual([
+      Math.max(MIN_GRID_COLUMN_PX, 2 * HEATMAP_DEFAULT_CELL_SIZE_PX),
+    ]);
+    expect(result.layout.rowSizes).toEqual([
+      Math.max(MIN_GRID_ROW_PX, 2 * HEATMAP_DEFAULT_CELL_SIZE_PX),
+    ]);
+    expect(result.layout.minColumnSizes).toEqual([
+      Math.max(MIN_CELL_WIDTH_PX, 2 * HEATMAP_MIN_CELL_SIZE_PX),
+    ]);
+    expect(result.layout.minRowSizes).toEqual([
+      Math.max(MIN_CELL_HEIGHT_PX, 2 * HEATMAP_MIN_CELL_SIZE_PX),
+    ]);
 
     // The heatmap's plot should be built from the *full* data set, not from a
     // single (region, product) facet cell — i.e. faceting must be skipped.
@@ -258,6 +278,20 @@ describe('generateHeatmapGrid', () => {
     expect(domains).toEqual([
       [10, 200],
       [10, 200],
+    ]);
+    expect(result.layout.columnSizes).toEqual([
+      Math.max(MIN_GRID_COLUMN_PX, 2 * HEATMAP_DEFAULT_CELL_SIZE_PX),
+      Math.max(MIN_GRID_COLUMN_PX, 2 * HEATMAP_DEFAULT_CELL_SIZE_PX),
+    ]);
+    expect(result.layout.minColumnSizes).toEqual([
+      Math.max(MIN_CELL_WIDTH_PX, 2 * HEATMAP_MIN_CELL_SIZE_PX),
+      Math.max(MIN_CELL_WIDTH_PX, 2 * HEATMAP_MIN_CELL_SIZE_PX),
+    ]);
+    expect(result.layout.rowSizes).toEqual([
+      Math.max(MIN_GRID_ROW_PX, HEATMAP_DEFAULT_CELL_SIZE_PX),
+    ]);
+    expect(result.layout.minRowSizes).toEqual([
+      Math.max(MIN_CELL_HEIGHT_PX, HEATMAP_MIN_CELL_SIZE_PX),
     ]);
   });
 });

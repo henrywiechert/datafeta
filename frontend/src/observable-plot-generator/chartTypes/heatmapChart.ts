@@ -23,7 +23,16 @@
  *   what the `table-refactor` chart type is for.
  */
 import * as Plot from '@observablehq/plot';
-import { DEFAULT_CHART_COLOR, SIZE_DEFAULTS_BY_CHART_TYPE } from '../../config/chartLayoutConfig';
+import {
+  DEFAULT_CHART_COLOR,
+  HEATMAP_DEFAULT_CELL_SIZE_PX,
+  HEATMAP_MIN_CELL_SIZE_PX,
+  MIN_CELL_HEIGHT_PX,
+  MIN_CELL_WIDTH_PX,
+  MIN_GRID_COLUMN_PX,
+  MIN_GRID_ROW_PX,
+  SIZE_DEFAULTS_BY_CHART_TYPE,
+} from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { deriveColorScaleInfo, ColorScaleInfo, getContrastTextColor, resolveColorForRow } from '../utils/colorSchemeUtils';
@@ -111,6 +120,23 @@ function formatHeatmapAxisTick(value: any): string {
 function normalizeHeatmapCellScale(size: number, fullCellSize: number): number {
   if (!Number.isFinite(size) || fullCellSize <= 0) return 1;
   return Math.max(0.05, Math.min(1, size / fullCellSize));
+}
+
+function computeHeatmapCellSizing(data: any[], xField: Field, yField: Field): {
+  defaultWidth: number;
+  defaultHeight: number;
+  minWidth: number;
+  minHeight: number;
+} {
+  const xCount = Math.max(1, getOrderedDistinctValues(data, getResultColumnName(xField)).length);
+  const yCount = Math.max(1, getOrderedDistinctValues(data, getResultColumnName(yField)).length);
+
+  return {
+    defaultWidth: Math.max(MIN_GRID_COLUMN_PX, xCount * HEATMAP_DEFAULT_CELL_SIZE_PX),
+    defaultHeight: Math.max(MIN_GRID_ROW_PX, yCount * HEATMAP_DEFAULT_CELL_SIZE_PX),
+    minWidth: Math.max(MIN_CELL_WIDTH_PX, xCount * HEATMAP_MIN_CELL_SIZE_PX),
+    minHeight: Math.max(MIN_CELL_HEIGHT_PX, yCount * HEATMAP_MIN_CELL_SIZE_PX),
+  };
 }
 
 export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOptions {
@@ -364,6 +390,8 @@ function createHeatmapCellGenerator(
   xField: Field,
   yField: Field,
 ): CellGenerator {
+  const sizing = computeHeatmapCellSizing(context.queryResult.rows, xField, yField);
+
   return (
     cellData: any[],
     _cellContext: ChartGenerationContext,
@@ -404,8 +432,10 @@ function createHeatmapCellGenerator(
       ],
       columns: 1,
       rows: 1,
-      columnSizes: ['fr'],
-      rowSizes: ['fr'],
+      columnSizes: [sizing.defaultWidth],
+      rowSizes: [sizing.defaultHeight],
+      minColumnSizes: [sizing.minWidth],
+      minRowSizes: [sizing.minHeight],
     };
   };
 }
@@ -470,6 +500,8 @@ export function generateHeatmapGrid(context: ChartGenerationContext): PlotResult
       rows: cell.rows,
       columnSizes: cell.columnSizes || ['fr'],
       rowSizes: cell.rowSizes || ['fr'],
+      minColumnSizes: cell.minColumnSizes,
+      minRowSizes: cell.minRowSizes,
     },
   };
 }
