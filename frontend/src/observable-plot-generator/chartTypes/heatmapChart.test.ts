@@ -294,6 +294,43 @@ describe('generateHeatmapGrid', () => {
       Math.max(MIN_CELL_HEIGHT_PX, HEATMAP_MIN_CELL_SIZE_PX),
     ]);
   });
+
+  test('uses the shared categorical x and y domains across sparse heatmap facets', () => {
+    const country = dim('country');
+    const region = dim('region');
+    const product = dim('product');
+    const rows = [
+      { country: 'US', region: 0, product: 'A', 'SUM(sales)': 10 },
+      { country: 'US', region: 1, product: 'B', 'SUM(sales)': 20 },
+      { country: 'US', region: 2, product: 'A', 'SUM(sales)': 30 },
+      { country: 'CA', region: 2, product: 'B', 'SUM(sales)': 40 },
+      { country: 'CA', region: 4, product: 'B', 'SUM(sales)': 50 },
+    ];
+
+    const ctx = buildCtx({
+      xFields: [country, region],
+      yFields: [product],
+      colorField: meas('sales'),
+      queryResult: { rows, columns: [], row_count: rows.length } as any,
+    });
+
+    const result = generateHeatmapGrid(ctx);
+    expect(result.plots).toHaveLength(2);
+
+    const xDomains = result.plots.map((plot) => (plot.options.x as any)?.domain);
+    const yDomains = result.plots.map((plot) => (plot.options.y as any)?.domain);
+    expect(xDomains).toEqual([
+      [0, 1, 2, 4],
+      [0, 1, 2, 4],
+    ]);
+    expect(yDomains).toEqual([
+      ['A', 'B'],
+      ['A', 'B'],
+    ]);
+
+    const cellDataLengths = result.plots.map((plot) => ((plot.options.marks as any[])[0]?.data ?? []).length);
+    expect(cellDataLengths).toEqual([2, 3]);
+  });
 });
 
 describe('buildHeatmapOptions size encoding', () => {
@@ -391,6 +428,34 @@ describe('buildHeatmapOptions size encoding', () => {
     expect((opts.x as any).tickFormat(1)).toBe('South');
     expect((opts.y as any).tickFormat(0)).toBe('A');
     expect((opts.y as any).tickFormat(1)).toBe('B');
+  });
+
+  test('uses supplied shared domains for sparse size-encoded heatmaps', () => {
+    const opts = buildHeatmapOptions({
+      data: [
+        { region: 2, product: 'B', 'SUM(sales)': 1 },
+        { region: 4, product: 'B', 'SUM(sales)': 2 },
+      ],
+      xField: dim('region'),
+      yField: dim('product'),
+      xDomain: [0, 1, 2, 4],
+      yDomain: ['A', 'B'],
+      colorField: meas('sales'),
+      manualSize: 12,
+    });
+
+    const primary = (opts.marks as any[])[0];
+    expect(primary.type).toBe('rect');
+    expect((opts.x as any).ticks).toEqual([0, 1, 2, 3]);
+    expect((opts.y as any).ticks).toEqual([0, 1]);
+    expect((opts.x as any).tickFormat(0)).toBe('0');
+    expect((opts.x as any).tickFormat(1)).toBe('1');
+    expect((opts.x as any).tickFormat(2)).toBe('2');
+    expect((opts.x as any).tickFormat(3)).toBe('4');
+    expect((opts.y as any).tickFormat(0)).toBe('A');
+    expect((opts.y as any).tickFormat(1)).toBe('B');
+    expect(primary.data.map((row: any) => row.__heatmapXIndex)).toEqual([2, 3]);
+    expect(primary.data.map((row: any) => row.__heatmapYIndex)).toEqual([1, 1]);
   });
 });
 
