@@ -169,13 +169,30 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
   // Build the color scale config for Plot. For continuous (typical for
   // measures), use a linear scale; for categorical, pass an ordinal scale.
   let colorOption: Plot.ScaleOptions | undefined;
+  const continuousBiasFill =
+    colorField &&
+    colorScale &&
+    colorScale.kind === 'continuous' &&
+    (colorBias ?? 0) !== 0 &&
+    colorScale.accessor
+      ? (row: any) => {
+          const numeric = colorScale.accessor?.(row);
+          if (numeric == null) return null;
+          const [min, max] = colorScale.domain as [number, number];
+          const span = max - min;
+          if (!Number.isFinite(span) || span <= 0) return min;
+          const t = (numeric - min) / span;
+          const biasedT = Math.pow(Math.max(0, Math.min(1, t)), Math.pow(2, -(colorBias ?? 0)));
+          return min + biasedT * span;
+        }
+      : undefined;
+
   if (colorScale && fillCol) {
     if (colorScale.kind === 'continuous') {
       colorOption = {
         type: 'linear',
         domain: colorScale.domain as [number, number],
         range: colorScale.range,
-        ...(colorScale.interpolate ? { interpolate: colorScale.interpolate } : {}),
         label: getFieldDisplayName(colorField as Field),
       };
     } else {
@@ -245,13 +262,17 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
         x2: (d: any) => d[HEATMAP_X_INDEX_COL] + d[HEATMAP_SCALE_COL] / 2,
         y1: (d: any) => d[HEATMAP_Y_INDEX_COL] - d[HEATMAP_SCALE_COL] / 2,
         y2: (d: any) => d[HEATMAP_Y_INDEX_COL] + d[HEATMAP_SCALE_COL] / 2,
-        ...(fillCol ? { fill: fillCol } : { fill: effectiveManualFill }),
+        ...(fillCol
+          ? { fill: continuousBiasFill ?? fillCol }
+          : { fill: effectiveManualFill }),
         inset: 0,
       } as Plot.RectOptions)
     : Plot.cell(data, {
         x: xCol,
         y: yCol,
-        ...(fillCol ? { fill: fillCol } : { fill: effectiveManualFill }),
+        ...(fillCol
+          ? { fill: continuousBiasFill ?? fillCol }
+          : { fill: effectiveManualFill }),
         inset: 0.5,
       } as Plot.CellOptions);
 
