@@ -51,6 +51,8 @@ export interface HeatmapOptionsInput {
   data: any[];
   xField: Field;
   yField: Field;
+  xDomain?: any[];
+  yDomain?: any[];
   colorField?: Field | null;
   colorScheme?: string;
   colorBias?: number;
@@ -144,6 +146,8 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
     data,
     xField,
     yField,
+    xDomain,
+    yDomain,
     colorField,
     colorScheme,
     colorBias,
@@ -233,8 +237,8 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
     (manualSize as number) !== heatmapDefaultManualSize;
   const useScaledRectMark = !!sizeField || hasManualSizeOverride;
   const sizeCol = sizeField ? getResultColumnName(sizeField) : undefined;
-  const xDomainValues = getOrderedDistinctValues(data, xCol);
-  const yDomainValues = getOrderedDistinctValues(data, yCol);
+  const xDomainValues = Array.isArray(xDomain) ? xDomain : getOrderedDistinctValues(data, xCol);
+  const yDomainValues = Array.isArray(yDomain) ? yDomain : getOrderedDistinctValues(data, yCol);
   const xIndexByValue = new Map(xDomainValues.map((value, index) => [domainValueKey(value), index]));
   const yIndexByValue = new Map(yDomainValues.map((value, index) => [domainValueKey(value), index]));
   const effectiveSizeRange = sizeRange ?? [4, 20];
@@ -314,7 +318,7 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
           ticks: xTickPositions,
           tickFormat: (value: any) => formatHeatmapAxisTick(xDomainValues[Math.round(Number(value))]),
         }
-      : { type: 'band', label: getFieldDisplayName(xField) },
+      : { type: 'band', label: getFieldDisplayName(xField), domain: xDomainValues },
     y: useScaledRectMark
       ? {
           type: 'linear',
@@ -323,7 +327,7 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
           ticks: yTickPositions,
           tickFormat: (value: any) => formatHeatmapAxisTick(yDomainValues[Math.round(Number(value))]),
         }
-      : { type: 'band', label: getFieldDisplayName(yField) },
+      : { type: 'band', label: getFieldDisplayName(yField), domain: yDomainValues },
     ...(colorOption ? { color: colorOption } : {}),
     marks,
   };
@@ -423,11 +427,15 @@ function createHeatmapCellGenerator(
     const facetFields = facetCellContext
       ? [...facetCellContext.rowFacetFields, ...facetCellContext.colFacetFields]
       : [];
+    const xColumnName = getResultColumnName(xField);
+    const yColumnName = getResultColumnName(yField);
 
     const options = buildHeatmapOptions({
       data: cellData,
       xField,
       yField,
+      xDomain: sharedDomains.categorical?.[xColumnName],
+      yDomain: sharedDomains.categorical?.[yColumnName],
       colorField: context.colorField || null,
       colorScheme: context.colorScheme,
       colorBias: context.colorBias,
