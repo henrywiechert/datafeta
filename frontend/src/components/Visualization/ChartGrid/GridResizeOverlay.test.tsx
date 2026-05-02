@@ -12,6 +12,37 @@ beforeAll(() => {
 });
 
 describe('GridResizeOverlay facet handles', () => {
+  it('commits a plot-column resize from the top facet header separator', () => {
+    const onColumnResize = jest.fn();
+    const plotGridRef = React.createRef<HTMLDivElement>();
+
+    const { getByTestId } = render(
+      <GridResizeOverlay
+        columns={2}
+        rows={2}
+        columnTemplate="120px 120px"
+        rowTemplate="80px 80px"
+        leftFixedWidth={180}
+        bottomFixedHeight={30}
+        topHeaderHeight={60}
+        containerWidth={500}
+        containerHeight={300}
+        horizontalScrollOffset={0}
+        verticalScrollOffset={0}
+        plotGridRef={plotGridRef}
+        onColumnResize={onColumnResize}
+      />,
+    );
+
+    const handle = getByTestId('top-facet-col-handle-1');
+    expect(handle).toHaveStyle({ left: '300px', top: '0px', height: '60px' });
+    fireEvent.mouseDown(handle, { clientX: 300, clientY: 10 });
+    fireEvent.mouseMove(document, { clientX: 334, clientY: 10 });
+    fireEvent.mouseUp(document, { clientX: 334, clientY: 10 });
+
+    expect(onColumnResize).toHaveBeenCalledWith({ currentSize: 120, delta: 34 });
+  });
+
   it('commits a depth-specific left facet width resize', () => {
     const onFacetColumnResize = jest.fn();
     const plotGridRef = React.createRef<HTMLDivElement>();

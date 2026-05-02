@@ -425,6 +425,27 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
 
   return (
     <>
+      {/* Top facet header vertical resize handles (same track as plot columns) */}
+      {topHeaderHeight > 0 && columnPositions.map((xPos, index) => {
+        if (index === 0) return null;
+
+        return (
+          <GridResizeHandle
+            key={`top-facet-col-${index}`}
+            testId={`top-facet-col-handle-${index}`}
+            orientation="vertical"
+            position={leftFixedWidth + xPos - horizontalScrollOffset}
+            length={topHeaderHeight}
+            crossAxisOffset={0}
+            isInAxisArea={true}
+            onResizeStart={() => handleColumnResizeStart(index)}
+            onResizeMove={(delta) => handleColumnResizeMove(delta, index)}
+            onResizeEnd={(delta) => handleColumnResizeEnd(delta, index)}
+            zIndex={22}
+          />
+        );
+      })}
+
       {/* Left facet value resize handles (vertical lines in facet label area) */}
       {facetColumnPositions.map((xPos, depthIndex) => (
         <GridResizeHandle
