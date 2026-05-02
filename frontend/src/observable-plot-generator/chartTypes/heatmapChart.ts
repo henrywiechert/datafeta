@@ -81,6 +81,7 @@ export interface HeatmapOptionsInput {
 const HEATMAP_X_INDEX_COL = '__heatmapXIndex';
 const HEATMAP_Y_INDEX_COL = '__heatmapYIndex';
 const HEATMAP_SCALE_COL = '__heatmapCellScale';
+const HEATMAP_MANUAL_SIZE_MAX = 50;
 
 function domainValueKey(value: any): string {
   if (value instanceof Date) return `date:${value.getTime()}`;
@@ -226,16 +227,13 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
     facetFields,
   );
 
-  // Pick the primary mark. With size-shelf encoding we render dots so each
-  // square shrinks/grows with the field. We also honor an explicit manual-size
-  // slider change by switching to a fixed-size square-dot heatmap, while the
-  // default heatmap size continues to render band-filling cells.
+  // Pick the primary mark. With size-shelf encoding we render rects so each
+  // square shrinks/grows with the field. For manual size, keep the same mark
+  // across the whole 1..50 slider range so values around the heatmap default
+  // remain monotonic instead of flipping between Plot.rect and Plot.cell.
   const heatmapDefaultManualSize = SIZE_DEFAULTS_BY_CHART_TYPE.heatmap;
-  const hasManualSizeOverride =
-    Number.isFinite(manualSize as number) &&
-    (manualSize as number) > 0 &&
-    (manualSize as number) !== heatmapDefaultManualSize;
-  const useScaledRectMark = !!sizeField || hasManualSizeOverride;
+  const hasExplicitManualSize = Number.isFinite(manualSize as number) && (manualSize as number) > 0;
+  const useScaledRectMark = !!sizeField || hasExplicitManualSize;
   const sizeCol = sizeField ? getResultColumnName(sizeField) : undefined;
   const xDomainValues = Array.isArray(xDomain) ? xDomain : getOrderedDistinctValues(data, xCol);
   const yDomainValues = Array.isArray(yDomain) ? yDomain : getOrderedDistinctValues(data, yCol);
@@ -256,7 +254,7 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
       ...row,
       [HEATMAP_X_INDEX_COL]: xIndexByValue.get(domainValueKey(row?.[xCol])) ?? 0,
       [HEATMAP_Y_INDEX_COL]: yIndexByValue.get(domainValueKey(row?.[yCol])) ?? 0,
-      [HEATMAP_SCALE_COL]: normalizeHeatmapCellScale(scaledSize, heatmapDefaultManualSize),
+      [HEATMAP_SCALE_COL]: normalizeHeatmapCellScale(scaledSize, HEATMAP_MANUAL_SIZE_MAX),
     };
   });
 

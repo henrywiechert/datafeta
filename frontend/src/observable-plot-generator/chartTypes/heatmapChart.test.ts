@@ -364,7 +364,6 @@ describe('buildHeatmapOptions size encoding', () => {
       xField: dim('region'),
       yField: dim('product'),
       colorField: meas('sales'),
-      manualSize: 40,
     });
 
     const primary = (opts.marks as any[])[0];
@@ -385,27 +384,37 @@ describe('buildHeatmapOptions size encoding', () => {
     expect(primary.type).toBe('rect');
     const width = primary.opts.x2(primary.data[0]) - primary.opts.x1(primary.data[0]);
     const height = primary.opts.y2(primary.data[0]) - primary.opts.y1(primary.data[0]);
-    expect(width).toBeCloseTo(0.3, 5);
-    expect(height).toBeCloseTo(0.3, 5);
+    expect(width).toBeCloseTo(0.24, 5);
+    expect(height).toBeCloseTo(0.24, 5);
   });
 
-  test('closes the residual gap at max manual size by using zero inset', () => {
-    const opts = buildHeatmapOptions({
-      data: SAMPLE_ROWS,
-      xField: dim('region'),
-      yField: dim('product'),
-      colorField: meas('sales'),
-      manualSize: 50,
-    });
+  test('keeps manual heatmap sizing monotonic across the 39/40/41 slider boundary', () => {
+    const buildWidth = (manualSize: number) => {
+      const opts = buildHeatmapOptions({
+        data: SAMPLE_ROWS,
+        xField: dim('region'),
+        yField: dim('product'),
+        colorField: meas('sales'),
+        manualSize,
+      });
 
-    const primary = (opts.marks as any[])[0];
-    expect(primary.type).toBe('rect');
-    expect(primary.opts.inset).toBe(0);
+      const primary = (opts.marks as any[])[0];
+      expect(primary.type).toBe('rect');
+      return primary.opts.x2(primary.data[0]) - primary.opts.x1(primary.data[0]);
+    };
 
-    const width = primary.opts.x2(primary.data[0]) - primary.opts.x1(primary.data[0]);
-    const height = primary.opts.y2(primary.data[0]) - primary.opts.y1(primary.data[0]);
-    expect(width).toBe(1);
-    expect(height).toBe(1);
+    const width39 = buildWidth(39);
+    const width40 = buildWidth(40);
+    const width41 = buildWidth(41);
+    const width50 = buildWidth(50);
+
+    expect(width39).toBeCloseTo(0.78, 5);
+    expect(width40).toBeCloseTo(0.8, 5);
+    expect(width41).toBeCloseTo(0.82, 5);
+    expect(width50).toBe(1);
+    expect(width39).toBeLessThan(width40);
+    expect(width40).toBeLessThan(width41);
+    expect(width41).toBeLessThan(width50);
   });
 
   test('sorts indexed heatmap axes deterministically instead of preserving row encounter order', () => {
