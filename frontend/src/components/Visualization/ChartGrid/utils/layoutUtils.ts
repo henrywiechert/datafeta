@@ -11,8 +11,10 @@ import type { CSSProperties } from 'react';
 const TEXT_PX_PER_CHAR = 6; // conservative estimate for 12-14px font
 const MIN_Y_AXIS_GUTTER_PX = 28;
 const Y_AXIS_BAND_LINE_WIDTH_EM = 12;
+const X_AXIS_BAND_LINE_WIDTH_EM = 6.5;
 const APPROX_AXIS_FONT_PX = 10;
 const MAX_Y_BAND_TICK_WIDTH_PX = Y_AXIS_BAND_LINE_WIDTH_EM * APPROX_AXIS_FONT_PX;
+const MAX_X_BAND_TICK_HEIGHT_PX = X_AXIS_BAND_LINE_WIDTH_EM * APPROX_AXIS_FONT_PX;
 
 function formatTickValue(value: any, tickFormat?: ((value: any) => any) | undefined): string {
   if (!tickFormat) {
@@ -83,12 +85,8 @@ export function computeDynamicXAxisGutterPx(grid: GridResultModel | null, column
     const xTickFormat = xOpts?.tickFormat as ((value: any) => any) | undefined;
     let height = 24;
     if (xType === 'band' && Array.isArray(xDomain)) {
-      const longestPx = estimateLongestTickPx(xDomain, xTickFormat);
-      // Approx vertical component of rotated labels at 45deg
-      const rotatedVertical = Math.ceil(longestPx * Math.SQRT1_2) + 8; // 0.707 + padding
-      height = Math.max(30, 14 + rotatedVertical); // base tick + labels
-      // Cap maximum height to prevent excessive space for long date/time strings
-      height = Math.min(height, 80);
+      const visibleTickPx = Math.min(estimateLongestTickPx(xDomain, xTickFormat), MAX_X_BAND_TICK_HEIGHT_PX);
+      height = Math.max(30, 14 + visibleTickPx); // base tick + vertical label extent
     } else {
       // numeric or time, modest ticks
       height = 30;
