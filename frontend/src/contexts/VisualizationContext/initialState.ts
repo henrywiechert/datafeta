@@ -110,6 +110,7 @@ export const initialState: VisualizationState = {
       fontSize: 10,
       orientation: 'horizontal',
       heightPx: null,
+      heightPxByDepth: [],
     },
     leftHeader: {
       fontSize: 12,
@@ -120,6 +121,7 @@ export const initialState: VisualizationState = {
       fontSize: 10,
       orientation: 'vertical',
       widthPx: null,
+      widthPxByDepth: [],
     },
   },
   // Chart area caption

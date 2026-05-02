@@ -11,6 +11,9 @@ import {
   inferRowSizes,
   generateRowTemplate,
   getActualRowHeights,
+  resolveFacetLeftValueWidths,
+  resolveFacetTopValueHeights,
+  sumTrackSizes,
 } from '../utils/layoutUtils';
 
 export interface LayoutCalculations {
@@ -37,6 +40,8 @@ export interface LayoutCalculations {
   facetLeftHeaderPx: number;
   facetLeftValuesPx: number;
   facetTopValuesPx: number;
+  facetLeftValueWidthsPx: number[];
+  facetTopValueHeightsPx: number[];
 }
 
 /**
@@ -122,15 +127,25 @@ export function useChartGridLayout(
     const facetLeftHeaderPx = facetLabelStyles?.leftHeader.widthPx ?? NAMES_BAND_LEFT_PX;
     const facetLeftValuesPx = facetLabelStyles?.leftValues.widthPx ?? VALUES_BAND_LEFT_PX;
     const facetTopValuesPx = facetLabelStyles?.topValues.heightPx ?? VALUES_BAND_TOP_PX;
+    const facetLeftValueWidthsPx = resolveFacetLeftValueWidths(
+      yLevelsCount,
+      facetLabelStyles?.leftValues,
+      VALUES_BAND_LEFT_PX,
+    );
+    const facetTopValueHeightsPx = resolveFacetTopValueHeights(
+      colLevels.length,
+      facetLabelStyles?.topValues,
+      VALUES_BAND_TOP_PX,
+    );
 
-    const leftLabelsPx = hasRowFacets ? facetLeftHeaderPx + facetLeftValuesPx * yLevelsCount : 0;
+    const leftLabelsPx = hasRowFacets ? facetLeftHeaderPx + sumTrackSizes(facetLeftValueWidthsPx) : 0;
 
     // Dynamic gutters
     const dynamicYAxisPx = computeDynamicYAxisGutterPx(grid, rows);
     const dynamicXAxisPx = computeDynamicXAxisGutterPx(grid, columns);
     const yLabelColPx = computeDynamicYLabelColPx(grid, calculatedRowHeightPx, yAxisLabelStyle);
     const leftFixedWidthPx = leftLabelsPx + yLabelColPx + dynamicYAxisPx;
-    const topHeaderHeight = colLevels.length > 0 ? 20 + (colLevels.length * facetTopValuesPx) : 0;
+    const topHeaderHeight = colLevels.length > 0 ? 20 + sumTrackSizes(facetTopValueHeightsPx) : 0;
 
     if (process.env.NODE_ENV === 'development') {
       console.log('[ChartGrid] Layout calculations recomputed:', {
@@ -164,6 +179,8 @@ export function useChartGridLayout(
       facetLeftHeaderPx,
       facetLeftValuesPx,
       facetTopValuesPx,
+      facetLeftValueWidthsPx,
+      facetTopValueHeightsPx,
     };
   }, [
     grid,

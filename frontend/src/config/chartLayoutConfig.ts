@@ -58,6 +58,10 @@ export const MIN_CELL_WIDTH_PX = 50;
 export const MAX_CELL_WIDTH_PX = 5000;
 export const MIN_CELL_HEIGHT_PX = 50;
 export const MAX_CELL_HEIGHT_PX = 5000;
+export const MIN_FACET_WIDTH_PX = 16;
+export const MAX_FACET_WIDTH_PX = 800;
+export const MIN_FACET_HEIGHT_PX = 16;
+export const MAX_FACET_HEIGHT_PX = 400;
 
 // Gantt chart constants
 // Base pixels per data unit for intrinsic width calculation

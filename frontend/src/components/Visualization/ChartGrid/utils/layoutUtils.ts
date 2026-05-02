@@ -5,7 +5,11 @@ import {
   usesOnlyAxislessRenderers,
 } from '../../../../observable-plot-generator/gridModel';
 import { MIN_GRID_ROW_PX } from '../../../../config/chartLayoutConfig';
-import { YAxisLabelStyle } from '../../../../contexts/VisualizationContext/types';
+import {
+  FacetLeftValuesLabelStyle,
+  FacetTopValuesLabelStyle,
+  YAxisLabelStyle,
+} from '../../../../contexts/VisualizationContext/types';
 import type { CSSProperties } from 'react';
 
 const TEXT_PX_PER_CHAR = 6; // conservative estimate for 12-14px font
@@ -274,6 +278,38 @@ export function getActualRowHeights(
   calculatedRowHeightPx: number
 ): number[] {
   return rowSizes.map((h) => (typeof h === 'number' ? h : calculatedRowHeightPx));
+}
+
+function resolveFacetTrackSize(
+  depthOverride: number | null | undefined,
+  sharedOverride: number | null,
+  fallbackSize: number,
+): number {
+  return depthOverride ?? sharedOverride ?? fallbackSize;
+}
+
+export function resolveFacetTopValueHeights(
+  depthCount: number,
+  style: FacetTopValuesLabelStyle | undefined,
+  fallbackSize: number,
+): number[] {
+  return Array.from({ length: depthCount }, (_, depthIndex) =>
+    resolveFacetTrackSize(style?.heightPxByDepth?.[depthIndex], style?.heightPx ?? null, fallbackSize)
+  );
+}
+
+export function resolveFacetLeftValueWidths(
+  depthCount: number,
+  style: FacetLeftValuesLabelStyle | undefined,
+  fallbackSize: number,
+): number[] {
+  return Array.from({ length: depthCount }, (_, depthIndex) =>
+    resolveFacetTrackSize(style?.widthPxByDepth?.[depthIndex], style?.widthPx ?? null, fallbackSize)
+  );
+}
+
+export function sumTrackSizes(trackSizes: number[]): number {
+  return trackSizes.reduce((sum, size) => sum + size, 0);
 }
 
 export interface PlotGridSizingStyleConfig {

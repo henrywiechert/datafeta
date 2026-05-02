@@ -36,6 +36,12 @@ interface GridResizeOverlayProps {
   previewRowResize?: (intent: UniformResizeIntent) => number;
   onColumnResize?: (intent: UniformResizeIntent) => void;
   onRowResize?: (intent: UniformResizeIntent) => void;
+  facetLeftValueWidthsPx?: number[];
+  facetTopValueHeightsPx?: number[];
+  previewFacetColumnResize?: (intent: UniformResizeIntent) => number;
+  previewFacetRowResize?: (intent: UniformResizeIntent) => number;
+  onFacetColumnResize?: (depthIndex: number, intent: UniformResizeIntent) => void;
+  onFacetRowResize?: (depthIndex: number, intent: UniformResizeIntent) => void;
 }
 
 /**
@@ -176,6 +182,12 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
   previewRowResize,
   onColumnResize,
   onRowResize,
+  facetLeftValueWidthsPx = [],
+  facetTopValueHeightsPx = [],
+  previewFacetColumnResize,
+  previewFacetRowResize,
+  onFacetColumnResize,
+  onFacetRowResize,
 }) => {
   // Drag state for virtual line
   const [dragState, setDragState] = useState<{
@@ -183,6 +195,8 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
     index: number;
     startPosition: number;
     currentDelta: number;
+    currentSize: number;
+    kind: 'plot-column' | 'plot-row' | 'facet-column' | 'facet-row';
   } | null>(null);
 
   // Measured gridline positions from actual DOM
@@ -249,6 +263,31 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
     return parseGridTemplate(rowTemplate, plotAreaHeight, rows);
   }, [measuredRowPositions, rowTemplate, containerHeight, topHeaderHeight, bottomFixedHeight, rows]);
 
+  const facetTopHeaderOffset = useMemo(() => {
+    const facetValuesHeight = facetTopValueHeightsPx.reduce((sum, height) => sum + height, 0);
+    return Math.max(0, topHeaderHeight - facetValuesHeight);
+  }, [facetTopValueHeightsPx, topHeaderHeight]);
+
+  const facetColumnPositions = useMemo(() => {
+    const positions: number[] = [];
+    let cumulative = 0;
+    for (const width of facetLeftValueWidthsPx) {
+      cumulative += width;
+      positions.push(cumulative);
+    }
+    return positions;
+  }, [facetLeftValueWidthsPx]);
+
+  const facetRowPositions = useMemo(() => {
+    const positions: number[] = [];
+    let cumulative = facetTopHeaderOffset;
+    for (const height of facetTopValueHeightsPx) {
+      cumulative += height;
+      positions.push(cumulative);
+    }
+    return positions;
+  }, [facetTopHeaderOffset, facetTopValueHeightsPx]);
+
   // Column resize handlers report the dragged track; the parent owns uniform sizing policy.
   const handleColumnResizeStart = (index: number) => {
     // Column handles live in the bottom X-axis area, which scrolls horizontally.
@@ -260,6 +299,8 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
       index,
       startPosition,
       currentDelta: 0,
+      currentSize: getTrackSize(columnPositions, index),
+      kind: 'plot-column',
     });
   };
 
@@ -290,6 +331,8 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
       index,
       startPosition,
       currentDelta: 0,
+      currentSize: getTrackSize(rowPositions, index),
+      kind: 'plot-row',
     });
   };
 
@@ -309,37 +352,109 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
     });
   };
 
+  const handleFacetColumnResizeStart = (depthIndex: number) => {
+    setDragState({
+      orientation: 'vertical',
+      index: depthIndex,
+      startPosition: facetColumnPositions[depthIndex],
+      currentDelta: 0,
+      currentSize: facetLeftValueWidthsPx[depthIndex],
+      kind: 'facet-column',
+    });
+  };
+
+  const handleFacetColumnResizeMove = (delta: number) => {
+    setDragState(prev => prev ? { ...prev, currentDelta: delta } : null);
+  };
+
+  const handleFacetColumnResizeEnd = (delta: number, depthIndex: number) => {
+    const currentSize = facetLeftValueWidthsPx[depthIndex];
+    setDragState(null);
+    if (!onFacetColumnResize || currentSize === undefined) return;
+    onFacetColumnResize(depthIndex, { currentSize, delta });
+  };
+
+  const handleFacetRowResizeStart = (depthIndex: number) => {
+    setDragState({
+      orientation: 'horizontal',
+      index: depthIndex,
+      startPosition: facetRowPositions[depthIndex],
+      currentDelta: 0,
+      currentSize: facetTopValueHeightsPx[depthIndex],
+      kind: 'facet-row',
+    });
+  };
+
+  const handleFacetRowResizeMove = (delta: number) => {
+    setDragState(prev => prev ? { ...prev, currentDelta: delta } : null);
+  };
+
+  const handleFacetRowResizeEnd = (delta: number, depthIndex: number) => {
+    const currentSize = facetTopValueHeightsPx[depthIndex];
+    setDragState(null);
+    if (!onFacetRowResize || currentSize === undefined) return;
+    onFacetRowResize(depthIndex, { currentSize, delta });
+  };
+
   // Calculate virtual line position and size
   const virtualLineData = useMemo(() => {
     if (!dragState) return null;
 
-    const { orientation, index, startPosition, currentDelta } = dragState;
+    const { orientation, startPosition, currentDelta, currentSize, kind } = dragState;
+    const intent = { currentSize, delta: currentDelta };
+    let previewSize = currentSize + currentDelta;
 
-    if (orientation === 'vertical') {
-      const currentSize = getTrackSize(columnPositions, index);
-      const intent = { currentSize, delta: currentDelta };
-      const previewSize = previewColumnResize ? previewColumnResize(intent) : currentSize + currentDelta;
-      
-      return {
-        orientation,
-        position: startPosition + (previewSize - currentSize),
-        size: previewSize,
-      };
+    if (kind === 'plot-column') {
+      previewSize = previewColumnResize ? previewColumnResize(intent) : previewSize;
+    } else if (kind === 'plot-row') {
+      previewSize = previewRowResize ? previewRowResize(intent) : previewSize;
+    } else if (kind === 'facet-column') {
+      previewSize = previewFacetColumnResize ? previewFacetColumnResize(intent) : previewSize;
     } else {
-      const currentSize = getTrackSize(rowPositions, index);
-      const intent = { currentSize, delta: currentDelta };
-      const previewSize = previewRowResize ? previewRowResize(intent) : currentSize + currentDelta;
-      
-      return {
-        orientation,
-        position: startPosition + (previewSize - currentSize),
-        size: previewSize,
-      };
+      previewSize = previewFacetRowResize ? previewFacetRowResize(intent) : previewSize;
     }
-  }, [dragState, columnPositions, rowPositions, previewColumnResize, previewRowResize]);
+
+    return {
+      orientation,
+      position: startPosition + (previewSize - currentSize),
+      size: previewSize,
+    };
+  }, [dragState, previewColumnResize, previewRowResize, previewFacetColumnResize, previewFacetRowResize]);
 
   return (
     <>
+      {/* Left facet value resize handles (vertical lines in facet label area) */}
+      {facetColumnPositions.map((xPos, depthIndex) => (
+        <GridResizeHandle
+          key={`facet-col-${depthIndex}`}
+          testId={`facet-col-handle-${depthIndex}`}
+          orientation="vertical"
+          position={xPos}
+          length={Math.max(1, containerHeight - topHeaderHeight - bottomFixedHeight)}
+          isInAxisArea={true}
+          onResizeStart={() => handleFacetColumnResizeStart(depthIndex)}
+          onResizeMove={handleFacetColumnResizeMove}
+          onResizeEnd={(delta) => handleFacetColumnResizeEnd(delta, depthIndex)}
+          zIndex={21}
+        />
+      ))}
+
+      {/* Top facet value resize handles (horizontal lines in facet header area) */}
+      {facetRowPositions.map((yPos, depthIndex) => (
+        <GridResizeHandle
+          key={`facet-row-${depthIndex}`}
+          testId={`facet-row-handle-${depthIndex}`}
+          orientation="horizontal"
+          position={yPos}
+          length={Math.max(1, containerWidth - leftFixedWidth)}
+          isInAxisArea={true}
+          onResizeStart={() => handleFacetRowResizeStart(depthIndex)}
+          onResizeMove={handleFacetRowResizeMove}
+          onResizeEnd={(delta) => handleFacetRowResizeEnd(delta, depthIndex)}
+          zIndex={21}
+        />
+      ))}
+
       {/* Column resize handles (vertical lines in X-axis area) */}
       {columnPositions.map((xPos, index) => {
         // Skip first position (left edge) for now - add if needed for rightmost
@@ -348,6 +463,7 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
         return (
           <GridResizeHandle
             key={`col-${index}`}
+            testId={`plot-col-handle-${index}`}
             orientation="vertical"
             // Adjust for horizontal scroll so the handle tracks the visible gridline.
             position={leftFixedWidth + xPos - horizontalScrollOffset}
@@ -369,6 +485,7 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
         return (
           <GridResizeHandle
             key={`row-${index}`}
+            testId={`plot-row-handle-${index}`}
             orientation="horizontal"
             // Adjust for vertical scroll so the handle tracks the visible gridline.
             position={topHeaderHeight + yPos - verticalScrollOffset}
