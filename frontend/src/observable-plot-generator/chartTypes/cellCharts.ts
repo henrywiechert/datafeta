@@ -10,6 +10,7 @@ import { tickStrip } from './tickStrip';
 import { boxPlot } from './boxPlot';
 import { ganttChart } from './ganttChart';
 import { buildCdfOptions } from './cdfChart';
+import { buildHeatmapOptions } from './heatmapChart';
 import { CellChartType, ChartTypeOverrides, resolveChartTypeForPair } from '../helpers/chartTypeResolver';
 import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField, sortCategoriesByValue, Orientation } from './barCore';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
@@ -572,6 +573,23 @@ function handlePieMessage(): Plot.PlotOptions {
   return messageOptions('Pie charts are available as a global chart type.');
 }
 
+function handleHeatmap(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.PlotOptions {
+  return buildHeatmapOptions({
+    data,
+    xField: xf,
+    yField: yf,
+    colorField: ctx.colorField,
+    colorScheme: ctx.colorScheme,
+    colorBias: ctx.colorBias,
+    manualColor: ctx.manualColor,
+    manualSize: ctx.manualSize,
+    labelFields: ctx.labelCfg?.labelFields,
+    labelFontSize: ctx.labelCfg?.fontSize,
+    tooltipFields: ctx.tooltipFields,
+    facetFields: ctx.facetFields,
+  });
+}
+
 // ---------- Chart Type Registry ---------------------------------------------
 
 /**
@@ -592,6 +610,7 @@ const CHART_HANDLERS: Record<CellChartType, ChartHandler> = {
   ganttY: handleGanttY,
   cdf: handleCdf,
   pie: handlePieMessage,
+  heatmap: handleHeatmap,
 };
 
 // ---------- Public API ------------------------------------------------------

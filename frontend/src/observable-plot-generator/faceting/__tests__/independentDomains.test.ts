@@ -83,9 +83,10 @@ function buildContext(independentX: boolean): ChartGenerationContext {
 
 function collectXDomains(result: ReturnType<typeof generatePlot>): Set<DomainString> {
   return new Set(
-    (result.plots || [])
-      .map((plot) => {
-        const domain = (plot.options as any)?.x?.domain;
+    (result.cells || [])
+      .map((cell) => {
+        if (cell.content.kind !== 'plot') return null;
+        const domain = (cell.content.options as any)?.x?.domain;
         return domain ? JSON.stringify(domain) : null;
       })
       .filter((d): d is DomainString => Boolean(d))
@@ -95,12 +96,12 @@ function collectXDomains(result: ReturnType<typeof generatePlot>): Set<DomainStr
 describe('independent X domains per facet', () => {
   it('shares X domains by default and splits them when enabled', () => {
     const sharedResult = generatePlot(buildContext(false));
-    expect(sharedResult.plots.length).toBeGreaterThan(1);
+    expect(sharedResult.cells.length).toBeGreaterThan(1);
     const sharedXDomains = collectXDomains(sharedResult);
     expect(sharedXDomains.size).toBe(1);
 
     const independentResult = generatePlot(buildContext(true));
-    expect(independentResult.plots.length).toBeGreaterThan(1);
+    expect(independentResult.cells.length).toBeGreaterThan(1);
     const independentXDomains = collectXDomains(independentResult);
     expect(independentXDomains.size).toBeGreaterThan(1);
   });

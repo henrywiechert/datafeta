@@ -4,7 +4,7 @@
  * Encapsulates:
  *  • Legend "Keep only" / "Exclude" from discrete colour legend
  *  • Tooltip-initiated keep / exclude (with datetime-part normalisation)
- *  • Injection of the tooltip callback into the chart spec
+ *  • Injection of the tooltip callback into the chart grid
  */
 
 import { useCallback, useMemo } from 'react';
@@ -14,18 +14,19 @@ import { addFieldAsDiscreteFilter, updateExistingDiscreteFilter } from '../../..
 import { getResultColumnName } from '../../../../utils/fieldUtils';
 import type { DateTimePart, Field } from '../../../../types';
 import type { LegendFilterAction } from '../../Legend/LegendPanel';
+import type { GridResultModel } from '../../../../observable-plot-generator/gridModel';
 
 interface UseFilterActionsProps {
   recordAction: (snapshot: any) => void;
   getUndoableSnapshot: () => any;
-  /** Chart spec produced by useChartGeneration – used for tooltip callback injection. */
-  spec: any;
+  /** Chart grid produced by useChartGeneration – used for tooltip callback injection. */
+  grid: GridResultModel | null;
 }
 
 export function useFilterActions({
   recordAction,
   getUndoableSnapshot,
-  spec,
+  grid,
 }: UseFilterActionsProps) {
   const { state, dispatch } = useVisualizationContext();
   const { colorField, filterFields, filterConfigurations, queryResult, shapeField } = state;
@@ -165,24 +166,46 @@ export function useFilterActions({
     [queryResult, filterFields, filterConfigurations, dispatch, recordAction, getUndoableSnapshot],
   );
 
-  // ── Inject tooltip filter callback into each plot ────────────────────
-  const specWithTooltipAction = useMemo(() => {
-    if (!spec?.plots) return spec;
-    return {
-      ...spec,
-      plots: spec.plots.map((p: any) => {
-        const ct = p.options?.__customTooltip;
-        if (!ct?.enabled) return p;
+  // ── Inject tooltip filter callback into each cell ────────────────────
+  // For plot cells the callback lives on `options.__customTooltip`; for pie
+  // cells it lives on the cell's `tooltipConfig`. Cells without a custom
+  // tooltip enabled are returned unchanged so memoization downstream stays
+  // stable.
+  const gridWithTooltipAction = useMemo<GridResultModel | null>(() => {
+    if (!grid) return grid;
+    let mutated = false;
+    const cells = grid.cells.map((cell) => {
+      if (cell.content.kind === 'plot') {
+        const ct = (cell.content.options as any)?.__customTooltip;
+        if (!ct?.enabled) return cell;
+        mutated = true;
         return {
-          ...p,
-          options: {
-            ...p.options,
-            __customTooltip: { ...ct, onFilterAction: handleTooltipFilterAction },
+          ...cell,
+          content: {
+            ...cell.content,
+            options: {
+              ...cell.content.options,
+              __customTooltip: { ...ct, onFilterAction: handleTooltipFilterAction },
+            } as any,
           },
         };
-      }),
-    };
-  }, [spec, handleTooltipFilterAction]);
+      }
+      if (cell.content.kind === 'pie') {
+        const ct = cell.content.tooltipConfig;
+        if (!ct?.enabled) return cell;
+        mutated = true;
+        return {
+          ...cell,
+          content: {
+            ...cell.content,
+            tooltipConfig: { ...ct, onFilterAction: handleTooltipFilterAction },
+          },
+        };
+      }
+      return cell;
+    });
+    return mutated ? { ...grid, cells } : grid;
+  }, [grid, handleTooltipFilterAction]);
 
-  return { handleLegendFilterAction, handleShapeLegendFilterAction, specWithTooltipAction };
+  return { handleLegendFilterAction, handleShapeLegendFilterAction, gridWithTooltipAction };
 }

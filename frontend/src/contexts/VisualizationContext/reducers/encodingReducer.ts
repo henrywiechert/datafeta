@@ -97,6 +97,8 @@ export function encodingReducer(state: VisualizationState, action: Visualization
       return { ...state, labelSamplingThreshold: action.payload };
     case 'SET_LABEL_SAMPLE_EVERY':
       return { ...state, labelSampleEvery: Math.max(1, action.payload) };
+    case 'SET_LABEL_FONT_SIZE':
+      return { ...state, labelFontSize: Math.max(8, Math.min(26, action.payload)) };
     
     // Tooltip encoding
     case 'SET_TOOLTIP_FIELDS': {

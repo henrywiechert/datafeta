@@ -65,6 +65,23 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
         queryVersion: variantChanged ? state.queryVersion + 1 : state.queryVersion,
       };
     }
+    case 'SET_TABLE_CELL_MODE': {
+      // Pure rendering toggle: no query refetch needed, so leave queryVersion alone.
+      return {
+        ...state,
+        tableCellMode: action.payload,
+      };
+    }
+    case 'SET_TABLE_PAGE': {
+      // Pager navigation does not bump queryVersion; the chart pipeline reacts to
+      // the changed page index via cache key + generator slicing.
+      const next = Math.max(0, Math.floor(action.payload));
+      if (next === state.tablePage) return state;
+      return {
+        ...state,
+        tablePage: next,
+      };
+    }
     // --- Overlay actions (visual-only, no query version bump) ---
     case 'SET_OVERLAYS':
       return { ...state, overlays: action.payload };

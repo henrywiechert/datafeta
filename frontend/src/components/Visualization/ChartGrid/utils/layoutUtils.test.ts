@@ -1,6 +1,8 @@
-import { PlotResult } from '../../../../observable-plot-generator/types';
+import { GridResultModel } from '../../../../observable-plot-generator/gridModel';
 import {
   buildPlotGridSizingStyle,
+  computeDynamicXAxisGutterPx,
+  computeDynamicYAxisGutterPx,
   computeTotalContentWidth,
   generateColumnTemplate,
   generateRowTemplate,
@@ -8,13 +10,27 @@ import {
   inferRowSizes,
 } from './layoutUtils';
 
-function buildSpec(overrides: Partial<PlotResult> = {}): PlotResult {
+function buildGrid(overrides: Partial<GridResultModel> = {}): GridResultModel {
   return {
-    library: 'observable-plot',
-    plots: [
-      { id: 'r0', title: 'Row 0', options: {}, position: { row: 0, col: 0 } },
-      { id: 'r1', title: 'Row 1', options: { height: 160 } as any, position: { row: 1, col: 0 } },
-      { id: 'r2', title: 'Row 2', options: {}, position: { row: 2, col: 0 } },
+    cells: [
+      {
+        id: 'r0',
+        position: { row: 0, col: 0 },
+        content: { kind: 'plot', options: {} },
+        metadata: { title: 'Row 0' },
+      },
+      {
+        id: 'r1',
+        position: { row: 1, col: 0 },
+        content: { kind: 'plot', options: { height: 160 } as any },
+        metadata: { title: 'Row 1' },
+      },
+      {
+        id: 'r2',
+        position: { row: 2, col: 0 },
+        content: { kind: 'plot', options: {} },
+        metadata: { title: 'Row 2' },
+      },
     ],
     layout: {
       type: 'grid',
@@ -45,10 +61,10 @@ describe('layoutUtils', () => {
   });
 
   it('infers row sizes from user overrides, plot heights, layout rows, then fallback height', () => {
-    const spec = buildSpec();
+    const grid = buildGrid();
 
-    expect(inferRowSizes(spec, 3, [90, 100, 'fr'], 240, 120)).toEqual([240, 240, 240]);
-    expect(inferRowSizes(spec, 3, [90, 100, 'fr'], null, 120)).toEqual([90, 160, 120]);
+    expect(inferRowSizes(grid, 3, [90, 100, 'fr'], 240, 120)).toEqual([240, 240, 240]);
+    expect(inferRowSizes(grid, 3, [90, 100, 'fr'], null, 120)).toEqual([90, 160, 120]);
   });
 
   it('converts row sizes to CSS rows and actual heights', () => {
@@ -78,5 +94,123 @@ describe('layoutUtils', () => {
       totalContentWidthPx: 120,
       columnSizes: ['fr'],
     }).width).toBe('100%');
+  });
+
+  it('sizes the X-axis gutter from formatted categorical ticks', () => {
+    const grid = buildGrid({
+      cells: [
+        {
+          id: 'c0',
+          position: { row: 0, col: 0 },
+          content: {
+            kind: 'plot',
+            options: {
+              x: {
+                type: 'band',
+                domain: ['Extremely verbose category label that should not drive layout'],
+                tickFormat: () => 'Short label',
+              },
+            },
+          },
+        } as any,
+      ],
+      layout: {
+        type: 'grid',
+        columns: 1,
+        rows: 1,
+        columnSizes: ['fr'],
+        rowSizes: ['fr'],
+      },
+    });
+
+    expect(computeDynamicXAxisGutterPx(grid, 1)).toBe(79);
+  });
+
+  it('caps the X-axis gutter for long categorical ticks to the rendered band height', () => {
+    const grid = buildGrid({
+      cells: [
+        {
+          id: 'c0',
+          position: { row: 0, col: 0 },
+          content: {
+            kind: 'plot',
+            options: {
+              x: {
+                type: 'band',
+                domain: ['Extremely verbose category label that should not reserve its full raw height'],
+              },
+            },
+          },
+        } as any,
+      ],
+      layout: {
+        type: 'grid',
+        columns: 1,
+        rows: 1,
+        columnSizes: ['fr'],
+        rowSizes: ['fr'],
+      },
+    });
+
+    expect(computeDynamicXAxisGutterPx(grid, 1)).toBe(79);
+  });
+
+  it('sizes the Y-axis gutter from formatted categorical ticks', () => {
+    const grid = buildGrid({
+      cells: [
+        {
+          id: 'r0',
+          position: { row: 0, col: 0 },
+          content: {
+            kind: 'plot',
+            options: {
+              y: {
+                type: 'band',
+                domain: ['Extremely verbose category label that should not drive layout'],
+                tickFormat: () => 'Short label',
+              },
+            },
+          },
+        } as any,
+      ],
+      layout: {
+        type: 'grid',
+        columns: 1,
+        rows: 1,
+        columnSizes: ['fr'],
+        rowSizes: ['fr'],
+      },
+    });
+
+    expect(computeDynamicYAxisGutterPx(grid, 1)).toBe(76);
+  });
+
+  it('caps the Y-axis gutter for long categorical ticks to the rendered band width', () => {
+    const grid = buildGrid({
+      cells: [
+        {
+          id: 'r0',
+          position: { row: 0, col: 0 },
+          content: {
+            kind: 'plot',
+            options: {
+              y: {
+                type: 'band',
+                domain: ['Extremely verbose category label that should not reserve its full raw width'],
+              },
+            },
+          },
+        } as any,
+      ],
+      layout: {
+        type: 'grid',
+        columns: 1,
+        rows: 1,
+        columnSizes: ['fr'],
+        rowSizes: ['fr'],
+      },
+    });
+
+    expect(computeDynamicYAxisGutterPx(grid, 1)).toBe(130);
   });
 });

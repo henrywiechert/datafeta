@@ -36,5 +36,5 @@ export { useConnectionForm } from './useConnectionForm';
 export { useUndoRedo } from './useUndoRedo';
 
 // Sheet caching hooks
-export { useSheetCacheSave, useSheetCacheRestore, useSheetCacheSpecUpdate, useChartAreaCache } from './useSheetCacheCoordinator';
+export { useSheetCacheSave, useSheetCacheRestore, useSheetCacheGridUpdate, useChartAreaCache } from './useSheetCacheCoordinator';
 export { useSheetRenderCache } from './useSheetRenderCache';

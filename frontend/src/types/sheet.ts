@@ -3,7 +3,7 @@
  * Multi-sheet workspace and visualization state
  */
 
-import { Field, FieldOverrideState, UserChartType, QueryOptimizationSettings, DistributionVariant } from './field';
+import { Field, FieldOverrideState, UserChartType, QueryOptimizationSettings, DistributionVariant, TableCellMode } from './field';
 import { FilterConfig } from './filter';
 import { VirtualColumnDefinition } from './virtualColumn';
 
@@ -64,11 +64,18 @@ export interface VisualizationStateSnapshot {
   sizeField: Field | null;
   sizeRange: [number, number];
   manualSize: number;
+  labelFields?: Field[];
+  labelsEnabled?: boolean;
+  labelSamplingStrategy?: 'auto' | 'all' | 'sample';
+  labelSamplingThreshold?: number;
+  labelSampleEvery?: number;
   bandThicknessScale?: number;
   independentDomains?: { x: boolean; y: boolean };
   fieldOverrides?: Record<string, FieldOverrideState>;
   globalChartType?: UserChartType | null;
   distributionVariant?: DistributionVariant;
+  tableCellMode?: TableCellMode;
+  tablePage?: number;
   showTableRows?: boolean;
   selectedChartType?: UserChartType | 'auto';
   virtualColumns?: VirtualColumnDefinition[];
@@ -87,6 +94,8 @@ export interface VisualizationStateSnapshot {
   // Shape encoding (scatter only, discrete only)
   shapeField?: Field | null;
   manualShape?: string;
+  // Data label styling
+  labelFontSize?: number;
   // Statistical overlays
   overlays?: import('../observable-plot-generator/overlays/types').OverlayConfig[];
   // Filter IDs that are temporarily disabled on this sheet (config preserved)

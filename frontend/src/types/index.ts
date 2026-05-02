@@ -53,6 +53,7 @@ export type {
   Field,
   DataLabelMode,
   UserChartType,
+  TableCellMode,
   FieldOverrideState,
   QueryOptimizationSettings,
 } from './field';

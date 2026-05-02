@@ -1,5 +1,10 @@
 import React, { RefObject, useState, useCallback } from 'react';
-import { PlotResult } from '../../../observable-plot-generator/types';
+import {
+  GridResultModel,
+  getPlotGridCellAtRow,
+  hasFacetHeaders,
+  usesOnlyAxislessRenderers,
+} from '../../../observable-plot-generator/gridModel';
 import {
   GRID_DIVIDER_COLOR,
   HORIZONTAL_SCROLLBAR_GUTTER_PX,
@@ -24,7 +29,7 @@ import { buildPlotGridSizingStyle } from './utils/layoutUtils';
 import styles from './ChartGrid.module.css';
 
 interface MultiPlotGridProps {
-  spec: PlotResult;
+  grid: GridResultModel;
   layoutCalcs: LayoutCalculations;
   scrollSync: ScrollSyncState;
   containerDimensions: Dimensions;
@@ -46,23 +51,23 @@ interface MultiPlotGridProps {
 
 /**
  * MultiPlotGrid - Renders the three-layer scrolling architecture for faceted charts
- * 
+ *
  * ARCHITECTURE: Three-Layer Scrolling System
- * 
+ *
  * LAYER 1: HORIZONTAL SCROLL (z-index: 3)
  * - Top facet headers (column labels)
  * - Main plots area (synced with vertical scroll)
  * - Bottom X-axes
- * 
+ *
  * LAYER 2: VERTICAL SCROLL (z-index: 2)
  * - Left Y-axes and labels
  * - Transparent sizing divs
- * 
+ *
  * LAYER 3: PLOT GRID (inside Layer 1's plot area)
  * - Actual CSS Grid with faceted charts
  */
 export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
-  spec,
+  grid,
   layoutCalcs,
   scrollSync,
   containerDimensions,
@@ -98,19 +103,17 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
   const { scrollOffsets, onWheelCapture, isKeyboardNavActive } = scrollSync;
   const { hasOverrides, handleReset } = cellSizeOverrides;
   const { containerRef, hScrollRef, vScrollRef, plotsTranslateRef, plotGridRef } = refs;
-  const hideExternalAxes = (spec.plots || []).length > 0 && (spec.plots || []).every((plot: any) =>
-    plot.renderer === 'pie-svg' || plot.options?.__hideExternalAxes
-  );
+
+  const hideExternalAxes = usesOnlyAxislessRenderers(grid);
+  const facetPresent = hasFacetHeaders(grid);
   const rowResizeHandleLength = hideExternalAxes ? Math.max(1, containerDimensions.width) : undefined;
   const columnResizeHandleLength = hideExternalAxes
     ? Math.max(1, containerDimensions.height - topHeaderHeight)
     : undefined;
 
-  // Get axis label styles from context
   const { state, dispatch } = useVisualizationContext();
   const { axisLabelStyles } = state;
 
-  // Popover state for Y-axis label styling
   const [yLabelPopoverAnchor, setYLabelPopoverAnchor] = useState<HTMLElement | null>(null);
 
   const handleYLabelClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
@@ -129,9 +132,9 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
     <div
       className={styles.container}
       ref={containerRef}
-      style={{ 
-        position: 'relative', 
-        height: '100%', 
+      style={{
+        position: 'relative',
+        height: '100%',
         overflow: 'hidden',
         // During transitions, slightly dim the old content to indicate update in progress
         // This provides subtle visual feedback without causing layout shifts
@@ -163,7 +166,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           style={{
             display: 'grid',
             gridTemplateColumns: `minmax(0, 1fr)`,
-            gridTemplateRows: spec.facetLabels
+            gridTemplateRows: facetPresent
               ? `${topHeaderHeight}px 1fr ${dynamicXAxisPx}px 0px`
               : `1fr ${dynamicXAxisPx}px 0px`,
             minWidth: `${totalContentWidthPx}px`,
@@ -172,14 +175,14 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           }}
         >
           {/* Top facet headers (if present) */}
-          <TopFacetLabels spec={spec} plotTemplateColumns={plotTemplateColumns} baseCols={baseCols} facetTopValuesPx={facetTopValuesPx} />
+          <TopFacetLabels grid={grid} plotTemplateColumns={plotTemplateColumns} baseCols={baseCols} facetTopValuesPx={facetTopValuesPx} />
 
           {/* ======================================================
               LAYER 3: PLOT GRID (inside this PlotArea component)
               The actual CSS Grid with faceted charts
               ====================================================== */}
           <PlotArea
-            spec={spec}
+            grid={grid}
             plotsTranslateRef={plotsTranslateRef}
             plotTemplateColumns={plotTemplateColumns}
             plotRowsSpec={plotRowsSpec}
@@ -192,7 +195,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
 
           {!hideExternalAxes && (
             <XAxes
-              spec={spec}
+              grid={grid}
               columns={columns}
               plotTemplateColumns={plotTemplateColumns}
               totalContentWidthPx={totalContentWidthPx}
@@ -211,7 +214,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
         className={styles.verticalScrollLayer}
         style={{
           position: 'absolute',
-          top: spec.facetLabels ? topHeaderHeight : 0,
+          top: facetPresent ? topHeaderHeight : 0,
           left: 0,
           right: 0,
           bottom: dynamicXAxisPx + X_LABEL_ROW_PX + HORIZONTAL_SCROLLBAR_GUTTER_PX,
@@ -249,12 +252,12 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
               }}
             >
               {/* Left facet labels area */}
-              <LeftFacetLabels spec={spec} plotRowsSpec={plotRowsSpec} baseRows={baseRows} facetLeftHeaderPx={facetLeftHeaderPx} facetLeftValuesPx={facetLeftValuesPx} />
+              <LeftFacetLabels grid={grid} plotRowsSpec={plotRowsSpec} baseRows={baseRows} facetLeftHeaderPx={facetLeftHeaderPx} facetLeftValuesPx={facetLeftValuesPx} />
 
               {/* Y-axis vertical labels column */}
               {Array.from({ length: rows }).map((_, r) => {
-                const sample = (spec.plots || []).find((p) => p.position?.row === r);
-                const yOpts: any = (sample as any)?.options?.y || {};
+                const sample = getPlotGridCellAtRow(grid, r);
+                const yOpts: any = sample?.content.options?.y || {};
                 const yLabel = yOpts?.label as string | undefined;
                 return (
                   <div
@@ -282,7 +285,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
 
           {!hideExternalAxes && (
             <YAxes
-              spec={spec}
+              grid={grid}
               rows={rows}
               dynamicYAxisPx={dynamicYAxisPx}
               rowHeights={actualRowHeights}
@@ -301,18 +304,19 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
                   plotTemplateColumns,
                   plotRowsSpec,
                   totalContentWidthPx,
-                  columnSizes: spec.layout?.columnSizes,
+                  columnSizes: grid.layout?.columnSizes,
                 }),
                 opacity: 0,
                 pointerEvents: 'none',
               }}
             >
-              {(spec.plots || []).map((plot, index) => {
-                const key = plot.id || String(index);
-                const pos = plot.position;
-                const gridItemStyle: React.CSSProperties | undefined = pos
-                  ? { gridColumn: pos.col + 1, gridRow: pos.row + 1 }
-                  : undefined;
+              {grid.cells.map((cell, index) => {
+                const key = cell.id || String(index);
+                const pos = cell.position;
+                const gridItemStyle: React.CSSProperties = {
+                  gridColumn: pos.col + 1,
+                  gridRow: pos.row + 1,
+                };
                 return (
                   <div
                     key={`vertical-${key}`}
@@ -397,7 +401,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
       )}
 
       {/* Keyboard navigation hint for Gantt charts */}
-      <div 
+      <div
         className={`${styles.keyboardNavHint} ${isKeyboardNavActive ? styles.visible : ''}`}
       >
         <kbd>W</kbd>/<kbd>S</kbd> Zoom &nbsp; <kbd>A</kbd>/<kbd>D</kbd> Pan &nbsp; <kbd>R</kbd> Reset

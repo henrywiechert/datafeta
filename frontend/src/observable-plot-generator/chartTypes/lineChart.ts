@@ -7,6 +7,7 @@ import { createSizeScale } from '../utils/sizeUtils';
 import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 import { formatDateTick } from '../utils/dateFormatUtils';
+import { LabelConfig } from '../types';
 
 // ---------- Orientation abstraction -----------------------------------------
 
@@ -41,13 +42,7 @@ export interface LineBuildParams {
   sizeField?: Field;
   sizeRange?: [number, number];
   manualSize?: number;
-  labelCfg?: {
-    labelFields: Field[];
-    labelsEnabled: boolean;
-    samplingStrategy: 'auto' | 'all' | 'sample';
-    samplingThreshold: number;
-    sampleEvery: number;
-  };
+  labelCfg?: LabelConfig;
   tooltipFields?: Field[];
   /** Facet fields to display in tooltips for context (from faceted charts) */
   facetFields?: Field[];
@@ -528,6 +523,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
       samplingStrategy: labelCfg.samplingStrategy,
       samplingThreshold: labelCfg.samplingThreshold,
       sampleEvery: labelCfg.sampleEvery,
+      fontSize: labelCfg.fontSize,
       chartType: O.chartType
     };
     const prepared = prepareLabelData(labelConfig);
@@ -658,7 +654,7 @@ export function lineChart(
   sizeField?: Field,
   sizeRange?: [number, number],
   manualSize?: number,
-  labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number },
+  labelCfg?: LabelConfig,
   tooltipFields?: Field[],
   facetFields?: Field[],
   xField?: Field,
@@ -703,7 +699,7 @@ export function verticalLineChart(
   sizeField?: Field,
   sizeRange?: [number, number],
   manualSize?: number,
-  labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number },
+  labelCfg?: LabelConfig,
   tooltipFields?: Field[],
   facetFields?: Field[],
   xField?: Field,

@@ -35,6 +35,7 @@ export interface LabelChannel {
   samplingStrategy: 'auto' | 'all' | 'sample';
   samplingThreshold: number;
   sampleEvery: number;
+  fontSize: number;
 }
 
 export interface TooltipChannel {

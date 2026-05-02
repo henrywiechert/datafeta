@@ -214,6 +214,7 @@ export interface LabelRenderConfig {
   samplingStrategy: 'auto' | 'all' | 'sample';
   samplingThreshold: number;
   sampleEvery: number;
+  fontSize?: number;
   chartType: 'scatter' | 'line' | 'verticalLine' | 'bar' | 'gantt';
   orientation?: 'vertical' | 'horizontal';
   colorColumn?: string;
@@ -307,6 +308,7 @@ export function createLegacyLabelMark(
               : start;
           }
         : yCol,
+      fontSize: cfg.fontSize,
     });
   }
   
@@ -319,5 +321,6 @@ export function createLegacyLabelMark(
     y: yCol,
     dy: isScatter ? -12 : -6,
     withHalo: !isScatter,
+    fontSize: cfg.fontSize,
   });
 }
