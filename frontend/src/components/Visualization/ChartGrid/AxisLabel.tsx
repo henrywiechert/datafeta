@@ -80,6 +80,7 @@ const AxisLabel: React.FC<AxisLabelProps> = ({ label, axis, style, onClick }) =>
           textOverflow: 'ellipsis',
           whiteSpace: orientation === 'horizontal' && axis === 'x' ? 'nowrap' : 'normal',
         }}
+        title={label}
       >
         {renderWithBreaks(label)}
       </div>

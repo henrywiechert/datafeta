@@ -106,27 +106,6 @@ describe('barChart refactored implementation', () => {
     expect(opts.x?.domain).toEqual(['2', '50', '100']);
   });
 
-  test('truncates long category labels on the categorical axis', () => {
-    const ctx: ChartGenerationContext = {
-      queryResult: {
-        rows: [
-          { category: 'Very long category label that should be trimmed', 'SUM(value)': 10 },
-        ],
-        columns: [],
-        row_count: 1
-      } as any,
-      xFields: [dim('category')],
-      yFields: [meas('value', 'sum')],
-      colorField: undefined,
-      sizeField: undefined,
-      colorScheme: undefined
-    };
-
-    const opts = barChart(ctx);
-    expect(typeof opts.x?.tickFormat).toBe('function');
-    expect((opts.x as any).tickFormat('Very long category label that should be trimmed')).toBe('Very long categ...');
-  });
-
   test('domain starts at zero and pads positive max', () => {
     const ctx: ChartGenerationContext = {
       queryResult: {

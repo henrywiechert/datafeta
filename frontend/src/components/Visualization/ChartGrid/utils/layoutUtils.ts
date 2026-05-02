@@ -10,6 +10,9 @@ import type { CSSProperties } from 'react';
 
 const TEXT_PX_PER_CHAR = 6; // conservative estimate for 12-14px font
 const MIN_Y_AXIS_GUTTER_PX = 28;
+const Y_AXIS_BAND_LINE_WIDTH_EM = 12;
+const APPROX_AXIS_FONT_PX = 10;
+const MAX_Y_BAND_TICK_WIDTH_PX = Y_AXIS_BAND_LINE_WIDTH_EM * APPROX_AXIS_FONT_PX;
 
 function formatTickValue(value: any, tickFormat?: ((value: any) => any) | undefined): string {
   if (!tickFormat) {
@@ -52,8 +55,8 @@ export function computeDynamicYAxisGutterPx(grid: GridResultModel | null, rows: 
     const yTickFormat = yOpts?.tickFormat as ((value: any) => any) | undefined;
     let tickWidth = 0;
     if (yType === 'band' && Array.isArray(yDomain)) {
-      // Categorical axis: estimate by the visible tick text, not the raw domain values.
-      const longest = estimateLongestTickPx(yDomain, yTickFormat);
+      // Categorical axis: cap to the same approximate width budget used by axisY lineWidth.
+      const longest = Math.min(estimateLongestTickPx(yDomain, yTickFormat), MAX_Y_BAND_TICK_WIDTH_PX);
       tickWidth = longest + 10; // padding
     } else if (Array.isArray(yDomain) && yDomain.length === 2) {
       // Numeric axis: endpoints only (ticks are generated inside ObservablePlot)
