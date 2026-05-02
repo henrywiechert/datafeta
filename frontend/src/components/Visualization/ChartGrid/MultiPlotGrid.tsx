@@ -408,6 +408,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           previewRowResize={cellSizeOverrides.previewRowResize}
           onColumnResize={cellSizeOverrides.handleColumnResize}
           onRowResize={cellSizeOverrides.handleRowResize}
+          facetLeftHeaderPx={facetLeftHeaderPx}
           facetLeftValueWidthsPx={facetLeftValueWidthsPx}
           facetTopValueHeightsPx={facetTopValueHeightsPx}
           previewFacetColumnResize={previewFacetColumnResize}
