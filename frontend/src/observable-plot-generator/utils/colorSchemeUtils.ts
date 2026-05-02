@@ -234,6 +234,93 @@ export function deriveColorScaleInfo(
 }
 
 /**
+ * Resolve the actual color string for a single row given a `ColorScaleInfo`.
+ *
+ * Used by renderers that emit colors directly into the DOM (rather than via a
+ * Plot scale) — currently the table-refactor symbol cells. Mirrors the
+ * categorical lookup that Plot's `ordinal` scale performs and the linear
+ * interpolation that Plot's `linear` scale performs (with bias support via
+ * `scale.interpolate` when present).
+ *
+ * Returns `fallback` when the scale or value cannot resolve to a color (e.g.
+ * the row is missing the column, value isn't numeric for a continuous scale,
+ * or the categorical domain doesn't include the value).
+ */
+export function resolveColorForRow(
+  row: any,
+  scale: ColorScaleInfo | null,
+  colorField: Field | undefined,
+  fallback: string,
+): string {
+  if (!scale || !colorField) return fallback;
+  if (scale.range.length === 0) return fallback;
+
+  if (scale.kind === 'categorical') {
+    const column = getResultColumnName(colorField);
+    const value = row?.[column];
+    const domain = scale.domain as any[];
+    const idx = domain.findIndex((d) => {
+      if (d instanceof Date && value instanceof Date) return d.getTime() === value.getTime();
+      return d === value;
+    });
+    if (idx < 0) return fallback;
+    return scale.range[idx % scale.range.length];
+  }
+
+  // Continuous: map value → t in [0, 1] across the numeric domain, then
+  // delegate to the bias-aware interpolator if present, otherwise fall back to
+  // a linear interpolation between adjacent stops in `range`.
+  const numeric = scale.accessor ? scale.accessor(row) : null;
+  if (numeric === null) return fallback;
+  const [min, max] = scale.domain as [number, number];
+  const span = max - min;
+  const tRaw = span > 0 ? (numeric - min) / span : 0;
+  const t = Math.max(0, Math.min(1, tRaw));
+  if (scale.interpolate) return scale.interpolate(t);
+
+  const idxFloat = t * (scale.range.length - 1);
+  const lower = Math.floor(idxFloat);
+  const upper = Math.ceil(idxFloat);
+  if (lower === upper || upper >= scale.range.length) {
+    return scale.range[Math.min(lower, scale.range.length - 1)];
+  }
+  const frac = idxFloat - lower;
+  return interpolateColors(scale.range[lower], scale.range[upper], frac);
+}
+
+function parseHexColor(color: string): { r: number; g: number; b: number } | null {
+  const normalized = color.trim().replace('#', '');
+  if (normalized.length === 3) {
+    const [r, g, b] = normalized.split('');
+    return {
+      r: parseInt(`${r}${r}`, 16),
+      g: parseInt(`${g}${g}`, 16),
+      b: parseInt(`${b}${b}`, 16),
+    };
+  }
+  if (normalized.length !== 6) return null;
+
+  return {
+    r: parseInt(normalized.slice(0, 2), 16),
+    g: parseInt(normalized.slice(2, 4), 16),
+    b: parseInt(normalized.slice(4, 6), 16),
+  };
+}
+
+export function getContrastTextColor(backgroundColor: string, fallback: 'black' | 'white' = 'black'): 'black' | 'white' {
+  const rgb = parseHexColor(backgroundColor);
+  if (!rgb) return fallback;
+
+  const channels = [rgb.r, rgb.g, rgb.b].map((value) => {
+    const scaled = value / 255;
+    return scaled <= 0.03928 ? scaled / 12.92 : ((scaled + 0.055) / 1.055) ** 2.4;
+  });
+  const luminance = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+
+  return luminance > 0.179 ? 'black' : 'white';
+}
+
+/**
  * Simple RGB color interpolation between two hex colors
  */
 function interpolateColors(color1: string, color2: string, t: number): string {

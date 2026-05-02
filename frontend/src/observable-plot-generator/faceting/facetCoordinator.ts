@@ -140,7 +140,9 @@ export function coordinateFacetedGrid(config: FacetCoordinatorConfig): PlotResul
     facetSpace.rowValuesLevels,
     facetSpace.colValuesLevels,
     baseCols,
-    baseRows
+    baseRows,
+    facetSpace.safeRowCombos,
+    facetSpace.safeColCombos,
   );
 
   return {

@@ -1,5 +1,5 @@
 import * as Plot from '@observablehq/plot';
-import { ChartGenerationContext, GanttZoomRange } from '../types';
+import { ChartGenerationContext, GanttZoomRange, LabelConfig } from '../types';
 import { 
   BAR_STEP_PX, 
   DEFAULT_CHART_COLOR, 
@@ -332,7 +332,7 @@ export function ganttChart(
   labels?: { start?: string; duration?: string; category?: string },
   sharedDomains?: Domains,
   zoomLevel: number = 1.0,
-  labelCfg?: { labelFields: Field[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
+  labelCfg?: LabelConfig
 ): GanttChartResult {
   const { queryResult, colorField, colorScheme, colorBias, manualSize, manualColor, tooltipFields, ganttZoomRange: zoomRangeRaw } = context;
   const rawData = queryResult.rows;
@@ -578,6 +578,7 @@ export function ganttChart(
                 }
               : startColumn),
         withHalo: true,
+        fontSize: labelCfg.fontSize,
       });
       
       if (labelMark) {

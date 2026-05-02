@@ -36,6 +36,7 @@ export function useChannels(): Channels {
       samplingStrategy: state.labelSamplingStrategy,
       samplingThreshold: state.labelSamplingThreshold,
       sampleEvery: state.labelSampleEvery,
+      fontSize: state.labelFontSize,
     },
     tooltip: {
       fields: state.tooltipFields,
@@ -50,7 +51,7 @@ export function useChannels(): Channels {
     state.sizeField, state.sizeRange, state.manualSize, state.bandThicknessScale,
     state.shapeField, state.manualShape,
     state.labelFields, state.labelsEnabled, state.labelSamplingStrategy,
-    state.labelSamplingThreshold, state.labelSampleEvery,
+    state.labelSamplingThreshold, state.labelSampleEvery, state.labelFontSize,
     state.tooltipFields,
     state.facetBackgroundField, state.facetBackgroundScheme, state.facetBackgroundOpacity,
   ]);

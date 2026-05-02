@@ -115,8 +115,9 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
     return sorted;
   }, []);
 
-  // Partition into selected (always visible) and unselected (filtered by search),
-  // then sort each group independently.
+  // Partition into selected and unselected values. Selected values stay pinned only
+  // when no local search is active; once the user types a search, both groups should
+  // respect that filter so "all selected" still narrows the rendered list.
   const { pinnedValues, unpinnedValues } = useMemo(() => {
     const selected: any[] = [];
     const unselected: any[] = [];
@@ -128,32 +129,30 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
       }
     }
 
-    // Apply search filter only to unselected values
-    let filteredUnselected = unselected;
     const term = listFilterTerm.trim();
+    const hasSearch = term.length > 0;
     setRegexError(null);
-    if (term) {
+    const matchesSearch = (value: any) => {
+      const displayValue = value === null || value === undefined ? '(null)' : String(value);
+      if (!hasSearch) return true;
       if (useRegex) {
         try {
           const re = new RegExp(term);
-          filteredUnselected = unselected.filter(value => {
-            const displayValue = value === null || value === undefined ? '(null)' : String(value);
-            return re.test(displayValue);
-          });
+          return re.test(displayValue);
         } catch (e: any) {
           setRegexError(e?.message || 'Invalid regex');
+          return true;
         }
-      } else {
-        const lowerSearch = term.toLowerCase();
-        filteredUnselected = unselected.filter(value => {
-          const displayValue = value === null || value === undefined ? '(null)' : String(value);
-          return displayValue.toLowerCase().includes(lowerSearch);
-        });
       }
-    }
+
+      return displayValue.toLowerCase().includes(term.toLowerCase());
+    };
+
+    const filteredSelected = hasSearch ? selected.filter(matchesSearch) : selected;
+    const filteredUnselected = unselected.filter(matchesSearch);
 
     return {
-      pinnedValues: sortValues(selected),
+      pinnedValues: sortValues(filteredSelected),
       unpinnedValues: sortValues(filteredUnselected),
     };
   }, [metadata.availableValues, selectedKeysSet, valueKey, listFilterTerm, useRegex, sortValues]);

@@ -1,11 +1,11 @@
 import React from 'react';
 import * as Plot from '@observablehq/plot';
 import ObservablePlot from '../ObservablePlot';
-import { PlotResult } from '../../../observable-plot-generator/types';
+import { GridResultModel, getPlotGridCellAtRow } from '../../../observable-plot-generator/gridModel';
 import { MIN_GRID_ROW_PX, GRID_DIVIDER_COLOR } from '../../../config/chartLayoutConfig';
 
 interface YAxesProps {
-  spec: PlotResult;
+  grid: GridResultModel;
   rows: number;
   dynamicYAxisPx: number;
   rowHeights: number[]; // actual track heights in px per row
@@ -15,17 +15,21 @@ interface YAxesProps {
 /**
  * Build axis-only plot options for external gutters.
  */
-function buildYAxisOptions(domain: any, gutterPx: number, type?: string, padding?: number) {
-  // If the plot spec explicitly says 'band', respect that - it's a categorical axis
-  // regardless of whether the values look like dates
+function buildYAxisOptions(
+  domain: any,
+  gutterPx: number,
+  type?: string,
+  padding?: number,
+  ticks?: any,
+  tickFormat?: any,
+) {
   const isCategorical = type === 'band';
-  
-  // Only treat as continuous date range if NOT explicitly band type
+
   const first = Array.isArray(domain) ? domain[0] : undefined;
   const isDateString = typeof first === 'string' && /^\d{4}-\d{2}-\d{2}/.test(first);
-  const isDateRange = !isCategorical && Array.isArray(domain) && domain.length === 2 && 
+  const isDateRange = !isCategorical && Array.isArray(domain) && domain.length === 2 &&
     ((first instanceof Date || domain[1] instanceof Date) || isDateString);
-    
+
   return {
     frame: null,
     marginLeft: Math.max(12, gutterPx - 2),
@@ -34,27 +38,31 @@ function buildYAxisOptions(domain: any, gutterPx: number, type?: string, padding
     marginBottom: 0,
     inset: 0,
     x: { axis: null },
-    y: { 
-      label: '', 
-      domain: domain ?? [0, 1], 
+    y: {
+      label: '',
+      domain: domain ?? [0, 1],
       type: isCategorical ? 'band' : (isDateRange ? 'utc' : undefined),
       labelArrow: null,
-      nice: false,  // Match internal plot axis configuration for exact alignment
-      ...(padding !== undefined && isCategorical ? { padding } : {}),  // Match internal band padding for bar positioning
+      nice: false,
+      ...(padding !== undefined && isCategorical ? { padding } : {}),
+      ...(ticks !== undefined ? { ticks } : {}),
+      ...(tickFormat !== undefined ? { tickFormat } : {}),
     },
     marks: [Plot.axisY()],
   } as any;
 }
 
-const YAxes: React.FC<YAxesProps> = ({ spec, rows, dynamicYAxisPx, rowHeights, hasRowFacets }) => {
+const YAxes: React.FC<YAxesProps> = ({ grid, rows, dynamicYAxisPx, rowHeights, hasRowFacets }) => {
   return (
     <>
       {/* Left external y-axes gutter */}
       {Array.from({ length: rows }).map((_, r) => {
-        const sample = (spec.plots || []).find((p: any) => p.position?.row === r);
-        const yDomain = (sample as any)?.options?.y?.domain;
-        const yType = (sample as any)?.options?.y?.type;
-        const yPadding = (sample as any)?.options?.y?.padding;
+        const sample = getPlotGridCellAtRow(grid, r);
+        const yDomain = (sample?.content.options as any)?.y?.domain;
+        const yType = (sample?.content.options as any)?.y?.type;
+        const yPadding = (sample?.content.options as any)?.y?.padding;
+        const yTicks = (sample?.content.options as any)?.y?.ticks;
+        const yTickFormat = (sample?.content.options as any)?.y?.tickFormat;
         const trackHeightPx = Math.max(1, rowHeights[r] ?? MIN_GRID_ROW_PX);
         return (
           <div
@@ -62,10 +70,12 @@ const YAxes: React.FC<YAxesProps> = ({ spec, rows, dynamicYAxisPx, rowHeights, h
             style={{
               gridColumn: hasRowFacets ? 3 : 2,
               gridRow: r + 1,
+              overflow: 'hidden',
+              position: 'relative',
               borderBottom: r < rows - 1 ? `1px solid ${GRID_DIVIDER_COLOR}` : undefined,
             }}
           >
-            <ObservablePlot options={{ ...buildYAxisOptions(yDomain, dynamicYAxisPx, yType, yPadding), height: trackHeightPx }} />
+            <ObservablePlot options={{ ...buildYAxisOptions(yDomain, dynamicYAxisPx, yType, yPadding, yTicks, yTickFormat), height: trackHeightPx, marks: [Plot.axisY({ ...(yTicks !== undefined ? { ticks: yTicks } : {}), ...(yTickFormat !== undefined ? { tickFormat: yTickFormat } : {}), ...(yType === 'band' ? { textOverflow: 'ellipsis', lineWidth: 12 } : {}) })] as any }} />
           </div>
         );
       })}
@@ -74,9 +84,7 @@ const YAxes: React.FC<YAxesProps> = ({ spec, rows, dynamicYAxisPx, rowHeights, h
 };
 
 // Memoize to prevent re-renders when props haven't changed
-// CONSERVATIVE: Check reference equality, re-render if changes detected
 export default React.memo(YAxes, (prevProps, nextProps) => {
-  // Check primitive props
   if (
     prevProps.rows !== nextProps.rows ||
     prevProps.dynamicYAxisPx !== nextProps.dynamicYAxisPx ||
@@ -84,10 +92,8 @@ export default React.memo(YAxes, (prevProps, nextProps) => {
   ) {
     return false;
   }
-  
-  // Check rowHeights array reference first (most common case)
+
   if (prevProps.rowHeights !== nextProps.rowHeights) {
-    // If reference changed, check if values actually differ
     if (prevProps.rowHeights.length !== nextProps.rowHeights.length) {
       return false;
     }
@@ -97,11 +103,10 @@ export default React.memo(YAxes, (prevProps, nextProps) => {
       }
     }
   }
-  
-  // Check spec.plots reference
-  if (prevProps.spec.plots !== nextProps.spec.plots) {
+
+  if (prevProps.grid.cells !== nextProps.grid.cells) {
     return false;
   }
-  
+
   return true;
 });

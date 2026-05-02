@@ -1,9 +1,11 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { generatePlot } from '../../../../observable-plot-generator/observablePlotGenerator';
-import { PlotResult, ChartGenerationContext, GanttZoomRange } from '../../../../observable-plot-generator/types';
+import { ChartGenerationContext, GanttZoomRange } from '../../../../observable-plot-generator/types';
+import { GridResultModel } from '../../../../observable-plot-generator/gridModel';
 import { OverlayConfig } from '../../../../observable-plot-generator/overlays/types';
-import { Field, FieldOverrideState, UserChartType, Channels, DistributionVariant } from '../../../../types';
+import { Field, FieldOverrideState, UserChartType, Channels, DistributionVariant, TableCellMode } from '../../../../types';
 import { computeOverrideTargets } from '../../../../observable-plot-generator/utils/fieldOverrides';
+import { detectDefaultUserChartType } from '../../../../observable-plot-generator/helpers/chartTypeResolver';
 import { logOperationTiming } from '../utils';
 import { planFacets } from '../../../../observable-plot-generator/faceting/facetPlanner';
 import { validateFacetCounts, FacetValidationResult } from '../../../../observable-plot-generator/faceting/facetValidation';
@@ -26,6 +28,11 @@ interface UseChartGenerationProps {
   fieldOverrides?: Record<string, FieldOverrideState>;
   globalChartType?: UserChartType | null;
   distributionVariant?: DistributionVariant;
+  tableCellMode?: TableCellMode;
+  /** 0-based page index for the 'table-refactor' chart type pager. */
+  tablePage?: number;
+  /** Rows-per-page (global user setting) for the 'table-refactor' chart type. */
+  tablePageSize?: number;
   measureValuesSourceFields?: Field[];
   independentDomains?: { x?: boolean; y?: boolean };
   ganttZoomRange?: GanttZoomRange | null;
@@ -34,7 +41,7 @@ interface UseChartGenerationProps {
 }
 
 interface UseChartGenerationReturn {
-  spec: PlotResult | null;
+  grid: GridResultModel | null;
   chartInfo: any | null;
   renderingError: string | null;
   generateChartSpec: () => Promise<void>;
@@ -60,6 +67,9 @@ export const useChartGeneration = ({
   fieldOverrides = {},
   globalChartType,
   distributionVariant = 'tick-strip',
+  tableCellMode = 'auto',
+  tablePage,
+  tablePageSize,
   measureValuesSourceFields = [],
   independentDomains,
   ganttZoomRange,
@@ -69,11 +79,11 @@ export const useChartGeneration = ({
   const { field: colorField, scheme: colorScheme = 'tableau10', bias: colorBias = 0, manual: manualColor } = channels.color;
   const { field: sizeField, range: sizeRange, manual: manualSize, bandThicknessScale } = channels.size;
   const { field: shapeField, manual: manualShape } = channels.shape;
-  const { fields: labelFields, enabled: labelsEnabled, samplingStrategy: labelSamplingStrategy, samplingThreshold: labelSamplingThreshold, sampleEvery: labelSampleEvery } = channels.label;
+  const { fields: labelFields, enabled: labelsEnabled, samplingStrategy: labelSamplingStrategy, samplingThreshold: labelSamplingThreshold, sampleEvery: labelSampleEvery, fontSize: labelFontSize } = channels.label;
   const { fields: tooltipFields } = channels.tooltip;
   const { field: facetBackgroundField, scheme: facetBackgroundScheme, opacity: facetBackgroundOpacity } = channels.facetBackground;
 
-  const [spec, setSpec] = useState<PlotResult | null>(null);
+  const [grid, setGrid] = useState<GridResultModel | null>(null);
   const [chartInfo, setChartInfo] = useState<any | null>(null);
   const [renderingError, setRenderingError] = useState<string | null>(null);
   const [facetLimitWarning, setFacetLimitWarning] = useState<FacetValidationResult | null>(null);
@@ -104,28 +114,28 @@ export const useChartGeneration = ({
     overrideTargets: any,
     startTime: number
   ) => {
-    const plotResult = generatePlot(context);
-    
-    const plotCount = plotResult.plots?.length || 0;
+    const generatedGrid = generatePlot(context);
+
+    const cellCount = generatedGrid.cells?.length || 0;
     if (process.env.NODE_ENV === 'development') {
-      console.log('[useChartGeneration] Generated spec with', plotCount, 'plots');
+      console.log('[useChartGeneration] Generated grid with', cellCount, 'cells');
     }
-    
-    // For large numbers of plots, the synchronous DOM rendering will block
+
+    // For large numbers of cells, the synchronous DOM rendering will block
     // the main thread for seconds. Yield to the event loop BEFORE setting
-    // the spec to give the modal a chance to appear.
-    if (plotCount > 100) {
+    // the grid to give the modal a chance to appear.
+    if (cellCount > 100) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('[useChartGeneration] Large plot count detected, yielding to show modal');
+        console.log('[useChartGeneration] Large cell count detected, yielding to show modal');
       }
       // Yield to event loop to let modal appear
       await new Promise(resolve => setTimeout(resolve, 0));
     }
-    
-    setSpec(plotResult);
+
+    setGrid(generatedGrid);
     setChartInfo({ chartType: 'observable-plot' });
     setRenderingError(null);
-    
+
     logOperationTiming('Chart spec generation', startTime, { mode: 'observable-plot' });
   }, []);
 
@@ -154,7 +164,7 @@ export const useChartGeneration = ({
     } catch (error: any) {
       console.error('Observable Plot generation failed:', error);
       setRenderingError(`Chart generation failed: ${error.message || 'Unknown error'}`);
-      setSpec(null);
+      setGrid(null);
       setChartInfo(null);
       completeOperation('rendering');
     } finally {
@@ -177,7 +187,7 @@ export const useChartGeneration = ({
     const startTime = Date.now();
     
     if ((xAxisFields.length === 0 && yAxisFields.length === 0) || useTableView || showTableRows) {
-      setSpec(null);
+      setGrid(null);
       setChartInfo(null);
       setRenderingError(null);
       setFacetLimitWarning(null);
@@ -198,6 +208,17 @@ export const useChartGeneration = ({
         measureValuesSourceFields
       );
 
+      // Auto-route to a default chart type when the user has not picked one
+      // explicitly. Today this only fires for heatmap (1 discrete X dim + 1
+      // discrete Y dim + measure on color); other shapes fall through to the
+      // existing per-pair detection in `coreGridGenerator`.
+      const effectiveGlobalChartType =
+        globalChartType ?? detectDefaultUserChartType(
+          xAxisFields as Field[],
+          yAxisFields as Field[],
+          colorField || undefined
+        ) ?? null;
+
       // Build the chart generation context
       // NOTE: Use ref for ganttZoomRange to avoid frequent regeneration during zoom
       const context: ChartGenerationContext = {
@@ -217,11 +238,15 @@ export const useChartGeneration = ({
         labelSamplingStrategy,
         labelSamplingThreshold,
         labelSampleEvery,
+        labelFontSize,
         tooltipFields,
         fieldOverrides,
         fieldOverrideTargets: overrideTargets,
-        globalChartType,
+        globalChartType: effectiveGlobalChartType,
         distributionVariant,
+        tableCellMode,
+        tablePage,
+        tablePageSize,
         measureValuesSourceFields,
         independentDomains,
         ganttZoomRange: ganttZoomRangeRef.current,
@@ -279,12 +304,12 @@ export const useChartGeneration = ({
     } catch (error: any) {
       console.error('Observable Plot generation failed:', error);
       setRenderingError(`Chart generation failed: ${error.message || 'Unknown error'}`);
-      setSpec(null);
+      setGrid(null);
       setChartInfo(null);
       // On error, complete the operation immediately since no rendering will happen
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, channels, useTableView, showTableRows, startOperation, completeOperation, queryResult, queryVersion, fieldOverrides, globalChartType, distributionVariant, measureValuesSourceFields, independentDomains, doGenerateChart, fieldAliasLookup, overlays, viewSpec]);
+  }, [xAxisFields, yAxisFields, channels, useTableView, showTableRows, startOperation, completeOperation, queryResult, queryVersion, fieldOverrides, globalChartType, distributionVariant, tableCellMode, tablePage, tablePageSize, measureValuesSourceFields, independentDomains, doGenerateChart, fieldAliasLookup, overlays, viewSpec]);
 
   const cancelGeneration = useCallback(() => {
     // No-op since Observable Plot generation is synchronous
@@ -345,7 +370,7 @@ export const useChartGeneration = ({
   }, [ganttZoomRange, generateChartSpec]);
 
   return {
-    spec,
+    grid,
     chartInfo,
     renderingError,
     generateChartSpec,

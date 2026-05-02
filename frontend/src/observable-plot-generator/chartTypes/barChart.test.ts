@@ -39,7 +39,7 @@ describe('barChart refactored implementation', () => {
     };
 
     const opts = barChart(ctx);
-    expect(opts.y?.label).toBe('SUM(value)');
+    expect(opts.y?.label).toBe('value');
     expect(opts.x?.domain).toEqual(['A', 'B', 'C']);
     expect(opts.color).toBeDefined();
     // Width/height are controlled by the grid layout sizing; options may omit explicit width.
@@ -56,7 +56,7 @@ describe('barChart refactored implementation', () => {
     };
 
     const opts = barChart(ctx);
-    expect(opts.y?.label).toBe('SUM(value)');
+    expect(opts.y?.label).toBe('value');
     expect(opts.x?.domain).toEqual([' ']);
     // Width/height are controlled by the grid layout sizing; options may omit explicit width.
   });
@@ -79,7 +79,7 @@ describe('barChart refactored implementation', () => {
     };
 
     const opts = barChart(ctx);
-    expect(opts.x?.label).toBe('SUM(value)');
+    expect(opts.x?.label).toBe('value');
     expect(opts.y?.domain).toEqual(['A', 'B']);
     // Width/height are controlled by the grid layout sizing; options may omit explicit height.
   });
@@ -151,7 +151,7 @@ describe('barChart refactored implementation', () => {
     };
 
     const opts = barChart(ctx);
-    expect(opts.y?.label).toBe('SUM(value)');
+    expect(opts.y?.label).toBe('value');
     expect(opts.x?.domain).toEqual([' ']); // single category
     
     // The domain should reflect the total (60 = 10+20+30), not individual values

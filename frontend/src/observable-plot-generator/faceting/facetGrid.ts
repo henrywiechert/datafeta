@@ -27,6 +27,13 @@ export interface FacetLabels {
     columns: number[];
     rows: number[];
   };
+  /**
+   * Ordered tuples of facet values in iteration order, parallel to the
+   * facet field arrays. When provided, header rendering can compute
+   * accurate spans across sparse / non-Cartesian facet spaces.
+   */
+  rowsOrderedValueTuples?: any[][];
+  colsOrderedValueTuples?: any[][];
 }
 
 /**
@@ -78,6 +85,12 @@ function tileOptionalSizes(baseSizes: number[] | undefined, count: number): numb
 /**
  * Compute facet labels with proper span calculations.
  * Moved from facetGenerator to separate layout concerns.
+ *
+ * `rowOrderedTuples` / `colOrderedTuples` (if provided) capture the
+ * iteration order of facet combinations. They are propagated as
+ * `rowsOrderedValueTuples` / `colsOrderedValueTuples` for hierarchical
+ * header rendering. Fields that have no facets contribute an empty tuple
+ * list; callers should pass the safe combos used during cell generation.
  */
 export function computeFacetLabels(
   rowFields: Field[],
@@ -85,24 +98,26 @@ export function computeFacetLabels(
   rowValuesLevels: any[][],
   colValuesLevels: any[][],
   baseCols: number,
-  baseRows: number
+  baseRows: number,
+  rowOrderedTuples?: any[][],
+  colOrderedTuples?: any[][],
 ): FacetLabels {
   return {
-    rowsLevels: rowFields.length > 0 
-      ? rowFields.map((f, i) => ({ 
-          fieldLabel: getFieldDisplayName(f), 
-          values: rowValuesLevels[i] 
-        })) 
+    rowsLevels: rowFields.length > 0
+      ? rowFields.map((f, i) => ({
+          fieldLabel: getFieldDisplayName(f),
+          values: rowValuesLevels[i]
+        }))
       : undefined,
-    colsLevels: colFields.length > 0 
-      ? colFields.map((f, i) => ({ 
-          fieldLabel: getFieldDisplayName(f), 
-          values: colValuesLevels[i] 
-        })) 
+    colsLevels: colFields.length > 0
+      ? colFields.map((f, i) => ({
+          fieldLabel: getFieldDisplayName(f),
+          values: colValuesLevels[i]
+        }))
       : undefined,
-    groupSpan: { 
-      columnsPerFacet: baseCols, 
-      rowsPerFacet: baseRows 
+    groupSpan: {
+      columnsPerFacet: baseCols,
+      rowsPerFacet: baseRows
     },
     spans: {
       baseCols,
@@ -110,6 +125,8 @@ export function computeFacetLabels(
       columns: computeLevelSpans(colFields, baseCols, colValuesLevels),
       rows: computeLevelSpans(rowFields, baseRows, rowValuesLevels),
     },
+    ...(rowFields.length > 0 && rowOrderedTuples ? { rowsOrderedValueTuples: rowOrderedTuples } : {}),
+    ...(colFields.length > 0 && colOrderedTuples ? { colsOrderedValueTuples: colOrderedTuples } : {}),
   };
 }
 

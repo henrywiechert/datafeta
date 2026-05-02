@@ -9,13 +9,17 @@ This directory contains the Observable Plot chart generation path for the app.
 
 ## Architecture
 
-Simple direct generation using small chart helpers. The generator returns a `PlotResult` for a single chart or a CSS Grid of charts.
+Simple direct generation using small chart helpers. The public entry point
+`generatePlot` returns a `GridResultModel` (see `gridModel.ts`); internally the
+chart-type and faceting helpers thread a legacy `PlotResult`, which is
+collapsed into the grid model at the boundary by `buildGridFromPlotResult`.
 
 ```
 observablePlotGenerator.ts (main entry point)
 ├── analyzeFields() - Simple field analysis
 ├── generateChartOptions() - Rule-based chart selection
 ├── generateCartesianGrid() - N×M pairing grid
+├── buildGridFromPlotResult() - PlotResult → GridResultModel boundary
 └── chartTypes/
     ├── barChart.ts (delegates to barUnified)
     ├── barUnified.ts (single+multi measure unified)
@@ -26,34 +30,40 @@ observablePlotGenerator.ts (main entry point)
 
 ## Layout Model
 
-The generator returns a `PlotResult` describing either a single chart (`options`) or multiple charts (`plots`) with a `layout` description.
+The generator emits a `GridResultModel` with one cell per plot/pie/text/mark/
+empty position and a CSS-grid layout description.
 
 ```ts
-interface PlotResult {
-  library: 'observable-plot';
-  options?: Plot.PlotOptions;
-  plots?: Array<{
+interface GridResultModel {
+  cells: Array<{
     id: string;
-    title: string;
-    options: Plot.PlotOptions;
-    position?: { row: number; col: number };
+    position: { row: number; col: number };
+    content:
+      | { kind: 'plot'; options: Plot.PlotOptions; facetBackground?: ... }
+      | { kind: 'pie';  pieSpec: PiePlotSpec; tooltipConfig?: ...; ... }
+      | { kind: 'text'; rows: TextGridCellRow[]; ... }
+      | { kind: 'mark'; symbols: MarkSymbolSpec[]; ... }
+      | { kind: 'empty'; ... };
+    metadata?: { title?: string; xField?: Field; yField?: Field };
   }>;
-  sharedDomains?: {
-    x?: any;
-    y?: any;
-    byMeasure?: Record<string, [number, number]>;
+  layout: {
+    type: 'grid' | 'vertical' | 'horizontal';
+    columns: number;
+    rows: number;
+    columnSizes: Array<number | 'fr'>; // number => px, 'fr' => flexible
+    rowSizes: Array<number | 'fr'>;
+    minColumnSizes?: number[];
+    minRowSizes?: number[];
   };
-  layout?: {
-    type: 'single' | 'grid' | 'vertical' | 'horizontal';
-    columns?: number;
-    rows?: number;
-    columnSizes?: Array<number | 'fr'>; // number => px, 'fr' => flexible
-    rowSizes?: Array<number | 'fr'>;
-  };
+  headers?: GridHeaders;     // hierarchical row/col header levels with spans
+  sharedDomains?: { byMeasure?: Record<string, [number, number]> };
 }
 ```
 
-When `layout.type === 'grid'`, the React `ChartGrid` uses CSS Grid to place each plot at `position.row/col`, sets `gridTemplateColumns/Rows` from `layout.columnSizes/rowSizes`, and ensures a single scroll container with no gaps. Flexible tracks use `minmax(MIN_PX, 1fr)` to enforce a minimum readable size.
+`ChartGrid` uses CSS Grid to place each cell at `position.row/col`, sets
+`gridTemplateColumns/Rows` from `layout.columnSizes/rowSizes`, and ensures a
+single scroll container with no gaps. Flexible tracks use `minmax(MIN_PX, 1fr)`
+to enforce a minimum readable size.
 
 ## Chart Selection Rules (default)
 

@@ -1,4 +1,4 @@
-import { Field, QueryResult, FilterConfig, FilterMetadata, FieldOverrideState, UserChartType, QueryOptimizationSettings, DistributionVariant } from '../../types';
+import { Field, QueryResult, FilterConfig, FilterMetadata, FieldOverrideState, UserChartType, QueryOptimizationSettings, DistributionVariant, TableCellMode } from '../../types';
 import { OverlayConfig, OverlayType, OverlayParams } from '../../observable-plot-generator/overlays/types';
 
 // Define loading operation types
@@ -91,6 +91,7 @@ export interface VisualizationState {
   labelSamplingStrategy: 'auto' | 'all' | 'sample';
   labelSamplingThreshold: number;
   labelSampleEvery: number;
+  labelFontSize: number;
   // Tooltip configuration state
   tooltipFields: Field[];
   // Query optimization settings
@@ -107,6 +108,11 @@ export interface VisualizationState {
   globalChartType: UserChartType | null;
   // Variant for distribution charts (top-level chart type remains 'tick')
   distributionVariant: DistributionVariant;
+  // Cell rendering mode for the 'table-refactor' chart type
+  tableCellMode: TableCellMode;
+  // Current page index for the 'table-refactor' chart type pager (0-based).
+  // Page size is a global user setting (see useTablePageSize), not per-sheet.
+  tablePage: number;
   // Table rows view mode (raw data table)
   showTableRows: boolean;
   queryVersion: number;
@@ -194,6 +200,7 @@ export type VisualizationAction =
   | { type: 'SET_LABEL_SAMPLING_STRATEGY'; payload: 'auto' | 'all' | 'sample' }
   | { type: 'SET_LABEL_SAMPLING_THRESHOLD'; payload: number }
   | { type: 'SET_LABEL_SAMPLE_EVERY'; payload: number }
+  | { type: 'SET_LABEL_FONT_SIZE'; payload: number }
   // Tooltip actions
   | { type: 'SET_TOOLTIP_FIELDS'; payload: Field[] }
   | { type: 'ADD_TOOLTIP_FIELD'; payload: Field }
@@ -207,6 +214,9 @@ export type VisualizationAction =
   // Global chart type action
   | { type: 'SET_GLOBAL_CHART_TYPE'; payload: UserChartType | null }
   | { type: 'SET_DISTRIBUTION_VARIANT'; payload: DistributionVariant }
+  | { type: 'SET_TABLE_CELL_MODE'; payload: TableCellMode }
+  // Table-refactor pagination
+  | { type: 'SET_TABLE_PAGE'; payload: number }
   // Table rows view mode action
   | { type: 'SET_SHOW_TABLE_ROWS'; payload: boolean }
   // Query optimization settings
@@ -225,11 +235,19 @@ export type VisualizationAction =
       sizeField: Field | null;
       sizeRange: [number, number];
       manualSize: number;
+      labelFields?: Field[];
+      labelsEnabled?: boolean;
+      labelSamplingStrategy?: 'auto' | 'all' | 'sample';
+      labelSamplingThreshold?: number;
+      labelSampleEvery?: number;
       bandThicknessScale?: number;
       independentDomains?: { x: boolean; y: boolean };
       fieldOverrides: Record<string, FieldOverrideState>;
       globalChartType?: UserChartType | null;
       distributionVariant?: DistributionVariant;
+      tableCellMode?: TableCellMode;
+      tablePage?: number;
+      labelFontSize?: number;
       axisLabelStyles?: AxisLabelStyles;
       facetLabelStyles?: FacetLabelStyles;
       facetBackgroundField?: Field | null;

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, IconButton, Popover, SvgIcon, ToggleButton, ToggleButtonGroup, Switch, Typography, Tooltip } from '@mui/material';
+import { Box, IconButton, Popover, Slider, SvgIcon, ToggleButton, ToggleButtonGroup, Switch, Typography, Tooltip } from '@mui/material';
 import { v4 as uuidv4 } from 'uuid';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import { Field, DataLabelMode } from '../../../types';
@@ -26,6 +26,9 @@ const LABEL_MODE_OPTIONS: { value: DataLabelMode; label: string }[] = [
   { value: 'off', label: 'Off' },
 ];
 
+const FONT_SIZE_MIN = 8;
+const FONT_SIZE_MAX = 26;
+
 interface LabelFieldControlProps {
   labelFields?: Field[];
   displayLabel?: string;
@@ -34,11 +37,13 @@ interface LabelFieldControlProps {
   showDataLabelMode?: boolean;
   showLabelsEnabled?: boolean;
   labelsEnabled?: boolean;
+  labelFontSize?: number;
   onLabelDrop: (field: Field) => void;
   onLabelRemove: (fieldId: string) => void;
   onDisplayLabelChange?: (label: string | undefined) => void;
   onDataLabelModeChange?: (mode: DataLabelMode) => void;
   onLabelsEnabledChange?: (enabled: boolean) => void;
+  onLabelFontSizeChange?: (fontSize: number) => void;
 }
 
 const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
@@ -49,11 +54,13 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
   showDataLabelMode = false,
   showLabelsEnabled = false,
   labelsEnabled = false,
+  labelFontSize = 10,
   onLabelDrop,
   onLabelRemove,
   onDisplayLabelChange,
   onDataLabelModeChange,
   onLabelsEnabledChange,
+  onLabelFontSizeChange,
 }) => {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const popoverOpen = Boolean(anchorEl);
@@ -72,6 +79,12 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
     if (value && onDataLabelModeChange) {
       onDataLabelModeChange(value);
     }
+  };
+
+  const handleFontSizeChange = (_: Event, value: number | number[]) => {
+    if (!onLabelFontSizeChange) return;
+    const fontSize = Array.isArray(value) ? value[0] : value;
+    onLabelFontSizeChange(fontSize);
   };
 
   return (
@@ -185,7 +198,28 @@ const LabelFieldControl: React.FC<LabelFieldControlProps> = ({
             </Box>
           )}
 
-          {!showLabelsEnabled && !showDataLabelMode && (
+          {onLabelFontSizeChange && (
+            <Box>
+              <Typography variant="body2" sx={{ mb: 0.5 }}>
+                Font size: {labelFontSize}px
+              </Typography>
+              <Slider
+                size="small"
+                value={labelFontSize}
+                min={FONT_SIZE_MIN}
+                max={FONT_SIZE_MAX}
+                step={1}
+                onChange={handleFontSizeChange}
+                marks={[
+                  { value: FONT_SIZE_MIN, label: `${FONT_SIZE_MIN}` },
+                  { value: FONT_SIZE_MAX, label: `${FONT_SIZE_MAX}` },
+                ]}
+                sx={{ mx: 0.5 }}
+              />
+            </Box>
+          )}
+
+          {!showLabelsEnabled && !showDataLabelMode && !onLabelFontSizeChange && (
             <Typography variant="caption" sx={{ color: '#666' }}>
               Label options (coming soon)
             </Typography>

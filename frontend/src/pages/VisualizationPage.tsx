@@ -153,13 +153,15 @@ const VisualizationPageContent = () => {
                     fieldOverrides: previousState.fieldOverrides || {},
                     bandThicknessScale: previousState.bandThicknessScale ?? state.bandThicknessScale,
                     distributionVariant: previousState.distributionVariant ?? state.distributionVariant,
+                    tableCellMode: previousState.tableCellMode ?? state.tableCellMode,
+                    tablePage: previousState.tablePage ?? state.tablePage,
                 }
             });
             
             // Complete the undo operation
             completeUndo(currentState);
         }
-    }, [undo, completeUndo, dispatch, getUndoableSnapshot, state.bandThicknessScale, state.distributionVariant]);
+    }, [undo, completeUndo, dispatch, getUndoableSnapshot, state.bandThicknessScale, state.distributionVariant, state.tableCellMode, state.tablePage]);
 
     const handleRedo = React.useCallback(() => {
         const nextState = redo();
@@ -175,13 +177,15 @@ const VisualizationPageContent = () => {
                     fieldOverrides: nextState.fieldOverrides || {},
                     bandThicknessScale: nextState.bandThicknessScale ?? state.bandThicknessScale,
                     distributionVariant: nextState.distributionVariant ?? state.distributionVariant,
+                    tableCellMode: nextState.tableCellMode ?? state.tableCellMode,
+                    tablePage: nextState.tablePage ?? state.tablePage,
                 }
             });
             
             // Complete the redo operation
             completeRedo(currentState);
         }
-    }, [redo, completeRedo, dispatch, getUndoableSnapshot, state.bandThicknessScale, state.distributionVariant]);
+    }, [redo, completeRedo, dispatch, getUndoableSnapshot, state.bandThicknessScale, state.distributionVariant, state.tableCellMode, state.tablePage]);
 
     // Simplified axis-specific handlers that use the generic handler
     const handleXAxisDrop = (field: Field | Field[], source: DragSource, index?: number) => {

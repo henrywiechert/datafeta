@@ -6,7 +6,7 @@ import TableViewLazy from '../../Table/TableViewLazy';
 import TableViewRowsLazy from '../../Table/TableViewRowsLazy';
 import TableRowsPagination from '../../Table/TableRowsPagination';
 import BarSortControl from './BarSortControl';
-import { PlotResult } from '../../../../observable-plot-generator/types';
+import { GridResultModel } from '../../../../observable-plot-generator/gridModel';
 import { TableData } from '../types';
 import { TableRowsSortModel } from '../../../../types';
 import { QueryResultColumn } from '../../../../types';
@@ -15,7 +15,7 @@ import type { TableCellFilterAction } from '../../Table/TableViewRows';
 interface ChartRendererProps {
   useTableView: boolean;
   tableData: TableData;
-  spec: PlotResult | null;
+  grid: GridResultModel | null;
   queryResult: any;
   xAxisFields: any[];
   yAxisFields: any[];
@@ -49,12 +49,25 @@ interface ChartRendererProps {
   };
   /** Callback for context-menu filter actions on table rows. */
   onTableCellFilterAction?: (action: TableCellFilterAction) => void;
+  /**
+   * Pager data for the 'table-refactor' chart type. When provided, a pager bar
+   * is rendered below the chart grid. `pagination.totalRowTuples` may be 0 to
+   * indicate "no data yet" (the pager renders disabled).
+   */
+  tableRefactorPagerData?: {
+    page: number;
+    pageSize: number;
+    totalRowTuples: number;
+    onPageChange: (page: number) => void;
+    onPageSizeChange: (size: number) => void;
+    loading: boolean;
+  };
 }
 
 const ChartRenderer: React.FC<ChartRendererProps> = ({
   useTableView,
   tableData,
-  spec,
+  grid,
   queryResult,
   xAxisFields,
   yAxisFields,
@@ -68,6 +81,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
   showTableRows = false,
   tableRowsData,
   onTableCellFilterAction,
+  tableRefactorPagerData,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   // NOTE: We intentionally do NOT dispatch global window resize events here.
@@ -115,9 +129,9 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
         />
       );
     }
-    return (
+    const chartGridNode = (
       <ChartGrid 
-        spec={spec} 
+        grid={grid} 
         data={queryResult}
         onPlotRenderComplete={onPlotRenderComplete}
         isGanttChart={isGanttChart}
@@ -128,7 +142,23 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
         onBrushEnd={onBrushEnd}
       />
     );
-  }, [tableRowsContent, useTableView, tableData, spec, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete, isGanttChart, ganttZoomRange, onGanttZoomRangeChange, ganttFullDataRange, brushDisabled, onBrushEnd]);
+    if (!tableRefactorPagerData) return chartGridNode;
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          {chartGridNode}
+        </Box>
+        <TableRowsPagination
+          page={tableRefactorPagerData.page}
+          pageSize={tableRefactorPagerData.pageSize}
+          totalRows={tableRefactorPagerData.totalRowTuples}
+          onPageChange={tableRefactorPagerData.onPageChange}
+          onPageSizeChange={tableRefactorPagerData.onPageSizeChange}
+          loading={tableRefactorPagerData.loading}
+        />
+      </Box>
+    );
+  }, [tableRowsContent, useTableView, tableData, grid, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete, isGanttChart, ganttZoomRange, onGanttZoomRangeChange, ganttFullDataRange, brushDisabled, onBrushEnd, tableRefactorPagerData]);
 
   return (
     <Box 
@@ -153,12 +183,14 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
   );
 };
 
-// Memoize the entire component to prevent re-renders when props haven't changed
+// Memoize the entire component to prevent re-renders when props haven't changed.
+// All callback props are useCallback-stable in ChartArea so referential equality
+// is sufficient for the comparator.
 export default React.memo(ChartRenderer, (prevProps, nextProps) => {
   return (
     prevProps.useTableView === nextProps.useTableView &&
     prevProps.tableData === nextProps.tableData &&
-    prevProps.spec === nextProps.spec &&
+    prevProps.grid === nextProps.grid &&
     prevProps.queryResult === nextProps.queryResult &&
     prevProps.xAxisFields === nextProps.xAxisFields &&
     prevProps.yAxisFields === nextProps.yAxisFields &&
@@ -167,10 +199,13 @@ export default React.memo(ChartRenderer, (prevProps, nextProps) => {
     prevProps.onPlotRenderComplete === nextProps.onPlotRenderComplete &&
     prevProps.isGanttChart === nextProps.isGanttChart &&
     prevProps.ganttZoomRange === nextProps.ganttZoomRange &&
+    prevProps.onGanttZoomRangeChange === nextProps.onGanttZoomRangeChange &&
     prevProps.ganttFullDataRange === nextProps.ganttFullDataRange &&
     prevProps.brushDisabled === nextProps.brushDisabled &&
+    prevProps.onBrushEnd === nextProps.onBrushEnd &&
     prevProps.showTableRows === nextProps.showTableRows &&
     prevProps.tableRowsData === nextProps.tableRowsData &&
-    prevProps.onTableCellFilterAction === nextProps.onTableCellFilterAction
+    prevProps.onTableCellFilterAction === nextProps.onTableCellFilterAction &&
+    prevProps.tableRefactorPagerData === nextProps.tableRefactorPagerData
   );
 }); 

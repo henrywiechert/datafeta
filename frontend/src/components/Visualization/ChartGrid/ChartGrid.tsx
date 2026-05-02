@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useDeferredValue, useState, useCallback } fro
 import { Menu, MenuItem } from '@mui/material';
 
 import { QueryResult } from '../../../types';
-import { PlotResult } from '../../../observable-plot-generator/types';
+import { GridResultModel } from '../../../observable-plot-generator/gridModel';
 import FacetZoomDialog from './FacetZoomDialog';
 import styles from './ChartGrid.module.css';
 import { useCellSizeOverrides } from './hooks/useCellSizeOverrides';
@@ -22,7 +22,7 @@ export interface GanttZoomRange {
 }
 
 interface ChartGridProps {
-  spec: PlotResult | null;
+  grid: GridResultModel | null;
   data: QueryResult | null;
   onPlotRenderComplete?: (plotId: string) => void;
   /** Whether the current chart is a Gantt chart (enables WASD keyboard navigation) */
@@ -39,10 +39,10 @@ interface ChartGridProps {
 
 /**
  * ChartGrid - Renders Observable Plot charts (single or multiple)
- * 
+ *
  * This component orchestrates the rendering of faceted chart grids using a
  * three-layer scrolling architecture. See MultiPlotGrid for implementation details.
- * 
+ *
  * The component uses extracted hooks for:
  * - Layout calculations (useChartGridLayout)
  * - Scroll synchronization (useScrollSync)
@@ -50,13 +50,13 @@ interface ChartGridProps {
  * - Row height calculation (useRowHeightCalculation)
  * - Container dimension tracking (useContainerDimensions)
  * - User cell size overrides (useCellSizeOverrides)
- * 
+ *
  * IMPORTANT: Uses useDeferredValue to prevent intermediate "half-ready" renders
  * when faceting changes due to filter updates. This ensures React keeps showing
- * the old chart until the new spec is fully ready.
+ * the old grid until the new one is fully ready.
  */
 const ChartGrid: React.FC<ChartGridProps> = ({
-  spec,
+  grid: gridProp,
   data,
   onPlotRenderComplete,
   isGanttChart = false,
@@ -78,27 +78,22 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   const { axisLabelStyles, facetLabelStyles } = state;
 
   // Use deferred value to prevent intermediate renders during faceting transitions.
-  // When spec changes (e.g., filter changes faceting from 30 rows to 3 rows),
-  // React will keep showing the old chart while preparing the new one.
-  // This eliminates the "animation" effect of partially-ready specifications.
-  const deferredSpec = useDeferredValue(spec);
-  
-  // Track if we're in a transition (showing stale content)
-  const isTransitioning = spec !== deferredSpec;
-  
-  // Use the deferred spec for all layout calculations and rendering
-  const activeSpec = deferredSpec;
+  // When the grid changes (e.g., filter changes faceting from 30 rows to 3 rows),
+  // React will keep showing the old grid while preparing the new one.
+  // This eliminates the "animation" effect of partially-ready grids.
+  const grid = useDeferredValue(gridProp);
 
-  // Derived values
+  // Track if we're in a transition (showing stale content)
+  const isTransitioning = gridProp !== grid;
+
   // Note: We use MultiPlotGrid architecture for any number of plots (including single plots)
   // so scroll handlers must be attached whenever we have plots, not just when count > 1
-  const usesGridLayout = (activeSpec?.plots?.length ?? 0) >= 1;
-  const rowsForSizing = activeSpec?.layout?.rows ?? 1;
+  const usesGridLayout = (grid?.cells.length ?? 0) >= 1;
+  const rowsForSizing = grid?.layout.rows ?? 1;
 
   // Custom hooks for state management
-  // Use activeSpec (deferred) for stabilization to prevent unnecessary stabilization cycles
-  const stabilization = useStabilization(activeSpec, containerRef);
-  const cellSizeOverrides = useCellSizeOverrides(activeSpec);
+  const stabilization = useStabilization(grid, containerRef);
+  const cellSizeOverrides = useCellSizeOverrides(grid);
   const rowHeightPx = useRowHeightCalculation(
     vScrollRef,
     rowsForSizing,
@@ -119,7 +114,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({
     ganttFullDataRange
   );
   const layoutCalcs = useChartGridLayout(
-    activeSpec,
+    grid,
     cellSizeOverrides.userCellWidth,
     cellSizeOverrides.userCellHeight,
     rowHeightPx,
@@ -152,12 +147,11 @@ const ChartGrid: React.FC<ChartGridProps> = ({
       if (process.env.NODE_ENV === 'development') {
         console.log('[ChartGrid] Syncing state with calculated rowHeight:', rowHeightPx, '→', layoutCalcs.calculatedRowHeightPx);
       }
-      // Note: This update is handled by the rowHeightPx calculation itself
     }
   }, [layoutCalcs, rowHeightPx]);
 
-  // Handle null or missing spec
-  if (!activeSpec) {
+  // Handle null or missing grid
+  if (!grid) {
     return (
       <div className={styles.container} ref={containerRef}>
         <p>No chart data available.</p>
@@ -170,7 +164,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({
     return (
       <>
         <MultiPlotGrid
-          spec={activeSpec}
+          grid={grid}
           layoutCalcs={layoutCalcs}
           scrollSync={scrollSync}
           containerDimensions={containerDimensions}
@@ -197,7 +191,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({
           <MenuItem onClick={handleZoomOpen}>Zoom facet</MenuItem>
         </Menu>
         {zoomedPlotId !== null && (
-          <FacetZoomDialog spec={activeSpec} plotId={zoomedPlotId} onClose={handleZoomClose} />
+          <FacetZoomDialog grid={grid} plotId={zoomedPlotId} onClose={handleZoomClose} />
         )}
       </>
     );
@@ -211,17 +205,19 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   );
 };
 
-// Memoize to prevent unnecessary re-renders when only unrelated state changes
+// Memoize to prevent unnecessary re-renders when only unrelated state changes.
+// All callback props are useCallback-stable in ChartArea, so referential
+// equality is sufficient.
 export default React.memo(ChartGrid, (prevProps, nextProps) => {
-  // Only re-render if spec or data actually changes
-  // Use shallow comparison for spec and data references
-  // Note: The useDeferredValue inside handles transition smoothly
   return (
-    prevProps.spec === nextProps.spec &&
+    prevProps.grid === nextProps.grid &&
     prevProps.data === nextProps.data &&
     prevProps.isGanttChart === nextProps.isGanttChart &&
     prevProps.ganttZoomRange === nextProps.ganttZoomRange &&
     prevProps.ganttFullDataRange === nextProps.ganttFullDataRange &&
-    prevProps.brushDisabled === nextProps.brushDisabled
+    prevProps.brushDisabled === nextProps.brushDisabled &&
+    prevProps.onPlotRenderComplete === nextProps.onPlotRenderComplete &&
+    prevProps.onGanttZoomRangeChange === nextProps.onGanttZoomRangeChange &&
+    prevProps.onBrushEnd === nextProps.onBrushEnd
   );
 });

@@ -93,8 +93,9 @@ observable-plot-generator/
                                            │
                                            ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                         OUTPUT: PlotResult                          │
-│  { library, plots: [...], layout: { type, columns, rows, ... } }   │
+│                         OUTPUT: GridResultModel                     │
+│  { cells: [...], layout: { type, columns, rows, ... }, headers? }   │
+│  (`generatePlot` collapses the internal `PlotResult` at the boundary)│
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -184,9 +185,15 @@ Input:
 ## Layer Responsibilities
 
 ### 1. Entry Layer (`observablePlotGenerator.ts`)
-- **`generatePlot()`**: Main entry point from UI
-- **`baseGeneratePlot()`**: Entry point for faceting system (skips validation)
-- Handles input validation, datetime normalization, facet detection
+- **`generatePlot()`**: Main entry point from UI. Returns a `GridResultModel`
+  produced by `buildGridFromPlotResult` after the internal pipeline finishes.
+- **`generatePlotAsResult()`** *(internal)*: Same logic, but returns the
+  internal `PlotResult` shape that the chart-type / faceting helpers thread
+  end-to-end.
+- **`baseGeneratePlot()`**: Entry point for faceting system (skips validation).
+  Returns `PlotResult` so the faceting coordinator can stitch per-cell results
+  back together; only `generatePlot` performs the boundary translation.
+- Handles input validation, datetime normalization, facet detection.
 
 ### 2. Analysis Layer (`analysis/`)
 - **`analyzeFields()`**: Classifies fields by type (measure/dimension) and axis
@@ -238,8 +245,8 @@ Each module generates `Plot.PlotOptions` for a specific chart type:
 
 | Module | What it imports |
 |--------|-----------------|
-| `ChartArea/hooks/useChartGeneration.ts` | `generatePlot`, `PlotResult`, `ChartGenerationContext`, `computeOverrideTargets`, `planFacets`, `validateFacetCounts` |
-| `ChartGrid/*.tsx` | `PlotResult` (for rendering) |
+| `ChartArea/hooks/useChartGeneration.ts` | `generatePlot`, `GridResultModel`, `ChartGenerationContext`, `computeOverrideTargets`, `planFacets`, `validateFacetCounts` |
+| `ChartGrid/*.tsx` | `GridResultModel` and helpers from `gridModel.ts` |
 | `Legend/LegendPanel.tsx` | `deriveColorScaleInfo` |
 | `Overrides/FieldOverridesPanel.tsx` | `computeOverrideTargets` |
 | `datetime/dateTimeValueModel.ts` | `formatDateTick` |
@@ -275,7 +282,31 @@ interface ChartGenerationContext {
 }
 ```
 
-### Output: `PlotResult`
+### Output: `GridResultModel`
+The public boundary returns a generic grid model (`gridModel.ts`):
+```typescript
+interface GridResultModel {
+  cells: Array<{
+    id: string;
+    position: { row: number; col: number };
+    content:
+      | { kind: 'plot'; options: Plot.PlotOptions; facetBackground?: ... }
+      | { kind: 'pie';  pieSpec: PiePlotSpec; tooltipConfig?: ...; ... }
+      | { kind: 'text'; rows: TextGridCellRow[]; ... }
+      | { kind: 'mark'; symbols: MarkSymbolSpec[]; ... }
+      | { kind: 'empty'; ... };
+    metadata?: { title?: string; xField?: Field; yField?: Field };
+  }>;
+  layout: GridLayoutModel;     // type, columns/rows, columnSizes/rowSizes, ...
+  headers?: GridHeaders;       // hierarchical row/col header levels with spans
+  sharedDomains?: { byMeasure?: Record<string, [number, number]> };
+}
+```
+
+### Internal: `PlotResult`
+The chart-type and faceting helpers thread a legacy `PlotResult` between
+themselves. It is private to the generator package; only `generatePlot`'s
+boundary collapses it into `GridResultModel` via `buildGridFromPlotResult`.
 ```typescript
 interface PlotResult {
   library: 'observable-plot';
@@ -284,20 +315,73 @@ interface PlotResult {
     title: string;
     options: Plot.PlotOptions;
     position: { row: number; col: number };
+    renderer?: 'observable-plot' | 'pie-svg';
+    pieSpec?: PiePlotSpec;
+    facetBackground?: FacetBackgroundInfo;
+    xField?: Field;
+    yField?: Field;
   }>;
-  layout: {
-    type: 'grid' | 'vertical' | 'horizontal';
-    columns: number;
-    rows: number;
-    columnSizes: Array<number | 'fr'>;
-    rowSizes: Array<number | 'fr'>;
-    minColumnSizes?: number[];
-    minRowSizes?: number[];
-  };
-  sharedDomains?: { byMeasure?: Record<string, [number, number]> };
+  layout: { ... };
+  sharedDomains?: { byMeasure?: ... };
   facetLabels?: { ... };
 }
 ```
+
+### Cell-Kind Extension Model
+
+`GridResultModel.cells[i].content` is a discriminated union (`GridCellContent`),
+not a single shape. Adding a new cell kind is the canonical way to introduce a
+chart that needs custom rendering inside the grid (text tables, symbol grids,
+pie cells, etc.) without touching the rest of the pipeline.
+
+The extension surface has three pieces:
+
+1. **Type** (`gridModel.ts`):
+   ```ts
+   export type GridCellContent =
+     | { kind: 'plot';  options: Plot.PlotOptions; ... }
+     | { kind: 'pie';   pieSpec: PiePlotSpec; ... }
+     | { kind: 'text';  rows: TextGridCellRow[]; ... }
+     | { kind: 'mark';  symbols: MarkSymbolSpec[]; ... }
+     | { kind: 'empty'; ... }
+     // | add a new variant here, e.g. { kind: 'sparkline'; ... }
+   ```
+
+2. **Generator**: a chart-type module under `chartTypes/` that returns a
+   `GridResultModel` whose cells use the new kind. Two patterns are supported:
+   - Standard pipeline: emit `Plot.PlotOptions` from `cellCharts.ts` and let
+     `buildGridFromPlotResult` wrap it as `kind: 'plot'`. This is what bar,
+     line, scatter, heatmap, etc. use.
+   - Direct emission: bypass `PlotResult` entirely and return
+     `GridResultModel` from the chart-type module. `tableGrid.ts` does this for
+     `kind: 'text'` / `kind: 'mark'` cells, and `pieChart.ts` for `kind: 'pie'`
+     when used as the global chart type.
+
+3. **Renderer dispatch** (`ChartGrid/PlotArea.tsx`): a `switch` on `cell.content.kind`
+   selects the right renderer. Adding a new variant means adding a `case`.
+   Renderers live alongside in `ChartGrid/` (e.g. `renderers/PieSvgRenderer.tsx`,
+   inline `TextCell` / `SymbolCell` in `PlotArea.tsx`).
+
+When the new kind needs a different *presentation* (e.g. table-style headers,
+its own pager, no external X/Y axes), also register it in
+`chartTypes/chartTypePresentation.ts`. The presentation registry is the single
+source of truth for "is this chart-type rendered as a table / pie / standard
+chart?" — `ChartArea`, `tableViewUtils`, and `observablePlotGenerator` consult
+it instead of string-matching individual chart-type ids.
+
+### Auto-Detection of the Default Chart Type
+
+`detectDefaultUserChartType(xFields, yFields, colorField)` in
+`helpers/chartTypeResolver.ts` is the single source of truth for "what does
+auto pick?". It is consumed by both:
+
+- `useChartGeneration` (to upgrade `globalChartType: null` to a concrete type
+  before rendering), and
+- `ChartTypeControl` / `FieldOverridesPanel` (to highlight the auto-picked
+  toggle button).
+
+Adding a new auto-route (e.g. a future "wordcloud" rule) means adding a branch
+to that function — every consumer picks it up automatically.
 
 ### Shared: `LabelConfig`
 ```typescript

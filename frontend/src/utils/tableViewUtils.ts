@@ -1,17 +1,33 @@
-import { Field } from '../types';
+import { Field, UserChartType } from '../types';
 import { FieldClassifier } from './fieldClassification';
 import { getResultColumnName } from './fieldUtils';
 
 /**
- * Determines if a table view should be used instead of a chart
+ * Determines if the legacy AG Grid table view should be used instead of a chart
  * based on the field configuration.
+ *
+ * The legacy table view is an "I don't know what to do" fallback: it kicks in
+ * when the user has not picked a chart type AND the data shape has no
+ * continuous fields. Once the user has explicitly picked any chart type
+ * (heatmap, pie, scatter, table-refactor, …) we step aside and let the chart
+ * pipeline handle the layout — even if X/Y happen to be all-discrete (e.g.
+ * heatmap intentionally uses two discrete dims plus a measure on color).
  */
-export function shouldUseTableView(xFields: Field[], yFields: Field[]): boolean {
+export function shouldUseTableView(
+  xFields: Field[],
+  yFields: Field[],
+  globalChartType?: UserChartType | null,
+): boolean {
+  // Any explicit user pick bypasses the legacy AG Grid path.
+  if (globalChartType) {
+    return false;
+  }
+
   if (xFields.length === 0 && yFields.length === 0) {
     return false; // No fields, no table
   }
-  
-  // Use table view if no continuous fields are present
+
+  // Auto mode + no continuous fields → legacy table fallback.
   const classification = FieldClassifier.classifyFields(xFields, yFields);
   return !classification.hasContinuousData();
 }

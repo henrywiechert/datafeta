@@ -4,7 +4,7 @@ import {
   MIN_CELL_HEIGHT_PX,
   MAX_CELL_HEIGHT_PX,
 } from '../../../../config/chartLayoutConfig';
-import { PlotResult } from '../../../../observable-plot-generator/types';
+import { GridLayoutModel } from '../../../../observable-plot-generator/gridModel';
 
 export interface UniformResizeIntent {
   currentSize: number;
@@ -23,7 +23,7 @@ export function getMinSize(minSizes: number[] | undefined, fallback: number): nu
   return minSizes[0];
 }
 
-export function getUniformCellSizeConstraints(layout: PlotResult['layout'] | undefined): UniformCellSizeConstraints {
+export function getUniformCellSizeConstraints(layout: GridLayoutModel | undefined): UniformCellSizeConstraints {
   return {
     minWidth: getMinSize(layout?.minColumnSizes, MIN_CELL_WIDTH_PX),
     maxWidth: MAX_CELL_WIDTH_PX,

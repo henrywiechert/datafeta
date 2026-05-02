@@ -1,4 +1,4 @@
-import { ChartGenerationContext } from '../types';
+import { ChartGenerationContext, LabelConfig } from '../types';
 import { barUnified } from './barUnified';
 
 // Unified bar chart: single & (future) multi-measure handled via higher-level orchestrators.
@@ -6,7 +6,7 @@ import { barUnified } from './barUnified';
 
 export function barChart(
   context: ChartGenerationContext,
-  labelCfg?: { labelFields: any[]; labelsEnabled: boolean; samplingStrategy: 'auto' | 'all' | 'sample'; samplingThreshold: number; sampleEvery: number }
+  labelCfg?: LabelConfig
 ) {
   // Delegate to unified implementation; return the first plot's options for compatibility
   const result = barUnified(context, labelCfg);

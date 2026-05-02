@@ -15,6 +15,7 @@ import {
   useTableRowsQuery,
 } from './hooks';
 import { useAdditionalFields } from './hooks/useAdditionalFields';
+import { useTablePageSize } from '../../../hooks/useTablePageSize';
 import { useGanttZoom } from './hooks/useGanttZoom';
 import { useFilterActions } from './hooks/useFilterActions';
 import { useTableRowsFilterActions } from './hooks/useTableRowsFilterActions';
@@ -31,6 +32,7 @@ import FacetLimitDialog from '../FacetLimitDialog';
 import { getResultColumnName } from '../../../utils/fieldUtils';
 import { createChartAffectingConfig } from '../../../utils/queryAffectingConfig';
 import { buildEffectiveFilterConfigurations } from '../../../utils/effectiveFilters';
+import { isTablePresentation } from '../../../observable-plot-generator/chartTypes/chartTypePresentation';
 
 /**
  * ChartArea - thin orchestrator that delegates to specialised hooks.
@@ -61,6 +63,8 @@ const ChartArea: React.FC = () => {
     fieldOverrides,
     globalChartType,
     distributionVariant,
+    tableCellMode,
+    tablePage,
     measureValuesSourceFields,
     measureGroupFields,
     independentDomains,
@@ -87,12 +91,21 @@ const ChartArea: React.FC = () => {
   const fullscreenWrapperRef = useRef<HTMLDivElement>(null);
   const sheetId = activeSheet?.id;
   const isGanttChart = globalChartType === 'gantt';
+  // Whether the chart is rendered with the table presentation (Tableau-style
+  // text/symbol grid). Today only `'table-refactor'` uses this; routing the
+  // check through the registry means future table-presentation chart types
+  // pick up the pager/cache-key behaviour automatically.
+  const isTableMode = isTablePresentation(globalChartType);
+
+  // Global user setting: rows per page for the table-presentation pager.
+  // Persisted in localStorage so the choice survives reloads / sheet switches.
+  const { pageSize: tablePageSize, setPageSize: setTablePageSize } = useTablePageSize();
 
   // -- Extracted hooks ---------------------------------------------------------
   const { additionalColorFields, additionalSizeFields, additionalLabelFields } =
     useAdditionalFields(fieldOverrides);
 
-  const { useTableView, tableData } = useDataProcessing({ xAxisFields, yAxisFields, queryResult });
+  const { useTableView, tableData } = useDataProcessing({ xAxisFields, yAxisFields, queryResult, globalChartType });
 
   // Table rows view: raw paginated data query
   const tableRowsData = useTableRowsQuery({
@@ -125,7 +138,7 @@ const ChartArea: React.FC = () => {
     optimizationSettings,
   });
 
-  const { spec, chartInfo, renderingError, facetLimitWarning, onFacetLimitProceed, onFacetLimitCancel } =
+  const { grid, chartInfo, renderingError, facetLimitWarning, onFacetLimitProceed, onFacetLimitCancel } =
     useChartGeneration({
       xAxisFields,
       yAxisFields,
@@ -140,16 +153,19 @@ const ChartArea: React.FC = () => {
       fieldOverrides,
       globalChartType,
       distributionVariant,
+      tableCellMode,
+      tablePage,
+      tablePageSize: isTableMode ? tablePageSize : undefined,
       measureValuesSourceFields,
       ganttZoomRange,
       overlays,
       viewSpec,
     });
 
-  const { handleLegendFilterAction, handleShapeLegendFilterAction, specWithTooltipAction } = useFilterActions({
+  const { handleLegendFilterAction, handleShapeLegendFilterAction, gridWithTooltipAction } = useFilterActions({
     recordAction,
     getUndoableSnapshot,
-    spec,
+    grid,
   });
 
   const { handleTableCellFilterAction } = useTableRowsFilterActions({
@@ -199,7 +215,7 @@ const ChartArea: React.FC = () => {
   });
 
   const { handlePlotRenderComplete } = useRenderingTracking({
-    spec,
+    grid,
     useTableView,
     showTableRows,
     renderingCoordinator,
@@ -227,6 +243,66 @@ const ChartArea: React.FC = () => {
 
   useSeriesHighlight(fullscreenWrapperRef, highlightedCategoryValues, colorColumnName, clearSeriesHighlight);
 
+  // -- Table-refactor pager wiring --------------------------------------------
+  // Reset the per-sheet page index to 0 whenever the underlying row-tuple set
+  // is invalidated (axis/filter/dim changes). Cheap and avoids stale page
+  // indices that point past the new totalRowTuples.
+  useEffect(() => {
+    if (!isTableMode) return;
+    if (state.tablePage === 0) return;
+    dispatch({ type: 'SET_TABLE_PAGE', payload: 0 });
+    // We intentionally only react to inputs that change the row-tuple set.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    isTableMode,
+    xAxisFields,
+    yAxisFields,
+    effectiveFilterConfigurations,
+    selectedTable,
+    selectedDatabase,
+    virtualTable,
+    virtualColumns,
+    tablePageSize,
+    dispatch,
+  ]);
+
+  const handleTablePageChange = useCallback(
+    (page: number) => {
+      dispatch({ type: 'SET_TABLE_PAGE', payload: page });
+    },
+    [dispatch],
+  );
+
+  const handleTablePageSizeChange = useCallback(
+    (size: number) => {
+      setTablePageSize(size);
+      dispatch({ type: 'SET_TABLE_PAGE', payload: 0 });
+    },
+    [setTablePageSize, dispatch],
+  );
+
+  const tableRefactorPagerData = useMemo(() => {
+    if (!isTableMode) return undefined;
+    const pagination = grid?.pagination;
+    return {
+      page: pagination?.page ?? tablePage ?? 0,
+      pageSize: pagination?.pageSize ?? tablePageSize,
+      totalRowTuples: pagination?.totalRowTuples ?? 0,
+      onPageChange: handleTablePageChange,
+      onPageSizeChange: handleTablePageSizeChange,
+      loading: state.isLoadingQuery || state.isLoadingRendering,
+    };
+  }, [
+    isTableMode,
+    grid,
+    tablePage,
+    tablePageSize,
+    handleTablePageChange,
+    handleTablePageSizeChange,
+    state.isLoadingQuery,
+    state.isLoadingRendering,
+  ]);
+
   // -- Sheet cache -------------------------------------------------------------
   const cacheConfig = useMemo(
     () => createChartAffectingConfig({
@@ -250,6 +326,9 @@ const ChartArea: React.FC = () => {
       fieldOverrides,
       globalChartType,
       distributionVariant,
+      tableCellMode,
+      tablePage: isTableMode ? tablePage : undefined,
+      tablePageSize: isTableMode ? tablePageSize : undefined,
       independentDomains,
       labelsEnabled: channels.label.enabled,
       labelSamplingStrategy: channels.label.samplingStrategy,
@@ -258,16 +337,18 @@ const ChartArea: React.FC = () => {
     }),
     [
       xAxisFields, yAxisFields, effectiveFilterConfigurations, channels,
-      measureGroupFields, fieldOverrides, globalChartType, distributionVariant, independentDomains,
+      measureGroupFields, fieldOverrides, globalChartType, distributionVariant, tableCellMode,
+      isTableMode, tablePage, tablePageSize,
+      independentDomains,
     ],
   );
 
-  const specRef = useRef(specWithTooltipAction);
-  specRef.current = specWithTooltipAction;
+  const gridRef = useRef(gridWithTooltipAction);
+  gridRef.current = gridWithTooltipAction;
 
   useSheetCacheSave(
     sheetId,
-    useCallback(() => ({ queryResult, chartSpec: specRef.current, config: cacheConfig }), [queryResult, cacheConfig]),
+    useCallback(() => ({ queryResult, chartGrid: gridRef.current, config: cacheConfig }), [queryResult, cacheConfig]),
   );
 
   // -- Debug / legend flags ----------------------------------------------------
@@ -275,7 +356,7 @@ const ChartArea: React.FC = () => {
     queryDescription,
     queryResult,
     queryError,
-    spec,
+    grid,
     chartInfo,
     renderingError,
     optimizationHints,
@@ -299,7 +380,7 @@ const ChartArea: React.FC = () => {
           <ChartRenderer
             useTableView={useTableView}
             tableData={tableData}
-            spec={specWithTooltipAction}
+            grid={gridWithTooltipAction}
             queryResult={queryResult}
             xAxisFields={xAxisFields}
             yAxisFields={yAxisFields}
@@ -315,6 +396,7 @@ const ChartArea: React.FC = () => {
             showTableRows={showTableRows}
             tableRowsData={showTableRows ? tableRowsData : undefined}
             onTableCellFilterAction={handleTableCellFilterAction}
+            tableRefactorPagerData={tableRefactorPagerData}
           />
 
           <ChartControls

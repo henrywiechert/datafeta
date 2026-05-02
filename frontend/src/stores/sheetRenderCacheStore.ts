@@ -1,30 +1,30 @@
 /**
  * Sheet Render Cache Store
- * 
- * Caches queryResult and chartSpec per sheet to avoid re-querying and re-generating
+ *
+ * Caches queryResult and chartGrid per sheet to avoid re-querying and re-generating
  * charts when switching between sheets. This provides near-instant sheet switching
  * when the cache is valid.
- * 
+ *
  * Cache Invalidation:
  * - All caches invalidated when dataSourceVersion changes (table, virtualColumns, etc.)
  * - Individual cache invalidated when sheet config changes (axes, filters, encodings)
- * 
+ *
  * The cache stores:
  * - queryResult: The data fetched from backend (typically aggregated, small)
- * - chartSpec: The PlotResult from chart generation
+ * - chartGrid: The GridResultModel from chart generation
  * - configHash: Hash of sheet-specific config to validate freshness
  * - dataSourceVersion: Version at capture time to detect shared state changes
  */
 
 import { create } from 'zustand';
 import { QueryResult } from '../types';
-import { PlotResult } from '../observable-plot-generator/types';
+import { GridResultModel } from '../observable-plot-generator/gridModel';
 
 export interface SheetCacheEntry {
   /** The query result data */
   queryResult: QueryResult;
-  /** The generated chart specification */
-  chartSpec: PlotResult | null;
+  /** The generated chart grid */
+  chartGrid: GridResultModel | null;
   /** Hash of sheet-specific configuration (axes, filters, encodings) */
   configHash: string;
   /** Data source version at capture time */
@@ -48,7 +48,7 @@ interface SheetRenderCacheActions {
   saveCache: (
     sheetId: string,
     queryResult: QueryResult,
-    chartSpec: PlotResult | null,
+    chartGrid: GridResultModel | null,
     configHash: string
   ) => void;
 
@@ -98,16 +98,16 @@ export const useSheetRenderCacheStore = create<SheetRenderCacheStore>((set, get)
   dataSourceVersion: 0,
 
   // Actions
-  saveCache: (sheetId, queryResult, chartSpec, configHash) => {
+  saveCache: (sheetId, queryResult, chartGrid, configHash) => {
     const currentVersion = get().dataSourceVersion;
-    
+
     if (process.env.NODE_ENV === 'development') {
       console.log('[SheetRenderCache] Saving cache for sheet:', sheetId, {
         configHash,
         dataSourceVersion: currentVersion,
         hasQueryResult: !!queryResult,
-        hasChartSpec: !!chartSpec,
-        plotCount: chartSpec?.plots?.length ?? 0,
+        hasChartGrid: !!chartGrid,
+        cellCount: chartGrid?.cells?.length ?? 0,
       });
     }
 
@@ -115,7 +115,7 @@ export const useSheetRenderCacheStore = create<SheetRenderCacheStore>((set, get)
       const newEntries = new Map(state.entries);
       newEntries.set(sheetId, {
         queryResult,
-        chartSpec,
+        chartGrid,
         configHash,
         dataSourceVersion: currentVersion,
         timestamp: Date.now(),
@@ -162,7 +162,7 @@ export const useSheetRenderCacheStore = create<SheetRenderCacheStore>((set, get)
     if (process.env.NODE_ENV === 'development') {
       console.log('[SheetRenderCache] Cache hit for sheet:', sheetId, {
         age: Date.now() - entry.timestamp,
-        plotCount: entry.chartSpec?.plots?.length ?? 0,
+        cellCount: entry.chartGrid?.cells?.length ?? 0,
       });
     }
 
@@ -210,8 +210,8 @@ export const useSheetRenderCacheStore = create<SheetRenderCacheStore>((set, get)
  * Helper to get the store instance for use outside React components.
  */
 export const sheetRenderCacheStore = {
-  saveCache: (sheetId: string, queryResult: QueryResult, chartSpec: PlotResult | null, configHash: string) =>
-    useSheetRenderCacheStore.getState().saveCache(sheetId, queryResult, chartSpec, configHash),
+  saveCache: (sheetId: string, queryResult: QueryResult, chartGrid: GridResultModel | null, configHash: string) =>
+    useSheetRenderCacheStore.getState().saveCache(sheetId, queryResult, chartGrid, configHash),
   
   getCache: (sheetId: string, expectedConfigHash: string) =>
     useSheetRenderCacheStore.getState().getCache(sheetId, expectedConfigHash),

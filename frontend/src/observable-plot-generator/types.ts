@@ -1,4 +1,4 @@
-import { Field, QueryResult, FieldOverrideState, UserChartType, DistributionVariant, TooltipField } from '../types';
+import { Field, QueryResult, FieldOverrideState, UserChartType, DistributionVariant, TableCellMode, TooltipField } from '../types';
 import { OverlayConfig } from './overlays/types';
 import { FieldOverrideTarget } from './utils/fieldOverrides';
 import { ColorScaleInfo } from './utils/colorSchemeUtils';
@@ -42,6 +42,7 @@ export interface LabelConfig {
   samplingStrategy: 'auto' | 'all' | 'sample';
   samplingThreshold: number;
   sampleEvery: number;
+  fontSize: number;
 }
 
 /**
@@ -101,6 +102,7 @@ export interface ChartGenerationContext {
   labelSamplingStrategy?: 'auto' | 'all' | 'sample';
   labelSamplingThreshold?: number;
   labelSampleEvery?: number;
+  labelFontSize?: number;
   // --- Tooltip configuration (optional) ------------------------------------
   tooltipFields?: Field[];
   /**
@@ -114,6 +116,16 @@ export interface ChartGenerationContext {
   globalChartType?: UserChartType | null;
   /** Variant for the distribution chart family when globalChartType is 'tick'. */
   distributionVariant?: DistributionVariant;
+  /** Cell rendering mode when globalChartType is 'table-refactor'. */
+  tableCellMode?: TableCellMode;
+  /**
+   * Pager state for the 'table-refactor' chart type.
+   * tablePage is the 0-based current page index over distinct row-tuples.
+   * tablePageSize is the number of row-tuples per page (global user setting).
+   * Both are ignored unless globalChartType === 'table-refactor'.
+   */
+  tablePage?: number;
+  tablePageSize?: number;
   /**
    * Computed list of fields that are eligible for per-field overrides,
    * based on axis placement and continuous field counts.
@@ -244,5 +256,13 @@ export interface PlotResult {
     rowsLevels?: Array<{ fieldLabel: string; values: any[] }>;
     colsLevels?: Array<{ fieldLabel: string; values: any[] }>;
     spans?: { columns: number[]; rows: number[]; baseCols: number; baseRows: number };
+    /**
+     * Ordered tuples of facet values in iteration order, parallel to the
+     * facet field arrays. Used by hierarchical header rendering to compute
+     * accurate spans (including for sparse facet spaces). Optional; when
+     * absent, callers fall back to product-of-levels span math.
+     */
+    rowsOrderedValueTuples?: any[][];
+    colsOrderedValueTuples?: any[][];
   };
 } 

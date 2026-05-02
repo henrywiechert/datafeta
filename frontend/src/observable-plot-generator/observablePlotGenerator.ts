@@ -1,5 +1,7 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext, PlotResult, LabelConfig } from './types';
+import { GridResultModel } from './gridModel';
+import { buildGridFromPlotResult } from './buildGridFromPlotResult';
 import { barUnified } from './chartTypes/barUnified';
 import { generateChartOptions as genChartOptionsRule } from './rules/chartRules';
 import { Field } from '../types';
@@ -13,6 +15,9 @@ import { generateCartesianPlots } from './grid/coreGridGenerator';
 import { generateFacetedGrid, generateCdfGrid } from './faceting/facetGenerator';
 import { ganttChart } from './chartTypes/ganttChart';
 import { generatePieGrid } from './chartTypes/pieChart';
+import { generateHeatmapGrid } from './chartTypes/heatmapChart';
+import { generateTableGrid } from './chartTypes/tableGrid';
+import { isTablePresentation } from './chartTypes/chartTypePresentation';
 
 // Re-export buildLabelConfig as buildLabelCfg for backward compatibility
 export { buildLabelConfig as buildLabelCfg } from './utils/configBuilder';
@@ -305,18 +310,11 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
 }
 
 /**
- * Simple, direct Observable Plot generation
- * No complex pipeline - just analyze fields and generate chart directly
+ * Internal chart generation that returns the legacy `PlotResult` used by the
+ * faceting / chart-type pipeline. Public callers should use `generatePlot`,
+ * which collapses this into a `GridResultModel` at the boundary.
  */
-/**
- * Main entry point for chart generation from the UI.
- * Validates inputs, handles faceting, then delegates to core logic.
- * 
- * @param context - Chart generation context with fields, data, and styling
- * @param overrides - Optional chart type overrides for specific fields
- * @returns PlotResult with plots array and grid layout
- */
-export function generatePlot(context: ChartGenerationContext, overrides?: ChartTypeOverrides): PlotResult {
+function generatePlotAsResult(context: ChartGenerationContext, overrides?: ChartTypeOverrides): PlotResult {
   const { xFields, yFields, queryResult, colorField, manualColor, sizeField, fieldAliasLookup } = context;
 
   // Validate inputs
@@ -395,6 +393,14 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
       }
     }
 
+    // ── Heatmap mode ────────────────────────────────────────────────────
+    // Heatmaps consume the first X and first Y field as band axes (rather
+    // than letting them become facets), so they must bypass the default
+    // facet/cell-pair pipeline. Extra discrete dims still become facets.
+    if (effectiveContext.globalChartType === 'heatmap') {
+      return generateHeatmapGrid(effectiveContext);
+    }
+
     // Check if faceting is applicable
     // EXCEPTION: For Gantt charts, don't facet the first discrete dimension - it becomes the category axis
     const facetPlan = planFacets(effectiveContext);
@@ -453,9 +459,36 @@ export function generatePlot(context: ChartGenerationContext, overrides?: ChartT
 }
 
 /**
+ * Main entry point for chart generation from the UI.
+ *
+ * Internally the pipeline still threads a `PlotResult` between faceting and
+ * chart-type helpers; the boundary translation to the canonical
+ * `GridResultModel` happens here so downstream consumers only depend on the
+ * grid abstraction.
+ *
+ * Chart types whose presentation is `'table'` (e.g. `'table-refactor'`) bypass
+ * the legacy pipeline entirely and emit a `GridResultModel` directly via their
+ * own generator (`generateTableGrid` for table-refactor today).
+ *
+ * @param context - Chart generation context with fields, data, and styling
+ * @param overrides - Optional chart type overrides for specific fields
+ * @returns GridResultModel with cell array, layout and optional headers
+ */
+export function generatePlot(context: ChartGenerationContext, overrides?: ChartTypeOverrides): GridResultModel {
+  if (isTablePresentation(context.globalChartType)) {
+    return generateTableGrid(context);
+  }
+  return buildGridFromPlotResult(generatePlotAsResult(context, overrides));
+}
+
+/**
  * Chart generation for faceting system.
  * Skips validation and faceting (already handled by faceting coordinator).
- * 
+ *
+ * Returns the internal `PlotResult` shape so the faceting coordinator can
+ * stitch per-cell results back together; only `generatePlot` performs the
+ * final boundary translation to `GridResultModel`.
+ *
  * @param context - Chart generation context with fields, data, and styling
  * @param overrides - Optional chart type overrides for specific fields
  * @returns PlotResult with plots array and grid layout

@@ -34,6 +34,20 @@ export const X_LABEL_ROW_PX = 20;
 export const VERTICAL_SCROLLBAR_GUTTER_PX = 14;
 export const HORIZONTAL_SCROLLBAR_GUTTER_PX = 16;
 
+// Table-refactor (table chart type) layout constants.
+// Compact bands and short rows so a table with many discrete tuples is
+// readable at a glance — closer to a Tableau text-table than to a chart.
+export const MIN_NON_PLOT_GRID_ROW_PX = 28;
+export const TABLE_NAMES_BAND_LEFT_PX = 88;
+export const TABLE_VALUES_BAND_LEFT_PX = 96;
+export const TABLE_VALUES_BAND_TOP_PX = 18;
+
+// Heatmap layout constants.
+// Reset-to-auto should size a facet from its cell counts rather than from the
+// generic facet floor, while manual resize can still shrink below that default.
+export const HEATMAP_DEFAULT_CELL_SIZE_PX = 14;
+export const HEATMAP_MIN_CELL_SIZE_PX = 1;
+
 // Resize handle constants (for future dynamic resize feature)
 export const RESIZE_HANDLE_WIDTH = 2;
 export const RESIZE_HANDLE_COLOR = '#99a795';
@@ -61,6 +75,8 @@ export const SIZE_DEFAULTS_BY_CHART_TYPE: Record<string, number> = {
   tick: 40,     // Low band padding (thick marks)
   gantt: 40,    // Low band padding (thick task bars)
   pie: 40,      // Large default radius within each cell
+  heatmap: 40,  // Cells fill their band; size is not user-tweaked.
+  'table-refactor': 8, // Symbol radius (px); ~π·8² ≈ 200 area, matching legacy default mark.
 };
 
 // Default for auto-detected or unknown chart types

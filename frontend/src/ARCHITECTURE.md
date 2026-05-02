@@ -26,3 +26,17 @@ query shape, pane partitioning, and render planning do not drift.
 Session-scoped filters live in `DataSourceContext`; sheet-scoped filters live in
 `VisualizationContext`. Merge logic should go through `utils/effectiveFilters`
 instead of being reimplemented in hooks or components.
+
+## Chart Grid: Cell-Kind Model
+
+The `ChartGrid` consumes a generic `GridResultModel` whose cells carry a
+discriminated `GridCellContent` (`plot | pie | text | mark | empty`).
+Renderers dispatch on `kind` in `PlotArea.tsx`; new chart-type *presentations*
+(`'chart' | 'table' | 'pie'`) are centralized in
+`observable-plot-generator/chartTypes/chartTypePresentation.ts` so consumers
+like `ChartArea` and `tableViewUtils` do not string-match individual chart-type
+ids. Auto-detection of the default chart type lives in
+`detectDefaultUserChartType` (`observable-plot-generator/helpers/chartTypeResolver.ts`)
+and is consumed by both the chart-generation pipeline and the chart-type
+toggle UI. See `observable-plot-generator/ARCHITECTURE.md` for the detailed
+extension model.
