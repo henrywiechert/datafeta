@@ -11,6 +11,7 @@ interface GridResizeHandleProps {
   zIndex?: number;
   // Which axis area this handle is in (for cursor change)
   isInAxisArea: boolean;
+  testId?: string;
 }
 
 /**
@@ -28,6 +29,7 @@ const GridResizeHandle: React.FC<GridResizeHandleProps> = ({
   onResizeEnd,
   zIndex = 10,
   isInAxisArea,
+  testId,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -93,6 +95,7 @@ const GridResizeHandle: React.FC<GridResizeHandleProps> = ({
 
   return (
     <div
+      data-testid={testId}
       onMouseDown={handleMouseDown}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}

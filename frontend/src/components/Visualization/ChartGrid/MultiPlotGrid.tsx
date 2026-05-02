@@ -26,6 +26,11 @@ import AxisLabelStylePopover from './AxisLabelStylePopover';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { YAxisLabelStyle } from '../../../contexts/VisualizationContext/types';
 import { buildPlotGridSizingStyle } from './utils/layoutUtils';
+import {
+  getFacetColumnSizeConstraints,
+  getFacetRowSizeConstraints,
+  resolveFacetTrackSize,
+} from './utils/uniformCellSizing';
 import styles from './ChartGrid.module.css';
 
 interface MultiPlotGridProps {
@@ -98,6 +103,8 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
     facetLeftHeaderPx,
     facetLeftValuesPx,
     facetTopValuesPx,
+    facetLeftValueWidthsPx,
+    facetTopValueHeightsPx,
   } = layoutCalcs;
 
   const { scrollOffsets, onWheelCapture, isKeyboardNavActive } = scrollSync;
@@ -113,6 +120,8 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
 
   const { state, dispatch } = useVisualizationContext();
   const { axisLabelStyles } = state;
+  const facetColumnConstraints = getFacetColumnSizeConstraints();
+  const facetRowConstraints = getFacetRowSizeConstraints();
 
   const [yLabelPopoverAnchor, setYLabelPopoverAnchor] = useState<HTMLElement | null>(null);
 
@@ -127,6 +136,34 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
   const handleYLabelStyleChange = useCallback((updates: Partial<YAxisLabelStyle>) => {
     dispatch({ type: 'SET_Y_AXIS_LABEL_STYLE', payload: updates });
   }, [dispatch]);
+
+  const previewFacetColumnResize = useCallback((intent: { currentSize: number; delta: number }) => {
+    return resolveFacetTrackSize(intent, facetColumnConstraints);
+  }, [facetColumnConstraints]);
+
+  const previewFacetRowResize = useCallback((intent: { currentSize: number; delta: number }) => {
+    return resolveFacetTrackSize(intent, facetRowConstraints);
+  }, [facetRowConstraints]);
+
+  const handleFacetColumnResize = useCallback((depthIndex: number, intent: { currentSize: number; delta: number }) => {
+    dispatch({
+      type: 'SET_FACET_LEFT_VALUES_DEPTH_WIDTH',
+      payload: {
+        depthIndex,
+        widthPx: resolveFacetTrackSize(intent, facetColumnConstraints),
+      },
+    });
+  }, [dispatch, facetColumnConstraints]);
+
+  const handleFacetRowResize = useCallback((depthIndex: number, intent: { currentSize: number; delta: number }) => {
+    dispatch({
+      type: 'SET_FACET_TOP_VALUES_DEPTH_HEIGHT',
+      payload: {
+        depthIndex,
+        heightPx: resolveFacetTrackSize(intent, facetRowConstraints),
+      },
+    });
+  }, [dispatch, facetRowConstraints]);
 
   return (
     <div
@@ -175,7 +212,12 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           }}
         >
           {/* Top facet headers (if present) */}
-          <TopFacetLabels grid={grid} plotTemplateColumns={plotTemplateColumns} baseCols={baseCols} facetTopValuesPx={facetTopValuesPx} />
+          <TopFacetLabels
+            grid={grid}
+            plotTemplateColumns={plotTemplateColumns}
+            baseCols={baseCols}
+            facetTopValueHeightsPx={facetTopValueHeightsPx}
+          />
 
           {/* ======================================================
               LAYER 3: PLOT GRID (inside this PlotArea component)
@@ -252,7 +294,13 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
               }}
             >
               {/* Left facet labels area */}
-              <LeftFacetLabels grid={grid} plotRowsSpec={plotRowsSpec} baseRows={baseRows} facetLeftHeaderPx={facetLeftHeaderPx} facetLeftValuesPx={facetLeftValuesPx} />
+              <LeftFacetLabels
+                grid={grid}
+                plotRowsSpec={plotRowsSpec}
+                baseRows={baseRows}
+                facetLeftHeaderPx={facetLeftHeaderPx}
+                facetLeftValueWidthsPx={facetLeftValueWidthsPx}
+              />
 
               {/* Y-axis vertical labels column */}
               {Array.from({ length: rows }).map((_, r) => {
@@ -360,6 +408,12 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           previewRowResize={cellSizeOverrides.previewRowResize}
           onColumnResize={cellSizeOverrides.handleColumnResize}
           onRowResize={cellSizeOverrides.handleRowResize}
+          facetLeftValueWidthsPx={facetLeftValueWidthsPx}
+          facetTopValueHeightsPx={facetTopValueHeightsPx}
+          previewFacetColumnResize={previewFacetColumnResize}
+          previewFacetRowResize={previewFacetRowResize}
+          onFacetColumnResize={handleFacetColumnResize}
+          onFacetRowResize={handleFacetRowResize}
         />
       </div>
 

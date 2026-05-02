@@ -31,12 +31,14 @@ export interface FacetTopValuesLabelStyle {
   fontSize: number;  // 8-26, default 10
   orientation: 'horizontal' | 'vertical' | 'angled';
   heightPx: number | null;  // null = auto (VALUES_BAND_TOP_PX), or manual override
+  heightPxByDepth?: Array<number | null>;
 }
 
 export interface FacetLeftValuesLabelStyle {
   fontSize: number;  // 8-26, default 10
   orientation: 'horizontal' | 'vertical';
   widthPx: number | null;  // null = auto (VALUES_BAND_LEFT_PX), or manual override
+  widthPxByDepth?: Array<number | null>;
 }
 
 export interface FacetLabelStyles {
@@ -280,8 +282,10 @@ export type VisualizationAction =
   // Facet label styling actions
   | { type: 'SET_FACET_TOP_HEADER_STYLE'; payload: Partial<FacetHeaderLabelStyle> }
   | { type: 'SET_FACET_TOP_VALUES_STYLE'; payload: Partial<FacetTopValuesLabelStyle> }
+  | { type: 'SET_FACET_TOP_VALUES_DEPTH_HEIGHT'; payload: { depthIndex: number; heightPx: number | null } }
   | { type: 'SET_FACET_LEFT_HEADER_STYLE'; payload: Partial<FacetHeaderLabelStyle & { widthPx: number | null }> }
   | { type: 'SET_FACET_LEFT_VALUES_STYLE'; payload: Partial<FacetLeftValuesLabelStyle> }
+  | { type: 'SET_FACET_LEFT_VALUES_DEPTH_WIDTH'; payload: { depthIndex: number; widthPx: number | null } }
   // Chart caption action
   | { type: 'SET_CHART_CAPTION'; payload: string }
   // Overlay actions

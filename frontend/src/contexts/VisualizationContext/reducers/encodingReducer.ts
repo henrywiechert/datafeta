@@ -1,6 +1,21 @@
 import { VisualizationState, VisualizationAction } from '../types';
 import { sameFieldArray } from './utils';
 
+function updateArrayEntry<T>(
+  values: T[] | undefined,
+  index: number,
+  nextValue: T,
+): T[] | null {
+  if (!Number.isInteger(index) || index < 0) return null;
+
+  const currentValues = values ?? [];
+  if (currentValues[index] === nextValue) return currentValues;
+
+  const nextValues = [...currentValues];
+  nextValues[index] = nextValue;
+  return nextValues;
+}
+
 /**
  * Handles visual encoding actions: color, size, labels, and tooltips.
  */
@@ -157,6 +172,25 @@ export function encodingReducer(state: VisualizationState, action: Visualization
           topValues: { ...state.facetLabelStyles.topValues, ...action.payload },
         },
       };
+    case 'SET_FACET_TOP_VALUES_DEPTH_HEIGHT': {
+      const nextHeights = updateArrayEntry(
+        state.facetLabelStyles.topValues.heightPxByDepth,
+        action.payload.depthIndex,
+        action.payload.heightPx,
+      );
+      if (nextHeights === null) return state;
+      if (nextHeights === state.facetLabelStyles.topValues.heightPxByDepth) return state;
+      return {
+        ...state,
+        facetLabelStyles: {
+          ...state.facetLabelStyles,
+          topValues: {
+            ...state.facetLabelStyles.topValues,
+            heightPxByDepth: nextHeights,
+          },
+        },
+      };
+    }
     case 'SET_FACET_LEFT_HEADER_STYLE':
       return {
         ...state,
@@ -173,6 +207,25 @@ export function encodingReducer(state: VisualizationState, action: Visualization
           leftValues: { ...state.facetLabelStyles.leftValues, ...action.payload },
         },
       };
+    case 'SET_FACET_LEFT_VALUES_DEPTH_WIDTH': {
+      const nextWidths = updateArrayEntry(
+        state.facetLabelStyles.leftValues.widthPxByDepth,
+        action.payload.depthIndex,
+        action.payload.widthPx,
+      );
+      if (nextWidths === null) return state;
+      if (nextWidths === state.facetLabelStyles.leftValues.widthPxByDepth) return state;
+      return {
+        ...state,
+        facetLabelStyles: {
+          ...state.facetLabelStyles,
+          leftValues: {
+            ...state.facetLabelStyles.leftValues,
+            widthPxByDepth: nextWidths,
+          },
+        },
+      };
+    }
     
     default:
       return null; // Not handled by this reducer

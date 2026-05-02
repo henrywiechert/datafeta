@@ -259,14 +259,14 @@ interface TopFacetLabelsProps {
   grid: GridResultModel;
   plotTemplateColumns: string;
   baseCols: number;
-  facetTopValuesPx: number;
+  facetTopValueHeightsPx: number[];
 }
 
 const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
   grid,
   plotTemplateColumns,
   baseCols,
-  facetTopValuesPx,
+  facetTopValueHeightsPx,
 }) => {
   const { state, dispatch } = useVisualizationContext();
   const { facetLabelStyles } = state;
@@ -302,8 +302,23 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
 
   return (
     <div style={{ gridColumn: 1, gridRow: 1 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns }}>
-        <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'center', gap: '8px' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: plotTemplateColumns,
+          gridTemplateRows: `20px ${facetTopValueHeightsPx.map((height) => `${height}px`).join(' ')}`,
+        }}
+      >
+        <div
+          style={{
+            gridColumn: '1 / -1',
+            gridRow: 1,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
           {fieldLabels.map((label, idx) => (
             <div
               key={`header-${idx}`}
@@ -341,8 +356,9 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                height: `${facetTopValuesPx}px`,
+                height: `${facetTopValueHeightsPx[levelIdx]}px`,
                 gridColumn: `${seg.startIndex} / span ${seg.span}`,
+                gridRow: levelIdx + 2,
                 background: 'transparent',
                 borderBottom: `1px solid ${GRID_DIVIDER_COLOR}`,
                 borderRight: `1px solid ${GRID_DIVIDER_COLOR}`,
@@ -391,7 +407,7 @@ export const TopFacetLabels = React.memo(TopFacetLabelsComponent, (prevProps, ne
   return (
     prevProps.plotTemplateColumns === nextProps.plotTemplateColumns &&
     prevProps.baseCols === nextProps.baseCols &&
-    prevProps.facetTopValuesPx === nextProps.facetTopValuesPx &&
+    prevProps.facetTopValueHeightsPx === nextProps.facetTopValueHeightsPx &&
     prevProps.grid.headers === nextProps.grid.headers &&
     prevProps.grid.layout === nextProps.grid.layout
   );
@@ -406,7 +422,7 @@ interface LeftFacetLabelsProps {
   plotRowsSpec: string;
   baseRows: number;
   facetLeftHeaderPx: number;
-  facetLeftValuesPx: number;
+  facetLeftValueWidthsPx: number[];
 }
 
 const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
@@ -414,7 +430,7 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
   plotRowsSpec,
   baseRows,
   facetLeftHeaderPx,
-  facetLeftValuesPx,
+  facetLeftValueWidthsPx,
 }) => {
   const { state, dispatch } = useVisualizationContext();
   const { facetLabelStyles } = state;
@@ -455,7 +471,7 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
         gridColumn: 1,
         gridRow: '1 / span ' + (grid.layout?.rows || 1),
         display: 'grid',
-        gridTemplateColumns: `${facetLeftHeaderPx}px ${new Array(yLevelsCount).fill(`${facetLeftValuesPx}px`).join(' ')}`,
+        gridTemplateColumns: `${facetLeftHeaderPx}px ${facetLeftValueWidthsPx.map((width) => `${width}px`).join(' ')}`,
         gridTemplateRows: plotRowsSpec,
         alignItems: 'stretch',
       }}
@@ -570,7 +586,7 @@ export const LeftFacetLabels = React.memo(LeftFacetLabelsComponent, (prevProps, 
     prevProps.plotRowsSpec === nextProps.plotRowsSpec &&
     prevProps.baseRows === nextProps.baseRows &&
     prevProps.facetLeftHeaderPx === nextProps.facetLeftHeaderPx &&
-    prevProps.facetLeftValuesPx === nextProps.facetLeftValuesPx &&
+    prevProps.facetLeftValueWidthsPx === nextProps.facetLeftValueWidthsPx &&
     prevProps.grid.headers === nextProps.grid.headers &&
     prevProps.grid.layout === nextProps.grid.layout
   );

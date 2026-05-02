@@ -8,6 +8,9 @@ import {
   generateRowTemplate,
   getActualRowHeights,
   inferRowSizes,
+  resolveFacetLeftValueWidths,
+  resolveFacetTopValueHeights,
+  sumTrackSizes,
 } from './layoutUtils';
 
 function buildGrid(overrides: Partial<GridResultModel> = {}): GridResultModel {
@@ -72,6 +75,28 @@ describe('layoutUtils', () => {
 
     expect(generateRowTemplate(rowSizes, 120)).toBe('90px 120px 130px');
     expect(getActualRowHeights(rowSizes, 120)).toEqual([90, 120, 130]);
+  });
+
+  it('resolves top facet heights per depth before falling back to the shared value', () => {
+    expect(resolveFacetTopValueHeights(3, {
+      fontSize: 10,
+      orientation: 'horizontal',
+      heightPx: 26,
+      heightPxByDepth: [30, null, 42],
+    }, 20)).toEqual([30, 26, 42]);
+  });
+
+  it('resolves left facet widths per depth before falling back to the shared value', () => {
+    expect(resolveFacetLeftValueWidths(4, {
+      fontSize: 10,
+      orientation: 'vertical',
+      widthPx: 36,
+      widthPxByDepth: [null, 50],
+    }, 20)).toEqual([36, 50, 36, 36]);
+  });
+
+  it('sums resolved facet track sizes for reserved-space calculations', () => {
+    expect(sumTrackSizes([24, 36, 40])).toBe(100);
   });
 
   it('builds one shared sizing style for visible and hidden plot grids', () => {
