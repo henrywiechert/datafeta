@@ -48,6 +48,7 @@ export function addFieldAsDiscreteFilter(
     columnName: filterField.columnName,
     type: 'discrete',
     selectedValues,
+    matchMode: 'selection',
     dateTimePart: filterField.dateTimePart,
     dateTimeMode: filterField.dateTimeMode,
   };
@@ -79,6 +80,7 @@ export function updateExistingDiscreteFilter(
     columnName,
     type: 'discrete',
     selectedValues: newSelectedValues,
+    matchMode: 'selection',
     dateTimePart,
     dateTimeMode,
   };
@@ -190,6 +192,7 @@ export function addFieldAsDiscreteZoomFilter(
     columnName: filterField.columnName,
     type: 'discrete',
     selectedValues,
+    matchMode: 'selection',
     isZoomFilter: true,
     dateTimePart: sourceField.dateTimePart,
     dateTimeMode: sourceField.dateTimeMode,

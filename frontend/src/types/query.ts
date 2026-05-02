@@ -26,7 +26,7 @@ export interface Measure {
 
 export interface Filter {
   field: string;
-  operator: '=' | '!=' | '>' | '<' | '>=' | '<=' | 'in' | 'not in' | 'like' | 'ilike' | 'is null' | 'is not null';
+  operator: '=' | '!=' | '>' | '<' | '>=' | '<=' | 'in' | 'not in' | 'like' | 'ilike' | 'not like' | 'not ilike' | 'is null' | 'is not null';
   value: any;
   date_part?: DateTimePart;
   date_mode?: DateTimeMode;

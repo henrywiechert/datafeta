@@ -20,7 +20,7 @@ class Dimension(BaseModel):
 class Filter(BaseModel):
     field: str
     # Define allowed operators - expand later as needed
-    operator: Literal['=', '!=', '>', '<', '>=', '<=', 'in', 'not in', 'like', 'ilike', 'is null', 'is not null']
+    operator: Literal['=', '!=', '>', '<', '>=', '<=', 'in', 'not in', 'like', 'ilike', 'not like', 'not ilike', 'is null', 'is not null']
     value: Any # Value type depends on operator (e.g., list for 'in')
     date_part: Optional[Literal['year', 'month', 'day', 'weekday', 'hour', 'minute', 'second', 'millisecond', 'microsecond', 'nanosecond']] = None
     date_mode: Optional[Literal['distinct', 'timeline']] = None

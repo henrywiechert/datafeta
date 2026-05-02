@@ -5,15 +5,27 @@ import {
   TextField,
   CircularProgress,
   Typography,
-  Alert
+  Alert,
+  FormControlLabel,
+  Switch
 } from '@mui/material';
-import { DiscreteFilterMetadata } from '../../../types';
+import { DiscreteFilterMatchMode, DiscreteFilterMetadata, DiscretePatternOperator } from '../../../types';
 import styles from './DiscreteFilterControl.module.css';
 
 interface DiscreteFilterControlProps {
   metadata: DiscreteFilterMetadata;
   selectedValues: any[];
+  matchMode?: DiscreteFilterMatchMode;
+  pattern?: string;
+  patternOperator?: DiscretePatternOperator;
+  isInversePattern?: boolean;
   onChange: (selectedValues: any[]) => void;
+  onPatternChange: (config: {
+    matchMode: DiscreteFilterMatchMode;
+    pattern: string;
+    patternOperator: DiscretePatternOperator;
+    isInversePattern: boolean;
+  }) => void;
   onRefetchValues: (regexPattern?: string) => Promise<void>;
 }
 
@@ -47,7 +59,12 @@ const CheckboxItem = React.memo<CheckboxItemProps>(({ value, valueStr, isChecked
 const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
   metadata,
   selectedValues,
+  matchMode = 'selection',
+  pattern = '',
+  patternOperator = 'like',
+  isInversePattern = false,
   onChange,
+  onPatternChange,
   onRefetchValues,
 }) => {
   const [listFilterTerm, setListFilterTerm] = useState('');
@@ -55,6 +72,7 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
   const [useRegex, setUseRegex] = useState(false);
   const [regexError, setRegexError] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const isPatternMode = matchMode === 'pattern';
 
   // ---- Selection matching ----
   // After loading a saved config, selectedValues may be numbers while availableValues
@@ -185,6 +203,21 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
     const newSelected = selectedValues.filter((v) => !visibleKeySet.has(valueKey(v)));
     onChange(newSelected);
   };
+
+  const updatePatternConfig = useCallback((updates: Partial<{
+    matchMode: DiscreteFilterMatchMode;
+    pattern: string;
+    patternOperator: DiscretePatternOperator;
+    isInversePattern: boolean;
+  }>) => {
+    onPatternChange({
+      matchMode,
+      pattern,
+      patternOperator,
+      isInversePattern,
+      ...updates,
+    });
+  }, [matchMode, pattern, patternOperator, isInversePattern, onPatternChange]);
   
   // Handle query regex update (backend filter)
   const handleQueryRegexUpdate = async () => {
@@ -232,12 +265,81 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
           {metadata.warningMessage}
         </Alert>
       )}
+
+      <Box className={styles.modeSwitcher}>
+        <Button
+          size="small"
+          variant={isPatternMode ? 'text' : 'contained'}
+          onClick={() => updatePatternConfig({ matchMode: 'selection' })}
+        >
+          Selection
+        </Button>
+        <Button
+          size="small"
+          variant={isPatternMode ? 'contained' : 'text'}
+          onClick={() => updatePatternConfig({ matchMode: 'pattern' })}
+        >
+          Pattern
+        </Button>
+      </Box>
+
+      {isPatternMode && (
+        <Box className={styles.patternPanel}>
+          <TextField
+            size="small"
+            variant="outlined"
+            label="Pattern"
+            placeholder="%value%"
+            value={pattern}
+            onChange={(e) => updatePatternConfig({ pattern: e.target.value })}
+            fullWidth
+            helperText="Uses SQL LIKE syntax. Examples: %mid%, prefix%, %suffix"
+          />
+          <Box className={styles.patternToggleRow}>
+            <Button
+              size="small"
+              variant={patternOperator === 'like' ? 'contained' : 'text'}
+              onClick={() => updatePatternConfig({ patternOperator: 'like' })}
+            >
+              Case-Sensitive
+            </Button>
+            <Button
+              size="small"
+              variant={patternOperator === 'ilike' ? 'contained' : 'text'}
+              onClick={() => updatePatternConfig({ patternOperator: 'ilike' })}
+            >
+              Case-Insensitive
+            </Button>
+          </Box>
+          <FormControlLabel
+            className={styles.inverseToggle}
+            control={
+              <Switch
+                size="small"
+                checked={isInversePattern}
+                onChange={(e) => updatePatternConfig({ isInversePattern: e.target.checked })}
+              />
+            }
+            label={isInversePattern ? 'Exclude matches' : 'Keep matches'}
+          />
+          {metadata.isPartial && (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => onRefetchValues(pattern.trim() || undefined)}
+              disabled={isUpdating}
+            >
+              Preview Matching Values
+            </Button>
+          )}
+        </Box>
+      )}
       
       {/* Query Regex - for backend filtering (only visible when partial or applied) */}
-      {(metadata.isPartial || metadata.appliedRegexQuery) && (
+      {!isPatternMode && (metadata.isPartial || metadata.appliedRegexQuery) && (
         <Box sx={{ mb: 1 }}>
           <Typography variant="caption" sx={{ display: 'block', mb: 0.5, fontWeight: 500 }}>
-            Query Regex (SQL LIKE filter):
+            Pattern Preview (SQL LIKE filter):
           </Typography>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <TextField
@@ -261,8 +363,8 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
         </Box>
       )}
       
-      {/* Show message if no values (but still allow Query Regex above to be used) */}
-      {hasNoValues && !metadata.isPartial && (
+      {/* Show message if no values in selection mode */}
+      {hasNoValues && !metadata.isPartial && !isPatternMode && (
         <Box className={styles.container}>
           <Typography variant="caption" color="textSecondary">
             No values available
@@ -271,7 +373,7 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
       )}
       
       {/* Only show filter controls if we have values */}
-      {!hasNoValues && (
+      {!isPatternMode && !hasNoValues && (
       <Box className={styles.filterBox}>
         {/* List Filter - for client-side filtering of loaded values */}
         {metadata.availableValues.length > 10 && (
@@ -358,6 +460,12 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
         {selectedValues.length} of {metadata.availableValues.length} selected
       </Typography>
       </Box>
+      )}
+
+      {isPatternMode && pattern && (
+        <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
+          {isInversePattern ? 'Excluding values that match this pattern.' : 'Keeping values that match this pattern.'}
+        </Typography>
       )}
     </Box>
   );
