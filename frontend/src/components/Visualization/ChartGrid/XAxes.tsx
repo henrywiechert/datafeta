@@ -105,7 +105,7 @@ const XAxes: React.FC<XAxesProps> = ({
             const xPadding = (sample?.content.options as any)?.x?.padding;
             const xTicks = (sample?.content.options as any)?.x?.ticks;
             const xTickFormat = (sample?.content.options as any)?.x?.tickFormat;
-            const xRotate = xType === 'band' ? -45 : 0;
+            const xRotate = xType === 'band' ? -90 : 0;
             return (
               <div
                 key={`x-axis-${c}`}

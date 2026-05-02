@@ -123,7 +123,36 @@ describe('layoutUtils', () => {
       },
     });
 
-    expect(computeDynamicXAxisGutterPx(grid, 1)).toBe(69);
+    expect(computeDynamicXAxisGutterPx(grid, 1)).toBe(79);
+  });
+
+  it('caps the X-axis gutter for long categorical ticks to the rendered band height', () => {
+    const grid = buildGrid({
+      cells: [
+        {
+          id: 'c0',
+          position: { row: 0, col: 0 },
+          content: {
+            kind: 'plot',
+            options: {
+              x: {
+                type: 'band',
+                domain: ['Extremely verbose category label that should not reserve its full raw height'],
+              },
+            },
+          },
+        } as any,
+      ],
+      layout: {
+        type: 'grid',
+        columns: 1,
+        rows: 1,
+        columnSizes: ['fr'],
+        rowSizes: ['fr'],
+      },
+    });
+
+    expect(computeDynamicXAxisGutterPx(grid, 1)).toBe(79);
   });
 
   it('sizes the Y-axis gutter from formatted categorical ticks', () => {
