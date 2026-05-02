@@ -30,6 +30,7 @@ describe('GridResizeOverlay facet handles', () => {
         horizontalScrollOffset={0}
         verticalScrollOffset={0}
         plotGridRef={plotGridRef}
+        facetLeftHeaderPx={28}
         facetLeftValueWidthsPx={[40, 60]}
         facetTopValueHeightsPx={[20, 20]}
         onFacetColumnResize={onFacetColumnResize}
@@ -37,6 +38,7 @@ describe('GridResizeOverlay facet handles', () => {
     );
 
     const handle = getByTestId('facet-col-handle-0');
+    expect(handle).toHaveStyle({ left: '68px', top: '60px', height: '210px' });
     fireEvent.mouseDown(handle, { clientX: 100, clientY: 0 });
     fireEvent.mouseMove(document, { clientX: 126, clientY: 0 });
     fireEvent.mouseUp(document, { clientX: 126, clientY: 0 });
@@ -62,6 +64,7 @@ describe('GridResizeOverlay facet handles', () => {
         horizontalScrollOffset={0}
         verticalScrollOffset={0}
         plotGridRef={plotGridRef}
+        facetLeftHeaderPx={28}
         facetLeftValueWidthsPx={[40, 60]}
         facetTopValueHeightsPx={[20, 30]}
         onFacetRowResize={onFacetRowResize}
@@ -69,6 +72,7 @@ describe('GridResizeOverlay facet handles', () => {
     );
 
     const handle = getByTestId('facet-row-handle-1');
+    expect(handle).toHaveStyle({ top: '70px', left: '180px', width: '320px' });
     fireEvent.mouseDown(handle, { clientX: 0, clientY: 150 });
     fireEvent.mouseMove(document, { clientX: 0, clientY: 168 });
     fireEvent.mouseUp(document, { clientX: 0, clientY: 168 });

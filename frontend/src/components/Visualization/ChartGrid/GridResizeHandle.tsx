@@ -5,6 +5,7 @@ interface GridResizeHandleProps {
   orientation: 'horizontal' | 'vertical';
   position: number; // px offset from top (horizontal) or left (vertical)
   length: number; // px length of the handle
+  crossAxisOffset?: number; // px offset on the orthogonal axis where the handle starts
   onResizeStart?: () => void;
   onResizeMove?: (delta: number) => void;
   onResizeEnd?: (delta: number) => void;
@@ -24,6 +25,7 @@ const GridResizeHandle: React.FC<GridResizeHandleProps> = ({
   orientation,
   position,
   length,
+  crossAxisOffset = 0,
   onResizeStart,
   onResizeMove,
   onResizeEnd,
@@ -104,7 +106,7 @@ const GridResizeHandle: React.FC<GridResizeHandleProps> = ({
         ...(isHorizontal
           ? {
               top: `${position}px`,
-              left: 0,
+              left: `${crossAxisOffset}px`,
               width: `${length}px`,
               height: `${RESIZE_HANDLE_WIDTH}px`,
               transform: 'translateY(-50%)', // Center on gridline
@@ -112,7 +114,7 @@ const GridResizeHandle: React.FC<GridResizeHandleProps> = ({
             }
           : {
               left: `${position}px`,
-              top: 0,
+              top: `${crossAxisOffset}px`,
               height: `${length}px`,
               width: `${RESIZE_HANDLE_WIDTH}px`,
               transform: 'translateX(-50%)', // Center on gridline

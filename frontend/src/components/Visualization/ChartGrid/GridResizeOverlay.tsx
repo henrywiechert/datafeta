@@ -36,6 +36,7 @@ interface GridResizeOverlayProps {
   previewRowResize?: (intent: UniformResizeIntent) => number;
   onColumnResize?: (intent: UniformResizeIntent) => void;
   onRowResize?: (intent: UniformResizeIntent) => void;
+  facetLeftHeaderPx?: number;
   facetLeftValueWidthsPx?: number[];
   facetTopValueHeightsPx?: number[];
   previewFacetColumnResize?: (intent: UniformResizeIntent) => number;
@@ -182,6 +183,7 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
   previewRowResize,
   onColumnResize,
   onRowResize,
+  facetLeftHeaderPx = 0,
   facetLeftValueWidthsPx = [],
   facetTopValueHeightsPx = [],
   previewFacetColumnResize,
@@ -270,13 +272,13 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
 
   const facetColumnPositions = useMemo(() => {
     const positions: number[] = [];
-    let cumulative = 0;
+    let cumulative = facetLeftHeaderPx;
     for (const width of facetLeftValueWidthsPx) {
       cumulative += width;
       positions.push(cumulative);
     }
     return positions;
-  }, [facetLeftValueWidthsPx]);
+  }, [facetLeftHeaderPx, facetLeftValueWidthsPx]);
 
   const facetRowPositions = useMemo(() => {
     const positions: number[] = [];
@@ -431,6 +433,7 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
           orientation="vertical"
           position={xPos}
           length={Math.max(1, containerHeight - topHeaderHeight - bottomFixedHeight)}
+          crossAxisOffset={topHeaderHeight}
           isInAxisArea={true}
           onResizeStart={() => handleFacetColumnResizeStart(depthIndex)}
           onResizeMove={handleFacetColumnResizeMove}
@@ -447,6 +450,7 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
           orientation="horizontal"
           position={yPos}
           length={Math.max(1, containerWidth - leftFixedWidth)}
+          crossAxisOffset={leftFixedWidth}
           isInAxisArea={true}
           onResizeStart={() => handleFacetRowResizeStart(depthIndex)}
           onResizeMove={handleFacetRowResizeMove}
@@ -468,6 +472,7 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
             // Adjust for horizontal scroll so the handle tracks the visible gridline.
             position={leftFixedWidth + xPos - horizontalScrollOffset}
             length={columnHandleLength ?? bottomFixedHeight} // Usually X-axis area; axisless charts use plot area.
+            crossAxisOffset={containerHeight - (columnHandleLength ?? bottomFixedHeight)}
             isInAxisArea={true}
             onResizeStart={() => handleColumnResizeStart(index)}
             onResizeMove={(delta) => handleColumnResizeMove(delta, index)}
@@ -490,6 +495,7 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
             // Adjust for vertical scroll so the handle tracks the visible gridline.
             position={topHeaderHeight + yPos - verticalScrollOffset}
             length={rowHandleLength ?? leftFixedWidth} // Usually Y-axis area; axisless charts use plot area.
+            crossAxisOffset={0}
             isInAxisArea={true}
             onResizeStart={() => handleRowResizeStart(index)}
             onResizeMove={(delta) => handleRowResizeMove(delta, index)}
