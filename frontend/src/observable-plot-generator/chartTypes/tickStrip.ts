@@ -6,6 +6,7 @@ import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { computeBandPaddingFromSizeField } from './barCore';
 import { Field } from '../../types';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
+import { buildCategoryTickFormatter } from '../utils/categoryTickFormatter';
 
 type Domains = Record<string, [number, number] | [Date, Date] | any[]> | undefined;
 
@@ -160,6 +161,7 @@ function buildPlotOptions(
             domain: categories as any,
             type: 'band' as any,
             padding: bandPadding as any,
+            tickFormat: buildCategoryTickFormatter('y'),
           }
         : { label: ' ', domain: [' '] as any, type: 'band' as any, padding: bandPadding as any },
       // Size handled by layout system, not here - enables resize handles
@@ -181,6 +183,7 @@ function buildPlotOptions(
             domain: categories as any,
             type: 'band' as any,
             padding: bandPadding as any,
+            tickFormat: buildCategoryTickFormatter('x'),
           }
         : { label: ' ', domain: [' '] as any, type: 'band' as any, padding: bandPadding as any },
       // Size handled by layout system, not here - enables resize handles

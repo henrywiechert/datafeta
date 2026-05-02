@@ -4,6 +4,7 @@ import { ColorScaleInfo } from '../utils/colorSchemeUtils';
 import { DEFAULT_CHART_COLOR, BAND_PADDING } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
+import { buildCategoryTickFormatter } from '../utils/categoryTickFormatter';
 
 export type Orientation = 'vertical' | 'horizontal';
 
@@ -369,6 +370,7 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     domain: categories as any,
     type: 'band' as any,
     padding: bandPadding as any,
+    ...(categoryColumn ? { tickFormat: buildCategoryTickFormatter(O.category) } : {}),
     grid: false,  // Disable grid on category axis to prevent shifting with padding changes
     // Don't set explicit range - let Observable Plot compute it naturally
     // The suppressAxes function ensures margins are 0, so bands will fill available space

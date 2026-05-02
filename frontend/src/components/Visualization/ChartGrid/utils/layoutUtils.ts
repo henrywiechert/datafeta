@@ -11,6 +11,25 @@ import type { CSSProperties } from 'react';
 const TEXT_PX_PER_CHAR = 6; // conservative estimate for 12-14px font
 const MIN_Y_AXIS_GUTTER_PX = 28;
 
+function formatTickValue(value: any, tickFormat?: ((value: any) => any) | undefined): string {
+  if (!tickFormat) {
+    return String(value ?? '');
+  }
+
+  try {
+    return String(tickFormat(value) ?? '');
+  } catch {
+    return String(value ?? '');
+  }
+}
+
+function estimateLongestTickPx(domain: any[], tickFormat?: ((value: any) => any) | undefined): number {
+  return domain.reduce((max: number, value: any) => {
+    const formatted = formatTickValue(value, tickFormat);
+    return Math.max(max, estimateTextPx(formatted));
+  }, 0);
+}
+
 /**
  * Estimate pixel width of text based on character count
  */
@@ -30,10 +49,11 @@ export function computeDynamicYAxisGutterPx(grid: GridResultModel | null, rows: 
     const yOpts: any = sample?.content.options?.y || {};
     const yType = yOpts?.type;
     const yDomain = yOpts?.domain as any;
+    const yTickFormat = yOpts?.tickFormat as ((value: any) => any) | undefined;
     let tickWidth = 0;
     if (yType === 'band' && Array.isArray(yDomain)) {
-      // Categorical axis: estimate by longest label
-      const longest = yDomain.reduce((m: number, v: any) => Math.max(m, estimateTextPx(String(v))), 0);
+      // Categorical axis: estimate by the visible tick text, not the raw domain values.
+      const longest = estimateLongestTickPx(yDomain, yTickFormat);
       tickWidth = longest + 10; // padding
     } else if (Array.isArray(yDomain) && yDomain.length === 2) {
       // Numeric axis: endpoints only (ticks are generated inside ObservablePlot)
@@ -57,9 +77,10 @@ export function computeDynamicXAxisGutterPx(grid: GridResultModel | null, column
     const xOpts: any = sample?.content.options?.x || {};
     const xType = xOpts?.type;
     const xDomain = xOpts?.domain as any;
+    const xTickFormat = xOpts?.tickFormat as ((value: any) => any) | undefined;
     let height = 24;
     if (xType === 'band' && Array.isArray(xDomain)) {
-      const longestPx = xDomain.reduce((m: number, v: any) => Math.max(m, estimateTextPx(String(v))), 0);
+      const longestPx = estimateLongestTickPx(xDomain, xTickFormat);
       // Approx vertical component of rotated labels at 45deg
       const rotatedVertical = Math.ceil(longestPx * Math.SQRT1_2) + 8; // 0.707 + padding
       height = Math.max(30, 14 + rotatedVertical); // base tick + labels
