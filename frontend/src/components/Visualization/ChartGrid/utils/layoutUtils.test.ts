@@ -1,6 +1,8 @@
 import { GridResultModel } from '../../../../observable-plot-generator/gridModel';
 import {
   buildPlotGridSizingStyle,
+  computeDynamicXAxisGutterPx,
+  computeDynamicYAxisGutterPx,
   computeTotalContentWidth,
   generateColumnTemplate,
   generateRowTemplate,
@@ -92,5 +94,65 @@ describe('layoutUtils', () => {
       totalContentWidthPx: 120,
       columnSizes: ['fr'],
     }).width).toBe('100%');
+  });
+
+  it('sizes the X-axis gutter from formatted categorical ticks', () => {
+    const grid = buildGrid({
+      cells: [
+        {
+          id: 'c0',
+          position: { row: 0, col: 0 },
+          content: {
+            kind: 'plot',
+            options: {
+              x: {
+                type: 'band',
+                domain: ['Extremely verbose category label that should not drive layout'],
+                tickFormat: () => 'Short label',
+              },
+            },
+          },
+        } as any,
+      ],
+      layout: {
+        type: 'grid',
+        columns: 1,
+        rows: 1,
+        columnSizes: ['fr'],
+        rowSizes: ['fr'],
+      },
+    });
+
+    expect(computeDynamicXAxisGutterPx(grid, 1)).toBe(69);
+  });
+
+  it('sizes the Y-axis gutter from formatted categorical ticks', () => {
+    const grid = buildGrid({
+      cells: [
+        {
+          id: 'r0',
+          position: { row: 0, col: 0 },
+          content: {
+            kind: 'plot',
+            options: {
+              y: {
+                type: 'band',
+                domain: ['Extremely verbose category label that should not drive layout'],
+                tickFormat: () => 'Short label',
+              },
+            },
+          },
+        } as any,
+      ],
+      layout: {
+        type: 'grid',
+        columns: 1,
+        rows: 1,
+        columnSizes: ['fr'],
+        rowSizes: ['fr'],
+      },
+    });
+
+    expect(computeDynamicYAxisGutterPx(grid, 1)).toBe(76);
   });
 });

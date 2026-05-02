@@ -39,7 +39,7 @@ describe('barChart refactored implementation', () => {
     };
 
     const opts = barChart(ctx);
-    expect(opts.y?.label).toBe('SUM(value)');
+    expect(opts.y?.label).toBe('value');
     expect(opts.x?.domain).toEqual(['A', 'B', 'C']);
     expect(opts.color).toBeDefined();
     // Width/height are controlled by the grid layout sizing; options may omit explicit width.
@@ -56,7 +56,7 @@ describe('barChart refactored implementation', () => {
     };
 
     const opts = barChart(ctx);
-    expect(opts.y?.label).toBe('SUM(value)');
+    expect(opts.y?.label).toBe('value');
     expect(opts.x?.domain).toEqual([' ']);
     // Width/height are controlled by the grid layout sizing; options may omit explicit width.
   });
@@ -79,7 +79,7 @@ describe('barChart refactored implementation', () => {
     };
 
     const opts = barChart(ctx);
-    expect(opts.x?.label).toBe('SUM(value)');
+    expect(opts.x?.label).toBe('value');
     expect(opts.y?.domain).toEqual(['A', 'B']);
     // Width/height are controlled by the grid layout sizing; options may omit explicit height.
   });
@@ -104,6 +104,27 @@ describe('barChart refactored implementation', () => {
 
     const opts = barChart(ctx);
     expect(opts.x?.domain).toEqual(['2', '50', '100']);
+  });
+
+  test('truncates long category labels on the categorical axis', () => {
+    const ctx: ChartGenerationContext = {
+      queryResult: {
+        rows: [
+          { category: 'Very long category label that should be trimmed', 'SUM(value)': 10 },
+        ],
+        columns: [],
+        row_count: 1
+      } as any,
+      xFields: [dim('category')],
+      yFields: [meas('value', 'sum')],
+      colorField: undefined,
+      sizeField: undefined,
+      colorScheme: undefined
+    };
+
+    const opts = barChart(ctx);
+    expect(typeof opts.x?.tickFormat).toBe('function');
+    expect((opts.x as any).tickFormat('Very long category label that should be trimmed')).toBe('Very long categ...');
   });
 
   test('domain starts at zero and pads positive max', () => {
@@ -151,7 +172,7 @@ describe('barChart refactored implementation', () => {
     };
 
     const opts = barChart(ctx);
-    expect(opts.y?.label).toBe('SUM(value)');
+    expect(opts.y?.label).toBe('value');
     expect(opts.x?.domain).toEqual([' ']); // single category
     
     // The domain should reflect the total (60 = 10+20+30), not individual values
