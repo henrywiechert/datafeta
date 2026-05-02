@@ -155,4 +155,33 @@ describe('layoutUtils', () => {
 
     expect(computeDynamicYAxisGutterPx(grid, 1)).toBe(76);
   });
+
+  it('caps the Y-axis gutter for long categorical ticks to the rendered band width', () => {
+    const grid = buildGrid({
+      cells: [
+        {
+          id: 'r0',
+          position: { row: 0, col: 0 },
+          content: {
+            kind: 'plot',
+            options: {
+              y: {
+                type: 'band',
+                domain: ['Extremely verbose category label that should not reserve its full raw width'],
+              },
+            },
+          },
+        } as any,
+      ],
+      layout: {
+        type: 'grid',
+        columns: 1,
+        rows: 1,
+        columnSizes: ['fr'],
+        rowSizes: ['fr'],
+      },
+    });
+
+    expect(computeDynamicYAxisGutterPx(grid, 1)).toBe(130);
+  });
 });

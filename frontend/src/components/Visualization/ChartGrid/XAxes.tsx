@@ -115,7 +115,7 @@ const XAxes: React.FC<XAxesProps> = ({
                   borderTop: `1px solid ${GRID_DIVIDER_COLOR}`,
                 }}
               >
-                <ObservablePlot options={{ ...buildXAxisOptions(xLabel, xDomain, dynamicXAxisPx, xType, xPadding, xTicks, xTickFormat), marks: [Plot.axisX({ tickRotate: xRotate as any, ...(xTicks !== undefined ? { ticks: xTicks } : {}), ...(xTickFormat !== undefined ? { tickFormat: xTickFormat } : {}) })] as any }} />
+                <ObservablePlot options={{ ...buildXAxisOptions(xLabel, xDomain, dynamicXAxisPx, xType, xPadding, xTicks, xTickFormat), marks: [Plot.axisX({ tickRotate: xRotate as any, ...(xTicks !== undefined ? { ticks: xTicks } : {}), ...(xTickFormat !== undefined ? { tickFormat: xTickFormat } : {}), ...(xType === 'band' ? { textOverflow: 'ellipsis', lineWidth: 6.5 } : {}) })] as any }} />
               </div>
             );
           })}

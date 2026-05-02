@@ -12,7 +12,7 @@ function dim(columnName: string): any {
 }
 
 describe('tickStrip', () => {
-  test('truncates long category labels on the categorical axis', () => {
+  test('sets band domain for categorical axis', () => {
     const ctx: ChartGenerationContext = {
       queryResult: {
         rows: [
@@ -36,9 +36,7 @@ describe('tickStrip', () => {
       category: 'Category',
     });
 
-    expect(typeof opts.y?.tickFormat).toBe('function');
-    expect((opts.y as any).tickFormat('A category label that is clearly too wide for the axis')).toBe(
-      'A category label that is clea...'
-    );
+    expect(opts.y?.type).toBe('band');
+    expect(opts.y?.tickFormat).toBeUndefined();
   });
 });
