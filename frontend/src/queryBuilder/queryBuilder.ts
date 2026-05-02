@@ -36,6 +36,29 @@ export const convertFilterConfigsToFilters = (
 
   Object.values(filterConfigs).forEach(config => {
     if (config.type === 'discrete') {
+      if (config.matchMode === 'pattern') {
+        const pattern = config.pattern?.trim();
+        if (!pattern) {
+          return;
+        }
+
+        const operator = config.patternOperator || 'like';
+
+        const filter: Filter = {
+          field: config.columnName,
+          operator: config.isInversePattern
+            ? (operator === 'ilike' ? 'not ilike' : 'not like')
+            : operator,
+          value: pattern,
+        };
+        if (config.dateTimePart && config.dateTimeMode) {
+          filter.date_part = config.dateTimePart;
+          filter.date_mode = config.dateTimeMode;
+        }
+        filters.push(filter);
+        return;
+      }
+
       // For discrete filters, use 'in' or 'not in' depending on which list is shorter.
       // When excludedValues is available and shorter, use 'not in' to reduce query payload.
       // The backend handles NULL values specially for both operators.

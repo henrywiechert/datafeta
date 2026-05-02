@@ -498,12 +498,20 @@ export function useFilterMetadata({
                 type: 'SET_FILTER_METADATA',
                 payload: { fieldId, metadata }
             });
+
+            const currentConfig = filterConfigurations[fieldId];
+            const preservePatternMode = currentConfig
+                && currentConfig.type === 'discrete'
+                && currentConfig.matchMode === 'pattern';
             
             // Update selected values:
             // - If count is 0: clear selections
             // - If count <=5000 (and >0): select all new values
             // - If count >5000: keep existing selections (partial results)
-            if (count === 0) {
+            if (preservePatternMode) {
+                // Previewing sampled values for a pattern filter should not rewrite the
+                // persisted filter config into a selection list.
+            } else if (count === 0) {
                 // Clear selections when no results
                 dispatch({
                     type: 'SET_FILTER_CONFIGURATION',
@@ -514,6 +522,7 @@ export function useFilterMetadata({
                             columnName: field.columnName,
                             type: 'discrete',
                             selectedValues: [],
+                            matchMode: 'selection',
                             dateTimePart: field.dateTimePart,
                             dateTimeMode: field.dateTimeMode,
                         }
@@ -530,6 +539,7 @@ export function useFilterMetadata({
                             columnName: field.columnName,
                             type: 'discrete',
                             selectedValues: values,
+                            matchMode: 'selection',
                             dateTimePart: field.dateTimePart,
                             dateTimeMode: field.dateTimeMode,
                         }

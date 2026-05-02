@@ -99,6 +99,10 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
       columnName: field.columnName,
       type: 'discrete',
       selectedValues: values,
+      matchMode: 'selection',
+      pattern: filterConfig?.type === 'discrete' ? filterConfig.pattern : undefined,
+      patternOperator: filterConfig?.type === 'discrete' ? filterConfig.patternOperator : undefined,
+      isInversePattern: filterConfig?.type === 'discrete' ? filterConfig.isInversePattern : undefined,
       excludedValues,
       totalAvailableCount,
       dateTimePart: field.dateTimePart,
@@ -106,6 +110,27 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
       isZoomFilter: filterConfig?.isZoomFilter,
     });
   }, [field.id, field.columnName, field.dateTimePart, field.dateTimeMode, onConfigChange, filterMetadata, filterConfig?.isZoomFilter]);
+
+  const handleDiscretePatternChange = useCallback((patternConfig: {
+    matchMode: 'selection' | 'pattern';
+    pattern: string;
+    patternOperator: 'like' | 'ilike';
+    isInversePattern: boolean;
+  }) => {
+    onConfigChange({
+      fieldId: field.id,
+      columnName: field.columnName,
+      type: 'discrete',
+      selectedValues: filterConfig && filterConfig.type === 'discrete' ? filterConfig.selectedValues : [],
+      matchMode: patternConfig.matchMode,
+      pattern: patternConfig.pattern,
+      patternOperator: patternConfig.patternOperator,
+      isInversePattern: patternConfig.isInversePattern,
+      dateTimePart: field.dateTimePart,
+      dateTimeMode: field.dateTimeMode,
+      isZoomFilter: filterConfig?.isZoomFilter,
+    });
+  }, [field.id, field.columnName, field.dateTimePart, field.dateTimeMode, onConfigChange, filterConfig]);
 
   const handleContinuousChange = useCallback((newMin: number | null, newMax: number | null) => {
     onConfigChange({
@@ -162,7 +187,12 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
         <DiscreteFilterControl
           metadata={filterMetadata}
           selectedValues={selectedValues}
+          matchMode={filterConfig && filterConfig.type === 'discrete' ? filterConfig.matchMode : 'selection'}
+          pattern={filterConfig && filterConfig.type === 'discrete' ? filterConfig.pattern : ''}
+          patternOperator={filterConfig && filterConfig.type === 'discrete' ? filterConfig.patternOperator : 'like'}
+          isInversePattern={filterConfig && filterConfig.type === 'discrete' ? filterConfig.isInversePattern : false}
           onChange={handleDiscreteChange}
+          onPatternChange={handleDiscretePatternChange}
           onRefetchValues={onRefetchValues}
         />
       );
@@ -224,6 +254,12 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
     if (!filterConfig) return field.columnName;
 
     if (filterConfig.type === 'discrete') {
+      if (filterConfig.matchMode === 'pattern' && filterConfig.pattern?.trim()) {
+        const patternSummary = `${filterConfig.isInversePattern ? 'excludes' : 'matches'} ${filterConfig.pattern.trim()}`;
+        const caseSummary = filterConfig.patternOperator === 'ilike' ? ', ci' : '';
+        return `${field.columnName} (${patternSummary}${caseSummary})`;
+      }
+
       // Pure exclusion mode: selectedValues empty but excludedValues set
       if (
         filterConfig.selectedValues.length === 0

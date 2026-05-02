@@ -344,6 +344,19 @@ class FilterTierManager {
       
       // Handle different filter types
       if (config.type === 'discrete') {
+        if (config.matchMode === 'pattern') {
+          const pattern = config.pattern?.trim();
+          if (!pattern) {
+            continue;
+          }
+
+          const stringExpr = `CAST(${columnExpr} AS VARCHAR)`;
+          const likeOperator = config.patternOperator === 'ilike' ? 'ILIKE' : 'LIKE';
+          const negation = config.isInversePattern ? 'NOT ' : '';
+          conditions.push(`${stringExpr} ${negation}${likeOperator} ${quoteValue(pattern)}`);
+          continue;
+        }
+
         // Discrete filter: use NOT IN when excludedValues is available and shorter,
         // or when in pure exclusion mode (selectedValues empty, excludedValues set).
         const selectedValues = config.selectedValues || [];

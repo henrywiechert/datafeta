@@ -30,6 +30,8 @@ OPERATOR_MAP: Dict[str, Callable[[Any, Any], Criterion]] = {
     "not in": lambda f, v: ~f.isin(v),
     "like": lambda f, v: f.like(v),
     "ilike": lambda f, v: f.ilike(v),
+    "not like": lambda f, v: ~f.like(v),
+    "not ilike": lambda f, v: ~f.ilike(v),
     "is null": lambda f, v: f.isnull(),
     "is not null": lambda f, v: f.notnull(),
 }

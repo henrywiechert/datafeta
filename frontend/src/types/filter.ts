@@ -6,6 +6,8 @@
 import { DateTimePart, DateTimeMode } from './field';
 
 export type FilterType = 'discrete' | 'continuous' | 'datetime';
+export type DiscreteFilterMatchMode = 'selection' | 'pattern';
+export type DiscretePatternOperator = 'like' | 'ilike';
 
 // Filter scope: sheet (per-sheet, persisted) or session (global, ephemeral)
 export type FilterScope = 'sheet' | 'session';
@@ -27,6 +29,10 @@ interface BaseFilterConfig {
 export interface DiscreteFilterConfig extends BaseFilterConfig {
   type: 'discrete';
   selectedValues: any[];
+  matchMode?: DiscreteFilterMatchMode;
+  pattern?: string;
+  patternOperator?: DiscretePatternOperator;
+  isInversePattern?: boolean;
   // Optimization: when excluding fewer values than including, store the exclusion list
   // so the query builder can use NOT IN instead of IN for a smaller query payload.
   excludedValues?: any[];
