@@ -38,7 +38,7 @@ function fieldsToHashKey(fields: Field[]): string {
 /**
  * Convert filter configurations to stable hash key.
  */
-function filtersToHashKey(filters: Record<string, FilterConfig>): string {
+export function filtersToHashKey(filters: Record<string, FilterConfig>): string {
   // Sort by key for deterministic output
   const sortedKeys = Object.keys(filters).sort();
   const normalized = sortedKeys.map(key => {

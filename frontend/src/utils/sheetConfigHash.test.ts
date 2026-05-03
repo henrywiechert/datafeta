@@ -1,4 +1,4 @@
-import { computeChartConfigHash, computeQueryConfigHash } from './sheetConfigHash';
+import { computeChartConfigHash, computeQueryConfigHash, filtersToHashKey } from './sheetConfigHash';
 import { ChartAffectingConfig, QueryAffectingConfig } from './queryAffectingConfig';
 
 function baseQueryConfig(): QueryAffectingConfig {
@@ -61,6 +61,32 @@ describe('sheetConfigHash', () => {
       // is unaffected.
       const b = computeQueryConfigHash(baseQueryConfig());
       expect(a).toBe(b);
+    });
+  });
+
+  describe('filtersToHashKey', () => {
+    it('ignores scope-only changes for otherwise identical filters', () => {
+      const local = filtersToHashKey({
+        region: {
+          fieldId: 'region',
+          columnName: 'region',
+          type: 'discrete',
+          selectedValues: ['West', 'East'],
+          scope: 'sheet',
+        },
+      });
+
+      const global = filtersToHashKey({
+        region: {
+          fieldId: 'region',
+          columnName: 'region',
+          type: 'discrete',
+          selectedValues: ['West', 'East'],
+          scope: 'session',
+        },
+      });
+
+      expect(local).toBe(global);
     });
   });
 });

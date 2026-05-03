@@ -4,6 +4,34 @@ import { VisualizationState, VisualizationAction } from '../types';
  * Handles filter-related actions: filter fields, configurations, metadata, and application.
  */
 export function filterReducer(state: VisualizationState, action: VisualizationAction): VisualizationState | null {
+  const removeFilterConfiguration = (
+    fieldId: string,
+    incrementQueryVersion: boolean,
+    preserveMetadata: boolean = false,
+  ): VisualizationState => {
+    const newConfigs = { ...state.filterConfigurations };
+    const newApplied = { ...state.appliedFilterConfigurations };
+    delete newConfigs[fieldId];
+    delete newApplied[fieldId];
+
+    const newMetadata = preserveMetadata
+      ? state.filterMetadata
+      : (() => {
+          const nextMetadata = { ...state.filterMetadata };
+          delete nextMetadata[fieldId];
+          return nextMetadata;
+        })();
+
+    return {
+      ...state,
+      filterConfigurations: newConfigs,
+      filterMetadata: newMetadata,
+      appliedFilterConfigurations: newApplied,
+      disabledFilterIds: (state.disabledFilterIds ?? []).filter(id => id !== fieldId),
+      queryVersion: incrementQueryVersion ? state.queryVersion + 1 : state.queryVersion,
+    };
+  };
+
   switch (action.type) {
     case 'SET_FILTER_FIELDS':
       return { ...state, filterFields: action.payload };
@@ -15,6 +43,18 @@ export function filterReducer(state: VisualizationState, action: VisualizationAc
           [action.payload.fieldId]: action.payload.config,
         },
       };
+    case 'SET_AND_APPLY_FILTER_CONFIGURATION_SILENT':
+      return {
+        ...state,
+        filterConfigurations: {
+          ...state.filterConfigurations,
+          [action.payload.fieldId]: action.payload.config,
+        },
+        appliedFilterConfigurations: {
+          ...state.appliedFilterConfigurations,
+          [action.payload.fieldId]: action.payload.config,
+        },
+      };
     case 'SET_FILTER_METADATA':
       return {
         ...state,
@@ -23,21 +63,10 @@ export function filterReducer(state: VisualizationState, action: VisualizationAc
           [action.payload.fieldId]: action.payload.metadata,
         },
       };
+    case 'REMOVE_FILTER_CONFIGURATION_SILENT':
+      return removeFilterConfiguration(action.payload, false, true);
     case 'REMOVE_FILTER_CONFIGURATION': {
-      const newConfigs = { ...state.filterConfigurations };
-      const newMetadata = { ...state.filterMetadata };
-      const newApplied = { ...state.appliedFilterConfigurations };
-      delete newConfigs[action.payload];
-      delete newMetadata[action.payload];
-      delete newApplied[action.payload];
-      return {
-        ...state,
-        filterConfigurations: newConfigs,
-        filterMetadata: newMetadata,
-        appliedFilterConfigurations: newApplied,
-        disabledFilterIds: (state.disabledFilterIds ?? []).filter(id => id !== action.payload),
-        queryVersion: state.queryVersion + 1,
-      };
+      return removeFilterConfiguration(action.payload, true);
     }
     case 'APPLY_FILTERS':
       return {
