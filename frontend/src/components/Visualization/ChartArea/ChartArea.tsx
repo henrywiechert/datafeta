@@ -79,6 +79,11 @@ const ChartArea: React.FC = () => {
   const { selectedTable, selectedDatabase, virtualTable, virtualColumns, sessionAppliedFilterConfigurations } =
     dataSource;
 
+  const [autoCategoryTickStyles, setAutoCategoryTickStyles] = useState({
+    xHeightPx: null as number | null,
+    yWidthPx: null as number | null,
+  });
+
   // -- Derived values ----------------------------------------------------------
   const effectiveFilterConfigurations = useMemo(
     () => buildEffectiveFilterConfigurations({
@@ -139,6 +144,19 @@ const ChartArea: React.FC = () => {
     optimizationSettings,
   });
 
+  useEffect(() => {
+    setAutoCategoryTickStyles({ xHeightPx: null, yWidthPx: null });
+  }, [queryVersion, xAxisFields, yAxisFields, globalChartType, distributionVariant]);
+
+  const handleAutoCategoryTickMeasure = useCallback((sizes: { xHeightPx: number; yWidthPx: number }) => {
+    setAutoCategoryTickStyles((prev) => {
+      if (prev.xHeightPx === sizes.xHeightPx && prev.yWidthPx === sizes.yWidthPx) {
+        return prev;
+      }
+      return sizes;
+    });
+  }, []);
+
   const { grid, chartInfo, renderingError, facetLimitWarning, onFacetLimitProceed, onFacetLimitCancel } =
     useChartGeneration({
       xAxisFields,
@@ -161,8 +179,8 @@ const ChartArea: React.FC = () => {
       ganttZoomRange,
       overlays,
       viewSpec,
-      xAxisTickHeightPx: categoryTickStyles.xHeightPx,
-      yAxisTickWidthPx: categoryTickStyles.yWidthPx,
+      xAxisTickHeightPx: categoryTickStyles.xHeightPx ?? autoCategoryTickStyles.xHeightPx,
+      yAxisTickWidthPx: categoryTickStyles.yWidthPx ?? autoCategoryTickStyles.yWidthPx,
     });
 
   const { handleLegendFilterAction, handleShapeLegendFilterAction, gridWithTooltipAction } = useFilterActions({
@@ -384,6 +402,7 @@ const ChartArea: React.FC = () => {
             useTableView={useTableView}
             tableData={tableData}
             grid={gridWithTooltipAction}
+            onAutoCategoryTickMeasure={handleAutoCategoryTickMeasure}
             queryResult={queryResult}
             xAxisFields={xAxisFields}
             yAxisFields={yAxisFields}

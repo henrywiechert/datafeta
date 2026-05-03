@@ -16,6 +16,7 @@ interface ChartRendererProps {
   useTableView: boolean;
   tableData: TableData;
   grid: GridResultModel | null;
+  onAutoCategoryTickMeasure?: (sizes: { xHeightPx: number; yWidthPx: number }) => void;
   queryResult: any;
   xAxisFields: any[];
   yAxisFields: any[];
@@ -68,6 +69,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
   useTableView,
   tableData,
   grid,
+  onAutoCategoryTickMeasure,
   queryResult,
   xAxisFields,
   yAxisFields,
@@ -133,6 +135,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
       <ChartGrid 
         grid={grid} 
         data={queryResult}
+        onAutoCategoryTickMeasure={onAutoCategoryTickMeasure}
         onPlotRenderComplete={onPlotRenderComplete}
         isGanttChart={isGanttChart}
         ganttZoomRange={ganttZoomRange}
@@ -158,7 +161,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
         />
       </Box>
     );
-  }, [tableRowsContent, useTableView, tableData, grid, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete, isGanttChart, ganttZoomRange, onGanttZoomRangeChange, ganttFullDataRange, brushDisabled, onBrushEnd, tableRefactorPagerData]);
+  }, [tableRowsContent, useTableView, tableData, grid, onAutoCategoryTickMeasure, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete, isGanttChart, ganttZoomRange, onGanttZoomRangeChange, ganttFullDataRange, brushDisabled, onBrushEnd, tableRefactorPagerData]);
 
   return (
     <Box 
@@ -191,6 +194,7 @@ export default React.memo(ChartRenderer, (prevProps, nextProps) => {
     prevProps.useTableView === nextProps.useTableView &&
     prevProps.tableData === nextProps.tableData &&
     prevProps.grid === nextProps.grid &&
+    prevProps.onAutoCategoryTickMeasure === nextProps.onAutoCategoryTickMeasure &&
     prevProps.queryResult === nextProps.queryResult &&
     prevProps.xAxisFields === nextProps.xAxisFields &&
     prevProps.yAxisFields === nextProps.yAxisFields &&

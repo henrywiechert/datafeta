@@ -25,6 +25,7 @@ interface ChartGridProps {
   grid: GridResultModel | null;
   data: QueryResult | null;
   onPlotRenderComplete?: (plotId: string) => void;
+  onAutoCategoryTickMeasure?: (sizes: { xHeightPx: number; yWidthPx: number }) => void;
   /** Whether the current chart is a Gantt chart (enables WASD keyboard navigation) */
   isGanttChart?: boolean;
   /** Current Gantt zoom range (null = full data range) */
@@ -59,6 +60,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   grid: gridProp,
   data,
   onPlotRenderComplete,
+  onAutoCategoryTickMeasure,
   isGanttChart = false,
   ganttZoomRange = null,
   onGanttZoomRangeChange,
@@ -151,6 +153,14 @@ const ChartGrid: React.FC<ChartGridProps> = ({
     }
   }, [layoutCalcs, rowHeightPx]);
 
+  useEffect(() => {
+    if (!layoutCalcs || !onAutoCategoryTickMeasure) return;
+    onAutoCategoryTickMeasure({
+      xHeightPx: layoutCalcs.dynamicXAxisPx,
+      yWidthPx: layoutCalcs.dynamicYAxisPx,
+    });
+  }, [layoutCalcs, onAutoCategoryTickMeasure]);
+
   // Handle null or missing grid
   if (!grid) {
     return (
@@ -213,6 +223,7 @@ export default React.memo(ChartGrid, (prevProps, nextProps) => {
   return (
     prevProps.grid === nextProps.grid &&
     prevProps.data === nextProps.data &&
+    prevProps.onAutoCategoryTickMeasure === nextProps.onAutoCategoryTickMeasure &&
     prevProps.isGanttChart === nextProps.isGanttChart &&
     prevProps.ganttZoomRange === nextProps.ganttZoomRange &&
     prevProps.ganttFullDataRange === nextProps.ganttFullDataRange &&
