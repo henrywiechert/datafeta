@@ -135,6 +135,7 @@ export function barUnified(
       categoryField: categoryDims.length === 1 ? categoryDims[0] : undefined,
       categoriesDomain: sortedCategories,
       colorColumn,
+      colorField: colorField ?? undefined,
       colorScale,
       bandPadding,
       valueDomainOverride: useStackedDomain ? undefined : sharedDomains[measureName],

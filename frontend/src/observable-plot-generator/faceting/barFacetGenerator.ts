@@ -261,6 +261,7 @@ function buildMeasureBarOptions(
     categoryTickFormat,
     categoriesDomain: sortedCategories,
     colorColumn: colorColumnName,
+    colorField: colorField ?? undefined,
     colorScale: sharedDomains.colorScale,
     bandPadding: dynamicPadding,
     zeroBaseline: true,

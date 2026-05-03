@@ -1,4 +1,5 @@
 import { barChart } from './barChart';
+import { buildBarOptions } from './barCore';
 import { ChartGenerationContext } from '../types';
 
 // Mock observable plot ESM for Jest (simplified marks sufficient for domain tests)
@@ -110,6 +111,36 @@ describe('barChart refactored implementation', () => {
     expect(categoryTooltipField).toBeDefined();
     expect(categoryTooltipField.sourceField).toBe(categoryField);
     expect(categoryTooltipField.rawValue).toBe('A');
+  });
+
+  test('custom tooltip exposes the color source field with flavour for pinned-tooltip filtering', () => {
+    const colorField = dim('segment');
+    const ctx: ChartGenerationContext = {
+      queryResult: {
+        rows: [
+          { category: 'A', 'SUM(value)': 10, segment: 'X' },
+          { category: 'A', 'SUM(value)': 5, segment: 'Y' },
+        ],
+        columns: [],
+        row_count: 2
+      } as any,
+      xFields: [dim('category')],
+      yFields: [meas('value', 'sum')],
+      colorField,
+      sizeField: undefined,
+      colorScheme: undefined
+    };
+
+    const opts = barChart(ctx);
+    const tooltipConfig = (opts as any).__customTooltip;
+    const fields = tooltipConfig.getFields(tooltipConfig.data[0]);
+    const colorTooltipField = fields.find((f: any) => f.label === 'segment');
+
+    expect(colorTooltipField).toBeDefined();
+    // sourceField must be the real Field so the pinned tooltip can show filter icons
+    expect(colorTooltipField.sourceField).toBe(colorField);
+    expect(colorTooltipField.sourceField.flavour).toBe('discrete');
+    expect(colorTooltipField.rawValue).toBe('X');
   });
 
   test('numeric-string categories are ordered numerically for bins', () => {
@@ -258,5 +289,38 @@ describe('barChart refactored implementation', () => {
     const domain = opts.y?.domain as [number, number];
     expect(domain[1]).toBe(0);
     expect(domain[0]).toBeLessThan(-35); // padded lower (total -35)
+  });
+
+  test('buildBarOptions with real categoryColumn: color field sourceField has flavour for filtering', () => {
+    // Simulates the barFacetGenerator call pattern where categoryColumn is the actual
+    // column name (not "__category") and colorField must be explicitly passed through.
+    const colorField = dim('segment');
+    const categoryField = dim('category');
+    const data = [
+      { 'SUM(value)': 10, category: 'A', segment: 'X' },
+      { 'SUM(value)': 5,  category: 'A', segment: 'Y' },
+      { 'SUM(value)': 20, category: 'B', segment: 'X' },
+    ];
+
+    const opts = buildBarOptions({
+      data,
+      measureName: 'SUM(value)',
+      orientation: 'vertical',
+      categoryColumn: 'category',
+      categoryField,
+      categoriesDomain: ['A', 'B'],
+      colorColumn: 'segment',
+      colorField,
+      colorScale: null,
+    });
+
+    const tooltipConfig = (opts as any).__customTooltip;
+    const fields = tooltipConfig.getFields(data[0]);
+    const colorTooltipField = fields.find((f: any) => f.label === 'segment');
+
+    expect(colorTooltipField).toBeDefined();
+    expect(colorTooltipField.sourceField).toBe(colorField);
+    expect(colorTooltipField.sourceField.flavour).toBe('discrete');
+    expect(colorTooltipField.rawValue).toBe('X');
   });
 });
