@@ -53,6 +53,8 @@ export interface HeatmapOptionsInput {
   yField: Field;
   xDomain?: any[];
   yDomain?: any[];
+  xTickFormat?: (d: any) => string;
+  yTickFormat?: (d: any) => string;
   colorField?: Field | null;
   colorScheme?: string;
   colorBias?: number;
@@ -116,10 +118,6 @@ function getOrderedDistinctValues(data: any[], column: string): any[] {
   });
 }
 
-function formatHeatmapAxisTick(value: any): string {
-  return formatHeatmapLabel(value);
-}
-
 function normalizeHeatmapCellScale(size: number, fullCellSize: number): number {
   if (!Number.isFinite(size) || fullCellSize <= 0) return 1;
   return Math.max(0.05, Math.min(1, size / fullCellSize));
@@ -149,6 +147,8 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
     yField,
     xDomain,
     yDomain,
+    xTickFormat,
+    yTickFormat,
     colorField,
     colorScheme,
     colorBias,
@@ -314,18 +314,34 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
           label: getFieldDisplayName(xField),
           domain: [-0.5, Math.max(0.5, xDomainValues.length - 0.5)],
           ticks: xTickPositions,
-          tickFormat: (value: any) => formatHeatmapAxisTick(xDomainValues[Math.round(Number(value))]),
+          tickFormat: (value: any) => {
+            const label = formatHeatmapLabel(xDomainValues[Math.round(Number(value))]);
+            return xTickFormat ? xTickFormat(label) : label;
+          },
         }
-      : { type: 'band', label: getFieldDisplayName(xField), domain: xDomainValues },
+      : { 
+          type: 'band', 
+          label: getFieldDisplayName(xField), 
+          domain: xDomainValues,
+          ...(xTickFormat ? { tickFormat: (val: any) => xTickFormat(formatHeatmapLabel(val)) } : {})
+        },
     y: useScaledRectMark
       ? {
           type: 'linear',
           label: getFieldDisplayName(yField),
           domain: [-0.5, Math.max(0.5, yDomainValues.length - 0.5)],
           ticks: yTickPositions,
-          tickFormat: (value: any) => formatHeatmapAxisTick(yDomainValues[Math.round(Number(value))]),
+          tickFormat: (value: any) => {
+            const label = formatHeatmapLabel(yDomainValues[Math.round(Number(value))]);
+            return yTickFormat ? yTickFormat(label) : label;
+          },
         }
-      : { type: 'band', label: getFieldDisplayName(yField), domain: yDomainValues },
+      : { 
+          type: 'band', 
+          label: getFieldDisplayName(yField), 
+          domain: yDomainValues,
+          ...(yTickFormat ? { tickFormat: (val: any) => yTickFormat(formatHeatmapLabel(val)) } : {})
+        },
     ...(colorOption ? { color: colorOption } : {}),
     marks,
   };

@@ -14,6 +14,7 @@ import { generateCartesianPlots } from '../grid/coreGridGenerator';
 import { buildCdfOptions } from '../chartTypes/cdfChart';
 import { getFieldDisplayName } from '../../utils/fieldUtils';
 import { planFacets } from './facetPlanner';
+import { buildCategoryTickFormatter } from '../utils/categoryTickFormatter';
 
 /**
  * Chart-specific configuration derived from context and facet plan.
@@ -132,6 +133,13 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       );
     }
     
+    // Create tick formatter based on available pixels
+    const tickFormat = categoryAxis ? buildCategoryTickFormatter(
+      categoryAxis,
+      undefined,
+      categoryAxis === 'x' ? context.xAxisTickHeightPx : context.yAxisTickWidthPx
+    ) : undefined;
+
     // Create a specialized cell generator for multi-measure bar charts
     const barCellGen = createBarCellGenerator(
       xFields,
@@ -144,7 +152,8 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
       globalBandPadding,
       labelCfg,
       effectiveManualColor,
-      context.tooltipFields
+      context.tooltipFields,
+      tickFormat
     );
     
     // Use the coordinator for chart-type-agnostic faceting

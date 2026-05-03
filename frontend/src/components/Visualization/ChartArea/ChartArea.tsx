@@ -73,6 +73,7 @@ const ChartArea: React.FC = () => {
     showTableRows,
     overlays,
     disabledFilterIds,
+    categoryTickStyles,
   } = state;
 
   const { selectedTable, selectedDatabase, virtualTable, virtualColumns, sessionAppliedFilterConfigurations } =
@@ -160,6 +161,8 @@ const ChartArea: React.FC = () => {
       ganttZoomRange,
       overlays,
       viewSpec,
+      xAxisTickHeightPx: categoryTickStyles.xHeightPx,
+      yAxisTickWidthPx: categoryTickStyles.yWidthPx,
     });
 
   const { handleLegendFilterAction, handleShapeLegendFilterAction, gridWithTooltipAction } = useFilterActions({

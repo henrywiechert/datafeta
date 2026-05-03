@@ -129,7 +129,8 @@ function buildPlotOptions(
   colorField: Field | undefined,
   sizeField: Field | undefined,
   tooltipFields: Field[] | undefined,
-  sharedCategoryDomain?: any[]
+  sharedCategoryDomain?: any[],
+  categoryTickFormat?: (d: any) => string
 ): Plot.PlotOptions {
   // Use shared category domain if available, otherwise compute from local data
   const categories = categoryDimensionColumn 
@@ -160,8 +161,15 @@ function buildPlotOptions(
             domain: categories as any,
             type: 'band' as any,
             padding: bandPadding as any,
+            ...(categoryTickFormat ? { tickFormat: categoryTickFormat } : {}),
           }
-        : { label: ' ', domain: [' '] as any, type: 'band' as any, padding: bandPadding as any },
+        : {
+            label: ' ',
+            domain: [' '] as any,
+            type: 'band' as any,
+            padding: bandPadding as any,
+            ...(categoryTickFormat ? { tickFormat: categoryTickFormat } : {}),
+          },
       // Size handled by layout system, not here - enables resize handles
       marks: [markType(data, tickConfig), Plot.dot(data, hoverDotConfig)],
     };
@@ -181,8 +189,15 @@ function buildPlotOptions(
             domain: categories as any,
             type: 'band' as any,
             padding: bandPadding as any,
+            ...(categoryTickFormat ? { tickFormat: categoryTickFormat } : {}),
           }
-        : { label: ' ', domain: [' '] as any, type: 'band' as any, padding: bandPadding as any },
+        : {
+            label: ' ',
+            domain: [' '] as any,
+            type: 'band' as any,
+            padding: bandPadding as any,
+            ...(categoryTickFormat ? { tickFormat: categoryTickFormat } : {}),
+          },
       // Size handled by layout system, not here - enables resize handles
       marks: [markType(data, tickConfig), Plot.dot(data, hoverDotConfig)],
     };
@@ -211,8 +226,9 @@ export function tickStrip(
   labels?: { dimension?: string; category?: string },
   sharedDomains?: Domains
 ): Plot.PlotOptions {
-  const { queryResult, colorField, colorScheme, colorBias, sizeField, manualSize, manualColor, tooltipFields, bandThicknessScale } = context;
+  const { queryResult, colorField, colorScheme, colorBias, sizeField, manualSize, manualColor, tooltipFields, bandThicknessScale, xTickFormat, yTickFormat } = context;
   const data = queryResult.rows;
+  const categoryTickFormat = orientation === 'x' ? yTickFormat : xTickFormat;
   const colorInfo = colorField ? deriveColorScaleInfo(data, colorField, colorScheme, colorBias) : null;
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
   const strokeValue = colorField && colorInfo
@@ -255,13 +271,25 @@ export function tickStrip(
     if (orientation === 'x') {
       return {
         x: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true } as any,
-        y: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: bandPadding as any },
+        y: {
+          label: ' ',
+          domain: [' '] as any,
+          type: 'band' as any,
+          padding: bandPadding as any,
+          ...(categoryTickFormat ? { tickFormat: categoryTickFormat } : {}),
+        },
         marks: [],
       };
     } else {
       return {
         y: { label: labels?.dimension || dimensionColumn, domainKey: dimensionColumn, grid: true } as any,
-        x: { label: ' ', domain: [' '] as any, type: 'band' as any, padding: bandPadding as any },
+        x: {
+          label: ' ',
+          domain: [' '] as any,
+          type: 'band' as any,
+          padding: bandPadding as any,
+          ...(categoryTickFormat ? { tickFormat: categoryTickFormat } : {}),
+        },
         marks: [],
       };
     }
@@ -345,6 +373,7 @@ export function tickStrip(
     colorField,
     sizeField,
     tooltipFields,
-    sharedCategoryDomain
+    sharedCategoryDomain,
+    categoryTickFormat
   );
 }

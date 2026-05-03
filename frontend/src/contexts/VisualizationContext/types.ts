@@ -16,6 +16,11 @@ export interface YAxisLabelStyle {
   widthPx: number | null;  // null = auto-calculate, or manual override
 }
 
+export interface CategoryTickStyles {
+  xHeightPx: number | null; // null = auto-calculate, or manual override
+  yWidthPx: number | null;
+}
+
 export interface AxisLabelStyles {
   xAxis: XAxisLabelStyle;
   yAxis: YAxisLabelStyle;
@@ -141,6 +146,8 @@ export interface VisualizationState {
   ganttZoomRange: { min: number; max: number } | null;
   // Axis label styling
   axisLabelStyles: AxisLabelStyles;
+  // Category tick label styling
+  categoryTickStyles: CategoryTickStyles;
   // Facet label styling
   facetLabelStyles: FacetLabelStyles;
   // Chart area caption (markdown)
@@ -264,6 +271,7 @@ export type VisualizationAction =
       tablePage?: number;
       labelFontSize?: number;
       axisLabelStyles?: AxisLabelStyles;
+      categoryTickStyles?: CategoryTickStyles;
       facetLabelStyles?: FacetLabelStyles;
       facetBackgroundField?: Field | null;
       facetBackgroundScheme?: string;
@@ -292,6 +300,9 @@ export type VisualizationAction =
   // Axis label styling actions
   | { type: 'SET_X_AXIS_LABEL_STYLE'; payload: Partial<XAxisLabelStyle> }
   | { type: 'SET_Y_AXIS_LABEL_STYLE'; payload: Partial<YAxisLabelStyle> }
+  // Category tick styling actions
+  | { type: 'SET_CATEGORY_X_HEIGHT_PX'; payload: number | null }
+  | { type: 'SET_CATEGORY_Y_WIDTH_PX'; payload: number | null }
   // Facet label styling actions
   | { type: 'SET_FACET_TOP_HEADER_STYLE'; payload: Partial<FacetHeaderLabelStyle> }
   | { type: 'SET_FACET_TOP_VALUES_STYLE'; payload: Partial<FacetTopValuesLabelStyle> }

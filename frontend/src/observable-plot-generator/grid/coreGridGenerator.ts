@@ -284,7 +284,9 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
           ganttZoomRange,
           shapeField,
           manualShape,
-          distributionVariant
+          distributionVariant,
+          config.xTickFormat,
+          config.yTickFormat
         );
       }
 

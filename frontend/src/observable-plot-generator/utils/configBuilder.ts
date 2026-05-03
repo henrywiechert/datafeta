@@ -7,6 +7,7 @@ import { Field } from '../../types';
 import { ChartGenerationContext, CartesianPlotsConfig, LabelConfig, SharedDomains } from '../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { computeSharedDomainsForFaceting } from '../faceting/facetDomains';
+import { buildCategoryTickFormatter } from './categoryTickFormatter';
 
 /**
  * Compute SharedDomains from ChartGenerationContext.
@@ -206,5 +207,7 @@ export function buildCartesianPlotsConfig(
     bandThicknessScale: context.bandThicknessScale,
     ganttZoomRange: context.ganttZoomRange,
     overlays: context.overlays,
+    xTickFormat: buildCategoryTickFormatter('x', undefined, context.xAxisTickHeightPx),
+    yTickFormat: buildCategoryTickFormatter('y', undefined, context.yAxisTickWidthPx),
   };
 }
