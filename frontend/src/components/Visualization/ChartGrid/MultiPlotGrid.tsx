@@ -118,6 +118,8 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
   const columnResizeHandleLength = hideExternalAxes
     ? Math.max(1, containerDimensions.height - topHeaderHeight)
     : undefined;
+  const bottomAxisBandPx = dynamicXAxisPx + X_LABEL_ROW_PX + HORIZONTAL_SCROLLBAR_GUTTER_PX;
+  const plotBottomBoundaryPx = containerDimensions.height - bottomAxisBandPx;
 
   const { state, dispatch } = useVisualizationContext();
   const { axisLabelStyles } = state;
@@ -274,7 +276,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           top: facetPresent ? topHeaderHeight : 0,
           left: 0,
           right: 0,
-          bottom: dynamicXAxisPx + X_LABEL_ROW_PX + HORIZONTAL_SCROLLBAR_GUTTER_PX,
+          bottom: bottomAxisBandPx,
           overflowY: 'scroll',
           overflowX: 'hidden',
           zIndex: 2,
@@ -392,6 +394,19 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
         </div>
       </div>
 
+      <div
+        style={{
+          position: 'absolute',
+          top: `${plotBottomBoundaryPx - 1}px`,
+          left: `${leftFixedWidthPx}px`,
+          right: `${VERTICAL_SCROLLBAR_GUTTER_PX}px`,
+          height: '1px',
+          backgroundColor: GRID_DIVIDER_COLOR,
+          pointerEvents: 'none',
+          zIndex: 99,
+        }}
+      />
+
       {/* Grid Resize Overlay - handles positioned on gridlines in axis areas */}
       <div
         style={{
@@ -413,7 +428,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
         />
         <GridResizeHandle
           orientation="horizontal"
-          position={containerDimensions.height - dynamicXAxisPx}
+          position={plotBottomBoundaryPx}
           length={containerDimensions.width - leftFixedWidthPx}
           crossAxisOffset={leftFixedWidthPx}
           onResizeEnd={(delta) => handleCategoryXHeightResize({ currentSize: dynamicXAxisPx, delta })}
