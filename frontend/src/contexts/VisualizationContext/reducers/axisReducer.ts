@@ -34,7 +34,8 @@ export function axisReducer(state: VisualizationState, action: VisualizationActi
       return { 
         ...state, 
         xAxisFields: state.yAxisFields, 
-        yAxisFields: state.xAxisFields
+        yAxisFields: state.xAxisFields,
+        categoryTickStyles: initialState.categoryTickStyles,
       };
     case 'MOVE_FIELD_BETWEEN_AXES': {
       const { fieldId, fromAxis, toAxis, insertIndex } = action.payload;
