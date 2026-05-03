@@ -38,6 +38,8 @@ interface UseChartGenerationProps {
   ganttZoomRange?: GanttZoomRange | null;
   overlays?: OverlayConfig[];
   viewSpec?: ViewSpec | null;
+  xAxisTickHeightPx?: number | null;
+  yAxisTickWidthPx?: number | null;
 }
 
 interface UseChartGenerationReturn {
@@ -75,6 +77,8 @@ export const useChartGeneration = ({
   ganttZoomRange,
   overlays,
   viewSpec,
+  xAxisTickHeightPx,
+  yAxisTickWidthPx,
 }: UseChartGenerationProps): UseChartGenerationReturn => {
   const { field: colorField, scheme: colorScheme = 'tableau10', bias: colorBias = 0, manual: manualColor } = channels.color;
   const { field: sizeField, range: sizeRange, manual: manualSize, bandThicknessScale } = channels.size;
@@ -257,6 +261,8 @@ export const useChartGeneration = ({
         facetBackgroundOpacity,
         overlays,
         viewSpec,
+        xAxisTickHeightPx,
+        yAxisTickWidthPx,
         // Shape encoding
         shapeField: shapeField || undefined,
         manualShape,
@@ -309,7 +315,50 @@ export const useChartGeneration = ({
       // On error, complete the operation immediately since no rendering will happen
       completeOperation('rendering');
     }
-  }, [xAxisFields, yAxisFields, channels, useTableView, showTableRows, startOperation, completeOperation, queryResult, queryVersion, fieldOverrides, globalChartType, distributionVariant, tableCellMode, tablePage, tablePageSize, measureValuesSourceFields, independentDomains, doGenerateChart, fieldAliasLookup, overlays, viewSpec]);
+  }, [
+    xAxisFields,
+    yAxisFields,
+    useTableView,
+    showTableRows,
+    startOperation,
+    completeOperation,
+    queryResult,
+    queryVersion,
+    fieldOverrides,
+    globalChartType,
+    distributionVariant,
+    tableCellMode,
+    tablePage,
+    tablePageSize,
+    measureValuesSourceFields,
+    independentDomains,
+    doGenerateChart,
+    fieldAliasLookup,
+    overlays,
+    viewSpec,
+    colorField,
+    colorScheme,
+    colorBias,
+    manualColor,
+    sizeField,
+    sizeRange,
+    manualSize,
+    bandThicknessScale,
+    shapeField,
+    manualShape,
+    labelFields,
+    labelsEnabled,
+    labelSamplingStrategy,
+    labelSamplingThreshold,
+    labelSampleEvery,
+    labelFontSize,
+    tooltipFields,
+    facetBackgroundField,
+    facetBackgroundScheme,
+    facetBackgroundOpacity,
+    xAxisTickHeightPx,
+    yAxisTickWidthPx,
+  ]);
 
   const cancelGeneration = useCallback(() => {
     // No-op since Observable Plot generation is synchronous

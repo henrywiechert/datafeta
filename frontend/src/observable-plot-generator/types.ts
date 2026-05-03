@@ -73,6 +73,8 @@ export interface CartesianPlotsConfig {
   ganttZoomRange?: GanttZoomRange | null;
   /** Statistical overlay configurations */
   overlays?: OverlayConfig[];
+  xTickFormat?: (d: any) => string;
+  yTickFormat?: (d: any) => string;
 }
 
 export interface ChartGenerationContext {
@@ -96,6 +98,11 @@ export interface ChartGenerationContext {
   facetField?: Field;
   categoryAxisDescriptor?: CategoryAxisDescriptor;
   queryResult: QueryResult;
+  // --- Category tick configuration (optional) ------------------------------
+  xAxisTickHeightPx?: number | null;
+  yAxisTickWidthPx?: number | null;
+  xTickFormat?: (d: any) => string;
+  yTickFormat?: (d: any) => string;
   // --- Label configuration (optional) --------------------------------------
   labelFields?: Field[];
   labelsEnabled?: boolean;

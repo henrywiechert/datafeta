@@ -75,7 +75,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({
 
   // Get label styles from context
   const { state } = useVisualizationContext();
-  const { axisLabelStyles, facetLabelStyles } = state;
+  const { axisLabelStyles, facetLabelStyles, categoryTickStyles } = state;
 
   // Use deferred value to prevent intermediate renders during faceting transitions.
   // When the grid changes (e.g., filter changes faceting from 30 rows to 3 rows),
@@ -120,7 +120,8 @@ const ChartGrid: React.FC<ChartGridProps> = ({
     rowHeightPx,
     vScrollRef,
     axisLabelStyles.yAxis,
-    facetLabelStyles
+    facetLabelStyles,
+    categoryTickStyles
   );
 
   // Facet zoom state (must be before any conditional returns — Rules of Hooks)

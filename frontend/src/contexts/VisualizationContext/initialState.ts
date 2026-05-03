@@ -100,6 +100,11 @@ export const initialState: VisualizationState = {
       widthPx: null,
     },
   },
+  // Category tick label styling defaults
+  categoryTickStyles: {
+    yWidthPx: null,
+    xHeightPx: null,
+  },
   // Facet label styling defaults
   facetLabelStyles: {
     topHeader: {

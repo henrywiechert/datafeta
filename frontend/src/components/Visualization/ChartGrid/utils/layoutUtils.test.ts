@@ -148,7 +148,7 @@ describe('layoutUtils', () => {
       },
     });
 
-    expect(computeDynamicXAxisGutterPx(grid, 1)).toBe(79);
+    expect(computeDynamicXAxisGutterPx(grid, 1, null)).toBe(79);
   });
 
   it('caps the X-axis gutter for long categorical ticks to the rendered band height', () => {
@@ -177,7 +177,7 @@ describe('layoutUtils', () => {
       },
     });
 
-    expect(computeDynamicXAxisGutterPx(grid, 1)).toBe(79);
+    expect(computeDynamicXAxisGutterPx(grid, 1, null)).toBe(79);
   });
 
   it('sizes the Y-axis gutter from formatted categorical ticks', () => {
@@ -207,7 +207,7 @@ describe('layoutUtils', () => {
       },
     });
 
-    expect(computeDynamicYAxisGutterPx(grid, 1)).toBe(76);
+    expect(computeDynamicYAxisGutterPx(grid, 1, null)).toBe(76);
   });
 
   it('caps the Y-axis gutter for long categorical ticks to the rendered band width', () => {
@@ -236,6 +236,6 @@ describe('layoutUtils', () => {
       },
     });
 
-    expect(computeDynamicYAxisGutterPx(grid, 1)).toBe(130);
+    expect(computeDynamicYAxisGutterPx(grid, 1, null)).toBe(130);
   });
 });

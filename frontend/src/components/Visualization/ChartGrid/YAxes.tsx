@@ -3,6 +3,7 @@ import * as Plot from '@observablehq/plot';
 import ObservablePlot from '../ObservablePlot';
 import { GridResultModel, getPlotGridCellAtRow } from '../../../observable-plot-generator/gridModel';
 import { MIN_GRID_ROW_PX, GRID_DIVIDER_COLOR } from '../../../config/chartLayoutConfig';
+import { TEXT_PX_PER_CHAR } from './utils/layoutUtils';
 
 interface YAxesProps {
   grid: GridResultModel;
@@ -53,6 +54,8 @@ function buildYAxisOptions(
 }
 
 const YAxes: React.FC<YAxesProps> = ({ grid, rows, dynamicYAxisPx, rowHeights, hasRowFacets }) => {
+  const tickLineWidth = Math.max(3, Math.floor((dynamicYAxisPx - 8) / TEXT_PX_PER_CHAR));
+
   return (
     <>
       {/* Left external y-axes gutter */}
@@ -75,7 +78,7 @@ const YAxes: React.FC<YAxesProps> = ({ grid, rows, dynamicYAxisPx, rowHeights, h
               borderBottom: r < rows - 1 ? `1px solid ${GRID_DIVIDER_COLOR}` : undefined,
             }}
           >
-            <ObservablePlot options={{ ...buildYAxisOptions(yDomain, dynamicYAxisPx, yType, yPadding, yTicks, yTickFormat), height: trackHeightPx, marks: [Plot.axisY({ ...(yTicks !== undefined ? { ticks: yTicks } : {}), ...(yTickFormat !== undefined ? { tickFormat: yTickFormat } : {}), ...(yType === 'band' ? { textOverflow: 'ellipsis', lineWidth: 12 } : {}) })] as any }} />
+            <ObservablePlot options={{ ...buildYAxisOptions(yDomain, dynamicYAxisPx, yType, yPadding, yTicks, yTickFormat), height: trackHeightPx, marks: [Plot.axisY({ ...(yTicks !== undefined ? { ticks: yTicks } : {}), ...(yTickFormat !== undefined ? { tickFormat: yTickFormat } : {}), ...(yType === 'band' ? { textOverflow: 'ellipsis', lineWidth: tickLineWidth } : {}) })] as any }} />
           </div>
         );
       })}

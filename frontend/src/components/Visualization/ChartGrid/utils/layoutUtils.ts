@@ -12,7 +12,7 @@ import {
 } from '../../../../contexts/VisualizationContext/types';
 import type { CSSProperties } from 'react';
 
-const TEXT_PX_PER_CHAR = 6; // conservative estimate for 12-14px font
+export const TEXT_PX_PER_CHAR = 6; // conservative estimate for 12-14px font
 const MIN_Y_AXIS_GUTTER_PX = 28;
 const Y_AXIS_BAND_LINE_WIDTH_EM = 12;
 const X_AXIS_BAND_LINE_WIDTH_EM = 6.5;
@@ -50,8 +50,10 @@ export function estimateTextPx(text?: string): number {
 /**
  * Calculate dynamic Y-axis gutter width based on label content
  */
-export function computeDynamicYAxisGutterPx(grid: GridResultModel | null, rows: number): number {
+export function computeDynamicYAxisGutterPx(grid: GridResultModel | null, rows: number, overrideWidthPx: number | null): number {
   if (usesOnlyAxislessRenderers(grid)) return 0;
+  if (overrideWidthPx !== null) return Math.max(MIN_Y_AXIS_GUTTER_PX, overrideWidthPx);
+
   let maxWidth = MIN_Y_AXIS_GUTTER_PX;
   for (let r = 0; r < rows; r++) {
     const sample = getPlotGridCellAtRow(grid, r);
@@ -78,8 +80,10 @@ export function computeDynamicYAxisGutterPx(grid: GridResultModel | null, rows: 
 /**
  * Calculate dynamic X-axis gutter height based on label content
  */
-export function computeDynamicXAxisGutterPx(grid: GridResultModel | null, columns: number): number {
+export function computeDynamicXAxisGutterPx(grid: GridResultModel | null, columns: number, overrideHeightPx: number | null): number {
   if (usesOnlyAxislessRenderers(grid)) return 0;
+  if (overrideHeightPx !== null) return Math.max(24, overrideHeightPx);
+
   let maxHeight = 24; // baseline
   for (let c = 0; c < columns; c++) {
     const sample = getPlotGridCellAtCol(grid, c);

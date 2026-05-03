@@ -43,7 +43,8 @@ export function createBarCellGenerator(
   bandPadding?: number,
   labelCfg?: LabelConfig,
   manualColor?: string,
-  tooltipFields?: Field[]
+  tooltipFields?: Field[],
+  categoryTickFormat?: (d: any) => string
 ): CellGenerator {
   return (cellData, cellContext, sharedDomains, facetPosition, facetCellContext): CellResult => {
     // Combine row and column facet fields for tooltip display
@@ -112,7 +113,8 @@ export function createBarCellGenerator(
           manualColor,
           tooltipFields,
           allFacetFields,
-          categoryField
+          categoryField,
+          categoryTickFormat
         );
         title = resolveMeasureAlias(f);
       } else {
@@ -232,7 +234,8 @@ function buildMeasureBarOptions(
   manualColor: string | undefined,
   tooltipFields: Field[] | undefined,
   facetFields?: Field[],
-  categoryField?: Field | null
+  categoryField?: Field | null,
+  categoryTickFormat?: (d: any) => string
 ): Plot.PlotOptions {
   const measureName = resolveMeasureAlias(measureField);
   const valueDomain = (sharedDomains.measure as any)[measureName] || [0, 1];
@@ -254,6 +257,7 @@ function buildMeasureBarOptions(
     measureName,
     orientation: barOrientation === 'barX' ? 'horizontal' : 'vertical',
     categoryColumn: categoryColumnName,
+    categoryTickFormat,
     categoriesDomain: sortedCategories,
     colorColumn: colorColumnName,
     colorScale: sharedDomains.colorScale,

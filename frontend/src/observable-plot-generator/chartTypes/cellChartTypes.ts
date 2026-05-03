@@ -41,6 +41,8 @@ export interface ChartContext {
   manualShape?: string;
   /** Variant for the distribution chart family when rendering tick charts. */
   distributionVariant?: DistributionVariant;
+  xTickFormat?: (d: any) => string;
+  yTickFormat?: (d: any) => string;
 }
 
 /**

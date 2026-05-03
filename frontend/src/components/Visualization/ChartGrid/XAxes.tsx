@@ -7,6 +7,7 @@ import AxisLabel from './AxisLabel';
 import AxisLabelStylePopover from './AxisLabelStylePopover';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { XAxisLabelStyle } from '../../../contexts/VisualizationContext/types';
+import { TEXT_PX_PER_CHAR } from './utils/layoutUtils';
 
 interface XAxesProps {
   grid: GridResultModel;
@@ -91,6 +92,7 @@ const XAxes: React.FC<XAxesProps> = ({
   const colSizes = grid.layout?.columnSizes;
   const hasFlexible = !colSizes || colSizes.some((c) => typeof c !== 'number');
   const containerWidthStyle = hasFlexible ? '100%' : `${totalContentWidthPx}px`;
+  const tickLineWidth = Math.max(2, Math.floor((dynamicXAxisPx - 8) / TEXT_PX_PER_CHAR));
 
   return (
     <>
@@ -115,7 +117,7 @@ const XAxes: React.FC<XAxesProps> = ({
                   borderTop: `1px solid ${GRID_DIVIDER_COLOR}`,
                 }}
               >
-                <ObservablePlot options={{ ...buildXAxisOptions(xLabel, xDomain, dynamicXAxisPx, xType, xPadding, xTicks, xTickFormat), marks: [Plot.axisX({ tickRotate: xRotate as any, ...(xTicks !== undefined ? { ticks: xTicks } : {}), ...(xTickFormat !== undefined ? { tickFormat: xTickFormat } : {}), ...(xType === 'band' ? { textOverflow: 'ellipsis', lineWidth: 6.5 } : {}) })] as any }} />
+                <ObservablePlot options={{ ...buildXAxisOptions(xLabel, xDomain, dynamicXAxisPx, xType, xPadding, xTicks, xTickFormat), marks: [Plot.axisX({ tickRotate: xRotate as any, ...(xTicks !== undefined ? { ticks: xTicks } : {}), ...(xTickFormat !== undefined ? { tickFormat: xTickFormat } : {}), ...(xType === 'band' ? { textOverflow: 'ellipsis', lineWidth: tickLineWidth } : {}) })] as any }} />
               </div>
             );
           })}

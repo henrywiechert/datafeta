@@ -34,6 +34,7 @@ export function undoRedoReducer(state: VisualizationState, action: Visualization
         tablePage: action.payload.tablePage ?? state.tablePage,
         labelFontSize: action.payload.labelFontSize ?? state.labelFontSize,
         axisLabelStyles: action.payload.axisLabelStyles ?? state.axisLabelStyles,
+        categoryTickStyles: action.payload.categoryTickStyles ?? state.categoryTickStyles,
         facetLabelStyles: action.payload.facetLabelStyles ?? state.facetLabelStyles,
         facetBackgroundField: action.payload.facetBackgroundField ?? state.facetBackgroundField,
         facetBackgroundScheme: action.payload.facetBackgroundScheme ?? state.facetBackgroundScheme,

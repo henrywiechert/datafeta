@@ -155,6 +155,26 @@ export function encodingReducer(state: VisualizationState, action: Visualization
         },
       };
     
+    // Category tick styling
+    case 'SET_CATEGORY_X_HEIGHT_PX':
+      if (state.categoryTickStyles.xHeightPx === action.payload) return state;
+      return {
+        ...state,
+        categoryTickStyles: {
+          ...state.categoryTickStyles,
+          xHeightPx: action.payload,
+        }
+      };
+    case 'SET_CATEGORY_Y_WIDTH_PX':
+      if (state.categoryTickStyles.yWidthPx === action.payload) return state;
+      return {
+        ...state,
+        categoryTickStyles: {
+          ...state.categoryTickStyles,
+          yWidthPx: action.payload,
+        }
+      };
+
     // Facet label styling
     case 'SET_FACET_TOP_HEADER_STYLE':
       return {

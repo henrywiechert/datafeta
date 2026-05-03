@@ -21,6 +21,7 @@ import XAxes from './XAxes';
 import YAxes from './YAxes';
 import { TopFacetLabels, LeftFacetLabels } from './FacetLabels';
 import GridResizeOverlay from './GridResizeOverlay';
+import GridResizeHandle from './GridResizeHandle';
 import AxisLabel from './AxisLabel';
 import AxisLabelStylePopover from './AxisLabelStylePopover';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
@@ -164,6 +165,20 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
       },
     });
   }, [dispatch, facetRowConstraints]);
+
+  const handleCategoryYWidthResize = useCallback((intent: { currentSize: number; delta: number }) => {
+    dispatch({
+      type: 'SET_CATEGORY_Y_WIDTH_PX',
+      payload: Math.max(30, intent.currentSize + intent.delta),
+    });
+  }, [dispatch]);
+
+  const handleCategoryXHeightResize = useCallback((intent: { currentSize: number; delta: number }) => {
+    dispatch({
+      type: 'SET_CATEGORY_X_HEIGHT_PX',
+      payload: Math.max(24, intent.currentSize - intent.delta), // subtraction because negative delta (moving up) means larger height
+    });
+  }, [dispatch]);
 
   return (
     <div
@@ -389,6 +404,21 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           zIndex: 100,
         }}
       >
+        <GridResizeHandle
+          orientation="vertical"
+          position={leftFixedWidthPx}
+          length={containerDimensions.height - dynamicXAxisPx}
+          onResizeEnd={(delta) => handleCategoryYWidthResize({ currentSize: dynamicYAxisPx, delta })}
+          isInAxisArea={true}
+        />
+        <GridResizeHandle
+          orientation="horizontal"
+          position={containerDimensions.height - dynamicXAxisPx}
+          length={containerDimensions.width - leftFixedWidthPx}
+          crossAxisOffset={leftFixedWidthPx}
+          onResizeEnd={(delta) => handleCategoryXHeightResize({ currentSize: dynamicXAxisPx, delta })}
+          isInAxisArea={true}
+        />
         <GridResizeOverlay
           columns={columns}
           rows={rows}

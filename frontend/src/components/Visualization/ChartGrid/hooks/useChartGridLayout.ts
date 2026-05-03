@@ -1,7 +1,7 @@
 import { useMemo, RefObject } from 'react';
 import { GridResultModel } from '../../../../observable-plot-generator/gridModel';
 import { MIN_GRID_COLUMN_PX, MIN_GRID_ROW_PX, NAMES_BAND_LEFT_PX, VALUES_BAND_LEFT_PX, VALUES_BAND_TOP_PX } from '../../../../config/chartLayoutConfig';
-import { YAxisLabelStyle, FacetLabelStyles } from '../../../../contexts/VisualizationContext/types';
+import { YAxisLabelStyle, FacetLabelStyles, CategoryTickStyles } from '../../../../contexts/VisualizationContext/types';
 import {
   computeDynamicYAxisGutterPx,
   computeDynamicXAxisGutterPx,
@@ -55,7 +55,8 @@ export function useChartGridLayout(
   rowHeightPx: number,
   vScrollRef: RefObject<HTMLDivElement>,
   yAxisLabelStyle?: YAxisLabelStyle,
-  facetLabelStyles?: FacetLabelStyles
+  facetLabelStyles?: FacetLabelStyles,
+  categoryTickStyles?: CategoryTickStyles
 ): LayoutCalculations | null {
   return useMemo(() => {
     if (!grid || grid.cells.length === 0) {
@@ -141,8 +142,8 @@ export function useChartGridLayout(
     const leftLabelsPx = hasRowFacets ? facetLeftHeaderPx + sumTrackSizes(facetLeftValueWidthsPx) : 0;
 
     // Dynamic gutters
-    const dynamicYAxisPx = computeDynamicYAxisGutterPx(grid, rows);
-    const dynamicXAxisPx = computeDynamicXAxisGutterPx(grid, columns);
+    const dynamicYAxisPx = computeDynamicYAxisGutterPx(grid, rows, categoryTickStyles?.yWidthPx ?? null);
+    const dynamicXAxisPx = computeDynamicXAxisGutterPx(grid, columns, categoryTickStyles?.xHeightPx ?? null);
     const yLabelColPx = computeDynamicYLabelColPx(grid, calculatedRowHeightPx, yAxisLabelStyle);
     const leftFixedWidthPx = leftLabelsPx + yLabelColPx + dynamicYAxisPx;
     const topHeaderHeight = colLevels.length > 0 ? 20 + sumTrackSizes(facetTopValueHeightsPx) : 0;
@@ -190,5 +191,6 @@ export function useChartGridLayout(
     vScrollRef,
     yAxisLabelStyle,
     facetLabelStyles,
+    categoryTickStyles
   ]);
 }

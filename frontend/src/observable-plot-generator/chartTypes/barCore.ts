@@ -41,6 +41,7 @@ export interface BarBuildParams {
   orientation: Orientation;
   categoryColumn?: string;      // undefined => single bar
   categoriesDomain?: string[];  // consistent ordering if provided
+  categoryTickFormat?: (d: any) => string; // dynamically sized category tick formatter
   colorColumn?: string;
   colorScale?: ColorScaleInfo | null;
   bandPadding?: number;         // override band padding
@@ -370,6 +371,7 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     type: 'band' as any,
     padding: bandPadding as any,
     grid: false,  // Disable grid on category axis to prevent shifting with padding changes
+    ...(params.categoryTickFormat ? { tickFormat: params.categoryTickFormat } : {}),
     // Don't set explicit range - let Observable Plot compute it naturally
     // The suppressAxes function ensures margins are 0, so bands will fill available space
   };

@@ -76,6 +76,7 @@ function createBar(
     measureName,
     orientation,
     categoryColumn,
+    categoryTickFormat: orientation === 'vertical' ? ctx.xTickFormat : ctx.yTickFormat,
     categoriesDomain,
     colorColumn,
     colorScale,
@@ -329,7 +330,9 @@ function handleTickY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
         colorBias: ctx.colorBias,
         sizeField: ctx.sizeField,
         sizeRange: ctx.sizeRange,
-        manualSize: ctx.manualSize
+        manualSize: ctx.manualSize,
+        xTickFormat: ctx.xTickFormat,
+        yTickFormat: ctx.yTickFormat,
       },
       'y',
       yCol,
@@ -355,7 +358,9 @@ function handleTickY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
         colorBias: ctx.colorBias,
         sizeField: ctx.sizeField,
         sizeRange: ctx.sizeRange,
-        manualSize: ctx.manualSize
+        manualSize: ctx.manualSize,
+        xTickFormat: ctx.xTickFormat,
+        yTickFormat: ctx.yTickFormat,
       },
       'x',
       xCol,
@@ -575,7 +580,7 @@ function handlePieMessage(): Plot.PlotOptions {
 
 function handleHeatmap(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.PlotOptions {
   return buildHeatmapOptions({
-    data,
+  data,
     xField: xf,
     yField: yf,
     colorField: ctx.colorField,
@@ -587,6 +592,8 @@ function handleHeatmap(data: any[], xf: Field, yf: Field, ctx: ChartContext): Pl
     labelFontSize: ctx.labelCfg?.fontSize,
     tooltipFields: ctx.tooltipFields,
     facetFields: ctx.facetFields,
+    xTickFormat: ctx.xTickFormat,
+    yTickFormat: ctx.yTickFormat,
   });
 }
 
@@ -642,6 +649,8 @@ export function generatePairChartOptions(
   shapeField?: Field,
   manualShape?: string,
   distributionVariant?: import('../../types').DistributionVariant,
+  xTickFormat?: (d: any) => string,
+  yTickFormat?: (d: any) => string,
 ): Plot.PlotOptions {
   // Bundle context for cleaner parameter passing
   const ctx: ChartContext = {
@@ -663,6 +672,8 @@ export function generatePairChartOptions(
     shapeField,
     manualShape,
     distributionVariant,
+    xTickFormat,
+    yTickFormat,
   };
 
   if (!xField && !yField) {
