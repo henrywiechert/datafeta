@@ -105,6 +105,10 @@ export const initialState: VisualizationState = {
     topHeader: {
       fontSize: 12,
       orientation: 'horizontal',
+      horizontalAlign: 'center',
+      verticalAlign: 'center',
+      horizontalAlignByDepth: [],
+      verticalAlignByDepth: [],
     },
     topValues: {
       fontSize: 10,
@@ -116,12 +120,22 @@ export const initialState: VisualizationState = {
       fontSize: 12,
       orientation: 'vertical',
       widthPx: null,
+      horizontalAlign: 'center',
+      verticalAlign: 'center',
+      horizontalAlignByDepth: [],
+      verticalAlignByDepth: [],
     },
     leftValues: {
       fontSize: 10,
       orientation: 'vertical',
       widthPx: null,
       widthPxByDepth: [],
+      horizontalAlign: 'start',
+      verticalAlign: 'center',
+      horizontalAlignByDepth: [],
+      verticalAlignByDepth: [],
+      wrapMode: 'wrap',
+      wrapModeByDepth: [],
     },
   },
   // Chart area caption

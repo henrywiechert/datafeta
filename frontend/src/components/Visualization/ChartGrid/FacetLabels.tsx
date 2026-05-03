@@ -17,6 +17,8 @@ import { formatDateTick } from '../../../observable-plot-generator/utils/dateFor
 import { buildHierarchicalHeaderSegments } from './utils/hierarchicalHeaderUtils';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import {
+  FacetLabelAlign,
+  FacetWrapMode,
   FacetHeaderLabelStyle,
   FacetTopValuesLabelStyle,
   FacetLeftValuesLabelStyle,
@@ -87,6 +89,52 @@ function getOrientationStyles(
   }
 }
 
+function resolveDepthValue<T>(
+  byDepth: T[] | undefined,
+  shared: T | undefined,
+  depthIndex: number,
+  fallback: T,
+): T {
+  return byDepth?.[depthIndex] ?? shared ?? fallback;
+}
+
+function resolveFlexAlignment(alignment: FacetLabelAlign): React.CSSProperties['justifyContent'] {
+  switch (alignment) {
+    case 'start':
+      return 'flex-start';
+    case 'end':
+      return 'flex-end';
+    case 'center':
+    default:
+      return 'center';
+  }
+}
+
+function resolveTextAlignment(alignment: FacetLabelAlign): React.CSSProperties['textAlign'] {
+  switch (alignment) {
+    case 'start':
+      return 'left';
+    case 'end':
+      return 'right';
+    case 'center':
+    default:
+      return 'center';
+  }
+}
+
+function updateDepthOverride<T>(
+  values: T[] | undefined,
+  depthIndex: number,
+  nextValue: T,
+): T[] {
+  const currentValues = values ?? [];
+  if (currentValues[depthIndex] === nextValue) return currentValues;
+
+  const nextValues = [...currentValues];
+  nextValues[depthIndex] = nextValue;
+  return nextValues;
+}
+
 // ============================================================================
 // FACET STYLE POPOVER
 // ============================================================================
@@ -95,14 +143,21 @@ interface FacetStylePopoverProps {
   anchorEl: HTMLElement | null;
   onClose: () => void;
   title: string;
+  scopeLabel?: string;
   fontSize: number;
   orientation: string;
   widthPx?: number | null;
   heightPx?: number | null;
+  horizontalAlign?: FacetLabelAlign;
+  verticalAlign?: FacetLabelAlign;
+  wrapMode?: FacetWrapMode;
   onFontSizeChange: (fontSize: number) => void;
   onOrientationChange: (orientation: string) => void;
   onWidthChange?: (widthPx: number | null) => void;
   onHeightChange?: (heightPx: number | null) => void;
+  onHorizontalAlignChange?: (alignment: FacetLabelAlign) => void;
+  onVerticalAlignChange?: (alignment: FacetLabelAlign) => void;
+  onWrapModeChange?: (wrapMode: FacetWrapMode) => void;
   orientationOptions: string[];
   showWidthControl?: boolean;
   showHeightControl?: boolean;
@@ -112,14 +167,21 @@ const FacetStylePopover: React.FC<FacetStylePopoverProps> = ({
   anchorEl,
   onClose,
   title,
+  scopeLabel,
   fontSize,
   orientation,
   widthPx,
   heightPx,
+  horizontalAlign,
+  verticalAlign,
+  wrapMode,
   onFontSizeChange,
   onOrientationChange,
   onWidthChange,
   onHeightChange,
+  onHorizontalAlignChange,
+  onVerticalAlignChange,
+  onWrapModeChange,
   orientationOptions,
   showWidthControl,
   showHeightControl,
@@ -141,6 +203,12 @@ const FacetStylePopover: React.FC<FacetStylePopoverProps> = ({
         <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
           {title}
         </Typography>
+
+        {scopeLabel && (
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            {scopeLabel}
+          </Typography>
+        )}
 
         <Box>
           <Typography variant="body2" sx={{ mb: 0.5 }}>
@@ -186,6 +254,80 @@ const FacetStylePopover: React.FC<FacetStylePopoverProps> = ({
             ))}
           </ToggleButtonGroup>
         </Box>
+
+        {onHorizontalAlignChange && horizontalAlign && (
+          <Box>
+            <Typography variant="body2" sx={{ mb: 0.5 }}>
+              Horizontal Align
+            </Typography>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={horizontalAlign}
+              onChange={(_, val) => val && onHorizontalAlignChange(val)}
+              sx={{
+                '& .MuiToggleButton-root': {
+                  py: 0.5,
+                  px: 1.5,
+                  fontSize: '0.75rem',
+                },
+              }}
+            >
+              <ToggleButton value="start">Start</ToggleButton>
+              <ToggleButton value="center">Center</ToggleButton>
+              <ToggleButton value="end">End</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+        )}
+
+        {onVerticalAlignChange && verticalAlign && (
+          <Box>
+            <Typography variant="body2" sx={{ mb: 0.5 }}>
+              Vertical Align
+            </Typography>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={verticalAlign}
+              onChange={(_, val) => val && onVerticalAlignChange(val)}
+              sx={{
+                '& .MuiToggleButton-root': {
+                  py: 0.5,
+                  px: 1.5,
+                  fontSize: '0.75rem',
+                },
+              }}
+            >
+              <ToggleButton value="start">Start</ToggleButton>
+              <ToggleButton value="center">Center</ToggleButton>
+              <ToggleButton value="end">End</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+        )}
+
+        {onWrapModeChange && wrapMode && (
+          <Box>
+            <Typography variant="body2" sx={{ mb: 0.5 }}>
+              Wrap Mode
+            </Typography>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={wrapMode}
+              onChange={(_, val) => val && onWrapModeChange(val)}
+              sx={{
+                '& .MuiToggleButton-root': {
+                  py: 0.5,
+                  px: 1.5,
+                  fontSize: '0.75rem',
+                },
+              }}
+            >
+              <ToggleButton value="wrap">Wrap</ToggleButton>
+              <ToggleButton value="nowrap">No Wrap</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+        )}
 
         {showWidthControl && onWidthChange && (
           <Box>
@@ -437,13 +579,17 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
 
   const [headerAnchor, setHeaderAnchor] = useState<HTMLElement | null>(null);
   const [valuesAnchor, setValuesAnchor] = useState<HTMLElement | null>(null);
+  const [activeHeaderDepth, setActiveHeaderDepth] = useState<{ depthIndex: number; label: string } | null>(null);
+  const [activeValuesDepth, setActiveValuesDepth] = useState<{ depthIndex: number; label: string } | null>(null);
 
-  const handleHeaderClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+  const handleHeaderClick = useCallback((e: React.MouseEvent<HTMLDivElement>, depthIndex: number, label: string) => {
     setHeaderAnchor(e.currentTarget);
+    setActiveHeaderDepth({ depthIndex, label });
   }, []);
 
-  const handleValuesClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+  const handleValuesClick = useCallback((e: React.MouseEvent<HTMLDivElement>, depthIndex: number, label: string) => {
     setValuesAnchor(e.currentTarget);
+    setActiveValuesDepth({ depthIndex, label });
   }, []);
 
   const handleHeaderStyleChange = useCallback((updates: Partial<FacetHeaderLabelStyle & { widthPx: number | null }>) => {
@@ -453,15 +599,109 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
   const handleValuesStyleChange = useCallback((updates: Partial<FacetLeftValuesLabelStyle>) => {
     dispatch({ type: 'SET_FACET_LEFT_VALUES_STYLE', payload: updates });
   }, [dispatch]);
+  const headerStyle = facetLabelStyles.leftHeader;
+  const valuesStyle = facetLabelStyles.leftValues;
+  const activeHeaderDepthIndex = activeHeaderDepth?.depthIndex ?? 0;
+  const activeValuesDepthIndex = activeValuesDepth?.depthIndex ?? 0;
+
+  const handleHeaderDepthAlignChange = useCallback((axis: 'horizontal' | 'vertical', alignment: FacetLabelAlign) => {
+    if (!activeHeaderDepth) return;
+
+    if (axis === 'horizontal') {
+      const nextValues = updateDepthOverride(
+        headerStyle.horizontalAlignByDepth,
+        activeHeaderDepth.depthIndex,
+        alignment,
+      );
+      if (nextValues !== headerStyle.horizontalAlignByDepth) {
+        handleHeaderStyleChange({ horizontalAlignByDepth: nextValues });
+      }
+      return;
+    }
+
+    const nextValues = updateDepthOverride(
+      headerStyle.verticalAlignByDepth,
+      activeHeaderDepth.depthIndex,
+      alignment,
+    );
+    if (nextValues !== headerStyle.verticalAlignByDepth) {
+      handleHeaderStyleChange({ verticalAlignByDepth: nextValues });
+    }
+  }, [activeHeaderDepth, handleHeaderStyleChange, headerStyle.horizontalAlignByDepth, headerStyle.verticalAlignByDepth]);
+
+  const handleValuesDepthAlignChange = useCallback((axis: 'horizontal' | 'vertical', alignment: FacetLabelAlign) => {
+    if (!activeValuesDepth) return;
+
+    if (axis === 'horizontal') {
+      const nextValues = updateDepthOverride(
+        valuesStyle.horizontalAlignByDepth,
+        activeValuesDepth.depthIndex,
+        alignment,
+      );
+      if (nextValues !== valuesStyle.horizontalAlignByDepth) {
+        handleValuesStyleChange({ horizontalAlignByDepth: nextValues });
+      }
+      return;
+    }
+
+    const nextValues = updateDepthOverride(
+      valuesStyle.verticalAlignByDepth,
+      activeValuesDepth.depthIndex,
+      alignment,
+    );
+    if (nextValues !== valuesStyle.verticalAlignByDepth) {
+      handleValuesStyleChange({ verticalAlignByDepth: nextValues });
+    }
+  }, [activeValuesDepth, handleValuesStyleChange, valuesStyle.horizontalAlignByDepth, valuesStyle.verticalAlignByDepth]);
+
+  const handleValuesDepthWrapModeChange = useCallback((wrapMode: FacetWrapMode) => {
+    if (!activeValuesDepth) return;
+
+    const nextValues = updateDepthOverride(
+      valuesStyle.wrapModeByDepth,
+      activeValuesDepth.depthIndex,
+      wrapMode,
+    );
+    if (nextValues !== valuesStyle.wrapModeByDepth) {
+      handleValuesStyleChange({ wrapModeByDepth: nextValues });
+    }
+  }, [activeValuesDepth, handleValuesStyleChange, valuesStyle.wrapModeByDepth]);
 
   const rowLevels = grid.headers?.rows?.levels || [];
   if (rowLevels.length === 0) return null;
 
-  const yLevelsCount = rowLevels.length;
-  const headerStyle = facetLabelStyles.leftHeader;
-  const valuesStyle = facetLabelStyles.leftValues;
   const headerOrientationStyles = getOrientationStyles(headerStyle.orientation, headerStyle.fontSize);
   const valuesOrientationStyles = getOrientationStyles(valuesStyle.orientation, valuesStyle.fontSize);
+  const activeHeaderHorizontalAlign = resolveDepthValue(
+    headerStyle.horizontalAlignByDepth,
+    headerStyle.horizontalAlign,
+    activeHeaderDepthIndex,
+    'center',
+  );
+  const activeHeaderVerticalAlign = resolveDepthValue(
+    headerStyle.verticalAlignByDepth,
+    headerStyle.verticalAlign,
+    activeHeaderDepthIndex,
+    'center',
+  );
+  const activeValuesHorizontalAlign = resolveDepthValue(
+    valuesStyle.horizontalAlignByDepth,
+    valuesStyle.horizontalAlign,
+    activeValuesDepthIndex,
+    'start',
+  );
+  const activeValuesVerticalAlign = resolveDepthValue(
+    valuesStyle.verticalAlignByDepth,
+    valuesStyle.verticalAlign,
+    activeValuesDepthIndex,
+    'center',
+  );
+  const activeValuesWrapMode = resolveDepthValue(
+    valuesStyle.wrapModeByDepth,
+    valuesStyle.wrapMode,
+    activeValuesDepthIndex,
+    'wrap',
+  );
 
   const fieldLabels = rowLevels.map((l) => l.fieldLabel);
 
@@ -494,24 +734,65 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
         }}
       >
         {fieldLabels.map((label, idx) => (
+          (() => {
+            const horizontalAlign = resolveDepthValue(
+              headerStyle.horizontalAlignByDepth,
+              headerStyle.horizontalAlign,
+              idx,
+              'center',
+            );
+            const verticalAlign = resolveDepthValue(
+              headerStyle.verticalAlignByDepth,
+              headerStyle.verticalAlign,
+              idx,
+              'center',
+            );
+
+            return (
           <div
             key={`header-${idx}`}
-            onClick={handleHeaderClick}
+            onClick={(event) => handleHeaderClick(event, idx, label)}
             title={`Click to edit style: ${label}`}
             style={{
+                display: 'flex',
+                width: '100%',
               fontWeight: 600,
               background: 'white',
               padding: '4px 2px',
               cursor: 'pointer',
+                justifyContent: resolveFlexAlignment(horizontalAlign),
+                alignItems: resolveFlexAlignment(verticalAlign),
+                textAlign: resolveTextAlignment(horizontalAlign),
               ...headerOrientationStyles,
             }}
           >
             {renderWithBreaks(label)}
           </div>
+            );
+          })()
         ))}
       </div>
 
       {rowLevels.map((level, levelIdx) => {
+        const horizontalAlign = resolveDepthValue(
+          valuesStyle.horizontalAlignByDepth,
+          valuesStyle.horizontalAlign,
+          levelIdx,
+          'start',
+        );
+        const verticalAlign = resolveDepthValue(
+          valuesStyle.verticalAlignByDepth,
+          valuesStyle.verticalAlign,
+          levelIdx,
+          'center',
+        );
+        const wrapMode = resolveDepthValue(
+          valuesStyle.wrapModeByDepth,
+          valuesStyle.wrapMode,
+          levelIdx,
+          'wrap',
+        );
+        const shouldWrap = valuesStyle.orientation === 'horizontal' && wrapMode === 'wrap';
         const orderedTuples = grid.headers?.rows?.orderedValueTuples;
         const segments = orderedTuples && orderedTuples.length > 0
           ? buildHierarchicalHeaderSegments(orderedTuples, levelIdx, baseRows, 1)
@@ -519,27 +800,31 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
         const cells = segments.map((seg) => (
           <div
             key={`yval-level-${levelIdx}-tuple-${seg.firstTupleIndex}`}
-            onClick={handleValuesClick}
+            onClick={(event) => handleValuesClick(event, levelIdx, formatFacetValue(seg.value))}
             title={formatFacetValue(seg.value)}
             style={{
               gridColumn: levelIdx + 2,
               gridRow: `${seg.startIndex} / span ${seg.span}`,
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              alignItems: resolveFlexAlignment(verticalAlign),
+              justifyContent: resolveFlexAlignment(horizontalAlign),
               borderRight: levelIdx === rowLevels.length - 1 ? `1px solid ${GRID_DIVIDER_COLOR}` : undefined,
               borderLeft: levelIdx > 0 ? `1px solid ${GRID_DIVIDER_COLOR}` : undefined,
               borderBottom: `1px solid ${GRID_DIVIDER_COLOR}`,
               background: 'transparent',
-              padding: 0,
+              padding: shouldWrap ? '2px 4px' : 0,
               overflow: 'hidden',
               cursor: 'pointer',
             }}
           >
             <div
               style={{
-                whiteSpace: 'nowrap',
-                padding: '2px 0',
+                whiteSpace: shouldWrap ? 'normal' : 'nowrap',
+                overflowWrap: shouldWrap ? 'anywhere' : undefined,
+                wordBreak: shouldWrap ? 'break-word' : undefined,
+                width: shouldWrap ? '100%' : undefined,
+                textAlign: resolveTextAlignment(horizontalAlign),
+                padding: shouldWrap ? 0 : '2px 0',
                 ...valuesOrientationStyles,
               }}
             >
@@ -552,28 +837,46 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
 
       <FacetStylePopover
         anchorEl={headerAnchor}
-        onClose={() => setHeaderAnchor(null)}
+        onClose={() => {
+          setHeaderAnchor(null);
+          setActiveHeaderDepth(null);
+        }}
         title="Left Facet Header Style"
+        scopeLabel={activeHeaderDepth ? `Hierarchy ${activeHeaderDepth.depthIndex + 1}: ${activeHeaderDepth.label}` : undefined}
         fontSize={headerStyle.fontSize}
         orientation={headerStyle.orientation}
         widthPx={headerStyle.widthPx}
+        horizontalAlign={activeHeaderHorizontalAlign}
+        verticalAlign={activeHeaderVerticalAlign}
         onFontSizeChange={(fontSize) => handleHeaderStyleChange({ fontSize })}
         onOrientationChange={(orientation) => handleHeaderStyleChange({ orientation: orientation as 'horizontal' | 'vertical' })}
         onWidthChange={(widthPx) => handleHeaderStyleChange({ widthPx })}
+        onHorizontalAlignChange={(alignment) => handleHeaderDepthAlignChange('horizontal', alignment)}
+        onVerticalAlignChange={(alignment) => handleHeaderDepthAlignChange('vertical', alignment)}
         orientationOptions={['horizontal', 'vertical']}
         showWidthControl
       />
 
       <FacetStylePopover
         anchorEl={valuesAnchor}
-        onClose={() => setValuesAnchor(null)}
+        onClose={() => {
+          setValuesAnchor(null);
+          setActiveValuesDepth(null);
+        }}
         title="Left Facet Values Style"
+        scopeLabel={activeValuesDepth ? `Hierarchy ${activeValuesDepth.depthIndex + 1}: ${activeValuesDepth.label}` : undefined}
         fontSize={valuesStyle.fontSize}
         orientation={valuesStyle.orientation}
         widthPx={valuesStyle.widthPx}
+        horizontalAlign={activeValuesHorizontalAlign}
+        verticalAlign={activeValuesVerticalAlign}
+        wrapMode={activeValuesWrapMode}
         onFontSizeChange={(fontSize) => handleValuesStyleChange({ fontSize })}
         onOrientationChange={(orientation) => handleValuesStyleChange({ orientation: orientation as 'horizontal' | 'vertical' })}
         onWidthChange={(widthPx) => handleValuesStyleChange({ widthPx })}
+        onHorizontalAlignChange={(alignment) => handleValuesDepthAlignChange('horizontal', alignment)}
+        onVerticalAlignChange={(alignment) => handleValuesDepthAlignChange('vertical', alignment)}
+        onWrapModeChange={(mode) => handleValuesDepthWrapModeChange(mode)}
         orientationOptions={['horizontal', 'vertical']}
         showWidthControl
       />

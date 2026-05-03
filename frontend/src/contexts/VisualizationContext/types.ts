@@ -21,10 +21,17 @@ export interface AxisLabelStyles {
   yAxis: YAxisLabelStyle;
 }
 
+export type FacetLabelAlign = 'start' | 'center' | 'end';
+export type FacetWrapMode = 'wrap' | 'nowrap';
+
 // Facet label styling types
 export interface FacetHeaderLabelStyle {
   fontSize: number;  // 8-26, default 12
   orientation: 'horizontal' | 'vertical';
+  horizontalAlign?: FacetLabelAlign;
+  verticalAlign?: FacetLabelAlign;
+  horizontalAlignByDepth?: FacetLabelAlign[];
+  verticalAlignByDepth?: FacetLabelAlign[];
 }
 
 export interface FacetTopValuesLabelStyle {
@@ -39,6 +46,12 @@ export interface FacetLeftValuesLabelStyle {
   orientation: 'horizontal' | 'vertical';
   widthPx: number | null;  // null = auto (VALUES_BAND_LEFT_PX), or manual override
   widthPxByDepth?: Array<number | null>;
+  horizontalAlign?: FacetLabelAlign;
+  verticalAlign?: FacetLabelAlign;
+  horizontalAlignByDepth?: FacetLabelAlign[];
+  verticalAlignByDepth?: FacetLabelAlign[];
+  wrapMode?: FacetWrapMode;
+  wrapModeByDepth?: FacetWrapMode[];
 }
 
 export interface FacetLabelStyles {
