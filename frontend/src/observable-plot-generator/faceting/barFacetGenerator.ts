@@ -257,6 +257,7 @@ function buildMeasureBarOptions(
     measureName,
     orientation: barOrientation === 'barX' ? 'horizontal' : 'vertical',
     categoryColumn: categoryColumnName,
+    categoryField: categoryField ?? undefined,
     categoryTickFormat,
     categoriesDomain: sortedCategories,
     colorColumn: colorColumnName,

@@ -76,6 +76,7 @@ function createBar(
     measureName,
     orientation,
     categoryColumn,
+    categoryField: categoryDimension ?? undefined,
     categoryTickFormat: orientation === 'vertical' ? ctx.xTickFormat : ctx.yTickFormat,
     categoriesDomain,
     colorColumn,

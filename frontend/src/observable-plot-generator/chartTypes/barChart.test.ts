@@ -84,6 +84,34 @@ describe('barChart refactored implementation', () => {
     // Width/height are controlled by the grid layout sizing; options may omit explicit height.
   });
 
+  test('custom tooltip exposes the category source field for filtering', () => {
+    const categoryField = dim('category');
+    const ctx: ChartGenerationContext = {
+      queryResult: {
+        rows: [
+          { category: 'A', 'SUM(value)': 5 },
+          { category: 'B', 'SUM(value)': 15 }
+        ],
+        columns: [],
+        row_count: 2
+      } as any,
+      xFields: [categoryField],
+      yFields: [meas('value', 'sum')],
+      colorField: undefined,
+      sizeField: undefined,
+      colorScheme: undefined
+    };
+
+    const opts = barChart(ctx);
+    const tooltipConfig = (opts as any).__customTooltip;
+    const fields = tooltipConfig.getFields(tooltipConfig.data[0]);
+    const categoryTooltipField = fields.find((field: any) => field.label === 'category');
+
+    expect(categoryTooltipField).toBeDefined();
+    expect(categoryTooltipField.sourceField).toBe(categoryField);
+    expect(categoryTooltipField.rawValue).toBe('A');
+  });
+
   test('numeric-string categories are ordered numerically for bins', () => {
     const ctx: ChartGenerationContext = {
       queryResult: {

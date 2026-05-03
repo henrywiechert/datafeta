@@ -40,6 +40,7 @@ export interface BarBuildParams {
   measureName: string;          // alias in data
   orientation: Orientation;
   categoryColumn?: string;      // undefined => single bar
+  categoryField?: Field;
   categoriesDomain?: string[];  // consistent ordering if provided
   categoryTickFormat?: (d: any) => string; // dynamically sized category tick formatter
   colorColumn?: string;
@@ -251,6 +252,7 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     measureName,
     orientation,
     categoryColumn,
+    categoryField,
     categoriesDomain,
     colorColumn,
     colorScale,
@@ -421,7 +423,11 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
   ];
   
   if (categoryColumn) {
-    mainFields.push({ label: categoryLabel || categoryColumn, column: categoryColumn });
+    mainFields.push({
+      label: categoryLabel || categoryColumn,
+      column: categoryColumn,
+      sourceField: categoryField,
+    });
   }
   
   // Pass tooltipFields directly to createTooltipFieldsGetter (color is read directly from DOM)
