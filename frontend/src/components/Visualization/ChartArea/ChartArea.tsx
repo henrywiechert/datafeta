@@ -31,6 +31,7 @@ import LegendStack from '../Legend/LegendStack';
 import FacetLimitDialog from '../FacetLimitDialog';
 import { getResultColumnName } from '../../../utils/fieldUtils';
 import { createChartAffectingConfig } from '../../../utils/queryAffectingConfig';
+import { filtersToHashKey } from '../../../utils/sheetConfigHash';
 import { buildEffectiveFilterConfigurations } from '../../../utils/effectiveFilters';
 import { isTablePresentation } from '../../../observable-plot-generator/chartTypes/chartTypePresentation';
 
@@ -94,6 +95,20 @@ const ChartArea: React.FC = () => {
     [appliedFilterConfigurations, sessionAppliedFilterConfigurations, disabledFilterIds]
   );
 
+  const stableEffectiveFilterConfigurationsRef = useRef(effectiveFilterConfigurations);
+  const stableEffectiveFilterHashRef = useRef(filtersToHashKey(effectiveFilterConfigurations));
+  const effectiveFilterHash = useMemo(
+    () => filtersToHashKey(effectiveFilterConfigurations),
+    [effectiveFilterConfigurations],
+  );
+
+  if (stableEffectiveFilterHashRef.current !== effectiveFilterHash) {
+    stableEffectiveFilterHashRef.current = effectiveFilterHash;
+    stableEffectiveFilterConfigurationsRef.current = effectiveFilterConfigurations;
+  }
+
+  const chartFilterConfigurations = stableEffectiveFilterConfigurationsRef.current;
+
   const fullscreenWrapperRef = useRef<HTMLDivElement>(null);
   const sheetId = activeSheet?.id;
   const isGanttChart = globalChartType === 'gantt';
@@ -124,7 +139,7 @@ const ChartArea: React.FC = () => {
     sizeField: channels.size.field,
     labelFields: channels.label.fields,
     tooltipFields: channels.tooltip.fields,
-    filterConfigurations: effectiveFilterConfigurations,
+    filterConfigurations: chartFilterConfigurations,
     virtualTable,
     virtualColumns,
   });
@@ -135,7 +150,7 @@ const ChartArea: React.FC = () => {
     xAxisFields,
     yAxisFields,
     channels,
-    filterConfigurations: effectiveFilterConfigurations,
+    filterConfigurations: chartFilterConfigurations,
     virtualTable,
     virtualColumns,
     additionalColorFields,
@@ -279,6 +294,7 @@ const ChartArea: React.FC = () => {
     xAxisFields,
     yAxisFields,
     effectiveFilterConfigurations,
+    chartFilterConfigurations,
     selectedTable,
     selectedDatabase,
     virtualTable,
@@ -329,7 +345,7 @@ const ChartArea: React.FC = () => {
     () => createChartAffectingConfig({
       xAxisFields,
       yAxisFields,
-      appliedFilterConfigurations: effectiveFilterConfigurations,
+      appliedFilterConfigurations: chartFilterConfigurations,
       colorField: channels.color.field,
       sizeField: channels.size.field,
       shapeField: channels.shape.field,
@@ -357,7 +373,7 @@ const ChartArea: React.FC = () => {
       labelSampleEvery: channels.label.sampleEvery,
     }),
     [
-      xAxisFields, yAxisFields, effectiveFilterConfigurations, channels,
+      xAxisFields, yAxisFields, chartFilterConfigurations, channels,
       measureGroupFields, fieldOverrides, globalChartType, distributionVariant, tableCellMode,
       isTableMode, tablePage, tablePageSize,
       independentDomains,

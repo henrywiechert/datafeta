@@ -113,7 +113,7 @@ export function useGlobalFilters(): UseGlobalFiltersReturn {
     // (removeFilterFromAllSheets updates stored state, but current context needs update too)
     const newFilterFields = state.filterFields.filter(f => f.id !== fieldId);
     dispatch({ type: 'SET_FILTER_FIELDS', payload: newFilterFields });
-    dispatch({ type: 'REMOVE_FILTER_CONFIGURATION', payload: fieldId });
+    dispatch({ type: 'REMOVE_FILTER_CONFIGURATION_SILENT', payload: fieldId });
     
     console.log(`🌐 Filter "${field.columnName}" marked as global (session scope)`);
   }, [
@@ -157,16 +157,10 @@ export function useGlobalFilters(): UseGlobalFiltersReturn {
     if (!existingField) {
       dispatch({ type: 'SET_FILTER_FIELDS', payload: [...state.filterFields, field] });
     }
-    dispatch({ 
-      type: 'SET_FILTER_CONFIGURATION', 
-      payload: { fieldId, config: { ...filterConfig, scope: 'sheet' } } 
+    dispatch({
+      type: 'SET_AND_APPLY_FILTER_CONFIGURATION_SILENT',
+      payload: { fieldId, config: { ...filterConfig, scope: 'sheet' } }
     });
-    
-    // Also apply the filter so it takes effect immediately.
-    // This is important because the session filter was previously applied,
-    // and we need to maintain that applied state when converting to local.
-    // Without this, toggling global→local→global loses the applied state.
-    dispatch({ type: 'APPLY_FILTERS' });
     
     // 3. Remove from DataSourceContext (session scope)
     removeSessionFilterField(fieldId);
@@ -192,9 +186,10 @@ export function useGlobalFilters(): UseGlobalFiltersReturn {
     
     // Remove from DataSourceContext
     removeSessionFilterField(fieldId);
+    dispatch({ type: 'FORCE_QUERY_REFRESH' });
     
     console.log(`🗑️ Global filter "${field.columnName}" removed`);
-  }, [dataSource.sessionFilterFields, removeSessionFilterField]);
+  }, [dataSource.sessionFilterFields, removeSessionFilterField, dispatch]);
   
   // Get merged filter fields (global first, then local, deduplicated)
   const getMergedFilterFields = useCallback((): Field[] => {

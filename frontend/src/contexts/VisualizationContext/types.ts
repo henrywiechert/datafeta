@@ -189,7 +189,9 @@ export type VisualizationAction =
   // Filter actions
   | { type: 'SET_FILTER_FIELDS'; payload: Field[] }
   | { type: 'SET_FILTER_CONFIGURATION'; payload: { fieldId: string; config: FilterConfig } }
+  | { type: 'SET_AND_APPLY_FILTER_CONFIGURATION_SILENT'; payload: { fieldId: string; config: FilterConfig } }
   | { type: 'SET_FILTER_METADATA'; payload: { fieldId: string; metadata: FilterMetadata } }
+  | { type: 'REMOVE_FILTER_CONFIGURATION_SILENT'; payload: string }
   | { type: 'REMOVE_FILTER_CONFIGURATION'; payload: string }
   | { type: 'APPLY_FILTERS' }
   | { type: 'TOGGLE_FILTER_DISABLED'; payload: string }
