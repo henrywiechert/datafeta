@@ -132,6 +132,7 @@ export function barUnified(
       measureName,
       orientation,
       categoryColumn,
+      categoryField: categoryDims.length === 1 ? categoryDims[0] : undefined,
       categoriesDomain: sortedCategories,
       colorColumn,
       colorScale,

@@ -1,6 +1,7 @@
 import { generatePlot } from '../../observablePlotGenerator';
 import { ChartGenerationContext } from '../../types';
 import { Field } from '../../../types';
+import { createBarCellGenerator } from '../barFacetGenerator';
 
 jest.mock('@observablehq/plot', () => {
   const mark = (type: string) => (data: any, opts: any) => ({ type, data, opts });
@@ -104,5 +105,65 @@ describe('independent X domains per facet', () => {
     expect(independentResult.cells.length).toBeGreaterThan(1);
     const independentXDomains = collectXDomains(independentResult);
     expect(independentXDomains.size).toBeGreaterThan(1);
+  });
+
+  it('keeps faceted bar category tooltip fields filterable', () => {
+    const categoryField: Field = {
+      id: 'category',
+      columnName: 'category',
+      type: 'dimension',
+      flavour: 'discrete',
+      dataType: 'string',
+    };
+
+    const barRows = [
+      { category: 'A', 'SUM(value)': 10 },
+      { category: 'B', 'SUM(value)': 12 },
+    ];
+
+    const generator = createBarCellGenerator(
+      [categoryField],
+      [measureField],
+      'barY',
+      'x',
+      categoryField,
+      ['A', 'B'],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    );
+
+    const result = generator(
+      barRows,
+      {
+        ...buildContext(false),
+        xFields: [categoryField],
+        yFields: [measureField],
+        queryResult: { columns: [], rows: barRows, row_count: barRows.length },
+      },
+      {
+        measure: { 'SUM(value)': [0, 12.6] },
+        numeric: {},
+        categorical: { category: ['A', 'B'] },
+        colorScale: null,
+      },
+      { row: 0, col: 0 },
+      {
+        rowFacetFields: [facetField],
+        colFacetFields: [],
+        rowValues: ['A'],
+        colValues: [],
+      },
+    );
+
+    const tooltipConfig = (result.plots[0].options as any).__customTooltip;
+    const fields = tooltipConfig.getFields(tooltipConfig.data[0]);
+    const categoryTooltipField = fields.find((field: any) => field.label === 'category');
+
+    expect(categoryTooltipField).toBeDefined();
+    expect(categoryTooltipField.sourceField).toBe(categoryField);
+    expect(categoryTooltipField.rawValue).toBe('A');
   });
 });
