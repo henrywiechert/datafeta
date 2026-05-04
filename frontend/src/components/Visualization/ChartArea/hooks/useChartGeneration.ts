@@ -272,8 +272,12 @@ export const useChartGeneration = ({
       lastGeneratedZoomRef.current = ganttZoomRangeRef.current;
 
       // Check if faceting would be applied and validate facet counts
+      // Heatmap mode handles large grids natively — skip the warning.
       const facetPlan = planFacets(context);
-      if (facetPlan && (facetPlan.rowFacetFields.length > 0 || facetPlan.colFacetFields.length > 0)) {
+      if (
+        effectiveGlobalChartType !== 'heatmap' &&
+        facetPlan && (facetPlan.rowFacetFields.length > 0 || facetPlan.colFacetFields.length > 0)
+      ) {
         const validation = validateFacetCounts(context, facetPlan);
         
         if (!validation.isValid) {
