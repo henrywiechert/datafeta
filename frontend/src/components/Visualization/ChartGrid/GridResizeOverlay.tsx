@@ -18,6 +18,7 @@ interface GridResizeOverlayProps {
   topHeaderHeight: number; // Top facet labels height
   rowHandleLength?: number;
   columnHandleLength?: number;
+  topColumnHandleLength?: number;
   
   // Container dimensions
   containerWidth: number;
@@ -174,6 +175,7 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
   topHeaderHeight,
   rowHandleLength,
   columnHandleLength,
+  topColumnHandleLength = 0,
   containerWidth,
   containerHeight,
   horizontalScrollOffset,
@@ -439,6 +441,28 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
             orientation="vertical"
             position={leftFixedWidth + xPos - horizontalScrollOffset}
             length={topHeaderHeight}
+            crossAxisOffset={0}
+            isInAxisArea={true}
+            onResizeStart={() => handleColumnResizeStart(index)}
+            onResizeMove={(delta) => handleColumnResizeMove(delta, index)}
+            onResizeEnd={(delta) => handleColumnResizeEnd(delta, index)}
+            zIndex={22}
+          />
+        );
+      })}
+
+      {/* Top edge vertical resize handles for non-faceted charts. This keeps the
+          top-right drag affordance available even when there is no facet header band. */}
+      {canResizePlotColumns && topHeaderHeight === 0 && topColumnHandleLength > 0 && columnPositions.map((xPos, index) => {
+        if (index === 0) return null;
+
+        return (
+          <GridResizeHandle
+            key={`top-plot-col-${index}`}
+            testId={`top-plot-col-handle-${index}`}
+            orientation="vertical"
+            position={leftFixedWidth + xPos - horizontalScrollOffset}
+            length={topColumnHandleLength}
             crossAxisOffset={0}
             isInAxisArea={true}
             onResizeStart={() => handleColumnResizeStart(index)}

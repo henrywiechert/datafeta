@@ -115,6 +115,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
 
   const hideExternalAxes = usesOnlyAxislessRenderers(grid);
   const facetPresent = hasFacetHeaders(grid);
+  const topColumnHandleLength = !facetPresent && !hideExternalAxes ? X_LABEL_ROW_PX : 0;
   const rowResizeHandleLength = hideExternalAxes ? Math.max(1, containerDimensions.width) : undefined;
   const columnResizeHandleLength = hideExternalAxes
     ? Math.max(1, containerDimensions.height - topHeaderHeight)
@@ -456,6 +457,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           topHeaderHeight={topHeaderHeight}
           rowHandleLength={rowResizeHandleLength}
           columnHandleLength={columnResizeHandleLength}
+          topColumnHandleLength={topColumnHandleLength}
           containerWidth={containerDimensions.width}
           containerHeight={containerDimensions.height}
           horizontalScrollOffset={scrollOffsets.horizontal}

@@ -17,7 +17,7 @@ module.exports = function (app) {
   app.use(
     '/help',
     createProxyMiddleware({
-      target: 'http://localhost:8000',
+      target: 'http://localhost:8010',
       changeOrigin: true,
     })
   );
