@@ -198,6 +198,47 @@ describe('FacetLabels', () => {
     expect(secondDepthText).toHaveStyle({ whiteSpace: 'nowrap', textAlign: 'right' });
   });
 
+  it('applies wrap mode to vertical left facet values', () => {
+    mockFacetLabelStyles.leftValues = {
+      fontSize: 10,
+      orientation: 'vertical',
+      widthPx: null,
+      widthPxByDepth: [],
+      horizontalAlign: 'start',
+      verticalAlign: 'center',
+      horizontalAlignByDepth: [],
+      verticalAlignByDepth: [],
+      wrapMode: 'wrap',
+      wrapModeByDepth: ['wrap', 'nowrap'],
+    } as any;
+
+    const { container } = render(
+      <LeftFacetLabels
+        grid={buildGrid()}
+        plotRowsSpec="80px 80px 80px"
+        baseRows={1}
+        facetLeftHeaderPx={28}
+        facetLeftValueWidthsPx={[44, 72]}
+      />,
+    );
+
+    const firstDepthCell = container.querySelector('div[title="Consumer"]');
+    const secondDepthCell = container.querySelector('div[title="CA"]');
+    const firstDepthText = firstDepthCell?.querySelector('div');
+    const secondDepthText = secondDepthCell?.querySelector('div');
+
+    expect(firstDepthText).toHaveStyle({
+      whiteSpace: 'normal',
+      height: '100%',
+      maxHeight: '100%',
+      writingMode: 'vertical-rl',
+    });
+    expect(secondDepthText).toHaveStyle({
+      whiteSpace: 'nowrap',
+      writingMode: 'vertical-rl',
+    });
+  });
+
   it('opens a depth-aware left header popover and dispatches per-depth alignment updates', () => {
     render(
       <LeftFacetLabels

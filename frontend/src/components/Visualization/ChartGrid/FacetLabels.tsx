@@ -792,7 +792,8 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
           levelIdx,
           'wrap',
         );
-        const shouldWrap = valuesStyle.orientation === 'horizontal' && wrapMode === 'wrap';
+        const shouldWrap = wrapMode === 'wrap';
+        const isVerticalOrientation = valuesStyle.orientation === 'vertical';
         const orderedTuples = grid.headers?.rows?.orderedValueTuples;
         const segments = orderedTuples && orderedTuples.length > 0
           ? buildHierarchicalHeaderSegments(orderedTuples, levelIdx, baseRows, 1)
@@ -822,13 +823,15 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
                 whiteSpace: shouldWrap ? 'normal' : 'nowrap',
                 overflowWrap: shouldWrap ? 'anywhere' : undefined,
                 wordBreak: shouldWrap ? 'break-word' : undefined,
-                width: shouldWrap ? '100%' : undefined,
+                width: shouldWrap && !isVerticalOrientation ? '100%' : undefined,
+                height: shouldWrap && isVerticalOrientation ? '100%' : undefined,
+                maxHeight: shouldWrap && isVerticalOrientation ? '100%' : undefined,
                 textAlign: resolveTextAlignment(horizontalAlign),
                 padding: shouldWrap ? 0 : '2px 0',
                 ...valuesOrientationStyles,
               }}
             >
-              {formatFacetValue(seg.value)}
+              {renderWithBreaks(formatFacetValue(seg.value))}
             </div>
           </div>
         ));
