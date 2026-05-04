@@ -43,6 +43,38 @@ describe('GridResizeOverlay facet handles', () => {
     expect(onColumnResize).toHaveBeenCalledWith({ currentSize: 120, delta: 34 });
   });
 
+  it('commits a plot-column resize from the top edge when no facet header is present', () => {
+    const onColumnResize = jest.fn();
+    const plotGridRef = React.createRef<HTMLDivElement>();
+
+    const { getByTestId } = render(
+      <GridResizeOverlay
+        columns={2}
+        rows={2}
+        columnTemplate="120px 120px"
+        rowTemplate="80px 80px"
+        leftFixedWidth={180}
+        bottomFixedHeight={30}
+        topHeaderHeight={0}
+        topColumnHandleLength={20}
+        containerWidth={500}
+        containerHeight={300}
+        horizontalScrollOffset={0}
+        verticalScrollOffset={0}
+        plotGridRef={plotGridRef}
+        onColumnResize={onColumnResize}
+      />,
+    );
+
+    const handle = getByTestId('top-plot-col-handle-1');
+    expect(handle).toHaveStyle({ left: '300px', top: '0px', height: '20px' });
+    fireEvent.mouseDown(handle, { clientX: 300, clientY: 10 });
+    fireEvent.mouseMove(document, { clientX: 332, clientY: 10 });
+    fireEvent.mouseUp(document, { clientX: 332, clientY: 10 });
+
+    expect(onColumnResize).toHaveBeenCalledWith({ currentSize: 120, delta: 32 });
+  });
+
   it('does not render plot resize handles when plot resizing is disabled', () => {
     const plotGridRef = React.createRef<HTMLDivElement>();
 
@@ -64,6 +96,7 @@ describe('GridResizeOverlay facet handles', () => {
     );
 
     expect(queryByTestId('top-facet-col-handle-1')).toBeNull();
+    expect(queryByTestId('top-plot-col-handle-1')).toBeNull();
     expect(queryByTestId('plot-col-handle-1')).toBeNull();
     expect(queryByTestId('plot-row-handle-1')).toBeNull();
   });
