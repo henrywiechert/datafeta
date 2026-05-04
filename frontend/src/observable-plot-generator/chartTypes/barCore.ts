@@ -44,6 +44,7 @@ export interface BarBuildParams {
   categoriesDomain?: string[];  // consistent ordering if provided
   categoryTickFormat?: (d: any) => string; // dynamically sized category tick formatter
   colorColumn?: string;
+  colorField?: Field;           // the full Field object for the color encoding
   colorScale?: ColorScaleInfo | null;
   bandPadding?: number;         // override band padding
   zeroBaseline?: boolean;
@@ -255,6 +256,7 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     categoryField,
     categoriesDomain,
     colorColumn,
+    colorField,
     colorScale,
     bandPadding = BAND_PADDING,
     zeroBaseline = true,
@@ -436,9 +438,7 @@ export function buildBarOptions(params: BarBuildParams): Plot.PlotOptions {
     data: markData,
     getFields: createTooltipFieldsGetter(
       mainFields,
-      colorColumn && colorColumn !== categoryColumn && colorColumn !== measureName
-        ? { columnName: colorColumn, type: 'dimension' } as Field
-        : undefined,
+      colorField,
       undefined, // No size field in bar charts
       tooltipFields.length > 0 ? tooltipFields : undefined,
       undefined, // No excludeColumns
