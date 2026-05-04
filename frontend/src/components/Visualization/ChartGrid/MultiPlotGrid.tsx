@@ -33,6 +33,7 @@ import {
   resolveFacetTrackSize,
 } from './utils/uniformCellSizing';
 import { resolvePlotResizePolicy } from './utils/plotResizePolicy';
+import { HeatmapSizeControl } from './HeatmapSizeControl';
 import styles from './ChartGrid.module.css';
 
 interface MultiPlotGridProps {
@@ -512,6 +513,16 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
         >
           Reset Grid Size
         </button>
+      )}
+
+      {/* Heatmap cell size controls (column width + row height steppers + fit-to-view) */}
+      {globalChartType === 'heatmap' && (
+        <HeatmapSizeControl
+          cellSizeOverrides={cellSizeOverrides}
+          layout={grid.layout}
+          availableContentWidth={containerDimensions.width - leftFixedWidthPx - VERTICAL_SCROLLBAR_GUTTER_PX}
+          availableContentHeight={plotBottomBoundaryPx - (facetPresent ? topHeaderHeight : 0)}
+        />
       )}
 
       {/* Keyboard navigation hint for Gantt charts */}
