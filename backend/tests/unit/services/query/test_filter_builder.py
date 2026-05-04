@@ -1,5 +1,6 @@
 """Unit tests for FilterBuilder behavior."""
 
+from backend.dialects import get_dialect
 from backend.services.query_components.filter_builder import FilterBuilder
 from backend.services.query_service import QueryService
 from backend.models.query import QueryDescription, Dimension, Filter
@@ -52,7 +53,7 @@ def test_not_like_filter_builds_negated_like_sql():
         get_field_with_cast=qs._get_field_with_cast,
     )
 
-    criteria = builder.build(desc, ctx.table_map, ctx.default_table, "duckdb", ctx.primary_table)
+    criteria = builder.build(desc, ctx.table_map, ctx.default_table, get_dialect("duckdb"), ctx.primary_table)
     assert len(criteria) >= 1
 
     sql = criteria[0].get_sql(quote_char='"').lower()
@@ -79,7 +80,7 @@ def test_not_ilike_filter_builds_negated_ilike_sql():
         get_field_with_cast=qs._get_field_with_cast,
     )
 
-    criteria = builder.build(desc, ctx.table_map, ctx.default_table, "duckdb", ctx.primary_table)
+    criteria = builder.build(desc, ctx.table_map, ctx.default_table, get_dialect("duckdb"), ctx.primary_table)
     assert len(criteria) >= 1
 
     sql = criteria[0].get_sql(quote_char='"').lower()
