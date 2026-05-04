@@ -32,6 +32,7 @@ import {
   getFacetRowSizeConstraints,
   resolveFacetTrackSize,
 } from './utils/uniformCellSizing';
+import { resolvePlotResizePolicy } from './utils/plotResizePolicy';
 import styles from './ChartGrid.module.css';
 
 interface MultiPlotGridProps {
@@ -122,7 +123,18 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
   const plotBottomBoundaryPx = containerDimensions.height - bottomAxisBandPx;
 
   const { state, dispatch } = useVisualizationContext();
-  const { axisLabelStyles } = state;
+  const {
+    axisLabelStyles,
+    fieldOverrides,
+    globalChartType,
+    distributionVariant,
+  } = state;
+  const { allowColumnResize, allowRowResize } = resolvePlotResizePolicy(
+    grid,
+    fieldOverrides,
+    globalChartType,
+    distributionVariant,
+  );
   const facetColumnConstraints = getFacetColumnSizeConstraints();
   const facetRowConstraints = getFacetRowSizeConstraints();
 
@@ -449,10 +461,10 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           horizontalScrollOffset={scrollOffsets.horizontal}
           verticalScrollOffset={scrollOffsets.vertical}
           plotGridRef={plotGridRef}
-          previewColumnResize={cellSizeOverrides.previewColumnResize}
-          previewRowResize={cellSizeOverrides.previewRowResize}
-          onColumnResize={cellSizeOverrides.handleColumnResize}
-          onRowResize={cellSizeOverrides.handleRowResize}
+          previewColumnResize={allowColumnResize ? cellSizeOverrides.previewColumnResize : undefined}
+          previewRowResize={allowRowResize ? cellSizeOverrides.previewRowResize : undefined}
+          onColumnResize={allowColumnResize ? cellSizeOverrides.handleColumnResize : undefined}
+          onRowResize={allowRowResize ? cellSizeOverrides.handleRowResize : undefined}
           facetLeftHeaderPx={facetLeftHeaderPx}
           facetLeftValueWidthsPx={facetLeftValueWidthsPx}
           facetTopValueHeightsPx={facetTopValueHeightsPx}

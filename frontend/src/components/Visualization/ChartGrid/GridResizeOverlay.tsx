@@ -191,6 +191,9 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
   onFacetColumnResize,
   onFacetRowResize,
 }) => {
+  const canResizePlotColumns = Boolean(onColumnResize || previewColumnResize);
+  const canResizePlotRows = Boolean(onRowResize || previewRowResize);
+
   // Drag state for virtual line
   const [dragState, setDragState] = useState<{
     orientation: 'horizontal' | 'vertical';
@@ -426,7 +429,7 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
   return (
     <>
       {/* Top facet header vertical resize handles (same track as plot columns) */}
-      {topHeaderHeight > 0 && columnPositions.map((xPos, index) => {
+      {canResizePlotColumns && topHeaderHeight > 0 && columnPositions.map((xPos, index) => {
         if (index === 0) return null;
 
         return (
@@ -481,7 +484,7 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
       ))}
 
       {/* Column resize handles (vertical lines in X-axis area) */}
-      {columnPositions.map((xPos, index) => {
+      {canResizePlotColumns && columnPositions.map((xPos, index) => {
         // Skip first position (left edge) for now - add if needed for rightmost
         if (index === 0) return null;
         
@@ -504,7 +507,7 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
       })}
 
       {/* Row resize handles (horizontal lines in Y-axis area) */}
-      {rowPositions.map((yPos, index) => {
+      {canResizePlotRows && rowPositions.map((yPos, index) => {
         // Skip first position (top edge) for now - add if needed for bottom
         if (index === 0) return null;
         

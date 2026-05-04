@@ -43,6 +43,31 @@ describe('GridResizeOverlay facet handles', () => {
     expect(onColumnResize).toHaveBeenCalledWith({ currentSize: 120, delta: 34 });
   });
 
+  it('does not render plot resize handles when plot resizing is disabled', () => {
+    const plotGridRef = React.createRef<HTMLDivElement>();
+
+    const { queryByTestId } = render(
+      <GridResizeOverlay
+        columns={2}
+        rows={2}
+        columnTemplate="120px 120px"
+        rowTemplate="80px 80px"
+        leftFixedWidth={180}
+        bottomFixedHeight={30}
+        topHeaderHeight={60}
+        containerWidth={500}
+        containerHeight={300}
+        horizontalScrollOffset={0}
+        verticalScrollOffset={0}
+        plotGridRef={plotGridRef}
+      />,
+    );
+
+    expect(queryByTestId('top-facet-col-handle-1')).toBeNull();
+    expect(queryByTestId('plot-col-handle-1')).toBeNull();
+    expect(queryByTestId('plot-row-handle-1')).toBeNull();
+  });
+
   it('commits a depth-specific left facet width resize', () => {
     const onFacetColumnResize = jest.fn();
     const plotGridRef = React.createRef<HTMLDivElement>();
