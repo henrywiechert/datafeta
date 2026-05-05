@@ -55,6 +55,7 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
     anchorEl: headerAnchor,
     activeDepth: activeHeaderDepth,
     activeDepthIndex: activeHeaderDepthIndex,
+    activeFontSize: activeHeaderFontSize,
     activeOrientation: activeHeaderOrientation,
     activeHorizontalAlign: activeHeaderHorizontalAlign,
     activeVerticalAlign: activeHeaderVerticalAlign,
@@ -119,6 +120,19 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
       handleHeaderStyleChange({ orientationByDepth: nextValues });
     }
   }, [activeHeaderDepth, handleHeaderStyleChange, headerStyle.orientationByDepth]);
+
+  const handleHeaderDepthFontSizeChange = useCallback((fontSize: number) => {
+    if (!activeHeaderDepth) return;
+
+    const nextValues = updateDepthOverride(
+      headerStyle.fontSizeByDepth,
+      activeHeaderDepth.depthIndex,
+      Math.max(8, Math.min(26, fontSize)),
+    );
+    if (nextValues !== headerStyle.fontSizeByDepth) {
+      handleHeaderStyleChange({ fontSizeByDepth: nextValues });
+    }
+  }, [activeHeaderDepth, handleHeaderStyleChange, headerStyle.fontSizeByDepth]);
 
   const handleValuesDepthAlignChange = useCallback((axis: 'horizontal' | 'vertical', alignment: FacetLabelAlign) => {
     if (!activeValuesDepth) return;
@@ -206,6 +220,12 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
         }}
       >
         {fieldLabels.map((label, idx) => {
+          const fontSize = resolveDepthValue(
+            headerStyle.fontSizeByDepth,
+            headerStyle.fontSize,
+            idx,
+            headerStyle.fontSize,
+          );
           const horizontalAlign = resolveDepthValue(
             headerStyle.horizontalAlignByDepth,
             headerStyle.horizontalAlign,
@@ -224,7 +244,7 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
             idx,
             'vertical',
           );
-          const headerOrientationStyles = getOrientationStyles(orientation, headerStyle.fontSize);
+          const headerOrientationStyles = getOrientationStyles(orientation, fontSize);
 
           return (
             <div
@@ -327,11 +347,11 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
         onClose={handleHeaderClose}
         title="Left Facet Header Style"
         scopeLabel={activeHeaderDepth ? `Hierarchy ${activeHeaderDepth.depthIndex + 1}: ${activeHeaderDepth.label}` : undefined}
-        fontSize={headerStyle.fontSize}
+        fontSize={activeHeaderFontSize}
         orientation={activeHeaderOrientation}
         horizontalAlign={activeHeaderHorizontalAlign}
         verticalAlign={activeHeaderVerticalAlign}
-        onFontSizeChange={(fontSize) => handleHeaderStyleChange({ fontSize })}
+        onFontSizeChange={handleHeaderDepthFontSizeChange}
         onOrientationChange={(orientation) => handleHeaderDepthOrientationChange(orientation as 'horizontal' | 'vertical')}
         onHorizontalAlignChange={(alignment) => handleHeaderDepthAlignChange('horizontal', alignment)}
         onVerticalAlignChange={(alignment) => handleHeaderDepthAlignChange('vertical', alignment)}

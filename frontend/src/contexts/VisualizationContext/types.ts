@@ -32,6 +32,7 @@ export type FacetWrapMode = 'wrap' | 'nowrap';
 // Facet label styling types
 export interface FacetHeaderLabelStyle {
   fontSize: number;  // 8-26, default 12
+  fontSizeByDepth?: number[];
   orientation: 'horizontal' | 'vertical';
   orientationByDepth?: Array<'horizontal' | 'vertical'>;
   horizontalAlign?: FacetLabelAlign;
