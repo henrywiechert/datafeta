@@ -75,7 +75,7 @@ export function useCellSizeOverrides(grid: GridResultModel | null): CellSizeOver
 
   const hasOverrides = userCellWidth !== null || userCellHeight !== null;
 
-  return {
+  return useMemo(() => ({
     userCellWidth,
     userCellHeight,
     hasOverrides,
@@ -84,5 +84,14 @@ export function useCellSizeOverrides(grid: GridResultModel | null): CellSizeOver
     handleColumnResize,
     handleRowResize,
     handleReset,
-  };
+  }), [
+    userCellWidth,
+    userCellHeight,
+    hasOverrides,
+    previewColumnResize,
+    previewRowResize,
+    handleColumnResize,
+    handleRowResize,
+    handleReset,
+  ]);
 }
