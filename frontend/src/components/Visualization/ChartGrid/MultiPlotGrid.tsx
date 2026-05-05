@@ -33,7 +33,6 @@ import {
   resolveFacetTrackSize,
 } from './utils/uniformCellSizing';
 import { resolvePlotResizePolicy } from './utils/plotResizePolicy';
-import { HeatmapSizeControl } from './HeatmapSizeControl';
 import styles from './ChartGrid.module.css';
 
 interface MultiPlotGridProps {
@@ -111,7 +110,6 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
   } = layoutCalcs;
 
   const { scrollOffsets, onWheelCapture, isKeyboardNavActive } = scrollSync;
-  const { hasOverrides, handleReset } = cellSizeOverrides;
   const { containerRef, hScrollRef, vScrollRef, plotsTranslateRef, plotGridRef } = refs;
 
   const hideExternalAxes = usesOnlyAxislessRenderers(grid);
@@ -477,53 +475,6 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           onFacetRowResize={handleFacetRowResize}
         />
       </div>
-
-      {/* Reset button for cell size overrides */}
-      {hasOverrides && (
-        <button
-          onClick={handleReset}
-          style={{
-            position: 'absolute',
-            top: 8,
-            right: 8,
-            zIndex: 300,
-            padding: '6px 12px',
-            backgroundColor: '#f8f8f8',
-            border: '1px solid #ccc',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '12px',
-            fontWeight: 500,
-            color: '#333',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-            transition: 'all 0.15s ease',
-            pointerEvents: 'auto',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = '#e8e8e8';
-            e.currentTarget.style.borderColor = '#999';
-            e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.15)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = '#f8f8f8';
-            e.currentTarget.style.borderColor = '#ccc';
-            e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-          }}
-          title="Reset grid to automatic sizing"
-        >
-          Reset Grid Size
-        </button>
-      )}
-
-      {/* Heatmap cell size controls (column width + row height steppers + fit-to-view) */}
-      {globalChartType === 'heatmap' && (
-        <HeatmapSizeControl
-          cellSizeOverrides={cellSizeOverrides}
-          layout={grid.layout}
-          availableContentWidth={containerDimensions.width - leftFixedWidthPx - VERTICAL_SCROLLBAR_GUTTER_PX}
-          availableContentHeight={plotBottomBoundaryPx - (facetPresent ? topHeaderHeight : 0)}
-        />
-      )}
 
       {/* Keyboard navigation hint for Gantt charts */}
       <div

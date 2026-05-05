@@ -24,6 +24,7 @@ import { useBrushZoom } from './hooks/useBrushZoom';
 import { useRenderingTracking } from './hooks/useRenderingTracking';
 import { useSeriesHighlight } from './hooks/useSeriesHighlight';
 import { ChartRenderer, ChartControls, DebugPanel } from './components';
+import HeatmapSizeBar from './components/HeatmapSizeBar';
 import LegendPanel from '../Legend/LegendPanel';
 import BackgroundLegendPanel from '../Legend/BackgroundLegendPanel';
 import ShapeLegendPanel from '../Legend/ShapeLegendPanel';
@@ -34,6 +35,8 @@ import { createChartAffectingConfig } from '../../../utils/queryAffectingConfig'
 import { filtersToHashKey } from '../../../utils/sheetConfigHash';
 import { buildEffectiveFilterConfigurations } from '../../../utils/effectiveFilters';
 import { isTablePresentation } from '../../../observable-plot-generator/chartTypes/chartTypePresentation';
+import { useCellSizeOverrides } from '../ChartGrid/hooks/useCellSizeOverrides';
+import { HeatmapSizeToolbarState } from '../ChartGrid/ChartGrid';
 
 /**
  * ChartArea - thin orchestrator that delegates to specialised hooks.
@@ -84,6 +87,8 @@ const ChartArea: React.FC = () => {
     xHeightPx: null as number | null,
     yWidthPx: null as number | null,
   });
+  const [heatmapSizeToolbarState, setHeatmapSizeToolbarState] =
+    useState<HeatmapSizeToolbarState | null>(null);
 
   // -- Derived values ----------------------------------------------------------
   const effectiveFilterConfigurations = useMemo(
@@ -203,6 +208,11 @@ const ChartArea: React.FC = () => {
     getUndoableSnapshot,
     grid,
   });
+  const cellSizeOverrides = useCellSizeOverrides(gridWithTooltipAction);
+
+  const handleHeatmapSizeToolbarChange = useCallback((toolbarState: HeatmapSizeToolbarState | null) => {
+    setHeatmapSizeToolbarState(toolbarState);
+  }, []);
 
   const { handleTableCellFilterAction } = useTableRowsFilterActions({
     recordAction,
@@ -278,6 +288,12 @@ const ChartArea: React.FC = () => {
   }, [channels.color.field, clearSeriesHighlight]);
 
   useSeriesHighlight(fullscreenWrapperRef, highlightedCategoryValues, colorColumnName, clearSeriesHighlight);
+
+  useEffect(() => {
+    if (globalChartType !== 'heatmap' || useTableView || showTableRows) {
+      setHeatmapSizeToolbarState(null);
+    }
+  }, [globalChartType, useTableView, showTableRows]);
 
   // -- Table-refactor pager wiring --------------------------------------------
   // Reset the per-sheet page index to 0 whenever the underlying row-tuple set
@@ -418,6 +434,7 @@ const ChartArea: React.FC = () => {
             useTableView={useTableView}
             tableData={tableData}
             grid={gridWithTooltipAction}
+            cellSizeOverrides={cellSizeOverrides}
             onAutoCategoryTickMeasure={handleAutoCategoryTickMeasure}
             queryResult={queryResult}
             xAxisFields={xAxisFields}
@@ -435,6 +452,7 @@ const ChartArea: React.FC = () => {
             tableRowsData={showTableRows ? tableRowsData : undefined}
             onTableCellFilterAction={handleTableCellFilterAction}
             tableRefactorPagerData={tableRefactorPagerData}
+            onHeatmapSizeToolbarChange={handleHeatmapSizeToolbarChange}
           />
 
           <ChartControls
@@ -473,6 +491,10 @@ const ChartArea: React.FC = () => {
               dispatch({ type: 'SET_SHOW_TABLE_ROWS', payload: show });
             }}
           />
+
+          {globalChartType === 'heatmap' && !useTableView && !showTableRows && (
+            <HeatmapSizeBar toolbarState={heatmapSizeToolbarState} />
+          )}
 
           <DebugPanel
             isDebugOpen={isDebugOpen}

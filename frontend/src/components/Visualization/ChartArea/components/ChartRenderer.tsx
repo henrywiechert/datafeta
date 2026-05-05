@@ -1,7 +1,8 @@
 import React, { useRef, useMemo } from 'react';
 import { Box } from '@mui/material';
-import ChartGrid, { GanttZoomRange } from '../../ChartGrid/ChartGrid';
+import ChartGrid, { GanttZoomRange, HeatmapSizeToolbarState } from '../../ChartGrid/ChartGrid';
 import { PlotBrushEvent } from '../../ChartGrid/PlotArea';
+import { CellSizeOverrides } from '../../ChartGrid/hooks/useCellSizeOverrides';
 import TableViewLazy from '../../Table/TableViewLazy';
 import TableViewRowsLazy from '../../Table/TableViewRowsLazy';
 import TableRowsPagination from '../../Table/TableRowsPagination';
@@ -16,6 +17,7 @@ interface ChartRendererProps {
   useTableView: boolean;
   tableData: TableData;
   grid: GridResultModel | null;
+  cellSizeOverrides: CellSizeOverrides;
   onAutoCategoryTickMeasure?: (sizes: { xHeightPx: number; yWidthPx: number }) => void;
   queryResult: any;
   xAxisFields: any[];
@@ -63,12 +65,14 @@ interface ChartRendererProps {
     onPageSizeChange: (size: number) => void;
     loading: boolean;
   };
+  onHeatmapSizeToolbarChange?: (toolbarState: HeatmapSizeToolbarState | null) => void;
 }
 
 const ChartRenderer: React.FC<ChartRendererProps> = ({
   useTableView,
   tableData,
   grid,
+  cellSizeOverrides,
   onAutoCategoryTickMeasure,
   queryResult,
   xAxisFields,
@@ -84,6 +88,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
   tableRowsData,
   onTableCellFilterAction,
   tableRefactorPagerData,
+  onHeatmapSizeToolbarChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   // NOTE: We intentionally do NOT dispatch global window resize events here.
@@ -135,6 +140,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
       <ChartGrid 
         grid={grid} 
         data={queryResult}
+        cellSizeOverrides={cellSizeOverrides}
         onAutoCategoryTickMeasure={onAutoCategoryTickMeasure}
         onPlotRenderComplete={onPlotRenderComplete}
         isGanttChart={isGanttChart}
@@ -143,6 +149,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
         ganttFullDataRange={ganttFullDataRange}
         brushDisabled={brushDisabled}
         onBrushEnd={onBrushEnd}
+        onHeatmapSizeToolbarChange={onHeatmapSizeToolbarChange}
       />
     );
     if (!tableRefactorPagerData) return chartGridNode;
@@ -161,7 +168,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
         />
       </Box>
     );
-  }, [tableRowsContent, useTableView, tableData, grid, onAutoCategoryTickMeasure, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete, isGanttChart, ganttZoomRange, onGanttZoomRangeChange, ganttFullDataRange, brushDisabled, onBrushEnd, tableRefactorPagerData]);
+  }, [tableRowsContent, useTableView, tableData, grid, cellSizeOverrides, onAutoCategoryTickMeasure, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete, isGanttChart, ganttZoomRange, onGanttZoomRangeChange, ganttFullDataRange, brushDisabled, onBrushEnd, tableRefactorPagerData, onHeatmapSizeToolbarChange]);
 
   return (
     <Box 
@@ -194,6 +201,7 @@ export default React.memo(ChartRenderer, (prevProps, nextProps) => {
     prevProps.useTableView === nextProps.useTableView &&
     prevProps.tableData === nextProps.tableData &&
     prevProps.grid === nextProps.grid &&
+    prevProps.cellSizeOverrides === nextProps.cellSizeOverrides &&
     prevProps.onAutoCategoryTickMeasure === nextProps.onAutoCategoryTickMeasure &&
     prevProps.queryResult === nextProps.queryResult &&
     prevProps.xAxisFields === nextProps.xAxisFields &&
@@ -210,6 +218,7 @@ export default React.memo(ChartRenderer, (prevProps, nextProps) => {
     prevProps.showTableRows === nextProps.showTableRows &&
     prevProps.tableRowsData === nextProps.tableRowsData &&
     prevProps.onTableCellFilterAction === nextProps.onTableCellFilterAction &&
-    prevProps.tableRefactorPagerData === nextProps.tableRefactorPagerData
+    prevProps.tableRefactorPagerData === nextProps.tableRefactorPagerData &&
+    prevProps.onHeatmapSizeToolbarChange === nextProps.onHeatmapSizeToolbarChange
   );
 }); 
