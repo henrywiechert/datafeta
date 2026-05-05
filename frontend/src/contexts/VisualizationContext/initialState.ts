@@ -110,6 +110,7 @@ export const initialState: VisualizationState = {
     topHeader: {
       fontSize: 12,
       orientation: 'horizontal',
+      orientationByDepth: [],
       horizontalAlign: 'center',
       verticalAlign: 'center',
       horizontalAlignByDepth: [],
@@ -118,12 +119,20 @@ export const initialState: VisualizationState = {
     topValues: {
       fontSize: 10,
       orientation: 'horizontal',
+      orientationByDepth: [],
       heightPx: null,
       heightPxByDepth: [],
+      horizontalAlign: 'center',
+      verticalAlign: 'center',
+      horizontalAlignByDepth: [],
+      verticalAlignByDepth: [],
+      wrapMode: 'wrap',
+      wrapModeByDepth: [],
     },
     leftHeader: {
       fontSize: 12,
       orientation: 'vertical',
+      orientationByDepth: [],
       widthPx: null,
       horizontalAlign: 'center',
       verticalAlign: 'center',
@@ -133,6 +142,7 @@ export const initialState: VisualizationState = {
     leftValues: {
       fontSize: 10,
       orientation: 'vertical',
+      orientationByDepth: [],
       widthPx: null,
       widthPxByDepth: [],
       horizontalAlign: 'start',
