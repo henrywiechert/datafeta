@@ -27,19 +27,41 @@ export interface AxisLabelStyles {
 
 export interface FacetHeaderLabelStyle {
   fontSize: number;
+  fontSizeByDepth?: number[];
   orientation: 'horizontal' | 'vertical';
+  orientationByDepth?: Array<'horizontal' | 'vertical'>;
+  horizontalAlign?: 'start' | 'center' | 'end';
+  verticalAlign?: 'start' | 'center' | 'end';
+  horizontalAlignByDepth?: Array<'start' | 'center' | 'end'>;
+  verticalAlignByDepth?: Array<'start' | 'center' | 'end'>;
 }
 
 export interface FacetTopValuesLabelStyle {
   fontSize: number;
   orientation: 'horizontal' | 'vertical' | 'angled';
+  orientationByDepth?: Array<'horizontal' | 'vertical' | 'angled'>;
   heightPx: number | null;
+  heightPxByDepth?: Array<number | null>;
+  horizontalAlign?: 'start' | 'center' | 'end';
+  verticalAlign?: 'start' | 'center' | 'end';
+  horizontalAlignByDepth?: Array<'start' | 'center' | 'end'>;
+  verticalAlignByDepth?: Array<'start' | 'center' | 'end'>;
+  wrapMode?: 'wrap' | 'nowrap';
+  wrapModeByDepth?: Array<'wrap' | 'nowrap'>;
 }
 
 export interface FacetLeftValuesLabelStyle {
   fontSize: number;
   orientation: 'horizontal' | 'vertical';
+  orientationByDepth?: Array<'horizontal' | 'vertical'>;
   widthPx: number | null;
+  widthPxByDepth?: Array<number | null>;
+  horizontalAlign?: 'start' | 'center' | 'end';
+  verticalAlign?: 'start' | 'center' | 'end';
+  horizontalAlignByDepth?: Array<'start' | 'center' | 'end'>;
+  verticalAlignByDepth?: Array<'start' | 'center' | 'end'>;
+  wrapMode?: 'wrap' | 'nowrap';
+  wrapModeByDepth?: Array<'wrap' | 'nowrap'>;
 }
 
 export interface FacetLabelStyles {
