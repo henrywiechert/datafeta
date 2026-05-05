@@ -6,9 +6,6 @@ import {
   Slider,
   ToggleButton,
   ToggleButtonGroup,
-  TextField,
-  FormControlLabel,
-  Switch,
 } from '@mui/material';
 import {
   FacetLabelAlign,
@@ -22,18 +19,15 @@ export interface FacetStylePopoverProps {
   scopeLabel?: string;
   fontSize: number;
   orientation: string;
-  heightPx?: number | null;
   horizontalAlign?: FacetLabelAlign;
   verticalAlign?: FacetLabelAlign;
   wrapMode?: FacetWrapMode;
   onFontSizeChange: (fontSize: number) => void;
   onOrientationChange: (orientation: string) => void;
-  onHeightChange?: (heightPx: number | null) => void;
   onHorizontalAlignChange?: (alignment: FacetLabelAlign) => void;
   onVerticalAlignChange?: (alignment: FacetLabelAlign) => void;
   onWrapModeChange?: (wrapMode: FacetWrapMode) => void;
   orientationOptions: string[];
-  showHeightControl?: boolean;
 }
 
 const FacetStylePopover: React.FC<FacetStylePopoverProps> = ({
@@ -43,21 +37,17 @@ const FacetStylePopover: React.FC<FacetStylePopoverProps> = ({
   scopeLabel,
   fontSize,
   orientation,
-  heightPx,
   horizontalAlign,
   verticalAlign,
   wrapMode,
   onFontSizeChange,
   onOrientationChange,
-  onHeightChange,
   onHorizontalAlignChange,
   onVerticalAlignChange,
   onWrapModeChange,
   orientationOptions,
-  showHeightControl,
 }) => {
   const open = Boolean(anchorEl);
-  const isAutoHeight = heightPx === null;
 
   return (
     <Popover
@@ -195,36 +185,6 @@ const FacetStylePopover: React.FC<FacetStylePopoverProps> = ({
               <ToggleButton value="wrap">Wrap</ToggleButton>
               <ToggleButton value="nowrap">No Wrap</ToggleButton>
             </ToggleButtonGroup>
-          </Box>
-        )}
-
-        {showHeightControl && onHeightChange && (
-          <Box>
-            <FormControlLabel
-              control={
-                <Switch
-                  size="small"
-                  checked={isAutoHeight}
-                  onChange={(e) => onHeightChange(e.target.checked ? null : 30)}
-                />
-              }
-              label={<Typography variant="body2">Auto Height</Typography>}
-              sx={{ ml: 0 }}
-            />
-            {!isAutoHeight && (
-              <TextField
-                size="small"
-                type="number"
-                label="Height (px)"
-                value={heightPx ?? 30}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value, 10);
-                  if (!isNaN(val) && val > 0) onHeightChange(val);
-                }}
-                inputProps={{ min: 10, max: 200, step: 5 }}
-                sx={{ mt: 1, width: '100%' }}
-              />
-            )}
           </Box>
         )}
       </Box>
