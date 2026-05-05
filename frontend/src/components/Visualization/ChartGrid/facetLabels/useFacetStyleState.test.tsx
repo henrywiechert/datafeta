@@ -6,6 +6,7 @@ describe('facet style state hooks', () => {
   test('useHeaderStyleState resolves active depth values and clears on close', () => {
     const { result } = renderHook(() => useHeaderStyleState({
       fontSize: 12,
+      fontSizeByDepth: [11, 16],
       orientation: 'horizontal',
       orientationByDepth: ['horizontal', 'vertical'],
       horizontalAlign: 'center',
@@ -19,6 +20,7 @@ describe('facet style state hooks', () => {
     }));
 
     expect(result.current.activeOrientation).toBe('horizontal');
+  expect(result.current.activeFontSize).toBe(11);
 
     const target = document.createElement('div');
     act(() => {
@@ -27,6 +29,7 @@ describe('facet style state hooks', () => {
 
     expect(result.current.anchorEl).toBe(target);
     expect(result.current.activeDepth).toEqual({ depthIndex: 1, label: 'Category' });
+    expect(result.current.activeFontSize).toBe(16);
     expect(result.current.activeOrientation).toBe('vertical');
     expect(result.current.activeHorizontalAlign).toBe('end');
     expect(result.current.activeVerticalAlign).toBe('end');

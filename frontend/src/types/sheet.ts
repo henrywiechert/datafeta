@@ -27,6 +27,7 @@ export interface AxisLabelStyles {
 
 export interface FacetHeaderLabelStyle {
   fontSize: number;
+  fontSizeByDepth?: number[];
   orientation: 'horizontal' | 'vertical';
   orientationByDepth?: Array<'horizontal' | 'vertical'>;
   horizontalAlign?: 'start' | 'center' | 'end';

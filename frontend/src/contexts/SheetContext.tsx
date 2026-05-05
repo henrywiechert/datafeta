@@ -81,6 +81,7 @@ function createEmptyVisualizationState(): VisualizationStateSnapshot {
     facetLabelStyles: {
       topHeader: {
         fontSize: 12,
+        fontSizeByDepth: [],
         orientation: 'horizontal',
         orientationByDepth: [],
         horizontalAlign: 'center',
@@ -103,6 +104,7 @@ function createEmptyVisualizationState(): VisualizationStateSnapshot {
       },
       leftHeader: {
         fontSize: 12,
+        fontSizeByDepth: [],
         orientation: 'vertical',
         orientationByDepth: [],
         widthPx: null,

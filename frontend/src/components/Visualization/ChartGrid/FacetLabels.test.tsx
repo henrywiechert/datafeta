@@ -5,9 +5,9 @@ import { LeftFacetLabels, TopFacetLabels } from './FacetLabels';
 const mockDispatch = jest.fn();
 
 const mockFacetLabelStyles = {
-  topHeader: { fontSize: 12, orientation: 'horizontal', orientationByDepth: [], horizontalAlign: 'center', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [] },
+  topHeader: { fontSize: 12, fontSizeByDepth: [], orientation: 'horizontal', orientationByDepth: [], horizontalAlign: 'center', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [] },
   topValues: { fontSize: 10, orientation: 'horizontal', orientationByDepth: [], heightPx: null, heightPxByDepth: [], horizontalAlign: 'center', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [], wrapMode: 'wrap', wrapModeByDepth: [] },
-  leftHeader: { fontSize: 12, orientation: 'vertical', orientationByDepth: [], widthPx: null, horizontalAlign: 'center', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [] },
+  leftHeader: { fontSize: 12, fontSizeByDepth: [], orientation: 'vertical', orientationByDepth: [], widthPx: null, horizontalAlign: 'center', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [] },
   leftValues: { fontSize: 10, orientation: 'vertical', orientationByDepth: [], widthPx: null, widthPxByDepth: [], horizontalAlign: 'start', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [], wrapMode: 'wrap', wrapModeByDepth: [] },
 };
 
@@ -102,9 +102,9 @@ function buildGrid() {
 describe('FacetLabels', () => {
   beforeEach(() => {
     mockDispatch.mockClear();
-    mockFacetLabelStyles.topHeader = { fontSize: 12, orientation: 'horizontal', orientationByDepth: [], horizontalAlign: 'center', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [] } as any;
+    mockFacetLabelStyles.topHeader = { fontSize: 12, fontSizeByDepth: [], orientation: 'horizontal', orientationByDepth: [], horizontalAlign: 'center', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [] } as any;
     mockFacetLabelStyles.topValues = { fontSize: 10, orientation: 'horizontal', orientationByDepth: [], heightPx: null, heightPxByDepth: [], horizontalAlign: 'center', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [], wrapMode: 'wrap', wrapModeByDepth: [] } as any;
-    mockFacetLabelStyles.leftHeader = { fontSize: 12, orientation: 'vertical', orientationByDepth: [], widthPx: null, horizontalAlign: 'center', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [] } as any;
+    mockFacetLabelStyles.leftHeader = { fontSize: 12, fontSizeByDepth: [], orientation: 'vertical', orientationByDepth: [], widthPx: null, horizontalAlign: 'center', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [] } as any;
     mockFacetLabelStyles.leftValues = { fontSize: 10, orientation: 'vertical', orientationByDepth: [], widthPx: null, widthPxByDepth: [], horizontalAlign: 'start', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [], wrapMode: 'wrap', wrapModeByDepth: [] } as any;
   });
 
@@ -142,6 +142,7 @@ describe('FacetLabels', () => {
   it('applies per-depth alignment rules to top facet headers', () => {
     mockFacetLabelStyles.topHeader = {
       fontSize: 12,
+      fontSizeByDepth: [11, 15],
       orientation: 'horizontal',
       orientationByDepth: ['horizontal', 'vertical'],
       horizontalAlign: 'center',
@@ -165,6 +166,8 @@ describe('FacetLabels', () => {
 
     expect(firstHeader).toHaveStyle({ justifyContent: 'flex-start', alignItems: 'flex-start', textAlign: 'left' });
     expect(secondHeader).toHaveStyle({ justifyContent: 'flex-end', alignItems: 'flex-end', textAlign: 'right' });
+    expect(firstHeader?.querySelector('div')).toHaveStyle({ fontSize: '11px' });
+    expect(secondHeaderText).toHaveStyle({ fontSize: '15px' });
     expect(secondHeaderText).toHaveStyle({ writingMode: 'vertical-rl' });
   });
 
@@ -352,6 +355,23 @@ describe('FacetLabels', () => {
     expect(headerAction.payload.orientationByDepth[1]).toBe('vertical');
   });
 
+  it('dispatches per-depth top header font size updates', () => {
+    render(
+      <TopFacetLabels
+        grid={buildGrid()}
+        plotTemplateColumns="repeat(4, 100px)"
+        baseCols={1}
+        facetTopValueHeightsPx={[24, 36]}
+      />,
+    );
+
+    fireEvent.click(screen.getByTitle('Click to edit style: Category'));
+    fireEvent.change(screen.getByRole('slider'), { target: { value: '18' } });
+
+    const headerAction = mockDispatch.mock.calls.find(([action]) => action.type === 'SET_FACET_TOP_HEADER_STYLE' && action.payload.fontSizeByDepth)?.[0];
+    expect(headerAction.payload.fontSizeByDepth[1]).toBe(18);
+  });
+
   it('opens a depth-aware top values popover and dispatches wrap updates for that depth', () => {
     render(
       <TopFacetLabels
@@ -388,6 +408,22 @@ describe('FacetLabels', () => {
 
     expect(screen.queryByText('Auto Width')).toBeNull();
     expect(screen.queryByText('Width (px)')).toBeNull();
+  });
+
+  it('does not render height controls in top facet values popovers', () => {
+    render(
+      <TopFacetLabels
+        grid={buildGrid()}
+        plotTemplateColumns="repeat(4, 100px)"
+        baseCols={1}
+        facetTopValueHeightsPx={[24, 36]}
+      />,
+    );
+
+    fireEvent.click(screen.getByTitle('East'));
+
+    expect(screen.queryByText('Auto Height')).toBeNull();
+    expect(screen.queryByText('Height (px)')).toBeNull();
   });
 
   it('opens a depth-aware left values popover and dispatches wrap updates for that depth', () => {

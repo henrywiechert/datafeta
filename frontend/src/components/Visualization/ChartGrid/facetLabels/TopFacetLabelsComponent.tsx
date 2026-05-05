@@ -55,6 +55,7 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
     anchorEl: headerAnchor,
     activeDepth: activeHeaderDepth,
     activeDepthIndex: activeHeaderDepthIndex,
+    activeFontSize: activeHeaderFontSize,
     activeOrientation: activeHeaderOrientation,
     activeHorizontalAlign: activeHeaderHorizontalAlign,
     activeVerticalAlign: activeHeaderVerticalAlign,
@@ -119,6 +120,19 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
       handleHeaderStyleChange({ verticalAlignByDepth: nextValues });
     }
   }, [activeHeaderDepth, handleHeaderStyleChange, headerStyle.horizontalAlignByDepth, headerStyle.verticalAlignByDepth]);
+
+  const handleHeaderDepthFontSizeChange = useCallback((fontSize: number) => {
+    if (!activeHeaderDepth) return;
+
+    const nextValues = updateDepthOverride(
+      headerStyle.fontSizeByDepth,
+      activeHeaderDepth.depthIndex,
+      Math.max(8, Math.min(26, fontSize)),
+    );
+    if (nextValues !== headerStyle.fontSizeByDepth) {
+      handleHeaderStyleChange({ fontSizeByDepth: nextValues });
+    }
+  }, [activeHeaderDepth, handleHeaderStyleChange, headerStyle.fontSizeByDepth]);
 
   const handleValuesDepthOrientationChange = useCallback((orientation: 'horizontal' | 'vertical' | 'angled') => {
     if (!activeValuesDepth) return;
@@ -193,6 +207,12 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
           }}
         >
           {fieldLabels.map((label, idx) => {
+            const fontSize = resolveDepthValue(
+              headerStyle.fontSizeByDepth,
+              headerStyle.fontSize,
+              idx,
+              headerStyle.fontSize,
+            );
             const orientation = resolveDepthValue(
               headerStyle.orientationByDepth,
               headerStyle.orientation,
@@ -211,7 +231,7 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
               idx,
               'center',
             );
-            const orientationStyles = getOrientationStyles(orientation, headerStyle.fontSize);
+            const orientationStyles = getOrientationStyles(orientation, fontSize);
 
             return (
               <div
@@ -320,11 +340,11 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
         onClose={handleHeaderClose}
         title="Top Facet Header Style"
         scopeLabel={activeHeaderDepth ? `Hierarchy ${activeHeaderDepth.depthIndex + 1}: ${activeHeaderDepth.label}` : undefined}
-        fontSize={headerStyle.fontSize}
+        fontSize={activeHeaderFontSize}
         orientation={activeHeaderOrientation}
         horizontalAlign={activeHeaderHorizontalAlign}
         verticalAlign={activeHeaderVerticalAlign}
-        onFontSizeChange={(fontSize) => handleHeaderStyleChange({ fontSize })}
+        onFontSizeChange={handleHeaderDepthFontSizeChange}
         onOrientationChange={(orientation) => handleHeaderDepthOrientationChange(orientation as 'horizontal' | 'vertical')}
         onHorizontalAlignChange={(alignment) => handleHeaderDepthAlignChange('horizontal', alignment)}
         onVerticalAlignChange={(alignment) => handleHeaderDepthAlignChange('vertical', alignment)}
@@ -338,18 +358,15 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
         scopeLabel={activeValuesDepth ? `Hierarchy ${activeValuesDepth.depthIndex + 1}: ${activeValuesDepth.label}` : undefined}
         fontSize={valuesStyle.fontSize}
         orientation={activeValuesOrientation}
-        heightPx={valuesStyle.heightPx}
         horizontalAlign={activeValuesHorizontalAlign}
         verticalAlign={activeValuesVerticalAlign}
         wrapMode={activeValuesWrapMode}
         onFontSizeChange={(fontSize) => handleValuesStyleChange({ fontSize })}
         onOrientationChange={(orientation) => handleValuesDepthOrientationChange(orientation as 'horizontal' | 'vertical' | 'angled')}
-        onHeightChange={(heightPx) => handleValuesStyleChange({ heightPx })}
         onHorizontalAlignChange={(alignment) => handleValuesDepthAlignChange('horizontal', alignment)}
         onVerticalAlignChange={(alignment) => handleValuesDepthAlignChange('vertical', alignment)}
         onWrapModeChange={(mode) => handleValuesDepthWrapModeChange(mode)}
         orientationOptions={['horizontal', 'vertical', 'angled']}
-        showHeightControl
       />
     </div>
   );

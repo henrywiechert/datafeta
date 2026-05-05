@@ -109,6 +109,7 @@ export const initialState: VisualizationState = {
   facetLabelStyles: {
     topHeader: {
       fontSize: 12,
+      fontSizeByDepth: [],
       orientation: 'horizontal',
       orientationByDepth: [],
       horizontalAlign: 'center',
@@ -131,6 +132,7 @@ export const initialState: VisualizationState = {
     },
     leftHeader: {
       fontSize: 12,
+      fontSizeByDepth: [],
       orientation: 'vertical',
       orientationByDepth: [],
       widthPx: null,

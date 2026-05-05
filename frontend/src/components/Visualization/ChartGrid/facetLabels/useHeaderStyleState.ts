@@ -34,6 +34,12 @@ export function useHeaderStyleState(
   }, []);
 
   const activeDepthIndex = activeDepth?.depthIndex ?? 0;
+  const activeFontSize = resolveDepthValue(
+    style.fontSizeByDepth,
+    style.fontSize,
+    activeDepthIndex,
+    style.fontSize,
+  );
   const activeOrientation = resolveDepthValue(
     style.orientationByDepth,
     style.orientation,
@@ -57,6 +63,7 @@ export function useHeaderStyleState(
     anchorEl,
     activeDepth,
     activeDepthIndex,
+    activeFontSize,
     activeOrientation,
     activeHorizontalAlign,
     activeVerticalAlign,
