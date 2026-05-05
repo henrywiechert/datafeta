@@ -33,6 +33,7 @@ export type FacetWrapMode = 'wrap' | 'nowrap';
 export interface FacetHeaderLabelStyle {
   fontSize: number;  // 8-26, default 12
   orientation: 'horizontal' | 'vertical';
+  orientationByDepth?: Array<'horizontal' | 'vertical'>;
   horizontalAlign?: FacetLabelAlign;
   verticalAlign?: FacetLabelAlign;
   horizontalAlignByDepth?: FacetLabelAlign[];
@@ -42,13 +43,21 @@ export interface FacetHeaderLabelStyle {
 export interface FacetTopValuesLabelStyle {
   fontSize: number;  // 8-26, default 10
   orientation: 'horizontal' | 'vertical' | 'angled';
+  orientationByDepth?: Array<'horizontal' | 'vertical' | 'angled'>;
   heightPx: number | null;  // null = auto (VALUES_BAND_TOP_PX), or manual override
   heightPxByDepth?: Array<number | null>;
+  horizontalAlign?: FacetLabelAlign;
+  verticalAlign?: FacetLabelAlign;
+  horizontalAlignByDepth?: FacetLabelAlign[];
+  verticalAlignByDepth?: FacetLabelAlign[];
+  wrapMode?: FacetWrapMode;
+  wrapModeByDepth?: FacetWrapMode[];
 }
 
 export interface FacetLeftValuesLabelStyle {
   fontSize: number;  // 8-26, default 10
   orientation: 'horizontal' | 'vertical';
+  orientationByDepth?: Array<'horizontal' | 'vertical'>;
   widthPx: number | null;  // null = auto (VALUES_BAND_LEFT_PX), or manual override
   widthPxByDepth?: Array<number | null>;
   horizontalAlign?: FacetLabelAlign;

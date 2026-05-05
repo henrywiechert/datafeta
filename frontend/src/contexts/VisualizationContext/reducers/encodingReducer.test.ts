@@ -44,6 +44,22 @@ describe('encodingReducer facet depth sizing', () => {
     expect(next).toBe(state);
   });
 
+  test('stores top facet value per-depth style arrays through the generic style action', () => {
+    const next = encodingReducer(initialState, {
+      type: 'SET_FACET_TOP_VALUES_STYLE',
+      payload: {
+        orientationByDepth: ['horizontal', 'angled'],
+        horizontalAlignByDepth: ['start'],
+        wrapModeByDepth: ['nowrap'],
+      },
+    } as any);
+
+    expect(next).not.toBeNull();
+    expect(next!.facetLabelStyles.topValues.orientationByDepth).toEqual(['horizontal', 'angled']);
+    expect(next!.facetLabelStyles.topValues.horizontalAlignByDepth).toEqual(['start']);
+    expect(next!.facetLabelStyles.topValues.wrapModeByDepth).toEqual(['nowrap']);
+  });
+
   test('ignores invalid negative facet depth indexes', () => {
     const next = encodingReducer(initialState, {
       type: 'SET_FACET_LEFT_VALUES_DEPTH_WIDTH',
