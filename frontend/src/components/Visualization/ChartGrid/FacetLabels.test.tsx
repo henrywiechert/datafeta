@@ -52,19 +52,6 @@ jest.mock('@mui/material', () => {
         onClick: () => context?.onChange?.({}, value),
       }, children);
     },
-    TextField: ({ label, value, onChange, type, ...props }: any) => React.createElement(
-      'label',
-      null,
-      label,
-      React.createElement('input', { ...props, type: type ?? 'text', value, onChange }),
-    ),
-    FormControlLabel: ({ control, label, ...props }: any) => React.createElement('label', props, control, label),
-    Switch: ({ checked, onChange, ...props }: any) => React.createElement('input', {
-      ...props,
-      type: 'checkbox',
-      checked,
-      onChange,
-    }),
   };
 });
 
