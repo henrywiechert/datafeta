@@ -3,14 +3,10 @@ import { Menu, MenuItem } from '@mui/material';
 
 import { QueryResult } from '../../../types';
 import { GridResultModel } from '../../../observable-plot-generator/gridModel';
-import {
-  HORIZONTAL_SCROLLBAR_GUTTER_PX,
-  VERTICAL_SCROLLBAR_GUTTER_PX,
-  X_LABEL_ROW_PX,
-} from '../../../config/chartLayoutConfig';
 import FacetZoomDialog from './FacetZoomDialog';
 import styles from './ChartGrid.module.css';
 import { CellSizeOverrides } from './hooks/useCellSizeOverrides';
+import { HeatmapSizeToolbarState, useHeatmapSizeToolbar } from './hooks/useHeatmapSizeToolbar';
 import { useStabilization } from './hooks/useStabilization';
 import { useRowHeightCalculation } from './hooks/useRowHeightCalculation';
 import { useContainerDimensions } from './hooks/useContainerDimensions';
@@ -25,22 +21,6 @@ export interface GanttZoomRange {
   min: number;
   max: number;
 }
-
-export interface HeatmapSizeToolbarState {
-  currentColumnWidth: number | null;
-  currentRowHeight: number | null;
-  canResize: boolean;
-  hasOverrides: boolean;
-  decreaseColumnWidth: () => void;
-  increaseColumnWidth: () => void;
-  decreaseRowHeight: () => void;
-  increaseRowHeight: () => void;
-  fitToView: () => void;
-  reset: () => void;
-}
-
-const HEATMAP_SHRINK_FACTOR = 0.7;
-const HEATMAP_GROW_FACTOR = 1.4;
 
 interface ChartGridProps {
   grid: GridResultModel | null;
@@ -103,14 +83,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   // Get label styles from context
   const { state } = useVisualizationContext();
   const { axisLabelStyles, facetLabelStyles, categoryTickStyles, globalChartType } = state;
-  const {
-    userCellWidth,
-    userCellHeight,
-    hasOverrides,
-    handleColumnResize,
-    handleRowResize,
-    handleReset,
-  } = cellSizeOverrides;
+  const { userCellWidth, userCellHeight } = cellSizeOverrides;
 
   // Use deferred value to prevent intermediate renders during faceting transitions.
   // When the grid changes (e.g., filter changes faceting from 30 rows to 3 rows),
@@ -176,119 +149,13 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   const handleMenuClose = useCallback(() => setContextMenu(null), []);
   const handleZoomClose = useCallback(() => setZoomedPlotId(null), []);
 
-  const currentColumnWidth = useMemo(() => {
-    const columnSize = grid?.layout.columnSizes?.[0];
-    const intrinsicWidth = typeof columnSize === 'number' ? columnSize : null;
-    return userCellWidth ?? intrinsicWidth;
-  }, [grid?.layout.columnSizes, userCellWidth]);
-
-  const currentRowHeight = useMemo(() => {
-    const rowSize = grid?.layout.rowSizes?.[0];
-    const intrinsicHeight = typeof rowSize === 'number' ? rowSize : null;
-    return userCellHeight ?? intrinsicHeight;
-  }, [grid?.layout.rowSizes, userCellHeight]);
-
-  const decreaseColumnWidth = useCallback(() => {
-    if (currentColumnWidth === null) return;
-    const nextSize = Math.round(currentColumnWidth * HEATMAP_SHRINK_FACTOR);
-    handleColumnResize({
-      currentSize: currentColumnWidth,
-      delta: nextSize - currentColumnWidth,
-    });
-  }, [currentColumnWidth, handleColumnResize]);
-
-  const increaseColumnWidth = useCallback(() => {
-    if (currentColumnWidth === null) return;
-    const nextSize = Math.round(currentColumnWidth * HEATMAP_GROW_FACTOR);
-    handleColumnResize({
-      currentSize: currentColumnWidth,
-      delta: nextSize - currentColumnWidth,
-    });
-  }, [currentColumnWidth, handleColumnResize]);
-
-  const decreaseRowHeight = useCallback(() => {
-    if (currentRowHeight === null) return;
-    const nextSize = Math.round(currentRowHeight * HEATMAP_SHRINK_FACTOR);
-    handleRowResize({
-      currentSize: currentRowHeight,
-      delta: nextSize - currentRowHeight,
-    });
-  }, [currentRowHeight, handleRowResize]);
-
-  const increaseRowHeight = useCallback(() => {
-    if (currentRowHeight === null) return;
-    const nextSize = Math.round(currentRowHeight * HEATMAP_GROW_FACTOR);
-    handleRowResize({
-      currentSize: currentRowHeight,
-      delta: nextSize - currentRowHeight,
-    });
-  }, [currentRowHeight, handleRowResize]);
-
-  const fitToView = useCallback(() => {
-    if (!layoutCalcs || !grid || currentColumnWidth === null || currentRowHeight === null) return;
-    if (layoutCalcs.columns <= 0 || layoutCalcs.rows <= 0) return;
-
-    const bottomAxisBandPx = layoutCalcs.dynamicXAxisPx + X_LABEL_ROW_PX + HORIZONTAL_SCROLLBAR_GUTTER_PX;
-    const plotBottomBoundaryPx = containerDimensions.height - bottomAxisBandPx;
-    const availableContentWidth = Math.max(
-      1,
-      containerDimensions.width - layoutCalcs.leftFixedWidthPx - VERTICAL_SCROLLBAR_GUTTER_PX,
-    );
-    const availableContentHeight = Math.max(
-      1,
-      plotBottomBoundaryPx - (layoutCalcs.topHeaderHeight > 0 ? layoutCalcs.topHeaderHeight : 0),
-    );
-
-    const fitColumnWidth = Math.floor(availableContentWidth / layoutCalcs.columns);
-    const fitRowHeight = Math.floor(availableContentHeight / layoutCalcs.rows);
-
-    handleColumnResize({
-      currentSize: currentColumnWidth,
-      delta: fitColumnWidth - currentColumnWidth,
-    });
-    handleRowResize({
-      currentSize: currentRowHeight,
-      delta: fitRowHeight - currentRowHeight,
-    });
-  }, [
-    containerDimensions.height,
-    containerDimensions.width,
-    currentColumnWidth,
-    currentRowHeight,
+  const heatmapToolbarState = useHeatmapSizeToolbar({
+    enabled: globalChartType === 'heatmap',
     grid,
     layoutCalcs,
-    handleColumnResize,
-    handleRowResize,
-  ]);
-
-  const heatmapToolbarState = useMemo<HeatmapSizeToolbarState | null>(() => {
-    if (globalChartType !== 'heatmap' || !layoutCalcs) return null;
-
-    return {
-      currentColumnWidth,
-      currentRowHeight,
-      canResize: currentColumnWidth !== null && currentRowHeight !== null,
-      hasOverrides,
-      decreaseColumnWidth,
-      increaseColumnWidth,
-      decreaseRowHeight,
-      increaseRowHeight,
-      fitToView,
-      reset: handleReset,
-    };
-  }, [
-    globalChartType,
-    layoutCalcs,
-    currentColumnWidth,
-    currentRowHeight,
-    hasOverrides,
-    handleReset,
-    decreaseColumnWidth,
-    increaseColumnWidth,
-    decreaseRowHeight,
-    increaseRowHeight,
-    fitToView,
-  ]);
+    containerDimensions,
+    cellSizeOverrides,
+  });
 
   // Sync state with calculated height (for ResizeObserver to use as baseline)
   useEffect(() => {

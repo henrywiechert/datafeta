@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Button, Divider, Typography } from '@mui/material';
-import { HeatmapSizeToolbarState } from '../../ChartGrid/ChartGrid';
+import { HeatmapSizeToolbarState } from '../../ChartGrid/hooks/useHeatmapSizeToolbar';
 
 interface HeatmapSizeBarProps {
   toolbarState: HeatmapSizeToolbarState | null;

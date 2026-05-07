@@ -1,6 +1,7 @@
 import React, { useRef, useMemo } from 'react';
 import { Box } from '@mui/material';
-import ChartGrid, { GanttZoomRange, HeatmapSizeToolbarState } from '../../ChartGrid/ChartGrid';
+import ChartGrid, { GanttZoomRange } from '../../ChartGrid/ChartGrid';
+import { HeatmapSizeToolbarState } from '../../ChartGrid/hooks/useHeatmapSizeToolbar';
 import { PlotBrushEvent } from '../../ChartGrid/PlotArea';
 import { CellSizeOverrides } from '../../ChartGrid/hooks/useCellSizeOverrides';
 import TableViewLazy from '../../Table/TableViewLazy';
