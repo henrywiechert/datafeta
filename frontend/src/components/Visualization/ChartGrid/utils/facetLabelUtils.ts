@@ -1,6 +1,7 @@
 import React from 'react';
 import { formatDateTick } from '../../../../observable-plot-generator/utils/dateFormatUtils';
-import { FacetLabelAlign } from '../../../../contexts/VisualizationContext/types';
+import { FacetLabelAlign, FacetLabelStyles } from '../../../../contexts/VisualizationContext/types';
+import { UserChartType } from '../../../../types';
 
 /**
  * Format a facet label value. Uses ISO-style format for Dates, otherwise String().
@@ -110,4 +111,25 @@ export function updateDepthOverride<T>(
   const nextValues = [...currentValues];
   nextValues[depthIndex] = nextValue;
   return nextValues;
+}
+
+function shouldUseTableHorizontalFacetValues(style: FacetLabelStyles['leftValues']): boolean {
+  return style.orientation === 'vertical' && (style.orientationByDepth?.length ?? 0) === 0;
+}
+
+export function getEffectiveFacetLabelStyles(
+  facetLabelStyles: FacetLabelStyles,
+  globalChartType: UserChartType | null | undefined,
+): FacetLabelStyles {
+  if (globalChartType !== 'table-refactor' || !shouldUseTableHorizontalFacetValues(facetLabelStyles.leftValues)) {
+    return facetLabelStyles;
+  }
+
+  return {
+    ...facetLabelStyles,
+    leftValues: {
+      ...facetLabelStyles.leftValues,
+      orientation: 'horizontal',
+    },
+  };
 }

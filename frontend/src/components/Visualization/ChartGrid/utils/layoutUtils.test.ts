@@ -1,12 +1,17 @@
 import { GridResultModel } from '../../../../observable-plot-generator/gridModel';
 import {
   buildPlotGridSizingStyle,
+  computeAutoFacetLeftHeaderWidth,
+  computeAutoFacetLeftValueWidths,
+  computeAutoFacetTopHeaderHeight,
+  computeAutoFacetTopValueHeights,
   computeDynamicXAxisGutterPx,
   computeDynamicYAxisGutterPx,
   computeTotalContentWidth,
   generateColumnTemplate,
   generateRowTemplate,
   getActualRowHeights,
+  getEffectiveFacetLabelStyles,
   inferRowSizes,
   resolveFacetLeftValueWidths,
   resolveFacetTopValueHeights,
@@ -93,6 +98,47 @@ describe('layoutUtils', () => {
       widthPx: 36,
       widthPxByDepth: [null, 50],
     }, 20)).toEqual([36, 50, 36, 36]);
+  });
+
+  it('applies horizontal left-value defaults in table mode without changing non-table styles', () => {
+    const styles = {
+      topHeader: { fontSize: 12, orientation: 'horizontal' as const },
+      topValues: { fontSize: 10, orientation: 'horizontal' as const, heightPx: null },
+      leftHeader: { fontSize: 12, orientation: 'vertical' as const, widthPx: null },
+      leftValues: { fontSize: 10, orientation: 'vertical' as const, widthPx: null, orientationByDepth: [] },
+    } as any;
+
+    expect(getEffectiveFacetLabelStyles(styles, 'table-refactor')?.leftValues.orientation).toBe('horizontal');
+    expect(getEffectiveFacetLabelStyles(styles, 'bar')?.leftValues.orientation).toBe('vertical');
+  });
+
+  it('auto-sizes table facet tracks from content', () => {
+    expect(computeAutoFacetLeftHeaderWidth(['Very Long Dimension Name'], {
+      fontSize: 12,
+      orientation: 'horizontal',
+    } as any, 20)).toBeGreaterThan(20);
+
+    expect(computeAutoFacetTopHeaderHeight(['Category'], {
+      fontSize: 12,
+      orientation: 'horizontal',
+    } as any, 18)).toBeGreaterThanOrEqual(18);
+
+    expect(computeAutoFacetLeftValueWidths([
+      { values: ['Short', 'A much longer value'] },
+    ], {
+      fontSize: 10,
+      orientation: 'horizontal',
+      widthPx: null,
+    } as any, 24)[0]).toBeGreaterThan(24);
+
+    expect(computeAutoFacetTopValueHeights([
+      { values: ['Alpha', 'Beta'] },
+      { values: ['2026-05-07'] },
+    ], {
+      fontSize: 10,
+      orientation: 'horizontal',
+      heightPx: null,
+    } as any, 18)).toEqual([26, 26]);
   });
 
   it('sums resolved facet track sizes for reserved-space calculations', () => {

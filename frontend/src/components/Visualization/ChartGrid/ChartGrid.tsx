@@ -128,7 +128,8 @@ const ChartGrid: React.FC<ChartGridProps> = ({
     vScrollRef,
     axisLabelStyles.yAxis,
     facetLabelStyles,
-    categoryTickStyles
+    categoryTickStyles,
+    globalChartType,
   );
 
   // Facet zoom state (must be before any conditional returns — Rules of Hooks)

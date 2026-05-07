@@ -1,13 +1,28 @@
 import { useMemo, RefObject } from 'react';
 import { GridResultModel } from '../../../../observable-plot-generator/gridModel';
-import { MIN_GRID_COLUMN_PX, MIN_GRID_ROW_PX, NAMES_BAND_LEFT_PX, VALUES_BAND_LEFT_PX, VALUES_BAND_TOP_PX } from '../../../../config/chartLayoutConfig';
-import { YAxisLabelStyle, FacetLabelStyles, CategoryTickStyles } from '../../../../contexts/VisualizationContext/types';
 import {
+  MIN_GRID_COLUMN_PX,
+  MIN_GRID_ROW_PX,
+  NAMES_BAND_LEFT_PX,
+  TABLE_NAMES_BAND_LEFT_PX,
+  TABLE_VALUES_BAND_LEFT_PX,
+  TABLE_VALUES_BAND_TOP_PX,
+  VALUES_BAND_LEFT_PX,
+  VALUES_BAND_TOP_PX,
+} from '../../../../config/chartLayoutConfig';
+import { YAxisLabelStyle, FacetLabelStyles, CategoryTickStyles } from '../../../../contexts/VisualizationContext/types';
+import { UserChartType } from '../../../../types';
+import {
+  computeAutoFacetLeftHeaderWidth,
+  computeAutoFacetLeftValueWidths,
+  computeAutoFacetTopHeaderHeight,
+  computeAutoFacetTopValueHeights,
   computeDynamicYAxisGutterPx,
   computeDynamicXAxisGutterPx,
   computeDynamicYLabelColPx,
   computeTotalContentWidth,
   generateColumnTemplate,
+  getEffectiveFacetLabelStyles,
   inferRowSizes,
   generateRowTemplate,
   getActualRowHeights,
@@ -37,6 +52,7 @@ export interface LayoutCalculations {
   leftFixedWidthPx: number;
   topHeaderHeight: number;
   // Facet dimension overrides (for styling)
+  facetTopHeaderPx: number;
   facetLeftHeaderPx: number;
   facetLeftValuesPx: number;
   facetTopValuesPx: number;
@@ -56,7 +72,8 @@ export function useChartGridLayout(
   vScrollRef: RefObject<HTMLDivElement>,
   yAxisLabelStyle?: YAxisLabelStyle,
   facetLabelStyles?: FacetLabelStyles,
-  categoryTickStyles?: CategoryTickStyles
+  categoryTickStyles?: CategoryTickStyles,
+  globalChartType?: UserChartType | null,
 ): LayoutCalculations | null {
   return useMemo(() => {
     if (!grid || grid.cells.length === 0) {
@@ -123,20 +140,65 @@ export function useChartGridLayout(
     const baseCols = grid.headers?.cols?.baseSpan || 1;
     const baseRows = grid.headers?.rows?.baseSpan || 1;
     const yLevelsCount = rowLevels.length;
+    const effectiveFacetLabelStyles = getEffectiveFacetLabelStyles(facetLabelStyles, globalChartType);
+    const isTableGrid = globalChartType === 'table-refactor';
+
+    const leftHeaderFallbackPx = isTableGrid
+      ? computeAutoFacetLeftHeaderWidth(
+          rowLevels.map((level) => level.fieldLabel),
+          effectiveFacetLabelStyles?.leftHeader ?? {
+            fontSize: 12,
+            orientation: 'vertical',
+          },
+          TABLE_NAMES_BAND_LEFT_PX,
+        )
+      : NAMES_BAND_LEFT_PX;
+    const topHeaderFallbackPx = isTableGrid
+      ? computeAutoFacetTopHeaderHeight(
+          colLevels.map((level) => level.fieldLabel),
+          effectiveFacetLabelStyles?.topHeader ?? {
+            fontSize: 12,
+            orientation: 'horizontal',
+          },
+          VALUES_BAND_TOP_PX,
+        )
+      : 20;
+    const leftValueFallbackPx = isTableGrid
+      ? computeAutoFacetLeftValueWidths(
+          rowLevels,
+          effectiveFacetLabelStyles?.leftValues ?? {
+            fontSize: 10,
+            orientation: 'horizontal',
+            widthPx: null,
+          },
+          TABLE_VALUES_BAND_LEFT_PX,
+        )
+      : VALUES_BAND_LEFT_PX;
+    const topValueFallbackPx = isTableGrid
+      ? computeAutoFacetTopValueHeights(
+          colLevels,
+          effectiveFacetLabelStyles?.topValues ?? {
+            fontSize: 10,
+            orientation: 'horizontal',
+            heightPx: null,
+          },
+          TABLE_VALUES_BAND_TOP_PX,
+        )
+      : VALUES_BAND_TOP_PX;
 
     // Facet dimensions - use style overrides or fall back to constants
-    const facetLeftHeaderPx = facetLabelStyles?.leftHeader.widthPx ?? NAMES_BAND_LEFT_PX;
-    const facetLeftValuesPx = facetLabelStyles?.leftValues.widthPx ?? VALUES_BAND_LEFT_PX;
-    const facetTopValuesPx = facetLabelStyles?.topValues.heightPx ?? VALUES_BAND_TOP_PX;
+    const facetLeftHeaderPx = effectiveFacetLabelStyles?.leftHeader.widthPx ?? leftHeaderFallbackPx;
+    const facetLeftValuesPx = effectiveFacetLabelStyles?.leftValues.widthPx ?? (Array.isArray(leftValueFallbackPx) ? leftValueFallbackPx[0] ?? VALUES_BAND_LEFT_PX : leftValueFallbackPx);
+    const facetTopValuesPx = effectiveFacetLabelStyles?.topValues.heightPx ?? (Array.isArray(topValueFallbackPx) ? topValueFallbackPx[0] ?? VALUES_BAND_TOP_PX : topValueFallbackPx);
     const facetLeftValueWidthsPx = resolveFacetLeftValueWidths(
       yLevelsCount,
-      facetLabelStyles?.leftValues,
-      VALUES_BAND_LEFT_PX,
+      effectiveFacetLabelStyles?.leftValues,
+      leftValueFallbackPx,
     );
     const facetTopValueHeightsPx = resolveFacetTopValueHeights(
       colLevels.length,
-      facetLabelStyles?.topValues,
-      VALUES_BAND_TOP_PX,
+      effectiveFacetLabelStyles?.topValues,
+      topValueFallbackPx,
     );
 
     const leftLabelsPx = hasRowFacets ? facetLeftHeaderPx + sumTrackSizes(facetLeftValueWidthsPx) : 0;
@@ -146,7 +208,8 @@ export function useChartGridLayout(
     const dynamicXAxisPx = computeDynamicXAxisGutterPx(grid, columns, categoryTickStyles?.xHeightPx ?? null);
     const yLabelColPx = computeDynamicYLabelColPx(grid, calculatedRowHeightPx, yAxisLabelStyle);
     const leftFixedWidthPx = leftLabelsPx + yLabelColPx + dynamicYAxisPx;
-    const topHeaderHeight = colLevels.length > 0 ? 20 + sumTrackSizes(facetTopValueHeightsPx) : 0;
+    const facetTopHeaderPx = colLevels.length > 0 ? topHeaderFallbackPx : 0;
+    const topHeaderHeight = colLevels.length > 0 ? facetTopHeaderPx + sumTrackSizes(facetTopValueHeightsPx) : 0;
 
     if (process.env.NODE_ENV === 'development') {
       console.log('[ChartGrid] Layout calculations recomputed:', {
@@ -177,6 +240,7 @@ export function useChartGridLayout(
       yLabelColPx,
       leftFixedWidthPx,
       topHeaderHeight,
+      facetTopHeaderPx,
       facetLeftHeaderPx,
       facetLeftValuesPx,
       facetTopValuesPx,
@@ -191,6 +255,7 @@ export function useChartGridLayout(
     vScrollRef,
     yAxisLabelStyle,
     facetLabelStyles,
-    categoryTickStyles
+    categoryTickStyles,
+    globalChartType,
   ]);
 }
