@@ -2,7 +2,7 @@ import * as Plot from '@observablehq/plot';
 import { DEFAULT_CHART_COLOR, DOMAIN_PAD_RATIO } from '../../config/chartLayoutConfig';
 import { Field, PinnedTooltipComparison } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
-import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo, resolveColorForRow, ColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
 import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 import { createTooltipFieldsGetter, formatTooltipValue } from '../utils/tooltipUtils';
@@ -251,9 +251,13 @@ function buildPinnedLineComparisonResolver(params: {
   xLabel: string;
   yLabel: string;
   colorColumnName: string;
-  colorLookup: Map<string, string>;
+  colorContext: {
+    scale: ColorScaleInfo | null;
+    field?: Field;
+    fallbackColor: string;
+  };
 }): (datum: any) => PinnedTooltipComparison | undefined {
-  const { dotData, xColumn, yColumn, xLabel, yLabel, colorColumnName, colorLookup } = params;
+  const { dotData, xColumn, yColumn, xLabel, yLabel, colorColumnName, colorContext } = params;
 
   return (datum: any): PinnedTooltipComparison | undefined => {
     const selectedXKey = normalizeTooltipComparisonKey(datum?.[xColumn]);
@@ -278,7 +282,7 @@ function buildPinnedLineComparisonResolver(params: {
         return {
           seriesKey,
           seriesLabel: formatTooltipValue(seriesValue),
-          colorHex: colorLookup.get(seriesKey),
+          colorHex: resolveColorForRow(row, colorContext.scale, colorContext.field, colorContext.fallbackColor),
           value: rowValue,
           formattedValue: formatTooltipValue(rowValue),
           percentDifference,
@@ -488,15 +492,11 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
 
   const colorInfo = colorField ? deriveColorScaleInfo(budgetedSorted, colorField, colorScheme, colorBias) : null;
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
-  const comparisonColorLookup = new Map<string, string>();
-
-  if (colorInfo?.kind === 'categorical') {
-    for (let i = 0; i < colorInfo.domain.length; i++) {
-      const domainValue = colorInfo.domain[i];
-      const rangeValue = colorInfo.range[i % colorInfo.range.length];
-      comparisonColorLookup.set(normalizeTooltipComparisonKey(domainValue), rangeValue);
-    }
-  }
+  const comparisonColorContext = {
+    scale: colorInfo,
+    field: colorField,
+    fallbackColor: manualColor || DEFAULT_CHART_COLOR,
+  };
 
   if (colorField && colorInfo) {
     dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: getFieldDisplayName(colorField) };
@@ -637,6 +637,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     enabled: true,
     data: dotData,
     showVerticalGuideLine: orientation === 'horizontal',
+    comparisonColorContext,
     getPinnedComparison: colorField?.flavour === 'discrete' && colorColumnName
       ? buildPinnedLineComparisonResolver({
           dotData,
@@ -645,7 +646,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
           xLabel,
           yLabel,
           colorColumnName,
-          colorLookup: comparisonColorLookup,
+          colorContext: comparisonColorContext,
         })
       : undefined,
     getFields: createTooltipFieldsGetter(
