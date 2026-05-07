@@ -3,12 +3,16 @@
 import pytest
 from unittest.mock import Mock, MagicMock, patch
 
+from backend.exceptions import InvalidInputError
 from backend.models.data_source import (
+    ClickHousePatternPreviewRequest,
     ConnectionDetails,
     Database,
     Table,
     Column,
+    TableReference,
 )
+from backend.routers.metadata import preview_clickhouse_pattern_matches
 
 
 class TestListDatabasesEndpoint:
@@ -309,3 +313,75 @@ class TestMetadataIntegration:
         assert len(all_columns) == 3
         assert len(all_columns['users']) == 2
         assert all_columns['posts'][1].name == 'title'
+
+
+class TestClickHousePatternPreviewEndpoint:
+    """Tests for the POST /clickhouse-pattern-preview endpoint."""
+
+    def test_preview_clickhouse_pattern_matches_excludes_existing(self):
+        mock_connector = Mock()
+        mock_connector.preview_table_references.return_value = (
+            [
+                {'database': 'db_a', 'tables': ['orders', 'orders_daily']},
+                {'database': 'db_b', 'tables': ['orders']},
+            ],
+            False,
+        )
+
+        request = ClickHousePatternPreviewRequest(
+            database_pattern='db_.*',
+            table_pattern='orders.*',
+            pattern_mode='regex',
+            current_primary=TableReference(database='db_a', table_name='orders'),
+            existing_union_tables=[TableReference(database='db_b', table_name='orders')],
+        )
+        response = preview_clickhouse_pattern_matches(
+            request=request,
+            connector=mock_connector,
+            conn_details=ConnectionDetails(type='clickhouse', host='localhost'),
+        )
+
+        assert response.matched_databases == ['db_a', 'db_b']
+        assert [(table.database, table.table_name) for table in response.resolved_tables] == [
+            ('db_a', 'orders_daily'),
+        ]
+        assert [(table.database, table.table_name) for table in response.excluded_existing] == [
+            ('db_a', 'orders'),
+            ('db_b', 'orders'),
+        ]
+        assert response.truncated is False
+        assert response.warnings == []
+
+    def test_preview_clickhouse_pattern_matches_rejects_non_clickhouse(self):
+        request = ClickHousePatternPreviewRequest(
+            database_pattern='db_*',
+            table_pattern='orders*',
+            pattern_mode='wildcard',
+        )
+
+        with pytest.raises(InvalidInputError, match='only available for ClickHouse'):
+            preview_clickhouse_pattern_matches(
+                request=request,
+                connector=Mock(),
+                conn_details=ConnectionDetails(type='csv', csv_has_header=True),
+            )
+
+    def test_preview_clickhouse_pattern_matches_includes_truncation_warning(self):
+        mock_connector = Mock()
+        mock_connector.preview_table_references.return_value = (
+            [{'database': 'db_a', 'tables': ['orders']}],
+            True,
+        )
+
+        request = ClickHousePatternPreviewRequest(
+            database_pattern='db_.*',
+            table_pattern='orders',
+        )
+        response = preview_clickhouse_pattern_matches(
+            request=request,
+            connector=mock_connector,
+            conn_details=ConnectionDetails(type='clickhouse', host='localhost'),
+        )
+
+        assert response.truncated is True
+        assert len(response.warnings) == 1

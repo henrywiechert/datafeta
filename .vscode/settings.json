@@ -17,6 +17,7 @@
         "npx tsc": true,
         "npx react-scripts": true,
         "awk": true,
-        "uniq": true
+        "uniq": true,
+        "/Users/henry/projects/datafeta/.venv/bin/python": true
     }
 }

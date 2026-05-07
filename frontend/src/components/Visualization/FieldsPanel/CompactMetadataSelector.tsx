@@ -162,6 +162,24 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
     [selectedTable, onAddUnionTable, onDatabaseSelect, onTableSelect]
   );
 
+  const handleApplyPatternSelection = React.useCallback(
+    (resolvedTables: Array<{ database: string; table_name: string }>) => {
+      let needsPrimary = !selectedTable;
+
+      resolvedTables.forEach((tableRef) => {
+        if (needsPrimary) {
+          onDatabaseSelect(tableRef.database);
+          onTableSelect(tableRef.table_name);
+          needsPrimary = false;
+          return;
+        }
+
+        onAddUnionTable?.(tableRef.database, tableRef.table_name);
+      });
+    },
+    [selectedTable, onAddUnionTable, onDatabaseSelect, onTableSelect]
+  );
+
   const handleRemovePrimary = React.useCallback(() => {
     // Clear primary (this also resets JOIN/UNION in DataSourceContext via setSelectedTable)
     onTableSelect('');
@@ -315,6 +333,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
             primaryTable={selectedTable}
             unionTables={unionTables}
             onAdd={handleAddTable}
+            onApplyPatternSelection={handleApplyPatternSelection}
           />
 
           <SelectedTablesList

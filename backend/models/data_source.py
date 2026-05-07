@@ -10,6 +10,36 @@ class Database(BaseModel):
 class Table(BaseModel):
     name: str
 
+
+class TableReference(BaseModel):
+    database: str
+    table_name: str
+
+
+class PatternMatchedDatabaseTables(BaseModel):
+    database: str
+    tables: List[str]
+
+
+class ClickHousePatternPreviewRequest(BaseModel):
+    database_pattern: str = Field(..., min_length=1)
+    table_pattern: str = Field(..., min_length=1)
+    pattern_mode: Literal['regex', 'wildcard'] = 'regex'
+    max_databases: int = Field(25, ge=1, le=200)
+    max_total_matches: int = Field(100, ge=1, le=1000)
+    max_tables_per_database: int = Field(20, ge=1, le=500)
+    current_primary: Optional[TableReference] = None
+    existing_union_tables: List[TableReference] = Field(default_factory=list)
+
+
+class ClickHousePatternPreviewResponse(BaseModel):
+    matched_databases: List[str]
+    matches: List[PatternMatchedDatabaseTables]
+    resolved_tables: List[TableReference]
+    excluded_existing: List[TableReference]
+    truncated: bool = False
+    warnings: List[str] = Field(default_factory=list)
+
 class Column(BaseModel):
     name: str
     data_type: str
@@ -172,6 +202,10 @@ class TableListResponse(BaseModel):
 
 class ColumnListResponse(BaseModel):
     columns: List[Column]
+
+
+class TableReferenceListResponse(BaseModel):
+    tables: List[TableReference]
 
 class TableRelationshipsResponse(BaseModel):
     """Response containing detected foreign key relationships for a database."""

@@ -13,6 +13,8 @@ import {
   DatabaseListResponse,
   TableListResponse,
   ColumnListResponse,
+  ClickHousePatternPreviewRequest,
+  ClickHousePatternPreviewResponse,
   TableRelationshipsResponse,
   SuggestedJoinsResponse,
   SuggestedUnionsResponse,
@@ -122,6 +124,28 @@ export const metadataApi = {
   ): Promise<SuggestedUnionsResponse> {
     const url = buildUrl('/suggested-unions', { database, primary_table: primaryTable });
     const response = await fetchWithErrorHandling(url, {}, signal);
+    return response.json();
+  },
+
+  /**
+   * Preview ClickHouse database/table matches for bulk union selection.
+   */
+  async previewClickHousePatternTables(
+    request: ClickHousePatternPreviewRequest,
+    signal?: AbortSignal
+  ): Promise<ClickHousePatternPreviewResponse> {
+    const response = await fetchWithErrorHandling(
+      `${API_BASE_URL}/clickhouse-pattern-preview`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+      },
+      signal
+    );
+
     return response.json();
   },
 

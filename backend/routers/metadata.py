@@ -3,18 +3,23 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Body, Depends
 
 from backend.connectors.base import BaseConnector
 from backend.dependencies import (
     get_active_connector,
     get_connection_details,
 )
+from backend.exceptions import InvalidInputError
 from backend.models.data_source import (
+    ClickHousePatternPreviewRequest,
+    ClickHousePatternPreviewResponse,
     Column,
     ColumnListResponse,
     ConnectionDetails,
     DatabaseListResponse,
+    PatternMatchedDatabaseTables,
+    TableReference,
     TableListResponse,
 )
 from backend.services.validation_service import ValidationService
@@ -78,4 +83,61 @@ def list_columns(
     columns.append(source_table_column)
     
     return ColumnListResponse(columns=columns)
+
+
+@router.post("/clickhouse-pattern-preview", response_model=ClickHousePatternPreviewResponse)
+def preview_clickhouse_pattern_matches(
+    request: ClickHousePatternPreviewRequest = Body(...),
+    connector: BaseConnector = Depends(get_active_connector),
+    conn_details: ConnectionDetails = Depends(get_connection_details)
+):
+    """Preview ClickHouse database/table matches for bulk union selection."""
+    if conn_details.type != 'clickhouse':
+        raise InvalidInputError('Pattern preview is only available for ClickHouse connections.')
+
+    try:
+        grouped_matches, truncated = connector.preview_table_references(
+            database_pattern=request.database_pattern,
+            table_pattern=request.table_pattern,
+            pattern_mode=request.pattern_mode,
+            max_databases=request.max_databases,
+            max_total_matches=request.max_total_matches,
+            max_tables_per_database=request.max_tables_per_database,
+        )
+    except NotImplementedError as exc:
+        raise InvalidInputError(str(exc)) from exc
+
+    current_primary = (
+        (request.current_primary.database, request.current_primary.table_name)
+        if request.current_primary else None
+    )
+    existing_union = {
+        (table.database, table.table_name)
+        for table in request.existing_union_tables
+    }
+
+    resolved_tables = []
+    excluded_existing = []
+    for match in grouped_matches:
+        database = match['database']
+        for table_name in match['tables']:
+            table_ref = TableReference(database=database, table_name=table_name)
+            key = (database, table_name)
+            if key == current_primary or key in existing_union:
+                excluded_existing.append(table_ref)
+                continue
+            resolved_tables.append(table_ref)
+
+    warnings = []
+    if truncated:
+        warnings.append('Preview results were truncated to stay within configured safety limits.')
+
+    return ClickHousePatternPreviewResponse(
+        matched_databases=[match['database'] for match in grouped_matches],
+        matches=[PatternMatchedDatabaseTables(**match) for match in grouped_matches],
+        resolved_tables=resolved_tables,
+        excluded_existing=excluded_existing,
+        truncated=truncated,
+        warnings=warnings,
+    )
 

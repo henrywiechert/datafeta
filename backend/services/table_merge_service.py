@@ -11,12 +11,14 @@ from backend.models.data_source import (
     MergedColumnsResponse
 )
 from backend.connectors.base import BaseConnector
+from backend.exceptions import InvalidInputError
 
 logger = logging.getLogger(__name__)
 
 
 class TableMergeService:
     """Service to handle multi-table operations and virtual table creation."""
+    MAX_UNION_TABLES = 100
     
     def __init__(self, connector: BaseConnector):
         self.connector = connector
@@ -451,6 +453,10 @@ class TableMergeService:
         # Determine mode and create appropriate virtual table
         # Check for union_tables is not None (to handle empty list correctly)
         if union_tables is not None:
+            if len(union_tables) > self.MAX_UNION_TABLES:
+                raise InvalidInputError(
+                    f'Union selection exceeds safety limit of {self.MAX_UNION_TABLES} tables.'
+                )
             # UNION mode
             virtual_table = self.create_union_virtual_table(
                 database=database,

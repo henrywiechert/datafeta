@@ -39,6 +39,7 @@ export const apiService = {
   getTableRelationships: metadataApi.getTableRelationships,
   getSuggestedJoins: metadataApi.getSuggestedJoins,
   getSuggestedUnions: metadataApi.getSuggestedUnions,
+  previewClickHousePatternTables: metadataApi.previewClickHousePatternTables,
   getMergedColumns: metadataApi.getMergedColumns,
   getDistinctValues: metadataApi.getDistinctValues,
   getDistinctValuesCount: metadataApi.getDistinctValuesCount,
