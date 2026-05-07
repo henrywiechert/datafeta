@@ -36,7 +36,7 @@ import { filtersToHashKey } from '../../../utils/sheetConfigHash';
 import { buildEffectiveFilterConfigurations } from '../../../utils/effectiveFilters';
 import { isTablePresentation } from '../../../observable-plot-generator/chartTypes/chartTypePresentation';
 import { useCellSizeOverrides } from '../ChartGrid/hooks/useCellSizeOverrides';
-import { HeatmapSizeToolbarState } from '../ChartGrid/ChartGrid';
+import { HeatmapSizeToolbarState } from '../ChartGrid/hooks/useHeatmapSizeToolbar';
 
 /**
  * ChartArea - thin orchestrator that delegates to specialised hooks.
