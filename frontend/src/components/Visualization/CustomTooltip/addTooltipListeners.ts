@@ -192,6 +192,69 @@ function findCorrespondingLine(circle: Element): Element | null {
   return bestMatch;
 }
 
+function resolveGuideLineYRange(svgRoot: SVGSVGElement): { y1: number; y2: number } {
+  const gridLines = Array.from(svgRoot.querySelectorAll('[aria-label="x-grid"] line'));
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+
+  for (const gridLine of gridLines) {
+    const y1 = parseSvgNumber(gridLine.getAttribute('y1'));
+    const y2 = parseSvgNumber(gridLine.getAttribute('y2'));
+    if (y1 == null || y2 == null) continue;
+    minY = Math.min(minY, y1, y2);
+    maxY = Math.max(maxY, y1, y2);
+  }
+
+  if (Number.isFinite(minY) && Number.isFinite(maxY)) {
+    return { y1: minY, y2: maxY };
+  }
+
+  const viewBox = svgRoot.viewBox?.baseVal;
+  if (viewBox && Number.isFinite(viewBox.height) && viewBox.height > 0) {
+    return { y1: 0, y2: viewBox.height };
+  }
+
+  const heightAttr = parseSvgNumber(svgRoot.getAttribute('height'));
+  return { y1: 0, y2: heightAttr ?? svgRoot.getBoundingClientRect().height };
+}
+
+function updateVerticalGuideLine(
+  svgRoot: SVGSVGElement,
+  config: CustomTooltipConfig,
+  mark: Element,
+  colorHex?: string
+): SVGLineElement | null {
+  if (!config.showVerticalGuideLine || mark.tagName.toLowerCase() !== 'circle') {
+    return null;
+  }
+
+  const cx = parseSvgNumber(mark.getAttribute('cx'));
+  if (cx == null) {
+    return null;
+  }
+
+  const { y1, y2 } = resolveGuideLineYRange(svgRoot);
+  let guideLine = svgRoot.querySelector('.chart-tooltip-x-guide-line') as SVGLineElement | null;
+
+  if (!guideLine) {
+    guideLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    guideLine.classList.add('chart-tooltip-x-guide-line', 'overlay-no-tooltip');
+    guideLine.setAttribute('pointer-events', 'none');
+    svgRoot.appendChild(guideLine);
+  }
+
+  guideLine.setAttribute('x1', String(cx));
+  guideLine.setAttribute('x2', String(cx));
+  guideLine.setAttribute('y1', String(y1));
+  guideLine.setAttribute('y2', String(y2));
+  guideLine.setAttribute('stroke', colorHex || 'rgba(0, 0, 0, 0.65)');
+  guideLine.setAttribute('stroke-width', '1');
+  guideLine.setAttribute('stroke-dasharray', '3 3');
+  guideLine.setAttribute('opacity', '0.9');
+
+  return guideLine;
+}
+
 // ---------------------------------------------------------------------------
 // Main listener wiring
 // ---------------------------------------------------------------------------
@@ -247,6 +310,23 @@ export function addTooltipListeners(
   
   // Track which element is actually highlighted (may differ from hovered element)
   let highlightedElement: Element | null = null;
+  let activeGuideLine: SVGLineElement | null = null;
+
+  const clearAnyHighlight = () => {
+    if (highlightedElement) {
+      highlightedElement.classList.remove('chart-mark--highlighted');
+      highlightedElement = null;
+    }
+
+    marks.forEach((candidate) => {
+      candidate.classList.remove('chart-mark--highlighted');
+    });
+
+    if (activeGuideLine) {
+      activeGuideLine.remove();
+      activeGuideLine = null;
+    }
+  };
 
   marks.forEach((mark, index) => {
     // Observable Plot stores data on elements via __data__ property
@@ -287,6 +367,8 @@ export function addTooltipListeners(
         if (mark instanceof Element) {
           colorHex = resolveColorFromElement(mark);
         }
+
+        clearAnyHighlight();
         
         showTooltip(mouseEvent.clientX, mouseEvent.clientY, fields, colorHex, pinnedComparison);
         
@@ -309,6 +391,11 @@ export function addTooltipListeners(
         // Add highlight class AFTER computing color to avoid style interference
         elementToHighlight.classList.add('chart-mark--highlighted');
         highlightedElement = elementToHighlight;
+
+        const svgRoot = mark.closest('svg');
+        if (svgRoot instanceof SVGSVGElement) {
+          activeGuideLine = updateVerticalGuideLine(svgRoot, config, mark, colorHex);
+        }
       } catch (error) {
         console.warn('[CustomTooltip] Error generating tooltip fields:', error);
       }
@@ -316,11 +403,7 @@ export function addTooltipListeners(
 
     /** Remove highlight from the currently highlighted element. */
     const clearHighlight = () => {
-      if (highlightedElement) {
-        highlightedElement.classList.remove('chart-mark--highlighted');
-        highlightedElement = null;
-      }
-      mark.classList.remove('chart-mark--highlighted');
+      clearAnyHighlight();
     };
 
     const handleMouseEnter = (e: Event) => {
@@ -369,12 +452,7 @@ export function addTooltipListeners(
       mark.removeEventListener('mousemove', handleMouseMove);
       mark.removeEventListener('mouseleave', handleMouseLeave);
       mark.removeEventListener('click', handleClick);
-      mark.classList.remove('chart-mark--highlighted');
-      // Also clean up any separately highlighted element (like lines for tick strips)
-      if (highlightedElement) {
-        highlightedElement.classList.remove('chart-mark--highlighted');
-        highlightedElement = null;
-      }
+      clearAnyHighlight();
     });
   });
   
@@ -392,30 +470,41 @@ export function addTooltipListeners(
     );
     
     if (isOutside) {
+      clearAnyHighlight();
       hideTooltip();
     }
   };
   
   const handleDocumentClick = (e: MouseEvent) => {
+    const target = e.target as HTMLElement | null;
+    const clickedTooltipClose = target?.closest('.custom-tooltip__close');
+
+    if (clickedTooltipClose) {
+      clearAnyHighlight();
+    }
+
     // If pinned, only unpin when clicking outside the tooltip
     if (pinnedRef?.current) {
-      const target = e.target as HTMLElement | null;
       const insideTooltip = target?.closest('.custom-tooltip--pinned');
       if (!insideTooltip) {
+        clearAnyHighlight();
         unpinTooltip?.();
       }
       return;
     }
     // Otherwise hide tooltip on any click
+    clearAnyHighlight();
     hideTooltip();
   };
   
   const handleScroll = () => {
     // Unpin & hide on scroll — position becomes invalid
     if (pinnedRef?.current) {
+      clearAnyHighlight();
       unpinTooltip?.();
       return;
     }
+    clearAnyHighlight();
     hideTooltip();
   };
   
@@ -423,8 +512,10 @@ export function addTooltipListeners(
     if (e.key === 'Escape') {
       // Unpin if pinned, otherwise just hide
       if (pinnedRef?.current) {
+        clearAnyHighlight();
         unpinTooltip?.();
       } else {
+        clearAnyHighlight();
         hideTooltip();
       }
     }
@@ -433,9 +524,11 @@ export function addTooltipListeners(
   const handleWindowBlur = () => {
     // Hide / unpin tooltip when window loses focus
     if (pinnedRef?.current) {
+      clearAnyHighlight();
       unpinTooltip?.();
       return;
     }
+    clearAnyHighlight();
     hideTooltip();
   };
   
@@ -449,6 +542,7 @@ export function addTooltipListeners(
   // Add plot container leave handler as additional safety
   const handlePlotMouseLeave = () => {
     if (pinnedRef?.current) return;
+    clearAnyHighlight();
     hideTooltip();
   };
   plot.addEventListener('mouseleave', handlePlotMouseLeave);
@@ -467,6 +561,7 @@ export function addTooltipListeners(
     plot.removeEventListener('mouseleave', handlePlotMouseLeave);
     
     // Final safety: hide tooltip on cleanup
+    clearAnyHighlight();
     hideTooltip();
   };
 }

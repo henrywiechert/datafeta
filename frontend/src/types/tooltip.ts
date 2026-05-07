@@ -82,6 +82,8 @@ export interface CustomTooltipConfig {
   getFields: (data: any) => TooltipField[];
   /** Original data array for index-based fallback lookup */
   data?: any[];
+  /** Whether the interaction layer should render a transient X guide line. */
+  showVerticalGuideLine?: boolean;
   /** Optional pinned comparison payload for supported charts such as lines. */
   getPinnedComparison?: (data: any) => PinnedTooltipComparison | undefined;
   /**
