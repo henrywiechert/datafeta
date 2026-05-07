@@ -46,3 +46,35 @@ export interface TableListResponse {
 export interface ColumnListResponse {
   columns: Column[];
 }
+
+export type PatternMode = 'regex' | 'wildcard';
+
+export interface TableReference {
+  database: string;
+  table_name: string;
+}
+
+export interface PatternMatchedDatabaseTables {
+  database: string;
+  tables: string[];
+}
+
+export interface ClickHousePatternPreviewRequest {
+  database_pattern: string;
+  table_pattern: string;
+  pattern_mode: PatternMode;
+  max_databases?: number;
+  max_total_matches?: number;
+  max_tables_per_database?: number;
+  current_primary?: TableReference;
+  existing_union_tables?: TableReference[];
+}
+
+export interface ClickHousePatternPreviewResponse {
+  matched_databases: string[];
+  matches: PatternMatchedDatabaseTables[];
+  resolved_tables: TableReference[];
+  excluded_existing: TableReference[];
+  truncated: boolean;
+  warnings: string[];
+}

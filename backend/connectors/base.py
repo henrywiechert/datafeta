@@ -134,6 +134,24 @@ class BaseConnector(ABC):
         """
         return []  # Default: no schema detection
 
+    def preview_table_references(
+        self,
+        database_pattern: str,
+        table_pattern: str,
+        pattern_mode: str,
+        max_databases: int,
+        max_total_matches: int,
+        max_tables_per_database: int,
+    ) -> Tuple[List[Dict[str, Any]], bool]:
+        """
+        Preview database/table matches for bulk selection helpers.
+
+        Returns:
+            A tuple of (grouped matches, truncated), where grouped matches are dicts
+            in the form {'database': str, 'tables': List[str]}.
+        """
+        raise NotImplementedError('Pattern preview is not supported for this connector.')
+
     # Later: Add method for fetching data
     # @abstractmethod
     # def fetch_data(self, query: str) -> List[Dict[str, Any]]:

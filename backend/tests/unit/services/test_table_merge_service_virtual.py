@@ -2,6 +2,7 @@
 
 import pytest
 from unittest.mock import Mock, MagicMock
+from backend.exceptions import InvalidInputError
 from backend.services.table_merge_service import TableMergeService
 from backend.models.data_source import (
     Column,
@@ -251,3 +252,14 @@ class TestTableMergeServiceVirtual:
         
         # Should still add _source_table for UNION mode
         assert any(col.name == "_source_table" for col in result.columns)
+
+    def test_get_merged_columns_with_virtual_rejects_oversized_union_list(self):
+        """Should reject union requests that exceed the backend safety limit."""
+        oversized_union = [f'table_{index}' for index in range(self.service.MAX_UNION_TABLES + 1)]
+
+        with pytest.raises(InvalidInputError, match='safety limit'):
+            self.service.get_merged_columns_with_virtual(
+                database='test_db',
+                primary_table='data',
+                union_tables=oversized_union,
+            )

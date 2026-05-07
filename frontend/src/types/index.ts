@@ -37,6 +37,11 @@ export type {
   DatabaseListResponse,
   TableListResponse,
   ColumnListResponse,
+  PatternMode,
+  TableReference,
+  PatternMatchedDatabaseTables,
+  ClickHousePatternPreviewRequest,
+  ClickHousePatternPreviewResponse,
 } from './connection';
 
 // Field types

@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Tuple
 import threading
 from typing import Optional
 from urllib.parse import urlparse, parse_qs
+import re
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -137,6 +138,116 @@ class ClickHouseConnector(BaseConnector):
                 logger.warning(f"SHOW DATABASES failed, falling back to connected database: {e}")
                 return [Database(name=current_db)]
             raise DataSourceConnectionError(f"Error listing databases: {e}")
+
+    @staticmethod
+    def _escape_clickhouse_string(value: str) -> str:
+        return value.replace('\\', '\\\\').replace("'", "\\'")
+
+    @staticmethod
+    def _wildcard_to_regex(pattern: str) -> str:
+        regex_parts = ['^']
+        for char in pattern:
+            if char == '*':
+                regex_parts.append('.*')
+            elif char == '?':
+                regex_parts.append('.')
+            else:
+                regex_parts.append(re.escape(char))
+        regex_parts.append('$')
+        return ''.join(regex_parts)
+
+    @staticmethod
+    def _looks_like_regex(pattern: str) -> bool:
+        return bool(re.search(r'[\\.^$|?*+(){}\[\]]', pattern))
+
+    def _normalize_pattern(self, pattern: str, pattern_mode: str, label: str) -> str:
+        if not pattern or not pattern.strip():
+            raise InvalidInputError(f'{label} pattern cannot be empty.')
+
+        normalized = pattern.strip()
+        if pattern_mode == 'wildcard':
+            if '*' not in normalized and '?' not in normalized:
+                normalized = f'*{normalized}*'
+            normalized = self._wildcard_to_regex(normalized)
+        elif pattern_mode != 'regex':
+            raise InvalidInputError(f'Unsupported pattern mode: {pattern_mode}')
+        elif not self._looks_like_regex(normalized):
+            normalized = f'.*{re.escape(normalized)}.*'
+
+        try:
+            re.compile(normalized)
+        except re.error as exc:
+            raise InvalidInputError(f'Invalid {label} pattern: {exc}') from exc
+
+        return normalized
+
+    def preview_table_references(
+        self,
+        database_pattern: str,
+        table_pattern: str,
+        pattern_mode: str,
+        max_databases: int,
+        max_total_matches: int,
+        max_tables_per_database: int,
+    ) -> Tuple[List[Dict[str, Any]], bool]:
+        if not self.client:
+            raise DataSourceConnectionError('Not connected to ClickHouse.')
+
+        database_regex = self._normalize_pattern(database_pattern, pattern_mode, 'database')
+        table_regex = self._normalize_pattern(table_pattern, pattern_mode, 'table')
+        escaped_db = self._escape_clickhouse_string(database_regex)
+        escaped_table = self._escape_clickhouse_string(table_regex)
+        query_limit = max_total_matches + max_databases + max_tables_per_database + 1
+        query = (
+            'SELECT database, name '
+            'FROM system.tables '
+            f"WHERE match(database, '{escaped_db}') AND match(name, '{escaped_table}') "
+            'ORDER BY database ASC, name ASC '
+            f'LIMIT {query_limit}'
+        )
+
+        try:
+            with self._client_lock:
+                result = self.client.query(query)
+        except Exception as e:
+            raise DataSourceConnectionError(f'Error previewing table references: {e}')
+
+        grouped_matches: List[Dict[str, Any]] = []
+        tables_by_database: Dict[str, List[str]] = {}
+        truncated = False
+        total_matches = 0
+
+        for database, table_name in result.result_rows:
+            database = str(database)
+            table_name = str(table_name)
+            if database not in tables_by_database:
+                if len(tables_by_database) >= max_databases:
+                    truncated = True
+                    break
+                tables_by_database[database] = []
+
+            db_tables = tables_by_database[database]
+            if len(db_tables) >= max_tables_per_database:
+                truncated = True
+                continue
+
+            if total_matches >= max_total_matches:
+                truncated = True
+                break
+
+            db_tables.append(table_name)
+            total_matches += 1
+
+        for database in sorted(tables_by_database.keys()):
+            grouped_matches.append({
+                'database': database,
+                'tables': tables_by_database[database],
+            })
+
+        if len(getattr(result, 'result_rows', [])) == query_limit:
+            truncated = True
+
+        return grouped_matches, truncated
 
     def list_tables(self, database: str) -> List[Table]:
         if not self.client:

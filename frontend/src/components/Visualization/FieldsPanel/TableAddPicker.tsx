@@ -1,7 +1,8 @@
 import React from 'react';
-import { Box, CircularProgress, IconButton, TextField, Tooltip, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, IconButton, TextField, Tooltip, Typography } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import AddIcon from '@mui/icons-material/Add';
+import ClickHousePatternDialog from './ClickHousePatternDialog';
 import {
   compactAutocompleteClassName,
   compactAutocompleteListboxProps,
@@ -25,6 +26,7 @@ interface TableAddPickerProps {
   unionTables: UnionTableRef[];
 
   onAdd: (payload: AddTablePayload) => void;
+  onApplyPatternSelection?: (tables: UnionTableRef[]) => void;
 }
 
 const actionColumnSx = { width: 32, flexShrink: 0, display: 'flex', justifyContent: 'center' } as const;
@@ -37,9 +39,11 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
   primaryTable,
   unionTables,
   onAdd,
+  onApplyPatternSelection,
 }) => {
   const [stagedDatabase, setStagedDatabase] = React.useState<string>(primaryDatabase || '');
   const [stagedTable, setStagedTable] = React.useState<string>('');
+  const [isPatternDialogOpen, setIsPatternDialogOpen] = React.useState(false);
 
   // Keep staged DB in sync with primary DB when primary changes (but do not auto-pick a table)
   React.useEffect(() => {
@@ -164,6 +168,27 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
           </Tooltip>
         </Box>
       </Box>
+
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Button
+          size="small"
+          onClick={() => setIsPatternDialogOpen(true)}
+          sx={{ minWidth: 0, px: 0.75, textTransform: 'none', fontSize: '0.72rem' }}
+        >
+          Add by pattern
+        </Button>
+      </Box>
+
+      {onApplyPatternSelection ? (
+        <ClickHousePatternDialog
+          open={isPatternDialogOpen}
+          primaryDatabase={primaryDatabase}
+          primaryTable={primaryTable}
+          unionTables={unionTables}
+          onClose={() => setIsPatternDialogOpen(false)}
+          onApply={onApplyPatternSelection}
+        />
+      ) : null}
     </Box>
   );
 };
