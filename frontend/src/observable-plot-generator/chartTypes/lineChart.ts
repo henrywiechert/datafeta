@@ -636,6 +636,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
   (plotOptions as any).__customTooltip = {
     enabled: true,
     data: dotData,
+    showVerticalGuideLine: orientation === 'horizontal',
     getPinnedComparison: colorField?.flavour === 'discrete' && colorColumnName
       ? buildPinnedLineComparisonResolver({
           dotData,

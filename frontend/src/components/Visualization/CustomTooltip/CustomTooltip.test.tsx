@@ -34,7 +34,7 @@ describe('CustomTooltip', () => {
   };
 
   test('shows a pinned comparison toggle and renders highlighted selected series when expanded', () => {
-    render(
+    const { container } = render(
       <CustomTooltip
         x={10}
         y={20}
@@ -50,9 +50,9 @@ describe('CustomTooltip', () => {
     expect(screen.getByText('All Values At 2024')).toBeInTheDocument();
     expect(screen.getByText('Alpha')).toBeInTheDocument();
     expect(screen.getByText('Beta')).toBeInTheDocument();
-    expect(screen.getByText('Selected')).toBeInTheDocument();
     expect(screen.getByText('+25.0%')).toBeInTheDocument();
     expect(screen.getByText('0.0%')).toBeInTheDocument();
+    expect(container.querySelector('.custom-tooltip__comparison-item--selected')).not.toBeNull();
   });
 
   test('omits percentage text when comparison items suppress percentage differences', () => {
