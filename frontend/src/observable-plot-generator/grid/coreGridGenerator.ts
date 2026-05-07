@@ -333,6 +333,12 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
             ...sharedConfig,
           } as any,
         };
+
+        const customTooltip = (options as any).__customTooltip;
+        if (customTooltip?.getPinnedComparison && customTooltip.comparisonColorContext) {
+          customTooltip.comparisonColorContext.scale = sharedColorScale;
+          customTooltip.comparisonColorContext.field = colorField;
+        }
       }
       const title = buildCellTitle(xField, yField);
       plots.push({ id: `cell-${r}-${c}`, title, options, position: { row: r, col: c }, xField, yField });
