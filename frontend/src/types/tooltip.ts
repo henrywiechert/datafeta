@@ -32,6 +32,42 @@ export interface TooltipField {
   rawValue?: any;
 }
 
+/** Comparison row for pinned line-chart tooltip expansion. */
+export interface PinnedTooltipComparisonItem {
+  /** Stable series identity within the current plot cell. */
+  seriesKey: string;
+  /** Human-readable series label. */
+  seriesLabel: string;
+  /** Explicit series color for comparison rows. */
+  colorHex?: string;
+  /** Raw plotted value for the current series at the selected X position. */
+  value: string | number;
+  /** Optional formatted display string for the value. */
+  formattedValue?: string;
+  /** Percent difference relative to the selected plotted value. */
+  percentDifference?: number;
+  /** Whether this row matches the selected plotted series. */
+  isSelected: boolean;
+}
+
+/** Pinned comparison panel metadata for line charts. */
+export interface PinnedTooltipComparison {
+  /** Human-readable title for the comparison panel. */
+  title: string;
+  /** Clarifies that comparison is based on plotted dots, not raw rows. */
+  comparisonBasis: 'plotted-dots';
+  /** Display label for the selected X channel. */
+  xLabel: string;
+  /** Raw X value used for comparison. */
+  xValue: any;
+  /** Formatted X value for display. */
+  xFormattedValue: string;
+  /** Display label for the compared value axis. */
+  valueLabel: string;
+  /** Series rows visible at the selected X position in the current plot cell. */
+  items: PinnedTooltipComparisonItem[];
+}
+
 /** Action type for tooltip-initiated filtering */
 export type TooltipFilterAction = 'keep' | 'exclude' | 'filter-visible';
 
@@ -46,6 +82,8 @@ export interface CustomTooltipConfig {
   getFields: (data: any) => TooltipField[];
   /** Original data array for index-based fallback lookup */
   data?: any[];
+  /** Optional pinned comparison payload for supported charts such as lines. */
+  getPinnedComparison?: (data: any) => PinnedTooltipComparison | undefined;
   /**
    * Callback for filter actions triggered from a pinned tooltip.
    * Injected post-hoc by ChartArea after chart generation.

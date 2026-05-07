@@ -203,6 +203,7 @@ const PieSvgRenderer: React.FC<PieSvgRendererProps> = ({ pieSpec, tooltipConfig,
           fields={tooltip.fields}
           visible={tooltip.visible}
           colorHex={tooltip.colorHex}
+          pinnedComparison={tooltip.pinnedComparison}
           pinned={tooltip.pinned}
           onUnpin={unpinTooltip}
           onFilterAction={tooltipConfig?.onFilterAction}

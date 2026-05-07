@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { TooltipField } from '../types';
+import { PinnedTooltipComparison, TooltipField } from '../types';
 
 interface TooltipState {
   visible: boolean;
@@ -8,6 +8,7 @@ interface TooltipState {
   y: number;
   fields: TooltipField[];
   colorHex?: string;
+  pinnedComparison?: PinnedTooltipComparison;
 }
 
 /**
@@ -39,7 +40,8 @@ export function useChartTooltip() {
     x: number,
     y: number,
     fields: TooltipField[],
-    colorHex?: string
+    colorHex?: string,
+    pinnedComparison?: PinnedTooltipComparison
   ) => {
     // Clear any existing auto-hide timeout
     clearAutoHide();
@@ -51,6 +53,7 @@ export function useChartTooltip() {
       y,
       fields,
       colorHex,
+      pinnedComparison,
     });
     
     // Set auto-hide timeout as safety fallback

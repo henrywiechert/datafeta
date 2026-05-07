@@ -127,6 +127,8 @@ export type {
   TooltipField,
   TooltipFilterAction,
   CustomTooltipConfig,
+  PinnedTooltipComparison,
+  PinnedTooltipComparisonItem,
 } from './tooltip';
 
 // Saved configuration types

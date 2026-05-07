@@ -224,3 +224,81 @@ describe('harmonizeLineChartDomains', () => {
     expect((plots[3].options.y as any).domain).toEqual([0, 50]);
   });
 });
+
+describe('buildLineOptions – pinned comparison metadata', () => {
+  const discreteColorField = {
+    id: 'series',
+    columnName: 'series',
+    type: 'dimension',
+    flavour: 'discrete',
+  } as any;
+
+  test('builds facet-local plotted-dot comparison rows sorted by absolute value', () => {
+    const opts = buildLineOptions({
+      data: [
+        { x: 1, 'AVG(y)': 10, series: 'Alpha' },
+        { x: 1, 'AVG(y)': -30, series: 'Beta' },
+        { x: 1, 'AVG(y)': 20, series: 'Gamma' },
+        { x: 2, 'AVG(y)': 999, series: 'OtherX' },
+      ],
+      xColumn: 'x',
+      yColumn: 'AVG(y)',
+      orientation: 'horizontal',
+      labels: { x: 'X', y: 'AVG(y)' },
+      colorField: discreteColorField,
+    });
+
+    const tooltipConfig = (opts as any).__customTooltip;
+    expect(tooltipConfig.getPinnedComparison).toBeDefined();
+
+    const comparison = tooltipConfig.getPinnedComparison(tooltipConfig.data[0]);
+    expect(comparison).toBeDefined();
+    expect(comparison.comparisonBasis).toBe('plotted-dots');
+    expect(comparison.items.map((item: any) => item.seriesLabel)).toEqual(['Beta', 'Gamma', 'Alpha']);
+
+    const selectedItem = comparison.items.find((item: any) => item.isSelected);
+    expect(selectedItem).toBeDefined();
+    expect(selectedItem.seriesLabel).toBe('Alpha');
+
+    const betaItem = comparison.items.find((item: any) => item.seriesLabel === 'Beta');
+    expect(betaItem.colorHex).toBeDefined();
+    expect(betaItem.percentDifference).toBeCloseTo(-400);
+  });
+
+  test('suppresses percentages when the selected plotted value is zero', () => {
+    const opts = buildLineOptions({
+      data: [
+        { x: 1, 'AVG(y)': 0, series: 'Alpha' },
+        { x: 1, 'AVG(y)': 15, series: 'Beta' },
+      ],
+      xColumn: 'x',
+      yColumn: 'AVG(y)',
+      orientation: 'horizontal',
+      labels: { x: 'X', y: 'AVG(y)' },
+      colorField: discreteColorField,
+    });
+
+    const tooltipConfig = (opts as any).__customTooltip;
+    const comparison = tooltipConfig.getPinnedComparison(tooltipConfig.data[0]);
+
+    expect(comparison.items).toHaveLength(2);
+    expect(comparison.items.every((item: any) => item.percentDifference === undefined)).toBe(true);
+  });
+
+  test('does not expose comparison metadata when there is no peer series at the selected X', () => {
+    const opts = buildLineOptions({
+      data: [
+        { x: 1, 'AVG(y)': 10, series: 'Alpha' },
+        { x: 2, 'AVG(y)': 20, series: 'Beta' },
+      ],
+      xColumn: 'x',
+      yColumn: 'AVG(y)',
+      orientation: 'horizontal',
+      labels: { x: 'X', y: 'AVG(y)' },
+      colorField: discreteColorField,
+    });
+
+    const tooltipConfig = (opts as any).__customTooltip;
+    expect(tooltipConfig.getPinnedComparison(tooltipConfig.data[0])).toBeUndefined();
+  });
+});
