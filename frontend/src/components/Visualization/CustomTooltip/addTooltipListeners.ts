@@ -11,7 +11,7 @@
 
 import React from 'react';
 
-import { TooltipField, CustomTooltipConfig } from '../../../types';
+import { TooltipField, CustomTooltipConfig, PinnedTooltipComparison } from '../../../types';
 
 // ---------------------------------------------------------------------------
 // Colour helpers
@@ -204,7 +204,7 @@ function findCorrespondingLine(circle: Element): Element | null {
 export function addTooltipListeners(
   plot: SVGSVGElement | HTMLElement,
   config: CustomTooltipConfig,
-  showTooltip: (x: number, y: number, fields: TooltipField[], colorHex?: string) => void,
+  showTooltip: (x: number, y: number, fields: TooltipField[], colorHex?: string, pinnedComparison?: PinnedTooltipComparison) => void,
   hideTooltip: () => void,
   updatePosition: (x: number, y: number) => void,
   pinTooltip?: () => void,
@@ -279,6 +279,7 @@ export function addTooltipListeners(
       
       try {
         const fields = config.getFields(data);
+        const pinnedComparison = config.getPinnedComparison?.(data);
         
         // PRIMARY: Read color directly from the SVG element - this is what's actually rendered
         // and is always correct. Do this BEFORE adding highlight class.
@@ -287,7 +288,7 @@ export function addTooltipListeners(
           colorHex = resolveColorFromElement(mark);
         }
         
-        showTooltip(mouseEvent.clientX, mouseEvent.clientY, fields, colorHex);
+        showTooltip(mouseEvent.clientX, mouseEvent.clientY, fields, colorHex, pinnedComparison);
         
         // Determine which element to highlight
         // If this is a transparent circle (hover dot for tick strips), highlight the line instead

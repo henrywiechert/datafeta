@@ -170,6 +170,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options, plotId, onRend
           fields={tooltip.fields}
           visible={tooltip.visible}
           colorHex={tooltip.colorHex}
+          pinnedComparison={tooltip.pinnedComparison}
           pinned={tooltip.pinned}
           onUnpin={unpinTooltip}
           onFilterAction={options.__customTooltip?.onFilterAction}

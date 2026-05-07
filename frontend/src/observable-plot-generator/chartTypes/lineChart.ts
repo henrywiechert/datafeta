@@ -1,11 +1,11 @@
 import * as Plot from '@observablehq/plot';
 import { DEFAULT_CHART_COLOR, DOMAIN_PAD_RATIO } from '../../config/chartLayoutConfig';
-import { Field } from '../../types';
+import { Field, PinnedTooltipComparison } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
 import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
-import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
+import { createTooltipFieldsGetter, formatTooltipValue } from '../utils/tooltipUtils';
 import { formatDateTick } from '../utils/dateFormatUtils';
 import { LabelConfig } from '../types';
 
@@ -235,6 +235,74 @@ function toComparable(v: any): number | string | null {
   return null;
 }
 
+function normalizeTooltipComparisonKey(value: any): string {
+  if (value == null) return '__NULL__';
+  if (value instanceof Date) return `__DATE__:${value.valueOf()}`;
+  if (typeof value === 'number' && Number.isFinite(value)) return `__NUM__:${value}`;
+  if (typeof value === 'string') return `__STR__:${value}`;
+  if (typeof value === 'boolean') return `__BOOL__:${value}`;
+  return `__OTHER__:${String(value)}`;
+}
+
+function buildPinnedLineComparisonResolver(params: {
+  dotData: any[];
+  xColumn: string;
+  yColumn: string;
+  xLabel: string;
+  yLabel: string;
+  colorColumnName: string;
+  colorLookup: Map<string, string>;
+}): (datum: any) => PinnedTooltipComparison | undefined {
+  const { dotData, xColumn, yColumn, xLabel, yLabel, colorColumnName, colorLookup } = params;
+
+  return (datum: any): PinnedTooltipComparison | undefined => {
+    const selectedXKey = normalizeTooltipComparisonKey(datum?.[xColumn]);
+    const peers = dotData.filter((row) => normalizeTooltipComparisonKey(row?.[xColumn]) === selectedXKey);
+
+    if (peers.length <= 1) {
+      return undefined;
+    }
+
+    const selectedValue = datum?.[yColumn];
+    const suppressPercentages = typeof selectedValue !== 'number' || !Number.isFinite(selectedValue) || selectedValue === 0;
+
+    const items = peers
+      .map((row) => {
+        const seriesValue = row?.[colorColumnName];
+        const seriesKey = normalizeTooltipComparisonKey(seriesValue);
+        const rowValue = row?.[yColumn];
+        const percentDifference = suppressPercentages || typeof rowValue !== 'number' || !Number.isFinite(rowValue)
+          ? undefined
+          : ((rowValue - selectedValue) / Math.abs(selectedValue)) * 100;
+
+        return {
+          seriesKey,
+          seriesLabel: formatTooltipValue(seriesValue),
+          colorHex: colorLookup.get(seriesKey),
+          value: rowValue,
+          formattedValue: formatTooltipValue(rowValue),
+          percentDifference,
+          isSelected: row === datum,
+        };
+      })
+      .sort((left, right) => {
+        const leftValue = typeof left.value === 'number' && Number.isFinite(left.value) ? Math.abs(left.value) : -Infinity;
+        const rightValue = typeof right.value === 'number' && Number.isFinite(right.value) ? Math.abs(right.value) : -Infinity;
+        return rightValue - leftValue;
+      });
+
+    return {
+      title: `All Values At ${formatTooltipValue(datum?.[xColumn])}`,
+      comparisonBasis: 'plotted-dots',
+      xLabel,
+      xValue: datum?.[xColumn],
+      xFormattedValue: formatTooltipValue(datum?.[xColumn]),
+      valueLabel: yLabel,
+      items,
+    };
+  };
+}
+
 /**
  * Sort comparator using toComparable for a given column.
  */
@@ -420,6 +488,15 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
 
   const colorInfo = colorField ? deriveColorScaleInfo(budgetedSorted, colorField, colorScheme, colorBias) : null;
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
+  const comparisonColorLookup = new Map<string, string>();
+
+  if (colorInfo?.kind === 'categorical') {
+    for (let i = 0; i < colorInfo.domain.length; i++) {
+      const domainValue = colorInfo.domain[i];
+      const rangeValue = colorInfo.range[i % colorInfo.range.length];
+      comparisonColorLookup.set(normalizeTooltipComparisonKey(domainValue), rangeValue);
+    }
+  }
 
   if (colorField && colorInfo) {
     dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: getFieldDisplayName(colorField) };
@@ -559,6 +636,17 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
   (plotOptions as any).__customTooltip = {
     enabled: true,
     data: dotData,
+    getPinnedComparison: colorField?.flavour === 'discrete' && colorColumnName
+      ? buildPinnedLineComparisonResolver({
+          dotData,
+          xColumn,
+          yColumn,
+          xLabel,
+          yLabel,
+          colorColumnName,
+          colorLookup: comparisonColorLookup,
+        })
+      : undefined,
     getFields: createTooltipFieldsGetter(
       [
         { label: xLabel, column: xColumn, sourceField: xField },

@@ -233,3 +233,94 @@ line.chart-mark--highlighted {
   color: #42a5f5; /* Blue tint for "filter visible" */
 }
 
+.custom-tooltip__comparison {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.custom-tooltip__comparison-toggle {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  padding: 5px 8px;
+  text-align: left;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.custom-tooltip__comparison-toggle:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.custom-tooltip__comparison-panel {
+  margin-top: 8px;
+  min-width: 260px;
+}
+
+.custom-tooltip__comparison-title {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.custom-tooltip__comparison-subtitle {
+  color: rgba(255, 255, 255, 0.72);
+  margin-top: 2px;
+}
+
+.custom-tooltip__comparison-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.custom-tooltip__comparison-item {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 10px minmax(0, 1fr) auto auto;
+  padding: 6px 8px;
+}
+
+.custom-tooltip__comparison-item--selected {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.custom-tooltip__comparison-swatch {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.22) inset;
+  display: inline-block;
+  height: 10px;
+  width: 10px;
+}
+
+.custom-tooltip__comparison-series {
+  color: #ffffff;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-tooltip__comparison-value {
+  color: #f0f0f0;
+  font-variant-numeric: tabular-nums;
+}
+
+.custom-tooltip__comparison-delta {
+  color: #a9d4ff;
+  font-variant-numeric: tabular-nums;
+}
+
+

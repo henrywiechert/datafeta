@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { TooltipField, TooltipFilterAction } from '../../../types';
+import { TooltipField, TooltipFilterAction, PinnedTooltipComparison } from '../../../types';
 import './CustomTooltip.css';
 
 // Re-export for backward compatibility
@@ -11,9 +11,16 @@ interface CustomTooltipProps {
   fields: TooltipField[];
   visible: boolean;
   colorHex?: string; // Optional color mark representing the hovered chart element color
+  pinnedComparison?: PinnedTooltipComparison;
   pinned?: boolean;
   onUnpin?: () => void;
   onFilterAction?: (action: TooltipFilterAction, field: TooltipField) => void;
+}
+
+function formatPercentDifference(value: number | undefined): string | null {
+  if (value === undefined || !Number.isFinite(value)) return null;
+  const rounded = Math.abs(value) >= 100 ? value.toFixed(0) : value.toFixed(1);
+  return `${value > 0 ? '+' : ''}${rounded}%`;
 }
 
 /** Inline SVG icon for "keep only" filter (funnel) – 14×14 */
@@ -60,11 +67,13 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
   fields, 
   visible,
   colorHex,
+  pinnedComparison,
   pinned = false,
   onUnpin,
   onFilterAction,
 }) => {
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const [comparisonExpanded, setComparisonExpanded] = useState(false);
   const [position, setPosition] = useState<{ x: number; y: number; anchor: string }>({ 
     x, 
     y, 
@@ -124,6 +133,10 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
 
     setPosition({ x: newX, y: newY, anchor });
   }, [x, y, visible, pinned]);
+
+  useEffect(() => {
+    setComparisonExpanded(false);
+  }, [visible, pinned, pinnedComparison]);
 
   if (!visible || fields.length === 0) {
     return null;
@@ -192,6 +205,48 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
           )}
         </div>
       ))}
+
+      {pinned && pinnedComparison && (
+        <div className="custom-tooltip__comparison">
+          <button
+            className="custom-tooltip__comparison-toggle"
+            onClick={() => setComparisonExpanded((current) => !current)}
+            type="button"
+          >
+            {comparisonExpanded ? 'Hide All Values At X' : 'All Values At X'}
+          </button>
+
+          {comparisonExpanded && (
+            <div className="custom-tooltip__comparison-panel">
+              <div className="custom-tooltip__comparison-title">{pinnedComparison.title}</div>
+              <div className="custom-tooltip__comparison-subtitle">
+                {pinnedComparison.xLabel}: {pinnedComparison.xFormattedValue}
+              </div>
+              <div className="custom-tooltip__comparison-list">
+                {pinnedComparison.items.map((item) => {
+                  const formattedDelta = formatPercentDifference(item.percentDifference);
+                  return (
+                    <div
+                      key={`${item.seriesKey}-${item.formattedValue}`}
+                      className={`custom-tooltip__comparison-item${item.isSelected ? ' custom-tooltip__comparison-item--selected' : ''}`}
+                    >
+                      <span
+                        className="custom-tooltip__comparison-swatch"
+                        style={item.colorHex ? { backgroundColor: item.colorHex } : undefined}
+                      />
+                      <span className="custom-tooltip__comparison-series">{item.seriesLabel}</span>
+                      <span className="custom-tooltip__comparison-value">{item.formattedValue ?? item.value}</span>
+                      {formattedDelta && (
+                        <span className="custom-tooltip__comparison-delta">{formattedDelta}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
