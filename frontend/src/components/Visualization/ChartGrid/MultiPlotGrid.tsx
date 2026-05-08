@@ -102,6 +102,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
     yLabelColPx,
     leftFixedWidthPx,
     topHeaderHeight,
+    facetTopHeaderPx,
     facetLeftHeaderPx,
     facetLeftValuesPx,
     facetTopValuesPx,
@@ -245,6 +246,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
             grid={grid}
             plotTemplateColumns={plotTemplateColumns}
             baseCols={baseCols}
+            facetTopHeaderPx={facetTopHeaderPx}
             facetTopValueHeightsPx={facetTopValueHeightsPx}
           />
 

@@ -17,6 +17,7 @@ import {
   computeProductSegments,
   formatFacetValue,
   getOrientationStyles,
+  getEffectiveFacetLabelStyles,
   resolveDepthValue,
   resolveFlexAlignment,
   resolveTextAlignment,
@@ -39,7 +40,7 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
   facetLeftValueWidthsPx,
 }) => {
   const { state, dispatch } = useVisualizationContext();
-  const { facetLabelStyles } = state;
+  const effectiveFacetLabelStyles = getEffectiveFacetLabelStyles(state.facetLabelStyles, state.globalChartType);
 
   const handleHeaderStyleChange = useCallback((updates: Partial<FacetHeaderLabelStyle & { widthPx: number | null }>) => {
     dispatch({ type: 'SET_FACET_LEFT_HEADER_STYLE', payload: updates });
@@ -49,8 +50,8 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
     dispatch({ type: 'SET_FACET_LEFT_VALUES_STYLE', payload: updates });
   }, [dispatch]);
 
-  const headerStyle = facetLabelStyles.leftHeader;
-  const valuesStyle = facetLabelStyles.leftValues;
+  const headerStyle = effectiveFacetLabelStyles?.leftHeader ?? state.facetLabelStyles.leftHeader;
+  const valuesStyle = effectiveFacetLabelStyles?.leftValues ?? state.facetLabelStyles.leftValues;
   const {
     anchorEl: headerAnchor,
     activeDepth: activeHeaderDepth,

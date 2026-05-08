@@ -27,6 +27,7 @@ interface TopFacetLabelsProps {
   grid: GridResultModel;
   plotTemplateColumns: string;
   baseCols: number;
+  facetTopHeaderPx: number;
   facetTopValueHeightsPx: number[];
 }
 
@@ -34,6 +35,7 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
   grid,
   plotTemplateColumns,
   baseCols,
+  facetTopHeaderPx,
   facetTopValueHeightsPx,
 }) => {
   const { state, dispatch } = useVisualizationContext();
@@ -195,7 +197,7 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
         style={{
           display: 'grid',
           gridTemplateColumns: plotTemplateColumns,
-          gridTemplateRows: `20px ${facetTopValueHeightsPx.map((height) => `${height}px`).join(' ')}`,
+          gridTemplateRows: `${facetTopHeaderPx}px ${facetTopValueHeightsPx.map((height) => `${height}px`).join(' ')}`,
         }}
       >
         <div

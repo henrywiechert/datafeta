@@ -6,10 +6,14 @@ import {
 } from '../../../../observable-plot-generator/gridModel';
 import { MIN_GRID_ROW_PX } from '../../../../config/chartLayoutConfig';
 import {
+  FacetHeaderLabelStyle,
+  FacetLabelStyles,
   FacetLeftValuesLabelStyle,
   FacetTopValuesLabelStyle,
   YAxisLabelStyle,
 } from '../../../../contexts/VisualizationContext/types';
+import { UserChartType } from '../../../../types';
+import { formatFacetValue } from './facetLabelUtils';
 import type { CSSProperties } from 'react';
 
 export const TEXT_PX_PER_CHAR = 6; // conservative estimate for 12-14px font
@@ -45,6 +49,122 @@ function estimateLongestTickPx(domain: any[], tickFormat?: ((value: any) => any)
 export function estimateTextPx(text?: string): number {
   if (!text) return 0;
   return Math.ceil(text.length * TEXT_PX_PER_CHAR);
+}
+
+function estimateTextPxForFont(text: string, fontSize: number): number {
+  if (!text) return 0;
+  return Math.ceil(text.length * fontSize * 0.6);
+}
+
+function shouldUseTableHorizontalFacetValues(style: FacetLeftValuesLabelStyle): boolean {
+  return style.orientation === 'vertical' && (style.orientationByDepth?.length ?? 0) === 0;
+}
+
+export function getEffectiveFacetLabelStyles(
+  facetLabelStyles: FacetLabelStyles | undefined,
+  globalChartType: UserChartType | null | undefined,
+): FacetLabelStyles | undefined {
+  if (!facetLabelStyles || globalChartType !== 'table-refactor') {
+    return facetLabelStyles;
+  }
+
+  if (!shouldUseTableHorizontalFacetValues(facetLabelStyles.leftValues)) {
+    return facetLabelStyles;
+  }
+
+  return {
+    ...facetLabelStyles,
+    leftValues: {
+      ...facetLabelStyles.leftValues,
+      orientation: 'horizontal',
+    },
+  };
+}
+
+function estimateHeaderWidthPx(text: string, style: FacetHeaderLabelStyle): number {
+  const fontSize = style.fontSize;
+  if (style.orientation === 'vertical') {
+    return Math.ceil(fontSize * 1.8 + 8);
+  }
+  return estimateTextPxForFont(text, fontSize) + 12;
+}
+
+function estimateTopTrackHeightPx(
+  text: string,
+  fontSize: number,
+  orientation: 'horizontal' | 'vertical' | 'angled',
+): number {
+  if (orientation === 'vertical') {
+    return Math.max(Math.ceil(fontSize * 1.8 + 8), estimateTextPxForFont(text, fontSize) + 8);
+  }
+  if (orientation === 'angled') {
+    return Math.max(Math.ceil(fontSize * 1.8 + 8), Math.ceil(estimateTextPxForFont(text, fontSize) * 0.75) + 8);
+  }
+  return Math.ceil(fontSize * 1.8 + 8);
+}
+
+function estimateLeftTrackWidthPx(
+  text: string,
+  fontSize: number,
+  orientation: 'horizontal' | 'vertical',
+): number {
+  if (orientation === 'vertical') {
+    return Math.ceil(fontSize * 1.8 + 8);
+  }
+  return estimateTextPxForFont(text, fontSize) + 12;
+}
+
+export function computeAutoFacetLeftHeaderWidth(
+  fieldLabels: string[],
+  style: FacetHeaderLabelStyle,
+  fallbackSize: number,
+): number {
+  if (fieldLabels.length === 0) return fallbackSize;
+  return fieldLabels.reduce((maxWidth, label) => {
+    return Math.max(maxWidth, estimateHeaderWidthPx(label, style));
+  }, fallbackSize);
+}
+
+export function computeAutoFacetTopHeaderHeight(
+  fieldLabels: string[],
+  style: FacetHeaderLabelStyle,
+  fallbackSize: number,
+): number {
+  if (fieldLabels.length === 0) return fallbackSize;
+  return fieldLabels.reduce((maxHeight, label) => {
+    const orientation = style.orientation;
+    return Math.max(maxHeight, estimateTopTrackHeightPx(label, style.fontSize, orientation));
+  }, fallbackSize);
+}
+
+export function computeAutoFacetTopValueHeights(
+  levels: Array<{ values: any[] }>,
+  style: FacetTopValuesLabelStyle,
+  fallbackSize: number,
+): number[] {
+  return levels.map((level, depthIndex) => {
+    const orientation = style.orientationByDepth?.[depthIndex] ?? style.orientation;
+    const longest = level.values.reduce((maxHeight, value) => {
+      const label = formatFacetValue(value);
+      return Math.max(maxHeight, estimateTopTrackHeightPx(label, style.fontSize, orientation));
+    }, 0);
+    return Math.max(fallbackSize, longest || 0);
+  });
+}
+
+export function computeAutoFacetLeftValueWidths(
+  levels: Array<{ values: any[] }>,
+  style: FacetLeftValuesLabelStyle,
+  fallbackSize: number,
+): number[] {
+  return levels.map((level, depthIndex) => {
+    const orientation = style.orientationByDepth?.[depthIndex] ?? style.orientation;
+    const longest = level.values.reduce((maxWidth, value) => {
+      const label = formatFacetValue(value);
+      return Math.max(maxWidth, estimateLeftTrackWidthPx(label, style.fontSize, orientation));
+    }, 0);
+    return Math.max(fallbackSize, longest || 0);
+  });
 }
 
 /**
@@ -292,23 +412,38 @@ function resolveFacetTrackSize(
   return depthOverride ?? sharedOverride ?? fallbackSize;
 }
 
+function getFallbackTrackSize(
+  fallbackSize: number | number[],
+  depthIndex: number,
+): number {
+  return Array.isArray(fallbackSize) ? fallbackSize[depthIndex] ?? 0 : fallbackSize;
+}
+
 export function resolveFacetTopValueHeights(
   depthCount: number,
   style: FacetTopValuesLabelStyle | undefined,
-  fallbackSize: number,
+  fallbackSize: number | number[],
 ): number[] {
   return Array.from({ length: depthCount }, (_, depthIndex) =>
-    resolveFacetTrackSize(style?.heightPxByDepth?.[depthIndex], style?.heightPx ?? null, fallbackSize)
+    resolveFacetTrackSize(
+      style?.heightPxByDepth?.[depthIndex],
+      style?.heightPx ?? null,
+      getFallbackTrackSize(fallbackSize, depthIndex),
+    )
   );
 }
 
 export function resolveFacetLeftValueWidths(
   depthCount: number,
   style: FacetLeftValuesLabelStyle | undefined,
-  fallbackSize: number,
+  fallbackSize: number | number[],
 ): number[] {
   return Array.from({ length: depthCount }, (_, depthIndex) =>
-    resolveFacetTrackSize(style?.widthPxByDepth?.[depthIndex], style?.widthPx ?? null, fallbackSize)
+    resolveFacetTrackSize(
+      style?.widthPxByDepth?.[depthIndex],
+      style?.widthPx ?? null,
+      getFallbackTrackSize(fallbackSize, depthIndex),
+    )
   );
 }
 

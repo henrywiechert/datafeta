@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { LeftFacetLabels, TopFacetLabels } from './FacetLabels';
 
 const mockDispatch = jest.fn();
+let mockGlobalChartType: any = 'bar';
 
 const mockFacetLabelStyles = {
   topHeader: { fontSize: 12, fontSizeByDepth: [], orientation: 'horizontal', orientationByDepth: [], horizontalAlign: 'center', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [] },
@@ -15,6 +16,7 @@ jest.mock('../../../contexts/VisualizationContext', () => ({
   useVisualizationContext: () => ({
     state: {
       facetLabelStyles: mockFacetLabelStyles,
+      globalChartType: mockGlobalChartType,
     },
     dispatch: mockDispatch,
   }),
@@ -89,6 +91,7 @@ function buildGrid() {
 describe('FacetLabels', () => {
   beforeEach(() => {
     mockDispatch.mockClear();
+    mockGlobalChartType = 'bar';
     mockFacetLabelStyles.topHeader = { fontSize: 12, fontSizeByDepth: [], orientation: 'horizontal', orientationByDepth: [], horizontalAlign: 'center', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [] } as any;
     mockFacetLabelStyles.topValues = { fontSize: 10, orientation: 'horizontal', orientationByDepth: [], heightPx: null, heightPxByDepth: [], horizontalAlign: 'center', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [], wrapMode: 'wrap', wrapModeByDepth: [] } as any;
     mockFacetLabelStyles.leftHeader = { fontSize: 12, fontSizeByDepth: [], orientation: 'vertical', orientationByDepth: [], widthPx: null, horizontalAlign: 'center', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [] } as any;
@@ -101,6 +104,7 @@ describe('FacetLabels', () => {
         grid={buildGrid()}
         plotTemplateColumns="repeat(4, 100px)"
         baseCols={1}
+        facetTopHeaderPx={20}
         facetTopValueHeightsPx={[24, 36]}
       />,
     );
@@ -143,6 +147,7 @@ describe('FacetLabels', () => {
         grid={buildGrid()}
         plotTemplateColumns="repeat(4, 100px)"
         baseCols={1}
+        facetTopHeaderPx={20}
         facetTopValueHeightsPx={[24, 36]}
       />,
     );
@@ -178,6 +183,7 @@ describe('FacetLabels', () => {
         grid={buildGrid()}
         plotTemplateColumns="repeat(4, 100px)"
         baseCols={1}
+        facetTopHeaderPx={20}
         facetTopValueHeightsPx={[24, 36]}
       />,
     );
@@ -299,6 +305,36 @@ describe('FacetLabels', () => {
     });
   });
 
+  it('renders left facet values horizontally by default in table mode', () => {
+    mockGlobalChartType = 'table-refactor';
+    mockFacetLabelStyles.leftValues = {
+      fontSize: 10,
+      orientation: 'vertical',
+      orientationByDepth: [],
+      widthPx: null,
+      widthPxByDepth: [],
+      horizontalAlign: 'start',
+      verticalAlign: 'center',
+      horizontalAlignByDepth: [],
+      verticalAlignByDepth: [],
+      wrapMode: 'wrap',
+      wrapModeByDepth: [],
+    } as any;
+
+    const { container } = render(
+      <LeftFacetLabels
+        grid={buildGrid()}
+        plotRowsSpec="80px 80px 80px"
+        baseRows={1}
+        facetLeftHeaderPx={28}
+        facetLeftValueWidthsPx={[80, 80]}
+      />,
+    );
+
+    const firstDepthText = container.querySelector('div[title="Consumer"] > div');
+    expect(firstDepthText).not.toHaveStyle({ writingMode: 'vertical-rl' });
+  });
+
   it('opens a depth-aware left header popover and dispatches per-depth alignment updates', () => {
     render(
       <LeftFacetLabels
@@ -328,6 +364,7 @@ describe('FacetLabels', () => {
         grid={buildGrid()}
         plotTemplateColumns="repeat(4, 100px)"
         baseCols={1}
+        facetTopHeaderPx={20}
         facetTopValueHeightsPx={[24, 36]}
       />,
     );
@@ -348,6 +385,7 @@ describe('FacetLabels', () => {
         grid={buildGrid()}
         plotTemplateColumns="repeat(4, 100px)"
         baseCols={1}
+        facetTopHeaderPx={20}
         facetTopValueHeightsPx={[24, 36]}
       />,
     );
@@ -365,6 +403,7 @@ describe('FacetLabels', () => {
         grid={buildGrid()}
         plotTemplateColumns="repeat(4, 100px)"
         baseCols={1}
+        facetTopHeaderPx={20}
         facetTopValueHeightsPx={[24, 36]}
       />,
     );
@@ -403,6 +442,7 @@ describe('FacetLabels', () => {
         grid={buildGrid()}
         plotTemplateColumns="repeat(4, 100px)"
         baseCols={1}
+        facetTopHeaderPx={20}
         facetTopValueHeightsPx={[24, 36]}
       />,
     );
