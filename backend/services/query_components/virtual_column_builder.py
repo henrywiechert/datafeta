@@ -34,6 +34,7 @@ _NARROW_INT_TYPES: frozenset = frozenset({
 # result into an unnecessary decimal type, so we avoid casting for the generic
 # "numeric" hint and only apply casts for explicit SQL types.
 _LOGICAL_OUTPUT_TYPES_NO_CAST: frozenset = frozenset({'numeric'})
+_BUILTIN_SOURCE_FIELDS: frozenset = frozenset({'_source_database', '_source_table'})
 
 
 # Custom function classes for functions not directly available in Pypika
@@ -132,6 +133,8 @@ class VirtualColumnExpressionBuilder:
         default_table: Any,
         db_type: str = 'clickhouse',
         column_types: Optional[Dict[str, str]] = None,
+        source_database: Optional[str] = None,
+        source_table: Optional[str] = None,
     ):
         """
         Initialize the builder.
@@ -144,6 +147,10 @@ class VirtualColumnExpressionBuilder:
                 provided for DuckDB sources, narrow integer columns (UINT16, INT32,
                 etc.) are automatically promoted to BIGINT to prevent arithmetic
                 overflow in virtual column expressions.
+            source_database: Synthetic database name exposed via
+                ``_source_database`` inside expressions.
+            source_table: Synthetic table name exposed via ``_source_table``
+                inside expressions.
         """
         self.table_map = table_map
         self.default_table = default_table
@@ -151,6 +158,8 @@ class VirtualColumnExpressionBuilder:
         self._registered_names: Set[str] = set()
         self._source_fields_map: Dict[str, List[str]] = {}  # Maps vc name -> source field names
         self.db_type = self._normalize_db_type(db_type)
+        self.source_database = source_database or ''
+        self.source_table = source_table or getattr(default_table, '_table_name', '')
         # Normalise to upper-case for reliable look-ups
         self.column_types: Dict[str, str] = {
             k: v.upper() for k, v in (column_types or {}).items()
@@ -423,7 +432,13 @@ class VirtualColumnExpressionBuilder:
         """
         # Remove quoted identifiers before matching bare identifiers, so words inside
         # quoted column names (e.g. "Network Throughput") are not split into tokens.
-        expression_without_quoted = re.sub(r'"[^"\\]*(?:\\.[^"\\]*)*"|`[^`]+`', ' ', expression)
+        # Also remove single-quoted SQL string literals so values like 'High' or
+        # database names inside CASE expressions are not misinterpreted as fields.
+        expression_without_quoted = re.sub(
+            r'"[^"\\]*(?:\\.[^"\\]*)*"|`[^`]+`|\'(?:\'\'|[^\'])*\'',
+            ' ',
+            expression,
+        )
 
         # Pattern for identifiers: word or word.word.word... (any number of dot-separated parts)
         # Matches: column_name, table.column_name, table.nested.column_name
@@ -522,9 +537,9 @@ class VirtualColumnExpressionBuilder:
         
         return namespace
     
-    def _get_field_reference(self, field_name: str) -> Field:
+    def _get_field_reference(self, field_name: str) -> Term:
         """
-        Get Pypika Field reference for a column name.
+        Get Pypika term reference for a column name.
         
         Supports qualified names: table.column
         
@@ -538,8 +553,13 @@ class VirtualColumnExpressionBuilder:
             field_name: Column name, optionally qualified
             
         Returns:
-            Pypika Field object
+            Pypika Term object
         """
+        if field_name in _BUILTIN_SOURCE_FIELDS:
+            if field_name == '_source_database':
+                return ValueWrapper(self.source_database)
+            return ValueWrapper(self.source_table)
+
         if '.' in field_name:
             # Check if this is actually a table-qualified reference
             table_name, column_name = field_name.split('.', 1)

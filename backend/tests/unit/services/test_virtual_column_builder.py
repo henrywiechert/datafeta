@@ -176,6 +176,44 @@ class TestVirtualColumnExpressionBuilder:
         assert 'UPPER' in sql
         assert 'name' in sql
 
+    def test_source_symbols_resolve_to_literals(self):
+        """Built-in source symbols should compile as literal terms."""
+        builder = VirtualColumnExpressionBuilder(
+            self.table_map,
+            self.table,
+            source_database='analytics',
+            source_table='sales_2024',
+        )
+        vc = VirtualColumnDefinition(
+            name='source_label',
+            expression="CONCAT(_source_database, ':', _source_table)",
+        )
+
+        term = builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='"')
+        assert 'analytics' in sql
+        assert 'sales_2024' in sql
+        assert 'source_database' not in sql
+        assert 'source_table' not in sql
+
+    def test_source_database_defaults_to_empty_string(self):
+        """File-style sources should treat missing source_database as empty string."""
+        builder = VirtualColumnExpressionBuilder(
+            self.table_map,
+            self.table,
+            source_database=None,
+            source_table='uploaded_file',
+        )
+        vc = VirtualColumnDefinition(
+            name='source_db_label',
+            expression='COALESCE(_source_database, \'missing\')',
+        )
+
+        term = builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='"')
+        assert "''" in sql or '""' in sql
+        assert 'source_database' not in sql
+
     def test_floor_with_double_quoted_column_name_with_spaces(self):
         """Quoted identifiers with spaces should parse in arithmetic expressions."""
         vc = VirtualColumnDefinition(
