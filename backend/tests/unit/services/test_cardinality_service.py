@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import Mock, MagicMock
 from backend.services.cardinality_service import CardinalityService, CountDistinct
-from backend.models.data_source import ConnectionDetails
+from backend.models.data_source import ConnectionDetails, VirtualColumnDefinition
 from backend.exceptions import InvalidInputError, QueryExecutionError
 
 
@@ -135,6 +135,34 @@ class TestCardinalityService:
         
         assert count == 1
         assert not self.mock_connector.fetch_data.called
+
+    def test_get_distinct_count_virtual_column_can_reference_source_symbols(self):
+        """Virtual-column cardinality queries should resolve _source_database/_source_table as literals."""
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
+        self.mock_connector.fetch_data.return_value = (
+            ["count"],
+            [[7]],
+        )
+
+        count = service.get_distinct_count(
+            field="source_label",
+            table="orders",
+            database="shop_db",
+            virtual_columns=[
+                VirtualColumnDefinition(
+                    name="source_label",
+                    expression="CONCAT(_source_database, ':', _source_table)",
+                    output_type="VARCHAR",
+                )
+            ],
+        )
+
+        assert count == 7
+        sql = self.mock_connector.fetch_data.call_args[0][0]
+        assert "'shop_db'" in sql
+        assert "'orders'" in sql
+        assert "_source_database" not in sql
+        assert "_source_table" not in sql
     
     def test_get_distinct_count_with_regex_pattern(self):
         """Should apply regex filter in query."""

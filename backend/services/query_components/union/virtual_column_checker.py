@@ -20,6 +20,12 @@ FUNCTION_NAMES = {
     'LENGTH', 'SUBSTRING', 'CAST', 'SUM', 'AVG', 'COUNT', 
     'MIN', 'MAX', 'FLOOR', 'CEIL', 'SQRT', 'POW', 'MOD', 'SPLIT', 'INT',
 }
+BUILTIN_SOURCE_FIELDS = {'_source_database', '_source_table'}
+
+
+def _strip_string_literals(expression: str) -> str:
+    """Remove single-quoted SQL string literals before identifier matching."""
+    return re.sub(r"'(?:''|[^'])*'", ' ', expression)
 
 
 def get_virtual_column_source_fields(
@@ -48,7 +54,7 @@ def get_virtual_column_source_fields(
     for vc in virtual_columns:
         # Extract field references from expression using regex
         # Pattern matches identifiers: word or word.word.word... (any number of dot-separated parts)
-        expression = vc.expression
+        expression = _strip_string_literals(vc.expression)
         pattern = r'\b([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\b'
         matches = re.findall(pattern, expression)
         
@@ -90,4 +96,4 @@ def can_compute_virtual_column(
         return True
 
     # Check if ALL source fields exist in the table
-    return all(field in table_columns for field in source_fields)
+    return all(field in BUILTIN_SOURCE_FIELDS or field in table_columns for field in source_fields)

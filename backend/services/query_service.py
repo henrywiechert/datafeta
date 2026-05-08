@@ -388,6 +388,8 @@ class QueryService:
                 default_table=table_context.default_table,
                 db_type=db_type,
                 column_types=column_types,
+                source_database=query_desc.target_database,
+                source_table=query_desc.target_table,
             )
             for vc in query_desc.virtual_columns:
                 vc_builder.register_virtual_column(vc)
@@ -458,6 +460,8 @@ class QueryService:
                 default_table=table_context.default_table,
                 db_type=db_type,
                 column_types=column_types,
+                source_database=query_desc.target_database,
+                source_table=query_desc.target_table,
             )
             for vc in query_desc.virtual_columns:
                 vc_builder.register_virtual_column(vc)
@@ -692,6 +696,8 @@ class QueryService:
                 default_table=default_table,
                 db_type=db_type,
                 column_types=column_types,
+                source_database=query_desc.target_database,
+                source_table=query_desc.target_table,
             )
             
             # Register all virtual columns

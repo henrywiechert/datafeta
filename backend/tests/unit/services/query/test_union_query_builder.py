@@ -78,6 +78,33 @@ def test_single_table_query_adds_source_database_column():
     # Literals added directly in SELECT, can be used in GROUP BY and ORDER BY
 
 
+def test_single_table_virtual_column_can_reference_source_database():
+    """Virtual columns should be able to use _source_database in single-table queries."""
+    query_description = QueryDescription(
+        target_table="sales",
+        target_database="analytics",
+        dimensions=[Dimension(field="source_group", flavour="discrete")],
+        virtual_columns=[
+            VirtualColumnDefinition(
+                name="source_group",
+                expression="CASE WHEN _source_database = 'analytics' THEN 'prod' ELSE 'other' END",
+                output_type="VARCHAR",
+            )
+        ],
+    )
+
+    query_sql, metadata = QueryService().translate_to_sql(
+        query_description,
+        table_name="sales",
+        db_type="duckdb",
+        with_optimization=False,
+    )
+
+    assert "'analytics'" in query_sql
+    assert "'prod'" in query_sql
+    assert metadata == []
+
+
 def test_single_table_query_adds_both_source_columns():
     """Test that single-table queries can add both _source_database and _source_table."""
     query_description = QueryDescription(
@@ -99,6 +126,92 @@ def test_single_table_query_adds_both_source_columns():
     # Should add both columns as literals in SELECT
     assert "'analytics'" in query_sql  # _source_database
     assert "'sales'" in query_sql  # _source_table
+
+
+def test_union_virtual_column_can_reference_source_table():
+    """UNION branches should treat _source_table as a computable virtual-column dependency."""
+    mock_connector = MagicMock()
+    mock_connector.list_columns.return_value = [
+        Column(name="category", data_type="String"),
+    ]
+
+    query_description = QueryDescription(
+        target_table="sales_2023",
+        target_database="analytics",
+        dimensions=[Dimension(field="source_label", flavour="discrete")],
+        virtual_columns=[
+            VirtualColumnDefinition(
+                name="source_label",
+                expression="CONCAT('branch:', _source_table)",
+                output_type="VARCHAR",
+            )
+        ],
+        virtual_table=VirtualTableDefinition(
+            primary_table="sales_2023",
+            mode="union",
+            union_tables=[UnionTableDefinition(table_name="sales_2024")],
+        ),
+    )
+
+    query_sql, metadata = QueryService().translate_to_sql(
+        query_description,
+        table_name="sales_2023",
+        db_type="duckdb",
+        with_optimization=False,
+        connector=mock_connector,
+    )
+
+    assert "UNION ALL" in query_sql
+    assert "'branch:'" in query_sql
+    assert query_sql.count("'sales_2023'") >= 2
+    assert query_sql.count("'sales_2024'") >= 2
+    assert metadata == []
+
+
+def test_union_virtual_column_case_with_string_literals_is_not_null_filled():
+    """UNION dependency parsing should ignore CASE string literals like 'High'/'Low'."""
+    mock_connector = MagicMock()
+    mock_connector.list_columns.return_value = [
+        Column(name="dlFdSchedData.cellBwpId", data_type="UInt32"),
+    ]
+    mock_connector.estimate_table_size.return_value = 100
+
+    query_description = QueryDescription(
+        target_table="dlFdSchedData",
+        target_database="tti_fvogel_ref_14045_1703_step1",
+        dimensions=[Dimension(field="xxx", flavour="discrete")],
+        measures=[Measure(field="dlFdSchedData.cellBwpId", aggregation="sum", alias="SUM(dlFdSchedData.cellBwpId)")],
+        virtual_columns=[
+            VirtualColumnDefinition(
+                name="xxx",
+                expression=(
+                    "CASE WHEN _source_database = 'tti_fvogel_ref_14045_1703_step1' "
+                    "THEN 'High' ELSE 'Low' END"
+                ),
+                output_type="VARCHAR",
+            )
+        ],
+        virtual_table=VirtualTableDefinition(
+            primary_table="dlFdSchedData",
+            mode="union",
+            union_tables=[
+                UnionTableDefinition(table_name="tti_fvogel_ref_14045_1703_step2/dlFdSchedData"),
+            ],
+        ),
+    )
+
+    query_sql, metadata = QueryService().translate_to_sql(
+        query_description,
+        table_name="dlFdSchedData",
+        db_type="clickhouse",
+        with_optimization=False,
+        connector=mock_connector,
+    )
+
+    assert "'High'" in query_sql
+    assert "'Low'" in query_sql
+    assert "CAST(NULL AS Nullable(String)) AS `xxx`" not in query_sql
+    assert metadata == []
 
 
 def test_file_connector_empty_database():

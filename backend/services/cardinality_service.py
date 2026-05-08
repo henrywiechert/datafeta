@@ -315,7 +315,7 @@ class CardinalityService:
             column_types = None
             if db_type in {'duckdb', 'csv', 'file', 'kaggle', 'hive_parquet'}:
                 try:
-                    cols = self.connector.list_columns(database=None, table=table)
+                    cols = self.connector.list_columns(database=None, table=resolved_table_name)
                     column_types = {col.name: col.data_type for col in cols}
                 except Exception:
                     logger.debug(
@@ -327,6 +327,8 @@ class CardinalityService:
                 default_table=db_table,
                 db_type=db_type,
                 column_types=column_types,
+                source_database=database,
+                source_table=resolved_table_name,
             )
             
             # Register all virtual columns
