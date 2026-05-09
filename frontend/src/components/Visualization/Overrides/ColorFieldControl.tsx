@@ -1,6 +1,5 @@
 import React from 'react';
 import { Box } from '@mui/material';
-import { v4 as uuidv4 } from 'uuid';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import ColorPalettePopover from '../Color/ColorPalettePopover';
 import { Field } from '../../../types';

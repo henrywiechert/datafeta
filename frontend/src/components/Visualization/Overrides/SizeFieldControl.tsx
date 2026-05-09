@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Box, IconButton, Popover, SvgIcon, Tooltip } from '@mui/material';
-import { v4 as uuidv4 } from 'uuid';
 import { PropertyDropZone } from '../Properties/PropertyDropZone';
 import SizeRangeControl from './SizeRangeControl';
 import { Field } from '../../../types';

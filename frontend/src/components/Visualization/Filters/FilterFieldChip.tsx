@@ -47,6 +47,9 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
   
   const isSessionScope = filterScope === 'session';
   const isZoomFilter = !!filterConfig?.isZoomFilter;
+  const discretePattern = filterConfig?.type === 'discrete' ? filterConfig.pattern : undefined;
+  const discretePatternOperator = filterConfig?.type === 'discrete' ? filterConfig.patternOperator : undefined;
+  const discreteInversePattern = filterConfig?.type === 'discrete' ? filterConfig.isInversePattern : undefined;
 
   const handleToggleExpand = () => {
     setExpanded(!expanded);
@@ -100,16 +103,27 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
       type: 'discrete',
       selectedValues: values,
       matchMode: 'selection',
-      pattern: filterConfig?.type === 'discrete' ? filterConfig.pattern : undefined,
-      patternOperator: filterConfig?.type === 'discrete' ? filterConfig.patternOperator : undefined,
-      isInversePattern: filterConfig?.type === 'discrete' ? filterConfig.isInversePattern : undefined,
+      pattern: discretePattern,
+      patternOperator: discretePatternOperator,
+      isInversePattern: discreteInversePattern,
       excludedValues,
       totalAvailableCount,
       dateTimePart: field.dateTimePart,
       dateTimeMode: field.dateTimeMode,
       isZoomFilter: filterConfig?.isZoomFilter,
     });
-  }, [field.id, field.columnName, field.dateTimePart, field.dateTimeMode, onConfigChange, filterMetadata, filterConfig?.isZoomFilter]);
+  }, [
+    field.id,
+    field.columnName,
+    field.dateTimePart,
+    field.dateTimeMode,
+    onConfigChange,
+    filterMetadata,
+    discretePattern,
+    discretePatternOperator,
+    discreteInversePattern,
+    filterConfig?.isZoomFilter,
+  ]);
 
   const handleDiscretePatternChange = useCallback((patternConfig: {
     matchMode: 'selection' | 'pattern';

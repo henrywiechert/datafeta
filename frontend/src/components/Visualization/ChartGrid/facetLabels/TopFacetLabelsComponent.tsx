@@ -56,7 +56,6 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
   const {
     anchorEl: headerAnchor,
     activeDepth: activeHeaderDepth,
-    activeDepthIndex: activeHeaderDepthIndex,
     activeFontSize: activeHeaderFontSize,
     activeOrientation: activeHeaderOrientation,
     activeHorizontalAlign: activeHeaderHorizontalAlign,
@@ -71,7 +70,6 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
   const {
     anchorEl: valuesAnchor,
     activeDepth: activeValuesDepth,
-    activeDepthIndex: activeValuesDepthIndex,
     activeOrientation: activeValuesOrientation,
     activeHorizontalAlign: activeValuesHorizontalAlign,
     activeVerticalAlign: activeValuesVerticalAlign,
