@@ -1,16 +1,19 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import App from './App';
+import { DataSourceProvider } from './contexts/DataSourceContext';
 import { VisualizationProvider } from './contexts/VisualizationContext';
 import { ConnectionProvider } from './contexts/ConnectionContext';
 
 test('renders Data Slicer navigation tabs', () => {
   render(
-    <VisualizationProvider>
-      <ConnectionProvider>
-        <App />
-      </ConnectionProvider>
-    </VisualizationProvider>
+    <DataSourceProvider>
+      <VisualizationProvider>
+        <ConnectionProvider>
+          <App />
+        </ConnectionProvider>
+      </VisualizationProvider>
+    </DataSourceProvider>
   );
   const dataSourcesTab = screen.getByText(/Data Sources/i);
   expect(dataSourcesTab).toBeInTheDocument();
