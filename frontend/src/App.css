@@ -81,7 +81,7 @@ select {
   border-radius: 4px;
 }
 
-button:not([class*="Mui"]) {
+button:not([class*="Mui"]):not([class*="custom-tooltip__"]) {
   padding: 10px 15px;
   margin-top: 10px;
   background-color: #007bff;
@@ -91,12 +91,12 @@ button:not([class*="Mui"]) {
   cursor: pointer;
 }
 
-button:not([class*="Mui"]):disabled {
+button:not([class*="Mui"]):not([class*="custom-tooltip__"]):disabled {
   background-color: #ccc;
   cursor: not-allowed;
 }
 
-button:not([class*="Mui"]):not([class*="toggleActive"]):hover:not(:disabled) {
+button:not([class*="Mui"]):not([class*="custom-tooltip__"]):not([class*="toggleActive"]):hover:not(:disabled) {
   background-color: #0056b3;
 }
 
