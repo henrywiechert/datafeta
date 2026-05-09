@@ -15,6 +15,8 @@ interface CustomTooltipProps {
   pinned?: boolean;
   onUnpin?: () => void;
   onFilterAction?: (action: TooltipFilterAction, field: TooltipField) => void;
+  autoExpandPinnedComparison?: boolean;
+  onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
 }
 
 function formatPercentDifference(value: number | undefined): string | null {
@@ -71,9 +73,10 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
   pinned = false,
   onUnpin,
   onFilterAction,
+  autoExpandPinnedComparison = false,
+  onAutoExpandPinnedComparisonChange,
 }) => {
   const tooltipRef = useRef<HTMLDivElement>(null);
-  const [comparisonExpanded, setComparisonExpanded] = useState(false);
   const [position, setPosition] = useState<{ x: number; y: number; anchor: string }>({ 
     x, 
     y, 
@@ -134,10 +137,6 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
     setPosition({ x: newX, y: newY, anchor });
   }, [x, y, visible, pinned]);
 
-  useEffect(() => {
-    setComparisonExpanded(false);
-  }, [visible, pinned, pinnedComparison]);
-
   if (!visible || fields.length === 0) {
     return null;
   }
@@ -145,6 +144,62 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
   /** Whether a field row should show filter action buttons */
   const isFilterable = (field: TooltipField) =>
     pinned && onFilterAction && field.sourceField?.flavour === 'discrete' && field.rawValue != null;
+
+  const stopTooltipControlPropagation = (event: React.SyntheticEvent) => {
+    event.stopPropagation();
+  };
+
+  const handleUnpinClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    stopTooltipControlPropagation(event);
+    onUnpin?.();
+  };
+
+  const handleFilterActionClick = (
+    action: TooltipFilterAction,
+    field: TooltipField,
+    event: React.MouseEvent<HTMLButtonElement>
+  ) => {
+    stopTooltipControlPropagation(event);
+    onFilterAction?.(action, field);
+  };
+
+  const handleAutoExpandPinnedComparisonToggle = (event: React.MouseEvent<HTMLButtonElement>) => {
+    stopTooltipControlPropagation(event);
+    onAutoExpandPinnedComparisonChange?.(!autoExpandPinnedComparison);
+  };
+
+  const showComparisonToggle = pinned && Boolean(pinnedComparison);
+  const showComparisonPanel = Boolean(pinnedComparison && autoExpandPinnedComparison);
+
+  const comparisonPanel = pinnedComparison ? (
+    <div className="custom-tooltip__comparison-panel">
+      <div className="custom-tooltip__comparison-title">{pinnedComparison.title}</div>
+      <div className="custom-tooltip__comparison-subtitle">
+        {pinnedComparison.xLabel}: {pinnedComparison.xFormattedValue}
+      </div>
+      <div className="custom-tooltip__comparison-list">
+        {pinnedComparison.items.map((item) => {
+          const formattedDelta = formatPercentDifference(item.percentDifference);
+          return (
+            <div
+              key={`${item.seriesKey}-${item.formattedValue}`}
+              className={`custom-tooltip__comparison-item${item.isSelected ? ' custom-tooltip__comparison-item--selected' : ''}`}
+            >
+              <span
+                className="custom-tooltip__comparison-swatch"
+                style={item.colorHex ? { backgroundColor: item.colorHex } : undefined}
+              />
+              <span className="custom-tooltip__comparison-series">{item.seriesLabel}</span>
+              <span className="custom-tooltip__comparison-value">{item.formattedValue ?? item.value}</span>
+              {formattedDelta && (
+                <span className="custom-tooltip__comparison-delta">{formattedDelta}</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div 
@@ -164,7 +219,9 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
       {pinned && onUnpin && (
         <button
           className="custom-tooltip__close"
-          onClick={onUnpin}
+          type="button"
+          onClick={handleUnpinClick}
+          onMouseDown={stopTooltipControlPropagation}
           aria-label="Close tooltip"
         >
           <CloseIconSvg />
@@ -183,21 +240,27 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
               <button
                 className="custom-tooltip__action-btn custom-tooltip__action-btn--keep"
                 title="Keep only"
-                onClick={() => onFilterAction!('keep', field)}
+                type="button"
+                onClick={(event) => handleFilterActionClick('keep', field, event)}
+                onMouseDown={stopTooltipControlPropagation}
               >
                 <KeepIcon />
               </button>
               <button
                 className="custom-tooltip__action-btn custom-tooltip__action-btn--exclude"
                 title="Exclude"
-                onClick={() => onFilterAction!('exclude', field)}
+                type="button"
+                onClick={(event) => handleFilterActionClick('exclude', field, event)}
+                onMouseDown={stopTooltipControlPropagation}
               >
                 <ExcludeIcon />
               </button>
               <button
                 className="custom-tooltip__action-btn custom-tooltip__action-btn--filter-visible"
                 title="Filter to all visible values"
-                onClick={() => onFilterAction!('filter-visible', field)}
+                type="button"
+                onClick={(event) => handleFilterActionClick('filter-visible', field, event)}
+                onMouseDown={stopTooltipControlPropagation}
               >
                 <FilterVisibleIcon />
               </button>
@@ -206,45 +269,23 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
         </div>
       ))}
 
-      {pinned && pinnedComparison && (
+      {(showComparisonToggle || showComparisonPanel) && (
         <div className="custom-tooltip__comparison">
-          <button
-            className="custom-tooltip__comparison-toggle"
-            onClick={() => setComparisonExpanded((current) => !current)}
-            type="button"
-          >
-            {comparisonExpanded ? 'Hide All Values At X' : 'All Values At X'}
-          </button>
-
-          {comparisonExpanded && (
-            <div className="custom-tooltip__comparison-panel">
-              <div className="custom-tooltip__comparison-title">{pinnedComparison.title}</div>
-              <div className="custom-tooltip__comparison-subtitle">
-                {pinnedComparison.xLabel}: {pinnedComparison.xFormattedValue}
-              </div>
-              <div className="custom-tooltip__comparison-list">
-                {pinnedComparison.items.map((item) => {
-                  const formattedDelta = formatPercentDifference(item.percentDifference);
-                  return (
-                    <div
-                      key={`${item.seriesKey}-${item.formattedValue}`}
-                      className={`custom-tooltip__comparison-item${item.isSelected ? ' custom-tooltip__comparison-item--selected' : ''}`}
-                    >
-                      <span
-                        className="custom-tooltip__comparison-swatch"
-                        style={item.colorHex ? { backgroundColor: item.colorHex } : undefined}
-                      />
-                      <span className="custom-tooltip__comparison-series">{item.seriesLabel}</span>
-                      <span className="custom-tooltip__comparison-value">{item.formattedValue ?? item.value}</span>
-                      {formattedDelta && (
-                        <span className="custom-tooltip__comparison-delta">{formattedDelta}</span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+          {showComparisonToggle && (
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={autoExpandPinnedComparison}
+              aria-label="Show all values"
+              className="custom-tooltip__comparison-mode"
+              onMouseDown={stopTooltipControlPropagation}
+              onClick={handleAutoExpandPinnedComparisonToggle}
+            >
+              <span className={`custom-tooltip__comparison-mode-box${autoExpandPinnedComparison ? ' custom-tooltip__comparison-mode-box--checked' : ''}`} aria-hidden="true" />
+              <span className="custom-tooltip__comparison-mode-label">Show all values</span>
+            </button>
           )}
+          {showComparisonPanel && comparisonPanel}
         </div>
       )}
     </div>

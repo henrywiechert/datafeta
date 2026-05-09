@@ -9,6 +9,8 @@ interface FacetZoomDialogProps {
   grid: GridResultModel;
   plotId: string | null;
   onClose: () => void;
+  autoExpandPinnedComparison?: boolean;
+  onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
 }
 
 /**
@@ -16,7 +18,13 @@ interface FacetZoomDialogProps {
  * Renders the cell's original plot options (axes intact, no suppressAxes).
  * No filter changes, no re-query — purely a client-side view.
  */
-const FacetZoomDialog: React.FC<FacetZoomDialogProps> = ({ grid, plotId, onClose }) => {
+const FacetZoomDialog: React.FC<FacetZoomDialogProps> = ({
+  grid,
+  plotId,
+  onClose,
+  autoExpandPinnedComparison,
+  onAutoExpandPinnedComparisonChange,
+}) => {
   const cell = getPlotGridCellById(grid, plotId);
 
   if (!cell) return null;
@@ -52,6 +60,8 @@ const FacetZoomDialog: React.FC<FacetZoomDialogProps> = ({ grid, plotId, onClose
           <ObservablePlot
             options={zoomedOptions}
             plotId={`zoom-${cell.id}`}
+            autoExpandPinnedComparison={autoExpandPinnedComparison}
+            onAutoExpandPinnedComparisonChange={onAutoExpandPinnedComparisonChange}
           />
         </div>
       </DialogContent>

@@ -33,8 +33,8 @@ describe('CustomTooltip', () => {
     ],
   };
 
-  test('shows a pinned comparison toggle and renders highlighted selected series when expanded', () => {
-    const { container } = render(
+  test('shows checkbox in pinned state and comparison panel only when checked', () => {
+    const { container, rerender } = render(
       <CustomTooltip
         x={10}
         y={20}
@@ -42,17 +42,63 @@ describe('CustomTooltip', () => {
         visible
         pinned
         pinnedComparison={baseComparison}
+        autoExpandPinnedComparison={false}
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'All Values At X' }));
+    // Checkbox visible, panel hidden
+    expect(screen.getByRole('checkbox', { name: 'Show all values' })).toBeInTheDocument();
+    expect(screen.queryByText('All Values At 2024')).not.toBeInTheDocument();
 
+    rerender(
+      <CustomTooltip
+        x={10}
+        y={20}
+        fields={[{ label: 'Year', value: '2024' }]}
+        visible
+        pinned
+        pinnedComparison={baseComparison}
+        autoExpandPinnedComparison={true}
+      />
+    );
+
+    // Now panel is visible too
     expect(screen.getByText('All Values At 2024')).toBeInTheDocument();
     expect(screen.getByText('Alpha')).toBeInTheDocument();
     expect(screen.getByText('Beta')).toBeInTheDocument();
     expect(screen.getByText('+25.0%')).toBeInTheDocument();
-    expect(screen.getByText('0.0%')).toBeInTheDocument();
     expect(container.querySelector('.custom-tooltip__comparison-item--selected')).not.toBeNull();
+  });
+
+  test('hides comparison panel when pinned but autoExpandPinnedComparison is false', () => {
+    render(
+      <CustomTooltip
+        x={10}
+        y={20}
+        fields={[{ label: 'Year', value: '2024' }]}
+        visible
+        pinned
+        pinnedComparison={baseComparison}
+        autoExpandPinnedComparison={false}
+      />
+    );
+
+    expect(screen.queryByText('All Values At 2024')).not.toBeInTheDocument();
+  });
+
+  test('shows comparison panel on hover when autoExpandPinnedComparison is true', () => {
+    render(
+      <CustomTooltip
+        x={10}
+        y={20}
+        fields={[{ label: 'Year', value: '2024' }]}
+        visible
+        pinnedComparison={baseComparison}
+        autoExpandPinnedComparison={true}
+      />
+    );
+
+    expect(screen.getByText('All Values At 2024')).toBeInTheDocument();
   });
 
   test('omits percentage text when comparison items suppress percentage differences', () => {
@@ -73,9 +119,30 @@ describe('CustomTooltip', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'All Values At X' }));
-
     expect(screen.queryByText('+25.0%')).not.toBeInTheDocument();
     expect(screen.queryByText('0.0%')).not.toBeInTheDocument();
+  });
+
+  test('shows chart-local mode toggle when pinned and calls back on click', () => {
+    const onAutoExpandPinnedComparisonChange = jest.fn();
+
+    render(
+      <CustomTooltip
+        x={10}
+        y={20}
+        fields={[{ label: 'Year', value: '2024' }]}
+        visible
+        pinned
+        pinnedComparison={baseComparison}
+        autoExpandPinnedComparison={true}
+        onAutoExpandPinnedComparisonChange={onAutoExpandPinnedComparisonChange}
+      />
+    );
+
+    expect(screen.getByText('All Values At 2024')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Show all values' }));
+
+    expect(onAutoExpandPinnedComparisonChange).toHaveBeenCalledWith(false);
   });
 });

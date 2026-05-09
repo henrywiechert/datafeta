@@ -38,6 +38,8 @@ interface PlotAreaProps {
   brushDisabled?: boolean;
   onBrushEnd?: (event: PlotBrushEvent) => void;
   onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
+  autoExpandPinnedComparison?: boolean;
+  onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
 }
 
 /**
@@ -97,6 +99,8 @@ const PlotArea: React.FC<PlotAreaProps> = ({
   brushDisabled,
   onBrushEnd,
   onCellContextMenu,
+  autoExpandPinnedComparison,
+  onAutoExpandPinnedComparisonChange,
 }) => {
   // Store rendered plot elements per cell so the brush can access scales
   const plotElementsRef = useRef<Record<string, SVGSVGElement | HTMLElement>>({});
@@ -138,6 +142,8 @@ const PlotArea: React.FC<PlotAreaProps> = ({
                   brushDisabled={brushDisabled}
                   onBrushEnd={onBrushEnd}
                   onCellContextMenu={onCellContextMenu}
+                  autoExpandPinnedComparison={autoExpandPinnedComparison}
+                  onAutoExpandPinnedComparisonChange={onAutoExpandPinnedComparisonChange}
                 />
               );
             case 'pie':
@@ -189,6 +195,8 @@ interface PlotCellProps {
   brushDisabled?: boolean;
   onBrushEnd?: (event: PlotBrushEvent) => void;
   onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
+  autoExpandPinnedComparison?: boolean;
+  onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
 }
 
 const PlotCell: React.FC<PlotCellProps> = ({
@@ -199,6 +207,8 @@ const PlotCell: React.FC<PlotCellProps> = ({
   brushDisabled,
   onBrushEnd,
   onCellContextMenu,
+  autoExpandPinnedComparison,
+  onAutoExpandPinnedComparisonChange,
 }) => {
   const facetBg = cell.content.facetBackground;
   const xField = cell.metadata?.xField;
@@ -242,6 +252,8 @@ const PlotCell: React.FC<PlotCellProps> = ({
             plotId={cell.id}
             onRenderComplete={onPlotRenderComplete}
             onPlotReady={(el) => onPlotReady(cell.id, el)}
+            autoExpandPinnedComparison={autoExpandPinnedComparison}
+            onAutoExpandPinnedComparisonChange={onAutoExpandPinnedComparisonChange}
           />
         </div>
       </BrushOverlay>
@@ -446,6 +458,10 @@ export default React.memo(PlotArea, (prevProps, nextProps) => {
   }
 
   if (prevProps.grid.layout !== nextProps.grid.layout) {
+    return false;
+  }
+
+  if (prevProps.autoExpandPinnedComparison !== nextProps.autoExpandPinnedComparison) {
     return false;
   }
 
