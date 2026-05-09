@@ -12,9 +12,9 @@ describe('normalizeDateTimeForBand', () => {
 
     expect(result.hasDateLike).toBe(true);
     expect(result.tickFormat).toBeInstanceOf(Function);
-    expect(result.domain).toEqual(['2024-01-01 12:34', '2024-01-01 12:35']);
-    expect(result.rows[0].cat).toEqual('2024-01-01 12:34');
-    expect(result.rows[1].cat).toEqual('2024-01-01 12:35');
+    expect(result.domain).toEqual(['2024-01-01 12:34:00', '2024-01-01 12:35:00']);
+    expect(result.rows[0].cat).toEqual('2024-01-01 12:34:00');
+    expect(result.rows[1].cat).toEqual('2024-01-01 12:35:00');
   });
 
   it('leaves non-date values untouched and omits tick formatter', () => {

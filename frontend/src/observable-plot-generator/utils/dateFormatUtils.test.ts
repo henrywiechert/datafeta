@@ -3,7 +3,7 @@ import { formatDateTick } from './dateFormatUtils';
 describe('formatDateTick', () => {
   it('should format date with time as ISO-like string', () => {
     const date = new Date('2023-10-20T14:30:00Z');
-    expect(formatDateTick(date)).toBe('2023-10-20 14:30');
+    expect(formatDateTick(date)).toBe('2023-10-20 14:30:00');
   });
 
   it('should format midnight dates without time component', () => {
@@ -18,11 +18,11 @@ describe('formatDateTick', () => {
 
   it('should handle numeric timestamps', () => {
     const timestamp = Date.UTC(2023, 9, 20, 14, 30, 0); // Oct 20, 2023 14:30 UTC
-    expect(formatDateTick(timestamp)).toBe('2023-10-20 14:30');
+    expect(formatDateTick(timestamp)).toBe('2023-10-20 14:30:00');
   });
 
   it('should handle ISO string input', () => {
-    expect(formatDateTick('2023-10-20T14:30:00Z')).toBe('2023-10-20 14:30');
+    expect(formatDateTick('2023-10-20T14:30:00Z')).toBe('2023-10-20 14:30:00');
   });
 
   it('should return empty string for null', () => {
