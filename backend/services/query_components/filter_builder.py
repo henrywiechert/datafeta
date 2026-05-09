@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional
 from pypika import Criterion
 from pypika.functions import Cast
 
+from backend.dialects import get_dialect
 from backend.exceptions import QueryGenerationError
 from backend.models.query import QueryDescription
 from backend.services.datetime_service import DateTimeService
@@ -57,9 +58,10 @@ class FilterBuilder:
         query_desc: QueryDescription,
         table_map: Dict[str, Any],
         default_table: Any,
-        dialect: "SqlDialect",
+        dialect: "SqlDialect | str",
         primary_table: Any,
     ) -> List[Criterion]:
+        dialect = self._coerce_dialect(dialect)
         criteria: List[Criterion] = []
 
         for definition in query_desc.filters:
@@ -206,6 +208,11 @@ class FilterBuilder:
         like_pattern = f"%{query_desc.distinct_value_regex}%"
         logger.info("Applied LIKE filter for distinct values: %s", like_pattern)
         return string_expr.like(like_pattern)
+
+    def _coerce_dialect(self, dialect: "SqlDialect | str") -> "SqlDialect":
+        if isinstance(dialect, str):
+            return get_dialect(dialect)
+        return dialect
 
     def _wrap_datetime_value_if_needed(self, value: Any, dialect: "SqlDialect") -> Any:
         """
