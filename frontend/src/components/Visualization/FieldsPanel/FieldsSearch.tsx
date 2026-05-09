@@ -5,9 +5,11 @@ import { Close as CloseIcon } from '@mui/icons-material';
 interface FieldsSearchProps {
   value: string;
   onChange: (value: string) => void;
+  error?: boolean;
+  helperText?: string;
 }
 
-const FieldsSearch: React.FC<FieldsSearchProps> = ({ value, onChange }) => {
+const FieldsSearch: React.FC<FieldsSearchProps> = ({ value, onChange, error = false, helperText = '' }) => {
   return (
     <Box sx={{ mb: 0, p: 0, background: 'none', boxShadow: 'none' }}>
       <TextField
@@ -17,6 +19,8 @@ const FieldsSearch: React.FC<FieldsSearchProps> = ({ value, onChange }) => {
         placeholder="Search fields..."
         value={value}
         onChange={e => onChange(e.target.value)}
+        error={error}
+        helperText={helperText}
         inputProps={{ 'aria-label': 'Search fields', style: { fontSize: '12px', padding: '1px 3px' } }}
         InputProps={{
           disableUnderline: true,
@@ -39,6 +43,13 @@ const FieldsSearch: React.FC<FieldsSearchProps> = ({ value, onChange }) => {
             padding: 0,
             background: 'none',
           }
+        }}
+        FormHelperTextProps={{
+          sx: {
+            mx: 0,
+            mt: 0.25,
+            minHeight: helperText ? '1em' : 0,
+          },
         }}
       />
     </Box>
