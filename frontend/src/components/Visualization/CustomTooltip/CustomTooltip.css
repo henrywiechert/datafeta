@@ -310,8 +310,8 @@ line.chart-mark--highlighted {
 .custom-tooltip__comparison-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-top: 8px;
+  gap: 1px;
+  margin-top: 4px;
 }
 
 .custom-tooltip__comparison-item {
@@ -322,7 +322,7 @@ line.chart-mark--highlighted {
   display: grid;
   gap: 6px;
   grid-template-columns: 10px minmax(0, 1fr) auto auto;
-  padding: 6px 8px;
+  padding: 2px 8px;
 }
 
 .custom-tooltip__comparison-item--selected {
