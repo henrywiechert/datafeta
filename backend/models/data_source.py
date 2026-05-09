@@ -1,5 +1,5 @@
 """Pydantic models related to data sources and connections."""
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import List, Dict, Any, Optional, Literal
 
 # --- Data Source Primitives --- #
@@ -120,8 +120,9 @@ class VirtualColumnDefinition(BaseModel):
     output_type: Optional[str] = Field(None, description="Expected SQL data type (e.g., 'DOUBLE', 'VARCHAR', 'INTEGER')")
     description: Optional[str] = Field(None, description="Human-readable description of the column")
     
-    @validator('name')
-    def validate_name(cls, v):
+    @field_validator('name')
+    @classmethod
+    def validate_name(cls, v: str) -> str:
         """Ensure name is a valid identifier."""
         if not v or not v.strip():
             raise ValueError("Virtual column name cannot be empty")
@@ -132,22 +133,22 @@ class VirtualColumnDefinition(BaseModel):
             raise ValueError("Virtual column name must contain only letters, numbers, and underscores")
         return v
     
-    @validator('expression')
-    def validate_expression_not_empty(cls, v):
+    @field_validator('expression')
+    @classmethod
+    def validate_expression_not_empty(cls, v: str) -> str:
         """Ensure expression is not empty."""
         if not v or not v.strip():
             raise ValueError("Expression cannot be empty")
         return v.strip()
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(json_schema_extra={
             "example": {
                 "name": "profit",
                 "expression": "(revenue - cost)",
                 "output_type": "DOUBLE",
                 "description": "Net profit calculated as revenue minus cost"
             }
-        }
+        })
 
 # --- Connection and Listing Models --- #
 
