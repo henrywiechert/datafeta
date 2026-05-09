@@ -54,6 +54,12 @@ python -m pip install -r backend/requirements.txt
 uvicorn backend.main:app --reload
 ```
 
+Run all backend and frontend tests from the repo root with:
+
+```bash
+make test
+```
+
 ## Documentation Structure
 
 - [`frontend/`](./frontend/README.md) - Frontend application documentation
