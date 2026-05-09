@@ -5,6 +5,19 @@
 import { validateAndCleanData, remapCastExpressionColumns } from '../utils/dataValidation';
 
 describe('Data Validation', () => {
+  let logSpy: jest.SpyInstance;
+  let warnSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    logSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
   test('should handle SUM aggregation results as numbers', () => {
     const mockResult = {
       rows: [
