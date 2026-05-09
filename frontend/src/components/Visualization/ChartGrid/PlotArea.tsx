@@ -375,11 +375,12 @@ function renderSymbolMark(
   const half = side / 2;
   const fill = symbol.color;
   const opacity = symbol.opacity ?? 1;
-  const common = { className: styles.symbolMark, fill, opacity, key };
+  const common = { className: styles.symbolMark, fill, opacity };
   switch (symbol.symbol) {
     case 'square':
       return (
         <rect
+          key={key}
           {...common}
           x={cx - half}
           y={cy - half}
@@ -390,6 +391,7 @@ function renderSymbolMark(
     case 'triangle':
       return (
         <polygon
+          key={key}
           {...common}
           points={`${cx},${cy - half} ${cx + half},${cy + half} ${cx - half},${cy + half}`}
         />
@@ -397,6 +399,7 @@ function renderSymbolMark(
     case 'diamond':
       return (
         <polygon
+          key={key}
           {...common}
           points={`${cx},${cy - half} ${cx + half},${cy} ${cx},${cy + half} ${cx - half},${cy}`}
         />
@@ -404,14 +407,14 @@ function renderSymbolMark(
     case 'cross':
     case 'plus':
       return (
-        <g {...common}>
+        <g key={key} {...common}>
           <rect x={cx - half} y={cy - side * 0.18} width={side} height={side * 0.36} />
           <rect x={cx - side * 0.18} y={cy - half} width={side * 0.36} height={side} />
         </g>
       );
     case 'circle':
     default:
-      return <circle {...common} cx={cx} cy={cy} r={half} />;
+      return <circle key={key} {...common} cx={cx} cy={cy} r={half} />;
   }
 }
 
