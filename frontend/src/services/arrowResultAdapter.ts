@@ -64,6 +64,13 @@ export function normalizeArrowValue(value: any, fieldType?: DataType, fieldName?
   if (value === null || value === undefined) {
     return value;
   }
+
+  // Some runtimes return numeric columns as strings (e.g., Arrow decimal/int wrappers);
+  // if the field is numeric—or clearly an aggregate—coerce parseable strings back to numbers
+  // while preserving precision for values outside the JS safe integer range.
+  if (typeof value === 'string') {
+    return coerceNumericString(value, fieldType, isAggregateField(fieldName));
+  }
   
   // Handle native BigInt
   if (typeof value === 'bigint') {
@@ -143,13 +150,6 @@ export function normalizeArrowValue(value: any, fieldType?: DataType, fieldName?
     return String(value);
   }
 
-  // Some runtimes return numeric columns as strings (e.g., Arrow decimal/int wrappers);
-  // if the field is numeric—or clearly an aggregate—coerce parseable strings back to numbers
-  // while preserving precision for values outside the JS safe integer range.
-  if (typeof value === 'string') {
-    return coerceNumericString(value, fieldType, isAggregateField(fieldName));
-  }
-  
   return value;
 }
 
