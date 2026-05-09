@@ -47,3 +47,22 @@ jobs:
         files: ./backend/coverage.xml
         fail_ci_if_error: false
         verbose: true
+
+  frontend-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install frontend dependencies
+      working-directory: frontend
+      run: npm install
+
+    - name: Run frontend tests
+      working-directory: frontend
+      run: CI=true npm test -- --watchAll=false
