@@ -239,6 +239,41 @@ line.chart-mark--highlighted {
   border-top: 1px solid rgba(255, 255, 255, 0.16);
 }
 
+.custom-tooltip__comparison-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 11px;
+  cursor: pointer;
+  user-select: none;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+}
+
+.custom-tooltip__comparison-mode-label {
+  line-height: 1.1;
+}
+
+.custom-tooltip__comparison-mode-box {
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.custom-tooltip__comparison-mode-box--checked {
+  background: #42a5f5;
+  border-color: #42a5f5;
+  box-shadow: inset 0 0 0 2px rgba(15, 23, 42, 0.45);
+}
+
 .custom-tooltip__comparison-toggle {
   width: 100%;
   background: rgba(255, 255, 255, 0.08);

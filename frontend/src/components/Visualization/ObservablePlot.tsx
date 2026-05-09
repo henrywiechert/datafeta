@@ -14,9 +14,18 @@ interface ObservablePlotProps {
   plotId?: string; // Unique ID for tracking rendering
   onRenderComplete?: (plotId: string) => void; // Callback when rendering is done
   onPlotReady?: (plot: SVGSVGElement | HTMLElement) => void;
+  autoExpandPinnedComparison?: boolean;
+  onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
 }
 
-const ObservablePlot: React.FC<ObservablePlotProps> = ({ options, plotId, onRenderComplete, onPlotReady }) => {
+const ObservablePlot: React.FC<ObservablePlotProps> = ({
+  options,
+  plotId,
+  onRenderComplete,
+  onPlotReady,
+  autoExpandPinnedComparison = false,
+  onAutoExpandPinnedComparisonChange,
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [portalTarget, setPortalTarget] = useState<HTMLElement>(document.body);
@@ -174,6 +183,8 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options, plotId, onRend
           pinned={tooltip.pinned}
           onUnpin={unpinTooltip}
           onFilterAction={options.__customTooltip?.onFilterAction}
+          autoExpandPinnedComparison={autoExpandPinnedComparison}
+          onAutoExpandPinnedComparisonChange={onAutoExpandPinnedComparisonChange}
         />,
         portalTarget
       )}
@@ -187,5 +198,9 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({ options, plotId, onRend
 export default React.memo(ObservablePlot, (prevProps, nextProps) => {
   // Only skip if exact same object reference
   // Any new options object will trigger re-render
-  return prevProps.options === nextProps.options;
+  return (
+    prevProps.options === nextProps.options &&
+    prevProps.autoExpandPinnedComparison === nextProps.autoExpandPinnedComparison &&
+    prevProps.onAutoExpandPinnedComparisonChange === nextProps.onAutoExpandPinnedComparisonChange
+  );
 }); 

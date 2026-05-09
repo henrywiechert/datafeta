@@ -135,6 +135,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   // Facet zoom state (must be before any conditional returns — Rules of Hooks)
   const [contextMenu, setContextMenu] = useState<{ plotId: string; x: number; y: number } | null>(null);
   const [zoomedPlotId, setZoomedPlotId] = useState<string | null>(null);
+  const [autoExpandPinnedComparison, setAutoExpandPinnedComparison] = useState(false);
 
   const handleCellContextMenu = useCallback((plotId: string, clientX: number, clientY: number) => {
     setContextMenu({ plotId, x: clientX, y: clientY });
@@ -216,6 +217,8 @@ const ChartGrid: React.FC<ChartGridProps> = ({
           brushDisabled={brushDisabled}
           onBrushEnd={onBrushEnd}
           onCellContextMenu={handleCellContextMenu}
+          autoExpandPinnedComparison={autoExpandPinnedComparison}
+          onAutoExpandPinnedComparisonChange={setAutoExpandPinnedComparison}
         />
         <Menu
           open={contextMenu !== null}
@@ -226,7 +229,13 @@ const ChartGrid: React.FC<ChartGridProps> = ({
           <MenuItem onClick={handleZoomOpen}>Zoom facet</MenuItem>
         </Menu>
         {zoomedPlotId !== null && (
-          <FacetZoomDialog grid={grid} plotId={zoomedPlotId} onClose={handleZoomClose} />
+          <FacetZoomDialog
+            grid={grid}
+            plotId={zoomedPlotId}
+            onClose={handleZoomClose}
+            autoExpandPinnedComparison={autoExpandPinnedComparison}
+            onAutoExpandPinnedComparisonChange={setAutoExpandPinnedComparison}
+          />
         )}
       </>
     );
