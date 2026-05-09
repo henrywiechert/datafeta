@@ -47,9 +47,11 @@ describe('QueryExecutionOrchestrator', () => {
   let mockColumnCacheManager: any;
   let mockFilterTierManager: any;
   let mockQueryDecisionEngine: any;
+  let debugSpy: jest.SpyInstance;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
 
     mockApiService = apiService;
     mockDuckDBService = duckdbService;
@@ -67,6 +69,10 @@ describe('QueryExecutionOrchestrator', () => {
       filterTierManager: mockFilterTierManager,
       queryDecisionEngine: mockQueryDecisionEngine,
     });
+  });
+
+  afterEach(() => {
+    debugSpy.mockRestore();
   });
 
   const mockInput: QueryExecutionOrchestratorInput = {

@@ -1,5 +1,15 @@
 import { buildLineOptions, LineBuildParams, harmonizeLineChartDomains } from './lineChart';
 
+let warnSpy: jest.SpyInstance;
+
+beforeEach(() => {
+  warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+});
+
+afterEach(() => {
+  warnSpy.mockRestore();
+});
+
 jest.mock('@observablehq/plot', () => ({
   line: (data: any[], opts: any) => ({ type: 'line', data, opts }),
   dot: (data: any[], opts: any) => ({ type: 'dot', data, opts }),
