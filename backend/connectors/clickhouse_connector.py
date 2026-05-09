@@ -190,11 +190,12 @@ class ClickHouseConnector(BaseConnector):
         max_total_matches: int,
         max_tables_per_database: int,
     ) -> Tuple[List[Dict[str, Any]], bool]:
+        database_regex = self._normalize_pattern(database_pattern, pattern_mode, 'database')
+        table_regex = self._normalize_pattern(table_pattern, pattern_mode, 'table')
+
         if not self.client:
             raise DataSourceConnectionError('Not connected to ClickHouse.')
 
-        database_regex = self._normalize_pattern(database_pattern, pattern_mode, 'database')
-        table_regex = self._normalize_pattern(table_pattern, pattern_mode, 'table')
         escaped_db = self._escape_clickhouse_string(database_regex)
         escaped_table = self._escape_clickhouse_string(table_regex)
         query_limit = max_total_matches + max_databases + max_tables_per_database + 1
