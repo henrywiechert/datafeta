@@ -172,14 +172,18 @@ function AppContent() {
     }
   };
 
-  const handleContextMenu = (event: React.MouseEvent, sheetId: string, sheetName: string) => {
-    event.preventDefault();
-    event.stopPropagation();
+  const openSheetMenu = (sheetId: string, mouseX: number, mouseY: number) => {
     setContextMenu({
-      mouseX: event.clientX - 2,
-      mouseY: event.clientY - 4,
+      mouseX,
+      mouseY,
       sheetId,
     });
+  };
+
+  const handleContextMenu = (event: React.MouseEvent, sheetId: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+    openSheetMenu(sheetId, event.clientX - 2, event.clientY - 4);
   };
 
   const handleCloseContextMenu = () => {
@@ -534,6 +538,7 @@ function AppContent() {
 
   // Determine current tab value
   const currentTab = isDataSourcePage ? 'datasources' : state.activeSheetId;
+  const activeSheet = state.sheets.find((sheet) => sheet.id === state.activeSheetId) ?? null;
 
   return (
     <div className="App">
@@ -573,22 +578,16 @@ function AppContent() {
             <Tab
               key={sheet.id}
               value={sheet.id}
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <span>{sheet.name}</span>
-                  <IconButton
-                    size="small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleContextMenu(e, sheet.id, sheet.name);
-                    }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    sx={{ ml: 0.5, p: 0.25 }}
-                  >
-                    <MoreVertIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-              }
+              label={sheet.name}
+              onContextMenu={(event) => handleContextMenu(event, sheet.id)}
+              onKeyDown={(event) => {
+                if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  openSheetMenu(sheet.id, rect.left, rect.bottom);
+                }
+              }}
               sx={{
                 '&.Mui-selected': {
                   fontWeight: 600,
@@ -598,6 +597,21 @@ function AppContent() {
             />
           ))}
         </Tabs>
+        {activeSheet && currentTab !== 'datasources' && (
+          <Tooltip title={`Sheet actions for ${activeSheet.name}`}>
+            <IconButton
+              aria-label={`Sheet actions for ${activeSheet.name}`}
+              onClick={(event) => {
+                const rect = event.currentTarget.getBoundingClientRect();
+                openSheetMenu(activeSheet.id, rect.left, rect.bottom);
+              }}
+              size="small"
+              sx={{ ml: 0.5 }}
+            >
+              <MoreVertIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
         <Tooltip title="Add new sheet">
           <IconButton 
             onClick={handleAddSheet} 
