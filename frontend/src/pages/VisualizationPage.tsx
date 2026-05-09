@@ -123,6 +123,7 @@ const VisualizationPageContent = () => {
     }, []);
 
     // Use our custom drag-and-drop hook with virtual columns included
+    const dragDropHandlers = useDragDrop(dataSourceAvailableFields);
     const { 
         handleAxisDrop,
         handleRemoveFromAxis,
@@ -136,9 +137,7 @@ const VisualizationPageContent = () => {
         handleRemoveFromLabel,
         handleRemoveFromTooltip,
         handleRemoveFromBackground,
-        handleShapeDrop,
-        handleRemoveFromShape,
-    } = useDragDrop(dataSourceAvailableFields);    // Undo/Redo handlers
+    } = dragDropHandlers;    // Undo/Redo handlers
     const handleUndo = React.useCallback(() => {
         const previousState = undo();
         if (previousState) {
@@ -471,7 +470,7 @@ const VisualizationPageContent = () => {
                                     onRemoveFromTooltip={(ids) => ids.forEach(handleRemoveFromTooltip)}
                                     onRemoveFromMeasureGroup={handleRemoveFromMeasureGroup}
                                     onRemoveFromBackground={handleRemoveFromBackground}
-                                    onRemoveFromShape={handleRemoveFromShape}
+                                    onRemoveFromShape={dragDropHandlers.handleRemoveFromShape}
                                     connectionType={connectionDetails?.type || ''}
                                     selectedDatabase={selectedDatabase}
                                     selectedTable={selectedTable}

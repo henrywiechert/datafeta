@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useDeferredValue, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useDeferredValue, useState, useCallback } from 'react';
 import { Menu, MenuItem } from '@mui/material';
 
 import { QueryResult } from '../../../types';

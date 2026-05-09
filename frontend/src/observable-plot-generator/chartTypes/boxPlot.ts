@@ -308,7 +308,6 @@ export function boxPlot(
   const summaryRows = isServerSummaryData
     ? buildSummaryRowsFromServerData(rawData, valueColumn, categoryColumn, sourceColorColumnName)
     : buildSummaryRowsFromRawData(colorized.data, valueColumn, categoryColumn, sourceColorColumnName);
-  const data = isServerSummaryData ? summaryRows : colorized.data;
   const resolvedColorColumnName = usesDiscreteColor
     ? (isServerSummaryData ? sourceColorColumnName : colorized.colorColumnName)
     : undefined;

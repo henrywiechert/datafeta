@@ -574,7 +574,7 @@ export function useFilterMetadata({
                 payload: { fieldId, metadata: errorMetadata }
             });
         }
-    }, [filterFields, filterMetadata, selectedTable, selectedDatabase, connectionDetails?.type, dispatch, virtualColumns, unionTablesForApi, virtualTable]);
+    }, [filterFields, filterMetadata, filterConfigurations, selectedTable, selectedDatabase, connectionDetails?.type, dispatch, virtualColumns, unionTablesForApi, virtualTable]);
 
     // Fetch filter metadata when new filter fields are added
     // Also re-fetch when the selected table/database changes to handle config loading scenarios

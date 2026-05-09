@@ -374,6 +374,8 @@ export const useQueryExecutor = ({
       appliedFilterConfigurations,
       labelFields,
       tooltipFields,
+      shapeField,
+      facetBackgroundField,
       virtualTable,
       virtualColumns,
       selectedTable,

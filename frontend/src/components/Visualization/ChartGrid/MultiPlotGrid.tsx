@@ -104,8 +104,6 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
     topHeaderHeight,
     facetTopHeaderPx,
     facetLeftHeaderPx,
-    facetLeftValuesPx,
-    facetTopValuesPx,
     facetLeftValueWidthsPx,
     facetTopValueHeightsPx,
   } = layoutCalcs;

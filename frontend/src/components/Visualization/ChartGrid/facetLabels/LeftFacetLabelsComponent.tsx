@@ -55,7 +55,6 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
   const {
     anchorEl: headerAnchor,
     activeDepth: activeHeaderDepth,
-    activeDepthIndex: activeHeaderDepthIndex,
     activeFontSize: activeHeaderFontSize,
     activeOrientation: activeHeaderOrientation,
     activeHorizontalAlign: activeHeaderHorizontalAlign,
@@ -70,7 +69,6 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
   const {
     anchorEl: valuesAnchor,
     activeDepth: activeValuesDepth,
-    activeDepthIndex: activeValuesDepthIndex,
     activeOrientation: activeValuesOrientation,
     activeHorizontalAlign: activeValuesHorizontalAlign,
     activeVerticalAlign: activeValuesVerticalAlign,

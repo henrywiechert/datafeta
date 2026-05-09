@@ -61,8 +61,7 @@
     ]
   },
   "devDependencies": {
-    "@types/uuid": "^9.0.8",
-    "baseline-browser-mapping": "^2.10.28"
+    "@types/uuid": "^9.0.8"
   },
   "proxy": "http://localhost:8010"
 }
