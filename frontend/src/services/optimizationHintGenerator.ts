@@ -67,7 +67,6 @@ function generateFieldOptimizationHint(
         hint.reason = 'datetime_timeline';
     }
     
-    // Future: High-cardinality measures might benefit from sampling
     // This would require cardinality estimation, which we don't have yet
     
     return hint;
@@ -75,7 +74,6 @@ function generateFieldOptimizationHint(
 
 /**
  * Get recommended optimization level based on field characteristics.
- * 
  * @param dimensions - Array of dimension fields
  * @param measures - Array of measure fields
  * @param totalFields - Total number of fields
@@ -88,7 +86,6 @@ function getRecommendedOptimizationLevel(
 ): 'light' | 'balanced' | 'aggressive' {
     const hasMeasures = measures && measures.length > 0;
     const continuousDims = dimensions?.filter(d => d.flavour === 'continuous') || [];
-    
     // Raw data queries with multiple continuous dimensions benefit from aggressive optimization
     if (!hasMeasures && continuousDims.length >= 2) {
         if (totalFields >= 4) return 'aggressive';
@@ -175,10 +172,7 @@ export function generateOptimizationHints(options: {
     // Generate field-level hints for all dimensions
     // (Measures don't currently need field-level optimization hints)
     const fieldHints: FieldOptimizationHint[] = [];
-    
-    console.log(`📊 Analyzing ${dimensions.length} dimensions for optimization:`, 
-        dimensions.map(d => ({ field: d.field, flavour: d.flavour, date_mode: d.date_mode })));
-    
+
     for (const dim of dimensions) {
         const hint = generateFieldOptimizationHint(
             {
@@ -192,16 +186,12 @@ export function generateOptimizationHints(options: {
             roundingEnabled,
             roundingThresholds
         );
-        
-        console.log(`  Field '${dim.field}': rounding=${hint.enable_rounding}, sampling=${hint.enable_sampling}, reason=${hint.reason}`);
-        
+
         // Only include hints that actually enable some optimization
         if (hint.enable_rounding || hint.enable_sampling) {
             fieldHints.push(hint);
         }
     }
-    
-    console.log(`✅ Generated ${fieldHints.length} field hints from ${dimensions.length} dimensions`);
     
     // Determine if global DISTINCT should be applied
     const enableGlobalDistinct = shouldEnableGlobalDistinct(measures);
@@ -213,9 +203,7 @@ export function generateOptimizationHints(options: {
         optimization_level: optimizationLevel,
         purpose: 'field_based_optimization'
     };
-    
-    console.log('🔧 Generated field-level optimization hints:', hints);
-    
+
     return hints;
 }
 
@@ -259,7 +247,6 @@ export function generateOptimizationHintsFromFields(options: {
     
     uniqueFields.forEach(field => {
         if (field.type === 'dimension') {
-            console.log('Processing field:', field.columnName, 'flavour:', field.flavour, 'dateTimeMode:', field.dateTimeMode);
             dimensions.push({
                 field: field.columnName,
                 flavour: field.flavour,
