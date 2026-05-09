@@ -318,10 +318,6 @@ export function addTooltipListeners(
       highlightedElement = null;
     }
 
-    marks.forEach((candidate) => {
-      candidate.classList.remove('chart-mark--highlighted');
-    });
-
     if (activeGuideLine) {
       activeGuideLine.remove();
       activeGuideLine = null;
