@@ -102,7 +102,7 @@ def test_single_table_virtual_column_can_reference_source_database():
 
     assert "'analytics'" in query_sql
     assert "'prod'" in query_sql
-    assert metadata == []
+    assert metadata == {"optimizations": [], "hints_used": None, "override": None}
 
 
 def test_single_table_query_adds_both_source_columns():
