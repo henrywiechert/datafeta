@@ -314,7 +314,7 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
           <Button
             size="small"
             variant="text"
-            color={useRegex ? 'primary' : 'inherit'}
+            color="primary"
             className={`${styles.regexToggle} ${useRegex ? styles.toggleActive : ''}`}
             sx={{ fontSize: '0.68rem', minHeight: 22, lineHeight: 1.1 }}
             aria-pressed={useRegex}

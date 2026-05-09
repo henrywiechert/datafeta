@@ -33,14 +33,14 @@
 
 .toggleActive {
   font-weight: 600;
-  background-color: #e6f4ea;
-  color: #1b5e20;
-  border: 1px solid #b7dfbb;
+  background-color: #e6f4ea !important;
+  color: #1b5e20 !important;
+  border: 1px solid #b7dfbb !important;
   border-radius: 6px;
 }
 
 .toggleActive:hover {
-  background-color: #d8efe0;
+  background-color: #cce8d6 !important;
 }
 
 .fieldsList {

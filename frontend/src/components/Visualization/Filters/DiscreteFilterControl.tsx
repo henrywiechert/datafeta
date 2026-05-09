@@ -413,7 +413,7 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
         <Button
           size="small"
           variant="text"
-          color={useRegex ? 'primary' : 'inherit'}
+          color="primary"
           className={`${styles.regexToggle} ${styles.regexRight} ${useRegex ? styles.toggleActive : ''}`}
           aria-pressed={useRegex}
           onClick={() => setUseRegex(!useRegex)}

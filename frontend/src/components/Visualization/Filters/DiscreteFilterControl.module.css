@@ -150,14 +150,14 @@
 
 .toggleActive {
   font-weight: 600;
-  background-color: #e6f4ea; /* light green */
-  color: #1b5e20; /* dark green text */
-  border: 1px solid #b7dfbb;
+  background-color: #e6f4ea !important; /* light green */
+  color: #1b5e20 !important; /* dark green text */
+  border: 1px solid #b7dfbb !important;
   border-radius: 6px;
 }
 
 .toggleActive:hover {
-  background-color: #d8efe0;
+  background-color: #cce8d6 !important; /* slightly darker green for better hover indication */
 }
 
 
