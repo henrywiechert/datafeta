@@ -17,6 +17,32 @@
     background-color: #fafafa;
 }
 
+.headerTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.regexToggle {
+  margin-left: auto;
+  white-space: nowrap;
+  font-size: 11px;
+  padding: 1px 6px;
+  min-width: 0;
+}
+
+.toggleActive {
+  font-weight: 600;
+  background-color: #e6f4ea;
+  color: #1b5e20;
+  border: 1px solid #b7dfbb;
+  border-radius: 6px;
+}
+
+.toggleActive:hover {
+  background-color: #d8efe0;
+}
+
 .fieldsList {
   padding: 8px;
   overflow-y: auto;

@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useRef, useCallback, useState } from 'react';
-import { Typography } from '@mui/material';
+import { Box, Button, Typography } from '@mui/material';
 import FieldsSearch from './FieldsSearch';
 import FieldCategory from './FieldCategory';
 import CompactMetadataSelector from './CompactMetadataSelector';
@@ -109,6 +109,7 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   onRemoveVirtualColumn
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [useRegex, setUseRegex] = useState(false);
   
   // State for bin config dialog
   const [binDialogOpen, setBinDialogOpen] = useState(false);
@@ -196,13 +197,63 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
     setBinDialogStats(null);
   }, []);
 
+  const { compiledSearchRegex, regexError, normalizedSearchTerm } = useMemo(() => {
+    const trimmedSearch = fieldsSearch.trim();
+
+    if (!trimmedSearch) {
+      return {
+        compiledSearchRegex: null as RegExp | null,
+        regexError: null as string | null,
+        normalizedSearchTerm: '',
+      };
+    }
+
+    if (!useRegex) {
+      return {
+        compiledSearchRegex: null as RegExp | null,
+        regexError: null as string | null,
+        normalizedSearchTerm: trimmedSearch.toLowerCase(),
+      };
+    }
+
+    try {
+      return {
+        compiledSearchRegex: new RegExp(trimmedSearch),
+        regexError: null,
+        normalizedSearchTerm: '',
+      };
+    } catch (error: any) {
+      return {
+        compiledSearchRegex: null as RegExp | null,
+        regexError: error?.message || 'Invalid regex',
+        normalizedSearchTerm: '',
+      };
+    }
+  }, [fieldsSearch, useRegex]);
+
   // Create filter function that works with search term
-  const filterBySearch = useMemo(() => (field: Field) => (
-    field.columnName.toLowerCase().includes(fieldsSearch.toLowerCase()) ||
-    (field.displayAlias && field.displayAlias.toLowerCase().includes(fieldsSearch.toLowerCase())) ||
-    (field.aggregation && field.aggregation.toLowerCase().includes(fieldsSearch.toLowerCase())) ||
-    (field.dataType && field.dataType.toLowerCase().includes(fieldsSearch.toLowerCase()))
-  ), [fieldsSearch]);
+  const filterBySearch = useMemo(() => (field: Field) => {
+    if (!fieldsSearch.trim()) {
+      return true;
+    }
+
+    const searchTargets = [
+      field.columnName,
+      field.displayAlias,
+      field.aggregation,
+      field.dataType,
+    ].filter((value): value is string => Boolean(value));
+
+    if (useRegex) {
+      if (!compiledSearchRegex || regexError) {
+        return true;
+      }
+
+      return searchTargets.some((value) => compiledSearchRegex.test(value));
+    }
+
+    return searchTargets.some((value) => value.toLowerCase().includes(normalizedSearchTerm));
+  }, [compiledSearchRegex, fieldsSearch, normalizedSearchTerm, regexError, useRegex]);
 
   // Memoized filtered fields for better performance
   const filteredDimensions = useMemo(() => (
@@ -250,16 +301,34 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
       
       {/* Fields search below metadata */}
       <div className={styles.header}>
-        <Typography
-            variant="subtitle2"
-            fontWeight="bold"
-            align="left"
-            fontSize="0.85rem"
-            gutterBottom
-        >
-            Fields
-        </Typography>
-        <FieldsSearch value={fieldsSearch} onChange={onFieldsSearchChange} />
+        <Box className={styles.headerTitleRow}>
+          <Typography
+              variant="subtitle2"
+              fontWeight="bold"
+              align="left"
+              fontSize="0.85rem"
+              gutterBottom
+          >
+              Fields
+          </Typography>
+          <Button
+            size="small"
+            variant="text"
+            color={useRegex ? 'primary' : 'inherit'}
+            className={`${styles.regexToggle} ${useRegex ? styles.toggleActive : ''}`}
+            sx={{ fontSize: '0.68rem', minHeight: 22, lineHeight: 1.1 }}
+            aria-pressed={useRegex}
+            onClick={() => setUseRegex((current) => !current)}
+          >
+            Regex
+          </Button>
+        </Box>
+        <FieldsSearch
+          value={fieldsSearch}
+          onChange={onFieldsSearchChange}
+          error={useRegex && !!regexError}
+          helperText={useRegex ? regexError || '' : ''}
+        />
       </div>
       <div 
         className={`${styles.fieldsList} ${isDragOver ? styles.dragOver : styles.normal}`}
