@@ -101,6 +101,13 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
             : o
         ),
       };
+    case 'UPDATE_OVERLAY':
+      return {
+        ...state,
+        overlays: (state.overlays || []).map(o =>
+          o.type === action.payload.type ? { ...o, ...action.payload.config } : o
+        ),
+      };
     default:
       return null; // Not handled by this reducer
   }

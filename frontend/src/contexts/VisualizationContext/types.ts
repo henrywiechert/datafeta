@@ -327,7 +327,8 @@ export type VisualizationAction =
   // Overlay actions
   | { type: 'SET_OVERLAYS'; payload: OverlayConfig[] }
   | { type: 'TOGGLE_OVERLAY'; payload: { type: OverlayType; enabled: boolean } }
-  | { type: 'UPDATE_OVERLAY_PARAMS'; payload: { type: OverlayType; params: Partial<OverlayParams> } };
+  | { type: 'UPDATE_OVERLAY_PARAMS'; payload: { type: OverlayType; params: Partial<OverlayParams> } }
+  | { type: 'UPDATE_OVERLAY'; payload: { type: OverlayType; config: Partial<Omit<OverlayConfig, 'type'>> } };
 
 // Helper type for reducer functions
 export type ReducerFn = (state: VisualizationState, action: VisualizationAction) => VisualizationState;

@@ -11,7 +11,7 @@ import { CellChartType } from '../helpers/chartTypeResolver';
 
 // --- Overlay type identifiers ------------------------------------------------
 
-export type OverlayType = 'linearRegression' | 'movingAverage';
+export type OverlayType = 'linearRegression' | 'movingAverage' | 'density';
 
 // --- Per-overlay parameters (union bag — each builder picks what it needs) ----
 
@@ -31,6 +31,11 @@ export interface OverlayParams {
   // Linear regression behaviour
   perGroup?: boolean;       // Fit one line per discrete-color group (default false)
   showCI?: boolean;         // Show confidence interval band (default true)
+
+  // Density overlay
+  bandwidth?: number;       // KDE kernel bandwidth in pixels (default 30)
+  thresholds?: number;      // Number of contour levels (default 10)
+  filled?: boolean;         // Fill contour bands instead of lines only (default false)
 }
 
 // --- Per-overlay configuration -----------------------------------------------
@@ -39,6 +44,8 @@ export interface OverlayConfig {
   type: OverlayType;
   enabled: boolean;
   params: OverlayParams;
+  /** When true, the primary chart marks (dots, lines, etc.) are hidden and only this overlay is shown */
+  hideSourceData?: boolean;
 }
 
 // --- Default overlay configs (all start disabled) ----------------------------
@@ -46,6 +53,7 @@ export interface OverlayConfig {
 export const DEFAULT_OVERLAYS: OverlayConfig[] = [
   { type: 'linearRegression', enabled: false, params: { ci: 0.95, color: '#e15759', strokeWidth: 1.5, perGroup: false, showCI: true } },
   { type: 'movingAverage',    enabled: false, params: { windowSize: 20, reduce: 'mean', anchor: 'middle', color: '#4e79a7', strokeWidth: 2, perGroup: false } },
+  { type: 'density',          enabled: false, params: { bandwidth: 30, thresholds: 10, filled: false, opacity: 0.2, strokeWidth: 1.5, color: '#4e79a7', perGroup: false }, hideSourceData: false },
 ];
 
 // --- Overlay metadata (for UI + registry) ------------------------------------
@@ -67,6 +75,11 @@ export const OVERLAY_META: readonly OverlayMeta[] = [
     type: 'movingAverage',
     label: 'Moving Average',
     applicableTo: new Set<UserChartType>(['line']),
+  },
+  {
+    type: 'density',
+    label: 'Density',
+    applicableTo: new Set<UserChartType>(['scatter']),
   },
 ] as const;
 
