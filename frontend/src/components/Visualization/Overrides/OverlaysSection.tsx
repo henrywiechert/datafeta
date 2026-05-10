@@ -14,6 +14,7 @@ import { Box, Switch, Slider, Select, MenuItem, Typography, TextField } from '@m
 import TimelineIcon from '@mui/icons-material/Timeline';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
+import BlurOnIcon from '@mui/icons-material/BlurOn';
 import { PropertySection } from '../Properties';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { useUndoRedo } from '../../../contexts/UndoRedoContext';
@@ -186,15 +187,122 @@ const MovingAverageControls: React.FC<{
   );
 };
 
-const OVERLAY_CONTROLS: Record<OverlayType, React.FC<{ params: OverlayParams; onUpdate: (p: Partial<OverlayParams>) => void; hasDiscreteColor?: boolean }>> = {
+const DensityControls: React.FC<{
+  params: OverlayParams;
+  onUpdate: (p: Partial<OverlayParams>) => void;
+  hasDiscreteColor?: boolean;
+  hideSourceData?: boolean;
+  onToggleHideSource?: (v: boolean) => void;
+}> = ({ params, onUpdate, hasDiscreteColor, hideSourceData, onToggleHideSource }) => {
+  const filled   = params.filled    ?? false;
+  const perGroup = params.perGroup  ?? false;
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+      {/* Bandwidth */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography variant="caption" sx={{ minWidth: 64 }}>Bandwidth</Typography>
+        <Slider
+          size="small"
+          min={5}
+          max={100}
+          step={5}
+          value={params.bandwidth ?? 30}
+          onChange={(_, v) => onUpdate({ bandwidth: v as number })}
+          valueLabelDisplay="auto"
+          sx={{ flex: 1, minWidth: 60 }}
+        />
+      </Box>
+      {/* Thresholds */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography variant="caption" sx={{ minWidth: 64 }}>Levels</Typography>
+        <Slider
+          size="small"
+          min={3}
+          max={30}
+          step={1}
+          value={params.thresholds ?? 10}
+          onChange={(_, v) => onUpdate({ thresholds: v as number })}
+          valueLabelDisplay="auto"
+          sx={{ flex: 1, minWidth: 60 }}
+        />
+      </Box>
+      {/* Stroke width */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography variant="caption" sx={{ minWidth: 64 }}>Px</Typography>
+        <Slider
+          size="small"
+          min={0.5}
+          max={4}
+          step={0.5}
+          value={params.strokeWidth ?? 1.5}
+          onChange={(_, v) => onUpdate({ strokeWidth: v as number })}
+          valueLabelDisplay="auto"
+          sx={{ flex: 1, minWidth: 60 }}
+        />
+        {!perGroup && (
+          <InlineColorPicker value={params.color ?? '#4e79a7'} onChange={c => onUpdate({ color: c })} />
+        )}
+      </Box>
+      {/* Filled toggle + fill opacity */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant="caption">Filled</Typography>
+        <Switch
+          size="small"
+          checked={filled}
+          onChange={(_, v) => onUpdate({ filled: v })}
+        />
+      </Box>
+      {filled && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="caption" sx={{ minWidth: 64 }}>Opacity</Typography>
+          <Slider
+            size="small"
+            min={0.05}
+            max={0.8}
+            step={0.05}
+            value={params.opacity ?? 0.2}
+            onChange={(_, v) => onUpdate({ opacity: v as number })}
+            valueLabelDisplay="auto"
+            valueLabelFormat={v => `${Math.round(v * 100)}%`}
+            sx={{ flex: 1, minWidth: 60 }}
+          />
+        </Box>
+      )}
+      {/* Per group — only when a discrete color field is active */}
+      {hasDiscreteColor && (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography variant="caption">Per group</Typography>
+          <Switch
+            size="small"
+            checked={perGroup}
+            onChange={(_, v) => onUpdate({ perGroup: v })}
+          />
+        </Box>
+      )}
+      {/* Hide source data — show only the density contours */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant="caption">Hide source data</Typography>
+        <Switch
+          size="small"
+          checked={hideSourceData ?? false}
+          onChange={(_, v) => onToggleHideSource?.(v)}
+        />
+      </Box>
+    </Box>
+  );
+};
+
+const OVERLAY_CONTROLS: Record<OverlayType, React.FC<{ params: OverlayParams; onUpdate: (p: Partial<OverlayParams>) => void; hasDiscreteColor?: boolean; hideSourceData?: boolean; onToggleHideSource?: (v: boolean) => void }>> = {
   linearRegression: RegressionControls,
   movingAverage: MovingAverageControls,
+  density: DensityControls,
 };
 
 // Icon per overlay type
 const OVERLAY_ICONS: Record<OverlayType, React.ElementType> = {
   linearRegression: TrendingUpIcon,
   movingAverage: ShowChartIcon,
+  density: BlurOnIcon,
 };
 
 // --- Main section component --------------------------------------------------
@@ -261,6 +369,10 @@ const OverlaysSection: React.FC = () => {
 
   const handleUpdateParams = (type: OverlayType, params: Partial<OverlayParams>) => {
     dispatch({ type: 'UPDATE_OVERLAY_PARAMS', payload: { type, params } });
+  };
+
+  const handleUpdateOverlay = (type: OverlayType, config: Partial<Omit<OverlayConfig, 'type'>>) => {
+    dispatch({ type: 'UPDATE_OVERLAY', payload: { type, config } });
   };
 
   return (
@@ -334,7 +446,13 @@ const OverlaysSection: React.FC = () => {
               {/* Controls: directly inside the card, visible when enabled */}
               {enabled && (
                 <Box sx={{ px: 0.75, pb: 0.75, pt: 0 }}>
-                  <Controls params={params} onUpdate={p => handleUpdateParams(meta.type, p)} hasDiscreteColor={hasDiscreteColor} />
+                  <Controls
+                    params={params}
+                    onUpdate={p => handleUpdateParams(meta.type, p)}
+                    hasDiscreteColor={hasDiscreteColor}
+                    hideSourceData={config?.hideSourceData}
+                    onToggleHideSource={v => handleUpdateOverlay(meta.type, { hideSourceData: v })}
+                  />
                 </Box>
               )}
             </Box>

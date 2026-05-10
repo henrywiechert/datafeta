@@ -14,6 +14,7 @@ import { UserChartType } from '../../types';
 import { OverlayConfig, OverlayType, OverlayParams, OVERLAY_META } from './types';
 import { buildLinearRegression } from './linearRegression';
 import { buildMovingAverage } from './movingAverage';
+import { buildDensity } from './density';
 
 // --- Builder registry -------------------------------------------------------
 
@@ -29,6 +30,7 @@ type OverlayBuilder = (
 const BUILDERS: Record<OverlayType, OverlayBuilder> = {
   linearRegression: buildLinearRegression,
   movingAverage: buildMovingAverage,
+  density: buildDensity,
 };
 
 // Build applicability lookup from OVERLAY_META
@@ -60,6 +62,9 @@ export function applyOverlays(
   const active = overlays.filter(o => o.enabled);
   if (active.length === 0) return options;
 
+  // Suppress primary marks when any active overlay requests it
+  const shouldHideSource = active.some(o => o.hideSourceData);
+
   const extraMarks: Plot.Markish[] = [];
 
   // Pre-sort data by the independent axis so the moving average
@@ -87,8 +92,10 @@ export function applyOverlays(
 
   if (extraMarks.length === 0) return options;
 
+  const baseMasks = shouldHideSource ? [] : (options.marks || []);
+
   return {
     ...options,
-    marks: [...(options.marks || []), ...extraMarks],
+    marks: [...baseMasks, ...extraMarks],
   };
 }
