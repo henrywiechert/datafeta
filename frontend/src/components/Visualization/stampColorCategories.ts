@@ -10,6 +10,8 @@
  * the same colour.
  */
 
+import { DENSITY_CAT_CLASS_PREFIX } from '../../observable-plot-generator/overlays/density';
+
 const MARK_SELECTOR = [
   'circle',
   'rect',
@@ -40,6 +42,21 @@ export function encodeCatValue(v: any): string {
   return String(v);
 }
 
+/**
+ * Reverse of density.ts::encodeCatForClass.
+ * Decodes a URL-safe base64 string back to the encodeCatValue representation.
+ */
+function decodeDensityCatClass(encoded: string): string {
+  try {
+    const base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
+    const rem = base64.length % 4;
+    const padded = rem ? base64 + '='.repeat(4 - rem) : base64;
+    return decodeURIComponent(escape(atob(padded)));
+  } catch {
+    return encoded;
+  }
+}
+
 export function stampColorCategories(
   plot: SVGSVGElement | HTMLElement,
   options: any,
@@ -54,6 +71,11 @@ export function stampColorCategories(
   for (let i = 0; i < allElements.length; i++) {
     const el = allElements[i];
     if (isInsideGridOrAxis(el, plot)) continue;
+
+    // Skip elements that belong to a per-group density overlay — they carry
+    // GeoJSON contour __data__ (not row indices) and are handled by the
+    // second pass below.
+    if (el.closest(`[class*="${DENSITY_CAT_CLASS_PREFIX}"]`)) continue;
 
     let datum = (el as any).__data__;
 
@@ -77,5 +99,31 @@ export function stampColorCategories(
 
     const val = datum[fieldName];
     el.setAttribute('data-cat', encodeCatValue(val));
+  }
+
+  // --- Second pass: stamp density overlay group paths ---
+  // Per-group density marks carry a CSS class `density-grp-{base64cat}` (set by
+  // density.ts).  Observable Plot applies className to the <g> wrapper, not to
+  // individual <path> children — so we must find child elements and stamp them
+  // directly so the CSS `path[data-cat="…"]` restore rules can match them.
+  const densityEls = plot.querySelectorAll<SVGElement>(`[class*="${DENSITY_CAT_CLASS_PREFIX}"]`);
+  for (let i = 0; i < densityEls.length; i++) {
+    const el = densityEls[i];
+    if (isInsideGridOrAxis(el, plot)) continue;
+    const classes = el.getAttribute('class') ?? '';
+    const grpClass = classes.split(/\s+/).find(c => c.startsWith(DENSITY_CAT_CLASS_PREFIX));
+    if (!grpClass) continue;
+    const catValue = decodeDensityCatClass(grpClass.slice(DENSITY_CAT_CLASS_PREFIX.length));
+
+    if (el.tagName.toLowerCase() === 'g') {
+      // className landed on the <g> wrapper — stamp every child mark element
+      const children = el.querySelectorAll<SVGElement>('path, line, circle, rect');
+      for (let j = 0; j < children.length; j++) {
+        children[j].setAttribute('data-cat', catValue);
+      }
+    } else {
+      // className is directly on the mark element (Observable Plot version variance)
+      el.setAttribute('data-cat', catValue);
+    }
   }
 }
