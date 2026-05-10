@@ -137,9 +137,9 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
     setPosition({ x: newX, y: newY, anchor });
   }, [x, y, visible, pinned]);
 
-  if (!visible || fields.length === 0) {
-    return null;
-  }
+  // Always stay mounted to avoid repeated DOM insertions/deletions that would
+  // trigger Bitwarden's shadow-root MutationObserver (getShadowRoot) on every hover.
+  const hidden = !visible || fields.length === 0;
 
   /** Whether a field row should show filter action buttons */
   const isFilterable = (field: TooltipField) =>
@@ -205,14 +205,15 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
     <div 
       ref={tooltipRef}
       className={`custom-tooltip custom-tooltip--${position.anchor}${pinned ? ' custom-tooltip--pinned' : ''}`}
+      // data-form-type hints password-manager extensions (Bitwarden, 1Password, etc.)
+      // to skip scanning this element for autofill targets.
+      data-form-type="other"
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
-        display: 'block',
-        visibility: 'visible',
-        opacity: 1,
+        display: hidden ? 'none' : 'block',
         // Vertical color bar on the left when colorHex is provided
-        ...(colorHex ? { borderLeft: `8px solid ${colorHex}`, paddingLeft: 12 } : {})
+        ...(colorHex && !hidden ? { borderLeft: `8px solid ${colorHex}`, paddingLeft: 12 } : {})
       }}
     >
       {/* Close button for pinned tooltip */}

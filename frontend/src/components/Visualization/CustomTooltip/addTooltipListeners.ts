@@ -274,6 +274,12 @@ export function addTooltipListeners(
   unpinTooltip?: () => void,
   pinnedRef?: React.MutableRefObject<boolean>
 ): () => void {
+  // RAF throttle state for mousemove position updates — shared across all marks in this chart.
+  // Caps DOM mutations from position updates to at most one per animation frame (~16 ms).
+  let rafId: number | null = null;
+  let pendingX = 0;
+  let pendingY = 0;
+
   // Find all interactive marks (circles, rects, paths with fill, lines)
   // Observable Plot typically uses these elements for data visualization
   // 
@@ -412,7 +418,16 @@ export function addTooltipListeners(
       // Don't move a pinned tooltip
       if (pinnedRef?.current) return;
       const mouseEvent = e as MouseEvent;
-      updatePosition(mouseEvent.clientX, mouseEvent.clientY);
+      pendingX = mouseEvent.clientX;
+      pendingY = mouseEvent.clientY;
+      // Throttle to one React state update per animation frame to reduce DOM
+      // mutations and limit Bitwarden's shadow-root traversal overhead.
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          updatePosition(pendingX, pendingY);
+        });
+      }
     };
 
     const handleMouseLeave = () => {
@@ -545,6 +560,12 @@ export function addTooltipListeners(
   
   // Return cleanup function that removes all listeners
   return () => {
+    // Cancel any pending position-update frame
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+
     // Clean up mark listeners
     cleanupFunctions.forEach(cleanup => cleanup());
     
