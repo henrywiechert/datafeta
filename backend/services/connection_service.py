@@ -545,6 +545,11 @@ class ConnectionService:
                 'thousands_separator': details.csv_thousands_separator or '',
                 'date_format': details.csv_date_format or '%Y-%m-%d',
                 'timestamp_format': details.csv_timestamp_format or '%Y-%m-%d %H:%M:%S',
+                'sample_size': (
+                    -1
+                    if details.csv_sample_full_dataset
+                    else (details.csv_sample_size or 1000)
+                ),
             }
 
             session_upload_dir = self._get_session_upload_dir(session_id)

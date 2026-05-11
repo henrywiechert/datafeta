@@ -61,6 +61,8 @@ class CsvConfig(BaseModel):
     csv_thousands_separator: Optional[str] = ""
     csv_date_format: Optional[str] = "%Y-%m-%d"
     csv_timestamp_format: Optional[str] = "%Y-%m-%d %H:%M:%S"
+    csv_sample_size: Optional[int] = Field(default=1000, ge=1)
+    csv_sample_full_dataset: Optional[bool] = False
 
 
 def _build_kaggle_connect_args(cfg: BaseModel, request, session_id: str) -> dict:

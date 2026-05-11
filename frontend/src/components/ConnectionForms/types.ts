@@ -18,6 +18,8 @@ export interface CsvFormState {
   thousandsSeparator: string;
   dateFormat: string;
   timestampFormat: string;
+  sampleSize: number | string;
+  sampleFullDataset: boolean;
   showAdvancedOptions: boolean;
 }
 
@@ -72,6 +74,8 @@ export const DEFAULT_CSV_STATE: CsvFormState = {
   thousandsSeparator: '',
   dateFormat: '%Y-%m-%d',
   timestampFormat: '%Y-%m-%d %H:%M:%S',
+  sampleSize: 1000,
+  sampleFullDataset: false,
   showAdvancedOptions: false,
 };
 

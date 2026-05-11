@@ -84,6 +84,11 @@ class FileConnector(BaseConnector):
             'thousands_separator': connection_details.get('csv_thousands_separator', ''),
             'date_format': connection_details.get('csv_date_format', '%Y-%m-%d'),
             'timestamp_format': connection_details.get('csv_timestamp_format', '%Y-%m-%d %H:%M:%S'),
+            'sample_size': (
+                -1
+                if connection_details.get('csv_sample_full_dataset', False)
+                else connection_details.get('csv_sample_size', 1000)
+            ),
         }
 
         file_paths = connection_details.get("file_paths")

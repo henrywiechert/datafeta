@@ -50,7 +50,16 @@ class CsvFileHandler(BaseFileHandler):
         params.append(f"dateformat='{date_fmt.replace(chr(39), chr(39)*2)}'")
         params.append(f"timestampformat='{timestamp_fmt.replace(chr(39), chr(39)*2)}'")
 
-        params.append("sample_size=1000")
+        sample_size = self._config.get("sample_size", 1000)
+        if sample_size == "full":
+            sample_size = -1
+        try:
+            sample_size = int(sample_size)
+        except (TypeError, ValueError):
+            sample_size = 1000
+        if sample_size == 0 or sample_size < -1:
+            sample_size = 1000
+        params.append(f"sample_size={sample_size}")
 
         params_str = ", ".join(params)
         escaped_path = file_path.replace("'", "''")

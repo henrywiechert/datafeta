@@ -87,6 +87,8 @@ function connectionFormReducer(
           thousandsSeparator: details.csv_thousands_separator || '',
           dateFormat: details.csv_date_format || '%Y-%m-%d',
           timestampFormat: details.csv_timestamp_format || '%Y-%m-%d %H:%M:%S',
+          sampleSize: details.csv_sample_size || 1000,
+          sampleFullDataset: details.csv_sample_full_dataset || false,
         };
       } else if (type === 'kaggle') {
         newState.kaggle = {
@@ -254,6 +256,8 @@ export function useConnectionForm(): UseConnectionFormReturn {
       details.csv_thousands_separator = csv.thousandsSeparator;
       details.csv_date_format = csv.dateFormat;
       details.csv_timestamp_format = csv.timestampFormat;
+      details.csv_sample_size = Math.max(1, Number(csv.sampleSize) || 1000);
+      details.csv_sample_full_dataset = csv.sampleFullDataset;
     } else if (connectionType === 'hive_parquet') {
       details.hive_file_structure = hiveParquet.fileStructure;
     } else if (connectionType === 'kaggle') {

@@ -109,6 +109,20 @@
   display: block;
 }
 
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #555;
+  margin-bottom: 4px;
+}
+
+.checkboxLabel input {
+  margin: 0;
+}
+
 .input,
 .select {
   padding: 8px 12px;
