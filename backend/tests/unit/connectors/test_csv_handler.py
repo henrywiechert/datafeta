@@ -15,6 +15,7 @@ DEFAULT_CONFIG = {
     "thousands_separator": "",
     "date_format": "%Y-%m-%d",
     "timestamp_format": "%Y-%m-%d %H:%M:%S",
+    "sample_size": 1000,
 }
 
 
@@ -45,6 +46,18 @@ class TestCsvBuildReaderSql:
         assert "timestampformat='%Y-%m-%d %H:%M:%S'" in sql
         assert "sample_size=1000" in sql
         assert "nullstr=" in sql
+
+    def test_custom_sample_size(self):
+        config = {**DEFAULT_CONFIG, "sample_size": 5000}
+        handler = CsvFileHandler(config)
+        sql = handler.build_reader_sql("/tmp/data.csv")
+        assert "sample_size=5000" in sql
+
+    def test_full_dataset_sample_size(self):
+        config = {**DEFAULT_CONFIG, "sample_size": -1}
+        handler = CsvFileHandler(config)
+        sql = handler.build_reader_sql("/tmp/data.csv")
+        assert "sample_size=-1" in sql
 
     def test_semicolon_delimiter(self):
         config = {**DEFAULT_CONFIG, "delimiter": ";"}

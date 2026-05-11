@@ -181,6 +181,38 @@ export function CsvConnectionForm({
                 </select>
               </div>
             </div>
+
+            <div className={styles.formRow}>
+              <div className={styles.formField}>
+                <label className={styles.label}>Type Inference Sample Size</label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  className={styles.input}
+                  value={state.sampleSize}
+                  onChange={(e) => onUpdate({ sampleSize: e.target.value })}
+                  disabled={disabled || state.sampleFullDataset}
+                />
+                <div className={styles.helpText}>
+                  Number of rows DuckDB samples while detecting CSV column types.
+                </div>
+              </div>
+              <div className={styles.formField}>
+                <label className={styles.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={state.sampleFullDataset}
+                    onChange={(e) => onUpdate({ sampleFullDataset: e.target.checked })}
+                    disabled={disabled}
+                  />
+                  Full Dataset (can take longer)
+                </label>
+                <div className={styles.helpText}>
+                  Reads the whole CSV for type inference, improving accuracy when later rows differ.
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>

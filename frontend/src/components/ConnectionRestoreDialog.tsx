@@ -326,6 +326,12 @@ export default function ConnectionRestoreDialog({
                     <strong>Thousands Separator:</strong> {connectionMetadata.csv_thousands_separator}
                   </Typography>
                 )}
+                <Typography variant="body2">
+                  <strong>Type Inference Sample:</strong>{' '}
+                  {connectionMetadata.csv_sample_full_dataset
+                    ? 'Full dataset'
+                    : `${connectionMetadata.csv_sample_size || 1000} rows`}
+                </Typography>
               </Box>
 
               <Button

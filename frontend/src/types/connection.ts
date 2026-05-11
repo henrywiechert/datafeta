@@ -23,6 +23,8 @@ export interface ConnectionDetails {
   csv_thousands_separator?: string;
   csv_date_format?: string;
   csv_timestamp_format?: string;
+  csv_sample_size?: number;
+  csv_sample_full_dataset?: boolean;
   // Column casting configuration
   column_casts?: ColumnCasts;
   // Kaggle configuration options

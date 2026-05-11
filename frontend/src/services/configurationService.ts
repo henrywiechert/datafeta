@@ -74,6 +74,8 @@ export function sanitizeConnectionDetails(
     if (details.csv_thousands_separator) sanitized.csv_thousands_separator = details.csv_thousands_separator;
     if (details.csv_date_format) sanitized.csv_date_format = details.csv_date_format;
     if (details.csv_timestamp_format) sanitized.csv_timestamp_format = details.csv_timestamp_format;
+    if (details.csv_sample_size) sanitized.csv_sample_size = details.csv_sample_size;
+    if (details.csv_sample_full_dataset !== undefined) sanitized.csv_sample_full_dataset = details.csv_sample_full_dataset;
   } else if (details.type === 'clickhouse') {
     // ClickHouse configuration (NO password)
     if (details.host) sanitized.host = details.host;
@@ -403,6 +405,8 @@ export function reconstructConnectionDetails(
     if (metadata.csv_thousands_separator) details.csv_thousands_separator = metadata.csv_thousands_separator;
     if (metadata.csv_date_format) details.csv_date_format = metadata.csv_date_format;
     if (metadata.csv_timestamp_format) details.csv_timestamp_format = metadata.csv_timestamp_format;
+    if (metadata.csv_sample_size) details.csv_sample_size = metadata.csv_sample_size;
+    if (metadata.csv_sample_full_dataset !== undefined) details.csv_sample_full_dataset = metadata.csv_sample_full_dataset;
   } else if (metadata.type === 'clickhouse') {
     // ClickHouse configuration - use overrides if provided, otherwise fall back to metadata
     details.host = clickHouseOverrides?.host ?? metadata.host;
