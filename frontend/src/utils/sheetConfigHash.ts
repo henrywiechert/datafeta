@@ -70,6 +70,12 @@ export function filtersToHashKey(filters: Record<string, FilterConfig>): string 
         startDate: config.startDate,
         endDate: config.endDate,
       };
+    } else if (config.type === 'measure') {
+      return {
+        ...base,
+        min: config.min,
+        max: config.max,
+      };
     }
     return base;
   });

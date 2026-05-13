@@ -62,6 +62,8 @@ export function useQueryFingerprint({
         return `${k}:continuous:${cfg.min ?? ''}:${cfg.max ?? ''}`;
       } else if (cfg.type === 'datetime') {
         return `${k}:datetime:${cfg.startDate ?? ''}:${cfg.endDate ?? ''}`;
+      } else if (cfg.type === 'measure') {
+        return `${k}:measure:${cfg.min ?? ''}:${cfg.max ?? ''}`;
       }
       return `${k}:unknown`;
     }).join(',');

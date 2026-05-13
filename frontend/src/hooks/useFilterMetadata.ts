@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { Field, FilterMetadata, VirtualColumnDefinition, VirtualTableDefinition } from '../types';
+import { getResultColumnName } from '../utils/fieldUtils';
 import { apiService } from '../apiService';
 import { isMeasureNamesField } from '../utils/syntheticFields';
 
@@ -25,7 +26,11 @@ export interface UseFilterMetadataReturn {
     refetchFilterValues: (fieldId: string, regexPattern?: string) => Promise<void>;
 }
 
-const resolveFilterType = (field: Field): 'discrete' | 'continuous' | 'datetime' => {
+const resolveFilterType = (field: Field): 'discrete' | 'continuous' | 'datetime' | 'measure' => {
+    // Measure fields (aggregated) → HAVING filter, no API metadata needed
+    if (field.type === 'measure' && field.aggregation) {
+        return 'measure';
+    }
     if (field.dataType === 'datetime') {
         // Datetime parts with discrete flavour or distinct mode -> discrete filter
         if (field.dateTimePart &&
@@ -113,6 +118,41 @@ export function useFilterMetadata({
         filterMetadataAbortControllers.current.set(field.id, abortController);
 
         const filterType = resolveFilterType(field);
+
+        // Measure filters need no API metadata — initialize immediately with unbounded config
+        if (filterType === 'measure') {
+            const existing = filterConfigurations[field.id];
+            dispatch({
+                type: 'SET_FILTER_METADATA',
+                payload: {
+                    fieldId: field.id,
+                    metadata: {
+                        fieldId: field.id,
+                        columnName: getResultColumnName(field),
+                        type: 'measure',
+                        loading: false,
+                        min: 0,
+                        max: 0,
+                    } as FilterMetadata,
+                },
+            });
+            if (!existing || existing.type !== 'measure') {
+                dispatch({
+                    type: 'SET_FILTER_CONFIGURATION',
+                    payload: {
+                        fieldId: field.id,
+                        config: {
+                            fieldId: field.id,
+                            columnName: getResultColumnName(field),
+                            type: 'measure',
+                            min: null,
+                            max: null,
+                        },
+                    },
+                });
+            }
+            return;
+        }
 
         // Set loading state
         const loadingMetadata: FilterMetadata = {
@@ -595,7 +635,10 @@ export function useFilterMetadata({
             const needsRefetch = (
                 !metadata ||
                 metadata.type !== expectedType ||
-                metadata.columnName !== field.columnName ||
+                // Measure filters use the aggregation alias (e.g. "AVG(col)") as their metadata
+                // columnName, not the raw field.columnName. Skip this check for measures to avoid
+                // a continuous dispatch loop.
+                (expectedType !== 'measure' && metadata.columnName !== field.columnName) ||
                 previousSignature !== currentSignature
             );
 

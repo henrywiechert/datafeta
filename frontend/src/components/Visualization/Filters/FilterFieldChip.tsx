@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Box, IconButton, Collapse, Tooltip, ToggleButton, Menu, MenuItem, Divider } from '@mui/material';
+import { Box, IconButton, Collapse, Tooltip, ToggleButton, Menu, MenuItem, Divider, TextField, Typography } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import PublicIcon from '@mui/icons-material/Public';
@@ -13,6 +13,7 @@ import { DateTimeRangeFilter } from '../../DateTime';
 import styles from './FilterFieldChip.module.css';
 import FieldChip from '../FieldChip';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
+import { getResultColumnName } from '../../../utils/fieldUtils';
 
 interface FilterFieldChipProps {
   field: Field;
@@ -157,6 +158,16 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
     });
   }, [field.id, field.columnName, onConfigChange, filterConfig?.isZoomFilter]);
 
+  const handleMeasureChange = useCallback((newMin: number | null, newMax: number | null) => {
+    onConfigChange({
+      fieldId: field.id,
+      columnName: getResultColumnName(field),
+      type: 'measure',
+      min: newMin,
+      max: newMax,
+    });
+  }, [field, onConfigChange]);
+
   const handleDateTimeChange = useCallback((startDate: string | null, endDate: string | null) => {
     onConfigChange({
       fieldId: field.id,
@@ -171,7 +182,11 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
   }, [field.id, field.columnName, field.dateTimePart, field.dateTimeMode, onConfigChange, filterConfig?.isZoomFilter]);
 
   // Determine filter type based on field characteristics
-  const getFilterType = (): 'discrete' | 'continuous' | 'datetime' => {
+  const getFilterType = (): 'discrete' | 'continuous' | 'datetime' | 'measure' => {
+    // Measure fields (aggregated) → HAVING filter
+    if (field.type === 'measure' && field.aggregation) {
+      return 'measure';
+    }
     // Datetime parts with discrete flavour or distinct mode → discrete filter (checkbox list)
     if (field.dataType === 'datetime' && field.dateTimePart &&
         (field.dateTimeMode === 'distinct' || field.flavour === 'discrete')) {
@@ -188,6 +203,45 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
 
   // Render the appropriate filter control based on type
   const renderFilterControl = () => {
+    // Measure filters don't need metadata (no API fetch)
+    if (filterType === 'measure') {
+      const min = filterConfig && filterConfig.type === 'measure' ? filterConfig.min : null;
+      const max = filterConfig && filterConfig.type === 'measure' ? filterConfig.max : null;
+      return (
+        <Box sx={{ p: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Typography variant="caption" color="text.secondary">
+            Filter aggregated values (HAVING)
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <TextField
+              label="Min"
+              type="number"
+              size="small"
+              value={min ?? ''}
+              onChange={(e) => {
+                const v = e.target.value === '' ? null : Number(e.target.value);
+                handleMeasureChange(Number.isNaN(v as number) ? null : v, max);
+              }}
+              inputProps={{ step: 'any' }}
+              sx={{ flex: 1 }}
+            />
+            <TextField
+              label="Max"
+              type="number"
+              size="small"
+              value={max ?? ''}
+              onChange={(e) => {
+                const v = e.target.value === '' ? null : Number(e.target.value);
+                handleMeasureChange(min, Number.isNaN(v as number) ? null : v);
+              }}
+              inputProps={{ step: 'any' }}
+              sx={{ flex: 1 }}
+            />
+          </Box>
+        </Box>
+      );
+    }
+
     if (!filterMetadata) {
       return <div className={styles.loading}>Loading...</div>;
     }
@@ -287,6 +341,15 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
     }
 
     if (filterConfig.type === 'continuous') {
+      if (filterConfig.min !== null || filterConfig.max !== null) {
+        const minStr = formatNumber(filterConfig.min);
+        const maxStr = formatNumber(filterConfig.max);
+        return `${field.columnName} [${minStr} - ${maxStr}]`;
+      }
+      return field.columnName;
+    }
+
+    if (filterConfig.type === 'measure') {
       if (filterConfig.min !== null || filterConfig.max !== null) {
         const minStr = formatNumber(filterConfig.min);
         const maxStr = formatNumber(filterConfig.max);

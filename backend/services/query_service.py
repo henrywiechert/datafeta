@@ -197,6 +197,31 @@ class QueryService:
             primary_table=primary_table,
         )
 
+    def _build_having_criteria(
+        self,
+        query_desc: QueryDescription,
+        table_map: Dict[str, Any],
+        default_table: Any,
+        vc_builder: Optional[VirtualColumnExpressionBuilder] = None,
+    ) -> List[Criterion]:
+        """Return HAVING criteria for group-scoped (measure) filters."""
+        field_parser = FieldReferenceParser(
+            table_map=table_map,
+            default_table=default_table,
+            vc_builder=vc_builder,
+        )
+        builder = FilterBuilder(
+            parse_field_reference=field_parser.parse,
+            apply_cast_if_configured=self._apply_cast_if_configured,
+            get_field_with_cast=self._get_field_with_cast,
+        )
+        return builder.build_having(
+            query_desc=query_desc,
+            aggregation_map=AGGREGATION_MAP,
+            table_map=table_map,
+            default_table=default_table,
+        )
+
     def _apply_optimizations(
         self,
         query: Query,
@@ -771,6 +796,15 @@ class QueryService:
             optimizer,
             vc_builder,
         )
+
+        having_criteria = self._build_having_criteria(
+            query_desc,
+            table_context.table_map,
+            table_context.default_table,
+            vc_builder,
+        )
+        if having_criteria:
+            q = q.having(Criterion.all(having_criteria))
 
         q = self._apply_ordering(q, query_desc.orderBy, all_aliases, t, table_context.table_map, table_context.default_table, vc_builder)
 

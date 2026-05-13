@@ -249,6 +249,7 @@ const VisualizationPageContent = () => {
         () => new Set(sessionFilterFields.map(f => f.id)),
         [sessionFilterFields]
     );
+
     const {
         toggleJoinedTable: toggleJoinedTableBase,
         addUnionTable: addUnionTableBase,

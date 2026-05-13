@@ -242,14 +242,22 @@ export const useQueryExecutor = ({
                 }) as any;
 
                 if (rawSlice) {
-                  rawSlice.force_raw_rows = true;
-                  // Only copy point-chart budget to the raw slice (limits rows fetched+cached).
-                  // Line-chart budget must NOT be applied here: we need the full raw data so
-                  // the local aggregation is correct; the line budget is applied after aggregation.
-                  if ((queryDescExec as any).result_budget && shouldAttachBudget) {
-                    (rawSlice as any).result_budget = (queryDescExec as any).result_budget;
+                  // Measure (HAVING) filters cannot be expressed in a raw WHERE clause — skip
+                  // the raw slice so the orchestrator sends the pre-aggregated query to the
+                  // backend (which correctly includes the HAVING clause).
+                  const hasMeasureFilters = Object.values(baseFilterConfigs).some(
+                    (cfg: any) => cfg?.type === 'measure'
+                  );
+                  if (!hasMeasureFilters) {
+                    rawSlice.force_raw_rows = true;
+                    // Only copy point-chart budget to the raw slice (limits rows fetched+cached).
+                    // Line-chart budget must NOT be applied here: we need the full raw data so
+                    // the local aggregation is correct; the line budget is applied after aggregation.
+                    if ((queryDescExec as any).result_budget && shouldAttachBudget) {
+                      (rawSlice as any).result_budget = (queryDescExec as any).result_budget;
+                    }
+                    backendQueryDesc = rawSlice;
                   }
-                  backendQueryDesc = rawSlice;
                 }
               }
             }

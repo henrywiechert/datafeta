@@ -126,6 +126,25 @@ export const convertFilterConfigsToFilters = (
           value: config.max,
         });
       }
+    } else if (config.type === 'measure') {
+      // Measure filters → HAVING clause (scope='group').
+      // columnName is the measure alias, e.g. "AVG(dlFdSchedData.tbSize)".
+      if (config.min !== null) {
+        filters.push({
+          field: config.columnName,
+          operator: '>=',
+          value: config.min,
+          scope: 'group',
+        });
+      }
+      if (config.max !== null) {
+        filters.push({
+          field: config.columnName,
+          operator: '<=',
+          value: config.max,
+          scope: 'group',
+        });
+      }
     } else if (config.type === 'datetime') {
       // For datetime filters, add >= and <= operators with date strings
       if (config.startDate !== null) {

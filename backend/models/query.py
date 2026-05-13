@@ -24,6 +24,8 @@ class Filter(BaseModel):
     value: Any # Value type depends on operator (e.g., list for 'in')
     date_part: Optional[Literal['year', 'month', 'day', 'weekday', 'hour', 'minute', 'second', 'millisecond', 'microsecond', 'nanosecond']] = None
     date_mode: Optional[Literal['distinct', 'timeline']] = None
+    # 'row' → WHERE clause (default); 'group' → HAVING clause (filters on aggregated values)
+    scope: Literal['row', 'group'] = 'row'
 
 class OrderBy(BaseModel):
     field: str # Can be a dimension field or a measure alias

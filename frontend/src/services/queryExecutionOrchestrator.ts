@@ -180,6 +180,18 @@ class QueryExecutionOrchestrator {
       virtualColumns: (viewQueryDesc as any).virtual_columns,
     });
 
+    // Measure filters use HAVING which can only be evaluated by the backend aggregation query.
+    // Override to pre_aggregated so we never attempt to cache raw rows and re-aggregate locally
+    // (which would drop the HAVING condition and return unfiltered groups).
+    const hasMeasureFilters = Object.values(filterConfigurations).some(
+      (cfg: any) => cfg?.type === 'measure'
+    );
+    if (hasMeasureFilters && decision.strategy !== 'pre_aggregated') {
+      decision.strategy = 'pre_aggregated';
+      decision.requiresBackendQuery = true;
+      decision.reason += ' (overridden: HAVING filter requires backend pre-aggregation)';
+    }
+
     // Cache-hit: query locally (refinement filters only).
     if (decision.strategy === 'cache_hit' && !decision.requiresBackendQuery) {
       const cacheTableName = this.deps.columnCacheManager.getCacheTableName(
