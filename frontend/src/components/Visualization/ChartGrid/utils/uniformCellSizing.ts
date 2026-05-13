@@ -1,8 +1,6 @@
 import {
   MIN_CELL_WIDTH_PX,
-  MAX_CELL_WIDTH_PX,
   MIN_CELL_HEIGHT_PX,
-  MAX_CELL_HEIGHT_PX,
   MIN_FACET_WIDTH_PX,
   MAX_FACET_WIDTH_PX,
   MIN_FACET_HEIGHT_PX,
@@ -17,9 +15,7 @@ export interface UniformResizeIntent {
 
 export interface UniformCellSizeConstraints {
   minWidth: number;
-  maxWidth: number;
   minHeight: number;
-  maxHeight: number;
 }
 
 export interface FacetTrackSizeConstraints {
@@ -35,28 +31,27 @@ export function getMinSize(minSizes: number[] | undefined, fallback: number): nu
 export function getUniformCellSizeConstraints(layout: GridLayoutModel | undefined): UniformCellSizeConstraints {
   return {
     minWidth: getMinSize(layout?.minColumnSizes, MIN_CELL_WIDTH_PX),
-    maxWidth: MAX_CELL_WIDTH_PX,
     minHeight: getMinSize(layout?.minRowSizes, MIN_CELL_HEIGHT_PX),
-    maxHeight: MAX_CELL_HEIGHT_PX,
   };
 }
 
-export function clampCellSize(size: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, Math.round(size)));
+export function clampCellSize(size: number, min: number, max?: number): number {
+  const rounded = Math.round(size);
+  return max === undefined ? Math.max(min, rounded) : Math.max(min, Math.min(max, rounded));
 }
 
 export function resolveUniformColumnSize(
   intent: UniformResizeIntent,
   constraints: UniformCellSizeConstraints
 ): number {
-  return clampCellSize(intent.currentSize + intent.delta, constraints.minWidth, constraints.maxWidth);
+  return clampCellSize(intent.currentSize + intent.delta, constraints.minWidth);
 }
 
 export function resolveUniformRowSize(
   intent: UniformResizeIntent,
   constraints: UniformCellSizeConstraints
 ): number {
-  return clampCellSize(intent.currentSize + intent.delta, constraints.minHeight, constraints.maxHeight);
+  return clampCellSize(intent.currentSize + intent.delta, constraints.minHeight);
 }
 
 export function getFacetColumnSizeConstraints(): FacetTrackSizeConstraints {

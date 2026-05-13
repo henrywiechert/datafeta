@@ -53,11 +53,13 @@ export const RESIZE_HANDLE_WIDTH = 2;
 export const RESIZE_HANDLE_COLOR = '#99a795';
 export const RESIZE_HANDLE_HOVER_COLOR = '#6b7a67';
 
-// Aggressive min/max for cell resize (will be refined per chart type later)
+// Min sizes for cell resize. Upper bound is intentionally unbounded: facet
+// cells in practice never come close to a hard cap, and heatmaps (whose
+// "cell" is the entire chart) benefit from being able to grow arbitrarily
+// large when the user has many categories. Re-add an upper bound only if
+// a concrete browser/rendering limit is observed.
 export const MIN_CELL_WIDTH_PX = 50;
-export const MAX_CELL_WIDTH_PX = 5000;
 export const MIN_CELL_HEIGHT_PX = 50;
-export const MAX_CELL_HEIGHT_PX = 5000;
 export const MIN_FACET_WIDTH_PX = 16;
 export const MAX_FACET_WIDTH_PX = 800;
 export const MIN_FACET_HEIGHT_PX = 16;
