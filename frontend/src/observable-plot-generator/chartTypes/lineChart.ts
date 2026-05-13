@@ -42,6 +42,12 @@ export interface LineBuildParams {
   sizeField?: Field;
   sizeRange?: [number, number];
   manualSize?: number;
+  /**
+   * Full dataset used to derive the size-scale domain. When provided (e.g. in
+   * a faceted chart), the domain is computed from all rows so every facet
+   * cell maps the same value to the same stroke width.
+   */
+  sizeScaleData?: any[];
   labelCfg?: LabelConfig;
   tooltipFields?: Field[];
   /** Facet fields to display in tooltips for context (from faceted charts) */
@@ -372,6 +378,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     sizeField,
     sizeRange,
     manualSize,
+    sizeScaleData,
     labelCfg,
     tooltipFields,
     facetFields,
@@ -543,7 +550,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
 
   // Apply size configuration for line width
   if (sizeField && sizeRange) {
-    const sizeScale = createSizeScale(budgetedSorted, sizeField, sizeRange, manualSize || 2);
+    const sizeScale = createSizeScale(sizeScaleData ?? budgetedSorted, sizeField, sizeRange, manualSize || 2);
     const sizeColumnName = getResultColumnName(sizeField);
     lineConfig.strokeWidth = (d: any) => sizeScale.getSizeForValue(d[sizeColumnName]);
     dotConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: getFieldDisplayName(sizeField) };
@@ -749,6 +756,7 @@ export function lineChart(
   facetFields?: Field[],
   xField?: Field,
   yField?: Field,
+  sizeScaleData?: any[],
 ): Plot.PlotOptions {
   return buildLineOptions({
     data,
@@ -764,6 +772,7 @@ export function lineChart(
     sizeField,
     sizeRange,
     manualSize,
+    sizeScaleData,
     labelCfg,
     tooltipFields,
     facetFields,
@@ -794,6 +803,7 @@ export function verticalLineChart(
   facetFields?: Field[],
   xField?: Field,
   yField?: Field,
+  sizeScaleData?: any[],
 ): Plot.PlotOptions {
   return buildLineOptions({
     data,
@@ -809,6 +819,7 @@ export function verticalLineChart(
     sizeField,
     sizeRange,
     manualSize,
+    sizeScaleData,
     labelCfg,
     tooltipFields,
     facetFields,

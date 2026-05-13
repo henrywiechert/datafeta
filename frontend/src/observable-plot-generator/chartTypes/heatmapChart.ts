@@ -69,6 +69,12 @@ export interface HeatmapOptionsInput {
   sizeRange?: [number, number];
   manualSize?: number;
   /**
+   * Full dataset used to derive the size-scale domain. When provided (e.g. in
+   * a faceted chart), the domain is computed from all rows so that every facet
+   * cell maps the same value to the same square size.
+   */
+  sizeScaleData?: any[];
+  /**
    * Optional fields whose per-row values are rendered as text labels on each
    * cell. The first label field's column drives the visible text; further
    * fields could be supported by stacking marks if needed in the future.
@@ -161,6 +167,7 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
     tooltipFields,
     facetFields,
     colorScaleInfo,
+    sizeScaleData,
   } = input;
 
   const xCol = getResultColumnName(xField);
@@ -241,7 +248,7 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
   const yIndexByValue = new Map(yDomainValues.map((value, index) => [domainValueKey(value), index]));
   const effectiveSizeRange = sizeRange ?? [4, 20];
   const sizeScale = createSizeScale(
-    data,
+    sizeScaleData ?? data,
     sizeField || null,
     effectiveSizeRange,
     manualSize ?? heatmapDefaultManualSize,
@@ -457,6 +464,7 @@ function createHeatmapCellGenerator(
       sizeField: context.sizeField || null,
       sizeRange: context.sizeRange,
       manualSize: context.manualSize,
+      sizeScaleData: context.queryResult.rows,
       labelFields: context.labelFields,
       labelFontSize: context.labelFontSize,
       tooltipFields: context.tooltipFields,
