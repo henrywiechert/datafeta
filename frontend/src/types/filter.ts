@@ -5,7 +5,7 @@
 
 import { DateTimePart, DateTimeMode } from './field';
 
-export type FilterType = 'discrete' | 'continuous' | 'datetime';
+export type FilterType = 'discrete' | 'continuous' | 'datetime' | 'measure';
 export type DiscreteFilterMatchMode = 'selection' | 'pattern';
 export type DiscretePatternOperator = 'like' | 'ilike';
 
@@ -53,8 +53,16 @@ export interface DateTimeFilterConfig extends BaseFilterConfig {
   endDate: string | null;
 }
 
+// Measure filter: filters on the aggregated value of a measure (→ HAVING clause).
+// 'columnName' must equal the measure alias (e.g. "SUM(revenue)").
+export interface MeasureFilterConfig extends BaseFilterConfig {
+  type: 'measure';
+  min: number | null;
+  max: number | null;
+}
+
 // Union type for all filter configurations
-export type FilterConfig = DiscreteFilterConfig | ContinuousFilterConfig | DateTimeFilterConfig;
+export type FilterConfig = DiscreteFilterConfig | ContinuousFilterConfig | DateTimeFilterConfig | MeasureFilterConfig;
 
 // Metadata for filter configuration (available values or ranges)
 interface BaseFilterMetadata {
@@ -87,4 +95,10 @@ export interface DateTimeFilterMetadata extends BaseFilterMetadata {
   max: string;
 }
 
-export type FilterMetadata = DiscreteFilterMetadata | ContinuousFilterMetadata | DateTimeFilterMetadata;
+export interface MeasureFilterMetadata extends BaseFilterMetadata {
+  type: 'measure';
+  min: number;
+  max: number;
+}
+
+export type FilterMetadata = DiscreteFilterMetadata | ContinuousFilterMetadata | DateTimeFilterMetadata | MeasureFilterMetadata;

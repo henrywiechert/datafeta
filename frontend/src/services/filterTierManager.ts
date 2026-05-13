@@ -176,7 +176,14 @@ class FilterTierManager {
     
     for (const [key, config] of Object.entries(filterConfigurations)) {
       const columnName = config.columnName || key;
-      
+
+      // Measure filters (HAVING) must always be base — they filter aggregated groups
+      // and cannot be applied as local DuckDB refinement filters on sampled data.
+      if (config.type === 'measure') {
+        baseFilters[key] = config;
+        continue;
+      }
+
       if (this.isBaseFilter(columnName, cacheContext)) {
         baseFilters[key] = config;
       } else {

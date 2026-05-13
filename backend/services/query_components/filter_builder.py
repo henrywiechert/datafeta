@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional
 
 from pypika import Criterion
@@ -61,10 +62,14 @@ class FilterBuilder:
         dialect: "SqlDialect | str",
         primary_table: Any,
     ) -> List[Criterion]:
+        """Return WHERE-clause criteria (scope='row' filters, null guards, regex sampling)."""
         dialect = self._coerce_dialect(dialect)
         criteria: List[Criterion] = []
 
         for definition in query_desc.filters:
+            # HAVING (group-scoped) filters are handled separately in build_having()
+            if getattr(definition, 'scope', 'row') == 'group':
+                continue
             # Skip source tracking columns - they are handled in outer query for UNION mode
             if definition.field in ("_source_database", "_source_table"):
                 continue
@@ -112,6 +117,77 @@ class FilterBuilder:
             )
 
         return criteria
+
+    def build_having(
+        self,
+        query_desc: QueryDescription,
+        aggregation_map: Dict[str, Any],
+        table_map: Dict[str, Any],
+        default_table: Any,
+    ) -> List[Criterion]:
+        """Return HAVING-clause criteria for group-scoped (measure) filters.
+
+        Each filter with scope='group' must reference a measure alias that exists in
+        query_desc.measures.  The aggregation expression is reconstructed from the
+        Measure definition so PyPika can emit a proper HAVING clause.
+        """
+        having_criteria: List[Criterion] = []
+
+        # Build alias -> Measure lookup
+        alias_to_measure = {m.alias: m for m in query_desc.measures}
+
+        for definition in query_desc.filters:
+            if getattr(definition, 'scope', 'row') != 'group':
+                continue
+
+            measure = alias_to_measure.get(definition.field)
+            if measure is None:
+                # The measure may have been removed from the view while the filter is
+                # still active.  SQL permits HAVING on aggregates not in SELECT, so
+                # parse the alias string (e.g. "AVG(col.name)") and reconstruct the
+                # expression directly instead of raising an error.
+                alias_match = re.fullmatch(
+                    r'(\w+)\((.+)\)', definition.field.strip()
+                )
+                if alias_match is None:
+                    raise QueryGenerationError(
+                        f"HAVING filter references unknown measure alias '{definition.field}' "
+                        f"and its format could not be parsed. "
+                        f"Available aliases: {list(alias_to_measure)}"
+                    )
+                agg_name, raw_col = alias_match.group(1).lower(), alias_match.group(2)
+                agg_factory = aggregation_map.get(agg_name)
+                if agg_factory is None:
+                    raise QueryGenerationError(
+                        f"HAVING filter references unknown measure alias '{definition.field}' "
+                        f"with unsupported aggregation '{agg_name}'. "
+                        f"Available aliases: {list(alias_to_measure)}"
+                    )
+                field_ref = self._parse_field_reference(raw_col)
+                agg_term = agg_factory(field_ref)
+            else:
+                agg_factory = aggregation_map.get(measure.aggregation)
+                if agg_factory is None:
+                    raise QueryGenerationError(
+                        f"Unsupported aggregation '{measure.aggregation}' in HAVING filter."
+                    )
+
+                # Resolve the raw column; table-prefix handling mirrors the WHERE path
+                field_ref = self._parse_field_reference(measure.field)
+                agg_term = agg_factory(field_ref)
+
+            operator_func = self._operator_map.get(definition.operator)
+            if not operator_func:
+                raise QueryGenerationError(
+                    f"Unsupported operator '{definition.operator}' in HAVING filter."
+                )
+
+            if definition.operator in {"is null", "is not null"}:
+                having_criteria.append(operator_func(agg_term, None))
+            else:
+                having_criteria.append(operator_func(agg_term, definition.value))
+
+        return having_criteria
 
     def _resolve_field_definition(
         self,

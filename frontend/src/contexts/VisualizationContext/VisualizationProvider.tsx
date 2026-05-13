@@ -41,7 +41,10 @@ function normalizeFilterConfigKeys(
     // Already keyed by fieldId and consistent
     const direct = byId.get(key) ?? byId.get(cfg.fieldId);
     if (direct) {
-      normalized[direct.id] = { ...cfg, fieldId: direct.id, columnName: direct.columnName };
+      // Measure filters use an aggregation alias as columnName (e.g. "AVG(col)"), not the raw
+      // field columnName — preserve it so the HAVING clause can match the correct measure alias.
+      const columnName = cfg.type === 'measure' ? cfg.columnName : direct.columnName;
+      normalized[direct.id] = { ...cfg, fieldId: direct.id, columnName };
       continue;
     }
 
@@ -52,7 +55,8 @@ function normalizeFilterConfigKeys(
       byColumn.get(cfg.fieldId);
 
     if (byCol) {
-      normalized[byCol.id] = { ...cfg, fieldId: byCol.id, columnName: byCol.columnName };
+      const columnName = cfg.type === 'measure' ? cfg.columnName : byCol.columnName;
+      normalized[byCol.id] = { ...cfg, fieldId: byCol.id, columnName };
       continue;
     }
 

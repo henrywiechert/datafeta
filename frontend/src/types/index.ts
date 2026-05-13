@@ -105,10 +105,12 @@ export type {
   DiscreteFilterConfig,
   ContinuousFilterConfig,
   DateTimeFilterConfig,
+  MeasureFilterConfig,
   FilterConfig,
   DiscreteFilterMetadata,
   ContinuousFilterMetadata,
   DateTimeFilterMetadata,
+  MeasureFilterMetadata,
   FilterMetadata,
 } from './filter';
 

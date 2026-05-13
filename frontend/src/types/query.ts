@@ -30,6 +30,8 @@ export interface Filter {
   value: any;
   date_part?: DateTimePart;
   date_mode?: DateTimeMode;
+  /** 'row' → WHERE clause (default); 'group' → HAVING clause (measure/aggregation filters) */
+  scope?: 'row' | 'group';
 }
 
 export interface OrderBy {

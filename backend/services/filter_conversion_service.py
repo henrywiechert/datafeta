@@ -142,6 +142,35 @@ class FilterConversionService:
                             date_mode=date_mode
                         )
                     )
+
+            elif filter_type == 'measure':
+                # Measure filter → HAVING clause (scope='group').
+                # 'columnName' must be the measure alias (e.g. "SUM(revenue)").
+                min_val = cfg.get('minValue')
+                if min_val is None:
+                    min_val = cfg.get('min')
+                max_val = cfg.get('maxValue')
+                if max_val is None:
+                    max_val = cfg.get('max')
+
+                if min_val is not None:
+                    query_filters.append(
+                        QueryFilter(
+                            field=field,
+                            operator='>=',
+                            value=min_val,
+                            scope='group',
+                        )
+                    )
+                if max_val is not None:
+                    query_filters.append(
+                        QueryFilter(
+                            field=field,
+                            operator='<=',
+                            value=max_val,
+                            scope='group',
+                        )
+                    )
             
             elif filter_type == 'datetime':
                 start = cfg.get('startDate')
