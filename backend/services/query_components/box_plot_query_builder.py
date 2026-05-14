@@ -140,7 +140,7 @@ def build_box_plot_sql(
 
     table_ref = from_clause or f"FROM {_quote(query_desc.target_table, quote_char)}"
 
-    if db_type == "duckdb":
+    if db_type in ("duckdb", "kaggle"):
         return _build_duckdb_sql(
             query_desc,
             quote_char,
