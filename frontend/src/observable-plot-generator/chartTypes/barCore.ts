@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import * as Plot from '@observablehq/plot';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { ColorScaleInfo } from '../utils/colorSchemeUtils';

@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { ChartGenerationContext } from '../types';
 import { buildCellDomains, buildSampleDomains } from './facetDomainContext';
 import type { FacetDataIndex } from './facetDataIndex';

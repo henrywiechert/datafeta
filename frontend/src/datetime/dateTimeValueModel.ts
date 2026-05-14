@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 /**
  * Typed DateTime value helpers to distinguish timeline vs categorical usage
  * and normalize values for band scales without heuristics scattered elsewhere.

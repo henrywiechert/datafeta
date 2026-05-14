@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """Pydantic models related to query descriptions and results."""
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional, Literal, TYPE_CHECKING

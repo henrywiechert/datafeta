@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """Builder for server-side box-plot summary queries.
 
 Produces one summary row per group with five-number summary statistics:

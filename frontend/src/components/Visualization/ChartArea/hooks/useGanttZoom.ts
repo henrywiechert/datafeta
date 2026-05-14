@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 /**
  * useGanttZoom – computes the full data range for Gantt charts and
  * provides the handler for zoom-range changes.

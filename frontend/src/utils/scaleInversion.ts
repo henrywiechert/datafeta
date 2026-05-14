@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 /**
  * Utilities to invert Observable Plot scale descriptors from pixel coordinates
  * back to data values. Used by the chart zoom brush.

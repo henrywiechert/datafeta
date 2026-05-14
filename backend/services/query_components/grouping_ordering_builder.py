@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """Builder for applying GROUP BY and ORDER BY logic to PyPika queries."""
 
 from __future__ import annotations

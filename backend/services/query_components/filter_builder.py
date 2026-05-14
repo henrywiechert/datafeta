@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """Builder for translating QueryDescription filters into PyPika criteria."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
 import { formatDateTick } from '../../../../observable-plot-generator/utils/dateFormatUtils';
 import { FacetLabelAlign, FacetLabelStyles } from '../../../../contexts/VisualizationContext/types';

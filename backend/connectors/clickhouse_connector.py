@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """Connector for ClickHouse database using HTTP protocol."""
 import logging
 from typing import List, Dict, Any, Tuple

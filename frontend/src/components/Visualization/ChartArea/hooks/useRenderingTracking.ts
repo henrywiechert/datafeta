@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 /**
  * useRenderingTracking – manages the rendering batch lifecycle that
  * coordinates multi-plot render completion with the loading indicator.

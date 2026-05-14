@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useState, useCallback } from 'react';
 import { Box, IconButton, Collapse, Tooltip, ToggleButton, Menu, MenuItem, Divider, TextField, Typography } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';

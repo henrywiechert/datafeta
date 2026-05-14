@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """Base class for data source connectors."""
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, List, Dict, Any, Tuple

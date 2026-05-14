@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """Unit tests for the shared FK detection utility."""
 import pytest
 from backend.connectors.fk_detection import detect_foreign_keys_by_naming_convention

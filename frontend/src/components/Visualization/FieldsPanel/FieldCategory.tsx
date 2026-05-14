@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useRef, useEffect, useState } from 'react';
 import { Typography, Box } from '@mui/material';
 import { List } from 'react-window';

@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 /**
  * useChartActions – toolbar and keyboard-driven actions that mutate
  * visualisation state (undo / redo, axis swap, domain toggles, refresh, reset).

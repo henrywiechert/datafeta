@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 /**
  * useAdditionalFields – extracts per-field-override colour, size and label
  * fields so they can be forwarded to the query layer.

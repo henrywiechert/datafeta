@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 /**
  * UTC enforcement warnings (non-fatal). Detects offsetful date strings or non-UTC Dates
  * and emits a console warning hint. Intended to be called during ingestion/serialization

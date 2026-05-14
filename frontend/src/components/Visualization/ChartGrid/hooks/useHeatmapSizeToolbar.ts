@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { useCallback, useMemo } from 'react';
 import {
   HORIZONTAL_SCROLLBAR_GUTTER_PX,

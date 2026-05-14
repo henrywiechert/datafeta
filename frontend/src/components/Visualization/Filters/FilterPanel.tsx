@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useState, useEffect } from 'react';
 import { Button } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
