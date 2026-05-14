@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { Box, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Popover, Slider, Typography, Menu, MenuItem, ListItemIcon, ListItemText } from '@mui/material';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';

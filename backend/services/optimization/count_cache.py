@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """Lightweight in-memory cache for table row counts.
 
 Used to avoid repeated expensive COUNT(*) queries for small table detection.

@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """Unit tests covering ORDER BY behaviour when aliases are involved."""
 
 from __future__ import annotations

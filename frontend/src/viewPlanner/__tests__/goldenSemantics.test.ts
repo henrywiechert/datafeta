@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { buildQuery } from '../../queryBuilder/queryBuilder';
 import { Field, FilterConfig, QueryDescription } from '../../types';
 import { buildRenderPlan, buildViewSpec } from '../buildViewSpec';

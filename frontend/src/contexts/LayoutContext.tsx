@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useLayoutState, LayoutState, PanelConfig } from '../hooks/useLayoutState';
 

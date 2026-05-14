@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useMemo, useState } from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import CategoryIcon from '@mui/icons-material/Category';

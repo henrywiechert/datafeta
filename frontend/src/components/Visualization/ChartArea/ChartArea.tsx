@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useRef, useCallback, useMemo, useState, useEffect } from 'react';
 import styles from './ChartArea.module.css';
 import { useVisualizationContext, useChannels } from '../../../contexts/VisualizationContext';

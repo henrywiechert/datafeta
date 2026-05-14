@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { Field, FieldOverrideState } from '../../types';
 import { SharedDomains } from '../types';
 import { computeSharedMeasureDomains } from '../domains/measureDomains';

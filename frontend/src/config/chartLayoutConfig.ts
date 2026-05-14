@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 // Central layout constants for chart grid and intrinsic sizing
 
 export const MIN_GRID_COLUMN_PX = 120;

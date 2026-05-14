@@ -60,6 +60,12 @@ Run all backend and frontend tests from the repo root with:
 make test
 ```
 
+## License and Contributions
+
+This project is licensed under the GNU Affero General Public License v3.0 only. See the root `LICENSE` file for the full license text.
+
+Contributions are accepted only under the contributor terms in `CLA.md` or `CLA_CORPORATE.md`, as applicable. Pull requests are expected to pass the repository CLA check before merge.
+
 ## Documentation Structure
 
 - [`frontend/`](./frontend/README.md) - Frontend application documentation

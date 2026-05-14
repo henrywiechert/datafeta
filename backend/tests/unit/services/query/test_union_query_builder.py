@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 from unittest.mock import MagicMock
 
 from backend.models.data_source import VirtualColumnDefinition, VirtualTableDefinition, UnionTableDefinition

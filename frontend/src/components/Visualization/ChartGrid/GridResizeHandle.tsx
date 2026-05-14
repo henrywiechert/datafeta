@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { RESIZE_HANDLE_WIDTH, RESIZE_HANDLE_COLOR, RESIZE_HANDLE_HOVER_COLOR } from '../../../config/chartLayoutConfig';
 

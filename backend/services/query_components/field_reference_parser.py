@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """Parser for field references with support for table prefixes and nested columns."""
 
 import logging

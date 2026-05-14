@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """Strategy for applying adaptive rounding to reduce point count in scatter plots."""
 
 import logging

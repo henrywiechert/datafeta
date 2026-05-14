@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { VisualizationState } from './types';
 import { SIZE_DEFAULT_FALLBACK } from '../../config/chartLayoutConfig';
 import { DEFAULT_MANUAL_COLOR } from '../../config/colorSchemes';

@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { Field, QueryDescription, QueryOptimizationSettings, DistributionVariant, QueryResult, UserChartType } from '../../../../types';
 import { classifyChartType, computePointBudget } from '../../../../services/chartTypeClassifier';
 import { validateAndCleanData, remapCastExpressionColumns } from '../utils/dataValidation';

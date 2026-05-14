@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
 import { Box, Button, Divider, Typography } from '@mui/material';
 import { HeatmapSizeToolbarState } from '../../ChartGrid/hooks/useHeatmapSizeToolbar';

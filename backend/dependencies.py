@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """FastAPI dependency helpers for resolving session-scoped backend state."""
 
 import logging

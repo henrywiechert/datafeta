@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """Test that fields from joined tables are properly aliased in SELECT."""
 
 from backend.services.query_service import QueryService

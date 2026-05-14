@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """Pydantic models related to data sources and connections."""
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import List, Dict, Any, Optional, Literal

@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 /**
  * CsvConnectionForm - File upload with advanced CSV configuration options.
  * Supports both CSV and Parquet files, with multi-file upload capability.

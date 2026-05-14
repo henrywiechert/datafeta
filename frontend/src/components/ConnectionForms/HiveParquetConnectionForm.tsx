@@ -1,3 +1,4 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 /**
  * HiveParquetConnectionForm - Folder picker for Hive-partitioned Parquet datasets.
  * Uses HTML5 webkitdirectory attribute for folder selection.

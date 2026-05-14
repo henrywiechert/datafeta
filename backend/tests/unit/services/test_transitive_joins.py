@@ -1,3 +1,4 @@
+# Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """Test transitive relationship detection in table merge service."""
 
 from backend.services.table_merge_service import TableMergeService
