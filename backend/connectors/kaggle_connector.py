@@ -3,9 +3,12 @@
 import logging
 import os
 import re
+import threading
+import zipfile
 from typing import List, Dict, Any, Tuple, Optional, TYPE_CHECKING
 
 import duckdb
+import pyarrow as pa
 
 from backend.models.data_source import Database, Table, Column, ForeignKeyRelationship
 from backend.dialects import SqlDialect, DuckDbDialect
@@ -20,6 +23,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _duckdb_dialect = DuckDbDialect()
+
+# Per-path locks prevent concurrent downloads of the same file from racing.
+_download_locks: Dict[str, threading.Lock] = {}
+_download_locks_mutex = threading.Lock()
+
+
+def _get_download_lock(path: str) -> threading.Lock:
+    with _download_locks_mutex:
+        if path not in _download_locks:
+            _download_locks[path] = threading.Lock()
+        return _download_locks[path]
 
 
 class KaggleConnector(BaseConnector):
@@ -125,45 +139,91 @@ class KaggleConnector(BaseConnector):
             logger.exception(f"Failed to list files in dataset {self.dataset}")
             raise DataSourceConnectionError(f"Failed to list dataset files: {e}")
     
+    def _extract_zip(self, basename: str, file_path: str, zip_path: str) -> str:
+        """Extract *basename* from *zip_path* to *file_path* and return *file_path*."""
+        logger.info(f"Extracting {zip_path} → {file_path}")
+        with zipfile.ZipFile(zip_path, 'r') as zf:
+            members = zf.namelist()
+            target = next(
+                (m for m in members if os.path.basename(m).lower() == basename.lower()),
+                None,
+            )
+            if target is None:
+                raise DataSourceConnectionError(
+                    f"Could not find {basename} inside {zip_path}. Contents: {members}"
+                )
+            extracted = zf.extract(target, self.download_dir)
+            if os.path.abspath(extracted) != os.path.abspath(file_path):
+                os.replace(extracted, file_path)
+        if not os.path.exists(file_path):
+            raise DataSourceConnectionError(f"Extraction succeeded but {file_path} not found")
+        self.downloaded_files.append(file_path)
+        logger.info(f"Successfully extracted {basename} to {file_path}")
+        return file_path
+
     def _download_file(self, filename: str) -> str:
-        """Download a specific file from the dataset to the session directory."""
+        """Download a specific file from the dataset to the session directory.
+
+        Kaggle always stores downloads using only the file's basename (stripping
+        any directory prefix that appears in the dataset file listing), and may
+        wrap the file in a .zip archive.  We therefore normalise the local path
+        to a flat file inside *download_dir* using just the basename.
+        """
         if not self.api or not self.dataset or not self.download_dir:
             raise DataSourceConnectionError("Not connected to a Kaggle dataset")
-        
-        file_path = os.path.join(self.download_dir, filename)
-        
-        # Skip if already downloaded
+
+        basename = os.path.basename(filename)
+        file_path = os.path.join(self.download_dir, basename)
+        zip_path = os.path.join(self.download_dir, basename + ".zip")
+
+        # Fast path (no lock): already fully extracted.
         if os.path.exists(file_path):
             logger.debug(f"File {filename} already downloaded to {file_path}")
             return file_path
-        
-        try:
-            owner, dataset_name = self.dataset.split('/')
-            logger.info(f"Downloading {filename} from {self.dataset}...")
-            # Note: dataset_download_file signature is (owner, dataset, file_name, path=None, force=False, quiet=True)
-            self.api.dataset_download_file(
-                dataset=f"{owner}/{dataset_name}",
-                file_name=filename,
-                path=self.download_dir,
-                force=False,
-                quiet=False
-            )
-            
-            if not os.path.exists(file_path):
-                raise DataSourceConnectionError(f"File {filename} was not downloaded successfully")
-            
-            self.downloaded_files.append(file_path)
-            logger.info(f"Successfully downloaded {filename} to {file_path}")
-            return file_path
-        except Exception as e:
-            error_msg = str(e)
-            if '403' in error_msg or 'Forbidden' in error_msg:
-                raise DataSourceConnectionError(
-                    f"Cannot download file from dataset '{self.dataset}': 403 Forbidden. "
-                    f"Visit https://www.kaggle.com/datasets/{self.dataset} to accept the dataset's terms and conditions."
+
+        # Serialise concurrent requests for the same file to avoid racing downloads.
+        with _get_download_lock(file_path):
+            # Double-checked locking: another thread may have finished while we waited.
+            if os.path.exists(file_path):
+                logger.debug(f"File {filename} already downloaded to {file_path} (waited for lock)")
+                return file_path
+
+            # Zip may have been left from a previous (partial) run.
+            if os.path.exists(zip_path):
+                return self._extract_zip(basename, file_path, zip_path)
+
+            try:
+                owner, dataset_name = self.dataset.split('/')
+                logger.info(f"Downloading {filename} from {self.dataset}...")
+                self.api.dataset_download_file(
+                    dataset=f"{owner}/{dataset_name}",
+                    file_name=filename,
+                    path=self.download_dir,
+                    force=False,
+                    quiet=False
                 )
-            logger.exception(f"Failed to download file {filename} from dataset {self.dataset}")
-            raise DataSourceConnectionError(f"Failed to download file {filename}: {e}")
+
+                if os.path.exists(file_path):
+                    self.downloaded_files.append(file_path)
+                    logger.info(f"Successfully downloaded {filename} to {file_path}")
+                    return file_path
+
+                # Kaggle API may deliver the file wrapped in a .zip
+                if os.path.exists(zip_path):
+                    return self._extract_zip(basename, file_path, zip_path)
+
+                raise DataSourceConnectionError(f"File {filename} was not downloaded successfully")
+            except DataSourceConnectionError:
+                raise
+            except Exception as e:
+                error_msg = str(e)
+                if '403' in error_msg or 'Forbidden' in error_msg:
+                    raise DataSourceConnectionError(
+                        f"Cannot download file from dataset '{self.dataset}': 403 Forbidden. "
+                        f"Visit https://www.kaggle.com/datasets/{self.dataset} to accept the dataset's terms and conditions."
+                    )
+                logger.exception(f"Failed to download file {filename} from dataset {self.dataset}")
+                raise DataSourceConnectionError(f"Failed to download file {filename}: {e}")
     
     def connect(self, connection_details: Dict[str, Any]) -> None:
         """Establish a connection to a Kaggle dataset."""
@@ -297,51 +357,65 @@ class KaggleConnector(BaseConnector):
             if con:
                 con.close()
     
+    def _build_duckdb_con(self) -> duckdb.DuckDBPyConnection:
+        """Download all CSV files and return a DuckDB connection with views registered."""
+        csv_files = self._list_dataset_files()
+        for csv_file in csv_files:
+            self._download_file(csv_file)
+        con = duckdb.connect(database=':memory:', read_only=False)
+        for csv_file in csv_files:
+            table_name = self._sanitize_table_name(csv_file)
+            file_path = os.path.join(self.download_dir, os.path.basename(csv_file))
+            safe_view_name = f'"{table_name}"'
+            csv_reader_sql = f"read_csv_auto('{file_path}', ignore_errors=true)"
+            create_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {csv_reader_sql};"
+            logger.debug(f"Creating view {table_name} from {csv_file}")
+            con.execute(create_view_sql)
+        return con
+
+    def fetch_data_arrow(self, query: str) -> pa.Table:
+        """Execute query and return an Arrow Table directly from DuckDB (preserves types)."""
+        if not self.dataset:
+            raise DataSourceConnectionError("Not connected to a Kaggle dataset")
+        con = None
+        try:
+            con = self._build_duckdb_con()
+            logger.debug(f"Executing arrow query: {query}")
+            return con.execute(query).fetch_arrow_table()
+        except Exception as e:
+            logger.exception("Error executing arrow query on Kaggle dataset")
+            raise QueryExecutionError(f"Failed to execute query: {e}")
+        finally:
+            if con:
+                con.close()
+
     def fetch_data(self, query: str) -> Tuple[List[Dict[str, str]], List[Dict[str, Any]]]:
         """Execute query against downloaded Kaggle dataset files using DuckDB."""
         if not self.dataset:
             raise DataSourceConnectionError("Not connected to a Kaggle dataset")
-        
-        # Parse query to find which tables are referenced
-        # For simplicity, download all CSV files that might be needed
-        csv_files = self._list_dataset_files()
-        
-        # Download all CSV files (they'll be cached if already downloaded)
-        for csv_file in csv_files:
-            self._download_file(csv_file)
-        
+
         # Execute query using DuckDB
         con = None
         try:
-            con = duckdb.connect(database=':memory:', read_only=False)
-            
-            # Create views for all downloaded CSV files
-            for csv_file in csv_files:
-                table_name = self._sanitize_table_name(csv_file)
-                file_path = os.path.join(self.download_dir, csv_file)
-                safe_view_name = f'"{table_name}"'
-                csv_reader_sql = f"read_csv_auto('{file_path}', ignore_errors=true)"
-                create_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {csv_reader_sql};"
-                logger.debug(f"Creating view {table_name} from {csv_file}")
-                con.execute(create_view_sql)
-            
+            con = self._build_duckdb_con()
+
             # Execute the user's query
             logger.debug(f"Executing query: {query}")
             result_relation = con.execute(query)
             arrow_table = result_relation.fetch_arrow_table()
-            
+
             # Extract columns and rows
             columns = []
             if arrow_table.schema:
                 for i in range(len(arrow_table.schema)):
                     field = arrow_table.schema.field(i)
                     columns.append({'name': field.name, 'type': str(field.type)})
-            
+
             rows = arrow_table.to_pylist()
-            
+
             # Convert any Decimal types to floats for JSON serialization
             rows = process_query_result_data(rows)
-            
+
             logger.debug(f"Query returned {len(columns)} columns and {len(rows)} rows")
             return columns, rows
         except Exception as e:
