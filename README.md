@@ -21,7 +21,6 @@ Data Slicer is a full-stack data analysis platform consisting of:
 - **Interactive Charts**: Dynamic chart generation using [Observable Plot](https://observablehq.com/plot)
 - **Multi-Chart Faceting**: Sophisticated faceting system for multi-dimensional data exploration
 - **Field Classification**: Intelligent field type detection and classification system
-- **Responsive Design**: Mobile-friendly interface with adaptive layouts
 - **Multi-Sheet Support**: Create and manage multiple visualization sheets in a single workspace
 - **Save/Load Configurations**: Export and import complete workspace configurations as JSON files
 
