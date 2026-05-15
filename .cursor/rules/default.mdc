@@ -30,7 +30,7 @@ alwaysApply: true
 
 ## Validation
 - Execute tests in the backend only.
-- Generate or update backend tests when needed to maintain reasonable coverage for changed behavior.
+- Generate or update tests when needed to maintain reasonable coverage for changed behavior.
 - If execution is not possible, provide exact verification steps.
 
 ## Documentation
@@ -39,6 +39,5 @@ alwaysApply: true
 ## Architecture
 ### Data Sources
 - Clickhouse: Beware -> Column names in tables can have a '.' in the name.
-  Some column names repeat the table name: Column name is "<table_name>.<name>"
-  This is important!
+  Some column names may repeat the table name: Column name is "<table_name>.<name>"
 - Don't duplicate existing code. Look around.

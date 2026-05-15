@@ -12,6 +12,7 @@ from pypika.functions import (
     Length, Substring, Cast
 )
 
+from backend.dialects import get_dialect, ClickHouseDialect
 from backend.exceptions import QueryGenerationError
 from backend.models.data_source import VirtualColumnDefinition
 
@@ -74,19 +75,14 @@ class SplitFunctionTerm(Term):
         self.index = index
         self.db_type = db_type
 
-    def _normalized_db_type(self, explicit: Optional[str]) -> str:
-        db_type = (explicit or self.db_type or 'clickhouse').lower()
-        if db_type in {'csv', 'file', 'duckdb', 'kaggle', 'hive_parquet'}:
-            return 'duckdb'
-        return db_type
-
     def get_sql(self, **kwargs) -> str:
-        db_type = self._normalized_db_type(kwargs.get('db_type'))
+        raw_db_type = (kwargs.get('db_type') or self.db_type or 'clickhouse').lower()
+        use_clickhouse = isinstance(get_dialect(raw_db_type), ClickHouseDialect)
         value_sql = self.value.get_sql(**kwargs)
         delimiter_sql = self.delimiter.get_sql(**kwargs)
         index_sql = self.index.get_sql(**kwargs)
 
-        if db_type == 'clickhouse':
+        if use_clickhouse:
             safe_value_sql = f"coalesce({value_sql}, '')"
             parts_sql = f"splitByString({delimiter_sql}, {safe_value_sql})"
             length_sql = f"toInt64(length({parts_sql}))"
@@ -589,7 +585,7 @@ class VirtualColumnExpressionBuilder:
 
         # For DuckDB, promote narrow integer columns to BIGINT to prevent arithmetic
         # overflow in virtual column expressions (e.g. UINT16 * 20480 overflows).
-        if self.db_type == 'duckdb' and self.column_types:
+        if not isinstance(get_dialect(self.db_type), ClickHouseDialect) and self.column_types:
             col_type = self.column_types.get(bare_name) or self.column_types.get(field_name, '')
             if col_type in _NARROW_INT_TYPES:
                 logger.debug(
@@ -636,12 +632,9 @@ class VirtualColumnExpressionBuilder:
 
     @staticmethod
     def _normalize_db_type(db_type: Optional[str]) -> str:
-        if not db_type:
-            return 'clickhouse'
-        normalized = db_type.lower()
-        if normalized in {'csv', 'file', 'duckdb', 'kaggle', 'hive_parquet'}:
-            return 'duckdb'
-        return normalized
+        # Return the dialect's canonical name so internal comparisons use the
+        # dialect hierarchy instead of ad-hoc string sets.
+        return get_dialect(db_type or 'clickhouse').name
 
     @staticmethod
     def _ensure_term(value: Any) -> Term:
