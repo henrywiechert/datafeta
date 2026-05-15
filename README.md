@@ -13,7 +13,7 @@ Data Slicer is a full-stack data analysis platform consisting of:
 
 ### Data Source Support
 - **Database Connectivity**: Connect to various databases through configurable connectors
-- **File Support**: Upload and analyze CSV files using integrated DuckDB engine in backend
+- **File Support**: Upload and analyze CSV/parquet files using integrated DuckDB engine in backend
 - **Query Generation**: Dynamic SQL query generation with pypika notation
 - **Efficient Caching**: In-Browser [DuckDB WASM](https://duckdb.org/docs/stable/clients/wasm/overview) based column caching for best UX
 
@@ -26,7 +26,7 @@ Data Slicer is a full-stack data analysis platform consisting of:
 
 ### Architecture
 - **Frontend**: React with TypeScript, Material-UI components
-- **Backend**: FastAPI with Python, supporting multiple database connectors
+- **Backend**: FastAPI with Python, supporting multiple database connectors, arrow transport
 - **Data Processing**: DuckDB for file-based data processing
 - **State Management**: Context-based state management with loading and error handling
 

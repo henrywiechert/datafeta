@@ -25,6 +25,7 @@ from __future__ import annotations
 import logging
 from typing import List
 
+from backend.dialects import get_dialect, ClickHouseDialect
 from backend.models.query import QueryDescription
 
 logger = logging.getLogger(__name__)
@@ -215,7 +216,7 @@ def build_cdf_sql(
 
     breakpoints = _generate_breakpoints(num_breakpoints)
 
-    if db_type == "clickhouse":
+    if isinstance(get_dialect(db_type), ClickHouseDialect):
         sql = _build_clickhouse_sql(
             query_desc, quote_char, breakpoints,
             filter_sql_fragment=filter_sql_fragment,

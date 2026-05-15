@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import List, Optional, Sequence, Tuple
 
+from backend.dialects import get_dialect, ClickHouseDialect
 from backend.models.query import QueryDescription
 
 
@@ -140,18 +141,7 @@ def build_box_plot_sql(
 
     table_ref = from_clause or f"FROM {_quote(query_desc.target_table, quote_char)}"
 
-    if db_type in ("duckdb", "kaggle"):
-        return _build_duckdb_sql(
-            query_desc,
-            quote_char,
-            group_fields,
-            deduped_values,
-            filter_sql_fragment=filter_sql_fragment,
-            from_clause=table_ref,
-            color_field_sql=color_field_sql,
-        )
-
-    if db_type == "clickhouse":
+    if isinstance(get_dialect(db_type), ClickHouseDialect):
         return _build_clickhouse_sql(
             query_desc,
             quote_char,
@@ -162,4 +152,12 @@ def build_box_plot_sql(
             color_field_sql=color_field_sql,
         )
 
-    raise ValueError(f"Unsupported database type for box_plot query: {db_type}")
+    return _build_duckdb_sql(
+        query_desc,
+        quote_char,
+        group_fields,
+        deduped_values,
+        filter_sql_fragment=filter_sql_fragment,
+        from_clause=table_ref,
+        color_field_sql=color_field_sql,
+    )
