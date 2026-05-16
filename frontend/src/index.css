@@ -1,0 +1,112 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial,
+    sans-serif;
+  overscroll-behavior: none; /* Prevent browser navigation gestures on touchpads */
+  
+  /* Enhanced font smoothing for all platforms, especially Windows */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Windows-specific font smoothing improvements */
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "liga", "kern";
+  /* Improve font rendering on Windows */
+  font-variant-ligatures: normal;
+  font-kerning: normal;
+}
+
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* Enhanced font rendering for chart text elements and axis labels */
+svg text, 
+svg tspan,
+.plot-text,
+.axis-label,
+.chart-text {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "liga", "kern";
+  font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial,
+    sans-serif;
+}
+
+/* Styles for react-resizable-panels resize handles */
+[data-panel-resize-handle-id] {
+  flex: 0 0 6px;
+  background-color: #e0e0e0;
+  position: relative;
+  transition: background-color 0.2s ease;
+  cursor: col-resize;
+}
+
+[data-panel-resize-handle-id]:hover {
+  background-color: #1976d2;
+}
+
+[data-panel-resize-handle-id]:active {
+  background-color: #1565c0;
+}
+
+/* Add a visual indicator on hover */
+[data-panel-resize-handle-id]::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 40px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+[data-panel-resize-handle-id]:hover::before {
+  background-color: rgba(255, 255, 255, 0.8);
+}
+
+/* Observable Plot tooltip styling */
+.plot-tip {
+  /* Typography */
+  font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial,
+    sans-serif;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+  
+  /* Colors */
+  background-color: rgba(20, 20, 20, 0.95) !important;
+  color: #ffffff !important;
+  
+  /* Spacing */
+  padding: 8px 12px !important;
+  
+  /* Border and shadow */
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 4px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+  
+  /* Font smoothing */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  
+  /* Prevent text overflow */
+  max-width: 400px !important;
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+}

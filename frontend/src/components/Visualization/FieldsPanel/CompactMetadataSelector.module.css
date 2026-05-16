@@ -1,0 +1,28 @@
+.metadataSelector {
+  padding: 8px 10px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-bottom: 1px solid #e0e0e0;
+  background-color: #f8f8f8;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  position: relative;
+  margin-bottom: 0px;
+  gap: 4px;
+}
+
+.error {
+  color: #d32f2f;
+  font-size: 0.75rem;
+}

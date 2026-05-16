@@ -1,0 +1,361 @@
+/* Custom tooltip with full HTML/CSS control */
+.custom-tooltip {
+  position: fixed;
+  pointer-events: none;
+  z-index: 999999;
+  text-align: left;
+  
+  /* Styling matching existing .plot-tip */
+  background: rgba(20, 20, 20, 0.95);
+  color: #ffffff;
+  padding: 8px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  
+  /* Typography */
+  font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 11px;
+  line-height: 1.5;
+  
+  /* Font smoothing */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  
+  /* Layout */
+  max-width: 800px;
+  width: max-content; /* Ensure consistent width calculation */
+  
+  /* Animation */
+  animation: tooltipFadeIn 0.15s ease-in;
+}
+
+/* When inside fullscreen element, use absolute positioning */
+:fullscreen .custom-tooltip,
+:-webkit-full-screen .custom-tooltip,
+:-moz-full-screen .custom-tooltip,
+:-ms-fullscreen .custom-tooltip {
+  position: absolute;
+}
+
+@keyframes tooltipFadeIn {
+  from { 
+    opacity: 0;
+    transform: translate(10px, -50%) scale(0.95);
+  }
+  to { 
+    opacity: 1;
+    transform: translate(10px, -50%) scale(1);
+  }
+}
+
+/* Positioning variants */
+.custom-tooltip--right {
+  transform: translate(10px, -50%);
+  max-width: 800px;
+}
+
+.custom-tooltip--left {
+  transform: translate(calc(-100% - 10px), -50%);
+  max-width: 800px; /* Ensure same max-width as right */
+}
+
+.custom-tooltip--left {
+  animation: tooltipFadeInLeft 0.15s ease-in;
+}
+
+@keyframes tooltipFadeInLeft {
+  from { 
+    opacity: 0;
+    transform: translate(calc(-100% - 10px), -50%) scale(0.95);
+  }
+  to { 
+    opacity: 1;
+    transform: translate(calc(-100% - 10px), -50%) scale(1);
+  }
+}
+
+/* Tooltip row - each field */
+.custom-tooltip__row {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  margin: 2px 0;
+}
+
+.custom-tooltip__row:first-child {
+  margin-top: 0;
+}
+
+.custom-tooltip__row:last-child {
+  margin-bottom: 0;
+}
+
+/* Header with color swatch */
+.custom-tooltip__header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.custom-tooltip__color-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  margin-right: 6px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.2) inset;
+}
+
+.custom-tooltip__header-spacer {
+  flex: 1 1 auto;
+}
+
+/* Label - BOLD */
+.custom-tooltip__label {
+  font-weight: bold;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+/* Value - NORMAL */
+.custom-tooltip__value {
+  font-weight: normal;
+  color: #e0e0e0;
+  text-align: left;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Optional: Add slight spacing between label and value */
+.custom-tooltip__label::after {
+  content: '';
+  display: inline-block;
+  width: 4px;
+}
+
+/* Highlight hovered chart marks */
+.chart-mark--highlighted {
+  /* Subtle highlight without changing visual size */
+  filter: brightness(1.1);
+  transition: filter 0.15s ease-out, stroke 0.15s ease-out, stroke-width 0.15s ease-out;
+  cursor: pointer;
+  /* Dark frame around the hovered element */
+  stroke: rgba(0, 0, 0, 0.6);
+  stroke-width: 1.5px;
+}
+
+/* Stronger highlight for tick strip lines (they're thin so need more emphasis) */
+line.chart-mark--highlighted {
+  filter: brightness(0.7);
+  stroke: rgba(0, 0, 0, 0.9);
+  stroke-width: 3px;
+}
+
+/* ---------------------------------------------------------------------------
+   Pinned tooltip overrides
+   --------------------------------------------------------------------------- */
+
+/* Enable pointer events so buttons inside are clickable */
+.custom-tooltip--pinned {
+  pointer-events: auto;
+  animation: none; /* No entrance animation on pin */
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+
+/* Close button – top-right corner of pinned tooltip */
+.custom-tooltip__close {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  padding: 2px;
+  line-height: 0;
+  border-radius: 3px;
+  transition: color 0.12s, background 0.12s;
+}
+
+.custom-tooltip__close:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Ensure row wraps to accommodate action buttons */
+.custom-tooltip--pinned .custom-tooltip__row {
+  padding-right: 20px; /* Leave room for close button on first row */
+}
+
+/* Inline filter action icons container */
+.custom-tooltip__actions {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 6px;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+/* Individual action button */
+.custom-tooltip__action-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  padding: 1px 2px;
+  line-height: 0;
+  transition: color 0.12s, background 0.12s, border-color 0.12s;
+}
+
+.custom-tooltip__action-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.custom-tooltip__action-btn--keep:hover {
+  color: #66bb6a; /* Green tint for "keep" */
+}
+
+.custom-tooltip__action-btn--exclude:hover {
+  color: #ef5350; /* Red tint for "exclude" */
+}
+
+.custom-tooltip__action-btn--filter-visible:hover {
+  color: #42a5f5; /* Blue tint for "filter visible" */
+}
+
+.custom-tooltip__comparison {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.custom-tooltip__comparison-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 11px;
+  cursor: pointer;
+  user-select: none;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+}
+
+.custom-tooltip__comparison-mode-label {
+  line-height: 1.1;
+}
+
+.custom-tooltip__comparison-mode-box {
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.custom-tooltip__comparison-mode-box--checked {
+  background: #42a5f5;
+  border-color: #42a5f5;
+  box-shadow: inset 0 0 0 2px rgba(15, 23, 42, 0.45);
+}
+
+.custom-tooltip__comparison-toggle {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  padding: 5px 8px;
+  text-align: left;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.custom-tooltip__comparison-toggle:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.custom-tooltip__comparison-panel {
+  margin-top: 8px;
+  min-width: 260px;
+}
+
+.custom-tooltip__comparison-title {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.custom-tooltip__comparison-subtitle {
+  color: rgba(255, 255, 255, 0.72);
+  margin-top: 2px;
+}
+
+.custom-tooltip__comparison-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 4px;
+}
+
+.custom-tooltip__comparison-item {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 10px minmax(0, 1fr) auto auto;
+  padding: 2px 8px;
+}
+
+.custom-tooltip__comparison-item--selected {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.custom-tooltip__comparison-swatch {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.22) inset;
+  display: inline-block;
+  height: 10px;
+  width: 10px;
+}
+
+.custom-tooltip__comparison-series {
+  color: #ffffff;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-tooltip__comparison-value {
+  color: #f0f0f0;
+  font-variant-numeric: tabular-nums;
+}
+
+.custom-tooltip__comparison-delta {
+  color: #a9d4ff;
+  font-variant-numeric: tabular-nums;
+}
+
+

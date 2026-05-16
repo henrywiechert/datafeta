@@ -1,0 +1,76 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background-color: #fafafa;
+}
+
+
+.chipContainer {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  padding: 4px 8px;
+  gap: 4px;
+}
+
+.chipCell {
+  min-width: 0;
+}
+
+.chip {
+  flex: 1;
+  justify-content: space-between;
+  max-width: 100%;
+}
+
+.chip.discrete {
+  background-color: #e3f2fd !important; /* Light blue background */
+  border: 1px solid #1976d2 !important;
+}
+
+.chip.continuous {
+  background-color: #e8f5e8 !important; /* Light green background */
+  border: 1px solid #388e3c !important;
+}
+
+.chip .MuiChip-label {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.menuButton {
+  padding: 2px;
+}
+
+.expandButton {
+  padding: 4px;
+}
+
+.controlContainer {
+  border-top: 1px solid #e0e0e0;
+  background-color: white;
+}
+
+.loading {
+  padding: 12px;
+  text-align: center;
+  font-size: 12px;
+  color: #666;
+}
+
+/* Disabled filter: dashed border + dimmed chip label */
+.disabled {
+  border-style: dashed;
+  border-color: #9e9e9e;
+  background-color: #f5f5f5;
+}
+
+.chipCellDisabled {
+  opacity: 0.45;
+}
+
+

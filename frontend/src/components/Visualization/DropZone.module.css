@@ -1,0 +1,29 @@
+.dropZone {
+    padding: 16px;
+    margin-bottom: 0px;
+    border: 1px dashed #ccc;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    background-color: #f9f9f9;
+    gap: 1px;
+    flex-wrap: wrap;
+    transition: all 0.2s ease;
+}
+
+.dropZone.isOver {
+    border-color: #2196f3;
+    background-color: #e3f2fd;
+    box-shadow: inset 0 0 0 1px #2196f3;
+}
+
+.dropZone.canDrop {
+    border-color: #4caf50;
+    background-color: #f1f8e9;
+}
+
+.dropLine {
+    pointer-events: none;
+    transition: all 0.2s ease;
+} 

@@ -1,0 +1,43 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 4px;
+  min-width: 400px;
+}
+
+.dateTimeRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inputsContainer {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.dateInput {
+  flex: 2;
+  min-width: 140px;
+}
+
+.timeInput {
+  flex: 2;
+  min-width: 110px;
+}
+
+.msInput {
+  flex: 1;
+  min-width: 80px;
+}
+
+/* Ensure number input for milliseconds looks good */
+.msInput input[type="number"]::-webkit-inner-spin-button,
+.msInput input[type="number"]::-webkit-outer-spin-button {
+  opacity: 1;
+}
+

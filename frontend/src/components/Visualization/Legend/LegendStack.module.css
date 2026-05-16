@@ -1,0 +1,58 @@
+.stackContainer {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  flex-shrink: 0;
+  margin-left: 8px;
+  background-color: #fafafa;
+  border-left: 1px solid #e0e0e0;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.stackContent {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  /* Allow overall stack to scroll if all sections together exceed height */
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar for the stack */
+.stackContent::-webkit-scrollbar {
+  width: 8px;
+}
+
+.stackContent::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.stackContent::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 4px;
+}
+
+.stackContent::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
+}
+
+.resizeHandle {
+  position: absolute;
+  top: 0;
+  left: -4px;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  background-color: transparent;
+}
+
+.resizeHandle:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
+.resizeHandleActive {
+  background-color: rgba(0, 0, 0, 0.12);
+}

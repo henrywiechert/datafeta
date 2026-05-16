@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Join / Union Detail - API</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 14px; margin-top: 12px; overflow-x: auto; }
+    h1 { margin: 0 0 8px; }
+    p { color: #334155; margin: 0 0 8px; }
+    svg { width: 100%; min-width: 920px; height: auto; display: block; }
+    .box { rx: 12; ry: 12; stroke: #64748b; stroke-width: 1.2; }
+    .label { font-size: 14px; font-weight: 700; }
+    .small { font-size: 12px; fill: #334155; }
+    .arrow { stroke: #64748b; stroke-width: 1.4; fill: none; marker-end: url(#a); }
+    .top a { color: #1d4ed8; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top"><a href="table-join-union-architecture.html">← Back to high-level view</a></div>
+    <h1>Detail: API Request Layer</h1>
+    <p>Metadata APIs define schema/relationships; query APIs execute virtual table requests.</p>
+
+    <div class="card">
+      <svg viewBox="0 0 980 240" role="img" aria-label="API mid-level flow">
+        <defs>
+          <marker id="a" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"></polygon>
+          </marker>
+        </defs>
+        <rect class="box" x="20" y="40" width="280" height="130" fill="#ede9fe"></rect>
+        <text x="35" y="70" class="label">Metadata endpoints</text>
+        <text x="35" y="92" class="small">`/suggested-joins`</text>
+        <text x="35" y="108" class="small">`/merged-columns`</text>
+        <text x="35" y="124" class="small">returns virtual schema</text>
+
+        <path class="arrow" d="M300 105 L380 105"></path>
+
+        <rect class="box" x="380" y="40" width="250" height="130" fill="#ede9fe"></rect>
+        <text x="395" y="70" class="label">Query endpoints</text>
+        <text x="395" y="92" class="small">`/query`</text>
+        <text x="395" y="108" class="small">`/query-arrow`</text>
+        <text x="395" y="124" class="small">`/row-count`, `/distinct-count`</text>
+
+        <path class="arrow" d="M630 105 L710 105"></path>
+
+        <rect class="box" x="710" y="40" width="250" height="130" fill="#ede9fe"></rect>
+        <text x="725" y="70" class="label">Router processing</text>
+        <text x="725" y="92" class="small">parse `QueryDescription`</text>
+        <text x="725" y="108" class="small">pass to execution service</text>
+        <text x="725" y="124" class="small">join/union branch later</text>
+      </svg>
+    </div>
+
+    <div class="card">
+      <p><strong>Low-level notes</strong></p>
+      <p>- Metadata router: `backend/routers/relationships.py`</p>
+      <p>- Query router: `backend/routers/query.py`</p>
+      <p>- Shared request object: `QueryDescription` (includes `virtual_table`)</p>
+    </div>
+  </div>
+</body>
+</html>

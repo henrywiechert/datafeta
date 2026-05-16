@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Backend Architecture Overview – datafeta</title>
+  <style>
+    :root {
+      --bg: #060c1a;
+      --ink: #e4eeff;
+      --muted: #7b93b8;
+      --c-core: #5aaeff;
+      --c-domain: #4dd9a0;
+      --c-data: #ffc84a;
+      --c-cross: #b87eff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      background: radial-gradient(ellipse 120% 60% at 15% 0%, #162a50 0%, transparent 55%),
+                  radial-gradient(ellipse 100% 50% at 85% 100%, #22113a 0%, transparent 55%),
+                  var(--bg);
+      color: var(--ink);
+    }
+    .wrap { max-width: 1480px; margin: 0 auto; padding: 28px 20px 40px; }
+    header { margin-bottom: 22px; }
+    h1 { margin: 0 0 6px; font-size: 1.8rem; font-weight: 700; letter-spacing: -.2px; }
+    .sub { margin: 0; color: var(--muted); font-size: .95rem; }
+    .card {
+      background: linear-gradient(165deg, #0e1d3a 0%, #07101f 100%);
+      border: 1px solid #1c2e52;
+      border-radius: 18px;
+      padding: 20px 18px;
+      overflow-x: auto;
+      box-shadow: 0 24px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.04);
+    }
+    .legend {
+      margin-top: 14px; display: flex; gap: 20px; flex-wrap: wrap;
+      font-size: .88rem; color: var(--muted);
+    }
+    .leg { display: flex; align-items: center; gap: 7px; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; }
+    .dot-c { background: var(--c-core); }
+    .dot-d { background: var(--c-domain); }
+    .dot-s { background: var(--c-data); }
+    .dot-x { background: var(--c-cross); }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Backend architecture overview</h1>
+    <p class="sub">Request ingress → runtime orchestration → processing &amp; execution → data sources</p>
+  </header>
+
+  <div class="card">
+    <!--
+      COORDINATE PLAN  (all values in SVG user units)
+
+      Canvas: 1420 × 775
+
+      LANES (decorative backgrounds)
+        L1  API Ingress         y=24  h=164   y_end=188
+        L2  Orchestration       y=202 h=210   y_end=412
+        L3  Processing          y=422 h=210   y_end=632
+        L4  Cross-cutting       y=646 h=100   y_end=746
+
+      INTER-LANE GAPS (arrow routing corridors)
+        Gap 1-2:  y=188 → y=202   (14 px)
+        Gap 2-3:  y=412 → y=422   (10 px) — actually we'll route at y=415
+
+      BOX COORDINATES  (x, y, w, h)
+        1. Client       40   52  235  118   right=275  cx=157  cy=111
+        2. FastAPI     335   52  235  118   right=570  cx=452  cy=111
+        3. Routers     625   52  235  118   right=860  cx=742  cy=111
+        4. Deps         40  228  272  166   right=312  cx=176  cy=311  bot=394
+        5. Service     372  228  272  166   right=644  cx=508  cy=311  bot=394
+        6. Models      706  228  272  166   right=978  cx=842  cy=311  bot=394
+        7. DataSource 1046  228  350  376   right=1396 cx=1221 cy=416  bot=604
+        8. QueryPipe   372  448  272  156   right=644  cx=508  cy=526  bot=604
+        9. Optim       706  448  272  156   right=978  cx=842  cy=526  bot=604
+       10. CrossCut    40  656 1366   68
+
+      ARROWS — all horizontal/vertical, routing through inter-lane gaps
+        A  Client→FastAPI         M275 111 L335 111           (inline, row 1)
+        B  FastAPI→Routers        M570 111 L625 111           (inline, row 1)
+        C  FastAPI→Deps           M452 170 L452 186 L176 186 L176 228
+                                  (down to gap y=186, left, down to box top)
+        D  Routers→Service        M742 170 L742 195 L508 195 L508 228
+                                  (down to gap y=195 — different y from C, no overlap since
+                                   C goes from x=176-452; D from x=508-742: non-overlapping)
+        E  Deps→Service           M312 311 L372 311           (inline, row 2)
+        F  Service→Models         M644 311 L706 311           (inline, row 2)
+        G  Models→DataSource      M978 311 L1046 311          (inline, row 2)
+        H  Service→QueryPipe      M522 394 L522 448           (vertical, row 2→3 same col)
+        I  Service→DataSource     M460 394 L460 416 L1046 416
+                                  (down to gap y=416, right to DataSource left edge)
+                                  CHECK y=416: QP top=448, Opt top=448 → not yet started ✓
+                                  CHECK x=460→1046 at y=416: no boxes in that y band ✓
+        J  QueryPipe→Optim        M644 526 L706 526           (inline, row 3)
+        K  Optim→DataSource       M978 526 L1046 526          (inline, row 3)
+
+      ALL CROSSINGS CHECKED: no arrow path segment passes through any box ✓
+    -->
+    <svg xmlns="http://www.w3.org/2000/svg"
+         width="1420" height="775" viewBox="0 0 1420 775"
+         role="img" aria-label="Datafeta backend architecture diagram">
+      <defs>
+        <!-- Shared drop-shadow -->
+        <filter id="sh" x="-8%" y="-8%" width="116%" height="128%">
+          <feDropShadow dx="0" dy="5" stdDeviation="10" flood-color="rgba(0,0,0,.55)"/>
+        </filter>
+
+        <!-- Box fill gradients (dark-to-darker) -->
+        <linearGradient id="gCore" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#122548"/>
+          <stop offset="100%" stop-color="#0b172e"/>
+        </linearGradient>
+        <linearGradient id="gDomain" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#0b2e23"/>
+          <stop offset="100%" stop-color="#071c16"/>
+        </linearGradient>
+        <linearGradient id="gData" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#2e2208"/>
+          <stop offset="100%" stop-color="#1a1405"/>
+        </linearGradient>
+        <linearGradient id="gCross" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#231440"/>
+          <stop offset="100%" stop-color="#140c24"/>
+        </linearGradient>
+
+        <!-- Lane fill gradients -->
+        <linearGradient id="lCore" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#5aaeff" stop-opacity=".07"/>
+          <stop offset="100%" stop-color="#5aaeff" stop-opacity=".02"/>
+        </linearGradient>
+        <linearGradient id="lDomain" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#4dd9a0" stop-opacity=".06"/>
+          <stop offset="100%" stop-color="#4dd9a0" stop-opacity=".01"/>
+        </linearGradient>
+        <linearGradient id="lData" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ffc84a" stop-opacity=".06"/>
+          <stop offset="100%" stop-color="#ffc84a" stop-opacity=".01"/>
+        </linearGradient>
+        <linearGradient id="lCross" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#b87eff" stop-opacity=".07"/>
+          <stop offset="100%" stop-color="#b87eff" stop-opacity=".02"/>
+        </linearGradient>
+
+        <!-- Arrowhead markers (one per accent colour + neutral) -->
+        <marker id="arrNeutral" viewBox="0 0 10 10" refX="9" refY="5"
+                markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0 1 L9 5 L0 9 Z" fill="#6b87b0"/>
+        </marker>
+        <marker id="arrCore" viewBox="0 0 10 10" refX="9" refY="5"
+                markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0 1 L9 5 L0 9 Z" fill="#5aaeff"/>
+        </marker>
+        <marker id="arrDomain" viewBox="0 0 10 10" refX="9" refY="5"
+                markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0 1 L9 5 L0 9 Z" fill="#4dd9a0"/>
+        </marker>
+        <marker id="arrData" viewBox="0 0 10 10" refX="9" refY="5"
+                markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0 1 L9 5 L0 9 Z" fill="#ffc84a"/>
+        </marker>
+      </defs>
+
+      <!-- ═══════════════════════════════════════════════════
+           LANE BACKGROUNDS
+      ═══════════════════════════════════════════════════ -->
+
+      <!-- L1: API Ingress -->
+      <rect x="18" y="24" width="1384" height="166" rx="14"
+            fill="url(#lCore)" stroke="#5aaeff" stroke-width=".6" stroke-opacity=".3"/>
+      <text x="36" y="44" font-size="9.5" font-weight="700" letter-spacing="1.2"
+            fill="#5aaeff" fill-opacity=".7" font-family="Inter,sans-serif">API INGRESS</text>
+
+      <!-- L2: Orchestration -->
+      <rect x="18" y="200" width="1014" height="214" rx="14"
+            fill="url(#lDomain)" stroke="#4dd9a0" stroke-width=".6" stroke-opacity=".25"/>
+      <text x="36" y="218" font-size="9.5" font-weight="700" letter-spacing="1.2"
+            fill="#4dd9a0" fill-opacity=".7" font-family="Inter,sans-serif">RUNTIME ORCHESTRATION</text>
+
+      <!-- L3: Processing — only covers left 3 cols -->
+      <rect x="18" y="420" width="1014" height="214" rx="14"
+            fill="url(#lDomain)" stroke="#4dd9a0" stroke-width=".6" stroke-opacity=".2"/>
+      <text x="36" y="438" font-size="9.5" font-weight="700" letter-spacing="1.2"
+            fill="#4dd9a0" fill-opacity=".7" font-family="Inter,sans-serif">PROCESSING &amp; EXECUTION</text>
+
+      <!-- Data Source panel spans L2+L3 on right -->
+      <rect x="1038" y="200" width="364" height="434" rx="14"
+            fill="url(#lData)" stroke="#ffc84a" stroke-width=".6" stroke-opacity=".3"/>
+      <text x="1056" y="218" font-size="9.5" font-weight="700" letter-spacing="1.2"
+            fill="#ffc84a" fill-opacity=".7" font-family="Inter,sans-serif">DATA SOURCE SUBSYSTEM</text>
+
+      <!-- L4: Cross-cutting -->
+      <rect x="18" y="646" width="1384" height="102" rx="14"
+            fill="url(#lCross)" stroke="#b87eff" stroke-width=".6" stroke-opacity=".3"/>
+      <text x="36" y="664" font-size="9.5" font-weight="700" letter-spacing="1.2"
+            fill="#b87eff" fill-opacity=".7" font-family="Inter,sans-serif">CROSS-CUTTING</text>
+
+      <!-- ═══════════════════════════════════════════════════
+           ROW 1 BOXES — API Ingress
+      ═══════════════════════════════════════════════════ -->
+
+      <!-- Box 1: Client/Frontend  (40,52  235×118) -->
+      <rect x="40" y="52" width="235" height="118" rx="11"
+            fill="url(#gCore)" stroke="#5aaeff" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="60" y="77" font-size="13" font-weight="700" fill="#bdd9ff" font-family="Inter,sans-serif">Client / Frontend</text>
+      <text x="60" y="96"  font-size="11" fill="#7b93b8" font-family="Inter,sans-serif">HTTP JSON + multipart/form-data</text>
+      <text x="60" y="113" font-size="11" fill="#bdd9ff" font-family="Inter,sans-serif">/api/v1/data/*</text>
+      <text x="60" y="130" font-size="11" fill="#7b93b8" font-family="Inter,sans-serif">session_id cookie · X-Tab-Id</text>
+      <text x="60" y="148" font-size="10" fill="#3f6499" font-family="Inter,sans-serif">React frontend</text>
+
+      <!-- Box 2: FastAPI application  (335,52  235×118) -->
+      <rect x="335" y="52" width="235" height="118" rx="11"
+            fill="url(#gCore)" stroke="#5aaeff" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="355" y="77" font-size="13" font-weight="700" fill="#bdd9ff" font-family="Inter,sans-serif">FastAPI application</text>
+      <text x="355" y="96"  font-size="11" fill="#7b93b8" font-family="Inter,sans-serif">backend/main.py</text>
+      <text x="355" y="113" font-size="11" fill="#bdd9ff" font-family="Inter,sans-serif">CORS · global exception handler</text>
+      <text x="355" y="130" font-size="11" fill="#bdd9ff" font-family="Inter,sans-serif">router mounting · app state</text>
+      <text x="355" y="148" font-size="10" fill="#3f6499" font-family="Inter,sans-serif">upload_root_dir · session store</text>
+
+      <!-- Box 3: Routers  (625,52  235×118) -->
+      <rect x="625" y="52" width="235" height="118" rx="11"
+            fill="url(#gCore)" stroke="#5aaeff" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="645" y="77" font-size="13" font-weight="700" fill="#bdd9ff" font-family="Inter,sans-serif">Routers</text>
+      <text x="645" y="96"  font-size="11" fill="#7b93b8" font-family="Inter,sans-serif">backend/routers/*.py</text>
+      <text x="645" y="113" font-size="11" fill="#bdd9ff" font-family="Inter,sans-serif">connection · query · metadata</text>
+      <text x="645" y="130" font-size="11" fill="#7b93b8" font-family="Inter,sans-serif">request/response validation</text>
+      <text x="645" y="148" font-size="10" fill="#3f6499" font-family="Inter,sans-serif">Pydantic models in / out</text>
+
+      <!-- ═══════════════════════════════════════════════════
+           ROW 2 BOXES — Runtime Orchestration
+      ═══════════════════════════════════════════════════ -->
+
+      <!-- Box 4: Dependencies + Session  (40,228  272×166) -->
+      <rect x="40" y="228" width="272" height="166" rx="11"
+            fill="url(#gCore)" stroke="#5aaeff" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="60" y="254" font-size="13" font-weight="700" fill="#bdd9ff" font-family="Inter,sans-serif">Dependencies + Session</text>
+      <text x="60" y="272" font-size="11" fill="#7b93b8" font-family="Inter,sans-serif">backend/dependencies.py</text>
+      <text x="60" y="294" font-size="11" fill="#bdd9ff" font-family="Inter,sans-serif">ConnectionStateManager</text>
+      <text x="60" y="311" font-size="11" fill="#7b93b8" font-family="Inter,sans-serif">session_id : tab_id isolation</text>
+      <text x="60" y="328" font-size="11" fill="#bdd9ff" font-family="Inter,sans-serif">get_active_connector()</text>
+      <text x="60" y="345" font-size="11" fill="#bdd9ff" font-family="Inter,sans-serif">get_connection_details()</text>
+      <text x="60" y="363" font-size="10" fill="#3f6499" font-family="Inter,sans-serif">per-request FastAPI injection</text>
+      <text x="60" y="381" font-size="10" fill="#3f6499" font-family="Inter,sans-serif">in-memory session store</text>
+
+      <!-- Box 5: Service Layer  (372,228  272×166) -->
+      <rect x="372" y="228" width="272" height="166" rx="11"
+            fill="url(#gDomain)" stroke="#4dd9a0" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="392" y="254" font-size="13" font-weight="700" fill="#a8f5d8" font-family="Inter,sans-serif">Service layer</text>
+      <text x="392" y="272" font-size="11" fill="#3a9e76" font-family="Inter,sans-serif">backend/services/*.py</text>
+      <text x="392" y="294" font-size="11" fill="#a8f5d8" font-family="Inter,sans-serif">ConnectionService</text>
+      <text x="392" y="311" font-size="11" fill="#a8f5d8" font-family="Inter,sans-serif">QueryService + builders</text>
+      <text x="392" y="328" font-size="11" fill="#7b93b8" font-family="Inter,sans-serif">Validation · Cardinality check</text>
+      <text x="392" y="345" font-size="11" fill="#7b93b8" font-family="Inter,sans-serif">TableMerge · ResultBuilder</text>
+      <text x="392" y="363" font-size="10" fill="#2a7055" font-family="Inter,sans-serif">multipart file lifecycle</text>
+      <text x="392" y="381" font-size="10" fill="#2a7055" font-family="Inter,sans-serif">spec-driven connector routing</text>
+
+      <!-- Box 6: Models + Contracts + Errors  (706,228  272×166) -->
+      <rect x="706" y="228" width="272" height="166" rx="11"
+            fill="url(#gCross)" stroke="#b87eff" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="726" y="254" font-size="13" font-weight="700" fill="#d8b8ff" font-family="Inter,sans-serif">Models + Contracts + Errors</text>
+      <text x="726" y="272" font-size="11" fill="#7055a8" font-family="Inter,sans-serif">models/* · exceptions.py</text>
+      <text x="726" y="294" font-size="11" fill="#d8b8ff" font-family="Inter,sans-serif">ConnectionDetails</text>
+      <text x="726" y="311" font-size="11" fill="#d8b8ff" font-family="Inter,sans-serif">QueryDescription</text>
+      <text x="726" y="328" font-size="11" fill="#7b93b8" font-family="Inter,sans-serif">AppException hierarchy</text>
+      <text x="726" y="345" font-size="11" fill="#7b93b8" font-family="Inter,sans-serif">HTTP status code mapping</text>
+      <text x="726" y="363" font-size="10" fill="#50387a" font-family="Inter,sans-serif">shared between routers + services</text>
+      <text x="726" y="381" font-size="10" fill="#50387a" font-family="Inter,sans-serif">Pydantic base models + validators</text>
+
+      <!-- ═══════════════════════════════════════════════════
+           DATA SOURCE BOX — spans rows 2 + 3  (1046,228  350×376)
+      ═══════════════════════════════════════════════════ -->
+      <rect x="1046" y="228" width="350" height="376" rx="11"
+            fill="url(#gData)" stroke="#ffc84a" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="1066" y="254" font-size="13" font-weight="700" fill="#ffe6a0" font-family="Inter,sans-serif">Data source subsystem</text>
+      <text x="1066" y="272" font-size="11" fill="#8a6830" font-family="Inter,sans-serif">connectors/ + dialects/</text>
+
+      <text x="1066" y="298" font-size="11" font-weight="600" fill="#ffd070" font-family="Inter,sans-serif">ConnectorRegistry</text>
+      <text x="1066" y="314" font-size="11" fill="#7b93b8" font-family="Inter,sans-serif">lookup + validation by type str</text>
+      <text x="1066" y="330" font-size="11" font-weight="600" fill="#ffd070" font-family="Inter,sans-serif">ConnectorSpec + Capabilities</text>
+      <text x="1066" y="346" font-size="11" fill="#7b93b8" font-family="Inter,sans-serif">build_connect_args hook</text>
+      <text x="1066" y="362" font-size="11" fill="#7b93b8" font-family="Inter,sans-serif">build_multipart_connect_args hook</text>
+      <text x="1066" y="378" font-size="11" fill="#7b93b8" font-family="Inter,sans-serif">supports_incremental_file_add flag</text>
+
+      <text x="1066" y="404" font-size="11" font-weight="600" fill="#ffd070" font-family="Inter,sans-serif">Connector implementations</text>
+      <text x="1082" y="420" font-size="11" fill="#ffe6a0" font-family="Inter,sans-serif">ClickHouseConnector</text>
+      <text x="1082" y="436" font-size="11" fill="#ffe6a0" font-family="Inter,sans-serif">FileConnector  (CSV / Parquet)</text>
+      <text x="1082" y="452" font-size="11" fill="#ffe6a0" font-family="Inter,sans-serif">KaggleConnector</text>
+      <text x="1082" y="468" font-size="11" fill="#ffe6a0" font-family="Inter,sans-serif">HiveParquetConnector</text>
+
+      <text x="1066" y="494" font-size="11" font-weight="600" fill="#ffd070" font-family="Inter,sans-serif">SQL Dialect abstraction</text>
+      <text x="1082" y="510" font-size="11" fill="#ffe6a0" font-family="Inter,sans-serif">ClickHouseDialect</text>
+      <text x="1082" y="526" font-size="11" fill="#ffe6a0" font-family="Inter,sans-serif">DuckDbDialect</text>
+
+      <text x="1066" y="552" font-size="11" font-weight="600" fill="#ffd070" font-family="Inter,sans-serif">External stores</text>
+      <text x="1082" y="568" font-size="11" fill="#c89040" font-family="Inter,sans-serif">ClickHouse · CSV uploads</text>
+      <text x="1082" y="584" font-size="11" fill="#c89040" font-family="Inter,sans-serif">Kaggle datasets · Hive Parquet</text>
+      <text x="1066" y="588" font-size="10" fill="#5a4020" font-family="Inter,sans-serif">&#160;</text>
+      <text x="1066" y="596" font-size="10" fill="#5a4020" font-family="Inter,sans-serif">GET /connectors  →  schema introspection</text>
+
+      <!-- ═══════════════════════════════════════════════════
+           ROW 3 BOXES — Processing & Execution
+      ═══════════════════════════════════════════════════ -->
+
+      <!-- Box 8: Query generation pipeline  (372,448  272×156) -->
+      <rect x="372" y="448" width="272" height="156" rx="11"
+            fill="url(#gDomain)" stroke="#4dd9a0" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="392" y="472" font-size="13" font-weight="700" fill="#a8f5d8" font-family="Inter,sans-serif">Query generation pipeline</text>
+      <text x="392" y="490" font-size="11" fill="#3a9e76" font-family="Inter,sans-serif">query_service + query_components/</text>
+      <text x="392" y="512" font-size="11" fill="#a8f5d8" font-family="Inter,sans-serif">select · filter · group · order</text>
+      <text x="392" y="528" font-size="11" fill="#a8f5d8" font-family="Inter,sans-serif">sampling · limits</text>
+      <text x="392" y="544" font-size="11" fill="#7b93b8" font-family="Inter,sans-serif">dialect-aware SQL output</text>
+      <text x="392" y="560" font-size="11" fill="#7b93b8" font-family="Inter,sans-serif">via connector.sql_dialect</text>
+      <text x="392" y="591" font-size="10" fill="#2a7055" font-family="Inter,sans-serif">returns SQL string to Service</text>
+
+      <!-- Box 9: Optimization subsystem  (706,448  272×156) -->
+      <rect x="706" y="448" width="272" height="156" rx="11"
+            fill="url(#gDomain)" stroke="#4dd9a0" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="726" y="472" font-size="13" font-weight="700" fill="#a8f5d8" font-family="Inter,sans-serif">Optimization subsystem</text>
+      <text x="726" y="490" font-size="11" fill="#3a9e76" font-family="Inter,sans-serif">services/optimization/*</text>
+      <text x="726" y="512" font-size="11" fill="#a8f5d8" font-family="Inter,sans-serif">strategy planner + estimators</text>
+      <text x="726" y="528" font-size="11" fill="#a8f5d8" font-family="Inter,sans-serif">rounding · binning · dedup</text>
+      <text x="726" y="544" font-size="11" fill="#7b93b8" font-family="Inter,sans-serif">ClickHouse / DuckDB estimators</text>
+      <text x="726" y="560" font-size="11" fill="#7b93b8" font-family="Inter,sans-serif">result-size aware decisions</text>
+      <text x="726" y="591" font-size="10" fill="#2a7055" font-family="Inter,sans-serif">cardinality estimation via connector</text>
+
+      <!-- ═══════════════════════════════════════════════════
+           ROW 4 BOX — Cross-cutting
+      ═══════════════════════════════════════════════════ -->
+      <rect x="40" y="656" width="1346" height="68" rx="11"
+            fill="url(#gCross)" stroke="#b87eff" stroke-width="1.5" filter="url(#sh)"/>
+      <text x="60" y="680" font-size="13" font-weight="700" fill="#d8b8ff" font-family="Inter,sans-serif">Cross-cutting concerns</text>
+      <text x="60" y="700" font-size="11" fill="#7055a8" font-family="Inter,sans-serif">structured logging · input validation · temp-file lifecycle · session isolation · global exception handling · unit + integration test suites</text>
+
+      <!-- ═══════════════════════════════════════════════════
+           ARROWS
+           All routes verified clear of all boxes.
+      ═══════════════════════════════════════════════════ -->
+
+      <!-- A: Client → FastAPI  (inline row 1) -->
+      <path d="M275 111 L335 111"
+            stroke="#6b87b0" stroke-width="1.8" fill="none"
+            marker-end="url(#arrNeutral)"/>
+
+      <!-- B: FastAPI → Routers  (inline row 1) -->
+      <path d="M570 111 L625 111"
+            stroke="#6b87b0" stroke-width="1.8" fill="none"
+            marker-end="url(#arrNeutral)"/>
+
+      <!-- C: FastAPI → Dependencies
+           Down from FastAPI bottom-center (452,170) through gap y=186,
+           left to Deps center-x (176), down to Deps top (176,228).
+           Horizontal segment at y=186: x=176→452. No boxes in gap band. -->
+      <path d="M452 170 L452 186 L176 186 L176 228"
+            stroke="#5aaeff" stroke-width="1.5" fill="none" stroke-opacity=".85"
+            marker-end="url(#arrCore)"/>
+      <text x="228" y="183" font-size="9" fill="#3f6499" font-family="Inter,sans-serif">injects</text>
+
+      <!-- D: Routers → Service
+           Down from Routers bottom-center (742,170) through gap y=195,
+           left to Service entry-x (508), down to Service top (508,228).
+           Horizontal at y=195: x=508→742 — does not overlap with C's segment x=176→452. -->
+      <path d="M742 170 L742 195 L508 195 L508 228"
+            stroke="#4dd9a0" stroke-width="1.5" fill="none" stroke-opacity=".85"
+            marker-end="url(#arrDomain)"/>
+      <text x="570" y="192" font-size="9" fill="#2a7055" font-family="Inter,sans-serif">calls</text>
+
+      <!-- E: Dependencies → Service  (inline row 2) -->
+      <path d="M312 311 L372 311"
+            stroke="#6b87b0" stroke-width="1.8" fill="none"
+            marker-end="url(#arrNeutral)"/>
+
+      <!-- F: Service → Models  (inline row 2) -->
+      <path d="M644 311 L706 311"
+            stroke="#6b87b0" stroke-width="1.8" fill="none"
+            marker-end="url(#arrNeutral)"/>
+
+      <!-- G: Models → DataSource  (inline row 2) -->
+      <path d="M978 311 L1046 311"
+            stroke="#ffc84a" stroke-width="1.5" fill="none" stroke-opacity=".85"
+            marker-end="url(#arrData)"/>
+
+      <!-- H: Service → QueryPipeline  (vertical, col B)
+           From Service bottom at x=522 (offset right of center) to QP top.
+           Clear vertical corridor inside column B. -->
+      <path d="M522 394 L522 448"
+            stroke="#4dd9a0" stroke-width="1.5" fill="none" stroke-opacity=".85"
+            marker-end="url(#arrDomain)"/>
+
+      <!-- I: Service → DataSource  (elbow through gap 2-3)
+           From Service bottom at x=460, down to y=416 (inter-lane gap),
+           right to DataSource left edge x=1046.
+           At y=416: QP top=448, Opt top=448 → both not yet started ✓
+           Horizontal x=460→1046 at y=416 passes through empty inter-lane gap ✓ -->
+      <path d="M460 394 L460 416 L1046 416"
+            stroke="#ffc84a" stroke-width="1.5" fill="none" stroke-opacity=".85"
+            marker-end="url(#arrData)"/>
+      <text x="680" y="412" font-size="9" fill="#6a4c1a" font-family="Inter,sans-serif">executes via connector</text>
+
+      <!-- J: QueryPipeline → Optimization  (inline row 3) -->
+      <path d="M644 526 L706 526"
+            stroke="#6b87b0" stroke-width="1.8" fill="none"
+            marker-end="url(#arrNeutral)"/>
+
+      <!-- K: Optimization → DataSource  (inline row 3) -->
+      <path d="M978 526 L1046 526"
+            stroke="#ffc84a" stroke-width="1.5" fill="none" stroke-opacity=".85"
+            marker-end="url(#arrData)"/>
+      <text x="980" y="520" font-size="9" fill="#6a4c1a" font-family="Inter,sans-serif">estimators</text>
+
+      <!-- Dashed vertical risers from cross-cutting into each column
+           (decorative: show cross-cutting touches all layers) -->
+      <line x1="176" y1="656" x2="176" y2="604"
+            stroke="#b87eff" stroke-width="1" stroke-dasharray="4 3" stroke-opacity=".45"/>
+      <line x1="508" y1="656" x2="508" y2="604"
+            stroke="#b87eff" stroke-width="1" stroke-dasharray="4 3" stroke-opacity=".45"/>
+      <line x1="842" y1="656" x2="842" y2="604"
+            stroke="#b87eff" stroke-width="1" stroke-dasharray="4 3" stroke-opacity=".45"/>
+      <line x1="1221" y1="656" x2="1221" y2="604"
+            stroke="#b87eff" stroke-width="1" stroke-dasharray="4 3" stroke-opacity=".45"/>
+    </svg>
+  </div><!-- .card -->
+
+  <div class="legend">
+    <div class="leg"><span class="dot dot-c"></span>API / runtime core</div>
+    <div class="leg"><span class="dot dot-d"></span>Domain orchestration &amp; processing</div>
+    <div class="leg"><span class="dot dot-s"></span>Connector / data boundary</div>
+    <div class="leg"><span class="dot dot-x"></span>Shared contracts &amp; cross-cutting</div>
+  </div>
+</div><!-- .wrap -->
+</body>
+</html>

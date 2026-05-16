@@ -1,0 +1,141 @@
+.container {
+  padding: 4px 8px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-bottom: 1px solid #e0e0e0;
+  background-color: #fafafa;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+}
+
+.sectionTitle {
+  font-size: 0.75rem;
+  line-height: 1.2;
+  flex: 1;
+  min-width: 0;
+}
+
+.collapsedCount {
+  font-size: 0.65rem;
+  color: rgba(0, 0, 0, 0.5);
+  font-weight: 500;
+}
+
+.expandButton {
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+.list {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+  background: white;
+}
+
+.listItem {
+  padding-top: 1px;
+  padding-bottom: 1px;
+  padding-left: 6px;
+  padding-right: 26px;
+  min-height: 0;
+}
+
+.listItemText {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.secondaryAction {
+  right: 2px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-align: left;
+  min-width: 0;
+  width: 100%;
+}
+
+.nameAndStats {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.stats {
+  flex-shrink: 0;
+  margin-left: auto;
+  text-align: right;
+  font-size: 0.62rem;
+  line-height: 1.15;
+  color: rgba(0, 0, 0, 0.48);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+.badge {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: 2px;
+  user-select: none;
+}
+
+.badgeP {
+  background-color: #1976d2;
+  color: #fff;
+}
+
+.badgeU {
+  border: 1px solid rgba(0, 0, 0, 0.26);
+  color: rgba(0, 0, 0, 0.65);
+  background: #fff;
+}
+
+.badgeJ {
+  border: 1px solid #1976d2;
+  color: #1976d2;
+  background: #fff;
+}
+
+.names {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  min-width: 0;
+  flex: 1;
+}
+
+.dbLine {
+  font-size: 0.65rem;
+  line-height: 1.15;
+  color: rgba(0, 0, 0, 0.55);
+  max-width: 100%;
+}
+
+.tableLine {
+  font-size: 0.72rem;
+  line-height: 1.15;
+  font-weight: 500;
+  max-width: 100%;
+}

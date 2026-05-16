@@ -1,0 +1,159 @@
+.container {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  gap: 10px;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.panel {
+  flex: 1;
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 10px;
+  overflow: auto;
+  height: 100%;
+  box-sizing: border-box;
+  text-align: left; /* Explicitly align text to the left */
+}
+
+.panel pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.panel h3 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: #333;
+}
+
+.panel hr {
+  margin: 12px 0;
+  border: none;
+  border-top: 1px solid #ddd;
+}
+
+/* Error message styling */
+.errorMessage {
+  background-color: #fff0f0;
+  border-left: 4px solid #ff5252;
+  padding: 8px 12px;
+  margin: 8px 0;
+  color: #d32f2f;
+}
+
+.errorHelp {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: #e8f4fb;
+  border-radius: 4px;
+  border: 1px solid #bcdff1;
+}
+
+.errorHelp p {
+  margin-top: 0;
+  font-weight: 600;
+  color: #0277bd;
+}
+
+.errorHelp ul {
+  margin-bottom: 0;
+  padding-left: 20px;
+}
+
+/* Collapsible Section Styles */
+.collapsibleSection {
+  margin-bottom: 8px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background-color: #fff;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  background-color: #fafafa;
+  border-radius: 4px 4px 0 0;
+  user-select: none;
+}
+
+.sectionHeader:hover {
+  background-color: #f0f0f0;
+}
+
+.sectionHeader h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.collapseIcon {
+  margin-right: 8px;
+  font-size: 10px;
+  color: #666;
+}
+
+.sectionContent {
+  padding: 10px 12px;
+  border-top: 1px solid #e0e0e0;
+  max-height: 400px;
+  overflow: auto;
+}
+
+.sectionContent pre {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* DuckDB Cache Info Styles */
+.cacheInfo {
+  font-size: 12px;
+}
+
+.cacheInfo p {
+  margin: 4px 0;
+}
+
+.statusReady {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+.statusNotReady {
+  color: #9e9e9e;
+  font-style: italic;
+}
+
+.tableList {
+  margin: 4px 0;
+  padding-left: 20px;
+  font-size: 11px;
+}
+
+.tableList li {
+  font-family: monospace;
+  color: #555;
+}
+
+.cacheInfo details {
+  margin-top: 8px;
+}
+
+.cacheInfo summary {
+  cursor: pointer;
+  color: #1976d2;
+}
+
+.cacheInfo summary:hover {
+  text-decoration: underline;
+}

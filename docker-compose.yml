@@ -1,0 +1,36 @@
+version: '3.9'
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: data-slicer:${APP_VERSION:-latest}
+    container_name: ${CONTAINER_NAME:-data-slicer-app}
+    environment:
+      - LOG_LEVEL=info
+      - PORT=8000  # internal container port, always safe — host port is HOST_PORT
+      - PYTHONUNBUFFERED=1
+      - REACT_APP_API_BASE=/api/v1
+      - SNAPSHOT_STORAGE_DIR=/app/data/snapshots
+    ports:
+      - "${HOST_PORT:-8100}:8000"
+    volumes:
+      # Persistent storage for saved snapshots/configurations
+      - ${SNAPSHOT_DIR:-./data/snapshots}:/app/data/snapshots
+    # For development you might want to mount source code:
+    # volumes:
+    #   - ./backend:/app/backend
+    #   - ./frontend:/app/frontend
+    #   - ./frontend/build:/app/backend/static
+    # command: python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload --h11-max-incomplete-event-size 131072
+
+# Optional alternative: separate static hosting via Nginx
+#  nginx:
+#    image: nginx:alpine
+#    depends_on:
+#      - app
+#    volumes:
+#      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+#      - ./frontend/build:/usr/share/nginx/html:ro
+#    ports:
+#      - "80:80"

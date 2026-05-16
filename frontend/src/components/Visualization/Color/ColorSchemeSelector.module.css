@@ -1,0 +1,47 @@
+.swatches {
+  display: flex;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.swatch {
+  width: 20px;
+  height: 14px;
+  border-radius: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.groupHeader {
+  padding: 8px 16px 4px;
+  background-color: #f5f5f5;
+}
+
+.groupLabel {
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+
+.menuItem {
+  padding: 8px 16px !important;
+}
+
+.schemeOption {
+  width: 100%;
+}
+
+.schemeInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.schemeName {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: #212121;
+}

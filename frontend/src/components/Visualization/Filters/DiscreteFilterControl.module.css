@@ -1,0 +1,163 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  max-width: 100%;
+}
+
+.modeSwitcher {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.modeSwitcher button {
+  font-size: 11px;
+  padding: 3px 8px;
+}
+
+.filterBox {
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.patternPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background: #fff;
+  margin-bottom: 8px;
+}
+
+.patternToggleRow {
+  display: flex;
+  gap: 8px;
+}
+
+.inverseToggle {
+  margin-left: 0;
+}
+
+.searchHeader {
+  padding: 6px 8px;
+  border-bottom: 1px solid #e0e0e0;
+  background: #fafafa;
+}
+
+.buttonGroup {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 8px 0;
+}
+
+.leftButtons > button {
+  margin-right: 4px;
+}
+
+.buttonGroup button {
+  font-size: 11px;
+  padding: 2px 6px;
+  min-width: auto;
+}
+
+.checkboxList {
+  display: flex;
+  flex-direction: column;
+  max-height: 200px;
+  overflow-y: auto;
+  overflow-x: auto; /* allow horizontal scroll for long items */
+  padding: 0;
+}
+
+.sectionDivider {
+  height: 1px;
+  background: #d0d0d0;
+  margin: 3px 8px;
+  flex-shrink: 0;
+}
+
+.checkboxItem {
+  margin: 0;
+  padding: 2px 4px;
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkboxItem:hover {
+  background-color: #f5f5f5;
+}
+
+.nativeCheckbox {
+  width: 16px;
+  height: 16px;
+  margin: 0 6px 0 0;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.checkboxLabel {
+  font-size: 11px;
+  line-height: 1.15;
+  white-space: nowrap;
+  color: rgba(0, 0, 0, 0.87);
+}
+
+.searchRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.searchField :global(.MuiOutlinedInput-notchedOutline) {
+  /* remove inner outline to avoid double frame; outer box provides frame */
+  border: 0 !important;
+}
+
+.searchField :global(.MuiOutlinedInput-root) {
+  border-radius: 6px;
+  background: transparent;
+}
+
+.searchField :global(.MuiOutlinedInput-root) {
+  border-radius: 6px;
+}
+
+.searchField :global(.MuiOutlinedInput-input) {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.regexToggle {
+  white-space: nowrap;
+  font-size: 12px;
+  padding: 2px 8px;
+}
+
+.regexRight {
+  margin-left: auto;
+}
+
+.toggleActive {
+  font-weight: 600;
+  background-color: #e6f4ea !important; /* light green */
+  color: #1b5e20 !important; /* dark green text */
+  border: 1px solid #b7dfbb !important;
+  border-radius: 6px;
+}
+
+.toggleActive:hover {
+  background-color: #cce8d6 !important; /* slightly darker green for better hover indication */
+}
+
+

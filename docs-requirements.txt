@@ -1,0 +1,2 @@
+# Build-time dependency for the user manual (not needed at runtime)
+mkdocs-material>=9.5

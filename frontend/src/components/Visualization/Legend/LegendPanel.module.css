@@ -1,0 +1,134 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  /* Minimum height to show header + a few items */
+  min-height: 80px;
+  /* Each legend section can take at most 50% of available space */
+  max-height: 50%;
+  background-color: #fafafa;
+  border-bottom: 1px solid #e0e0e0;
+  /* Allow shrinking but prefer natural size */
+  flex: 0 1 auto;
+}
+
+.header {
+  padding: 8px 12px;
+  border-bottom: 1px solid #e0e0e0;
+  background-color: white;
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.content {
+  flex: 1 1 auto;
+  padding: 8px 12px;
+  /* Scroll both directions - vertical for many items, horizontal for long names */
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+}
+
+/* Custom scrollbars for content area */
+.content::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.content::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+.content::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
+}
+
+.content::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.gradientLegend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.gradientBar {
+  height: 14px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.gradientLabels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #555;
+  gap: 8px;
+}
+
+.gradientLabel {
+  white-space: nowrap;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0; /* Don't shrink items */
+  padding: 1px 4px;
+  border-radius: 3px;
+  /* Prevent text selection while clicking legend items */
+  user-select: none;
+}
+
+/* Interactive variant — applied when onFilterAction is provided (discrete color) */
+.legendItemInteractive {
+  cursor: pointer;
+}
+
+.legendItemInteractive:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+/* Selected state — visible highlight for chosen items */
+.legendItemSelected {
+  background-color: rgba(25, 118, 210, 0.10);
+}
+
+.legendItemSelected:hover {
+  background-color: rgba(25, 118, 210, 0.16);
+}
+
+.colorSwatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+}
+
+.legendLabel {
+  font-size: 11px;
+  color: #555;
+  /* Allow horizontal scroll at container level instead of truncating */
+  white-space: nowrap;
+}
+

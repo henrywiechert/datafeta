@@ -1,0 +1,133 @@
+## Backend Service Layer (Detailed)
+## Connection lifecycle, query execution, and supporting services
+
+direction: down
+
+service_layer: Service Layer {
+  style.stroke: "#4dd9a0"
+  style.fill: "#d0f5e8"
+
+  connection_service: ConnectionService {
+    tooltip: "connect_multipart/connect_json/connect_hive/load_hive_partition/add_files/disconnect"
+  }
+
+  query_execution_service: QueryExecutionService {
+    tooltip: "parse -> validate -> translate -> execute (JSON/Arrow)"
+  }
+
+  query_service: QueryService {
+    tooltip: "translate_to_sql + query_components builders"
+  }
+
+  cardinality_service: CardinalityService
+  filter_conversion_service: FilterConversionService
+  validation_service: ValidationService
+  result_builder: QueryResultBuilder
+  datetime_service: DateTimeService
+  table_merge_service: TableMergeService
+
+  optimization_subsystem: Optimization Subsystem {
+    query_optimizer: QueryOptimizer
+    strategy_planner: StrategyPlanner
+    estimators: Estimators {
+      clickhouse_estimator: ClickHouseEstimator
+      duckdb_estimator: DuckDBEstimator
+      basic_estimator: BasicEstimator
+    }
+  }
+}
+
+router_layer: Router Endpoints {
+  style.stroke: "#5aaeff"
+  style.fill: "#d0e8ff"
+
+  connection_router: {
+    label: |md
+      ## connection.py
+      - GET /api/v1/data/connectors
+      - POST /api/v1/data/connect
+      - POST /api/v1/data/disconnect
+      |
+  }
+
+  query_router: {
+    label: |md
+      ## query.py
+      - POST /api/v1/data/query
+      - POST /api/v1/data/query-arrow
+      - POST /api/v1/data/row-count
+      |
+  }
+
+  metadata_router: {
+    label: |md
+      ## metadata.py
+      - GET /api/v1/data/databases
+      - GET /api/v1/data/tables
+      - GET /api/v1/data/columns
+      |
+  }
+
+  snapshot_router: {
+    label: |md
+      ## snapshot.py
+      - GET /api/v1/snapshots
+      - POST /api/v1/snapshots
+      - PUT /api/v1/snapshots/{snapshot_id}
+      |
+  }
+}
+
+dependency_layer: Dependencies {
+  style.stroke: "#5aaeff"
+  style.fill: "#d0e8ff"
+
+  state_manager_dep: get_state_manager
+  active_connector_dep: get_active_connector
+  connection_details_dep: get_connection_details
+  session_dep: get_session_id / get_composite_key
+}
+
+data_boundary: Connector + Dialect Boundary {
+  style.stroke: "#ffc84a"
+  style.fill: "#fff3cc"
+
+  registry: ConnectorRegistry
+  connector_impls: Connector Implementations
+  dialects: Dialects (ClickHouse, DuckDB)
+}
+
+contracts: Models + Exceptions {
+  style.stroke: "#b87eff"
+  style.fill: "#ead0ff"
+
+  connection_details_model: ConnectionDetails
+  query_description_model: QueryDescription
+  app_exception: AppException hierarchy
+}
+
+router_layer.connection_router -> dependency_layer.state_manager_dep: Depends
+router_layer.query_router -> dependency_layer.active_connector_dep: Depends
+router_layer.query_router -> dependency_layer.connection_details_dep: Depends
+router_layer.connection_router -> service_layer.connection_service: calls
+router_layer.query_router -> service_layer.query_execution_service: calls
+router_layer.query_router -> service_layer.cardinality_service: calls
+
+service_layer.query_execution_service -> service_layer.validation_service
+service_layer.query_execution_service -> service_layer.query_service
+service_layer.query_execution_service -> service_layer.result_builder
+service_layer.query_execution_service -> service_layer.optimization_subsystem.query_optimizer
+
+service_layer.connection_service -> data_boundary.registry
+service_layer.query_execution_service -> data_boundary.connector_impls: fetch_data/fetch_data_arrow
+service_layer.query_service -> data_boundary.dialects: SQL generation
+service_layer.optimization_subsystem.estimators -> data_boundary.connector_impls: cardinality probes
+
+service_layer.connection_service -> contracts.connection_details_model
+service_layer.query_execution_service -> contracts.query_description_model
+service_layer -> contracts.app_exception
+
+overview: "Back to architecture overview" {
+  shape: page
+  link: "./backend-architecture-overview.svg"
+}

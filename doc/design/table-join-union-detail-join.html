@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Join / Union Detail - JOIN</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .card { background: #fff; border: 1px solid #cbd5e1; border-radius: 12px; padding: 14px; margin-top: 12px; overflow-x: auto; }
+    h1 { margin: 0 0 8px; }
+    p { color: #334155; margin: 0 0 8px; }
+    svg { width: 100%; min-width: 920px; height: auto; display: block; }
+    .box { rx: 12; ry: 12; stroke: #64748b; stroke-width: 1.2; }
+    .label { font-size: 14px; font-weight: 700; }
+    .small { font-size: 12px; fill: #334155; }
+    .arrow { stroke: #64748b; stroke-width: 1.4; fill: none; marker-end: url(#a); }
+    .top a { color: #1d4ed8; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top"><a href="table-join-union-architecture.html">← Back to high-level view</a></div>
+    <h1>Detail: JOIN Path</h1>
+    <p>Join mode builds a single joined query over related tables.</p>
+
+    <div class="card">
+      <svg viewBox="0 0 980 240" role="img" aria-label="JOIN mid-level flow">
+        <defs>
+          <marker id="a" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+            <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"></polygon>
+          </marker>
+        </defs>
+        <rect class="box" x="20" y="40" width="260" height="130" fill="#dcfce7"></rect>
+        <text x="35" y="70" class="label">Build table context</text>
+        <text x="35" y="92" class="small">`TableContextBuilder`</text>
+        <text x="35" y="108" class="small">table_map + join graph</text>
+        <text x="35" y="124" class="small">ON condition parsing</text>
+
+        <path class="arrow" d="M280 105 L360 105"></path>
+
+        <rect class="box" x="360" y="40" width="300" height="130" fill="#dcfce7"></rect>
+        <text x="375" y="70" class="label">Build joined SQL</text>
+        <text x="375" y="92" class="small">select/filter/group/order builders</text>
+        <text x="375" y="108" class="small">resolve `table.column` references</text>
+        <text x="375" y="124" class="small">single joined statement</text>
+
+        <path class="arrow" d="M660 105 L740 105"></path>
+
+        <rect class="box" x="740" y="40" width="220" height="130" fill="#fef3c7"></rect>
+        <text x="755" y="70" class="label">Execute SQL</text>
+        <text x="755" y="92" class="small">connector runs query</text>
+        <text x="755" y="108" class="small">returns rows/columns</text>
+      </svg>
+    </div>
+
+    <div class="card">
+      <p><strong>Low-level notes</strong></p>
+      <p>- Join conditions support composite keys via multiple `on_conditions`</p>
+      <p>- Dedup wrapper can enforce uniqueness on join keys</p>
+      <p>- Query still uses normal optimization/aggregation pipeline</p>
+    </div>
+  </div>
+</body>
+</html>

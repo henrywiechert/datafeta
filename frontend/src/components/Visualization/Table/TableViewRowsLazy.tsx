@@ -1,0 +1,51 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
+import React, { lazy, Suspense } from 'react';
+import { Box, Skeleton } from '@mui/material';
+import { TableRowsSortModel } from '../../../types';
+import { QueryResultColumn } from '../../../types';
+import type { TableCellFilterAction } from './TableViewRows';
+
+const TableViewRows = lazy(() => import('./TableViewRows'));
+
+interface TableViewRowsLazyProps {
+  rows: Record<string, any>[];
+  columns: QueryResultColumn[];
+  sortModel: TableRowsSortModel | null;
+  onSortChanged: (sort: TableRowsSortModel | null) => void;
+  loading: boolean;
+  onCellFilterAction?: (action: TableCellFilterAction) => void;
+}
+
+const TableViewRowsSkeleton = () => (
+  <Box
+    sx={{
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      p: 2,
+      backgroundColor: '#fff',
+    }}
+  >
+    <Skeleton variant="rectangular" width="100%" height={56} sx={{ mb: 1, borderRadius: 1 }} />
+    {[...Array(8)].map((_, i) => (
+      <Skeleton
+        key={i}
+        variant="rectangular"
+        width="100%"
+        height={42}
+        sx={{ mb: 0.5, opacity: 1 - i * 0.08 }}
+      />
+    ))}
+  </Box>
+);
+
+const TableViewRowsLazy: React.FC<TableViewRowsLazyProps> = (props) => {
+  return (
+    <Suspense fallback={<TableViewRowsSkeleton />}>
+      <TableViewRows {...props} />
+    </Suspense>
+  );
+};
+
+export default TableViewRowsLazy;

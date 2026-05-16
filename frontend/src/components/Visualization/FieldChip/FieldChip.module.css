@@ -1,0 +1,224 @@
+.chip {
+    padding: 0 6px !important;
+    margin: 0px;
+    color: #333;
+    font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', Arial, sans-serif !important;
+    font-size: 14px;
+    cursor: grab;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    vertical-align: middle;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+    user-select: none;
+    text-align: left;
+    box-shadow: none;
+    transform: none;
+    min-height: 22px !important;
+    height: 22px !important;
+    line-height: normal !important;
+    
+    /* Enhanced font smoothing for better Windows rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "liga", "kern";
+    font-weight: 400;
+}
+
+/* Text-only style for Fields area */
+.chip.textOnly {
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 0;
+    padding: 0 2px !important; /* Reduced horizontal padding */
+    margin: 0px 0px 1px 0px; /* Small bottom margin for subtle separation */
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    justify-content: flex-start;
+    text-align: left;
+    width: 100%; /* Fill available space */
+    max-width: 100%;
+    box-sizing: border-box;
+    font-size: 13px; /* Slightly smaller for more compact appearance */
+    min-height: 20px !important;
+    height: 20px !important;
+    /* Performance optimizations for resize */
+    /* contain: layout style; removed to prevent z-index stacking issues with context menus */
+    will-change: auto; /* Don't persist layers unnecessarily */
+}
+
+/* Framed style for drop zones (axes + properties) */
+.chip.framed {
+    border-radius: 16px;
+    border: 1px solid #ccc;
+    /* Let container decide sizing (axes override via .axis) */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    vertical-align: middle;
+}
+
+/* Axis chips keep a fixed width so axes stay tidy */
+.axis {
+    width: 240px;
+    max-width: 240px;
+    min-width: 160px;
+}
+
+.chip.framed.discrete {
+    background-color: #e3f2fd; /* Light blue background */
+    border-color: #1976d2;
+}
+
+.chip.framed.continuous {
+    background-color: #e8f5e8; /* Light green background */
+    border-color: #388e3c;
+}
+
+/* Hover styles for text-only fields (Fields area) */
+.chip.textOnly:hover {
+    border-radius: 16px;
+    border: 1px solid #999;
+    box-shadow: none;
+    transform: none;
+}
+
+.chip.textOnly.discrete:hover {
+    background-color: #bbdefb; /* Light blue */
+}
+
+.chip.textOnly.continuous:hover {
+    background-color: #c8e6c9; /* Light green */
+}
+
+/* Hover styles for framed fields (axis drop zones) */
+.chip.framed:hover {
+    border-color: #999;
+}
+
+.chip.framed.discrete:hover {
+    background-color: #bbdefb; /* Light blue */
+}
+
+.chip.framed.continuous:hover {
+    background-color: #c8e6c9; /* Light green */
+}
+
+.symbol {
+    font-weight: bold;
+    margin-right: 4px;
+}
+
+.discreteSymbol {
+    color: #1976d2; /* Blue matching the light blue hover */
+}
+
+.continuousSymbol {
+    color: #388e3c; /* Green matching the light green hover */
+}
+
+.chip:active {
+    cursor: grabbing;
+}
+
+.chip.dragging {
+    /* Removed opacity + scale to keep chip readable during drag */
+    opacity: 1;
+    transform: none;
+    outline: 1px dashed rgba(0,0,0,0.25); /* subtle indicator only */
+}
+
+.chip.dragOver {
+    border-color: #2196f3;
+    background-color: #e3f2fd;
+}
+
+.chip.framed .chipText {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1 1 auto;
+}
+
+.chip.textOnly .chipText {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+    text-align: left;
+    flex: 1 1 auto;
+    min-width: 0; /* Important: allows flex child to shrink below content size */
+}
+
+/* Override MUI Chip label styling for text-only chips to enable ellipsis */
+.chip.textOnly :global(.MuiChip-label) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* Specific styles for better truncation detection */
+.chipText {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+}
+
+.availableFieldsText {
+    width: 100%;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0; /* Allow shrinking below content size */
+}
+
+.axisFieldsText {
+    width: 100%;
+    display: inline-block;
+}
+
+/* Highlight for invalid fields placed on axes (not present in current schema) */
+.invalidAxisField {
+    background-color: #fde7e9 !important; /* light red */
+    border-color: #e57373 !important;
+}
+
+/* Selection styles - darker than hover */
+.chip.textOnly.selected {
+    border-radius: 16px;
+    border: 1px solid #666 !important;
+}
+
+.chip.textOnly.discrete.selected {
+    background-color: #90caf9 !important; /* Darker blue than hover */
+}
+
+.chip.textOnly.continuous.selected {
+    background-color: #a5d6a7 !important; /* Darker green than hover */
+}
+
+.chip.framed.selected {
+    border-color: #666 !important;
+}
+
+.chip.framed.discrete.selected {
+    background-color: #90caf9 !important; /* Darker blue than hover */
+}
+
+.chip.framed.continuous.selected {
+    background-color: #a5d6a7 !important; /* Darker green than hover */
+}
