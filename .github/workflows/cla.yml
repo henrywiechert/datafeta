@@ -23,5 +23,5 @@ jobs:
         with:
           path-to-signatures: .github/cla-signatures.json
           path-to-document: CLA.md
-          branch: ${{ github.event.repository.default_branch }}
+          branch: cla-signatures
           allowlist: dependabot[bot],renovate[bot]
