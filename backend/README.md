@@ -18,6 +18,19 @@ python -m pip install -r backend/requirements.txt
 uvicorn backend.main:app --reload
 ```
 
+## Dependency management
+
+`requirements.in` contains the top-level backend dependencies.
+`requirements.txt` is the pinned, generated lock-style file used by Docker and local installs.
+Minimum versions in `requirements.in` record the oldest supported top-level releases.
+
+Refresh the pinned file with `pip-tools` from the `backend/` directory:
+
+```bash
+python -m pip install pip-tools
+pip-compile --output-file=requirements.txt requirements.in
+```
+
 ## Architecture Overview
 
 ### Core Components
