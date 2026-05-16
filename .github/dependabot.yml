@@ -6,14 +6,88 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "06:00"
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 4
     commit-message:
       prefix: "deps"
       include: "scope"
     groups:
-      backend-python-dependencies:
+      backend-server-stack:
+        patterns:
+          - "fastapi"
+          - "starlette"
+          - "uvicorn"
+          - "python-multipart"
+          - "pydantic"
+          - "pydantic-core"
+          - "annotated-doc"
+          - "annotated-types"
+          - "anyio"
+          - "typing-extensions"
+          - "typing-inspection"
+      backend-data-stack:
+        patterns:
+          - "duckdb"
+          - "pandas"
+          - "numpy"
+          - "pyarrow"
+          - "clickhouse-connect"
+          - "lz4"
+          - "zstandard"
+      backend-kaggle-stack:
+        patterns:
+          - "kaggle"
+          - "kagglesdk"
+          - "jupytext"
+          - "nbformat"
+          - "markdown-it-py"
+          - "mdit-py-plugins"
+          - "mdurl"
+          - "bleach"
+          - "webencodings"
+      backend-other-python:
         patterns:
           - "*"
+        exclude-patterns:
+          - "fastapi"
+          - "starlette"
+          - "uvicorn"
+          - "python-multipart"
+          - "pydantic"
+          - "pydantic-core"
+          - "annotated-doc"
+          - "annotated-types"
+          - "anyio"
+          - "typing-extensions"
+          - "typing-inspection"
+          - "duckdb"
+          - "pandas"
+          - "numpy"
+          - "pyarrow"
+          - "clickhouse-connect"
+          - "lz4"
+          - "zstandard"
+          - "kaggle"
+          - "kagglesdk"
+          - "jupytext"
+          - "nbformat"
+          - "markdown-it-py"
+          - "mdit-py-plugins"
+          - "mdurl"
+          - "bleach"
+          - "webencodings"
+    ignore:
+      - dependency-name: "duckdb"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "fastapi"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "pandas"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "pyarrow"
+        update-types:
+          - "version-update:semver-major"
 
   - package-ecosystem: "npm"
     directory: "/frontend"
@@ -21,7 +95,7 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "06:15"
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 4
     commit-message:
       prefix: "deps"
       include: "scope"
@@ -39,11 +113,21 @@ updates:
         patterns:
           - "@mui/*"
           - "@emotion/*"
-          - "@observablehq/plot"
           - "ag-grid-*"
           - "zustand"
           - "react-resizable-panels"
           - "react-window"
+      frontend-data-visualization:
+        patterns:
+          - "@observablehq/plot"
+          - "apache-arrow"
+          - "@duckdb/duckdb-wasm"
+      frontend-testing-tooling:
+        patterns:
+          - "@testing-library/*"
+          - "@types/jest"
+          - "playwright"
+          - "web-vitals"
       frontend-other-dependencies:
         patterns:
           - "*"
@@ -57,8 +141,36 @@ updates:
           - "react-scripts"
           - "@mui/*"
           - "@emotion/*"
-          - "@observablehq/plot"
           - "ag-grid-*"
           - "zustand"
           - "react-resizable-panels"
           - "react-window"
+          - "@observablehq/plot"
+          - "apache-arrow"
+          - "@duckdb/duckdb-wasm"
+          - "@testing-library/*"
+          - "@types/jest"
+          - "playwright"
+          - "web-vitals"
+    ignore:
+      - dependency-name: "react"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "react-dom"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "typescript"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "react-scripts"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "@mui/material"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "@mui/icons-material"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "@duckdb/duckdb-wasm"
+        update-types:
+          - "version-update:semver-major"
