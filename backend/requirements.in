@@ -3,7 +3,7 @@ uvicorn[standard]>=0.47.0
 pandas>=3.0.3
 clickhouse-connect>=1.0.0
 python-multipart
-pypika==0.48.9
+pypika==0.51.1
 duckdb>=1.5.2
 pyarrow>=24.0.0
 kaggle>=2.1.2
