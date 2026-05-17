@@ -44,7 +44,7 @@ jobs:
 
       - name: Generate version files
         run: |
-          cd frontend && node scripts/generate-version.js
+          (cd frontend && node scripts/generate-version.js)
           python3 backend/scripts/generate_version.py
 
       - name: Log in to GHCR
