@@ -106,6 +106,11 @@ def api_version_root():
 def api_data_root():
     return {"message": "Data endpoints root. See /docs for full schema.", "examples": ["POST /api/v1/data/connect", "GET /api/v1/data/tables"]}
 
+@app.get("/api/v1/health", include_in_schema=False)
+def health():
+    """Liveness check used by deploy scripts to verify the container is up."""
+    return {"status": "ok", "version": VERSION_INFO.get("version", "unknown")}
+
 @app.get("/api/version")
 def get_version():
     """Return version information."""
