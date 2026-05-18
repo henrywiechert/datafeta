@@ -1,6 +1,6 @@
 name: Deploy
 
-# Runs on every push to master.
+# Triggered manually or on a nightly schedule.
 # 1. Runs the full test suite (reuses test.yml via workflow_call).
 # 2. Generates version files, builds the Docker image, pushes to GHCR.
 # 3. SSHes into the VPS and runs deploy-app.sh with the new image SHA.
@@ -14,9 +14,9 @@ name: Deploy
 # The GHCR package must be set to Public so the VPS can pull without auth.
 
 on:
-  push:
-    branches: [master]
-  workflow_dispatch:  # enables manual trigger from GitHub Actions UI
+  workflow_dispatch:  # manual trigger from GitHub Actions UI
+  schedule:
+    - cron: '0 2 * * *'  # nightly at 02:00 UTC
 
 jobs:
   test:
