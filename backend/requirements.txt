@@ -94,7 +94,7 @@ python-dateutil==2.9.0.post0
     #   pandas
 python-dotenv==1.2.2
     # via uvicorn
-python-multipart==0.0.28
+python-multipart==0.0.29
     # via -r requirements.in
 python-slugify==8.0.4
     # via kaggle
