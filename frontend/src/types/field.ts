@@ -63,6 +63,7 @@ export interface Field {
 // Per-field chart override configuration
 export type DataLabelMode = 'inherit' | 'on' | 'off';
 export type UserChartType = 'line' | 'scatter' | 'tick' | 'bar' | 'gantt' | 'cdf' | 'pie' | 'table-refactor' | 'heatmap';
+export type LineVariant = 'line' | 'area';
 
 /**
  * Cell rendering mode for the `table-refactor` chart type.
@@ -94,6 +95,8 @@ export interface FieldOverrideState {
 
   // Chart type override
   chartType?: UserChartType;
+  lineVariant?: LineVariant;
+  areaFillOpacity?: number;
 }
 
 // Query optimization settings

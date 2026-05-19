@@ -1,6 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Box } from '@mui/material';
+import { Box, IconButton, Popover, Slider, SvgIcon, SvgIconProps, Tooltip, Typography } from '@mui/material';
 import TuneIcon from '@mui/icons-material/Tune';
 import { PropertySection } from '../Properties';
 import { useVisualizationContext } from '../../../contexts/VisualizationContext';
@@ -9,7 +9,13 @@ import { useUndoRedo } from '../../../contexts/UndoRedoContext';
 import { Field } from '../../../types';
 import { computeOverrideTargets } from '../../../observable-plot-generator/utils/fieldOverrides';
 import { detectDefaultUserChartType } from '../../../observable-plot-generator/helpers/chartTypeResolver';
-import { SIZE_DEFAULTS_BY_CHART_TYPE, SIZE_DEFAULT_FALLBACK } from '../../../config/chartLayoutConfig';
+import {
+  DEFAULT_AREA_FILL_OPACITY,
+  MAX_AREA_FILL_OPACITY,
+  MIN_AREA_FILL_OPACITY,
+  SIZE_DEFAULTS_BY_CHART_TYPE,
+  SIZE_DEFAULT_FALLBACK,
+} from '../../../config/chartLayoutConfig';
 import { DEFAULT_MANUAL_COLOR, DEFAULT_CATEGORICAL_SCHEME, DEFAULT_SEQUENTIAL_SCHEME, categoricalSchemes } from '../../../config/colorSchemes';
 import { useFieldOverrides } from './useFieldOverrides';
 import ColorFieldControl from './ColorFieldControl';
@@ -20,6 +26,79 @@ import LabelFieldControl from './LabelFieldControl';
 import TooltipFieldControl from './TooltipFieldControl';
 import ChartTypeControl from './ChartTypeControl';
 import FieldOverrideRow from './FieldOverrideRow';
+
+interface AreaFillOpacityControlProps {
+  value: number;
+  onChange: (value: number) => void;
+}
+
+const AreaOpacityIcon: React.FC<SvgIconProps> = (props) => (
+  <SvgIcon {...props} viewBox="0 0 24 24">
+    <path
+      d="M4 18 L4 15 C 7 15, 8 13, 10 11 C 12 9, 14 10, 16 7 C 18 4, 20 5, 21 4 L21 18 Z"
+      fill="currentColor"
+      opacity="0.32"
+    />
+    <path
+      d="M4 15 C 7 15, 8 13, 10 11 C 12 9, 14 10, 16 7 C 18 4, 20 5, 21 4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <circle cx="7" cy="7" r="2.4" fill="currentColor" opacity="0.45" />
+  </SvgIcon>
+);
+
+const AreaFillOpacityControl: React.FC<AreaFillOpacityControlProps> = ({ value, onChange }) => {
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const normalizedValue = Number.isFinite(value) ? value : DEFAULT_AREA_FILL_OPACITY;
+  const popoverOpen = Boolean(anchorEl);
+
+  return (
+    <>
+      <Tooltip title={`Area opacity: ${Math.round(normalizedValue * 100)}%`} placement="top" arrow enterDelay={500} leaveDelay={100}>
+        <IconButton
+          size="small"
+          sx={{ width: 28, height: 28 }}
+          onClick={(event) => setAnchorEl(event.currentTarget)}
+          aria-label="area fill opacity"
+        >
+          <AreaOpacityIcon sx={{ fontSize: 18 }} />
+        </IconButton>
+      </Tooltip>
+      <Popover
+        open={popoverOpen}
+        anchorEl={anchorEl}
+        onClose={() => setAnchorEl(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        PaperProps={{ sx: { p: 1, width: 260 } }}
+      >
+        <Box sx={{ px: 0.5 }}>
+          <Typography variant="body2" sx={{ mb: 0.25 }}>
+            Fill opacity: {Math.round(normalizedValue * 100)}%
+          </Typography>
+          <Slider
+            size="small"
+            value={normalizedValue}
+            min={MIN_AREA_FILL_OPACITY}
+            max={MAX_AREA_FILL_OPACITY}
+            step={0.05}
+            onChange={(_, nextValue) => onChange(nextValue as number)}
+            marks={[
+              { value: MIN_AREA_FILL_OPACITY, label: `${Math.round(MIN_AREA_FILL_OPACITY * 100)}%` },
+              { value: DEFAULT_AREA_FILL_OPACITY, label: `${Math.round(DEFAULT_AREA_FILL_OPACITY * 100)}%` },
+              { value: MAX_AREA_FILL_OPACITY, label: `${Math.round(MAX_AREA_FILL_OPACITY * 100)}%` },
+            ]}
+            sx={{ mx: 0.5 }}
+          />
+        </Box>
+      </Popover>
+    </>
+  );
+};
 
 const FieldOverridesPanel: React.FC = () => {
   const { state, dispatch, getUndoableSnapshot } = useVisualizationContext();
@@ -46,6 +125,8 @@ const FieldOverridesPanel: React.FC = () => {
     labelFontSize,
     tooltipFields,
     globalChartType,
+    lineVariant,
+    areaFillOpacity,
     distributionVariant,
     tableCellMode,
     measureValuesSourceFields,
@@ -181,10 +262,21 @@ const FieldOverridesPanel: React.FC = () => {
           },
         }}
       >
-        <ChartTypeControl
-          chartType={override.chartType}
-          onChange={(chartType) => handleUpdateOverride(targetField.id, { chartType })}
-        />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, minWidth: 0 }}>
+          <ChartTypeControl
+            chartType={override.chartType}
+            onChange={(chartType) => handleUpdateOverride(targetField.id, { chartType })}
+            lineVariant={override.lineVariant ?? 'line'}
+            onLineVariantChange={(variant) => handleUpdateOverride(targetField.id, { lineVariant: variant })}
+          />
+
+          {override.chartType === 'line' && (override.lineVariant ?? 'line') === 'area' && (
+            <AreaFillOpacityControl
+              value={override.areaFillOpacity ?? areaFillOpacity ?? DEFAULT_AREA_FILL_OPACITY}
+              onChange={(opacity) => handleUpdateOverride(targetField.id, { areaFillOpacity: opacity })}
+            />
+          )}
+        </Box>
 
         <ColorFieldControl
           field={resolvedColorField}
@@ -295,34 +387,49 @@ const FieldOverridesPanel: React.FC = () => {
           },
         }}
       >
-        <ChartTypeControl
-          chartType={globalChartType ?? undefined}
-          onChange={(chartType) => {
-            // Set chart-appropriate default size
-            // When switching to auto-detect (chartType is null/undefined), use autoSelectedType
-            const effectiveChartType = chartType ?? autoSelectedType;
-            const newDefaultSize = effectiveChartType 
-              ? (SIZE_DEFAULTS_BY_CHART_TYPE[effectiveChartType] ?? SIZE_DEFAULT_FALLBACK)
-              : SIZE_DEFAULT_FALLBACK;
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, minWidth: 0 }}>
+          <ChartTypeControl
+            chartType={globalChartType ?? undefined}
+            onChange={(chartType) => {
+              // Set chart-appropriate default size
+              // When switching to auto-detect (chartType is null/undefined), use autoSelectedType
+              const effectiveChartType = chartType ?? autoSelectedType;
+              const newDefaultSize = effectiveChartType 
+                ? (SIZE_DEFAULTS_BY_CHART_TYPE[effectiveChartType] ?? SIZE_DEFAULT_FALLBACK)
+                : SIZE_DEFAULT_FALLBACK;
 
-            applyGlobalActions(
-              [
-                { type: 'SET_GLOBAL_CHART_TYPE', payload: chartType ?? null },
-                { type: 'SET_MANUAL_SIZE', payload: newDefaultSize },
-              ],
-              { clearOverrides: clearChartTypeOverridesForAllFields },
-            );
-          }}
-          autoSelectedType={autoSelectedType}
-          distributionVariant={distributionVariant}
-          onDistributionVariantChange={(variant) => {
-            applyGlobalAction({ type: 'SET_DISTRIBUTION_VARIANT', payload: variant });
-          }}
-          tableCellMode={tableCellMode}
-          onTableCellModeChange={(mode) => {
-            applyGlobalAction({ type: 'SET_TABLE_CELL_MODE', payload: mode });
-          }}
-        />
+              applyGlobalActions(
+                [
+                  { type: 'SET_GLOBAL_CHART_TYPE', payload: chartType ?? null },
+                  { type: 'SET_MANUAL_SIZE', payload: newDefaultSize },
+                ],
+                { clearOverrides: clearChartTypeOverridesForAllFields },
+              );
+            }}
+            autoSelectedType={autoSelectedType}
+            lineVariant={lineVariant}
+            onLineVariantChange={(variant) => {
+              applyGlobalAction({ type: 'SET_LINE_VARIANT', payload: variant });
+            }}
+            distributionVariant={distributionVariant}
+            onDistributionVariantChange={(variant) => {
+              applyGlobalAction({ type: 'SET_DISTRIBUTION_VARIANT', payload: variant });
+            }}
+            tableCellMode={tableCellMode}
+            onTableCellModeChange={(mode) => {
+              applyGlobalAction({ type: 'SET_TABLE_CELL_MODE', payload: mode });
+            }}
+          />
+
+          {globalChartType === 'line' && lineVariant === 'area' && (
+            <AreaFillOpacityControl
+              value={areaFillOpacity ?? DEFAULT_AREA_FILL_OPACITY}
+              onChange={(opacity) => {
+                applyGlobalAction({ type: 'SET_AREA_FILL_OPACITY', payload: opacity });
+              }}
+            />
+          )}
+        </Box>
 
         <ColorFieldControl
           field={resolvedGlobalColorField}

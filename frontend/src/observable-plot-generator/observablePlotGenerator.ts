@@ -250,6 +250,8 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
       fieldOverrideTargets: context.fieldOverrideTargets,
       allFields: [...xFields, ...yFields, ...(colorField ? [colorField] : []), ...(sizeField ? [sizeField] : []), ...(context.shapeField ? [context.shapeField] : [])],
       globalChartType: context.globalChartType,
+      lineVariant: context.lineVariant,
+      areaFillOpacity: context.areaFillOpacity,
       distributionVariant: context.distributionVariant,
       measureValuesSourceFields: context.measureValuesSourceFields,
       bandThicknessScale: context.bandThicknessScale,

@@ -13,6 +13,9 @@ export const MIN_BAR_STEP_PX = 15;
 
 // Default chart color used across all chart types
 export const DEFAULT_CHART_COLOR = 'steelblue';
+export const DEFAULT_AREA_FILL_OPACITY = 0.28;
+export const MIN_AREA_FILL_OPACITY = 0.05;
+export const MAX_AREA_FILL_OPACITY = 0.8;
 
 // Default color scheme for categorical color encoding
 // Using Paired for better support of many categories (12 distinct paired colors)

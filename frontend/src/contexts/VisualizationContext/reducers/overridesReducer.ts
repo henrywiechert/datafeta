@@ -58,6 +58,18 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
         queryVersion: cdfChanged || pieChanged ? state.queryVersion + 1 : state.queryVersion,
       };
     }
+    case 'SET_LINE_VARIANT': {
+      return {
+        ...state,
+        lineVariant: action.payload,
+      };
+    }
+    case 'SET_AREA_FILL_OPACITY': {
+      return {
+        ...state,
+        areaFillOpacity: action.payload,
+      };
+    }
     case 'SET_DISTRIBUTION_VARIANT': {
       const variantChanged = state.distributionVariant !== action.payload;
       return {

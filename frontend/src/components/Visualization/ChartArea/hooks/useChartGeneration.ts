@@ -4,7 +4,7 @@ import { generatePlot } from '../../../../observable-plot-generator/observablePl
 import { ChartGenerationContext, GanttZoomRange } from '../../../../observable-plot-generator/types';
 import { GridResultModel } from '../../../../observable-plot-generator/gridModel';
 import { OverlayConfig } from '../../../../observable-plot-generator/overlays/types';
-import { Field, FieldOverrideState, UserChartType, Channels, DistributionVariant, TableCellMode } from '../../../../types';
+import { Field, FieldOverrideState, UserChartType, Channels, DistributionVariant, TableCellMode, LineVariant } from '../../../../types';
 import { computeOverrideTargets } from '../../../../observable-plot-generator/utils/fieldOverrides';
 import { detectDefaultUserChartType } from '../../../../observable-plot-generator/helpers/chartTypeResolver';
 import { logOperationTiming } from '../utils';
@@ -28,6 +28,8 @@ interface UseChartGenerationProps {
   completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
   fieldOverrides?: Record<string, FieldOverrideState>;
   globalChartType?: UserChartType | null;
+  lineVariant?: LineVariant;
+  areaFillOpacity?: number;
   distributionVariant?: DistributionVariant;
   tableCellMode?: TableCellMode;
   /** 0-based page index for the 'table-refactor' chart type pager. */
@@ -69,6 +71,8 @@ export const useChartGeneration = ({
   completeOperation,
   fieldOverrides = {},
   globalChartType,
+  lineVariant = 'line',
+  areaFillOpacity,
   distributionVariant = 'tick-strip',
   tableCellMode = 'auto',
   tablePage,
@@ -248,6 +252,8 @@ export const useChartGeneration = ({
         fieldOverrides,
         fieldOverrideTargets: overrideTargets,
         globalChartType: effectiveGlobalChartType,
+        lineVariant,
+        areaFillOpacity,
         distributionVariant,
         tableCellMode,
         tablePage,
@@ -331,6 +337,8 @@ export const useChartGeneration = ({
     queryVersion,
     fieldOverrides,
     globalChartType,
+    lineVariant,
+    areaFillOpacity,
     distributionVariant,
     tableCellMode,
     tablePage,

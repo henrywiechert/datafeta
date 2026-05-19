@@ -155,6 +155,8 @@ export function computeChartConfigHash(config: ChartAffectingConfig): string {
     String(config.bandThicknessScale ?? 1),
     overridesToHashKey(config.fieldOverrides),
     String(config.globalChartType || 'null'),
+    String(config.lineVariant || 'line'),
+    String(config.areaFillOpacity ?? 0.28),
     String(config.distributionVariant || 'tick-strip'),
     String(config.tableCellMode || 'auto'),
     String(config.tablePage ?? 0),
