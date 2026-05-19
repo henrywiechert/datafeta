@@ -5,7 +5,7 @@ import { FieldAnalysis } from '../analysis/fieldAnalysis';
 import { barUnified } from '../chartTypes/barUnified';
 import { boxPlot } from '../chartTypes/boxPlot';
 import { tickStrip } from '../chartTypes/tickStrip';
-import { lineChart } from '../chartTypes/lineChart';
+import { buildLineOptions } from '../chartTypes/lineChart';
 import { scatterChart } from '../chartTypes/scatterChart';
 import { barChart } from '../chartTypes/barChart';
 import { getResultColumnName, getFieldDisplayName as getFieldDisplayNameUtil } from '../../utils/fieldUtils';
@@ -249,25 +249,24 @@ export function generateChartOptions(
     const xMeasureWithAgg = { ...xMeasure, aggregation: xMeasure.aggregation || 'sum' } as Field;
     const xMeasureCol = getResultColumnName(xMeasureWithAgg);
     return wrapAs1x1Grid(
-      lineChart(
+      buildLineOptions({
         data,
-        yDimCol,
-        xMeasureCol,
-        { x: getDisplayName(yDim), y: getDisplayName(xMeasureWithAgg) },
-        undefined,
+        xColumn: yDimCol,
+        yColumn: xMeasureCol,
+        orientation: 'horizontal',
+        labels: { x: getDisplayName(yDim), y: getDisplayName(xMeasureWithAgg) },
         colorField,
         colorScheme,
-        context.colorBias,
-        context.manualColor,
+        colorBias: context.colorBias,
+        manualColor: context.manualColor,
         sizeField,
         sizeRange,
         manualSize,
         labelCfg,
         tooltipFields,
-        undefined, // facetFields
-        yDim,
-        xMeasureWithAgg,
-      ),
+        xField: yDim,
+        yField: xMeasureWithAgg,
+      }),
       'line-chart',
       `${getDisplayName(yDim)} vs ${getDisplayName(xMeasure)}`
     );
@@ -279,25 +278,24 @@ export function generateChartOptions(
     const yMeasureWithAgg = { ...yMeasure, aggregation: yMeasure.aggregation || 'sum' } as Field;
     const yMeasureCol = getResultColumnName(yMeasureWithAgg);
     return wrapAs1x1Grid(
-      lineChart(
+      buildLineOptions({
         data,
-        xDimCol,
-        yMeasureCol,
-        { x: getDisplayName(xDim), y: getDisplayName(yMeasureWithAgg) },
-        undefined,
+        xColumn: xDimCol,
+        yColumn: yMeasureCol,
+        orientation: 'horizontal',
+        labels: { x: getDisplayName(xDim), y: getDisplayName(yMeasureWithAgg) },
         colorField,
         colorScheme,
-        context.colorBias,
-        context.manualColor,
+        colorBias: context.colorBias,
+        manualColor: context.manualColor,
         sizeField,
         sizeRange,
         manualSize,
         labelCfg,
         tooltipFields,
-        undefined, // facetFields
-        xDim,
-        yMeasureWithAgg,
-      ),
+        xField: xDim,
+        yField: yMeasureWithAgg,
+      }),
       'line-chart',
       `${getDisplayName(xDim)} vs ${getDisplayName(yMeasure)}`
     );
@@ -465,25 +463,24 @@ export function generateChartOptions(
     const xMeasureCol = getResultColumnName(xMeasureWithAgg);
     const yDimCol = getResultColumnName(yDim);
     return wrapAs1x1Grid(
-      lineChart(
+      buildLineOptions({
         data,
-        yDimCol,
-        xMeasureCol,
-        { x: getDisplayName(yDim), y: getDisplayName(xMeasureWithAgg) },
-        undefined,
+        xColumn: yDimCol,
+        yColumn: xMeasureCol,
+        orientation: 'horizontal',
+        labels: { x: getDisplayName(yDim), y: getDisplayName(xMeasureWithAgg) },
         colorField,
         colorScheme,
-        context.colorBias,
-        context.manualColor,
+        colorBias: context.colorBias,
+        manualColor: context.manualColor,
         sizeField,
         sizeRange,
         manualSize,
         labelCfg,
         tooltipFields,
-        undefined, // facetFields
-        yDim,
-        xMeasureWithAgg,
-      ),
+        xField: yDim,
+        yField: xMeasureWithAgg,
+      }),
       'line-chart',
       `${getDisplayName(yDim)} vs ${getDisplayName(xMeasure)}`
     );
@@ -495,25 +492,24 @@ export function generateChartOptions(
     const yMeasureCol = getResultColumnName(yMeasureWithAgg);
     const xDimCol = getResultColumnName(xDim);
     return wrapAs1x1Grid(
-      lineChart(
+      buildLineOptions({
         data,
-        xDimCol,
-        yMeasureCol,
-        { x: getDisplayName(xDim), y: getDisplayName(yMeasureWithAgg) },
-        undefined,
+        xColumn: xDimCol,
+        yColumn: yMeasureCol,
+        orientation: 'horizontal',
+        labels: { x: getDisplayName(xDim), y: getDisplayName(yMeasureWithAgg) },
         colorField,
         colorScheme,
-        context.colorBias,
-        context.manualColor,
+        colorBias: context.colorBias,
+        manualColor: context.manualColor,
         sizeField,
         sizeRange,
         manualSize,
         labelCfg,
         tooltipFields,
-        undefined, // facetFields
-        xDim,
-        yMeasureWithAgg,
-      ),
+        xField: xDim,
+        yField: yMeasureWithAgg,
+      }),
       'line-chart',
       `${getDisplayName(xDim)} vs ${getDisplayName(yMeasure)}`
     );

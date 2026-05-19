@@ -5,7 +5,7 @@ import { LabelConfig, GanttZoomRange } from '../types';
 import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { getFieldColumnName } from '../helpers/fields';
-import { lineChart, verticalLineChart } from './lineChart';
+import { buildLineOptions } from './lineChart';
 import { scatterChart } from './scatterChart';
 import { tickStrip } from './tickStrip';
 import { boxPlot } from './boxPlot';
@@ -147,15 +147,29 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
     const yCol = getResultColumnName(yf);
     const xDomain = ctx.sharedMeasureDomains?.[xCol];
     const yDomain = ctx.sharedMeasureDomains?.[yCol];
-    return verticalLineChart(
-      data, xCol, yCol,
-      { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
-      { x: xDomain, y: yDomain },
-      ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
-      ctx.sizeField, ctx.sizeRange, ctx.manualSize,
-      ctx.labelCfg, ctx.tooltipFields, ctx.facetFields,
-      xf, yf, ctx.sizeScaleData, ctx.lineVariant, ctx.areaFillOpacity
-    );
+    return buildLineOptions({
+      data,
+      xColumn: xCol,
+      yColumn: yCol,
+      orientation: 'vertical',
+      labels: { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
+      domain: { x: xDomain, y: yDomain },
+      colorField: ctx.colorField,
+      colorScheme: ctx.colorScheme,
+      colorBias: ctx.colorBias,
+      manualColor: ctx.manualColor,
+      sizeField: ctx.sizeField,
+      sizeRange: ctx.sizeRange,
+      manualSize: ctx.manualSize,
+      sizeScaleData: ctx.sizeScaleData,
+      labelCfg: ctx.labelCfg,
+      tooltipFields: ctx.tooltipFields,
+      facetFields: ctx.facetFields,
+      xField: xf,
+      yField: yf,
+      variant: ctx.lineVariant,
+      areaFillOpacity: ctx.areaFillOpacity,
+    });
   }
   
   if (xf.type === 'dimension' && yf.type === 'measure') {
@@ -163,15 +177,29 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
     const yCol = getResultColumnName({ ...yf, aggregation: yf.aggregation || 'sum' } as any);
     const xDomain = ctx.sharedMeasureDomains?.[xCol];
     const yDomain = ctx.sharedMeasureDomains?.[yCol];
-    return lineChart(
-      data, xCol, yCol,
-      { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
-      { x: xDomain, y: yDomain },
-      ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
-      ctx.sizeField, ctx.sizeRange, ctx.manualSize,
-      ctx.labelCfg, ctx.tooltipFields, ctx.facetFields,
-      xf, yf, ctx.sizeScaleData, ctx.lineVariant, ctx.areaFillOpacity
-    );
+    return buildLineOptions({
+      data,
+      xColumn: xCol,
+      yColumn: yCol,
+      orientation: 'horizontal',
+      labels: { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
+      domain: { x: xDomain, y: yDomain },
+      colorField: ctx.colorField,
+      colorScheme: ctx.colorScheme,
+      colorBias: ctx.colorBias,
+      manualColor: ctx.manualColor,
+      sizeField: ctx.sizeField,
+      sizeRange: ctx.sizeRange,
+      manualSize: ctx.manualSize,
+      sizeScaleData: ctx.sizeScaleData,
+      labelCfg: ctx.labelCfg,
+      tooltipFields: ctx.tooltipFields,
+      facetFields: ctx.facetFields,
+      xField: xf,
+      yField: yf,
+      variant: ctx.lineVariant,
+      areaFillOpacity: ctx.areaFillOpacity,
+    });
   }
   
   // Fallback: both measures or both dimensions → scatter
