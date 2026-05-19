@@ -53,6 +53,7 @@ export type {
   DataType,
   DateTimePart,
   DateTimeMode,
+  LineVariant,
   DistributionVariant,
   PieVariant,
   DragSource,

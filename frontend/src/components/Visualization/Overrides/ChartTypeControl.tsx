@@ -11,7 +11,7 @@ import GridOnIcon from '@mui/icons-material/GridOn';
 import AutoModeIcon from '@mui/icons-material/AutoMode';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import SvgIcon, { SvgIconProps } from '@mui/material/SvgIcon';
-import { DistributionVariant, TableCellMode, UserChartType } from '../../../types';
+import { DistributionVariant, LineVariant, TableCellMode, UserChartType } from '../../../types';
 
 const TickStripIcon: React.FC<SvgIconProps> = (props) => (
   <SvgIcon {...props} viewBox="0 0 24 24">
@@ -68,6 +68,24 @@ const BoxPlotIcon: React.FC<SvgIconProps> = (props) => (
   </SvgIcon>
 );
 
+const AreaChartIcon: React.FC<SvgIconProps> = (props) => (
+  <SvgIcon {...props} viewBox="0 0 24 24">
+    <path
+      d="M3 18 L3 15 C 6 15, 7 13, 9 11 C 11 9, 13 10, 15 7 C 17 4, 19 5, 21 3 L21 18 Z"
+      fill="currentColor"
+      opacity="0.32"
+    />
+    <path
+      d="M3 15 C 6 15, 7 13, 9 11 C 11 9, 13 10, 15 7 C 17 4, 19 5, 21 3"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </SvgIcon>
+);
+
 /**
  * Visual prefix used in tooltips of chart types still under active development
  * (currently Table and Heatmap). Keeps the wording consistent across buttons.
@@ -82,6 +100,8 @@ interface ChartTypeControlProps {
   chartType: UserChartType | undefined;
   onChange: (chartType: UserChartType | undefined) => void;
   autoSelectedType?: UserChartType;
+  lineVariant?: LineVariant;
+  onLineVariantChange?: (variant: LineVariant) => void;
   distributionVariant?: DistributionVariant;
   onDistributionVariantChange?: (variant: DistributionVariant) => void;
   /** Cell rendering mode for the 'table-refactor' chart type. */
@@ -94,6 +114,8 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
   chartType,
   onChange,
   autoSelectedType,
+  lineVariant = 'line',
+  onLineVariantChange,
   distributionVariant = 'tick-strip',
   onDistributionVariantChange,
   tableCellMode = 'auto',
@@ -105,13 +127,19 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
   const handleChange = (_event: React.MouseEvent<HTMLElement>, newValue: string | null) => {
     if (newValue === 'auto' || newValue === null) {
       onChange(undefined);
+    } else if (newValue === 'area') {
+      onLineVariantChange?.('area');
+      onChange('line');
+    } else if (newValue === 'line') {
+      onLineVariantChange?.('line');
+      onChange('line');
     } else {
       onChange(newValue as UserChartType);
     }
   };
 
   // Current value: 'auto' when undefined, otherwise the chart type
-  const value = chartType ?? 'auto';
+  const value = chartType === 'line' && lineVariant === 'area' ? 'area' : (chartType ?? 'auto');
   const isAuto = value === 'auto';
   const effectiveDistributionSelected = value === 'tick' || (isAuto && autoSelectedType === 'tick');
   const effectiveTableSelected = value === 'table-refactor' || (isAuto && autoSelectedType === 'table-refactor');
@@ -215,6 +243,11 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
           <ToggleButton value="line" aria-label="line chart" sx={getAutoHighlightSx('line')}>
             <Tooltip title={<>Line Chart<br/>Dimension on <b>X</b> and Measure on <b>Y</b></>} placement="top">
               <ShowChartIcon sx={{ fontSize: 16 }} />
+            </Tooltip>
+          </ToggleButton>
+          <ToggleButton value="area" aria-label="area chart" sx={getAutoHighlightSx('line')}>
+            <Tooltip title={<>Area Chart<br/>Line chart variant with filled baseline area</>} placement="top">
+              <AreaChartIcon sx={{ fontSize: 16 }} />
             </Tooltip>
           </ToggleButton>
           <ToggleButton value="scatter" aria-label="scatter plot" sx={getAutoHighlightSx('scatter')}>

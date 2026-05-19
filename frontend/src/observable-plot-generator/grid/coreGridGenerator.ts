@@ -39,6 +39,8 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
     fieldOverrideTargets,
     allFields,
     globalChartType,
+    lineVariant = 'line',
+    areaFillOpacity,
     distributionVariant = 'tick-strip',
     measureValuesSourceFields,
     bandThicknessScale,
@@ -132,6 +134,8 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
       let cellSizeField: Field | undefined | null = sizeField;
       let cellSizeRange: [number, number] | undefined = sizeRange;
       let cellManualSize: number | undefined = manualSize;
+      let cellLineVariant = cellOverride?.lineVariant ?? (globalChartType === 'line' ? lineVariant : 'line');
+      let cellAreaFillOpacity = cellOverride?.areaFillOpacity ?? areaFillOpacity;
 
       // Build per-cell chart type override from fieldOverrides or global chart type
       let cellChartTypeOverrides: ChartTypeOverrides | undefined = overrides;
@@ -227,6 +231,8 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
           sharedColorScale: sharedColorScale,
           manualSize: manualSize,  // Use global, not cellManualSize
           manualColor: manualColor,  // Pass global manual color as fallback
+          lineVariant: cellLineVariant,
+          areaFillOpacity: cellAreaFillOpacity,
           sharedDomains: { ...sharedMeasureDomains, ...sharedNumeric },
           tooltipFields,
         });
@@ -286,6 +292,8 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
           shapeField,
           manualShape,
           distributionVariant,
+          cellLineVariant,
+          cellAreaFillOpacity,
           config.xTickFormat,
           config.yTickFormat
         );

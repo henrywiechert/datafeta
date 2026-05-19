@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { Field, QueryResult, FilterConfig, FilterMetadata, FieldOverrideState, UserChartType, QueryOptimizationSettings, DistributionVariant, TableCellMode } from '../../types';
+import { Field, QueryResult, FilterConfig, FilterMetadata, FieldOverrideState, UserChartType, QueryOptimizationSettings, DistributionVariant, TableCellMode, LineVariant } from '../../types';
 import { OverlayConfig, OverlayType, OverlayParams } from '../../observable-plot-generator/overlays/types';
 
 // Define loading operation types
@@ -137,6 +137,10 @@ export interface VisualizationState {
   fieldOverrides: Record<string, FieldOverrideState>;
   // Global chart type override
   globalChartType: UserChartType | null;
+  // Variant for line-family charts (top-level chart type remains 'line')
+  lineVariant: LineVariant;
+  // Fill opacity for area charts
+  areaFillOpacity: number;
   // Variant for distribution charts (top-level chart type remains 'tick')
   distributionVariant: DistributionVariant;
   // Cell rendering mode for the 'table-refactor' chart type
@@ -248,6 +252,8 @@ export type VisualizationAction =
   | { type: 'CLEAR_FIELD_OVERRIDE'; payload: { fieldId: string } }
   // Global chart type action
   | { type: 'SET_GLOBAL_CHART_TYPE'; payload: UserChartType | null }
+  | { type: 'SET_LINE_VARIANT'; payload: LineVariant }
+  | { type: 'SET_AREA_FILL_OPACITY'; payload: number }
   | { type: 'SET_DISTRIBUTION_VARIANT'; payload: DistributionVariant }
   | { type: 'SET_TABLE_CELL_MODE'; payload: TableCellMode }
   // Table-refactor pagination
@@ -279,6 +285,8 @@ export type VisualizationAction =
       independentDomains?: { x: boolean; y: boolean };
       fieldOverrides: Record<string, FieldOverrideState>;
       globalChartType?: UserChartType | null;
+      lineVariant?: LineVariant;
+      areaFillOpacity?: number;
       distributionVariant?: DistributionVariant;
       tableCellMode?: TableCellMode;
       tablePage?: number;

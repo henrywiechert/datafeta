@@ -110,7 +110,7 @@ export const useFieldOverrides = (props: UseFieldOverridesProps): FieldOverrideH
   const clearChartTypeOverridesForAllFields = () => {
     const next: typeof fieldOverrides = {};
     Object.entries(fieldOverrides || {}).forEach(([id, override]: any) => {
-      const { chartType, ...rest } = override || {};
+      const { chartType, lineVariant, areaFillOpacity, ...rest } = override || {};
       next[id] = rest;
     });
     dispatch({ type: 'SET_FIELD_OVERRIDES', payload: next });

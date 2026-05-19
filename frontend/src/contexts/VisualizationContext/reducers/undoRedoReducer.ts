@@ -30,6 +30,8 @@ export function undoRedoReducer(state: VisualizationState, action: Visualization
         independentDomains: action.payload.independentDomains ?? state.independentDomains,
         fieldOverrides: action.payload.fieldOverrides || {},
         globalChartType: action.payload.globalChartType ?? null,
+        lineVariant: action.payload.lineVariant ?? state.lineVariant,
+        areaFillOpacity: action.payload.areaFillOpacity ?? state.areaFillOpacity,
         distributionVariant: action.payload.distributionVariant ?? state.distributionVariant,
         tableCellMode: action.payload.tableCellMode ?? state.tableCellMode,
         tablePage: action.payload.tablePage ?? state.tablePage,

@@ -1,7 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import * as Plot from '@observablehq/plot';
-import { DEFAULT_CHART_COLOR, DOMAIN_PAD_RATIO } from '../../config/chartLayoutConfig';
-import { Field, PinnedTooltipComparison } from '../../types';
+import { DEFAULT_AREA_FILL_OPACITY, DEFAULT_CHART_COLOR, DOMAIN_PAD_RATIO } from '../../config/chartLayoutConfig';
+import { Field, LineVariant, PinnedTooltipComparison } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { deriveColorScaleInfo, resolveColorForRow, ColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
@@ -56,6 +56,8 @@ export interface LineBuildParams {
   /** Original x/y Field objects, used to enrich tooltip labels with aggregation info. */
   xField?: Field;
   yField?: Field;
+  variant?: LineVariant;
+  areaFillOpacity?: number;
 }
 
 type LineBudget = {
@@ -338,7 +340,8 @@ function compareByColumn(column: string) {
  */
 function recomputeDependentDomain(
   rows: any[],
-  dependentColumn: string
+  dependentColumn: string,
+  includeZero: boolean = false
 ): [number, number] | undefined {
   let min = Infinity;
   let max = -Infinity;
@@ -349,6 +352,10 @@ function recomputeDependentDomain(
     if (v > max) max = v;
   }
   if (min === Infinity || max === -Infinity) return undefined;
+  if (includeZero) {
+    min = Math.min(min, 0);
+    max = Math.max(max, 0);
+  }
   if (min === max) {
     // Avoid zero-span domain
     const pad = min === 0 ? 1 : Math.abs(min) * DOMAIN_PAD_RATIO;
@@ -385,6 +392,8 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     facetFields,
     xField,
     yField,
+    variant = 'line',
+    areaFillOpacity = DEFAULT_AREA_FILL_OPACITY,
   } = params;
 
   const O = LINE_ORIENTATION[orientation];
@@ -444,7 +453,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
   // value — wrong for line charts. For faceted grids the coordinator will
   // harmonize per-cell domains into a shared scale afterwards.
   const plotData = budgetedSorted.length > 0 ? budgetedSorted : cleanSorted;
-  const recomputedDependent = recomputeDependentDomain(plotData, dependentColumn);
+  const recomputedDependent = recomputeDependentDomain(plotData, dependentColumn, variant === 'area');
   let effectiveDomain = domain;
   if (recomputedDependent) {
     effectiveDomain = {
@@ -488,6 +497,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
   const xLabel = labels?.x || xColumn;
   const yLabel = labels?.y || yColumn;
   const lineConfig: any = { x: xColumn, y: yColumn };
+  const areaConfig: any = { x: xColumn, y: yColumn, fillOpacity: areaFillOpacity };
   const dotConfig: any = {
     x: { value: xColumn, label: xLabel },
     y: { value: yColumn, label: yLabel },
@@ -526,26 +536,35 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
         
         dotConfig.fill = transformValue;
         lineConfig.stroke = transformValue;
+        areaConfig.fill = transformValue;
         lineConfig.z = null;
+        areaConfig.z = null;
       } else if (colorInfo.accessor) {
         dotConfig.fill = (d: any) => colorInfo.accessor?.(d) ?? null;
         lineConfig.stroke = (d: any) => colorInfo.accessor?.(d) ?? null;
+        areaConfig.fill = (d: any) => colorInfo.accessor?.(d) ?? null;
         lineConfig.z = null;
+        areaConfig.z = null;
       } else {
         lineConfig.stroke = colorColumnName;
         lineConfig.z = colorColumnName;
+        areaConfig.fill = colorColumnName;
+        areaConfig.z = colorColumnName;
         dotConfig.fill = colorColumnName;
       }
     } else {
       // For discrete color: use column name and group by z value
       lineConfig.stroke = colorColumnName;
       lineConfig.z = colorColumnName;
+      areaConfig.fill = colorColumnName;
+      areaConfig.z = colorColumnName;
       dotConfig.fill = colorColumnName;
     }
   } else {
     // When there's no color field, fall back to a single manual color if provided
     const fallbackColor = manualColor || DEFAULT_CHART_COLOR;
     lineConfig.stroke = fallbackColor;
+    areaConfig.fill = fallbackColor;
     dotConfig.fill = fallbackColor;
   }
 
@@ -576,6 +595,47 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
   const xIsTime = axisKind === 'time' || (effectiveDomain?.x?.[0] instanceof Date);
   const yIsTime = effectiveDomain?.y?.[0] instanceof Date;
 
+  const areaMarks = (() => {
+    if (variant !== 'area') return [];
+
+    if (colorField && colorInfo?.kind === 'categorical' && colorColumnName) {
+      const seriesGroups = new Map<string, any[]>();
+      for (const row of budgetedSorted) {
+        const key = normalizeTooltipComparisonKey(row?.[colorColumnName]);
+        const rows = seriesGroups.get(key) || [];
+        rows.push(row);
+        seriesGroups.set(key, rows);
+      }
+
+      return Array.from(seriesGroups.values()).map((seriesRows) => {
+        const seriesFill = resolveColorForRow(
+          seriesRows[0],
+          colorInfo,
+          colorField,
+          manualColor || DEFAULT_CHART_COLOR,
+        );
+        const seriesAreaConfig = {
+          ...areaConfig,
+          fill: seriesFill,
+          z: undefined,
+        };
+        return orientation === 'horizontal'
+          ? Plot.areaY(seriesRows, seriesAreaConfig)
+          : Plot.areaX(seriesRows, seriesAreaConfig);
+      });
+    }
+
+    return [
+      orientation === 'horizontal'
+        ? Plot.areaY(budgetedSorted, areaConfig)
+        : Plot.areaX(budgetedSorted, areaConfig),
+    ];
+  })();
+
+  const lineMarks = variant === 'area'
+    ? [...areaMarks, Plot.line(budgetedSorted, lineConfig)]
+    : [Plot.line(budgetedSorted, lineConfig)];
+
   const plotOptions: Plot.PlotOptions = {
     x: {
       label: labels?.x || xColumn,
@@ -592,7 +652,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
       ...(yIsTime ? { type: 'utc' as any, tickFormat: formatDateTick } : {}),
     } as any,
     marks: [
-      Plot.line(budgetedSorted, lineConfig),
+      ...lineMarks,
       Plot.dot(dotData, dotConfig),
       Plot.dot(dotData, hoverDotConfig),
     ],
@@ -758,6 +818,8 @@ export function lineChart(
   xField?: Field,
   yField?: Field,
   sizeScaleData?: any[],
+  variant: LineVariant = 'line',
+  areaFillOpacity?: number,
 ): Plot.PlotOptions {
   return buildLineOptions({
     data,
@@ -779,6 +841,8 @@ export function lineChart(
     facetFields,
     xField,
     yField,
+    variant,
+    areaFillOpacity,
   });
 }
 
@@ -805,6 +869,8 @@ export function verticalLineChart(
   xField?: Field,
   yField?: Field,
   sizeScaleData?: any[],
+  variant: LineVariant = 'line',
+  areaFillOpacity?: number,
 ): Plot.PlotOptions {
   return buildLineOptions({
     data,
@@ -826,5 +892,7 @@ export function verticalLineChart(
     facetFields,
     xField,
     yField,
+    variant,
+    areaFillOpacity,
   });
 }

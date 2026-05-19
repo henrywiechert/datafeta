@@ -8,7 +8,8 @@
  */
 
 import * as Plot from '@observablehq/plot';
-import { Field, FieldOverrideState, UserChartType } from '../../types';
+import { DEFAULT_AREA_FILL_OPACITY } from '../../config/chartLayoutConfig';
+import { Field, FieldOverrideState, LineVariant, UserChartType } from '../../types';
 import { MEASURE_NAMES_FIELD } from '../../utils/syntheticFields';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { ColorScaleInfo } from '../utils/colorSchemeUtils';
@@ -31,6 +32,7 @@ export function hasAnyMeasureOverrides(
     if (override) {
       // Check for any override that affects rendering
       if (override.chartType !== undefined ||
+          override.lineVariant !== undefined ||
           override.manualSize !== undefined ||
           override.manualColor !== undefined ||
           override.sizeRange !== undefined) {
@@ -53,6 +55,15 @@ function getMeasureChartType(
 ): UserChartType {
   const override = fieldOverrides?.[measureField.id];
   return override?.chartType || defaultChartType;
+}
+
+function getMeasureLineVariant(
+  measureField: Field,
+  fieldOverrides: Record<string, FieldOverrideState> | undefined,
+  defaultLineVariant: LineVariant = 'line'
+): LineVariant {
+  const override = fieldOverrides?.[measureField.id];
+  return override?.lineVariant || defaultLineVariant;
 }
 
 /**
@@ -78,6 +89,8 @@ interface MultiMarkConfig {
   sharedColorScale?: ColorScaleInfo | null;
   manualSize?: number;
   manualColor?: string;
+  lineVariant?: LineVariant;
+  areaFillOpacity?: number;
   sharedDomains?: Record<string, [number, number] | [Date, Date]>;
   tooltipFields?: Field[];
 }
@@ -97,7 +110,9 @@ function createMarksForType(
   staticColor: string,  // Actual color value, NOT a column name
   sizeValue: number,
   orientation: 'vertical' | 'horizontal',
-  tooltipChannels?: Record<string, any>
+  tooltipChannels?: Record<string, any>,
+  lineVariant: LineVariant = 'line',
+  areaFillOpacity: number = DEFAULT_AREA_FILL_OPACITY
 ): Plot.Markish[] {
   // ---- Reduction helpers (safety) ------------------------------------------
   // MeasureValues plots can accidentally try to render 100k+ points per mark layer.
@@ -189,6 +204,11 @@ function createMarksForType(
         stroke: staticColor,
         strokeWidth: sizeValue,
       };
+      const areaConfig: any = {
+        ...baseOptions,
+        fill: staticColor,
+        fillOpacity: areaFillOpacity,
+      };
       const dotConfig: any = {
         ...baseOptions,
         fill: staticColor,
@@ -204,8 +224,17 @@ function createMarksForType(
         stroke: 'transparent',
         strokeWidth: 0,
       };
+      const lineMarks = lineVariant === 'area'
+        ? [
+            orientation === 'vertical'
+              ? Plot.areaY(lineData, areaConfig)
+              : Plot.areaX(lineData, areaConfig),
+            Plot.line(lineData, lineConfig),
+          ]
+        : [Plot.line(lineData, lineConfig)];
+
       return [
-        Plot.line(lineData, lineConfig),
+        ...lineMarks,
         Plot.dot(dotData, dotConfig),
         Plot.dot(dotData, hoverDotConfig),
       ];
@@ -275,6 +304,8 @@ export function generateMeasureValuesMultiMarkPlot(config: MultiMarkConfig): Plo
     sharedDomains,
     manualSize = 4,
     manualColor,
+    lineVariant = 'line',
+    areaFillOpacity = DEFAULT_AREA_FILL_OPACITY,
     tooltipFields,
   } = config;
 
@@ -333,6 +364,7 @@ export function generateMeasureValuesMultiMarkPlot(config: MultiMarkConfig): Plo
 
     // Get chart type for this measure
     const chartType = getMeasureChartType(measureField, fieldOverrides, 'line');
+    const measureLineVariant = getMeasureLineVariant(measureField, fieldOverrides, lineVariant);
     
     // Get size for this measure (from per-field override or global fallback)
     const sizeValue = getMeasureSize(measureField, fieldOverrides, manualSize);
@@ -354,7 +386,9 @@ export function generateMeasureValuesMultiMarkPlot(config: MultiMarkConfig): Plo
       staticColor,
       sizeValue,
       orientation,
-      tooltipChannels
+      tooltipChannels,
+      measureLineVariant,
+      override?.areaFillOpacity ?? areaFillOpacity
     );
 
     allMarks.push(...marks);

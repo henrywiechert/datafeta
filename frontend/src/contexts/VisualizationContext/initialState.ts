@@ -1,6 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { VisualizationState } from './types';
-import { SIZE_DEFAULT_FALLBACK } from '../../config/chartLayoutConfig';
+import { DEFAULT_AREA_FILL_OPACITY, SIZE_DEFAULT_FALLBACK } from '../../config/chartLayoutConfig';
 import { DEFAULT_MANUAL_COLOR } from '../../config/colorSchemes';
 import { DEFAULT_MANUAL_SHAPE } from '../../observable-plot-generator/utils/shapeUtils';
 import { DEFAULT_OVERLAYS } from '../../observable-plot-generator/overlays/types';
@@ -75,6 +75,8 @@ export const initialState: VisualizationState = {
   fieldOverrides: {},
   // Global chart type default (null = auto-detect)
   globalChartType: null,
+  lineVariant: 'line',
+  areaFillOpacity: DEFAULT_AREA_FILL_OPACITY,
   distributionVariant: 'tick-strip',
   // Default cell mode for the 'table-refactor' chart type
   tableCellMode: 'auto',

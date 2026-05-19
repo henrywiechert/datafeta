@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { Field, QueryResult, FieldOverrideState, UserChartType, DistributionVariant, TableCellMode, TooltipField } from '../types';
+import { Field, QueryResult, FieldOverrideState, UserChartType, DistributionVariant, TableCellMode, TooltipField, LineVariant } from '../types';
 import { OverlayConfig } from './overlays/types';
 import { FieldOverrideTarget } from './utils/fieldOverrides';
 import { ColorScaleInfo } from './utils/colorSchemeUtils';
@@ -68,6 +68,8 @@ export interface CartesianPlotsConfig {
   fieldOverrideTargets?: FieldOverrideTarget[];
   allFields?: Field[];
   globalChartType?: UserChartType | null;
+  lineVariant?: LineVariant;
+  areaFillOpacity?: number;
   distributionVariant?: DistributionVariant;
   measureValuesSourceFields?: Field[];
   bandThicknessScale?: number;
@@ -122,6 +124,10 @@ export interface ChartGenerationContext {
    * Global chart type override (applies to all charts when no per-field override is set).
    */
   globalChartType?: UserChartType | null;
+  /** Variant for the line chart family when globalChartType is 'line'. */
+  lineVariant?: LineVariant;
+  /** Fill opacity for area chart fills. */
+  areaFillOpacity?: number;
   /** Variant for the distribution chart family when globalChartType is 'tick'. */
   distributionVariant?: DistributionVariant;
   /** Cell rendering mode when globalChartType is 'table-refactor'. */

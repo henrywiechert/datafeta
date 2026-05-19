@@ -5,7 +5,7 @@
  */
 
 import * as Plot from '@observablehq/plot';
-import { DistributionVariant, Field } from '../../types';
+import { DistributionVariant, Field, LineVariant } from '../../types';
 import { LabelConfig, GanttZoomRange } from '../types';
 
 /**
@@ -42,6 +42,10 @@ export interface ChartContext {
   manualShape?: string;
   /** Variant for the distribution chart family when rendering tick charts. */
   distributionVariant?: DistributionVariant;
+  /** Variant for the line chart family when rendering line charts. */
+  lineVariant?: LineVariant;
+  /** Fill opacity for area chart fills. */
+  areaFillOpacity?: number;
   xTickFormat?: (d: any) => string;
   yTickFormat?: (d: any) => string;
 }

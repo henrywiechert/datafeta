@@ -154,7 +154,7 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
       ctx.sizeField, ctx.sizeRange, ctx.manualSize,
       ctx.labelCfg, ctx.tooltipFields, ctx.facetFields,
-      xf, yf, ctx.sizeScaleData
+      xf, yf, ctx.sizeScaleData, ctx.lineVariant, ctx.areaFillOpacity
     );
   }
   
@@ -170,7 +170,7 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.manualColor,
       ctx.sizeField, ctx.sizeRange, ctx.manualSize,
       ctx.labelCfg, ctx.tooltipFields, ctx.facetFields,
-      xf, yf, ctx.sizeScaleData
+      xf, yf, ctx.sizeScaleData, ctx.lineVariant, ctx.areaFillOpacity
     );
   }
   
@@ -651,6 +651,8 @@ export function generatePairChartOptions(
   shapeField?: Field,
   manualShape?: string,
   distributionVariant?: import('../../types').DistributionVariant,
+  lineVariant?: import('../../types').LineVariant,
+  areaFillOpacity?: number,
   xTickFormat?: (d: any) => string,
   yTickFormat?: (d: any) => string,
 ): Plot.PlotOptions {
@@ -674,6 +676,8 @@ export function generatePairChartOptions(
     shapeField,
     manualShape,
     distributionVariant,
+    lineVariant,
+    areaFillOpacity,
     xTickFormat,
     yTickFormat,
   };
