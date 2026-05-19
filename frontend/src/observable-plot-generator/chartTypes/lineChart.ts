@@ -68,15 +68,23 @@ type LineBudget = {
   maxDots: number;
 };
 
+const LINE_POINT_BUDGET = 1_000;
+const DISCRETE_LINE_MIN_POINTS_PER_SERIES = 200;
+const LINE_DOT_BUDGET = 2_000;
+const DISCRETE_LINE_DOT_BUDGET = 5_000;
+const DEFAULT_LINE_STROKE_WIDTH = 2;
+const DEFAULT_LINE_DOT_RADIUS = 2;
+const LINE_HOVER_DOT_RADIUS = 6;
+
 function computeLineBudget(hasDiscreteColor: boolean): LineBudget {
   // Lines (and dots) can stack overflow when we render hundreds of thousands of points.
   // Dots are heavier than line segments so they get a separate (lower) cap.
   return {
-    maxPoints: hasDiscreteColor ? 1_000 : 1_000,
-    minPerSeries: hasDiscreteColor ? 200 : 0,
+    maxPoints: LINE_POINT_BUDGET,
+    minPerSeries: hasDiscreteColor ? DISCRETE_LINE_MIN_POINTS_PER_SERIES : 0,
     // 5_000 lets typical multi-series datasets (e.g. 200 countries × 25 years)
     // show every dot while still protecting against stack overflows.
-    maxDots: hasDiscreteColor ? 5_000 : 2_000,
+    maxDots: hasDiscreteColor ? DISCRETE_LINE_DOT_BUDGET : LINE_DOT_BUDGET,
   };
 }
 
@@ -253,6 +261,17 @@ function normalizeTooltipComparisonKey(value: any): string {
   return `__OTHER__:${String(value)}`;
 }
 
+function groupRowsByColorSeries(rows: any[], colorColumnName: string): Map<string, any[]> {
+  const groups = new Map<string, any[]>();
+  for (const row of rows) {
+    const key = normalizeTooltipComparisonKey(row?.[colorColumnName]);
+    const seriesRows = groups.get(key) || [];
+    seriesRows.push(row);
+    groups.set(key, seriesRows);
+  }
+  return groups;
+}
+
 function buildPinnedLineComparisonResolver(params: {
   dotData: any[];
   xColumn: string;
@@ -366,52 +385,27 @@ function recomputeDependentDomain(
   return [min - pad, max + pad];
 }
 
-// ---------- Core Builder ----------------------------------------------------
+type PreparedLineData = {
+  clean: any[];
+  budgetedSorted: any[];
+  dotData: any[];
+  axisKind: XKind;
+};
 
-/**
- * Unified line chart builder supporting both horizontal (x=independent) and vertical (y=independent) orientations.
- */
-export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
-  const {
-    data,
-    xColumn,
-    yColumn,
-    orientation,
-    labels,
-    domain,
-    colorField,
-    colorScheme,
-    colorBias,
-    manualColor,
-    sizeField,
-    sizeRange,
-    manualSize,
-    sizeScaleData,
-    labelCfg,
-    tooltipFields,
-    facetFields,
-    xField,
-    yField,
-    variant = 'line',
-    areaFillOpacity = DEFAULT_AREA_FILL_OPACITY,
-  } = params;
-
-  const O = LINE_ORIENTATION[orientation];
-  const independentColumn = orientation === 'horizontal' ? xColumn : yColumn;
-  const dependentColumn = orientation === 'horizontal' ? yColumn : xColumn;
+function prepareLineData(params: {
+  data: any[];
+  independentColumn: string;
+  dependentColumn: string;
+  colorField?: Field;
+  colorColumnName?: string;
+  orientation: LineOrientation;
+}): PreparedLineData {
+  const { data, independentColumn, dependentColumn, colorField, colorColumnName, orientation } = params;
 
   // Filter to finite numeric values for the dependent axis
   const clean = Array.isArray(data)
     ? data.filter((d) => Number.isFinite(d[dependentColumn]))
     : [];
-
-  if (clean.length === 0) {
-    return {
-      x: { label: labels?.x || xColumn, domainKey: xColumn, grid: true } as any,
-      y: { label: labels?.y || yColumn, domainKey: yColumn, grid: true } as any,
-      marks: [],
-    };
-  }
 
   // Sort by the independent axis so the line flows correctly
   const cleanSorted = clean.slice().sort(compareByColumn(independentColumn));
@@ -420,20 +414,13 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
   const hasDiscreteColor = !!colorField && colorField.flavour === 'discrete';
   const budget = computeLineBudget(hasDiscreteColor);
   const axisKind: XKind = inferXKind(cleanSorted.slice(0, 25).map(r => r?.[independentColumn]));
-  const colorColumnNamePre = colorField ? getResultColumnName(colorField) : undefined;
 
   const maxBins = budget.maxPoints;
   let budgetedSorted = cleanSorted;
   if (cleanSorted.length > maxBins) {
-    if (hasDiscreteColor && colorColumnNamePre) {
+    if (hasDiscreteColor && colorColumnName) {
       // Group by color, bin-aggregate each group separately
-      const groups = new Map<any, any[]>();
-      for (const r of cleanSorted) {
-        const k = r?.[colorColumnNamePre];
-        const arr = groups.get(k) || [];
-        arr.push(r);
-        groups.set(k, arr);
-      }
+      const groups = groupRowsByColorSeries(cleanSorted, colorColumnName);
       const reduced: any[] = [];
       for (const [, arr] of Array.from(groups.entries())) {
         const arrSorted = arr.slice().sort(compareByColumn(independentColumn));
@@ -447,21 +434,6 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     console.warn(`⚠️ ${chartLabel} bin-aggregate applied: ${cleanSorted.length} → ${budgetedSorted.length} points (axisKind=${axisKind})`);
   }
 
-  // Always compute the dependent-axis domain from the actually-plotted data.
-  // The caller-supplied domain (from computeSharedMeasureDomains) may use
-  // bar-chart stacking logic that inflates the range far beyond any individual
-  // value — wrong for line charts. For faceted grids the coordinator will
-  // harmonize per-cell domains into a shared scale afterwards.
-  const plotData = budgetedSorted.length > 0 ? budgetedSorted : cleanSorted;
-  const recomputedDependent = recomputeDependentDomain(plotData, dependentColumn, variant === 'area');
-  let effectiveDomain = domain;
-  if (recomputedDependent) {
-    effectiveDomain = {
-      ...domain,
-      [O.dependentAxis]: recomputedDependent,
-    };
-  }
-
   // Dots are expensive at scale; cap dot density separately.
   // When there is a discrete color field (multiple series), sample per-series so
   // that the stride is independent of backend row order — otherwise a global
@@ -469,18 +441,12 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
   // Use the actual total dot count to decide whether sampling is needed at all;
   // if the data already fits within the budget, show every point.
   let dotData: any[];
-  if (hasDiscreteColor && colorColumnNamePre) {
+  if (hasDiscreteColor && colorColumnName) {
     if (budgetedSorted.length <= budget.maxDots) {
       // All points fit within budget — no need to sample
       dotData = budgetedSorted;
     } else {
-      const seriesGroups = new Map<any, any[]>();
-      for (const r of budgetedSorted) {
-        const k = r?.[colorColumnNamePre];
-        const arr = seriesGroups.get(k) || [];
-        arr.push(r);
-        seriesGroups.set(k, arr);
-      }
+      const seriesGroups = groupRowsByColorSeries(budgetedSorted, colorColumnName);
       const numSeries = seriesGroups.size || 1;
       const perSeriesMax = Math.max(2, Math.floor(budget.maxDots / numSeries));
       const perSeriesResult: any[] = [];
@@ -494,27 +460,146 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     dotData = sampleEvery(budgetedSorted, budget.maxDots);
   }
 
-  const xLabel = labels?.x || xColumn;
-  const yLabel = labels?.y || yColumn;
-  const lineConfig: any = { x: xColumn, y: yColumn };
-  const areaConfig: any = { x: xColumn, y: yColumn, fillOpacity: areaFillOpacity };
-  const dotConfig: any = {
-    x: { value: xColumn, label: xLabel },
-    y: { value: yColumn, label: yLabel },
-    r: 2,
-    channels: {
-      [xLabel]: { value: xColumn, label: xLabel },
-      [yLabel]: { value: yColumn, label: yLabel }
-    }
+  return {
+    clean,
+    budgetedSorted,
+    dotData,
+    axisKind,
   };
+}
 
-  const colorInfo = colorField ? deriveColorScaleInfo(budgetedSorted, colorField, colorScheme, colorBias) : null;
-  const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
-  const comparisonColorContext = {
-    scale: colorInfo,
-    field: colorField,
-    fallbackColor: manualColor || DEFAULT_CHART_COLOR,
+type LineMarkConfigs = {
+  lineConfig: any;
+  areaConfig: any;
+  dotConfig: any;
+};
+
+function createBaseMarkConfigs(params: {
+  xColumn: string;
+  yColumn: string;
+  xLabel: string;
+  yLabel: string;
+  areaFillOpacity: number;
+}): LineMarkConfigs {
+  const { xColumn, yColumn, xLabel, yLabel, areaFillOpacity } = params;
+
+  return {
+    lineConfig: { x: xColumn, y: yColumn },
+    areaConfig: { x: xColumn, y: yColumn, fillOpacity: areaFillOpacity },
+    dotConfig: {
+      x: { value: xColumn, label: xLabel },
+      y: { value: yColumn, label: yLabel },
+      r: DEFAULT_LINE_DOT_RADIUS,
+      channels: {
+        [xLabel]: { value: xColumn, label: xLabel },
+        [yLabel]: { value: yColumn, label: yLabel }
+      }
+    },
   };
+}
+
+function applyLineSizeEncoding(params: {
+  lineConfig: any;
+  dotConfig: any;
+  budgetedSorted: any[];
+  sizeField?: Field;
+  sizeRange?: [number, number];
+  manualSize?: number;
+  sizeScaleData?: any[];
+}): void {
+  const { lineConfig, dotConfig, budgetedSorted, sizeField, sizeRange, manualSize, sizeScaleData } = params;
+
+  if (sizeField && sizeRange) {
+    const sizeScale = createSizeScale(sizeScaleData ?? budgetedSorted, sizeField, sizeRange, manualSize || DEFAULT_LINE_STROKE_WIDTH);
+    const sizeColumnName = getResultColumnName(sizeField);
+    lineConfig.strokeWidth = (d: any) => sizeScale.getSizeForValue(d[sizeColumnName]);
+    dotConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: getFieldDisplayName(sizeField) };
+  } else {
+    lineConfig.strokeWidth = manualSize || DEFAULT_LINE_STROKE_WIDTH;
+  }
+}
+
+function createHoverDotConfig(params: {
+  xColumn: string;
+  yColumn: string;
+  colorColumnName?: string;
+}): any {
+  const { xColumn, yColumn, colorColumnName } = params;
+
+  return {
+    x: xColumn,
+    y: yColumn,
+    r: LINE_HOVER_DOT_RADIUS,
+    fill: 'transparent',
+    stroke: 'transparent',
+    strokeWidth: 0,
+    ...(colorColumnName ? { z: colorColumnName } : {}),
+  };
+}
+
+function buildAreaMarks(params: {
+  variant: LineVariant;
+  orientation: LineOrientation;
+  budgetedSorted: any[];
+  areaConfig: any;
+  colorField?: Field;
+  colorInfo: ColorScaleInfo | null;
+  colorColumnName?: string;
+  manualColor?: string;
+}): any[] {
+  const { variant, orientation, budgetedSorted, areaConfig, colorField, colorInfo, colorColumnName, manualColor } = params;
+
+  if (variant !== 'area') return [];
+
+  if (colorField && colorInfo?.kind === 'categorical' && colorColumnName) {
+    const seriesGroups = groupRowsByColorSeries(budgetedSorted, colorColumnName);
+
+    return Array.from(seriesGroups.values()).map((seriesRows) => {
+      const seriesFill = resolveColorForRow(
+        seriesRows[0],
+        colorInfo,
+        colorField,
+        manualColor || DEFAULT_CHART_COLOR,
+      );
+      const seriesAreaConfig = {
+        ...areaConfig,
+        fill: seriesFill,
+        z: undefined,
+      };
+      return orientation === 'horizontal'
+        ? Plot.areaY(seriesRows, seriesAreaConfig)
+        : Plot.areaX(seriesRows, seriesAreaConfig);
+    });
+  }
+
+  return [
+    orientation === 'horizontal'
+      ? Plot.areaY(budgetedSorted, areaConfig)
+      : Plot.areaX(budgetedSorted, areaConfig),
+  ];
+}
+
+function applyLineColorEncoding(params: {
+  lineConfig: any;
+  areaConfig: any;
+  dotConfig: any;
+  colorField?: Field;
+  colorInfo: ColorScaleInfo | null;
+  colorColumnName?: string;
+  colorBias?: number;
+  manualColor?: string;
+}): { scale: ColorScaleInfo | null; field?: Field; fallbackColor: string } {
+  const {
+    lineConfig,
+    areaConfig,
+    dotConfig,
+    colorField,
+    colorInfo,
+    colorColumnName,
+    colorBias,
+    manualColor,
+  } = params;
+  const fallbackColor = manualColor || DEFAULT_CHART_COLOR;
 
   if (colorField && colorInfo) {
     dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: getFieldDisplayName(colorField) };
@@ -562,81 +647,29 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     }
   } else {
     // When there's no color field, fall back to a single manual color if provided
-    const fallbackColor = manualColor || DEFAULT_CHART_COLOR;
     lineConfig.stroke = fallbackColor;
     areaConfig.fill = fallbackColor;
     dotConfig.fill = fallbackColor;
   }
 
-  // Apply size configuration for line width
-  if (sizeField && sizeRange) {
-    const sizeScale = createSizeScale(sizeScaleData ?? budgetedSorted, sizeField, sizeRange, manualSize || 2);
-    const sizeColumnName = getResultColumnName(sizeField);
-    lineConfig.strokeWidth = (d: any) => sizeScale.getSizeForValue(d[sizeColumnName]);
-    dotConfig.channels[sizeField.columnName] = { value: sizeColumnName, label: getFieldDisplayName(sizeField) };
-  } else {
-    lineConfig.strokeWidth = manualSize || 2;
-  }
-  
-  // Add invisible larger dots for better hover detection.
-  // Include the same z/stroke grouping as the visible dots so that Observable
-  // Plot's pointer selection stays within the correct series when multiple
-  // series overlap at the same x position.
-  const hoverDotConfig: any = {
-    x: xColumn,
-    y: yColumn,
-    r: 6,
-    fill: 'transparent',
-    stroke: 'transparent',
-    strokeWidth: 0,
-    ...(colorColumnName ? { z: colorColumnName } : {}),
+  return {
+    scale: colorInfo,
+    field: colorField,
+    fallbackColor,
   };
+}
 
-  const xIsTime = axisKind === 'time' || (effectiveDomain?.x?.[0] instanceof Date);
-  const yIsTime = effectiveDomain?.y?.[0] instanceof Date;
+function buildLineAxes(params: {
+  xColumn: string;
+  yColumn: string;
+  labels?: { x?: string; y?: string };
+  effectiveDomain?: LineBuildParams['domain'];
+  xIsTime: boolean;
+  yIsTime: boolean;
+}): Pick<Plot.PlotOptions, 'x' | 'y'> {
+  const { xColumn, yColumn, labels, effectiveDomain, xIsTime, yIsTime } = params;
 
-  const areaMarks = (() => {
-    if (variant !== 'area') return [];
-
-    if (colorField && colorInfo?.kind === 'categorical' && colorColumnName) {
-      const seriesGroups = new Map<string, any[]>();
-      for (const row of budgetedSorted) {
-        const key = normalizeTooltipComparisonKey(row?.[colorColumnName]);
-        const rows = seriesGroups.get(key) || [];
-        rows.push(row);
-        seriesGroups.set(key, rows);
-      }
-
-      return Array.from(seriesGroups.values()).map((seriesRows) => {
-        const seriesFill = resolveColorForRow(
-          seriesRows[0],
-          colorInfo,
-          colorField,
-          manualColor || DEFAULT_CHART_COLOR,
-        );
-        const seriesAreaConfig = {
-          ...areaConfig,
-          fill: seriesFill,
-          z: undefined,
-        };
-        return orientation === 'horizontal'
-          ? Plot.areaY(seriesRows, seriesAreaConfig)
-          : Plot.areaX(seriesRows, seriesAreaConfig);
-      });
-    }
-
-    return [
-      orientation === 'horizontal'
-        ? Plot.areaY(budgetedSorted, areaConfig)
-        : Plot.areaX(budgetedSorted, areaConfig),
-    ];
-  })();
-
-  const lineMarks = variant === 'area'
-    ? [...areaMarks, Plot.line(budgetedSorted, lineConfig)]
-    : [Plot.line(budgetedSorted, lineConfig)];
-
-  const plotOptions: Plot.PlotOptions = {
+  return {
     x: {
       label: labels?.x || xColumn,
       domainKey: xColumn,
@@ -651,6 +684,267 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
       domain: effectiveDomain?.y,
       ...(yIsTime ? { type: 'utc' as any, tickFormat: formatDateTick } : {}),
     } as any,
+  };
+}
+
+function attachLineColorScale(params: {
+  plotOptions: Plot.PlotOptions;
+  colorField?: Field;
+  colorInfo: ColorScaleInfo | null;
+}): void {
+  const { plotOptions, colorField, colorInfo } = params;
+
+  if (!colorField || !colorInfo) return;
+
+  if (colorInfo.kind === 'continuous') {
+    plotOptions.color = {
+      type: 'linear',
+      domain: colorInfo.domain as [number, number],
+      range: colorInfo.range,
+      clamp: true,
+      label: getFieldDisplayName(colorField),
+    } as any;
+  } else {
+    plotOptions.color = {
+      type: 'ordinal' as any,
+      domain: colorInfo.domain as any[],
+      range: colorInfo.range,
+      label: getFieldDisplayName(colorField),
+    } as any;
+  }
+}
+
+function attachLineTooltipMetadata(params: {
+  plotOptions: Plot.PlotOptions;
+  dotData: any[];
+  xColumn: string;
+  yColumn: string;
+  xLabel: string;
+  yLabel: string;
+  colorField?: Field;
+  colorColumnName?: string;
+  colorContext: {
+    scale: ColorScaleInfo | null;
+    field?: Field;
+    fallbackColor: string;
+  };
+  sizeField?: Field;
+  tooltipFields?: Field[];
+  facetFields?: Field[];
+  xField?: Field;
+  yField?: Field;
+  orientation: LineOrientation;
+}): void {
+  const {
+    plotOptions,
+    dotData,
+    xColumn,
+    yColumn,
+    xLabel,
+    yLabel,
+    colorField,
+    colorColumnName,
+    colorContext,
+    sizeField,
+    tooltipFields,
+    facetFields,
+    xField,
+    yField,
+    orientation,
+  } = params;
+
+  // Use dotData (not budgetedSorted) because Observable Plot stores numeric
+  // indices into the data array passed to Plot.dot() in __data__. The tooltip
+  // resolver looks up config.data[index], so it must match the dots' data source.
+  (plotOptions as any).__customTooltip = {
+    enabled: true,
+    data: dotData,
+    showVerticalGuideLine: orientation === 'horizontal',
+    comparisonColorContext: colorContext,
+    getPinnedComparison: colorField?.flavour === 'discrete' && colorColumnName
+      ? buildPinnedLineComparisonResolver({
+          dotData,
+          xColumn,
+          yColumn,
+          xLabel,
+          yLabel,
+          colorColumnName,
+          colorContext,
+        })
+      : undefined,
+    getFields: createTooltipFieldsGetter(
+      [
+        { label: xLabel, column: xColumn, sourceField: xField },
+        { label: yLabel, column: yColumn, sourceField: yField }
+      ],
+      colorField,
+      sizeField,
+      tooltipFields,
+      undefined, // No excludeColumns
+      facetFields
+    )
+  };
+}
+
+function attachLineDomainMetadata(params: {
+  plotOptions: Plot.PlotOptions;
+  axis: 'x' | 'y';
+  column: string;
+  domain?: [number, number];
+}): void {
+  const { plotOptions, axis, column, domain } = params;
+  if (!domain) return;
+
+  (plotOptions as any).__lineChartDomainInfo = {
+    axis,
+    column,
+    domain,
+  };
+}
+
+function attachSeriesHighlightData(plotOptions: Plot.PlotOptions, budgetedSorted: any[]): void {
+  // Series highlight stamping should resolve category values for line paths too.
+  // Line marks bind against budgetedSorted, while tooltip lookup uses dotData.
+  // Provide the line dataset explicitly for stampColorCategories.
+  (plotOptions as any).__seriesHighlightData = budgetedSorted;
+}
+
+// ---------- Core Builder ----------------------------------------------------
+
+/**
+ * Unified line chart builder supporting both horizontal (x=independent) and vertical (y=independent) orientations.
+ */
+export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
+  const {
+    data,
+    xColumn,
+    yColumn,
+    orientation,
+    labels,
+    domain,
+    colorField,
+    colorScheme,
+    colorBias,
+    manualColor,
+    sizeField,
+    sizeRange,
+    manualSize,
+    sizeScaleData,
+    labelCfg,
+    tooltipFields,
+    facetFields,
+    xField,
+    yField,
+    variant = 'line',
+    areaFillOpacity = DEFAULT_AREA_FILL_OPACITY,
+  } = params;
+
+  const O = LINE_ORIENTATION[orientation];
+  const independentColumn = orientation === 'horizontal' ? xColumn : yColumn;
+  const dependentColumn = orientation === 'horizontal' ? yColumn : xColumn;
+  const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
+  const { clean, budgetedSorted, dotData, axisKind } = prepareLineData({
+    data,
+    independentColumn,
+    dependentColumn,
+    colorField,
+    colorColumnName,
+    orientation,
+  });
+
+  if (clean.length === 0) {
+    return {
+      x: { label: labels?.x || xColumn, domainKey: xColumn, grid: true } as any,
+      y: { label: labels?.y || yColumn, domainKey: yColumn, grid: true } as any,
+      marks: [],
+    };
+  }
+
+  // Always compute the dependent-axis domain from the actually-plotted data.
+  // The caller-supplied domain (from computeSharedMeasureDomains) may use
+  // bar-chart stacking logic that inflates the range far beyond any individual
+  // value — wrong for line charts. For faceted grids the coordinator will
+  // harmonize per-cell domains into a shared scale afterwards.
+  const plotData = budgetedSorted.length > 0 ? budgetedSorted : clean;
+  const recomputedDependent = recomputeDependentDomain(plotData, dependentColumn, variant === 'area');
+  let effectiveDomain = domain;
+  if (recomputedDependent) {
+    effectiveDomain = {
+      ...domain,
+      [O.dependentAxis]: recomputedDependent,
+    };
+  }
+
+  const xLabel = labels?.x || xColumn;
+  const yLabel = labels?.y || yColumn;
+  const { lineConfig, areaConfig, dotConfig } = createBaseMarkConfigs({
+    xColumn,
+    yColumn,
+    xLabel,
+    yLabel,
+    areaFillOpacity,
+  });
+
+  const colorInfo = colorField ? deriveColorScaleInfo(budgetedSorted, colorField, colorScheme, colorBias) : null;
+  const comparisonColorContext = applyLineColorEncoding({
+    lineConfig,
+    areaConfig,
+    dotConfig,
+    colorField,
+    colorInfo,
+    colorColumnName,
+    colorBias,
+    manualColor,
+  });
+
+  applyLineSizeEncoding({
+    lineConfig,
+    dotConfig,
+    budgetedSorted,
+    sizeField,
+    sizeRange,
+    manualSize,
+    sizeScaleData,
+  });
+
+  // Add invisible larger dots for better hover detection.
+  // Include the same z/stroke grouping as the visible dots so that Observable
+  // Plot's pointer selection stays within the correct series when multiple
+  // series overlap at the same x position.
+  const hoverDotConfig = createHoverDotConfig({
+    xColumn,
+    yColumn,
+    colorColumnName,
+  });
+
+  const xIsTime = axisKind === 'time' || (effectiveDomain?.x?.[0] instanceof Date);
+  const yIsTime = effectiveDomain?.y?.[0] instanceof Date;
+
+  const areaMarks = buildAreaMarks({
+    variant,
+    orientation,
+    budgetedSorted,
+    areaConfig,
+    colorField,
+    colorInfo,
+    colorColumnName,
+    manualColor,
+  });
+
+  const lineMarks = variant === 'area'
+    ? [...areaMarks, Plot.line(budgetedSorted, lineConfig)]
+    : [Plot.line(budgetedSorted, lineConfig)];
+  const axes = buildLineAxes({
+    xColumn,
+    yColumn,
+    labels,
+    effectiveDomain,
+    xIsTime,
+    yIsTime,
+  });
+
+  const plotOptions: Plot.PlotOptions = {
+    ...axes,
     marks: [
       ...lineMarks,
       Plot.dot(dotData, dotConfig),
@@ -677,73 +971,36 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
       (plotOptions.marks = plotOptions.marks || []).push(labelMark as any);
     }
   }
-  
-  if (colorField && colorInfo) {
-    if (colorInfo.kind === 'continuous') {
-      plotOptions.color = {
-        type: 'linear',
-        domain: colorInfo.domain as [number, number],
-        range: colorInfo.range,
-        clamp: true,
-        label: getFieldDisplayName(colorField),
-      } as any;
-    } else {
-      plotOptions.color = {
-        type: 'ordinal' as any,
-        domain: colorInfo.domain as any[],
-        range: colorInfo.range,
-        label: getFieldDisplayName(colorField),
-      } as any;
-    }
-  }
-  
-  // Add custom tooltip configuration.
-  // Use dotData (not budgetedSorted) because Observable Plot stores numeric
-  // indices into the data array passed to Plot.dot() in __data__. The tooltip
-  // resolver looks up config.data[index], so it must match the dots' data source.
-  (plotOptions as any).__customTooltip = {
-    enabled: true,
-    data: dotData,
-    showVerticalGuideLine: orientation === 'horizontal',
-    comparisonColorContext,
-    getPinnedComparison: colorField?.flavour === 'discrete' && colorColumnName
-      ? buildPinnedLineComparisonResolver({
-          dotData,
-          xColumn,
-          yColumn,
-          xLabel,
-          yLabel,
-          colorColumnName,
-          colorContext: comparisonColorContext,
-        })
-      : undefined,
-    getFields: createTooltipFieldsGetter(
-      [
-        { label: xLabel, column: xColumn, sourceField: xField },
-        { label: yLabel, column: yColumn, sourceField: yField }
-      ],
-      colorField,
-      sizeField,
-      tooltipFields,
-      undefined, // No excludeColumns
-      facetFields
-    )
-  };
+  attachLineColorScale({ plotOptions, colorField, colorInfo });
+
+  attachLineTooltipMetadata({
+    plotOptions,
+    dotData,
+    xColumn,
+    yColumn,
+    xLabel,
+    yLabel,
+    colorField,
+    colorColumnName,
+    colorContext: comparisonColorContext,
+    sizeField,
+    tooltipFields,
+    facetFields,
+    xField,
+    yField,
+    orientation,
+  });
 
   // Metadata for facet-grid harmonization: the coordinator merges per-cell
   // domains so all facets share the same scale (see harmonizeLineChartDomains).
-  if (recomputedDependent) {
-    (plotOptions as any).__lineChartDomainInfo = {
-      axis: O.dependentAxis,
-      column: dependentColumn,
-      domain: recomputedDependent,
-    };
-  }
+  attachLineDomainMetadata({
+    plotOptions,
+    axis: O.dependentAxis,
+    column: dependentColumn,
+    domain: recomputedDependent,
+  });
 
-  // Series highlight stamping should resolve category values for line paths too.
-  // Line marks bind against budgetedSorted, while tooltip lookup uses dotData.
-  // Provide the line dataset explicitly for stampColorCategories.
-  (plotOptions as any).__seriesHighlightData = budgetedSorted;
+  attachSeriesHighlightData(plotOptions, budgetedSorted);
   
   return plotOptions;
 }
@@ -790,109 +1047,5 @@ export function harmonizeLineChartDomains(
       }
       info.domain = shared;
     }
-  });
-}
-
-// ---------- Public API (thin wrappers) --------------------------------------
-
-/**
- * Line chart for continuous dimension on one axis and continuous measure on the other.
- * xColumn/yColumn are data column names in the query result to use.
- */
-export function lineChart(
-  data: any[],
-  xColumn: string,
-  yColumn: string,
-  labels?: { x?: string; y?: string },
-  domain?: { x?: [number, number] | [Date, Date]; y?: [number, number] | [Date, Date] },
-  colorField?: Field,
-  colorScheme?: string,
-  colorBias?: number,
-  manualColor?: string,
-  sizeField?: Field,
-  sizeRange?: [number, number],
-  manualSize?: number,
-  labelCfg?: LabelConfig,
-  tooltipFields?: Field[],
-  facetFields?: Field[],
-  xField?: Field,
-  yField?: Field,
-  sizeScaleData?: any[],
-  variant: LineVariant = 'line',
-  areaFillOpacity?: number,
-): Plot.PlotOptions {
-  return buildLineOptions({
-    data,
-    xColumn,
-    yColumn,
-    orientation: 'horizontal',
-    labels,
-    domain,
-    colorField,
-    colorScheme,
-    colorBias,
-    manualColor,
-    sizeField,
-    sizeRange,
-    manualSize,
-    sizeScaleData,
-    labelCfg,
-    tooltipFields,
-    facetFields,
-    xField,
-    yField,
-    variant,
-    areaFillOpacity,
-  });
-}
-
-/**
- * Vertical line chart for continuous measure on X and continuous dimension on Y.
- * Sorts by the Y dimension so the line flows bottom-to-top.
- */
-export function verticalLineChart(
-  data: any[],
-  xColumn: string,
-  yColumn: string,
-  labels?: { x?: string; y?: string },
-  domain?: { x?: [number, number] | [Date, Date]; y?: [number, number] | [Date, Date] },
-  colorField?: Field,
-  colorScheme?: string,
-  colorBias?: number,
-  manualColor?: string,
-  sizeField?: Field,
-  sizeRange?: [number, number],
-  manualSize?: number,
-  labelCfg?: LabelConfig,
-  tooltipFields?: Field[],
-  facetFields?: Field[],
-  xField?: Field,
-  yField?: Field,
-  sizeScaleData?: any[],
-  variant: LineVariant = 'line',
-  areaFillOpacity?: number,
-): Plot.PlotOptions {
-  return buildLineOptions({
-    data,
-    xColumn,
-    yColumn,
-    orientation: 'vertical',
-    labels,
-    domain,
-    colorField,
-    colorScheme,
-    colorBias,
-    manualColor,
-    sizeField,
-    sizeRange,
-    manualSize,
-    sizeScaleData,
-    labelCfg,
-    tooltipFields,
-    facetFields,
-    xField,
-    yField,
-    variant,
-    areaFillOpacity,
   });
 }

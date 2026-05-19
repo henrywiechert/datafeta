@@ -149,9 +149,7 @@ Scatter plot generator with performance safeguards.
 Line chart generator with bin-aggregation for performance.
 
 **Key Exports:**
-- `lineChart()` — Horizontal line (X=independent)
-- `verticalLineChart()` — Vertical line (Y=independent)
-- `buildLineOptions()` — Unified builder
+- `buildLineOptions()` — Unified line/area builder with `orientation: 'horizontal' | 'vertical'`
 
 **Features:**
 - Bin-aggregation when data exceeds budget (1,000 points per series)

@@ -12,6 +12,8 @@ afterEach(() => {
 });
 
 jest.mock('@observablehq/plot', () => ({
+  areaX: (data: any[], opts: any) => ({ type: 'areaX', data, opts }),
+  areaY: (data: any[], opts: any) => ({ type: 'areaY', data, opts }),
   line: (data: any[], opts: any) => ({ type: 'line', data, opts }),
   dot: (data: any[], opts: any) => ({ type: 'dot', data, opts }),
   text: (data: any[], opts: any) => ({ type: 'text', data, opts }),
@@ -311,5 +313,62 @@ describe('buildLineOptions – pinned comparison metadata', () => {
 
     const tooltipConfig = (opts as any).__customTooltip;
     expect(tooltipConfig.getPinnedComparison(tooltipConfig.data[0])).toBeUndefined();
+  });
+});
+
+describe('buildLineOptions – area variant grouping', () => {
+  const discreteColorField = {
+    id: 'series',
+    columnName: 'series',
+    type: 'dimension',
+    flavour: 'discrete',
+  } as any;
+
+  test('renders one area mark per categorical color series before the line mark', () => {
+    const opts = buildLineOptions({
+      data: [
+        { x: 1, 'AVG(y)': 10, series: 'Alpha' },
+        { x: 1, 'AVG(y)': 20, series: 'Beta' },
+        { x: 2, 'AVG(y)': 15, series: 'Alpha' },
+        { x: 2, 'AVG(y)': 25, series: 'Beta' },
+      ],
+      xColumn: 'x',
+      yColumn: 'AVG(y)',
+      orientation: 'horizontal',
+      labels: { x: 'X', y: 'AVG(y)' },
+      colorField: discreteColorField,
+      variant: 'area',
+    });
+
+    const marks = (opts.marks || []) as any[];
+    const areaMarks = marks.filter((mark) => mark.type === 'areaY');
+
+    expect(areaMarks).toHaveLength(2);
+    expect(marks[0].type).toBe('areaY');
+    expect(marks[1].type).toBe('areaY');
+    expect(marks[2].type).toBe('line');
+    expect(areaMarks.map((mark) => Array.from(new Set(mark.data.map((row: any) => row.series))))).toEqual([
+      ['Alpha'],
+      ['Beta'],
+    ]);
+    expect(areaMarks.every((mark) => mark.opts.z === undefined)).toBe(true);
+  });
+
+  test('area variant includes zero in the dependent axis domain', () => {
+    const opts = buildLineOptions({
+      data: [
+        { x: 1, 'AVG(y)': 10 },
+        { x: 2, 'AVG(y)': 20 },
+      ],
+      xColumn: 'x',
+      yColumn: 'AVG(y)',
+      orientation: 'horizontal',
+      labels: { x: 'X', y: 'AVG(y)' },
+      variant: 'area',
+    });
+
+    const yDomain = (opts.y as any)?.domain as [number, number];
+    expect(yDomain[0]).toBeLessThanOrEqual(0);
+    expect(yDomain[1]).toBeGreaterThan(20);
   });
 });
