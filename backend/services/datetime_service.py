@@ -121,7 +121,9 @@ class DateTimeService:
             >>> # Generates: date_trunc('hour', field) → "2024-01-15 14:00:00"
         """
         # Migration-friendly: accept either a db_type string or a SqlDialect.
-        normalized = db_type.name if hasattr(db_type, "name") else str(db_type)
+        normalized = db_type.name if hasattr(db_type, "name") else str(db_type).lower()
+        if normalized in {'csv', 'file', 'kaggle', 'hive_parquet'}:
+            normalized = 'duckdb'
 
         if normalized == 'clickhouse':
             return cls._get_clickhouse_expression(field_term, date_part, date_mode)

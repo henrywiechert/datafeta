@@ -203,6 +203,41 @@ def test_date_part_timeline_mode_uses_date_trunc(query_service: QueryService) ->
     assert "\"created_at_hour_timeline\"" in sql
 
 
+def test_csv_timeline_measure_groups_by_same_datetime_expression(
+    query_service: QueryService,
+) -> None:
+    """CSV datetime aggregations should group by the selected DuckDB timestamp expression."""
+    description = _make_base_description(
+        target_table="top_50_cell_combine_data",
+        dimensions=[
+            Dimension(
+                field="Period start time",
+                flavour="discrete",
+                date_part="day",
+                date_mode="timeline",
+            )
+        ],
+        measures=[
+            Measure(
+                field="AL4 use PDCCH R",
+                aggregation="sum",
+                alias="SUM(AL4 use PDCCH R)",
+            )
+        ],
+    )
+
+    sql, _ = query_service.translate_to_sql(
+        query_desc=description,
+        table_name="top_50_cell_combine_data",
+        db_type="csv",
+        with_optimization=False,
+    )
+
+    expected_expression = "date_trunc('day',timezone('UTC',\"Period start time\"))"
+    assert expected_expression in sql
+    assert f"GROUP BY {expected_expression}" in sql
+
+
 def test_date_part_timeline_mode_clickhouse(query_service: QueryService) -> None:
     """Timeline mode in ClickHouse should use toStartOf* functions."""
     description = _make_base_description(
