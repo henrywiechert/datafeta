@@ -12,6 +12,7 @@ interface ConnectionState {
   message: string | null;
   connectionDetails: ConnectionDetails | null; // Store details of the active connection
   connect: (details: ConnectionDetails, files?: File[]) => Promise<void>;
+  connectDemoDataset: (datasetId: string) => Promise<{ database: string; table: string }>;
   disconnect: () => Promise<void>;
 }
 
@@ -27,7 +28,7 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [connectionDetails, setConnectionDetails] = useState<ConnectionDetails | null>(null);
-  const { resetMetadata } = useDataSource();
+  const { resetMetadata, setSelectedDatabase, setSelectedTable } = useDataSource();
   const { dispatch } = useVisualizationContext();
 
   const connect = useCallback(async (details: ConnectionDetails, files?: File[]) => {
@@ -106,6 +107,45 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
     }
   }, [dispatch, resetMetadata, isConnected]);
 
+  const connectDemoDataset = useCallback(async (datasetId: string) => {
+    if (isConnected) {
+      try {
+        await apiService.disconnect();
+      } catch (err) {
+        console.warn('Failed to disconnect from previous connection:', err);
+      }
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setMessage(null);
+    setConnectionDetails(null);
+    setIsConnected(false);
+
+    try {
+      const response = await apiService.connectDemoDataset(datasetId);
+      const details: ConnectionDetails = {
+        type: 'clickhouse',
+        database: response.dataset.database,
+      };
+      setConnectionDetails(details);
+      setIsConnected(true);
+      setMessage(response.message);
+      resetMetadata();
+      setSelectedDatabase(response.dataset.database);
+      setSelectedTable(response.dataset.table);
+      dispatch({ type: 'RESET_QUERY_STATE' });
+      return { database: response.dataset.database, table: response.dataset.table };
+    } catch (err: any) {
+      setError(err.message || 'Demo dataset connection failed');
+      setIsConnected(false);
+      setConnectionDetails(null);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [dispatch, isConnected, resetMetadata, setSelectedDatabase, setSelectedTable]);
+
   const disconnect = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -137,6 +177,7 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
     message,
     connectionDetails,
     connect,
+    connectDemoDataset,
     disconnect,
   };
 

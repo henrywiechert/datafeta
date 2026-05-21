@@ -13,7 +13,8 @@ from fastapi.responses import FileResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import connection, metadata, query, relationships, kaggle, snapshot
+from .routers import app_config, connection, demo, metadata, query, relationships, kaggle, snapshot
+from .config import snapshot_storage_dir
 # Import custom exceptions
 from .exceptions import (
     AppException, InvalidInputError, DataSourceConnectionError,
@@ -96,6 +97,8 @@ app.include_router(query.router, prefix="/api/v1/data", tags=["query"])
 app.include_router(relationships.router, prefix="/api/v1/data", tags=["relationships"])
 app.include_router(kaggle.router, prefix="/api/v1/data/kaggle", tags=["kaggle"])
 app.include_router(snapshot.router, prefix="/api/v1", tags=["snapshots"])
+app.include_router(app_config.router, prefix="/api/v1", tags=["app-config"])
+app.include_router(demo.router, prefix="/api/v1", tags=["demo"])
 
 # Lightweight informational endpoints to avoid confusing 404s when users hit version or data roots directly
 @app.get("/api/v1", include_in_schema=False)
@@ -131,7 +134,7 @@ def startup_event():
     # Snapshot storage directory (persistent)
     try:
         from backend.services.snapshot_service import SnapshotService
-        snapshot_service = SnapshotService()
+        snapshot_service = SnapshotService(storage_dir=snapshot_storage_dir())
         snapshot_service.ensure_storage_dir()
         logger.info(f"Snapshot storage directory ready: {snapshot_service.storage_dir}")
     except Exception:

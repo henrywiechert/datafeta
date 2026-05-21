@@ -25,6 +25,7 @@ import { useBrushZoom } from './hooks/useBrushZoom';
 import { useRenderingTracking } from './hooks/useRenderingTracking';
 import { useSeriesHighlight } from './hooks/useSeriesHighlight';
 import { ChartRenderer, ChartControls, DebugPanel } from './components';
+import { useAppConfig } from '../../../contexts/AppConfigContext';
 import HeatmapSizeBar from './components/HeatmapSizeBar';
 import LegendPanel from '../Legend/LegendPanel';
 import BackgroundLegendPanel from '../Legend/BackgroundLegendPanel';
@@ -275,6 +276,8 @@ const ChartArea: React.FC = () => {
   });
 
   const { isDebugOpen, debugHeight, maxDebugHeight, toggleDebugView, handleDebugResize } = useDebugView();
+  const { appConfig } = useAppConfig();
+  const debugUiEnabled = appConfig.debugUiEnabled;
   const { isFullscreen, toggleFullscreen, isSupported: isFullscreenSupported } = useFullscreen(fullscreenWrapperRef);
 
   // -- Series highlight (legend click → dim non-matching marks) ----------------
@@ -465,6 +468,7 @@ const ChartArea: React.FC = () => {
           <ChartControls
             isDebugOpen={isDebugOpen}
             onToggleDebug={toggleDebugView}
+            debugUiEnabled={debugUiEnabled}
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}
             isFullscreenSupported={isFullscreenSupported}
@@ -503,13 +507,15 @@ const ChartArea: React.FC = () => {
             <HeatmapSizeBar toolbarState={heatmapSizeToolbarState} />
           )}
 
-          <DebugPanel
-            isDebugOpen={isDebugOpen}
-            debugHeight={debugHeight}
-            maxDebugHeight={maxDebugHeight}
-            onDebugResize={handleDebugResize}
-            debugData={debugData}
-          />
+          {debugUiEnabled && (
+            <DebugPanel
+              isDebugOpen={isDebugOpen}
+              debugHeight={debugHeight}
+              maxDebugHeight={maxDebugHeight}
+              onDebugResize={handleDebugResize}
+              debugData={debugData}
+            />
+          )}
         </div>
 
         {showLegend && (

@@ -82,6 +82,7 @@ interface SnapshotGalleryDialogProps {
   onClose: () => void;
   onLoad: (configuration: SavedConfiguration, snapshotId?: string) => void;
   getCurrentConfiguration: () => SavedConfiguration;
+  readOnly?: boolean;
 }
 
 export default function SnapshotGalleryDialog({
@@ -89,6 +90,7 @@ export default function SnapshotGalleryDialog({
   onClose,
   onLoad,
   getCurrentConfiguration,
+  readOnly = false,
 }: SnapshotGalleryDialogProps) {
   const [snapshots, setSnapshots] = useState<SnapshotMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -458,18 +460,22 @@ export default function SnapshotGalleryDialog({
             <Tooltip title="Show shareable link">
               <IconButton edge="end" onClick={(e) => handleShowShareLink(e, snapshot.id)} sx={{ ml: 0.5 }}><LinkIcon /></IconButton>
             </Tooltip>
-            <Tooltip title="Move to folder">
-              <IconButton edge="end" onClick={(e) => handleOpenMove(e, snapshot.id)} sx={{ ml: 0.5 }}><DriveFileMoveIcon /></IconButton>
-            </Tooltip>
-            <Tooltip title="Overwrite with current">
-              <IconButton edge="end" onClick={() => setOverwritingId(snapshot.id)} sx={{ ml: 0.5 }} color="secondary"><SaveAsIcon /></IconButton>
-            </Tooltip>
-            <Tooltip title="Rename">
-              <IconButton edge="end" onClick={() => handleStartRename(snapshot)} sx={{ ml: 0.5 }}><EditIcon /></IconButton>
-            </Tooltip>
-            <Tooltip title="Delete">
-              <IconButton edge="end" onClick={() => setDeletingId(snapshot.id)} sx={{ ml: 0.5 }}><DeleteIcon /></IconButton>
-            </Tooltip>
+            {!readOnly && (
+              <>
+                <Tooltip title="Move to folder">
+                  <IconButton edge="end" onClick={(e) => handleOpenMove(e, snapshot.id)} sx={{ ml: 0.5 }}><DriveFileMoveIcon /></IconButton>
+                </Tooltip>
+                <Tooltip title="Overwrite with current">
+                  <IconButton edge="end" onClick={() => setOverwritingId(snapshot.id)} sx={{ ml: 0.5 }} color="secondary"><SaveAsIcon /></IconButton>
+                </Tooltip>
+                <Tooltip title="Rename">
+                  <IconButton edge="end" onClick={() => handleStartRename(snapshot)} sx={{ ml: 0.5 }}><EditIcon /></IconButton>
+                </Tooltip>
+                <Tooltip title="Delete">
+                  <IconButton edge="end" onClick={() => setDeletingId(snapshot.id)} sx={{ ml: 0.5 }}><DeleteIcon /></IconButton>
+                </Tooltip>
+              </>
+            )}
           </ListItemSecondaryAction>
         </>
       )}
@@ -518,15 +524,17 @@ export default function SnapshotGalleryDialog({
               primaryTypographyProps={{ variant: 'body2', fontWeight: 500 }}
               secondaryTypographyProps={{ variant: 'caption' }}
             />
-            <Tooltip title="Rename folder">
-              <IconButton
-                size="small"
-                onClick={(e) => { e.stopPropagation(); handleStartFolderRename(node.path); }}
-              >
-                <EditIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            {empty && (
+            {!readOnly && (
+              <Tooltip title="Rename folder">
+                <IconButton
+                  size="small"
+                  onClick={(e) => { e.stopPropagation(); handleStartFolderRename(node.path); }}
+                >
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+            {!readOnly && empty && (
               <Tooltip title="Delete empty folder">
                 <IconButton
                   size="small"
@@ -560,46 +568,50 @@ export default function SnapshotGalleryDialog({
       <DialogContent>
         <Box sx={{ mt: 1 }}>
           {/* Save New Section */}
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>Save Current Configuration</Typography>
-            <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-              <TextField
-                size="small"
-                fullWidth
-                placeholder="Enter snapshot name..."
-                value={newSnapshotName}
-                onChange={(e) => setNewSnapshotName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !isSaving) handleSaveNew(); }}
-                disabled={isSaving}
-                InputProps={{
-                  endAdornment: isSaving ? (
-                    <InputAdornment position="end"><CircularProgress size={20} /></InputAdornment>
-                  ) : null,
-                }}
-              />
-              <Button
-                variant="contained"
-                startIcon={<SaveIcon />}
-                onClick={handleSaveNew}
-                disabled={isSaving || !newSnapshotName.trim()}
-              >
-                Save
-              </Button>
-            </Box>
-            <Autocomplete
-              freeSolo
-              size="small"
-              options={allFolderPaths}
-              value={saveFolder}
-              onChange={(_e, newValue) => setSaveFolder(newValue ?? '')}
-              onInputChange={(_e, newInput) => setSaveFolder(newInput)}
-              renderInput={(params) => (
-                <TextField {...params} label="Save into folder" placeholder="Root (no folder)" />
-              )}
-            />
-          </Box>
+          {!readOnly && (
+            <>
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>Save Current Configuration</Typography>
+                <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                  <TextField
+                    size="small"
+                    fullWidth
+                    placeholder="Enter snapshot name..."
+                    value={newSnapshotName}
+                    onChange={(e) => setNewSnapshotName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !isSaving) handleSaveNew(); }}
+                    disabled={isSaving}
+                    InputProps={{
+                      endAdornment: isSaving ? (
+                        <InputAdornment position="end"><CircularProgress size={20} /></InputAdornment>
+                      ) : null,
+                    }}
+                  />
+                  <Button
+                    variant="contained"
+                    startIcon={<SaveIcon />}
+                    onClick={handleSaveNew}
+                    disabled={isSaving || !newSnapshotName.trim()}
+                  >
+                    Save
+                  </Button>
+                </Box>
+                <Autocomplete
+                  freeSolo
+                  size="small"
+                  options={allFolderPaths}
+                  value={saveFolder}
+                  onChange={(_e, newValue) => setSaveFolder(newValue ?? '')}
+                  onInputChange={(_e, newInput) => setSaveFolder(newInput)}
+                  renderInput={(params) => (
+                    <TextField {...params} label="Save into folder" placeholder="Root (no folder)" />
+                  )}
+                />
+              </Box>
 
-          <Divider sx={{ mb: 2 }} />
+              <Divider sx={{ mb: 2 }} />
+            </>
+          )}
 
           {/* Error/Success Messages */}
           {error && (
@@ -612,11 +624,13 @@ export default function SnapshotGalleryDialog({
           {/* Snapshots List Header + Search + New Folder */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <Typography variant="subtitle2" sx={{ flexShrink: 0 }}>Saved Snapshots</Typography>
-            <Tooltip title="New folder">
-              <IconButton size="small" onClick={() => { setCreatingFolder(true); setNewFolderName(''); }}>
-                <CreateNewFolderIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+            {!readOnly && (
+              <Tooltip title="New folder">
+                <IconButton size="small" onClick={() => { setCreatingFolder(true); setNewFolderName(''); }}>
+                  <CreateNewFolderIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
             {snapshots.length > 0 && (
               <TextField
                 size="small"
@@ -639,7 +653,7 @@ export default function SnapshotGalleryDialog({
           </Box>
 
           {/* Inline new folder input */}
-          {creatingFolder && (
+          {!readOnly && creatingFolder && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
               <FolderIcon color="action" sx={{ fontSize: 20 }} />
               <TextField
@@ -689,7 +703,7 @@ export default function SnapshotGalleryDialog({
         </Box>
 
         {/* Move-to-folder menu */}
-        <Menu
+        {!readOnly && <Menu
           anchorEl={moveAnchorEl}
           open={Boolean(moveAnchorEl)}
           onClose={handleCloseMove}
@@ -734,7 +748,7 @@ export default function SnapshotGalleryDialog({
               New folder...
             </MenuItem>
           )}
-        </Menu>
+        </Menu>}
 
         {/* Share link popover */}
         <Popover

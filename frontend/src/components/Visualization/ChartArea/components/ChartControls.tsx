@@ -30,6 +30,7 @@ const DevSqlViewerControl =
 interface ChartControlsProps {
   isDebugOpen: boolean;
   onToggleDebug: () => void;
+  debugUiEnabled?: boolean;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
   isFullscreenSupported?: boolean;
@@ -58,6 +59,7 @@ interface ChartControlsProps {
 const ChartControls: React.FC<ChartControlsProps> = ({
   isDebugOpen,
   onToggleDebug,
+  debugUiEnabled = true,
   isFullscreen = false,
   onToggleFullscreen,
   isFullscreenSupported = true,
@@ -500,7 +502,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
       {/* Right side - Dataset status and Query button */}
       <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
         <DatasetStatus />
-        <QueryStatusIndicator onClick={onToggleDebug} />
+        <QueryStatusIndicator onClick={debugUiEnabled ? onToggleDebug : undefined} />
       </Box>
 
       <Menu

@@ -4,10 +4,12 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from backend.services.snapshot_service import SnapshotService
+from backend.config import snapshot_storage_dir, snapshots_enabled, snapshots_writable
+from backend.exceptions import InvalidInputError
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +64,20 @@ def _metadata_response(m) -> SnapshotMetadataResponse:
     )
 
 
+def _service() -> SnapshotService:
+    if not snapshots_enabled():
+        raise InvalidInputError("Server snapshots are disabled", status_code=status.HTTP_403_FORBIDDEN)
+    return SnapshotService(storage_dir=snapshot_storage_dir())
+
+
+def _require_writable_snapshots() -> None:
+    if not snapshots_writable():
+        raise InvalidInputError(
+            "Server snapshot storage is read-only in this deployment",
+            status_code=status.HTTP_403_FORBIDDEN,
+        )
+
+
 # --- Endpoints --- #
 
 @router.get("/snapshots", response_model=List[SnapshotMetadataResponse])
@@ -71,7 +87,7 @@ def list_snapshots():
     
     Returns metadata only (id, name, folder, timestamps) for display in a gallery.
     """
-    service = SnapshotService()
+    service = _service()
     snapshots = service.list_snapshots()
     return [_metadata_response(s) for s in snapshots]
 
@@ -83,7 +99,8 @@ def save_snapshot(request: SaveSnapshotRequest = Body(...)):
     
     Creates a new snapshot with a unique ID and stores the configuration.
     """
-    service = SnapshotService()
+    _require_writable_snapshots()
+    service = _service()
     metadata = service.save_snapshot(
         name=request.name,
         configuration=request.configuration,
@@ -99,7 +116,7 @@ def get_snapshot(snapshot_id: str):
     
     Returns the full snapshot data including configuration.
     """
-    service = SnapshotService()
+    service = _service()
     data = service.get_snapshot(snapshot_id)
     return {
         "id": data.get("id"),
@@ -118,7 +135,8 @@ def update_snapshot(snapshot_id: str, request: UpdateSnapshotRequest = Body(...)
     
     Can update name, configuration, folder, or a combination.
     """
-    service = SnapshotService()
+    _require_writable_snapshots()
+    service = _service()
     
     if request.configuration is not None:
         name = request.name
@@ -154,7 +172,8 @@ def update_snapshot(snapshot_id: str, request: UpdateSnapshotRequest = Body(...)
 @router.post("/snapshots/rename-folder")
 def rename_folder(request: RenameFolderRequest = Body(...)):
     """Rename a folder, updating all snapshots within it."""
-    service = SnapshotService()
+    _require_writable_snapshots()
+    service = _service()
     count = service.rename_folder(request.oldPath, request.newPath)
     return {"updatedCount": count, "oldPath": request.oldPath, "newPath": request.newPath}
 
@@ -162,7 +181,8 @@ def rename_folder(request: RenameFolderRequest = Body(...)):
 @router.post("/snapshots/{snapshot_id}/move", response_model=SnapshotMetadataResponse)
 def move_snapshot(snapshot_id: str, request: MoveSnapshotRequest = Body(...)):
     """Move a snapshot to a different folder."""
-    service = SnapshotService()
+    _require_writable_snapshots()
+    service = _service()
     metadata = service.move_snapshot(snapshot_id, request.folder)
     return _metadata_response(metadata)
 
@@ -172,6 +192,7 @@ def delete_snapshot(snapshot_id: str):
     """
     Delete a snapshot by ID.
     """
-    service = SnapshotService()
+    _require_writable_snapshots()
+    service = _service()
     service.delete_snapshot(snapshot_id)
     return {"message": "Snapshot deleted", "id": snapshot_id}

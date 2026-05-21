@@ -4,7 +4,7 @@
 import logging
 from typing import List, Optional
 
-from fastapi import APIRouter, Body, Depends, File, Form, Request, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Form, Request, UploadFile, status
 from pydantic import BaseModel
 
 from backend.dependencies import (
@@ -22,6 +22,8 @@ from backend.session_state import (
 from backend.models.data_source import ConnectionDetails
 from backend.services.connection_service import ConnectionService
 from backend.connectors.registry import get_connector_registry
+from backend.config import debug_api_enabled, is_connector_allowed
+from backend.exceptions import InvalidInputError
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +48,8 @@ def list_connectors() -> dict:
     registry = get_connector_registry()
     specs = []
     for connector_id, spec in sorted(registry.list_specs().items()):
+        if not is_connector_allowed(connector_id):
+            continue
         specs.append(
             ConnectorSpecResponse(
                 id=spec.id,
@@ -87,6 +91,8 @@ async def connect_to_datasource(
     Returns:
         Success message and list of file paths
     """
+    if not is_connector_allowed("csv"):
+        raise InvalidInputError("CSV/file connections are disabled", status_code=status.HTTP_403_FORBIDDEN)
     service = ConnectionService(state_manager=state_manager, request=request)
     return await service.connect_multipart(connection_details_json, uploaded_files, session_id)
 
@@ -99,6 +105,11 @@ async def connect_to_datasource_json(
     request: Request = None
 ):
     """Connect to a data source using a JSON body (no file upload). Use for non-file sources."""
+    if not is_connector_allowed(connection_details.type):
+        raise InvalidInputError(
+            f"{connection_details.type} connections are disabled",
+            status_code=status.HTTP_403_FORBIDDEN,
+        )
     service = ConnectionService(state_manager=state_manager, request=request)
     return await service.connect_json(connection_details, session_id)
 
@@ -123,6 +134,8 @@ async def connect_hive_parquet(
     Returns:
         Dict with partition_column and list of tables (partition values)
     """
+    if not is_connector_allowed("hive_parquet"):
+        raise InvalidInputError("Hive Parquet connections are disabled", status_code=status.HTTP_403_FORBIDDEN)
     service = ConnectionService(state_manager=state_manager, request=request)
     return await service.connect_hive(connection_details, session_id)
 
@@ -236,6 +249,8 @@ async def debug_list_sessions():
     
     Note: This endpoint should be restricted in production environments.
     """
+    if not debug_api_enabled():
+        raise InvalidInputError("Session debug endpoint is disabled", status_code=status.HTTP_403_FORBIDDEN)
     sessions = list_active_sessions()
     return {
         "total_sessions": len(sessions),

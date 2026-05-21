@@ -22,6 +22,8 @@ export {
   queryApi,
   snapshotApi,
   kaggleApi,
+  appConfigApi,
+  demoApi,
   fetchFieldStats,
   cancelAllRequests,
   getCurrentAbortController,
