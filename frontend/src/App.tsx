@@ -20,6 +20,7 @@ import {
 } from './services/configurationService';
 import { apiService } from './apiService';
 import { SavedConfiguration, SavedConnectionMetadata } from './types';
+import { useAppConfig } from './contexts/AppConfigContext';
 import './App.css';
 
 const DataSourceSelectionPage = lazy(() => import('./pages/DataSourceSelectionPage'));
@@ -29,6 +30,7 @@ function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { appConfig, isLoading: isAppConfigLoading } = useAppConfig();
   const isDataSourcePage = location.pathname === '/';
   const isVisualizationPage = location.pathname.startsWith('/visualize');
   
@@ -98,7 +100,12 @@ function AppContent() {
   // Load snapshot from URL parameter on mount
   const snapshotLoadedRef = React.useRef(false);
   useEffect(() => {
+    if (isAppConfigLoading) return;
     const snapshotId = searchParams.get('snapshot');
+    if (snapshotId && !appConfig.snapshots.enabled) {
+      setSearchParams({});
+      return;
+    }
     if (snapshotId && !snapshotLoadedRef.current) {
       snapshotLoadedRef.current = true;
       console.log('Loading snapshot from URL:', snapshotId);
@@ -120,7 +127,7 @@ function AppContent() {
       })();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount
+  }, [isAppConfigLoading, appConfig.snapshots.enabled]);
 
   // Warn user before accidental page reload when connected
   useEffect(() => {
@@ -547,7 +554,7 @@ function AppContent() {
       <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
         <Suspense fallback={null}>
           <Routes>
-            <Route path="/" element={<DataSourceSelectionPage onLoadConfiguration={handleLoadConfiguration} onOpenGallery={() => setShowSnapshotGallery(true)} />} />
+            <Route path="/" element={<DataSourceSelectionPage onLoadConfiguration={handleLoadConfiguration} onOpenGallery={appConfig.snapshots.enabled ? () => setShowSnapshotGallery(true) : undefined} />} />
             <Route path="/visualize" element={<VisualizationPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
@@ -632,8 +639,9 @@ function AppContent() {
           <SaveLoadMenu
             onSave={handleSaveConfiguration}
             onLoad={handleLoadConfiguration}
-            onOpenGallery={() => setShowSnapshotGallery(true)}
-            onQuickSave={handleQuickSave}
+            onOpenGallery={appConfig.snapshots.enabled ? () => setShowSnapshotGallery(true) : undefined}
+            onQuickSave={appConfig.snapshots.writable ? handleQuickSave : undefined}
+            serverStorageWritable={appConfig.snapshots.writable}
           />
         </Box>
       </Box>
@@ -714,6 +722,7 @@ function AppContent() {
         onClose={() => setShowSnapshotGallery(false)}
         onLoad={handleLoadFromGallery}
         getCurrentConfiguration={getCurrentConfiguration}
+        readOnly={!appConfig.snapshots.writable}
       />
     </div>
   );

@@ -16,6 +16,8 @@ import { metadataApi } from './metadataApi';
 import { queryApi } from './queryApi';
 import { snapshotApi } from './snapshotApi';
 import { kaggleApi } from './kaggleApi';
+import { appConfigApi } from './appConfigApi';
+import { demoApi } from './demoApi';
 import { 
   cancelAllRequests, 
   getCurrentAbortController, 
@@ -32,6 +34,13 @@ export const apiService = {
   connectHive: connectionApi.connectHive,
   loadPartition: connectionApi.loadPartition,
   addFiles: connectionApi.addFiles,
+
+  // Runtime app configuration
+  getAppConfig: appConfigApi.getAppConfig,
+
+  // Demo dataset operations
+  listDemoDatasets: demoApi.listDemoDatasets,
+  connectDemoDataset: demoApi.connectDemoDataset,
 
   // Metadata operations
   listDatabases: metadataApi.listDatabases,
@@ -80,6 +89,10 @@ export { metadataApi } from './metadataApi';
 export { queryApi } from './queryApi';
 export { snapshotApi } from './snapshotApi';
 export { kaggleApi } from './kaggleApi';
+export { appConfigApi } from './appConfigApi';
+export { demoApi } from './demoApi';
+export type { AppConfig } from './appConfigApi';
+export type { DemoDataset, DemoDatasetConnectResponse } from './demoApi';
 export { 
   cancelAllRequests, 
   getCurrentAbortController, 

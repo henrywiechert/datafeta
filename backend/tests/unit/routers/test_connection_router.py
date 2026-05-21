@@ -2,11 +2,13 @@
 """Unit tests for connection router endpoints."""
 
 import pytest
+import asyncio
 from unittest.mock import Mock, MagicMock, patch, AsyncMock
 from pydantic import BaseModel
 
 from backend.models.data_source import ConnectionDetails
-from backend.routers.connection import list_connectors
+from backend.exceptions import InvalidInputError
+from backend.routers.connection import debug_list_sessions, list_connectors
 
 
 class TestConnectEndpointLogic:
@@ -100,6 +102,11 @@ class TestConnectorsEndpointContract:
         assert "config_schema" in csv_spec
         assert csv_spec["capabilities"]["supports_multipart_connect"] is True
         assert csv_spec["capabilities"]["supports_json_connect"] is False
+
+    def test_list_connectors_respects_allowlist(self, monkeypatch):
+        monkeypatch.setenv("CONNECTOR_ALLOWLIST", "csv")
+        payload = list_connectors()
+        assert [connector["id"] for connector in payload["connectors"]] == ["csv"]
 
 
 class TestDisconnectEndpointLogic:
@@ -222,6 +229,11 @@ class TestDisconnectBeaconEndpointLogic:
 
 class TestDebugSessionsEndpointLogic:
     """Tests for the GET /debug/sessions endpoint logic."""
+
+    def test_debug_endpoint_can_be_disabled(self, monkeypatch):
+        monkeypatch.setenv("DEBUG_API_ENABLED", "false")
+        with pytest.raises(InvalidInputError, match="disabled"):
+            asyncio.run(debug_list_sessions())
 
     def test_sessions_list_structure(self):
         """Test structure of sessions list response."""

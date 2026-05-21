@@ -8,10 +8,11 @@
  * - Kaggle datasets
  */
 
-import React, { useEffect, useRef, ChangeEvent } from 'react';
+import React, { useEffect, useMemo, useRef, useState, ChangeEvent } from 'react';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useDataSource } from '../contexts/DataSourceContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAppConfig } from '../contexts/AppConfigContext';
 import { useConnectionForm } from '../hooks/useConnectionForm';
 import {
   CsvConnectionForm,
@@ -21,6 +22,8 @@ import {
   ConnectionType,
 } from '../components/ConnectionForms';
 import { readFileAsText } from '../services/configurationService';
+import { apiService } from '../apiService';
+import { DemoDataset } from '../services/api';
 import DataSlicerIcon from '../components/icons/DataSlicerIcon';
 import styles from './DataSourceSelectionPage.module.css';
 
@@ -30,28 +33,72 @@ interface DataSourceSelectionPageProps {
 }
 
 function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSourceSelectionPageProps) {
+  const navigate = useNavigate();
+  const { appConfig, isConnectorAllowed } = useAppConfig();
+  const [demoDatasets, setDemoDatasets] = useState<DemoDataset[]>([]);
+  const [demoDatasetError, setDemoDatasetError] = useState<string | null>(null);
   const {
     isConnected,
     isLoading,
     error,
     message,
     connect,
+    connectDemoDataset,
     disconnect,
     connectionDetails,
   } = useConnection();
 
   const form = useConnectionForm();
+  const { connectionType, setConnectionType, syncFromConnectionDetails } = form;
   const { setHivePartitionFiles } = useDataSource();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const connectionOptions = useMemo<Array<{ value: ConnectionType; label: string }>>(() => {
+    const options: Array<{ value: ConnectionType; label: string }> = [
+      { value: 'csv', label: 'File (CSV, Parquet)' },
+      { value: 'hive_parquet', label: 'Hive Parquet (Partitioned)' },
+      { value: 'clickhouse', label: 'ClickHouse' },
+      { value: 'kaggle', label: 'Kaggle Dataset' },
+    ];
+    return options.filter((option) => isConnectorAllowed(option.value));
+  }, [isConnectorAllowed]);
+
+  useEffect(() => {
+    if (connectionOptions.length === 0) return;
+    if (!connectionOptions.some((option) => option.value === connectionType)) {
+      setConnectionType(connectionOptions[0].value);
+    }
+  }, [connectionOptions, connectionType, setConnectionType]);
+
+  useEffect(() => {
+    if (!appConfig.demoDatasets.enabled) {
+      setDemoDatasets([]);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await apiService.listDemoDatasets();
+        if (!cancelled) {
+          setDemoDatasets(response.datasets);
+          setDemoDatasetError(null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setDemoDatasetError(err instanceof Error ? err.message : 'Failed to load demo datasets');
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [appConfig.demoDatasets.enabled]);
 
   // Sync form state when reconnecting (e.g., page refresh while connected)
   useEffect(() => {
     if (isConnected && connectionDetails) {
-      form.syncFromConnectionDetails(connectionDetails);
+      syncFromConnectionDetails(connectionDetails);
     }
-    // Only run when connection state changes, not on every form update
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected, connectionDetails]);
+  }, [isConnected, connectionDetails, syncFromConnectionDetails]);
 
   const handleConnect = async () => {
     const validation = form.validateForm();
@@ -80,6 +127,15 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
       await disconnect();
     } catch (err) {
       console.error('Disconnect API call failed (unexpectedly):', err);
+    }
+  };
+
+  const handleDemoDatasetConnect = async (dataset: DemoDataset) => {
+    try {
+      await connectDemoDataset(dataset.id);
+      navigate('/visualize');
+    } catch (err) {
+      console.error('Demo dataset connection failed:', err);
     }
   };
 
@@ -168,6 +224,24 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
           </label>
         </div>
 
+        {demoDatasets.length > 0 && !isConnected && (
+          <div className={styles.loadConfigSection}>
+            {demoDatasets.map((dataset) => (
+              <button
+                key={dataset.id}
+                className={styles.loadButton}
+                onClick={() => handleDemoDatasetConnect(dataset)}
+                disabled={formDisabled}
+                type="button"
+                title={dataset.description || `${dataset.database}.${dataset.table}`}
+              >
+                {dataset.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {demoDatasetError && <div className={styles.errorMessage}>Error: {demoDatasetError}</div>}
+
         {/* Connection Type Selector */}
         <div className={styles.formGroup}>
           <label className={styles.label}>Data Source Type</label>
@@ -175,12 +249,11 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
             className={styles.select}
             value={form.connectionType}
             onChange={(e) => form.setConnectionType(e.target.value as ConnectionType)}
-            disabled={formDisabled}
+            disabled={formDisabled || connectionOptions.length === 0}
           >
-            <option value="csv">File (CSV, Parquet)</option>
-            <option value="hive_parquet">Hive Parquet (Partitioned)</option>
-            <option value="clickhouse">ClickHouse</option>
-            <option value="kaggle">Kaggle Dataset</option>
+            {connectionOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
           </select>
         </div>
 
@@ -230,7 +303,7 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
             <button
               className={styles.button}
               onClick={handleConnect}
-              disabled={isLoading}
+              disabled={isLoading || connectionOptions.length === 0}
             >
               Connect
             </button>

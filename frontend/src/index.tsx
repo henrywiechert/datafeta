@@ -7,6 +7,7 @@ import reportWebVitals from './reportWebVitals';
 import { ConnectionProvider } from './contexts/ConnectionContext';
 import { VisualizationProvider } from './contexts/VisualizationContext';
 import { DataSourceProvider } from './contexts/DataSourceContext';
+import { AppConfigProvider } from './contexts/AppConfigContext';
 import { initializeTabSession } from './utils/tabSession';
 
 // Initialize tab-level session management (generates tab ID, sets up cleanup)
@@ -23,13 +24,15 @@ const root = ReactDOM.createRoot(
 // Note: VisualizationPage.tsx creates per-sheet VisualizationProviders with key={activeSheet?.id}
 root.render(
   <React.StrictMode>
-    <DataSourceProvider>
-      <VisualizationProvider>
-        <ConnectionProvider>
-          <App />
-        </ConnectionProvider>
-      </VisualizationProvider>
-    </DataSourceProvider>
+    <AppConfigProvider>
+      <DataSourceProvider>
+        <VisualizationProvider>
+          <ConnectionProvider>
+            <App />
+          </ConnectionProvider>
+        </VisualizationProvider>
+      </DataSourceProvider>
+    </AppConfigProvider>
   </React.StrictMode>
 );
 

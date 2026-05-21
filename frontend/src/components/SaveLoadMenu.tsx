@@ -13,9 +13,10 @@ interface SaveLoadMenuProps {
   onLoad: (config: SavedConfiguration) => void;
   onOpenGallery?: () => void;
   onQuickSave?: () => Promise<void>;
+  serverStorageWritable?: boolean;
 }
 
-export default function SaveLoadMenu({ onSave, onLoad, onOpenGallery, onQuickSave }: SaveLoadMenuProps) {
+export default function SaveLoadMenu({ onSave, onLoad, onOpenGallery, onQuickSave, serverStorageWritable = true }: SaveLoadMenuProps) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isQuickSaving, setIsQuickSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -73,6 +74,7 @@ export default function SaveLoadMenu({ onSave, onLoad, onOpenGallery, onQuickSav
   };
 
   const hasServerStorage = Boolean(onOpenGallery);
+  const canQuickSave = hasServerStorage && serverStorageWritable && Boolean(onQuickSave);
 
   return (
     <>
@@ -107,16 +109,18 @@ export default function SaveLoadMenu({ onSave, onLoad, onOpenGallery, onQuickSav
               </ListItemIcon>
               <ListItemText>Saved Configurations...</ListItemText>
             </MenuItem>
-            <MenuItem onClick={handleQuickSave} disabled={isQuickSaving}>
-              <ListItemIcon>
-                {isQuickSaving ? (
-                  <CircularProgress size={20} />
-                ) : (
-                  <CloudUploadIcon fontSize="small" />
-                )}
-              </ListItemIcon>
-              <ListItemText>Quick Save to Server</ListItemText>
-            </MenuItem>
+            {canQuickSave && (
+              <MenuItem onClick={handleQuickSave} disabled={isQuickSaving}>
+                <ListItemIcon>
+                  {isQuickSaving ? (
+                    <CircularProgress size={20} />
+                  ) : (
+                    <CloudUploadIcon fontSize="small" />
+                  )}
+                </ListItemIcon>
+                <ListItemText>Quick Save to Server</ListItemText>
+              </MenuItem>
+            )}
             <Divider sx={{ my: 0.5 }} />
           </>
         )}
