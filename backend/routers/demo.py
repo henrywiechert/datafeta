@@ -7,7 +7,6 @@ from backend.config import (
     demo_clickhouse_connection,
     demo_dataset_catalog,
     demo_datasets_enabled,
-    is_connector_allowed,
 )
 from backend.dependencies import get_session_id, get_state_manager
 from backend.exceptions import InvalidInputError
@@ -35,8 +34,6 @@ async def connect_demo_dataset(
 ) -> dict:
     if not demo_datasets_enabled():
         raise InvalidInputError("Demo datasets are disabled", status_code=status.HTTP_403_FORBIDDEN)
-    if not is_connector_allowed("clickhouse"):
-        raise InvalidInputError("Demo ClickHouse connections are disabled", status_code=status.HTTP_403_FORBIDDEN)
 
     dataset = next((item for item in demo_dataset_catalog() if item["id"] == dataset_id), None)
     if not dataset:
@@ -62,5 +59,6 @@ async def connect_demo_dataset(
             "id": dataset["id"],
             "database": dataset["database"],
             "table": dataset["table"],
+            "snapshotId": dataset.get("snapshotId") or None,
         },
     }

@@ -7,6 +7,7 @@ export interface DemoDataset {
   description: string;
   database: string;
   table: string;
+  snapshotId?: string;
 }
 
 export interface DemoDatasetConnectResponse {
@@ -15,6 +16,7 @@ export interface DemoDatasetConnectResponse {
     id: string;
     database: string;
     table: string;
+    snapshotId?: string | null;
   };
 }
 

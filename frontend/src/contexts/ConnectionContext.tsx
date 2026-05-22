@@ -12,7 +12,7 @@ interface ConnectionState {
   message: string | null;
   connectionDetails: ConnectionDetails | null; // Store details of the active connection
   connect: (details: ConnectionDetails, files?: File[]) => Promise<void>;
-  connectDemoDataset: (datasetId: string) => Promise<{ database: string; table: string }>;
+  connectDemoDataset: (datasetId: string) => Promise<{ database: string; table: string; snapshotId?: string | null }>;
   disconnect: () => Promise<void>;
 }
 
@@ -135,7 +135,11 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
       setSelectedDatabase(response.dataset.database);
       setSelectedTable(response.dataset.table);
       dispatch({ type: 'RESET_QUERY_STATE' });
-      return { database: response.dataset.database, table: response.dataset.table };
+      return {
+        database: response.dataset.database,
+        table: response.dataset.table,
+        snapshotId: response.dataset.snapshotId,
+      };
     } catch (err: any) {
       setError(err.message || 'Demo dataset connection failed');
       setIsConnected(false);
