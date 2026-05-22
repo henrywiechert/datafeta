@@ -113,7 +113,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
     facetTopValueHeightsPx,
   } = layoutCalcs;
 
-  const { scrollOffsets, onWheelCapture, isKeyboardNavActive } = scrollSync;
+  const { scrollOffsets, isKeyboardNavActive } = scrollSync;
   const { containerRef, hScrollRef, vScrollRef, plotsTranslateRef, plotGridRef } = refs;
 
   const hideExternalAxes = usesOnlyAxislessRenderers(grid);
@@ -211,7 +211,6 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
         opacity: isTransitioning ? 0.5 : 1,
         transition: 'opacity 0.15s ease-out',
       }}
-      onWheelCapture={(e) => onWheelCapture(e, leftFixedWidthPx)}
     >
       {/* ===============================================================
           LAYER 1: HORIZONTAL SCROLL (z-index: 3)

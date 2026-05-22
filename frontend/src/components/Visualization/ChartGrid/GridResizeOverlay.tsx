@@ -48,47 +48,48 @@ interface GridResizeOverlayProps {
 }
 
 /**
- * Measure actual gridline positions from the rendered CSS Grid.
- * This is more accurate than calculating from template strings, especially for flexible units.
- * 
- * @param gridElement - The grid container element
- * @param count - Number of tracks (columns or rows)
- * @param orientation - 'horizontal' for row positions, 'vertical' for column positions
- * @returns Array of cumulative positions in px relative to the grid container
+ * Read the actual computed gridline positions from a rendered CSS Grid.
+ *
+ * Uses the browser-computed `grid-template-columns` / `grid-template-rows`
+ * (returned as resolved px values), so it's O(1) in the number of tracks and
+ * avoids reading every child's bounding rect.
+ *
+ * @returns Cumulative positions in px relative to the grid container (length = count + 1),
+ *          or an empty array if the grid hasn't laid out yet.
  */
-function measureGridPositions(gridElement: HTMLDivElement | null, count: number, orientation: 'horizontal' | 'vertical'): number[] {
-  if (!gridElement || gridElement.children.length === 0) {
-    // Fallback: evenly spaced positions
-    return Array.from({ length: count + 1 }, (_, i) => i * 100);
-  }
+function measureGridPositions(
+  gridElement: HTMLDivElement | null,
+  count: number,
+  orientation: 'horizontal' | 'vertical',
+): number[] {
+  if (!gridElement) return [];
 
-  const gridRect = gridElement.getBoundingClientRect();
-  
-  // Get unique positions by measuring children
-  const uniquePositions = new Set<number>();
-  
-  for (let i = 0; i < gridElement.children.length; i++) {
-    const child = gridElement.children[i] as HTMLElement;
-    const childRect = child.getBoundingClientRect();
-    
-    if (orientation === 'vertical') {
-      // Measure columns: left and right edges
-      const leftPos = childRect.left - gridRect.left;
-      const rightPos = childRect.right - gridRect.left;
-      uniquePositions.add(Math.round(leftPos));
-      uniquePositions.add(Math.round(rightPos));
-    } else {
-      // Measure rows: top and bottom edges
-      const topPos = childRect.top - gridRect.top;
-      const bottomPos = childRect.bottom - gridRect.top;
-      uniquePositions.add(Math.round(topPos));
-      uniquePositions.add(Math.round(bottomPos));
-    }
+  const computed = window.getComputedStyle(gridElement);
+  const template = orientation === 'vertical'
+    ? computed.gridTemplateColumns
+    : computed.gridTemplateRows;
+
+  if (!template || template === 'none') return [];
+
+  // getComputedStyle returns resolved px values once the grid is laid out
+  // (e.g. "120px 240px 240px"). Before layout it may still contain `fr` or
+  // similar relative units; in that case we bail out so the caller falls back
+  // to template-string parsing.
+  const tokens = template.split(/\s+/).filter(Boolean);
+  if (tokens.length === 0 || tokens.some((t) => !t.endsWith('px'))) return [];
+  const sizes = tokens.map((t) => parseFloat(t));
+  if (sizes.some((n) => !Number.isFinite(n))) return [];
+
+  const positions: number[] = [0];
+  let cumulative = 0;
+  // Stop at `count` tracks even if the template has more (e.g. trailing rows
+  // used purely as sizing affordances).
+  const limit = Math.min(sizes.length, count);
+  for (let i = 0; i < limit; i++) {
+    cumulative += sizes[i];
+    positions.push(cumulative);
   }
-  
-  // Sort and return
-  const sorted = Array.from(uniquePositions).sort((a, b) => a - b);
-  return sorted.slice(0, count + 1);
+  return positions;
 }
 
 /**

@@ -7,13 +7,12 @@ import { renderWithBreaks } from '../utils/labelUtils';
 import { useVisualizationContext } from '../../../../contexts/VisualizationContext';
 import {
   FacetHeaderLabelStyle,
-  FacetLabelAlign,
   FacetLeftValuesLabelStyle,
-  FacetWrapMode,
 } from '../../../../contexts/VisualizationContext/types';
 import FacetStylePopover from './FacetStylePopover';
 import { useHeaderStyleState } from './useHeaderStyleState';
 import { useValuesStyleState } from './useValuesStyleState';
+import { useFacetDepthHandlers } from './useFacetDepthHandlers';
 import {
   computeProductSegments,
   formatFacetValue,
@@ -22,7 +21,6 @@ import {
   resolveDepthValue,
   resolveFlexAlignment,
   resolveTextAlignment,
-  updateDepthOverride,
 } from '../utils/facetLabelUtils';
 
 interface LeftFacetLabelsProps {
@@ -83,107 +81,16 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
     defaultWrapMode: 'wrap',
   });
 
-  const handleHeaderDepthAlignChange = useCallback((axis: 'horizontal' | 'vertical', alignment: FacetLabelAlign) => {
-    if (!activeHeaderDepth) return;
-
-    if (axis === 'horizontal') {
-      const nextValues = updateDepthOverride(
-        headerStyle.horizontalAlignByDepth,
-        activeHeaderDepth.depthIndex,
-        alignment,
-      );
-      if (nextValues !== headerStyle.horizontalAlignByDepth) {
-        handleHeaderStyleChange({ horizontalAlignByDepth: nextValues });
-      }
-      return;
-    }
-
-    const nextValues = updateDepthOverride(
-      headerStyle.verticalAlignByDepth,
-      activeHeaderDepth.depthIndex,
-      alignment,
-    );
-    if (nextValues !== headerStyle.verticalAlignByDepth) {
-      handleHeaderStyleChange({ verticalAlignByDepth: nextValues });
-    }
-  }, [activeHeaderDepth, handleHeaderStyleChange, headerStyle.horizontalAlignByDepth, headerStyle.verticalAlignByDepth]);
-
-  const handleHeaderDepthOrientationChange = useCallback((orientation: 'horizontal' | 'vertical') => {
-    if (!activeHeaderDepth) return;
-
-    const nextValues = updateDepthOverride(
-      headerStyle.orientationByDepth,
-      activeHeaderDepth.depthIndex,
-      orientation,
-    );
-    if (nextValues !== headerStyle.orientationByDepth) {
-      handleHeaderStyleChange({ orientationByDepth: nextValues });
-    }
-  }, [activeHeaderDepth, handleHeaderStyleChange, headerStyle.orientationByDepth]);
-
-  const handleHeaderDepthFontSizeChange = useCallback((fontSize: number) => {
-    if (!activeHeaderDepth) return;
-
-    const nextValues = updateDepthOverride(
-      headerStyle.fontSizeByDepth,
-      activeHeaderDepth.depthIndex,
-      Math.max(8, Math.min(26, fontSize)),
-    );
-    if (nextValues !== headerStyle.fontSizeByDepth) {
-      handleHeaderStyleChange({ fontSizeByDepth: nextValues });
-    }
-  }, [activeHeaderDepth, handleHeaderStyleChange, headerStyle.fontSizeByDepth]);
-
-  const handleValuesDepthAlignChange = useCallback((axis: 'horizontal' | 'vertical', alignment: FacetLabelAlign) => {
-    if (!activeValuesDepth) return;
-
-    if (axis === 'horizontal') {
-      const nextValues = updateDepthOverride(
-        valuesStyle.horizontalAlignByDepth,
-        activeValuesDepth.depthIndex,
-        alignment,
-      );
-      if (nextValues !== valuesStyle.horizontalAlignByDepth) {
-        handleValuesStyleChange({ horizontalAlignByDepth: nextValues });
-      }
-      return;
-    }
-
-    const nextValues = updateDepthOverride(
-      valuesStyle.verticalAlignByDepth,
-      activeValuesDepth.depthIndex,
-      alignment,
-    );
-    if (nextValues !== valuesStyle.verticalAlignByDepth) {
-      handleValuesStyleChange({ verticalAlignByDepth: nextValues });
-    }
-  }, [activeValuesDepth, handleValuesStyleChange, valuesStyle.horizontalAlignByDepth, valuesStyle.verticalAlignByDepth]);
-
-  const handleValuesDepthOrientationChange = useCallback((orientation: 'horizontal' | 'vertical') => {
-    if (!activeValuesDepth) return;
-
-    const nextValues = updateDepthOverride(
-      valuesStyle.orientationByDepth,
-      activeValuesDepth.depthIndex,
-      orientation,
-    );
-    if (nextValues !== valuesStyle.orientationByDepth) {
-      handleValuesStyleChange({ orientationByDepth: nextValues });
-    }
-  }, [activeValuesDepth, handleValuesStyleChange, valuesStyle.orientationByDepth]);
-
-  const handleValuesDepthWrapModeChange = useCallback((wrapMode: FacetWrapMode) => {
-    if (!activeValuesDepth) return;
-
-    const nextValues = updateDepthOverride(
-      valuesStyle.wrapModeByDepth,
-      activeValuesDepth.depthIndex,
-      wrapMode,
-    );
-    if (nextValues !== valuesStyle.wrapModeByDepth) {
-      handleValuesStyleChange({ wrapModeByDepth: nextValues });
-    }
-  }, [activeValuesDepth, handleValuesStyleChange, valuesStyle.wrapModeByDepth]);
+  const headerDepth = useFacetDepthHandlers<FacetHeaderLabelStyle & { widthPx: number | null }, 'horizontal' | 'vertical'>(
+    headerStyle,
+    activeHeaderDepth,
+    handleHeaderStyleChange,
+  );
+  const valuesDepth = useFacetDepthHandlers<FacetLeftValuesLabelStyle, 'horizontal' | 'vertical'>(
+    valuesStyle,
+    activeValuesDepth,
+    handleValuesStyleChange,
+  );
 
   const rowLevels = grid.headers?.rows?.levels || [];
 
@@ -351,10 +258,10 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
         orientation={activeHeaderOrientation}
         horizontalAlign={activeHeaderHorizontalAlign}
         verticalAlign={activeHeaderVerticalAlign}
-        onFontSizeChange={handleHeaderDepthFontSizeChange}
-        onOrientationChange={(orientation) => handleHeaderDepthOrientationChange(orientation as 'horizontal' | 'vertical')}
-        onHorizontalAlignChange={(alignment) => handleHeaderDepthAlignChange('horizontal', alignment)}
-        onVerticalAlignChange={(alignment) => handleHeaderDepthAlignChange('vertical', alignment)}
+        onFontSizeChange={headerDepth.onFontSizeChange}
+        onOrientationChange={(orientation) => headerDepth.onOrientationChange(orientation as 'horizontal' | 'vertical')}
+        onHorizontalAlignChange={(alignment) => headerDepth.onAlignChange('horizontal', alignment)}
+        onVerticalAlignChange={(alignment) => headerDepth.onAlignChange('vertical', alignment)}
         orientationOptions={['horizontal', 'vertical']}
       />
 
@@ -369,10 +276,10 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
         verticalAlign={activeValuesVerticalAlign}
         wrapMode={activeValuesWrapMode}
         onFontSizeChange={(fontSize) => handleValuesStyleChange({ fontSize })}
-        onOrientationChange={(orientation) => handleValuesDepthOrientationChange(orientation as 'horizontal' | 'vertical')}
-        onHorizontalAlignChange={(alignment) => handleValuesDepthAlignChange('horizontal', alignment)}
-        onVerticalAlignChange={(alignment) => handleValuesDepthAlignChange('vertical', alignment)}
-        onWrapModeChange={(mode) => handleValuesDepthWrapModeChange(mode)}
+        onOrientationChange={(orientation) => valuesDepth.onOrientationChange(orientation as 'horizontal' | 'vertical')}
+        onHorizontalAlignChange={(alignment) => valuesDepth.onAlignChange('horizontal', alignment)}
+        onVerticalAlignChange={(alignment) => valuesDepth.onAlignChange('vertical', alignment)}
+        onWrapModeChange={(mode) => valuesDepth.onWrapModeChange(mode)}
         orientationOptions={['horizontal', 'vertical']}
       />
     </div>

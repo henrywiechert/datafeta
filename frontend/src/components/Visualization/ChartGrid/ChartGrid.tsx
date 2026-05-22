@@ -110,17 +110,6 @@ const ChartGrid: React.FC<ChartGridProps> = ({
     stabilization.isStabilizing
   );
   const containerDimensions = useContainerDimensions(containerRef, stabilization.isStabilizing);
-  const scrollSync = useScrollSync(
-    hScrollRef,
-    vScrollRef,
-    plotsTranslateRef,
-    containerRef,
-    usesGridLayout,
-    isGanttChart,
-    ganttZoomRange,
-    onGanttZoomRangeChange,
-    ganttFullDataRange
-  );
   const layoutCalcs = useChartGridLayout(
     grid,
     userCellWidth,
@@ -131,6 +120,18 @@ const ChartGrid: React.FC<ChartGridProps> = ({
     facetLabelStyles,
     categoryTickStyles,
     globalChartType,
+  );
+  const scrollSync = useScrollSync(
+    hScrollRef,
+    vScrollRef,
+    plotsTranslateRef,
+    containerRef,
+    usesGridLayout,
+    layoutCalcs?.leftFixedWidthPx ?? 0,
+    isGanttChart,
+    ganttZoomRange,
+    onGanttZoomRangeChange,
+    ganttFullDataRange
   );
 
   // Facet zoom state (must be before any conditional returns — Rules of Hooks)

@@ -14,7 +14,6 @@ export interface ScrollOffsets {
 
 export interface ScrollSyncState {
   scrollOffsets: ScrollOffsets;
-  onWheelCapture: (e: React.WheelEvent<HTMLDivElement>, leftFixedWidthPx: number) => void;
   /** Whether keyboard navigation is active (container is focused/hovered) */
   isKeyboardNavActive: boolean;
 }
@@ -51,11 +50,18 @@ export function useScrollSync(
   plotsTranslateRef: RefObject<HTMLDivElement>,
   containerRef: RefObject<HTMLDivElement>,
   usesGridLayout: boolean,
+  leftFixedWidthPx: number,
   isGanttChart: boolean = false,
   ganttZoomRange: GanttZoomRange | null = null,
   onGanttZoomRangeChange?: (range: GanttZoomRange | null) => void,
   ganttFullDataRange: GanttZoomRange | null = null
 ): ScrollSyncState {
+  // Keep the current left-fixed width available to the non-passive wheel
+  // listener without forcing it to re-attach on every change.
+  const leftFixedWidthPxRef = useRef(leftFixedWidthPx);
+  useEffect(() => {
+    leftFixedWidthPxRef.current = leftFixedWidthPx;
+  }, [leftFixedWidthPx]);
   const [scrollOffsets, setScrollOffsets] = useState<ScrollOffsets>({
     horizontal: 0,
     vertical: 0,
@@ -315,36 +321,49 @@ export function useScrollSync(
     };
   }, [containerRef, isGanttChart, handleZoomPan, processHeldKeys]);
 
-  // Wheel routing handler for regular scrolling
-  const onWheelCapture = useCallback((e: React.WheelEvent<HTMLDivElement>, leftFixedWidthPx: number) => {
-    const rect = containerRef.current?.getBoundingClientRect();
-    const x = e.clientX;
-    const inLeftFixed = !!rect && x <= rect.left + leftFixedWidthPx + 1;
-    
-    // Standard scroll handling
-    // Always drive vertical scroll with deltaY
-    if (vScrollRef.current && e.deltaY !== 0) {
-      vScrollRef.current.scrollBy({ top: e.deltaY });
-    }
-    
-    // Drive horizontal scroll only when not over the left fixed area
-    if (!inLeftFixed && hScrollRef.current && e.deltaX !== 0) {
-      hScrollRef.current.scrollBy({ left: e.deltaX });
-    }
-    
-    if (e.deltaX !== 0 || e.deltaY !== 0) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  }, [
-    containerRef,
-    hScrollRef,
-    vScrollRef,
-  ]);
+  // Wheel routing handler for regular scrolling.
+  //
+  // Attached as a non-passive native listener so we can preventDefault().
+  // (React's synthetic wheel listeners are passive in React 17+, so a JSX
+  // onWheel handler's preventDefault is a no-op.) We also only swallow the
+  // wheel event when the chart can actually consume it, otherwise we let
+  // the page keep scrolling normally.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      const vScroller = vScrollRef.current;
+      const hScroller = hScrollRef.current;
+      const rect = container.getBoundingClientRect();
+      const inLeftFixed = e.clientX <= rect.left + leftFixedWidthPxRef.current + 1;
+
+      const canScrollV = !!vScroller && vScroller.scrollHeight > vScroller.clientHeight;
+      const canScrollH = !!hScroller && !inLeftFixed && hScroller.scrollWidth > hScroller.clientWidth;
+
+      let consumed = false;
+
+      if (canScrollV && e.deltaY !== 0) {
+        vScroller!.scrollBy({ top: e.deltaY });
+        consumed = true;
+      }
+      if (canScrollH && e.deltaX !== 0) {
+        hScroller!.scrollBy({ left: e.deltaX });
+        consumed = true;
+      }
+
+      if (consumed) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel as EventListener);
+  }, [containerRef, hScrollRef, vScrollRef]);
 
   return {
     scrollOffsets,
-    onWheelCapture,
     isKeyboardNavActive,
   };
 }

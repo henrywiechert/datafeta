@@ -8,8 +8,23 @@ class ResizeObserverMock {
   disconnect() {}
 }
 
+// jsdom doesn't implement PointerEvent. Polyfill as a MouseEvent subclass so
+// `clientX/clientY` and friends propagate from the init dict.
+class PointerEventPolyfill extends MouseEvent {
+  pointerId: number;
+  pointerType: string;
+  constructor(type: string, init: MouseEventInit & { pointerId?: number; pointerType?: string } = {}) {
+    super(type, init);
+    this.pointerId = init.pointerId ?? 0;
+    this.pointerType = init.pointerType ?? '';
+  }
+}
+
 beforeAll(() => {
   (global as any).ResizeObserver = ResizeObserverMock;
+  if (typeof (global as any).PointerEvent === 'undefined') {
+    (global as any).PointerEvent = PointerEventPolyfill;
+  }
 });
 
 describe('GridResizeOverlay facet handles', () => {
@@ -37,9 +52,9 @@ describe('GridResizeOverlay facet handles', () => {
 
     const handle = getByTestId('top-facet-col-handle-1');
     expect(handle).toHaveStyle({ left: '300px', top: '0px', height: '60px' });
-    fireEvent.mouseDown(handle, { clientX: 300, clientY: 10 });
-    fireEvent.mouseMove(document, { clientX: 334, clientY: 10 });
-    fireEvent.mouseUp(document, { clientX: 334, clientY: 10 });
+    fireEvent.pointerDown(handle, { pointerId: 1, button: 0, clientX: 300, clientY: 10 });
+    fireEvent.pointerMove(handle, { pointerId: 1, clientX: 334, clientY: 10 });
+    fireEvent.pointerUp(handle, { pointerId: 1, clientX: 334, clientY: 10 });
 
     expect(onColumnResize).toHaveBeenCalledWith({ currentSize: 120, delta: 34 });
   });
@@ -69,9 +84,9 @@ describe('GridResizeOverlay facet handles', () => {
 
     const handle = getByTestId('top-plot-col-handle-1');
     expect(handle).toHaveStyle({ left: '300px', top: '0px', height: '20px' });
-    fireEvent.mouseDown(handle, { clientX: 300, clientY: 10 });
-    fireEvent.mouseMove(document, { clientX: 332, clientY: 10 });
-    fireEvent.mouseUp(document, { clientX: 332, clientY: 10 });
+    fireEvent.pointerDown(handle, { pointerId: 1, button: 0, clientX: 300, clientY: 10 });
+    fireEvent.pointerMove(handle, { pointerId: 1, clientX: 332, clientY: 10 });
+    fireEvent.pointerUp(handle, { pointerId: 1, clientX: 332, clientY: 10 });
 
     expect(onColumnResize).toHaveBeenCalledWith({ currentSize: 120, delta: 32 });
   });
@@ -129,9 +144,9 @@ describe('GridResizeOverlay facet handles', () => {
 
     const handle = getByTestId('facet-col-handle-0');
     expect(handle).toHaveStyle({ left: '68px', top: '60px', height: '210px' });
-    fireEvent.mouseDown(handle, { clientX: 100, clientY: 0 });
-    fireEvent.mouseMove(document, { clientX: 126, clientY: 0 });
-    fireEvent.mouseUp(document, { clientX: 126, clientY: 0 });
+    fireEvent.pointerDown(handle, { pointerId: 1, button: 0, clientX: 100, clientY: 0 });
+    fireEvent.pointerMove(handle, { pointerId: 1, clientX: 126, clientY: 0 });
+    fireEvent.pointerUp(handle, { pointerId: 1, clientX: 126, clientY: 0 });
 
     expect(onFacetColumnResize).toHaveBeenCalledWith(0, { currentSize: 40, delta: 26 });
   });
@@ -163,9 +178,9 @@ describe('GridResizeOverlay facet handles', () => {
 
     const handle = getByTestId('facet-row-handle-1');
     expect(handle).toHaveStyle({ top: '70px', left: '180px', width: '320px' });
-    fireEvent.mouseDown(handle, { clientX: 0, clientY: 150 });
-    fireEvent.mouseMove(document, { clientX: 0, clientY: 168 });
-    fireEvent.mouseUp(document, { clientX: 0, clientY: 168 });
+    fireEvent.pointerDown(handle, { pointerId: 1, button: 0, clientX: 0, clientY: 150 });
+    fireEvent.pointerMove(handle, { pointerId: 1, clientX: 0, clientY: 168 });
+    fireEvent.pointerUp(handle, { pointerId: 1, clientX: 0, clientY: 168 });
 
     expect(onFacetRowResize).toHaveBeenCalledWith(1, { currentSize: 30, delta: 18 });
   });
