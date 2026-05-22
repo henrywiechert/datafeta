@@ -78,10 +78,10 @@ def debug_ui_enabled() -> bool:
 def connector_allowlist() -> Optional[List[str]]:
     raw = os.environ.get("CONNECTOR_ALLOWLIST")
     if raw is None or not raw.strip():
-        return ["csv", "clickhouse"] if is_demo_mode() else None
+        return ["csv"] if is_demo_mode() else None
 
     values = [part.strip() for part in raw.split(",") if part.strip()]
-    return values or (["csv", "clickhouse"] if is_demo_mode() else None)
+    return values or (["csv"] if is_demo_mode() else None)
 
 
 def is_connector_allowed(connector_id: str) -> bool:
@@ -124,6 +124,7 @@ def demo_dataset_catalog() -> List[Dict[str, Any]]:
                 "description": str(item.get("description") or ""),
                 "database": database,
                 "table": table,
+                "snapshotId": str(item.get("snapshotId") or ""),
             }
         )
     return safe_items

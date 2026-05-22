@@ -28,13 +28,13 @@ import DataSlicerIcon from '../components/icons/DataSlicerIcon';
 import styles from './DataSourceSelectionPage.module.css';
 
 interface DataSourceSelectionPageProps {
-  onLoadConfiguration: (config: any) => Promise<void>;
+  onLoadConfiguration: (config: any, options?: { preserveConnection?: boolean }) => Promise<void>;
   onOpenGallery?: () => void;
 }
 
 function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSourceSelectionPageProps) {
   const navigate = useNavigate();
-  const { appConfig, isConnectorAllowed } = useAppConfig();
+  const { appConfig, isLoading: isAppConfigLoading, isConnectorAllowed } = useAppConfig();
   const [demoDatasets, setDemoDatasets] = useState<DemoDataset[]>([]);
   const [demoDatasetError, setDemoDatasetError] = useState<string | null>(null);
   const {
@@ -53,20 +53,28 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
   const { setHivePartitionFiles } = useDataSource();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const connectionOptions = useMemo<Array<{ value: ConnectionType; label: string }>>(() => {
+  const connectionOptions = useMemo<Array<{ value: ConnectionType; label: string; unavailable: boolean }>>(() => {
     const options: Array<{ value: ConnectionType; label: string }> = [
       { value: 'csv', label: 'File (CSV, Parquet)' },
       { value: 'hive_parquet', label: 'Hive Parquet (Partitioned)' },
       { value: 'clickhouse', label: 'ClickHouse' },
       { value: 'kaggle', label: 'Kaggle Dataset' },
     ];
-    return options.filter((option) => isConnectorAllowed(option.value));
+    return options.map((option) => ({
+      ...option,
+      unavailable: !isConnectorAllowed(option.value),
+    }));
   }, [isConnectorAllowed]);
 
+  const currentConnectorEnabled = (
+    !isAppConfigLoading && isConnectorAllowed(form.connectionType)
+  );
+
   useEffect(() => {
-    if (connectionOptions.length === 0) return;
-    if (!connectionOptions.some((option) => option.value === connectionType)) {
-      setConnectionType(connectionOptions[0].value);
+    const enabledOptions = connectionOptions.filter((option) => !option.unavailable);
+    if (enabledOptions.length === 0) return;
+    if (!enabledOptions.some((option) => option.value === connectionType)) {
+      setConnectionType(enabledOptions[0].value);
     }
   }, [connectionOptions, connectionType, setConnectionType]);
 
@@ -101,6 +109,10 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
   }, [isConnected, connectionDetails, syncFromConnectionDetails]);
 
   const handleConnect = async () => {
+    if (!currentConnectorEnabled) {
+      return;
+    }
+
     const validation = form.validateForm();
     if (!validation.isValid) {
       console.error(validation.errorMessage);
@@ -132,7 +144,14 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
 
   const handleDemoDatasetConnect = async (dataset: DemoDataset) => {
     try {
-      await connectDemoDataset(dataset.id);
+      const result = await connectDemoDataset(dataset.id);
+      const snapshotId = result.snapshotId || dataset.snapshotId;
+      if (snapshotId) {
+        const snapshot = await apiService.loadSnapshot(snapshotId);
+        if (snapshot.configuration) {
+          await onLoadConfiguration(snapshot.configuration, { preserveConnection: true });
+        }
+      }
       navigate('/visualize');
     } catch (err) {
       console.error('Demo dataset connection failed:', err);
@@ -249,53 +268,57 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
             className={styles.select}
             value={form.connectionType}
             onChange={(e) => form.setConnectionType(e.target.value as ConnectionType)}
-            disabled={formDisabled || connectionOptions.length === 0}
+            disabled={formDisabled}
           >
             {connectionOptions.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
+              <option key={option.value} value={option.value}>
+                {option.label}{option.unavailable ? ' (disabled)' : ''}
+              </option>
             ))}
           </select>
         </div>
 
         {/* Render the appropriate form based on connection type */}
-        {form.connectionType === 'csv' && (
-          <CsvConnectionForm
-            state={form.csvState}
-            onUpdate={form.updateCsvState}
-            onFileChange={form.handleFileChange}
-            disabled={formDisabled}
-          />
-        )}
+        <div className={!currentConnectorEnabled ? styles.disabledForm : undefined}>
+          {form.connectionType === 'csv' && (
+            <CsvConnectionForm
+              state={form.csvState}
+              onUpdate={form.updateCsvState}
+              onFileChange={form.handleFileChange}
+              disabled={formDisabled || !currentConnectorEnabled}
+            />
+          )}
 
-        {form.connectionType === 'clickhouse' && (
-          <ClickHouseConnectionForm
-            state={form.clickHouseState}
-            onUpdate={form.updateClickHouseState}
-            disabled={formDisabled}
-          />
-        )}
+          {form.connectionType === 'clickhouse' && (
+            <ClickHouseConnectionForm
+              state={form.clickHouseState}
+              onUpdate={form.updateClickHouseState}
+              disabled={formDisabled || !currentConnectorEnabled}
+            />
+          )}
 
-        {form.connectionType === 'kaggle' && (
-          <KaggleConnectionForm
-            state={form.kaggleState}
-            onUpdate={form.updateKaggleState}
-            onSearch={form.searchKaggleDatasets}
-            onSelectDataset={form.selectKaggleDataset}
-            onLoadManual={form.loadKaggleFilesManual}
-            disabled={formDisabled}
-          />
-        )}
+          {form.connectionType === 'kaggle' && (
+            <KaggleConnectionForm
+              state={form.kaggleState}
+              onUpdate={form.updateKaggleState}
+              onSearch={form.searchKaggleDatasets}
+              onSelectDataset={form.selectKaggleDataset}
+              onLoadManual={form.loadKaggleFilesManual}
+              disabled={formDisabled || !currentConnectorEnabled}
+            />
+          )}
 
-        {form.connectionType === 'hive_parquet' && (
-          <HiveParquetConnectionForm
-            state={form.hiveParquetState}
-            onUpdate={form.updateHiveParquetState}
-            onFolderSelect={form.handleHiveFolderSelect}
-            disabled={formDisabled}
-            isConnecting={isLoading}
-            isConnected={isConnected}
-          />
-        )}
+          {form.connectionType === 'hive_parquet' && (
+            <HiveParquetConnectionForm
+              state={form.hiveParquetState}
+              onUpdate={form.updateHiveParquetState}
+              onFolderSelect={form.handleHiveFolderSelect}
+              disabled={formDisabled || !currentConnectorEnabled}
+              isConnecting={isLoading}
+              isConnected={isConnected}
+            />
+          )}
+        </div>
 
         {/* Connect/Disconnect Buttons */}
         <div className={styles.buttonContainer}>
@@ -303,7 +326,7 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
             <button
               className={styles.button}
               onClick={handleConnect}
-              disabled={isLoading || connectionOptions.length === 0}
+              disabled={isLoading || !currentConnectorEnabled}
             >
               Connect
             </button>

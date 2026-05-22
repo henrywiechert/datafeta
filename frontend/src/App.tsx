@@ -299,10 +299,13 @@ function AppContent() {
     handleLoadConfiguration(config);
   };
 
-  const handleLoadConfiguration = async (rawConfig: any) => {
+  const handleLoadConfiguration = async (
+    rawConfig: any,
+    options?: { preserveConnection?: boolean },
+  ) => {
     try {
       // Check if currently connected - warn user before proceeding
-      if (isConnected) {
+      if (isConnected && !options?.preserveConnection) {
         const confirmed = window.confirm(
           'You are currently connected to a data source. Loading this configuration will disconnect you first. Continue?'
         );
@@ -323,7 +326,7 @@ function AppContent() {
       const config = validateConfiguration(rawConfig);
       
       // If there's connection metadata, show the connection restore dialog
-      if (config.connection) {
+      if (config.connection && !options?.preserveConnection) {
         setPendingConfig(config);
         setConnectionMetadata(config.connection);
         setShowConnectionRestore(true);

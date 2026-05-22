@@ -23,7 +23,7 @@ def test_demo_defaults_are_readonly_with_safe_connectors(monkeypatch):
     assert config.is_demo_mode() is True
     assert config.snapshot_mode() == "readonly"
     assert config.snapshots_writable() is False
-    assert config.connector_allowlist() == ["csv", "clickhouse"]
+    assert config.connector_allowlist() == ["csv"]
 
 
 def test_public_app_config_does_not_expose_secret_connection_values(monkeypatch):
@@ -34,3 +34,12 @@ def test_public_app_config_does_not_expose_secret_connection_values(monkeypatch)
 
     assert payload["isDemoMode"] is True
     assert "super-secret" not in str(payload)
+
+
+def test_demo_dataset_catalog_accepts_optional_snapshot_id(monkeypatch):
+    monkeypatch.setenv(
+        "DEMO_DATASETS_JSON",
+        '[{"id":"BoxPlots","database":"db","table":"table","snapshotId":"snapshot-1"}]',
+    )
+
+    assert config.demo_dataset_catalog()[0]["snapshotId"] == "snapshot-1"
