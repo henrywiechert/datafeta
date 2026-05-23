@@ -70,4 +70,6 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          script: /opt/datafeta-infra/scripts/deploy-app.sh ${{ github.sha }}
+          script: |
+            git -C /opt/datafeta-infra pull --ff-only
+            /opt/datafeta-infra/scripts/deploy-app.sh ${{ github.sha }}
