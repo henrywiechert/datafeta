@@ -49,7 +49,7 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
   } = useConnection();
 
   const form = useConnectionForm();
-  const { connectionType, setConnectionType, syncFromConnectionDetails } = form;
+  const { syncFromConnectionDetails } = form;
   const { setHivePartitionFiles } = useDataSource();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -62,21 +62,17 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
     ];
     return options.map((option) => ({
       ...option,
-      unavailable: !isConnectorAllowed(option.value),
+      unavailable: appConfig.isDemoMode
+        ? option.value !== 'csv'
+        : !isConnectorAllowed(option.value),
     }));
-  }, [isConnectorAllowed]);
+  }, [appConfig.isDemoMode, isConnectorAllowed]);
 
   const currentConnectorEnabled = (
-    !isAppConfigLoading && isConnectorAllowed(form.connectionType)
+    !isAppConfigLoading
+    && isConnectorAllowed(form.connectionType)
+    && (!appConfig.isDemoMode || form.connectionType === 'csv')
   );
-
-  useEffect(() => {
-    const enabledOptions = connectionOptions.filter((option) => !option.unavailable);
-    if (enabledOptions.length === 0) return;
-    if (!enabledOptions.some((option) => option.value === connectionType)) {
-      setConnectionType(enabledOptions[0].value);
-    }
-  }, [connectionOptions, connectionType, setConnectionType]);
 
   useEffect(() => {
     if (!appConfig.demoDatasets.enabled) {
@@ -217,7 +213,7 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
             <button
               className={styles.loadButton}
               onClick={onOpenGallery}
-              disabled={formDisabled}
+              disabled={formDisabled || appConfig.isDemoMode}
               type="button"
             >
               Saved Configurations...

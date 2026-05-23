@@ -26,6 +26,16 @@ def test_demo_defaults_are_readonly_with_safe_connectors(monkeypatch):
     assert config.connector_allowlist() == ["csv"]
 
 
+def test_demo_connector_allowlist_keeps_manual_connectors_file_only(monkeypatch):
+    monkeypatch.setenv("APP_MODE", "demo")
+    monkeypatch.setenv("CONNECTOR_ALLOWLIST", "csv,clickhouse,kaggle")
+
+    assert config.connector_allowlist() == ["csv"]
+    assert config.is_connector_allowed("csv") is True
+    assert config.is_connector_allowed("clickhouse") is False
+    assert config.is_connector_allowed("kaggle") is False
+
+
 def test_public_app_config_does_not_expose_secret_connection_values(monkeypatch):
     monkeypatch.setenv("APP_MODE", "demo")
     monkeypatch.setenv("DEMO_CLICKHOUSE_PASSWORD", "super-secret")
