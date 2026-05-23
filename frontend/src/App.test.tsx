@@ -7,6 +7,22 @@ import { DataSourceProvider } from './contexts/DataSourceContext';
 import { VisualizationProvider } from './contexts/VisualizationContext';
 import { ConnectionProvider } from './contexts/ConnectionContext';
 
+jest.mock('./contexts/AppConfigContext', () => ({
+  useAppConfig: () => ({
+    appConfig: {
+      appMode: 'standard',
+      isDemoMode: false,
+      snapshots: { enabled: true, writable: true, mode: 'writable' },
+      debugUiEnabled: true,
+      connectors: { restricted: false, allowed: [] },
+      demoDatasets: { enabled: false, available: false },
+    },
+    isLoading: false,
+    error: null,
+    isConnectorAllowed: () => true,
+  }),
+}));
+
 test('renders Data Slicer navigation tabs', async () => {
   render(
     <DataSourceProvider>
