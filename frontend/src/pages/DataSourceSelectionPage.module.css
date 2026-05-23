@@ -155,7 +155,7 @@
 
 .disabledForm {
   color: #8a8a8a;
-  opacity: 0.72;
+  opacity: 0.68;
   filter: grayscale(1);
   pointer-events: none;
 }
@@ -170,6 +170,16 @@
 .disabledForm .fieldsSection {
   background: #eeeeee;
   border-color: #d8d8d8;
+}
+
+.disabledForm .input,
+.disabledForm .select,
+.disabledForm .toggleButton,
+.disabledForm button {
+  background-color: #eeeeee;
+  border-color: #d8d8d8;
+  color: #8a8a8a;
+  cursor: not-allowed;
 }
 
 .inputWide {

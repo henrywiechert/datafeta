@@ -13,10 +13,18 @@ interface SaveLoadMenuProps {
   onLoad: (config: SavedConfiguration) => void;
   onOpenGallery?: () => void;
   onQuickSave?: () => Promise<void>;
+  serverStorageReadable?: boolean;
   serverStorageWritable?: boolean;
 }
 
-export default function SaveLoadMenu({ onSave, onLoad, onOpenGallery, onQuickSave, serverStorageWritable = true }: SaveLoadMenuProps) {
+export default function SaveLoadMenu({
+  onSave,
+  onLoad,
+  onOpenGallery,
+  onQuickSave,
+  serverStorageReadable = true,
+  serverStorageWritable = true,
+}: SaveLoadMenuProps) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [isQuickSaving, setIsQuickSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -31,6 +39,7 @@ export default function SaveLoadMenu({ onSave, onLoad, onOpenGallery, onQuickSav
   };
 
   const handleOpenGallery = () => {
+    if (!serverStorageReadable) return;
     handleClose();
     onOpenGallery?.();
   };
@@ -74,6 +83,7 @@ export default function SaveLoadMenu({ onSave, onLoad, onOpenGallery, onQuickSav
   };
 
   const hasServerStorage = Boolean(onOpenGallery);
+  const canOpenGallery = hasServerStorage && serverStorageReadable;
   const canQuickSave = hasServerStorage && serverStorageWritable && Boolean(onQuickSave);
 
   return (
@@ -103,7 +113,7 @@ export default function SaveLoadMenu({ onSave, onLoad, onOpenGallery, onQuickSav
         {/* Server Storage Section */}
         {hasServerStorage && (
           <>
-            <MenuItem onClick={handleOpenGallery}>
+            <MenuItem onClick={handleOpenGallery} disabled={!canOpenGallery}>
               <ListItemIcon>
                 <CloudIcon fontSize="small" />
               </ListItemIcon>

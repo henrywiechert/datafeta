@@ -644,6 +644,7 @@ function AppContent() {
             onLoad={handleLoadConfiguration}
             onOpenGallery={appConfig.snapshots.enabled ? () => setShowSnapshotGallery(true) : undefined}
             onQuickSave={appConfig.snapshots.writable ? handleQuickSave : undefined}
+            serverStorageReadable={!appConfig.isDemoMode}
             serverStorageWritable={appConfig.snapshots.writable}
           />
         </Box>

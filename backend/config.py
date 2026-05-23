@@ -81,7 +81,10 @@ def connector_allowlist() -> Optional[List[str]]:
         return ["csv"] if is_demo_mode() else None
 
     values = [part.strip() for part in raw.split(",") if part.strip()]
-    return values or (["csv"] if is_demo_mode() else None)
+    if is_demo_mode():
+        safe_values = [value for value in values if value == "csv"]
+        return safe_values or ["csv"]
+    return values or None
 
 
 def is_connector_allowed(connector_id: str) -> bool:
