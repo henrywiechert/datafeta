@@ -71,5 +71,11 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            git -C /opt/datafeta-infra pull --ff-only
+            set -euo pipefail
+            if ! git -C /opt/datafeta-infra fetch origin master; then
+              echo "ERROR: Failed to fetch /opt/datafeta-infra. Check ownership with:" >&2
+              echo "  sudo chown -R deploy:deploy /opt/datafeta-infra" >&2
+              exit 1
+            fi
+            git -C /opt/datafeta-infra merge --ff-only FETCH_HEAD
             /opt/datafeta-infra/scripts/deploy-app.sh ${{ github.sha }}
