@@ -26,6 +26,22 @@ import { useBrushZoom } from './hooks/useBrushZoom';
 import { useRenderingTracking } from './hooks/useRenderingTracking';
 import { Field } from '../../../types';
 
+jest.mock('../../../contexts/AppConfigContext', () => ({
+  useAppConfig: () => ({
+    appConfig: {
+      appMode: 'standard',
+      isDemoMode: false,
+      snapshots: { enabled: true, writable: true, mode: 'writable' },
+      debugUiEnabled: true,
+      connectors: { restricted: false, allowed: [] },
+      demoDatasets: { enabled: false, available: false },
+    },
+    isLoading: false,
+    error: null,
+    isConnectorAllowed: () => true,
+  }),
+}));
+
 jest.mock('../../../contexts/VisualizationContext', () => ({
   useVisualizationContext: jest.fn(),
   useChannels: jest.fn(),

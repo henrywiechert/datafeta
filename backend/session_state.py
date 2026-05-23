@@ -27,10 +27,16 @@ class ConnectionStateManager:
         # Support multiple temp files (CSV and/or Parquet).
         self.current_temp_paths: List[str] = []
         # Per-session async lock to serialize connect/disconnect.
-        self.lock: asyncio.Lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
         # Track when this session was created and last accessed.
         self.created_at: datetime = datetime.now(timezone.utc)
         self.last_accessed_at: datetime = datetime.now(timezone.utc)
+
+    @property
+    def lock(self) -> asyncio.Lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
 
     def set_state(
         self,

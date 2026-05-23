@@ -21,7 +21,7 @@ from backend.connectors.file_handlers.parquet_handler import ParquetFileHandler
 
 def run_async(coro):
     """Helper to run async functions in sync tests."""
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 class TestFileExtensionConstants:
