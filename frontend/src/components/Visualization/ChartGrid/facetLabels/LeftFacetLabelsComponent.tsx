@@ -16,6 +16,7 @@ import { useHeaderStyleState } from './useHeaderStyleState';
 import { useValuesStyleState } from './useValuesStyleState';
 import {
   computeProductSegments,
+  formatFacetAxisTitle,
   formatFacetValue,
   getOrientationStyles,
   getEffectiveFacetLabelStyles,
@@ -66,6 +67,7 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
     defaultOrientation: 'vertical',
     defaultHorizontalAlign: 'center',
     defaultVerticalAlign: 'center',
+    useDepthOverrides: false,
   });
   const {
     anchorEl: valuesAnchor,
@@ -84,55 +86,21 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
   });
 
   const handleHeaderDepthAlignChange = useCallback((axis: 'horizontal' | 'vertical', alignment: FacetLabelAlign) => {
-    if (!activeHeaderDepth) return;
-
     if (axis === 'horizontal') {
-      const nextValues = updateDepthOverride(
-        headerStyle.horizontalAlignByDepth,
-        activeHeaderDepth.depthIndex,
-        alignment,
-      );
-      if (nextValues !== headerStyle.horizontalAlignByDepth) {
-        handleHeaderStyleChange({ horizontalAlignByDepth: nextValues });
-      }
+      handleHeaderStyleChange({ horizontalAlign: alignment });
       return;
     }
 
-    const nextValues = updateDepthOverride(
-      headerStyle.verticalAlignByDepth,
-      activeHeaderDepth.depthIndex,
-      alignment,
-    );
-    if (nextValues !== headerStyle.verticalAlignByDepth) {
-      handleHeaderStyleChange({ verticalAlignByDepth: nextValues });
-    }
-  }, [activeHeaderDepth, handleHeaderStyleChange, headerStyle.horizontalAlignByDepth, headerStyle.verticalAlignByDepth]);
+    handleHeaderStyleChange({ verticalAlign: alignment });
+  }, [handleHeaderStyleChange]);
 
   const handleHeaderDepthOrientationChange = useCallback((orientation: 'horizontal' | 'vertical') => {
-    if (!activeHeaderDepth) return;
-
-    const nextValues = updateDepthOverride(
-      headerStyle.orientationByDepth,
-      activeHeaderDepth.depthIndex,
-      orientation,
-    );
-    if (nextValues !== headerStyle.orientationByDepth) {
-      handleHeaderStyleChange({ orientationByDepth: nextValues });
-    }
-  }, [activeHeaderDepth, handleHeaderStyleChange, headerStyle.orientationByDepth]);
+    handleHeaderStyleChange({ orientation });
+  }, [handleHeaderStyleChange]);
 
   const handleHeaderDepthFontSizeChange = useCallback((fontSize: number) => {
-    if (!activeHeaderDepth) return;
-
-    const nextValues = updateDepthOverride(
-      headerStyle.fontSizeByDepth,
-      activeHeaderDepth.depthIndex,
-      Math.max(8, Math.min(26, fontSize)),
-    );
-    if (nextValues !== headerStyle.fontSizeByDepth) {
-      handleHeaderStyleChange({ fontSizeByDepth: nextValues });
-    }
-  }, [activeHeaderDepth, handleHeaderStyleChange, headerStyle.fontSizeByDepth]);
+    handleHeaderStyleChange({ fontSize: Math.max(8, Math.min(26, fontSize)) });
+  }, [handleHeaderStyleChange]);
 
   const handleValuesDepthAlignChange = useCallback((axis: 'horizontal' | 'vertical', alignment: FacetLabelAlign) => {
     if (!activeValuesDepth) return;
@@ -189,7 +157,12 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
 
   if (rowLevels.length === 0) return null;
 
-  const fieldLabels = rowLevels.map((l) => l.fieldLabel);
+  const facetAxisTitle = formatFacetAxisTitle(rowLevels);
+  const headerFontSize = headerStyle.fontSize;
+  const headerOrientation = headerStyle.orientation;
+  const headerHorizontalAlign = headerStyle.horizontalAlign ?? 'center';
+  const headerVerticalAlign = headerStyle.verticalAlign ?? 'center';
+  const headerOrientationStyles = getOrientationStyles(headerOrientation, headerFontSize);
 
   return (
     <div
@@ -212,62 +185,31 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
           margin: 'auto 0',
           height: 'fit-content',
           display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '4px',
+          alignItems: resolveFlexAlignment(headerVerticalAlign),
+          justifyContent: resolveFlexAlignment(headerHorizontalAlign),
           zIndex: 2,
+          width: '100%',
+          textAlign: resolveTextAlignment(headerHorizontalAlign),
         }}
       >
-        {fieldLabels.map((label, idx) => {
-          const fontSize = resolveDepthValue(
-            headerStyle.fontSizeByDepth,
-            headerStyle.fontSize,
-            idx,
-            headerStyle.fontSize,
-          );
-          const horizontalAlign = resolveDepthValue(
-            headerStyle.horizontalAlignByDepth,
-            headerStyle.horizontalAlign,
-            idx,
-            'center',
-          );
-          const verticalAlign = resolveDepthValue(
-            headerStyle.verticalAlignByDepth,
-            headerStyle.verticalAlign,
-            idx,
-            'center',
-          );
-          const orientation = resolveDepthValue(
-            headerStyle.orientationByDepth,
-            headerStyle.orientation,
-            idx,
-            'vertical',
-          );
-          const headerOrientationStyles = getOrientationStyles(orientation, fontSize);
-
-          return (
-            <div
-              key={`header-${idx}`}
-              onClick={(event) => handleHeaderClick(event, idx, label)}
-              title={`Click to edit style: ${label}`}
-              style={{
-                display: 'flex',
-                width: '100%',
-                fontWeight: 600,
-                background: 'white',
-                padding: '4px 2px',
-                cursor: 'pointer',
-                justifyContent: resolveFlexAlignment(horizontalAlign),
-                alignItems: resolveFlexAlignment(verticalAlign),
-                textAlign: resolveTextAlignment(horizontalAlign),
-                ...headerOrientationStyles,
-              }}
-            >
-              {renderWithBreaks(label)}
-            </div>
-          );
-        })}
+        <div
+          onClick={(event) => handleHeaderClick(event, 0, facetAxisTitle)}
+          title={`Click to edit style: ${facetAxisTitle}`}
+          style={{
+            display: 'flex',
+            width: '100%',
+            fontWeight: 600,
+            background: 'white',
+            padding: '4px 2px',
+            cursor: 'pointer',
+            justifyContent: resolveFlexAlignment(headerHorizontalAlign),
+            alignItems: resolveFlexAlignment(headerVerticalAlign),
+            textAlign: resolveTextAlignment(headerHorizontalAlign),
+            ...headerOrientationStyles,
+          }}
+        >
+          {renderWithBreaks(facetAxisTitle)}
+        </div>
       </div>
 
       {rowLevels.map((level, levelIdx) => {
@@ -346,7 +288,7 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
         anchorEl={headerAnchor}
         onClose={handleHeaderClose}
         title="Left Facet Header Style"
-        scopeLabel={activeHeaderDepth ? `Hierarchy ${activeHeaderDepth.depthIndex + 1}: ${activeHeaderDepth.label}` : undefined}
+        scopeLabel={activeHeaderDepth ? `Facet names: ${activeHeaderDepth.label}` : undefined}
         fontSize={activeHeaderFontSize}
         orientation={activeHeaderOrientation}
         horizontalAlign={activeHeaderHorizontalAlign}

@@ -116,6 +116,38 @@ describe('FacetLabels', () => {
     expect(container.querySelector('div[style*="height: 36px"]')).toBeTruthy();
   });
 
+  it('renders top hierarchical facet field names as one combined title', () => {
+    render(
+      <TopFacetLabels
+        grid={buildGrid()}
+        plotTemplateColumns="repeat(4, 100px)"
+        baseCols={1}
+        facetTopHeaderPx={20}
+        facetTopValueHeightsPx={[24, 36]}
+      />,
+    );
+
+    expect(screen.getByTitle('Click to edit style: Region | Category')).toHaveTextContent('Region | Category');
+    expect(screen.queryByTitle('Click to edit style: Region')).toBeNull();
+    expect(screen.queryByTitle('Click to edit style: Category')).toBeNull();
+  });
+
+  it('renders left hierarchical facet field names as one combined title', () => {
+    render(
+      <LeftFacetLabels
+        grid={buildGrid()}
+        plotRowsSpec="80px 80px 80px"
+        baseRows={1}
+        facetLeftHeaderPx={28}
+        facetLeftValueWidthsPx={[44, 72]}
+      />,
+    );
+
+    expect(screen.getByTitle('Click to edit style: Segment | State')).toHaveTextContent('Segment | State');
+    expect(screen.queryByTitle('Click to edit style: Segment')).toBeNull();
+    expect(screen.queryByTitle('Click to edit style: State')).toBeNull();
+  });
+
   it('uses one left facet column width per depth', () => {
     const { container } = render(
       <LeftFacetLabels
@@ -131,14 +163,14 @@ describe('FacetLabels', () => {
     expect(leftGrid).toBeTruthy();
   });
 
-  it('applies per-depth alignment rules to top facet headers', () => {
+  it('applies shared alignment and orientation rules to the top facet title', () => {
     mockFacetLabelStyles.topHeader = {
       fontSize: 12,
       fontSizeByDepth: [11, 15],
       orientation: 'horizontal',
       orientationByDepth: ['horizontal', 'vertical'],
-      horizontalAlign: 'center',
-      verticalAlign: 'center',
+      horizontalAlign: 'start',
+      verticalAlign: 'end',
       horizontalAlignByDepth: ['start', 'end'],
       verticalAlignByDepth: ['start', 'end'],
     } as any;
@@ -153,15 +185,12 @@ describe('FacetLabels', () => {
       />,
     );
 
-    const firstHeader = container.querySelector('div[title="Click to edit style: Region"]');
-    const secondHeader = container.querySelector('div[title="Click to edit style: Category"]');
-    const secondHeaderText = secondHeader?.querySelector('div');
+    const header = container.querySelector('div[title="Click to edit style: Region | Category"]');
+    const headerText = header?.querySelector('div');
 
-    expect(firstHeader).toHaveStyle({ justifyContent: 'flex-start', alignItems: 'flex-start', textAlign: 'left' });
-    expect(secondHeader).toHaveStyle({ justifyContent: 'flex-end', alignItems: 'flex-end', textAlign: 'right' });
-    expect(firstHeader?.querySelector('div')).toHaveStyle({ fontSize: '11px' });
-    expect(secondHeaderText).toHaveStyle({ fontSize: '15px' });
-    expect(secondHeaderText).toHaveStyle({ writingMode: 'vertical-rl' });
+    expect(header).toHaveStyle({ justifyContent: 'flex-start', alignItems: 'flex-end', textAlign: 'left' });
+    expect(headerText).toHaveStyle({ fontSize: '12px' });
+    expect(headerText).not.toHaveStyle({ writingMode: 'vertical-rl' });
   });
 
   it('applies per-depth alignment, orientation, and wrap rules to top facet values', () => {
@@ -200,13 +229,13 @@ describe('FacetLabels', () => {
     expect(secondDepthText).toHaveStyle({ whiteSpace: 'nowrap', textAlign: 'right', transform: 'rotate(-45deg)' });
   });
 
-  it('applies per-depth alignment rules to left facet headers', () => {
+  it('applies shared alignment rules to the left facet title', () => {
     mockFacetLabelStyles.leftHeader = {
       fontSize: 12,
       orientation: 'horizontal',
       orientationByDepth: [],
       widthPx: null,
-      horizontalAlign: 'center',
+      horizontalAlign: 'end',
       verticalAlign: 'center',
       horizontalAlignByDepth: ['start', 'end'],
       verticalAlignByDepth: ['center', 'center'],
@@ -222,10 +251,8 @@ describe('FacetLabels', () => {
       />,
     );
 
-    const firstHeader = container.querySelector('div[title="Click to edit style: Segment"]');
-    const secondHeader = container.querySelector('div[title="Click to edit style: State"]');
-    expect(firstHeader).toHaveStyle({ justifyContent: 'flex-start', textAlign: 'left' });
-    expect(secondHeader).toHaveStyle({ justifyContent: 'flex-end', textAlign: 'right' });
+    const header = container.querySelector('div[title="Click to edit style: Segment | State"]');
+    expect(header).toHaveStyle({ justifyContent: 'flex-end', textAlign: 'right' });
   });
 
   it('applies per-depth alignment and wrapping rules to left facet values', () => {
@@ -336,7 +363,7 @@ describe('FacetLabels', () => {
     expect(firstDepthText).not.toHaveStyle({ writingMode: 'vertical-rl' });
   });
 
-  it('opens a depth-aware left header popover and dispatches per-depth alignment updates', () => {
+  it('opens a combined left header popover and dispatches shared alignment updates', () => {
     render(
       <LeftFacetLabels
         grid={buildGrid()}
@@ -347,19 +374,19 @@ describe('FacetLabels', () => {
       />,
     );
 
-    fireEvent.click(screen.getByTitle('Click to edit style: State'));
+    fireEvent.click(screen.getByTitle('Click to edit style: Segment | State'));
 
-    expect(screen.getByText('Hierarchy 2: State')).toBeTruthy();
+    expect(screen.getByText('Facet names: Segment | State')).toBeTruthy();
 
     expect(screen.getByText('Horizontal Align')).toBeTruthy();
 
     fireEvent.click(screen.getAllByRole('button', { name: 'End' })[0]);
 
     const headerAction = mockDispatch.mock.calls.find(([action]) => action.type === 'SET_FACET_LEFT_HEADER_STYLE')?.[0];
-    expect(headerAction.payload.horizontalAlignByDepth[1]).toBe('end');
+    expect(headerAction.payload.horizontalAlign).toBe('end');
   });
 
-  it('opens a depth-aware top header popover and dispatches per-depth orientation updates', () => {
+  it('opens a combined top header popover and dispatches shared orientation updates', () => {
     render(
       <TopFacetLabels
         grid={buildGrid()}
@@ -370,17 +397,17 @@ describe('FacetLabels', () => {
       />,
     );
 
-    fireEvent.click(screen.getByTitle('Click to edit style: Category'));
+    fireEvent.click(screen.getByTitle('Click to edit style: Region | Category'));
 
-    expect(screen.getByText('Hierarchy 2: Category')).toBeTruthy();
+    expect(screen.getByText('Facet names: Region | Category')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'vertical' }));
 
     const headerAction = mockDispatch.mock.calls.find(([action]) => action.type === 'SET_FACET_TOP_HEADER_STYLE')?.[0];
-    expect(headerAction.payload.orientationByDepth[1]).toBe('vertical');
+    expect(headerAction.payload.orientation).toBe('vertical');
   });
 
-  it('dispatches per-depth top header font size updates', () => {
+  it('dispatches shared top header font size updates', () => {
     render(
       <TopFacetLabels
         grid={buildGrid()}
@@ -391,11 +418,11 @@ describe('FacetLabels', () => {
       />,
     );
 
-    fireEvent.click(screen.getByTitle('Click to edit style: Category'));
+    fireEvent.click(screen.getByTitle('Click to edit style: Region | Category'));
     fireEvent.change(screen.getByRole('slider'), { target: { value: '18' } });
 
-    const headerAction = mockDispatch.mock.calls.find(([action]) => action.type === 'SET_FACET_TOP_HEADER_STYLE' && action.payload.fontSizeByDepth)?.[0];
-    expect(headerAction.payload.fontSizeByDepth[1]).toBe(18);
+    const headerAction = mockDispatch.mock.calls.find(([action]) => action.type === 'SET_FACET_TOP_HEADER_STYLE' && action.payload.fontSize)?.[0];
+    expect(headerAction.payload.fontSize).toBe(18);
   });
 
   it('opens a depth-aware top values popover and dispatches wrap updates for that depth', () => {
@@ -431,7 +458,7 @@ describe('FacetLabels', () => {
       />,
     );
 
-    fireEvent.click(screen.getByTitle('Click to edit style: Segment'));
+    fireEvent.click(screen.getByTitle('Click to edit style: Segment | State'));
 
     expect(screen.queryByText('Auto Width')).toBeNull();
     expect(screen.queryByText('Width (px)')).toBeNull();

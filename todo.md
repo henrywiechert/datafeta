@@ -218,3 +218,7 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 ## [] Filter aggregations (SUM(field) > x)
 - currently only absolute values are filterable
 - aggregation filter only makes sense in aggregation views
+
+## Wrong header description
+- Wrong order and horizontal placement
+- I want FirstLevel | SecondLevel ...
