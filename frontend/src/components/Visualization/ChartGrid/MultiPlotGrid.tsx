@@ -20,7 +20,7 @@ import { CellSizeOverrides } from './hooks/useCellSizeOverrides';
 import PlotArea, { PlotBrushEvent } from './PlotArea';
 import XAxes from './XAxes';
 import YAxes from './YAxes';
-import { TopFacetLabels, LeftFacetLabels } from './FacetLabels';
+import { TopFacetLabels, TopFacetHeaderTitle, LeftFacetLabels } from './FacetLabels';
 import GridResizeOverlay from './GridResizeOverlay';
 import GridResizeHandle from './GridResizeHandle';
 import AxisLabel from './AxisLabel';
@@ -251,6 +251,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
             baseCols={baseCols}
             facetTopHeaderPx={facetTopHeaderPx}
             facetTopValueHeightsPx={facetTopValueHeightsPx}
+            showTitle={false}
           />
 
           {/* ======================================================
@@ -282,6 +283,29 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           )}
         </div>
       </div>
+
+      {facetTopHeaderPx > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: leftFixedWidthPx,
+            right: VERTICAL_SCROLLBAR_GUTTER_PX,
+            height: `${facetTopHeaderPx}px`,
+            zIndex: 4,
+            pointerEvents: 'auto',
+            overflow: 'hidden',
+          }}
+        >
+          <TopFacetHeaderTitle
+            grid={grid}
+            style={{
+              height: '100%',
+              width: '100%',
+            }}
+          />
+        </div>
+      )}
 
       {/* ===============================================================
           LAYER 2: VERTICAL SCROLL (z-index: 2)

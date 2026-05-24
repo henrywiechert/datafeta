@@ -31,30 +31,24 @@ interface TopFacetLabelsProps {
   baseCols: number;
   facetTopHeaderPx: number;
   facetTopValueHeightsPx: number[];
+  showTitle?: boolean;
 }
 
-const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
-  grid,
-  plotTemplateColumns,
-  baseCols,
-  facetTopHeaderPx,
-  facetTopValueHeightsPx,
-}) => {
+interface TopFacetHeaderTitleProps {
+  grid: GridResultModel;
+  style?: React.CSSProperties;
+}
+
+const TopFacetHeaderTitleComponent: React.FC<TopFacetHeaderTitleProps> = ({ grid, style }) => {
   const { state, dispatch } = useVisualizationContext();
   const { facetLabelStyles } = state;
+  const colLevels = grid.headers?.cols?.levels || [];
 
   const handleHeaderStyleChange = useCallback((updates: Partial<FacetHeaderLabelStyle>) => {
     dispatch({ type: 'SET_FACET_TOP_HEADER_STYLE', payload: updates });
   }, [dispatch]);
 
-  const handleValuesStyleChange = useCallback((updates: Partial<FacetTopValuesLabelStyle>) => {
-    dispatch({ type: 'SET_FACET_TOP_VALUES_STYLE', payload: updates });
-  }, [dispatch]);
-
-  const colLevels = grid.headers?.cols?.levels || [];
-
   const headerStyle = facetLabelStyles.topHeader;
-  const valuesStyle = facetLabelStyles.topValues;
   const {
     anchorEl: headerAnchor,
     activeDepth: activeHeaderDepth,
@@ -69,21 +63,6 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
     defaultHorizontalAlign: 'center',
     defaultVerticalAlign: 'center',
     useDepthOverrides: false,
-  });
-  const {
-    anchorEl: valuesAnchor,
-    activeDepth: activeValuesDepth,
-    activeOrientation: activeValuesOrientation,
-    activeHorizontalAlign: activeValuesHorizontalAlign,
-    activeVerticalAlign: activeValuesVerticalAlign,
-    activeWrapMode: activeValuesWrapMode,
-    handleClick: handleValuesClick,
-    handleClose: handleValuesClose,
-  } = useValuesStyleState(valuesStyle, {
-    defaultOrientation: 'horizontal',
-    defaultHorizontalAlign: 'center',
-    defaultVerticalAlign: 'center',
-    defaultWrapMode: 'wrap',
   });
 
   const handleHeaderDepthOrientationChange = useCallback((orientation: 'horizontal' | 'vertical') => {
@@ -102,6 +81,95 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
   const handleHeaderDepthFontSizeChange = useCallback((fontSize: number) => {
     handleHeaderStyleChange({ fontSize: Math.max(8, Math.min(26, fontSize)) });
   }, [handleHeaderStyleChange]);
+
+  if (colLevels.length === 0) return null;
+
+  const facetAxisTitle = formatFacetAxisTitle(colLevels);
+  const headerFontSize = headerStyle.fontSize;
+  const headerOrientation = headerStyle.orientation;
+  const headerHorizontalAlign = headerStyle.horizontalAlign ?? 'center';
+  const headerVerticalAlign = headerStyle.verticalAlign ?? 'center';
+  const headerOrientationStyles = getOrientationStyles(headerOrientation, headerFontSize);
+
+  return (
+    <>
+      <div
+        onClick={(event) => handleHeaderClick(event, 0, facetAxisTitle)}
+        title={`Click to edit style: ${facetAxisTitle}`}
+        style={{
+          display: 'flex',
+          justifyContent: resolveFlexAlignment(headerHorizontalAlign),
+          alignItems: resolveFlexAlignment(headerVerticalAlign),
+          padding: '2px 6px',
+          cursor: 'pointer',
+          textAlign: resolveTextAlignment(headerHorizontalAlign),
+          ...style,
+        }}
+      >
+        <div
+          style={{
+            fontWeight: 600,
+            background: 'white',
+            padding: '2px 6px',
+            ...headerOrientationStyles,
+          }}
+        >
+          {renderWithBreaks(facetAxisTitle)}
+        </div>
+      </div>
+
+      <FacetStylePopover
+        anchorEl={headerAnchor}
+        onClose={handleHeaderClose}
+        title="Top Facet Header Style"
+        scopeLabel={activeHeaderDepth ? `Facet names: ${activeHeaderDepth.label}` : undefined}
+        fontSize={activeHeaderFontSize}
+        orientation={activeHeaderOrientation}
+        horizontalAlign={activeHeaderHorizontalAlign}
+        verticalAlign={activeHeaderVerticalAlign}
+        onFontSizeChange={handleHeaderDepthFontSizeChange}
+        onOrientationChange={(orientation) => handleHeaderDepthOrientationChange(orientation as 'horizontal' | 'vertical')}
+        onHorizontalAlignChange={(alignment) => handleHeaderDepthAlignChange('horizontal', alignment)}
+        onVerticalAlignChange={(alignment) => handleHeaderDepthAlignChange('vertical', alignment)}
+        orientationOptions={['horizontal', 'vertical']}
+      />
+    </>
+  );
+};
+
+const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
+  grid,
+  plotTemplateColumns,
+  baseCols,
+  facetTopHeaderPx,
+  facetTopValueHeightsPx,
+  showTitle = true,
+}) => {
+  const { state, dispatch } = useVisualizationContext();
+  const { facetLabelStyles } = state;
+
+  const handleValuesStyleChange = useCallback((updates: Partial<FacetTopValuesLabelStyle>) => {
+    dispatch({ type: 'SET_FACET_TOP_VALUES_STYLE', payload: updates });
+  }, [dispatch]);
+
+  const colLevels = grid.headers?.cols?.levels || [];
+
+  const valuesStyle = facetLabelStyles.topValues;
+  const {
+    anchorEl: valuesAnchor,
+    activeDepth: activeValuesDepth,
+    activeOrientation: activeValuesOrientation,
+    activeHorizontalAlign: activeValuesHorizontalAlign,
+    activeVerticalAlign: activeValuesVerticalAlign,
+    activeWrapMode: activeValuesWrapMode,
+    handleClick: handleValuesClick,
+    handleClose: handleValuesClose,
+  } = useValuesStyleState(valuesStyle, {
+    defaultOrientation: 'horizontal',
+    defaultHorizontalAlign: 'center',
+    defaultVerticalAlign: 'center',
+    defaultWrapMode: 'wrap',
+  });
 
   const handleValuesDepthOrientationChange = useCallback((orientation: 'horizontal' | 'vertical' | 'angled') => {
     if (!activeValuesDepth) return;
@@ -156,13 +224,6 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
 
   if (colLevels.length === 0) return null;
 
-  const facetAxisTitle = formatFacetAxisTitle(colLevels);
-  const headerFontSize = headerStyle.fontSize;
-  const headerOrientation = headerStyle.orientation;
-  const headerHorizontalAlign = headerStyle.horizontalAlign ?? 'center';
-  const headerVerticalAlign = headerStyle.verticalAlign ?? 'center';
-  const headerOrientationStyles = getOrientationStyles(headerOrientation, headerFontSize);
-
   return (
     <div style={{ gridColumn: 1, gridRow: 1 }}>
       <div
@@ -172,31 +233,15 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
           gridTemplateRows: `${facetTopHeaderPx}px ${facetTopValueHeightsPx.map((height) => `${height}px`).join(' ')}`,
         }}
       >
-        <div
-          onClick={(event) => handleHeaderClick(event, 0, facetAxisTitle)}
-          title={`Click to edit style: ${facetAxisTitle}`}
-          style={{
-            gridColumn: '1 / -1',
-            gridRow: 1,
-            display: 'flex',
-            justifyContent: resolveFlexAlignment(headerHorizontalAlign),
-            alignItems: resolveFlexAlignment(headerVerticalAlign),
-            padding: '2px 6px',
-            cursor: 'pointer',
-            textAlign: resolveTextAlignment(headerHorizontalAlign),
-          }}
-        >
-          <div
+        {showTitle && (
+          <TopFacetHeaderTitleComponent
+            grid={grid}
             style={{
-              fontWeight: 600,
-              background: 'white',
-              padding: '2px 6px',
-              ...headerOrientationStyles,
+              gridColumn: '1 / -1',
+              gridRow: 1,
             }}
-          >
-            {renderWithBreaks(facetAxisTitle)}
-          </div>
-        </div>
+          />
+        )}
 
         {colLevels.map((level, levelIdx) => {
           const orientation = resolveDepthValue(
@@ -272,22 +317,6 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
       </div>
 
       <FacetStylePopover
-        anchorEl={headerAnchor}
-        onClose={handleHeaderClose}
-        title="Top Facet Header Style"
-        scopeLabel={activeHeaderDepth ? `Facet names: ${activeHeaderDepth.label}` : undefined}
-        fontSize={activeHeaderFontSize}
-        orientation={activeHeaderOrientation}
-        horizontalAlign={activeHeaderHorizontalAlign}
-        verticalAlign={activeHeaderVerticalAlign}
-        onFontSizeChange={handleHeaderDepthFontSizeChange}
-        onOrientationChange={(orientation) => handleHeaderDepthOrientationChange(orientation as 'horizontal' | 'vertical')}
-        onHorizontalAlignChange={(alignment) => handleHeaderDepthAlignChange('horizontal', alignment)}
-        onVerticalAlignChange={(alignment) => handleHeaderDepthAlignChange('vertical', alignment)}
-        orientationOptions={['horizontal', 'vertical']}
-      />
-
-      <FacetStylePopover
         anchorEl={valuesAnchor}
         onClose={handleValuesClose}
         title="Top Facet Values Style"
@@ -313,7 +342,12 @@ export const TopFacetLabels = React.memo(TopFacetLabelsComponent, (prevProps, ne
     prevProps.plotTemplateColumns === nextProps.plotTemplateColumns &&
     prevProps.baseCols === nextProps.baseCols &&
     prevProps.facetTopValueHeightsPx === nextProps.facetTopValueHeightsPx &&
+    prevProps.showTitle === nextProps.showTitle &&
     prevProps.grid.headers === nextProps.grid.headers &&
     prevProps.grid.layout === nextProps.grid.layout
   );
+});
+
+export const TopFacetHeaderTitle = React.memo(TopFacetHeaderTitleComponent, (prevProps, nextProps) => {
+  return prevProps.grid.headers === nextProps.grid.headers && prevProps.style === nextProps.style;
 });

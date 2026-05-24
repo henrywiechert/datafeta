@@ -1,7 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { LeftFacetLabels, TopFacetLabels } from './FacetLabels';
+import { LeftFacetLabels, TopFacetHeaderTitle, TopFacetLabels } from './FacetLabels';
 
 const mockDispatch = jest.fn();
 let mockGlobalChartType: any = 'bar';
@@ -130,6 +130,36 @@ describe('FacetLabels', () => {
     expect(screen.getByTitle('Click to edit style: Region | Category')).toHaveTextContent('Region | Category');
     expect(screen.queryByTitle('Click to edit style: Region')).toBeNull();
     expect(screen.queryByTitle('Click to edit style: Category')).toBeNull();
+  });
+
+  it('can render top facet values without the title for the horizontal scroll layer', () => {
+    render(
+      <TopFacetLabels
+        grid={buildGrid()}
+        plotTemplateColumns="repeat(4, 100px)"
+        baseCols={1}
+        facetTopHeaderPx={20}
+        facetTopValueHeightsPx={[24, 36]}
+        showTitle={false}
+      />,
+    );
+
+    expect(screen.queryByTitle('Click to edit style: Region | Category')).toBeNull();
+    expect(screen.getByTitle('East')).toBeTruthy();
+    expect(screen.getAllByTitle('A').length).toBeGreaterThan(0);
+  });
+
+  it('renders the top facet title as a standalone layer component', () => {
+    render(
+      <TopFacetHeaderTitle
+        grid={buildGrid()}
+        style={{ height: '100%', width: '100%' }}
+      />,
+    );
+
+    const title = screen.getByTitle('Click to edit style: Region | Category');
+    expect(title).toHaveTextContent('Region | Category');
+    expect(title).toHaveStyle({ height: '100%', width: '100%' });
   });
 
   it('renders left hierarchical facet field names as one combined title', () => {
