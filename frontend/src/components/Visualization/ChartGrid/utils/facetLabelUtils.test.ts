@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import {
   computeProductSegments,
+  formatFacetAxisTitle,
   formatFacetValue,
   getOrientationStyles,
   resolveDepthValue,
@@ -10,6 +11,17 @@ import {
 } from './facetLabelUtils';
 
 describe('facetLabelUtils', () => {
+  test('formats hierarchical facet axis titles', () => {
+    expect(formatFacetAxisTitle(undefined)).toBe('');
+    expect(formatFacetAxisTitle([])).toBe('');
+    expect(formatFacetAxisTitle([{ fieldLabel: 'Region' }])).toBe('Region');
+    expect(formatFacetAxisTitle([
+      { fieldLabel: 'Region' },
+      { fieldLabel: 'Category' },
+      { fieldLabel: 'Sub.Category_Name' },
+    ])).toBe('Region | Category | Sub.Category_Name');
+  });
+
   test('formats dates and plain values', () => {
     expect(formatFacetValue(new Date('2024-01-02T00:00:00.000Z'))).toContain('2024');
     expect(formatFacetValue('East')).toBe('East');

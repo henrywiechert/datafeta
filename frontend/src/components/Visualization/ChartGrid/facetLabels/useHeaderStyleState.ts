@@ -15,6 +15,7 @@ interface HeaderStyleStateOptions {
   defaultOrientation: 'horizontal' | 'vertical';
   defaultHorizontalAlign: FacetLabelAlign;
   defaultVerticalAlign: FacetLabelAlign;
+  useDepthOverrides?: boolean;
 }
 
 export function useHeaderStyleState(
@@ -35,26 +36,27 @@ export function useHeaderStyleState(
   }, []);
 
   const activeDepthIndex = activeDepth?.depthIndex ?? 0;
+  const useDepthOverrides = options.useDepthOverrides ?? true;
   const activeFontSize = resolveDepthValue(
-    style.fontSizeByDepth,
+    useDepthOverrides ? style.fontSizeByDepth : undefined,
     style.fontSize,
     activeDepthIndex,
     style.fontSize,
   );
   const activeOrientation = resolveDepthValue(
-    style.orientationByDepth,
+    useDepthOverrides ? style.orientationByDepth : undefined,
     style.orientation,
     activeDepthIndex,
     options.defaultOrientation,
   );
   const activeHorizontalAlign = resolveDepthValue(
-    style.horizontalAlignByDepth,
+    useDepthOverrides ? style.horizontalAlignByDepth : undefined,
     style.horizontalAlign,
     activeDepthIndex,
     options.defaultHorizontalAlign,
   );
   const activeVerticalAlign = resolveDepthValue(
-    style.verticalAlignByDepth,
+    useDepthOverrides ? style.verticalAlignByDepth : undefined,
     style.verticalAlign,
     activeDepthIndex,
     options.defaultVerticalAlign,

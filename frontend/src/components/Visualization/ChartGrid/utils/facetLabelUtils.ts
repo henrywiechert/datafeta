@@ -14,6 +14,13 @@ export function formatFacetValue(val: any): string {
   return String(val);
 }
 
+export function formatFacetAxisTitle(levels: Array<{ fieldLabel: string }> | undefined): string {
+  return (levels || [])
+    .map((level) => level.fieldLabel)
+    .filter((label) => label && label.length > 0)
+    .join(' | ');
+}
+
 /**
  * Fallback span computation used when ordered tuples are absent.
  * Assumes the full Cartesian product of level values is present.
