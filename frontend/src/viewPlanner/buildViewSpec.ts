@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { isCdfAllowed } from '../utils/cdfUtils';
-import { isDensityAllowed, resolveDensityQueryField } from '../utils/densityUtils';
+import { resolveBinnedFieldToSource } from '../utils/binningUtils';
+import { isDensityAllowed } from '../utils/densityUtils';
 import { isMeasureNamesField, isMeasureValuesField } from '../utils/syntheticFields';
 import { getQueryTypeFromFields } from '../queryBuilder/queryBuilder';
 import { getResultColumnName } from '../utils/fieldUtils';
@@ -95,37 +96,27 @@ export function buildQueryFieldsFromViewInput(input: BuildViewSpecInput): Field[
 
   const xFields = input.xAxisFields.map((field) => {
     const axisField = withAxis(field, 'x');
-    return densityMode ? resolveDensityQueryField(axisField, input.virtualColumns) : axisField;
+    return densityMode ? resolveBinnedFieldToSource(axisField, input.virtualColumns) : axisField;
   });
   const yFields = input.yAxisFields.map((field) => withAxis(field, 'y'));
 
   const xHasMeasure = xFields.some((field) => field.type === 'measure');
   const yHasMeasure = yFields.some((field) => field.type === 'measure');
-  const shouldDefaultAxisMeasureAgg = densityMode
-    ? false
-    : input.globalChartType === 'pie'
-      ? (xHasMeasure || yHasMeasure)
-      : xHasMeasure !== yHasMeasure;
+  const shouldDefaultAxisMeasureAgg = input.globalChartType === 'pie'
+    ? (xHasMeasure || yHasMeasure)
+    : xHasMeasure !== yHasMeasure;
 
-  const normalizedXFields = (shouldDefaultAxisMeasureAgg && xHasMeasure
+  const normalizedXFields = shouldDefaultAxisMeasureAgg && xHasMeasure
     ? xFields.map((field) => field.type === 'measure' && !field.aggregation
       ? { ...field, aggregation: defaultAggregationFor(field) }
       : field)
-    : xFields).map((field) =>
-      densityMode && field.type === 'measure'
-        ? { ...field, aggregation: undefined }
-        : field,
-    );
+    : xFields;
 
-  const normalizedYFields = (shouldDefaultAxisMeasureAgg && yHasMeasure
+  const normalizedYFields = shouldDefaultAxisMeasureAgg && yHasMeasure
     ? yFields.map((field) => field.type === 'measure' && !field.aggregation
       ? { ...field, aggregation: defaultAggregationFor(field) }
       : field)
-    : yFields).map((field) =>
-      densityMode && field.type === 'measure'
-        ? { ...field, aggregation: undefined }
-        : field,
-    );
+    : yFields;
 
   const allFields: Field[] = [...normalizedXFields, ...normalizedYFields];
   const axisFields = [...input.xAxisFields, ...input.yAxisFields];

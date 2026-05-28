@@ -6,7 +6,7 @@
  * enabling histogram visualizations when combined with COUNT aggregation.
  */
 
-import { BinnedFieldDefinition, VirtualColumnDefinition } from '../types';
+import { BinnedFieldDefinition, Field, VirtualColumnDefinition } from '../types';
 
 /**
  * Generate a SQL expression for binning a numeric field.
@@ -180,4 +180,31 @@ export function createBinnedFieldDefinition(
  */
 export function isBinnedField(vc: VirtualColumnDefinition): boolean {
   return vc.binConfig !== undefined;
+}
+
+/**
+ * If `field` references a binned virtual column, return a Field pointing at
+ * the underlying raw source column (so callers can query unbinned values).
+ * Otherwise returns the field unchanged.
+ *
+ * Used by chart types that need raw row values for fields the user has placed
+ * on a binned virtual column (e.g. density / KDE, future violin / ridgeline).
+ */
+export function resolveBinnedFieldToSource(
+  field: Field,
+  virtualColumns?: VirtualColumnDefinition[],
+): Field {
+  if (!virtualColumns?.length) return field;
+
+  const vc = virtualColumns.find(
+    (column) => column.name === field.columnName || column.binConfig?.name === field.columnName,
+  );
+  if (vc && isBinnedField(vc) && vc.binConfig) {
+    return {
+      ...field,
+      columnName: vc.binConfig.sourceField,
+      is_virtual: false,
+    };
+  }
+  return field;
 }

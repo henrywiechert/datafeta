@@ -5,7 +5,7 @@
 
 import { getSchemeById, DEFAULT_CATEGORICAL_SCHEME, DEFAULT_SEQUENTIAL_SCHEME } from '../../config/colorSchemes';
 import { Field, FieldOverrideState } from '../../types';
-import { getResultColumnName } from '../../utils/fieldUtils';
+import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { isMeasureNamesField } from '../../utils/syntheticFields';
 
 export type ColorScaleKind = 'categorical' | 'continuous';
@@ -231,6 +231,40 @@ export function deriveColorScaleInfo(
     rawMin,
     rawMax,
     interpolate,
+  };
+}
+
+/**
+ * Build the Observable Plot `color` scale options object from a
+ * `ColorScaleInfo` derived for a given field. Used by chart handlers that
+ * already construct their own marks (CDF, density, etc.) and need a consistent
+ * scale config across them.
+ *
+ * Returns `null` when no scale should be installed (no info, empty range, …).
+ */
+export function buildPlotColorScaleOptions(
+  colorField: Field,
+  colorInfo: ColorScaleInfo | null,
+): Record<string, unknown> | null {
+  if (!colorInfo || colorInfo.range.length === 0) return null;
+
+  const label = getFieldDisplayName(colorField);
+
+  if (colorInfo.kind === 'continuous') {
+    return {
+      type: 'linear',
+      domain: colorInfo.domain as [number, number],
+      range: colorInfo.range,
+      clamp: true,
+      label,
+    };
+  }
+
+  return {
+    type: 'ordinal',
+    domain: colorInfo.domain as any[],
+    range: colorInfo.range,
+    label,
   };
 }
 

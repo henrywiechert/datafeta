@@ -3,7 +3,7 @@ import * as Plot from '@observablehq/plot';
 import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
-import { ColorScaleInfo, deriveColorScaleInfo } from '../utils/colorSchemeUtils';
+import { ColorScaleInfo, buildPlotColorScaleOptions, deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 
 /**
@@ -163,23 +163,9 @@ export function buildCdfOptions(params: CdfBuildParams): Plot.PlotOptions {
     ],
   };
 
-  if (colorField && colorInfo) {
-    if (colorInfo.kind === 'continuous') {
-      plotOptions.color = {
-        type: 'linear',
-        domain: colorInfo.domain as [number, number],
-        range: colorInfo.range,
-        clamp: true,
-        label: getFieldDisplayName(colorField),
-      } as any;
-    } else {
-      plotOptions.color = {
-        type: 'ordinal' as any,
-        domain: colorInfo.domain as any[],
-        range: colorInfo.range,
-        label: getFieldDisplayName(colorField),
-      } as any;
-    }
+  if (colorField) {
+    const colorScale = buildPlotColorScaleOptions(colorField, colorInfo);
+    if (colorScale) plotOptions.color = colorScale as any;
   }
 
   (plotOptions as any).__customTooltip = {
