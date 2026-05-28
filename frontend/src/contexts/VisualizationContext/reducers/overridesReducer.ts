@@ -1,5 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { VisualizationState, VisualizationAction } from '../types';
+import { getChartTypeDescriptor } from '../../../observable-plot-generator/chartTypeRegistry';
 
 /**
  * Handles field overrides and global chart type actions.
@@ -50,13 +51,16 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
     case 'SET_GLOBAL_CHART_TYPE': {
       const prev = state.globalChartType;
       const next = action.payload;
-      const cdfChanged = (prev === 'cdf') !== (next === 'cdf');
-      const densityChanged = (prev === 'density') !== (next === 'density');
-      const pieChanged = (prev === 'pie') !== (next === 'pie');
+      // Re-run the query when transitioning into or out of a chart type whose
+      // data path differs (cdf/density/pie); the registry flags these via
+      // `bumpsQueryVersion`.
+      const prevBumps = getChartTypeDescriptor(prev)?.bumpsQueryVersion ?? false;
+      const nextBumps = getChartTypeDescriptor(next)?.bumpsQueryVersion ?? false;
+      const requiresRequery = prev !== next && (prevBumps || nextBumps);
       return {
         ...state,
         globalChartType: next,
-        queryVersion: cdfChanged || densityChanged || pieChanged ? state.queryVersion + 1 : state.queryVersion,
+        queryVersion: requiresRequery ? state.queryVersion + 1 : state.queryVersion,
       };
     }
     case 'SET_LINE_VARIANT': {

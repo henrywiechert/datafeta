@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { Field, QueryResult, FilterConfig, FilterMetadata, FieldOverrideState, UserChartType, QueryOptimizationSettings, DistributionVariant, TableCellMode, LineVariant, DensityParams } from '../../types';
 import { OverlayConfig, OverlayType, OverlayParams } from '../../observable-plot-generator/overlays/types';
+import type { UndoableSnapshot } from './persistedKeys';
 
 // Define loading operation types
 export type LoadingOperationType = 'query' | 'rendering' | 'metadata';
@@ -265,47 +266,9 @@ export type VisualizationAction =
   // Query optimization settings
   | { type: 'SET_QUERY_OPTIMIZATION_SETTINGS'; payload: QueryOptimizationSettings }
   | { type: 'UPDATE_QUERY_OPTIMIZATION_SETTINGS'; payload: Partial<QueryOptimizationSettings> }
-  // Undo/Redo actions
-  | { type: 'RESTORE_UNDOABLE_STATE'; payload: {
-      xAxisFields: Field[];
-      yAxisFields: Field[];
-      filterFields: Field[];
-      filterConfigurations: Record<string, FilterConfig>;
-      appliedFilterConfigurations: Record<string, FilterConfig>;
-      colorField: Field | null;
-      colorScheme: string;
-      colorBias: number;
-      sizeField: Field | null;
-      sizeRange: [number, number];
-      manualSize: number;
-      labelFields?: Field[];
-      labelsEnabled?: boolean;
-      labelSamplingStrategy?: 'auto' | 'all' | 'sample';
-      labelSamplingThreshold?: number;
-      labelSampleEvery?: number;
-      bandThicknessScale?: number;
-      independentDomains?: { x: boolean; y: boolean };
-      fieldOverrides: Record<string, FieldOverrideState>;
-      globalChartType?: UserChartType | null;
-      lineVariant?: LineVariant;
-      areaFillOpacity?: number;
-      distributionVariant?: DistributionVariant;
-      tableCellMode?: TableCellMode;
-      tablePage?: number;
-      labelFontSize?: number;
-      axisLabelStyles?: AxisLabelStyles;
-      categoryTickStyles?: CategoryTickStyles;
-      facetLabelStyles?: FacetLabelStyles;
-      facetBackgroundField?: Field | null;
-      facetBackgroundScheme?: string;
-      facetBackgroundOpacity?: number;
-      showTableRows?: boolean;
-      overlays?: OverlayConfig[];
-      densityParams?: DensityParams;
-      shapeField?: Field | null;
-      manualColor?: string;
-      manualShape?: string;
-    } }
+  // Undo/Redo actions. The payload is derived from PERSISTED_STATE_KEYS so the
+  // captured snapshot, this action type, and the restore reducer stay in sync.
+  | { type: 'RESTORE_UNDOABLE_STATE'; payload: UndoableSnapshot }
   // Multi-table actions
   | { type: 'TABLE_JOINS_UNIONS_MODIFIED' }
   // Query refresh action (used after metadata loads to trigger query execution)
