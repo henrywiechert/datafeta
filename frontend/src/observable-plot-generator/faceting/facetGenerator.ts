@@ -294,6 +294,60 @@ export function generateFacetedGrid(context: ChartGenerationContext, plan: Facet
 }
 
 /**
+ * Shared small-multiples grid builder for grid-level chart types whose layout
+ * is "one cell per X field, optionally faceted by discrete dimensions"
+ * (currently CDF and density).
+ *
+ * - When `hasContent` is false, returns an empty single-cell grid.
+ * - When discrete facet fields are present, delegates to `coordinateFacetedGrid`.
+ * - Otherwise runs the cell generator once on the full dataset and wraps the
+ *   resulting per-field columns in a single-row grid.
+ */
+function createSmallMultiplesGrid(
+  context: ChartGenerationContext,
+  cellGenerator: CellGenerator,
+  hasContent: boolean,
+): PlotResult {
+  if (!hasContent) {
+    return {
+      library: 'observable-plot',
+      plots: [],
+      layout: { type: 'grid', columns: 1, rows: 1, columnSizes: ['fr'], rowSizes: ['fr'] },
+    };
+  }
+
+  const facetPlan = planFacets(context);
+  const hasFacets =
+    !!facetPlan &&
+    ((facetPlan.rowFacetFields?.length || 0) > 0 ||
+      (facetPlan.colFacetFields?.length || 0) > 0);
+
+  if (hasFacets && facetPlan) {
+    return coordinateFacetedGrid({ context, plan: facetPlan, cellGenerator });
+  }
+
+  // No faceting — run the cell generator directly on the full dataset.
+  const result = cellGenerator(
+    context.queryResult.rows,
+    context,
+    { measure: {}, numeric: {}, categorical: {} },
+    { row: 0, col: 0 },
+  );
+
+  return {
+    library: 'observable-plot',
+    plots: result.plots,
+    layout: {
+      type: 'grid',
+      columns: result.columns,
+      rows: 1,
+      columnSizes: Array(result.columns).fill('fr' as const),
+      rowSizes: ['fr' as const],
+    },
+  };
+}
+
+/**
  * Create a CellGenerator that produces CDF charts for each continuous measure
  * on the X-axis.  Each measure becomes a column in a single-row grid.
  */
@@ -347,55 +401,15 @@ function createCdfCellGenerator(
  * Integrates into the standard faceting pipeline via a CDF CellGenerator.
  */
 export function generateCdfGrid(context: ChartGenerationContext): PlotResult {
-  const { xFields } = context;
-
-  const cdfMeasures = xFields.filter(
+  const cdfMeasures = context.xFields.filter(
     f => f.type === 'measure' && f.flavour === 'continuous',
   );
 
-  if (cdfMeasures.length === 0) {
-    return {
-      library: 'observable-plot',
-      plots: [],
-      layout: { type: 'grid', columns: 1, rows: 1, columnSizes: ['fr'], rowSizes: ['fr'] },
-    };
-  }
-
-  const cellGen = createCdfCellGenerator(context);
-
-  // Determine faceting from discrete dimensions on either axis
-  const facetPlan = planFacets(context);
-  const hasFacets = facetPlan &&
-    ((facetPlan.rowFacetFields?.length || 0) > 0 ||
-     (facetPlan.colFacetFields?.length || 0) > 0);
-
-  if (hasFacets && facetPlan) {
-    return coordinateFacetedGrid({
-      context,
-      plan: facetPlan,
-      cellGenerator: cellGen,
-    });
-  }
-
-  // No faceting — run the cell generator directly on the full dataset
-  const result = cellGen(
-    context.queryResult.rows,
+  return createSmallMultiplesGrid(
     context,
-    { measure: {}, numeric: {}, categorical: {} },
-    { row: 0, col: 0 },
+    createCdfCellGenerator(context),
+    cdfMeasures.length > 0,
   );
-
-  return {
-    library: 'observable-plot',
-    plots: result.plots,
-    layout: {
-      type: 'grid',
-      columns: result.columns,
-      rows: 1,
-      columnSizes: Array(result.columns).fill('fr' as const),
-      rowSizes: ['fr' as const],
-    },
-  };
 }
 
 /**
@@ -448,45 +462,10 @@ function createDensityCellGenerator(
 export function generateDensityGrid(context: ChartGenerationContext): PlotResult {
   const densityFields = getDensityFieldsOnX(context.xFields);
 
-  if (densityFields.length === 0) {
-    return {
-      library: 'observable-plot',
-      plots: [],
-      layout: { type: 'grid', columns: 1, rows: 1, columnSizes: ['fr'], rowSizes: ['fr'] },
-    };
-  }
-
-  const cellGen = createDensityCellGenerator(context);
-  const facetPlan = planFacets(context);
-  const hasFacets = facetPlan &&
-    ((facetPlan.rowFacetFields?.length || 0) > 0 ||
-     (facetPlan.colFacetFields?.length || 0) > 0);
-
-  if (hasFacets && facetPlan) {
-    return coordinateFacetedGrid({
-      context,
-      plan: facetPlan,
-      cellGenerator: cellGen,
-    });
-  }
-
-  const result = cellGen(
-    context.queryResult.rows,
+  return createSmallMultiplesGrid(
     context,
-    { measure: {}, numeric: {}, categorical: {} },
-    { row: 0, col: 0 },
+    createDensityCellGenerator(context),
+    densityFields.length > 0,
   );
-
-  return {
-    library: 'observable-plot',
-    plots: result.plots,
-    layout: {
-      type: 'grid',
-      columns: result.columns,
-      rows: 1,
-      columnSizes: Array(result.columns).fill('fr' as const),
-      rowSizes: ['fr' as const],
-    },
-  };
 }
 

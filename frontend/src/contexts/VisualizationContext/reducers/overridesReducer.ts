@@ -127,11 +127,17 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
         ),
       };
     case 'SET_DENSITY_PARAMS':
-      return { ...state, densityParams: action.payload };
+      return {
+        ...state,
+        chartTypeParams: { ...state.chartTypeParams, density: action.payload },
+      };
     case 'UPDATE_DENSITY_PARAMS':
       return {
         ...state,
-        densityParams: { ...state.densityParams, ...action.payload },
+        chartTypeParams: {
+          ...state.chartTypeParams,
+          density: { ...state.chartTypeParams.density, ...action.payload },
+        },
       };
     default:
       return null; // Not handled by this reducer

@@ -123,7 +123,8 @@ export interface VisualizationStateSnapshot {
   labelFontSize?: number;
   // Statistical overlays
   overlays?: import('../observable-plot-generator/overlays/types').OverlayConfig[];
-  densityParams?: import('./field').DensityParams;
+  // Per-chart-type parameter container (density KDE settings, etc.)
+  chartTypeParams?: import('../contexts/VisualizationContext/types').ChartTypeParams;
   // Filter IDs that are temporarily disabled on this sheet (config preserved)
   disabledFilterIds?: string[];
 }
