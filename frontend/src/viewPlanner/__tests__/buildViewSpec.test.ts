@@ -228,6 +228,65 @@ describe('buildViewSpec', () => {
   });
 });
 
+describe('buildViewSpec.deriveGrain (registry dispatch)', () => {
+  it('forces cdf grain when cdf is allowed (continuous measure on X)', () => {
+    const revenue = field('revenue', {
+      type: 'measure',
+      flavour: 'continuous',
+      dataType: 'float',
+    });
+    const spec = buildViewSpec({
+      xAxisFields: [revenue],
+      yAxisFields: [],
+      colorField: null,
+      sizeField: null,
+      globalChartType: 'cdf',
+    });
+    expect(spec.grain).toBe('cdf');
+    expect(spec.queryMode).toBe('cdf');
+  });
+
+  it('falls back to the default grain when cdf is not allowed for the axis config', () => {
+    // Only a discrete dimension on X => cdf.isAllowed returns false.
+    const region = field('region');
+    const spec = buildViewSpec({
+      xAxisFields: [region],
+      yAxisFields: [],
+      colorField: null,
+      sizeField: null,
+      globalChartType: 'cdf',
+    });
+    expect(spec.grain).not.toBe('cdf');
+  });
+
+  it('does not override grain for registry entries without a `grain` (pie, heatmap)', () => {
+    const country = field('country');
+    const revenue = field('revenue', {
+      type: 'measure',
+      flavour: 'continuous',
+      dataType: 'float',
+    });
+
+    const pieSpec = buildViewSpec({
+      xAxisFields: [country],
+      yAxisFields: [revenue],
+      colorField: null,
+      sizeField: null,
+      globalChartType: 'pie',
+    });
+    expect(pieSpec.grain).toBe('grouped');
+
+    const heatmapSpec = buildViewSpec({
+      xAxisFields: [country],
+      yAxisFields: [revenue],
+      colorField: null,
+      sizeField: null,
+      globalChartType: 'heatmap',
+    });
+    expect(heatmapSpec.grain).toBe('grouped');
+  });
+});
+
 describe('buildRenderPlan', () => {
   it('derives facet fields from the canonical pane partition', () => {
     const country = field('country');

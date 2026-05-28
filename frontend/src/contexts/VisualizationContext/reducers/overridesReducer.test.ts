@@ -12,6 +12,42 @@ function withTablePage(page: number) {
   };
 }
 
+describe('overridesReducer SET_GLOBAL_CHART_TYPE (registry-driven queryVersion)', () => {
+  const at = (state: typeof initialState, payload: any) =>
+    overridesReducer(state, { type: 'SET_GLOBAL_CHART_TYPE', payload } as any);
+
+  test('does not bump queryVersion between two non-bumping types (bar -> line)', () => {
+    const state = { ...initialState, globalChartType: 'bar' as const, queryVersion: 5 };
+    const next = at(state, 'line');
+    expect(next!.globalChartType).toBe('line');
+    expect(next!.queryVersion).toBe(5);
+  });
+
+  test('bumps queryVersion when entering a bumping type (null -> cdf)', () => {
+    const state = { ...initialState, globalChartType: null, queryVersion: 5 };
+    const next = at(state, 'cdf');
+    expect(next!.queryVersion).toBe(6);
+  });
+
+  test('bumps queryVersion when leaving a bumping type (density -> null)', () => {
+    const state = { ...initialState, globalChartType: 'density' as const, queryVersion: 5 };
+    const next = at(state, null);
+    expect(next!.queryVersion).toBe(6);
+  });
+
+  test('bumps queryVersion exactly once between two bumping types (cdf -> pie)', () => {
+    const state = { ...initialState, globalChartType: 'cdf' as const, queryVersion: 5 };
+    const next = at(state, 'pie');
+    expect(next!.queryVersion).toBe(6);
+  });
+
+  test('does not bump queryVersion when the value is unchanged', () => {
+    const state = { ...initialState, globalChartType: 'cdf' as const, queryVersion: 5 };
+    const next = at(state, 'cdf');
+    expect(next!.queryVersion).toBe(5);
+  });
+});
+
 describe('overridesReducer SET_TABLE_PAGE (PR 8)', () => {
   test('updates tablePage to a non-negative integer', () => {
     const next = overridesReducer(initialState, { type: 'SET_TABLE_PAGE', payload: 3 } as any);
