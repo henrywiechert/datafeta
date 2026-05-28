@@ -5,7 +5,7 @@
  */
 
 import * as Plot from '@observablehq/plot';
-import { DistributionVariant, Field, LineVariant } from '../../types';
+import { DensityParams, DistributionVariant, Field, LineVariant } from '../../types';
 import { LabelConfig, GanttZoomRange } from '../types';
 
 /**
@@ -46,6 +46,8 @@ export interface ChartContext {
   lineVariant?: LineVariant;
   /** Fill opacity for area chart fills. */
   areaFillOpacity?: number;
+  /** KDE parameters when rendering density charts. */
+  densityParams?: DensityParams;
   xTickFormat?: (d: any) => string;
   yTickFormat?: (d: any) => string;
 }

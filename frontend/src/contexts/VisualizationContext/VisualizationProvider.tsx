@@ -214,6 +214,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       facetBackgroundOpacity: state.facetBackgroundOpacity,
       showTableRows: state.showTableRows,
       overlays: state.overlays,
+      densityParams: state.densityParams,
       shapeField: state.shapeField,
       manualShape: state.manualShape,
     };
@@ -254,6 +255,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     state.facetBackgroundOpacity,
     state.showTableRows,
     state.overlays,
+    state.densityParams,
     state.shapeField,
     state.manualShape,
   ]);

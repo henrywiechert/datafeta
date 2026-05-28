@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { Field, QueryResult, FieldOverrideState, UserChartType, DistributionVariant, TableCellMode, TooltipField, LineVariant } from '../types';
+import { Field, QueryResult, FieldOverrideState, UserChartType, DistributionVariant, TableCellMode, TooltipField, LineVariant, DensityParams } from '../types';
 import { OverlayConfig } from './overlays/types';
 import { FieldOverrideTarget } from './utils/fieldOverrides';
 import { ColorScaleInfo } from './utils/colorSchemeUtils';
@@ -182,6 +182,8 @@ export interface ChartGenerationContext {
   fieldAliasLookup?: Record<string, string>;
   /** Statistical overlay configurations (regression, moving average, Bollinger bands) */
   overlays?: OverlayConfig[];
+  /** KDE parameters when globalChartType is 'density'. */
+  densityParams?: DensityParams;
   /** Canonical semantic view plan, shared with query planning when available. */
   viewSpec?: ViewSpec | null;
 }

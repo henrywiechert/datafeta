@@ -25,6 +25,7 @@ import ShapeFieldControl from './ShapeFieldControl';
 import LabelFieldControl from './LabelFieldControl';
 import TooltipFieldControl from './TooltipFieldControl';
 import ChartTypeControl from './ChartTypeControl';
+import DensityParametersSection from './DensityParametersSection';
 import FieldOverrideRow from './FieldOverrideRow';
 
 interface AreaFillOpacityControlProps {
@@ -430,6 +431,8 @@ const FieldOverridesPanel: React.FC = () => {
             />
           )}
         </Box>
+
+        {globalChartType === 'density' && <DensityParametersSection />}
 
         <ColorFieldControl
           field={resolvedGlobalColorField}

@@ -62,7 +62,24 @@ export interface Field {
 
 // Per-field chart override configuration
 export type DataLabelMode = 'inherit' | 'on' | 'off';
-export type UserChartType = 'line' | 'scatter' | 'tick' | 'bar' | 'gantt' | 'cdf' | 'pie' | 'table-refactor' | 'heatmap';
+export type UserChartType = 'line' | 'scatter' | 'tick' | 'bar' | 'gantt' | 'cdf' | 'density' | 'pie' | 'table-refactor' | 'heatmap';
+
+/** KDE parameters for the density chart type (mirrors overlay density params). */
+export interface DensityParams {
+  bandwidth?: number;
+  thresholds?: number;
+  filled?: boolean;
+  opacity?: number;
+  strokeWidth?: number;
+}
+
+export const DEFAULT_DENSITY_PARAMS: DensityParams = {
+  bandwidth: 20,
+  thresholds: 20,
+  filled: true,
+  opacity: 0.3,
+  strokeWidth: 1.5,
+};
 export type LineVariant = 'line' | 'area';
 
 /**

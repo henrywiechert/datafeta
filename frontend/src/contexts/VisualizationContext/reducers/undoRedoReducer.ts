@@ -44,6 +44,7 @@ export function undoRedoReducer(state: VisualizationState, action: Visualization
         facetBackgroundOpacity: action.payload.facetBackgroundOpacity ?? state.facetBackgroundOpacity,
         showTableRows: action.payload.showTableRows ?? state.showTableRows,
         overlays: action.payload.overlays ?? state.overlays,
+        densityParams: action.payload.densityParams ?? state.densityParams,
         shapeField: action.payload.shapeField !== undefined ? action.payload.shapeField : state.shapeField,
         manualShape: action.payload.manualShape ?? state.manualShape,
         queryVersion: state.queryVersion + 1,

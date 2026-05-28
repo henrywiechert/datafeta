@@ -180,6 +180,19 @@ describe('buildViewSpec', () => {
     }));
   });
 
+  it('routes density chart type to rawRows grain', () => {
+    const spec = buildViewSpec({
+      xAxisFields: [field('age', { flavour: 'continuous', dataType: 'float' })],
+      yAxisFields: [],
+      colorField: null,
+      sizeField: null,
+      globalChartType: 'density',
+    });
+
+    expect(spec.grain).toBe('rawRows');
+    expect(spec.queryMode).toBe('raw');
+  });
+
   it('keeps brush zoom selections separate from filters', () => {
     const createdAt = field('created_at', {
       flavour: 'continuous',
