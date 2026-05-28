@@ -126,10 +126,7 @@ const FieldOverridesPanel: React.FC = () => {
     labelFontSize,
     tooltipFields,
     globalChartType,
-    lineVariant,
-    areaFillOpacity,
-    distributionVariant,
-    tableCellMode,
+    chartTypeParams,
     measureValuesSourceFields,
     facetBackgroundField,
     facetBackgroundScheme,
@@ -137,6 +134,10 @@ const FieldOverridesPanel: React.FC = () => {
     shapeField,
     manualShape,
   } = state;
+
+  const { variant: lineVariant, areaFillOpacity } = chartTypeParams.line;
+  const distributionVariant = chartTypeParams.distribution.variant;
+  const tableCellMode = chartTypeParams.table.cellMode;
 
   const [expandedId, setExpandedId] = useState<string | null>('__all__');
 

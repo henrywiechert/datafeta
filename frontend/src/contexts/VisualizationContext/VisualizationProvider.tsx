@@ -2,10 +2,51 @@
 import React, { createContext, useReducer, ReactNode, useRef, useCallback } from 'react';
 import { Field, FilterConfig, VisualizationStateSnapshot } from '../../types';
 import { getTimeoutForOperation } from '../../config/loadingConfig';
-import { VisualizationState, VisualizationAction, LoadingOperationType } from './types';
+import { VisualizationState, VisualizationAction, LoadingOperationType, ChartTypeParams } from './types';
 import { initialState } from './initialState';
 import { visualizationReducer } from './reducers';
 import { PERSISTED_STATE_KEYS } from './persistedKeys';
+import { DistributionVariant, LineVariant, TableCellMode } from '../../types';
+
+/**
+ * Legacy flat chart-type param fields persisted in older sheet snapshots, before
+ * they were grouped under `chartTypeParams`. Read for backward-compatible load.
+ */
+interface LegacyChartTypeParamFields {
+  chartTypeParams?: Partial<ChartTypeParams>;
+  lineVariant?: LineVariant;
+  areaFillOpacity?: number;
+  distributionVariant?: DistributionVariant;
+  tableCellMode?: TableCellMode;
+  tablePage?: number;
+}
+
+/**
+ * Resolve `chartTypeParams` from an incoming snapshot, supporting both the new
+ * grouped shape and the legacy flat fields, falling back to defaults. New
+ * sheets carry a full `chartTypeParams`; older sheets carry flat fields.
+ */
+function resolveChartTypeParams(
+  base: ChartTypeParams,
+  source: LegacyChartTypeParamFields | undefined,
+): ChartTypeParams {
+  const grouped = source?.chartTypeParams;
+  return {
+    density: grouped?.density ?? base.density,
+    line: {
+      variant: grouped?.line?.variant ?? source?.lineVariant ?? base.line.variant,
+      areaFillOpacity:
+        grouped?.line?.areaFillOpacity ?? source?.areaFillOpacity ?? base.line.areaFillOpacity,
+    },
+    distribution: {
+      variant: grouped?.distribution?.variant ?? source?.distributionVariant ?? base.distribution.variant,
+    },
+    table: {
+      cellMode: grouped?.table?.cellMode ?? source?.tableCellMode ?? base.table.cellMode,
+      page: grouped?.table?.page ?? source?.tablePage ?? base.table.page,
+    },
+  };
+}
 
 // Context interface
 export interface VisualizationContextType {
@@ -86,6 +127,12 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     // but the UI expects filterConfigurations[field.id].
     return {
       ...merged,
+      // Migrate legacy flat chart-type params (lineVariant, distributionVariant, …)
+      // into the grouped chartTypeParams container, filling defaults.
+      chartTypeParams: resolveChartTypeParams(
+        initialState.chartTypeParams,
+        initialStateProp as LegacyChartTypeParamFields | undefined,
+      ),
       filterConfigurations: normalizeFilterConfigKeys(merged.filterFields, merged.filterConfigurations),
       appliedFilterConfigurations: normalizeFilterConfigKeys(merged.filterFields, merged.appliedFilterConfigurations),
     };

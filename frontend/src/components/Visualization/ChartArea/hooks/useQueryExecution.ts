@@ -195,7 +195,7 @@ export const useQueryExecution = ({
     connectionType: connectionDetails?.type,
     optimizationSettings,
     globalChartType: vizState.globalChartType ?? undefined,
-    distributionVariant: vizState.distributionVariant,
+    distributionVariant: vizState.chartTypeParams.distribution.variant,
   });
 
   // Get query executor
@@ -218,7 +218,7 @@ export const useQueryExecution = ({
     measureGroupMeasures: vizState.measureGroupFields.map(field => field.columnName),
     optimizationHints,
     optimizationSettings,
-    distributionVariant: vizState.distributionVariant,
+    distributionVariant: vizState.chartTypeParams.distribution.variant,
     globalChartType: vizState.globalChartType,
     dispatch,
     startOperation,

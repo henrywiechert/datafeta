@@ -96,10 +96,15 @@ export interface VisualizationStateSnapshot {
   independentDomains?: { x: boolean; y: boolean };
   fieldOverrides?: Record<string, FieldOverrideState>;
   globalChartType?: UserChartType | null;
+  /** @deprecated Persisted in older sheets; now stored under `chartTypeParams.line.variant`. Kept for backward-compatible load/migration. */
   lineVariant?: LineVariant;
+  /** @deprecated Persisted in older sheets; now stored under `chartTypeParams.line.areaFillOpacity`. */
   areaFillOpacity?: number;
+  /** @deprecated Persisted in older sheets; now stored under `chartTypeParams.distribution.variant`. */
   distributionVariant?: DistributionVariant;
+  /** @deprecated Persisted in older sheets; now stored under `chartTypeParams.table.cellMode`. */
   tableCellMode?: TableCellMode;
+  /** @deprecated Persisted in older sheets; now stored under `chartTypeParams.table.page`. */
   tablePage?: number;
   showTableRows?: boolean;
   selectedChartType?: UserChartType | 'auto';

@@ -66,20 +66,29 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
     case 'SET_LINE_VARIANT': {
       return {
         ...state,
-        lineVariant: action.payload,
+        chartTypeParams: {
+          ...state.chartTypeParams,
+          line: { ...state.chartTypeParams.line, variant: action.payload },
+        },
       };
     }
     case 'SET_AREA_FILL_OPACITY': {
       return {
         ...state,
-        areaFillOpacity: action.payload,
+        chartTypeParams: {
+          ...state.chartTypeParams,
+          line: { ...state.chartTypeParams.line, areaFillOpacity: action.payload },
+        },
       };
     }
     case 'SET_DISTRIBUTION_VARIANT': {
-      const variantChanged = state.distributionVariant !== action.payload;
+      const variantChanged = state.chartTypeParams.distribution.variant !== action.payload;
       return {
         ...state,
-        distributionVariant: action.payload,
+        chartTypeParams: {
+          ...state.chartTypeParams,
+          distribution: { ...state.chartTypeParams.distribution, variant: action.payload },
+        },
         queryVersion: variantChanged ? state.queryVersion + 1 : state.queryVersion,
       };
     }
@@ -87,17 +96,23 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
       // Pure rendering toggle: no query refetch needed, so leave queryVersion alone.
       return {
         ...state,
-        tableCellMode: action.payload,
+        chartTypeParams: {
+          ...state.chartTypeParams,
+          table: { ...state.chartTypeParams.table, cellMode: action.payload },
+        },
       };
     }
     case 'SET_TABLE_PAGE': {
       // Pager navigation does not bump queryVersion; the chart pipeline reacts to
       // the changed page index via cache key + generator slicing.
       const next = Math.max(0, Math.floor(action.payload));
-      if (next === state.tablePage) return state;
+      if (next === state.chartTypeParams.table.page) return state;
       return {
         ...state,
-        tablePage: next,
+        chartTypeParams: {
+          ...state.chartTypeParams,
+          table: { ...state.chartTypeParams.table, page: next },
+        },
       };
     }
     // --- Overlay actions (visual-only, no query version bump) ---
