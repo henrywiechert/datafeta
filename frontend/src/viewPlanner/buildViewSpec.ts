@@ -1,6 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { isCdfAllowed } from '../utils/cdfUtils';
-import { isDensityAllowed } from '../utils/densityUtils';
+import { getChartTypeDescriptor } from '../observable-plot-generator/chartTypeRegistry';
 import { isMeasureNamesField, isMeasureValuesField } from '../utils/syntheticFields';
 import { getQueryTypeFromFields } from '../queryBuilder/queryBuilder';
 import { getResultColumnName } from '../utils/fieldUtils';
@@ -145,18 +144,12 @@ export function buildQueryFieldsFromViewInput(input: BuildViewSpecInput): Field[
 function deriveGrain(input: BuildViewSpecInput, queryFields: Field[]): ViewGrain {
   const axisFields = [...input.xAxisFields, ...input.yAxisFields];
 
+  const chartTypeDescriptor = getChartTypeDescriptor(input.globalChartType);
   if (
-    input.globalChartType === 'cdf' &&
-    isCdfAllowed(input.xAxisFields, input.yAxisFields)
+    chartTypeDescriptor?.grain &&
+    chartTypeDescriptor.isAllowed(input.xAxisFields, input.yAxisFields, input.colorField)
   ) {
-    return 'cdf';
-  }
-
-  if (
-    input.globalChartType === 'density' &&
-    isDensityAllowed(input.xAxisFields, input.yAxisFields)
-  ) {
-    return 'rawRows';
+    return chartTypeDescriptor.grain;
   }
 
   if (

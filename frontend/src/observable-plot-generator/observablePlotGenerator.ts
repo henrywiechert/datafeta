@@ -9,8 +9,7 @@ import { Field } from '../types';
 import { computeSharedDomainsFromContext, buildLabelConfig } from './utils/configBuilder';
 import { analyzeFields } from './analysis/fieldAnalysis';
 import { ChartTypeOverrides } from './helpers/chartTypeResolver';
-import { isCdfAllowed } from '../utils/cdfUtils';
-import { isDensityAllowed } from '../utils/densityUtils';
+import { getChartTypeDescriptor, GRID_PLOT_CHART_TYPE_ORDER } from './chartTypeRegistry';
 import { planFacets } from './faceting/facetPlanner';
 import { normalizeTimelineData, getResultColumnName, getFieldDisplayName } from '../utils/fieldUtils';
 import { generateCartesianPlots } from './grid/coreGridGenerator';
@@ -23,6 +22,19 @@ import { isTablePresentation } from './chartTypes/chartTypePresentation';
 
 // Re-export buildLabelConfig as buildLabelCfg for backward compatibility
 export { buildLabelConfig as buildLabelCfg } from './utils/configBuilder';
+
+/**
+ * Grid-level generators for the chart types that bypass the per-pair cell
+ * pipeline and emit a PlotResult directly. Keyed by UserChartType. The registry
+ * (`chartTypeRegistry`) decides *whether* a type is active/allowed; this map
+ * holds *how* it renders, keeping generator references in the rendering layer.
+ */
+const GRID_PLOT_GENERATORS: Partial<Record<string, (ctx: ChartGenerationContext) => PlotResult>> = {
+  cdf: generateCdfGrid,
+  density: generateDensityGrid,
+  pie: generatePieGrid,
+  heatmap: generateHeatmapGrid,
+};
 
 /**
  * Enrich a field with its display alias from the alias lookup map.
@@ -380,39 +392,27 @@ function generatePlotAsResult(context: ChartGenerationContext, overrides?: Chart
   };
 
   try {
-    // ── CDF mode ────────────────────────────────────────────────────────
-    // Handled before the standard facet/core split so that CDF charts
-    // integrate with faceting via their own CellGenerator.
-    if (
-      effectiveContext.globalChartType === 'cdf' &&
-      isCdfAllowed(effectiveContext.xFields, effectiveContext.yFields)
-    ) {
-      return generateCdfGrid(effectiveContext);
-    }
-
-    if (
-      effectiveContext.globalChartType === 'density' &&
-      isDensityAllowed(effectiveContext.xFields, effectiveContext.yFields)
-    ) {
-      return generateDensityGrid(effectiveContext);
-    }
-
-    if (effectiveContext.globalChartType === 'pie') {
-      const hasXMeasure = effectiveContext.xFields.some((field) => field.type === 'measure');
-      const hasYMeasure = effectiveContext.yFields.some((field) => field.type === 'measure');
-      if (hasXMeasure && hasYMeasure) {
-        effectiveContext = { ...effectiveContext, globalChartType: null };
-      } else {
-        return generatePieGrid(effectiveContext);
+    // ── Grid-level chart types ──────────────────────────────────────────
+    // These types (cdf, density, pie, heatmap) bypass the standard
+    // facet/cell-pair pipeline and emit a PlotResult via a dedicated grid
+    // generator. The registry decides whether the current axis configuration
+    // is allowed; types flagged `clearWhenNotAllowed` (pie) reset to
+    // auto-detect when their configuration is invalid.
+    for (const chartTypeId of GRID_PLOT_CHART_TYPE_ORDER) {
+      if (effectiveContext.globalChartType !== chartTypeId) continue;
+      const descriptor = getChartTypeDescriptor(chartTypeId);
+      const generator = GRID_PLOT_GENERATORS[chartTypeId];
+      if (
+        descriptor &&
+        generator &&
+        descriptor.isAllowed(effectiveContext.xFields, effectiveContext.yFields, effectiveContext.colorField)
+      ) {
+        return generator(effectiveContext);
       }
-    }
-
-    // ── Heatmap mode ────────────────────────────────────────────────────
-    // Heatmaps consume the first X and first Y field as band axes (rather
-    // than letting them become facets), so they must bypass the default
-    // facet/cell-pair pipeline. Extra discrete dims still become facets.
-    if (effectiveContext.globalChartType === 'heatmap') {
-      return generateHeatmapGrid(effectiveContext);
+      if (descriptor?.clearWhenNotAllowed) {
+        effectiveContext = { ...effectiveContext, globalChartType: null };
+      }
+      break;
     }
 
     // Check if faceting is applicable

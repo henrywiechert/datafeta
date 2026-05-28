@@ -5,6 +5,7 @@ import { getTimeoutForOperation } from '../../config/loadingConfig';
 import { VisualizationState, VisualizationAction, LoadingOperationType } from './types';
 import { initialState } from './initialState';
 import { visualizationReducer } from './reducers';
+import { PERSISTED_STATE_KEYS } from './persistedKeys';
 
 // Context interface
 export interface VisualizationContextType {
@@ -175,90 +176,18 @@ export function VisualizationProvider({ children, initialState: initialStateProp
     };
   }, []);
 
-  // Get undoable state snapshot
-  const getUndoableSnapshot = useCallback(() => {
-    return {
-      xAxisFields: state.xAxisFields,
-      yAxisFields: state.yAxisFields,
-      filterFields: state.filterFields,
-      filterConfigurations: state.filterConfigurations,
-      appliedFilterConfigurations: state.appliedFilterConfigurations,
-      colorField: state.colorField,
-      colorScheme: state.colorScheme,
-      colorBias: state.colorBias,
-      manualColor: state.manualColor,
-      sizeField: state.sizeField,
-      sizeRange: state.sizeRange,
-      manualSize: state.manualSize,
-      labelFields: state.labelFields,
-      labelsEnabled: state.labelsEnabled,
-      labelSamplingStrategy: state.labelSamplingStrategy,
-      labelSamplingThreshold: state.labelSamplingThreshold,
-      labelSampleEvery: state.labelSampleEvery,
-      bandThicknessScale: state.bandThicknessScale,
-      independentDomains: state.independentDomains,
-      tooltipFields: state.tooltipFields,
-      labelFontSize: state.labelFontSize,
-      fieldOverrides: state.fieldOverrides,
-      globalChartType: state.globalChartType,
-      lineVariant: state.lineVariant,
-      areaFillOpacity: state.areaFillOpacity,
-      distributionVariant: state.distributionVariant,
-      tableCellMode: state.tableCellMode,
-      tablePage: state.tablePage,
-      axisLabelStyles: state.axisLabelStyles,
-      categoryTickStyles: state.categoryTickStyles,
-      facetLabelStyles: state.facetLabelStyles,
-      facetBackgroundField: state.facetBackgroundField,
-      facetBackgroundScheme: state.facetBackgroundScheme,
-      facetBackgroundOpacity: state.facetBackgroundOpacity,
-      showTableRows: state.showTableRows,
-      overlays: state.overlays,
-      densityParams: state.densityParams,
-      shapeField: state.shapeField,
-      manualShape: state.manualShape,
-    };
-  }, [
-    state.xAxisFields,
-    state.yAxisFields,
-    state.filterFields,
-    state.filterConfigurations,
-    state.appliedFilterConfigurations,
-    state.colorField,
-    state.colorScheme,
-    state.colorBias,
-    state.manualColor,
-    state.sizeField,
-    state.sizeRange,
-    state.manualSize,
-    state.labelFields,
-    state.labelsEnabled,
-    state.labelSamplingStrategy,
-    state.labelSamplingThreshold,
-    state.labelSampleEvery,
-    state.bandThicknessScale,
-    state.independentDomains,
-    state.tooltipFields,
-    state.labelFontSize,
-    state.fieldOverrides,
-    state.globalChartType,
-    state.lineVariant,
-    state.areaFillOpacity,
-    state.distributionVariant,
-    state.tableCellMode,
-    state.tablePage,
-    state.axisLabelStyles,
-    state.categoryTickStyles,
-    state.facetLabelStyles,
-    state.facetBackgroundField,
-    state.facetBackgroundScheme,
-    state.facetBackgroundOpacity,
-    state.showTableRows,
-    state.overlays,
-    state.densityParams,
-    state.shapeField,
-    state.manualShape,
-  ]);
+  // Get undoable state snapshot. Both the captured keys and the restore logic
+  // (undoRedoReducer) are driven by PERSISTED_STATE_KEYS, so adding a persisted
+  // setting only requires updating that single list.
+  const snapshotDeps = PERSISTED_STATE_KEYS.map((key) => state[key]);
+  const getUndoableSnapshot = useCallback(
+    (): VisualizationStateSnapshot =>
+      Object.fromEntries(
+        PERSISTED_STATE_KEYS.map((key) => [key, state[key]]),
+      ) as unknown as VisualizationStateSnapshot,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    snapshotDeps,
+  );
 
   return (
     <VisualizationContext.Provider value={{ 
