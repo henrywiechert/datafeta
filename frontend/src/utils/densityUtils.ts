@@ -7,6 +7,10 @@ import { Field } from '../types';
  * Valid layout: at least one continuous dimension on X, no continuous fields on Y,
  * and no measures on either axis. KDE consumes raw row values, so aggregated
  * measures are not meaningful here.
+ *
+ * Note: Binned virtual columns are discrete by design and must be placed on a
+ * facet axis (row/col facet, or alongside a continuous dim on X/Y) rather than
+ * directly on the value axis. They will not trigger density mode on their own.
  */
 export function isDensityAllowed(xFields: Field[], yFields: Field[]): boolean {
   const hasContinuousOnY = yFields.some((f) => f.flavour === 'continuous');

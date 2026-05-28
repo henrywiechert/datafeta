@@ -1,6 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { isCdfAllowed } from '../utils/cdfUtils';
-import { resolveBinnedFieldToSource } from '../utils/binningUtils';
 import { isDensityAllowed } from '../utils/densityUtils';
 import { isMeasureNamesField, isMeasureValuesField } from '../utils/syntheticFields';
 import { getQueryTypeFromFields } from '../queryBuilder/queryBuilder';
@@ -90,14 +89,7 @@ function qualifiesForBoxPlotSummaryQuery(xAxisFields: Field[], yAxisFields: Fiel
 }
 
 export function buildQueryFieldsFromViewInput(input: BuildViewSpecInput): Field[] {
-  const densityMode =
-    input.globalChartType === 'density' &&
-    isDensityAllowed(input.xAxisFields, input.yAxisFields);
-
-  const xFields = input.xAxisFields.map((field) => {
-    const axisField = withAxis(field, 'x');
-    return densityMode ? resolveBinnedFieldToSource(axisField, input.virtualColumns) : axisField;
-  });
+  const xFields = input.xAxisFields.map((field) => withAxis(field, 'x'));
   const yFields = input.yAxisFields.map((field) => withAxis(field, 'y'));
 
   const xHasMeasure = xFields.some((field) => field.type === 'measure');
