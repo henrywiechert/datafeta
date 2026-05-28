@@ -51,11 +51,12 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
       const prev = state.globalChartType;
       const next = action.payload;
       const cdfChanged = (prev === 'cdf') !== (next === 'cdf');
+      const densityChanged = (prev === 'density') !== (next === 'density');
       const pieChanged = (prev === 'pie') !== (next === 'pie');
       return {
         ...state,
         globalChartType: next,
-        queryVersion: cdfChanged || pieChanged ? state.queryVersion + 1 : state.queryVersion,
+        queryVersion: cdfChanged || densityChanged || pieChanged ? state.queryVersion + 1 : state.queryVersion,
       };
     }
     case 'SET_LINE_VARIANT': {
@@ -120,6 +121,13 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
         overlays: (state.overlays || []).map(o =>
           o.type === action.payload.type ? { ...o, ...action.payload.config } : o
         ),
+      };
+    case 'SET_DENSITY_PARAMS':
+      return { ...state, densityParams: action.payload };
+    case 'UPDATE_DENSITY_PARAMS':
+      return {
+        ...state,
+        densityParams: { ...state.densityParams, ...action.payload },
       };
     default:
       return null; // Not handled by this reducer

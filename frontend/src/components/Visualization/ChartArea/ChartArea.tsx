@@ -80,6 +80,7 @@ const ChartArea: React.FC = () => {
     ganttZoomRange,
     showTableRows,
     overlays,
+    densityParams,
     disabledFilterIds,
     categoryTickStyles,
   } = state;
@@ -204,6 +205,7 @@ const ChartArea: React.FC = () => {
       measureValuesSourceFields,
       ganttZoomRange,
       overlays,
+      densityParams,
       viewSpec,
       xAxisTickHeightPx: categoryTickStyles.xHeightPx ?? autoCategoryTickStyles.xHeightPx,
       yAxisTickWidthPx: categoryTickStyles.yWidthPx ?? autoCategoryTickStyles.yWidthPx,

@@ -4,7 +4,7 @@ import { generatePlot } from '../../../../observable-plot-generator/observablePl
 import { ChartGenerationContext, GanttZoomRange } from '../../../../observable-plot-generator/types';
 import { GridResultModel } from '../../../../observable-plot-generator/gridModel';
 import { OverlayConfig } from '../../../../observable-plot-generator/overlays/types';
-import { Field, FieldOverrideState, UserChartType, Channels, DistributionVariant, TableCellMode, LineVariant } from '../../../../types';
+import { Field, FieldOverrideState, UserChartType, Channels, DistributionVariant, TableCellMode, LineVariant, DensityParams } from '../../../../types';
 import { computeOverrideTargets } from '../../../../observable-plot-generator/utils/fieldOverrides';
 import { detectDefaultUserChartType } from '../../../../observable-plot-generator/helpers/chartTypeResolver';
 import { logOperationTiming } from '../utils';
@@ -40,6 +40,7 @@ interface UseChartGenerationProps {
   independentDomains?: { x?: boolean; y?: boolean };
   ganttZoomRange?: GanttZoomRange | null;
   overlays?: OverlayConfig[];
+  densityParams?: DensityParams;
   viewSpec?: ViewSpec | null;
   xAxisTickHeightPx?: number | null;
   yAxisTickWidthPx?: number | null;
@@ -81,6 +82,7 @@ export const useChartGeneration = ({
   independentDomains,
   ganttZoomRange,
   overlays,
+  densityParams,
   viewSpec,
   xAxisTickHeightPx,
   yAxisTickWidthPx,
@@ -267,6 +269,7 @@ export const useChartGeneration = ({
         facetBackgroundScheme,
         facetBackgroundOpacity,
         overlays,
+        densityParams,
         viewSpec,
         xAxisTickHeightPx,
         yAxisTickWidthPx,
@@ -348,6 +351,7 @@ export const useChartGeneration = ({
     doGenerateChart,
     fieldAliasLookup,
     overlays,
+    densityParams,
     viewSpec,
     colorField,
     colorScheme,

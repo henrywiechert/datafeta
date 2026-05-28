@@ -60,10 +60,13 @@ export type {
   Field,
   DataLabelMode,
   UserChartType,
+  DensityParams,
   TableCellMode,
   FieldOverrideState,
   QueryOptimizationSettings,
 } from './field';
+
+export { DEFAULT_DENSITY_PARAMS } from './field';
 
 // Visual encoding channel types
 export type {

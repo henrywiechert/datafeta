@@ -93,6 +93,6 @@ export function cellChartTypeToUserType(ct: CellChartType): UserChartType {
     case 'tickX': case 'tickY': case 'boxX': case 'boxY': return 'tick';
     case 'ganttX': case 'ganttY': return 'gantt';
     case 'dot': return 'scatter';
-    default: return ct as UserChartType; // 'line' | 'scatter' | 'cdf'
+    default: return ct as UserChartType; // 'line' | 'scatter' | 'cdf' | 'density'
   }
 }

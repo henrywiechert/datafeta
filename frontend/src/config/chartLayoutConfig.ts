@@ -85,6 +85,8 @@ export const SIZE_DEFAULTS_BY_CHART_TYPE: Record<string, number> = {
   tick: 40,     // Low band padding (thick marks)
   gantt: 40,    // Low band padding (thick task bars)
   pie: 40,      // Large default radius within each cell
+  cdf: 2,
+  density: 2,
   heatmap: 40,  // Cells fill their band; size is not user-tweaked.
   'table-refactor': 8, // Symbol radius (px); ~π·8² ≈ 200 area, matching legacy default mark.
 };

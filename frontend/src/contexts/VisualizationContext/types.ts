@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { Field, QueryResult, FilterConfig, FilterMetadata, FieldOverrideState, UserChartType, QueryOptimizationSettings, DistributionVariant, TableCellMode, LineVariant } from '../../types';
+import { Field, QueryResult, FilterConfig, FilterMetadata, FieldOverrideState, UserChartType, QueryOptimizationSettings, DistributionVariant, TableCellMode, LineVariant, DensityParams } from '../../types';
 import { OverlayConfig, OverlayType, OverlayParams } from '../../observable-plot-generator/overlays/types';
 
 // Define loading operation types
@@ -169,6 +169,8 @@ export interface VisualizationState {
   chartCaption: string;
   // Statistical overlays (regression, moving average, Bollinger bands)
   overlays: OverlayConfig[];
+  // KDE parameters for the density chart type
+  densityParams: DensityParams;
 }
 
 // Define action types
@@ -299,6 +301,7 @@ export type VisualizationAction =
       facetBackgroundOpacity?: number;
       showTableRows?: boolean;
       overlays?: OverlayConfig[];
+      densityParams?: DensityParams;
       shapeField?: Field | null;
       manualColor?: string;
       manualShape?: string;
@@ -337,7 +340,9 @@ export type VisualizationAction =
   | { type: 'SET_OVERLAYS'; payload: OverlayConfig[] }
   | { type: 'TOGGLE_OVERLAY'; payload: { type: OverlayType; enabled: boolean } }
   | { type: 'UPDATE_OVERLAY_PARAMS'; payload: { type: OverlayType; params: Partial<OverlayParams> } }
-  | { type: 'UPDATE_OVERLAY'; payload: { type: OverlayType; config: Partial<Omit<OverlayConfig, 'type'>> } };
+  | { type: 'UPDATE_OVERLAY'; payload: { type: OverlayType; config: Partial<Omit<OverlayConfig, 'type'>> } }
+  | { type: 'SET_DENSITY_PARAMS'; payload: DensityParams }
+  | { type: 'UPDATE_DENSITY_PARAMS'; payload: Partial<DensityParams> };
 
 // Helper type for reducer functions
 export type ReducerFn = (state: VisualizationState, action: VisualizationAction) => VisualizationState;

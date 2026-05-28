@@ -1,5 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { isCdfAllowed } from '../utils/cdfUtils';
+import { isDensityAllowed, resolveDensityQueryField } from '../utils/densityUtils';
 import { isMeasureNamesField, isMeasureValuesField } from '../utils/syntheticFields';
 import { getQueryTypeFromFields } from '../queryBuilder/queryBuilder';
 import { getResultColumnName } from '../utils/fieldUtils';
@@ -88,26 +89,43 @@ function qualifiesForBoxPlotSummaryQuery(xAxisFields: Field[], yAxisFields: Fiel
 }
 
 export function buildQueryFieldsFromViewInput(input: BuildViewSpecInput): Field[] {
-  const xFields = input.xAxisFields.map((field) => withAxis(field, 'x'));
+  const densityMode =
+    input.globalChartType === 'density' &&
+    isDensityAllowed(input.xAxisFields, input.yAxisFields);
+
+  const xFields = input.xAxisFields.map((field) => {
+    const axisField = withAxis(field, 'x');
+    return densityMode ? resolveDensityQueryField(axisField, input.virtualColumns) : axisField;
+  });
   const yFields = input.yAxisFields.map((field) => withAxis(field, 'y'));
 
   const xHasMeasure = xFields.some((field) => field.type === 'measure');
   const yHasMeasure = yFields.some((field) => field.type === 'measure');
-  const shouldDefaultAxisMeasureAgg = input.globalChartType === 'pie'
-    ? (xHasMeasure || yHasMeasure)
-    : xHasMeasure !== yHasMeasure;
+  const shouldDefaultAxisMeasureAgg = densityMode
+    ? false
+    : input.globalChartType === 'pie'
+      ? (xHasMeasure || yHasMeasure)
+      : xHasMeasure !== yHasMeasure;
 
-  const normalizedXFields = shouldDefaultAxisMeasureAgg && xHasMeasure
+  const normalizedXFields = (shouldDefaultAxisMeasureAgg && xHasMeasure
     ? xFields.map((field) => field.type === 'measure' && !field.aggregation
       ? { ...field, aggregation: defaultAggregationFor(field) }
       : field)
-    : xFields;
+    : xFields).map((field) =>
+      densityMode && field.type === 'measure'
+        ? { ...field, aggregation: undefined }
+        : field,
+    );
 
-  const normalizedYFields = shouldDefaultAxisMeasureAgg && yHasMeasure
+  const normalizedYFields = (shouldDefaultAxisMeasureAgg && yHasMeasure
     ? yFields.map((field) => field.type === 'measure' && !field.aggregation
       ? { ...field, aggregation: defaultAggregationFor(field) }
       : field)
-    : yFields;
+    : yFields).map((field) =>
+      densityMode && field.type === 'measure'
+        ? { ...field, aggregation: undefined }
+        : field,
+    );
 
   const allFields: Field[] = [...normalizedXFields, ...normalizedYFields];
   const axisFields = [...input.xAxisFields, ...input.yAxisFields];
@@ -149,6 +167,13 @@ function deriveGrain(input: BuildViewSpecInput, queryFields: Field[]): ViewGrain
     isCdfAllowed(input.xAxisFields, input.yAxisFields)
   ) {
     return 'cdf';
+  }
+
+  if (
+    input.globalChartType === 'density' &&
+    isDensityAllowed(input.xAxisFields, input.yAxisFields)
+  ) {
+    return 'rawRows';
   }
 
   if (

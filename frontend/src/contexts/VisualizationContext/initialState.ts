@@ -4,6 +4,7 @@ import { DEFAULT_AREA_FILL_OPACITY, SIZE_DEFAULT_FALLBACK } from '../../config/c
 import { DEFAULT_MANUAL_COLOR } from '../../config/colorSchemes';
 import { DEFAULT_MANUAL_SHAPE } from '../../observable-plot-generator/utils/shapeUtils';
 import { DEFAULT_OVERLAYS } from '../../observable-plot-generator/overlays/types';
+import { DEFAULT_DENSITY_PARAMS } from '../../types';
 
 // Note: Metadata (databases, tables, selectedDatabase, selectedTable, availableFields,
 // isLoadingMetadata, metadataError) is now stored in DataSourceContext, not here.
@@ -162,5 +163,6 @@ export const initialState: VisualizationState = {
   chartCaption: '## Chart Title',
   // Statistical overlays (all start disabled)
   overlays: DEFAULT_OVERLAYS,
+  densityParams: DEFAULT_DENSITY_PARAMS,
 };
 

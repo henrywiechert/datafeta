@@ -13,7 +13,7 @@ describe('getChartTypePresentation (PR 10)', () => {
     expect(getChartTypePresentation('pie')).toBe('pie');
   });
 
-  test.each(['line', 'scatter', 'tick', 'bar', 'gantt', 'cdf', 'heatmap'] as const)(
+  test.each(['line', 'scatter', 'tick', 'bar', 'gantt', 'cdf', 'density', 'heatmap'] as const)(
     "returns 'chart' for %s",
     (type) => {
       expect(getChartTypePresentation(type)).toBe('chart');

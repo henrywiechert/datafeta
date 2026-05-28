@@ -28,7 +28,7 @@ export const DENSITY_CAT_CLASS_PREFIX = 'density-grp-';
  * Encode a category value to a URL-safe base64 string suitable for use as a
  * CSS class name suffix.  The corresponding decoder lives in stampColorCategories.ts.
  */
-function encodeCatForClass(v: any): string {
+export function encodeCatForClass(v: any): string {
   const key = v == null ? '__NULL__' : (v instanceof Date ? `__DATE__:${v.valueOf()}` : String(v));
   try {
     return btoa(unescape(encodeURIComponent(key)))

@@ -123,6 +123,7 @@ export interface VisualizationStateSnapshot {
   labelFontSize?: number;
   // Statistical overlays
   overlays?: import('../observable-plot-generator/overlays/types').OverlayConfig[];
+  densityParams?: import('./field').DensityParams;
   // Filter IDs that are temporarily disabled on this sheet (config preserved)
   disabledFilterIds?: string[];
 }

@@ -10,10 +10,11 @@ import { computeSharedDomainsFromContext, buildLabelConfig } from './utils/confi
 import { analyzeFields } from './analysis/fieldAnalysis';
 import { ChartTypeOverrides } from './helpers/chartTypeResolver';
 import { isCdfAllowed } from '../utils/cdfUtils';
+import { isDensityAllowed } from '../utils/densityUtils';
 import { planFacets } from './faceting/facetPlanner';
 import { normalizeTimelineData, getResultColumnName, getFieldDisplayName } from '../utils/fieldUtils';
 import { generateCartesianPlots } from './grid/coreGridGenerator';
-import { generateFacetedGrid, generateCdfGrid } from './faceting/facetGenerator';
+import { generateFacetedGrid, generateCdfGrid, generateDensityGrid } from './faceting/facetGenerator';
 import { ganttChart } from './chartTypes/ganttChart';
 import { generatePieGrid } from './chartTypes/pieChart';
 import { generateHeatmapGrid } from './chartTypes/heatmapChart';
@@ -174,6 +175,9 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
   // so downstream logic uses auto-detect instead of trying to render a CDF
   // cell chart with non-CDF data.
   if (context.globalChartType === 'cdf') {
+    context = { ...context, globalChartType: null };
+  }
+  if (context.globalChartType === 'density') {
     context = { ...context, globalChartType: null };
   }
 
@@ -384,6 +388,13 @@ function generatePlotAsResult(context: ChartGenerationContext, overrides?: Chart
       isCdfAllowed(effectiveContext.xFields, effectiveContext.yFields)
     ) {
       return generateCdfGrid(effectiveContext);
+    }
+
+    if (
+      effectiveContext.globalChartType === 'density' &&
+      isDensityAllowed(effectiveContext.xFields, effectiveContext.yFields)
+    ) {
+      return generateDensityGrid(effectiveContext);
     }
 
     if (effectiveContext.globalChartType === 'pie') {

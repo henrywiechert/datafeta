@@ -11,6 +11,7 @@ import { tickStrip } from './tickStrip';
 import { boxPlot } from './boxPlot';
 import { ganttChart } from './ganttChart';
 import { buildCdfOptions } from './cdfChart';
+import { buildDensityOptions } from './densityChart';
 import { buildHeatmapOptions } from './heatmapChart';
 import { CellChartType, ChartTypeOverrides, resolveChartTypeForPair } from '../helpers/chartTypeResolver';
 import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField, sortCategoriesByValue, Orientation } from './barCore';
@@ -604,6 +605,20 @@ function handleCdf(data: any[], _xf: Field, yf: Field, ctx: ChartContext): Plot.
   });
 }
 
+function handleDensity(data: any[], xf: Field, _yf: Field, ctx: ChartContext): Plot.PlotOptions {
+  const valueColumn = getResultColumnName(xf);
+  return buildDensityOptions({
+    data,
+    valueColumn,
+    valueLabel: getFieldDisplayName(xf),
+    colorField: ctx.colorField,
+    colorScheme: ctx.colorScheme,
+    colorBias: ctx.colorBias,
+    manualColor: ctx.manualColor,
+    densityParams: ctx.densityParams,
+  });
+}
+
 function handlePieMessage(): Plot.PlotOptions {
   return messageOptions('Pie charts are available as a global chart type.');
 }
@@ -646,6 +661,7 @@ const CHART_HANDLERS: Record<CellChartType, ChartHandler> = {
   ganttX: handleGanttX,
   ganttY: handleGanttY,
   cdf: handleCdf,
+  density: handleDensity,
   pie: handlePieMessage,
   heatmap: handleHeatmap,
 };

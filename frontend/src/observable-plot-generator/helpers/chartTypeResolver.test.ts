@@ -138,6 +138,10 @@ describe('mapUserChartTypeToCellChartType heatmap mapping', () => {
     expect(mapUserChartTypeToCellChartType('heatmap', 'x', xf, yf)).toBe('heatmap');
     expect(mapUserChartTypeToCellChartType('heatmap', 'y', xf, yf)).toBe('heatmap');
   });
+  test("maps user 'density' to cell 'density' regardless of axis", () => {
+    const xf = dim('age', 'continuous');
+    expect(mapUserChartTypeToCellChartType('density', 'x', xf, xf)).toBe('density');
+  });
 });
 
 describe('per-pair auto-detection sanity', () => {

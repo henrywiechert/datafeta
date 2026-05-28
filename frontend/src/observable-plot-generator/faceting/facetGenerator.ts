@@ -13,7 +13,9 @@ import { isMeasureValuesField, combineMeasureValuesOverrides } from '../../utils
 import { createBarCellGenerator } from './barFacetGenerator';
 import { generateCartesianPlots } from '../grid/coreGridGenerator';
 import { buildCdfOptions } from '../chartTypes/cdfChart';
-import { getFieldDisplayName } from '../../utils/fieldUtils';
+import { buildDensityOptions } from '../chartTypes/densityChart';
+import { getDensityFieldsOnX } from '../../utils/densityUtils';
+import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { planFacets } from './facetPlanner';
 import { buildCategoryTickFormatter } from '../utils/categoryTickFormatter';
 
@@ -376,6 +378,98 @@ export function generateCdfGrid(context: ChartGenerationContext): PlotResult {
   }
 
   // No faceting — run the cell generator directly on the full dataset
+  const result = cellGen(
+    context.queryResult.rows,
+    context,
+    { measure: {}, numeric: {}, categorical: {} },
+    { row: 0, col: 0 },
+  );
+
+  return {
+    library: 'observable-plot',
+    plots: result.plots,
+    layout: {
+      type: 'grid',
+      columns: result.columns,
+      rows: 1,
+      columnSizes: Array(result.columns).fill('fr' as const),
+      rowSizes: ['fr' as const],
+    },
+  };
+}
+
+/**
+ * Create a CellGenerator that produces density (KDE) charts for each continuous
+ * field on the X-axis. Each field becomes a column in a single-row grid.
+ */
+function createDensityCellGenerator(
+  context: ChartGenerationContext,
+): CellGenerator {
+  const densityFields = getDensityFieldsOnX(context.xFields);
+
+  return (
+    cellData: any[],
+    _cellContext: ChartGenerationContext,
+    _sharedDomains: SharedDomains,
+    _facetPosition: { row: number; col: number },
+    facetCellContext?: FacetCellContext,
+  ): CellResult => {
+    const plots = densityFields.map((field, idx) => {
+      const valueColumn = getResultColumnName(field);
+      return {
+        id: `density-${field.columnName}`,
+        title: getFieldDisplayName(field, context.fieldAliasLookup),
+        options: buildDensityOptions({
+          data: cellData,
+          valueColumn,
+          valueLabel: getFieldDisplayName(field, context.fieldAliasLookup),
+          colorField: context.colorField || undefined,
+          colorScheme: context.colorScheme,
+          colorBias: context.colorBias,
+          manualColor: context.manualColor,
+          densityParams: context.densityParams,
+          colorScaleInfo: _sharedDomains.colorScale,
+        }),
+        position: { row: 0, col: idx },
+      };
+    });
+
+    return {
+      plots,
+      columns: densityFields.length,
+      rows: 1,
+    };
+  };
+}
+
+/**
+ * Generate density chart(s), optionally faceted by discrete dimensions.
+ */
+export function generateDensityGrid(context: ChartGenerationContext): PlotResult {
+  const densityFields = getDensityFieldsOnX(context.xFields);
+
+  if (densityFields.length === 0) {
+    return {
+      library: 'observable-plot',
+      plots: [],
+      layout: { type: 'grid', columns: 1, rows: 1, columnSizes: ['fr'], rowSizes: ['fr'] },
+    };
+  }
+
+  const cellGen = createDensityCellGenerator(context);
+  const facetPlan = planFacets(context);
+  const hasFacets = facetPlan &&
+    ((facetPlan.rowFacetFields?.length || 0) > 0 ||
+     (facetPlan.colFacetFields?.length || 0) > 0);
+
+  if (hasFacets && facetPlan) {
+    return coordinateFacetedGrid({
+      context,
+      plan: facetPlan,
+      cellGenerator: cellGen,
+    });
+  }
+
   const result = cellGen(
     context.queryResult.rows,
     context,

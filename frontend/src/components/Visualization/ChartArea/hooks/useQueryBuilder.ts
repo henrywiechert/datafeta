@@ -151,6 +151,7 @@ export const useQueryBuilder = ({
       globalChartType,
       distributionVariant,
       independentDomains,
+      virtualColumns,
     });
   }, [
     xAxisFields,
@@ -171,6 +172,7 @@ export const useQueryBuilder = ({
     globalChartType,
     distributionVariant,
     independentDomains,
+    virtualColumns,
   ]);
 
   // Build the query description from the canonical view spec.
