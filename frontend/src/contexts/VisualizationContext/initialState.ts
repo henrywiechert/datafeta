@@ -163,6 +163,7 @@ export const initialState: VisualizationState = {
   chartCaption: '## Chart Title',
   // Statistical overlays (all start disabled)
   overlays: DEFAULT_OVERLAYS,
-  densityParams: DEFAULT_DENSITY_PARAMS,
+  // Per-chart-type parameters (density KDE settings, etc.)
+  chartTypeParams: { density: DEFAULT_DENSITY_PARAMS },
 };
 

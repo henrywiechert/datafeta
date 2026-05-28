@@ -49,7 +49,7 @@ export const PERSISTED_STATE_KEYS = [
   'facetBackgroundOpacity',
   'showTableRows',
   'overlays',
-  'densityParams',
+  'chartTypeParams',
   'shapeField',
   'manualShape',
 ] as const;

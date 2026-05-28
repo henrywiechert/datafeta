@@ -170,8 +170,22 @@ export interface VisualizationState {
   chartCaption: string;
   // Statistical overlays (regression, moving average, Bollinger bands)
   overlays: OverlayConfig[];
-  // KDE parameters for the density chart type
-  densityParams: DensityParams;
+  // Chart-type-specific parameters, keyed by chart-type id. New per-chart-type
+  // settings should be added to this container rather than as flat fields.
+  chartTypeParams: ChartTypeParams;
+}
+
+/**
+ * Per-chart-type parameter container, keyed by chart-type id.
+ *
+ * Holds settings that only apply to a specific chart type, so that adding a new
+ * chart type's parameters does not require a new flat field on
+ * VisualizationState. Currently holds the density (KDE) parameters; other
+ * chart-type-specific globals (line/area/distribution/table/gantt) remain flat
+ * for now and can be migrated here incrementally.
+ */
+export interface ChartTypeParams {
+  density?: DensityParams;
 }
 
 // Define action types

@@ -23,7 +23,7 @@ const InlineColorPicker: React.FC<{ value: string; onChange: (c: string) => void
 
 const DensityParametersSection: React.FC = () => {
   const { state, dispatch } = useVisualizationContext();
-  const params = state.densityParams || DEFAULT_DENSITY_PARAMS;
+  const params = state.chartTypeParams?.density || DEFAULT_DENSITY_PARAMS;
   const hasDiscreteColor = state.colorField?.flavour === 'discrete';
 
   const update = (partial: Partial<DensityParams>) => {
