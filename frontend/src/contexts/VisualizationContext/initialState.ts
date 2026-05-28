@@ -76,13 +76,6 @@ export const initialState: VisualizationState = {
   fieldOverrides: {},
   // Global chart type default (null = auto-detect)
   globalChartType: null,
-  lineVariant: 'line',
-  areaFillOpacity: DEFAULT_AREA_FILL_OPACITY,
-  distributionVariant: 'tick-strip',
-  // Default cell mode for the 'table-refactor' chart type
-  tableCellMode: 'auto',
-  // Table-refactor pagination defaults (page size is a global user setting)
-  tablePage: 0,
   // Table rows view mode default
   showTableRows: false,
   queryVersion: 0,
@@ -163,7 +156,12 @@ export const initialState: VisualizationState = {
   chartCaption: '## Chart Title',
   // Statistical overlays (all start disabled)
   overlays: DEFAULT_OVERLAYS,
-  // Per-chart-type parameters (density KDE settings, etc.)
-  chartTypeParams: { density: DEFAULT_DENSITY_PARAMS },
+  // Per-chart-type parameters (density KDE, line/area, distribution, table)
+  chartTypeParams: {
+    density: DEFAULT_DENSITY_PARAMS,
+    line: { variant: 'line', areaFillOpacity: DEFAULT_AREA_FILL_OPACITY },
+    distribution: { variant: 'tick-strip' },
+    table: { cellMode: 'auto', page: 0 },
+  },
 };
 

@@ -68,11 +68,6 @@ const ChartArea: React.FC = () => {
     appliedFilterConfigurations,
     fieldOverrides,
     globalChartType,
-    lineVariant,
-    areaFillOpacity,
-    distributionVariant,
-    tableCellMode,
-    tablePage,
     measureValuesSourceFields,
     measureGroupFields,
     independentDomains,
@@ -84,6 +79,12 @@ const ChartArea: React.FC = () => {
     disabledFilterIds,
     categoryTickStyles,
   } = state;
+
+  // Chart-type-specific params (grouped in state.chartTypeParams) are unpacked
+  // into flat locals here, which the rendering/cache boundaries below consume.
+  const { variant: lineVariant, areaFillOpacity } = chartTypeParams.line;
+  const distributionVariant = chartTypeParams.distribution.variant;
+  const { cellMode: tableCellMode, page: tablePage } = chartTypeParams.table;
 
   const { selectedTable, selectedDatabase, virtualTable, virtualColumns, sessionAppliedFilterConfigurations } =
     dataSource;
@@ -311,7 +312,7 @@ const ChartArea: React.FC = () => {
   // indices that point past the new totalRowTuples.
   useEffect(() => {
     if (!isTableMode) return;
-    if (state.tablePage === 0) return;
+    if (tablePage === 0) return;
     dispatch({ type: 'SET_TABLE_PAGE', payload: 0 });
     // We intentionally only react to inputs that change the row-tuple set.
     // eslint-disable-next-line react-hooks/exhaustive-deps

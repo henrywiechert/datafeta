@@ -131,8 +131,9 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
     axisLabelStyles,
     fieldOverrides,
     globalChartType,
-    distributionVariant,
+    chartTypeParams,
   } = state;
+  const distributionVariant = chartTypeParams.distribution.variant;
   const { allowColumnResize, allowRowResize } = resolvePlotResizePolicy(
     grid,
     fieldOverrides,

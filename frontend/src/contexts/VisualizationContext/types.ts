@@ -138,17 +138,6 @@ export interface VisualizationState {
   fieldOverrides: Record<string, FieldOverrideState>;
   // Global chart type override
   globalChartType: UserChartType | null;
-  // Variant for line-family charts (top-level chart type remains 'line')
-  lineVariant: LineVariant;
-  // Fill opacity for area charts
-  areaFillOpacity: number;
-  // Variant for distribution charts (top-level chart type remains 'tick')
-  distributionVariant: DistributionVariant;
-  // Cell rendering mode for the 'table-refactor' chart type
-  tableCellMode: TableCellMode;
-  // Current page index for the 'table-refactor' chart type pager (0-based).
-  // Page size is a global user setting (see useTablePageSize), not per-sheet.
-  tablePage: number;
   // Table rows view mode (raw data table)
   showTableRows: boolean;
   queryVersion: number;
@@ -175,17 +164,40 @@ export interface VisualizationState {
   chartTypeParams: ChartTypeParams;
 }
 
+/** Parameters for the line-family chart type (top-level chart type remains 'line'). */
+export interface LineChartParams {
+  variant: LineVariant;
+  areaFillOpacity: number;
+}
+
+/** Parameters for the distribution chart type (top-level chart type remains 'tick'). */
+export interface DistributionChartParams {
+  variant: DistributionVariant;
+}
+
+/** Parameters for the 'table-refactor' chart type. */
+export interface TableChartParams {
+  cellMode: TableCellMode;
+  // Current page index for the pager (0-based). Page size is a global user
+  // setting (see useTablePageSize), not per-sheet.
+  page: number;
+}
+
 /**
  * Per-chart-type parameter container, keyed by chart-type id.
  *
  * Holds settings that only apply to a specific chart type, so that adding a new
  * chart type's parameters does not require a new flat field on
- * VisualizationState. Currently holds the density (KDE) parameters; other
- * chart-type-specific globals (line/area/distribution/table/gantt) remain flat
- * for now and can be migrated here incrementally.
+ * VisualizationState.
+ *
+ * Note: `ganttZoomRange` is intentionally NOT here — it is transient view state
+ * (not persisted to sheets, not undoable), unlike these persisted style params.
  */
 export interface ChartTypeParams {
-  density?: DensityParams;
+  density: DensityParams;
+  line: LineChartParams;
+  distribution: DistributionChartParams;
+  table: TableChartParams;
 }
 
 // Define action types
