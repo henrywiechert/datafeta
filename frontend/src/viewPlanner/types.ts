@@ -5,7 +5,6 @@ import {
   FieldOverrideState,
   FilterConfig,
   UserChartType,
-  VirtualColumnDefinition,
 } from '../types';
 
 export type ViewGrain =
@@ -143,7 +142,6 @@ export interface BuildViewSpecInput {
   globalChartType?: UserChartType | null;
   distributionVariant?: DistributionVariant;
   independentDomains?: { x?: boolean; y?: boolean };
-  virtualColumns?: VirtualColumnDefinition[];
 }
 
 export interface RenderPlan {
