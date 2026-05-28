@@ -11,8 +11,10 @@ import { DistributionVariant, LineVariant, TableCellMode } from '../../types';
 /**
  * Legacy flat chart-type param fields persisted in older sheet snapshots, before
  * they were grouped under `chartTypeParams`. Read for backward-compatible load.
+ *
+ * Exported for direct testing of the migration helper.
  */
-interface LegacyChartTypeParamFields {
+export interface LegacyChartTypeParamFields {
   chartTypeParams?: Partial<ChartTypeParams>;
   lineVariant?: LineVariant;
   areaFillOpacity?: number;
@@ -25,8 +27,11 @@ interface LegacyChartTypeParamFields {
  * Resolve `chartTypeParams` from an incoming snapshot, supporting both the new
  * grouped shape and the legacy flat fields, falling back to defaults. New
  * sheets carry a full `chartTypeParams`; older sheets carry flat fields.
+ *
+ * Exported so the migration contract can be exercised directly by tests
+ * without rendering the provider.
  */
-function resolveChartTypeParams(
+export function resolveChartTypeParams(
   base: ChartTypeParams,
   source: LegacyChartTypeParamFields | undefined,
 ): ChartTypeParams {

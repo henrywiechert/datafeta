@@ -1,5 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 // Central layout constants for chart grid and intrinsic sizing
+import type { UserChartType } from '../types';
 
 export const MIN_GRID_COLUMN_PX = 120;
 export const MIN_GRID_ROW_PX = 120;
@@ -77,8 +78,10 @@ export const MIN_GANTT_WIDTH_PX = 200;
 export const MAX_GANTT_WIDTH_PX = 10000;
 
 // Chart-specific default sizes for manualSize (1-50 range)
-// These values represent "reasonable" defaults for each chart type
-export const SIZE_DEFAULTS_BY_CHART_TYPE: Record<string, number> = {
+// These values represent "reasonable" defaults for each chart type.
+// Keyed by the full `UserChartType` union so adding a new chart type forces a
+// deliberate default here (compile error) rather than silently falling back.
+export const SIZE_DEFAULTS_BY_CHART_TYPE: Record<UserChartType, number> = {
   scatter: 5,   // 5px dot radius
   line: 2,      // 2px stroke width
   bar: 40,      // Low band padding (thick bars)
