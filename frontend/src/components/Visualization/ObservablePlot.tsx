@@ -1,10 +1,11 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import * as Plot from '@observablehq/plot';
 import { CustomTooltip } from './CustomTooltip/CustomTooltip';
 import { useChartTooltip } from '../../hooks/useChartTooltip';
 import { useFullscreenPortalTarget } from '../../hooks/useFullscreenPortalTarget';
+import { useElementSize } from '../../hooks/useElementSize';
 import { CustomTooltipConfig } from '../../types';
 import { addTooltipListeners } from './CustomTooltip/addTooltipListeners';
 import { stampColorCategories } from './stampColorCategories';
@@ -29,28 +30,12 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
   onAutoExpandPinnedComparisonChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  // Shared singleton ResizeObserver across all chart cells (one observer, N targets).
+  const dimensions = useElementSize(containerRef);
   // Shared across all chart cells: one set of fullscreenchange listeners total.
   const portalTarget = useFullscreenPortalTarget();
   const { tooltip, showTooltip, hideTooltip, updatePosition, pinTooltip, unpinTooltip, pinnedRef } = useChartTooltip();
   const cleanupFunctionsRef = useRef<Array<() => void>>([]);
-
-  useEffect(() => {
-    const resizeObserver = new ResizeObserver(entries => {
-      for (let entry of entries) {
-        const { width, height } = entry.contentRect;
-        setDimensions({ width, height });
-      }
-    });
-
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
-    }
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, []);
 
   useEffect(() => {
     if (!containerRef.current) return;
