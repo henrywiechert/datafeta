@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom';
 import * as Plot from '@observablehq/plot';
 import { CustomTooltip } from './CustomTooltip/CustomTooltip';
 import { useChartTooltip } from '../../hooks/useChartTooltip';
+import { useFullscreenPortalTarget } from '../../hooks/useFullscreenPortalTarget';
 import { CustomTooltipConfig } from '../../types';
 import { addTooltipListeners } from './CustomTooltip/addTooltipListeners';
 import { stampColorCategories } from './stampColorCategories';
@@ -29,41 +30,10 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [portalTarget, setPortalTarget] = useState<HTMLElement>(document.body);
+  // Shared across all chart cells: one set of fullscreenchange listeners total.
+  const portalTarget = useFullscreenPortalTarget();
   const { tooltip, showTooltip, hideTooltip, updatePosition, pinTooltip, unpinTooltip, pinnedRef } = useChartTooltip();
   const cleanupFunctionsRef = useRef<Array<() => void>>([]);
-
-  // Detect fullscreen mode and update portal target
-  useEffect(() => {
-    const updatePortalTarget = () => {
-      const fullscreenElement = (
-        document.fullscreenElement ||
-        (document as any).webkitFullscreenElement ||
-        (document as any).mozFullScreenElement ||
-        (document as any).msFullscreenElement
-      ) as HTMLElement | null;
-
-      // If we're in fullscreen mode, render tooltip inside fullscreen element
-      // Otherwise, render to document.body
-      setPortalTarget(fullscreenElement || document.body);
-    };
-
-    // Initial check
-    updatePortalTarget();
-
-    // Listen for fullscreen changes
-    document.addEventListener('fullscreenchange', updatePortalTarget);
-    document.addEventListener('webkitfullscreenchange', updatePortalTarget);
-    document.addEventListener('mozfullscreenchange', updatePortalTarget);
-    document.addEventListener('MSFullscreenChange', updatePortalTarget);
-
-    return () => {
-      document.removeEventListener('fullscreenchange', updatePortalTarget);
-      document.removeEventListener('webkitfullscreenchange', updatePortalTarget);
-      document.removeEventListener('mozfullscreenchange', updatePortalTarget);
-      document.removeEventListener('MSFullscreenChange', updatePortalTarget);
-    };
-  }, []);
 
   useEffect(() => {
     const resizeObserver = new ResizeObserver(entries => {
@@ -173,7 +143,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
     <>
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
       {/* Render tooltip using portal - to fullscreen element if in fullscreen, otherwise to body */}
-      {ReactDOM.createPortal(
+      {portalTarget && ReactDOM.createPortal(
         <CustomTooltip
           x={tooltip.x}
           y={tooltip.y}
