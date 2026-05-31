@@ -78,6 +78,8 @@ const ChartArea: React.FC = () => {
     chartTypeParams,
     disabledFilterIds,
     categoryTickStyles,
+    axisLabelStyles,
+    facetLabelStyles,
   } = state;
 
   // Chart-type-specific params (grouped in state.chartTypeParams) are unpacked
@@ -467,6 +469,10 @@ const ChartArea: React.FC = () => {
             onTableCellFilterAction={handleTableCellFilterAction}
             tableRefactorPagerData={tableRefactorPagerData}
             onHeatmapSizeToolbarChange={handleHeatmapSizeToolbarChange}
+            axisLabelStyles={axisLabelStyles}
+            facetLabelStyles={facetLabelStyles}
+            categoryTickStyles={categoryTickStyles}
+            globalChartType={globalChartType}
           />
 
           <ChartControls

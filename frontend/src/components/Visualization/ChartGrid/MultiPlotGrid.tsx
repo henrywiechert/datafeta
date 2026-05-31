@@ -157,6 +157,10 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
     dispatch({ type: 'SET_Y_AXIS_LABEL_STYLE', payload: updates });
   }, [dispatch]);
 
+  const handleXLabelStyleChange = useCallback((updates: Partial<import('../../../contexts/VisualizationContext/types').XAxisLabelStyle>) => {
+    dispatch({ type: 'SET_X_AXIS_LABEL_STYLE', payload: updates });
+  }, [dispatch]);
+
   const previewFacetColumnResize = useCallback((intent: { currentSize: number; delta: number }) => {
     return resolveFacetTrackSize(intent, facetColumnConstraints);
   }, [facetColumnConstraints]);
@@ -280,6 +284,8 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
               plotTemplateColumns={plotTemplateColumns}
               totalContentWidthPx={totalContentWidthPx}
               dynamicXAxisPx={dynamicXAxisPx}
+              xAxisLabelStyle={axisLabelStyles.xAxis}
+              onXAxisLabelStyleChange={handleXLabelStyleChange}
             />
           )}
         </div>
