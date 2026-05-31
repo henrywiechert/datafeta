@@ -23,6 +23,7 @@ import { duckdbService } from '../../../../services/duckdbService';
 import { queryDecisionEngine, QueryDecision } from '../../../../services/queryDecisionEngine';
 import { filterTierManager } from '../../../../services/filterTierManager';
 import { queryExecutionOrchestrator } from '../../../../services/queryExecutionOrchestrator';
+import { devLog } from '../../../../utils/devLog';
 import {
   buildFieldsForResultRemapping,
   getQueryDimensions,
@@ -153,7 +154,7 @@ export const useQueryExecutor = ({
           });
         } else {
           // Execute normal query - use Query Decision Engine when DuckDB is ready
-          console.log('🚀 Executing query with Arrow transport, virtualTable:', queryDesc.virtual_table);
+          devLog('🚀 Executing query with Arrow transport, virtualTable:', queryDesc.virtual_table);
 
           const preparedQuery = prepareBudgetedQuery({
             queryDesc,
@@ -188,7 +189,7 @@ export const useQueryExecutor = ({
                   ? 'Forced remote query (DuckDB cache disabled)'
                   : `Specialized query mode (${queryDescExec.query_mode})`,
               };
-              console.log(
+              devLog(
                 '🧠 Query decision: pre_aggregated -',
                 optimizationSettings?.forceRemote
                   ? 'Forced remote query (DuckDB cache disabled)'
@@ -296,7 +297,7 @@ export const useQueryExecutor = ({
               if ((queryDescExec as any).result_budget) {
                 (decision as any).resultBudget = (queryDescExec as any).result_budget;
               }
-              console.log('🧠 Query decision:', decision.strategy, '-', decision.reason);
+              devLog('🧠 Query decision:', decision.strategy, '-', decision.reason);
             }
             }
           } catch (orchestratorError: any) {
@@ -323,7 +324,7 @@ export const useQueryExecutor = ({
             sizeField,
           });
 
-          console.log('📊 Query result:', {
+          devLog('📊 Query result:', {
             columns: result.columns?.map((c: any) => c.name || c),
             firstRow: result.rows?.[0],
             allFields: fieldsForRemapping.map((f: any) => ({

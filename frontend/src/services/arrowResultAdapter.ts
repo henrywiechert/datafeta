@@ -1,5 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { DataType, Table as ArrowTable, Type } from 'apache-arrow';
+import { devLog } from '../utils/devLog';
 
 // Numeric Arrow type ids we consider safe to coerce when values arrive as strings
 const NUMERIC_TYPE_IDS = new Set([Type.Int, Type.Float, Type.Decimal]);
@@ -224,7 +225,7 @@ export function arrowTableToRows(table: ArrowTable): Record<string, any>[] {
       if (vec) {
         const getVal = vec.get(0);
         const rawVal = tryGetRawTimestamp(vec, 0);
-        console.log(
+        devLog(
           `⏱ Timestamp column "${tsName}": get(0)=${getVal} (${typeof getVal}), raw=${rawVal} (${typeof rawVal})`,
         );
       }

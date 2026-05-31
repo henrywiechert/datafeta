@@ -14,6 +14,7 @@ import { arrowTableToRows } from '../arrowResultAdapter';
 import { logSqlQuery } from '../../devtools/queryLog';
 import { getTabId } from '../../utils/tabSession';
 import { API_BASE_URL, createAbortController } from './apiClient';
+import { devLog } from '../../utils/devLog';
 
 export const queryApi = {
   /**
@@ -152,7 +153,7 @@ export const queryApi = {
         type: field.type.toString(),
       }));
 
-      console.log(`📊 Arrow raw fetch: ${arrayBuffer.byteLength} bytes → ${arrowTable.numRows} rows × ${columnCount} columns`);
+      devLog(`📊 Arrow raw fetch: ${arrayBuffer.byteLength} bytes → ${arrowTable.numRows} rows × ${columnCount} columns`);
 
       if (querySql) {
         logSqlQuery({
@@ -260,7 +261,7 @@ export const queryApi = {
       const rows = arrowTableToRows(arrowTable);
       const numRows = arrowTable.numRows;
 
-      console.log(`📊 Arrow transport: ${arrayBuffer.byteLength} bytes → ${numRows} rows × ${columnCount} columns`);
+      devLog(`📊 Arrow transport: ${arrayBuffer.byteLength} bytes → ${numRows} rows × ${columnCount} columns`);
 
       if (querySql) {
         logSqlQuery({

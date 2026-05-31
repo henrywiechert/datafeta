@@ -10,6 +10,7 @@
 import { useCallback, useLayoutEffect } from 'react';
 import type { LoadingOperationType } from '../../../../contexts/VisualizationContext/types';
 import type { GridResultModel } from '../../../../observable-plot-generator/gridModel';
+import { devLog } from '../../../../utils/devLog';
 
 interface UseRenderingTrackingProps {
   grid: GridResultModel | null;
@@ -48,20 +49,20 @@ export function useRenderingTracking({
 
     if (renderableIds.length > 0) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('[ChartArea] Setting up rendering batch for', renderableIds.length, 'cells');
+        devLog('[ChartArea] Setting up rendering batch for', renderableIds.length, 'cells');
       }
 
       renderingCoordinator.startRenderingBatch(renderableIds, () => {
         if (isLoadingRendering) {
           if (process.env.NODE_ENV === 'development') {
-            console.log('[ChartArea] All cells rendered, completing rendering operation');
+            devLog('[ChartArea] All cells rendered, completing rendering operation');
           }
           completeOperation('rendering');
         }
       });
     } else if (grid !== null && isLoadingRendering) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('[ChartArea] Grid has no renderable cells, completing rendering immediately');
+        devLog('[ChartArea] Grid has no renderable cells, completing rendering immediately');
       }
       completeOperation('rendering');
     }

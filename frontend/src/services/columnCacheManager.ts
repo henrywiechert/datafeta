@@ -13,6 +13,7 @@
 
 import { duckdbService } from './duckdbService';
 import { Table as ArrowTable, tableFromIPC } from 'apache-arrow';
+import { devLog } from '../utils/devLog';
 
 export interface LocalCacheHandle {
   sourceTable: string;
@@ -195,7 +196,7 @@ class ColumnCacheManager {
     this.cacheIndex.set(cacheKey, columnMap);
     this.tableNames.set(cacheKey, tableName);
     
-    console.log(`📦 Cached ${arrowTable.schema.fields.length} columns for ${sourceTable}: ${arrowTable.schema.fields.map(f => f.name).join(', ')}`);
+    devLog(`📦 Cached ${arrowTable.schema.fields.length} columns for ${sourceTable}: ${arrowTable.schema.fields.map(f => f.name).join(', ')}`);
   }
 
   /**
@@ -276,7 +277,7 @@ class ColumnCacheManager {
     this.cacheIndex.delete(cacheKey);
     this.tableNames.delete(cacheKey);
     
-    console.log(`🗑️ Invalidated cache for ${sourceTable} (filter: ${baseFilterHash || 'none'})`);
+    devLog(`🗑️ Invalidated cache for ${sourceTable} (filter: ${baseFilterHash || 'none'})`);
   }
   
   /**
@@ -310,7 +311,7 @@ class ColumnCacheManager {
     }
     
     if (keysToDelete.length > 0) {
-      console.log(`🗑️ Invalidated ${keysToDelete.length} cache entries for table ${sourceTable}`);
+      devLog(`🗑️ Invalidated ${keysToDelete.length} cache entries for table ${sourceTable}`);
     }
   }
   
@@ -330,7 +331,7 @@ class ColumnCacheManager {
     this.tableNames.clear();
     this.initialized = false;
     
-    console.log('🗑️ Invalidated all column caches');
+    devLog('🗑️ Invalidated all column caches');
   }
   
   /**

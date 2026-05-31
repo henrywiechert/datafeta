@@ -29,6 +29,7 @@ import { sheetRenderCacheStore } from '../../../../stores';
 import { computeFullConfigHash } from '../../../../utils/sheetConfigHash';
 import { createQueryAffectingConfig } from '../../../../utils/queryAffectingConfig';
 import { ViewSpec } from '../../../../viewPlanner';
+import { devLog } from '../../../../utils/devLog';
 
 export interface UseQueryExecutionProps {
   selectedTable: string | null;
@@ -63,9 +64,9 @@ function useDuckDBInit(): void {
     const initDuckDB = async () => {
       if (!duckdbService.isReady && !duckdbService.isInitializing) {
         try {
-          console.log('🦆 Initializing DuckDB WASM for local data caching...');
+          devLog('🦆 Initializing DuckDB WASM for local data caching...');
           await duckdbService.initialize();
-          console.log('✅ DuckDB WASM ready for local caching');
+          devLog('✅ DuckDB WASM ready for local caching');
         } catch (error) {
           console.warn('⚠️ DuckDB WASM initialization failed, local caching disabled:', error);
         }
@@ -148,7 +149,7 @@ export const useQueryExecution = ({
     
     if (cached) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('[useQueryExecution] 🎯 Cache hit on mount! Restoring queryResult', {
+        devLog('[useQueryExecution] 🎯 Cache hit on mount! Restoring queryResult', {
           sheetId,
           rowCount: cached.queryResult.rows?.length ?? 0,
         });
@@ -164,7 +165,7 @@ export const useQueryExecution = ({
       lastExecutedVersionRef.current = queryVersion;
     } else {
       if (process.env.NODE_ENV === 'development') {
-        console.log('[useQueryExecution] Cache miss on mount - will execute query');
+        devLog('[useQueryExecution] Cache miss on mount - will execute query');
       }
     }
   // REASON: mount-only cache-restore; intentionally has no deps so it cannot re-run.

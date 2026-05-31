@@ -12,6 +12,7 @@ import { planFacets } from '../../../../observable-plot-generator/faceting/facet
 import { validateFacetCounts, FacetValidationResult } from '../../../../observable-plot-generator/faceting/facetValidation';
 import { useFieldAliasLookup } from '../../../../hooks/useFieldDisplayName';
 import { ViewSpec } from '../../../../viewPlanner';
+import { devLog } from '../../../../utils/devLog';
 
 /** Debounce delay for zoom-triggered regeneration (ms) */
 const ZOOM_REGEN_DEBOUNCE_MS = 150;
@@ -129,7 +130,7 @@ export const useChartGeneration = ({
 
     const cellCount = generatedGrid.cells?.length || 0;
     if (process.env.NODE_ENV === 'development') {
-      console.log('[useChartGeneration] Generated grid with', cellCount, 'cells');
+      devLog('[useChartGeneration] Generated grid with', cellCount, 'cells');
     }
 
     // For large numbers of cells, the synchronous DOM rendering will block
@@ -137,7 +138,7 @@ export const useChartGeneration = ({
     // the grid to give the modal a chance to appear.
     if (cellCount > 100) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('[useChartGeneration] Large cell count detected, yielding to show modal');
+        devLog('[useChartGeneration] Large cell count detected, yielding to show modal');
       }
       // Yield to event loop to let modal appear
       await new Promise(resolve => setTimeout(resolve, 0));
@@ -164,7 +165,7 @@ export const useChartGeneration = ({
     
     try {
       if (process.env.NODE_ENV === 'development') {
-        console.log('[useChartGeneration] User proceeded despite facet limit warning');
+        devLog('[useChartGeneration] User proceeded despite facet limit warning');
       }
       startOperation('rendering', true);
       
@@ -296,7 +297,7 @@ export const useChartGeneration = ({
           setFacetLimitWarning(validation);
           
           if (process.env.NODE_ENV === 'development') {
-            console.log('[useChartGeneration] Facet limit exceeded:', validation);
+            devLog('[useChartGeneration] Facet limit exceeded:', validation);
           }
           // Don't proceed - wait for user decision
           return;
@@ -307,7 +308,7 @@ export const useChartGeneration = ({
       setFacetLimitWarning(null);
 
       if (process.env.NODE_ENV === 'development') {
-        console.log('[useChartGeneration] Starting rendering operation');
+        devLog('[useChartGeneration] Starting rendering operation');
       }
       startOperation('rendering', true);
 
@@ -423,7 +424,7 @@ export const useChartGeneration = ({
     // Debounce the regeneration
     zoomRegenTimerRef.current = setTimeout(() => {
       if (process.env.NODE_ENV === 'development') {
-        console.log('[useChartGeneration] Debounced zoom regeneration triggered');
+        devLog('[useChartGeneration] Debounced zoom regeneration triggered');
       }
       generateChartSpec();
     }, ZOOM_REGEN_DEBOUNCE_MS);
