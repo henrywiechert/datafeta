@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { CustomTooltip } from '../../CustomTooltip/CustomTooltip';
 import { useChartTooltip } from '../../../../hooks/useChartTooltip';
+import { useFullscreenPortalTarget } from '../../../../hooks/useFullscreenPortalTarget';
 import { PiePlotSpec } from '../../../../observable-plot-generator/types';
 import { CustomTooltipConfig } from '../../../../types';
 import { encodeCatValue } from '../../stampColorCategories';
@@ -34,33 +35,9 @@ function getLabelPosition(segment: { startAngle: number; endAngle: number; radiu
 const PieSvgRenderer: React.FC<PieSvgRendererProps> = ({ pieSpec, tooltipConfig, plotId, onRenderComplete }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-  const [portalTarget, setPortalTarget] = useState<HTMLElement>(document.body);
+  // Shared across all chart cells: one set of fullscreenchange listeners total.
+  const portalTarget = useFullscreenPortalTarget();
   const { tooltip, showTooltip, hideTooltip, updatePosition, pinTooltip, unpinTooltip } = useChartTooltip();
-
-  useEffect(() => {
-    const updatePortalTarget = () => {
-      const fullscreenElement = (
-        document.fullscreenElement ||
-        (document as any).webkitFullscreenElement ||
-        (document as any).mozFullScreenElement ||
-        (document as any).msFullscreenElement
-      ) as HTMLElement | null;
-      setPortalTarget(fullscreenElement || document.body);
-    };
-
-    updatePortalTarget();
-    document.addEventListener('fullscreenchange', updatePortalTarget);
-    document.addEventListener('webkitfullscreenchange', updatePortalTarget);
-    document.addEventListener('mozfullscreenchange', updatePortalTarget);
-    document.addEventListener('MSFullscreenChange', updatePortalTarget);
-
-    return () => {
-      document.removeEventListener('fullscreenchange', updatePortalTarget);
-      document.removeEventListener('webkitfullscreenchange', updatePortalTarget);
-      document.removeEventListener('mozfullscreenchange', updatePortalTarget);
-      document.removeEventListener('MSFullscreenChange', updatePortalTarget);
-    };
-  }, []);
 
   useEffect(() => {
     if (!plotId || !onRenderComplete) return;
@@ -197,7 +174,7 @@ const PieSvgRenderer: React.FC<PieSvgRendererProps> = ({ pieSpec, tooltipConfig,
           })}
         </svg>
       </div>
-      {ReactDOM.createPortal(
+      {portalTarget && ReactDOM.createPortal(
         <CustomTooltip
           x={tooltip.x}
           y={tooltip.y}
