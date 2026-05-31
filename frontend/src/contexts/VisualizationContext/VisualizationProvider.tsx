@@ -7,6 +7,7 @@ import { initialState } from './initialState';
 import { visualizationReducer } from './reducers';
 import { PERSISTED_STATE_KEYS } from './persistedKeys';
 import { DistributionVariant, LineVariant, TableCellMode } from '../../types';
+import { resetBus } from '../../services/resetBus';
 
 /**
  * Legacy flat chart-type param fields persisted in older sheet snapshots, before
@@ -226,6 +227,14 @@ export function VisualizationProvider({ children, initialState: initialStateProp
         if (timeout) clearTimeout(timeout);
       });
     };
+  }, []);
+
+  // Listen for global connection reset events (ConnectionContext lives above
+  // the per-sheet VisualizationProvider, so it can't dispatch directly).
+  React.useEffect(() => {
+    return resetBus.subscribe('connection:reset', () => {
+      dispatch({ type: 'RESET_QUERY_STATE' });
+    });
   }, []);
 
   // Get undoable state snapshot. Both the captured keys and the restore logic

@@ -3,7 +3,7 @@ import React, { createContext, useState, useContext, ReactNode, useCallback, use
 import { ConnectionDetails } from '../types'; // Assuming types are defined in ../types
 import { apiService } from '../apiService';
 import { useDataSource } from './DataSourceContext';
-import { useVisualizationContext } from './VisualizationContext';
+import { resetBus } from '../services/resetBus';
 
 interface ConnectionState {
   isConnected: boolean;
@@ -29,7 +29,6 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
   const [message, setMessage] = useState<string | null>(null);
   const [connectionDetails, setConnectionDetails] = useState<ConnectionDetails | null>(null);
   const { resetMetadata, setSelectedDatabase, setSelectedTable } = useDataSource();
-  const { dispatch } = useVisualizationContext();
 
   const connect = useCallback(async (details: ConnectionDetails, files?: File[]) => {
     // If already connected, disconnect first to clean up resources
@@ -74,8 +73,8 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
       // Reset metadata in DataSourceContext to trigger refresh
       // This clears databases, tables, availableFields, selectedDatabase, selectedTable
       resetMetadata();
-      // Clear query results to free memory (still in VisualizationContext)
-      dispatch({ type: 'RESET_QUERY_STATE' });
+      // Tell the active per-sheet VisualizationProvider to clear query state.
+      resetBus.emit('connection:reset');
       // Don't navigate here
     } catch (err: any) {
         let errorMessage = 'Connection failed';
@@ -105,7 +104,7 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
     } finally {
       setIsLoading(false);
     }
-  }, [dispatch, resetMetadata, isConnected]);
+  }, [resetMetadata, isConnected]);
 
   const connectDemoDataset = useCallback(async (datasetId: string) => {
     if (isConnected) {
@@ -134,7 +133,7 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
       resetMetadata();
       setSelectedDatabase(response.dataset.database);
       setSelectedTable(response.dataset.table);
-      dispatch({ type: 'RESET_QUERY_STATE' });
+      resetBus.emit('connection:reset');
       return {
         database: response.dataset.database,
         table: response.dataset.table,
@@ -148,7 +147,7 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
     } finally {
       setIsLoading(false);
     }
-  }, [dispatch, isConnected, resetMetadata, setSelectedDatabase, setSelectedTable]);
+  }, [isConnected, resetMetadata, setSelectedDatabase, setSelectedTable]);
 
   const disconnect = useCallback(async () => {
     setIsLoading(true);
@@ -167,12 +166,12 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
       // Reset metadata in DataSourceContext
       // This clears databases, tables, availableFields, selectedDatabase, selectedTable
       resetMetadata();
-      // Clear query results to free memory (still in VisualizationContext)
-      dispatch({ type: 'RESET_QUERY_STATE' });
+      // Tell the active per-sheet VisualizationProvider to clear query state.
+      resetBus.emit('connection:reset');
       
       setIsLoading(false);
     }
-  }, [dispatch, resetMetadata]);
+  }, [resetMetadata]);
 
   const value = useMemo(() => ({
     isConnected,
