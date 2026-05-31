@@ -167,6 +167,7 @@ export const useQueryExecution = ({
         console.log('[useQueryExecution] Cache miss on mount - will execute query');
       }
     }
+  // REASON: mount-only cache-restore; intentionally has no deps so it cannot re-run.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
 
@@ -264,6 +265,7 @@ export const useQueryExecution = ({
         executeQuery(queryDescription, false);
       }
     }
+    // REASON: queryVersion is the canonical trigger; other listed deps are read for branching only. Adding executeQuery / dispatch / vizState would cause execution storms.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryVersion, connectionDetails, queryDescription, xAxisFields, yAxisFields]);
 

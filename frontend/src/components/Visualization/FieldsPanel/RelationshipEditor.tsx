@@ -186,6 +186,7 @@ const RelationshipEditor: React.FC<RelationshipEditorProps> = ({
         }
       });
     }
+  // REASON: only prefetch columns when the dialog opens; columnsCache / fetchColumnsForTable identity changes would re-trigger fetches every render.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 

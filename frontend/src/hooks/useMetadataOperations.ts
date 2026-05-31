@@ -411,6 +411,7 @@ export function useMetadataOperations({
             }
         }
         // Columns fetch will trigger once selectedTable is set (CSV/Kaggle auto-selection handled in fetchTables)
+        // REASON: only re-fetch when the connection itself changes; dataSource setters/state are intentionally omitted to avoid refetch loops on every metadata mutation.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [connectionDetails]);
     
@@ -426,6 +427,7 @@ export function useMetadataOperations({
                 fetchColumns();
             }
         }
+        // REASON: fetchColumns and other dataSource setters are stable per render but identity changes; excluding them prevents re-fetch storms on unrelated state updates.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dataSource.selectedTable, dataSource.availableFields.length, dataSource.isLoadingMetadata]);
 
@@ -437,6 +439,7 @@ export function useMetadataOperations({
                 fetchTables(dataSource.selectedDatabase);
             }
         }
+        // REASON: fetchTables closes over connection state; including it would re-trigger fetch on every render via new closure identity.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dataSource.selectedDatabase, dataSource.tables.length, dataSource.isLoadingMetadata]);
 
@@ -447,6 +450,7 @@ export function useMetadataOperations({
         if (dataSource.selectedTable && (connectionDetails?.type === 'clickhouse' || connectionDetails?.type === 'kaggle')) {
             fetchSuggestedJoins();
         }
+        // REASON: deliberately key on the inputs that change suggested-join results; fetchSuggestedJoins identity is unstable so excluding it prevents redundant fetches.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dataSource.selectedTable, dataSource.selectedDatabase, dataSource.joinedTables, dataSource.customRelationships, connectionDetails?.type]);
 
@@ -455,6 +459,7 @@ export function useMetadataOperations({
         if (dataSource.selectedTable && dataSource.selectedDatabase && connectionDetails?.type === 'clickhouse') {
             fetchSuggestedUnions();
         }
+        // REASON: as above — fetchSuggestedUnions excluded to keep this effect keyed only on the inputs that affect union suggestions.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dataSource.selectedTable, dataSource.selectedDatabase, connectionDetails?.type]);
 
@@ -463,6 +468,7 @@ export function useMetadataOperations({
         if (dataSource.selectedTable) {
             fetchMergedColumns();
         }
+        // REASON: fetchMergedColumns omitted — re-running on its identity change would loop because it dispatches into the same context this effect reads.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dataSource.selectedTable, dataSource.joinedTables, dataSource.unionTables, dataSource.customRelationships]);
 
@@ -520,6 +526,7 @@ export function useMetadataOperations({
             prevVirtualTableRef.current = dataSource.virtualTable;
             dispatch({ type: 'TABLE_JOINS_UNIONS_MODIFIED' });
         }
+        // REASON: dispatch is stable from useReducer but adding it triggers exhaustive-deps for the ref reads too; effect must only react to virtualTable changes.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dataSource.virtualTable]);
 
