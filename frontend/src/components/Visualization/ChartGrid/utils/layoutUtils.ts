@@ -17,13 +17,57 @@ import { UserChartType } from '../../../../types';
 import { formatFacetValue } from './facetLabelUtils';
 import type { CSSProperties } from 'react';
 
-export const TEXT_PX_PER_CHAR = 6; // conservative estimate for 12-14px font
+// Fallback only: used when real text measurement (canvas) is unavailable, e.g.
+// in jsdom/SSR or before a 2D context can be created. The primary path measures
+// glyphs with `measureTextPx` (real font metrics); see `estimateTextPx`.
+export const TEXT_PX_PER_CHAR = 6; // conservative fallback for 12-14px font
 const MIN_Y_AXIS_GUTTER_PX = 28;
 const Y_AXIS_BAND_LINE_WIDTH_EM = 12;
 const X_AXIS_BAND_LINE_WIDTH_EM = 6.5;
 const APPROX_AXIS_FONT_PX = 10;
 const MAX_Y_BAND_TICK_WIDTH_PX = Y_AXIS_BAND_LINE_WIDTH_EM * APPROX_AXIS_FONT_PX;
 const MAX_X_BAND_TICK_HEIGHT_PX = X_AXIS_BAND_LINE_WIDTH_EM * APPROX_AXIS_FONT_PX;
+
+// Font stack used for measurement. Axis/label text inherits the app's sans-serif
+// font; measuring with the same family + size yields real glyph widths instead of
+// a flat per-character estimate.
+const MEASURE_FONT_FAMILY = 'system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+
+// A single shared 2D canvas context is reused for all text measurement. Resolved
+// lazily and cached: `null` means measurement is unavailable (jsdom/SSR) and
+// callers fall back to the `TEXT_PX_PER_CHAR` heuristic.
+let measureContext: CanvasRenderingContext2D | null | undefined;
+
+function getMeasureContext(): CanvasRenderingContext2D | null {
+  if (measureContext !== undefined) return measureContext;
+  try {
+    if (typeof document === 'undefined') {
+      measureContext = null;
+    } else {
+      measureContext = document.createElement('canvas').getContext('2d') ?? null;
+    }
+  } catch {
+    measureContext = null;
+  }
+  return measureContext;
+}
+
+/**
+ * Measure the rendered pixel width of `text` at `fontSizePx` using real font
+ * metrics. Returns `null` when no canvas 2D context is available so callers can
+ * fall back to the character-count estimate.
+ */
+function measureTextPx(text: string, fontSizePx: number): number | null {
+  if (text.length === 0) return 0;
+  const ctx = getMeasureContext();
+  if (!ctx) return null;
+  ctx.font = `${fontSizePx}px ${MEASURE_FONT_FAMILY}`;
+  const width = ctx.measureText(text).width;
+  // jsdom's stub returns 0 for any string; treat that as "unavailable" so we
+  // fall back to the heuristic rather than collapsing every gutter to its min.
+  if (!Number.isFinite(width) || width <= 0) return null;
+  return Math.ceil(width);
+}
 
 function formatTickValue(value: any, tickFormat?: ((value: any) => any) | undefined): string {
   if (!tickFormat) {
@@ -45,15 +89,21 @@ function estimateLongestTickPx(domain: any[], tickFormat?: ((value: any) => any)
 }
 
 /**
- * Estimate pixel width of text based on character count
+ * Pixel width of axis-tick text. Primary path measures real glyph widths at the
+ * approximate axis font size; falls back to a character-count estimate when no
+ * canvas context is available (jsdom/SSR).
  */
 export function estimateTextPx(text?: string): number {
   if (!text) return 0;
+  const measured = measureTextPx(text, APPROX_AXIS_FONT_PX);
+  if (measured !== null) return measured;
   return Math.ceil(text.length * TEXT_PX_PER_CHAR);
 }
 
 function estimateTextPxForFont(text: string, fontSize: number): number {
   if (!text) return 0;
+  const measured = measureTextPx(text, fontSize);
+  if (measured !== null) return measured;
   return Math.ceil(text.length * fontSize * 0.6);
 }
 
