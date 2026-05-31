@@ -56,7 +56,7 @@ const FieldContextMenu: React.FC<FieldContextMenuProps> = ({
   }
 
   return (
-    <ContextMenu position={menuPosition} onClose={onCloseMenu}>
+    <ContextMenu position={menuPosition} onClose={onCloseMenu} ariaLabel={`Actions for ${field.columnName}`}>
       <FieldMenuItems 
         field={field}
         source={source}
