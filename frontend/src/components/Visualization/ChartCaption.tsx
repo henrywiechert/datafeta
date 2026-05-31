@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Box, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField } from '@mui/material';
 import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import { useVisualizationContext } from '../../contexts/VisualizationContext';
 
 /**
@@ -30,7 +31,10 @@ const ChartCaption: React.FC = () => {
     setDialogOpen(false);
   };
 
-  const renderedHtml = marked.parse(state.chartCaption ?? 'Chart') as string;
+  const renderedHtml = DOMPurify.sanitize(
+    marked.parse(state.chartCaption ?? 'Chart') as string,
+    { USE_PROFILES: { html: true } },
+  );
 
   return (
     <>
