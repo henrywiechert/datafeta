@@ -4,7 +4,7 @@
  * Query description, results, and related types
  */
 
-import { DateTimePart, DateTimeMode, Flavour } from './field';
+import type { DateTimePart, DateTimeMode, Flavour } from './field';
 import { VirtualTableDefinition } from './multiTable';
 import { VirtualColumnDefinition } from './virtualColumn';
 
