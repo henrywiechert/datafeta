@@ -23,11 +23,12 @@ The application uses a multi-layered context provider architecture:
 ```mermaid
 graph TD
     A[index.tsx] --> B[React.StrictMode]
-    B --> C[VisualizationProvider - outer/legacy]
+    B --> AC[AppConfigProvider]
+    AC --> DS[DataSourceProvider]
+    DS --> C[VisualizationProvider - outer/legacy]
     C --> D[ConnectionProvider]
     D --> E[App - Router]
-    E --> F[DataSourceProvider]
-    F --> G[SheetProvider]
+    E --> G[SheetProvider]
     G --> H[AppContent]
     H --> I[Routes]
     I --> J[VisualizationPage]
@@ -39,7 +40,7 @@ graph TD
 ```
 
 **Provider Responsibilities:**
-- **Global Level** (App-wide): `ConnectionProvider`, `DataSourceProvider`, `SheetProvider`
+- **Global Level** (App-wide): `AppConfigProvider`, `DataSourceProvider`, `VisualizationProvider` (outer, legacy — exists so `ConnectionProvider` can reset visualization state on disconnect), `ConnectionProvider`, `SheetProvider`
 - **Page Level** (Per-sheet): `VisualizationProvider` (inner), `UndoRedoProvider`
 - **Component Level**: `SelectionProvider`, `RenderingContext`
 
