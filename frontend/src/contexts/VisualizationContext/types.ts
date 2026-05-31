@@ -1,5 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { Field, QueryResult, FilterConfig, FilterMetadata, FieldOverrideState, UserChartType, QueryOptimizationSettings, DistributionVariant, TableCellMode, LineVariant, DensityParams } from '../../types';
+import { Field, FieldOverrideState, UserChartType, QueryOptimizationSettings, DistributionVariant, TableCellMode, LineVariant, DensityParams } from '../../types/field';
+import { QueryResult } from '../../types/query';
+import { FilterConfig, FilterMetadata } from '../../types/filter';
 import { OverlayConfig, OverlayType, OverlayParams } from '../../observable-plot-generator/overlays/types';
 import type { UndoableSnapshot } from './persistedKeys';
 

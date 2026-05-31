@@ -5,7 +5,7 @@ import { getFieldColumnName } from '../helpers/fields';
 import { computeSharedDomainsForFaceting, SharedDomains } from './facetDomains';
 import type { FacetDataIndex } from './facetDataIndex';
 import type { FacetSpace } from './facetSpace';
-import type { FacetCoordinatorConfig } from './facetCoordinator';
+import type { FacetCoordinatorConfig } from './facetTypes';
 
 export interface FacetDomainContext {
   sharedDomains: SharedDomains;

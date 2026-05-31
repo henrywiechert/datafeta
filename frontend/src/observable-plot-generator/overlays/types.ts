@@ -7,7 +7,7 @@
  * modify the primary chart handler logic.
  */
 
-import { UserChartType } from '../../types';
+import { UserChartType } from '../../types/field';
 import { CellChartType } from '../helpers/chartTypeResolver';
 
 // --- Overlay type identifiers ------------------------------------------------
