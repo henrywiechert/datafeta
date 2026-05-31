@@ -156,17 +156,23 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
         cellSizeOverrides={cellSizeOverrides}
         onAutoCategoryTickMeasure={onAutoCategoryTickMeasure}
         onPlotRenderComplete={onPlotRenderComplete}
-        isGanttChart={isGanttChart}
-        ganttZoomRange={ganttZoomRange}
-        onGanttZoomRangeChange={onGanttZoomRangeChange}
-        ganttFullDataRange={ganttFullDataRange}
-        brushDisabled={brushDisabled}
-        onBrushEnd={onBrushEnd}
         onHeatmapSizeToolbarChange={onHeatmapSizeToolbarChange}
-        axisLabelStyles={axisLabelStyles}
-        facetLabelStyles={facetLabelStyles}
-        categoryTickStyles={categoryTickStyles}
         globalChartType={globalChartType}
+        gantt={{
+          isGanttChart,
+          zoomRange: ganttZoomRange,
+          onZoomRangeChange: onGanttZoomRangeChange,
+          fullDataRange: ganttFullDataRange,
+        }}
+        brush={{
+          disabled: brushDisabled,
+          onBrushEnd,
+        }}
+        labelStyles={{
+          axisLabelStyles,
+          facetLabelStyles,
+          categoryTickStyles,
+        }}
       />
     );
     if (!tableRefactorPagerData) return chartGridNode;

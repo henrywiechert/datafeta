@@ -1,9 +1,10 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { CustomTooltip } from '../../CustomTooltip/CustomTooltip';
 import { useChartTooltip } from '../../../../hooks/useChartTooltip';
 import { useFullscreenPortalTarget } from '../../../../hooks/useFullscreenPortalTarget';
+import { useElementSize } from '../../../../hooks/useElementSize';
 import { PiePlotSpec } from '../../../../observable-plot-generator/types';
 import { CustomTooltipConfig } from '../../../../types';
 import { encodeCatValue } from '../../stampColorCategories';
@@ -34,7 +35,8 @@ function getLabelPosition(segment: { startAngle: number; endAngle: number; radiu
 
 const PieSvgRenderer: React.FC<PieSvgRendererProps> = ({ pieSpec, tooltipConfig, plotId, onRenderComplete }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  // Shared singleton ResizeObserver across all chart cells (one observer, N targets).
+  const dimensions = useElementSize(containerRef);
   // Shared across all chart cells: one set of fullscreenchange listeners total.
   const portalTarget = useFullscreenPortalTarget();
   const { tooltip, showTooltip, hideTooltip, updatePosition, pinTooltip, unpinTooltip } = useChartTooltip();
@@ -44,23 +46,6 @@ const PieSvgRenderer: React.FC<PieSvgRendererProps> = ({ pieSpec, tooltipConfig,
     const frame = requestAnimationFrame(() => onRenderComplete(plotId));
     return () => cancelAnimationFrame(frame);
   }, [plotId, onRenderComplete, pieSpec]);
-
-  useEffect(() => {
-    const resizeObserver = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (!entry) return;
-      setDimensions({
-        width: entry.contentRect.width,
-        height: entry.contentRect.height,
-      });
-    });
-
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
-    }
-
-    return () => resizeObserver.disconnect();
-  }, []);
 
   const geometry = useMemo(() => {
     const width = dimensions.width || 240;

@@ -24,31 +24,48 @@ export interface GanttZoomRange {
   max: number;
 }
 
+/** Gantt-specific configuration, grouped to keep the ChartGrid prop surface flat. */
+export interface ChartGridGanttProps {
+  /** Whether the current chart is a Gantt chart (enables WASD keyboard navigation) */
+  isGanttChart?: boolean;
+  /** Current Gantt zoom range (null = full data range) */
+  zoomRange?: GanttZoomRange | null;
+  /** Callback when zoom range changes via WASD keys */
+  onZoomRangeChange?: (range: GanttZoomRange | null) => void;
+  /** Full data range for Gantt chart (needed for zoom calculations) */
+  fullDataRange?: GanttZoomRange | null;
+}
+
+/** Brush (range-select) configuration, grouped to keep the prop surface flat. */
+export interface ChartGridBrushProps {
+  disabled?: boolean;
+  onBrushEnd?: (event: PlotBrushEvent) => void;
+}
+
+/**
+ * Label/style state lifted from VisualizationContext to props. Reading via context
+ * inside this memoized component would bypass the memo on every reducer tick.
+ */
+export interface ChartGridLabelStyles {
+  axisLabelStyles: AxisLabelStyles;
+  facetLabelStyles: FacetLabelStyles;
+  categoryTickStyles: CategoryTickStyles;
+}
+
 interface ChartGridProps {
   grid: GridResultModel | null;
   data: QueryResult | null;
   cellSizeOverrides: CellSizeOverrides;
   onPlotRenderComplete?: (plotId: string) => void;
   onAutoCategoryTickMeasure?: (sizes: { xHeightPx: number; yWidthPx: number }) => void;
-  /** Whether the current chart is a Gantt chart (enables WASD keyboard navigation) */
-  isGanttChart?: boolean;
-  /** Current Gantt zoom range (null = full data range) */
-  ganttZoomRange?: GanttZoomRange | null;
-  /** Callback when zoom range changes via WASD keys */
-  onGanttZoomRangeChange?: (range: GanttZoomRange | null) => void;
-  /** Full data range for Gantt chart (needed for zoom calculations) */
-  ganttFullDataRange?: GanttZoomRange | null;
-  brushDisabled?: boolean;
-  onBrushEnd?: (event: PlotBrushEvent) => void;
   onHeatmapSizeToolbarChange?: (toolbarState: HeatmapSizeToolbarState | null) => void;
-  /**
-   * Label/style state lifted from VisualizationContext to props. Reading via context
-   * inside this memoized component would bypass the memo on every reducer tick.
-   */
-  axisLabelStyles: AxisLabelStyles;
-  facetLabelStyles: FacetLabelStyles;
-  categoryTickStyles: CategoryTickStyles;
   globalChartType: UserChartType | null;
+  /** Gantt-specific configuration (omit for non-Gantt charts). */
+  gantt?: ChartGridGanttProps;
+  /** Brush selection configuration. */
+  brush?: ChartGridBrushProps;
+  /** Axis / facet / category label styling. */
+  labelStyles: ChartGridLabelStyles;
 }
 
 /**
@@ -75,18 +92,21 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   cellSizeOverrides,
   onPlotRenderComplete,
   onAutoCategoryTickMeasure,
-  isGanttChart = false,
-  ganttZoomRange = null,
-  onGanttZoomRangeChange,
-  ganttFullDataRange = null,
-  brushDisabled,
-  onBrushEnd,
   onHeatmapSizeToolbarChange,
-  axisLabelStyles,
-  facetLabelStyles,
-  categoryTickStyles,
   globalChartType,
+  gantt,
+  brush,
+  labelStyles,
 }) => {
+  const {
+    isGanttChart = false,
+    zoomRange: ganttZoomRange = null,
+    onZoomRangeChange: onGanttZoomRangeChange,
+    fullDataRange: ganttFullDataRange = null,
+  } = gantt ?? {};
+  const { disabled: brushDisabled, onBrushEnd } = brush ?? {};
+  const { axisLabelStyles, facetLabelStyles, categoryTickStyles } = labelStyles;
+
   // Refs for DOM elements
   const containerRef = useRef<HTMLDivElement>(null);
   const hScrollRef = useRef<HTMLDivElement>(null);
@@ -262,24 +282,26 @@ const ChartGrid: React.FC<ChartGridProps> = ({
 
 // Memoize to prevent unnecessary re-renders when only unrelated state changes.
 // All callback props are useCallback-stable in ChartArea, so referential
-// equality is sufficient.
+// equality is sufficient. The grouped props (gantt/brush/labelStyles) are
+// compared field-by-field so the memo stays effective even if the parent
+// passes freshly-constructed wrapper objects.
 export default React.memo(ChartGrid, (prevProps, nextProps) => {
   return (
     prevProps.grid === nextProps.grid &&
     prevProps.data === nextProps.data &&
     prevProps.cellSizeOverrides === nextProps.cellSizeOverrides &&
     prevProps.onAutoCategoryTickMeasure === nextProps.onAutoCategoryTickMeasure &&
-    prevProps.isGanttChart === nextProps.isGanttChart &&
-    prevProps.ganttZoomRange === nextProps.ganttZoomRange &&
-    prevProps.ganttFullDataRange === nextProps.ganttFullDataRange &&
-    prevProps.brushDisabled === nextProps.brushDisabled &&
     prevProps.onPlotRenderComplete === nextProps.onPlotRenderComplete &&
-    prevProps.onGanttZoomRangeChange === nextProps.onGanttZoomRangeChange &&
-    prevProps.onBrushEnd === nextProps.onBrushEnd &&
     prevProps.onHeatmapSizeToolbarChange === nextProps.onHeatmapSizeToolbarChange &&
-    prevProps.axisLabelStyles === nextProps.axisLabelStyles &&
-    prevProps.facetLabelStyles === nextProps.facetLabelStyles &&
-    prevProps.categoryTickStyles === nextProps.categoryTickStyles &&
-    prevProps.globalChartType === nextProps.globalChartType
+    prevProps.globalChartType === nextProps.globalChartType &&
+    prevProps.gantt?.isGanttChart === nextProps.gantt?.isGanttChart &&
+    prevProps.gantt?.zoomRange === nextProps.gantt?.zoomRange &&
+    prevProps.gantt?.fullDataRange === nextProps.gantt?.fullDataRange &&
+    prevProps.gantt?.onZoomRangeChange === nextProps.gantt?.onZoomRangeChange &&
+    prevProps.brush?.disabled === nextProps.brush?.disabled &&
+    prevProps.brush?.onBrushEnd === nextProps.brush?.onBrushEnd &&
+    prevProps.labelStyles.axisLabelStyles === nextProps.labelStyles.axisLabelStyles &&
+    prevProps.labelStyles.facetLabelStyles === nextProps.labelStyles.facetLabelStyles &&
+    prevProps.labelStyles.categoryTickStyles === nextProps.labelStyles.categoryTickStyles
   );
 });
