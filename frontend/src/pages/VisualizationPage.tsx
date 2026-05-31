@@ -190,6 +190,17 @@ const VisualizationPageContent = () => {
         handleAxisDrop('y', field, source, index);
     };
 
+    // Keyboard-accessible zone assignment from sidebar field chips (a11y).
+    // Reuses the same dispatch paths as drag-and-drop.
+    const handleAssignToZone = React.useCallback(
+        (field: Field, zone: 'X_AXIS' | 'Y_AXIS' | 'FILTER') => {
+            if (zone === 'X_AXIS') handleAxisDrop('x', field, 'AVAILABLE_FIELDS');
+            else if (zone === 'Y_AXIS') handleAxisDrop('y', field, 'AVAILABLE_FIELDS');
+            else handleFilterDrop(field, 'AVAILABLE_FIELDS');
+        },
+        [handleAxisDrop, handleFilterDrop],
+    );
+
     // Handle cancellation of long-running operations
     const handleCancelOperation = React.useCallback(() => {
         // Cancel API requests
@@ -493,6 +504,7 @@ const VisualizationPageContent = () => {
                                     onAddVirtualColumn={handleAddVirtualColumn}
                                     onUpdateVirtualColumn={handleUpdateVirtualColumn}
                                     onRemoveVirtualColumn={handleRemoveVirtualColumn}
+                                    onAssignToZone={handleAssignToZone}
                                 />
                                 </Box>
                             </Box>

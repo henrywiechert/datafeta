@@ -59,6 +59,8 @@ interface FieldsPanelProps {
   onAddVirtualColumn?: (column: VirtualColumnDefinition) => void;
   onUpdateVirtualColumn?: (index: number, column: VirtualColumnDefinition) => void;
   onRemoveVirtualColumn?: (index: number) => void;
+  // Keyboard-accessible zone assignment (a11y)
+  onAssignToZone?: (field: Field, zone: 'X_AXIS' | 'Y_AXIS' | 'FILTER') => void;
 }
 
 const FieldsPanel: React.FC<FieldsPanelProps> = ({
@@ -107,7 +109,8 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   virtualColumns = [],
   onAddVirtualColumn,
   onUpdateVirtualColumn,
-  onRemoveVirtualColumn
+  onRemoveVirtualColumn,
+  onAssignToZone
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [useRegex, setUseRegex] = useState(false);
@@ -354,6 +357,7 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
           fields={filteredDimensions}
           onUpdate={onFieldUpdate}
           onCreateBins={onAddVirtualColumn ? handleCreateBins : undefined}
+          onAssignToZone={onAssignToZone}
         />
         
         <FieldCategory 
@@ -361,6 +365,7 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
           fields={filteredMeasures}
           onUpdate={onFieldUpdate}
           onCreateBins={onAddVirtualColumn ? handleCreateBins : undefined}
+          onAssignToZone={onAssignToZone}
         />
       </div>
       

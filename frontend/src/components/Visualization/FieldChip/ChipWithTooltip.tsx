@@ -15,6 +15,7 @@ interface ChipWithTooltipProps {
   field: Field;
   source: DragSource;
   onContextMenu: (event: React.MouseEvent) => void;
+  onKeyDown?: (event: React.KeyboardEvent) => void;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   onClick?: (e: React.MouseEvent) => void;
@@ -30,6 +31,7 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
   field,
   source,
   onContextMenu,
+  onKeyDown,
   onDragStart,
   onDragEnd,
   onClick,
@@ -101,9 +103,11 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
     return {
       className: getChipClassNames(field, source, isInvalidOnAxis, isSelected, styles),
       draggable: true,
+      tabIndex: 0,
       onDragStart: handleDragStartInternal,
       onDragEnd: handleDragEndInternal,
       onContextMenu,
+      onKeyDown,
       onClick,
       onMouseDown: handleMouseDownInternal,
       style: {
@@ -128,6 +132,7 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
     onDragStart,
     onDragEnd,
     onContextMenu,
+    onKeyDown,
     onClick,
     onMouseDown,
     widthProps,

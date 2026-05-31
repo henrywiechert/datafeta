@@ -21,6 +21,7 @@ interface FieldMenuItemsProps {
   onRemoveFromZone?: (fieldIds: string[]) => void;
   onRequestClose?: () => void;
   onCreateBins?: (field: Field) => void; // Callback for "Create Bins..." action
+  onAssignToZone?: (field: Field, zone: 'X_AXIS' | 'Y_AXIS' | 'FILTER') => void;
 }
 
 const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
@@ -32,6 +33,7 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
   onRemoveFromZone,
   onRequestClose,
   onCreateBins,
+  onAssignToZone,
 }) => {
   const [castingDialogOpen, setCastingDialogOpen] = useState(false);
   const [aliasPopoverAnchor, setAliasPopoverAnchor] = useState<HTMLElement | null>(null);
@@ -93,6 +95,31 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
         <>
           <div className={menuStyles.menuItem} style={{ color: '#1976d2', fontWeight: 'bold', cursor: 'default' }}>
             Apply to {selectedFields.length} fields
+          </div>
+          <div className={menuStyles.separator} />
+        </>
+      )}
+
+      {/* Keyboard/right-click axis assignment for fields in the sidebar (a11y). */}
+      {!isBulkEdit && onAssignToZone && source === 'AVAILABLE_FIELDS' && (
+        <>
+          <div
+            className={menuStyles.menuItem}
+            onClick={() => { onAssignToZone(field, 'X_AXIS'); onRequestClose?.(); }}
+          >
+            Add to X axis
+          </div>
+          <div
+            className={menuStyles.menuItem}
+            onClick={() => { onAssignToZone(field, 'Y_AXIS'); onRequestClose?.(); }}
+          >
+            Add to Y axis
+          </div>
+          <div
+            className={menuStyles.menuItem}
+            onClick={() => { onAssignToZone(field, 'FILTER'); onRequestClose?.(); }}
+          >
+            Add to Filter
           </div>
           <div className={menuStyles.separator} />
         </>
