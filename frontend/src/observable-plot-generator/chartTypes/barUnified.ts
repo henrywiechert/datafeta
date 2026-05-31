@@ -11,6 +11,8 @@ import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../u
 import { tickStrip } from './tickStrip';
 import { boxPlot } from './boxPlot';
 import { isMeasureValuesField, combineMeasureValuesOverrides } from '../../utils/syntheticFields';
+import { Field } from '../../types';
+import { computeSharedMeasureDomains } from '../domains/measureDomains';
 
 /**
  * Unified bar chart builder for 1+ measures (and optionally continuous dimensions) on a single axis.
@@ -88,8 +90,15 @@ export function barUnified(
   // Use effective manual size which may come from combined MeasureValues overrides
   const bandPadding = computeBandPaddingFromSizeField(data, sizeField, { manualSize: effectiveManualSize }) ?? BAND_PADDING;
 
-  // Shared value domains across measures for consistent scaling
-  const sharedDomains = calculateSharedDomains(measures as any[], data);
+  // Shared value domains across measures for consistent scaling (stack-aware when color is present)
+  const sharedDomains = computeBarUnifiedMeasureDomains(
+    measures as Field[],
+    data,
+    colorField ?? undefined,
+    categoryDims as Field[],
+    categoryAccessor,
+    context.facetFields,
+  );
 
   // Apply bar sorting if specified on any measure
   // Use the first measure with a non-'none' sort order
@@ -337,40 +346,46 @@ function buildTotalOnlyData(data: any[], measureName: string) {
 }
 
 /**
- * Calculate shared domains across all measures (0..max padded by 5%).
+ * Compute shared measure domains for barUnified, delegating to the central
+ * stack-aware helper used by the faceted bar path.
  */
-function calculateSharedDomains(measures: any[], data: any[]) {
-  const domains: Record<string, [number, number]> = {};
-  const PAD = 0.05;
-  measures.forEach(measure => {
-    const fieldForName = { ...measure, aggregation: measure.aggregation || 'sum' };
-    const measureName = getResultColumnName(fieldForName as any);
-    const values = data.map(row => row[measureName]).filter((v: any) => typeof v === 'number' && isFinite(v));
-    if (values.length === 0) {
-      domains[measureName] = [0, 1];
-      return;
-    }
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    // Negative-only
-    if (max <= 0) {
-      const magnitude = Math.max(Math.abs(min), Math.abs(max));
-      const pad = magnitude === 0 ? 1 : magnitude * PAD;
-      domains[measureName] = [min - pad, 0];
-      return;
-    }
-    // Positive-only
-    if (min >= 0) {
-      const upper = max * (1 + PAD);
-      domains[measureName] = [0, upper === 0 ? 1 : upper];
-      return;
-    }
-    // Mixed
-    const span = max - min;
-    const pad = span * PAD;
-    domains[measureName] = [min - pad, max + pad];
-  });
-  return domains;
+function computeBarUnifiedMeasureDomains(
+  measures: Field[],
+  data: any[],
+  colorField: Field | undefined,
+  categoryDims: Field[],
+  categoryAccessor: ((row: any) => string) | undefined,
+  facetFields?: Field[],
+): Record<string, [number, number]> {
+  const domainData =
+    categoryDims.length > 1 && categoryAccessor
+      ? data.map((row) => ({ ...row, __category: categoryAccessor(row) }))
+      : data;
+
+  const categoryField: Field | undefined =
+    categoryDims.length === 0
+      ? undefined
+      : categoryDims.length === 1
+        ? categoryDims[0]
+        : {
+            id: '__category',
+            columnName: '__category',
+            type: 'dimension',
+            flavour: 'discrete',
+            dataType: 'string',
+          };
+
+  // Stack totals per category only apply when both color and category axes are present.
+  const categoryFieldForStacking = colorField && categoryField ? categoryField : undefined;
+
+  return computeSharedMeasureDomains(
+    domainData,
+    measures as any[],
+    measures as any[],
+    colorField,
+    categoryFieldForStacking,
+    facetFields,
+  );
 }
 
 

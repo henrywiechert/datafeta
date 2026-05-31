@@ -47,7 +47,7 @@ function createBar(
   let categoriesDomain: string[] | undefined;
   
   if (categoryColumn) {
-    const sharedCatDomain = (ctx.sharedMeasureDomains && (ctx.sharedMeasureDomains as any)[categoryColumn]) as any[] | undefined;
+    const sharedCatDomain = ctx.sharedCategoricalDomains?.[categoryColumn];
     categoriesDomain = sharedCatDomain && Array.isArray(sharedCatDomain) 
       ? sharedCatDomain 
       : Array.from(new Set(data.map((row) => row[categoryColumn])));
