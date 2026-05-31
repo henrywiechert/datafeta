@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { Field } from '../types';
+import { Field } from '../types/field';
 
 /**
  * Check whether the current axis field configuration allows CDF mode.

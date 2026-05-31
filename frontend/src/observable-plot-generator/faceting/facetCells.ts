@@ -5,7 +5,7 @@ import type { FacetDataIndex } from './facetDataIndex';
 import type { FacetDomainContext } from './facetDomainContext';
 import type { FacetPlan } from './facetPlanner';
 import type { FacetSpace } from './facetSpace';
-import type { CellGenerator, CellResult, FacetCellContext, PositionedPlot } from './facetCoordinator';
+import type { CellGenerator, CellResult, FacetCellContext, PositionedPlot } from './facetTypes';
 
 interface FacetBackgroundHelper {
   getBackgroundForData: (facetData: any[]) => {
