@@ -126,6 +126,7 @@ function AppContent() {
         }
       })();
     }
+  // REASON: snapshot URL is read once when config finishes loading; setSearchParams and handleLoadConfiguration are stable enough that re-running on their identity would re-trigger the dialog.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAppConfigLoading, appConfig.snapshots.enabled]);
 

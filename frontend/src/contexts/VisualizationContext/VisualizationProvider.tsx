@@ -237,6 +237,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       Object.fromEntries(
         PERSISTED_STATE_KEYS.map((key) => [key, state[key]]),
       ) as unknown as VisualizationStateSnapshot,
+    // REASON: snapshotDeps is a dynamic array derived from PERSISTED_STATE_KEYS — ESLint can't statically verify it, but it is the correct dep list.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     snapshotDeps,
   );

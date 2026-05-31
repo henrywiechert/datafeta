@@ -111,6 +111,7 @@ function useParallelFetch<T>(
 
     return () => ac.abort();
     // targets mirrored by targetsKey; additional invalidation via extraKey
+    // REASON: targets array reference changes every render but targetsKey is a stable string summary; depending on targets directly would refetch endlessly.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetsKey, extraKey]);
 
@@ -148,6 +149,7 @@ function useColumnCounts(
       (t) => countColumnsForTable(availableFields, t.table, primaryTableName, hasSecondaryTables) === undefined
     ),
     // fieldsKey is a stable derivative of availableFields
+    // REASON: availableFields excluded — fieldsKey already captures the only attribute that affects this memo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [targets, primaryTableName, hasSecondaryTables, fieldsKey]
   );

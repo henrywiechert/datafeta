@@ -149,6 +149,7 @@ export function useTableRowsQuery({
       });
 
     return () => controller.abort();
+    // REASON: filterConfigurations summarized into filterKey to avoid refetching on deep-equal but new-reference objects.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, selectedTable, selectedDatabase, filterKey, virtualTable, virtualColumns]);
 
@@ -217,6 +218,7 @@ export function useTableRowsQuery({
       });
 
     return () => controller.abort();
+    // REASON: same as row-count effect — filterConfigurations is summarized as filterKey; other deps explicitly enumerated.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, selectedTable, selectedDatabase, allFields, filterKey, page, pageSize, sortModel, virtualTable, virtualColumns]);
 

@@ -76,6 +76,7 @@ const DateTimeRangeFilter: React.FC<DateTimeRangeFilterProps> = ({
           : incoming
       );
     }
+    // REASON: only sync internal components when the external ISO string changes; setStartComponents is stable from useState.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDateTime]);
 
@@ -88,6 +89,7 @@ const DateTimeRangeFilter: React.FC<DateTimeRangeFilterProps> = ({
           : incoming
       );
     }
+    // REASON: mirrors the startDateTime effect — sync only on external value change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [endDateTime]);
 
@@ -98,6 +100,7 @@ const DateTimeRangeFilter: React.FC<DateTimeRangeFilterProps> = ({
       const end = formatISODateTime(endComponents);
       onChange(start, end);
     }
+    // REASON: onChange may be a new closure each render; including it would fire onChange on every parent render, causing a feedback loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startComponents, endComponents]);
   

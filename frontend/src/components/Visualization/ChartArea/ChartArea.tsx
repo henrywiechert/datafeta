@@ -315,6 +315,7 @@ const ChartArea: React.FC = () => {
     if (tablePage === 0) return;
     dispatch({ type: 'SET_TABLE_PAGE', payload: 0 });
     // We intentionally only react to inputs that change the row-tuple set.
+    // REASON: dispatch and tablePage omitted on purpose — including tablePage would create an infinite reset loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     isTableMode,

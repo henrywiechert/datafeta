@@ -675,6 +675,7 @@ export function useFilterMetadata({
         prevUnionTablesRef.current = currentUnionTablesStr;
         // Include fetchFilterMetadata so it uses the latest closure with updated unionTablesForApi
         // filterFields and filterMetadata are intentionally excluded to prevent loops
+        // REASON: filterFields / filterMetadata identities change as soon as we dispatch into them — including them would cause an infinite refetch.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [unionTables, fetchFilterMetadata]);
 
