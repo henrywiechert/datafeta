@@ -22,6 +22,13 @@ const ChartCaption: React.FC = () => {
     setDialogOpen(true);
   };
 
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleDoubleClick();
+    }
+  };
+
   const handleOk = () => {
     dispatch({ type: 'SET_CHART_CAPTION', payload: draftText });
     setDialogOpen(false);
@@ -40,6 +47,10 @@ const ChartCaption: React.FC = () => {
     <>
       <Box
         onDoubleClick={handleDoubleClick}
+        onKeyDown={handleKeyDown}
+        role="button"
+        tabIndex={0}
+        aria-label="Chart caption (double-click or press Enter to edit)"
         title="Double-click to edit caption"
         sx={{
           minHeight: 32,
@@ -48,13 +59,17 @@ const ChartCaption: React.FC = () => {
           px: 1.5,
           py: 0.5,
           cursor: 'default',
-          userSelect: 'none',
           textAlign: 'left',
           fontSize: '0.68rem',
           borderRadius: 1,
           transition: 'background-color 0.15s',
           '&:hover': {
             backgroundColor: 'action.hover',
+          },
+          '&:focus-visible': {
+            outline: '2px solid',
+            outlineColor: 'primary.main',
+            outlineOffset: '2px',
           },
           // Markdown content styling
           '& h1, & h2, & h3, & h4, & h5, & h6': {
