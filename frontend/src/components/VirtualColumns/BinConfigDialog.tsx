@@ -175,8 +175,8 @@ const BinConfigDialog: React.FC<BinConfigDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onCancel} maxWidth="sm" fullWidth>
-      <DialogTitle>
+    <Dialog open={open} onClose={onCancel} maxWidth="sm" fullWidth aria-labelledby="bin-config-title">
+      <DialogTitle id="bin-config-title">
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <ViewColumnIcon />
           <Typography variant="h6">

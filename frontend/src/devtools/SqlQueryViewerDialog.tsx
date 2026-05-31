@@ -133,13 +133,13 @@ export default function SqlQueryViewerDialog(props: { open: boolean; onClose: ()
   const detailBg = selected?.origin === 'remote' ? 'info.50' : 'success.50';
 
   return (
-    <Dialog fullScreen open={open} onClose={onClose}>
+    <Dialog fullScreen open={open} onClose={onClose} aria-labelledby="sql-query-viewer-title">
       <AppBar position="sticky" color="default" elevation={1}>
         <Toolbar sx={{ gap: 1 }}>
           <IconButton edge="start" onClick={onClose} aria-label="Close">
             <CloseIcon />
           </IconButton>
-          <Typography variant="h6" sx={{ flex: 1 }}>
+          <Typography id="sql-query-viewer-title" variant="h6" sx={{ flex: 1 }}>
             SQL Query Log (dev)
           </Typography>
           <ToggleButtonGroup

@@ -229,8 +229,8 @@ export default function ConnectionRestoreDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onCancel} maxWidth="sm" fullWidth>
-      <DialogTitle>Restore Connection</DialogTitle>
+    <Dialog open={open} onClose={onCancel} maxWidth="sm" fullWidth aria-labelledby="connection-restore-title">
+      <DialogTitle id="connection-restore-title">Restore Connection</DialogTitle>
       <DialogContent>
         <Box sx={{ mt: 1 }}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
