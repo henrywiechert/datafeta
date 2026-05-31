@@ -1,4 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
+import { devLog } from '../../utils/devLog';
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext, PlotResult, LabelConfig } from '../types';
 import { FieldAnalysis } from '../analysis/fieldAnalysis';
@@ -134,7 +135,7 @@ export function generateChartOptions(
   const { queryResult, colorField, colorScheme, sizeField, sizeRange, manualSize, tooltipFields, fieldAliasLookup } = context;
   const data = queryResult.rows;
   
-  console.log('[generateChartOptions] Entry - colorField:', colorField?.columnName, 'flavour:', colorField?.flavour,
+  devLog('[generateChartOptions] Entry - colorField:', colorField?.columnName, 'flavour:', colorField?.flavour,
     'data rows:', data?.length);
   
   // Helper to get display name with alias lookup from context

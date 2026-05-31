@@ -1,4 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
+import { devLog } from '../utils/devLog';
 /**
  * Filter Tier Manager
  * 
@@ -76,7 +77,7 @@ class FilterTierManager {
    */
   setBaseFilterColumns(columns: string[]): void {
     this.baseFilterColumns = new Set(columns);
-    console.log(`🔧 Base filter columns set: ${columns.join(', ')}`);
+    devLog(`🔧 Base filter columns set: ${columns.join(', ')}`);
   }
   
   /**
@@ -85,7 +86,7 @@ class FilterTierManager {
    */
   addBaseFilterColumn(columnName: string): void {
     this.baseFilterColumns.add(columnName);
-    console.log(`🔧 Added base filter column: ${columnName}`);
+    devLog(`🔧 Added base filter column: ${columnName}`);
   }
   
   /**
@@ -94,7 +95,7 @@ class FilterTierManager {
    */
   removeBaseFilterColumn(columnName: string): void {
     this.baseFilterColumns.delete(columnName);
-    console.log(`🔧 Removed base filter column: ${columnName}`);
+    devLog(`🔧 Removed base filter column: ${columnName}`);
   }
   
   /**
@@ -123,7 +124,7 @@ class FilterTierManager {
     const isCached = cachedColumns.includes(columnName);
     const tier = isCached ? 'refinement' : 'base';
     
-    console.log(`🎯 Filter tier for "${columnName}": ${tier} (cached: ${isCached}, context: ${cacheContext.sourceTable})`);
+    devLog(`🎯 Filter tier for "${columnName}": ${tier} (cached: ${isCached}, context: ${cacheContext.sourceTable})`);
     
     return tier;
   }
@@ -298,7 +299,7 @@ class FilterTierManager {
     state.configs = { ...baseFilters };
     
     if (oldHash !== state.hash) {
-      console.log(`🔄 Base filter hash updated (${this.lastContextKey}): ${oldHash || '(empty)'} → ${state.hash || '(empty)'}`);
+      devLog(`🔄 Base filter hash updated (${this.lastContextKey}): ${oldHash || '(empty)'} → ${state.hash || '(empty)'}`);
       this.onBaseFilterChange?.();
     }
   }
@@ -436,7 +437,7 @@ class FilterTierManager {
     this.baseFilterColumns.clear();
     this.baseFilterStateByContext.clear();
     this.lastContextKey = '_default::_unknown';
-    console.log('🔄 Filter tier manager reset');
+    devLog('🔄 Filter tier manager reset');
   }
 
   /**
@@ -446,7 +447,7 @@ class FilterTierManager {
     const state = this.getStateFor(sourceTable, sourceDatabase);
     state.hash = '';
     state.configs = {};
-    console.log(`🔄 Base filter state reset (${this.lastContextKey})`);
+    devLog(`🔄 Base filter state reset (${this.lastContextKey})`);
   }
   
   /**

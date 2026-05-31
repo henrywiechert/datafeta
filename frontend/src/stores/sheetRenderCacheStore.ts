@@ -1,4 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
+import { devLog } from '../utils/devLog';
 /**
  * Sheet Render Cache Store
  *
@@ -103,7 +104,7 @@ export const useSheetRenderCacheStore = create<SheetRenderCacheStore>((set, get)
     const currentVersion = get().dataSourceVersion;
 
     if (process.env.NODE_ENV === 'development') {
-      console.log('[SheetRenderCache] Saving cache for sheet:', sheetId, {
+      devLog('[SheetRenderCache] Saving cache for sheet:', sheetId, {
         configHash,
         dataSourceVersion: currentVersion,
         hasQueryResult: !!queryResult,
@@ -131,7 +132,7 @@ export const useSheetRenderCacheStore = create<SheetRenderCacheStore>((set, get)
     
     if (!entry) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('[SheetRenderCache] Cache miss - no entry for sheet:', sheetId);
+        devLog('[SheetRenderCache] Cache miss - no entry for sheet:', sheetId);
       }
       return null;
     }
@@ -139,7 +140,7 @@ export const useSheetRenderCacheStore = create<SheetRenderCacheStore>((set, get)
     // Check if data source version matches
     if (entry.dataSourceVersion !== state.dataSourceVersion) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('[SheetRenderCache] Cache miss - dataSourceVersion mismatch:', {
+        devLog('[SheetRenderCache] Cache miss - dataSourceVersion mismatch:', {
           sheetId,
           cached: entry.dataSourceVersion,
           current: state.dataSourceVersion,
@@ -151,7 +152,7 @@ export const useSheetRenderCacheStore = create<SheetRenderCacheStore>((set, get)
     // Check if config hash matches
     if (entry.configHash !== expectedConfigHash) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('[SheetRenderCache] Cache miss - configHash mismatch:', {
+        devLog('[SheetRenderCache] Cache miss - configHash mismatch:', {
           sheetId,
           cached: entry.configHash,
           expected: expectedConfigHash,
@@ -161,7 +162,7 @@ export const useSheetRenderCacheStore = create<SheetRenderCacheStore>((set, get)
     }
 
     if (process.env.NODE_ENV === 'development') {
-      console.log('[SheetRenderCache] Cache hit for sheet:', sheetId, {
+      devLog('[SheetRenderCache] Cache hit for sheet:', sheetId, {
         age: Date.now() - entry.timestamp,
         cellCount: entry.chartGrid?.cells?.length ?? 0,
       });
@@ -176,7 +177,7 @@ export const useSheetRenderCacheStore = create<SheetRenderCacheStore>((set, get)
 
   invalidateSheet: (sheetId) => {
     if (process.env.NODE_ENV === 'development') {
-      console.log('[SheetRenderCache] Invalidating cache for sheet:', sheetId);
+      devLog('[SheetRenderCache] Invalidating cache for sheet:', sheetId);
     }
 
     set(state => {
@@ -188,7 +189,7 @@ export const useSheetRenderCacheStore = create<SheetRenderCacheStore>((set, get)
 
   invalidateAll: () => {
     if (process.env.NODE_ENV === 'development') {
-      console.log('[SheetRenderCache] Invalidating all caches');
+      devLog('[SheetRenderCache] Invalidating all caches');
     }
 
     set({ entries: new Map() });
@@ -198,7 +199,7 @@ export const useSheetRenderCacheStore = create<SheetRenderCacheStore>((set, get)
     set(state => {
       const newVersion = state.dataSourceVersion + 1;
       if (process.env.NODE_ENV === 'development') {
-        console.log('[SheetRenderCache] Incrementing dataSourceVersion:', state.dataSourceVersion, '→', newVersion);
+        devLog('[SheetRenderCache] Incrementing dataSourceVersion:', state.dataSourceVersion, '→', newVersion);
       }
       return { dataSourceVersion: newVersion };
     });
