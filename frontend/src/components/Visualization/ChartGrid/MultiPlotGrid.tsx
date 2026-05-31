@@ -235,6 +235,8 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           overflowY: 'hidden',
           zIndex: 3,
           pointerEvents: 'auto',
+          // Match the rendered (webkit) horizontal scrollbar to the reserved gutter.
+          ['--h-scrollbar-px' as any]: `${HORIZONTAL_SCROLLBAR_GUTTER_PX}px`,
         }}
       >
         <div
@@ -331,6 +333,8 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           overflowX: 'hidden',
           zIndex: 2,
           pointerEvents: 'auto',
+          // Match the rendered (webkit) vertical scrollbar to the reserved gutter.
+          ['--v-scrollbar-px' as any]: `${VERTICAL_SCROLLBAR_GUTTER_PX}px`,
         }}
       >
         <div

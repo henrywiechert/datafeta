@@ -2,7 +2,6 @@
 import React, { useEffect, useRef, useDeferredValue, useState, useCallback } from 'react';
 import { Menu, MenuItem } from '@mui/material';
 
-import { QueryResult } from '../../../types';
 import { GridResultModel } from '../../../observable-plot-generator/gridModel';
 import FacetZoomDialog from './FacetZoomDialog';
 import styles from './ChartGrid.module.css';
@@ -54,7 +53,6 @@ export interface ChartGridLabelStyles {
 
 interface ChartGridProps {
   grid: GridResultModel | null;
-  data: QueryResult | null;
   cellSizeOverrides: CellSizeOverrides;
   onPlotRenderComplete?: (plotId: string) => void;
   onAutoCategoryTickMeasure?: (sizes: { xHeightPx: number; yWidthPx: number }) => void;
@@ -88,7 +86,6 @@ interface ChartGridProps {
  */
 const ChartGrid: React.FC<ChartGridProps> = ({
   grid: gridProp,
-  data,
   cellSizeOverrides,
   onPlotRenderComplete,
   onAutoCategoryTickMeasure,
@@ -288,7 +285,6 @@ const ChartGrid: React.FC<ChartGridProps> = ({
 export default React.memo(ChartGrid, (prevProps, nextProps) => {
   return (
     prevProps.grid === nextProps.grid &&
-    prevProps.data === nextProps.data &&
     prevProps.cellSizeOverrides === nextProps.cellSizeOverrides &&
     prevProps.onAutoCategoryTickMeasure === nextProps.onAutoCategoryTickMeasure &&
     prevProps.onPlotRenderComplete === nextProps.onPlotRenderComplete &&
