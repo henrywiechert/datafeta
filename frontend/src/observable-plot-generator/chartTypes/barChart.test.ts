@@ -292,6 +292,32 @@ describe('barChart refactored implementation', () => {
     expect(domain[0]).toBeLessThan(-35); // padded lower (total -35)
   });
 
+  test('stacked bars with category use stack totals for Y domain, not max single segment', () => {
+    const ctx: ChartGenerationContext = {
+      queryResult: {
+        rows: [
+          { region: 'East', segment: 'A', 'SUM(value)': 10 },
+          { region: 'East', segment: 'B', 'SUM(value)': 15 },
+          { region: 'East', segment: 'C', 'SUM(value)': 8 },
+        ],
+        columns: [],
+        row_count: 3,
+      } as any,
+      xFields: [dim('region')],
+      yFields: [meas('value', 'sum')],
+      colorField: dim('segment'),
+      sizeField: undefined,
+      colorScheme: undefined,
+    };
+
+    const opts = barChart(ctx);
+    const domain = opts.y?.domain as [number, number];
+    // Stack total for East is 33; largest single segment is 15 — domain must reflect the stack.
+    expect(domain[0]).toBe(0);
+    expect(domain[1]).toBeGreaterThan(15);
+    expect(domain[1]).toBeGreaterThanOrEqual(33);
+  });
+
   test('buildBarOptions with real categoryColumn: color field sourceField has flavour for filtering', () => {
     // Simulates the barFacetGenerator call pattern where categoryColumn is the actual
     // column name (not "__category") and colorField must be explicitly passed through.
