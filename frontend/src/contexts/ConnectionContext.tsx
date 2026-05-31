@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useCallback, useMemo } from 'react';
 import { ConnectionDetails } from '../types'; // Assuming types are defined in ../types
 import { apiService } from '../apiService';
 import { useDataSource } from './DataSourceContext';
@@ -174,7 +174,7 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
     }
   }, [dispatch, resetMetadata]);
 
-  const value = {
+  const value = useMemo(() => ({
     isConnected,
     isLoading,
     error,
@@ -183,7 +183,7 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
     connect,
     connectDemoDataset,
     disconnect,
-  };
+  }), [isConnected, isLoading, error, message, connectionDetails, connect, connectDemoDataset, disconnect]);
 
   return <ConnectionContext.Provider value={value}>{children}</ConnectionContext.Provider>;
 };

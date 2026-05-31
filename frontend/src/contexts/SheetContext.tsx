@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useEffect, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Sheet, SheetManagerState, SheetAction, VisualizationStateSnapshot, Field, FilterConfig } from '../types';
 import { DEFAULT_MANUAL_COLOR } from '../config/colorSchemes';
@@ -434,23 +434,23 @@ export function SheetProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'REMOVE_FILTER_FROM_ALL_SHEETS', payload: { fieldId } });
   }, []);
 
+  const value = useMemo(() => ({
+    state,
+    dispatch,
+    activeSheet,
+    addSheet,
+    removeSheet,
+    renameSheet,
+    setActiveSheet,
+    updateActiveSheetState,
+    duplicateSheet,
+    resetWorkspace,
+    addFilterToAllSheets,
+    removeFilterFromAllSheets,
+  }), [state, activeSheet, addSheet, removeSheet, renameSheet, setActiveSheet, updateActiveSheetState, duplicateSheet, resetWorkspace, addFilterToAllSheets, removeFilterFromAllSheets]);
+
   return (
-    <SheetContext.Provider
-      value={{
-        state,
-        dispatch,
-        activeSheet,
-        addSheet,
-        removeSheet,
-        renameSheet,
-        setActiveSheet,
-        updateActiveSheetState,
-        duplicateSheet,
-        resetWorkspace,
-        addFilterToAllSheets,
-        removeFilterFromAllSheets,
-      }}
-    >
+    <SheetContext.Provider value={value}>
       {children}
     </SheetContext.Provider>
   );

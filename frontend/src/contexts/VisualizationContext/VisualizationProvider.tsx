@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { createContext, useReducer, ReactNode, useRef, useCallback } from 'react';
+import React, { createContext, useReducer, ReactNode, useRef, useCallback, useMemo } from 'react';
 import { Field, FilterConfig, VisualizationStateSnapshot } from '../../types';
 import { getTimeoutForOperation } from '../../config/loadingConfig';
 import { VisualizationState, VisualizationAction, LoadingOperationType, ChartTypeParams } from './types';
@@ -242,7 +242,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
   );
 
   return (
-    <VisualizationContext.Provider value={{ 
+    <VisualizationContext.Provider value={useMemo(() => ({
       state, 
       dispatch, 
       startOperation, 
@@ -250,7 +250,7 @@ export function VisualizationProvider({ children, initialState: initialStateProp
       cancelOperation, 
       timeoutRefs,
       getUndoableSnapshot
-    }}>
+    }), [state, startOperation, completeOperation, cancelOperation, getUndoableSnapshot])}>
       {children}
     </VisualizationContext.Provider>
   );
