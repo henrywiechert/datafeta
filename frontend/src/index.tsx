@@ -5,7 +5,6 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { ConnectionProvider } from './contexts/ConnectionContext';
-import { VisualizationProvider } from './contexts/VisualizationContext';
 import { DataSourceProvider } from './contexts/DataSourceContext';
 import { AppConfigProvider } from './contexts/AppConfigContext';
 import { initializeTabSession } from './utils/tabSession';
@@ -17,20 +16,18 @@ const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
 // Provider hierarchy:
-// 1. DataSourceProvider - session-scoped metadata (databases, tables, fields)
-// 2. VisualizationProvider - per-sheet visualization state (outer instance for ConnectionContext)
-// 3. ConnectionProvider - connection state (depends on both DataSourceContext and VisualizationContext)
-// Note: App.tsx has its own DataSourceProvider which is redundant but harmless (nested providers)
-// Note: VisualizationPage.tsx creates per-sheet VisualizationProviders with key={activeSheet?.id}
+// 1. AppConfigProvider  - app-wide configuration
+// 2. DataSourceProvider - session-scoped metadata (databases, tables, fields)
+// 3. ConnectionProvider - connection state (depends on DataSourceContext;
+//    signals query-state reset via resetBus to the per-sheet VisualizationProvider
+//    created inside VisualizationPage with key={activeSheet?.id}).
 root.render(
   <React.StrictMode>
     <AppConfigProvider>
       <DataSourceProvider>
-        <VisualizationProvider>
-          <ConnectionProvider>
-            <App />
-          </ConnectionProvider>
-        </VisualizationProvider>
+        <ConnectionProvider>
+          <App />
+        </ConnectionProvider>
       </DataSourceProvider>
     </AppConfigProvider>
   </React.StrictMode>

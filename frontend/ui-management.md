@@ -25,14 +25,13 @@ graph TD
     A[index.tsx] --> B[React.StrictMode]
     B --> AC[AppConfigProvider]
     AC --> DS[DataSourceProvider]
-    DS --> C[VisualizationProvider - outer/legacy]
-    C --> D[ConnectionProvider]
+    DS --> D[ConnectionProvider]
     D --> E[App - Router]
     E --> G[SheetProvider]
     G --> H[AppContent]
     H --> I[Routes]
     I --> J[VisualizationPage]
-    J --> K[VisualizationProvider - inner/per-sheet]
+    J --> K[VisualizationProvider - per-sheet]
     K --> L[UndoRedoProvider]
     L --> M[VisualizationPageContent]
     M --> N[SelectionProvider]
@@ -40,8 +39,9 @@ graph TD
 ```
 
 **Provider Responsibilities:**
-- **Global Level** (App-wide): `AppConfigProvider`, `DataSourceProvider`, `VisualizationProvider` (outer, legacy — exists so `ConnectionProvider` can reset visualization state on disconnect), `ConnectionProvider`, `SheetProvider`
-- **Page Level** (Per-sheet): `VisualizationProvider` (inner), `UndoRedoProvider`
+- **Global Level** (App-wide): `AppConfigProvider`, `DataSourceProvider`, `ConnectionProvider`, `SheetProvider`
+- **Page Level** (Per-sheet): `VisualizationProvider`, `UndoRedoProvider`
+- ConnectionProvider signals query-state reset to the active per-sheet `VisualizationProvider` via `services/resetBus.ts` (no outer Visualization provider required).
 - **Component Level**: `SelectionProvider`, `RenderingContext`
 
 ### Main Page Structure

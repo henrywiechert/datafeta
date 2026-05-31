@@ -80,11 +80,11 @@ Manages backend connection lifecycle:
 - Store connection details (host, port, type)
 - On connect/disconnect: resets shared metadata and clears query state
 
-**Current dependency:** Uses `useDataSource().resetMetadata()` and
-`useVisualizationContext().dispatch({ type: 'RESET_QUERY_STATE' })` to clear
-query results on connection changes. This is the only reason the root
-`VisualizationProvider` wraps `ConnectionProvider`; per-sheet visualization
-state still lives inside `VisualizationPage.tsx`.
+**Current dependency:** Uses `useDataSource().resetMetadata()` to clear shared
+metadata on connection changes, and emits `'connection:reset'` on
+`services/resetBus.ts` to clear query state in the active per-sheet
+`VisualizationProvider`. No outer/legacy `VisualizationProvider` is needed
+above `ConnectionProvider`.
 
 ---
 
