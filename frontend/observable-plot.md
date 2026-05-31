@@ -111,7 +111,7 @@ The chart generation follows a structured pipeline:
    - Faceted grids via faceting coordinator
    - Returns array of positioned plots
 
-6. **Layout Assembly**: Package into `PlotResult`
+6. **Layout Assembly**: Package into an internal `PlotResult`, then translate it to the canonical `GridResultModel` at the public boundary (`buildGridFromPlotResult`)
    - Grid layout with column/row sizes
    - Shared domains for consistency
    - Facet labels for hierarchical headers
@@ -172,7 +172,13 @@ Users can override automatic chart selection via `ChartTypeOverrides`:
 
 ## Layout System
 
-### PlotResult Interface
+### PlotResult Interface (internal)
+
+> **Note:** `PlotResult` is an *internal* structure threaded between the faceting
+> and chart-type helpers. The generator's **public** entry point (`generatePlot`)
+> returns a `GridResultModel` (see `observable-plot-generator/gridModel.ts`), which
+> is what `ChartGrid` actually consumes. `buildGridFromPlotResult` performs the
+> one-time translation at the boundary.
 
 **Location**: `frontend/src/observable-plot-generator/types.ts`
 
@@ -330,7 +336,9 @@ The `useScrollSync` hook manages synchronized scrolling:
 // Horizontal scroll: hScrollRef ↔ plotsTranslateRef
 // Vertical scroll: vScrollRef ↔ plotsTranslateRef
 
-// Implementation uses requestAnimationFrame for smooth updates
+// Implementation is driven by the native scroll event: the vertical scroller
+// writes transform: translateY(-scrollTop) on the plots layer. The browser's
+// scroll is the single source of truth — there is no requestAnimationFrame loop.
 ```
 
 ## Responsive Sizing Policy
@@ -473,8 +481,8 @@ This ensures all facet cells use identical scales for meaningful comparison.
 
 ### Rendering Flow
 
-1. **Generation**: `observablePlotGenerator.ts` creates `PlotResult`
-2. **Component**: `ChartGrid.tsx` receives spec and data
+1. **Generation**: `observablePlotGenerator.ts` creates a `GridResultModel`
+2. **Component**: `ChartGrid.tsx` receives the grid model
 3. **Layout**: `MultiPlotGrid.tsx` applies three-layer architecture
 4. **Plots**: `PlotArea.tsx` renders individual `ObservablePlot` components
 5. **Wrapper**: `ObservablePlot.tsx` creates SVG from Plot.plot() options
@@ -514,7 +522,7 @@ This ensures all facet cells use identical scales for meaningful comparison.
 ### Layout Performance
 - **Memoization**: Components use React.memo to prevent unnecessary re-renders
 - **Stabilization**: `useStabilization` hook prevents layout thrashing
-- **Scroll sync**: RequestAnimationFrame for smooth synchronized scrolling
+- **Scroll sync**: Native scroll event drives a `translateY` transform (no rAF loop)
 - **Resize handling**: Debounced resize observers for efficient updates
 
 ### Domain Calculation

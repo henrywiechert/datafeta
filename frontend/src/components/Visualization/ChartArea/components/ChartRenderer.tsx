@@ -152,7 +152,6 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
     const chartGridNode = (
       <ChartGrid 
         grid={grid} 
-        data={queryResult}
         cellSizeOverrides={cellSizeOverrides}
         onAutoCategoryTickMeasure={onAutoCategoryTickMeasure}
         onPlotRenderComplete={onPlotRenderComplete}

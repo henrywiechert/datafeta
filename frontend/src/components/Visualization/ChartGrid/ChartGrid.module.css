@@ -117,7 +117,9 @@
 
 .verticalScrollLayer::-webkit-scrollbar {
     -webkit-appearance: none;
-    width: 14px !important;
+    /* Match the reserved gutter (VERTICAL_SCROLLBAR_GUTTER_PX) set as a CSS var
+       in MultiPlotGrid; falls back to the historical 14px default. */
+    width: var(--v-scrollbar-px, 14px) !important;
     display: block !important; /* Ensure it's visible */
 }
 
@@ -156,7 +158,9 @@
 
 .horizontalScrollLayer::-webkit-scrollbar {
     -webkit-appearance: none;
-    height: 14px !important;
+    /* Match the reserved gutter (HORIZONTAL_SCROLLBAR_GUTTER_PX) set as a CSS var
+       in MultiPlotGrid; falls back to the historical 16px default. */
+    height: var(--h-scrollbar-px, 16px) !important;
     display: block !important; /* Ensure it's visible */
 }
 

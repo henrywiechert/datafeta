@@ -171,7 +171,7 @@ The key innovation is separating scrolling concerns into three stacked layers:
 ┌──────────────────────────────────────────────────────────────────┐
 │                    ObservablePlot                                 │
 │  • Renders individual Plot.plot() to SVG                         │
-│  • Has own ResizeObserver                                        │
+│  • Sized by a shared singleton ResizeObserver (useElementSize)   │
 │  • Calls onPlotRenderComplete(plotId) when done                  │
 └──────────────────────────────────────────────────────────────────┘
 ```
