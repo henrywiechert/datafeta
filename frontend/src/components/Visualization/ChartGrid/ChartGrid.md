@@ -41,7 +41,7 @@ The key innovation is separating scrolling concerns into three stacked layers:
 │                                                                             │
 │  ┌───────────────────────────────────────────────────────────────────────┐  │
 │  │ LAYER 1: HORIZONTAL SCROLL (z-index: 3)                               │  │
-│  │ position: absolute, left: leftFixedWidthPx, right: 14px               │  │
+│  │ position: absolute, left: leftFixedWidthPx, right: gutterPx           │  │
 │  │ overflowX: scroll, overflowY: hidden                                  │  │
 │  │                                                                       │  │
 │  │  ┌─────────────────────────────────────────────────────────────────┐  │  │
@@ -203,7 +203,7 @@ The key innovation is separating scrolling concerns into three stacked layers:
 - `PieSvgRenderer` — Custom SVG renderer for pie cells
 
 **Imports from:**
-- `chartLayoutConfig` — Constants: `MIN_GRID_ROW_PX`, `MIN_GRID_COLUMN_PX`, `GRID_DIVIDER_COLOR`, gutter sizes
+- `chartLayoutConfig` — Constants: `MIN_GRID_ROW_PX`, `MIN_GRID_COLUMN_PX`, `GRID_DIVIDER_COLOR`, gutter sizes. The scrollbar gutters (`VERTICAL_SCROLLBAR_GUTTER_PX`, `HORIZONTAL_SCROLLBAR_GUTTER_PX`) are platform-aware: the real scrollbar thickness is measured once at module load and clamped to a minimum default, so overlay-scrollbar platforms (macOS) and jsdom keep the legacy values while classic-scrollbar platforms (Windows) reserve the correct width.
 - `observable-plot-generator/gridModel` — `GridResultModel` type and helpers
 
 ---

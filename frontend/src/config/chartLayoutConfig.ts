@@ -36,8 +36,37 @@ export const NAMES_BAND_LEFT_PX = 20;
 export const VALUES_BAND_LEFT_PX = 20;
 export const VALUES_BAND_TOP_PX = 20;
 export const X_LABEL_ROW_PX = 20;
-export const VERTICAL_SCROLLBAR_GUTTER_PX = 14;
-export const HORIZONTAL_SCROLLBAR_GUTTER_PX = 16;
+
+/**
+ * Measure the platform's scrollbar thickness once (px). Returns 0 for overlay
+ * scrollbars (e.g. macOS default) and when no DOM is available (SSR/jsdom).
+ */
+function measureScrollbarWidth(): number {
+  if (typeof document === 'undefined' || !document.body) return 0;
+  try {
+    const outer = document.createElement('div');
+    outer.style.position = 'absolute';
+    outer.style.visibility = 'hidden';
+    outer.style.overflow = 'scroll';
+    outer.style.width = '100px';
+    outer.style.height = '100px';
+    document.body.appendChild(outer);
+    const width = outer.offsetWidth - outer.clientWidth;
+    document.body.removeChild(outer);
+    return width > 0 ? width : 0;
+  } catch {
+    return 0;
+  }
+}
+
+// Reserve space for the scrollbars in the three-layer scrolling grid. Use the
+// measured platform scrollbar thickness, but never less than the historical
+// defaults so layouts on overlay-scrollbar platforms (macOS) and in test
+// environments (jsdom measures 0) stay unchanged, while classic-scrollbar
+// platforms (Windows ~17px) no longer under-reserve and clip content.
+const MEASURED_SCROLLBAR_PX = measureScrollbarWidth();
+export const VERTICAL_SCROLLBAR_GUTTER_PX = Math.max(MEASURED_SCROLLBAR_PX, 14);
+export const HORIZONTAL_SCROLLBAR_GUTTER_PX = Math.max(MEASURED_SCROLLBAR_PX, 16);
 
 // Table-refactor (table chart type) layout constants.
 // Compact bands and short rows so a table with many discrete tuples is

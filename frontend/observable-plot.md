@@ -26,9 +26,17 @@ frontend/src/
 │   │   ├── barChart.ts           # Bar chart (delegates to barUnified)
 │   │   ├── barUnified.ts         # Unified bar chart (single+multi measure)
 │   │   ├── barCore.ts            # Core bar chart utilities
+│   │   ├── boxPlot.ts            # Box-and-whisker plots
+│   │   ├── cdfChart.ts           # Cumulative distribution (CDF) charts
 │   │   ├── cellCharts.ts         # Individual grid cell chart generation
+│   │   ├── densityChart.ts       # KDE density charts
+│   │   ├── ganttChart.ts         # Gantt / time-range bar charts
+│   │   ├── heatmapChart.ts       # Heatmap charts
 │   │   ├── lineChart.ts          # Line and vertical line charts
+│   │   ├── measureValuesMultiMark.ts # Multi-mark measure-values layer
+│   │   ├── pieChart.ts           # Pie charts (SVG renderer)
 │   │   ├── scatterChart.ts       # Scatter plot charts
+│   │   ├── tableGrid.ts          # Table-refactor (text table) chart type
 │   │   └── tickStrip.ts          # Tick strip distribution charts
 │   │
 │   ├── domains/                   # Domain calculation
@@ -528,8 +536,16 @@ This ensures all facet cells use identical scales for meaningful comparison.
 ### Chart Types
 - **`chartTypes/barUnified.ts`**: Unified bar chart implementation (single + multi-measure)
 - **`chartTypes/barCore.ts`**: Core bar chart utilities and options builder
+- **`chartTypes/boxPlot.ts`**: Box-and-whisker plots
+- **`chartTypes/cdfChart.ts`**: Cumulative distribution (CDF) charts
+- **`chartTypes/densityChart.ts`**: KDE density charts
+- **`chartTypes/ganttChart.ts`**: Gantt / time-range bar charts
+- **`chartTypes/heatmapChart.ts`**: Heatmap charts
 - **`chartTypes/lineChart.ts`**: Line chart (horizontal and vertical)
+- **`chartTypes/measureValuesMultiMark.ts`**: Multi-mark measure-values layer
+- **`chartTypes/pieChart.ts`**: Pie charts (SVG renderer)
 - **`chartTypes/scatterChart.ts`**: Scatter plot implementation
+- **`chartTypes/tableGrid.ts`**: Table-refactor (text table) chart type
 - **`chartTypes/tickStrip.ts`**: Distribution tick strip charts
 - **`chartTypes/cellCharts.ts`**: Individual grid cell chart generation
 
