@@ -18,6 +18,7 @@
 import { apiService } from '../apiService';
 import { columnCacheManager } from './columnCacheManager';
 import { filterTierManager } from './filterTierManager';
+import { devLog } from '../utils/devLog';
 
 // Default threshold: 100,000 rows (local OK up to this; above prefer backend)
 const DEFAULT_SIZE_THRESHOLD = 5_000_000;
@@ -81,7 +82,7 @@ class QueryDecisionEngine {
    */
   setSizeThreshold(threshold: number): void {
     this.sizeThreshold = threshold;
-    console.log(`📊 Query size threshold set to ${threshold.toLocaleString()} rows`);
+    devLog(`📊 Query size threshold set to ${threshold.toLocaleString()} rows`);
   }
   
   /**
@@ -218,7 +219,7 @@ class QueryDecisionEngine {
     // Check cache
     const cached = this.rowCountCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < this.ROW_COUNT_CACHE_TTL) {
-      console.log(`📊 Using cached row count for ${sourceTable}: ${cached.count.toLocaleString()}`);
+      devLog(`📊 Using cached row count for ${sourceTable}: ${cached.count.toLocaleString()}`);
       return cached.count;
     }
     
@@ -234,7 +235,7 @@ class QueryDecisionEngine {
       
       // Cache the result
       this.rowCountCache.set(cacheKey, { count, timestamp: Date.now() });
-      console.log(`📊 Probed row count for ${sourceTable}: ${count.toLocaleString()}`);
+      devLog(`📊 Probed row count for ${sourceTable}: ${count.toLocaleString()}`);
       
       return count;
     } catch (error) {

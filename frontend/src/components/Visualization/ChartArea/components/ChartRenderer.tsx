@@ -185,7 +185,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
         />
       </Box>
     );
-  }, [tableRowsContent, useTableView, tableData, grid, cellSizeOverrides, onAutoCategoryTickMeasure, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete, isGanttChart, ganttZoomRange, onGanttZoomRangeChange, ganttFullDataRange, brushDisabled, onBrushEnd, tableRefactorPagerData, onHeatmapSizeToolbarChange]);
+  }, [tableRowsContent, useTableView, tableData, grid, cellSizeOverrides, onAutoCategoryTickMeasure, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete, isGanttChart, ganttZoomRange, onGanttZoomRangeChange, ganttFullDataRange, brushDisabled, onBrushEnd, tableRefactorPagerData, onHeatmapSizeToolbarChange, axisLabelStyles, facetLabelStyles, categoryTickStyles, globalChartType]);
 
   return (
     <Box 

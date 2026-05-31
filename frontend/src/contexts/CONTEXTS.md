@@ -7,12 +7,13 @@ This document provides a high-level overview of the React contexts used in Data 
 ```
 index.tsx
 │
-├── DataSourceProvider                  ← Session-scoped metadata and table selection
+├── AppConfigProvider                   ← App-wide configuration
 │   │
-│   └── VisualizationProvider           ← Root visualization instance used by connection reset logic
+│   └── DataSourceProvider              ← Session-scoped metadata and table selection
 │       │
 │       └── ConnectionProvider          ← Database connection state
-│           │                             (depends on DataSourceContext and VisualizationContext)
+│           │                             (depends on DataSourceContext;
+│           │                              signals query-state reset via resetBus)
 │           │
 │           └── App.tsx
 │               │
@@ -26,12 +27,12 @@ index.tsx
 │                           └── UndoRedoProvider
 ```
 
-`VisualizationProvider` appears at two levels. The root provider exists because
-`ConnectionProvider` currently dispatches `RESET_QUERY_STATE` on connect and
-disconnect. The keyed provider inside `VisualizationPage.tsx` is the per-sheet
-state boundary used for axes, filters, encodings, query results, and rendering
-state. If the connection reset boundary is decoupled in the future, the root
-provider can be revisited.
+`VisualizationProvider` now exists at a single level: the keyed provider inside
+`VisualizationPage.tsx`, which is the per-sheet state boundary for axes, filters,
+encodings, query results, and rendering state. The former root provider was
+removed once connection-reset was decoupled: `ConnectionProvider` no longer
+dispatches into visualization state directly — it emits `'connection:reset'` on
+`services/resetBus.ts`, which the active per-sheet provider subscribes to.
 
 ## Context Overview
 
@@ -40,7 +41,7 @@ provider can be revisited.
 | `SheetContext` | App-wide | localStorage | Multi-sheet workspace tabs |
 | `ConnectionContext` | App-wide | None | Database connection lifecycle |
 | `DataSourceContext` | App-wide | None | DB/table selection, available fields |
-| `VisualizationContext` | Root + per-sheet | Via SheetContext for per-sheet instance | Chart axes, filters, encodings, query/render state |
+| `VisualizationContext` | Per-sheet | Via SheetContext | Chart axes, filters, encodings, query/render state |
 | `UndoRedoContext` | Per-sheet | Memory only | Action history for undo/redo |
 | `LayoutContext` | App-wide | localStorage | Panel collapse/resize state |
 

@@ -9,6 +9,7 @@
 import * as duckdb from '@duckdb/duckdb-wasm';
 import { Table as ArrowTable, tableToIPC } from 'apache-arrow';
 import { arrowTableToRows } from './arrowResultAdapter';
+import { devLog } from '../utils/devLog';
 
 // CDN URLs for DuckDB WASM bundles
 const DUCKDB_CDN_BASE = 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.32.0/dist';
@@ -155,7 +156,7 @@ class DuckDBService {
       await this.initPromise;
       this._status = 'ready';
       this._lastError = null;
-      console.log('✅ DuckDB WASM initialized successfully');
+      devLog('✅ DuckDB WASM initialized successfully');
     } catch (error) {
       this._status = 'error';
       this._lastError = error instanceof Error ? error.message : String(error);
@@ -170,7 +171,7 @@ class DuckDBService {
     const wasmUrl = `${DUCKDB_CDN_BASE}/duckdb-mvp.wasm`;
     const workerUrl = `${DUCKDB_CDN_BASE}/duckdb-browser-mvp.worker.js`;
     
-    console.log('🦆 Loading DuckDB WASM worker...');
+    devLog('🦆 Loading DuckDB WASM worker...');
     
     // Create worker using blob URL to avoid CORS issues
     this.worker = await createWorkerFromUrl(workerUrl);
@@ -178,7 +179,7 @@ class DuckDBService {
     const logger = new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING);
     this.db = new duckdb.AsyncDuckDB(logger, this.worker);
     
-    console.log('🦆 Instantiating DuckDB WASM...');
+    devLog('🦆 Instantiating DuckDB WASM...');
     await this.db.instantiate(wasmUrl);
     
     // Open a connection
@@ -193,7 +194,7 @@ class DuckDBService {
     // generated from chart brush zoom to be offset from the actual data.
     await this.conn.query(`SET timezone = 'UTC'`);
     
-    console.log('🦆 DuckDB WASM ready!');
+    devLog('🦆 DuckDB WASM ready!');
   }
 
   /**
@@ -214,7 +215,7 @@ class DuckDBService {
       const durationMs = Math.round(performance.now() - startTime);
       
       this.logQuery(sql, durationMs, converted.rowCount);
-      console.log(`🦆 Local query (${durationMs}ms, ${converted.rowCount} rows): ${sql.substring(0, 100)}...`);
+      devLog(`🦆 Local query (${durationMs}ms, ${converted.rowCount} rows): ${sql.substring(0, 100)}...`);
       
       return converted;
     } catch (error) {
@@ -244,7 +245,7 @@ class DuckDBService {
       const durationMs = Math.round(performance.now() - startTime);
       
       this.logQuery(sql, durationMs, result.numRows);
-      console.log(`🦆 Local query Arrow (${durationMs}ms, ${result.numRows} rows): ${sql.substring(0, 100)}...`);
+      devLog(`🦆 Local query Arrow (${durationMs}ms, ${result.numRows} rows): ${sql.substring(0, 100)}...`);
       
       return result;
     } catch (error) {
@@ -287,7 +288,7 @@ class DuckDBService {
       });
       
       this.registeredTables.add(name);
-      console.log(`📊 Registered Arrow table "${name}" with ${table.numRows} rows (native Arrow IPC)`);
+      devLog(`📊 Registered Arrow table "${name}" with ${table.numRows} rows (native Arrow IPC)`);
 
       // Widen unsigned ints to BIGINT to avoid overflow in aggregates
       await this.widenUnsignedIntegerColumns(name);
@@ -340,7 +341,7 @@ class DuckDBService {
     }
 
     this.registeredTables.add(name);
-    console.log(`📊 Registered Arrow table "${name}" with ${table.numRows} rows (fallback)`);
+    devLog(`📊 Registered Arrow table "${name}" with ${table.numRows} rows (fallback)`);
 
     // Widen unsigned ints to BIGINT to avoid overflow in aggregates
     await this.widenUnsignedIntegerColumns(name);
@@ -437,7 +438,7 @@ class DuckDBService {
     }
 
     this.registeredTables.add(name);
-    console.log(`📊 Registered table "${name}" with ${rows.length} rows`);
+    devLog(`📊 Registered table "${name}" with ${rows.length} rows`);
 
     // Widen unsigned ints to BIGINT to avoid overflow in aggregates
     await this.widenUnsignedIntegerColumns(name);
@@ -549,7 +550,7 @@ class DuckDBService {
       }
 
       if (unsignedCols.length) {
-        console.log(`🔎 Widened ${unsignedCols.length} unsigned columns to BIGINT on table "${name}"`);
+        devLog(`🔎 Widened ${unsignedCols.length} unsigned columns to BIGINT on table "${name}"`);
       }
     } catch (err) {
       console.warn(`⚠️ Unable to inspect/widen unsigned columns for table "${name}":`, err);

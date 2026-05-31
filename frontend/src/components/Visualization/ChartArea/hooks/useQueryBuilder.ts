@@ -12,6 +12,7 @@ import { buildQuery } from '../../../../queryBuilder/queryBuilder';
 import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition, QueryOptimizationSettings, UserChartType, DistributionVariant } from '../../../../types';
 import { generateOptimizationHintsFromFields } from '../../../../services/optimizationHintGenerator';
 import { buildViewSpec, ViewSpec } from '../../../../viewPlanner';
+import { devLog } from '../../../../utils/devLog';
 
 export interface UseQueryBuilderProps {
   selectedTable: string | null;
@@ -84,12 +85,12 @@ export const useQueryBuilder = ({
   // Generate optimization hints based on field configuration
   const optimizationHints = useMemo((): OptimizationHints | null => {
     if (xAxisFields.length === 0 && yAxisFields.length === 0) {
-      console.log('⚠️ No fields present, skipping optimization hints generation');
+      devLog('⚠️ No fields present, skipping optimization hints generation');
       return null;
     }
 
     try {
-      console.log('🔧 Generating optimization hints for fields:', {
+      devLog('🔧 Generating optimization hints for fields:', {
         xFields: xAxisFields.map(f => ({ name: f.columnName, type: f.type, flavour: f.flavour })),
         yFields: yAxisFields.map(f => ({ name: f.columnName, type: f.type, flavour: f.flavour })),
         color: colorField?.columnName,
@@ -114,7 +115,7 @@ export const useQueryBuilder = ({
           : undefined,
       });
 
-      console.log('✅ Generated hints:', {
+      devLog('✅ Generated hints:', {
         field_hints: hints.field_hints?.length || 0,
         enable_global_distinct: hints.enable_global_distinct,
         level: hints.optimization_level,
@@ -175,7 +176,7 @@ export const useQueryBuilder = ({
 
   // Build the query description from the canonical view spec.
   const queryDescription = useMemo((): QueryDescription | null => {
-    console.log('🔧 currentQueryDescription recalculating with virtualTable:', virtualTable);
+    devLog('🔧 currentQueryDescription recalculating with virtualTable:', virtualTable);
     const plannedFields = viewSpec?.queryFields || [];
     // Validate we have sufficient fields
     if (plannedFields.length === 0 || !selectedTable) {
@@ -205,7 +206,7 @@ export const useQueryBuilder = ({
     });
 
     if (queryDesc) {
-      console.log('🧪 Query build (memo):', {
+      devLog('🧪 Query build (memo):', {
         dimensions: queryDesc.dimensions?.map(d => d.field),
         measures: queryDesc.measures?.map(m => m.alias || m.field),
         label_fields: (queryDesc as any).label_fields,
@@ -241,13 +242,13 @@ export const useQueryBuilder = ({
       // Attach optimization hints to the query description
       if (optimizationHints) {
         queryDesc.optimization_hints = optimizationHints;
-        console.log('✅ Attached optimization hints to query:', {
+        devLog('✅ Attached optimization hints to query:', {
           field_hints_count: optimizationHints.field_hints?.length || 0,
           enable_global_distinct: optimizationHints.enable_global_distinct,
           optimization_level: optimizationHints.optimization_level,
         });
       } else {
-        console.log('⚠️ No optimization hints generated for this query');
+        devLog('⚠️ No optimization hints generated for this query');
       }
     }
 

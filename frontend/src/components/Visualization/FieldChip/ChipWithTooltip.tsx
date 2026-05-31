@@ -104,6 +104,12 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
       className: getChipClassNames(field, source, isInvalidOnAxis, isSelected, styles),
       draggable: true,
       tabIndex: 0,
+      // Surface the keyboard alternative to drag-and-drop: the field actions menu
+      // (assign to X/Y axis, filter, remove, …) opens with Shift+F10 / ContextMenu.
+      role: 'button',
+      'aria-haspopup': 'menu' as const,
+      'aria-keyshortcuts': 'Shift+F10',
+      'aria-label': `${fullLabel}. Press Shift+F10 for field actions`,
       onDragStart: handleDragStartInternal,
       onDragEnd: handleDragEndInternal,
       onContextMenu,
@@ -137,6 +143,7 @@ const ChipWithTooltip: React.FC<ChipWithTooltipProps> = ({
     onMouseDown,
     widthProps,
     chipLabel,
+    fullLabel,
     handleTooltipClose
   ]);
 
