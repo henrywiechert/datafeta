@@ -39,6 +39,11 @@ import { buildEffectiveFilterConfigurations } from '../../../utils/effectiveFilt
 import { isTablePresentation } from '../../../observable-plot-generator/chartTypes/chartTypePresentation';
 import { useCellSizeOverrides } from '../ChartGrid/hooks/useCellSizeOverrides';
 import { HeatmapSizeToolbarState } from '../ChartGrid/hooks/useHeatmapSizeToolbar';
+import type {
+  ChartGridGanttProps,
+  ChartGridBrushProps,
+  ChartGridLabelStyles,
+} from '../ChartGrid/ChartGrid';
 
 /**
  * ChartArea - thin orchestrator that delegates to specialised hooks.
@@ -438,6 +443,26 @@ const ChartArea: React.FC = () => {
   const showShapeLegend = Boolean(channels.shape.field && queryResult?.rows?.length);
   const showLegend = showColorLegend || showBackgroundLegend || showShapeLegend;
 
+  // Grouped prop bags forwarded to ChartRenderer (and on to ChartGrid). Memoized
+  // so ChartRenderer's React.memo isn't defeated by fresh object identities.
+  const ganttProps = useMemo<ChartGridGanttProps>(
+    () => ({
+      isGanttChart,
+      zoomRange: ganttZoomRange,
+      onZoomRangeChange: handleGanttZoomRangeChange,
+      fullDataRange: ganttFullDataRange,
+    }),
+    [isGanttChart, ganttZoomRange, handleGanttZoomRangeChange, ganttFullDataRange],
+  );
+  const brushProps = useMemo<ChartGridBrushProps>(
+    () => ({ disabled: brushDisabled, onBrushEnd: handleBrushEnd }),
+    [brushDisabled, handleBrushEnd],
+  );
+  const labelStylesProps = useMemo<ChartGridLabelStyles>(
+    () => ({ axisLabelStyles, facetLabelStyles, categoryTickStyles }),
+    [axisLabelStyles, facetLabelStyles, categoryTickStyles],
+  );
+
   // -- Render ------------------------------------------------------------------
   return (
     <div className={styles.container}>
@@ -455,23 +480,15 @@ const ChartArea: React.FC = () => {
             queryResult={queryResult}
             xAxisFields={xAxisFields}
             yAxisFields={yAxisFields}
-            isDebugOpen={isDebugOpen}
-            debugHeight={debugHeight}
             onPlotRenderComplete={handlePlotRenderComplete}
-            isGanttChart={isGanttChart}
-            ganttZoomRange={ganttZoomRange}
-            onGanttZoomRangeChange={handleGanttZoomRangeChange}
-            ganttFullDataRange={ganttFullDataRange}
-            brushDisabled={brushDisabled}
-            onBrushEnd={handleBrushEnd}
+            gantt={ganttProps}
+            brush={brushProps}
             showTableRows={showTableRows}
             tableRowsData={showTableRows ? tableRowsData : undefined}
             onTableCellFilterAction={handleTableCellFilterAction}
             tableRefactorPagerData={tableRefactorPagerData}
             onHeatmapSizeToolbarChange={handleHeatmapSizeToolbarChange}
-            axisLabelStyles={axisLabelStyles}
-            facetLabelStyles={facetLabelStyles}
-            categoryTickStyles={categoryTickStyles}
+            labelStyles={labelStylesProps}
             globalChartType={globalChartType}
           />
 

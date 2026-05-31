@@ -1,9 +1,12 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useRef, useMemo } from 'react';
 import { Box } from '@mui/material';
-import ChartGrid, { GanttZoomRange } from '../../ChartGrid/ChartGrid';
+import ChartGrid, {
+  ChartGridGanttProps,
+  ChartGridBrushProps,
+  ChartGridLabelStyles,
+} from '../../ChartGrid/ChartGrid';
 import { HeatmapSizeToolbarState } from '../../ChartGrid/hooks/useHeatmapSizeToolbar';
-import { PlotBrushEvent } from '../../ChartGrid/PlotArea';
 import { CellSizeOverrides } from '../../ChartGrid/hooks/useCellSizeOverrides';
 import TableViewLazy from '../../Table/TableViewLazy';
 import TableViewRowsLazy from '../../Table/TableViewRowsLazy';
@@ -14,7 +17,6 @@ import { TableData } from '../types';
 import { TableRowsSortModel } from '../../../../types';
 import { QueryResultColumn } from '../../../../types';
 import { UserChartType } from '../../../../types';
-import { AxisLabelStyles, CategoryTickStyles, FacetLabelStyles } from '../../../../contexts/VisualizationContext/types';
 import type { TableCellFilterAction } from '../../Table/TableViewRows';
 
 interface ChartRendererProps {
@@ -26,19 +28,11 @@ interface ChartRendererProps {
   queryResult: any;
   xAxisFields: any[];
   yAxisFields: any[];
-  isDebugOpen: boolean;
-  debugHeight: number;
   onPlotRenderComplete?: (plotId: string) => void;
-  /** Whether the current chart is a Gantt chart */
-  isGanttChart?: boolean;
-  /** Current Gantt zoom range (null = full data range) */
-  ganttZoomRange?: GanttZoomRange | null;
-  /** Callback when Gantt zoom range changes */
-  onGanttZoomRangeChange?: (range: GanttZoomRange | null) => void;
-  /** Full data range for Gantt chart (for zoom calculations) */
-  ganttFullDataRange?: GanttZoomRange | null;
-  brushDisabled?: boolean;
-  onBrushEnd?: (event: PlotBrushEvent) => void;
+  /** Gantt-specific configuration (omit for non-Gantt charts). Forwarded to ChartGrid. */
+  gantt?: ChartGridGanttProps;
+  /** Brush selection configuration. Forwarded to ChartGrid. */
+  brush?: ChartGridBrushProps;
   /** Table rows view mode */
   showTableRows?: boolean;
   tableRowsData?: {
@@ -70,10 +64,8 @@ interface ChartRendererProps {
     loading: boolean;
   };
   onHeatmapSizeToolbarChange?: (toolbarState: HeatmapSizeToolbarState | null) => void;
-  /** Lifted from VisualizationContext so ChartGrid can be memoized without bypassing memo via context reads. */
-  axisLabelStyles: AxisLabelStyles;
-  facetLabelStyles: FacetLabelStyles;
-  categoryTickStyles: CategoryTickStyles;
+  /** Axis / facet / category label styling, lifted from VisualizationContext. Forwarded to ChartGrid. */
+  labelStyles: ChartGridLabelStyles;
   globalChartType: UserChartType | null;
 }
 
@@ -87,20 +79,14 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
   xAxisFields,
   yAxisFields,
   onPlotRenderComplete,
-  isGanttChart = false,
-  ganttZoomRange,
-  onGanttZoomRangeChange,
-  ganttFullDataRange,
-  brushDisabled,
-  onBrushEnd,
+  gantt,
+  brush,
   showTableRows = false,
   tableRowsData,
   onTableCellFilterAction,
   tableRefactorPagerData,
   onHeatmapSizeToolbarChange,
-  axisLabelStyles,
-  facetLabelStyles,
-  categoryTickStyles,
+  labelStyles,
   globalChartType,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -157,21 +143,9 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
         onPlotRenderComplete={onPlotRenderComplete}
         onHeatmapSizeToolbarChange={onHeatmapSizeToolbarChange}
         globalChartType={globalChartType}
-        gantt={{
-          isGanttChart,
-          zoomRange: ganttZoomRange,
-          onZoomRangeChange: onGanttZoomRangeChange,
-          fullDataRange: ganttFullDataRange,
-        }}
-        brush={{
-          disabled: brushDisabled,
-          onBrushEnd,
-        }}
-        labelStyles={{
-          axisLabelStyles,
-          facetLabelStyles,
-          categoryTickStyles,
-        }}
+        gantt={gantt}
+        brush={brush}
+        labelStyles={labelStyles}
       />
     );
     if (!tableRefactorPagerData) return chartGridNode;
@@ -190,7 +164,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
         />
       </Box>
     );
-  }, [tableRowsContent, useTableView, tableData, grid, cellSizeOverrides, onAutoCategoryTickMeasure, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete, isGanttChart, ganttZoomRange, onGanttZoomRangeChange, ganttFullDataRange, brushDisabled, onBrushEnd, tableRefactorPagerData, onHeatmapSizeToolbarChange, axisLabelStyles, facetLabelStyles, categoryTickStyles, globalChartType]);
+  }, [tableRowsContent, useTableView, tableData, grid, cellSizeOverrides, onAutoCategoryTickMeasure, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete, gantt, brush, tableRefactorPagerData, onHeatmapSizeToolbarChange, labelStyles, globalChartType]);
 
   return (
     <Box 
