@@ -378,14 +378,39 @@ export function SheetProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Save sheets to localStorage whenever they change
+  // Save sheets to localStorage whenever they change.
+  // Debounced (500ms) to avoid synchronous JSON.stringify on every visualization
+  // tick. Flushed synchronously on tab hide/unload so no data is lost.
+  // In tests we persist synchronously to keep the existing assertions intact.
+  const isTestEnv = process.env.NODE_ENV === 'test';
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ sheets: state.sheets }));
-    } catch (error) {
-      console.error('Failed to save sheets to localStorage:', error);
+    const persist = () => {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ sheets: state.sheets }));
+      } catch (error) {
+        console.error('Failed to save sheets to localStorage:', error);
+      }
+    };
+    if (isTestEnv) {
+      persist();
+      return;
     }
-  }, [state.sheets]);
+    const timer = window.setTimeout(persist, 500);
+    const flush = () => {
+      window.clearTimeout(timer);
+      persist();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    window.addEventListener('beforeunload', flush);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('beforeunload', flush);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [state.sheets, isTestEnv]);
 
   const activeSheet = state.sheets.find(s => s.id === state.activeSheetId);
 

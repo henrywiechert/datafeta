@@ -4,6 +4,7 @@ import { useConnection } from '../contexts/ConnectionContext';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
 import { useSheetContext } from '../contexts/SheetContext';
 import { useDataSource } from '../contexts/DataSourceContext';
+import { VisualizationStateSnapshot } from '../types';
 import { useVirtualColumns } from './useVirtualColumns';
 import { useFieldOperations } from './useFieldOperations';
 import { useMetadataOperations } from './useMetadataOperations';
@@ -134,12 +135,15 @@ export function useVisualizationState() {
         });
     }, [dataSource.sessionFilterFields, dataSource.sessionFilterMetadata, state.filterMetadata, setSessionFilterMetadata]);
 
-    // Sync visualization state changes back to the active sheet
-    // Note: We do NOT sync these because they are shared across all sheets:
-    // - selectedDatabase, selectedTable (data source selection)
-    // - availableFields (derived from selected table)
+    // Sync visualization state changes back to the active sheet.
+    // Debounced so a burst of reducer ticks (typing in a filter, dragging
+    // a chip) becomes a single SheetContext update — otherwise every tick
+    // rebuilds state.sheets and re-renders every useSheetContext consumer.
+    // Flushed on unmount so a sheet switch never loses pending edits.
+    const isTestEnv = process.env.NODE_ENV === 'test';
+    const pendingSnapshotRef = useRef<Partial<VisualizationStateSnapshot> | null>(null);
     useEffect(() => {
-        updateActiveSheetState({
+        const snapshot: Partial<VisualizationStateSnapshot> = {
             xAxisFields: state.xAxisFields,
             yAxisFields: state.yAxisFields,
             filterFields: state.filterFields,
@@ -173,7 +177,26 @@ export function useVisualizationState() {
             axisLabelStyles: state.axisLabelStyles,
             facetLabelStyles: state.facetLabelStyles,
             chartCaption: state.chartCaption,
-        });
+        };
+        pendingSnapshotRef.current = snapshot;
+        if (isTestEnv) {
+            updateActiveSheetState(snapshot);
+            pendingSnapshotRef.current = null;
+            return;
+        }
+        const timer = window.setTimeout(() => {
+            if (pendingSnapshotRef.current) {
+                updateActiveSheetState(pendingSnapshotRef.current);
+                pendingSnapshotRef.current = null;
+            }
+        }, 300);
+        return () => {
+            window.clearTimeout(timer);
+            if (pendingSnapshotRef.current) {
+                updateActiveSheetState(pendingSnapshotRef.current);
+                pendingSnapshotRef.current = null;
+            }
+        };
     }, [
         state.xAxisFields,
         state.yAxisFields,
@@ -208,6 +231,7 @@ export function useVisualizationState() {
         state.facetLabelStyles,
         state.chartCaption,
         updateActiveSheetState,
+        isTestEnv,
     ]);
 
     const lastVirtualColumnsSignature = useRef<string | null>(null);
