@@ -89,7 +89,7 @@ above `ConnectionProvider`.
 ---
 
 ### 3. DataSourceContext
-**File:** `DataSourceContext.tsx`
+**Directory:** `DataSourceContext/`
 
 Manages data source selection (shared across all sheets):
 - Selected database and table
@@ -97,8 +97,25 @@ Manages data source selection (shared across all sheets):
 - Multi-table support: JOIN mode and UNION mode
 - Virtual table definitions
 - Tables cache for cross-database operations
+- Session-scoped filters; Hive partition loading; measure groups; field aliases
 
-**Key insight:** Data source is shared because all sheets query the same connected database. Only the visualization configuration varies per sheet.
+**Structure:**
+```
+DataSourceContext/
+├── index.ts                  # Re-exports
+├── types.ts                  # DataSourceState, DataSourceAction union
+├── reducer.ts                # Single reducer with 5 slice sections
+├── DataSourceProvider.tsx    # Provider; useReducer + useCallback setters
+├── useDataSource.ts          # Facade hook (preserves legacy API)
+└── hooks.ts                  # Focused slice hooks (prefer in new code):
+                              #   useDataSourceMetadata
+                              #   useDataSourceMeasureGroup
+                              #   useDataSourceMultiTable
+                              #   useDataSourceSessionFilters
+                              #   useDataSourceHivePartitions
+```
+
+**Key insight:** Data source is shared because all sheets query the same connected database. Only the visualization configuration varies per sheet. The reducer-backed setters are referentially stable, so the memoized context value only changes when state changes.
 
 ---
 
