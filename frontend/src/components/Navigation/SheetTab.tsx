@@ -122,8 +122,8 @@ export default function SheetTab({ sheetId, label, value }: SheetTabProps) {
       </Menu>
 
       {/* Rename Dialog */}
-      <Dialog open={renameDialog} onClose={() => setRenameDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Rename Sheet</DialogTitle>
+      <Dialog open={renameDialog} onClose={() => setRenameDialog(false)} maxWidth="sm" fullWidth aria-labelledby="sheet-rename-title">
+        <DialogTitle id="sheet-rename-title">Rename Sheet</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus

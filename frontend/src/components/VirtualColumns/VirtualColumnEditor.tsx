@@ -161,8 +161,8 @@ const VirtualColumnEditor: React.FC<VirtualColumnEditorProps> = ({
   ];
 
   return (
-    <Dialog open={open} onClose={onCancel} maxWidth="md" fullWidth>
-      <DialogTitle>
+    <Dialog open={open} onClose={onCancel} maxWidth="md" fullWidth aria-labelledby="virtual-column-editor-title">
+      <DialogTitle id="virtual-column-editor-title">
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <FunctionsIcon />
           <Typography variant="h6">
