@@ -4,7 +4,7 @@
  * Draggable field definitions and related types
  */
 
-import { ColumnCastConfig } from './query';
+import type { ColumnCastConfig } from './query';
 
 export type FieldType = 'dimension' | 'measure';
 export type Aggregation = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'count_distinct';

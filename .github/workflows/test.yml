@@ -64,6 +64,12 @@ jobs:
       working-directory: frontend
       run: npm install
 
+    - name: Check for circular dependencies
+      working-directory: frontend
+      # Runtime/seam-breaking import cycles were removed; this gate prevents regressions.
+      # Type-only cycles are ignored via .madgerc (skipTypeImports).
+      run: npm run check:cycles
+
     - name: Run frontend tests
       working-directory: frontend
       run: CI=true npm test -- --watchAll=false
