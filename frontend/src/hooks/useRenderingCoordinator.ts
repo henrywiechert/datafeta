@@ -1,4 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
+import { devLog, devWarn } from '../utils/devLog';
 import { useRef, useCallback, useEffect, useMemo } from 'react';
 
 /**
@@ -38,7 +39,7 @@ export function useRenderingCoordinator() {
       }
       
       if (process.env.NODE_ENV === 'development') {
-        console.log('[RenderingCoordinator] All plots rendered, calling completion callback');
+        devLog('[RenderingCoordinator] All plots rendered, calling completion callback');
       }
       
       // Call completion callback
@@ -67,7 +68,7 @@ export function useRenderingCoordinator() {
 
     if (process.env.NODE_ENV === 'development') {
       // Avoid logging 1000+ IDs (very slow in Chrome devtools).
-      console.log('[RenderingCoordinator] Starting batch with', plotIds.length, 'plots');
+      devLog('[RenderingCoordinator] Starting batch with', plotIds.length, 'plots');
     }
 
     // Register all plots
@@ -78,7 +79,7 @@ export function useRenderingCoordinator() {
 
     // Set timeout as fallback - force completion after timeout
     renderingTimeoutRef.current = setTimeout(() => {
-      console.warn('[RenderingCoordinator] Rendering timeout reached, forcing completion');
+      devWarn('[RenderingCoordinator] Rendering timeout reached, forcing completion');
       if (onAllRenderedRef.current) {
         const callback = onAllRenderedRef.current;
         onAllRenderedRef.current = null;
@@ -90,7 +91,7 @@ export function useRenderingCoordinator() {
     // If no plots to render, complete immediately
     if (plotIds.length === 0) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('[RenderingCoordinator] No plots to render, completing immediately');
+        devLog('[RenderingCoordinator] No plots to render, completing immediately');
       }
       const callback = onAllRenderedRef.current;
       onAllRenderedRef.current = null;
