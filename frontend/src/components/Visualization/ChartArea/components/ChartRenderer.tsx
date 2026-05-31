@@ -13,6 +13,8 @@ import { GridResultModel } from '../../../../observable-plot-generator/gridModel
 import { TableData } from '../types';
 import { TableRowsSortModel } from '../../../../types';
 import { QueryResultColumn } from '../../../../types';
+import { UserChartType } from '../../../../types';
+import { AxisLabelStyles, CategoryTickStyles, FacetLabelStyles } from '../../../../contexts/VisualizationContext/types';
 import type { TableCellFilterAction } from '../../Table/TableViewRows';
 
 interface ChartRendererProps {
@@ -68,6 +70,11 @@ interface ChartRendererProps {
     loading: boolean;
   };
   onHeatmapSizeToolbarChange?: (toolbarState: HeatmapSizeToolbarState | null) => void;
+  /** Lifted from VisualizationContext so ChartGrid can be memoized without bypassing memo via context reads. */
+  axisLabelStyles: AxisLabelStyles;
+  facetLabelStyles: FacetLabelStyles;
+  categoryTickStyles: CategoryTickStyles;
+  globalChartType: UserChartType | null;
 }
 
 const ChartRenderer: React.FC<ChartRendererProps> = ({
@@ -91,6 +98,10 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
   onTableCellFilterAction,
   tableRefactorPagerData,
   onHeatmapSizeToolbarChange,
+  axisLabelStyles,
+  facetLabelStyles,
+  categoryTickStyles,
+  globalChartType,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   // NOTE: We intentionally do NOT dispatch global window resize events here.
@@ -152,6 +163,10 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
         brushDisabled={brushDisabled}
         onBrushEnd={onBrushEnd}
         onHeatmapSizeToolbarChange={onHeatmapSizeToolbarChange}
+        axisLabelStyles={axisLabelStyles}
+        facetLabelStyles={facetLabelStyles}
+        categoryTickStyles={categoryTickStyles}
+        globalChartType={globalChartType}
       />
     );
     if (!tableRefactorPagerData) return chartGridNode;

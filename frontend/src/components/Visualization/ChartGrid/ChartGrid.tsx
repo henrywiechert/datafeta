@@ -15,7 +15,8 @@ import { useScrollSync } from './hooks/useScrollSync';
 import { useChartGridLayout } from './hooks/useChartGridLayout';
 import { MultiPlotGrid } from './MultiPlotGrid';
 import { PlotBrushEvent } from './PlotArea';
-import { useVisualizationContext } from '../../../contexts/VisualizationContext';
+import { AxisLabelStyles, CategoryTickStyles, FacetLabelStyles } from '../../../contexts/VisualizationContext/types';
+import { UserChartType } from '../../../types';
 
 /** Gantt zoom range representing the visible data range on the timeline axis */
 export interface GanttZoomRange {
@@ -40,6 +41,14 @@ interface ChartGridProps {
   brushDisabled?: boolean;
   onBrushEnd?: (event: PlotBrushEvent) => void;
   onHeatmapSizeToolbarChange?: (toolbarState: HeatmapSizeToolbarState | null) => void;
+  /**
+   * Label/style state lifted from VisualizationContext to props. Reading via context
+   * inside this memoized component would bypass the memo on every reducer tick.
+   */
+  axisLabelStyles: AxisLabelStyles;
+  facetLabelStyles: FacetLabelStyles;
+  categoryTickStyles: CategoryTickStyles;
+  globalChartType: UserChartType | null;
 }
 
 /**
@@ -73,6 +82,10 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   brushDisabled,
   onBrushEnd,
   onHeatmapSizeToolbarChange,
+  axisLabelStyles,
+  facetLabelStyles,
+  categoryTickStyles,
+  globalChartType,
 }) => {
   // Refs for DOM elements
   const containerRef = useRef<HTMLDivElement>(null);
@@ -81,9 +94,6 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   const plotsTranslateRef = useRef<HTMLDivElement>(null);
   const plotGridRef = useRef<HTMLDivElement>(null);
 
-  // Get label styles from context
-  const { state } = useVisualizationContext();
-  const { axisLabelStyles, facetLabelStyles, categoryTickStyles, globalChartType } = state;
   const { userCellWidth, userCellHeight } = cellSizeOverrides;
 
   // Use deferred value to prevent intermediate renders during faceting transitions.
@@ -266,6 +276,10 @@ export default React.memo(ChartGrid, (prevProps, nextProps) => {
     prevProps.onPlotRenderComplete === nextProps.onPlotRenderComplete &&
     prevProps.onGanttZoomRangeChange === nextProps.onGanttZoomRangeChange &&
     prevProps.onBrushEnd === nextProps.onBrushEnd &&
-    prevProps.onHeatmapSizeToolbarChange === nextProps.onHeatmapSizeToolbarChange
+    prevProps.onHeatmapSizeToolbarChange === nextProps.onHeatmapSizeToolbarChange &&
+    prevProps.axisLabelStyles === nextProps.axisLabelStyles &&
+    prevProps.facetLabelStyles === nextProps.facetLabelStyles &&
+    prevProps.categoryTickStyles === nextProps.categoryTickStyles &&
+    prevProps.globalChartType === nextProps.globalChartType
   );
 });

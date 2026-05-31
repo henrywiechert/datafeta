@@ -6,7 +6,6 @@ import { GridResultModel, getPlotGridCellAtCol, hasFacetHeaders } from '../../..
 import { GRID_DIVIDER_COLOR, X_LABEL_ROW_PX } from '../../../config/chartLayoutConfig';
 import AxisLabel from './AxisLabel';
 import AxisLabelStylePopover from './AxisLabelStylePopover';
-import { useVisualizationContext } from '../../../contexts/VisualizationContext';
 import { XAxisLabelStyle } from '../../../contexts/VisualizationContext/types';
 import { TEXT_PX_PER_CHAR } from './utils/layoutUtils';
 
@@ -16,6 +15,9 @@ interface XAxesProps {
   plotTemplateColumns: string;
   totalContentWidthPx: number;
   dynamicXAxisPx: number;
+  /** Lifted from VisualizationContext so this memoized component isn't invalidated by unrelated reducer changes. */
+  xAxisLabelStyle: XAxisLabelStyle;
+  onXAxisLabelStyleChange: (updates: Partial<XAxisLabelStyle>) => void;
 }
 
 function buildXAxisOptions(
@@ -71,10 +73,9 @@ const XAxes: React.FC<XAxesProps> = ({
   plotTemplateColumns,
   totalContentWidthPx,
   dynamicXAxisPx,
+  xAxisLabelStyle,
+  onXAxisLabelStyleChange,
 }) => {
-  const { state, dispatch } = useVisualizationContext();
-  const { axisLabelStyles } = state;
-
   const [xLabelPopoverAnchor, setXLabelPopoverAnchor] = useState<HTMLElement | null>(null);
 
   const handleXLabelClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
@@ -84,10 +85,6 @@ const XAxes: React.FC<XAxesProps> = ({
   const handleXLabelPopoverClose = useCallback(() => {
     setXLabelPopoverAnchor(null);
   }, []);
-
-  const handleXLabelStyleChange = useCallback((updates: Partial<XAxisLabelStyle>) => {
-    dispatch({ type: 'SET_X_AXIS_LABEL_STYLE', payload: updates });
-  }, [dispatch]);
 
   const facetPresent = hasFacetHeaders(grid);
   const colSizes = grid.layout?.columnSizes;
@@ -147,7 +144,7 @@ const XAxes: React.FC<XAxesProps> = ({
                 <AxisLabel
                   label={xLabel || ''}
                   axis="x"
-                  style={axisLabelStyles.xAxis}
+                  style={xAxisLabelStyle}
                   onClick={handleXLabelClick}
                 />
               </div>
@@ -160,8 +157,8 @@ const XAxes: React.FC<XAxesProps> = ({
         anchorEl={xLabelPopoverAnchor}
         onClose={handleXLabelPopoverClose}
         axis="x"
-        style={axisLabelStyles.xAxis}
-        onChange={handleXLabelStyleChange}
+        style={xAxisLabelStyle}
+        onChange={onXAxisLabelStyleChange}
       />
     </>
   );
@@ -176,6 +173,8 @@ export default React.memo(XAxes, (prevProps, nextProps) => {
     prevProps.dynamicXAxisPx === nextProps.dynamicXAxisPx &&
     prevProps.grid.cells === nextProps.grid.cells &&
     prevProps.grid.headers === nextProps.grid.headers &&
-    prevProps.grid.layout === nextProps.grid.layout
+    prevProps.grid.layout === nextProps.grid.layout &&
+    prevProps.xAxisLabelStyle === nextProps.xAxisLabelStyle &&
+    prevProps.onXAxisLabelStyleChange === nextProps.onXAxisLabelStyleChange
   );
 });
