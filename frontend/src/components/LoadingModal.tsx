@@ -98,6 +98,7 @@ export const LoadingModal: React.FC<LoadingModalProps> = ({
       disableEscapeKeyDown
       maxWidth="sm"
       fullWidth
+      aria-labelledby="loading-modal-title"
       PaperProps={{
         sx: {
           borderRadius: 2,
@@ -105,8 +106,11 @@ export const LoadingModal: React.FC<LoadingModalProps> = ({
         },
       }}
     >
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
-        <Typography variant="h6" component="span">
+      <DialogTitle
+        id="loading-modal-title"
+        sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}
+      >
+        <Typography variant="h6" component="span" role="status" aria-live="polite">
           {getOperationMessage(effectivePrimary)}
         </Typography>
         {canCancel && (
