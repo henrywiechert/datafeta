@@ -196,31 +196,8 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
 };
 
 // Memoize the entire component to prevent re-renders when props haven't changed.
-// All callback props are useCallback-stable in ChartArea so referential equality
-// is sufficient for the comparator.
-export default React.memo(ChartRenderer, (prevProps, nextProps) => {
-  return (
-    prevProps.useTableView === nextProps.useTableView &&
-    prevProps.tableData === nextProps.tableData &&
-    prevProps.grid === nextProps.grid &&
-    prevProps.cellSizeOverrides === nextProps.cellSizeOverrides &&
-    prevProps.onAutoCategoryTickMeasure === nextProps.onAutoCategoryTickMeasure &&
-    prevProps.queryResult === nextProps.queryResult &&
-    prevProps.xAxisFields === nextProps.xAxisFields &&
-    prevProps.yAxisFields === nextProps.yAxisFields &&
-    prevProps.isDebugOpen === nextProps.isDebugOpen &&
-    prevProps.debugHeight === nextProps.debugHeight &&
-    prevProps.onPlotRenderComplete === nextProps.onPlotRenderComplete &&
-    prevProps.isGanttChart === nextProps.isGanttChart &&
-    prevProps.ganttZoomRange === nextProps.ganttZoomRange &&
-    prevProps.onGanttZoomRangeChange === nextProps.onGanttZoomRangeChange &&
-    prevProps.ganttFullDataRange === nextProps.ganttFullDataRange &&
-    prevProps.brushDisabled === nextProps.brushDisabled &&
-    prevProps.onBrushEnd === nextProps.onBrushEnd &&
-    prevProps.showTableRows === nextProps.showTableRows &&
-    prevProps.tableRowsData === nextProps.tableRowsData &&
-    prevProps.onTableCellFilterAction === nextProps.onTableCellFilterAction &&
-    prevProps.tableRefactorPagerData === nextProps.tableRefactorPagerData &&
-    prevProps.onHeatmapSizeToolbarChange === nextProps.onHeatmapSizeToolbarChange
-  );
-}); 
+// All callback props are useCallback-stable in ChartArea so the default shallow
+// comparator is correct here. (A previous hand-written comparator enumerated
+// every prop and was a drift-risk: any new prop added without updating the
+// comparator would silently skip updates.)
+export default React.memo(ChartRenderer); 

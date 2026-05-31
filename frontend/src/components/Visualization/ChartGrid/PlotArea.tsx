@@ -439,32 +439,8 @@ const EmptyCell: React.FC<EmptyCellProps> = ({ cell }) => {
   return <div className={styles.emptyCell} style={buildBaseCellStyle(cell)} />;
 };
 
-// Memoize to prevent re-renders when props haven't changed
-// CONSERVATIVE: Be more lenient to avoid missing updates
-export default React.memo(PlotArea, (prevProps, nextProps) => {
-  if (
-    prevProps.plotTemplateColumns !== nextProps.plotTemplateColumns ||
-    prevProps.plotRowsSpec !== nextProps.plotRowsSpec ||
-    prevProps.totalContentWidthPx !== nextProps.totalContentWidthPx
-  ) {
-    return false;
-  }
-
-  if (prevProps.grid.cells !== nextProps.grid.cells) {
-    return false;
-  }
-
-  if (prevProps.grid.headers !== nextProps.grid.headers) {
-    return false;
-  }
-
-  if (prevProps.grid.layout !== nextProps.grid.layout) {
-    return false;
-  }
-
-  if (prevProps.autoExpandPinnedComparison !== nextProps.autoExpandPinnedComparison) {
-    return false;
-  }
-
-  return true;
-});
+// Memoize to prevent re-renders when props haven't changed. Use the default
+// shallow comparator so newly-added props are checked automatically. A previous
+// partial comparator ignored callback props and risked silently skipping
+// updates when those callbacks carried fresh state.
+export default React.memo(PlotArea);
