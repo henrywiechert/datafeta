@@ -164,6 +164,88 @@ class TestCardinalityService:
         assert "'orders'" in sql
         assert "_source_database" not in sql
         assert "_source_table" not in sql
+
+    def test_get_distinct_count_virtual_column_join_qualified_refs(self):
+        """Virtual columns in JOIN context should resolve table.column refs to bare columns."""
+        from backend.models.data_source import VirtualTableDefinition, TableJoinDefinition
+
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
+        self.mock_connector.fetch_data.return_value = (["count"], [[42]])
+
+        virtual_table = VirtualTableDefinition(
+            primary_table="drivers",
+            mode="join",
+            joined_tables=[
+                TableJoinDefinition(
+                    table_name="races",
+                    join_type="LEFT",
+                    on_conditions=["results.raceId = races.raceId"],
+                )
+            ],
+            union_tables=[],
+        )
+
+        count = service.get_distinct_count(
+            field="DriverName",
+            table="drivers",
+            database="f1_db",
+            virtual_table=virtual_table,
+            virtual_columns=[
+                VirtualColumnDefinition(
+                    name="DriverName",
+                    expression="CONCAT(drivers.givenName, ' ', drivers.familyName)",
+                    output_type="TEXT",
+                )
+            ],
+        )
+
+        assert count == 42
+        sql = self.mock_connector.fetch_data.call_args[0][0]
+        assert "JOIN" not in sql
+        assert "`f1_db`.`drivers`" in sql
+        assert "`givenName`" in sql
+        assert "`familyName`" in sql
+        assert "drivers.givenName" not in sql
+
+    def test_get_distinct_count_virtual_column_join_non_primary_source_table(self):
+        """Virtual column depending on a joined table should query that table directly."""
+        from backend.models.data_source import VirtualTableDefinition, TableJoinDefinition
+
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
+        self.mock_connector.fetch_data.return_value = (["count"], [[24]])
+
+        virtual_table = VirtualTableDefinition(
+            primary_table="drivers",
+            mode="join",
+            joined_tables=[
+                TableJoinDefinition(
+                    table_name="races",
+                    join_type="LEFT",
+                    on_conditions=["qualifying.race_id = races.race_id"],
+                )
+            ],
+            union_tables=[],
+        )
+
+        count = service.get_distinct_count(
+            field="RaceNumber",
+            table="drivers",
+            database="f1_db",
+            virtual_table=virtual_table,
+            virtual_columns=[
+                VirtualColumnDefinition(
+                    name="RaceNumber",
+                    expression='SPLIT(races.race_id, "_", -1)',
+                    output_type="TEXT",
+                )
+            ],
+        )
+
+        assert count == 24
+        sql = self.mock_connector.fetch_data.call_args[0][0]
+        assert "JOIN" not in sql
+        assert "`f1_db`.`races`" in sql
+        assert "split_part" in sql.lower() or "race_id" in sql
     
     def test_get_distinct_count_with_regex_pattern(self):
         """Should apply regex filter in query."""

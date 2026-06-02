@@ -308,6 +308,11 @@ class CardinalityService:
             db_table = Table(table)
             count_query = Query.from_(db_table)
             table_map = {table: db_table}
+
+        # JOIN queries: expand table_map so virtual column expressions can resolve
+        # table-qualified refs (e.g. drivers.givenName -> drivers.givenName).
+        if virtual_columns and has_joined_tables:
+            table_map = self._expand_table_map(table_map, known_tables, database, self._dialect)
         
         # Initialize virtual column builder if virtual columns are defined
         vc_builder = None
@@ -340,6 +345,26 @@ class CardinalityService:
                 except Exception as e:
                     logger.error(f"Failed to register virtual column '{vc.name}': {e}")
                     raise QueryExecutionError(f"Invalid virtual column '{vc.name}': {e}")
+
+        # Virtual columns may reference a non-primary joined table — query that table directly.
+        if vc_builder and vc_builder.is_virtual_column(field):
+            source_fields = vc_builder.get_source_fields(field)
+            inferred_table = self._infer_single_source_table(
+                source_fields, known_tables, table
+            )
+            if inferred_table and inferred_table != resolved_table_name:
+                resolved_table_name = inferred_table
+                resolved_from_join = True
+                if self._dialect.supports_schema_prefix and database:
+                    db_table = Table(inferred_table, schema=database)
+                else:
+                    db_table = Table(inferred_table)
+                count_query = Query.from_(db_table)
+                logger.info(
+                    "Cardinality query: Virtual column '%s' resolved to source table '%s'",
+                    field,
+                    inferred_table,
+                )
         
         # Determine the field expression to count
         # Check if this is a virtual column first
@@ -405,6 +430,43 @@ class CardinalityService:
         logger.info(f"Executing distinct count query: {sql}")
         
         return sql
+    
+    @staticmethod
+    def _expand_table_map(
+        table_map: dict,
+        known_tables: set,
+        database: Optional[str],
+        dialect,
+    ) -> dict:
+        """Include all joined tables in table_map for virtual column name resolution."""
+        expanded = dict(table_map)
+        for tname in known_tables:
+            if tname in expanded:
+                continue
+            if dialect.supports_schema_prefix and database:
+                expanded[tname] = Table(tname, schema=database)
+            else:
+                expanded[tname] = Table(tname)
+        return expanded
+
+    @staticmethod
+    def _infer_single_source_table(
+        source_fields: List[str],
+        known_tables: set,
+        default_table: str,
+    ) -> Optional[str]:
+        """When all source fields belong to one table, return that table name."""
+        tables: set = set()
+        for field_name in source_fields:
+            if '.' in field_name:
+                prefix = field_name.split('.', 1)[0]
+                if prefix in known_tables:
+                    tables.add(prefix)
+                    continue
+            tables.add(default_table)
+        if len(tables) == 1:
+            return next(iter(tables))
+        return None
     
     def _apply_regex_filter(
         self,
