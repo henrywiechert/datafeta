@@ -288,6 +288,28 @@ class TestVirtualColumnExpressionBuilder:
         term = builder.register_virtual_column(vc)
         sql = term.get_sql(quote_char='"')
         assert 'split_part' in sql
+        assert "'_'" in sql
+
+    def test_split_function_join_qualified_field(self):
+        """SPLIT with table.column and quoted delimiter in JOIN queries."""
+        drivers = Table('drivers')
+        races = Table('races')
+        builder = VirtualColumnExpressionBuilder(
+            {'drivers': drivers, 'races': races},
+            drivers,
+            db_type='duckdb',
+        )
+        vc = VirtualColumnDefinition(
+            name='RaceNumber',
+            expression='SPLIT(races.race_id, "_", -1)',
+        )
+
+        term = builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='"')
+        assert 'split_part' in sql
+        assert '"race_id"' in sql
+        assert "'_'" in sql
+        assert '"drivers"."_"' not in sql
 
     def test_split_function_alias_rendering(self):
         """Custom split term must honor aliases assigned downstream."""

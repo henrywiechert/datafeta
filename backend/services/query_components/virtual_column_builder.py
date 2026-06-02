@@ -295,7 +295,10 @@ class VirtualColumnExpressionBuilder:
         for index, (quoted_literal, column_name) in enumerate(quoted_column_refs):
             safe_name = f"_qcol_{index}"
             eval_expression = eval_expression.replace(quoted_literal, safe_name)
-            namespace[safe_name] = self._get_field_reference(column_name)
+            if self._is_known_column_name(column_name):
+                namespace[safe_name] = self._get_field_reference(column_name)
+            else:
+                namespace[safe_name] = ValueWrapper(column_name)
 
         for col_ref in column_refs:
             if '.' in col_ref:
@@ -492,6 +495,42 @@ class VirtualColumnExpressionBuilder:
             if column_name is not None:
                 refs.append((quoted_literal, column_name))
         return refs
+
+    def _is_known_column_name(self, name: str) -> bool:
+        """Decide whether a double/backtick-quoted token is a column identifier.
+
+        Quoted tokens are required for column names containing spaces or special
+        characters. Short punctuation tokens (e.g. ``"_"``, ``":"``) are treated
+        as string literals — commonly used as SPLIT delimiters in virtual columns.
+        """
+        if not name:
+            return False
+
+        if ' ' in name:
+            return True
+
+        if '.' in name:
+            table_name, _ = name.split('.', 1)
+            if table_name in self.table_map:
+                return True
+
+        if name in self.column_types:
+            return True
+
+        for col_name in self.column_types:
+            if col_name.endswith(f'.{name}'):
+                return True
+
+        # Without schema metadata, treat only non-identifier tokens as literals.
+        if not self.column_types:
+            if len(name) == 1:
+                return False
+            if name in {'-', ':', '/', '|', '.', ',', ';'}:
+                return False
+            if re.fullmatch(r'[a-zA-Z_][a-zA-Z0-9_]*', name):
+                return False
+
+        return False
     
     def _build_safe_namespace(self, column_refs: List[str]) -> Dict[str, Any]:
         """
