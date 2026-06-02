@@ -176,6 +176,11 @@ class QueryDescription(BaseModel):
     # When True, indicates this query is fetching distinct values for a filter dropdown
     # In UNION mode, this triggers special handling to deduplicate across tables
     fetch_filter_values: Optional[bool] = None
+
+    # When fetching filter values from a JOINed source table directly, the SELECT may
+    # use an unqualified column name while the frontend expects the original qualified
+    # field name (e.g. "races.status") in the result rows.
+    filter_value_result_alias: Optional[str] = None
     
     # NEW: Fields needed for point/segment labels in visualization.
     # Frontend treats order as irrelevant; backend simply ensures these columns are selected.

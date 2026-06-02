@@ -683,6 +683,7 @@ class QueryService:
                             result_budget=query_desc.result_budget,
                             force_raw_rows=query_desc.force_raw_rows,
                             fetch_filter_values=query_desc.fetch_filter_values,
+                            filter_value_result_alias=field_name,
                             distinct_value_regex=query_desc.distinct_value_regex,
                             use_random_sample=query_desc.use_random_sample,
                         )
