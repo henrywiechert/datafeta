@@ -379,6 +379,29 @@ class TestVirtualColumnExpressionBuilder:
         
         term = builder.register_virtual_column(vc)
         assert isinstance(term, Term)
+
+    def test_qualified_primary_table_column_in_join(self):
+        """Primary-table table.column refs must split in multi-table JOIN queries."""
+        drivers = Table('drivers')
+        results = Table('results')
+        builder = VirtualColumnExpressionBuilder(
+            {'drivers': drivers, 'results': results},
+            drivers,
+            db_type='duckdb',
+        )
+
+        vc = VirtualColumnDefinition(
+            name='DriverName',
+            expression="CONCAT(drivers.givenName, ' ', drivers.familyName)",
+            output_type='string',
+        )
+
+        term = builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='"')
+        assert '"givenName"' in sql
+        assert '"familyName"' in sql
+        assert 'drivers.givenName' not in sql
+        assert 'drivers.familyName' not in sql
     
     # ========================================================================
     # Security Validation
