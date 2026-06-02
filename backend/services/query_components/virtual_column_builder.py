@@ -467,9 +467,10 @@ class VirtualColumnExpressionBuilder:
                 if match not in columns:  # Avoid duplicates
                     columns.append(match)
 
-        # Add quoted identifiers (double quotes / backticks) as column references.
+        # Add quoted identifiers (double quotes / backticks) only when they refer
+        # to columns — short tokens like "_" are SPLIT string literals.
         for _, column_name in self._extract_quoted_column_references(expression):
-            if column_name not in columns:
+            if column_name not in columns and self._is_known_column_name(column_name):
                 columns.append(column_name)
         
         return columns
