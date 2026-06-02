@@ -278,8 +278,26 @@ export const metadataApi = {
     const columnName = dateTimePart && dateTimeMode 
       ? `${field}_${dateTimePart}_${dateTimeMode}`
       : field;
+
+    const resolveRowValue = (row: Record<string, unknown>): unknown => {
+      if (columnName in row) {
+        return row[columnName];
+      }
+      // JOIN filter-value queries may return an unqualified source column name
+      if (field.includes('.')) {
+        const unqualified = field.split('.').slice(1).join('.');
+        if (unqualified in row) {
+          return row[unqualified];
+        }
+      }
+      const keys = Object.keys(row);
+      if (keys.length === 1) {
+        return row[keys[0]];
+      }
+      return row[columnName];
+    };
     
-    return result.rows.map(row => row[columnName]);
+    return result.rows.map(row => resolveRowValue(row as Record<string, unknown>));
   },
 
   /**

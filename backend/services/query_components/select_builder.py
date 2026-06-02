@@ -150,6 +150,14 @@ class SelectClauseBuilder:
                     logger.debug("Aliased %s %s back to its original name", 
                                 "virtual column" if is_virtual_column else "casted dimension", 
                                 dim.field)
+                elif query_desc.fetch_filter_values and query_desc.filter_value_result_alias:
+                    field_term = field_term.as_(query_desc.filter_value_result_alias)
+                    all_aliases.add(query_desc.filter_value_result_alias)
+                    logger.debug(
+                        "Aliased filter value column %s to preserve requested field name %s",
+                        dim.field,
+                        query_desc.filter_value_result_alias,
+                    )
                 elif '.' in dim.field and len(table_map) > 1:
                     # Multi-table query with table-qualified field name needs aliasing
                     # to preserve the full name (e.g., "constructors.name")

@@ -442,3 +442,37 @@ def test_in_filter_with_null_includes_is_null_branch(query_service: QueryService
 
     assert '"category" IN (\'Books\')' in sql
     assert '"category" IS NULL' in sql
+
+
+def test_join_filter_value_query_aliases_qualified_field_name(query_service: QueryService) -> None:
+    """JOIN filter-value queries should return rows keyed by the original qualified field."""
+    virtual_table = VirtualTableDefinition(
+        primary_table="results",
+        mode="join",
+        joined_tables=[
+            TableJoinDefinition(
+                table_name="races",
+                join_type="LEFT",
+                on_conditions=["results.raceId = races.raceId"],
+            )
+        ],
+        union_tables=[],
+    )
+    description = _make_base_description(
+        target_table="results",
+        dimensions=[Dimension(field="races.status", flavour="discrete")],
+        fetch_filter_values=True,
+        virtual_table=virtual_table,
+    )
+
+    sql, _ = query_service.translate_to_sql(
+        query_desc=description,
+        table_name="results",
+        db_type="duckdb",
+        with_optimization=False,
+    )
+
+    assert "JOIN" not in sql
+    assert '"races"' in sql
+    assert '"status"' in sql
+    assert '"races.status"' in sql
