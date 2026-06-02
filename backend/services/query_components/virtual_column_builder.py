@@ -563,17 +563,20 @@ class VirtualColumnExpressionBuilder:
             
             # Get the default table name for comparison
             default_table_name = getattr(self.default_table, '_table_name', None)
+            is_multi_table = len(self.table_map) > 1
             
-            # Only split if the prefix is a known table name AND it's not the default table
-            # If prefix matches default table, the dot is likely part of the column name
-            if table_name in self.table_map and table_name != default_table_name:
-                # Qualified name: table.column (referencing a different table)
+            # Split when prefix is a known table. In multi-table JOIN queries, always
+            # treat table.column as qualified even for the primary/default table.
+            # In single-table queries, a prefix matching the only table means the dot
+            # is part of the literal column name (e.g. 'tableName.colName').
+            if table_name in self.table_map and (is_multi_table or table_name != default_table_name):
+                # Qualified name: table.column
                 logger.debug(f"Field '{field_name}' recognized as qualified: table '{table_name}', column '{column_name}'")
                 table = self.table_map[table_name]
                 field_term = table[column_name]
                 bare_name = column_name
             else:
-                # Either not a table prefix, or prefix matches default table
+                # Either not a table prefix, or prefix matches default table in single-table query
                 # Treat entire name as column name (dot is part of column name)
                 logger.debug(f"Field '{field_name}' treated as full column name (prefix '{table_name}' is default table or unknown)")
                 field_term = self.default_table[field_name]
