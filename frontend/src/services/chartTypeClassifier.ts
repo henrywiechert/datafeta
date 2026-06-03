@@ -245,8 +245,8 @@ export function computePointBudget(
       maxPoints,
       minPerStratum,
       stratifyField,
-      strategy: 'preserve_extremes',
-      preserveFields,
+      strategy: preserveFields.length > 0 ? 'preserve_extremes' : 'random',
+      preserveFields: preserveFields.length > 0 ? preserveFields : undefined,
     };
   }
 

@@ -9,7 +9,60 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from backend.dialects import SqlDialect
-    from backend.models.query import QueryDescription
+    from backend.models.query import Dimension, QueryDescription
+
+
+def _dimension_output_name(dim: "Dimension") -> str:
+    if dim.date_part and dim.date_mode:
+        return f"{dim.field}_{dim.date_part}_{dim.date_mode}"
+    return dim.field
+
+
+def _select_region(base_sql: str) -> str:
+    from_match = re.search(r"\bFROM\b", base_sql, re.IGNORECASE)
+    return base_sql[: from_match.start()] if from_match else base_sql
+
+
+def _resolve_preserve_quote_fields(
+    preserve_fields: list[str] | None,
+    query_desc: "QueryDescription",
+    select_region: str,
+    quote_char: str,
+) -> list[str]:
+    """
+    Map preserve_fields / dimensions to quoted column names present in SELECT.
+
+    Datetime dimensions project aliases like dt_year_distinct, not the raw dt column.
+    """
+    dims = query_desc.dimensions or []
+    resolved: list[str] = []
+    seen: set[str] = set()
+
+    def add_if_present(output_name: str) -> None:
+        qf = f"{quote_char}{output_name}{quote_char}"
+        if qf in select_region and output_name not in seen:
+            seen.add(output_name)
+            resolved.append(qf)
+
+    if preserve_fields:
+        for field in preserve_fields:
+            matched = False
+            for dim in dims:
+                out = _dimension_output_name(dim)
+                if field == dim.field or field == out:
+                    add_if_present(out)
+                    matched = True
+            if not matched:
+                add_if_present(field)
+    else:
+        for dim in dims:
+            if dim.flavour != "continuous":
+                continue
+            if dim.date_mode == "distinct":
+                continue
+            add_if_present(_dimension_output_name(dim))
+
+    return resolved
 
 
 def apply_result_budget(
@@ -93,9 +146,7 @@ def _apply_stratified_sampling(
     quote_char = dialect.quote_char
     qf = f"{quote_char}{stratify_field}{quote_char}"
     
-    # Defensive: only stratify if the stratify field is actually projected by the base query.
-    from_match = re.search(r"\bFROM\b", base_sql, re.IGNORECASE)
-    select_region = base_sql[: from_match.start()] if from_match else base_sql
+    select_region = _select_region(base_sql)
     
     if qf not in select_region:
         logger.warning(
@@ -145,32 +196,32 @@ def _apply_preserve_extremes(
     """
     budget = query_desc.result_budget
     preserve_fields = getattr(budget, "preserve_fields", None)
-    
-    if not preserve_fields:
-        preserve_fields = [
-            d.field for d in query_desc.dimensions
-            if d.flavour == 'continuous'
-        ]
-
-    if not preserve_fields:
-        logger.info("preserve_extremes: no continuous fields found, falling back to random")
-        return None
 
     quote_char = dialect.quote_char
+    select_region = _select_region(base_sql)
+    quoted_columns = _resolve_preserve_quote_fields(
+        preserve_fields, query_desc, select_region, quote_char
+    )
+
+    if not quoted_columns:
+        logger.info(
+            "preserve_extremes: no preserve columns found in SELECT; falling back to random"
+        )
+        return None
+
     rand_func = f"{dialect.random_func_name()}()"
 
     extreme_ctes = []
     extreme_names = []
-    
-    for idx, field in enumerate(preserve_fields):
-        qf = f"{quote_char}{field}{quote_char}"
+
+    for idx, qf in enumerate(quoted_columns):
         min_name = f"min_{idx}"
         max_name = f"max_{idx}"
         extreme_names.extend([min_name, max_name])
         extreme_ctes.append(f"{min_name} AS (SELECT * FROM base ORDER BY {qf} ASC LIMIT 1)")
         extreme_ctes.append(f"{max_name} AS (SELECT * FROM base ORDER BY {qf} DESC LIMIT 1)")
 
-    reserved_for_extremes = len(preserve_fields) * 2
+    reserved_for_extremes = len(quoted_columns) * 2
     sample_limit = max(1, max_rows - reserved_for_extremes)
 
     final_selects = [f"SELECT * FROM {name}" for name in extreme_names]
