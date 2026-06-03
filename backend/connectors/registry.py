@@ -43,7 +43,19 @@ class ClickHouseConfig(BaseModel):
         return self
 
 
-class KaggleConfig(BaseModel):
+class CsvParsingConfig(BaseModel):
+    """Shared DuckDB read_csv_auto options for CSV and Kaggle connectors."""
+    csv_delimiter: Optional[str] = ","
+    csv_has_header: Optional[bool] = True
+    csv_decimal_separator: Optional[str] = "."
+    csv_thousands_separator: Optional[str] = ""
+    csv_date_format: Optional[str] = "%Y-%m-%d"
+    csv_timestamp_format: Optional[str] = "%Y-%m-%d %H:%M:%S"
+    csv_sample_size: Optional[int] = Field(default=1000, ge=1)
+    csv_sample_full_dataset: Optional[bool] = False
+
+
+class KaggleConfig(CsvParsingConfig):
     kaggle_username: str = Field(..., min_length=1)
     kaggle_api_key: str = Field(..., min_length=1)
     kaggle_dataset: str = Field(..., min_length=1)
@@ -54,16 +66,9 @@ class HiveParquetConfig(BaseModel):
     hive_file_structure: List[str] = Field(..., min_length=1)
 
 
-class CsvConfig(BaseModel):
+class CsvConfig(CsvParsingConfig):
     # CSV connections require multipart upload (files); JSON connect is not supported.
-    csv_delimiter: Optional[str] = ","
-    csv_has_header: Optional[bool] = True
-    csv_decimal_separator: Optional[str] = "."
-    csv_thousands_separator: Optional[str] = ""
-    csv_date_format: Optional[str] = "%Y-%m-%d"
-    csv_timestamp_format: Optional[str] = "%Y-%m-%d %H:%M:%S"
-    csv_sample_size: Optional[int] = Field(default=1000, ge=1)
-    csv_sample_full_dataset: Optional[bool] = False
+    pass
 
 
 def _build_kaggle_connect_args(cfg: BaseModel, request, session_id: str) -> dict:

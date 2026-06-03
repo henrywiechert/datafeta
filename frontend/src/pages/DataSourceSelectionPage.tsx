@@ -297,6 +297,8 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
             <KaggleConnectionForm
               state={form.kaggleState}
               onUpdate={form.updateKaggleState}
+              csvState={form.csvState}
+              onCsvUpdate={form.updateCsvState}
               onSearch={form.searchKaggleDatasets}
               onSelectDataset={form.selectKaggleDataset}
               onLoadManual={form.loadKaggleFilesManual}

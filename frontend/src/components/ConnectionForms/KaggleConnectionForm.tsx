@@ -4,12 +4,15 @@
  */
 
 import React from 'react';
-import { KaggleFormState } from './types';
+import { CsvFormState, KaggleFormState } from './types';
+import { CsvParsingOptionsSection } from './CsvParsingOptionsSection';
 import styles from '../../pages/DataSourceSelectionPage.module.css';
 
 interface KaggleConnectionFormProps {
   state: KaggleFormState;
   onUpdate: (updates: Partial<KaggleFormState>) => void;
+  csvState: CsvFormState;
+  onCsvUpdate: (updates: Partial<CsvFormState>) => void;
   onSearch: () => Promise<void>;
   onSelectDataset: (ref: string) => Promise<void>;
   onLoadManual: () => Promise<void>;
@@ -19,6 +22,8 @@ interface KaggleConnectionFormProps {
 export function KaggleConnectionForm({
   state,
   onUpdate,
+  csvState,
+  onCsvUpdate,
   onSearch,
   onSelectDataset,
   onLoadManual,
@@ -237,6 +242,14 @@ export function KaggleConnectionForm({
               ))}
             </select>
           </div>
+        )}
+
+        {state.selectedDataset && (
+          <CsvParsingOptionsSection
+            state={csvState}
+            onUpdate={onCsvUpdate}
+            disabled={disabled}
+          />
         )}
       </div>
     </div>

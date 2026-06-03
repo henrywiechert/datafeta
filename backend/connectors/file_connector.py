@@ -12,7 +12,7 @@ import pyarrow as pa
 from backend.models.data_source import Database, Table, Column, ForeignKeyRelationship
 from backend.dialects import SqlDialect, DuckDbDialect
 from .base import BaseConnector
-from .file_handlers import BaseFileHandler, FILE_HANDLER_REGISTRY
+from .file_handlers import BaseFileHandler, FILE_HANDLER_REGISTRY, build_csv_handler_config
 from .fk_detection import detect_foreign_keys_by_naming_convention
 from backend.exceptions import DataSourceConnectionError, InvalidInputError, QueryExecutionError
 from backend.utils.type_conversion import process_query_result_data
@@ -77,20 +77,7 @@ class FileConnector(BaseConnector):
         """
         self._files = []
 
-        # Build CSV config from connection details (passed to CsvFileHandler instances)
-        csv_config = {
-            'delimiter': connection_details.get('csv_delimiter', ','),
-            'header': connection_details.get('csv_has_header', True),
-            'decimal_separator': connection_details.get('csv_decimal_separator', '.'),
-            'thousands_separator': connection_details.get('csv_thousands_separator', ''),
-            'date_format': connection_details.get('csv_date_format', '%Y-%m-%d'),
-            'timestamp_format': connection_details.get('csv_timestamp_format', '%Y-%m-%d %H:%M:%S'),
-            'sample_size': (
-                -1
-                if connection_details.get('csv_sample_full_dataset', False)
-                else connection_details.get('csv_sample_size', 1000)
-            ),
-        }
+        csv_config = build_csv_handler_config(connection_details)
 
         file_paths = connection_details.get("file_paths")
         if file_paths:
