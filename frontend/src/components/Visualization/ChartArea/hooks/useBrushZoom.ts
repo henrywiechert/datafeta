@@ -50,6 +50,18 @@ function filterISOToEpochMs(iso: string): number {
   return new Date(iso).getTime();
 }
 
+/** Distinct datetime axes use integer parts (year, month, …); snap brush range. */
+function normalizeDistinctBrushRange(
+  field: Field,
+  min: number,
+  max: number,
+): { min: number; max: number } {
+  if (field.dateTimeMode === 'distinct' && field.dateTimePart) {
+    return { min: Math.floor(min), max: Math.ceil(max) };
+  }
+  return { min, max };
+}
+
 interface UseBrushZoomParams {
   dispatch: Dispatch;
   filterFields: Field[];
@@ -154,8 +166,11 @@ export function useBrushZoom({
       } else {
         const v1 = invertQuantitative(brush.startPx, scale);
         const v2 = invertQuantitative(brush.endPx, scale);
-        const min = Math.min(v1, v2);
-        const max = Math.max(v1, v2);
+        const { min, max } = normalizeDistinctBrushRange(
+          field,
+          Math.min(v1, v2),
+          Math.max(v1, v2),
+        );
         if (max - min <= 0) return;
 
         const existing = findExistingZoomFilter(field.columnName);
@@ -166,6 +181,8 @@ export function useBrushZoom({
             min,
             max,
             dispatch as React.Dispatch<VisualizationAction>,
+            field.dateTimePart,
+            field.dateTimeMode,
           );
         } else {
           addFieldAsContinuousFilter(
@@ -209,6 +226,8 @@ export function useBrushZoom({
           newMin,
           newMax,
           dispatch as React.Dispatch<VisualizationAction>,
+          cfg.dateTimePart,
+          cfg.dateTimeMode,
         );
       } else if (cfg.type === 'datetime' && cfg.startDate != null && cfg.endDate != null) {
         const startMs = filterISOToEpochMs(cfg.startDate);

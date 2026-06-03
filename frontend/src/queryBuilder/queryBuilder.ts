@@ -113,19 +113,30 @@ export const convertFilterConfigsToFilters = (
       }
     } else if (config.type === 'continuous') {
       // For continuous filters, add >= and <= operators
+      const attachDateTimePart = (filter: Filter) => {
+        if (config.dateTimePart && config.dateTimeMode) {
+          filter.date_part = config.dateTimePart;
+          filter.date_mode = config.dateTimeMode;
+        }
+        return filter;
+      };
       if (config.min !== null) {
-        filters.push({
-          field: config.columnName,
-          operator: '>=',
-          value: config.min,
-        });
+        filters.push(
+          attachDateTimePart({
+            field: config.columnName,
+            operator: '>=',
+            value: config.min,
+          }),
+        );
       }
       if (config.max !== null) {
-        filters.push({
-          field: config.columnName,
-          operator: '<=',
-          value: config.max,
-        });
+        filters.push(
+          attachDateTimePart({
+            field: config.columnName,
+            operator: '<=',
+            value: config.max,
+          }),
+        );
       }
     } else if (config.type === 'measure') {
       // Measure filters → HAVING clause (scope='group').
