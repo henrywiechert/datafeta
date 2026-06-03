@@ -125,6 +125,8 @@ export function addFieldAsContinuousFilter(
     min,
     max,
     isZoomFilter: true,
+    dateTimePart: sourceField.dateTimePart,
+    dateTimeMode: sourceField.dateTimeMode,
   };
 
   dispatch({
@@ -147,6 +149,8 @@ export function updateExistingContinuousFilter(
   min: number,
   max: number,
   dispatch: Dispatch,
+  dateTimePart?: Field['dateTimePart'],
+  dateTimeMode?: Field['dateTimeMode'],
 ): void {
   const config: ContinuousFilterConfig = {
     fieldId: existingFilterFieldId,
@@ -155,6 +159,8 @@ export function updateExistingContinuousFilter(
     min,
     max,
     isZoomFilter: true,
+    dateTimePart,
+    dateTimeMode,
   };
 
   dispatch({

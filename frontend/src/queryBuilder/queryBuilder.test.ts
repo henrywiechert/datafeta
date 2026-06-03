@@ -70,6 +70,38 @@ describe('convertFilterConfigsToFilters', () => {
     ]);
   });
 
+  test('continuous zoom on datetime distinct includes date_part and date_mode', () => {
+    const filters = convertFilterConfigsToFilters({
+      dt: {
+        fieldId: 'dt',
+        columnName: 'dt',
+        type: 'continuous',
+        min: 1900,
+        max: 2010,
+        isZoomFilter: true,
+        dateTimePart: 'year',
+        dateTimeMode: 'distinct',
+      } satisfies FilterConfig,
+    });
+
+    expect(filters).toEqual([
+      {
+        field: 'dt',
+        operator: '>=',
+        value: 1900,
+        date_part: 'year',
+        date_mode: 'distinct',
+      },
+      {
+        field: 'dt',
+        operator: '<=',
+        value: 2010,
+        date_part: 'year',
+        date_mode: 'distinct',
+      },
+    ]);
+  });
+
   test('skips discrete pattern mode when the pattern is empty', () => {
     const filters = convertFilterConfigsToFilters({
       category: {
