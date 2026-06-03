@@ -11,6 +11,25 @@ from .base import BaseFileHandler
 _CSV_SNIFF_BYTES = 16384
 
 
+def build_csv_handler_config(connection_details: Dict[str, Any]) -> Dict[str, Any]:
+    """Build CsvFileHandler config dict from ConnectionDetails-style keys."""
+    return {
+        "delimiter": connection_details.get("csv_delimiter", ","),
+        "header": connection_details.get("csv_has_header", True),
+        "decimal_separator": connection_details.get("csv_decimal_separator", "."),
+        "thousands_separator": connection_details.get("csv_thousands_separator", ""),
+        "date_format": connection_details.get("csv_date_format", "%Y-%m-%d"),
+        "timestamp_format": connection_details.get(
+            "csv_timestamp_format", "%Y-%m-%d %H:%M:%S"
+        ),
+        "sample_size": (
+            -1
+            if connection_details.get("csv_sample_full_dataset", False)
+            else connection_details.get("csv_sample_size", 1000)
+        ),
+    }
+
+
 class CsvFileHandler(BaseFileHandler):
     """Handles CSV file reading via DuckDB and CSV-specific validation."""
 
@@ -36,6 +55,10 @@ class CsvFileHandler(BaseFileHandler):
         # Header
         header = self._config.get("header", True)
         params.append(f"header={str(header).lower()}")
+
+        # RFC 4180 double-quote; do not rely on auto-detect (fails when quoted
+        # fields with commas appear only after sample_size rows).
+        params.append("quote='\"'")
 
         # Decimal separator
         decimal_sep = self._config.get("decimal_separator", ".")

@@ -24,6 +24,31 @@ import {
   DEFAULT_HIVE_PARQUET_STATE,
 } from '../components/ConnectionForms/types';
 
+function csvStateFromDetails(details: ConnectionDetails): CsvFormState {
+  return {
+    ...DEFAULT_CSV_STATE,
+    delimiter: details.csv_delimiter || ',',
+    hasHeader: details.csv_has_header ?? true,
+    decimalSeparator: details.csv_decimal_separator || '.',
+    thousandsSeparator: details.csv_thousands_separator || '',
+    dateFormat: details.csv_date_format || '%Y-%m-%d',
+    timestampFormat: details.csv_timestamp_format || '%Y-%m-%d %H:%M:%S',
+    sampleSize: details.csv_sample_size || 1000,
+    sampleFullDataset: details.csv_sample_full_dataset || false,
+  };
+}
+
+function appendCsvParsingDetails(details: ConnectionDetails, csv: CsvFormState): void {
+  details.csv_delimiter = csv.delimiter;
+  details.csv_has_header = csv.hasHeader;
+  details.csv_decimal_separator = csv.decimalSeparator;
+  details.csv_thousands_separator = csv.thousandsSeparator;
+  details.csv_date_format = csv.dateFormat;
+  details.csv_timestamp_format = csv.timestampFormat;
+  details.csv_sample_size = Math.max(1, Number(csv.sampleSize) || 1000);
+  details.csv_sample_full_dataset = csv.sampleFullDataset;
+}
+
 // Initial state
 const initialState: ConnectionFormState = {
   connectionType: 'clickhouse',
@@ -80,17 +105,7 @@ function connectionFormReducer(
           database: details.database || 'default',
         };
       } else if (type === 'csv') {
-        newState.csv = {
-          ...DEFAULT_CSV_STATE,
-          delimiter: details.csv_delimiter || ',',
-          hasHeader: details.csv_has_header ?? true,
-          decimalSeparator: details.csv_decimal_separator || '.',
-          thousandsSeparator: details.csv_thousands_separator || '',
-          dateFormat: details.csv_date_format || '%Y-%m-%d',
-          timestampFormat: details.csv_timestamp_format || '%Y-%m-%d %H:%M:%S',
-          sampleSize: details.csv_sample_size || 1000,
-          sampleFullDataset: details.csv_sample_full_dataset || false,
-        };
+        newState.csv = csvStateFromDetails(details);
       } else if (type === 'kaggle') {
         newState.kaggle = {
           ...DEFAULT_KAGGLE_STATE,
@@ -98,6 +113,7 @@ function connectionFormReducer(
           apiKey: details.kaggle_api_key || '',
           selectedDataset: details.kaggle_dataset || '',
         };
+        newState.csv = csvStateFromDetails(details);
       } else if (type === 'hive_parquet') {
         newState.hiveParquet = {
           ...DEFAULT_HIVE_PARQUET_STATE,
@@ -251,14 +267,7 @@ export function useConnectionForm(): UseConnectionFormReturn {
     const details: ConnectionDetails = { type: connectionType };
 
     if (connectionType === 'csv') {
-      details.csv_delimiter = csv.delimiter;
-      details.csv_has_header = csv.hasHeader;
-      details.csv_decimal_separator = csv.decimalSeparator;
-      details.csv_thousands_separator = csv.thousandsSeparator;
-      details.csv_date_format = csv.dateFormat;
-      details.csv_timestamp_format = csv.timestampFormat;
-      details.csv_sample_size = Math.max(1, Number(csv.sampleSize) || 1000);
-      details.csv_sample_full_dataset = csv.sampleFullDataset;
+      appendCsvParsingDetails(details, csv);
     } else if (connectionType === 'hive_parquet') {
       details.hive_file_structure = hiveParquet.fileStructure;
     } else if (connectionType === 'kaggle') {
@@ -266,6 +275,7 @@ export function useConnectionForm(): UseConnectionFormReturn {
       details.kaggle_api_key = kaggle.apiKey;
       details.kaggle_dataset = kaggle.selectedDataset;
       details.kaggle_csv_files = kaggle.files.map((f) => f.name);
+      appendCsvParsingDetails(details, csv);
     } else if (connectionType === 'clickhouse') {
       if (clickHouse.connectionString) {
         details.connection_string = clickHouse.connectionString;

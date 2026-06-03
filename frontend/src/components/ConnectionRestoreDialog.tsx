@@ -368,6 +368,42 @@ export default function ConnectionRestoreDialog({
                 )}
               </Box>
 
+              {(connectionMetadata.csv_delimiter ||
+                connectionMetadata.csv_date_format ||
+                connectionMetadata.csv_timestamp_format) && (
+                <>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    CSV Parsing Options
+                  </Typography>
+                  <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                    <Typography variant="body2">
+                      <strong>Delimiter:</strong> {connectionMetadata.csv_delimiter || ','}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Has Header:</strong>{' '}
+                      {connectionMetadata.csv_has_header !== false ? 'Yes' : 'No'}
+                    </Typography>
+                    {connectionMetadata.csv_date_format && (
+                      <Typography variant="body2">
+                        <strong>Date Format:</strong> {connectionMetadata.csv_date_format}
+                      </Typography>
+                    )}
+                    {connectionMetadata.csv_timestamp_format && (
+                      <Typography variant="body2">
+                        <strong>Timestamp Format:</strong>{' '}
+                        {connectionMetadata.csv_timestamp_format}
+                      </Typography>
+                    )}
+                    <Typography variant="body2">
+                      <strong>Type Inference Sample:</strong>{' '}
+                      {connectionMetadata.csv_sample_full_dataset
+                        ? 'Full dataset'
+                        : `${connectionMetadata.csv_sample_size || 1000} rows`}
+                    </Typography>
+                  </Box>
+                </>
+              )}
+
               <TextField
                 autoFocus
                 margin="dense"

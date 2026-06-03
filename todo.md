@@ -222,3 +222,10 @@ Actual result: Horizontal line chart. Fields are flipped on the axes. Cont. meas
 ## Wrong header description
 - Wrong order and horizontal placement
 - I want FirstLevel | SecondLevel ...
+
+## DateTime wrongly decoded in some kaggle datasets
+- add formatter, maybe preview ?
+
+## Geodata
+
+## Reverse analog color scale

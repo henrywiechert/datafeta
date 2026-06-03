@@ -88,6 +88,16 @@ export function sanitizeConnectionDetails(
     // Kaggle configuration (NO API key)
     if (details.kaggle_dataset) sanitized.kaggle_dataset = details.kaggle_dataset;
     if (details.kaggle_csv_files) sanitized.kaggle_csv_files = details.kaggle_csv_files;
+    if (details.csv_delimiter) sanitized.csv_delimiter = details.csv_delimiter;
+    if (details.csv_has_header !== undefined) sanitized.csv_has_header = details.csv_has_header;
+    if (details.csv_decimal_separator) sanitized.csv_decimal_separator = details.csv_decimal_separator;
+    if (details.csv_thousands_separator) sanitized.csv_thousands_separator = details.csv_thousands_separator;
+    if (details.csv_date_format) sanitized.csv_date_format = details.csv_date_format;
+    if (details.csv_timestamp_format) sanitized.csv_timestamp_format = details.csv_timestamp_format;
+    if (details.csv_sample_size) sanitized.csv_sample_size = details.csv_sample_size;
+    if (details.csv_sample_full_dataset !== undefined) {
+      sanitized.csv_sample_full_dataset = details.csv_sample_full_dataset;
+    }
     // Explicitly DO NOT include kaggle_username or kaggle_api_key
   } else if (details.type === 'hive_parquet') {
     // Hive Parquet configuration
@@ -419,6 +429,16 @@ export function reconstructConnectionDetails(
     // Kaggle configuration
     if (metadata.kaggle_dataset) details.kaggle_dataset = metadata.kaggle_dataset;
     if (metadata.kaggle_csv_files) details.kaggle_csv_files = metadata.kaggle_csv_files;
+    if (metadata.csv_delimiter) details.csv_delimiter = metadata.csv_delimiter;
+    if (metadata.csv_has_header !== undefined) details.csv_has_header = metadata.csv_has_header;
+    if (metadata.csv_decimal_separator) details.csv_decimal_separator = metadata.csv_decimal_separator;
+    if (metadata.csv_thousands_separator) details.csv_thousands_separator = metadata.csv_thousands_separator;
+    if (metadata.csv_date_format) details.csv_date_format = metadata.csv_date_format;
+    if (metadata.csv_timestamp_format) details.csv_timestamp_format = metadata.csv_timestamp_format;
+    if (metadata.csv_sample_size) details.csv_sample_size = metadata.csv_sample_size;
+    if (metadata.csv_sample_full_dataset !== undefined) {
+      details.csv_sample_full_dataset = metadata.csv_sample_full_dataset;
+    }
     if (kaggleUsername) details.kaggle_username = kaggleUsername;
     if (kaggleApiKey) details.kaggle_api_key = kaggleApiKey;
   } else if (metadata.type === 'hive_parquet') {

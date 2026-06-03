@@ -5,7 +5,10 @@ import os
 import pytest
 import tempfile
 
-from backend.connectors.file_handlers.csv_handler import CsvFileHandler
+from backend.connectors.file_handlers.csv_handler import (
+    CsvFileHandler,
+    build_csv_handler_config,
+)
 from backend.exceptions import FileProcessingError, InvalidInputError
 
 
@@ -18,6 +21,28 @@ DEFAULT_CONFIG = {
     "timestamp_format": "%Y-%m-%d %H:%M:%S",
     "sample_size": 1000,
 }
+
+
+class TestBuildCsvHandlerConfig:
+    def test_defaults(self):
+        config = build_csv_handler_config({})
+        assert config["delimiter"] == ","
+        assert config["date_format"] == "%Y-%m-%d"
+        assert config["sample_size"] == 1000
+
+    def test_connection_details_keys(self):
+        config = build_csv_handler_config(
+            {
+                "csv_delimiter": ";",
+                "csv_has_header": False,
+                "csv_date_format": "%d.%m.%Y",
+                "csv_sample_full_dataset": True,
+            }
+        )
+        assert config["delimiter"] == ";"
+        assert config["header"] is False
+        assert config["date_format"] == "%d.%m.%Y"
+        assert config["sample_size"] == -1
 
 
 class TestCsvFileHandlerProperties:
@@ -42,6 +67,7 @@ class TestCsvBuildReaderSql:
         assert "read_csv_auto('/tmp/data.csv'" in sql
         assert "delim=','" in sql
         assert "header=true" in sql
+        assert "quote='\"'" in sql
         assert "decimal_separator='.'" in sql
         assert "dateformat='%Y-%m-%d'" in sql
         assert "timestampformat='%Y-%m-%d %H:%M:%S'" in sql

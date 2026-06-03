@@ -18,6 +18,9 @@ Open the backend data source + plugin architecture diagram:
 |---|---|---|
 | Delimiter | `,` | Use `\t` for TSV; any single character works |
 | Decimal separator | `.` | Set to `,` for European locale files |
+| Date format | `%Y-%m-%d` | Strftime pattern for date columns (e.g. `%d.%m.%Y`) |
+| Timestamp format | `%Y-%m-%d %H:%M:%S` | Strftime pattern for timestamp columns |
+| Type inference sample | `1000` rows | Rows DuckDB samples to detect column types; optional full-dataset scan |
 | Header detection | Automatic | First row is used as column names |
 | Supported extensions | `.csv`, `.tsv`, `.txt` | Any plain-text delimited format |
 
@@ -58,3 +61,5 @@ Large Parquet datasets work best when partitioned by a common dimension (e.g. da
 | API key | Must be configured on the server by an administrator |
 
 The dataset is downloaded and cached on the server the first time it is accessed. Subsequent connections are fast.
+
+**CSV parsing:** Kaggle datasets are read as CSV via DuckDB. Use **Advanced CSV Options** on the connection form (delimiter, decimal separator, date/timestamp formats, type inference sample size). These settings apply **connection-wide** to every CSV file in the dataset—the same options as [CSV Files](#csv-files) above. If a single file in a dataset uses a different date format, adjust that file outside DataSlicer or use a different dataset connection.

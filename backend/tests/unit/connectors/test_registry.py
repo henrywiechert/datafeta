@@ -23,3 +23,19 @@ class TestConnectorRegistrySpecs:
         request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(upload_root_dir=str(tmp_path))))
         connect_args = spec.build_connect_args(cfg, request, "session-1")
         assert connect_args["download_dir"] == str(tmp_path / "session-1")
+
+    def test_kaggle_spec_passes_csv_parsing_options(self, tmp_path):
+        spec = get_connector_registry().get_spec("kaggle")
+        cfg = spec.config_model(
+            kaggle_username="user",
+            kaggle_api_key="secret",
+            kaggle_dataset="owner/dataset",
+            csv_date_format="%d.%m.%Y",
+            csv_timestamp_format="%d.%m.%Y %H:%M:%S",
+        )
+        request = SimpleNamespace(
+            app=SimpleNamespace(state=SimpleNamespace(upload_root_dir=str(tmp_path)))
+        )
+        connect_args = spec.build_connect_args(cfg, request, "session-1")
+        assert connect_args["csv_date_format"] == "%d.%m.%Y"
+        assert connect_args["csv_timestamp_format"] == "%d.%m.%Y %H:%M:%S"

@@ -13,6 +13,7 @@ import pyarrow as pa
 from backend.models.data_source import Database, Table, Column, ForeignKeyRelationship
 from backend.dialects import SqlDialect, DuckDbDialect
 from .base import BaseConnector
+from .file_handlers import CsvFileHandler, build_csv_handler_config
 from .fk_detection import detect_foreign_keys_by_naming_convention
 from backend.exceptions import DataSourceConnectionError, InvalidInputError, QueryExecutionError
 from backend.utils.type_conversion import process_query_result_data
@@ -51,7 +52,8 @@ class KaggleConnector(BaseConnector):
         self.download_dir: Optional[str] = None
         self.downloaded_files: List[str] = []  # Track downloaded file paths
         self._cached_csv_files: Optional[List[str]] = None  # Cache CSV file list to avoid repeated API calls
-        
+        self._csv_handler: Optional[CsvFileHandler] = None
+
     def _sanitize_table_name(self, filename: str) -> str:
         """
         Sanitize a filename to create a valid SQL table name.
@@ -238,7 +240,9 @@ class KaggleConnector(BaseConnector):
         
         if not self.download_dir:
             raise DataSourceConnectionError("Download directory is required for Kaggle connector")
-        
+
+        self._csv_handler = CsvFileHandler(build_csv_handler_config(connection_details))
+
         # Validate dataset format
         if '/' not in self.dataset or len(self.dataset.split('/')) != 2:
             raise InvalidInputError("Kaggle dataset must be in format 'owner/dataset-name'")
@@ -286,6 +290,7 @@ class KaggleConnector(BaseConnector):
         self.dataset = None
         self.download_dir = None
         self._cached_csv_files = None  # Clear cache
+        self._csv_handler = None
         logger.info("Disconnected from Kaggle dataset")
     
     def list_databases(self) -> List[Database]:
@@ -330,7 +335,7 @@ class KaggleConnector(BaseConnector):
             
             # Create a temporary view from the CSV
             safe_view_name = f'"{table}"'
-            csv_reader_sql = f"read_csv_auto('{file_path}', ignore_errors=true)"
+            csv_reader_sql = self._csv_handler.build_reader_sql(file_path)
             create_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {csv_reader_sql};"
             logger.debug(f"Creating view with SQL: {create_view_sql}")
             con.execute(create_view_sql)
@@ -367,7 +372,7 @@ class KaggleConnector(BaseConnector):
             table_name = self._sanitize_table_name(csv_file)
             file_path = os.path.join(self.download_dir, os.path.basename(csv_file))
             safe_view_name = f'"{table_name}"'
-            csv_reader_sql = f"read_csv_auto('{file_path}', ignore_errors=true)"
+            csv_reader_sql = self._csv_handler.build_reader_sql(file_path)
             create_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {csv_reader_sql};"
             logger.debug(f"Creating view {table_name} from {csv_file}")
             con.execute(create_view_sql)

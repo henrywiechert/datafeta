@@ -3,7 +3,7 @@
 from typing import Any, Callable, Dict
 
 from .base import BaseFileHandler
-from .csv_handler import CsvFileHandler
+from .csv_handler import CsvFileHandler, build_csv_handler_config
 from .parquet_handler import ParquetFileHandler
 
 # Maps file extension -> factory callable(config: dict) -> BaseFileHandler
@@ -15,6 +15,7 @@ FILE_HANDLER_REGISTRY: Dict[str, Callable[[Dict[str, Any]], BaseFileHandler]] = 
 __all__ = [
     "BaseFileHandler",
     "CsvFileHandler",
+    "build_csv_handler_config",
     "ParquetFileHandler",
     "FILE_HANDLER_REGISTRY",
 ]
