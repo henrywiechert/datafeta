@@ -1,11 +1,11 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
+import { FilterTierManager } from './filterTierManager';
+
 jest.mock('./columnCacheManager', () => ({
   columnCacheManager: {
     getCachedColumns: jest.fn(() => []),
   },
 }));
-
-import { FilterTierManager } from './filterTierManager';
 
 describe('FilterTierManager.buildRefinementWhereClause', () => {
   test('builds LIKE SQL for discrete pattern mode', () => {

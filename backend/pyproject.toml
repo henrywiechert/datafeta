@@ -4,3 +4,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+filterwarnings = [
+    # Emitted by a third-party dependency during import; not actionable in user code.
+    "ignore:The 'u' type code is deprecated:DeprecationWarning",
+]
