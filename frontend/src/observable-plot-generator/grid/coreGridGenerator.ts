@@ -7,7 +7,7 @@ import { ChartTypeOverrides, mapUserChartTypeToCellChartType, resolveChartTypeFo
 import { getFieldColumnName } from '../helpers/fields';
 import { CartesianPlotsConfig } from '../types';
 import { FieldOverrideState } from '../../types';
-import { deriveColorScaleInfo, applyMeasureNameColorOverrides } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo, applyMeasureNameColorOverrides, resolveContextColorChannel } from '../utils/colorSchemeUtils';
 import { isMeasureValuesField, combineMeasureValuesOverrides } from '../../utils/syntheticFields';
 import { hasAnyMeasureOverrides, generateMeasureValuesMultiMarkPlot } from '../chartTypes/measureValuesMultiMark';
 import { applyOverlays } from '../overlays';
@@ -76,7 +76,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
   // Use provided color scale if available (from faceting), otherwise compute from local data
   let sharedColorScale = sharedDomains.colorScale !== undefined
     ? sharedDomains.colorScale
-    : (colorField ? deriveColorScaleInfo(data, colorField, colorScheme, colorBias, colorReversed) : null);
+    : (colorField ? deriveColorScaleInfo(data, resolveContextColorChannel({ colorField, colorScheme, colorBias, colorReversed })) : null);
   
   // Apply per-measure color overrides if color field is MeasureNames
   sharedColorScale = applyMeasureNameColorOverrides(
