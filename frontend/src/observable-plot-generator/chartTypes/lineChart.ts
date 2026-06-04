@@ -8,6 +8,7 @@ import {
   deriveColorScaleInfo,
   deriveSplitSeriesGradientColorScale,
   resolveColorForRow,
+  resolveContextColorChannel,
   ColorScaleInfo,
 } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
@@ -913,8 +914,8 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     lineColorMode === 'bySeries';
   const colorInfo = colorField
     ? useSeriesGradient
-      ? deriveSplitSeriesGradientColorScale(budgetedSorted, colorField, colorScheme, colorBias, colorReversed)
-      : deriveColorScaleInfo(budgetedSorted, colorField, colorScheme, colorBias, colorReversed)
+      ? deriveSplitSeriesGradientColorScale(budgetedSorted, resolveContextColorChannel({ colorField, colorScheme, colorBias, colorReversed }))
+      : deriveColorScaleInfo(budgetedSorted, resolveContextColorChannel({ colorField, colorScheme, colorBias, colorReversed }))
     : null;
   const comparisonColorContext = applyLineColorEncoding({
     lineConfig,

@@ -10,6 +10,15 @@ const continuousField: Field = {
   dataType: 'float',
 };
 
+const channel = (over: Partial<ColorChannel>): ColorChannel => ({
+  field: continuousField,
+  scheme: 'blues',
+  bias: 0,
+  reversed: false,
+  manual: '#000000',
+  ...over,
+});
+
 describe('deriveColorScaleInfo colorReversed', () => {
   const data = [
     { value: 0 },
@@ -17,9 +26,9 @@ describe('deriveColorScaleInfo colorReversed', () => {
     { value: 100 },
   ];
 
-  test('reverses continuous palette range when colorReversed is true', () => {
-    const normal = deriveColorScaleInfo(data, continuousField, 'blues', 0, false);
-    const reversed = deriveColorScaleInfo(data, continuousField, 'blues', 0, true);
+  test('reverses continuous palette range when reversed is true', () => {
+    const normal = deriveColorScaleInfo(data, channel({ scheme: 'blues', reversed: false }));
+    const reversed = deriveColorScaleInfo(data, channel({ scheme: 'blues', reversed: true }));
 
     expect(normal?.kind).toBe('continuous');
     expect(reversed?.kind).toBe('continuous');
@@ -35,54 +44,46 @@ describe('deriveColorScaleInfo colorReversed', () => {
       { value: 'a' },
       { value: 'b' },
     ];
+    const discreteChannel = (reversed: boolean): ColorChannel => ({
+      field: discreteField,
+      scheme: 'tableau10',
+      bias: 0,
+      reversed,
+      manual: '#000000',
+    });
 
-    const normal = deriveColorScaleInfo(dataDiscrete, discreteField, 'tableau10', 0, false);
-    const reversed = deriveColorScaleInfo(dataDiscrete, discreteField, 'tableau10', 0, true);
+    const normal = deriveColorScaleInfo(dataDiscrete, discreteChannel(false));
+    const reversed = deriveColorScaleInfo(dataDiscrete, discreteChannel(true));
 
     expect(normal?.range).toEqual(reversed?.range);
   });
 });
 
-describe('deriveColorScaleInfo ColorChannel overload', () => {
+describe('deriveColorScaleInfo ColorChannel form', () => {
   const data = [{ value: 0 }, { value: 50 }, { value: 100 }];
 
-  const channel = (over: Partial<ColorChannel>): ColorChannel => ({
-    field: continuousField,
-    scheme: 'blues',
-    bias: 0,
-    reversed: false,
-    manual: '#000000',
-    ...over,
+  test('reversed flips the continuous range; bias leaves domain/range unchanged', () => {
+    const base = deriveColorScaleInfo(data, channel({ scheme: 'viridis', bias: 0, reversed: false }));
+    const reversed = deriveColorScaleInfo(data, channel({ scheme: 'viridis', bias: 0, reversed: true }));
+    const biased = deriveColorScaleInfo(data, channel({ scheme: 'viridis', bias: 0.5, reversed: false }));
+
+    expect(base?.kind).toBe('continuous');
+    expect(reversed?.range).toEqual([...(base?.range ?? [])].reverse());
+    // Bias affects the interpolation curve, not the domain or the base range.
+    expect(biased?.domain).toEqual(base?.domain);
+    expect(biased?.range).toEqual(base?.range);
   });
 
-  test('object form equals positional form (scheme/bias/reversed matrix)', () => {
-    const cases: Array<{ scheme: string; bias: number; reversed: boolean }> = [
-      { scheme: 'blues', bias: 0, reversed: false },
-      { scheme: 'blues', bias: 0, reversed: true },
-      { scheme: 'viridis', bias: 0.5, reversed: false },
-      { scheme: 'viridis', bias: -0.5, reversed: true },
-    ];
-    for (const c of cases) {
-      const positional = deriveColorScaleInfo(data, continuousField, c.scheme, c.bias, c.reversed);
-      const object = deriveColorScaleInfo(data, channel(c));
-      // accessor/interpolate are functions; compare the serializable shape.
-      expect(object?.kind).toBe(positional?.kind);
-      expect(object?.domain).toEqual(positional?.domain);
-      expect(object?.range).toEqual(positional?.range);
-      expect(object?.rawMin).toEqual(positional?.rawMin);
-      expect(object?.rawMax).toEqual(positional?.rawMax);
-    }
-  });
-
-  test('object form returns null when channel field is null', () => {
+  test('returns null when channel field is null', () => {
     expect(deriveColorScaleInfo(data, channel({ field: null }))).toBeNull();
   });
 
-  test('split-series gradient object form equals positional form', () => {
-    const positional = deriveSplitSeriesGradientColorScale(data, continuousField, 'viridis', 0.25, true);
-    const object = deriveSplitSeriesGradientColorScale(data, channel({ scheme: 'viridis', bias: 0.25, reversed: true }));
-    expect(object?.kind).toBe(positional?.kind);
-    expect(object?.domain).toEqual(positional?.domain);
-    expect(object?.range).toEqual(positional?.range);
+  test('split-series gradient derives a seriesGradient from the channel', () => {
+    const result = deriveSplitSeriesGradientColorScale(data, channel({ scheme: 'viridis', bias: 0.25, reversed: true }));
+    const base = deriveColorScaleInfo(data, channel({ scheme: 'viridis', bias: 0.25, reversed: true }));
+
+    expect(result?.kind).toBe('seriesGradient');
+    expect(result?.domain).toEqual(base?.domain);
+    expect(result?.range).toEqual(base?.range);
   });
 });

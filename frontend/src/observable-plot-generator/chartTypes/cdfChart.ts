@@ -3,7 +3,7 @@ import * as Plot from '@observablehq/plot';
 import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
-import { ColorScaleInfo, buildPlotColorScaleOptions, deriveColorScaleInfo } from '../utils/colorSchemeUtils';
+import { ColorScaleInfo, buildPlotColorScaleOptions, deriveColorScaleInfo, resolveContextColorChannel } from '../utils/colorSchemeUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 
 /**
@@ -118,7 +118,7 @@ export function buildCdfOptions(params: CdfBuildParams): Plot.PlotOptions {
     ? getResultColumnName(colorField)
     : undefined;
   const colorInfo = colorField
-    ? colorScaleInfo || deriveColorScaleInfo(clean, colorField, colorScheme, colorBias, colorReversed)
+    ? colorScaleInfo || deriveColorScaleInfo(clean, resolveContextColorChannel({ colorField, colorScheme, colorBias, colorReversed }))
     : null;
 
   if (colorField && colorInfo && colorColumnName) {

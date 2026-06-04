@@ -94,14 +94,6 @@ function applyContinuousRange(
   return colorReversed ? [...range].reverse() : range;
 }
 
-/**
- * Discriminates the object-form (`ColorChannel`) overload from the positional
- * (`Field`) one. A `ColorChannel` carries the color-attribute fields; a `Field`
- * carries none of them.
- */
-function isColorChannel(value: Field | ColorChannel): value is ColorChannel {
-  return value != null && 'scheme' in value && 'reversed' in value && 'manual' in value;
-}
 
 /**
  * Bridge any color-carrying source (a generation context, a faceting sub-context,
@@ -136,30 +128,11 @@ export function resolveContextColorChannel(source: {
 export function deriveColorScaleInfo(
   data: any[] | undefined,
   color: ColorChannel,
-): ColorScaleInfo | null;
-export function deriveColorScaleInfo(
-  data: any[] | undefined,
-  field: Field,
-  colorSchemeId?: string,
-  colorBias?: number,
-  colorReversed?: boolean,
-): ColorScaleInfo | null;
-export function deriveColorScaleInfo(
-  data: any[] | undefined,
-  fieldOrColor: Field | ColorChannel,
-  colorSchemeId?: string,
-  colorBias: number = 0,
-  colorReversed: boolean = false,
 ): ColorScaleInfo | null {
-  let field: Field | null;
-  if (isColorChannel(fieldOrColor)) {
-    field = fieldOrColor.field;
-    colorSchemeId = fieldOrColor.scheme;
-    colorBias = fieldOrColor.bias;
-    colorReversed = fieldOrColor.reversed;
-  } else {
-    field = fieldOrColor;
-  }
+  const field = color.field;
+  const colorSchemeId = color.scheme;
+  const colorBias = color.bias;
+  const colorReversed = color.reversed;
   if (!field || !Array.isArray(data)) {
     return null;
   }
@@ -311,24 +284,8 @@ export function deriveColorScaleInfo(
 export function deriveSplitSeriesGradientColorScale(
   data: any[] | undefined,
   color: ColorChannel,
-): ColorScaleInfo | null;
-export function deriveSplitSeriesGradientColorScale(
-  data: any[] | undefined,
-  field: Field,
-  colorSchemeId?: string,
-  colorBias?: number,
-  colorReversed?: boolean,
-): ColorScaleInfo | null;
-export function deriveSplitSeriesGradientColorScale(
-  data: any[] | undefined,
-  fieldOrColor: Field | ColorChannel,
-  colorSchemeId?: string,
-  colorBias: number = 0,
-  colorReversed: boolean = false,
 ): ColorScaleInfo | null {
-  const continuous = isColorChannel(fieldOrColor)
-    ? deriveColorScaleInfo(data, fieldOrColor)
-    : deriveColorScaleInfo(data, fieldOrColor, colorSchemeId, colorBias, colorReversed);
+  const continuous = deriveColorScaleInfo(data, color);
   if (!continuous || continuous.kind !== 'continuous') {
     return null;
   }

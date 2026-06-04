@@ -3,7 +3,7 @@ import * as Plot from '@observablehq/plot';
 import { DEFAULT_CHART_COLOR, DOMAIN_PAD_RATIO } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
-import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo, resolveContextColorChannel } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
 import { LabelConfig } from '../types';
 // Label utilities
@@ -225,7 +225,7 @@ export function scatterChart(
     },
   };
   
-  const colorInfo = colorField ? deriveColorScaleInfo(budgeted, colorField, colorScheme, colorBias, colorReversed) : null;
+  const colorInfo = colorField ? deriveColorScaleInfo(budgeted, resolveContextColorChannel({ colorField, colorScheme, colorBias, colorReversed })) : null;
   if (colorField && colorInfo) {
     const colorColumnName = getResultColumnName(colorField);
     dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: getFieldDisplayName(colorField) };

@@ -36,7 +36,7 @@ import {
 } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
-import { deriveColorScaleInfo, ColorScaleInfo, getContrastTextColor, resolveColorForRow } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo, ColorScaleInfo, getContrastTextColor, resolveColorForRow, resolveContextColorChannel } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 import { ChartGenerationContext, PlotResult, SharedDomains } from '../types';
@@ -178,7 +178,7 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
   const fillCol = colorField ? getResultColumnName(colorField) : undefined;
 
   const colorScale = colorField
-    ? (colorScaleInfo ?? deriveColorScaleInfo(data, colorField, colorScheme, colorBias, colorReversed))
+    ? (colorScaleInfo ?? deriveColorScaleInfo(data, resolveContextColorChannel({ colorField, colorScheme, colorBias, colorReversed })))
     : null;
 
   // Build the color scale config for Plot. For continuous (typical for
