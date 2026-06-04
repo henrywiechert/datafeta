@@ -45,7 +45,8 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "check:cycles": "npx --yes madge@7 --circular --extensions ts,tsx src"
+    "check:cycles": "npx --yes madge@7 --circular --extensions ts,tsx src",
+    "lint": "eslint src --ext .js,.jsx,.ts,.tsx"
   },
   "eslintConfig": {
     "extends": [

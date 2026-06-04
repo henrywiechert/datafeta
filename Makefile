@@ -1,4 +1,7 @@
-.PHONY: test
+.PHONY: test lint
+
+lint:
+	cd /Users/henry/projects/datafeta/frontend && npm run lint
 
 test:
 	@backend_status=0; frontend_status=0; \
