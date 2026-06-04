@@ -3,7 +3,7 @@ import { Field, FieldOverrideState } from '../../types';
 import { SharedDomains } from '../types';
 import { computeSharedMeasureDomains } from '../domains/measureDomains';
 import { computeSharedNumericDomains, computeSharedCategoricalDomains } from '../domains/numericDomains';
-import { deriveColorScaleInfo, applyMeasureNameColorOverrides } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo, applyMeasureNameColorOverrides, resolveContextColorChannel } from '../utils/colorSchemeUtils';
 
 // Re-export SharedDomains for backward compatibility
 export type { SharedDomains };
@@ -54,7 +54,7 @@ export function computeSharedDomainsForFaceting(
     : {};
 
   // Compute shared color domain
-  let colorScale = colorField ? deriveColorScaleInfo(data, colorField, colorSchemeId, colorBias, colorReversed) : null;
+  let colorScale = colorField ? deriveColorScaleInfo(data, resolveContextColorChannel({ colorField, colorScheme: colorSchemeId, colorBias, colorReversed })) : null;
   
   // Apply per-measure color overrides if color field is MeasureNames and we have source fields
   colorScale = applyMeasureNameColorOverrides(
