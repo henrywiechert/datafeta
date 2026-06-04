@@ -1,7 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import * as Plot from '@observablehq/plot';
 import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
-import { Field } from '../../types';
+import { ColorChannel, Field } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { ColorScaleInfo, buildPlotColorScaleOptions, deriveColorScaleInfo, resolveContextColorChannel } from '../utils/colorSchemeUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
@@ -20,11 +20,7 @@ export interface CdfBuildParams {
   /** Display name for the value axis */
   valueLabel: string;
   /** Discrete color field for multi-curve CDF (PARTITION BY) */
-  colorField?: Field;
-  colorScheme?: string;
-  colorBias?: number;
-  colorReversed?: boolean;
-  manualColor?: string;
+  color?: ColorChannel;
   /** Line stroke width (defaults to 2) */
   manualSize?: number;
   tooltipFields?: Field[];
@@ -45,16 +41,14 @@ export function buildCdfOptions(params: CdfBuildParams): Plot.PlotOptions {
     data,
     valueColumn,
     valueLabel,
-    colorField,
-    colorScheme,
-    colorBias,
-    colorReversed,
-    manualColor,
     manualSize,
     tooltipFields,
     facetFields,
     colorScaleInfo,
   } = params;
+  const color = resolveContextColorChannel(params as any);
+  const colorField = color.field ?? undefined;
+  const manualColor = color.manual || undefined;
 
   const cdfColumn = `${valueColumn}${CDF_SUFFIX}`;
 
@@ -118,7 +112,7 @@ export function buildCdfOptions(params: CdfBuildParams): Plot.PlotOptions {
     ? getResultColumnName(colorField)
     : undefined;
   const colorInfo = colorField
-    ? colorScaleInfo || deriveColorScaleInfo(clean, resolveContextColorChannel({ colorField, colorScheme, colorBias, colorReversed }))
+    ? colorScaleInfo || deriveColorScaleInfo(clean, color)
     : null;
 
   if (colorField && colorInfo && colorColumnName) {

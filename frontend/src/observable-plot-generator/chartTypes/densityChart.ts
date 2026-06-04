@@ -1,7 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import * as Plot from '@observablehq/plot';
 import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
-import { DEFAULT_DENSITY_PARAMS, DensityParams, Field } from '../../types';
+import { ColorChannel, DEFAULT_DENSITY_PARAMS, DensityParams, Field } from '../../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { computeKde1d, Kde1dPoint } from '../../utils/kde1d';
 import { ColorScaleInfo, buildPlotColorScaleOptions, deriveColorScaleInfo, resolveContextColorChannel } from '../utils/colorSchemeUtils';
@@ -10,11 +10,7 @@ export interface DensityBuildParams {
   data: any[];
   valueColumn: string;
   valueLabel: string;
-  colorField?: Field;
-  colorScheme?: string;
-  colorBias?: number;
-  colorReversed?: boolean;
-  manualColor?: string;
+  color?: ColorChannel;
   densityParams?: DensityParams;
   colorScaleInfo?: ColorScaleInfo | null;
 }
@@ -135,14 +131,12 @@ export function buildDensityOptions(params: DensityBuildParams): Plot.PlotOption
     data,
     valueColumn,
     valueLabel,
-    colorField,
-    colorScheme,
-    colorBias,
-    colorReversed,
-    manualColor,
     densityParams,
     colorScaleInfo,
   } = params;
+  const color = resolveContextColorChannel(params as any);
+  const colorField = color.field ?? undefined;
+  const manualColor = color.manual || undefined;
 
   const resolvedParams = {
     bandwidth: densityParams?.bandwidth ?? DEFAULT_DENSITY_PARAMS.bandwidth!,
@@ -168,7 +162,7 @@ export function buildDensityOptions(params: DensityBuildParams): Plot.PlotOption
 
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
   const colorInfo = colorField
-    ? colorScaleInfo || deriveColorScaleInfo(clean, resolveContextColorChannel({ colorField, colorScheme, colorBias, colorReversed }))
+    ? colorScaleInfo || deriveColorScaleInfo(clean, color)
     : null;
   const fallbackColor = manualColor || DEFAULT_CHART_COLOR;
 

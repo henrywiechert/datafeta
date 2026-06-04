@@ -18,6 +18,7 @@ import { getDensityFieldsOnX } from '../../utils/densityUtils';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { planFacets } from './facetPlanner';
 import { buildCategoryTickFormatter } from '../utils/categoryTickFormatter';
+import { resolveContextColorChannel } from '../utils/colorSchemeUtils';
 
 /**
  * Chart-specific configuration derived from context and facet plan.
@@ -81,7 +82,10 @@ function deriveChartConfig(
  * for bar charts where a category axis can be injected if needed (see below).
  */
 export function generateFacetedGrid(context: ChartGenerationContext, plan: FacetPlan): PlotResult {
-    const { xFields, yFields, colorField, sizeField, manualSize, manualColor, fieldOverrides, measureValuesSourceFields } = context;
+  const { xFields, yFields, sizeField, manualSize, fieldOverrides, measureValuesSourceFields } = context;
+  const color = resolveContextColorChannel(context);
+  const colorField = color.field ?? undefined;
+  const manualColor = color.manual || undefined;
     
     // Check if MeasureValues is being used and get combined overrides from source measures
     const hasMeasureValuesOnAxis = [...xFields, ...yFields].some(f => isMeasureValuesField(f));
@@ -376,11 +380,7 @@ function createCdfCellGenerator(
         data: cellData,
         valueColumn: measure.columnName,
         valueLabel: getFieldDisplayName(measure, context.fieldAliasLookup),
-        colorField: context.colorField || undefined,
-        colorScheme: context.colorScheme,
-        colorBias: context.colorBias,
-        colorReversed: context.colorReversed,
-        manualColor: context.manualColor,
+        color: resolveContextColorChannel(context),
         manualSize: context.manualSize,
         tooltipFields: context.tooltipFields,
         facetFields,
@@ -438,11 +438,7 @@ function createDensityCellGenerator(
           data: cellData,
           valueColumn,
           valueLabel: getFieldDisplayName(field, context.fieldAliasLookup),
-          colorField: context.colorField || undefined,
-          colorScheme: context.colorScheme,
-          colorBias: context.colorBias,
-        colorReversed: context.colorReversed,
-          manualColor: context.manualColor,
+          color: resolveContextColorChannel(context),
           densityParams: context.densityParams,
           colorScaleInfo: _sharedDomains.colorScale,
         }),

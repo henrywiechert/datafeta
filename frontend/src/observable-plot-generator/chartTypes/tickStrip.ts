@@ -227,7 +227,10 @@ export function tickStrip(
   labels?: { dimension?: string; category?: string },
   sharedDomains?: Domains
 ): Plot.PlotOptions {
-  const { queryResult, colorField, sizeField, manualSize, manualColor, tooltipFields, bandThicknessScale, xTickFormat, yTickFormat } = context;
+  const { queryResult, sizeField, manualSize, tooltipFields, bandThicknessScale, xTickFormat, yTickFormat } = context;
+  const color = resolveContextColorChannel(context);
+  const colorField = color.field ?? undefined;
+  const manualColor = color.manual || undefined;
   const data = queryResult.rows;
   const categoryTickFormat = orientation === 'x' ? yTickFormat : xTickFormat;
   const colorInfo = colorField

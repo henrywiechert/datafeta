@@ -8,10 +8,6 @@ jest.mock('@observablehq/plot', () => ({
   dot: (data: any[], opts: any) => ({ type: 'dot', data, opts }),
 }));
 
-function dim(columnName: string): any {
-  return { id: columnName, columnName, type: 'dimension', flavour: 'discrete', dataType: 'string' };
-}
-
 describe('tickStrip', () => {
   test('sets band domain for categorical axis', () => {
     const ctx: ChartGenerationContext = {
@@ -27,9 +23,8 @@ describe('tickStrip', () => {
       } as any,
       xFields: [],
       yFields: [],
-      colorField: undefined,
+      color: { field: null, scheme: '', bias: 0, reversed: false, manual: '' },
       sizeField: undefined,
-      colorScheme: undefined,
     };
 
     const opts = tickStrip(ctx, 'x', 'value', 'category', {

@@ -335,7 +335,10 @@ export function ganttChart(
   zoomLevel: number = 1.0,
   labelCfg?: LabelConfig
 ): GanttChartResult {
-  const { queryResult, colorField, manualSize, manualColor, tooltipFields, ganttZoomRange: zoomRangeRaw } = context;
+  const { queryResult, manualSize, tooltipFields, ganttZoomRange: zoomRangeRaw } = context;
+  const color = resolveContextColorChannel(context);
+  const colorField = color.field ?? undefined;
+  const manualColor = color.manual || undefined;
   const rawData = queryResult.rows;
   
   // Normalize undefined to null for cleaner type handling

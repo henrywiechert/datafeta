@@ -19,9 +19,7 @@ function context(overrides: Partial<ChartGenerationContext> = {}): ChartGenerati
   return {
     xFields: [dim('region', 'x')],
     yFields: [meas('value', 'sum', 'y')],
-    colorField: color,
-    colorScheme: 'tableau10',
-    colorBias: 0,
+    color: { field: color, scheme: 'tableau10', bias: 0, reversed: false, manual: '' },
     manualSize: 40,
     queryResult: {
       columns: [],
@@ -41,7 +39,7 @@ describe('pieChart planning', () => {
   test('renders a single-color circle when no discrete color field is present', () => {
     const spec = buildPiePlotSpec({
       rows: context().queryResult.rows,
-      context: context({ colorField: undefined }),
+      context: context({ color: { field: null, scheme: '', bias: 0, reversed: false, manual: '' } }),
       sharedDomains: { measure: {}, numeric: {}, categorical: {}, colorScale: null },
     });
 

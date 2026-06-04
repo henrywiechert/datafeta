@@ -244,9 +244,6 @@ export const useChartGeneration = ({
       const context: ChartGenerationContext = {
         xFields: xAxisFields,
         yFields: yAxisFields,
-        // Grouped color carrier built from the resolved (default-applied)
-        // scalars so it stays consistent with the colorField/Scheme/Bias/...
-        // fields below that chart-type generators still consume.
         color: {
           field: colorField,
           scheme: colorScheme,
@@ -254,11 +251,6 @@ export const useChartGeneration = ({
           reversed: colorReversed,
           manual: manualColor,
         },
-        colorField: colorField || undefined,
-        colorScheme,
-        colorBias,
-        colorReversed,
-        manualColor,
         sizeField: sizeField || undefined,
         sizeRange,
         manualSize,

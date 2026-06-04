@@ -5,7 +5,7 @@
  */
 
 import * as Plot from '@observablehq/plot';
-import { DensityParams, DistributionVariant, Field, LineColorMode, LineVariant } from '../../types';
+import { ColorChannel, DensityParams, DistributionVariant, Field, LineColorMode, LineVariant } from '../../types';
 import { LabelConfig, GanttZoomRange } from '../types';
 
 /**
@@ -20,17 +20,13 @@ export type Domains = Record<string, [number, number] | [Date, Date]> | undefine
 export interface ChartContext {
   sharedMeasureDomains?: Domains;
   sharedCategoricalDomains?: Record<string, any[]>;
-  colorField?: Field;
+  color: ColorChannel;
   sizeField?: Field;
   sizeRange?: [number, number];
   manualSize?: number;
   /** Dataset used to derive size-scale domain (use full result set for consistent facet sizing) */
   sizeScaleData?: any[];
   bandThicknessScale?: number;
-  colorScheme?: string;
-  colorBias?: number;
-  colorReversed?: boolean;
-  manualColor?: string;
   labelCfg?: LabelConfig;
   tooltipFields?: Field[];
   /** Facet fields to display in tooltips for context (from faceted charts) */

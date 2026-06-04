@@ -79,8 +79,7 @@ function buildContext(overrides: Partial<ChartGenerationContext> = {}): ChartGen
   return {
     xFields: [xField],
     yFields: [yMeasure],
-    colorField,
-    colorBias: 0,
+    color: { field: colorField, scheme: '', bias: 0, reversed: false, manual: '' },
     queryResult: {
       columns: [],
       rows,

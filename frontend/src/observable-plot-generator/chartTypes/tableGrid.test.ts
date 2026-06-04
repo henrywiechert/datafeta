@@ -30,6 +30,10 @@ function measureField(id: string, columnName: string, aggregation: 'sum' | 'coun
   } as Field;
 }
 
+function color(field: Field | null, scheme = ''): any {
+  return { field, scheme, bias: 0, reversed: false, manual: '' };
+}
+
 function buildContext(overrides: Partial<ChartGenerationContext> & {
   rows?: any[];
   xFields?: Field[];
@@ -151,8 +155,7 @@ describe('generateTableGrid', () => {
     const segment = dimField('dim-segment', 'segment');
     const grid = generateTableGrid(buildContext({
       yFields: [region],
-      colorField: segment,
-      colorScheme: 'tableau10',
+      color: color(segment, 'tableau10'),
       rows: [
         { region: 'East', segment: 'a' },
         { region: 'East', segment: 'b' },
@@ -288,8 +291,7 @@ describe('generateTableGrid', () => {
       const sales = measureField('m-sales', 'sales');
       const grid = generateTableGrid(buildContext({
         yFields: [region],
-        colorField: sales,
-        colorScheme: 'tableau10',
+        color: color(sales, 'tableau10'),
         rows: [
           { region: 'East', 'SUM(sales)': 100 },
           { region: 'West', 'SUM(sales)': 1000 },

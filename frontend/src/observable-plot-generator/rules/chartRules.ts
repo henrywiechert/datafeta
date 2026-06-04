@@ -12,6 +12,7 @@ import { barChart } from '../chartTypes/barChart';
 import { getResultColumnName, getFieldDisplayName as getFieldDisplayNameUtil } from '../../utils/fieldUtils';
 import { BAR_STEP_PX, MIN_BAR_STEP_PX } from '../../config/chartLayoutConfig';
 import { Field } from '../../types';
+import { resolveContextColorChannel } from '../utils/colorSchemeUtils';
 
 interface SizeOptions {
   intrinsicWidth?: number | 'fr';
@@ -132,7 +133,9 @@ export function generateChartOptions(
   context: ChartGenerationContext,
   labelCfg?: LabelConfig
 ): PlotResult {
-  const { queryResult, colorField, colorScheme, sizeField, sizeRange, manualSize, tooltipFields, fieldAliasLookup } = context;
+  const { queryResult, sizeField, sizeRange, manualSize, tooltipFields, fieldAliasLookup } = context;
+  const color = resolveContextColorChannel(context);
+  const colorField = color.field ?? undefined;
   const data = queryResult.rows;
   
   devLog('[generateChartOptions] Entry - colorField:', colorField?.columnName, 'flavour:', colorField?.flavour,
@@ -256,11 +259,7 @@ export function generateChartOptions(
         yColumn: xMeasureCol,
         orientation: 'horizontal',
         labels: { x: getDisplayName(yDim), y: getDisplayName(xMeasureWithAgg) },
-        colorField,
-        colorScheme,
-        colorBias: context.colorBias,
-        colorReversed: context.colorReversed,
-        manualColor: context.manualColor,
+        color,
         sizeField,
         sizeRange,
         manualSize,
@@ -286,11 +285,7 @@ export function generateChartOptions(
         yColumn: yMeasureCol,
         orientation: 'horizontal',
         labels: { x: getDisplayName(xDim), y: getDisplayName(yMeasureWithAgg) },
-        colorField,
-        colorScheme,
-        colorBias: context.colorBias,
-        colorReversed: context.colorReversed,
-        manualColor: context.manualColor,
+        color,
         sizeField,
         sizeRange,
         manualSize,
@@ -381,11 +376,7 @@ export function generateChartOptions(
           xDimCol,
           yDimCol,
           { x: getDisplayName(xContinuousDims[0]), y: getDisplayName(yContinuousDims[0]) },
-          colorField,
-          colorScheme,
-          context.colorBias,
-          context.colorReversed,
-          context.manualColor,
+          color,
           sizeField,
           sizeRange,
           manualSize,
@@ -473,11 +464,7 @@ export function generateChartOptions(
         yColumn: xMeasureCol,
         orientation: 'horizontal',
         labels: { x: getDisplayName(yDim), y: getDisplayName(xMeasureWithAgg) },
-        colorField,
-        colorScheme,
-        colorBias: context.colorBias,
-        colorReversed: context.colorReversed,
-        manualColor: context.manualColor,
+        color,
         sizeField,
         sizeRange,
         manualSize,
@@ -503,11 +490,7 @@ export function generateChartOptions(
         yColumn: yMeasureCol,
         orientation: 'horizontal',
         labels: { x: getDisplayName(xDim), y: getDisplayName(yMeasureWithAgg) },
-        colorField,
-        colorScheme,
-        colorBias: context.colorBias,
-        colorReversed: context.colorReversed,
-        manualColor: context.manualColor,
+        color,
         sizeField,
         sizeRange,
         manualSize,

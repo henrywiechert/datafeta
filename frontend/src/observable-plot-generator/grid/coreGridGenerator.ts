@@ -250,6 +250,14 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
           tooltipFields,
         });
       } else {
+        const cellColor = {
+          field: cellColorField ?? null,
+          scheme: cellColorScheme ?? '',
+          bias: cellColorBias ?? 0,
+          reversed: cellColorReversed ?? false,
+          manual: cellManualColor ?? '',
+        };
+
         // Standard single-mark rendering
         options = generatePairChartOptions(
           data,
@@ -257,16 +265,12 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
           yField,
           { ...sharedMeasureDomains, ...sharedNumeric },
           cellChartTypeOverrides,
-          cellColorField || undefined,
+          cellColor,
           cellSizeField || undefined,
           cellSizeRange,
           cellManualSize,
           sizeScaleData,
           thicknessScale,
-          cellColorScheme,
-          cellColorBias,
-          cellColorReversed,
-          cellManualColor,
           (() => {
             // Per-cell label configuration based on dataLabelMode and labelFields
             if (!labelCfg) return undefined;

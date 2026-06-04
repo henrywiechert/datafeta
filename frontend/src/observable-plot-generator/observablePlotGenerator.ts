@@ -19,6 +19,7 @@ import { generatePieGrid } from './chartTypes/pieChart';
 import { generateHeatmapGrid } from './chartTypes/heatmapChart';
 import { generateTableGrid } from './chartTypes/tableGrid';
 import { isTablePresentation } from './chartTypes/chartTypePresentation';
+import { resolveContextColorChannel } from './utils/colorSchemeUtils';
 
 // Re-export buildLabelConfig as buildLabelCfg for backward compatibility
 export { buildLabelConfig as buildLabelCfg } from './utils/configBuilder';
@@ -179,7 +180,9 @@ function generateSingleAxisGantt(
  * @returns PlotResult with plots array and grid layout
  */
 function generatePlotCore(context: ChartGenerationContext, overrides?: ChartTypeOverrides): PlotResult {
-  const { xFields, yFields, queryResult, colorField, colorScheme, sizeField, sizeRange, manualSize } = context;
+  const { xFields, yFields, queryResult, sizeField, sizeRange, manualSize } = context;
+  const color = resolveContextColorChannel(context);
+  const colorField = color.field ?? undefined;
   const analysis = analyzeFields(xFields, yFields);
 
   // If CDF was selected but the guard failed (shouldn't reach here normally,
@@ -255,11 +258,11 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
       sharedDomains,
       encoding: {
         color: {
-          field: colorField ?? null,
-          scheme: colorScheme ?? '',
-          bias: context.colorBias ?? 0,
-          reversed: context.colorReversed ?? false,
-          manual: context.manualColor ?? '',
+          field: color.field,
+          scheme: color.scheme,
+          bias: color.bias,
+          reversed: color.reversed,
+          manual: color.manual,
         },
         size: { field: sizeField, range: sizeRange, manual: manualSize, scaleData: queryResult.rows },
         shape: { field: context.shapeField, manual: context.manualShape },
@@ -341,7 +344,9 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
  * which collapses this into a `GridResultModel` at the boundary.
  */
 function generatePlotAsResult(context: ChartGenerationContext, overrides?: ChartTypeOverrides): PlotResult {
-  const { xFields, yFields, queryResult, colorField, manualColor, sizeField, fieldAliasLookup } = context;
+  const { xFields, yFields, queryResult, sizeField, fieldAliasLookup } = context;
+  const color = resolveContextColorChannel(context);
+  const colorField = color.field ?? undefined;
 
   // Validate inputs
   if (xFields.length === 0 && yFields.length === 0) {
@@ -389,12 +394,11 @@ function generatePlotAsResult(context: ChartGenerationContext, overrides?: Chart
     xFields: enrichedXFields,
     yFields: enrichedYFields,
     queryResult: normalizedQueryResult,
-    colorField: enrichedColorField,
+    color: { ...color, field: enrichedColorField ?? null },
     sizeField: enrichedSizeField,
     tooltipFields: enrichedTooltipFields,
     labelFields: enrichedLabelFields,
     facetFields: enrichedFacetFields,
-    manualColor,
     distributionVariant: context.distributionVariant,
   };
 
@@ -412,7 +416,7 @@ function generatePlotAsResult(context: ChartGenerationContext, overrides?: Chart
       if (
         descriptor &&
         generator &&
-        descriptor.isAllowed(effectiveContext.xFields, effectiveContext.yFields, effectiveContext.colorField)
+        descriptor.isAllowed(effectiveContext.xFields, effectiveContext.yFields, effectiveContext.color?.field)
       ) {
         return generator(effectiveContext);
       }
@@ -464,8 +468,8 @@ function generatePlotAsResult(context: ChartGenerationContext, overrides?: Chart
     // rendering.  This enables the series-highlight hook to match by
     // category value instead of fill colour (which breaks when the
     // palette wraps and multiple categories share the same colour).
-    if (effectiveContext.colorField?.flavour === 'discrete') {
-      const colorCatField = getResultColumnName(effectiveContext.colorField);
+    if (effectiveContext.color?.field?.flavour === 'discrete') {
+      const colorCatField = getResultColumnName(effectiveContext.color.field);
       for (const plot of result.plots) {
         (plot.options as any).__colorCategoryField = colorCatField;
       }

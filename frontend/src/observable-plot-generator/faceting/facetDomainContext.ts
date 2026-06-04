@@ -6,6 +6,7 @@ import { computeSharedDomainsForFaceting, SharedDomains } from './facetDomains';
 import type { FacetDataIndex } from './facetDataIndex';
 import type { FacetSpace } from './facetSpace';
 import type { FacetCoordinatorConfig } from './facetTypes';
+import { resolveContextColorChannel } from '../utils/colorSchemeUtils';
 
 export interface FacetDomainContext {
   sharedDomains: SharedDomains;
@@ -20,7 +21,9 @@ export function buildFacetDomainContext(
   dataIndex: FacetDataIndex
 ): FacetDomainContext {
   const { context, plan, categoryField, sharedCategoryDomain } = config;
-  const { xFields, yFields, queryResult, colorField, independentDomains } = context;
+  const { xFields, yFields, queryResult, independentDomains } = context;
+  const color = resolveContextColorChannel(context);
+  const colorField = color.field ?? undefined;
   const { rowFacetFields, colFacetFields } = plan;
   const allFacetFields = [...rowFacetFields, ...colFacetFields];
 
@@ -31,9 +34,9 @@ export function buildFacetDomainContext(
     colorField,
     categoryField || undefined,
     allFacetFields,
-    context.colorScheme,
-    context.colorBias,
-    context.colorReversed,
+    color.scheme || undefined,
+    color.bias,
+    color.reversed,
     context.measureValuesSourceFields,
     context.fieldOverrides
   );
@@ -49,9 +52,9 @@ export function buildFacetDomainContext(
               colorField,
               categoryField || undefined,
               allFacetFields,
-              context.colorScheme,
-              context.colorBias,
-              context.colorReversed,
+              color.scheme || undefined,
+              color.bias,
+              color.reversed,
               context.measureValuesSourceFields,
               context.fieldOverrides
             )
@@ -75,9 +78,9 @@ export function buildFacetDomainContext(
               colorField,
               categoryField || undefined,
               allFacetFields,
-              context.colorScheme,
-              context.colorBias,
-              context.colorReversed,
+              color.scheme || undefined,
+              color.bias,
+              color.reversed,
               context.measureValuesSourceFields,
               context.fieldOverrides
             )
