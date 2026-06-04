@@ -52,6 +52,21 @@
     "extends": [
       "react-app",
       "react-app/jest"
+    ],
+    "overrides": [
+      {
+        "files": [
+          "**/*.test.ts",
+          "**/*.test.tsx"
+        ],
+        "rules": {
+          "testing-library/no-container": "off",
+          "testing-library/no-node-access": "off",
+          "testing-library/prefer-screen-queries": "off",
+          "testing-library/render-result-naming-convention": "off",
+          "jest/no-conditional-expect": "off"
+        }
+      }
     ]
   },
   "browserslist": {

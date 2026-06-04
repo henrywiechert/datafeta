@@ -11,7 +11,7 @@ describe('encodingReducer facet depth sizing', () => {
 
     expect(next).not.toBeNull();
     expect(next!.facetLabelStyles.topValues.heightPx).toBeNull();
-    expect(next!.facetLabelStyles.topValues.heightPxByDepth).toEqual([, , 44]);
+    expect(next!.facetLabelStyles.topValues.heightPxByDepth).toEqual([undefined, undefined, 44]);
   });
 
   test('stores one left facet depth width override without changing scalar fallback', () => {
@@ -22,7 +22,7 @@ describe('encodingReducer facet depth sizing', () => {
 
     expect(next).not.toBeNull();
     expect(next!.facetLabelStyles.leftValues.widthPx).toBeNull();
-    expect(next!.facetLabelStyles.leftValues.widthPxByDepth).toEqual([, 96]);
+    expect(next!.facetLabelStyles.leftValues.widthPxByDepth).toEqual([undefined, 96]);
   });
 
   test('returns the same reference when a depth override is unchanged', () => {

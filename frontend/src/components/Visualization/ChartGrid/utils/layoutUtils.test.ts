@@ -1,4 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
+
 import { GridResultModel } from '../../../../observable-plot-generator/gridModel';
 import {
   buildPlotGridSizingStyle,
@@ -18,6 +19,16 @@ import {
   resolveFacetTopValueHeights,
   sumTrackSizes,
 } from './layoutUtils';
+
+// Prevent jsdom from logging "Not implemented: HTMLCanvasElement.prototype.getContext".
+// The layout utilities already fall back to a character-count estimate when canvas
+// is unavailable, so returning null here is the correct no-canvas behaviour.
+beforeAll(() => {
+  Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+    value: () => null,
+    configurable: true,
+  });
+});
 
 function buildGrid(overrides: Partial<GridResultModel> = {}): GridResultModel {
   return {
