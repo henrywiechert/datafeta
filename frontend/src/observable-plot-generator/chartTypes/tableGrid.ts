@@ -52,7 +52,7 @@ import {
   MANUAL_NO_SHAPE,
   ShapeScaleInfo,
 } from '../utils/shapeUtils';
-import { deriveColorScaleInfo, ColorScaleInfo, resolveColorForRow } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo, ColorScaleInfo, resolveColorForRow, resolveContextColorChannel } from '../utils/colorSchemeUtils';
 import { createSizeScale, SizeScale } from '../utils/sizeUtils';
 import { formatTooltipValue } from '../utils/tooltipUtils';
 
@@ -458,7 +458,7 @@ function buildSymbolModeCells(
   context: ChartGenerationContext,
 ): GridCellModel[] {
   const colorScale = context.colorField
-    ? deriveColorScaleInfo(data, context.colorField, context.colorScheme, context.colorBias, context.colorReversed)
+    ? deriveColorScaleInfo(data, resolveContextColorChannel(context))
     : null;
   const shapeScale = context.shapeField && context.shapeField.flavour === 'discrete'
     ? deriveShapeScaleInfo(data, context.shapeField)

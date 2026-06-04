@@ -4,7 +4,7 @@ import { Field, TooltipField } from '../../types';
 import { getFieldDisplayName, getResultColumnName } from '../../utils/fieldUtils';
 import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 import { ChartGenerationContext, PiePlotSpec, PlotResult, SharedDomains } from '../types';
-import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo, resolveContextColorChannel } from '../utils/colorSchemeUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
 import { buildLabelStringFromFields } from '../utils/labelUtils';
 import { FacetPlan, planFacets } from '../faceting/facetPlanner';
@@ -289,10 +289,7 @@ export function buildPiePlotSpec(args: {
   const colorScale = colorField
     ? sharedDomains.colorScale || deriveColorScaleInfo(
         context.queryResult.rows,
-        colorField,
-        context.colorScheme,
-        context.colorBias,
-        context.colorReversed,
+        resolveContextColorChannel(context),
       )
     : null;
 
@@ -453,10 +450,7 @@ export function generatePieGrid(context: ChartGenerationContext): PlotResult {
     colorScale: context.colorField?.flavour === 'discrete'
       ? deriveColorScaleInfo(
           context.queryResult.rows,
-          context.colorField,
-          context.colorScheme,
-          context.colorBias,
-          context.colorReversed,
+          resolveContextColorChannel(context),
         )
       : null,
   };

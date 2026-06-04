@@ -9,7 +9,7 @@ import {
   MAX_GANTT_WIDTH_PX
 } from '../../config/chartLayoutConfig';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
-import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo, resolveContextColorChannel } from '../utils/colorSchemeUtils';
 import { computeBandPaddingFromSizeField } from './barCore';
 import { Field } from '../../types';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
@@ -335,7 +335,7 @@ export function ganttChart(
   zoomLevel: number = 1.0,
   labelCfg?: LabelConfig
 ): GanttChartResult {
-  const { queryResult, colorField, colorScheme, colorBias, manualSize, manualColor, tooltipFields, ganttZoomRange: zoomRangeRaw } = context;
+  const { queryResult, colorField, manualSize, manualColor, tooltipFields, ganttZoomRange: zoomRangeRaw } = context;
   const rawData = queryResult.rows;
   
   // Normalize undefined to null for cleaner type handling
@@ -349,7 +349,7 @@ export function ganttChart(
   
   // Color configuration (use rawData for color domain computation to maintain consistency)
   const colorInfo = colorField
-    ? deriveColorScaleInfo(rawData, colorField, colorScheme, colorBias, context.colorReversed)
+    ? deriveColorScaleInfo(rawData, resolveContextColorChannel(context))
     : null;
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
   const fillValue = colorField && colorInfo

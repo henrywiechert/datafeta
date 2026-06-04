@@ -103,6 +103,36 @@ function isColorChannel(value: Field | ColorChannel): value is ColorChannel {
   return value != null && 'scheme' in value && 'reversed' in value && 'manual' in value;
 }
 
+/**
+ * Bridge any color-carrying source (a generation context, a faceting sub-context,
+ * etc.) to a `ColorChannel` suitable for `deriveColorScaleInfo`.
+ *
+ * Prefers the grouped `color` carrier when present; otherwise reconstructs it
+ * from the legacy flat `color*` scalars. An absent `scheme` becomes `''` (not a
+ * concrete default) so the flavour-based fallback inside `deriveColorScaleInfo`
+ * is reached identically to passing `undefined` — keeping the bridge strictly
+ * behavior-preserving for the positional callers it replaces.
+ */
+export function resolveContextColorChannel(source: {
+  color?: ColorChannel;
+  colorField?: Field | null;
+  colorScheme?: string;
+  colorBias?: number;
+  colorReversed?: boolean;
+  manualColor?: string;
+}): ColorChannel {
+  if (source.color) {
+    return source.color;
+  }
+  return {
+    field: source.colorField ?? null,
+    scheme: source.colorScheme ?? '',
+    bias: source.colorBias ?? 0,
+    reversed: source.colorReversed ?? false,
+    manual: source.manualColor ?? '',
+  };
+}
+
 export function deriveColorScaleInfo(
   data: any[] | undefined,
   color: ColorChannel,
