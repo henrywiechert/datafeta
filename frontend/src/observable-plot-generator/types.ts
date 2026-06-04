@@ -56,7 +56,7 @@ export interface CartesianPlotsConfig {
   yCandidates: Field[];
   sharedDomains: SharedDomains;
   encoding?: {
-    color?: { field?: Field; scheme?: string; bias?: number; reversed?: boolean; manual?: string };
+    color?: ColorChannel;
     size?: { field?: Field; range?: [number, number]; manual?: number; scaleData?: any[] };
     shape?: { field?: Field; manual?: string };
   };

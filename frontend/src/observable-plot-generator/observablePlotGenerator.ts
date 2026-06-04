@@ -255,11 +255,11 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
       sharedDomains,
       encoding: {
         color: {
-          field: colorField,
-          scheme: colorScheme,
-          bias: context.colorBias,
-          reversed: context.colorReversed,
-          manual: context.manualColor,
+          field: colorField ?? null,
+          scheme: colorScheme ?? '',
+          bias: context.colorBias ?? 0,
+          reversed: context.colorReversed ?? false,
+          manual: context.manualColor ?? '',
         },
         size: { field: sizeField, range: sizeRange, manual: manualSize, scaleData: queryResult.rows },
         shape: { field: context.shapeField, manual: context.manualShape },

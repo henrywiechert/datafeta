@@ -51,11 +51,16 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
   } = config;
 
   // Extract encoding options
-  const colorField = encoding?.color?.field;
-  const colorScheme = encoding?.color?.scheme;
+  // Normalize the ColorChannel back to the optional/undefined shape these
+  // scalar paths historically used: `null` field and empty scheme/manual map
+  // to `undefined` (byte-identical downstream — every consumer coalesces with
+  // `||`/`??`), while bias/reversed concrete defaults (0/false) already match
+  // the prior positional defaults.
+  const colorField = encoding?.color?.field ?? undefined;
+  const colorScheme = encoding?.color?.scheme || undefined;
   const colorBias = encoding?.color?.bias;
   const colorReversed = encoding?.color?.reversed;
-  const manualColor = encoding?.color?.manual;
+  const manualColor = encoding?.color?.manual || undefined;
   const sizeField = encoding?.size?.field;
   const sizeRange = encoding?.size?.range;
   const manualSize = encoding?.size?.manual;
