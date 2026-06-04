@@ -3,7 +3,7 @@ import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext } from '../types';
 import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING } from '../../config/chartLayoutConfig';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
-import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo, resolveContextColorChannel } from '../utils/colorSchemeUtils';
 import { computeBandPaddingFromSizeField } from './barCore';
 import { Field } from '../../types';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
@@ -227,11 +227,11 @@ export function tickStrip(
   labels?: { dimension?: string; category?: string },
   sharedDomains?: Domains
 ): Plot.PlotOptions {
-  const { queryResult, colorField, colorScheme, colorBias, sizeField, manualSize, manualColor, tooltipFields, bandThicknessScale, xTickFormat, yTickFormat } = context;
+  const { queryResult, colorField, sizeField, manualSize, manualColor, tooltipFields, bandThicknessScale, xTickFormat, yTickFormat } = context;
   const data = queryResult.rows;
   const categoryTickFormat = orientation === 'x' ? yTickFormat : xTickFormat;
   const colorInfo = colorField
-    ? deriveColorScaleInfo(data, colorField, colorScheme, colorBias, context.colorReversed)
+    ? deriveColorScaleInfo(data, resolveContextColorChannel(context))
     : null;
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
   const strokeValue = colorField && colorInfo

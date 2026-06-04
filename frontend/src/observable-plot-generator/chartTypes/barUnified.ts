@@ -2,7 +2,7 @@
 import { ChartGenerationContext, LabelConfig, PlotResult } from '../types';
 import { getFieldColumnName } from '../helpers/fields';
 import { resolveMeasureAlias, buildBarOptions, computeBandPaddingFromSizeField, sortCategoriesByValue } from './barCore';
-import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo, resolveContextColorChannel } from '../utils/colorSchemeUtils';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { BAR_STEP_PX, MIN_BAR_STEP_PX, BAND_PADDING } from '../../config/chartLayoutConfig';
 // Label utilities
@@ -31,7 +31,7 @@ export function barUnified(
   context: ChartGenerationContext,
   labelCfg?: LabelConfig
 ): PlotResult {
-  const { queryResult, xFields, yFields, colorField, colorScheme, manualColor, sizeField, manualSize, tooltipFields, fieldOverrides, measureValuesSourceFields } = context;
+  const { queryResult, xFields, yFields, colorField, manualColor, sizeField, manualSize, tooltipFields, fieldOverrides, measureValuesSourceFields } = context;
   const data = queryResult.rows;
   
   // Check if MeasureValues is being used and get combined overrides from source measures
@@ -85,7 +85,7 @@ export function barUnified(
   // Color mapping (consistent with single-measure bar)
   const colorColumn = colorField ? getResultColumnName(colorField) : undefined;
   const colorScale = colorField
-    ? deriveColorScaleInfo(data, colorField, colorScheme, context.colorBias, context.colorReversed)
+    ? deriveColorScaleInfo(data, resolveContextColorChannel(context))
     : null;
 
   // Dynamic band padding with consistent fallback for all cases

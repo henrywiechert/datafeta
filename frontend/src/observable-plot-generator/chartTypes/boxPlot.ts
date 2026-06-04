@@ -2,7 +2,7 @@
 import * as Plot from '@observablehq/plot';
 import { ChartGenerationContext } from '../types';
 import { BAR_STEP_PX, DEFAULT_CHART_COLOR, BAND_PADDING } from '../../config/chartLayoutConfig';
-import { ColorScaleInfo, deriveColorScaleInfo } from '../utils/colorSchemeUtils';
+import { ColorScaleInfo, deriveColorScaleInfo, resolveContextColorChannel } from '../utils/colorSchemeUtils';
 import { getFieldDisplayName, getResultColumnName } from '../../utils/fieldUtils';
 import { computeBandPaddingFromSizeField } from './barCore';
 import { createTooltipFieldsGetter, formatTooltipValue } from '../utils/tooltipUtils';
@@ -315,10 +315,7 @@ export function boxPlot(
   const colorInfo = usesDiscreteColor && context.colorField
     ? (sharedColorScale || deriveColorScaleInfo(
       summaryRows,
-      context.colorField,
-      context.colorScheme,
-      context.colorBias,
-      context.colorReversed,
+      resolveContextColorChannel(context),
     ))
     : null;
   const categories = categoryColumn
