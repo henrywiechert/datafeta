@@ -65,7 +65,7 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
     if (!colorField || !legendRows) {
       return null;
     }
-    return deriveColorScaleInfo(legendRows, colorField, colorScheme, colorBias, colorReversed);
+    return deriveColorScaleInfo(legendRows, { field: colorField, scheme: colorScheme, bias: colorBias, reversed: colorReversed, manual: '' });
   }, [colorField, colorScheme, colorBias, colorReversed, legendRows]);
 
   const formatValue = (value: any): string => {
