@@ -16,7 +16,7 @@ import {
   SIZE_DEFAULTS_BY_CHART_TYPE,
   SIZE_DEFAULT_FALLBACK,
 } from '../../../config/chartLayoutConfig';
-import { DEFAULT_MANUAL_COLOR, DEFAULT_CATEGORICAL_SCHEME, DEFAULT_SEQUENTIAL_SCHEME, categoricalSchemes } from '../../../config/colorSchemes';
+import { DEFAULT_CATEGORICAL_SCHEME, DEFAULT_SEQUENTIAL_SCHEME, categoricalSchemes } from '../../../config/colorSchemes';
 import { useFieldOverrides } from './useFieldOverrides';
 import ColorFieldControl from './ColorFieldControl';
 import BackgroundFieldControl from './BackgroundFieldControl';
@@ -29,6 +29,7 @@ import DensityParametersSection from './DensityParametersSection';
 import FieldOverrideRow from './FieldOverrideRow';
 import LineColorModeControl from './LineColorModeControl';
 import { shouldShowLineColorModeControl } from '../../../utils/lineColorEncoding';
+import { resolveColorChannel } from '../../../utils/colorChannel';
 
 interface AreaFillOpacityControlProps {
   value: number;
@@ -255,10 +256,15 @@ const FieldOverridesPanel: React.FC = () => {
     const resolvedColorField = resolveColorField(override);
     const resolvedSizeField = resolveSizeField(override);
 
-    const effectiveManualColor = override.manualColor || manualColor || DEFAULT_MANUAL_COLOR;
-    const effectiveColorScheme = override.colorScheme || colorScheme || 'tableau10';
-    const effectiveColorBias = override.colorBias ?? colorBias ?? 0;
-    const effectiveColorReversed = override.colorReversed ?? colorReversed ?? false;
+    const effectiveColor = resolveColorChannel(
+      { field: colorField, scheme: colorScheme, bias: colorBias, reversed: colorReversed, manual: manualColor },
+      override,
+      resolvedColorField,
+    );
+    const effectiveManualColor = effectiveColor.manual;
+    const effectiveColorScheme = effectiveColor.scheme;
+    const effectiveColorBias = effectiveColor.bias;
+    const effectiveColorReversed = effectiveColor.reversed;
     const effectiveSizeRange: [number, number] = override.sizeRange || sizeRange || [4, 20];
     const effectiveManualSize = override.manualSize ?? manualSize ?? 10;
 
@@ -384,10 +390,13 @@ const FieldOverridesPanel: React.FC = () => {
     const resolvedGlobalSizeField = sizeField as Field | null;
     const effectiveDistributionMode = globalChartType === 'tick' || (!globalChartType && autoSelectedType === 'tick');
 
-    const effectiveManualColor = manualColor || DEFAULT_MANUAL_COLOR;
-    const effectiveColorScheme = colorScheme || 'tableau10';
-    const effectiveColorBias = colorBias ?? 0;
-    const effectiveColorReversed = colorReversed ?? false;
+    const effectiveColor = resolveColorChannel({
+      field: colorField, scheme: colorScheme, bias: colorBias, reversed: colorReversed, manual: manualColor,
+    });
+    const effectiveManualColor = effectiveColor.manual;
+    const effectiveColorScheme = effectiveColor.scheme;
+    const effectiveColorBias = effectiveColor.bias;
+    const effectiveColorReversed = effectiveColor.reversed;
 
     return (
       <Box
