@@ -397,6 +397,7 @@ export const useQueryExecutor = ({
       optimizationSettings,
       distributionVariant,
       globalChartType,
+      lineColorMode,
     ]
   );
 
