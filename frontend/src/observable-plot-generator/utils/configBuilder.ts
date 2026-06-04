@@ -182,11 +182,11 @@ export function buildCartesianPlotsConfig(
     sharedDomains,
     encoding: {
       color: {
-        field: context.colorField,
-        scheme: context.colorScheme,
-        bias: context.colorBias,
-        reversed: context.colorReversed,
-        manual: manualColorOverride ?? context.manualColor,
+        field: context.colorField ?? null,
+        scheme: context.colorScheme ?? '',
+        bias: context.colorBias ?? 0,
+        reversed: context.colorReversed ?? false,
+        manual: manualColorOverride ?? context.manualColor ?? '',
       },
       size: {
         field: context.sizeField,
