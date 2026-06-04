@@ -1,6 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { deriveColorScaleInfo } from './colorSchemeUtils';
-import { Field } from '../../types';
+import { deriveColorScaleInfo, deriveSplitSeriesGradientColorScale } from './colorSchemeUtils';
+import { ColorChannel, Field } from '../../types';
 
 const continuousField: Field = {
   id: 'f1',
@@ -40,5 +40,49 @@ describe('deriveColorScaleInfo colorReversed', () => {
     const reversed = deriveColorScaleInfo(dataDiscrete, discreteField, 'tableau10', 0, true);
 
     expect(normal?.range).toEqual(reversed?.range);
+  });
+});
+
+describe('deriveColorScaleInfo ColorChannel overload', () => {
+  const data = [{ value: 0 }, { value: 50 }, { value: 100 }];
+
+  const channel = (over: Partial<ColorChannel>): ColorChannel => ({
+    field: continuousField,
+    scheme: 'blues',
+    bias: 0,
+    reversed: false,
+    manual: '#000000',
+    ...over,
+  });
+
+  test('object form equals positional form (scheme/bias/reversed matrix)', () => {
+    const cases: Array<{ scheme: string; bias: number; reversed: boolean }> = [
+      { scheme: 'blues', bias: 0, reversed: false },
+      { scheme: 'blues', bias: 0, reversed: true },
+      { scheme: 'viridis', bias: 0.5, reversed: false },
+      { scheme: 'viridis', bias: -0.5, reversed: true },
+    ];
+    for (const c of cases) {
+      const positional = deriveColorScaleInfo(data, continuousField, c.scheme, c.bias, c.reversed);
+      const object = deriveColorScaleInfo(data, channel(c));
+      // accessor/interpolate are functions; compare the serializable shape.
+      expect(object?.kind).toBe(positional?.kind);
+      expect(object?.domain).toEqual(positional?.domain);
+      expect(object?.range).toEqual(positional?.range);
+      expect(object?.rawMin).toEqual(positional?.rawMin);
+      expect(object?.rawMax).toEqual(positional?.rawMax);
+    }
+  });
+
+  test('object form returns null when channel field is null', () => {
+    expect(deriveColorScaleInfo(data, channel({ field: null }))).toBeNull();
+  });
+
+  test('split-series gradient object form equals positional form', () => {
+    const positional = deriveSplitSeriesGradientColorScale(data, continuousField, 'viridis', 0.25, true);
+    const object = deriveSplitSeriesGradientColorScale(data, channel({ scheme: 'viridis', bias: 0.25, reversed: true }));
+    expect(object?.kind).toBe(positional?.kind);
+    expect(object?.domain).toEqual(positional?.domain);
+    expect(object?.range).toEqual(positional?.range);
   });
 });
