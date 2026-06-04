@@ -9,6 +9,7 @@ import { ChartGenerationContext, CartesianPlotsConfig, LabelConfig, SharedDomain
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { computeSharedDomainsForFaceting } from '../faceting/facetDomains';
 import { buildCategoryTickFormatter } from './categoryTickFormatter';
+import { resolveContextColorChannel } from './colorSchemeUtils';
 
 /**
  * Compute SharedDomains from ChartGenerationContext.
@@ -47,18 +48,19 @@ export function computeSharedDomainsFromContext(
   const yFields = options?.yFields ?? context.yFields;
   const categoryField = options?.categoryField;
   const facetFields = options?.facetFields ?? [];
+  const color = resolveContextColorChannel(context);
 
   // Use the comprehensive domain computation function
   const computed = computeSharedDomainsForFaceting(
     context.queryResult.rows,
     xFields,
     yFields,
-    context.colorField,
+    color.field ?? undefined,
     categoryField,
     facetFields,
-    context.colorScheme,
-    context.colorBias,
-    context.colorReversed,
+    color.scheme || undefined,
+    color.bias,
+    color.reversed,
     context.measureValuesSourceFields,
     context.fieldOverrides
   );
@@ -165,12 +167,13 @@ export function buildCartesianPlotsConfig(
   } = options;
 
   const labelCfg = buildLabelConfig(context);
+  const color = resolveContextColorChannel(context);
 
   // Collect all fields for field lookup maps
   const allFields = [
     ...xCandidates,
     ...yCandidates,
-    ...(context.colorField ? [context.colorField] : []),
+    ...(color.field ? [color.field] : []),
     ...(context.sizeField ? [context.sizeField] : []),
     ...(context.shapeField ? [context.shapeField] : []),
   ];
@@ -182,11 +185,11 @@ export function buildCartesianPlotsConfig(
     sharedDomains,
     encoding: {
       color: {
-        field: context.colorField ?? null,
-        scheme: context.colorScheme ?? '',
-        bias: context.colorBias ?? 0,
-        reversed: context.colorReversed ?? false,
-        manual: manualColorOverride ?? context.manualColor ?? '',
+        field: color.field,
+        scheme: color.scheme,
+        bias: color.bias,
+        reversed: color.reversed,
+        manual: manualColorOverride ?? color.manual,
       },
       size: {
         field: context.sizeField,

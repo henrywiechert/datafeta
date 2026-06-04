@@ -1,9 +1,9 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import * as Plot from '@observablehq/plot';
 import { DEFAULT_CHART_COLOR, DOMAIN_PAD_RATIO } from '../../config/chartLayoutConfig';
-import { Field } from '../../types';
+import { ColorChannel, Field } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
-import { deriveColorScaleInfo, resolveContextColorChannel } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
 import { LabelConfig } from '../types';
 // Label utilities
@@ -107,12 +107,7 @@ export function scatterChart(
   xColumn: string,
   yColumn: string,
   options?: { x?: string; y?: string; domain?: { x?: [number, number] | [Date, Date] | any[]; y?: [number, number] | [Date, Date] | any[] } },
-  colorField?: Field,
-  colorScheme?: string,
-  colorBias?: number,
-  colorReversed?: boolean,
-  // Optional manual color used when there is no color field
-  manualColor?: string,
+  color?: ColorChannel,
   sizeField?: Field,
   sizeRange?: [number, number],
   manualSize?: number
@@ -123,6 +118,10 @@ export function scatterChart(
   , shapeField?: Field
   , manualShape?: string
 ): Plot.PlotOptions {
+  const colorChannel = color ?? { field: null, scheme: '', bias: 0, reversed: false, manual: '' };
+  const colorField = colorChannel.field ?? undefined;
+  const colorBias = colorChannel.bias;
+  const manualColor = colorChannel.manual || undefined;
   // Detect axis value kindsby sampling up to first 20 non-null values
   const sampleValues = (column: string) => (Array.isArray(data) ? data.map(r => r?.[column]).filter(v => v !== null && v !== undefined) : []);
   const xSamples = sampleValues(xColumn);
@@ -225,7 +224,7 @@ export function scatterChart(
     },
   };
   
-  const colorInfo = colorField ? deriveColorScaleInfo(budgeted, resolveContextColorChannel({ colorField, colorScheme, colorBias, colorReversed })) : null;
+  const colorInfo = colorField ? deriveColorScaleInfo(budgeted, colorChannel) : null;
   if (colorField && colorInfo) {
     const colorColumnName = getResultColumnName(colorField);
     dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: getFieldDisplayName(colorField) };

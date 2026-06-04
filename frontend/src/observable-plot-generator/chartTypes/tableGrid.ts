@@ -156,6 +156,7 @@ function buildSymbolForRow(
   colorScale: ColorScaleInfo | null,
   sizeScale: SizeScale,
 ): SymbolFingerprint {
+  const colorChannel = resolveContextColorChannel(context);
   // Symbol resolution
   let symbol: string = DEFAULT_SYMBOL;
   if (context.shapeField && shapeScale) {
@@ -169,8 +170,8 @@ function buildSymbolForRow(
   // categorical and continuous (e.g. measure on color shelf) scales behave
   // identically to other chart types — symbol cells were previously only
   // honouring categorical scales.
-  const fallbackColor = context.manualColor || DEFAULT_CHART_COLOR;
-  const color = resolveColorForRow(row, colorScale, context.colorField, fallbackColor);
+  const fallbackColor = colorChannel.manual || DEFAULT_CHART_COLOR;
+  const color = resolveColorForRow(row, colorScale, colorChannel.field ?? undefined, fallbackColor);
 
   // Size resolution. `sizeScale.getSizeForValue` returns a notional radius
   // (consistent with scatter / `r`). When no `sizeField` is set the scale
@@ -457,7 +458,8 @@ function buildSymbolModeCells(
   data: any[],
   context: ChartGenerationContext,
 ): GridCellModel[] {
-  const colorScale = context.colorField
+  const color = resolveContextColorChannel(context);
+  const colorScale = color.field
     ? deriveColorScaleInfo(data, resolveContextColorChannel(context))
     : null;
   const shapeScale = context.shapeField && context.shapeField.flavour === 'discrete'

@@ -78,7 +78,7 @@ export function scatterForDimOnly(
   const col = dim.columnName;
   return scatterChart(
     data, col, col, { x: col, y: col },
-    ctx.colorField, undefined, ctx.colorBias, ctx.colorReversed, ctx.manualColor,
+    ctx.color,
     ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
     undefined, ctx.tooltipFields, ctx.facetFields, undefined, ctx.manualShape
   );

@@ -39,6 +39,10 @@ function meas(columnName: string, aggregation: any = 'sum'): Field {
   } as Field;
 }
 
+function color(field: Field | null = null, manual = ''): any {
+  return { field, scheme: '', bias: 0, reversed: false, manual };
+}
+
 const SAMPLE_ROWS = [
   { region: 'North', product: 'A', 'SUM(sales)': 100 },
   { region: 'North', product: 'B', 'SUM(sales)': 200 },
@@ -52,7 +56,7 @@ describe('buildHeatmapOptions (PR 9)', () => {
       data: SAMPLE_ROWS,
       xField: dim('region'),
       yField: dim('product'),
-      colorField: meas('sales'),
+      color: color(meas('sales')),
     });
 
     expect((opts.x as any).type).toBe('band');
@@ -73,7 +77,7 @@ describe('buildHeatmapOptions (PR 9)', () => {
       data: SAMPLE_ROWS,
       xField: dim('region'),
       yField: dim('product'),
-      colorField: meas('sales'),
+      color: color(meas('sales')),
     });
 
     expect(opts.color).toBeDefined();
@@ -101,7 +105,7 @@ describe('buildHeatmapOptions (PR 9)', () => {
       data: SAMPLE_ROWS,
       xField: dim('region'),
       yField: dim('product'),
-      manualColor: '#ff0000',
+      color: color(null, '#ff0000'),
     });
 
     const cellMark = (opts.marks as any[])[0];
@@ -113,7 +117,7 @@ describe('buildHeatmapOptions (PR 9)', () => {
       data: SAMPLE_ROWS,
       xField: dim('region'),
       yField: dim('product'),
-      colorField: meas('sales'),
+      color: color(meas('sales')),
     });
 
     const tooltipConfig = (opts as any).__customTooltip;
@@ -142,7 +146,7 @@ describe('buildHeatmapOptions (PR 9)', () => {
       data: SAMPLE_ROWS,
       xField: dim('region'),
       yField: dim('product'),
-      colorField: meas('sales'),
+      color: color(meas('sales')),
       sizeField: meas('sales'),
       sizeRange: [3, 18],
     });
@@ -177,7 +181,7 @@ describe('generateHeatmapGrid', () => {
     const ctx = buildCtx({
       xFields: [dim('region')],
       yFields: [dim('product')],
-      colorField: meas('sales'),
+      color: color(meas('sales')),
       queryResult: { rows: SAMPLE_ROWS, columns: [], row_count: SAMPLE_ROWS.length } as any,
     });
 
@@ -235,7 +239,7 @@ describe('generateHeatmapGrid', () => {
     const ctx = buildCtx({
       xFields: [country, region],
       yFields: [segment, product],
-      colorField: meas('sales'),
+      color: color(meas('sales')),
       queryResult: { rows: [], columns: [], row_count: 0 } as any,
     });
 
@@ -247,7 +251,7 @@ describe('generateHeatmapGrid', () => {
       data: [],
       xField: ctx.xFields[ctx.xFields.length - 1],
       yField: ctx.yFields[ctx.yFields.length - 1],
-      colorField: meas('sales'),
+      color: color(meas('sales')),
     });
     const cellMark = (opts.marks as any[])[0];
     expect(cellMark.opts.x).toBe('region');
@@ -268,7 +272,7 @@ describe('generateHeatmapGrid', () => {
     const ctx = buildCtx({
       xFields: [country, region],
       yFields: [product],
-      colorField: meas('sales'),
+      color: color(meas('sales')),
       queryResult: { rows, columns: [], row_count: rows.length } as any,
     });
 
@@ -311,7 +315,7 @@ describe('generateHeatmapGrid', () => {
     const ctx = buildCtx({
       xFields: [country, region],
       yFields: [product],
-      colorField: meas('sales'),
+      color: color(meas('sales')),
       queryResult: { rows, columns: [], row_count: rows.length } as any,
     });
 
@@ -340,7 +344,7 @@ describe('buildHeatmapOptions size encoding', () => {
       data: SAMPLE_ROWS,
       xField: dim('region'),
       yField: dim('product'),
-      colorField: meas('sales'),
+      color: color(meas('sales')),
       sizeField: meas('sales'),
       sizeRange: [3, 18],
     });
@@ -364,7 +368,7 @@ describe('buildHeatmapOptions size encoding', () => {
       data: SAMPLE_ROWS,
       xField: dim('region'),
       yField: dim('product'),
-      colorField: meas('sales'),
+      color: color(meas('sales')),
     });
 
     const primary = (opts.marks as any[])[0];
@@ -377,7 +381,7 @@ describe('buildHeatmapOptions size encoding', () => {
       data: SAMPLE_ROWS,
       xField: dim('region'),
       yField: dim('product'),
-      colorField: meas('sales'),
+      color: color(meas('sales')),
       manualSize: 12,
     });
 
@@ -395,7 +399,7 @@ describe('buildHeatmapOptions size encoding', () => {
         data: SAMPLE_ROWS,
         xField: dim('region'),
         yField: dim('product'),
-        colorField: meas('sales'),
+        color: color(meas('sales')),
         manualSize,
       });
 
@@ -428,7 +432,7 @@ describe('buildHeatmapOptions size encoding', () => {
       ],
       xField: dim('region'),
       yField: dim('product'),
-      colorField: meas('sales'),
+      color: color(meas('sales')),
       manualSize: 12,
     });
 
@@ -450,7 +454,7 @@ describe('buildHeatmapOptions size encoding', () => {
       yField: dim('product'),
       xDomain: [0, 1, 2, 4],
       yDomain: ['A', 'B'],
-      colorField: meas('sales'),
+      color: color(meas('sales')),
       manualSize: 12,
     });
 
@@ -476,7 +480,7 @@ describe('buildHeatmapOptions label encoding', () => {
       data: SAMPLE_ROWS,
       xField: dim('region'),
       yField: dim('product'),
-      colorField: meas('sales'),
+      color: color(meas('sales')),
       labelFields: [labelField],
     });
 
@@ -495,7 +499,7 @@ describe('buildHeatmapOptions label encoding', () => {
       data: SAMPLE_ROWS,
       xField: dim('region'),
       yField: dim('product'),
-      colorField: meas('sales'),
+      color: color(meas('sales')),
       labelFields: [meas('sales')],
       labelFontSize: 18,
     });
@@ -509,7 +513,7 @@ describe('buildHeatmapOptions label encoding', () => {
       data: SAMPLE_ROWS,
       xField: dim('region'),
       yField: dim('product'),
-      manualColor: '#111111',
+      color: color(null, '#111111'),
       labelFields: [meas('sales')],
     });
     const darkTextMark = (darkOpts.marks as any[])[1];
@@ -519,7 +523,7 @@ describe('buildHeatmapOptions label encoding', () => {
       data: SAMPLE_ROWS,
       xField: dim('region'),
       yField: dim('product'),
-      manualColor: '#f2f2f2',
+      color: color(null, '#f2f2f2'),
       labelFields: [meas('sales')],
     });
     const lightTextMark = (lightOpts.marks as any[])[1];
@@ -531,7 +535,7 @@ describe('buildHeatmapOptions label encoding', () => {
       data: SAMPLE_ROWS,
       xField: dim('region'),
       yField: dim('product'),
-      colorField: meas('sales'),
+      color: color(meas('sales')),
     });
 
     expect(opts.marks).toHaveLength(1);

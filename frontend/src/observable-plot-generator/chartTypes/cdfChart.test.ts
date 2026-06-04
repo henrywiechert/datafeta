@@ -16,6 +16,10 @@ const colorField: Field = {
   dataType: 'string',
 };
 
+function color(field: Field | null, manual = ''): any {
+  return { field, scheme: '', bias: 0, reversed: false, manual };
+}
+
 describe('buildCdfOptions', () => {
   it('uses a provided global color scale for facet-local CDF data', () => {
     const options = buildCdfOptions({
@@ -25,7 +29,7 @@ describe('buildCdfOptions', () => {
       ],
       valueColumn: 'revenue',
       valueLabel: 'Revenue',
-      colorField,
+      color: color(colorField),
       colorScaleInfo: {
         kind: 'categorical',
         domain: ['A', 'B'],
@@ -54,7 +58,7 @@ describe('buildCdfOptions', () => {
       ],
       valueColumn: 'revenue',
       valueLabel: 'Revenue',
-      colorField,
+      color: color(colorField),
     });
 
     expect((options.color as any).domain).toEqual(['B']);

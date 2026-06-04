@@ -7,6 +7,10 @@ jest.mock('@observablehq/plot', () => ({
   text: (data: any[], opts: any) => ({ type: 'text', data, opts }),
 }));
 
+function color(manual = ''): any {
+  return { field: null, scheme: '', bias: 0, reversed: false, manual };
+}
+
 describe('buildDensityOptions', () => {
   it('builds line/area marks for a smooth 1D KDE curve', () => {
     const rows = Array.from({ length: 40 }, (_, i) => ({ value: i }));
@@ -14,7 +18,7 @@ describe('buildDensityOptions', () => {
       data: rows,
       valueColumn: 'value',
       valueLabel: 'Value',
-      manualColor: '#336699',
+      color: color('#336699'),
       densityParams: { bandwidth: 20, thresholds: 10, filled: true, opacity: 0.4 },
     });
 

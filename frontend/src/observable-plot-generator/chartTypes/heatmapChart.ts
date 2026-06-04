@@ -24,6 +24,7 @@
  *   what the `table-refactor` chart type is for.
  */
 import * as Plot from '@observablehq/plot';
+import { ColorChannel } from '../../types';
 import {
   DEFAULT_CHART_COLOR,
   HEATMAP_DEFAULT_CELL_SIZE_PX,
@@ -56,11 +57,7 @@ export interface HeatmapOptionsInput {
   yDomain?: any[];
   xTickFormat?: (d: any) => string;
   yTickFormat?: (d: any) => string;
-  colorField?: Field | null;
-  colorScheme?: string;
-  colorBias?: number;
-  colorReversed?: boolean;
-  manualColor?: string;
+  color?: ColorChannel;
   /**
    * When provided, switches the heatmap from a band-filling `Plot.cell` to a
    * `Plot.dot` with `symbol: 'square'` so the size-shelf measure can scale
@@ -157,11 +154,6 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
     yDomain,
     xTickFormat,
     yTickFormat,
-    colorField,
-    colorScheme,
-    colorBias,
-    colorReversed,
-    manualColor,
     sizeField,
     sizeRange,
     manualSize,
@@ -172,13 +164,16 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
     colorScaleInfo,
     sizeScaleData,
   } = input;
+  const color = resolveContextColorChannel(input as any);
+  const colorField = color.field ?? undefined;
+  const manualColor = color.manual || undefined;
 
   const xCol = getResultColumnName(xField);
   const yCol = getResultColumnName(yField);
   const fillCol = colorField ? getResultColumnName(colorField) : undefined;
 
   const colorScale = colorField
-    ? (colorScaleInfo ?? deriveColorScaleInfo(data, resolveContextColorChannel({ colorField, colorScheme, colorBias, colorReversed })))
+    ? (colorScaleInfo ?? deriveColorScaleInfo(data, color))
     : null;
 
   // Build the color scale config for Plot. For continuous (typical for
@@ -188,7 +183,7 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
     colorField &&
     colorScale &&
     colorScale.kind === 'continuous' &&
-    (colorBias ?? 0) !== 0 &&
+    color.bias !== 0 &&
     colorScale.accessor
       ? (row: any) => {
           const numeric = colorScale.accessor?.(row);
@@ -197,7 +192,7 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
           const span = max - min;
           if (!Number.isFinite(span) || span <= 0) return min;
           const t = (numeric - min) / span;
-          const biasedT = Math.pow(Math.max(0, Math.min(1, t)), Math.pow(2, -(colorBias ?? 0)));
+          const biasedT = Math.pow(Math.max(0, Math.min(1, t)), Math.pow(2, -color.bias));
           return min + biasedT * span;
         }
       : undefined;
@@ -448,6 +443,7 @@ function createHeatmapCellGenerator(
     _facetPosition: { row: number; col: number },
     facetCellContext?: FacetCellContext,
   ): CellResult => {
+    const color = resolveContextColorChannel(context);
     const facetFields = facetCellContext
       ? [...facetCellContext.rowFacetFields, ...facetCellContext.colFacetFields]
       : [];
@@ -460,11 +456,7 @@ function createHeatmapCellGenerator(
       yField,
       xDomain: sharedDomains.categorical?.[xColumnName],
       yDomain: sharedDomains.categorical?.[yColumnName],
-      colorField: context.colorField || null,
-      colorScheme: context.colorScheme,
-      colorBias: context.colorBias,
-      colorReversed: context.colorReversed,
-      manualColor: context.manualColor,
+      color,
       sizeField: context.sizeField || null,
       sizeRange: context.sizeRange,
       manualSize: context.manualSize,

@@ -21,6 +21,10 @@ function meas(columnName: string, aggregation: any = 'sum'): any {
   return { id: columnName, columnName, type: 'measure', flavour: 'continuous', dataType: 'float', aggregation };
 }
 
+function color(field: any = null): any {
+  return { field, scheme: '', bias: 0, reversed: false, manual: '' };
+}
+
 describe('barChart refactored implementation', () => {
   test('vertical with dimension and color + size', () => {
     const ctx: ChartGenerationContext = {
@@ -35,9 +39,8 @@ describe('barChart refactored implementation', () => {
       } as any,
       xFields: [dim('category')],
       yFields: [meas('value', 'sum')],
-      colorField: dim('color'),
+      color: color(dim('color')),
       sizeField: meas('size', 'sum'),
-      colorScheme: undefined
     };
 
     const opts = barChart(ctx);
@@ -52,9 +55,8 @@ describe('barChart refactored implementation', () => {
       queryResult: { rows: [{ 'SUM(value)': 42 }], columns: [], row_count: 1 } as any,
       xFields: [],
       yFields: [meas('value', 'sum')],
-      colorField: undefined,
+      color: color(),
       sizeField: undefined,
-      colorScheme: undefined
     };
 
     const opts = barChart(ctx);
@@ -75,9 +77,8 @@ describe('barChart refactored implementation', () => {
       } as any,
       xFields: [meas('value', 'sum')],
       yFields: [dim('category')],
-      colorField: undefined,
+      color: color(),
       sizeField: undefined,
-      colorScheme: undefined
     };
 
     const opts = barChart(ctx);
@@ -99,9 +100,8 @@ describe('barChart refactored implementation', () => {
       } as any,
       xFields: [categoryField],
       yFields: [meas('value', 'sum')],
-      colorField: undefined,
+      color: color(),
       sizeField: undefined,
-      colorScheme: undefined
     };
 
     const opts = barChart(ctx);
@@ -127,9 +127,8 @@ describe('barChart refactored implementation', () => {
       } as any,
       xFields: [dim('category')],
       yFields: [meas('value', 'sum')],
-      colorField,
+      color: color(colorField),
       sizeField: undefined,
-      colorScheme: undefined
     };
 
     const opts = barChart(ctx);
@@ -157,9 +156,8 @@ describe('barChart refactored implementation', () => {
       } as any,
       xFields: [dim('bin')],
       yFields: [meas('value', 'sum')],
-      colorField: undefined,
+      color: color(),
       sizeField: undefined,
-      colorScheme: undefined
     };
 
     const opts = barChart(ctx);
@@ -178,9 +176,8 @@ describe('barChart refactored implementation', () => {
       } as any,
       xFields: [],
       yFields: [meas('value', 'sum')],
-      colorField: undefined,
+      color: color(),
       sizeField: undefined,
-      colorScheme: undefined
     };
     const opts = barChart(ctx);
     const domain = opts.y?.domain as [number, number];
@@ -205,9 +202,8 @@ describe('barChart refactored implementation', () => {
       } as any,
       xFields: [],
       yFields: [meas('value', 'sum')],
-      colorField: dim('color'),
+      color: color(dim('color')),
       sizeField: undefined,
-      colorScheme: undefined
     };
 
     const opts = barChart(ctx);
@@ -233,9 +229,8 @@ describe('barChart refactored implementation', () => {
       } as any,
       xFields: [],
       yFields: [meas('value', 'sum')],
-      colorField: undefined,
+      color: color(),
       sizeField: undefined,
-      colorScheme: undefined
     };
     const opts = barChart(ctx);
     const domain = opts.y?.domain as [number, number];
@@ -257,9 +252,8 @@ describe('barChart refactored implementation', () => {
       } as any,
       xFields: [],
       yFields: [meas('value', 'sum')],
-      colorField: undefined,
+      color: color(),
       sizeField: undefined,
-      colorScheme: undefined
     };
     const opts = barChart(ctx);
     const domain = opts.y?.domain as [number, number];
@@ -282,9 +276,8 @@ describe('barChart refactored implementation', () => {
       } as any,
       xFields: [],
       yFields: [meas('value', 'sum')],
-      colorField: dim('color'),
+      color: color(dim('color')),
       sizeField: undefined,
-      colorScheme: undefined
     };
     const opts = barChart(ctx);
     const domain = opts.y?.domain as [number, number];
@@ -305,9 +298,8 @@ describe('barChart refactored implementation', () => {
       } as any,
       xFields: [dim('region')],
       yFields: [meas('value', 'sum')],
-      colorField: dim('segment'),
+      color: color(dim('segment')),
       sizeField: undefined,
-      colorScheme: undefined,
     };
 
     const opts = barChart(ctx);

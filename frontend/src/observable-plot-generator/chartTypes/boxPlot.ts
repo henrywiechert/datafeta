@@ -211,10 +211,11 @@ function buildColorizedRawBoxData(
 
 function resolveFieldByColumn(context: ChartGenerationContext, columnName?: string): Field | undefined {
   if (!columnName) return undefined;
+  const color = resolveContextColorChannel(context);
   const candidates = [
     ...context.xFields,
     ...context.yFields,
-    ...(context.colorField ? [context.colorField] : []),
+    ...(color.field ? [color.field] : []),
     ...(context.tooltipFields || []),
   ];
   return candidates.find((field) => getResultColumnName(field) === columnName || field.columnName === columnName);
@@ -234,7 +235,7 @@ function createBoxTooltipFieldsGetter(
     categoryColumn && categoryLabel
       ? [{ label: categoryLabel, column: categoryColumn, sourceField: categoryField }]
       : [],
-    colorColumn ? context.colorField : undefined,
+    colorColumn ? resolveContextColorChannel(context).field ?? undefined : undefined,
     undefined,
     undefined,
   );
@@ -298,10 +299,13 @@ export function boxPlot(
   sharedColorScale?: ColorScaleInfo | null,
 ): Plot.PlotOptions {
   const rawData = context.queryResult.rows;
+  const color = resolveContextColorChannel(context);
+  const colorField = color.field ?? undefined;
+  const manualColor = color.manual || undefined;
   const thicknessScale = context.bandThicknessScale ?? 1;
   const bandPadding = computeBandPaddingFromSizeField(rawData, undefined, { manualSize: context.manualSize }) ?? BAND_PADDING;
-  const sourceColorColumnName = context.colorField ? getResultColumnName(context.colorField) : undefined;
-  const usesDiscreteColor = Boolean(sourceColorColumnName && context.colorField?.flavour === 'discrete');
+  const sourceColorColumnName = colorField ? getResultColumnName(colorField) : undefined;
+  const usesDiscreteColor = Boolean(sourceColorColumnName && colorField?.flavour === 'discrete');
   const colorized = usesDiscreteColor
     ? buildColorizedRawBoxData(rawData, categoryColumn, sourceColorColumnName)
     : { data: rawData, colorColumnName: undefined as string | undefined };
@@ -312,7 +316,7 @@ export function boxPlot(
   const resolvedColorColumnName = usesDiscreteColor
     ? (isServerSummaryData ? sourceColorColumnName : colorized.colorColumnName)
     : undefined;
-  const colorInfo = usesDiscreteColor && context.colorField
+  const colorInfo = usesDiscreteColor && colorField
     ? (sharedColorScale || deriveColorScaleInfo(
       summaryRows,
       resolveContextColorChannel(context),
@@ -325,22 +329,23 @@ export function boxPlot(
     : undefined;
   const categoryCount = Math.max(1, categories?.length ?? 1);
   const categoryAxisSize = Math.max(BAR_STEP_PX, categoryCount * BAR_STEP_PX) * thicknessScale;
-  const strokeColor = context.manualColor || DEFAULT_CHART_COLOR;
-  const fillColor = context.manualColor || DEFAULT_CHART_COLOR;
-  const colorScale = resolvedColorColumnName && colorInfo
+  const strokeColor = manualColor || DEFAULT_CHART_COLOR;
+  const fillColor = manualColor || DEFAULT_CHART_COLOR;
+  const colorScaleLabel = colorField ? getFieldDisplayName(colorField as Field) : undefined;
+  const colorScale = resolvedColorColumnName && colorInfo && colorField
     ? (colorInfo.kind === 'continuous'
         ? {
             type: 'linear',
             domain: colorInfo.domain as [number, number],
             range: colorInfo.range,
             clamp: true,
-            label: getFieldDisplayName(context.colorField!),
+            label: colorScaleLabel,
           } as any
         : {
             type: 'ordinal' as any,
             domain: colorInfo.domain as any[],
             range: colorInfo.range,
-            label: getFieldDisplayName(context.colorField!),
+            label: colorScaleLabel,
           } as any)
     : undefined;
   const tooltipGetter = createBoxTooltipFieldsGetter(

@@ -19,6 +19,10 @@ jest.mock('@observablehq/plot', () => ({
   text: (data: any[], opts: any) => ({ type: 'text', data, opts }),
 }));
 
+function color(field: any, scheme = ''): any {
+  return { field, scheme, bias: 0, reversed: false, manual: '' };
+}
+
 /**
  * Generate N rows with a numeric X and Y.
  * Y values cluster around `yCenter` with small jitter, plus optional outliers.
@@ -258,7 +262,7 @@ describe('buildLineOptions – pinned comparison metadata', () => {
       yColumn: 'AVG(y)',
       orientation: 'horizontal',
       labels: { x: 'X', y: 'AVG(y)' },
-      colorField: discreteColorField,
+      color: color(discreteColorField),
     });
 
     const tooltipConfig = (opts as any).__customTooltip;
@@ -288,7 +292,7 @@ describe('buildLineOptions – pinned comparison metadata', () => {
       yColumn: 'AVG(y)',
       orientation: 'horizontal',
       labels: { x: 'X', y: 'AVG(y)' },
-      colorField: discreteColorField,
+      color: color(discreteColorField),
     });
 
     const tooltipConfig = (opts as any).__customTooltip;
@@ -308,7 +312,7 @@ describe('buildLineOptions – pinned comparison metadata', () => {
       yColumn: 'AVG(y)',
       orientation: 'horizontal',
       labels: { x: 'X', y: 'AVG(y)' },
-      colorField: discreteColorField,
+      color: color(discreteColorField),
     });
 
     const tooltipConfig = (opts as any).__customTooltip;
@@ -336,8 +340,7 @@ describe('buildLineOptions – continuous color by series', () => {
       yColumn: 'AVG(y)',
       orientation: 'horizontal',
       labels: { x: 'X', y: 'AVG(y)' },
-      colorField: continuousColorField,
-      colorScheme: 'rdbu',
+      color: color(continuousColorField, 'rdbu'),
       lineColorMode: 'bySeries',
     });
 
@@ -379,7 +382,7 @@ describe('buildLineOptions – area variant grouping', () => {
       yColumn: 'AVG(y)',
       orientation: 'horizontal',
       labels: { x: 'X', y: 'AVG(y)' },
-      colorField: discreteColorField,
+      color: color(discreteColorField),
       variant: 'area',
     });
 

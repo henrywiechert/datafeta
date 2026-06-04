@@ -1,7 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import * as Plot from '@observablehq/plot';
 import { DEFAULT_AREA_FILL_OPACITY, DEFAULT_CHART_COLOR, DOMAIN_PAD_RATIO } from '../../config/chartLayoutConfig';
-import { Field, LineColorMode, LineVariant, PinnedTooltipComparison } from '../../types';
+import { ColorChannel, Field, LineColorMode, LineVariant, PinnedTooltipComparison } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { lineColorSplitsSeries } from '../../utils/lineColorEncoding';
 import {
@@ -43,11 +43,7 @@ export interface LineBuildParams {
   orientation: LineOrientation;
   labels?: { x?: string; y?: string };
   domain?: { x?: [number, number] | [Date, Date]; y?: [number, number] | [Date, Date] };
-  colorField?: Field;
-  colorScheme?: string;
-  colorBias?: number;
-  colorReversed?: boolean;
-  manualColor?: string;
+  color?: ColorChannel;
   sizeField?: Field;
   sizeRange?: [number, number];
   manualSize?: number;
@@ -842,11 +838,6 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     orientation,
     labels,
     domain,
-    colorField,
-    colorScheme,
-    colorBias,
-    colorReversed,
-    manualColor,
     sizeField,
     sizeRange,
     manualSize,
@@ -860,6 +851,10 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     areaFillOpacity = DEFAULT_AREA_FILL_OPACITY,
     lineColorMode = 'alongPath',
   } = params;
+  const color = resolveContextColorChannel(params as any);
+  const colorField = color.field ?? undefined;
+  const colorBias = color.bias;
+  const manualColor = color.manual || undefined;
 
   const O = LINE_ORIENTATION[orientation];
   const independentColumn = orientation === 'horizontal' ? xColumn : yColumn;
@@ -914,8 +909,8 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     lineColorMode === 'bySeries';
   const colorInfo = colorField
     ? useSeriesGradient
-      ? deriveSplitSeriesGradientColorScale(budgetedSorted, resolveContextColorChannel({ colorField, colorScheme, colorBias, colorReversed }))
-      : deriveColorScaleInfo(budgetedSorted, resolveContextColorChannel({ colorField, colorScheme, colorBias, colorReversed }))
+      ? deriveSplitSeriesGradientColorScale(budgetedSorted, color)
+      : deriveColorScaleInfo(budgetedSorted, color)
     : null;
   const comparisonColorContext = applyLineColorEncoding({
     lineConfig,

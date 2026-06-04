@@ -71,7 +71,7 @@ function buildContext(independentX: boolean): ChartGenerationContext {
   return {
     xFields: [facetField, timeField],
     yFields: [measureField],
-    colorBias: 0,
+    color: { field: null, scheme: '', bias: 0, reversed: false, manual: '' },
     sizeRange: [4, 20],
     manualSize: 10,
     queryResult: {

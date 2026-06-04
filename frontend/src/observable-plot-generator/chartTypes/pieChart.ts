@@ -233,8 +233,9 @@ export function buildPiePlotSpec(args: {
   measureField?: Field;
 }): PiePlotSpec {
   const { rows, context, sharedDomains, facetFields = [], measureField: explicitMeasureField } = args;
+  const color = resolveContextColorChannel(context);
   const measureField = explicitMeasureField || resolveMeasureFields(context)[0];
-  const colorField = context.colorField?.flavour === 'discrete' ? context.colorField : undefined;
+  const colorField = color.field?.flavour === 'discrete' ? color.field : undefined;
 
   if (!measureField) {
     return {
@@ -324,7 +325,7 @@ export function buildPiePlotSpec(args: {
       rawValue: entry.rawValue,
       value: entry.value,
       percentage,
-      color: colorField ? getColorForValue(entry.rawValue, colorScale) : (context.manualColor || DEFAULT_CHART_COLOR),
+      color: colorField ? getColorForValue(entry.rawValue, colorScale) : (color.manual || DEFAULT_CHART_COLOR),
       labelLines: buildSliceLabelLines(entry.row, context, percentage),
       tooltipFields: buildTooltipFields({
         row: entry.row,
@@ -447,7 +448,7 @@ export function generatePieGrid(context: ChartGenerationContext): PlotResult {
     measure: {},
     numeric: {},
     categorical: {},
-    colorScale: context.colorField?.flavour === 'discrete'
+    colorScale: resolveContextColorChannel(context).field?.flavour === 'discrete'
       ? deriveColorScaleInfo(
           context.queryResult.rows,
           resolveContextColorChannel(context),

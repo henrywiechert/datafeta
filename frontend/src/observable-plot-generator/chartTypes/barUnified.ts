@@ -31,7 +31,10 @@ export function barUnified(
   context: ChartGenerationContext,
   labelCfg?: LabelConfig
 ): PlotResult {
-  const { queryResult, xFields, yFields, colorField, manualColor, sizeField, manualSize, tooltipFields, fieldOverrides, measureValuesSourceFields } = context;
+  const { queryResult, xFields, yFields, sizeField, manualSize, tooltipFields, fieldOverrides, measureValuesSourceFields } = context;
+  const color = resolveContextColorChannel(context);
+  const colorField = color.field ?? undefined;
+  const manualColor = color.manual || undefined;
   const data = queryResult.rows;
   
   // Check if MeasureValues is being used and get combined overrides from source measures

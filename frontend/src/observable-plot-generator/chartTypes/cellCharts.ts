@@ -1,6 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import * as Plot from '@observablehq/plot';
-import { Field } from '../../types';
+import { ColorChannel, Field } from '../../types';
 import { LabelConfig, GanttZoomRange } from '../types';
 import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
@@ -15,7 +15,7 @@ import { buildDensityOptions } from './densityChart';
 import { buildHeatmapOptions } from './heatmapChart';
 import { CellChartType, ChartTypeOverrides, resolveChartTypeForPair } from '../helpers/chartTypeResolver';
 import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField, sortCategoriesByValue, Orientation } from './barCore';
-import { deriveColorScaleInfo, resolveContextColorChannel } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
 
 // Types and helpers extracted to separate files
 import { Domains, ChartContext, ChartHandler } from './cellChartTypes';
@@ -67,9 +67,10 @@ function createBar(
   const dynamicPadding = computeBandPaddingFromSizeField(data, ctx.sizeField, {
     manualSize: ctx.manualSize,
   }) ?? 0.1;
-  const colorColumn = ctx.colorField ? getResultColumnName(ctx.colorField) : undefined;
-  const colorScale = ctx.colorField
-    ? deriveColorScaleInfo(data, resolveContextColorChannel({ colorField: ctx.colorField, colorScheme: ctx.colorScheme, colorBias: ctx.colorBias, colorReversed: ctx.colorReversed }))
+  const colorField = ctx.color.field ?? undefined;
+  const colorColumn = colorField ? getResultColumnName(colorField) : undefined;
+  const colorScale = colorField
+    ? deriveColorScaleInfo(data, ctx.color)
     : null;
   
   // Don't use valueDomainOverride for stacked bars (no category but has color)
@@ -89,7 +90,7 @@ function createBar(
     zeroBaseline: true,
     valueDomainOverride: useStackedDomain ? undefined : valueDomain,
     tooltipFields: ctx.tooltipFields,
-    manualColor: ctx.colorField ? undefined : ctx.manualColor,
+    manualColor: colorField ? undefined : (ctx.color.manual || undefined),
     labels: {
       measure: getFieldDisplayName(measure),
       category: categoryDimension ? getFieldDisplayName(categoryDimension) : undefined,
@@ -118,7 +119,7 @@ function handleScatter(data: any[], xf: Field, yf: Field, ctx: ChartContext): Pl
     y: getFieldDisplayName(yf),
     ...(xDomain || yDomain ? { domain: { x: xDomain, y: yDomain } } : {}),
   };
-  const hasDiscreteColor = ctx.colorField?.flavour === 'discrete';
+  const hasDiscreteColor = (ctx.color.field ?? undefined)?.flavour === 'discrete';
   
   // Special-case: measure vs measure should be a single dot (global aggregate)
   if (xf.type === 'measure' && yf.type === 'measure' && !hasDiscreteColor) {
@@ -128,7 +129,7 @@ function handleScatter(data: any[], xf: Field, yf: Field, ctx: ChartContext): Pl
     }];
     return scatterChart(
       single, xCol, yCol, domainOptions,
-      ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.colorReversed, ctx.manualColor,
+      ctx.color,
       ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
       ctx.labelCfg, ctx.tooltipFields, ctx.facetFields, ctx.shapeField, ctx.manualShape
     );
@@ -136,7 +137,7 @@ function handleScatter(data: any[], xf: Field, yf: Field, ctx: ChartContext): Pl
   
   return scatterChart(
     data, xCol, yCol, domainOptions,
-    ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.colorReversed, ctx.manualColor,
+    ctx.color,
     ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
     ctx.labelCfg, ctx.tooltipFields, ctx.facetFields, ctx.shapeField, ctx.manualShape
   );
@@ -157,11 +158,7 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       orientation: 'vertical',
       labels: { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
       domain: { x: xDomain, y: yDomain },
-      colorField: ctx.colorField,
-      colorScheme: ctx.colorScheme,
-      colorBias: ctx.colorBias,
-      colorReversed: ctx.colorReversed,
-      manualColor: ctx.manualColor,
+      color: ctx.color,
       sizeField: ctx.sizeField,
       sizeRange: ctx.sizeRange,
       manualSize: ctx.manualSize,
@@ -189,11 +186,7 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       orientation: 'horizontal',
       labels: { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
       domain: { x: xDomain, y: yDomain },
-      colorField: ctx.colorField,
-      colorScheme: ctx.colorScheme,
-      colorBias: ctx.colorBias,
-      colorReversed: ctx.colorReversed,
-      manualColor: ctx.manualColor,
+      color: ctx.color,
       sizeField: ctx.sizeField,
       sizeRange: ctx.sizeRange,
       manualSize: ctx.manualSize,
@@ -213,7 +206,7 @@ function handleLine(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
   const { xCol, yCol } = resolveXYColumns(xf, yf);
   return scatterChart(
     data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
-    ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.colorReversed, ctx.manualColor,
+    ctx.color,
     ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
     ctx.labelCfg, ctx.tooltipFields, ctx.facetFields, undefined, ctx.manualShape
   );
@@ -231,7 +224,7 @@ function handleBarX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
     const { xCol, yCol } = resolveXYColumns(xf, yf);
     return scatterChart(
       data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
-      ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.colorReversed, ctx.manualColor,
+      ctx.color,
       ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
       ctx.labelCfg, ctx.tooltipFields, ctx.facetFields, undefined, ctx.manualShape
     );
@@ -261,7 +254,7 @@ function handleBarY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
     const { xCol, yCol } = resolveXYColumns(xf, yf);
     return scatterChart(
       data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
-      ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.colorReversed, ctx.manualColor,
+      ctx.color,
       ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
       ctx.labelCfg, ctx.tooltipFields, ctx.facetFields, undefined, ctx.manualShape
     );
@@ -295,10 +288,7 @@ function handleTickX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
         xFields: [], 
         yFields: [], 
         queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any,
-        colorField: ctx.colorField,
-        colorScheme: ctx.colorScheme,
-        colorBias: ctx.colorBias,
-        colorReversed: ctx.colorReversed,
+        color: ctx.color,
         sizeField: ctx.sizeField,
         sizeRange: ctx.sizeRange,
         manualSize: ctx.manualSize
@@ -322,10 +312,7 @@ function handleTickX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
         xFields: [], 
         yFields: [], 
         queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any,
-        colorField: ctx.colorField,
-        colorScheme: ctx.colorScheme,
-        colorBias: ctx.colorBias,
-        colorReversed: ctx.colorReversed,
+        color: ctx.color,
         sizeField: ctx.sizeField,
         sizeRange: ctx.sizeRange,
         manualSize: ctx.manualSize
@@ -342,7 +329,7 @@ function handleTickX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
   const { xCol, yCol } = resolveXYColumns(xf, yf);
   return scatterChart(
     data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
-    ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.colorReversed, ctx.manualColor,
+    ctx.color,
     ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
     ctx.labelCfg, ctx.tooltipFields, ctx.facetFields, undefined, ctx.manualShape
   );
@@ -364,10 +351,7 @@ function handleTickY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
         xFields: [], 
         yFields: [], 
         queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any,
-        colorField: ctx.colorField,
-        colorScheme: ctx.colorScheme,
-        colorBias: ctx.colorBias,
-        colorReversed: ctx.colorReversed,
+        color: ctx.color,
         sizeField: ctx.sizeField,
         sizeRange: ctx.sizeRange,
         manualSize: ctx.manualSize,
@@ -393,10 +377,7 @@ function handleTickY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
         xFields: [], 
         yFields: [], 
         queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any,
-        colorField: ctx.colorField,
-        colorScheme: ctx.colorScheme,
-        colorBias: ctx.colorBias,
-        colorReversed: ctx.colorReversed,
+        color: ctx.color,
         sizeField: ctx.sizeField,
         sizeRange: ctx.sizeRange,
         manualSize: ctx.manualSize,
@@ -415,7 +396,7 @@ function handleTickY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot
   const { xCol, yCol } = resolveXYColumns(xf, yf);
   return scatterChart(
     data, xCol, yCol, { x: getFieldDisplayName(xf), y: getFieldDisplayName(yf) },
-    ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.colorReversed, ctx.manualColor,
+    ctx.color,
     ctx.sizeField, ctx.sizeRange, ctx.manualSize, ctx.sizeScaleData,
     ctx.labelCfg, ctx.tooltipFields, ctx.facetFields, undefined, ctx.manualShape
   );
@@ -438,7 +419,7 @@ function handleBoxX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       xFields: [],
       yFields: [],
       queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any,
-      manualColor: ctx.manualColor,
+      color: ctx.color,
       categoryAxisDescriptor: category
         ? { axis: 'y', columnName: getResultColumnName(category), domain: ctx.sharedCategoricalDomains?.[getResultColumnName(category)] }
         : undefined,
@@ -471,7 +452,7 @@ function handleBoxY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.
       xFields: [],
       yFields: [],
       queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any,
-      manualColor: ctx.manualColor,
+      color: ctx.color,
       categoryAxisDescriptor: category
         ? { axis: 'x', columnName: getResultColumnName(category), domain: ctx.sharedCategoricalDomains?.[getResultColumnName(category)] }
         : undefined,
@@ -522,13 +503,9 @@ function handleGanttX(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plo
       xFields: [],
       yFields: [],
       queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any,
-      colorField: ctx.colorField,
-      colorScheme: ctx.colorScheme,
-      colorBias: ctx.colorBias,
-      colorReversed: ctx.colorReversed,
+      color: ctx.color,
       manualSize: ctx.manualSize,
       bandThicknessScale: ctx.bandThicknessScale,
-      manualColor: ctx.manualColor,
       tooltipFields: ctx.tooltipFields,
       ganttZoomRange: ctx.ganttZoomRange,
     },
@@ -574,13 +551,9 @@ function handleGanttY(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plo
       xFields: [],
       yFields: [],
       queryResult: { columns: [], rows: data, row_count: data?.length || 0 } as any,
-      colorField: ctx.colorField,
-      colorScheme: ctx.colorScheme,
-      colorBias: ctx.colorBias,
-      colorReversed: ctx.colorReversed,
+      color: ctx.color,
       manualSize: ctx.manualSize,
       bandThicknessScale: ctx.bandThicknessScale,
-      manualColor: ctx.manualColor,
       tooltipFields: ctx.tooltipFields,
       ganttZoomRange: ctx.ganttZoomRange,
     },
@@ -607,11 +580,7 @@ function handleCdf(data: any[], _xf: Field, yf: Field, ctx: ChartContext): Plot.
     data,
     valueColumn,
     valueLabel: getFieldDisplayName(yf),
-    colorField: ctx.colorField,
-    colorScheme: ctx.colorScheme,
-    colorBias: ctx.colorBias,
-    colorReversed: ctx.colorReversed,
-    manualColor: ctx.manualColor,
+    color: ctx.color,
     manualSize: ctx.manualSize,
     tooltipFields: ctx.tooltipFields,
     facetFields: ctx.facetFields,
@@ -624,11 +593,7 @@ function handleDensity(data: any[], xf: Field, _yf: Field, ctx: ChartContext): P
     data,
     valueColumn,
     valueLabel: getFieldDisplayName(xf),
-    colorField: ctx.colorField,
-    colorScheme: ctx.colorScheme,
-    colorBias: ctx.colorBias,
-    colorReversed: ctx.colorReversed,
-    manualColor: ctx.manualColor,
+    color: ctx.color,
     densityParams: ctx.densityParams,
   });
 }
@@ -642,11 +607,7 @@ function handleHeatmap(data: any[], xf: Field, yf: Field, ctx: ChartContext): Pl
   data,
     xField: xf,
     yField: yf,
-    colorField: ctx.colorField,
-    colorScheme: ctx.colorScheme,
-    colorBias: ctx.colorBias,
-    colorReversed: ctx.colorReversed,
-    manualColor: ctx.manualColor,
+  color: ctx.color,
     manualSize: ctx.manualSize,
     labelFields: ctx.labelCfg?.labelFields,
     labelFontSize: ctx.labelCfg?.fontSize,
@@ -693,16 +654,12 @@ export function generatePairChartOptions(
   yField: Field | null,
   sharedMeasureDomains?: Domains,
   overrides?: ChartTypeOverrides,
-  colorField?: Field,
+  color?: ColorChannel,
   sizeField?: Field,
   sizeRange?: [number, number],
   manualSize?: number,
   sizeScaleData?: any[],
   bandThicknessScale?: number,
-  colorScheme?: string,
-  colorBias?: number,
-  colorReversed?: boolean,
-  manualColor?: string,
   labelCfg?: LabelConfig,
   tooltipFields?: Field[],
   facetFields?: Field[],
@@ -721,16 +678,12 @@ export function generatePairChartOptions(
   const ctx: ChartContext = {
     sharedMeasureDomains,
     sharedCategoricalDomains,
-    colorField,
+    color: color ?? { field: null, scheme: '', bias: 0, reversed: false, manual: '' },
     sizeField,
     sizeRange,
     manualSize,
     sizeScaleData,
     bandThicknessScale,
-    colorScheme,
-    colorBias,
-    colorReversed,
-    manualColor,
     labelCfg,
     tooltipFields,
     facetFields,

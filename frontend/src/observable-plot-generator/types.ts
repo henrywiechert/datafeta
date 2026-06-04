@@ -85,18 +85,10 @@ export interface ChartGenerationContext {
   xFields: Field[];
   yFields: Field[];
   /**
-   * Grouped color encoding carrier. Populated from the resolved color scalars
-   * at the generation entry point. During the ColorChannel migration this
-   * coexists with the individual `color*` scalar fields below (which remain the
-   * source consumed by chart-type generators until they are migrated). Optional
-   * so existing context literals (notably in tests) keep compiling.
+    * Grouped color encoding carrier. Optional so focused tests can construct
+    * minimal contexts; runtime generation always provides it.
    */
   color?: ColorChannel;
-  colorField?: Field;
-  colorScheme?: string;
-  colorBias?: number;
-  colorReversed?: boolean;
-  manualColor?: string;
   sizeField?: Field;
   sizeRange?: [number, number];
   manualSize?: number;
