@@ -33,6 +33,8 @@ export function encodingReducer(state: VisualizationState, action: Visualization
       return { ...state, colorScheme: action.payload };
     case 'SET_COLOR_BIAS':
       return { ...state, colorBias: action.payload };
+    case 'SET_COLOR_REVERSED':
+      return { ...state, colorReversed: action.payload };
     case 'SET_MANUAL_COLOR':
       return { ...state, manualColor: action.payload };
     case 'REMOVE_COLOR_FIELD': {

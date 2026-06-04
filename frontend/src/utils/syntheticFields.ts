@@ -265,6 +265,9 @@ export function combineMeasureValuesOverrides(
     if (combined.colorBias === undefined && override.colorBias !== undefined) {
       combined.colorBias = override.colorBias;
     }
+    if (combined.colorReversed === undefined && override.colorReversed !== undefined) {
+      combined.colorReversed = override.colorReversed;
+    }
     if (combined.manualColor === undefined && override.manualColor !== undefined) {
       combined.manualColor = override.manualColor;
     }

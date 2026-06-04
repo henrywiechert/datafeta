@@ -23,6 +23,7 @@ export interface CdfBuildParams {
   colorField?: Field;
   colorScheme?: string;
   colorBias?: number;
+  colorReversed?: boolean;
   manualColor?: string;
   /** Line stroke width (defaults to 2) */
   manualSize?: number;
@@ -47,6 +48,7 @@ export function buildCdfOptions(params: CdfBuildParams): Plot.PlotOptions {
     colorField,
     colorScheme,
     colorBias,
+    colorReversed,
     manualColor,
     manualSize,
     tooltipFields,
@@ -116,7 +118,7 @@ export function buildCdfOptions(params: CdfBuildParams): Plot.PlotOptions {
     ? getResultColumnName(colorField)
     : undefined;
   const colorInfo = colorField
-    ? colorScaleInfo || deriveColorScaleInfo(clean, colorField, colorScheme, colorBias)
+    ? colorScaleInfo || deriveColorScaleInfo(clean, colorField, colorScheme, colorBias, colorReversed)
     : null;
 
   if (colorField && colorInfo && colorColumnName) {

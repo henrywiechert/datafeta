@@ -230,7 +230,9 @@ export function tickStrip(
   const { queryResult, colorField, colorScheme, colorBias, sizeField, manualSize, manualColor, tooltipFields, bandThicknessScale, xTickFormat, yTickFormat } = context;
   const data = queryResult.rows;
   const categoryTickFormat = orientation === 'x' ? yTickFormat : xTickFormat;
-  const colorInfo = colorField ? deriveColorScaleInfo(data, colorField, colorScheme, colorBias) : null;
+  const colorInfo = colorField
+    ? deriveColorScaleInfo(data, colorField, colorScheme, colorBias, context.colorReversed)
+    : null;
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
   const strokeValue = colorField && colorInfo
     ? (colorInfo.kind === 'continuous' && colorInfo.accessor

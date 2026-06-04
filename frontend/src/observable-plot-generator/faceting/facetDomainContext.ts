@@ -33,6 +33,7 @@ export function buildFacetDomainContext(
     allFacetFields,
     context.colorScheme,
     context.colorBias,
+    context.colorReversed,
     context.measureValuesSourceFields,
     context.fieldOverrides
   );
@@ -50,6 +51,7 @@ export function buildFacetDomainContext(
               allFacetFields,
               context.colorScheme,
               context.colorBias,
+              context.colorReversed,
               context.measureValuesSourceFields,
               context.fieldOverrides
             )
@@ -75,6 +77,7 @@ export function buildFacetDomainContext(
               allFacetFields,
               context.colorScheme,
               context.colorBias,
+              context.colorReversed,
               context.measureValuesSourceFields,
               context.fieldOverrides
             )

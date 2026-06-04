@@ -83,6 +83,7 @@ export interface VisualizationStateSnapshot {
   colorField: Field | null;
   colorScheme: string;
   colorBias: number;
+  colorReversed?: boolean;
   manualColor?: string;
   sizeField: Field | null;
   sizeRange: [number, number];

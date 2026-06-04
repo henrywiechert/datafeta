@@ -99,6 +99,7 @@ export interface FieldOverrideState {
   colorField?: Field | null;
   colorScheme?: string;
   colorBias?: number;
+  colorReversed?: boolean;
   manualColor?: string;
 
   // Size overrides

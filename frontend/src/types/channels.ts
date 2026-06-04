@@ -15,6 +15,7 @@ export interface ColorChannel {
   field: Field | null;
   scheme: string;
   bias: number;
+  reversed: boolean;
   manual: string;
 }
 

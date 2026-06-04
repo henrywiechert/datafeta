@@ -458,7 +458,7 @@ function buildSymbolModeCells(
   context: ChartGenerationContext,
 ): GridCellModel[] {
   const colorScale = context.colorField
-    ? deriveColorScaleInfo(data, context.colorField, context.colorScheme, context.colorBias)
+    ? deriveColorScaleInfo(data, context.colorField, context.colorScheme, context.colorBias, context.colorReversed)
     : null;
   const shapeScale = context.shapeField && context.shapeField.flavour === 'discrete'
     ? deriveShapeScaleInfo(data, context.shapeField)

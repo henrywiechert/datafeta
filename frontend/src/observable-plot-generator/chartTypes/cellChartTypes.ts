@@ -29,6 +29,7 @@ export interface ChartContext {
   bandThicknessScale?: number;
   colorScheme?: string;
   colorBias?: number;
+  colorReversed?: boolean;
   manualColor?: string;
   labelCfg?: LabelConfig;
   tooltipFields?: Field[];

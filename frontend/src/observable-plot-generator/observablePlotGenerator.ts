@@ -254,7 +254,13 @@ function generatePlotCore(context: ChartGenerationContext, overrides?: ChartType
       yCandidates,
       sharedDomains,
       encoding: {
-        color: { field: colorField, scheme: colorScheme, bias: context.colorBias, manual: context.manualColor },
+        color: {
+          field: colorField,
+          scheme: colorScheme,
+          bias: context.colorBias,
+          reversed: context.colorReversed,
+          manual: context.manualColor,
+        },
         size: { field: sizeField, range: sizeRange, manual: manualSize, scaleData: queryResult.rows },
         shape: { field: context.shapeField, manual: context.manualShape },
       },

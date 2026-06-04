@@ -348,7 +348,9 @@ export function ganttChart(
     : rawData;
   
   // Color configuration (use rawData for color domain computation to maintain consistency)
-  const colorInfo = colorField ? deriveColorScaleInfo(rawData, colorField, colorScheme, colorBias) : null;
+  const colorInfo = colorField
+    ? deriveColorScaleInfo(rawData, colorField, colorScheme, colorBias, context.colorReversed)
+    : null;
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
   const fillValue = colorField && colorInfo
     ? (colorInfo.kind === 'continuous' && colorInfo.accessor

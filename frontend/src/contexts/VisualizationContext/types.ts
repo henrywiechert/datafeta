@@ -106,6 +106,7 @@ export interface VisualizationState {
   colorField: Field | null;
   colorScheme: string;
   colorBias: number;
+  colorReversed: boolean;
   manualColor: string;
   // Facet background encoding state
   facetBackgroundField: Field | null;
@@ -247,6 +248,7 @@ export type VisualizationAction =
   | { type: 'SET_COLOR_FIELD'; payload: Field | null }
   | { type: 'SET_COLOR_SCHEME'; payload: string }
   | { type: 'SET_COLOR_BIAS'; payload: number }
+  | { type: 'SET_COLOR_REVERSED'; payload: boolean }
   | { type: 'SET_MANUAL_COLOR'; payload: string }
   | { type: 'REMOVE_COLOR_FIELD' }
   // Facet background encoding actions

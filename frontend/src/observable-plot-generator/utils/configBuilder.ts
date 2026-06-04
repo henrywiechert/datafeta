@@ -58,6 +58,7 @@ export function computeSharedDomainsFromContext(
     facetFields,
     context.colorScheme,
     context.colorBias,
+    context.colorReversed,
     context.measureValuesSourceFields,
     context.fieldOverrides
   );
@@ -184,6 +185,7 @@ export function buildCartesianPlotsConfig(
         field: context.colorField,
         scheme: context.colorScheme,
         bias: context.colorBias,
+        reversed: context.colorReversed,
         manual: manualColorOverride ?? context.manualColor,
       },
       size: {

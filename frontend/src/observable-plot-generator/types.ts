@@ -56,7 +56,7 @@ export interface CartesianPlotsConfig {
   yCandidates: Field[];
   sharedDomains: SharedDomains;
   encoding?: {
-    color?: { field?: Field; scheme?: string; bias?: number; manual?: string };
+    color?: { field?: Field; scheme?: string; bias?: number; reversed?: boolean; manual?: string };
     size?: { field?: Field; range?: [number, number]; manual?: number; scaleData?: any[] };
     shape?: { field?: Field; manual?: string };
   };
@@ -87,6 +87,7 @@ export interface ChartGenerationContext {
   colorField?: Field;
   colorScheme?: string;
   colorBias?: number;
+  colorReversed?: boolean;
   manualColor?: string;
   sizeField?: Field;
   sizeRange?: [number, number];

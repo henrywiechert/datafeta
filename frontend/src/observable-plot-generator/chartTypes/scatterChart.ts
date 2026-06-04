@@ -110,6 +110,7 @@ export function scatterChart(
   colorField?: Field,
   colorScheme?: string,
   colorBias?: number,
+  colorReversed?: boolean,
   // Optional manual color used when there is no color field
   manualColor?: string,
   sizeField?: Field,
@@ -224,7 +225,7 @@ export function scatterChart(
     },
   };
   
-  const colorInfo = colorField ? deriveColorScaleInfo(budgeted, colorField, colorScheme, colorBias) : null;
+  const colorInfo = colorField ? deriveColorScaleInfo(budgeted, colorField, colorScheme, colorBias, colorReversed) : null;
   if (colorField && colorInfo) {
     const colorColumnName = getResultColumnName(colorField);
     dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: getFieldDisplayName(colorField) };
