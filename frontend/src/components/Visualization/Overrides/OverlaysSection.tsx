@@ -27,6 +27,7 @@ import {
   DEFAULT_OVERLAYS,
 } from '../../../observable-plot-generator/overlays/types';
 import { UserChartType, Field } from '../../../types';
+import { lineColorSplitsSeries } from '../../../utils/lineColorEncoding';
 import { detectDefaultChartTypeForPair, CellChartType } from '../../../observable-plot-generator/helpers/chartTypeResolver';
 import { analyzeFields } from '../../../observable-plot-generator/analysis/fieldAnalysis';
 
@@ -312,7 +313,7 @@ const OverlaysSection: React.FC = () => {
   const { state, dispatch, getUndoableSnapshot } = useVisualizationContext();
   const { recordAction } = useUndoRedo();
 
-  const { globalChartType, overlays: overlayConfigs, xAxisFields, yAxisFields, colorField } = state;
+  const { globalChartType, overlays: overlayConfigs, xAxisFields, yAxisFields, colorField, chartTypeParams } = state;
   const overlays: OverlayConfig[] = overlayConfigs ?? DEFAULT_OVERLAYS;
 
   // Resolve effective chart type: user-selected or auto-detected
@@ -361,7 +362,10 @@ const OverlaysSection: React.FC = () => {
   const byType: Record<string, OverlayConfig> = {};
   for (const o of overlays) byType[o.type] = o;
 
-  const hasDiscreteColor = !!(colorField && (colorField as Field).flavour === 'discrete');
+  const hasDiscreteColor = lineColorSplitsSeries(
+    colorField as Field | null,
+    chartTypeParams.line.colorMode,
+  );
 
   const handleToggle = (type: OverlayType, enabled: boolean) => {
     recordAction(getUndoableSnapshot());

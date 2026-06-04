@@ -70,6 +70,7 @@ export interface CartesianPlotsConfig {
   globalChartType?: UserChartType | null;
   lineVariant?: LineVariant;
   areaFillOpacity?: number;
+  lineColorMode?: import('../types').LineColorMode;
   distributionVariant?: DistributionVariant;
   measureValuesSourceFields?: Field[];
   bandThicknessScale?: number;
@@ -128,6 +129,8 @@ export interface ChartGenerationContext {
   lineVariant?: LineVariant;
   /** Fill opacity for area chart fills. */
   areaFillOpacity?: number;
+  /** Continuous line color: along path vs one line per value. */
+  lineColorMode?: import('../types').LineColorMode;
   /** Variant for the distribution chart family when globalChartType is 'tick'. */
   distributionVariant?: DistributionVariant;
   /** Cell rendering mode when globalChartType is 'table-refactor'. */

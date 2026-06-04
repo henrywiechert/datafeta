@@ -222,6 +222,7 @@ export const useQueryExecution = ({
     optimizationSettings,
     distributionVariant: vizState.chartTypeParams.distribution.variant,
     globalChartType: vizState.globalChartType,
+    lineColorMode: vizState.chartTypeParams.line.colorMode,
     dispatch,
     startOperation,
     completeOperation,

@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { Field, FilterConfig, FieldOverrideState, UserChartType, DistributionVariant, TableCellMode, LineVariant } from '../types';
+import { Field, FilterConfig, FieldOverrideState, UserChartType, DistributionVariant, TableCellMode, LineVariant, LineColorMode } from '../types';
 
 export interface QueryAffectingConfig {
   xAxisFields: Field[];
@@ -26,6 +26,7 @@ export interface ChartAffectingConfig extends QueryAffectingConfig {
   globalChartType?: UserChartType | null;
   lineVariant?: LineVariant;
   areaFillOpacity?: number;
+  lineColorMode?: LineColorMode;
   distributionVariant?: DistributionVariant;
   tableCellMode?: TableCellMode;
   /** Per-sheet pager state for the 'table-refactor' chart type (0-based index). */
@@ -74,6 +75,7 @@ export function createChartAffectingConfig(config: ChartAffectingConfig): ChartA
     globalChartType: config.globalChartType,
     lineVariant: config.lineVariant,
     areaFillOpacity: config.areaFillOpacity,
+    lineColorMode: config.lineColorMode,
     distributionVariant: config.distributionVariant,
     tableCellMode: config.tableCellMode,
     tablePage: config.tablePage,

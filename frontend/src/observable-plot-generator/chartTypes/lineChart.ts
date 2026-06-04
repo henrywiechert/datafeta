@@ -1,9 +1,15 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import * as Plot from '@observablehq/plot';
 import { DEFAULT_AREA_FILL_OPACITY, DEFAULT_CHART_COLOR, DOMAIN_PAD_RATIO } from '../../config/chartLayoutConfig';
-import { Field, LineVariant, PinnedTooltipComparison } from '../../types';
+import { Field, LineColorMode, LineVariant, PinnedTooltipComparison } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
-import { deriveColorScaleInfo, resolveColorForRow, ColorScaleInfo } from '../utils/colorSchemeUtils';
+import { lineColorSplitsSeries } from '../../utils/lineColorEncoding';
+import {
+  deriveColorScaleInfo,
+  deriveSplitSeriesGradientColorScale,
+  resolveColorForRow,
+  ColorScaleInfo,
+} from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
 import { createLegacyLabelMark, prepareLabelData, LabelRenderConfig } from '../utils/labelUtils';
 import { createTooltipFieldsGetter, formatTooltipValue } from '../utils/tooltipUtils';
@@ -58,6 +64,8 @@ export interface LineBuildParams {
   yField?: Field;
   variant?: LineVariant;
   areaFillOpacity?: number;
+  /** Continuous color: gradient along path vs one line per distinct value. */
+  lineColorMode?: LineColorMode;
 }
 
 type LineBudget = {
@@ -399,8 +407,9 @@ function prepareLineData(params: {
   colorField?: Field;
   colorColumnName?: string;
   orientation: LineOrientation;
+  lineColorMode?: LineColorMode;
 }): PreparedLineData {
-  const { data, independentColumn, dependentColumn, colorField, colorColumnName, orientation } = params;
+  const { data, independentColumn, dependentColumn, colorField, colorColumnName, orientation, lineColorMode } = params;
 
   // Filter to finite numeric values for the dependent axis
   const clean = Array.isArray(data)
@@ -411,14 +420,14 @@ function prepareLineData(params: {
   const cleanSorted = clean.slice().sort(compareByColumn(independentColumn));
 
   // ---- Auto bin-aggregation (line-specific) --------------------------------
-  const hasDiscreteColor = !!colorField && colorField.flavour === 'discrete';
-  const budget = computeLineBudget(hasDiscreteColor);
+  const splitsSeries = lineColorSplitsSeries(colorField, lineColorMode);
+  const budget = computeLineBudget(splitsSeries);
   const axisKind: XKind = inferXKind(cleanSorted.slice(0, 25).map(r => r?.[independentColumn]));
 
   const maxBins = budget.maxPoints;
   let budgetedSorted = cleanSorted;
   if (cleanSorted.length > maxBins) {
-    if (hasDiscreteColor && colorColumnName) {
+    if (splitsSeries && colorColumnName) {
       // Group by color, bin-aggregate each group separately
       const groups = groupRowsByColorSeries(cleanSorted, colorColumnName);
       const reduced: any[] = [];
@@ -441,7 +450,7 @@ function prepareLineData(params: {
   // Use the actual total dot count to decide whether sampling is needed at all;
   // if the data already fits within the budget, show every point.
   let dotData: any[];
-  if (hasDiscreteColor && colorColumnName) {
+  if (splitsSeries && colorColumnName) {
     if (budgetedSorted.length <= budget.maxDots) {
       // All points fit within budget — no need to sample
       dotData = budgetedSorted;
@@ -551,7 +560,7 @@ function buildAreaMarks(params: {
 
   if (variant !== 'area') return [];
 
-  if (colorField && colorInfo?.kind === 'categorical' && colorColumnName) {
+  if (colorField && (colorInfo?.kind === 'categorical' || colorInfo?.kind === 'seriesGradient') && colorColumnName) {
     const seriesGroups = groupRowsByColorSeries(budgetedSorted, colorColumnName);
 
     return Array.from(seriesGroups.values()).map((seriesRows) => {
@@ -604,7 +613,14 @@ function applyLineColorEncoding(params: {
   if (colorField && colorInfo) {
     dotConfig.channels[colorField.columnName] = { value: colorColumnName, label: getFieldDisplayName(colorField) };
 
-    if (colorInfo.kind === 'continuous') {
+    if (colorInfo.kind === 'seriesGradient') {
+      const strokeForRow = (d: any) => resolveColorForRow(d, colorInfo, colorField, fallbackColor);
+      dotConfig.fill = strokeForRow;
+      lineConfig.stroke = strokeForRow;
+      areaConfig.fill = strokeForRow;
+      lineConfig.z = colorColumnName;
+      areaConfig.z = colorColumnName;
+    } else if (colorInfo.kind === 'continuous') {
       // Apply bias transformation to continuous values
       if (colorBias !== undefined && colorBias !== 0) {
         const [min, max] = colorInfo.domain as [number, number];
@@ -696,7 +712,7 @@ function attachLineColorScale(params: {
 
   if (!colorField || !colorInfo) return;
 
-  if (colorInfo.kind === 'continuous') {
+  if (colorInfo.kind === 'continuous' || colorInfo.kind === 'seriesGradient') {
     plotOptions.color = {
       type: 'linear',
       domain: colorInfo.domain as [number, number],
@@ -723,6 +739,7 @@ function attachLineTooltipMetadata(params: {
   yLabel: string;
   colorField?: Field;
   colorColumnName?: string;
+  lineColorMode?: LineColorMode;
   colorContext: {
     scale: ColorScaleInfo | null;
     field?: Field;
@@ -744,6 +761,7 @@ function attachLineTooltipMetadata(params: {
     yLabel,
     colorField,
     colorColumnName,
+    lineColorMode,
     colorContext,
     sizeField,
     tooltipFields,
@@ -761,7 +779,7 @@ function attachLineTooltipMetadata(params: {
     data: dotData,
     showVerticalGuideLine: orientation === 'horizontal',
     comparisonColorContext: colorContext,
-    getPinnedComparison: colorField?.flavour === 'discrete' && colorColumnName
+    getPinnedComparison: lineColorSplitsSeries(colorField, lineColorMode) && colorColumnName
       ? buildPinnedLineComparisonResolver({
           dotData,
           xColumn,
@@ -837,6 +855,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     yField,
     variant = 'line',
     areaFillOpacity = DEFAULT_AREA_FILL_OPACITY,
+    lineColorMode = 'alongPath',
   } = params;
 
   const O = LINE_ORIENTATION[orientation];
@@ -850,6 +869,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     colorField,
     colorColumnName,
     orientation,
+    lineColorMode,
   });
 
   if (clean.length === 0) {
@@ -885,7 +905,15 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     areaFillOpacity,
   });
 
-  const colorInfo = colorField ? deriveColorScaleInfo(budgetedSorted, colorField, colorScheme, colorBias) : null;
+  const useSeriesGradient =
+    colorField &&
+    colorField.flavour === 'continuous' &&
+    lineColorMode === 'bySeries';
+  const colorInfo = colorField
+    ? useSeriesGradient
+      ? deriveSplitSeriesGradientColorScale(budgetedSorted, colorField, colorScheme, colorBias)
+      : deriveColorScaleInfo(budgetedSorted, colorField, colorScheme, colorBias)
+    : null;
   const comparisonColorContext = applyLineColorEncoding({
     lineConfig,
     areaConfig,
@@ -982,6 +1010,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     yLabel,
     colorField,
     colorColumnName,
+    lineColorMode,
     colorContext: comparisonColorContext,
     sizeField,
     tooltipFields,

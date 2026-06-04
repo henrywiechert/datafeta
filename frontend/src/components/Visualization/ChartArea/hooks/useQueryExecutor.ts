@@ -17,7 +17,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { apiService } from '../../../../apiService';
 import { buildRawQuery } from '../../../../queryBuilder/queryBuilder';
 import { buildUnpivotedQuery } from '../../../../queryBuilder/syntheticQueryBuilder';
-import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition, QueryOptimizationSettings, DistributionVariant, UserChartType } from '../../../../types';
+import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition, QueryOptimizationSettings, DistributionVariant, UserChartType, LineColorMode } from '../../../../types';
 import { logOperationTiming } from '../utils';
 import { duckdbService } from '../../../../services/duckdbService';
 import { queryDecisionEngine, QueryDecision } from '../../../../services/queryDecisionEngine';
@@ -56,6 +56,7 @@ export interface UseQueryExecutorProps {
   optimizationSettings?: QueryOptimizationSettings;
   distributionVariant?: DistributionVariant;
   globalChartType?: UserChartType | null;
+  lineColorMode?: LineColorMode;
   dispatch: (action: any) => void;
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
@@ -96,6 +97,7 @@ export const useQueryExecutor = ({
   optimizationSettings,
   distributionVariant = 'tick-strip',
   globalChartType,
+  lineColorMode = 'alongPath',
   dispatch,
   startOperation,
   completeOperation,
@@ -162,6 +164,7 @@ export const useQueryExecutor = ({
             distributionVariant,
             globalChartType,
             optimizationSettings,
+            lineColorMode,
           });
           const { classification, pointBudget, queryDescExec, shouldAttachBudget } = preparedQuery;
           samplingBudget = preparedQuery.samplingBudget;

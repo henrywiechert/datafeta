@@ -43,6 +43,7 @@ export function resolveChartTypeParams(
       variant: grouped?.line?.variant ?? source?.lineVariant ?? base.line.variant,
       areaFillOpacity:
         grouped?.line?.areaFillOpacity ?? source?.areaFillOpacity ?? base.line.areaFillOpacity,
+      colorMode: grouped?.line?.colorMode ?? base.line.colorMode ?? 'alongPath',
     },
     distribution: {
       variant: grouped?.distribution?.variant ?? source?.distributionVariant ?? base.distribution.variant,

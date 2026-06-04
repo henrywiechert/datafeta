@@ -206,6 +206,7 @@ export function buildCartesianPlotsConfig(
     globalChartType: context.globalChartType,
     lineVariant: context.lineVariant,
     areaFillOpacity: context.areaFillOpacity,
+    lineColorMode: context.lineColorMode,
     distributionVariant: context.distributionVariant,
     measureValuesSourceFields: context.measureValuesSourceFields,
     bandThicknessScale: context.bandThicknessScale,

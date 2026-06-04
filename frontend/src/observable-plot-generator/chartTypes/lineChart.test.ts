@@ -316,6 +316,49 @@ describe('buildLineOptions – pinned comparison metadata', () => {
   });
 });
 
+describe('buildLineOptions – continuous color by series', () => {
+  const continuousColorField = {
+    id: 'score',
+    columnName: 'score',
+    type: 'dimension',
+    flavour: 'continuous',
+  } as any;
+
+  test('renders separate line groups with gradient colors per series value', () => {
+    const opts = buildLineOptions({
+      data: [
+        { x: 1, 'AVG(y)': 10, score: -2 },
+        { x: 2, 'AVG(y)': 12, score: -2 },
+        { x: 1, 'AVG(y)': 20, score: 2 },
+        { x: 2, 'AVG(y)': 22, score: 2 },
+      ],
+      xColumn: 'x',
+      yColumn: 'AVG(y)',
+      orientation: 'horizontal',
+      labels: { x: 'X', y: 'AVG(y)' },
+      colorField: continuousColorField,
+      colorScheme: 'rdbu',
+      lineColorMode: 'bySeries',
+    });
+
+    const marks = (opts.marks || []) as any[];
+    const lineMark = marks.find((m) => m.type === 'line');
+    expect(lineMark).toBeDefined();
+    expect(lineMark.opts.z).toBe('score');
+    expect(typeof lineMark.opts.stroke).toBe('function');
+
+    const negStroke = lineMark.opts.stroke({ score: -2 });
+    const posStroke = lineMark.opts.stroke({ score: 2 });
+    expect(negStroke).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(posStroke).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(negStroke).not.toBe(posStroke);
+
+    expect((opts.color as any)?.type).toBe('linear');
+    const tooltipConfig = (opts as any).__customTooltip;
+    expect(tooltipConfig.getPinnedComparison).toBeDefined();
+  });
+});
+
 describe('buildLineOptions – area variant grouping', () => {
   const discreteColorField = {
     id: 'series',

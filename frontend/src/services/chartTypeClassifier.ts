@@ -6,8 +6,9 @@
  * for query optimization. Extracted from useQueryExecution for testability.
  */
 
-import { QueryDescription, Field, QueryOptimizationSettings, DistributionVariant } from '../types';
+import { QueryDescription, Field, QueryOptimizationSettings, DistributionVariant, LineColorMode } from '../types';
 import { getResultColumnName } from '../utils/fieldUtils';
+import { lineColorSplitsSeries } from '../utils/lineColorEncoding';
 
 /**
  * Classification of a chart type based on query structure.
@@ -85,7 +86,8 @@ export function getDimensionOutputName(dim: {
 export function classifyChartType(
   queryDesc: QueryDescription,
   colorField?: Field | null,
-  distributionVariant: DistributionVariant = 'tick-strip'
+  distributionVariant: DistributionVariant = 'tick-strip',
+  lineColorMode: LineColorMode = 'alongPath',
 ): ChartClassification {
   const hasMeasures = (queryDesc.measures?.length ?? 0) > 0;
   const dims = queryDesc.dimensions || [];
@@ -96,7 +98,7 @@ export function classifyChartType(
       isScatter: false,
       isTickStrip: false,
       isRawPointChart: false,
-      hasDiscreteColor: !!colorField && colorField.flavour === 'discrete',
+      hasDiscreteColor: lineColorSplitsSeries(colorField, lineColorMode),
       isLineChart: false,
       continuousDimFields: [],
     };
@@ -125,7 +127,7 @@ export function classifyChartType(
   // Any of the above means we're rendering individual points
   const isPointChart = isTickStrip || isBoxPlot || isScatter || isRawPointChart;
 
-  const hasDiscreteColor = !!colorField && colorField.flavour === 'discrete';
+  const hasDiscreteColor = lineColorSplitsSeries(colorField, lineColorMode);
 
   // Line chart: has measures with dimension(s)
   // This produces many data points that may need optimization

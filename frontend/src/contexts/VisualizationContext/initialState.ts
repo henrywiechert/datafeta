@@ -159,7 +159,7 @@ export const initialState: VisualizationState = {
   // Per-chart-type parameters (density KDE, line/area, distribution, table)
   chartTypeParams: {
     density: DEFAULT_DENSITY_PARAMS,
-    line: { variant: 'line', areaFillOpacity: DEFAULT_AREA_FILL_OPACITY },
+    line: { variant: 'line', areaFillOpacity: DEFAULT_AREA_FILL_OPACITY, colorMode: 'alongPath' },
     distribution: { variant: 'tick-strip' },
     table: { cellMode: 'auto', page: 0 },
   },

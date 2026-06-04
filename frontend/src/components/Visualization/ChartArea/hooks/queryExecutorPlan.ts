@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { Field, QueryDescription, QueryOptimizationSettings, DistributionVariant, QueryResult, UserChartType } from '../../../../types';
+import { Field, QueryDescription, QueryOptimizationSettings, DistributionVariant, QueryResult, UserChartType, LineColorMode } from '../../../../types';
 import { classifyChartType, computePointBudget } from '../../../../services/chartTypeClassifier';
 import { validateAndCleanData, remapCastExpressionColumns } from '../utils/dataValidation';
 
@@ -15,9 +15,10 @@ export function prepareBudgetedQuery(args: {
   distributionVariant: DistributionVariant;
   globalChartType?: UserChartType | null;
   optimizationSettings?: QueryOptimizationSettings;
+  lineColorMode?: LineColorMode;
 }) {
-  const { queryDesc, colorField, distributionVariant, globalChartType, optimizationSettings } = args;
-  const classification = classifyChartType(queryDesc, colorField, distributionVariant);
+  const { queryDesc, colorField, distributionVariant, globalChartType, optimizationSettings, lineColorMode } = args;
+  const classification = classifyChartType(queryDesc, colorField, distributionVariant, lineColorMode);
   const effectiveClassification = globalChartType === 'pie'
     ? { ...classification, isLineChart: false, isPointChart: false }
     : classification;

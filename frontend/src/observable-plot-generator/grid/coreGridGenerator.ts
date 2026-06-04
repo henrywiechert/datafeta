@@ -2,6 +2,7 @@
 import * as Plot from '@observablehq/plot';
 import { generatePairChartOptions } from '../chartTypes/cellCharts';
 import { Field } from '../../types';
+import { lineColorSplitsSeries } from '../../utils/lineColorEncoding';
 import { ChartTypeOverrides, mapUserChartTypeToCellChartType, resolveChartTypeForPair } from '../helpers/chartTypeResolver';
 import { getFieldColumnName } from '../helpers/fields';
 import { CartesianPlotsConfig } from '../types';
@@ -41,6 +42,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
     globalChartType,
     lineVariant = 'line',
     areaFillOpacity,
+    lineColorMode = 'alongPath',
     distributionVariant = 'tick-strip',
     measureValuesSourceFields,
     bandThicknessScale,
@@ -136,6 +138,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
       let cellManualSize: number | undefined = manualSize;
       let cellLineVariant = cellOverride?.lineVariant ?? (globalChartType === 'line' ? lineVariant : 'line');
       let cellAreaFillOpacity = cellOverride?.areaFillOpacity ?? areaFillOpacity;
+      const cellLineColorMode = lineColorMode;
 
       // Build per-cell chart type override from fieldOverrides or global chart type
       let cellChartTypeOverrides: ChartTypeOverrides | undefined = overrides;
@@ -294,6 +297,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
           distributionVariant,
           cellLineVariant,
           cellAreaFillOpacity,
+          cellLineColorMode,
           config.xTickFormat,
           config.yTickFormat
         );
@@ -311,7 +315,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
           yColumn: getFieldColumnName(yField),
           chartType: userChartType,
           orientation: depAxis,
-          colorColumn: (cellColorField && cellColorField.flavour === 'discrete')
+          colorColumn: cellColorField && lineColorSplitsSeries(cellColorField, cellLineColorMode)
             ? getFieldColumnName(cellColorField)
             : undefined,
         });
@@ -320,7 +324,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
       // Apply shared color domain to keep color mapping consistent across the grid
       if (sharedColorScale) {
         const colorLabel = colorField?.columnName;
-        const sharedConfig = sharedColorScale.kind === 'continuous'
+        const sharedConfig = sharedColorScale.kind === 'continuous' || sharedColorScale.kind === 'seriesGradient'
           ? {
               type: 'linear',
               domain: sharedColorScale.domain as [number, number],

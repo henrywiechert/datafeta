@@ -81,6 +81,15 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
         },
       };
     }
+    case 'SET_LINE_COLOR_MODE': {
+      return {
+        ...state,
+        chartTypeParams: {
+          ...state.chartTypeParams,
+          line: { ...state.chartTypeParams.line, colorMode: action.payload },
+        },
+      };
+    }
     case 'SET_DISTRIBUTION_VARIANT': {
       const variantChanged = state.chartTypeParams.distribution.variant !== action.payload;
       return {

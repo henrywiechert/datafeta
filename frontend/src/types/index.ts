@@ -54,6 +54,7 @@ export type {
   DateTimePart,
   DateTimeMode,
   LineVariant,
+  LineColorMode,
   DistributionVariant,
   PieVariant,
   DragSource,
