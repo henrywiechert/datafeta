@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { Field, QueryResult, FieldOverrideState, UserChartType, DistributionVariant, TableCellMode, TooltipField, LineVariant, DensityParams } from '../types';
+import { Field, QueryResult, FieldOverrideState, UserChartType, DistributionVariant, TableCellMode, TooltipField, LineVariant, DensityParams, ColorChannel } from '../types';
 import { OverlayConfig } from './overlays/types';
 import { FieldOverrideTarget } from './utils/fieldOverrides';
 import { ColorScaleInfo } from './utils/colorSchemeUtils';
@@ -84,6 +84,14 @@ export interface CartesianPlotsConfig {
 export interface ChartGenerationContext {
   xFields: Field[];
   yFields: Field[];
+  /**
+   * Grouped color encoding carrier. Populated from the resolved color scalars
+   * at the generation entry point. During the ColorChannel migration this
+   * coexists with the individual `color*` scalar fields below (which remain the
+   * source consumed by chart-type generators until they are migrated). Optional
+   * so existing context literals (notably in tests) keep compiling.
+   */
+  color?: ColorChannel;
   colorField?: Field;
   colorScheme?: string;
   colorBias?: number;
