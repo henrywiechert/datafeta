@@ -4,7 +4,7 @@ import { DEFAULT_CHART_COLOR } from '../../config/chartLayoutConfig';
 import { DEFAULT_DENSITY_PARAMS, DensityParams, Field } from '../../types';
 import { getResultColumnName } from '../../utils/fieldUtils';
 import { computeKde1d, Kde1dPoint } from '../../utils/kde1d';
-import { ColorScaleInfo, buildPlotColorScaleOptions, deriveColorScaleInfo } from '../utils/colorSchemeUtils';
+import { ColorScaleInfo, buildPlotColorScaleOptions, deriveColorScaleInfo, resolveContextColorChannel } from '../utils/colorSchemeUtils';
 
 export interface DensityBuildParams {
   data: any[];
@@ -168,7 +168,7 @@ export function buildDensityOptions(params: DensityBuildParams): Plot.PlotOption
 
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
   const colorInfo = colorField
-    ? colorScaleInfo || deriveColorScaleInfo(clean, colorField, colorScheme, colorBias, colorReversed)
+    ? colorScaleInfo || deriveColorScaleInfo(clean, resolveContextColorChannel({ colorField, colorScheme, colorBias, colorReversed }))
     : null;
   const fallbackColor = manualColor || DEFAULT_CHART_COLOR;
 

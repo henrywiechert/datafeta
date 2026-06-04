@@ -15,7 +15,7 @@ import { buildDensityOptions } from './densityChart';
 import { buildHeatmapOptions } from './heatmapChart';
 import { CellChartType, ChartTypeOverrides, resolveChartTypeForPair } from '../helpers/chartTypeResolver';
 import { buildBarOptions, resolveMeasureAlias, computeBandPaddingFromSizeField, sortCategoriesByValue, Orientation } from './barCore';
-import { deriveColorScaleInfo } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo, resolveContextColorChannel } from '../utils/colorSchemeUtils';
 
 // Types and helpers extracted to separate files
 import { Domains, ChartContext, ChartHandler } from './cellChartTypes';
@@ -69,7 +69,7 @@ function createBar(
   }) ?? 0.1;
   const colorColumn = ctx.colorField ? getResultColumnName(ctx.colorField) : undefined;
   const colorScale = ctx.colorField
-    ? deriveColorScaleInfo(data, ctx.colorField, ctx.colorScheme, ctx.colorBias, ctx.colorReversed)
+    ? deriveColorScaleInfo(data, resolveContextColorChannel({ colorField: ctx.colorField, colorScheme: ctx.colorScheme, colorBias: ctx.colorBias, colorReversed: ctx.colorReversed }))
     : null;
   
   // Don't use valueDomainOverride for stacked bars (no category but has color)
