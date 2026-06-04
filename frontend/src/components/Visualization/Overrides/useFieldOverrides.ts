@@ -83,7 +83,7 @@ export const useFieldOverrides = (props: UseFieldOverridesProps): FieldOverrideH
   const clearColorOverridesForAllFields = () => {
     const next: typeof fieldOverrides = {};
     Object.entries(fieldOverrides || {}).forEach(([id, override]: any) => {
-      const { colorFieldId, colorField, colorScheme, colorBias, manualColor, ...rest } = override || {};
+      const { colorFieldId, colorField, colorScheme, colorBias, colorReversed, manualColor, ...rest } = override || {};
       next[id] = rest;
     });
     dispatch({ type: 'SET_FIELD_OVERRIDES', payload: next });

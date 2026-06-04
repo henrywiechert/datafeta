@@ -32,6 +32,7 @@ interface SheetConfig {
   tooltipFields?: Field[];
   colorScheme?: string;
   colorBias?: number;
+  colorReversed?: boolean;
   manualColor?: string;
   manualShape?: string;
   sizeRange?: [number, number];

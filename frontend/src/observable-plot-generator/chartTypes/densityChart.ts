@@ -13,6 +13,7 @@ export interface DensityBuildParams {
   colorField?: Field;
   colorScheme?: string;
   colorBias?: number;
+  colorReversed?: boolean;
   manualColor?: string;
   densityParams?: DensityParams;
   colorScaleInfo?: ColorScaleInfo | null;
@@ -137,6 +138,7 @@ export function buildDensityOptions(params: DensityBuildParams): Plot.PlotOption
     colorField,
     colorScheme,
     colorBias,
+    colorReversed,
     manualColor,
     densityParams,
     colorScaleInfo,
@@ -166,7 +168,7 @@ export function buildDensityOptions(params: DensityBuildParams): Plot.PlotOption
 
   const colorColumnName = colorField ? getResultColumnName(colorField) : undefined;
   const colorInfo = colorField
-    ? colorScaleInfo || deriveColorScaleInfo(clean, colorField, colorScheme, colorBias)
+    ? colorScaleInfo || deriveColorScaleInfo(clean, colorField, colorScheme, colorBias, colorReversed)
     : null;
   const fallbackColor = manualColor || DEFAULT_CHART_COLOR;
 

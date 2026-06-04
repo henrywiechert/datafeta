@@ -17,6 +17,7 @@ interface LegendPanelProps {
   queryResult: QueryResult | null;
   colorScheme?: string;
   colorBias?: number;
+  colorReversed?: boolean;
   /**
    * When provided the discrete legend items become interactive:
    *  - Left-click selects / Ctrl+click multi-selects.
@@ -49,6 +50,7 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
   queryResult,
   colorScheme = DEFAULT_CATEGORICAL_SCHEME,
   colorBias = 0,
+  colorReversed = false,
   onFilterAction,
   onHighlightChange,
   clearSelectionRef,
@@ -63,8 +65,8 @@ const LegendPanel: React.FC<LegendPanelProps> = ({
     if (!colorField || !legendRows) {
       return null;
     }
-    return deriveColorScaleInfo(legendRows, colorField, colorScheme, colorBias);
-  }, [colorField, colorScheme, colorBias, legendRows]);
+    return deriveColorScaleInfo(legendRows, colorField, colorScheme, colorBias, colorReversed);
+  }, [colorField, colorScheme, colorBias, colorReversed, legendRows]);
 
   const formatValue = (value: any): string => {
     if (value === null || value === undefined) return 'NULL';

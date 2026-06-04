@@ -30,6 +30,7 @@ export const initialState: VisualizationState = {
   colorField: null,
   colorScheme: 'tableau10',
   colorBias: 0,
+  colorReversed: false,
   manualColor: DEFAULT_MANUAL_COLOR,
   // Facet background encoding state
   facetBackgroundField: null,

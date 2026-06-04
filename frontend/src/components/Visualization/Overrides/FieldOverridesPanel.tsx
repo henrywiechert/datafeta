@@ -119,6 +119,7 @@ const FieldOverridesPanel: React.FC = () => {
     colorField,
     colorScheme,
     colorBias,
+    colorReversed,
     manualColor,
     sizeField,
     sizeRange,
@@ -257,6 +258,7 @@ const FieldOverridesPanel: React.FC = () => {
     const effectiveManualColor = override.manualColor || manualColor || DEFAULT_MANUAL_COLOR;
     const effectiveColorScheme = override.colorScheme || colorScheme || 'tableau10';
     const effectiveColorBias = override.colorBias ?? colorBias ?? 0;
+    const effectiveColorReversed = override.colorReversed ?? colorReversed ?? false;
     const effectiveSizeRange: [number, number] = override.sizeRange || sizeRange || [4, 20];
     const effectiveManualSize = override.manualSize ?? manualSize ?? 10;
 
@@ -293,6 +295,7 @@ const FieldOverridesPanel: React.FC = () => {
           field={resolvedColorField}
           colorScheme={effectiveColorScheme}
           colorBias={effectiveColorBias}
+          colorReversed={effectiveColorReversed}
           manualColor={effectiveManualColor}
           onDrop={(field) => {
             // Auto-select appropriate color scheme based on field flavour
@@ -317,6 +320,9 @@ const FieldOverridesPanel: React.FC = () => {
           })}
           onBiasChange={(bias) => handleUpdateOverride(targetField.id, { 
             colorBias: bias 
+          })}
+          onReverseChange={(reversed) => handleUpdateOverride(targetField.id, {
+            colorReversed: reversed,
           })}
         />
 
@@ -381,6 +387,7 @@ const FieldOverridesPanel: React.FC = () => {
     const effectiveManualColor = manualColor || DEFAULT_MANUAL_COLOR;
     const effectiveColorScheme = colorScheme || 'tableau10';
     const effectiveColorBias = colorBias ?? 0;
+    const effectiveColorReversed = colorReversed ?? false;
 
     return (
       <Box
@@ -448,6 +455,7 @@ const FieldOverridesPanel: React.FC = () => {
           field={resolvedGlobalColorField}
           colorScheme={effectiveColorScheme}
           colorBias={effectiveColorBias}
+          colorReversed={effectiveColorReversed}
           manualColor={effectiveManualColor}
           onDrop={(field) => {
             // Auto-select appropriate color scheme based on field flavour
@@ -484,6 +492,12 @@ const FieldOverridesPanel: React.FC = () => {
           onBiasChange={(bias) => {
             applyGlobalAction(
               { type: 'SET_COLOR_BIAS', payload: bias },
+              { clearOverrides: clearColorOverridesForAllFields },
+            );
+          }}
+          onReverseChange={(reversed) => {
+            applyGlobalAction(
+              { type: 'SET_COLOR_REVERSED', payload: reversed },
               { clearOverrides: clearColorOverridesForAllFields },
             );
           }}

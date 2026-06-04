@@ -87,11 +87,19 @@ function applyBias(t: number, bias: number): number {
  * Derive a color scale description (domain, range, optional accessor) for a field.
  * For continuous fields, bias parameter adjusts the color gradient emphasis.
  */
+function applyContinuousRange(
+  range: string[],
+  colorReversed: boolean,
+): string[] {
+  return colorReversed ? [...range].reverse() : range;
+}
+
 export function deriveColorScaleInfo(
   data: any[] | undefined,
   field: Field,
   colorSchemeId?: string,
-  colorBias: number = 0
+  colorBias: number = 0,
+  colorReversed: boolean = false,
 ): ColorScaleInfo | null {
   if (!field || !Array.isArray(data)) {
     return null;
@@ -99,7 +107,7 @@ export function deriveColorScaleInfo(
 
   const fallbackSchemeId = field.flavour === 'continuous' ? DEFAULT_SEQUENTIAL_SCHEME : DEFAULT_CATEGORICAL_SCHEME;
   const scheme = getSchemeById(colorSchemeId || fallbackSchemeId) || getSchemeById(fallbackSchemeId);
-  const range = scheme?.colors ?? getColorRange(fallbackSchemeId);
+  const baseRange = scheme?.colors ?? getColorRange(fallbackSchemeId);
   const columnName = getResultColumnName(field as any);
 
   if (field.flavour !== 'continuous') {
@@ -156,9 +164,11 @@ export function deriveColorScaleInfo(
     return {
       kind: 'categorical',
       domain: uniqueValues,
-      range,
+      range: baseRange,
     };
   }
+
+  const range = applyContinuousRange(baseRange, colorReversed);
 
   let minNumeric = Number.POSITIVE_INFINITY;
   let maxNumeric = Number.NEGATIVE_INFINITY;
@@ -244,8 +254,9 @@ export function deriveSplitSeriesGradientColorScale(
   field: Field,
   colorSchemeId?: string,
   colorBias: number = 0,
+  colorReversed: boolean = false,
 ): ColorScaleInfo | null {
-  const continuous = deriveColorScaleInfo(data, field, colorSchemeId, colorBias);
+  const continuous = deriveColorScaleInfo(data, field, colorSchemeId, colorBias, colorReversed);
   if (!continuous || continuous.kind !== 'continuous') {
     return null;
   }

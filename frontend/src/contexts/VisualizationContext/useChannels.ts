@@ -19,6 +19,7 @@ export function useChannels(): Channels {
       field: state.colorField,
       scheme: state.colorScheme,
       bias: state.colorBias,
+      reversed: state.colorReversed ?? false,
       manual: state.manualColor,
     },
     size: {
@@ -48,7 +49,7 @@ export function useChannels(): Channels {
       opacity: state.facetBackgroundOpacity,
     },
   }), [
-    state.colorField, state.colorScheme, state.colorBias, state.manualColor,
+    state.colorField, state.colorScheme, state.colorBias, state.colorReversed, state.manualColor,
     state.sizeField, state.sizeRange, state.manualSize, state.bandThicknessScale,
     state.shapeField, state.manualShape,
     state.labelFields, state.labelsEnabled, state.labelSamplingStrategy,

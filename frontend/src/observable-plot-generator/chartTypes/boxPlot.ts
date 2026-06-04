@@ -313,7 +313,13 @@ export function boxPlot(
     ? (isServerSummaryData ? sourceColorColumnName : colorized.colorColumnName)
     : undefined;
   const colorInfo = usesDiscreteColor && context.colorField
-    ? (sharedColorScale || deriveColorScaleInfo(summaryRows, context.colorField, context.colorScheme, context.colorBias))
+    ? (sharedColorScale || deriveColorScaleInfo(
+      summaryRows,
+      context.colorField,
+      context.colorScheme,
+      context.colorBias,
+      context.colorReversed,
+    ))
     : null;
   const categories = categoryColumn
     ? (context.categoryAxisDescriptor?.domain && Array.isArray(context.categoryAxisDescriptor.domain)

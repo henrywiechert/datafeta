@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import PaletteIcon from '@mui/icons-material/Palette';
 import CheckIcon from '@mui/icons-material/Check';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import ColorBiasControl from './ColorBiasControl';
 import {
   ColorScheme,
@@ -32,6 +33,10 @@ interface ColorPalettePopoverProps {
   colorBias?: number;
   onBiasChange?: (bias: number) => void;
 
+  /** Reverse gradient (only used/shown when fieldFlavour === 'continuous') */
+  colorReversed?: boolean;
+  onReverseChange?: (reversed: boolean) => void;
+
   /** Manual color picker (used when fieldFlavour === null) */
   manualColor?: string;
   onManualColorChange?: (color: string) => void;
@@ -43,6 +48,8 @@ const ColorPalettePopover: React.FC<ColorPalettePopoverProps> = ({
   onSchemeChange,
   colorBias,
   onBiasChange,
+  colorReversed = false,
+  onReverseChange,
   manualColor,
   onManualColorChange,
 }) => {
@@ -218,14 +225,44 @@ const ColorPalettePopover: React.FC<ColorPalettePopoverProps> = ({
               </Box>
             ))}
 
-            {/* Bias (only for continuous) */}
-            {fieldFlavour === 'continuous' && typeof colorBias === 'number' && onBiasChange && (
+            {/* Gradient controls (only for continuous) */}
+            {fieldFlavour === 'continuous' && onReverseChange && (
               <>
                 <Divider sx={{ my: 0.5 }} />
-                <Typography variant="caption" sx={{ display: 'block', px: 1, pb: 0.25, fontWeight: 600, color: '#666' }}>
-                  Bias
-                </Typography>
-                <ColorBiasControl colorBias={colorBias} onChange={onBiasChange} />
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    px: 1,
+                    pb: 0.25,
+                  }}
+                >
+                  <Typography variant="caption" sx={{ fontWeight: 600, color: '#666' }}>
+                    Gradient
+                  </Typography>
+                  <Tooltip title="Reverse palette">
+                    <IconButton
+                      size="small"
+                      onClick={() => onReverseChange(!colorReversed)}
+                      aria-label="Reverse palette"
+                      sx={{
+                        color: colorReversed ? '#1976d2' : '#757575',
+                        '&:hover': { backgroundColor: 'rgba(25, 118, 210, 0.08)' },
+                      }}
+                    >
+                      <SwapHorizIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+                {typeof colorBias === 'number' && onBiasChange && (
+                  <>
+                    <Typography variant="caption" sx={{ display: 'block', px: 1, pb: 0.25, fontWeight: 600, color: '#666' }}>
+                      Bias
+                    </Typography>
+                    <ColorBiasControl colorBias={colorBias} onChange={onBiasChange} />
+                  </>
+                )}
               </>
             )}
           </>

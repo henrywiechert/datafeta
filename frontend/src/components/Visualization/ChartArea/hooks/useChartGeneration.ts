@@ -90,7 +90,13 @@ export const useChartGeneration = ({
   xAxisTickHeightPx,
   yAxisTickWidthPx,
 }: UseChartGenerationProps): UseChartGenerationReturn => {
-  const { field: colorField, scheme: colorScheme = 'tableau10', bias: colorBias = 0, manual: manualColor } = channels.color;
+  const {
+    field: colorField,
+    scheme: colorScheme = 'tableau10',
+    bias: colorBias = 0,
+    reversed: colorReversed = false,
+    manual: manualColor,
+  } = channels.color;
   const { field: sizeField, range: sizeRange, manual: manualSize, bandThicknessScale } = channels.size;
   const { field: shapeField, manual: manualShape } = channels.shape;
   const { fields: labelFields, enabled: labelsEnabled, samplingStrategy: labelSamplingStrategy, samplingThreshold: labelSamplingThreshold, sampleEvery: labelSampleEvery, fontSize: labelFontSize } = channels.label;
@@ -241,6 +247,7 @@ export const useChartGeneration = ({
         colorField: colorField || undefined,
         colorScheme,
         colorBias,
+        colorReversed,
         manualColor,
         sizeField: sizeField || undefined,
         sizeRange,
@@ -361,6 +368,7 @@ export const useChartGeneration = ({
     colorField,
     colorScheme,
     colorBias,
+    colorReversed,
     manualColor,
     sizeField,
     sizeRange,

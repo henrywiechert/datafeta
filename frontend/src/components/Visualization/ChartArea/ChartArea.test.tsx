@@ -191,7 +191,7 @@ const mockUseRenderingTracking = useRenderingTracking as jest.MockedFunction<typ
 
 function buildChannels(overrides: Partial<ReturnType<typeof useChannels>> = {}): ReturnType<typeof useChannels> {
   return {
-    color: { field: null, scheme: 'tableau10', bias: 0, manual: {}, ...overrides.color },
+    color: { field: null, scheme: 'tableau10', bias: 0, reversed: false, manual: {}, ...overrides.color },
     size: { field: null, range: [4, 20], manual: {}, bandThicknessScale: 1, ...overrides.size },
     shape: { field: null, manual: {}, ...overrides.shape },
     facetBackground: { field: null, scheme: 'tableau10', opacity: 0.12, ...overrides.facetBackground },
@@ -232,6 +232,7 @@ describe('ChartArea', () => {
         field: buildField({ id: 'color-field', columnName: 'color_field', flavour: 'discrete' }),
         scheme: 'tableau10',
         bias: 0,
+        reversed: false,
         manual: 'manual-color',
       },
       facetBackground: {

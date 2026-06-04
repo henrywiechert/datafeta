@@ -54,6 +54,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
   const colorField = encoding?.color?.field;
   const colorScheme = encoding?.color?.scheme;
   const colorBias = encoding?.color?.bias;
+  const colorReversed = encoding?.color?.reversed;
   const manualColor = encoding?.color?.manual;
   const sizeField = encoding?.size?.field;
   const sizeRange = encoding?.size?.range;
@@ -75,7 +76,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
   // Use provided color scale if available (from faceting), otherwise compute from local data
   let sharedColorScale = sharedDomains.colorScale !== undefined
     ? sharedDomains.colorScale
-    : (colorField ? deriveColorScaleInfo(data, colorField, colorScheme, colorBias) : null);
+    : (colorField ? deriveColorScaleInfo(data, colorField, colorScheme, colorBias, colorReversed) : null);
   
   // Apply per-measure color overrides if color field is MeasureNames
   sharedColorScale = applyMeasureNameColorOverrides(
@@ -132,6 +133,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
       let cellColorField: Field | undefined | null = colorField;
       let cellColorScheme: string | undefined = colorScheme;
       let cellColorBias: number | undefined = colorBias;
+      let cellColorReversed: boolean | undefined = colorReversed;
       let cellManualColor: string | undefined = manualColor;
       let cellSizeField: Field | undefined | null = sizeField;
       let cellSizeRange: [number, number] | undefined = sizeRange;
@@ -191,6 +193,9 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
         }
         if (cellOverride.colorBias !== undefined) {
           cellColorBias = cellOverride.colorBias;
+        }
+        if (cellOverride.colorReversed !== undefined) {
+          cellColorReversed = cellOverride.colorReversed;
         }
         if (cellOverride.manualColor) {
           cellManualColor = cellOverride.manualColor;
@@ -255,6 +260,7 @@ export function generateCartesianPlots(config: CartesianPlotsConfig): CartesianP
           thicknessScale,
           cellColorScheme,
           cellColorBias,
+          cellColorReversed,
           cellManualColor,
           (() => {
             // Per-cell label configuration based on dataLabelMode and labelFields

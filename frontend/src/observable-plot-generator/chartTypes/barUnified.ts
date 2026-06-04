@@ -84,7 +84,9 @@ export function barUnified(
 
   // Color mapping (consistent with single-measure bar)
   const colorColumn = colorField ? getResultColumnName(colorField) : undefined;
-  const colorScale = colorField ? deriveColorScaleInfo(data, colorField, colorScheme, context.colorBias) : null;
+  const colorScale = colorField
+    ? deriveColorScaleInfo(data, colorField, colorScheme, context.colorBias, context.colorReversed)
+    : null;
 
   // Dynamic band padding with consistent fallback for all cases
   // Use effective manual size which may come from combined MeasureValues overrides

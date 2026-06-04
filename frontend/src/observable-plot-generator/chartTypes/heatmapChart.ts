@@ -59,6 +59,7 @@ export interface HeatmapOptionsInput {
   colorField?: Field | null;
   colorScheme?: string;
   colorBias?: number;
+  colorReversed?: boolean;
   manualColor?: string;
   /**
    * When provided, switches the heatmap from a band-filling `Plot.cell` to a
@@ -159,6 +160,7 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
     colorField,
     colorScheme,
     colorBias,
+    colorReversed,
     manualColor,
     sizeField,
     sizeRange,
@@ -176,7 +178,7 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
   const fillCol = colorField ? getResultColumnName(colorField) : undefined;
 
   const colorScale = colorField
-    ? (colorScaleInfo ?? deriveColorScaleInfo(data, colorField, colorScheme, colorBias))
+    ? (colorScaleInfo ?? deriveColorScaleInfo(data, colorField, colorScheme, colorBias, colorReversed))
     : null;
 
   // Build the color scale config for Plot. For continuous (typical for
@@ -461,6 +463,7 @@ function createHeatmapCellGenerator(
       colorField: context.colorField || null,
       colorScheme: context.colorScheme,
       colorBias: context.colorBias,
+      colorReversed: context.colorReversed,
       manualColor: context.manualColor,
       sizeField: context.sizeField || null,
       sizeRange: context.sizeRange,

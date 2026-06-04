@@ -18,6 +18,8 @@ interface ColorDropZoneProps {
   onManualColorChange?: (color: string) => void;
   colorBias?: number;
   onBiasChange?: (bias: number) => void;
+  colorReversed?: boolean;
+  onReverseChange?: (reversed: boolean) => void;
 }
 
 const ColorDropZone: React.FC<ColorDropZoneProps> = ({
@@ -30,6 +32,8 @@ const ColorDropZone: React.FC<ColorDropZoneProps> = ({
   onManualColorChange,
   colorBias,
   onBiasChange,
+  colorReversed,
+  onReverseChange,
 }) => {
   const handleDrop = (e: React.DragEvent) => {
     try {
@@ -63,6 +67,8 @@ const ColorDropZone: React.FC<ColorDropZoneProps> = ({
           onSchemeChange={onSchemeChange}
           colorBias={colorBias}
           onBiasChange={onBiasChange}
+          colorReversed={colorReversed}
+          onReverseChange={onReverseChange}
           manualColor={manualColor}
           onManualColorChange={onManualColorChange}
         />

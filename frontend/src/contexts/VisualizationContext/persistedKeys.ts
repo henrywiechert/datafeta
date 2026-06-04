@@ -22,6 +22,7 @@ export const PERSISTED_STATE_KEYS = [
   'colorField',
   'colorScheme',
   'colorBias',
+  'colorReversed',
   'manualColor',
   'sizeField',
   'sizeRange',

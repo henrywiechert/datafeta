@@ -391,6 +391,7 @@ const ChartArea: React.FC = () => {
       measureGroupFields,
       colorScheme: channels.color.scheme,
       colorBias: channels.color.bias,
+      colorReversed: channels.color.reversed,
       manualColor: channels.color.manual,
       manualShape: channels.shape.manual,
       sizeRange: channels.size.range,
@@ -555,6 +556,7 @@ const ChartArea: React.FC = () => {
                 queryResult={queryResult}
                 colorScheme={channels.color.scheme}
                 colorBias={channels.color.bias}
+                colorReversed={channels.color.reversed}
                 onFilterAction={
                   channels.color.field?.flavour === 'discrete' ? handleLegendFilterAction : undefined
                 }

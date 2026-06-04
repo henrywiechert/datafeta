@@ -10,11 +10,13 @@ interface ColorPanelProps {
   colorField: Field | null;
   colorScheme?: string;
   colorBias?: number;
+  colorReversed?: boolean;
   manualColor?: string;
   onDrop: (field: Field, source: DragSource) => void;
   onRemove: (fieldIds: string[]) => void;
   onSchemeChange?: (schemeId: string) => void;
   onBiasChange?: (bias: number) => void;
+  onReverseChange?: (reversed: boolean) => void;
   onManualColorChange?: (color: string) => void;
 }
 
@@ -22,11 +24,13 @@ const ColorPanel: React.FC<ColorPanelProps> = ({
   colorField,
   colorScheme = 'tableau10',
   colorBias = 0,
+  colorReversed = false,
   manualColor = DEFAULT_MANUAL_COLOR,
   onDrop,
   onRemove,
   onSchemeChange,
   onBiasChange,
+  onReverseChange,
   onManualColorChange,
 }) => {
   return (
@@ -46,6 +50,8 @@ const ColorPanel: React.FC<ColorPanelProps> = ({
         onManualColorChange={onManualColorChange}
         colorBias={colorBias}
         onBiasChange={onBiasChange}
+        colorReversed={colorReversed}
+        onReverseChange={onReverseChange}
       />
     </PropertySection>
   );

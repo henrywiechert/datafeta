@@ -33,6 +33,7 @@ function createEmptyVisualizationState(): VisualizationStateSnapshot {
     colorField: null,
     colorScheme: 'tableau10',
     colorBias: 0,
+    colorReversed: false,
     manualColor: DEFAULT_MANUAL_COLOR,
     sizeField: null,
     sizeRange: [4, 20],

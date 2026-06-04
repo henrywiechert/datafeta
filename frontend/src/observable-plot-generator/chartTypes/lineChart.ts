@@ -45,6 +45,7 @@ export interface LineBuildParams {
   colorField?: Field;
   colorScheme?: string;
   colorBias?: number;
+  colorReversed?: boolean;
   manualColor?: string;
   sizeField?: Field;
   sizeRange?: [number, number];
@@ -843,6 +844,7 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     colorField,
     colorScheme,
     colorBias,
+    colorReversed,
     manualColor,
     sizeField,
     sizeRange,
@@ -911,8 +913,8 @@ export function buildLineOptions(params: LineBuildParams): Plot.PlotOptions {
     lineColorMode === 'bySeries';
   const colorInfo = colorField
     ? useSeriesGradient
-      ? deriveSplitSeriesGradientColorScale(budgetedSorted, colorField, colorScheme, colorBias)
-      : deriveColorScaleInfo(budgetedSorted, colorField, colorScheme, colorBias)
+      ? deriveSplitSeriesGradientColorScale(budgetedSorted, colorField, colorScheme, colorBias, colorReversed)
+      : deriveColorScaleInfo(budgetedSorted, colorField, colorScheme, colorBias, colorReversed)
     : null;
   const comparisonColorContext = applyLineColorEncoding({
     lineConfig,

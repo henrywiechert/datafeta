@@ -24,6 +24,7 @@ export function computeSharedDomainsForFaceting(
   facetFields?: Field[],
   colorSchemeId?: string,
   colorBias?: number,
+  colorReversed?: boolean,
   measureValuesSourceFields?: Field[],
   fieldOverrides?: Record<string, FieldOverrideState>
 ): SharedDomains {
@@ -53,7 +54,7 @@ export function computeSharedDomainsForFaceting(
     : {};
 
   // Compute shared color domain
-  let colorScale = colorField ? deriveColorScaleInfo(data, colorField, colorSchemeId, colorBias) : null;
+  let colorScale = colorField ? deriveColorScaleInfo(data, colorField, colorSchemeId, colorBias, colorReversed) : null;
   
   // Apply per-measure color overrides if color field is MeasureNames and we have source fields
   colorScale = applyMeasureNameColorOverrides(

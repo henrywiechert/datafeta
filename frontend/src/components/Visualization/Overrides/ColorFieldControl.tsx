@@ -12,24 +12,28 @@ interface ColorFieldControlProps {
   field: Field | null;
   colorScheme: string;
   colorBias: number;
+  colorReversed: boolean;
   manualColor: string;
   onDrop: (field: Field) => void;
   onRemove: (fieldIds: string[]) => void;
   onSchemeChange: (schemeId: string) => void;
   onColorChange: (color: string) => void;
   onBiasChange: (bias: number) => void;
+  onReverseChange: (reversed: boolean) => void;
 }
 
 const ColorFieldControl: React.FC<ColorFieldControlProps> = ({
   field,
   colorScheme,
   colorBias,
+  colorReversed,
   manualColor,
   onDrop,
   onRemove,
   onSchemeChange,
   onColorChange,
   onBiasChange,
+  onReverseChange,
 }) => {
   const handleDrop = (e: React.DragEvent) => {
     const { field: droppedField, source } = parseDragData(e);
@@ -60,6 +64,8 @@ const ColorFieldControl: React.FC<ColorFieldControlProps> = ({
           onSchemeChange={onSchemeChange}
           colorBias={colorBias}
           onBiasChange={onBiasChange}
+          colorReversed={colorReversed}
+          onReverseChange={onReverseChange}
           manualColor={manualColor}
           onManualColorChange={onColorChange}
         />

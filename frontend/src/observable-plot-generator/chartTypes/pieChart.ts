@@ -292,6 +292,7 @@ export function buildPiePlotSpec(args: {
         colorField,
         context.colorScheme,
         context.colorBias,
+        context.colorReversed,
       )
     : null;
 
@@ -455,6 +456,7 @@ export function generatePieGrid(context: ChartGenerationContext): PlotResult {
           context.colorField,
           context.colorScheme,
           context.colorBias,
+          context.colorReversed,
         )
       : null,
   };
