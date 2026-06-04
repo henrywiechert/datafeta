@@ -82,6 +82,9 @@ export const DEFAULT_DENSITY_PARAMS: DensityParams = {
 };
 export type LineVariant = 'line' | 'area';
 
+/** How a continuous color field is encoded on line charts. */
+export type LineColorMode = 'alongPath' | 'bySeries';
+
 /**
  * Cell rendering mode for the `table-refactor` chart type.
  * - `auto`: resolves to `text` when label/measure fields are present, else `symbol` (PR 7).

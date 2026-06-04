@@ -157,6 +157,7 @@ export function computeChartConfigHash(config: ChartAffectingConfig): string {
     String(config.globalChartType || 'null'),
     String(config.lineVariant || 'line'),
     String(config.areaFillOpacity ?? 0.28),
+    String(config.lineColorMode || 'alongPath'),
     String(config.distributionVariant || 'tick-strip'),
     String(config.tableCellMode || 'auto'),
     String(config.tablePage ?? 0),

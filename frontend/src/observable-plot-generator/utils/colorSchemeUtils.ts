@@ -8,7 +8,7 @@ import { Field, FieldOverrideState } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { isMeasureNamesField } from '../../utils/syntheticFields';
 
-export type ColorScaleKind = 'categorical' | 'continuous';
+export type ColorScaleKind = 'categorical' | 'continuous' | 'seriesGradient';
 
 export interface ColorScaleInfo {
   kind: ColorScaleKind;
@@ -235,6 +235,32 @@ export function deriveColorScaleInfo(
 }
 
 /**
+ * Color scale for line charts with continuous fields in "by series" mode:
+ * one line per distinct color value, each colored by its numeric position on
+ * the selected sequential/diverging palette.
+ */
+export function deriveSplitSeriesGradientColorScale(
+  data: any[] | undefined,
+  field: Field,
+  colorSchemeId?: string,
+  colorBias: number = 0,
+): ColorScaleInfo | null {
+  const continuous = deriveColorScaleInfo(data, field, colorSchemeId, colorBias);
+  if (!continuous || continuous.kind !== 'continuous') {
+    return null;
+  }
+  return {
+    kind: 'seriesGradient',
+    domain: continuous.domain,
+    range: continuous.range,
+    accessor: continuous.accessor,
+    rawMin: continuous.rawMin,
+    rawMax: continuous.rawMax,
+    interpolate: continuous.interpolate,
+  };
+}
+
+/**
  * Build the Observable Plot `color` scale options object from a
  * `ColorScaleInfo` derived for a given field. Used by chart handlers that
  * already construct their own marks (CDF, density, etc.) and need a consistent
@@ -250,7 +276,7 @@ export function buildPlotColorScaleOptions(
 
   const label = getFieldDisplayName(colorField);
 
-  if (colorInfo.kind === 'continuous') {
+  if (colorInfo.kind === 'continuous' || colorInfo.kind === 'seriesGradient') {
     return {
       type: 'linear',
       domain: colorInfo.domain as [number, number],
@@ -302,7 +328,7 @@ export function resolveColorForRow(
     return scale.range[idx % scale.range.length];
   }
 
-  // Continuous: map value → t in [0, 1] across the numeric domain, then
+  // Continuous / seriesGradient: map value → t in [0, 1] across the numeric domain, then
   // delegate to the bias-aware interpolator if present, otherwise fall back to
   // a linear interpolation between adjacent stops in `range`.
   const numeric = scale.accessor ? scale.accessor(row) : null;

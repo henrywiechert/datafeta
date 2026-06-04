@@ -27,6 +27,8 @@ import TooltipFieldControl from './TooltipFieldControl';
 import ChartTypeControl from './ChartTypeControl';
 import DensityParametersSection from './DensityParametersSection';
 import FieldOverrideRow from './FieldOverrideRow';
+import LineColorModeControl from './LineColorModeControl';
+import { shouldShowLineColorModeControl } from '../../../utils/lineColorEncoding';
 
 interface AreaFillOpacityControlProps {
   value: number;
@@ -135,7 +137,7 @@ const FieldOverridesPanel: React.FC = () => {
     manualShape,
   } = state;
 
-  const { variant: lineVariant, areaFillOpacity } = chartTypeParams.line;
+  const { variant: lineVariant, areaFillOpacity, colorMode: lineColorMode } = chartTypeParams.line;
   const distributionVariant = chartTypeParams.distribution.variant;
   const tableCellMode = chartTypeParams.table.cellMode;
 
@@ -198,6 +200,13 @@ const FieldOverridesPanel: React.FC = () => {
       colorField as Field | null,
     ) ?? undefined;
   }, [globalChartType, xAxisFields, yAxisFields, colorField]);
+
+  const isLineChart =
+    globalChartType === 'line' || (!globalChartType && autoSelectedType === 'line');
+  const showLineColorMode = shouldShowLineColorModeControl(
+    colorField as Field | null,
+    isLineChart,
+  );
 
   // Track previous auto-selected type to detect changes
   const prevAutoSelectedTypeRef = useRef<string | undefined>(autoSelectedType);
@@ -479,6 +488,15 @@ const FieldOverridesPanel: React.FC = () => {
             );
           }}
         />
+
+        {showLineColorMode && (
+          <LineColorModeControl
+            value={lineColorMode}
+            onChange={(mode) => {
+              applyGlobalAction({ type: 'SET_LINE_COLOR_MODE', payload: mode });
+            }}
+          />
+        )}
 
         <BackgroundFieldControl
           field={facetBackgroundField as Field | null}

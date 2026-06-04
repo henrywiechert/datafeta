@@ -89,7 +89,7 @@ const ChartArea: React.FC = () => {
 
   // Chart-type-specific params (grouped in state.chartTypeParams) are unpacked
   // into flat locals here, which the rendering/cache boundaries below consume.
-  const { variant: lineVariant, areaFillOpacity } = chartTypeParams.line;
+  const { variant: lineVariant, areaFillOpacity, colorMode: lineColorMode } = chartTypeParams.line;
   const distributionVariant = chartTypeParams.distribution.variant;
   const { cellMode: tableCellMode, page: tablePage } = chartTypeParams.table;
 
@@ -206,6 +206,7 @@ const ChartArea: React.FC = () => {
       globalChartType,
       lineVariant,
       areaFillOpacity,
+      lineColorMode,
       distributionVariant,
       tableCellMode,
       tablePage,
@@ -399,6 +400,7 @@ const ChartArea: React.FC = () => {
       globalChartType,
       lineVariant,
       areaFillOpacity,
+      lineColorMode,
       distributionVariant,
       tableCellMode,
       tablePage: isTableMode ? tablePage : undefined,
@@ -411,7 +413,7 @@ const ChartArea: React.FC = () => {
     }),
     [
       xAxisFields, yAxisFields, chartFilterConfigurations, channels,
-      measureGroupFields, fieldOverrides, globalChartType, lineVariant, areaFillOpacity, distributionVariant, tableCellMode,
+      measureGroupFields, fieldOverrides, globalChartType, lineVariant, areaFillOpacity, lineColorMode, distributionVariant, tableCellMode,
       isTableMode, tablePage, tablePageSize,
       independentDomains,
     ],

@@ -31,6 +31,7 @@ interface UseChartGenerationProps {
   globalChartType?: UserChartType | null;
   lineVariant?: LineVariant;
   areaFillOpacity?: number;
+  lineColorMode?: import('../../../../types').LineColorMode;
   distributionVariant?: DistributionVariant;
   tableCellMode?: TableCellMode;
   /** 0-based page index for the 'table-refactor' chart type pager. */
@@ -75,6 +76,7 @@ export const useChartGeneration = ({
   globalChartType,
   lineVariant = 'line',
   areaFillOpacity,
+  lineColorMode = 'alongPath',
   distributionVariant = 'tick-strip',
   tableCellMode = 'auto',
   tablePage,
@@ -257,6 +259,7 @@ export const useChartGeneration = ({
         globalChartType: effectiveGlobalChartType,
         lineVariant,
         areaFillOpacity,
+        lineColorMode,
         distributionVariant,
         tableCellMode,
         tablePage,
@@ -343,6 +346,7 @@ export const useChartGeneration = ({
     globalChartType,
     lineVariant,
     areaFillOpacity,
+    lineColorMode,
     distributionVariant,
     tableCellMode,
     tablePage,
