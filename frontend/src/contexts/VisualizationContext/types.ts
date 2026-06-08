@@ -1,9 +1,11 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { Field, FieldOverrideState, UserChartType, QueryOptimizationSettings, DistributionVariant, TableCellMode, LineVariant, LineColorMode, DensityParams } from '../../types/field';
+import { Field, FieldOverrideState, UserChartType, QueryOptimizationSettings, DistributionVariant, TableCellMode, LineVariant, LineColorMode, DensityParams, MapViewBounds } from '../../types/field';
 import { QueryResult } from '../../types/query';
 import { FilterConfig, FilterMetadata } from '../../types/filter';
 import { OverlayConfig, OverlayType, OverlayParams } from '../../observable-plot-generator/overlays/types';
 import type { UndoableSnapshot } from './persistedKeys';
+
+export type { MapViewBounds } from '../../types/field';
 
 // Define loading operation types
 export type LoadingOperationType = 'query' | 'rendering' | 'metadata';
@@ -152,6 +154,11 @@ export interface VisualizationState {
   measureGroupFields: Field[];
   // Gantt chart zoom range (null = full data range)
   ganttZoomRange: { min: number; max: number } | null;
+  /**
+   * Transient pan/zoom view per map plot cell (plotId → geographic bounds).
+   * Absent plotId = home extent. Not persisted, not undoable — see `ganttZoomRange`.
+   */
+  mapViewByPlotId: Record<string, MapViewBounds>;
   // Axis label styling
   axisLabelStyles: AxisLabelStyles;
   // Category tick label styling
@@ -201,8 +208,9 @@ export interface MapChartParams {
  * chart type's parameters does not require a new flat field on
  * VisualizationState.
  *
- * Note: `ganttZoomRange` is intentionally NOT here — it is transient view state
- * (not persisted to sheets, not undoable), unlike these persisted style params.
+ * Note: `ganttZoomRange` and `mapViewByPlotId` are intentionally NOT here — they are
+ * transient view state (not persisted to sheets, not undoable), unlike these
+ * persisted style params.
  */
 export interface ChartTypeParams {
   density: DensityParams;
@@ -325,6 +333,10 @@ export type VisualizationAction =
   | { type: 'RESTORE_CACHED_QUERY_RESULT'; payload: QueryResult }
   // Gantt chart zoom actions
   | { type: 'SET_GANTT_ZOOM_RANGE'; payload: { min: number; max: number } | null }
+  // Map navigation view actions (transient; no query bump)
+  | { type: 'SET_MAP_VIEW_BOUNDS'; payload: { plotId: string; bounds: MapViewBounds } }
+  | { type: 'RESET_MAP_VIEW'; payload: { plotId: string } }
+  | { type: 'RESET_ALL_MAP_VIEWS' }
   // Axis label styling actions
   | { type: 'SET_X_AXIS_LABEL_STYLE'; payload: Partial<XAxisLabelStyle> }
   | { type: 'SET_Y_AXIS_LABEL_STYLE'; payload: Partial<YAxisLabelStyle> }

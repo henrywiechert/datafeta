@@ -8,10 +8,16 @@ import {
   isValidGeoCoordinate,
   MAP_EQUAL_EARTH_ASPECT_RATIO,
   computeMapAspectRatioForBounds,
+  clampMapViewBounds,
+  computeMapHomeBounds,
+  formatMapPlotId,
+  MAP_WORLD_HOME_BOUNDS,
+  panMapViewBounds,
   pickMapAxisFields,
   resolveMapAspectRatio,
   resolveMapProjectionDomain,
   shouldWarnGeoScatter,
+  zoomMapViewBounds,
 } from './mapUtils';
 
 function contDim(name: string, axis?: 'x' | 'y'): Field {
@@ -113,5 +119,38 @@ describe('mapUtils', () => {
     const bounds: [number, number, number, number] = [-6, 50, 2, 58];
     expect(resolveMapAspectRatio(bounds, 'world')).toBeCloseTo(MAP_EQUAL_EARTH_ASPECT_RATIO, 4);
     expect(resolveMapAspectRatio(bounds, 'data')).toBe(computeMapAspectRatioForBounds(bounds));
+  });
+
+  test('computeMapHomeBounds uses data bounds or full WGS84 extent', () => {
+    const bounds: [number, number, number, number] = [-6, 50, 2, 58];
+    expect(computeMapHomeBounds(bounds, 'data')).toEqual(bounds);
+    expect(computeMapHomeBounds(bounds, 'world')).toEqual(MAP_WORLD_HOME_BOUNDS);
+  });
+
+  test('formatMapPlotId matches facet grid id convention', () => {
+    expect(formatMapPlotId({ row: 0, col: 0 }, false)).toBe('map');
+    expect(formatMapPlotId({ row: 1, col: 2 }, true)).toBe('map-r1-c2');
+  });
+
+  test('zoomMapViewBounds narrows bbox around anchor', () => {
+    const home: [number, number, number, number] = [-10, 40, 10, 60];
+    const view: [number, number, number, number] = [-5, 45, 5, 55];
+    const zoomed = zoomMapViewBounds(view, 2, [0, 50], home);
+    expect(zoomed[2] - zoomed[0]).toBeLessThan(view[2] - view[0]);
+    expect(zoomed[3] - zoomed[1]).toBeLessThan(view[3] - view[1]);
+  });
+
+  test('panMapViewBounds shifts bbox and clamps to padded home', () => {
+    const home: [number, number, number, number] = [-10, 40, 10, 60];
+    const view: [number, number, number, number] = [-5, 45, 5, 55];
+    const panned = panMapViewBounds(view, 2, 1, home);
+    expect(panned[0]).toBeCloseTo(-3, 5);
+    expect(panned[1]).toBeCloseTo(46, 5);
+  });
+
+  test('clampMapViewBounds rejects degenerate results', () => {
+    const home: [number, number, number, number] = [-10, 40, 10, 60];
+    const collapsed = clampMapViewBounds([0, 0, 0, 0], home);
+    expect(collapsed).toEqual(home);
   });
 });

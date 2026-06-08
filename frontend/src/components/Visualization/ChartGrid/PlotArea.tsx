@@ -2,6 +2,7 @@
 import React, { useCallback, useRef } from 'react';
 import { Tooltip } from '@mui/material';
 import DoNotDisturbAltIcon from '@mui/icons-material/DoNotDisturbAlt';
+import { MapPanZoomHandlers } from '../map/attachMapPanZoom';
 import { Field } from '../../../types';
 import ObservablePlot from '../ObservablePlot';
 import PieSvgRenderer from './renderers/PieSvgRenderer';
@@ -38,6 +39,7 @@ interface PlotAreaProps {
   onPlotRenderComplete?: (plotId: string) => void;
   brushDisabled?: boolean;
   onBrushEnd?: (event: PlotBrushEvent) => void;
+  mapPanZoom?: MapPanZoomHandlers;
   onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
   autoExpandPinnedComparison?: boolean;
   onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
@@ -99,6 +101,7 @@ const PlotArea: React.FC<PlotAreaProps> = ({
   onPlotRenderComplete,
   brushDisabled,
   onBrushEnd,
+  mapPanZoom,
   onCellContextMenu,
   autoExpandPinnedComparison,
   onAutoExpandPinnedComparisonChange,
@@ -142,6 +145,7 @@ const PlotArea: React.FC<PlotAreaProps> = ({
                   onPlotRenderComplete={onPlotRenderComplete}
                   brushDisabled={brushDisabled}
                   onBrushEnd={onBrushEnd}
+                  mapPanZoom={mapPanZoom}
                   onCellContextMenu={onCellContextMenu}
                   autoExpandPinnedComparison={autoExpandPinnedComparison}
                   onAutoExpandPinnedComparisonChange={onAutoExpandPinnedComparisonChange}
@@ -195,6 +199,7 @@ interface PlotCellProps {
   onPlotRenderComplete?: (plotId: string) => void;
   brushDisabled?: boolean;
   onBrushEnd?: (event: PlotBrushEvent) => void;
+  mapPanZoom?: MapPanZoomHandlers;
   onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
   autoExpandPinnedComparison?: boolean;
   onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
@@ -207,6 +212,7 @@ const PlotCell: React.FC<PlotCellProps> = ({
   onPlotRenderComplete,
   brushDisabled,
   onBrushEnd,
+  mapPanZoom,
   onCellContextMenu,
   autoExpandPinnedComparison,
   onAutoExpandPinnedComparisonChange,
@@ -251,6 +257,7 @@ const PlotCell: React.FC<PlotCellProps> = ({
             key={cell.id}
             options={opts}
             plotId={cell.id}
+            mapPanZoom={mapPanZoom}
             onRenderComplete={onPlotRenderComplete}
             onPlotReady={(el) => onPlotReady(cell.id, el)}
             autoExpandPinnedComparison={autoExpandPinnedComparison}

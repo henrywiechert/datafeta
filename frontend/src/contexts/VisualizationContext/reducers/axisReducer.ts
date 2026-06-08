@@ -1,7 +1,27 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { VisualizationState, VisualizationAction } from '../types';
+import { MapViewBounds, VisualizationState, VisualizationAction } from '../types';
 import { sameFieldArray } from './utils';
 import { initialState } from '../initialState';
+
+function isValidMapViewBounds(bounds: MapViewBounds): boolean {
+  const [lonMin, latMin, lonMax, latMax] = bounds;
+  return (
+    Number.isFinite(lonMin) &&
+    Number.isFinite(latMin) &&
+    Number.isFinite(lonMax) &&
+    Number.isFinite(latMax) &&
+    lonMin >= -180 &&
+    lonMax <= 180 &&
+    latMin >= -90 &&
+    latMax <= 90 &&
+    lonMin < lonMax &&
+    latMin < latMax
+  );
+}
+
+function sameMapViewBounds(a: MapViewBounds, b: MapViewBounds): boolean {
+  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3];
+}
 
 /**
  * Handles axis-related actions: X/Y fields, field updates, query results, and state reset.
@@ -18,6 +38,7 @@ export function axisReducer(state: VisualizationState, action: VisualizationActi
         ...state,
         xAxisFields: action.payload,
         queryVersion: isReorderOnly ? state.queryVersion : state.queryVersion + 1,
+        mapViewByPlotId: isReorderOnly ? state.mapViewByPlotId : {},
       };
     }
     case 'SET_Y_AXIS_FIELDS': {
@@ -29,6 +50,7 @@ export function axisReducer(state: VisualizationState, action: VisualizationActi
         ...state,
         yAxisFields: action.payload,
         queryVersion: isReorderOnly ? state.queryVersion : state.queryVersion + 1,
+        mapViewByPlotId: isReorderOnly ? state.mapViewByPlotId : {},
       };
     }
     case 'SWAP_AXIS_FIELDS':
@@ -168,15 +190,39 @@ export function axisReducer(state: VisualizationState, action: VisualizationActi
       // Used on connection change to free memory without losing user's visualization setup
       return { ...state, queryResult: null, queryError: null };
     case 'TABLE_JOINS_UNIONS_MODIFIED':
-      return { ...state, queryVersion: state.queryVersion + 1 };
+      return { ...state, queryVersion: state.queryVersion + 1, mapViewByPlotId: {} };
     case 'FORCE_QUERY_REFRESH':
       // Used after metadata loads to ensure query execution is triggered
       // (e.g., when loading a snapshot with pre-populated axis fields)
-      return { ...state, queryVersion: state.queryVersion + 1 };
+      return { ...state, queryVersion: state.queryVersion + 1, mapViewByPlotId: {} };
     case 'SET_GANTT_ZOOM_RANGE':
       // Update Gantt zoom range without triggering re-query
       // (zoom is purely a visual operation on existing data)
       return { ...state, ganttZoomRange: action.payload };
+    case 'SET_MAP_VIEW_BOUNDS': {
+      const { plotId, bounds } = action.payload;
+      if (!plotId || !isValidMapViewBounds(bounds)) return state;
+      const existing = state.mapViewByPlotId[plotId];
+      if (existing && sameMapViewBounds(existing, bounds)) return state;
+      return {
+        ...state,
+        mapViewByPlotId: {
+          ...state.mapViewByPlotId,
+          [plotId]: bounds,
+        },
+      };
+    }
+    case 'RESET_MAP_VIEW': {
+      const { plotId } = action.payload;
+      if (!plotId || !(plotId in state.mapViewByPlotId)) return state;
+      const next = { ...state.mapViewByPlotId };
+      delete next[plotId];
+      return { ...state, mapViewByPlotId: next };
+    }
+    case 'RESET_ALL_MAP_VIEWS': {
+      if (Object.keys(state.mapViewByPlotId).length === 0) return state;
+      return { ...state, mapViewByPlotId: {} };
+    }
     default:
       return null; // Not handled by this reducer
   }

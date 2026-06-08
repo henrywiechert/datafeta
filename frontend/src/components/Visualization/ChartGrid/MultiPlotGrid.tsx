@@ -18,6 +18,7 @@ import { ScrollSyncState } from './hooks/useScrollSync';
 import { Dimensions } from './hooks/useContainerDimensions';
 import { CellSizeOverrides } from './hooks/useCellSizeOverrides';
 import PlotArea, { PlotBrushEvent } from './PlotArea';
+import { MapPanZoomHandlers } from '../map/attachMapPanZoom';
 import XAxes from './XAxes';
 import YAxes from './YAxes';
 import { TopFacetLabels, TopFacetHeaderTitle, LeftFacetLabels } from './FacetLabels';
@@ -54,6 +55,7 @@ interface MultiPlotGridProps {
   isTransitioning?: boolean;
   brushDisabled?: boolean;
   onBrushEnd?: (event: PlotBrushEvent) => void;
+  mapPanZoom?: MapPanZoomHandlers;
   onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
   autoExpandPinnedComparison?: boolean;
   onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
@@ -87,6 +89,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
   isTransitioning = false,
   brushDisabled,
   onBrushEnd,
+  mapPanZoom,
   onCellContextMenu,
   autoExpandPinnedComparison,
   onAutoExpandPinnedComparisonChange,
@@ -274,6 +277,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
             onPlotRenderComplete={onPlotRenderComplete}
             brushDisabled={brushDisabled}
             onBrushEnd={onBrushEnd}
+            mapPanZoom={mapPanZoom}
             onCellContextMenu={onCellContextMenu}
             autoExpandPinnedComparison={autoExpandPinnedComparison}
             onAutoExpandPinnedComparisonChange={onAutoExpandPinnedComparisonChange}

@@ -11,7 +11,8 @@ import type { VisualizationState } from './types';
  * ritual when adding a persisted setting.
  *
  * Note: ephemeral state (loading flags, query results, timing, metadata-derived
- * fields) is intentionally excluded.
+ * fields, transient view state such as `ganttZoomRange` and `mapViewByPlotId`) is
+ * intentionally excluded.
  */
 export const PERSISTED_STATE_KEYS = [
   'xAxisFields',

@@ -124,6 +124,24 @@ describe('undoRedoReducer RESTORE_UNDOABLE_STATE', () => {
     expect(restored!.activeOperations).toEqual(['query']);
   });
 
+  it('does not restore transient map view state from undo snapshots', () => {
+    const mapView: VisualizationState['mapViewByPlotId'] = {
+      'facet-0-0': [-6, 50, 2, 58],
+    };
+    const base: VisualizationState = {
+      ...initialState,
+      mapViewByPlotId: mapView,
+    };
+
+    const restored = undoRedoReducer(base, {
+      type: 'RESTORE_UNDOABLE_STATE',
+      payload: snapshotOf(initialState),
+    });
+
+    expect(restored).not.toBeNull();
+    expect(restored!.mapViewByPlotId).toEqual(mapView);
+  });
+
   it('returns null for unrelated actions (so the reducer pipeline can chain)', () => {
     const result = undoRedoReducer(initialState, { type: 'RESET_STATE' });
     expect(result).toBeNull();

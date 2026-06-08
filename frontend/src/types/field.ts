@@ -96,6 +96,9 @@ export type TableCellMode = 'auto' | 'text' | 'symbol';
 /** Map projection extent: zoom to data bounds or show the full world. */
 export type MapExtentMode = 'data' | 'world';
 
+/** Geographic lon/lat bbox (WGS84) for map home or pan/zoom view overrides. */
+export type MapViewBounds = [lonMin: number, latMin: number, lonMax: number, latMax: number];
+
 export interface FieldOverrideState {
   // Color overrides
   colorFieldId?: string | null;

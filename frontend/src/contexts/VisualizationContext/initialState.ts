@@ -86,6 +86,8 @@ export const initialState: VisualizationState = {
   measureGroupFields: [],
   // Gantt chart zoom range (null = full data range)
   ganttZoomRange: null,
+  // Map pan/zoom overrides keyed by plot cell id
+  mapViewByPlotId: {},
   // Axis label styling defaults
   axisLabelStyles: {
     xAxis: {

@@ -4,6 +4,7 @@ import { Box } from '@mui/material';
 import ChartGrid, {
   ChartGridGanttProps,
   ChartGridBrushProps,
+  ChartGridMapProps,
   ChartGridLabelStyles,
 } from '../../ChartGrid/ChartGrid';
 import { HeatmapSizeToolbarState } from '../../ChartGrid/hooks/useHeatmapSizeToolbar';
@@ -33,6 +34,8 @@ interface ChartRendererProps {
   gantt?: ChartGridGanttProps;
   /** Brush selection configuration. Forwarded to ChartGrid. */
   brush?: ChartGridBrushProps;
+  /** Map navigation configuration. Forwarded to ChartGrid. */
+  map?: ChartGridMapProps;
   /** Table rows view mode */
   showTableRows?: boolean;
   tableRowsData?: {
@@ -81,6 +84,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
   onPlotRenderComplete,
   gantt,
   brush,
+  map,
   showTableRows = false,
   tableRowsData,
   onTableCellFilterAction,
@@ -145,6 +149,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
         globalChartType={globalChartType}
         gantt={gantt}
         brush={brush}
+        map={map}
         labelStyles={labelStyles}
       />
     );
@@ -164,7 +169,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
         />
       </Box>
     );
-  }, [tableRowsContent, useTableView, tableData, grid, cellSizeOverrides, onAutoCategoryTickMeasure, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete, gantt, brush, tableRefactorPagerData, onHeatmapSizeToolbarChange, labelStyles, globalChartType]);
+  }, [tableRowsContent, useTableView, tableData, grid, cellSizeOverrides, onAutoCategoryTickMeasure, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete, gantt, brush, map, tableRefactorPagerData, onHeatmapSizeToolbarChange, labelStyles, globalChartType]);
 
   return (
     <Box 

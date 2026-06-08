@@ -10,18 +10,21 @@ import { CustomTooltipConfig } from '../../types';
 import { addTooltipListeners } from './CustomTooltip/addTooltipListeners';
 import { stampColorCategories } from './stampColorCategories';
 import { fitMapDimensions } from '../../utils/mapUtils';
+import type { MapPlotOptionsMetadata } from '../../observable-plot-generator/chartTypes/mapChart';
+import { attachMapPanZoom, MapPanZoomHandlers } from './map/attachMapPanZoom';
+import { resolvePlotSvg } from './map/resolvePlotSvg';
 
 interface ObservablePlotProps {
-  options: Plot.PlotOptions & {
+  options: Plot.PlotOptions & MapPlotOptionsMetadata & {
     __customTooltip?: CustomTooltipConfig;
-    /** height÷width; map charts use this to fill their cell without distortion */
-    __mapAspectRatio?: number;
   };
-  plotId?: string; // Unique ID for tracking rendering
-  onRenderComplete?: (plotId: string) => void; // Callback when rendering is done
+  plotId?: string;
+  onRenderComplete?: (plotId: string) => void;
   onPlotReady?: (plot: SVGSVGElement | HTMLElement) => void;
   autoExpandPinnedComparison?: boolean;
   onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
+  /** Map navigation handlers (when chart type is map). */
+  mapPanZoom?: MapPanZoomHandlers;
 }
 
 const ObservablePlot: React.FC<ObservablePlotProps> = ({
@@ -31,21 +34,22 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
   onPlotReady,
   autoExpandPinnedComparison = false,
   onAutoExpandPinnedComparisonChange,
+  mapPanZoom,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const plotHostRef = useRef<HTMLDivElement>(null);
-  // Shared singleton ResizeObserver across all chart cells (one observer, N targets).
   const dimensions = useElementSize(containerRef);
-  // Shared across all chart cells: one set of fullscreenchange listeners total.
   const portalTarget = useFullscreenPortalTarget();
   const { tooltip, showTooltip, hideTooltip, updatePosition, pinTooltip, unpinTooltip, pinnedRef } = useChartTooltip();
   const cleanupFunctionsRef = useRef<Array<() => void>>([]);
+  const mapPanZoomRef = useRef(mapPanZoom);
+  mapPanZoomRef.current = mapPanZoom;
 
   const mapAspectRatio = options.__mapAspectRatio;
 
   useEffect(() => {
     if (!containerRef.current) return;
-    
+
     const observedWidth = dimensions.width;
     const observedHeight = dimensions.height;
 
@@ -62,33 +66,22 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
       finalHeight = options.height !== undefined ? options.height : (observedHeight > 0 ? observedHeight : 300);
     }
 
-    // Debug logging disabled for performance with large faceted grids
-
-    // Only render if we have valid dimensions to prevent errors.
     if (finalWidth > 0 && finalHeight > 0) {
-      // IMPORTANT: Hide tooltip before clearing DOM to prevent stuck tooltips
       hideTooltip();
-      
-      // Clean up any existing event listeners from previous render
+
       cleanupFunctionsRef.current.forEach(cleanup => cleanup());
       cleanupFunctionsRef.current = [];
-      
-      // Create fresh options object with final dimensions
-      // CRITICAL: Spread options to ensure Observable Plot doesn't use cached results
+
       const newOptions = {
         ...options,
         width: finalWidth,
         height: finalHeight,
-        // Avoid clipping of tooltips beyond the plot frame
         style: { ...(options as any).style, overflow: 'visible' } as any,
       } as Plot.PlotOptions;
 
       try {
-        // Force Observable Plot to create fresh plot (no caching)
         const plot = Plot.plot(newOptions);
-        
-        // Use replaceChildren for better performance than innerHTML
-        // This is a single synchronous operation that's faster for the browser to process
+
         const host = plotHostRef.current;
         if (host) {
           host.replaceChildren(plot);
@@ -98,11 +91,8 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
 
         onPlotReady?.(plot);
 
-        // Stamp data-cat attributes on mark elements for highlight matching.
-        // Uses the same __data__ → datum resolution as the tooltip system.
         stampColorCategories(plot, options);
 
-        // Add custom tooltip event listeners if configured
         const customTooltipConfig = options.__customTooltip;
         if (customTooltipConfig?.enabled) {
           const cleanup = addTooltipListeners(
@@ -112,7 +102,29 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
           cleanupFunctionsRef.current.push(cleanup);
         }
 
-        // Notify that rendering is complete - use requestAnimationFrame to ensure DOM is updated
+        const handlers = mapPanZoomRef.current;
+        const mapSvg = resolvePlotSvg(plot);
+        if (
+          options.__mapInteractive &&
+          handlers &&
+          options.__mapHomeBounds &&
+          options.__mapCurrentView &&
+          options.__mapPlotId &&
+          mapSvg
+        ) {
+          const cleanupPanZoom = attachMapPanZoom({
+            svg: mapSvg,
+            wheelRoot: plot instanceof SVGSVGElement ? undefined : (plot as HTMLElement),
+            plotId: options.__mapPlotId,
+            homeBounds: options.__mapHomeBounds,
+            currentView: options.__mapCurrentView,
+            width: finalWidth,
+            height: finalHeight,
+            handlers,
+          });
+          cleanupFunctionsRef.current.push(cleanupPanZoom);
+        }
+
         if (plotId && onRenderComplete) {
           requestAnimationFrame(() => {
             if (process.env.NODE_ENV === 'development') {
@@ -123,7 +135,6 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
         }
       } catch (error) {
         console.error('ObservablePlot - Error creating plot:', error);
-        // Still notify completion even on error to prevent hanging
         if (plotId && onRenderComplete) {
           if (process.env.NODE_ENV === 'development') {
             console.log('[ObservablePlot] Render error for plot, marking complete:', plotId);
@@ -131,19 +142,16 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
           onRenderComplete(plotId);
         }
       }
-    } else {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('[ObservablePlot] Skipping render - invalid dimensions:', { finalWidth, finalHeight });
-      }
+    } else if (process.env.NODE_ENV === 'development') {
+      console.warn('[ObservablePlot] Skipping render - invalid dimensions:', { finalWidth, finalHeight });
     }
-    
-    // Cleanup on unmount
+
     return () => {
       hideTooltip();
       cleanupFunctionsRef.current.forEach(cleanup => cleanup());
       cleanupFunctionsRef.current = [];
     };
-  }, [options, dimensions, showTooltip, hideTooltip, updatePosition, pinTooltip, unpinTooltip, pinnedRef, onRenderComplete, plotId, onPlotReady]);
+  }, [options, dimensions, showTooltip, hideTooltip, updatePosition, pinTooltip, unpinTooltip, pinnedRef, onRenderComplete, plotId, onPlotReady, mapAspectRatio]);
 
   return (
     <>
@@ -162,7 +170,6 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
           style={mapAspectRatio == null ? { width: '100%', height: '100%' } : undefined}
         />
       </div>
-      {/* Render tooltip using portal - to fullscreen element if in fullscreen, otherwise to body */}
       {portalTarget && ReactDOM.createPortal(
         <CustomTooltip
           x={tooltip.x}
@@ -183,15 +190,11 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
   );
 };
 
-// Memoize to prevent re-renders when options haven't changed
-// CONSERVATIVE: Only skip render if options reference is identical
-// This preserves performance for stable references while ensuring updates aren't missed
 export default React.memo(ObservablePlot, (prevProps, nextProps) => {
-  // Only skip if exact same object reference
-  // Any new options object will trigger re-render
   return (
     prevProps.options === nextProps.options &&
     prevProps.autoExpandPinnedComparison === nextProps.autoExpandPinnedComparison &&
-    prevProps.onAutoExpandPinnedComparisonChange === nextProps.onAutoExpandPinnedComparisonChange
+    prevProps.onAutoExpandPinnedComparisonChange === nextProps.onAutoExpandPinnedComparisonChange &&
+    prevProps.mapPanZoom === nextProps.mapPanZoom
   );
-}); 
+});

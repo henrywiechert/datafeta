@@ -5,11 +5,13 @@ import CloseIcon from '@mui/icons-material/Close';
 import * as Plot from '@observablehq/plot';
 import { GridResultModel, getPlotGridCellById } from '../../../observable-plot-generator/gridModel';
 import ObservablePlot from '../ObservablePlot';
+import { MapPanZoomHandlers } from '../map/attachMapPanZoom';
 
 interface FacetZoomDialogProps {
   grid: GridResultModel;
   plotId: string | null;
   onClose: () => void;
+  mapPanZoom?: MapPanZoomHandlers;
   autoExpandPinnedComparison?: boolean;
   onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
 }
@@ -23,6 +25,7 @@ const FacetZoomDialog: React.FC<FacetZoomDialogProps> = ({
   grid,
   plotId,
   onClose,
+  mapPanZoom,
   autoExpandPinnedComparison,
   onAutoExpandPinnedComparisonChange,
 }) => {
@@ -30,10 +33,6 @@ const FacetZoomDialog: React.FC<FacetZoomDialogProps> = ({
 
   if (!cell) return null;
 
-  // Strip explicit margins from the grid-optimised options.
-  // Observable Plot auto-computes margins from tick label character count using ~6.5px/char
-  // (calibrated for its default 10px font). At 14px that under-estimates by 40%, so we
-  // supply an explicit marginLeft sized for 14px: ~9px/char × up to 8 chars + 8px padding.
   const { marginLeft: _ml, marginRight: _mr, marginTop: _mt, marginBottom: _mb, ...restOptions } = cell.content.options as any;
   const zoomedOptions: Plot.PlotOptions = {
     ...restOptions,
@@ -61,6 +60,7 @@ const FacetZoomDialog: React.FC<FacetZoomDialogProps> = ({
           <ObservablePlot
             options={zoomedOptions}
             plotId={`zoom-${cell.id}`}
+            mapPanZoom={mapPanZoom}
             autoExpandPinnedComparison={autoExpandPinnedComparison}
             onAutoExpandPinnedComparisonChange={onAutoExpandPinnedComparisonChange}
           />

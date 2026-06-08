@@ -15,7 +15,7 @@ import { useChartGridLayout } from './hooks/useChartGridLayout';
 import { MultiPlotGrid } from './MultiPlotGrid';
 import { PlotBrushEvent } from './PlotArea';
 import { AxisLabelStyles, CategoryTickStyles, FacetLabelStyles } from '../../../contexts/VisualizationContext/types';
-import { UserChartType } from '../../../types';
+import { UserChartType, MapViewBounds } from '../../../types';
 
 /** Gantt zoom range representing the visible data range on the timeline axis */
 export interface GanttZoomRange {
@@ -41,6 +41,14 @@ export interface ChartGridBrushProps {
   onBrushEnd?: (event: PlotBrushEvent) => void;
 }
 
+/** Map pan/zoom navigation (transient view state; no filter side effects). */
+export interface ChartGridMapProps {
+  enabled?: boolean;
+  onViewChange?: (plotId: string, bounds: MapViewBounds) => void;
+  onViewReset?: (plotId: string) => void;
+  onHoverChange?: (plotId: string | null) => void;
+}
+
 /**
  * Label/style state lifted from VisualizationContext to props. Reading via context
  * inside this memoized component would bypass the memo on every reducer tick.
@@ -62,6 +70,8 @@ interface ChartGridProps {
   gantt?: ChartGridGanttProps;
   /** Brush selection configuration. */
   brush?: ChartGridBrushProps;
+  /** Map navigation configuration. */
+  map?: ChartGridMapProps;
   /** Axis / facet / category label styling. */
   labelStyles: ChartGridLabelStyles;
 }
@@ -93,6 +103,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   globalChartType,
   gantt,
   brush,
+  map,
   labelStyles,
 }) => {
   const {
@@ -102,6 +113,12 @@ const ChartGrid: React.FC<ChartGridProps> = ({
     fullDataRange: ganttFullDataRange = null,
   } = gantt ?? {};
   const { disabled: brushDisabled, onBrushEnd } = brush ?? {};
+  const {
+    enabled: mapNavEnabled = false,
+    onViewChange: onMapViewChange,
+    onViewReset: onMapViewReset,
+    onHoverChange: onMapHoverChange,
+  } = map ?? {};
   const { axisLabelStyles, facetLabelStyles, categoryTickStyles } = labelStyles;
 
   // Refs for DOM elements
@@ -159,6 +176,15 @@ const ChartGrid: React.FC<ChartGridProps> = ({
     categoryTickStyles,
     globalChartType,
   );
+
+  const mapPanZoomHandlers = React.useMemo(() => {
+    if (!mapNavEnabled || !onMapViewChange || !onMapViewReset) return undefined;
+    return {
+      onViewChange: onMapViewChange,
+      onViewReset: onMapViewReset,
+      onHoverChange: onMapHoverChange,
+    };
+  }, [mapNavEnabled, onMapViewChange, onMapViewReset, onMapHoverChange]);
 
   // Facet zoom state (must be before any conditional returns — Rules of Hooks)
   const [contextMenu, setContextMenu] = useState<{ plotId: string; x: number; y: number } | null>(null);
@@ -244,6 +270,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({
           isTransitioning={isTransitioning}
           brushDisabled={brushDisabled}
           onBrushEnd={onBrushEnd}
+          mapPanZoom={mapPanZoomHandlers}
           onCellContextMenu={handleCellContextMenu}
           autoExpandPinnedComparison={autoExpandPinnedComparison}
           onAutoExpandPinnedComparisonChange={setAutoExpandPinnedComparison}
@@ -261,6 +288,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({
             grid={grid}
             plotId={zoomedPlotId}
             onClose={handleZoomClose}
+            mapPanZoom={mapPanZoomHandlers}
             autoExpandPinnedComparison={autoExpandPinnedComparison}
             onAutoExpandPinnedComparisonChange={setAutoExpandPinnedComparison}
           />
@@ -296,6 +324,10 @@ export default React.memo(ChartGrid, (prevProps, nextProps) => {
     prevProps.gantt?.onZoomRangeChange === nextProps.gantt?.onZoomRangeChange &&
     prevProps.brush?.disabled === nextProps.brush?.disabled &&
     prevProps.brush?.onBrushEnd === nextProps.brush?.onBrushEnd &&
+    prevProps.map?.enabled === nextProps.map?.enabled &&
+    prevProps.map?.onViewChange === nextProps.map?.onViewChange &&
+    prevProps.map?.onViewReset === nextProps.map?.onViewReset &&
+    prevProps.map?.onHoverChange === nextProps.map?.onHoverChange &&
     prevProps.labelStyles.axisLabelStyles === nextProps.labelStyles.axisLabelStyles &&
     prevProps.labelStyles.facetLabelStyles === nextProps.labelStyles.facetLabelStyles &&
     prevProps.labelStyles.categoryTickStyles === nextProps.labelStyles.categoryTickStyles

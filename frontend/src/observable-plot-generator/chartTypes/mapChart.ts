@@ -6,7 +6,7 @@
  * Plot.geo for outlines and Plot.dot for data marks.
  */
 import * as Plot from '@observablehq/plot';
-import { ColorChannel, Field, MapExtentMode } from '../../types';
+import { ColorChannel, Field, MapExtentMode, MapViewBounds } from '../../types';
 import {
   DEFAULT_CHART_COLOR,
   MAP_MIN_HEIGHT_PX,
@@ -15,10 +15,15 @@ import {
 } from '../../config/chartLayoutConfig';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import {
+  boundsToProjectionDomain,
   computeGeoBounds,
+  computeMapAspectRatioForBounds,
+  computeMapHomeBounds,
   filterValidGeoRows,
+  formatMapPlotId,
   getWorldCountries,
   MAP_ATTRIBUTION,
+  MAP_SINGLE_PLOT_ID,
   pickMapAxisFields,
   resolveMapAspectRatio,
   resolveMapProjectionDomain,
@@ -44,6 +49,16 @@ import {
 
 const DEFAULT_PROJECTION = 'equal-earth';
 
+/** Private metadata attached to map Plot.PlotOptions for layout and pan/zoom. */
+export interface MapPlotOptionsMetadata {
+  __mapInteractive?: boolean;
+  __mapHomeBounds?: MapViewBounds;
+  /** View bounds used for the current render (override or home). */
+  __mapCurrentView?: MapViewBounds;
+  __mapPlotId?: string;
+  __mapAspectRatio?: number;
+}
+
 export interface MapOptionsInput {
   data: any[];
   lonField: Field;
@@ -60,6 +75,10 @@ export interface MapOptionsInput {
   colorScaleInfo?: ColorScaleInfo | null;
   outlineOpacity?: number;
   extentMode?: MapExtentMode;
+  /** Transient pan/zoom override; when set, narrows projection domain from home. */
+  viewBounds?: MapViewBounds | null;
+  /** Stable plot cell id matching gridModel plot ids. */
+  plotId?: string;
 }
 
 type ScatterBudget = {
@@ -156,6 +175,8 @@ export function buildMapOptions(input: MapOptionsInput): Plot.PlotOptions {
     colorScaleInfo,
     outlineOpacity = 0.35,
     extentMode = 'data',
+    viewBounds = null,
+    plotId = MAP_SINGLE_PLOT_ID,
   } = input;
 
   const lonColumn = getResultColumnName(lonField);
@@ -180,7 +201,14 @@ export function buildMapOptions(input: MapOptionsInput): Plot.PlotOptions {
 
   const budgeted = applyMapBudget(clean, colorField);
   const world = getWorldCountries();
-  const projectionDomain = resolveMapProjectionDomain(bounds, extentMode);
+  const homeBounds = computeMapHomeBounds(bounds, extentMode);
+  const effectiveView = viewBounds ?? homeBounds;
+  const projectionDomain = viewBounds
+    ? boundsToProjectionDomain(viewBounds)
+    : resolveMapProjectionDomain(bounds, extentMode);
+  const mapAspectRatio = viewBounds
+    ? computeMapAspectRatioForBounds(viewBounds)
+    : resolveMapAspectRatio(bounds, extentMode);
 
   const dotConfig: any = {
     x: lonColumn,
@@ -286,7 +314,11 @@ export function buildMapOptions(input: MapOptionsInput): Plot.PlotOptions {
     }
   }
 
-  (plotOptions as any).__mapAspectRatio = resolveMapAspectRatio(bounds, extentMode);
+  (plotOptions as MapPlotOptionsMetadata).__mapAspectRatio = mapAspectRatio;
+  (plotOptions as MapPlotOptionsMetadata).__mapHomeBounds = homeBounds;
+  (plotOptions as MapPlotOptionsMetadata).__mapCurrentView = effectiveView;
+  (plotOptions as MapPlotOptionsMetadata).__mapPlotId = plotId;
+  (plotOptions as MapPlotOptionsMetadata).__mapInteractive = true;
 
   (plotOptions as any).__customTooltip = {
     enabled: true,
@@ -366,18 +398,21 @@ function createMapCellGenerator(
   context: ChartGenerationContext,
   lonField: Field,
   latField: Field,
+  isFaceted: boolean,
 ): CellGenerator {
   return (
     cellData: any[],
     _cellContext: ChartGenerationContext,
     sharedDomains: SharedDomains,
-    _facetPosition: { row: number; col: number },
+    facetPosition: { row: number; col: number },
     facetCellContext?: FacetCellContext,
   ): CellResult => {
     const color = resolveContextColorChannel(context);
     const facetFields = facetCellContext
       ? [...facetCellContext.rowFacetFields, ...facetCellContext.colFacetFields]
       : [];
+    const plotId = formatMapPlotId(facetPosition, isFaceted);
+    const viewBounds = context.mapViewByPlotId?.[plotId] ?? null;
 
     const options = buildMapOptions({
       data: cellData,
@@ -394,6 +429,8 @@ function createMapCellGenerator(
       facetFields,
       colorScaleInfo: sharedDomains.colorScale,
       extentMode: context.mapExtentMode ?? 'data',
+      viewBounds,
+      plotId,
     });
 
     return {
@@ -402,7 +439,7 @@ function createMapCellGenerator(
           id: 'map',
           title: '',
           options: options as any,
-          position: { row: 0, col: 0 },
+          position: facetPosition,
         },
       ],
       columns: 1,
@@ -422,13 +459,14 @@ export function generateMapGrid(context: ChartGenerationContext): PlotResult {
   }
   const { lonField, latField } = picked;
 
-  const cellGenerator = createMapCellGenerator(context, lonField, latField);
   const filteredPlan = filterMapFacetPlan(planFacets(context), lonField, latField);
-
-  if (
+  const isFaceted = !!(
     filteredPlan &&
     (filteredPlan.rowFacetFields.length > 0 || filteredPlan.colFacetFields.length > 0)
-  ) {
+  );
+  const cellGenerator = createMapCellGenerator(context, lonField, latField, isFaceted);
+
+  if (isFaceted && filteredPlan) {
     return coordinateFacetedGrid({
       context,
       plan: filteredPlan,

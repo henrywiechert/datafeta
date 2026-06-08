@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { overridesReducer } from './overridesReducer';
 import { initialState } from '../initialState';
+import { MapViewBounds } from '../types';
 
 function withTablePage(page: number) {
   return {
@@ -89,5 +90,15 @@ describe('overridesReducer SET_MAP_EXTENT_MODE', () => {
   test('returns the same reference when extent mode is unchanged', () => {
     const next = overridesReducer(initialState, { type: 'SET_MAP_EXTENT_MODE', payload: 'data' } as any);
     expect(next).toBe(initialState);
+  });
+
+  test('clears map view overrides when extent mode changes', () => {
+    const state = {
+      ...initialState,
+      mapViewByPlotId: { 'map-0-0': [-6, 50, 2, 58] as MapViewBounds },
+    };
+    const next = overridesReducer(state, { type: 'SET_MAP_EXTENT_MODE', payload: 'world' } as any);
+    expect(next!.chartTypeParams.map.extentMode).toBe('world');
+    expect(next!.mapViewByPlotId).toEqual({});
   });
 });

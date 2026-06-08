@@ -119,6 +119,7 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
           ...state.chartTypeParams,
           map: { ...state.chartTypeParams.map, extentMode: action.payload },
         },
+        mapViewByPlotId: {},
       };
     }
     case 'SET_TABLE_PAGE': {

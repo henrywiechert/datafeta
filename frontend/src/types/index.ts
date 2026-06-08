@@ -64,6 +64,7 @@ export type {
   DensityParams,
   TableCellMode,
   MapExtentMode,
+  MapViewBounds,
   FieldOverrideState,
   QueryOptimizationSettings,
 } from './field';

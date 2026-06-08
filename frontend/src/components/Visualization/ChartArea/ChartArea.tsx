@@ -22,6 +22,7 @@ import { useFilterActions } from './hooks/useFilterActions';
 import { useTableRowsFilterActions } from './hooks/useTableRowsFilterActions';
 import { useChartActions } from './hooks/useChartActions';
 import { useBrushZoom } from './hooks/useBrushZoom';
+import { MapViewBounds } from '../../../types';
 import { useRenderingTracking } from './hooks/useRenderingTracking';
 import { useSeriesHighlight } from './hooks/useSeriesHighlight';
 import { ChartRenderer, ChartControls, DebugPanel } from './components';
@@ -43,6 +44,7 @@ import { HeatmapSizeToolbarState } from '../ChartGrid/hooks/useHeatmapSizeToolba
 import type {
   ChartGridGanttProps,
   ChartGridBrushProps,
+  ChartGridMapProps,
   ChartGridLabelStyles,
 } from '../ChartGrid/ChartGrid';
 
@@ -79,6 +81,7 @@ const ChartArea: React.FC = () => {
     independentDomains,
     optimizationSettings,
     ganttZoomRange,
+    mapViewByPlotId,
     showTableRows,
     overlays,
     chartTypeParams,
@@ -137,6 +140,51 @@ const ChartArea: React.FC = () => {
   // check through the registry means future table-presentation chart types
   // pick up the pager/cache-key behaviour automatically.
   const isTableMode = isTablePresentation(globalChartType);
+  const isMapChart = globalChartType === 'map';
+
+  const hoveredMapPlotIdRef = useRef<string | null>(null);
+
+  const handleMapViewChange = useCallback(
+    (plotId: string, bounds: MapViewBounds) => {
+      dispatch({ type: 'SET_MAP_VIEW_BOUNDS', payload: { plotId, bounds } });
+    },
+    [dispatch],
+  );
+
+  const handleMapViewReset = useCallback(
+    (plotId: string) => {
+      dispatch({ type: 'RESET_MAP_VIEW', payload: { plotId } });
+    },
+    [dispatch],
+  );
+
+  const handleMapHoverChange = useCallback((plotId: string | null) => {
+    hoveredMapPlotIdRef.current = plotId;
+  }, []);
+
+  useEffect(() => {
+    if (!isMapChart) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      const plotId = hoveredMapPlotIdRef.current;
+      if (!plotId) return;
+      dispatch({ type: 'RESET_MAP_VIEW', payload: { plotId } });
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [dispatch, isMapChart]);
+
+  const prevQueryVersionForMapRef = useRef(queryVersion);
+  useEffect(() => {
+    if (!isMapChart) {
+      prevQueryVersionForMapRef.current = queryVersion;
+      return;
+    }
+    if (prevQueryVersionForMapRef.current !== queryVersion) {
+      dispatch({ type: 'RESET_ALL_MAP_VIEWS' });
+    }
+    prevQueryVersionForMapRef.current = queryVersion;
+  }, [dispatch, isMapChart, queryVersion]);
 
   // Global user setting: rows per page for the table-presentation pager.
   // Persisted in localStorage so the choice survives reloads / sheet switches.
@@ -212,6 +260,7 @@ const ChartArea: React.FC = () => {
       distributionVariant,
       tableCellMode,
       mapExtentMode,
+      mapViewByPlotId,
       tablePage,
       tablePageSize: isTableMode ? tablePageSize : undefined,
       measureValuesSourceFields,
@@ -468,6 +517,15 @@ const ChartArea: React.FC = () => {
     }),
     [brushDisabled, handleBrushEnd, globalChartType],
   );
+  const mapProps = useMemo<ChartGridMapProps>(
+    () => ({
+      enabled: isMapChart,
+      onViewChange: handleMapViewChange,
+      onViewReset: handleMapViewReset,
+      onHoverChange: handleMapHoverChange,
+    }),
+    [isMapChart, handleMapViewChange, handleMapViewReset, handleMapHoverChange],
+  );
   const labelStylesProps = useMemo<ChartGridLabelStyles>(
     () => ({ axisLabelStyles, facetLabelStyles, categoryTickStyles }),
     [axisLabelStyles, facetLabelStyles, categoryTickStyles],
@@ -494,6 +552,7 @@ const ChartArea: React.FC = () => {
             onPlotRenderComplete={handlePlotRenderComplete}
             gantt={ganttProps}
             brush={brushProps}
+            map={mapProps}
             showTableRows={showTableRows}
             tableRowsData={showTableRows ? tableRowsData : undefined}
             onTableCellFilterAction={handleTableCellFilterAction}

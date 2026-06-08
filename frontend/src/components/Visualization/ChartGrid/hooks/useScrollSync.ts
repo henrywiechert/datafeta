@@ -1,5 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { useState, useEffect, useRef, useCallback, RefObject } from 'react';
+import { MAP_WHEEL_ROOT_SELECTOR } from '../../map/attachMapPanZoom';
 
 /** Gantt zoom range representing the visible data range on the timeline axis */
 export interface GanttZoomRange {
@@ -317,6 +318,11 @@ export function useScrollSync(
 
   // Wheel routing handler for regular scrolling
   const onWheelCapture = useCallback((e: React.WheelEvent<HTMLDivElement>, leftFixedWidthPx: number) => {
+    const target = e.nativeEvent.target;
+    if (target instanceof Element && target.closest(MAP_WHEEL_ROOT_SELECTOR)) {
+      return;
+    }
+
     const rect = containerRef.current?.getBoundingClientRect();
     const x = e.clientX;
     const inLeftFixed = !!rect && x <= rect.left + leftFixedWidthPx + 1;

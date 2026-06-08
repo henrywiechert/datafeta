@@ -3,7 +3,7 @@ import { feature } from 'topojson-client';
 import type { Feature, FeatureCollection, MultiPoint } from 'geojson';
 import type { Topology } from 'topojson-specification';
 import countries110m from 'world-atlas/countries-110m.json';
-import { Field } from '../types';
+import { Field, MapViewBounds } from '../types';
 
 const LON_NAME = /\b(long|lon|lng|longitude)\b/i;
 const LAT_NAME = /\b(lat|latitude)\b/i;
@@ -179,6 +179,28 @@ export function getWorldCountries(): FeatureCollection {
 
 export const MAP_ATTRIBUTION = 'Map outlines © Natural Earth';
 
+/** Plot id for a single (non-faceted) map cell. */
+export const MAP_SINGLE_PLOT_ID = 'map';
+
+/** Logical home bounds for clamping pan/zoom (world mode uses full WGS84 extent). */
+export const MAP_WORLD_HOME_BOUNDS: MapViewBounds = [-180, -90, 180, 90];
+
+export function formatMapPlotId(
+  facetPosition: { row: number; col: number },
+  isFaceted: boolean,
+): string {
+  if (!isFaceted) return MAP_SINGLE_PLOT_ID;
+  return `${MAP_SINGLE_PLOT_ID}-r${facetPosition.row}-c${facetPosition.col}`;
+}
+
+export function computeMapHomeBounds(
+  dataBounds: [number, number, number, number],
+  extentMode: import('../types').MapExtentMode,
+): MapViewBounds {
+  if (extentMode === 'world') return MAP_WORLD_HOME_BOUNDS;
+  return dataBounds;
+}
+
 /**
  * Natural height÷width of the equal-earth projection (Observable Plot constants).
  * Used so map cells keep world-map proportions while filling the chart area.
@@ -204,6 +226,104 @@ export function resolveMapAspectRatio(
 ): number {
   if (extentMode === 'world') return MAP_EQUAL_EARTH_ASPECT_RATIO;
   return computeMapAspectRatioForBounds(bounds);
+}
+
+const MAP_MIN_VIEW_SPAN_RATIO = 0.02;
+const MAP_PAN_PADDING_RATIO = 0.25;
+
+export function clampMapViewBounds(view: MapViewBounds, home: MapViewBounds): MapViewBounds {
+  const [hLonMin, hLatMin, hLonMax, hLatMax] = home;
+  const homeLonSpan = Math.max(hLonMax - hLonMin, 1e-6);
+  const homeLatSpan = Math.max(hLatMax - hLatMin, 1e-6);
+
+  let [lonMin, latMin, lonMax, latMax] = view;
+  if (!view.every(Number.isFinite) || lonMin >= lonMax || latMin >= latMax) {
+    return home;
+  }
+  let lonSpan = lonMax - lonMin;
+  let latSpan = latMax - latMin;
+
+  const minLonSpan = Math.max(homeLonSpan * MAP_MIN_VIEW_SPAN_RATIO, 1e-4);
+  const minLatSpan = Math.max(homeLatSpan * MAP_MIN_VIEW_SPAN_RATIO, 1e-4);
+
+  if (lonSpan < minLonSpan) {
+    const mid = (lonMin + lonMax) / 2;
+    lonMin = mid - minLonSpan / 2;
+    lonMax = mid + minLonSpan / 2;
+    lonSpan = minLonSpan;
+  }
+  if (latSpan < minLatSpan) {
+    const mid = (latMin + latMax) / 2;
+    latMin = mid - minLatSpan / 2;
+    latMax = mid + minLatSpan / 2;
+    latSpan = minLatSpan;
+  }
+
+  const padLon = homeLonSpan * MAP_PAN_PADDING_RATIO;
+  const padLat = homeLatSpan * MAP_PAN_PADDING_RATIO;
+  const allowedLonMin = hLonMin - padLon;
+  const allowedLonMax = hLonMax + padLon;
+  const allowedLatMin = hLatMin - padLat;
+  const allowedLatMax = hLatMax + padLat;
+
+  if (lonMin < allowedLonMin) {
+    const shift = allowedLonMin - lonMin;
+    lonMin += shift;
+    lonMax += shift;
+  } else if (lonMax > allowedLonMax) {
+    const shift = lonMax - allowedLonMax;
+    lonMin -= shift;
+    lonMax -= shift;
+  }
+
+  if (latMin < allowedLatMin) {
+    const shift = allowedLatMin - latMin;
+    latMin += shift;
+    latMax += shift;
+  } else if (latMax > allowedLatMax) {
+    const shift = latMax - allowedLatMax;
+    latMin -= shift;
+    latMax -= shift;
+  }
+
+  lonMin = Math.max(-180, lonMin);
+  lonMax = Math.min(180, lonMax);
+  latMin = Math.max(-90, latMin);
+  latMax = Math.min(90, latMax);
+
+  if (lonMin >= lonMax || latMin >= latMax) return home;
+  return [lonMin, latMin, lonMax, latMax];
+}
+
+export function zoomMapViewBounds(
+  view: MapViewBounds,
+  k: number,
+  anchor: [number, number],
+  home: MapViewBounds,
+): MapViewBounds {
+  if (k <= 0 || !Number.isFinite(k)) return view;
+  const [anchorLon, anchorLat] = anchor;
+  const factor = 1 / k;
+  const [lonMin, latMin, lonMax, latMax] = view;
+  return clampMapViewBounds(
+    [
+      anchorLon + (lonMin - anchorLon) * factor,
+      anchorLat + (latMin - anchorLat) * factor,
+      anchorLon + (lonMax - anchorLon) * factor,
+      anchorLat + (latMax - anchorLat) * factor,
+    ],
+    home,
+  );
+}
+
+export function panMapViewBounds(
+  view: MapViewBounds,
+  dLon: number,
+  dLat: number,
+  home: MapViewBounds,
+): MapViewBounds {
+  const [lonMin, latMin, lonMax, latMax] = view;
+  return clampMapViewBounds([lonMin + dLon, latMin + dLat, lonMax + dLon, latMax + dLat], home);
 }
 
 /** Fit a map plot inside a container while preserving geographic aspect ratio. */
