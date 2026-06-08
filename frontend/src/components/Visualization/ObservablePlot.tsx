@@ -9,10 +9,13 @@ import { useElementSize } from '../../hooks/useElementSize';
 import { CustomTooltipConfig } from '../../types';
 import { addTooltipListeners } from './CustomTooltip/addTooltipListeners';
 import { stampColorCategories } from './stampColorCategories';
+import { fitMapDimensions } from '../../utils/mapUtils';
 
 interface ObservablePlotProps {
   options: Plot.PlotOptions & {
     __customTooltip?: CustomTooltipConfig;
+    /** height÷width; map charts use this to fill their cell without distortion */
+    __mapAspectRatio?: number;
   };
   plotId?: string; // Unique ID for tracking rendering
   onRenderComplete?: (plotId: string) => void; // Callback when rendering is done
@@ -30,6 +33,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
   onAutoExpandPinnedComparisonChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const plotHostRef = useRef<HTMLDivElement>(null);
   // Shared singleton ResizeObserver across all chart cells (one observer, N targets).
   const dimensions = useElementSize(containerRef);
   // Shared across all chart cells: one set of fullscreenchange listeners total.
@@ -37,14 +41,26 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
   const { tooltip, showTooltip, hideTooltip, updatePosition, pinTooltip, unpinTooltip, pinnedRef } = useChartTooltip();
   const cleanupFunctionsRef = useRef<Array<() => void>>([]);
 
+  const mapAspectRatio = options.__mapAspectRatio;
+
   useEffect(() => {
     if (!containerRef.current) return;
     
-    // Determine final plot dimensions, prioritizing explicit options over observed dimensions.
     const observedWidth = dimensions.width;
     const observedHeight = dimensions.height;
-    const finalWidth = options.width !== undefined ? options.width : (observedWidth > 0 ? observedWidth : 400);
-    const finalHeight = options.height !== undefined ? options.height : (observedHeight > 0 ? observedHeight : 300);
+
+    let finalWidth: number;
+    let finalHeight: number;
+    if (mapAspectRatio != null && observedWidth > 0 && observedHeight > 0) {
+      ({ width: finalWidth, height: finalHeight } = fitMapDimensions(
+        observedWidth,
+        observedHeight,
+        mapAspectRatio,
+      ));
+    } else {
+      finalWidth = options.width !== undefined ? options.width : (observedWidth > 0 ? observedWidth : 400);
+      finalHeight = options.height !== undefined ? options.height : (observedHeight > 0 ? observedHeight : 300);
+    }
 
     // Debug logging disabled for performance with large faceted grids
 
@@ -73,7 +89,12 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
         
         // Use replaceChildren for better performance than innerHTML
         // This is a single synchronous operation that's faster for the browser to process
-        containerRef.current.replaceChildren(plot);
+        const host = plotHostRef.current;
+        if (host) {
+          host.replaceChildren(plot);
+        } else {
+          containerRef.current.replaceChildren(plot);
+        }
 
         onPlotReady?.(plot);
 
@@ -126,7 +147,21 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
 
   return (
     <>
-      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      <div
+        ref={containerRef}
+        style={{
+          width: '100%',
+          height: '100%',
+          ...(mapAspectRatio != null
+            ? { display: 'flex', alignItems: 'center', justifyContent: 'center' }
+            : {}),
+        }}
+      >
+        <div
+          ref={plotHostRef}
+          style={mapAspectRatio == null ? { width: '100%', height: '100%' } : undefined}
+        />
+      </div>
       {/* Render tooltip using portal - to fullscreen element if in fullscreen, otherwise to body */}
       {portalTarget && ReactDOM.createPortal(
         <CustomTooltip

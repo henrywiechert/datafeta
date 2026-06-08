@@ -52,6 +52,9 @@ export function resolveChartTypeParams(
       cellMode: grouped?.table?.cellMode ?? source?.tableCellMode ?? base.table.cellMode,
       page: grouped?.table?.page ?? source?.tablePage ?? base.table.page,
     },
+    map: {
+      extentMode: grouped?.map?.extentMode ?? base.map.extentMode,
+    },
   };
 }
 

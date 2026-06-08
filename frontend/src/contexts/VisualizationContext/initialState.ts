@@ -163,6 +163,7 @@ export const initialState: VisualizationState = {
     line: { variant: 'line', areaFillOpacity: DEFAULT_AREA_FILL_OPACITY, colorMode: 'alongPath' },
     distribution: { variant: 'tick-strip' },
     table: { cellMode: 'auto', page: 0 },
+    map: { extentMode: 'data' },
   },
 };
 

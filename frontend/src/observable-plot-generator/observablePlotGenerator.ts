@@ -17,6 +17,7 @@ import { generateFacetedGrid, generateCdfGrid, generateDensityGrid } from './fac
 import { ganttChart } from './chartTypes/ganttChart';
 import { generatePieGrid } from './chartTypes/pieChart';
 import { generateHeatmapGrid } from './chartTypes/heatmapChart';
+import { generateMapGrid } from './chartTypes/mapChart';
 import { generateTableGrid } from './chartTypes/tableGrid';
 import { isTablePresentation } from './chartTypes/chartTypePresentation';
 import { resolveContextColorChannel } from './utils/colorSchemeUtils';
@@ -35,6 +36,7 @@ const GRID_PLOT_GENERATORS: Partial<Record<string, (ctx: ChartGenerationContext)
   density: generateDensityGrid,
   pie: generatePieGrid,
   heatmap: generateHeatmapGrid,
+  map: generateMapGrid,
 };
 
 /**

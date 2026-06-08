@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { Field, QueryResult, FieldOverrideState, UserChartType, DistributionVariant, TableCellMode, TooltipField, LineVariant, DensityParams, ColorChannel } from '../types';
+import { Field, QueryResult, FieldOverrideState, UserChartType, DistributionVariant, TableCellMode, TooltipField, LineVariant, DensityParams, ColorChannel, MapExtentMode } from '../types';
 import { OverlayConfig } from './overlays/types';
 import { FieldOverrideTarget } from './utils/fieldOverrides';
 import { ColorScaleInfo } from './utils/colorSchemeUtils';
@@ -136,6 +136,8 @@ export interface ChartGenerationContext {
   distributionVariant?: DistributionVariant;
   /** Cell rendering mode when globalChartType is 'table-refactor'. */
   tableCellMode?: TableCellMode;
+  /** Map extent when globalChartType is 'map'. */
+  mapExtentMode?: MapExtentMode;
   /**
    * Pager state for the 'table-refactor' chart type.
    * tablePage is the 0-based current page index over distinct row-tuples.

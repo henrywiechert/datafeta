@@ -111,6 +111,16 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
         },
       };
     }
+    case 'SET_MAP_EXTENT_MODE': {
+      if (state.chartTypeParams.map.extentMode === action.payload) return state;
+      return {
+        ...state,
+        chartTypeParams: {
+          ...state.chartTypeParams,
+          map: { ...state.chartTypeParams.map, extentMode: action.payload },
+        },
+      };
+    }
     case 'SET_TABLE_PAGE': {
       // Pager navigation does not bump queryVersion; the chart pipeline reacts to
       // the changed page index via cache key + generator slicing.

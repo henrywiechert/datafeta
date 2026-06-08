@@ -82,6 +82,10 @@ export const TABLE_VALUES_BAND_TOP_PX = 18;
 export const HEATMAP_DEFAULT_CELL_SIZE_PX = 14;
 export const HEATMAP_MIN_CELL_SIZE_PX = 1;
 
+// Map chart minimum track sizes when using flexible (fr) grid sizing
+export const MAP_MIN_WIDTH_PX = 200;
+export const MAP_MIN_HEIGHT_PX = 120;
+
 // Resize handle constants (for future dynamic resize feature)
 export const RESIZE_HANDLE_WIDTH = 2;
 export const RESIZE_HANDLE_COLOR = '#99a795';
@@ -120,6 +124,7 @@ export const SIZE_DEFAULTS_BY_CHART_TYPE: Record<UserChartType, number> = {
   cdf: 2,
   density: 2,
   heatmap: 40,  // Cells fill their band; size is not user-tweaked.
+  map: 5,       // Dot radius on projected map
   'table-refactor': 8, // Symbol radius (px); ~π·8² ≈ 200 area, matching legacy default mark.
 };
 

@@ -4,7 +4,7 @@ import { analyzeFields } from '../analysis/fieldAnalysis';
 export { isCdfAllowed } from '../../utils/cdfUtils';
 
 // Cell-level chart types for a pair of fields
-export type CellChartType = 'scatter' | 'line' | 'barX' | 'barY' | 'tickX' | 'tickY' | 'boxX' | 'boxY' | 'dot' | 'ganttX' | 'ganttY' | 'cdf' | 'density' | 'pie' | 'heatmap';
+export type CellChartType = 'scatter' | 'line' | 'barX' | 'barY' | 'tickX' | 'tickY' | 'boxX' | 'boxY' | 'dot' | 'ganttX' | 'ganttY' | 'cdf' | 'density' | 'pie' | 'heatmap' | 'map';
 
 export type ChartTypeOverrides = {
   // Global fallback for all pairs when not overridden by field
@@ -149,6 +149,9 @@ export function mapUserChartTypeToCellChartType(
 
     case 'heatmap':
       return 'heatmap';
+
+    case 'map':
+      return 'map';
     
     case 'gantt': {
       // Gantt orientation: ganttX = horizontal (timeline on X axis), ganttY = vertical (timeline on Y axis)

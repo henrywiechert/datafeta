@@ -285,6 +285,28 @@ describe('buildViewSpec.deriveGrain (registry dispatch)', () => {
     });
     expect(heatmapSpec.grain).toBe('grouped');
   });
+
+  it('forces rawRows grain for map chart type', () => {
+    const longitude = field('longitude', {
+      type: 'dimension',
+      flavour: 'continuous',
+      dataType: 'float',
+    });
+    const latitude = field('latitude', {
+      type: 'dimension',
+      flavour: 'continuous',
+      dataType: 'float',
+    });
+
+    const mapSpec = buildViewSpec({
+      xAxisFields: [longitude],
+      yAxisFields: [latitude],
+      colorField: null,
+      sizeField: null,
+      globalChartType: 'map',
+    });
+    expect(mapSpec.grain).toBe('rawRows');
+  });
 });
 
 describe('buildRenderPlan', () => {

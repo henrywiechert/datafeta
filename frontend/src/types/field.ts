@@ -62,7 +62,7 @@ export interface Field {
 
 // Per-field chart override configuration
 export type DataLabelMode = 'inherit' | 'on' | 'off';
-export type UserChartType = 'line' | 'scatter' | 'tick' | 'bar' | 'gantt' | 'cdf' | 'density' | 'pie' | 'table-refactor' | 'heatmap';
+export type UserChartType = 'line' | 'scatter' | 'tick' | 'bar' | 'gantt' | 'cdf' | 'density' | 'pie' | 'table-refactor' | 'heatmap' | 'map';
 
 /** KDE parameters for the density chart type (mirrors overlay density params). */
 export interface DensityParams {
@@ -92,6 +92,9 @@ export type LineColorMode = 'alongPath' | 'bySeries';
  * - `symbol`: renders a Tableau-style symbol mark per cell (color/shape/size encoded) (PR 6).
  */
 export type TableCellMode = 'auto' | 'text' | 'symbol';
+
+/** Map projection extent: zoom to data bounds or show the full world. */
+export type MapExtentMode = 'data' | 'world';
 
 export interface FieldOverrideState {
   // Color overrides

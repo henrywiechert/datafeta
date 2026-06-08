@@ -32,6 +32,7 @@ import BackgroundLegendPanel from '../Legend/BackgroundLegendPanel';
 import ShapeLegendPanel from '../Legend/ShapeLegendPanel';
 import LegendStack from '../Legend/LegendStack';
 import FacetLimitDialog from '../FacetLimitDialog';
+import GeoScatterWarning from './components/GeoScatterWarning';
 import { getResultColumnName } from '../../../utils/fieldUtils';
 import { createChartAffectingConfig } from '../../../utils/queryAffectingConfig';
 import { filtersToHashKey } from '../../../utils/sheetConfigHash';
@@ -92,6 +93,7 @@ const ChartArea: React.FC = () => {
   const { variant: lineVariant, areaFillOpacity, colorMode: lineColorMode } = chartTypeParams.line;
   const distributionVariant = chartTypeParams.distribution.variant;
   const { cellMode: tableCellMode, page: tablePage } = chartTypeParams.table;
+  const mapExtentMode = chartTypeParams.map.extentMode;
 
   const { selectedTable, selectedDatabase, virtualTable, virtualColumns, sessionAppliedFilterConfigurations } =
     dataSource;
@@ -209,6 +211,7 @@ const ChartArea: React.FC = () => {
       lineColorMode,
       distributionVariant,
       tableCellMode,
+      mapExtentMode,
       tablePage,
       tablePageSize: isTableMode ? tablePageSize : undefined,
       measureValuesSourceFields,
@@ -404,6 +407,7 @@ const ChartArea: React.FC = () => {
       lineColorMode,
       distributionVariant,
       tableCellMode,
+      mapExtentMode,
       tablePage: isTableMode ? tablePage : undefined,
       tablePageSize: isTableMode ? tablePageSize : undefined,
       independentDomains,
@@ -414,7 +418,7 @@ const ChartArea: React.FC = () => {
     }),
     [
       xAxisFields, yAxisFields, chartFilterConfigurations, channels,
-      measureGroupFields, fieldOverrides, globalChartType, lineVariant, areaFillOpacity, lineColorMode, distributionVariant, tableCellMode,
+      measureGroupFields, fieldOverrides, globalChartType, lineVariant, areaFillOpacity, lineColorMode, distributionVariant, tableCellMode, mapExtentMode,
       isTableMode, tablePage, tablePageSize,
       independentDomains,
     ],
@@ -458,8 +462,11 @@ const ChartArea: React.FC = () => {
     [isGanttChart, ganttZoomRange, handleGanttZoomRangeChange, ganttFullDataRange],
   );
   const brushProps = useMemo<ChartGridBrushProps>(
-    () => ({ disabled: brushDisabled, onBrushEnd: handleBrushEnd }),
-    [brushDisabled, handleBrushEnd],
+    () => ({
+      disabled: brushDisabled || globalChartType === 'map',
+      onBrushEnd: handleBrushEnd,
+    }),
+    [brushDisabled, handleBrushEnd, globalChartType],
   );
   const labelStylesProps = useMemo<ChartGridLabelStyles>(
     () => ({ axisLabelStyles, facetLabelStyles, categoryTickStyles }),
@@ -474,6 +481,7 @@ const ChartArea: React.FC = () => {
         className={`${styles.fullscreenWrapper} ${isFullscreen ? styles.fullscreen : ''}`}
       >
         <div className={styles.chartWrapper}>
+          <GeoScatterWarning />
           <ChartRenderer
             useTableView={useTableView}
             tableData={tableData}

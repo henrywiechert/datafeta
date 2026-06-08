@@ -33,9 +33,11 @@
     "react-router-dom": "^6.25.1",
     "react-scripts": "5.0.1",
     "react-window": "^2.2.3",
+    "topojson-client": "^3.1.0",
     "typescript": "^4.9.5",
     "uuid": "^11.1.1",
     "web-vitals": "^5.2.0",
+    "world-atlas": "^2.0.2",
     "zustand": "^5.0.9"
   },
   "scripts": {
@@ -81,5 +83,9 @@
       "last 1 safari version"
     ]
   },
-  "proxy": "http://localhost:8010"
+  "proxy": "http://localhost:8010",
+  "devDependencies": {
+    "@types/topojson-client": "^3.1.5",
+    "@types/topojson-specification": "^1.0.5"
+  }
 }

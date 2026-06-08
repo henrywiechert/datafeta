@@ -8,10 +8,11 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 import PieChartIcon from '@mui/icons-material/PieChart';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import GridOnIcon from '@mui/icons-material/GridOn';
+import PublicIcon from '@mui/icons-material/Public';
 import AutoModeIcon from '@mui/icons-material/AutoMode';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import SvgIcon, { SvgIconProps } from '@mui/material/SvgIcon';
-import { DistributionVariant, LineVariant, TableCellMode, UserChartType } from '../../../types';
+import { DistributionVariant, LineVariant, MapExtentMode, TableCellMode, UserChartType } from '../../../types';
 
 const TickStripIcon: React.FC<SvgIconProps> = (props) => (
   <SvgIcon {...props} viewBox="0 0 24 24">
@@ -125,6 +126,10 @@ interface ChartTypeControlProps {
   tableCellMode?: TableCellMode;
   /** Called when the user picks a different cell mode from the table popover. */
   onTableCellModeChange?: (mode: TableCellMode) => void;
+  /** Map extent when globalChartType is 'map'. */
+  mapExtentMode?: MapExtentMode;
+  /** Called when the user picks data vs world extent from the map popover. */
+  onMapExtentModeChange?: (mode: MapExtentMode) => void;
 }
 
 const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
@@ -137,9 +142,12 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
   onDistributionVariantChange,
   tableCellMode = 'auto',
   onTableCellModeChange,
+  mapExtentMode = 'data',
+  onMapExtentModeChange,
 }) => {
   const [distributionMenuAnchor, setDistributionMenuAnchor] = React.useState<HTMLElement | null>(null);
   const [tableModeMenuAnchor, setTableModeMenuAnchor] = React.useState<HTMLElement | null>(null);
+  const [mapExtentMenuAnchor, setMapExtentMenuAnchor] = React.useState<HTMLElement | null>(null);
 
   const handleChange = (_event: React.MouseEvent<HTMLElement>, newValue: string | null) => {
     if (newValue === 'auto' || newValue === null) {
@@ -160,6 +168,7 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
   const isAuto = value === 'auto';
   const effectiveDistributionSelected = value === 'tick' || (isAuto && autoSelectedType === 'tick');
   const effectiveTableSelected = value === 'table-refactor' || (isAuto && autoSelectedType === 'table-refactor');
+  const effectiveMapSelected = value === 'map' || (isAuto && autoSelectedType === 'map');
 
   const openDistributionMenu = (event: React.MouseEvent<HTMLElement>) => {
     event.preventDefault();
@@ -189,6 +198,21 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
   const handleTableCellModeSelect = (mode: TableCellMode) => {
     onTableCellModeChange?.(mode);
     closeTableModeMenu();
+  };
+
+  const openMapExtentMenu = (event: React.MouseEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setMapExtentMenuAnchor(event.currentTarget);
+  };
+
+  const closeMapExtentMenu = () => {
+    setMapExtentMenuAnchor(null);
+  };
+
+  const handleMapExtentModeSelect = (mode: MapExtentMode) => {
+    onMapExtentModeChange?.(mode);
+    closeMapExtentMenu();
   };
 
   const getAutoHighlightSx = (buttonValue: UserChartType) =>
@@ -346,6 +370,40 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
               <GridOnIcon sx={{ fontSize: 16 }} />
             </Tooltip>
           </ToggleButton>
+          <ToggleButton value="map" aria-label="map chart" sx={getAutoHighlightSx('map')}>
+            <Tooltip
+              title={(
+                <>
+                  <ExperimentalBadge /><br/>
+                  Map<br/>
+                  Longitude on <b>X</b>, latitude on <b>Y</b>.<br/>
+                  Open the menu to pick <b>Fit to data</b> or <b>Full world</b>.
+                </>
+              )}
+              placement="top"
+            >
+              <span style={{ display: 'inline-flex', alignItems: 'center', position: 'relative' }}>
+                <PublicIcon sx={{ fontSize: 16 }} />
+                {onMapExtentModeChange && (
+                  <span
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }}
+                    onClick={openMapExtentMenu}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      marginLeft: 1,
+                      opacity: effectiveMapSelected ? 0.95 : 0.7,
+                    }}
+                  >
+                    <ArrowDropDownIcon sx={{ fontSize: 12 }} />
+                  </span>
+                )}
+              </span>
+            </Tooltip>
+          </ToggleButton>
           <ToggleButton value="table-refactor" aria-label="table" sx={getAutoHighlightSx('table-refactor')}>
             <Tooltip
               title={(
@@ -427,6 +485,27 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
             onClick={() => handleTableCellModeSelect('symbol')}
           >
             Symbol
+          </MenuItem>
+        </Menu>
+        <Menu
+          anchorEl={mapExtentMenuAnchor}
+          open={Boolean(mapExtentMenuAnchor)}
+          onClose={closeMapExtentMenu}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+          MenuListProps={{ dense: true, 'aria-label': 'Map extent modes' }}
+        >
+          <MenuItem
+            selected={mapExtentMode === 'data'}
+            onClick={() => handleMapExtentModeSelect('data')}
+          >
+            Fit to data
+          </MenuItem>
+          <MenuItem
+            selected={mapExtentMode === 'world'}
+            onClick={() => handleMapExtentModeSelect('world')}
+          >
+            Full world
           </MenuItem>
         </Menu>
       </Box>

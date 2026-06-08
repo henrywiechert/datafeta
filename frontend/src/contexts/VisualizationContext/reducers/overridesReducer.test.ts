@@ -77,3 +77,17 @@ describe('overridesReducer SET_TABLE_PAGE (PR 8)', () => {
     expect(next!.queryVersion).toBe(7);
   });
 });
+
+describe('overridesReducer SET_MAP_EXTENT_MODE', () => {
+  test('updates map extent mode without bumping queryVersion', () => {
+    const state = { ...initialState, queryVersion: 3 };
+    const next = overridesReducer(state, { type: 'SET_MAP_EXTENT_MODE', payload: 'world' } as any);
+    expect(next!.chartTypeParams.map.extentMode).toBe('world');
+    expect(next!.queryVersion).toBe(3);
+  });
+
+  test('returns the same reference when extent mode is unchanged', () => {
+    const next = overridesReducer(initialState, { type: 'SET_MAP_EXTENT_MODE', payload: 'data' } as any);
+    expect(next).toBe(initialState);
+  });
+});

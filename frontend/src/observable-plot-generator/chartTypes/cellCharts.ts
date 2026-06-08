@@ -602,6 +602,10 @@ function handlePieMessage(): Plot.PlotOptions {
   return messageOptions('Pie charts are available as a global chart type.');
 }
 
+function handleMapMessage(): Plot.PlotOptions {
+  return messageOptions('Map charts are available as a global chart type.');
+}
+
 function handleHeatmap(data: any[], xf: Field, yf: Field, ctx: ChartContext): Plot.PlotOptions {
   return buildHeatmapOptions({
   data,
@@ -640,6 +644,7 @@ const CHART_HANDLERS: Record<CellChartType, ChartHandler> = {
   density: handleDensity,
   pie: handlePieMessage,
   heatmap: handleHeatmap,
+  map: handleMapMessage,
 };
 
 // ---------- Public API ------------------------------------------------------

@@ -63,6 +63,7 @@ export type {
   UserChartType,
   DensityParams,
   TableCellMode,
+  MapExtentMode,
   FieldOverrideState,
   QueryOptimizationSettings,
 } from './field';

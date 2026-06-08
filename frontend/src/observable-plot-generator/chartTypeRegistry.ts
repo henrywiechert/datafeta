@@ -78,6 +78,14 @@ export const CHART_TYPE_REGISTRY: Partial<Record<UserChartType, ChartTypeDescrip
     isAllowed: () => true,
     isGridChart: true,
   },
+  map: {
+    id: 'map',
+    // Always dispatch to the map generator (like heatmap); invalid shelf
+    // configurations show an in-chart message instead of falling back to scatter.
+    isAllowed: () => true,
+    grain: 'rawRows',
+    isGridChart: true,
+  },
   'table-refactor': {
     id: 'table-refactor',
     isAllowed: () => true,
@@ -96,4 +104,4 @@ export function getChartTypeDescriptor(
  * Grid-level PlotResult chart types in dispatch priority order. Excludes
  * `table-refactor`, which emits a GridResultModel via a separate path.
  */
-export const GRID_PLOT_CHART_TYPE_ORDER: UserChartType[] = ['cdf', 'density', 'pie', 'heatmap'];
+export const GRID_PLOT_CHART_TYPE_ORDER: UserChartType[] = ['cdf', 'density', 'pie', 'heatmap', 'map'];

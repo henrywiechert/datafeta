@@ -161,6 +161,7 @@ export function computeChartConfigHash(config: ChartAffectingConfig): string {
     String(config.lineColorMode || 'alongPath'),
     String(config.distributionVariant || 'tick-strip'),
     String(config.tableCellMode || 'auto'),
+    String(config.mapExtentMode || 'data'),
     String(config.tablePage ?? 0),
     String(config.tablePageSize ?? 0),
     JSON.stringify(config.independentDomains || {}),

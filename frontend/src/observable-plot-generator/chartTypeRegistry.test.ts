@@ -79,6 +79,10 @@ describe('chartTypeRegistry contract', () => {
       expect(getChartTypeDescriptor('density')?.grain).toBe('rawRows');
     });
 
+    it('forces rawRows grain for map (point coordinates)', () => {
+      expect(getChartTypeDescriptor('map')?.grain).toBe('rawRows');
+    });
+
     it('does not force a grain for pie / heatmap / table-refactor', () => {
       expect(getChartTypeDescriptor('pie')?.grain).toBeUndefined();
       expect(getChartTypeDescriptor('heatmap')?.grain).toBeUndefined();
@@ -133,12 +137,13 @@ describe('chartTypeRegistry contract', () => {
       expect(pie.isAllowed([revenue], [revenue])).toBe(false);
     });
 
-    it('heatmap and table-refactor are always allowed (always return true)', () => {
+    it('heatmap, map, and table-refactor are always allowed (always return true)', () => {
       const revenue = measureField('revenue');
       const region = dimensionField('region');
 
       expect(getChartTypeDescriptor('heatmap')?.isAllowed([], [])).toBe(true);
       expect(getChartTypeDescriptor('heatmap')?.isAllowed([revenue, region], [region])).toBe(true);
+      expect(getChartTypeDescriptor('map')?.isAllowed([], [])).toBe(true);
       expect(getChartTypeDescriptor('table-refactor')?.isAllowed([], [])).toBe(true);
     });
   });

@@ -188,6 +188,12 @@ export interface TableChartParams {
   page: number;
 }
 
+/** Parameters for the map chart type. */
+export interface MapChartParams {
+  /** 'data' zooms to lon/lat bounds; 'world' shows the full globe. */
+  extentMode: import('../../types').MapExtentMode;
+}
+
 /**
  * Per-chart-type parameter container, keyed by chart-type id.
  *
@@ -203,6 +209,7 @@ export interface ChartTypeParams {
   line: LineChartParams;
   distribution: DistributionChartParams;
   table: TableChartParams;
+  map: MapChartParams;
 }
 
 // Define action types
@@ -292,6 +299,7 @@ export type VisualizationAction =
   | { type: 'SET_LINE_COLOR_MODE'; payload: LineColorMode }
   | { type: 'SET_DISTRIBUTION_VARIANT'; payload: DistributionVariant }
   | { type: 'SET_TABLE_CELL_MODE'; payload: TableCellMode }
+  | { type: 'SET_MAP_EXTENT_MODE'; payload: import('../../types').MapExtentMode }
   // Table-refactor pagination
   | { type: 'SET_TABLE_PAGE'; payload: number }
   // Table rows view mode action
