@@ -85,7 +85,10 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
         ...renderOptions,
         width: finalWidth,
         height: finalHeight,
-        style: { ...(renderOptions as any).style, overflow: 'visible' } as any,
+        style: {
+          ...(renderOptions as any).style,
+          ...(renderOptions.__mapInteractive ? { overflow: 'visible' } : {}),
+        } as any,
       } as Plot.PlotOptions;
 
       try {

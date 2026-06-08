@@ -47,6 +47,23 @@ import {
 } from '../faceting/facetCoordinator';
 
 const DEFAULT_PROJECTION = 'equal-earth';
+const MAP_EMPTY_FACET_MESSAGE = 'No coordinates';
+
+function buildMapFacetMessageOptions(message: string = MAP_EMPTY_FACET_MESSAGE): Plot.PlotOptions {
+  return {
+    marks: [
+      Plot.text([message], {
+        frameAnchor: 'middle',
+        fontSize: 10,
+        fill: '#888',
+        lineWidth: 9,
+        textAnchor: 'middle',
+        textOverflow: 'clip',
+      }),
+    ],
+    style: { overflow: 'hidden' },
+  };
+}
 
 /** Private metadata attached to map Plot.PlotOptions for layout and pan/zoom. */
 export interface MapPlotOptionsMetadata {
@@ -187,15 +204,7 @@ export function buildMapOptions(input: MapOptionsInput): Plot.PlotOptions {
   const clean = filterValidGeoRows(data, lonColumn, latColumn);
   const bounds = computeGeoBounds(clean, lonColumn, latColumn);
   if (!bounds) {
-    return {
-      marks: [
-        Plot.text(['No valid longitude/latitude coordinates in this view.'], {
-          frameAnchor: 'middle',
-          fontSize: 14,
-          fill: 'gray',
-        }),
-      ],
-    };
+    return buildMapFacetMessageOptions();
   }
 
   const budgeted = applyMapBudget(clean, colorField);
@@ -360,15 +369,7 @@ function createMapMessage(message: string): PlotResult {
       {
         id: 'map-message',
         title: '',
-        options: {
-          marks: [
-            Plot.text([message], {
-              frameAnchor: 'middle',
-              fontSize: 14,
-              fill: 'gray',
-            }),
-          ],
-        },
+        options: buildMapFacetMessageOptions(message),
         position: { row: 0, col: 0 },
       },
     ],

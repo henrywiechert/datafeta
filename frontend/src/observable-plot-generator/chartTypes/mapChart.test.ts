@@ -65,7 +65,11 @@ describe('buildMapOptions', () => {
       latField: contDim('latitude'),
       color: { field: null, scheme: '', bias: 0, reversed: false, manual: '' },
     });
-    expect((opts.marks as any[])[0].type).toBe('text');
+    const textMark = (opts.marks as any[])[0];
+    expect(textMark.type).toBe('text');
+    expect(textMark.opts.lineWidth).toBe(9);
+    expect(textMark.data).toEqual(['No coordinates']);
+    expect((opts as any).style?.overflow).toBe('hidden');
   });
 
   test('uses Sphere domain and world aspect ratio in world extent mode', () => {
