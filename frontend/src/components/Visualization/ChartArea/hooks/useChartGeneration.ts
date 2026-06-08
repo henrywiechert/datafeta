@@ -35,7 +35,6 @@ interface UseChartGenerationProps {
   distributionVariant?: DistributionVariant;
   tableCellMode?: TableCellMode;
   mapExtentMode?: MapExtentMode;
-  mapViewByPlotId?: Record<string, import('../../../../types').MapViewBounds>;
   /** 0-based page index for the 'table-refactor' chart type pager. */
   tablePage?: number;
   /** Rows-per-page (global user setting) for the 'table-refactor' chart type. */
@@ -82,7 +81,6 @@ export const useChartGeneration = ({
   distributionVariant = 'tick-strip',
   tableCellMode = 'auto',
   mapExtentMode = 'data',
-  mapViewByPlotId = {},
   tablePage,
   tablePageSize,
   measureValuesSourceFields = [],
@@ -276,7 +274,6 @@ export const useChartGeneration = ({
         distributionVariant,
         tableCellMode,
         mapExtentMode,
-        mapViewByPlotId,
         tablePage,
         tablePageSize,
         measureValuesSourceFields,
@@ -366,7 +363,6 @@ export const useChartGeneration = ({
     distributionVariant,
     tableCellMode,
     mapExtentMode,
-    mapViewByPlotId,
     tablePage,
     tablePageSize,
     measureValuesSourceFields,

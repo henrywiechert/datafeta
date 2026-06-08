@@ -4,6 +4,11 @@ declare module 'd3-geo' {
   export interface GeoProjection {
     invert?: (point: [number, number]) => [number, number] | null;
     fitExtent(extent: [[number, number], [number, number]], object: unknown): GeoProjection;
+    fitWidth(width: number, object: unknown): GeoProjection;
+    (point: [number, number]): [number, number] | null;
   }
   export function geoEqualEarth(): GeoProjection;
+  export function geoPath(projection?: GeoProjection): {
+    bounds(object: unknown): [[number, number], [number, number]];
+  };
 }

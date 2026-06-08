@@ -260,7 +260,6 @@ const ChartArea: React.FC = () => {
       distributionVariant,
       tableCellMode,
       mapExtentMode,
-      mapViewByPlotId,
       tablePage,
       tablePageSize: isTableMode ? tablePageSize : undefined,
       measureValuesSourceFields,
@@ -520,11 +519,12 @@ const ChartArea: React.FC = () => {
   const mapProps = useMemo<ChartGridMapProps>(
     () => ({
       enabled: isMapChart,
+      viewByPlotId: mapViewByPlotId,
       onViewChange: handleMapViewChange,
       onViewReset: handleMapViewReset,
       onHoverChange: handleMapHoverChange,
     }),
-    [isMapChart, handleMapViewChange, handleMapViewReset, handleMapHoverChange],
+    [isMapChart, mapViewByPlotId, handleMapViewChange, handleMapViewReset, handleMapHoverChange],
   );
   const labelStylesProps = useMemo<ChartGridLabelStyles>(
     () => ({ axisLabelStyles, facetLabelStyles, categoryTickStyles }),

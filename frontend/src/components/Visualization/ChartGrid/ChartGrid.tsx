@@ -44,6 +44,7 @@ export interface ChartGridBrushProps {
 /** Map pan/zoom navigation (transient view state; no filter side effects). */
 export interface ChartGridMapProps {
   enabled?: boolean;
+  viewByPlotId?: Record<string, MapViewBounds>;
   onViewChange?: (plotId: string, bounds: MapViewBounds) => void;
   onViewReset?: (plotId: string) => void;
   onHoverChange?: (plotId: string | null) => void;
@@ -115,6 +116,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   const { disabled: brushDisabled, onBrushEnd } = brush ?? {};
   const {
     enabled: mapNavEnabled = false,
+    viewByPlotId: mapViewByPlotId = {},
     onViewChange: onMapViewChange,
     onViewReset: onMapViewReset,
     onHoverChange: onMapHoverChange,
@@ -271,6 +273,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({
           brushDisabled={brushDisabled}
           onBrushEnd={onBrushEnd}
           mapPanZoom={mapPanZoomHandlers}
+          mapViewByPlotId={mapNavEnabled ? mapViewByPlotId : undefined}
           onCellContextMenu={handleCellContextMenu}
           autoExpandPinnedComparison={autoExpandPinnedComparison}
           onAutoExpandPinnedComparisonChange={setAutoExpandPinnedComparison}
@@ -289,6 +292,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({
             plotId={zoomedPlotId}
             onClose={handleZoomClose}
             mapPanZoom={mapPanZoomHandlers}
+            mapViewByPlotId={mapNavEnabled ? mapViewByPlotId : undefined}
             autoExpandPinnedComparison={autoExpandPinnedComparison}
             onAutoExpandPinnedComparisonChange={setAutoExpandPinnedComparison}
           />
@@ -325,6 +329,7 @@ export default React.memo(ChartGrid, (prevProps, nextProps) => {
     prevProps.brush?.disabled === nextProps.brush?.disabled &&
     prevProps.brush?.onBrushEnd === nextProps.brush?.onBrushEnd &&
     prevProps.map?.enabled === nextProps.map?.enabled &&
+    prevProps.map?.viewByPlotId === nextProps.map?.viewByPlotId &&
     prevProps.map?.onViewChange === nextProps.map?.onViewChange &&
     prevProps.map?.onViewReset === nextProps.map?.onViewReset &&
     prevProps.map?.onHoverChange === nextProps.map?.onHoverChange &&

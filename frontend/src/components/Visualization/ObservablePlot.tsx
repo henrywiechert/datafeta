@@ -1,15 +1,16 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import * as Plot from '@observablehq/plot';
 import { CustomTooltip } from './CustomTooltip/CustomTooltip';
 import { useChartTooltip } from '../../hooks/useChartTooltip';
 import { useFullscreenPortalTarget } from '../../hooks/useFullscreenPortalTarget';
 import { useElementSize } from '../../hooks/useElementSize';
-import { CustomTooltipConfig } from '../../types';
+import { CustomTooltipConfig, MapViewBounds } from '../../types';
 import { addTooltipListeners } from './CustomTooltip/addTooltipListeners';
 import { stampColorCategories } from './stampColorCategories';
 import { fitMapDimensions } from '../../utils/mapUtils';
+import { applyMapViewToPlotOptions } from '../../utils/mapRenderOptions';
 import type { MapPlotOptionsMetadata } from '../../observable-plot-generator/chartTypes/mapChart';
 import { attachMapPanZoom, MapPanZoomHandlers } from './map/attachMapPanZoom';
 import { resolvePlotSvg } from './map/resolvePlotSvg';
@@ -25,6 +26,8 @@ interface ObservablePlotProps {
   onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
   /** Map navigation handlers (when chart type is map). */
   mapPanZoom?: MapPanZoomHandlers;
+  /** Transient pan/zoom override for this cell (applied without regenerating the grid). */
+  mapViewBounds?: MapViewBounds | null;
 }
 
 const ObservablePlot: React.FC<ObservablePlotProps> = ({
@@ -35,6 +38,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
   autoExpandPinnedComparison = false,
   onAutoExpandPinnedComparisonChange,
   mapPanZoom,
+  mapViewBounds,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const plotHostRef = useRef<HTMLDivElement>(null);
@@ -45,7 +49,12 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
   const mapPanZoomRef = useRef(mapPanZoom);
   mapPanZoomRef.current = mapPanZoom;
 
-  const mapAspectRatio = options.__mapAspectRatio;
+  const renderOptions = useMemo(
+    () => (options.__mapInteractive ? applyMapViewToPlotOptions(options, mapViewBounds) : options),
+    [options, mapViewBounds],
+  );
+
+  const mapAspectRatio = renderOptions.__mapAspectRatio;
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -62,8 +71,8 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
         mapAspectRatio,
       ));
     } else {
-      finalWidth = options.width !== undefined ? options.width : (observedWidth > 0 ? observedWidth : 400);
-      finalHeight = options.height !== undefined ? options.height : (observedHeight > 0 ? observedHeight : 300);
+      finalWidth = renderOptions.width !== undefined ? renderOptions.width : (observedWidth > 0 ? observedWidth : 400);
+      finalHeight = renderOptions.height !== undefined ? renderOptions.height : (observedHeight > 0 ? observedHeight : 300);
     }
 
     if (finalWidth > 0 && finalHeight > 0) {
@@ -73,10 +82,10 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
       cleanupFunctionsRef.current = [];
 
       const newOptions = {
-        ...options,
+        ...renderOptions,
         width: finalWidth,
         height: finalHeight,
-        style: { ...(options as any).style, overflow: 'visible' } as any,
+        style: { ...(renderOptions as any).style, overflow: 'visible' } as any,
       } as Plot.PlotOptions;
 
       try {
@@ -91,9 +100,9 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
 
         onPlotReady?.(plot);
 
-        stampColorCategories(plot, options);
+        stampColorCategories(plot, renderOptions);
 
-        const customTooltipConfig = options.__customTooltip;
+        const customTooltipConfig = (renderOptions as ObservablePlotProps['options']).__customTooltip;
         if (customTooltipConfig?.enabled) {
           const cleanup = addTooltipListeners(
             plot, customTooltipConfig, showTooltip, hideTooltip, updatePosition,
@@ -105,19 +114,19 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
         const handlers = mapPanZoomRef.current;
         const mapSvg = resolvePlotSvg(plot);
         if (
-          options.__mapInteractive &&
+          renderOptions.__mapInteractive &&
           handlers &&
-          options.__mapHomeBounds &&
-          options.__mapCurrentView &&
-          options.__mapPlotId &&
+          renderOptions.__mapHomeBounds &&
+          renderOptions.__mapCurrentView &&
+          renderOptions.__mapPlotId &&
           mapSvg
         ) {
           const cleanupPanZoom = attachMapPanZoom({
             svg: mapSvg,
             wheelRoot: plot instanceof SVGSVGElement ? undefined : (plot as HTMLElement),
-            plotId: options.__mapPlotId,
-            homeBounds: options.__mapHomeBounds,
-            currentView: options.__mapCurrentView,
+            plotId: renderOptions.__mapPlotId,
+            homeBounds: renderOptions.__mapHomeBounds,
+            currentView: renderOptions.__mapCurrentView,
             width: finalWidth,
             height: finalHeight,
             handlers,
@@ -151,7 +160,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
       cleanupFunctionsRef.current.forEach(cleanup => cleanup());
       cleanupFunctionsRef.current = [];
     };
-  }, [options, dimensions, showTooltip, hideTooltip, updatePosition, pinTooltip, unpinTooltip, pinnedRef, onRenderComplete, plotId, onPlotReady, mapAspectRatio]);
+  }, [renderOptions, dimensions, showTooltip, hideTooltip, updatePosition, pinTooltip, unpinTooltip, pinnedRef, onRenderComplete, plotId, onPlotReady, mapAspectRatio]);
 
   return (
     <>
@@ -190,11 +199,18 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
   );
 };
 
+function sameMapViewBounds(a?: MapViewBounds | null, b?: MapViewBounds | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return !a && !b;
+  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3];
+}
+
 export default React.memo(ObservablePlot, (prevProps, nextProps) => {
   return (
     prevProps.options === nextProps.options &&
     prevProps.autoExpandPinnedComparison === nextProps.autoExpandPinnedComparison &&
     prevProps.onAutoExpandPinnedComparisonChange === nextProps.onAutoExpandPinnedComparisonChange &&
-    prevProps.mapPanZoom === nextProps.mapPanZoom
+    prevProps.mapPanZoom === nextProps.mapPanZoom &&
+    sameMapViewBounds(prevProps.mapViewBounds, nextProps.mapViewBounds)
   );
 });

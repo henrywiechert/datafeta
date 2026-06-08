@@ -1,13 +1,24 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { Field } from '../../types';
-import { ChartGenerationContext } from '../types';
-import { buildMapOptions, generateMapGrid } from './mapChart';
+jest.mock('d3-geo', () => ({
+  geoEqualEarth: () => ({
+    fitExtent: () => {},
+    fitWidth: () => {},
+    invert: (): [number, number] => [0, 0],
+  }),
+  geoPath: () => ({
+    bounds: () => [[0, 0], [100, 55]] as [[number, number], [number, number]],
+  }),
+}));
 
 jest.mock('@observablehq/plot', () => ({
   geo: (data: any, opts: any) => ({ type: 'geo', data, opts }),
   dot: (data: any[], opts: any) => ({ type: 'dot', data, opts }),
   text: (data: any[], opts: any) => ({ type: 'text', data, opts }),
 }));
+
+import { Field } from '../../types';
+import { ChartGenerationContext } from '../types';
+import { buildMapOptions, generateMapGrid } from './mapChart';
 
 function contDim(name: string): Field {
   return {
@@ -38,7 +49,7 @@ describe('buildMapOptions', () => {
     expect(opts.marks).toHaveLength(2);
     expect((opts.marks as any[])[0].type).toBe('geo');
     expect((opts.marks as any[])[1].type).toBe('dot');
-    expect(opts.caption).toContain('Natural Earth');
+    expect(opts.caption).toBeUndefined();
     expect((opts as any).__mapAspectRatio).toBeGreaterThan(0);
     expect((opts as any).__mapInteractive).toBe(true);
     expect((opts as any).__mapPlotId).toBe('map');
@@ -121,7 +132,7 @@ describe('generateMapGrid', () => {
     expect((result.plots[0].options as any).__mapPlotId).toBe('map');
   });
 
-  test('applies transient view bounds from context mapViewByPlotId', () => {
+  test('generateMapGrid keeps home projection when mapViewByPlotId is set (view applied at render)', () => {
     const gbView: [number, number, number, number] = [-6, 50, 2, 58];
     const context = {
       xFields: [contDim('longitude')],
@@ -132,7 +143,8 @@ describe('generateMapGrid', () => {
       mapViewByPlotId: { map: gbView },
     } as ChartGenerationContext;
     const result = generateMapGrid(context);
-    expect((result.plots[0].options as any).projection.domain.geometry.coordinates).toEqual([
+    const domain = (result.plots[0].options as any).projection.domain;
+    expect(domain.geometry?.coordinates).not.toEqual([
       [-6, 50],
       [2, 50],
       [2, 58],

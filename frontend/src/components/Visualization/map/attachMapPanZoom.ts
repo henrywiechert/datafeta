@@ -28,6 +28,8 @@ export interface AttachMapPanZoomParams {
 const WHEEL_ZOOM_INTENSITY = 0.002;
 const MIN_WHEEL_SCALE = 0.85;
 const MAX_WHEEL_SCALE = 1.18;
+/** Idle delay before committing a wheel gesture (CSS preview stays fluid until then). */
+const WHEEL_COMMIT_MS = 120;
 
 /** Marks map plot roots so ChartGrid scroll sync skips wheel capture. */
 export const MAP_WHEEL_ROOT_ATTR = 'data-map-wheel-root';
@@ -39,6 +41,16 @@ function isMacPlatform(): boolean {
 
 function isBrushModifier(event: MouseEvent | WheelEvent | PointerEvent): boolean {
   return isMacPlatform() ? event.metaKey : event.ctrlKey;
+}
+
+function sameViewBounds(a: MapViewBounds, b: MapViewBounds): boolean {
+  return a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3];
+}
+
+function wheelPreviewScale(gestureStart: MapViewBounds, view: MapViewBounds): number {
+  const startLonSpan = Math.max(gestureStart[2] - gestureStart[0], 1e-6);
+  const nextLonSpan = Math.max(view[2] - view[0], 1e-6);
+  return Math.min(4, Math.max(0.25, startLonSpan / nextLonSpan));
 }
 
 /**
@@ -59,10 +71,38 @@ export function attachMapPanZoom({
   let panStartView: MapViewBounds = currentView;
   let panStartClient: { x: number; y: number } | null = null;
   let activePointerId: number | null = null;
+  let wheelCommitTimer: ReturnType<typeof setTimeout> | null = null;
+  let wheelGestureStartView: MapViewBounds | null = null;
+  let wheelDirty = false;
   const wheelElement = wheelRoot ?? svg;
 
   const clearPanPreview = () => {
     svg.style.transform = '';
+    svg.style.transformOrigin = '';
+  };
+
+  const applyWheelPreview = (plotX: number, plotY: number) => {
+    if (!wheelGestureStartView) return;
+    const previewScale = wheelPreviewScale(wheelGestureStartView, viewState);
+    svg.style.transformOrigin = `${plotX}px ${plotY}px`;
+    svg.style.transform = Math.abs(previewScale - 1) < 0.01 ? '' : `scale(${previewScale})`;
+  };
+
+  const commitWheelView = () => {
+    if (wheelCommitTimer) {
+      clearTimeout(wheelCommitTimer);
+      wheelCommitTimer = null;
+    }
+    if (!wheelDirty) return;
+    wheelDirty = false;
+    wheelGestureStartView = null;
+    handlers.onViewChange(plotId, viewState);
+    // Keep CSS preview until ObservablePlot re-renders with the committed projection.
+  };
+
+  const scheduleWheelCommit = () => {
+    if (wheelCommitTimer) clearTimeout(wheelCommitTimer);
+    wheelCommitTimer = setTimeout(commitWheelView, WHEEL_COMMIT_MS);
   };
 
   const onWheel = (event: Event) => {
@@ -79,9 +119,12 @@ export function attachMapPanZoom({
     const k = Math.min(MAX_WHEEL_SCALE, Math.max(MIN_WHEEL_SCALE, rawK));
     if (Math.abs(k - 1) < 1e-6) return;
 
-    const next = zoomMapViewBounds(viewState, k, anchor, homeBounds);
-    viewState = next;
-    handlers.onViewChange(plotId, next);
+    if (!wheelGestureStartView) wheelGestureStartView = viewState;
+
+    viewState = zoomMapViewBounds(viewState, k, anchor, homeBounds);
+    wheelDirty = !sameViewBounds(viewState, currentView);
+    applyWheelPreview(plotX, plotY);
+    scheduleWheelCommit();
   };
 
   const onPointerDown = (event: PointerEvent) => {
@@ -161,6 +204,7 @@ export function attachMapPanZoom({
   svg.addEventListener('mouseleave', onMouseLeave);
 
   return () => {
+    commitWheelView();
     wheelElement.removeEventListener('wheel', onWheel, true);
     svg.removeEventListener('pointerdown', onPointerDown);
     svg.removeEventListener('pointermove', onPointerMove);

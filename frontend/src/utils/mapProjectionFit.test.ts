@@ -4,9 +4,13 @@ jest.mock('d3-geo', () => ({
     const scale = 10;
     return {
       fitExtent: () => {},
+      fitWidth: () => {},
       invert: ([x, y]: [number, number]): [number, number] => [x / scale - 5, 50 - y / scale],
     };
   },
+  geoPath: () => ({
+    bounds: () => [[0, 0], [100, 55]] as [[number, number], [number, number]],
+  }),
 }));
 
 import { panMapViewBounds } from './mapUtils';

@@ -8,8 +8,8 @@ import { Field, MapViewBounds } from '../types';
 const LON_NAME = /\b(long|lon|lng|longitude)\b/i;
 const LAT_NAME = /\b(lat|latitude)\b/i;
 
-const MIN_PAD_DEG = 1;
-const PAD_RATIO = 0.1;
+const MIN_PAD_DEG = 0.25;
+const PAD_RATIO = 0.05;
 
 let cachedWorldCountries: FeatureCollection | null = null;
 
@@ -155,7 +155,7 @@ export function boundsToProjectionDomain(
   };
 }
 
-/** Height÷width for the data bounds (approximate; used for chart cell layout). */
+/** Height÷width for the data bounds (approximate; used in tests and helpers). */
 export function computeMapAspectRatioForBounds(
   bounds: [number, number, number, number],
 ): number {

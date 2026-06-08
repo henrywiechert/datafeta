@@ -6,12 +6,14 @@ import * as Plot from '@observablehq/plot';
 import { GridResultModel, getPlotGridCellById } from '../../../observable-plot-generator/gridModel';
 import ObservablePlot from '../ObservablePlot';
 import { MapPanZoomHandlers } from '../map/attachMapPanZoom';
+import { MapViewBounds } from '../../../types';
 
 interface FacetZoomDialogProps {
   grid: GridResultModel;
   plotId: string | null;
   onClose: () => void;
   mapPanZoom?: MapPanZoomHandlers;
+  mapViewByPlotId?: Record<string, MapViewBounds>;
   autoExpandPinnedComparison?: boolean;
   onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
 }
@@ -26,6 +28,7 @@ const FacetZoomDialog: React.FC<FacetZoomDialogProps> = ({
   plotId,
   onClose,
   mapPanZoom,
+  mapViewByPlotId,
   autoExpandPinnedComparison,
   onAutoExpandPinnedComparisonChange,
 }) => {
@@ -40,6 +43,8 @@ const FacetZoomDialog: React.FC<FacetZoomDialogProps> = ({
     marginBottom: 50,
     style: { ...(restOptions.style ?? {}), fontSize: '14px' },
   };
+
+  const zoomedMapView = plotId ? mapViewByPlotId?.[plotId] ?? null : null;
 
   return (
     <Dialog
@@ -61,6 +66,7 @@ const FacetZoomDialog: React.FC<FacetZoomDialogProps> = ({
             options={zoomedOptions}
             plotId={`zoom-${cell.id}`}
             mapPanZoom={mapPanZoom}
+            mapViewBounds={zoomedMapView}
             autoExpandPinnedComparison={autoExpandPinnedComparison}
             onAutoExpandPinnedComparisonChange={onAutoExpandPinnedComparisonChange}
           />

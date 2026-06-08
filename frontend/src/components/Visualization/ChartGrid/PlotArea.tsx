@@ -1,9 +1,9 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useMemo, useRef } from 'react';
 import { Tooltip } from '@mui/material';
 import DoNotDisturbAltIcon from '@mui/icons-material/DoNotDisturbAlt';
 import { MapPanZoomHandlers } from '../map/attachMapPanZoom';
-import { Field } from '../../../types';
+import { Field, MapViewBounds } from '../../../types';
 import ObservablePlot from '../ObservablePlot';
 import PieSvgRenderer from './renderers/PieSvgRenderer';
 import BrushOverlay, { BrushResult } from './BrushOverlay';
@@ -40,6 +40,7 @@ interface PlotAreaProps {
   brushDisabled?: boolean;
   onBrushEnd?: (event: PlotBrushEvent) => void;
   mapPanZoom?: MapPanZoomHandlers;
+  mapViewByPlotId?: Record<string, MapViewBounds>;
   onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
   autoExpandPinnedComparison?: boolean;
   onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
@@ -102,6 +103,7 @@ const PlotArea: React.FC<PlotAreaProps> = ({
   brushDisabled,
   onBrushEnd,
   mapPanZoom,
+  mapViewByPlotId,
   onCellContextMenu,
   autoExpandPinnedComparison,
   onAutoExpandPinnedComparisonChange,
@@ -146,6 +148,7 @@ const PlotArea: React.FC<PlotAreaProps> = ({
                   brushDisabled={brushDisabled}
                   onBrushEnd={onBrushEnd}
                   mapPanZoom={mapPanZoom}
+                  mapViewByPlotId={mapViewByPlotId}
                   onCellContextMenu={onCellContextMenu}
                   autoExpandPinnedComparison={autoExpandPinnedComparison}
                   onAutoExpandPinnedComparisonChange={onAutoExpandPinnedComparisonChange}
@@ -200,6 +203,7 @@ interface PlotCellProps {
   brushDisabled?: boolean;
   onBrushEnd?: (event: PlotBrushEvent) => void;
   mapPanZoom?: MapPanZoomHandlers;
+  mapViewByPlotId?: Record<string, MapViewBounds>;
   onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
   autoExpandPinnedComparison?: boolean;
   onAutoExpandPinnedComparisonChange?: (enabled: boolean) => void;
@@ -213,6 +217,7 @@ const PlotCell: React.FC<PlotCellProps> = ({
   brushDisabled,
   onBrushEnd,
   mapPanZoom,
+  mapViewByPlotId,
   onCellContextMenu,
   autoExpandPinnedComparison,
   onAutoExpandPinnedComparisonChange,
@@ -221,7 +226,12 @@ const PlotCell: React.FC<PlotCellProps> = ({
   const xField = cell.metadata?.xField;
   const yField = cell.metadata?.yField;
 
-  const opts = suppressAxes(cell.content.options, true, true);
+  const opts = useMemo(
+    () => suppressAxes(cell.content.options, true, true),
+    [cell.content.options],
+  );
+  const mapPlotId = (opts as { __mapPlotId?: string }).__mapPlotId ?? cell.id;
+  const cellMapView = mapViewByPlotId?.[mapPlotId] ?? null;
 
   const handleCellBrushEnd = (brush: BrushResult) => {
     const el = plotElementsRef.current[cell.id];
@@ -258,6 +268,7 @@ const PlotCell: React.FC<PlotCellProps> = ({
             options={opts}
             plotId={cell.id}
             mapPanZoom={mapPanZoom}
+            mapViewBounds={cellMapView}
             onRenderComplete={onPlotRenderComplete}
             onPlotReady={(el) => onPlotReady(cell.id, el)}
             autoExpandPinnedComparison={autoExpandPinnedComparison}

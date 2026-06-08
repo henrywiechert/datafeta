@@ -17,17 +17,16 @@ import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils
 import {
   boundsToProjectionDomain,
   computeGeoBounds,
-  computeMapAspectRatioForBounds,
   computeMapHomeBounds,
   filterValidGeoRows,
   formatMapPlotId,
   getWorldCountries,
-  MAP_ATTRIBUTION,
+  MAP_EQUAL_EARTH_ASPECT_RATIO,
   MAP_SINGLE_PLOT_ID,
   pickMapAxisFields,
-  resolveMapAspectRatio,
   resolveMapProjectionDomain,
 } from '../../utils/mapUtils';
+import { computeProjectedAspectRatioForBounds } from '../../utils/mapProjectionFit';
 import { deriveColorScaleInfo, ColorScaleInfo, resolveContextColorChannel } from '../utils/colorSchemeUtils';
 import { createSizeScale } from '../utils/sizeUtils';
 import { createTooltipFieldsGetter } from '../utils/tooltipUtils';
@@ -207,8 +206,10 @@ export function buildMapOptions(input: MapOptionsInput): Plot.PlotOptions {
     ? boundsToProjectionDomain(viewBounds)
     : resolveMapProjectionDomain(bounds, extentMode);
   const mapAspectRatio = viewBounds
-    ? computeMapAspectRatioForBounds(viewBounds)
-    : resolveMapAspectRatio(bounds, extentMode);
+    ? computeProjectedAspectRatioForBounds(viewBounds)
+    : extentMode === 'world'
+      ? MAP_EQUAL_EARTH_ASPECT_RATIO
+      : computeProjectedAspectRatioForBounds(bounds);
 
   const dotConfig: any = {
     x: lonColumn,
@@ -291,7 +292,6 @@ export function buildMapOptions(input: MapOptionsInput): Plot.PlotOptions {
       }),
       Plot.dot(budgeted, dotConfig),
     ],
-    caption: MAP_ATTRIBUTION,
     r: { type: 'identity' } as any,
   };
 
@@ -412,7 +412,6 @@ function createMapCellGenerator(
       ? [...facetCellContext.rowFacetFields, ...facetCellContext.colFacetFields]
       : [];
     const plotId = formatMapPlotId(facetPosition, isFaceted);
-    const viewBounds = context.mapViewByPlotId?.[plotId] ?? null;
 
     const options = buildMapOptions({
       data: cellData,
@@ -429,7 +428,6 @@ function createMapCellGenerator(
       facetFields,
       colorScaleInfo: sharedDomains.colorScale,
       extentMode: context.mapExtentMode ?? 'data',
-      viewBounds,
       plotId,
     });
 
@@ -439,7 +437,7 @@ function createMapCellGenerator(
           id: 'map',
           title: '',
           options: options as any,
-          position: facetPosition,
+          position: { row: 0, col: 0 },
         },
       ],
       columns: 1,

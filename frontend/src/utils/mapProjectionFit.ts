@@ -1,7 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { geoEqualEarth } from 'd3-geo';
+import { geoEqualEarth, geoPath } from 'd3-geo';
 import { MapViewBounds } from '../types';
-import { boundsToProjectionDomain, panMapViewBounds } from './mapUtils';
+import { boundsToProjectionDomain, MAP_EQUAL_EARTH_ASPECT_RATIO, panMapViewBounds } from './mapUtils';
 
 /** Fit equal-earth projection to view bounds in a width×height frame (matches Plot default). */
 export function fitMapProjectionToBounds(
@@ -13,6 +13,19 @@ export function fitMapProjectionToBounds(
   if (width <= 0 || height <= 0) return projection;
   projection.fitExtent([[0, 0], [width, height]], boundsToProjectionDomain(viewBounds));
   return projection;
+}
+
+/** Height÷width from equal-earth fit — matches Observable Plot cell layout. */
+export function computeProjectedAspectRatioForBounds(bounds: MapViewBounds): number {
+  const projection = geoEqualEarth();
+  const domain = boundsToProjectionDomain(bounds);
+  projection.fitWidth(100, domain);
+  const [[x0, y0], [x1, y1]] = geoPath(projection).bounds(domain);
+  const width = Math.max(x1 - x0, 1e-6);
+  const height = Math.max(y1 - y0, 1e-6);
+  const ratio = height / width;
+  if (!Number.isFinite(ratio) || ratio <= 0) return MAP_EQUAL_EARTH_ASPECT_RATIO;
+  return Math.max(0.2, Math.min(5, ratio));
 }
 
 export function clientPointToPlotPixel(
