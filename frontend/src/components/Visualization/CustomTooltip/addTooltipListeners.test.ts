@@ -62,4 +62,78 @@ describe('addTooltipListeners', () => {
 
     cleanup();
   });
+
+  it('pins tooltip on mark click', () => {
+    const { plot, marks } = buildPlot(1);
+    const config: CustomTooltipConfig = {
+      enabled: true,
+      data: [{ index: 0 }],
+      getFields: (data) => [{ label: 'Index', value: String(data.index) }],
+    };
+
+    const showAndPinTooltip = jest.fn();
+    const pinnedRef = { current: false };
+
+    const cleanup = addTooltipListeners(
+      plot,
+      config,
+      jest.fn(),
+      jest.fn(),
+      jest.fn(),
+      jest.fn(),
+      showAndPinTooltip,
+      jest.fn(),
+      pinnedRef,
+    );
+
+    fireEvent.click(marks[0], { clientX: 10, clientY: 20 });
+
+    expect(showAndPinTooltip).toHaveBeenCalledTimes(1);
+    expect(showAndPinTooltip).toHaveBeenCalledWith(
+      10,
+      20,
+      [{ label: 'Index', value: '0' }],
+      undefined,
+      undefined,
+    );
+
+    cleanup();
+  });
+
+  it('does not unpin twice when clicking a data mark while pinned', () => {
+    const { plot, marks } = buildPlot(1);
+    (marks[0] as any).__data__ = { index: 0 };
+    const config: CustomTooltipConfig = {
+      enabled: true,
+      data: [{ index: 0 }],
+      getFields: (data) => [{ label: 'Index', value: String(data.index) }],
+    };
+
+    const pinnedRef = { current: true };
+    const unpinTooltip = jest.fn(() => {
+      pinnedRef.current = false;
+    });
+    const showAndPinTooltip = jest.fn(() => {
+      pinnedRef.current = true;
+    });
+
+    const cleanup = addTooltipListeners(
+      plot,
+      config,
+      jest.fn(),
+      jest.fn(),
+      jest.fn(),
+      jest.fn(),
+      showAndPinTooltip,
+      unpinTooltip,
+      pinnedRef,
+    );
+
+    fireEvent.click(marks[0], { clientX: 10, clientY: 20 });
+
+    // Mark handler may unpin once while switching; document handler must not add another.
+    expect(unpinTooltip).toHaveBeenCalledTimes(1);
+
+    cleanup();
+  });
 });

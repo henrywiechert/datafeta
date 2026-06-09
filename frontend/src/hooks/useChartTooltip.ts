@@ -73,6 +73,27 @@ export function useChartTooltip() {
     setTooltip(prev => prev.visible ? { ...prev, pinned: true } : prev);
   }, [clearAutoHide]);
 
+  /** Show tooltip content and pin in one update (avoids document-click races on mark click). */
+  const showAndPinTooltip = useCallback((
+    x: number,
+    y: number,
+    fields: TooltipField[],
+    colorHex?: string,
+    pinnedComparison?: PinnedTooltipComparison,
+  ) => {
+    clearAutoHide();
+    pinnedRef.current = true;
+    setTooltip({
+      visible: true,
+      pinned: true,
+      x,
+      y,
+      fields,
+      colorHex,
+      pinnedComparison,
+    });
+  }, [clearAutoHide]);
+
   /** Unpin and hide the tooltip. */
   const unpinTooltip = useCallback(() => {
     clearAutoHide();
@@ -105,6 +126,7 @@ export function useChartTooltip() {
     hideTooltip,
     updatePosition,
     pinTooltip,
+    showAndPinTooltip,
     unpinTooltip,
     /** Ref-based pinned state for imperative DOM event handlers */
     pinnedRef,

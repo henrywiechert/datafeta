@@ -12,6 +12,7 @@
 
 import React from 'react';
 
+import { isPlotDataMarkElement } from '../plotMarkUtils';
 import { TooltipField, CustomTooltipConfig, PinnedTooltipComparison } from '../../../types';
 
 // ---------------------------------------------------------------------------
@@ -272,6 +273,13 @@ export function addTooltipListeners(
   hideTooltip: () => void,
   updatePosition: (x: number, y: number) => void,
   pinTooltip?: () => void,
+  showAndPinTooltip?: (
+    x: number,
+    y: number,
+    fields: TooltipField[],
+    colorHex?: string,
+    pinnedComparison?: PinnedTooltipComparison,
+  ) => void,
   unpinTooltip?: () => void,
   pinnedRef?: React.MutableRefObject<boolean>
 ): () => void {
@@ -304,8 +312,8 @@ export function addTooltipListeners(
       const ariaLabel = parent.getAttribute('aria-label');
       if (ariaLabel) {
         const labelLower = ariaLabel.toLowerCase();
-        // Exclude grid lines and axis tick marks
-        if (labelLower.includes('grid') || labelLower.includes('axis')) {
+        // Exclude grid lines, axis tick marks, and map country outlines
+        if (labelLower.includes('grid') || labelLower.includes('axis') || labelLower.includes('geo')) {
           return false;
         }
       }
@@ -439,31 +447,78 @@ export function addTooltipListeners(
     };
 
     const handleClick = (e: Event) => {
-      if (!pinTooltip) return;
-      e.stopPropagation(); // Prevent document click handler from immediately hiding
-      
-      // If already pinned (e.g. on a different mark), switch to this mark:
-      // unpin first, clear old highlight, then show + pin the new one
+      if (!showAndPinTooltip && !pinTooltip) return;
+      e.stopPropagation();
+      e.preventDefault();
+
       if (pinnedRef?.current) {
         unpinTooltip?.();
         clearHighlight();
-        showMarkTooltip(e as MouseEvent);
       }
-      
-      pinTooltip();
+
+      const mouseEvent = e as MouseEvent;
+      let data = element.__data__;
+      if (typeof data === 'number' && config.data && data < config.data.length) {
+        data = config.data[data];
+      }
+      if (!data && config.data && config.data.length > 0 && index < config.data.length) {
+        data = config.data[index];
+      }
+      if (!data) return;
+
+      try {
+        const fields = config.getFields(data);
+        const pinnedComparison = config.getPinnedComparison?.(data);
+        let colorHex: string | undefined;
+        if (mark instanceof Element) {
+          colorHex = resolveColorFromElement(mark);
+        }
+
+        clearAnyHighlight();
+
+        let elementToHighlight: Element = mark;
+        if (mark.tagName.toLowerCase() === 'circle') {
+          const fill = mark.getAttribute('fill');
+          const stroke = mark.getAttribute('stroke');
+          const isTransparent = (fill === 'transparent' || fill === 'none' || !fill) &&
+                                (stroke === 'transparent' || stroke === 'none' || !stroke);
+          if (isTransparent) {
+            const correspondingLine = findCorrespondingLine(mark);
+            if (correspondingLine) {
+              elementToHighlight = correspondingLine;
+            }
+          }
+        }
+        elementToHighlight.classList.add('chart-mark--highlighted');
+        highlightedElement = elementToHighlight;
+
+        const svgRoot = mark.closest('svg');
+        if (svgRoot instanceof SVGSVGElement) {
+          activeGuideLine = updateVerticalGuideLine(svgRoot, config, mark, colorHex);
+        }
+
+        if (showAndPinTooltip) {
+          showAndPinTooltip(mouseEvent.clientX, mouseEvent.clientY, fields, colorHex, pinnedComparison);
+        } else {
+          showMarkTooltip(mouseEvent);
+          pinTooltip?.();
+        }
+      } catch (error) {
+        console.warn('[CustomTooltip] Error generating tooltip fields:', error);
+      }
     };
 
     mark.addEventListener('mouseenter', handleMouseEnter);
     mark.addEventListener('mousemove', handleMouseMove);
     mark.addEventListener('mouseleave', handleMouseLeave);
-    mark.addEventListener('click', handleClick);
+    mark.addEventListener('click', handleClick, true);
 
     // Store cleanup function for this mark
     cleanupFunctions.push(() => {
       mark.removeEventListener('mouseenter', handleMouseEnter);
       mark.removeEventListener('mousemove', handleMouseMove);
       mark.removeEventListener('mouseleave', handleMouseLeave);
-      mark.removeEventListener('click', handleClick);
+      mark.removeEventListener('click', handleClick, true);
       clearAnyHighlight();
     });
   });
@@ -495,13 +550,13 @@ export function addTooltipListeners(
       clearAnyHighlight();
     }
 
-    // If pinned, only unpin when clicking outside the tooltip
+    // If pinned, only unpin when clicking outside the tooltip and off data marks
     if (pinnedRef?.current) {
       const insideTooltip = target?.closest('.custom-tooltip--pinned');
-      if (!insideTooltip) {
-        clearAnyHighlight();
-        unpinTooltip?.();
-      }
+      if (insideTooltip) return;
+      if (isPlotDataMarkElement(target)) return;
+      clearAnyHighlight();
+      unpinTooltip?.();
       return;
     }
     // Otherwise hide tooltip on any click

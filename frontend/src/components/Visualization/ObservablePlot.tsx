@@ -44,7 +44,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
   const plotHostRef = useRef<HTMLDivElement>(null);
   const dimensions = useElementSize(containerRef);
   const portalTarget = useFullscreenPortalTarget();
-  const { tooltip, showTooltip, hideTooltip, updatePosition, pinTooltip, unpinTooltip, pinnedRef } = useChartTooltip();
+  const { tooltip, showTooltip, hideTooltip, updatePosition, pinTooltip, showAndPinTooltip, unpinTooltip, pinnedRef } = useChartTooltip();
   const cleanupFunctionsRef = useRef<Array<() => void>>([]);
   const mapPanZoomRef = useRef(mapPanZoom);
   mapPanZoomRef.current = mapPanZoom;
@@ -109,7 +109,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
         if (customTooltipConfig?.enabled) {
           const cleanup = addTooltipListeners(
             plot, customTooltipConfig, showTooltip, hideTooltip, updatePosition,
-            pinTooltip, unpinTooltip, pinnedRef
+            pinTooltip, showAndPinTooltip, unpinTooltip, pinnedRef
           );
           cleanupFunctionsRef.current.push(cleanup);
         }
@@ -163,7 +163,7 @@ const ObservablePlot: React.FC<ObservablePlotProps> = ({
       cleanupFunctionsRef.current.forEach(cleanup => cleanup());
       cleanupFunctionsRef.current = [];
     };
-  }, [renderOptions, dimensions, showTooltip, hideTooltip, updatePosition, pinTooltip, unpinTooltip, pinnedRef, onRenderComplete, plotId, onPlotReady, mapAspectRatio]);
+  }, [renderOptions, dimensions, showTooltip, hideTooltip, updatePosition, pinTooltip, showAndPinTooltip, unpinTooltip, pinnedRef, onRenderComplete, plotId, onPlotReady, mapAspectRatio]);
 
   return (
     <>

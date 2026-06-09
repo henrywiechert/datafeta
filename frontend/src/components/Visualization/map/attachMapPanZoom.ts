@@ -6,6 +6,7 @@ import {
   panMapViewBoundsFromPixelDelta,
   plotPixelToLonLat,
 } from '../../../utils/mapProjectionFit';
+import { isPlotDataMarkElement } from '../plotMarkUtils';
 
 export interface MapPanZoomHandlers {
   onViewChange: (plotId: string, bounds: MapViewBounds) => void;
@@ -129,6 +130,7 @@ export function attachMapPanZoom({
 
   const onPointerDown = (event: PointerEvent) => {
     if (event.button !== 0 || isBrushModifier(event) || activePointerId != null) return;
+    if (isPlotDataMarkElement(event.target instanceof Element ? event.target : null)) return;
     activePointerId = event.pointerId;
     panStartView = viewState;
     panStartClient = { x: event.clientX, y: event.clientY };
