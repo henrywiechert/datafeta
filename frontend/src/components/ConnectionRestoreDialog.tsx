@@ -11,6 +11,8 @@ import {
   Typography,
   Alert,
   CircularProgress,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
@@ -27,6 +29,10 @@ export interface ClickHouseOverrides {
   database?: string;
 }
 
+export interface ConnectionRestoreOptions {
+  swapSameSchema?: boolean;
+}
+
 interface ConnectionRestoreDialogProps {
   open: boolean;
   connectionMetadata: SavedConnectionMetadata | null;
@@ -37,7 +43,8 @@ interface ConnectionRestoreDialogProps {
     kaggleApiKey?: string,
     clickHouseOverrides?: ClickHouseOverrides,
     hivePartitionFiles?: Map<string, File[]>,
-    hiveFileStructure?: string[]
+    hiveFileStructure?: string[],
+    restoreOptions?: ConnectionRestoreOptions,
   ) => Promise<void>;
   onCancel: () => void;
   onSkip: () => void;
@@ -62,6 +69,7 @@ export default function ConnectionRestoreDialog({
   const [port, setPort] = useState('');
   const [user, setUser] = useState('');
   const [database, setDatabase] = useState('');
+  const [swapSameSchema, setSwapSameSchema] = useState(false);
 
   // Hive Parquet partition files (auto-populated from folder selection)
   const [hivePartitionFiles, setHivePartitionFilesLocal] = useState<Map<string, File[]>>(new Map());
@@ -87,6 +95,7 @@ export default function ConnectionRestoreDialog({
         setUser(connectionMetadata.user || '');
         setDatabase(connectionMetadata.database || '');
       }
+      setSwapSameSchema(false);
     }
   }, [open, connectionMetadata]);
 
@@ -168,7 +177,8 @@ export default function ConnectionRestoreDialog({
         kaggleApiKey || undefined,
         clickHouseOverrides,
         isHiveParquet ? hivePartitionFiles : undefined,
-        isHiveParquet ? hiveFileStructure : undefined
+        isHiveParquet ? hiveFileStructure : undefined,
+        { swapSameSchema: swapSameSchema || undefined },
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Connection failed');
@@ -302,6 +312,25 @@ export default function ConnectionRestoreDialog({
                 }}
                 disabled={isConnecting}
               />
+
+              <FormControlLabel
+                sx={{ mt: 1, alignItems: 'flex-start' }}
+                control={
+                  <Checkbox
+                    checked={swapSameSchema}
+                    onChange={(e) => setSwapSameSchema(e.target.checked)}
+                    disabled={isConnecting}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2">Same schema — swap database only</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Keep saved table selections and sheet layouts. Tables and columns must exist in the new database.
+                    </Typography>
+                  </Box>
+                }
+              />
             </>
           )}
 
@@ -349,6 +378,25 @@ export default function ConnectionRestoreDialog({
                   onChange={handleFileChange}
                 />
               </Button>
+
+              <FormControlLabel
+                sx={{ mt: 1.5, alignItems: 'flex-start' }}
+                control={
+                  <Checkbox
+                    checked={swapSameSchema}
+                    onChange={(e) => setSwapSameSchema(e.target.checked)}
+                    disabled={isConnecting}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2">Same schema — swap file only</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Keep saved sheet layouts. Column headers must match.
+                    </Typography>
+                  </Box>
+                }
+              />
             </>
           )}
 

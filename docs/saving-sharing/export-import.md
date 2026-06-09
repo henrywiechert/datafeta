@@ -23,6 +23,17 @@ This is useful for:
 3. DataSlicer reads the configuration and pre-fills the connection form and all visualization settings.
 4. Click **Connect** to apply it.
 
+### Swapping the data source (same schema)
+
+When reconnecting to a saved configuration, you can keep all sheet layouts and table selections while pointing at different data:
+
+- **ClickHouse:** check **Same schema — swap database only**, change the database if needed, then connect. Table names must exist in the new database.
+- **CSV / file:** check **Same schema — swap file only**, pick the new file, then connect. Column headers must match.
+
+After connecting, a **Schema check** dialog summarizes whether all referenced columns were found across your sheets.
+
+While exploring, enable **DB switch** in the ClickHouse data-source picker to change the database without clearing your table selection.
+
 ---
 
 ## Difference from Snapshots

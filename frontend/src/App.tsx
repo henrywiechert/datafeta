@@ -10,7 +10,7 @@ import { useConnection } from './contexts/ConnectionContext';
 import { useDataSourceVersionSync } from './hooks/useSheetRenderCache';
 import { sheetRenderCacheStore } from './stores';
 import SaveLoadMenu from './components/SaveLoadMenu';
-import ConnectionRestoreDialog, { ClickHouseOverrides } from './components/ConnectionRestoreDialog';
+import ConnectionRestoreDialog, { ClickHouseOverrides, ConnectionRestoreOptions } from './components/ConnectionRestoreDialog';
 import SnapshotGalleryDialog from './components/SnapshotGalleryDialog';
 import { 
   exportConfiguration, 
@@ -20,6 +20,8 @@ import {
 } from './services/configurationService';
 import { apiService } from './apiService';
 import { SavedConfiguration, SavedConnectionMetadata } from './types';
+import { rewriteUnionTablesForDatabase } from './utils/schemaValidation';
+import { schemaCheckBus } from './services/schemaCheckBus';
 import { useAppConfig } from './contexts/AppConfigContext';
 import './App.css';
 
@@ -348,7 +350,8 @@ function AppContent() {
     kaggleApiKey?: string,
     clickHouseOverrides?: ClickHouseOverrides,
     hivePartitionFiles?: Map<string, File[]>,
-    hiveFileStructure?: string[]
+    hiveFileStructure?: string[],
+    restoreOptions?: ConnectionRestoreOptions,
   ) => {
     if (!connectionMetadata || !pendingConfig) return;
 
@@ -405,7 +408,14 @@ function AppContent() {
 
         // If connection successful, restore the rest of the configuration
         setShowConnectionRestore(false);
-        restoreConfigurationState(pendingConfig);
+        const swapDatabase =
+          restoreOptions?.swapSameSchema && connectionMetadata.type === 'clickhouse'
+            ? (clickHouseOverrides?.database || connectionMetadata.database || '')
+            : undefined;
+        restoreConfigurationState(pendingConfig, {
+          swapDatabase: swapDatabase || undefined,
+          requestSchemaCheck: restoreOptions?.swapSameSchema,
+        });
 
         // Navigate to visualization page if not already there
         if (!isVisualizationPage) {
@@ -431,8 +441,14 @@ function AppContent() {
     }
   };
 
-  const restoreConfigurationState = (config: SavedConfiguration) => {
+  const restoreConfigurationState = (
+    config: SavedConfiguration,
+    options?: { swapDatabase?: string; requestSchemaCheck?: boolean },
+  ) => {
     try {
+      if (options?.requestSchemaCheck) {
+        schemaCheckBus.requestAfterLoad();
+      }
       // Restore sheets
       sheetDispatch({ type: 'LOAD_SHEETS', payload: config.sheets });
       
@@ -472,8 +488,11 @@ function AppContent() {
             // Then set the restored database and table
             // The useEffects in useVisualizationState will detect these changes
             // and fetch the appropriate metadata (databases -> tables -> columns)
-            if (config.dataSource!.selectedDatabase) {
-              setSelectedDatabase(config.dataSource!.selectedDatabase);
+            const savedDatabase = config.dataSource!.selectedDatabase;
+            const targetDatabase = options?.swapDatabase || savedDatabase;
+
+            if (targetDatabase) {
+              setSelectedDatabase(targetDatabase);
             }
             if (config.dataSource!.selectedTable) {
               setSelectedTable(config.dataSource!.selectedTable);
@@ -497,7 +516,14 @@ function AppContent() {
             }
             // Restore union tables if present
             if (config.dataSource!.unionTables && config.dataSource!.unionTables.length > 0) {
-              setUnionTables(config.dataSource!.unionTables);
+              const unionTables = options?.swapDatabase
+                ? rewriteUnionTablesForDatabase(
+                    config.dataSource!.unionTables,
+                    savedDatabase,
+                    options.swapDatabase,
+                  )
+                : config.dataSource!.unionTables;
+              setUnionTables(unionTables);
             }
             // Restore joined tables if present
             if (config.dataSource!.joinedTables && config.dataSource!.joinedTables.length > 0) {
@@ -523,10 +549,16 @@ function AppContent() {
       if (config.dataSource && connectionType === 'csv') {
         setVirtualColumns(config.dataSource.virtualColumns ?? []);
         setVirtualColumnFieldPreferences(config.dataSource.virtualColumnFieldPreferences ?? {});
+        if (options?.requestSchemaCheck && config.dataSource.selectedTable) {
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              setSelectedTable(config.dataSource!.selectedTable);
+            }, 0);
+          });
+        }
         // Note: measureGroupFields is now per-sheet, restored via sheet state above
       }
-      // For CSV: Don't restore anything - let the natural useEffect flow handle it
-      // The fetchTables will auto-detect and select the single table
+      // For CSV without swap: Don't restore table — let the natural useEffect flow handle it
 
       if (config.dataSource && connectionType === 'hive_parquet') {
         // For Hive Parquet: partition loading in handleConnectionRestore already set

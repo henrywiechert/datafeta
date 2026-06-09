@@ -47,3 +47,5 @@ In the gallery, click a snapshot name. DataSlicer will:
 1. Restore the data source connection (you may need to re-enter credentials for private databases).
 2. Restore all field assignments, filters, and chart properties.
 3. Open all sheets that were saved.
+
+When the connection dialog appears, use **Same schema — swap database only** (ClickHouse) or **Same schema — swap file only** (CSV) to reconnect to a different database or file while keeping your saved table selections and sheet layouts. See [Export & Import](./export-import.md#swapping-the-data-source-same-schema) for details.

@@ -24,6 +24,10 @@ import PanelResizeHandleWithToggle from '../components/Layout/PanelResizeHandleW
 import AppInfoDisplay from '../components/AppInfoDisplay';
 import DataSlicerIcon from '../components/icons/DataSlicerIcon';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import SchemaCheckDialog from '../components/SchemaCheckDialog';
+import { schemaCheckBus } from '../services/schemaCheckBus';
+import { hasCrossDatabaseUnion, SchemaCheckResult, validateSheetSchema } from '../utils/schemaValidation';
+import { DatabaseSwitchError } from '../services/switchDatabasePreserveTables';
 import { apiService } from '../apiService';
 
 import { Field, DragSource } from '../types';
@@ -53,6 +57,8 @@ const VisualizationPageContent = () => {
         handleTableSelect,
         refreshMetadata,
         refetchFilterValues,
+        switchDatabasePreserveTables,
+        unionTables,
         virtualColumns,
         handleAddVirtualColumn,
         handleUpdateVirtualColumn,
@@ -215,7 +221,6 @@ const VisualizationPageContent = () => {
     const { 
         suggestedJoinableTables, 
         joinedTables,
-        unionTables,
         tablesCache,
         measureGroupFields,
         loadedPartitions,
@@ -298,6 +303,86 @@ const VisualizationPageContent = () => {
     const removeUnionTable = React.useCallback((database: string, tableName: string) => {
         removeUnionTableBase(database, tableName);
     }, [removeUnionTableBase]);
+
+    const { state: sheetState } = useSheetContext();
+    const [dbSwitchEnabled, setDbSwitchEnabled] = React.useState(false);
+    const [schemaCheckResult, setSchemaCheckResult] = React.useState<SchemaCheckResult | null>(null);
+    const [schemaCheckOpen, setSchemaCheckOpen] = React.useState(false);
+    const [isSwitchingDatabase, setIsSwitchingDatabase] = React.useState(false);
+
+    const showSchemaCheck = React.useCallback((result: SchemaCheckResult) => {
+        setSchemaCheckResult(result);
+        setSchemaCheckOpen(true);
+    }, []);
+
+    const dbSwitchDisabled = false;
+    const hasCrossDbUnion = hasCrossDatabaseUnion(selectedDatabase, unionTables);
+    const dbSwitchDisabledReason = hasCrossDbUnion
+        ? 'Union tables in other databases will keep their original database after the switch.'
+        : undefined;
+
+    const handleDatabaseSwitch = React.useCallback(async (newDatabase: string) => {
+        setIsSwitchingDatabase(true);
+        try {
+            const result = await switchDatabasePreserveTables(newDatabase);
+            showSchemaCheck(result);
+        } catch (err) {
+            if (err instanceof DatabaseSwitchError) {
+                setMetadataError(err.message);
+            } else {
+                const message = err instanceof Error ? err.message : 'Database switch failed';
+                setMetadataError(message);
+            }
+        } finally {
+            setIsSwitchingDatabase(false);
+        }
+    }, [switchDatabasePreserveTables, showSchemaCheck, setMetadataError]);
+
+    const pendingLoadSchemaCheckRef = React.useRef<boolean | null>(null);
+    if (pendingLoadSchemaCheckRef.current === null) {
+        pendingLoadSchemaCheckRef.current = schemaCheckBus.consumePendingAfterLoad();
+    }
+
+    // Schema check after config load with swap-same-schema option
+    React.useEffect(() => {
+        if (!pendingLoadSchemaCheckRef.current) return;
+        if (!selectedTable || dataSourceAvailableFields.length === 0) return;
+
+        pendingLoadSchemaCheckRef.current = false;
+
+        (async () => {
+            let tableNames: string[] = tables.map((t) => t.name);
+            if (connectionDetails?.type === 'clickhouse' && selectedDatabase && tableNames.length === 0) {
+                try {
+                    const response = await apiService.listTables(selectedDatabase);
+                    tableNames = (response.tables || []).map((t) => t.name);
+                } catch {
+                    tableNames = [];
+                }
+            }
+
+            const result = validateSheetSchema(
+                sheetState.sheets,
+                dataSourceAvailableFields,
+                joinedTables,
+                tableNames,
+                sessionFilterFields,
+                virtualColumns,
+            );
+            showSchemaCheck(result);
+        })();
+    }, [
+        selectedTable,
+        selectedDatabase,
+        dataSourceAvailableFields,
+        tables,
+        connectionDetails?.type,
+        sheetState.sheets,
+        joinedTables,
+        sessionFilterFields,
+        virtualColumns,
+        showSchemaCheck,
+    ]);
 
     const handleRemoveFromMeasureGroup = React.useCallback((fieldIds: string[]) => {
         if (fieldIds.length === 0) return;
@@ -500,6 +585,12 @@ const VisualizationPageContent = () => {
                                     isLoadingPartition={isLoadingPartition}
                                     onLoadPartition={handleLoadPartition}
                                     onAddFiles={handleAddFiles}
+                                    dbSwitchEnabled={dbSwitchEnabled}
+                                    onDbSwitchEnabledChange={setDbSwitchEnabled}
+                                    onDatabaseSwitch={handleDatabaseSwitch}
+                                    dbSwitchDisabled={dbSwitchDisabled}
+                                    dbSwitchDisabledReason={dbSwitchDisabledReason}
+                                    isSwitchingDatabase={isSwitchingDatabase}
                                     virtualColumns={virtualColumns}
                                     onAddVirtualColumn={handleAddVirtualColumn}
                                     onUpdateVirtualColumn={handleUpdateVirtualColumn}
@@ -583,6 +674,12 @@ const VisualizationPageContent = () => {
                     </Panel>
                 </PanelGroup>
             </Box>
+
+            <SchemaCheckDialog
+                open={schemaCheckOpen}
+                result={schemaCheckResult}
+                onClose={() => setSchemaCheckOpen(false)}
+            />
 
             {/* Loading Modal for long-running operations */}
             <LoadingModal
