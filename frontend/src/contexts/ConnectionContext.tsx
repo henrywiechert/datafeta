@@ -14,6 +14,7 @@ interface ConnectionState {
   connect: (details: ConnectionDetails, files?: File[]) => Promise<void>;
   connectDemoDataset: (datasetId: string) => Promise<{ database: string; table: string; snapshotId?: string | null }>;
   disconnect: () => Promise<void>;
+  updateConnectionDatabase: (database: string) => void;
 }
 
 const ConnectionContext = createContext<ConnectionState | undefined>(undefined);
@@ -173,6 +174,13 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
     }
   }, [resetMetadata]);
 
+  const updateConnectionDatabase = useCallback((database: string) => {
+    setConnectionDetails((prev) => {
+      if (!prev || prev.type !== 'clickhouse') return prev;
+      return { ...prev, database };
+    });
+  }, []);
+
   const value = useMemo(() => ({
     isConnected,
     isLoading,
@@ -182,7 +190,8 @@ export const ConnectionProvider: React.FC<ConnectionProviderProps> = ({ children
     connect,
     connectDemoDataset,
     disconnect,
-  }), [isConnected, isLoading, error, message, connectionDetails, connect, connectDemoDataset, disconnect]);
+    updateConnectionDatabase,
+  }), [isConnected, isLoading, error, message, connectionDetails, connect, connectDemoDataset, disconnect, updateConnectionDatabase]);
 
   return <ConnectionContext.Provider value={value}>{children}</ConnectionContext.Provider>;
 };

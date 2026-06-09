@@ -1,6 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
-import { Box, Button, CircularProgress, IconButton, TextField, Tooltip, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, IconButton, TextField, Tooltip, Typography, Checkbox, FormControlLabel } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import AddIcon from '@mui/icons-material/Add';
 import ClickHousePatternDialog from './ClickHousePatternDialog';
@@ -28,6 +28,13 @@ interface TableAddPickerProps {
 
   onAdd: (payload: AddTablePayload) => void;
   onApplyPatternSelection?: (tables: UnionTableRef[]) => void;
+  /** DB switch mode — change database without clearing primary table */
+  dbSwitchEnabled?: boolean;
+  onDbSwitchEnabledChange?: (enabled: boolean) => void;
+  onDatabaseSwitch?: (database: string) => void;
+  dbSwitchDisabled?: boolean;
+  dbSwitchDisabledReason?: string;
+  isSwitchingDatabase?: boolean;
 }
 
 const actionColumnSx = { width: 32, flexShrink: 0, display: 'flex', justifyContent: 'center' } as const;
@@ -41,6 +48,12 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
   unionTables,
   onAdd,
   onApplyPatternSelection,
+  dbSwitchEnabled = false,
+  onDbSwitchEnabledChange,
+  onDatabaseSwitch,
+  dbSwitchDisabled = false,
+  dbSwitchDisabledReason,
+  isSwitchingDatabase = false,
 }) => {
   const [stagedDatabase, setStagedDatabase] = React.useState<string>(primaryDatabase || '');
   const [stagedTable, setStagedTable] = React.useState<string>('');
@@ -78,6 +91,18 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
     const nextDb = value ?? '';
     setStagedDatabase(nextDb);
     setStagedTable('');
+
+    if (
+      dbSwitchEnabled
+      && primaryTable
+      && nextDb
+      && nextDb !== primaryDatabase
+      && onDatabaseSwitch
+    ) {
+      onDatabaseSwitch(nextDb);
+      return;
+    }
+
     if (nextDb && onLoadTablesForDatabase) onLoadTablesForDatabase(nextDb);
   };
 
@@ -104,7 +129,7 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
             value={stagedDatabase || null}
             options={dbOptions}
             onChange={handleDatabaseChange}
-            disabled={dbOptions.length === 0}
+            disabled={dbOptions.length === 0 || isSwitchingDatabase}
             autoHighlight
             isOptionEqualToValue={(option, optionValue) => option === optionValue}
             className={compactAutocompleteClassName}
@@ -118,6 +143,32 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
         <Box sx={actionColumnSx} aria-hidden />
       </Box>
 
+      {onDbSwitchEnabledChange && (
+        <Tooltip
+          title={
+            dbSwitchDisabledReason
+              ? `Change database without clearing table selection. ${dbSwitchDisabledReason}`
+              : 'Change database without clearing table selection. Requires identical table names in the new database.'
+          }
+        >
+          <Box component="span" sx={{ display: 'inline-flex', width: '100%' }}>
+            <FormControlLabel
+              sx={{ ml: 0, mr: 0, '& .MuiFormControlLabel-label': { fontSize: '0.72rem' } }}
+              control={
+                <Checkbox
+                  size="small"
+                  checked={dbSwitchEnabled}
+                  onChange={(e) => onDbSwitchEnabledChange(e.target.checked)}
+                  disabled={dbSwitchDisabled || isSwitchingDatabase}
+                  sx={{ py: 0.25 }}
+                />
+              }
+              label="DB switch"
+            />
+          </Box>
+        </Tooltip>
+      )}
+
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
         <Typography variant="subtitle2" sx={sourcePickerFieldLabelSx}>
           Table
@@ -129,7 +180,7 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
             value={stagedTable || null}
             options={filteredTableOptions}
             onChange={handleTableChange}
-            disabled={!stagedDatabase}
+            disabled={!stagedDatabase || isSwitchingDatabase}
             autoHighlight
             isOptionEqualToValue={(option, optionValue) => option === optionValue}
             className={compactAutocompleteClassName}

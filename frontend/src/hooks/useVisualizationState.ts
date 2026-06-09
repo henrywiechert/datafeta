@@ -17,9 +17,9 @@ import {
 
 
 export function useVisualizationState() {
-    const { connectionDetails } = useConnection();
+    const { connectionDetails, updateConnectionDatabase } = useConnection();
     const { state, dispatch } = useVisualizationContext();
-    const { updateActiveSheetState } = useSheetContext();
+    const { updateActiveSheetState, state: sheetState } = useSheetContext();
     const dataSourceContext = useDataSource();
     const { 
         dataSource, 
@@ -28,12 +28,14 @@ export function useVisualizationState() {
         setAvailableFields,
         setDatabases,
         setTables,
+        setTablesForDatabase,
         setIsLoadingMetadata,
         setMetadataError,
         setSuggestedJoinableTables,
         setSuggestedUnionableTables,
         setVirtualTable,
         setMeasureGroupFields,
+        setUnionTables,
         addVirtualColumn,
         updateVirtualColumn,
         removeVirtualColumn,
@@ -48,6 +50,8 @@ export function useVisualizationState() {
         setAvailableFields,
         setDatabases,
         setTables,
+        setTablesForDatabase,
+        setUnionTables,
         setIsLoadingMetadata,
         setMetadataError,
         setSuggestedJoinableTables,
@@ -89,7 +93,10 @@ export function useVisualizationState() {
         yAxisFields: state.yAxisFields,
         measureGroupFields: state.measureGroupFields,
         virtualColumns: dataSource.virtualColumns,
-        dispatch
+        dispatch,
+        sheets: sheetState.sheets,
+        sessionFilterFields: dataSource.sessionFilterFields,
+        onUpdateConnectionDatabase: updateConnectionDatabase,
     });
 
     // Merge sheet + session filter state so useFilterMetadata auto-fetches
@@ -287,6 +294,8 @@ export function useVisualizationState() {
         fetchSuggestedJoins: metadataOps.fetchSuggestedJoins,
         fetchMergedColumns: metadataOps.fetchMergedColumns,
         refreshMetadata: metadataOps.refreshMetadata,
+        switchDatabasePreserveTables: metadataOps.switchDatabasePreserveTables,
+        unionTables: dataSource.unionTables,
         
         // From filterMetadata hook
         refetchFilterValues: filterMetadata.refetchFilterValues,

@@ -1,9 +1,14 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { useCallback, useEffect, useRef } from 'react';
-import { Field, VirtualColumnDefinition, ForeignKeyRelationship } from '../types';
+import { Field, VirtualColumnDefinition, ForeignKeyRelationship, Sheet } from '../types';
 import { apiService } from '../apiService';
 import { buildValidColumnNames, validateAxisFields, markAllAxisFieldsInvalid } from '../utils/axisFieldValidation';
 import { processColumnsResponse } from '../utils/fieldUtils';
+import {
+    switchDatabasePreserveTables,
+    DatabaseSwitchError,
+} from '../services/switchDatabasePreserveTables';
+import { SchemaCheckResult } from '../utils/schemaValidation';
 
 interface ConnectionDetails {
     type: 'clickhouse' | 'csv' | 'kaggle' | 'hive_parquet';
@@ -27,6 +32,7 @@ interface DataSourceState {
 interface DataSourceSetters {
     setDatabases: (databases: any[]) => void;
     setTables: (tables: any[]) => void;
+    setSelectedDatabase: (database: string) => void;
     setSelectedTable: (table: string) => void;
     setAvailableFields: (fields: Field[]) => void;
     setIsLoadingMetadata: (loading: boolean) => void;
@@ -35,6 +41,8 @@ interface DataSourceSetters {
     setSuggestedUnionableTables: (tables: string[]) => void;
     setVirtualTable: (table: any) => void;
     setMeasureGroupFields: (fields: Field[]) => void;
+    setUnionTables: (tables: Array<{ database: string; table_name: string }>) => void;
+    setTablesForDatabase: (database: string, tables: any[]) => void;
 }
 
 interface UseMetadataOperationsParams {
@@ -46,6 +54,9 @@ interface UseMetadataOperationsParams {
     measureGroupFields: Field[]; // Now from VisualizationContext
     virtualColumns: VirtualColumnDefinition[]; // For axis field validation
     dispatch: React.Dispatch<any>;
+    sheets?: Sheet[];
+    sessionFilterFields?: Field[];
+    onUpdateConnectionDatabase?: (database: string) => void;
 }
 
 export interface UseMetadataOperationsReturn {
@@ -56,6 +67,7 @@ export interface UseMetadataOperationsReturn {
     fetchSuggestedUnions: () => Promise<void>;
     fetchMergedColumns: () => Promise<void>;
     refreshMetadata: () => Promise<void>;
+    switchDatabasePreserveTables: (newDatabase: string) => Promise<SchemaCheckResult>;
 }
 
 export function useMetadataOperations({
@@ -66,8 +78,13 @@ export function useMetadataOperations({
     yAxisFields,
     measureGroupFields,
     virtualColumns,
-    dispatch
+    dispatch,
+    sheets = [],
+    sessionFilterFields = [],
+    onUpdateConnectionDatabase,
 }: UseMetadataOperationsParams): UseMetadataOperationsReturn {
+
+    const isSwitchingDatabaseRef = useRef(false);
 
     const fetchDatabases = useCallback(async (): Promise<any[]> => {
         dataSourceSetters.setIsLoadingMetadata(true);
@@ -547,6 +564,68 @@ export function useMetadataOperations({
         }
     }, [dataSource.selectedTable, xAxisFields, yAxisFields, dispatch]);
 
+    const switchDatabasePreserveTablesHandler = useCallback(async (newDatabase: string) => {
+        if (connectionDetails?.type !== 'clickhouse') {
+            throw new DatabaseSwitchError('Database switch is only supported for ClickHouse.');
+        }
+        if (isSwitchingDatabaseRef.current) {
+            throw new DatabaseSwitchError('A database switch is already in progress.');
+        }
+        isSwitchingDatabaseRef.current = true;
+        try {
+            const result = await switchDatabasePreserveTables({
+                oldDatabase: dataSource.selectedDatabase,
+                newDatabase,
+                selectedTable: dataSource.selectedTable,
+                joinedTables: dataSource.joinedTables,
+                unionTables: dataSource.unionTables,
+                customRelationships: dataSource.customRelationships,
+                fieldDisplayAliases: dataSource.fieldDisplayAliases,
+                measureGroupFields,
+                xAxisFields,
+                yAxisFields,
+                virtualColumns,
+                sheets,
+                sessionFilterFields,
+                setSelectedDatabase: dataSourceSetters.setSelectedDatabase,
+                setUnionTables: dataSourceSetters.setUnionTables,
+                setTables: dataSourceSetters.setTables,
+                setTablesForDatabase: dataSourceSetters.setTablesForDatabase,
+                setAvailableFields: dataSourceSetters.setAvailableFields,
+                setVirtualTable: dataSourceSetters.setVirtualTable,
+                setIsLoadingMetadata: dataSourceSetters.setIsLoadingMetadata,
+                setMetadataError: dataSourceSetters.setMetadataError,
+                setMeasureGroupFields: dataSourceSetters.setMeasureGroupFields,
+                patchAxisFields: (patchedX, patchedY) => {
+                    dispatch({ type: 'SET_X_AXIS_FIELDS', payload: patchedX });
+                    dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: patchedY });
+                },
+                onUpdateConnectionDatabase,
+            });
+            dispatch({ type: 'FORCE_QUERY_REFRESH' });
+            return result;
+        } finally {
+            isSwitchingDatabaseRef.current = false;
+        }
+    }, [
+        connectionDetails?.type,
+        dataSource.selectedDatabase,
+        dataSource.selectedTable,
+        dataSource.joinedTables,
+        dataSource.unionTables,
+        dataSource.customRelationships,
+        dataSource.fieldDisplayAliases,
+        measureGroupFields,
+        xAxisFields,
+        yAxisFields,
+        virtualColumns,
+        sheets,
+        sessionFilterFields,
+        dataSourceSetters,
+        dispatch,
+        onUpdateConnectionDatabase,
+    ]);
+
     return {
         fetchDatabases,
         fetchTables,
@@ -555,6 +634,7 @@ export function useMetadataOperations({
         fetchSuggestedUnions,
         fetchMergedColumns,
         refreshMetadata,
+        switchDatabasePreserveTables: switchDatabasePreserveTablesHandler,
     };
 }
 

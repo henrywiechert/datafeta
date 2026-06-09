@@ -54,6 +54,13 @@ interface FieldsPanelProps {
   onLoadPartition?: (partitionName: string, setAsPrimary?: boolean) => Promise<void>;
   // Add files to existing CSV/Parquet connection
   onAddFiles?: (files: File[]) => Promise<void>;
+  // DB switch (ClickHouse)
+  dbSwitchEnabled?: boolean;
+  onDbSwitchEnabledChange?: (enabled: boolean) => void;
+  onDatabaseSwitch?: (database: string) => void;
+  dbSwitchDisabled?: boolean;
+  dbSwitchDisabledReason?: string;
+  isSwitchingDatabase?: boolean;
   // Virtual columns props
   virtualColumns?: VirtualColumnDefinition[];
   onAddVirtualColumn?: (column: VirtualColumnDefinition) => void;
@@ -105,6 +112,12 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
   onLoadPartition,
   // Add files to existing CSV/Parquet connection
   onAddFiles,
+  dbSwitchEnabled,
+  onDbSwitchEnabledChange,
+  onDatabaseSwitch,
+  dbSwitchDisabled,
+  dbSwitchDisabledReason,
+  isSwitchingDatabase,
   // Virtual columns props
   virtualColumns = [],
   onAddVirtualColumn,
@@ -301,6 +314,12 @@ const FieldsPanel: React.FC<FieldsPanelProps> = ({
         isLoadingPartition={isLoadingPartition}
         onLoadPartition={onLoadPartition}
         onAddFiles={onAddFiles}
+        dbSwitchEnabled={dbSwitchEnabled}
+        onDbSwitchEnabledChange={onDbSwitchEnabledChange}
+        onDatabaseSwitch={onDatabaseSwitch}
+        dbSwitchDisabled={dbSwitchDisabled}
+        dbSwitchDisabledReason={dbSwitchDisabledReason}
+        isSwitchingDatabase={isSwitchingDatabase}
       />
       
       {/* Fields search below metadata */}
@@ -411,7 +430,10 @@ export default React.memo(FieldsPanel, (prevProps, nextProps) => {
     prevProps.virtualColumns === nextProps.virtualColumns &&
     // Hive Parquet partition loading props
     prevProps.loadedPartitions === nextProps.loadedPartitions &&
-    prevProps.isLoadingPartition === nextProps.isLoadingPartition
+    prevProps.isLoadingPartition === nextProps.isLoadingPartition &&
+    prevProps.dbSwitchEnabled === nextProps.dbSwitchEnabled &&
+    prevProps.dbSwitchDisabled === nextProps.dbSwitchDisabled &&
+    prevProps.isSwitchingDatabase === nextProps.isSwitchingDatabase
     // Callbacks NOT compared - they are now stable (see useDragDrop.ts, useFieldOperations.ts)
   );
 });

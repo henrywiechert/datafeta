@@ -111,6 +111,13 @@ interface CompactMetadataSelectorProps {
   onLoadPartition?: (partitionName: string, setAsPrimary?: boolean) => Promise<void>;
   // Add files to existing CSV/Parquet connection
   onAddFiles?: (files: File[]) => Promise<void>;
+  // DB switch (ClickHouse)
+  dbSwitchEnabled?: boolean;
+  onDbSwitchEnabledChange?: (enabled: boolean) => void;
+  onDatabaseSwitch?: (database: string) => void;
+  dbSwitchDisabled?: boolean;
+  dbSwitchDisabledReason?: string;
+  isSwitchingDatabase?: boolean;
 }
 
 const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
@@ -137,6 +144,12 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
   isLoadingPartition = false,
   onLoadPartition,
   onAddFiles,
+  dbSwitchEnabled,
+  onDbSwitchEnabledChange,
+  onDatabaseSwitch,
+  dbSwitchDisabled,
+  dbSwitchDisabledReason,
+  isSwitchingDatabase,
 }) => {
   const addFilesInputRef = React.useRef<HTMLInputElement>(null);
   const databaseOptions = React.useMemo(
@@ -335,6 +348,12 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
             unionTables={unionTables}
             onAdd={handleAddTable}
             onApplyPatternSelection={handleApplyPatternSelection}
+            dbSwitchEnabled={dbSwitchEnabled}
+            onDbSwitchEnabledChange={onDbSwitchEnabledChange}
+            onDatabaseSwitch={onDatabaseSwitch}
+            dbSwitchDisabled={dbSwitchDisabled}
+            dbSwitchDisabledReason={dbSwitchDisabledReason}
+            isSwitchingDatabase={isSwitchingDatabase}
           />
 
           <SelectedTablesList
