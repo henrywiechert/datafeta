@@ -315,11 +315,16 @@ const VisualizationPageContent = () => {
         setSchemaCheckOpen(true);
     }, []);
 
-    const dbSwitchDisabled = false;
-    const hasCrossDbUnion = hasCrossDatabaseUnion(selectedDatabase, unionTables);
-    const dbSwitchDisabledReason = hasCrossDbUnion
-        ? 'Union tables in other databases will keep their original database after the switch.'
+    const dbSwitchDisabled = hasCrossDatabaseUnion(selectedDatabase, unionTables);
+    const dbSwitchDisabledReason = dbSwitchDisabled
+        ? 'Not supported for cross-database unions'
         : undefined;
+
+    React.useEffect(() => {
+        if (dbSwitchDisabled && dbSwitchEnabled) {
+            setDbSwitchEnabled(false);
+        }
+    }, [dbSwitchDisabled, dbSwitchEnabled]);
 
     const handleDatabaseSwitch = React.useCallback(async (newDatabase: string) => {
         setIsSwitchingDatabase(true);

@@ -90,9 +90,10 @@ export function validateSheetSchema(
     virtualColumns,
   );
 
-  const availableColumnNames = new Set(
-    availableFields.map((f) => f.columnName),
-  );
+  const availableColumnNames = new Set([
+    ...availableFields.map((f) => f.columnName),
+    ...virtualColumns.map((vc) => vc.name).filter(Boolean),
+  ]);
 
   const missingColumns = Array.from(referenced)
     .filter((name) => !availableColumnNames.has(name))

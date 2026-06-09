@@ -146,8 +146,8 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
       {onDbSwitchEnabledChange && (
         <Tooltip
           title={
-            dbSwitchDisabledReason
-              ? `Change database without clearing table selection. ${dbSwitchDisabledReason}`
+            dbSwitchDisabled && dbSwitchDisabledReason
+              ? dbSwitchDisabledReason
               : 'Change database without clearing table selection. Requires identical table names in the new database.'
           }
         >
@@ -180,7 +180,7 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
             value={stagedTable || null}
             options={filteredTableOptions}
             onChange={handleTableChange}
-            disabled={!stagedDatabase || isSwitchingDatabase}
+            disabled={!stagedDatabase || isSwitchingDatabase || dbSwitchEnabled}
             autoHighlight
             isOptionEqualToValue={(option, optionValue) => option === optionValue}
             className={compactAutocompleteClassName}
@@ -205,12 +205,12 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
           />
         </Box>
         <Box sx={actionColumnSx}>
-          <Tooltip title={canAdd ? 'Add table' : 'Select DB and table'} placement="right">
+          <Tooltip title={dbSwitchEnabled ? 'Disabled in DB switch mode' : canAdd ? 'Add table' : 'Select DB and table'} placement="right">
             <span>
               <IconButton
                 size="small"
                 onClick={handleAdd}
-                disabled={!canAdd}
+                disabled={!canAdd || dbSwitchEnabled}
                 sx={{ width: 26, height: 26, p: 0.25 }}
                 aria-label="Add table"
               >
@@ -225,6 +225,7 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
         <Button
           size="small"
           onClick={() => setIsPatternDialogOpen(true)}
+          disabled={dbSwitchEnabled}
           sx={{ minWidth: 0, px: 0.75, textTransform: 'none', fontSize: '0.72rem' }}
         >
           Add by pattern

@@ -93,4 +93,17 @@ describe('schemaValidation', () => {
     expect(result.missingColumns).toEqual(['missing']);
     expect(result.missingJoinedTables).toEqual(['dim_missing']);
   });
+
+  test('validateSheetSchema does not report virtual columns as missing', () => {
+    const result = validateSheetSchema(
+      [sheet({ xAxisFields: [field('vc_revenue')] })],
+      [field('real_col')],
+      [],
+      ['fact'],
+      [],
+      [{ name: 'vc_revenue', expression: 'price * qty', output_type: 'numeric' }],
+    );
+    expect(result.allClear).toBe(true);
+    expect(result.missingColumns).toEqual([]);
+  });
 });
