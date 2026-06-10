@@ -179,7 +179,7 @@ describe('layoutUtils', () => {
     }).width).toBe('100%');
   });
 
-  it('sizes the X-axis gutter from formatted categorical ticks', () => {
+  it('ignores tickFormat when sizing the X-axis gutter to avoid layout feedback loops', () => {
     const grid = buildGrid({
       cells: [
         {
@@ -238,7 +238,7 @@ describe('layoutUtils', () => {
     expect(computeDynamicXAxisGutterPx(grid, 1, null)).toBe(79);
   });
 
-  it('sizes the Y-axis gutter from formatted categorical ticks', () => {
+  it('ignores tickFormat when sizing the Y-axis gutter to avoid layout feedback loops', () => {
     const grid = buildGrid({
       cells: [
         {
@@ -265,7 +265,7 @@ describe('layoutUtils', () => {
       },
     });
 
-    expect(computeDynamicYAxisGutterPx(grid, 1, null)).toBe(76);
+    expect(computeDynamicYAxisGutterPx(grid, 1, null)).toBe(130);
   });
 
   it('caps the Y-axis gutter for long categorical ticks to the rendered band width', () => {
