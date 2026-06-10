@@ -69,22 +69,9 @@ function measureTextPx(text: string, fontSizePx: number): number | null {
   return Math.ceil(width);
 }
 
-function formatTickValue(value: any, tickFormat?: ((value: any) => any) | undefined): string {
-  if (!tickFormat) {
-    return String(value ?? '');
-  }
-
-  try {
-    return String(tickFormat(value) ?? '');
-  } catch {
-    return String(value ?? '');
-  }
-}
-
-function estimateLongestTickPx(domain: any[], tickFormat?: ((value: any) => any) | undefined): number {
+function estimateLongestTickPx(domain: any[]): number {
   return domain.reduce((max: number, value: any) => {
-    const formatted = formatTickValue(value, tickFormat);
-    return Math.max(max, estimateTextPx(formatted));
+    return Math.max(max, estimateTextPx(String(value ?? '')));
   }, 0);
 }
 
@@ -231,11 +218,12 @@ export function computeDynamicYAxisGutterPx(grid: GridResultModel | null, rows: 
     const yOpts: any = sample?.content.options?.y || {};
     const yType = yOpts?.type;
     const yDomain = yOpts?.domain as any;
-    const yTickFormat = yOpts?.tickFormat as ((value: any) => any) | undefined;
     let tickWidth = 0;
     if (yType === 'band' && Array.isArray(yDomain)) {
-      // Categorical axis: cap to the same approximate width budget used by axisY lineWidth.
-      const longest = Math.min(estimateLongestTickPx(yDomain, yTickFormat), MAX_Y_BAND_TICK_WIDTH_PX);
+      // Categorical axis: size from raw domain values (not tickFormat). tickFormat is
+      // derived from the measured gutter, so using it here would shrink the gutter each
+      // render until labels disappear.
+      const longest = Math.min(estimateLongestTickPx(yDomain), MAX_Y_BAND_TICK_WIDTH_PX);
       tickWidth = longest + 10; // padding
     } else if (Array.isArray(yDomain) && yDomain.length === 2) {
       // Numeric axis: endpoints only (ticks are generated inside ObservablePlot)
@@ -261,10 +249,9 @@ export function computeDynamicXAxisGutterPx(grid: GridResultModel | null, column
     const xOpts: any = sample?.content.options?.x || {};
     const xType = xOpts?.type;
     const xDomain = xOpts?.domain as any;
-    const xTickFormat = xOpts?.tickFormat as ((value: any) => any) | undefined;
     let height = 24;
     if (xType === 'band' && Array.isArray(xDomain)) {
-      const visibleTickPx = Math.min(estimateLongestTickPx(xDomain, xTickFormat), MAX_X_BAND_TICK_HEIGHT_PX);
+      const visibleTickPx = Math.min(estimateLongestTickPx(xDomain), MAX_X_BAND_TICK_HEIGHT_PX);
       height = Math.max(30, 14 + visibleTickPx); // base tick + vertical label extent
     } else {
       // numeric or time, modest ticks
