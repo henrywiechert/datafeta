@@ -10,8 +10,7 @@ frontend/build
 venv
 .env
 
-# Git
-.git
+# Git metadata is needed during image build to generate version.json files.
 .gitignore
 
 # IDE/editor
