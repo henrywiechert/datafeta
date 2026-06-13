@@ -34,7 +34,7 @@ const FieldChip: React.FC<
     onRemoveFromZone?: (fieldIds: string[]) => void;
     displayNameOverride?: string;
   }
-> = ({ field, source, onUpdate, index, allFields, menuConfig, onRemoveFromZone, displayNameOverride, onCreateBins, onAssignToZone }) => {
+> = ({ field, source, onUpdate, index, allFields, menuConfig, onRemoveFromZone, displayNameOverride, onCreateBins }) => {
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
   
   // Granular subscription - only re-renders when THIS field's selection changes
@@ -67,17 +67,6 @@ const FieldChip: React.FC<
     setMenuPosition(position);
   }, [handleContextMenuSelection]);
 
-  // Keyboard access: Shift+F10 or ContextMenu key opens the menu at the chip's position.
-  const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
-    const isContextMenuKey =
-      event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10');
-    if (!isContextMenuKey) return;
-    event.preventDefault();
-    const target = event.currentTarget as HTMLElement;
-    const rect = target.getBoundingClientRect();
-    setMenuPosition({ x: rect.left + rect.width / 2, y: rect.bottom });
-  }, []);
-
   const handleCloseMenu = useCallback(() => {
     setMenuPosition(null);
   }, []);
@@ -106,7 +95,6 @@ const FieldChip: React.FC<
         onClick={handleClick}
         onMouseDown={handleMouseDown}
         onContextMenu={handleContextMenu}
-        onKeyDown={handleKeyDown}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         dragCount={dragCount}
@@ -124,7 +112,6 @@ const FieldChip: React.FC<
         menuConfig={effectiveMenuConfig}
         onRemoveFromZone={onRemoveFromZone}
         onCreateBins={onCreateBins}
-        onAssignToZone={onAssignToZone}
       />
     </>
   );

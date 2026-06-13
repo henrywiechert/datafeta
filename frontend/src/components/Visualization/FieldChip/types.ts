@@ -13,7 +13,4 @@ export interface FieldChipProps {
   isInvalidOnAxis?: boolean;
   allFields?: Field[]; // For range selection
   onCreateBins?: (field: Field) => void; // Callback for "Create Bins..." action
-  // Keyboard-accessible zone assignment from the available-fields list (a11y).
-  // When provided, FieldMenuItems shows "Add to X axis / Y axis / Filter" entries.
-  onAssignToZone?: (field: Field, zone: 'X_AXIS' | 'Y_AXIS' | 'FILTER') => void;
 }
