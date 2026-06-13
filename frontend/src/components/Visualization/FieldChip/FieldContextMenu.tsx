@@ -17,7 +17,6 @@ interface FieldContextMenuProps {
   menuConfig: FieldMenuConfig;
   onRemoveFromZone?: (fieldIds: string[]) => void;
   onCreateBins?: (field: Field) => void; // Callback for "Create Bins..." action
-  onAssignToZone?: (field: Field, zone: 'X_AXIS' | 'Y_AXIS' | 'FILTER') => void;
 }
 
 const FieldContextMenu: React.FC<FieldContextMenuProps> = ({ 
@@ -30,7 +29,6 @@ const FieldContextMenu: React.FC<FieldContextMenuProps> = ({
   menuConfig,
   onRemoveFromZone,
   onCreateBins,
-  onAssignToZone,
 }) => {
   const handleUpdate = useCallback((updates: Partial<Field>) => {
     // Always work with an array - single field is just an array of length 1
@@ -56,7 +54,7 @@ const FieldContextMenu: React.FC<FieldContextMenuProps> = ({
   }
 
   return (
-    <ContextMenu position={menuPosition} onClose={onCloseMenu} ariaLabel={`Actions for ${field.columnName}`}>
+    <ContextMenu position={menuPosition} onClose={onCloseMenu}>
       <FieldMenuItems 
         field={field}
         source={source}
@@ -66,7 +64,6 @@ const FieldContextMenu: React.FC<FieldContextMenuProps> = ({
         onRemoveFromZone={onRemoveFromZone}
         onRequestClose={onCloseMenu}
         onCreateBins={onCreateBins}
-        onAssignToZone={onAssignToZone}
       />
     </ContextMenu>
   );
