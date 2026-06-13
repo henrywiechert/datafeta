@@ -8,6 +8,7 @@ import { SheetProvider, useSheetContext } from './contexts/SheetContext';
 import { useDataSource } from './contexts/DataSourceContext';
 import { useConnection } from './contexts/ConnectionContext';
 import { useDataSourceVersionSync } from './hooks/useSheetRenderCache';
+import { useSheetManagement } from './hooks/useSheetManagement';
 import { sheetRenderCacheStore } from './stores';
 import SaveLoadMenu from './components/SaveLoadMenu';
 import ConnectionRestoreDialog, { ClickHouseOverrides, ConnectionRestoreOptions } from './components/ConnectionRestoreDialog';
@@ -74,19 +75,35 @@ function AppContent() {
     }
   }, [isConnected]);
   
-  const [contextMenu, setContextMenu] = useState<{
-    mouseX: number;
-    mouseY: number;
-    sheetId: string;
-  } | null>(null);
-  
-  const [renameDialog, setRenameDialog] = useState<{
-    open: boolean;
-    sheetId: string;
-    currentName: string;
-  }>({ open: false, sheetId: '', currentName: '' });
-  
-  const [newName, setNewName] = useState('');
+  // --- Sheet management extracted to a dedicated hook ---
+  const sheetManagement = useSheetManagement({
+    addSheet,
+    renameSheet,
+    duplicateSheet,
+    removeSheet,
+    setActiveSheet,
+    sheets: state.sheets,
+    navigate,
+    isVisualizationPage,
+  });
+
+  // Destructure sheet management for use in JSX
+  const {
+    contextMenu,
+    openSheetMenu,
+    closeContextMenu: handleCloseContextMenu,
+    renameDialog,
+    newName,
+    setNewName,
+    closeRenameDialog,
+    handleTabChange,
+    handleAddSheet,
+    handleContextMenu,
+    handleRenameClick,
+    handleRenameConfirm,
+    handleDuplicateClick,
+    handleDeleteClick,
+  } = sheetManagement;
   
   // State for configuration restore
   const [pendingConfig, setPendingConfig] = useState<SavedConfiguration | null>(null);
@@ -161,82 +178,6 @@ function AppContent() {
       }
     }
   }, [isConnected, resetWorkspace]);
-
-  const handleTabChange = (event: React.SyntheticEvent, newValue: string) => {
-    if (newValue === 'datasources') {
-      navigate('/');
-    } else {
-      // It's a sheet ID
-      setActiveSheet(newValue);
-      // Only navigate if we're not already on the visualization page
-      if (!isVisualizationPage) {
-        navigate('/visualize');
-      }
-    }
-  };
-
-  const handleAddSheet = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    addSheet();
-    if (!isVisualizationPage) {
-      navigate('/visualize');
-    }
-  };
-
-  const openSheetMenu = (sheetId: string, mouseX: number, mouseY: number) => {
-    setContextMenu({
-      mouseX,
-      mouseY,
-      sheetId,
-    });
-  };
-
-  const handleContextMenu = (event: React.MouseEvent, sheetId: string) => {
-    event.preventDefault();
-    event.stopPropagation();
-    openSheetMenu(sheetId, event.clientX - 2, event.clientY - 4);
-  };
-
-  const handleCloseContextMenu = () => {
-    setContextMenu(null);
-  };
-
-  const handleRenameClick = () => {
-    if (contextMenu) {
-      const sheet = state.sheets.find(s => s.id === contextMenu.sheetId);
-      if (sheet) {
-        setNewName(sheet.name);
-        setRenameDialog({
-          open: true,
-          sheetId: contextMenu.sheetId,
-          currentName: sheet.name,
-        });
-      }
-    }
-    handleCloseContextMenu();
-  };
-
-  const handleRenameConfirm = () => {
-    if (newName.trim() && renameDialog.sheetId) {
-      renameSheet(renameDialog.sheetId, newName.trim());
-    }
-    setRenameDialog({ open: false, sheetId: '', currentName: '' });
-    setNewName('');
-  };
-
-  const handleDuplicateClick = () => {
-    if (contextMenu) {
-      duplicateSheet(contextMenu.sheetId);
-    }
-    handleCloseContextMenu();
-  };
-
-  const handleDeleteClick = () => {
-    if (contextMenu && state.sheets.length > 1) {
-      removeSheet(contextMenu.sheetId);
-    }
-    handleCloseContextMenu();
-  };
 
   // Helper to get current configuration
   const getCurrentConfiguration = (): SavedConfiguration => {
@@ -707,7 +648,7 @@ function AppContent() {
       {/* Rename Dialog */}
       <Dialog 
         open={renameDialog.open} 
-        onClose={() => setRenameDialog({ open: false, sheetId: '', currentName: '' })}
+        onClose={closeRenameDialog}
         maxWidth="sm"
         fullWidth
       >
@@ -731,7 +672,7 @@ function AppContent() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setRenameDialog({ open: false, sheetId: '', currentName: '' })}>
+          <Button onClick={closeRenameDialog}>
             Cancel
           </Button>
           <Button 
