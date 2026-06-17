@@ -13,7 +13,10 @@ Data Slicer is a full-stack data analysis platform consisting of:
 
 ### Data Source Support
 - **Database Connectivity**: Connect to various databases through configurable connectors
-- **File Support**: Upload and analyze CSV/parquet files using integrated DuckDB engine in backend
+- **File Support**: Upload and analyze CSV/Parquet files using integrated DuckDB engine in backend
+- **Kaggle Datasets**: Connect to public [Kaggle](https://www.kaggle.com/datasets) datasets by dataset reference (`owner/dataset-name`). Credentials (username + API key) are provided at connect time and never saved.
+- **HuggingFace Datasets**: Connect to public (or private) [HuggingFace](https://huggingface.co/datasets) datasets via the Dataset Viewer Parquet API. Datasets are queried as remote Parquet shards by DuckDB — no full download required. An optional access token supports gated/private datasets. Large splits are blocked at connect time via a configurable size limit (`HF_MAX_SPLIT_BYTES_MB`, default 500 MB).
+- **Hive Parquet**: Connect to locally-partitioned Parquet datasets in Hive-style directory layouts.
 - **Query Generation**: Dynamic SQL query generation with pypika notation
 - **Efficient Caching**: In-Browser [DuckDB WASM](https://duckdb.org/docs/stable/clients/wasm/overview) based column caching for best UX
 
@@ -158,6 +161,36 @@ Run the backend on an internal port (e.g., 8000) and have Nginx serve the static
 location /api/ { proxy_pass http://backend:8000/api/; }
 location / { root /usr/share/nginx/html; try_files $uri /index.html; }
 ```
+
+### Data Source Configuration
+
+#### Kaggle
+
+Kaggle datasets are accessed via the [Kaggle Public API](https://www.kaggle.com/docs/api). No API credentials need to be configured on the server — the Kaggle username and API key are entered in the connection form and are only used during that session (they are never persisted or exported).
+
+To connect, enter:
+- **Kaggle username** — your Kaggle account username
+- **API key** — generate one at https://www.kaggle.com/settings under "API"
+- **Dataset reference** — in the form `owner/dataset-name` (e.g. `zillow/zecon`)
+
+CSV and Parquet files within the dataset are downloaded to a session-scoped temp directory and queried via DuckDB. The files are removed on disconnect.
+
+#### HuggingFace Datasets
+
+HuggingFace datasets are queried directly as remote Parquet files served by the [Hugging Face Dataset Viewer](https://huggingface.co/docs/dataset-viewer/en/parquet). DuckDB's `httpfs` extension streams the Parquet shards on demand — no local download is required.
+
+To connect, enter:
+- **Dataset** — the dataset ID (e.g. `stanfordnlp/imdb`). Search by keyword in the form or type it manually.
+- **Splits** — optionally select specific config/split combinations to load (defaults to all available).
+- **Access token** (optional) — a HuggingFace [User Access Token](https://huggingface.co/settings/tokens) with at least `read` scope. Required for gated or private datasets.
+
+Each selected split becomes a queryable table in the workspace. Splits whose Parquet files exceed the size gate are shown with a warning and cannot be selected.
+
+Backend environment variables for HuggingFace:
+
+| Variable | Default | Description |
+|---|---|---|
+| `HF_MAX_SPLIT_BYTES_MB` | `500` | Maximum allowed Parquet size (in MB) per split. Splits above this limit are shown as unavailable in the UI. Set to a higher value if you need to query larger splits. |
 
 ### Environment Variables
 
