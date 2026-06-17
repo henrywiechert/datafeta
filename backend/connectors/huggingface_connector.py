@@ -77,6 +77,7 @@ class HuggingFaceConnector(BaseConnector):
         self.selected_splits: Optional[List[str]] = None
         self.max_split_bytes: int = DEFAULT_MAX_SPLIT_BYTES
         self._tables: Dict[str, HuggingFaceTable] = {}
+        self._con: Optional[duckdb.DuckDBPyConnection] = None
 
     def connect(self, connection_details: Dict[str, Any]) -> None:
         self.dataset = connection_details.get("hf_dataset")
@@ -137,6 +138,12 @@ class HuggingFaceConnector(BaseConnector):
 
     def disconnect(self) -> None:
         table_names = sorted(self._tables.keys())
+        if self._con is not None:
+            try:
+                self._con.close()
+            except Exception:
+                logger.debug("Error closing DuckDB connection on HuggingFace disconnect", exc_info=True)
+            self._con = None
         self.dataset = None
         self.token = None
         self.selected_splits = None
@@ -165,26 +172,21 @@ class HuggingFaceConnector(BaseConnector):
     def fetch_data_arrow(self, query: str) -> pa.Table:
         if not self._tables:
             raise DataSourceConnectionError("Not connected to a HuggingFace dataset")
-
-        con = None
         try:
-            con = self._build_duckdb_con()
+            con = self._get_con()
             logger.debug("Executing HuggingFace Arrow query: %s", query)
             return con.execute(query).fetch_arrow_table()
+        except QueryExecutionError:
+            raise
         except Exception as e:
             logger.exception("Error executing Arrow query on HuggingFace dataset")
             raise QueryExecutionError(f"Failed to execute query: {e}")
-        finally:
-            if con:
-                con.close()
 
     def fetch_data(self, query: str) -> Tuple[List[Dict[str, str]], List[Dict[str, Any]]]:
         if not self._tables:
             raise DataSourceConnectionError("Not connected to a HuggingFace dataset")
-
-        con = None
         try:
-            con = self._build_duckdb_con()
+            con = self._get_con()
             logger.debug("Executing HuggingFace query: %s", query)
             arrow_table = con.execute(query).fetch_arrow_table()
             columns = [
@@ -193,12 +195,11 @@ class HuggingFaceConnector(BaseConnector):
             ]
             rows = process_query_result_data(arrow_table.to_pylist())
             return columns, rows
+        except QueryExecutionError:
+            raise
         except Exception as e:
             logger.exception("Error executing query on HuggingFace dataset")
             raise QueryExecutionError(f"Failed to execute query: {e}")
-        finally:
-            if con:
-                con.close()
 
     def detect_foreign_keys(self, database: str = None) -> List[ForeignKeyRelationship]:
         self._validate_database(database)
@@ -414,13 +415,26 @@ class HuggingFaceConnector(BaseConnector):
         url_list = ", ".join(_sql_string(url) for url in urls)
         return f"read_parquet([{url_list}])"
 
+    def _get_con(self) -> duckdb.DuckDBPyConnection:
+        """Return the cached DuckDB connection, building it on first call."""
+        if self._con is None:
+            self._con = self._build_duckdb_con()
+        return self._con
+
     def _build_duckdb_con(self) -> duckdb.DuckDBPyConnection:
         con = self._create_duckdb_connection()
         try:
             for table in self._tables.values():
-                safe_view_name = _quote_identifier(table.table_name)
+                safe_name = _quote_identifier(table.table_name)
                 reader_sql = self._build_read_parquet_sql(table.urls)
-                con.execute(f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {reader_sql};")
+                logger.info(
+                    "Materializing HuggingFace split '%s' into memory (%s rows, %.1f MB Parquet)...",
+                    table.table_name,
+                    table.num_rows if table.num_rows is not None else "?",
+                    table.num_bytes_parquet_files / (1024 * 1024),
+                )
+                con.execute(f"CREATE OR REPLACE TABLE {safe_name} AS SELECT * FROM {reader_sql};")
+                logger.info("Materialized '%s'.", table.table_name)
             return con
         except Exception:
             con.close()

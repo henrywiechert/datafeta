@@ -80,7 +80,7 @@ class QueryService:
         the types cannot be determined (non-DuckDB backend, no connector, or any
         transient error during metadata retrieval).
         """
-        if db_type not in {'duckdb', 'csv', 'file', 'kaggle', 'hive_parquet'} or connector is None:
+        if db_type not in {'duckdb', 'csv', 'file', 'kaggle', 'hive_parquet', 'huggingface'} or connector is None:
             return None
         try:
             cols = connector.list_columns(database=target_database, table=table_name)
