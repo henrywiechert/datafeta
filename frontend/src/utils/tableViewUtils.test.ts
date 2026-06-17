@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { shouldUseTableView } from './tableViewUtils';
+import { prepareTableData, shouldUseTableView } from './tableViewUtils';
 import { Field } from '../types';
 
 const dim = (name: string): Field => ({
@@ -43,5 +43,27 @@ describe('shouldUseTableView', () => {
   it('still returns true on all-discrete shapes when globalChartType is null/undefined', () => {
     expect(shouldUseTableView([dim('a')], [dim('b')], null)).toBe(true);
     expect(shouldUseTableView([dim('a')], [dim('b')], undefined)).toBe(true);
+  });
+});
+
+describe('prepareTableData', () => {
+  it('handles BigInt dimension values in legacy table grouping', () => {
+    const idField = {
+      ...dim('trip_id'),
+      dataType: 'integer',
+    } as Field;
+    const queryResult = {
+      rows: [
+        { trip_id: BigInt('9007199254740993') },
+        { trip_id: BigInt('9007199254740993') },
+        { trip_id: BigInt('9007199254740995') },
+      ],
+    };
+
+    const tableData = prepareTableData(queryResult, [], [idField]);
+
+    expect(tableData.rows).toHaveLength(2);
+    expect(tableData.rows[0].trip_id).toBe(BigInt('9007199254740993'));
+    expect(tableData.rows[1].trip_id).toBe(BigInt('9007199254740995'));
   });
 });

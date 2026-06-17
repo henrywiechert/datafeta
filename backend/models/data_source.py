@@ -192,6 +192,11 @@ class ConnectionDetails(BaseModel):
     kaggle_dataset: Optional[str] = None  # Dataset reference in format "owner/dataset-name"
     kaggle_csv_files: Optional[List[str]] = None  # Pre-fetched list of CSV files to avoid 403 errors
     
+    # Optional fields for HuggingFace datasets
+    hf_token: Optional[str] = None  # Optional HuggingFace token for private datasets
+    hf_dataset: Optional[str] = None  # Dataset reference in format "owner/dataset-name"
+    hf_splits: Optional[List[str]] = None  # Selected Parquet-backed split table names
+
     # Optional fields for Hive-partitioned Parquet connection
     hive_file_structure: Optional[List[str]] = None  # Relative file paths from folder picker
 

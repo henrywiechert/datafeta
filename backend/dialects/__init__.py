@@ -32,6 +32,7 @@ _DIALECT_MAP = {
     'csv': _duckdb_dialect,
     'file': _duckdb_dialect,
     'kaggle': _duckdb_dialect,
+    'huggingface': _duckdb_dialect,
     'hive_parquet': _duckdb_dialect,
 }
 

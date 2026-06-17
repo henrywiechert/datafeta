@@ -18,6 +18,7 @@ import {
   CsvConnectionForm,
   ClickHouseConnectionForm,
   KaggleConnectionForm,
+  HuggingFaceConnectionForm,
   HiveParquetConnectionForm,
   ConnectionType,
 } from '../components/ConnectionForms';
@@ -59,6 +60,7 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
       { value: 'hive_parquet', label: 'Hive Parquet (Partitioned)' },
       { value: 'clickhouse', label: 'ClickHouse' },
       { value: 'kaggle', label: 'Kaggle Dataset' },
+      { value: 'huggingface', label: 'HuggingFace Dataset' },
     ];
     return options.map((option) => ({
       ...option,
@@ -302,6 +304,17 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
               onSearch={form.searchKaggleDatasets}
               onSelectDataset={form.selectKaggleDataset}
               onLoadManual={form.loadKaggleFilesManual}
+              disabled={formDisabled || !currentConnectorEnabled}
+            />
+          )}
+
+          {form.connectionType === 'huggingface' && (
+            <HuggingFaceConnectionForm
+              state={form.huggingFaceState}
+              onUpdate={form.updateHuggingFaceState}
+              onSearch={form.searchHuggingFaceDatasets}
+              onSelectDataset={form.selectHuggingFaceDataset}
+              onLoadManual={form.loadHuggingFaceSplitsManual}
               disabled={formDisabled || !currentConnectorEnabled}
             />
           )}

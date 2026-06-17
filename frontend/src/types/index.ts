@@ -32,6 +32,14 @@ export type {
   KaggleFilesResponse,
 } from './kaggle';
 
+// HuggingFace types
+export type {
+  HuggingFaceDataset,
+  HuggingFaceSplit,
+  HuggingFaceSearchResponse,
+  HuggingFaceSplitsResponse,
+} from './huggingface';
+
 // Connection types
 export type {
   ConnectionDetails,

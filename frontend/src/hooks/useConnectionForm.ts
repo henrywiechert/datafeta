@@ -16,11 +16,13 @@ import {
   CsvFormState,
   ClickHouseFormState,
   KaggleFormState,
+  HuggingFaceFormState,
   HiveParquetFormState,
   ValidationResult,
   DEFAULT_CSV_STATE,
   DEFAULT_CLICKHOUSE_STATE,
   DEFAULT_KAGGLE_STATE,
+  DEFAULT_HUGGINGFACE_STATE,
   DEFAULT_HIVE_PARQUET_STATE,
 } from '../components/ConnectionForms/types';
 
@@ -55,6 +57,7 @@ const initialState: ConnectionFormState = {
   csv: DEFAULT_CSV_STATE,
   clickHouse: DEFAULT_CLICKHOUSE_STATE,
   kaggle: DEFAULT_KAGGLE_STATE,
+  huggingFace: DEFAULT_HUGGINGFACE_STATE,
   hiveParquet: DEFAULT_HIVE_PARQUET_STATE,
 };
 
@@ -76,6 +79,9 @@ function connectionFormReducer(
     case 'UPDATE_KAGGLE':
       return { ...state, kaggle: { ...state.kaggle, ...action.payload } };
 
+    case 'UPDATE_HUGGINGFACE':
+      return { ...state, huggingFace: { ...state.huggingFace, ...action.payload } };
+
     case 'UPDATE_HIVE_PARQUET':
       return { ...state, hiveParquet: { ...state.hiveParquet, ...action.payload } };
 
@@ -87,6 +93,9 @@ function connectionFormReducer(
 
     case 'RESET_KAGGLE':
       return { ...state, kaggle: DEFAULT_KAGGLE_STATE };
+
+    case 'RESET_HUGGINGFACE':
+      return { ...state, huggingFace: DEFAULT_HUGGINGFACE_STATE };
 
     case 'RESET_HIVE_PARQUET':
       return { ...state, hiveParquet: DEFAULT_HIVE_PARQUET_STATE };
@@ -114,6 +123,13 @@ function connectionFormReducer(
           selectedDataset: details.kaggle_dataset || '',
         };
         newState.csv = csvStateFromDetails(details);
+      } else if (type === 'huggingface') {
+        newState.huggingFace = {
+          ...DEFAULT_HUGGINGFACE_STATE,
+          token: details.hf_token || '',
+          selectedDataset: details.hf_dataset || '',
+          selectedSplits: details.hf_splits || [],
+        };
       } else if (type === 'hive_parquet') {
         newState.hiveParquet = {
           ...DEFAULT_HIVE_PARQUET_STATE,
@@ -139,12 +155,14 @@ export interface UseConnectionFormReturn {
   csvState: CsvFormState;
   clickHouseState: ClickHouseFormState;
   kaggleState: KaggleFormState;
+  huggingFaceState: HuggingFaceFormState;
   hiveParquetState: HiveParquetFormState;
 
   // Per-type state setters (grouped updates)
   updateCsvState: (updates: Partial<CsvFormState>) => void;
   updateClickHouseState: (updates: Partial<ClickHouseFormState>) => void;
   updateKaggleState: (updates: Partial<KaggleFormState>) => void;
+  updateHuggingFaceState: (updates: Partial<HuggingFaceFormState>) => void;
   updateHiveParquetState: (updates: Partial<HiveParquetFormState>) => void;
 
   // Validation and building
@@ -155,6 +173,11 @@ export interface UseConnectionFormReturn {
   searchKaggleDatasets: () => Promise<void>;
   selectKaggleDataset: (ref: string) => Promise<void>;
   loadKaggleFilesManual: () => Promise<void>;
+
+  // HuggingFace-specific actions
+  searchHuggingFaceDatasets: () => Promise<void>;
+  selectHuggingFaceDataset: (ref: string) => Promise<void>;
+  loadHuggingFaceSplitsManual: () => Promise<void>;
 
   // File handling (supports multiple files)
   handleFileChange: (files: File[] | null) => void;
@@ -186,6 +209,10 @@ export function useConnectionForm(): UseConnectionFormReturn {
 
   const updateKaggleState = useCallback((updates: Partial<KaggleFormState>) => {
     dispatch({ type: 'UPDATE_KAGGLE', payload: updates });
+  }, []);
+
+  const updateHuggingFaceState = useCallback((updates: Partial<HuggingFaceFormState>) => {
+    dispatch({ type: 'UPDATE_HUGGINGFACE', payload: updates });
   }, []);
 
   const updateHiveParquetState = useCallback((updates: Partial<HiveParquetFormState>) => {
@@ -221,7 +248,7 @@ export function useConnectionForm(): UseConnectionFormReturn {
 
   // Validation
   const validateForm = useCallback((): ValidationResult => {
-    const { connectionType, csv, clickHouse, kaggle, hiveParquet } = state;
+    const { connectionType, csv, clickHouse, kaggle, huggingFace, hiveParquet } = state;
 
     if (connectionType === 'csv') {
       if (!csv.selectedFiles || csv.selectedFiles.length === 0) {
@@ -247,6 +274,22 @@ export function useConnectionForm(): UseConnectionFormReturn {
       return { isValid: true, errorMessage: null };
     }
 
+    if (connectionType === 'huggingface') {
+      if (!huggingFace.selectedDataset) {
+        return {
+          isValid: false,
+          errorMessage: 'Please select a HuggingFace dataset',
+        };
+      }
+      if (huggingFace.splits.length > 0 && huggingFace.selectedSplits.length === 0) {
+        return {
+          isValid: false,
+          errorMessage: 'Please select at least one allowed HuggingFace split',
+        };
+      }
+      return { isValid: true, errorMessage: null };
+    }
+
     if (connectionType === 'clickhouse') {
       if (!clickHouse.connectionString && !clickHouse.host) {
         return {
@@ -262,7 +305,7 @@ export function useConnectionForm(): UseConnectionFormReturn {
 
   // Build ConnectionDetails from current state
   const buildConnectionDetails = useCallback((): ConnectionDetails => {
-    const { connectionType, csv, clickHouse, kaggle, hiveParquet } = state;
+    const { connectionType, csv, clickHouse, kaggle, huggingFace, hiveParquet } = state;
 
     const details: ConnectionDetails = { type: connectionType };
 
@@ -276,6 +319,14 @@ export function useConnectionForm(): UseConnectionFormReturn {
       details.kaggle_dataset = kaggle.selectedDataset;
       details.kaggle_csv_files = kaggle.files.map((f) => f.name);
       appendCsvParsingDetails(details, csv);
+    } else if (connectionType === 'huggingface') {
+      details.hf_dataset = huggingFace.selectedDataset;
+      if (huggingFace.token) {
+        details.hf_token = huggingFace.token;
+      }
+      if (huggingFace.selectedSplits.length > 0) {
+        details.hf_splits = huggingFace.selectedSplits;
+      }
     } else if (connectionType === 'clickhouse') {
       if (clickHouse.connectionString) {
         details.connection_string = clickHouse.connectionString;
@@ -392,6 +443,114 @@ export function useConnectionForm(): UseConnectionFormReturn {
     }
   }, [state, updateKaggleState]);
 
+  // HuggingFace: Search datasets
+  const searchHuggingFaceDatasets = useCallback(async () => {
+    const { huggingFace } = state;
+
+    updateHuggingFaceState({
+      isSearching: true,
+      searchError: '',
+      datasets: [],
+      selectedDataset: '',
+      splits: [],
+      selectedSplits: [],
+    });
+
+    try {
+      const result = await apiService.searchHuggingFaceDatasets(
+        huggingFace.token,
+        huggingFace.searchQuery
+      );
+      updateHuggingFaceState({
+        datasets: result.datasets,
+        isSearching: false,
+        searchError: result.datasets.length === 0 ? 'No datasets found matching your search' : '',
+      });
+    } catch (err) {
+      updateHuggingFaceState({
+        isSearching: false,
+        searchError: err instanceof Error ? err.message : 'Failed to search HuggingFace datasets',
+      });
+      console.error('HuggingFace search error:', err);
+    }
+  }, [state, updateHuggingFaceState]);
+
+  // HuggingFace: Select a dataset and load Parquet-backed split tables
+  const selectHuggingFaceDataset = useCallback(
+    async (datasetRef: string) => {
+      const { huggingFace } = state;
+
+      updateHuggingFaceState({
+        selectedDataset: datasetRef,
+        splits: [],
+        selectedSplits: [],
+      });
+
+      try {
+        const result = await apiService.listHuggingFaceSplits(
+          huggingFace.token,
+          datasetRef
+        );
+        const selectableSplits = result.splits
+          .filter((split) => !split.is_too_large)
+          .map((split) => split.table_name);
+        updateHuggingFaceState({
+          splits: result.splits,
+          selectedSplits: selectableSplits,
+          searchError: result.warning || '',
+        });
+      } catch (err) {
+        updateHuggingFaceState({
+          searchError: err instanceof Error ? err.message : 'Failed to list HuggingFace splits',
+        });
+        console.error('HuggingFace splits error:', err);
+      }
+    },
+    [state, updateHuggingFaceState]
+  );
+
+  // HuggingFace: Load splits from manual dataset entry
+  const loadHuggingFaceSplitsManual = useCallback(async () => {
+    const { huggingFace } = state;
+
+    if (!huggingFace.manualDataset) {
+      updateHuggingFaceState({ searchError: 'Please enter a dataset reference' });
+      return;
+    }
+
+    if (!huggingFace.manualDataset.includes('/')) {
+      updateHuggingFaceState({ searchError: 'Dataset must be in format: owner/dataset-name' });
+      return;
+    }
+
+    updateHuggingFaceState({
+      searchError: '',
+      selectedDataset: huggingFace.manualDataset,
+      splits: [],
+      selectedSplits: [],
+    });
+
+    try {
+      const result = await apiService.listHuggingFaceSplits(
+        huggingFace.token,
+        huggingFace.manualDataset
+      );
+      const selectableSplits = result.splits
+        .filter((split) => !split.is_too_large)
+        .map((split) => split.table_name);
+      updateHuggingFaceState({
+        splits: result.splits,
+        selectedSplits: selectableSplits,
+        searchError: result.warning || '',
+      });
+    } catch (err) {
+      updateHuggingFaceState({
+        searchError: err instanceof Error ? err.message : 'Failed to list HuggingFace splits',
+      });
+      console.error('HuggingFace splits error:', err);
+    }
+  }, [state, updateHuggingFaceState]);
+
   // Sync form state from existing ConnectionDetails (when reconnecting)
   const syncFromConnectionDetails = useCallback((details: ConnectionDetails) => {
     dispatch({
@@ -406,16 +565,21 @@ export function useConnectionForm(): UseConnectionFormReturn {
     csvState: state.csv,
     clickHouseState: state.clickHouse,
     kaggleState: state.kaggle,
+    huggingFaceState: state.huggingFace,
     hiveParquetState: state.hiveParquet,
     updateCsvState,
     updateClickHouseState,
     updateKaggleState,
+    updateHuggingFaceState,
     updateHiveParquetState,
     validateForm,
     buildConnectionDetails,
     searchKaggleDatasets,
     selectKaggleDataset,
     loadKaggleFilesManual,
+    searchHuggingFaceDatasets,
+    selectHuggingFaceDataset,
+    loadHuggingFaceSplitsManual,
     handleFileChange,
     handleHiveFolderSelect,
     syncFromConnectionDetails,

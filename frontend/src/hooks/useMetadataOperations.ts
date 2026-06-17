@@ -11,7 +11,7 @@ import {
 import { SchemaCheckResult } from '../utils/schemaValidation';
 
 interface ConnectionDetails {
-    type: 'clickhouse' | 'csv' | 'kaggle' | 'hive_parquet';
+    type: 'clickhouse' | 'csv' | 'kaggle' | 'huggingface' | 'hive_parquet';
 }
 
 interface DataSourceState {
@@ -118,7 +118,14 @@ export function useMetadataOperations({
             const response = await apiService.listTables(targetDatabase);
             const tables = response.tables || [];
             dataSourceSetters.setTables(tables);
-            if ((connectionDetails?.type === 'csv' || connectionDetails?.type === 'kaggle') && tables.length === 1) {
+            if (
+                (
+                    connectionDetails?.type === 'csv'
+                    || connectionDetails?.type === 'kaggle'
+                    || connectionDetails?.type === 'huggingface'
+                )
+                && tables.length === 1
+            ) {
                 dataSourceSetters.setSelectedTable(tables[0].name);
                 // Note: Query refresh is triggered by the effect that watches selectedTable
                 // and availableFields changes in the snapshot loading effect below
@@ -413,7 +420,11 @@ export function useMetadataOperations({
                 dataSourceSetters.setMetadataError(null);
                 fetchDatabases();
             }
-        } else if (connectionDetails.type === 'csv' || connectionDetails.type === 'kaggle') {
+        } else if (
+            connectionDetails.type === 'csv'
+            || connectionDetails.type === 'kaggle'
+            || connectionDetails.type === 'huggingface'
+        ) {
             // Clear old metadata first
             dataSourceSetters.setTables([]);
             dataSourceSetters.setAvailableFields([]);
