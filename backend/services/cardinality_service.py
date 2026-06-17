@@ -319,7 +319,7 @@ class CardinalityService:
         if virtual_columns:
             db_type = self.conn_details.type
             column_types = None
-            if db_type in {'duckdb', 'csv', 'file', 'kaggle', 'hive_parquet'}:
+            if db_type in {'duckdb', 'csv', 'file', 'kaggle', 'hive_parquet', 'huggingface'}:
                 try:
                     cols = self.connector.list_columns(database=None, table=resolved_table_name)
                     column_types = {col.name: col.data_type for col in cols}
