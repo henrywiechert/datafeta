@@ -99,6 +99,10 @@ export function sanitizeConnectionDetails(
       sanitized.csv_sample_full_dataset = details.csv_sample_full_dataset;
     }
     // Explicitly DO NOT include kaggle_username or kaggle_api_key
+  } else if (details.type === 'huggingface') {
+    // HuggingFace configuration (NO token)
+    if (details.hf_dataset) sanitized.hf_dataset = details.hf_dataset;
+    if (details.hf_splits) sanitized.hf_splits = details.hf_splits;
   } else if (details.type === 'hive_parquet') {
     // Hive Parquet configuration
     if (details.hive_file_structure) sanitized.hive_file_structure = details.hive_file_structure;
@@ -257,8 +261,8 @@ export function validateConfiguration(config: any): SavedConfiguration {
 
   // Validate connection metadata if present
   if (config.connection) {
-    if (!config.connection.type || !['csv', 'clickhouse', 'kaggle', 'hive_parquet'].includes(config.connection.type)) {
-      throw new Error('Invalid configuration: connection.type must be "csv", "clickhouse", "kaggle", or "hive_parquet"');
+    if (!config.connection.type || !['csv', 'clickhouse', 'kaggle', 'huggingface', 'hive_parquet'].includes(config.connection.type)) {
+      throw new Error('Invalid configuration: connection.type must be "csv", "clickhouse", "kaggle", "huggingface", or "hive_parquet"');
     }
   }
 
@@ -441,6 +445,10 @@ export function reconstructConnectionDetails(
     }
     if (kaggleUsername) details.kaggle_username = kaggleUsername;
     if (kaggleApiKey) details.kaggle_api_key = kaggleApiKey;
+  } else if (metadata.type === 'huggingface') {
+    // HuggingFace configuration. Token is intentionally not saved.
+    if (metadata.hf_dataset) details.hf_dataset = metadata.hf_dataset;
+    if (metadata.hf_splits) details.hf_splits = metadata.hf_splits;
   } else if (metadata.type === 'hive_parquet') {
     // Hive Parquet configuration
     if (metadata.hive_file_structure) details.hive_file_structure = metadata.hive_file_structure;

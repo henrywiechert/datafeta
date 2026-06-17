@@ -16,6 +16,7 @@ import { metadataApi } from './metadataApi';
 import { queryApi } from './queryApi';
 import { snapshotApi } from './snapshotApi';
 import { kaggleApi } from './kaggleApi';
+import { huggingFaceApi } from './huggingfaceApi';
 import { appConfigApi } from './appConfigApi';
 import { demoApi } from './demoApi';
 import { 
@@ -77,6 +78,10 @@ export const apiService = {
   searchKaggleDatasets: kaggleApi.searchKaggleDatasets,
   listKaggleFiles: kaggleApi.listKaggleFiles,
 
+  // HuggingFace operations
+  searchHuggingFaceDatasets: huggingFaceApi.searchHuggingFaceDatasets,
+  listHuggingFaceSplits: huggingFaceApi.listHuggingFaceSplits,
+
   // Request management
   cancelAllRequests,
   getCurrentAbortController,
@@ -89,6 +94,7 @@ export { metadataApi } from './metadataApi';
 export { queryApi } from './queryApi';
 export { snapshotApi } from './snapshotApi';
 export { kaggleApi } from './kaggleApi';
+export { huggingFaceApi } from './huggingfaceApi';
 export { appConfigApi } from './appConfigApi';
 export { demoApi } from './demoApi';
 export type { AppConfig } from './appConfigApi';

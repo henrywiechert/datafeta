@@ -99,3 +99,4 @@ package-lock.json
 
 # Backend logs
 backend/backend.log
+.aider*

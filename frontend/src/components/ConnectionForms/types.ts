@@ -4,10 +4,10 @@
  * These replace the 30+ loose useState calls in the original DataSourceSelectionPage.
  */
 
-import { KaggleDataset, KaggleFile } from '../../types';
+import { HuggingFaceDataset, HuggingFaceSplit, KaggleDataset, KaggleFile } from '../../types';
 
 // Connection type union
-export type ConnectionType = 'csv' | 'clickhouse' | 'kaggle' | 'hive_parquet';
+export type ConnectionType = 'csv' | 'clickhouse' | 'kaggle' | 'huggingface' | 'hive_parquet';
 
 // File form state (supports CSV and Parquet files)
 export interface CsvFormState {
@@ -43,6 +43,20 @@ export interface KaggleFormState {
   selectedDataset: string;
   files: KaggleFile[];
   selectedFile: string;
+  isSearching: boolean;
+  searchError: string;
+  manualMode: boolean;
+  manualDataset: string;
+}
+
+// HuggingFace form state
+export interface HuggingFaceFormState {
+  token: string;
+  searchQuery: string;
+  datasets: HuggingFaceDataset[];
+  selectedDataset: string;
+  splits: HuggingFaceSplit[];
+  selectedSplits: string[];
   isSearching: boolean;
   searchError: string;
   manualMode: boolean;
@@ -103,6 +117,19 @@ export const DEFAULT_KAGGLE_STATE: KaggleFormState = {
   manualDataset: '',
 };
 
+export const DEFAULT_HUGGINGFACE_STATE: HuggingFaceFormState = {
+  token: '',
+  searchQuery: '',
+  datasets: [],
+  selectedDataset: '',
+  splits: [],
+  selectedSplits: [],
+  isSearching: false,
+  searchError: '',
+  manualMode: false,
+  manualDataset: '',
+};
+
 export const DEFAULT_HIVE_PARQUET_STATE: HiveParquetFormState = {
   selectedFolder: null,
   fileStructure: [],
@@ -118,6 +145,7 @@ export interface ConnectionFormState {
   csv: CsvFormState;
   clickHouse: ClickHouseFormState;
   kaggle: KaggleFormState;
+  huggingFace: HuggingFaceFormState;
   hiveParquet: HiveParquetFormState;
 }
 
@@ -127,10 +155,12 @@ export type ConnectionFormAction =
   | { type: 'UPDATE_CSV'; payload: Partial<CsvFormState> }
   | { type: 'UPDATE_CLICKHOUSE'; payload: Partial<ClickHouseFormState> }
   | { type: 'UPDATE_KAGGLE'; payload: Partial<KaggleFormState> }
+  | { type: 'UPDATE_HUGGINGFACE'; payload: Partial<HuggingFaceFormState> }
   | { type: 'UPDATE_HIVE_PARQUET'; payload: Partial<HiveParquetFormState> }
   | { type: 'RESET_CSV' }
   | { type: 'RESET_CLICKHOUSE' }
   | { type: 'RESET_KAGGLE' }
+  | { type: 'RESET_HUGGINGFACE' }
   | { type: 'RESET_HIVE_PARQUET' }
   | { type: 'SYNC_FROM_CONNECTION'; payload: { type: ConnectionType; details: any } };
 

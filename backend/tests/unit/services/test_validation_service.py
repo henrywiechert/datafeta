@@ -57,6 +57,16 @@ class TestValidationService:
             conn_details=conn_details,
             operation="testing"
         )
+
+    def test_require_database_for_clickhouse_with_huggingface(self):
+        """Should not raise for HuggingFace connections (DuckDB) - database optional."""
+        conn_details = ConnectionDetails(type="huggingface", hf_dataset="owner/dataset")
+
+        ValidationService.require_database_for_clickhouse(
+            database=None,
+            conn_details=conn_details,
+            operation="listing tables",
+        )
     
     def test_require_target_database_for_clickhouse_with_database(self):
         """Should not raise when target_database is provided for ClickHouse."""
@@ -104,6 +114,20 @@ class TestValidationService:
         ValidationService.require_target_database_for_clickhouse(
             query_desc=query_desc,
             conn_details=conn_details
+        )
+
+    def test_require_target_database_for_clickhouse_with_huggingface(self):
+        """Should not require target_database for HuggingFace connections."""
+        conn_details = ConnectionDetails(type="huggingface", hf_dataset="owner/dataset")
+
+        class MockQueryDesc:
+            target_database = None
+
+        query_desc = MockQueryDesc()
+
+        ValidationService.require_target_database_for_clickhouse(
+            query_desc=query_desc,
+            conn_details=conn_details,
         )
     
     def test_validate_csv_table_match_success(self):

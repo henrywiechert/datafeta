@@ -171,7 +171,7 @@ function getUniqueValueCombinations(rows: any[], fields: Field[]) {
       combo[resultColumnName] = row[resultColumnName];
     });
 
-    const key = JSON.stringify(combo);
+    const key = stableValueKey(combo);
     if (!seen.has(key)) {
       seen.add(key);
       unique.push(combo);
@@ -179,6 +179,18 @@ function getUniqueValueCombinations(rows: any[], fields: Field[]) {
   });
 
   return unique;
+}
+
+function stableValueKey(value: any): string {
+  return JSON.stringify(value, (_key, nestedValue) => {
+    if (typeof nestedValue === 'bigint') {
+      return { __type: 'bigint', value: nestedValue.toString() };
+    }
+    if (nestedValue instanceof Date) {
+      return { __type: 'date', value: nestedValue.toISOString() };
+    }
+    return nestedValue;
+  });
 }
 
 /**

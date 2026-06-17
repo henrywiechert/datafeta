@@ -19,6 +19,7 @@ from backend.connectors.base import BaseConnector
 from backend.connectors.clickhouse_connector import ClickHouseConnector
 from backend.connectors.file_connector import FileConnector
 from backend.connectors.hive_parquet_connector import HiveParquetConnector
+from backend.connectors.huggingface_connector import HuggingFaceConnector
 from backend.connectors.kaggle_connector import KaggleConnector
 from backend.dialects import ClickHouseDialect, DuckDbDialect
 from backend.exceptions import InvalidInputError
@@ -60,6 +61,12 @@ class KaggleConfig(CsvParsingConfig):
     kaggle_api_key: str = Field(..., min_length=1)
     kaggle_dataset: str = Field(..., min_length=1)
     kaggle_csv_files: Optional[List[str]] = None
+
+
+class HuggingFaceConfig(BaseModel):
+    hf_token: Optional[str] = None
+    hf_dataset: str = Field(..., min_length=1)
+    hf_splits: Optional[List[str]] = None
 
 
 class HiveParquetConfig(BaseModel):
@@ -196,6 +203,23 @@ def get_connector_registry() -> ConnectorRegistry:
             config_model=KaggleConfig,
             factory=KaggleConnector,
             build_connect_args=_build_kaggle_connect_args,
+        )
+    )
+
+    registry.register(
+        ConnectorSpec(
+            id="huggingface",
+            display_name="HuggingFace Dataset",
+            dialect=duckdb_dialect,
+            capabilities=ConnectorCapabilities(
+                supports_json_connect=True,
+                supports_multipart_connect=False,
+                supports_databases=False,
+                supports_arrow=True,
+            ),
+            config_model=HuggingFaceConfig,
+            factory=HuggingFaceConnector,
+            build_connect_args=lambda cfg, _request, _session_id: cfg.model_dump(exclude_none=True),
         )
     )
 
