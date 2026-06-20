@@ -90,6 +90,7 @@ function qualifiesForBoxPlotSummaryQuery(xAxisFields: Field[], yAxisFields: Fiel
 export function buildQueryFieldsFromViewInput(input: BuildViewSpecInput): Field[] {
   const xFields = input.xAxisFields.map((field) => withAxis(field, 'x'));
   const yFields = input.yAxisFields.map((field) => withAxis(field, 'y'));
+  const shouldDefaultTableLabelMeasureAgg = input.globalChartType === 'table-refactor';
 
   const xHasMeasure = xFields.some((field) => field.type === 'measure');
   const yHasMeasure = yFields.some((field) => field.type === 'measure');
@@ -135,9 +136,15 @@ export function buildQueryFieldsFromViewInput(input: BuildViewSpecInput): Field[
     }
   }
 
+  const normalizedLabelFields = (input.labelFields || []).map((field) =>
+    shouldDefaultTableLabelMeasureAgg && field.type === 'measure' && !field.aggregation
+      ? { ...field, aggregation: defaultAggregationFor(field) }
+      : field
+  );
+
   return dedupeFieldsByOutputIdentity([
     ...allFields,
-    ...(input.labelFields || []),
+    ...normalizedLabelFields,
   ]);
 }
 

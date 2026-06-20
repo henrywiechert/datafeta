@@ -203,6 +203,7 @@ export const useQueryBuilder = ({
       yAxisFields,
       colorField,
       distributionVariant,
+      queryMode: viewSpec?.queryMode,
     });
 
     if (queryDesc) {
@@ -230,7 +231,10 @@ export const useQueryBuilder = ({
       });
 
       if (process.env.NODE_ENV === 'development' && viewSpec) {
-        const actualMode = queryDesc.query_mode || (queryDesc.measures?.length ? 'aggregated' : 'raw');
+        const actualMode = queryDesc.query_mode
+          || (viewSpec.queryMode === 'aggregated'
+            ? 'aggregated'
+            : (queryDesc.measures?.length ? 'aggregated' : 'raw'));
         if (actualMode !== viewSpec.queryMode) {
           console.warn('[ViewPlanner] Query mode mismatch', {
             planned: viewSpec.queryMode,

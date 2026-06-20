@@ -81,6 +81,7 @@ export const CHART_TYPE_REGISTRY: Partial<Record<UserChartType, ChartTypeDescrip
   'table-refactor': {
     id: 'table-refactor',
     isAllowed: () => true,
+    grain: 'grouped',
     isGridChart: true,
   },
 };

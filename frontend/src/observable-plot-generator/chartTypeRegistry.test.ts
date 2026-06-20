@@ -79,10 +79,13 @@ describe('chartTypeRegistry contract', () => {
       expect(getChartTypeDescriptor('density')?.grain).toBe('rawRows');
     });
 
-    it('does not force a grain for pie / heatmap / table-refactor', () => {
+    it('does not force a grain for pie / heatmap', () => {
       expect(getChartTypeDescriptor('pie')?.grain).toBeUndefined();
       expect(getChartTypeDescriptor('heatmap')?.grain).toBeUndefined();
-      expect(getChartTypeDescriptor('table-refactor')?.grain).toBeUndefined();
+    });
+
+    it('forces "grouped" grain for table-refactor', () => {
+      expect(getChartTypeDescriptor('table-refactor')?.grain).toBe('grouped');
     });
   });
 

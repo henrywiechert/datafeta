@@ -3,6 +3,8 @@ import { Field, QueryDescription, Measure, OrderBy, Filter, FilterConfig, Column
 import { getResultColumnName } from '../utils/fieldUtils';
 import { isCdfAllowed } from '../utils/cdfUtils';
 
+type PlannedQueryMode = 'raw' | 'aggregated' | 'cdf' | 'box_plot';
+
 /**
  * Extracts column casting configuration from fields
  * Returns a dictionary mapping column names to their casting config
@@ -610,6 +612,7 @@ export const buildQuery = ({
   yAxisFields,
   colorField,
   distributionVariant,
+  queryMode,
 }: {
   fields: Field[];
   selectedTable: string;
@@ -624,6 +627,7 @@ export const buildQuery = ({
   yAxisFields?: Field[];
   colorField?: Field | null;
   distributionVariant?: DistributionVariant;
+  queryMode?: PlannedQueryMode;
 }): QueryDescription | null => {
 
   if (
@@ -660,7 +664,9 @@ export const buildQuery = ({
     });
   }
 
-  const queryType = getQueryTypeFromFields(fields);
+  const queryType = queryMode === 'aggregated' || queryMode === 'raw'
+    ? queryMode
+    : getQueryTypeFromFields(fields);
   
   if (queryType === 'aggregated') {
     return buildAggregatedQuery({ fields, selectedTable, selectedDatabase, filterConfigurations, labelFields, tooltipFields, virtualTable, virtualColumns });
