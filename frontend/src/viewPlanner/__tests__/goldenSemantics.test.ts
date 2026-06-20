@@ -45,6 +45,7 @@ function buildGolden(input: BuildViewSpecInput): {
     xAxisFields: input.xAxisFields,
     yAxisFields: input.yAxisFields,
     colorField: input.colorField,
+    queryMode: viewSpec.queryMode,
   });
 
   return {

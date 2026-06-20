@@ -193,6 +193,32 @@ describe('buildViewSpec', () => {
     expect(spec.queryMode).toBe('raw');
   });
 
+  it('routes table-refactor to grouped grain and aggregates label measures by default', () => {
+    const country = field('country');
+    const segment = field('segment');
+    const revenue = field('revenue', {
+      type: 'measure',
+      flavour: 'continuous',
+      dataType: 'float',
+    });
+
+    const spec = buildViewSpec({
+      xAxisFields: [country],
+      yAxisFields: [segment],
+      colorField: null,
+      sizeField: null,
+      labelFields: [revenue],
+      globalChartType: 'table-refactor',
+    });
+
+    expect(spec.grain).toBe('grouped');
+    expect(spec.queryMode).toBe('aggregated');
+    expect(spec.queryFields
+      .filter((f) => f.type === 'measure')
+      .map((f) => ({ columnName: f.columnName, aggregation: f.aggregation }))
+    ).toEqual([{ columnName: 'revenue', aggregation: 'sum' }]);
+  });
+
   it('keeps brush zoom selections separate from filters', () => {
     const createdAt = field('created_at', {
       flavour: 'continuous',

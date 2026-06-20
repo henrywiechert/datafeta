@@ -324,13 +324,12 @@ describe('generateTableGrid', () => {
   });
 
   describe('text mode (PR 7)', () => {
-    it('resolves to text when a label field is present and emits one row per cell', () => {
+    it('resolves to text when a label measure is present and emits one row per cell', () => {
       const region = dimField('dim-region', 'region');
-      const note = dimField('dim-note', 'note');
       const sales = measureField('m-sales', 'sales');
       const grid = generateTableGrid(buildContext({
-        yFields: [region, sales],
-        labelFields: [note],
+        yFields: [region],
+        labelFields: [sales],
         rows: [
           { region: 'East', 'SUM(sales)': 1234 },
           { region: 'West', 'SUM(sales)': 5678.5 },
@@ -341,15 +340,15 @@ describe('generateTableGrid', () => {
       const east = grid.cells[0] as TextGridCellModel;
       expect(east.content.kind).toBe('text');
       expect(east.content.rows).toEqual([
-        { source: 'measure', label: 'SUM(sales)', value: '1234' },
+        { source: 'measure', label: 'sales', value: '1234' },
       ]);
       const west = grid.cells[1] as TextGridCellModel;
       expect(west.content.rows).toEqual([
-        { source: 'measure', label: 'SUM(sales)', value: '5678.50' },
+        { source: 'measure', label: 'sales', value: '5678.50' },
       ]);
     });
 
-    it('stacks rows from labelFields and measures in shelf order', () => {
+    it('stacks rows from labelFields only in shelf order', () => {
       const region = dimField('dim-region', 'region');
       const note = dimField('dim-note', 'note');
       const sales = measureField('m-sales', 'sales');
@@ -357,7 +356,7 @@ describe('generateTableGrid', () => {
       const grid = generateTableGrid(buildContext({
         yFields: [region, sales],
         xFields: [profit],
-        labelFields: [note],
+        labelFields: [note, profit],
         rows: [
           { region: 'East', note: 'flagship', 'SUM(sales)': 10, 'SUM(profit)': 2 },
         ],
@@ -365,23 +364,20 @@ describe('generateTableGrid', () => {
 
       const cell = grid.cells[0] as TextGridCellModel;
       expect(cell.content.kind).toBe('text');
-      // Order must be: labelFields first, then xField measures, then yField measures.
       expect(cell.content.rows).toEqual([
         { source: 'label', label: 'note', value: 'flagship' },
-        { source: 'measure', label: 'SUM(profit)', value: '2' },
-        { source: 'measure', label: 'SUM(sales)', value: '10' },
+        { source: 'measure', label: 'profit', value: '2' },
       ]);
     });
 
     it('emits an empty cell for (rowTuple, colTuple) combinations with no matching aggregated row', () => {
       const region = dimField('dim-region', 'region');
       const year = dimField('dim-year', 'year', 'integer');
-      const note = dimField('dim-note', 'note');
       const sales = measureField('m-sales', 'sales');
       const grid = generateTableGrid(buildContext({
         xFields: [year],
-        yFields: [region, sales],
-        labelFields: [note],
+        yFields: [region],
+        labelFields: [sales],
         rows: [
           { region: 'East', year: 2024, 'SUM(sales)': 100 },
           { region: 'West', year: 2025, 'SUM(sales)': 200 },
@@ -403,12 +399,11 @@ describe('generateTableGrid', () => {
 
     it('skips text rows for missing/null measure values and renders only present ones', () => {
       const region = dimField('dim-region', 'region');
-      const note = dimField('dim-note', 'note');
       const sales = measureField('m-sales', 'sales');
       const profit = measureField('m-profit', 'profit');
       const grid = generateTableGrid(buildContext({
-        yFields: [region, sales, profit],
-        labelFields: [note],
+        yFields: [region],
+        labelFields: [sales, profit],
         rows: [
           { region: 'East', 'SUM(sales)': 100, 'SUM(profit)': null },
         ],
@@ -417,18 +412,17 @@ describe('generateTableGrid', () => {
       const cell = grid.cells[0] as TextGridCellModel;
       expect(cell.content.kind).toBe('text');
       expect(cell.content.rows).toEqual([
-        { source: 'measure', label: 'SUM(sales)', value: '100' },
+        { source: 'measure', label: 'sales', value: '100' },
       ]);
     });
 
     it('formats Date measure values via toLocaleString', () => {
       const region = dimField('dim-region', 'region');
-      const note = dimField('dim-note', 'note');
       const lastSeen = measureField('m-last-seen', 'lastSeen', 'max');
       const date = new Date('2026-04-28T12:00:00Z');
       const grid = generateTableGrid(buildContext({
-        yFields: [region, lastSeen],
-        labelFields: [note],
+        yFields: [region],
+        labelFields: [lastSeen],
         rows: [
           { region: 'East', 'MAX(lastSeen)': date },
         ],
@@ -454,11 +448,10 @@ describe('generateTableGrid', () => {
 
     it('uses fieldAliasLookup for the row label when present', () => {
       const region = dimField('dim-region', 'region');
-      const note = dimField('dim-note', 'note');
       const sales = measureField('m-sales', 'sales');
       const grid = generateTableGrid(buildContext({
-        yFields: [region, sales],
-        labelFields: [note],
+        yFields: [region],
+        labelFields: [sales],
         rows: [{ region: 'East', 'SUM(sales)': 100 }],
         // Alias lookup is keyed by the field's bare `columnName`, matching
         // `fieldDisplayAliases` in DataSourceContext.
@@ -469,18 +462,38 @@ describe('generateTableGrid', () => {
       expect(cell.content.rows[0].label).toBe('Total Sales');
     });
 
-    it('falls back to the aggregation-prefixed label when no alias is set', () => {
+    it('falls back to the field display name when no alias is set', () => {
       const region = dimField('dim-region', 'region');
-      const note = dimField('dim-note', 'note');
       const sales = measureField('m-sales', 'sales');
       const grid = generateTableGrid(buildContext({
-        yFields: [region, sales],
-        labelFields: [note],
+        yFields: [region],
+        labelFields: [sales],
         rows: [{ region: 'East', 'SUM(sales)': 100 }],
       }));
 
       const cell = grid.cells[0] as TextGridCellModel;
-      expect(cell.content.rows[0].label).toBe('SUM(sales)');
+      expect(cell.content.rows[0].label).toBe('sales');
+    });
+
+    it('renders all distinct label values from multiple rows in the same cell', () => {
+      const region = dimField('dim-region', 'region');
+      const note = dimField('dim-note', 'note');
+      const grid = generateTableGrid(buildContext({
+        yFields: [region],
+        labelFields: [note],
+        rows: [
+          { region: 'East', note: 'alpha' },
+          { region: 'East', note: 'beta' },
+          { region: 'East', note: 'alpha' },
+        ],
+      }));
+
+      const cell = grid.cells[0] as TextGridCellModel;
+      expect(cell.content.kind).toBe('text');
+      expect(cell.content.rows).toEqual([
+        { source: 'label', label: 'note', value: 'alpha' },
+        { source: 'label', label: 'note', value: 'beta' },
+      ]);
     });
   });
 
@@ -599,7 +612,7 @@ describe('generateTableGrid', () => {
       const grid = generateTableGrid(buildContext({
         yFields: [region],
         xFields: [sales],
-        labelFields: [dimField('dim-note', 'note')],
+        labelFields: [sales],
         rows,
         tablePageSize: 2,
         tablePage: 1,

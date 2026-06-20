@@ -9,8 +9,7 @@
  * - `symbol` — every (rowTuple, colTuple) renders one or more deduped symbol
  *   marks. Mixed values produce a preview stack (see `discreteGridSymbolLayout`).
  * - `text` — every cell renders stacked rows of formatted text, sourced from
- *   `labelFields` (Tableau's Label/Text shelf) and aggregated measures on
- *   `xFields` / `yFields`, in shelf order.
+ *   `labelFields` (Tableau's Label/Text shelf), in shelf order.
  * Text mode is selected when at least one label field is configured; otherwise
  * symbol mode renders a presence mark for each cell.
  *
@@ -42,7 +41,7 @@ import {
 import { ChartGenerationContext } from '../types';
 import { buildFacetSpace } from '../faceting/facetSpace';
 import { getFieldColumnName } from '../helpers/fields';
-import { getFieldDisplayName, isMeasure } from '../../utils/fieldUtils';
+import { getFieldDisplayName } from '../../utils/fieldUtils';
 import { DEFAULT_CHART_COLOR, MIN_NON_PLOT_GRID_ROW_PX } from '../../config/chartLayoutConfig';
 import {
   deriveShapeScaleInfo,
@@ -238,13 +237,7 @@ function buildTextCell(rowIdx: number, colIdx: number, rows: TextGridCellRow[]):
   };
 }
 
-/**
- * Discrete dimensions and measures contributing rows to a `kind: 'text'` cell.
- * Computed once per generation and reused for every cell so the shelf order is
- * preserved.
- */
 interface TextRowSource {
-  field: Field;
   source: 'label' | 'measure';
   /** Result-set column carrying the per-row value. */
   column: string;
@@ -252,57 +245,31 @@ interface TextRowSource {
   label: string;
 }
 
-/**
- * Display label for a measure field in a text cell.
- *
- * Uses the user-provided alias when set (from `fieldAliasLookup` or
- * `displayAlias`); otherwise falls back to the aggregation-prefixed form
- * (e.g. `SUM(sales)`) so that multiple measures in the same cell remain
- * distinguishable and align with the backend's result-column names.
- */
-function buildMeasureLabel(field: Field, aliasLookup?: Record<string, string>): string {
-  const explicitAlias = aliasLookup?.[field.columnName] ?? field.displayAlias;
-  if (explicitAlias) return explicitAlias;
-  if (field.aggregation) {
-    return `${field.aggregation.toUpperCase()}(${field.columnName})`;
-  }
-  return getFieldDisplayName(field, aliasLookup);
+function normalizeLabelFieldForResultColumn(field: Field): Field {
+  if (field.type !== 'measure' || field.aggregation) return field;
+  return {
+    ...field,
+    aggregation: field.flavour === 'continuous' ? 'sum' : 'count',
+  };
 }
 
 /**
  * Collect the ordered list of fields contributing per-cell text rows.
- * Sources, in shelf order:
- *   1. `labelFields` (Tableau "Label" / "Text" shelf)
- *   2. measures from `xFields` and `yFields` (in declaration order)
- * Duplicates by result-column are de-duped so a measure that also appears as a
- * label only renders once.
+ * Text mode is driven solely by `labelFields` (Tableau "Label" / "Text" shelf).
+ * Duplicates by result-column are de-duped so the same label only renders once.
  */
 function collectTextRowSources(context: ChartGenerationContext): TextRowSource[] {
   const seen = new Set<string>();
   const result: TextRowSource[] = [];
 
   for (const field of context.labelFields ?? []) {
-    const column = getFieldColumnName(field);
+    const column = getFieldColumnName(normalizeLabelFieldForResultColumn(field));
     if (seen.has(column)) continue;
     seen.add(column);
     result.push({
-      field,
-      source: 'label',
+      source: field.type === 'measure' ? 'measure' : 'label',
       column,
       label: getFieldDisplayName(field, context.fieldAliasLookup),
-    });
-  }
-
-  for (const field of [...(context.xFields ?? []), ...(context.yFields ?? [])]) {
-    if (!isMeasure(field)) continue;
-    const column = getFieldColumnName(field);
-    if (seen.has(column)) continue;
-    seen.add(column);
-    result.push({
-      field,
-      source: 'measure',
-      column,
-      label: buildMeasureLabel(field, context.fieldAliasLookup),
     });
   }
 
@@ -324,6 +291,20 @@ function buildTextRowsFromRow(row: any, sources: TextRowSource[]): TextGridCellR
       label: src.label,
       value: formatTooltipValue(raw),
     });
+  }
+  return rows;
+}
+
+function buildTextRowsFromBucket(bucket: any[], sources: TextRowSource[]): TextGridCellRow[] {
+  const rows: TextGridCellRow[] = [];
+  const seen = new Set<string>();
+  for (const row of bucket) {
+    for (const textRow of buildTextRowsFromRow(row, sources)) {
+      const key = `${textRow.source}\x1f${textRow.label}\x1f${textRow.value}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      rows.push(textRow);
+    }
   }
   return rows;
 }
@@ -491,10 +472,10 @@ function buildSymbolModeCells(
 
 /**
  * Build the cell list for the `text` cell mode: every (rowTuple, colTuple)
- * resolves to a `text` cell containing one row per label/measure source. The
- * underlying query is already aggregated by the discrete X/Y dimensions, so
- * each bucket is expected to contain a single representative row; if the
- * bucket is empty (cell has no data), the cell is rendered as `empty`.
+ * resolves to a `text` cell containing one row per label source value. The
+ * query is planned as aggregated, but label dimensions can still produce
+ * multiple rows per X/Y cell, so every bucket row is considered and duplicate
+ * rendered rows are collapsed.
  */
 function buildTextModeCells(
   facetCtx: FacetSpaceContext,
@@ -520,10 +501,7 @@ function buildTextModeCells(
         cells.push(buildEmptyCell(r, c));
         continue;
       }
-      // Aggregated query produces one row per (rowTuple, colTuple); take it.
-      // For un-aggregated label-only data we still render the first row's
-      // values (good enough for PR 7; PR 8 introduces explicit aggregation).
-      const textRows = buildTextRowsFromRow(bucket[0], sources);
+      const textRows = buildTextRowsFromBucket(bucket, sources);
       cells.push(textRows.length > 0 ? buildTextCell(r, c, textRows) : buildEmptyCell(r, c));
     }
   }
