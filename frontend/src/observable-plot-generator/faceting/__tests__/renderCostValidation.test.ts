@@ -94,7 +94,7 @@ describe('validateRenderCost', () => {
     expect(result.exceedsLimit).toBe('series');
   });
 
-  test('flags bar charts with too many categories', () => {
+  test('allows plain bar charts above the faceted category limit', () => {
     const categoryField = discreteDimension('category');
     const rows = Array.from({ length: 400 }, (_, i) => ({
       category: `C${i}`,
@@ -113,16 +113,17 @@ describe('validateRenderCost', () => {
 
     expect(result.markFamily).toBe('bar');
     expect(result.categoryCount).toBe(400);
-    expect(result.isValid).toBe(false);
-    expect(result.exceedsLimit).toBe('category');
+    expect(result.categoryLimit).toBe(50000);
+    expect(result.isValid).toBe(true);
+    expect(result.exceedsLimit).toBeNull();
   });
 
-  test('flags bar charts when facet and category product exceeds marks limit', () => {
+  test('flags faceted bar charts with too many categories per cell', () => {
     const facetField = discreteDimension('facet');
     const categoryField = discreteDimension('category');
-    const rows = Array.from({ length: 10000 }, (_, i) => ({
-      facet: `F${Math.floor(i / 100)}`,
-      category: `C${i % 100}`,
+    const rows = Array.from({ length: 800 }, (_, i) => ({
+      facet: `F${Math.floor(i / 400)}`,
+      category: `C${i % 400}`,
       'SUM(value)': i,
     }));
 
@@ -137,9 +138,36 @@ describe('validateRenderCost', () => {
     );
 
     expect(result.markFamily).toBe('bar');
-    expect(result.rowFacetCount).toBe(100);
-    expect(result.categoryCount).toBe(100);
-    expect(result.estimatedMarks).toBe(10000);
+    expect(result.rowFacetCount).toBe(2);
+    expect(result.categoryCount).toBe(400);
+    expect(result.categoryLimit).toBe(300);
+    expect(result.isValid).toBe(false);
+    expect(result.exceedsLimit).toBe('category');
+  });
+
+  test('flags bar charts when facet and category product exceeds marks limit', () => {
+    const facetField = discreteDimension('facet');
+    const categoryField = discreteDimension('category');
+    const rows = Array.from({ length: 50200 }, (_, i) => ({
+      facet: `F${Math.floor(i / 200)}`,
+      category: `C${i % 200}`,
+      'SUM(value)': i,
+    }));
+
+    const result = validateRenderCost(
+      context({
+        xFields: [categoryField],
+        yFields: [measure('value')],
+        queryResult: { columns: [], rows, row_count: rows.length },
+      }),
+      { rowFacetFields: [facetField], colFacetFields: [] },
+      'bar',
+    );
+
+    expect(result.markFamily).toBe('bar');
+    expect(result.rowFacetCount).toBe(251);
+    expect(result.categoryCount).toBe(200);
+    expect(result.estimatedMarks).toBe(50200);
     expect(result.isValid).toBe(false);
     expect(result.exceedsLimit).toBe('marks');
   });

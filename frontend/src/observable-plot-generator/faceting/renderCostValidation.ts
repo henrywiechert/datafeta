@@ -15,7 +15,8 @@ import { countUniqueValuesForField, detectBarChartConfiguration } from './facetU
 
 export const SERIES_LIMIT = 300;
 export const CATEGORY_LIMIT = 300;
-export const MARKS_LIMIT = 5000;
+export const PLAIN_BAR_CATEGORY_LIMIT = 50000;
+export const MARKS_LIMIT = 50000;
 
 export type RenderCostExceededLimit =
   | FacetValidationResult['exceedsLimit']
@@ -30,6 +31,7 @@ export interface RenderCostValidation extends Omit<FacetValidationResult, 'excee
   exceedsLimit: RenderCostExceededLimit;
   seriesCount: number;
   categoryCount: number;
+  categoryLimit: number;
   estimatedMarks: number;
   markFamily: RenderCostMarkFamily;
 }
@@ -79,6 +81,16 @@ function countCategories(context: ChartGenerationContext, markFamily: RenderCost
   return categoryField ? countUniqueValuesForField(context.queryResult.rows, categoryField) : 0;
 }
 
+function getCategoryLimit(
+  markFamily: RenderCostMarkFamily,
+  totalFacets: number,
+  effectiveGlobalChartType: UserChartType | null,
+): number {
+  return markFamily === 'bar' && effectiveGlobalChartType === 'bar' && totalFacets === 1
+    ? PLAIN_BAR_CATEGORY_LIMIT
+    : CATEGORY_LIMIT;
+}
+
 export function validateRenderCost(
   context: ChartGenerationContext,
   plan: FacetPlan,
@@ -89,13 +101,14 @@ export function validateRenderCost(
   const seriesCount = countSeries(context, markFamily);
   const categoryCount = countCategories(context, markFamily);
   const totalFacets = facetValidation.rowFacetCount * facetValidation.colFacetCount;
+  const categoryLimit = getCategoryLimit(markFamily, totalFacets, effectiveGlobalChartType);
   const estimatedMarks = totalFacets * Math.max(seriesCount, 1) * Math.max(categoryCount, 1);
 
   let exceedsLimit: RenderCostExceededLimit = facetValidation.exceedsLimit;
   if (!exceedsLimit) {
     if (markFamily === 'line' && seriesCount > SERIES_LIMIT) {
       exceedsLimit = 'series';
-    } else if (markFamily === 'bar' && categoryCount > CATEGORY_LIMIT) {
+    } else if (markFamily === 'bar' && categoryCount > categoryLimit) {
       exceedsLimit = 'category';
     } else if ((markFamily === 'line' || markFamily === 'bar') && estimatedMarks > MARKS_LIMIT) {
       exceedsLimit = 'marks';
@@ -108,6 +121,7 @@ export function validateRenderCost(
     exceedsLimit,
     seriesCount,
     categoryCount,
+    categoryLimit,
     estimatedMarks,
     markFamily,
   };
