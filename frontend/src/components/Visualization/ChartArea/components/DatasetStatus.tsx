@@ -3,19 +3,30 @@ import React from 'react';
 import { Box, Typography, Tooltip } from '@mui/material';
 import { useVisualizationContext } from '../../../../contexts/VisualizationContext';
 
+interface DatasetStatusProps {
+  /**
+   * When set, the status reflects the table view instead of the chart query
+   * result. The table view fetches exact, paginated raw rows, so it is never
+   * sampled — the "S" pill always shows the not-sampled state.
+   */
+  tableOverride?: { rows: number; cols: number } | null;
+}
+
 /**
  * Status field displaying dataset dimensions (cols x rows).
  * Shows a sampling indicator pill when the result was capped by a budget.
  */
-const DatasetStatus: React.FC = () => {
+const DatasetStatus: React.FC<DatasetStatusProps> = ({ tableOverride }) => {
   const { state } = useVisualizationContext();
   const { queryResult } = state as any;
 
-  const cols = queryResult?.columns?.length ?? 0;
-  const rows = queryResult?.row_count ?? 0;
-  const sampled = queryResult?.sampled;
+  const isTableMode = !!tableOverride;
+  const cols = isTableMode ? tableOverride!.cols : (queryResult?.columns?.length ?? 0);
+  const rows = isTableMode ? tableOverride!.rows : (queryResult?.row_count ?? 0);
+  // Table view is exact raw rows; never sampled.
+  const sampled = isTableMode ? undefined : queryResult?.sampled;
 
-  if (!queryResult) {
+  if (!isTableMode && !queryResult) {
     return null;
   }
 

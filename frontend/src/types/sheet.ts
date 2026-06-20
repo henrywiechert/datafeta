@@ -108,6 +108,8 @@ export interface VisualizationStateSnapshot {
   /** @deprecated Persisted in older sheets; now stored under `chartTypeParams.table.page`. */
   tablePage?: number;
   showTableRows?: boolean;
+  // Columns shown in the first-class table view (raw rows)
+  tableColumnFields?: Field[];
   selectedChartType?: UserChartType | 'auto';
   virtualColumns?: VirtualColumnDefinition[];
   virtualColumnFieldPreferences?: Record<string, { type?: 'dimension' | 'measure'; flavour?: 'discrete' | 'continuous'; aggregation?: string }>;

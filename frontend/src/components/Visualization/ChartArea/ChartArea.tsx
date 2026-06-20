@@ -1,5 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useRef, useCallback, useMemo, useState, useEffect } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import styles from './ChartArea.module.css';
 import { useVisualizationContext, useChannels } from '../../../contexts/VisualizationContext';
 import { useDataSource } from '../../../contexts/DataSourceContext';
@@ -33,6 +34,7 @@ import ShapeLegendPanel from '../Legend/ShapeLegendPanel';
 import LegendStack from '../Legend/LegendStack';
 import FacetLimitDialog from '../FacetLimitDialog';
 import { getResultColumnName } from '../../../utils/fieldUtils';
+import { collectEncodingFields } from '../../../utils/tableColumns';
 import { createChartAffectingConfig } from '../../../utils/queryAffectingConfig';
 import { filtersToHashKey } from '../../../utils/sheetConfigHash';
 import { buildEffectiveFilterConfigurations } from '../../../utils/effectiveFilters';
@@ -79,6 +81,7 @@ const ChartArea: React.FC = () => {
     optimizationSettings,
     ganttZoomRange,
     showTableRows,
+    tableColumnFields,
     overlays,
     chartTypeParams,
     disabledFilterIds,
@@ -146,17 +149,12 @@ const ChartArea: React.FC = () => {
 
   const { useTableView, tableData } = useDataProcessing({ xAxisFields, yAxisFields, queryResult, globalChartType });
 
-  // Table rows view: raw paginated data query
+  // Table rows view: raw paginated data query (columns from the dedicated zone)
   const tableRowsData = useTableRowsQuery({
     enabled: showTableRows,
     selectedTable,
     selectedDatabase,
-    xAxisFields,
-    yAxisFields,
-    colorField: channels.color.field,
-    sizeField: channels.size.field,
-    labelFields: channels.label.fields,
-    tooltipFields: channels.tooltip.fields,
+    tableColumnFields,
     filterConfigurations: chartFilterConfigurations,
     virtualTable,
     virtualColumns,
@@ -527,8 +525,32 @@ const ChartArea: React.FC = () => {
             onZoomReset={handleZoomReset}
             hasActiveZoomFilters={hasActiveZoomFilters}
             showTableRows={showTableRows}
+            datasetStatusOverride={
+              showTableRows
+                ? {
+                    rows: tableRowsData.totalRows,
+                    cols: tableRowsData.columns.length || tableColumnFields.length,
+                  }
+                : undefined
+            }
             onToggleTableRows={(show) => {
               recordAction(getUndoableSnapshot());
+              // Option C: seed the table view's column list once from the current
+              // encodings when entering the view with an empty list. Afterwards
+              // the list is user-owned and never re-seeded.
+              if (show && tableColumnFields.length === 0) {
+                const seed = collectEncodingFields(
+                  xAxisFields,
+                  yAxisFields,
+                  channels.color.field,
+                  channels.size.field,
+                  channels.label.fields,
+                  channels.tooltip.fields,
+                ).map((f) => ({ ...f, id: uuidv4() }));
+                if (seed.length > 0) {
+                  dispatch({ type: 'SET_TABLE_COLUMN_FIELDS', payload: seed });
+                }
+              }
               dispatch({ type: 'SET_SHOW_TABLE_ROWS', payload: show });
             }}
           />

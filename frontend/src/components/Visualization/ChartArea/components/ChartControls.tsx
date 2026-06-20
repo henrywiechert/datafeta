@@ -54,6 +54,8 @@ interface ChartControlsProps {
   hasActiveZoomFilters?: boolean;
   showTableRows?: boolean;
   onToggleTableRows?: (show: boolean) => void;
+  /** When in table view, overrides the dataset status with exact table totals. */
+  datasetStatusOverride?: { rows: number; cols: number } | null;
 }
 
 const ChartControls: React.FC<ChartControlsProps> = ({
@@ -83,6 +85,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
   hasActiveZoomFilters = false,
   showTableRows = false,
   onToggleTableRows,
+  datasetStatusOverride,
 }) => {
   const controlsRef = useRef<HTMLDivElement | null>(null);
   const [controlsWidth, setControlsWidth] = useState<number>(Infinity);
@@ -501,7 +504,7 @@ const ChartControls: React.FC<ChartControlsProps> = ({
 
       {/* Right side - Dataset status and Query button */}
       <Box sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-        <DatasetStatus />
+        <DatasetStatus tableOverride={datasetStatusOverride} />
         <QueryStatusIndicator onClick={debugUiEnabled ? onToggleDebug : undefined} />
       </Box>
 

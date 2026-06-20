@@ -13,7 +13,6 @@ import { VirtualTableDefinition, VirtualColumnDefinition } from '../../../../typ
 import { queryApi } from '../../../../services/api/queryApi';
 import { metadataApi } from '../../../../services/api/metadataApi';
 import { convertFilterConfigsToFilters, extractColumnCasts } from '../../../../queryBuilder/queryBuilder';
-import { getResultColumnName } from '../../../../utils/fieldUtils';
 
 import type { TableRowsSortModel } from '../../../../types';
 export type { TableRowsSortModel } from '../../../../types';
@@ -22,12 +21,8 @@ export interface UseTableRowsQueryProps {
   enabled: boolean;
   selectedTable: string | null;
   selectedDatabase: string | null;
-  xAxisFields: Field[];
-  yAxisFields: Field[];
-  colorField: Field | null;
-  sizeField: Field | null;
-  labelFields: Field[];
-  tooltipFields: Field[];
+  /** Columns to display, sourced from the table view's dedicated "Columns" drop zone. */
+  tableColumnFields: Field[];
   filterConfigurations: Record<string, FilterConfig>;
   virtualTable?: VirtualTableDefinition | null;
   virtualColumns?: VirtualColumnDefinition[];
@@ -47,48 +42,11 @@ export interface UseTableRowsQueryReturn {
   error: string | null;
 }
 
-/**
- * Collect all active fields from every encoding channel, deduplicated by columnName.
- */
-function collectAllFields(
-  xAxisFields: Field[],
-  yAxisFields: Field[],
-  colorField: Field | null,
-  sizeField: Field | null,
-  labelFields: Field[],
-  tooltipFields: Field[],
-): Field[] {
-  const seen = new Set<string>();
-  const result: Field[] = [];
-
-  const add = (f: Field) => {
-    const key = getResultColumnName(f);
-    if (!seen.has(key)) {
-      seen.add(key);
-      result.push(f);
-    }
-  };
-
-  xAxisFields.forEach(add);
-  yAxisFields.forEach(add);
-  if (colorField) add(colorField);
-  if (sizeField) add(sizeField);
-  labelFields.forEach(add);
-  tooltipFields.forEach(add);
-
-  return result;
-}
-
 export function useTableRowsQuery({
   enabled,
   selectedTable,
   selectedDatabase,
-  xAxisFields,
-  yAxisFields,
-  colorField,
-  sizeField,
-  labelFields,
-  tooltipFields,
+  tableColumnFields,
   filterConfigurations,
   virtualTable,
   virtualColumns,
@@ -104,11 +62,8 @@ export function useTableRowsQuery({
 
   const abortRef = useRef<AbortController | null>(null);
 
-  // Collect all active fields
-  const allFields = useMemo(
-    () => collectAllFields(xAxisFields, yAxisFields, colorField, sizeField, labelFields, tooltipFields),
-    [xAxisFields, yAxisFields, colorField, sizeField, labelFields, tooltipFields],
-  );
+  // The columns to display are exactly the table view's column list.
+  const allFields = tableColumnFields;
 
   // Stable key for filter configs to detect changes
   const filterKey = useMemo(() => JSON.stringify(filterConfigurations), [filterConfigurations]);

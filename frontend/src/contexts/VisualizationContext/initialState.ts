@@ -79,6 +79,8 @@ export const initialState: VisualizationState = {
   globalChartType: null,
   // Table rows view mode default
   showTableRows: false,
+  // Table view columns default (empty until seeded/added)
+  tableColumnFields: [],
   queryVersion: 0,
   // MeasureNames/MeasureValues source tracking defaults
   measureValuesSourceFields: [],

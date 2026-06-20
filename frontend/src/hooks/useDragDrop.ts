@@ -20,7 +20,7 @@ import { resolveSingleEncodingDropField } from '../utils/singleEncodingZone';
 export function useDragDrop(availableFields?: Field[]) {
   const { state, dispatch, getUndoableSnapshot } = useVisualizationContext();
   const { dataSource } = useDataSource();
-  const { xAxisFields, yAxisFields, filterFields } = state;
+  const { xAxisFields, yAxisFields, filterFields, tableColumnFields } = state;
   const { recordAction } = useUndoRedo();
   
   // Use provided availableFields or fall back to dataSource.availableFields
@@ -34,6 +34,7 @@ export function useDragDrop(availableFields?: Field[]) {
   const filterFieldsRef = useRef(filterFields);
   const fieldsToUseRef = useRef(fieldsToUse);
   const colorFieldRef = useRef(state.colorField);
+  const tableColumnFieldsRef = useRef(tableColumnFields);
   
   // Keep refs synchronized with latest state
   useEffect(() => {
@@ -55,6 +56,10 @@ export function useDragDrop(availableFields?: Field[]) {
   useEffect(() => {
     colorFieldRef.current = state.colorField;
   }, [state.colorField]);
+
+  useEffect(() => {
+    tableColumnFieldsRef.current = tableColumnFields;
+  }, [tableColumnFields]);
   
   /**
    * Handle drops between axes or from available fields
@@ -458,6 +463,69 @@ export function useDragDrop(availableFields?: Field[]) {
   }, [dispatch, recordAction, getUndoableSnapshot]);
 
   /**
+   * Handle drops on the table view's "Columns" zone. Copies the dragged
+   * field(s) in (new UUIDs), deduped by columnName against the existing list,
+   * inserted at the requested index. No flavour-ordering constraint.
+   */
+  const handleTableColumnsDrop = useCallback((
+    field: Field | Field[],
+    source: DragSource,
+    index?: number,
+  ) => {
+    recordAction(getUndoableSnapshot());
+
+    const fieldsToAdd = Array.isArray(field) ? field : [field];
+    if (fieldsToAdd.length === 0) return;
+
+    const currentFieldsToUse = fieldsToUseRef.current;
+    const currentColumns = tableColumnFieldsRef.current;
+    const existingColumnNames = new Set(currentColumns.map(f => f.columnName));
+
+    const resolved = fieldsToAdd.map(f => {
+      // From the available fields tree, resolve the canonical field by id.
+      const sourceField = source === 'AVAILABLE_FIELDS'
+        ? currentFieldsToUse.find(sf => sf.id === f.id)
+        : f;
+      if (!sourceField) return null;
+      return { ...sourceField, id: uuidv4() };
+    }).filter(Boolean) as Field[];
+
+    // Dedupe against existing columns and within the dropped batch.
+    const seenInBatch = new Set<string>();
+    const toInsert = resolved.filter(f => {
+      if (existingColumnNames.has(f.columnName) || seenInBatch.has(f.columnName)) return false;
+      seenInBatch.add(f.columnName);
+      return true;
+    });
+    if (toInsert.length === 0) return;
+
+    const newColumns = [...currentColumns];
+    if (index !== undefined) {
+      newColumns.splice(index, 0, ...toInsert);
+    } else {
+      newColumns.push(...toInsert);
+    }
+    dispatch({ type: 'SET_TABLE_COLUMN_FIELDS', payload: newColumns });
+  }, [dispatch, recordAction, getUndoableSnapshot]); // Stable deps only - state read from refs
+
+  const handleRemoveFromTableColumns = useCallback((fieldId: string) => {
+    recordAction(getUndoableSnapshot());
+    const currentColumns = tableColumnFieldsRef.current;
+    const newColumns = currentColumns.filter(f => f.id !== fieldId);
+    if (newColumns.length === currentColumns.length) return;
+    dispatch({ type: 'SET_TABLE_COLUMN_FIELDS', payload: newColumns });
+  }, [dispatch, recordAction, getUndoableSnapshot]); // Stable deps only - state read from refs
+
+  const handleReorderTableColumns = useCallback((fromIndex: number, toIndex: number) => {
+    recordAction(getUndoableSnapshot());
+    const currentColumns = tableColumnFieldsRef.current;
+    const newColumns = [...currentColumns];
+    const [moved] = newColumns.splice(fromIndex, 1);
+    newColumns.splice(toIndex, 0, moved);
+    dispatch({ type: 'SET_TABLE_COLUMN_FIELDS', payload: newColumns });
+  }, [dispatch, recordAction, getUndoableSnapshot]); // Stable deps only - state read from refs
+
+  /**
    * Atomically move a field between axes without triggering double query
    */
   const handleMoveFieldBetweenAxes = useCallback((fieldId: string, fromAxis: 'x' | 'y', toAxis: 'x' | 'y', insertIndex?: number) => {
@@ -488,5 +556,8 @@ export function useDragDrop(availableFields?: Field[]) {
     handleRemoveFromLabel,
     handleRemoveFromTooltip,
     handleRemoveFromBackground,
+    handleTableColumnsDrop,
+    handleRemoveFromTableColumns,
+    handleReorderTableColumns,
   };
 }
