@@ -143,6 +143,9 @@ export interface VisualizationState {
   globalChartType: UserChartType | null;
   // Table rows view mode (raw data table)
   showTableRows: boolean;
+  // Columns shown in the first-class table view (raw rows). Independent of the
+  // X/Y/Color/Size chart encodings; sourced from a dedicated "Columns" drop zone.
+  tableColumnFields: Field[];
   queryVersion: number;
   // MeasureNames/MeasureValues source tracking
   measureValuesSourceFields: Field[];
@@ -296,6 +299,8 @@ export type VisualizationAction =
   | { type: 'SET_TABLE_PAGE'; payload: number }
   // Table rows view mode action
   | { type: 'SET_SHOW_TABLE_ROWS'; payload: boolean }
+  // Table view column list action
+  | { type: 'SET_TABLE_COLUMN_FIELDS'; payload: Field[] }
   // Query optimization settings
   | { type: 'SET_QUERY_OPTIMIZATION_SETTINGS'; payload: QueryOptimizationSettings }
   | { type: 'UPDATE_QUERY_OPTIMIZATION_SETTINGS'; payload: Partial<QueryOptimizationSettings> }

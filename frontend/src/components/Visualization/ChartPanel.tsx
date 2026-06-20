@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { Box } from '@mui/material';
 import DropZone from './DropZone';
+import TableColumnsDropZone from './TableColumnsDropZone';
 import ChartArea from './ChartArea';
 import ChartCaption from './ChartCaption';
 import { Field, DragSource } from '../../types';
@@ -16,6 +17,12 @@ interface ChartPanelProps {
   onRemoveField: (fieldId: string) => void;
   onReorderFields: (axis: 'x' | 'y', fromIndex: number, toIndex: number) => void;
   onMoveFieldBetweenAxes: (fieldId: string, fromAxis: 'x' | 'y', toAxis: 'x' | 'y', insertIndex?: number) => void;
+  // Table view (raw rows) column zone
+  showTableRows: boolean;
+  tableColumnFields: Field[];
+  onTableColumnsDrop: (field: Field | Field[], source: DragSource, index?: number) => void;
+  onRemoveTableColumn: (fieldId: string) => void;
+  onReorderTableColumns: (fromIndex: number, toIndex: number) => void;
 }
 
 const ChartPanel: React.FC<ChartPanelProps> = ({
@@ -26,7 +33,12 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
   onFieldUpdate,
   onRemoveField,
   onReorderFields,
-  onMoveFieldBetweenAxes
+  onMoveFieldBetweenAxes,
+  showTableRows,
+  tableColumnFields,
+  onTableColumnsDrop,
+  onRemoveTableColumn,
+  onReorderTableColumns,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -61,32 +73,48 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
       onClick={handleContainerClick}
       sx={{ height: '100%', p: 1, display: 'flex', flexDirection: 'column' }}
     >
-      <Box sx={{ mb: 1 }}>
-        <DropZone 
-          onDrop={onXAxisDrop}
-          axis="x"
-          fields={xAxisFields}
-          onFieldUpdate={onFieldUpdate}
-          onRemoveField={onRemoveField}
-          onReorderFields={onReorderFields}
-          onMoveFieldBetweenAxes={onMoveFieldBetweenAxes}
-        >
-          X
-        </DropZone>
-      </Box>
-      <Box sx={{ mb: 1 }}>
-        <DropZone 
-          onDrop={onYAxisDrop}
-          axis="y"
-          fields={yAxisFields}
-          onFieldUpdate={onFieldUpdate}
-          onRemoveField={onRemoveField}
-          onReorderFields={onReorderFields}
-          onMoveFieldBetweenAxes={onMoveFieldBetweenAxes}
-        >
-          Y
-        </DropZone>
-      </Box>
+      {showTableRows ? (
+        <Box sx={{ mb: 1 }}>
+          <TableColumnsDropZone
+            fields={tableColumnFields}
+            onDrop={onTableColumnsDrop}
+            onFieldUpdate={onFieldUpdate}
+            onRemoveField={onRemoveTableColumn}
+            onReorderFields={onReorderTableColumns}
+          >
+            Columns
+          </TableColumnsDropZone>
+        </Box>
+      ) : (
+        <>
+          <Box sx={{ mb: 1 }}>
+            <DropZone 
+              onDrop={onXAxisDrop}
+              axis="x"
+              fields={xAxisFields}
+              onFieldUpdate={onFieldUpdate}
+              onRemoveField={onRemoveField}
+              onReorderFields={onReorderFields}
+              onMoveFieldBetweenAxes={onMoveFieldBetweenAxes}
+            >
+              X
+            </DropZone>
+          </Box>
+          <Box sx={{ mb: 1 }}>
+            <DropZone 
+              onDrop={onYAxisDrop}
+              axis="y"
+              fields={yAxisFields}
+              onFieldUpdate={onFieldUpdate}
+              onRemoveField={onRemoveField}
+              onReorderFields={onReorderFields}
+              onMoveFieldBetweenAxes={onMoveFieldBetweenAxes}
+            >
+              Y
+            </DropZone>
+          </Box>
+        </>
+      )}
       {/* Add separation line between drop zones and chart area */}
       <Box sx={{ 
         height: '1px', 

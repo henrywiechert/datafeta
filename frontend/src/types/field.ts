@@ -26,6 +26,7 @@ export type DragSource =
   | 'SHAPE_ZONE'
   | 'LABEL_ZONE'
   | 'TOOLTIP_ZONE'
+  | 'TABLE_ZONE'
   | 'MEASURE_GROUP';
 
 export interface Field {

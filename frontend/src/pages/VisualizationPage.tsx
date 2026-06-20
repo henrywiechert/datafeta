@@ -133,6 +133,9 @@ const VisualizationPageContent = () => {
         handleRemoveFromLabel,
         handleRemoveFromTooltip,
         handleRemoveFromBackground,
+        handleTableColumnsDrop,
+        handleRemoveFromTableColumns,
+        handleReorderTableColumns,
     } = dragDropHandlers;    // Undo/Redo handlers
     const handleUndo = React.useCallback(() => {
         const previousState = undo();
@@ -599,6 +602,11 @@ const VisualizationPageContent = () => {
                             onRemoveField={handleRemoveFromAxis}
                             onReorderFields={handleReorderFields}
                             onMoveFieldBetweenAxes={handleMoveFieldBetweenAxes}
+                            showTableRows={state.showTableRows}
+                            tableColumnFields={state.tableColumnFields}
+                            onTableColumnsDrop={handleTableColumnsDrop}
+                            onRemoveTableColumn={handleRemoveFromTableColumns}
+                            onReorderTableColumns={handleReorderTableColumns}
                         />
                     </Panel>
                 </PanelGroup>

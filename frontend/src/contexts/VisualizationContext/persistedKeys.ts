@@ -44,6 +44,7 @@ export const PERSISTED_STATE_KEYS = [
   'facetBackgroundScheme',
   'facetBackgroundOpacity',
   'showTableRows',
+  'tableColumnFields',
   'overlays',
   'chartTypeParams',
   'shapeField',

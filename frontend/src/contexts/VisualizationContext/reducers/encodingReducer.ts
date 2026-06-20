@@ -134,6 +134,13 @@ export function encodingReducer(state: VisualizationState, action: Visualization
       return { ...state, tooltipFields: newFields, queryVersion: state.queryVersion + 1 };
     }
     
+    // Table view columns (raw-rows table). Separate query hook reacts to this
+    // list directly, so no queryVersion bump is needed.
+    case 'SET_TABLE_COLUMN_FIELDS': {
+      if (sameFieldArray(state.tableColumnFields, action.payload)) return state;
+      return { ...state, tableColumnFields: action.payload };
+    }
+
     // MeasureNames/MeasureValues source tracking
     case 'SET_MEASURE_VALUES_SOURCE_FIELDS': {
       if (sameFieldArray(state.measureValuesSourceFields, action.payload)) return state;
