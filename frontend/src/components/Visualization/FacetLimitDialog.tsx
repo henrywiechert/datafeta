@@ -20,7 +20,6 @@ import {
 } from '@mui/material';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import {
-  CATEGORY_LIMIT,
   FACET_LIMIT,
   MARKS_LIMIT,
   RenderCostValidation,
@@ -60,6 +59,7 @@ function buildDialogCopy(validationResult: RenderCostValidation) {
     colFacetCount,
     seriesCount,
     categoryCount,
+    categoryLimit,
     estimatedMarks,
     exceedsLimit,
   } = validationResult;
@@ -81,7 +81,7 @@ function buildDialogCopy(validationResult: RenderCostValidation) {
   if (exceedsLimit === 'category') {
     return {
       title: 'Too Many Categories',
-      message: `This chart would render ${formatNumber(categoryCount)} categories, which exceeds the recommended limit of ${formatNumber(CATEGORY_LIMIT)}.`,
+      message: `This chart would render ${formatNumber(categoryCount)} categories, which exceeds the recommended limit of ${formatNumber(categoryLimit)}.`,
       impact: 'Rendering this many bars or category marks may cause your browser to become slow or unresponsive.',
       suggestionsTitle: 'Suggestions to reduce categories:',
       suggestions: [
