@@ -98,7 +98,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
   // into flat locals here, which the rendering/cache boundaries below consume.
   const { variant: lineVariant, areaFillOpacity, colorMode: lineColorMode } = chartTypeParams.line;
   const distributionVariant = chartTypeParams.distribution.variant;
-  const { cellMode: tableCellMode, page: tablePage } = chartTypeParams.table;
+  const { page: tablePage } = chartTypeParams.table;
 
   const { selectedTable, selectedDatabase, virtualTable, virtualColumns, sessionAppliedFilterConfigurations } =
     dataSource;
@@ -210,7 +210,6 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
       areaFillOpacity,
       lineColorMode,
       distributionVariant,
-      tableCellMode,
       tablePage,
       tablePageSize: isTableMode ? tablePageSize : undefined,
       measureValuesSourceFields,
@@ -445,7 +444,6 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
       areaFillOpacity,
       lineColorMode,
       distributionVariant,
-      tableCellMode,
       tablePage: isTableMode ? tablePage : undefined,
       tablePageSize: isTableMode ? tablePageSize : undefined,
       independentDomains,
@@ -456,7 +454,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
     }),
     [
       xAxisFields, yAxisFields, chartFilterConfigurations, channels,
-      measureGroupFields, fieldOverrides, globalChartType, lineVariant, areaFillOpacity, lineColorMode, distributionVariant, tableCellMode,
+      measureGroupFields, fieldOverrides, globalChartType, lineVariant, areaFillOpacity, lineColorMode, distributionVariant,
       isTableMode, tablePage, tablePageSize,
       independentDomains,
     ],

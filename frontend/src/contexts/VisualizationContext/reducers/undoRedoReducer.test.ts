@@ -38,7 +38,7 @@ describe('undoRedoReducer RESTORE_UNDOABLE_STATE', () => {
         ...initialState.chartTypeParams,
         line: { variant: 'area', areaFillOpacity: 0.42, colorMode: 'alongPath' },
         distribution: { variant: 'box-plot' },
-        table: { cellMode: 'text', page: 3 },
+        table: { page: 3 },
       },
       queryVersion: 7,
     };

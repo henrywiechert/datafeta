@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { Field, FieldOverrideState, UserChartType, QueryOptimizationSettings, DistributionVariant, TableCellMode, LineVariant, LineColorMode, DensityParams } from '../../types/field';
+import { Field, FieldOverrideState, UserChartType, QueryOptimizationSettings, DistributionVariant, LineVariant, LineColorMode, DensityParams } from '../../types/field';
 import { QueryResult } from '../../types/query';
 import { FilterConfig, FilterMetadata } from '../../types/filter';
 import { OverlayConfig, OverlayType, OverlayParams } from '../../observable-plot-generator/overlays/types';
@@ -185,7 +185,6 @@ export interface DistributionChartParams {
 
 /** Parameters for the 'table-refactor' chart type. */
 export interface TableChartParams {
-  cellMode: TableCellMode;
   // Current page index for the pager (0-based). Page size is a global user
   // setting (see useTablePageSize), not per-sheet.
   page: number;
@@ -294,7 +293,6 @@ export type VisualizationAction =
   | { type: 'SET_AREA_FILL_OPACITY'; payload: number }
   | { type: 'SET_LINE_COLOR_MODE'; payload: LineColorMode }
   | { type: 'SET_DISTRIBUTION_VARIANT'; payload: DistributionVariant }
-  | { type: 'SET_TABLE_CELL_MODE'; payload: TableCellMode }
   // Table-refactor pagination
   | { type: 'SET_TABLE_PAGE'; payload: number }
   // Table rows view mode action

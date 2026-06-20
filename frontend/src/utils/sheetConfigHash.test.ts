@@ -26,7 +26,6 @@ function baseChartConfig(): ChartAffectingConfig {
     independentDomains: { x: false, y: false },
     globalChartType: 'table-refactor',
     distributionVariant: 'tick-strip',
-    tableCellMode: 'auto',
   };
 }
 

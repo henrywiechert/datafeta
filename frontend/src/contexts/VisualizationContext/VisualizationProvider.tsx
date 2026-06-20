@@ -6,7 +6,7 @@ import { VisualizationState, VisualizationAction, LoadingOperationType, ChartTyp
 import { initialState } from './initialState';
 import { visualizationReducer } from './reducers';
 import { PERSISTED_STATE_KEYS } from './persistedKeys';
-import { DistributionVariant, LineVariant, TableCellMode } from '../../types';
+import { DistributionVariant, LineVariant } from '../../types';
 import { resetBus } from '../../services/resetBus';
 
 /**
@@ -20,7 +20,6 @@ export interface LegacyChartTypeParamFields {
   lineVariant?: LineVariant;
   areaFillOpacity?: number;
   distributionVariant?: DistributionVariant;
-  tableCellMode?: TableCellMode;
   tablePage?: number;
 }
 
@@ -49,7 +48,6 @@ export function resolveChartTypeParams(
       variant: grouped?.distribution?.variant ?? source?.distributionVariant ?? base.distribution.variant,
     },
     table: {
-      cellMode: grouped?.table?.cellMode ?? source?.tableCellMode ?? base.table.cellMode,
       page: grouped?.table?.page ?? source?.tablePage ?? base.table.page,
     },
   };

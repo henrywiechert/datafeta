@@ -18,7 +18,7 @@ describe('resolveChartTypeParams', () => {
       chartTypeParams: {
         line: { variant: 'area', areaFillOpacity: 0.3, colorMode: 'alongPath' },
         distribution: { variant: 'box-plot' },
-        table: { cellMode: 'text', page: 4 },
+        table: { page: 4 },
         density: base.density,
       },
     };
@@ -27,7 +27,7 @@ describe('resolveChartTypeParams', () => {
 
     expect(result.line).toEqual({ variant: 'area', areaFillOpacity: 0.3, colorMode: 'alongPath' });
     expect(result.distribution.variant).toBe('box-plot');
-    expect(result.table).toEqual({ cellMode: 'text', page: 4 });
+    expect(result.table).toEqual({ page: 4 });
     expect(result.density).toEqual(base.density);
   });
 
@@ -36,7 +36,6 @@ describe('resolveChartTypeParams', () => {
       lineVariant: 'area',
       areaFillOpacity: 0.7,
       distributionVariant: 'box-plot',
-      tableCellMode: 'symbol',
       tablePage: 5,
     };
 
@@ -44,7 +43,7 @@ describe('resolveChartTypeParams', () => {
 
     expect(result.line).toEqual({ variant: 'area', areaFillOpacity: 0.7, colorMode: 'alongPath' });
     expect(result.distribution.variant).toBe('box-plot');
-    expect(result.table).toEqual({ cellMode: 'symbol', page: 5 });
+    expect(result.table).toEqual({ page: 5 });
   });
 
   it('prefers grouped values over legacy flat fields when both are present', () => {
@@ -52,13 +51,12 @@ describe('resolveChartTypeParams', () => {
       chartTypeParams: {
         line: { variant: 'area', areaFillOpacity: 0.25, colorMode: 'alongPath' },
         distribution: { variant: 'tick-strip' },
-        table: { cellMode: 'auto', page: 0 },
+        table: { page: 0 },
         density: base.density,
       },
       lineVariant: 'line',
       areaFillOpacity: 0.9,
       distributionVariant: 'box-plot',
-      tableCellMode: 'symbol',
       tablePage: 7,
     };
 
@@ -66,7 +64,7 @@ describe('resolveChartTypeParams', () => {
 
     expect(result.line).toEqual({ variant: 'area', areaFillOpacity: 0.25, colorMode: 'alongPath' });
     expect(result.distribution.variant).toBe('tick-strip');
-    expect(result.table).toEqual({ cellMode: 'auto', page: 0 });
+    expect(result.table).toEqual({ page: 0 });
   });
 
   it('fills missing fields from defaults when partial grouped data is provided', () => {
@@ -103,7 +101,6 @@ describe('resolveChartTypeParams', () => {
     const baseClone = JSON.parse(JSON.stringify(base));
     const source: LegacyChartTypeParamFields = {
       lineVariant: 'area',
-      tableCellMode: 'symbol',
     };
     const sourceClone = JSON.parse(JSON.stringify(source));
 

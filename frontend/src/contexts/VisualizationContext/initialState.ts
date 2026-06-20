@@ -164,7 +164,7 @@ export const initialState: VisualizationState = {
     density: DEFAULT_DENSITY_PARAMS,
     line: { variant: 'line', areaFillOpacity: DEFAULT_AREA_FILL_OPACITY, colorMode: 'alongPath' },
     distribution: { variant: 'tick-strip' },
-    table: { cellMode: 'auto', page: 0 },
+    table: { page: 0 },
   },
 };
 

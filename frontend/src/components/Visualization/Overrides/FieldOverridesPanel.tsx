@@ -141,7 +141,6 @@ const FieldOverridesPanel: React.FC = () => {
 
   const { variant: lineVariant, areaFillOpacity, colorMode: lineColorMode } = chartTypeParams.line;
   const distributionVariant = chartTypeParams.distribution.variant;
-  const tableCellMode = chartTypeParams.table.cellMode;
 
   const [expandedId, setExpandedId] = useState<string | null>('__all__');
 
@@ -441,10 +440,6 @@ const FieldOverridesPanel: React.FC = () => {
             distributionVariant={distributionVariant}
             onDistributionVariantChange={(variant) => {
               applyGlobalAction({ type: 'SET_DISTRIBUTION_VARIANT', payload: variant });
-            }}
-            tableCellMode={tableCellMode}
-            onTableCellModeChange={(mode) => {
-              applyGlobalAction({ type: 'SET_TABLE_CELL_MODE', payload: mode });
             }}
           />
 
