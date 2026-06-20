@@ -70,7 +70,6 @@ export type {
   DataLabelMode,
   UserChartType,
   DensityParams,
-  TableCellMode,
   FieldOverrideState,
   QueryOptimizationSettings,
 } from './field';

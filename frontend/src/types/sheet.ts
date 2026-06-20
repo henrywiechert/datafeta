@@ -4,7 +4,7 @@
  * Multi-sheet workspace and visualization state
  */
 
-import { Field, FieldOverrideState, UserChartType, QueryOptimizationSettings, DistributionVariant, TableCellMode, LineVariant } from './field';
+import { Field, FieldOverrideState, UserChartType, QueryOptimizationSettings, DistributionVariant, LineVariant } from './field';
 import { FilterConfig } from './filter';
 import { VirtualColumnDefinition } from './virtualColumn';
 
@@ -103,8 +103,6 @@ export interface VisualizationStateSnapshot {
   areaFillOpacity?: number;
   /** @deprecated Persisted in older sheets; now stored under `chartTypeParams.distribution.variant`. */
   distributionVariant?: DistributionVariant;
-  /** @deprecated Persisted in older sheets; now stored under `chartTypeParams.table.cellMode`. */
-  tableCellMode?: TableCellMode;
   /** @deprecated Persisted in older sheets; now stored under `chartTypeParams.table.page`. */
   tablePage?: number;
   showTableRows?: boolean;

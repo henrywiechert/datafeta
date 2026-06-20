@@ -101,16 +101,6 @@ export function overridesReducer(state: VisualizationState, action: Visualizatio
         queryVersion: variantChanged ? state.queryVersion + 1 : state.queryVersion,
       };
     }
-    case 'SET_TABLE_CELL_MODE': {
-      // Pure rendering toggle: no query refetch needed, so leave queryVersion alone.
-      return {
-        ...state,
-        chartTypeParams: {
-          ...state.chartTypeParams,
-          table: { ...state.chartTypeParams.table, cellMode: action.payload },
-        },
-      };
-    }
     case 'SET_TABLE_PAGE': {
       // Pager navigation does not bump queryVersion; the chart pipeline reacts to
       // the changed page index via cache key + generator slicing.

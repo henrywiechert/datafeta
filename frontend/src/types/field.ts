@@ -86,14 +86,6 @@ export type LineVariant = 'line' | 'area';
 /** How a continuous color field is encoded on line charts. */
 export type LineColorMode = 'alongPath' | 'bySeries';
 
-/**
- * Cell rendering mode for the `table-refactor` chart type.
- * - `auto`: resolves to `text` when label/measure fields are present, else `symbol` (PR 7).
- * - `text`: renders one stacked text row per measure/label inside each cell (PR 7).
- * - `symbol`: renders a Tableau-style symbol mark per cell (color/shape/size encoded) (PR 6).
- */
-export type TableCellMode = 'auto' | 'text' | 'symbol';
-
 export interface FieldOverrideState {
   // Color overrides
   colorFieldId?: string | null;

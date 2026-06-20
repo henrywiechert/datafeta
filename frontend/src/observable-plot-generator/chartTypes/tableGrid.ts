@@ -5,15 +5,14 @@
  * Builds a Tableau-style table directly as a `GridResultModel` (without going
  * through the legacy `PlotResult` pipeline).
  *
- * Cell modes (selected via `tableCellMode` on the generation context):
+ * Cell modes (derived from the Labels shelf):
  * - `symbol` — every (rowTuple, colTuple) renders one or more deduped symbol
  *   marks. Mixed values produce a preview stack (see `discreteGridSymbolLayout`).
  * - `text` — every cell renders stacked rows of formatted text, sourced from
  *   `labelFields` (Tableau's Label/Text shelf) and aggregated measures on
  *   `xFields` / `yFields`, in shelf order.
- * - `auto` — resolves to `text` when at least one measure or label field is
- *   present, `symbol` otherwise (matches Tableau's "Automatic" mark for
- *   all-discrete shelves).
+ * Text mode is selected when at least one label field is configured; otherwise
+ * symbol mode renders a presence mark for each cell.
  *
  * Both modes share the same row/column header construction. Headers come from
  * the discrete dimensions on the Y/X axes, in declaration order.
@@ -27,7 +26,7 @@
  * `GridResultModel.pagination` so the pager UI can drive itself off of it.
  */
 
-import { Field, TableCellMode } from '../../types';
+import { Field } from '../../types';
 import {
   GridCellModel,
   GridHeaderAxis,
@@ -86,21 +85,13 @@ function radiusToSymbolArea(radius: number): number {
 }
 
 /**
- * Resolve `auto` to the concrete cell mode emitted by `generateTableGrid`.
+ * Resolve the concrete cell mode emitted by `generateTableGrid`.
  *
- * Rule (matches Tableau's "Automatic" mark for all-discrete shelves):
- * - `text` if any measure is on X/Y or any label field is configured — measures
- *   and label fields naturally feed per-cell text content.
- * - `symbol` otherwise (presence dot, optionally encoded by color/shape/size).
- *
- * Explicit selections (`text`, `symbol`) bypass the auto rule.
+ * A field on the Labels shelf selects text mode. Otherwise the table renders a
+ * presence dot, optionally encoded by color/shape/size.
  */
-export function resolveTableCellMode(context: ChartGenerationContext, mode: TableCellMode): 'text' | 'symbol' {
-  if (mode === 'text') return 'text';
-  if (mode === 'symbol') return 'symbol';
-  const hasMeasure = [...(context.xFields ?? []), ...(context.yFields ?? [])].some(isMeasure);
-  const hasLabelField = (context.labelFields ?? []).length > 0;
-  return hasMeasure || hasLabelField ? 'text' : 'symbol';
+export function resolveTableCellMode(context: ChartGenerationContext): 'text' | 'symbol' {
+  return (context.labelFields ?? []).length > 0 ? 'text' : 'symbol';
 }
 
 interface SymbolFingerprint {
@@ -575,7 +566,7 @@ function sanitizePage(raw: number | undefined, total: number, pageSize: number):
 export function generateTableGrid(context: ChartGenerationContext): GridResultModel {
   const data = Array.isArray(context.queryResult?.rows) ? context.queryResult.rows : [];
   const facetCtx = buildFacetSpaceContext(context, data);
-  const mode = resolveTableCellMode(context, context.tableCellMode ?? 'auto');
+  const mode = resolveTableCellMode(context);
 
   const totalRowTuples = facetCtx.rowTuples.length;
   const pageSize = sanitizePageSize(context.tablePageSize);

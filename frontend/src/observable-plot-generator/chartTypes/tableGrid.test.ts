@@ -50,38 +50,27 @@ function buildContext(overrides: Partial<ChartGenerationContext> & {
 
 describe('generateTableGrid', () => {
   describe('resolveTableCellMode', () => {
-    it("resolves 'auto' to 'symbol' when no measure or label field is configured", () => {
+    it("resolves to 'symbol' when no label field is configured", () => {
       const ctx = buildContext({});
-      expect(resolveTableCellMode(ctx, 'auto')).toBe('symbol');
+      expect(resolveTableCellMode(ctx)).toBe('symbol');
     });
 
-    it("resolves 'auto' to 'text' when a measure is on the X shelf", () => {
+    it("keeps 'symbol' when a measure is on the X shelf without a label field", () => {
       const sales = measureField('m-sales', 'sales');
       const ctx = buildContext({ xFields: [sales] });
-      expect(resolveTableCellMode(ctx, 'auto')).toBe('text');
+      expect(resolveTableCellMode(ctx)).toBe('symbol');
     });
 
-    it("resolves 'auto' to 'text' when a measure is on the Y shelf", () => {
+    it("keeps 'symbol' when a measure is on the Y shelf without a label field", () => {
       const sales = measureField('m-sales', 'sales');
       const ctx = buildContext({ yFields: [sales] });
-      expect(resolveTableCellMode(ctx, 'auto')).toBe('text');
+      expect(resolveTableCellMode(ctx)).toBe('symbol');
     });
 
-    it("resolves 'auto' to 'text' when a label field is configured", () => {
+    it("resolves to 'text' when a label field is configured", () => {
       const note = dimField('dim-note', 'note');
       const ctx = buildContext({ labelFields: [note] } as any);
-      expect(resolveTableCellMode(ctx, 'auto')).toBe('text');
-    });
-
-    it("preserves explicit 'symbol' selection even when measures are present", () => {
-      const sales = measureField('m-sales', 'sales');
-      const ctx = buildContext({ xFields: [sales] });
-      expect(resolveTableCellMode(ctx, 'symbol')).toBe('symbol');
-    });
-
-    it("preserves explicit 'text' selection even when no measure or label is present", () => {
-      const ctx = buildContext({});
-      expect(resolveTableCellMode(ctx, 'text')).toBe('text');
+      expect(resolveTableCellMode(ctx)).toBe('text');
     });
   });
 
@@ -335,16 +324,17 @@ describe('generateTableGrid', () => {
   });
 
   describe('text mode (PR 7)', () => {
-    it("auto-resolves to text when a measure is present and emits one row per cell", () => {
+    it('resolves to text when a label field is present and emits one row per cell', () => {
       const region = dimField('dim-region', 'region');
+      const note = dimField('dim-note', 'note');
       const sales = measureField('m-sales', 'sales');
       const grid = generateTableGrid(buildContext({
         yFields: [region, sales],
+        labelFields: [note],
         rows: [
           { region: 'East', 'SUM(sales)': 1234 },
           { region: 'West', 'SUM(sales)': 5678.5 },
         ],
-        tableCellMode: 'auto',
       }));
 
       expect(grid.cells).toHaveLength(2);
@@ -371,7 +361,6 @@ describe('generateTableGrid', () => {
         rows: [
           { region: 'East', note: 'flagship', 'SUM(sales)': 10, 'SUM(profit)': 2 },
         ],
-        tableCellMode: 'text',
       } as any));
 
       const cell = grid.cells[0] as TextGridCellModel;
@@ -387,15 +376,16 @@ describe('generateTableGrid', () => {
     it('emits an empty cell for (rowTuple, colTuple) combinations with no matching aggregated row', () => {
       const region = dimField('dim-region', 'region');
       const year = dimField('dim-year', 'year', 'integer');
+      const note = dimField('dim-note', 'note');
       const sales = measureField('m-sales', 'sales');
       const grid = generateTableGrid(buildContext({
         xFields: [year],
         yFields: [region, sales],
+        labelFields: [note],
         rows: [
           { region: 'East', year: 2024, 'SUM(sales)': 100 },
           { region: 'West', year: 2025, 'SUM(sales)': 200 },
         ],
-        tableCellMode: 'text',
       }));
 
       // 2x2 grid; only diagonal is populated.
@@ -413,14 +403,15 @@ describe('generateTableGrid', () => {
 
     it('skips text rows for missing/null measure values and renders only present ones', () => {
       const region = dimField('dim-region', 'region');
+      const note = dimField('dim-note', 'note');
       const sales = measureField('m-sales', 'sales');
       const profit = measureField('m-profit', 'profit');
       const grid = generateTableGrid(buildContext({
         yFields: [region, sales, profit],
+        labelFields: [note],
         rows: [
           { region: 'East', 'SUM(sales)': 100, 'SUM(profit)': null },
         ],
-        tableCellMode: 'text',
       }));
 
       const cell = grid.cells[0] as TextGridCellModel;
@@ -432,14 +423,15 @@ describe('generateTableGrid', () => {
 
     it('formats Date measure values via toLocaleString', () => {
       const region = dimField('dim-region', 'region');
+      const note = dimField('dim-note', 'note');
       const lastSeen = measureField('m-last-seen', 'lastSeen', 'max');
       const date = new Date('2026-04-28T12:00:00Z');
       const grid = generateTableGrid(buildContext({
         yFields: [region, lastSeen],
+        labelFields: [note],
         rows: [
           { region: 'East', 'MAX(lastSeen)': date },
         ],
-        tableCellMode: 'text',
       }));
 
       const cell = grid.cells[0] as TextGridCellModel;
@@ -448,13 +440,12 @@ describe('generateTableGrid', () => {
       expect(cell.content.rows[0].value).toBe(date.toLocaleString());
     });
 
-    it('respects an explicit symbol selection even when measures would auto-resolve to text', () => {
+    it('renders symbols when no label field is present even when measures are present', () => {
       const region = dimField('dim-region', 'region');
       const sales = measureField('m-sales', 'sales');
       const grid = generateTableGrid(buildContext({
         yFields: [region, sales],
         rows: [{ region: 'East', 'SUM(sales)': 100 }],
-        tableCellMode: 'symbol',
       }));
 
       const cell = grid.cells[0] as MarkGridCellModel;
@@ -463,11 +454,12 @@ describe('generateTableGrid', () => {
 
     it('uses fieldAliasLookup for the row label when present', () => {
       const region = dimField('dim-region', 'region');
+      const note = dimField('dim-note', 'note');
       const sales = measureField('m-sales', 'sales');
       const grid = generateTableGrid(buildContext({
         yFields: [region, sales],
+        labelFields: [note],
         rows: [{ region: 'East', 'SUM(sales)': 100 }],
-        tableCellMode: 'text',
         // Alias lookup is keyed by the field's bare `columnName`, matching
         // `fieldDisplayAliases` in DataSourceContext.
         fieldAliasLookup: { sales: 'Total Sales' },
@@ -479,11 +471,12 @@ describe('generateTableGrid', () => {
 
     it('falls back to the aggregation-prefixed label when no alias is set', () => {
       const region = dimField('dim-region', 'region');
+      const note = dimField('dim-note', 'note');
       const sales = measureField('m-sales', 'sales');
       const grid = generateTableGrid(buildContext({
         yFields: [region, sales],
+        labelFields: [note],
         rows: [{ region: 'East', 'SUM(sales)': 100 }],
-        tableCellMode: 'text',
       }));
 
       const cell = grid.cells[0] as TextGridCellModel;
@@ -606,8 +599,8 @@ describe('generateTableGrid', () => {
       const grid = generateTableGrid(buildContext({
         yFields: [region],
         xFields: [sales],
+        labelFields: [dimField('dim-note', 'note')],
         rows,
-        tableCellMode: 'text',
         tablePageSize: 2,
         tablePage: 1,
       }));

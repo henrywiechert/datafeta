@@ -4,7 +4,7 @@ import { generatePlot } from '../../../../observable-plot-generator/observablePl
 import { ChartGenerationContext, GanttZoomRange } from '../../../../observable-plot-generator/types';
 import { GridResultModel } from '../../../../observable-plot-generator/gridModel';
 import { OverlayConfig } from '../../../../observable-plot-generator/overlays/types';
-import { Field, FieldOverrideState, UserChartType, Channels, DistributionVariant, TableCellMode, LineVariant, DensityParams } from '../../../../types';
+import { Field, FieldOverrideState, UserChartType, Channels, DistributionVariant, LineVariant, DensityParams } from '../../../../types';
 import { computeOverrideTargets } from '../../../../observable-plot-generator/utils/fieldOverrides';
 import { detectDefaultUserChartType } from '../../../../observable-plot-generator/helpers/chartTypeResolver';
 import { logOperationTiming } from '../utils';
@@ -33,7 +33,6 @@ interface UseChartGenerationProps {
   areaFillOpacity?: number;
   lineColorMode?: import('../../../../types').LineColorMode;
   distributionVariant?: DistributionVariant;
-  tableCellMode?: TableCellMode;
   /** 0-based page index for the 'table-refactor' chart type pager. */
   tablePage?: number;
   /** Rows-per-page (global user setting) for the 'table-refactor' chart type. */
@@ -78,7 +77,6 @@ export const useChartGeneration = ({
   areaFillOpacity,
   lineColorMode = 'alongPath',
   distributionVariant = 'tick-strip',
-  tableCellMode = 'auto',
   tablePage,
   tablePageSize,
   measureValuesSourceFields = [],
@@ -270,7 +268,6 @@ export const useChartGeneration = ({
         areaFillOpacity,
         lineColorMode,
         distributionVariant,
-        tableCellMode,
         tablePage,
         tablePageSize,
         measureValuesSourceFields,
@@ -358,7 +355,6 @@ export const useChartGeneration = ({
     areaFillOpacity,
     lineColorMode,
     distributionVariant,
-    tableCellMode,
     tablePage,
     tablePageSize,
     measureValuesSourceFields,
