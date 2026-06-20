@@ -2,7 +2,12 @@
 import { generateTableGrid, resolveTableCellMode, TableGridInput } from './tableGrid';
 import { ColorChannel, Field } from '../../types';
 import { MarkGridCellModel, TextGridCellModel } from '../gridModel';
-import { DEFAULT_CHART_COLOR, MIN_NON_PLOT_GRID_ROW_PX } from '../../config/chartLayoutConfig';
+import {
+  DEFAULT_CHART_COLOR,
+  MIN_NON_PLOT_GRID_ROW_PX,
+  TABLE_MIN_CELL_HEIGHT_PX,
+  TABLE_MIN_CELL_WIDTH_PX,
+} from '../../config/chartLayoutConfig';
 
 function dimField(id: string, columnName: string, dataType: 'string' | 'integer' = 'string'): Field {
   return {
@@ -81,6 +86,8 @@ describe('generateTableGrid', () => {
       rows: 1,
       columnSizes: ['fr'],
       rowSizes: [MIN_NON_PLOT_GRID_ROW_PX],
+      minColumnSizes: [TABLE_MIN_CELL_WIDTH_PX],
+      minRowSizes: [TABLE_MIN_CELL_HEIGHT_PX],
     });
     expect(grid.cells).toHaveLength(1);
     expect(grid.cells[0].content.kind).toBe('empty');
@@ -214,6 +221,23 @@ describe('generateTableGrid', () => {
 
     expect(grid.layout.rowSizes).toEqual([MIN_NON_PLOT_GRID_ROW_PX, MIN_NON_PLOT_GRID_ROW_PX]);
     expect(grid.layout.columnSizes).toEqual(['fr']);
+  });
+
+  it('exposes a dense table-specific resize floor (one entry per track)', () => {
+    const region = dimField('dim-region', 'region');
+    const year = dimField('dim-year', 'year', 'integer');
+    const grid = generateTableGrid(buildInput({
+      xFields: [year],
+      yFields: [region],
+      rows: [
+        { region: 'East', year: 2024 },
+        { region: 'East', year: 2025 },
+        { region: 'West', year: 2024 },
+      ],
+    }));
+
+    expect(grid.layout.minColumnSizes).toEqual([TABLE_MIN_CELL_WIDTH_PX, TABLE_MIN_CELL_WIDTH_PX]);
+    expect(grid.layout.minRowSizes).toEqual([TABLE_MIN_CELL_HEIGHT_PX, TABLE_MIN_CELL_HEIGHT_PX]);
   });
 
   describe('symbol size encoding', () => {

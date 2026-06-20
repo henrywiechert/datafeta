@@ -72,6 +72,12 @@ export const HORIZONTAL_SCROLLBAR_GUTTER_PX = Math.max(MEASURED_SCROLLBAR_PX, 16
 // Compact bands and short rows so a table with many discrete tuples is
 // readable at a glance — closer to a Tableau text-table than to a chart.
 export const MIN_NON_PLOT_GRID_ROW_PX = 28;
+// Table-refactor resize floor. Tables (especially in symbol mode) benefit from
+// very dense cells, so they can shrink far below the generic facet cell floor
+// (`MIN_CELL_WIDTH_PX` / `MIN_CELL_HEIGHT_PX`). The default row height stays at
+// `MIN_NON_PLOT_GRID_ROW_PX`; these only bound interactive shrink-resize.
+export const TABLE_MIN_CELL_WIDTH_PX = 5;
+export const TABLE_MIN_CELL_HEIGHT_PX = 5;
 export const TABLE_NAMES_BAND_LEFT_PX = 88;
 export const TABLE_VALUES_BAND_LEFT_PX = 96;
 export const TABLE_VALUES_BAND_TOP_PX = 18;
