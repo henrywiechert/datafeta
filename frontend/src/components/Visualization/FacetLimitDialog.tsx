@@ -1,6 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 /**
- * FacetLimitDialog - Warning dialog shown when faceting would create too many facets.
+ * FacetLimitDialog - Warning dialog shown when a chart may be expensive to render.
  * 
  * Displays a blocking dialog that requires user acknowledgment before proceeding
  * with rendering a visualization that may overwhelm the browser.
@@ -19,13 +19,19 @@ import {
   Alert,
 } from '@mui/material';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { FacetValidationResult, FACET_LIMIT } from '../../observable-plot-generator/faceting/facetValidation';
+import {
+  CATEGORY_LIMIT,
+  FACET_LIMIT,
+  MARKS_LIMIT,
+  RenderCostValidation,
+  SERIES_LIMIT,
+} from '../../observable-plot-generator/faceting/renderCostValidation';
 
 interface FacetLimitDialogProps {
   /** Whether the dialog is open */
   open: boolean;
-  /** Validation result containing facet counts and field information */
-  validationResult: FacetValidationResult | null;
+  /** Validation result containing render-cost counts and field information */
+  validationResult: RenderCostValidation | null;
   /** Called when user chooses to proceed despite the warning */
   onProceed: () => void;
   /** Called when user cancels (does not proceed with rendering) */
@@ -48,6 +54,80 @@ function buildFieldDescription(fields: { columnName: string }[]): string {
   return fields.map(f => f.columnName).join(' × ');
 }
 
+function buildDialogCopy(validationResult: RenderCostValidation) {
+  const {
+    rowFacetCount,
+    colFacetCount,
+    seriesCount,
+    categoryCount,
+    estimatedMarks,
+    exceedsLimit,
+  } = validationResult;
+
+  if (exceedsLimit === 'series') {
+    return {
+      title: 'Too Many Series',
+      message: `This chart would render ${formatNumber(seriesCount)} series, which exceeds the recommended limit of ${formatNumber(SERIES_LIMIT)}.`,
+      impact: 'Rendering this many lines or paths may cause your browser to become slow or unresponsive.',
+      suggestionsTitle: 'Suggestions to reduce series:',
+      suggestions: [
+        'Apply filters to reduce the number of unique color values',
+        'Remove or change the color field',
+        'Choose a chart type that summarizes categories differently',
+      ],
+    };
+  }
+
+  if (exceedsLimit === 'category') {
+    return {
+      title: 'Too Many Categories',
+      message: `This chart would render ${formatNumber(categoryCount)} categories, which exceeds the recommended limit of ${formatNumber(CATEGORY_LIMIT)}.`,
+      impact: 'Rendering this many bars or category marks may cause your browser to become slow or unresponsive.',
+      suggestionsTitle: 'Suggestions to reduce categories:',
+      suggestions: [
+        'Apply filters to reduce the number of unique category values',
+        'Remove or change the discrete category field',
+        'Use a higher-level categorical field if one is available',
+      ],
+    };
+  }
+
+  if (exceedsLimit === 'marks') {
+    return {
+      title: 'Too Many Marks',
+      message: `This chart would render about ${formatNumber(estimatedMarks)} mark groups, which exceeds the recommended limit of ${formatNumber(MARKS_LIMIT)}.`,
+      impact: 'Rendering this many chart marks may cause your browser to become slow or unresponsive.',
+      suggestionsTitle: 'Suggestions to reduce render cost:',
+      suggestions: [
+        'Apply filters to reduce facets, series, or categories',
+        'Remove discrete dimensions from axes or color',
+        'Choose a less granular chart configuration',
+      ],
+    };
+  }
+
+  let message = '';
+  if (exceedsLimit === 'both') {
+    message = `Both row facets (${formatNumber(rowFacetCount)}) and column facets (${formatNumber(colFacetCount)}) exceed the recommended limit of ${formatNumber(FACET_LIMIT)}.`;
+  } else if (exceedsLimit === 'row') {
+    message = `Row facets (${formatNumber(rowFacetCount)}) exceed the recommended limit of ${formatNumber(FACET_LIMIT)}.`;
+  } else if (exceedsLimit === 'col') {
+    message = `Column facets (${formatNumber(colFacetCount)}) exceed the recommended limit of ${formatNumber(FACET_LIMIT)}.`;
+  }
+
+  return {
+    title: 'Large Number of Facets',
+    message,
+    impact: 'Rendering this many charts may cause your browser to become slow or unresponsive.',
+    suggestionsTitle: 'Suggestions to reduce facets:',
+    suggestions: [
+      'Apply filters to reduce the number of unique values',
+      'Move some discrete dimensions to other encodings (color, size)',
+      'Remove discrete dimensions from the axes',
+    ],
+  };
+}
+
 const FacetLimitDialog: React.FC<FacetLimitDialogProps> = ({
   open,
   validationResult,
@@ -63,22 +143,15 @@ const FacetLimitDialog: React.FC<FacetLimitDialogProps> = ({
     colFacetCount,
     rowFacetFields,
     colFacetFields,
-    exceedsLimit,
+    seriesCount,
+    categoryCount,
+    estimatedMarks,
   } = validationResult;
 
   const totalFacets = rowFacetCount * colFacetCount;
   const rowFieldsDesc = buildFieldDescription(rowFacetFields);
   const colFieldsDesc = buildFieldDescription(colFacetFields);
-
-  // Build the warning message based on which direction exceeds
-  let exceedsMessage = '';
-  if (exceedsLimit === 'both') {
-    exceedsMessage = `Both row facets (${formatNumber(rowFacetCount)}) and column facets (${formatNumber(colFacetCount)}) exceed the recommended limit of ${formatNumber(FACET_LIMIT)}.`;
-  } else if (exceedsLimit === 'row') {
-    exceedsMessage = `Row facets (${formatNumber(rowFacetCount)}) exceed the recommended limit of ${formatNumber(FACET_LIMIT)}.`;
-  } else if (exceedsLimit === 'col') {
-    exceedsMessage = `Column facets (${formatNumber(colFacetCount)}) exceed the recommended limit of ${formatNumber(FACET_LIMIT)}.`;
-  }
+  const copy = buildDialogCopy(validationResult);
 
   return (
     <Dialog
@@ -94,12 +167,12 @@ const FacetLimitDialog: React.FC<FacetLimitDialogProps> = ({
         sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
       >
         <WarningAmberIcon color="warning" />
-        Large Number of Facets
+        {copy.title}
       </DialogTitle>
       <DialogContent>
         <DialogContentText id="facet-limit-dialog-description" component="div">
           <Alert severity="warning" sx={{ mb: 2 }}>
-            {exceedsMessage}
+            {copy.message}
           </Alert>
 
           <Typography variant="body2" paragraph>
@@ -122,31 +195,36 @@ const FacetLimitDialog: React.FC<FacetLimitDialogProps> = ({
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
               • <strong>{formatNumber(totalFacets)}</strong> total charts to render
             </Typography>
+            {seriesCount > 1 && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                • <strong>{formatNumber(seriesCount)}</strong> series
+              </Typography>
+            )}
+            {categoryCount > 0 && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                • <strong>{formatNumber(categoryCount)}</strong> categories
+              </Typography>
+            )}
+            {estimatedMarks > 1 && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                • <strong>{formatNumber(estimatedMarks)}</strong> estimated mark groups
+              </Typography>
+            )}
           </Box>
 
           <Typography variant="body2" color="text.secondary" paragraph>
-            Rendering this many charts may cause your browser to become slow or unresponsive.
+            {copy.impact}
           </Typography>
 
           <Typography variant="body2" fontWeight="medium">
-            Suggestions to reduce facets:
+            {copy.suggestionsTitle}
           </Typography>
           <Box component="ul" sx={{ mt: 0.5, pl: 3, color: 'text.secondary' }}>
-            <li>
-              <Typography variant="body2">
-                Apply filters to reduce the number of unique values
-              </Typography>
-            </li>
-            <li>
-              <Typography variant="body2">
-                Move some discrete dimensions to other encodings (color, size)
-              </Typography>
-            </li>
-            <li>
-              <Typography variant="body2">
-                Remove discrete dimensions from the axes
-              </Typography>
-            </li>
+            {copy.suggestions.map((suggestion) => (
+              <li key={suggestion}>
+                <Typography variant="body2">{suggestion}</Typography>
+              </li>
+            ))}
           </Box>
         </DialogContentText>
       </DialogContent>

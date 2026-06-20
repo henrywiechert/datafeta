@@ -9,7 +9,7 @@ import { computeOverrideTargets } from '../../../../observable-plot-generator/ut
 import { detectDefaultUserChartType } from '../../../../observable-plot-generator/helpers/chartTypeResolver';
 import { logOperationTiming } from '../utils';
 import { planFacets } from '../../../../observable-plot-generator/faceting/facetPlanner';
-import { validateFacetCounts, FacetValidationResult } from '../../../../observable-plot-generator/faceting/facetValidation';
+import { validateRenderCost, RenderCostValidation } from '../../../../observable-plot-generator/faceting/renderCostValidation';
 import { useFieldAliasLookup } from '../../../../hooks/useFieldDisplayName';
 import { ViewSpec } from '../../../../viewPlanner';
 import { devLog } from '../../../../utils/devLog';
@@ -55,7 +55,7 @@ interface UseChartGenerationReturn {
   generateChartSpec: () => Promise<void>;
   cancelGeneration: () => void;
   /** Warning state when facet count exceeds limit */
-  facetLimitWarning: FacetValidationResult | null;
+  facetLimitWarning: RenderCostValidation | null;
   /** Called when user chooses to proceed despite facet limit warning */
   onFacetLimitProceed: () => void;
   /** Called when user cancels (does not proceed with rendering) */
@@ -106,7 +106,7 @@ export const useChartGeneration = ({
   const [grid, setGrid] = useState<GridResultModel | null>(null);
   const [chartInfo, setChartInfo] = useState<any | null>(null);
   const [renderingError, setRenderingError] = useState<string | null>(null);
-  const [facetLimitWarning, setFacetLimitWarning] = useState<FacetValidationResult | null>(null);
+  const [facetLimitWarning, setFacetLimitWarning] = useState<RenderCostValidation | null>(null);
   
   // Get field alias lookup for chart labels
   const fieldAliasLookup = useFieldAliasLookup();
@@ -294,14 +294,15 @@ export const useChartGeneration = ({
       // Track which zoom range we generated with
       lastGeneratedZoomRef.current = ganttZoomRangeRef.current;
 
-      // Check if faceting would be applied and validate facet counts
-      // Heatmap mode handles large grids natively — skip the warning.
+      // Validate render cost before producing the grid. Heatmap mode handles
+      // large grids natively, so it keeps its existing specialized sizing path.
       const facetPlan = planFacets(context);
-      if (
-        effectiveGlobalChartType !== 'heatmap' &&
-        facetPlan && (facetPlan.rowFacetFields.length > 0 || facetPlan.colFacetFields.length > 0)
-      ) {
-        const validation = validateFacetCounts(context, facetPlan);
+      if (effectiveGlobalChartType !== 'heatmap') {
+        const validation = validateRenderCost(
+          context,
+          facetPlan ?? { rowFacetFields: [], colFacetFields: [] },
+          effectiveGlobalChartType,
+        );
         
         if (!validation.isValid) {
           // Store context for potential proceed
@@ -309,7 +310,7 @@ export const useChartGeneration = ({
           setFacetLimitWarning(validation);
           
           if (process.env.NODE_ENV === 'development') {
-            devLog('[useChartGeneration] Facet limit exceeded:', validation);
+            devLog('[useChartGeneration] Render-cost limit exceeded:', validation);
           }
           // Don't proceed - wait for user decision
           return;

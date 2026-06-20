@@ -84,6 +84,7 @@ const VisualizationPageContent = () => {
     // Access the enhanced context with loading states and cancellation
     const { state, dispatch, cancelOperation, getUndoableSnapshot } = useVisualizationContext();
     const { undo, completeUndo, redo, completeRedo } = useUndoRedo();
+    const axisDropFieldIdsRef = React.useRef<string[] | null>(null);
     
     const { 
         showLoadingModal, 
@@ -120,7 +121,7 @@ const VisualizationPageContent = () => {
     }, []);
 
     // Use our custom drag-and-drop hook with virtual columns included
-    const dragDropHandlers = useDragDrop(dataSourceAvailableFields);
+    const dragDropHandlers = useDragDrop(dataSourceAvailableFields, axisDropFieldIdsRef);
     const { 
         handleAxisDrop,
         handleRemoveFromAxis,
@@ -607,6 +608,7 @@ const VisualizationPageContent = () => {
                             onTableColumnsDrop={handleTableColumnsDrop}
                             onRemoveTableColumn={handleRemoveFromTableColumns}
                             onReorderTableColumns={handleReorderTableColumns}
+                            axisDropFieldIdsRef={axisDropFieldIdsRef}
                         />
                     </Panel>
                 </PanelGroup>
