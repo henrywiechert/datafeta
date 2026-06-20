@@ -1,7 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { generateTableGrid, resolveTableCellMode } from './tableGrid';
-import { ChartGenerationContext } from '../types';
-import { Field } from '../../types';
+import { generateTableGrid, resolveTableCellMode, TableGridInput } from './tableGrid';
+import { ColorChannel, Field } from '../../types';
 import { MarkGridCellModel, TextGridCellModel } from '../gridModel';
 import { DEFAULT_CHART_COLOR, MIN_NON_PLOT_GRID_ROW_PX } from '../../config/chartLayoutConfig';
 
@@ -30,52 +29,52 @@ function measureField(id: string, columnName: string, aggregation: 'sum' | 'coun
   } as Field;
 }
 
-function color(field: Field | null, scheme = ''): any {
+function color(field: Field | null, scheme = ''): ColorChannel {
   return { field, scheme, bias: 0, reversed: false, manual: '' };
 }
 
-function buildContext(overrides: Partial<ChartGenerationContext> & {
+function buildInput(overrides: Partial<TableGridInput> & {
   rows?: any[];
   xFields?: Field[];
   yFields?: Field[];
-}): ChartGenerationContext {
+}): TableGridInput {
   const { rows = [], xFields = [], yFields = [], ...rest } = overrides;
   return {
     xFields,
     yFields,
-    queryResult: { rows, columns: [], row_count: rows.length } as any,
+    rows,
     ...rest,
-  } as ChartGenerationContext;
+  };
 }
 
 describe('generateTableGrid', () => {
   describe('resolveTableCellMode', () => {
     it("resolves to 'symbol' when no label field is configured", () => {
-      const ctx = buildContext({});
+      const ctx = buildInput({});
       expect(resolveTableCellMode(ctx)).toBe('symbol');
     });
 
     it("keeps 'symbol' when a measure is on the X shelf without a label field", () => {
       const sales = measureField('m-sales', 'sales');
-      const ctx = buildContext({ xFields: [sales] });
+      const ctx = buildInput({ xFields: [sales] });
       expect(resolveTableCellMode(ctx)).toBe('symbol');
     });
 
     it("keeps 'symbol' when a measure is on the Y shelf without a label field", () => {
       const sales = measureField('m-sales', 'sales');
-      const ctx = buildContext({ yFields: [sales] });
+      const ctx = buildInput({ yFields: [sales] });
       expect(resolveTableCellMode(ctx)).toBe('symbol');
     });
 
     it("resolves to 'text' when a label field is configured", () => {
       const note = dimField('dim-note', 'note');
-      const ctx = buildContext({ labelFields: [note] } as any);
+      const ctx = buildInput({ labelFields: [note] });
       expect(resolveTableCellMode(ctx)).toBe('text');
     });
   });
 
   it('produces a 1×1 empty grid when no fields and no data are provided', () => {
-    const grid = generateTableGrid(buildContext({}));
+    const grid = generateTableGrid(buildInput({}));
     expect(grid.layout).toEqual({
       type: 'grid',
       columns: 1,
@@ -91,7 +90,7 @@ describe('generateTableGrid', () => {
   it('builds row × column headers from discrete dimensions on Y/X', () => {
     const region = dimField('dim-region', 'region');
     const year = dimField('dim-year', 'year', 'integer');
-    const grid = generateTableGrid(buildContext({
+    const grid = generateTableGrid(buildInput({
       xFields: [year],
       yFields: [region],
       rows: [
@@ -120,7 +119,7 @@ describe('generateTableGrid', () => {
 
   it('emits a single mark cell with the default chart color when there is no encoding', () => {
     const region = dimField('dim-region', 'region');
-    const grid = generateTableGrid(buildContext({
+    const grid = generateTableGrid(buildInput({
       yFields: [region],
       rows: [
         { region: 'East' },
@@ -142,7 +141,7 @@ describe('generateTableGrid', () => {
   it('renders a preview stack when a discrete color field has multiple values per cell', () => {
     const region = dimField('dim-region', 'region');
     const segment = dimField('dim-segment', 'segment');
-    const grid = generateTableGrid(buildContext({
+    const grid = generateTableGrid(buildInput({
       yFields: [region],
       color: color(segment, 'tableau10'),
       rows: [
@@ -168,7 +167,7 @@ describe('generateTableGrid', () => {
   it('emits empty cells for (rowTuple, colTuple) combinations with no matching data', () => {
     const region = dimField('dim-region', 'region');
     const year = dimField('dim-year', 'year', 'integer');
-    const grid = generateTableGrid(buildContext({
+    const grid = generateTableGrid(buildInput({
       xFields: [year],
       yFields: [region],
       rows: [
@@ -192,7 +191,7 @@ describe('generateTableGrid', () => {
 
   it('uses a manual shape from `manualShape` when no shape field is provided', () => {
     const region = dimField('dim-region', 'region');
-    const grid = generateTableGrid(buildContext({
+    const grid = generateTableGrid(buildInput({
       yFields: [region],
       manualShape: 'square',
       rows: [{ region: 'East' }],
@@ -205,7 +204,7 @@ describe('generateTableGrid', () => {
 
   it('uses compact (28px) row sizing for table cells', () => {
     const region = dimField('dim-region', 'region');
-    const grid = generateTableGrid(buildContext({
+    const grid = generateTableGrid(buildInput({
       yFields: [region],
       rows: [
         { region: 'East' },
@@ -224,7 +223,7 @@ describe('generateTableGrid', () => {
 
     it('uses manualSize as the symbol radius when no size field is configured', () => {
       const region = dimField('dim-region', 'region');
-      const grid = generateTableGrid(buildContext({
+      const grid = generateTableGrid(buildInput({
         yFields: [region],
         manualSize: 12,
         rows: [{ region: 'East' }],
@@ -239,7 +238,7 @@ describe('generateTableGrid', () => {
     it('produces different symbol sizes for cells driven by a continuous size field', () => {
       const region = dimField('dim-region', 'region');
       const sales = measureField('m-sales', 'sales');
-      const grid = generateTableGrid(buildContext({
+      const grid = generateTableGrid(buildInput({
         yFields: [region],
         sizeField: sales,
         sizeRange: [4, 20],
@@ -264,7 +263,7 @@ describe('generateTableGrid', () => {
 
     it('falls back to a sensible default radius when manualSize is missing', () => {
       const region = dimField('dim-region', 'region');
-      const grid = generateTableGrid(buildContext({
+      const grid = generateTableGrid(buildInput({
         yFields: [region],
         rows: [{ region: 'East' }],
       }));
@@ -278,7 +277,7 @@ describe('generateTableGrid', () => {
     it('encodes a continuous color field (measure on color) to per-cell colors', () => {
       const region = dimField('dim-region', 'region');
       const sales = measureField('m-sales', 'sales');
-      const grid = generateTableGrid(buildContext({
+      const grid = generateTableGrid(buildInput({
         yFields: [region],
         color: color(sales, 'tableau10'),
         rows: [
@@ -303,7 +302,7 @@ describe('generateTableGrid', () => {
     it('takes the largest encoded size when multiple rows share a (symbol, color) bucket', () => {
       const region = dimField('dim-region', 'region');
       const sales = measureField('m-sales', 'sales');
-      const grid = generateTableGrid(buildContext({
+      const grid = generateTableGrid(buildInput({
         yFields: [region],
         sizeField: sales,
         sizeRange: [4, 20],
@@ -327,7 +326,7 @@ describe('generateTableGrid', () => {
     it('resolves to text when a label measure is present and emits one row per cell', () => {
       const region = dimField('dim-region', 'region');
       const sales = measureField('m-sales', 'sales');
-      const grid = generateTableGrid(buildContext({
+      const grid = generateTableGrid(buildInput({
         yFields: [region],
         labelFields: [sales],
         rows: [
@@ -353,14 +352,14 @@ describe('generateTableGrid', () => {
       const note = dimField('dim-note', 'note');
       const sales = measureField('m-sales', 'sales');
       const profit = measureField('m-profit', 'profit');
-      const grid = generateTableGrid(buildContext({
+      const grid = generateTableGrid(buildInput({
         yFields: [region, sales],
         xFields: [profit],
         labelFields: [note, profit],
         rows: [
           { region: 'East', note: 'flagship', 'SUM(sales)': 10, 'SUM(profit)': 2 },
         ],
-      } as any));
+      }));
 
       const cell = grid.cells[0] as TextGridCellModel;
       expect(cell.content.kind).toBe('text');
@@ -374,7 +373,7 @@ describe('generateTableGrid', () => {
       const region = dimField('dim-region', 'region');
       const year = dimField('dim-year', 'year', 'integer');
       const sales = measureField('m-sales', 'sales');
-      const grid = generateTableGrid(buildContext({
+      const grid = generateTableGrid(buildInput({
         xFields: [year],
         yFields: [region],
         labelFields: [sales],
@@ -401,7 +400,7 @@ describe('generateTableGrid', () => {
       const region = dimField('dim-region', 'region');
       const sales = measureField('m-sales', 'sales');
       const profit = measureField('m-profit', 'profit');
-      const grid = generateTableGrid(buildContext({
+      const grid = generateTableGrid(buildInput({
         yFields: [region],
         labelFields: [sales, profit],
         rows: [
@@ -420,7 +419,7 @@ describe('generateTableGrid', () => {
       const region = dimField('dim-region', 'region');
       const lastSeen = measureField('m-last-seen', 'lastSeen', 'max');
       const date = new Date('2026-04-28T12:00:00Z');
-      const grid = generateTableGrid(buildContext({
+      const grid = generateTableGrid(buildInput({
         yFields: [region],
         labelFields: [lastSeen],
         rows: [
@@ -437,7 +436,7 @@ describe('generateTableGrid', () => {
     it('renders symbols when no label field is present even when measures are present', () => {
       const region = dimField('dim-region', 'region');
       const sales = measureField('m-sales', 'sales');
-      const grid = generateTableGrid(buildContext({
+      const grid = generateTableGrid(buildInput({
         yFields: [region, sales],
         rows: [{ region: 'East', 'SUM(sales)': 100 }],
       }));
@@ -449,14 +448,14 @@ describe('generateTableGrid', () => {
     it('uses fieldAliasLookup for the row label when present', () => {
       const region = dimField('dim-region', 'region');
       const sales = measureField('m-sales', 'sales');
-      const grid = generateTableGrid(buildContext({
+      const grid = generateTableGrid(buildInput({
         yFields: [region],
         labelFields: [sales],
         rows: [{ region: 'East', 'SUM(sales)': 100 }],
         // Alias lookup is keyed by the field's bare `columnName`, matching
         // `fieldDisplayAliases` in DataSourceContext.
         fieldAliasLookup: { sales: 'Total Sales' },
-      } as any));
+      }));
 
       const cell = grid.cells[0] as TextGridCellModel;
       expect(cell.content.rows[0].label).toBe('Total Sales');
@@ -465,7 +464,7 @@ describe('generateTableGrid', () => {
     it('falls back to the field display name when no alias is set', () => {
       const region = dimField('dim-region', 'region');
       const sales = measureField('m-sales', 'sales');
-      const grid = generateTableGrid(buildContext({
+      const grid = generateTableGrid(buildInput({
         yFields: [region],
         labelFields: [sales],
         rows: [{ region: 'East', 'SUM(sales)': 100 }],
@@ -478,7 +477,7 @@ describe('generateTableGrid', () => {
     it('renders all distinct label values from multiple rows in the same cell', () => {
       const region = dimField('dim-region', 'region');
       const note = dimField('dim-note', 'note');
-      const grid = generateTableGrid(buildContext({
+      const grid = generateTableGrid(buildInput({
         yFields: [region],
         labelFields: [note],
         rows: [
@@ -502,7 +501,7 @@ describe('generateTableGrid', () => {
      * Build a deterministic 5-row / 1-col data set so we can assert which
      * row-tuples appear on each page.
      */
-    function buildPagedContext(extra: Partial<ChartGenerationContext> = {}): ChartGenerationContext {
+    function buildPagedContext(extra: Partial<TableGridInput> = {}): TableGridInput {
       const region = dimField('dim-region', 'region');
       const year = dimField('dim-year', 'year', 'integer');
       const rows = [
@@ -512,7 +511,7 @@ describe('generateTableGrid', () => {
         { region: 'D', year: 2020 },
         { region: 'E', year: 2020 },
       ];
-      return buildContext({
+      return buildInput({
         xFields: [year],
         yFields: [region],
         rows,
@@ -587,7 +586,7 @@ describe('generateTableGrid', () => {
         { region: 'B', year: 2020 }, { region: 'B', year: 2021 },
         { region: 'C', year: 2020 }, { region: 'C', year: 2021 },
       ];
-      const grid = generateTableGrid(buildContext({
+      const grid = generateTableGrid(buildInput({
         xFields: [year],
         yFields: [region],
         rows,
@@ -609,7 +608,7 @@ describe('generateTableGrid', () => {
         { region: 'B', 'SUM(sales)': 20 },
         { region: 'C', 'SUM(sales)': 30 },
       ];
-      const grid = generateTableGrid(buildContext({
+      const grid = generateTableGrid(buildInput({
         yFields: [region],
         xFields: [sales],
         labelFields: [sales],

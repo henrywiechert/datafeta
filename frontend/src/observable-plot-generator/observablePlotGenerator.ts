@@ -17,7 +17,7 @@ import { generateFacetedGrid, generateCdfGrid, generateDensityGrid } from './fac
 import { ganttChart } from './chartTypes/ganttChart';
 import { generatePieGrid } from './chartTypes/pieChart';
 import { generateHeatmapGrid } from './chartTypes/heatmapChart';
-import { generateTableGrid } from './chartTypes/tableGrid';
+import { generateTableGrid, TableGridInput } from './chartTypes/tableGrid';
 import { isTablePresentation } from './chartTypes/chartTypePresentation';
 import { resolveContextColorChannel } from './utils/colorSchemeUtils';
 
@@ -36,6 +36,24 @@ const GRID_PLOT_GENERATORS: Partial<Record<string, (ctx: ChartGenerationContext)
   pie: generatePieGrid,
   heatmap: generateHeatmapGrid,
 };
+
+function tableGridInputFromContext(context: ChartGenerationContext): TableGridInput {
+  return {
+    xFields: context.xFields,
+    yFields: context.yFields,
+    rows: Array.isArray(context.queryResult?.rows) ? context.queryResult.rows : [],
+    color: resolveContextColorChannel(context),
+    sizeField: context.sizeField,
+    sizeRange: context.sizeRange,
+    manualSize: context.manualSize,
+    shapeField: context.shapeField,
+    manualShape: context.manualShape,
+    labelFields: context.labelFields,
+    fieldAliasLookup: context.fieldAliasLookup,
+    tablePage: context.tablePage,
+    tablePageSize: context.tablePageSize,
+  };
+}
 
 /**
  * Enrich a field with its display alias from the alias lookup map.
@@ -501,7 +519,7 @@ function generatePlotAsResult(context: ChartGenerationContext, overrides?: Chart
  */
 export function generatePlot(context: ChartGenerationContext, overrides?: ChartTypeOverrides): GridResultModel {
   if (isTablePresentation(context.globalChartType)) {
-    return generateTableGrid(context);
+    return generateTableGrid(tableGridInputFromContext(context));
   }
   return buildGridFromPlotResult(generatePlotAsResult(context, overrides));
 }
