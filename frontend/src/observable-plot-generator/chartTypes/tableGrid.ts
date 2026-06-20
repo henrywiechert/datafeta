@@ -41,7 +41,12 @@ import {
 import { buildFacetSpace } from '../faceting/facetSpace';
 import { getFieldColumnName } from '../helpers/fields';
 import { getFieldDisplayName } from '../../utils/fieldUtils';
-import { DEFAULT_CHART_COLOR, MIN_NON_PLOT_GRID_ROW_PX } from '../../config/chartLayoutConfig';
+import {
+  DEFAULT_CHART_COLOR,
+  MIN_NON_PLOT_GRID_ROW_PX,
+  TABLE_MIN_CELL_HEIGHT_PX,
+  TABLE_MIN_CELL_WIDTH_PX,
+} from '../../config/chartLayoutConfig';
 import {
   deriveShapeScaleInfo,
   getSymbolForValue,
@@ -338,12 +343,18 @@ function buildLayout(rows: number, cols: number): GridLayoutModel {
   // Compact rows (Tableau-style table density). Columns flex to fill.
   const columnSizes: GridTrackSize[] = Array.from({ length: safeCols }, () => 'fr');
   const rowSizes: GridTrackSize[] = Array.from({ length: safeRows }, () => MIN_NON_PLOT_GRID_ROW_PX);
+  // Table-specific resize floor: allow much denser cells than the generic facet
+  // grid (which falls back to MIN_CELL_WIDTH_PX / MIN_CELL_HEIGHT_PX).
+  const minColumnSizes: number[] = Array.from({ length: safeCols }, () => TABLE_MIN_CELL_WIDTH_PX);
+  const minRowSizes: number[] = Array.from({ length: safeRows }, () => TABLE_MIN_CELL_HEIGHT_PX);
   return {
     type: 'grid',
     columns: safeCols,
     rows: safeRows,
     columnSizes,
     rowSizes,
+    minColumnSizes,
+    minRowSizes,
   };
 }
 
