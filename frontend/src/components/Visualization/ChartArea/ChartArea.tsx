@@ -55,11 +55,15 @@ import type {
  *  2. Wiring hooks together
  *  3. Composing the render tree
  */
-const ChartArea: React.FC = () => {
+interface ChartAreaProps {
+  axisDropFieldIdsRef?: React.MutableRefObject<string[] | null>;
+}
+
+const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
   // -- Contexts ----------------------------------------------------------------
   const { state, dispatch, startOperation, completeOperation, getUndoableSnapshot } =
     useVisualizationContext();
-  const { recordAction, undo, completeUndo, redo, completeRedo, canUndo, canRedo } = useUndoRedo();
+  const { recordAction, undo, completeUndo, redo, completeRedo, discardLastAction, canUndo, canRedo } = useUndoRedo();
   const { dataSource, clearSessionFilters } = useDataSource();
   const { resetWorkspace, activeSheet } = useSheetContext();
   const renderingCoordinator = useRenderingCoordinator();
@@ -217,6 +221,46 @@ const ChartArea: React.FC = () => {
       xAxisTickHeightPx: categoryTickStyles.xHeightPx ?? autoCategoryTickStyles.xHeightPx,
       yAxisTickWidthPx: categoryTickStyles.yWidthPx ?? autoCategoryTickStyles.yWidthPx,
     });
+
+  useEffect(() => {
+    if (axisDropFieldIdsRef) {
+      axisDropFieldIdsRef.current = null;
+    }
+  }, [grid, axisDropFieldIdsRef]);
+
+  const handleRenderCostCancel = useCallback(() => {
+    onFacetLimitCancel();
+
+    const dropRef = axisDropFieldIdsRef;
+    if (!dropRef) return;
+
+    const droppedFieldIds = dropRef.current;
+    if (!droppedFieldIds?.length) {
+      dropRef.current = null;
+      return;
+    }
+
+    const droppedFieldIdSet = new Set(droppedFieldIds);
+    const nextXFields = xAxisFields.filter((field) => !droppedFieldIdSet.has(field.id));
+    const nextYFields = yAxisFields.filter((field) => !droppedFieldIdSet.has(field.id));
+
+    if (nextXFields.length !== xAxisFields.length) {
+      dispatch({ type: 'SET_X_AXIS_FIELDS', payload: nextXFields });
+    }
+    if (nextYFields.length !== yAxisFields.length) {
+      dispatch({ type: 'SET_Y_AXIS_FIELDS', payload: nextYFields });
+    }
+
+    discardLastAction();
+    dropRef.current = null;
+  }, [
+    axisDropFieldIdsRef,
+    discardLastAction,
+    dispatch,
+    onFacetLimitCancel,
+    xAxisFields,
+    yAxisFields,
+  ]);
 
   const { handleLegendFilterAction, handleShapeLegendFilterAction, gridWithTooltipAction } = useFilterActions({
     recordAction,
@@ -612,7 +656,7 @@ const ChartArea: React.FC = () => {
         open={facetLimitWarning !== null}
         validationResult={facetLimitWarning}
         onProceed={onFacetLimitProceed}
-        onCancel={onFacetLimitCancel}
+        onCancel={handleRenderCostCancel}
       />
     </div>
   );

@@ -15,6 +15,7 @@ interface UndoRedoContextType {
   completeUndo: (currentState: VisualizationStateSnapshot) => void;
   redo: () => VisualizationStateSnapshot | null;
   completeRedo: (currentState: VisualizationStateSnapshot) => void;
+  discardLastAction: () => void;
   clearHistory: () => void;
   canUndo: boolean;
   canRedo: boolean;
@@ -115,6 +116,19 @@ export function UndoRedoProvider({ sheetId, children }: UndoRedoProviderProps) {
     });
   }, [sheetId]);
 
+  const discardLastAction = useCallback(() => {
+    setAllStacks(prev => {
+      const current = prev[sheetId] || EMPTY_STACKS;
+      if (current.undoStack.length === 0) {
+        return prev;
+      }
+      return updateSheetStacks(prev, sheetId, stacks => ({
+        ...stacks,
+        undoStack: stacks.undoStack.slice(0, -1),
+      }));
+    });
+  }, [sheetId]);
+
   const clearHistory = useCallback(() => {
     setAllStacks(prev => {
       const { [sheetId]: _, ...rest } = prev;
@@ -129,10 +143,11 @@ export function UndoRedoProvider({ sheetId, children }: UndoRedoProviderProps) {
     completeUndo,
     redo,
     completeRedo,
+    discardLastAction,
     clearHistory,
     canUndo: currentStacks.undoStack.length > 0,
     canRedo: currentStacks.redoStack.length > 0,
-  }), [recordAction, undo, completeUndo, redo, completeRedo, clearHistory, currentStacks]);
+  }), [recordAction, undo, completeUndo, redo, completeRedo, discardLastAction, clearHistory, currentStacks]);
 
   return (
     <UndoRedoContext.Provider value={value}>

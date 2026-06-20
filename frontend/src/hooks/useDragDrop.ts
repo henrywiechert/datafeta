@@ -17,7 +17,10 @@ import { resolveSingleEncodingDropField } from '../utils/singleEncodingZone';
  * so that callbacks remain stable across re-renders. This prevents unnecessary re-renders of components
  * like FieldsPanel that receive these callbacks as props.
  */
-export function useDragDrop(availableFields?: Field[]) {
+export function useDragDrop(
+  availableFields?: Field[],
+  axisDropFieldIdsRef?: { current: string[] | null },
+) {
   const { state, dispatch, getUndoableSnapshot } = useVisualizationContext();
   const { dataSource } = useDataSource();
   const { xAxisFields, yAxisFields, filterFields, tableColumnFields } = state;
@@ -93,7 +96,10 @@ export function useDragDrop(availableFields?: Field[]) {
         return { ...sourceField, id: uuidv4() };
       }).filter(Boolean) as Field[];
       
-      if (fieldCopies.length === 0) return;
+      if (fieldCopies.length === 0) {
+        if (axisDropFieldIdsRef) axisDropFieldIdsRef.current = null;
+        return;
+      }
       
       // Add to target axis at the specified index or at the end
       const targetFields = targetAxis === 'x' ? [...currentXFields] : [...currentYFields];
@@ -105,6 +111,9 @@ export function useDragDrop(availableFields?: Field[]) {
       }
       
       // Update the target axis
+      if (axisDropFieldIdsRef) {
+        axisDropFieldIdsRef.current = fieldCopies.map((f) => f.id);
+      }
       dispatch({ 
         type: targetAxis === 'x' ? 'SET_X_AXIS_FIELDS' : 'SET_Y_AXIS_FIELDS',
         payload: targetFields
@@ -117,7 +126,10 @@ export function useDragDrop(availableFields?: Field[]) {
       // Use the dragged field copies directly
       const fieldCopies = fieldsToAdd.map(f => ({ ...f, id: uuidv4() }));
       
-      if (fieldCopies.length === 0) return;
+      if (fieldCopies.length === 0) {
+        if (axisDropFieldIdsRef) axisDropFieldIdsRef.current = null;
+        return;
+      }
       
       // Add to target axis at the specified index or at the end
       const targetFields = targetAxis === 'x' ? [...currentXFields] : [...currentYFields];
@@ -129,6 +141,9 @@ export function useDragDrop(availableFields?: Field[]) {
       }
       
       // Update the target axis
+      if (axisDropFieldIdsRef) {
+        axisDropFieldIdsRef.current = fieldCopies.map((f) => f.id);
+      }
       dispatch({ 
         type: targetAxis === 'x' ? 'SET_X_AXIS_FIELDS' : 'SET_Y_AXIS_FIELDS',
         payload: targetFields
@@ -137,6 +152,10 @@ export function useDragDrop(availableFields?: Field[]) {
       return;
     }
     
+    if (axisDropFieldIdsRef) {
+      axisDropFieldIdsRef.current = null;
+    }
+
     // Handle drops between axes
     const sourceAxis = source === 'X_AXIS' ? 'x' : 'y';
     
@@ -179,7 +198,7 @@ export function useDragDrop(availableFields?: Field[]) {
         });
       }
     }
-  }, [dispatch, recordAction, getUndoableSnapshot]); // Stable deps only - state read from refs
+  }, [dispatch, recordAction, getUndoableSnapshot, axisDropFieldIdsRef]); // Stable deps only - state read from refs
   
   /**
    * Remove a field from either axis

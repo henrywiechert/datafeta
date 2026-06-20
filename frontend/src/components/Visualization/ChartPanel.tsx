@@ -23,6 +23,7 @@ interface ChartPanelProps {
   onTableColumnsDrop: (field: Field | Field[], source: DragSource, index?: number) => void;
   onRemoveTableColumn: (fieldId: string) => void;
   onReorderTableColumns: (fromIndex: number, toIndex: number) => void;
+  axisDropFieldIdsRef?: React.MutableRefObject<string[] | null>;
 }
 
 const ChartPanel: React.FC<ChartPanelProps> = ({
@@ -39,6 +40,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
   onTableColumnsDrop,
   onRemoveTableColumn,
   onReorderTableColumns,
+  axisDropFieldIdsRef,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -125,7 +127,7 @@ const ChartPanel: React.FC<ChartPanelProps> = ({
       }} />
       <ChartCaption />
       <Box sx={{ flex: 1, minHeight: 0 }}>
-        <ChartArea />
+        <ChartArea axisDropFieldIdsRef={axisDropFieldIdsRef} />
       </Box>
     </Box>
   );

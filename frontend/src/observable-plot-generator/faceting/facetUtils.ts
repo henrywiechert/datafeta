@@ -144,6 +144,20 @@ export function buildFacetCombos(fields: Field[], valuesLevels: any[][]): any[][
 }
 
 /**
+ * Counts unique values for a field without sorting or materializing the values.
+ */
+export function countUniqueValuesForField(rows: any[], field: Field): number {
+  const col = getFieldColumnName(field);
+  const seen = new Set<string | number>();
+  rows.forEach((row) => {
+    const v = row[col];
+    const key = v instanceof Date ? v.getTime() : v;
+    seen.add(key);
+  });
+  return seen.size;
+}
+
+/**
  * Returns a sorted list of unique values for a given field from the dataset.
  * Moved from facetPlanner.ts to consolidate utilities.
  */
