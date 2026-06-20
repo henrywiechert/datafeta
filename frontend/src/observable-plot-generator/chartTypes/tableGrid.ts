@@ -25,7 +25,7 @@
  * `GridResultModel.pagination` so the pager UI can drive itself off of it.
  */
 
-import { Field } from '../../types';
+import { ColorChannel, Field } from '../../types';
 import {
   GridCellModel,
   GridHeaderAxis,
@@ -38,7 +38,6 @@ import {
   TextGridCellContent,
   TextGridCellRow,
 } from '../gridModel';
-import { ChartGenerationContext } from '../types';
 import { buildFacetSpace } from '../faceting/facetSpace';
 import { getFieldColumnName } from '../helpers/fields';
 import { getFieldDisplayName } from '../../utils/fieldUtils';
@@ -50,12 +49,36 @@ import {
   MANUAL_NO_SHAPE,
   ShapeScaleInfo,
 } from '../utils/shapeUtils';
-import { deriveColorScaleInfo, ColorScaleInfo, resolveColorForRow, resolveContextColorChannel } from '../utils/colorSchemeUtils';
+import { deriveColorScaleInfo, ColorScaleInfo, resolveColorForRow } from '../utils/colorSchemeUtils';
 import { createSizeScale, SizeScale } from '../utils/sizeUtils';
 import { formatTooltipValue } from '../utils/tooltipUtils';
 
+export interface TableGridInput {
+  xFields: Field[];
+  yFields: Field[];
+  rows: any[];
+  color?: ColorChannel;
+  sizeField?: Field;
+  sizeRange?: [number, number];
+  manualSize?: number;
+  shapeField?: Field;
+  manualShape?: string;
+  labelFields?: Field[];
+  fieldAliasLookup?: Record<string, string>;
+  tablePage?: number;
+  tablePageSize?: number;
+}
+
 /** Default symbol used when no shape encoding resolves to a specific shape. */
 const DEFAULT_SYMBOL = 'circle';
+
+const DEFAULT_COLOR_CHANNEL: ColorChannel = {
+  field: null,
+  scheme: '',
+  bias: 0,
+  reversed: false,
+  manual: '',
+};
 
 /**
  * Default mark area for table-refactor symbol cells when no size encoding is
@@ -89,8 +112,8 @@ function radiusToSymbolArea(radius: number): number {
  * A field on the Labels shelf selects text mode. Otherwise the table renders a
  * presence dot, optionally encoded by color/shape/size.
  */
-export function resolveTableCellMode(context: ChartGenerationContext): 'text' | 'symbol' {
-  return (context.labelFields ?? []).length > 0 ? 'text' : 'symbol';
+export function resolveTableCellMode(input: Pick<TableGridInput, 'labelFields'>): 'text' | 'symbol' {
+  return (input.labelFields ?? []).length > 0 ? 'text' : 'symbol';
 }
 
 interface SymbolFingerprint {
@@ -111,7 +134,7 @@ function discreteHeaderFields(fields: Field[]): Field[] {
 function buildHeaderAxis(
   fields: Field[],
   tuples: any[][],
-  context: ChartGenerationContext,
+  fieldAliasLookup?: Record<string, string>,
 ): GridHeaderAxis | undefined {
   if (fields.length === 0 || tuples.length === 0) return undefined;
 
@@ -127,7 +150,7 @@ function buildHeaderAxis(
       }
     }
     return {
-      fieldLabel: getFieldDisplayName(field, context.fieldAliasLookup),
+      fieldLabel: getFieldDisplayName(field, fieldAliasLookup),
       values: orderedValues,
     };
   });
@@ -141,19 +164,19 @@ function buildHeaderAxis(
 
 function buildSymbolForRow(
   row: any,
-  context: ChartGenerationContext,
+  input: TableGridInput,
+  colorChannel: ColorChannel,
   shapeScale: ShapeScaleInfo | null,
   colorScale: ColorScaleInfo | null,
   sizeScale: SizeScale,
 ): SymbolFingerprint {
-  const colorChannel = resolveContextColorChannel(context);
   // Symbol resolution
   let symbol: string = DEFAULT_SYMBOL;
-  if (context.shapeField && shapeScale) {
-    const shapeColumn = getFieldColumnName(context.shapeField);
+  if (input.shapeField && shapeScale) {
+    const shapeColumn = getFieldColumnName(input.shapeField);
     symbol = getSymbolForValue(row?.[shapeColumn], shapeScale);
-  } else if (context.manualShape && isManualShapeOption(context.manualShape) && context.manualShape !== MANUAL_NO_SHAPE) {
-    symbol = context.manualShape;
+  } else if (input.manualShape && isManualShapeOption(input.manualShape) && input.manualShape !== MANUAL_NO_SHAPE) {
+    symbol = input.manualShape;
   }
 
   // Color resolution. Delegates to the shared `resolveColorForRow` helper so
@@ -167,12 +190,12 @@ function buildSymbolForRow(
   // (consistent with scatter / `r`). When no `sizeField` is set the scale
   // returns the manual radius for every value.
   let radius = DEFAULT_SYMBOL_RADIUS;
-  if (context.sizeField) {
-    const sizeColumn = getFieldColumnName(context.sizeField);
+  if (input.sizeField) {
+    const sizeColumn = getFieldColumnName(input.sizeField);
     const raw = sizeScale.getSizeForValue(row?.[sizeColumn]);
     if (Number.isFinite(raw) && raw > 0) radius = raw;
-  } else if (Number.isFinite(context.manualSize as number) && (context.manualSize as number) > 0) {
-    radius = context.manualSize as number;
+  } else if (Number.isFinite(input.manualSize as number) && (input.manualSize as number) > 0) {
+    radius = input.manualSize as number;
   }
 
   return { symbol, color, radius };
@@ -258,18 +281,18 @@ function normalizeLabelFieldForResultColumn(field: Field): Field {
  * Text mode is driven solely by `labelFields` (Tableau "Label" / "Text" shelf).
  * Duplicates by result-column are de-duped so the same label only renders once.
  */
-function collectTextRowSources(context: ChartGenerationContext): TextRowSource[] {
+function collectTextRowSources(input: TableGridInput): TextRowSource[] {
   const seen = new Set<string>();
   const result: TextRowSource[] = [];
 
-  for (const field of context.labelFields ?? []) {
+  for (const field of input.labelFields ?? []) {
     const column = getFieldColumnName(normalizeLabelFieldForResultColumn(field));
     if (seen.has(column)) continue;
     seen.add(column);
     result.push({
       source: field.type === 'measure' ? 'measure' : 'label',
       column,
-      label: getFieldDisplayName(field, context.fieldAliasLookup),
+      label: getFieldDisplayName(field, input.fieldAliasLookup),
     });
   }
 
@@ -390,9 +413,10 @@ interface FacetSpaceContext {
   yHeaderFields: Field[];
 }
 
-function buildFacetSpaceContext(context: ChartGenerationContext, data: any[]): FacetSpaceContext {
-  const xHeaderFields = discreteHeaderFields(context.xFields);
-  const yHeaderFields = discreteHeaderFields(context.yFields);
+function buildFacetSpaceContext(input: TableGridInput): FacetSpaceContext {
+  const xHeaderFields = discreteHeaderFields(input.xFields);
+  const yHeaderFields = discreteHeaderFields(input.yFields);
+  const data = Array.isArray(input.rows) ? input.rows : [];
   const facetSpace = buildFacetSpace(data, yHeaderFields, xHeaderFields);
   return {
     xHeaderFields,
@@ -404,17 +428,17 @@ function buildFacetSpaceContext(context: ChartGenerationContext, data: any[]): F
 
 function buildHeadersForFacetSpace(
   facetCtx: FacetSpaceContext,
-  context: ChartGenerationContext,
+  input: TableGridInput,
 ): GridHeaders | undefined {
   const rowsAxis = buildHeaderAxis(
     facetCtx.yHeaderFields,
     facetCtx.rowTuples.filter((t: any[]) => t.length > 0),
-    context,
+    input.fieldAliasLookup,
   );
   const colsAxis = buildHeaderAxis(
     facetCtx.xHeaderFields,
     facetCtx.colTuples.filter((t: any[]) => t.length > 0),
-    context,
+    input.fieldAliasLookup,
   );
   if (!rowsAxis && !colsAxis) return undefined;
   return { rows: rowsAxis, cols: colsAxis };
@@ -427,27 +451,27 @@ function buildHeadersForFacetSpace(
  */
 function buildSymbolModeCells(
   facetCtx: FacetSpaceContext,
-  data: any[],
-  context: ChartGenerationContext,
+  input: TableGridInput,
 ): GridCellModel[] {
-  const color = resolveContextColorChannel(context);
+  const data = Array.isArray(input.rows) ? input.rows : [];
+  const color = input.color ?? DEFAULT_COLOR_CHANNEL;
   const colorScale = color.field
-    ? deriveColorScaleInfo(data, resolveContextColorChannel(context))
+    ? deriveColorScaleInfo(data, color)
     : null;
-  const shapeScale = context.shapeField && context.shapeField.flavour === 'discrete'
-    ? deriveShapeScaleInfo(data, context.shapeField)
+  const shapeScale = input.shapeField && input.shapeField.flavour === 'discrete'
+    ? deriveShapeScaleInfo(data, input.shapeField)
     : null;
   // Build a size scale across the full dataset so that per-cell symbol radii
   // are comparable across the table (the same value always renders the same
   // size, regardless of which cell it lands in).
   const manualRadius =
-    Number.isFinite(context.manualSize as number) && (context.manualSize as number) > 0
-      ? (context.manualSize as number)
+    Number.isFinite(input.manualSize as number) && (input.manualSize as number) > 0
+      ? (input.manualSize as number)
       : DEFAULT_SYMBOL_RADIUS;
   const sizeScale = createSizeScale(
     data,
-    context.sizeField ?? null,
-    context.sizeRange ?? [manualRadius, manualRadius],
+    input.sizeField ?? null,
+    input.sizeRange ?? [manualRadius, manualRadius],
     manualRadius,
   );
 
@@ -455,7 +479,7 @@ function buildSymbolModeCells(
     data,
     facetCtx.yHeaderFields,
     facetCtx.xHeaderFields,
-    (row) => buildSymbolForRow(row, context, shapeScale, colorScale, sizeScale),
+    (row) => buildSymbolForRow(row, input, color, shapeScale, colorScale, sizeScale),
   );
 
   const cells: GridCellModel[] = [];
@@ -479,10 +503,10 @@ function buildSymbolModeCells(
  */
 function buildTextModeCells(
   facetCtx: FacetSpaceContext,
-  data: any[],
-  context: ChartGenerationContext,
+  input: TableGridInput,
 ): GridCellModel[] {
-  const sources = collectTextRowSources(context);
+  const data = Array.isArray(input.rows) ? input.rows : [];
+  const sources = collectTextRowSources(input);
 
   const buckets = bucketRowsByCellTuple<any>(
     data,
@@ -541,14 +565,13 @@ function sanitizePage(raw: number | undefined, total: number, pageSize: number):
  * total row-tuple count and effective page index are surfaced via the
  * `pagination` field on the returned grid for the UI pager.
  */
-export function generateTableGrid(context: ChartGenerationContext): GridResultModel {
-  const data = Array.isArray(context.queryResult?.rows) ? context.queryResult.rows : [];
-  const facetCtx = buildFacetSpaceContext(context, data);
-  const mode = resolveTableCellMode(context);
+export function generateTableGrid(input: TableGridInput): GridResultModel {
+  const facetCtx = buildFacetSpaceContext(input);
+  const mode = resolveTableCellMode(input);
 
   const totalRowTuples = facetCtx.rowTuples.length;
-  const pageSize = sanitizePageSize(context.tablePageSize);
-  const page = sanitizePage(context.tablePage, totalRowTuples, pageSize);
+  const pageSize = sanitizePageSize(input.tablePageSize);
+  const page = sanitizePage(input.tablePage, totalRowTuples, pageSize);
 
   const pagedFacetCtx: FacetSpaceContext = pageSize > 0
     ? {
@@ -558,13 +581,13 @@ export function generateTableGrid(context: ChartGenerationContext): GridResultMo
     : facetCtx;
 
   const cells = mode === 'text'
-    ? buildTextModeCells(pagedFacetCtx, data, context)
-    : buildSymbolModeCells(pagedFacetCtx, data, context);
+    ? buildTextModeCells(pagedFacetCtx, input)
+    : buildSymbolModeCells(pagedFacetCtx, input);
 
   return {
     cells,
     layout: buildLayout(pagedFacetCtx.rowTuples.length, pagedFacetCtx.colTuples.length),
-    headers: buildHeadersForFacetSpace(pagedFacetCtx, context),
+    headers: buildHeadersForFacetSpace(pagedFacetCtx, input),
     pagination: pageSize > 0
       ? { totalRowTuples, pageSize, page }
       : undefined,
