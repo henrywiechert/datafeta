@@ -69,4 +69,39 @@ describe('encodingReducer facet depth sizing', () => {
 
     expect(next).toBe(initialState);
   });
+
+  test('stores a Y-measure band column width override by band index', () => {
+    const next = encodingReducer(initialState, {
+      type: 'SET_MEASURE_BAND_COL_WIDTH',
+      payload: { bandIndex: 1, widthPx: 120 },
+    } as any);
+
+    expect(next).not.toBeNull();
+    expect(next!.facetLabelStyles.measureBands?.colWidthsPx).toEqual([undefined, 120]);
+    expect(next!.facetLabelStyles.measureBands?.rowHeightsPx).toBeUndefined();
+  });
+
+  test('stores an X-measure band row height override without disturbing column widths', () => {
+    const withCol = encodingReducer(initialState, {
+      type: 'SET_MEASURE_BAND_COL_WIDTH',
+      payload: { bandIndex: 0, widthPx: 100 },
+    } as any);
+    const next = encodingReducer(withCol!, {
+      type: 'SET_MEASURE_BAND_ROW_HEIGHT',
+      payload: { bandIndex: 0, heightPx: 40 },
+    } as any);
+
+    expect(next).not.toBeNull();
+    expect(next!.facetLabelStyles.measureBands?.colWidthsPx).toEqual([100]);
+    expect(next!.facetLabelStyles.measureBands?.rowHeightsPx).toEqual([40]);
+  });
+
+  test('ignores invalid negative measure band indexes', () => {
+    const next = encodingReducer(initialState, {
+      type: 'SET_MEASURE_BAND_COL_WIDTH',
+      payload: { bandIndex: -1, widthPx: 80 },
+    } as any);
+
+    expect(next).toBe(initialState);
+  });
 });

@@ -215,8 +215,10 @@ export function useChartGridLayout(
     const facetHeadersPresent = Boolean(grid.headers);
     const yMeasureBands = facetHeadersPresent ? (grid.measureBands?.rows ?? []) : [];
     const xMeasureBands = facetHeadersPresent ? (grid.measureBands?.cols ?? []) : [];
-    const yMeasureBandWidthsPx = yMeasureBands.map(() => TABLE_MEASURE_BAND_COL_PX);
-    const xMeasureBandHeightsPx = xMeasureBands.map(() => TABLE_MEASURE_BAND_ROW_PX);
+    const measureBandColWidths = effectiveFacetLabelStyles?.measureBands?.colWidthsPx;
+    const measureBandRowHeights = effectiveFacetLabelStyles?.measureBands?.rowHeightsPx;
+    const yMeasureBandWidthsPx = yMeasureBands.map((_, i) => measureBandColWidths?.[i] ?? TABLE_MEASURE_BAND_COL_PX);
+    const xMeasureBandHeightsPx = xMeasureBands.map((_, i) => measureBandRowHeights?.[i] ?? TABLE_MEASURE_BAND_ROW_PX);
     const yMeasureBandTotalPx = sumTrackSizes(yMeasureBandWidthsPx);
     const xMeasureBandTotalPx = sumTrackSizes(xMeasureBandHeightsPx);
 

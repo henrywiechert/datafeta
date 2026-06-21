@@ -73,11 +73,20 @@ export interface FacetLeftValuesLabelStyle {
   wrapModeByDepth?: FacetWrapMode[];
 }
 
+// Per-band size overrides for table axis-measure value bands (table-refactor).
+// `colWidthsPx` sizes Y-measure value columns; `rowHeightsPx` sizes X-measure
+// value rows. Each entry is indexed by band order; null/missing = auto default.
+export interface MeasureBandSizeStyle {
+  colWidthsPx?: Array<number | null>;
+  rowHeightsPx?: Array<number | null>;
+}
+
 export interface FacetLabelStyles {
   topHeader: FacetHeaderLabelStyle;
   topValues: FacetTopValuesLabelStyle;
   leftHeader: FacetHeaderLabelStyle & { widthPx: number | null };
   leftValues: FacetLeftValuesLabelStyle;
+  measureBands?: MeasureBandSizeStyle;
 }
 
 // Define the state interface
@@ -333,6 +342,9 @@ export type VisualizationAction =
   | { type: 'SET_FACET_LEFT_HEADER_STYLE'; payload: Partial<FacetHeaderLabelStyle & { widthPx: number | null }> }
   | { type: 'SET_FACET_LEFT_VALUES_STYLE'; payload: Partial<FacetLeftValuesLabelStyle> }
   | { type: 'SET_FACET_LEFT_VALUES_DEPTH_WIDTH'; payload: { depthIndex: number; widthPx: number | null } }
+  // Table axis-measure value band sizing
+  | { type: 'SET_MEASURE_BAND_COL_WIDTH'; payload: { bandIndex: number; widthPx: number | null } }
+  | { type: 'SET_MEASURE_BAND_ROW_HEIGHT'; payload: { bandIndex: number; heightPx: number | null } }
   // Chart caption action
   | { type: 'SET_CHART_CAPTION'; payload: string }
   // Overlay actions

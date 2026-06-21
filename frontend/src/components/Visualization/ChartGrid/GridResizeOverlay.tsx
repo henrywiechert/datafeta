@@ -45,6 +45,13 @@ interface GridResizeOverlayProps {
   previewFacetRowResize?: (intent: UniformResizeIntent) => number;
   onFacetColumnResize?: (depthIndex: number, intent: UniformResizeIntent) => void;
   onFacetRowResize?: (depthIndex: number, intent: UniformResizeIntent) => void;
+  // Table axis-measure value bands (Y-measure value columns / X-measure value rows).
+  measureBandColWidthsPx?: number[];
+  measureBandRowHeightsPx?: number[];
+  previewMeasureBandColumnResize?: (intent: UniformResizeIntent) => number;
+  previewMeasureBandRowResize?: (intent: UniformResizeIntent) => number;
+  onMeasureBandColumnResize?: (bandIndex: number, intent: UniformResizeIntent) => void;
+  onMeasureBandRowResize?: (bandIndex: number, intent: UniformResizeIntent) => void;
 }
 
 /**
@@ -193,6 +200,12 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
   previewFacetRowResize,
   onFacetColumnResize,
   onFacetRowResize,
+  measureBandColWidthsPx = [],
+  measureBandRowHeightsPx = [],
+  previewMeasureBandColumnResize,
+  previewMeasureBandRowResize,
+  onMeasureBandColumnResize,
+  onMeasureBandRowResize,
 }) => {
   const canResizePlotColumns = Boolean(onColumnResize || previewColumnResize);
   const canResizePlotRows = Boolean(onRowResize || previewRowResize);
@@ -204,7 +217,7 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
     startPosition: number;
     currentDelta: number;
     currentSize: number;
-    kind: 'plot-column' | 'plot-row' | 'facet-column' | 'facet-row';
+    kind: 'plot-column' | 'plot-row' | 'facet-column' | 'facet-row' | 'band-column' | 'band-row';
   } | null>(null);
 
   // Measured gridline positions from actual DOM
@@ -295,6 +308,39 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
     }
     return positions;
   }, [facetTopHeaderOffset, facetTopValueHeightsPx]);
+
+  // Y-measure value columns sit just right of the dimension value columns in the
+  // left fixed area. Each handle marks a band column's right edge.
+  const bandColumnStart = useMemo(
+    () => facetLeftHeaderPx + facetLeftValueWidthsPx.reduce((sum, w) => sum + w, 0),
+    [facetLeftHeaderPx, facetLeftValueWidthsPx],
+  );
+  const bandColumnPositions = useMemo(() => {
+    const positions: number[] = [];
+    let cumulative = bandColumnStart;
+    for (const width of measureBandColWidthsPx) {
+      cumulative += width;
+      positions.push(cumulative);
+    }
+    return positions;
+  }, [bandColumnStart, measureBandColWidthsPx]);
+
+  // X-measure value rows sit just above the body grid (below the dim value rows)
+  // in the top header area. Derive their start from topHeaderHeight so we don't
+  // depend on the facet header height directly.
+  const bandRowTotal = useMemo(
+    () => measureBandRowHeightsPx.reduce((sum, h) => sum + h, 0),
+    [measureBandRowHeightsPx],
+  );
+  const bandRowPositions = useMemo(() => {
+    const positions: number[] = [];
+    let cumulative = Math.max(0, topHeaderHeight - bandRowTotal);
+    for (const height of measureBandRowHeightsPx) {
+      cumulative += height;
+      positions.push(cumulative);
+    }
+    return positions;
+  }, [topHeaderHeight, bandRowTotal, measureBandRowHeightsPx]);
 
   // Column resize handlers report the dragged track; the parent owns uniform sizing policy.
   const handleColumnResizeStart = (index: number) => {
@@ -404,6 +450,50 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
     onFacetRowResize(depthIndex, { currentSize, delta });
   };
 
+  const handleBandColumnResizeStart = (bandIndex: number) => {
+    setDragState({
+      orientation: 'vertical',
+      index: bandIndex,
+      startPosition: bandColumnPositions[bandIndex],
+      currentDelta: 0,
+      currentSize: measureBandColWidthsPx[bandIndex],
+      kind: 'band-column',
+    });
+  };
+
+  const handleBandColumnResizeMove = (delta: number) => {
+    setDragState(prev => prev ? { ...prev, currentDelta: delta } : null);
+  };
+
+  const handleBandColumnResizeEnd = (delta: number, bandIndex: number) => {
+    const currentSize = measureBandColWidthsPx[bandIndex];
+    setDragState(null);
+    if (!onMeasureBandColumnResize || currentSize === undefined) return;
+    onMeasureBandColumnResize(bandIndex, { currentSize, delta });
+  };
+
+  const handleBandRowResizeStart = (bandIndex: number) => {
+    setDragState({
+      orientation: 'horizontal',
+      index: bandIndex,
+      startPosition: bandRowPositions[bandIndex],
+      currentDelta: 0,
+      currentSize: measureBandRowHeightsPx[bandIndex],
+      kind: 'band-row',
+    });
+  };
+
+  const handleBandRowResizeMove = (delta: number) => {
+    setDragState(prev => prev ? { ...prev, currentDelta: delta } : null);
+  };
+
+  const handleBandRowResizeEnd = (delta: number, bandIndex: number) => {
+    const currentSize = measureBandRowHeightsPx[bandIndex];
+    setDragState(null);
+    if (!onMeasureBandRowResize || currentSize === undefined) return;
+    onMeasureBandRowResize(bandIndex, { currentSize, delta });
+  };
+
   // Calculate virtual line position and size
   const virtualLineData = useMemo(() => {
     if (!dragState) return null;
@@ -418,8 +508,12 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
       previewSize = previewRowResize ? previewRowResize(intent) : previewSize;
     } else if (kind === 'facet-column') {
       previewSize = previewFacetColumnResize ? previewFacetColumnResize(intent) : previewSize;
-    } else {
+    } else if (kind === 'facet-row') {
       previewSize = previewFacetRowResize ? previewFacetRowResize(intent) : previewSize;
+    } else if (kind === 'band-column') {
+      previewSize = previewMeasureBandColumnResize ? previewMeasureBandColumnResize(intent) : previewSize;
+    } else {
+      previewSize = previewMeasureBandRowResize ? previewMeasureBandRowResize(intent) : previewSize;
     }
 
     return {
@@ -427,7 +521,7 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
       position: startPosition + (previewSize - currentSize),
       size: previewSize,
     };
-  }, [dragState, previewColumnResize, previewRowResize, previewFacetColumnResize, previewFacetRowResize]);
+  }, [dragState, previewColumnResize, previewRowResize, previewFacetColumnResize, previewFacetRowResize, previewMeasureBandColumnResize, previewMeasureBandRowResize]);
 
   return (
     <>
@@ -504,6 +598,40 @@ const GridResizeOverlay: React.FC<GridResizeOverlayProps> = ({
           onResizeStart={() => handleFacetRowResizeStart(depthIndex)}
           onResizeMove={handleFacetRowResizeMove}
           onResizeEnd={(delta) => handleFacetRowResizeEnd(delta, depthIndex)}
+          zIndex={21}
+        />
+      ))}
+
+      {/* Y-measure value-band column resize handles (vertical lines, left area) */}
+      {Boolean(onMeasureBandColumnResize) && bandColumnPositions.map((xPos, bandIndex) => (
+        <GridResizeHandle
+          key={`band-col-${bandIndex}`}
+          testId={`band-col-handle-${bandIndex}`}
+          orientation="vertical"
+          position={xPos}
+          length={Math.max(1, containerHeight - topHeaderHeight - bottomFixedHeight)}
+          crossAxisOffset={topHeaderHeight}
+          isInAxisArea={true}
+          onResizeStart={() => handleBandColumnResizeStart(bandIndex)}
+          onResizeMove={handleBandColumnResizeMove}
+          onResizeEnd={(delta) => handleBandColumnResizeEnd(delta, bandIndex)}
+          zIndex={21}
+        />
+      ))}
+
+      {/* X-measure value-band row resize handles (horizontal lines, top area) */}
+      {Boolean(onMeasureBandRowResize) && bandRowPositions.map((yPos, bandIndex) => (
+        <GridResizeHandle
+          key={`band-row-${bandIndex}`}
+          testId={`band-row-handle-${bandIndex}`}
+          orientation="horizontal"
+          position={yPos}
+          length={Math.max(1, containerWidth - leftFixedWidth)}
+          crossAxisOffset={leftFixedWidth}
+          isInAxisArea={true}
+          onResizeStart={() => handleBandRowResizeStart(bandIndex)}
+          onResizeMove={handleBandRowResizeMove}
+          onResizeEnd={(delta) => handleBandRowResizeEnd(delta, bandIndex)}
           zIndex={21}
         />
       ))}
