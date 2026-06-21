@@ -49,6 +49,7 @@ function tableGridInputFromContext(context: ChartGenerationContext): TableGridIn
     shapeField: context.shapeField,
     manualShape: context.manualShape,
     labelFields: context.labelFields,
+    labelFontSize: context.labelFontSize,
     fieldAliasLookup: context.fieldAliasLookup,
     tablePage: context.tablePage,
     tablePageSize: context.tablePageSize,

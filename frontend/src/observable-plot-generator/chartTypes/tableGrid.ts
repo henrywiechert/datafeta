@@ -5,16 +5,18 @@
  * Builds a Tableau-style table directly as a `GridResultModel` (without going
  * through the legacy `PlotResult` pipeline).
  *
- * Cell modes (derived from the Labels shelf):
- * - `symbol` — every (rowTuple, colTuple) renders one or more deduped symbol
- *   marks. Mixed values produce a preview stack (see `discreteGridSymbolLayout`).
- * - `text` — every cell renders stacked rows of formatted text, sourced from
- *   `labelFields` (Tableau's Label/Text shelf), in shelf order.
- * Text mode is selected when at least one label field is configured; otherwise
- * symbol mode renders a presence mark for each cell.
+ * Cell content (symbols and text coexist in the same cell):
+ * - Symbols — deduped symbol marks (Tableau "Marks" card). Mixed values within
+ *   a cell produce a preview stack (see `discreteGridSymbolLayout`). Symbols are
+ *   emitted when a shape/size/color encoding is configured, or — to preserve the
+ *   bare-table "presence dot" — when no label fields are present.
+ * - Text — stacked rows of formatted text, sourced from `labelFields` (Tableau's
+ *   Label/Text shelf), in shelf order.
+ * A populated (rowTuple, colTuple) cell may therefore carry symbols, text, or
+ * both; a cell with neither is emitted as an empty cell.
  *
- * Both modes share the same row/column header construction. Headers come from
- * the discrete dimensions on the Y/X axes, in declaration order.
+ * Headers come from the discrete dimensions on the Y/X axes, in declaration
+ * order.
  *
  * Pagination (PR 8): when `tablePageSize` is supplied via the generation
  * context, the generator pages over the *distinct row-tuples* (i.e. the rows
@@ -33,9 +35,8 @@ import {
   GridLayoutModel,
   GridResultModel,
   GridTrackSize,
-  MarkGridCellContent,
   MarkSymbolSpec,
-  TextGridCellContent,
+  TableGridCellContent,
   TextGridCellRow,
 } from '../gridModel';
 import { buildFacetSpace } from '../faceting/facetSpace';
@@ -69,6 +70,8 @@ export interface TableGridInput {
   shapeField?: Field;
   manualShape?: string;
   labelFields?: Field[];
+  /** Font size (px) for cell text, driven by the Labels font-size slider. */
+  labelFontSize?: number;
   fieldAliasLookup?: Record<string, string>;
   tablePage?: number;
   tablePageSize?: number;
@@ -112,13 +115,23 @@ function radiusToSymbolArea(radius: number): number {
 }
 
 /**
- * Resolve the concrete cell mode emitted by `generateTableGrid`.
+ * Whether populated cells should carry a symbol mark.
  *
- * A field on the Labels shelf selects text mode. Otherwise the table renders a
- * presence dot, optionally encoded by color/shape/size.
+ * Symbols render when there is an explicit shape/size/color encoding. As a
+ * fallback, a bare table (no label fields, no explicit encoding) still renders
+ * a presence dot — preserving the historical symbol-table look. A label-only
+ * table renders text alone (no stray presence dot).
+ *
+ * `manualSize`/`manualShape` are intentionally *not* treated as explicit
+ * encodings: they are always populated with chart-type defaults upstream, so
+ * they carry no signal about user intent.
  */
-export function resolveTableCellMode(input: Pick<TableGridInput, 'labelFields'>): 'text' | 'symbol' {
-  return (input.labelFields ?? []).length > 0 ? 'text' : 'symbol';
+export function shouldRenderSymbols(
+  input: Pick<TableGridInput, 'labelFields' | 'shapeField' | 'sizeField' | 'color'>,
+): boolean {
+  const hasEncoding = Boolean(input.shapeField || input.sizeField || input.color?.field);
+  if (hasEncoding) return true;
+  return (input.labelFields ?? []).length === 0;
 }
 
 interface SymbolFingerprint {
@@ -241,22 +254,25 @@ function buildEmptyCell(rowIdx: number, colIdx: number): GridCellModel {
   };
 }
 
-function buildMarkCell(rowIdx: number, colIdx: number, symbols: MarkSymbolSpec[]): GridCellModel {
-  const content: MarkGridCellContent = {
-    kind: 'mark',
+/**
+ * Build a populated table cell carrying symbols and/or text. Falls back to an
+ * empty cell when neither is present, so downstream renderers can skip drawing.
+ */
+function buildTableCell(
+  rowIdx: number,
+  colIdx: number,
+  symbols: MarkSymbolSpec[],
+  rows: TextGridCellRow[],
+  fontSize?: number,
+): GridCellModel {
+  if (symbols.length === 0 && rows.length === 0) {
+    return buildEmptyCell(rowIdx, colIdx);
+  }
+  const content: TableGridCellContent = {
+    kind: 'table-cell',
     symbols,
-  };
-  return {
-    id: `table-cell-${rowIdx}-${colIdx}`,
-    position: { row: rowIdx, col: colIdx },
-    content,
-  };
-}
-
-function buildTextCell(rowIdx: number, colIdx: number, rows: TextGridCellRow[]): GridCellModel {
-  const content: TextGridCellContent = {
-    kind: 'text',
     rows,
+    ...(fontSize !== undefined ? { fontSize } : {}),
   };
   return {
     id: `table-cell-${rowIdx}-${colIdx}`,
@@ -456,25 +472,21 @@ function buildHeadersForFacetSpace(
 }
 
 /**
- * Build the cell list for the `symbol` cell mode: every (rowTuple, colTuple)
- * resolves to either a `mark` cell with one or more deduped symbol specs, or
- * an `empty` cell when no rows match.
+ * Per-cell symbol resolver, prepared once over the full dataset so symbol
+ * radii/colors/shapes are comparable across the whole table. Returns `null`
+ * when the table should not render symbols at all (see `shouldRenderSymbols`).
  */
-function buildSymbolModeCells(
-  facetCtx: FacetSpaceContext,
+function createSymbolResolver(
   input: TableGridInput,
-): GridCellModel[] {
-  const data = Array.isArray(input.rows) ? input.rows : [];
+  data: any[],
+): ((bucket: any[]) => MarkSymbolSpec[]) | null {
+  if (!shouldRenderSymbols(input)) return null;
+
   const color = input.color ?? DEFAULT_COLOR_CHANNEL;
-  const colorScale = color.field
-    ? deriveColorScaleInfo(data, color)
-    : null;
+  const colorScale = color.field ? deriveColorScaleInfo(data, color) : null;
   const shapeScale = input.shapeField && input.shapeField.flavour === 'discrete'
     ? deriveShapeScaleInfo(data, input.shapeField)
     : null;
-  // Build a size scale across the full dataset so that per-cell symbol radii
-  // are comparable across the table (the same value always renders the same
-  // size, regardless of which cell it lands in).
   const manualRadius =
     Number.isFinite(input.manualSize as number) && (input.manualSize as number) > 0
       ? (input.manualSize as number)
@@ -486,37 +498,28 @@ function buildSymbolModeCells(
     manualRadius,
   );
 
-  const buckets = bucketRowsByCellTuple<SymbolFingerprint>(
-    data,
-    facetCtx.yHeaderFields,
-    facetCtx.xHeaderFields,
-    (row) => buildSymbolForRow(row, input, color, shapeScale, colorScale, sizeScale),
-  );
-
-  const cells: GridCellModel[] = [];
-  for (let r = 0; r < facetCtx.rowTuples.length; r++) {
-    const rowTupleKey = tupleKeyFromValues(facetCtx.rowTuples[r]);
-    for (let c = 0; c < facetCtx.colTuples.length; c++) {
-      const colTupleKey = tupleKeyFromValues(facetCtx.colTuples[c]);
-      const symbols = aggregateSymbols(buckets.get(bucketKey(rowTupleKey, colTupleKey)) ?? []);
-      cells.push(symbols.length > 0 ? buildMarkCell(r, c, symbols) : buildEmptyCell(r, c));
-    }
-  }
-  return cells;
+  return (bucket: any[]) =>
+    aggregateSymbols(
+      bucket.map((row) => buildSymbolForRow(row, input, color, shapeScale, colorScale, sizeScale)),
+    );
 }
 
 /**
- * Build the cell list for the `text` cell mode: every (rowTuple, colTuple)
- * resolves to a `text` cell containing one row per label source value. The
- * query is planned as aggregated, but label dimensions can still produce
+ * Build the cell list. Every (rowTuple, colTuple) bucket of data rows is
+ * resolved into a combined cell carrying both symbols (when the table renders
+ * symbols) and text rows (one per label source). A bucket that yields neither
+ * — or has no matching rows at all — becomes an empty cell.
+ *
+ * The query is planned as aggregated, but label dimensions can still produce
  * multiple rows per X/Y cell, so every bucket row is considered and duplicate
- * rendered rows are collapsed.
+ * rendered text rows are collapsed.
  */
-function buildTextModeCells(
+function buildCells(
   facetCtx: FacetSpaceContext,
   input: TableGridInput,
 ): GridCellModel[] {
   const data = Array.isArray(input.rows) ? input.rows : [];
+  const resolveSymbols = createSymbolResolver(input, data);
   const sources = collectTextRowSources(input);
 
   const buckets = bucketRowsByCellTuple<any>(
@@ -536,8 +539,9 @@ function buildTextModeCells(
         cells.push(buildEmptyCell(r, c));
         continue;
       }
-      const textRows = buildTextRowsFromBucket(bucket, sources);
-      cells.push(textRows.length > 0 ? buildTextCell(r, c, textRows) : buildEmptyCell(r, c));
+      const symbols = resolveSymbols ? resolveSymbols(bucket) : [];
+      const textRows = sources.length > 0 ? buildTextRowsFromBucket(bucket, sources) : [];
+      cells.push(buildTableCell(r, c, symbols, textRows, input.labelFontSize));
     }
   }
   return cells;
@@ -566,9 +570,8 @@ function sanitizePage(raw: number | undefined, total: number, pageSize: number):
 /**
  * Generate a table grid as a `GridResultModel`.
  *
- * Dispatches between `text` and `symbol` cell modes via `resolveTableCellMode`.
- * Both modes share the same row/column header construction and bucketing
- * skeleton; only the per-cell content differs.
+ * Every cell may carry symbols and/or text (see `buildCells`). Row/column
+ * headers come from the discrete dimensions on the Y/X axes.
  *
  * When `tablePageSize > 0` is provided in the context, the generator slices
  * the distinct row-tuples to the requested page window. The full data set is
@@ -578,7 +581,6 @@ function sanitizePage(raw: number | undefined, total: number, pageSize: number):
  */
 export function generateTableGrid(input: TableGridInput): GridResultModel {
   const facetCtx = buildFacetSpaceContext(input);
-  const mode = resolveTableCellMode(input);
 
   const totalRowTuples = facetCtx.rowTuples.length;
   const pageSize = sanitizePageSize(input.tablePageSize);
@@ -591,9 +593,7 @@ export function generateTableGrid(input: TableGridInput): GridResultModel {
       }
     : facetCtx;
 
-  const cells = mode === 'text'
-    ? buildTextModeCells(pagedFacetCtx, input)
-    : buildSymbolModeCells(pagedFacetCtx, input);
+  const cells = buildCells(pagedFacetCtx, input);
 
   return {
     cells,

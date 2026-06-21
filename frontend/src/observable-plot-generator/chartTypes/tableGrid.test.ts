@@ -1,7 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import { generateTableGrid, resolveTableCellMode, TableGridInput } from './tableGrid';
+import { generateTableGrid, shouldRenderSymbols, TableGridInput } from './tableGrid';
 import { ColorChannel, Field } from '../../types';
-import { MarkGridCellModel, TextGridCellModel } from '../gridModel';
+import { TableGridCellModel } from '../gridModel';
 import {
   DEFAULT_CHART_COLOR,
   MIN_NON_PLOT_GRID_ROW_PX,
@@ -53,28 +53,29 @@ function buildInput(overrides: Partial<TableGridInput> & {
 }
 
 describe('generateTableGrid', () => {
-  describe('resolveTableCellMode', () => {
-    it("resolves to 'symbol' when no label field is configured", () => {
-      const ctx = buildInput({});
-      expect(resolveTableCellMode(ctx)).toBe('symbol');
+  describe('shouldRenderSymbols', () => {
+    it('renders a presence dot for a bare table (no labels, no encoding)', () => {
+      expect(shouldRenderSymbols(buildInput({}))).toBe(true);
     });
 
-    it("keeps 'symbol' when a measure is on the X shelf without a label field", () => {
+    it('renders symbols when a measure is on the X/Y shelf without a label field', () => {
       const sales = measureField('m-sales', 'sales');
-      const ctx = buildInput({ xFields: [sales] });
-      expect(resolveTableCellMode(ctx)).toBe('symbol');
+      expect(shouldRenderSymbols(buildInput({ xFields: [sales] }))).toBe(true);
+      expect(shouldRenderSymbols(buildInput({ yFields: [sales] }))).toBe(true);
     });
 
-    it("keeps 'symbol' when a measure is on the Y shelf without a label field", () => {
-      const sales = measureField('m-sales', 'sales');
-      const ctx = buildInput({ yFields: [sales] });
-      expect(resolveTableCellMode(ctx)).toBe('symbol');
-    });
-
-    it("resolves to 'text' when a label field is configured", () => {
+    it('does NOT render a stray presence dot for a label-only table', () => {
       const note = dimField('dim-note', 'note');
-      const ctx = buildInput({ labelFields: [note] });
-      expect(resolveTableCellMode(ctx)).toBe('text');
+      expect(shouldRenderSymbols(buildInput({ labelFields: [note] }))).toBe(false);
+    });
+
+    it('renders symbols alongside labels when a shape/size/color encoding is set', () => {
+      const note = dimField('dim-note', 'note');
+      const shape = dimField('dim-shape', 'shape');
+      const sales = measureField('m-sales', 'sales');
+      expect(shouldRenderSymbols(buildInput({ labelFields: [note], shapeField: shape }))).toBe(true);
+      expect(shouldRenderSymbols(buildInput({ labelFields: [note], sizeField: sales }))).toBe(true);
+      expect(shouldRenderSymbols(buildInput({ labelFields: [note], color: color(sales) }))).toBe(true);
     });
   });
 
@@ -136,8 +137,8 @@ describe('generateTableGrid', () => {
 
     expect(grid.layout.rows).toBe(2);
     expect(grid.layout.columns).toBe(1);
-    const cell0 = grid.cells[0] as MarkGridCellModel;
-    expect(cell0.content.kind).toBe('mark');
+    const cell0 = grid.cells[0] as TableGridCellModel;
+    expect(cell0.content.kind).toBe('table-cell');
     expect(cell0.content.symbols).toHaveLength(1);
     expect(cell0.content.symbols[0]).toMatchObject({
       symbol: 'circle',
@@ -159,15 +160,15 @@ describe('generateTableGrid', () => {
     }));
 
     // East cell should have two distinct colors (stack); West has one.
-    const eastCell = grid.cells.find((c) => c.position.row === 0 && c.position.col === 0) as MarkGridCellModel;
-    const westCell = grid.cells.find((c) => c.position.row === 1 && c.position.col === 0) as MarkGridCellModel;
+    const eastCell = grid.cells.find((c) => c.position.row === 0 && c.position.col === 0) as TableGridCellModel;
+    const westCell = grid.cells.find((c) => c.position.row === 1 && c.position.col === 0) as TableGridCellModel;
 
-    expect(eastCell.content.kind).toBe('mark');
+    expect(eastCell.content.kind).toBe('table-cell');
     expect(eastCell.content.symbols.length).toBe(2);
     const eastColors = eastCell.content.symbols.map((s) => s.color);
     expect(new Set(eastColors).size).toBe(2);
 
-    expect(westCell.content.kind).toBe('mark');
+    expect(westCell.content.kind).toBe('table-cell');
     expect(westCell.content.symbols.length).toBe(1);
   });
 
@@ -190,8 +191,8 @@ describe('generateTableGrid', () => {
     const west2024 = grid.cells.find((c) => c.position.row === 1 && c.position.col === 0)!;
     const west2025 = grid.cells.find((c) => c.position.row === 1 && c.position.col === 1)!;
 
-    expect(east2024.content.kind).toBe('mark');
-    expect(west2025.content.kind).toBe('mark');
+    expect(east2024.content.kind).toBe('table-cell');
+    expect(west2025.content.kind).toBe('table-cell');
     expect(east2025.content.kind).toBe('empty');
     expect(west2024.content.kind).toBe('empty');
   });
@@ -204,8 +205,8 @@ describe('generateTableGrid', () => {
       rows: [{ region: 'East' }],
     }));
 
-    const cell = grid.cells[0] as MarkGridCellModel;
-    expect(cell.content.kind).toBe('mark');
+    const cell = grid.cells[0] as TableGridCellModel;
+    expect(cell.content.kind).toBe('table-cell');
     expect(cell.content.symbols[0].symbol).toBe('square');
   });
 
@@ -221,6 +222,28 @@ describe('generateTableGrid', () => {
 
     expect(grid.layout.rowSizes).toEqual([MIN_NON_PLOT_GRID_ROW_PX, MIN_NON_PLOT_GRID_ROW_PX]);
     expect(grid.layout.columnSizes).toEqual(['fr']);
+  });
+
+  it('propagates labelFontSize onto populated cells and omits it when unset', () => {
+    const region = dimField('dim-region', 'region');
+    const sales = measureField('m-sales', 'sales');
+    const withFont = generateTableGrid(buildInput({
+      yFields: [region],
+      labelFields: [sales],
+      labelFontSize: 18,
+      rows: [{ region: 'East', 'SUM(sales)': 100 }],
+    }));
+    const cell = withFont.cells[0] as TableGridCellModel;
+    expect(cell.content.kind).toBe('table-cell');
+    expect(cell.content.fontSize).toBe(18);
+
+    const withoutFont = generateTableGrid(buildInput({
+      yFields: [region],
+      labelFields: [sales],
+      rows: [{ region: 'East', 'SUM(sales)': 100 }],
+    }));
+    const plainCell = withoutFont.cells[0] as TableGridCellModel;
+    expect(plainCell.content.fontSize).toBeUndefined();
   });
 
   it('exposes a dense table-specific resize floor (one entry per track)', () => {
@@ -253,8 +276,8 @@ describe('generateTableGrid', () => {
         rows: [{ region: 'East' }],
       }));
 
-      const cell = grid.cells[0] as MarkGridCellModel;
-      expect(cell.content.kind).toBe('mark');
+      const cell = grid.cells[0] as TableGridCellModel;
+      expect(cell.content.kind).toBe('table-cell');
       expect(cell.content.symbols).toHaveLength(1);
       expect(cell.content.symbols[0].size).toBeCloseTo(areaForRadius(12), 5);
     });
@@ -273,11 +296,11 @@ describe('generateTableGrid', () => {
         ],
       }));
 
-      const eastCell = grid.cells.find((c) => c.position.row === 0) as MarkGridCellModel;
-      const westCell = grid.cells.find((c) => c.position.row === 1) as MarkGridCellModel;
+      const eastCell = grid.cells.find((c) => c.position.row === 0) as TableGridCellModel;
+      const westCell = grid.cells.find((c) => c.position.row === 1) as TableGridCellModel;
 
-      expect(eastCell.content.kind).toBe('mark');
-      expect(westCell.content.kind).toBe('mark');
+      expect(eastCell.content.kind).toBe('table-cell');
+      expect(westCell.content.kind).toBe('table-cell');
       // East has the smaller value, so it must render with the smaller area.
       expect(eastCell.content.symbols[0].size).toBeLessThan(westCell.content.symbols[0].size);
       // The size scale should hit the endpoints of `sizeRange`.
@@ -292,8 +315,8 @@ describe('generateTableGrid', () => {
         rows: [{ region: 'East' }],
       }));
 
-      const cell = grid.cells[0] as MarkGridCellModel;
-      expect(cell.content.kind).toBe('mark');
+      const cell = grid.cells[0] as TableGridCellModel;
+      expect(cell.content.kind).toBe('table-cell');
       // Default radius is 8 → ~201 area; matches the legacy DEFAULT_MARK_AREA.
       expect(cell.content.symbols[0].size).toBeCloseTo(areaForRadius(8), 0);
     });
@@ -310,11 +333,11 @@ describe('generateTableGrid', () => {
         ],
       }));
 
-      const eastCell = grid.cells.find((c) => c.position.row === 0) as MarkGridCellModel;
-      const westCell = grid.cells.find((c) => c.position.row === 1) as MarkGridCellModel;
+      const eastCell = grid.cells.find((c) => c.position.row === 0) as TableGridCellModel;
+      const westCell = grid.cells.find((c) => c.position.row === 1) as TableGridCellModel;
 
-      expect(eastCell.content.kind).toBe('mark');
-      expect(westCell.content.kind).toBe('mark');
+      expect(eastCell.content.kind).toBe('table-cell');
+      expect(westCell.content.kind).toBe('table-cell');
       // Continuous color must produce *different* colors for different values
       // (regression: previously only categorical color scales were honored).
       expect(eastCell.content.symbols[0].color).not.toBe(westCell.content.symbols[0].color);
@@ -339,8 +362,8 @@ describe('generateTableGrid', () => {
         ],
       }));
 
-      const cell = grid.cells[0] as MarkGridCellModel;
-      expect(cell.content.kind).toBe('mark');
+      const cell = grid.cells[0] as TableGridCellModel;
+      expect(cell.content.kind).toBe('table-cell');
       expect(cell.content.symbols).toHaveLength(1);
       expect(cell.content.symbols[0].size).toBeCloseTo(areaForRadius(20), 5);
     });
@@ -360,12 +383,12 @@ describe('generateTableGrid', () => {
       }));
 
       expect(grid.cells).toHaveLength(2);
-      const east = grid.cells[0] as TextGridCellModel;
-      expect(east.content.kind).toBe('text');
+      const east = grid.cells[0] as TableGridCellModel;
+      expect(east.content.kind).toBe('table-cell');
       expect(east.content.rows).toEqual([
         { source: 'measure', label: 'sales', value: '1234' },
       ]);
-      const west = grid.cells[1] as TextGridCellModel;
+      const west = grid.cells[1] as TableGridCellModel;
       expect(west.content.rows).toEqual([
         { source: 'measure', label: 'sales', value: '5678.50' },
       ]);
@@ -385,8 +408,8 @@ describe('generateTableGrid', () => {
         ],
       }));
 
-      const cell = grid.cells[0] as TextGridCellModel;
-      expect(cell.content.kind).toBe('text');
+      const cell = grid.cells[0] as TableGridCellModel;
+      expect(cell.content.kind).toBe('table-cell');
       expect(cell.content.rows).toEqual([
         { source: 'label', label: 'note', value: 'flagship' },
         { source: 'measure', label: 'profit', value: '2' },
@@ -414,8 +437,8 @@ describe('generateTableGrid', () => {
       const west2024 = grid.cells.find((c) => c.position.row === 1 && c.position.col === 0)!;
       const west2025 = grid.cells.find((c) => c.position.row === 1 && c.position.col === 1)!;
 
-      expect(east2024.content.kind).toBe('text');
-      expect(west2025.content.kind).toBe('text');
+      expect(east2024.content.kind).toBe('table-cell');
+      expect(west2025.content.kind).toBe('table-cell');
       expect(east2025.content.kind).toBe('empty');
       expect(west2024.content.kind).toBe('empty');
     });
@@ -432,8 +455,8 @@ describe('generateTableGrid', () => {
         ],
       }));
 
-      const cell = grid.cells[0] as TextGridCellModel;
-      expect(cell.content.kind).toBe('text');
+      const cell = grid.cells[0] as TableGridCellModel;
+      expect(cell.content.kind).toBe('table-cell');
       expect(cell.content.rows).toEqual([
         { source: 'measure', label: 'sales', value: '100' },
       ]);
@@ -451,8 +474,8 @@ describe('generateTableGrid', () => {
         ],
       }));
 
-      const cell = grid.cells[0] as TextGridCellModel;
-      expect(cell.content.kind).toBe('text');
+      const cell = grid.cells[0] as TableGridCellModel;
+      expect(cell.content.kind).toBe('table-cell');
       expect(cell.content.rows).toHaveLength(1);
       expect(cell.content.rows[0].value).toBe(date.toLocaleString());
     });
@@ -465,8 +488,8 @@ describe('generateTableGrid', () => {
         rows: [{ region: 'East', 'SUM(sales)': 100 }],
       }));
 
-      const cell = grid.cells[0] as MarkGridCellModel;
-      expect(cell.content.kind).toBe('mark');
+      const cell = grid.cells[0] as TableGridCellModel;
+      expect(cell.content.kind).toBe('table-cell');
     });
 
     it('uses fieldAliasLookup for the row label when present', () => {
@@ -481,7 +504,7 @@ describe('generateTableGrid', () => {
         fieldAliasLookup: { sales: 'Total Sales' },
       }));
 
-      const cell = grid.cells[0] as TextGridCellModel;
+      const cell = grid.cells[0] as TableGridCellModel;
       expect(cell.content.rows[0].label).toBe('Total Sales');
     });
 
@@ -494,7 +517,7 @@ describe('generateTableGrid', () => {
         rows: [{ region: 'East', 'SUM(sales)': 100 }],
       }));
 
-      const cell = grid.cells[0] as TextGridCellModel;
+      const cell = grid.cells[0] as TableGridCellModel;
       expect(cell.content.rows[0].label).toBe('sales');
     });
 
@@ -511,8 +534,8 @@ describe('generateTableGrid', () => {
         ],
       }));
 
-      const cell = grid.cells[0] as TextGridCellModel;
-      expect(cell.content.kind).toBe('text');
+      const cell = grid.cells[0] as TableGridCellModel;
+      expect(cell.content.kind).toBe('table-cell');
       expect(cell.content.rows).toEqual([
         { source: 'label', label: 'note', value: 'alpha' },
         { source: 'label', label: 'note', value: 'beta' },
@@ -644,8 +667,8 @@ describe('generateTableGrid', () => {
       expect(grid.pagination).toEqual({ totalRowTuples: 3, pageSize: 2, page: 1 });
       expect(grid.layout.rows).toBe(1);
       expect(grid.cells).toHaveLength(1);
-      const cell = grid.cells[0] as TextGridCellModel;
-      expect(cell.content.kind).toBe('text');
+      const cell = grid.cells[0] as TableGridCellModel;
+      expect(cell.content.kind).toBe('table-cell');
       expect(cell.content.rows[0].value).toBe('30');
     });
   });

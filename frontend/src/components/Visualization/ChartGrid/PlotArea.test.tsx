@@ -87,7 +87,8 @@ describe('PlotArea cell dispatch', () => {
         id: 'text-single',
         position: { row: 0, col: 0 },
         content: {
-          kind: 'text',
+          kind: 'table-cell',
+          symbols: [],
           rows: [{ source: 'measure', label: 'Sales', value: '$1,234' }],
         },
       },
@@ -96,6 +97,8 @@ describe('PlotArea cell dispatch', () => {
     const { container, getByText } = renderArea(grid);
     expect(getByText('$1,234')).toBeInTheDocument();
     expect(container.querySelectorAll('span').length).toBe(1);
+    // Text-only cell renders no symbol svg.
+    expect(container.querySelectorAll('svg').length).toBe(0);
   });
 
   it('renders stacked text rows with "alias: value" prefixes when there are multiple rows', () => {
@@ -104,7 +107,8 @@ describe('PlotArea cell dispatch', () => {
         id: 'text-multi',
         position: { row: 0, col: 0 },
         content: {
-          kind: 'text',
+          kind: 'table-cell',
+          symbols: [],
           rows: [
             { source: 'label', label: 'Region', value: 'East' },
             { source: 'measure', label: 'Sales', value: '$1,234' },
@@ -119,14 +123,15 @@ describe('PlotArea cell dispatch', () => {
     expect(container.querySelectorAll('span').length).toBe(2);
   });
 
-  it('renders a single SVG symbol for mark cells with one symbol', () => {
+  it('renders a single SVG symbol for cells with one symbol and no text', () => {
     const grid = buildGrid([
       {
         id: 'mark-1',
         position: { row: 0, col: 0 },
         content: {
-          kind: 'mark',
+          kind: 'table-cell',
           symbols: [{ symbol: 'circle', color: 'steelblue', size: 36 }],
+          rows: [],
         },
       },
     ]);
@@ -134,20 +139,22 @@ describe('PlotArea cell dispatch', () => {
     const { container } = renderArea(grid);
     expect(container.querySelectorAll('svg').length).toBe(1);
     expect(container.querySelectorAll('circle').length).toBe(1);
+    expect(container.querySelectorAll('span').length).toBe(0);
   });
 
-  it('renders a preview stack with one element per symbol for mixed mark cells', () => {
+  it('renders a preview stack with one element per symbol for mixed cells', () => {
     const grid = buildGrid([
       {
         id: 'mark-mix',
         position: { row: 0, col: 0 },
         content: {
-          kind: 'mark',
+          kind: 'table-cell',
           symbols: [
             { symbol: 'circle', color: 'steelblue', size: 36 },
             { symbol: 'square', color: 'orange', size: 36 },
             { symbol: 'triangle', color: 'green', size: 36 },
           ],
+          rows: [],
         },
       },
     ]);
@@ -156,6 +163,25 @@ describe('PlotArea cell dispatch', () => {
     expect(container.querySelectorAll('circle').length).toBe(1);
     expect(container.querySelectorAll('rect').length).toBe(1);
     expect(container.querySelectorAll('polygon').length).toBe(1);
+  });
+
+  it('renders both a symbol and text rows when a cell carries both', () => {
+    const grid = buildGrid([
+      {
+        id: 'mixed',
+        position: { row: 0, col: 0 },
+        content: {
+          kind: 'table-cell',
+          symbols: [{ symbol: 'circle', color: 'steelblue', size: 36 }],
+          rows: [{ source: 'measure', label: 'Sales', value: '$1,234' }],
+        },
+      },
+    ]);
+
+    const { container, getByText } = renderArea(grid);
+    expect(container.querySelectorAll('svg').length).toBe(1);
+    expect(container.querySelectorAll('circle').length).toBe(1);
+    expect(getByText('$1,234')).toBeInTheDocument();
   });
 
   it('renders a placeholder div for empty cells', () => {

@@ -83,12 +83,6 @@ export interface TextGridCellRow {
   value: string;
 }
 
-export interface TextGridCellContent {
-  kind: 'text';
-  rows: TextGridCellRow[];
-  facetBackground?: FacetBackgroundInfo;
-}
-
 /**
  * Symbol marks rendered directly inside a cell (Tableau "Marks" card style).
  * Mixed values are rendered as a small preview stack of symbols.
@@ -104,10 +98,20 @@ export interface MarkSymbolSpec {
   opacity?: number;
 }
 
-export interface MarkGridCellContent {
-  kind: 'mark';
-  /** One or more symbols to render. >1 marks the cell as a mixed/preview stack. */
+/**
+ * A single table cell. Symbols (Tableau "Marks") and text rows (Tableau
+ * "Label"/"Text") coexist in the same cell: a cell may carry symbols, text
+ * rows, or both. At least one of the two arrays is non-empty (a cell with
+ * neither is emitted as {@link EmptyGridCellContent} instead).
+ */
+export interface TableGridCellContent {
+  kind: 'table-cell';
+  /** Zero or more symbols. >1 renders as a mixed/preview stack. */
   symbols: MarkSymbolSpec[];
+  /** Zero or more stacked text rows. */
+  rows: TextGridCellRow[];
+  /** Font size (px) for the text rows. Falls back to the CSS default when absent. */
+  fontSize?: number;
   facetBackground?: FacetBackgroundInfo;
 }
 
@@ -119,8 +123,7 @@ export interface EmptyGridCellContent {
 export type GridCellContent =
   | PlotGridCellContent
   | PieGridCellContent
-  | TextGridCellContent
-  | MarkGridCellContent
+  | TableGridCellContent
   | EmptyGridCellContent;
 
 export interface GridCellMetadata {
@@ -144,12 +147,8 @@ export interface PieGridCellModel extends GridCellModel {
   content: PieGridCellContent;
 }
 
-export interface TextGridCellModel extends GridCellModel {
-  content: TextGridCellContent;
-}
-
-export interface MarkGridCellModel extends GridCellModel {
-  content: MarkGridCellContent;
+export interface TableGridCellModel extends GridCellModel {
+  content: TableGridCellContent;
 }
 
 export interface EmptyGridCellModel extends GridCellModel {
@@ -224,7 +223,7 @@ export function hasFacetHeaders(grid: GridResultModel | null): boolean {
 
 /**
  * True when every cell renders without external X/Y axes (pie cells, or plot
- * cells flagged via the `__hideExternalAxes` option). Empty/text/mark cells
+ * cells flagged via the `__hideExternalAxes` option). Empty and table cells
  * are also axis-less. Returns false for an empty grid.
  */
 export function usesOnlyAxislessRenderers(grid: GridResultModel | null): boolean {
@@ -233,8 +232,7 @@ export function usesOnlyAxislessRenderers(grid: GridResultModel | null): boolean
   return cells.every((cell) => {
     switch (cell.content.kind) {
       case 'pie':
-      case 'text':
-      case 'mark':
+      case 'table-cell':
       case 'empty':
         return true;
       case 'plot':
