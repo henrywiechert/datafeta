@@ -36,6 +36,8 @@ import {
   GridResultModel,
   GridTrackSize,
   MarkSymbolSpec,
+  MeasureBand,
+  MeasureBands,
   TableGridCellContent,
   TextGridCellRow,
 } from '../gridModel';
@@ -453,6 +455,149 @@ function buildFacetSpaceContext(input: TableGridInput): FacetSpaceContext {
   };
 }
 
+/** Aggregations that can be correctly rolled up client-side from a finer grain. */
+const DECOMPOSABLE_AGGREGATIONS = new Set(['sum', 'count', 'min', 'max']);
+
+interface MeasureBandSource {
+  field: Field;
+  /** Result-set column carrying the aggregated value (e.g. `SUM(sales)`). */
+  column: string;
+  /** Display label (alias-aware) used as the band header. */
+  label: string;
+}
+
+/**
+ * Axis measures contributing value bands, in shelf order. A measure missing an
+ * explicit aggregation is normalized to the same default the query planner
+ * applies (`sum` for continuous, `count` for discrete) so the result column
+ * name matches the aggregated query output.
+ */
+function collectMeasureBandSources(
+  fields: Field[],
+  fieldAliasLookup?: Record<string, string>,
+): MeasureBandSource[] {
+  return fields
+    .filter((field) => field.type === 'measure')
+    .map((field) => ({
+      field,
+      column: getFieldColumnName(normalizeLabelFieldForResultColumn(field)),
+      label: getFieldDisplayName(field, fieldAliasLookup),
+    }));
+}
+
+/**
+ * Bucket data rows by a single axis's header (dimension) tuple. Rows missing a
+ * header column are skipped. With no header fields every row falls into a
+ * single bucket (keyed by the empty tuple) — the band carries one value.
+ */
+function bucketRowsBySingleAxis(data: any[], headerFields: Field[]): Map<string, any[]> {
+  const buckets = new Map<string, any[]>();
+  for (const row of data) {
+    const parts: string[] = [];
+    let skip = false;
+    for (const field of headerFields) {
+      const value = row?.[getFieldColumnName(field)];
+      if (value === undefined) {
+        skip = true;
+        break;
+      }
+      parts.push(value instanceof Date ? `D:${value.getTime()}` : String(value));
+    }
+    if (skip) continue;
+    const key = parts.join('\x1e');
+    let bucket = buckets.get(key);
+    if (!bucket) {
+      bucket = [];
+      buckets.set(key, bucket);
+    }
+    bucket.push(row);
+  }
+  return buckets;
+}
+
+function toFiniteNumber(value: any): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'bigint') return Number(value);
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+/**
+ * Resolve one band cell value for a leaf from its bucket of (already aggregated)
+ * body-grain rows.
+ *
+ * - A single matching row is already at the band grain → shown verbatim
+ *   (correct for every aggregation, including AVG / COUNT_DISTINCT).
+ * - Multiple rows must be rolled up to the band grain. This is only correct for
+ *   decomposable aggregations (SUM/COUNT/MIN/MAX); non-decomposable ones
+ *   (AVG/COUNT_DISTINCT/…) cannot be derived from the finer grain and render
+ *   blank until a dedicated band-grain query supplies them.
+ */
+function resolveBandValue(field: Field, bucket: any[], column: string): string {
+  const raws = bucket
+    .map((row) => row?.[column])
+    .filter((value) => value !== undefined && value !== null);
+  if (raws.length === 0) return '';
+  if (raws.length === 1) return formatTooltipValue(raws[0]);
+
+  const aggregation = (field.aggregation
+    || (field.flavour === 'continuous' ? 'sum' : 'count')) as string;
+  if (!DECOMPOSABLE_AGGREGATIONS.has(aggregation)) return '';
+
+  const nums = raws.map(toFiniteNumber).filter((n): n is number => n !== null);
+  if (nums.length === 0) return '';
+  let combined: number;
+  switch (aggregation) {
+    case 'min':
+      combined = Math.min(...nums);
+      break;
+    case 'max':
+      combined = Math.max(...nums);
+      break;
+    default: // sum, count
+      combined = nums.reduce((acc, n) => acc + n, 0);
+      break;
+  }
+  return formatTooltipValue(combined);
+}
+
+/**
+ * Build the axis-measure value bands (Tableau "Measure Values"). Y-axis
+ * measures become value columns aligned to body rows; X-axis measures become
+ * value rows aligned to body columns. Each band value is aggregated at its own
+ * axis grain (independent of the other axis) per the table view model.
+ */
+function buildMeasureBands(
+  facetCtx: FacetSpaceContext,
+  input: TableGridInput,
+): MeasureBands | undefined {
+  const ySources = collectMeasureBandSources(input.yFields, input.fieldAliasLookup);
+  const xSources = collectMeasureBandSources(input.xFields, input.fieldAliasLookup);
+  if (ySources.length === 0 && xSources.length === 0) return undefined;
+
+  const data = Array.isArray(input.rows) ? input.rows : [];
+  const yBuckets = bucketRowsBySingleAxis(data, facetCtx.yHeaderFields);
+  const xBuckets = bucketRowsBySingleAxis(data, facetCtx.xHeaderFields);
+
+  const rows: MeasureBand[] = ySources.map((src) => ({
+    column: src.column,
+    label: src.label,
+    values: facetCtx.rowTuples.map((tuple) =>
+      resolveBandValue(src.field, yBuckets.get(tupleKeyFromValues(tuple)) ?? [], src.column)),
+  }));
+  const cols: MeasureBand[] = xSources.map((src) => ({
+    column: src.column,
+    label: src.label,
+    values: facetCtx.colTuples.map((tuple) =>
+      resolveBandValue(src.field, xBuckets.get(tupleKeyFromValues(tuple)) ?? [], src.column)),
+  }));
+
+  return { rows, cols };
+}
+
 function buildHeadersForFacetSpace(
   facetCtx: FacetSpaceContext,
   input: TableGridInput,
@@ -599,6 +744,7 @@ export function generateTableGrid(input: TableGridInput): GridResultModel {
     cells,
     layout: buildLayout(pagedFacetCtx.rowTuples.length, pagedFacetCtx.colTuples.length),
     headers: buildHeadersForFacetSpace(pagedFacetCtx, input),
+    measureBands: buildMeasureBands(pagedFacetCtx, input),
     pagination: pageSize > 0
       ? { totalRowTuples, pageSize, page }
       : undefined,

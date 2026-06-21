@@ -39,6 +39,7 @@ import { createChartAffectingConfig } from '../../../utils/queryAffectingConfig'
 import { filtersToHashKey } from '../../../utils/sheetConfigHash';
 import { buildEffectiveFilterConfigurations } from '../../../utils/effectiveFilters';
 import { isTablePresentation } from '../../../observable-plot-generator/chartTypes/chartTypePresentation';
+import { detectDefaultUserChartType } from '../../../observable-plot-generator/helpers/chartTypeResolver';
 import { useCellSizeOverrides } from '../ChartGrid/hooks/useCellSizeOverrides';
 import { HeatmapSizeToolbarState } from '../ChartGrid/hooks/useHeatmapSizeToolbar';
 import type {
@@ -137,11 +138,21 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
   const fullscreenWrapperRef = useRef<HTMLDivElement>(null);
   const sheetId = activeSheet?.id;
   const isGanttChart = globalChartType === 'gantt';
+  // The chart type actually rendered: the user's explicit pick, or the
+  // auto-resolved default when in auto mode. The all-discrete shape auto-resolves
+  // to `'table-refactor'`, so the pager/cache-key behaviour below must key off
+  // the effective type (not the raw, possibly-null `globalChartType`).
+  const effectiveChartType =
+    globalChartType ?? detectDefaultUserChartType(
+      xAxisFields,
+      yAxisFields,
+      channels.color.field || undefined,
+    ) ?? null;
   // Whether the chart is rendered with the table presentation (Tableau-style
-  // text/symbol grid). Today only `'table-refactor'` uses this; routing the
-  // check through the registry means future table-presentation chart types
-  // pick up the pager/cache-key behaviour automatically.
-  const isTableMode = isTablePresentation(globalChartType);
+  // text/symbol grid). Routing the check through the registry means future
+  // table-presentation chart types pick up the pager/cache-key behaviour
+  // automatically.
+  const isTableMode = isTablePresentation(effectiveChartType);
 
   // Global user setting: rows per page for the table-presentation pager.
   // Persisted in localStorage so the choice survives reloads / sheet switches.

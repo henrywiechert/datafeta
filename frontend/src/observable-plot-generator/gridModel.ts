@@ -51,6 +51,37 @@ export interface GridHeaders {
   cols?: GridHeaderAxis;
 }
 
+/**
+ * A single axis-measure value band (Tableau-style). A measure placed on the
+ * Y axis becomes a value *column* (one value per body row); a measure on the
+ * X axis becomes a value *row* (one value per body column). Bands are rendered
+ * adjacent to the dimension headers, separate from the Labels/Symbol body grid.
+ */
+export interface MeasureBand {
+  /** Result-set column carrying the aggregated value (e.g. `SUM(sales)`). */
+  column: string;
+  /** Display label (alias-aware), shown as the band header. */
+  label: string;
+  /**
+   * One pre-formatted value per body leaf along the band's aligned axis:
+   * row bands (Y measures) are indexed by body row; col bands (X measures) by
+   * body column. An empty string marks a leaf with no value (or one that could
+   * not be rolled up to the band grain).
+   */
+  values: string[];
+}
+
+/**
+ * Axis-measure value bands for the table chart. `rows` holds Y-axis measures
+ * (rendered as value columns aligned to body rows); `cols` holds X-axis
+ * measures (value rows aligned to body columns). Emitted only by the table
+ * generator; other chart kinds leave this undefined.
+ */
+export interface MeasureBands {
+  rows: MeasureBand[];
+  cols: MeasureBand[];
+}
+
 export interface PlotGridCellContent {
   kind: 'plot';
   options: Plot.PlotOptions;
@@ -159,6 +190,12 @@ export interface GridResultModel {
   cells: GridCellModel[];
   layout: GridLayoutModel;
   headers?: GridHeaders;
+  /**
+   * Axis-measure value bands for the `table-refactor` chart. Rendered between
+   * the dimension headers and the body grid (Y measures → value columns, X
+   * measures → value rows). Undefined for all other chart kinds.
+   */
+  measureBands?: MeasureBands;
   /**
    * Carried through from the generator for downstream consumers (e.g. debug view).
    * Not used by ChartGrid itself.

@@ -8,7 +8,6 @@ import ChartGrid, {
 } from '../../ChartGrid/ChartGrid';
 import { HeatmapSizeToolbarState } from '../../ChartGrid/hooks/useHeatmapSizeToolbar';
 import { CellSizeOverrides } from '../../ChartGrid/hooks/useCellSizeOverrides';
-import TableViewLazy from '../../Table/TableViewLazy';
 import TableViewRowsLazy from '../../Table/TableViewRowsLazy';
 import TableRowsPagination from '../../Table/TableRowsPagination';
 import BarSortControl from './BarSortControl';
@@ -71,11 +70,9 @@ interface ChartRendererProps {
 
 const ChartRenderer: React.FC<ChartRendererProps> = ({
   useTableView,
-  tableData,
   grid,
   cellSizeOverrides,
   onAutoCategoryTickMeasure,
-  queryResult,
   xAxisFields,
   yAxisFields,
   onPlotRenderComplete,
@@ -124,17 +121,6 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
   // Memoize chart/table content separately so table rows mode is unaffected by chart changes
   const content = useMemo(() => {
     if (tableRowsContent) return tableRowsContent;
-    if (useTableView) {
-      return (
-        <TableViewLazy 
-          columns={tableData.columns} 
-          rows={tableData.rows} 
-          xFields={xAxisFields}
-          yFields={yAxisFields}
-          queryColumns={queryResult?.columns}
-        />
-      );
-    }
     const chartGridNode = (
       <ChartGrid 
         grid={grid} 
@@ -164,7 +150,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
         />
       </Box>
     );
-  }, [tableRowsContent, useTableView, tableData, grid, cellSizeOverrides, onAutoCategoryTickMeasure, queryResult, xAxisFields, yAxisFields, onPlotRenderComplete, gantt, brush, tableRefactorPagerData, onHeatmapSizeToolbarChange, labelStyles, globalChartType]);
+  }, [tableRowsContent, grid, cellSizeOverrides, onAutoCategoryTickMeasure, onPlotRenderComplete, gantt, brush, tableRefactorPagerData, onHeatmapSizeToolbarChange, labelStyles, globalChartType]);
 
   return (
     <Box 
