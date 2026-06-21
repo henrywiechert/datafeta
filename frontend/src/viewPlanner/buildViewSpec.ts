@@ -94,7 +94,11 @@ export function buildQueryFieldsFromViewInput(input: BuildViewSpecInput): Field[
 
   const xHasMeasure = xFields.some((field) => field.type === 'measure');
   const yHasMeasure = yFields.some((field) => field.type === 'measure');
-  const shouldDefaultAxisMeasureAgg = input.globalChartType === 'pie'
+  // For the table, an axis measure becomes a value band rendered at its own
+  // grain, so measures on *either or both* axes must be aggregated (unlike the
+  // single-axis-only default used by most chart types). `pie` shares that
+  // "aggregate whichever axis carries a measure" behavior.
+  const shouldDefaultAxisMeasureAgg = (input.globalChartType === 'pie' || input.globalChartType === 'table-refactor')
     ? (xHasMeasure || yHasMeasure)
     : xHasMeasure !== yHasMeasure;
 

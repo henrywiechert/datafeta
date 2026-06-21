@@ -5,6 +5,8 @@ import {
   MIN_GRID_COLUMN_PX,
   MIN_GRID_ROW_PX,
   NAMES_BAND_LEFT_PX,
+  TABLE_MEASURE_BAND_COL_PX,
+  TABLE_MEASURE_BAND_ROW_PX,
   TABLE_NAMES_BAND_LEFT_PX,
   TABLE_VALUES_BAND_LEFT_PX,
   TABLE_VALUES_BAND_TOP_PX,
@@ -59,6 +61,10 @@ export interface LayoutCalculations {
   facetTopValuesPx: number;
   facetLeftValueWidthsPx: number[];
   facetTopValueHeightsPx: number[];
+  /** Width (px) of each Y-axis measure value column (Tableau "Measure Values"). */
+  yMeasureBandWidthsPx: number[];
+  /** Height (px) of each X-axis measure value row. */
+  xMeasureBandHeightsPx: number[];
 }
 
 /**
@@ -202,7 +208,20 @@ export function useChartGridLayout(
       topValueFallbackPx,
     );
 
-    const leftLabelsPx = hasRowFacets ? facetLeftHeaderPx + sumTrackSizes(facetLeftValueWidthsPx) : 0;
+    // Axis-measure value bands (table-refactor only). A Y measure renders as a
+    // value column in the left fixed area; an X measure as a value row in the
+    // top header area. Gated on facet headers being present so the band tracks
+    // land in reserved layout space (left/top zones) rather than over the body.
+    const facetHeadersPresent = Boolean(grid.headers);
+    const yMeasureBands = facetHeadersPresent ? (grid.measureBands?.rows ?? []) : [];
+    const xMeasureBands = facetHeadersPresent ? (grid.measureBands?.cols ?? []) : [];
+    const yMeasureBandWidthsPx = yMeasureBands.map(() => TABLE_MEASURE_BAND_COL_PX);
+    const xMeasureBandHeightsPx = xMeasureBands.map(() => TABLE_MEASURE_BAND_ROW_PX);
+    const yMeasureBandTotalPx = sumTrackSizes(yMeasureBandWidthsPx);
+    const xMeasureBandTotalPx = sumTrackSizes(xMeasureBandHeightsPx);
+
+    const leftLabelsPx = (hasRowFacets ? facetLeftHeaderPx + sumTrackSizes(facetLeftValueWidthsPx) : 0)
+      + yMeasureBandTotalPx;
 
     // Dynamic gutters
     const dynamicYAxisPx = computeDynamicYAxisGutterPx(grid, rows, categoryTickStyles?.yWidthPx ?? null);
@@ -210,7 +229,12 @@ export function useChartGridLayout(
     const yLabelColPx = computeDynamicYLabelColPx(grid, calculatedRowHeightPx, yAxisLabelStyle);
     const leftFixedWidthPx = leftLabelsPx + yLabelColPx + dynamicYAxisPx;
     const facetTopHeaderPx = colLevels.length > 0 ? topHeaderFallbackPx : 0;
-    const topHeaderHeight = colLevels.length > 0 ? facetTopHeaderPx + sumTrackSizes(facetTopValueHeightsPx) : 0;
+    const dimTopHeaderHeight = colLevels.length > 0 ? facetTopHeaderPx + sumTrackSizes(facetTopValueHeightsPx) : 0;
+    // Reserve a thin strip for Y-measure band names when there is no column
+    // header band to host them.
+    const topHeaderHeight = yMeasureBandWidthsPx.length > 0
+      ? Math.max(dimTopHeaderHeight + xMeasureBandTotalPx, TABLE_VALUES_BAND_TOP_PX)
+      : dimTopHeaderHeight + xMeasureBandTotalPx;
 
     if (process.env.NODE_ENV === 'development') {
       console.log('[ChartGrid] Layout calculations recomputed:', {
@@ -247,6 +271,8 @@ export function useChartGridLayout(
       facetTopValuesPx,
       facetLeftValueWidthsPx,
       facetTopValueHeightsPx,
+      yMeasureBandWidthsPx,
+      xMeasureBandHeightsPx,
     };
   }, [
     grid,

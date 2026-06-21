@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { DistributionVariant, Field, UserChartType } from '../../types/field';
 import { analyzeFields } from '../analysis/fieldAnalysis';
+import { FieldClassifier } from '../../utils/fieldClassification';
 export { isCdfAllowed } from '../../utils/cdfUtils';
 
 // Cell-level chart types for a pair of fields
@@ -189,12 +190,15 @@ export function mapUserChartTypeToCellChartType(
  * Resolution rules, in order:
  * 1. Heatmap shape: exactly 1 discrete dim on X, exactly 1 discrete dim on Y,
  *    no continuous dims, measure on color → `'heatmap'`.
- * 2. Both axes have at least one continuous candidate (measure or continuous
+ * 2. All-discrete shape: no continuous field (dimension or measure) on either
+ *    axis → `'table-refactor'` (the Tableau-style text/symbol table). This is
+ *    the same data-shape that used to route to the legacy AG Grid table.
+ * 3. Both axes have at least one continuous candidate (measure or continuous
  *    dimension) → fall through to `detectDefaultChartTypeForPair` on the first
  *    candidate of each axis, mapped from `CellChartType` to `UserChartType`.
- * 3. No measures but has a continuous dimension somewhere → `'tick'`.
- * 4. Has measures → `'bar'`.
- * 5. Otherwise → `'scatter'`.
+ * 4. No measures but has a continuous dimension somewhere → `'tick'`.
+ * 5. Has measures → `'bar'`.
+ * 6. Otherwise → `'scatter'`.
  *
  * Note: this is an auto-detection helper. The user's explicit toggle selection
  * (`globalChartType`) always takes precedence — callers should not invoke this
@@ -226,7 +230,13 @@ export function detectDefaultUserChartType(
     }
   }
 
-  // 2. Cartesian shape: continuous candidates on both axes → defer to per-pair.
+  // 2. All-discrete shape (no continuous dimension or measure on any axis) →
+  // the Tableau-style table. Mirrors the legacy `shouldUseTableView` trigger.
+  if (!FieldClassifier.classifyFields(xs, ys).hasContinuousData()) {
+    return 'table-refactor';
+  }
+
+  // 3. Cartesian shape: continuous candidates on both axes → defer to per-pair.
   const xCandidates = xs.filter(
     (f) => f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
   );

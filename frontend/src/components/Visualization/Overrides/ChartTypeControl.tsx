@@ -6,7 +6,6 @@ import ShowChartIcon from '@mui/icons-material/ShowChart';
 import ScatterPlotIcon from '@mui/icons-material/ScatterPlot';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import PieChartIcon from '@mui/icons-material/PieChart';
-import TableChartIcon from '@mui/icons-material/TableChart';
 import GridOnIcon from '@mui/icons-material/GridOn';
 import AutoModeIcon from '@mui/icons-material/AutoMode';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
@@ -323,21 +322,9 @@ const ChartTypeControl: React.FC<ChartTypeControlProps> = ({
               <GridOnIcon sx={{ fontSize: 16 }} />
             </Tooltip>
           </ToggleButton>
-          <ToggleButton value="table-refactor" aria-label="table" sx={getAutoHighlightSx('table-refactor')}>
-            <Tooltip
-              title={(
-                <>
-                  <ExperimentalBadge /><br/>
-                  Table<br/>
-                  Discrete dimensions on <b>X</b>/<b>Y</b> form a Tableau-style grid.<br/>
-                  Add a field to <b>Labels</b> to show text; otherwise cells show symbols.
-                </>
-              )}
-              placement="top"
-            >
-              <TableChartIcon sx={{ fontSize: 16 }} />
-            </Tooltip>
-          </ToggleButton>
+          {/* The table is auto-only (Tableau-style): there is no manual table
+              button. The all-discrete shape auto-resolves to the table; adding a
+              continuous field switches auto-selection to the right chart. */}
         </ToggleButtonGroup>
         <Menu
           anchorEl={distributionMenuAnchor}

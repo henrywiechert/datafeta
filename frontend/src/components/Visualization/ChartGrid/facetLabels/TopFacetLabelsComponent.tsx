@@ -31,6 +31,8 @@ interface TopFacetLabelsProps {
   baseCols: number;
   facetTopHeaderPx: number;
   facetTopValueHeightsPx: number[];
+  /** Height (px) of each X-axis measure value row (Tableau "Measure Values"). */
+  xMeasureBandHeightsPx?: number[];
   showTitle?: boolean;
 }
 
@@ -143,6 +145,7 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
   baseCols,
   facetTopHeaderPx,
   facetTopValueHeightsPx,
+  xMeasureBandHeightsPx = [],
   showTitle = true,
 }) => {
   const { state, dispatch } = useVisualizationContext();
@@ -222,7 +225,20 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
     }
   }, [activeValuesDepth, handleValuesStyleChange, valuesStyle.wrapModeByDepth]);
 
-  if (colLevels.length === 0) return null;
+  const measureBands = grid.measureBands?.cols ?? [];
+  const bandCount = Math.min(xMeasureBandHeightsPx.length, measureBands.length);
+  const bodyColCount = grid.layout?.columns || 1;
+
+  if (colLevels.length === 0 && bandCount === 0) return null;
+
+  // Track layout: optional title/header row + one row per hierarchy level, then
+  // one value row per X-axis measure band.
+  const dimRowSizes = colLevels.length > 0
+    ? [`${facetTopHeaderPx}px`, ...facetTopValueHeightsPx.map((height) => `${height}px`)]
+    : [];
+  const dimRowCount = dimRowSizes.length;
+  const bandRowSizes = xMeasureBandHeightsPx.slice(0, bandCount).map((height) => `${height}px`);
+  const gridTemplateRows = [...dimRowSizes, ...bandRowSizes].join(' ') || '0px';
 
   return (
     <div style={{ gridColumn: 1, gridRow: 1 }}>
@@ -230,9 +246,43 @@ const TopFacetLabelsComponent: React.FC<TopFacetLabelsProps> = ({
         style={{
           display: 'grid',
           gridTemplateColumns: plotTemplateColumns,
-          gridTemplateRows: `${facetTopHeaderPx}px ${facetTopValueHeightsPx.map((height) => `${height}px`).join(' ')}`,
+          gridTemplateRows,
         }}
       >
+        {Array.from({ length: bandCount }).map((_, bandIdx) => {
+          const band = measureBands[bandIdx];
+          const rowTrack = dimRowCount + bandIdx + 1;
+          return (
+            <React.Fragment key={`xmeasure-band-${bandIdx}`}>
+              {Array.from({ length: bodyColCount }).map((__, colIdx) => {
+                const value = band.values[colIdx] ?? '';
+                return (
+                  <div
+                    key={`xmeasure-band-${bandIdx}-col-${colIdx}`}
+                    title={value ? `${band.label}: ${value}` : band.label}
+                    style={{
+                      gridColumn: colIdx + 1,
+                      gridRow: rowTrack,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: `${xMeasureBandHeightsPx[bandIdx]}px`,
+                      borderBottom: `1px solid ${GRID_DIVIDER_COLOR}`,
+                      borderRight: `1px solid ${GRID_DIVIDER_COLOR}`,
+                      fontVariantNumeric: 'tabular-nums',
+                      fontSize: `${valuesStyle.fontSize}px`,
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {value}
+                  </div>
+                );
+              })}
+            </React.Fragment>
+          );
+        })}
         {showTitle && (
           <TopFacetHeaderTitleComponent
             grid={grid}
@@ -342,9 +392,11 @@ export const TopFacetLabels = React.memo(TopFacetLabelsComponent, (prevProps, ne
     prevProps.plotTemplateColumns === nextProps.plotTemplateColumns &&
     prevProps.baseCols === nextProps.baseCols &&
     prevProps.facetTopValueHeightsPx === nextProps.facetTopValueHeightsPx &&
+    prevProps.xMeasureBandHeightsPx === nextProps.xMeasureBandHeightsPx &&
     prevProps.showTitle === nextProps.showTitle &&
     prevProps.grid.headers === nextProps.grid.headers &&
-    prevProps.grid.layout === nextProps.grid.layout
+    prevProps.grid.layout === nextProps.grid.layout &&
+    prevProps.grid.measureBands === nextProps.grid.measureBands
   );
 });
 

@@ -32,6 +32,8 @@ interface LeftFacetLabelsProps {
   baseRows: number;
   facetLeftHeaderPx: number;
   facetLeftValueWidthsPx: number[];
+  /** Width (px) of each Y-axis measure value column (Tableau "Measure Values"). */
+  yMeasureBandWidthsPx?: number[];
 }
 
 const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
@@ -40,6 +42,7 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
   baseRows,
   facetLeftHeaderPx,
   facetLeftValueWidthsPx,
+  yMeasureBandWidthsPx = [],
 }) => {
   const { state, dispatch } = useVisualizationContext();
   const effectiveFacetLabelStyles = getEffectiveFacetLabelStyles(state.facetLabelStyles, state.globalChartType);
@@ -154,8 +157,22 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
   }, [activeValuesDepth, handleValuesStyleChange, valuesStyle.wrapModeByDepth]);
 
   const rowLevels = grid.headers?.rows?.levels || [];
+  const measureBands = grid.measureBands?.rows ?? [];
+  const bandCount = Math.min(yMeasureBandWidthsPx.length, measureBands.length);
+  const bodyRowCount = grid.layout?.rows || 1;
 
-  if (rowLevels.length === 0) return null;
+  if (rowLevels.length === 0 && bandCount === 0) return null;
+
+  // Track layout: optional dimension header column + one column per hierarchy
+  // level, then one value column per Y-axis measure band.
+  const dimTrackCount = rowLevels.length > 0 ? 1 + rowLevels.length : 0;
+  const dimTrackSizes = rowLevels.length > 0
+    ? [`${facetLeftHeaderPx}px`, ...facetLeftValueWidthsPx.map((width) => `${width}px`)]
+    : [];
+  const bandTrackSizes = yMeasureBandWidthsPx
+    .slice(0, bandCount)
+    .map((width) => `${width}px`);
+  const gridTemplateColumns = [...dimTrackSizes, ...bandTrackSizes].join(' ') || '0px';
 
   const facetAxisTitle = formatFacetAxisTitle(rowLevels);
   const headerFontSize = headerStyle.fontSize;
@@ -170,47 +187,84 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
         gridColumn: 1,
         gridRow: '1 / span ' + (grid.layout?.rows || 1),
         display: 'grid',
-        gridTemplateColumns: `${facetLeftHeaderPx}px ${facetLeftValueWidthsPx.map((width) => `${width}px`).join(' ')}`,
+        gridTemplateColumns,
         gridTemplateRows: plotRowsSpec,
         alignItems: 'stretch',
       }}
     >
-      <div
-        style={{
-          gridColumn: 1,
-          gridRow: '1 / -1',
-          position: 'sticky',
-          top: 0,
-          bottom: 0,
-          margin: 'auto 0',
-          height: 'fit-content',
-          display: 'flex',
-          alignItems: resolveFlexAlignment(headerVerticalAlign),
-          justifyContent: resolveFlexAlignment(headerHorizontalAlign),
-          zIndex: 2,
-          width: '100%',
-          textAlign: resolveTextAlignment(headerHorizontalAlign),
-        }}
-      >
+      {rowLevels.length > 0 && (
         <div
-          onClick={(event) => handleHeaderClick(event, 0, facetAxisTitle)}
-          title={`Click to edit style: ${facetAxisTitle}`}
           style={{
+            gridColumn: 1,
+            gridRow: '1 / -1',
+            position: 'sticky',
+            top: 0,
+            bottom: 0,
+            margin: 'auto 0',
+            height: 'fit-content',
             display: 'flex',
-            width: '100%',
-            fontWeight: 600,
-            background: 'white',
-            padding: '4px 2px',
-            cursor: 'pointer',
-            justifyContent: resolveFlexAlignment(headerHorizontalAlign),
             alignItems: resolveFlexAlignment(headerVerticalAlign),
+            justifyContent: resolveFlexAlignment(headerHorizontalAlign),
+            zIndex: 2,
+            width: '100%',
             textAlign: resolveTextAlignment(headerHorizontalAlign),
-            ...headerOrientationStyles,
           }}
         >
-          {renderWithBreaks(facetAxisTitle)}
+          <div
+            onClick={(event) => handleHeaderClick(event, 0, facetAxisTitle)}
+            title={`Click to edit style: ${facetAxisTitle}`}
+            style={{
+              display: 'flex',
+              width: '100%',
+              fontWeight: 600,
+              background: 'white',
+              padding: '4px 2px',
+              cursor: 'pointer',
+              justifyContent: resolveFlexAlignment(headerHorizontalAlign),
+              alignItems: resolveFlexAlignment(headerVerticalAlign),
+              textAlign: resolveTextAlignment(headerHorizontalAlign),
+              ...headerOrientationStyles,
+            }}
+          >
+            {renderWithBreaks(facetAxisTitle)}
+          </div>
         </div>
-      </div>
+      )}
+
+      {Array.from({ length: bandCount }).map((_, bandIdx) => {
+        const band = measureBands[bandIdx];
+        const colTrack = dimTrackCount + bandIdx + 1;
+        return (
+          <React.Fragment key={`ymeasure-band-${bandIdx}`}>
+            {Array.from({ length: bodyRowCount }).map((__, rowIdx) => {
+              const value = band.values[rowIdx] ?? '';
+              return (
+                <div
+                  key={`ymeasure-band-${bandIdx}-row-${rowIdx}`}
+                  title={value ? `${band.label}: ${value}` : band.label}
+                  style={{
+                    gridColumn: colTrack,
+                    gridRow: rowIdx + 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    padding: '2px 6px',
+                    borderLeft: `1px solid ${GRID_DIVIDER_COLOR}`,
+                    borderBottom: `1px solid ${GRID_DIVIDER_COLOR}`,
+                    fontVariantNumeric: 'tabular-nums',
+                    fontSize: `${valuesStyle.fontSize}px`,
+                    overflow: 'hidden',
+                    whiteSpace: 'nowrap',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {value}
+                </div>
+              );
+            })}
+          </React.Fragment>
+        );
+      })}
 
       {rowLevels.map((level, levelIdx) => {
         const horizontalAlign = resolveDepthValue(
@@ -327,7 +381,9 @@ export const LeftFacetLabels = React.memo(LeftFacetLabelsComponent, (prevProps, 
     prevProps.baseRows === nextProps.baseRows &&
     prevProps.facetLeftHeaderPx === nextProps.facetLeftHeaderPx &&
     prevProps.facetLeftValueWidthsPx === nextProps.facetLeftValueWidthsPx &&
+    prevProps.yMeasureBandWidthsPx === nextProps.yMeasureBandWidthsPx &&
     prevProps.grid.headers === nextProps.grid.headers &&
-    prevProps.grid.layout === nextProps.grid.layout
+    prevProps.grid.layout === nextProps.grid.layout &&
+    prevProps.grid.measureBands === nextProps.grid.measureBands
   );
 });

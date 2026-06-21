@@ -543,6 +543,118 @@ describe('generateTableGrid', () => {
     });
   });
 
+  describe('axis-measure value bands', () => {
+    it('emits a Y-measure value column at the Y-dim grain (case A)', () => {
+      const region = dimField('dim-region', 'region');
+      const sales = measureField('m-sales', 'sales');
+      const grid = generateTableGrid(buildInput({
+        yFields: [region, sales],
+        rows: [
+          { region: 'East', 'SUM(sales)': 1200 },
+          { region: 'West', 'SUM(sales)': 900 },
+        ],
+      }));
+
+      expect(grid.measureBands?.cols).toEqual([]);
+      expect(grid.measureBands?.rows).toEqual([
+        { column: 'SUM(sales)', label: 'sales', values: ['1200', '900'] },
+      ]);
+    });
+
+    it('emits an X-measure value row rolled up to the X-dim grain (decomposable)', () => {
+      const region = dimField('dim-region', 'region');
+      const year = dimField('dim-year', 'year', 'integer');
+      const profit = measureField('m-profit', 'profit');
+      const grid = generateTableGrid(buildInput({
+        yFields: [region],
+        xFields: [year, profit],
+        rows: [
+          { region: 'East', year: 2024, 'SUM(profit)': 10 },
+          { region: 'West', year: 2024, 'SUM(profit)': 20 },
+          { region: 'East', year: 2025, 'SUM(profit)': 30 },
+          { region: 'West', year: 2025, 'SUM(profit)': 40 },
+        ],
+      }));
+
+      expect(grid.measureBands?.rows).toEqual([]);
+      // 2024 → 10+20, 2025 → 30+40 (summed across the Region partition).
+      expect(grid.measureBands?.cols).toEqual([
+        { column: 'SUM(profit)', label: 'profit', values: ['30', '70'] },
+      ]);
+    });
+
+    it('shows a single body-grain value verbatim when there is no opposite-axis dimension', () => {
+      const region = dimField('dim-region', 'region');
+      const avgScore = { ...measureField('m-score', 'score'), aggregation: 'avg' } as Field;
+      const grid = generateTableGrid(buildInput({
+        yFields: [region, avgScore],
+        rows: [
+          { region: 'East', 'AVG(score)': 4.5 },
+          { region: 'West', 'AVG(score)': 2 },
+        ],
+      }));
+
+      // Band grain == body grain → AVG is correct even though it is not decomposable.
+      expect(grid.measureBands?.rows).toEqual([
+        { column: 'AVG(score)', label: 'score', values: ['4.50', '2'] },
+      ]);
+    });
+
+    it('blanks a non-decomposable band that would need a coarser-grain query', () => {
+      const region = dimField('dim-region', 'region');
+      const year = dimField('dim-year', 'year', 'integer');
+      const avgScore = { ...measureField('m-score', 'score'), aggregation: 'avg' } as Field;
+      const grid = generateTableGrid(buildInput({
+        yFields: [region, avgScore],
+        xFields: [year],
+        rows: [
+          { region: 'East', year: 2024, 'AVG(score)': 4 },
+          { region: 'East', year: 2025, 'AVG(score)': 6 },
+          { region: 'West', year: 2024, 'AVG(score)': 2 },
+          { region: 'West', year: 2025, 'AVG(score)': 8 },
+        ],
+      }));
+
+      // AVG cannot be rolled up from the (Region, Year) body grain to the
+      // Region grain → blank until a band-grain query supplies it.
+      expect(grid.measureBands?.rows).toEqual([
+        { column: 'AVG(score)', label: 'score', values: ['', ''] },
+      ]);
+    });
+
+    it('omits measureBands entirely when no axis measures are present', () => {
+      const region = dimField('dim-region', 'region');
+      const year = dimField('dim-year', 'year', 'integer');
+      const grid = generateTableGrid(buildInput({
+        yFields: [region],
+        xFields: [year],
+        rows: [{ region: 'East', year: 2024 }],
+      }));
+
+      expect(grid.measureBands).toBeUndefined();
+    });
+
+    it('aligns Y-band values to the paged row-tuples', () => {
+      const region = dimField('dim-region', 'region');
+      const sales = measureField('m-sales', 'sales');
+      const grid = generateTableGrid(buildInput({
+        yFields: [region, sales],
+        rows: [
+          { region: 'A', 'SUM(sales)': 1 },
+          { region: 'B', 'SUM(sales)': 2 },
+          { region: 'C', 'SUM(sales)': 3 },
+        ],
+        tablePageSize: 2,
+        tablePage: 1,
+      }));
+
+      // Page 1 contains only 'C'.
+      expect(grid.measureBands?.rows).toEqual([
+        { column: 'SUM(sales)', label: 'sales', values: ['3'] },
+      ]);
+    });
+  });
+
   describe('pagination (PR 8)', () => {
     /**
      * Build a deterministic 5-row / 1-col data set so we can assert which

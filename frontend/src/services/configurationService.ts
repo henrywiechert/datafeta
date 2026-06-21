@@ -257,6 +257,13 @@ export function validateConfiguration(config: any): SavedConfiguration {
     if (!sheet.id || !sheet.name || !sheet.visualizationState) {
       throw new Error(`Invalid sheet at index ${index}: missing required fields`);
     }
+    // The table is now auto-only: a persisted manual `globalChartType ===
+    // 'table-refactor'` is migrated to auto, which re-derives the table for
+    // all-discrete shapes (identical render) and otherwise picks the right
+    // chart. This keeps the chart-type toggle consistent (no orphaned value).
+    if (sheet.visualizationState.globalChartType === 'table-refactor') {
+      sheet.visualizationState.globalChartType = null;
+    }
   });
 
   // Validate connection metadata if present

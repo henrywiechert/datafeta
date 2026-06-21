@@ -111,7 +111,21 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
     facetLeftHeaderPx,
     facetLeftValueWidthsPx,
     facetTopValueHeightsPx,
+    yMeasureBandWidthsPx,
+    xMeasureBandHeightsPx,
   } = layoutCalcs;
+
+  // Axis-measure band name labels (Tableau "Measure Values" headers), rendered
+  // in the otherwise-empty top-left corner: Y-measure names above their value
+  // columns, X-measure names to the left of their value rows.
+  const yMeasureBands = grid.measureBands?.rows ?? [];
+  const xMeasureBands = grid.measureBands?.cols ?? [];
+  const dimLeftLabelsBeforeBandsPx = hasRowFacets
+    ? facetLeftHeaderPx + facetLeftValueWidthsPx.reduce((acc, w) => acc + w, 0)
+    : 0;
+  const dimTopHeaderHeightPx = facetTopHeaderPx + facetTopValueHeightsPx.reduce((acc, h) => acc + h, 0);
+  const yBandNameHeightPx = dimTopHeaderHeightPx > 0 ? dimTopHeaderHeightPx : topHeaderHeight;
+  const showMeasureBandNames = yMeasureBandWidthsPx.length > 0 || xMeasureBandHeightsPx.length > 0;
 
   const { scrollOffsets, onWheelCapture, isKeyboardNavActive } = scrollSync;
   const { containerRef, hScrollRef, vScrollRef, plotsTranslateRef, plotGridRef } = refs;
@@ -258,6 +272,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
             baseCols={baseCols}
             facetTopHeaderPx={facetTopHeaderPx}
             facetTopValueHeightsPx={facetTopValueHeightsPx}
+            xMeasureBandHeightsPx={xMeasureBandHeightsPx}
             showTitle={false}
           />
 
@@ -316,6 +331,86 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
         </div>
       )}
 
+      {showMeasureBandNames && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: `${leftFixedWidthPx}px`,
+            height: `${topHeaderHeight}px`,
+            zIndex: 4,
+            pointerEvents: 'none',
+            overflow: 'hidden',
+          }}
+        >
+          {yMeasureBandWidthsPx.map((width, i) => {
+            const left = dimLeftLabelsBeforeBandsPx
+              + yMeasureBandWidthsPx.slice(0, i).reduce((acc, w) => acc + w, 0);
+            const label = yMeasureBands[i]?.label ?? '';
+            return (
+              <div
+                key={`yband-name-${i}`}
+                title={label}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: `${left}px`,
+                  width: `${width}px`,
+                  height: `${yBandNameHeightPx}px`,
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  justifyContent: 'flex-end',
+                  padding: '2px 6px',
+                  boxSizing: 'border-box',
+                  fontWeight: 600,
+                  fontSize: 11,
+                  background: 'white',
+                  borderLeft: `1px solid ${GRID_DIVIDER_COLOR}`,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {label}
+              </div>
+            );
+          })}
+          {xMeasureBandHeightsPx.map((height, j) => {
+            const top = dimTopHeaderHeightPx
+              + xMeasureBandHeightsPx.slice(0, j).reduce((acc, h) => acc + h, 0);
+            const label = xMeasureBands[j]?.label ?? '';
+            return (
+              <div
+                key={`xband-name-${j}`}
+                title={label}
+                style={{
+                  position: 'absolute',
+                  top: `${top}px`,
+                  left: 0,
+                  width: `${leftFixedWidthPx}px`,
+                  height: `${height}px`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'flex-end',
+                  padding: '2px 6px',
+                  boxSizing: 'border-box',
+                  fontWeight: 600,
+                  fontSize: 11,
+                  background: 'white',
+                  borderBottom: `1px solid ${GRID_DIVIDER_COLOR}`,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {label}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* ===============================================================
           LAYER 2: VERTICAL SCROLL (z-index: 2)
           Contains: left Y-axes/labels, transparent sizing divs
@@ -371,6 +466,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
                 baseRows={baseRows}
                 facetLeftHeaderPx={facetLeftHeaderPx}
                 facetLeftValueWidthsPx={facetLeftValueWidthsPx}
+                yMeasureBandWidthsPx={yMeasureBandWidthsPx}
               />
 
               {/* Y-axis vertical labels column */}
