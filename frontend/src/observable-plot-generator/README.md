@@ -41,8 +41,7 @@ interface GridResultModel {
     content:
       | { kind: 'plot'; options: Plot.PlotOptions; facetBackground?: ... }
       | { kind: 'pie';  pieSpec: PiePlotSpec; tooltipConfig?: ...; ... }
-      | { kind: 'text'; rows: TextGridCellRow[]; ... }
-      | { kind: 'mark'; symbols: MarkSymbolSpec[]; ... }
+      | { kind: 'table-cell'; symbols: MarkSymbolSpec[]; rows: TextGridCellRow[]; ... }
       | { kind: 'empty'; ... };
     metadata?: { title?: string; xField?: Field; yField?: Field };
   }>;

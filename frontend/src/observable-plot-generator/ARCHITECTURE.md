@@ -292,8 +292,7 @@ interface GridResultModel {
     content:
       | { kind: 'plot'; options: Plot.PlotOptions; facetBackground?: ... }
       | { kind: 'pie';  pieSpec: PiePlotSpec; tooltipConfig?: ...; ... }
-      | { kind: 'text'; rows: TextGridCellRow[]; ... }
-      | { kind: 'mark'; symbols: MarkSymbolSpec[]; ... }
+      | { kind: 'table-cell'; symbols: MarkSymbolSpec[]; rows: TextGridCellRow[]; ... }
       | { kind: 'empty'; ... };
     metadata?: { title?: string; xField?: Field; yField?: Field };
   }>;
@@ -341,8 +340,7 @@ The extension surface has three pieces:
    export type GridCellContent =
      | { kind: 'plot';  options: Plot.PlotOptions; ... }
      | { kind: 'pie';   pieSpec: PiePlotSpec; ... }
-     | { kind: 'text';  rows: TextGridCellRow[]; ... }
-     | { kind: 'mark';  symbols: MarkSymbolSpec[]; ... }
+     | { kind: 'table-cell'; symbols: MarkSymbolSpec[]; rows: TextGridCellRow[]; ... }
      | { kind: 'empty'; ... }
      // | add a new variant here, e.g. { kind: 'sparkline'; ... }
    ```
@@ -354,8 +352,8 @@ The extension surface has three pieces:
      line, scatter, heatmap, etc. use.
    - Direct emission: bypass `PlotResult` entirely and return
      `GridResultModel` from the chart-type module. `tableGrid.ts` does this for
-     `kind: 'text'` / `kind: 'mark'` cells, and `pieChart.ts` for `kind: 'pie'`
-     when used as the global chart type.
+     `kind: 'table-cell'` cells (symbols and text coexist in one cell), and
+     `pieChart.ts` for `kind: 'pie'` when used as the global chart type.
 
 3. **Renderer dispatch** (`ChartGrid/PlotArea.tsx`): a `switch` on `cell.content.kind`
    selects the right renderer. Adding a new variant means adding a `case`.

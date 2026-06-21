@@ -224,27 +224,43 @@
 
 /* ============================================================
    Generic grid cell kinds (table-refactor)
-   These styles back the text/mark/empty cell renderers that the
-   discrete-grid (table) chart type emits. They are inert until a
-   generator emits a non-plot cell.
+   These styles back the combined table cell (symbols + text) and
+   empty cell renderers that the discrete-grid (table) chart type
+   emits. They are inert until a generator emits a non-plot cell.
    ============================================================ */
 
-.textCell {
+/* Combined table cell: the symbol fills the cell as a background layer and the
+   text is centered on top of it (z-stacked), so a value reads inside its
+   symbol (e.g. a number inside a circle). A cell with only one of the two
+   shows just that layer, recreating the pure-symbol / pure-text look. */
+.tableCell {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 4px;
+    background: white;
+    overflow: hidden;
+}
+
+.tableCellText {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 2px;
-    padding: 4px 6px;
-    background: white;
+    min-width: 0;
+    max-width: 100%;
     overflow: hidden;
     text-align: center;
     font-size: 12px;
-    line-height: 1.25;
+    line-height: 1.15;
     color: #222;
 }
 
-.textCell .textRow {
+.tableCellText .textRow {
     display: block;
     white-space: nowrap;
     overflow: hidden;
@@ -252,22 +268,17 @@
     max-width: 100%;
 }
 
-.markCell {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: white;
-    overflow: hidden;
-}
-
 .symbolMark {
     pointer-events: none;
 }
 
+/* Symbol fills the cell as the background layer beneath the centered text.
+   The mark stays centered/square via the SVG viewBox's
+   `preserveAspectRatio="xMidYMid meet"`, so a wide-but-short cell keeps a
+   correctly-proportioned mark. */
 .symbolPreviewStack {
-    position: relative;
-    display: block;
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     pointer-events: none;

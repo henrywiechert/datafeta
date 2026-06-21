@@ -15,10 +15,10 @@ import {
   GridResultModel,
   hasColumnHeaders,
   hasFacetHeaders,
-  MarkGridCellModel,
+  MarkSymbolSpec,
   PieGridCellModel,
   PlotGridCellModel,
-  TextGridCellModel,
+  TableGridCellModel,
 } from '../../../observable-plot-generator/gridModel';
 import { buildSymbolPreviewLayout, symbolAreaToSideLength } from './utils/discreteGridSymbolLayout';
 
@@ -156,19 +156,11 @@ const PlotArea: React.FC<PlotAreaProps> = ({
                   onCellContextMenu={onCellContextMenu}
                 />
               );
-            case 'text':
+            case 'table-cell':
               return (
-                <TextCell
+                <TableCell
                   key={key}
-                  cell={cell as TextGridCellModel}
-                  onCellContextMenu={onCellContextMenu}
-                />
-              );
-            case 'mark':
-              return (
-                <MarkCell
-                  key={key}
-                  cell={cell as MarkGridCellModel}
+                  cell={cell as TableGridCellModel}
                   onCellContextMenu={onCellContextMenu}
                 />
               );
@@ -304,77 +296,81 @@ const PieCell: React.FC<PieCellProps> = ({ cell, onPlotRenderComplete, onCellCon
   );
 };
 
-interface TextCellProps {
-  cell: TextGridCellModel;
+interface TableCellProps {
+  cell: TableGridCellModel;
   onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
 }
 
-const TextCell: React.FC<TextCellProps> = ({ cell, onCellContextMenu }) => {
+/**
+ * Combined table cell: symbols (Tableau "Marks") and text rows (Tableau
+ * "Label"/"Text") coexist in the same cell. The symbol fills the cell as a
+ * background layer and the text is centered on top of it (z-stacked); when
+ * only one is present the cell behaves like a pure symbol or pure text cell.
+ * Text size follows the Labels font-size slider via `content.fontSize`.
+ */
+const TableCell: React.FC<TableCellProps> = ({ cell, onCellContextMenu }) => {
   const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
     onCellContextMenu?.(cell.id, e.clientX, e.clientY);
   };
 
-  const rows = cell.content.rows;
+  const { symbols, rows, fontSize } = cell.content;
+  const hasSymbols = symbols.length > 0;
+  const hasText = rows.length > 0;
   // Tableau-style: a single text row drops the alias and shows just the value.
   // 2+ rows prefix every row with its alias so the user can tell them apart.
   const showAliases = rows.length > 1;
 
   return (
     <div
-      className={styles.textCell}
+      className={styles.tableCell}
       style={buildBaseCellStyle(cell)}
       onContextMenu={handleContextMenu}
     >
-      {rows.map((row, idx) => (
-        <span
-          key={`${cell.id}-row-${idx}`}
-          className={styles.textRow}
-          title={`${row.label}: ${row.value}`}
-          style={row.source === 'measure' ? { fontVariantNumeric: 'tabular-nums' } : undefined}
+      {hasSymbols && <SymbolStack symbols={symbols} idPrefix={cell.id} />}
+      {hasText && (
+        <div
+          className={styles.tableCellText}
+          style={fontSize !== undefined ? { fontSize: `${fontSize}px` } : undefined}
         >
-          {showAliases ? `${row.label}: ${row.value}` : row.value}
-        </span>
-      ))}
+          {rows.map((row, idx) => (
+            <span
+              key={`${cell.id}-row-${idx}`}
+              className={styles.textRow}
+              title={`${row.label}: ${row.value}`}
+              style={row.source === 'measure' ? { fontVariantNumeric: 'tabular-nums' } : undefined}
+            >
+              {showAliases ? `${row.label}: ${row.value}` : row.value}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
 
-interface MarkCellProps {
-  cell: MarkGridCellModel;
-  onCellContextMenu?: (plotId: string, clientX: number, clientY: number) => void;
+interface SymbolStackProps {
+  symbols: MarkSymbolSpec[];
+  idPrefix: string;
 }
 
-const MarkCell: React.FC<MarkCellProps> = ({ cell, onCellContextMenu }) => {
-  const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    onCellContextMenu?.(cell.id, e.clientX, e.clientY);
-  };
-
-  const symbols = cell.content.symbols;
+const SymbolStack: React.FC<SymbolStackProps> = ({ symbols, idPrefix }) => {
   const placements = buildSymbolPreviewLayout(symbols.length);
-
   return (
-    <div
-      className={styles.markCell}
-      style={buildBaseCellStyle(cell)}
-      onContextMenu={handleContextMenu}
+    <svg
+      className={styles.symbolPreviewStack}
+      viewBox="0 0 100 100"
+      preserveAspectRatio="xMidYMid meet"
+      aria-hidden="true"
     >
-      <svg
-        className={styles.symbolPreviewStack}
-        viewBox="0 0 100 100"
-        preserveAspectRatio="xMidYMid meet"
-        aria-hidden="true"
-      >
-        {placements.map((placement) => {
-          const symbol = symbols[placement.index];
-          const cx = placement.cx * 100;
-          const cy = placement.cy * 100;
-          const side = symbolAreaToSideLength(symbol.size) * placement.scale;
-          return renderSymbolMark(symbol, cx, cy, side, `${cell.id}-symbol-${placement.index}`);
-        })}
-      </svg>
-    </div>
+      {placements.map((placement) => {
+        const symbol = symbols[placement.index];
+        const cx = placement.cx * 100;
+        const cy = placement.cy * 100;
+        const side = symbolAreaToSideLength(symbol.size) * placement.scale;
+        return renderSymbolMark(symbol, cx, cy, side, `${idPrefix}-symbol-${placement.index}`);
+      })}
+    </svg>
   );
 };
 

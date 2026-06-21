@@ -51,13 +51,17 @@ describe('usesOnlyAxislessRenderers', () => {
     expect(usesOnlyAxislessRenderers(grid)).toBe(true);
   });
 
-  it('returns true for grids of text/mark/empty cells', () => {
+  it('returns true for grids of table/empty cells', () => {
     const grid = gridWith([
-      { id: 't', position: { row: 0, col: 0 }, content: { kind: 'text', rows: [] } },
+      {
+        id: 't',
+        position: { row: 0, col: 0 },
+        content: { kind: 'table-cell', symbols: [], rows: [{ source: 'label', label: 'r', value: 'East' }] },
+      },
       {
         id: 'm',
         position: { row: 1, col: 0 },
-        content: { kind: 'mark', symbols: [{ symbol: 'circle', color: 'steelblue', size: 9 }] },
+        content: { kind: 'table-cell', symbols: [{ symbol: 'circle', color: 'steelblue', size: 9 }], rows: [] },
       },
       { id: 'e', position: { row: 2, col: 0 }, content: { kind: 'empty' } },
     ]);
