@@ -256,6 +256,40 @@ export function encodingReducer(state: VisualizationState, action: Visualization
         },
       };
     }
+    case 'SET_MEASURE_BAND_COL_WIDTH': {
+      const current = state.facetLabelStyles.measureBands ?? {};
+      const nextWidths = updateArrayEntry(
+        current.colWidthsPx,
+        action.payload.bandIndex,
+        action.payload.widthPx,
+      );
+      if (nextWidths === null) return state;
+      if (nextWidths === current.colWidthsPx) return state;
+      return {
+        ...state,
+        facetLabelStyles: {
+          ...state.facetLabelStyles,
+          measureBands: { ...current, colWidthsPx: nextWidths },
+        },
+      };
+    }
+    case 'SET_MEASURE_BAND_ROW_HEIGHT': {
+      const current = state.facetLabelStyles.measureBands ?? {};
+      const nextHeights = updateArrayEntry(
+        current.rowHeightsPx,
+        action.payload.bandIndex,
+        action.payload.heightPx,
+      );
+      if (nextHeights === null) return state;
+      if (nextHeights === current.rowHeightsPx) return state;
+      return {
+        ...state,
+        facetLabelStyles: {
+          ...state.facetLabelStyles,
+          measureBands: { ...current, rowHeightsPx: nextHeights },
+        },
+      };
+    }
     
     default:
       return null; // Not handled by this reducer

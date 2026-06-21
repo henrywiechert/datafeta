@@ -193,6 +193,26 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
     });
   }, [dispatch, facetColumnConstraints]);
 
+  const handleMeasureBandColumnResize = useCallback((bandIndex: number, intent: { currentSize: number; delta: number }) => {
+    dispatch({
+      type: 'SET_MEASURE_BAND_COL_WIDTH',
+      payload: {
+        bandIndex,
+        widthPx: resolveFacetTrackSize(intent, facetColumnConstraints),
+      },
+    });
+  }, [dispatch, facetColumnConstraints]);
+
+  const handleMeasureBandRowResize = useCallback((bandIndex: number, intent: { currentSize: number; delta: number }) => {
+    dispatch({
+      type: 'SET_MEASURE_BAND_ROW_HEIGHT',
+      payload: {
+        bandIndex,
+        heightPx: resolveFacetTrackSize(intent, facetRowConstraints),
+      },
+    });
+  }, [dispatch, facetRowConstraints]);
+
   const handleFacetRowResize = useCallback((depthIndex: number, intent: { currentSize: number; delta: number }) => {
     dispatch({
       type: 'SET_FACET_TOP_VALUES_DEPTH_HEIGHT',
@@ -611,6 +631,12 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           previewFacetRowResize={previewFacetRowResize}
           onFacetColumnResize={handleFacetColumnResize}
           onFacetRowResize={handleFacetRowResize}
+          measureBandColWidthsPx={yMeasureBandWidthsPx}
+          measureBandRowHeightsPx={xMeasureBandHeightsPx}
+          previewMeasureBandColumnResize={previewFacetColumnResize}
+          previewMeasureBandRowResize={previewFacetRowResize}
+          onMeasureBandColumnResize={handleMeasureBandColumnResize}
+          onMeasureBandRowResize={handleMeasureBandRowResize}
         />
       </div>
 
