@@ -60,6 +60,13 @@ export interface UseQueryExecutorProps {
   dispatch: (action: any) => void;
   startOperation: (operationType: 'query' | 'rendering' | 'metadata', canCancel?: boolean) => void;
   completeOperation: (operationType: 'query' | 'rendering' | 'metadata') => void;
+  /**
+   * Called whenever a query settles (success or error), after
+   * `queryInProgressRef` is cleared. Lets the caller re-evaluate whether a
+   * newer `queryVersion` arrived while this query was in flight so the pending
+   * advance is not lost.
+   */
+  onQuerySettled?: () => void;
 }
 
 export interface UseQueryExecutorReturn {
@@ -101,6 +108,7 @@ export const useQueryExecutor = ({
   dispatch,
   startOperation,
   completeOperation,
+  onQuerySettled,
 }: UseQueryExecutorProps): UseQueryExecutorReturn => {
   const queryAbortControllerRef = useRef<AbortController | null>(null);
   const queryInProgressRef = useRef<boolean>(false);
@@ -358,6 +366,7 @@ export const useQueryExecutor = ({
         // Mark query as complete
         queryInProgressRef.current = false;
         completeOperation('query');
+        onQuerySettled?.();
       } catch (error: any) {
         if (error.message === 'Request was cancelled') {
           dispatch({ type: 'SET_QUERY_ERROR', payload: null });
@@ -371,6 +380,7 @@ export const useQueryExecutor = ({
         // Mark query as complete even on error
         queryInProgressRef.current = false;
         completeOperation('query');
+        onQuerySettled?.();
       }
     },
     [
@@ -398,6 +408,7 @@ export const useQueryExecutor = ({
       distributionVariant,
       globalChartType,
       lineColorMode,
+      onQuerySettled,
     ]
   );
 
