@@ -13,7 +13,7 @@
  * Query execution is delegated to useQueryExecutor.
  */
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { useVisualizationContext } from '../../../../contexts/VisualizationContext';
 import { useSheetContext } from '../../../../contexts/SheetContext';
 import { QueryDescription, Field, OptimizationHints, VirtualTableDefinition, VirtualColumnDefinition, QueryOptimizationSettings, Channels } from '../../../../types';
@@ -112,6 +112,13 @@ export const useQueryExecution = ({
   // TABLE_JOINS_UNIONS_MODIFIED) will still trigger execution.
   const queryVersion: number = vizState.queryVersion;
   const lastExecutedVersionRef = useRef<number>(queryVersion);
+
+  // Bumped whenever a query settles (success or error). Including it in the
+  // execution effect's deps lets the effect re-evaluate after a query finishes,
+  // so a queryVersion advance that arrived while a query was in flight (e.g.
+  // rapid FORCE_QUERY_REFRESH + TABLE_JOINS_UNIONS_MODIFIED bumps during a
+  // snapshot restore) is picked up instead of being silently dropped.
+  const [querySettledTick, setQuerySettledTick] = useState(0);
   
   // Track if we restored from cache on mount
   const cacheRestoredRef = useRef(false);
@@ -226,6 +233,7 @@ export const useQueryExecution = ({
     dispatch,
     startOperation,
     completeOperation,
+    onQuerySettled: () => setQuerySettledTick((tick) => tick + 1),
   });
 
   // Effect to handle query execution when version changes
@@ -269,7 +277,7 @@ export const useQueryExecution = ({
     }
     // REASON: queryVersion is the canonical trigger; other listed deps are read for branching only. Adding executeQuery / dispatch / vizState would cause execution storms.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryVersion, connectionDetails, queryDescription, xAxisFields, yAxisFields]);
+  }, [queryVersion, connectionDetails, queryDescription, xAxisFields, yAxisFields, querySettledTick]);
 
   // Cleanup on unmount
   useEffect(() => {
