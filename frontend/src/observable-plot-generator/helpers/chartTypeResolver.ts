@@ -1,7 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { DistributionVariant, Field, UserChartType } from '../../types/field';
 import { analyzeFields } from '../analysis/fieldAnalysis';
-import { FieldClassifier } from '../../utils/fieldClassification';
 export { isCdfAllowed } from '../../utils/cdfUtils';
 
 // Cell-level chart types for a pair of fields
@@ -228,12 +227,6 @@ export function detectDefaultUserChartType(
     if (xIsDiscreteDim && yIsDiscreteDim && colorIsMeasure) {
       return 'heatmap';
     }
-  }
-
-  // 2. All-discrete shape (no continuous dimension or measure on any axis) →
-  // the Tableau-style table. Mirrors the legacy `shouldUseTableView` trigger.
-  if (!FieldClassifier.classifyFields(xs, ys).hasContinuousData()) {
-    return 'table-refactor';
   }
 
   // 3. Cartesian shape: continuous candidates on both axes → defer to per-pair.
