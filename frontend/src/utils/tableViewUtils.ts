@@ -4,9 +4,9 @@ import { getResultColumnName } from './fieldUtils';
 
 /**
  * Returns true when the current axis configuration should display the legacy
- * AG Grid table view: both axes have fields, all fields are discrete dimensions
- * (no continuous dimensions or measures), and no explicit chart type has been
- * selected by the user.
+ * AG Grid table view: no continuous field (measure or continuous dimension) is
+ * present on either axis, and no explicit chart type has been selected by the
+ * user. Otherwise the regular chart type detection is used.
  */
 export function shouldUseTableView(
   xFields: Field[],
@@ -14,8 +14,8 @@ export function shouldUseTableView(
   globalChartType?: UserChartType | null,
 ): boolean {
   if (globalChartType != null) return false;
-  if (xFields.length === 0 || yFields.length === 0) return false;
   const allFields = [...xFields, ...yFields];
+  if (allFields.length === 0) return false;
   const hasAnyContinuous = allFields.some(
     (f) => f.type === 'measure' || f.flavour === 'continuous',
   );
