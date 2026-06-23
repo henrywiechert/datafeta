@@ -34,8 +34,12 @@ export function useRenderingTracking({
   isLoadingRendering,
 }: UseRenderingTrackingProps) {
   useLayoutEffect(() => {
-    if (useTableView || showTableRows) {
-      // In table view no chart rendering happens – cancel any pending batch
+    if (showTableRows) {
+      // In the raw-rows view no chart rendering happens – cancel any pending
+      // batch. (Table-presentation chart types such as `table-refactor` DO
+      // produce a grid of synchronous text/symbol cells and are handled by the
+      // "no renderable cells" branch below, so they must NOT early-return here
+      // or the rendering operation would never complete.)
       renderingCoordinator.cancelRenderingBatch();
       return;
     }

@@ -204,7 +204,12 @@ export const useChartGeneration = ({
     void queryVersion; // Ensure chart regeneration tracks query version changes.
     const startTime = Date.now();
     
-    if ((xAxisFields.length === 0 && yAxisFields.length === 0) || useTableView || showTableRows) {
+    // Short-circuit only when there is nothing to render: no fields at all, or
+    // the dedicated raw-rows view is active. All-discrete shapes are NOT
+    // short-circuited here — they auto-resolve to the `'table-refactor'`
+    // presentation below and render through `generateTableGrid`. The legacy
+    // `useTableView` (AG Grid) path is no longer used for rendering.
+    if ((xAxisFields.length === 0 && yAxisFields.length === 0) || showTableRows) {
       setGrid(null);
       setChartInfo(null);
       setRenderingError(null);

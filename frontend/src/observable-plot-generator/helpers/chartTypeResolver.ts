@@ -229,6 +229,16 @@ export function detectDefaultUserChartType(
     }
   }
 
+  // 2. All-discrete shape: no continuous field (dimension or measure) on either
+  //    axis → the Tableau-style text/symbol table. Same data-shape that routes
+  //    to the legacy AG Grid table.
+  const hasAnyContinuous = [...xs, ...ys].some(
+    (f) => f.type === 'measure' || f.flavour === 'continuous'
+  );
+  if (!hasAnyContinuous) {
+    return 'table-refactor';
+  }
+
   // 3. Cartesian shape: continuous candidates on both axes → defer to per-pair.
   const xCandidates = xs.filter(
     (f) => f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
