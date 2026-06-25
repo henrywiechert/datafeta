@@ -98,6 +98,14 @@ export interface PieGridCellContent {
   pieSpec: PiePlotSpec;
   tooltipConfig?: CustomTooltipConfig;
   facetBackground?: FacetBackgroundInfo;
+  /**
+   * Axis label for the pie's measure field, rendered through the shared
+   * `AxisLabel` mechanism so pie charts get the same header treatment as other
+   * chart types. `orientation` mirrors where the measure is placed: a measure
+   * on the X axis labels the bottom (`'x'`); a measure on the Y axis labels the
+   * left (`'y'`).
+   */
+  axisLabel?: { text: string; orientation: 'x' | 'y' };
 }
 
 /**
@@ -240,6 +248,46 @@ export function getPlotGridCellAtCol(grid: GridResultModel | null, col: number):
 export function getPlotGridCellById(grid: GridResultModel | null, id: string | null): PlotGridCellModel | undefined {
   if (!id) return undefined;
   return getPlotGridCells(grid).find((cell) => cell.id === id);
+}
+
+function getPieGridCells(grid: GridResultModel | null): PieGridCellModel[] {
+  return (grid?.cells || []).filter(
+    (cell): cell is PieGridCellModel => cell.content.kind === 'pie',
+  );
+}
+
+/**
+ * Resolve the X-axis label for a grid column, considering both plot cells
+ * (`options.x.label`) and pie cells (`axisLabel` with `'x'` orientation). Used
+ * by the shared X-axis label renderer so pie charts display the measure label.
+ */
+export function getXAxisLabelAtCol(grid: GridResultModel | null, col: number): string {
+  const plot = getPlotGridCellAtCol(grid, col);
+  if (plot) return ((plot.content.options as any)?.x?.label as string) || '';
+  const pie = getPieGridCells(grid).find(
+    (cell) => cell.position.col === col && cell.content.axisLabel?.orientation === 'x',
+  );
+  return pie?.content.axisLabel?.text || '';
+}
+
+/**
+ * Resolve the Y-axis label for a grid row, considering both plot cells
+ * (`options.y.label`) and pie cells (`axisLabel` with `'y'` orientation).
+ */
+export function getYAxisLabelAtRow(grid: GridResultModel | null, row: number): string {
+  const plot = getPlotGridCellAtRow(grid, row);
+  if (plot) return ((plot.content.options as any)?.y?.label as string) || '';
+  const pie = getPieGridCells(grid).find(
+    (cell) => cell.position.row === row && cell.content.axisLabel?.orientation === 'y',
+  );
+  return pie?.content.axisLabel?.text || '';
+}
+
+/** True when any pie cell carries an axis label with the given orientation. */
+export function gridHasPieAxisLabels(grid: GridResultModel | null, orientation: 'x' | 'y'): boolean {
+  return getPieGridCells(grid).some(
+    (cell) => cell.content.axisLabel?.orientation === orientation && Boolean(cell.content.axisLabel.text),
+  );
 }
 
 export function hasColumnHeaders(grid: GridResultModel | null): boolean {

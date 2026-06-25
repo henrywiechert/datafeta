@@ -58,10 +58,14 @@ function buildCellContent(plot: PlotResult['plots'][number]): GridCellContent {
   // into `tooltipConfig` for `PieSvgRenderer`.
   if (plot.renderer === 'pie-svg' && plot.pieSpec) {
     const tooltipConfig = (plot.options as any)?.__customTooltip;
+    const axisLabel = (plot.options as any)?.__pieAxisLabel as
+      | { text: string; orientation: 'x' | 'y' }
+      | undefined;
     return {
       kind: 'pie',
       pieSpec: plot.pieSpec,
       tooltipConfig,
+      ...(axisLabel && axisLabel.text ? { axisLabel } : {}),
       facetBackground: plot.facetBackground,
     };
   }
