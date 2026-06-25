@@ -348,7 +348,6 @@ export const useChartGeneration = ({
   }, [
     xAxisFields,
     yAxisFields,
-    useTableView,
     showTableRows,
     startOperation,
     completeOperation,
