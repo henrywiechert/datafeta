@@ -187,17 +187,18 @@ export function mapUserChartTypeToCellChartType(
  * caller should treat that as "leave as auto / nothing to highlight".
  *
  * Resolution rules, in order:
- * 1. Heatmap shape: exactly 1 discrete dim on X, exactly 1 discrete dim on Y,
- *    no continuous dims, measure on color → `'heatmap'`.
- * 2. All-discrete shape: no continuous field (dimension or measure) on either
- *    axis → `'table-refactor'` (the Tableau-style text/symbol table). This is
- *    the same data-shape that used to route to the legacy AG Grid table.
- * 3. Both axes have at least one continuous candidate (measure or continuous
+ * 1. All-discrete shape: no continuous field (dimension or measure) on either
+ *    X/Y axis → `'table-refactor'` (the Tableau-style text/symbol table). This
+ *    decision is based purely on the X/Y axes; channels such as a continuous
+ *    measure on Color do NOT change it — they are applied to the table symbols
+ *    downstream. This is the same data-shape that used to route to the legacy
+ *    AG Grid table.
+ * 2. Both axes have at least one continuous candidate (measure or continuous
  *    dimension) → fall through to `detectDefaultChartTypeForPair` on the first
  *    candidate of each axis, mapped from `CellChartType` to `UserChartType`.
- * 4. No measures but has a continuous dimension somewhere → `'tick'`.
- * 5. Has measures → `'bar'`.
- * 6. Otherwise → `'scatter'`.
+ * 3. No measures but has a continuous dimension somewhere → `'tick'`.
+ * 4. Has measures → `'bar'`.
+ * 5. Otherwise → `'scatter'`.
  *
  * Note: this is an auto-detection helper. The user's explicit toggle selection
  * (`globalChartType`) always takes precedence — callers should not invoke this
@@ -206,7 +207,7 @@ export function mapUserChartTypeToCellChartType(
 export function detectDefaultUserChartType(
   xFields: Field[] | undefined,
   yFields: Field[] | undefined,
-  colorField?: Field | null
+  _colorField?: Field | null
 ): UserChartType | null {
   const xs = xFields || [];
   const ys = yFields || [];
@@ -215,23 +216,10 @@ export function detectDefaultUserChartType(
     return null;
   }
 
-  // 1. Heatmap: 1 discrete X dim, 1 discrete Y dim, measure on color.
-  if (xs.length === 1 && ys.length === 1) {
-    const xf = xs[0];
-    const yf = ys[0];
-    const xIsDiscreteDim =
-      xf?.type === 'dimension' && xf.flavour === 'discrete';
-    const yIsDiscreteDim =
-      yf?.type === 'dimension' && yf.flavour === 'discrete';
-    const colorIsMeasure = !!colorField && colorField.type === 'measure';
-    if (xIsDiscreteDim && yIsDiscreteDim && colorIsMeasure) {
-      return 'heatmap';
-    }
-  }
-
-  // 2. All-discrete shape: no continuous field (dimension or measure) on either
-  //    axis → the Tableau-style text/symbol table. Same data-shape that routes
-  //    to the legacy AG Grid table.
+  // 1. All-discrete shape: no continuous field (dimension or measure) on either
+  //    X/Y axis → the Tableau-style text/symbol table. Decided purely from the
+  //    X/Y axes; a continuous measure on Color (or any other channel) does not
+  //    flip this to a chart — it colours the table symbols downstream.
   const hasAnyContinuous = [...xs, ...ys].some(
     (f) => f.type === 'measure' || f.flavour === 'continuous'
   );
@@ -239,7 +227,7 @@ export function detectDefaultUserChartType(
     return 'table-refactor';
   }
 
-  // 3. Cartesian shape: continuous candidates on both axes → defer to per-pair.
+  // 2. Cartesian shape: continuous candidates on both axes → defer to per-pair.
   const xCandidates = xs.filter(
     (f) => f.type === 'measure' || (f.type === 'dimension' && f.flavour === 'continuous')
   );
