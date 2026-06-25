@@ -36,10 +36,10 @@ describe('detectDefaultUserChartType (PR 10 — consolidated source of truth)', 
   });
 
   describe('heatmap rule', () => {
-    test('routes to heatmap on 1 discrete X dim, 1 discrete Y dim, measure on color', () => {
+    test('all-discrete axes with a measure on color → table (NOT heatmap)', () => {
       expect(
         detectDefaultUserChartType([dim('region')], [dim('product')], meas('sales'))
-      ).toBe('heatmap');
+      ).toBe('table-refactor');
     });
 
     test('does NOT route to heatmap when there is no color field (all-discrete → table)', () => {
