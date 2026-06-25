@@ -381,6 +381,10 @@ function createPieCellGenerator(context: ChartGenerationContext): CellGenerator 
             getFields: () => [],
           },
           __hideExternalAxes: true,
+          __pieAxisLabel: {
+            text: pieSpec.measureLabel,
+            orientation: measureLayout.orientation === 'vertical' ? 'y' : 'x',
+          },
         } as any,
         renderer: 'pie-svg' as const,
         pieSpec,

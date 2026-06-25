@@ -2,7 +2,8 @@
 import React, { RefObject, useState, useCallback } from 'react';
 import {
   GridResultModel,
-  getPlotGridCellAtRow,
+  getYAxisLabelAtRow,
+  gridHasPieAxisLabels,
   hasFacetHeaders,
   usesOnlyAxislessRenderers,
 } from '../../../observable-plot-generator/gridModel';
@@ -314,7 +315,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
             onAutoExpandPinnedComparisonChange={onAutoExpandPinnedComparisonChange}
           />
 
-          {!hideExternalAxes && (
+          {(!hideExternalAxes || gridHasPieAxisLabels(grid, 'x')) && (
             <XAxes
               grid={grid}
               columns={columns}
@@ -323,6 +324,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
               dynamicXAxisPx={dynamicXAxisPx}
               xAxisLabelStyle={axisLabelStyles.xAxis}
               onXAxisLabelStyleChange={handleXLabelStyleChange}
+              renderScales={!hideExternalAxes}
             />
           )}
         </div>
@@ -491,9 +493,7 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
 
               {/* Y-axis vertical labels column */}
               {Array.from({ length: rows }).map((_, r) => {
-                const sample = getPlotGridCellAtRow(grid, r);
-                const yOpts: any = sample?.content.options?.y || {};
-                const yLabel = yOpts?.label as string | undefined;
+                const yLabel = getYAxisLabelAtRow(grid, r);
                 return (
                   <div
                     key={`y-label-${r}`}
