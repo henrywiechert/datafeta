@@ -16,3 +16,9 @@ if (typeof (global as any).TextDecoder === 'undefined') {
 if (typeof (global as any).TextEncoder === 'undefined') {
   (global as any).TextEncoder = util.TextEncoder;
 }
+
+// Polyfill globalThis.crypto for Jest (node) environment.
+// uuid v14+ requires the Web Crypto API which jsdom does not expose by default.
+if (typeof (global as any).crypto === 'undefined') {
+  (global as any).crypto = require('crypto').webcrypto;
+}
