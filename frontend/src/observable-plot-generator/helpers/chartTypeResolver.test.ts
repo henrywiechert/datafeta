@@ -42,27 +42,27 @@ describe('detectDefaultUserChartType (PR 10 — consolidated source of truth)', 
       ).toBe('heatmap');
     });
 
-    test('does NOT route to heatmap when there is no color field (falls through to scatter)', () => {
+    test('does NOT route to heatmap when there is no color field (falls through to table-refactor)', () => {
       expect(
         detectDefaultUserChartType([dim('region')], [dim('product')], null)
-      ).toBe('scatter');
+      ).toBe('table-refactor');
     });
 
-    test('does NOT route to heatmap when color is a dimension (falls through to scatter)', () => {
+    test('does NOT route to heatmap when color is a dimension (falls through to table-refactor)', () => {
       expect(
         detectDefaultUserChartType([dim('region')], [dim('product')], dim('segment'))
-      ).toBe('scatter');
+      ).toBe('table-refactor');
     });
 
     test('does NOT route to heatmap when X has more than one discrete dim', () => {
-      // No continuous candidates on either axis, no measures → scatter fallback.
+      // All-discrete shape → table-refactor.
       expect(
         detectDefaultUserChartType(
           [dim('region'), dim('subregion')],
           [dim('product')],
           meas('sales'),
         )
-      ).toBe('scatter');
+      ).toBe('table-refactor');
     });
 
     test('does NOT route to heatmap when X is a continuous dimension (falls through to tick)', () => {
@@ -123,10 +123,10 @@ describe('detectDefaultUserChartType (PR 10 — consolidated source of truth)', 
       ).toBe('tick');
     });
 
-    test('discrete dim on X only, no measures → scatter', () => {
+    test('discrete dim on X only, no measures → table-refactor', () => {
       expect(
         detectDefaultUserChartType([dim('region')], [], null)
-      ).toBe('scatter');
+      ).toBe('table-refactor');
     });
   });
 });

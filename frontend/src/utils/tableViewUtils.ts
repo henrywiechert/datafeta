@@ -5,12 +5,9 @@ import { getResultColumnName } from './fieldUtils';
 /**
  * Retired: the legacy AG Grid table is no longer used.
  *
- * The all-discrete data shape that used to route here now auto-selects the
- * Tableau-style `table-refactor` chart (see `detectDefaultUserChartType`), which
- * fully replaces the legacy "I don't know what to do" fallback. This always
- * returns `false`; the parameters are kept so existing call sites compile
- * unchanged. `prepareTableData` (below) is likewise dead and retained only until
- * its remaining importers are cleaned up.
+ * All-discrete data shapes now auto-select the Tableau-style `table-refactor`
+ * chart via `detectDefaultUserChartType`. This always returns `false`; parameters
+ * are kept so existing call sites compile unchanged.
  */
 export function shouldUseTableView(
   _xFields: Field[],

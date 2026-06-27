@@ -191,8 +191,7 @@ export function mapUserChartTypeToCellChartType(
  * 1. Heatmap shape: exactly 1 discrete dim on X, exactly 1 discrete dim on Y,
  *    no continuous dims, measure on color → `'heatmap'`.
  * 2. All-discrete shape: no continuous field (dimension or measure) on either
- *    axis → `'table-refactor'` (the Tableau-style text/symbol table). This is
- *    the same data-shape that used to route to the legacy AG Grid table.
+ *    axis → `'table-refactor'` (the Tableau-style text/symbol table).
  * 3. Both axes have at least one continuous candidate (measure or continuous
  *    dimension) → fall through to `detectDefaultChartTypeForPair` on the first
  *    candidate of each axis, mapped from `CellChartType` to `UserChartType`.
@@ -231,7 +230,7 @@ export function detectDefaultUserChartType(
   }
 
   // 2. All-discrete shape (no continuous dimension or measure on any axis) →
-  // the Tableau-style table. Mirrors the legacy `shouldUseTableView` trigger.
+  // the Tableau-style table.
   if (!FieldClassifier.classifyFields(xs, ys).hasContinuousData()) {
     return 'table-refactor';
   }
@@ -253,7 +252,7 @@ export function detectDefaultUserChartType(
     return null;
   }
 
-  // 3-5. Single-axis / dim-only fallbacks (mirrors prior FieldOverridesPanel logic).
+  // 4-6. Single-axis fallbacks.
   const analysis = analyzeFields(xs, ys);
   const xHasContinuousDim = analysis.xDimensions.some((d) => d.flavour === 'continuous');
   const yHasContinuousDim = analysis.yDimensions.some((d) => d.flavour === 'continuous');

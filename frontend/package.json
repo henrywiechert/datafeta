@@ -81,5 +81,10 @@
       "last 1 safari version"
     ]
   },
-  "proxy": "http://localhost:8010"
+  "proxy": "http://localhost:8010",
+  "jest": {
+    "transformIgnorePatterns": [
+      "/node_modules/(?!(uuid)/)"
+    ]
+  }
 }
