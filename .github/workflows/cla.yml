@@ -24,4 +24,4 @@ jobs:
           path-to-signatures: .github/cla-signatures.json
           path-to-document: CLA.md
           branch: cla-signatures
-          allowlist: dependabot[bot],renovate[bot]
+          allowlist: dependabot[bot],renovate[bot],copilot-swe-agent[bot],Copilot
