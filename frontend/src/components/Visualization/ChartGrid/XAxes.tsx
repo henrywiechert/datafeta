@@ -2,7 +2,7 @@
 import React, { useState, useCallback } from 'react';
 import * as Plot from '@observablehq/plot';
 import ObservablePlot from '../ObservablePlot';
-import { GridResultModel, getPlotGridCellAtCol, hasFacetHeaders } from '../../../observable-plot-generator/gridModel';
+import { GridResultModel, getPlotGridCellAtCol, getXAxisLabelAtCol, hasFacetHeaders } from '../../../observable-plot-generator/gridModel';
 import { GRID_DIVIDER_COLOR, X_LABEL_ROW_PX } from '../../../config/chartLayoutConfig';
 import AxisLabel from './AxisLabel';
 import AxisLabelStylePopover from './AxisLabelStylePopover';
@@ -18,6 +18,12 @@ interface XAxesProps {
   /** Lifted from VisualizationContext so this memoized component isn't invalidated by unrelated reducer changes. */
   xAxisLabelStyle: XAxisLabelStyle;
   onXAxisLabelStyleChange: (updates: Partial<XAxisLabelStyle>) => void;
+  /**
+   * When false, the tick-scale row is skipped and only the bottom label row is
+   * rendered. Used by axis-less charts (e.g. pie) that still want the shared
+   * measure-field label header without numeric/categorical tick axes.
+   */
+  renderScales?: boolean;
 }
 
 function buildXAxisOptions(
@@ -75,6 +81,7 @@ const XAxes: React.FC<XAxesProps> = ({
   dynamicXAxisPx,
   xAxisLabelStyle,
   onXAxisLabelStyleChange,
+  renderScales = true,
 }) => {
   const [xLabelPopoverAnchor, setXLabelPopoverAnchor] = useState<HTMLElement | null>(null);
 
@@ -95,6 +102,7 @@ const XAxes: React.FC<XAxesProps> = ({
   return (
     <>
       {/* Bottom X scales */}
+      {renderScales && (
       <div style={{ gridColumn: 1, gridRow: facetPresent ? 3 : 2 }}>
         <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns, minWidth: `${totalContentWidthPx}px`, width: containerWidthStyle }}>
           {Array.from({ length: columns }).map((_, c) => {
@@ -121,13 +129,13 @@ const XAxes: React.FC<XAxesProps> = ({
           })}
         </div>
       </div>
+      )}
 
       {/* Bottom X labels */}
       <div style={{ gridColumn: 1, gridRow: facetPresent ? 5 : 4 }}>
         <div style={{ display: 'grid', gridTemplateColumns: plotTemplateColumns, minWidth: `${totalContentWidthPx}px`, width: containerWidthStyle }}>
           {Array.from({ length: columns }).map((_, c) => {
-            const sample = getPlotGridCellAtCol(grid, c);
-            const xLabel = (sample?.content.options as any)?.x?.label as string | undefined;
+            const xLabel = getXAxisLabelAtCol(grid, c);
             return (
               <div
                 key={`x-label-${c}`}
@@ -171,6 +179,7 @@ export default React.memo(XAxes, (prevProps, nextProps) => {
     prevProps.plotTemplateColumns === nextProps.plotTemplateColumns &&
     prevProps.totalContentWidthPx === nextProps.totalContentWidthPx &&
     prevProps.dynamicXAxisPx === nextProps.dynamicXAxisPx &&
+    prevProps.renderScales === nextProps.renderScales &&
     prevProps.grid.cells === nextProps.grid.cells &&
     prevProps.grid.headers === nextProps.grid.headers &&
     prevProps.grid.layout === nextProps.grid.layout &&

@@ -153,7 +153,7 @@ Line chart generator with bin-aggregation for performance.
 
 **Features:**
 - Bin-aggregation when data exceeds budget (1,000 points per series)
-- M4-ish reduction algorithm preserving min/max per bucket
+- Average-per-bin reduction for dense numeric/time axes
 - Invisible hover dots for better tooltip detection
 - Supports continuous color with bias transformation
 

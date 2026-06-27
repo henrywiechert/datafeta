@@ -3,6 +3,8 @@ import {
   GridResultModel,
   getPlotGridCellAtCol,
   getPlotGridCellAtRow,
+  getYAxisLabelAtRow,
+  gridHasPieAxisLabels,
   usesOnlyAxislessRenderers,
 } from '../../../../observable-plot-generator/gridModel';
 import { MIN_GRID_ROW_PX } from '../../../../config/chartLayoutConfig';
@@ -281,7 +283,9 @@ export function computeDynamicYLabelColPx(
   rowHeightPx: number,
   labelStyle?: YAxisLabelStyle
 ): number {
-  if (usesOnlyAxislessRenderers(grid)) return 0;
+  // Axis-less charts (e.g. pie) normally need no Y-label column, but a pie with
+  // its measure on the Y axis still wants the shared left-side label header.
+  if (usesOnlyAxislessRenderers(grid) && !gridHasPieAxisLabels(grid, 'y')) return 0;
   const style = labelStyle || DEFAULT_Y_AXIS_LABEL_STYLE;
 
   // If manual width override is set, use it directly
@@ -297,9 +301,7 @@ export function computeDynamicYLabelColPx(
   const CHAR_WIDTH_RATIO = 0.6; // Approximate character width relative to font size
 
   for (let r = 0; r < rows; r++) {
-    const sample = getPlotGridCellAtRow(grid, r);
-    const yOpts: any = sample?.content.options?.y || {};
-    const yLabel = yOpts?.label as string | undefined;
+    const yLabel = getYAxisLabelAtRow(grid, r);
 
     if (yLabel && yLabel.length > 0) {
       let requiredWidth: number;

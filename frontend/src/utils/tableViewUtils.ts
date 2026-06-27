@@ -3,21 +3,23 @@ import { Field, UserChartType } from '../types';
 import { getResultColumnName } from './fieldUtils';
 
 /**
- * Retired: the legacy AG Grid table is no longer used.
- *
- * The all-discrete data shape that used to route here now auto-selects the
- * Tableau-style `table-refactor` chart (see `detectDefaultUserChartType`), which
- * fully replaces the legacy "I don't know what to do" fallback. This always
- * returns `false`; the parameters are kept so existing call sites compile
- * unchanged. `prepareTableData` (below) is likewise dead and retained only until
- * its remaining importers are cleaned up.
+ * Returns true when the current axis configuration should display the legacy
+ * AG Grid table view: no continuous field (measure or continuous dimension) is
+ * present on either axis, and no explicit chart type has been selected by the
+ * user. Otherwise the regular chart type detection is used.
  */
 export function shouldUseTableView(
-  _xFields: Field[],
-  _yFields: Field[],
-  _globalChartType?: UserChartType | null,
+  xFields: Field[],
+  yFields: Field[],
+  globalChartType?: UserChartType | null,
 ): boolean {
-  return false;
+  if (globalChartType != null) return false;
+  const allFields = [...xFields, ...yFields];
+  if (allFields.length === 0) return false;
+  const hasAnyContinuous = allFields.some(
+    (f) => f.type === 'measure' || f.flavour === 'continuous',
+  );
+  return !hasAnyContinuous;
 }
 
 /**

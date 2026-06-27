@@ -29,8 +29,18 @@ describe('shouldUseTableView', () => {
     expect(shouldUseTableView([dim('region')], [dim('segment')])).toBe(true);
   });
 
+  it('returns true when only one axis has discrete fields', () => {
+    expect(shouldUseTableView([dim('region')], [])).toBe(true);
+    expect(shouldUseTableView([], [dim('segment')])).toBe(true);
+  });
+
   it('returns false when continuous data is present and no chart type is picked', () => {
     expect(shouldUseTableView([dim('region')], [measure('sales')])).toBe(false);
+  });
+
+  it('returns false when a single axis holds a continuous field', () => {
+    expect(shouldUseTableView([measure('sales')], [])).toBe(false);
+    expect(shouldUseTableView([], [measure('sales')])).toBe(false);
   });
 
   it.each(['heatmap', 'pie', 'scatter', 'bar', 'tick', 'gantt', 'line', 'cdf', 'table-refactor'] as const)(
