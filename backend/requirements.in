@@ -7,4 +7,4 @@ pypika==0.51.1
 duckdb>=1.5.4
 pyarrow>=24.0.0
 kaggle>=2.2.3
-huggingface_hub>=0.30.0
+huggingface_hub>=1.21.0
