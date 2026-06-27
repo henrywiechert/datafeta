@@ -25,8 +25,8 @@ describe('shouldUseTableView', () => {
     expect(shouldUseTableView([], [])).toBe(false);
   });
 
-  it('returns true (legacy table) for all-discrete shapes when no chart type is picked', () => {
-    expect(shouldUseTableView([dim('region')], [dim('segment')])).toBe(true);
+  it('returns false for all-discrete shapes when no chart type is picked (legacy table retired)', () => {
+    expect(shouldUseTableView([dim('region')], [dim('segment')])).toBe(false);
   });
 
   it('returns false when continuous data is present and no chart type is picked', () => {
@@ -40,9 +40,9 @@ describe('shouldUseTableView', () => {
     },
   );
 
-  it('still returns true on all-discrete shapes when globalChartType is null/undefined', () => {
-    expect(shouldUseTableView([dim('a')], [dim('b')], null)).toBe(true);
-    expect(shouldUseTableView([dim('a')], [dim('b')], undefined)).toBe(true);
+  it('still returns false on all-discrete shapes when globalChartType is null/undefined (legacy table retired)', () => {
+    expect(shouldUseTableView([dim('a')], [dim('b')], null)).toBe(false);
+    expect(shouldUseTableView([dim('a')], [dim('b')], undefined)).toBe(false);
   });
 });
 
