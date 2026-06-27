@@ -619,7 +619,14 @@ export const MultiPlotGrid: React.FC<MultiPlotGridProps> = ({
           containerHeight={containerDimensions.height}
           horizontalScrollOffset={scrollOffsets.horizontal}
           verticalScrollOffset={scrollOffsets.vertical}
-          plotGridRef={plotGridRef}
+          // Measure the visible (translated) plot grid that paints the cell
+          // divider borders — not the hidden vertical-scroll mirror (plotGridRef).
+          // The mirror lives in a container with a different available width, so
+          // its flexible columns can drift from the visible grid and pull the
+          // handles off the real gridlines. Measuring child edges relative to the
+          // grid's own rect cancels the scroll translate, so positions stay
+          // scroll-independent (the overlay re-applies scroll offsets above).
+          plotGridRef={plotsTranslateRef}
           previewColumnResize={allowColumnResize ? cellSizeOverrides.previewColumnResize : undefined}
           previewRowResize={allowRowResize ? cellSizeOverrides.previewRowResize : undefined}
           onColumnResize={allowColumnResize ? cellSizeOverrides.handleColumnResize : undefined}

@@ -30,7 +30,11 @@ interface GridResizeOverlayProps {
   horizontalScrollOffset: number;
   verticalScrollOffset: number;
   
-  // Reference to the actual plot grid for measuring positions
+  // Reference to the grid we measure gridline positions from. This MUST be the
+  // same grid that paints the visible cell-divider borders (the translated plot
+  // grid), so handles land exactly on the lines the user sees rather than on a
+  // hidden mirror grid whose flexible-column widths can drift from the visible
+  // grid (different available width / scrollbar gutter).
   plotGridRef: React.RefObject<HTMLDivElement>;
   
   // Resize callbacks
@@ -70,32 +74,35 @@ function measureGridPositions(gridElement: HTMLDivElement | null, count: number,
   }
 
   const gridRect = gridElement.getBoundingClientRect();
-  
-  // Get unique positions by measuring children
-  const uniquePositions = new Set<number>();
-  
+
+  // Collect every track edge at full precision. Rounding each edge individually
+  // (the previous behavior) injected up to ±0.5px of error per gridline, and
+  // since the errors are independent they never cancel. Worse, two distinct
+  // edges that rounded to the same integer collapsed in the Set, dropping a
+  // gridline and shifting every handle by a whole track.
+  const edges: number[] = [];
   for (let i = 0; i < gridElement.children.length; i++) {
-    const child = gridElement.children[i] as HTMLElement;
-    const childRect = child.getBoundingClientRect();
-    
+    const childRect = (gridElement.children[i] as HTMLElement).getBoundingClientRect();
     if (orientation === 'vertical') {
-      // Measure columns: left and right edges
-      const leftPos = childRect.left - gridRect.left;
-      const rightPos = childRect.right - gridRect.left;
-      uniquePositions.add(Math.round(leftPos));
-      uniquePositions.add(Math.round(rightPos));
+      edges.push(childRect.left - gridRect.left, childRect.right - gridRect.left);
     } else {
-      // Measure rows: top and bottom edges
-      const topPos = childRect.top - gridRect.top;
-      const bottomPos = childRect.bottom - gridRect.top;
-      uniquePositions.add(Math.round(topPos));
-      uniquePositions.add(Math.round(bottomPos));
+      edges.push(childRect.top - gridRect.top, childRect.bottom - gridRect.top);
     }
   }
-  
-  // Sort and return
-  const sorted = Array.from(uniquePositions).sort((a, b) => a - b);
-  return sorted.slice(0, count + 1);
+
+  // Merge only coincident edges (the shared boundary between two adjacent cells)
+  // using a sub-pixel tolerance. Real gridlines are always at least one min-cell
+  // apart, so this collapses true duplicates without ever merging distinct lines.
+  edges.sort((a, b) => a - b);
+  const COINCIDENT_EPSILON_PX = 0.5;
+  const positions: number[] = [];
+  for (const edge of edges) {
+    if (positions.length === 0 || edge - positions[positions.length - 1] > COINCIDENT_EPSILON_PX) {
+      positions.push(edge);
+    }
+  }
+
+  return positions.slice(0, count + 1);
 }
 
 /**
