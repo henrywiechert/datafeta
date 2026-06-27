@@ -32,18 +32,23 @@ const VirtualResizeLine: React.FC<VirtualResizeLineProps> = ({
       <div
         style={{
           position: 'absolute',
+          // Center the 1px line on the gridline, matching GridResizeHandle's
+          // translate(-50%) so the ghost, the handle, and the cell-divider border
+          // all share one anchor (the track boundary) instead of three.
           ...(isHorizontal
             ? {
                 top: `${position}px`,
                 left: 0,
                 width: '100%',
                 height: '1px',
+                transform: 'translateY(-50%)',
               }
             : {
                 left: `${position}px`,
                 top: 0,
                 height: '100%',
                 width: '1px',
+                transform: 'translateX(-50%)',
               }),
           backgroundColor: RESIZE_HANDLE_HOVER_COLOR,
           opacity: 0.8,
