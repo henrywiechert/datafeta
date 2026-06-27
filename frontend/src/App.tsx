@@ -710,7 +710,7 @@ function App() {
   // Note: DataSourceProvider is now at the root level in index.tsx
   // This ensures ConnectionContext can access DataSourceContext
   return (
-    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <Router>
       <SheetProvider>
         <AppContent />
       </SheetProvider>
