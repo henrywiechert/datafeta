@@ -88,3 +88,90 @@ class TestDateTimeService:
         assert "MOD(" in sql and ",1000)" in sql
 
 
+class TestDateTimeStringSourceParsing:
+    """A column physically stored as text but overridden to DateTime must be parsed
+    before datetime functions are applied (otherwise the DB raises an illegal-type
+    error). Real datetime columns must be left unchanged."""
+
+    def test_clickhouse_string_source_is_parsed_before_timeline(self):
+        t = Table("planks")
+        expr = DateTimeService.get_datetime_part_expression(
+            t.datetime, "year", "timeline", "clickhouse", source_type="String"
+        )
+        sql = expr.get_sql(quote_char="`")
+
+        assert "parseDateTime64BestEffort(`datetime`, 3)" in sql
+        assert "toStartOfYear" in sql
+        assert "toTimeZone" in sql
+
+    def test_clickhouse_nullable_string_source_is_parsed(self):
+        t = Table("planks")
+        expr = DateTimeService.get_datetime_part_expression(
+            t.datetime, "month", "distinct", "clickhouse",
+            source_type="Nullable(String)",
+        )
+        sql = expr.get_sql(quote_char="`")
+
+        assert "parseDateTime64BestEffort" in sql
+        assert "toMonth" in sql
+
+    def test_clickhouse_lowcardinality_string_source_is_parsed(self):
+        t = Table("planks")
+        expr = DateTimeService.get_datetime_part_expression(
+            t.datetime, "day", "distinct", "clickhouse",
+            source_type="LowCardinality(String)",
+        )
+        sql = expr.get_sql(quote_char="`")
+
+        assert "parseDateTime64BestEffort" in sql
+
+    def test_clickhouse_real_datetime_source_is_not_parsed(self):
+        t = Table("events")
+        expr = DateTimeService.get_datetime_part_expression(
+            t.ts, "year", "timeline", "clickhouse", source_type="DateTime64(3)"
+        )
+        sql = expr.get_sql(quote_char="`")
+
+        assert "parseDateTime64BestEffort" not in sql
+        assert "toStartOfYear(toTimeZone(`ts`,'UTC'))" == sql
+
+    def test_clickhouse_no_source_type_is_unchanged(self):
+        """Default (no source_type) preserves prior behavior."""
+        t = Table("events")
+        expr = DateTimeService.get_datetime_part_expression(
+            t.ts, "year", "timeline", "clickhouse"
+        )
+        sql = expr.get_sql(quote_char="`")
+
+        assert "parseDateTime64BestEffort" not in sql
+
+    def test_duckdb_string_source_is_cast_to_timestamp(self):
+        t = Table("planks")
+        expr = DateTimeService.get_datetime_part_expression(
+            t.datetime, "year", "timeline", "duckdb", source_type="VARCHAR"
+        )
+        sql = expr.get_sql(quote_char='"')
+
+        assert 'CAST("datetime" AS TIMESTAMP)' in sql
+        assert "date_trunc" in sql
+
+    def test_duckdb_real_timestamp_source_is_not_cast(self):
+        t = Table("events")
+        expr = DateTimeService.get_datetime_part_expression(
+            t.ts, "year", "timeline", "duckdb", source_type="TIMESTAMP"
+        )
+        sql = expr.get_sql(quote_char='"')
+
+        assert "CAST(" not in sql
+
+    def test_resolve_source_type_handles_qualified_names(self):
+        column_types = {"datetime": "String"}
+        assert (
+            DateTimeService.resolve_source_type("planks.datetime", column_types)
+            == "String"
+        )
+        assert DateTimeService.resolve_source_type("datetime", column_types) == "String"
+        assert DateTimeService.resolve_source_type("missing", column_types) is None
+        assert DateTimeService.resolve_source_type("datetime", None) is None
+
+

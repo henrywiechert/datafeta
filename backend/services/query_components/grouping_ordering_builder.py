@@ -40,6 +40,7 @@ class GroupingOrderingBuilder:
         with_optimization: bool,
         optimizer: Optional[Any],
         vc_builder: Optional[Any] = None,
+        column_types: Optional[Dict[str, str]] = None,
     ) -> Query:
         # Force raw rows: do not apply GROUP BY or DISTINCT.
         # Used for local caching slices where duplicates matter for downstream aggregation.
@@ -84,7 +85,8 @@ class GroupingOrderingBuilder:
                 
                 if dim.date_part and dim.date_mode:
                     field_term = DateTimeService.get_datetime_part_expression(
-                        field_term, dim.date_part, dim.date_mode, db_type
+                        field_term, dim.date_part, dim.date_mode, db_type,
+                        source_type=DateTimeService.resolve_source_type(dim.field, column_types),
                     )
                 groupby_fields.append(field_term)
             return query.groupby(*groupby_fields)
@@ -108,7 +110,8 @@ class GroupingOrderingBuilder:
                     
                     if dim.date_part and dim.date_mode:
                         field_term = DateTimeService.get_datetime_part_expression(
-                            field_term, dim.date_part, dim.date_mode, db_type
+                            field_term, dim.date_part, dim.date_mode, db_type,
+                            source_type=DateTimeService.resolve_source_type(dim.field, column_types),
                         )
                     groupby_fields.append(field_term)
                 return query.groupby(*groupby_fields)

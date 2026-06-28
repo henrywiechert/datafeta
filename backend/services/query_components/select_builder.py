@@ -44,6 +44,7 @@ class SelectClauseBuilder:
         binning_config: Dict[str, Any],
         use_category_dedup: bool,
         aggregation_map: Dict[str, Callable[[Any], Any]],
+        column_types: Optional[Dict[str, str]] = None,
     ) -> SelectClauseResult:
         select_fields: list[Any] = []
         all_aliases: Set[str] = set()
@@ -138,7 +139,8 @@ class SelectClauseBuilder:
                 # Apply aliasing logic - virtual columns and casts need aliases for ORDER BY
                 if dim.date_part and dim.date_mode:
                     field_term = DateTimeService.get_datetime_part_expression(
-                        field_term, dim.date_part, dim.date_mode, dialect.name
+                        field_term, dim.date_part, dim.date_mode, dialect.name,
+                        source_type=DateTimeService.resolve_source_type(dim.field, column_types),
                     )
                     alias = f"{dim.field}_{dim.date_part}_{dim.date_mode}"
                     field_term = field_term.as_(alias)

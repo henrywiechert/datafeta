@@ -92,6 +92,44 @@ class QueryService:
             )
             return None
 
+    @staticmethod
+    def _query_needs_source_types(query_desc: QueryDescription) -> bool:
+        """Whether any field requests a datetime part (so physical types are needed)."""
+        for dim in query_desc.dimensions or []:
+            if dim.date_part and dim.date_mode:
+                return True
+        for filt in query_desc.filters or []:
+            if filt.date_part and filt.date_mode:
+                return True
+        for box_field in query_desc.box_plot_fields or []:
+            if box_field.date_part and box_field.date_mode:
+                return True
+        return False
+
+    def _get_column_types(
+        self,
+        connector: Optional[Any],
+        table_name: str,
+        target_database: Optional[str],
+    ) -> Optional[Dict[str, str]]:
+        """Fetch a column name -> physical type map for any engine.
+
+        Used to detect string columns that the user overrode to DateTime, so the
+        datetime builders can parse them before applying datetime functions.
+        Returns None when types cannot be determined (no connector / transient error).
+        """
+        if connector is None:
+            return None
+        try:
+            cols = connector.list_columns(database=target_database, table=table_name)
+            return {col.name: col.data_type for col in cols}
+        except Exception:
+            logger.debug(
+                "Could not fetch column types for datetime source parsing",
+                exc_info=True,
+            )
+            return None
+
     def _get_field_with_cast(self, table: Any, field_name: str, column_casts: Optional[Dict[str, Dict[str, str]]] = None) -> Any:
         """Get a field reference, applying CAST if configured. Delegates to cast_field_applier."""
         return get_field_with_cast(table, field_name, column_casts)
@@ -137,6 +175,7 @@ class QueryService:
         binning_config: Dict[str, Any],
         use_category_dedup: bool,
         vc_builder: Optional[VirtualColumnExpressionBuilder] = None,
+        column_types: Optional[Dict[str, str]] = None,
     ) -> SelectClauseResult:
         """Assemble SELECT fields and related alias/grouping metadata."""
         from backend.dialects import get_dialect
@@ -163,6 +202,7 @@ class QueryService:
             binning_config=binning_config,
             use_category_dedup=use_category_dedup,
             aggregation_map=AGGREGATION_MAP,
+            column_types=column_types,
         )
 
     def _build_filter_criteria(
@@ -173,6 +213,7 @@ class QueryService:
         db_type: str,
         primary_table: Any,
         vc_builder: Optional[VirtualColumnExpressionBuilder] = None,
+        column_types: Optional[Dict[str, str]] = None,
     ) -> List[Criterion]:
         """Translate filters, automatic null guards, and regex sampling into Criterion list."""
         from backend.dialects import get_dialect
@@ -196,6 +237,7 @@ class QueryService:
             default_table=default_table,
             dialect=dialect,
             primary_table=primary_table,
+            column_types=column_types,
         )
 
     def _build_having_criteria(
@@ -259,7 +301,8 @@ class QueryService:
         groupby_field_info_for_dedup: List[Tuple[str, Optional[Any]]],
         with_optimization: bool,
         optimizer: Optional[Any],
-        vc_builder: Optional[VirtualColumnExpressionBuilder] = None
+        vc_builder: Optional[VirtualColumnExpressionBuilder] = None,
+        column_types: Optional[Dict[str, str]] = None,
     ) -> Query:
         builder = GroupingOrderingBuilder(
             logger=logger,
@@ -276,6 +319,7 @@ class QueryService:
             with_optimization=with_optimization,
             optimizer=optimizer,
             vc_builder=vc_builder,
+            column_types=column_types,
         )
 
     def _apply_ordering(
@@ -427,6 +471,11 @@ class QueryService:
             db_type,
             t,
             vc_builder,
+            column_types=(
+                self._get_column_types(connector, table_name, query_desc.target_database)
+                if self._query_needs_source_types(query_desc)
+                else None
+            ),
         )
 
         filter_fragment = ""
@@ -492,6 +541,12 @@ class QueryService:
             for vc in query_desc.virtual_columns:
                 vc_builder.register_virtual_column(vc)
 
+        column_types = (
+            self._get_column_types(connector, table_name, query_desc.target_database)
+            if self._query_needs_source_types(query_desc)
+            else None
+        )
+
         criteria = self._build_filter_criteria(
             query_desc,
             table_context.table_map,
@@ -499,6 +554,7 @@ class QueryService:
             db_type,
             t,
             vc_builder,
+            column_types=column_types,
         )
 
         filter_fragment = ""
@@ -522,7 +578,8 @@ class QueryService:
             alias = dim.field
             if dim.date_part and dim.date_mode:
                 field_term = DateTimeService.get_datetime_part_expression(
-                    field_term, dim.date_part, dim.date_mode, db_type
+                    field_term, dim.date_part, dim.date_mode, db_type,
+                    source_type=DateTimeService.resolve_source_type(dim.field, column_types),
                 )
                 alias = f"{dim.field}_{dim.date_part}_{dim.date_mode}"
             group_fields.append((field_term.get_sql(quote_char=quote_char), alias))
@@ -533,7 +590,8 @@ class QueryService:
             field_term = self._apply_cast_if_configured(box_field.field, field_term, query_desc.column_casts)
             if box_field.date_part and box_field.date_mode:
                 field_term = DateTimeService.get_datetime_part_expression(
-                    field_term, box_field.date_part, box_field.date_mode, db_type
+                    field_term, box_field.date_part, box_field.date_mode, db_type,
+                    source_type=DateTimeService.resolve_source_type(box_field.field, column_types),
                 )
             value_fields.append((field_term.get_sql(quote_char=quote_char), box_field.alias))
 
@@ -742,6 +800,14 @@ class QueryService:
         optimization_plan = optimization_ctx.plan
         use_category_dedup = optimization_ctx.use_category_dedup
 
+        # Physical column types are needed only when a datetime part is requested, so
+        # string columns overridden to DateTime can be parsed before datetime functions.
+        column_types = (
+            self._get_column_types(connector, table_name, query_desc.target_database)
+            if self._query_needs_source_types(query_desc)
+            else None
+        )
+
         select_result = self._build_select_clause(
             query_desc,
             table_map,
@@ -751,6 +817,7 @@ class QueryService:
             binning_config,
             use_category_dedup,
             vc_builder,  # NEW: Pass virtual column builder
+            column_types=column_types,
         )
         select_fields = select_result.fields
         all_aliases = select_result.aliases
@@ -765,6 +832,7 @@ class QueryService:
             db_type,
             t,
             vc_builder,  # NEW: Pass virtual column builder
+            column_types=column_types,
         )
 
         if criteria:
@@ -797,6 +865,7 @@ class QueryService:
             with_optimization,
             optimizer,
             vc_builder,
+            column_types=column_types,
         )
 
         having_criteria = self._build_having_criteria(

@@ -40,6 +40,31 @@ class AdaptiveRoundingPlanner:
         self._logger = logger or logging.getLogger(__name__)
         # Set quote character based on database type
         self._quote_char = '`' if db_type == 'clickhouse' else '"'
+        # Lazy per-table cache of column name -> physical type (keyed by db.table).
+        self._column_types_cache: Dict[str, Optional[Dict[str, str]]] = {}
+
+    def _source_type_for(self, field: str, query_desc: QueryDescription) -> Optional[str]:
+        """Resolve a field's physical type so string columns can be parsed to datetime."""
+        if not self._connector:
+            return None
+        cache_key = f"{query_desc.target_database}.{query_desc.target_table}"
+        if cache_key not in self._column_types_cache:
+            try:
+                cols = self._connector.list_columns(
+                    database=query_desc.target_database, table=query_desc.target_table
+                )
+                self._column_types_cache[cache_key] = {
+                    col.name: col.data_type for col in cols
+                }
+            except Exception:
+                self._logger.debug(
+                    "Could not fetch column types for datetime estimation parsing",
+                    exc_info=True,
+                )
+                self._column_types_cache[cache_key] = None
+        return DateTimeService.resolve_source_type(
+            field, self._column_types_cache[cache_key]
+        )
 
     def _get_virtual_column_names(self, query_desc: QueryDescription) -> Set[str]:
         """
@@ -387,7 +412,8 @@ class AdaptiveRoundingPlanner:
                     field_term, 
                     filter_obj.date_part, 
                     filter_obj.date_mode, 
-                    self._db_type
+                    self._db_type,
+                    source_type=self._source_type_for(filter_obj.field, query_desc),
                 )
             
             if filter_obj.operator == ">=":
@@ -502,7 +528,8 @@ class AdaptiveRoundingPlanner:
                     field_term_f, 
                     filter_obj.date_part, 
                     filter_obj.date_mode, 
-                    self._db_type
+                    self._db_type,
+                    source_type=self._source_type_for(filter_obj.field, query_desc),
                 )
             
             if filter_obj.operator == ">=":
@@ -610,7 +637,8 @@ class AdaptiveRoundingPlanner:
                     field_term_f, 
                     filter_obj.date_part, 
                     filter_obj.date_mode, 
-                    self._db_type
+                    self._db_type,
+                    source_type=self._source_type_for(filter_obj.field, query_desc),
                 )
             
             if filter_obj.operator == ">=":

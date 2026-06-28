@@ -376,12 +376,29 @@ class CardinalityService:
             # Note: At this point, 'field' is already the column name (not table-qualified)
             # because we extracted the source table earlier for joined table cases
             base_field = db_table[field]
-            
+
+            # Detect string columns overridden to DateTime so they get parsed before
+            # datetime functions are applied (otherwise the DB raises an illegal-type error).
+            source_type = None
+            try:
+                cols = self.connector.list_columns(
+                    database=database, table=resolved_table_name
+                )
+                source_type = DateTimeService.resolve_source_type(
+                    field, {col.name: col.data_type for col in cols}
+                )
+            except Exception:
+                logger.debug(
+                    "Could not fetch column types for datetime cardinality parsing",
+                    exc_info=True,
+                )
+
             field_expr = DateTimeService.get_datetime_part_expression(
                 base_field, 
                 datetime_part, 
                 datetime_mode, 
-                self._dialect
+                self._dialect,
+                source_type=source_type,
             )
         else:
             # Use the field directly - it's already the column name

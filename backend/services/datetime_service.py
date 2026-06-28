@@ -8,11 +8,11 @@ This module provides centralized datetime functionality including:
 - Support for ClickHouse, DuckDB, PostgreSQL, and other SQL databases
 """
 
-from typing import TYPE_CHECKING, Any, Dict, Callable, Union
+from typing import TYPE_CHECKING, Any, Dict, Callable, Optional, Union
 from pypika.terms import Function
 
 from backend.exceptions import QueryGenerationError
-from backend.services.query_components.terms import ExtractTerm
+from backend.services.query_components.terms import CastField, CustomFunction, ExtractTerm
 from backend.services import datetime_semantics as semantics
 
 if TYPE_CHECKING:
@@ -28,6 +28,56 @@ class DateTimeService:
     2. Timeline mode: Truncates to preserve timeline (e.g., hour → "2024-01-15 14:00:00")
     """
     
+    # Physical column types (case-insensitive substring match) that hold datetime
+    # values as text and therefore must be parsed before datetime functions are
+    # applied. Covers ClickHouse (String / Nullable(String) / LowCardinality(String))
+    # and DuckDB / standard SQL (VARCHAR / TEXT / CHAR / STRING).
+    _STRING_TYPE_TOKENS = ('STRING', 'VARCHAR', 'TEXT', 'CHAR')
+
+    @staticmethod
+    def resolve_source_type(
+        field_name: str,
+        column_types: Optional[Dict[str, str]],
+    ) -> Optional[str]:
+        """
+        Look up a field's physical column type from a name -> type map.
+
+        Handles table-qualified names (e.g. 'events.ts') by falling back to the
+        bare column name when the qualified name is not present. Returns None when
+        the type is unknown so callers default to unchanged behavior.
+        """
+        if not column_types:
+            return None
+        if field_name in column_types:
+            return column_types[field_name]
+        if '.' in field_name:
+            return column_types.get(field_name.split('.', 1)[1])
+        return None
+
+    @staticmethod
+    def _is_string_source_type(source_type: Optional[str]) -> bool:
+        """Return True when the column's physical type stores datetimes as text."""
+        if not source_type:
+            return False
+        upper = source_type.upper()
+        return any(token in upper for token in DateTimeService._STRING_TYPE_TOKENS)
+
+    @staticmethod
+    def _parse_string_to_datetime(field_term: Any, normalized_db_type: str) -> Any:
+        """
+        Parse a text column into a real datetime so datetime functions can be applied.
+
+        Used when a column is physically a string (e.g. ISO8601 like
+        '2023-08-16T07:44:23.000Z') but the user overrode its type to DateTime in the
+        UI. Without this, ClickHouse/DuckDB raise an illegal-argument error because the
+        downstream functions (toTimeZone / date_trunc / EXTRACT) require a datetime.
+        """
+        if normalized_db_type == 'clickhouse':
+            # Best-effort parser handles ISO8601 incl. trailing 'Z'; precision 3 (ms).
+            return CustomFunction('parseDateTime64BestEffort', [field_term, 3])
+        # DuckDB / standard SQL: CAST(... AS TIMESTAMP) accepts ISO8601 (drops 'Z').
+        return CastField(field_term, 'TIMESTAMP')
+
     @staticmethod
     def _to_utc_clickhouse(field_term: Any) -> Any:
         """
@@ -90,6 +140,7 @@ class DateTimeService:
         date_part: str,
         date_mode: str,
         db_type: Union[str, "SqlDialect"],
+        source_type: Optional[str] = None,
     ) -> Any:
         """
         Generate database-specific SQL expression for datetime operations.
@@ -99,6 +150,11 @@ class DateTimeService:
             date_part: The part to extract (year, month, day, hour, etc.)
             date_mode: Either 'distinct' or 'timeline'
             db_type: The database type (clickhouse, duckdb, etc.)
+            source_type: Optional physical column type. When it is a string type
+                (e.g. ClickHouse 'String', DuckDB 'VARCHAR'), the column is parsed
+                to a datetime first so datetime functions can be applied. This
+                supports UI type overrides where a text column is treated as
+                DateTime. When None (default), behavior is unchanged.
         
         Returns:
             PyPika expression for the datetime operation
@@ -124,6 +180,12 @@ class DateTimeService:
         normalized = db_type.name if hasattr(db_type, "name") else str(db_type).lower()
         if normalized in {'csv', 'file', 'kaggle', 'hive_parquet'}:
             normalized = 'duckdb'
+
+        # Parse text columns to datetime before applying datetime functions. This
+        # makes UI "treat as DateTime" overrides on string columns work instead of
+        # raising an illegal-argument error from the database.
+        if cls._is_string_source_type(source_type):
+            field_term = cls._parse_string_to_datetime(field_term, normalized)
 
         if normalized == 'clickhouse':
             return cls._get_clickhouse_expression(field_term, date_part, date_mode)
