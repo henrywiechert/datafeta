@@ -62,6 +62,7 @@ class FilterBuilder:
         default_table: Any,
         dialect: "SqlDialect | str",
         primary_table: Any,
+        column_types: Optional[Dict[str, str]] = None,
     ) -> List[Criterion]:
         """Return WHERE-clause criteria (scope='row' filters, null guards, regex sampling)."""
         dialect = self._coerce_dialect(dialect)
@@ -85,6 +86,7 @@ class FilterBuilder:
                 default_table=default_table,
                 dialect=dialect,
                 column_casts=query_desc.column_casts,
+                column_types=column_types,
             )
             value = definition.value
 
@@ -114,7 +116,9 @@ class FilterBuilder:
 
         if query_desc.distinct_value_regex and query_desc.dimensions:
             criteria.append(
-                self._build_distinct_regex_filter(query_desc, primary_table, dialect)
+                self._build_distinct_regex_filter(
+                    query_desc, primary_table, dialect, column_types
+                )
             )
 
         return criteria
@@ -198,6 +202,7 @@ class FilterBuilder:
         default_table: Any,
         dialect: "SqlDialect",
         column_casts: Optional[Dict[str, Dict[str, str]]],
+        column_types: Optional[Dict[str, str]] = None,
     ) -> Any:
         if definition.date_part and definition.date_mode:
             field_term = self._parse_field_reference(definition.field)
@@ -206,7 +211,10 @@ class FilterBuilder:
             )
             # DateTimeService still uses db_type string (will be migrated separately)
             return DateTimeService.get_datetime_part_expression(
-                field_term, definition.date_part, definition.date_mode, dialect.name
+                field_term, definition.date_part, definition.date_mode, dialect.name,
+                source_type=DateTimeService.resolve_source_type(
+                    definition.field, column_types
+                ),
             )
 
         field = self._parse_field_reference(definition.field)
@@ -256,6 +264,7 @@ class FilterBuilder:
         query_desc: QueryDescription,
         primary_table: Any,
         dialect: "SqlDialect",
+        column_types: Optional[Dict[str, str]] = None,
     ) -> Criterion:
         """Build a LIKE filter for distinct value queries.
         
@@ -269,7 +278,8 @@ class FilterBuilder:
                 primary_table, dim.field, query_desc.column_casts
             )
             field_expr = DateTimeService.get_datetime_part_expression(
-                field_term, dim.date_part, dim.date_mode, dialect.name
+                field_term, dim.date_part, dim.date_mode, dialect.name,
+                source_type=DateTimeService.resolve_source_type(dim.field, column_types),
             )
         else:
             field_expr = self._get_field_with_cast(
