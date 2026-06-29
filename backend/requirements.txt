@@ -97,7 +97,7 @@ packaging==26.2
     #   huggingface-hub
     #   jupytext
     #   kaggle
-pandas==3.0.3
+pandas==3.0.4
     # via -r requirements.in
 platformdirs==4.9.6
     # via jupyter-core
