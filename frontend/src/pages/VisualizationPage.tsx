@@ -2,7 +2,7 @@
 import React, { useRef, useCallback } from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import { Link } from 'react-router-dom';
-import { Panel, PanelGroup, ImperativePanelHandle } from "react-resizable-panels";
+import { Panel, Group as PanelGroup, PanelImperativeHandle as ImperativePanelHandle } from "react-resizable-panels";
 import { useVisualizationState } from '../hooks/useVisualizationState';
 import { useVisualizationContext, VisualizationProvider } from '../contexts/VisualizationContext';
 import { UndoRedoProvider } from '../contexts/UndoRedoContext';
@@ -424,17 +424,16 @@ const VisualizationPageContent = () => {
         }}>
                 {/* Main Layout with react-resizable-panels */}
                 <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
-                    <PanelGroup direction="horizontal">
+                    <PanelGroup orientation="horizontal">
                     {/* Left Panel - Fields with metadata selector */}
                     <Panel 
-                        ref={leftPanelRef}
+                        panelRef={leftPanelRef}
                         defaultSize={20} 
                         minSize={10}
                         maxSize={35}
                         collapsible
                         collapsedSize={0}
-                        onCollapse={() => setLeftPanelCollapsed(true)}
-                        onExpand={() => setLeftPanelCollapsed(false)}
+                        onResize={(size) => setLeftPanelCollapsed(size.asPercentage === 0)}
                     >
                         {leftPanelCollapsed ? (
                             <CollapsedPanelStrip 
@@ -549,7 +548,7 @@ const VisualizationPageContent = () => {
 
                     {/* Middle Panel - Property sections stacked vertically */}
                     <Panel 
-                        ref={middlePanelRef}
+                        panelRef={middlePanelRef}
                         defaultSize={15} 
                         minSize={10}
                         maxSize={30}
@@ -557,8 +556,7 @@ const VisualizationPageContent = () => {
                         collapsedSize={0}
                         // Allow true collapse-to-zero. When expanded, clamp to 140px so controls don't get forced offscreen.
                         style={{ minWidth: middlePanelCollapsed ? 0 : 140 }}
-                        onCollapse={() => setMiddlePanelCollapsed(true)}
-                        onExpand={() => setMiddlePanelCollapsed(false)}
+                        onResize={(size) => setMiddlePanelCollapsed(size.asPercentage === 0)}
                     >
                         {middlePanelCollapsed ? null : (
                           <Box sx={{ 

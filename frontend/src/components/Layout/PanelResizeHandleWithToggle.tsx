@@ -1,6 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useCallback } from 'react';
-import { PanelResizeHandle } from 'react-resizable-panels';
+import { Separator as PanelResizeHandle } from 'react-resizable-panels';
 import { Box } from '@mui/material';
 
 interface PanelResizeHandleWithToggleProps {
