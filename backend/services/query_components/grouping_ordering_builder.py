@@ -9,8 +9,8 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence
 from pypika import Order, Query
 
 from backend.models.query import OrderBy, QueryDescription
-from backend.services.datetime_service import DateTimeService
 from backend.services.query_components.field_reference_parser import FieldReferenceParser
+from backend.services.query_components.field_term_resolver import FieldTermResolver
 from backend.services.query_components.terms import QuotedField
 
 
@@ -56,6 +56,9 @@ class GroupingOrderingBuilder:
             default_table=default_table,
             vc_builder=vc_builder
         )
+        resolver = FieldTermResolver(
+            field_parser.parse, db_type, query_desc.column_casts, column_types
+        )
 
         if use_category_dedup and groupby_field_info_for_dedup:
             self._logger.info(
@@ -80,14 +83,9 @@ class GroupingOrderingBuilder:
         if query_desc.measures:
             groupby_fields = []
             for dim in query_desc.dimensions:
-                # Use field parser to handle table prefixes properly
-                field_term = field_parser.parse(dim.field)
-                
-                if dim.date_part and dim.date_mode:
-                    field_term = DateTimeService.get_datetime_part_expression(
-                        field_term, dim.date_part, dim.date_mode, db_type,
-                        source_type=DateTimeService.resolve_source_type(dim.field, column_types),
-                    )
+                # Resolve via the shared resolver so cast + datetime extraction match
+                # the SELECT clause (table prefixes handled by the field parser).
+                field_term = resolver.resolve(dim.field, dim.date_part, dim.date_mode)
                 groupby_fields.append(field_term)
             return query.groupby(*groupby_fields)
 
@@ -105,14 +103,9 @@ class GroupingOrderingBuilder:
             if discrete_dims and continuous_dims:
                 groupby_fields = []
                 for dim in query_desc.dimensions:
-                    # Use field parser to handle table prefixes properly
-                    field_term = field_parser.parse(dim.field)
-                    
-                    if dim.date_part and dim.date_mode:
-                        field_term = DateTimeService.get_datetime_part_expression(
-                            field_term, dim.date_part, dim.date_mode, db_type,
-                            source_type=DateTimeService.resolve_source_type(dim.field, column_types),
-                        )
+                    # Resolve via the shared resolver so cast + datetime extraction
+                    # match the SELECT clause.
+                    field_term = resolver.resolve(dim.field, dim.date_part, dim.date_mode)
                     groupby_fields.append(field_term)
                 return query.groupby(*groupby_fields)
             return query.distinct()

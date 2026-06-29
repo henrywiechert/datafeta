@@ -64,6 +64,42 @@ def test_column_casts_wrap_selected_fields(query_service: QueryService) -> None:
     assert "`revenue`" in sql  # Alias restored after casting
 
 
+def test_cast_and_datetime_part_match_in_select_and_group_by(
+    query_service: QueryService,
+) -> None:
+    """A column cast must be applied before datetime extraction in BOTH the SELECT and
+    the GROUP BY, so the GROUP BY expression matches the projected expression.
+
+    Regression: previously the GROUP BY parsed the raw column without applying the
+    configured cast, diverging from the SELECT expression.
+    """
+    description = _make_base_description(
+        dimensions=[
+            Dimension(
+                field="ts",
+                flavour="discrete",
+                date_part="year",
+                date_mode="timeline",
+            )
+        ],
+        measures=[Measure(field="revenue", aggregation="sum", alias="total")],
+        column_casts={"ts": {"cast_type": "DateTime"}},
+    )
+
+    sql, _ = query_service.translate_to_sql(
+        query_desc=description,
+        table_name="sales",
+        db_type="clickhouse",
+        with_optimization=False,
+    )
+
+    expr = "toStartOfYear(toTimeZone(CAST(`ts` AS DateTime),'UTC'))"
+    # Cast is present (applied before datetime extraction) ...
+    assert expr in sql
+    # ... and the GROUP BY uses the identical cast+datetime expression.
+    assert f"GROUP BY {expr}" in sql
+
+
 def test_metadata_structure_present_without_optimizer(query_service: QueryService) -> None:
     """Even without an optimizer, translate_to_sql should emit the extended metadata structure."""
     description = _make_base_description(

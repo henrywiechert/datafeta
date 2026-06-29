@@ -10,7 +10,6 @@ from pypika.terms import Function
 
 from backend.exceptions import QueryGenerationError
 from backend.models.query import Dimension, Filter, Measure, OrderBy, QueryDescription
-from backend.services.datetime_service import DateTimeService
 from backend.services.query_components.contexts import (
     OptimizationContext,
     SelectClauseResult,
@@ -47,6 +46,8 @@ from backend.services.query_components.virtual_column_builder import (
 from backend.services.query_components.field_reference_parser import (
     FieldReferenceParser,
 )
+from backend.services.query_components.field_term_resolver import FieldTermResolver
+from backend.services.query_components.schema_type_provider import SchemaTypeProvider
 from backend.services.query_components.distinct_applier import DistinctApplier
 from backend.services.query_components.cdf_query_builder import build_cdf_sql
 from backend.services.query_components.box_plot_query_builder import build_box_plot_sql
@@ -76,21 +77,12 @@ class QueryService:
     ) -> Optional[Dict[str, str]]:
         """Fetch column types to enable narrow-int BIGINT promotion in DuckDB virtual columns.
 
-        Returns a mapping of column name -> upper-cased DB data type, or None when
-        the types cannot be determined (non-DuckDB backend, no connector, or any
-        transient error during metadata retrieval).
+        Gated to DuckDB-family backends (the promotion only applies there); the actual
+        fetch is delegated to SchemaTypeProvider. Returns None for non-DuckDB backends.
         """
-        if db_type not in {'duckdb', 'csv', 'file', 'kaggle', 'hive_parquet', 'huggingface'} or connector is None:
+        if db_type not in {'duckdb', 'csv', 'file', 'kaggle', 'hive_parquet', 'huggingface'}:
             return None
-        try:
-            cols = connector.list_columns(database=target_database, table=table_name)
-            return {col.name: col.data_type for col in cols}
-        except Exception:
-            logger.debug(
-                "Could not fetch column types for DuckDB virtual column type promotion",
-                exc_info=True,
-            )
-            return None
+        return SchemaTypeProvider(connector).get_types(target_database, table_name)
 
     @staticmethod
     def _query_needs_source_types(query_desc: QueryDescription) -> bool:
@@ -116,19 +108,8 @@ class QueryService:
 
         Used to detect string columns that the user overrode to DateTime, so the
         datetime builders can parse them before applying datetime functions.
-        Returns None when types cannot be determined (no connector / transient error).
         """
-        if connector is None:
-            return None
-        try:
-            cols = connector.list_columns(database=target_database, table=table_name)
-            return {col.name: col.data_type for col in cols}
-        except Exception:
-            logger.debug(
-                "Could not fetch column types for datetime source parsing",
-                exc_info=True,
-            )
-            return None
+        return SchemaTypeProvider(connector).get_types(target_database, table_name)
 
     def _get_field_with_cast(self, table: Any, field_name: str, column_casts: Optional[Dict[str, Dict[str, str]]] = None) -> Any:
         """Get a field reference, applying CAST if configured. Delegates to cast_field_applier."""
@@ -227,7 +208,6 @@ class QueryService:
         
         builder = FilterBuilder(
             parse_field_reference=field_parser.parse,
-            apply_cast_if_configured=self._apply_cast_if_configured,
             get_field_with_cast=self._get_field_with_cast,
         )
 
@@ -255,7 +235,6 @@ class QueryService:
         )
         builder = FilterBuilder(
             parse_field_reference=field_parser.parse,
-            apply_cast_if_configured=self._apply_cast_if_configured,
             get_field_with_cast=self._get_field_with_cast,
         )
         return builder.build_having(
@@ -570,29 +549,23 @@ class QueryService:
             default_table=table_context.default_table,
             vc_builder=vc_builder,
         )
+        resolver = FieldTermResolver(
+            field_parser.parse, db_type, query_desc.column_casts, column_types
+        )
 
         group_fields: list[tuple[str, str]] = []
         for dim in query_desc.dimensions or []:
-            field_term = field_parser.parse(dim.field)
-            field_term = self._apply_cast_if_configured(dim.field, field_term, query_desc.column_casts)
+            field_term = resolver.resolve(dim.field, dim.date_part, dim.date_mode)
             alias = dim.field
             if dim.date_part and dim.date_mode:
-                field_term = DateTimeService.get_datetime_part_expression(
-                    field_term, dim.date_part, dim.date_mode, db_type,
-                    source_type=DateTimeService.resolve_source_type(dim.field, column_types),
-                )
                 alias = f"{dim.field}_{dim.date_part}_{dim.date_mode}"
             group_fields.append((field_term.get_sql(quote_char=quote_char), alias))
 
         value_fields: list[tuple[str, str]] = []
         for box_field in query_desc.box_plot_fields or []:
-            field_term = field_parser.parse(box_field.field)
-            field_term = self._apply_cast_if_configured(box_field.field, field_term, query_desc.column_casts)
-            if box_field.date_part and box_field.date_mode:
-                field_term = DateTimeService.get_datetime_part_expression(
-                    field_term, box_field.date_part, box_field.date_mode, db_type,
-                    source_type=DateTimeService.resolve_source_type(box_field.field, column_types),
-                )
+            field_term = resolver.resolve(
+                box_field.field, box_field.date_part, box_field.date_mode
+            )
             value_fields.append((field_term.get_sql(quote_char=quote_char), box_field.alias))
 
         color_field_sql = None

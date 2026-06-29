@@ -243,8 +243,7 @@ class FileConnector(BaseConnector):
 
             table_names = [f.table_name for f in self._files]
             logger.debug(f"Executing query against views {table_names}: {query}")
-            result_relation = con.execute(query)
-            arrow_table = result_relation.to_arrow_table()
+            arrow_table = con.execute(query).fetch_arrow_table()
 
             columns = []
             if arrow_table.schema:
@@ -288,8 +287,7 @@ class FileConnector(BaseConnector):
 
             table_names = [f.table_name for f in self._files]
             logger.debug(f"Executing Arrow query against views {table_names}: {query}")
-            result_relation = con.execute(query)
-            arrow_table = result_relation.to_arrow_table()
+            arrow_table = con.execute(query).fetch_arrow_table()
 
             logger.debug(f"Arrow fetch returning {arrow_table.num_columns} columns and {arrow_table.num_rows} rows.")
             return arrow_table

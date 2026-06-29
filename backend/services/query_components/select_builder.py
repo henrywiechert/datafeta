@@ -11,8 +11,8 @@ from pypika.terms import Function
 
 from backend.exceptions import QueryGenerationError
 from backend.models.query import QueryDescription
-from backend.services.datetime_service import DateTimeService
 from backend.services.query_components.contexts import SelectClauseResult
+from backend.services.query_components.field_term_resolver import FieldTermResolver
 from backend.services.query_components.terms import CastField, CustomFunction
 
 if TYPE_CHECKING:
@@ -50,6 +50,13 @@ class SelectClauseBuilder:
         all_aliases: Set[str] = set()
         groupby_field_info_for_dedup: list[tuple[str, Optional[Any]]] = []
 
+        resolver = FieldTermResolver(
+            self._parse_field_reference,
+            dialect,
+            query_desc.column_casts,
+            column_types,
+        )
+
         if query_desc.dimensions:
             for dim in query_desc.dimensions:
                 # Handle source tracking columns as literals for single-table queries
@@ -72,8 +79,7 @@ class SelectClauseBuilder:
                     all_aliases.add(dim.field)
                     continue
 
-                field_term = self._parse_field_reference(dim.field)
-                field_term = self._apply_cast_if_configured(dim.field, field_term, query_desc.column_casts)
+                field_term = resolver.resolve_base(dim.field)
 
                 # Check if this is a virtual column that needs aliasing
                 is_virtual_column = self._vc_builder and self._vc_builder.is_virtual_column(dim.field)
@@ -138,9 +144,8 @@ class SelectClauseBuilder:
 
                 # Apply aliasing logic - virtual columns and casts need aliases for ORDER BY
                 if dim.date_part and dim.date_mode:
-                    field_term = DateTimeService.get_datetime_part_expression(
-                        field_term, dim.date_part, dim.date_mode, dialect.name,
-                        source_type=DateTimeService.resolve_source_type(dim.field, column_types),
+                    field_term = resolver.apply_datetime(
+                        field_term, dim.field, dim.date_part, dim.date_mode
                     )
                     alias = f"{dim.field}_{dim.date_part}_{dim.date_mode}"
                     field_term = field_term.as_(alias)

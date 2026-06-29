@@ -14,6 +14,7 @@ from backend.exceptions import QueryExecutionError, InvalidInputError
 from backend.dialects import get_dialect
 from backend.services.validation_service import ValidationService
 from backend.services.datetime_service import DateTimeService
+from backend.services.query_components.schema_type_provider import SchemaTypeProvider
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,7 @@ class CardinalityService:
     def __init__(self, connector: BaseConnector, conn_details: ConnectionDetails):
         self.connector = connector
         self.conn_details = conn_details
+        self._type_provider = SchemaTypeProvider(connector)
         connector_dialect = getattr(connector, "sql_dialect", None) if connector else None
         if connector_dialect and isinstance(getattr(connector_dialect, "quote_char", None), str):
             self._dialect = connector_dialect
@@ -320,14 +322,7 @@ class CardinalityService:
             db_type = self.conn_details.type
             column_types = None
             if db_type in {'duckdb', 'csv', 'file', 'kaggle', 'hive_parquet', 'huggingface'}:
-                try:
-                    cols = self.connector.list_columns(database=None, table=resolved_table_name)
-                    column_types = {col.name: col.data_type for col in cols}
-                except Exception:
-                    logger.debug(
-                        "Could not fetch column types for DuckDB virtual column type promotion",
-                        exc_info=True,
-                    )
+                column_types = self._type_provider.get_types(None, resolved_table_name)
             vc_builder = VirtualColumnExpressionBuilder(
                 table_map=table_map,
                 default_table=db_table,
@@ -379,19 +374,9 @@ class CardinalityService:
 
             # Detect string columns overridden to DateTime so they get parsed before
             # datetime functions are applied (otherwise the DB raises an illegal-type error).
-            source_type = None
-            try:
-                cols = self.connector.list_columns(
-                    database=database, table=resolved_table_name
-                )
-                source_type = DateTimeService.resolve_source_type(
-                    field, {col.name: col.data_type for col in cols}
-                )
-            except Exception:
-                logger.debug(
-                    "Could not fetch column types for datetime cardinality parsing",
-                    exc_info=True,
-                )
+            source_type = self._type_provider.source_type(
+                field, database, resolved_table_name
+            )
 
             field_expr = DateTimeService.get_datetime_part_expression(
                 base_field, 

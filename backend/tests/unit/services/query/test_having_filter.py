@@ -32,7 +32,6 @@ def _make_filter_builder(qs: QueryService, desc: QueryDescription):
 
     return FilterBuilder(
         parse_field_reference=parse_field,
-        apply_cast_if_configured=qs._apply_cast_if_configured,
         get_field_with_cast=qs._get_field_with_cast,
     ), ctx
 
