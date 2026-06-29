@@ -9,6 +9,7 @@ from typing import Dict, FrozenSet, List, Optional, Set, Tuple
 from backend.connectors.base import BaseConnector
 from backend.models.query import QueryDescription
 from backend.services.datetime_service import DateTimeService
+from backend.services.query_components.schema_type_provider import SchemaTypeProvider
 
 from ..config import OptimizerConfig
 from ..estimators.base import ResultSizeEstimator
@@ -40,30 +41,12 @@ class AdaptiveRoundingPlanner:
         self._logger = logger or logging.getLogger(__name__)
         # Set quote character based on database type
         self._quote_char = '`' if db_type == 'clickhouse' else '"'
-        # Lazy per-table cache of column name -> physical type (keyed by db.table).
-        self._column_types_cache: Dict[str, Optional[Dict[str, str]]] = {}
+        self._type_provider = SchemaTypeProvider(connector)
 
     def _source_type_for(self, field: str, query_desc: QueryDescription) -> Optional[str]:
         """Resolve a field's physical type so string columns can be parsed to datetime."""
-        if not self._connector:
-            return None
-        cache_key = f"{query_desc.target_database}.{query_desc.target_table}"
-        if cache_key not in self._column_types_cache:
-            try:
-                cols = self._connector.list_columns(
-                    database=query_desc.target_database, table=query_desc.target_table
-                )
-                self._column_types_cache[cache_key] = {
-                    col.name: col.data_type for col in cols
-                }
-            except Exception:
-                self._logger.debug(
-                    "Could not fetch column types for datetime estimation parsing",
-                    exc_info=True,
-                )
-                self._column_types_cache[cache_key] = None
-        return DateTimeService.resolve_source_type(
-            field, self._column_types_cache[cache_key]
+        return self._type_provider.source_type(
+            field, query_desc.target_database, query_desc.target_table
         )
 
     def _get_virtual_column_names(self, query_desc: QueryDescription) -> Set[str]:

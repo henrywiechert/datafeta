@@ -13,7 +13,7 @@ from pypika.functions import Cast
 from backend.dialects import get_dialect
 from backend.exceptions import QueryGenerationError
 from backend.models.query import QueryDescription
-from backend.services.datetime_service import DateTimeService
+from backend.services.query_components.field_term_resolver import FieldTermResolver
 from backend.services.query_components.terms import CustomFunction
 
 if TYPE_CHECKING:
@@ -46,12 +46,10 @@ class FilterBuilder:
     def __init__(
         self,
         parse_field_reference: Callable[[str], Any],
-        apply_cast_if_configured: Callable[[str, Any, Optional[Dict[str, Dict[str, str]]]], Any],
         get_field_with_cast: Callable[[Any, str, Optional[Dict[str, Dict[str, str]]]], Any],
         operator_map: Optional[Dict[str, Callable[[Any, Any], Criterion]]] = None,
     ) -> None:
         self._parse_field_reference = parse_field_reference
-        self._apply_cast_if_configured = apply_cast_if_configured
         self._get_field_with_cast = get_field_with_cast
         self._operator_map = operator_map or OPERATOR_MAP
 
@@ -66,6 +64,9 @@ class FilterBuilder:
     ) -> List[Criterion]:
         """Return WHERE-clause criteria (scope='row' filters, null guards, regex sampling)."""
         dialect = self._coerce_dialect(dialect)
+        resolver = FieldTermResolver(
+            self._parse_field_reference, dialect, query_desc.column_casts, column_types
+        )
         criteria: List[Criterion] = []
 
         for definition in query_desc.filters:
@@ -80,14 +81,7 @@ class FilterBuilder:
             if not operator_func:
                 raise QueryGenerationError(f"Unsupported filter operator: {definition.operator}")
 
-            field = self._resolve_field_definition(
-                definition,
-                table_map=table_map,
-                default_table=default_table,
-                dialect=dialect,
-                column_casts=query_desc.column_casts,
-                column_types=column_types,
-            )
+            field = self._resolve_field_definition(definition, resolver=resolver)
             value = definition.value
 
             if definition.operator in {"is null", "is not null"}:
@@ -108,17 +102,12 @@ class FilterBuilder:
         if query_desc.dimensions:
             for dim in query_desc.dimensions:
                 if dim.flavour == "continuous":
-                    dim_field = self._parse_field_reference(dim.field)
-                    dim_field = self._apply_cast_if_configured(
-                        dim.field, dim_field, query_desc.column_casts
-                    )
+                    dim_field = resolver.resolve_base(dim.field)
                     criteria.append(dim_field.notnull())
 
         if query_desc.distinct_value_regex and query_desc.dimensions:
             criteria.append(
-                self._build_distinct_regex_filter(
-                    query_desc, primary_table, dialect, column_types
-                )
+                self._build_distinct_regex_filter(query_desc, primary_table, dialect, resolver)
             )
 
         return criteria
@@ -198,28 +187,10 @@ class FilterBuilder:
         self,
         definition: Any,
         *,
-        table_map: Dict[str, Any],
-        default_table: Any,
-        dialect: "SqlDialect",
-        column_casts: Optional[Dict[str, Dict[str, str]]],
-        column_types: Optional[Dict[str, str]] = None,
+        resolver: FieldTermResolver,
     ) -> Any:
-        if definition.date_part and definition.date_mode:
-            field_term = self._parse_field_reference(definition.field)
-            field_term = self._apply_cast_if_configured(
-                definition.field, field_term, column_casts
-            )
-            # DateTimeService still uses db_type string (will be migrated separately)
-            return DateTimeService.get_datetime_part_expression(
-                field_term, definition.date_part, definition.date_mode, dialect.name,
-                source_type=DateTimeService.resolve_source_type(
-                    definition.field, column_types
-                ),
-            )
-
-        field = self._parse_field_reference(definition.field)
-        return self._apply_cast_if_configured(
-            definition.field, field, column_casts
+        return resolver.resolve(
+            definition.field, definition.date_part, definition.date_mode
         )
 
     def _handle_membership_filter(
@@ -264,7 +235,7 @@ class FilterBuilder:
         query_desc: QueryDescription,
         primary_table: Any,
         dialect: "SqlDialect",
-        column_types: Optional[Dict[str, str]] = None,
+        resolver: FieldTermResolver,
     ) -> Criterion:
         """Build a LIKE filter for distinct value queries.
         
@@ -273,18 +244,14 @@ class FilterBuilder:
         """
         dim = query_desc.dimensions[0]
 
-        if dim.date_part and dim.date_mode:
-            field_term = self._get_field_with_cast(
-                primary_table, dim.field, query_desc.column_casts
-            )
-            field_expr = DateTimeService.get_datetime_part_expression(
-                field_term, dim.date_part, dim.date_mode, dialect.name,
-                source_type=DateTimeService.resolve_source_type(dim.field, column_types),
-            )
-        else:
-            field_expr = self._get_field_with_cast(
-                primary_table, dim.field, query_desc.column_casts
-            )
+        # Base term uses the primary table directly (distinct-value queries are
+        # single-table); datetime extraction is layered on via the shared resolver.
+        field_expr = self._get_field_with_cast(
+            primary_table, dim.field, query_desc.column_casts
+        )
+        field_expr = resolver.apply_datetime(
+            field_expr, dim.field, dim.date_part, dim.date_mode
+        )
 
         # Cast to string for LIKE - use dialect-specific conversion
         if dialect.name == "clickhouse":
