@@ -10,6 +10,7 @@ import { detectDefaultUserChartType } from '../../../../observable-plot-generato
 import { logOperationTiming } from '../utils';
 import { planFacets } from '../../../../observable-plot-generator/faceting/facetPlanner';
 import { validateRenderCost, RenderCostValidation } from '../../../../observable-plot-generator/faceting/renderCostValidation';
+import { isTablePresentation } from '../../../../observable-plot-generator/chartTypes/chartTypePresentation';
 import { useFieldAliasLookup } from '../../../../hooks/useFieldDisplayName';
 import { ViewSpec } from '../../../../viewPlanner';
 import { devLog } from '../../../../utils/devLog';
@@ -296,10 +297,14 @@ export const useChartGeneration = ({
       // Track which zoom range we generated with
       lastGeneratedZoomRef.current = ganttZoomRangeRef.current;
 
-      // Validate render cost before producing the grid. Heatmap mode handles
-      // large grids natively, so it keeps its existing specialized sizing path.
+      // Validate render cost before producing the grid. Heatmap and table
+      // presentation handle large grids natively (pagination / cell sizing),
+      // so they skip the facet/cell warning dialog.
       const facetPlan = planFacets(context);
-      if (effectiveGlobalChartType !== 'heatmap') {
+      if (
+        effectiveGlobalChartType !== 'heatmap' &&
+        !isTablePresentation(effectiveGlobalChartType)
+      ) {
         const validation = validateRenderCost(
           context,
           facetPlan ?? { rowFacetFields: [], colFacetFields: [] },
