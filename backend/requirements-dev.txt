@@ -1,0 +1,10 @@
+# Test/development-only dependencies (not required at runtime).
+# Install with: pip install -r requirements-dev.txt
+
+pytest
+pytest-cov
+
+# Required by starlette.testclient / fastapi.testclient used in router tests.
+# Also present transitively via huggingface-hub, but pinned here so the test
+# suite does not depend on that transitive edge.
+httpx>=0.28.1

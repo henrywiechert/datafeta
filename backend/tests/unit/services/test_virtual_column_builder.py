@@ -251,6 +251,30 @@ class TestVirtualColumnExpressionBuilder:
         assert 'FLOOR' in sql
         assert 'SA Avg nr nonGBR RRC conn UEs' in sql
 
+    def test_floor_with_double_quoted_simple_identifier_uses_schema(self):
+        """A double-quoted simple identifier must resolve to a column, not a literal.
+
+        Regression: without column type metadata a quoted identifier like
+        "weight_total_median_kg" was wrapped as a string literal, producing
+        FLOOR('weight_total_median_kg' / 5) which ClickHouse rejects (type error).
+        Providing schema types lets the builder recognize it as a real column.
+        """
+        builder = VirtualColumnExpressionBuilder(
+            self.table_map,
+            self.table,
+            db_type='clickhouse',
+            column_types={'weight_total_median_kg': 'Float64'},
+        )
+        vc = VirtualColumnDefinition(
+            name='weight_total_median_kg_bin',
+            expression='FLOOR("weight_total_median_kg" / 5) * 5',
+        )
+
+        term = builder.register_virtual_column(vc)
+        sql = term.get_sql(quote_char='`')
+        assert '`weight_total_median_kg`' in sql
+        assert "'weight_total_median_kg'" not in sql
+
     def test_split_function_clickhouse_positive_index(self):
         """SPLIT should extract the requested part for ClickHouse dialect."""
         builder = VirtualColumnExpressionBuilder(self.table_map, self.table, db_type='clickhouse')
