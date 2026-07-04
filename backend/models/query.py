@@ -1,6 +1,6 @@
 # Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """Pydantic models related to query descriptions and results."""
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Dict, Any, Optional, Literal, TYPE_CHECKING
 
 # Always import for type annotation
@@ -216,7 +216,59 @@ class QueryResult(BaseModel):
     optimization_override: Optional[OptimizationOverride] = None  # Backend override info
     
     # NEW: Result dimensions for UI display
-    result_dimensions: Optional[ResultDimensions] = None 
-    
-    # Echo back label fields included so frontend can validate presence
-    label_fields: Optional[List[str]] = None
+    result_dimensions: Optional[ResultDimensions] = None
+
+
+# --- Typed request/response models for query endpoints --- #
+
+class FilterConfigEntry(BaseModel):
+    """
+    A single frontend filter-config entry (camelCase wire format).
+
+    This types the format consumed by FilterConversionService.convert_filters.
+    `type` is a plain string (not a Literal) so unknown filter types are
+    tolerated and ignored during conversion, matching previous behavior.
+    """
+    model_config = ConfigDict(extra='allow')
+
+    columnName: Optional[str] = None
+    type: Optional[str] = None  # 'discrete' | 'continuous' | 'range' | 'measure' | 'datetime'
+    selectedValues: Optional[List[Any]] = None
+    excludedValues: Optional[List[Any]] = None
+    totalAvailableCount: Optional[int] = None
+    minValue: Optional[Any] = None
+    maxValue: Optional[Any] = None
+    min: Optional[Any] = None  # legacy aliases for minValue/maxValue
+    max: Optional[Any] = None
+    startDate: Optional[Any] = None
+    endDate: Optional[Any] = None
+    dateTimePart: Optional[str] = None
+    dateTimeMode: Optional[str] = None
+
+
+class RowCountRequest(BaseModel):
+    """Request body for POST /row-count."""
+    table: str
+    database: Optional[str] = None
+    filters: Dict[str, FilterConfigEntry] = Field(default_factory=dict)
+    virtualColumns: Optional[List[VirtualColumnDefinition]] = None
+    virtualTable: Optional[VirtualTableDefinition] = None
+
+
+class DistinctCountRequest(BaseModel):
+    """Request body for POST /distinct-count."""
+    field: str
+    table: str
+    database: Optional[str] = None
+    regexPattern: Optional[str] = None  # SQL LIKE pattern
+    dateTimePart: Optional[str] = None
+    dateTimeMode: Optional[str] = None
+    unionTables: Optional[str] = None  # comma-separated union table names
+    sourceTable: Optional[str] = None  # explicit source table (multi-table JOIN support)
+    virtualColumns: Optional[List[VirtualColumnDefinition]] = None
+    virtualTable: Optional[VirtualTableDefinition] = None
+
+
+class CountResponse(BaseModel):
+    """Response body for count endpoints."""
+    count: int

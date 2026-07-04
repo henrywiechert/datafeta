@@ -1,23 +1,26 @@
 # Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """Service for orchestrating query validation, translation, and execution."""
 
-import json
 import logging
 from typing import Any, Dict, Tuple
 
 import pyarrow as pa
-from fastapi import status
-from pydantic import ValidationError
 
 from backend.connectors.base import BaseConnector
 from backend.exceptions import (
+    AppException,
     DataSourceConnectionError,
-    InvalidInputError,
     QueryExecutionError,
     QueryGenerationError,
 )
 from backend.models.data_source import ConnectionDetails
-from backend.models.query import QueryDescription, QueryResult
+from backend.models.query import (
+    Measure,
+    QueryDescription,
+    QueryResult,
+    RowCountRequest,
+)
+from backend.services.filter_conversion_service import FilterConversionService
 from backend.services.query_result_builder import QueryResultBuilder
 from backend.services.query_service import QueryService
 from backend.services.validation_service import ValidationService
@@ -34,28 +37,70 @@ class QueryExecutionService:
         self.query_service = QueryService()
         self.result_builder = QueryResultBuilder()
     
-    def parse_query_description(self, query_desc_data: Dict[str, Any]) -> QueryDescription:
+    def count_rows(self, request: RowCountRequest) -> int:
         """
-        Parse and validate a query description from raw dict.
+        Count the total rows in a table with optional filters applied.
+        
+        Used for probing dataset size to determine query strategy
+        (raw-column caching for small datasets vs pre-aggregation for large ones).
         
         Args:
-            query_desc_data: Raw query description dict
+            request: Validated row-count request
             
         Returns:
-            Validated QueryDescription object
+            Total row count
             
         Raises:
-            InvalidInputError: If validation fails
+            InvalidInputError: If required parameters are missing
+            QueryExecutionError: If translation or execution fails
         """
+        ValidationService.require_database_for_clickhouse(
+            request.database, self.conn_details, "counting rows"
+        )
+        
+        filters_config = {key: entry.model_dump() for key, entry in request.filters.items()}
+        query_filters = FilterConversionService.convert_filters(
+            filters_config, request.virtualTable
+        )
+        
+        query_desc = QueryDescription(
+            target_table=request.table,
+            target_database=request.database,
+            dimensions=[],
+            measures=[Measure(field='*', aggregation='count', alias='cnt')],
+            filters=query_filters,
+            virtual_table=request.virtualTable,
+            virtual_columns=request.virtualColumns or None,
+        )
+        
         try:
-            return QueryDescription.parse_obj(query_desc_data)
-        except ValidationError as e:
-            error_details = json.dumps(e.errors(), indent=2)
-            logger.error(f"Query validation failed: {error_details}")
-            raise InvalidInputError(
-                f"Invalid query description:\n{error_details}",
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY
+            sql_query, _meta = self.query_service.translate_to_sql(
+                query_desc=query_desc,
+                table_name=request.table,
+                db_type=self.conn_details.type,
+                with_sampling=False,
+                with_optimization=False,
+                optimizer=None,
+                connector=self.connector,
             )
+            logger.info(f"Row count query (translated): {sql_query}")
+            _columns, rows = self.connector.fetch_data(sql_query)
+        except AppException:
+            raise
+        except Exception:
+            logger.exception(f"Error counting rows in {request.database}.{request.table}")
+            raise QueryExecutionError(f"Failed to count rows for table '{request.table}'.")
+        
+        count = 0
+        if rows:
+            raw = rows[0].get('cnt', rows[0].get('count', 0))
+            try:
+                count = int(raw)
+            except (TypeError, ValueError):
+                count = 0
+        
+        logger.info(f"Row count for {request.database}.{request.table}: {count:,}")
+        return count
     
     def validate_query(self, query_desc: QueryDescription) -> None:
         """
