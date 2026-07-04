@@ -68,20 +68,21 @@ AGGREGATION_MAP = {
 
 class QueryService:
 
-    def _get_column_types_for_duckdb(
+    def _get_vc_column_types(
         self,
         db_type: str,
         connector: Optional[Any],
         table_name: str,
         target_database: Optional[str],
     ) -> Optional[Dict[str, str]]:
-        """Fetch column types to enable narrow-int BIGINT promotion in DuckDB virtual columns.
+        """Fetch column types for the virtual column builder.
 
-        Gated to DuckDB-family backends (the promotion only applies there); the actual
-        fetch is delegated to SchemaTypeProvider. Returns None for non-DuckDB backends.
+        The type map serves two purposes: (1) narrow-int BIGINT promotion for
+        DuckDB-family backends (applied only there, guarded downstream) and (2)
+        disambiguating double/backtick-quoted identifiers from string literals for
+        all engines (a quoted token matching a real column is treated as a field,
+        not a literal). The fetch is delegated to SchemaTypeProvider.
         """
-        if db_type not in {'duckdb', 'csv', 'file', 'kaggle', 'hive_parquet', 'huggingface'}:
-            return None
         return SchemaTypeProvider(connector).get_types(target_database, table_name)
 
     @staticmethod
@@ -429,7 +430,7 @@ class QueryService:
         # Build WHERE clause via the standard filter pipeline
         vc_builder = None
         if query_desc.virtual_columns:
-            column_types = self._get_column_types_for_duckdb(
+            column_types = self._get_vc_column_types(
                 db_type, connector, table_name, query_desc.target_database
             )
             vc_builder = VirtualColumnExpressionBuilder(
@@ -506,7 +507,7 @@ class QueryService:
 
         vc_builder = None
         if query_desc.virtual_columns:
-            column_types = self._get_column_types_for_duckdb(
+            column_types = self._get_vc_column_types(
                 db_type, connector, table_name, query_desc.target_database
             )
             vc_builder = VirtualColumnExpressionBuilder(
@@ -746,7 +747,7 @@ class QueryService:
         # NEW: Initialize virtual column builder if virtual columns are defined
         vc_builder = None
         if query_desc.virtual_columns:
-            column_types = self._get_column_types_for_duckdb(
+            column_types = self._get_vc_column_types(
                 db_type, connector, table_name, query_desc.target_database
             )
             vc_builder = VirtualColumnExpressionBuilder(
