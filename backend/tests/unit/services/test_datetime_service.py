@@ -19,6 +19,29 @@ class TestDateTimeService:
         assert "toTimeZone" in sql
         assert "UTC" in sql
 
+    def test_clickhouse_timeline_year_month_return_datetime64(self):
+        """Regression: toStartOfYear/toStartOfMonth return the ClickHouse Date type,
+        which Arrow serializes as UInt16 days-since-epoch. The frontend misreads
+        those small integers as epoch seconds, collapsing timeline axes to 1970.
+        Both parts must therefore be wrapped to DateTime64 UTC."""
+        t = Table("events")
+        for part, func in (("year", "toStartOfYear"), ("month", "toStartOfMonth")):
+            expr = DateTimeService.get_datetime_part_expression(
+                t.ts, part, "timeline", "clickhouse"
+            )
+            sql = expr.get_sql(quote_char="`")
+            assert sql == f"toDateTime64({func}(toTimeZone(`ts`,'UTC')),0,'UTC')"
+
+    def test_clickhouse_timeline_datetime_parts_not_double_wrapped(self):
+        """Parts that already return DateTime/DateTime64 must not get the wrapper."""
+        t = Table("events")
+        for part in ("day", "hour", "minute", "millisecond"):
+            expr = DateTimeService.get_datetime_part_expression(
+                t.ts, part, "timeline", "clickhouse"
+            )
+            sql = expr.get_sql(quote_char="`")
+            assert "toDateTime64(" not in sql, f"unexpected wrap for part '{part}': {sql}"
+
     def test_duckdb_distinct_weekday_is_iso_1_7(self):
         """SQL weekday distinct should be normalized to ISO weekday (Mon=1..Sun=7)."""
         t = Table("events")
@@ -133,7 +156,7 @@ class TestDateTimeStringSourceParsing:
         sql = expr.get_sql(quote_char="`")
 
         assert "parseDateTime64BestEffort" not in sql
-        assert "toStartOfYear(toTimeZone(`ts`,'UTC'))" == sql
+        assert "toDateTime64(toStartOfYear(toTimeZone(`ts`,'UTC')),0,'UTC')" == sql
 
     def test_clickhouse_no_source_type_is_unchanged(self):
         """Default (no source_type) preserves prior behavior."""

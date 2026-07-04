@@ -95,7 +95,13 @@ class SelectClauseBuilder:
                     and not has_explicit_datetime_part  # Skip if user selected a specific part
                 ):
                     unit = binning_config[dim.field]
-                    binned_expr = Function("date_trunc", unit, field_term)
+                    # Route binning through the shared datetime service so the
+                    # expression matches explicit timeline parts: UTC-normalized
+                    # and, on ClickHouse, never Date-typed (a raw
+                    # date_trunc('year'|'month', ...) returns Date, which Arrow
+                    # serializes as UInt16 days and the frontend misreads as
+                    # epoch seconds near 1970).
+                    binned_expr = resolver.apply_datetime(field_term, dim.field, unit, "timeline")
                     if use_category_dedup:
                         groupby_field_info_for_dedup.append((dim.field, f"binned_{unit}"))
                     field_term = binned_expr.as_(dim.field)
