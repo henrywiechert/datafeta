@@ -93,7 +93,7 @@ def test_cast_and_datetime_part_match_in_select_and_group_by(
         with_optimization=False,
     )
 
-    expr = "toStartOfYear(toTimeZone(CAST(`ts` AS DateTime),'UTC'))"
+    expr = "toDateTime64(toStartOfYear(toTimeZone(CAST(`ts` AS DateTime),'UTC')),0,'UTC')"
     # Cast is present (applied before datetime extraction) ...
     assert expr in sql
     # ... and the GROUP BY uses the identical cast+datetime expression.
@@ -395,6 +395,34 @@ def test_binning_config_applies_date_trunc(query_service: QueryService) -> None:
     assert "'day'" in field_sql
     # Alias should be present in the rendered SQL rather than checking private attrs
     assert '"event_time"' in field_sql
+
+
+def test_binning_config_clickhouse_month_is_not_date_typed(query_service: QueryService) -> None:
+    """Regression: ClickHouse binning with coarse units must not produce a Date-typed
+    expression (date_trunc('month', ...) returns Date, which Arrow serializes as
+    UInt16 days and the frontend misreads as epoch seconds near 1970)."""
+    description = _make_base_description(
+        dimensions=[
+            Dimension(field="event_time", flavour="continuous", date_mode="timeline")
+        ]
+    )
+
+    context = query_service._build_table_context(description, "clickhouse", "events")
+    select_result = query_service._build_select_clause(
+        description,
+        context.table_map,
+        context.default_table,
+        "clickhouse",
+        rounding_config={},
+        binning_config={"event_time": "month"},
+        use_category_dedup=False,
+    )
+
+    field_sql = select_result.fields[0].get_sql(quote_char="`")
+    # Shared DateTimeService expression: UTC-normalized truncation wrapped to DateTime64
+    assert "toStartOfMonth(" in field_sql
+    assert "toDateTime64(" in field_sql
+    assert "`event_time`" in field_sql
 
 
 def test_parse_field_reference_retains_nested_name(query_service: QueryService) -> None:

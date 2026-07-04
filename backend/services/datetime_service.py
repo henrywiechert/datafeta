@@ -86,6 +86,19 @@ class DateTimeService:
         return Function('toTimeZone', field_term, 'UTC')
 
     @staticmethod
+    def _to_datetime64_utc_clickhouse(expr: Any) -> Any:
+        """
+        Wrap a Date-typed truncation result as DateTime64(0, 'UTC').
+
+        ClickHouse toStartOfYear/toStartOfMonth return the Date type. The Arrow
+        output format serializes Date as raw UInt16 days-since-epoch, which the
+        frontend cannot distinguish from an epoch-seconds number — year/month
+        timeline axes then collapse to dates near 1970-01-01. Converting to
+        DateTime64 makes the wire type a real Arrow timestamp.
+        """
+        return Function('toDateTime64', expr, 0, 'UTC')
+
+    @staticmethod
     def _to_utc_sql(field_term: Any, db_type: str) -> Any:
         """
         Best-effort UTC normalization for SQL engines.
@@ -114,9 +127,16 @@ class DateTimeService:
     }
     
     # TIMELINE MODE: Truncate to preserve timeline (e.g., "2024-01-15 14:00:00")
+    # Note: year/month truncations return the ClickHouse Date type and must be
+    # wrapped to DateTime64 (see _to_datetime64_utc_clickhouse). The other parts
+    # already return DateTime/DateTime64.
     CLICKHOUSE_TIMELINE_MAP: Dict[str, Callable[[Any], Any]] = {
-        'year': lambda f: Function('toStartOfYear', DateTimeService._to_utc_clickhouse(f)),
-        'month': lambda f: Function('toStartOfMonth', DateTimeService._to_utc_clickhouse(f)),
+        'year': lambda f: DateTimeService._to_datetime64_utc_clickhouse(
+            Function('toStartOfYear', DateTimeService._to_utc_clickhouse(f))
+        ),
+        'month': lambda f: DateTimeService._to_datetime64_utc_clickhouse(
+            Function('toStartOfMonth', DateTimeService._to_utc_clickhouse(f))
+        ),
         'day': lambda f: Function('toStartOfDay', DateTimeService._to_utc_clickhouse(f)),
         'weekday': lambda f: Function('toStartOfDay', DateTimeService._to_utc_clickhouse(f)),  # Group by day for weekday timeline
         'hour': lambda f: Function('toStartOfHour', DateTimeService._to_utc_clickhouse(f)),
