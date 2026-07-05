@@ -1,8 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import { useMemo } from 'react';
-import { shouldUseTableView, prepareTableData } from '../../../../utils/tableViewUtils';
 import { validateAndCleanData, logPerformanceWarning } from '../utils';
-import { TableData } from '../types';
 import { UserChartType } from '../../../../types';
 
 interface UseDataProcessingProps {
@@ -13,32 +11,13 @@ interface UseDataProcessingProps {
 }
 
 interface UseDataProcessingReturn {
-  useTableView: boolean;
-  tableData: TableData;
   processedQueryResult: any;
   cleanData: (result: any) => any;
 }
 
 export const useDataProcessing = ({
-  xAxisFields,
-  yAxisFields,
   queryResult,
-  globalChartType,
 }: UseDataProcessingProps): UseDataProcessingReturn => {
-  // Determine if we should show table view instead of chart
-  const useTableView = useMemo(
-    () => shouldUseTableView(xAxisFields, yAxisFields, globalChartType),
-    [xAxisFields, yAxisFields, globalChartType]
-  );
-
-  // Prepare table data if using table view
-  const tableData = useMemo(() => {
-    if (useTableView && queryResult) {
-      return prepareTableData(queryResult, xAxisFields, yAxisFields);
-    }
-    return { columns: [], rows: [] };
-  }, [useTableView, queryResult, xAxisFields, yAxisFields]);
-
   // Process query result with data validation and cleaning
   const processedQueryResult = useMemo(() => {
     if (!queryResult) {
@@ -59,8 +38,6 @@ export const useDataProcessing = ({
   const cleanData = validateAndCleanData;
 
   return {
-    useTableView,
-    tableData,
     processedQueryResult,
     cleanData,
   };

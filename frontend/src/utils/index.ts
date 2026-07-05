@@ -61,9 +61,6 @@ export {
   roundToMillisecond,
 } from '../datetime';
 
-// Table and view utilities
-export * from './tableViewUtils';
-
 // Session utilities
 export * from './tabSession';
 export * from './sheetConfigHash';
