@@ -29,27 +29,12 @@ export interface OperationTiming {
   additionalInfo?: Record<string, any>;
 }
 
-export interface TableData {
-  columns: any[];
-  rows: any[];
-}
-
 export interface ChartAreaProps {
   // Future props will be added here as needed
 }
 
 // Note: Hook-specific interfaces (UseQueryExecutionProps, UseQueryBuilderProps, etc.)
 // are now defined in their respective hook files for better colocation and type safety.
-
-// Component-specific interfaces
-export interface ChartRendererProps {
-  useTableView: boolean;
-  tableData: TableData;
-  spec: any | null;
-  queryResult: any;
-  xAxisFields: any[];
-  yAxisFields: any[];
-}
 
 export interface ChartControlsProps {
   isDebugOpen: boolean;

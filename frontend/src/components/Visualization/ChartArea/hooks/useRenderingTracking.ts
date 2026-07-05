@@ -14,7 +14,6 @@ import { devLog } from '../../../../utils/devLog';
 
 interface UseRenderingTrackingProps {
   grid: GridResultModel | null;
-  useTableView: boolean;
   showTableRows?: boolean;
   renderingCoordinator: {
     cancelRenderingBatch: () => void;
@@ -27,7 +26,6 @@ interface UseRenderingTrackingProps {
 
 export function useRenderingTracking({
   grid,
-  useTableView,
   showTableRows = false,
   renderingCoordinator,
   completeOperation,
@@ -70,7 +68,7 @@ export function useRenderingTracking({
       }
       completeOperation('rendering');
     }
-  }, [grid, useTableView, showTableRows, renderingCoordinator, completeOperation, isLoadingRendering]);
+  }, [grid, showTableRows, renderingCoordinator, completeOperation, isLoadingRendering]);
 
   const handlePlotRenderComplete = useCallback(
     (plotId: string) => {

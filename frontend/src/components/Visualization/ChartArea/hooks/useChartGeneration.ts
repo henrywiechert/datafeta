@@ -22,7 +22,6 @@ interface UseChartGenerationProps {
   xAxisFields: any[];
   yAxisFields: any[];
   channels: Channels;
-  useTableView: boolean;
   showTableRows?: boolean;
   queryResult: any; // Add queryResult here
   queryVersion?: number; // Add queryVersion to detect union/join changes
@@ -66,7 +65,6 @@ export const useChartGeneration = ({
   xAxisFields,
   yAxisFields,
   channels,
-  useTableView,
   showTableRows = false,
   queryResult, // Destructure here
   queryVersion, // Destructure queryVersion

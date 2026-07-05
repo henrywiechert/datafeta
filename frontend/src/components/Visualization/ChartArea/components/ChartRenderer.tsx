@@ -12,15 +12,12 @@ import TableViewRowsLazy from '../../Table/TableViewRowsLazy';
 import TableRowsPagination from '../../Table/TableRowsPagination';
 import BarSortControl from './BarSortControl';
 import { GridResultModel } from '../../../../observable-plot-generator/gridModel';
-import { TableData } from '../types';
+import type { TableCellFilterAction } from '../../Table/TableViewRows';
 import { TableRowsSortModel } from '../../../../types';
 import { QueryResultColumn } from '../../../../types';
 import { UserChartType } from '../../../../types';
-import type { TableCellFilterAction } from '../../Table/TableViewRows';
 
 interface ChartRendererProps {
-  useTableView: boolean;
-  tableData: TableData;
   grid: GridResultModel | null;
   cellSizeOverrides: CellSizeOverrides;
   onAutoCategoryTickMeasure?: (sizes: { xHeightPx: number; yWidthPx: number }) => void;
@@ -69,7 +66,6 @@ interface ChartRendererProps {
 }
 
 const ChartRenderer: React.FC<ChartRendererProps> = ({
-  useTableView,
   grid,
   cellSizeOverrides,
   onAutoCategoryTickMeasure,
@@ -165,7 +161,7 @@ const ChartRenderer: React.FC<ChartRendererProps> = ({
       }}
     >
       {content}
-      {!useTableView && !showTableRows && (
+      {!showTableRows && (
         <BarSortControl 
           xFields={xAxisFields} 
           yFields={yAxisFields}

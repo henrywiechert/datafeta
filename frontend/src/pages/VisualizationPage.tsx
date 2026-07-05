@@ -428,9 +428,9 @@ const VisualizationPageContent = () => {
                     {/* Left Panel - Fields with metadata selector */}
                     <Panel 
                         panelRef={leftPanelRef}
-                        defaultSize={20} 
-                        minSize={10}
-                        maxSize={35}
+                        defaultSize="20%"
+                        minSize="10%"
+                        maxSize="35%"
                         collapsible
                         collapsedSize={0}
                         onResize={(size) => setLeftPanelCollapsed(size.asPercentage === 0)}
@@ -549,9 +549,9 @@ const VisualizationPageContent = () => {
                     {/* Middle Panel - Property sections stacked vertically */}
                     <Panel 
                         panelRef={middlePanelRef}
-                        defaultSize={15} 
-                        minSize={10}
-                        maxSize={30}
+                        defaultSize="15%"
+                        minSize="10%"
+                        maxSize="30%"
                         collapsible
                         collapsedSize={0}
                         // Allow true collapse-to-zero. When expanded, clamp to 140px so controls don't get forced offscreen.
@@ -591,7 +591,7 @@ const VisualizationPageContent = () => {
                     <PanelResizeHandleWithToggle onDoubleClick={toggleMiddlePanel} />
 
                     {/* Main Content - Chart */}
-                    <Panel defaultSize={65} minSize={40}>
+                    <Panel defaultSize="65%" minSize="40%">
                         <ChartPanel
                             xAxisFields={xAxisFields}
                             yAxisFields={yAxisFields}

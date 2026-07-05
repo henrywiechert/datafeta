@@ -275,7 +275,7 @@ describe('ChartArea', () => {
     mockUseRenderingCoordinator.mockReturnValue({} as any);
     mockUseTablePageSize.mockReturnValue({ pageSize: 25, setPageSize: jest.fn() });
     mockUseAdditionalFields.mockReturnValue({ additionalColorFields: [], additionalSizeFields: [], additionalLabelFields: [] });
-    mockUseDataProcessing.mockReturnValue({ useTableView: false, tableData: { columns: [], rows: [] } } as any);
+    mockUseDataProcessing.mockReturnValue({} as any);
     mockUseTableRowsQuery.mockReturnValue({ rows: [], columns: [], totalRows: 0, page: 0, pageSize: 25, setPage: jest.fn(), setPageSize: jest.fn(), sortModel: null, setSortModel: jest.fn(), loading: false, error: null } as any);
     mockUseQueryExecution.mockReturnValue({ queryDescription: {}, optimizationHints: {}, viewSpec: {}, lastQueryDecision: null } as any);
     mockUseChartGeneration.mockReturnValue({
@@ -329,7 +329,7 @@ describe('ChartArea', () => {
       completeOperation: jest.fn(),
       getUndoableSnapshot: jest.fn(() => ({ snapshot: true })),
     } as any);
-    mockUseDataProcessing.mockReturnValue({ useTableView: true, tableData: { columns: [], rows: [] } } as any);
+    mockUseDataProcessing.mockReturnValue({} as any);
     mockUseChartGeneration.mockReturnValue({
       grid: null,
       chartInfo: {},

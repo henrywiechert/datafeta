@@ -162,7 +162,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
   const { additionalColorFields, additionalSizeFields, additionalLabelFields } =
     useAdditionalFields(fieldOverrides);
 
-  const { useTableView, tableData } = useDataProcessing({ xAxisFields, yAxisFields, queryResult, globalChartType });
+  useDataProcessing({ xAxisFields, yAxisFields, queryResult, globalChartType });
 
   // Table rows view: raw paginated data query (columns from the dedicated zone)
   const tableRowsData = useTableRowsQuery({
@@ -208,7 +208,6 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
       xAxisFields,
       yAxisFields,
       channels,
-      useTableView,
       showTableRows,
       queryResult,
       queryVersion,
@@ -331,7 +330,6 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
 
   const { handlePlotRenderComplete } = useRenderingTracking({
     grid,
-    useTableView,
     showTableRows,
     renderingCoordinator,
     completeOperation,
@@ -361,10 +359,10 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
   useSeriesHighlight(fullscreenWrapperRef, highlightedCategoryValues, colorColumnName, clearSeriesHighlight);
 
   useEffect(() => {
-    if (globalChartType !== 'heatmap' || useTableView || showTableRows) {
+    if (globalChartType !== 'heatmap' || showTableRows) {
       setHeatmapSizeToolbarState(null);
     }
-  }, [globalChartType, useTableView, showTableRows]);
+  }, [globalChartType, showTableRows]);
 
   // -- Table-refactor pager wiring --------------------------------------------
   // Reset the per-sheet page index to 0 whenever the underlying row-tuple set
@@ -526,8 +524,6 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
       >
         <div className={styles.chartWrapper}>
           <ChartRenderer
-            useTableView={useTableView}
-            tableData={tableData}
             grid={gridWithTooltipAction}
             cellSizeOverrides={cellSizeOverrides}
             onAutoCategoryTickMeasure={handleAutoCategoryTickMeasure}
@@ -608,7 +604,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
             }}
           />
 
-          {globalChartType === 'heatmap' && !useTableView && !showTableRows && (
+          {globalChartType === 'heatmap' && !showTableRows && (
             <HeatmapSizeBar toolbarState={heatmapSizeToolbarState} />
           )}
 
