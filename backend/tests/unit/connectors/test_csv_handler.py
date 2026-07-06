@@ -20,6 +20,7 @@ DEFAULT_CONFIG = {
     "date_format": "%Y-%m-%d",
     "timestamp_format": "%Y-%m-%d %H:%M:%S",
     "sample_size": 1000,
+    "trim_numeric_whitespace": False,
 }
 
 
@@ -29,6 +30,7 @@ class TestBuildCsvHandlerConfig:
         assert config["delimiter"] == ","
         assert config["date_format"] == "%Y-%m-%d"
         assert config["sample_size"] == 1000
+        assert config["trim_numeric_whitespace"] is False
 
     def test_connection_details_keys(self):
         config = build_csv_handler_config(
@@ -37,12 +39,14 @@ class TestBuildCsvHandlerConfig:
                 "csv_has_header": False,
                 "csv_date_format": "%d.%m.%Y",
                 "csv_sample_full_dataset": True,
+                "csv_trim_numeric_whitespace": True,
             }
         )
         assert config["delimiter"] == ";"
         assert config["header"] is False
         assert config["date_format"] == "%d.%m.%Y"
         assert config["sample_size"] == -1
+        assert config["trim_numeric_whitespace"] is True
 
 
 class TestCsvFileHandlerProperties:

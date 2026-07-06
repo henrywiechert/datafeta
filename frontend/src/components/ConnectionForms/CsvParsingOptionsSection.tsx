@@ -155,6 +155,23 @@ export function CsvParsingOptionsSection({
               </div>
             </div>
           </div>
+
+          <div className={styles.formRow}>
+            <div className={styles.formField}>
+              <label className={styles.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={state.trimNumericWhitespace}
+                  onChange={(e) => onUpdate({ trimNumericWhitespace: e.target.checked })}
+                  disabled={disabled}
+                />
+                Fix trailing whitespace in numeric columns
+              </label>
+              <div className={styles.helpText}>
+                Opt-in repair for values like "123.5 ". May scan VARCHAR columns and can take longer on large CSV files.
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

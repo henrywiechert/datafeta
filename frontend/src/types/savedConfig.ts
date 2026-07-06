@@ -27,6 +27,7 @@ export interface SavedConnectionMetadata {
   csv_timestamp_format?: string;
   csv_sample_size?: number;
   csv_sample_full_dataset?: boolean;
+  csv_trim_numeric_whitespace?: boolean;
   // ClickHouse-specific fields (NO password)
   host?: string;
   port?: number;

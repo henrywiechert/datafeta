@@ -77,6 +77,7 @@ export function sanitizeConnectionDetails(
     if (details.csv_timestamp_format) sanitized.csv_timestamp_format = details.csv_timestamp_format;
     if (details.csv_sample_size) sanitized.csv_sample_size = details.csv_sample_size;
     if (details.csv_sample_full_dataset !== undefined) sanitized.csv_sample_full_dataset = details.csv_sample_full_dataset;
+    if (details.csv_trim_numeric_whitespace !== undefined) sanitized.csv_trim_numeric_whitespace = details.csv_trim_numeric_whitespace;
   } else if (details.type === 'clickhouse') {
     // ClickHouse configuration (NO password)
     if (details.host) sanitized.host = details.host;
@@ -97,6 +98,9 @@ export function sanitizeConnectionDetails(
     if (details.csv_sample_size) sanitized.csv_sample_size = details.csv_sample_size;
     if (details.csv_sample_full_dataset !== undefined) {
       sanitized.csv_sample_full_dataset = details.csv_sample_full_dataset;
+    }
+    if (details.csv_trim_numeric_whitespace !== undefined) {
+      sanitized.csv_trim_numeric_whitespace = details.csv_trim_numeric_whitespace;
     }
     // Explicitly DO NOT include kaggle_username or kaggle_api_key
   } else if (details.type === 'huggingface') {
@@ -429,6 +433,7 @@ export function reconstructConnectionDetails(
     if (metadata.csv_timestamp_format) details.csv_timestamp_format = metadata.csv_timestamp_format;
     if (metadata.csv_sample_size) details.csv_sample_size = metadata.csv_sample_size;
     if (metadata.csv_sample_full_dataset !== undefined) details.csv_sample_full_dataset = metadata.csv_sample_full_dataset;
+    if (metadata.csv_trim_numeric_whitespace !== undefined) details.csv_trim_numeric_whitespace = metadata.csv_trim_numeric_whitespace;
   } else if (metadata.type === 'clickhouse') {
     // ClickHouse configuration - use overrides if provided, otherwise fall back to metadata
     details.host = clickHouseOverrides?.host ?? metadata.host;
@@ -449,6 +454,9 @@ export function reconstructConnectionDetails(
     if (metadata.csv_sample_size) details.csv_sample_size = metadata.csv_sample_size;
     if (metadata.csv_sample_full_dataset !== undefined) {
       details.csv_sample_full_dataset = metadata.csv_sample_full_dataset;
+    }
+    if (metadata.csv_trim_numeric_whitespace !== undefined) {
+      details.csv_trim_numeric_whitespace = metadata.csv_trim_numeric_whitespace;
     }
     if (kaggleUsername) details.kaggle_username = kaggleUsername;
     if (kaggleApiKey) details.kaggle_api_key = kaggleApiKey;

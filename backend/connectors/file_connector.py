@@ -198,10 +198,7 @@ class FileConnector(BaseConnector):
         try:
             con = duckdb.connect(database=':memory:', read_only=False)
             safe_view_name = f'"{file_info.table_name}"'
-            reader_sql = file_info.handler.build_reader_sql(file_info.file_path)
-            create_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {reader_sql};"
-            logger.debug(f"Creating view with SQL: {create_view_sql}")
-            con.execute(create_view_sql)
+            self._create_view(con, file_info)
 
             describe_query = f"DESCRIBE {safe_view_name};"
             logger.debug(f"Executing describe query on view: {describe_query}")
@@ -226,11 +223,60 @@ class FileConnector(BaseConnector):
     def _create_all_views(self, con: duckdb.DuckDBPyConnection) -> None:
         """Create views for all uploaded files in the given DuckDB connection."""
         for file_info in self._files:
-            safe_view_name = f'"{file_info.table_name}"'
-            reader_sql = file_info.handler.build_reader_sql(file_info.file_path)
-            create_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS SELECT * FROM {reader_sql};"
-            logger.debug(f"Creating view with SQL: {create_view_sql}")
-            con.execute(create_view_sql)
+            self._create_view(con, file_info)
+
+    def _create_view(self, con: duckdb.DuckDBPyConnection, file_info: FileInfo) -> None:
+        """Create (or replace) the DuckDB view backing a single file.
+
+        DuckDB's CSV sniffer fails to detect a column as DOUBLE when values
+        have trailing whitespace (e.g. "123.5 "), falling back to VARCHAR,
+        even though leading whitespace and TRY_CAST both parse it fine. Once
+        the raw view is created, any VARCHAR column that fully round-trips
+        through TRIM + TRY_CAST(... AS DOUBLE) is re-cast so numeric CSV data
+        with stray whitespace still gets a numeric type.
+        """
+        safe_view_name = f'"{file_info.table_name}"'
+        raw_view_name = f'"{file_info.table_name}__raw"'
+        reader_sql = file_info.handler.build_reader_sql(file_info.file_path)
+        create_raw_view_sql = f"CREATE OR REPLACE TEMPORARY VIEW {raw_view_name} AS SELECT * FROM {reader_sql};"
+        logger.debug(f"Creating raw view with SQL: {create_raw_view_sql}")
+        con.execute(create_raw_view_sql)
+
+        describe = con.execute(f"DESCRIBE {raw_view_name};").fetchall()
+        trim_numeric_whitespace = bool(getattr(file_info.handler, "config", {}).get(
+            "trim_numeric_whitespace", False
+        ))
+        varchar_cols = (
+            [row[0] for row in describe if row[1].upper() == "VARCHAR"]
+            if file_info.handler.file_type == "csv" and trim_numeric_whitespace
+            else []
+        )
+
+        numeric_cols = set()
+        if varchar_cols:
+            checks = ", ".join(
+                f'COUNT(*) FILTER (WHERE "{c}" IS NOT NULL AND TRY_CAST(TRIM("{c}") AS DOUBLE) IS NULL) AS "{c}__bad", '
+                f'COUNT(*) FILTER (WHERE "{c}" IS NOT NULL) AS "{c}__present"'
+                for c in varchar_cols
+            )
+            check_result = con.execute(f"SELECT {checks} FROM {raw_view_name};").fetchone()
+            column_names = [desc[0] for desc in con.description]
+            checks_by_col = dict(zip(column_names, check_result))
+            numeric_cols = {
+                c for c in varchar_cols
+                if checks_by_col[f"{c}__present"] > 0 and checks_by_col[f"{c}__bad"] == 0
+            }
+
+        select_parts = [
+            f'TRY_CAST(TRIM("{row[0]}") AS DOUBLE) AS "{row[0]}"' if row[0] in numeric_cols else f'"{row[0]}"'
+            for row in describe
+        ]
+        create_view_sql = (
+            f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS "
+            f"SELECT {', '.join(select_parts)} FROM {raw_view_name};"
+        )
+        logger.debug(f"Creating view with SQL: {create_view_sql}")
+        con.execute(create_view_sql)
 
     def fetch_data(self, query: str) -> Tuple[List[Dict[str, str]], List[Dict[str, Any]]]:
         if not self._files:
