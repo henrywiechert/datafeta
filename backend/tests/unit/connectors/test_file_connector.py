@@ -271,6 +271,62 @@ class TestListColumns:
         assert "score" in col_names
         assert "active" in col_names
 
+    def test_list_columns_keeps_trailing_whitespace_float_as_varchar_by_default(self, tmp_path):
+        """Trailing-whitespace numeric repair is opt-in because it scans VARCHAR
+        columns and can change numeric-looking identifiers."""
+        csv_path = tmp_path / "test.csv"
+        csv_path.write_text("value\n123.5 \n124.5 \n125.0 \n")
+
+        connector = FileConnector()
+
+        connector.connect({
+            "file_path": str(csv_path),
+            "original_filename": "test.csv",
+        })
+
+        columns = connector.list_columns(table="test")
+        assert columns[0].data_type == "VARCHAR"
+
+    def test_list_columns_infers_float_with_trailing_whitespace_when_enabled(self, tmp_path):
+        """DuckDB's CSV sniffer misses DOUBLE when values have trailing whitespace
+        (e.g. "123.5 "); when enabled, the connector should infer DOUBLE."""
+        csv_path = tmp_path / "test.csv"
+        csv_path.write_text("value\n123.5 \n124.5 \n125.0 \n")
+
+        connector = FileConnector()
+
+        connector.connect({
+            "file_path": str(csv_path),
+            "original_filename": "test.csv",
+            "csv_trim_numeric_whitespace": True,
+        })
+
+        columns = connector.list_columns(table="test")
+        assert columns[0].data_type == "DOUBLE"
+
+        _, rows = connector.fetch_data('SELECT * FROM "test"')
+        assert [row["value"] for row in rows] == [123.5, 124.5, 125.0]
+
+    def test_list_columns_keeps_genuinely_mixed_column_as_varchar(self, tmp_path):
+        """A column with real non-numeric values must stay VARCHAR, not be
+        force-cast just because some rows also have trailing whitespace."""
+        csv_path = tmp_path / "test.csv"
+        csv_path.write_text("value\n123.5 \nnotanumber \n")
+
+        connector = FileConnector()
+
+        connector.connect({
+            "file_path": str(csv_path),
+            "original_filename": "test.csv",
+            "csv_trim_numeric_whitespace": True,
+        })
+
+        columns = connector.list_columns(table="test")
+        assert columns[0].data_type == "VARCHAR"
+
+        _, rows = connector.fetch_data('SELECT * FROM "test"')
+        assert [row["value"] for row in rows] == [123.5, "notanumber "]
+
     def test_list_columns_unknown_table_raises(self, tmp_path):
         """Test that listing columns for unknown table raises error."""
         csv_path = tmp_path / "test.csv"

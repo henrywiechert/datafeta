@@ -21,6 +21,7 @@ export interface CsvFormState {
   timestampFormat: string;
   sampleSize: number | string;
   sampleFullDataset: boolean;
+  trimNumericWhitespace: boolean;
   showAdvancedOptions: boolean;
 }
 
@@ -91,6 +92,7 @@ export const DEFAULT_CSV_STATE: CsvFormState = {
   timestampFormat: '%Y-%m-%d %H:%M:%S',
   sampleSize: 1000,
   sampleFullDataset: false,
+  trimNumericWhitespace: false,
   showAdvancedOptions: false,
 };
 

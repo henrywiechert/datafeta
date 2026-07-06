@@ -54,6 +54,7 @@ class CsvParsingConfig(BaseModel):
     csv_timestamp_format: Optional[str] = "%Y-%m-%d %H:%M:%S"
     csv_sample_size: Optional[int] = Field(default=1000, ge=1)
     csv_sample_full_dataset: Optional[bool] = False
+    csv_trim_numeric_whitespace: Optional[bool] = False
 
 
 class KaggleConfig(CsvParsingConfig):

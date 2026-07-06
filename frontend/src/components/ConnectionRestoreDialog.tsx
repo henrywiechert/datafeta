@@ -362,6 +362,10 @@ export default function ConnectionRestoreDialog({
                     ? 'Full dataset'
                     : `${connectionMetadata.csv_sample_size || 1000} rows`}
                 </Typography>
+                <Typography variant="body2">
+                  <strong>Fix Numeric Whitespace:</strong>{' '}
+                  {connectionMetadata.csv_trim_numeric_whitespace ? 'Yes' : 'No'}
+                </Typography>
               </Box>
 
               <Button
@@ -447,6 +451,10 @@ export default function ConnectionRestoreDialog({
                       {connectionMetadata.csv_sample_full_dataset
                         ? 'Full dataset'
                         : `${connectionMetadata.csv_sample_size || 1000} rows`}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Fix Numeric Whitespace:</strong>{' '}
+                      {connectionMetadata.csv_trim_numeric_whitespace ? 'Yes' : 'No'}
                     </Typography>
                   </Box>
                 </>

@@ -27,6 +27,7 @@ def build_csv_handler_config(connection_details: Dict[str, Any]) -> Dict[str, An
             if connection_details.get("csv_sample_full_dataset", False)
             else connection_details.get("csv_sample_size", 1000)
         ),
+        "trim_numeric_whitespace": connection_details.get("csv_trim_numeric_whitespace", False),
     }
 
 

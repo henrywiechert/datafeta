@@ -37,6 +37,7 @@ function csvStateFromDetails(details: ConnectionDetails): CsvFormState {
     timestampFormat: details.csv_timestamp_format || '%Y-%m-%d %H:%M:%S',
     sampleSize: details.csv_sample_size || 1000,
     sampleFullDataset: details.csv_sample_full_dataset || false,
+    trimNumericWhitespace: details.csv_trim_numeric_whitespace || false,
   };
 }
 
@@ -49,6 +50,7 @@ function appendCsvParsingDetails(details: ConnectionDetails, csv: CsvFormState):
   details.csv_timestamp_format = csv.timestampFormat;
   details.csv_sample_size = Math.max(1, Number(csv.sampleSize) || 1000);
   details.csv_sample_full_dataset = csv.sampleFullDataset;
+  details.csv_trim_numeric_whitespace = csv.trimNumericWhitespace;
 }
 
 // Initial state

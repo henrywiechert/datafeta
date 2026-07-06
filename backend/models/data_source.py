@@ -182,6 +182,7 @@ class ConnectionDetails(BaseModel):
     csv_timestamp_format: Optional[str] = '%Y-%m-%d %H:%M:%S'  # Timestamp format pattern
     csv_sample_size: Optional[int] = Field(default=1000, ge=1)  # Rows DuckDB samples for CSV type inference
     csv_sample_full_dataset: Optional[bool] = False  # Infer CSV types from the full dataset (DuckDB sample_size=-1)
+    csv_trim_numeric_whitespace: Optional[bool] = False  # Trim numeric-looking VARCHAR columns and cast to DOUBLE
     
     # Column-level casting configuration for handling special cases (e.g., quoted numbers)
     column_casts: Optional[Dict[str, Dict[str, str]]] = None  # Maps column_name to {cast_type, replacement_pattern}
