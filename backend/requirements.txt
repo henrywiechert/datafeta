@@ -5,9 +5,7 @@
 #    pip-compile --output-file=requirements.txt requirements.in
 #
 annotated-doc==0.0.4
-    # via
-    #   fastapi
-    #   typer
+    # via fastapi
 annotated-types==0.7.0
     # via pydantic
 anyio==4.13.0
@@ -29,10 +27,9 @@ certifi==2026.4.22
     #   requests
 charset-normalizer==3.4.7
     # via requests
-click==8.4.1
+click==8.4.2
     # via
     #   huggingface-hub
-    #   typer
     #   uvicorn
 clickhouse-connect==1.4.1
     # via -r requirements.in
@@ -58,7 +55,7 @@ httptools==0.8.0
     # via uvicorn
 httpx==0.28.1
     # via huggingface-hub
-huggingface-hub==1.21.0
+huggingface-hub==1.22.0
     # via -r requirements.in
 idna==3.15
     # via
@@ -83,7 +80,6 @@ markdown-it-py==4.2.0
     # via
     #   jupytext
     #   mdit-py-plugins
-    #   rich
 mdit-py-plugins==0.6.1
     # via jupytext
 mdurl==0.1.2
@@ -111,8 +107,6 @@ pydantic==2.13.4
     # via fastapi
 pydantic-core==2.46.4
     # via pydantic
-pygments==2.20.0
-    # via rich
 pypika==0.51.1
     # via -r requirements.in
 python-dateutil==2.9.0.post0
@@ -140,14 +134,10 @@ requests==2.34.2
     # via
     #   kaggle
     #   kagglesdk
-rich==15.0.0
-    # via typer
 rpds-py==0.30.0
     # via
     #   jsonschema
     #   referencing
-shellingham==1.5.4
-    # via typer
 six==1.17.0
     # via python-dateutil
 starlette==1.0.0
@@ -162,8 +152,6 @@ traitlets==5.15.0
     # via
     #   jupyter-core
     #   nbformat
-typer==0.25.1
-    # via huggingface-hub
 typing-extensions==4.15.0
     # via
     #   anyio
