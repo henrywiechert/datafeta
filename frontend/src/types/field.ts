@@ -8,6 +8,7 @@ import type { ColumnCastConfig } from './query';
 
 export type FieldType = 'dimension' | 'measure';
 export type Aggregation = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'count_distinct';
+export type WindowCalcType = 'difference' | 'running_sum';
 export type Flavour = 'discrete' | 'continuous';
 export type DataType = 'string' | 'integer' | 'float' | 'datetime';
 export type DateTimePart = 'year' | 'month' | 'day' | 'weekday' | 'hour' | 'minute' | 'second' | 'millisecond' | 'microsecond' | 'nanosecond';
@@ -34,6 +35,7 @@ export interface Field {
   columnName: string;
   type: FieldType;
   aggregation?: Aggregation; // Optional, as dimensions don't have it
+  windowCalc?: WindowCalcType; // Optional table calculation (measures only), computed post-aggregation
   flavour: Flavour;
   dataType: DataType;
   axis?: 'x' | 'y';  // Optional: which axis the field is on (for query optimization)

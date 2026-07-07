@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { Field, ColumnCastConfig } from '../../../types';
 import menuStyles from '../ContextMenu.module.css';
 import SubMenu from '../SubMenu';
@@ -11,6 +11,8 @@ import DateTimePartMenu from '../../DateTime/DateTimePartMenu';
 import { isSyntheticField } from '../../../utils/syntheticFields';
 import { FieldMenuConfig } from './fieldMenuConfig';
 import { useDataSource } from '../../../contexts/DataSourceContext';
+import { VisualizationContext } from '../../../contexts/VisualizationContext';
+import { WINDOW_CALC_OPTIONS, hasWindowCalcOrderByDimension } from '../../../utils/windowCalcUtils';
 
 interface FieldMenuItemsProps {
   field: Field;
@@ -36,6 +38,16 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
   const [castingDialogOpen, setCastingDialogOpen] = useState(false);
   const [aliasPopoverAnchor, setAliasPopoverAnchor] = useState<HTMLElement | null>(null);
   const { setFieldAlias } = useDataSource();
+  // Optional: only present when rendered inside a VisualizationProvider.
+  // Used to decide whether a window calc (table calculation) is applicable,
+  // which requires an ordering dimension (e.g. timeline bucket) on the shelves.
+  const vizContext = useContext(VisualizationContext);
+  const shelfFields = vizContext
+    ? [...vizContext.state.xAxisFields, ...vizContext.state.yAxisFields]
+    : [];
+  const windowCalcEligible = hasWindowCalcOrderByDimension(shelfFields);
+  // Offer the submenu when applicable, or when a calc is already set (to allow clearing it)
+  const showWindowCalcMenu = windowCalcEligible || Boolean(field.windowCalc);
   
   // Check if we're in bulk edit mode
   const isBulkEdit = selectedFields.length > 1;
@@ -220,6 +232,30 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
           {agg} {!isBulkEdit && field.aggregation === agg && '✔'}
         </div>
       ))}
+
+      {/* Table Calculation (window calc) - measures only, needs an ordering dimension on the shelf */}
+      {menuConfig.allowAggregationChange && allAreMeasures && showWindowCalcMenu && (
+        <>
+          <div className={menuStyles.separator} />
+          <SubMenu label={`Table Calculation${field.windowCalc ? ' ✔' : ''}`}>
+            <div
+              className={menuStyles.menuItem}
+              onClick={() => onUpdate({ windowCalc: undefined })}
+            >
+              None {!isBulkEdit && !field.windowCalc && '✔'}
+            </div>
+            {WINDOW_CALC_OPTIONS.map(({ value, label }) => (
+              <div
+                key={value}
+                className={`${menuStyles.menuItem} ${!windowCalcEligible ? menuStyles.disabled : ''}`}
+                onClick={windowCalcEligible ? () => onUpdate({ windowCalc: value }) : undefined}
+              >
+                {label} {!isBulkEdit && field.windowCalc === value && '✔'}
+              </div>
+            ))}
+          </SubMenu>
+        </>
+      )}
 
       {/* Bar Sort Order - shown for measures on axes */}
       {menuConfig.allowBarSortOrder && allAreMeasures && isInAxisDropZone && (

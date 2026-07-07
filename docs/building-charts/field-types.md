@@ -66,6 +66,18 @@ Drag Measures to:
 - **Color** — applies a gradient colour scale
 - **Tooltip** — to show a value on hover without plotting it
 
+### Table calculations
+
+A measure on an axis can carry a **table calculation** — a second computation applied *after* aggregation:
+
+- **Difference** — the change relative to the previous bucket. Useful for cumulative columns (e.g. an ever-increasing `weight` gauge): bucket the time axis by day or week and the chart shows the *increase per day/week*. The first bucket of each series is empty (there is no previous value).
+- **Running Sum** — the cumulative total up to and including each bucket.
+
+Right-click a measure chip on an axis and choose **Table Calculation**. The option requires an ordering dimension on the shelf — typically a datetime field with a timeline bucket (day, week, month, …); any other dimensions (colour, facets) each get their own independent series. If the ordering dimension is later removed, the calculation is ignored until one is added again.
+
+!!! note
+    Gaps in the time series are not filled in: if a bucket has no data, **Difference** compares against the last bucket that *does* have data.
+
 ---
 
 ## Axis ordering rule
