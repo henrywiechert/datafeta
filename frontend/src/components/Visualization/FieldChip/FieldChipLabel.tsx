@@ -17,6 +17,10 @@ const FieldChipLabel = forwardRef<HTMLSpanElement, FieldChipLabelProps>(
     const getDisplayName = useFieldDisplayName();
     const fieldName = displayNameOverride ?? getDisplayName(field);
     const aggregationText = field.aggregation ? ` (${field.aggregation})` : '';
+    // Table calculation marker: Δ = difference, ∑ = running sum
+    const windowCalcText = field.windowCalc
+      ? ` ${field.windowCalc === 'difference' ? 'Δ' : '∑'}`
+      : '';
     const flavourText = ` [${field.flavour}]`;
     const dataTypeText = ` (${field.dataType})`;
     
@@ -49,6 +53,7 @@ const FieldChipLabel = forwardRef<HTMLSpanElement, FieldChipLabelProps>(
         </span>
         {fieldName}
         {aggregationText}
+        {windowCalcText}
         {sortIndicator}
         {isOnAxis && flavourText}
         {isOnAxis && dataTypeText}

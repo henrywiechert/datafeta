@@ -19,10 +19,20 @@ export type ColumnCasts = Record<string, ColumnCastConfig>;
 
 // --- Query Building Types --- //
 
+export interface WindowCalc {
+  function: 'difference' | 'running_sum';
+  /** Output alias of the ordering dimension (e.g. "ts_day_timeline") */
+  order_by_field: string;
+  /** Output aliases of the partitioning dimensions (all other dims) */
+  partition_by: string[];
+}
+
 export interface Measure {
   field: string;
   aggregation: 'sum' | 'avg' | 'count' | 'count_distinct' | 'min' | 'max';
   alias: string;
+  /** Optional post-aggregation table calculation (computed via window functions) */
+  window_calc?: WindowCalc;
 }
 
 export interface Filter {

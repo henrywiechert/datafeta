@@ -6,10 +6,25 @@ from typing import List, Dict, Any, Optional, Literal, TYPE_CHECKING
 # Always import for type annotation
 from backend.models.data_source import VirtualTableDefinition, VirtualColumnDefinition
 
+class WindowCalc(BaseModel):
+    """Post-aggregation table calculation applied to a measure via window functions.
+
+    ``order_by_field`` and ``partition_by`` reference the OUTPUT aliases of the
+    query's dimensions (e.g. ``ts_day_timeline``), not raw column names, because
+    the calculation runs in an outer SELECT wrapped around the aggregated query.
+    """
+    function: Literal['difference', 'running_sum']
+    order_by_field: str
+    partition_by: List[str] = []
+
+
 class Measure(BaseModel):
     field: str
     aggregation: Literal['sum', 'avg', 'count', 'count_distinct', 'min', 'max'] # Add more as needed
     alias: str
+    # Optional table calculation (e.g. per-bucket difference) computed over the
+    # aggregated result in an outer window-function SELECT.
+    window_calc: Optional[WindowCalc] = None
 
 class Dimension(BaseModel):
     field: str

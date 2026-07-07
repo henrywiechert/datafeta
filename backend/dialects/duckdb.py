@@ -42,6 +42,9 @@ class DuckDbDialect(SqlDialect):
     def count_star_expr(self) -> str:
         return 'COUNT(*)'
 
+    def lag_expression(self, field_sql: str, over_content_sql: str) -> str:
+        return f"lag({field_sql}) OVER ({over_content_sql})"
+
     def count_distinct_expr(self, field: str) -> str:
         return f"COUNT(DISTINCT {field})"
 

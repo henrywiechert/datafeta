@@ -193,6 +193,16 @@ class QueryExecutionOrchestrator {
       decision.reason += ' (overridden: HAVING filter requires backend pre-aggregation)';
     }
 
+    // Window calcs (table calculations, e.g. per-bucket difference) are computed by the
+    // backend in an outer window-function SELECT over the aggregated result. The local
+    // DuckDB aggregation path doesn't implement this wrapping (Phase 1), so force backend.
+    const hasWindowCalcs = (viewQueryDesc.measures || []).some((m: any) => m?.window_calc);
+    if (hasWindowCalcs && decision.strategy !== 'pre_aggregated') {
+      decision.strategy = 'pre_aggregated';
+      decision.requiresBackendQuery = true;
+      decision.reason += ' (overridden: window calc requires backend pre-aggregation)';
+    }
+
     // Cache-hit: query locally (refinement filters only).
     if (decision.strategy === 'cache_hit' && !decision.requiresBackendQuery) {
       const cacheTableName = this.deps.columnCacheManager.getCacheTableName(
