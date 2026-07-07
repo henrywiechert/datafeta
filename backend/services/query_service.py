@@ -51,6 +51,7 @@ from backend.services.query_components.schema_type_provider import SchemaTypePro
 from backend.services.query_components.distinct_applier import DistinctApplier
 from backend.services.query_components.cdf_query_builder import build_cdf_sql
 from backend.services.query_components.box_plot_query_builder import build_box_plot_sql
+from backend.services.query_components.window_calc_builder import apply_window_calcs
 
 logger = logging.getLogger(__name__)
 
@@ -632,6 +633,9 @@ class QueryService:
                 connector=connector,
                 logger=logger,
             )
+            # Window calcs are stripped from per-table sub-queries and applied by
+            # the union builder, once, over the merged union result (before its
+            # internal result-budget sampling).
             return builder.translate(
                 query_desc,
                 db_type=db_type,
@@ -859,12 +863,18 @@ class QueryService:
         sql_string = q.get_sql(quote_char=quote_char)
         logger.info(f"Generated SQL ({db_type}): {sql_string}")
 
+        # --- Window calculations (table calcs, e.g. per-bucket difference) -----------
+        # Window functions run after GROUP BY, so windowed measures are computed in
+        # an outer SELECT wrapped around the compiled aggregated query.  Must run
+        # BEFORE apply_result_budget so budget sampling operates on final values.
+        from backend.dialects import get_dialect
+        dialect = get_dialect(db_type)
+        sql_string = apply_window_calcs(sql_string, query_desc, dialect=dialect, logger=logger)
+
         # --- Result budget / reduction (best-effort) ---------------------------------
         # This is applied after the pypika query is compiled. We wrap SQL with an outer
         # sampling query when the frontend requests a result_budget (e.g. oversize scatter).
         try:
-            from backend.dialects import get_dialect
-            dialect = get_dialect(db_type)
             sql_string = apply_result_budget(sql_string, query_desc, dialect=dialect, logger=logger)
         except Exception as exc:  # pragma: no cover
             logger.warning("Result budget wrapper failed, continuing without reduction: %s", exc, exc_info=True)

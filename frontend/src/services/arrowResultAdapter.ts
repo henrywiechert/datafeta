@@ -8,7 +8,8 @@ const NUMERIC_TYPE_IDS = new Set([Type.Int, Type.Float, Type.Decimal]);
 function isAggregateField(name?: string): boolean {
   if (!name) return false;
   const n = name.toLowerCase();
-  return n.startsWith('sum(') || n.startsWith('avg(') || n.startsWith('count(') || n.startsWith('min(') || n.startsWith('max(');
+  return n.startsWith('sum(') || n.startsWith('avg(') || n.startsWith('count(') || n.startsWith('min(') || n.startsWith('max(')
+    || n.startsWith('diff(') || n.startsWith('running_sum(');
 }
 
 // Remove one or more layers of quotes (including escaped quotes) around a value

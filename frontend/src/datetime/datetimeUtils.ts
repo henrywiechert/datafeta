@@ -73,10 +73,18 @@ export function getDateTimePartTooltip(field: Field): string | undefined {
 /**
  * Get the column name for a field as it appears in query results.
  * DateTime parts get a special alias: fieldname_part_mode
+ * Window calcs (table calculations) wrap the aggregation alias: DIFF(SUM(col))
  */
 export function getResultColumnNameForDateTime(field: Field): string {
   if (field.type === 'measure' && field.aggregation) {
-    return `${field.aggregation.toUpperCase()}(${field.columnName})`;
+    const base = `${field.aggregation.toUpperCase()}(${field.columnName})`;
+    if (field.windowCalc === 'difference') {
+      return `DIFF(${base})`;
+    }
+    if (field.windowCalc === 'running_sum') {
+      return `RUNNING_SUM(${base})`;
+    }
+    return base;
   }
   
   // If this is a datetime part, return the special alias

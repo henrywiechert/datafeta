@@ -78,6 +78,15 @@ class ClickHouseDialect(SqlDialect):
     def count_star_expr(self) -> str:
         return 'count()'
 
+    def lag_expression(self, field_sql: str, over_content_sql: str) -> str:
+        # ClickHouse has no standard lag(); lagInFrame() respects the window
+        # frame, so the frame must span the whole partition.  toNullable() +
+        # explicit NULL default ensure the first row yields NULL instead of 0.
+        return (
+            f"lagInFrame(toNullable({field_sql}), 1, NULL) OVER "
+            f"({over_content_sql} ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)"
+        )
+
     def count_distinct_expr(self, field: str) -> str:
         return f"uniq({field})"
 

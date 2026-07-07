@@ -2,6 +2,7 @@
 import { Field, QueryDescription, Measure, OrderBy, Filter, FilterConfig, ColumnCasts, ColumnCastConfig, CdfField, BoxPlotField, VirtualTableDefinition, UserChartType, DistributionVariant } from '../types';
 import { getResultColumnName } from '../utils/fieldUtils';
 import { isCdfAllowed } from '../utils/cdfUtils';
+import { findWindowCalcOrderByDimension } from '../utils/windowCalcUtils';
 
 type PlannedQueryMode = 'raw' | 'aggregated' | 'cdf' | 'box_plot';
 
@@ -246,15 +247,35 @@ export const buildAggregatedQuery = ({
     // Dedupe by output column name (datetime parts produce distinct aliases)
     (dim) => (dim.date_part && dim.date_mode ? `${dim.field}_${dim.date_part}_${dim.date_mode}` : dim.field)
   );
-  
+
+  // Window calcs (table calculations) need an ordering dimension.  If the
+  // shelf has none (e.g. the timeline dimension was removed after the calc
+  // was configured), the stored calc is silently ignored.
+  const windowOrderByDim = findWindowCalcOrderByDimension(allFieldsForQuery);
+  const windowOrderByName = windowOrderByDim ? getResultColumnName(windowOrderByDim) : undefined;
+  const dimensionOutputNames = dimensions.map((dim) =>
+    dim.date_part && dim.date_mode ? `${dim.field}_${dim.date_part}_${dim.date_mode}` : dim.field
+  );
+
   const measures: Measure[] = dedupeByKey(
     allFieldsForQuery
     .filter((f) => f.type === 'measure')
-    .map((m) => ({
-      field: m.columnName,
-      aggregation: (m.aggregation || defaultAggFor(m)) as any,
-      alias: getResultColumnName(m),
-    })),
+    .map((m) => {
+      const measure: Measure = {
+        field: m.columnName,
+        aggregation: (m.aggregation || defaultAggFor(m)) as any,
+        alias: getResultColumnName(m),
+      };
+      if (m.windowCalc && windowOrderByName) {
+        measure.window_calc = {
+          function: m.windowCalc,
+          order_by_field: windowOrderByName,
+          // All other dimensions define independent series (color, facets, ...)
+          partition_by: dimensionOutputNames.filter((name) => name !== windowOrderByName),
+        };
+      }
+      return measure;
+    }),
     (m) => m.alias
   );
 

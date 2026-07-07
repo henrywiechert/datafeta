@@ -57,6 +57,7 @@ export type {
 export type {
   FieldType,
   Aggregation,
+  WindowCalcType,
   Flavour,
   DataType,
   DateTimePart,
@@ -92,6 +93,7 @@ export type {
   ColumnCastConfig,
   ColumnCasts,
   Measure,
+  WindowCalc,
   Filter,
   OrderBy,
   Dimension,

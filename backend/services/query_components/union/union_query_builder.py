@@ -9,6 +9,10 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 from backend.models.query import Dimension, Filter, Measure, QueryDescription
 
 from backend.services.query_components.result_budget_applier import apply_result_budget
+from backend.services.query_components.window_calc_builder import (
+    apply_window_calcs,
+    strip_window_calcs,
+)
 from backend.services.query_components.union.source_filter_builder import (
     build_source_filter_where_clauses,
     build_source_only_query,
@@ -529,6 +533,11 @@ class UnionQueryBuilder:
             single_table_desc.virtual_table = None
             # Don't apply result_budget to sub-queries - it will be applied to the final UNION SQL
             single_table_desc.result_budget = None
+            # Window calcs are applied once over the merged union result (in
+            # QueryService.translate_to_sql), never per sub-table: a per-table
+            # diff would be wrong and the windowed SELECT would break the
+            # rebuild_select_with_nulls alignment below.
+            strip_window_calcs(single_table_desc)
             
             # Filter to only dimensions that exist in this table
             # For virtual columns, check if source fields exist (not the virtual column name itself)
@@ -741,9 +750,13 @@ class UnionQueryBuilder:
         else:
             final_sql = union_sql
 
-        # Apply result budget to the final UNION SQL (not to individual sub-queries)
+        # Apply window calcs (table calculations) once over the merged union
+        # result, before result-budget sampling so sampling sees final values.
         from backend.dialects import get_dialect
         dialect = get_dialect(db_type)
+        final_sql = apply_window_calcs(final_sql, query_desc, dialect=dialect, logger=self._logger)
+
+        # Apply result budget to the final UNION SQL (not to individual sub-queries)
         final_sql = apply_result_budget(final_sql, query_desc, dialect=dialect, logger=self._logger)
 
         self._logger.info("Generated UNION ALL query: %s...", final_sql[:200])

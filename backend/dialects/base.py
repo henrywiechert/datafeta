@@ -90,6 +90,20 @@ class SqlDialect(ABC):
         """
 
     @abstractmethod
+    def lag_expression(self, field_sql: str, over_content_sql: str) -> str:
+        """
+        Previous-row value window expression.
+
+        Must return NULL for the first row of each partition (not a default
+        value), so downstream difference calculations yield NULL there.
+
+        Args:
+            field_sql: Already-quoted field/expression to lag.
+            over_content_sql: Content of the OVER clause, e.g.
+                'PARTITION BY "cat" ORDER BY "day"' (no surrounding parens).
+        """
+
+    @abstractmethod
     def count_distinct_expr(self, field: str) -> str:
         """
         Count distinct expression for a field.
