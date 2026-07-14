@@ -2,7 +2,8 @@
 import React, { useRef, useCallback } from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
 import { Link } from 'react-router-dom';
-import { Panel, Group as PanelGroup, PanelImperativeHandle as ImperativePanelHandle } from "react-resizable-panels";
+import { Panel, Group as PanelGroup } from "react-resizable-panels";
+import type { PanelImperativeHandle } from "react-resizable-panels";
 import { useVisualizationState } from '../hooks/useVisualizationState';
 import { useVisualizationContext, VisualizationProvider } from '../contexts/VisualizationContext';
 import { UndoRedoProvider } from '../contexts/UndoRedoContext';
@@ -94,8 +95,8 @@ const VisualizationPageContent = () => {
     } = state;
 
     // Panel refs for imperative control
-    const leftPanelRef = useRef<ImperativePanelHandle>(null);
-    const middlePanelRef = useRef<ImperativePanelHandle>(null);
+    const leftPanelRef = useRef<PanelImperativeHandle>(null);
+    const middlePanelRef = useRef<PanelImperativeHandle>(null);
 
     // Panel toggle handlers - use local state to avoid re-rendering chart grid
     const toggleLeftPanel = useCallback(() => {
@@ -544,7 +545,12 @@ const VisualizationPageContent = () => {
                         )}
                     </Panel>
 
-                    <PanelResizeHandleWithToggle onDoubleClick={toggleLeftPanel} />
+                    <PanelResizeHandleWithToggle
+                        onDoubleClick={toggleLeftPanel}
+                        deferredPanelRef={leftPanelRef}
+                        minSizePercent={leftPanelCollapsed ? 0 : 10}
+                        maxSizePercent={35}
+                    />
 
                     {/* Middle Panel - Property sections stacked vertically */}
                     <Panel 
@@ -588,7 +594,12 @@ const VisualizationPageContent = () => {
                         )}
                     </Panel>
 
-                    <PanelResizeHandleWithToggle onDoubleClick={toggleMiddlePanel} />
+                    <PanelResizeHandleWithToggle
+                        onDoubleClick={toggleMiddlePanel}
+                        deferredPanelRef={middlePanelRef}
+                        minSizePercent={middlePanelCollapsed ? 0 : 10}
+                        maxSizePercent={30}
+                    />
 
                     {/* Main Content - Chart */}
                     <Panel defaultSize="65%" minSize="40%">
