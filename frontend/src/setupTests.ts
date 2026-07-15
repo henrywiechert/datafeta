@@ -22,3 +22,29 @@ if (typeof (global as any).TextEncoder === 'undefined') {
 if (typeof (global as any).crypto === 'undefined') {
   (global as any).crypto = require('crypto').webcrypto;
 }
+
+// Polyfill PointerEvent for Jest (jsdom) environment.
+// jsdom does not implement PointerEvent, so @testing-library's fireEvent.pointer*
+// falls back to a generic Event that drops MouseEvent init fields like `button`
+// and `clientX`. Components that guard on `e.button` (e.g. primary-button-only
+// drag handles) then behave differently under test than in a real browser.
+// Subclassing MouseEvent preserves those init fields.
+if (typeof (global as any).PointerEvent === 'undefined') {
+  class PointerEvent extends MouseEvent {
+    public pointerId?: number;
+    public pointerType?: string;
+    public isPrimary?: boolean;
+
+    constructor(type: string, params: PointerEventInit = {}) {
+      super(type, params);
+      this.pointerId = params.pointerId;
+      this.pointerType = params.pointerType;
+      this.isPrimary = params.isPrimary;
+    }
+  }
+  (global as any).PointerEvent = PointerEvent;
+  if (typeof window !== 'undefined') {
+    (window as any).PointerEvent = PointerEvent;
+  }
+}
+

@@ -274,7 +274,7 @@ class HiveParquetConnector(BaseConnector):
             loaded = list(self._loaded_partitions.keys())
             logger.debug(f"Executing query against loaded partitions {loaded}: {query}")
             
-            arrow_table = con.execute(query).fetch_arrow_table()
+            arrow_table = con.execute(query).to_arrow_table()
 
             columns = []
             if arrow_table.schema:
@@ -314,7 +314,7 @@ class HiveParquetConnector(BaseConnector):
             loaded = list(self._loaded_partitions.keys())
             logger.debug(f"Executing Arrow query against loaded partitions {loaded}: {query}")
             
-            arrow_table = con.execute(query).fetch_arrow_table()
+            arrow_table = con.execute(query).to_arrow_table()
             
             logger.debug(f"Arrow fetch returning {arrow_table.num_columns} columns and {arrow_table.num_rows} rows")
             return arrow_table
