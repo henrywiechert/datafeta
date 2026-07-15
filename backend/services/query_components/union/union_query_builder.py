@@ -457,6 +457,20 @@ class UnionQueryBuilder:
         if not virtual_table or virtual_table.mode != "union":
             raise ValueError("Query description must have virtual_table in union mode")
 
+        # arg_max/arg_min cannot be re-aggregated across union sub-results
+        # (the outer wrapper would need the ordering column, which is not
+        # projected). Reject clearly instead of returning wrong numbers.
+        arg_measures = [
+            m.alias for m in (query_desc.measures or [])
+            if m.aggregation in ("arg_max", "arg_min")
+        ]
+        if arg_measures:
+            from backend.exceptions import QueryGenerationError
+            raise QueryGenerationError(
+                "Aggregations 'arg_max'/'arg_min' (latest/earliest value) are not "
+                f"supported on stacked (union) tables yet: {', '.join(arg_measures)}"
+            )
+
         # Parse table references from query
         table_refs = self._parse_table_references(query_desc)
         self._logger.info("Building UNION ALL query for tables: %s", 

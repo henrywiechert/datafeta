@@ -48,6 +48,12 @@ class DuckDbDialect(SqlDialect):
     def count_distinct_expr(self, field: str) -> str:
         return f"COUNT(DISTINCT {field})"
 
+    def arg_max_function_name(self) -> str:
+        return 'arg_max'
+
+    def arg_min_function_name(self) -> str:
+        return 'arg_min'
+
     def to_epoch_expr(self, field: str) -> str:
         return f"epoch({field})"
 

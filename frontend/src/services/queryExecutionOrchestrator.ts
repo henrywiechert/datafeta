@@ -196,11 +196,17 @@ class QueryExecutionOrchestrator {
     // Window calcs (table calculations, e.g. per-bucket difference) are computed by the
     // backend in an outer window-function SELECT over the aggregated result. The local
     // DuckDB aggregation path doesn't implement this wrapping (Phase 1), so force backend.
+    // Likewise arg_max/arg_min (latest/earliest value) is not implemented locally.
     const hasWindowCalcs = (viewQueryDesc.measures || []).some((m: any) => m?.window_calc);
-    if (hasWindowCalcs && decision.strategy !== 'pre_aggregated') {
+    const hasArgAggregations = (viewQueryDesc.measures || []).some(
+      (m: any) => m?.aggregation === 'arg_max' || m?.aggregation === 'arg_min'
+    );
+    if ((hasWindowCalcs || hasArgAggregations) && decision.strategy !== 'pre_aggregated') {
       decision.strategy = 'pre_aggregated';
       decision.requiresBackendQuery = true;
-      decision.reason += ' (overridden: window calc requires backend pre-aggregation)';
+      decision.reason += hasWindowCalcs
+        ? ' (overridden: window calc requires backend pre-aggregation)'
+        : ' (overridden: arg_max/arg_min requires backend pre-aggregation)';
     }
 
     // Cache-hit: query locally (refinement filters only).
@@ -281,7 +287,15 @@ class QueryExecutionOrchestrator {
     // Backend query required:
     // - For raw_columns we fetch a raw slice (base filters only), cache it, and locally aggregate if needed.
     // - For pre_aggregated we just return backend Arrow->rows result.
-    const arrowResult = await this.deps.apiService.executeQueryArrowRaw(fetchQueryDesc, signal);
+    //
+    // NOTE: fetchQueryDesc is built by the caller based on a *preview* decision.
+    // If the strategy was overridden above (HAVING filters, window calcs,
+    // arg_max/arg_min), fetchQueryDesc may still be the raw slice — executing it
+    // would return unaggregated rows. Use the view query unless we are actually
+    // fetching raw columns.
+    const backendQueryDesc =
+      decision.strategy === 'raw_columns' ? fetchQueryDesc : viewQueryDesc;
+    const arrowResult = await this.deps.apiService.executeQueryArrowRaw(backendQueryDesc, signal);
 
     // Cache only when we are building/refreshing a local raw slice (below threshold).
     if (decision.strategy === 'raw_columns' && arrowResult.arrowTable && arrowResult.arrowTable.numRows > 0) {

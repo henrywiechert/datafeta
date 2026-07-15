@@ -11,6 +11,7 @@ import DateTimePartMenu from '../../DateTime/DateTimePartMenu';
 import { isSyntheticField } from '../../../utils/syntheticFields';
 import { FieldMenuConfig } from './fieldMenuConfig';
 import { useDataSource } from '../../../contexts/DataSourceContext';
+import { useDataSourceMetadata } from '../../../contexts/DataSourceContext/hooks';
 import { VisualizationContext } from '../../../contexts/VisualizationContext';
 import { WINDOW_CALC_OPTIONS, hasWindowCalcOrderByDimension } from '../../../utils/windowCalcUtils';
 
@@ -38,16 +39,21 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
   const [castingDialogOpen, setCastingDialogOpen] = useState(false);
   const [aliasPopoverAnchor, setAliasPopoverAnchor] = useState<HTMLElement | null>(null);
   const { setFieldAlias } = useDataSource();
+  const { availableFields } = useDataSourceMetadata();
   // Optional: only present when rendered inside a VisualizationProvider.
   // Used to decide whether a window calc (table calculation) is applicable,
   // which requires an ordering dimension (e.g. timeline bucket) on the shelves.
+  // Tooltip fields count: they are merged into the query as dimensions and can
+  // define the grain (e.g. Day timeline) without being plotted on an axis.
   const vizContext = useContext(VisualizationContext);
   const shelfFields = vizContext
-    ? [...vizContext.state.xAxisFields, ...vizContext.state.yAxisFields]
+    ? [
+        ...vizContext.state.xAxisFields,
+        ...vizContext.state.yAxisFields,
+        ...vizContext.state.tooltipFields,
+      ]
     : [];
   const windowCalcEligible = hasWindowCalcOrderByDimension(shelfFields);
-  // Offer the submenu when applicable, or when a calc is already set (to allow clearing it)
-  const showWindowCalcMenu = windowCalcEligible || Boolean(field.windowCalc);
   
   // Check if we're in bulk edit mode
   const isBulkEdit = selectedFields.length > 1;
@@ -70,6 +76,15 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
   const isSynthetic = isSyntheticField(field);
   const canChangeType = field.isTypeChangeable !== false && !isSynthetic;
   const canChangeFlavour = field.isFlavourChangeable !== false && !isSynthetic;
+
+  // Candidate ordering columns for arg_max/arg_min ("Latest/Earliest value by <col>").
+  // Virtual columns are excluded: aggregation_arg is resolved as a plain field
+  // reference on the backend, not through the virtual column builder.
+  const datetimeArgColumns = availableFields.filter(
+    (f: Field) => f.dataType === 'datetime' && !isSyntheticField(f) && !f.is_virtual
+  );
+  const showArgAggregations =
+    !isSynthetic && availableAggregations.length > 0 && datetimeArgColumns.length > 0;
   
   // For bulk edit, check if all selected fields can perform the operation
   const allCanBeMeasure = isBulkEdit ? selectedFields.every(f => canBeMeasure(f)) : isFieldMeasure;
@@ -228,16 +243,59 @@ const FieldMenuItems: React.FC<FieldMenuItemsProps> = ({
       {menuConfig.allowAggregationChange && allAreMeasures && availableAggregations.length > 0 && <div className={menuStyles.separator} />}
 
       {menuConfig.allowAggregationChange && allAreMeasures && availableAggregations.map(agg => (
-        <div key={agg} className={menuStyles.menuItem} onClick={() => onUpdate({ aggregation: agg })}>
+        <div key={agg} className={menuStyles.menuItem} onClick={() => onUpdate({ aggregation: agg, aggregationArg: undefined })}>
           {agg} {!isBulkEdit && field.aggregation === agg && '✔'}
         </div>
       ))}
 
+      {/* Latest/Earliest value (arg_max/arg_min): value at the row where the
+          chosen datetime column is maximal/minimal, e.g. closing weight per day */}
+      {menuConfig.allowAggregationChange && allAreMeasures && showArgAggregations && (
+        <>
+          {([['arg_max', 'Latest value'], ['arg_min', 'Earliest value']] as const).map(([agg, label]) => {
+            const isActive = !isBulkEdit && field.aggregation === agg;
+            if (datetimeArgColumns.length === 1) {
+              const col = datetimeArgColumns[0].columnName;
+              return (
+                <div
+                  key={agg}
+                  className={menuStyles.menuItem}
+                  onClick={() => onUpdate({ aggregation: agg, aggregationArg: col })}
+                >
+                  {label} (by {col}) {isActive && '✔'}
+                </div>
+              );
+            }
+            return (
+              <SubMenu key={agg} label={`${label} (by …)${isActive ? ' ✔' : ''}`}>
+                {datetimeArgColumns.map((c: Field) => (
+                  <div
+                    key={c.columnName}
+                    className={menuStyles.menuItem}
+                    onClick={() => onUpdate({ aggregation: agg, aggregationArg: c.columnName })}
+                  >
+                    {c.columnName} {isActive && field.aggregationArg === c.columnName && '✔'}
+                  </div>
+                ))}
+              </SubMenu>
+            );
+          })}
+        </>
+      )}
+
       {/* Table Calculation (window calc) - measures only, needs an ordering dimension on the shelf */}
-      {menuConfig.allowAggregationChange && allAreMeasures && showWindowCalcMenu && (
+      {menuConfig.allowAggregationChange && allAreMeasures && (
         <>
           <div className={menuStyles.separator} />
           <SubMenu label={`Table Calculation${field.windowCalc ? ' ✔' : ''}`}>
+            {!windowCalcEligible && (
+              <div
+                className={menuStyles.menuItem}
+                style={{ color: '#888', fontStyle: 'italic', cursor: 'default', whiteSpace: 'normal', maxWidth: 240 }}
+              >
+                Add a date field (e.g. as Day) to an axis or Tooltip to enable table calculations
+              </div>
+            )}
             <div
               className={menuStyles.menuItem}
               onClick={() => onUpdate({ windowCalc: undefined })}

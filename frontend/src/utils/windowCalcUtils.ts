@@ -2,16 +2,17 @@
 /**
  * Window Calculation (Table Calc) Utilities
  *
- * Window calcs (difference, running sum) are computed by the backend in an
- * outer window-function SELECT over the aggregated result. They require an
- * ordering dimension (ideally a timeline datetime bucket) on the shelf; all
- * other dimensions become the PARTITION BY.
+ * Window calcs (difference, percent difference, running sum) are computed by
+ * the backend in an outer window-function SELECT over the aggregated result.
+ * They require an ordering dimension (ideally a timeline datetime bucket) on
+ * the shelf (axes or tooltip); all other dimensions become the PARTITION BY.
  */
 
 import type { Field, WindowCalcType } from '../types';
 
 export const WINDOW_CALC_OPTIONS: { value: WindowCalcType; label: string }[] = [
   { value: 'difference', label: 'Difference' },
+  { value: 'percent_difference', label: '% Difference' },
   { value: 'running_sum', label: 'Running Sum' },
 ];
 

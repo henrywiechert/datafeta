@@ -137,6 +137,30 @@ def test_running_sum_sql_shape():
            'ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "RUNNING_SUM(SUM(w))"' in sql
 
 
+def test_percent_difference_duckdb_sql_shape():
+    desc = _desc(
+        dimensions=[Dimension(field="day", flavour="continuous")],
+        measures=[_diff_measure(alias="PCT_DIFF(MAX(weight))", function="percent_difference")],
+    )
+    sql = apply_window_calcs("SELECT 1", desc, dialect=DuckDbDialect())
+    assert (
+        '("PCT_DIFF(MAX(weight))" - lag("PCT_DIFF(MAX(weight))") OVER (ORDER BY "day")) '
+        '/ nullif(lag("PCT_DIFF(MAX(weight))") OVER (ORDER BY "day"), 0) '
+        'AS "PCT_DIFF(MAX(weight))"'
+    ) in sql
+
+
+def test_percent_difference_clickhouse_uses_lag_in_frame():
+    desc = _desc(
+        dimensions=[Dimension(field="day", flavour="continuous")],
+        measures=[_diff_measure(alias="PCT_DIFF(MAX(weight))", function="percent_difference")],
+    )
+    sql = apply_window_calcs("SELECT 1", desc, dialect=ClickHouseDialect())
+    assert "lagInFrame(toNullable(`PCT_DIFF(MAX(weight))`), 1, NULL)" in sql
+    assert "nullif(" in sql
+    assert "lag(`" not in sql
+
+
 def test_skipped_when_order_by_field_not_a_dimension():
     desc = _desc(
         dimensions=[Dimension(field="category", flavour="discrete")],
@@ -291,3 +315,27 @@ def test_running_sum_execution(qs: QueryService, con):
         ("B", 1, 5.0),
         ("B", 2, 20.0),
     ]
+
+
+def test_percent_difference_execution(qs: QueryService, con):
+    desc = _desc(
+        dimensions=[
+            Dimension(field="category", flavour="discrete"),
+            Dimension(field="day", flavour="continuous"),
+        ],
+        measures=[
+            _diff_measure(
+                alias="PCT_DIFF(MAX(weight))",
+                function="percent_difference",
+                partition_by=["category"],
+            )
+        ],
+        orderBy=[OrderBy(field="category"), OrderBy(field="day")],
+    )
+    rows = con.execute(_translate(qs, desc)).fetchall()
+    # MAX(weight): A → 20, 35, 50; B → 5, 15
+    assert rows[0] == ("A", 1, None)                      # first bucket → NULL
+    assert rows[1][2] == pytest.approx(0.75)              # (35-20)/20
+    assert rows[2][2] == pytest.approx(15 / 35)           # (50-35)/35
+    assert rows[3] == ("B", 1, None)
+    assert rows[4][2] == pytest.approx(2.0)               # (15-5)/5

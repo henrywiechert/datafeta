@@ -16,10 +16,18 @@ const FieldChipLabel = forwardRef<HTMLSpanElement, FieldChipLabelProps>(
     // Get alias-aware display name function from context
     const getDisplayName = useFieldDisplayName();
     const fieldName = displayNameOverride ?? getDisplayName(field);
-    const aggregationText = field.aggregation ? ` (${field.aggregation})` : '';
-    // Table calculation marker: Δ = difference, ∑ = running sum
+    const AGGREGATION_DISPLAY: Record<string, string> = { arg_max: 'latest', arg_min: 'earliest' };
+    const aggregationText = field.aggregation
+      ? ` (${AGGREGATION_DISPLAY[field.aggregation] ?? field.aggregation})`
+      : '';
+    // Table calculation marker: Δ = difference, %Δ = percent difference, ∑ = running sum
+    const WINDOW_CALC_GLYPHS: Record<string, string> = {
+      difference: 'Δ',
+      percent_difference: '%Δ',
+      running_sum: '∑',
+    };
     const windowCalcText = field.windowCalc
-      ? ` ${field.windowCalc === 'difference' ? 'Δ' : '∑'}`
+      ? ` ${WINDOW_CALC_GLYPHS[field.windowCalc] ?? ''}`
       : '';
     const flavourText = ` [${field.flavour}]`;
     const dataTypeText = ` (${field.dataType})`;

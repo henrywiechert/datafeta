@@ -195,6 +195,11 @@ export function buildMeasureExpr(m: MeasureLike): string {
   const fn = (m.aggregation || 'sum').toLowerCase();
   const alias = quoteIdent(m.alias);
 
+  if (fn === 'arg_max' || fn === 'arg_min') {
+    // Not supported locally; the orchestrator forces backend execution for
+    // these. Fail loudly rather than silently degrading to SUM.
+    throw new Error(`Local SQL builder does not support aggregation '${fn}'`);
+  }
   if (fn === 'count') {
     if (!m.field || m.field === '*') return `COUNT(*) AS ${alias}`;
     return `COUNT(${quoteIdent(m.field)}) AS ${alias}`;

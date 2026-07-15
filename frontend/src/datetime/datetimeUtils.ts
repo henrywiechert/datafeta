@@ -77,9 +77,16 @@ export function getDateTimePartTooltip(field: Field): string | undefined {
  */
 export function getResultColumnNameForDateTime(field: Field): string {
   if (field.type === 'measure' && field.aggregation) {
-    const base = `${field.aggregation.toUpperCase()}(${field.columnName})`;
+    const aggName =
+      field.aggregation === 'arg_max' ? 'LATEST' :
+      field.aggregation === 'arg_min' ? 'EARLIEST' :
+      field.aggregation.toUpperCase();
+    const base = `${aggName}(${field.columnName})`;
     if (field.windowCalc === 'difference') {
       return `DIFF(${base})`;
+    }
+    if (field.windowCalc === 'percent_difference') {
+      return `PCT_DIFF(${base})`;
     }
     if (field.windowCalc === 'running_sum') {
       return `RUNNING_SUM(${base})`;
