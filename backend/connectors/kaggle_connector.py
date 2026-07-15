@@ -386,7 +386,7 @@ class KaggleConnector(BaseConnector):
         try:
             con = self._build_duckdb_con()
             logger.debug(f"Executing arrow query: {query}")
-            return con.execute(query).fetch_arrow_table()
+            return con.execute(query).to_arrow_table()
         except Exception as e:
             logger.exception("Error executing arrow query on Kaggle dataset")
             raise QueryExecutionError(f"Failed to execute query: {e}")
@@ -407,7 +407,7 @@ class KaggleConnector(BaseConnector):
             # Execute the user's query
             logger.debug(f"Executing query: {query}")
             result_relation = con.execute(query)
-            arrow_table = result_relation.fetch_arrow_table()
+            arrow_table = result_relation.to_arrow_table()
 
             # Extract columns and rows
             columns = []

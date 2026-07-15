@@ -175,7 +175,7 @@ class HuggingFaceConnector(BaseConnector):
         try:
             con = self._get_con()
             logger.debug("Executing HuggingFace Arrow query: %s", query)
-            return con.execute(query).fetch_arrow_table()
+            return con.execute(query).to_arrow_table()
         except QueryExecutionError:
             raise
         except Exception as e:
@@ -188,7 +188,7 @@ class HuggingFaceConnector(BaseConnector):
         try:
             con = self._get_con()
             logger.debug("Executing HuggingFace query: %s", query)
-            arrow_table = con.execute(query).fetch_arrow_table()
+            arrow_table = con.execute(query).to_arrow_table()
             columns = [
                 {"name": arrow_table.schema.field(i).name, "type": str(arrow_table.schema.field(i).type)}
                 for i in range(len(arrow_table.schema))
