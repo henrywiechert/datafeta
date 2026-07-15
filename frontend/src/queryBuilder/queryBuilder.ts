@@ -261,11 +261,26 @@ export const buildAggregatedQuery = ({
     allFieldsForQuery
     .filter((f) => f.type === 'measure')
     .map((m) => {
+      let aggregation = (m.aggregation || defaultAggFor(m)) as Measure['aggregation'];
+      let aggregationArg = m.aggregationArg;
+      if ((aggregation === 'arg_max' || aggregation === 'arg_min') && !aggregationArg) {
+        // Stale config (e.g. saved before the ordering column was removed):
+        // degrade to plain max/min instead of failing the whole query.
+        const fallback = aggregation === 'arg_max' ? 'max' : 'min';
+        console.warn(
+          `Measure ${m.columnName}: ${aggregation} without ordering column; falling back to ${fallback}`
+        );
+        aggregation = fallback;
+        aggregationArg = undefined;
+      }
       const measure: Measure = {
         field: m.columnName,
-        aggregation: (m.aggregation || defaultAggFor(m)) as any,
+        aggregation,
         alias: getResultColumnName(m),
       };
+      if (aggregationArg) {
+        measure.aggregation_arg = aggregationArg;
+      }
       if (m.windowCalc && windowOrderByName) {
         measure.window_calc = {
           function: m.windowCalc,

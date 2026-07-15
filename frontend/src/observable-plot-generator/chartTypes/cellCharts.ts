@@ -120,9 +120,19 @@ function handleScatter(data: any[], xf: Field, yf: Field, ctx: ChartContext): Pl
     ...(xDomain || yDomain ? { domain: { x: xDomain, y: yDomain } } : {}),
   };
   const hasDiscreteColor = (ctx.color.field ?? undefined)?.flavour === 'discrete';
-  
-  // Special-case: measure vs measure should be a single dot (global aggregate)
-  if (xf.type === 'measure' && yf.type === 'measure' && !hasDiscreteColor) {
+
+  // A dimension on a non-axis channel (Tooltip/Detail, Shape, or a discrete
+  // Size field) disaggregates the marks: the query is grouped by it, so the
+  // data already has one row per group and each row is its own point. Only
+  // collapse to a single global-aggregate dot when no such dimension exists.
+  const hasDetailDimension =
+    (ctx.tooltipFields || []).some((f) => f.type === 'dimension') ||
+    !!ctx.shapeField ||
+    ctx.sizeField?.type === 'dimension';
+
+  // Special-case: measure vs measure with no disaggregating dimension should be
+  // a single dot (global aggregate).
+  if (xf.type === 'measure' && yf.type === 'measure' && !hasDiscreteColor && !hasDetailDimension) {
     const single = [{
       [xCol]: aggregateValues(data, xCol, (xf as any).aggregation),
       [yCol]: aggregateValues(data, yCol, (yf as any).aggregation)

@@ -182,6 +182,33 @@ class SelectClauseBuilder:
 
         if query_desc.measures:
             for measure in query_desc.measures:
+                # arg_max/arg_min are two-argument aggregations (value column +
+                # ordering column), so they bypass the single-arg AGGREGATION_MAP.
+                if measure.aggregation in ("arg_max", "arg_min"):
+                    if not measure.aggregation_arg:
+                        raise QueryGenerationError(
+                            f"Aggregation '{measure.aggregation}' on field "
+                            f"'{measure.field}' requires 'aggregation_arg' "
+                            f"(the ordering column, e.g. a timestamp)."
+                        )
+                    field_term = self._parse_field_reference(measure.field)
+                    field_term = self._apply_cast_if_configured(
+                        measure.field, field_term, query_desc.column_casts
+                    )
+                    arg_term = self._parse_field_reference(measure.aggregation_arg)
+                    arg_term = self._apply_cast_if_configured(
+                        measure.aggregation_arg, arg_term, query_desc.column_casts
+                    )
+                    fn_name = (
+                        dialect.arg_max_function_name()
+                        if measure.aggregation == "arg_max"
+                        else dialect.arg_min_function_name()
+                    )
+                    agg_term = CustomFunction(fn_name, [field_term, arg_term])
+                    select_fields.append(agg_term.as_(measure.alias))
+                    all_aliases.add(measure.alias)
+                    continue
+
                 agg_func_builder = aggregation_map.get(measure.aggregation)
                 if not agg_func_builder:
                     raise QueryGenerationError(

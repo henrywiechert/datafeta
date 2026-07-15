@@ -13,15 +13,20 @@ class WindowCalc(BaseModel):
     query's dimensions (e.g. ``ts_day_timeline``), not raw column names, because
     the calculation runs in an outer SELECT wrapped around the aggregated query.
     """
-    function: Literal['difference', 'running_sum']
+    function: Literal['difference', 'percent_difference', 'running_sum']
     order_by_field: str
     partition_by: List[str] = []
 
 
 class Measure(BaseModel):
     field: str
-    aggregation: Literal['sum', 'avg', 'count', 'count_distinct', 'min', 'max'] # Add more as needed
+    aggregation: Literal[
+        'sum', 'avg', 'count', 'count_distinct', 'min', 'max', 'arg_max', 'arg_min'
+    ]
     alias: str
+    # Ordering column for arg_max/arg_min ("value of `field` at the row where
+    # `aggregation_arg` is maximal/minimal"). Required for those aggregations.
+    aggregation_arg: Optional[str] = None
     # Optional table calculation (e.g. per-bucket difference) computed over the
     # aggregated result in an outer window-function SELECT.
     window_calc: Optional[WindowCalc] = None

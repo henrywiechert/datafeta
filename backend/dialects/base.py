@@ -112,6 +112,22 @@ class SqlDialect(ABC):
         """
 
     @abstractmethod
+    def arg_max_function_name(self) -> str:
+        """
+        Aggregate function returning the value of arg1 at the row where arg2 is maximal.
+
+        Returns 'argMax' for ClickHouse, 'arg_max' for DuckDB.
+        """
+
+    @abstractmethod
+    def arg_min_function_name(self) -> str:
+        """
+        Aggregate function returning the value of arg1 at the row where arg2 is minimal.
+
+        Returns 'argMin' for ClickHouse, 'arg_min' for DuckDB.
+        """
+
+    @abstractmethod
     def to_epoch_expr(self, field: str) -> str:
         """
         Convert timestamp field to unix epoch seconds.

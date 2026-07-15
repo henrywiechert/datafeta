@@ -39,6 +39,12 @@ class TestClickHouseDialect:
     def test_count_distinct_expr(self, dialect: ClickHouseDialect):
         assert dialect.count_distinct_expr('field') == 'uniq(field)'
 
+    def test_arg_max_function_name(self, dialect: ClickHouseDialect):
+        assert dialect.arg_max_function_name() == 'argMax'
+
+    def test_arg_min_function_name(self, dialect: ClickHouseDialect):
+        assert dialect.arg_min_function_name() == 'argMin'
+
     def test_to_epoch_expr(self, dialect: ClickHouseDialect):
         assert dialect.to_epoch_expr('ts') == 'toUnixTimestamp(ts)'
 
@@ -120,6 +126,12 @@ class TestDuckDbDialect:
     def test_count_distinct_expr(self, dialect: DuckDbDialect):
         assert dialect.count_distinct_expr('field') == 'COUNT(DISTINCT field)'
 
+    def test_arg_max_function_name(self, dialect: DuckDbDialect):
+        assert dialect.arg_max_function_name() == 'arg_max'
+
+    def test_arg_min_function_name(self, dialect: DuckDbDialect):
+        assert dialect.arg_min_function_name() == 'arg_min'
+
     def test_to_epoch_expr(self, dialect: DuckDbDialect):
         assert dialect.to_epoch_expr('ts') == 'epoch(ts)'
 
@@ -185,6 +197,12 @@ class TestDialectInterface:
 
     def test_count_distinct_returns_string(self, dialect: SqlDialect):
         assert isinstance(dialect.count_distinct_expr('x'), str)
+
+    def test_arg_max_function_name_returns_string(self, dialect: SqlDialect):
+        assert isinstance(dialect.arg_max_function_name(), str)
+
+    def test_arg_min_function_name_returns_string(self, dialect: SqlDialect):
+        assert isinstance(dialect.arg_min_function_name(), str)
 
     def test_to_epoch_returns_string(self, dialect: SqlDialect):
         assert isinstance(dialect.to_epoch_expr('x'), str)

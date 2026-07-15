@@ -59,6 +59,15 @@ Values are placed on a linear scale; every standard aggregation applies.
 Count-like or integer-range fields: star ratings, boolean flags, small enumerations.  
 Treated categorically even though the underlying data type is numeric.
 
+### Latest / Earliest value
+
+Besides the standard aggregations (sum, average, min, max, count, …), a measure can use **Latest value** or **Earliest value**: the value of the field at the row where a chosen datetime column is largest or smallest within each group. This is the natural "closing value per bucket" for gauge-like columns — e.g. the closing weight of a hive per day, rather than its sum or average.
+
+Right-click a measure chip and choose **Latest value (by …)** / **Earliest value (by …)**. If the table has a single datetime column it is used automatically; otherwise pick the ordering column from the submenu.
+
+!!! note
+    Latest/Earliest value is not yet available on stacked (union) tables.
+
 Drag Measures to:
 
 - **X axis** or **Y axis** — to compute an aggregate for each group
@@ -71,9 +80,19 @@ Drag Measures to:
 A measure on an axis can carry a **table calculation** — a second computation applied *after* aggregation:
 
 - **Difference** — the change relative to the previous bucket. Useful for cumulative columns (e.g. an ever-increasing `weight` gauge): bucket the time axis by day or week and the chart shows the *increase per day/week*. The first bucket of each series is empty (there is no previous value).
+- **% Difference** — the change relative to the previous bucket as a fraction of that bucket's value (`0.05` = +5 %). Empty for the first bucket of each series and when the previous value is 0.
 - **Running Sum** — the cumulative total up to and including each bucket.
 
-Right-click a measure chip on an axis and choose **Table Calculation**. The option requires an ordering dimension on the shelf — typically a datetime field with a timeline bucket (day, week, month, …); any other dimensions (colour, facets) each get their own independent series. If the ordering dimension is later removed, the calculation is ignored until one is added again.
+Right-click a measure chip on an axis and choose **Table Calculation**. The option requires an ordering dimension on the shelf — typically a datetime field with a timeline bucket (day, week, month, …); any other dimensions (colour, facets) each get their own independent series. The ordering dimension may also live on the **Tooltip** shelf — handy for measure-vs-measure scatter plots where the time bucket defines the grain but is not plotted. If the ordering dimension is later removed, the calculation is ignored until one is added again.
+
+!!! example "Daily weight increase vs. temperature"
+    To plot the *per-day increase of a hive's closing weight* against the *daily maximum temperature* as a scatter chart:
+
+    1. Drag `timestamp` to **Tooltip** and set it to **Day** (timeline) — this defines the per-day grain.
+    2. Drag `hive_weight` to **X**, choose **Latest value (by timestamp)**, then **Table Calculation → Difference**.
+    3. Drag `temperature` to **Y**, choose **max**.
+
+    Each point is one day; hovering shows the date.
 
 !!! note
     Gaps in the time series are not filled in: if a bucket has no data, **Difference** compares against the last bucket that *does* have data.

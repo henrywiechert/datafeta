@@ -208,4 +208,86 @@ describe('QueryExecutionOrchestrator', () => {
     expect(mockColumnCacheManager.cacheColumns).toHaveBeenCalled();
     expect(mockDuckDBService.query).toHaveBeenCalled(); // Local aggregation
   });
+
+  test('window calc override executes the view query, not the raw slice', async () => {
+    // Decision preview said raw_columns (small table), so the caller passed a
+    // raw slice as fetchQueryDesc. The window-calc override must flip to
+    // pre_aggregated AND execute the aggregated view query — otherwise the
+    // chart receives unaggregated raw rows.
+    const decision: QueryDecision = {
+      strategy: 'raw_columns',
+      requiresBackendQuery: true,
+      baseFilterHash: 'hash123',
+      reason: 'test',
+    };
+    mockQueryDecisionEngine.decide.mockResolvedValue(decision);
+
+    const viewQueryDesc = {
+      target_table: 'test_table',
+      dimensions: [{ field: 'ts', flavour: 'continuous', date_part: 'day', date_mode: 'timeline' }],
+      measures: [
+        {
+          field: 'weight',
+          aggregation: 'max',
+          alias: 'DIFF(MAX(weight))',
+          window_calc: { function: 'difference', order_by_field: 'ts_day_timeline', partition_by: [] },
+        },
+      ],
+    } as any;
+    const rawSlice = { target_table: 'test_table', force_raw_rows: true } as any;
+
+    mockApiService.executeQueryArrowRaw.mockResolvedValue({
+      arrowTable: { numRows: 0, schema: { fields: [] }, getChild: jest.fn() },
+      columns: [{ name: 'DIFF(MAX(weight))', type: 'double' }],
+      rowCount: 0,
+      rows: [],
+    });
+
+    const result = await orchestrator.execute({
+      ...mockInput,
+      viewQueryDesc,
+      fetchQueryDesc: rawSlice,
+      requiresAggregation: true,
+    });
+
+    expect(result.decision?.strategy).toBe('pre_aggregated');
+    expect(mockApiService.executeQueryArrowRaw).toHaveBeenCalledWith(viewQueryDesc, undefined);
+    expect(mockApiService.executeQueryArrowRaw).not.toHaveBeenCalledWith(rawSlice, undefined);
+  });
+
+  test('arg_max aggregation override executes the view query, not the raw slice', async () => {
+    const decision: QueryDecision = {
+      strategy: 'raw_columns',
+      requiresBackendQuery: true,
+      baseFilterHash: 'hash123',
+      reason: 'test',
+    };
+    mockQueryDecisionEngine.decide.mockResolvedValue(decision);
+
+    const viewQueryDesc = {
+      target_table: 'test_table',
+      dimensions: [{ field: 'ts', flavour: 'continuous', date_part: 'day', date_mode: 'timeline' }],
+      measures: [
+        { field: 'weight', aggregation: 'arg_max', aggregation_arg: 'ts', alias: 'LATEST(weight)' },
+      ],
+    } as any;
+    const rawSlice = { target_table: 'test_table', force_raw_rows: true } as any;
+
+    mockApiService.executeQueryArrowRaw.mockResolvedValue({
+      arrowTable: { numRows: 0, schema: { fields: [] }, getChild: jest.fn() },
+      columns: [{ name: 'LATEST(weight)', type: 'double' }],
+      rowCount: 0,
+      rows: [],
+    });
+
+    const result = await orchestrator.execute({
+      ...mockInput,
+      viewQueryDesc,
+      fetchQueryDesc: rawSlice,
+      requiresAggregation: true,
+    });
+
+    expect(result.decision?.strategy).toBe('pre_aggregated');
+    expect(mockApiService.executeQueryArrowRaw).toHaveBeenCalledWith(viewQueryDesc, undefined);
+  });
 });

@@ -2,9 +2,9 @@
 """Post-aggregation window calculation wrapper (table calculations).
 
 Measures can carry a :class:`~backend.models.query.WindowCalc` describing a
-calculation (per-bucket difference, running sum) computed over the *aggregated*
-result.  Window functions run after GROUP BY, so this module wraps the fully
-compiled aggregated SQL in an outer SELECT:
+calculation (per-bucket difference, percent difference, running sum) computed
+over the *aggregated* result.  Window functions run after GROUP BY, so this
+module wraps the fully compiled aggregated SQL in an outer SELECT:
 
     SELECT
         "ts_day_timeline",
@@ -26,7 +26,8 @@ Invariants / guards:
   frontend behaviour of ignoring stale calcs after shelf changes.
 - Applied exactly once at the top level of ``translate_to_sql`` (union
   sub-queries are translated with window calcs stripped).
-- First row of each partition yields NULL for 'difference'.
+- First row of each partition yields NULL for 'difference' and
+  'percent_difference' (and the latter also when the previous value is 0).
 """
 
 from __future__ import annotations
@@ -100,6 +101,15 @@ def _windowed_measure_expr(
     if calc.function == "difference":
         lag_sql = dialect.lag_expression(quoted_alias, over_content)
         return f"{quoted_alias} - {lag_sql} AS {quoted_alias}"
+
+    if calc.function == "percent_difference":
+        # Fractional change vs. previous bucket (0.05 = +5%). NULL on the first
+        # row of each partition (lag is NULL) and when the previous value is 0
+        # (nullif guards division by zero on both dialects).
+        lag_sql = dialect.lag_expression(quoted_alias, over_content)
+        return (
+            f"({quoted_alias} - {lag_sql}) / nullif({lag_sql}, 0) AS {quoted_alias}"
+        )
 
     if calc.function == "running_sum":
         # Identical syntax on ClickHouse and DuckDB.

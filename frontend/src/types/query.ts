@@ -20,7 +20,7 @@ export type ColumnCasts = Record<string, ColumnCastConfig>;
 // --- Query Building Types --- //
 
 export interface WindowCalc {
-  function: 'difference' | 'running_sum';
+  function: 'difference' | 'percent_difference' | 'running_sum';
   /** Output alias of the ordering dimension (e.g. "ts_day_timeline") */
   order_by_field: string;
   /** Output aliases of the partitioning dimensions (all other dims) */
@@ -29,8 +29,10 @@ export interface WindowCalc {
 
 export interface Measure {
   field: string;
-  aggregation: 'sum' | 'avg' | 'count' | 'count_distinct' | 'min' | 'max';
+  aggregation: 'sum' | 'avg' | 'count' | 'count_distinct' | 'min' | 'max' | 'arg_max' | 'arg_min';
   alias: string;
+  /** Ordering column for arg_max/arg_min (value at the row where this column is max/min) */
+  aggregation_arg?: string;
   /** Optional post-aggregation table calculation (computed via window functions) */
   window_calc?: WindowCalc;
 }

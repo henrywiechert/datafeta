@@ -90,6 +90,12 @@ class ClickHouseDialect(SqlDialect):
     def count_distinct_expr(self, field: str) -> str:
         return f"uniq({field})"
 
+    def arg_max_function_name(self) -> str:
+        return 'argMax'
+
+    def arg_min_function_name(self) -> str:
+        return 'argMin'
+
     def to_epoch_expr(self, field: str) -> str:
         return f"toUnixTimestamp({field})"
 
