@@ -1,7 +1,7 @@
 # Multi-stage build: frontend (React) + backend (FastAPI)
 
 # ===== Frontend build stage =====
-FROM node:22-alpine AS frontend-build
+FROM node:24-alpine AS frontend-build
 WORKDIR /app/frontend
 
 RUN apk add --no-cache git
