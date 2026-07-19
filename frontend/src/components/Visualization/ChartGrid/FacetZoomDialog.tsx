@@ -5,6 +5,19 @@ import CloseIcon from '@mui/icons-material/Close';
 import * as Plot from '@observablehq/plot';
 import { GridResultModel, getPlotGridCellById } from '../../../observable-plot-generator/gridModel';
 import ObservablePlot from '../ObservablePlot';
+import { formatNumericTick, isContinuousNumericDomain } from '../../../observable-plot-generator/utils/numericTickFormat';
+
+/**
+ * Default a continuous numeric axis to the compact SI tick formatter, matching
+ * the external gutter axes (XAxes/YAxes). The zoom dialog renders the cell's
+ * own scale options directly, so without this large values would fall back to
+ * Observable Plot defaults (full numbers) here.
+ */
+function withCompactNumericTicks(axisOptions: any): any {
+  if (!axisOptions || axisOptions.tickFormat !== undefined) return axisOptions;
+  if (!isContinuousNumericDomain(axisOptions.domain, axisOptions.type)) return axisOptions;
+  return { ...axisOptions, tickFormat: formatNumericTick };
+}
 
 interface FacetZoomDialogProps {
   grid: GridResultModel;
@@ -35,8 +48,12 @@ const FacetZoomDialog: React.FC<FacetZoomDialogProps> = ({
   // (calibrated for its default 10px font). At 14px that under-estimates by 40%, so we
   // supply an explicit marginLeft sized for 14px: ~9px/char × up to 8 chars + 8px padding.
   const { marginLeft: _ml, marginRight: _mr, marginTop: _mt, marginBottom: _mb, ...restOptions } = cell.content.options as any;
+  const xAxis = withCompactNumericTicks(restOptions.x);
+  const yAxis = withCompactNumericTicks(restOptions.y);
   const zoomedOptions: Plot.PlotOptions = {
     ...restOptions,
+    ...(xAxis ? { x: xAxis } : {}),
+    ...(yAxis ? { y: yAxis } : {}),
     marginLeft: 80,
     marginBottom: 50,
     style: { ...(restOptions.style ?? {}), fontSize: '14px' },
