@@ -296,4 +296,34 @@ describe('layoutUtils', () => {
 
     expect(computeDynamicYAxisGutterPx(grid, 1, null)).toBe(130);
   });
+
+  it('sizes a numeric Y-axis gutter from compact SI endpoint labels', () => {
+    const grid = buildGrid({
+      cells: [
+        {
+          id: 'r0',
+          position: { row: 0, col: 0 },
+          content: {
+            kind: 'plot',
+            options: {
+              y: {
+                domain: [0, 2_000_000],
+              },
+            },
+          },
+        } as any,
+      ],
+      layout: {
+        type: 'grid',
+        columns: 1,
+        rows: 1,
+        columnSizes: ['fr'],
+        rowSizes: ['fr'],
+      },
+    });
+
+    // Endpoints size as "0" / "2M" (compact) rather than the raw "2000000",
+    // so the gutter collapses to the minimum width.
+    expect(computeDynamicYAxisGutterPx(grid, 1, null)).toBe(28);
+  });
 });

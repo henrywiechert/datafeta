@@ -8,6 +8,11 @@ import AxisLabel from './AxisLabel';
 import AxisLabelStylePopover from './AxisLabelStylePopover';
 import { XAxisLabelStyle } from '../../../contexts/VisualizationContext/types';
 import { TEXT_PX_PER_CHAR } from './utils/layoutUtils';
+import { formatNumericTick, isContinuousNumericDomain } from '../../../observable-plot-generator/utils/numericTickFormat';
+
+// Approximate horizontal room per numeric tick label; keeps narrow/faceted
+// columns from crowding ticks together.
+const NUMERIC_X_TICK_SPACING_PX = 70;
 
 interface XAxesProps {
   grid: GridResultModel;
@@ -34,6 +39,7 @@ function buildXAxisOptions(
   padding?: number,
   ticks?: any,
   tickFormat?: any,
+  tickSpacing?: number,
 ) {
   // If the cell options explicitly say 'band', respect that — it's a categorical
   // axis regardless of whether the values look like dates.
@@ -66,6 +72,7 @@ function buildXAxisOptions(
       nice: false,
       ...(padding !== undefined && isCategorical ? { padding } : {}),
       ...(ticks !== undefined ? { ticks } : {}),
+      ...(tickSpacing !== undefined ? { tickSpacing } : {}),
       ...(tickFormat !== undefined ? { tickFormat } : {}),
       ...(maxTicksForBand ? { ticks: maxTicksForBand } : {}),
     },
@@ -113,6 +120,11 @@ const XAxes: React.FC<XAxesProps> = ({
             const xPadding = (sample?.content.options as any)?.x?.padding;
             const xTicks = (sample?.content.options as any)?.x?.ticks;
             const xTickFormat = (sample?.content.options as any)?.x?.tickFormat;
+            // Default continuous numeric axes to a compact SI formatter so large
+            // values render as "2M" rather than overlapping full numbers.
+            const xIsNumeric = isContinuousNumericDomain(xDomain, xType);
+            const effectiveXTickFormat = xTickFormat ?? (xIsNumeric ? formatNumericTick : undefined);
+            const xTickSpacing = xIsNumeric && xTicks === undefined ? NUMERIC_X_TICK_SPACING_PX : undefined;
             const xRotate = xType === 'band' ? -90 : 0;
             return (
               <div
@@ -123,7 +135,7 @@ const XAxes: React.FC<XAxesProps> = ({
                   borderTop: `1px solid ${GRID_DIVIDER_COLOR}`,
                 }}
               >
-                <ObservablePlot options={{ ...buildXAxisOptions(xLabel, xDomain, dynamicXAxisPx, xType, xPadding, xTicks, xTickFormat), marks: [Plot.axisX({ tickRotate: xRotate as any, ...(xTicks !== undefined ? { ticks: xTicks } : {}), ...(xTickFormat !== undefined ? { tickFormat: xTickFormat } : {}), ...(xType === 'band' ? { textOverflow: 'ellipsis', lineWidth: tickLineWidth } : {}) })] as any }} />
+                <ObservablePlot options={{ ...buildXAxisOptions(xLabel, xDomain, dynamicXAxisPx, xType, xPadding, xTicks, effectiveXTickFormat, xTickSpacing), marks: [Plot.axisX({ tickRotate: xRotate as any, ...(xTicks !== undefined ? { ticks: xTicks } : {}), ...(xTickSpacing !== undefined ? { tickSpacing: xTickSpacing } : {}), ...(effectiveXTickFormat !== undefined ? { tickFormat: effectiveXTickFormat } : {}), ...(xType === 'band' ? { textOverflow: 'ellipsis', lineWidth: tickLineWidth } : {}) })] as any }} />
               </div>
             );
           })}

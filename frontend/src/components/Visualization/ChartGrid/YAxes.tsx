@@ -5,6 +5,7 @@ import ObservablePlot from '../ObservablePlot';
 import { GridResultModel, getPlotGridCellAtRow } from '../../../observable-plot-generator/gridModel';
 import { MIN_GRID_ROW_PX, GRID_DIVIDER_COLOR } from '../../../config/chartLayoutConfig';
 import { TEXT_PX_PER_CHAR } from './utils/layoutUtils';
+import { formatNumericTick, isContinuousNumericDomain } from '../../../observable-plot-generator/utils/numericTickFormat';
 
 interface YAxesProps {
   grid: GridResultModel;
@@ -67,6 +68,10 @@ const YAxes: React.FC<YAxesProps> = ({ grid, rows, dynamicYAxisPx, rowHeights, h
         const yPadding = (sample?.content.options as any)?.y?.padding;
         const yTicks = (sample?.content.options as any)?.y?.ticks;
         const yTickFormat = (sample?.content.options as any)?.y?.tickFormat;
+        // Default continuous numeric axes to a compact SI formatter so large
+        // values render as "2M" rather than long, gutter-widening numbers.
+        const yIsNumeric = isContinuousNumericDomain(yDomain, yType);
+        const effectiveYTickFormat = yTickFormat ?? (yIsNumeric ? formatNumericTick : undefined);
         const trackHeightPx = Math.max(1, rowHeights[r] ?? MIN_GRID_ROW_PX);
         return (
           <div
@@ -79,7 +84,7 @@ const YAxes: React.FC<YAxesProps> = ({ grid, rows, dynamicYAxisPx, rowHeights, h
               borderBottom: r < rows - 1 ? `1px solid ${GRID_DIVIDER_COLOR}` : undefined,
             }}
           >
-            <ObservablePlot options={{ ...buildYAxisOptions(yDomain, dynamicYAxisPx, yType, yPadding, yTicks, yTickFormat), height: trackHeightPx, marks: [Plot.axisY({ ...(yTicks !== undefined ? { ticks: yTicks } : {}), ...(yTickFormat !== undefined ? { tickFormat: yTickFormat } : {}), ...(yType === 'band' ? { textOverflow: 'ellipsis', lineWidth: tickLineWidth } : {}) })] as any }} />
+            <ObservablePlot options={{ ...buildYAxisOptions(yDomain, dynamicYAxisPx, yType, yPadding, yTicks, effectiveYTickFormat), height: trackHeightPx, marks: [Plot.axisY({ ...(yTicks !== undefined ? { ticks: yTicks } : {}), ...(effectiveYTickFormat !== undefined ? { tickFormat: effectiveYTickFormat } : {}), ...(yType === 'band' ? { textOverflow: 'ellipsis', lineWidth: tickLineWidth } : {}) })] as any }} />
           </div>
         );
       })}

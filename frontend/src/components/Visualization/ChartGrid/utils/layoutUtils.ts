@@ -17,6 +17,7 @@ import {
 } from '../../../../contexts/VisualizationContext/types';
 import { UserChartType } from '../../../../types';
 import { formatFacetValue } from './facetLabelUtils';
+import { formatNumericTick } from '../../../../observable-plot-generator/utils/numericTickFormat';
 import type { CSSProperties } from 'react';
 
 // Fallback only: used when real text measurement (canvas) is unavailable, e.g.
@@ -228,9 +229,14 @@ export function computeDynamicYAxisGutterPx(grid: GridResultModel | null, rows: 
       const longest = Math.min(estimateLongestTickPx(yDomain), MAX_Y_BAND_TICK_WIDTH_PX);
       tickWidth = longest + 10; // padding
     } else if (Array.isArray(yDomain) && yDomain.length === 2) {
-      // Numeric axis: endpoints only (ticks are generated inside ObservablePlot)
+      // Numeric/date axis: endpoints only (ticks are generated inside ObservablePlot).
+      // Numeric endpoints are sized with the same compact formatter the axis
+      // renders with, so the gutter matches the actual "2M"-style labels rather
+      // than the raw "2000000".
       const [a, b] = yDomain;
-      tickWidth = Math.max(estimateTextPx(String(a)), estimateTextPx(String(b))) + 6; // small padding
+      const sizeEndpoint = (v: any): string =>
+        typeof v === 'number' && Number.isFinite(v) ? formatNumericTick(v) : String(v);
+      tickWidth = Math.max(estimateTextPx(sizeEndpoint(a)), estimateTextPx(sizeEndpoint(b))) + 6; // small padding
     }
     const rowWidth = Math.max(MIN_Y_AXIS_GUTTER_PX, tickWidth);
     if (rowWidth > maxWidth) maxWidth = rowWidth;
