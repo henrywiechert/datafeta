@@ -97,6 +97,65 @@ function estimateTextPxForFont(text: string, fontSize: number): number {
   return Math.ceil(text.length * fontSize * 0.6);
 }
 
+// Zoom Facet reserves a wider left gutter for band (categorical) Y axes than the
+// grid does: the dialog is large, so we can afford to show more of long labels
+// before falling back to ellipsis.
+const ZOOM_BAND_Y_FONT_PX = 14;
+const ZOOM_BAND_Y_MIN_MARGIN_PX = 48;
+const ZOOM_BAND_Y_MAX_MARGIN_PX = 220;
+const ZOOM_BAND_Y_PADDING_PX = 12;
+
+/**
+ * Size the left margin (and Observable Plot `lineWidth`, in ems) for a band Y
+ * axis in the Zoom Facet dialog. The margin fits the longest raw category label
+ * at `fontSizePx`, clamped to a sensible min/max; `lineWidthEm` matches the
+ * reserved text width so Plot ellipses overflow with "…" instead of hard-clipping.
+ */
+export function computeZoomBandYAxis(
+  domain: unknown[] | undefined,
+  fontSizePx: number = ZOOM_BAND_Y_FONT_PX,
+): { marginPx: number; lineWidthEm: number } {
+  const longest = Array.isArray(domain)
+    ? domain.reduce<number>(
+        (max, value) => Math.max(max, estimateTextPxForFont(String(value ?? ''), fontSizePx)),
+        0,
+      )
+    : 0;
+  const marginPx = Math.min(
+    ZOOM_BAND_Y_MAX_MARGIN_PX,
+    Math.max(ZOOM_BAND_Y_MIN_MARGIN_PX, longest + ZOOM_BAND_Y_PADDING_PX),
+  );
+  const lineWidthEm = Math.max(3, (marginPx - ZOOM_BAND_Y_PADDING_PX) / fontSizePx);
+  return { marginPx, lineWidthEm };
+}
+
+// Zoom Facet band-X (vertical charts): horizontal single-line ellipsis.
+// Multi-line wrapping was abandoned (Plot textOverflow/lineWidth is unreliable
+// for wrap). lineWidth is sized from an assumed dialog width / category count.
+const ZOOM_BAND_X_FONT_PX = 14;
+const ZOOM_BAND_X_MARGIN_BOTTOM_PX = 50;
+const ZOOM_BAND_X_ASSUMED_PLOT_WIDTH_PX = 900;
+const ZOOM_BAND_X_SIDE_GUTTER_PX = 100;
+const ZOOM_BAND_X_MIN_LINE_WIDTH_EM = 3;
+
+/**
+ * Bottom margin + Plot lineWidth (ems) for horizontal band-X tick ellipsis in Zoom.
+ */
+export function computeZoomBandXAxis(
+  categoryCount: number = 1,
+  fontSizePx: number = ZOOM_BAND_X_FONT_PX,
+  plotWidthPx: number = ZOOM_BAND_X_ASSUMED_PLOT_WIDTH_PX,
+): {
+  marginBottomPx: number;
+  lineWidthEm: number;
+} {
+  const count = Math.max(1, categoryCount);
+  const usablePx = Math.max(120, plotWidthPx - ZOOM_BAND_X_SIDE_GUTTER_PX);
+  const bandWidthPx = Math.max(24, usablePx / count);
+  const lineWidthEm = Math.max(ZOOM_BAND_X_MIN_LINE_WIDTH_EM, bandWidthPx / fontSizePx);
+  return { marginBottomPx: ZOOM_BAND_X_MARGIN_BOTTOM_PX, lineWidthEm };
+}
+
 function shouldUseTableHorizontalFacetValues(style: FacetLeftValuesLabelStyle): boolean {
   return style.orientation === 'vertical' && (style.orientationByDepth?.length ?? 0) === 0;
 }

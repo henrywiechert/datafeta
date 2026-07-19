@@ -6,6 +6,7 @@ import * as Plot from '@observablehq/plot';
 import { GridResultModel, getPlotGridCellById } from '../../../observable-plot-generator/gridModel';
 import ObservablePlot from '../ObservablePlot';
 import { formatNumericTick, isContinuousNumericDomain } from '../../../observable-plot-generator/utils/numericTickFormat';
+import { computeZoomBandXAxis, computeZoomBandYAxis } from './utils/layoutUtils';
 
 /**
  * Default a continuous numeric axis to the compact SI tick formatter, matching
@@ -43,19 +44,66 @@ const FacetZoomDialog: React.FC<FacetZoomDialogProps> = ({
 
   if (!cell) return null;
 
-  // Strip explicit margins from the grid-optimised options.
-  // Observable Plot auto-computes margins from tick label character count using ~6.5px/char
-  // (calibrated for its default 10px font). At 14px that under-estimates by 40%, so we
-  // supply an explicit marginLeft sized for 14px: ~9px/char × up to 8 chars + 8px padding.
-  const { marginLeft: _ml, marginRight: _mr, marginTop: _mt, marginBottom: _mb, ...restOptions } = cell.content.options as any;
+  // Strip explicit margins AND intrinsic width/height from the grid-optimised
+  // options. Grid cells size themselves via CSS grid tracks (bar/tick-strip) or
+  // baked-in width/height (box-plot); in the dialog we want every chart type to
+  // fill the container instead, so we drop those and let ObservablePlot use the
+  // observed dialog size.
+  const {
+    marginLeft: _ml,
+    marginRight: _mr,
+    marginTop: _mt,
+    marginBottom: _mb,
+    width: _w,
+    height: _h,
+    ...restOptions
+  } = cell.content.options as any;
   const xAxis = withCompactNumericTicks(restOptions.x);
   const yAxis = withCompactNumericTicks(restOptions.y);
+
+  // Band Y (horizontal charts): size left margin from longest label + ellipsis.
+  const yIsBand = yAxis?.type === 'band' && Array.isArray(yAxis?.domain);
+  const bandY = yIsBand ? computeZoomBandYAxis(yAxis.domain) : null;
+  const marginLeft = bandY ? bandY.marginPx : 80;
+
+  // Band X (vertical charts): horizontal labels with single-line ellipsis.
+  // Clears any char-truncating tickFormat from bar options.
+  const xIsBand = xAxis?.type === 'band' && Array.isArray(xAxis?.domain);
+  const bandX = xIsBand
+    ? computeZoomBandXAxis(Array.isArray(xAxis.domain) ? xAxis.domain.length : 1)
+    : null;
+  const marginBottom = bandX ? bandX.marginBottomPx : 50;
+
+  const bandAxisMarks: Plot.Markish[] = [];
+  if (bandY) {
+    bandAxisMarks.push(
+      Plot.axisY({
+        textOverflow: 'ellipsis',
+        lineWidth: bandY.lineWidthEm,
+        title: (d: unknown) => String(d ?? ''),
+      } as any),
+    );
+  }
+  if (bandX) {
+    bandAxisMarks.push(
+      Plot.axisX({
+        textOverflow: 'ellipsis',
+        lineWidth: bandX.lineWidthEm,
+        marginBottom: bandX.marginBottomPx,
+        title: (d: unknown) => String(d ?? ''),
+      } as any),
+    );
+  }
+
   const zoomedOptions: Plot.PlotOptions = {
     ...restOptions,
-    ...(xAxis ? { x: xAxis } : {}),
-    ...(yAxis ? { y: yAxis } : {}),
-    marginLeft: 80,
-    marginBottom: 50,
+    ...(xAxis ? { x: bandX ? { ...xAxis, axis: null, tickFormat: undefined } : xAxis } : {}),
+    ...(yAxis ? { y: bandY ? { ...yAxis, axis: null } : yAxis } : {}),
+    ...(bandAxisMarks.length > 0
+      ? { marks: [...(restOptions.marks ?? []), ...bandAxisMarks] }
+      : {}),
+    marginLeft,
+    marginBottom,
     style: { ...(restOptions.style ?? {}), fontSize: '14px' },
   };
 
