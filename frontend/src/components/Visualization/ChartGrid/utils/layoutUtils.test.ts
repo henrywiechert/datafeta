@@ -9,6 +9,8 @@ import {
   computeAutoFacetTopValueHeights,
   computeDynamicXAxisGutterPx,
   computeDynamicYAxisGutterPx,
+  computeZoomBandXAxis,
+  computeZoomBandYAxis,
   computeTotalContentWidth,
   generateColumnTemplate,
   generateRowTemplate,
@@ -325,5 +327,46 @@ describe('layoutUtils', () => {
     // Endpoints size as "0" / "2M" (compact) rather than the raw "2000000",
     // so the gutter collapses to the minimum width.
     expect(computeDynamicYAxisGutterPx(grid, 1, null)).toBe(28);
+  });
+});
+
+describe('computeZoomBandYAxis', () => {
+  // With canvas measurement unavailable (mocked to null above), the helper falls
+  // back to `text.length * fontSize * 0.6`, i.e. 8.4px per char at 14px.
+
+  it('reserves the minimum margin for short labels', () => {
+    const { marginPx, lineWidthEm } = computeZoomBandYAxis(['A', 'B']);
+    expect(marginPx).toBe(48);
+    expect(lineWidthEm).toBe(3);
+  });
+
+  it('sizes the margin from the longest label for medium labels', () => {
+    // 20 chars -> ceil(20 * 8.4) = 168px; + 12px padding = 180px (within bounds).
+    const { marginPx, lineWidthEm } = computeZoomBandYAxis(['x'.repeat(20)]);
+    expect(marginPx).toBe(180);
+    // lineWidth in ems ≈ reserved text px / font size.
+    expect(lineWidthEm).toBeCloseTo((180 - 12) / 14, 5);
+  });
+
+  it('caps the margin for very long labels and keeps lineWidth aligned', () => {
+    // 40 chars -> ceil(40 * 8.4) = 336px; + 12px padding = 348px, capped to 220px.
+    const { marginPx, lineWidthEm } = computeZoomBandYAxis(['y'.repeat(40)]);
+    expect(marginPx).toBe(220);
+    expect(lineWidthEm).toBeCloseTo((220 - 12) / 14, 5);
+  });
+
+  it('falls back to the minimum margin for an empty or missing domain', () => {
+    expect(computeZoomBandYAxis([]).marginPx).toBe(48);
+    expect(computeZoomBandYAxis(undefined).marginPx).toBe(48);
+  });
+});
+
+describe('computeZoomBandXAxis', () => {
+  it('sizes horizontal ellipsis lineWidth from category count', () => {
+    const few = computeZoomBandXAxis(2, 14, 900);
+    const many = computeZoomBandXAxis(20, 14, 900);
+    expect(few.marginBottomPx).toBe(50);
+    expect(many.lineWidthEm).toBeLessThan(few.lineWidthEm);
+    expect(many.lineWidthEm).toBeGreaterThanOrEqual(3);
   });
 });
