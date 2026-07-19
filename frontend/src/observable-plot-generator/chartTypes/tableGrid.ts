@@ -289,6 +289,8 @@ interface TextRowSource {
   column: string;
   /** Display label (alias-aware). */
   label: string;
+  /** Originating field, used for value-type-aware formatting (e.g. datetimes). */
+  field: Field;
 }
 
 function normalizeLabelFieldForResultColumn(field: Field): Field {
@@ -316,6 +318,7 @@ function collectTextRowSources(input: TableGridInput): TextRowSource[] {
       source: field.type === 'measure' ? 'measure' : 'label',
       column,
       label: getFieldDisplayName(field, input.fieldAliasLookup),
+      field,
     });
   }
 
@@ -335,7 +338,7 @@ function buildTextRowsFromRow(row: any, sources: TextRowSource[]): TextGridCellR
     rows.push({
       source: src.source,
       label: src.label,
-      value: formatTooltipValue(raw),
+      value: formatTooltipValue(raw, src.field),
     });
   }
   return rows;
@@ -541,7 +544,7 @@ function resolveBandValue(field: Field, bucket: any[], column: string): string {
     .map((row) => row?.[column])
     .filter((value) => value !== undefined && value !== null);
   if (raws.length === 0) return '';
-  if (raws.length === 1) return formatTooltipValue(raws[0]);
+  if (raws.length === 1) return formatTooltipValue(raws[0], field);
 
   const aggregation = (field.aggregation
     || (field.flavour === 'continuous' ? 'sum' : 'count')) as string;
@@ -561,7 +564,7 @@ function resolveBandValue(field: Field, bucket: any[], column: string): string {
       combined = nums.reduce((acc, n) => acc + n, 0);
       break;
   }
-  return formatTooltipValue(combined);
+  return formatTooltipValue(combined, field);
 }
 
 /**

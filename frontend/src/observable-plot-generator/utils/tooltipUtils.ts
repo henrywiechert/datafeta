@@ -2,6 +2,7 @@
 import { TooltipField, Field } from '../../types';
 import { getResultColumnName, getFieldDisplayName } from '../../utils/fieldUtils';
 import { getFieldColumnName } from '../helpers/fields';
+import { formatDateTimeDisplay } from '../../datetime/datetimeDisplayFormat';
 
 /**
  * Build a tooltip-specific label for a field.
@@ -32,16 +33,39 @@ function enrichLabelWithAggregation(label: string, sourceField?: Field): string 
 }
 
 /**
- * Format a value for tooltip display with appropriate precision and formatting
+ * Whether a field's tooltip value represents a full timestamp that should be
+ * rendered as a human-readable date/time.
+ *
+ * Datetime fields extracted as a distinct part (e.g. hour 0-23, weekday 1-7)
+ * carry small integer values, not timestamps, so they are excluded.
  */
-export function formatTooltipValue(val: any): string {
+function isDateTimeDisplayField(field?: Field): boolean {
+  if (!field || field.dataType !== 'datetime') return false;
+  if (field.dateTimePart && field.dateTimeMode === 'distinct') return false;
+  // count/count_distinct on a datetime column produce integer counts, not timestamps.
+  if (field.aggregation === 'count' || field.aggregation === 'count_distinct') return false;
+  return true;
+}
+
+/**
+ * Format a value for tooltip display with appropriate precision and formatting.
+ *
+ * Datetime values (Date instances, or raw timestamps on datetime fields) are
+ * rendered as human-readable UTC strings, consistent with axis ticks and the
+ * table view. Everything else keeps its numeric/string formatting.
+ */
+export function formatTooltipValue(val: any, sourceField?: Field): string {
   if (val == null) return 'null';
+  if (val instanceof Date) {
+    return formatDateTimeDisplay(val) ?? String(val);
+  }
+  if (isDateTimeDisplayField(sourceField)) {
+    const formatted = formatDateTimeDisplay(val);
+    if (formatted != null) return formatted;
+  }
   if (typeof val === 'number') {
     if (!Number.isFinite(val)) return String(val);
     return Number.isInteger(val) ? val.toString() : val.toFixed(2);
-  }
-  if (val instanceof Date) {
-    return val.toLocaleString();
   }
   return String(val);
 }
@@ -80,7 +104,7 @@ export function createTooltipFieldsGetter(
           fields.push({
             label: getFieldDisplayName(f),
             value: value,
-            formattedValue: formatTooltipValue(value),
+            formattedValue: formatTooltipValue(value, f),
             sourceField: f,
             rawValue: value,
           });
@@ -96,7 +120,7 @@ export function createTooltipFieldsGetter(
         fields.push({ 
           label: enrichLabelWithAggregation(label, sourceField), 
           value: value,
-          formattedValue: formatTooltipValue(value),
+          formattedValue: formatTooltipValue(value, sourceField),
           sourceField,
           rawValue: value,
         });
@@ -111,7 +135,7 @@ export function createTooltipFieldsGetter(
         fields.push({ 
           label: tooltipLabel(colorField), 
           value: value,
-          formattedValue: formatTooltipValue(value),
+          formattedValue: formatTooltipValue(value, colorField),
           sourceField: colorField,
           rawValue: value,
         });
@@ -127,7 +151,7 @@ export function createTooltipFieldsGetter(
         fields.push({ 
           label: tooltipLabel(sizeField), 
           value: value,
-          formattedValue: formatTooltipValue(value),
+          formattedValue: formatTooltipValue(value, sizeField),
           sourceField: sizeField,
           rawValue: value,
         });
@@ -143,7 +167,7 @@ export function createTooltipFieldsGetter(
         fields.push({
           label: tooltipLabel(shapeField),
           value: value,
-          formattedValue: formatTooltipValue(value),
+          formattedValue: formatTooltipValue(value, shapeField),
           sourceField: shapeField,
           rawValue: value,
         });
@@ -160,7 +184,7 @@ export function createTooltipFieldsGetter(
           fields.push({ 
             label: tooltipLabel(tf), 
             value: value,
-            formattedValue: formatTooltipValue(value),
+            formattedValue: formatTooltipValue(value, tf),
             sourceField: tf,
             rawValue: value,
           });
