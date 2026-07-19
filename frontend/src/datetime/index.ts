@@ -44,5 +44,8 @@ export * from './datetimePresets';
 // Parsing and formatting
 export * from './datetimeFormatUtils';
 
+// Shared display formatter (tooltips, axis ticks, table cells)
+export * from './datetimeDisplayFormat';
+
 // UTC warnings (optional, for dev)
 export * from './utcWarnings';

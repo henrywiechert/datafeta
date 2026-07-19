@@ -19,8 +19,10 @@ function buildPinnedLineComparisonResolver(params: {
     field?: Field;
     fallbackColor: string;
   };
+  xField?: Field;
+  colorField?: Field;
 }): (datum: any) => PinnedTooltipComparison | undefined {
-  const { dotData, xColumn, yColumn, xLabel, yLabel, colorColumnName, colorContext } = params;
+  const { dotData, xColumn, yColumn, xLabel, yLabel, colorColumnName, colorContext, xField, colorField } = params;
 
   return (datum: any): PinnedTooltipComparison | undefined => {
     const selectedXKey = normalizeTooltipComparisonKey(datum?.[xColumn]);
@@ -44,7 +46,7 @@ function buildPinnedLineComparisonResolver(params: {
 
         return {
           seriesKey,
-          seriesLabel: formatTooltipValue(seriesValue),
+          seriesLabel: formatTooltipValue(seriesValue, colorField),
           colorHex: resolveColorForRow(row, colorContext.scale, colorContext.field, colorContext.fallbackColor),
           value: rowValue,
           formattedValue: formatTooltipValue(rowValue),
@@ -59,11 +61,11 @@ function buildPinnedLineComparisonResolver(params: {
       });
 
     return {
-      title: `All Values At ${formatTooltipValue(datum?.[xColumn])}`,
+      title: `All Values At ${formatTooltipValue(datum?.[xColumn], xField)}`,
       comparisonBasis: 'plotted-dots',
       xLabel,
       xValue: datum?.[xColumn],
-      xFormattedValue: formatTooltipValue(datum?.[xColumn]),
+      xFormattedValue: formatTooltipValue(datum?.[xColumn], xField),
       valueLabel: yLabel,
       items,
     };
@@ -128,6 +130,8 @@ export function attachLineTooltipMetadata(params: {
           yLabel,
           colorColumnName,
           colorContext,
+          xField,
+          colorField,
         })
       : undefined,
     getFields: createTooltipFieldsGetter(

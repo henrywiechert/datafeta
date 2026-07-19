@@ -462,7 +462,7 @@ describe('generateTableGrid', () => {
       ]);
     });
 
-    it('formats Date measure values via toLocaleString', () => {
+    it('formats Date measure values as human-readable UTC datetimes', () => {
       const region = dimField('dim-region', 'region');
       const lastSeen = measureField('m-last-seen', 'lastSeen', 'max');
       const date = new Date('2026-04-28T12:00:00Z');
@@ -477,7 +477,7 @@ describe('generateTableGrid', () => {
       const cell = grid.cells[0] as TableGridCellModel;
       expect(cell.content.kind).toBe('table-cell');
       expect(cell.content.rows).toHaveLength(1);
-      expect(cell.content.rows[0].value).toBe(date.toLocaleString());
+      expect(cell.content.rows[0].value).toBe('2026-04-28 12:00:00');
     });
 
     it('renders symbols when no label field is present even when measures are present', () => {
