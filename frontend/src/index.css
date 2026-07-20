@@ -44,39 +44,11 @@ svg tspan,
     sans-serif;
 }
 
-/* Styles for react-resizable-panels resize handles */
-[data-panel-resize-handle-id] {
+/* Styles for react-resizable-panels resize handles (v4 uses data-separator) */
+[data-separator] {
   flex: 0 0 6px;
-  background-color: #e0e0e0;
   position: relative;
-  transition: background-color 0.2s ease;
   cursor: col-resize;
-}
-
-[data-panel-resize-handle-id]:hover {
-  background-color: #1976d2;
-}
-
-[data-panel-resize-handle-id]:active {
-  background-color: #1565c0;
-}
-
-/* Add a visual indicator on hover */
-[data-panel-resize-handle-id]::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 2px;
-  height: 40px;
-  background-color: rgba(0, 0, 0, 0.2);
-  border-radius: 1px;
-  pointer-events: none;
-}
-
-[data-panel-resize-handle-id]:hover::before {
-  background-color: rgba(255, 255, 255, 0.8);
 }
 
 /* Observable Plot tooltip styling */

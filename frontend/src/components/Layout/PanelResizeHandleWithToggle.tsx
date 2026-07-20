@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { RefObject, useCallback, useEffect, useRef } from 'react';
+import React, { RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { Separator as PanelResizeHandle } from 'react-resizable-panels';
 import type { PanelImperativeHandle } from 'react-resizable-panels';
 import { Box } from '@mui/material';
@@ -26,6 +26,7 @@ const PanelResizeHandleWithToggle: React.FC<PanelResizeHandleWithToggleProps> = 
   const handleRef = useRef<HTMLDivElement>(null);
   const resizeLineRef = useRef<HTMLDivElement>(null);
   const cancelDragRef = useRef<(() => void) | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -73,6 +74,7 @@ const PanelResizeHandleWithToggle: React.FC<PanelResizeHandleWithToggleProps> = 
     const minDelta = ((minSizePercent - startSize.asPercentage) / 100) * groupWidth;
     const maxDelta = ((maxSizePercent - startSize.asPercentage) / 100) * groupWidth;
 
+    setIsDragging(true);
     resizeLine.style.display = 'block';
     document.body.style.cursor = 'col-resize';
     document.body.style.userSelect = 'none';
@@ -91,6 +93,7 @@ const PanelResizeHandleWithToggle: React.FC<PanelResizeHandleWithToggleProps> = 
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       cancelDragRef.current = null;
+      setIsDragging(false);
     };
 
     const finishDrag = () => {
@@ -130,23 +133,27 @@ const PanelResizeHandleWithToggle: React.FC<PanelResizeHandleWithToggleProps> = 
         position: 'relative',
         flex: '0 0 6px',
         transition: 'background-color 0.15s',
-        '&:hover': {
-          backgroundColor: 'action.hover',
-        },
-        '&:active': {
-          backgroundColor: 'primary.light',
-        },
-        // Visual indicator line in the center
+        // Keep original line thin while dragging; only the preview line highlights.
+        ...(isDragging ? {} : {
+          '&:hover': {
+            backgroundColor: 'action.hover',
+          },
+          '&:hover::after': {
+            width: '2px',
+            backgroundColor: 'primary.main',
+          },
+        }),
+        // Full-height thin divider so the resize boundary is always visible
         '&::after': {
           content: '""',
-          width: 2,
-          height: 24,
-          backgroundColor: 'divider',
-          borderRadius: 1,
-          transition: 'background-color 0.15s',
-        },
-        '&:hover::after': {
-          backgroundColor: 'primary.main',
+          position: 'absolute',
+          top: 0,
+          bottom: 0,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '1px',
+          backgroundColor: '#e0e0e0',
+          transition: isDragging ? 'none' : 'background-color 0.15s, width 0.15s',
         },
       }}
     >
@@ -158,8 +165,9 @@ const PanelResizeHandleWithToggle: React.FC<PanelResizeHandleWithToggleProps> = 
             position: 'absolute',
             top: 0,
             bottom: 0,
-            left: 2,
-            width: 2,
+            left: '50%',
+            width: '2px',
+            marginLeft: '-1px',
             backgroundColor: 'primary.main',
             pointerEvents: 'none',
             zIndex: 1300,
