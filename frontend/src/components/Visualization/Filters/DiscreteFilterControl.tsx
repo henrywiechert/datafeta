@@ -11,6 +11,7 @@ import {
   Switch
 } from '@mui/material';
 import { DiscreteFilterMatchMode, DiscreteFilterMetadata, DiscretePatternOperator } from '../../../types';
+import { filterValueKey } from '../../../utils/filterValueKey';
 import styles from './DiscreteFilterControl.module.css';
 
 interface DiscreteFilterControlProps {
@@ -80,16 +81,6 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
   // come back as strings (or vice versa), depending on backend/driver. Strict equality
   // would fail and nothing would appear checked even though the filter is active.
   // Datetime values may also differ in separator ('T' vs space) between API and chart domain.
-  const valueKey = useCallback((v: any) => {
-    if (v === null || v === undefined) return '__NULL__';
-    const s = String(v);
-    // Normalize ISO datetime separator: "2024-01-15T14:30:00" → "2024-01-15 14:30:00"
-    if (s.length >= 19 && s[10] === 'T' && s[4] === '-' && s[13] === ':') {
-      return s.replace('T', ' ');
-    }
-    return s;
-  }, []);
-
   const selectionPrefersNumber = useMemo(
     () => selectedValues.some((v) => typeof v === 'number'),
     [selectedValues]
@@ -106,8 +97,8 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
 
   // O(1) lookup by canonical key (stringified)
   const selectedKeysSet = useMemo(
-    () => new Set(selectedValues.map(valueKey)),
-    [selectedValues, valueKey]
+    () => new Set(selectedValues.map(filterValueKey)),
+    [selectedValues]
   );
 
   // Sort helper: numeric if all non-null values are numeric, otherwise alphabetic
@@ -141,7 +132,7 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
     const selected: any[] = [];
     const unselected: any[] = [];
     for (const value of metadata.availableValues) {
-      if (selectedKeysSet.has(valueKey(value))) {
+      if (selectedKeysSet.has(filterValueKey(value))) {
         selected.push(value);
       } else {
         unselected.push(value);
@@ -174,7 +165,7 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
       pinnedValues: sortValues(filteredSelected),
       unpinnedValues: sortValues(filteredUnselected),
     };
-  }, [metadata.availableValues, selectedKeysSet, valueKey, listFilterTerm, useRegex, sortValues]);
+  }, [metadata.availableValues, selectedKeysSet, listFilterTerm, useRegex, sortValues]);
 
   // Combined list for Select All / Deselect All operations
   const allVisibleValues = useMemo(
@@ -184,24 +175,24 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
 
   // Memoize the toggle handler to prevent unnecessary re-renders of child components
   const handleToggle = useCallback((value: any) => {
-    const key = valueKey(value);
+    const key = filterValueKey(value);
     const normalizedValue = normalizeValueForSelection(value);
 
     if (selectedKeysSet.has(key)) {
       // Remove all entries that match by key (handles "1" vs 1, etc.)
-      onChange(selectedValues.filter((v) => valueKey(v) !== key));
+      onChange(selectedValues.filter((v) => filterValueKey(v) !== key));
     } else {
       onChange([...selectedValues, normalizedValue]);
     }
-  }, [selectedValues, selectedKeysSet, onChange, valueKey, normalizeValueForSelection]);
+  }, [selectedValues, selectedKeysSet, onChange, normalizeValueForSelection]);
 
   const handleSelectAll = () => {
     onChange(allVisibleValues.map(normalizeValueForSelection));
   };
 
   const handleDeselectAll = () => {
-    const visibleKeySet = new Set(allVisibleValues.map(valueKey));
-    const newSelected = selectedValues.filter((v) => !visibleKeySet.has(valueKey(v)));
+    const visibleKeySet = new Set(allVisibleValues.map(filterValueKey));
+    const newSelected = selectedValues.filter((v) => !visibleKeySet.has(filterValueKey(v)));
     onChange(newSelected);
   };
 
@@ -427,7 +418,7 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
       <Box className={styles.checkboxList}>
         {pinnedValues.map((value, index) => {
           const valueStr = value === null || value === undefined ? '(null)' : String(value);
-          const isChecked = selectedKeysSet.has(valueKey(value));
+          const isChecked = selectedKeysSet.has(filterValueKey(value));
           return (
             <CheckboxItem
               key={`pinned-${valueStr}-${index}`}
@@ -443,7 +434,7 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
         )}
         {unpinnedValues.map((value, index) => {
           const valueStr = value === null || value === undefined ? '(null)' : String(value);
-          const isChecked = selectedKeysSet.has(valueKey(value));
+          const isChecked = selectedKeysSet.has(filterValueKey(value));
           return (
             <CheckboxItem
               key={`unpinned-${valueStr}-${index}`}

@@ -32,6 +32,34 @@ def test_union_query_injects_source_table_column():
     assert metadata == []
 
 
+def test_union_filter_values_are_deduplicated_across_tables():
+    query_description = QueryDescription(
+        target_table="sales_2023",
+        target_database="analytics",
+        dimensions=[Dimension(field="category", flavour="discrete")],
+        fetch_filter_values=True,
+        virtual_table=VirtualTableDefinition(
+            primary_table="sales_2023",
+            mode="union",
+            union_tables=[UnionTableDefinition(table_name="sales_2024")],
+        ),
+    )
+
+    query_sql, metadata = QueryService().translate_to_sql(
+        query_description,
+        table_name="sales_2023",
+        db_type="clickhouse",
+        with_optimization=False,
+    )
+
+    outer_select = query_sql.split("FROM", 1)[0]
+    assert outer_select == "SELECT DISTINCT `category` "
+    assert "_source_database" not in outer_select
+    assert "_source_table" not in outer_select
+    assert "UNION ALL" in query_sql
+    assert metadata == []
+
+
 def test_single_table_query_adds_source_table_column():
     """Test that single-table queries properly add _source_table as a literal."""
     query_description = QueryDescription(
