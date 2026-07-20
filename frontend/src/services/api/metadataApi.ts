@@ -26,6 +26,7 @@ import {
   ForeignKeyRelationship
 } from '../../types';
 import { fetchWithErrorHandling, API_BASE_URL, createAbortController, buildUrl } from './apiClient';
+import { deduplicateFilterValues } from '../../utils/filterValueKey';
 
 export const metadataApi = {
   /**
@@ -297,7 +298,8 @@ export const metadataApi = {
       return row[columnName];
     };
     
-    return result.rows.map(row => resolveRowValue(row as Record<string, unknown>));
+    const values = result.rows.map(row => resolveRowValue(row as Record<string, unknown>));
+    return deduplicateFilterValues(values);
   },
 
   /**
