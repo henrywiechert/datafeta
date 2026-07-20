@@ -1,5 +1,6 @@
 .container {
   height: 100%;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -44,6 +45,7 @@
 }
 
 .fieldsList {
+  box-sizing: border-box;
   padding: 8px;
   overflow-y: auto;
   overflow-x: hidden;
