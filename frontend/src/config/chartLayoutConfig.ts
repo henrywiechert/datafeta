@@ -80,6 +80,10 @@ export const TABLE_MIN_CELL_WIDTH_PX = 5;
 export const TABLE_MIN_CELL_HEIGHT_PX = 5;
 export const TABLE_NAMES_BAND_LEFT_PX = 88;
 export const TABLE_VALUES_BAND_LEFT_PX = 96;
+// Max auto-computed width for horizontal left-value columns. Prevents very long
+// category names from pushing the label area off screen; text is clipped with
+// a title tooltip for the full value.
+export const MAX_FACET_LEFT_VALUE_AUTO_WIDTH_PX = 200;
 export const TABLE_VALUES_BAND_TOP_PX = 18;
 // Axis-measure value bands (Tableau "Measure Values"): a Y-measure renders as a
 // value column of this width; an X-measure renders as a value row of this height.

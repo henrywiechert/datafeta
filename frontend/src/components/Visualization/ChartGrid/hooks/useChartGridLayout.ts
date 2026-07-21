@@ -170,17 +170,15 @@ export function useChartGridLayout(
           VALUES_BAND_TOP_PX,
         )
       : 20;
-    const leftValueFallbackPx = isTableGrid
-      ? computeAutoFacetLeftValueWidths(
-          rowLevels,
-          effectiveFacetLabelStyles?.leftValues ?? {
-            fontSize: 10,
-            orientation: 'horizontal',
-            widthPx: null,
-          },
-          TABLE_VALUES_BAND_LEFT_PX,
-        )
-      : VALUES_BAND_LEFT_PX;
+    const leftValueFallbackPx = computeAutoFacetLeftValueWidths(
+      rowLevels,
+      effectiveFacetLabelStyles?.leftValues ?? {
+        fontSize: 10,
+        orientation: 'horizontal',
+        widthPx: null,
+      },
+      isTableGrid ? TABLE_VALUES_BAND_LEFT_PX : VALUES_BAND_LEFT_PX,
+    );
     const topValueFallbackPx = isTableGrid
       ? computeAutoFacetTopValueHeights(
           colLevels,
@@ -195,7 +193,7 @@ export function useChartGridLayout(
 
     // Facet dimensions - use style overrides or fall back to constants
     const facetLeftHeaderPx = effectiveFacetLabelStyles?.leftHeader.widthPx ?? leftHeaderFallbackPx;
-    const facetLeftValuesPx = effectiveFacetLabelStyles?.leftValues.widthPx ?? (Array.isArray(leftValueFallbackPx) ? leftValueFallbackPx[0] ?? VALUES_BAND_LEFT_PX : leftValueFallbackPx);
+    const facetLeftValuesPx = effectiveFacetLabelStyles?.leftValues.widthPx ?? (leftValueFallbackPx[0] ?? VALUES_BAND_LEFT_PX);
     const facetTopValuesPx = effectiveFacetLabelStyles?.topValues.heightPx ?? (Array.isArray(topValueFallbackPx) ? topValueFallbackPx[0] ?? VALUES_BAND_TOP_PX : topValueFallbackPx);
     const facetLeftValueWidthsPx = resolveFacetLeftValueWidths(
       yLevelsCount,

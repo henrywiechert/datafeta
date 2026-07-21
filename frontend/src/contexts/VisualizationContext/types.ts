@@ -61,7 +61,7 @@ export interface FacetTopValuesLabelStyle {
 
 export interface FacetLeftValuesLabelStyle {
   fontSize: number;  // 8-26, default 10
-  orientation: 'horizontal' | 'vertical';
+  orientation: 'horizontal' | 'vertical';  // default 'horizontal'
   orientationByDepth?: Array<'horizontal' | 'vertical'>;
   widthPx: number | null;  // null = auto (VALUES_BAND_LEFT_PX), or manual override
   widthPxByDepth?: Array<number | null>;

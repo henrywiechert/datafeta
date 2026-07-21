@@ -7,7 +7,7 @@ import {
   gridHasPieAxisLabels,
   usesOnlyAxislessRenderers,
 } from '../../../../observable-plot-generator/gridModel';
-import { MIN_GRID_ROW_PX } from '../../../../config/chartLayoutConfig';
+import { MAX_FACET_LEFT_VALUE_AUTO_WIDTH_PX, MIN_GRID_ROW_PX } from '../../../../config/chartLayoutConfig';
 import {
   FacetHeaderLabelStyle,
   FacetLabelStyles,
@@ -211,7 +211,7 @@ function estimateLeftTrackWidthPx(
   if (orientation === 'vertical') {
     return Math.ceil(fontSize * 1.8 + 8);
   }
-  return estimateTextPxForFont(text, fontSize) + 12;
+  return Math.min(estimateTextPxForFont(text, fontSize) + 12, MAX_FACET_LEFT_VALUE_AUTO_WIDTH_PX);
 }
 
 export function computeAutoFacetLeftHeaderWidth(
