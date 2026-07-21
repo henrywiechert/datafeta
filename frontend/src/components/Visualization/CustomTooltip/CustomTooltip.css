@@ -132,6 +132,12 @@
   min-width: 0;
 }
 
+.custom-tooltip__extra-count {
+  font-size: 0.85em;
+  opacity: 0.6;
+  white-space: nowrap;
+}
+
 /* Optional: Add slight spacing between label and value */
 .custom-tooltip__label::after {
   content: '';

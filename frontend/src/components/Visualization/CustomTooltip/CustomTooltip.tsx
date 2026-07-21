@@ -235,6 +235,11 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
           <span className="custom-tooltip__label">{field.label}:</span>
           <span className="custom-tooltip__value">
             {field.formattedValue !== undefined ? field.formattedValue : field.value}
+            {field.extraCount != null && field.extraCount > 0 && (
+              <span className="custom-tooltip__extra-count" title={`${field.extraCount} more value${field.extraCount === 1 ? '' : 's'} exist for this cell`}>
+                {' '}(+{field.extraCount} more)
+              </span>
+            )}
           </span>
           {/* Inline filter action icons for discrete fields when pinned */}
           {isFilterable(field) && (

@@ -220,7 +220,7 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
 
   // Tooltip plumbing — mirrors other chart types so tooltip-driven filtering
   // continues to work.
-  const tooltipGetter = createTooltipFieldsGetter(
+  const baseTooltipGetter = createTooltipFieldsGetter(
     [
       { label: getFieldDisplayName(xField), column: xCol, sourceField: xField },
       { label: getFieldDisplayName(yField), column: yCol, sourceField: yField },
@@ -231,6 +231,41 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
     [],
     facetFields,
   );
+
+  // For tooltip-panel fields that are not part of the cell key (X/Y), multiple
+  // rows can map to the same cell. Pre-compute how many distinct values each
+  // such column has per (xCol, yCol) pair so the tooltip can signal "N more".
+  const tooltipOnlyFields = tooltipFields ?? [];
+  const multiValueMap = new Map<string, number>();
+  if (tooltipOnlyFields.length > 0) {
+    // Group distinct values per (xVal, yVal, col).
+    const cellSets = new Map<string, Set<string>>();
+    data.forEach((row) => {
+      const cellKey = `${domainValueKey(row?.[xCol])}||${domainValueKey(row?.[yCol])}`;
+      tooltipOnlyFields.forEach((tf) => {
+        const col = getResultColumnName(tf);
+        const mapKey = `${cellKey}||${col}`;
+        let s = cellSets.get(mapKey);
+        if (!s) { s = new Set(); cellSets.set(mapKey, s); }
+        s.add(domainValueKey(row?.[col]));
+      });
+    });
+    cellSets.forEach((set, key) => {
+      if (set.size > 1) multiValueMap.set(key, set.size);
+    });
+  }
+
+  const tooltipGetter = (d: any) => {
+    const fields = baseTooltipGetter(d);
+    if (multiValueMap.size === 0) return fields;
+    const cellKey = `${domainValueKey(d?.[xCol])}||${domainValueKey(d?.[yCol])}`;
+    return fields.map((f) => {
+      if (!f.sourceField) return f;
+      const col = getResultColumnName(f.sourceField);
+      const count = multiValueMap.get(`${cellKey}||${col}`);
+      return count != null ? { ...f, extraCount: count - 1 } : f;
+    });
+  };
 
   // Pick the primary mark. With size-shelf encoding we render rects so each
   // square shrinks/grows with the field. For manual size, keep the same mark
