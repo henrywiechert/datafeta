@@ -1,7 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useRef, useCallback } from 'react';
 import { Box, IconButton, Tooltip } from '@mui/material';
-import { Link } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { Panel, Group as PanelGroup } from "react-resizable-panels";
 import type { PanelImperativeHandle } from "react-resizable-panels";
 import { useVisualizationState } from '../hooks/useVisualizationState';
@@ -401,19 +401,9 @@ const VisualizationPageContent = () => {
         };
     }, [handleUndo, handleRedo, toggleLeftPanel, toggleMiddlePanel]);
 
+    // Route guard in App.tsx redirects when disconnected; keep a safety net here.
     if (!connectionDetails) {
-        return (
-            <Box sx={{ p: 4, textAlign: 'center' }}>
-                <h2>Visualization</h2>
-                <p>
-                    Please connect to a data source first on the{' '}
-                    <Link to="/datasources" style={{ textDecoration: 'underline', color: 'primary.main' }}>
-                        Data Sources
-                    </Link>
-                    {' '}page.
-                </p>
-            </Box>
-        );
+        return <Navigate to="/" replace />;
     }
 
     return (
