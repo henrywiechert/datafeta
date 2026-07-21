@@ -143,7 +143,7 @@ export const initialState: VisualizationState = {
     },
     leftValues: {
       fontSize: 10,
-      orientation: 'vertical',
+      orientation: 'horizontal',
       orientationByDepth: [],
       widthPx: null,
       widthPxByDepth: [],
