@@ -532,7 +532,14 @@ function AppContent() {
         <Suspense fallback={null}>
           <Routes>
             <Route path="/" element={<DataSourceSelectionPage onLoadConfiguration={handleLoadConfiguration} onOpenGallery={appConfig.snapshots.enabled ? () => setShowSnapshotGallery(true) : undefined} />} />
-            <Route path="/visualize" element={<VisualizationPage />} />
+            <Route
+              path="/visualize"
+              element={
+                isConnected
+                  ? <VisualizationPage />
+                  : <Navigate to="/" replace />
+              }
+            />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
