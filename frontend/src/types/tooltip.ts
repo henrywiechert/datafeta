@@ -31,6 +31,12 @@ export interface TooltipField {
    * where the formatted string representation would be insufficient.
    */
   rawValue?: any;
+  /**
+   * When > 0, indicates that additional distinct values exist for this field
+   * in the same chart cell beyond the one being displayed. Used by heatmaps
+   * when tooltip-panel fields are not fully grouped by the cell dimensions.
+   */
+  extraCount?: number;
 }
 
 /** Comparison row for pinned line-chart tooltip expansion. */
