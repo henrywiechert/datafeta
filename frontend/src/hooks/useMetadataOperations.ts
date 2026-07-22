@@ -85,6 +85,13 @@ export function useMetadataOperations({
 }: UseMetadataOperationsParams): UseMetadataOperationsReturn {
 
     const isSwitchingDatabaseRef = useRef(false);
+    // Prevent auto-fetch effects from looping when a fetch fails (or returns empty)
+    // while isLoadingMetadata is in the effect deps: loading false + empty list would
+    // otherwise re-trigger forever (e.g. snapshot restore to a missing ClickHouse DB).
+    const tablesFetchedForRef = useRef<string | null>(null);
+    const columnsFetchedForRef = useRef<string | null>(null);
+    const prevTablesLengthRef = useRef(dataSource.tables.length);
+    const prevFieldsLengthRef = useRef(dataSource.availableFields.length);
 
     const fetchDatabases = useCallback(async (): Promise<any[]> => {
         dataSourceSetters.setIsLoadingMetadata(true);
@@ -140,7 +147,10 @@ export function useMetadataOperations({
             }
             return [];
         }
-        finally { 
+        finally {
+            // Mark this database as attempted so the auto-fetch effect does not loop
+            // when isLoadingMetadata flips back to false with tables still empty.
+            tablesFetchedForRef.current = targetDatabase;
             dataSourceSetters.setIsLoadingMetadata(false);
         }
     }, [connectionDetails?.type, dataSourceSetters]);
@@ -149,6 +159,7 @@ export function useMetadataOperations({
         if (!dataSource.selectedTable) return;
         if (connectionDetails?.type === 'clickhouse' && !dataSource.selectedDatabase) return;
         
+        const tableKey = dataSource.selectedTable;
         dataSourceSetters.setIsLoadingMetadata(true);
         dataSourceSetters.setMetadataError(null);
         try {
@@ -184,7 +195,10 @@ export function useMetadataOperations({
                 dataSourceSetters.setMetadataError(err.message);
             }
         }
-        finally { 
+        finally {
+            // Mark this table as attempted so the auto-fetch effect does not loop
+            // when isLoadingMetadata flips back to false with fields still empty.
+            columnsFetchedForRef.current = tableKey;
             dataSourceSetters.setIsLoadingMetadata(false);
         }
     }, [
@@ -339,6 +353,9 @@ export function useMetadataOperations({
     const refreshMetadata = useCallback(async () => {
         if (isManualRefreshRunningRef.current) return;
         isManualRefreshRunningRef.current = true;
+        // Allow auto-fetch effects to retry after a manual refresh (e.g. missing DB fixed).
+        tablesFetchedForRef.current = null;
+        columnsFetchedForRef.current = null;
 
         try {
             // 1) Refresh top-level metadata lists.
@@ -347,7 +364,6 @@ export function useMetadataOperations({
             }
 
             const refreshedTables = await fetchTables(dataSource.selectedDatabase || '');
-
             // 2) Refresh selected table metadata when selection still exists.
             const selectedTable = dataSource.selectedTable;
             const selectedTableStillExists = !!selectedTable
@@ -401,6 +417,8 @@ export function useMetadataOperations({
         }
         
         connectionInitializedRef.current = connectionId;
+        tablesFetchedForRef.current = null;
+        columnsFetchedForRef.current = null;
         
         // Clear existing metadata and fetch new data when connection changes
         // This ensures we get fresh data after reconnecting to a different server
@@ -444,12 +462,33 @@ export function useMetadataOperations({
     }, [connectionDetails]);
     
     useEffect(() => {
+        const prevFieldsLength = prevFieldsLengthRef.current;
+        prevFieldsLengthRef.current = dataSource.availableFields.length;
+
+        // Selection changed → allow a new auto-fetch attempt for the new table.
+        if (
+            columnsFetchedForRef.current !== null
+            && columnsFetchedForRef.current !== dataSource.selectedTable
+        ) {
+            columnsFetchedForRef.current = null;
+        }
+        // Fields intentionally cleared (table re-select / snapshot restore) → allow refetch.
+        if (prevFieldsLength > 0 && dataSource.availableFields.length === 0) {
+            columnsFetchedForRef.current = null;
+        }
+
+        if (isManualRefreshRunningRef.current) return;
+
         // Fetch columns when table is selected (either from initial load or user selection)
         if (dataSource.selectedTable && !dataSource.isLoadingMetadata) {
             // Only fetch if we don't have fields or if the fields list was just cleared (user changed table)
             if (dataSource.availableFields.length === 0) {
                 // Skip when joined or union tables are present — fetchMergedColumns handles those
                 if (dataSource.joinedTables.length > 0 || dataSource.unionTables.length > 0) {
+                    return;
+                }
+                // Already attempted for this table (failed or empty) — do not loop on loading flip.
+                if (columnsFetchedForRef.current === dataSource.selectedTable) {
                     return;
                 }
                 fetchColumns();
@@ -460,10 +499,31 @@ export function useMetadataOperations({
     }, [dataSource.selectedTable, dataSource.availableFields.length, dataSource.isLoadingMetadata]);
 
     useEffect(() => {
+        const prevTablesLength = prevTablesLengthRef.current;
+        prevTablesLengthRef.current = dataSource.tables.length;
+
+        // Selection changed → allow a new auto-fetch attempt for the new database.
+        if (
+            tablesFetchedForRef.current !== null
+            && tablesFetchedForRef.current !== dataSource.selectedDatabase
+        ) {
+            tablesFetchedForRef.current = null;
+        }
+        // Tables intentionally cleared (DB switch / snapshot restore) → allow refetch.
+        if (prevTablesLength > 0 && dataSource.tables.length === 0) {
+            tablesFetchedForRef.current = null;
+        }
+
+        if (isManualRefreshRunningRef.current) return;
+
         // Fetch tables when database is selected (either from initial load or user selection)
         if (dataSource.selectedDatabase && !dataSource.isLoadingMetadata) {
             // Only fetch if we don't have tables or if the tables list was just cleared (user changed database)
             if (dataSource.tables.length === 0) {
+                // Already attempted for this database (failed or empty) — do not loop on loading flip.
+                if (tablesFetchedForRef.current === dataSource.selectedDatabase) {
+                    return;
+                }
                 fetchTables(dataSource.selectedDatabase);
             }
         }
