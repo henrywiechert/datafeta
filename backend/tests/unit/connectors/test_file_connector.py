@@ -483,15 +483,15 @@ class TestErrorHandling:
 
     def test_connect_unsupported_extension_raises(self, tmp_path):
         """Test that unsupported file extensions raise error."""
-        json_path = tmp_path / "data.json"
-        json_path.write_text('{"key": "value"}')
+        xlsx_path = tmp_path / "data.xlsx"
+        xlsx_path.write_text("fake xlsx content")
 
         connector = FileConnector()
-        
+
         with pytest.raises(InvalidInputError):
             connector.connect({
-                "file_path": str(json_path),
-                "original_filename": "data.json",
+                "file_path": str(xlsx_path),
+                "original_filename": "data.xlsx",
             })
 
     def test_fetch_data_no_files_raises(self):
