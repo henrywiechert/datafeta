@@ -16,6 +16,8 @@ interface CsvConnectionFormProps {
   disabled: boolean;
 }
 
+const JSON_EXTENSIONS = ['.json', '.ndjson', '.jsonl'];
+
 export function CsvConnectionForm({
   state,
   onUpdate,
@@ -30,8 +32,6 @@ export function CsvConnectionForm({
       onFileChange(null);
     }
   };
-
-  const JSON_EXTENSIONS = ['.json', '.ndjson', '.jsonl'];
 
   // Check if any CSV files are selected (to show CSV-specific options)
   const hasCsvFiles = useMemo(() => {
