@@ -9,7 +9,6 @@ from pathlib import Path
 from datetime import datetime, timezone
 from fastapi import FastAPI, Request, status
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -145,21 +144,23 @@ def startup_event():
 FRONTEND_BUILD_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "static"))
 DOCS_BUILD_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "site"))
 
-# If MkDocs docs have been built, serve them at /help (must be mounted before the SPA catch-all at /)
+# If MkDocs docs have been built, serve them at /help (must be mounted before the SPA frontend at /)
 if os.path.isdir(DOCS_BUILD_DIR):
     logger.info(f"Serving user manual from: {DOCS_BUILD_DIR}")
     app.mount("/help", StaticFiles(directory=DOCS_BUILD_DIR, html=True), name="docs")
 
-# If a frontend build has been copied into backend/static (e.g. via Docker multi-stage build) serve it
+# If a frontend build has been copied into backend/static (e.g. via Docker multi-stage build) serve it.
+# Use app.frontend() with SPA fallback so client routes like /visualize return index.html on
+# hard reload. StaticFiles(html=True) alone only serves index.html for directories / 404.html —
+# it does not fall back unknown paths to the SPA shell (Starlette 1.x).
 if os.path.isdir(FRONTEND_BUILD_DIR):
     logger.info(f"Serving frontend build from: {FRONTEND_BUILD_DIR}")
-    app.mount("/", StaticFiles(directory=FRONTEND_BUILD_DIR, html=True), name="frontend")
+    app.frontend("/", directory=FRONTEND_BUILD_DIR, fallback="index.html")
 
     @app.get("/health", include_in_schema=False)
-    def health_check():  # lightweight health endpoint still available even when SPA mounted at '/'
+    def health_check():  # lightweight health endpoint; API routes take priority over frontend
         return {"status": "ok"}
 
-    # Optional explicit fallback (StaticFiles with html=True already handles index.html for 404 in subpaths)
     @app.get("/api-info", include_in_schema=False)
     def api_info():
         return {"message": "Data Analytics Platform API", "version": app.version}
