@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 MAX_FILE_UPLOAD_BYTES = 1024 * 1024 * 1024  # 1 GB per file
 
 # Supported file extensions
-ALLOWED_FILE_EXTENSIONS = {'.csv', '.parquet'}
+ALLOWED_FILE_EXTENSIONS = {'.csv', '.parquet', '.json', '.ndjson', '.jsonl'}
 
 # MIME types for CSV files
 ALLOWED_CSV_MIME_TYPES = {
@@ -48,8 +48,15 @@ ALLOWED_PARQUET_MIME_TYPES = {
     "application/vnd.apache.parquet",
 }
 
+# MIME types for JSON / NDJSON / JSONL files
+ALLOWED_JSON_MIME_TYPES = {
+    "application/json",
+    "application/x-ndjson",
+    "application/jsonl",
+}
+
 # Combined allowed MIME types
-ALLOWED_FILE_MIME_TYPES = ALLOWED_CSV_MIME_TYPES | ALLOWED_PARQUET_MIME_TYPES
+ALLOWED_FILE_MIME_TYPES = ALLOWED_CSV_MIME_TYPES | ALLOWED_PARQUET_MIME_TYPES | ALLOWED_JSON_MIME_TYPES
 
 
 class ConnectionService:

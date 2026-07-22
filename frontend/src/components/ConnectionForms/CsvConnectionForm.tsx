@@ -31,6 +31,8 @@ export function CsvConnectionForm({
     }
   };
 
+  const JSON_EXTENSIONS = ['.json', '.ndjson', '.jsonl'];
+
   // Check if any CSV files are selected (to show CSV-specific options)
   const hasCsvFiles = useMemo(() => {
     return state.selectedFiles.some((file) => file.name.toLowerCase().endsWith('.csv'));
@@ -41,24 +43,28 @@ export function CsvConnectionForm({
     const count = state.selectedFiles.length;
     if (count === 0) return null;
     if (count === 1) return state.fileNames[0];
-    
+
     const csvCount = state.selectedFiles.filter((f) => f.name.toLowerCase().endsWith('.csv')).length;
-    const parquetCount = count - csvCount;
-    
+    const jsonCount = state.selectedFiles.filter((f) =>
+      JSON_EXTENSIONS.some((ext) => f.name.toLowerCase().endsWith(ext))
+    ).length;
+    const parquetCount = count - csvCount - jsonCount;
+
     const parts = [];
     if (csvCount > 0) parts.push(`${csvCount} CSV`);
     if (parquetCount > 0) parts.push(`${parquetCount} Parquet`);
-    
+    if (jsonCount > 0) parts.push(`${jsonCount} JSON`);
+
     return `${count} files (${parts.join(', ')})`;
   }, [state.selectedFiles, state.fileNames]);
 
   return (
     <div className={styles.formGroup}>
       <div className={styles.fileUpload}>
-        <label className={styles.label}>Data Files (CSV or Parquet)</label>
+        <label className={styles.label}>Data Files (CSV, Parquet or JSON)</label>
         <input
           type="file"
-          accept=".csv,.parquet"
+          accept=".csv,.parquet,.json,.ndjson,.jsonl"
           multiple
           onChange={handleFileChange}
           disabled={disabled}

@@ -12,7 +12,10 @@ import pyarrow as pa
 from backend.models.data_source import Database, Table, Column, ForeignKeyRelationship
 from backend.dialects import SqlDialect, DuckDbDialect
 from .base import BaseConnector
-from .file_handlers import BaseFileHandler, FILE_HANDLER_REGISTRY, build_csv_handler_config
+from .file_handlers import (
+    BaseFileHandler, FILE_HANDLER_REGISTRY, build_csv_handler_config,
+    JsonFileHandler, ParquetFileHandler,
+)
 from .fk_detection import detect_foreign_keys_by_naming_convention
 from backend.exceptions import DataSourceConnectionError, InvalidInputError, QueryExecutionError
 from backend.utils.type_conversion import process_query_result_data
@@ -20,6 +23,149 @@ from backend.utils.type_conversion import process_query_result_data
 logger = logging.getLogger(__name__)
 
 _duckdb_dialect = DuckDbDialect()
+
+
+# ---------------------------------------------------------------------------
+# JSON nested-type helpers
+# ---------------------------------------------------------------------------
+
+def _is_list_type(col_type: str) -> bool:
+    """True for DuckDB array/list types: T[], T[N], LIST(T)."""
+    s = col_type.strip()
+    return bool(re.match(r'.+\[\d*\]$', s)) or s.upper().startswith('LIST(')
+
+
+def _is_struct_type(col_type: str) -> bool:
+    """True when the outermost DuckDB type is STRUCT(...)."""
+    return col_type.strip().upper().startswith('STRUCT(')
+
+
+def _unwrap_list_element(col_type: str) -> str:
+    """Return the element type of a LIST column."""
+    s = col_type.strip()
+    m = re.match(r'^(.+)\[\d*\]$', s)
+    if m:
+        return m.group(1).strip()
+    if s.upper().startswith('LIST(') and s.endswith(')'):
+        return s[5:-1].strip()
+    return s
+
+
+def _parse_struct_field_names(type_str: str) -> List[str]:
+    """
+    Extract field names from a STRUCT type string.
+
+    Handles:
+    - Quoted identifiers with spaces/parens: "tickTime (ps per tick)" BIGINT
+    - Reserved-keyword quoting:             "action" VARCHAR
+    - Nested struct/array types:            items STRUCT(a INT, b INT)[]
+    """
+    s = type_str.strip()
+    if not s.upper().startswith('STRUCT(') or not s.endswith(')'):
+        return []
+    inner = s[7:-1]  # strip STRUCT( and trailing )
+    fields: List[str] = []
+    i = 0
+    n = len(inner)
+
+    while i < n:
+        # Skip leading whitespace between fields
+        while i < n and inner[i] in (' ', '\t'):
+            i += 1
+        if i >= n:
+            break
+
+        # --- Parse the field name ---
+        if inner[i] == '"':
+            # Quoted identifier: read until the matching closing "
+            # DuckDB escapes a literal " inside as ""
+            i += 1
+            name_chars: List[str] = []
+            while i < n:
+                if inner[i] == '"':
+                    if i + 1 < n and inner[i + 1] == '"':  # escaped ""
+                        name_chars.append('"')
+                        i += 2
+                    else:
+                        i += 1  # skip closing quote
+                        break
+                else:
+                    name_chars.append(inner[i])
+                    i += 1
+            fields.append(''.join(name_chars))
+        else:
+            # Unquoted identifier: read until whitespace or comma
+            j = i
+            while j < n and inner[j] not in (' ', '\t', ','):
+                j += 1
+            fields.append(inner[i:j])
+            i = j
+
+        # --- Skip the type token until the next top-level comma ---
+        depth = 0
+        in_quotes = False
+        while i < n:
+            ch = inner[i]
+            if in_quotes:
+                if ch == '"':
+                    if i + 1 < n and inner[i + 1] == '"':
+                        i += 2
+                        continue
+                    in_quotes = False
+            elif ch == '"':
+                in_quotes = True
+            elif ch in ('(', '['):
+                depth += 1
+            elif ch in (')', ']'):
+                depth -= 1
+            elif ch == ',' and depth == 0:
+                i += 1  # consume comma; outer loop will skip whitespace
+                break
+            i += 1
+
+    return fields
+
+
+def _build_json_select_parts(describe: list) -> List[str]:
+    """
+    Build SELECT expressions for a JSON view, expanding nested types:
+      STRUCT(...)    → col__field per field (wide)
+      T[]            → col__index (1-based) + UNNEST(col) (long)
+      STRUCT(...)[]  → col__index + UNNEST(col).field per field (long + wide)
+      MAP / other    → pass-through
+    Multiple LIST columns are unnested in parallel (DuckDB aligns positionally,
+    NULL-pads shorter arrays).
+    """
+    parts: List[str] = []
+    for row in describe:
+        col_name: str = row[0]
+        col_type: str = row[1]
+
+        if _is_list_type(col_type):
+            elem_type = _unwrap_list_element(col_type)
+            parts.append(
+                f'generate_subscripts("{col_name}", 1) AS "{col_name}__index"'
+            )
+            if _is_struct_type(elem_type):
+                # LIST of STRUCT → unnest + expand struct fields
+                for field in _parse_struct_field_names(elem_type):
+                    parts.append(
+                        f'UNNEST("{col_name}")."{field}" AS "{col_name}__{field}"'
+                    )
+            else:
+                # LIST of scalar → unnest value, keep original column name
+                parts.append(f'UNNEST("{col_name}") AS "{col_name}"')
+
+        elif _is_struct_type(col_type):
+            # Plain STRUCT → expand fields (wide, no row multiplication)
+            for field in _parse_struct_field_names(col_type):
+                parts.append(f'"{col_name}"."{field}" AS "{col_name}__{field}"')
+
+        else:
+            # Scalar, MAP, or unrecognised → pass through unchanged
+            parts.append(f'"{col_name}"')
+
+    return parts
 
 
 @dataclass
@@ -116,6 +262,13 @@ class FileConnector(BaseConnector):
 
         handler = FILE_HANDLER_REGISTRY[file_ext](csv_config)
 
+        # JSON files are materialised as Parquet once on connect so every
+        # subsequent query hits the fast columnar format instead of re-parsing
+        # and re-UNNESTing the JSON file each time.
+        if isinstance(handler, JsonFileHandler):
+            file_path = self._convert_json_to_parquet(file_path, handler)
+            handler = ParquetFileHandler()
+
         if original_filename:
             table_name = self._sanitize_table_name(original_filename)
         else:
@@ -128,6 +281,41 @@ class FileConnector(BaseConnector):
             table_name=table_name,
             handler=handler,
         ))
+
+    def _convert_json_to_parquet(self, json_path: str, handler: JsonFileHandler) -> str:
+        """
+        Read a JSON file, apply UNNEST/struct flattening, and write the result
+        as a Parquet file in the same temp directory.
+
+        This materialises the data once so that all subsequent queries run
+        against the fast columnar Parquet format instead of re-parsing the
+        JSON on every access.
+        """
+        parquet_path = os.path.splitext(json_path)[0] + '__flat.parquet'
+        con = None
+        try:
+            con = duckdb.connect(database=':memory:', read_only=False)
+            reader_sql = handler.build_reader_sql(json_path)
+            con.execute(f"CREATE TEMPORARY VIEW __json_raw AS SELECT * FROM {reader_sql};")
+            describe = con.execute("DESCRIBE __json_raw;").fetchall()
+            if handler.config.get("flatten_nested", True):
+                select_parts = _build_json_select_parts(describe)
+            else:
+                select_parts = [f'"{row[0]}"' for row in describe]
+            escaped = parquet_path.replace("'", "''")
+            con.execute(
+                f"COPY (SELECT {', '.join(select_parts)} FROM __json_raw) "
+                f"TO '{escaped}' (FORMAT PARQUET);"
+            )
+            logger.info(f"JSON → Parquet materialisation: {json_path} -> {parquet_path}")
+        except Exception:
+            if os.path.exists(parquet_path):
+                os.remove(parquet_path)
+            raise
+        finally:
+            if con:
+                con.close()
+        return parquet_path
 
     def add_file(self, file_path: str, original_filename: str, csv_config: Dict[str, Any]) -> str:
         """
@@ -243,9 +431,20 @@ class FileConnector(BaseConnector):
         con.execute(create_raw_view_sql)
 
         describe = con.execute(f"DESCRIBE {raw_view_name};").fetchall()
-        trim_numeric_whitespace = bool(getattr(file_info.handler, "config", {}).get(
-            "trim_numeric_whitespace", False
-        ))
+
+        # JSON path: expand STRUCT columns (wide) and UNNEST LIST columns (long)
+        handler_config = getattr(file_info.handler, "config", {})
+        if file_info.handler.file_type == "json" and handler_config.get("flatten_nested", True):
+            select_parts = _build_json_select_parts(describe)
+            create_view_sql = (
+                f"CREATE OR REPLACE TEMPORARY VIEW {safe_view_name} AS "
+                f"SELECT {', '.join(select_parts)} FROM {raw_view_name};"
+            )
+            logger.debug(f"Creating JSON view with SQL: {create_view_sql}")
+            con.execute(create_view_sql)
+            return
+
+        trim_numeric_whitespace = bool(handler_config.get("trim_numeric_whitespace", False))
         varchar_cols = (
             [row[0] for row in describe if row[1].upper() == "VARCHAR"]
             if file_info.handler.file_type == "csv" and trim_numeric_whitespace

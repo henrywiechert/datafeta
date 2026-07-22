@@ -4,18 +4,24 @@ from typing import Any, Callable, Dict
 
 from .base import BaseFileHandler
 from .csv_handler import CsvFileHandler, build_csv_handler_config
+from .json_handler import JsonFileHandler, build_json_handler_config
 from .parquet_handler import ParquetFileHandler
 
 # Maps file extension -> factory callable(config: dict) -> BaseFileHandler
 FILE_HANDLER_REGISTRY: Dict[str, Callable[[Dict[str, Any]], BaseFileHandler]] = {
     ".csv": lambda config: CsvFileHandler(config),
     ".parquet": lambda _: ParquetFileHandler(),
+    ".json": lambda config: JsonFileHandler(config, format="auto"),
+    ".ndjson": lambda config: JsonFileHandler(config, format="newline_delimited"),
+    ".jsonl": lambda config: JsonFileHandler(config, format="newline_delimited"),
 }
 
 __all__ = [
     "BaseFileHandler",
     "CsvFileHandler",
     "build_csv_handler_config",
+    "JsonFileHandler",
+    "build_json_handler_config",
     "ParquetFileHandler",
     "FILE_HANDLER_REGISTRY",
 ]
