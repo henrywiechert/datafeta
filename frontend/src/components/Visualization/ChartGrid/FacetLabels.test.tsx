@@ -10,7 +10,7 @@ const mockFacetLabelStyles = {
   topHeader: { fontSize: 12, fontSizeByDepth: [], orientation: 'horizontal', orientationByDepth: [], horizontalAlign: 'center', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [] },
   topValues: { fontSize: 10, orientation: 'horizontal', orientationByDepth: [], heightPx: null, heightPxByDepth: [], horizontalAlign: 'center', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [], wrapMode: 'wrap', wrapModeByDepth: [] },
   leftHeader: { fontSize: 12, fontSizeByDepth: [], orientation: 'vertical', orientationByDepth: [], widthPx: null, horizontalAlign: 'center', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [] },
-  leftValues: { fontSize: 10, orientation: 'vertical', orientationByDepth: [], widthPx: null, widthPxByDepth: [], horizontalAlign: 'start', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [], wrapMode: 'wrap', wrapModeByDepth: [] },
+  leftValues: { fontSize: 10, orientation: 'vertical', orientationByDepth: [], widthPx: null, widthPxByDepth: [], horizontalAlign: 'center', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [], wrapMode: 'wrap', wrapModeByDepth: [] },
 };
 
 jest.mock('../../../contexts/VisualizationContext', () => ({
@@ -96,7 +96,7 @@ describe('FacetLabels', () => {
     mockFacetLabelStyles.topHeader = { fontSize: 12, fontSizeByDepth: [], orientation: 'horizontal', orientationByDepth: [], horizontalAlign: 'center', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [] } as any;
     mockFacetLabelStyles.topValues = { fontSize: 10, orientation: 'horizontal', orientationByDepth: [], heightPx: null, heightPxByDepth: [], horizontalAlign: 'center', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [], wrapMode: 'wrap', wrapModeByDepth: [] } as any;
     mockFacetLabelStyles.leftHeader = { fontSize: 12, fontSizeByDepth: [], orientation: 'vertical', orientationByDepth: [], widthPx: null, horizontalAlign: 'center', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [] } as any;
-    mockFacetLabelStyles.leftValues = { fontSize: 10, orientation: 'vertical', orientationByDepth: [], widthPx: null, widthPxByDepth: [], horizontalAlign: 'start', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [], wrapMode: 'wrap', wrapModeByDepth: [] } as any;
+    mockFacetLabelStyles.leftValues = { fontSize: 10, orientation: 'vertical', orientationByDepth: [], widthPx: null, widthPxByDepth: [], horizontalAlign: 'center', verticalAlign: 'center', horizontalAlignByDepth: [], verticalAlignByDepth: [], wrapMode: 'wrap', wrapModeByDepth: [] } as any;
   });
 
   it('uses one top facet row height per depth', () => {
