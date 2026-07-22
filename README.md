@@ -216,7 +216,7 @@ uvicorn backend.main:app --host 0.0.0.0 --port 8000
 
 ### Health & Info
 
-When the static build is present the root `/` serves the SPA. A lightweight health endpoint is available at `/health` and API documentation remains at `/docs` (FastAPI auto docs).
+When the static build is present the root `/` serves the SPA via FastAPI `app.frontend(..., fallback="index.html")`, so client routes like `/visualize` still return the SPA shell on hard reload. A lightweight health endpoint is available at `/health` and API documentation remains at `/docs` (FastAPI auto docs).
 
 ---
 
