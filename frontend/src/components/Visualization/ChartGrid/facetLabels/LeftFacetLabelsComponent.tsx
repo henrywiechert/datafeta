@@ -83,7 +83,7 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
     handleClose: handleValuesClose,
   } = useValuesStyleState(valuesStyle, {
     defaultOrientation: 'vertical',
-    defaultHorizontalAlign: 'start',
+    defaultHorizontalAlign: 'center',
     defaultVerticalAlign: 'center',
     defaultWrapMode: 'wrap',
   });
@@ -271,7 +271,7 @@ const LeftFacetLabelsComponent: React.FC<LeftFacetLabelsProps> = ({
           valuesStyle.horizontalAlignByDepth,
           valuesStyle.horizontalAlign,
           levelIdx,
-          'start',
+          'center',
         );
         const verticalAlign = resolveDepthValue(
           valuesStyle.verticalAlignByDepth,

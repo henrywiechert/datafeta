@@ -147,7 +147,7 @@ export const initialState: VisualizationState = {
       orientationByDepth: [],
       widthPx: null,
       widthPxByDepth: [],
-      horizontalAlign: 'start',
+      horizontalAlign: 'center',
       verticalAlign: 'center',
       horizontalAlignByDepth: [],
       verticalAlignByDepth: [],

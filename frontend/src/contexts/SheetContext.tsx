@@ -118,7 +118,7 @@ function createEmptyVisualizationState(): VisualizationStateSnapshot {
         orientationByDepth: [],
         widthPx: null,
         widthPxByDepth: [],
-        horizontalAlign: 'start',
+        horizontalAlign: 'center',
         verticalAlign: 'center',
         horizontalAlignByDepth: [],
         verticalAlignByDepth: [],
