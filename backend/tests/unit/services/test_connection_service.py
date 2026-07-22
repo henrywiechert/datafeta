@@ -37,7 +37,7 @@ class TestFileExtensionConstants:
 
     def test_allowed_extensions_count(self):
         """Test that only expected extensions are allowed."""
-        assert len(ALLOWED_FILE_EXTENSIONS) == 2
+        assert len(ALLOWED_FILE_EXTENSIONS) == 5
 
 
 class TestMimeTypeConstants:
