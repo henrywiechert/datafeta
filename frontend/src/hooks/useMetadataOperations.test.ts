@@ -42,7 +42,7 @@ describe('useMetadataOperations', () => {
 
   it('does not retry listTables forever when the database is missing', async () => {
     mockApi.listTables.mockRejectedValue(
-      new Error('Database missing_db does not exist. (UNKNOWN_DATABASE)'),
+      new Error("Database 'missing_db' does not exist or is no longer available."),
     );
 
     const { result } = renderHook(() => {
@@ -104,7 +104,7 @@ describe('useMetadataOperations', () => {
     });
 
     await waitFor(() => {
-      expect(result.current.metadataError).toContain('UNKNOWN_DATABASE');
+      expect(result.current.metadataError).toContain('does not exist or is no longer available');
     });
 
     await waitFor(() => {

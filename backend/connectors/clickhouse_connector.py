@@ -25,6 +25,16 @@ logger = logging.getLogger(__name__)
 _clickhouse_dialect = ClickHouseDialect()
 
 
+def _friendly_clickhouse_error(e: Exception, database: str, table: str | None = None) -> str:
+    msg = str(e)
+    if "code: 81" in msg or "UNKNOWN_DATABASE" in msg:
+        return f"Database '{database}' does not exist or is no longer available."
+    if "code: 60" in msg or "UNKNOWN_TABLE" in msg:
+        target = f"'{database}.{table}'" if table else f"in '{database}'"
+        return f"Table {target} does not exist or is no longer available."
+    return msg
+
+
 class ClickHouseConnector(BaseConnector):
     def __init__(self):
         self.client: Client = None
@@ -269,7 +279,7 @@ class ClickHouseConnector(BaseConnector):
         except ValueError as e:
              raise InvalidInputError(str(e))
         except Exception as e:
-            raise DataSourceConnectionError(f"Error listing tables in database {database}: {e}")
+            raise DataSourceConnectionError(_friendly_clickhouse_error(e, database))
 
     def list_columns(self, database: str, table: str) -> List[Column]:
         if not self.client:
@@ -298,7 +308,7 @@ class ClickHouseConnector(BaseConnector):
         except ValueError as e:
             raise InvalidInputError(str(e))
         except Exception as e:
-            raise DataSourceConnectionError(f"Error describing table {database}.{table}: {e}")
+            raise DataSourceConnectionError(_friendly_clickhouse_error(e, database, table))
 
     def detect_foreign_keys(self, database: str) -> List[ForeignKeyRelationship]:
         """
