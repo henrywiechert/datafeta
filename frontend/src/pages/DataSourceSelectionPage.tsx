@@ -56,7 +56,7 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
 
   const connectionOptions = useMemo<Array<{ value: ConnectionType; label: string; unavailable: boolean }>>(() => {
     const options: Array<{ value: ConnectionType; label: string }> = [
-      { value: 'csv', label: 'File (CSV, Parquet)' },
+      { value: 'csv', label: 'File (CSV, Parquet, JSON)' },
       { value: 'hive_parquet', label: 'Hive Parquet (Partitioned)' },
       { value: 'clickhouse', label: 'ClickHouse' },
       { value: 'kaggle', label: 'Kaggle Dataset' },

@@ -28,6 +28,31 @@ Open the backend data source + plugin architecture diagram:
 
 ---
 
+## JSON / NDJSON / JSONL Files
+
+Upload JSON files alongside CSV and Parquet in the same **File** connection type.
+
+| Supported extension | Format |
+|---|---|
+| `.json` | JSON array of objects (`[{…}, {…}]`) or single JSON object — auto-detected |
+| `.ndjson` | Newline-delimited JSON — one object per line |
+| `.jsonl` | Same as NDJSON |
+
+**Automatic flattening:** Nested structures are expanded on load so every field is directly usable as a column:
+
+| Source type | Result columns |
+|---|---|
+| Plain scalar (string, number, …) | Passed through unchanged |
+| Nested object `{"a": {"x": 1, "y": 2}}` | `a__x`, `a__y` |
+| Array of scalars `{"tags": ["a","b"]}` | `tags__index` (1-based position), `tags` |
+| Array of objects `{"events": [{…},{…}]}` | `events__index`, `events__field1`, `events__field2`, … |
+
+The flattened data is materialised as Parquet internally so all queries run at full columnar speed — no re-parsing on each query.
+
+**Large single-object files** (e.g. Chrome Trace Format, where all records live inside one top-level array) are supported. The outer object's scalar fields are repeated on every row produced by the array UNNEST.
+
+---
+
 ## ClickHouse
 
 | Option | Default | Notes |
