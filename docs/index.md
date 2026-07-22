@@ -6,7 +6,7 @@
 
 ## What you can do with DataSlicer
 
-- **Connect to data** from CSV files, ClickHouse databases, Parquet files, or Kaggle datasets
+- **Connect to data** from CSV, Parquet, and JSON/NDJSON/JSONL files, ClickHouse databases, or Kaggle datasets
 - **Build charts** by drag-and-drop — bar, line, scatter, heatmap, timeline, and more
 - **Filter and slice** your data interactively with checkboxes, sliders, and date pickers
 - **Facet** charts into small multiples to compare groups side by side
