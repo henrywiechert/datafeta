@@ -294,7 +294,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
               <input
                 ref={addFilesInputRef}
                 type="file"
-                accept=".csv,.parquet"
+                accept=".csv,.parquet,.json,.ndjson,.jsonl"
                 multiple
                 style={{ display: 'none' }}
                 onChange={(e) => {

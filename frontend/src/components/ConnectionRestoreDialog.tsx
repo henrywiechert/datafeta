@@ -374,10 +374,10 @@ export default function ConnectionRestoreDialog({
                 fullWidth
                 disabled={isConnecting}
               >
-                {file ? `Selected: ${file.name}` : 'Select Data File (CSV/Parquet)'}
+                {file ? `Selected: ${file.name}` : 'Select Data File (CSV/Parquet/JSON)'}
                 <input
                   type="file"
-                  accept=".csv,.parquet"
+                  accept=".csv,.parquet,.json,.ndjson,.jsonl"
                   hidden
                   onChange={handleFileChange}
                 />
