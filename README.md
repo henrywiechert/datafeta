@@ -2,6 +2,8 @@
 
 A modern data analysis platform that provides intuitive visualization and querying capabilities for multiple data sources including databases and files. It implements many aspects of the openly available [Polaris Formalism](https://graphics.stanford.edu/projects/polaris), later commercially productized as [Tableau (Salesforce)](https://www.tableau.com).
 
+![Data Slicer screenshots](docs/assets/demo.gif)
+
 ## Overview
 
 Data Slicer is a full-stack data analysis platform consisting of:
