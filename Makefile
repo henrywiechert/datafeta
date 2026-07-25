@@ -2,7 +2,17 @@ ROOT_DIR := $(patsubst %/,%,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 BACKEND_DIR := $(ROOT_DIR)/backend
 FRONTEND_DIR := $(ROOT_DIR)/frontend
 
-.PHONY: test lint
+.PHONY: test lint setup-dev
+
+PYTHON := $(shell command -v python3.12 || command -v python3.13 || command -v python3.14 || command -v python3)
+
+setup-dev:
+	@if [ ! -d "$(BACKEND_DIR)/.venv" ]; then \
+		$(PYTHON) -m venv "$(BACKEND_DIR)/.venv"; \
+	fi; \
+	. "$(BACKEND_DIR)/.venv/bin/activate" && \
+	cd "$(BACKEND_DIR)" && pip install -r requirements.txt -r requirements-dev.txt; \
+	cd "$(FRONTEND_DIR)" && npm install
 
 lint:
 	cd "$(FRONTEND_DIR)" && npm run lint
