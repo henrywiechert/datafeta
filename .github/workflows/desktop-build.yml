@@ -1,0 +1,133 @@
+# Build Data Slicer desktop installers for macOS, Windows, and Linux.
+#
+# - workflow_dispatch: build all platforms; optionally publish to GitHub Releases
+# - push tags desktop-v*: build + publish (version taken from the tag)
+#
+# Artifacts are always uploaded on the workflow run. Publishing requires
+# contents:write (GITHUB_TOKEN) and uploads updater metadata (latest-*.yml)
+# for electron-updater.
+
+name: Desktop build
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish artifacts to a GitHub Release (uses desktop/package.json version)"
+        type: boolean
+        default: false
+  push:
+    tags:
+      - "desktop-v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+          - os: windows-latest
+          - os: ubuntu-latest
+
+    env:
+      # Skip code-signing discovery on CI (unsigned internal builds for now).
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            desktop/package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            desktop/requirements-build.txt
+
+      - name: Sync desktop version from tag
+        if: startsWith(github.ref, 'refs/tags/desktop-v')
+        shell: bash
+        run: |
+          VER="${GITHUB_REF_NAME#desktop-v}"
+          echo "Setting desktop version to ${VER} from tag"
+          (cd desktop && npm version "$VER" --no-git-tag-version --allow-same-version)
+
+      - name: Install Linux packaging dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            fakeroot \
+            rpm \
+            dpkg \
+            libfuse2t64 || sudo apt-get install -y fakeroot rpm dpkg libfuse2
+
+      - name: Install Python dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt
+          python -m pip install -r desktop/requirements-build.txt
+
+      - name: Build frontend → backend/static
+        shell: bash
+        run: bash desktop/scripts/build-frontend.sh
+
+      - name: Build PyInstaller sidecar
+        shell: bash
+        env:
+          DATAFETA_PYTHON: python
+        run: bash desktop/scripts/build-sidecar.sh
+
+      - name: Install desktop npm dependencies
+        working-directory: desktop
+        run: npm ci --no-audit --no-fund
+
+      - name: Package Electron app
+        if: ${{ !(startsWith(github.ref, 'refs/tags/desktop-v') || (github.event_name == 'workflow_dispatch' && inputs.publish)) }}
+        working-directory: desktop
+        run: npm run dist
+
+      - name: Package and publish Electron app
+        if: ${{ startsWith(github.ref, 'refs/tags/desktop-v') || (github.event_name == 'workflow_dispatch' && inputs.publish) }}
+        working-directory: desktop
+        run: npm run dist:publish
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          if-no-files-found: error
+          path: |
+            desktop/dist/*.dmg
+            desktop/dist/*.zip
+            desktop/dist/*.exe
+            desktop/dist/*.AppImage
+            desktop/dist/latest*.yml
+            desktop/dist/*.blockmap
+            desktop/dist/builder-effective-config.yaml
