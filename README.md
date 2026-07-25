@@ -8,6 +8,8 @@ A modern data analysis platform that provides intuitive visualization and queryi
   <img src="docs/assets/demo.gif" alt="Data Slicer screenshots" />
 </p>
 
+<br />
+
 ## Overview
 
 Data Slicer is a full-stack data analysis platform consisting of:
