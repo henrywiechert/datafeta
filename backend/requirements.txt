@@ -173,7 +173,8 @@ urllib3==2.7.0
     #   requests
 uvicorn[standard]==0.51.0
     # via -r requirements.in
-uvloop==0.22.1
+# Unix-only (uvicorn[standard] marks this); bare pin without marker breaks Windows CI/desktop builds.
+uvloop==0.22.1 ; sys_platform != "win32"
     # via uvicorn
 watchfiles==1.1.1
     # via uvicorn
