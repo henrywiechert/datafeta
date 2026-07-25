@@ -35,6 +35,14 @@ MANIFEST
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
+!desktop/sidecar/*.spec
+
+# Desktop packaging artifacts
+desktop/node_modules/
+desktop/dist/
+desktop/dist-sidecar/
+desktop/build-sidecar/
+backend/static/
 
 # Installer logs
 pip-log.txt
@@ -93,6 +101,8 @@ node_modules/
 npm-debug.log
 yarn-error.log
 package-lock.json
+!frontend/package-lock.json
+!desktop/package-lock.json
 /frontend/build
 
 # VS Code
