@@ -59,7 +59,10 @@
         "dmg",
         "zip"
       ],
-      "identity": null
+      "identity": "-",
+      "hardenedRuntime": true,
+      "entitlements": "build-resources/entitlements.mac.plist",
+      "entitlementsInherit": "build-resources/entitlements.mac.plist"
     },
     "win": {
       "target": [
