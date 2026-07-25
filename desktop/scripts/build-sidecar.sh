@@ -33,6 +33,12 @@ fi
 echo "==> Ensuring PyInstaller is installed"
 "$PYTHON" -m pip install -q -r "$DESKTOP_DIR/requirements-build.txt"
 
+# kaggle authenticates on import; PyInstaller's isolated import child exits without
+# credentials. Placeholder env vars satisfy import-time auth only — runtime Kaggle
+# connects still use user-supplied credentials from the app.
+export KAGGLE_USERNAME="${KAGGLE_USERNAME:-pyinstaller-ci}"
+export KAGGLE_KEY="${KAGGLE_KEY:-0123456789abcdef0123456789abcdef}"
+
 echo "==> Building sidecar with PyInstaller"
 rm -rf "$OUT_DIR" "$WORK_DIR"
 "$PYTHON" -m PyInstaller \
