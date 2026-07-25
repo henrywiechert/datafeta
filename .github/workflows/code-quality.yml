@@ -43,13 +43,10 @@ jobs:
             ),
             full_note,
         )
-        sub_count = 0
+        uvloop_processed = False
 
         for idx, line in enumerate(lines):
             if line.startswith("uvloop=="):
-                if "==" not in line:
-                    raise SystemExit(f"Unexpected uvloop requirement format: {line.strip()}")
-
                 version = line.split("==", 1)[1].split(";", 1)[0].strip()
                 start = idx - 1 if idx > 0 and lines[idx - 1].startswith(note_prefix) else idx
                 end = idx + 1
@@ -60,10 +57,10 @@ jobs:
                     replacement.append(lines[idx + 1])
 
                 lines[start:end] = replacement
-                sub_count = 1
+                uvloop_processed = True
                 break
 
-        if sub_count == 0:
+        if not uvloop_processed:
             raise SystemExit(
                 "uvloop dependency line not found in requirements.txt; "
                 "ensure uvicorn[standard] remains declared in requirements.in"
