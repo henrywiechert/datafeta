@@ -28,8 +28,56 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  prepare-release:
+    name: Prepare release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
+        uses: actions/checkout@v6
+
+      - name: Determine release metadata
+        id: release
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == desktop-v* ]]; then
+            VERSION="${GITHUB_REF_NAME#desktop-v}"
+            PUBLISH=true
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.publish }}" == "true" ]]; then
+            VERSION="$(python -c 'import json, pathlib; print(json.loads(pathlib.Path("desktop/package.json").read_text())["version"])')"
+            PUBLISH=true
+          else
+            VERSION=""
+            PUBLISH=false
+          fi
+
+          echo "publish=${PUBLISH}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "release_tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure GitHub release exists
+        if: steps.release.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          TAG="${{ steps.release.outputs.release_tag }}"
+          VERSION="${{ steps.release.outputs.version }}"
+
+          if gh release view "$TAG" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "Release ${TAG} already exists"
+          else
+            gh release create "$TAG" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --target "${GITHUB_SHA}" \
+              --title "${VERSION}" \
+              --notes ""
+          fi
+
   build:
     name: Build (${{ matrix.os }})
+    needs: prepare-release
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
     strategy:
