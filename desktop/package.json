@@ -1,0 +1,82 @@
+{
+  "name": "datafeta-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "Data Slicer desktop shell (Electron + FastAPI sidecar)",
+  "main": "electron/main.js",
+  "author": "Henry Wiechert (datafeta.io)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/henrywiechert/data-slicer.git"
+  },
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --publish never",
+    "dist:publish": "electron-builder --publish always",
+    "dist:zip": "electron-builder --publish never -c.mac.target=zip -c.linux.target=zip -c.win.target=zip"
+  },
+  "dependencies": {
+    "electron-updater": "^6.6.2"
+  },
+  "devDependencies": {
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "io.datafeta.dataslicer",
+    "productName": "Data Slicer",
+    "copyright": "Copyright © 2024-2026 Henry Wiechert (datafeta.io)",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build-resources"
+    },
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "dist-sidecar/datafeta-backend",
+        "to": "sidecar/datafeta-backend",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "henrywiechert",
+        "repo": "data-slicer",
+        "releaseType": "release"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "identity": null
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "zip"
+      ],
+      "category": "Office"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false
+    }
+  }
+}

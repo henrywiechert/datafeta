@@ -75,6 +75,16 @@ Contributions are accepted only under the contributor terms in `CLA.md` or `CLA_
 - [`frontend/ARROW.md`](./frontend/ARROW.md) - Arrow transport between backend and frontend
 - [`frontend/DUCKDB_WASM.md`](./frontend/DUCKDB_WASM.md) - DuckDB WASM local caching + local query execution
 
+## Desktop app
+
+For a non-technical double-click install (Windows / macOS / Linux), see [`desktop/README.md`](./desktop/README.md).
+
+```bash
+./desktop/scripts/package.sh
+```
+
+This builds the React frontend, packages the FastAPI backend with PyInstaller, and wraps both in an Electron shell with auto-update support. End users do not need Docker, Python, or Node.
+
 ## Deployment
 
 You can deploy the application in several ways depending on your infrastructure preference.

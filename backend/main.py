@@ -24,8 +24,13 @@ from .exceptions import (
 log_level_name = os.environ.get("LOG_LEVEL", "INFO").upper()
 log_level = getattr(logging, log_level_name, logging.INFO)
 
-# Configure logging to both file and console
-log_file = Path(__file__).parent / 'backend.log'
+# Configure logging to both file and console.
+# LOG_FILE lets desktop/packaged runs write outside the (possibly read-only) install dir.
+log_file = Path(os.environ["LOG_FILE"]) if os.environ.get("LOG_FILE") else Path(__file__).parent / "backend.log"
+try:
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+except OSError:
+    pass
 logging.basicConfig(
     level=log_level,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -122,9 +127,13 @@ def get_version():
 @app.on_event("startup")
 def startup_event():
     """Initialize application-scoped directories."""
-    # Upload root directory (temporary)
+    # Upload root directory: env override for desktop/packaged runs, else a temp dir.
     try:
-        upload_root_dir = tempfile.mkdtemp(prefix="datafeta_csv_")
+        upload_root_dir = os.environ.get("UPLOAD_ROOT_DIR")
+        if upload_root_dir:
+            os.makedirs(upload_root_dir, exist_ok=True)
+        else:
+            upload_root_dir = tempfile.mkdtemp(prefix="datafeta_csv_")
         app.state.upload_root_dir = upload_root_dir
         logger.info(f"Created upload root directory: {upload_root_dir}")
     except Exception:
@@ -141,8 +150,15 @@ def startup_event():
         logger.exception("Failed to initialize snapshot storage directory")
         # Non-fatal: continue startup even if snapshots aren't available
 
-FRONTEND_BUILD_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "static"))
-DOCS_BUILD_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "site"))
+# FRONTEND_STATIC_DIR / DOCS_STATIC_DIR let the desktop sidecar point at bundled assets.
+FRONTEND_BUILD_DIR = os.path.abspath(
+    os.environ.get("FRONTEND_STATIC_DIR")
+    or os.path.join(os.path.dirname(__file__), "static")
+)
+DOCS_BUILD_DIR = os.path.abspath(
+    os.environ.get("DOCS_STATIC_DIR")
+    or os.path.join(os.path.dirname(__file__), "..", "site")
+)
 
 # If MkDocs docs have been built, serve them at /help (must be mounted before the SPA frontend at /)
 if os.path.isdir(DOCS_BUILD_DIR):

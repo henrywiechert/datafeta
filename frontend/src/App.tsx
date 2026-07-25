@@ -149,8 +149,12 @@ function AppContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAppConfigLoading, appConfig.snapshots.enabled]);
 
-  // Warn user before accidental page reload when connected
+  // Warn user before accidental page reload when connected.
+  // Skip in Electron — the desktop shell owns quit via the window close button.
   useEffect(() => {
+    const isElectron = /Electron/i.test(navigator.userAgent);
+    if (isElectron) return;
+
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isConnected) {
         // Standard way to trigger the browser's "Leave site?" dialog

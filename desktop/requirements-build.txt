@@ -1,0 +1,2 @@
+# Build-only dependency for packaging the desktop sidecar.
+pyinstaller>=6.3
