@@ -29,23 +29,32 @@ jobs:
         cd backend
         pip-compile --output-file=requirements.txt requirements.in
         python - <<'PY'
-        import re
         from pathlib import Path
 
         path = Path("requirements.txt")
-        text = path.read_text()
+        lines = path.read_text().splitlines(keepends=True)
         note = "# Unix-only (uvicorn[standard] marks this); bare pin without marker breaks Windows CI/desktop builds.\n"
-        pattern = re.compile(
-            r'(?m)(?:^# Unix-only.*\n)?^uvloop==([^\s;]+)(?:\s*;\s*sys_platform\s*!=\s*"win32")?\n([ \t]*# via uvicorn\n)'
-        )
+        sub_count = 0
 
-        def repl(match: re.Match[str]) -> str:
-            version = match.group(1)
-            via_line = match.group(2)
-            return f'{note}uvloop=={version} ; sys_platform != "win32"\n{via_line}'
+        for idx, line in enumerate(lines):
+            if line.startswith("uvloop=="):
+                version = line.split("==", 1)[1].split(";", 1)[0].strip()
+                start = idx - 1 if idx > 0 and lines[idx - 1].startswith("# Unix-only") else idx
+                end = idx + 1
+                replacement = [note, f'uvloop=={version} ; sys_platform != "win32"\n']
 
-        normalized_text, _ = pattern.subn(repl, text, count=1)
-        path.write_text(normalized_text)
+                if idx + 1 < len(lines) and lines[idx + 1].lstrip().startswith("# via uvicorn"):
+                    end = idx + 2
+                    replacement.append(lines[idx + 1])
+
+                lines[start:end] = replacement
+                sub_count = 1
+                break
+
+        if sub_count == 0:
+            raise SystemExit("uvloop dependency line not found in requirements.txt")
+
+        path.write_text("".join(lines))
         PY
         git diff --exit-code requirements.txt
 
