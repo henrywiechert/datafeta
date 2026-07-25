@@ -32,14 +32,20 @@ jobs:
         from pathlib import Path
 
         path = Path("requirements.txt")
-        text = path.read_text()
-        text = text.replace(
-            "uvloop==0.22.1\n    # via uvicorn\n",
-            "# Unix-only (uvicorn[standard] marks this); bare pin without marker breaks Windows CI/desktop builds.\n"
-            "uvloop==0.22.1 ; sys_platform != \"win32\"\n"
-            "    # via uvicorn\n",
-        )
-        path.write_text(text)
+        lines = path.read_text().splitlines(keepends=True)
+        note = "# Unix-only (uvicorn[standard] marks this); bare pin without marker breaks Windows CI/desktop builds.\n"
+
+        for idx, line in enumerate(lines):
+            if line.startswith("uvloop=="):
+                version = line.split("==", 1)[1].split(";", 1)[0].strip()
+                if idx > 0 and lines[idx - 1].startswith("# Unix-only (uvicorn[standard] marks this);"):
+                    lines.pop(idx - 1)
+                    idx -= 1
+                lines[idx] = f"uvloop=={version} ; sys_platform != \"win32\"\n"
+                lines.insert(idx, note)
+                break
+
+        path.write_text("".join(lines))
         PY
         git diff --exit-code requirements.txt
 
