@@ -35,19 +35,20 @@ jobs:
         lines = path.read_text().splitlines(keepends=True)
         note_prefix = "# Unix-only (uvicorn[standard] marks this);"
         full_note = f"{note_prefix} bare pin without marker breaks Windows CI/desktop builds.\n"
-        note = next(
-            (
-                line
-                for line in lines
-                if line.startswith(note_prefix)
-            ),
-            full_note,
-        )
+        note = full_note
+        for existing_line in lines:
+            if existing_line.startswith(note_prefix):
+                note = existing_line
+                break
         uvloop_processed = False
 
         for idx, line in enumerate(lines):
             if line.startswith("uvloop=="):
-                version = line.split("==", 1)[1].split(";", 1)[0].strip()
+                _, _, version_tail = line.partition("==")
+                version = version_tail.split(";", 1)[0].strip()
+                if not version:
+                    raise SystemExit(f"Unexpected uvloop requirement format: {line.strip()}")
+
                 start = idx - 1 if idx > 0 and lines[idx - 1].startswith(note_prefix) else idx
                 end = idx + 1
                 replacement = [note, f'uvloop=={version} ; sys_platform != "win32"\n']
@@ -62,7 +63,7 @@ jobs:
 
         if not uvloop_processed:
             raise SystemExit(
-                "uvloop dependency line not found in requirements.txt; "
+                "uvloop dependency line with prefix 'uvloop==' not found in requirements.txt; "
                 "ensure uvicorn[standard] remains declared in requirements.in"
             )
 
