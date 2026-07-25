@@ -16,6 +16,7 @@ Data Slicer is a full-stack data analysis platform consisting of:
 
 - **Frontend**: React-based web application providing interactive data visualization and exploration
 - **Backend**: FastAPI-based REST API supporting multiple data source connectors and query execution and optimization for large datasets
+- **Desktop**: Standalone Electron app (Windows / macOS / Linux) that bundles the UI and a local backend — see [Desktop app](#desktop-app) for tradeoffs vs. a hosted deployment
 
 ## Key Features
 
@@ -85,13 +86,25 @@ Contributions are accepted only under the contributor terms in `CLA.md` or `CLA_
 
 ## Desktop app
 
-For a non-technical double-click install (Windows / macOS / Linux), see [`desktop/README.md`](./desktop/README.md).
+Data Slicer also ships as a **standalone desktop app** (Electron + packaged FastAPI sidecar) for Windows, macOS, and Linux. End users get a normal installer / AppImage — no Docker, Python, or Node required. Details and packaging steps: [`desktop/README.md`](./desktop/README.md).
 
 ```bash
 ./desktop/scripts/package.sh
 ```
 
-This builds the React frontend, packages the FastAPI backend with PyInstaller, and wraps both in an Electron shell with auto-update support. End users do not need Docker, Python, or Node.
+This builds the React frontend, packages the FastAPI backend with PyInstaller, and wraps both in an Electron shell with auto-update support.
+
+### Pros
+- **Standalone**: one double-click app; backend runs locally on loopback
+- **Easy to install**: platform installers (DMG / NSIS / AppImage) and zip artifacts; no server or container setup
+- **Privacy**: data stays on the user’s machine — uploads, session files, and query working sets live in local app data, not on a shared remote server
+- **Offline-friendly**: once installed, you can explore local files without a hosted deployment
+
+### Cons / tradeoffs
+- **Memory & disk pressure**: large datasets are processed locally (DuckDB on the user’s PC), so RAM and disk usage grow with the data you open — unlike a remote DuckDB / hosted backend that can keep heavy working sets off the client
+- **No sharing**: each install is single-user and local; there is no shared warehouse or multi-user deployment path
+
+For large remote warehouses or shared team deployments, prefer the Docker / hosted backend options below.
 
 ## Deployment
 
