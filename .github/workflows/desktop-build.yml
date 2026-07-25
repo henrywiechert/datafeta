@@ -41,8 +41,8 @@ jobs:
           - os: ubuntu-latest
 
     env:
-      # Skip code-signing discovery on CI (unsigned internal builds for now).
-      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      # macOS uses ad-hoc signing (mac.identity "-" in package.json) so downloaded
+      # arm64 builds aren't flagged as "damaged". No Developer ID cert is configured.
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
