@@ -28,6 +28,19 @@ jobs:
       run: |
         cd backend
         pip-compile --output-file=requirements.txt requirements.in
+        python - <<'PY'
+        from pathlib import Path
+
+        path = Path("requirements.txt")
+        text = path.read_text()
+        text = text.replace(
+            "uvloop==0.22.1\n    # via uvicorn\n",
+            "# Unix-only (uvicorn[standard] marks this); bare pin without marker breaks Windows CI/desktop builds.\n"
+            "uvloop==0.22.1 ; sys_platform != \"win32\"\n"
+            "    # via uvicorn\n",
+        )
+        path.write_text(text)
+        PY
         git diff --exit-code requirements.txt
 
   lint:
