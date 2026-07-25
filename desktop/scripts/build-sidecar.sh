@@ -43,11 +43,11 @@ rm -rf "$OUT_DIR" "$WORK_DIR"
   "$SPEC"
 
 BIN="$OUT_DIR/datafeta-backend/datafeta-backend"
-if [[ "$(uname -s)" == "MINGW"* || "$(uname -s)" == "MSYS"* || "$(uname -s)" == "CYGWIN"* ]]; then
+if [[ -f "${BIN}.exe" ]]; then
   BIN="${BIN}.exe"
 fi
 
-if [[ ! -x "$BIN" && ! -f "$BIN" ]]; then
+if [[ ! -f "$BIN" ]]; then
   echo "ERROR: Expected sidecar binary at $BIN" >&2
   exit 1
 fi

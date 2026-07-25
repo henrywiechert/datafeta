@@ -48,6 +48,26 @@ cd desktop && npm ci && npm run dist  # -> desktop/dist
 
 Artifacts land in `desktop/dist/` (dmg/AppImage/nsis and/or zip, depending on OS).
 
+## CI (GitHub Actions)
+
+Workflow: [`.github/workflows/desktop-build.yml`](../.github/workflows/desktop-build.yml)
+
+Builds **macOS (arm64), Windows, and Linux** in parallel.
+
+| Trigger | Behavior |
+|---|---|
+| Actions → **Desktop build** → Run workflow | Build all platforms; optionally tick **publish** |
+| Push tag `desktop-v1.2.3` | Build all platforms and publish a GitHub Release for `1.2.3` |
+
+```bash
+# Example release
+# 1) Bump desktop/package.json version (or let the tag overwrite it in CI)
+git tag desktop-v0.1.1
+git push origin desktop-v0.1.1
+```
+
+Download installers from the workflow’s **Artifacts**, or from the GitHub Release when published.
+
 ## Auto-update (Phase 2)
 
 Packaged apps check for updates ~8s after startup, and via **Data Slicer → Check for Updates…** (macOS) or **Help → Check for Updates…** (Windows/Linux).
