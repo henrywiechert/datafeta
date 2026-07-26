@@ -1,0 +1,19 @@
+// Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
+import { getStartOf } from './datetimeFormatUtils';
+
+describe('getStartOf', () => {
+  test('week starts on Monday (ISO)', () => {
+    // Wednesday 2024-01-03 local → Monday 2024-01-01
+    const wed = new Date(2024, 0, 3, 15, 30, 0);
+    const start = getStartOf('week', wed);
+    expect(start.startsWith('2024-01-01')).toBe(true);
+
+    // Sunday 2024-01-07 local → Monday 2024-01-01 (same ISO week)
+    const sun = new Date(2024, 0, 7, 12, 0, 0);
+    expect(getStartOf('week', sun).startsWith('2024-01-01')).toBe(true);
+
+    // Monday stays Monday
+    const mon = new Date(2024, 0, 1, 8, 0, 0);
+    expect(getStartOf('week', mon).startsWith('2024-01-01')).toBe(true);
+  });
+});

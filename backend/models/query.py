@@ -35,7 +35,7 @@ class Dimension(BaseModel):
     field: str
     flavour: Literal['discrete', 'continuous']
     axis: Optional[Literal['x', 'y']] = None  # Optional: which axis the dimension is on
-    date_part: Optional[Literal['year', 'month', 'day', 'weekday', 'hour', 'minute', 'second', 'millisecond', 'microsecond', 'nanosecond']] = None
+    date_part: Optional[Literal['year', 'month', 'week', 'day', 'weekday', 'hour', 'minute', 'second', 'millisecond', 'microsecond', 'nanosecond']] = None
     date_mode: Optional[Literal['distinct', 'timeline']] = None
 
 class Filter(BaseModel):
@@ -43,7 +43,7 @@ class Filter(BaseModel):
     # Define allowed operators - expand later as needed
     operator: Literal['=', '!=', '>', '<', '>=', '<=', 'in', 'not in', 'like', 'ilike', 'not like', 'not ilike', 'is null', 'is not null']
     value: Any # Value type depends on operator (e.g., list for 'in')
-    date_part: Optional[Literal['year', 'month', 'day', 'weekday', 'hour', 'minute', 'second', 'millisecond', 'microsecond', 'nanosecond']] = None
+    date_part: Optional[Literal['year', 'month', 'week', 'day', 'weekday', 'hour', 'minute', 'second', 'millisecond', 'microsecond', 'nanosecond']] = None
     date_mode: Optional[Literal['distinct', 'timeline']] = None
     # 'row' → WHERE clause (default); 'group' → HAVING clause (filters on aggregated values)
     scope: Literal['row', 'group'] = 'row'
@@ -154,7 +154,7 @@ class BoxPlotField(BaseModel):
     """A continuous field for which box-plot summary statistics should be computed."""
     field: str
     alias: str
-    date_part: Optional[Literal['year', 'month', 'day', 'weekday', 'hour', 'minute', 'second', 'millisecond', 'microsecond', 'nanosecond']] = None
+    date_part: Optional[Literal['year', 'month', 'week', 'day', 'weekday', 'hour', 'minute', 'second', 'millisecond', 'microsecond', 'nanosecond']] = None
     date_mode: Optional[Literal['distinct', 'timeline']] = None
 
 

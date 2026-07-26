@@ -113,7 +113,7 @@ interface QueryDescription {
     field: string;
     flavour: 'discrete' | 'continuous';
     axis?: 'x' | 'y';  // For visualization positioning
-    date_part?: 'year' | 'month' | 'day' | 'weekday' | 'hour' | 'minute' | 'second' | 'millisecond' | 'microsecond' | 'nanosecond';
+    date_part?: 'year' | 'month' | 'week' | 'day' | 'weekday' | 'hour' | 'minute' | 'second' | 'millisecond' | 'microsecond' | 'nanosecond';
     date_mode?: 'distinct' | 'timeline';  // How to handle datetime dimensions
   }>;
   

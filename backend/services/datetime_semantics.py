@@ -1,7 +1,7 @@
 # Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 """
 Shared DateTime semantics for backend SQL generation.
-Encapsulates parts/modes, UTC contract, ISO weekday, sub-second modulo guidance,
+Encapsulates parts/modes, UTC contract, ISO weekday/week, sub-second modulo guidance,
 and date_trunc / EXTRACT mappings per part.
 """
 
@@ -13,6 +13,7 @@ DateTimeMode = str
 DATETIME_PARTS: Dict[str, DateTimePart] = {
     'year': 'year',
     'month': 'month',
+    'week': 'week',
     'day': 'day',
     'weekday': 'weekday',
     'hour': 'hour',
@@ -32,6 +33,7 @@ DATETIME_MODES: Dict[str, DateTimeMode] = {
 TIMELINE_UNITS: Dict[DateTimePart, str] = {
     'year': 'year',
     'month': 'month',
+    'week': 'week',
     'day': 'day',
     'weekday': 'day',  # weekday timeline bins at day resolution
     'hour': 'hour',
@@ -42,10 +44,11 @@ TIMELINE_UNITS: Dict[DateTimePart, str] = {
     'nanosecond': 'nanosecond',
 }
 
-# EXTRACT parts for distinct mode (weekday normalized separately)
+# EXTRACT parts for distinct mode (weekday normalized separately; week is ISO 1–53)
 DISTINCT_EXTRACT_PART: Dict[DateTimePart, str] = {
     'year': 'YEAR',
     'month': 'MONTH',
+    'week': 'WEEK',
     'day': 'DAY',
     'weekday': 'DOW',
     'hour': 'HOUR',

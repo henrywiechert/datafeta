@@ -281,7 +281,8 @@ export function getStartOf(period: 'hour' | 'day' | 'week' | 'month' | 'year', f
       break;
     case 'week':
       date.setHours(0, 0, 0, 0);
-      date.setDate(date.getDate() - date.getDay());
+      // ISO Monday-first: Mon=0 … Sun=6 days since Monday
+      date.setDate(date.getDate() - ((date.getDay() + 6) % 7));
       break;
     case 'month':
       date.setHours(0, 0, 0, 0);

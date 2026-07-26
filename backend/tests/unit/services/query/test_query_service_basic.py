@@ -239,6 +239,67 @@ def test_date_part_timeline_mode_uses_date_trunc(query_service: QueryService) ->
     assert "\"created_at_hour_timeline\"" in sql
 
 
+def test_date_part_week_distinct_and_timeline(query_service: QueryService) -> None:
+    """ISO week part: distinct EXTRACT(WEEK), timeline date_trunc('week')."""
+    distinct_desc = _make_base_description(
+        dimensions=[
+            Dimension(
+                field="sale_date",
+                flavour="discrete",
+                date_part="week",
+                date_mode="distinct",
+            )
+        ]
+    )
+    distinct_sql, _ = query_service.translate_to_sql(
+        query_desc=distinct_desc,
+        table_name="sales",
+        db_type="duckdb",
+        with_optimization=False,
+    )
+    assert "EXTRACT(WEEK FROM timezone('UTC'," in distinct_sql
+    assert "\"sale_date_week_distinct\"" in distinct_sql
+
+    timeline_desc = _make_base_description(
+        dimensions=[
+            Dimension(
+                field="sale_date",
+                flavour="continuous",
+                date_part="week",
+                date_mode="timeline",
+            )
+        ]
+    )
+    timeline_sql, _ = query_service.translate_to_sql(
+        query_desc=timeline_desc,
+        table_name="sales",
+        db_type="duckdb",
+        with_optimization=False,
+    )
+    assert "date_trunc('week'," in timeline_sql.lower()
+    assert "\"sale_date_week_timeline\"" in timeline_sql
+
+    ch_desc = _make_base_description(
+        dimensions=[
+            Dimension(
+                field="timestamp",
+                flavour="continuous",
+                date_part="week",
+                date_mode="timeline",
+            )
+        ]
+    )
+    ch_sql, _ = query_service.translate_to_sql(
+        query_desc=ch_desc,
+        table_name="events",
+        db_type="clickhouse",
+        with_optimization=False,
+    )
+    assert "toMonday" in ch_sql
+    assert "toDateTime64" in ch_sql
+    assert "timestamp_week_timeline" in ch_sql
+
+
 def test_csv_timeline_measure_groups_by_same_datetime_expression(
     query_service: QueryService,
 ) -> None:

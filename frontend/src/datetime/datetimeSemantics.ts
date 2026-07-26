@@ -10,6 +10,7 @@ import { DateTimeMode, DateTimePart } from '../types';
 export const DATETIME_PARTS: readonly DateTimePart[] = [
   'year',
   'month',
+  'week',
   'day',
   'weekday',
   'hour',
@@ -22,9 +23,9 @@ export const DATETIME_PARTS: readonly DateTimePart[] = [
 
 export const DATETIME_MODES: readonly DateTimeMode[] = ['distinct', 'timeline'] as const;
 
-// UTC contract and ISO weekday rule (Mon=1..Sun=7). Timeline weekday bins by day.
+// UTC contract: ISO weekday (Mon=1..Sun=7); ISO week Monday-start, distinct 1–53.
 export const UTC_SEMANTICS_NOTE =
-  'All datetime parts are interpreted and derived in UTC; weekday is ISO (Mon=1..Sun=7).';
+  'All datetime parts are interpreted and derived in UTC; weekday is ISO (Mon=1..Sun=7); week is ISO Monday-start (distinct 1–53).';
 
 // Derived column alias: <field>_<part>_<mode>
 export function buildDateTimeAlias(field: string, part: DateTimePart, mode: DateTimeMode): string {
@@ -35,6 +36,7 @@ export function buildDateTimeAlias(field: string, part: DateTimePart, mode: Date
 export const TIMELINE_UNITS: Record<DateTimePart, string> = {
   year: 'year',
   month: 'month',
+  week: 'week',
   day: 'day',
   weekday: 'day', // weekday timeline bins at day resolution
   hour: 'hour',
@@ -49,6 +51,7 @@ export const TIMELINE_UNITS: Record<DateTimePart, string> = {
 export const DISTINCT_EXTRACT_PART: Record<DateTimePart, string> = {
   year: 'YEAR',
   month: 'MONTH',
+  week: 'WEEK',
   day: 'DAY',
   weekday: 'DOW', // caller applies ISO normalization: ((dow + 6) % 7) + 1
   hour: 'HOUR',
@@ -86,6 +89,7 @@ export function getDistinctExtractPart(part: DateTimePart): string {
 export const DISPLAY_FORMAT_BY_PART: Record<DateTimePart, string> = {
   year: 'YYYY',
   month: 'YYYY-MM',
+  week: 'YYYY-[W]WW',
   day: 'YYYY-MM-DD',
   weekday: 'dddd', // consumer can map 1-7 to labels if desired
   hour: 'YYYY-MM-DD HH',

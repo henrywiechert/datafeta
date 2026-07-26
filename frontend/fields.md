@@ -19,7 +19,7 @@ Every field in the system has two key attributes that determine its behavior:
 ### Additional Attributes
 - **dataType**: Underlying data type ('string', 'integer', 'float', 'datetime', etc.)
 - **axis**: Optional positioning hint ('x' or 'y')
-- **date_part**: For datetime fields, which part to extract ('year', 'month', 'day', etc.)
+- **date_part**: For datetime fields, which part to extract ('year', 'month', 'week', 'day', etc.)
 - **date_mode**: How to handle datetime ('distinct' or 'timeline')
 - **aggregation**: For measures, the aggregation function to apply
 
@@ -257,7 +257,7 @@ Users have full control over field classification through the UI:
 - **Type selection**: Choose between dimension and measure
 - **Flavour selection**: Choose between discrete and continuous
 - **Aggregation selection**: For measures, choose the aggregation function
-- **DateTime part extraction**: For datetime fields, extract specific parts (year, month, day, etc.)
+- **DateTime part extraction**: For datetime fields, extract specific parts (year, month, week, day, etc.)
 - **Virtual columns**: Create calculated fields with custom SQL expressions
 
 ### Field Utilities
@@ -355,7 +355,7 @@ Common patterns with mixed field types:
 
 ### DateTime Type Handling
 - **DateTime dimensions**: Can be continuous (timeline) or discrete (extracted parts)
-- **Date part extraction**: Extract year, month, day, weekday, hour, etc.
+- **Date part extraction**: Extract year, month, week, day, weekday, hour, etc.
 - **Date modes**: 
   - `distinct`: Treat extracted parts as categories
   - `timeline`: Maintain temporal ordering
