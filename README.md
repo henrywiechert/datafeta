@@ -12,11 +12,10 @@ A modern data analysis platform that provides intuitive visualization and queryi
 
 ## Overview
 
-Data Slicer is a full-stack data analysis platform consisting of:
+Data Slicer is available in two ways:
 
-- **Frontend**: React-based web application providing interactive data visualization and exploration
-- **Backend**: FastAPI-based REST API supporting multiple data source connectors and query execution and optimization for large datasets
-- **Desktop**: Standalone Electron app (Windows / macOS / Linux) that bundles the UI and a local backend — see [Desktop app](#desktop-app) for tradeoffs vs. a hosted deployment
+1. **Web app** — React frontend + FastAPI backend. Deploy with Docker or host the API and UI separately; good for shared / remote data, large datasets and team deployments.
+2. **Desktop app** — Standalone Electron install (Windows / macOS / Linux) that bundles the UI and a local backend. No server setup; data stays on the user’s machine. See [Desktop app](#desktop-app) for pros and cons.
 
 ## Key Features
 
