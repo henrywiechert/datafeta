@@ -54,6 +54,14 @@ export function toDatePartInteger(val: any, part: DateTimePart): any {
   switch (part) {
     case 'year': return d.getUTCFullYear();
     case 'month': return d.getUTCMonth() + 1;        // 1-12
+    case 'week': {
+      // ISO week-of-year 1–53 (Monday-based), matching ClickHouse toISOWeek / DuckDB EXTRACT(WEEK)
+      const target = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+      const dayNum = target.getUTCDay() || 7; // Mon=1 … Sun=7
+      target.setUTCDate(target.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+      return Math.ceil((((target.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    }
     case 'day': return d.getUTCDate();                // 1-31
     case 'weekday': {
       // ISO weekday: Mon=1 … Sun=7 (matches ClickHouse toDayOfWeek)

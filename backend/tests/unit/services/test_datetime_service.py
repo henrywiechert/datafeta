@@ -23,9 +23,14 @@ class TestDateTimeService:
         """Regression: toStartOfYear/toStartOfMonth return the ClickHouse Date type,
         which Arrow serializes as UInt16 days-since-epoch. The frontend misreads
         those small integers as epoch seconds, collapsing timeline axes to 1970.
-        Both parts must therefore be wrapped to DateTime64 UTC."""
+        Both parts must therefore be wrapped to DateTime64 UTC.
+        toMonday (week) has the same Date return type and needs the same wrap."""
         t = Table("events")
-        for part, func in (("year", "toStartOfYear"), ("month", "toStartOfMonth")):
+        for part, func in (
+            ("year", "toStartOfYear"),
+            ("month", "toStartOfMonth"),
+            ("week", "toMonday"),
+        ):
             expr = DateTimeService.get_datetime_part_expression(
                 t.ts, part, "timeline", "clickhouse"
             )
@@ -41,6 +46,41 @@ class TestDateTimeService:
             )
             sql = expr.get_sql(quote_char="`")
             assert "toDateTime64(" not in sql, f"unexpected wrap for part '{part}': {sql}"
+
+    def test_clickhouse_distinct_week_uses_to_iso_week(self):
+        """ClickHouse week distinct should use toISOWeek (Monday-based 1–53)."""
+        t = Table("events")
+        expr = DateTimeService.get_datetime_part_expression(
+            t.ts, "week", "distinct", "clickhouse"
+        )
+        sql = expr.get_sql(quote_char='"')
+        assert "toISOWeek" in sql
+        assert "toTimeZone" in sql
+        assert "UTC" in sql
+
+    def test_duckdb_distinct_week_uses_extract_week(self):
+        """SQL week distinct should use EXTRACT(WEEK) without DOW remapping."""
+        t = Table("events")
+        expr = DateTimeService.get_datetime_part_expression(
+            t.ts, "week", "distinct", "duckdb"
+        )
+        sql = expr.get_sql(quote_char='"')
+        assert "EXTRACT(WEEK" in sql
+        assert "DOW" not in sql
+        assert "timezone" in sql
+        assert "UTC" in sql
+
+    def test_duckdb_timeline_week_uses_date_trunc(self):
+        """SQL week timeline should use date_trunc('week', …)."""
+        t = Table("events")
+        expr = DateTimeService.get_datetime_part_expression(
+            t.ts, "week", "timeline", "duckdb"
+        )
+        sql = expr.get_sql(quote_char='"')
+        assert "date_trunc" in sql
+        assert "week" in sql
+        assert "timezone" in sql
+        assert "UTC" in sql
 
     def test_duckdb_distinct_weekday_is_iso_1_7(self):
         """SQL weekday distinct should be normalized to ISO weekday (Mon=1..Sun=7)."""

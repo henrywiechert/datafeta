@@ -115,6 +115,8 @@ class DateTimeService:
     CLICKHOUSE_DATE_PART_MAP: Dict[str, Callable[[Any], Any]] = {
         'year': lambda f: Function('toYear', DateTimeService._to_utc_clickhouse(f)),
         'month': lambda f: Function('toMonth', DateTimeService._to_utc_clickhouse(f)),
+        # ISO week-of-year 1–53 (Monday-based)
+        'week': lambda f: Function('toISOWeek', DateTimeService._to_utc_clickhouse(f)),
         'day': lambda f: Function('toDayOfMonth', DateTimeService._to_utc_clickhouse(f)),
         # ClickHouse toDayOfWeek is ISO: Monday=1 ... Sunday=7
         'weekday': lambda f: Function('toDayOfWeek', DateTimeService._to_utc_clickhouse(f)),
@@ -127,7 +129,7 @@ class DateTimeService:
     }
     
     # TIMELINE MODE: Truncate to preserve timeline (e.g., "2024-01-15 14:00:00")
-    # Note: year/month truncations return the ClickHouse Date type and must be
+    # Note: year/month/week truncations return the ClickHouse Date type and must be
     # wrapped to DateTime64 (see _to_datetime64_utc_clickhouse). The other parts
     # already return DateTime/DateTime64.
     CLICKHOUSE_TIMELINE_MAP: Dict[str, Callable[[Any], Any]] = {
@@ -136,6 +138,10 @@ class DateTimeService:
         ),
         'month': lambda f: DateTimeService._to_datetime64_utc_clickhouse(
             Function('toStartOfMonth', DateTimeService._to_utc_clickhouse(f))
+        ),
+        # toMonday returns Date (Monday of ISO week); wrap like year/month for Arrow.
+        'week': lambda f: DateTimeService._to_datetime64_utc_clickhouse(
+            Function('toMonday', DateTimeService._to_utc_clickhouse(f))
         ),
         'day': lambda f: Function('toStartOfDay', DateTimeService._to_utc_clickhouse(f)),
         'weekday': lambda f: Function('toStartOfDay', DateTimeService._to_utc_clickhouse(f)),  # Group by day for weekday timeline

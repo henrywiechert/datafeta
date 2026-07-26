@@ -289,6 +289,7 @@ export function getPresetsForField(dateTimePart?: string): DateTimePreset[] {
       return TIMELINE_HOUR_PRESETS;
     case 'day':
     case 'weekday':
+    case 'week':
       return TIMELINE_DAY_PRESETS;
     case 'month':
       return TIMELINE_MONTH_PRESETS;

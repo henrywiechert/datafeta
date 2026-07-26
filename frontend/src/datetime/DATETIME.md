@@ -64,7 +64,7 @@ import { DATETIME_PARTS } from '../utils';
 
 | Export | Purpose |
 |--------|---------|
-| `DATETIME_PARTS` | Supported granularities: year → nanosecond |
+| `DATETIME_PARTS` | Supported granularities: year → nanosecond (includes ISO `week`) |
 | `DATETIME_MODES` | `'distinct'` (cyclic) vs `'timeline'` (chronological) |
 | `TIMELINE_UNITS` | `date_trunc` unit for each part |
 | `DISTINCT_EXTRACT_PART` | SQL `EXTRACT` part names |
@@ -76,6 +76,7 @@ import { DATETIME_PARTS } from '../utils';
 **Key Design Decisions:**
 - All datetime parts are interpreted in **UTC**
 - Weekday uses **ISO convention** (Monday=1 ... Sunday=7)
+- Week uses **ISO Monday-start** (distinct 1–53; timeline = Monday bin)
 - Sub-second parts require modulo to isolate from seconds
 
 ---
@@ -149,7 +150,7 @@ Extracts the **numeric part value** from each timestamp. Groups values across di
 EXTRACT(HOUR FROM timestamp) → 0, 1, 2, ..., 23
 ```
 
-Use case: "Events by weekday", "Sales by month-of-year"
+Use case: "Events by weekday", "Sales by month-of-year", "Events by ISO week"
 
 ### Timeline Mode (Chronological)
 

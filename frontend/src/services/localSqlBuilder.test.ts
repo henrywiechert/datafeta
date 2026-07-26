@@ -42,6 +42,30 @@ describe('localSqlBuilder datetime parts (DuckDB)', () => {
     expect(expr).toContain('+ 1');
   });
 
+  test('timeline week uses date_trunc(week) and backend-compatible alias', () => {
+    const item = buildDuckDbDateTimePartSelectItem({
+      field: 'ts',
+      datePart: 'week',
+      dateMode: 'timeline',
+    });
+    expect(item.kind).toBe('expr');
+    if (item.kind !== 'expr') {
+      throw new Error('Expected expr kind');
+    }
+    expect(item.alias).toBe('ts_week_timeline');
+    expect(item.expr).toContain("date_trunc('week'");
+  });
+
+  test('distinct week uses EXTRACT(WEEK FROM <ts>)', () => {
+    const expr = buildDuckDbDateTimePartExpr({
+      field: 'ts',
+      datePart: 'week',
+      dateMode: 'distinct',
+    });
+    expect(expr).toContain('EXTRACT(WEEK FROM');
+    expect(expr).not.toContain('DOW');
+  });
+
   test('buildAggregateSql groups by computed datetime-part alias', () => {
     const dim = buildDuckDbDateTimePartSelectItem({
       field: 'ts',
