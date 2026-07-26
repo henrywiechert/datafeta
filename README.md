@@ -142,34 +142,24 @@ API base path (as used by the frontend) is `/api/v1`.
 
 ### 2. Docker Compose
 
-The `docker-compose.yml` supports multiple environments via env files. Two env files are provided:
-
-- `.env.stable` — production/stable deployment (port 8087, `../data-slicer-data/snapshots/`)
-- `.env.testing` — testing deployment (port 8089, `./data/snapshots-testing`)
+The `docker-compose.yml` is driven by an env file. Copy the provided [`.env.example`](.env.example), adjust the values, then build and run:
 
 ```bash
-# Build and run (stable)
-docker compose --env-file .env.stable up --build
-
-# Build and run (testing)
-docker compose --env-file .env.testing up --build
-
-# Run without rebuilding
-docker compose --env-file .env.stable up
-docker compose --env-file .env.testing up
+cp .env.example .env
+./build-docker.sh
+docker compose --env-file .env up
 ```
 
-The env files control these compose-level variables:
+See [`.env.example`](.env.example) for the full list of available variables (project name, container name, host port, snapshot directory, and backend runtime overrides).
 
-| Variable | stable | testing |
-|---|---|---|
-| `COMPOSE_PROJECT_NAME` | `data-slicer-stable` | `data-slicer-testing` |
-| `APP_VERSION` | `stable` | `testing` |
-| `CONTAINER_NAME` | `data-slicer-stable` | `data-slicer-testing` |
-| `HOST_PORT` | `8087` | `8089` |
-| `SNAPSHOT_DIR` | `../data-slicer-data/snapshots/` | `./data/snapshots-testing` |
+To run several flavours side by side, use suffixed env files together with a matching image tag. Each flavour gets its own `COMPOSE_PROJECT_NAME`, `CONTAINER_NAME`, and `HOST_PORT`, so they can run simultaneously:
 
-You can also run both environments simultaneously since they use different container names and host ports.
+```bash
+# Build an image tagged data-slicer:staging and run it from .env.staging
+# (.env.staging must set APP_VERSION=staging)
+./build-docker.sh staging
+docker compose --env-file .env.staging up
+```
 
 ### 3. Separate Frontend Hosting + Backend API
 
@@ -224,7 +214,8 @@ Backend environment variables for HuggingFace:
 
 ### Environment Variables
 
-Backend:
+The available backend and compose variables (with placeholder defaults) are listed in [`.env.example`](.env.example). A few worth calling out:
+
 - `LOG_LEVEL` (default: INFO)
 - `PORT` (default: 8000)
 - `CORS_ALLOW_ORIGINS` (optional, comma-separated). Overrides default development origins. Example:
