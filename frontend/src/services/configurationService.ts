@@ -85,6 +85,8 @@ export function sanitizeConnectionDetails(
     if (details.user) sanitized.user = details.user;
     if (details.database) sanitized.database = details.database;
     // Explicitly DO NOT include password or connection_string
+  } else if (details.type === 'duckdb') {
+    if (details.database_path) sanitized.database_path = details.database_path;
   } else if (details.type === 'kaggle') {
     // Kaggle configuration (NO API key)
     if (details.kaggle_dataset) sanitized.kaggle_dataset = details.kaggle_dataset;
@@ -272,7 +274,7 @@ export function validateConfiguration(config: any): SavedConfiguration {
 
   // Validate connection metadata if present
   if (config.connection) {
-    if (!config.connection.type || !['csv', 'clickhouse', 'kaggle', 'huggingface', 'hive_parquet'].includes(config.connection.type)) {
+    if (!config.connection.type || !['csv', 'clickhouse', 'kaggle', 'huggingface', 'hive_parquet', 'duckdb'].includes(config.connection.type)) {
       throw new Error('Invalid configuration: connection.type must be "csv", "clickhouse", "kaggle", "huggingface", or "hive_parquet"');
     }
   }
@@ -416,7 +418,8 @@ export function reconstructConnectionDetails(
   password?: string,
   kaggleUsername?: string,
   kaggleApiKey?: string,
-  clickHouseOverrides?: ClickHouseOverrides
+  clickHouseOverrides?: ClickHouseOverrides,
+  duckDbPath?: string,
 ): ConnectionDetails {
   const details: ConnectionDetails = {
     type: metadata.type,
@@ -441,6 +444,9 @@ export function reconstructConnectionDetails(
     details.user = clickHouseOverrides?.user ?? metadata.user;
     details.database = clickHouseOverrides?.database ?? metadata.database;
     if (password) details.password = password;
+  } else if (metadata.type === 'duckdb') {
+    details.database_path = duckDbPath ?? metadata.database_path;
+    details.read_only = true;
   } else if (metadata.type === 'kaggle') {
     // Kaggle configuration
     if (metadata.kaggle_dataset) details.kaggle_dataset = metadata.kaggle_dataset;

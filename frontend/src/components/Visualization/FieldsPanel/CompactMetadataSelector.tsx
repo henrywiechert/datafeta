@@ -15,6 +15,7 @@ import {
   compactAutocompleteListboxProps,
   sourcePickerFieldLabelSx,
 } from './sourcePickerShared';
+import { connectionUsesDatabaseBrowser } from '../../../utils/connectionCapabilities';
 
 type FilterableSelectProps = {
   label: string;
@@ -337,7 +338,7 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
         </Box>
       </Box>
 
-      {connectionType === 'clickhouse' ? (
+      {connectionUsesDatabaseBrowser(connectionType) ? (
         <>
           <TableAddPicker
             databases={databaseOptions}
@@ -347,13 +348,13 @@ const CompactMetadataSelector: React.FC<CompactMetadataSelectorProps> = ({
             primaryTable={selectedTable}
             unionTables={unionTables}
             onAdd={handleAddTable}
-            onApplyPatternSelection={handleApplyPatternSelection}
-            dbSwitchEnabled={dbSwitchEnabled}
-            onDbSwitchEnabledChange={onDbSwitchEnabledChange}
-            onDatabaseSwitch={onDatabaseSwitch}
-            dbSwitchDisabled={dbSwitchDisabled}
-            dbSwitchDisabledReason={dbSwitchDisabledReason}
-            isSwitchingDatabase={isSwitchingDatabase}
+            onApplyPatternSelection={connectionType === 'clickhouse' ? handleApplyPatternSelection : undefined}
+            dbSwitchEnabled={connectionType === 'clickhouse' ? dbSwitchEnabled : undefined}
+            onDbSwitchEnabledChange={connectionType === 'clickhouse' ? onDbSwitchEnabledChange : undefined}
+            onDatabaseSwitch={connectionType === 'clickhouse' ? onDatabaseSwitch : undefined}
+            dbSwitchDisabled={connectionType === 'clickhouse' ? dbSwitchDisabled : undefined}
+            dbSwitchDisabledReason={connectionType === 'clickhouse' ? dbSwitchDisabledReason : undefined}
+            isSwitchingDatabase={connectionType === 'clickhouse' ? isSwitchingDatabase : undefined}
           />
 
           <SelectedTablesList

@@ -2,7 +2,7 @@
 """Unit tests for SQL dialect implementations."""
 import pytest
 
-from backend.dialects import SqlDialect, ClickHouseDialect, DuckDbDialect
+from backend.dialects import SqlDialect, ClickHouseDialect, DuckDbDialect, DuckDbDatabaseDialect, get_dialect
 
 
 class TestClickHouseDialect:
@@ -159,10 +159,43 @@ class TestDuckDbDialect:
         assert result == '"events"'
 
 
+class TestDuckDbDatabaseDialect:
+    """Tests for DuckDbDatabaseDialect (path-based DuckDB files)."""
+
+    @pytest.fixture
+    def dialect(self) -> DuckDbDatabaseDialect:
+        return DuckDbDatabaseDialect()
+
+    def test_name(self, dialect: DuckDbDatabaseDialect):
+        assert dialect.name == 'duckdb'
+
+    def test_supports_schema_prefix(self, dialect: DuckDbDatabaseDialect):
+        assert dialect.supports_schema_prefix is True
+
+    def test_requires_database(self, dialect: DuckDbDatabaseDialect):
+        assert dialect.requires_database is True
+
+    def test_table_ref_with_schema(self, dialect: DuckDbDatabaseDialect):
+        result = dialect.table_ref('events', database='analytics')
+        assert result == '"analytics"."events"'
+
+    def test_get_dialect_duckdb_maps_to_database_dialect(self):
+        dialect = get_dialect('duckdb')
+        assert isinstance(dialect, DuckDbDatabaseDialect)
+        assert dialect.supports_schema_prefix is True
+        assert dialect.requires_database is True
+
+    def test_get_dialect_csv_stays_file_dialect(self):
+        dialect = get_dialect('csv')
+        assert isinstance(dialect, DuckDbDialect)
+        assert not isinstance(dialect, DuckDbDatabaseDialect)
+        assert dialect.supports_schema_prefix is False
+
+
 class TestDialectInterface:
     """Tests to verify both dialects implement the full interface."""
 
-    @pytest.fixture(params=[ClickHouseDialect, DuckDbDialect])
+    @pytest.fixture(params=[ClickHouseDialect, DuckDbDialect, DuckDbDatabaseDialect])
     def dialect(self, request) -> SqlDialect:
         return request.param()
 

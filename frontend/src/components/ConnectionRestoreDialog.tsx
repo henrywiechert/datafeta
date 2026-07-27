@@ -45,6 +45,7 @@ interface ConnectionRestoreDialogProps {
     hivePartitionFiles?: Map<string, File[]>,
     hiveFileStructure?: string[],
     restoreOptions?: ConnectionRestoreOptions,
+    duckDbPath?: string,
   ) => Promise<void>;
   onCancel: () => void;
   onSkip: () => void;
@@ -70,6 +71,7 @@ export default function ConnectionRestoreDialog({
   const [user, setUser] = useState('');
   const [database, setDatabase] = useState('');
   const [swapSameSchema, setSwapSameSchema] = useState(false);
+  const [duckDbPath, setDuckDbPath] = useState('');
 
   // Hive Parquet partition files (auto-populated from folder selection)
   const [hivePartitionFiles, setHivePartitionFilesLocal] = useState<Map<string, File[]>>(new Map());
@@ -95,6 +97,11 @@ export default function ConnectionRestoreDialog({
         setUser(connectionMetadata.user || '');
         setDatabase(connectionMetadata.database || '');
       }
+      if (connectionMetadata.type === 'duckdb') {
+        setDuckDbPath(connectionMetadata.database_path || '');
+      } else {
+        setDuckDbPath('');
+      }
       setSwapSameSchema(false);
     }
   }, [open, connectionMetadata]);
@@ -103,6 +110,7 @@ export default function ConnectionRestoreDialog({
   const isCsv = connectionMetadata?.type === 'csv';
   const isKaggle = connectionMetadata?.type === 'kaggle';
   const isHiveParquet = connectionMetadata?.type === 'hive_parquet';
+  const isDuckDb = connectionMetadata?.type === 'duckdb';
 
   const hivePartitionsToRestore = useMemo(
     () => connectionMetadata?.hive_loaded_partitions || [],
@@ -138,6 +146,12 @@ export default function ConnectionRestoreDialog({
       // For ClickHouse, validate required fields
       if (isClickHouse && (!host || !port)) {
         setError('Host and port are required');
+        setIsConnecting(false);
+        return;
+      }
+
+      if (isDuckDb && !duckDbPath.trim()) {
+        setError('DuckDB database path is required');
         setIsConnecting(false);
         return;
       }
@@ -179,6 +193,7 @@ export default function ConnectionRestoreDialog({
         isHiveParquet ? hivePartitionFiles : undefined,
         isHiveParquet ? hiveFileStructure : undefined,
         { swapSameSchema: swapSameSchema || undefined },
+        isDuckDb ? duckDbPath.trim() : undefined,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Connection failed');
@@ -330,6 +345,31 @@ export default function ConnectionRestoreDialog({
                     </Typography>
                   </Box>
                 }
+              />
+            </>
+          )}
+
+          {isDuckDb && (
+            <>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                DuckDB Database
+              </Typography>
+              <TextField
+                autoFocus
+                margin="dense"
+                label="Database Path"
+                type="text"
+                fullWidth
+                value={duckDbPath}
+                onChange={(e) => setDuckDbPath(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && !isConnecting) {
+                    e.preventDefault();
+                    handleConnect();
+                  }
+                }}
+                disabled={isConnecting}
+                helperText="Absolute path visible to the backend process"
               />
             </>
           )}
@@ -576,7 +616,7 @@ export default function ConnectionRestoreDialog({
         <Button
           onClick={handleConnect}
           variant="contained"
-          disabled={isConnecting || (isCsv && !file) || (isKaggle && (!kaggleUsername || !kaggleApiKey)) || (isHiveParquet && !allHivePartitionsHaveFiles)}
+          disabled={isConnecting || (isCsv && !file) || (isKaggle && (!kaggleUsername || !kaggleApiKey)) || (isDuckDb && !duckDbPath.trim()) || (isHiveParquet && !allHivePartitionsHaveFiles)}
           startIcon={isConnecting ? <CircularProgress size={20} /> : null}
         >
           {isConnecting ? 'Connecting...' : 'Connect'}

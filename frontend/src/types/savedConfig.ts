@@ -16,7 +16,7 @@ import { Sheet } from './sheet';
  * Excludes sensitive information like passwords.
  */
 export interface SavedConnectionMetadata {
-  type: 'csv' | 'clickhouse' | 'kaggle' | 'huggingface' | 'hive_parquet';
+  type: 'csv' | 'clickhouse' | 'kaggle' | 'huggingface' | 'hive_parquet' | 'duckdb';
   // CSV-specific fields
   file_path?: string;
   csv_delimiter?: string;
@@ -33,6 +33,8 @@ export interface SavedConnectionMetadata {
   port?: number;
   user?: string;
   database?: string;
+  // DuckDB database file
+  database_path?: string;
   // Kaggle-specific fields (NO API key)
   kaggle_dataset?: string;
   kaggle_csv_files?: string[];

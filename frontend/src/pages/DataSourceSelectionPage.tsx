@@ -17,6 +17,7 @@ import { useConnectionForm } from '../hooks/useConnectionForm';
 import {
   CsvConnectionForm,
   ClickHouseConnectionForm,
+  DuckDbConnectionForm,
   KaggleConnectionForm,
   HuggingFaceConnectionForm,
   HiveParquetConnectionForm,
@@ -59,6 +60,7 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
       { value: 'csv', label: 'File (CSV, Parquet, JSON)' },
       { value: 'hive_parquet', label: 'Hive Parquet (Partitioned)' },
       { value: 'clickhouse', label: 'ClickHouse' },
+      { value: 'duckdb', label: 'DuckDB Database' },
       { value: 'kaggle', label: 'Kaggle Dataset' },
       { value: 'huggingface', label: 'HuggingFace Dataset' },
     ];
@@ -291,6 +293,14 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
             <ClickHouseConnectionForm
               state={form.clickHouseState}
               onUpdate={form.updateClickHouseState}
+              disabled={formDisabled || !currentConnectorEnabled}
+            />
+          )}
+
+          {form.connectionType === 'duckdb' && (
+            <DuckDbConnectionForm
+              state={form.duckDbState}
+              onUpdate={form.updateDuckDbState}
               disabled={formDisabled || !currentConnectorEnabled}
             />
           )}

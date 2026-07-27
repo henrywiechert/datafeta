@@ -2,6 +2,7 @@
 # backend/connectors/__init__.py
 from .base import BaseConnector
 from .clickhouse_connector import ClickHouseConnector
+from .duckdb_connector import DuckDbConnector
 from .file_connector import FileConnector # Updated name
 from .kaggle_connector import KaggleConnector
 from .hive_parquet_connector import HiveParquetConnector, PartitionNotLoadedError
@@ -9,6 +10,7 @@ from .hive_parquet_connector import HiveParquetConnector, PartitionNotLoadedErro
 __all__ = [
     "BaseConnector",
     "ClickHouseConnector",
+    "DuckDbConnector",
     "FileConnector",
     "KaggleConnector",
     "HiveParquetConnector",

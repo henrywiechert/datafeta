@@ -222,14 +222,16 @@ const TableAddPicker: React.FC<TableAddPickerProps> = ({
       </Box>
 
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <Button
-          size="small"
-          onClick={() => setIsPatternDialogOpen(true)}
-          disabled={dbSwitchEnabled}
-          sx={{ minWidth: 0, px: 0.75, textTransform: 'none', fontSize: '0.72rem' }}
-        >
-          Add by pattern
-        </Button>
+        {onApplyPatternSelection ? (
+          <Button
+            size="small"
+            onClick={() => setIsPatternDialogOpen(true)}
+            disabled={dbSwitchEnabled}
+            sx={{ minWidth: 0, px: 0.75, textTransform: 'none', fontSize: '0.72rem' }}
+          >
+            Add by pattern
+          </Button>
+        ) : null}
       </Box>
 
       {onApplyPatternSelection ? (

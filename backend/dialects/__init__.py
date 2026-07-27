@@ -21,14 +21,15 @@ Usage:
 
 from backend.dialects.base import SqlDialect
 from backend.dialects.clickhouse import ClickHouseDialect
-from backend.dialects.duckdb import DuckDbDialect
+from backend.dialects.duckdb import DuckDbDialect, DuckDbDatabaseDialect
 
 _clickhouse_dialect = ClickHouseDialect()
 _duckdb_dialect = DuckDbDialect()
+_duckdb_database_dialect = DuckDbDatabaseDialect()
 
 _DIALECT_MAP = {
     'clickhouse': _clickhouse_dialect,
-    'duckdb': _duckdb_dialect,
+    'duckdb': _duckdb_database_dialect,
     'csv': _duckdb_dialect,
     'file': _duckdb_dialect,
     'kaggle': _duckdb_dialect,
@@ -65,5 +66,6 @@ __all__ = [
     'SqlDialect',
     'ClickHouseDialect',
     'DuckDbDialect',
+    'DuckDbDatabaseDialect',
     'get_dialect',
 ]

@@ -36,7 +36,7 @@ pip-compile --output-file=requirements.txt requirements.in
 ### Core Components
 
 - **FastAPI Application** ([`main.py`](main.py)): Entry point with CORS, exception handlers, static file serving
-- **Multi-Connector System**: Pluggable connectors for different data sources (ClickHouse, CSV via DuckDB)
+- **Multi-Connector System**: Pluggable connectors for different data sources (ClickHouse, CSV/Parquet via DuckDB, DuckDB database files, Kaggle, HuggingFace, Hive Parquet)
 - **Query Generation Engine**: Dynamic SQL generation using PyPika with optimization strategies
 - **Session-Based State Management**: Per-user connection state via cookie-based sessions
 - **Query Optimization**: Automatic query optimization with adaptive rounding, binning, deduplication
@@ -106,6 +106,7 @@ backend/
 ├── connectors/
 │   ├── base.py                 # BaseConnector abstract interface
 │   ├── clickhouse_connector.py  # ClickHouse database connector
+│   ├── duckdb_connector.py      # DuckDB database file connector
 │   └── file_connector.py        # CSV file connector (DuckDB)
 ├── models/
 │   ├── data_source.py          # ConnectionDetails, Database, Table, Column models
@@ -268,6 +269,14 @@ All connectors implement [`BaseConnector`](connectors/base.py):
 - Configurable CSV parsing (delimiter, header, decimal/thousands separators, date formats)
 - In-memory DuckDB connections per query
 - Automatic schema detection via `DESCRIBE`
+
+### DuckDbConnector (database file)
+
+[`DuckDbConnector`](connectors/duckdb_connector.py):
+- Opens an existing DuckDB database file by absolute `database_path` (read-only)
+- Maps DuckDB schemas to API databases; lists base tables and views
+- Optional path allowlist via `DUCKDB_ALLOWED_ROOTS`
+- Persistent connection with Arrow query support
 
 ### Connector plugin architecture
 

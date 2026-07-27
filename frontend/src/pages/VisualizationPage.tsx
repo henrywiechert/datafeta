@@ -30,6 +30,7 @@ import { schemaCheckBus } from '../services/schemaCheckBus';
 import { hasCrossDatabaseUnion, SchemaCheckResult, validateSheetSchema } from '../utils/schemaValidation';
 import { DatabaseSwitchError } from '../services/switchDatabasePreserveTables';
 import { apiService } from '../apiService';
+import { connectionRequiresDatabase } from '../utils/connectionCapabilities';
 
 import { Field, DragSource } from '../types';
 
@@ -297,7 +298,7 @@ const VisualizationPageContent = () => {
 
         (async () => {
             let tableNames: string[] = tables.map((t) => t.name);
-            if (connectionDetails?.type === 'clickhouse' && selectedDatabase && tableNames.length === 0) {
+            if (connectionRequiresDatabase(connectionDetails?.type) && selectedDatabase && tableNames.length === 0) {
                 try {
                     const response = await apiService.listTables(selectedDatabase);
                     tableNames = (response.tables || []).map((t) => t.name);

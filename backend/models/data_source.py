@@ -166,6 +166,10 @@ class ConnectionDetails(BaseModel):
     connection_string: Optional[str] = None
     # file_path: Optional[str] = None # Managed internally by backend for uploads
 
+    # Optional fields for DuckDB database file connection
+    database_path: Optional[str] = None
+    read_only: Optional[bool] = True
+
     # Optional fields for ClickHouse connection without connection string
     host: Optional[str] = None
     port: Optional[int] = 8123  # HTTP interface port (not 9000 which is native protocol)

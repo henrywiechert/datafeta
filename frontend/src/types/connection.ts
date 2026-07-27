@@ -9,7 +9,7 @@ import { ColumnCasts } from './query';
 
 // Request body for /connect endpoint
 export interface ConnectionDetails {
-  type: 'csv' | 'clickhouse' | 'kaggle' | 'huggingface' | 'hive_parquet';
+  type: 'csv' | 'clickhouse' | 'kaggle' | 'huggingface' | 'hive_parquet' | 'duckdb';
   file_path?: string;
   connection_string?: string;
   host?: string;
@@ -17,6 +17,9 @@ export interface ConnectionDetails {
   user?: string;
   password?: string;
   database?: string;
+  // DuckDB database file
+  database_path?: string;
+  read_only?: boolean;
   // CSV configuration options
   csv_delimiter?: string;
   csv_has_header?: boolean;

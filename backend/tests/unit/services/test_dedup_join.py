@@ -296,7 +296,7 @@ class TestCheckCompositeKeyUniqueness:
     def test_duckdb_uses_count_distinct(self):
         """DuckDB: uses COUNT(DISTINCT (...)) syntax."""
         service, mock = self._make_service([[200, 200]], conn_type='duckdb')
-        result = service.check_composite_key_uniqueness('events', ['a', 'b'])
+        result = service.check_composite_key_uniqueness('events', ['a', 'b'], database='main')
 
         assert result['is_unique'] is True
         sql = mock.fetch_data.call_args[0][0]

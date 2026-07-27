@@ -17,11 +17,13 @@ from pydantic import BaseModel, Field, model_validator
 
 from backend.connectors.base import BaseConnector
 from backend.connectors.clickhouse_connector import ClickHouseConnector
+from backend.connectors.duckdb_connector import DuckDbConnector
 from backend.connectors.file_connector import FileConnector
 from backend.connectors.hive_parquet_connector import HiveParquetConnector
 from backend.connectors.huggingface_connector import HuggingFaceConnector
 from backend.connectors.kaggle_connector import KaggleConnector
 from backend.dialects import ClickHouseDialect, DuckDbDialect
+from backend.dialects.duckdb import DuckDbDatabaseDialect
 from backend.exceptions import InvalidInputError
 
 from backend.connectors.spec import ConnectorCapabilities, ConnectorSpec
@@ -74,9 +76,22 @@ class HiveParquetConfig(BaseModel):
     hive_file_structure: List[str] = Field(..., min_length=1)
 
 
+class DuckDbPathConfig(BaseModel):
+    database_path: str = Field(..., min_length=1)
+    read_only: bool = True
+
+
 class CsvConfig(CsvParsingConfig):
     # CSV connections require multipart upload (files); JSON connect is not supported.
     pass
+
+
+def _build_duckdb_connect_args(cfg: BaseModel, _request, _session_id: str) -> dict:
+    # v1 always opens the database read-only regardless of client payload.
+    return {
+        "database_path": cfg.database_path,
+        "read_only": True,
+    }
 
 
 def _build_kaggle_connect_args(cfg: BaseModel, request, session_id: str) -> dict:
@@ -153,6 +168,7 @@ def get_connector_registry() -> ConnectorRegistry:
 
     clickhouse_dialect = ClickHouseDialect()
     duckdb_dialect = DuckDbDialect()
+    duckdb_database_dialect = DuckDbDatabaseDialect()
 
     registry.register(
         ConnectorSpec(
@@ -168,6 +184,23 @@ def get_connector_registry() -> ConnectorRegistry:
             config_model=ClickHouseConfig,
             factory=ClickHouseConnector,
             build_connect_args=lambda cfg, _request, _session_id: cfg.model_dump(exclude_none=True),
+        )
+    )
+
+    registry.register(
+        ConnectorSpec(
+            id="duckdb",
+            display_name="DuckDB Database",
+            dialect=duckdb_database_dialect,
+            capabilities=ConnectorCapabilities(
+                supports_json_connect=True,
+                supports_multipart_connect=False,
+                supports_databases=True,
+                supports_arrow=True,
+            ),
+            config_model=DuckDbPathConfig,
+            factory=DuckDbConnector,
+            build_connect_args=_build_duckdb_connect_args,
         )
     )
 

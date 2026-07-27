@@ -75,3 +75,20 @@ class DuckDbDialect(SqlDialect):
 
     def nan_safe_avg_expr(self, field: str) -> str:
         return f"COALESCE(AVG({field}), 0)"
+
+
+class DuckDbDatabaseDialect(DuckDbDialect):
+    """
+    Dialect for persistent DuckDB database files.
+
+    Schemas are exposed as API databases, so queries must qualify tables
+    as "schema"."table".
+    """
+
+    @property
+    def supports_schema_prefix(self) -> bool:
+        return True
+
+    @property
+    def requires_database(self) -> bool:
+        return True

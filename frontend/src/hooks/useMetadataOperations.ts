@@ -9,9 +9,10 @@ import {
     DatabaseSwitchError,
 } from '../services/switchDatabasePreserveTables';
 import { SchemaCheckResult } from '../utils/schemaValidation';
+import { connectionRequiresDatabase } from '../utils/connectionCapabilities';
 
 interface ConnectionDetails {
-    type: 'clickhouse' | 'csv' | 'kaggle' | 'huggingface' | 'hive_parquet';
+    type: 'clickhouse' | 'csv' | 'kaggle' | 'huggingface' | 'hive_parquet' | 'duckdb';
 }
 
 interface DataSourceState {
@@ -117,7 +118,7 @@ export function useMetadataOperations({
 
     const fetchTables = useCallback(async (databaseName: string): Promise<any[]> => {
         const targetDatabase = databaseName;
-        if (connectionDetails?.type === 'clickhouse' && !targetDatabase) return [];
+        if (connectionRequiresDatabase(connectionDetails?.type) && !targetDatabase) return [];
         
         dataSourceSetters.setIsLoadingMetadata(true);
         dataSourceSetters.setMetadataError(null);
@@ -157,13 +158,15 @@ export function useMetadataOperations({
 
     const fetchColumns = useCallback(async () => {
         if (!dataSource.selectedTable) return;
-        if (connectionDetails?.type === 'clickhouse' && !dataSource.selectedDatabase) return;
+        if (connectionRequiresDatabase(connectionDetails?.type) && !dataSource.selectedDatabase) return;
         
         const tableKey = dataSource.selectedTable;
         dataSourceSetters.setIsLoadingMetadata(true);
         dataSourceSetters.setMetadataError(null);
         try {
-            const dbParam = connectionDetails?.type === 'clickhouse' ? dataSource.selectedDatabase : undefined;
+            const dbParam = connectionRequiresDatabase(connectionDetails?.type)
+                ? dataSource.selectedDatabase
+                : undefined;
             const response = await apiService.listColumns(dataSource.selectedTable, dbParam);
             
             // Process columns into fields with synthetic fields
@@ -248,7 +251,7 @@ export function useMetadataOperations({
     // Fetch merged columns when joined tables change
     const fetchMergedColumns = useCallback(async () => {
         if (!dataSource.selectedTable) return;
-        if (connectionDetails?.type === 'clickhouse' && !dataSource.selectedDatabase) return;
+        if (connectionRequiresDatabase(connectionDetails?.type) && !dataSource.selectedDatabase) return;
         
         // If no joined or union tables, fetch regular columns
         if (dataSource.joinedTables.length === 0 && dataSource.unionTables.length === 0) {
@@ -359,7 +362,7 @@ export function useMetadataOperations({
 
         try {
             // 1) Refresh top-level metadata lists.
-            if (connectionDetails?.type === 'clickhouse') {
+            if (connectionRequiresDatabase(connectionDetails?.type)) {
                 await fetchDatabases();
             }
 
@@ -422,7 +425,7 @@ export function useMetadataOperations({
         
         // Clear existing metadata and fetch new data when connection changes
         // This ensures we get fresh data after reconnecting to a different server
-        if (connectionDetails.type === 'clickhouse') {
+        if (connectionRequiresDatabase(connectionDetails.type)) {
             // Clear old metadata first via DataSourceContext setters
             dataSourceSetters.setDatabases([]);
             dataSourceSetters.setTables([]);

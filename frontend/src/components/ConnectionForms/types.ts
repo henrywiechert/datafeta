@@ -7,7 +7,7 @@
 import { HuggingFaceDataset, HuggingFaceSplit, KaggleDataset, KaggleFile } from '../../types';
 
 // Connection type union
-export type ConnectionType = 'csv' | 'clickhouse' | 'kaggle' | 'huggingface' | 'hive_parquet';
+export type ConnectionType = 'csv' | 'clickhouse' | 'kaggle' | 'huggingface' | 'hive_parquet' | 'duckdb';
 
 // File form state (supports CSV and Parquet files)
 export interface CsvFormState {
@@ -33,6 +33,11 @@ export interface ClickHouseFormState {
   user: string;
   password: string;
   database: string;
+}
+
+// DuckDB database file form state
+export interface DuckDbFormState {
+  databasePath: string;
 }
 
 // Kaggle form state
@@ -105,6 +110,10 @@ export const DEFAULT_CLICKHOUSE_STATE: ClickHouseFormState = {
   database: 'default',
 };
 
+export const DEFAULT_DUCKDB_STATE: DuckDbFormState = {
+  databasePath: '',
+};
+
 export const DEFAULT_KAGGLE_STATE: KaggleFormState = {
   username: '',
   apiKey: '',
@@ -146,6 +155,7 @@ export interface ConnectionFormState {
   connectionType: ConnectionType;
   csv: CsvFormState;
   clickHouse: ClickHouseFormState;
+  duckDb: DuckDbFormState;
   kaggle: KaggleFormState;
   huggingFace: HuggingFaceFormState;
   hiveParquet: HiveParquetFormState;
@@ -156,11 +166,13 @@ export type ConnectionFormAction =
   | { type: 'SET_CONNECTION_TYPE'; payload: ConnectionType }
   | { type: 'UPDATE_CSV'; payload: Partial<CsvFormState> }
   | { type: 'UPDATE_CLICKHOUSE'; payload: Partial<ClickHouseFormState> }
+  | { type: 'UPDATE_DUCKDB'; payload: Partial<DuckDbFormState> }
   | { type: 'UPDATE_KAGGLE'; payload: Partial<KaggleFormState> }
   | { type: 'UPDATE_HUGGINGFACE'; payload: Partial<HuggingFaceFormState> }
   | { type: 'UPDATE_HIVE_PARQUET'; payload: Partial<HiveParquetFormState> }
   | { type: 'RESET_CSV' }
   | { type: 'RESET_CLICKHOUSE' }
+  | { type: 'RESET_DUCKDB' }
   | { type: 'RESET_KAGGLE' }
   | { type: 'RESET_HUGGINGFACE' }
   | { type: 'RESET_HIVE_PARQUET' }

@@ -25,6 +25,7 @@ Data Slicer is available in two ways:
 - **Kaggle Datasets**: Connect to public [Kaggle](https://www.kaggle.com/datasets) datasets by dataset reference (`owner/dataset-name`). Credentials (username + API key) are provided at connect time and never saved.
 - **HuggingFace Datasets**: Connect to public (or private) [HuggingFace](https://huggingface.co/datasets) datasets via the Dataset Viewer Parquet API. Datasets are queried as remote Parquet shards by DuckDB — no full download required. An optional access token supports gated/private datasets. Large splits are blocked at connect time via a configurable size limit (`HF_MAX_SPLIT_BYTES_MB`, default 500 MB).
 - **Hive Parquet**: Connect to locally-partitioned Parquet datasets in Hive-style directory layouts.
+- **DuckDB Database**: Open an existing local DuckDB database file (`.duckdb`) by absolute path. Schemas appear as databases; tables and views are queryable read-only. For Docker, mount the file/directory into the container. Optionally restrict paths with `DUCKDB_ALLOWED_ROOTS` (comma-separated absolute directories).
 - **Query Generation**: Dynamic SQL query generation with pypika notation
 - **Efficient Caching**: In-Browser [DuckDB WASM](https://duckdb.org/docs/stable/clients/wasm/overview) based column caching for best UX
 

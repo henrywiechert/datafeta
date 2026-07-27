@@ -183,8 +183,8 @@ export const useQueryBuilder = ({
       return null;
     }
 
-    // For ClickHouse, database is required; for CSV, it's not
-    if (connectionType === 'clickhouse' && !selectedDatabase) {
+    // For ClickHouse / DuckDB, database (schema) is required; for CSV, it's not
+    if ((connectionType === 'clickhouse' || connectionType === 'duckdb') && !selectedDatabase) {
       return null;
     }
 

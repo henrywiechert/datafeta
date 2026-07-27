@@ -4,9 +4,10 @@ import { Field, FilterMetadata, VirtualColumnDefinition, VirtualTableDefinition 
 import { getResultColumnName } from '../utils/fieldUtils';
 import { apiService } from '../apiService';
 import { isMeasureNamesField } from '../utils/syntheticFields';
+import { connectionRequiresDatabase } from '../utils/connectionCapabilities';
 
 interface ConnectionDetails {
-    type: 'clickhouse' | 'csv' | 'kaggle' | 'huggingface' | 'hive_parquet';
+    type: 'clickhouse' | 'csv' | 'kaggle' | 'huggingface' | 'hive_parquet' | 'duckdb';
 }
 
 interface UseFilterMetadataParams {
@@ -106,7 +107,7 @@ export function useFilterMetadata({
             return;
         }
         
-        const dbParam = connectionDetails?.type === 'clickhouse' ? selectedDatabase : undefined;
+        const dbParam = connectionRequiresDatabase(connectionDetails?.type) ? selectedDatabase : undefined;
 
         // Cancel any existing fetch for this field
         const existingController = filterMetadataAbortControllers.current.get(field.id);
@@ -424,7 +425,7 @@ export function useFilterMetadata({
         const field = filterFields.find(f => f.id === fieldId);
         if (!field || !selectedTable) return;
         
-        const dbParam = connectionDetails?.type === 'clickhouse' ? selectedDatabase : undefined;
+        const dbParam = connectionRequiresDatabase(connectionDetails?.type) ? selectedDatabase : undefined;
         
         // Cancel any existing fetch for this field
         const existingController = filterMetadataAbortControllers.current.get(fieldId);

@@ -9,6 +9,7 @@ export * from './types';
 // Components
 export { CsvConnectionForm } from './CsvConnectionForm';
 export { ClickHouseConnectionForm } from './ClickHouseConnectionForm';
+export { DuckDbConnectionForm } from './DuckDbConnectionForm';
 export { KaggleConnectionForm } from './KaggleConnectionForm';
 export { HuggingFaceConnectionForm } from './HuggingFaceConnectionForm';
 export { HiveParquetConnectionForm } from './HiveParquetConnectionForm';

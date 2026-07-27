@@ -297,6 +297,7 @@ function AppContent() {
     hivePartitionFiles?: Map<string, File[]>,
     hiveFileStructure?: string[],
     restoreOptions?: ConnectionRestoreOptions,
+    duckDbPath?: string,
   ) => {
     if (!connectionMetadata || !pendingConfig) return;
 
@@ -339,13 +340,14 @@ function AppContent() {
           navigate('/visualize');
         }
       } else {
-        // Existing flow for CSV, ClickHouse, Kaggle
+        // Existing flow for CSV, ClickHouse, Kaggle, DuckDB
         const details = reconstructConnectionDetails(
           connectionMetadata,
           password,
           kaggleUsername,
           kaggleApiKey,
-          clickHouseOverrides
+          clickHouseOverrides,
+          duckDbPath,
         );
 
         // Attempt to connect (pass files array for multi-file support)

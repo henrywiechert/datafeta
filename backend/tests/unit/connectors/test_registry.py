@@ -13,6 +13,17 @@ class TestConnectorRegistrySpecs:
         assert spec.capabilities.supports_incremental_file_add is True
         assert spec.build_multipart_connect_args is not None
 
+    def test_duckdb_spec_declares_json_path_connect(self):
+        spec = get_connector_registry().get_spec("duckdb")
+        assert spec.capabilities.supports_json_connect is True
+        assert spec.capabilities.supports_multipart_connect is False
+        assert spec.capabilities.supports_databases is True
+        assert spec.capabilities.supports_arrow is True
+        cfg = spec.config_model(database_path="/tmp/demo.duckdb", read_only=False)
+        connect_args = spec.build_connect_args(cfg, None, "session-1")
+        assert connect_args["database_path"] == "/tmp/demo.duckdb"
+        assert connect_args["read_only"] is True
+
     def test_kaggle_spec_builds_session_scoped_download_dir(self, tmp_path):
         spec = get_connector_registry().get_spec("kaggle")
         cfg = spec.config_model(

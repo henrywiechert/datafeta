@@ -15,12 +15,14 @@ import {
   ConnectionFormAction,
   CsvFormState,
   ClickHouseFormState,
+  DuckDbFormState,
   KaggleFormState,
   HuggingFaceFormState,
   HiveParquetFormState,
   ValidationResult,
   DEFAULT_CSV_STATE,
   DEFAULT_CLICKHOUSE_STATE,
+  DEFAULT_DUCKDB_STATE,
   DEFAULT_KAGGLE_STATE,
   DEFAULT_HUGGINGFACE_STATE,
   DEFAULT_HIVE_PARQUET_STATE,
@@ -58,6 +60,7 @@ const initialState: ConnectionFormState = {
   connectionType: 'clickhouse',
   csv: DEFAULT_CSV_STATE,
   clickHouse: DEFAULT_CLICKHOUSE_STATE,
+  duckDb: DEFAULT_DUCKDB_STATE,
   kaggle: DEFAULT_KAGGLE_STATE,
   huggingFace: DEFAULT_HUGGINGFACE_STATE,
   hiveParquet: DEFAULT_HIVE_PARQUET_STATE,
@@ -78,6 +81,9 @@ function connectionFormReducer(
     case 'UPDATE_CLICKHOUSE':
       return { ...state, clickHouse: { ...state.clickHouse, ...action.payload } };
 
+    case 'UPDATE_DUCKDB':
+      return { ...state, duckDb: { ...state.duckDb, ...action.payload } };
+
     case 'UPDATE_KAGGLE':
       return { ...state, kaggle: { ...state.kaggle, ...action.payload } };
 
@@ -92,6 +98,9 @@ function connectionFormReducer(
 
     case 'RESET_CLICKHOUSE':
       return { ...state, clickHouse: DEFAULT_CLICKHOUSE_STATE };
+
+    case 'RESET_DUCKDB':
+      return { ...state, duckDb: DEFAULT_DUCKDB_STATE };
 
     case 'RESET_KAGGLE':
       return { ...state, kaggle: DEFAULT_KAGGLE_STATE };
@@ -114,6 +123,10 @@ function connectionFormReducer(
           user: details.user || 'default',
           password: details.password || '',
           database: details.database || 'default',
+        };
+      } else if (type === 'duckdb') {
+        newState.duckDb = {
+          databasePath: details.database_path || '',
         };
       } else if (type === 'csv') {
         newState.csv = csvStateFromDetails(details);
@@ -156,6 +169,7 @@ export interface UseConnectionFormReturn {
   // Per-type state accessors
   csvState: CsvFormState;
   clickHouseState: ClickHouseFormState;
+  duckDbState: DuckDbFormState;
   kaggleState: KaggleFormState;
   huggingFaceState: HuggingFaceFormState;
   hiveParquetState: HiveParquetFormState;
@@ -163,6 +177,7 @@ export interface UseConnectionFormReturn {
   // Per-type state setters (grouped updates)
   updateCsvState: (updates: Partial<CsvFormState>) => void;
   updateClickHouseState: (updates: Partial<ClickHouseFormState>) => void;
+  updateDuckDbState: (updates: Partial<DuckDbFormState>) => void;
   updateKaggleState: (updates: Partial<KaggleFormState>) => void;
   updateHuggingFaceState: (updates: Partial<HuggingFaceFormState>) => void;
   updateHiveParquetState: (updates: Partial<HiveParquetFormState>) => void;
@@ -209,6 +224,10 @@ export function useConnectionForm(): UseConnectionFormReturn {
     dispatch({ type: 'UPDATE_CLICKHOUSE', payload: updates });
   }, []);
 
+  const updateDuckDbState = useCallback((updates: Partial<DuckDbFormState>) => {
+    dispatch({ type: 'UPDATE_DUCKDB', payload: updates });
+  }, []);
+
   const updateKaggleState = useCallback((updates: Partial<KaggleFormState>) => {
     dispatch({ type: 'UPDATE_KAGGLE', payload: updates });
   }, []);
@@ -250,7 +269,7 @@ export function useConnectionForm(): UseConnectionFormReturn {
 
   // Validation
   const validateForm = useCallback((): ValidationResult => {
-    const { connectionType, csv, clickHouse, kaggle, huggingFace, hiveParquet } = state;
+    const { connectionType, csv, clickHouse, duckDb, kaggle, huggingFace, hiveParquet } = state;
 
     if (connectionType === 'csv') {
       if (!csv.selectedFiles || csv.selectedFiles.length === 0) {
@@ -302,12 +321,22 @@ export function useConnectionForm(): UseConnectionFormReturn {
       return { isValid: true, errorMessage: null };
     }
 
+    if (connectionType === 'duckdb') {
+      if (!duckDb.databasePath.trim()) {
+        return {
+          isValid: false,
+          errorMessage: 'Please provide an absolute path to a DuckDB database file.',
+        };
+      }
+      return { isValid: true, errorMessage: null };
+    }
+
     return { isValid: true, errorMessage: null };
   }, [state]);
 
   // Build ConnectionDetails from current state
   const buildConnectionDetails = useCallback((): ConnectionDetails => {
-    const { connectionType, csv, clickHouse, kaggle, huggingFace, hiveParquet } = state;
+    const { connectionType, csv, clickHouse, duckDb, kaggle, huggingFace, hiveParquet } = state;
 
     const details: ConnectionDetails = { type: connectionType };
 
@@ -339,6 +368,9 @@ export function useConnectionForm(): UseConnectionFormReturn {
         details.password = clickHouse.password;
         details.database = clickHouse.database;
       }
+    } else if (connectionType === 'duckdb') {
+      details.database_path = duckDb.databasePath.trim();
+      details.read_only = true;
     }
 
     return details;
@@ -566,11 +598,13 @@ export function useConnectionForm(): UseConnectionFormReturn {
     setConnectionType,
     csvState: state.csv,
     clickHouseState: state.clickHouse,
+    duckDbState: state.duckDb,
     kaggleState: state.kaggle,
     huggingFaceState: state.huggingFace,
     hiveParquetState: state.hiveParquet,
     updateCsvState,
     updateClickHouseState,
+    updateDuckDbState,
     updateKaggleState,
     updateHuggingFaceState,
     updateHiveParquetState,
