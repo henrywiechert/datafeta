@@ -242,19 +242,25 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
         </div>
 
         {demoDatasets.length > 0 && !isConnected && (
-          <div className={styles.loadConfigSection}>
-            {demoDatasets.map((dataset) => (
-              <button
-                key={dataset.id}
-                className={styles.loadButton}
-                onClick={() => handleDemoDatasetConnect(dataset)}
-                disabled={formDisabled}
-                type="button"
-                title={dataset.description || `${dataset.database}.${dataset.table}`}
-              >
-                {dataset.label}
-              </button>
-            ))}
+          <div className={styles.demoSection}>
+            <div className={styles.demoSectionHeader}>
+              <span className={styles.demoBadge}>Demo</span>
+              <span className={styles.demoSectionLabel}>Try a sample dataset:</span>
+            </div>
+            <div className={styles.demoButtons}>
+              {demoDatasets.map((dataset) => (
+                <button
+                  key={dataset.id}
+                  className={styles.loadButton}
+                  onClick={() => handleDemoDatasetConnect(dataset)}
+                  disabled={formDisabled}
+                  type="button"
+                  title={dataset.description || `${dataset.database}.${dataset.table}`}
+                >
+                  {dataset.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         {demoDatasetError && <div className={styles.errorMessage}>Error: {demoDatasetError}</div>}
@@ -274,6 +280,11 @@ function DataSourceSelectionPage({ onLoadConfiguration, onOpenGallery }: DataSou
               </option>
             ))}
           </select>
+          {appConfig.isDemoMode && (
+            <div className={styles.demoHint}>
+              Most data source types are disabled in demo mode.
+            </div>
+          )}
         </div>
 
         {/* Render the appropriate form based on connection type */}
