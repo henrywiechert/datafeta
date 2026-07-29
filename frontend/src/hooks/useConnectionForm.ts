@@ -55,7 +55,7 @@ function appendCsvParsingDetails(details: ConnectionDetails, csv: CsvFormState):
 
 // Initial state
 const initialState: ConnectionFormState = {
-  connectionType: 'clickhouse',
+  connectionType: 'csv',
   csv: DEFAULT_CSV_STATE,
   clickHouse: DEFAULT_CLICKHOUSE_STATE,
   kaggle: DEFAULT_KAGGLE_STATE,
