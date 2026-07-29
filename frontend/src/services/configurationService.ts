@@ -169,10 +169,28 @@ export function exportConfiguration(
     config.connection = sanitizedConnection;
   }
 
-  // Add data source selection if available
-  if (selectedDatabase || selectedTable) {
+  // Add data source selection if available.
+  // Also persist when there's data-source state worth keeping even without a
+  // table selected (e.g. virtual columns added on an empty sheet) — otherwise
+  // the whole dataSource block (and those virtual columns) would be dropped.
+  const hasVirtualColumns = !!(virtualColumns && virtualColumns.length > 0);
+  const hasVirtualColumnPreferences = !!(
+    virtualColumnFieldPreferences && Object.keys(virtualColumnFieldPreferences).length > 0
+  );
+  const hasFieldDisplayAliases = !!(
+    fieldDisplayAliases && Object.keys(fieldDisplayAliases).length > 0
+  );
+  const hasCustomRelationships = customRelationships !== undefined && customRelationships !== null;
+  if (
+    selectedDatabase ||
+    selectedTable ||
+    hasVirtualColumns ||
+    hasVirtualColumnPreferences ||
+    hasFieldDisplayAliases ||
+    hasCustomRelationships
+  ) {
     // Construct full table name (database.table or just table for CSV)
-    const fullTableName = selectedDatabase 
+    const fullTableName = selectedDatabase
       ? `${selectedDatabase}.${selectedTable}`
       : selectedTable;
     
@@ -192,20 +210,20 @@ export function exportConfiguration(
       config.dataSource.joinedTables = joinedTables;
     }
 
-    if (virtualColumns && virtualColumns.length > 0) {
+    if (hasVirtualColumns) {
       config.dataSource.virtualColumns = virtualColumns;
     }
 
-    if (virtualColumnFieldPreferences && Object.keys(virtualColumnFieldPreferences).length > 0) {
+    if (hasVirtualColumnPreferences) {
       config.dataSource.virtualColumnFieldPreferences = virtualColumnFieldPreferences;
     }
-    
-    if (fieldDisplayAliases && Object.keys(fieldDisplayAliases).length > 0) {
+
+    if (hasFieldDisplayAliases) {
       config.dataSource.fieldDisplayAliases = fieldDisplayAliases;
     }
 
     // Add custom relationships if in manual mode (non-null array, including empty)
-    if (customRelationships !== undefined && customRelationships !== null) {
+    if (hasCustomRelationships) {
       config.dataSource.customRelationships = customRelationships;
     }
     // Note: measureGroupFields is now per-sheet (stored in each sheet's visualizationState)
