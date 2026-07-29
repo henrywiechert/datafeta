@@ -61,6 +61,50 @@
   border-bottom: 1px solid #e0e0e0;
 }
 
+.demoSection {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.demoSectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.demoBadge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #fff;
+  background: #e65100;
+  border-radius: 3px;
+  padding: 1px 6px;
+  line-height: 1.6;
+}
+
+.demoSectionLabel {
+  font-size: 0.875rem;
+  color: #555;
+}
+
+.demoButtons {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.demoHint {
+  font-size: 0.78rem;
+  color: #e65100;
+  margin-top: 6px;
+}
+
 .loadButton {
   background: #388e3c;
   color: white;
