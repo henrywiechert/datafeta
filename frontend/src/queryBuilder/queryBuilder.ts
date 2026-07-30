@@ -31,6 +31,23 @@ export const extractColumnCasts = (fields: Field[]): ColumnCasts | undefined => 
 };
 
 /**
+ * Resolve the date_part / date_mode a dimension should send to the backend.
+ *
+ * A datetime column may be physically stored as text (e.g. non-ISO timestamps like
+ * "2026-01-26T07-00-44"), so the backend must parse it into a real timestamp — which
+ * it only does when a date_mode is present. A datetime field with no explicit part is
+ * therefore sent as "Full DateTime" (date_mode='timeline', no part) so the value comes
+ * back as a proper timestamp instead of the raw source string. Non-datetime fields are
+ * unaffected.
+ */
+const resolveDimensionDateTime = (
+  field: Field
+): { date_part: Field['dateTimePart']; date_mode: Field['dateTimeMode'] } => ({
+  date_part: field.dateTimePart,
+  date_mode: field.dateTimeMode ?? (field.dataType === 'datetime' ? 'timeline' : undefined),
+});
+
+/**
  * Converts filter configurations to backend Filter[] format
  */
 export const convertFilterConfigsToFilters = (
@@ -241,8 +258,7 @@ export const buildAggregatedQuery = ({
       field: d.columnName,
       flavour: d.flavour,
       axis: d.axis,  // Preserve axis information if present
-      date_part: d.dateTimePart,  // Pass datetime part if present
-      date_mode: d.dateTimeMode,  // Pass datetime mode if present
+      ...resolveDimensionDateTime(d),  // datetime part/mode (defaults datetime fields to Full DateTime)
     })),
     // Dedupe by output column name (datetime parts produce distinct aliases)
     (dim) => (dim.date_part && dim.date_mode ? `${dim.field}_${dim.date_part}_${dim.date_mode}` : dim.field)
@@ -388,8 +404,7 @@ export const buildRawQuery = ({
       field: field.columnName,
       flavour: field.flavour,
       axis: field.axis,  // Preserve axis information if present
-      date_part: field.dateTimePart,  // Pass datetime part if present
-      date_mode: field.dateTimeMode,  // Pass datetime mode if present
+      ...resolveDimensionDateTime(field),  // datetime part/mode (defaults datetime fields to Full DateTime)
     }
   });
 
@@ -585,8 +600,7 @@ export const buildBoxPlotQuery = ({
     field: field.columnName,
     flavour: field.flavour,
     axis: field.axis,
-    date_part: field.dateTimePart,
-    date_mode: field.dateTimeMode,
+    ...resolveDimensionDateTime(field),  // datetime part/mode (defaults datetime fields to Full DateTime)
   }));
 
   const boxPlotFields = valueFields.reduce<BoxPlotField[]>((acc, field) => {

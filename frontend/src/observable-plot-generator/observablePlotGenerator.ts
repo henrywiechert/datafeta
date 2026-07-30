@@ -38,10 +38,23 @@ const GRID_PLOT_GENERATORS: Partial<Record<string, (ctx: ChartGenerationContext)
 };
 
 function tableGridInputFromContext(context: ChartGenerationContext): TableGridInput {
+  const rawRows = Array.isArray(context.queryResult?.rows) ? context.queryResult.rows : [];
+  // Convert timeline datetime columns (epoch → Date) before building the grid, the
+  // same normalization the chart path applies. Without this, timeline dimensions
+  // (e.g. "Year (timeline)") render as raw epoch integers in the table headers/cells
+  // because downstream formatting only date-formats Date instances.
+  const fieldsForNormalization: Field[] = [
+    ...(context.xFields ?? []),
+    ...(context.yFields ?? []),
+    ...(context.labelFields ?? []),
+    ...(context.sizeField ? [context.sizeField] : []),
+    ...(context.shapeField ? [context.shapeField] : []),
+  ];
+  const rows = normalizeTimelineData(rawRows, fieldsForNormalization);
   return {
     xFields: context.xFields,
     yFields: context.yFields,
-    rows: Array.isArray(context.queryResult?.rows) ? context.queryResult.rows : [],
+    rows,
     color: resolveContextColorChannel(context),
     sizeField: context.sizeField,
     sizeRange: context.sizeRange,

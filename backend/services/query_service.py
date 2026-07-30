@@ -89,15 +89,21 @@ class QueryService:
 
     @staticmethod
     def _query_needs_source_types(query_desc: QueryDescription) -> bool:
-        """Whether any field requests a datetime part (so physical types are needed)."""
+        """Whether any field is treated as datetime (so physical types are needed).
+
+        A datetime dimension/filter carries ``date_mode`` even when no specific
+        ``date_part`` is chosen ("Full DateTime" = parse to the full timestamp), so
+        the presence of ``date_mode`` alone is enough to require physical types for
+        the string-to-timestamp parse.
+        """
         for dim in query_desc.dimensions or []:
-            if dim.date_part and dim.date_mode:
+            if dim.date_part or dim.date_mode:
                 return True
         for filt in query_desc.filters or []:
-            if filt.date_part and filt.date_mode:
+            if filt.date_part or filt.date_mode:
                 return True
         for box_field in query_desc.box_plot_fields or []:
-            if box_field.date_part and box_field.date_mode:
+            if box_field.date_part or box_field.date_mode:
                 return True
         return False
 
