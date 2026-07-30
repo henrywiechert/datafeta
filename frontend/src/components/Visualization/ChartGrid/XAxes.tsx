@@ -125,7 +125,18 @@ const XAxes: React.FC<XAxesProps> = ({
             const xIsNumeric = isContinuousNumericDomain(xDomain, xType);
             const effectiveXTickFormat = xTickFormat ?? (xIsNumeric ? formatNumericTick : undefined);
             const xTickSpacing = xIsNumeric && xTicks === undefined ? NUMERIC_X_TICK_SPACING_PX : undefined;
-            const xRotate = xType === 'band' ? -90 : 0;
+            // Category tick rotation is controlled independently of the field-name
+            // label (xAxisLabelStyle.orientation) via categoryOrientation, so users
+            // can e.g. keep a horizontal axis label while turning crowded heatmap
+            // categories vertical. Continuous numeric/date axes keep their numbers
+            // horizontal; band axes and size-encoded heatmap axes (flagged via
+            // __discreteAxes) are treated as categorical.
+            const xIsDiscreteAxis = (sample?.content.options as any)?.__discreteAxes?.x === true;
+            const xIsCategorical = xType === 'band' || xIsDiscreteAxis;
+            const categoryOrientation = xAxisLabelStyle.categoryOrientation ?? 'vertical';
+            const xRotate = xIsCategorical
+              ? (categoryOrientation === 'vertical' ? -90 : categoryOrientation === 'angled' ? -45 : 0)
+              : 0;
             return (
               <div
                 key={`x-axis-${c}`}
