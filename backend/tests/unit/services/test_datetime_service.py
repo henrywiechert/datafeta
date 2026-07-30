@@ -218,6 +218,46 @@ class TestDateTimeStringSourceParsing:
         assert 'CAST("datetime" AS TIMESTAMP)' in sql
         assert "date_trunc" in sql
 
+    def test_duckdb_string_source_uses_flexible_timestamp_parse(self):
+        """A text column overridden to DateTime is parsed with TRY_CAST first
+        (ISO8601) and a try_strptime fallback for non-standard layouts such as
+        dashes in the time component (e.g. '2026-01-26T07-00-44'), so those
+        values no longer abort the query."""
+        t = Table("coredumps")
+        expr = DateTimeService.get_datetime_part_expression(
+            t.timestamp, "year", "distinct", "duckdb", source_type="VARCHAR"
+        )
+        sql = expr.get_sql(quote_char='"')
+
+        assert 'TRY_CAST("timestamp" AS TIMESTAMP)' in sql
+        assert "try_strptime" in sql
+        # The filename-safe dash-in-time layout is one of the accepted formats.
+        assert "%Y-%m-%dT%H-%M-%S" in sql
+
+    def test_full_datetime_no_part_returns_parsed_timestamp(self):
+        """Full DateTime (date_mode set, no date_part) returns the parsed timestamp
+        itself — no EXTRACT/date_trunc — so a string datetime column still reaches
+        the client as a real timestamp rather than the raw source string."""
+        t = Table("coredumps")
+        expr = DateTimeService.get_datetime_part_expression(
+            t.timestamp, None, "timeline", "duckdb", source_type="VARCHAR"
+        )
+        sql = expr.get_sql(quote_char='"')
+
+        assert "EXTRACT" not in sql
+        assert "date_trunc" not in sql
+        assert "try_strptime" in sql  # flexible string->timestamp parse applied
+
+    def test_full_datetime_native_timestamp_is_passthrough(self):
+        """Full DateTime on an already-timestamp column is a plain passthrough."""
+        t = Table("events")
+        expr = DateTimeService.get_datetime_part_expression(
+            t.ts, None, "timeline", "duckdb", source_type="TIMESTAMP"
+        )
+        sql = expr.get_sql(quote_char='"')
+
+        assert sql == '"ts"'
+
     def test_duckdb_real_timestamp_source_is_not_cast(self):
         t = Table("events")
         expr = DateTimeService.get_datetime_part_expression(

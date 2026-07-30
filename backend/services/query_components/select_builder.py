@@ -149,11 +149,18 @@ class SelectClauseBuilder:
                             )
 
                 # Apply aliasing logic - virtual columns and casts need aliases for ORDER BY
-                if dim.date_part and dim.date_mode:
+                if dim.date_mode:
                     field_term = resolver.apply_datetime(
                         field_term, dim.field, dim.date_part, dim.date_mode
                     )
-                    alias = f"{dim.field}_{dim.date_part}_{dim.date_mode}"
+                    # "Full DateTime" (mode but no part) keeps the plain field name so
+                    # the alias matches what the client requests; explicit parts get the
+                    # "<field>_<part>_<mode>" suffix.
+                    alias = (
+                        f"{dim.field}_{dim.date_part}_{dim.date_mode}"
+                        if dim.date_part
+                        else dim.field
+                    )
                     field_term = field_term.as_(alias)
                     all_aliases.add(alias)
                 elif isinstance(field_term, CastField) or is_virtual_column:

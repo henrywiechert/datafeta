@@ -77,6 +77,39 @@ class CastField(Term):
         return sql
 
 
+class DuckDBFlexibleTimestamp(Term):
+    """Parse a text column into TIMESTAMP in DuckDB, tolerating non-ISO layouts.
+
+    Renders ``COALESCE(TRY_CAST(field AS TIMESTAMP), try_strptime(field, [fmts]))``.
+
+    ``TRY_CAST`` handles every ISO8601 input (the common case). ``try_strptime`` is
+    a fallback for non-standard layouts that ``CAST`` rejects (e.g. dashes in the
+    time component like ``2026-01-26T07-00-44``). Both return NULL on failure, so an
+    unparseable value yields NULL instead of aborting the whole query.
+    """
+
+    def __init__(self, field: Term, formats: List[str]):
+        super().__init__()
+        self.field = field
+        self.formats = formats
+
+    def get_sql(self, **kwargs) -> str:
+        field_sql = self.field.get_sql(**kwargs)
+        fmt_list = ", ".join(
+            "'" + fmt.replace("'", "''") + "'" for fmt in self.formats
+        )
+        sql = (
+            f"COALESCE(TRY_CAST({field_sql} AS TIMESTAMP), "
+            f"try_strptime({field_sql}, [{fmt_list}]))"
+        )
+
+        if hasattr(self, "alias") and self.alias:
+            quote_char = kwargs.get("quote_char", '"')
+            sql = f"{sql} AS {quote_char}{self.alias}{quote_char}"
+
+        return sql
+
+
 class CustomFunction(Term):
     """Custom pypika term for arbitrary SQL functions with arguments."""
 
