@@ -11,8 +11,13 @@ interface ConnectionDetails {
     type: 'clickhouse' | 'csv' | 'kaggle' | 'huggingface' | 'hive_parquet';
 }
 
-/** Above this many distinct values the picker samples instead of listing them all. */
-const MAX_LISTABLE_DISTINCT_VALUES = 5000;
+/**
+ * Max distinct values for which a discrete filter shows the full checkbox list.
+ * Above this the filter switches to showing SAMPLE_SIZE random samples plus pattern
+ * (Query Regex) mode. Raising this renders more checkboxes in the DOM (no
+ * virtualization), so very large values can make the filter panel sluggish.
+ */
+export const DISCRETE_FULL_LIST_MAX = 20000;
 const SAMPLE_SIZE = 100;
 
 interface DiscreteValueListResult {
@@ -172,7 +177,7 @@ export function useFilterMetadata({
 
         // Too many values to enumerate — show a random sample and let the user narrow
         // the list with a pattern instead.
-        const sampled = count > MAX_LISTABLE_DISTINCT_VALUES;
+        const sampled = count > DISCRETE_FULL_LIST_MAX;
         const values = await apiService.getDistinctValues(
             field.columnName,
             selectedTable,
@@ -585,7 +590,7 @@ export function useFilterMetadata({
                 // Keep isPartial=true if this field originally had more values than we can
                 // list, so the Query Regex field stays visible even when the pattern
                 // narrows the result to a listable size.
-                isPartial: sampled || (originalTotalCount || 0) > MAX_LISTABLE_DISTINCT_VALUES,
+                isPartial: sampled || (originalTotalCount || 0) > DISCRETE_FULL_LIST_MAX,
                 warningMessage,
                 appliedRegexQuery: regexPattern,
                 constrainedByOtherFilters: constrained,
