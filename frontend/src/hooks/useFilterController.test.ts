@@ -127,16 +127,71 @@ describe('useFilterController', () => {
     expect(removeGlobalFilter).not.toHaveBeenCalled();
   });
 
-  test('removes session filters through the global filter path', () => {
+  test('removes session filters through the global filter path and clears the sheet copy', () => {
     const { result } = renderHook(() => useFilterController());
 
     act(() => {
       result.current.removeFilter('session');
     });
 
+    // Session removal also runs the sheet cleanup so no orphaned local applied
+    // config can survive if the field was duplicated across scopes.
+    expect(recordAction).toHaveBeenCalledWith({ snapshot: true });
+    expect(dispatch).toHaveBeenCalledWith({
+      type: 'SET_FILTER_FIELDS',
+      payload: [field('local')],
+    });
+    expect(dispatch).toHaveBeenCalledWith({
+      type: 'REMOVE_FILTER_CONFIGURATION',
+      payload: 'session',
+    });
     expect(removeGlobalFilter).toHaveBeenCalledWith('session');
-    expect(dispatch).not.toHaveBeenCalled();
-    expect(recordAction).not.toHaveBeenCalled();
+  });
+
+  test('removing a filter present in both scopes clears both stores (regression)', () => {
+    // A field can transiently live in the sheet store AND the session store at
+    // once (stale sheet snapshot resurrected during promotion to global).
+    // Removal must purge both so the query never retains an orphaned config.
+    mockUseVisualizationContext.mockReturnValue({
+      state: {
+        filterFields: [field('local'), field('dup')],
+        filterConfigurations: {
+          local: config('local', 'sheet'),
+          dup: config('dup', 'sheet'),
+        },
+        filterMetadata: {},
+        disabledFilterIds: [],
+      },
+      dispatch,
+      getUndoableSnapshot,
+    } as any);
+    mockUseDataSource.mockReturnValue({
+      dataSource: {
+        sessionFilterFields: [field('dup')],
+        sessionFilterConfigurations: { dup: config('dup', 'session') },
+        sessionFilterMetadata: {},
+      },
+      setSessionFilterConfiguration,
+      applySessionFilters,
+    } as any);
+
+    const { result } = renderHook(() => useFilterController());
+
+    act(() => {
+      result.current.removeFilter('dup');
+    });
+
+    // Sheet store cleared for 'dup'...
+    expect(dispatch).toHaveBeenCalledWith({
+      type: 'SET_FILTER_FIELDS',
+      payload: [field('local')],
+    });
+    expect(dispatch).toHaveBeenCalledWith({
+      type: 'REMOVE_FILTER_CONFIGURATION',
+      payload: 'dup',
+    });
+    // ...and session store cleared too.
+    expect(removeGlobalFilter).toHaveBeenCalledWith('dup');
   });
 
   test('routes config updates by filter scope', () => {

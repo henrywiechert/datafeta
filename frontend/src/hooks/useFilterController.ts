@@ -82,18 +82,29 @@ export function useFilterController(): UseFilterControllerReturn {
     [dataSource.sessionFilterFields],
   );
 
+  // Remove a filter from BOTH scopes for the given id. A field can transiently
+  // end up in the sheet store and the session store at the same time (e.g. a
+  // stale sheet snapshot resurrected while it was being promoted to global).
+  // Clearing only the detected scope would leave the other store's
+  // appliedFilterConfigurations orphaned — the panel dedups it away but the
+  // query still filters on it. Always clear the sheet store and, when present,
+  // the session store too, so no orphaned config can survive a removal.
   const removeFilter = useCallback((fieldId: string) => {
-    if (isSessionFilter(fieldId, sessionFilterFieldsRef.current)) {
-      removeGlobalFilterRef.current(fieldId);
-      return;
-    }
-
     recordUndoPoint();
+
+    // Always clear the sheet (local) copy. REMOVE_FILTER_CONFIGURATION deletes
+    // both filterConfigurations and appliedFilterConfigurations and bumps
+    // queryVersion so the query re-runs without the field.
     dispatch({
       type: 'SET_FILTER_FIELDS',
       payload: filterFieldsRef.current.filter((field) => field.id !== fieldId),
     });
     dispatch({ type: 'REMOVE_FILTER_CONFIGURATION', payload: fieldId });
+
+    // Also clear the session (global) copy if the field lives there.
+    if (isSessionFilter(fieldId, sessionFilterFieldsRef.current)) {
+      removeGlobalFilterRef.current(fieldId);
+    }
   }, [dispatch, recordUndoPoint]);
 
   const updateFilterConfig = useCallback((fieldId: string, config: FilterConfig) => {

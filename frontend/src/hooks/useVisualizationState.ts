@@ -4,7 +4,7 @@ import { useConnection } from '../contexts/ConnectionContext';
 import { useVisualizationContext } from '../contexts/VisualizationContext';
 import { useSheetContext } from '../contexts/SheetContext';
 import { useDataSource } from '../contexts/DataSourceContext';
-import { VisualizationStateSnapshot } from '../types';
+import { FilterConfig, VisualizationStateSnapshot } from '../types';
 import { useVirtualColumns } from './useVirtualColumns';
 import { useFieldOperations } from './useFieldOperations';
 import { useMetadataOperations } from './useMetadataOperations';
@@ -16,6 +16,7 @@ import {
     mergeFilterFields,
     mergeFilterMetadata,
 } from '../utils/effectiveFilters';
+import { getSessionFilterIds } from '../utils/scopedFilters';
 
 
 export function useVisualizationState() {
@@ -169,12 +170,27 @@ export function useVisualizationState() {
     const isTestEnv = process.env.NODE_ENV === 'test';
     const pendingSnapshotRef = useRef<Partial<VisualizationStateSnapshot> | null>(null);
     useEffect(() => {
+        // Never persist session-scoped (global) filters into a sheet's stored
+        // local state. A filter that was just promoted to global has already
+        // been removed from the sheet stores; persisting a snapshot that still
+        // contains it (e.g. a pre-promotion render flushed on cleanup) would
+        // resurrect it as a sheet-level filter, leaving it live in both scopes.
+        const sessionIds = getSessionFilterIds(dataSource.sessionFilterFields);
+        const sheetFilterFields = state.filterFields.filter(f => !sessionIds.has(f.id));
+        const stripSession = (configs: Record<string, FilterConfig>) => {
+            if (sessionIds.size === 0) return configs;
+            const next: Record<string, FilterConfig> = {};
+            for (const [id, config] of Object.entries(configs)) {
+                if (!sessionIds.has(id)) next[id] = config;
+            }
+            return next;
+        };
         const snapshot: Partial<VisualizationStateSnapshot> = {
             xAxisFields: state.xAxisFields,
             yAxisFields: state.yAxisFields,
-            filterFields: state.filterFields,
-            filterConfigurations: state.filterConfigurations,
-            appliedFilterConfigurations: state.appliedFilterConfigurations,
+            filterFields: sheetFilterFields,
+            filterConfigurations: stripSession(state.filterConfigurations),
+            appliedFilterConfigurations: stripSession(state.appliedFilterConfigurations),
             disabledFilterIds: state.disabledFilterIds,
             colorField: state.colorField,
             colorScheme: state.colorScheme,
@@ -231,6 +247,7 @@ export function useVisualizationState() {
         state.filterConfigurations,
         state.appliedFilterConfigurations,
         state.disabledFilterIds,
+        dataSource.sessionFilterFields,
         state.colorField,
         state.colorScheme,
         state.colorBias,
