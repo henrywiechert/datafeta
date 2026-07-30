@@ -55,9 +55,11 @@ class FieldTermResolver:
 
         Used by callers (e.g. the SELECT builder) that must layer datetime extraction
         on top of a term that may have been wrapped by binning/rounding/dedup logic.
-        Returns the term unchanged when no datetime part is requested.
+        Returns the term unchanged when the field is not datetime. A datetime field
+        always carries ``date_mode`` (even "Full DateTime", which has a mode but no
+        specific ``date_part``), so ``date_mode`` alone triggers datetime handling.
         """
-        if not (date_part and date_mode):
+        if not date_mode:
             return term
         return DateTimeService.get_datetime_part_expression(
             term,

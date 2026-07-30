@@ -12,7 +12,11 @@ from typing import TYPE_CHECKING, Any, Dict, Callable, Optional, Union
 from pypika.terms import Function
 
 from backend.exceptions import QueryGenerationError
-from backend.services.query_components.terms import CastField, CustomFunction, ExtractTerm
+from backend.services.query_components.terms import (
+    CustomFunction,
+    DuckDBFlexibleTimestamp,
+    ExtractTerm,
+)
 from backend.services import datetime_semantics as semantics
 
 if TYPE_CHECKING:
@@ -33,6 +37,18 @@ class DateTimeService:
     # applied. Covers ClickHouse (String / Nullable(String) / LowCardinality(String))
     # and DuckDB / standard SQL (VARCHAR / TEXT / CHAR / STRING).
     _STRING_TYPE_TOKENS = ('STRING', 'VARCHAR', 'TEXT', 'CHAR')
+
+    # strptime fallback formats for DuckDB when a text column overridden to
+    # DateTime is NOT plain ISO8601 (which TRY_CAST already handles). Ordered most
+    # specific first. Kept deliberately small — these are non-standard layouts we
+    # accept in addition to ISO8601, most notably dashes in the time component
+    # (e.g. '2026-01-26T07-00-44') produced by filename-safe timestamp encoders.
+    _DUCKDB_FALLBACK_FORMATS = (
+        '%Y-%m-%dT%H-%M-%S.%f',
+        '%Y-%m-%dT%H-%M-%S',
+        '%Y-%m-%d %H-%M-%S.%f',
+        '%Y-%m-%d %H-%M-%S',
+    )
 
     @staticmethod
     def resolve_source_type(
@@ -75,8 +91,12 @@ class DateTimeService:
         if normalized_db_type == 'clickhouse':
             # Best-effort parser handles ISO8601 incl. trailing 'Z'; precision 3 (ms).
             return CustomFunction('parseDateTime64BestEffort', [field_term, 3])
-        # DuckDB / standard SQL: CAST(... AS TIMESTAMP) accepts ISO8601 (drops 'Z').
-        return CastField(field_term, 'TIMESTAMP')
+        # DuckDB / standard SQL: TRY_CAST accepts ISO8601 (drops 'Z'); try_strptime
+        # is a fallback for non-standard layouts CAST rejects (e.g. dashes in the
+        # time component). Unparseable values become NULL rather than erroring.
+        return DuckDBFlexibleTimestamp(
+            field_term, list(DateTimeService._DUCKDB_FALLBACK_FORMATS)
+        )
 
     @staticmethod
     def _to_utc_clickhouse(field_term: Any) -> Any:
@@ -212,6 +232,13 @@ class DateTimeService:
         # raising an illegal-argument error from the database.
         if cls._is_string_source_type(source_type):
             field_term = cls._parse_string_to_datetime(field_term, normalized)
+
+        # "Full DateTime": a datetime field with a mode but no specific part is the
+        # parsed timestamp itself (no extraction/truncation). Returning it here also
+        # guarantees the value reaches the client as a real timestamp rather than the
+        # raw source string.
+        if not date_part:
+            return field_term
 
         if normalized == 'clickhouse':
             return cls._get_clickhouse_expression(field_term, date_part, date_mode)

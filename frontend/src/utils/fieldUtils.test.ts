@@ -159,6 +159,33 @@ describe('normalizeTimelineData', () => {
     expect((result[2][colName] as Date).getTime()).toBe(day2);
   });
 
+  it('should convert epoch MICROSECONDS to Date for a discrete year timeline field', () => {
+    // Regression: a datetime column stored as VARCHAR and grouped by year(timeline)
+    // comes back as a timestamp[us] column (epoch microseconds). The table grid
+    // previously showed these as raw integers (e.g. 1704063600000000).
+    const field: Field = {
+      id: 'timestamp-id',
+      columnName: 'timestamp',
+      type: 'dimension',
+      flavour: 'discrete',
+      dataType: 'datetime',
+      dateTimePart: 'year',
+      dateTimeMode: 'timeline',
+    };
+    const colName = getResultColumnName(field); // timestamp_year_timeline
+    expect(colName).toBe('timestamp_year_timeline');
+
+    const usEpoch = 1704063600000000; // ~2024-01-01, in microseconds
+    const rows = [{ [colName]: usEpoch }];
+
+    const result = normalizeTimelineData(rows, [field]);
+
+    expect(result[0][colName]).toBeInstanceOf(Date);
+    // Interpreted as microseconds (÷1000 → ms), NOT milliseconds (which would land
+    // ~year 55000 and render as a huge integer).
+    expect((result[0][colName] as Date).getTime()).toBe(usEpoch / 1000);
+  });
+
   it('should return original rows when no timeline fields present', () => {
     const field = makeNonTimelineField('name');
     const rows = [{ name: 'test', count: 5 }];
