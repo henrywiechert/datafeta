@@ -12,7 +12,8 @@ import { VirtualColumnDefinition } from './virtualColumn';
 
 export interface XAxisLabelStyle {
   fontSize: number;
-  orientation: 'horizontal' | 'vertical' | 'angled';
+  orientation: 'horizontal' | 'vertical' | 'angled';  // axis (field-name) label
+  categoryOrientation: 'horizontal' | 'vertical' | 'angled';  // category tick labels
 }
 
 export interface YAxisLabelStyle {
