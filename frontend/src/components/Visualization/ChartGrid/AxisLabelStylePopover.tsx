@@ -85,6 +85,15 @@ const AxisLabelStylePopover: React.FC<AxisLabelStylePopoverProps> = (props) => {
     }
   };
 
+  const handleCategoryOrientationChange = (
+    _: React.MouseEvent<HTMLElement>,
+    newOrientation: string | null
+  ) => {
+    if (newOrientation && axis === 'x') {
+      (onChange as (updates: { categoryOrientation: string }) => void)({ categoryOrientation: newOrientation });
+    }
+  };
+
   const handleAutoWidthToggle = (checked: boolean) => {
     if (axis === 'y') {
       const yOnChange = onChange as (updates: Partial<YAxisLabelStyle>) => void;
@@ -145,10 +154,10 @@ const AxisLabelStylePopover: React.FC<AxisLabelStylePopoverProps> = (props) => {
           />
         </Box>
 
-        {/* Orientation */}
+        {/* Label Orientation */}
         <Box>
           <Typography variant="body2" sx={{ mb: 0.5 }}>
-            Orientation
+            {axis === 'x' ? 'Label orientation' : 'Orientation'}
           </Typography>
           <ToggleButtonGroup
             exclusive
@@ -171,6 +180,35 @@ const AxisLabelStylePopover: React.FC<AxisLabelStylePopoverProps> = (props) => {
             ))}
           </ToggleButtonGroup>
         </Box>
+
+        {/* Category (tick label) Orientation — X-axis only */}
+        {axis === 'x' && (
+          <Box>
+            <Typography variant="body2" sx={{ mb: 0.5 }}>
+              Category orientation
+            </Typography>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={(style as XAxisLabelStyle).categoryOrientation ?? 'vertical'}
+              onChange={handleCategoryOrientationChange}
+              sx={{
+                '& .MuiToggleButton-root': {
+                  py: 0.5,
+                  px: 1.5,
+                  fontSize: '0.75rem',
+                  textTransform: 'none',
+                },
+              }}
+            >
+              {X_ORIENTATIONS.map((opt) => (
+                <ToggleButton key={opt.value} value={opt.value}>
+                  {opt.label}
+                </ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+          </Box>
+        )}
 
         {/* Width Override (Y-axis only) */}
         {axis === 'y' && (

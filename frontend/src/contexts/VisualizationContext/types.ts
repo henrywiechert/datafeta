@@ -11,7 +11,8 @@ export type LoadingOperationType = 'query' | 'rendering' | 'metadata';
 // Axis label styling types
 export interface XAxisLabelStyle {
   fontSize: number;  // 8-16, default 10
-  orientation: 'horizontal' | 'vertical' | 'angled';  // default 'horizontal'
+  orientation: 'horizontal' | 'vertical' | 'angled';  // axis (field-name) label, default 'horizontal'
+  categoryOrientation: 'horizontal' | 'vertical' | 'angled';  // category tick labels, default 'vertical'
 }
 
 export interface YAxisLabelStyle {

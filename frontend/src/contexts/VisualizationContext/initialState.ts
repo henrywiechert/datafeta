@@ -93,6 +93,7 @@ export const initialState: VisualizationState = {
     xAxis: {
       fontSize: 10,
       orientation: 'horizontal',
+      categoryOrientation: 'vertical',
     },
     yAxis: {
       fontSize: 10,

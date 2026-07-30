@@ -386,6 +386,14 @@ export function buildHeatmapOptions(input: HeatmapOptionsInput): Plot.PlotOption
     marks,
   };
 
+  // Size-encoded heatmaps use a linear scale for the x/y axes (rect mark), but
+  // the tick labels are still discrete categories mapped via tickFormat. Flag
+  // them so the axis renderer treats their ticks as categorical (and applies the
+  // configured category orientation) rather than as continuous numeric ticks.
+  if (useScaledRectMark) {
+    (options as any).__discreteAxes = { x: true, y: true };
+  }
+
   (options as any).__customTooltip = {
     enabled: true,
     data,
