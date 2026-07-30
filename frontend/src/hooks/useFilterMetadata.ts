@@ -9,6 +9,14 @@ interface ConnectionDetails {
     type: 'clickhouse' | 'csv' | 'kaggle' | 'huggingface' | 'hive_parquet';
 }
 
+/**
+ * Max distinct values for which a discrete filter shows the full checkbox list.
+ * Above this the filter switches to showing 100 random samples plus pattern
+ * (Query Regex) mode. Raising this renders more checkboxes in the DOM (no
+ * virtualization), so very large values can make the filter panel sluggish.
+ */
+export const DISCRETE_FULL_LIST_MAX = 20000;
+
 interface UseFilterMetadataParams {
     filterFields: Field[];
     filterMetadata: Record<string, FilterMetadata>;
@@ -192,7 +200,7 @@ export function useFilterMetadata({
                 let isPartial = false;
                 let warningMessage: string | undefined;
                 
-                if (count <= 5000) {
+                if (count <= DISCRETE_FULL_LIST_MAX) {
                     // Fetch all values
                     values = await apiService.getDistinctValues(
                         field.columnName,
@@ -474,7 +482,7 @@ export function useFilterMetadata({
                 ? (currentMetadata.originalTotalCount || currentMetadata.totalCount)
                 : count;
             
-            if (count <= 5000) {
+            if (count <= DISCRETE_FULL_LIST_MAX) {
                 // Fetch all values with the regex filter
                 values = await apiService.getDistinctValues(
                     field.columnName,
@@ -491,9 +499,10 @@ export function useFilterMetadata({
                     abortController.signal  // Pass the abort signal
                 );
                 
-                // Keep isPartial=true if this field originally had >5000 values
-                // This ensures the Query Regex field stays visible even if filter returns 0-5000 results
-                isPartial = (originalTotalCount || 0) > 5000;
+                // Keep isPartial=true if this field originally had more than the
+                // full-list max. This ensures the Query Regex field stays visible
+                // even if the filtered result now returns few enough values.
+                isPartial = (originalTotalCount || 0) > DISCRETE_FULL_LIST_MAX;
                 
                 if (regexPattern) {
                     if (count === 0) {
@@ -547,8 +556,8 @@ export function useFilterMetadata({
             
             // Update selected values:
             // - If count is 0: clear selections
-            // - If count <=5000 (and >0): select all new values
-            // - If count >5000: keep existing selections (partial results)
+            // - If count <= DISCRETE_FULL_LIST_MAX (and >0): select all new values
+            // - If count > DISCRETE_FULL_LIST_MAX: keep existing selections (partial results)
             if (preservePatternMode) {
                 // Previewing sampled values for a pattern filter should not rewrite the
                 // persisted filter config into a selection list.
@@ -569,7 +578,7 @@ export function useFilterMetadata({
                         }
                     }
                 });
-            } else if (count <= 5000) {
+            } else if (count <= DISCRETE_FULL_LIST_MAX) {
                 // Select all matching values when we have a manageable number
                 dispatch({
                     type: 'SET_FILTER_CONFIGURATION',
@@ -587,7 +596,7 @@ export function useFilterMetadata({
                     }
                 });
             }
-            // If count > 5000, don't update selectedValues (keep existing 100 selected)
+            // If count > DISCRETE_FULL_LIST_MAX, don't update selectedValues (keep existing 100 selected)
             
             // Clean up the abort controller after successful refetch
             filterMetadataAbortControllers.current.delete(fieldId);
