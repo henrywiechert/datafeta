@@ -16,6 +16,7 @@ import { MultiPlotGrid } from './MultiPlotGrid';
 import { PlotBrushEvent } from './PlotArea';
 import { AxisLabelStyles, CategoryTickStyles, FacetLabelStyles } from '../../../contexts/VisualizationContext/types';
 import { UserChartType } from '../../../types';
+import { useFullscreenPortalTarget } from '../../../hooks/useFullscreenPortalTarget';
 
 /** Gantt zoom range representing the visible data range on the timeline axis */
 export interface GanttZoomRange {
@@ -164,6 +165,9 @@ const ChartGrid: React.FC<ChartGridProps> = ({
   const [contextMenu, setContextMenu] = useState<{ plotId: string; x: number; y: number } | null>(null);
   const [zoomedPlotId, setZoomedPlotId] = useState<string | null>(null);
   const [autoExpandPinnedComparison, setAutoExpandPinnedComparison] = useState(false);
+  // Fullscreen-aware portal host: the context menu / zoom dialog must render
+  // inside the fullscreen element, otherwise they are painted behind it.
+  const portalTarget = useFullscreenPortalTarget();
 
   const handleCellContextMenu = useCallback((plotId: string, clientX: number, clientY: number) => {
     setContextMenu({ plotId, x: clientX, y: clientY });
@@ -251,6 +255,7 @@ const ChartGrid: React.FC<ChartGridProps> = ({
         <Menu
           open={contextMenu !== null}
           onClose={handleMenuClose}
+          container={portalTarget}
           anchorReference="anchorPosition"
           anchorPosition={contextMenu ? { top: contextMenu.y, left: contextMenu.x } : undefined}
         >

@@ -12,6 +12,7 @@ import {
   FacetLabelAlign,
   FacetWrapMode,
 } from '../../../../contexts/VisualizationContext/types';
+import { useFullscreenPortalTarget } from '../../../../hooks/useFullscreenPortalTarget';
 
 export interface FacetStylePopoverProps {
   anchorEl: HTMLElement | null;
@@ -49,12 +50,17 @@ const FacetStylePopover: React.FC<FacetStylePopoverProps> = ({
   orientationOptions,
 }) => {
   const open = Boolean(anchorEl);
+  // In fullscreen mode the browser only paints the fullscreen element's subtree,
+  // so MUI's default portal to document.body renders behind the fullscreen layer.
+  // Render into the fullscreen element instead (falls back to document.body).
+  const portalTarget = useFullscreenPortalTarget();
 
   return (
     <Popover
       open={open}
       anchorEl={anchorEl}
       onClose={onClose}
+      container={portalTarget}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       transformOrigin={{ vertical: 'top', horizontal: 'center' }}
       PaperProps={{ sx: { p: 2, width: 240 } }}
