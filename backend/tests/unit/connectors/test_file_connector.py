@@ -497,6 +497,92 @@ class TestErrorHandling:
     def test_fetch_data_no_files_raises(self):
         """Test that fetching data without files raises error."""
         connector = FileConnector()
-        
+
         with pytest.raises(DataSourceConnectionError):
             connector.fetch_data('SELECT * FROM "test"')
+
+
+class TestJsonFlattenPreservesRows:
+    """JSON/JSONL flattening must not drop rows whose list columns are empty.
+
+    Regression: ``UNNEST([])`` produces zero rows, so putting UNNEST() of a list
+    column in the SELECT list silently deleted every record whose lists were all
+    empty (and duplicated multi-element records). Empty lists must instead be
+    preserved as a single NULL-valued row.
+    """
+
+    def _connect(self, tmp_path, lines):
+        jsonl_path = tmp_path / "cores.jsonl"
+        jsonl_path.write_text("\n".join(lines) + "\n")
+        connector = FileConnector()
+        connector.connect({
+            "file_path": str(jsonl_path),
+            "original_filename": "cores.jsonl",
+        })
+        return connector
+
+    def test_empty_scalar_list_rows_are_preserved(self, tmp_path):
+        """Rows with an empty scalar list survive; multi-element rows still expand."""
+        lines = [
+            '{"id": 1, "tags": ["x"]}',
+            '{"id": 2, "tags": []}',
+            '{"id": 3, "tags": ["y", "z"]}',
+        ]
+        connector = self._connect(tmp_path, lines)
+
+        _, rows = connector.fetch_data('SELECT * FROM "cores"')
+        # id=1 → 1 row, id=2 (empty list) → 1 preserved row, id=3 → 2 rows.
+        assert len(rows) == 4
+        ids = sorted(r["id"] for r in rows)
+        assert ids == [1, 2, 2, 3] or ids == [1, 2, 3, 3]  # id=2 present, no drop
+        assert 2 in ids
+
+        # Every distinct id is preserved (no data loss).
+        _, count_rows = connector.fetch_data(
+            'SELECT count(DISTINCT "id") AS n FROM "cores"'
+        )
+        assert int(count_rows[0]["n"]) == 3
+
+    def test_all_empty_lists_row_survives_with_null_index(self, tmp_path):
+        """A record whose list columns are all empty must not vanish, and its
+        __index must be NULL (not a spurious 1)."""
+        lines = [
+            '{"id": 1, "frames": [{"fn": "a", "ln": 10}, {"fn": "b", "ln": 20}], "tags": ["t"]}',
+            '{"id": 2, "frames": [], "tags": []}',
+            '{"id": 3, "frames": [{"fn": "c", "ln": 30}], "tags": ["u", "v"]}',
+        ]
+        connector = self._connect(tmp_path, lines)
+
+        # id=2 (all lists empty) must be present exactly once with NULL fields.
+        _, rows = connector.fetch_data(
+            'SELECT "id", "frames__index", "frames__fn", "tags" '
+            'FROM "cores" WHERE "id" = 2'
+        )
+        assert len(rows) == 1
+        assert rows[0]["frames__index"] is None
+        assert rows[0]["frames__fn"] is None
+        assert rows[0]["tags"] is None
+
+        # No records lost overall.
+        _, count_rows = connector.fetch_data(
+            'SELECT count(DISTINCT "id") AS n FROM "cores"'
+        )
+        assert int(count_rows[0]["n"]) == 3
+
+    def test_list_of_struct_fields_expand(self, tmp_path):
+        """LIST-of-STRUCT still expands into col__field columns (long + wide)."""
+        lines = [
+            '{"id": 1, "frames": [{"fn": "a", "ln": 10}, {"fn": "b", "ln": 20}]}',
+            '{"id": 2, "frames": []}',
+        ]
+        connector = self._connect(tmp_path, lines)
+
+        columns = connector.list_columns(table="cores")
+        col_names = {c.name for c in columns}
+        assert {"frames__index", "frames__fn", "frames__ln"} <= col_names
+
+        _, rows = connector.fetch_data(
+            'SELECT "frames__fn", "frames__ln" FROM "cores" '
+            'WHERE "id" = 1 ORDER BY "frames__index"'
+        )
+        assert [(r["frames__fn"], r["frames__ln"]) for r in rows] == [("a", 10), ("b", 20)]

@@ -126,6 +126,20 @@ def _parse_struct_field_names(type_str: str) -> List[str]:
     return fields
 
 
+def _safe_unnest_expr(col_name: str) -> str:
+    """List expression that substitutes a single NULL element for empty/NULL lists.
+
+    ``UNNEST([])`` produces zero rows, which would silently drop any input row whose
+    list columns are all empty. Substituting ``[NULL]`` (length 1) keeps the row with
+    NULL values instead. The ``[NULL]`` literal type-reconciles with both scalar-list
+    (e.g. VARCHAR[]) and struct-list (e.g. STRUCT(...)[]) columns.
+    """
+    return (
+        f'CASE WHEN "{col_name}" IS NULL OR len("{col_name}") = 0 '
+        f'THEN [NULL] ELSE "{col_name}" END'
+    )
+
+
 def _build_json_select_parts(describe: list) -> List[str]:
     """
     Build SELECT expressions for a JSON view, expanding nested types:
@@ -134,7 +148,8 @@ def _build_json_select_parts(describe: list) -> List[str]:
       STRUCT(...)[]  → col__index + UNNEST(col).field per field (long + wide)
       MAP / other    → pass-through
     Multiple LIST columns are unnested in parallel (DuckDB aligns positionally,
-    NULL-pads shorter arrays).
+    NULL-pads shorter arrays). Empty/NULL lists are preserved as a single row with
+    NULL values (and a NULL __index) rather than being dropped.
     """
     parts: List[str] = []
     for row in describe:
@@ -143,6 +158,9 @@ def _build_json_select_parts(describe: list) -> List[str]:
 
         if _is_list_type(col_type):
             elem_type = _unwrap_list_element(col_type)
+            safe = _safe_unnest_expr(col_name)
+            # generate_subscripts uses the original column so a genuinely empty
+            # list yields a NULL __index (the placeholder row), not index 1.
             parts.append(
                 f'generate_subscripts("{col_name}", 1) AS "{col_name}__index"'
             )
@@ -150,11 +168,11 @@ def _build_json_select_parts(describe: list) -> List[str]:
                 # LIST of STRUCT → unnest + expand struct fields
                 for field in _parse_struct_field_names(elem_type):
                     parts.append(
-                        f'UNNEST("{col_name}")."{field}" AS "{col_name}__{field}"'
+                        f'UNNEST({safe})."{field}" AS "{col_name}__{field}"'
                     )
             else:
                 # LIST of scalar → unnest value, keep original column name
-                parts.append(f'UNNEST("{col_name}") AS "{col_name}"')
+                parts.append(f'UNNEST({safe}) AS "{col_name}"')
 
         elif _is_struct_type(col_type):
             # Plain STRUCT → expand fields (wide, no row multiplication)

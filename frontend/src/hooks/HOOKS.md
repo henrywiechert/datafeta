@@ -178,8 +178,8 @@ Handles all metadata API calls and **auto-fetching effects**:
 Manages filter metadata (distinct values, ranges) per filter field.
 
 **Smart fetching:**
-- Discrete fields with ≤5000 values → fetch all
-- Discrete fields with >5000 values → fetch 100 random samples + show warning
+- Discrete fields with ≤`DISCRETE_FULL_LIST_MAX` (20000) values → fetch all
+- Discrete fields with more → fetch 100 random samples + show warning
 - Continuous/datetime fields → fetch min/max range
 
 **Supports:**

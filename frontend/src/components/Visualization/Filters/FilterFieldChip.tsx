@@ -409,29 +409,31 @@ const FilterFieldChip: React.FC<FilterFieldChipProps> = ({
     <Box className={`${styles.container}${isDisabled ? ` ${styles.disabled}` : ''}`}>
       <Box className={styles.chipContainer}>
         <Tooltip title={scopeTooltip} placement="top" arrow>
-          <ToggleButton
-            value="session"
-            selected={isSessionScope}
-            onChange={handleToggleScope}
-            size="small"
-            disabled={!onScopeChange}
-            sx={{
-              padding: '2px',
-              minWidth: '24px',
-              height: '24px',
-              marginRight: '4px',
-              border: 'none',
-              '&.Mui-selected': {
-                backgroundColor: 'secondary.light',
-                color: 'secondary.contrastText',
-                '&:hover': {
-                  backgroundColor: 'secondary.main',
+          {/* span wrapper: disabled buttons don't fire events, so Tooltip needs a live child */}
+          <span style={{ display: 'inline-flex', marginRight: 4 }}>
+            <ToggleButton
+              value="session"
+              selected={isSessionScope}
+              onChange={handleToggleScope}
+              size="small"
+              disabled={!onScopeChange}
+              sx={{
+                padding: '2px',
+                minWidth: '24px',
+                height: '24px',
+                border: 'none',
+                '&.Mui-selected': {
+                  backgroundColor: 'secondary.light',
+                  color: 'secondary.contrastText',
+                  '&:hover': {
+                    backgroundColor: 'secondary.main',
+                  },
                 },
-              },
-            }}
-          >
-            {scopeIcon}
-          </ToggleButton>
+              }}
+            >
+              {scopeIcon}
+            </ToggleButton>
+          </span>
         </Tooltip>
         <Box className={`${styles.chipCell}${isDisabled ? ` ${styles.chipCellDisabled}` : ''}`}>
           <FieldChip

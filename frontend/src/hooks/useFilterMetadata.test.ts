@@ -108,7 +108,7 @@ describe('discrete value list fetching', () => {
   });
 
   test('samples instead of listing once the column exceeds the threshold', async () => {
-    mockApi.getDistinctValuesCount.mockResolvedValue(5001);
+    mockApi.getDistinctValuesCount.mockResolvedValue(20001);
 
     renderFilterMetadata();
 
@@ -118,7 +118,7 @@ describe('discrete value list fetching', () => {
   });
 
   test('a refetch applies the same threshold as the cold-start fetch', async () => {
-    mockApi.getDistinctValuesCount.mockResolvedValue(5001);
+    mockApi.getDistinctValuesCount.mockResolvedValue(20001);
 
     const { result } = renderFilterMetadata(settledMetadata());
     await result.current.refetchFilterValues(field.id, 'abc%');
