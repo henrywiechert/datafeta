@@ -12,6 +12,7 @@ import {
   Switch,
 } from '@mui/material';
 import { XAxisLabelStyle, YAxisLabelStyle } from '../../../contexts/VisualizationContext/types';
+import { useFullscreenPortalTarget } from '../../../hooks/useFullscreenPortalTarget';
 
 // Base props shared by both axis types
 interface BaseAxisLabelStylePopoverProps {
@@ -62,6 +63,9 @@ const Y_ORIENTATIONS: { value: YAxisLabelStyle['orientation']; label: string }[]
 const AxisLabelStylePopover: React.FC<AxisLabelStylePopoverProps> = (props) => {
   const { anchorEl, onClose, axis, style, onChange } = props;
   const open = Boolean(anchorEl);
+  // Portal into the fullscreen element so the popover is painted above the
+  // fullscreen layer instead of behind it (defaults to document.body otherwise).
+  const portalTarget = useFullscreenPortalTarget();
   const yStyle = axis === 'y' ? (style as YAxisLabelStyle) : null;
   const isAutoWidth = yStyle?.widthPx === null;
 
@@ -111,6 +115,7 @@ const AxisLabelStylePopover: React.FC<AxisLabelStylePopoverProps> = (props) => {
       open={open}
       anchorEl={anchorEl}
       onClose={onClose}
+      container={portalTarget}
       anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       transformOrigin={{ vertical: 'top', horizontal: 'center' }}
       PaperProps={{ sx: { p: 2, width: 240 } }}

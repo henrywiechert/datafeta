@@ -7,6 +7,7 @@ import { GridResultModel, getPlotGridCellById } from '../../../observable-plot-g
 import ObservablePlot from '../ObservablePlot';
 import { formatNumericTick, isContinuousNumericDomain } from '../../../observable-plot-generator/utils/numericTickFormat';
 import { computeZoomBandXAxis, computeZoomBandYAxis } from './utils/layoutUtils';
+import { useFullscreenPortalTarget } from '../../../hooks/useFullscreenPortalTarget';
 
 /**
  * Default a continuous numeric axis to the compact SI tick formatter, matching
@@ -40,6 +41,9 @@ const FacetZoomDialog: React.FC<FacetZoomDialogProps> = ({
   autoExpandPinnedComparison,
   onAutoExpandPinnedComparisonChange,
 }) => {
+  // Portal into the fullscreen element when active so the dialog is painted
+  // above the fullscreen layer instead of behind it (defaults to document.body).
+  const portalTarget = useFullscreenPortalTarget();
   const cell = getPlotGridCellById(grid, plotId);
 
   if (!cell) return null;
@@ -111,6 +115,7 @@ const FacetZoomDialog: React.FC<FacetZoomDialogProps> = ({
     <Dialog
       open={true}
       onClose={onClose}
+      container={portalTarget}
       fullWidth
       maxWidth="xl"
       PaperProps={{ sx: { height: '80vh' } }}
