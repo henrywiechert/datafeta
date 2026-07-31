@@ -1,7 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Sheet, SheetManagerState, SheetAction, VisualizationStateSnapshot, Field, FilterConfig } from '../types';
+import { Sheet, SheetManagerState, SheetAction, VisualizationStateSnapshot, SheetPanelLayout, Field, FilterConfig } from '../types';
 import { DEFAULT_MANUAL_COLOR } from '../config/colorSchemes';
 import { DEFAULT_MANUAL_SHAPE } from '../observable-plot-generator/utils/shapeUtils';
 
@@ -220,6 +220,26 @@ function sheetReducer(state: SheetManagerState, action: SheetAction): SheetManag
       };
     }
 
+    case 'UPDATE_SHEET_PANEL_LAYOUT': {
+      // Merge partial panel layout into the target sheet. Kept separate from
+      // UPDATE_SHEET_STATE (and deliberately does NOT bump lastModified) so panel
+      // resizing is treated as cosmetic chrome, not a change to the chart itself.
+      return {
+        ...state,
+        sheets: state.sheets.map(sheet =>
+          sheet.id === action.payload.id
+            ? {
+                ...sheet,
+                panelLayout: {
+                  ...sheet.panelLayout,
+                  ...action.payload.layout,
+                },
+              }
+            : sheet
+        ),
+      };
+    }
+
     case 'DUPLICATE_SHEET': {
       const sheetToDuplicate = state.sheets.find(s => s.id === action.payload);
       if (!sheetToDuplicate) return state;
@@ -352,6 +372,7 @@ interface SheetContextType {
   renameSheet: (id: string, name: string) => void;
   setActiveSheet: (id: string) => void;
   updateActiveSheetState: (state: Partial<VisualizationStateSnapshot>) => void;
+  updateActiveSheetPanelLayout: (layout: Partial<SheetPanelLayout>) => void;
   duplicateSheet: (id: string) => void;
   resetWorkspace: () => void;
   // Global filter operations
@@ -441,6 +462,14 @@ export function SheetProvider({ children }: { children: React.ReactNode }) {
     });
   }, [state.activeSheetId]);
 
+  const updateActiveSheetPanelLayout = useCallback((layout: Partial<SheetPanelLayout>) => {
+    if (!state.activeSheetId) return;
+    dispatch({
+      type: 'UPDATE_SHEET_PANEL_LAYOUT',
+      payload: { id: state.activeSheetId, layout },
+    });
+  }, [state.activeSheetId]);
+
   const duplicateSheet = useCallback((id: string) => {
     dispatch({ type: 'DUPLICATE_SHEET', payload: id });
   }, []);
@@ -470,11 +499,12 @@ export function SheetProvider({ children }: { children: React.ReactNode }) {
     renameSheet,
     setActiveSheet,
     updateActiveSheetState,
+    updateActiveSheetPanelLayout,
     duplicateSheet,
     resetWorkspace,
     addFilterToAllSheets,
     removeFilterFromAllSheets,
-  }), [state, activeSheet, addSheet, removeSheet, renameSheet, setActiveSheet, updateActiveSheetState, duplicateSheet, resetWorkspace, addFilterToAllSheets, removeFilterFromAllSheets]);
+  }), [state, activeSheet, addSheet, removeSheet, renameSheet, setActiveSheet, updateActiveSheetState, updateActiveSheetPanelLayout, duplicateSheet, resetWorkspace, addFilterToAllSheets, removeFilterFromAllSheets]);
 
   return (
     <SheetContext.Provider value={value}>

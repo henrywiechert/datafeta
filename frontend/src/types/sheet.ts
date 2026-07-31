@@ -138,10 +138,31 @@ export interface VisualizationStateSnapshot {
 
 // --- Sheet Types --- //
 
+/**
+ * Per-sheet panel layout (resize handle positions).
+ *
+ * Stored on the Sheet directly rather than inside `visualizationState` so it is
+ * restored when switching sheets but intentionally kept OUT of visualization
+ * snapshots (it's cosmetic UI chrome, not part of the chart definition).
+ * All fields are optional; missing values fall back to component defaults.
+ */
+export interface SheetPanelLayout {
+  /** Left (Fields) panel size as a percentage of the horizontal panel group. */
+  leftPanelSize?: number;
+  /** Middle (Properties) panel size as a percentage of the horizontal panel group. */
+  middlePanelSize?: number;
+  /** Legend stack width in pixels. */
+  legendWidth?: number;
+  /** Debug view height in pixels. */
+  debugHeight?: number;
+}
+
 export interface Sheet {
   id: string;
   name: string;
   visualizationState: VisualizationStateSnapshot;
+  /** Per-sheet resize handle positions. Not part of the visualization snapshot. */
+  panelLayout?: SheetPanelLayout;
   createdAt: number;
   lastModified: number;
 }
@@ -158,6 +179,7 @@ export type SheetAction =
   | { type: 'RENAME_SHEET'; payload: { id: string; name: string } }
   | { type: 'SET_ACTIVE_SHEET'; payload: string }
   | { type: 'UPDATE_SHEET_STATE'; payload: { id: string; state: Partial<VisualizationStateSnapshot> } }
+  | { type: 'UPDATE_SHEET_PANEL_LAYOUT'; payload: { id: string; layout: Partial<SheetPanelLayout> } }
   | { type: 'DUPLICATE_SHEET'; payload: string }
   | { type: 'LOAD_SHEETS'; payload: Sheet[] }
   | { type: 'RESET_WORKSPACE' }

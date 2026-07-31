@@ -7,6 +7,8 @@ interface LegendStackProps {
   defaultWidth?: number;
   minWidth?: number;
   maxWidth?: number;
+  /** Called with the final width when a resize drag ends (used to persist per-sheet). */
+  onWidthCommit?: (width: number) => void;
 }
 
 const LegendStack: React.FC<LegendStackProps> = ({
@@ -14,11 +16,13 @@ const LegendStack: React.FC<LegendStackProps> = ({
   defaultWidth = 220,
   minWidth = 180,
   maxWidth = 320,
+  onWidthCommit,
 }) => {
   const [width, setWidth] = useState(defaultWidth);
   const [isResizing, setIsResizing] = useState(false);
   const startXRef = useRef(0);
   const startWidthRef = useRef(defaultWidth);
+  const widthRef = useRef(defaultWidth);
 
   const handleMouseDown = useCallback((event: React.MouseEvent) => {
     event.preventDefault();
@@ -36,11 +40,13 @@ const LegendStack: React.FC<LegendStackProps> = ({
         maxWidth,
         Math.max(minWidth, startWidthRef.current + delta),
       );
+      widthRef.current = nextWidth;
       setWidth(nextWidth);
     };
 
     const handleMouseUp = () => {
       setIsResizing(false);
+      onWidthCommit?.(Math.round(widthRef.current));
     };
 
     window.addEventListener('mousemove', handleMouseMove);
@@ -50,7 +56,7 @@ const LegendStack: React.FC<LegendStackProps> = ({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isResizing, minWidth, maxWidth]);
+  }, [isResizing, minWidth, maxWidth, onWidthCommit]);
 
   return (
     <div className={styles.stackContainer} style={{ width }}>
