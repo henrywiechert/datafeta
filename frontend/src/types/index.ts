@@ -140,6 +140,7 @@ export type {
   FacetLabelStyles,
   VisualizationStateSnapshot,
   Sheet,
+  SheetPanelLayout,
   SheetManagerState,
   SheetAction,
 } from './sheet';

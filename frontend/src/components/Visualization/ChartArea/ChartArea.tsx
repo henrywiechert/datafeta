@@ -66,7 +66,7 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
     useVisualizationContext();
   const { recordAction, undo, completeUndo, redo, completeRedo, discardLastAction, canUndo, canRedo } = useUndoRedo();
   const { dataSource, clearSessionFilters } = useDataSource();
-  const { resetWorkspace, activeSheet } = useSheetContext();
+  const { resetWorkspace, activeSheet, updateActiveSheetPanelLayout } = useSheetContext();
   const renderingCoordinator = useRenderingCoordinator();
   const channels = useChannels();
 
@@ -336,7 +336,20 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
     isLoadingRendering: state.isLoadingRendering,
   });
 
-  const { isDebugOpen, debugHeight, maxDebugHeight, toggleDebugView, handleDebugResize } = useDebugView();
+  // Per-sheet panel layout. ChartArea is remounted on sheet switch (its provider
+  // is keyed by sheet id), so these initial reads reflect the sheet we switch into.
+  const [initialDebugHeight] = useState(() => activeSheet?.panelLayout?.debugHeight);
+  const [initialLegendWidth] = useState(() => activeSheet?.panelLayout?.legendWidth);
+  const handleDebugHeightCommit = useCallback((height: number) => {
+    updateActiveSheetPanelLayout({ debugHeight: height });
+  }, [updateActiveSheetPanelLayout]);
+  const handleLegendWidthCommit = useCallback((width: number) => {
+    updateActiveSheetPanelLayout({ legendWidth: width });
+  }, [updateActiveSheetPanelLayout]);
+  const { isDebugOpen, debugHeight, maxDebugHeight, toggleDebugView, handleDebugResize } = useDebugView({
+    initialHeight: initialDebugHeight,
+    onHeightCommit: handleDebugHeightCommit,
+  });
   const { appConfig } = useAppConfig();
   const debugUiEnabled = appConfig.debugUiEnabled;
   const { isFullscreen, toggleFullscreen, isSupported: isFullscreenSupported } = useFullscreen(fullscreenWrapperRef);
@@ -620,7 +633,10 @@ const ChartArea: React.FC<ChartAreaProps> = ({ axisDropFieldIdsRef }) => {
         </div>
 
         {showLegend && (
-          <LegendStack>
+          <LegendStack
+            defaultWidth={initialLegendWidth ?? undefined}
+            onWidthCommit={handleLegendWidthCommit}
+          >
             {showColorLegend && (
               <LegendPanel
                 colorField={channels.color.field}

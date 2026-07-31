@@ -42,7 +42,36 @@ const VisualizationPageContent = () => {
     // unnecessary re-renders of ChartArea and its 160+ facet children.
     const [leftPanelCollapsed, setLeftPanelCollapsed] = React.useState(false);
     const [middlePanelCollapsed, setMiddlePanelCollapsed] = React.useState(false);
-    
+
+    // Per-sheet panel sizes. This component is remounted on every sheet switch
+    // (VisualizationProvider is keyed by sheet id), so the initial read below
+    // reflects the sheet we're switching INTO. Captured once via the useState
+    // initializer so later re-renders don't fight react-resizable-panels.
+    const { activeSheet, updateActiveSheetPanelLayout } = useSheetContext();
+    const savedPanelLayout = activeSheet?.panelLayout;
+    const [initialLeftSize] = React.useState(() => savedPanelLayout?.leftPanelSize ?? 20);
+    const [initialMiddleSize] = React.useState(() => savedPanelLayout?.middlePanelSize ?? 15);
+    const initialChartSize = Math.max(0, 100 - initialLeftSize - initialMiddleSize);
+
+    // Persist resize handle positions per-sheet. Guarded against redundant
+    // dispatches (and against persisting the 0% that a collapse produces).
+    const lastLeftSizeRef = React.useRef<number | undefined>(savedPanelLayout?.leftPanelSize);
+    const lastMiddleSizeRef = React.useRef<number | undefined>(savedPanelLayout?.middlePanelSize);
+    const persistLeftPanelSize = React.useCallback((sizePercent: number) => {
+        const rounded = Math.round(sizePercent);
+        if (sizePercent > 0 && rounded !== lastLeftSizeRef.current) {
+            lastLeftSizeRef.current = rounded;
+            updateActiveSheetPanelLayout({ leftPanelSize: rounded });
+        }
+    }, [updateActiveSheetPanelLayout]);
+    const persistMiddlePanelSize = React.useCallback((sizePercent: number) => {
+        const rounded = Math.round(sizePercent);
+        if (sizePercent > 0 && rounded !== lastMiddleSizeRef.current) {
+            lastMiddleSizeRef.current = rounded;
+            updateActiveSheetPanelLayout({ middlePanelSize: rounded });
+        }
+    }, [updateActiveSheetPanelLayout]);
+
     const {
         xAxisFields,
         yAxisFields,
@@ -417,14 +446,17 @@ const VisualizationPageContent = () => {
                 <Box sx={{ flex: 1, overflow: 'hidden', minHeight: 0 }}>
                     <PanelGroup orientation="horizontal">
                     {/* Left Panel - Fields with metadata selector */}
-                    <Panel 
+                    <Panel
                         panelRef={leftPanelRef}
-                        defaultSize="20%"
+                        defaultSize={`${initialLeftSize}%`}
                         minSize="10%"
                         maxSize="35%"
                         collapsible
                         collapsedSize={0}
-                        onResize={(size) => setLeftPanelCollapsed(size.asPercentage === 0)}
+                        onResize={(size) => {
+                            setLeftPanelCollapsed(size.asPercentage === 0);
+                            persistLeftPanelSize(size.asPercentage);
+                        }}
                     >
                         {leftPanelCollapsed ? (
                             <CollapsedPanelStrip 
@@ -543,16 +575,19 @@ const VisualizationPageContent = () => {
                     />
 
                     {/* Middle Panel - Property sections stacked vertically */}
-                    <Panel 
+                    <Panel
                         panelRef={middlePanelRef}
-                        defaultSize="15%"
+                        defaultSize={`${initialMiddleSize}%`}
                         minSize="10%"
                         maxSize="30%"
                         collapsible
                         collapsedSize={0}
                         // Allow true collapse-to-zero. When expanded, clamp to 140px so controls don't get forced offscreen.
                         style={{ minWidth: middlePanelCollapsed ? 0 : 140 }}
-                        onResize={(size) => setMiddlePanelCollapsed(size.asPercentage === 0)}
+                        onResize={(size) => {
+                            setMiddlePanelCollapsed(size.asPercentage === 0);
+                            persistMiddlePanelSize(size.asPercentage);
+                        }}
                     >
                         {middlePanelCollapsed ? null : (
                           <Box sx={{ 
@@ -592,7 +627,7 @@ const VisualizationPageContent = () => {
                     />
 
                     {/* Main Content - Chart */}
-                    <Panel defaultSize="65%" minSize="40%">
+                    <Panel defaultSize={`${initialChartSize}%`} minSize="40%">
                         <ChartPanel
                             xAxisFields={xAxisFields}
                             yAxisFields={yAxisFields}
