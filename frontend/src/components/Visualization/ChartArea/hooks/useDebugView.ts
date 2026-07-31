@@ -3,7 +3,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { createResizeHandler } from '../utils';
 
 interface UseDebugViewProps {
-  // No props needed for now
+  /** Initial debug view height in pixels (restored per-sheet). */
+  initialHeight?: number;
+  /** Called with the final height when the user finishes resizing (persist per-sheet). */
+  onHeightCommit?: (height: number) => void;
 }
 
 interface UseDebugViewReturn {
@@ -15,8 +18,9 @@ interface UseDebugViewReturn {
 }
 
 export const useDebugView = (props?: UseDebugViewProps): UseDebugViewReturn => {
+  const { initialHeight, onHeightCommit } = props ?? {};
   const [isDebugOpen, setIsDebugOpen] = useState(false);
-  const [debugHeight, setDebugHeight] = useState(300);
+  const [debugHeight, setDebugHeight] = useState(initialHeight ?? 300);
   const [maxDebugHeight, setMaxDebugHeight] = useState(800);
 
   // Toggle debug view
@@ -24,10 +28,12 @@ export const useDebugView = (props?: UseDebugViewProps): UseDebugViewReturn => {
     setIsDebugOpen(!isDebugOpen);
   }, [isDebugOpen]);
 
-  // Handle debug resize
+  // Handle debug resize. The resize handle is deferred, so this fires once on
+  // release — a safe point to persist the height per-sheet.
   const handleDebugResize = useCallback((newHeight: number) => {
     setDebugHeight(newHeight);
-  }, []);
+    onHeightCommit?.(Math.round(newHeight));
+  }, [onHeightCommit]);
 
   // Set up resize handler for dynamic max height calculation
   useEffect(() => {
