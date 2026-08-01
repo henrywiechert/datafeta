@@ -1,26 +1,43 @@
 .container {
   display: flex;
   flex-direction: column;
-  padding: 8px;
-  min-width: 200px;
+  padding: 6px 8px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.filterBox {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background: #fff;
+  overflow: hidden;
 }
 
 .inputsContainer {
   display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 6px 8px;
+  min-width: 0;
+}
+
+.inputGroup {
+  display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
+  flex: 1 1 120px;
+  min-width: 0;
+}
+
+.rowLabel {
+  font-size: 0.7rem !important;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.6);
+  line-height: 1.2;
 }
 
 .input {
   width: 100%;
+  min-width: 0;
 }
-
-.input input {
-  font-size: 13px;
-}
-
-.input label {
-  font-size: 12px;
-}
-
-
