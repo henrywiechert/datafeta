@@ -474,10 +474,20 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
               error={!!regexError}
               helperText={regexError || ''}
             />
+            <Button
+              size="small"
+              variant="text"
+              color="primary"
+              className={`${styles.regexToggle} ${useRegex ? styles.toggleActive : ''}`}
+              aria-pressed={useRegex}
+              onClick={() => setUseRegex(!useRegex)}
+            >
+              Regex
+            </Button>
           </Box>
         )}
 
-        {/* Master select + invert + regex */}
+        {/* Master select + invert */}
         <Box className={styles.buttonGroup}>
           <Box className={styles.selectActions}>
             <label className={styles.selectAllItem}>
@@ -510,16 +520,6 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
               Invert
             </Button>
           </Box>
-          <Button
-            size="small"
-            variant="text"
-            color="primary"
-            className={`${styles.regexToggle} ${styles.regexRight} ${useRegex ? styles.toggleActive : ''}`}
-            aria-pressed={useRegex}
-            onClick={() => setUseRegex(!useRegex)}
-          >
-            Regex
-          </Button>
         </Box>
 
       {/* Checkbox list: selected values pinned on top */}
