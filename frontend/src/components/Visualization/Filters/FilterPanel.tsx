@@ -1,6 +1,6 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
-import { Button } from '@mui/material';
+import { Button, Tooltip } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import {
   Field,
@@ -12,6 +12,7 @@ import {
 import { PropertySection } from '../Properties';
 import FilterDropZone from './FilterDropZone';
 import type { FilterValueListFetchOptions } from '../../../hooks/useFilterMetadata';
+import styles from './FilterPanel.module.css';
 
 interface FilterPanelProps {
   filterFields: Field[];
@@ -21,6 +22,8 @@ interface FilterPanelProps {
   onRemove: (fieldId: string) => void;
   onConfigChange: (fieldId: string, config: FilterConfig) => void;
   onApplyFilters: () => void;
+  /** True when draft filter configs differ from applied (chart) configs. */
+  hasPendingApply?: boolean;
   onRefetchValues: (
     fieldId: string,
     regexPattern?: string,
@@ -49,6 +52,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   onRemove,
   onConfigChange,
   onApplyFilters,
+  hasPendingApply = false,
   onRefetchValues,
   onValueListModeChange,
   onMarkAsGlobal,
@@ -67,13 +71,29 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
       storageKey="filterPanel.expanded"
       headerActions={
         hasActiveFilters ? (
-          <Button
-            size="small"
-            onClick={onApplyFilters}
-            sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: '0.75rem' }}
+          <Tooltip
+            title={
+              hasPendingApply
+                ? 'Filter changes are not applied to the chart yet'
+                : 'No pending filter changes'
+            }
+            enterDelay={400}
           >
-            Apply
-          </Button>
+            <span>
+              <Button
+                size="small"
+                variant={hasPendingApply ? 'contained' : 'text'}
+                disabled={!hasPendingApply}
+                onClick={onApplyFilters}
+                className={`${styles.applyButton} ${
+                  hasPendingApply ? styles.applyButtonPending : ''
+                }`}
+              >
+                {hasPendingApply ? <span className={styles.applyPendingDot} /> : null}
+                Apply
+              </Button>
+            </span>
+          </Tooltip>
         ) : null
       }
     >

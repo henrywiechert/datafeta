@@ -606,6 +606,7 @@ const VisualizationPageContent = () => {
                                   onRemove={filterController.removeFilter}
                                   onConfigChange={filterController.updateFilterConfig}
                                   onApplyFilters={filterController.applyFilters}
+                                  hasPendingApply={filterController.hasPendingApply}
                                   onRefetchValues={refetchFilterValues}
                                   onValueListModeChange={setValueListMode}
                                   onMarkAsGlobal={filterController.markAsSession}

@@ -69,6 +69,7 @@ describe('useFilterController', () => {
       dataSource: {
         sessionFilterFields: [field('session')],
         sessionFilterConfigurations: { session: config('session', 'session') },
+        sessionAppliedFilterConfigurations: { session: config('session', 'session') },
         sessionFilterMetadata: {},
       },
       setSessionFilterConfiguration,
@@ -79,7 +80,7 @@ describe('useFilterController', () => {
       state: {
         filterFields: [field('local')],
         filterConfigurations: { local: config('local', 'sheet') },
-        appliedFilterConfigurations: {},
+        appliedFilterConfigurations: { local: config('local', 'sheet') },
         filterMetadata: {},
         disabledFilterIds: ['local-disabled'],
       },
@@ -106,6 +107,24 @@ describe('useFilterController', () => {
     expect(result.current.effective.configurations.local.scope).toBe('sheet');
     expect(result.current.effective.sessionFilterIds).toEqual(new Set(['session']));
     expect(result.current.effective.disabledFilterIds).toEqual(new Set(['local-disabled']));
+    expect(result.current.hasPendingApply).toBe(false);
+  });
+
+  test('reports pending Apply when draft differs from applied', () => {
+    mockUseVisualizationContext.mockReturnValue({
+      state: {
+        filterFields: [field('local')],
+        filterConfigurations: { local: withValues(config('local'), ['draft']) },
+        appliedFilterConfigurations: { local: withValues(config('local'), ['applied']) },
+        filterMetadata: {},
+        disabledFilterIds: [],
+      },
+      dispatch,
+      getUndoableSnapshot,
+    } as any);
+
+    const { result } = renderHook(() => useFilterController());
+    expect(result.current.hasPendingApply).toBe(true);
   });
 
   test('removes sheet filters through visualization state with undo recording', () => {
@@ -159,6 +178,10 @@ describe('useFilterController', () => {
           local: config('local', 'sheet'),
           dup: config('dup', 'sheet'),
         },
+        appliedFilterConfigurations: {
+          local: config('local', 'sheet'),
+          dup: config('dup', 'sheet'),
+        },
         filterMetadata: {},
         disabledFilterIds: [],
       },
@@ -169,6 +192,7 @@ describe('useFilterController', () => {
       dataSource: {
         sessionFilterFields: [field('dup')],
         sessionFilterConfigurations: { dup: config('dup', 'session') },
+        sessionAppliedFilterConfigurations: { dup: config('dup', 'session') },
         sessionFilterMetadata: {},
       },
       setSessionFilterConfiguration,
