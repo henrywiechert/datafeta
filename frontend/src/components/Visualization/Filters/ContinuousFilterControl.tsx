@@ -20,13 +20,13 @@ interface ContinuousFilterControlProps {
 const compactFieldSx = {
   '& .MuiInputBase-root': {
     minHeight: 0,
-    height: 20,
+    height: 26,
   },
   '& .MuiInputBase-input': {
-    fontSize: '0.75rem',
-    lineHeight: 1.2,
+    fontSize: '0.8125rem',
+    lineHeight: 1.25,
     height: 'auto',
-    py: 0,
+    py: '2px',
     px: 0,
   },
   '& .MuiInput-underline:before': {

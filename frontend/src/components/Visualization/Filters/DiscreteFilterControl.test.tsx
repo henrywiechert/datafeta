@@ -113,7 +113,7 @@ describe('DiscreteFilterControl', () => {
     });
   });
 
-  test('calls onValueListModeChange when Relevant is clicked', () => {
+  test('calls onValueListModeChange when Respect other filters is toggled', () => {
     const handleMode = jest.fn();
     render(
       <Harness
@@ -124,7 +124,7 @@ describe('DiscreteFilterControl', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Relevant' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Respect other filters' }));
     expect(handleMode).toHaveBeenCalledWith('relevant');
   });
 
