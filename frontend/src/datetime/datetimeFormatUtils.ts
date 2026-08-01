@@ -239,9 +239,16 @@ export function adjustDateTime(
     milliseconds?: number;
   }
 ): string {
-  // Parse as local time (no 'Z' - critical!)
-  const date = new Date(dateTimeString.replace(' ', 'T'));
-  
+  // Parse as local wall-clock. Strip Z / offsets — formatISODateTime tags local
+  // preset components with 'Z' for ClickHouse, but these digits are NOT UTC.
+  // Treating the Z as real UTC shifts by the browser timezone (e.g. CET +1/+2).
+  const normalized = dateTimeString
+    .trim()
+    .replace(' ', 'T')
+    .replace(/Z$/i, '')
+    .replace(/[+-]\d{2}:\d{2}$/, '');
+  const date = new Date(normalized);
+
   // Apply deltas using local time methods
   if (delta.years) date.setFullYear(date.getFullYear() + delta.years);
   if (delta.months) date.setMonth(date.getMonth() + delta.months);
@@ -250,14 +257,14 @@ export function adjustDateTime(
   if (delta.minutes) date.setMinutes(date.getMinutes() + delta.minutes);
   if (delta.seconds) date.setSeconds(date.getSeconds() + delta.seconds);
   if (delta.milliseconds) date.setMilliseconds(date.getMilliseconds() + delta.milliseconds);
-  
+
   // Convert back to components in local timezone
   const components = {
     date: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
     time: `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`,
     milliseconds: String(date.getMilliseconds()).padStart(3, '0'),
   };
-  
+
   return formatISODateTime(components);
 }
 
