@@ -54,6 +54,7 @@ FilterPanel
 | Role | Drag-and-drop target for adding filter fields |
 | Features | Handles unified payload format (always arrays), deduplicates drops |
 | Empty state | Shows "Filters" placeholder |
+| Chip order | Session filters come first in the merged list, but `useFilterController` remembers the displayed order (`stabilizeFilterFieldOrder`) so a scope toggle does not move the chip. Order resets to session-first on sheet switch / reload. |
 
 ### FilterFieldChip
 

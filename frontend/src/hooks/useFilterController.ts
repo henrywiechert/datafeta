@@ -12,6 +12,7 @@ import {
   isSessionFilter,
 } from '../utils/scopedFilters';
 import { hasPendingFilterApply } from '../utils/filterApplyPending';
+import { stabilizeFilterFieldOrder } from '../utils/filterFieldOrder';
 
 export interface UseFilterControllerReturn {
   effective: EffectiveFilterState;
@@ -58,16 +59,25 @@ export function useFilterController(): UseFilterControllerReturn {
     draftDirtyRef.current = false;
   }, [state.appliedFilterConfigurations]);
 
+  // Display order of the filter chips, remembered so promoting/demoting a filter
+  // to session scope does not move its chip (the merged list is session-first).
+  const fieldOrderRef = useRef<string[]>([]);
+
   const effective = useMemo(
-    () => buildEffectiveFilterState({
-      sheetFields: state.filterFields,
-      sessionFields: dataSource.sessionFilterFields,
-      sheetConfigurations: state.filterConfigurations,
-      sessionConfigurations: dataSource.sessionFilterConfigurations,
-      sheetMetadata: state.filterMetadata,
-      sessionMetadata: dataSource.sessionFilterMetadata,
-      disabledFilterIds: state.disabledFilterIds,
-    }),
+    () => {
+      const merged = buildEffectiveFilterState({
+        sheetFields: state.filterFields,
+        sessionFields: dataSource.sessionFilterFields,
+        sheetConfigurations: state.filterConfigurations,
+        sessionConfigurations: dataSource.sessionFilterConfigurations,
+        sheetMetadata: state.filterMetadata,
+        sessionMetadata: dataSource.sessionFilterMetadata,
+        disabledFilterIds: state.disabledFilterIds,
+      });
+      const fields = stabilizeFilterFieldOrder(merged.fields, fieldOrderRef.current);
+      fieldOrderRef.current = fields.map((field) => field.id);
+      return { ...merged, fields };
+    },
     [
       state.filterFields,
       dataSource.sessionFilterFields,

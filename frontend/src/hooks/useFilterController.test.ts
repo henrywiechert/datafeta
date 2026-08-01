@@ -110,6 +110,52 @@ describe('useFilterController', () => {
     expect(result.current.hasPendingApply).toBe(false);
   });
 
+  test('keeps a filter in place when it moves to session scope', () => {
+    const sheetState = (fields: Field[]) => ({
+      state: {
+        filterFields: fields,
+        filterConfigurations: Object.fromEntries(fields.map((f) => [f.id, config(f.id)])),
+        appliedFilterConfigurations: Object.fromEntries(fields.map((f) => [f.id, config(f.id)])),
+        filterMetadata: {},
+        disabledFilterIds: [],
+      },
+      dispatch,
+      getUndoableSnapshot,
+    });
+
+    mockUseDataSource.mockReturnValue({
+      dataSource: {
+        sessionFilterFields: [],
+        sessionFilterConfigurations: {},
+        sessionAppliedFilterConfigurations: {},
+        sessionFilterMetadata: {},
+      },
+      setSessionFilterConfiguration,
+      applySessionFilters,
+    } as any);
+    mockUseVisualizationContext.mockReturnValue(sheetState([field('a'), field('b')]) as any);
+
+    const { result, rerender } = renderHook(() => useFilterController());
+    expect(result.current.effective.fields.map((item) => item.id)).toEqual(['a', 'b']);
+
+    // 'b' is promoted to session scope: it leaves the sheet store and enters the
+    // session store, which the raw merge would list first.
+    mockUseDataSource.mockReturnValue({
+      dataSource: {
+        sessionFilterFields: [field('b')],
+        sessionFilterConfigurations: { b: config('b', 'session') },
+        sessionAppliedFilterConfigurations: { b: config('b', 'session') },
+        sessionFilterMetadata: {},
+      },
+      setSessionFilterConfiguration,
+      applySessionFilters,
+    } as any);
+    mockUseVisualizationContext.mockReturnValue(sheetState([field('a')]) as any);
+    rerender();
+
+    expect(result.current.effective.fields.map((item) => item.id)).toEqual(['a', 'b']);
+  });
+
   test('reports pending Apply when draft differs from applied', () => {
     mockUseVisualizationContext.mockReturnValue({
       state: {
