@@ -211,6 +211,9 @@ onConfigChange(fieldId, config); // → SET_FILTER_CONFIGURATION (no query)
 onApplyFilters();                // → APPLY_FILTERS (draft → applied, bumps queryVersion)
 ```
 
+The Apply control lights up (amber, contained) when merged draft configs differ from applied
+(sheet + session); it is muted/disabled when there is nothing to commit.
+
 ### 2. Memoized List Items
 ```tsx
 // DiscreteFilterControl: Each checkbox memoized independently

@@ -10,4 +10,30 @@
   text-align: center;
 }
 
+.applyButton {
+  min-width: 0 !important;
+  padding: 2px 8px !important;
+  font-size: 0.75rem !important;
+  line-height: 1.2 !important;
+  text-transform: none !important;
+  gap: 4px;
+}
 
+.applyButtonPending {
+  background-color: #ed6c02 !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+
+.applyButtonPending:hover {
+  background-color: #e65100 !important;
+}
+
+.applyPendingDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+  display: inline-block;
+  flex-shrink: 0;
+}

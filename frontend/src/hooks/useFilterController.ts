@@ -11,9 +11,11 @@ import {
   EffectiveFilterState,
   isSessionFilter,
 } from '../utils/scopedFilters';
+import { hasPendingFilterApply } from '../utils/filterApplyPending';
 
 export interface UseFilterControllerReturn {
   effective: EffectiveFilterState;
+  hasPendingApply: boolean;
   isSessionFilter: (fieldId: string) => boolean;
   removeFilter: (fieldId: string) => void;
   updateFilterConfig: (fieldId: string, config: FilterConfig) => void;
@@ -77,6 +79,22 @@ export function useFilterController(): UseFilterControllerReturn {
     ],
   );
 
+  const hasPendingApply = useMemo(
+    () =>
+      hasPendingFilterApply(
+        state.filterConfigurations,
+        dataSource.sessionFilterConfigurations ?? {},
+        state.appliedFilterConfigurations,
+        dataSource.sessionAppliedFilterConfigurations ?? {},
+      ),
+    [
+      state.filterConfigurations,
+      dataSource.sessionFilterConfigurations,
+      state.appliedFilterConfigurations,
+      dataSource.sessionAppliedFilterConfigurations,
+    ],
+  );
+
   const isFilterInSessionScope = useCallback(
     (fieldId: string) => isSessionFilter(fieldId, dataSource.sessionFilterFields),
     [dataSource.sessionFilterFields],
@@ -127,6 +145,7 @@ export function useFilterController(): UseFilterControllerReturn {
 
   return {
     effective,
+    hasPendingApply,
     isSessionFilter: isFilterInSessionScope,
     removeFilter,
     updateFilterConfig,
