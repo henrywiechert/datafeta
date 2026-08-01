@@ -169,8 +169,13 @@
 
 .searchRow {
   display: flex;
-  gap: 8px;
-  align-items: center;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.searchField {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .searchField :global(.MuiOutlinedInput-notchedOutline) {
@@ -192,14 +197,21 @@
   height: auto;
 }
 
-.regexToggle {
-  white-space: nowrap;
-  font-size: 12px;
-  padding: 2px 8px;
+.searchField :global(.MuiFormHelperText-root) {
+  margin-left: 0;
+  font-size: 10px;
 }
 
-.regexRight {
-  margin-left: auto;
+.regexToggle {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 10px !important;
+  line-height: 1.2 !important;
+  padding: 2px 4px !important;
+  min-width: auto !important;
+  min-height: 0 !important;
+  text-transform: none !important;
+  margin-top: 1px;
 }
 
 .toggleActive {
@@ -207,7 +219,7 @@
   background-color: #e6f4ea !important; /* light green */
   color: #1b5e20 !important; /* dark green text */
   border: 1px solid #b7dfbb !important;
-  border-radius: 6px;
+  border-radius: 4px;
 }
 
 .toggleActive:hover {
