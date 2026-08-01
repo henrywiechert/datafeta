@@ -4,7 +4,13 @@
 import pytest
 from unittest.mock import Mock, MagicMock
 from backend.services.cardinality_service import CardinalityService, CountDistinct
-from backend.models.data_source import ConnectionDetails, VirtualColumnDefinition
+from backend.models.data_source import (
+    ConnectionDetails,
+    TableJoinDefinition,
+    VirtualColumnDefinition,
+    VirtualTableDefinition,
+)
+from backend.models.query import Filter
 from backend.exceptions import InvalidInputError, QueryExecutionError
 
 
@@ -753,3 +759,81 @@ class TestCardinalityService:
         assert "`test_db`.`preambleData`" not in sql
         # Must keep literal dotted column name intact
         assert "`dlPreSchedData.raState`" in sql
+
+    def test_get_distinct_count_applies_sibling_filters(self):
+        """Sibling filters should appear in the COUNT(DISTINCT) WHERE clause."""
+        service = CardinalityService(self.mock_connector, self.csv_details)
+
+        self.mock_connector.fetch_data.return_value = (["count"], [[2]])
+
+        count = service.get_distinct_count(
+            field="city",
+            table="sales",
+            database=None,
+            filters=[Filter(field="country", operator="in", value=["US", "DE"])],
+        )
+
+        assert count == 2
+        sql = self.mock_connector.fetch_data.call_args[0][0]
+        assert "COUNT(DISTINCT" in sql
+        assert "country" in sql
+        assert "US" in sql
+        assert "DE" in sql
+
+    def test_get_distinct_count_skips_sibling_filters_on_other_tables(self):
+        """A sibling on a joined table is dropped — the count queries one table only."""
+        service = CardinalityService(self.mock_connector, self.csv_details)
+
+        self.mock_connector.fetch_data.return_value = (["count"], [[7]])
+
+        virtual_table = VirtualTableDefinition(
+            primary_table="sales",
+            mode="join",
+            joined_tables=[TableJoinDefinition(
+                table_name="customers",
+                on_conditions=["sales.customer_id = customers.id"],
+            )],
+            name="sales_join",
+        )
+
+        service.get_distinct_count(
+            field="sales.city",
+            table="sales",
+            database=None,
+            virtual_table=virtual_table,
+            virtual_columns=[],
+            filters=[
+                Filter(field="customers.country", operator="in", value=["US"]),
+                Filter(field="sales.channel", operator="in", value=["web"]),
+            ],
+        )
+
+        sql = self.mock_connector.fetch_data.call_args[0][0]
+        assert "customers" not in sql
+        # The surviving sibling loses its table prefix along with the JOIN, otherwise
+        # the single-table parser would read it as a literal dotted column name.
+        assert '"channel"' in sql
+        assert '"sales.channel"' not in sql
+        assert "web" in sql
+
+    def test_get_distinct_count_sibling_filters_in_clickhouse_subquery(self):
+        """ClickHouse wraps the count in a subquery; siblings must stay on the inner FROM."""
+        service = CardinalityService(self.mock_connector, self.clickhouse_details)
+
+        self.mock_connector.fetch_data.return_value = (["count"], [[3]])
+
+        service.get_distinct_count(
+            field="city",
+            table="sales",
+            database="test_db",
+            filters=[Filter(field="country", operator="in", value=["US"])],
+        )
+
+        sql = self.mock_connector.fetch_data.call_args[0][0]
+        # The WHERE must sit inside the wrapped subquery, where `country` is available.
+        inner = sql[sql.index("(SELECT"):sql.index(") AS _sub")]
+        assert "WHERE" in inner
+        assert "country" in inner
+        assert "US" in inner
+        # Only the projected expression alias survives outside the subquery.
+        assert "country" not in sql[sql.index(") AS _sub"):]

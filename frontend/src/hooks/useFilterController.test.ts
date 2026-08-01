@@ -4,7 +4,7 @@ import { useVisualizationContext } from '../contexts/VisualizationContext';
 import { useUndoRedo } from './useUndoRedo';
 import { useGlobalFilters } from './useGlobalFilters';
 import { useFilterController } from './useFilterController';
-import { Field, FilterConfig } from '../types';
+import { DiscreteFilterConfig, Field, FilterConfig } from '../types';
 
 jest.mock('../contexts/DataSourceContext', () => ({
   useDataSource: jest.fn(),
@@ -37,7 +37,7 @@ function field(id: string): Field {
   } as Field;
 }
 
-function config(id: string, scope: 'sheet' | 'session' = 'sheet'): FilterConfig {
+function config(id: string, scope: 'sheet' | 'session' = 'sheet'): DiscreteFilterConfig {
   return {
     fieldId: id,
     columnName: id,
@@ -45,6 +45,10 @@ function config(id: string, scope: 'sheet' | 'session' = 'sheet'): FilterConfig 
     selectedValues: [scope],
     scope,
   };
+}
+
+function withValues(base: DiscreteFilterConfig, selectedValues: string[]): FilterConfig {
+  return { ...base, selectedValues };
 }
 
 describe('useFilterController', () => {
@@ -75,6 +79,7 @@ describe('useFilterController', () => {
       state: {
         filterFields: [field('local')],
         filterConfigurations: { local: config('local', 'sheet') },
+        appliedFilterConfigurations: {},
         filterMetadata: {},
         disabledFilterIds: ['local-disabled'],
       },
@@ -151,6 +156,49 @@ describe('useFilterController', () => {
     expect(setSessionFilterConfiguration).toHaveBeenCalledWith('session', nextSession);
   });
 
+  test('records one undo snapshot for a batch of draft edits, before the first one', () => {
+    const { result } = renderHook(() => useFilterController());
+
+    act(() => {
+      result.current.updateFilterConfig('local', withValues(config('local'), ['a']));
+      result.current.updateFilterConfig('local', withValues(config('local'), ['a', 'b']));
+      result.current.updateFilterConfig('session', withValues(config('session', 'session'), ['c']));
+    });
+
+    // Snapshot is taken before the draft is touched, so undo restores the pre-edit
+    // draft together with the pre-edit applied configurations.
+    expect(recordAction).toHaveBeenCalledTimes(1);
+    expect(recordAction).toHaveBeenCalledWith({ snapshot: true });
+  });
+
+  test('starts a new undo batch once the applied configurations change', () => {
+    const { result, rerender } = renderHook(() => useFilterController());
+
+    act(() => {
+      result.current.updateFilterConfig('local', withValues(config('local'), ['a']));
+      result.current.applyFilters();
+    });
+    expect(recordAction).toHaveBeenCalledTimes(1);
+
+    mockUseVisualizationContext.mockReturnValue({
+      state: {
+        filterFields: [field('local')],
+        filterConfigurations: { local: config('local', 'sheet') },
+        appliedFilterConfigurations: { local: config('local', 'sheet') },
+        filterMetadata: {},
+        disabledFilterIds: ['local-disabled'],
+      },
+      dispatch,
+      getUndoableSnapshot,
+    } as any);
+    rerender();
+
+    act(() => {
+      result.current.updateFilterConfig('local', withValues(config('local'), ['b']));
+    });
+    expect(recordAction).toHaveBeenCalledTimes(2);
+  });
+
   test('applies both sheet and session filter configurations', () => {
     const { result } = renderHook(() => useFilterController());
 
@@ -158,7 +206,6 @@ describe('useFilterController', () => {
       result.current.applyFilters();
     });
 
-    expect(recordAction).toHaveBeenCalledWith({ snapshot: true });
     expect(dispatch).toHaveBeenCalledWith({ type: 'APPLY_FILTERS' });
     expect(applySessionFilters).toHaveBeenCalled();
   });

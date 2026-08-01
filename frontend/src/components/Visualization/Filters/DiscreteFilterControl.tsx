@@ -1,5 +1,5 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { 
   Button, 
   Box, 
@@ -10,9 +10,12 @@ import {
   FormControlLabel,
   Switch
 } from '@mui/material';
-import { DiscreteFilterMatchMode, DiscreteFilterMetadata, DiscretePatternOperator } from '../../../types';
+import { DiscreteFilterMatchMode, DiscreteFilterMetadata, DiscretePatternOperator, DiscreteValueListMode } from '../../../types';
 import { filterValueKey } from '../../../utils/filterValueKey';
 import styles from './DiscreteFilterControl.module.css';
+import type { FilterValueListFetchOptions } from '../../../hooks/useFilterMetadata';
+
+const LOADING_OVERLAY_DELAY_MS = 400;
 
 interface DiscreteFilterControlProps {
   metadata: DiscreteFilterMetadata;
@@ -21,6 +24,7 @@ interface DiscreteFilterControlProps {
   pattern?: string;
   patternOperator?: DiscretePatternOperator;
   isInversePattern?: boolean;
+  valueListMode?: DiscreteValueListMode;
   onChange: (selectedValues: any[]) => void;
   onPatternChange: (config: {
     matchMode: DiscreteFilterMatchMode;
@@ -28,7 +32,11 @@ interface DiscreteFilterControlProps {
     patternOperator: DiscretePatternOperator;
     isInversePattern: boolean;
   }) => void;
-  onRefetchValues: (regexPattern?: string) => Promise<void>;
+  onValueListModeChange?: (mode: DiscreteValueListMode) => void;
+  onRefetchValues: (
+    regexPattern?: string,
+    options?: FilterValueListFetchOptions,
+  ) => Promise<void>;
 }
 
 // Memoized checkbox item to prevent unnecessary re-renders
@@ -65,8 +73,10 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
   pattern = '',
   patternOperator = 'like',
   isInversePattern = false,
+  valueListMode = 'all',
   onChange,
   onPatternChange,
+  onValueListModeChange,
   onRefetchValues,
 }) => {
   const [listFilterTerm, setListFilterTerm] = useState('');
@@ -74,7 +84,21 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
   const [useRegex, setUseRegex] = useState(false);
   const [regexError, setRegexError] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showDelayedLoading, setShowDelayedLoading] = useState(false);
   const isPatternMode = matchMode === 'pattern';
+  const hasCachedValues = metadata.availableValues.length > 0;
+
+  // Keep the list visible during All/Relevant refetch; only show overlay if slow.
+  useEffect(() => {
+    if (!metadata.loading || !hasCachedValues) {
+      setShowDelayedLoading(false);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setShowDelayedLoading(true);
+    }, LOADING_OVERLAY_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [metadata.loading, hasCachedValues]);
 
   // ---- Selection matching ----
   // After loading a saved config, selectedValues may be numbers while availableValues
@@ -211,12 +235,14 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
     });
   }, [matchMode, pattern, patternOperator, isInversePattern, onPatternChange]);
   
-  // Handle query regex update (backend filter)
+  // Handle query regex update (backend filter) — rewrite selection from result.
   const handleQueryRegexUpdate = async () => {
     if (isUpdating) return;
     setIsUpdating(true);
     try {
-      await onRefetchValues(queryRegex.trim() || undefined);
+      await onRefetchValues(queryRegex.trim() || undefined, {
+        applySelectionFromResult: true,
+      });
     } catch (error) {
       console.error('Error refetching values:', error);
     } finally {
@@ -224,7 +250,8 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
     }
   };
 
-  if (metadata.loading) {
+  // Initial load only — keep existing values visible during All/Relevant refetch.
+  if (metadata.loading && !hasCachedValues) {
     return (
       <Box className={styles.container}>
         <CircularProgress size={20} />
@@ -235,7 +262,7 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
     );
   }
 
-  if (metadata.error) {
+  if (metadata.error && !hasCachedValues) {
     return (
       <Box className={styles.container}>
         <Typography variant="caption" color="error">
@@ -251,6 +278,18 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
 
   return (
     <Box className={styles.container}>
+      {showDelayedLoading && (
+        <Box className={styles.loadingOverlay} aria-live="polite">
+          <CircularProgress size={16} />
+          <Typography variant="caption">Updating values…</Typography>
+        </Box>
+      )}
+      {/* A refresh failed but we still have a usable list — say so instead of blanking out */}
+      {metadata.error && (
+        <Alert severity="error" sx={{ mb: 1, fontSize: '12px', padding: '4px 8px' }}>
+          Could not refresh values: {metadata.error}
+        </Alert>
+      )}
       {/* Warning message for partial results */}
       {metadata.isPartial && metadata.warningMessage && (
         <Alert severity="warning" sx={{ mb: 1, fontSize: '12px', padding: '4px 8px' }}>
@@ -258,22 +297,46 @@ const DiscreteFilterControl: React.FC<DiscreteFilterControlProps> = ({
         </Alert>
       )}
 
-      <Box className={styles.modeSwitcher}>
-        <Button
-          size="small"
-          variant={isPatternMode ? 'text' : 'contained'}
-          onClick={() => updatePatternConfig({ matchMode: 'selection' })}
-        >
-          Selection
-        </Button>
-        <Button
-          size="small"
-          variant={isPatternMode ? 'contained' : 'text'}
-          onClick={() => updatePatternConfig({ matchMode: 'pattern' })}
-        >
-          Pattern
-        </Button>
-      </Box>
+      {/* Pattern mode is only worth offering when the list is sampled and the picker
+          alone cannot reach every value. A filter already in pattern mode keeps the
+          switcher so a saved config stays editable on a small column. */}
+      {(metadata.isPartial || isPatternMode) && (
+        <Box className={styles.modeSwitcher}>
+          <Button
+            size="small"
+            variant={isPatternMode ? 'text' : 'contained'}
+            onClick={() => updatePatternConfig({ matchMode: 'selection' })}
+          >
+            Selection
+          </Button>
+          <Button
+            size="small"
+            variant={isPatternMode ? 'contained' : 'text'}
+            onClick={() => updatePatternConfig({ matchMode: 'pattern' })}
+          >
+            Pattern
+          </Button>
+        </Box>
+      )}
+
+      {onValueListModeChange && (
+        <Box className={styles.valueListSwitcher}>
+          <Button
+            size="small"
+            variant={valueListMode === 'all' ? 'contained' : 'text'}
+            onClick={() => onValueListModeChange('all')}
+          >
+            All
+          </Button>
+          <Button
+            size="small"
+            variant={valueListMode === 'relevant' ? 'contained' : 'text'}
+            onClick={() => onValueListModeChange('relevant')}
+          >
+            Relevant
+          </Button>
+        </Box>
+      )}
 
       {isPatternMode && (
         <Box className={styles.patternPanel}>

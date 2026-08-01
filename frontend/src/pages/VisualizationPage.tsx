@@ -58,6 +58,7 @@ const VisualizationPageContent = () => {
         handleTableSelect,
         refreshMetadata,
         refetchFilterValues,
+        setValueListMode,
         switchDatabasePreserveTables,
         unionTables,
         virtualColumns,
@@ -571,6 +572,7 @@ const VisualizationPageContent = () => {
                                   onConfigChange={filterController.updateFilterConfig}
                                   onApplyFilters={filterController.applyFilters}
                                   onRefetchValues={refetchFilterValues}
+                                  onValueListModeChange={setValueListMode}
                                   onMarkAsGlobal={filterController.markAsSession}
                                   onUnmarkGlobal={filterController.markAsSheet}
                                   globalFilterIds={filterController.effective.sessionFilterIds}

@@ -9,6 +9,8 @@ import { useVirtualColumns } from './useVirtualColumns';
 import { useFieldOperations } from './useFieldOperations';
 import { useMetadataOperations } from './useMetadataOperations';
 import { useFilterMetadata } from './useFilterMetadata';
+import { useFilterConfigWriter } from './useFilterConfigWriter';
+import { useRelevantValueLists } from './useRelevantValueLists';
 import {
     mergeFilterConfigurations,
     mergeFilterFields,
@@ -42,6 +44,7 @@ export function useVisualizationState() {
         setVirtualColumnFieldPreference,
         setSessionFilterMetadata,
     } = dataSourceContext;
+    const writeFilterConfig = useFilterConfigWriter();
 
     // Data source setters for sub-hooks
     const dataSourceSetters = {
@@ -127,6 +130,22 @@ export function useVisualizationState() {
         unionTables: dataSource.unionTables,
         connectionDetails,
         dispatch
+    });
+
+    const sessionFilterIds = useMemo(
+        () => new Set(dataSource.sessionFilterFields.map((f) => f.id)),
+        [dataSource.sessionFilterFields],
+    );
+
+    const relevantValueLists = useRelevantValueLists({
+        filterFields: allFilterFields,
+        sheetConfigurations: state.filterConfigurations,
+        sessionConfigurations: dataSource.sessionFilterConfigurations,
+        disabledFilterIds: state.disabledFilterIds,
+        sessionFilterIds,
+        // The All/Relevant toggle is picker view state, not a filter edit — no undo entry.
+        updateFilterConfig: writeFilterConfig,
+        refetchFilterValues: filterMetadata.refetchFilterValues,
     });
 
     // Persist fetched metadata for session filters into DataSourceContext
@@ -297,7 +316,8 @@ export function useVisualizationState() {
         switchDatabasePreserveTables: metadataOps.switchDatabasePreserveTables,
         unionTables: dataSource.unionTables,
         
-        // From filterMetadata hook
-        refetchFilterValues: filterMetadata.refetchFilterValues,
+        // From filterMetadata / relevant value-list hooks
+        refetchFilterValues: relevantValueLists.refetchWithValueListContext,
+        setValueListMode: relevantValueLists.setValueListMode,
     };
 } 

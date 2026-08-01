@@ -9,6 +9,8 @@ import { DateTimePart, DateTimeMode } from './field';
 export type FilterType = 'discrete' | 'continuous' | 'datetime' | 'measure';
 export type DiscreteFilterMatchMode = 'selection' | 'pattern';
 export type DiscretePatternOperator = 'like' | 'ilike';
+/** How a discrete filter's checkbox list is loaded. Missing ⇒ 'all'. */
+export type DiscreteValueListMode = 'all' | 'relevant';
 
 // Filter scope: sheet (per-sheet, persisted) or session (global, ephemeral)
 export type FilterScope = 'sheet' | 'session';
@@ -38,6 +40,12 @@ export interface DiscreteFilterConfig extends BaseFilterConfig {
   // so the query builder can use NOT IN instead of IN for a smaller query payload.
   excludedValues?: any[];
   totalAvailableCount?: number;
+  /**
+   * Value-list mode for the discrete picker.
+   * - 'all': full column distinct values (default when missing)
+   * - 'relevant': distinct values constrained by other discrete filters
+   */
+  valueListMode?: DiscreteValueListMode;
 }
 
 // Continuous filter: user sets min/max range
@@ -82,6 +90,12 @@ export interface DiscreteFilterMetadata extends BaseFilterMetadata {
   isPartial?: boolean;
   warningMessage?: string;
   appliedRegexQuery?: string;
+  /**
+   * True when `availableValues` was fetched under sibling discrete filters (Relevant
+   * mode), i.e. it is a subset of the column's real value universe. Consumers must not
+   * derive `totalAvailableCount` or `excludedValues` from such a list.
+   */
+  constrainedByOtherFilters?: boolean;
 }
 
 export interface ContinuousFilterMetadata extends BaseFilterMetadata {

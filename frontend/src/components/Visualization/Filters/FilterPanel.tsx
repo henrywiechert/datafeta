@@ -1,10 +1,17 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Button } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
-import { Field, DragSource, FilterConfig, FilterMetadata } from '../../../types';
+import {
+  Field,
+  DragSource,
+  FilterConfig,
+  FilterMetadata,
+  DiscreteValueListMode,
+} from '../../../types';
 import { PropertySection } from '../Properties';
 import FilterDropZone from './FilterDropZone';
+import type { FilterValueListFetchOptions } from '../../../hooks/useFilterMetadata';
 
 interface FilterPanelProps {
   filterFields: Field[];
@@ -14,7 +21,12 @@ interface FilterPanelProps {
   onRemove: (fieldId: string) => void;
   onConfigChange: (fieldId: string, config: FilterConfig) => void;
   onApplyFilters: () => void;
-  onRefetchValues: (fieldId: string, regexPattern?: string) => Promise<void>;
+  onRefetchValues: (
+    fieldId: string,
+    regexPattern?: string,
+    options?: FilterValueListFetchOptions,
+  ) => Promise<void>;
+  onValueListModeChange?: (fieldId: string, mode: DiscreteValueListMode) => void;
   // Global filter operations
   onMarkAsGlobal?: (fieldId: string) => void;
   onUnmarkGlobal?: (fieldId: string) => void;
@@ -25,6 +37,10 @@ interface FilterPanelProps {
   onToggleFilterDisabled?: (fieldId: string) => void;
 }
 
+/**
+ * Pure view over the draft filter layer (context filterConfigurations).
+ * Config edits write through immediately; Apply commits draft → applied for the chart.
+ */
 const FilterPanel: React.FC<FilterPanelProps> = ({
   filterFields,
   filterConfigurations,
@@ -34,37 +50,13 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   onConfigChange,
   onApplyFilters,
   onRefetchValues,
+  onValueListModeChange,
   onMarkAsGlobal,
   onUnmarkGlobal,
   globalFilterIds,
   disabledFilterIds,
   onToggleFilterDisabled,
 }) => {
-  // Keep local state for pending filter changes - only update Context on Apply
-  const [localConfigurations, setLocalConfigurations] = useState(filterConfigurations);
-
-  // Sync local state when filterConfigurations changes (e.g., from Apply or undo/redo)
-  useEffect(() => {
-    setLocalConfigurations(filterConfigurations);
-  }, [filterConfigurations]);
-
-  const handleLocalConfigChange = (fieldId: string, config: FilterConfig) => {
-    setLocalConfigurations(prev => ({
-      ...prev,
-      [fieldId]: config,
-    }));
-  };
-
-  const handleApply = () => {
-    // Batch update all changes to Context
-    Object.entries(localConfigurations).forEach(([fieldId, config]) => {
-      if (JSON.stringify(config) !== JSON.stringify(filterConfigurations[fieldId])) {
-        onConfigChange(fieldId, config);
-      }
-    });
-    onApplyFilters();
-  };
-
   const hasActiveFilters = filterFields.length > 0;
 
   return (
@@ -77,7 +69,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
         hasActiveFilters ? (
           <Button
             size="small"
-            onClick={handleApply}
+            onClick={onApplyFilters}
             sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: '0.75rem' }}
           >
             Apply
@@ -87,12 +79,13 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
     >
       <FilterDropZone
         fields={filterFields}
-        filterConfigurations={localConfigurations}
+        filterConfigurations={filterConfigurations}
         filterMetadata={filterMetadata}
         onDrop={onDrop}
         onRemove={onRemove}
-        onConfigChange={handleLocalConfigChange}
+        onConfigChange={onConfigChange}
         onRefetchValues={onRefetchValues}
+        onValueListModeChange={onValueListModeChange}
         onMarkAsGlobal={onMarkAsGlobal}
         onUnmarkGlobal={onUnmarkGlobal}
         globalFilterIds={globalFilterIds}
@@ -104,5 +97,3 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
 };
 
 export default FilterPanel;
-
-

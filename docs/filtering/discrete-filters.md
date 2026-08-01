@@ -11,6 +11,34 @@ A filter panel opens below the chart showing the distinct values in that field.
 
 ---
 
+## Value lists: All vs Relevant
+
+Each discrete filter has an **All | Relevant** control for its checkbox list (independent of Apply / the chart query):
+
+| Mode | Option list |
+|------|-------------|
+| **All** (default) | Full column distinct values |
+| **Relevant** | Distinct values constrained by **other discrete** filters’ current (draft) settings |
+
+**Relevant changes only which values are visible, never which values are selected.** A value you checked
+stays checked even when it drops out of the Relevant list, and it reappears (still checked) when you
+switch back to **All** or relax the other filters.
+
+- Switching mode refetches that filter’s list immediately — Apply is not required.
+- In **Relevant** mode, editing another discrete filter’s draft selection refreshes this list (debounced).
+  Unapplied (draft) sibling settings count, so you see the effect before pressing **Apply**.
+- Select-all / “no effective restriction” siblings do not shrink other lists (same as chart query behavior).
+- High-cardinality fields still use sampling + Query Regex; both honor sibling filters when Relevant.
+- **Query Regex** is the one control that does rewrite the selection (it selects all matching values).
+
+**JOIN note:** for a table-qualified field, both the value list and the distinct *count* resolve the field
+to its source table and drop the JOIN, so that you see every distinct value of the column rather than only
+the rows the JOIN matches. Sibling filters follow that rewrite: one on the *same* table applies normally,
+while one on a *different* table is skipped rather than producing an error. A Relevant list on a JOIN is
+therefore constrained only by siblings from its own table.
+
+---
+
 ## Selecting values
 
 - **Check** a value to include it.

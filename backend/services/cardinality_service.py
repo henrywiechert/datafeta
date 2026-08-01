@@ -2,7 +2,7 @@
 """Service for calculating cardinality (distinct counts) of fields."""
 
 import logging
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from pypika import Query, Table
 from pypika.terms import Term
@@ -10,10 +10,15 @@ from pypika.functions import Cast
 
 from backend.connectors.base import BaseConnector
 from backend.models.data_source import ConnectionDetails
+from backend.models.query import Filter, QueryDescription
 from backend.exceptions import QueryExecutionError, InvalidInputError
 from backend.dialects import get_dialect
 from backend.services.validation_service import ValidationService
 from backend.services.datetime_service import DateTimeService
+from backend.services.query_components.cast_field_applier import get_field_with_cast
+from backend.services.query_components.field_reference_parser import FieldReferenceParser
+from backend.services.query_components.filter_builder import FilterBuilder
+from backend.services.query_components.filter_table_scope import scope_filters_to_table
 from backend.services.query_components.schema_type_provider import SchemaTypeProvider
 
 logger = logging.getLogger(__name__)
@@ -55,7 +60,8 @@ class CardinalityService:
         union_tables: Optional[str] = None,
         virtual_columns: Optional[list] = None,
         virtual_table: Optional[object] = None,
-        source_table: Optional[str] = None
+        source_table: Optional[str] = None,
+        filters: Optional[List[Filter]] = None,
     ) -> int:
         """
         Get count of distinct values for a field.
@@ -72,6 +78,8 @@ class CardinalityService:
             virtual_table: Optional VirtualTableDefinition for JOIN support
             source_table: Optional explicit source table name (from Column.table_name).
                           When provided, overrides table-prefix parsing from the field name.
+            filters: Optional sibling filters that constrain the distinct count for
+                     cascading ("Relevant") picker lists.
             
         Returns:
             Distinct count as integer
@@ -95,7 +103,8 @@ class CardinalityService:
             datetime_mode=datetime_mode,
             virtual_columns=virtual_columns,
             virtual_table=virtual_table,
-            source_table=source_table
+            source_table=source_table,
+            filters=filters,
         )
         
         return self._execute_count_query(sql, field)
@@ -141,7 +150,8 @@ class CardinalityService:
         datetime_mode: Optional[str],
         virtual_columns: Optional[list] = None,
         virtual_table: Optional[object] = None,
-        source_table: Optional[str] = None
+        source_table: Optional[str] = None,
+        filters: Optional[List[Filter]] = None,
     ) -> str:
         """Build the COUNT(DISTINCT) SQL query.
         
@@ -393,6 +403,19 @@ class CardinalityService:
         # Build count query using custom CountDistinct
         count_expr = CountDistinct(field_expr)
         count_query = count_query.select(count_expr.as_('count'))
+
+        # Apply sibling filters (cascading discrete picker lists)
+        filter_criteria_sql: List[str] = []
+        if filters:
+            count_query, filter_criteria_sql = self._apply_sibling_filters(
+                count_query=count_query,
+                filters=filters,
+                table_map=table_map,
+                db_table=db_table,
+                known_tables=known_tables,
+                resolved_table_name=resolved_table_name,
+                vc_builder=vc_builder,
+            )
         
         # Apply regex filter if provided
         if regex_pattern:
@@ -421,7 +444,11 @@ class CardinalityService:
                 table_ref = f'{quote_char}{database}{quote_char}.{quote_char}{resolved_table_name}{quote_char}'
                 expr_sql = field_expr.get_sql(quote_char=quote_char)
                 expr_alias = f"{quote_char}_expr{quote_char}"
-                subquery = f'(SELECT {expr_sql} AS {expr_alias} FROM {table_ref}) AS _sub'
+                # Sibling filters reference other columns — keep them on the inner FROM.
+                inner_where = ''
+                if filter_criteria_sql:
+                    inner_where = ' WHERE ' + ' AND '.join(filter_criteria_sql)
+                subquery = f'(SELECT {expr_sql} AS {expr_alias} FROM {table_ref}{inner_where}) AS _sub'
                 sql = f'SELECT COUNT(DISTINCT {expr_alias}) AS "count" FROM {subquery}'
                 
                 # Re-apply regex filter against the projected expression
@@ -432,7 +459,56 @@ class CardinalityService:
         logger.info(f"Executing distinct count query: {sql}")
         
         return sql
-    
+
+    def _apply_sibling_filters(
+        self,
+        count_query: Query,
+        filters: List[Filter],
+        table_map: dict,
+        db_table: Any,
+        known_tables: set,
+        resolved_table_name: str,
+        vc_builder: Optional[Any],
+    ) -> Tuple[Query, List[str]]:
+        """Apply sibling filters to count_query; return (query, criterion SQL).
+
+        The count always runs against a single table, so filters that reference a
+        different (joined) table are skipped instead of producing invalid SQL.
+        """
+        resolvable = scope_filters_to_table(
+            filters,
+            known_tables,
+            resolved_table_name,
+            is_virtual_column=vc_builder.is_virtual_column if vc_builder else None,
+            log_context="Cardinality query",
+        )
+        if not resolvable:
+            return count_query, []
+
+        query_desc = QueryDescription(target_table='_cardinality', filters=resolvable)
+        field_parser = FieldReferenceParser(
+            table_map=table_map,
+            default_table=db_table,
+            vc_builder=vc_builder,
+        )
+        builder = FilterBuilder(
+            parse_field_reference=field_parser.parse,
+            get_field_with_cast=get_field_with_cast,
+        )
+        criteria = builder.build(
+            query_desc=query_desc,
+            table_map=table_map,
+            default_table=db_table,
+            dialect=self._dialect,
+            primary_table=db_table,
+        )
+        quote_char = self._dialect.quote_char
+        criterion_sql: List[str] = []
+        for criterion in criteria:
+            count_query = count_query.where(criterion)
+            criterion_sql.append(criterion.get_sql(quote_char=quote_char))
+        return count_query, criterion_sql
+
     @staticmethod
     def _expand_table_map(
         table_map: dict,

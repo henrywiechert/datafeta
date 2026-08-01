@@ -40,12 +40,12 @@ FilterPanel
 
 | Aspect | Description |
 |--------|-------------|
-| Role | Container with "Apply" button, manages local vs. committed state |
+| Role | Pure view with Apply button; writes config changes through to context draft |
 | Props | `filterFields`, `filterConfigurations`, `filterMetadata`, callbacks |
-| State | `localConfigurations` — staged changes before Apply |
-| Pattern | Changes accumulate locally; Apply batches commits to context |
+| State | None — draft lives in VisualizationContext / DataSourceContext |
+| Pattern | Edits write through immediately; Apply commits draft → applied for the chart |
 
-**Key behavior**: Filter changes don't trigger queries until "Apply" is clicked. This prevents expensive re-queries during multi-step filter configuration.
+**Key behavior**: Config edits update the draft layer immediately (no panel-local copy). The chart still only re-queries when **Apply** copies draft → `appliedFilterConfigurations`.
 
 ### FilterDropZone
 
@@ -82,6 +82,10 @@ FilterPanel
 - Null value display as `(null)`
 - Numeric vs. alphabetic sorting auto-detection
 - Partial results warning with Query Regex backend filter option
+- **All | Relevant** value-list mode (Relevant constrains options by sibling discrete filters)
+- **Selection | Pattern** match mode, shown only when the value list is sampled (`metadata.isPartial`)
+  or when the filter is already in pattern mode, so a saved pattern config stays editable. On a
+  column small enough to enumerate, the checkbox list is the complete answer and LIKE adds nothing.
 
 ### ContinuousFilterControl
 
@@ -104,8 +108,8 @@ FilterPanel
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         FilterPanel                              │
-│  localConfigurations ──[staged changes]──────────────────────┐  │
+│                         FilterPanel (pure view)                  │
+│  filterConfigurations (draft from context) ───────────────────┐  │
 │                                                               │  │
 │  ┌──────────────────────────────────────────────────────────┐ │  │
 │  │                     FilterDropZone                        │ │  │
@@ -119,19 +123,26 @@ FilterPanel
 │  │  └──────────────────────────────────────────────────────┘│ │  │
 │  └──────────────────────────────────────────────────────────┘ │  │
 │                                                               │  │
-│  [Apply Button] ──────────────────────────────────────────────┘  │
-│       │                                                          │
-│       └── onConfigChange() × N → onApplyFilters()                │
+│  [Apply Button] ── onApplyFilters() ──────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
                               │
+              onConfigChange (write-through draft)
                               ▼
-                    VisualizationContext
+              VisualizationContext.filterConfigurations
+              (+ session draft in DataSourceContext)
                               │
+                    APPLY_FILTERS
                               ▼
-                    filterTierManager
-                    ├── Base filters → Backend query
-                    └── Refinement filters → Local DuckDB WHERE
+              appliedFilterConfigurations → chart query
 ```
+
+**All / Relevant discrete lists**: Each discrete card can load either the full value universe (**All**, default) or values constrained by other discrete filters' draft settings (**Relevant**). `useRelevantValueLists` watches the draft configs and refetches a Relevant list when a sibling's *effective* constraints change (debounced 300 ms; the skip-hash is computed over the converted `Filter[]`, so UI-only edits and select-all siblings do not trigger a fetch).
+
+Relevant is a view mode: the only config field the toggle writes is `valueListMode`. Selections are never rewritten — only `refetchFilterValues(..., { applySelectionFromResult: true })`, used by Query Regex, does that. `totalAvailableCount` is likewise only ever set from an unconstrained, non-partial list, so the query builder's "all values selected ⇒ omit IN (...)" shortcut stays correct.
+
+Both `/distinct-count` and `/query` receive the same converted `Filter[]`, and both re-scope them the same way for a table-qualified field on a JOIN: the field resolves to its source table, the JOIN is dropped, and `scope_filters_to_table` (backend) strips the resolved table's prefix from siblings while skipping siblings that belong to another table. Sampling threshold and value list therefore stay in agreement.
+
+`metadata.constrainedByOtherFilters` marks a list that was fetched under sibling filters. `FilterFieldChip` must not derive `totalAvailableCount` or `excludedValues` from such a list — both describe the column's full value universe, and deriving them from a Relevant subset makes "all visible selected" look like "all values selected" (filter dropped) or turns `NOT IN` into a pass for every value outside the list.
 
 ---
 
@@ -191,19 +202,11 @@ else
 
 ## Key Patterns
 
-### 1. Staged State Pattern
+### 1. Draft / Apply Pattern
 ```tsx
-// FilterPanel: Local changes don't affect context until Apply
-const [localConfigurations, setLocalConfigurations] = useState(filterConfigurations);
-
-const handleApply = () => {
-  Object.entries(localConfigurations).forEach(([fieldId, config]) => {
-    if (JSON.stringify(config) !== JSON.stringify(filterConfigurations[fieldId])) {
-      onConfigChange(fieldId, config);
-    }
-  });
-  onApplyFilters();
-};
+// FilterPanel: write-through to context draft; Apply commits to chart
+onConfigChange(fieldId, config); // → SET_FILTER_CONFIGURATION (no query)
+onApplyFilters();                // → APPLY_FILTERS (draft → applied, bumps queryVersion)
 ```
 
 ### 2. Memoized List Items

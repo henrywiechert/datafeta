@@ -1,10 +1,11 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React, { useState } from 'react';
 import { Box, Typography } from '@mui/material';
-import { Field, DragSource, FilterConfig, FilterMetadata, FilterScope } from '../../../types';
+import { Field, DragSource, FilterConfig, FilterMetadata, FilterScope, DiscreteValueListMode } from '../../../types';
 import { readDragPayload } from '../../../utils/dragDataStore';
 import FilterFieldChip from './FilterFieldChip';
 import styles from './FilterDropZone.module.css';
+import type { FilterValueListFetchOptions } from '../../../hooks/useFilterMetadata';
 
 interface FilterDropZoneProps {
   fields: Field[];
@@ -13,7 +14,12 @@ interface FilterDropZoneProps {
   onDrop: (field: Field, source: DragSource) => void;
   onRemove: (fieldId: string) => void;
   onConfigChange: (fieldId: string, config: FilterConfig) => void;
-  onRefetchValues: (fieldId: string, regexPattern?: string) => Promise<void>;
+  onRefetchValues: (
+    fieldId: string,
+    regexPattern?: string,
+    options?: FilterValueListFetchOptions,
+  ) => Promise<void>;
+  onValueListModeChange?: (fieldId: string, mode: DiscreteValueListMode) => void;
   // Global filter operations
   onMarkAsGlobal?: (fieldId: string) => void;
   onUnmarkGlobal?: (fieldId: string) => void;
@@ -32,6 +38,7 @@ const FilterDropZone: React.FC<FilterDropZoneProps> = ({
   onRemove,
   onConfigChange,
   onRefetchValues,
+  onValueListModeChange,
   onMarkAsGlobal,
   onUnmarkGlobal,
   globalFilterIds,
@@ -126,7 +133,12 @@ const FilterDropZone: React.FC<FilterDropZoneProps> = ({
               filterMetadata={filterMetadata[field.id]}
               onConfigChange={(config) => onConfigChange(field.id, config)}
               onRemove={() => onRemove(field.id)}
-              onRefetchValues={(regexPattern) => onRefetchValues(field.id, regexPattern)}
+              onRefetchValues={(regexPattern, options) => onRefetchValues(field.id, regexPattern, options)}
+              onValueListModeChange={
+                onValueListModeChange
+                  ? (mode) => onValueListModeChange(field.id, mode)
+                  : undefined
+              }
               filterScope={getFilterScope(field.id)}
               onScopeChange={isScopeChangeEnabled ? (newScope) => handleScopeChange(field.id, newScope) : undefined}
               isDisabled={disabledFilterIds?.has(field.id) ?? false}
