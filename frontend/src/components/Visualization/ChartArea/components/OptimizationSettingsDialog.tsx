@@ -1,6 +1,7 @@
 // Copyright (c) 2024-2026 Henry Wiechert (datafeta.io). SPDX-License-Identifier: AGPL-3.0-only
 import React from 'react';
 import {
+  Box,
   Button,
   Dialog,
   DialogActions,
@@ -10,6 +11,8 @@ import {
   FormControlLabel,
   Switch,
   TextField,
+  Tooltip,
+  Typography,
 } from '@mui/material';
 import { QueryOptimizationSettings } from '../../../../types';
 
@@ -19,6 +22,64 @@ interface OptimizationSettingsDialogProps {
   onSettingsChange: (settings: QueryOptimizationSettings) => void;
   onCancel: () => void;
   onApply: () => void;
+}
+
+interface NumberRowProps {
+  label: string;
+  hint?: string;
+  value: number;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+}
+
+function NumberRow({ label, hint, value, disabled, onChange }: NumberRowProps) {
+  const field = (
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 120px',
+        alignItems: 'center',
+        gap: 1,
+        minHeight: 28,
+      }}
+    >
+      <Typography
+        component="label"
+        variant="body2"
+        sx={{
+          fontSize: '0.75rem',
+          color: disabled ? 'text.disabled' : 'text.primary',
+          lineHeight: 1.3,
+        }}
+      >
+        {label}
+      </Typography>
+      <TextField
+        type="number"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        size="small"
+        variant="standard"
+        inputProps={{ min: 0, 'aria-label': label }}
+        sx={{
+          '& .MuiInputBase-input': {
+            fontSize: '0.75rem',
+            py: 0.25,
+            textAlign: 'right',
+          },
+        }}
+      />
+    </Box>
+  );
+
+  return hint ? (
+    <Tooltip title={hint} placement="left" enterDelay={400}>
+      {field}
+    </Tooltip>
+  ) : (
+    field
+  );
 }
 
 export default function OptimizationSettingsDialog({
@@ -40,130 +101,134 @@ export default function OptimizationSettingsDialog({
       open={open}
       onClose={onCancel}
       aria-labelledby="optimization-settings-title"
-      maxWidth="sm"
-      fullWidth
+      maxWidth={false}
+      PaperProps={{
+        sx: {
+          width: 360,
+          maxWidth: 'calc(100vw - 32px)',
+          borderRadius: 1,
+        },
+      }}
     >
-      <DialogTitle id="optimization-settings-title">
-        Query Optimization Settings
+      <DialogTitle
+        id="optimization-settings-title"
+        sx={{ px: 1.5, py: 1, fontSize: '0.875rem', fontWeight: 600 }}
+      >
+        Query optimization
       </DialogTitle>
-      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+      <DialogContent
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 0.75,
+          px: 1.5,
+          pt: 0.5,
+          pb: 1,
+          // Override MUI's default DialogContent top padding when following DialogTitle
+          '&.MuiDialogContent-root': { pt: 0.5 },
+        }}
+      >
         <FormControlLabel
           control={
             <Switch
+              size="small"
               checked={settings.forceRemote}
               onChange={(e) => onSettingsChange({ ...settings, forceRemote: e.target.checked })}
             />
           }
           label="Force remote query (skip DuckDB cache)"
+          sx={{
+            mx: 0,
+            '& .MuiFormControlLabel-label': { fontSize: '0.75rem' },
+          }}
         />
 
-        <TextField
+        <NumberRow
           label="Large dataset threshold (rows)"
-          type="number"
+          hint="Above this row count, prefer backend aggregation."
           value={settings.sizeThreshold}
-          onChange={(e) => updateNumberSetting('sizeThreshold', e.target.value)}
-          inputProps={{ min: 0 }}
-          size="small"
-          helperText="Above this row count, prefer backend aggregation."
+          onChange={(v) => updateNumberSetting('sizeThreshold', v)}
         />
 
-        <Divider />
+        <Divider sx={{ my: 0.25 }} />
 
-        <TextField
+        <NumberRow
           label="Max points (single chart)"
-          type="number"
           value={settings.maxPointsSingle}
-          onChange={(e) => updateNumberSetting('maxPointsSingle', e.target.value)}
-          inputProps={{ min: 0 }}
-          size="small"
+          onChange={(v) => updateNumberSetting('maxPointsSingle', v)}
         />
-
-        <TextField
+        <NumberRow
           label="Max points (faceted charts)"
-          type="number"
           value={settings.maxPointsFaceted}
-          onChange={(e) => updateNumberSetting('maxPointsFaceted', e.target.value)}
-          inputProps={{ min: 0 }}
-          size="small"
+          onChange={(v) => updateNumberSetting('maxPointsFaceted', v)}
         />
-
-        <TextField
+        <NumberRow
           label="Max points (discrete color cap)"
-          type="number"
+          hint="Applied when color field is discrete."
           value={settings.maxPointsWithDiscreteColor}
-          onChange={(e) => updateNumberSetting('maxPointsWithDiscreteColor', e.target.value)}
-          inputProps={{ min: 0 }}
-          size="small"
-          helperText="Applied when color field is discrete."
+          onChange={(v) => updateNumberSetting('maxPointsWithDiscreteColor', v)}
         />
-
-        <TextField
+        <NumberRow
           label="Min per stratum (discrete color)"
-          type="number"
           value={settings.minPerStratumWithDiscreteColor}
-          onChange={(e) => updateNumberSetting('minPerStratumWithDiscreteColor', e.target.value)}
-          inputProps={{ min: 0 }}
-          size="small"
+          onChange={(v) => updateNumberSetting('minPerStratumWithDiscreteColor', v)}
         />
-
-        <TextField
+        <NumberRow
           label="Line chart max rows"
-          type="number"
+          hint="Limits aggregated line results for dense series."
           value={settings.lineBudgetMaxRows}
-          onChange={(e) => updateNumberSetting('lineBudgetMaxRows', e.target.value)}
-          inputProps={{ min: 0 }}
-          size="small"
-          helperText="Limits aggregated line results for dense series."
+          onChange={(v) => updateNumberSetting('lineBudgetMaxRows', v)}
         />
 
-        <Divider />
+        <Divider sx={{ my: 0.25 }} />
 
         <FormControlLabel
           control={
             <Switch
+              size="small"
               checked={settings.enableRounding}
               onChange={(e) => onSettingsChange({ ...settings, enableRounding: e.target.checked })}
             />
           }
           label="Enable adaptive rounding"
+          sx={{
+            mx: 0,
+            '& .MuiFormControlLabel-label': { fontSize: '0.75rem' },
+          }}
         />
 
-        <TextField
+        <NumberRow
           label="Rounding threshold (light)"
-          type="number"
+          hint="Applies when auto optimization chooses light."
           value={settings.roundingThresholdLight}
-          onChange={(e) => updateNumberSetting('roundingThresholdLight', e.target.value)}
-          inputProps={{ min: 0 }}
-          size="small"
           disabled={!settings.enableRounding}
-          helperText="Applies when auto optimization chooses light."
+          onChange={(v) => updateNumberSetting('roundingThresholdLight', v)}
         />
-
-        <TextField
+        <NumberRow
           label="Rounding threshold (balanced)"
-          type="number"
+          hint="Applies when auto optimization chooses balanced."
           value={settings.roundingThresholdBalanced}
-          onChange={(e) => updateNumberSetting('roundingThresholdBalanced', e.target.value)}
-          inputProps={{ min: 0 }}
-          size="small"
           disabled={!settings.enableRounding}
-          helperText="Applies when auto optimization chooses balanced."
+          onChange={(v) => updateNumberSetting('roundingThresholdBalanced', v)}
         />
-
-        <TextField
+        <NumberRow
           label="Rounding threshold (aggressive)"
-          type="number"
+          hint="Applies when auto optimization chooses aggressive."
           value={settings.roundingThresholdAggressive}
-          onChange={(e) => updateNumberSetting('roundingThresholdAggressive', e.target.value)}
-          inputProps={{ min: 0 }}
-          size="small"
           disabled={!settings.enableRounding}
-          helperText="Applies when auto optimization chooses aggressive."
+          onChange={(v) => updateNumberSetting('roundingThresholdAggressive', v)}
         />
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onCancel}>Cancel</Button>
-        <Button variant="contained" onClick={onApply}>
+      <DialogActions sx={{ px: 1.5, py: 0.75, gap: 0.5 }}>
+        <Button size="small" onClick={onCancel} sx={{ textTransform: 'none', fontSize: '0.75rem' }}>
+          Cancel
+        </Button>
+        <Button
+          size="small"
+          variant="outlined"
+          onClick={onApply}
+          sx={{ textTransform: 'none', fontSize: '0.75rem' }}
+        >
           Apply
         </Button>
       </DialogActions>
