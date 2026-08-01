@@ -60,24 +60,132 @@
   overflow: hidden;
 }
 
+.previewBox {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background: #fafafa;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.previewRow {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 4px 8px;
+}
+
+.previewField {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.previewField :global(.MuiOutlinedInput-notchedOutline) {
+  border: 0 !important;
+}
+
+.previewField :global(.MuiOutlinedInput-root) {
+  border-radius: 4px;
+  background: transparent;
+  min-height: 0;
+}
+
+.previewField :global(.MuiOutlinedInput-input) {
+  font-size: 12px;
+  line-height: 1.2;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  height: auto;
+}
+
+.previewUpdate {
+  flex-shrink: 0;
+  font-size: 11px !important;
+  line-height: 1.2 !important;
+  padding: 2px 6px !important;
+  min-width: auto !important;
+  min-height: 0 !important;
+  text-transform: none !important;
+}
+
 .patternPanel {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 8px;
+  gap: 4px;
+  padding: 4px 8px 6px;
   border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  background: #fff;
-  margin-bottom: 8px;
+  border-radius: 4px;
+  background: #fafafa;
+  margin-bottom: 6px;
+}
+
+.patternInputRow {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.patternField {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.patternField :global(.MuiOutlinedInput-notchedOutline) {
+  border: 0 !important;
+}
+
+.patternField :global(.MuiOutlinedInput-root) {
+  border-radius: 4px;
+  background: transparent;
+  min-height: 0;
+}
+
+.patternField :global(.MuiOutlinedInput-input) {
+  font-size: 12px;
+  line-height: 1.2;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  height: auto;
+}
+
+.patternPreviewBtn {
+  flex-shrink: 0;
+  font-size: 11px !important;
+  line-height: 1.2 !important;
+  padding: 2px 6px !important;
+  min-width: auto !important;
+  min-height: 0 !important;
+  text-transform: none !important;
 }
 
 .patternToggleRow {
   display: flex;
-  gap: 8px;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.patternOptionBtn {
+  font-size: 11px !important;
+  line-height: 1.2 !important;
+  padding: 2px 6px !important;
+  min-width: auto !important;
+  min-height: 0 !important;
+  text-transform: none !important;
 }
 
 .inverseToggle {
-  margin-left: 0;
+  margin: 0;
+  align-items: center;
+}
+
+.inverseToggle :global(.MuiFormControlLabel-label) {
+  font-size: 11px;
+  line-height: 1.2;
+  color: rgba(0, 0, 0, 0.7);
+}
+
+.inverseToggle :global(.MuiSwitch-root) {
+  margin-right: 2px;
 }
 
 .searchHeader {
